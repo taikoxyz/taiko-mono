@@ -15,16 +15,7 @@ const MockedETH: Token = {
   type: TokenType.ETH,
 };
 
-const MockToken: Token = {
-  name: 'MockToken',
-  addresses: {
-    1: '0x123456',
-    2: '0x654321',
-  },
-  symbol: 'MOCK',
-  decimals: 18,
-  type: TokenType.ERC20,
-};
+let mockToken: Token;
 
 const mockTokenVaultContract = {
   read: {
@@ -52,6 +43,16 @@ describe('getCrossChainAddress', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getContract).mockReturnValue(mockTokenVaultContract);
+    mockToken = {
+      name: 'MockToken',
+      addresses: {
+        1: '0x123456',
+        2: '0x654321',
+      },
+      symbol: 'MOCK',
+      decimals: 18,
+      type: TokenType.ERC20,
+    };
   });
 
   it('should return null for ETH type tokens', async () => {
@@ -63,48 +64,70 @@ describe('getCrossChainAddress', () => {
     expect(result).toBeNull();
   });
 
-  it('should return the bridged address of the token on the destination chain', async () => {
+  it('should return the bridged address of the token on the destination chain if not already stored', async () => {
     // Given
     vi.mocked(mockTokenVaultContract.read.bridgedToCanonical).mockResolvedValue([
       destChainId,
-      MockToken.addresses[destChainId],
+      mockToken.addresses[destChainId],
     ]);
-    vi.mocked(mockTokenVaultContract.read.canonicalToBridged).mockResolvedValue(MockToken.addresses[destChainId]);
+    vi.mocked(mockTokenVaultContract.read.canonicalToBridged).mockResolvedValue(mockToken.addresses[destChainId]);
+
+    // temporarily store the mocked address so we do not have to hardcode variables
+    const preconfiguredAddress = mockToken.addresses[destChainId];
+
+    // set the destination address it to zero so we can test it
+    mockToken.addresses[destChainId] = zeroAddress;
 
     // When
     const result = await getCrossChainAddress({
-      token: MockToken,
+      token: mockToken,
       srcChainId,
       destChainId,
     });
 
     // Then
-    expect(result).toEqual(MockToken.addresses[destChainId]);
-    expect(mockTokenVaultContract.read.bridgedToCanonical).toHaveBeenCalledWith([MockToken.addresses[srcChainId]]);
+    expect(result).toEqual(preconfiguredAddress);
+    expect(mockTokenVaultContract.read.bridgedToCanonical).toHaveBeenCalledWith([mockToken.addresses[srcChainId]]);
     expect(mockTokenVaultContract.read.canonicalToBridged).toHaveBeenCalledWith([
       BigInt(destChainId),
-      MockToken.addresses[destChainId],
+      preconfiguredAddress,
     ]);
+  });
+
+  it('should return the bridged address if stored or configured', async () => {
+    // When
+    const result = await getCrossChainAddress({
+      token: mockToken,
+      srcChainId,
+      destChainId,
+    });
+
+    // Then
+    expect(result).toEqual(mockToken.addresses[destChainId]);
+    expect(mockTokenVaultContract.read.bridgedToCanonical).not.toHaveBeenCalled();
+    expect(mockTokenVaultContract.read.canonicalToBridged).not.toHaveBeenCalled();
   });
 
   it('should return 0x0 if the native token is not bridged yet on the destination chain', async () => {
     // Given
     vi.mocked(mockTokenVaultContract.read.bridgedToCanonical).mockResolvedValue([destChainId, zeroAddress]);
     vi.mocked(mockTokenVaultContract.read.canonicalToBridged).mockResolvedValue(zeroAddress);
+    // set the destination address it to zero so we can test it
+    mockToken.addresses[destChainId] = zeroAddress;
 
     // When
     const result = await getCrossChainAddress({
-      token: MockToken,
+      token: mockToken,
       srcChainId,
       destChainId,
     });
 
     // Then
     expect(result).toEqual(zeroAddress);
-    expect(mockTokenVaultContract.read.bridgedToCanonical).toHaveBeenCalledWith([MockToken.addresses[srcChainId]]);
+    expect(mockTokenVaultContract.read.bridgedToCanonical).toHaveBeenCalledWith([mockToken.addresses[srcChainId]]);
     expect(mockTokenVaultContract.read.canonicalToBridged).toHaveBeenCalledWith([
       BigInt(srcChainId),
-      MockToken.addresses[srcChainId],
+      mockToken.addresses[srcChainId],
     ]);
   });
 
@@ -112,23 +135,25 @@ describe('getCrossChainAddress', () => {
     // Given
     vi.mocked(mockTokenVaultContract.read.bridgedToCanonical).mockResolvedValue([
       destChainId,
-      MockToken.addresses[srcChainId],
+      mockToken.addresses[srcChainId],
     ]);
     vi.mocked(mockTokenVaultContract.read.canonicalToBridged).mockResolvedValue(zeroAddress);
+    // set the destination address it to zero so we can test it
+    mockToken.addresses[destChainId] = zeroAddress;
 
     // When
     const result = await getCrossChainAddress({
-      token: MockToken,
+      token: mockToken,
       srcChainId,
       destChainId,
     });
 
     // Then
     expect(result).toEqual(zeroAddress);
-    expect(mockTokenVaultContract.read.bridgedToCanonical).toHaveBeenCalledWith([MockToken.addresses[srcChainId]]);
+    expect(mockTokenVaultContract.read.bridgedToCanonical).toHaveBeenCalledWith([mockToken.addresses[srcChainId]]);
     expect(mockTokenVaultContract.read.canonicalToBridged).toHaveBeenCalledWith([
       BigInt(destChainId),
-      MockToken.addresses[srcChainId],
+      mockToken.addresses[srcChainId],
     ]);
   });
 });

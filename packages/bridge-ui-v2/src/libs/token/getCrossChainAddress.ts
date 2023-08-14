@@ -19,6 +19,11 @@ export async function getCrossChainAddress({
 }: GetCrossChainAddressArgs): Promise<Address | null> {
   if (token.type === TokenType.ETH) return null; // ETH doesn't have an address
 
+  // check if we already have it
+  if (token.addresses[destChainId] !== zeroAddress) {
+    return token.addresses[destChainId];
+  }
+
   const { tokenVaultAddress: srcChainTokenVaultAddress } = chainContractsMap[srcChainId];
   const { tokenVaultAddress: destChainTokenVaultAddress } = chainContractsMap[destChainId];
 
