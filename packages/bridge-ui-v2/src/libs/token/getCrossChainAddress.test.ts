@@ -41,7 +41,7 @@ vi.mock('$libs/chain', () => ({
     },
     2: {
       tokenVaultAddress: '0x00002',
-    }
+    },
   },
 }));
 
@@ -87,7 +87,7 @@ describe('getCrossChainAddress', () => {
     ]);
   });
 
-  it('should return 0x0 if the token is not bridged on the destination chain', async () => {
+  it('should return 0x0 if the native token is not bridged yet on the destination chain', async () => {
     // Given
     vi.mocked(mockTokenVaultContract.read.bridgedToCanonical).mockResolvedValue([destChainId, zeroAddress]);
     vi.mocked(mockTokenVaultContract.read.canonicalToBridged).mockResolvedValue(zeroAddress);
@@ -103,7 +103,7 @@ describe('getCrossChainAddress', () => {
     expect(result).toEqual(zeroAddress);
     expect(mockTokenVaultContract.read.bridgedToCanonical).toHaveBeenCalledWith([MockToken.addresses[srcChainId]]);
     expect(mockTokenVaultContract.read.canonicalToBridged).toHaveBeenCalledWith([
-      BigInt(destChainId),
+      BigInt(srcChainId),
       MockToken.addresses[srcChainId],
     ]);
   });
