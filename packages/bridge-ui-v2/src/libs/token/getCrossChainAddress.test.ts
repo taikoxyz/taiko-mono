@@ -41,8 +41,7 @@ vi.mock('$libs/chain', () => ({
     },
     2: {
       tokenVaultAddress: '0x00002',
-    },
-    // ... other properties and methods
+    }
   },
 }));
 
