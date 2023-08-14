@@ -25,7 +25,7 @@ library LibUtils {
         view
         returns (bool found, TaikoData.Block storage blk)
     {
-        uint256 id = blockId == 0 ? state.lastVerifiedBlockId : blockId;
+        uint256 id = blockId == 0 ? state.slot9.lastVerifiedBlockId : blockId;
         blk = state.blocks[id % config.blockRingBufferSize];
         found = (blk.blockId == id && blk.verifiedForkChoiceId != 0);
     }
@@ -60,13 +60,13 @@ library LibUtils {
         returns (TaikoData.StateVariables memory)
     {
         return TaikoData.StateVariables({
-            feePerGas: state.feePerGas,
-            genesisHeight: state.genesisHeight,
-            genesisTimestamp: state.genesisTimestamp,
-            numBlocks: state.numBlocks,
-            lastVerifiedBlockId: state.lastVerifiedBlockId,
-            nextEthDepositToProcess: state.nextEthDepositToProcess,
-            numEthDeposits: state.numEthDeposits - state.nextEthDepositToProcess
+            feePerGas: state.slot9.feePerGas,
+            genesisHeight: state.slot7.genesisHeight,
+            genesisTimestamp: state.slot7.genesisTimestamp,
+            numBlocks: state.slot8.numBlocks,
+            lastVerifiedBlockId: state.slot9.lastVerifiedBlockId,
+            nextEthDepositToProcess: state.slot8.nextEthDepositToProcess,
+            numEthDeposits: state.slot8.numEthDeposits - state.slot8.nextEthDepositToProcess
         });
     }
 
@@ -79,7 +79,7 @@ library LibUtils {
         view
         returns (uint64)
     {
-        return state.feePerGas
+        return state.slot9.feePerGas
             * (gasAmount + LibL2Consts.ANCHOR_GAS_COST + config.blockFeeBaseGas);
     }
 

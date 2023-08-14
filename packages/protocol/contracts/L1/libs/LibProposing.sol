@@ -59,7 +59,7 @@ library LibProposing {
         // Try to select a prover first to revert as earlier as possible
         (address assignedProver, uint32 rewardPerGas) = IProverPool(
             resolver.resolve("prover_pool", false)
-        ).assignProver(state.numBlocks, state.feePerGas);
+        ).assignProver(state.slot8.numBlocks, state.slot9.feePerGas);
 
         assert(assignedProver != address(1));
 
@@ -83,7 +83,7 @@ library LibProposing {
         }
 
         // Init the metadata
-        meta.id = state.numBlocks;
+        meta.id = state.slot8.numBlocks;
 
         unchecked {
             meta.timestamp = uint64(block.timestamp);
@@ -94,7 +94,7 @@ library LibProposing {
             // from the beacon chain. Since multiple Taiko blocks
             // can be proposed in one Ethereum block, we need to
             // add salt to this random number as L2 mixHash
-            meta.mixHash = bytes32(block.prevrandao * state.numBlocks);
+            meta.mixHash = bytes32(block.prevrandao * state.slot8.numBlocks);
         }
 
         meta.txListHash = input.txListHash;
@@ -108,29 +108,29 @@ library LibProposing {
 
         // Init the block
         TaikoData.Block storage blk =
-            state.blocks[state.numBlocks % config.blockRingBufferSize];
+            state.blocks[state.slot8.numBlocks % config.blockRingBufferSize];
 
         blk.metaHash = LibUtils.hashMetadata(meta);
-        blk.blockId = state.numBlocks;
+        blk.blockId = state.slot8.numBlocks;
         blk.gasLimit = meta.gasLimit;
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = 0;
         blk.proverReleased = false;
 
         blk.proposer = msg.sender;
-        blk.feePerGas = state.feePerGas;
+        blk.feePerGas = state.slot9.feePerGas;
         blk.proposedAt = meta.timestamp;
 
         if (assignedProver == address(0)) {
-            if (state.numOpenBlocks >= config.rewardOpenMaxCount) {
+            if (state.slot8.numOpenBlocks >= config.rewardOpenMaxCount) {
                 revert L1_TOO_MANY_OPEN_BLOCKS();
             }
-            blk.rewardPerGas = state.feePerGas;
-            ++state.numOpenBlocks;
+            blk.rewardPerGas = state.slot9.feePerGas;
+            ++state.slot8.numOpenBlocks;
         } else {
             blk.assignedProver = assignedProver;
             blk.rewardPerGas = rewardPerGas;
-            uint256 _window = uint256(state.avgProofDelay)
+            uint256 _window = uint256(state.slot9.avgProofDelay)
                 * config.proofWindowMultiplier / 100;
             blk.proofWindow = uint16(
                 _window.min(config.proofMaxWindow).max(config.proofMinWindow)
@@ -144,15 +144,15 @@ library LibProposing {
         }
 
         emit BlockProposed({
-            blockId: state.numBlocks,
+            blockId: state.slot8.numBlocks,
             assignedProver: blk.assignedProver,
             rewardPerGas: blk.rewardPerGas,
-            feePerGas: state.feePerGas,
+            feePerGas: state.slot9.feePerGas,
             meta: meta
         });
 
         unchecked {
-            ++state.numBlocks;
+            ++state.slot8.numBlocks;
             state.taikoTokenBalances[msg.sender] -= blockFee;
         }
     }
@@ -183,8 +183,8 @@ library LibProposing {
         if (input.beneficiary == address(0)) revert L1_INVALID_METADATA();
 
         if (
-            state.numBlocks
-                >= state.lastVerifiedBlockId + config.blockMaxProposals + 1
+            state.slot8.numBlocks
+                >= state.slot9.lastVerifiedBlockId + config.blockMaxProposals + 1
         ) {
             revert L1_TOO_MANY_BLOCKS();
         }

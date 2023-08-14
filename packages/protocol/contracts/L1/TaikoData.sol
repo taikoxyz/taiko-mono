@@ -183,6 +183,28 @@ library TaikoData {
         uint64 id;
     }
 
+    struct Slot7{
+        uint64 genesisHeight;
+        uint64 genesisTimestamp;
+        uint64 __reserved70;
+        uint64 __reserved71;
+    }
+
+    struct Slot8{
+        uint64 numOpenBlocks;
+        uint64 numEthDeposits;
+        uint64 numBlocks;
+        uint64 nextEthDepositToProcess;
+    }
+
+    struct Slot9{
+        uint64 lastVerifiedAt;
+        uint64 lastVerifiedBlockId;
+        uint64 __reserved90;
+        uint32 feePerGas;
+        uint16 avgProofDelay;
+    }
+
     /// @dev Struct holding the state variables for the {TaikoL1} contract.
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
@@ -199,21 +221,11 @@ library TaikoData {
             ethDeposits;
         mapping(address account => uint256 balance) taikoTokenBalances;
         // Slot 7: never or rarely changed
-        uint64 genesisHeight;
-        uint64 genesisTimestamp;
-        uint64 __reserved70;
-        uint64 __reserved71;
+        Slot7 slot7;
         // Slot 8
-        uint64 numOpenBlocks;
-        uint64 numEthDeposits;
-        uint64 numBlocks;
-        uint64 nextEthDepositToProcess;
+        Slot8 slot8;
         // Slot 9
-        uint64 lastVerifiedAt;
-        uint64 lastVerifiedBlockId;
-        uint64 __reserved90;
-        uint32 feePerGas;
-        uint16 avgProofDelay;
+        Slot9 slot9;
         // Reserved
         uint256[42] __gap;
     }
