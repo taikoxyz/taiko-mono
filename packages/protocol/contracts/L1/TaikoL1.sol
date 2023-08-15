@@ -13,7 +13,6 @@ import { Proxied } from "../common/Proxied.sol";
 import { LibEthDepositing } from "./libs/LibEthDepositing.sol";
 import { LibProposing } from "./libs/LibProposing.sol";
 import { LibProving } from "./libs/LibProving.sol";
-import { LibTaikoToken } from "./libs/LibTaikoToken.sol";
 import { LibUtils } from "./libs/LibUtils.sol";
 import { LibVerifying } from "./libs/LibVerifying.sol";
 import { TaikoConfig } from "./TaikoConfig.sol";
@@ -155,18 +154,6 @@ contract TaikoL1 is
         });
     }
 
-    /// @notice Deposits Taiko tokens to the contract.
-    /// @param amount Amount of Taiko tokens to deposit.
-    function depositTaikoToken(uint256 amount) public nonReentrant {
-        LibTaikoToken.depositTaikoToken(state, AddressResolver(this), amount);
-    }
-
-    /// @notice Withdraws Taiko tokens from the contract.
-    /// @param amount Amount of Taiko tokens to withdraw.
-    function withdrawTaikoToken(uint256 amount) public nonReentrant {
-        LibTaikoToken.withdrawTaikoToken(state, AddressResolver(this), amount);
-    }
-
     /// @notice Checks if Ether deposit is allowed for Layer 2.
     /// @param amount Amount of Ether to be deposited.
     /// @return true if Ether deposit is allowed, false otherwise.
@@ -176,24 +163,6 @@ contract TaikoL1 is
             config: getConfig(),
             amount: amount
         });
-    }
-
-    /// @notice Gets the block fee for a given gas limit.
-    /// @param gasLimit Gas limit for the block.
-    /// @return The block fee in Taiko tokens.
-    function getBlockFee(uint32 gasLimit) public view returns (uint64) {
-        return LibUtils.getBlockFee({
-            state: state,
-            config: getConfig(),
-            gasAmount: gasLimit
-        });
-    }
-
-    /// @notice Gets the Taiko token balance for a specific address.
-    /// @param addr Address to check the Taiko token balance.
-    /// @return The Taiko token balance of the address.
-    function getTaikoTokenBalance(address addr) public view returns (uint256) {
-        return state.taikoTokenBalances[addr];
     }
 
     /// @notice Gets the details of a block.
@@ -206,7 +175,7 @@ contract TaikoL1 is
     /// block, false otherwise.
     /// @return _proposer Address of the block proposer.
     /// @return _proposedAt Timestamp when the block was proposed.
-    /// @return _assignedProver Address of the assigned prover for the block.
+    /// @return _prover Address of the assigned prover for the block.
     /// @return _feePerGas Reward per gas of the block.
     /// @return _proofWindow Proof window of the block.
     function getBlock(uint256 blockId)
@@ -220,7 +189,7 @@ contract TaikoL1 is
             bool _proverReleased,
             address _proposer,
             uint64 _proposedAt,
-            address _assignedProver,
+            address _prover,
             uint32 _feePerGas,
             uint64 _proofWindow
         )
@@ -237,7 +206,7 @@ contract TaikoL1 is
         _proverReleased = blk.proverReleased;
         _proposer = blk.proposer;
         _proposedAt = blk.proposedAt;
-        _assignedProver = blk.assignedProver;
+        _prover = blk.prover;
         _feePerGas = blk.feePerGas;
         _proofWindow = blk.proofWindow;
     }

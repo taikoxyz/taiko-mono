@@ -173,7 +173,8 @@ abstract contract TaikoL1TestBase is Test {
             txListByteEnd: txListSize,
             cacheTxListInfo: false,
             prover: address(0), // TODO(daniel)
-            feePerGas: 0
+            maxFeePerGas: 0,
+            assignmentParams: new bytes(0)
         });
 
         TaikoData.StateVariables memory variables = L1.getStateVariables();
@@ -269,7 +270,8 @@ abstract contract TaikoL1TestBase is Test {
         console2.log("balance:", tko.balanceOf(who));
         vm.prank(who, who);
         // Keep half for proving and deposit half for proposing fee
-        L1.depositTaikoToken(amountTko / 2);
+        // TODO: method below removed
+        // L1.depositTaikoToken(amountTko / 2);
     }
 
     function printVariables(string memory comment) internal {

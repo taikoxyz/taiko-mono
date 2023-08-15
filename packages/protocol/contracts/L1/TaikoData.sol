@@ -103,7 +103,8 @@ library TaikoData {
         uint24 txListByteEnd; // byte-wise end index (exclusive)
         bool cacheTxListInfo;
         address prover;
-        uint32 feePerGas;
+        uint32 maxFeePerGas;
+        bytes assignmentParams;
     }
 
     /// @dev Struct representing block metadata.
@@ -166,9 +167,10 @@ library TaikoData {
         address proposer;
         uint64 proposedAt;
         // Slot 5
-        address assignedProver;
+        address prover;
         uint32 feePerGas;
-        uint64 proofWindow;
+        uint16 proofWindow;
+        uint64 bond; // TODO: optimize the layout
     }
 
     /// @dev Struct representing information about a transaction list.
@@ -220,7 +222,6 @@ library TaikoData {
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         mapping(uint256 depositId_mode_ethDepositRingBufferSize => uint256)
             ethDeposits;
-        mapping(address account => uint256 balance) taikoTokenBalances;
         // Slot 7: never or rarely changed
         Slot7 slot7;
         // Slot 8
@@ -228,6 +229,6 @@ library TaikoData {
         // Slot 9
         Slot9 slot9;
         // Reserved
-        uint256[42] __gap;
+        uint256[43] __gap;
     }
 }

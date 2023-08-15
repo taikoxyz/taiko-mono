@@ -6,16 +6,20 @@
 
 pragma solidity ^0.8.20;
 
-import { LibMath } from "../../libs/LibMath.sol";
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { IMintableERC20 } from "../../common/IMintableERC20.sol";
-import { IProverPool } from "../ProverPool.sol";
+import { IProver } from "../IProver.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibEthDepositing } from "./LibEthDepositing.sol";
+import { LibL2Consts } from "../../L2/LibL2Consts.sol";
+import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../TaikoData.sol";
+import { TaikoToken } from "../TaikoToken.sol";
+import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 
 library LibProposing {
+    using Address for address;
     using LibAddress for address;
     using LibAddress for address payable;
     using LibMath for uint256;
@@ -23,13 +27,14 @@ library LibProposing {
 
     event BlockProposed(
         uint256 indexed blockId,
-        address indexed assignedProver,
+        address indexed prover,
         uint32 feePerGas,
         TaikoData.BlockMetadata meta
     );
 
     error L1_BLOCK_ID();
     error L1_FEE_PER_GAS_TOO_SMALL();
+    error L1_FEE_PER_GAS_TOO_LARGE();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
     error L1_INVALID_PROVER();
@@ -59,12 +64,6 @@ library LibProposing {
                 revert L1_PERMISSION_DENIED();
             }
         }
-        // Try to select a prover first to revert as earlier as possible
-        // (address assignedProver, uint32 feePerGas) = IProverPool(
-        //     resolver.resolve("prover_pool", false)
-        // ).assignProver(state.slot8.numBlocks, state.slot9.feePerGas);
-
-        // assert(assignedProver != address(1));
 
         // Validate block input then cache txList info if requested
         {
@@ -119,42 +118,63 @@ library LibProposing {
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = 0;
         blk.proverReleased = false;
-
         blk.proposer = msg.sender;
         blk.proposedAt = meta.timestamp;
+        blk.proofWindow = uint16(
+            (
+                uint256(state.slot9.avgProofDelay)
+                    * config.proofWindowMultiplier / 100
+            ).min(config.proofMaxWindow).max(config.proofMinWindow)
+        );
+        blk.bond = getProverBond();
 
-        (blk.assignedProver, blk.feePerGas) =
-            _assignedProver(state, config, input);
+        // Assign a prover and get the actual feePerGas
+        (blk.prover, blk.feePerGas) = _assignProver({
+            state: state,
+            config: config,
+            proofWindow: blk.proofWindow,
+            bond: blk.bond,
+            prover: input.prover,
+            maxFeePerGas: input.maxFeePerGas,
+            assignmentParams: input.assignmentParams
+        });
 
-        if (blk.assignedProver == address(0)) {
+        TaikoToken taikoToken =
+            TaikoToken(resolver.resolve("taiko_token", false));
+        if (blk.prover == address(1)) {
+            // Do not allow address(1) as it is our oracle prover
+            revert L1_INVALID_PROVER();
+        } else if (blk.prover == address(0)) {
+            // This is an open block
             if (state.slot8.numOpenBlocks >= config.rewardOpenMaxCount) {
                 revert L1_TOO_MANY_OPEN_BLOCKS();
             }
+            blk.proofWindow = 0;
             ++state.slot8.numOpenBlocks;
         } else {
-            uint256 _window = uint256(state.slot9.avgProofDelay)
-                * config.proofWindowMultiplier / 100;
-            blk.proofWindow = uint16(
-                _window.min(config.proofMaxWindow).max(config.proofMinWindow)
-            );
+            taikoToken.burn(blk.prover, blk.bond);
         }
 
-        uint64 feeDeposit = LibUtils.getBlockFee(state, config, meta.gasLimit);
+        // Proposer deposits the proving fee, remaining fee will be refunded
+        // when the block is verified.
+        {
+            uint64 blockDeposit = uint64(
+                meta.gasLimit + LibL2Consts.ANCHOR_GAS_COST
+                    + config.blockFeeBaseGas
+            ) * blk.feePerGas;
 
-        if (state.taikoTokenBalances[msg.sender] < feeDeposit) {
-            revert L1_INSUFFICIENT_TOKEN();
+            taikoToken.burn(msg.sender, blockDeposit);
         }
 
         emit BlockProposed({
             blockId: state.slot8.numBlocks,
-            assignedProver: blk.assignedProver,
+            prover: blk.prover,
             feePerGas: blk.feePerGas,
             meta: meta
         });
 
         unchecked {
             ++state.slot8.numBlocks;
-            state.taikoTokenBalances[msg.sender] -= feeDeposit;
         }
     }
 
@@ -171,19 +191,42 @@ library LibProposing {
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
     }
 
-    function _assignedProver(
+    function _assignProver(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        TaikoData.BlockMetadataInput memory input
+        uint16 proofWindow,
+        uint64 bond,
+        address prover,
+        uint32 maxFeePerGas,
+        bytes memory assignmentParams
     )
         private
-        returns (address prover, uint32 feePerGas)
+        returns (address _prover, uint32 _feePerGas)
     {
-        if (
-            input.feePerGas
-                < state.slot9.avgFeePerGas * config.rewardOpenMultipler / 100
-        ) {
-            revert L1_FEE_PER_GAS_TOO_SMALL();
+        if (prover != address(0) && prover.isContract()) {
+            // This isan IProver contract
+            (_prover, _feePerGas) = IProver(prover).onBlockAssigned({
+                proposer: msg.sender,
+                maxFeePerGas: maxFeePerGas,
+                proofWindow: proofWindow,
+                bond: bond,
+                params: assignmentParams
+            });
+        } else {
+            // Prover is address(0) or an EOA address
+            _feePerGas = maxFeePerGas;
+        }
+
+        if (_prover == address(0)) {
+            // For an open block, we make sure more the proposer pays more
+            uint256 minFeePerGas = uint256(state.slot9.avgFeePerGas)
+                * config.rewardOpenMultipler / 100;
+
+            _feePerGas =
+                uint32(minFeePerGas.max(maxFeePerGas).min(type(uint32).max));
+        } else {
+            // Not an open block
+            if (_feePerGas > maxFeePerGas) revert L1_FEE_PER_GAS_TOO_LARGE();
         }
     }
 
@@ -248,10 +291,7 @@ library LibProposing {
                 }
             }
         }
-
-        // verify prover
-        if (input.prover == address(1)) {
-            revert L1_INVALID_PROVER();
-        }
     }
+
+    function getProverBond() internal view returns (uint64) { }
 }

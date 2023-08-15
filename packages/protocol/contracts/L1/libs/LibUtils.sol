@@ -6,7 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-import { LibL2Consts } from "../../L2/LibL2Consts.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibEthDepositing } from "./LibEthDepositing.sol";
 import { TaikoData } from "../TaikoData.sol";
@@ -72,19 +71,6 @@ library LibUtils {
             nextEthDepositToProcess: slot8.nextEthDepositToProcess,
             numEthDeposits: slot8.numEthDeposits - slot8.nextEthDepositToProcess
         });
-    }
-
-    function getBlockFee(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        uint32 gasAmount
-    )
-        internal
-        view
-        returns (uint64)
-    {
-        return state.slot9.avgFeePerGas
-            * (gasAmount + LibL2Consts.ANCHOR_GAS_COST + config.blockFeeBaseGas);
     }
 
     function movingAverage(

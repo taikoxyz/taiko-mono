@@ -12,9 +12,9 @@ import { IProverPool } from "../ProverPool.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { LibMath } from "../../libs/LibMath.sol";
+import { LibL2Consts } from "../../L2/LibL2Consts.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
-import { LibL2Consts } from "../../L2/LibL2Consts.sol";
 
 library LibVerifying {
     using LibUtils for TaikoData.State;
@@ -24,8 +24,7 @@ library LibVerifying {
         uint256 indexed blockId,
         bytes32 blockHash,
         address prover,
-        uint64 blockFee,
-        uint64 proofReward
+        uint64 blockFee
     );
     event CrossChainSynced(
         uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
@@ -96,8 +95,7 @@ library LibVerifying {
             blockId: 0,
             blockHash: genesisBlockHash,
             prover: address(0),
-            blockFee: 0,
-            proofReward: 0
+            blockFee: 0
         });
     }
 
@@ -199,26 +197,25 @@ library LibVerifying {
         IProverPool proverPool =
             IProverPool(resolver.resolve("prover_pool", false));
 
-        if (blk.assignedProver == address(0)) {
+        if (blk.prover == address(0)) {
             --state.slot8.numOpenBlocks;
         } else if (!blk.proverReleased) {
-            proverPool.releaseProver(blk.assignedProver);
+            proverPool.releaseProver(blk.prover);
         }
 
         // Reward the prover (including the oracle prover)
-        uint64 proofReward =
-            (config.blockFeeBaseGas + fc.gasUsed) * blk.feePerGas;
+        uint64 blockFee = (config.blockFeeBaseGas + fc.gasUsed) * blk.feePerGas;
 
         if (fc.prover == address(1)) {
-            // system prover is rewarded with `proofReward`.
-        } else if (blk.assignedProver == address(0)) {
+            // system prover is rewarded with `blockFee`.
+        } else if (blk.prover == address(0)) {
             // open prover is rewarded with more tokens
-            proofReward = proofReward * config.rewardOpenMultipler / 100;
-        } else if (blk.assignedProver != fc.prover) {
+            blockFee = blockFee * config.rewardOpenMultipler / 100;
+        } else if (blk.prover != fc.prover) {
             // proving out side of the proof window, by a prover other
             // than the assigned prover
-            proofReward = proofReward * config.rewardOpenMultipler / 100;
-            proverPool.slashProver(blk.blockId, blk.assignedProver, proofReward);
+            blockFee = blockFee * config.rewardOpenMultipler / 100;
+            proverPool.slashProver(blk.blockId, blk.prover, blockFee);
         } else if (fc.provenAt <= blk.proposedAt + blk.proofWindow) {
             // proving inside the window, by the assigned prover
             uint64 proofDelay;
@@ -228,7 +225,7 @@ library LibVerifying {
                 if (config.rewardMaxDelayPenalty > 0) {
                     // Give the reward a penalty up to a small percentage.
                     // This will encourage prover to submit proof ASAP.
-                    proofReward -= proofReward * proofDelay
+                    blockFee -= blockFee * proofDelay
                         * config.rewardMaxDelayPenalty / 10_000 / blk.proofWindow;
                 }
             }
@@ -251,25 +248,25 @@ library LibVerifying {
             );
         } else {
             // proving out side of the proof window, by the assigned prover
-            proverPool.slashProver(blk.blockId, blk.assignedProver, proofReward);
-            proofReward = 0;
+            proverPool.slashProver(blk.blockId, blk.prover, blockFee);
+            blockFee = 0;
         }
 
         blk.verifiedForkChoiceId = fcId;
 
-        // refund the proposer
-        state.taikoTokenBalances[blk.proposer] +=
-            (_gasLimit - fc.gasUsed) * blk.feePerGas;
-
-        // Reward the prover
-        state.taikoTokenBalances[fc.prover] += proofReward;
+        // refund deposit to proposer and mint fee to prover
+        TaikoToken taikoToken =
+            TaikoToken(resolver.resolve("taiko_token", false));
+        taikoToken.mint(
+            blk.proposer, uint64(_gasLimit - fc.gasUsed) * blk.feePerGas
+        );
+        taikoToken.mint(fc.prover, blockFee + blk.bond);
 
         emit BlockVerified({
             blockId: blk.blockId,
             blockHash: fc.blockHash,
             prover: fc.prover,
-            blockFee: LibUtils.getBlockFee(state, config, fc.gasUsed),
-            proofReward: proofReward
+            blockFee: blockFee
         });
     }
 }
