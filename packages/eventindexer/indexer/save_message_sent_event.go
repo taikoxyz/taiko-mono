@@ -31,7 +31,7 @@ func (svc *Service) saveMessageSentEvents(
 	for {
 		event := events.Event
 
-		slog.Info("new messageSent event", "owner", event.Message.Owner.Hex())
+		slog.Info("new messageSent event", "owner", event.Message.From.Hex())
 
 		if err := svc.saveMessageSentEvent(ctx, chainID, event); err != nil {
 			eventindexer.MessageSentEventsProcessedError.Inc()
@@ -57,10 +57,10 @@ func (svc *Service) saveMessageSentEvent(
 	}
 
 	// amount must be >= 0.15 eth
-	if event.Message.DepositValue.Cmp(minEthAmount) < 0 {
+	if event.Message.Value.Cmp(minEthAmount) < 0 {
 		slog.Info("skipping message sent event",
 			"value",
-			event.Message.DepositValue.String(),
+			event.Message.Value.String(),
 			"requiredValue",
 			minEthAmount.String(),
 		)
@@ -78,7 +78,7 @@ func (svc *Service) saveMessageSentEvent(
 		Data:    string(marshaled),
 		ChainID: chainID,
 		Event:   eventindexer.EventNameMessageSent,
-		Address: event.Message.Owner.Hex(),
+		Address: event.Message.From.Hex(),
 	})
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.Save")
