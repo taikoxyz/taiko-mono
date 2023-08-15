@@ -16,7 +16,14 @@ import { TaikoL2Signer } from "./TaikoL2Signer.sol";
 import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
-/// @custom:security-contact hello@taiko.xyz
+/// @title TaikoL2
+/// @notice Taiko L2 is a smart contract that handles cross-layer message
+/// verification and manages EIP-1559 gas pricing for Layer 2 (L2) operations.
+///
+/// It is used to anchor the latest L1 block details to L2 for cross-layer
+/// communication, manage EIP-1559 parameters for gas pricing, and store
+/// verified
+/// L1 block information.
 contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     using SafeCastUpgradeable for uint256;
     using LibMath for uint256;
@@ -96,6 +103,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
                          USER-FACING FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
+    /// @notice Initializes the TaikoL2 contract.
+    /// @param _addressManager Address of the {AddressManager} contract.
+    /// @param _param1559 EIP-1559 parameters to set up the gas pricing model.
     function init(
         address _addressManager,
         EIP1559Params calldata _param1559
@@ -110,13 +120,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
         if (_param1559.gasIssuedPerSecond != 0) {
             if (
-                _param1559.basefee == 0
-                //
-                || _param1559.gasExcessMax == 0
-                //
-                || _param1559.gasTarget == 0
-                //
-                || _param1559.ratio2x1x == 0
+                _param1559.basefee == 0 || _param1559.gasExcessMax == 0
+                    || _param1559.gasTarget == 0 || _param1559.ratio2x1x == 0
             ) revert L2_INVALID_1559_PARAMS();
 
             (uint128 xscale, uint128 yscale) = Lib1559Math.calculateScales({
@@ -147,26 +152,14 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         }
     }
 
-    /**
-     * Persist the latest L1 block height and hash to L2 for cross-layer
-     * message verification (eg. bridging). This function will also check
-     * certain block-level global variables because they are not part of the
-     * Trie structure.
-     *
-     * A circuit will verify the integrity among:
-     * -  l1Hash, l1SignalRoot, and l1SignalServiceAddress
-     * -  (l1Hash and l1SignalServiceAddress) are both hashed into of the
-     *    ZKP's instance.
-     *
-     * This transaction shall be the first transaction in every L2 block.
-     *
-     * @param l1Hash The latest L1 block hash when this block was proposed.
-     * @param l1SignalRoot The latest value of the L1 "signal service storage
-     * root".
-     * @param l1Height The latest L1 block height when this block was proposed.
-     * @param parentGasUsed the gas used in the parent block.
-     */
-
+    /// @notice Anchors the latest L1 block details to L2 for cross-layer
+    /// message
+    /// verification.
+    /// @param l1Hash The latest L1 block hash when this block was proposed.
+    /// @param l1SignalRoot The latest value of the L1 signal service storage
+    /// root.
+    /// @param l1Height The latest L1 block height when this block was proposed.
+    /// @param parentGasUsed The gas used in the parent block.
     function anchor(
         bytes32 l1Hash,
         bytes32 l1SignalRoot,
@@ -186,7 +179,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             revert L2_PUBLIC_INPUT_HASH_MISMATCH(publicInputHash, prevPIH);
         }
 
-        // replace the oldest block hash with the parent's blockhash
+        // Replace the oldest block hash with the parent's blockhash
         publicInputHash = currPIH;
         _l2Hashes[parentHeight] = parentHash;
 
@@ -231,6 +224,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         });
     }
 
+    /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
+    /// the given parameters.
+    /// @param timeSinceParent Time elapsed since the parent block's timestamp.
+    /// @param parentGasUsed Gas used in the parent block.
+    /// @return _basefee The calculated EIP-1559 basefee.
     function getBasefee(
         uint64 timeSinceParent,
         uint32 parentGasUsed
@@ -246,6 +244,14 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         });
     }
 
+    /// @notice Retrieves the L1 block hash for the given L1 block number or the
+    /// latest synced L1 block hash if the number is zero.
+    /// @param number The L1 block number to retrieve the block hash for, or
+    /// zero
+    /// to fetch the latest synced L1 block hash.
+    /// @return The L1 block hash for the specified L1 block number or the
+    /// latest
+    /// synced L1 block hash.
     function getCrossChainBlockHash(uint256 number)
         public
         view
@@ -256,6 +262,12 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         return _l1VerifiedBlocks[_number].blockHash;
     }
 
+    /// @notice Retrieves the signal root for the given L1 block number or the
+    /// latest synced L1 signal root if the number is zero.
+    /// @param number The L1 block number to retrieve the signal root for, or
+    /// zero to fetch the latest synced L1 signal root.
+    /// @return The signal root for the specified L1 block number or the latest
+    /// synced L1 signal root.
     function getCrossChainSignalRoot(uint256 number)
         public
         view
@@ -266,6 +278,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         return _l1VerifiedBlocks[_number].signalRoot;
     }
 
+    /// @notice Retrieves the block hash for the given L2 block number.
+    /// @param number The L2 block number to retrieve the block hash for.
+    /// @return The block hash for the specified L2 block number, or zero if the
+    /// block number is greater than or equal to the current block number.
     function getBlockHash(uint256 number) public view returns (bytes32) {
         if (number >= block.number) {
             return 0;
@@ -276,8 +292,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         }
     }
 
-    /// @dev Overide this funciton to return a constant EIP1559Config object
-    // to avoid reading from storage to reduce gas cost.
+    /// @notice Retrieves the current EIP-1559 configuration details.
+    /// @return The current EIP-1559 configuration details, including the
+    /// yscale,
+    /// xscale, and gasIssuedPerSecond parameters.
     function getEIP1559Config()
         public
         view
@@ -298,7 +316,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     {
         bytes32[256] memory inputs;
         unchecked {
-            // put the previous 255 blockhashes (excluding the parent's) into a
+            // Put the previous 255 blockhashes (excluding the parent's) into a
             // ring buffer.
             for (uint256 i; i < 255 && blockNumber >= i + 1; ++i) {
                 uint256 j = blockNumber - i - 1;
@@ -347,11 +365,13 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         });
 
         if (_basefee == 0) {
-            // To make sure when 1559 is enabled, the basefee is non-zero
-            // (geth never use 0 values for basefee)
+            // To make sure when EIP-1559 is enabled, the basefee is non-zero
+            // (Geth never uses 0 values for basefee)
             _basefee = 1;
         }
     }
 }
 
+/// @title ProxiedTaikoL2
+/// @notice Proxied version of the TaikoL2 contract.
 contract ProxiedTaikoL2 is Proxied, TaikoL2 { }

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+
 //  _____     _ _         _         _
 // |_   _|_ _(_) |_____  | |   __ _| |__ ___
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
@@ -6,23 +7,27 @@
 
 pragma solidity ^0.8.20;
 
+/// @title ISignalService
+/// @notice The SignalService contract serves as a secure cross-chain message
+/// passing system. It defines methods for sending and verifying signals with
+/// merkle proofs. The trust assumption is that the target chain has secure
+/// access to the merkle root (such as Taiko injects it in the anchor
+/// transaction). With this, verifying a signal is reduced to simply verifying
+/// a merkle proof.
+
 interface ISignalService {
-    /**
-     * Send a signal by storing the key with a value of 1.
-     *
-     * @param signal The signal to send.
-     * @return storageSlot The slot in storage that this signal is persisted.
-     */
+    /// @notice Send a signal (message) by setting the storage slot to a value
+    /// of 1.
+    /// @param signal The signal (message) to send.
+    /// @return storageSlot The location in storage where this signal is stored.
     function sendSignal(bytes32 signal)
         external
         returns (bytes32 storageSlot);
 
-    /**
-     * Check if a signal has been sent (key stored with a value of 1).
-     *
-     * @param app The address that sent this message.
-     * @param signal The signal to check.
-     */
+    /// @notice Verifies if a particular signal has already been sent.
+    /// @param app The address that initiated the signal.
+    /// @param signal The signal (message) to send.
+    /// @return True if the signal has been sent, otherwise false.
     function isSignalSent(
         address app,
         bytes32 signal
@@ -31,14 +36,14 @@ interface ISignalService {
         view
         returns (bool);
 
-    /**
-     * Check if signal has been received on the destination chain (current).
-     *
-     * @param srcChainId The source chain ID.
-     * @param app The address that sent this message.
-     * @param signal The signal to check.
-     * @param proof The proof of the signal being sent on the source chain.
-     */
+    /// @notice Verifies if a signal has been received on the target chain.
+    /// @param srcChainId The identifier for the source chain from which the
+    /// signal originated.
+    /// @param app The address that initiated the signal.
+    /// @param signal The signal (message) to send.
+    /// @param proof Merkle proof that the signal was persisted on the
+    /// source chain.
+    /// @return True if the signal has been received, otherwise false.
     function isSignalReceived(
         uint256 srcChainId,
         address app,

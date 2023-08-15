@@ -8,6 +8,7 @@ pragma solidity ^0.8.20;
 
 import { LibRLPWriter } from "../thirdparty/LibRLPWriter.sol";
 
+/// @dev Defines the data structure for an Ethereum block header.
 struct BlockHeader {
     bytes32 parentHash;
     bytes32 ommersHash;
@@ -28,25 +29,31 @@ struct BlockHeader {
     bytes32 withdrawalsRoot;
 }
 
+/// @title LibBlockHeader
+/// @dev Provides utilities for Ethereum block headers.
 library LibBlockHeader {
-    bytes32 public constant EMPTY_OMMERS_HASH =
-        0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347;
-
+    /// @dev Returns the hash of a block header.
+    /// @param header The block header.
+    /// @return The hash of the block header.
     function hashBlockHeader(BlockHeader memory header)
         internal
         pure
         returns (bytes32)
     {
         bytes memory rlpHeader =
-            LibRLPWriter.writeList(getBlockHeaderRLPItemsList(header, 0));
+            LibRLPWriter.writeList(_getBlockHeaderRLPItemsList(header, 0));
         return keccak256(rlpHeader);
     }
 
-    function getBlockHeaderRLPItemsList(
+    /// @dev Constructs the RLP item list for a block header.
+    /// @param header The block header.
+    /// @param extraCapacity Additional capacity for the list.
+    /// @return list The RLP item list for the block header.
+    function _getBlockHeaderRLPItemsList(
         BlockHeader memory header,
         uint256 extraCapacity
     )
-        internal
+        private
         pure
         returns (bytes[] memory list)
     {
@@ -74,7 +81,7 @@ library LibBlockHeader {
         list[11] = LibRLPWriter.writeUint64(header.timestamp);
         list[12] = LibRLPWriter.writeBytes(header.extraData);
         list[13] = LibRLPWriter.writeHash(header.mixHash);
-        // According to the ethereum yellow paper, we should treat `nonce`
+        // According to the Ethereum yellow paper, we should treat `nonce`
         // as [8]byte when hashing the block.
         list[14] = LibRLPWriter.writeBytes(abi.encodePacked(header.nonce));
         if (header.baseFeePerGas != 0) {

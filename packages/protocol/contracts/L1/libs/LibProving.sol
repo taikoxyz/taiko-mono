@@ -47,17 +47,10 @@ library LibProving {
         internal
     {
         if (
-            evidence.prover == address(0)
-            //
-            || evidence.parentHash == 0
-            //
-            || evidence.blockHash == 0
-            //
-            || evidence.blockHash == evidence.parentHash
-            //
-            || evidence.signalRoot == 0
-            //
-            || evidence.gasUsed == 0
+            evidence.prover == address(0) || evidence.parentHash == 0
+                || evidence.blockHash == 0
+                || evidence.blockHash == evidence.parentHash
+                || evidence.signalRoot == 0 || evidence.gasUsed == 0
         ) revert L1_INVALID_EVIDENCE();
 
         if (blockId <= state.lastVerifiedBlockId || blockId >= state.numBlocks)
@@ -76,6 +69,8 @@ library LibProving {
             revert L1_EVIDENCE_MISMATCH(blk.metaHash, evidence.metaHash);
         }
 
+        // If not the assigned prover must wait until the proof window has
+        // passed before proving the open block.
         if (
             evidence.prover != address(1)
                 && evidence.prover != blk.assignedProver

@@ -59,10 +59,34 @@ sudo ./ethd up
 
 ### Check your connection
 
-Check if the node is connected and synced by requesting the latest Sepolia block from the Execution Layer client (change port from `8545` to whatever you have the execution client p2p port set to in your `.env` file):
+Check if the Execution Layer client is connected to Sepolia (change port from `8545` to whatever you have the execution client p2p port set to in your `.env` file)
 
 ```bash
-curl -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":0}' http://127.0.0.1:8545
+curl http://localhost:8545 \
+  -X POST \
+  -H "Content-Type: application/json" \
+  --data '{"method":"eth_chainId","params":[],"id":1,"jsonrpc":"2.0"}'
+```
+
+which should return chainId = 0xaa36a7 = 11155111
+
+```json
+{ "jsonrpc": "2.0", "id": 0, "result": "0xaa36a7" }
+```
+
+Wait for your Consensus Layer client to fully sync by checking
+
+```bash
+./ethd logs -f consensus
+```
+
+Check if the Execution Layer client is synced by requesting the latest Sepolia block from the Execution Layer client
+
+```bash
+curl http://localhost:8545 \
+  -X POST \
+  -H "Content-Type: application/json" \
+  --data '{"method":"eth_blockNumber","params":[],"id":1,"jsonrpc":"2.0"}'
 ```
 
 If your response block number is less than the current block, check the Execution Layer client logs:

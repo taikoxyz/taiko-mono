@@ -60,6 +60,21 @@ func (r *EventRepository) Save(ctx context.Context, opts eventindexer.SaveEventO
 		e.AssignedProver = *opts.AssignedProver
 	}
 
+	if opts.TokenID != nil {
+		e.TokenID = sql.NullInt64{
+			Valid: true,
+			Int64: *opts.TokenID,
+		}
+	}
+
+	if opts.To != nil {
+		e.To = *opts.To
+	}
+
+	if opts.ContractAddress != nil {
+		e.ContractAddress = *opts.ContractAddress
+	}
+
 	if err := r.db.GormDB().Create(e).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Create")
 	}

@@ -25,11 +25,14 @@
 
 pragma solidity ^0.8.20;
 
+/// @title LibUint512Math
 library LibUint512Math {
-    /**
-     * Optimized full 512 bit multiplication in Solidity.
-     * Taken from: https://xn--2-umb.com/17/full-mul/index.html
-     */
+    /// @dev Multiplies two uint256 numbers to return a 512-bit result.
+    /// Taken from: https://xn--2-umb.com/17/full-mul/index.html
+    /// @param a The first uint256 operand.
+    /// @param b The second uint256 operand.
+    /// @return r0 The lower 256 bits of the result.
+    /// @return r1 The higher 256 bits of the result.
     function mul(
         uint256 a,
         uint256 b
@@ -39,16 +42,25 @@ library LibUint512Math {
         returns (uint256 r0, uint256 r1)
     {
         assembly {
+            // Calculate modulo of the multiplication by the largest 256-bit
+            // number.
             let mm := mulmod(a, b, not(0))
+            // Standard 256-bit multiplication.
             r0 := mul(a, b)
+            // Adjust for overflow, detect if there was a carry.
             r1 := sub(sub(mm, r0), lt(mm, r0))
         }
     }
 
-    /**
-     * Simple 512-bit addition. Taken from:
-     * https://xn--2-umb.com/17/512-bit-division/#add-subtract-two-512-bit-numbers
-     */
+    /// @dev Adds two 512-bit numbers represented by two pairs of uint256.
+    /// Taken from:
+    /// https://xn--2-umb.com/17/512-bit-division/#add-subtract-two-512-bit-numbers
+    /// @param a0 The lower 256 bits of the first number.
+    /// @param a1 The higher 256 bits of the first number.
+    /// @param b0 The lower 256 bits of the second number.
+    /// @param b1 The higher 256 bits of the second number.
+    /// @return r0 The lower 256 bits of the result.
+    /// @return r1 The higher 256 bits of the result.
     function add(
         uint256 a0,
         uint256 a1,
@@ -60,7 +72,9 @@ library LibUint512Math {
         returns (uint256 r0, uint256 r1)
     {
         assembly {
+            // Standard 256-bit addition for lower bits.
             r0 := add(a0, b0)
+            // Add the upper bits and account for carry from the lower bits.
             r1 := add(add(a1, b1), lt(r0, a0))
         }
     }

@@ -66,7 +66,7 @@ export const GRIMSVOTN_CONFIG = {
       name: "ProverPool",
       address: {
         proxy: "0xC9580414A4372BDdBd8e19e01854DC0B2b1390Cf",
-        impl: "0xd30b06F3eb20B55aDFaF51344FC0595d4EF3FC06",
+        impl: "0xD2951Ec51a2724aE37fA697E20643232fa810C0c",
       },
     },
     plonkVerifier: {
@@ -151,7 +151,7 @@ export const GRIMSVOTN_CONFIG = {
     deterministicDeploymentProxy: {
       name: "Deterministic Deployment Proxy",
       address: {
-        impl: "0x1C83d994f649E62cAA042097415d050732f53FF6",
+        impl: "0x4e59b44847b379578588920ca78fbf26c0b4956c",
       },
     },
     erc4337Entrypoint: {
