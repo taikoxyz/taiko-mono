@@ -44,13 +44,14 @@
 
 <dialog class="modal modal-bottom md:modal-middle" class:modal-open={$switchChainModal}>
   <div class="modal-box relative px-6 py-[35px] md:py-[20px] bg-primary-base-background text-primary-base-content">
-    <h3 class="title-body-bold mb-[20px]">{$t('Not on the right network')}</h3>
+    <h3 class="title-body-bold mb-[20px]">{$t('switch_modal.title')}</h3>
+    <p class="body-regular">{$t('switch_modal.description')}</p>
     <ul role="menu" class="space-y-4">
       {#each chains as chain (chain.id)}
         <li
           role="menuitem"
           tabindex="0"
-          class="p-4 rounded-[10px]"
+          class="p-4 rounded-[10px] hover:bg-primary-content hover:cursor-pointer"
           on:click={() => selectChain(chain)}
           on:keydown={getChainKeydownHandler(chain)}>
           <!-- TODO: agree on hover:bg color -->

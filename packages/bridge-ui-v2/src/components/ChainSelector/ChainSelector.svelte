@@ -138,7 +138,7 @@
             tabindex="0"
             class="p-4 rounded-[10px]"
             class:opacity-20={disabled}
-            class:hover:bg-grey-10={!disabled}
+            class:hover:bg-primary-content={!disabled}
             class:hover:cursor-pointer={!disabled}
             aria-disabled={disabled}
             on:click={() => selectChain(chain)}
