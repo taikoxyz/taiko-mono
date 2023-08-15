@@ -102,6 +102,8 @@ library TaikoData {
         uint24 txListByteStart; // byte-wise start index (inclusive)
         uint24 txListByteEnd; // byte-wise end index (exclusive)
         bool cacheTxListInfo;
+        address prover;
+        uint32 rewardPerGas;
     }
 
     /// @dev Struct representing block metadata.

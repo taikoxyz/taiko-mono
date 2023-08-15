@@ -21,8 +21,9 @@ interface IProve {
     /// @param bond The amount of Taiko Token to be burned.
     /// @param extraInput Additional input bytes for the function.
     /// @return prover The address of the prover that should submit a proof
-    /// later. If no prover is available, address(0) is returned. The onReleased
-    /// function will be called on the returned prover address.
+    /// later. If no prover is available, address(0) is returned. The
+    /// onBlockVerified function will be called on the returned prover address.
+    /// Therefore, in most cases, this function should return `address(this)`.
     function assignBlock(
         address proposer,
         uint64 blockId,

@@ -32,6 +32,7 @@ library LibProposing {
     error L1_BLOCK_ID();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
+    error L1_INVALID_PROVER();
     error L1_PERMISSION_DENIED();
     error L1_TOO_MANY_BLOCKS();
     error L1_TOO_MANY_OPEN_BLOCKS();
@@ -50,6 +51,8 @@ library LibProposing {
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
+        // If permissioned proposer is enabled, we check only this proposer can
+        // propose blocks.
         {
             address proposer = resolver.resolve("proposer", true);
             if (proposer != address(0) && msg.sender != proposer) {
@@ -57,14 +60,14 @@ library LibProposing {
             }
         }
         // Try to select a prover first to revert as earlier as possible
-        (address assignedProver, uint32 rewardPerGas) = IProverPool(
-            resolver.resolve("prover_pool", false)
-        ).assignProver(state.slot8.numBlocks, state.slot9.feePerGas);
+        // (address assignedProver, uint32 rewardPerGas) = IProverPool(
+        //     resolver.resolve("prover_pool", false)
+        // ).assignProver(state.slot8.numBlocks, state.slot9.feePerGas);
 
-        assert(assignedProver != address(1));
+        // assert(assignedProver != address(1));
 
+        // Validate block input then cache txList info if requested
         {
-            // Validate block input then cache txList info if requested
             bool cacheTxListInfo = _validateBlock({
                 state: state,
                 config: config,
@@ -120,16 +123,15 @@ library LibProposing {
         blk.proposer = msg.sender;
         blk.feePerGas = state.slot9.feePerGas;
         blk.proposedAt = meta.timestamp;
-
-        if (assignedProver == address(0)) {
+        blk.assignedProver = _assignedProver();
+        if (blk.assignedProver == address(0)) {
             if (state.slot8.numOpenBlocks >= config.rewardOpenMaxCount) {
                 revert L1_TOO_MANY_OPEN_BLOCKS();
             }
             blk.rewardPerGas = state.slot9.feePerGas;
             ++state.slot8.numOpenBlocks;
         } else {
-            blk.assignedProver = assignedProver;
-            blk.rewardPerGas = rewardPerGas;
+            blk.rewardPerGas = input.rewardPerGas;
             uint256 _window = uint256(state.slot9.avgProofDelay)
                 * config.proofWindowMultiplier / 100;
             blk.proofWindow = uint16(
@@ -137,9 +139,10 @@ library LibProposing {
             );
         }
 
-        uint64 blockFee = LibUtils.getBlockFee(state, config, meta.gasLimit);
+        uint64 blockFeeDeposit =
+            LibUtils.getBlockFee(state, config, meta.gasLimit);
 
-        if (state.taikoTokenBalances[msg.sender] < blockFee) {
+        if (state.taikoTokenBalances[msg.sender] < blockFeeDeposit) {
             revert L1_INSUFFICIENT_TOKEN();
         }
 
@@ -153,7 +156,7 @@ library LibProposing {
 
         unchecked {
             ++state.slot8.numBlocks;
-            state.taikoTokenBalances[msg.sender] -= blockFee;
+            state.taikoTokenBalances[msg.sender] -= blockFeeDeposit;
         }
     }
 
@@ -169,6 +172,8 @@ library LibProposing {
         blk = state.blocks[blockId % config.blockRingBufferSize];
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
     }
+
+    function _assignedProver() private returns (address assignedProver) { }
 
     function _validateBlock(
         TaikoData.State storage state,
@@ -230,6 +235,11 @@ library LibProposing {
                     cacheTxListInfo = input.cacheTxListInfo;
                 }
             }
+        }
+
+        // verify prover
+        if (input.prover == address(1)) {
+            revert L1_INVALID_PROVER();
         }
     }
 }
