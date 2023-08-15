@@ -16,6 +16,7 @@
     recipientAddress,
     selectedToken,
     tokenBalance,
+    validatingAmount,
   } from './state';
 
   export let approve: () => Promise<void>;
@@ -49,11 +50,11 @@
 
   // Conditions for approve/bridge steps
   $: isSelectedERC20 = $selectedToken && $selectedToken.type === TokenType.ERC20;
-  $: isTokenApproved = isSelectedERC20 && $enteredAmount && !$insufficientAllowance;
+  $: isTokenApproved = isSelectedERC20 && $enteredAmount && !$insufficientAllowance && !$validatingAmount;
 
   // Conditions to disable/enable buttons
-  $: disableApprove = canDoNothing || !$insufficientAllowance || approving;
-  $: disableBridge = canDoNothing || $insufficientAllowance || $insufficientBalance || bridging;
+  $: disableApprove = canDoNothing || !$insufficientAllowance || $validatingAmount || approving;
+  $: disableBridge = canDoNothing || $insufficientAllowance || $insufficientBalance || $validatingAmount || bridging;
 
   // General loading state
   // $: loading = approving || bridging;

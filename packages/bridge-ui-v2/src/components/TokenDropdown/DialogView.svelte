@@ -1,10 +1,9 @@
 <script lang="ts">
-  import { onDestroy,onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
-  import { ClickMask } from '$components/ClickMask';
   import { Icon } from '$components/Icon';
   import Erc20 from '$components/Icon/ERC20.svelte';
   import { OnAccount } from '$components/OnAccount';
@@ -100,25 +99,24 @@
       {/each}
       <div class="h-sep" />
       <li>
-        <button on:click={showAddERC20} class="flex hover:bg-dark-5 flex justify-center items-center p-4 rounded-sm">
+        <button on:click={showAddERC20} class="flex hover:bg-dark-5 justify-center items-center p-4 rounded-sm">
           <Icon type="plus-circle" fillClass="fill-primary-icon" size={20} vWidth={30} vHeight={30} />
           <span
             class="
-            text-sm
-            font-medium
+            body-bold
             bg-transparent
             flex-1
             w-[100px]
             px-0
             pl-2">
-            Add Custom
+            {$t('token_dropdown.add_custom')}
           </span>
         </button>
       </li>
     </ul>
   </div>
 </dialog>
-<ClickMask fn={closeMenu} active={modalOpen} />
+
 <AddCustomErc20 bind:modalOpen />
 
 <!-- <OnNetwork change={onNetworkChange} /> -->

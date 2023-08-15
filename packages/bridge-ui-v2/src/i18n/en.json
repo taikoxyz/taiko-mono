@@ -31,6 +31,7 @@
       "approve_error": "Failed to approve token",
       "rejected": "Request to bridge rejected.",
       "no_allowance_required": "You already have enough allowance.",
+      "insufficient_balance": "Not enough balance in your wallet for this token.",
       "insufficient_allowance": "You need to increase your allowance in order to be able to bridge.",
       "cannot_fetch_balance": "Error fetching balance. Wrong chain?",
       "unknown_error": "An error occured",
@@ -52,12 +53,14 @@
     "title": "Recipient address",
     "description": "Customize the recipient address for your bridged tokens instead of using your current wallet address.",
     "link": "Change recipient",
-    "placeholder": "Add custom recipient 0x…"
+    "placeholder": "Add custom recipient 0x…",
+    "tooltip": "Defaults to your address. You can add a custom recipient address as well."
   },
   "processing_fee": {
     "title": "Processing fee",
     "description": "Some description about the processing fee",
     "link": "Customize fee",
+    "tooltip": "The current calculated proccessing fee for this transaction. Click edit to customize it",
     "recommended": {
       "label": "Recommended",
       "calculating": "Calculating",
@@ -81,8 +84,11 @@
     "title": "Activities",
     "description": "Track your bridge transactions here.",
     "header": {
-      "explorer": "Explorer link",
-      "status": "Status"
+      "explorer": "Explorer",
+      "status": "Status",
+      "from": "From",
+      "to": "To",
+      "amount": "Amount"
     },
     "link.explorer": "View details",
     "no_transactions": "No transactions yet",
@@ -92,10 +98,55 @@
       "release": "Release"
     },
     "status": {
-      "initiated": "Initiated",
-      "pending": "Pending",
-      "claimed": "Claimed",
-      "failed": "Failed"
+      "initiated": {
+        "name": "Initiated",
+        "description": "Transaction initiated"
+      },
+      "pending": {
+        "name": "Pending",
+        "description": " Your asset is not yet eligible for claiming. The bridging process from Taiko to Sepolia may take several hours before becoming claimable. Sepolia to Taiko bridging should be claimable within minutes."
+      },
+      "claim": {
+        "name": "Claim",
+        "description": "Your asset is now ready for claiming on the destination chain and requires a transaction. If you have set a processing fee, the relayer will automatically handle the claiming process on your behalf."
+      },
+      "claiming": "Claiming",
+      "claimed": {
+        "name": "Claimed",
+        "description": "Your asset has successfully completed the bridging process and is now available to you on the destination chain."
+      },
+      "retry": {
+        "name": "Retry",
+        "description": "The relayer was unable to process this message, and you will need to retry the processing yourself."
+      },
+      "release": {
+        "name": "Release",
+        "description": "Your bridged asset cannot be processed and is now accessible to you on the source chain."
+      },
+      "releasing": "Releasing",
+      "failed": {
+        "name": "Failed",
+        "description": "Your bridge transaction was unsuccessful."
+      },
+      "dialog": {
+        "title": "Message status",
+        "description": "The bridge message undergoes different stages:"
+      }
+    },
+    "actions": {
+      "claim": {
+        "tx": "Transaction sent to claim {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
+        "success": "Transaction completed! Your funds have been successfully claimed on ${network}.",
+        "rejected": "Request to claim rejected."
+      },
+      "release": {
+        "tx": "Transaction sent to release {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
+        "success": "Transaction completed!. Your funds have been released on {network}",
+        "rejected": "Request to release rejected."
+      }
+    },
+    "errors": {
+      "insufficient_balance": "Insufficient balance to claim. Please add some ETH to your wallet."
     }
   },
   "faucet": {
@@ -112,29 +163,19 @@
       "minting": "Minting"
     },
     "wrong_chain": {
-      "message": "It appears your are on the wrong network. Switch to {network} to mint tokens.",
+      "message": "It appears you are on the wrong network. Switch to {network} to mint tokens.",
       "button": "Switch to {network}"
     },
     "warning": {
       "no_connected": "Please connect your wallet to mint tokens.",
       "insufficient_balance": "You don't have enough ETH to complete the transaction. Please add some ETH to your wallet.",
-      "token_minted": "You have already minted this token."
+      "token_minted": "You have already minted this token.",
+      "unknown": "Something did not work"
     }
   },
   "token_dropdown": {
-    "label": "Select token"
-  },
-  "amount_input": {
-    "label": "Amount",
-    "balance": "Balance",
-    "button": {
-      "max": "Max",
-      "failed_max": "Coult not estimate max amount to bridge."
-    }
-  },
-  "error": {
-    "insufficient_balance": "Insufficient balance",
-    "insufficient_allowance": "Insufficient allowance"
+    "label": "Select token",
+    "add_custom": "Add Custom"
   },
   "inputs": {
     "nft": {
@@ -143,14 +184,15 @@
         "placeholder": "1 or 5,14,733"
       }
     },
-    "amount_input": {
-      "label": "Amount",
-      "balance": "Balance",
-      "button.max": "Max"
-    },
     "address_input": {
       "label": "Address",
-      "placeholder": "Enter address"
+      "placeholder": "Enter an address"
+    },
+    "amount": {
+      "label": "Amount",
+      "balance": "Balance",
+      "button.max": "Max",
+      "errors.failed_max": "Could not estimate max amount to bridge."
     }
   },
   "chain_selector": {
@@ -181,7 +223,9 @@
     "network": {
       "switching": "Switching network",
       "rejected": "Request to switch chain rejected.",
-      "pending": "A network switch is still pending, open your wallet to check the status."
+      "pending": "A network switch is still pending, open your wallet to check the status.",
+      "required": "Source chain must be selected.",
+      "required_dest": "Destination chain must be selected."
     }
   },
   "common": {

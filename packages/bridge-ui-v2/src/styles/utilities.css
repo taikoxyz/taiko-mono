@@ -22,7 +22,7 @@
   }
 
   .glassy-primary-background {
-    @apply bg-grey-900/60 backdrop-filter backdrop-blur-sm;
+    @apply bg-grey-900/10 backdrop-filter backdrop-blur-sm;
   }
 
   /* Flex shortcuts */

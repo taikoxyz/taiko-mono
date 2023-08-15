@@ -8,6 +8,7 @@ import { isDeployedCrossChain } from '$libs/token/isDeployedCrossChain';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 
 import { bridges } from './bridges';
+import { ERC20Bridge } from './ERC20Bridge';
 import { estimateCostOfBridging } from './estimateCostOfBridging';
 import type { BridgeArgs, ERC20BridgeArgs, ETHBridgeArgs } from './types';
 
@@ -73,6 +74,26 @@ export async function checkBalanceToBridge({
     balance = await getPublicClient().getBalance(wallet.account);
 
     if (!tokenAddress || tokenAddress === zeroAddress) return false;
+
+    const bridge = bridges[token.type];
+
+    if (bridge instanceof ERC20Bridge) {
+      // Let's check the allowance to actually bridge the ERC20 token
+
+      const allowance = await bridge.requireAllowance({
+        amount,
+        tokenAddress,
+        ownerAddress: wallet.account.address,
+        spenderAddress: tokenVaultAddress,
+      });
+
+      if (allowance) {
+        throw new InsufficientAllowanceError(`insufficient allowance for the amount ${amount}`);
+      }
+    }
+
+    // since we are briding a token, we need the ETH balance of the wallet
+    balance = await getPublicClient().getBalance(wallet.account);
 
     const isTokenAlreadyDeployed = await isDeployedCrossChain({
       token,
