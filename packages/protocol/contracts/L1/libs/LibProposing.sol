@@ -120,20 +120,23 @@ library LibProposing {
         blk.proverReleased = false;
         blk.proposer = msg.sender;
         blk.proposedAt = meta.timestamp;
-        blk.proofWindow = uint16(
-            (
-                uint256(state.slot9.avgProofDelay)
-                    * config.proofWindowMultiplier / 100
-            ).min(config.proofMaxWindow).max(config.proofMinWindow)
-        );
-        blk.bond = getProverBond();
 
-        // Assign a prover and get the actual feePerGas
-        (blk.prover, blk.feePerGas) = _assignProver({
+        unchecked {
+            blk.proofWindow = uint16(
+                (
+                    uint256(state.slot9.avgProofDelay)
+                        * config.proofWindowMultiplier / 100
+                ).min(config.proofMaxWindow).max(config.proofMinWindow)
+            );
+        }
+
+        // Assign a prover and get the actual feePerGas. Not that the return
+        // prover may be address(0) to indicate this block is open.
+        (blk.prover, blk.feePerGas, blk.bond) = _assignProver({
             state: state,
             config: config,
             proofWindow: blk.proofWindow,
-            bond: blk.bond,
+            gasLimit: meta.gasLimit,
             prover: input.prover,
             maxFeePerGas: input.maxFeePerGas,
             assignmentParams: input.assignmentParams
@@ -141,40 +144,43 @@ library LibProposing {
 
         TaikoToken taikoToken =
             TaikoToken(resolver.resolve("taiko_token", false));
-        if (blk.prover == address(1)) {
-            // Do not allow address(1) as it is our oracle prover
-            revert L1_INVALID_PROVER();
-        } else if (blk.prover == address(0)) {
+
+        if (blk.prover == address(0)) {
             // This is an open block
             if (state.slot8.numOpenBlocks >= config.rewardOpenMaxCount) {
                 revert L1_TOO_MANY_OPEN_BLOCKS();
             }
+            assert(blk.bond == 0);
             blk.proofWindow = 0;
-            ++state.slot8.numOpenBlocks;
+            unchecked {
+                ++state.slot8.numOpenBlocks;
+            }
         } else {
+            assert(blk.bond > 0);
+            // Burn the bond, if this assigned prover fails to prove the block,
+            // additonal tokens will be minted to the actual prover.
             taikoToken.burn(blk.prover, blk.bond);
         }
 
-        // Proposer deposits the proving fee, remaining fee will be refunded
-        // when the block is verified.
+        // Proposer burns a deposit to cover proving fees, the remaining fee
+        // will be refunded when the block is verified.
+        // Note that proposer does not deposit more to cover the extra payment
+        // to the prover that proves this block after it becomes open.
         {
-            uint64 blockDeposit = uint64(
-                meta.gasLimit + LibL2Consts.ANCHOR_GAS_COST
-                    + config.blockFeeBaseGas
-            ) * blk.feePerGas;
+            uint64 blockDeposit =
+                _calcBlockFee(config, meta.gasLimit, blk.feePerGas);
 
             taikoToken.burn(msg.sender, blockDeposit);
         }
 
-        emit BlockProposed({
-            blockId: state.slot8.numBlocks,
-            prover: blk.prover,
-            feePerGas: blk.feePerGas,
-            meta: meta
-        });
-
+        // Emit an event
         unchecked {
-            ++state.slot8.numBlocks;
+            emit BlockProposed({
+                blockId: state.slot8.numBlocks++,
+                prover: blk.prover,
+                feePerGas: blk.feePerGas,
+                meta: meta
+            });
         }
     }
 
@@ -195,13 +201,13 @@ library LibProposing {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint16 proofWindow,
-        uint64 bond,
+        uint32 gasLimit,
         address prover,
         uint32 maxFeePerGas,
         bytes memory assignmentParams
     )
         private
-        returns (address _prover, uint32 _feePerGas)
+        returns (address _prover, uint32 _feePerGas, uint64 _bond)
     {
         if (prover != address(0) && prover.isContract()) {
             // This isan IProver contract
@@ -209,12 +215,16 @@ library LibProposing {
                 proposer: msg.sender,
                 maxFeePerGas: maxFeePerGas,
                 proofWindow: proofWindow,
-                bond: bond,
                 params: assignmentParams
             });
         } else {
             // Prover is address(0) or an EOA address
             _feePerGas = maxFeePerGas;
+        }
+
+        if (_prover == address(1)) {
+            // Do not allow address(1) as it is our oracle prover
+            revert L1_INVALID_PROVER();
         }
 
         if (_prover == address(0)) {
@@ -227,6 +237,17 @@ library LibProposing {
         } else {
             // Not an open block
             if (_feePerGas > maxFeePerGas) revert L1_FEE_PER_GAS_TOO_LARGE();
+
+            // We calculate how much bond the prover shall burn.
+            // To cover open block reward, we have to use the max of _feePerGas
+            // and state.slot9.avgFeePerGas in the calculation in case
+            // _feePerGas is really small or zero.
+            uint32 bondFeePerGas = _feePerGas > state.slot9.avgFeePerGas
+                ? _feePerGas
+                : state.slot9.avgFeePerGas;
+
+            _bond = _calcBlockFee(config, gasLimit, bondFeePerGas)
+                * config.proofBondMultiplier;
         }
     }
 
@@ -293,5 +314,19 @@ library LibProposing {
         }
     }
 
-    function getProverBond() internal view returns (uint64) { }
+    function _calcBlockFee(
+        TaikoData.Config memory config,
+        uint32 gasAmount,
+        uint32 feePerGas
+    )
+        private
+        pure
+        returns (uint64)
+    {
+        uint32 _gas =
+            gasAmount + LibL2Consts.ANCHOR_GAS_COST + config.blockFeeBaseGas;
+        unchecked {
+            return uint64(_gas) * feePerGas;
+        }
+    }
 }

@@ -19,7 +19,6 @@ interface IProver {
     // / @param proposer Address of the block proposer.
     // / @param blockId Unique identifier for the block.
     // / @param maxRewardPerGas The fee amount charged per unit of gas.
-    // / @param bond The amount of Taiko Token to be burned.
     // / @param extraInput Additional input bytes for the function.
     // / @return prover The address of the prover that should submit a proof
     // / later. If no prover is available, address(0) is returned. The
@@ -29,7 +28,6 @@ interface IProver {
         address proposer,
         uint32 maxFeePerGas,
         uint16 proofWindow,
-        uint64 bond,
         bytes calldata params
     )
         external

@@ -34,6 +34,7 @@ library TaikoConfig {
             proofMinWindow: 10 minutes,
             proofMaxWindow: 90 minutes,
             proofWindowMultiplier: 200, // 200%
+            proofBondMultiplier: 32,
             ethDepositRingBufferSize: 1024,
             ethDepositMinCountPerBlock: 8,
             ethDepositMaxCountPerBlock: 32,

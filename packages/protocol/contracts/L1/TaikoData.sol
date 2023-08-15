@@ -53,6 +53,8 @@ library TaikoData {
         // The window multiplier used to calculate proof time windows (in
         // percentage).
         uint16 proofWindowMultiplier;
+        // The bond multipler
+        uint8 proofBondMultiplier;
         // ---------------------------------------------------------------------
         // Group 4: ETH deposit related configs
         // ---------------------------------------------------------------------
