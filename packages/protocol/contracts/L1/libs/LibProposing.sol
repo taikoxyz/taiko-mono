@@ -29,6 +29,7 @@ library LibProposing {
     );
 
     error L1_BLOCK_ID();
+    error L1_FEE_PER_GAS_TOO_SMALL();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
     error L1_INVALID_PROVER();
@@ -122,15 +123,15 @@ library LibProposing {
         blk.proposer = msg.sender;
         blk.proposedAt = meta.timestamp;
 
-        blk.assignedProver = _assignedProver();
+        (blk.assignedProver, blk.feePerGas) =
+            _assignedProver(state, config, input);
+
         if (blk.assignedProver == address(0)) {
             if (state.slot8.numOpenBlocks >= config.rewardOpenMaxCount) {
                 revert L1_TOO_MANY_OPEN_BLOCKS();
             }
-            blk.feePerGas = state.slot9.avgFeePerGas;
             ++state.slot8.numOpenBlocks;
         } else {
-            blk.feePerGas = input.feePerGas;
             uint256 _window = uint256(state.slot9.avgProofDelay)
                 * config.proofWindowMultiplier / 100;
             blk.proofWindow = uint16(
@@ -138,10 +139,9 @@ library LibProposing {
             );
         }
 
-        uint64 blockFeeDeposit =
-            LibUtils.getBlockFee(state, config, meta.gasLimit);
+        uint64 feeDeposit = LibUtils.getBlockFee(state, config, meta.gasLimit);
 
-        if (state.taikoTokenBalances[msg.sender] < blockFeeDeposit) {
+        if (state.taikoTokenBalances[msg.sender] < feeDeposit) {
             revert L1_INSUFFICIENT_TOKEN();
         }
 
@@ -154,7 +154,7 @@ library LibProposing {
 
         unchecked {
             ++state.slot8.numBlocks;
-            state.taikoTokenBalances[msg.sender] -= blockFeeDeposit;
+            state.taikoTokenBalances[msg.sender] -= feeDeposit;
         }
     }
 
@@ -171,7 +171,21 @@ library LibProposing {
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
     }
 
-    function _assignedProver() private returns (address assignedProver) { }
+    function _assignedProver(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        TaikoData.BlockMetadataInput memory input
+    )
+        private
+        returns (address prover, uint32 feePerGas)
+    {
+        if (
+            input.feePerGas
+                < state.slot9.avgFeePerGas * config.rewardOpenMultipler / 100
+        ) {
+            revert L1_FEE_PER_GAS_TOO_SMALL();
+        }
+    }
 
     function _validateBlock(
         TaikoData.State storage state,
