@@ -6,17 +6,19 @@
 
 pragma solidity ^0.8.20;
 
+import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { IMintableERC20 } from "../../common/IMintableERC20.sol";
-import { IProverPool } from "../ProverPool.sol";
+import { IProver } from "../IProver.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
-import { LibUtils } from "./LibUtils.sol";
-import { LibMath } from "../../libs/LibMath.sol";
 import { LibL2Consts } from "../../L2/LibL2Consts.sol";
+import { LibMath } from "../../libs/LibMath.sol";
+import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
 
 library LibVerifying {
+    using Address for address;
     using LibUtils for TaikoData.State;
     using LibMath for uint256;
 
@@ -53,6 +55,7 @@ library LibVerifying {
                 || config.proofMinWindow == 0
                 || config.proofMaxWindow < config.proofMinWindow
                 || config.proofWindowMultiplier <= 100
+                || config.proofBondMultiplier < 8
                 || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
                 || config.ethDepositMaxCountPerBlock
@@ -65,6 +68,7 @@ library LibVerifying {
                 || config.ethDepositMaxFee
                     >= type(uint96).max / config.ethDepositMaxCountPerBlock
                 || config.rewardOpenMultipler < 100
+                || config.rewardOpenMultipler >= config.proofBondMultiplier
                 || config.rewardMaxDelayPenalty >= 10_000
         ) revert L1_INVALID_CONFIG();
 
@@ -194,28 +198,44 @@ library LibVerifying {
         uint32 _gasLimit = blk.gasLimit + LibL2Consts.ANCHOR_GAS_COST;
         assert(fc.gasUsed <= _gasLimit);
 
-        IProverPool proverPool =
-            IProverPool(resolver.resolve("prover_pool", false));
-
+        blk.verifiedForkChoiceId = fcId;
         if (blk.prover == address(0)) {
             --state.slot8.numOpenBlocks;
         }
 
-        // Reward the prover (including the oracle prover)
-        uint64 blockFee = (config.blockFeeBaseGas + fc.gasUsed) * blk.feePerGas;
+        // inProofWindow can only be true if the block is not open and the
+        // actual
+        // prover is the assigned prover or the oracle prover.
+        bool inProofWindow = fc.provenAt <= blk.proposedAt + blk.proofWindow;
 
-        if (fc.prover == address(1)) {
-            // system prover is rewarded with `blockFee`.
-        } else if (blk.prover == address(0)) {
-            // open prover is rewarded with more tokens
-            blockFee = blockFee * config.rewardOpenMultipler / 100;
-        } else if (blk.prover != fc.prover) {
-            // proving out side of the proof window, by a prover other
-            // than the assigned prover
-            blockFee = blockFee * config.rewardOpenMultipler / 100;
-            proverPool.slashProver(blk.blockId, blk.prover, blockFee);
-        } else if (fc.provenAt <= blk.proposedAt + blk.proofWindow) {
-            // proving inside the window, by the assigned prover
+        // Calculate the block fee
+        uint32 feePerGas = inProofWindow
+            ? blk.feePerGas
+            : state.slot9.avgFeePerGas * config.rewardOpenMultipler / 100;
+
+        uint64 blockFee =
+            uint64(config.blockFeeBaseGas + fc.gasUsed) * feePerGas;
+
+        TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
+
+        // Mint reward to fork choice prover
+        if (blockFee != 0) {
+            tt.mint(fc.prover, blockFee);
+        }
+
+        //  Refund the assigned prover
+        if (blk.bond != 0 && (inProofWindow || fc.prover == address(1))) {
+            tt.mint(blk.prover, blk.bond);
+        }
+
+        // Refund deposit to proposer
+        uint64 depositRefund = uint64(_gasLimit - fc.gasUsed) * blk.feePerGas;
+        if (depositRefund != 0) {
+            tt.mint(blk.proposer, depositRefund);
+        }
+
+        // Update protocol level stats
+        if (inProofWindow && fc.prover != address(1)) {
             uint64 proofDelay;
             unchecked {
                 proofDelay = fc.provenAt - blk.proposedAt;
@@ -244,27 +264,9 @@ library LibVerifying {
                     maf: 7200
                 })
             );
-        } else {
-            // proving out side of the proof window, by the assigned prover
-            proverPool.slashProver(blk.blockId, blk.prover, blockFee);
-            blockFee = 0;
         }
 
-        blk.verifiedForkChoiceId = fcId;
-
-        // Refund deposit to proposer and
-        TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
-        tt.mint(blk.proposer, uint64(_gasLimit - fc.gasUsed) * blk.feePerGas);
-
-        //  Mint block fee to prover, potentially with the previous bond
-        {
-            uint64 mintAmount = blockFee;
-            if (fc.prover == blk.prover) {
-                mintAmount += blk.bond;
-            }
-            tt.mint(fc.prover, mintAmount);
-        }
-
+        // Emit the event
         emit BlockVerified({
             blockId: blk.blockId,
             blockHash: fc.blockHash,

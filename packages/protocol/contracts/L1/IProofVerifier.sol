@@ -14,7 +14,7 @@ interface IProofVerifier {
     /// @param blockId Unique identifier for the block.
     /// @param blockProofs Raw bytes representing the proof(s).
     /// @param instance Hashed evidence & config data. If set to zero, proof is
-    /// assumed to be from oracle/system prover.
+    /// assumed to be from oracle prover.
     function verifyProofs(
         uint256 blockId,
         bytes calldata blockProofs,

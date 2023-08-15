@@ -37,7 +37,7 @@ contract ProofVerifier is EssentialContract, IProofVerifier {
         external
         view
     {
-        // If instance is zero, proof is considered as from oracle/system prover
+        // If instance is zero, proof is considered as from oracle prover
         // and not checked.
         if (instance == 0) return;
 
