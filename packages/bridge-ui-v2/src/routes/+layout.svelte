@@ -8,8 +8,8 @@
   import { Header } from '$components/Header';
   import { NotificationToast } from '$components/NotificationToast';
   import { SideNavigation } from '$components/SideNavigation';
-  import { startWatching, stopWatching } from '$libs/wagmi';
   import SwitchChainModal from '$components/SwitchChainModal/SwitchChainModal.svelte';
+  import { startWatching, stopWatching } from '$libs/wagmi';
 
   onMount(startWatching);
   onDestroy(stopWatching);
