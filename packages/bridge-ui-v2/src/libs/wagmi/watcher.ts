@@ -1,10 +1,10 @@
 import { watchAccount, watchNetwork /*, watchPublicClient, watchWalletClient*/ } from '@wagmi/core';
 
+import { isSupportedChain } from '$libs/chain';
 import { getLogger } from '$libs/util/logger';
 import { account } from '$stores/account';
-import { network } from '$stores/network';
-import { isSupportedChain } from '$libs/chain';
 import { switchChainModal } from '$stores/modal';
+import { network } from '$stores/network';
 
 const log = getLogger('wagmi:watcher');
 
