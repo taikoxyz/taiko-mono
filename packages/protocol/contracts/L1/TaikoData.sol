@@ -183,21 +183,26 @@ library TaikoData {
         uint64 id;
     }
 
-    struct Slot7{
+    /// @dev Forge is only able to run coverage in case the contracts by default
+    /// capable of compiling without any optimization (neither optimizer runs,
+    /// no compiling --via-ir flag).
+    /// In order to resolve stack too deep without optimizations, we needed to
+    /// introduce outsourcing vars into structs below.
+    struct SlotA {
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 __reserved70;
         uint64 __reserved71;
     }
 
-    struct Slot8{
+    struct SlotB {
         uint64 numOpenBlocks;
         uint64 numEthDeposits;
         uint64 numBlocks;
         uint64 nextEthDepositToProcess;
     }
 
-    struct Slot9{
+    struct SlotC {
         uint64 lastVerifiedAt;
         uint64 lastVerifiedBlockId;
         uint64 __reserved90;
@@ -220,12 +225,12 @@ library TaikoData {
         mapping(uint256 depositId_mode_ethDepositRingBufferSize => uint256)
             ethDeposits;
         mapping(address account => uint256 balance) taikoTokenBalances;
-        // Slot 7: never or rarely changed
-        Slot7 slot7;
+        // Slot 6: never or rarely changed
+        SlotA slotA;
+        // Slot 7
+        SlotB slotB;
         // Slot 8
-        Slot8 slot8;
-        // Slot 9
-        Slot9 slot9;
+        SlotC slotC;
         // Reserved
         uint256[42] __gap;
     }

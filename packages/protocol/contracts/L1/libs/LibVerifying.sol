@@ -73,12 +73,12 @@ library LibVerifying {
             uint64 timeNow = uint64(block.timestamp);
 
             // Init state
-            state.slot7.genesisHeight = uint64(block.number);
-            state.slot7.genesisTimestamp = timeNow;
-            state.slot8.numBlocks = 1;
-            state.slot9.lastVerifiedAt = uint64(block.timestamp);
-            state.slot9.feePerGas = initFeePerGas;
-            state.slot9.avgProofDelay = initAvgProofDelay;
+            state.slotA.genesisHeight = uint64(block.number);
+            state.slotA.genesisTimestamp = timeNow;
+            state.slotB.numBlocks = 1;
+            state.slotC.lastVerifiedAt = uint64(block.timestamp);
+            state.slotC.feePerGas = initFeePerGas;
+            state.slotC.avgProofDelay = initAvgProofDelay;
 
             // Init the genesis block
             TaikoData.Block storage blk = state.blocks[0];
@@ -109,7 +109,7 @@ library LibVerifying {
     )
         internal
     {
-        uint256 i = state.slot9.lastVerifiedBlockId;
+        uint256 i = state.slotC.lastVerifiedBlockId;
         TaikoData.Block storage blk =
             state.blocks[i % config.blockRingBufferSize];
 
@@ -125,7 +125,7 @@ library LibVerifying {
             ++i;
         }
 
-        while (i < state.slot8.numBlocks && processed < maxBlocks) {
+        while (i < state.slotB.numBlocks && processed < maxBlocks) {
             blk = state.blocks[i % config.blockRingBufferSize];
             assert(blk.blockId == i);
 
@@ -162,8 +162,8 @@ library LibVerifying {
 
         if (processed > 0) {
             unchecked {
-                state.slot9.lastVerifiedAt = uint64(block.timestamp);
-                state.slot9.lastVerifiedBlockId += processed;
+                state.slotC.lastVerifiedAt = uint64(block.timestamp);
+                state.slotC.lastVerifiedBlockId += processed;
             }
 
             if (config.relaySignalRoot) {
@@ -175,7 +175,7 @@ library LibVerifying {
                     .sendSignal(signalRoot);
             }
             emit CrossChainSynced(
-                state.slot9.lastVerifiedBlockId, blockHash, signalRoot
+                state.slotC.lastVerifiedBlockId, blockHash, signalRoot
             );
         }
     }
@@ -200,7 +200,7 @@ library LibVerifying {
             IProverPool(resolver.resolve("prover_pool", false));
 
         if (blk.assignedProver == address(0)) {
-            --state.slot8.numOpenBlocks;
+            --state.slotB.numOpenBlocks;
         } else if (!blk.proverReleased) {
             proverPool.releaseProver(blk.assignedProver);
         }
@@ -234,17 +234,17 @@ library LibVerifying {
             }
 
             // The selected prover managed to prove the block in time
-            state.slot9.avgProofDelay = uint16(
+            state.slotC.avgProofDelay = uint16(
                 LibUtils.movingAverage({
-                    maValue: state.slot9.avgProofDelay,
+                    maValue: state.slotC.avgProofDelay,
                     newValue: proofDelay,
                     maf: 7200
                 })
             );
 
-            state.slot9.feePerGas = uint32(
+            state.slotC.feePerGas = uint32(
                 LibUtils.movingAverage({
-                    maValue: state.slot9.feePerGas,
+                    maValue: state.slotC.feePerGas,
                     newValue: blk.rewardPerGas,
                     maf: 7200
                 })

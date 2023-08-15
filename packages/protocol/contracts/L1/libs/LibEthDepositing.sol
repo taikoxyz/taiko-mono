@@ -46,19 +46,20 @@ library LibEthDepositing {
 
         // Append the deposit to the queue.
         address _recipient = recipient == address(0) ? msg.sender : recipient;
-        uint256 slot = state.slot8.numEthDeposits % config.ethDepositRingBufferSize;
+        uint256 slot =
+            state.slotB.numEthDeposits % config.ethDepositRingBufferSize;
         state.ethDeposits[slot] = _encodeEthDeposit(_recipient, msg.value);
 
         emit EthDeposited(
             TaikoData.EthDeposit({
                 recipient: _recipient,
                 amount: uint96(msg.value),
-                id: state.slot8.numEthDeposits
+                id: state.slotB.numEthDeposits
             })
         );
 
         unchecked {
-            state.slot8.numEthDeposits++;
+            state.slotB.numEthDeposits++;
         }
     }
 
@@ -77,7 +78,7 @@ library LibEthDepositing {
     {
         // Calculate the number of pending deposits.
         uint256 numPending =
-            state.slot8.numEthDeposits - state.slot8.nextEthDepositToProcess;
+            state.slotB.numEthDeposits - state.slotB.nextEthDepositToProcess;
 
         if (numPending < config.ethDepositMinCountPerBlock) {
             deposits = new TaikoData.EthDeposit[](0);
@@ -90,7 +91,7 @@ library LibEthDepositing {
                     block.basefee * config.ethDepositGas
                 )
             );
-            uint64 j = state.slot8.nextEthDepositToProcess;
+            uint64 j = state.slotB.nextEthDepositToProcess;
             uint96 totalFee;
             for (uint256 i; i < deposits.length;) {
                 uint256 data =
@@ -109,13 +110,13 @@ library LibEthDepositing {
                     ++j;
                 }
             }
-            state.slot8.nextEthDepositToProcess = j;
+            state.slotB.nextEthDepositToProcess = j;
             // This is the fee deposit
-            state.ethDeposits[state.slot8.numEthDeposits
+            state.ethDeposits[state.slotB.numEthDeposits
                 % config.ethDepositRingBufferSize] =
                 _encodeEthDeposit(feeRecipient, totalFee);
             unchecked {
-                state.slot8.numEthDeposits++;
+                state.slotB.numEthDeposits++;
             }
         }
     }
@@ -137,7 +138,7 @@ library LibEthDepositing {
         unchecked {
             return amount >= config.ethDepositMinAmount
                 && amount <= config.ethDepositMaxAmount
-                && state.slot8.numEthDeposits - state.slot8.nextEthDepositToProcess
+                && state.slotB.numEthDeposits - state.slotB.nextEthDepositToProcess
                     < config.ethDepositRingBufferSize - 1;
         }
     }
