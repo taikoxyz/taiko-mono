@@ -24,8 +24,7 @@ library LibProposing {
     event BlockProposed(
         uint256 indexed blockId,
         address indexed assignedProver,
-        uint32 rewardPerGas,
-        uint64 feePerGas,
+        uint32 feePerGas,
         TaikoData.BlockMetadata meta
     );
 
@@ -60,7 +59,7 @@ library LibProposing {
             }
         }
         // Try to select a prover first to revert as earlier as possible
-        // (address assignedProver, uint32 rewardPerGas) = IProverPool(
+        // (address assignedProver, uint32 feePerGas) = IProverPool(
         //     resolver.resolve("prover_pool", false)
         // ).assignProver(state.slot8.numBlocks, state.slot9.feePerGas);
 
@@ -121,17 +120,17 @@ library LibProposing {
         blk.proverReleased = false;
 
         blk.proposer = msg.sender;
-        blk.feePerGas = state.slot9.feePerGas;
         blk.proposedAt = meta.timestamp;
+
         blk.assignedProver = _assignedProver();
         if (blk.assignedProver == address(0)) {
             if (state.slot8.numOpenBlocks >= config.rewardOpenMaxCount) {
                 revert L1_TOO_MANY_OPEN_BLOCKS();
             }
-            blk.rewardPerGas = state.slot9.feePerGas;
+            blk.feePerGas = state.slot9.avgFeePerGas;
             ++state.slot8.numOpenBlocks;
         } else {
-            blk.rewardPerGas = input.rewardPerGas;
+            blk.feePerGas = input.feePerGas;
             uint256 _window = uint256(state.slot9.avgProofDelay)
                 * config.proofWindowMultiplier / 100;
             blk.proofWindow = uint16(
@@ -149,8 +148,7 @@ library LibProposing {
         emit BlockProposed({
             blockId: state.slot8.numBlocks,
             assignedProver: blk.assignedProver,
-            rewardPerGas: blk.rewardPerGas,
-            feePerGas: state.slot9.feePerGas,
+            feePerGas: blk.feePerGas,
             meta: meta
         });
 

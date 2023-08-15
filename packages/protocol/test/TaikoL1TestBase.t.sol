@@ -23,12 +23,12 @@ contract MockVerifier {
 
 contract MockProverPool is IProverPool {
     address private _prover;
-    uint32 private _rewardPerGas;
+    uint32 private _feePerGas;
 
-    function reset(address prover, uint32 rewardPerGas) external {
-        assert(prover != address(0) && rewardPerGas != 0);
+    function reset(address prover, uint32 feePerGas) external {
+        assert(prover != address(0) && feePerGas != 0);
         _prover = prover;
-        _rewardPerGas = rewardPerGas;
+        _feePerGas = feePerGas;
     }
 
     function assignProver(
@@ -40,7 +40,7 @@ contract MockProverPool is IProverPool {
         override
         returns (address, uint32)
     {
-        return (_prover, _rewardPerGas);
+        return (_prover, _feePerGas);
     }
 
     function releaseProver(address prover) external pure override { }
@@ -173,7 +173,7 @@ abstract contract TaikoL1TestBase is Test {
             txListByteEnd: txListSize,
             cacheTxListInfo: false,
             prover: address(0), // TODO(daniel)
-            rewardPerGas: 0
+            feePerGas: 0
         });
 
         TaikoData.StateVariables memory variables = L1.getStateVariables();

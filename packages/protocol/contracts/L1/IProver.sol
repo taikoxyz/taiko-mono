@@ -17,7 +17,7 @@ interface IProve {
     /// will be burned.
     /// @param proposer Address of the block proposer.
     /// @param blockId Unique identifier for the block.
-    /// @param feePerGas The fee amount charged per unit of gas.
+    /// @param maxRewardPerGas The fee amount charged per unit of gas.
     /// @param bond The amount of Taiko Token to be burned.
     /// @param extraInput Additional input bytes for the function.
     /// @return prover The address of the prover that should submit a proof
@@ -27,7 +27,7 @@ interface IProve {
     function assignBlock(
         address proposer,
         uint64 blockId,
-        uint32 feePerGas,
+        uint32 maxRewardPerGas,
         uint64 bond,
         bytes calldata extraInput
     )

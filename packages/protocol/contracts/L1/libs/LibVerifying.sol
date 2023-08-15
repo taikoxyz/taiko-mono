@@ -37,7 +37,7 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
-        uint32 initFeePerGas,
+        uint32 initRewardPerGas,
         uint16 initAvgProofDelay
     )
         internal
@@ -77,7 +77,7 @@ library LibVerifying {
             state.slot7.genesisTimestamp = timeNow;
             state.slot8.numBlocks = 1;
             state.slot9.lastVerifiedAt = uint64(block.timestamp);
-            state.slot9.feePerGas = initFeePerGas;
+            state.slot9.avgFeePerGas = initRewardPerGas;
             state.slot9.avgProofDelay = initAvgProofDelay;
 
             // Init the genesis block
@@ -207,7 +207,7 @@ library LibVerifying {
 
         // Reward the prover (including the oracle prover)
         uint64 proofReward =
-            (config.blockFeeBaseGas + fc.gasUsed) * blk.rewardPerGas;
+            (config.blockFeeBaseGas + fc.gasUsed) * blk.feePerGas;
 
         if (fc.prover == address(1)) {
             // system prover is rewarded with `proofReward`.
@@ -242,10 +242,10 @@ library LibVerifying {
                 })
             );
 
-            state.slot9.feePerGas = uint32(
+            state.slot9.avgFeePerGas = uint32(
                 LibUtils.movingAverage({
-                    maValue: state.slot9.feePerGas,
-                    newValue: blk.rewardPerGas,
+                    maValue: state.slot9.avgFeePerGas,
+                    newValue: blk.feePerGas,
                     maf: 7200
                 })
             );

@@ -18,17 +18,14 @@ abstract contract TaikoEvents {
     /// @dev Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
     /// @param assignedProver The address of the assigned prover for the block.
-    /// @param rewardPerGas The reward per gas unit for processing transactions
-    /// in the block.
-    /// @param feePerGas The fee per gas unit used for processing transactions
+    /// @param feePerGas The reward per gas unit for processing transactions
     /// in the block.
     /// @param meta The block metadata containing information about the proposed
     /// block.
     event BlockProposed(
         uint256 indexed blockId,
         address indexed assignedProver,
-        uint32 rewardPerGas,
-        uint64 feePerGas,
+        uint32 feePerGas,
         TaikoData.BlockMetadata meta
     );
 

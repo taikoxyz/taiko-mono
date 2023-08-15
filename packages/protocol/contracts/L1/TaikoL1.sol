@@ -47,12 +47,12 @@ contract TaikoL1 is
     /// @notice Initializes the rollup.
     /// @param _addressManager The {AddressManager} address.
     /// @param _genesisBlockHash The block hash of the genesis block.
-    /// @param _initFeePerGas Initial (reasonable) block fee value.
+    /// @param _initRewardPerGas Initial (reasonable) block fee value.
     /// @param _initAvgProofDelay Initial (reasonable) proof window.
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
-        uint32 _initFeePerGas,
+        uint32 _initRewardPerGas,
         uint16 _initAvgProofDelay
     )
         external
@@ -63,7 +63,7 @@ contract TaikoL1 is
             state: state,
             config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
-            initFeePerGas: _initFeePerGas,
+            initRewardPerGas: _initRewardPerGas,
             initAvgProofDelay: _initAvgProofDelay
         });
     }
@@ -205,10 +205,9 @@ contract TaikoL1 is
     /// @return _proverReleased True if the prover has been released for the
     /// block, false otherwise.
     /// @return _proposer Address of the block proposer.
-    /// @return _feePerGas Fee per gas of the block.
     /// @return _proposedAt Timestamp when the block was proposed.
     /// @return _assignedProver Address of the assigned prover for the block.
-    /// @return _rewardPerGas Reward per gas of the block.
+    /// @return _feePerGas Reward per gas of the block.
     /// @return _proofWindow Proof window of the block.
     function getBlock(uint256 blockId)
         public
@@ -220,10 +219,9 @@ contract TaikoL1 is
             uint24 _verifiedForkChoiceId,
             bool _proverReleased,
             address _proposer,
-            uint32 _feePerGas,
             uint64 _proposedAt,
             address _assignedProver,
-            uint32 _rewardPerGas,
+            uint32 _feePerGas,
             uint64 _proofWindow
         )
     {
@@ -238,10 +236,9 @@ contract TaikoL1 is
         _verifiedForkChoiceId = blk.verifiedForkChoiceId;
         _proverReleased = blk.proverReleased;
         _proposer = blk.proposer;
-        _feePerGas = blk.feePerGas;
         _proposedAt = blk.proposedAt;
         _assignedProver = blk.assignedProver;
-        _rewardPerGas = blk.rewardPerGas;
+        _feePerGas = blk.feePerGas;
         _proofWindow = blk.proofWindow;
     }
 

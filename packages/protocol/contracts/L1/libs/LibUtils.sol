@@ -59,15 +59,18 @@ library LibUtils {
         view
         returns (TaikoData.StateVariables memory)
     {
+        TaikoData.Slot7 memory slot7 = state.slot7;
+        TaikoData.Slot8 memory slot8 = state.slot8;
+        TaikoData.Slot9 memory slot9 = state.slot9;
+
         return TaikoData.StateVariables({
-            feePerGas: state.slot9.feePerGas,
-            genesisHeight: state.slot7.genesisHeight,
-            genesisTimestamp: state.slot7.genesisTimestamp,
-            numBlocks: state.slot8.numBlocks,
-            lastVerifiedBlockId: state.slot9.lastVerifiedBlockId,
-            nextEthDepositToProcess: state.slot8.nextEthDepositToProcess,
-            numEthDeposits: state.slot8.numEthDeposits
-                - state.slot8.nextEthDepositToProcess
+            avgFeePerGas: slot9.avgFeePerGas,
+            genesisHeight: slot7.genesisHeight,
+            genesisTimestamp: slot7.genesisTimestamp,
+            numBlocks: slot8.numBlocks,
+            lastVerifiedBlockId: slot9.lastVerifiedBlockId,
+            nextEthDepositToProcess: slot8.nextEthDepositToProcess,
+            numEthDeposits: slot8.numEthDeposits - slot8.nextEthDepositToProcess
         });
     }
 
@@ -80,7 +83,7 @@ library LibUtils {
         view
         returns (uint64)
     {
-        return state.slot9.feePerGas
+        return state.slot9.avgFeePerGas
             * (gasAmount + LibL2Consts.ANCHOR_GAS_COST + config.blockFeeBaseGas);
     }
 

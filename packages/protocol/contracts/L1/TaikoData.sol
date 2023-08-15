@@ -85,7 +85,7 @@ library TaikoData {
 
     /// @dev Struct holding state variables.
     struct StateVariables {
-        uint32 feePerGas;
+        uint32 avgFeePerGas;
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 numBlocks;
@@ -103,7 +103,7 @@ library TaikoData {
         uint24 txListByteEnd; // byte-wise end index (exclusive)
         bool cacheTxListInfo;
         address prover;
-        uint32 rewardPerGas;
+        uint32 feePerGas;
     }
 
     /// @dev Struct representing block metadata.
@@ -164,11 +164,10 @@ library TaikoData {
         bool proverReleased;
         // Slot 4
         address proposer;
-        uint32 feePerGas;
         uint64 proposedAt;
         // Slot 5
         address assignedProver;
-        uint32 rewardPerGas;
+        uint32 feePerGas;
         uint64 proofWindow;
     }
 
@@ -203,7 +202,7 @@ library TaikoData {
         uint64 lastVerifiedAt;
         uint64 lastVerifiedBlockId;
         uint64 __reserved90;
-        uint32 feePerGas;
+        uint32 avgFeePerGas;
         uint16 avgProofDelay;
     }
 
