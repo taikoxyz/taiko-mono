@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/taikoxyz/taiko-mono/compare/branding-v0.2.0...branding-v0.3.0) (2023-08-15)
+
+
+### Features
+
+* **bridge-ui-v2:** Activities page ([#14504](https://github.com/taikoxyz/taiko-mono/issues/14504)) ([4dff4b3](https://github.com/taikoxyz/taiko-mono/commit/4dff4b317e0ecda43c9804a9e04d2f22c8332a60))
+* **protocol:** alpha-4 with staking-based tokenomics ([#14065](https://github.com/taikoxyz/taiko-mono/issues/14065)) ([1eeba9d](https://github.com/taikoxyz/taiko-mono/commit/1eeba9d97ed8e6e4a8d07a8b0af163a16fbc9ccf))
+
 ## [0.2.0](https://github.com/taikoxyz/taiko-mono/compare/branding-v0.1.2...branding-v0.2.0) (2023-07-24)
 
 
