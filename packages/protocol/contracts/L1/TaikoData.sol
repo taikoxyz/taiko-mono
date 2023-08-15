@@ -183,21 +183,21 @@ library TaikoData {
         uint64 id;
     }
 
-    struct Slot7{
+    struct Slot7 {
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 __reserved70;
         uint64 __reserved71;
     }
 
-    struct Slot8{
+    struct Slot8 {
         uint64 numOpenBlocks;
         uint64 numEthDeposits;
         uint64 numBlocks;
         uint64 nextEthDepositToProcess;
     }
 
-    struct Slot9{
+    struct Slot9 {
         uint64 lastVerifiedAt;
         uint64 lastVerifiedBlockId;
         uint64 __reserved90;

@@ -46,7 +46,8 @@ library LibEthDepositing {
 
         // Append the deposit to the queue.
         address _recipient = recipient == address(0) ? msg.sender : recipient;
-        uint256 slot = state.slot8.numEthDeposits % config.ethDepositRingBufferSize;
+        uint256 slot =
+            state.slot8.numEthDeposits % config.ethDepositRingBufferSize;
         state.ethDeposits[slot] = _encodeEthDeposit(_recipient, msg.value);
 
         emit EthDeposited(

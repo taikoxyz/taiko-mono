@@ -90,10 +90,15 @@ contract PrankDestBridge {
 
         // We need this in order to 'mock' the LibBridgeInvoke's
         //  (success,retVal) =
-        //     message.to.call{ value: message.value, gas: gasLimit }(message.data);
-        // The problem (with foundry) is that this way it is not able to deploy a contract
-        // most probably due to some deployment address nonce issue. (Seems a known issue).
-        destERC1155Vault.receiveToken{value: mockLibInvokeMsgValue}(ctoken, from, to, tokenIds, amounts);
+        //     message.to.call{ value: message.value, gas: gasLimit
+        // }(message.data);
+        // The problem (with foundry) is that this way it is not able to deploy
+        // a contract
+        // most probably due to some deployment address nonce issue. (Seems a
+        // known issue).
+        destERC1155Vault.receiveToken{ value: mockLibInvokeMsgValue }(
+            ctoken, from, to, tokenIds, amounts
+        );
 
         ctx.sender = address(0);
         ctx.msgHash = bytes32(0);
@@ -561,10 +566,7 @@ contract ERC1155VaultTest is Test {
         assertEq(bridgedContract, deployedContract);
     }
 
-    function test_receiveTokens_erc1155_with_ether_to_dave(
-    )
-        public
-    {
+    function test_receiveTokens_erc1155_with_ether_to_dave() public {
         vm.prank(Alice, Alice);
         ctoken1155.setApprovalForAll(address(erc1155Vault), true);
 

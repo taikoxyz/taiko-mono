@@ -54,13 +54,18 @@ contract PrankDestBridge {
         ctx.sender = srcChainERC20Vault;
         ctx.msgHash = msgHash;
         ctx.srcChainId = srcChainId;
-    
+
         // We need this in order to 'mock' the LibBridgeInvoke's
         //  (success,retVal) =
-        //     message.to.call{ value: message.value, gas: gasLimit }(message.data);
-        // The problem (with foundry) is that this way it is not able to deploy a contract
-        // most probably due to some deployment address nonce issue. (Seems a known issue).
-        destERC20Vault.receiveToken{value: mockLibInvokeMsgValue}(canonicalToken, from, to, amount);
+        //     message.to.call{ value: message.value, gas: gasLimit
+        // }(message.data);
+        // The problem (with foundry) is that this way it is not able to deploy
+        // a contract
+        // most probably due to some deployment address nonce issue. (Seems a
+        // known issue).
+        destERC20Vault.receiveToken{ value: mockLibInvokeMsgValue }(
+            canonicalToken, from, to, amount
+        );
 
         ctx.sender = address(0);
         ctx.msgHash = bytes32(0);
@@ -89,7 +94,8 @@ contract TestERC20Vault is Test {
     address public constant Bob = 0x200708D76eB1B69761c23821809d53F65049939e;
     //Need +1 bc. and Amelia is the proxied bridge contracts owner
     address public constant Amelia = 0x60081B12838240B1BA02b3177153BCa678A86080;
-    // Dave has nothing so that we can check if he gets the ether (and other erc20)
+    // Dave has nothing so that we can check if he gets the ether (and other
+    // erc20)
     address public constant Dave = 0x70081B12838240b1ba02B3177153bcA678a86090;
 
     function setUp() public {
@@ -309,10 +315,7 @@ contract TestERC20Vault is Test {
         assertEq(toBalanceAfter - toBalanceBefore, amount);
     }
 
-    function test_receiveTokens_erc20_with_ether_to_dave(
-    )
-        public
-    {
+    function test_receiveTokens_erc20_with_ether_to_dave() public {
         vm.startPrank(Alice);
 
         uint256 srcChainId = block.chainid;

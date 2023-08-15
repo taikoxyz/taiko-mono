@@ -66,7 +66,8 @@ library LibUtils {
             numBlocks: state.slot8.numBlocks,
             lastVerifiedBlockId: state.slot9.lastVerifiedBlockId,
             nextEthDepositToProcess: state.slot8.nextEthDepositToProcess,
-            numEthDeposits: state.slot8.numEthDeposits - state.slot8.nextEthDepositToProcess
+            numEthDeposits: state.slot8.numEthDeposits
+                - state.slot8.nextEthDepositToProcess
         });
     }
 
