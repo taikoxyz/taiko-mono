@@ -25,7 +25,6 @@ const log = getLogger('RelayerAPIService');
 export class RelayerAPIService {
   //Todo: duplicate code in BridgeTxService
   private static async _getTransactionReceipt(chainId: number, hash: Hash) {
-    log(`Getting transaction receipt for ${hash} on chain ${chainId}`);
     try {
       const client = publicClient({ chainId });
       const receipt = await client.getTransactionReceipt({ hash });
@@ -157,7 +156,6 @@ export class RelayerAPIService {
     }
 
     const items = RelayerAPIService._filterDuplicateAndWrongBridge(apiTxs.items);
-
     const txs: BridgeTransaction[] = items.map((tx: APIResponseTransaction) => {
       let data: string = tx.data.Message.Data;
       if (data === '') {
@@ -234,7 +232,7 @@ export class RelayerAPIService {
     bridgeTxs.reverse();
 
     // Place new transactions at the top of the list
-    bridgeTxs.sort((tx) => (tx.status === MessageStatus.NEW ? -1 : 1));
+    // bridgeTxs.sort((tx) => (tx.status === MessageStatus.NEW ? -1 : 1));
 
     return { txs: bridgeTxs, paginationInfo };
   }

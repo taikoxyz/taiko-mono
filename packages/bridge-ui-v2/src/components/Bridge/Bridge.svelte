@@ -45,11 +45,10 @@
   let recipientComponent: Recipient;
   let processingFeeComponent: ProcessingFee;
 
-  function onNetworkChange(network: Network) {
-    if (network && chains.length === 2) {
-      // If there are only two chains, the destination chain will be the other one
-      const otherChain = chains.find((chain) => chain.id !== network.id);
-
+  function onNetworkChange(newNetwork: Network, oldNetwork: Network) {
+    // since we just show two networks we simply swap them
+    if (newNetwork) {
+      const otherChain = oldNetwork;
       if (otherChain) destNetwork.set(otherChain);
     }
   }
@@ -280,12 +279,12 @@
 <Card class="w-full md:w-[524px]" title={$t('bridge.title.default')} text={$t('bridge.description')}>
   <div class="space-y-[35px]">
     <div class="f-between-center gap-4">
-      <ChainSelector class="flex-1 " value={$network} switchWallet />
+      <ChainSelector class="flex-1 " bind:value={$network} switchWallet />
 
       <SwitchChainsButton />
 
       <!-- TODO: should not be readOnly when multiple layers -->
-      <ChainSelector class="flex-1" value={$destNetwork} readOnly />
+      <ChainSelector class="flex-1" bind:value={$destNetwork} />
     </div>
 
     <TokenDropdown {tokens} bind:value={$selectedToken} />

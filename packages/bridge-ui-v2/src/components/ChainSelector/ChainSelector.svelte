@@ -7,7 +7,7 @@
   import { EthIcon, Icon, TaikoIcon } from '$components/Icon';
   import { LoadingMask } from '$components/LoadingMask';
   import { warningToast } from '$components/NotificationToast';
-  import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID } from '$env/static/public';
+  import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID, PUBLIC_L3_CHAIN_ID } from '$env/static/public';
   import { chains } from '$libs/chain';
   import { classNames } from '$libs/util/classNames';
   import { uid } from '$libs/util/uid';
@@ -32,6 +32,7 @@
   let chainToIconMap: Record<string, ComponentType> = {
     [PUBLIC_L1_CHAIN_ID]: EthIcon,
     [PUBLIC_L2_CHAIN_ID]: TaikoIcon,
+    [PUBLIC_L3_CHAIN_ID]: TaikoIcon, // todo: switch to TaikoL3Icon
   };
 
   let switchingNetwork = false;
