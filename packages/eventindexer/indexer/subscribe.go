@@ -116,7 +116,7 @@ func (svc *Service) subscribeSlashed(
 
 		return svc.proverPool.WatchSlashed(&bind.WatchOpts{
 			Context: ctx,
-		}, sink, nil)
+		}, sink, nil, nil)
 	})
 
 	defer sub.Unsubscribe()
@@ -589,7 +589,7 @@ func (svc *Service) subscribeMessageSent(ctx context.Context, chainID *big.Int, 
 			errChan <- errors.Wrap(err, "sub.Err()")
 		case event := <-sink:
 			go func() {
-				slog.Info("messageSentEvent", "owner", event.Message.Owner.Hex())
+				slog.Info("messageSentEvent", "owner", event.Message.From.Hex())
 
 				if err := svc.saveMessageSentEvent(ctx, chainID, event); err != nil {
 					eventindexer.MessageSentEventsProcessedError.Inc()
