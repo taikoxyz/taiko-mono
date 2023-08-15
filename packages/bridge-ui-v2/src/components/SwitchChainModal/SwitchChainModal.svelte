@@ -3,6 +3,7 @@
   import { t } from 'svelte-i18n';
   import { UserRejectedRequestError } from 'viem';
 
+  import { LoadingMask } from '$components/LoadingMask';
   import { warningToast } from '$components/NotificationToast';
   import { chains } from '$libs/chain';
   import { chainToIconMap } from '$libs/util/chainToIconMap';
@@ -44,6 +45,13 @@
 
 <dialog class="modal modal-bottom md:modal-middle" class:modal-open={$switchChainModal}>
   <div class="modal-box relative px-6 py-[35px] md:py-[20px] bg-primary-base-background text-primary-base-content">
+    {#if switchingNetwork}
+      <LoadingMask
+        class="bg-grey-0/60"
+        spinnerClass="border-primary-base-content"
+        text={$t('messages.network.switching')} />
+    {/if}
+
     <h3 class="title-body-bold mb-[20px]">{$t('switch_modal.title')}</h3>
     <p class="body-regular">{$t('switch_modal.description')}</p>
     <ul role="menu" class="space-y-4">
