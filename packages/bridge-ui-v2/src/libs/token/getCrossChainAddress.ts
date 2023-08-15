@@ -3,8 +3,11 @@ import { zeroAddress } from 'viem';
 
 import { tokenVaultABI } from '$abi';
 import { chainContractsMap } from '$libs/chain';
+import { getLogger } from '$libs/util/logger';
 
 import { type GetCrossChainAddressArgs, TokenType } from './types';
+
+const log = getLogger('token:getCrossChainAddress');
 
 export async function getCrossChainAddress({
   token,
@@ -13,6 +16,9 @@ export async function getCrossChainAddress({
 }: GetCrossChainAddressArgs): Promise<Address | null> {
   if (token.type === TokenType.ETH) return null; // ETH doesn't have an address
 
+  log(
+    `Getting cross chain address for token ${token.symbol} (${token.name}) from chain ${srcChainId} to chain ${destChainId}`,
+  );
   const srcChainTokenAddress = token.addresses[srcChainId];
   const destChainTokenAddress = token.addresses[destChainId];
 
@@ -21,9 +27,11 @@ export async function getCrossChainAddress({
     return token.addresses[destChainId];
   }
 
-  // We cannot find the address if we don't have
-  // the token address on the source chain
-  if (!srcChainId) return null;
+  if (!srcChainTokenAddress || srcChainTokenAddress === zeroAddress) {
+    throw new Error(
+      `Token ${token.symbol} (${token.name}) does not have any valid configured address on chain ${srcChainId} or ${destChainId}`,
+    );
+  }
 
   const { tokenVaultAddress: srcChainTokenVaultAddress } = chainContractsMap[srcChainId];
   const { tokenVaultAddress: destChainTokenVaultAddress } = chainContractsMap[destChainId];
