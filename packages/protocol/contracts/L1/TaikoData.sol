@@ -164,7 +164,6 @@ library TaikoData {
         uint32 gasLimit;
         uint24 nextForkChoiceId;
         uint24 verifiedForkChoiceId;
-        bool proverReleased;
         // Slot 4
         address proposer;
         uint64 proposedAt;

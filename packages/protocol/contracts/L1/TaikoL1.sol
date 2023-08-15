@@ -171,8 +171,6 @@ contract TaikoL1 is
     /// @return _gasLimit Gas limit of the block.
     /// @return _nextForkChoiceId Next fork choice ID of the block.
     /// @return _verifiedForkChoiceId Verified fork choice ID of the block.
-    /// @return _proverReleased True if the prover has been released for the
-    /// block, false otherwise.
     /// @return _proposer Address of the block proposer.
     /// @return _proposedAt Timestamp when the block was proposed.
     /// @return _prover Address of the assigned prover for the block.
@@ -186,7 +184,6 @@ contract TaikoL1 is
             uint32 _gasLimit,
             uint24 _nextForkChoiceId,
             uint24 _verifiedForkChoiceId,
-            bool _proverReleased,
             address _proposer,
             uint64 _proposedAt,
             address _prover,
@@ -203,7 +200,6 @@ contract TaikoL1 is
         _gasLimit = blk.gasLimit;
         _nextForkChoiceId = blk.nextForkChoiceId;
         _verifiedForkChoiceId = blk.verifiedForkChoiceId;
-        _proverReleased = blk.proverReleased;
         _proposer = blk.proposer;
         _proposedAt = blk.proposedAt;
         _prover = blk.prover;

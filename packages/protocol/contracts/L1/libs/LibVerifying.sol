@@ -199,8 +199,6 @@ library LibVerifying {
 
         if (blk.prover == address(0)) {
             --state.slot8.numOpenBlocks;
-        } else if (!blk.proverReleased) {
-            proverPool.releaseProver(blk.prover);
         }
 
         // Reward the prover (including the oracle prover)
