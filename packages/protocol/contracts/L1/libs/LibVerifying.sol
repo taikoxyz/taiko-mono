@@ -252,13 +252,18 @@ library LibVerifying {
 
         blk.verifiedForkChoiceId = fcId;
 
-        // refund deposit to proposer and mint fee to prover
-        TaikoToken taikoToken =
-            TaikoToken(resolver.resolve("taiko_token", false));
-        taikoToken.mint(
-            blk.proposer, uint64(_gasLimit - fc.gasUsed) * blk.feePerGas
-        );
-        taikoToken.mint(fc.prover, blockFee + blk.bond);
+        // Refund deposit to proposer and
+        TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
+        tt.mint(blk.proposer, uint64(_gasLimit - fc.gasUsed) * blk.feePerGas);
+
+        //  Mint block fee to prover, potentially with the previous bond
+        {
+            uint64 mintAmount = blockFee;
+            if (fc.prover == blk.prover) {
+                mintAmount += blk.bond;
+            }
+            tt.mint(fc.prover, mintAmount);
+        }
 
         emit BlockVerified({
             blockId: blk.blockId,

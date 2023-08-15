@@ -141,8 +141,7 @@ library LibProposing {
             assignmentParams: input.assignmentParams
         });
 
-        TaikoToken taikoToken =
-            TaikoToken(resolver.resolve("taiko_token", false));
+        TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
 
         if (blk.prover == address(0)) {
             // This is an open block
@@ -155,10 +154,9 @@ library LibProposing {
                 ++state.slot8.numOpenBlocks;
             }
         } else {
-            assert(blk.bond > 0);
             // Burn the bond, if this assigned prover fails to prove the block,
             // additonal tokens will be minted to the actual prover.
-            taikoToken.burn(blk.prover, blk.bond);
+            tt.burn(blk.prover, blk.bond);
         }
 
         // Proposer burns a deposit to cover proving fees, the remaining fee
@@ -168,8 +166,7 @@ library LibProposing {
         {
             uint64 blockDeposit =
                 _calcBlockFee(config, meta.gasLimit, blk.feePerGas);
-
-            taikoToken.burn(msg.sender, blockDeposit);
+            tt.burn(msg.sender, blockDeposit);
         }
 
         // Emit an event
