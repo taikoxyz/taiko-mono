@@ -1,8 +1,7 @@
 import { getPublicClient } from '@wagmi/core';
-import { zeroAddress } from 'viem';
 
 import { recommentProcessingFee } from '$config';
-import { getAddress, isDeployedCrossChain, type Token, TokenType } from '$libs/token';
+import { isDeployedCrossChain, type Token, TokenType } from '$libs/token';
 import { getLogger } from '$libs/util/logger';
 
 const log = getLogger('libs:recommendedProcessingFee');

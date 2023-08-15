@@ -4,13 +4,7 @@ import { zeroAddress } from 'viem';
 import { tokenVaultABI } from '$abi';
 import { chainContractsMap } from '$libs/chain';
 
-import { type Token, TokenType } from './types';
-
-type GetCrossChainAddressArgs = {
-  token: Token;
-  srcChainId: number;
-  destChainId: number;
-};
+import { type GetCrossChainAddressArgs, TokenType } from './types';
 
 export async function getCrossChainAddress({
   token,
@@ -19,19 +13,20 @@ export async function getCrossChainAddress({
 }: GetCrossChainAddressArgs): Promise<Address | null> {
   if (token.type === TokenType.ETH) return null; // ETH doesn't have an address
 
+  const srcChainTokenAddress = token.addresses[srcChainId];
+  const destChainTokenAddress = token.addresses[destChainId];
+
   // check if we already have it
-  if (token.addresses[destChainId] !== zeroAddress) {
+  if (destChainTokenAddress && destChainTokenAddress !== zeroAddress) {
     return token.addresses[destChainId];
   }
 
-  const { tokenVaultAddress: srcChainTokenVaultAddress } = chainContractsMap[srcChainId];
-  const { tokenVaultAddress: destChainTokenVaultAddress } = chainContractsMap[destChainId];
-
-  const srcChainTokenAddress = token.addresses[srcChainId];
-
   // We cannot find the address if we don't have
   // the token address on the source chain
-  if (!srcChainTokenAddress) return null;
+  if (!srcChainId) return null;
+
+  const { tokenVaultAddress: srcChainTokenVaultAddress } = chainContractsMap[srcChainId];
+  const { tokenVaultAddress: destChainTokenVaultAddress } = chainContractsMap[destChainId];
 
   const srcTokenVaultContract = getContract({
     abi: tokenVaultABI,

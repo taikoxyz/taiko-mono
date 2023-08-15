@@ -138,6 +138,7 @@ describe('getCrossChainAddress', () => {
       mockToken.addresses[srcChainId],
     ]);
     vi.mocked(mockTokenVaultContract.read.canonicalToBridged).mockResolvedValue(zeroAddress);
+
     // set the destination address it to zero so we can test it
     mockToken.addresses[destChainId] = zeroAddress;
 
