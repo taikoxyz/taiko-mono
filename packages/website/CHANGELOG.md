@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.13.0](https://github.com/taikoxyz/taiko-mono/compare/website-v0.12.0...website-v0.13.0) (2023-08-15)
+
+
+### Features
+
+* **protocol:** alpha-4 with staking-based tokenomics ([#14065](https://github.com/taikoxyz/taiko-mono/issues/14065)) ([1eeba9d](https://github.com/taikoxyz/taiko-mono/commit/1eeba9d97ed8e6e4a8d07a8b0af163a16fbc9ccf))
+* **website:** add cloak to ecosystem ([#14417](https://github.com/taikoxyz/taiko-mono/issues/14417)) ([fbeab3b](https://github.com/taikoxyz/taiko-mono/commit/fbeab3b22f5cbc80e916639bbd9efb843085b335))
+* **website:** add goneuron to ecosystem ([#14409](https://github.com/taikoxyz/taiko-mono/issues/14409)) ([b6f530b](https://github.com/taikoxyz/taiko-mono/commit/b6f530b541ec9298436233ad5207edebf92cbd78))
+* **website:** add live on testnet badge ([#14290](https://github.com/taikoxyz/taiko-mono/issues/14290)) ([cee172b](https://github.com/taikoxyz/taiko-mono/commit/cee172baf98748368b7f76fabccd028adea590a6))
+* **website:** add morkie to ecosystem ([#14401](https://github.com/taikoxyz/taiko-mono/issues/14401)) ([39e4727](https://github.com/taikoxyz/taiko-mono/commit/39e47273b33e4047c0c94722c9899e8a25e3858c))
+* **website:** add node troubleshooting ([#14277](https://github.com/taikoxyz/taiko-mono/issues/14277)) ([48ce89e](https://github.com/taikoxyz/taiko-mono/commit/48ce89e6890fda1b64501b7cc916e9454f8fbc1d))
+* **website:** add omnikingdoms to ecosystem ([#14481](https://github.com/taikoxyz/taiko-mono/issues/14481)) ([477ca9b](https://github.com/taikoxyz/taiko-mono/commit/477ca9b54ade5b4cba81cbebe9bec53a85c2de28))
+* **website:** add polyhedra to the ecosystem ([#14317](https://github.com/taikoxyz/taiko-mono/issues/14317)) ([3c37431](https://github.com/taikoxyz/taiko-mono/commit/3c37431aa74b953089a099d939712144dedf52e1))
+* **website:** add prover video ([#14424](https://github.com/taikoxyz/taiko-mono/issues/14424)) ([33a10e3](https://github.com/taikoxyz/taiko-mono/commit/33a10e344753294a4efc44a774e03acdea8fbfea))
+* **website:** add vooi to ecosystem ([#14435](https://github.com/taikoxyz/taiko-mono/issues/14435)) ([e6f7124](https://github.com/taikoxyz/taiko-mono/commit/e6f71249e2ab2b9082b6475ad25bdcd88c0d99a5))
+* **website:** optimize claim prover rewards page ([#14285](https://github.com/taikoxyz/taiko-mono/issues/14285)) ([0906c13](https://github.com/taikoxyz/taiko-mono/commit/0906c131f240dcba3ea9da094df441c99573c659))
+* **website:** Text additions and partial corrections and conversion of information ([#14441](https://github.com/taikoxyz/taiko-mono/issues/14441)) ([55be84a](https://github.com/taikoxyz/taiko-mono/commit/55be84a00af93ff248059a86546f215a8702e95b))
+* **website:** update contract addresses for Eldfell L3 ([#14276](https://github.com/taikoxyz/taiko-mono/issues/14276)) ([fd62ce9](https://github.com/taikoxyz/taiko-mono/commit/fd62ce97b8b98ef5953a88dea20d16753b3f4131))
+* **website:** Update enable-a-prover.mdx ([#14353](https://github.com/taikoxyz/taiko-mono/issues/14353)) ([f6bcf4d](https://github.com/taikoxyz/taiko-mono/commit/f6bcf4dfa0f751d833f5675f3c0c500abb356db6))
+* **website:** update integration manual ([#14375](https://github.com/taikoxyz/taiko-mono/issues/14375)) ([2d9ab0f](https://github.com/taikoxyz/taiko-mono/commit/2d9ab0fa50e4ac58f7c47346a710a32a1006379d))
+* **website:** update node running guides ([#14400](https://github.com/taikoxyz/taiko-mono/issues/14400)) ([445b826](https://github.com/taikoxyz/taiko-mono/commit/445b8264720171b6041cb2a56f493ea116435a9e))
+* **website:** update prover log check ([#14385](https://github.com/taikoxyz/taiko-mono/issues/14385)) ([305be56](https://github.com/taikoxyz/taiko-mono/commit/305be56bcfb820611f0d4bf5079860fee3a3408f))
+* **website:** update prover pool impl address ([#14308](https://github.com/taikoxyz/taiko-mono/issues/14308)) ([ef6c52e](https://github.com/taikoxyz/taiko-mono/commit/ef6c52e8d2ec67b9c055290d024e02f3602fdc9f))
+* **website:** update zksynth on ecosystem ([#14410](https://github.com/taikoxyz/taiko-mono/issues/14410)) ([5012624](https://github.com/taikoxyz/taiko-mono/commit/50126249e87e396bf33986d54d21c0817b0b8dbb))
+* **website:** use cards in guides ([#14378](https://github.com/taikoxyz/taiko-mono/issues/14378)) ([cd1db4a](https://github.com/taikoxyz/taiko-mono/commit/cd1db4a0de113b967ec062d70ce785351224e796))
+
+
+### Bug Fixes
+
+* **website:** fix broken link on run-a-sepolia-node.mdx ([#14304](https://github.com/taikoxyz/taiko-mono/issues/14304)) ([50ad6f5](https://github.com/taikoxyz/taiko-mono/commit/50ad6f580d05da53b1d26500d2b5f09706cfd55c))
+* **website:** Fix Careers link in footer ([#14300](https://github.com/taikoxyz/taiko-mono/issues/14300)) ([1020269](https://github.com/taikoxyz/taiko-mono/commit/102026976a19e89b100026bd7e59b63b1bc6795e))
+* **website:** fix port number on node-runner-manual.mdx and run-a-taiko-node.mdx ([#14306](https://github.com/taikoxyz/taiko-mono/issues/14306)) ([759ae0c](https://github.com/taikoxyz/taiko-mono/commit/759ae0ce86d29f9ef7104cd909c40ec060f48acb))
+* **website:** mobile view for homepage buttons ([#14299](https://github.com/taikoxyz/taiko-mono/issues/14299)) ([bfc3f12](https://github.com/taikoxyz/taiko-mono/commit/bfc3f12628d857c3035bc839873ea8e7ddf518d4))
+* **website:** update troubleshooting ([#14326](https://github.com/taikoxyz/taiko-mono/issues/14326)) ([a44f502](https://github.com/taikoxyz/taiko-mono/commit/a44f5022ef544d930c775b8c6e812ea12c62cf95))
+
 ## [0.12.0](https://github.com/taikoxyz/taiko-mono/compare/website-v0.11.0...website-v0.12.0) (2023-07-24)
 
 

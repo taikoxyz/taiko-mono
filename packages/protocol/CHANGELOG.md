@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.13.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v0.12.0...protocol-v0.13.0) (2023-08-15)
+
+
+### Features
+
+* **protocol:** alpha-4 with staking-based tokenomics ([#14065](https://github.com/taikoxyz/taiko-mono/issues/14065)) ([1eeba9d](https://github.com/taikoxyz/taiko-mono/commit/1eeba9d97ed8e6e4a8d07a8b0af163a16fbc9ccf))
+* **protocol:** Gas limit behavior changes ([#14339](https://github.com/taikoxyz/taiko-mono/issues/14339)) ([06710eb](https://github.com/taikoxyz/taiko-mono/commit/06710eb41132f7b920d80053ed8b906d90c18bb3))
+* **protocol:** LibFixedPointMath contract library license different MAX_EXP_INPUT values ([#14344](https://github.com/taikoxyz/taiko-mono/issues/14344)) ([c6e391d](https://github.com/taikoxyz/taiko-mono/commit/c6e391d37c91623bf2673d86042c17892f5af54c))
+
+
+### Bug Fixes
+
+* **protocol:** Fix ProverPool bug, clear proverId when exit ([#14411](https://github.com/taikoxyz/taiko-mono/issues/14411)) ([8dd7481](https://github.com/taikoxyz/taiko-mono/commit/8dd7481887a89309154c1fe2be424e41e01d9a0c))
+
 ## [0.12.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v0.11.0...protocol-v0.12.0) (2023-07-24)
 
 
