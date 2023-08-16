@@ -15,14 +15,14 @@
     <script>
       // On page load or when changing themes, best to add inline in `head` to avoid FOUC
       if (
-        localStorage.theme === 'dark' ||
+        localStorage.theme && localStorage.theme.toLocaleLowerCase() === 'dark' ||
         (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)
       ) {
-        document.documentElement.setAttribute('data-theme', 'dark');
-        localStorage.setItem('theme', 'dark');
+        document.documentElement.dataset.theme = 'dark';
+        localStorage.theme = 'dark';
       } else {
-        document.documentElement.setAttribute('data-theme', 'light');
-        localStorage.setItem('theme', 'light');
+        document.documentElement.dataset.theme = 'light';
+        localStorage.theme = 'light';
       }
     </script>
   </head>
