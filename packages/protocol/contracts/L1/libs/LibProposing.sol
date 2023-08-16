@@ -162,13 +162,17 @@ library LibProposing {
         } else {
             // Burn the bond, if this assigned prover fails to prove the block,
             // additonal tokens will be minted to the actual prover.
+            assert(blk.bond != 0);
             tt.burn(blk.prover, blk.bond);
         }
 
         // Proposer burns a deposit to cover proving fees, the remaining fee
         // will be refunded when the block is verified.
-        // Note that proposer does not deposit more to cover the extra payment
-        // to the prover that proves this block after it becomes open.
+        // Note that if the assigned prover fails to prove this block, more
+        // tokens will be minted to reward another prover after this block
+        // becomes open. These extra tokens come from the assigned prover's
+        // burned bond. Therefore, the block proposer does not need to deposit
+        // more tokens.
         {
             uint64 blockDeposit =
                 _calcBlockFee(config, meta.gasLimit, blk.feePerGas);
