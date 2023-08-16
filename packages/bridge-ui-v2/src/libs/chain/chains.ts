@@ -153,10 +153,8 @@ type AddressConfig = {
   signalServiceAddress: Address;
 };
 
-type ConfiguredChain = typeof chains[number]['id'];
+type ConfiguredChain = (typeof chains)[number]['id'];
 type RoutingConfig = Record<ConfiguredChain, AddressConfig>;
-
-
 
 export const routingContractsMap: Record<ConfiguredChain, RoutingConfig> = {
   [PUBLIC_L1_CHAIN_ID]: {
@@ -179,7 +177,6 @@ export const routingContractsMap: Record<ConfiguredChain, RoutingConfig> = {
       erc1155VaultAddress: PUBLIC_L1_L2_ERC1155_VAULT_ADDRESS as Address,
       crossChainSyncAddress: PUBLIC_L1_L2_CROSS_CHAIN_SYNC_ADDRESS as Address,
       signalServiceAddress: PUBLIC_L1_L2_SIGNAL_SERVICE_ADDRESS as Address,
-
     } as AddressConfig,
     // L2 -> L3
     [PUBLIC_L3_CHAIN_ID]: {
@@ -200,37 +197,6 @@ export const routingContractsMap: Record<ConfiguredChain, RoutingConfig> = {
       erc1155VaultAddress: PUBLIC_L3_ERC1155_VAULT_ADDRESS as Address,
       crossChainSyncAddress: PUBLIC_L3_CROSS_CHAIN_SYNC_ADDRESS as Address,
       signalServiceAddress: PUBLIC_L3_SIGNAL_SERVICE_ADDRESS as Address,
-
     } as AddressConfig,
   },
 };
-
-// export const chainContractsMap: Record<
-//   string,
-//   BrideContractsConfig
-// > = {
-//   [PUBLIC_L1_CHAIN_ID]: {
-//     bridgeAddress: PUBLIC_L1_BRIDGE_ADDRESS as Address,
-//     tokenVaultAddress: PUBLIC_L1_TOKEN_VAULT_ADDRESS as Address,
-//     erc721VaultAddress: PUBLIC_L1_ERC721_VAULT_ADDRESS as Address,
-//     erc1155VaultAddress: PUBLIC_L1_ERC1155_VAULT_ADDRESS as Address,
-//     crossChainSyncAddress: PUBLIC_L1_CROSS_CHAIN_SYNC_ADDRESS as Address,
-//     signalServiceAddress: PUBLIC_L1_SIGNAL_SERVICE_ADDRESS as Address,
-//   },
-//   [PUBLIC_L2_CHAIN_ID]: {
-//     bridgeAddress: PUBLIC_L2_BRIDGE_ADDRESS as Address,
-//     tokenVaultAddress: PUBLIC_L2_TOKEN_VAULT_ADDRESS as Address,
-//     erc721VaultAddress: PUBLIC_L2_ERC721_VAULT_ADDRESS as Address,
-//     erc1155VaultAddress: PUBLIC_L2_ERC1155_VAULT_ADDRESS as Address,
-//     crossChainSyncAddress: PUBLIC_L2_CROSS_CHAIN_SYNC_ADDRESS as Address,
-//     signalServiceAddress: PUBLIC_L2_SIGNAL_SERVICE_ADDRESS as Address,
-//   },
-//   [PUBLIC_L3_CHAIN_ID]: {
-//     bridgeAddress: PUBLIC_L3_BRIDGE_ADDRESS as Address,
-//     tokenVaultAddress: PUBLIC_L3_TOKEN_VAULT_ADDRESS as Address,
-//     erc721VaultAddress: PUBLIC_L3_ERC721_VAULT_ADDRESS as Address,
-//     erc1155VaultAddress: PUBLIC_L3_ERC1155_VAULT_ADDRESS as Address,
-//     crossChainSyncAddress: PUBLIC_L3_CROSS_CHAIN_SYNC_ADDRESS as Address,
-//     signalServiceAddress: PUBLIC_L3_SIGNAL_SERVICE_ADDRESS as Address,
-//   },
-// };

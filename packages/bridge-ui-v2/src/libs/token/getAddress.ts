@@ -25,7 +25,6 @@ export async function getAddress({ token, srcChainId, destChainId }: GetAddressA
     // there is nothing we can do here.
     if (!destChainId) return;
 
-
     address = await getCrossChainAddress({
       token,
       srcChainId: srcChainId,

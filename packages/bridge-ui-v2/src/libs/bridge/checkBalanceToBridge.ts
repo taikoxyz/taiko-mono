@@ -45,7 +45,6 @@ export async function checkBalanceToBridge({
 
   if (token.type === TokenType.ETH) {
     const { bridgeAddress } = routingContractsMap[srcChainId][destChainId];
-    console.log("getting bridge address", bridgeAddress)
     try {
       estimatedCost = await estimateCostOfBridging(bridges.ETH, {
         ...bridgeArgs,

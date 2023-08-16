@@ -19,7 +19,7 @@
     MessageStatus,
   } from '$libs/bridge';
   import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
-  import { routingContractsMap, chains, chainUrlMap } from '$libs/chain';
+  import { chains, chainUrlMap, routingContractsMap } from '$libs/chain';
   import {
     ApproveError,
     InsufficientAllowanceError,
@@ -192,9 +192,11 @@
           break;
         }
         case TokenType.ERC721:
-        // todo: implement
+          // todo: implement
+          break;
         case TokenType.ERC1155:
-        // todo: implement
+          // todo: implement
+          break;
         default:
           throw new Error('invalid token type');
       }

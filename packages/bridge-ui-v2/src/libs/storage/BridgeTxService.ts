@@ -11,13 +11,11 @@ import { publicClient } from '$libs/wagmi';
 
 const log = getLogger('storage:BridgeTxService');
 
-
 type BridgeMessageParams = {
   msgHash: Hash;
   srcChainId: number;
   destChainId: number;
 };
-
 
 export class BridgeTxService {
   private readonly storage: Storage;
@@ -35,7 +33,17 @@ export class BridgeTxService {
     }
   }
 
-  private static async _getBridgeMessageSent({ userAddress, srcChainId, destChainId, blockNumber }: { userAddress: Address, srcChainId: number, destChainId: number, blockNumber: number }) {
+  private static async _getBridgeMessageSent({
+    userAddress,
+    srcChainId,
+    destChainId,
+    blockNumber,
+  }: {
+    userAddress: Address;
+    srcChainId: number;
+    destChainId: number;
+    blockNumber: number;
+  }) {
     // Gets the event MessageSent from the bridge contract
     // in the block where the transaction was mined, and find
     // our event MessageSent whose owner is the address passed in
@@ -117,7 +125,7 @@ export class BridgeTxService {
       userAddress: address,
       srcChainId: Number(srcChainId),
       destChainId: Number(destChainId),
-      blockNumber: Number(receipt.blockNumber)
+      blockNumber: Number(receipt.blockNumber),
     });
 
     if (!messageSentEvent?.args?.msgHash || !messageSentEvent?.args?.message) {
@@ -132,12 +140,11 @@ export class BridgeTxService {
     bridgeTx.msgHash = msgHash;
     bridgeTx.message = message;
 
-    const status = await BridgeTxService._getBridgeMessageStatus(
-      {
-        msgHash: msgHash,
-        srcChainId: Number(srcChainId),
-        destChainId: Number(destChainId)
-      });
+    const status = await BridgeTxService._getBridgeMessageStatus({
+      msgHash: msgHash,
+      srcChainId: Number(srcChainId),
+      destChainId: Number(destChainId),
+    });
 
     bridgeTx.status = status;
     return bridgeTx;

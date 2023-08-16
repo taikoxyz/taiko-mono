@@ -4,13 +4,12 @@ import axios from 'axios';
 import { Buffer } from 'buffer';
 
 import { bridgeABI } from '$abi';
-import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
+import type { BridgeTransaction, MessageStatus } from '$libs/bridge';
 import { TokenType } from '$libs/token';
 import { getLogger } from '$libs/util/logger';
 import { publicClient } from '$libs/wagmi';
 
 import { isSupportedChain, routingContractsMap } from '../chain/chains';
-import { destChain } from './../../../../bridge-ui/src/store/chain';
 import type {
   APIRequestParams,
   APIResponse,
@@ -47,7 +46,8 @@ export class RelayerAPIService {
         continue;
       }
 
-      const { bridgeAddress } = routingContractsMap[Number(item.data.Message.SrcChainId)][Number(item.data.Message.DestChainId)]; // TODO: also handle unsupported chain
+      const { bridgeAddress } =
+        routingContractsMap[Number(item.data.Message.SrcChainId)][Number(item.data.Message.DestChainId)]; // TODO: also handle unsupported chain
       const { DestChainId, SrcChainId } = Message;
       const { transactionHash, address } = Raw;
 
@@ -76,7 +76,15 @@ export class RelayerAPIService {
     return filteredItems;
   }
 
-  private static async _getBridgeMessageStatus({ msgHash, srcChainId, destChainId }: { msgHash: Hash, srcChainId: number, destChainId: number }) {
+  private static async _getBridgeMessageStatus({
+    msgHash,
+    srcChainId,
+    destChainId,
+  }: {
+    msgHash: Hash;
+    srcChainId: number;
+    destChainId: number;
+  }) {
     const { bridgeAddress } = routingContractsMap[Number(srcChainId)][Number(destChainId)];
     const result = await readContract({
       address: bridgeAddress,
@@ -212,7 +220,11 @@ export class RelayerAPIService {
 
       if (!msgHash) return; //todo: handle this case
 
-      const status = await RelayerAPIService._getBridgeMessageStatus({ msgHash, srcChainId: Number(srcChainId), destChainId: Number(destChainId) });
+      const status = await RelayerAPIService._getBridgeMessageStatus({
+        msgHash,
+        srcChainId: Number(srcChainId),
+        destChainId: Number(destChainId),
+      });
 
       // Update the status
       bridgeTx.status = status;
