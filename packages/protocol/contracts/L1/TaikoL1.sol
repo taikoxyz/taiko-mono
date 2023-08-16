@@ -168,27 +168,29 @@ contract TaikoL1 is
     /// @notice Gets the details of a block.
     /// @param blockId Index of the block.
     /// @return _metaHash Metadata hash of the block.
-    /// @return _gasLimit Gas limit of the block.
-    /// @return _nextForkChoiceId Next fork choice ID of the block.
-    /// @return _verifiedForkChoiceId Verified fork choice ID of the block.
     /// @return _proposer Address of the block proposer.
     /// @return _proposedAt Timestamp when the block was proposed.
+    /// @return _gasLimit Gas limit of the block.
     /// @return _prover Address of the assigned prover for the block.
-    /// @return _feePerGas Reward per gas of the block.
+    /// @return _bond The prover's bond.
+    /// @return _feePerGas Fee per gas of the block.
+    /// @return _nextForkChoiceId Next fork choice ID of the block.
+    /// @return _verifiedForkChoiceId Verified fork choice ID of the block.
     /// @return _proofWindow Proof window of the block.
     function getBlock(uint256 blockId)
         public
         view
         returns (
             bytes32 _metaHash,
-            uint32 _gasLimit,
-            uint24 _nextForkChoiceId,
-            uint24 _verifiedForkChoiceId,
             address _proposer,
             uint64 _proposedAt,
+            uint32 _gasLimit,
             address _prover,
+            uint64 _bond,
             uint32 _feePerGas,
-            uint64 _proofWindow
+            uint24 _nextForkChoiceId,
+            uint24 _verifiedForkChoiceId,
+            uint16 _proofWindow
         )
     {
         TaikoData.Block storage blk = LibProposing.getBlock({
@@ -196,14 +198,16 @@ contract TaikoL1 is
             config: getConfig(),
             blockId: blockId
         });
+
         _metaHash = blk.metaHash;
-        _gasLimit = blk.gasLimit;
-        _nextForkChoiceId = blk.nextForkChoiceId;
-        _verifiedForkChoiceId = blk.verifiedForkChoiceId;
         _proposer = blk.proposer;
         _proposedAt = blk.proposedAt;
+        _gasLimit = blk.gasLimit;
         _prover = blk.prover;
+        _bond = blk.bond;
         _feePerGas = blk.feePerGas;
+        _nextForkChoiceId = blk.nextForkChoiceId;
+        _verifiedForkChoiceId = blk.verifiedForkChoiceId;
         _proofWindow = blk.proofWindow;
     }
 
