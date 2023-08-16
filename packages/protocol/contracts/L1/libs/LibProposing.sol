@@ -8,6 +8,7 @@ pragma solidity ^0.8.20;
 
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { AddressResolver } from "../../common/AddressResolver.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { IMintableERC20 } from "../../common/IMintableERC20.sol";
 import { IProver } from "../IProver.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
@@ -19,6 +20,7 @@ import { TaikoToken } from "../TaikoToken.sol";
 
 library LibProposing {
     using Address for address;
+    using ECDSA for bytes32;
     using LibAddress for address;
     using LibAddress for address payable;
     using LibMath for uint256;
@@ -36,6 +38,7 @@ library LibProposing {
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
     error L1_INVALID_PROVER();
+    error L1_INVALID_PROVER_SIG();
     error L1_PERMISSION_DENIED();
     error L1_TOO_MANY_BLOCKS();
     error L1_TOO_MANY_OPEN_BLOCKS();
@@ -138,6 +141,7 @@ library LibProposing {
         (blk.prover, blk.feePerGas, blk.bond) = _assignProver({
             state: state,
             config: config,
+            metaHash: blk.metaHash,
             proofWindow: blk.proofWindow,
             gasLimit: meta.gasLimit,
             blockId: blk.blockId,
@@ -204,6 +208,7 @@ library LibProposing {
     function _assignProver(
         TaikoData.State storage state,
         TaikoData.Config memory config,
+        bytes32 metaHash,
         uint16 proofWindow,
         uint32 gasLimit,
         uint64 blockId,
@@ -218,7 +223,13 @@ library LibProposing {
             _actualProver = prover;
             _feePerGas = maxFeePerGas;
         } else if (!prover.isContract()) {
-            // TODO(daniel): verify proverParams as a signature
+            // Verify the prover has authorized this assignment
+            bytes32 hash =
+                keccak256(abi.encodePacked("PROVE_TAIKO_BLOCK", metaHash));
+
+            if (prover != hash.recover(proverParams)) {
+                revert L1_INVALID_PROVER_SIG();
+            }
             _actualProver = prover;
             _feePerGas = maxFeePerGas;
         } else {
