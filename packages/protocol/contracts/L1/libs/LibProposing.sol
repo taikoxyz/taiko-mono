@@ -12,7 +12,6 @@ import { IMintableERC20 } from "../../common/IMintableERC20.sol";
 import { IProver } from "../IProver.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibEthDepositing } from "./LibEthDepositing.sol";
-import { LibL2Consts } from "../../L2/LibL2Consts.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../TaikoData.sol";
@@ -175,7 +174,7 @@ library LibProposing {
         // more tokens.
         {
             uint64 blockDeposit =
-                _calcBlockFee(config, meta.gasLimit, blk.feePerGas);
+                LibUtils.calcBlockFee(config, meta.gasLimit, blk.feePerGas);
             tt.burn(msg.sender, blockDeposit);
         }
 
@@ -259,7 +258,7 @@ library LibProposing {
                 ? _feePerGas
                 : state.slotC.avgFeePerGas;
 
-            _bond = _calcBlockFee(config, gasLimit, bondFeePerGas)
+            _bond = LibUtils.calcBlockFee(config, gasLimit, bondFeePerGas)
                 * config.proofBondMultiplier;
         }
     }
@@ -324,22 +323,6 @@ library LibProposing {
                     cacheTxListInfo = input.cacheTxListInfo;
                 }
             }
-        }
-    }
-
-    function _calcBlockFee(
-        TaikoData.Config memory config,
-        uint64 gasAmount,
-        uint32 feePerGas
-    )
-        private
-        pure
-        returns (uint64)
-    {
-        uint64 _gas =
-            gasAmount + LibL2Consts.ANCHOR_GAS_COST + config.blockFeeBaseGas;
-        unchecked {
-            return _gas * feePerGas;
         }
     }
 }

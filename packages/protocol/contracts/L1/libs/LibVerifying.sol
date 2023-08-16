@@ -199,53 +199,35 @@ library LibVerifying {
         assert(fc.gasUsed <= _gasLimit);
 
         blk.verifiedForkChoiceId = fcId;
+
         if (blk.prover == address(0)) {
             --state.slotB.numOpenBlocks;
         }
 
-        // inProofWindow can only be true if the block is not open and the
-        // actual
-        // prover is the assigned prover or the oracle prover.
-        bool inProofWindow = fc.provenAt <= blk.proposedAt + blk.proofWindow;
+        bool inProofWindow = blk.prover == address(0)
+            || fc.provenAt <= blk.proposedAt + blk.proofWindow;
 
         // Calculate the block fee
         uint32 feePerGas = inProofWindow
             ? blk.feePerGas
             : state.slotC.avgFeePerGas * config.rewardOpenMultipler / 100;
 
-        uint64 blockFee =
-            uint64(config.blockFeeBaseGas + fc.gasUsed) * feePerGas;
-
-        TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
-
-        // Mint reward to fork choice prover
-        if (blockFee != 0) {
-            tt.mint(fc.prover, blockFee);
-        }
-
-        //  Refund the assigned prover
-        if (blk.bond != 0 && (inProofWindow || fc.prover == address(1))) {
-            tt.mint(blk.prover, blk.bond);
-        }
-
-        // Refund deposit to proposer
-        uint64 depositRefund = uint64(_gasLimit - fc.gasUsed) * blk.feePerGas;
-        if (depositRefund != 0) {
-            tt.mint(blk.proposer, depositRefund);
-        }
+        uint64 blockFee = LibUtils.calcBlockFee(config, fc.gasUsed, feePerGas);
 
         // Update protocol level stats
         if (inProofWindow && fc.prover != address(1)) {
             uint64 proofDelay;
             unchecked {
                 proofDelay = fc.provenAt - blk.proposedAt;
+            }
 
-                if (config.rewardMaxDelayPenalty > 0) {
-                    // Give the reward a penalty up to a small percentage.
-                    // This will encourage prover to submit proof ASAP.
-                    blockFee -= blockFee * proofDelay
-                        * config.rewardMaxDelayPenalty / 10_000 / blk.proofWindow;
-                }
+            if (config.rewardMaxDelayPenalty > 0) {
+                // Give the reward a penalty up to a small percentage.
+                // This will encourage prover to submit proof ASAP.
+                blockFee -= uint64(
+                    uint256(blockFee) * proofDelay
+                        * config.rewardMaxDelayPenalty / 10_000 / blk.proofWindow
+                );
             }
 
             // The selected prover managed to prove the block in time
@@ -265,6 +247,19 @@ library LibVerifying {
                 })
             );
         }
+
+        TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
+
+        // Refund the assigned prover
+        if (blk.bond != 0 && (inProofWindow || fc.prover == address(1))) {
+            tt.mint(blk.prover, blk.bond);
+        }
+
+        // Mint reward to fork choice prover
+        tt.mint(fc.prover, blockFee);
+
+        // Refund deposit to proposer
+        tt.mint(blk.proposer, uint64(_gasLimit - fc.gasUsed) * blk.feePerGas);
 
         // Emit the event
         emit BlockVerified({

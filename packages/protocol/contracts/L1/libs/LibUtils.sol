@@ -6,8 +6,9 @@
 
 pragma solidity ^0.8.20;
 
-import { LibMath } from "../../libs/LibMath.sol";
 import { LibEthDepositing } from "./LibEthDepositing.sol";
+import { LibL2Consts } from "../../L2/LibL2Consts.sol";
+import { LibMath } from "../../libs/LibMath.sol";
 import { TaikoData } from "../TaikoData.sol";
 
 library LibUtils {
@@ -115,6 +116,22 @@ library LibUtils {
 
         assembly {
             hash := keccak256(inputs, mul(7, 32))
+        }
+    }
+
+    function calcBlockFee(
+        TaikoData.Config memory config,
+        uint64 gasAmount,
+        uint32 feePerGas
+    )
+        internal
+        pure
+        returns (uint64)
+    {
+        uint64 _gas =
+            gasAmount + LibL2Consts.ANCHOR_GAS_COST + config.blockFeeBaseGas;
+        unchecked {
+            return _gas * feePerGas;
         }
     }
 
