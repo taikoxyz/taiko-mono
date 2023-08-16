@@ -98,7 +98,7 @@ library LibVerifying {
         emit BlockVerified({
             blockId: 0,
             blockHash: genesisBlockHash,
-            prover: address(0),
+            prover: address(1), // oracle prover
             blockFee: 0
         });
     }
