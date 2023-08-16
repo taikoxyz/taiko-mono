@@ -113,7 +113,7 @@ library LibProposing {
             state.blocks[state.slotB.numBlocks % config.blockRingBufferSize];
 
         blk.metaHash = LibUtils.hashMetadata(meta);
-        blk.blockId = state.slotB.numBlocks;
+        blk.blockId = meta.id;
         blk.gasLimit = meta.gasLimit;
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = 0;
@@ -136,6 +136,7 @@ library LibProposing {
             config: config,
             proofWindow: blk.proofWindow,
             gasLimit: meta.gasLimit,
+            blockId: blk.blockId,
             prover: input.prover,
             maxFeePerGas: input.maxFeePerGas,
             assignmentParams: input.assignmentParams
@@ -198,6 +199,7 @@ library LibProposing {
         TaikoData.Config memory config,
         uint16 proofWindow,
         uint32 gasLimit,
+        uint64 blockId,
         address prover,
         uint32 maxFeePerGas,
         bytes memory assignmentParams
@@ -209,6 +211,7 @@ library LibProposing {
             // This isan IProver contract
             (_prover, _feePerGas) = IProver(prover).onBlockAssigned({
                 proposer: msg.sender,
+                blockId: blockId,
                 maxFeePerGas: maxFeePerGas,
                 proofWindow: proofWindow,
                 params: assignmentParams

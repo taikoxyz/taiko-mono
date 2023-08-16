@@ -14,6 +14,7 @@ interface IProver {
     /// If the block should be proposed as an open block, returns address(0).
     /// Burns the specified `bond` amount of Taiko token from this contract.
     /// @param proposer The address of the block proposer.
+    /// @param blockId The ID of the block.
     /// @param maxFeePerGas Maximum fee per gas the proposer is willing to pay.
     /// @param proofWindow Time window for a valid proof to be submitted by the
     /// prover.
@@ -24,6 +25,7 @@ interface IProver {
     /// prover.
     function onBlockAssigned(
         address proposer,
+        uint64 blockId,
         uint32 maxFeePerGas,
         uint16 proofWindow,
         bytes calldata params
