@@ -53,8 +53,10 @@ library LibProving {
                 || evidence.signalRoot == 0 || evidence.gasUsed == 0
         ) revert L1_INVALID_EVIDENCE();
 
-        if (blockId <= state.lastVerifiedBlockId || blockId >= state.numBlocks)
-        {
+        if (
+            blockId <= state.slotC.lastVerifiedBlockId
+                || blockId >= state.slotB.numBlocks
+        ) {
             revert L1_BLOCK_ID();
         }
 

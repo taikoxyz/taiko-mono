@@ -183,6 +183,33 @@ library TaikoData {
         uint64 id;
     }
 
+    /// @dev Forge is only able to run coverage in case the contracts by default
+    /// capable of compiling without any optimization (neither optimizer runs,
+    /// no compiling --via-ir flag).
+    /// In order to resolve stack too deep without optimizations, we needed to
+    /// introduce outsourcing vars into structs below.
+    struct SlotA {
+        uint64 genesisHeight;
+        uint64 genesisTimestamp;
+        uint64 __reserved70;
+        uint64 __reserved71;
+    }
+
+    struct SlotB {
+        uint64 numOpenBlocks;
+        uint64 numEthDeposits;
+        uint64 numBlocks;
+        uint64 nextEthDepositToProcess;
+    }
+
+    struct SlotC {
+        uint64 lastVerifiedAt;
+        uint64 lastVerifiedBlockId;
+        uint64 __reserved90;
+        uint32 feePerGas;
+        uint16 avgProofDelay;
+    }
+
     /// @dev Struct holding the state variables for the {TaikoL1} contract.
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
@@ -198,22 +225,12 @@ library TaikoData {
         mapping(uint256 depositId_mode_ethDepositRingBufferSize => uint256)
             ethDeposits;
         mapping(address account => uint256 balance) taikoTokenBalances;
-        // Slot 7: never or rarely changed
-        uint64 genesisHeight;
-        uint64 genesisTimestamp;
-        uint64 __reserved70;
-        uint64 __reserved71;
+        // Slot 6: never or rarely changed
+        SlotA slotA;
+        // Slot 7
+        SlotB slotB;
         // Slot 8
-        uint64 numOpenBlocks;
-        uint64 numEthDeposits;
-        uint64 numBlocks;
-        uint64 nextEthDepositToProcess;
-        // Slot 9
-        uint64 lastVerifiedAt;
-        uint64 lastVerifiedBlockId;
-        uint64 __reserved90;
-        uint32 feePerGas;
-        uint16 avgProofDelay;
+        SlotC slotC;
         // Reserved
         uint256[42] __gap;
     }
