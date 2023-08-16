@@ -38,7 +38,7 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
-        uint32 initRewardPerGas,
+        uint32 initFeePerGas,
         uint16 initAvgProofDelay
     )
         internal
@@ -80,7 +80,7 @@ library LibVerifying {
             state.slotA.genesisTimestamp = timeNow;
             state.slotB.numBlocks = 1;
             state.slotC.lastVerifiedAt = uint64(block.timestamp);
-            state.slotC.avgFeePerGas = initRewardPerGas;
+            state.slotC.avgFeePerGas = initFeePerGas;
             state.slotC.avgProofDelay = initAvgProofDelay;
 
             // Init the genesis block
