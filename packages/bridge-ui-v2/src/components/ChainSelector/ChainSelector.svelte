@@ -1,14 +1,14 @@
 <script lang="ts">
   import { type Chain, type GetNetworkResult, switchNetwork } from '@wagmi/core';
-  import { type ComponentType, onDestroy } from 'svelte';
+  import { onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
   import { UserRejectedRequestError } from 'viem';
 
-  import { EthIcon, Icon, TaikoIcon } from '$components/Icon';
+  import { Icon } from '$components/Icon';
   import { LoadingMask } from '$components/LoadingMask';
   import { warningToast } from '$components/NotificationToast';
-  import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID } from '$env/static/public';
   import { chains } from '$libs/chain';
+  import { chainToIconMap } from '$libs/util/chainToIconMap';
   import { classNames } from '$libs/util/classNames';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
@@ -28,11 +28,6 @@
     readOnly ? '' : 'hover:bg-tertiary-interactive-hover',
     'flex justify-start content-center body-bold py-2 px-[20px]',
   );
-
-  let chainToIconMap: Record<string, ComponentType> = {
-    [PUBLIC_L1_CHAIN_ID]: EthIcon,
-    [PUBLIC_L2_CHAIN_ID]: TaikoIcon,
-  };
 
   let switchingNetwork = false;
   let buttonId = `button-${uid()}`;
@@ -143,7 +138,7 @@
             tabindex="0"
             class="p-4 rounded-[10px]"
             class:opacity-20={disabled}
-            class:hover:bg-grey-10={!disabled}
+            class:hover:bg-primary-content={!disabled}
             class:hover:cursor-pointer={!disabled}
             aria-disabled={disabled}
             on:click={() => selectChain(chain)}

@@ -214,6 +214,10 @@
       "connecting": "Connecting"
     }
   },
+  "switch_modal": {
+    "title": "Not on the right network",
+    "description": "Your current network is not supported. Please select one:"
+  },
   "messages": {
     "account": {
       "required": "Please connect your wallet.",
