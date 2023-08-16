@@ -6,6 +6,7 @@
 
 pragma solidity ^0.8.20;
 
+import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { IMintableERC20 } from "../../common/IMintableERC20.sol";
 import { IProver } from "../IProver.sol";
@@ -16,7 +17,6 @@ import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
-import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 
 library LibProposing {
     using Address for address;
@@ -83,6 +83,11 @@ library LibProposing {
             }
         }
 
+        // For developers:
+        // - TaikoData.BlockMetadata captures data only required for proving a
+        // block
+        // - TaikoData.Block captures data required for verifying a block.
+
         // Init the metadata
         meta.id = state.slotB.numBlocks;
 
@@ -128,8 +133,9 @@ library LibProposing {
             );
         }
 
-        // Assign a prover and get the actual feePerGas. Not that the return
-        // prover may be address(0) to indicate this block is open.
+        // Assign a prover and get the actual prover, feePerGas, and the
+        // prover's bond. Note that the actual prover may be address(0) to
+        // indicate this block is open.
         (blk.prover, blk.feePerGas, blk.bond) = _assignProver({
             state: state,
             config: config,

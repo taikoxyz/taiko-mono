@@ -109,7 +109,7 @@ library TaikoData {
         bytes proverParams;
     }
 
-    /// @dev Struct representing block metadata.
+    /// @dev Struct containing data only required for proving a block
     /// Warning: changing this struct requires changing {LibUtils.hashMetadata}
     /// accordingly.
     struct BlockMetadata {
@@ -152,10 +152,10 @@ library TaikoData {
         uint32 gasUsed;
     }
 
-    /// @dev Struct representing a block.
+    /// @dev Struct containing data required for verifying a block.
     /// 5 slots.
     struct Block {
-        // Slot 1: ForkChoice storage are reusable
+        // slot 1: ForkChoice storage are reusable
         mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
         uint64 blockId; // slot 2
         bytes32 metaHash; // slot 3
