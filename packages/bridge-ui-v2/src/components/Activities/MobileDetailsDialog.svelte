@@ -60,7 +60,7 @@
           <h4 class="text-secondary-content">{$t('activities.header.explorer')}</h4>
           <a
             href={`${chainUrlMap[Number(selectedItem.srcChainId)].explorerUrl}/tx/${selectedItem.hash}`}
-            target="_blank">
+            target="noopener">
             {$t('activities.link.explorer')}
           </a>
         </li>

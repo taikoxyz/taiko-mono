@@ -47,7 +47,7 @@
     <Icon type="question-circle" />
   </button>
 
-  <dialog id={tooltipId} class="block rounded-[10px]" class:block-hidden={!tooltipOpen} bind:this={dialogElem}>
+  <dialog id={tooltipId} class="block dialog-tooltip" class:block-hidden={!tooltipOpen} bind:this={dialogElem}>
     <slot />
   </dialog>
 </div>
