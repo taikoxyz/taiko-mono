@@ -187,21 +187,21 @@ library TaikoData {
         uint64 id;
     }
 
-    struct Slot7 {
+    struct SlotA {
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 __reserved70;
         uint64 __reserved71;
     }
 
-    struct Slot8 {
+    struct SlotB {
         uint64 numOpenBlocks;
         uint64 numEthDeposits;
         uint64 numBlocks;
         uint64 nextEthDepositToProcess;
     }
 
-    struct Slot9 {
+    struct SlotC {
         uint64 lastVerifiedAt;
         uint64 lastVerifiedBlockId;
         uint64 __reserved90;
@@ -223,13 +223,9 @@ library TaikoData {
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         mapping(uint256 depositId_mode_ethDepositRingBufferSize => uint256)
             ethDeposits;
-        // Slot 7: never or rarely changed
-        Slot7 slot7;
-        // Slot 8
-        Slot8 slot8;
-        // Slot 9
-        Slot9 slot9;
-        // Reserved
+        SlotA slotA; // slot 5: never or rarely changed
+        SlotB slotB; // slot 6
+        SlotC slotC; // slot 7
         uint256[43] __gap;
     }
 }

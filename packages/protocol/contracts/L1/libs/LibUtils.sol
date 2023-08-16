@@ -24,7 +24,7 @@ library LibUtils {
         view
         returns (bool found, TaikoData.Block storage blk)
     {
-        uint256 id = blockId == 0 ? state.slot9.lastVerifiedBlockId : blockId;
+        uint256 id = blockId == 0 ? state.slotC.lastVerifiedBlockId : blockId;
         blk = state.blocks[id % config.blockRingBufferSize];
         found = (blk.blockId == id && blk.verifiedForkChoiceId != 0);
     }
@@ -58,18 +58,18 @@ library LibUtils {
         view
         returns (TaikoData.StateVariables memory)
     {
-        TaikoData.Slot7 memory slot7 = state.slot7;
-        TaikoData.Slot8 memory slot8 = state.slot8;
-        TaikoData.Slot9 memory slot9 = state.slot9;
+        TaikoData.SlotA memory slotA = state.slotA;
+        TaikoData.SlotB memory slotB = state.slotB;
+        TaikoData.SlotC memory slotC = state.slotC;
 
         return TaikoData.StateVariables({
-            avgFeePerGas: slot9.avgFeePerGas,
-            genesisHeight: slot7.genesisHeight,
-            genesisTimestamp: slot7.genesisTimestamp,
-            numBlocks: slot8.numBlocks,
-            lastVerifiedBlockId: slot9.lastVerifiedBlockId,
-            nextEthDepositToProcess: slot8.nextEthDepositToProcess,
-            numEthDeposits: slot8.numEthDeposits - slot8.nextEthDepositToProcess
+            avgFeePerGas: slotC.avgFeePerGas,
+            genesisHeight: slotA.genesisHeight,
+            genesisTimestamp: slotA.genesisTimestamp,
+            numBlocks: slotB.numBlocks,
+            lastVerifiedBlockId: slotC.lastVerifiedBlockId,
+            nextEthDepositToProcess: slotB.nextEthDepositToProcess,
+            numEthDeposits: slotB.numEthDeposits - slotB.nextEthDepositToProcess
         });
     }
 

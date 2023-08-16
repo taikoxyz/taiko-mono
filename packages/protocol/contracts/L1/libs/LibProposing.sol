@@ -85,7 +85,7 @@ library LibProposing {
         }
 
         // Init the metadata
-        meta.id = state.slot8.numBlocks;
+        meta.id = state.slotB.numBlocks;
 
         unchecked {
             meta.timestamp = uint64(block.timestamp);
@@ -96,7 +96,7 @@ library LibProposing {
             // from the beacon chain. Since multiple Taiko blocks
             // can be proposed in one Ethereum block, we need to
             // add salt to this random number as L2 mixHash
-            meta.mixHash = bytes32(block.prevrandao * state.slot8.numBlocks);
+            meta.mixHash = bytes32(block.prevrandao * state.slotB.numBlocks);
         }
 
         meta.txListHash = input.txListHash;
@@ -110,10 +110,10 @@ library LibProposing {
 
         // Init the block
         TaikoData.Block storage blk =
-            state.blocks[state.slot8.numBlocks % config.blockRingBufferSize];
+            state.blocks[state.slotB.numBlocks % config.blockRingBufferSize];
 
         blk.metaHash = LibUtils.hashMetadata(meta);
-        blk.blockId = state.slot8.numBlocks;
+        blk.blockId = state.slotB.numBlocks;
         blk.gasLimit = meta.gasLimit;
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = 0;
@@ -123,7 +123,7 @@ library LibProposing {
         unchecked {
             blk.proofWindow = uint16(
                 (
-                    uint256(state.slot9.avgProofDelay)
+                    uint256(state.slotC.avgProofDelay)
                         * config.proofWindowMultiplier / 100
                 ).min(config.proofMaxWindow).max(config.proofMinWindow)
             );
@@ -145,13 +145,13 @@ library LibProposing {
 
         if (blk.prover == address(0)) {
             // This is an open block
-            if (state.slot8.numOpenBlocks >= config.rewardOpenMaxCount) {
+            if (state.slotB.numOpenBlocks >= config.rewardOpenMaxCount) {
                 revert L1_TOO_MANY_OPEN_BLOCKS();
             }
             assert(blk.bond == 0);
             blk.proofWindow = 0;
             unchecked {
-                ++state.slot8.numOpenBlocks;
+                ++state.slotB.numOpenBlocks;
             }
         } else {
             // Burn the bond, if this assigned prover fails to prove the block,
@@ -172,7 +172,7 @@ library LibProposing {
         // Emit an event
         unchecked {
             emit BlockProposed({
-                blockId: state.slot8.numBlocks++,
+                blockId: state.slotB.numBlocks++,
                 prover: blk.prover,
                 feePerGas: blk.feePerGas,
                 meta: meta
@@ -225,7 +225,7 @@ library LibProposing {
 
         if (_prover == address(0)) {
             // For an open block, we make sure more the proposer pays more
-            uint256 minFeePerGas = uint256(state.slot9.avgFeePerGas)
+            uint256 minFeePerGas = uint256(state.slotC.avgFeePerGas)
                 * config.rewardOpenMultipler / 100;
 
             _feePerGas =
@@ -236,11 +236,11 @@ library LibProposing {
 
             // We calculate how much bond the prover shall burn.
             // To cover open block reward, we have to use the max of _feePerGas
-            // and state.slot9.avgFeePerGas in the calculation in case
+            // and state.slotC.avgFeePerGas in the calculation in case
             // _feePerGas is really small or zero.
-            uint32 bondFeePerGas = _feePerGas > state.slot9.avgFeePerGas
+            uint32 bondFeePerGas = _feePerGas > state.slotC.avgFeePerGas
                 ? _feePerGas
-                : state.slot9.avgFeePerGas;
+                : state.slotC.avgFeePerGas;
 
             _bond = _calcBlockFee(config, gasLimit, bondFeePerGas)
                 * config.proofBondMultiplier;
@@ -260,8 +260,8 @@ library LibProposing {
         if (input.beneficiary == address(0)) revert L1_INVALID_METADATA();
 
         if (
-            state.slot8.numBlocks
-                >= state.slot9.lastVerifiedBlockId + config.blockMaxProposals + 1
+            state.slotB.numBlocks
+                >= state.slotC.lastVerifiedBlockId + config.blockMaxProposals + 1
         ) {
             revert L1_TOO_MANY_BLOCKS();
         }
