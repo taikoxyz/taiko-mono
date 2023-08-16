@@ -85,11 +85,6 @@ library LibProposing {
             }
         }
 
-        // For developers:
-        // - TaikoData.BlockMetadata captures data only required for proving a
-        // block
-        // - TaikoData.Block captures data required for verifying a block.
-
         // Init the metadata
         meta.id = state.slotB.numBlocks;
 
