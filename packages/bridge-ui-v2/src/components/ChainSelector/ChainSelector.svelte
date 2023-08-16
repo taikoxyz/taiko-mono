@@ -130,7 +130,7 @@
         <Icon type="x-close" fillClass="fill-secondary-icon" size={24} />
       </button>
       <h3 class="title-body-bold mb-[20px]">{$t('chain_selector.placeholder')}</h3>
-      <ul role="menu" class="space-y-4">
+      <ul role="menu">
         {#each chains as chain (chain.id)}
           {@const disabled = chain.id === value?.id}
           <li
@@ -151,7 +151,7 @@
                 </i>
                 <span class="body-bold">{chain.name}</span>
               </div>
-              <span class="body-regular">{chain.network}</span>
+              <span class="f-items-center body-regular">{chain.network}</span>
             </div>
           </li>
         {/each}
