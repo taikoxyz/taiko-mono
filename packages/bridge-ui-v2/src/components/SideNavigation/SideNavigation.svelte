@@ -10,12 +10,10 @@
   import { LinkButton } from '$components/LinkButton';
   import { LogoWithText } from '$components/Logo';
   import { PUBLIC_GUIDE_URL, PUBLIC_L2_EXPLORER_URL } from '$env/static/public';
+  import { onMount } from 'svelte';
 
+  let darkTheme = false;
   let drawerToggleElem: HTMLInputElement;
-
-  $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
-  $: isFaucetPage = $page.route.id === '/faucet';
-  $: isActivitiesPage = $page.route.id === '/activities';
 
   function closeDrawer() {
     drawerToggleElem.checked = false;
@@ -30,6 +28,22 @@
   function getIconFillClass(active: boolean) {
     return active ? 'fill-white' : 'fill-primary-icon';
   }
+
+  function switchTheme(dark: boolean) {
+    const theme = dark ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }
+
+  $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
+  $: isFaucetPage = $page.route.id === '/faucet';
+  $: isActivitiesPage = $page.route.id === '/activities';
+
+  $: switchTheme(darkTheme);
+
+  onMount(() => {
+    darkTheme = localStorage.getItem('theme')?.toLocaleLowerCase() === 'dark';
+  });
 </script>
 
 <div class="drawer md:drawer-open">
@@ -87,7 +101,7 @@
                 <span>{$t('nav.activities')}</span>
               </LinkButton>
             </li>
-            <li>
+            <li class="border-t border-t-divider-border">
               <LinkButton href={PUBLIC_L2_EXPLORER_URL} external>
                 <Icon type="explorer" />
                 <span>{$t('nav.explorer')}</span>
@@ -98,6 +112,13 @@
                 <Icon type="guide" />
                 <span>{$t('nav.guide')}</span>
               </LinkButton>
+            </li>
+            <li>
+              <label>
+                <Icon type="adjustments" />
+                <span>{$t('nav.theme')}</span>
+                <input type="checkbox" class="toggle" bind:checked={darkTheme} />
+              </label>
             </li>
           </ul>
         </div>
