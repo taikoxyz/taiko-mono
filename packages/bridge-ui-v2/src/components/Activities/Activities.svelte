@@ -11,7 +11,6 @@
   import { Spinner } from '$components/Spinner';
   import { activitiesConfig } from '$config';
   import { type BridgeTransaction, fetchTransactions } from '$libs/bridge';
-  import { web3modal } from '$libs/connect';
   import { bridgeTxService } from '$libs/storage';
   import { account, network } from '$stores';
   import type { Account } from '$stores/account';
@@ -50,8 +49,6 @@
     const end = start + pageSize;
     return bridgeTx.slice(start, end);
   };
-
-  const onWalletConnect = () => web3modal.openModal();
 
   const onAccountChange = async (newAccount: Account, oldAccount?: Account) => {
     // We want to make sure that we are connected and only

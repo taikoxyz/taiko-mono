@@ -2,12 +2,12 @@
   import { t } from 'svelte-i18n';
   import { formatEther } from 'viem';
 
-  import type { BridgeTransaction, MessageStatus } from '$libs/bridge';
+  import type { BridgeTransaction } from '$libs/bridge';
   import { chainUrlMap } from '$libs/chain';
 
   export let item: BridgeTransaction;
 
-  import { createEventDispatcher, onDestroy } from 'svelte';
+  import { createEventDispatcher } from 'svelte';
 
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { Icon } from '$components/Icon';
@@ -22,19 +22,6 @@
   const handleClick = () => dispatch('click');
 
   const handlePress = () => dispatch('press');
-
-  const mapStatusToText = (status: MessageStatus) => {
-    switch (status) {
-      case 1:
-        return 'Pending';
-      case 2:
-        return 'Claimed';
-      case 3:
-        return 'Failed';
-      default:
-        return 'Unknown';
-    }
-  };
 
   let attrs = isDesktopOrLarger ? {} : { role: 'button' };
 </script>

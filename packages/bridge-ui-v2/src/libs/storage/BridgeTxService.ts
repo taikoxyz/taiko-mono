@@ -9,8 +9,6 @@ import { jsonParseWithDefault } from '$libs/util/jsonParseWithDefault';
 import { getLogger } from '$libs/util/logger';
 import { publicClient } from '$libs/wagmi';
 
-import { destChain } from './../../../../bridge-ui/src/store/chain';
-
 const log = getLogger('storage:BridgeTxService');
 
 
@@ -68,8 +66,6 @@ export class BridgeTxService {
       abi: bridgeABI,
       address: bridgeAddress,
     });
-
-    console.log("getting message status", msgHash, bridgeContract.address, srcChainId, destChainId)
 
     return bridgeContract.read.getMessageStatus([msgHash]) as Promise<MessageStatus>;
   }
@@ -135,8 +131,6 @@ export class BridgeTxService {
     // fails, such as the filter for ERC20Sent events
     bridgeTx.msgHash = msgHash;
     bridgeTx.message = message;
-
-    console.log("message", message, msgHash);
 
     const status = await BridgeTxService._getBridgeMessageStatus(
       {

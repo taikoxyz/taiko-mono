@@ -97,8 +97,8 @@ export async function checkBalanceToBridge({
 
     const isTokenAlreadyDeployed = await isDeployedCrossChain({
       token,
-      srcChainId: destChainId,
-      destChainId: srcChainId,
+      srcChainId,
+      destChainId,
     });
 
     try {

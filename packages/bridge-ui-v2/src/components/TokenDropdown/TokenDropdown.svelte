@@ -8,7 +8,7 @@
   import Erc20 from '$components/Icon/ERC20.svelte';
   import { warningToast } from '$components/NotificationToast';
   import { tokenService } from '$libs/storage/services';
-  import type { Token } from '$libs/token';
+  import { ETHToken, type Token } from '$libs/token';
   import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
@@ -69,13 +69,24 @@
         srcChainId: chain.id,
         destChainId: destChain.id,
       });
-      token.addresses[destChain.id] = bridgedAddress as Address;
 
-      tokenService.updateToken(token, $account?.address as Address);
+      // only update the token if we actually have a new bridged address
+      if (bridgedAddress && bridgedAddress !== token.addresses[destChain.id]) {
+        token.addresses[destChain.id] = bridgedAddress as Address;
+
+        tokenService.updateToken(token, $account?.address as Address);
+      }
     }
     value = token;
 
     closeMenu();
+  };
+
+  const handleTokenRemoved = (event: { detail: { token: Token } }) => {
+    // if the selected token is the one that was removed by the user, remove it
+    if (event.detail.token === value) {
+      value = ETHToken;
+    }
   };
 
   onDestroy(() => closeMenu());
@@ -114,7 +125,7 @@
   </button>
 
   {#if isDesktopOrLarger}
-    <DropdownView {id} {menuOpen} {tokens} {value} {selectToken} />
+    <DropdownView {id} {menuOpen} {tokens} {value} {selectToken} on:tokenRemoved={handleTokenRemoved} />
   {:else}
     <DialogView {id} {menuOpen} {tokens} {value} {selectToken} {closeMenu} />
   {/if}

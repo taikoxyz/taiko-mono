@@ -117,7 +117,7 @@
   </div>
 </dialog>
 
-<AddCustomErc20 bind:modalOpen />
+<AddCustomErc20 bind:modalOpen on:tokenRemoved />
 
 <!-- <OnNetwork change={onNetworkChange} /> -->
 <OnAccount change={onAccountChange} />
