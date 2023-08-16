@@ -28,7 +28,6 @@ library LibProposing {
     event BlockProposed(
         uint256 indexed blockId,
         address indexed prover,
-        uint32 feePerGas,
         TaikoData.BlockMetadata meta
     );
 
@@ -114,11 +113,11 @@ library LibProposing {
 
         blk.blockId = meta.id;
         blk.metaHash = LibUtils.hashMetadata(meta);
+        blk.proposer = msg.sender;
+        blk.proposedAt = meta.timestamp;
         blk.gasLimit = meta.gasLimit;
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = 0;
-        blk.proposer = msg.sender;
-        blk.proposedAt = meta.timestamp;
 
         unchecked {
             blk.proofWindow = uint16(
@@ -175,7 +174,6 @@ library LibProposing {
             emit BlockProposed({
                 blockId: state.slotB.numBlocks++,
                 prover: blk.prover,
-                feePerGas: blk.feePerGas,
                 meta: meta
             });
         }

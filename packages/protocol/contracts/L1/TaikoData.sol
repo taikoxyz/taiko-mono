@@ -157,21 +157,17 @@ library TaikoData {
     struct Block {
         // Slot 1: ForkChoice storage are reusable
         mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
-        // Slot 2
-        bytes32 metaHash;
-        // Slot 3: (13 bytes available)
-        uint64 blockId;
-        uint32 gasLimit;
-        uint24 nextForkChoiceId;
-        uint24 verifiedForkChoiceId;
-        // Slot 4
-        address proposer;
+        uint64 blockId; // slot 2
+        bytes32 metaHash; // slot 3
+        address proposer; // slot 4
         uint64 proposedAt;
-        // Slot 5
-        address prover;
+        uint32 gasLimit;
+        address prover; // slot 5
+        uint64 bond;
         uint32 feePerGas;
+        uint24 nextForkChoiceId; // slot 6 (64 bits used)
+        uint24 verifiedForkChoiceId;
         uint16 proofWindow;
-        uint64 bond; // TODO: optimize the layout
     }
 
     /// @dev Struct representing information about a transaction list.
