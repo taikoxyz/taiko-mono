@@ -139,7 +139,7 @@ library LibProposing {
             blockId: blk.blockId,
             prover: input.prover,
             maxFeePerGas: input.maxFeePerGas,
-            assignmentParams: input.assignmentParams
+            proverParams: input.proverParams
         });
 
         TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
@@ -202,7 +202,7 @@ library LibProposing {
         uint64 blockId,
         address prover,
         uint32 maxFeePerGas,
-        bytes memory assignmentParams
+        bytes memory proverParams
     )
         private
         returns (address _prover, uint32 _feePerGas, uint64 _bond)
@@ -214,7 +214,7 @@ library LibProposing {
                 blockId: blockId,
                 maxFeePerGas: maxFeePerGas,
                 proofWindow: proofWindow,
-                params: assignmentParams
+                params: proverParams
             });
         } else {
             // Prover is address(0) or an EOA address

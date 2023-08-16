@@ -174,7 +174,7 @@ abstract contract TaikoL1TestBase is Test {
             cacheTxListInfo: false,
             prover: address(0), // TODO(daniel)
             maxFeePerGas: 0,
-            assignmentParams: new bytes(0)
+            proverParams: new bytes(0)
         });
 
         TaikoData.StateVariables memory variables = L1.getStateVariables();

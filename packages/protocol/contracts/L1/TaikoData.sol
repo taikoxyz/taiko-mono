@@ -106,7 +106,7 @@ library TaikoData {
         bool cacheTxListInfo;
         address prover;
         uint32 maxFeePerGas;
-        bytes assignmentParams;
+        bytes proverParams;
     }
 
     /// @dev Struct representing block metadata.
