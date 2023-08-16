@@ -112,8 +112,8 @@ library LibProposing {
         TaikoData.Block storage blk =
             state.blocks[state.slotB.numBlocks % config.blockRingBufferSize];
 
-        blk.metaHash = LibUtils.hashMetadata(meta);
         blk.blockId = meta.id;
+        blk.metaHash = LibUtils.hashMetadata(meta);
         blk.gasLimit = meta.gasLimit;
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = 0;
