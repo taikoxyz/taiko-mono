@@ -96,6 +96,7 @@ contract TestERC20Vault is Test {
     address public constant Amelia = 0x60081B12838240B1BA02b3177153BCa678A86080;
     // Dave has nothing so that we can check if he gets the ether (and other
     // erc20)
+
     address public constant Dave = 0x70081B12838240b1ba02B3177153bcA678a86090;
 
     function setUp() public {
