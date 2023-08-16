@@ -228,7 +228,6 @@ library TaikoData {
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         mapping(uint256 depositId_mode_ethDepositRingBufferSize => uint256)
             ethDeposits;
-
         SlotA slotA; // slot 5: never or rarely changed
         SlotB slotB; // slot 6
         SlotC slotC; // slot 7

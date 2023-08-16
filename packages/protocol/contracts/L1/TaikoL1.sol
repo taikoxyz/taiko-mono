@@ -46,12 +46,12 @@ contract TaikoL1 is
     /// @notice Initializes the rollup.
     /// @param _addressManager The {AddressManager} address.
     /// @param _genesisBlockHash The block hash of the genesis block.
-    /// @param _initRewardPerGas Initial (reasonable) block fee value.
+    /// @param _initFeePerGas Initial (reasonable) block fee value.
     /// @param _initAvgProofDelay Initial (reasonable) proof window.
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
-        uint32 _initRewardPerGas,
+        uint32 _initFeePerGas,
         uint16 _initAvgProofDelay
     )
         external
@@ -62,7 +62,7 @@ contract TaikoL1 is
             state: state,
             config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
-            initRewardPerGas: _initRewardPerGas,
+            initFeePerGas: _initFeePerGas,
             initAvgProofDelay: _initAvgProofDelay
         });
     }
