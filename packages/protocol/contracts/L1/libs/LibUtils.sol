@@ -63,13 +63,13 @@ library LibUtils {
         TaikoData.SlotC memory slotC = state.slotC;
 
         return TaikoData.StateVariables({
-            avgFeePerGas: slotC.avgFeePerGas,
             genesisHeight: slotA.genesisHeight,
             genesisTimestamp: slotA.genesisTimestamp,
             numBlocks: slotB.numBlocks,
             lastVerifiedBlockId: slotC.lastVerifiedBlockId,
             nextEthDepositToProcess: slotB.nextEthDepositToProcess,
-            numEthDeposits: slotB.numEthDeposits - slotB.nextEthDepositToProcess
+            numEthDeposits: slotB.numEthDeposits - slotB.nextEthDepositToProcess,
+            avgFeePerGas: slotC.avgFeePerGas
         });
     }
 

@@ -87,13 +87,13 @@ library TaikoData {
 
     /// @dev Struct holding state variables.
     struct StateVariables {
-        uint32 avgFeePerGas;
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 numBlocks;
         uint64 lastVerifiedBlockId;
         uint64 nextEthDepositToProcess;
         uint64 numEthDeposits;
+        uint32 avgFeePerGas;
     }
 
     /// @dev Struct representing input data for block metadata.
