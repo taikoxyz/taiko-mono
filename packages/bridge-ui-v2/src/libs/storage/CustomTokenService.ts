@@ -64,7 +64,7 @@ export class CustomTokenService implements TokenService {
 
     // Filter out zero addresses from the new token's addresses
     const filteredAddresses = Object.fromEntries(
-      Object.entries(token.addresses).filter(([key, value]) => value !== zeroAddress),
+      Object.entries(token.addresses).filter(([, value]) => value !== zeroAddress),
     );
 
     // Find the stored token to update

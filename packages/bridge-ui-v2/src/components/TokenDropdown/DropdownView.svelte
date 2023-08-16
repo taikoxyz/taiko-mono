@@ -108,6 +108,6 @@
   </li>
 </ul>
 
-<AddCustomErc20 bind:modalOpen={addArc20ModalOpen} />
+<AddCustomErc20 bind:modalOpen={addArc20ModalOpen} on:tokenRemoved />
 
 <OnAccount change={onAccountChange} />
