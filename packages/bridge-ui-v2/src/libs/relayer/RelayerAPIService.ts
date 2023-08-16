@@ -9,7 +9,8 @@ import { TokenType } from '$libs/token';
 import { getLogger } from '$libs/util/logger';
 import { publicClient } from '$libs/wagmi';
 
-import { chainContractsMap, isSupportedChain } from '../chain/chains';
+import { isSupportedChain, routingContractsMap } from '../chain/chains';
+import { destChain } from './../../../../bridge-ui/src/store/chain';
 import type {
   APIRequestParams,
   APIResponse,
@@ -46,7 +47,7 @@ export class RelayerAPIService {
         continue;
       }
 
-      const { bridgeAddress } = chainContractsMap[item.chainID]; // TODO: also handle unsupported chain
+      const { bridgeAddress } = routingContractsMap[Number(item.data.Message.SrcChainId)][Number(item.data.Message.DestChainId)]; // TODO: also handle unsupported chain
       const { DestChainId, SrcChainId } = Message;
       const { transactionHash, address } = Raw;
 
@@ -75,12 +76,12 @@ export class RelayerAPIService {
     return filteredItems;
   }
 
-  private static async _getBridgeMessageStatus(msgHash: Hash, chainId: number) {
-    const { bridgeAddress } = chainContractsMap[Number(chainId)];
+  private static async _getBridgeMessageStatus({ msgHash, srcChainId, destChainId }: { msgHash: Hash, srcChainId: number, destChainId: number }) {
+    const { bridgeAddress } = routingContractsMap[Number(srcChainId)][Number(destChainId)];
     const result = await readContract({
       address: bridgeAddress,
       abi: bridgeABI,
-      chainId: Number(chainId),
+      chainId: Number(destChainId),
       functionName: 'getMessageStatus',
       args: [msgHash],
     });
@@ -211,7 +212,7 @@ export class RelayerAPIService {
 
       if (!msgHash) return; //todo: handle this case
 
-      const status = await RelayerAPIService._getBridgeMessageStatus(msgHash, Number(destChainId));
+      const status = await RelayerAPIService._getBridgeMessageStatus({ msgHash, srcChainId: Number(srcChainId), destChainId: Number(destChainId) });
 
       // Update the status
       bridgeTx.status = status;
@@ -265,11 +266,11 @@ export class RelayerAPIService {
 function _checkType(bridgeTx: BridgeTransaction): TokenType {
   const to = bridgeTx.message?.to;
   switch (to) {
-    case chainContractsMap[Number(bridgeTx.srcChainId)].tokenVaultAddress:
+    case routingContractsMap[Number(bridgeTx.srcChainId)][Number(bridgeTx.destChainId)].erc20VaultAddress:
       return TokenType.ERC20;
-    case chainContractsMap[Number(bridgeTx.srcChainId)].erc721VaultAddress:
+    case routingContractsMap[Number(bridgeTx.srcChainId)][Number(bridgeTx.destChainId)].erc721VaultAddress:
       return TokenType.ERC721;
-    case chainContractsMap[Number(bridgeTx.srcChainId)].erc1155VaultAddress:
+    case routingContractsMap[Number(bridgeTx.srcChainId)][Number(bridgeTx.destChainId)].erc1155VaultAddress:
       return TokenType.ERC1155;
     default:
       return TokenType.ETH;

@@ -1,6 +1,6 @@
 import type { Address } from 'viem';
 
-import { chainContractsMap } from '$libs/chain';
+import { routingContractsMap } from '$libs/chain';
 import { type Token, TokenType } from '$libs/token';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';
@@ -40,7 +40,7 @@ export async function getMaxAmountToBridge({
     }
 
     const wallet = await getConnectedWallet();
-    const { bridgeAddress } = chainContractsMap[srcChainId];
+    const { bridgeAddress } = routingContractsMap[srcChainId][destChainId];
 
     const bridgeArgs = {
       to,

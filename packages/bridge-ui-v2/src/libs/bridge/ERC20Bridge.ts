@@ -3,7 +3,7 @@ import { UserRejectedRequestError } from 'viem';
 
 import { erc20ABI, tokenVaultABI } from '$abi';
 import { bridgeService } from '$config';
-import { chainContractsMap } from '$libs/chain';
+import { routingContractsMap } from '$libs/chain';
 import {
   ApproveError,
   InsufficientAllowanceError,
@@ -53,8 +53,8 @@ export class ERC20Bridge extends Bridge {
     const gasLimit = !isTokenAlreadyDeployed
       ? BigInt(bridgeService.noTokenDeployedGasLimit)
       : processingFee > 0
-      ? bridgeService.noOwnerGasLimit
-      : BigInt(0);
+        ? bridgeService.noOwnerGasLimit
+        : BigInt(0);
 
     const sendERC20Args: SendERC20Args = [
       BigInt(destChainId),
@@ -238,7 +238,7 @@ export class ERC20Bridge extends Bridge {
 
     const proof = await this._prover.generateProofToRelease(msgHash, srcChainId, destChainId);
 
-    const srcTokenVaultAddress = chainContractsMap[connectedChainId].tokenVaultAddress;
+    const srcTokenVaultAddress = routingContractsMap[connectedChainId][destChainId].erc20VaultAddress;
     const srcTokenVaultContract = getContract({
       walletClient: wallet,
       abi: tokenVaultABI,

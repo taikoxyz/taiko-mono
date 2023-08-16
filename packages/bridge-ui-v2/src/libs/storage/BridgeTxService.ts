@@ -4,12 +4,22 @@ import type { Address, Hash, TransactionReceipt } from 'viem';
 import { bridgeABI } from '$abi';
 import { pendingTransaction, storageService } from '$config';
 import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
-import { chainContractsMap, isSupportedChain } from '$libs/chain';
+import { isSupportedChain, routingContractsMap } from '$libs/chain';
 import { jsonParseWithDefault } from '$libs/util/jsonParseWithDefault';
 import { getLogger } from '$libs/util/logger';
 import { publicClient } from '$libs/wagmi';
 
+import { destChain } from './../../../../bridge-ui/src/store/chain';
+
 const log = getLogger('storage:BridgeTxService');
+
+
+type BridgeMessageParams = {
+  msgHash: Hash;
+  srcChainId: number;
+  destChainId: number;
+};
+
 
 export class BridgeTxService {
   private readonly storage: Storage;
@@ -27,13 +37,13 @@ export class BridgeTxService {
     }
   }
 
-  private static async _getBridgeMessageSent(userAddress: Address, chainId: number, blockNumber: number) {
+  private static async _getBridgeMessageSent({ userAddress, srcChainId, destChainId, blockNumber }: { userAddress: Address, srcChainId: number, destChainId: number, blockNumber: number }) {
     // Gets the event MessageSent from the bridge contract
     // in the block where the transaction was mined, and find
     // our event MessageSent whose owner is the address passed in
 
-    const bridgeAddress = chainContractsMap[chainId].bridgeAddress;
-    const client = publicClient({ chainId });
+    const bridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
+    const client = publicClient({ chainId: srcChainId });
 
     const filter = await client.createContractEventFilter({
       abi: bridgeABI,
@@ -50,14 +60,16 @@ export class BridgeTxService {
     return messageSentEvents.find(({ args }) => args.message?.owner.toLowerCase() === userAddress.toLowerCase());
   }
 
-  private static _getBridgeMessageStatus(msgHash: Hash, chainId: number) {
-    const bridgeAddress = chainContractsMap[chainId].bridgeAddress;
+  private static _getBridgeMessageStatus({ msgHash, srcChainId, destChainId }: BridgeMessageParams) {
+    const bridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
 
     const bridgeContract = getContract({
-      chainId,
+      chainId: destChainId,
       abi: bridgeABI,
       address: bridgeAddress,
     });
+
+    console.log("getting message status", msgHash, bridgeContract.address, srcChainId, destChainId)
 
     return bridgeContract.read.getMessageStatus([msgHash]) as Promise<MessageStatus>;
   }
@@ -105,11 +117,12 @@ export class BridgeTxService {
     // We have receipt
     bridgeTx.receipt = receipt;
 
-    const messageSentEvent = await BridgeTxService._getBridgeMessageSent(
-      address,
-      Number(srcChainId),
-      Number(receipt.blockNumber),
-    );
+    const messageSentEvent = await BridgeTxService._getBridgeMessageSent({
+      userAddress: address,
+      srcChainId: Number(srcChainId),
+      destChainId: Number(destChainId),
+      blockNumber: Number(receipt.blockNumber)
+    });
 
     if (!messageSentEvent?.args?.msgHash || !messageSentEvent?.args?.message) {
       // No message yet, so we can't get more info from this transaction
@@ -123,7 +136,14 @@ export class BridgeTxService {
     bridgeTx.msgHash = msgHash;
     bridgeTx.message = message;
 
-    const status = await BridgeTxService._getBridgeMessageStatus(msgHash, Number(destChainId));
+    console.log("message", message, msgHash);
+
+    const status = await BridgeTxService._getBridgeMessageStatus(
+      {
+        msgHash: msgHash,
+        srcChainId: Number(srcChainId),
+        destChainId: Number(destChainId)
+      });
 
     bridgeTx.status = status;
     return bridgeTx;

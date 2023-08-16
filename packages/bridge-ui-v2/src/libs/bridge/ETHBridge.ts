@@ -3,7 +3,7 @@ import { UserRejectedRequestError } from 'viem';
 
 import { bridgeABI } from '$abi';
 import { bridgeService } from '$config';
-import { chainContractsMap } from '$libs/chain';
+import { routingContractsMap } from '$libs/chain';
 import { ProcessMessageError, ReleaseError, SendMessageError } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
 import { getLogger } from '$libs/util/logger';
@@ -149,7 +149,7 @@ export class ETHBridge extends Bridge {
 
     const proof = await this._prover.generateProofToRelease(msgHash, srcChainId, destChainId);
 
-    const srcBridgeAddress = chainContractsMap[connectedChainId].bridgeAddress;
+    const srcBridgeAddress = routingContractsMap[connectedChainId][destChainId].bridgeAddress;
     const srcBridgeContract = getContract({
       walletClient: wallet,
       abi: bridgeABI,

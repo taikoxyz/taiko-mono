@@ -19,7 +19,7 @@
     MessageStatus,
   } from '$libs/bridge';
   import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
-  import { chainContractsMap, chains, chainUrlMap } from '$libs/chain';
+  import { routingContractsMap, chains, chainUrlMap } from '$libs/chain';
   import {
     ApproveError,
     InsufficientAllowanceError,
@@ -80,7 +80,7 @@
         throw new Error('token address not found');
       }
 
-      const spenderAddress = chainContractsMap[$network.id].tokenVaultAddress;
+      const spenderAddress = routingContractsMap[$network.id][$destNetwork.id].erc20VaultAddress;
 
       const txHash = await erc20Bridge.approve({
         tokenAddress,
@@ -155,7 +155,7 @@
         case TokenType.ETH: {
           // Specific arguments for ETH bridge:
           // - bridgeAddress
-          const bridgeAddress = chainContractsMap[$network.id].bridgeAddress;
+          const bridgeAddress = routingContractsMap[$network.id][$destNetwork.id].bridgeAddress;
           bridgeArgs = { ...bridgeArgs, bridgeAddress } as ETHBridgeArgs;
           break;
         }
@@ -175,7 +175,7 @@
             throw new Error('token address not found');
           }
 
-          const tokenVaultAddress = chainContractsMap[$network.id].tokenVaultAddress;
+          const tokenVaultAddress = routingContractsMap[$network.id][$destNetwork.id].erc20VaultAddress;
 
           const isTokenAlreadyDeployed = await isDeployedCrossChain({
             token: $selectedToken,
@@ -191,7 +191,10 @@
           } as ERC20BridgeArgs;
           break;
         }
-
+        case TokenType.ERC721:
+        // todo: implement
+        case TokenType.ERC1155:
+        // todo: implement
         default:
           throw new Error('invalid token type');
       }

@@ -1,7 +1,7 @@
 import { getContract } from '@wagmi/core';
 
 import { tokenVaultABI } from '$abi';
-import { chainContractsMap } from '$libs/chain';
+import { routingContractsMap } from '$libs/chain';
 
 import { type Token, TokenType } from './types';
 
@@ -14,19 +14,28 @@ type GetCrossChainAddressArgs = {
 export function getCrossChainAddress({ token, srcChainId, destChainId }: GetCrossChainAddressArgs) {
   if (token.type === TokenType.ETH) return; // ETH doesn't have an address
 
-  const { tokenVaultAddress } = chainContractsMap[destChainId];
+  if (token.type === TokenType.ERC20) {
+    const { erc20VaultAddress } = routingContractsMap[srcChainId][destChainId];
 
-  const srcChainTokenAddress = token.addresses[srcChainId];
+    const srcChainTokenAddress = token.addresses[srcChainId];
 
-  // We cannot find the address if we don't have
-  // the token address on the source chain
-  if (!srcChainTokenAddress) return;
+    // We cannot find the address if we don't have
+    // the token address on the source chain
+    if (!srcChainTokenAddress) return;
 
-  const destTokenVaultContract = getContract({
-    abi: tokenVaultABI,
-    chainId: destChainId,
-    address: tokenVaultAddress,
-  });
-
-  return destTokenVaultContract.read.canonicalToBridged([BigInt(srcChainId), srcChainTokenAddress]);
+    const destTokenVaultContract = getContract({
+      abi: tokenVaultABI,
+      chainId: destChainId,
+      address: erc20VaultAddress,
+    });
+    return destTokenVaultContract.read.canonicalToBridged([BigInt(srcChainId), srcChainTokenAddress]);
+  }
+  if (token.type === TokenType.ERC721) {
+    // todo: implement
+    const { erc721VaultAddress } = routingContractsMap[srcChainId][destChainId];
+  }
+  if (token.type === TokenType.ERC1155) {
+    const { erc1155VaultAddress } = routingContractsMap[srcChainId][destChainId];
+    //todo: implement
+  }
 }

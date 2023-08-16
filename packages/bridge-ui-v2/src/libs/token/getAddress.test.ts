@@ -2,7 +2,7 @@ import { getContract, type GetContractResult } from '@wagmi/core';
 
 import { tokenVaultABI } from '$abi';
 import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID } from '$env/static/public';
-import { chainContractsMap } from '$libs/chain';
+import { routingContractsMap } from '$libs/chain';
 
 import { getAddress } from './getAddress';
 import { ETHToken, testERC20Tokens } from './tokens';
@@ -54,7 +54,7 @@ describe('getAddress', () => {
     ]);
     expect(getContract).toHaveBeenCalledWith({
       abi: tokenVaultABI,
-      address: chainContractsMap[PUBLIC_L2_CHAIN_ID].tokenVaultAddress,
+      address: routingContractsMap[Number(PUBLIC_L2_CHAIN_ID)][Number(PUBLIC_L1_CHAIN_ID)].erc20VaultAddress,
       chainId: Number(PUBLIC_L2_CHAIN_ID),
     });
   });

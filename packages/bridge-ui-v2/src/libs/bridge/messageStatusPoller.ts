@@ -3,11 +3,12 @@ import { EventEmitter } from 'events';
 
 import { bridgeABI } from '$abi';
 import { bridgeTransactionPoller } from '$config';
-import { chainContractsMap } from '$libs/chain';
+import { routingContractsMap } from '$libs/chain';
 import { BridgeTxPollingError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { nextTick } from '$libs/util/nextTick';
 
+import { srcChain } from './../../../../pos-dashboard/src/store/chain';
 import { isTransactionProcessable } from './isTransactionProcessable';
 import { type BridgeTransaction, MessageStatus } from './types';
 
@@ -64,7 +65,7 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = false
   let interval = hashIntervalMap[hash];
 
   // We are gonna be polling the destination bridge contract
-  const destBridgeAddress = chainContractsMap[Number(destChainId)].bridgeAddress;
+  const destBridgeAddress = routingContractsMap[Number(srcChain)][Number(destChainId)].bridgeAddress;
   const destBridgeContract = getContract({
     address: destBridgeAddress,
     abi: bridgeABI,
