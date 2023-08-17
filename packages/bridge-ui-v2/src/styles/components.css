@@ -75,7 +75,7 @@
 
       /* border */
       /* border-primary-border  */
-      shadow-[0_0_0_1px_#5d636f] 
+      /* shadow-[0_0_0_1px_#5d636f]  */
 
       /* hover:border-2 */
       /* hover:border-primary-border-hover */
@@ -119,7 +119,19 @@
 
   /* Other components */
   .overlay-backdrop {
-    @apply modal-backdrop bg-overlay-background;
+    @apply modal-backdrop bg-overlay-background rounded-xl;
+  }
+
+  .chainselector {
+    @apply /* background: var(--interactive-dark-tertiary, #444A55); */
+    hover:background-color: var(--interactive-dark-tertiary-hover, #5D636F);
+  }
+
+  .glassy-gradient-card {
+    /* Trying to be consistent with design */
+    /* grey-500/10 => grey-800/20 */
+    background: linear-gradient(226deg, rgba(93, 99, 111, 0.1) 1.26%, rgba(25, 30, 40, 0.2) 100%);
+    backdrop-filter: blur(10px);
   }
 
   /* TODO: add more components here */

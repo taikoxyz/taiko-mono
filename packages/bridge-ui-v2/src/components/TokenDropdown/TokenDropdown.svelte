@@ -1,13 +1,14 @@
 <script lang="ts">
-  import { type Address,getNetwork } from '@wagmi/core';
+  import { type Address, getNetwork } from '@wagmi/core';
   import { onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { Icon } from '$components/Icon';
   import Erc20 from '$components/Icon/ERC20.svelte';
+  import { warningToast } from '$components/NotificationToast';
   import { tokenService } from '$libs/storage/services';
-  import type { Token } from '$libs/token';
+  import { ETHToken, type Token } from '$libs/token';
   import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
@@ -29,33 +30,63 @@
   // not being used, doing this with JS instead of CSS media queries
   let isDesktopOrLarger: boolean;
 
-  const closeMenu = () => (menuOpen = false);
+  const closeMenu = () => {
+    menuOpen = false;
+    document.removeEventListener('click', closeMenu);
+  };
 
-  const openMenu = () => {
+  const openMenu = (event: Event) => {
+    event.stopPropagation();
+
     menuOpen = true;
+
+    // Click away to close menu
+    document.addEventListener('click', closeMenu, { once: true });
   };
 
   const selectToken = async (token: Token) => {
     const { chain } = getNetwork();
     const destChain = $destNetwork;
 
-    if (!chain || !destChain) throw new Error('Chain not found');
+    // In order to select a token, we only need the source chain to be selected,
+    // unless it's an imported token...
+    if (!chain) {
+      warningToast($t('messages.network.required'));
+      return;
+    }
 
     // if it is an imported Token, chances are we do not yet have the bridged address
     // for the destination chain, so we need to fetch it
     if (token.imported) {
+      // ... in the case of imported tokens, we also require the destination chain to be selected.
+      if (!destChain) {
+        warningToast($t('messages.network.required_dest'));
+        return;
+      }
+
       const bridgedAddress = await getCrossChainAddress({
         token,
         srcChainId: chain.id,
         destChainId: destChain.id,
       });
-      token.addresses[destChain.id] = bridgedAddress as Address;
 
-      tokenService.updateToken(token, $account?.address as Address);
+      // only update the token if we actually have a new bridged address
+      if (bridgedAddress && bridgedAddress !== token.addresses[destChain.id]) {
+        token.addresses[destChain.id] = bridgedAddress as Address;
+
+        tokenService.updateToken(token, $account?.address as Address);
+      }
     }
     value = token;
 
     closeMenu();
+  };
+
+  const handleTokenRemoved = (event: { detail: { token: Token } }) => {
+    // if the selected token is the one that was removed by the user, remove it
+    if (event.detail.token === value) {
+      value = ETHToken;
+    }
   };
 
   onDestroy(() => closeMenu());
@@ -68,12 +99,12 @@
     aria-haspopup="listbox"
     aria-controls={id}
     aria-expanded={menuOpen}
-    class="f-between-center w-full px-6 py-[14px] input-box bg-neutral-background border-0 shadow-none outline-none font-bold text-2xl"
+    class="f-between-center w-full px-6 py-[14px] input-box bg-neutral-background border-0 shadow-none outline-none"
     on:click={openMenu}
     on:focus={openMenu}>
     <div class="space-x-2">
       {#if !value}
-        <span class="title-subsection-bold text-tertiary-content leading-8">{$t('token_dropdown.label')}</span>
+        <span class="title-subsection-bold text-secondary-content">{$t('token_dropdown.label')}</span>
       {/if}
       {#if value}
         <div class="flex space-x-2 items-center">
@@ -94,8 +125,8 @@
   </button>
 
   {#if isDesktopOrLarger}
-    <DropdownView {id} {menuOpen} {tokens} {value} {selectToken} />
+    <DropdownView {id} {menuOpen} {tokens} {value} {selectToken} on:tokenRemoved={handleTokenRemoved} />
   {:else}
-    <DialogView {id} {menuOpen} {tokens} {value} {selectToken} {closeMenu} on:closemenu={closeMenu} />
+    <DialogView {id} {menuOpen} {tokens} {value} {selectToken} {closeMenu} />
   {/if}
 </div>

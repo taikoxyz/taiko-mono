@@ -18,4 +18,19 @@
   body {
     height: 100%;
   }
+
+  body {
+    /* No grid background by default */
+    height: 100%;
+    background-image: url(/bg/grid.svg), url(/bg/spotlights.svg), linear-gradient(270deg, #1f1f1f 0%, #000000 100%);
+    background-size: 0, cover, cover;
+    background-blend-mode: color-dodge, lighten, multiply;
+    background-attachment: fixed;
+  }
+
+  @media (min-width: 768px) {
+    body {
+      background-size: 700px, cover, cover;
+    }
+  }
 }

@@ -252,26 +252,77 @@ export default {
         },
 
         light: {
-          // TODO: add light theme
-
           'color-scheme': 'light',
           '--btn-text-case': 'capitalize',
-          '--rounded-box': '0.625rem', // 10px
+          // '--rounded-box': '0.625rem', // 10px
 
+          '--primary-brand': '#C8047D', // pink-500
           '--primary-content': '#191E28', // grey-800
+          '--primary-link': '#C8047D', // pink-500
+          '--primary-link-hover': '#E81899', // pink-400
+          '--primary-icon': '#5D636F', // grey-500
           '--primary-background': '#FAFAFA', // grey-5
+          '--primary-interactive': '#C8047D', // pink-500
+          '--primary-interactive-accent': '#E81899', // pink-400
+          '--primary-border': '#91969F', // grey-300
+          '--primary-border-hover': '#FF6FC8', // pink-200
+          '--primary-border-accent': '#E81899', // pink-400
+
+          // TODO: these two are yet to be decided
+          '--primary-base-background': '#FFFFFF', // grey-0
+          '--primary-base-content': '#191E28', // grey-800
+
+          '--secondary-brand': '#E81899', // pink-400
+          '--secondary-content': '#444A55', // grey-600
+          '--secondary-icon': '#2B303B', // grey-700
+          '--secondary-interactive-hover': '#F3F3F3', // grey-10
+
+          '--tertiary-content': '#91969F', // grey-300
+
+          // TODO: these two are missing. Remain the same as dark theme
+          '--tertiary-interactive-hover': '#444A55', // grey-600
+          '--tertiary-interactive-accent': '#5D636F', // grey-500
+
+          '--positive-sentiment': '#005E36', // green-700
+          '--positive-background': '#BFFFE4', // green-50
+
+          '--negative-sentiment': '#BB1A1B', // red-600
+          '--negative-background': '#FFE7E7', // red-10
+
+          '--warning-sentiment': '#775602', // yellow-700
+          '--warning-background': '#FFF6DE', // yellow-10
+
+          '--elevated-background': '#FAFAFA', // grey-5
+          '--neutral-background': '#E7E7E7', // grey-50
+          '--overlay-background': 'rgba(12, 17, 28, 0.2)', // grey-900|20%
+
+          '--divider-border': '#CACBCE', // grey-100
 
           // ================================ //
 
+          primary: '#C8047D', // pink-500,
+          'primary-focus': '#E81899', // pink-400
+          'primary-content': '#F3F3F3', // grey-10
+
+          secondary: '#E81899', // pink-400
+          // 'secondary-focus': '',
+          'secondary-content': '#444A55', // grey-600
+
+          neutral: '#E7E7E7', // grey-50
+          'neutral-focus': '#CACBCE', // grey-100
+          'neutral-content': '#F3F3F3', // grey-10
+
           'base-100': '#FAFAFA', // grey-5
+          // 'base-200': '',
+          // 'base-300': '',
           'base-content': '#191E28', // grey-800
 
-          success: '#E4FFF4', // green-10
-          'success-content': '#059458', // green-600
+          success: '#BFFFE4', // green-50
+          'success-content': '#005E36', // green-700
           error: '#FFE7E7', // red-10
-          'error-content': '#CE2C2D', // red-500
+          'error-content': '#BB1A1B', // red-600
           warning: '#FFF6DE', // yellow-10
-          'warning-content': '#C28B00', // yellow-600
+          'warning-content': '#775602', // yellow-700
         },
       },
     ],

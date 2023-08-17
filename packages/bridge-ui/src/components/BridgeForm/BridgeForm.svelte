@@ -499,10 +499,10 @@
         const requiredGas = gasEstimate.mul(feeData.gasPrice);
         const userBalance = await $signer.getBalance('latest');
 
-        // Let's start with substracting the estimated required gas to bridge
+        // Let's start with subtracting the estimated required gas to bridge
         let balanceAvailableForTx = userBalance.sub(requiredGas);
 
-        // Following we substract the currently selected processing fee
+        // Following we subtract the currently selected processing fee
         const processingFee = getProcessingFee();
         if (processingFee) {
           balanceAvailableForTx = balanceAvailableForTx.sub(processingFee);

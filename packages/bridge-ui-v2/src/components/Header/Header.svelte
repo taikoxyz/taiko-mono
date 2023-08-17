@@ -25,14 +25,11 @@
     md:px-10
     md:py-7
  ">
-  <LogoWithText width={150} height={50} class="md:hidden" />
+  <LogoWithText width={77} height={21} class="md:hidden" />
 
-  <div class="flex justify-end md:f-between-center w-full">
+  <div class="flex justify-end w-full">
     {#if isBridgePage}
-      <!-- TODO: show tabs on mobile somewhere else -->
-      <BridgeTabs class="hidden md:flex" />
-    {:else}
-      <div></div>
+      <BridgeTabs class="hidden md:flex md:flex-1" />
     {/if}
 
     <ConnectButton connected={$account?.isConnected} />

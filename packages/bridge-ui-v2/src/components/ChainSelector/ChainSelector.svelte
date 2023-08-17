@@ -1,14 +1,14 @@
 <script lang="ts">
   import { type Chain, type GetNetworkResult, switchNetwork } from '@wagmi/core';
-  import { type ComponentType, onDestroy } from 'svelte';
+  import { onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
   import { UserRejectedRequestError } from 'viem';
 
-  import { EthIcon, Icon, TaikoIcon } from '$components/Icon';
+  import { Icon } from '$components/Icon';
   import { LoadingMask } from '$components/LoadingMask';
   import { warningToast } from '$components/NotificationToast';
-  import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID } from '$env/static/public';
   import { chains } from '$libs/chain';
+  import { chainToIconMap } from '$libs/util/chainToIconMap';
   import { classNames } from '$libs/util/classNames';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
@@ -25,14 +25,9 @@
     small ? 'px-2 py-[6px]' : 'px-6 py-[10px]',
     small ? 'rounded-md' : 'rounded-[10px]',
     small ? 'w-auto' : 'w-full',
-    readOnly ? '' : 'hover:bg-primary-interactive-hover',
+    readOnly ? '' : 'hover:bg-tertiary-interactive-hover',
     'flex justify-start content-center body-bold py-2 px-[20px]',
   );
-
-  let chainToIconMap: Record<string, ComponentType> = {
-    [PUBLIC_L1_CHAIN_ID]: EthIcon,
-    [PUBLIC_L2_CHAIN_ID]: TaikoIcon,
-  };
 
   let switchingNetwork = false;
   let buttonId = `button-${uid()}`;
@@ -108,7 +103,7 @@
       aria-expanded={modalOpen}
       class={buttonClasses}
       on:click={openModal}>
-      <div class="{small ? 'f-items-center' : 'f-center'} space-x-2">
+      <div class="{small ? 'f-items-center' : 'f-center'} space-x-2 w-full">
         {#if !value}
           <span>{$t('chain_selector.placeholder')}</span>
         {/if}
@@ -135,7 +130,7 @@
         <Icon type="x-close" fillClass="fill-secondary-icon" size={24} />
       </button>
       <h3 class="title-body-bold mb-[20px]">{$t('chain_selector.placeholder')}</h3>
-      <ul role="menu" class="space-y-4">
+      <ul role="menu">
         {#each chains as chain (chain.id)}
           {@const disabled = chain.id === value?.id}
           <li
@@ -143,7 +138,7 @@
             tabindex="0"
             class="p-4 rounded-[10px]"
             class:opacity-20={disabled}
-            class:hover:bg-grey-10={!disabled}
+            class:hover:bg-primary-content={!disabled}
             class:hover:cursor-pointer={!disabled}
             aria-disabled={disabled}
             on:click={() => selectChain(chain)}
@@ -156,7 +151,7 @@
                 </i>
                 <span class="body-bold">{chain.name}</span>
               </div>
-              <span class="body-regular">{chain.network}</span>
+              <span class="f-items-center body-regular">{chain.network}</span>
             </div>
           </li>
         {/each}

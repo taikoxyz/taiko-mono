@@ -10,9 +10,16 @@
   import { OnNetwork } from '$components/OnNetwork';
   import { TokenDropdown } from '$components/TokenDropdown';
   import { PUBLIC_L1_EXPLORER_URL } from '$env/static/public';
-  import { type BridgeArgs, bridges, type ERC20BridgeArgs, type ETHBridgeArgs } from '$libs/bridge';
+  import {
+    type BridgeArgs,
+    bridges,
+    type BridgeTransaction,
+    type ERC20BridgeArgs,
+    type ETHBridgeArgs,
+    MessageStatus,
+  } from '$libs/bridge';
   import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
-  import { chainContractsMap, chains } from '$libs/chain';
+  import { chainContractsMap, chains, chainUrlMap } from '$libs/chain';
   import {
     ApproveError,
     InsufficientAllowanceError,
@@ -20,6 +27,7 @@
     SendERC20Error,
     SendMessageError,
   } from '$libs/error';
+  import { bridgeTxService } from '$libs/storage';
   import { ETHToken, getAddress, isDeployedCrossChain, tokens, TokenType } from '$libs/token';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { type Account, account } from '$stores/account';
@@ -82,11 +90,13 @@
         wallet: walletClient,
       });
 
+      const { explorerUrl } = chainUrlMap[$network.id];
+
       infoToast(
         $t('bridge.actions.approve.tx', {
           values: {
             token: $selectedToken.symbol,
-            url: `${PUBLIC_L1_EXPLORER_URL}/tx/${txHash}`,
+            url: `${explorerUrl}/tx/${txHash}`,
           },
         }),
       );
@@ -193,6 +203,7 @@
         $t('bridge.actions.bridge.tx', {
           values: {
             token: $selectedToken.symbol,
+            //Todo: must link to the correct explorer, not just L1
             url: `${PUBLIC_L1_EXPLORER_URL}/tx/${txHash}`,
           },
         }),
@@ -207,6 +218,27 @@
           },
         }),
       );
+
+      // Let's add it to the user's localStorage
+      const bridgeTx = {
+        hash: txHash,
+        from: $account.address,
+        amount: $enteredAmount,
+        symbol: $selectedToken.symbol,
+        decimals: $selectedToken.decimals,
+        srcChainId: BigInt($network.id),
+        destChainId: BigInt($destNetwork.id),
+        tokenType: $selectedToken.type,
+        status: MessageStatus.NEW,
+        timestamp: Date.now(),
+
+        // TODO: do we need something else? we can have
+        // access to the Transaction object:
+        // TransactionLegacy, TransactionEIP2930 and
+        // TransactionEIP1559
+      } as BridgeTransaction;
+
+      bridgeTxService.addTxByAddress($account.address, bridgeTx);
 
       // Reset the form
       amountComponent.clearAmount();

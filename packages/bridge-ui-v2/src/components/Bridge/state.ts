@@ -24,6 +24,7 @@ export const recipientAddress = writable<Maybe<Address>>(null);
 export const bridging = writable<boolean>(false);
 export const approving = writable<boolean>(false);
 export const computingBalance = writable<boolean>(false);
+export const validatingAmount = writable<boolean>(false);
 
 // Errors state
 export const errorComputingBalance = writable<boolean>(false);

@@ -65,3 +65,19 @@ export class WrongOwnerError extends Error {
 export class WrongChainError extends Error {
   name = 'WrongChainError';
 }
+
+export class BridgeTxPollingError extends Error {
+  name = 'BridgeTxPollingError';
+}
+
+export class ProcessMessageError extends Error {
+  name = 'ProcessMessageError';
+}
+
+export class RetryError extends Error {
+  name = 'RetryError';
+}
+
+export class ReleaseError extends Error {
+  name = 'ReleaseError';
+}

@@ -65,6 +65,7 @@ export const pendingTransactions = {
         })
         .catch((err) => {
           console.error(err);
+          deferred.reject(new FailedTransactionError(`transaction with hash "${hash}" failed`, { cause: err }));
         });
 
       return newPendingTransactions;

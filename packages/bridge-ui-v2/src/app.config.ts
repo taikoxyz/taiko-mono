@@ -19,3 +19,22 @@ export const bridgeService = {
 export const pendingTransaction = {
   waitTimeout: 300_000,
 };
+
+export const storageService = {
+  bridgeTxPrefix: 'transactions',
+  customTokenPrefix: 'custom-tokens',
+};
+
+export const bridgeTransactionPoller = {
+  interval: 20_000,
+};
+
+export const statusComponent = {
+  minimumEthToClaim: 0.0001,
+};
+
+export const activitiesConfig = {
+  pageSizeDesktop: 6,
+  pageSizeMobile: 4,
+  blurTransitionTime: 300,
+};
