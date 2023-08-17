@@ -12,7 +12,7 @@
   import { PUBLIC_GUIDE_URL, PUBLIC_L2_EXPLORER_URL } from '$env/static/public';
   import { onMount } from 'svelte';
 
-  let darkTheme = false;
+  let darkTheme: boolean;
   let drawerToggleElem: HTMLInputElement;
 
   function closeDrawer() {
@@ -30,6 +30,8 @@
   }
 
   function switchTheme(dark: boolean) {
+    if (typeof darkTheme === 'undefined') return;
+
     const theme = dark ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
