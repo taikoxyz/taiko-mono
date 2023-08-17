@@ -80,7 +80,7 @@
         md:w-[226px]
       ">
         <a href="/" class="hidden md:inline-block">
-          <LogoWithText />
+          <LogoWithText textFillClass={'fill-primary-content'} />
         </a>
 
         <div role="button" tabindex="0" on:click={closeDrawer} on:keydown={onMenuKeydown}>

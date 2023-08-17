@@ -34,6 +34,7 @@
     }
   }
 
+  /* In light mode there is no background image */
   [data-theme='light'] body {
     background-image: none;
   }

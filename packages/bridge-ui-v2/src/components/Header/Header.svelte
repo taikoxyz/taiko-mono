@@ -25,7 +25,7 @@
     md:px-10
     md:py-7
  ">
-  <LogoWithText width={77} height={21} class="md:hidden" />
+  <LogoWithText width={77} height={21} class="md:hidden" textFillClass={'fill-primary-content'} />
 
   <div class="flex justify-end w-full">
     {#if isBridgePage}
