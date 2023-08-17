@@ -103,7 +103,7 @@
                 <span>{$t('nav.activities')}</span>
               </LinkButton>
             </li>
-            <li class="border-t border-t-divider-border">
+            <li class="border-t border-t-divider-border pt-2">
               <LinkButton href={PUBLIC_L2_EXPLORER_URL} external>
                 <Icon type="explorer" />
                 <span>{$t('nav.explorer')}</span>
