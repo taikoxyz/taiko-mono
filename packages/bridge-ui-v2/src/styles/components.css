@@ -107,6 +107,21 @@
     }
   }
 
+  .dialog-tooltip-top {
+    :before {
+      content:"";
+      position: absolute;
+      height: 0px;
+      width: 0px;
+      top: 100%;
+      left: 133px;
+      border-width: 9px;
+      border-color: transparent transparent transparent;
+      border-style: solid;
+      border-top: 9px solid white;
+    }
+  }
+
   /* Separatos */
   .h-sep {
     @apply divider h-[1px] border-divider-border;

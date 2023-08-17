@@ -75,7 +75,7 @@
       <span class="body-small-bold text-primary-content">{$t('recipient.title')}</span>
       <Tooltip>
         <div>{$t('recipient.tooltip_title')}</div>
-        {$t('recipient.tooltip')}
+        <div>{$t('recipient.tooltip')}</div>
       </Tooltip>
     </div>
     <button class="link" on:click={openModal} on:focus={openModal}>{$t('common.edit')}</button>

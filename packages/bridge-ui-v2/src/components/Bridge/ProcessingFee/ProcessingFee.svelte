@@ -120,7 +120,7 @@
       <span class="body-small-bold text-primary-content">{$t('processing_fee.title')}</span>
       <Tooltip>
         <div>{$t('processing_fee.tooltip_title')}</div>
-        {$t('processing_fee.tooltip')}
+        <div>{$t('processing_fee.tooltip')}</div>
       </Tooltip>
     </div>
     <button class="link" on:click={openModal} on:focus={openModal}>{$t('common.edit')}</button>

@@ -9,6 +9,11 @@
   export let position: Position = 'top';
 
   let tooltipId = `tooltip-${uid()}`;
+  let tooltipClass = `block dialog-tooltip`;
+  if (position === 'top') {
+    tooltipClass = `block dialog-tooltip dialog-tooltip-top`;
+  }
+  console.log(tooltipClass)
   let tooltipOpen = false;
   let classes = classNames('flex', $$props.class || 'relative');
 
@@ -47,7 +52,7 @@
     <Icon type="question-circle" />
   </button>
 
-  <dialog id={tooltipId} class="block dialog-tooltip" class:block-hidden={!tooltipOpen} bind:this={dialogElem}>
+  <dialog id={tooltipId} class={tooltipClass} class:block-hidden={!tooltipOpen} bind:this={dialogElem}>
     <slot />
   </dialog>
 </div>
