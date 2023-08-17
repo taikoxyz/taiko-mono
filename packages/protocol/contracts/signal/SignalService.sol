@@ -16,7 +16,7 @@ import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
 /// @notice See the documentation in {ISignalService} for more details.
 contract SignalService is ISignalService, EssentialContract {
     struct SignalProof {
-        uint256 height;
+        uint64 height;
         bytes proof; // A storage proof
     }
 

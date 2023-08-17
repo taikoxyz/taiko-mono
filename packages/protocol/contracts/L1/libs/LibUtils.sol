@@ -7,7 +7,6 @@
 pragma solidity ^0.8.20;
 
 import { LibEthDepositing } from "./LibEthDepositing.sol";
-import { LibL2Consts } from "../../L2/LibL2Consts.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { TaikoData } from "../TaikoData.sol";
 
@@ -19,26 +18,44 @@ library LibUtils {
     function getL2ChainData(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        uint256 blockId
+        uint64 blockId
     )
         internal
         view
         returns (bool found, TaikoData.Block storage blk)
     {
-        uint256 id = blockId == 0 ? state.slotC.lastVerifiedBlockId : blockId;
+        checkBlockId(state, blockId);
+
+        uint64 id = blockId == 0 ? state.slotB.lastVerifiedBlockId : blockId;
         blk = state.blocks[id % config.blockRingBufferSize];
-        found = (blk.blockId == id && blk.verifiedForkChoiceId != 0);
+        found = blk.verifiedForkChoiceId != 0;
+    }
+
+    function checkBlockId(
+        TaikoData.State storage state,
+        uint64 blockId
+    )
+        internal
+        view
+    {
+        if (
+            blockId <= state.slotB.lastVerifiedBlockId
+                || blockId >= state.slotB.numBlocks
+        ) {
+            revert L1_BLOCK_ID();
+        }
     }
 
     function getForkChoiceId(
         TaikoData.State storage state,
         TaikoData.Block storage blk,
+        uint64 blockId,
         bytes32 parentHash,
         uint32 parentGasUsed
     )
         internal
         view
-        returns (uint24 fcId)
+        returns (uint16 fcId)
     {
         if (
             blk.forkChoices[1].key
@@ -46,7 +63,7 @@ library LibUtils {
         ) {
             fcId = 1;
         } else {
-            fcId = state.forkChoiceIds[blk.blockId][parentHash][parentGasUsed];
+            fcId = state.forkChoiceIds[blockId][parentHash][parentGasUsed];
         }
 
         if (fcId >= blk.nextForkChoiceId) {
@@ -61,33 +78,15 @@ library LibUtils {
     {
         TaikoData.SlotA memory slotA = state.slotA;
         TaikoData.SlotB memory slotB = state.slotB;
-        TaikoData.SlotC memory slotC = state.slotC;
 
         return TaikoData.StateVariables({
             genesisHeight: slotA.genesisHeight,
             genesisTimestamp: slotA.genesisTimestamp,
             numBlocks: slotB.numBlocks,
-            lastVerifiedBlockId: slotC.lastVerifiedBlockId,
-            nextEthDepositToProcess: slotB.nextEthDepositToProcess,
-            numEthDeposits: slotB.numEthDeposits - slotB.nextEthDepositToProcess,
-            avgFeePerGas: slotC.avgFeePerGas
+            lastVerifiedBlockId: slotB.lastVerifiedBlockId,
+            nextEthDepositToProcess: slotA.nextEthDepositToProcess,
+            numEthDeposits: slotA.numEthDeposits - slotA.nextEthDepositToProcess
         });
-    }
-
-    function movingAverage(
-        uint256 maValue,
-        uint256 newValue,
-        uint256 maf
-    )
-        internal
-        pure
-        returns (uint256)
-    {
-        if (maValue == 0) {
-            return newValue;
-        }
-        uint256 _ma = (maValue * (maf - 1) + newValue) / maf;
-        return _ma > 0 ? _ma : maValue;
     }
 
     /// @dev Hashing the block metadata.
@@ -96,7 +95,7 @@ library LibUtils {
         pure
         returns (bytes32 hash)
     {
-        uint256[7] memory inputs;
+        uint256[6] memory inputs;
 
         inputs[0] = (uint256(meta.id) << 192) | (uint256(meta.timestamp) << 128)
             | (uint256(meta.l1Height) << 64);
@@ -112,26 +111,8 @@ library LibUtils {
             | (uint256(meta.gasLimit) << 176)
             | (uint256(uint160(meta.beneficiary)) << 16);
 
-        inputs[6] = (uint256(uint160(meta.treasury)) << 96);
-
         assembly {
-            hash := keccak256(inputs, mul(7, 32))
-        }
-    }
-
-    function calcBlockFee(
-        TaikoData.Config memory config,
-        uint64 gasAmount,
-        uint32 feePerGas
-    )
-        internal
-        pure
-        returns (uint64)
-    {
-        uint64 _gas =
-            gasAmount + LibL2Consts.ANCHOR_GAS_COST + config.blockFeeBaseGas;
-        unchecked {
-            return _gas * feePerGas;
+            hash := keccak256(inputs, mul(6, 32))
         }
     }
 

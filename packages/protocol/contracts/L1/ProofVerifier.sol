@@ -30,7 +30,7 @@ contract ProofVerifier is EssentialContract, IProofVerifier {
     function verifyProofs(
         // blockId is unused now, but can be used later when supporting
         // different types of proofs.
-        uint256,
+        uint64,
         bytes calldata blockProofs,
         bytes32 instance
     )

@@ -9,7 +9,6 @@ pragma solidity ^0.8.20;
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
-import { LibL2Consts } from "./LibL2Consts.sol";
 import { LibMath } from "../libs/LibMath.sol";
 import { Lib1559Math } from "../libs/Lib1559Math.sol";
 import { TaikoL2Signer } from "./TaikoL2Signer.sol";
@@ -231,7 +230,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     /// zero to fetch the latest synced L1 block hash.
     /// @return The L1 block hash for the specified L1 block number or the
     /// latest synced L1 block hash.
-    function getCrossChainBlockHash(uint256 number)
+    function getCrossChainBlockHash(uint64 number)
         public
         view
         override
@@ -247,7 +246,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     /// zero to fetch the latest synced L1 signal root.
     /// @return The signal root for the specified L1 block number or the latest
     /// synced L1 signal root.
-    function getCrossChainSignalRoot(uint256 number)
+    function getCrossChainSignalRoot(uint64 number)
         public
         view
         override
@@ -320,13 +319,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         returns (uint256 _basefee, uint64 _gasExcess)
     {
         unchecked {
-            uint32 parentGasUsedNet;
-            if (parentGasUsed > LibL2Consts.ANCHOR_GAS_COST) {
-                parentGasUsedNet = parentGasUsed - LibL2Consts.ANCHOR_GAS_COST;
-            }
-
             uint256 issued = timeSinceParent * config.gasIssuedPerSecond;
-            uint256 excess = (uint256(gasExcess) + parentGasUsedNet).max(issued);
+            uint256 excess = (uint256(gasExcess) + parentGasUsed).max(issued);
             // Very important to cap _gasExcess uint64
             _gasExcess = uint64((excess - issued).min(type(uint64).max));
         }

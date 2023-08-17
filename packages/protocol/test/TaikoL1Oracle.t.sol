@@ -62,7 +62,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
-        proverPool.reset(Bob, 10);
+        // proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -141,7 +141,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
-        proverPool.reset(Bob, 10);
+        // proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -226,7 +226,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
-        proverPool.reset(Bob, 10);
+        // proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -300,7 +300,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
-        proverPool.reset(Bob, 10);
+        // proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -368,24 +368,22 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
         // Bob
         vm.prank(Bob, Bob);
-        proverPool.reset(Bob, 10);
+        // proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1_000_000;
 
         for (
-            uint256 blockId = 1;
-            blockId < conf.blockMaxProposals * 10;
-            blockId++
+            uint64 blockId = 1; blockId < conf.blockMaxProposals * 10; blockId++
         ) {
             TaikoData.BlockMetadata memory meta =
                 proposeBlock(Alice, 1_000_000, 1024);
             printVariables("after propose");
             mine(1);
 
-            bytes32 blockHash = bytes32(1e10 + blockId);
-            bytes32 signalRoot = bytes32(1e9 + blockId);
+            bytes32 blockHash = bytes32(1e10 + uint256(blockId));
+            bytes32 signalRoot = bytes32(1e9 + uint256(blockId));
 
             proveBlock(
                 Dave,
@@ -458,7 +456,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
         // Bob
         vm.prank(Bob, Bob);
-        proverPool.reset(Bob, 10);
+        // proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;

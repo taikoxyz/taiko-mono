@@ -46,13 +46,9 @@ contract TaikoL1 is
     /// @notice Initializes the rollup.
     /// @param _addressManager The {AddressManager} address.
     /// @param _genesisBlockHash The block hash of the genesis block.
-    /// @param _initAvgFeePerGas Initial (reasonable) block fee value.
-    /// @param _initAvgProofDelay Initial (reasonable) proof window.
     function init(
         address _addressManager,
-        bytes32 _genesisBlockHash,
-        uint32 _initAvgFeePerGas,
-        uint16 _initAvgProofDelay
+        bytes32 _genesisBlockHash
     )
         external
         initializer
@@ -61,9 +57,7 @@ contract TaikoL1 is
         LibVerifying.init({
             state: state,
             config: getConfig(),
-            genesisBlockHash: _genesisBlockHash,
-            initAvgFeePerGas: _initAvgFeePerGas,
-            initAvgProofDelay: _initAvgProofDelay
+            genesisBlockHash: _genesisBlockHash
         });
     }
 
@@ -80,6 +74,7 @@ contract TaikoL1 is
         bytes calldata txList
     )
         external
+        payable
         nonReentrant
         returns (TaikoData.BlockMetadata memory meta)
     {
@@ -106,7 +101,7 @@ contract TaikoL1 is
     /// select the right implementation version.
     /// @param input An abi-encoded {TaikoData.BlockEvidence} object.
     function proveBlock(
-        uint256 blockId,
+        uint64 blockId,
         bytes calldata input
     )
         external
@@ -132,7 +127,7 @@ contract TaikoL1 is
 
     /// @notice Verifies up to N blocks.
     /// @param maxBlocks Max number of blocks to verify.
-    function verifyBlocks(uint256 maxBlocks) external nonReentrant {
+    function verifyBlocks(uint64 maxBlocks) external nonReentrant {
         if (maxBlocks == 0) revert L1_INVALID_PARAM();
         LibVerifying.verifyBlocks({
             state: state,
@@ -168,29 +163,19 @@ contract TaikoL1 is
     /// @notice Gets the details of a block.
     /// @param blockId Index of the block.
     /// @return _metaHash Metadata hash of the block.
-    /// @return _proposer Address of the block proposer.
     /// @return _proposedAt Timestamp when the block was proposed.
-    /// @return _gasLimit Gas limit of the block.
     /// @return _prover Address of the assigned prover for the block.
-    /// @return _bond The prover's bond.
-    /// @return _feePerGas Fee per gas of the block.
     /// @return _nextForkChoiceId Next fork choice ID of the block.
     /// @return _verifiedForkChoiceId Verified fork choice ID of the block.
-    /// @return _proofWindow Proof window of the block.
-    function getBlock(uint256 blockId)
+    function getBlock(uint64 blockId)
         public
         view
         returns (
             bytes32 _metaHash,
-            address _proposer,
             uint64 _proposedAt,
-            uint32 _gasLimit,
             address _prover,
-            uint64 _bond,
-            uint32 _feePerGas,
             uint24 _nextForkChoiceId,
-            uint24 _verifiedForkChoiceId,
-            uint16 _proofWindow
+            uint24 _verifiedForkChoiceId
         )
     {
         TaikoData.Block storage blk = LibProposing.getBlock({
@@ -200,15 +185,10 @@ contract TaikoL1 is
         });
 
         _metaHash = blk.metaHash;
-        _proposer = blk.proposer;
         _proposedAt = blk.proposedAt;
-        _gasLimit = blk.gasLimit;
         _prover = blk.prover;
-        _bond = blk.bond;
-        _feePerGas = blk.feePerGas;
         _nextForkChoiceId = blk.nextForkChoiceId;
         _verifiedForkChoiceId = blk.verifiedForkChoiceId;
-        _proofWindow = blk.proofWindow;
     }
 
     /// @notice Gets the fork choice for a specific block.
@@ -217,7 +197,7 @@ contract TaikoL1 is
     /// @param parentGasUsed Gas used by the parent block.
     /// @return ForkChoice data of the block.
     function getForkChoice(
-        uint256 blockId,
+        uint64 blockId,
         bytes32 parentHash,
         uint32 parentGasUsed
     )
@@ -237,7 +217,7 @@ contract TaikoL1 is
     /// @notice Gets the block hash of the specified Layer 2 block.
     /// @param blockId Index of the block.
     /// @return Block hash of the specified block.
-    function getCrossChainBlockHash(uint256 blockId)
+    function getCrossChainBlockHash(uint64 blockId)
         public
         view
         override
@@ -256,7 +236,7 @@ contract TaikoL1 is
     /// @notice Gets the signal root of the specified Layer 2 block.
     /// @param blockId Index of the block.
     /// @return Signal root of the specified block.
-    function getCrossChainSignalRoot(uint256 blockId)
+    function getCrossChainSignalRoot(uint64 blockId)
         public
         view
         override

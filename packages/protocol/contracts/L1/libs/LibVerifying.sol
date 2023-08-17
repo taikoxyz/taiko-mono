@@ -11,7 +11,6 @@ import { AddressResolver } from "../../common/AddressResolver.sol";
 import { IMintableERC20 } from "../../common/IMintableERC20.sol";
 import { IProver } from "../IProver.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
-import { LibL2Consts } from "../../L2/LibL2Consts.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
@@ -23,13 +22,10 @@ library LibVerifying {
     using LibMath for uint256;
 
     event BlockVerified(
-        uint256 indexed blockId,
-        bytes32 blockHash,
-        address prover,
-        uint64 blockFee
+        uint64 indexed blockId, bytes32 blockHash, address prover
     );
     event CrossChainSynced(
-        uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
+        uint64 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
     );
 
     error L1_INVALID_CONFIG();
@@ -37,9 +33,7 @@ library LibVerifying {
     function init(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        bytes32 genesisBlockHash,
-        uint32 initAvgFeePerGas,
-        uint16 initAvgProofDelay
+        bytes32 genesisBlockHash
     )
         internal
     {
@@ -52,10 +46,7 @@ library LibVerifying {
                 || config.blockTxListExpiry > 30 * 24 hours
                 || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
                 || config.proofRegularCooldown < config.proofOracleCooldown
-                || config.proofMinWindow == 0
-                || config.proofMaxWindow < config.proofMinWindow
-                || config.proofWindowMultiplier <= 100
-                || config.proofBondMultiplier < 8
+                || config.proofWindow == 0 || config.proofBond == 0
                 || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
                 || config.ethDepositMaxCountPerBlock
@@ -67,9 +58,6 @@ library LibVerifying {
                 || config.ethDepositMaxFee >= type(uint96).max
                 || config.ethDepositMaxFee
                     >= type(uint96).max / config.ethDepositMaxCountPerBlock
-                || config.rewardOpenMultipler < 100
-                || config.rewardOpenMultipler >= config.proofBondMultiplier
-                || config.rewardMaxDelayPenalty >= 10_000
         ) revert L1_INVALID_CONFIG();
 
         unchecked {
@@ -79,9 +67,7 @@ library LibVerifying {
             state.slotA.genesisHeight = uint64(block.number);
             state.slotA.genesisTimestamp = timeNow;
             state.slotB.numBlocks = 1;
-            state.slotC.lastVerifiedAt = uint64(block.timestamp);
-            state.slotC.avgFeePerGas = initAvgFeePerGas;
-            state.slotC.avgProofDelay = initAvgProofDelay;
+            state.slotB.lastVerifiedAt = uint64(block.timestamp);
 
             // Init the genesis block
             TaikoData.Block storage blk = state.blocks[0];
@@ -98,29 +84,31 @@ library LibVerifying {
         emit BlockVerified({
             blockId: 0,
             blockHash: genesisBlockHash,
-            prover: address(1), // oracle prover
-            blockFee: 0
-        });
+            prover: address(1) // oracle prover
+         });
     }
 
     function verifyBlocks(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
-        uint256 maxBlocks
+        uint64 maxBlocks
     )
         internal
     {
-        uint256 i = state.slotC.lastVerifiedBlockId;
+        uint64 i = state.slotB.lastVerifiedBlockId;
         TaikoData.Block storage blk =
             state.blocks[i % config.blockRingBufferSize];
 
-        uint24 fcId = blk.verifiedForkChoiceId;
+        uint16 fcId = blk.verifiedForkChoiceId;
         assert(fcId > 0);
 
+        TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
         bytes32 blockHash = blk.forkChoices[fcId].blockHash;
         uint32 gasUsed = blk.forkChoices[fcId].gasUsed;
+
         bytes32 signalRoot;
+        TaikoData.ForkChoice memory fc;
 
         uint64 processed;
         unchecked {
@@ -129,32 +117,25 @@ library LibVerifying {
 
         while (i < state.slotB.numBlocks && processed < maxBlocks) {
             blk = state.blocks[i % config.blockRingBufferSize];
-            assert(blk.blockId == i);
 
-            fcId = LibUtils.getForkChoiceId(state, blk, blockHash, gasUsed);
+            fcId = LibUtils.getForkChoiceId(state, blk, i, blockHash, gasUsed);
             if (fcId == 0) break;
 
-            TaikoData.ForkChoice memory fc = blk.forkChoices[fcId];
+            fc = blk.forkChoices[fcId];
             if (fc.prover == address(0)) break;
 
             uint256 proofRegularCooldown = fc.prover == address(1)
                 ? config.proofOracleCooldown
                 : config.proofRegularCooldown;
-
             if (block.timestamp <= fc.provenAt + proofRegularCooldown) break;
 
             blockHash = fc.blockHash;
             gasUsed = fc.gasUsed;
             signalRoot = fc.signalRoot;
+            blk.verifiedForkChoiceId = fcId;
 
-            _verifyBlock({
-                state: state,
-                config: config,
-                resolver: resolver,
-                blk: blk,
-                fcId: fcId,
-                fc: fc
-            });
+            _rewardProver(config, tt, blk, fc);
+            emit BlockVerified(i, fc.blockHash, fc.prover);
 
             unchecked {
                 ++i;
@@ -164,8 +145,8 @@ library LibVerifying {
 
         if (processed > 0) {
             unchecked {
-                state.slotC.lastVerifiedAt = uint64(block.timestamp);
-                state.slotC.lastVerifiedBlockId += processed;
+                state.slotB.lastVerifiedAt = uint64(block.timestamp);
+                state.slotB.lastVerifiedBlockId += processed;
             }
 
             if (config.relaySignalRoot) {
@@ -177,96 +158,28 @@ library LibVerifying {
                     .sendSignal(signalRoot);
             }
             emit CrossChainSynced(
-                state.slotC.lastVerifiedBlockId, blockHash, signalRoot
+                state.slotB.lastVerifiedBlockId, blockHash, signalRoot
             );
         }
     }
 
-    function _verifyBlock(
-        TaikoData.State storage state,
+    function _rewardProver(
         TaikoData.Config memory config,
-        AddressResolver resolver,
+        TaikoToken tt,
         TaikoData.Block storage blk,
-        TaikoData.ForkChoice memory fc,
-        uint24 fcId
+        TaikoData.ForkChoice memory fc
     )
         private
     {
-        // the actually mined L2 block's gasLimit is blk.gasLimit +
-        // LibL2Consts.ANCHOR_GAS_COST, so fc.gasUsed may greater than
-        // blk.gasLimit here.
-        uint32 _gasLimit = blk.gasLimit + LibL2Consts.ANCHOR_GAS_COST;
-        assert(fc.gasUsed <= _gasLimit);
-
-        blk.verifiedForkChoiceId = fcId;
-
-        if (blk.prover == address(0)) {
-            --state.slotB.numOpenBlocks;
+        if (
+            fc.prover == address(1)
+                || fc.provenAt <= blk.proposedAt + config.proofWindow
+        ) {
+            // Refund all the bond
+            tt.transfer(blk.prover, config.proofBond);
+        } else {
+            // Reward half of the bond to the actual prover
+            tt.transfer(fc.prover, config.proofBond / 2);
         }
-
-        bool inProofWindow = blk.prover == address(0)
-            || fc.provenAt <= blk.proposedAt + blk.proofWindow;
-
-        // Calculate the block fee
-        uint32 feePerGas = inProofWindow
-            ? blk.feePerGas
-            : state.slotC.avgFeePerGas * config.rewardOpenMultipler / 100;
-
-        uint64 blockFee = LibUtils.calcBlockFee(config, fc.gasUsed, feePerGas);
-
-        // Update protocol level stats
-        if (inProofWindow && fc.prover != address(1)) {
-            uint64 proofDelay;
-            unchecked {
-                proofDelay = fc.provenAt - blk.proposedAt;
-            }
-
-            if (config.rewardMaxDelayPenalty > 0) {
-                // Give the reward a penalty up to a small percentage.
-                // This will encourage prover to submit proof ASAP.
-                blockFee -= uint64(
-                    uint256(blockFee) * proofDelay
-                        * config.rewardMaxDelayPenalty / 10_000 / blk.proofWindow
-                );
-            }
-
-            // The selected prover managed to prove the block in time
-            state.slotC.avgProofDelay = uint16(
-                LibUtils.movingAverage({
-                    maValue: state.slotC.avgProofDelay,
-                    newValue: proofDelay,
-                    maf: 7200
-                })
-            );
-
-            state.slotC.avgFeePerGas = uint32(
-                LibUtils.movingAverage({
-                    maValue: state.slotC.avgFeePerGas,
-                    newValue: blk.feePerGas,
-                    maf: 7200
-                })
-            );
-        }
-
-        TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
-
-        // Refund the assigned prover
-        if (blk.bond != 0 && (inProofWindow || fc.prover == address(1))) {
-            tt.mint(blk.prover, blk.bond);
-        }
-
-        // Mint reward to fork choice prover
-        tt.mint(fc.prover, blockFee);
-
-        // Refund deposit to proposer
-        tt.mint(blk.proposer, uint64(_gasLimit - fc.gasUsed) * blk.feePerGas);
-
-        // Emit the event
-        emit BlockVerified({
-            blockId: blk.blockId,
-            blockHash: fc.blockHash,
-            prover: fc.prover,
-            blockFee: blockFee
-        });
     }
 }

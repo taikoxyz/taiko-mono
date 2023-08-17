@@ -60,7 +60,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         depositTaikoToken(Carol, 1e8 * 1e8, 100 ether);
         // Bob
         vm.prank(Bob, Bob);
-        proverPool.reset(Bob, 10);
+        // proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -108,7 +108,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         depositTaikoToken(Carol, 1e8 * 1e8, 100 ether);
         // Bob
         vm.prank(Bob, Bob);
-        proverPool.reset(Bob, 10);
+        // proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -151,7 +151,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         depositTaikoToken(Carol, 1e8 * 1e8, 100 ether);
         // Bob
         vm.prank(Bob, Bob);
-        proverPool.reset(Bob, 10);
+        // proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -264,7 +264,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev getCrossChainSignalRoot tests
     function test_getCrossChainSignalRoot() external {
-        uint256 iterationCnt = 10;
+        uint64 iterationCnt = 10;
         // Declare here so that block prop/prove/verif. can be used in 1 place
         TaikoData.BlockMetadata memory meta;
         bytes32 blockHash;
@@ -279,16 +279,16 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         // Bob is the staker / prover
         vm.prank(Bob, Bob);
-        proverPool.reset(Bob, 10);
+        // proverPool.reset(Bob, 10);
 
         // Propose blocks
-        for (uint256 blockId = 1; blockId < iterationCnt; blockId++) {
+        for (uint64 blockId = 1; blockId < iterationCnt; blockId++) {
             printVariables("before propose");
             meta = proposeBlock(Alice, 1_000_000, 1024);
             mine(5);
 
-            blockHash = bytes32(1e10 + blockId);
-            signalRoot = bytes32(1e9 + blockId);
+            blockHash = bytes32(1e10 + uint256(blockId));
+            signalRoot = bytes32(1e9 + uint256(blockId));
 
             proveBlock(
                 Bob,
@@ -315,14 +315,14 @@ contract TaikoL1Test is TaikoL1TestBase {
         }
 
         // 1st
-        uint256 queriedBlockId = 1;
-        bytes32 expectedSR = bytes32(1e9 + queriedBlockId);
+        uint64 queriedBlockId = 1;
+        bytes32 expectedSR = bytes32(uint256(1e9 + queriedBlockId));
 
         assertEq(expectedSR, L1.getCrossChainSignalRoot(queriedBlockId));
 
         // 2nd
         queriedBlockId = 2;
-        expectedSR = bytes32(1e9 + queriedBlockId);
+        expectedSR = bytes32(uint256(1e9 + queriedBlockId));
         assertEq(expectedSR, L1.getCrossChainSignalRoot(queriedBlockId));
 
         // Not found

@@ -147,11 +147,11 @@ contract PrankCrossChainSync is ICrossChainSync {
         _signalRoot = signalRoot;
     }
 
-    function getCrossChainBlockHash(uint256) external view returns (bytes32) {
+    function getCrossChainBlockHash(uint64) external view returns (bytes32) {
         return _blockHash;
     }
 
-    function getCrossChainSignalRoot(uint256) external view returns (bytes32) {
+    function getCrossChainSignalRoot(uint64) external view returns (bytes32) {
         return _signalRoot;
     }
 }

@@ -23,12 +23,12 @@ library TaikoData {
         // Group 2: Block level configs
         // ---------------------------------------------------------------------
         // The maximum number of proposals allowed in a single block.
-        uint256 blockMaxProposals;
+        uint64 blockMaxProposals;
         // Size of the block ring buffer, allowing extra space for proposals.
-        uint256 blockRingBufferSize;
+        uint64 blockRingBufferSize;
         // The maximum number of verifications allowed per transaction in a
         // block.
-        uint256 blockMaxVerificationsPerTx;
+        uint64 blockMaxVerificationsPerTx;
         // The maximum gas limit allowed for a block.
         uint32 blockMaxGasLimit;
         // The base gas for processing a block.
@@ -46,15 +46,10 @@ library TaikoData {
         uint256 proofRegularCooldown;
         // The cooldown period for oracle proofs (in minutes).
         uint256 proofOracleCooldown;
-        // The minimum time window allowed for a proof submission (in minutes).
-        uint16 proofMinWindow;
         // The maximum time window allowed for a proof submission (in minutes).
-        uint16 proofMaxWindow;
-        // The window multiplier used to calculate proof time windows (in
-        // percentage).
-        uint16 proofWindowMultiplier;
-        // The bond multipler
-        uint8 proofBondMultiplier;
+        uint16 proofWindow;
+        // The amount of Taiko token as a bond
+        uint256 proofBond;
         // ---------------------------------------------------------------------
         // Group 4: ETH deposit related configs
         // ---------------------------------------------------------------------
@@ -72,17 +67,6 @@ library TaikoData {
         uint256 ethDepositGas;
         // The maximum fee allowed for an ETH deposit.
         uint256 ethDepositMaxFee;
-        // ---------------------------------------------------------------------
-        // Group 5: Tokenomics
-        // ---------------------------------------------------------------------
-        // The multiplier for calculating rewards for an open proposal (in
-        // percentage).
-        uint8 rewardOpenMultipler;
-        // The maximum count of open proposals considered for rewards
-        // calculation.
-        uint32 rewardOpenMaxCount;
-        // The maximum penalty for delaying rewards in basis points (bps).
-        uint32 rewardMaxDelayPenalty;
     }
 
     /// @dev Struct holding state variables.
@@ -93,7 +77,6 @@ library TaikoData {
         uint64 lastVerifiedBlockId;
         uint64 nextEthDepositToProcess;
         uint64 numEthDeposits;
-        uint32 avgFeePerGas;
     }
 
     /// @dev Struct representing input data for block metadata.
@@ -105,7 +88,7 @@ library TaikoData {
         uint24 txListByteEnd; // byte-wise end index (exclusive)
         bool cacheTxListInfo;
         address prover;
-        uint32 maxFeePerGas;
+        uint64 maxProverFee;
         bytes proverParams;
     }
 
@@ -123,7 +106,6 @@ library TaikoData {
         uint24 txListByteEnd;
         uint32 gasLimit;
         address beneficiary;
-        address treasury;
         TaikoData.EthDeposit[] depositsProcessed;
     }
 
@@ -143,7 +125,7 @@ library TaikoData {
     /// @dev Struct representing fork choice data.
     /// 4 slots.
     struct ForkChoice {
-        // Key is only written/read for the 1st fork choice.
+        // key is only written/read for the 1st fork choice.
         bytes32 key;
         bytes32 blockHash;
         bytes32 signalRoot;
@@ -153,21 +135,15 @@ library TaikoData {
     }
 
     /// @dev Struct containing data required for verifying a block.
-    /// 5 slots.
+    /// 3 slots.
     struct Block {
         // slot 1: ForkChoice storage are reusable
-        mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
-        uint64 blockId; // slot 2
-        bytes32 metaHash; // slot 3
-        address proposer; // slot 4
+        mapping(uint16 forkChoiceId => ForkChoice) forkChoices;
+        bytes32 metaHash; // slot 2
+        address prover; // slot 4
         uint64 proposedAt;
-        uint32 gasLimit;
-        address prover; // slot 5
-        uint64 bond;
-        uint32 feePerGas;
-        uint24 nextForkChoiceId; // slot 6 (64 bits used)
-        uint24 verifiedForkChoiceId;
-        uint16 proofWindow;
+        uint16 nextForkChoiceId;
+        uint16 verifiedForkChoiceId;
     }
 
     /// @dev Struct representing information about a transaction list.
@@ -191,42 +167,33 @@ library TaikoData {
     struct SlotA {
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 __reserved70;
-        uint64 __reserved71;
-    }
-
-    struct SlotB {
-        uint64 numOpenBlocks;
         uint64 numEthDeposits;
-        uint64 numBlocks;
         uint64 nextEthDepositToProcess;
     }
 
-    struct SlotC {
+    struct SlotB {
+        uint64 numBlocks;
+        uint64 nextEthDepositToProcess;
         uint64 lastVerifiedAt;
         uint64 lastVerifiedBlockId;
-        uint64 __reserved90;
-        uint32 avgFeePerGas;
-        uint16 avgProofDelay;
     }
 
     /// @dev Struct holding the state variables for the {TaikoL1} contract.
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
-        mapping(uint256 blockId_mode_blockRingBufferSize => Block) blocks;
+        mapping(uint64 blockId_mode_blockRingBufferSize => Block) blocks;
         mapping(
-            uint256 blockId
+            uint64 blockId
                 => mapping(
                     bytes32 parentHash
-                        => mapping(uint32 parentGasUsed => uint24 forkChoiceId)
+                        => mapping(uint32 parentGasUsed => uint16 forkChoiceId)
                 )
             ) forkChoiceIds;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         mapping(uint256 depositId_mode_ethDepositRingBufferSize => uint256)
             ethDeposits;
-        SlotA slotA; // slot 5: never or rarely changed
+        SlotA slotA; // slot 5
         SlotB slotB; // slot 6
-        SlotC slotC; // slot 7
-        uint256[43] __gap;
+        uint256[44] __gap;
     }
 }
