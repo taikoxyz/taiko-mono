@@ -62,8 +62,7 @@
         md:px-4
         md:py-8
         md:w-[226px]
-        md:border-r
-        md:border-r-divider-border">
+      ">
         <a href="/" class="hidden md:inline-block">
           <LogoWithText />
         </a>

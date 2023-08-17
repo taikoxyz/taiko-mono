@@ -8,6 +8,7 @@
   import { Header } from '$components/Header';
   import { NotificationToast } from '$components/NotificationToast';
   import { SideNavigation } from '$components/SideNavigation';
+  import SwitchChainModal from '$components/SwitchChainModal/SwitchChainModal.svelte';
   import { startWatching, stopWatching } from '$libs/wagmi';
 
   onMount(startWatching);
@@ -30,3 +31,5 @@
 <NotificationToast />
 
 <AccountConnectionToast />
+
+<SwitchChainModal />

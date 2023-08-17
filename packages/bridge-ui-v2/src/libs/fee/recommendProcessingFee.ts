@@ -1,8 +1,10 @@
 import { getPublicClient } from '@wagmi/core';
-import { zeroAddress } from 'viem';
 
 import { recommentProcessingFee } from '$config';
-import { getAddress, type Token, TokenType } from '$libs/token';
+import { isDeployedCrossChain, type Token, TokenType } from '$libs/token';
+import { getLogger } from '$libs/util/logger';
+
+const log = getLogger('libs:recommendedProcessingFee');
 
 type RecommendProcessingFeeArgs = {
   token: Token;
@@ -25,16 +27,22 @@ export async function recommendProcessingFee({ token, destChainId, srcChainId }:
       throw Error('missing required source chain for ERC20 token');
     }
 
-    const tokenAddress = await getAddress({ token, srcChainId, destChainId });
+    const isTokenAlreadyDeployed = await isDeployedCrossChain({
+      token,
+      srcChainId,
+      destChainId,
+    });
 
-    if (!tokenAddress || tokenAddress === zeroAddress) {
-      // Gas limit for erc20 if not deployed on the destination chain
-      // already is about ~2.9m, so we add some to make it enticing
-      gasLimit = erc20NotDeployedGasLimit;
-    } else {
+    if (isTokenAlreadyDeployed) {
       // Gas limit for erc20 if already deployed on the destination chain is
       // about ~1m, so again, add some to ensure processing
       gasLimit = erc20DeployedGasLimit;
+      log(`token ${token.symbol} is already deployed on chain ${destChainId}`);
+    } else {
+      // Gas limit for erc20 if not deployed on the destination chain
+      // already is about ~2.9m, so we add some to make it enticing
+      gasLimit = erc20NotDeployedGasLimit;
+      log(`token ${token.symbol} is not deployed on chain ${destChainId}`);
     }
   }
 

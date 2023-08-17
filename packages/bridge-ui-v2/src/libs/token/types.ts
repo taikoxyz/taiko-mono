@@ -29,6 +29,12 @@ export type TokenEnv = {
   balance: bigint;
 };
 
+export type GetCrossChainAddressArgs = {
+  token: Token;
+  srcChainId: number;
+  destChainId: number;
+};
+
 export interface TokenService {
   storeToken(token: Token, address: string): Token[];
   getTokens(address: string): Token[];

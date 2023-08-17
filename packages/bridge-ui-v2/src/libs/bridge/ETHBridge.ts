@@ -4,7 +4,7 @@ import { UserRejectedRequestError } from 'viem';
 import { bridgeABI } from '$abi';
 import { bridgeService } from '$config';
 import { chainContractsMap } from '$libs/chain';
-import { SendMessageError } from '$libs/error';
+import { ProcessMessageError, ReleaseError, SendMessageError } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
 import { getLogger } from '$libs/util/logger';
 
@@ -113,20 +113,27 @@ export class ETHBridge extends Bridge {
     if (messageStatus === MessageStatus.NEW) {
       const proof = await this._prover.generateProofToProcessMessage(msgHash, srcChainId, destChainId);
 
-      txHash = await destBridgeContract.write.processMessage([message, proof]);
+      try {
+        txHash = await destBridgeContract.write.processMessage([message, proof]);
 
-      log('Transaction hash for processMessage call', txHash);
+        log('Transaction hash for processMessage call', txHash);
+      } catch (err) {
+        console.error(err);
 
-      // TODO: handle unpredictable gas limit error
-      //       by trying with a higher gas limit
+        // TODO: possibly same logic as ERC20Bridge
+
+        // TODO: handle unpredictable gas limit error
+        //       by trying with a higher gas limit
+
+        if (`${err}`.includes('denied transaction signature')) {
+          throw new UserRejectedRequestError(err as Error);
+        }
+
+        throw new ProcessMessageError('failed to claim ETH', { cause: err });
+      }
     } else {
       // MessageStatus.RETRIABLE
-      log('Retrying message', message);
-
-      // Last attempt to send the message: isLastAttempt = true
-      txHash = await destBridgeContract.write.retryMessage([message, true]);
-
-      log('Transaction hash for retryMessage call', txHash);
+      txHash = await super.retryClaim(message, destBridgeContract);
     }
 
     return txHash;
@@ -138,23 +145,31 @@ export class ETHBridge extends Bridge {
     const { msgHash, message, wallet } = args;
     const srcChainId = Number(message.srcChainId);
     const destChainId = Number(message.destChainId);
+    const connectedChainId = await wallet.getChainId();
 
     const proof = await this._prover.generateProofToRelease(msgHash, srcChainId, destChainId);
 
-    const srcBridgeAddress = chainContractsMap[wallet.chain.id].bridgeAddress;
+    const srcBridgeAddress = chainContractsMap[connectedChainId].bridgeAddress;
     const srcBridgeContract = getContract({
       walletClient: wallet,
       abi: bridgeABI,
       address: srcBridgeAddress,
     });
 
-    const txHash = await srcBridgeContract.write.releaseEther([message, proof]);
+    try {
+      const txHash = await srcBridgeContract.write.releaseEther([message, proof]);
 
-    log('Transaction hash for releaseEther call', txHash);
+      log('Transaction hash for releaseEther call', txHash);
 
-    // TODO: possibly handle unpredictable gas limit error
-    //       by trying with a higher gas limit
+      return txHash;
+    } catch (err) {
+      console.error(err);
 
-    return txHash;
+      if (`${err}`.includes('denied transaction signature')) {
+        throw new UserRejectedRequestError(err as Error);
+      }
+
+      throw new ReleaseError('failed to release ETH', { cause: err });
+    }
   }
 }
