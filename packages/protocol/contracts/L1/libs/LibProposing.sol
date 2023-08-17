@@ -34,7 +34,6 @@ library LibProposing {
 
     error L1_BLOCK_ID();
     error L1_FEE_PER_GAS_TOO_SMALL();
-    error L1_FEE_PER_GAS_TOO_LARGE();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
     error L1_INVALID_PROVER();
@@ -119,22 +118,22 @@ library LibProposing {
         blk.proposedAt = meta.timestamp;
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = 0;
+        blk.prover = input.prover;
 
         // Assign a prover and get the actual prover, prover fee, and the
         // prover's bond. Note that the actual prover may be address(0) to
         // indicate this block is open.
-        (blk.prover, blk.proverFee) = _assignProver({
+        _checkProver({
             config: config,
             inputHash: keccak256(abi.encode(input)),
             blockId: blk.blockId,
             prover: input.prover,
-            maxProverFee: input.maxProverFee,
             proverParams: input.proverParams
         });
 
-        TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
-        tt.burn(blk.prover, 32e8); // TODO(daniel)
-        tt.burn(msg.sender, blk.proverFee);
+        TaikoToken(resolver.resolve("taiko_token", false)).transferFrom(
+            blk.prover, address(this), 32e8
+        ); // TODO(daniel)
 
         // Emit an event
         unchecked {
@@ -159,18 +158,16 @@ library LibProposing {
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
     }
 
-    function _assignProver(
+    function _checkProver(
         TaikoData.Config memory config,
         bytes32 inputHash,
         uint64 blockId,
         address prover,
-        uint64 maxProverFee,
         bytes memory proverParams
     )
         private
-        returns (address _actualProver, uint64 _proverFee)
     {
-        if (prover == address(0)) {
+        if (prover == address(0) || prover == address(1)) {
             revert L1_INVALID_PROVER();
         }
 
@@ -178,23 +175,13 @@ library LibProposing {
             if (prover != inputHash.recover(proverParams)) {
                 revert L1_INVALID_PROVER_SIG();
             }
-            _actualProver = prover;
-            _proverFee = maxProverFee;
+            prover.sendEther(msg.value);
         } else {
-            (_actualProver, _proverFee) = IProver(prover).onBlockAssigned({
+            IProver(prover).onBlockAssigned{ value: msg.value }({
                 proposer: msg.sender,
                 blockId: blockId,
-                maxProverFee: maxProverFee,
                 params: proverParams
             });
-            if (_proverFee > maxProverFee) {
-                revert L1_FEE_PER_GAS_TOO_LARGE();
-            }
-        }
-
-        if (_actualProver == address(0) || _actualProver == address(1)) {
-            // Do not allow address(1) as it is our oracle prover
-            revert L1_INVALID_PROVER();
         }
     }
 

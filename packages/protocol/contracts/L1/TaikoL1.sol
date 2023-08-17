@@ -74,6 +74,7 @@ contract TaikoL1 is
         bytes calldata txList
     )
         external
+        payable
         nonReentrant
         returns (TaikoData.BlockMetadata memory meta)
     {
@@ -176,7 +177,6 @@ contract TaikoL1 is
             address _proposer,
             uint64 _proposedAt,
             address _prover,
-            uint64 _proverFee,
             uint24 _nextForkChoiceId,
             uint24 _verifiedForkChoiceId
         )
@@ -191,7 +191,6 @@ contract TaikoL1 is
         _proposer = blk.proposer;
         _proposedAt = blk.proposedAt;
         _prover = blk.prover;
-        _proverFee = blk.proverFee;
         _nextForkChoiceId = blk.nextForkChoiceId;
         _verifiedForkChoiceId = blk.verifiedForkChoiceId;
     }

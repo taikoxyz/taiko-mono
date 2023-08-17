@@ -22,10 +22,7 @@ library LibVerifying {
     using LibMath for uint256;
 
     event BlockVerified(
-        uint256 indexed blockId,
-        bytes32 blockHash,
-        address prover,
-        uint64 proverFee
+        uint256 indexed blockId, bytes32 blockHash, address prover
     );
     event CrossChainSynced(
         uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
@@ -89,9 +86,8 @@ library LibVerifying {
         emit BlockVerified({
             blockId: 0,
             blockHash: genesisBlockHash,
-            prover: address(1), // oracle prover
-            proverFee: 0
-        });
+            prover: address(1) // oracle prover
+         });
     }
 
     function verifyBlocks(
@@ -185,27 +181,24 @@ library LibVerifying {
     {
         blk.verifiedForkChoiceId = fcId;
 
-        bool inProofWindow = blk.prover == address(0)
-            || fc.provenAt <= blk.proposedAt + 60 minutes; // TODO(daniel)
-
-        // Calculate the block fee
-        uint64 proverFee = inProofWindow ? blk.proverFee : 16e8; // TODO(daniel):
-
-        TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
-
         // Mint token to the assigned prover
-        uint64 mintAmount = proverFee;
-        if (inProofWindow || fc.prover == address(1)) {
-            mintAmount += 32e8; // TODO(daniel)
+        uint64 bond = 32e8; // TODO
+        uint64 proofWindow = 60 minutes; // TODO
+        TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
+        if (
+            fc.prover == address(1)
+                || fc.provenAt <= blk.proposedAt + proofWindow
+        ) {
+            tt.transferFrom(address(this), blk.prover, bond);
+        } else {
+            tt.transferFrom(address(this), fc.prover, bond / 2);
         }
-        tt.mint(fc.prover, mintAmount);
 
         // Emit the event
         emit BlockVerified({
             blockId: blk.blockId,
             blockHash: fc.blockHash,
-            prover: fc.prover,
-            proverFee: proverFee
+            prover: fc.prover
         });
     }
 }

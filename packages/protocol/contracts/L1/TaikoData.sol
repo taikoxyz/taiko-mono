@@ -147,9 +147,7 @@ library TaikoData {
         bytes32 metaHash; // slot 3
         address proposer; // slot 4  (240 bits used)
         uint64 proposedAt;
-        uint16 proofWindow;
         address prover; // slot 5
-        uint64 proverFee;
         uint24 nextForkChoiceId; // slot 6 (48 bits used)
         uint24 verifiedForkChoiceId;
     }
