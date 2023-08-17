@@ -233,16 +233,12 @@ library LibVerifying {
 
         TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
 
-        // Refund the assigned prover
+        // Mint token to the assigned prover
+        uint64 mintAmount = proverFee;
         if (blk.bond != 0 && (inProofWindow || fc.prover == address(1))) {
-            tt.mint(blk.prover, blk.bond);
+            mintAmount += blk.bond;
         }
-
-        // Mint reward to fork choice prover
-        tt.mint(fc.prover, proverFee);
-
-        // Refund deposit to proposer
-        tt.mint(blk.proposer, uint64(_gasLimit - fc.gasUsed) * blk.proverFee);
+        tt.mint(fc.prover, mintAmount);
 
         // Emit the event
         emit BlockVerified({

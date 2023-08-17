@@ -118,22 +118,6 @@ library LibUtils {
         }
     }
 
-    function calcBlockFee(
-        TaikoData.Config memory config,
-        uint64 gasAmount,
-        uint32 proverFee
-    )
-        internal
-        pure
-        returns (uint64)
-    {
-        uint64 _gas =
-            gasAmount + LibL2Consts.ANCHOR_GAS_COST + config.blockFeeBaseGas;
-        unchecked {
-            return _gas * proverFee;
-        }
-    }
-
     function keyForForkChoice(
         bytes32 parentHash,
         uint32 parentGasUsed
