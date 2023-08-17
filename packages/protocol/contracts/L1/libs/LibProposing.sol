@@ -125,7 +125,7 @@ library LibProposing {
         // indicate this block is open.
         (blk.prover, blk.proverFee) = _assignProver({
             config: config,
-            metaHash: blk.metaHash,
+            inputHash: keccak256(abi.encode(input)),
             blockId: blk.blockId,
             prover: input.prover,
             maxProverFee: input.maxProverFee,
@@ -161,7 +161,7 @@ library LibProposing {
 
     function _assignProver(
         TaikoData.Config memory config,
-        bytes32 metaHash,
+        bytes32 inputHash,
         uint64 blockId,
         address prover,
         uint64 maxProverFee,
@@ -175,11 +175,7 @@ library LibProposing {
         }
 
         if (!prover.isContract()) {
-            // Verify the prover has authorized this assignment
-            bytes32 hash =
-                keccak256(abi.encodePacked("PROVE_TAIKO_BLOCK", metaHash));
-
-            if (prover != hash.recover(proverParams)) {
+            if (prover != inputHash.recover(proverParams)) {
                 revert L1_INVALID_PROVER_SIG();
             }
             _actualProver = prover;
