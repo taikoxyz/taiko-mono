@@ -101,7 +101,7 @@ contract TaikoL1 is
     /// select the right implementation version.
     /// @param input An abi-encoded {TaikoData.BlockEvidence} object.
     function proveBlock(
-        uint256 blockId,
+        uint64 blockId,
         bytes calldata input
     )
         external
@@ -127,7 +127,7 @@ contract TaikoL1 is
 
     /// @notice Verifies up to N blocks.
     /// @param maxBlocks Max number of blocks to verify.
-    function verifyBlocks(uint256 maxBlocks) external nonReentrant {
+    function verifyBlocks(uint64 maxBlocks) external nonReentrant {
         if (maxBlocks == 0) revert L1_INVALID_PARAM();
         LibVerifying.verifyBlocks({
             state: state,
@@ -167,7 +167,7 @@ contract TaikoL1 is
     /// @return _prover Address of the assigned prover for the block.
     /// @return _nextForkChoiceId Next fork choice ID of the block.
     /// @return _verifiedForkChoiceId Verified fork choice ID of the block.
-    function getBlock(uint256 blockId)
+    function getBlock(uint64 blockId)
         public
         view
         returns (
@@ -197,7 +197,7 @@ contract TaikoL1 is
     /// @param parentGasUsed Gas used by the parent block.
     /// @return ForkChoice data of the block.
     function getForkChoice(
-        uint256 blockId,
+        uint64 blockId,
         bytes32 parentHash,
         uint32 parentGasUsed
     )
@@ -217,7 +217,7 @@ contract TaikoL1 is
     /// @notice Gets the block hash of the specified Layer 2 block.
     /// @param blockId Index of the block.
     /// @return Block hash of the specified block.
-    function getCrossChainBlockHash(uint256 blockId)
+    function getCrossChainBlockHash(uint64 blockId)
         public
         view
         override
@@ -236,7 +236,7 @@ contract TaikoL1 is
     /// @notice Gets the signal root of the specified Layer 2 block.
     /// @param blockId Index of the block.
     /// @return Signal root of the specified block.
-    function getCrossChainSignalRoot(uint256 blockId)
+    function getCrossChainSignalRoot(uint64 blockId)
         public
         view
         override

@@ -18,14 +18,14 @@ interface ICrossChainSync {
     /// @param blockHash The hash of the synced block.
     /// @param signalRoot The root hash representing cross-chain signals.
     event CrossChainSynced(
-        uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
+        uint64 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
     );
 
     /// @notice Fetches the hash of a block from the opposite chain.
     /// @param number The target block number. Specifying 0 retrieves the hash
     /// of the latest block.
     /// @return The hash of the desired block from the other chain.
-    function getCrossChainBlockHash(uint256 number)
+    function getCrossChainBlockHash(uint64 number)
         external
         view
         returns (bytes32);
@@ -35,7 +35,7 @@ interface ICrossChainSync {
     /// @param number The target block number. Specifying 0 retrieves the root
     /// of the latest block.
     /// @return The root hash for the specified block's signal service.
-    function getCrossChainSignalRoot(uint256 number)
+    function getCrossChainSignalRoot(uint64 number)
         external
         view
         returns (bytes32);

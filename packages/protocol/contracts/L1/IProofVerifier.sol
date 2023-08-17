@@ -16,7 +16,7 @@ interface IProofVerifier {
     /// @param instance Hashed evidence & config data. If set to zero, proof is
     /// assumed to be from oracle prover.
     function verifyProofs(
-        uint256 blockId,
+        uint64 blockId,
         bytes calldata blockProofs,
         bytes32 instance
     )

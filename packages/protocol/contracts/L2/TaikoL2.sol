@@ -230,7 +230,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     /// zero to fetch the latest synced L1 block hash.
     /// @return The L1 block hash for the specified L1 block number or the
     /// latest synced L1 block hash.
-    function getCrossChainBlockHash(uint256 number)
+    function getCrossChainBlockHash(uint64 number)
         public
         view
         override
@@ -246,7 +246,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     /// zero to fetch the latest synced L1 signal root.
     /// @return The signal root for the specified L1 block number or the latest
     /// synced L1 signal root.
-    function getCrossChainSignalRoot(uint256 number)
+    function getCrossChainSignalRoot(uint64 number)
         public
         view
         override

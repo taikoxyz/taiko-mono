@@ -22,10 +22,10 @@ library LibVerifying {
     using LibMath for uint256;
 
     event BlockVerified(
-        uint256 indexed blockId, bytes32 blockHash, address prover
+        uint64 indexed blockId, bytes32 blockHash, address prover
     );
     event CrossChainSynced(
-        uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
+        uint64 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
     );
 
     error L1_INVALID_CONFIG();
@@ -92,11 +92,11 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
-        uint256 maxBlocks
+        uint64 maxBlocks
     )
         internal
     {
-        uint256 i = state.slotB.lastVerifiedBlockId;
+        uint64 i = state.slotB.lastVerifiedBlockId;
         TaikoData.Block storage blk =
             state.blocks[i % config.blockRingBufferSize];
 
@@ -117,9 +117,8 @@ library LibVerifying {
 
         while (i < state.slotB.numBlocks && processed < maxBlocks) {
             blk = state.blocks[i % config.blockRingBufferSize];
-            assert(blk.blockId == i);
 
-            fcId = LibUtils.getForkChoiceId(state, blk, blockHash, gasUsed);
+            fcId = LibUtils.getForkChoiceId(state, blk, i, blockHash, gasUsed);
             if (fcId == 0) break;
 
             fc = blk.forkChoices[fcId];
@@ -136,7 +135,7 @@ library LibVerifying {
             blk.verifiedForkChoiceId = fcId;
 
             _rewardProver(config, tt, blk, fc);
-            emit BlockVerified(blk.blockId, fc.blockHash, fc.prover);
+            emit BlockVerified(i, fc.blockHash, fc.prover);
 
             unchecked {
                 ++i;

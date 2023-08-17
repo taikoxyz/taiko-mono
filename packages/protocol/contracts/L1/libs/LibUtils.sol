@@ -18,20 +18,38 @@ library LibUtils {
     function getL2ChainData(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        uint256 blockId
+        uint64 blockId
     )
         internal
         view
         returns (bool found, TaikoData.Block storage blk)
     {
-        uint256 id = blockId == 0 ? state.slotB.lastVerifiedBlockId : blockId;
+        checkBlockId(state, blockId);
+
+        uint64 id = blockId == 0 ? state.slotB.lastVerifiedBlockId : blockId;
         blk = state.blocks[id % config.blockRingBufferSize];
-        found = (blk.blockId == id && blk.verifiedForkChoiceId != 0);
+        found = blk.verifiedForkChoiceId != 0;
+    }
+
+    function checkBlockId(
+        TaikoData.State storage state,
+        uint64 blockId
+    )
+        internal
+        view
+    {
+        if (
+            blockId <= state.slotB.lastVerifiedBlockId
+                || blockId >= state.slotB.numBlocks
+        ) {
+            revert L1_BLOCK_ID();
+        }
     }
 
     function getForkChoiceId(
         TaikoData.State storage state,
         TaikoData.Block storage blk,
+        uint64 blockId,
         bytes32 parentHash,
         uint32 parentGasUsed
     )
@@ -45,7 +63,7 @@ library LibUtils {
         ) {
             fcId = 1;
         } else {
-            fcId = state.forkChoiceIds[blk.blockId][parentHash][parentGasUsed];
+            fcId = state.forkChoiceIds[blockId][parentHash][parentGasUsed];
         }
 
         if (fcId >= blk.nextForkChoiceId) {
@@ -69,22 +87,6 @@ library LibUtils {
             nextEthDepositToProcess: slotA.nextEthDepositToProcess,
             numEthDeposits: slotA.numEthDeposits - slotA.nextEthDepositToProcess
         });
-    }
-
-    function movingAverage(
-        uint256 maValue,
-        uint256 newValue,
-        uint256 maf
-    )
-        internal
-        pure
-        returns (uint256)
-    {
-        if (maValue == 0) {
-            return newValue;
-        }
-        uint256 _ma = (maValue * (maf - 1) + newValue) / maf;
-        return _ma > 0 ? _ma : maValue;
     }
 
     /// @dev Hashing the block metadata.

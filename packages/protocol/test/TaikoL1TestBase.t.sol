@@ -237,7 +237,7 @@ abstract contract TaikoL1TestBase is Test {
         L1.proveBlock(meta.id, abi.encode(evidence));
     }
 
-    function verifyBlock(address verifier, uint256 count) internal {
+    function verifyBlock(address verifier, uint64 count) internal {
         vm.prank(verifier, verifier);
         L1.verifyBlocks(count);
     }

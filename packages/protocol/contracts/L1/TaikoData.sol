@@ -23,12 +23,12 @@ library TaikoData {
         // Group 2: Block level configs
         // ---------------------------------------------------------------------
         // The maximum number of proposals allowed in a single block.
-        uint256 blockMaxProposals;
+        uint64 blockMaxProposals;
         // Size of the block ring buffer, allowing extra space for proposals.
-        uint256 blockRingBufferSize;
+        uint64 blockRingBufferSize;
         // The maximum number of verifications allowed per transaction in a
         // block.
-        uint256 blockMaxVerificationsPerTx;
+        uint64 blockMaxVerificationsPerTx;
         // The maximum gas limit allowed for a block.
         uint32 blockMaxGasLimit;
         // The base gas for processing a block.
@@ -135,18 +135,15 @@ library TaikoData {
     }
 
     /// @dev Struct containing data required for verifying a block.
-    /// 4 slots.
-    // TODO(daniel): if we can delete blockId field, then this struct
-    // will take only 3 slots
+    /// 3 slots.
     struct Block {
         // slot 1: ForkChoice storage are reusable
-        mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
+        mapping(uint16 forkChoiceId => ForkChoice) forkChoices;
         bytes32 metaHash; // slot 2
         address prover; // slot 4
         uint64 proposedAt;
         uint16 nextForkChoiceId;
         uint16 verifiedForkChoiceId;
-        uint64 blockId;
     }
 
     /// @dev Struct representing information about a transaction list.
@@ -184,9 +181,9 @@ library TaikoData {
     /// @dev Struct holding the state variables for the {TaikoL1} contract.
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
-        mapping(uint256 blockId_mode_blockRingBufferSize => Block) blocks;
+        mapping(uint64 blockId_mode_blockRingBufferSize => Block) blocks;
         mapping(
-            uint256 blockId
+            uint64 blockId
                 => mapping(
                     bytes32 parentHash
                         => mapping(uint32 parentGasUsed => uint16 forkChoiceId)

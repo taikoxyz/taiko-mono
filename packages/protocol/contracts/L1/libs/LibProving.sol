@@ -39,7 +39,7 @@ library LibProving {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
-        uint256 blockId,
+        uint64 blockId,
         TaikoData.BlockEvidence memory evidence
     )
         internal
@@ -51,17 +51,10 @@ library LibProving {
                 || evidence.signalRoot == 0 || evidence.gasUsed == 0
         ) revert L1_INVALID_EVIDENCE();
 
-        if (
-            blockId <= state.slotB.lastVerifiedBlockId
-                || blockId >= state.slotB.numBlocks
-        ) {
-            revert L1_BLOCK_ID();
-        }
+        LibUtils.checkBlockId(state, blockId);
 
         TaikoData.Block storage blk =
             state.blocks[blockId % config.blockRingBufferSize];
-
-        assert(blk.blockId == blockId);
 
         // Check the metadata hash matches the proposed block's. This is
         // necessary to handle chain reorgs.
@@ -87,7 +80,7 @@ library LibProving {
         TaikoData.ForkChoice storage fc;
 
         uint16 fcId = LibUtils.getForkChoiceId(
-            state, blk, evidence.parentHash, evidence.parentGasUsed
+            state, blk, blockId, evidence.parentHash, evidence.parentGasUsed
         );
 
         if (fcId == 0) {
@@ -105,7 +98,7 @@ library LibProving {
                     evidence.parentHash, evidence.parentGasUsed
                 );
             } else {
-                state.forkChoiceIds[blk.blockId][evidence.parentHash][evidence
+                state.forkChoiceIds[blockId][evidence.parentHash][evidence
                     .parentGasUsed] = fcId;
             }
         } else if (evidence.prover == address(1)) {
@@ -177,7 +170,7 @@ library LibProving {
         });
 
         emit BlockProven({
-            blockId: blk.blockId,
+            blockId: blockId,
             parentHash: evidence.parentHash,
             blockHash: evidence.blockHash,
             signalRoot: evidence.signalRoot,
@@ -189,7 +182,7 @@ library LibProving {
     function getForkChoice(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        uint256 blockId,
+        uint64 blockId,
         bytes32 parentHash,
         uint32 parentGasUsed
     )
@@ -197,12 +190,14 @@ library LibProving {
         view
         returns (TaikoData.ForkChoice storage fc)
     {
+        LibUtils.checkBlockId(state, blockId);
+
         TaikoData.Block storage blk =
             state.blocks[blockId % config.blockRingBufferSize];
-        if (blk.blockId != blockId) revert L1_BLOCK_ID();
 
-        uint256 fcId =
-            LibUtils.getForkChoiceId(state, blk, parentHash, parentGasUsed);
+        uint16 fcId = LibUtils.getForkChoiceId(
+            state, blk, blockId, parentHash, parentGasUsed
+        );
         if (fcId == 0) revert L1_FORK_CHOICE_NOT_FOUND();
 
         fc = blk.forkChoices[fcId];

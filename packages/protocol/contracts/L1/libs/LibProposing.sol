@@ -127,7 +127,6 @@ library LibProposing {
             blk.proposedAt = meta.timestamp;
             blk.nextForkChoiceId = 1;
             blk.verifiedForkChoiceId = 0;
-            blk.blockId = meta.id;
 
             emit BlockProposed({
                 blockId: state.slotB.numBlocks++,
@@ -140,14 +139,14 @@ library LibProposing {
     function getBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        uint256 blockId
+        uint64 blockId
     )
         internal
         view
         returns (TaikoData.Block storage blk)
     {
+        LibUtils.checkBlockId(state, blockId);
         blk = state.blocks[blockId % config.blockRingBufferSize];
-        if (blk.blockId != blockId) revert L1_BLOCK_ID();
     }
 
     function _validateBlock(
