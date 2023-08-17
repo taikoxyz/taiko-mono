@@ -133,11 +133,7 @@ library LibProposing {
         });
 
         TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
-
-        // Burn the bond, if this assigned prover fails to prove the block,
-        // additonal tokens will be minted to the actual prover.
         tt.burn(blk.prover, 32e8); // TODO(daniel)
-
         tt.burn(msg.sender, blk.proverFee);
 
         // Emit an event
@@ -168,11 +164,11 @@ library LibProposing {
         bytes32 metaHash,
         uint64 blockId,
         address prover,
-        uint32 maxProverFee,
+        uint64 maxProverFee,
         bytes memory proverParams
     )
         private
-        returns (address _actualProver, uint32 _proverFee)
+        returns (address _actualProver, uint64 _proverFee)
     {
         if (prover == address(0)) {
             revert L1_INVALID_PROVER();

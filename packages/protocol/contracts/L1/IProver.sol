@@ -23,9 +23,9 @@ interface IProver {
     function onBlockAssigned(
         address proposer,
         uint64 blockId,
-        uint32 maxProverFee,
+        uint64 maxProverFee,
         bytes calldata params
     )
         external
-        returns (address actualProver, uint32 proverFee);
+        returns (address actualProver, uint64 proverFee);
 }

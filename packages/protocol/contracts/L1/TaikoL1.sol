@@ -176,7 +176,7 @@ contract TaikoL1 is
             address _proposer,
             uint64 _proposedAt,
             address _prover,
-            uint32 _proverFee,
+            uint64 _proverFee,
             uint24 _nextForkChoiceId,
             uint24 _verifiedForkChoiceId
         )

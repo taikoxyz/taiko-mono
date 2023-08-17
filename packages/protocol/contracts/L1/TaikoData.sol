@@ -91,7 +91,7 @@ library TaikoData {
         uint24 txListByteEnd; // byte-wise end index (exclusive)
         bool cacheTxListInfo;
         address prover;
-        uint32 maxProverFee;
+        uint64 maxProverFee;
         bytes proverParams;
     }
 
@@ -149,7 +149,7 @@ library TaikoData {
         uint64 proposedAt;
         uint16 proofWindow;
         address prover; // slot 5
-        uint32 proverFee;
+        uint64 proverFee;
         uint24 nextForkChoiceId; // slot 6 (48 bits used)
         uint24 verifiedForkChoiceId;
     }
