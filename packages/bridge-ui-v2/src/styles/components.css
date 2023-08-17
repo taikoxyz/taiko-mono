@@ -114,7 +114,7 @@
       height: 0px;
       width: 0px;
       top: 100%;
-      left: 133px;
+      left: 133px;  /* (283px - 9px)/2 - 4px */
       border-width: 9px;
       border-color: transparent transparent transparent;
       border-style: solid;

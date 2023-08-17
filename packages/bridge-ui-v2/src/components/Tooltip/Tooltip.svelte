@@ -9,11 +9,7 @@
   export let position: Position = 'top';
 
   let tooltipId = `tooltip-${uid()}`;
-  let tooltipClass = `block dialog-tooltip`;
-  if (position === 'top') {
-    tooltipClass = `block dialog-tooltip dialog-tooltip-top`;
-  }
-  console.log(tooltipClass)
+  let tooltipClass = 'block dialog-tooltip';
   let tooltipOpen = false;
   let classes = classNames('flex', $$props.class || 'relative');
 
@@ -32,6 +28,7 @@
 
   onMount(() => {
     positionElementByTarget(dialogElem, triggerElem, position, GAP);
+    tooltipClass = `block dialog-tooltip dialog-tooltip-${position}`;
     document.addEventListener('click', closeTooltip);
   });
 
