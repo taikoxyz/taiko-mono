@@ -140,7 +140,7 @@ library TaikoData {
         // slot 1: ForkChoice storage are reusable
         mapping(uint16 forkChoiceId => ForkChoice) forkChoices;
         bytes32 metaHash; // slot 2
-        address prover; // slot 4
+        address prover; // slot 3
         uint64 proposedAt;
         uint16 nextForkChoiceId;
         uint16 verifiedForkChoiceId;
