@@ -153,15 +153,14 @@ library TaikoData {
         mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
         uint64 blockId; // slot 2
         bytes32 metaHash; // slot 3
-        address proposer; // slot 4
+        address proposer; // slot 4  (240 bits used)
         uint64 proposedAt;
-        uint32 gasLimit;
+        uint16 proofWindow;
         address prover; // slot 5
         uint64 bond;
         uint32 proverFee;
-        uint24 nextForkChoiceId; // slot 6 (64 bits used)
+        uint24 nextForkChoiceId; // slot 6 (48 bits used)
         uint24 verifiedForkChoiceId;
-        uint16 proofWindow;
     }
 
     /// @dev Struct representing information about a transaction list.

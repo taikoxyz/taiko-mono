@@ -187,12 +187,6 @@ library LibVerifying {
     )
         private
     {
-        // the actually mined L2 block's gasLimit is blk.gasLimit +
-        // LibL2Consts.ANCHOR_GAS_COST, so fc.gasUsed may greater than
-        // blk.gasLimit here.
-        uint32 _gasLimit = blk.gasLimit + LibL2Consts.ANCHOR_GAS_COST;
-        assert(fc.gasUsed <= _gasLimit);
-
         blk.verifiedForkChoiceId = fcId;
 
         if (blk.prover == address(0)) {

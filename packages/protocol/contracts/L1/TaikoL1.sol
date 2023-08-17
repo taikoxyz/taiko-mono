@@ -167,7 +167,6 @@ contract TaikoL1 is
     /// @return _metaHash Metadata hash of the block.
     /// @return _proposer Address of the block proposer.
     /// @return _proposedAt Timestamp when the block was proposed.
-    /// @return _gasLimit Gas limit of the block.
     /// @return _prover Address of the assigned prover for the block.
     /// @return _bond The prover's bond.
     /// @return _proverFee Fee per gas of the block.
@@ -181,7 +180,6 @@ contract TaikoL1 is
             bytes32 _metaHash,
             address _proposer,
             uint64 _proposedAt,
-            uint32 _gasLimit,
             address _prover,
             uint64 _bond,
             uint32 _proverFee,
@@ -199,7 +197,6 @@ contract TaikoL1 is
         _metaHash = blk.metaHash;
         _proposer = blk.proposer;
         _proposedAt = blk.proposedAt;
-        _gasLimit = blk.gasLimit;
         _prover = blk.prover;
         _bond = blk.bond;
         _proverFee = blk.proverFee;

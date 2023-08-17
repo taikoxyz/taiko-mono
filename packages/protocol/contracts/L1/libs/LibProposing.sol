@@ -117,7 +117,6 @@ library LibProposing {
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.proposer = msg.sender;
         blk.proposedAt = meta.timestamp;
-        blk.gasLimit = meta.gasLimit;
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = 0;
 
