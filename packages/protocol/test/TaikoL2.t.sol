@@ -3,7 +3,6 @@ pragma solidity ^0.8.20;
 
 import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
-import { LibL2Consts } from "../contracts/L2/LibL2Consts.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { TaikoL2 } from "../contracts/L2/TaikoL2.sol";
 import { SafeCastUpgradeable } from
@@ -17,7 +16,6 @@ contract TestTaikoL2 is Test {
 
     TaikoL2 public L2;
     uint256 private logIndex;
-    uint32 private ANCHOR_GAS_COST = LibL2Consts.ANCHOR_GAS_COST;
 
     function setUp() public {
         uint16 rand = 2;
@@ -187,16 +185,11 @@ contract TestTaikoL2 is Test {
     {
         return _getBasefeeAndPrint(
             uint32(timeSinceNow + block.timestamp - L2.parentTimestamp()),
-            gasLimit + ANCHOR_GAS_COST
+            gasLimit
         );
     }
 
     function _anchor(uint32 parentGasLimit) private {
-        L2.anchor(
-            keccak256("a"),
-            keccak256("b"),
-            12_345,
-            parentGasLimit + ANCHOR_GAS_COST
-        );
+        L2.anchor(keccak256("a"), keccak256("b"), 12_345, parentGasLimit);
     }
 }

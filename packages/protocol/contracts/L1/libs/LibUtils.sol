@@ -7,7 +7,6 @@
 pragma solidity ^0.8.20;
 
 import { LibEthDepositing } from "./LibEthDepositing.sol";
-import { LibL2Consts } from "../../L2/LibL2Consts.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { TaikoData } from "../TaikoData.sol";
 
