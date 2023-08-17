@@ -189,15 +189,11 @@ library LibVerifying {
     {
         blk.verifiedForkChoiceId = fcId;
 
-        if (blk.prover == address(0)) {
-            --state.slotB.numOpenBlocks;
-        }
-
         bool inProofWindow = blk.prover == address(0)
             || fc.provenAt <= blk.proposedAt + blk.proofWindow;
 
         // Calculate the block fee
-        uint64 proverFee = inProofWindow ? blk.proverFee : blk.bond / 2; // TODO(daniel):
+        uint64 proverFee = inProofWindow ? blk.proverFee : 16e8; // TODO(daniel):
 
         // Update protocol level stats
         if (inProofWindow && fc.prover != address(1)) {
@@ -229,8 +225,8 @@ library LibVerifying {
 
         // Mint token to the assigned prover
         uint64 mintAmount = proverFee;
-        if (blk.bond != 0 && (inProofWindow || fc.prover == address(1))) {
-            mintAmount += blk.bond;
+        if (inProofWindow || fc.prover == address(1)) {
+            mintAmount += 32e8; // TODO(daniel)
         }
         tt.mint(fc.prover, mintAmount);
 

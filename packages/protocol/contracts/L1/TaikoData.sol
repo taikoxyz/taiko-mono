@@ -157,7 +157,6 @@ library TaikoData {
         uint64 proposedAt;
         uint16 proofWindow;
         address prover; // slot 5
-        uint64 bond;
         uint32 proverFee;
         uint24 nextForkChoiceId; // slot 6 (48 bits used)
         uint24 verifiedForkChoiceId;
@@ -189,7 +188,7 @@ library TaikoData {
     }
 
     struct SlotB {
-        uint64 numOpenBlocks;
+        uint64 __reserved1;
         uint64 numEthDeposits;
         uint64 numBlocks;
         uint64 nextEthDepositToProcess;

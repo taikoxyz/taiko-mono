@@ -168,7 +168,6 @@ contract TaikoL1 is
     /// @return _proposer Address of the block proposer.
     /// @return _proposedAt Timestamp when the block was proposed.
     /// @return _prover Address of the assigned prover for the block.
-    /// @return _bond The prover's bond.
     /// @return _proverFee Fee per gas of the block.
     /// @return _nextForkChoiceId Next fork choice ID of the block.
     /// @return _verifiedForkChoiceId Verified fork choice ID of the block.
@@ -181,7 +180,6 @@ contract TaikoL1 is
             address _proposer,
             uint64 _proposedAt,
             address _prover,
-            uint64 _bond,
             uint32 _proverFee,
             uint24 _nextForkChoiceId,
             uint24 _verifiedForkChoiceId,
@@ -198,7 +196,6 @@ contract TaikoL1 is
         _proposer = blk.proposer;
         _proposedAt = blk.proposedAt;
         _prover = blk.prover;
-        _bond = blk.bond;
         _proverFee = blk.proverFee;
         _nextForkChoiceId = blk.nextForkChoiceId;
         _verifiedForkChoiceId = blk.verifiedForkChoiceId;

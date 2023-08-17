@@ -132,7 +132,7 @@ library LibProposing {
         // Assign a prover and get the actual prover, prover fee, and the
         // prover's bond. Note that the actual prover may be address(0) to
         // indicate this block is open.
-        (blk.prover, blk.proverFee, blk.bond) = _assignProver({
+        (blk.prover, blk.proverFee) = _assignProver({
             config: config,
             metaHash: blk.metaHash,
             proofWindow: blk.proofWindow,
@@ -145,20 +145,11 @@ library LibProposing {
         TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
 
         if (blk.prover == address(0)) {
-            // This is an open block
-            if (state.slotB.numOpenBlocks >= config.rewardOpenMaxCount) {
-                revert L1_TOO_MANY_OPEN_BLOCKS();
-            }
-            assert(blk.bond == 0);
             blk.proofWindow = 0;
-            unchecked {
-                ++state.slotB.numOpenBlocks;
-            }
         } else {
             // Burn the bond, if this assigned prover fails to prove the block,
             // additonal tokens will be minted to the actual prover.
-            assert(blk.bond != 0);
-            tt.burn(blk.prover, blk.bond);
+            tt.burn(blk.prover, 32e8); // TODO(daniel)
         }
 
         tt.burn(msg.sender, blk.proverFee);
@@ -196,7 +187,7 @@ library LibProposing {
         bytes memory proverParams
     )
         private
-        returns (address _actualProver, uint32 _proverFee, uint64 _bond)
+        returns (address _actualProver, uint32 _proverFee)
     {
         if (prover == address(0)) {
             revert L1_INVALID_PROVER();
@@ -229,8 +220,6 @@ library LibProposing {
             // Do not allow address(1) as it is our oracle prover
             revert L1_INVALID_PROVER();
         }
-
-        _bond = 32e8; // TODO(daniel):
     }
 
     function _validateBlock(
