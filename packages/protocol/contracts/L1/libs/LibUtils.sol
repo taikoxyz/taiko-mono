@@ -24,7 +24,7 @@ library LibUtils {
         view
         returns (bool found, TaikoData.Block storage blk)
     {
-        uint256 id = blockId == 0 ? state.slotC.lastVerifiedBlockId : blockId;
+        uint256 id = blockId == 0 ? state.slotB.lastVerifiedBlockId : blockId;
         blk = state.blocks[id % config.blockRingBufferSize];
         found = (blk.blockId == id && blk.verifiedForkChoiceId != 0);
     }
@@ -60,15 +60,14 @@ library LibUtils {
     {
         TaikoData.SlotA memory slotA = state.slotA;
         TaikoData.SlotB memory slotB = state.slotB;
-        TaikoData.SlotC memory slotC = state.slotC;
 
         return TaikoData.StateVariables({
             genesisHeight: slotA.genesisHeight,
             genesisTimestamp: slotA.genesisTimestamp,
             numBlocks: slotB.numBlocks,
-            lastVerifiedBlockId: slotC.lastVerifiedBlockId,
-            nextEthDepositToProcess: slotB.nextEthDepositToProcess,
-            numEthDeposits: slotB.numEthDeposits - slotB.nextEthDepositToProcess
+            lastVerifiedBlockId: slotB.lastVerifiedBlockId,
+            nextEthDepositToProcess: slotA.nextEthDepositToProcess,
+            numEthDeposits: slotA.numEthDeposits - slotA.nextEthDepositToProcess
         });
     }
 
@@ -94,7 +93,7 @@ library LibUtils {
         pure
         returns (bytes32 hash)
     {
-        uint256[7] memory inputs;
+        uint256[6] memory inputs;
 
         inputs[0] = (uint256(meta.id) << 192) | (uint256(meta.timestamp) << 128)
             | (uint256(meta.l1Height) << 64);
@@ -110,10 +109,8 @@ library LibUtils {
             | (uint256(meta.gasLimit) << 176)
             | (uint256(uint160(meta.beneficiary)) << 16);
 
-        inputs[6] = (uint256(uint160(meta.treasury)) << 96);
-
         assembly {
-            hash := keccak256(inputs, mul(7, 32))
+            hash := keccak256(inputs, mul(6, 32))
         }
     }
 

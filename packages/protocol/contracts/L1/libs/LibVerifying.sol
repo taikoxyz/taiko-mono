@@ -67,7 +67,7 @@ library LibVerifying {
             state.slotA.genesisHeight = uint64(block.number);
             state.slotA.genesisTimestamp = timeNow;
             state.slotB.numBlocks = 1;
-            state.slotC.lastVerifiedAt = uint64(block.timestamp);
+            state.slotB.lastVerifiedAt = uint64(block.timestamp);
 
             // Init the genesis block
             TaikoData.Block storage blk = state.blocks[0];
@@ -96,7 +96,7 @@ library LibVerifying {
     )
         internal
     {
-        uint256 i = state.slotC.lastVerifiedBlockId;
+        uint256 i = state.slotB.lastVerifiedBlockId;
         TaikoData.Block storage blk =
             state.blocks[i % config.blockRingBufferSize];
 
@@ -108,6 +108,7 @@ library LibVerifying {
         uint32 gasUsed = blk.forkChoices[fcId].gasUsed;
 
         bytes32 signalRoot;
+        TaikoData.ForkChoice memory fc;
 
         uint64 processed;
         unchecked {
@@ -121,13 +122,12 @@ library LibVerifying {
             fcId = LibUtils.getForkChoiceId(state, blk, blockHash, gasUsed);
             if (fcId == 0) break;
 
-            TaikoData.ForkChoice memory fc = blk.forkChoices[fcId];
+            fc = blk.forkChoices[fcId];
             if (fc.prover == address(0)) break;
 
             uint256 proofRegularCooldown = fc.prover == address(1)
                 ? config.proofOracleCooldown
                 : config.proofRegularCooldown;
-
             if (block.timestamp <= fc.provenAt + proofRegularCooldown) break;
 
             blockHash = fc.blockHash;
@@ -136,8 +136,6 @@ library LibVerifying {
             blk.verifiedForkChoiceId = fcId;
 
             _rewardProver(config, tt, blk, fc);
-
-            // Emit the event
             emit BlockVerified(blk.blockId, fc.blockHash, fc.prover);
 
             unchecked {
@@ -148,8 +146,8 @@ library LibVerifying {
 
         if (processed > 0) {
             unchecked {
-                state.slotC.lastVerifiedAt = uint64(block.timestamp);
-                state.slotC.lastVerifiedBlockId += processed;
+                state.slotB.lastVerifiedAt = uint64(block.timestamp);
+                state.slotB.lastVerifiedBlockId += processed;
             }
 
             if (config.relaySignalRoot) {
@@ -161,7 +159,7 @@ library LibVerifying {
                     .sendSignal(signalRoot);
             }
             emit CrossChainSynced(
-                state.slotC.lastVerifiedBlockId, blockHash, signalRoot
+                state.slotB.lastVerifiedBlockId, blockHash, signalRoot
             );
         }
     }

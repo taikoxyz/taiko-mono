@@ -52,7 +52,7 @@ library LibProving {
         ) revert L1_INVALID_EVIDENCE();
 
         if (
-            blockId <= state.slotC.lastVerifiedBlockId
+            blockId <= state.slotB.lastVerifiedBlockId
                 || blockId >= state.slotB.numBlocks
         ) {
             revert L1_BLOCK_ID();
@@ -203,8 +203,8 @@ library LibProving {
 
         uint256 fcId =
             LibUtils.getForkChoiceId(state, blk, parentHash, parentGasUsed);
-
         if (fcId == 0) revert L1_FORK_CHOICE_NOT_FOUND();
+
         fc = blk.forkChoices[fcId];
     }
 }

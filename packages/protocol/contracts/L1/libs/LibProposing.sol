@@ -115,7 +115,6 @@ library LibProposing {
             meta.txListByteEnd = input.txListByteEnd;
             meta.gasLimit = config.blockMaxGasLimit;
             meta.beneficiary = input.beneficiary;
-            meta.treasury = resolver.resolve(config.chainId, "treasury", false);
             meta.depositsProcessed = LibEthDepositing.processDeposits(
                 state, config, input.beneficiary
             );
@@ -167,7 +166,7 @@ library LibProposing {
 
         if (
             state.slotB.numBlocks
-                >= state.slotC.lastVerifiedBlockId + config.blockMaxProposals + 1
+                >= state.slotB.lastVerifiedBlockId + config.blockMaxProposals + 1
         ) {
             revert L1_TOO_MANY_BLOCKS();
         }

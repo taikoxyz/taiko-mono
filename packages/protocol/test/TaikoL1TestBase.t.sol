@@ -192,7 +192,6 @@ abstract contract TaikoL1TestBase is Test {
         meta.txListByteEnd = txListSize;
         meta.gasLimit = gasLimit;
         meta.beneficiary = proposer;
-        meta.treasury = L2Treasury;
 
         vm.prank(proposer, proposer);
         meta = L1.proposeBlock(abi.encode(input), txList);

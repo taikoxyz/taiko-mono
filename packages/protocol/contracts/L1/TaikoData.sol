@@ -106,7 +106,6 @@ library TaikoData {
         uint24 txListByteEnd;
         uint32 gasLimit;
         address beneficiary;
-        address treasury;
         TaikoData.EthDeposit[] depositsProcessed;
     }
 
@@ -169,23 +168,15 @@ library TaikoData {
     struct SlotA {
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 __reserved1;
-        uint64 __reserved2;
-    }
-
-    struct SlotB {
-        uint64 __reserved1;
         uint64 numEthDeposits;
-        uint64 numBlocks;
         uint64 nextEthDepositToProcess;
     }
 
-    struct SlotC {
+    struct SlotB {
+        uint64 numBlocks;
+        uint64 nextEthDepositToProcess;
         uint64 lastVerifiedAt;
         uint64 lastVerifiedBlockId;
-        uint16 __reserved1;
-        uint48 __reserved2;
-        uint64 __reserved3;
     }
 
     /// @dev Struct holding the state variables for the {TaikoL1} contract.
@@ -202,9 +193,8 @@ library TaikoData {
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         mapping(uint256 depositId_mode_ethDepositRingBufferSize => uint256)
             ethDeposits;
-        SlotA slotA; // slot 5: never or rarely changed
+        SlotA slotA; // slot 5
         SlotB slotB; // slot 6
-        SlotC slotC; // slot 7
-        uint256[43] __gap;
+        uint256[44] __gap;
     }
 }
