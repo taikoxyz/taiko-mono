@@ -255,11 +255,11 @@ pragma solidity ^0.8.20;
 //     }
 
 //     /// @notice Retrieves the current active provers and their weights.
-//     /// @param proverFee The protocol's current fee per gas.
+//     /// @param proverFee The protocol's current prover fee.
 //     /// @return weights The weights of the current provers in the pool.
 //     /// @return erpg The effective reward per gas of the current provers in
 // the
-//     /// pool. This is smoothed out to be in range of the current fee per gas.
+//     /// pool. This is smoothed out to be in range of the current prover fee.
 //     function getProverWeights(uint32 proverFee)
 //         public
 //         view
