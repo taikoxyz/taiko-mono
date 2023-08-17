@@ -130,7 +130,7 @@ library LibProposing {
             );
         }
 
-        // Assign a prover and get the actual prover, proverFee, and the
+        // Assign a prover and get the actual prover, prover fee, and the
         // prover's bond. Note that the actual prover may be address(0) to
         // indicate this block is open.
         (blk.prover, blk.proverFee, blk.bond) = _assignProver({
