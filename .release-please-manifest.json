@@ -1,13 +1,13 @@
 {
-  ".": "0.17.0",
-  "packages/branding": "0.2.0",
-  "packages/bridge-ui": "0.9.1",
-  "packages/bridge-ui-v2": "2.3.0",
-  "packages/eventindexer": "0.9.0",
+  ".": "0.18.0",
+  "packages/branding": "0.3.0",
+  "packages/bridge-ui": "0.10.0",
+  "packages/bridge-ui-v2": "2.4.0",
+  "packages/eventindexer": "0.10.0",
   "packages/fork-diff": "0.2.0",
-  "packages/protocol": "0.12.0",
-  "packages/relayer": "0.8.0",
+  "packages/protocol": "0.13.0",
+  "packages/relayer": "0.9.0",
   "packages/status-page": "0.12.0",
-  "packages/website": "0.12.0",
+  "packages/website": "0.13.0",
   "packages/whitepaper": "1.4.0"
 }

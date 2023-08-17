@@ -89,7 +89,7 @@ func L1FilterFunc(
 
 	if svc.proverPool != nil {
 		wg.Go(func() error {
-			slashedEvents, err := svc.proverPool.FilterSlashed(filterOpts, nil)
+			slashedEvents, err := svc.proverPool.FilterSlashed(filterOpts, nil, nil)
 			if err != nil {
 				return errors.Wrap(err, "svc.proverPool.FilterSlashed")
 			}

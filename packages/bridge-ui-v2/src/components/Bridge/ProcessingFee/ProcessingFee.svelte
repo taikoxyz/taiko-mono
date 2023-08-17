@@ -9,7 +9,6 @@
   import { InputBox } from '$components/InputBox';
   import { LoadingText } from '$components/LoadingText';
   import { Tooltip } from '$components/Tooltip';
-  import { processingFeeComponent } from '$config';
   import { ProcessingFeeMethod } from '$libs/fee';
   import { parseToWei } from '$libs/util/parseToWei';
   import { uid } from '$libs/util/uid';
@@ -61,12 +60,6 @@
     inputBox.clear();
     selectedFeeMethod = prevOptionSelected;
     closeModal();
-  }
-
-  function closeModalWithDelay() {
-    // By adding delay there is enough time to see the selected option
-    // before closing the modal. Better experience for the user.
-    setTimeout(closeModal, processingFeeComponent.closingDelayOptionClick);
   }
 
   function focusInputBox() {
@@ -142,7 +135,7 @@
 
   <dialog id={dialogId} class="modal" class:modal-open={modalOpen}>
     <div class="modal-box relative px-6 py-[35px] md:rounded-[20px] bg-neutral-background">
-      <button class="absolute right-6 top-[35px]" on:click={closeModal}>
+      <button class="absolute right-6 top-[35px]" on:click={cancelModal}>
         <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
       </button>
 
@@ -174,8 +167,7 @@
             type="radio"
             value={ProcessingFeeMethod.RECOMMENDED}
             name="processingFeeMethod"
-            bind:group={selectedFeeMethod}
-            on:click={closeModalWithDelay} />
+            bind:group={selectedFeeMethod} />
         </li>
 
         <!-- NONE -->
@@ -196,8 +188,7 @@
               disabled={!hasEnoughEth}
               value={ProcessingFeeMethod.NONE}
               name="processingFeeMethod"
-              bind:group={selectedFeeMethod}
-              on:click={closeModalWithDelay} />
+              bind:group={selectedFeeMethod} />
           </div>
 
           {#if !hasEnoughEth}
