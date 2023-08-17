@@ -130,18 +130,16 @@ library LibProposing {
             );
         }
 
-        // Assign a prover and get the actual prover, feePerGas, and the
+        // Assign a prover and get the actual prover, proverFee, and the
         // prover's bond. Note that the actual prover may be address(0) to
         // indicate this block is open.
-        (blk.prover, blk.feePerGas, blk.bond) = _assignProver({
-            state: state,
+        (blk.prover, blk.proverFee, blk.bond) = _assignProver({
             config: config,
             metaHash: blk.metaHash,
             proofWindow: blk.proofWindow,
-            gasLimit: meta.gasLimit,
             blockId: blk.blockId,
             prover: input.prover,
-            maxFeePerGas: input.maxFeePerGas,
+            maxProverFee: input.maxProverFee,
             proverParams: input.proverParams
         });
 
@@ -164,18 +162,7 @@ library LibProposing {
             tt.burn(blk.prover, blk.bond);
         }
 
-        // Proposer burns a deposit to cover proving fees, the remaining fee
-        // will be refunded when the block is verified.
-        // Note that if the assigned prover fails to prove this block, more
-        // tokens will be minted to reward another prover after this block
-        // becomes open. These extra tokens come from the assigned prover's
-        // burned bond. Therefore, the block proposer does not need to deposit
-        // more tokens.
-        {
-            uint64 blockDeposit =
-                LibUtils.calcBlockFee(config, meta.gasLimit, blk.feePerGas);
-            tt.burn(msg.sender, blockDeposit);
-        }
+        tt.burn(msg.sender, blk.proverFee);
 
         // Emit an event
         unchecked {
@@ -201,22 +188,20 @@ library LibProposing {
     }
 
     function _assignProver(
-        TaikoData.State storage state,
         TaikoData.Config memory config,
         bytes32 metaHash,
         uint16 proofWindow,
-        uint32 gasLimit,
         uint64 blockId,
         address prover,
-        uint32 maxFeePerGas,
+        uint32 maxProverFee,
         bytes memory proverParams
     )
         private
-        returns (address _actualProver, uint32 _feePerGas, uint64 _bond)
+        returns (address _actualProver, uint32 _proverFee, uint64 _bond)
     {
         if (prover == address(0)) {
             _actualProver = prover;
-            _feePerGas = maxFeePerGas;
+            _proverFee = maxProverFee;
         } else if (!prover.isContract()) {
             // Verify the prover has authorized this assignment
             bytes32 hash =
@@ -226,47 +211,29 @@ library LibProposing {
                 revert L1_INVALID_PROVER_SIG();
             }
             _actualProver = prover;
-            _feePerGas = maxFeePerGas;
+            _proverFee = maxProverFee;
         } else {
-            (_actualProver, _feePerGas) = IProver(prover).onBlockAssigned({
+            (_actualProver, _proverFee) = IProver(prover).onBlockAssigned({
                 proposer: msg.sender,
                 blockId: blockId,
-                maxFeePerGas: maxFeePerGas,
+                maxProverFee: maxProverFee,
                 proofWindow: proofWindow,
                 params: proverParams
             });
 
             if (_actualProver == address(0)) {
-                _feePerGas = maxFeePerGas;
-            } else if (_feePerGas > maxFeePerGas) {
+                _proverFee = maxProverFee;
+            } else if (_proverFee > maxProverFee) {
                 revert L1_FEE_PER_GAS_TOO_LARGE();
             }
         }
 
-        if (_actualProver == address(1)) {
+        if (_actualProver == address(0) || _actualProver == address(1)) {
             // Do not allow address(1) as it is our oracle prover
             revert L1_INVALID_PROVER();
         }
 
-        if (_actualProver == address(0)) {
-            // For an open block, we make sure more the proposer pays more
-            uint256 minFeePerGas = uint256(state.slotC.avgFeePerGas)
-                * config.rewardOpenMultipler / 100;
-
-            if (_feePerGas < minFeePerGas) revert L1_FEE_PER_GAS_TOO_SMALL();
-            _feePerGas = uint32(minFeePerGas.min(type(uint32).max));
-        } else {
-            // We calculate how much bond the prover shall burn.
-            // To cover open block reward, we have to use the max of _feePerGas
-            // and state.slotC.avgFeePerGas in the calculation in case
-            // _feePerGas is really small or zero.
-            uint32 bondFeePerGas = _feePerGas > state.slotC.avgFeePerGas
-                ? _feePerGas
-                : state.slotC.avgFeePerGas;
-
-            _bond = LibUtils.calcBlockFee(config, gasLimit, bondFeePerGas)
-                * config.proofBondMultiplier;
-        }
+        _bond = 32e8; // TODO(daniel):
     }
 
     function _validateBlock(

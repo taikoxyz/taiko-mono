@@ -69,8 +69,7 @@ library LibUtils {
             numBlocks: slotB.numBlocks,
             lastVerifiedBlockId: slotC.lastVerifiedBlockId,
             nextEthDepositToProcess: slotB.nextEthDepositToProcess,
-            numEthDeposits: slotB.numEthDeposits - slotB.nextEthDepositToProcess,
-            avgFeePerGas: slotC.avgFeePerGas
+            numEthDeposits: slotB.numEthDeposits - slotB.nextEthDepositToProcess
         });
     }
 
@@ -122,7 +121,7 @@ library LibUtils {
     function calcBlockFee(
         TaikoData.Config memory config,
         uint64 gasAmount,
-        uint32 feePerGas
+        uint32 proverFee
     )
         internal
         pure
@@ -131,7 +130,7 @@ library LibUtils {
         uint64 _gas =
             gasAmount + LibL2Consts.ANCHOR_GAS_COST + config.blockFeeBaseGas;
         unchecked {
-            return _gas * feePerGas;
+            return _gas * proverFee;
         }
     }
 

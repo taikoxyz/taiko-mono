@@ -53,8 +53,6 @@ library TaikoData {
         // The window multiplier used to calculate proof time windows (in
         // percentage).
         uint16 proofWindowMultiplier;
-        // The bond multipler
-        uint8 proofBondMultiplier;
         // ---------------------------------------------------------------------
         // Group 4: ETH deposit related configs
         // ---------------------------------------------------------------------
@@ -75,9 +73,6 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // Group 5: Tokenomics
         // ---------------------------------------------------------------------
-        // The multiplier for calculating rewards for an open proposal (in
-        // percentage).
-        uint8 rewardOpenMultipler;
         // The maximum count of open proposals considered for rewards
         // calculation.
         uint32 rewardOpenMaxCount;
@@ -93,7 +88,6 @@ library TaikoData {
         uint64 lastVerifiedBlockId;
         uint64 nextEthDepositToProcess;
         uint64 numEthDeposits;
-        uint32 avgFeePerGas;
     }
 
     /// @dev Struct representing input data for block metadata.
@@ -105,7 +99,7 @@ library TaikoData {
         uint24 txListByteEnd; // byte-wise end index (exclusive)
         bool cacheTxListInfo;
         address prover;
-        uint32 maxFeePerGas;
+        uint32 maxProverFee;
         bytes proverParams;
     }
 
@@ -164,7 +158,7 @@ library TaikoData {
         uint32 gasLimit;
         address prover; // slot 5
         uint64 bond;
-        uint32 feePerGas;
+        uint32 proverFee;
         uint24 nextForkChoiceId; // slot 6 (64 bits used)
         uint24 verifiedForkChoiceId;
         uint16 proofWindow;
@@ -191,8 +185,8 @@ library TaikoData {
     struct SlotA {
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 __reserved70;
-        uint64 __reserved71;
+        uint64 __reserved1;
+        uint64 __reserved2;
     }
 
     struct SlotB {
@@ -205,9 +199,9 @@ library TaikoData {
     struct SlotC {
         uint64 lastVerifiedAt;
         uint64 lastVerifiedBlockId;
-        uint64 __reserved90;
-        uint32 avgFeePerGas;
         uint16 avgProofDelay;
+        uint48 __reserved1;
+        uint64 __reserved2;
     }
 
     /// @dev Struct holding the state variables for the {TaikoL1} contract.

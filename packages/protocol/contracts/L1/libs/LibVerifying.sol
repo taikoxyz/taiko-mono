@@ -26,7 +26,7 @@ library LibVerifying {
         uint256 indexed blockId,
         bytes32 blockHash,
         address prover,
-        uint64 blockFee
+        uint64 proverFee
     );
     event CrossChainSynced(
         uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
@@ -38,7 +38,6 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
-        uint32 initAvgFeePerGas,
         uint16 initAvgProofDelay
     )
         internal
@@ -55,7 +54,6 @@ library LibVerifying {
                 || config.proofMinWindow == 0
                 || config.proofMaxWindow < config.proofMinWindow
                 || config.proofWindowMultiplier <= 100
-                || config.proofBondMultiplier < 8
                 || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
                 || config.ethDepositMaxCountPerBlock
@@ -67,8 +65,6 @@ library LibVerifying {
                 || config.ethDepositMaxFee >= type(uint96).max
                 || config.ethDepositMaxFee
                     >= type(uint96).max / config.ethDepositMaxCountPerBlock
-                || config.rewardOpenMultipler < 100
-                || config.rewardOpenMultipler >= config.proofBondMultiplier
                 || config.rewardMaxDelayPenalty >= 10_000
         ) revert L1_INVALID_CONFIG();
 
@@ -80,7 +76,6 @@ library LibVerifying {
             state.slotA.genesisTimestamp = timeNow;
             state.slotB.numBlocks = 1;
             state.slotC.lastVerifiedAt = uint64(block.timestamp);
-            state.slotC.avgFeePerGas = initAvgFeePerGas;
             state.slotC.avgProofDelay = initAvgProofDelay;
 
             // Init the genesis block
@@ -99,7 +94,7 @@ library LibVerifying {
             blockId: 0,
             blockHash: genesisBlockHash,
             prover: address(1), // oracle prover
-            blockFee: 0
+            proverFee: 0
         });
     }
 
@@ -208,11 +203,7 @@ library LibVerifying {
             || fc.provenAt <= blk.proposedAt + blk.proofWindow;
 
         // Calculate the block fee
-        uint32 feePerGas = inProofWindow
-            ? blk.feePerGas
-            : state.slotC.avgFeePerGas * config.rewardOpenMultipler / 100;
-
-        uint64 blockFee = LibUtils.calcBlockFee(config, fc.gasUsed, feePerGas);
+        uint64 proverFee = inProofWindow ? blk.proverFee : blk.bond / 2; // TODO(daniel):
 
         // Update protocol level stats
         if (inProofWindow && fc.prover != address(1)) {
@@ -224,8 +215,8 @@ library LibVerifying {
             if (config.rewardMaxDelayPenalty > 0) {
                 // Give the reward a penalty up to a small percentage.
                 // This will encourage prover to submit proof ASAP.
-                blockFee -= uint64(
-                    uint256(blockFee) * proofDelay
+                proverFee -= uint64(
+                    uint256(proverFee) * proofDelay
                         * config.rewardMaxDelayPenalty / 10_000 / blk.proofWindow
                 );
             }
@@ -235,14 +226,6 @@ library LibVerifying {
                 LibUtils.movingAverage({
                     maValue: state.slotC.avgProofDelay,
                     newValue: proofDelay,
-                    maf: 7200
-                })
-            );
-
-            state.slotC.avgFeePerGas = uint32(
-                LibUtils.movingAverage({
-                    maValue: state.slotC.avgFeePerGas,
-                    newValue: blk.feePerGas,
                     maf: 7200
                 })
             );
@@ -256,17 +239,17 @@ library LibVerifying {
         }
 
         // Mint reward to fork choice prover
-        tt.mint(fc.prover, blockFee);
+        tt.mint(fc.prover, proverFee);
 
         // Refund deposit to proposer
-        tt.mint(blk.proposer, uint64(_gasLimit - fc.gasUsed) * blk.feePerGas);
+        tt.mint(blk.proposer, uint64(_gasLimit - fc.gasUsed) * blk.proverFee);
 
         // Emit the event
         emit BlockVerified({
             blockId: blk.blockId,
             blockHash: fc.blockHash,
             prover: fc.prover,
-            blockFee: blockFee
+            proverFee: proverFee
         });
     }
 }

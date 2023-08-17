@@ -47,13 +47,13 @@ abstract contract TaikoEvents {
     /// @param blockHash The hash of the verified block.
     /// @param prover The address of the prover that proved the block which is
     /// verified.
-    /// @param blockFee The reward earned by the prover for submitting the
+    /// @param proverFee The reward earned by the prover for submitting the
     /// proof.
     event BlockVerified(
         uint256 indexed blockId,
         bytes32 blockHash,
         address prover,
-        uint64 blockFee
+        uint64 proverFee
     );
 
     /// @dev Emitted when an Ethereum deposit is made.

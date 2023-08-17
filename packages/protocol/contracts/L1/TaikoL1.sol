@@ -46,12 +46,10 @@ contract TaikoL1 is
     /// @notice Initializes the rollup.
     /// @param _addressManager The {AddressManager} address.
     /// @param _genesisBlockHash The block hash of the genesis block.
-    /// @param _initAvgFeePerGas Initial (reasonable) block fee value.
     /// @param _initAvgProofDelay Initial (reasonable) proof window.
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
-        uint32 _initAvgFeePerGas,
         uint16 _initAvgProofDelay
     )
         external
@@ -62,7 +60,6 @@ contract TaikoL1 is
             state: state,
             config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
-            initAvgFeePerGas: _initAvgFeePerGas,
             initAvgProofDelay: _initAvgProofDelay
         });
     }
@@ -173,7 +170,7 @@ contract TaikoL1 is
     /// @return _gasLimit Gas limit of the block.
     /// @return _prover Address of the assigned prover for the block.
     /// @return _bond The prover's bond.
-    /// @return _feePerGas Fee per gas of the block.
+    /// @return _proverFee Fee per gas of the block.
     /// @return _nextForkChoiceId Next fork choice ID of the block.
     /// @return _verifiedForkChoiceId Verified fork choice ID of the block.
     /// @return _proofWindow Proof window of the block.
@@ -187,7 +184,7 @@ contract TaikoL1 is
             uint32 _gasLimit,
             address _prover,
             uint64 _bond,
-            uint32 _feePerGas,
+            uint32 _proverFee,
             uint24 _nextForkChoiceId,
             uint24 _verifiedForkChoiceId,
             uint16 _proofWindow
@@ -205,7 +202,7 @@ contract TaikoL1 is
         _gasLimit = blk.gasLimit;
         _prover = blk.prover;
         _bond = blk.bond;
-        _feePerGas = blk.feePerGas;
+        _proverFee = blk.proverFee;
         _nextForkChoiceId = blk.nextForkChoiceId;
         _verifiedForkChoiceId = blk.verifiedForkChoiceId;
         _proofWindow = blk.proofWindow;

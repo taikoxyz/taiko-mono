@@ -34,7 +34,6 @@ library TaikoConfig {
             proofMinWindow: 10 minutes,
             proofMaxWindow: 90 minutes,
             proofWindowMultiplier: 200, // 200%
-            proofBondMultiplier: 32,
             ethDepositRingBufferSize: 1024,
             ethDepositMinCountPerBlock: 8,
             ethDepositMaxCountPerBlock: 32,
@@ -42,7 +41,6 @@ library TaikoConfig {
             ethDepositMaxAmount: 10_000 ether,
             ethDepositGas: 21_000,
             ethDepositMaxFee: 1 ether / 10,
-            rewardOpenMultipler: 150, // 150%
             rewardOpenMaxCount: 201_600, // blockMaxProposals / 2,
             rewardMaxDelayPenalty: 250 // 250 bps
          });
