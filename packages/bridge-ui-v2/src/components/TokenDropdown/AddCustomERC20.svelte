@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { erc20ABI, getNetwork,readContract } from '@wagmi/core';
+  import { erc20ABI, getNetwork, readContract } from '@wagmi/core';
   import { fetchToken } from '@wagmi/core';
+  import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
   import { formatUnits } from 'viem';
@@ -12,10 +13,15 @@
   import Erc20 from '$components/Icon/ERC20.svelte';
   import { Spinner } from '$components/Spinner';
   import { tokenService } from '$libs/storage/services';
-  import { type Token, type TokenEnv,TokenType } from '$libs/token';
+  import { type GetCrossChainAddressArgs, type Token, type TokenEnv, TokenType } from '$libs/token';
+  import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
   import { getLogger } from '$libs/util/logger';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
+
+  import { destNetwork } from '../Bridge/state';
+
+  const dispatch = createEventDispatcher();
 
   const log = getLogger('component:AddCustomERC20');
   const dialogId = `dialog-${uid()}`;
@@ -32,10 +38,29 @@
   let disabled = true;
   let isValidEthereumAddress = false;
 
-  const addCustomErc20Token = () => {
+  const addCustomErc20Token = async () => {
     if (customToken) {
       tokenService.storeToken(customToken, $account?.address as Address);
       customTokens = tokenService.getTokens($account?.address as Address);
+
+      const { chain: srcChain } = getNetwork();
+      const destChain = $destNetwork;
+
+      if (!srcChain || !destChain) return;
+
+      // let's check if this token has already been bridged
+      const bridgedAddress = await getCrossChainAddress({
+        token: customToken,
+        srcChainId: srcChain.id,
+        destChainId: destChain.id,
+      } as GetCrossChainAddressArgs);
+
+      // only update the token if we actually have a bridged address
+      if (bridgedAddress && bridgedAddress !== customToken.addresses[destChain.id]) {
+        customToken.addresses[destChain.id] = bridgedAddress as Address;
+
+        tokenService.updateToken(customToken, $account?.address as Address);
+      }
     }
     tokenAddress = '';
     tokenDetails = null;
@@ -58,6 +83,7 @@
     const address = $account.address;
     tokenService.removeToken(token, address as Address);
     customTokens = tokenService.getTokens(address as Address);
+    dispatch('tokenRemoved', { token });
   };
 
   const onAddressValidation = async (event: { detail: { isValidEthereumAddress: boolean } }) => {

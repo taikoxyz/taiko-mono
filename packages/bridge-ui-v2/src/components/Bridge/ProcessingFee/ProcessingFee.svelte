@@ -224,19 +224,19 @@
             bind:group={selectedFeeMethod} />
         </li>
       </ul>
-
       <div class="relative f-items-center my-[20px]">
-        <InputBox
-          type="number"
-          min="0"
-          placeholder="0.01"
-          disabled={selectedFeeMethod !== ProcessingFeeMethod.CUSTOM}
-          class="w-full input-box outline-none p-6 pr-16 title-subsection-bold placeholder:text-tertiary-content"
-          on:input={inputProcessFee}
-          bind:this={inputBox} />
-        <span class="absolute right-6 uppercase body-bold text-secondary-content">ETH</span>
+        {#if selectedFeeMethod === ProcessingFeeMethod.CUSTOM}
+          <InputBox
+            type="number"
+            min="0"
+            placeholder="0.01"
+            disabled={selectedFeeMethod !== ProcessingFeeMethod.CUSTOM}
+            class="w-full input-box outline-none p-6 pr-16 title-subsection-bold placeholder:text-tertiary-content"
+            on:input={inputProcessFee}
+            bind:this={inputBox} />
+          <span class="absolute right-6 uppercase body-bold text-secondary-content">ETH</span>
+        {/if}
       </div>
-
       <div class="grid grid-cols-2 gap-[20px]">
         <Button
           on:click={cancelModal}
