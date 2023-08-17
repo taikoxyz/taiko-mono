@@ -123,14 +123,12 @@ library LibProposing {
             TaikoData.Block storage blk =
                 state.blocks[state.slotB.numBlocks % config.blockRingBufferSize];
             blk.metaHash = LibUtils.hashMetadata(meta);
+            blk.prover = input.prover;
             blk.proposedAt = meta.timestamp;
             blk.nextForkChoiceId = 1;
-            blk.prover = input.prover;
-            blk.blockId = meta.id; // TODO(daniel): maybe we can delete
-                // `blk.blockId` field?
             blk.verifiedForkChoiceId = 0;
+            blk.blockId = meta.id;
 
-            // Emit an event
             emit BlockProposed({
                 blockId: state.slotB.numBlocks++,
                 prover: blk.prover,

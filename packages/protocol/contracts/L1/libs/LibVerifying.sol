@@ -100,7 +100,7 @@ library LibVerifying {
         TaikoData.Block storage blk =
             state.blocks[i % config.blockRingBufferSize];
 
-        uint24 fcId = blk.verifiedForkChoiceId;
+        uint16 fcId = blk.verifiedForkChoiceId;
         assert(fcId > 0);
 
         TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));

@@ -37,7 +37,7 @@ library LibUtils {
     )
         internal
         view
-        returns (uint24 fcId)
+        returns (uint16 fcId)
     {
         if (
             blk.forkChoices[1].key

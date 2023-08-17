@@ -125,7 +125,7 @@ library TaikoData {
     /// @dev Struct representing fork choice data.
     /// 4 slots.
     struct ForkChoice {
-        // Key is only written/read for the 1st fork choice.
+        // key is only written/read for the 1st fork choice.
         bytes32 key;
         bytes32 blockHash;
         bytes32 signalRoot;
@@ -135,16 +135,18 @@ library TaikoData {
     }
 
     /// @dev Struct containing data required for verifying a block.
-    /// 4 slots. // TODO
+    /// 4 slots.
+    // TODO(daniel): if we can delete blockId field, then this struct
+    // will take only 3 slots
     struct Block {
         // slot 1: ForkChoice storage are reusable
         mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
         bytes32 metaHash; // slot 2
-        uint64 proposedAt;
-        uint24 nextForkChoiceId;
         address prover; // slot 4
+        uint64 proposedAt;
+        uint16 nextForkChoiceId;
+        uint16 verifiedForkChoiceId;
         uint64 blockId;
-        uint24 verifiedForkChoiceId;
     }
 
     /// @dev Struct representing information about a transaction list.
@@ -187,7 +189,7 @@ library TaikoData {
             uint256 blockId
                 => mapping(
                     bytes32 parentHash
-                        => mapping(uint32 parentGasUsed => uint24 forkChoiceId)
+                        => mapping(uint32 parentGasUsed => uint16 forkChoiceId)
                 )
             ) forkChoiceIds;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;

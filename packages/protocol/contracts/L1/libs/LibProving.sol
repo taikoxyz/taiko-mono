@@ -86,7 +86,7 @@ library LibProving {
 
         TaikoData.ForkChoice storage fc;
 
-        uint24 fcId = LibUtils.getForkChoiceId(
+        uint16 fcId = LibUtils.getForkChoiceId(
             state, blk, evidence.parentHash, evidence.parentGasUsed
         );
 
