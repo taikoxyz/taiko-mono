@@ -9,6 +9,7 @@
   import { InputBox } from '$components/InputBox';
   import { LoadingText } from '$components/LoadingText';
   import { Tooltip } from '$components/Tooltip';
+  import { processingFeeComponent } from '$config';
   import { ProcessingFeeMethod } from '$libs/fee';
   import { parseToWei } from '$libs/util/parseToWei';
   import { uid } from '$libs/util/uid';
@@ -60,6 +61,12 @@
     inputBox.clear();
     selectedFeeMethod = prevOptionSelected;
     closeModal();
+  }
+
+  function closeModalWithDelay() {
+    // By adding delay there is enough time to see the selected option
+    // before closing the modal. Better experience for the user.
+    setTimeout(closeModal, processingFeeComponent.closingDelayOptionClick);
   }
 
   function focusInputBox() {
@@ -217,19 +224,19 @@
             bind:group={selectedFeeMethod} />
         </li>
       </ul>
-
       <div class="relative f-items-center my-[20px]">
-        <InputBox
-          type="number"
-          min="0"
-          placeholder="0.01"
-          disabled={selectedFeeMethod !== ProcessingFeeMethod.CUSTOM}
-          class="w-full input-box outline-none p-6 pr-16 title-subsection-bold placeholder:text-tertiary-content"
-          on:input={inputProcessFee}
-          bind:this={inputBox} />
-        <span class="absolute right-6 uppercase body-bold text-secondary-content">ETH</span>
+        {#if selectedFeeMethod === ProcessingFeeMethod.CUSTOM}
+          <InputBox
+            type="number"
+            min="0"
+            placeholder="0.01"
+            disabled={selectedFeeMethod !== ProcessingFeeMethod.CUSTOM}
+            class="w-full input-box outline-none p-6 pr-16 title-subsection-bold placeholder:text-tertiary-content"
+            on:input={inputProcessFee}
+            bind:this={inputBox} />
+          <span class="absolute right-6 uppercase body-bold text-secondary-content">ETH</span>
+        {/if}
       </div>
-
       <div class="grid grid-cols-2 gap-[20px]">
         <Button
           on:click={cancelModal}
