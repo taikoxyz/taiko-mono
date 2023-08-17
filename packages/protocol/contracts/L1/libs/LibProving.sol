@@ -31,7 +31,6 @@ library LibProving {
     error L1_INVALID_EVIDENCE();
     error L1_INVALID_PROOF();
     error L1_NOT_PROVEABLE();
-    error L1_NOT_SPECIAL_PROVER();
     error L1_SAME_PROOF();
     error L1_UNAUTHORIZED();
 

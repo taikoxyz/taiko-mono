@@ -33,14 +33,11 @@ library LibProposing {
     );
 
     error L1_BLOCK_ID();
-    error L1_FEE_PER_GAS_TOO_SMALL();
-    error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
     error L1_INVALID_PROPOSER();
     error L1_INVALID_PROVER();
     error L1_INVALID_PROVER_SIG();
     error L1_TOO_MANY_BLOCKS();
-    error L1_TOO_MANY_OPEN_BLOCKS();
     error L1_TX_LIST_NOT_EXIST();
     error L1_TX_LIST_HASH();
     error L1_TX_LIST_RANGE();
