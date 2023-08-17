@@ -170,7 +170,7 @@ abstract contract TaikoL1TestBase is Test {
             txListByteStart: 0,
             txListByteEnd: txListSize,
             cacheTxListInfo: false,
-            prover: address(0), // TODO(daniel)
+            prover: address(2), // TODO(daniel)
             maxProverFee: 0,
             proverParams: new bytes(0)
         });
