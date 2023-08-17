@@ -11,10 +11,9 @@ pragma solidity ^0.8.20;
 interface IProver {
     /// @notice Assigns a prover to a specific block or reverts if none is
     /// available.
-    /// Burns the specified `bond` amount of Taiko token from this contract.
     /// @param proposer The address of the block proposer.
-    /// @param inputHash The ID of the block.
-    /// @param params Additional function parameters.
+    /// @param inputHash The hash of the block's BlockMetadataInput data.
+    /// @param params Additional parameters.
     function onBlockAssigned(
         address proposer,
         bytes32 inputHash,
