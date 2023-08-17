@@ -200,9 +200,10 @@ library LibProposing {
         returns (address _actualProver, uint32 _proverFee, uint64 _bond)
     {
         if (prover == address(0)) {
-            _actualProver = prover;
-            _proverFee = maxProverFee;
-        } else if (!prover.isContract()) {
+            revert L1_INVALID_PROVER();
+        }
+
+        if (!prover.isContract()) {
             // Verify the prover has authorized this assignment
             bytes32 hash =
                 keccak256(abi.encodePacked("PROVE_TAIKO_BLOCK", metaHash));
@@ -220,10 +221,7 @@ library LibProposing {
                 proofWindow: proofWindow,
                 params: proverParams
             });
-
-            if (_actualProver == address(0)) {
-                _proverFee = maxProverFee;
-            } else if (_proverFee > maxProverFee) {
+            if (_proverFee > maxProverFee) {
                 revert L1_FEE_PER_GAS_TOO_LARGE();
             }
         }
