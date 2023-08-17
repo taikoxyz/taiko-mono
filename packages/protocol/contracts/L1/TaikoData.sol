@@ -70,14 +70,6 @@ library TaikoData {
         uint256 ethDepositGas;
         // The maximum fee allowed for an ETH deposit.
         uint256 ethDepositMaxFee;
-        // ---------------------------------------------------------------------
-        // Group 5: Tokenomics
-        // ---------------------------------------------------------------------
-        // The maximum count of open proposals considered for rewards
-        // calculation.
-        uint32 rewardOpenMaxCount;
-        // The maximum penalty for delaying rewards in basis points (bps).
-        uint32 rewardMaxDelayPenalty;
     }
 
     /// @dev Struct holding state variables.
@@ -197,9 +189,9 @@ library TaikoData {
     struct SlotC {
         uint64 lastVerifiedAt;
         uint64 lastVerifiedBlockId;
-        uint16 avgProofDelay;
-        uint48 __reserved1;
-        uint64 __reserved2;
+        uint16 __reserved1;
+        uint48 __reserved2;
+        uint64 __reserved3;
     }
 
     /// @dev Struct holding the state variables for the {TaikoL1} contract.

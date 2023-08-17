@@ -37,8 +37,7 @@ library LibVerifying {
     function init(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        bytes32 genesisBlockHash,
-        uint16 initAvgProofDelay
+        bytes32 genesisBlockHash
     )
         internal
     {
@@ -65,7 +64,6 @@ library LibVerifying {
                 || config.ethDepositMaxFee >= type(uint96).max
                 || config.ethDepositMaxFee
                     >= type(uint96).max / config.ethDepositMaxCountPerBlock
-                || config.rewardMaxDelayPenalty >= 10_000
         ) revert L1_INVALID_CONFIG();
 
         unchecked {
@@ -76,7 +74,6 @@ library LibVerifying {
             state.slotA.genesisTimestamp = timeNow;
             state.slotB.numBlocks = 1;
             state.slotC.lastVerifiedAt = uint64(block.timestamp);
-            state.slotC.avgProofDelay = initAvgProofDelay;
 
             // Init the genesis block
             TaikoData.Block storage blk = state.blocks[0];
@@ -190,36 +187,10 @@ library LibVerifying {
         blk.verifiedForkChoiceId = fcId;
 
         bool inProofWindow = blk.prover == address(0)
-            || fc.provenAt <= blk.proposedAt + blk.proofWindow;
+            || fc.provenAt <= blk.proposedAt + 60 minutes; // TODO(daniel)
 
         // Calculate the block fee
         uint64 proverFee = inProofWindow ? blk.proverFee : 16e8; // TODO(daniel):
-
-        // Update protocol level stats
-        if (inProofWindow && fc.prover != address(1)) {
-            uint64 proofDelay;
-            unchecked {
-                proofDelay = fc.provenAt - blk.proposedAt;
-            }
-
-            if (config.rewardMaxDelayPenalty > 0) {
-                // Give the reward a penalty up to a small percentage.
-                // This will encourage prover to submit proof ASAP.
-                proverFee -= uint64(
-                    uint256(proverFee) * proofDelay
-                        * config.rewardMaxDelayPenalty / 10_000 / blk.proofWindow
-                );
-            }
-
-            // The selected prover managed to prove the block in time
-            state.slotC.avgProofDelay = uint16(
-                LibUtils.movingAverage({
-                    maValue: state.slotC.avgProofDelay,
-                    newValue: proofDelay,
-                    maf: 7200
-                })
-            );
-        }
 
         TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
 

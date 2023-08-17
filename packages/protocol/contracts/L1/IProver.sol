@@ -15,8 +15,6 @@ interface IProver {
     /// @param proposer The address of the block proposer.
     /// @param blockId The ID of the block.
     /// @param maxProverFee Maximum prover fee the proposer is willing to pay.
-    /// @param proofWindow Time window for a valid proof to be submitted by the
-    /// prover.
     /// @param params Additional function parameters.
     /// @return actualProver The address of the prover to submit a proof. Usually
     /// this should simply be `address(this)`.
@@ -26,7 +24,6 @@ interface IProver {
         address proposer,
         uint64 blockId,
         uint32 maxProverFee,
-        uint16 proofWindow,
         bytes calldata params
     )
         external

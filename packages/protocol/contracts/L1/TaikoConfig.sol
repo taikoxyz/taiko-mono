@@ -40,9 +40,7 @@ library TaikoConfig {
             ethDepositMinAmount: 1 ether,
             ethDepositMaxAmount: 10_000 ether,
             ethDepositGas: 21_000,
-            ethDepositMaxFee: 1 ether / 10,
-            rewardOpenMaxCount: 201_600, // blockMaxProposals / 2,
-            rewardMaxDelayPenalty: 250 // 250 bps
-         });
+            ethDepositMaxFee: 1 ether / 10
+        });
     }
 }

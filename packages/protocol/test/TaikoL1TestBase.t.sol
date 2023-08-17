@@ -76,7 +76,7 @@ abstract contract TaikoL1TestBase is Test {
     // Because otherwise first proposal is around: 1TKO * (1_000_000+20_000)
     // required as a deposit.
     // uint32 feePerGas = 10;
-    uint16 proofWindow = 60 minutes;
+    // uint16 proofWindow = 60 minutes;
     uint64 l2GasExcess = 1e18;
 
     address public constant L2Treasury =
@@ -143,7 +143,7 @@ abstract contract TaikoL1TestBase is Test {
         tko.mint(address(this), 1e9 * 1e8);
         registerAddress("taiko", address(L1));
 
-        L1.init(address(addressManager), GENESIS_BLOCK_HASH, proofWindow);
+        L1.init(address(addressManager), GENESIS_BLOCK_HASH);
         printVariables("init  ");
 
         inputs012[0] =

@@ -120,22 +120,12 @@ library LibProposing {
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = 0;
 
-        unchecked {
-            blk.proofWindow = uint16(
-                (
-                    uint256(state.slotC.avgProofDelay)
-                        * config.proofWindowMultiplier / 100
-                ).min(config.proofMaxWindow).max(config.proofMinWindow)
-            );
-        }
-
         // Assign a prover and get the actual prover, prover fee, and the
         // prover's bond. Note that the actual prover may be address(0) to
         // indicate this block is open.
         (blk.prover, blk.proverFee) = _assignProver({
             config: config,
             metaHash: blk.metaHash,
-            proofWindow: blk.proofWindow,
             blockId: blk.blockId,
             prover: input.prover,
             maxProverFee: input.maxProverFee,
@@ -144,13 +134,9 @@ library LibProposing {
 
         TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
 
-        if (blk.prover == address(0)) {
-            blk.proofWindow = 0;
-        } else {
-            // Burn the bond, if this assigned prover fails to prove the block,
-            // additonal tokens will be minted to the actual prover.
-            tt.burn(blk.prover, 32e8); // TODO(daniel)
-        }
+        // Burn the bond, if this assigned prover fails to prove the block,
+        // additonal tokens will be minted to the actual prover.
+        tt.burn(blk.prover, 32e8); // TODO(daniel)
 
         tt.burn(msg.sender, blk.proverFee);
 
@@ -180,7 +166,6 @@ library LibProposing {
     function _assignProver(
         TaikoData.Config memory config,
         bytes32 metaHash,
-        uint16 proofWindow,
         uint64 blockId,
         address prover,
         uint32 maxProverFee,
@@ -208,7 +193,6 @@ library LibProposing {
                 proposer: msg.sender,
                 blockId: blockId,
                 maxProverFee: maxProverFee,
-                proofWindow: proofWindow,
                 params: proverParams
             });
             if (_proverFee > maxProverFee) {

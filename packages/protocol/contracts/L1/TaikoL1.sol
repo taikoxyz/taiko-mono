@@ -46,11 +46,9 @@ contract TaikoL1 is
     /// @notice Initializes the rollup.
     /// @param _addressManager The {AddressManager} address.
     /// @param _genesisBlockHash The block hash of the genesis block.
-    /// @param _initAvgProofDelay Initial (reasonable) proof window.
     function init(
         address _addressManager,
-        bytes32 _genesisBlockHash,
-        uint16 _initAvgProofDelay
+        bytes32 _genesisBlockHash
     )
         external
         initializer
@@ -59,8 +57,7 @@ contract TaikoL1 is
         LibVerifying.init({
             state: state,
             config: getConfig(),
-            genesisBlockHash: _genesisBlockHash,
-            initAvgProofDelay: _initAvgProofDelay
+            genesisBlockHash: _genesisBlockHash
         });
     }
 
@@ -171,7 +168,6 @@ contract TaikoL1 is
     /// @return _proverFee Fee per gas of the block.
     /// @return _nextForkChoiceId Next fork choice ID of the block.
     /// @return _verifiedForkChoiceId Verified fork choice ID of the block.
-    /// @return _proofWindow Proof window of the block.
     function getBlock(uint256 blockId)
         public
         view
@@ -182,8 +178,7 @@ contract TaikoL1 is
             address _prover,
             uint32 _proverFee,
             uint24 _nextForkChoiceId,
-            uint24 _verifiedForkChoiceId,
-            uint16 _proofWindow
+            uint24 _verifiedForkChoiceId
         )
     {
         TaikoData.Block storage blk = LibProposing.getBlock({
@@ -199,7 +194,6 @@ contract TaikoL1 is
         _proverFee = blk.proverFee;
         _nextForkChoiceId = blk.nextForkChoiceId;
         _verifiedForkChoiceId = blk.verifiedForkChoiceId;
-        _proofWindow = blk.proofWindow;
     }
 
     /// @notice Gets the fork choice for a specific block.
