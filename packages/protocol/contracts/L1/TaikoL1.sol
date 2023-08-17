@@ -174,8 +174,8 @@ contract TaikoL1 is
             bytes32 _metaHash,
             uint64 _proposedAt,
             address _prover,
-            uint24 _nextForkChoiceId,
-            uint24 _verifiedForkChoiceId
+            uint16 _nextForkChoiceId,
+            uint16 _verifiedForkChoiceId
         )
     {
         TaikoData.Block storage blk = LibProposing.getBlock({
