@@ -46,9 +46,7 @@ library LibVerifying {
                 || config.blockTxListExpiry > 30 * 24 hours
                 || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
                 || config.proofRegularCooldown < config.proofOracleCooldown
-                || config.proofMinWindow == 0
-                || config.proofMaxWindow < config.proofMinWindow
-                || config.proofWindowMultiplier <= 100
+                || config.proofWindow == 0 || config.proofBond == 0
                 || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
                 || config.ethDepositMaxCountPerBlock
@@ -105,8 +103,10 @@ library LibVerifying {
         uint24 fcId = blk.verifiedForkChoiceId;
         assert(fcId > 0);
 
+        TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
         bytes32 blockHash = blk.forkChoices[fcId].blockHash;
         uint32 gasUsed = blk.forkChoices[fcId].gasUsed;
+
         bytes32 signalRoot;
 
         uint64 processed;
@@ -133,15 +133,12 @@ library LibVerifying {
             blockHash = fc.blockHash;
             gasUsed = fc.gasUsed;
             signalRoot = fc.signalRoot;
+            blk.verifiedForkChoiceId = fcId;
 
-            _verifyBlock({
-                state: state,
-                config: config,
-                resolver: resolver,
-                blk: blk,
-                fcId: fcId,
-                fc: fc
-            });
+            _rewardProver(config, tt, blk, fc);
+
+            // Emit the event
+            emit BlockVerified(blk.blockId, fc.blockHash, fc.prover);
 
             unchecked {
                 ++i;
@@ -169,36 +166,23 @@ library LibVerifying {
         }
     }
 
-    function _verifyBlock(
-        TaikoData.State storage state,
+    function _rewardProver(
         TaikoData.Config memory config,
-        AddressResolver resolver,
+        TaikoToken tt,
         TaikoData.Block storage blk,
-        TaikoData.ForkChoice memory fc,
-        uint24 fcId
+        TaikoData.ForkChoice memory fc
     )
         private
     {
-        blk.verifiedForkChoiceId = fcId;
-
-        // Mint token to the assigned prover
-        uint64 bond = 32e8; // TODO
-        uint64 proofWindow = 60 minutes; // TODO
-        TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
         if (
             fc.prover == address(1)
-                || fc.provenAt <= blk.proposedAt + proofWindow
+                || fc.provenAt <= blk.proposedAt + config.proofWindow
         ) {
-            tt.transferFrom(address(this), blk.prover, bond);
+            // Refund all the bond
+            tt.transfer(blk.prover, config.proofBond);
         } else {
-            tt.transferFrom(address(this), fc.prover, bond / 2);
+            // Reward half of the bond to the actual prover
+            tt.transfer(fc.prover, config.proofBond / 2);
         }
-
-        // Emit the event
-        emit BlockVerified({
-            blockId: blk.blockId,
-            blockHash: fc.blockHash,
-            prover: fc.prover
-        });
     }
 }

@@ -163,10 +163,8 @@ contract TaikoL1 is
     /// @notice Gets the details of a block.
     /// @param blockId Index of the block.
     /// @return _metaHash Metadata hash of the block.
-    /// @return _proposer Address of the block proposer.
     /// @return _proposedAt Timestamp when the block was proposed.
     /// @return _prover Address of the assigned prover for the block.
-    /// @return _proverFee Fee per gas of the block.
     /// @return _nextForkChoiceId Next fork choice ID of the block.
     /// @return _verifiedForkChoiceId Verified fork choice ID of the block.
     function getBlock(uint256 blockId)
@@ -174,7 +172,6 @@ contract TaikoL1 is
         view
         returns (
             bytes32 _metaHash,
-            address _proposer,
             uint64 _proposedAt,
             address _prover,
             uint24 _nextForkChoiceId,
@@ -188,7 +185,6 @@ contract TaikoL1 is
         });
 
         _metaHash = blk.metaHash;
-        _proposer = blk.proposer;
         _proposedAt = blk.proposedAt;
         _prover = blk.prover;
         _nextForkChoiceId = blk.nextForkChoiceId;

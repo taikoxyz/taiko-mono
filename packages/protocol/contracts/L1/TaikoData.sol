@@ -46,13 +46,10 @@ library TaikoData {
         uint256 proofRegularCooldown;
         // The cooldown period for oracle proofs (in minutes).
         uint256 proofOracleCooldown;
-        // The minimum time window allowed for a proof submission (in minutes).
-        uint16 proofMinWindow;
         // The maximum time window allowed for a proof submission (in minutes).
-        uint16 proofMaxWindow;
-        // The window multiplier used to calculate proof time windows (in
-        // percentage).
-        uint16 proofWindowMultiplier;
+        uint16 proofWindow;
+        // The amount of Taiko token as a bond
+        uint256 proofBond;
         // ---------------------------------------------------------------------
         // Group 4: ETH deposit related configs
         // ---------------------------------------------------------------------
@@ -139,16 +136,15 @@ library TaikoData {
     }
 
     /// @dev Struct containing data required for verifying a block.
-    /// 5 slots.
+    /// 4 slots. // TODO
     struct Block {
         // slot 1: ForkChoice storage are reusable
         mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
-        uint64 blockId; // slot 2
-        bytes32 metaHash; // slot 3
-        address proposer; // slot 4  (240 bits used)
+        bytes32 metaHash; // slot 2
         uint64 proposedAt;
-        address prover; // slot 5
-        uint24 nextForkChoiceId; // slot 6 (48 bits used)
+        uint24 nextForkChoiceId;
+        address prover; // slot 4
+        uint64 blockId;
         uint24 verifiedForkChoiceId;
     }
 

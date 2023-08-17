@@ -13,11 +13,11 @@ interface IProver {
     /// available.
     /// Burns the specified `bond` amount of Taiko token from this contract.
     /// @param proposer The address of the block proposer.
-    /// @param blockId The ID of the block.
+    /// @param inputHash The ID of the block.
     /// @param params Additional function parameters.
     function onBlockAssigned(
         address proposer,
-        uint64 blockId,
+        bytes32 inputHash,
         bytes calldata params
     )
         external

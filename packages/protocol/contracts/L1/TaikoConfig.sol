@@ -31,9 +31,8 @@ library TaikoConfig {
             blockTxListExpiry: 0,
             proofRegularCooldown: 30 minutes,
             proofOracleCooldown: 15 minutes,
-            proofMinWindow: 10 minutes,
-            proofMaxWindow: 90 minutes,
-            proofWindowMultiplier: 200, // 200%
+            proofWindow: 90 minutes,
+            proofBond: 1024e18,
             ethDepositRingBufferSize: 1024,
             ethDepositMinCountPerBlock: 8,
             ethDepositMaxCountPerBlock: 32,

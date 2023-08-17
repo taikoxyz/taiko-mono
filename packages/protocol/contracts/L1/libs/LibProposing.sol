@@ -36,9 +36,9 @@ library LibProposing {
     error L1_FEE_PER_GAS_TOO_SMALL();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
+    error L1_INVALID_PROPOSER();
     error L1_INVALID_PROVER();
     error L1_INVALID_PROVER_SIG();
-    error L1_PERMISSION_DENIED();
     error L1_TOO_MANY_BLOCKS();
     error L1_TOO_MANY_OPEN_BLOCKS();
     error L1_TX_LIST_NOT_EXIST();
@@ -56,38 +56,50 @@ library LibProposing {
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
-        // If permissioned proposer is enabled, we check only this proposer can
-        // propose blocks.
-        {
-            address proposer = resolver.resolve("proposer", true);
-            if (proposer != address(0) && msg.sender != proposer) {
-                revert L1_PERMISSION_DENIED();
-            }
+        // Check proposer
+        address proposer = resolver.resolve("proposer", true);
+        if (proposer != address(0) && msg.sender != proposer) {
+            revert L1_INVALID_PROPOSER();
         }
 
-        // Validate block input then cache txList info if requested
-        {
-            bool cacheTxListInfo = _validateBlock({
-                state: state,
-                config: config,
-                input: input,
-                txList: txList
-            });
+        // Check prover
+        if (input.prover == address(0) || input.prover == address(1)) {
+            revert L1_INVALID_PROVER();
+        }
 
-            if (cacheTxListInfo) {
-                unchecked {
-                    state.txListInfo[input.txListHash] = TaikoData.TxListInfo({
-                        validSince: uint64(block.timestamp),
-                        size: uint24(txList.length)
-                    });
-                }
+        // Verify prover authorization and pay the prover Ether as proving fee.
+        // Note that this payment is permanent. If the prover failed to prove
+        // the block, its bond is used to pay the actual prover.
+        bytes32 inputHash = keccak256(abi.encode(input));
+        if (input.prover.isContract()) {
+            IProver(input.prover).onBlockAssigned{ value: msg.value }({
+                proposer: msg.sender,
+                inputHash: inputHash,
+                params: input.proverParams
+            });
+        } else {
+            if (input.prover != inputHash.recover(input.proverParams)) {
+                revert L1_INVALID_PROVER_SIG();
             }
+            input.prover.sendEther(msg.value);
+        }
+
+        // Transfer the prover's bond to this address
+        TaikoToken(resolver.resolve("taiko_token", false)).transferFrom(
+            input.prover, address(this), config.proofBond
+        );
+
+        if (_validateBlock(state, config, input, txList)) {
+            // returns true if we need to cache the txList info
+            state.txListInfo[input.txListHash] = TaikoData.TxListInfo({
+                validSince: uint64(block.timestamp),
+                size: uint24(txList.length)
+            });
         }
 
         // Init the metadata
-        meta.id = state.slotB.numBlocks;
-
         unchecked {
+            meta.id = state.slotB.numBlocks;
             meta.timestamp = uint64(block.timestamp);
             meta.l1Height = uint64(block.number - 1);
             meta.l1Hash = blockhash(block.number - 1);
@@ -97,46 +109,29 @@ library LibProposing {
             // can be proposed in one Ethereum block, we need to
             // add salt to this random number as L2 mixHash
             meta.mixHash = bytes32(block.prevrandao * state.slotB.numBlocks);
-        }
 
-        meta.txListHash = input.txListHash;
-        meta.txListByteStart = input.txListByteStart;
-        meta.txListByteEnd = input.txListByteEnd;
-        meta.gasLimit = config.blockMaxGasLimit;
-        meta.beneficiary = input.beneficiary;
-        meta.treasury = resolver.resolve(config.chainId, "treasury", false);
-        meta.depositsProcessed =
-            LibEthDepositing.processDeposits(state, config, input.beneficiary);
+            meta.txListHash = input.txListHash;
+            meta.txListByteStart = input.txListByteStart;
+            meta.txListByteEnd = input.txListByteEnd;
+            meta.gasLimit = config.blockMaxGasLimit;
+            meta.beneficiary = input.beneficiary;
+            meta.treasury = resolver.resolve(config.chainId, "treasury", false);
+            meta.depositsProcessed = LibEthDepositing.processDeposits(
+                state, config, input.beneficiary
+            );
 
-        // Init the block
-        TaikoData.Block storage blk =
-            state.blocks[state.slotB.numBlocks % config.blockRingBufferSize];
+            // Init the block
+            TaikoData.Block storage blk =
+                state.blocks[state.slotB.numBlocks % config.blockRingBufferSize];
+            blk.metaHash = LibUtils.hashMetadata(meta);
+            blk.proposedAt = meta.timestamp;
+            blk.nextForkChoiceId = 1;
+            blk.prover = input.prover;
+            blk.blockId = meta.id; // TODO(daniel): maybe we can delete
+                // `blk.blockId` field?
+            blk.verifiedForkChoiceId = 0;
 
-        blk.blockId = meta.id;
-        blk.metaHash = LibUtils.hashMetadata(meta);
-        blk.proposer = msg.sender;
-        blk.proposedAt = meta.timestamp;
-        blk.nextForkChoiceId = 1;
-        blk.verifiedForkChoiceId = 0;
-        blk.prover = input.prover;
-
-        // Assign a prover and get the actual prover, prover fee, and the
-        // prover's bond. Note that the actual prover may be address(0) to
-        // indicate this block is open.
-        _checkProver({
-            config: config,
-            inputHash: keccak256(abi.encode(input)),
-            blockId: blk.blockId,
-            prover: input.prover,
-            proverParams: input.proverParams
-        });
-
-        TaikoToken(resolver.resolve("taiko_token", false)).transferFrom(
-            blk.prover, address(this), 32e8
-        ); // TODO(daniel)
-
-        // Emit an event
-        unchecked {
+            // Emit an event
             emit BlockProposed({
                 blockId: state.slotB.numBlocks++,
                 prover: blk.prover,
@@ -156,33 +151,6 @@ library LibProposing {
     {
         blk = state.blocks[blockId % config.blockRingBufferSize];
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
-    }
-
-    function _checkProver(
-        TaikoData.Config memory config,
-        bytes32 inputHash,
-        uint64 blockId,
-        address prover,
-        bytes memory proverParams
-    )
-        private
-    {
-        if (prover == address(0) || prover == address(1)) {
-            revert L1_INVALID_PROVER();
-        }
-
-        if (!prover.isContract()) {
-            if (prover != inputHash.recover(proverParams)) {
-                revert L1_INVALID_PROVER_SIG();
-            }
-            prover.sendEther(msg.value);
-        } else {
-            IProver(prover).onBlockAssigned{ value: msg.value }({
-                proposer: msg.sender,
-                blockId: blockId,
-                params: proverParams
-            });
-        }
     }
 
     function _validateBlock(
