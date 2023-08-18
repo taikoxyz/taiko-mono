@@ -166,6 +166,7 @@ abstract contract TaikoL1TestBase is Test {
         TaikoData.ProverAssignment memory assignment = TaikoData
             .ProverAssignment({
             prover: address(2), // TODO(daniel)
+            expiry: uint64(block.timestamp + 1 hours),
             data: new bytes(0)
         });
 

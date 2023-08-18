@@ -14,10 +14,10 @@ interface IProver {
     /// @notice Assigns a prover to a specific block or reverts if this prover
     /// is not available.
     /// @param input The block's BlockMetadataInput data.
-    /// @param data Extra input data.
+    /// @param assignment The assignment to evaluate
     function onBlockAssigned(
         TaikoData.BlockMetadataInput calldata input,
-        bytes calldata data
+        TaikoData.ProverAssignment calldata assignment
     )
         external
         payable;

@@ -91,6 +91,7 @@ library TaikoData {
     /// @dev Struct representing prover assignment
     struct ProverAssignment {
         address prover;
+        uint64 expiry;
         bytes data;
     }
 
