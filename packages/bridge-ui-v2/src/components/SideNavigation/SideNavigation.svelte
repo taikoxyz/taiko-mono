@@ -3,6 +3,7 @@
 </script>
 
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import { page } from '$app/stores';
@@ -10,7 +11,6 @@
   import { LinkButton } from '$components/LinkButton';
   import { LogoWithText } from '$components/Logo';
   import { PUBLIC_GUIDE_URL, PUBLIC_L2_EXPLORER_URL } from '$env/static/public';
-  import { onMount } from 'svelte';
 
   let darkTheme: boolean;
   let drawerToggleElem: HTMLInputElement;
