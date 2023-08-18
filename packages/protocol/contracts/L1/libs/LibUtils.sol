@@ -38,10 +38,8 @@ library LibUtils {
         internal
         view
     {
-        if (
-            blockId <= state.slotB.lastVerifiedBlockId
-                || blockId >= state.slotB.numBlocks
-        ) {
+        TaikoData.SlotB memory b = state.slotB;
+        if (blockId <= b.lastVerifiedBlockId || blockId >= b.numBlocks) {
             revert L1_BLOCK_ID();
         }
     }
@@ -76,16 +74,16 @@ library LibUtils {
         view
         returns (TaikoData.StateVariables memory)
     {
-        TaikoData.SlotA memory slotA = state.slotA;
-        TaikoData.SlotB memory slotB = state.slotB;
+        TaikoData.SlotA memory a = state.slotA;
+        TaikoData.SlotB memory b = state.slotB;
 
         return TaikoData.StateVariables({
-            genesisHeight: slotA.genesisHeight,
-            genesisTimestamp: slotA.genesisTimestamp,
-            numBlocks: slotB.numBlocks,
-            lastVerifiedBlockId: slotB.lastVerifiedBlockId,
-            nextEthDepositToProcess: slotA.nextEthDepositToProcess,
-            numEthDeposits: slotA.numEthDeposits - slotA.nextEthDepositToProcess
+            genesisHeight: a.genesisHeight,
+            genesisTimestamp: a.genesisTimestamp,
+            numBlocks: b.numBlocks,
+            lastVerifiedBlockId: b.lastVerifiedBlockId,
+            nextEthDepositToProcess: a.nextEthDepositToProcess,
+            numEthDeposits: a.numEthDeposits - a.nextEthDepositToProcess
         });
     }
 
