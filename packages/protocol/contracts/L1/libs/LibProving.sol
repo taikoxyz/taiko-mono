@@ -61,23 +61,20 @@ library LibProving {
             revert L1_EVIDENCE_MISMATCH();
         }
 
-        // If not the assigned prover must wait until the proof window has
-        // passed before proving the open block.
-        if (
-            evidence.prover != address(1) && evidence.prover != blk.prover
-                && blk.prover != address(0)
-                && block.timestamp <= blk.proposedAt + config.proofWindow
-        ) revert L1_NOT_PROVEABLE();
-
-        if (
-            evidence.prover == address(1)
-                && msg.sender != resolver.resolve("oracle_prover", false)
-        ) {
-            revert L1_UNAUTHORIZED();
+        if (evidence.prover == address(1)) {
+            // Oracle prover
+            if (msg.sender != resolver.resolve("oracle_prover", false)) {
+                revert L1_UNAUTHORIZED();
+            }
+        } else {
+            // Regular prover
+            if (
+                evidence.prover != blk.prover
+                    && block.timestamp <= blk.proposedAt + config.proofWindow
+            ) revert L1_NOT_PROVEABLE();
         }
 
         TaikoData.ForkChoice storage fc;
-
         uint16 fcId = LibUtils.getForkChoiceId(
             state, blk, blockId, evidence.parentHash, evidence.parentGasUsed
         );
