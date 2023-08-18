@@ -14,6 +14,7 @@ abstract contract TaikoErrors {
     // NOTE: The following custom errors must match the definitions in
     // `L1/libs/*.sol`.
     error L1_ALREADY_PROVEN();
+    error L1_ASSIGNMENT_EXPIRED();
     error L1_BLOCK_ID();
     error L1_EVIDENCE_MISMATCH();
     error L1_FORK_CHOICE_NOT_FOUND();
