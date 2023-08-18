@@ -123,7 +123,7 @@
     <div class="flex flex-col" style={`min-height: calc(${transactionsToShow.length} * 80px);`}>
       {#if isDesktopOrLarger}
         <div class="h-sep" />
-        <div class="text-white flex">
+        <div class="text-primary-content flex">
           <div class="w-1/5 py-2">{$t('activities.header.from')}</div>
           <div class="w-1/5 py-2">{$t('activities.header.to')}</div>
           <div class="w-1/5 py-2">{$t('activities.header.amount')}</div>
@@ -137,7 +137,7 @@
       {/if}
 
       {#if renderLoading}
-        <div class="flex items-center justify-center text-white h-[80px]">
+        <div class="flex items-center justify-center text-primary-content h-[80px]">
           <Spinner /> <span class="pl-3">{$t('common.loading')}...</span>
         </div>
       {/if}
@@ -154,7 +154,7 @@
       {/if}
 
       {#if renderNoTransactions}
-        <div class="flex items-center justify-center text-white h-[80px]">
+        <div class="flex items-center justify-center text-primary-content h-[80px]">
           <span class="pl-3">{$t('activities.no_transactions')}</span>
         </div>
       {/if}
