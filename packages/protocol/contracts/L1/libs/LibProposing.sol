@@ -71,7 +71,7 @@ library LibProposing {
         // the block, its bond is used to pay the actual prover.
         if (assignment.prover.isContract()) {
             IProver(assignment.prover).onBlockAssigned{ value: msg.value }(
-                msg.sender, input, assignment.data
+                input, assignment.data
             );
         } else {
             bytes32 hash = keccak256(abi.encode(msg.value, input));

@@ -13,11 +13,9 @@ import { TaikoData } from "./TaikoData.sol";
 interface IProver {
     /// @notice Assigns a prover to a specific block or reverts if this prover
     /// is not available.
-    /// @param proposer The address of the block proposer.
     /// @param input The block's BlockMetadataInput data.
     /// @param data Extra input data.
     function onBlockAssigned(
-        address proposer,
         TaikoData.BlockMetadataInput calldata input,
         bytes calldata data
     )
