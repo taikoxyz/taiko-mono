@@ -80,7 +80,6 @@ library TaikoData {
     }
 
     /// @dev Struct representing input data for block metadata.
-    /// 2 slots.
     struct BlockMetadataInput {
         bytes32 txListHash;
         address beneficiary;
@@ -124,8 +123,7 @@ library TaikoData {
     /// @dev Struct representing fork choice data.
     /// 4 slots.
     struct ForkChoice {
-        // key is only written/read for the 1st fork choice.
-        bytes32 key;
+        bytes32 key; //only written/read for the 1st fork choice.
         bytes32 blockHash;
         bytes32 signalRoot;
         address prover;

@@ -15,7 +15,7 @@ abstract contract TaikoErrors {
     // `L1/libs/*.sol`.
     error L1_ALREADY_PROVEN();
     error L1_BLOCK_ID();
-    error L1_EVIDENCE_MISMATCH(bytes32 expected, bytes32 actual);
+    error L1_EVIDENCE_MISMATCH();
     error L1_FORK_CHOICE_NOT_FOUND();
     error L1_INVALID_BID();
     error L1_INVALID_CONFIG();
