@@ -22,7 +22,7 @@ library LibVerifying {
     using LibMath for uint256;
 
     event BlockVerified(
-        uint64 indexed blockId, bytes32 blockHash, address prover
+        uint256 indexed blockId, address indexed prover, bytes32 blockHash
     );
     event CrossChainSynced(
         uint64 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
@@ -83,9 +83,9 @@ library LibVerifying {
 
         emit BlockVerified({
             blockId: 0,
-            blockHash: genesisBlockHash,
-            prover: address(1) // oracle prover
-         });
+            prover: address(1), // oracle prover
+            blockHash: genesisBlockHash
+        });
     }
 
     function verifyBlocks(
@@ -96,9 +96,9 @@ library LibVerifying {
     )
         internal
     {
-        uint64 i = state.slotB.lastVerifiedBlockId;
+        uint64 blockId = state.slotB.lastVerifiedBlockId;
         TaikoData.Block storage blk =
-            state.blocks[i % config.blockRingBufferSize];
+            state.blocks[blockId % config.blockRingBufferSize];
 
         uint16 fcId = blk.verifiedForkChoiceId;
         assert(fcId > 0);
@@ -111,13 +111,15 @@ library LibVerifying {
 
         uint64 processed;
         unchecked {
-            ++i;
+            ++blockId;
         }
 
-        while (i < state.slotB.numBlocks && processed < maxBlocks) {
-            blk = state.blocks[i % config.blockRingBufferSize];
+        while (blockId < state.slotB.numBlocks && processed < maxBlocks) {
+            blk = state.blocks[blockId % config.blockRingBufferSize];
 
-            fcId = LibUtils.getForkChoiceId(state, blk, i, blockHash, gasUsed);
+            fcId = LibUtils.getForkChoiceId(
+                state, blk, blockId, blockHash, gasUsed
+            );
             if (fcId == 0) break;
 
             fc = blk.forkChoices[fcId];
@@ -134,10 +136,10 @@ library LibVerifying {
             blk.verifiedForkChoiceId = fcId;
 
             _rewardProver(config, resolver, blk, fc);
-            emit BlockVerified(i, fc.blockHash, fc.prover);
+            emit BlockVerified(blockId, fc.prover, fc.blockHash);
 
             unchecked {
-                ++i;
+                ++blockId;
                 ++processed;
             }
         }
