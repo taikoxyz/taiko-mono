@@ -66,10 +66,12 @@ abstract contract TaikoL1Base is
     /// Note, in the corresponding L2 block an "anchor transaction" will be the
     /// first transaction in the block. If there are `n` transactions in the
     /// `txList`, then there will be up to `n + 1` transactions in the L2 block.
+    /// @param proverData Data to assign a prover.
     /// @return meta The metadata of the proposed L2 block.
     function proposeBlock(
         bytes calldata input,
-        bytes calldata txList
+        bytes calldata txList,
+        bytes calldata proverData
     )
         external
         payable
@@ -82,6 +84,7 @@ abstract contract TaikoL1Base is
             config: config,
             resolver: AddressResolver(this),
             input: abi.decode(input, (TaikoData.BlockMetadataInput)),
+            assignment: abi.decode(proverData, (TaikoData.ProverAssignment)),
             txList: txList
         });
         if (config.blockMaxVerificationsPerTx > 0) {

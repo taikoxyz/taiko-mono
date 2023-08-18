@@ -162,15 +162,20 @@ abstract contract TaikoL1TestBase is Test {
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
+        // TODO(daniel):
+        TaikoData.ProverAssignment memory assignment = TaikoData
+            .ProverAssignment({
+            prover: address(2), // TODO(daniel)
+            data: new bytes(0)
+        });
+
         bytes memory txList = new bytes(txListSize);
         TaikoData.BlockMetadataInput memory input = TaikoData.BlockMetadataInput({
             beneficiary: proposer,
             txListHash: keccak256(txList),
             txListByteStart: 0,
             txListByteEnd: txListSize,
-            cacheTxListInfo: false,
-            prover: address(2), // TODO(daniel)
-            proverAuth: new bytes(0)
+            cacheTxListInfo: false
         });
 
         TaikoData.StateVariables memory variables = L1.getStateVariables();
@@ -192,7 +197,8 @@ abstract contract TaikoL1TestBase is Test {
         meta.beneficiary = proposer;
 
         vm.prank(proposer, proposer);
-        meta = L1.proposeBlock(abi.encode(input), txList);
+        meta =
+            L1.proposeBlock(abi.encode(input), abi.encode(assignment), txList);
     }
 
     function proveBlock(

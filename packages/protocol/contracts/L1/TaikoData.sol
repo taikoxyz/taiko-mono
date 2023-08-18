@@ -86,8 +86,12 @@ library TaikoData {
         uint24 txListByteStart; // byte-wise start index (inclusive)
         uint24 txListByteEnd; // byte-wise end index (exclusive)
         bool cacheTxListInfo;
+    }
+
+    /// @dev Struct representing prover assignment
+    struct ProverAssignment {
         address prover;
-        bytes proverAuth;
+        bytes data;
     }
 
     /// @dev Struct containing data only required for proving a block

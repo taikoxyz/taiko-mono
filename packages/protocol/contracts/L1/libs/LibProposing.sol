@@ -48,6 +48,7 @@ library LibProposing {
         TaikoData.Config memory config,
         AddressResolver resolver,
         TaikoData.BlockMetadataInput memory input,
+        TaikoData.ProverAssignment memory assignment,
         bytes calldata txList
     )
         internal
@@ -60,28 +61,29 @@ library LibProposing {
         }
 
         // Check prover
-        if (input.prover == address(0) || input.prover == address(1)) {
+        if (assignment.prover == address(0) || assignment.prover == address(1))
+        {
             revert L1_INVALID_PROVER();
         }
 
         // Verify prover authorization and pay the prover Ether as proving fee.
         // Note that this payment is permanent. If the prover failed to prove
         // the block, its bond is used to pay the actual prover.
-        if (input.prover.isContract()) {
-            IProver(input.prover).onBlockAssigned{ value: msg.value }(
-                msg.sender, input
+        if (assignment.prover.isContract()) {
+            IProver(assignment.prover).onBlockAssigned{ value: msg.value }(
+                msg.sender, input, assignment.data
             );
         } else {
-            bytes32 hash = keccak256(abi.encode(msg.sender, msg.value, input));
-            if (input.prover != hash.recover(input.proverAuth)) {
+            bytes32 hash = keccak256(abi.encode(msg.value, input));
+            if (assignment.prover != hash.recover(assignment.data)) {
                 revert L1_INVALID_PROVER_SIG();
             }
-            input.prover.sendEther(msg.value);
+            assignment.prover.sendEther(msg.value);
         }
 
         // Burn the prover's bond to this address
         TaikoToken(resolver.resolve("taiko_token", false)).burn(
-            input.prover, config.proofBond
+            assignment.prover, config.proofBond
         );
 
         if (_validateBlock(state, config, input, txList)) {
@@ -118,7 +120,7 @@ library LibProposing {
             TaikoData.Block storage blk =
                 state.blocks[state.slotB.numBlocks % config.blockRingBufferSize];
             blk.metaHash = LibUtils.hashMetadata(meta);
-            blk.prover = input.prover;
+            blk.prover = assignment.prover;
             blk.proposedAt = meta.timestamp;
             blk.nextForkChoiceId = 1;
             blk.verifiedForkChoiceId = 0;

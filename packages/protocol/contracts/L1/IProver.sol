@@ -15,9 +15,11 @@ interface IProver {
     /// is not available.
     /// @param proposer The address of the block proposer.
     /// @param input The block's BlockMetadataInput data.
+    /// @param data Extra input data.
     function onBlockAssigned(
         address proposer,
-        TaikoData.BlockMetadataInput calldata input
+        TaikoData.BlockMetadataInput calldata input,
+        bytes calldata data
     )
         external
         payable;
