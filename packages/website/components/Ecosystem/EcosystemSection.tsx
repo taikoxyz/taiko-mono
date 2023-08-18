@@ -24,6 +24,14 @@ interface EcosystemData {
 
 const ecosystemData: EcosystemData[] = [
   {
+    icon: "/images/ecosystem/bitget.png",
+    name: "BitGet Wallet",
+    link: "https://web3.bitget.com/",
+    description: "Faster trading with your Web3 trading wallet of the future.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/blockscout.svg",
     name: "Blockscout",
     link: "https://blockscout.com",
