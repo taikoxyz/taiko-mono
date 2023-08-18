@@ -92,8 +92,7 @@
 
   /* Tooltip */
   .dialog-tooltip {
-    @apply
-      rounded-[10px]
+    @apply rounded-[10px]
       w-[283px]
       p-[24px]
       bg-primary-base-background
@@ -109,12 +108,12 @@
 
   .dialog-tooltip-top {
     :before {
-      content:"";
+      content: '';
       position: absolute;
       height: 0px;
       width: 0px;
       top: 100%;
-      left: 133px;  /* (283px - 9px)/2 - 4px */
+      left: 133px; /* (283px - 9px)/2 - 4px */
       border-width: 9px;
       border-color: transparent transparent transparent;
       border-style: solid;
