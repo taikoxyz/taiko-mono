@@ -119,54 +119,47 @@
 
 <div class="flex flex-col justify-center w-full">
   <Card title={$t('activities.title')} text={$t('activities.description')}>
-    <ChainSelector class="py-[35px] " label={$t('chain_selector.currently_on')} value={$network} switchWallet small />
-    <div class="flex flex-col" style={`min-height: calc(${transactionsToShow.length} * 80px);`}>
-      {#if isDesktopOrLarger}
-        <div class="h-sep" />
-        <div class="text-white flex">
-          <div class="w-1/5 py-2">{$t('activities.header.from')}</div>
-          <div class="w-1/5 py-2">{$t('activities.header.to')}</div>
-          <div class="w-1/5 py-2">{$t('activities.header.amount')}</div>
-          <div class="w-1/5 py-2 flex flex-row">
-            {$t('activities.header.status')}
-            <StatusInfoDialog />
+    <div class="space-y-[35px]">
+      <ChainSelector label={$t('chain_selector.currently_on')} value={$network} switchWallet small />
+      <div class="flex flex-col" style={`min-height: calc(${transactionsToShow.length} * 80px);`}>
+        {#if isDesktopOrLarger}
+          <div class="h-sep" />
+          <div class="text-primary-content flex">
+            <div class="w-1/5 py-2">{$t('activities.header.from')}</div>
+            <div class="w-1/5 py-2">{$t('activities.header.to')}</div>
+            <div class="w-1/5 py-2">{$t('activities.header.amount')}</div>
+            <div class="w-1/5 py-2 flex flex-row">
+              {$t('activities.header.status')}
+              <StatusInfoDialog />
+            </div>
+            <div class="w-1/5 py-2">{$t('activities.header.explorer')}</div>
           </div>
-          <div class="w-1/5 py-2">{$t('activities.header.explorer')}</div>
-        </div>
-        <div class="h-sep" />
-      {/if}
+          <div class="h-sep" />
+        {/if}
 
-      {#if renderLoading}
-        <div class="flex items-center justify-center text-white h-[80px]">
-          <Spinner /> <span class="pl-3">{$t('common.loading')}...</span>
-        </div>
-      {/if}
+        {#if renderLoading}
+          <div class="flex items-center justify-center text-primary-content h-[80px]">
+            <Spinner /> <span class="pl-3">{$t('common.loading')}...</span>
+          </div>
+        {/if}
 
-      {#if renderTransactions}
-        <div
-          class="flex flex-col items-center"
-          style={isBlurred ? `filter: blur(5px); transition: filter ${transitionTime / 1000}s ease-in-out` : ''}>
-          {#each transactionsToShow as item (item.hash)}
-            <Transaction {item} on:click={isDesktopOrLarger ? undefined : () => openDetails(item)} />
-            <div class="h-sep" />
-          {/each}
-        </div>
-      {/if}
+        {#if renderTransactions}
+          <div
+            class="flex flex-col items-center"
+            style={isBlurred ? `filter: blur(5px); transition: filter ${transitionTime / 1000}s ease-in-out` : ''}>
+            {#each transactionsToShow as item (item.hash)}
+              <Transaction {item} on:click={isDesktopOrLarger ? undefined : () => openDetails(item)} />
+              <div class="h-sep" />
+            {/each}
+          </div>
+        {/if}
 
-      {#if renderNoTransactions}
-        <div class="flex items-center justify-center text-white h-[80px]">
-          <span class="pl-3">{$t('activities.no_transactions')}</span>
-        </div>
-      {/if}
-
-      <!-- TODO: we don't have this in the design -->
-      <!-- {#if !$account?.isConnected}
-        <div class="flex items-center justify-center text-white h-[80px]">
-          <Button type="primary" on:click={onWalletConnect} class="px-[28px] py-[14px] ">
-            <span class="body-bold">{$t('wallet.connect')}</span>
-          </Button>
-        </div>
-      {/if} -->
+        {#if renderNoTransactions}
+          <div class="flex items-center justify-center text-primary-content h-[80px]">
+            <span class="pl-3">{$t('activities.no_transactions')}</span>
+          </div>
+        {/if}
+      </div>
     </div>
   </Card>
 

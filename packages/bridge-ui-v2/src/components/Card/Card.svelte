@@ -7,7 +7,7 @@
     md:rounded-[20px] 
     md:border 
     md:border-divider-border
-    md:glassy-gradient-card`;
+    dark:md:glassy-gradient-card`;
 
   export let title: string;
   export let text = '';
