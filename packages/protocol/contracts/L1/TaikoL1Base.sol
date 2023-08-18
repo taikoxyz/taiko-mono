@@ -212,9 +212,7 @@ abstract contract TaikoL1Base is
         });
     }
 
-    /// @notice Gets the block hash of the specified Layer 2 block.
-    /// @param blockId Index of the block.
-    /// @return Block hash of the specified block.
+    /// @inheritdoc ICrossChainSync
     function getCrossChainBlockHash(uint64 blockId)
         public
         view
@@ -231,9 +229,7 @@ abstract contract TaikoL1Base is
             : bytes32(0);
     }
 
-    /// @notice Gets the signal root of the specified Layer 2 block.
-    /// @param blockId Index of the block.
-    /// @return Signal root of the specified block.
+    /// @inheritdoc ICrossChainSync
     function getCrossChainSignalRoot(uint64 blockId)
         public
         view
