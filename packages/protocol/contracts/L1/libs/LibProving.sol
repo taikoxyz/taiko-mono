@@ -29,10 +29,10 @@ library LibProving {
     error L1_EVIDENCE_MISMATCH();
     error L1_FORK_CHOICE_NOT_FOUND();
     error L1_INVALID_EVIDENCE();
+    error L1_INVALID_ORACLE_PROVER();
     error L1_INVALID_PROOF();
     error L1_NOT_PROVEABLE();
     error L1_SAME_PROOF();
-    error L1_UNAUTHORIZED();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -64,7 +64,7 @@ library LibProving {
         if (evidence.prover == address(1)) {
             // Oracle prover
             if (msg.sender != resolver.resolve("oracle_prover", false)) {
-                revert L1_UNAUTHORIZED();
+                revert L1_INVALID_ORACLE_PROVER();
             }
         } else {
             // Regular prover
