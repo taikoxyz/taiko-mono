@@ -129,8 +129,6 @@ contract TaikoTokenTest is Test {
 
     function test_burn_amount_exceeded() public {
         uint256 amountToMint = 1 ether;
-        uint256 amountToBurn = 2 ether;
-
         vm.prank(taikoL1);
         tko.mint(Eve, amountToMint);
         assertEq(tko.balanceOf(Eve), amountToMint);
