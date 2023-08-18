@@ -72,7 +72,7 @@ library LibProposing {
                 msg.sender, input
             );
         } else {
-            bytes32 hash = keccak256(abi.encode(msg.sender, input));
+            bytes32 hash = keccak256(abi.encode(msg.sender, msg.value, input));
             if (input.prover != hash.recover(input.proverAuth)) {
                 revert L1_INVALID_PROVER_SIG();
             }
