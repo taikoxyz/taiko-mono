@@ -25,11 +25,16 @@
     pageSize: number,
     allEvents: APIResponseEvent[],
   ) {
-    if (!allEvents) return [];
-    const start = (page - 1) * pageSize;
-    const end = start + pageSize;
-    const ret = allEvents.slice(start, end);
-    return ret;
+    loading = true;
+    try {
+      if (!allEvents) return [];
+      const start = (page - 1) * pageSize;
+      const end = start + pageSize;
+      const ret = allEvents.slice(start, end);
+      return ret;
+    } finally {
+      loading = false;
+    }
   }
 
   const tabs = [
@@ -42,6 +47,7 @@
   ];
 
   async function getEvents(signer: ethers.Signer, activeTab: string) {
+    loading = true;
     let items = [];
     if (!signer) return [];
 
@@ -82,21 +88,24 @@
 
 <div class="my-4 md:px-4">
   <div
-    class="tabs md:bg-tabs 
-  md:border-2 
-  md:dark:border-1 
-  md:border-gray-200 
-  md:dark:border-gray-800 
-  md:shadow-md 
-  md:rounded-3xl 
-  md:p-6 
-  md:inline-block 
+    class="tabs md:bg-tabs
+  md:border-2
+  md:dark:border-1
+  md:border-gray-200
+  md:dark:border-gray-800
+  md:shadow-md
+  md:rounded-3xl
+  md:p-6
+  md:inline-block
   md:min-h-[650px]
   p-2">
     {#each tabs as tab}
       <a
         class="tab tab-bordered {tab.name === activeTab ? 'tab-active' : ''}"
-        on:click={() => (activeTab = tab.name)}>{tab.name}</a>
+        on:click={() => {
+          eventsToShow = [];
+          activeTab = tab.name;
+        }}>{tab.name}</a>
     {/each}
 
     {#each tabs as tab}
@@ -108,7 +117,9 @@
                 <th>Event</th>
                 {#if tab.name === tabs[0].name}
                   <th>Amount</th>
-                {:else if tab.name === tabs[1].name}{:else if tab.name === tabs[2].name}
+                {:else if tab.name === tabs[1].name}
+                  <th>Block ID</th>
+                {:else if tab.name === tabs[2].name}
                   <th>Amount</th>
                 {:else if tab.name === tabs[3].name}{:else if tab.name === tabs[4].name}
                   <th>Block ID</th>
@@ -130,13 +141,13 @@
                       class="cursor-pointer ml-2 hidden md:inline-block"
                       >{event.event}</span>
                   </td>
-                  {#if tab.name === tabs[0].name}
+                  {#if activeTab === tabs[0].name}
                     <td>{ethers.utils.formatUnits(event.amount, 8)} TTKOe</td>
-                  {:else if tab.name === tabs[1].name}{:else if tab.name === tabs[2].name}
-                    <td>{ethers.utils.formatUnits(event.amount, 8)} TTKOe</td>
-                  {:else if tab.name === tabs[3].name}{:else if tab.name === tabs[4].name}
+                  {:else if activeTab === tabs[1].name}
                     <td>{event.blockID.Int64}</td>
-                  {:else if tab.name === tabs[5].name}
+                  {:else if activeTab === tabs[2].name}{:else if activeTab === tabs[3].name}{:else if activeTab === tabs[4].name}
+                    <td>{event.blockID.Int64}</td>
+                  {:else if activeTab === tabs[5].name}
                     <td>{ethers.utils.formatUnits(event.amount, 8)} TTKOe</td
                     >{/if}
                 </tr>
