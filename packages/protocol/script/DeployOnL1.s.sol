@@ -58,7 +58,6 @@ contract DeployOnL1 is Script {
         require(owner != address(0), "owner is zero");
         require(taikoL2Address != address(0), "taikoL2Address is zero");
         require(l2SignalService != address(0), "l2SignalService is zero");
-        require(treasury != address(0), "treasury is zero");
         require(
             taikoTokenPremintRecipients.length != 0,
             "taikoTokenPremintRecipients length is zero"
@@ -95,7 +94,6 @@ contract DeployOnL1 is Script {
         setAddress(l2ChainId, "taiko", taikoL2Address);
         setAddress(l2ChainId, "signal_service", l2SignalService);
         setAddress("oracle_prover", oracleProver);
-        setAddress(l2ChainId, "treasury", treasury);
 
         // TaikoToken
         TaikoToken taikoToken = new ProxiedTaikoToken();

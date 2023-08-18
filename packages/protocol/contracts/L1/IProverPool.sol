@@ -1,4 +1,4 @@
-// // SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT
 // //  _____     _ _         _         _
 // // |_   _|_ _(_) |_____  | |   __ _| |__ ___
 // //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
