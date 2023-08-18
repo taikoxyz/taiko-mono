@@ -96,7 +96,9 @@ library LibVerifying {
     )
         internal
     {
-        uint64 blockId = state.slotB.lastVerifiedBlockId;
+        TaikoData.SlotB memory b = state.slotB;
+        uint64 blockId = b.lastVerifiedBlockId;
+
         TaikoData.Block storage blk =
             state.blocks[blockId % config.blockRingBufferSize];
 
@@ -114,7 +116,7 @@ library LibVerifying {
             ++blockId;
         }
 
-        while (blockId < state.slotB.numBlocks && processed < maxBlocks) {
+        while (blockId < b.numBlocks && processed < maxBlocks) {
             blk = state.blocks[blockId % config.blockRingBufferSize];
 
             fcId = LibUtils.getForkChoiceId(
@@ -146,8 +148,9 @@ library LibVerifying {
 
         if (processed > 0) {
             unchecked {
+                uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + processed;
+                state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
                 state.slotB.lastVerifiedAt = uint64(block.timestamp);
-                state.slotB.lastVerifiedBlockId += processed;
             }
 
             if (config.relaySignalRoot) {
@@ -158,9 +161,7 @@ library LibVerifying {
                 ISignalService(resolver.resolve("signal_service", false))
                     .sendSignal(signalRoot);
             }
-            emit CrossChainSynced(
-                state.slotB.lastVerifiedBlockId, blockHash, signalRoot
-            );
+            emit CrossChainSynced(lastVerifiedBlockId, blockHash, signalRoot);
         }
     }
 

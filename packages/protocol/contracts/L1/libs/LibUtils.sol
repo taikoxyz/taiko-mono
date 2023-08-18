@@ -24,9 +24,8 @@ library LibUtils {
         view
         returns (bool found, TaikoData.Block storage blk)
     {
-        checkBlockId(state, blockId);
-
         uint64 id = blockId == 0 ? state.slotB.lastVerifiedBlockId : blockId;
+        checkBlockId(state, id);
         blk = state.blocks[id % config.blockRingBufferSize];
         found = blk.verifiedForkChoiceId != 0;
     }
