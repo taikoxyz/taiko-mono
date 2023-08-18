@@ -114,40 +114,38 @@ library LibVerifying {
         uint64 processed;
         unchecked {
             ++blockId;
-        }
 
-        while (blockId < b.numBlocks && processed < maxBlocks) {
-            blk = state.blocks[blockId % config.blockRingBufferSize];
+            while (blockId < b.numBlocks && processed < maxBlocks) {
+                blk = state.blocks[blockId % config.blockRingBufferSize];
 
-            fcId = LibUtils.getForkChoiceId(
-                state, blk, blockId, blockHash, gasUsed
-            );
-            if (fcId == 0) break;
+                fcId = LibUtils.getForkChoiceId(
+                    state, blk, blockId, blockHash, gasUsed
+                );
+                if (fcId == 0) break;
 
-            fc = blk.forkChoices[fcId];
-            if (fc.prover == address(0)) break;
+                fc = blk.forkChoices[fcId];
+                if (fc.prover == address(0)) break;
 
-            uint256 proofRegularCooldown = fc.prover == address(1)
-                ? config.proofOracleCooldown
-                : config.proofRegularCooldown;
-            if (block.timestamp <= fc.provenAt + proofRegularCooldown) break;
+                uint256 proofRegularCooldown = fc.prover == address(1)
+                    ? config.proofOracleCooldown
+                    : config.proofRegularCooldown;
+                if (block.timestamp <= fc.provenAt + proofRegularCooldown) {
+                    break;
+                }
 
-            blockHash = fc.blockHash;
-            gasUsed = fc.gasUsed;
-            signalRoot = fc.signalRoot;
-            blk.verifiedForkChoiceId = fcId;
+                blockHash = fc.blockHash;
+                gasUsed = fc.gasUsed;
+                signalRoot = fc.signalRoot;
+                blk.verifiedForkChoiceId = fcId;
 
-            _rewardProver(config, resolver, blk, fc);
-            emit BlockVerified(blockId, fc.prover, fc.blockHash);
+                _rewardProver(config, resolver, blk, fc);
+                emit BlockVerified(blockId, fc.prover, fc.blockHash);
 
-            unchecked {
                 ++blockId;
                 ++processed;
             }
-        }
 
-        if (processed > 0) {
-            unchecked {
+            if (processed > 0) {
                 uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + processed;
                 state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
                 state.slotB.lastVerifiedAt = uint64(block.timestamp);
