@@ -5,7 +5,6 @@ import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
 import { AddressManager } from "../contracts/common/AddressManager.sol";
 import { LibUtils } from "../contracts/L1/libs/LibUtils.sol";
-import { TaikoConfig } from "../contracts/L1/TaikoConfig.sol";
 import { TaikoData } from "../contracts/L1/TaikoData.sol";
 import { TaikoL1 } from "../contracts/L1/TaikoL1.sol";
 import { TaikoToken } from "../contracts/L1/TaikoToken.sol";
@@ -171,8 +170,7 @@ abstract contract TaikoL1TestBase is Test {
             txListByteEnd: txListSize,
             cacheTxListInfo: false,
             prover: address(2), // TODO(daniel)
-            maxProverFee: 0,
-            proverParams: new bytes(0)
+            proverAuth: new bytes(0)
         });
 
         TaikoData.StateVariables memory variables = L1.getStateVariables();

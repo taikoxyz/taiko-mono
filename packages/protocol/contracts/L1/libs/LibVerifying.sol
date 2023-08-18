@@ -103,7 +103,6 @@ library LibVerifying {
         uint16 fcId = blk.verifiedForkChoiceId;
         assert(fcId > 0);
 
-        TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
         bytes32 blockHash = blk.forkChoices[fcId].blockHash;
         uint32 gasUsed = blk.forkChoices[fcId].gasUsed;
 
@@ -134,7 +133,7 @@ library LibVerifying {
             signalRoot = fc.signalRoot;
             blk.verifiedForkChoiceId = fcId;
 
-            _rewardProver(config, tt, blk, fc);
+            _rewardProver(config, resolver, blk, fc);
             emit BlockVerified(i, fc.blockHash, fc.prover);
 
             unchecked {
@@ -165,21 +164,22 @@ library LibVerifying {
 
     function _rewardProver(
         TaikoData.Config memory config,
-        TaikoToken tt,
+        AddressResolver resolver,
         TaikoData.Block storage blk,
         TaikoData.ForkChoice memory fc
     )
         private
     {
+        TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
         if (
             fc.prover == address(1)
                 || fc.provenAt <= blk.proposedAt + config.proofWindow
         ) {
             // Refund all the bond
-            tt.transfer(blk.prover, config.proofBond);
+            tt.mint(blk.prover, config.proofBond);
         } else {
             // Reward half of the bond to the actual prover
-            tt.transfer(fc.prover, config.proofBond / 2);
+            tt.mint(fc.prover, config.proofBond / 2);
         }
     }
 }

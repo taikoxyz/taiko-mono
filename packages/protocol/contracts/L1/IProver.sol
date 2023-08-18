@@ -6,18 +6,18 @@
 
 pragma solidity ^0.8.20;
 
+import { TaikoData } from "./TaikoData.sol";
 /// @title IProver Interface
 /// @notice Defines the function that handle prover assignment.
+
 interface IProver {
     /// @notice Assigns a prover to a specific block or reverts if none is
     /// available.
     /// @param proposer The address of the block proposer.
-    /// @param inputHash The hash of the block's BlockMetadataInput data.
-    /// @param params Additional parameters.
+    /// @param input The block's BlockMetadataInput data.
     function onBlockAssigned(
         address proposer,
-        bytes32 inputHash,
-        bytes calldata params
+        TaikoData.BlockMetadataInput calldata input
     )
         external
         payable;

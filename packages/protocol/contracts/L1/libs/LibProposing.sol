@@ -67,23 +67,21 @@ library LibProposing {
         // Verify prover authorization and pay the prover Ether as proving fee.
         // Note that this payment is permanent. If the prover failed to prove
         // the block, its bond is used to pay the actual prover.
-        bytes32 inputHash = keccak256(abi.encode(input));
         if (input.prover.isContract()) {
-            IProver(input.prover).onBlockAssigned{ value: msg.value }({
-                proposer: msg.sender,
-                inputHash: inputHash,
-                params: input.proverParams
-            });
+            IProver(input.prover).onBlockAssigned{ value: msg.value }(
+                msg.sender, input
+            );
         } else {
-            if (input.prover != inputHash.recover(input.proverParams)) {
+            bytes32 hash = keccak256(abi.encode(msg.sender, input));
+            if (input.prover != hash.recover(input.proverAuth)) {
                 revert L1_INVALID_PROVER_SIG();
             }
             input.prover.sendEther(msg.value);
         }
 
-        // Transfer the prover's bond to this address
-        TaikoToken(resolver.resolve("taiko_token", false)).transferFrom(
-            input.prover, address(this), config.proofBond
+        // Burn the prover's bond to this address
+        TaikoToken(resolver.resolve("taiko_token", false)).burn(
+            input.prover, config.proofBond
         );
 
         if (_validateBlock(state, config, input, txList)) {

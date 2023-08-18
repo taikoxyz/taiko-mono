@@ -3,7 +3,6 @@ pragma solidity ^0.8.20;
 
 import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
-import { TaikoConfig } from "../contracts/L1/TaikoConfig.sol";
 import { TaikoData } from "../contracts/L1/TaikoData.sol";
 import { TaikoL1 } from "../contracts/L1/TaikoL1.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
@@ -18,7 +17,7 @@ contract TaikoL1_b is TaikoL1 {
         override
         returns (TaikoData.Config memory config)
     {
-        config = TaikoConfig.getConfig();
+        config = TaikoL1.getConfig();
 
         config.blockTxListExpiry = 0;
         config.blockMaxProposals = 1100;

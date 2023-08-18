@@ -5,7 +5,6 @@ import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
 import { AddressManager } from "../contracts/common/AddressManager.sol";
 import { LibEthDepositing } from "../contracts/L1/libs/LibEthDepositing.sol";
-import { TaikoConfig } from "../contracts/L1/TaikoConfig.sol";
 import { TaikoData } from "../contracts/L1/TaikoData.sol";
 import { TaikoL1 } from "../contracts/L1/TaikoL1.sol";
 import { TaikoToken } from "../contracts/L1/TaikoToken.sol";
@@ -20,7 +19,7 @@ contract TaikoL1_NoCooldown is TaikoL1 {
         override
         returns (TaikoData.Config memory config)
     {
-        config = TaikoConfig.getConfig();
+        config = TaikoL1.getConfig();
 
         config.blockTxListExpiry = 5 minutes;
         config.blockMaxVerificationsPerTx = 0;

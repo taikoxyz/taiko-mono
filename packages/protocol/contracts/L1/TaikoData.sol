@@ -88,8 +88,7 @@ library TaikoData {
         uint24 txListByteEnd; // byte-wise end index (exclusive)
         bool cacheTxListInfo;
         address prover;
-        uint64 maxProverFee;
-        bytes proverParams;
+        bytes proverAuth;
     }
 
     /// @dev Struct containing data only required for proving a block

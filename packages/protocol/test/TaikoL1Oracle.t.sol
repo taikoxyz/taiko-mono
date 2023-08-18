@@ -5,7 +5,6 @@ import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
 import { AddressManager } from "../contracts/common/AddressManager.sol";
 import { LibUtils } from "../contracts/L1/libs/LibUtils.sol";
-import { TaikoConfig } from "../contracts/L1/TaikoConfig.sol";
 import { TaikoData } from "../contracts/L1/TaikoData.sol";
 import { TaikoErrors } from "../contracts/L1/TaikoErrors.sol";
 import { TaikoL1 } from "../contracts/L1/TaikoL1.sol";
@@ -21,7 +20,7 @@ contract TaikoL1Oracle is TaikoL1 {
         override
         returns (TaikoData.Config memory config)
     {
-        config = TaikoConfig.getConfig();
+        config = TaikoL1.getConfig();
 
         config.blockTxListExpiry = 5 minutes;
         config.blockMaxVerificationsPerTx = 0;
