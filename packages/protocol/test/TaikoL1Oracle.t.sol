@@ -107,7 +107,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             verifyBlock(Carol, 1);
 
             // This is verified, user cannot re-verify it
-            vm.expectRevert(TaikoErrors.L1_BLOCK_ID.selector);
+            vm.expectRevert(TaikoErrors.L1_INVALID_BLOCK_ID.selector);
             proveBlock(
                 Bob,
                 Bob,

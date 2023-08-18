@@ -32,8 +32,8 @@ library LibProposing {
         TaikoData.BlockMetadata meta
     );
 
-    error L1_ASSIGNMENT_EXPIRED();
-    error L1_BLOCK_ID();
+    error L1_INVALID_ASSIGNMENT();
+    error L1_INVALID_BLOCK_ID();
     error L1_INVALID_METADATA();
     error L1_INVALID_PROPOSER();
     error L1_INVALID_PROVER();
@@ -61,14 +61,12 @@ library LibProposing {
             revert L1_INVALID_PROPOSER();
         }
 
-        // Check prover
-        if (assignment.prover == address(0) || assignment.prover == address(1))
-        {
-            revert L1_INVALID_PROVER();
-        }
-
-        if (assignment.expiry <= block.timestamp) {
-            revert L1_ASSIGNMENT_EXPIRED();
+        // Check prover assignment
+        if (
+            assignment.prover == address(0) || assignment.prover == address(1)
+                || assignment.expiry <= block.timestamp
+        ) {
+            revert L1_INVALID_ASSIGNMENT();
         }
 
         // Verify prover authorization and pay the prover Ether as proving fee.

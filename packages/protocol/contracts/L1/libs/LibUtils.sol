@@ -13,7 +13,7 @@ import { TaikoData } from "../TaikoData.sol";
 library LibUtils {
     using LibMath for uint256;
 
-    error L1_BLOCK_ID();
+    error L1_INVALID_BLOCK_ID();
 
     function getL2ChainData(
         TaikoData.State storage state,
@@ -39,7 +39,7 @@ library LibUtils {
     {
         TaikoData.SlotB memory b = state.slotB;
         if (blockId <= b.lastVerifiedBlockId || blockId >= b.numBlocks) {
-            revert L1_BLOCK_ID();
+            revert L1_INVALID_BLOCK_ID();
         }
     }
 

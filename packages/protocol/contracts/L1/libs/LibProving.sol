@@ -25,7 +25,7 @@ library LibProving {
     );
 
     error L1_ALREADY_PROVEN();
-    error L1_BLOCK_ID();
+    error L1_INVALID_BLOCK_ID();
     error L1_EVIDENCE_MISMATCH();
     error L1_FORK_CHOICE_NOT_FOUND();
     error L1_INVALID_EVIDENCE();
