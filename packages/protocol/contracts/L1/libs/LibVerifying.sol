@@ -151,17 +151,19 @@ library LibVerifying {
                 uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + processed;
                 state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
                 state.slotB.lastVerifiedAt = uint64(block.timestamp);
-            }
 
-            if (config.relaySignalRoot) {
-                // Send the L2's signal root to the signal service so other
-                // TaikoL1  deployments, if they share the same signal
-                // service, can relay the signal to their corresponding
-                // TaikoL2 contract.
-                ISignalService(resolver.resolve("signal_service", false))
-                    .sendSignal(signalRoot);
+                if (config.relaySignalRoot) {
+                    // Send the L2's signal root to the signal service so other
+                    // TaikoL1  deployments, if they share the same signal
+                    // service, can relay the signal to their corresponding
+                    // TaikoL2 contract.
+                    ISignalService(resolver.resolve("signal_service", false))
+                        .sendSignal(signalRoot);
+                }
+                emit CrossChainSynced(
+                    lastVerifiedBlockId, blockHash, signalRoot
+                );
             }
-            emit CrossChainSynced(lastVerifiedBlockId, blockHash, signalRoot);
         }
     }
 
