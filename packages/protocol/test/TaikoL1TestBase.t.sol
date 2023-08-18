@@ -8,7 +8,6 @@ import { LibUtils } from "../contracts/L1/libs/LibUtils.sol";
 import { TaikoData } from "../contracts/L1/TaikoData.sol";
 import { TaikoL1 } from "../contracts/L1/TaikoL1.sol";
 import { TaikoToken } from "../contracts/L1/TaikoToken.sol";
-// import { IProverPool } from "../contracts/L1/IProverPool.sol";
 import { ProofVerifier } from "../contracts/L1/ProofVerifier.sol";
 import { SignalService } from "../contracts/signal/SignalService.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
@@ -20,48 +19,12 @@ contract MockVerifier {
     }
 }
 
-// contract MockProverPool is IProverPool {
-//     address private _prover;
-//     uint32 private _feePerGas;
-
-//     function reset(address prover, uint32 feePerGas) external {
-//         assert(prover != address(0) && feePerGas != 0);
-//         _prover = prover;
-//         _feePerGas = feePerGas;
-//     }
-
-//     function assignProver(
-//         uint64, /*blockId*/
-//         uint32 /*feePerGas*/
-//     )
-//         external
-//         view
-//         override
-//         returns (address, uint32)
-//     {
-//         return (_prover, _feePerGas);
-//     }
-
-//     function releaseProver(address prover) external pure override { }
-
-//     function slashProver(
-//         uint64 blockId,
-//         address prover,
-//         uint64 proofReward
-//     )
-//         external
-//         pure
-//         override
-//     { }
-// }
-
 abstract contract TaikoL1TestBase is Test {
     AddressManager public addressManager;
     TaikoToken public tko;
     SignalService public ss;
     TaikoL1 public L1;
     TaikoData.Config conf;
-    // MockProverPool public proverPool;
     uint256 internal logCount;
     ProofVerifier public pv;
 
@@ -106,8 +69,6 @@ abstract contract TaikoL1TestBase is Test {
         addressManager = new AddressManager();
         addressManager.init();
 
-        // proverPool = new MockProverPool();
-
         ss = new SignalService();
         ss.init(address(addressManager));
 
@@ -117,7 +78,6 @@ abstract contract TaikoL1TestBase is Test {
         registerAddress("proof_verifier", address(pv));
         registerAddress("signal_service", address(ss));
         registerAddress("ether_vault", address(L1EthVault));
-        // registerAddress("prover_pool", address(proverPool));
         registerL2Address("treasury", L2Treasury);
         registerL2Address("taiko", address(TaikoL2));
         registerL2Address("signal_service", address(L2SS));
