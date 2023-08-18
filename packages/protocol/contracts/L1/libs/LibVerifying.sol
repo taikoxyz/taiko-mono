@@ -173,16 +173,18 @@ library LibVerifying {
     )
         private
     {
-        TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
-        if (
-            fc.prover == address(1)
-                || fc.provenAt <= blk.proposedAt + config.proofWindow
-        ) {
-            // Refund all the bond
-            tt.mint(blk.prover, config.proofBond);
-        } else {
-            // Reward half of the bond to the actual prover
-            tt.mint(fc.prover, config.proofBond / 2);
+        unchecked {
+            TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
+            if (
+                fc.prover == address(1)
+                    || fc.provenAt <= blk.proposedAt + config.proofWindow
+            ) {
+                // Refund all the bond
+                tt.mint(blk.prover, config.proofBond);
+            } else {
+                // Reward half of the bond to the actual prover
+                tt.mint(fc.prover, config.proofBond / 2);
+            }
         }
     }
 }
