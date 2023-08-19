@@ -113,7 +113,7 @@ abstract contract TaikoL1TestBase is TestBase {
         // TODO(daniel):
         TaikoData.ProverAssignment memory assignment = TaikoData
             .ProverAssignment({
-            prover: address(2), // TODO(daniel)
+            prover: Patrick,
             expiry: uint64(block.timestamp + 1 hours),
             data: new bytes(0)
         });
@@ -218,10 +218,6 @@ abstract contract TaikoL1TestBase is TestBase {
         tko.transfer(who, amountTko);
         console2.log("who", who);
         console2.log("balance:", tko.balanceOf(who));
-        vm.prank(who, who);
-        // Keep half for proving and deposit half for proposing fee
-        // TODO: method below removed
-        // L1.depositTaikoToken(amountTko / 2);
     }
 
     function printVariables(string memory comment) internal {

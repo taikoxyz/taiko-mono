@@ -97,7 +97,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        onlyFromNamed4("taiko", "prover_pool", "dao", "erc20_vault")
+        onlyFromNamed2("taiko", "erc20_vault")
     {
         _mint(to, amount);
     }
@@ -110,7 +110,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        onlyFromNamed4("taiko", "prover_pool", "dao", "erc20_vault")
+        onlyFromNamed2("taiko", "erc20_vault")
     {
         _burn(from, amount);
     }

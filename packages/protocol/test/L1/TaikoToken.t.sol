@@ -11,10 +11,8 @@ import { TransparentUpgradeableProxy } from
 contract TaikoTokenTest is TestBase {
     bytes32 GENESIS_BLOCK_HASH;
 
-    address public tokenAdmin;
+    address public tokenOwner;
     address public taikoL1;
-    address public TeamWallet;
-    address public DaoTreasury;
 
     AddressManager public addressManager;
     TransparentUpgradeableProxy public tokenProxy;
@@ -24,21 +22,18 @@ contract TaikoTokenTest is TestBase {
     function setUp() public {
         GENESIS_BLOCK_HASH = getRandomBytes32();
 
-        tokenAdmin = getRandomAddress();
+        tokenOwner = getRandomAddress();
         taikoL1 = getRandomAddress();
-        TeamWallet = getRandomAddress();
-        DaoTreasury = getRandomAddress();
 
         addressManager = new AddressManager();
         addressManager.init();
         _registerAddress("taiko", taikoL1);
-        _registerAddress("dao", DaoTreasury);
 
         tko = new TaikoToken();
 
         address[] memory premintRecipients = new address[](2);
-        premintRecipients[0] = TeamWallet;
-        premintRecipients[1] = DaoTreasury;
+        premintRecipients[0] = Yasmine;
+        premintRecipients[1] = Zachary;
 
         uint256[] memory premintAmounts = new uint256[](2);
         premintAmounts[0] = 5 ether;
@@ -62,20 +57,20 @@ contract TaikoTokenTest is TestBase {
     }
 
     function test_TaikoToken_proper_premint() public {
-        assertEq(tko.balanceOf(TeamWallet), 5 ether);
+        assertEq(tko.balanceOf(Yasmine), 5 ether);
 
-        assertEq(tko.balanceOf(DaoTreasury), 5 ether);
+        assertEq(tko.balanceOf(Zachary), 5 ether);
     }
 
     function test_TaikoToken_upgrade() public {
         tkoUpgradedImpl = new TaikoToken();
 
-        vm.prank(tokenAdmin);
+        vm.prank(tokenOwner);
         tokenProxy.upgradeTo(address(tkoUpgradedImpl));
 
         // Check if balance is still same
-        assertEq(tko.balanceOf(TeamWallet), 5 ether);
-        assertEq(tko.balanceOf(DaoTreasury), 5 ether);
+        assertEq(tko.balanceOf(Yasmine), 5 ether);
+        assertEq(tko.balanceOf(Zachary), 5 ether);
     }
 
     function test_TaikoToken_upgrade_without_admin_rights() public {
@@ -267,7 +262,7 @@ contract TaikoTokenTest is TestBase {
     {
         return new TransparentUpgradeableProxy(
             implementation,
-            tokenAdmin,
+            tokenOwner,
             data
         );
     }

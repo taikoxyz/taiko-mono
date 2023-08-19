@@ -83,7 +83,7 @@ contract BridgedERC20 is
         uint256 amount
     )
         public
-        onlyFromNamed3("taiko", "prover_pool", "erc20_vault")
+        onlyFromNamed2("taiko", "erc20_vault")
     {
         _mint(account, amount);
         emit Transfer(address(0), account, amount);
@@ -98,7 +98,7 @@ contract BridgedERC20 is
         uint256 amount
     )
         public
-        onlyFromNamed3("taiko", "prover_pool", "erc20_vault")
+        onlyFromNamed2("taiko", "erc20_vault")
     {
         _burn(account, amount);
         emit Transfer(account, address(0), amount);

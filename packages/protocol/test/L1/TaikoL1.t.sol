@@ -26,6 +26,7 @@ contract TaikoL1_NoCooldown is TaikoL1 {
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 12;
         config.proofRegularCooldown = 15 minutes;
+        config.skipProverAssignmentVerificaiton = true;
     }
 }
 
@@ -48,7 +49,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev Test we can propose, prove, then verify more blocks than
     /// 'blockMaxProposals'
-    function test_more_blocks_than_ring_buffer_size() external {
+    function test_L1__more_blocks_than_ring_buffer_size() external {
         depositTaikoToken(Alice, 1e8 * 1e8, 100 ether);
         // This is a very weird test (code?) issue here.
         // If this line (or Bob's query balance) is uncommented,
@@ -98,7 +99,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev Test more than one block can be proposed, proven, & verified in the
     ///      same L1 block.
-    function test_multiple_blocks_in_one_L1_block() external {
+    function test_L1__multiple_blocks_in_one_L1_block() external {
         depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         depositTaikoToken(Bob, 1e8 * 1e8, 100 ether);
@@ -140,7 +141,7 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     /// @dev Test verifying multiple blocks in one transaction
-    function test_verifying_multiple_blocks_once() external {
+    function test_L1__verifying_multiple_blocks_once() external {
         depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         depositTaikoToken(Bob, 1e8 * 1e8, 100 ether);
@@ -185,7 +186,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         printVariables("after verify");
     }
 
-    function testEthDepositsToL2Reverts() external {
+    function test_L1_EthDepositsToL2Reverts() external {
         uint96 minAmount = conf.ethDepositMinAmount;
         uint96 maxAmount = conf.ethDepositMaxAmount;
 
@@ -202,7 +203,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         assertEq(L1.getStateVariables().numEthDeposits, 0);
     }
 
-    function testEthDepositsToL2Gas() external {
+    function test_L1_EthDepositsToL2Gas() external {
         vm.fee(25 gwei);
 
         bytes32 emptyDepositsRoot =
@@ -249,7 +250,7 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     /// @dev getCrossChainBlockHash tests
-    function test_getCrossChainBlockHash0() external {
+    function test_L1__getCrossChainBlockHash0() external {
         bytes32 genHash = L1.getCrossChainBlockHash(0);
         assertEq(GENESIS_BLOCK_HASH, genHash);
 
@@ -259,7 +260,7 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     /// @dev getCrossChainSignalRoot tests
-    function test_getCrossChainSignalRoot() external {
+    function test_L1__getCrossChainSignalRoot() external {
         uint64 iterationCnt = 10;
         // Declare here so that block prop/prove/verif. can be used in 1 place
         TaikoData.BlockMetadata memory meta;
@@ -324,7 +325,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         assertEq(bytes32(0), L1.getCrossChainSignalRoot((iterationCnt + 1)));
     }
 
-    function test_deposit_hash_creation() external {
+    function test_L1__deposit_hash_creation() external {
         // uint96 minAmount = conf.ethDepositMinAmount;
         uint96 maxAmount = conf.ethDepositMaxAmount;
 
