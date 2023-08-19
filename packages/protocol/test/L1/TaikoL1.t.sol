@@ -209,7 +209,8 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         bytes32 emptyDepositsRoot =
             0x569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd;
-        giveEthAndTko(Alice, 1e6 ether, 100_000 ether);
+        giveEthAndTko(Alice, 0, 100_000 ether);
+        giveEthAndTko(Bob, 1e6 ether, 0);
 
         proposeBlock(Alice, Bob, 1_000_000, 1024);
         TaikoData.BlockMetadata memory meta =
@@ -327,6 +328,7 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     function test_L1_deposit_hash_creation() external {
+        giveEthAndTko(Zachary, 1e6 ether, 0);
         // uint96 minAmount = conf.ethDepositMinAmount;
         uint96 maxAmount = conf.ethDepositMaxAmount;
 
@@ -366,15 +368,15 @@ contract TaikoL1Test is TaikoL1TestBase {
         // We shall invoke proposeBlock() because this is what will call the
         // processDeposits()
         TaikoData.BlockMetadata memory meta =
-            proposeBlock(Alice, Bob, 1_000_000, 1024);
+            proposeBlock(Alice, Zachary, 1_000_000, 1024);
 
         // Expected:
-        // 0x60386add6a400d9b23968e1239bd600d22d2eea4709246895c0e5d8f5ae49dc3  (pre
+        // 0x41c71a2af0eaa668a1241d7e1b09ac30d0e9ea6b6eb4a5a151029e87158d46f3  (pre
         // calculated with these values)
         //console2.logBytes32(meta.depositsRoot);
         assertEq(
             LibDepositing.hashEthDeposits(meta.depositsProcessed),
-            0x60386add6a400d9b23968e1239bd600d22d2eea4709246895c0e5d8f5ae49dc3
+            0x41c71a2af0eaa668a1241d7e1b09ac30d0e9ea6b6eb4a5a151029e87158d46f3
         );
     }
 }

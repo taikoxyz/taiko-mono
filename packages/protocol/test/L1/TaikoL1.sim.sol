@@ -24,6 +24,9 @@ contract TaikoL1_b is TaikoL1 {
         config.blockRingBufferSize = 1200;
         config.blockMaxVerificationsPerTx = 10;
         config.proofRegularCooldown = 5 minutes;
+        config.proofOracleCooldown = 3 minutes;
+        config.skipProverAssignmentVerificaiton = true;
+        config.proofBond = 1 ether;
     }
 }
 
@@ -99,7 +102,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
 
         assertEq(time, 1);
 
-        giveEthAndTko(Alice, 1e9 ether, 10_000 ether);
+        giveEthAndTko(Bob, 1e9 ether, 10_000 ether);
 
         TaikoData.BlockMetadata[] memory metas = new TaikoData.BlockMetadata[](
             blocksToSimulate
@@ -313,7 +316,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
 
         assertEq(time, 1);
 
-        giveEthAndTko(Alice, 1e6 ether, 10_000 ether);
+        giveEthAndTko(Bob, 1e6 ether, 10_000 ether);
 
         TaikoData.BlockMetadata[] memory metas = new TaikoData.BlockMetadata[](
             blocksToSimulate
@@ -541,7 +544,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
 
         assertEq(time, 1);
 
-        giveEthAndTko(Alice, 1e6 ether, 10_000 ether);
+        giveEthAndTko(Bob, 1e6 ether, 10_000 ether);
 
         TaikoData.BlockMetadata[] memory metas = new TaikoData.BlockMetadata[](
             blocksToSimulate
