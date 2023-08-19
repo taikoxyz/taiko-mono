@@ -76,8 +76,7 @@ library LibProposing {
             // Verify prover authorization and pay the prover Ether as proving
             // fee.
             // Note that this payment is permanent. If the prover failed to
-            // prove
-            // the block, its bond is used to pay the actual prover.
+            // prove the block, its bond is used to pay the actual prover.
             if (assignment.prover.isContract()) {
                 IProver(assignment.prover).onBlockAssigned{ value: msg.value }(
                     input, assignment
