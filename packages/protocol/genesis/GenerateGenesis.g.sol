@@ -25,7 +25,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
     using stdJson for string;
 
     string private configJSON = vm.readFile(
-        string.concat(vm.projectRoot(), "/test/genesis/test_config.json")
+        string.concat(vm.projectRoot(), "/genesis/test_config.json")
     );
     string private genesisAllocJSON = vm.readFile(
         string.concat(vm.projectRoot(), "/deployments/genesis_alloc.json")
