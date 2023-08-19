@@ -10,6 +10,8 @@ import { LibDepositing } from "./LibDepositing.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { TaikoData } from "../TaikoData.sol";
 
+import { console2 } from "forge-std/console2.sol";
+
 library LibUtils {
     using LibMath for uint256;
 
@@ -24,29 +26,12 @@ library LibUtils {
         view
         returns (bool found, TaikoData.Block storage blk)
     {
-        uint64 id;
-
-        if (blockId == 0) {
-            id = state.slotB.lastVerifiedBlockId;
-        } else {
-            id = blockId;
-            checkBlockId(state, id);
-        }
-        blk = state.blocks[id % config.blockRingBufferSize];
-        found = blk.verifiedForkChoiceId != 0;
-    }
-
-    function checkBlockId(
-        TaikoData.State storage state,
-        uint64 blockId
-    )
-        internal
-        view
-    {
         TaikoData.SlotB memory b = state.slotB;
-        if (blockId <= b.lastVerifiedBlockId || blockId >= b.numBlocks) {
-            revert L1_INVALID_BLOCK_ID();
-        }
+        uint64 id = blockId == 0 ? b.lastVerifiedBlockId : blockId;
+        blk = state.blocks[id % config.blockRingBufferSize];
+
+        found = id >= b.lastVerifiedBlockId && id < b.numBlocks
+            && blk.verifiedForkChoiceId != 0;
     }
 
     function getForkChoiceId(

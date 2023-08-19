@@ -257,8 +257,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         assertEq(GENESIS_BLOCK_HASH, genHash);
 
         // Not yet avail.
-        genHash = L1.getCrossChainBlockHash(1);
-        assertEq(bytes32(0), genHash);
+        assertEq(L1.getCrossChainBlockHash(1), bytes32(0));
     }
 
     /// @dev getCrossChainSignalRoot tests

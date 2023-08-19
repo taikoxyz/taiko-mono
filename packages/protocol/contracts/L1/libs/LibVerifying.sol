@@ -39,14 +39,13 @@ library LibVerifying {
     {
         if (
             config.chainId <= 1 //
-                // || config.blockMaxProposals == 1
-                // || config.blockRingBufferSize <= config.blockMaxProposals + 1
-                // || config.blockMaxGasLimit == 0 ||
-                // config.blockMaxTransactions == 0
-                // || config.blockMaxTxListBytes == 0
-                // || config.blockTxListExpiry > 30 * 24 hours
-                // || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
-                // || config.proofRegularCooldown < config.proofOracleCooldown
+                || config.blockMaxProposals == 1
+                || config.blockRingBufferSize <= config.blockMaxProposals + 1
+                || config.blockMaxGasLimit == 0 || config.blockMaxTransactions == 0
+                || config.blockMaxTxListBytes == 0
+                || config.blockTxListExpiry > 30 * 24 hours
+                || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
+                || config.proofRegularCooldown < config.proofOracleCooldown
                 || config.proofWindow == 0 || config.proofBond == 0
                 || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0

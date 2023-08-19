@@ -50,7 +50,10 @@ library LibProving {
                 || evidence.signalRoot == 0 || evidence.gasUsed == 0
         ) revert L1_INVALID_EVIDENCE();
 
-        LibUtils.checkBlockId(state, blockId);
+        TaikoData.SlotB memory b = state.slotB;
+        if (blockId <= b.lastVerifiedBlockId || blockId >= b.numBlocks) {
+            revert L1_INVALID_BLOCK_ID();
+        }
 
         TaikoData.Block storage blk =
             state.blocks[blockId % config.blockRingBufferSize];
@@ -144,7 +147,10 @@ library LibProving {
         view
         returns (TaikoData.ForkChoice storage fc)
     {
-        LibUtils.checkBlockId(state, blockId);
+        TaikoData.SlotB memory b = state.slotB;
+        if (blockId < b.lastVerifiedBlockId || blockId >= b.numBlocks) {
+            revert L1_INVALID_BLOCK_ID();
+        }
 
         TaikoData.Block storage blk =
             state.blocks[blockId % config.blockRingBufferSize];

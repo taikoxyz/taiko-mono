@@ -69,12 +69,18 @@ library LibProposing {
             revert L1_INVALID_ASSIGNMENT();
         }
 
+        // Too many unverified blocks?
+        TaikoData.SlotB memory b = state.slotB;
+        if (b.numBlocks >= b.lastVerifiedBlockId + config.blockMaxProposals + 1)
+        {
+            revert L1_TOO_MANY_BLOCKS();
+        }
+
         if (config.skipProverAssignmentVerificaiton) {
             // For testing only
             assignment.prover.sendEther(msg.value);
         } else {
-            // Verify prover authorization and pay the prover Ether as proving
-            // fee.
+            // Verify prover assignment and pay the prover Ether as proving fee.
             // Note that this payment is permanent. If the prover failed to
             // prove the block, its bond is used to pay the actual prover.
             if (assignment.prover.isContract()) {
@@ -105,7 +111,7 @@ library LibProposing {
 
         // Init the metadata
         unchecked {
-            meta.id = state.slotB.numBlocks;
+            meta.id = b.numBlocks;
             meta.timestamp = uint64(block.timestamp);
             meta.l1Height = uint64(block.number - 1);
             meta.l1Hash = blockhash(block.number - 1);
@@ -114,7 +120,7 @@ library LibProposing {
             // from the beacon chain. Since multiple Taiko blocks
             // can be proposed in one Ethereum block, we need to
             // add salt to this random number as L2 mixHash
-            meta.mixHash = bytes32(block.prevrandao * state.slotB.numBlocks);
+            meta.mixHash = bytes32(block.prevrandao * b.numBlocks);
 
             meta.txListHash = input.txListHash;
             meta.txListByteStart = input.txListByteStart;
@@ -126,7 +132,7 @@ library LibProposing {
 
             // Init the block
             TaikoData.Block storage blk =
-                state.blocks[state.slotB.numBlocks % config.blockRingBufferSize];
+                state.blocks[b.numBlocks % config.blockRingBufferSize];
             blk.metaHash = LibUtils.hashMetadata(meta);
             blk.prover = assignment.prover;
             blk.proposedAt = meta.timestamp;
@@ -150,7 +156,10 @@ library LibProposing {
         view
         returns (TaikoData.Block storage blk)
     {
-        LibUtils.checkBlockId(state, blockId);
+        TaikoData.SlotB memory b = state.slotB;
+        if (blockId < b.lastVerifiedBlockId || blockId >= b.numBlocks) {
+            revert L1_INVALID_BLOCK_ID();
+        }
         blk = state.blocks[blockId % config.blockRingBufferSize];
     }
 
@@ -165,13 +174,6 @@ library LibProposing {
         returns (bool cacheTxListInfo)
     {
         if (input.beneficiary == address(0)) revert L1_INVALID_METADATA();
-
-        if (
-            state.slotB.numBlocks
-                >= state.slotB.lastVerifiedBlockId + config.blockMaxProposals + 1
-        ) {
-            revert L1_TOO_MANY_BLOCKS();
-        }
 
         uint64 timeNow = uint64(block.timestamp);
         // handling txList
