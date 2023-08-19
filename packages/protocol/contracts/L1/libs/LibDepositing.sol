@@ -13,9 +13,9 @@ import { TaikoData } from "../TaikoData.sol";
 import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
-/// @title LibEthDepositing
-/// @notice A library for handling Ethereum deposits in the Taiko protocol.
-library LibEthDepositing {
+/// @title LibDepositing
+/// @notice A library for handling Ether deposits in the Taiko protocol.
+library LibDepositing {
     using LibAddress for address;
     using LibMath for uint256;
     using SafeCastUpgradeable for uint256;

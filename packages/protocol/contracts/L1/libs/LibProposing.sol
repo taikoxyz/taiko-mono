@@ -12,7 +12,7 @@ import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { IMintableERC20 } from "../../common/IMintableERC20.sol";
 import { IProver } from "../IProver.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
-import { LibEthDepositing } from "./LibEthDepositing.sol";
+import { LibDepositing } from "./LibDepositing.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../TaikoData.sol";
@@ -121,9 +121,8 @@ library LibProposing {
             meta.txListByteEnd = input.txListByteEnd;
             meta.gasLimit = config.blockMaxGasLimit;
             meta.beneficiary = input.beneficiary;
-            meta.depositsProcessed = LibEthDepositing.processDeposits(
-                state, config, input.beneficiary
-            );
+            meta.depositsProcessed =
+                LibDepositing.processDeposits(state, config, input.beneficiary);
 
             // Init the block
             TaikoData.Block storage blk =

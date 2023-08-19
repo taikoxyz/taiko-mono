@@ -9,7 +9,7 @@ pragma solidity ^0.8.20;
 import { AddressResolver } from "../common/AddressResolver.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
-import { LibEthDepositing } from "./libs/LibEthDepositing.sol";
+import { LibDepositing } from "./libs/LibDepositing.sol";
 import { LibProposing } from "./libs/LibProposing.sol";
 import { LibProving } from "./libs/LibProving.sol";
 import { LibUtils } from "./libs/LibUtils.sol";
@@ -142,7 +142,7 @@ abstract contract TaikoL1Base is
     /// @param recipient Address of the recipient for the deposited Ether on
     /// Layer 2.
     function depositEtherToL2(address recipient) public payable {
-        LibEthDepositing.depositEtherToL2({
+        LibDepositing.depositEtherToL2({
             state: state,
             config: getConfig(),
             resolver: AddressResolver(this),
@@ -154,7 +154,7 @@ abstract contract TaikoL1Base is
     /// @param amount Amount of Ether to be deposited.
     /// @return true if Ether deposit is allowed, false otherwise.
     function canDepositEthToL2(uint256 amount) public view returns (bool) {
-        return LibEthDepositing.canDepositEthToL2({
+        return LibDepositing.canDepositEthToL2({
             state: state,
             config: getConfig(),
             amount: amount

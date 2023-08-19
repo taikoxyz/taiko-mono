@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
-import { LibEthDepositing } from "../../contracts/L1/libs/LibEthDepositing.sol";
+import { LibDepositing } from "../../contracts/L1/libs/LibDepositing.sol";
 import { TaikoData } from "../../contracts/L1/TaikoData.sol";
 import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
 import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
@@ -231,7 +231,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         printVariables("after processing send-ethers");
         assertTrue(
-            LibEthDepositing.hashEthDeposits(meta.depositsProcessed)
+            LibDepositing.hashEthDeposits(meta.depositsProcessed)
                 != emptyDepositsRoot
         );
         assertEq(meta.depositsProcessed.length, count);
@@ -372,7 +372,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         // calculated with these values)
         //console2.logBytes32(meta.depositsRoot);
         assertEq(
-            LibEthDepositing.hashEthDeposits(meta.depositsProcessed),
+            LibDepositing.hashEthDeposits(meta.depositsProcessed),
             0x60386add6a400d9b23968e1239bd600d22d2eea4709246895c0e5d8f5ae49dc3
         );
     }

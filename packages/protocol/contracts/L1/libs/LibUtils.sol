@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-import { LibEthDepositing } from "./LibEthDepositing.sol";
+import { LibDepositing } from "./LibDepositing.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { TaikoData } from "../TaikoData.sol";
 
@@ -100,7 +100,7 @@ library LibUtils {
         inputs[1] = uint256(meta.l1Hash);
         inputs[2] = uint256(meta.mixHash);
         inputs[3] =
-            uint256(LibEthDepositing.hashEthDeposits(meta.depositsProcessed));
+            uint256(LibDepositing.hashEthDeposits(meta.depositsProcessed));
         inputs[4] = uint256(meta.txListHash);
 
         inputs[5] = (uint256(meta.txListByteStart) << 232)
