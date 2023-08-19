@@ -2,9 +2,9 @@
 pragma solidity ^0.8.20;
 
 import { Test } from "forge-std/Test.sol";
-import { AddressManager } from "../contracts/common/AddressManager.sol";
-import { EtherVault } from "../contracts/bridge/EtherVault.sol";
-import { BridgeErrors } from "../contracts/bridge/BridgeErrors.sol";
+import { AddressManager } from "../../contracts/common/AddressManager.sol";
+import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
+import { BridgeErrors } from "../../contracts/bridge/BridgeErrors.sol";
 
 contract TestEtherVault is Test {
     AddressManager addressManager;

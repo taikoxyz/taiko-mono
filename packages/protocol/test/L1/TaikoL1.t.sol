@@ -3,12 +3,12 @@ pragma solidity ^0.8.20;
 
 import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
-import { AddressManager } from "../contracts/common/AddressManager.sol";
-import { LibEthDepositing } from "../contracts/L1/libs/LibEthDepositing.sol";
-import { TaikoData } from "../contracts/L1/TaikoData.sol";
-import { TaikoL1 } from "../contracts/L1/TaikoL1.sol";
-import { TaikoToken } from "../contracts/L1/TaikoToken.sol";
-import { SignalService } from "../contracts/signal/SignalService.sol";
+import { AddressManager } from "../../contracts/common/AddressManager.sol";
+import { LibEthDepositing } from "../../contracts/L1/libs/LibEthDepositing.sol";
+import { TaikoData } from "../../contracts/L1/TaikoData.sol";
+import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
+import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
+import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { TaikoL1TestBase } from "./TaikoL1TestBase.t.sol";
 

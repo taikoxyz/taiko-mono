@@ -3,17 +3,18 @@ pragma solidity ^0.8.20;
 
 import { console2 } from "forge-std/console2.sol";
 import { Test } from "forge-std/Test.sol";
-import { AddressManager } from "../contracts/common/AddressManager.sol";
-import { IBridge, Bridge } from "../contracts/bridge/Bridge.sol";
-import { LibBridgeData } from "../contracts/bridge/libs/LibBridgeData.sol";
-import { BridgeErrors } from "../contracts/bridge/BridgeErrors.sol";
-import { BaseNFTVault } from "../contracts/tokenvault/BaseNFTVault.sol";
-import { ERC721Vault } from "../contracts/tokenvault/ERC721Vault.sol";
-import { BridgedERC721 } from "../contracts/tokenvault/BridgedERC721.sol";
-import { EtherVault } from "../contracts/bridge/EtherVault.sol";
-import { LibBridgeStatus } from "../contracts/bridge/libs/LibBridgeStatus.sol";
-import { SignalService } from "../contracts/signal/SignalService.sol";
-import { ICrossChainSync } from "../contracts/common/ICrossChainSync.sol";
+import { AddressManager } from "../../contracts/common/AddressManager.sol";
+import { IBridge, Bridge } from "../../contracts/bridge/Bridge.sol";
+import { LibBridgeData } from "../../contracts/bridge/libs/LibBridgeData.sol";
+import { BridgeErrors } from "../../contracts/bridge/BridgeErrors.sol";
+import { BaseNFTVault } from "../../contracts/tokenvault/BaseNFTVault.sol";
+import { ERC721Vault } from "../../contracts/tokenvault/ERC721Vault.sol";
+import { BridgedERC721 } from "../../contracts/tokenvault/BridgedERC721.sol";
+import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
+import { LibBridgeStatus } from
+    "../../contracts/bridge/libs/LibBridgeStatus.sol";
+import { SignalService } from "../../contracts/signal/SignalService.sol";
+import { ICrossChainSync } from "../../contracts/common/ICrossChainSync.sol";
 import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";

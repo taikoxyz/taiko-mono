@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { AddressManager } from "../contracts/common/AddressManager.sol";
-import { IBridge, Bridge } from "../contracts/bridge/Bridge.sol";
-import { BridgeErrors } from "../contracts/bridge/BridgeErrors.sol";
-import { EtherVault } from "../contracts/bridge/EtherVault.sol";
+import { AddressManager } from "../../contracts/common/AddressManager.sol";
+import { IBridge, Bridge } from "../../contracts/bridge/Bridge.sol";
+import { BridgeErrors } from "../../contracts/bridge/BridgeErrors.sol";
+import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
 import { console2 } from "forge-std/console2.sol";
-import { LibBridgeStatus } from "../contracts/bridge/libs/LibBridgeStatus.sol";
-import { SignalService } from "../contracts/signal/SignalService.sol";
+import { LibBridgeStatus } from
+    "../../contracts/bridge/libs/LibBridgeStatus.sol";
+import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { Test } from "forge-std/Test.sol";
-import { ICrossChainSync } from "../contracts/common/ICrossChainSync.sol";
+import { ICrossChainSync } from "../../contracts/common/ICrossChainSync.sol";
 
 contract MockProofBridge is Bridge {
     bool internal constant CHECK_MSG_FAILURE_USING_LIB = false;

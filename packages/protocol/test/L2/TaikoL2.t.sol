@@ -4,15 +4,15 @@ pragma solidity ^0.8.20;
 import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-import { TaikoL2 } from "../contracts/L2/TaikoL2.sol";
+import { TaikoL2 } from "../../contracts/L2/TaikoL2.sol";
 import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 contract TestTaikoL2 is Test {
     using SafeCastUpgradeable for uint256;
 
-    uint32 public constant BLOCK_GAS_LIMIT = 30_000_000; // same as
-        // `block_gas_limit` in foundry.toml
+    // same as `block_gas_limit` in foundry.toml
+    uint32 public constant BLOCK_GAS_LIMIT = 30_000_000;
 
     TaikoL2 public L2;
     uint256 private logIndex;
@@ -28,7 +28,8 @@ contract TestTaikoL2 is Test {
         });
 
         L2 = new TaikoL2();
-        L2.init(address(1), param1559); // Dummy address manager address.
+        address dummyAddressManager = address(1);
+        L2.init(dummyAddressManager, param1559);
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);

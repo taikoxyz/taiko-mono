@@ -3,18 +3,19 @@ pragma solidity ^0.8.20;
 
 import { console2 } from "forge-std/console2.sol";
 import { Test } from "forge-std/Test.sol";
-import { AddressResolver } from "../contracts/common/AddressResolver.sol";
-import { AddressManager } from "../contracts/common/AddressManager.sol";
-import { IBridge, Bridge } from "../contracts/bridge/Bridge.sol";
-import { LibBridgeData } from "../contracts/bridge/libs/LibBridgeData.sol";
-import { BridgeErrors } from "../contracts/bridge/BridgeErrors.sol";
-import { BaseNFTVault } from "../contracts/tokenvault/BaseNFTVault.sol";
-import { ERC1155Vault } from "../contracts/tokenvault/ERC1155Vault.sol";
-import { BridgedERC1155 } from "../contracts/tokenvault/BridgedERC1155.sol";
-import { EtherVault } from "../contracts/bridge/EtherVault.sol";
-import { LibBridgeStatus } from "../contracts/bridge/libs/LibBridgeStatus.sol";
-import { SignalService } from "../contracts/signal/SignalService.sol";
-import { ICrossChainSync } from "../contracts/common/ICrossChainSync.sol";
+import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
+import { AddressManager } from "../../contracts/common/AddressManager.sol";
+import { IBridge, Bridge } from "../../contracts/bridge/Bridge.sol";
+import { LibBridgeData } from "../../contracts/bridge/libs/LibBridgeData.sol";
+import { BridgeErrors } from "../../contracts/bridge/BridgeErrors.sol";
+import { BaseNFTVault } from "../../contracts/tokenvault/BaseNFTVault.sol";
+import { ERC1155Vault } from "../../contracts/tokenvault/ERC1155Vault.sol";
+import { BridgedERC1155 } from "../../contracts/tokenvault/BridgedERC1155.sol";
+import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
+import { LibBridgeStatus } from
+    "../../contracts/bridge/libs/LibBridgeStatus.sol";
+import { SignalService } from "../../contracts/signal/SignalService.sol";
+import { ICrossChainSync } from "../../contracts/common/ICrossChainSync.sol";
 import { ERC1155 } from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";

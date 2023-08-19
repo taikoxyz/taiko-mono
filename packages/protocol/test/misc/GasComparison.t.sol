@@ -3,8 +3,8 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "forge-std/console2.sol";
-import "../contracts/L1/TaikoData.sol";
-import "../contracts/libs/LibAddress.sol";
+import "../../contracts/L1/TaikoData.sol";
+import "../../contracts/libs/LibAddress.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 library LibAddress2 {

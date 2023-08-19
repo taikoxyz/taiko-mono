@@ -3,12 +3,12 @@ pragma solidity ^0.8.20;
 
 import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
-import { Lib1559Math as T } from "../contracts/libs/Lib1559Math.sol";
-import { TaikoL2 } from "../contracts/L2/TaikoL2.sol";
+import { Lib1559Math as T } from "../../contracts/libs/Lib1559Math.sol";
+import { TaikoL2 } from "../../contracts/L2/TaikoL2.sol";
 import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
-contract TestTaiko1559Params is Test {
+contract TestTaikoL2_1559 is Test {
     using SafeCastUpgradeable for uint256;
 
     function testAndVerifyTaiko1559Params() external {
