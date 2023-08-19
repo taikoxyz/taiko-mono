@@ -430,10 +430,9 @@ contract TestERC20Vault is Test {
         assertEq(bridgedAddressAfter != address(0), true);
 
         try UpdatedBridgedERC20(bridgedAddressAfter).helloWorld() {
-            assertEq(false, true);
+            fail();
         } catch {
             //It should not yet support this function call
-            assertEq(true, true);
         }
 
         // Upgrade the implementation of that contract
@@ -448,9 +447,8 @@ contract TestERC20Vault is Test {
         vm.prank(Alice, Alice);
         try UpdatedBridgedERC20(bridgedAddressAfter).helloWorld() {
             //It should support now this function call
-            assertEq(true, true);
         } catch {
-            assertEq(false, true);
+            fail();
         }
     }
 }

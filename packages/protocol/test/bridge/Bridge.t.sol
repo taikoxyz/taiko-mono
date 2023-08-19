@@ -9,36 +9,13 @@ import { console2 } from "forge-std/console2.sol";
 import { LibBridgeStatus } from
     "../../contracts/bridge/libs/LibBridgeStatus.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
-import { TestBase } from "../TestBase.sol";
+import {
+    TestBase,
+    SkipProofCheckBridge,
+    GoodReceiver,
+    BadReceiver
+} from "../TestBase.sol";
 import { DummyCrossChainSync } from "../signal/DummyCrossChainSync.sol";
-
-contract SkipProofCheckBridge is Bridge {
-    function shouldCheckProof() internal pure override returns (bool) {
-        return false;
-    }
-}
-
-contract BadReceiver {
-    receive() external payable {
-        revert("can not send to this contract");
-    }
-
-    fallback() external payable {
-        revert("can not send to this contract");
-    }
-
-    function transfer() public pure {
-        revert("this fails");
-    }
-}
-
-contract GoodReceiver {
-    receive() external payable { }
-
-    function forward(address addr) public payable {
-        payable(addr).transfer(address(this).balance / 2);
-    }
-}
 
 contract BridgeTest is TestBase {
     AddressManager addressManager;

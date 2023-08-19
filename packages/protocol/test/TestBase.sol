@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { Bridge } from "../contracts/bridge/Bridge.sol";
 
 abstract contract TestBase is Test {
     uint256 private _seed = 0x12345678;
@@ -47,4 +48,41 @@ abstract contract TestBase is Test {
     address internal Xavier = getRandomAddress();
     address internal Yasmine = getRandomAddress();
     address internal Zachary = getRandomAddress();
+}
+
+contract BadReceiver {
+    receive() external payable {
+        revert("can not send to this contract");
+    }
+
+    fallback() external payable {
+        revert("can not send to this contract");
+    }
+
+    function transfer() public pure {
+        revert("this fails");
+    }
+}
+
+contract GoodReceiver {
+    receive() external payable { }
+
+    function forward(address addr) public payable {
+        payable(addr).transfer(address(this).balance / 2);
+    }
+}
+
+// NonNftContract
+contract NonNftContract {
+    uint256 dummyData;
+
+    constructor(uint256 _dummyData) {
+        dummyData = _dummyData;
+    }
+}
+
+contract SkipProofCheckBridge is Bridge {
+    function shouldCheckProof() internal pure override returns (bool) {
+        return false;
+    }
 }

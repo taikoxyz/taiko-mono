@@ -2,7 +2,12 @@
 pragma solidity ^0.8.20;
 
 import { console2 } from "forge-std/console2.sol";
-import { Test } from "forge-std/Test.sol";
+import {
+    TestBase,
+    SkipProofCheckBridge,
+    NonNftContract,
+    BadReceiver
+} from "../TestBase.sol";
 import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { IBridge, Bridge } from "../../contracts/bridge/Bridge.sol";
@@ -25,15 +30,6 @@ contract TestTokenERC1155 is ERC1155 {
 
     function mint(uint256 tokenId, uint256 amount) public {
         _mint(msg.sender, tokenId, amount, "");
-    }
-}
-
-// NonNftContract
-contract NonNftContract {
-    uint256 dummyData;
-
-    constructor(uint256 _dummyData) {
-        dummyData = _dummyData;
     }
 }
 
@@ -109,30 +105,10 @@ contract PrankDestBridge {
 
 // PrankSrcBridge lets us mock Bridge/SignalService to return true when called
 // isMessageFailed()
-contract PrankSrcBridge is Bridge {
-    bool internal constant CHECK_MSG_FAILURE_USING_LIB = false;
-
-    function shouldCheckProof() internal pure override returns (bool) {
-        return CHECK_MSG_FAILURE_USING_LIB;
-    }
-
+contract PrankSrcBridge is SkipProofCheckBridge {
     function getPreDeterminedDataBytes() external pure returns (bytes memory) {
         return
         hex"20b8155900000000000000000000000000000000000000000000000000000000000000a000000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba4000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000007a69000000000000000000000000a64f94242628683ea967cd7dd6a10b5ed0400662000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002";
-    }
-}
-
-contract BadReceiver {
-    receive() external payable {
-        revert("can not send to this contract");
-    }
-
-    fallback() external payable {
-        revert("can not send to this contract");
-    }
-
-    function transfer() public pure {
-        revert("this fails");
     }
 }
 
@@ -163,7 +139,7 @@ contract UpdatedBridgedERC1155 is BridgedERC1155 {
     }
 }
 
-contract ERC1155VaultTest is Test {
+contract ERC1155VaultTest is TestBase {
     AddressManager addressManager;
     BadReceiver badReceiver;
     Bridge bridge;
@@ -178,12 +154,9 @@ contract ERC1155VaultTest is Test {
     PrankCrossChainSync crossChainSync;
     uint256 destChainId = 19_389;
 
-    address public constant Alice = 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4;
-    address public constant Bob = 0x50081b12838240B1bA02b3177153Bca678a86078;
+    // TODO(dani): why chaning Amilia's address will fail the test?
     //Need +1 bc. and Amelia is the proxied bridge contracts owner
-    address public constant Amelia = 0x60081B12838240B1BA02b3177153BCa678A86080;
-    // Dave has nothing so that we can check if he gets the ether (and NFTs)
-    address public constant Dave = 0x70081B12838240b1ba02B3177153bcA678a86090;
+    address public Amelia = 0x60081B12838240B1BA02b3177153BCa678A86080;
 
     function setUp() public {
         vm.startPrank(Amelia);
@@ -585,7 +558,7 @@ contract ERC1155VaultTest is Test {
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
             destChainId,
-            Dave,
+            David,
             address(ctoken1155),
             tokenIds,
             amounts,
@@ -614,7 +587,7 @@ contract ERC1155VaultTest is Test {
         destChainIdBridge.sendReceiveERC1155ToERC1155Vault(
             ctoken,
             Alice,
-            Dave,
+            David,
             tokenIds,
             amounts,
             bytes32(0),
@@ -628,9 +601,9 @@ contract ERC1155VaultTest is Test {
             srcChainId, address(ctoken1155)
         );
 
-        // Alice bridged over 2 items and etherValue to Dave
-        assertEq(ERC1155(deployedContract).balanceOf(Dave, 1), 2);
-        assertEq(Dave.balance, etherValue);
+        // Alice bridged over 2 items and etherValue to David
+        assertEq(ERC1155(deployedContract).balanceOf(David, 1), 2);
+        assertEq(David.balance, etherValue);
     }
 
     function test_onMessageRecalled_1155() public {
@@ -1042,11 +1015,8 @@ contract ERC1155VaultTest is Test {
         );
 
         try UpdatedBridgedERC1155(deployedContract).helloWorld() {
-            assertEq(false, true);
-        } catch {
-            //It should not yet support this function call
-            assertEq(true, true);
-        }
+            fail();
+        } catch { }
 
         // Upgrade the implementation of that contract
         // so that it supports now the 'helloWorld' call
@@ -1056,11 +1026,9 @@ contract ERC1155VaultTest is Test {
             address(newBridgedContract)
         );
 
-        try UpdatedBridgedERC1155(deployedContract).helloWorld() {
-            //It should support now this function call
-            assertEq(true, true);
-        } catch {
-            assertEq(false, true);
+        try UpdatedBridgedERC1155(deployedContract).helloWorld() { }
+        catch {
+            fail();
         }
     }
 }
