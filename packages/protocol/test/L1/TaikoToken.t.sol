@@ -26,7 +26,7 @@ contract TaikoTokenTest is Test {
         0x300C9b60E19634e12FC6D68B7FEa7bFB26c2E419;
     address public constant DaoTreasury =
         0x400147C0Eb43D8D71b2B03037bB7B31f8f78EF5F;
-    address public constant Eve = 0x50081b12838240B1bA02b3177153Bca678a86078;
+    address public constant Emma = 0x50081b12838240B1bA02b3177153Bca678a86078;
     address public constant Dave = 0x50081b12838240B1ba02b3177153bCA678a86079;
 
     function setUp() public {
@@ -87,18 +87,18 @@ contract TaikoTokenTest is Test {
     }
 
     function test_mint() public {
-        assertEq(tko.balanceOf(Eve), 0 ether);
+        assertEq(tko.balanceOf(Emma), 0 ether);
 
         uint256 amountToMint = 1 ether;
         vm.prank(taikoL1);
-        tko.mint(Eve, amountToMint);
-        assertEq(tko.balanceOf(Eve), amountToMint);
+        tko.mint(Emma, amountToMint);
+        assertEq(tko.balanceOf(Emma), amountToMint);
     }
 
     function test_mint_invalid_amount() public {
         vm.prank(taikoL1);
         vm.expectRevert(TaikoToken.TKO_MINT_DISALLOWED.selector);
-        tko.mint(Eve, 1000 ether);
+        tko.mint(Emma, 1000 ether);
     }
 
     function test_mint_invalid_address() public {
@@ -109,17 +109,17 @@ contract TaikoTokenTest is Test {
 
     function test_mint_not_taiko_l1() public {
         vm.expectRevert(AddressResolver.RESOLVER_DENIED.selector);
-        tko.mint(Eve, 1 ether);
+        tko.mint(Emma, 1 ether);
     }
 
     function test_burn() public {
         uint256 amountToMint = 1 ether;
         vm.prank(taikoL1);
-        tko.mint(Eve, amountToMint);
-        assertEq(tko.balanceOf(Eve), amountToMint);
+        tko.mint(Emma, amountToMint);
+        assertEq(tko.balanceOf(Emma), amountToMint);
 
-        tko.burn(Eve, amountToMint);
-        assertEq(tko.balanceOf(Eve), 0);
+        tko.burn(Emma, amountToMint);
+        assertEq(tko.balanceOf(Emma), 0);
     }
 
     function test_burn_not_taiko_l1() public {
@@ -130,30 +130,30 @@ contract TaikoTokenTest is Test {
     function test_burn_amount_exceeded() public {
         uint256 amountToMint = 1 ether;
         vm.prank(taikoL1);
-        tko.mint(Eve, amountToMint);
-        assertEq(tko.balanceOf(Eve), amountToMint);
+        tko.mint(Emma, amountToMint);
+        assertEq(tko.balanceOf(Emma), amountToMint);
     }
 
     function test_transfer() public {
         uint256 amountToMint = 1 ether;
         vm.prank(taikoL1);
-        tko.mint(Eve, amountToMint);
-        assertEq(tko.balanceOf(Eve), amountToMint);
+        tko.mint(Emma, amountToMint);
+        assertEq(tko.balanceOf(Emma), amountToMint);
 
-        vm.prank(Eve);
+        vm.prank(Emma);
         tko.transfer(Dave, amountToMint);
 
-        assertEq(tko.balanceOf(Eve), 0);
+        assertEq(tko.balanceOf(Emma), 0);
         assertEq(tko.balanceOf(Dave), amountToMint);
     }
 
     function test_transfer_invalid_address() public {
         uint256 amountToMint = 1 ether;
         vm.prank(taikoL1);
-        tko.mint(Eve, amountToMint);
-        assertEq(tko.balanceOf(Eve), amountToMint);
+        tko.mint(Emma, amountToMint);
+        assertEq(tko.balanceOf(Emma), amountToMint);
 
-        vm.prank(Eve);
+        vm.prank(Emma);
         vm.expectRevert("ERC20: transfer to the zero address");
         tko.transfer(address(0), amountToMint);
     }
@@ -161,10 +161,10 @@ contract TaikoTokenTest is Test {
     function test_transfer_to_contract_address() public {
         uint256 amountToMint = 1 ether;
         vm.prank(taikoL1);
-        tko.mint(Eve, amountToMint);
-        assertEq(tko.balanceOf(Eve), amountToMint);
+        tko.mint(Emma, amountToMint);
+        assertEq(tko.balanceOf(Emma), amountToMint);
 
-        vm.prank(Eve);
+        vm.prank(Emma);
         vm.expectRevert(TaikoToken.TKO_INVALID_ADDR.selector);
         tko.transfer(address(tko), amountToMint);
     }
@@ -173,66 +173,66 @@ contract TaikoTokenTest is Test {
         uint256 amountToMint = 1 ether;
         uint256 amountToTransfer = 2 ether;
         vm.prank(taikoL1);
-        tko.mint(Eve, amountToMint);
-        assertEq(tko.balanceOf(Eve), amountToMint);
+        tko.mint(Emma, amountToMint);
+        assertEq(tko.balanceOf(Emma), amountToMint);
 
-        vm.prank(Eve);
+        vm.prank(Emma);
         vm.expectRevert();
         tko.transfer(address(tko), amountToTransfer);
-        assertEq(tko.balanceOf(Eve), amountToMint);
+        assertEq(tko.balanceOf(Emma), amountToMint);
     }
 
     function test_transferFrom() public {
         uint256 amountToMint = 1 ether;
         vm.prank(taikoL1);
-        tko.mint(Eve, amountToMint);
-        assertEq(tko.balanceOf(Eve), amountToMint);
+        tko.mint(Emma, amountToMint);
+        assertEq(tko.balanceOf(Emma), amountToMint);
 
-        vm.prank(Eve);
+        vm.prank(Emma);
         tko.approve(Dave, 1 ether);
 
         vm.prank(Dave);
-        tko.transferFrom(Eve, Dave, amountToMint);
+        tko.transferFrom(Emma, Dave, amountToMint);
 
-        assertEq(tko.balanceOf(Eve), 0);
+        assertEq(tko.balanceOf(Emma), 0);
         assertEq(tko.balanceOf(Dave), amountToMint);
     }
 
     function test_transferFrom_to_is_invalid() public {
         uint256 amountToMint = 1 ether;
         vm.prank(taikoL1);
-        tko.mint(Eve, amountToMint);
-        assertEq(tko.balanceOf(Eve), amountToMint);
+        tko.mint(Emma, amountToMint);
+        assertEq(tko.balanceOf(Emma), amountToMint);
 
-        vm.prank(Eve);
+        vm.prank(Emma);
         tko.approve(Dave, 1 ether);
 
         vm.prank(Dave);
         vm.expectRevert("ERC20: transfer to the zero address");
-        tko.transferFrom(Eve, address(0), amountToMint);
+        tko.transferFrom(Emma, address(0), amountToMint);
     }
 
     function test_transferFrom_to_is_the_contract() public {
         uint256 amountToMint = 1 ether;
         vm.prank(taikoL1);
-        tko.mint(Eve, amountToMint);
-        assertEq(tko.balanceOf(Eve), amountToMint);
+        tko.mint(Emma, amountToMint);
+        assertEq(tko.balanceOf(Emma), amountToMint);
 
-        vm.prank(Eve);
+        vm.prank(Emma);
         tko.approve(Dave, 1 ether);
 
         vm.prank(Dave);
         vm.expectRevert(TaikoToken.TKO_INVALID_ADDR.selector);
-        tko.transferFrom(Eve, address(tko), amountToMint);
+        tko.transferFrom(Emma, address(tko), amountToMint);
     }
 
     function test_transferFrom_from_is_invalid() public {
         uint256 amountToMint = 1 ether;
         vm.prank(taikoL1);
-        tko.mint(Eve, amountToMint);
-        assertEq(tko.balanceOf(Eve), amountToMint);
+        tko.mint(Emma, amountToMint);
+        assertEq(tko.balanceOf(Emma), amountToMint);
 
-        vm.prank(Eve);
+        vm.prank(Emma);
         tko.approve(Dave, 1 ether);
 
         vm.prank(Dave);
@@ -245,13 +245,13 @@ contract TaikoTokenTest is Test {
         uint256 amountToMint = 1 ether;
         uint256 amountToTransfer = 2 ether;
         vm.prank(taikoL1);
-        tko.mint(Eve, amountToMint);
-        assertEq(tko.balanceOf(Eve), amountToMint);
+        tko.mint(Emma, amountToMint);
+        assertEq(tko.balanceOf(Emma), amountToMint);
 
-        vm.prank(Eve);
+        vm.prank(Emma);
         vm.expectRevert();
         tko.transfer(address(tko), amountToTransfer);
-        assertEq(tko.balanceOf(Eve), amountToMint);
+        assertEq(tko.balanceOf(Emma), amountToMint);
     }
 
     function registerAddress(bytes32 nameHash, address addr) internal {

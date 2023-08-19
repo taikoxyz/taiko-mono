@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { Test } from "forge-std/Test.sol";
+import { TestBase } from "../TestBase.sol";
 import { console2 } from "forge-std/console2.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { LibUtils } from "../../contracts/L1/libs/LibUtils.sol";
@@ -19,7 +19,7 @@ contract MockVerifier {
     }
 }
 
-abstract contract TaikoL1TestBase is Test {
+abstract contract TaikoL1TestBase is TestBase {
     AddressManager public addressManager;
     TaikoToken public tko;
     SignalService public ss;
@@ -47,18 +47,6 @@ abstract contract TaikoL1TestBase is Test {
     address public constant TaikoL2 = 0x0082D90249342980d011C58105a03b35cCb4A315;
     address public constant L1EthVault =
         0xDAFEA492D9c6733ae3d56b7Ed1ADB60692c98Bc5;
-
-    address public constant Alice = 0xa9bcF99f5eb19277f48b71F9b14f5960AEA58a89;
-    uint256 public constant AlicePK =
-        0x8fb342c39a93ad26e674cbcdc65dc45795107e1b51776aac15f9776c0e9d2cea;
-
-    address public constant Bob = 0x200708D76eB1B69761c23821809d53F65049939e;
-    address public constant Carol = 0x300C9b60E19634e12FC6D68B7FEa7bFB26c2E419;
-    address public constant Dave = 0x400147C0Eb43D8D71b2B03037bB7B31f8f78EF5F;
-    address public constant Eve = 0x50081b12838240B1bA02b3177153Bca678a86078;
-    address public constant Frank = 0x430c9b60e19634e12FC6d68B7fEa7bFB26c2e419;
-    address public constant George = 0x520147C0eB43d8D71b2b03037bB7b31f8F78EF5f;
-    address public constant Hilbert = 0x61081B12838240B1Ba02b3177153BcA678a86078;
 
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 

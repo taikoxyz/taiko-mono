@@ -10,7 +10,7 @@ import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
 import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-import { TaikoL1TestBase } from "./TaikoL1TestBase.t.sol";
+import { TaikoL1TestBase } from "./TaikoL1TestBase.sol";
 
 contract TaikoL1_NoCooldown is TaikoL1 {
     function getConfig()
@@ -332,11 +332,11 @@ contract TaikoL1Test is TaikoL1TestBase {
         depositTaikoToken(Alice, 1e6 * 1e8, maxAmount + 1 ether);
         depositTaikoToken(Bob, 0, maxAmount + 1 ether);
         depositTaikoToken(Carol, 0, maxAmount + 1 ether);
-        depositTaikoToken(Dave, 0, maxAmount + 1 ether);
-        depositTaikoToken(Eve, 0, maxAmount + 1 ether);
+        depositTaikoToken(David, 0, maxAmount + 1 ether);
+        depositTaikoToken(Emma, 0, maxAmount + 1 ether);
         depositTaikoToken(Frank, 0, maxAmount + 1 ether);
-        depositTaikoToken(George, 0, maxAmount + 1 ether);
-        depositTaikoToken(Hilbert, 0, maxAmount + 1 ether);
+        depositTaikoToken(Grace, 0, maxAmount + 1 ether);
+        depositTaikoToken(Henry, 0, maxAmount + 1 ether);
 
         // So after this point we have 8 deposits
         vm.prank(Alice, Alice);
@@ -345,15 +345,15 @@ contract TaikoL1Test is TaikoL1TestBase {
         L1.depositEtherToL2{ value: 2 ether }(address(0));
         vm.prank(Carol, Carol);
         L1.depositEtherToL2{ value: 3 ether }(address(0));
-        vm.prank(Dave, Dave);
+        vm.prank(David, David);
         L1.depositEtherToL2{ value: 4 ether }(address(0));
-        vm.prank(Eve, Eve);
+        vm.prank(Emma, Emma);
         L1.depositEtherToL2{ value: 5 ether }(address(0));
         vm.prank(Frank, Frank);
         L1.depositEtherToL2{ value: 6 ether }(address(0));
-        vm.prank(George, George);
+        vm.prank(Grace, Grace);
         L1.depositEtherToL2{ value: 7 ether }(address(0));
-        vm.prank(Hilbert, Hilbert);
+        vm.prank(Henry, Henry);
         L1.depositEtherToL2{ value: 8 ether }(address(0));
 
         assertEq(L1.getStateVariables().numEthDeposits, 8); // The number of

@@ -11,7 +11,7 @@ import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
 import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-import { TaikoL1TestBase } from "./TaikoL1TestBase.t.sol";
+import { TaikoL1TestBase } from "./TaikoL1TestBase.sol";
 
 contract TaikoL1Oracle is TaikoL1 {
     function getConfig()
@@ -347,8 +347,8 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     )
         external
     {
-        // Dave is the oracle prover
-        registerAddress("oracle_prover", Dave);
+        // David is the oracle prover
+        registerAddress("oracle_prover", David);
 
         depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
@@ -380,7 +380,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1e9 + uint256(blockId));
 
             proveBlock(
-                Dave,
+                David,
                 address(1),
                 meta,
                 parentHash,
