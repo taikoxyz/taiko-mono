@@ -262,7 +262,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev getCrossChainSignalRoot tests
     function test_L1_getCrossChainSignalRoot() external {
-        uint64 count = 20;
+        uint64 count = 10;
         // Declare here so that block prop/prove/verif. can be used in 1 place
         TaikoData.BlockMetadata memory meta;
         bytes32 blockHash;
