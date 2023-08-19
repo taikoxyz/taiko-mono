@@ -5,6 +5,7 @@ import { console2 } from "forge-std/console2.sol";
 import {
     TestBase,
     SkipProofCheckBridge,
+    DummyCrossChainSync,
     NonNftContract,
     BadReceiver
 } from "../TestBase.sol";
@@ -112,27 +113,6 @@ contract PrankSrcBridge is SkipProofCheckBridge {
     }
 }
 
-contract PrankCrossChainSync is ICrossChainSync {
-    bytes32 private _blockHash;
-    bytes32 private _signalRoot;
-
-    function setCrossChainBlockHeader(bytes32 blockHash) external {
-        _blockHash = blockHash;
-    }
-
-    function setCrossChainSignalRoot(bytes32 signalRoot) external {
-        _signalRoot = signalRoot;
-    }
-
-    function getCrossChainBlockHash(uint64) external view returns (bytes32) {
-        return _blockHash;
-    }
-
-    function getCrossChainSignalRoot(uint64) external view returns (bytes32) {
-        return _signalRoot;
-    }
-}
-
 contract UpdatedBridgedERC1155 is BridgedERC1155 {
     function helloWorld() public pure returns (string memory) {
         return "helloworld";
@@ -151,7 +131,7 @@ contract ERC1155VaultTest is TestBase {
     TestTokenERC1155 ctoken1155;
     EtherVault etherVault;
     SignalService signalService;
-    PrankCrossChainSync crossChainSync;
+    DummyCrossChainSync crossChainSync;
     uint256 destChainId = 19_389;
 
     // TODO(dani): why chaning Amilia's address will fail the test?
@@ -190,7 +170,7 @@ contract ERC1155VaultTest is TestBase {
         srcPrankBridge = new PrankSrcBridge();
         srcPrankBridge.init(address(addressManager));
 
-        crossChainSync = new PrankCrossChainSync();
+        crossChainSync = new DummyCrossChainSync();
 
         addressManager.setAddress(
             block.chainid, "signal_service", address(signalService)
