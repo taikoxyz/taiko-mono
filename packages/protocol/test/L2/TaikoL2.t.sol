@@ -28,14 +28,14 @@ contract TestTaikoL2 is TestBase {
         });
 
         L2 = new TaikoL2();
-        address dummyAddressManager = address(1);
+        address dummyAddressManager = getRandomAddress();
         L2.init(dummyAddressManager, param1559);
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);
     }
 
-    function test_AnchorTxsBlocktimeConstant() external {
+    function test_AnchorTx_with_constant_block_time() external {
         uint256 firstBasefee;
         for (uint256 i = 0; i < 100; i++) {
             uint256 basefee = _getBasefeeAndPrint2(0, BLOCK_GAS_LIMIT);
@@ -55,7 +55,7 @@ contract TestTaikoL2 is TestBase {
         }
     }
 
-    function test_AnchorTxsBlocktimeDecreasing() external {
+    function test_AnchorTx_with_decreasing_block_time() external {
         uint256 prevBasefee;
 
         for (uint256 i = 0; i < 32; i++) {
@@ -73,7 +73,7 @@ contract TestTaikoL2 is TestBase {
         }
     }
 
-    function test_AnchorTxsBlocktimeIncreasing() external {
+    function test_AnchorTx_with_increasing_block_time() external {
         uint256 prevBasefee;
 
         for (uint256 i = 0; i < 30; i++) {
@@ -95,7 +95,7 @@ contract TestTaikoL2 is TestBase {
     }
 
     // calling anchor in the same block more than once should fail
-    function test_AnchorTxsFailInTheSameBlock() external {
+    function test_AnchorTx_revert_in_same_block() external {
         uint256 expectedBasefee = _getBasefeeAndPrint2(0, BLOCK_GAS_LIMIT);
         vm.fee(expectedBasefee);
 
@@ -108,14 +108,14 @@ contract TestTaikoL2 is TestBase {
     }
 
     // calling anchor in the same block more than once should fail
-    function test_AnchorTxsFailByNonTaikoL2Signer() external {
+    function test_AnchorTx_revert_from_wrong_signer() external {
         uint256 expectedBasefee = _getBasefeeAndPrint2(0, BLOCK_GAS_LIMIT);
         vm.fee(expectedBasefee);
         vm.expectRevert();
         _anchor(BLOCK_GAS_LIMIT);
     }
 
-    function test_AnchorSigning(bytes32 digest) external {
+    function test_AnchorTx_signing(bytes32 digest) external {
         (uint8 v, uint256 r, uint256 s) = L2.signAnchor(digest, uint8(1));
         address signer = ecrecover(digest, v + 27, bytes32(r), bytes32(s));
         assertEq(signer, L2.GOLDEN_TOUCH_ADDRESS());
@@ -131,7 +131,7 @@ contract TestTaikoL2 is TestBase {
         L2.signAnchor(digest, uint8(3));
     }
 
-    function test_GetBasefee() external {
+    function test_getBasefee() external {
         uint64 timeSinceParent = uint64(block.timestamp - L2.parentTimestamp());
         assertEq(_getBasefeeAndPrint(timeSinceParent, 0), 317_609_019);
 

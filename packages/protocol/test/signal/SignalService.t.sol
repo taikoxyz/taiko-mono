@@ -49,84 +49,72 @@ contract TestSignalService is TestBase {
         vm.stopPrank();
     }
 
-    function test_send_signal_reverts_if_signal_is_zero() public {
+    function test_sendSignal_revert() public {
         vm.expectRevert(SignalService.B_ZERO_SIGNAL.selector);
         signalService.sendSignal(0);
     }
 
-    function test_is_signal_sent_reverts_if_address_is_zero() public {
+    function test_isSignalSent_revert() public {
         bytes32 signal = bytes32(uint256(1));
         vm.expectRevert(SignalService.B_NULL_APP_ADDR.selector);
         signalService.isSignalSent(address(0), signal);
-    }
 
-    function test_is_signal_sent_reverts_if_signal_is_zero() public {
-        bytes32 signal = bytes32(uint256(0));
+        signal = bytes32(uint256(0));
         vm.expectRevert(SignalService.B_ZERO_SIGNAL.selector);
         signalService.isSignalSent(Alice, signal);
     }
 
-    function test_send_signal_and_signal_is_sent_correctly() public {
+    function test_sendSignal_isSignalSent() public {
         vm.startPrank(Alice);
         bytes32 signal = bytes32(uint256(1));
         signalService.sendSignal(signal);
 
-        bool isSent = signalService.isSignalSent(Alice, signal);
-        assertEq(isSent, true);
+        assertTrue(signalService.isSignalSent(Alice, signal));
     }
 
-    function test_get_signal_slot_returns_expected_slot_for_app_and_signal()
-        public
-    {
+    function test_getSignalSlot() public {
         vm.startPrank(Alice);
         for (uint8 i = 1; i < 100; i++) {
             bytes32 signal = bytes32(block.prevrandao + i);
             signalService.sendSignal(signal);
 
-            bool isSent = signalService.isSignalSent(Alice, signal);
-            assertEq(isSent, true);
-
-            bytes32 slot = signalService.getSignalSlot(Alice, signal);
+            assertTrue(signalService.isSignalSent(Alice, signal));
 
             // confirm our assembly gives same output as expected native
             // solidity hash/packing
-            bytes32 expectedSlot = keccak256(abi.encodePacked(Alice, signal));
-            assertEq(slot, expectedSlot);
+            assertEq(
+                signalService.getSignalSlot(Alice, signal),
+                keccak256(abi.encodePacked(Alice, signal))
+            );
         }
     }
 
-    function test_is_signal_received_reverts_if_src_chain_id_is_same_as_block_chain_id(
-    )
-        public
-    {
+    function test_isSignalReceived_revert() public {
         bytes32 signal = bytes32(uint256(1));
         bytes memory proof = new bytes(1);
         vm.expectRevert(SignalService.B_WRONG_CHAIN_ID.selector);
         signalService.isSignalReceived(block.chainid, Alice, signal, proof);
-    }
 
-    function test_is_signal_received_reverts_if_app_is_zero_address() public {
-        bytes32 signal = bytes32(uint256(1));
-        bytes memory proof = new bytes(1);
+        signal = bytes32(uint256(1));
+        proof = new bytes(1);
         vm.expectRevert(SignalService.B_NULL_APP_ADDR.selector);
         signalService.isSignalReceived(destChainId, address(0), signal, proof);
-    }
 
-    function test_is_signal_received_reverts_if_signal_is_zero() public {
-        bytes32 signal = bytes32(uint256(0));
-        bytes memory proof = new bytes(1);
+        signal = bytes32(uint256(0));
+        proof = new bytes(1);
         vm.expectRevert(SignalService.B_ZERO_SIGNAL.selector);
         signalService.isSignalReceived(destChainId, Alice, signal, proof);
-    }
 
-    function test_is_signal_received_reverts_if_proof_is_invalid() public {
-        bytes32 signal = bytes32(uint256(1));
-        bytes memory proof = new bytes(1);
+        signal = bytes32(uint256(1));
+        proof = new bytes(1);
         vm.expectRevert();
         signalService.isSignalReceived(destChainId, Alice, signal, proof);
     }
 
-    function test_is_signal_received() public {
+    function test_isSignalReceived() public {
+        // This specific value is used, do not change it.
+        address Dave = 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39;
+
         // known signal with known proof for known block header/signalRoot from
         // a known chain ID of 1336, since we cant generate merkle proofs with
         // foundry.
@@ -145,9 +133,8 @@ contract TestSignalService is TestBase {
 
         vm.chainId(destChainId);
 
-        bool isReceived =
-            destSignalService.isSignalReceived(1336, Carol, signal, proof);
-
-        assertEq(isReceived, true);
+        assertTrue(
+            destSignalService.isSignalReceived(1336, Dave, signal, proof)
+        );
     }
 }
