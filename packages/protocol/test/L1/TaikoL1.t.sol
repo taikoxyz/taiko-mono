@@ -49,15 +49,15 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev Test we can propose, prove, then verify more blocks than
     /// 'blockMaxProposals'
-    function test_L1__more_blocks_than_ring_buffer_size() external {
-        depositTaikoToken(Alice, 1e8 * 1e8, 100 ether);
+    function test_L1_more_blocks_than_ring_buffer_size() external {
+        depositTaikoToken(Alice, 1e8 ether, 100 ether);
         // This is a very weird test (code?) issue here.
         // If this line (or Bob's query balance) is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         console2.log("Alice balance:", tko.balanceOf(Alice));
-        depositTaikoToken(Bob, 1e8 * 1e8, 100 ether);
+        depositTaikoToken(Bob, 1e8 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
-        depositTaikoToken(Carol, 1e8 * 1e8, 100 ether);
+        depositTaikoToken(Carol, 1e8 ether, 100 ether);
         // Bob
         vm.prank(Bob, Bob);
 
@@ -72,7 +72,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         ) {
             //printVariables("before propose");
             TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+                proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -99,12 +99,12 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev Test more than one block can be proposed, proven, & verified in the
     ///      same L1 block.
-    function test_L1__multiple_blocks_in_one_L1_block() external {
-        depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
+    function test_L1_multiple_blocks_in_one_L1_block() external {
+        depositTaikoToken(Alice, 1000 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
-        depositTaikoToken(Bob, 1e8 * 1e8, 100 ether);
+        depositTaikoToken(Bob, 1e8 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
-        depositTaikoToken(Carol, 1e8 * 1e8, 100 ether);
+        depositTaikoToken(Carol, 1e8 ether, 100 ether);
         // Bob
         vm.prank(Bob, Bob);
 
@@ -115,7 +115,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         for (uint256 blockId = 1; blockId <= 2; blockId++) {
             printVariables("before propose");
             TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+                proposeBlock(Alice, Bob, 1_000_000, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -141,12 +141,12 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     /// @dev Test verifying multiple blocks in one transaction
-    function test_L1__verifying_multiple_blocks_once() external {
-        depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
+    function test_L1_verifying_multiple_blocks_once() external {
+        depositTaikoToken(Alice, 1000 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
-        depositTaikoToken(Bob, 1e8 * 1e8, 100 ether);
+        depositTaikoToken(Bob, 1e8 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
-        depositTaikoToken(Carol, 1e8 * 1e8, 100 ether);
+        depositTaikoToken(Carol, 1e8 ether, 100 ether);
         // Bob
         vm.prank(Bob, Bob);
 
@@ -158,7 +158,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         {
             printVariables("before propose");
             TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+                proposeBlock(Alice, Bob, 1_000_000, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -208,11 +208,11 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         bytes32 emptyDepositsRoot =
             0x569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd;
-        depositTaikoToken(Alice, 1e6 * 1e8, 100_000 ether);
+        depositTaikoToken(Alice, 1e6 ether, 100_000 ether);
 
-        proposeBlock(Alice, 1_000_000, 1024);
+        proposeBlock(Alice, Bob, 1_000_000, 1024);
         TaikoData.BlockMetadata memory meta =
-            proposeBlock(Alice, 1_000_000, 1024);
+            proposeBlock(Alice, Bob, 1_000_000, 1024);
         assertEq(meta.depositsProcessed.length, 0);
 
         uint256 count = conf.ethDepositMaxCountPerBlock;
@@ -225,7 +225,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         printVariables("after sending ethers");
 
         uint256 gas = gasleft();
-        meta = proposeBlock(Alice, 1_000_000, 1024);
+        meta = proposeBlock(Alice, Bob, 1_000_000, 1024);
         uint256 gasUsedWithDeposits = gas - gasleft();
         console2.log("gas used with eth deposits:", gasUsedWithDeposits);
 
@@ -237,7 +237,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         assertEq(meta.depositsProcessed.length, count);
 
         gas = gasleft();
-        meta = proposeBlock(Alice, 1_000_000, 1024);
+        meta = proposeBlock(Alice, Bob, 1_000_000, 1024);
         uint256 gasUsedWithoutDeposits = gas - gasleft();
 
         console2.log("gas used without eth deposits:", gasUsedWithoutDeposits);
@@ -250,7 +250,7 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     /// @dev getCrossChainBlockHash tests
-    function test_L1__getCrossChainBlockHash0() external {
+    function test_L1_getCrossChainBlockHash0() external {
         bytes32 genHash = L1.getCrossChainBlockHash(0);
         assertEq(GENESIS_BLOCK_HASH, genHash);
 
@@ -260,7 +260,7 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     /// @dev getCrossChainSignalRoot tests
-    function test_L1__getCrossChainSignalRoot() external {
+    function test_L1_getCrossChainSignalRoot() external {
         uint64 iterationCnt = 10;
         // Declare here so that block prop/prove/verif. can be used in 1 place
         TaikoData.BlockMetadata memory meta;
@@ -269,9 +269,9 @@ contract TaikoL1Test is TaikoL1TestBase {
         bytes32[] memory parentHashes = new bytes32[](iterationCnt);
         parentHashes[0] = GENESIS_BLOCK_HASH;
 
-        depositTaikoToken(Alice, 1e6 * 1e8, 100_000 ether);
+        depositTaikoToken(Alice, 1e6 ether, 100_000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
-        depositTaikoToken(Bob, 1e7 * 1e8, 100_000 ether);
+        depositTaikoToken(Bob, 1e7 ether, 100_000 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
 
         // Bob is the staker / prover
@@ -280,7 +280,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         // Propose blocks
         for (uint64 blockId = 1; blockId < iterationCnt; blockId++) {
             printVariables("before propose");
-            meta = proposeBlock(Alice, 1_000_000, 1024);
+            meta = proposeBlock(Alice, Bob, 1_000_000, 1024);
             mine(5);
 
             blockHash = bytes32(1e10 + uint256(blockId));
@@ -325,12 +325,12 @@ contract TaikoL1Test is TaikoL1TestBase {
         assertEq(bytes32(0), L1.getCrossChainSignalRoot((iterationCnt + 1)));
     }
 
-    function test_L1__deposit_hash_creation() external {
+    function test_L1_deposit_hash_creation() external {
         // uint96 minAmount = conf.ethDepositMinAmount;
         uint96 maxAmount = conf.ethDepositMaxAmount;
 
         // We need 8 depostis otherwise we are not processing them !
-        depositTaikoToken(Alice, 1e6 * 1e8, maxAmount + 1 ether);
+        depositTaikoToken(Alice, 1e6 ether, maxAmount + 1 ether);
         depositTaikoToken(Bob, 0, maxAmount + 1 ether);
         depositTaikoToken(Carol, 0, maxAmount + 1 ether);
         depositTaikoToken(David, 0, maxAmount + 1 ether);
@@ -365,7 +365,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         // We shall invoke proposeBlock() because this is what will call the
         // processDeposits()
         TaikoData.BlockMetadata memory meta =
-            proposeBlock(Alice, 1_000_000, 1024);
+            proposeBlock(Alice, Bob, 1_000_000, 1024);
 
         // Expected:
         // 0x60386add6a400d9b23968e1239bd600d22d2eea4709246895c0e5d8f5ae49dc3  (pre

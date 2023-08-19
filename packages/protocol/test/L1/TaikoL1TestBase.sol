@@ -104,17 +104,17 @@ abstract contract TaikoL1TestBase is TestBase {
 
     function proposeBlock(
         address proposer,
+        address prover,
         uint32 gasLimit,
         uint24 txListSize
     )
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
-        // TODO(daniel):
         TaikoData.ProverAssignment memory assignment = TaikoData
             .ProverAssignment({
-            prover: Patrick,
-            expiry: uint64(block.timestamp + 1 hours),
+            prover: prover,
+            expiry: uint64(block.timestamp + 60 minutes),
             data: new bytes(0)
         });
 
@@ -208,16 +208,16 @@ abstract contract TaikoL1TestBase is TestBase {
     }
 
     function depositTaikoToken(
-        address who,
-        uint64 amountTko,
+        address to,
+        uint256 amountTko,
         uint256 amountEth
     )
         internal
     {
-        vm.deal(who, amountEth);
-        tko.transfer(who, amountTko);
-        console2.log("who", who);
-        console2.log("balance:", tko.balanceOf(who));
+        vm.deal(to, amountEth);
+        tko.transfer(to, amountTko);
+        console2.log("deposit to:", to);
+        console2.log("balance:", tko.balanceOf(to));
     }
 
     function printVariables(string memory comment) internal {

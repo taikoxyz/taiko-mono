@@ -72,7 +72,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         ) {
             printVariables("before propose");
             TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+                proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -150,7 +150,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         ) {
             printVariables("before propose");
             TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+                proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -207,7 +207,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     /// @notice In case oracle_prover is disbaled, there
     /// is no reason why
     /// @notice cooldowns be above 0 min tho (!).
-    function test_L1__if_oracle_is_disabled_cooldown_is_still_as_proofRegularCooldown(
+    function test_L1_if_oracle_is_disabled_cooldown_is_still_as_proofRegularCooldown(
     )
         external
     {
@@ -234,7 +234,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             blockId++
         ) {
             TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+                proposeBlock(Alice, Bob, 1_000_000, 1024);
             printVariables("after propose");
             mine(1);
 
@@ -280,7 +280,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     }
 
     /// @dev Test if system proofs can be verified
-    function test_L1__if_oracle_proofs_can_be_verified_without_regular_proofs()
+    function test_L1_if_oracle_proofs_can_be_verified_without_regular_proofs()
         external
     {
         // Bob is the oracle prover
@@ -307,7 +307,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             blockId++
         ) {
             TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+                proposeBlock(Alice, Bob, 1_000_000, 1024);
             printVariables("after propose");
             mine(1);
 
@@ -343,7 +343,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     }
 
     /// @dev Test if oracle prover cannot be overwritten
-    function test_L1__if_systemProver_can_prove_but_regular_provers_can_not_overwrite(
+    function test_L1_if_systemProver_can_prove_but_regular_provers_can_not_overwrite(
     )
         external
     {
@@ -372,7 +372,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             uint64 blockId = 1; blockId < conf.blockMaxProposals * 10; blockId++
         ) {
             TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+                proposeBlock(Alice, Bob, 1_000_000, 1024);
             printVariables("after propose");
             mine(1);
 
@@ -431,8 +431,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     }
 
     /// @dev Test if there is no system/oracle proofs
-    function test_L1__if_there_is_no_oracle_prover_there_is_no_overwrite_at_all(
-    )
+    function test_L1_if_there_is_no_oracle_prover_there_is_no_overwrite_at_all()
         external
     {
         // Bob is the oracle prover
@@ -462,7 +461,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             blockId++
         ) {
             TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+                proposeBlock(Alice, Bob, 1_000_000, 1024);
             printVariables("after propose");
             mine(1);
 

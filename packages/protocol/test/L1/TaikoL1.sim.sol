@@ -260,7 +260,8 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                     )
                 );
 
-                metas[proposedIndex] = proposeBlock(Alice, gasLimit, txListSize);
+                metas[proposedIndex] =
+                    proposeBlock(Alice, Bob, gasLimit, txListSize);
 
                 if (proposedIndex < blocksToSimulate - 1) proposedIndex++;
 
@@ -488,7 +489,8 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                     )
                 );
 
-                metas[proposedIndex] = proposeBlock(Alice, gasLimit, txListSize);
+                metas[proposedIndex] =
+                    proposeBlock(Alice, Bob, gasLimit, txListSize);
 
                 if (proposedIndex < blocksToSimulate - 1) proposedIndex++;
 
@@ -721,7 +723,8 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                     )
                 );
 
-                metas[proposedIndex] = proposeBlock(Alice, gasLimit, txListSize);
+                metas[proposedIndex] =
+                    proposeBlock(Alice, Bob, gasLimit, txListSize);
 
                 if (proposedIndex < blocksToSimulate - 1) proposedIndex++;
 
