@@ -27,6 +27,8 @@ contract TaikoL1Oracle is TaikoL1 {
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 12;
         config.proofRegularCooldown = 15 minutes;
+        config.skipProverAssignmentVerificaiton = true;
+        config.proofBond = 1 ether;
     }
 }
 

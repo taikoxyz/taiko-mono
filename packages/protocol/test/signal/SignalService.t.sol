@@ -9,8 +9,7 @@ import { BridgeErrors } from "../../contracts/bridge/BridgeErrors.sol";
 import { console2 } from "forge-std/console2.sol";
 import { FreeMintERC20 } from "../../contracts/test/erc20/FreeMintERC20.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
-import { TestBase } from "../TestBase.sol";
-import { DummyCrossChainSync } from "./DummyCrossChainSync.sol";
+import { TestBase, DummyCrossChainSync } from "../TestBase.sol";
 
 contract TestSignalService is TestBase {
     AddressManager addressManager;
@@ -113,7 +112,7 @@ contract TestSignalService is TestBase {
 
     function test_SignalService_isSignalReceived() public {
         // This specific value is used, do not change it.
-        address Dave = 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39;
+        address Brecht = 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39;
 
         // known signal with known proof for known block header/signalRoot from
         // a known chain ID of 1336, since we cant generate merkle proofs with
@@ -134,7 +133,7 @@ contract TestSignalService is TestBase {
         vm.chainId(destChainId);
 
         assertTrue(
-            destSignalService.isSignalReceived(1336, Dave, signal, proof)
+            destSignalService.isSignalReceived(1336, Brecht, signal, proof)
         );
     }
 }

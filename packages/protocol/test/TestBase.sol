@@ -2,9 +2,8 @@
 pragma solidity ^0.8.20;
 
 import { Test } from "forge-std/Test.sol";
-import { console2 } from "forge-std/console2.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { Bridge } from "../contracts/bridge/Bridge.sol";
+import { ICrossChainSync } from "../contracts/common/ICrossChainSync.sol";
 
 abstract contract TestBase is Test {
     uint256 private _seed = 0x12345678;
@@ -84,5 +83,26 @@ contract NonNftContract {
 contract SkipProofCheckBridge is Bridge {
     function shouldCheckProof() internal pure override returns (bool) {
         return false;
+    }
+}
+
+contract DummyCrossChainSync is ICrossChainSync {
+    bytes32 private _blockHash;
+    bytes32 private _signalRoot;
+
+    function setCrossChainBlockHeader(bytes32 blockHash) external {
+        _blockHash = blockHash;
+    }
+
+    function setCrossChainSignalRoot(bytes32 signalRoot) external {
+        _signalRoot = signalRoot;
+    }
+
+    function getCrossChainBlockHash(uint64) external view returns (bytes32) {
+        return _blockHash;
+    }
+
+    function getCrossChainSignalRoot(uint64) external view returns (bytes32) {
+        return _signalRoot;
     }
 }

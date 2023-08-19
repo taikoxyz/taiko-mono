@@ -12,10 +12,10 @@ import { SignalService } from "../../contracts/signal/SignalService.sol";
 import {
     TestBase,
     SkipProofCheckBridge,
+    DummyCrossChainSync,
     GoodReceiver,
     BadReceiver
 } from "../TestBase.sol";
-import { DummyCrossChainSync } from "../signal/DummyCrossChainSync.sol";
 
 contract BridgeTest is TestBase {
     AddressManager addressManager;
