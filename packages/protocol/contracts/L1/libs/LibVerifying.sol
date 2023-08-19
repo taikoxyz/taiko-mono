@@ -117,6 +117,7 @@ library LibVerifying {
 
             while (blockId < b.numBlocks && processed < maxBlocks) {
                 blk = state.blocks[blockId % config.blockRingBufferSize];
+                assert(blk.blockId == blockId);
 
                 fcId = LibUtils.getForkChoiceId(
                     state, blk, blockId, blockHash, gasUsed

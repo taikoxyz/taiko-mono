@@ -139,7 +139,7 @@ library TaikoData {
     }
 
     /// @dev Struct containing data required for verifying a block.
-    /// 3 slots.
+    /// 4 slots.
     struct Block {
         // slot 1: ForkChoice storage are reusable
         mapping(uint16 forkChoiceId => ForkChoice) forkChoices;
@@ -148,6 +148,7 @@ library TaikoData {
         uint64 proposedAt;
         uint16 nextForkChoiceId;
         uint16 verifiedForkChoiceId;
+        uint64 blockId; // slot 4
     }
 
     /// @dev Struct representing information about a transaction list.

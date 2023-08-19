@@ -25,9 +25,9 @@ library LibProving {
     );
 
     error L1_ALREADY_PROVEN();
-    error L1_INVALID_BLOCK_ID();
     error L1_EVIDENCE_MISMATCH();
     error L1_FORK_CHOICE_NOT_FOUND();
+    error L1_INVALID_BLOCK_ID();
     error L1_INVALID_EVIDENCE();
     error L1_INVALID_ORACLE_PROVER();
     error L1_INVALID_PROOF();
@@ -57,6 +57,7 @@ library LibProving {
 
         TaikoData.Block storage blk =
             state.blocks[blockId % config.blockRingBufferSize];
+        assert(blk.blockId == blockId);
 
         // Check the metadata hash matches the proposed block's. This is
         // necessary to handle chain reorgs.

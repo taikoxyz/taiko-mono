@@ -26,12 +26,10 @@ library LibUtils {
         view
         returns (bool found, TaikoData.Block storage blk)
     {
-        TaikoData.SlotB memory b = state.slotB;
-        uint64 id = blockId == 0 ? b.lastVerifiedBlockId : blockId;
-        blk = state.blocks[id % config.blockRingBufferSize];
+        uint64 id = blockId == 0 ? state.slotB.lastVerifiedBlockId : blockId;
 
-        found = id >= b.lastVerifiedBlockId && id < b.numBlocks
-            && blk.verifiedForkChoiceId != 0;
+        blk = state.blocks[id % config.blockRingBufferSize];
+        found = blk.blockId == id;
     }
 
     function getForkChoiceId(

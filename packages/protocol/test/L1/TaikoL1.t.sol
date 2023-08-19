@@ -262,12 +262,12 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev getCrossChainSignalRoot tests
     function test_L1_getCrossChainSignalRoot() external {
-        uint64 iterationCnt = 10;
+        uint64 count = 20;
         // Declare here so that block prop/prove/verif. can be used in 1 place
         TaikoData.BlockMetadata memory meta;
         bytes32 blockHash;
         bytes32 signalRoot;
-        bytes32[] memory parentHashes = new bytes32[](iterationCnt);
+        bytes32[] memory parentHashes = new bytes32[](count);
         parentHashes[0] = GENESIS_BLOCK_HASH;
 
         giveEthAndTko(Alice, 1e6 ether, 100_000 ether);
@@ -279,7 +279,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         vm.prank(Bob, Bob);
 
         // Propose blocks
-        for (uint64 blockId = 1; blockId < iterationCnt; blockId++) {
+        for (uint64 blockId = 1; blockId < count; blockId++) {
             printVariables("before propose");
             meta = proposeBlock(Alice, Bob, 1_000_000, 1024);
             mine(5);
@@ -304,26 +304,18 @@ contract TaikoL1Test is TaikoL1TestBase {
             verifyBlock(Carol, 1);
 
             // Querying written blockhash
-            bytes32 genHash = L1.getCrossChainBlockHash(blockId);
-            assertEq(blockHash, genHash);
+            assertEq(L1.getCrossChainBlockHash(blockId), blockHash);
 
             mine(5);
             parentHashes[blockId] = blockHash;
+
+            if (blockId > 2) {
+                assertEq(L1.getCrossChainSignalRoot(blockId - 2), 0);
+            }
+            if (blockId > 1) {
+                assertTrue(L1.getCrossChainSignalRoot(blockId - 1) != 0);
+            }
         }
-
-        // 1st
-        uint64 queriedBlockId = 1;
-        bytes32 expectedSR = bytes32(uint256(1e9 + queriedBlockId));
-
-        assertEq(expectedSR, L1.getCrossChainSignalRoot(queriedBlockId));
-
-        // 2nd
-        queriedBlockId = 2;
-        expectedSR = bytes32(uint256(1e9 + queriedBlockId));
-        assertEq(expectedSR, L1.getCrossChainSignalRoot(queriedBlockId));
-
-        // Not found
-        assertEq(bytes32(0), L1.getCrossChainSignalRoot((iterationCnt + 1)));
     }
 
     function test_L1_deposit_hash_creation() external {
