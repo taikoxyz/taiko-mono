@@ -117,52 +117,10 @@ library LibProving {
         fc.provenAt = uint64(block.timestamp);
         fc.gasUsed = evidence.gasUsed;
 
-        bytes32 instance;
-        if (evidence.prover != address(1)) {
-            uint256[10] memory inputs;
-
-            inputs[0] = uint256(
-                uint160(address(resolver.resolve("signal_service", false)))
-            );
-            inputs[1] = uint256(
-                uint160(
-                    address(
-                        resolver.resolve(
-                            config.chainId, "signal_service", false
-                        )
-                    )
-                )
-            );
-            inputs[2] = uint256(
-                uint160(
-                    address(resolver.resolve(config.chainId, "taiko", false))
-                )
-            );
-
-            inputs[3] = uint256(evidence.metaHash);
-            inputs[4] = uint256(evidence.parentHash);
-            inputs[5] = uint256(evidence.blockHash);
-            inputs[6] = uint256(evidence.signalRoot);
-            inputs[7] = uint256(evidence.graffiti);
-            inputs[8] = (uint256(uint160(evidence.prover)) << 96)
-                | (uint256(evidence.parentGasUsed) << 64)
-                | (uint256(evidence.gasUsed) << 32);
-
-            // Also hash configs that will be used by circuits
-            inputs[9] = uint256(config.blockMaxGasLimit) << 192
-                | uint256(config.blockMaxTransactions) << 128
-                | uint256(config.blockMaxTxListBytes) << 64;
-
-            assembly {
-                instance := keccak256(inputs, mul(32, 10))
-            }
-            assert(instance != 0);
-        }
-
         IProofVerifier(resolver.resolve("proof_verifier", false)).verifyProofs({
             blockId: blockId,
             blockProofs: evidence.proofs,
-            instance: instance
+            instance: getInstance(config, resolver, evidence)
         });
 
         emit BlockProven({
@@ -197,5 +155,51 @@ library LibProving {
         if (fcId == 0) revert L1_FORK_CHOICE_NOT_FOUND();
 
         fc = blk.forkChoices[fcId];
+    }
+
+    function getInstance(
+        TaikoData.Config memory config,
+        AddressResolver resolver,
+        TaikoData.BlockEvidence memory evidence
+    )
+        internal
+        view
+        returns (bytes32 instance)
+    {
+        if (evidence.prover != address(1)) return 0;
+
+        uint256[10] memory inputs;
+
+        inputs[0] =
+            uint256(uint160(address(resolver.resolve("signal_service", false))));
+        inputs[1] = uint256(
+            uint160(
+                address(
+                    resolver.resolve(config.chainId, "signal_service", false)
+                )
+            )
+        );
+        inputs[2] = uint256(
+            uint160(address(resolver.resolve(config.chainId, "taiko", false)))
+        );
+
+        inputs[3] = uint256(evidence.metaHash);
+        inputs[4] = uint256(evidence.parentHash);
+        inputs[5] = uint256(evidence.blockHash);
+        inputs[6] = uint256(evidence.signalRoot);
+        inputs[7] = uint256(evidence.graffiti);
+        inputs[8] = (uint256(uint160(evidence.prover)) << 96)
+            | (uint256(evidence.parentGasUsed) << 64)
+            | (uint256(evidence.gasUsed) << 32);
+
+        // Also hash configs that will be used by circuits
+        inputs[9] = uint256(config.blockMaxGasLimit) << 192
+            | uint256(config.blockMaxTransactions) << 128
+            | uint256(config.blockMaxTxListBytes) << 64;
+
+        assembly {
+            instance := keccak256(inputs, mul(32, 10))
+        }
+        assert(instance != 0);
     }
 }
