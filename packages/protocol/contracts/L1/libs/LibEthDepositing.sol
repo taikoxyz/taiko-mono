@@ -6,16 +6,19 @@
 
 pragma solidity ^0.8.20;
 
+import { AddressResolver } from "../../common/AddressResolver.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibMath } from "../../libs/LibMath.sol";
-import { AddressResolver } from "../../common/AddressResolver.sol";
 import { TaikoData } from "../TaikoData.sol";
+import { SafeCastUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 /// @title LibEthDepositing
 /// @notice A library for handling Ethereum deposits in the Taiko protocol.
 library LibEthDepositing {
     using LibAddress for address;
     using LibMath for uint256;
+    using SafeCastUpgradeable for uint256;
 
     event EthDeposited(TaikoData.EthDeposit deposit);
 
@@ -53,7 +56,7 @@ library LibEthDepositing {
         emit EthDeposited(
             TaikoData.EthDeposit({
                 recipient: _recipient,
-                amount: uint96(msg.value),
+                amount: msg.value.toUint96(),
                 id: state.slotA.numEthDeposits
             })
         );
