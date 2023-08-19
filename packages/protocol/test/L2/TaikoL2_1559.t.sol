@@ -1,17 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
-import { Lib1559Math as T } from "../../contracts/libs/Lib1559Math.sol";
+import { TestBase } from "../TestBase.sol";
 import { TaikoL2 } from "../../contracts/L2/TaikoL2.sol";
-import { SafeCastUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
-contract TestTaikoL2_1559 is Test {
-    using SafeCastUpgradeable for uint256;
-
-    function testAndVerifyTaiko1559Params() external {
+contract TestTaikoL2_1559 is TestBase {
+    function test_1559ParamCalculation() external {
         // Assume we scale L1 throughput by 10 times.
         uint64 scaleFactor = 10;
 
@@ -56,6 +51,7 @@ contract TestTaikoL2_1559 is Test {
         // ratio2x1x         : 11250
 
         TaikoL2 L2 = new TaikoL2();
-        L2.init(address(1), param1559); // Dummy address manager address.
+        address dummyAddressManager = getRandomAddress();
+        L2.init(dummyAddressManager, param1559);
     }
 }
