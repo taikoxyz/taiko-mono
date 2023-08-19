@@ -99,7 +99,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
 
         assertEq(time, 1);
 
-        depositTaikoToken(Alice, 1e9 * 1e8, 10_000 ether);
+        giveEthAndTko(Alice, 1e9 ether, 10_000 ether);
 
         TaikoData.BlockMetadata[] memory metas = new TaikoData.BlockMetadata[](
             blocksToSimulate
@@ -313,7 +313,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
 
         assertEq(time, 1);
 
-        depositTaikoToken(Alice, 1e6 * 1e8, 10_000 ether);
+        giveEthAndTko(Alice, 1e6 ether, 10_000 ether);
 
         TaikoData.BlockMetadata[] memory metas = new TaikoData.BlockMetadata[](
             blocksToSimulate
@@ -541,7 +541,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
 
         assertEq(time, 1);
 
-        depositTaikoToken(Alice, 1e6 * 1e8, 10_000 ether);
+        giveEthAndTko(Alice, 1e6 ether, 10_000 ether);
 
         TaikoData.BlockMetadata[] memory metas = new TaikoData.BlockMetadata[](
             blocksToSimulate

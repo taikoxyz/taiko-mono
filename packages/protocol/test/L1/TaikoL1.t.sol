@@ -51,14 +51,14 @@ contract TaikoL1Test is TaikoL1TestBase {
     /// @dev Test we can propose, prove, then verify more blocks than
     /// 'blockMaxProposals'
     function test_L1_more_blocks_than_ring_buffer_size() external {
-        depositTaikoToken(Alice, 1e8 ether, 100 ether);
+        giveEthAndTko(Alice, 1e8 ether, 100 ether);
         // This is a very weird test (code?) issue here.
         // If this line (or Bob's query balance) is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         console2.log("Alice balance:", tko.balanceOf(Alice));
-        depositTaikoToken(Bob, 1e8 ether, 100 ether);
+        giveEthAndTko(Bob, 1e8 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
-        depositTaikoToken(Carol, 1e8 ether, 100 ether);
+        giveEthAndTko(Carol, 1e8 ether, 100 ether);
         // Bob
         vm.prank(Bob, Bob);
 
@@ -101,11 +101,11 @@ contract TaikoL1Test is TaikoL1TestBase {
     /// @dev Test more than one block can be proposed, proven, & verified in the
     ///      same L1 block.
     function test_L1_multiple_blocks_in_one_L1_block() external {
-        depositTaikoToken(Alice, 1000 ether, 1000 ether);
+        giveEthAndTko(Alice, 1000 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
-        depositTaikoToken(Bob, 1e8 ether, 100 ether);
+        giveEthAndTko(Bob, 1e8 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
-        depositTaikoToken(Carol, 1e8 ether, 100 ether);
+        giveEthAndTko(Carol, 1e8 ether, 100 ether);
         // Bob
         vm.prank(Bob, Bob);
 
@@ -143,11 +143,11 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev Test verifying multiple blocks in one transaction
     function test_L1_verifying_multiple_blocks_once() external {
-        depositTaikoToken(Alice, 1000 ether, 1000 ether);
+        giveEthAndTko(Alice, 1000 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
-        depositTaikoToken(Bob, 1e8 ether, 100 ether);
+        giveEthAndTko(Bob, 1e8 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
-        depositTaikoToken(Carol, 1e8 ether, 100 ether);
+        giveEthAndTko(Carol, 1e8 ether, 100 ether);
         // Bob
         vm.prank(Bob, Bob);
 
@@ -191,7 +191,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         uint96 minAmount = conf.ethDepositMinAmount;
         uint96 maxAmount = conf.ethDepositMaxAmount;
 
-        depositTaikoToken(Alice, 0, maxAmount + 1 ether);
+        giveEthAndTko(Alice, 0, maxAmount + 1 ether);
         vm.prank(Alice, Alice);
         vm.expectRevert();
         L1.depositEtherToL2{ value: minAmount - 1 }(address(0));
@@ -209,7 +209,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         bytes32 emptyDepositsRoot =
             0x569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd;
-        depositTaikoToken(Alice, 1e6 ether, 100_000 ether);
+        giveEthAndTko(Alice, 1e6 ether, 100_000 ether);
 
         proposeBlock(Alice, Bob, 1_000_000, 1024);
         TaikoData.BlockMetadata memory meta =
@@ -270,9 +270,9 @@ contract TaikoL1Test is TaikoL1TestBase {
         bytes32[] memory parentHashes = new bytes32[](iterationCnt);
         parentHashes[0] = GENESIS_BLOCK_HASH;
 
-        depositTaikoToken(Alice, 1e6 ether, 100_000 ether);
+        giveEthAndTko(Alice, 1e6 ether, 100_000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
-        depositTaikoToken(Bob, 1e7 ether, 100_000 ether);
+        giveEthAndTko(Bob, 1e7 ether, 100_000 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
 
         // Bob is the staker / prover
@@ -331,14 +331,14 @@ contract TaikoL1Test is TaikoL1TestBase {
         uint96 maxAmount = conf.ethDepositMaxAmount;
 
         // We need 8 depostis otherwise we are not processing them !
-        depositTaikoToken(Alice, 1e6 ether, maxAmount + 1 ether);
-        depositTaikoToken(Bob, 0, maxAmount + 1 ether);
-        depositTaikoToken(Carol, 0, maxAmount + 1 ether);
-        depositTaikoToken(David, 0, maxAmount + 1 ether);
-        depositTaikoToken(Emma, 0, maxAmount + 1 ether);
-        depositTaikoToken(Frank, 0, maxAmount + 1 ether);
-        depositTaikoToken(Grace, 0, maxAmount + 1 ether);
-        depositTaikoToken(Henry, 0, maxAmount + 1 ether);
+        giveEthAndTko(Alice, 1e6 ether, maxAmount + 1 ether);
+        giveEthAndTko(Bob, 0, maxAmount + 1 ether);
+        giveEthAndTko(Carol, 0, maxAmount + 1 ether);
+        giveEthAndTko(David, 0, maxAmount + 1 ether);
+        giveEthAndTko(Emma, 0, maxAmount + 1 ether);
+        giveEthAndTko(Frank, 0, maxAmount + 1 ether);
+        giveEthAndTko(Grace, 0, maxAmount + 1 ether);
+        giveEthAndTko(Henry, 0, maxAmount + 1 ether);
 
         // So after this point we have 8 deposits
         vm.prank(Alice, Alice);

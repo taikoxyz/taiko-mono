@@ -87,7 +87,7 @@ abstract contract TaikoL1TestBase is TestBase {
 
         // Set protocol broker
         registerAddress("taiko", address(this));
-        tko.mint(address(this), 1e9 * 1e8);
+        tko.mint(address(this), 1e9 ether);
         registerAddress("taiko", address(L1));
 
         L1.init(address(addressManager), GENESIS_BLOCK_HASH);
@@ -215,9 +215,11 @@ abstract contract TaikoL1TestBase is TestBase {
         internal
     {
         vm.deal(to, amountEth);
+        console2.log("TKO balance this:", tko.balanceOf(address(this)));
+        console2.log(amountTko);
         tko.transfer(to, amountTko);
-        console2.log("deposit to:", to);
-        console2.log("balance:", tko.balanceOf(to));
+        console2.log("TKO balance:", to, tko.balanceOf(to));
+        console2.log("ETH balance:", to, to.balance);
     }
 
     function printVariables(string memory comment) internal {

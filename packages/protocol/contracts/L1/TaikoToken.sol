@@ -40,7 +40,6 @@ contract TaikoToken is
 {
     error TKO_INVALID_ADDR();
     error TKO_INVALID_PREMINT_PARAMS();
-    error TKO_MINT_DISALLOWED();
 
     /// @notice Initializes the TaikoToken contract and mints initial tokens to
     /// specified recipients.
@@ -180,8 +179,6 @@ contract TaikoToken is
         override(ERC20Upgradeable, ERC20VotesUpgradeable)
     {
         super._mint(to, amount);
-
-        if (totalSupply() > type(uint64).max) revert TKO_MINT_DISALLOWED();
         emit Transfer(address(0), to, amount);
     }
 

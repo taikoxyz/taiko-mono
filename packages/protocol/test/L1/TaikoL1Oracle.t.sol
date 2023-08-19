@@ -53,13 +53,13 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         // Carol is the oracle prover
         registerAddress("oracle_prover", Carol);
 
-        depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
+        giveEthAndTko(Alice, 1000 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        giveEthAndTko(Bob, 1e6 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
@@ -131,13 +131,13 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         // Carol is the oracle prover
         registerAddress("oracle_prover", Carol);
 
-        depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
+        giveEthAndTko(Alice, 1000 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        giveEthAndTko(Bob, 1e6 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
@@ -215,13 +215,13 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     {
         registerAddress("oracle_prover", address(0));
 
-        depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
+        giveEthAndTko(Alice, 1000 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        giveEthAndTko(Bob, 1e6 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
@@ -288,13 +288,13 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         // Bob is the oracle prover
         registerAddress("oracle_prover", Bob);
 
-        depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
+        giveEthAndTko(Alice, 1000 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        giveEthAndTko(Bob, 1e6 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
@@ -352,15 +352,15 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         // David is the oracle prover
         registerAddress("oracle_prover", David);
 
-        depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
+        giveEthAndTko(Alice, 1000 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        giveEthAndTko(Bob, 1e6 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
-        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
+        giveEthAndTko(Carol, 1e6 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Carol));
 
         // Bob
@@ -439,15 +439,15 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         // Bob is the oracle prover
         registerAddress("oracle_prover", address(0));
 
-        depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
+        giveEthAndTko(Alice, 1000 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        giveEthAndTko(Bob, 1e6 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
-        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
+        giveEthAndTko(Carol, 1e6 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Carol));
 
         // Bob
