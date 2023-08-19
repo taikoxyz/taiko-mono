@@ -308,14 +308,20 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             mine(5);
             parentHashes[blockId] = blockHash;
-
-            if (blockId > 2) {
-                assertEq(L1.getCrossChainSignalRoot(blockId - 2), 0);
-            }
-            if (blockId > 1) {
-                assertTrue(L1.getCrossChainSignalRoot(blockId - 1) != 0);
-            }
         }
+
+        uint64 queriedBlockId = 1;
+        bytes32 expectedSR = bytes32(1e9 + uint256(queriedBlockId));
+
+        assertEq(expectedSR, L1.getCrossChainSignalRoot(queriedBlockId));
+
+        // 2nd
+        queriedBlockId = 2;
+        expectedSR = bytes32(1e9 + uint256(queriedBlockId));
+        assertEq(expectedSR, L1.getCrossChainSignalRoot(queriedBlockId));
+
+        // Not found
+        assertEq(bytes32(0), L1.getCrossChainSignalRoot((count + 1)));
     }
 
     function test_L1_deposit_hash_creation() external {
