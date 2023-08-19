@@ -25,8 +25,10 @@ library LibProving {
     );
 
     error L1_ALREADY_PROVEN();
+    error L1_BLOCK_ID_MISMATCH();
     error L1_EVIDENCE_MISMATCH();
     error L1_FORK_CHOICE_NOT_FOUND();
+    error L1_INSTANCE_ZERO();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_EVIDENCE();
     error L1_INVALID_ORACLE_PROVER();
@@ -57,7 +59,7 @@ library LibProving {
 
         TaikoData.Block storage blk =
             state.blocks[blockId % config.blockRingBufferSize];
-        assert(blk.blockId == blockId);
+        if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
 
         // Check the metadata hash matches the proposed block's. This is
         // necessary to handle chain reorgs.
@@ -155,6 +157,7 @@ library LibProving {
 
         TaikoData.Block storage blk =
             state.blocks[blockId % config.blockRingBufferSize];
+        if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
 
         uint16 fcId = LibUtils.getForkChoiceId(
             state, blk, blockId, parentHash, parentGasUsed
@@ -207,6 +210,6 @@ library LibProving {
         assembly {
             instance := keccak256(inputs, mul(32, 10))
         }
-        assert(instance != 0);
+        if (instance == 0) revert L1_INSTANCE_ZERO();
     }
 }

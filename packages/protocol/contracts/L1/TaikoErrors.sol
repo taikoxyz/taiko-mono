@@ -14,8 +14,10 @@ abstract contract TaikoErrors {
     // NOTE: The following custom errors must match the definitions in
     // `L1/libs/*.sol`.
     error L1_ALREADY_PROVEN();
+    error L1_BLOCK_ID_MISMATCH();
     error L1_EVIDENCE_MISMATCH();
     error L1_FORK_CHOICE_NOT_FOUND();
+    error L1_INSTANCE_ZERO();
     error L1_INVALID_ASSIGNMENT();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_CONFIG();
@@ -35,4 +37,5 @@ abstract contract TaikoErrors {
     error L1_TX_LIST_HASH();
     error L1_TX_LIST_RANGE();
     error L1_TX_LIST();
+    error L1_UNEXPECTED_FC_ID();
 }

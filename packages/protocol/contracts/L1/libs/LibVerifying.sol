@@ -28,7 +28,9 @@ library LibVerifying {
         uint64 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
     );
 
+    error L1_BLOCK_ID_MISMATCH();
     error L1_INVALID_CONFIG();
+    error L1_UNEXPECTED_FC_ID();
 
     function init(
         TaikoData.State storage state,
@@ -101,9 +103,10 @@ library LibVerifying {
 
         TaikoData.Block storage blk =
             state.blocks[blockId % config.blockRingBufferSize];
+        if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
 
         uint16 fcId = blk.verifiedForkChoiceId;
-        assert(fcId > 0);
+        if (fcId == 0) revert L1_UNEXPECTED_FC_ID();
 
         bytes32 blockHash = blk.forkChoices[fcId].blockHash;
         uint32 gasUsed = blk.forkChoices[fcId].gasUsed;
@@ -117,7 +120,7 @@ library LibVerifying {
 
             while (blockId < b.numBlocks && processed < maxBlocks) {
                 blk = state.blocks[blockId % config.blockRingBufferSize];
-                assert(blk.blockId == blockId);
+                if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
 
                 fcId = LibUtils.getForkChoiceId(
                     state, blk, blockId, blockHash, gasUsed
