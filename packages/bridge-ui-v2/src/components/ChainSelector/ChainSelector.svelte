@@ -25,7 +25,7 @@
     small ? 'px-2 py-[6px]' : 'px-6 py-[10px]',
     small ? 'rounded-md' : 'rounded-[10px]',
     small ? 'w-auto' : 'w-full',
-    readOnly ? '' : 'hover:bg-tertiary-interactive-hover',
+    readOnly ? '' : 'dark:hover:bg-tertiary-interactive-hover',
     'flex justify-start content-center body-bold py-2 px-[20px]',
   );
 

@@ -125,7 +125,8 @@
   function renderBalance(balance: Maybe<FetchBalanceResult>) {
     if (!balance) return '0.00';
 
-    return `${truncateString(balance.formatted, 6)} ${balance.symbol}`;
+    let maxlength = Number(balance.formatted) < 0.000001 ? balance.decimals : 6;
+    return `${truncateString(balance.formatted, maxlength, '')} ${balance.symbol}`;
   }
 
   // Will trigger on input events. We update the entered amount
