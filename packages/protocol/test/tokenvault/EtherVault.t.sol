@@ -20,7 +20,7 @@ contract TestEtherVault is TestBase {
         etherVault.init(address(addressManager));
     }
 
-    function test_authorize_revert() public {
+    function test_EtherVault_authorize_revert() public {
         vm.prank(Bob);
         vm.expectRevert("Ownable: caller is not the owner");
         etherVault.authorize(Bob, true);
@@ -36,13 +36,17 @@ contract TestEtherVault is TestBase {
         assertTrue(etherVault.isAuthorized(Bob));
     }
 
-    function test_authorize_authorizes_when_owner_authorizing() public {
+    function test_EtherVault_authorize_authorizes_when_owner_authorizing()
+        public
+    {
         vm.prank(Alice);
         etherVault.authorize(Bob, true);
         assertTrue(etherVault.isAuthorized(Bob));
     }
 
-    function test_receive_allows_sending_when_authorized_only() public {
+    function test_EtherVault_receive_allows_sending_when_authorized_only()
+        public
+    {
         assertEq(address(etherVault).balance, 0);
         assertEq(Alice.balance > 0, true);
         vm.startPrank(Alice);
@@ -60,7 +64,7 @@ contract TestEtherVault is TestBase {
         vm.stopPrank();
     }
 
-    function test_releaseEther_reverts_when_zero_address() public {
+    function test_EtherVault_releaseEther_reverts_when_zero_address() public {
         vm.startPrank(Alice);
         etherVault.authorize(Alice, true);
         _seedEtherVault();
@@ -69,7 +73,9 @@ contract TestEtherVault is TestBase {
         etherVault.releaseEther(address(0), 1 ether);
     }
 
-    function test_releaseEther_releases_to_authorized_sender() public {
+    function test_EtherVault_releaseEther_releases_to_authorized_sender()
+        public
+    {
         vm.startPrank(Alice);
         etherVault.authorize(Alice, true);
         _seedEtherVault();
@@ -81,7 +87,8 @@ contract TestEtherVault is TestBase {
         vm.stopPrank();
     }
 
-    function test_releaseEther_releases_to_receipient_via_authorized_sender()
+    function test_EtherVault_releaseEther_releases_to_receipient_via_authorized_sender(
+    )
         public
     {
         vm.startPrank(Alice);

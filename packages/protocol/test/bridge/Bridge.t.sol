@@ -69,7 +69,7 @@ contract BridgeTest is TestBase {
         vm.stopPrank();
     }
 
-    function test_send_ether_to_to_with_value() public {
+    function test_Bridge_send_ether_to_to_with_value() public {
         IBridge.Message memory message = IBridge.Message({
             id: 0,
             from: address(bridge),
@@ -107,7 +107,7 @@ contract BridgeTest is TestBase {
         assertEq(Bob.balance, 1000);
     }
 
-    function test_send_ether_to_contract_with_value() public {
+    function test_Bridge_send_ether_to_contract_with_value() public {
         goodReceiver = new GoodReceiver();
 
         IBridge.Message memory message = IBridge.Message({
@@ -145,7 +145,9 @@ contract BridgeTest is TestBase {
         assertEq(Bob.balance, 1000);
     }
 
-    function test_send_ether_to_contract_with_value_and_message_data() public {
+    function test_Bridge_send_ether_to_contract_with_value_and_message_data()
+        public
+    {
         goodReceiver = new GoodReceiver();
 
         IBridge.Message memory message = IBridge.Message({
@@ -183,7 +185,8 @@ contract BridgeTest is TestBase {
         assertEq(Carol.balance, 500);
     }
 
-    function test_send_message_ether_reverts_if_value_doesnt_match_expected()
+    function test_Bridge_send_message_ether_reverts_if_value_doesnt_match_expected(
+    )
         public
     {
         //uint256 amount = 1 wei;
@@ -200,7 +203,7 @@ contract BridgeTest is TestBase {
         bridge.sendMessage(message);
     }
 
-    function test_send_message_ether_reverts_when_owner_is_zero_address()
+    function test_Bridge_send_message_ether_reverts_when_owner_is_zero_address()
         public
     {
         uint256 amount = 1 wei;
@@ -217,7 +220,8 @@ contract BridgeTest is TestBase {
         bridge.sendMessage{ value: amount }(message);
     }
 
-    function test_send_message_ether_reverts_when_dest_chain_is_not_enabled()
+    function test_Bridge_send_message_ether_reverts_when_dest_chain_is_not_enabled(
+    )
         public
     {
         uint256 amount = 1 wei;
@@ -234,7 +238,7 @@ contract BridgeTest is TestBase {
         bridge.sendMessage{ value: amount }(message);
     }
 
-    function test_send_message_ether_reverts_when_dest_chain_same_as_block_chainid(
+    function test_Bridge_send_message_ether_reverts_when_dest_chain_same_as_block_chainid(
     )
         public
     {
@@ -252,7 +256,9 @@ contract BridgeTest is TestBase {
         bridge.sendMessage{ value: amount }(message);
     }
 
-    function test_send_message_ether_reverts_when_to_is_zero_address() public {
+    function test_Bridge_send_message_ether_reverts_when_to_is_zero_address()
+        public
+    {
         uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
             user: Alice,
@@ -267,7 +273,7 @@ contract BridgeTest is TestBase {
         bridge.sendMessage{ value: amount }(message);
     }
 
-    function test_send_message_ether_with_no_processing_fee() public {
+    function test_Bridge_send_message_ether_with_no_processing_fee() public {
         uint256 amount = 0 wei;
         IBridge.Message memory message = newMessage({
             user: Alice,
@@ -284,7 +290,7 @@ contract BridgeTest is TestBase {
         assertEq(isMessageSent, true);
     }
 
-    function test_send_message_ether_with_processing_fee() public {
+    function test_Bridge_send_message_ether_with_processing_fee() public {
         uint256 amount = 0 wei;
         uint256 fee = 1 wei;
         IBridge.Message memory message = newMessage({
@@ -302,7 +308,7 @@ contract BridgeTest is TestBase {
         assertEq(isMessageSent, true);
     }
 
-    function test_send_message_ether_with_processing_fee_invalid_amount()
+    function test_Bridge_send_message_ether_with_processing_fee_invalid_amount()
         public
     {
         uint256 amount = 0 wei;
@@ -323,7 +329,7 @@ contract BridgeTest is TestBase {
     // test with a known good merkle proof / message since we cant generate
     // proofs via rpc
     // in foundry
-    function test_process_message() public {
+    function test_Bridge_process_message() public {
         /* DISCALIMER: From now on we do not need to have real
         proofs because we cna bypass with overriding shouldCheckProof()
         in a mockBirdge AND proof system already 'battle tested'.*/
@@ -347,7 +353,7 @@ contract BridgeTest is TestBase {
     // test with a known good merkle proof / message since we cant generate
     // proofs via rpc
     // in foundry
-    function test_retry_message_and_end_up_in_failed_status() public {
+    function test_Bridge_retry_message_and_end_up_in_failed_status() public {
         /* DISCALIMER: From now on we do not need to have real
         proofs because we cna bypass with overriding shouldCheckProof()
         in a mockBirdge AND proof system already 'battle tested'.*/

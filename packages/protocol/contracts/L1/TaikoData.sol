@@ -50,6 +50,8 @@ library TaikoData {
         uint16 proofWindow;
         // The amount of Taiko token as a bond
         uint256 proofBond;
+        // True to skip proof verification
+        bool skipProverAssignmentVerificaiton;
         // ---------------------------------------------------------------------
         // Group 4: ETH deposit related configs
         // ---------------------------------------------------------------------

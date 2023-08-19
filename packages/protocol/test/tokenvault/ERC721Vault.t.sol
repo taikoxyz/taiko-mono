@@ -263,7 +263,7 @@ contract ERC721VaultTest is TestBase {
         vm.stopPrank();
     }
 
-    function test_sendToken_721() public {
+    function test_721Vault_sendToken_721() public {
         vm.prank(Alice, Alice);
         canonicalToken721.approve(address(erc721Vault), 1);
 
@@ -293,7 +293,7 @@ contract ERC721VaultTest is TestBase {
         assertEq(ERC721(canonicalToken721).ownerOf(1), address(erc721Vault));
     }
 
-    function test_sendToken_with_invalid_to_address_721() public {
+    function test_721Vault_sendToken_with_invalid_to_address_721() public {
         vm.prank(Alice, Alice);
         canonicalToken721.approve(address(erc721Vault), 1);
 
@@ -322,7 +322,7 @@ contract ERC721VaultTest is TestBase {
         erc721Vault.sendToken{ value: 140_000 }(sendOpts);
     }
 
-    function test_sendToken_with_invalid_token_address() public {
+    function test_721Vault_sendToken_with_invalid_token_address() public {
         vm.prank(Alice, Alice);
         canonicalToken721.approve(address(erc721Vault), 1);
 
@@ -351,7 +351,7 @@ contract ERC721VaultTest is TestBase {
         erc721Vault.sendToken{ value: 140_000 }(sendOpts);
     }
 
-    function test_sendToken_with_1_tokens_but_erc721_amount_1_invalid()
+    function test_721Vault_sendToken_with_1_tokens_but_erc721_amount_1_invalid()
         public
     {
         vm.prank(Alice, Alice);
@@ -381,7 +381,7 @@ contract ERC721VaultTest is TestBase {
         erc721Vault.sendToken{ value: 140_000 }(sendOpts);
     }
 
-    function test_receiveTokens_from_newly_deployed_bridged_contract_on_destination_chain_721(
+    function test_721Vault_receiveTokens_from_newly_deployed_bridged_contract_on_destination_chain_721(
     )
         public
     {
@@ -444,7 +444,8 @@ contract ERC721VaultTest is TestBase {
         assertEq(ERC721(deployedContract).ownerOf(1), Alice);
     }
 
-    function test_receiveTokens_but_mint_not_deploy_if_bridged_second_time_721()
+    function test_721Vault_receiveTokens_but_mint_not_deploy_if_bridged_second_time_721(
+    )
         public
     {
         vm.prank(Alice, Alice);
@@ -554,7 +555,7 @@ contract ERC721VaultTest is TestBase {
         assertEq(bridgedContract, deployedContract);
     }
 
-    function test_receiveTokens_erc721_with_ether_to_dave() public {
+    function test_721Vault_receiveTokens_erc721_with_ether_to_dave() public {
         vm.prank(Alice, Alice);
         canonicalToken721.approve(address(erc721Vault), 1);
 
@@ -616,7 +617,7 @@ contract ERC721VaultTest is TestBase {
         assertEq(etherValue, David.balance);
     }
 
-    function test_onMessageRecalled_721() public {
+    function test_721Vault_onMessageRecalled_721() public {
         vm.prank(Alice, Alice);
         canonicalToken721.approve(address(erc721Vault), 1);
 
@@ -677,7 +678,7 @@ contract ERC721VaultTest is TestBase {
         assertEq(canonicalToken721.ownerOf(1), Alice);
     }
 
-    function test_receiveTokens_multiple_721() public {
+    function test_721Vault_receiveTokens_multiple_721() public {
         vm.prank(Alice, Alice);
         canonicalToken721.approve(address(erc721Vault), 1);
         vm.prank(Alice, Alice);
@@ -744,7 +745,9 @@ contract ERC721VaultTest is TestBase {
         assertEq(ERC721(deployedContract).ownerOf(2), Alice);
     }
 
-    function test_bridge_back_but_owner_is_different_now_721() public {
+    function test_721Vault_bridge_back_but_owner_is_different_now_721()
+        public
+    {
         vm.prank(Alice, Alice);
         canonicalToken721.approve(address(erc721Vault), 1);
         vm.prank(Alice, Alice);
@@ -858,7 +861,7 @@ contract ERC721VaultTest is TestBase {
         assertEq(canonicalToken721.ownerOf(1), Bob);
     }
 
-    function test_bridge_back_but_original_owner_cannot_claim_it_anymore_if_sold_721(
+    function test_721Vault_bridge_back_but_original_owner_cannot_claim_it_anymore_if_sold_721(
     )
         public
     {
@@ -953,7 +956,7 @@ contract ERC721VaultTest is TestBase {
         destChainErc721Vault.sendToken{ value: 140_000 }(sendOpts);
     }
 
-    function test_upgrade_bridged_tokens_721() public {
+    function test_721Vault_upgrade_bridged_tokens_721() public {
         vm.prank(Alice, Alice);
         canonicalToken721.approve(address(erc721Vault), 1);
         vm.prank(Alice, Alice);

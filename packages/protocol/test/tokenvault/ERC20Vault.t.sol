@@ -149,7 +149,7 @@ contract TestERC20Vault is Test {
         vm.stopPrank();
     }
 
-    function test_send_erc20_revert_if_allowance_not_set() public {
+    function test_20Vault_send_erc20_revert_if_allowance_not_set() public {
         vm.startPrank(Alice);
 
         vm.expectRevert("ERC20: insufficient allowance");
@@ -160,7 +160,7 @@ contract TestERC20Vault is Test {
         );
     }
 
-    function test_send_erc20_no_processing_fee() public {
+    function test_20Vault_send_erc20_no_processing_fee() public {
         vm.startPrank(Alice);
 
         uint256 amount = 2 wei;
@@ -182,7 +182,8 @@ contract TestERC20Vault is Test {
         assertEq(erc20VaultBalanceAfter - erc20VaultBalanceBefore, amount);
     }
 
-    function test_send_erc20_processing_fee_reverts_if_msg_value_too_low()
+    function test_20Vault_send_erc20_processing_fee_reverts_if_msg_value_too_low(
+    )
         public
     {
         vm.startPrank(Alice);
@@ -205,7 +206,7 @@ contract TestERC20Vault is Test {
         );
     }
 
-    function test_send_erc20_processing_fee() public {
+    function test_20Vault_send_erc20_processing_fee() public {
         vm.startPrank(Alice);
 
         uint256 amount = 2 wei;
@@ -234,7 +235,7 @@ contract TestERC20Vault is Test {
         assertEq(erc20VaultBalanceAfter - erc20VaultBalanceBefore, 1);
     }
 
-    function test_send_erc20_reverts_invalid_amount() public {
+    function test_20Vault_send_erc20_reverts_invalid_amount() public {
         vm.startPrank(Alice);
 
         uint256 amount = 0;
@@ -247,7 +248,7 @@ contract TestERC20Vault is Test {
         );
     }
 
-    function test_send_erc20_reverts_invalid_token_address() public {
+    function test_20Vault_send_erc20_reverts_invalid_token_address() public {
         vm.startPrank(Alice);
 
         uint256 amount = 1;
@@ -260,7 +261,7 @@ contract TestERC20Vault is Test {
         );
     }
 
-    function test_send_erc20_reverts_invalid_to() public {
+    function test_20Vault_send_erc20_reverts_invalid_to() public {
         vm.startPrank(Alice);
 
         uint256 amount = 1;
@@ -280,7 +281,7 @@ contract TestERC20Vault is Test {
         );
     }
 
-    function test_receive_erc20_canonical_to_dest_chain_transfers_from_canonical_token(
+    function test_20Vault_receive_erc20_canonical_to_dest_chain_transfers_from_canonical_token(
     )
         public
     {
@@ -315,7 +316,7 @@ contract TestERC20Vault is Test {
         assertEq(toBalanceAfter - toBalanceBefore, amount);
     }
 
-    function test_receiveTokens_erc20_with_ether_to_dave() public {
+    function test_20Vault_receiveTokens_erc20_with_ether_to_dave() public {
         vm.startPrank(Alice);
 
         uint256 srcChainId = block.chainid;
@@ -349,7 +350,7 @@ contract TestERC20Vault is Test {
         assertEq(Dave.balance, etherAmount);
     }
 
-    function test_receive_erc20_non_canonical_to_dest_chain_deploys_new_bridged_token_and_mints(
+    function test_20Vault_receive_erc20_non_canonical_to_dest_chain_deploys_new_bridged_token_and_mints(
     )
         public
     {
@@ -400,7 +401,7 @@ contract TestERC20Vault is Test {
         });
     }
 
-    function test_upgrade_bridged_tokens_20() public {
+    function test_20Vault_upgrade_bridged_tokens_20() public {
         vm.startPrank(Alice);
 
         uint256 srcChainId = block.chainid;

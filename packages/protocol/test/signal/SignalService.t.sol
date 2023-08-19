@@ -49,12 +49,12 @@ contract TestSignalService is TestBase {
         vm.stopPrank();
     }
 
-    function test_sendSignal_revert() public {
+    function test_SignalService_sendSignal_revert() public {
         vm.expectRevert(SignalService.B_ZERO_SIGNAL.selector);
         signalService.sendSignal(0);
     }
 
-    function test_isSignalSent_revert() public {
+    function test_SignalService_isSignalSent_revert() public {
         bytes32 signal = bytes32(uint256(1));
         vm.expectRevert(SignalService.B_NULL_APP_ADDR.selector);
         signalService.isSignalSent(address(0), signal);
@@ -64,7 +64,7 @@ contract TestSignalService is TestBase {
         signalService.isSignalSent(Alice, signal);
     }
 
-    function test_sendSignal_isSignalSent() public {
+    function test_SignalService_sendSignal_isSignalSent() public {
         vm.startPrank(Alice);
         bytes32 signal = bytes32(uint256(1));
         signalService.sendSignal(signal);
@@ -72,7 +72,7 @@ contract TestSignalService is TestBase {
         assertTrue(signalService.isSignalSent(Alice, signal));
     }
 
-    function test_getSignalSlot() public {
+    function test_SignalService_getSignalSlot() public {
         vm.startPrank(Alice);
         for (uint8 i = 1; i < 100; i++) {
             bytes32 signal = bytes32(block.prevrandao + i);
@@ -89,7 +89,7 @@ contract TestSignalService is TestBase {
         }
     }
 
-    function test_isSignalReceived_revert() public {
+    function test_SignalService_isSignalReceived_revert() public {
         bytes32 signal = bytes32(uint256(1));
         bytes memory proof = new bytes(1);
         vm.expectRevert(SignalService.B_WRONG_CHAIN_ID.selector);
@@ -111,7 +111,7 @@ contract TestSignalService is TestBase {
         signalService.isSignalReceived(destChainId, Alice, signal, proof);
     }
 
-    function test_isSignalReceived() public {
+    function test_SignalService_isSignalReceived() public {
         // This specific value is used, do not change it.
         address Dave = 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39;
 

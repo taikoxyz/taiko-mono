@@ -69,22 +69,28 @@ library LibProposing {
             revert L1_INVALID_ASSIGNMENT();
         }
 
-        // Verify prover authorization and pay the prover Ether as proving fee.
-        // Note that this payment is permanent. If the prover failed to prove
-        // the block, its bond is used to pay the actual prover.
-        if (assignment.prover.isContract()) {
-            IProver(assignment.prover).onBlockAssigned{ value: msg.value }(
-                input, assignment
-            );
-        } else {
-            bytes32 hash =
-                keccak256(abi.encode(input, msg.value, assignment.expiry));
-            if (assignment.prover != hash.recover(assignment.data)) {
-                revert L1_INVALID_PROVER_SIG();
-            }
+        if (config.skipProverAssignmentVerificaiton) {
+            // For testing only
             assignment.prover.sendEther(msg.value);
+        } else {
+            // Verify prover authorization and pay the prover Ether as proving
+            // fee.
+            // Note that this payment is permanent. If the prover failed to
+            // prove
+            // the block, its bond is used to pay the actual prover.
+            if (assignment.prover.isContract()) {
+                IProver(assignment.prover).onBlockAssigned{ value: msg.value }(
+                    input, assignment
+                );
+            } else {
+                bytes32 hash =
+                    keccak256(abi.encode(input, msg.value, assignment.expiry));
+                if (assignment.prover != hash.recover(assignment.data)) {
+                    revert L1_INVALID_PROVER_SIG();
+                }
+                assignment.prover.sendEther(msg.value);
+            }
         }
-
         // Burn the prover's bond to this address
         TaikoToken(resolver.resolve("taiko_token", false)).burn(
             assignment.prover, config.proofBond

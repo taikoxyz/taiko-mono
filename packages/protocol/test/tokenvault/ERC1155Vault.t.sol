@@ -243,7 +243,7 @@ contract ERC1155VaultTest is TestBase {
         vm.stopPrank();
     }
 
-    function test_sendToken_1155() public {
+    function test_1155Vault_sendToken_1155() public {
         vm.prank(Alice, Alice);
         ctoken1155.setApprovalForAll(address(erc1155Vault), true);
 
@@ -275,7 +275,7 @@ contract ERC1155VaultTest is TestBase {
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 2);
     }
 
-    function test_sendToken_with_invalid_to_address_1155() public {
+    function test_1155Vault_sendToken_with_invalid_to_address_1155() public {
         vm.prank(Alice, Alice);
         ctoken1155.setApprovalForAll(address(erc1155Vault), true);
 
@@ -305,7 +305,9 @@ contract ERC1155VaultTest is TestBase {
         erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
     }
 
-    function test_sendToken_with_invalid_token_address_1155() public {
+    function test_1155Vault_sendToken_with_invalid_token_address_1155()
+        public
+    {
         vm.prank(Alice, Alice);
         ctoken1155.setApprovalForAll(address(erc1155Vault), true);
 
@@ -335,7 +337,7 @@ contract ERC1155VaultTest is TestBase {
         erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
     }
 
-    function test_sendToken_with_0_tokens_1155() public {
+    function test_1155Vault_sendToken_with_0_tokens_1155() public {
         vm.prank(Alice, Alice);
         ctoken1155.setApprovalForAll(address(erc1155Vault), true);
 
@@ -365,7 +367,7 @@ contract ERC1155VaultTest is TestBase {
         erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
     }
 
-    function test_receiveTokens_from_newly_deployed_bridged_contract_on_destination_chain_1155(
+    function test_1155Vault_receiveTokens_from_newly_deployed_bridged_contract_on_destination_chain_1155(
     )
         public
     {
@@ -431,7 +433,7 @@ contract ERC1155VaultTest is TestBase {
         assertEq(ERC1155(deployedContract).balanceOf(Alice, 1), 2);
     }
 
-    function test_receiveTokens_but_mint_not_deploy_if_bridged_second_time_1155(
+    function test_1155Vault_receiveTokens_but_mint_not_deploy_if_bridged_second_time_1155(
     )
         public
     {
@@ -540,7 +542,7 @@ contract ERC1155VaultTest is TestBase {
         assertEq(bridgedContract, deployedContract);
     }
 
-    function test_receiveTokens_erc1155_with_ether_to_dave() public {
+    function test_1155Vault_receiveTokens_erc1155_with_ether_to_dave() public {
         vm.prank(Alice, Alice);
         ctoken1155.setApprovalForAll(address(erc1155Vault), true);
 
@@ -606,7 +608,7 @@ contract ERC1155VaultTest is TestBase {
         assertEq(David.balance, etherValue);
     }
 
-    function test_onMessageRecalled_1155() public {
+    function test_1155Vault_onMessageRecalled_1155() public {
         vm.prank(Alice, Alice);
         ctoken1155.setApprovalForAll(address(erc1155Vault), true);
 
@@ -671,7 +673,7 @@ contract ERC1155VaultTest is TestBase {
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 0);
     }
 
-    function test_receiveTokens_multiple_1155() public {
+    function test_1155Vault_receiveTokens_multiple_1155() public {
         vm.prank(Alice, Alice);
         ctoken1155.setApprovalForAll(address(erc1155Vault), true);
 
@@ -742,7 +744,9 @@ contract ERC1155VaultTest is TestBase {
         assertEq(ERC1155(deployedContract).balanceOf(Alice, 2), 5);
     }
 
-    function test_bridge_back_but_owner_is_different_now_1155() public {
+    function test_1155Vault_bridge_back_but_owner_is_different_now_1155()
+        public
+    {
         vm.prank(Alice, Alice);
         ctoken1155.setApprovalForAll(address(erc1155Vault), true);
 
@@ -860,7 +864,7 @@ contract ERC1155VaultTest is TestBase {
         assertEq(ctoken1155.balanceOf(Bob, 1), 1);
     }
 
-    function test_bridge_back_but_original_owner_cannot_claim_it_anymore_if_sold_1155(
+    function test_1155Vault_bridge_back_but_original_owner_cannot_claim_it_anymore_if_sold_1155(
     )
         public
     {
@@ -956,7 +960,7 @@ contract ERC1155VaultTest is TestBase {
         destChainErc1155Vault.sendToken{ value: 140_000 }(sendOpts);
     }
 
-    function test_upgrade_bridged_tokens_1155() public {
+    function test_1155Vault_upgrade_bridged_tokens_1155() public {
         vm.prank(Alice, Alice);
         ctoken1155.setApprovalForAll(address(erc1155Vault), true);
 
