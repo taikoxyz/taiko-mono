@@ -9,41 +9,16 @@ import { BridgeErrors } from "../../contracts/bridge/BridgeErrors.sol";
 import { console2 } from "forge-std/console2.sol";
 import { FreeMintERC20 } from "../../contracts/test/erc20/FreeMintERC20.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
-import { Test } from "forge-std/Test.sol";
-import { ICrossChainSync } from "../../contracts/common/ICrossChainSync.sol";
+import { TestBase } from "../TestBase.sol";
+import { DummyCrossChainSync } from "./DummyCrossChainSync.sol";
 
-contract PrankCrossChainSync is ICrossChainSync {
-    bytes32 private _blockHash;
-    bytes32 private _signalRoot;
-
-    function setCrossChainBlockHeader(bytes32 blockHash) external {
-        _blockHash = blockHash;
-    }
-
-    function setCrossChainSignalRoot(bytes32 signalRoot) external {
-        _signalRoot = signalRoot;
-    }
-
-    function getCrossChainBlockHash(uint64) external view returns (bytes32) {
-        return _blockHash;
-    }
-
-    function getCrossChainSignalRoot(uint64) external view returns (bytes32) {
-        return _signalRoot;
-    }
-}
-
-contract TestSignalService is Test {
+contract TestSignalService is TestBase {
     AddressManager addressManager;
 
     SignalService signalService;
     SignalService destSignalService;
-    PrankCrossChainSync crossChainSync;
+    DummyCrossChainSync crossChainSync;
     uint256 destChainId = 7;
-
-    address public constant Alice = 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4;
-    address public constant Bob = 0x200708D76eB1B69761c23821809d53F65049939e;
-    address public Carol = 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39;
 
     function setUp() public {
         vm.startPrank(Alice);
@@ -59,7 +34,7 @@ contract TestSignalService is Test {
         destSignalService = new SignalService();
         destSignalService.init(address(addressManager));
 
-        crossChainSync = new PrankCrossChainSync();
+        crossChainSync = new DummyCrossChainSync();
 
         addressManager.setAddress(
             block.chainid, "signal_service", address(signalService)
@@ -67,10 +42,6 @@ contract TestSignalService is Test {
 
         addressManager.setAddress(
             destChainId, "signal_service", address(destSignalService)
-        );
-
-        addressManager.setAddress(
-            block.chainid, "signal_service", address(signalService)
         );
 
         addressManager.setAddress(destChainId, "taiko", address(crossChainSync));
@@ -157,8 +128,8 @@ contract TestSignalService is Test {
 
     function test_is_signal_received() public {
         // known signal with known proof for known block header/signalRoot from
-        // a known chain ID
-        // of 1336, since we cant generate merkle proofs with foundry.
+        // a known chain ID of 1336, since we cant generate merkle proofs with
+        // foundry.
         bytes32 signal = bytes32(
             0xa99d658793daba4d352c77378e2d0f3b12ff47503518b3ec9ad61bb33ee7031d
         );
