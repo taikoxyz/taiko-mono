@@ -207,7 +207,7 @@ abstract contract TaikoL1TestBase is TestBase {
         );
     }
 
-    function depositTaikoToken(
+    function giveEthAndTko(
         address to,
         uint256 amountTko,
         uint256 amountEth
