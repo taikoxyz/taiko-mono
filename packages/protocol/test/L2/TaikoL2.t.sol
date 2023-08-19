@@ -1,23 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
-import { LibL2Consts } from "../contracts/L2/LibL2Consts.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-import { TaikoL2 } from "../contracts/L2/TaikoL2.sol";
 import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import { TestBase } from "../TestBase.sol";
+import { TaikoL2 } from "../../contracts/L2/TaikoL2.sol";
 
-contract TestTaikoL2 is Test {
+contract TestTaikoL2 is TestBase {
     using SafeCastUpgradeable for uint256;
 
-    uint32 public constant BLOCK_GAS_LIMIT = 30_000_000; // same as
-        // `block_gas_limit` in foundry.toml
+    // same as `block_gas_limit` in foundry.toml
+    uint32 public constant BLOCK_GAS_LIMIT = 30_000_000;
 
     TaikoL2 public L2;
     uint256 private logIndex;
-    uint32 private ANCHOR_GAS_COST = LibL2Consts.ANCHOR_GAS_COST;
 
     function setUp() public {
         uint16 rand = 2;
@@ -30,13 +28,14 @@ contract TestTaikoL2 is Test {
         });
 
         L2 = new TaikoL2();
-        L2.init(address(1), param1559); // Dummy address manager address.
+        address dummyAddressManager = getRandomAddress();
+        L2.init(dummyAddressManager, param1559);
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);
     }
 
-    function testAnchorTxsBlocktimeConstant() external {
+    function test_L2_AnchorTx_with_constant_block_time() external {
         uint256 firstBasefee;
         for (uint256 i = 0; i < 100; i++) {
             uint256 basefee = _getBasefeeAndPrint2(0, BLOCK_GAS_LIMIT);
@@ -56,7 +55,7 @@ contract TestTaikoL2 is Test {
         }
     }
 
-    function testAnchorTxsBlocktimeDecreasing() external {
+    function test_L2_AnchorTx_with_decreasing_block_time() external {
         uint256 prevBasefee;
 
         for (uint256 i = 0; i < 32; i++) {
@@ -74,7 +73,7 @@ contract TestTaikoL2 is Test {
         }
     }
 
-    function testAnchorTxsBlocktimeIncreasing() external {
+    function test_L2_AnchorTx_with_increasing_block_time() external {
         uint256 prevBasefee;
 
         for (uint256 i = 0; i < 30; i++) {
@@ -96,7 +95,7 @@ contract TestTaikoL2 is Test {
     }
 
     // calling anchor in the same block more than once should fail
-    function testAnchorTxsFailInTheSameBlock() external {
+    function test_L2_AnchorTx_revert_in_same_block() external {
         uint256 expectedBasefee = _getBasefeeAndPrint2(0, BLOCK_GAS_LIMIT);
         vm.fee(expectedBasefee);
 
@@ -109,14 +108,14 @@ contract TestTaikoL2 is Test {
     }
 
     // calling anchor in the same block more than once should fail
-    function testAnchorTxsFailByNonTaikoL2Signer() external {
+    function test_L2_AnchorTx_revert_from_wrong_signer() external {
         uint256 expectedBasefee = _getBasefeeAndPrint2(0, BLOCK_GAS_LIMIT);
         vm.fee(expectedBasefee);
         vm.expectRevert();
         _anchor(BLOCK_GAS_LIMIT);
     }
 
-    function testAnchorSigning(bytes32 digest) external {
+    function test_L2_AnchorTx_signing(bytes32 digest) external {
         (uint8 v, uint256 r, uint256 s) = L2.signAnchor(digest, uint8(1));
         address signer = ecrecover(digest, v + 27, bytes32(r), bytes32(s));
         assertEq(signer, L2.GOLDEN_TOUCH_ADDRESS());
@@ -132,7 +131,7 @@ contract TestTaikoL2 is Test {
         L2.signAnchor(digest, uint8(3));
     }
 
-    function testGetBasefee() external {
+    function test_L2_getBasefee() external {
         uint64 timeSinceParent = uint64(block.timestamp - L2.parentTimestamp());
         assertEq(_getBasefeeAndPrint(timeSinceParent, 0), 317_609_019);
 
@@ -187,16 +186,13 @@ contract TestTaikoL2 is Test {
     {
         return _getBasefeeAndPrint(
             uint32(timeSinceNow + block.timestamp - L2.parentTimestamp()),
-            gasLimit + ANCHOR_GAS_COST
+            gasLimit
         );
     }
 
     function _anchor(uint32 parentGasLimit) private {
-        L2.anchor(
-            keccak256("a"),
-            keccak256("b"),
-            12_345,
-            parentGasLimit + ANCHOR_GAS_COST
-        );
+        bytes32 l1Hash = getRandomBytes32();
+        bytes32 l1SignalRoot = getRandomBytes32();
+        L2.anchor(l1Hash, l1SignalRoot, 12_345, parentGasLimit);
     }
 }

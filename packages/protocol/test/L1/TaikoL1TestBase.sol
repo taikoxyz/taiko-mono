@@ -1,19 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { Test } from "forge-std/Test.sol";
+import { TestBase } from "../TestBase.sol";
 import { console2 } from "forge-std/console2.sol";
-import { AddressManager } from "../contracts/common/AddressManager.sol";
-import { LibUtils } from "../contracts/L1/libs/LibUtils.sol";
-import { TaikoConfig } from "../contracts/L1/TaikoConfig.sol";
-import { TaikoData } from "../contracts/L1/TaikoData.sol";
-import { TaikoL1 } from "../contracts/L1/TaikoL1.sol";
-import { TaikoToken } from "../contracts/L1/TaikoToken.sol";
-import { IProverPool } from "../contracts/L1/IProverPool.sol";
-import { ProofVerifier } from "../contracts/L1/ProofVerifier.sol";
-import { SignalService } from "../contracts/signal/SignalService.sol";
+import { AddressManager } from "../../contracts/common/AddressManager.sol";
+import { LibUtils } from "../../contracts/L1/libs/LibUtils.sol";
+import { TaikoData } from "../../contracts/L1/TaikoData.sol";
+import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
+import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
+import { ProofVerifier } from "../../contracts/L1/ProofVerifier.sol";
+import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-import { AddressResolver } from "../contracts/common/AddressResolver.sol";
+import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
 
 contract MockVerifier {
     fallback(bytes calldata) external returns (bytes memory) {
@@ -21,48 +19,12 @@ contract MockVerifier {
     }
 }
 
-contract MockProverPool is IProverPool {
-    address private _prover;
-    uint32 private _rewardPerGas;
-
-    function reset(address prover, uint32 rewardPerGas) external {
-        assert(prover != address(0) && rewardPerGas != 0);
-        _prover = prover;
-        _rewardPerGas = rewardPerGas;
-    }
-
-    function assignProver(
-        uint64, /*blockId*/
-        uint32 /*feePerGas*/
-    )
-        external
-        view
-        override
-        returns (address, uint32)
-    {
-        return (_prover, _rewardPerGas);
-    }
-
-    function releaseProver(address prover) external pure override { }
-
-    function slashProver(
-        uint64 blockId,
-        address prover,
-        uint64 proofReward
-    )
-        external
-        pure
-        override
-    { }
-}
-
-abstract contract TaikoL1TestBase is Test {
+abstract contract TaikoL1TestBase is TestBase {
     AddressManager public addressManager;
     TaikoToken public tko;
     SignalService public ss;
     TaikoL1 public L1;
     TaikoData.Config conf;
-    MockProverPool public proverPool;
     uint256 internal logCount;
     ProofVerifier public pv;
 
@@ -75,8 +37,8 @@ abstract contract TaikoL1TestBase is Test {
     // 1 TKO --> it is to huge. It should be in 'wei' (?).
     // Because otherwise first proposal is around: 1TKO * (1_000_000+20_000)
     // required as a deposit.
-    uint32 feePerGas = 10;
-    uint16 proofWindow = 60 minutes;
+    // uint32 feePerGas = 10;
+    // uint16 proofWindow = 60 minutes;
     uint64 l2GasExcess = 1e18;
 
     address public constant L2Treasury =
@@ -85,18 +47,6 @@ abstract contract TaikoL1TestBase is Test {
     address public constant TaikoL2 = 0x0082D90249342980d011C58105a03b35cCb4A315;
     address public constant L1EthVault =
         0xDAFEA492D9c6733ae3d56b7Ed1ADB60692c98Bc5;
-
-    address public constant Alice = 0xa9bcF99f5eb19277f48b71F9b14f5960AEA58a89;
-    uint256 public constant AlicePK =
-        0x8fb342c39a93ad26e674cbcdc65dc45795107e1b51776aac15f9776c0e9d2cea;
-
-    address public constant Bob = 0x200708D76eB1B69761c23821809d53F65049939e;
-    address public constant Carol = 0x300C9b60E19634e12FC6D68B7FEa7bFB26c2E419;
-    address public constant Dave = 0x400147C0Eb43D8D71b2B03037bB7B31f8f78EF5F;
-    address public constant Eve = 0x50081b12838240B1bA02b3177153Bca678a86078;
-    address public constant Frank = 0x430c9b60e19634e12FC6d68B7fEa7bFB26c2e419;
-    address public constant George = 0x520147C0eB43d8D71b2b03037bB7b31f8F78EF5f;
-    address public constant Hilbert = 0x61081B12838240B1Ba02b3177153BcA678a86078;
 
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 
@@ -107,8 +57,6 @@ abstract contract TaikoL1TestBase is Test {
         addressManager = new AddressManager();
         addressManager.init();
 
-        proverPool = new MockProverPool();
-
         ss = new SignalService();
         ss.init(address(addressManager));
 
@@ -118,7 +66,6 @@ abstract contract TaikoL1TestBase is Test {
         registerAddress("proof_verifier", address(pv));
         registerAddress("signal_service", address(ss));
         registerAddress("ether_vault", address(L1EthVault));
-        registerAddress("prover_pool", address(proverPool));
         registerL2Address("treasury", L2Treasury);
         registerL2Address("taiko", address(TaikoL2));
         registerL2Address("signal_service", address(L2SS));
@@ -140,12 +87,10 @@ abstract contract TaikoL1TestBase is Test {
 
         // Set protocol broker
         registerAddress("taiko", address(this));
-        tko.mint(address(this), 1e9 * 1e8);
+        tko.mint(address(this), 1e9 ether);
         registerAddress("taiko", address(L1));
 
-        L1.init(
-            address(addressManager), GENESIS_BLOCK_HASH, feePerGas, proofWindow
-        );
+        L1.init(address(addressManager), GENESIS_BLOCK_HASH);
         printVariables("init  ");
 
         inputs012[0] =
@@ -159,12 +104,20 @@ abstract contract TaikoL1TestBase is Test {
 
     function proposeBlock(
         address proposer,
+        address prover,
         uint32 gasLimit,
         uint24 txListSize
     )
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
+        TaikoData.ProverAssignment memory assignment = TaikoData
+            .ProverAssignment({
+            prover: prover,
+            expiry: uint64(block.timestamp + 60 minutes),
+            data: new bytes(0)
+        });
+
         bytes memory txList = new bytes(txListSize);
         TaikoData.BlockMetadataInput memory input = TaikoData.BlockMetadataInput({
             beneficiary: proposer,
@@ -191,10 +144,10 @@ abstract contract TaikoL1TestBase is Test {
         meta.txListByteEnd = txListSize;
         meta.gasLimit = gasLimit;
         meta.beneficiary = proposer;
-        meta.treasury = L2Treasury;
 
         vm.prank(proposer, proposer);
-        meta = L1.proposeBlock(abi.encode(input), txList);
+        meta =
+            L1.proposeBlock(abi.encode(input), abi.encode(assignment), txList);
     }
 
     function proveBlock(
@@ -237,7 +190,7 @@ abstract contract TaikoL1TestBase is Test {
         L1.proveBlock(meta.id, abi.encode(evidence));
     }
 
-    function verifyBlock(address verifier, uint256 count) internal {
+    function verifyBlock(address verifier, uint64 count) internal {
         vm.prank(verifier, verifier);
         L1.verifyBlocks(count);
     }
@@ -254,20 +207,19 @@ abstract contract TaikoL1TestBase is Test {
         );
     }
 
-    function depositTaikoToken(
-        address who,
-        uint64 amountTko,
+    function giveEthAndTko(
+        address to,
+        uint256 amountTko,
         uint256 amountEth
     )
         internal
     {
-        vm.deal(who, amountEth);
-        tko.transfer(who, amountTko);
-        console2.log("who", who);
-        console2.log("balance:", tko.balanceOf(who));
-        vm.prank(who, who);
-        // Keep half for proving and deposit half for proposing fee
-        L1.depositTaikoToken(amountTko / 2);
+        vm.deal(to, amountEth);
+        console2.log("TKO balance this:", tko.balanceOf(address(this)));
+        console2.log(amountTko);
+        tko.transfer(to, amountTko);
+        console2.log("TKO balance:", to, tko.balanceOf(to));
+        console2.log("ETH balance:", to, to.balance);
     }
 
     function printVariables(string memory comment) internal {

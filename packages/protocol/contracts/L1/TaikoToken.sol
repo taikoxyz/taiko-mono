@@ -24,10 +24,6 @@ import { EssentialContract } from "../common/EssentialContract.sol";
 import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { Proxied } from "../common/Proxied.sol";
 
-library LibTaikoTokenConfig {
-    uint8 public constant DECIMALS = uint8(8);
-}
-
 /// @title TaikoToken
 /// @notice The TaikoToken (TKO) is used for proposing blocks and also for
 /// staking in the Taiko protocol. It is an ERC20 token with 8 decimal places of
@@ -44,7 +40,6 @@ contract TaikoToken is
 {
     error TKO_INVALID_ADDR();
     error TKO_INVALID_PREMINT_PARAMS();
-    error TKO_MINT_DISALLOWED();
 
     /// @notice Initializes the TaikoToken contract and mints initial tokens to
     /// specified recipients.
@@ -101,7 +96,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        onlyFromNamed4("taiko", "prover_pool", "dao", "erc20_vault")
+        onlyFromNamed2("taiko", "erc20_vault")
     {
         _mint(to, amount);
     }
@@ -114,7 +109,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        onlyFromNamed4("taiko", "prover_pool", "dao", "erc20_vault")
+        onlyFromNamed2("taiko", "erc20_vault")
     {
         _burn(from, amount);
     }
@@ -153,12 +148,6 @@ contract TaikoToken is
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
 
-    /// @notice Returns the number of decimals used for token display.
-    /// @return The number of decimals used for token display.
-    function decimals() public pure override returns (uint8) {
-        return LibTaikoTokenConfig.DECIMALS;
-    }
-
     function _beforeTokenTransfer(
         address from,
         address to,
@@ -190,8 +179,6 @@ contract TaikoToken is
         override(ERC20Upgradeable, ERC20VotesUpgradeable)
     {
         super._mint(to, amount);
-
-        if (totalSupply() > type(uint64).max) revert TKO_MINT_DISALLOWED();
         emit Transfer(address(0), to, amount);
     }
 

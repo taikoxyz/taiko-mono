@@ -3,16 +3,15 @@ pragma solidity ^0.8.20;
 
 import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
-import { AddressManager } from "../contracts/common/AddressManager.sol";
-import { LibUtils } from "../contracts/L1/libs/LibUtils.sol";
-import { TaikoConfig } from "../contracts/L1/TaikoConfig.sol";
-import { TaikoData } from "../contracts/L1/TaikoData.sol";
-import { TaikoErrors } from "../contracts/L1/TaikoErrors.sol";
-import { TaikoL1 } from "../contracts/L1/TaikoL1.sol";
-import { TaikoToken } from "../contracts/L1/TaikoToken.sol";
-import { SignalService } from "../contracts/signal/SignalService.sol";
+import { AddressManager } from "../../contracts/common/AddressManager.sol";
+import { LibUtils } from "../../contracts/L1/libs/LibUtils.sol";
+import { TaikoData } from "../../contracts/L1/TaikoData.sol";
+import { TaikoErrors } from "../../contracts/L1/TaikoErrors.sol";
+import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
+import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
+import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-import { TaikoL1TestBase } from "./TaikoL1TestBase.t.sol";
+import { TaikoL1TestBase } from "./TaikoL1TestBase.sol";
 
 contract TaikoL1Oracle is TaikoL1 {
     function getConfig()
@@ -21,13 +20,15 @@ contract TaikoL1Oracle is TaikoL1 {
         override
         returns (TaikoData.Config memory config)
     {
-        config = TaikoConfig.getConfig();
+        config = TaikoL1.getConfig();
 
         config.blockTxListExpiry = 5 minutes;
         config.blockMaxVerificationsPerTx = 0;
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 12;
         config.proofRegularCooldown = 15 minutes;
+        config.skipProverAssignmentVerificaiton = true;
+        config.proofBond = 1 ether;
     }
 }
 
@@ -48,21 +49,20 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         registerAddress("oracle_prover", Alice);
     }
 
-    function testOracleProverCanAlwaysOverwriteIfNotSameProof() external {
+    function test_L1_OracleProverCanAlwaysOverwriteIfNotSameProof() external {
         // Carol is the oracle prover
         registerAddress("oracle_prover", Carol);
 
-        depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
+        giveEthAndTko(Alice, 1000 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        giveEthAndTko(Bob, 1e6 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
-        proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -74,7 +74,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         ) {
             printVariables("before propose");
             TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+                proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -109,7 +109,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             verifyBlock(Carol, 1);
 
             // This is verified, user cannot re-verify it
-            vm.expectRevert(TaikoErrors.L1_BLOCK_ID.selector);
+            vm.expectRevert(TaikoErrors.L1_INVALID_BLOCK_ID.selector);
             proveBlock(
                 Bob,
                 Bob,
@@ -127,21 +127,20 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         printVariables("");
     }
 
-    function testOracleProverCannotOverwriteIfSameProof() external {
+    function test_L1_OracleProverCannotOverwriteIfSameProof() external {
         // Carol is the oracle prover
         registerAddress("oracle_prover", Carol);
 
-        depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
+        giveEthAndTko(Alice, 1000 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        giveEthAndTko(Bob, 1e6 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
-        proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -153,7 +152,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         ) {
             printVariables("before propose");
             TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+                proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -210,23 +209,22 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     /// @notice In case oracle_prover is disbaled, there
     /// is no reason why
     /// @notice cooldowns be above 0 min tho (!).
-    function test_if_oracle_is_disabled_cooldown_is_still_as_proofRegularCooldown(
+    function test_L1_if_oracle_is_disabled_cooldown_is_still_as_proofRegularCooldown(
     )
         external
     {
         registerAddress("oracle_prover", address(0));
 
-        depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
+        giveEthAndTko(Alice, 1000 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        giveEthAndTko(Bob, 1e6 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
-        proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -238,7 +236,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             blockId++
         ) {
             TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+                proposeBlock(Alice, Bob, 1_000_000, 1024);
             printVariables("after propose");
             mine(1);
 
@@ -284,23 +282,22 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     }
 
     /// @dev Test if system proofs can be verified
-    function test_if_oracle_proofs_can_be_verified_without_regular_proofs()
+    function test_L1_if_oracle_proofs_can_be_verified_without_regular_proofs()
         external
     {
         // Bob is the oracle prover
         registerAddress("oracle_prover", Bob);
 
-        depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
+        giveEthAndTko(Alice, 1000 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        giveEthAndTko(Bob, 1e6 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
-        proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -312,7 +309,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             blockId++
         ) {
             TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+                proposeBlock(Alice, Bob, 1_000_000, 1024);
             printVariables("after propose");
             mine(1);
 
@@ -347,48 +344,45 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         printVariables("");
     }
 
-    /// @dev Test if system prover cannot be overwritten
-    function test_if_systemProver_can_prove_but_regular_provers_can_not_overwrite(
+    /// @dev Test if oracle prover cannot be overwritten
+    function test_L1_if_systemProver_can_prove_but_regular_provers_can_not_overwrite(
     )
         external
     {
-        // Dave is the oracle prover
-        registerAddress("oracle_prover", Dave);
+        // David is the oracle prover
+        registerAddress("oracle_prover", David);
 
-        depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
+        giveEthAndTko(Alice, 1000 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        giveEthAndTko(Bob, 1e6 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
-        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
+        giveEthAndTko(Carol, 1e6 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Carol));
 
         // Bob
         vm.prank(Bob, Bob);
-        proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1_000_000;
 
         for (
-            uint256 blockId = 1;
-            blockId < conf.blockMaxProposals * 10;
-            blockId++
+            uint64 blockId = 1; blockId < conf.blockMaxProposals * 10; blockId++
         ) {
             TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+                proposeBlock(Alice, Bob, 1_000_000, 1024);
             printVariables("after propose");
             mine(1);
 
-            bytes32 blockHash = bytes32(1e10 + blockId);
-            bytes32 signalRoot = bytes32(1e9 + blockId);
+            bytes32 blockHash = bytes32(1e10 + uint256(blockId));
+            bytes32 signalRoot = bytes32(1e9 + uint256(blockId));
 
             proveBlock(
-                Dave,
+                David,
                 address(1),
                 meta,
                 parentHash,
@@ -439,26 +433,25 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     }
 
     /// @dev Test if there is no system/oracle proofs
-    function test_if_there_is_no_oracle_prover_there_is_no_overwrite_at_all()
+    function test_L1_if_there_is_no_oracle_prover_there_is_no_overwrite_at_all()
         external
     {
         // Bob is the oracle prover
         registerAddress("oracle_prover", address(0));
 
-        depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
+        giveEthAndTko(Alice, 1000 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        giveEthAndTko(Bob, 1e6 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
-        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
+        giveEthAndTko(Carol, 1e6 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Carol));
 
         // Bob
         vm.prank(Bob, Bob);
-        proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -470,7 +463,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             blockId++
         ) {
             TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+                proposeBlock(Alice, Bob, 1_000_000, 1024);
             printVariables("after propose");
             mine(1);
 

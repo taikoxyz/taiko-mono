@@ -14,28 +14,28 @@ pragma solidity ^0.8.20;
 /// both chains remain consistent and can be cross-referenced with integrity.
 interface ICrossChainSync {
     /// @dev Emitted when a block has been synced across chains.
-    /// @param srcHeight The height or block number that was synced.
+    /// @param srcHeight The height (block id_ that was synced.
     /// @param blockHash The hash of the synced block.
     /// @param signalRoot The root hash representing cross-chain signals.
     event CrossChainSynced(
-        uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
+        uint64 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
     );
 
     /// @notice Fetches the hash of a block from the opposite chain.
-    /// @param number The target block number. Specifying 0 retrieves the hash
+    /// @param blockId The target block id. Specifying 0 retrieves the hash
     /// of the latest block.
     /// @return The hash of the desired block from the other chain.
-    function getCrossChainBlockHash(uint256 number)
+    function getCrossChainBlockHash(uint64 blockId)
         external
         view
         returns (bytes32);
 
     /// @notice Retrieves the root hash of the signal service storage for a
     /// given block from the opposite chain.
-    /// @param number The target block number. Specifying 0 retrieves the root
+    /// @param blockId The target block id. Specifying 0 retrieves the root
     /// of the latest block.
     /// @return The root hash for the specified block's signal service.
-    function getCrossChainSignalRoot(uint256 number)
+    function getCrossChainSignalRoot(uint64 blockId)
         external
         view
         returns (bytes32);

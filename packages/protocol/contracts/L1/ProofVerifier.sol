@@ -30,14 +30,14 @@ contract ProofVerifier is EssentialContract, IProofVerifier {
     function verifyProofs(
         // blockId is unused now, but can be used later when supporting
         // different types of proofs.
-        uint256,
+        uint64,
         bytes calldata blockProofs,
         bytes32 instance
     )
         external
         view
     {
-        // If instance is zero, proof is considered as from oracle/system prover
+        // If instance is zero, proof is considered as from oracle prover
         // and not checked.
         if (instance == 0) return;
 
