@@ -96,10 +96,39 @@ library LibProposing {
                 assignment.prover.sendEther(msg.value);
             }
         }
-        // Burn the prover's bond to this address
-        TaikoToken(resolver.resolve("taiko_token", false)).burn(
-            assignment.prover, config.proofBond
-        );
+
+        // This block is the first L2 block proposed inside a L1 block.
+        // We only reward such L2 blocks.
+        // The reward halves every 2 years.
+        unchecked {
+            // The total block reward for both proposers and provers is nearly
+            // double the reward for the initial two years. It can be calculated
+            // as follows: `blockInitialReward * 2 * 2 * 730 * 86400 / 12 =
+            // 21024000 * blockInitialReward`. By setting `blockInitialReward`
+            // to 4 Taiko tokens, the total block rewards amount to 84,096,000.
+            // Assuming this represents 5% of the total supply, the initial
+            // supply can be determined using: `84,096,000 * 0.95 / 0.05 =
+            // 1,597,824,000`, or 1.6 billion Taiko tokens.
+
+            TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
+            uint256 blockReward;
+            if (
+                config.blockInitialReward > 0
+                    && block.timestamp
+                        != state.blocks[(b.numBlocks - 1) % config.blockRingBufferSize]
+                            .proposedAt
+            ) {
+                uint256 halves =
+                    (block.timestamp - state.slotA.genesisTimestamp) / 730 days;
+                blockReward = config.blockInitialReward >> halves;
+
+                // Mint block reward to proposer
+                tt.mint(input.beneficiary, blockReward);
+            }
+
+            // Burn the prover's bond to this address
+            tt.burn(assignment.prover, config.proofBond - blockReward);
+        }
 
         if (_validateBlock(state, config, input, txList)) {
             // returns true if we need to cache the txList info
@@ -139,6 +168,7 @@ library LibProposing {
             blk.nextForkChoiceId = 1;
             blk.verifiedForkChoiceId = 0;
             blk.blockId = meta.id;
+            blk.bond = uint24(config.proofBond / 1e18);
 
             emit BlockProposed({
                 blockId: state.slotB.numBlocks++,

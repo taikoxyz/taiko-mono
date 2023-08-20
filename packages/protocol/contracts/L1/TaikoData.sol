@@ -39,6 +39,9 @@ library TaikoData {
         uint64 blockMaxTxListBytes;
         // The expiration time for the block transaction list.
         uint256 blockTxListExpiry;
+        // Amount of token to reward to the first block propsoed in each L1
+        // block.
+        uint256 blockInitialReward;
         // ---------------------------------------------------------------------
         // Group 3: Proof related configs
         // ---------------------------------------------------------------------
@@ -149,6 +152,7 @@ library TaikoData {
         uint16 nextForkChoiceId;
         uint16 verifiedForkChoiceId;
         uint64 blockId; // slot 4
+        uint24 bond;
     }
 
     /// @dev Struct representing information about a transaction list.

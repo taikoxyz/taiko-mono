@@ -49,6 +49,9 @@ library LibVerifying {
                 || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
                 || config.proofRegularCooldown < config.proofOracleCooldown
                 || config.proofWindow == 0 || config.proofBond == 0
+                || config.proofBond >= type(uint24).max * 1e18
+                || config.proofBond % 1e18 != 0
+                || config.proofBond < 10 * config.blockInitialReward
                 || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
                 || config.ethDepositMaxCountPerBlock
@@ -179,15 +182,16 @@ library LibVerifying {
     {
         unchecked {
             TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
+            uint256 proofBond = blk.bond * 1e18;
             if (
                 fc.prover == address(1)
                     || fc.provenAt <= blk.proposedAt + config.proofWindow
             ) {
                 // Refund all the bond
-                tt.mint(blk.prover, config.proofBond);
+                tt.mint(blk.prover, proofBond);
             } else {
-                // Reward half of the bond to the actual prover
-                tt.mint(fc.prover, config.proofBond / 2);
+                // 1/4 of the bond to the actual prover
+                tt.mint(fc.prover, proofBond / 4);
             }
         }
     }
