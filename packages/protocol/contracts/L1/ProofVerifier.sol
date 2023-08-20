@@ -8,10 +8,10 @@ pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../common/AddressResolver.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { Proxied } from "../common/Proxied.sol";
-import { LibZKPVerifier } from "./libs/verifiers/LibZKPVerifier.sol";
 import { IProofVerifier } from "./IProofVerifier.sol";
 import { LibBytesUtils } from "../thirdparty/LibBytesUtils.sol";
+import { LibZKPVerifier } from "./libs/verifiers/LibZKPVerifier.sol";
+import { Proxied } from "../common/Proxied.sol";
 
 /// @title ProofVerifier
 /// @notice See the documentation in {IProofVerifier}.

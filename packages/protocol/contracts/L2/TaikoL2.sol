@@ -7,13 +7,13 @@
 pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { Proxied } from "../common/Proxied.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
-import { LibMath } from "../libs/LibMath.sol";
 import { Lib1559Math } from "../libs/Lib1559Math.sol";
-import { TaikoL2Signer } from "./TaikoL2Signer.sol";
+import { LibMath } from "../libs/LibMath.sol";
+import { Proxied } from "../common/Proxied.sol";
 import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import { TaikoL2Signer } from "./TaikoL2Signer.sol";
 
 /// @title TaikoL2
 /// @notice Taiko L2 is a smart contract that handles cross-layer message

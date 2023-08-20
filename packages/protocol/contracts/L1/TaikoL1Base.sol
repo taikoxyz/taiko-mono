@@ -14,8 +14,8 @@ import { LibProposing } from "./libs/LibProposing.sol";
 import { LibProving } from "./libs/LibProving.sol";
 import { LibUtils } from "./libs/LibUtils.sol";
 import { LibVerifying } from "./libs/LibVerifying.sol";
-import { TaikoErrors } from "./TaikoErrors.sol";
 import { TaikoData } from "./TaikoData.sol";
+import { TaikoErrors } from "./TaikoErrors.sol";
 import { TaikoEvents } from "./TaikoEvents.sol";
 
 /// @title TaikoL1Base
