@@ -168,7 +168,7 @@ library LibProposing {
             blk.nextForkChoiceId = 1;
             blk.verifiedForkChoiceId = 0;
             blk.blockId = meta.id;
-            blk.proofBond = uint96(config.proofBond);
+            blk.proofBond = config.proofBond;
             blk.proofWindow = config.proofWindow;
 
             emit BlockProposed({

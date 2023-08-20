@@ -52,7 +52,7 @@ library TaikoData {
         // The maximum time window allowed for a proof submission (in minutes).
         uint16 proofWindow;
         // The amount of Taiko token as a bond
-        uint256 proofBond;
+        uint96 proofBond;
         // True to skip proof verification
         bool skipProverAssignmentVerificaiton;
         // ---------------------------------------------------------------------
