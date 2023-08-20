@@ -152,7 +152,8 @@ library TaikoData {
         uint16 nextForkChoiceId;
         uint16 verifiedForkChoiceId;
         uint64 blockId; // slot 4
-        uint24 bond;
+        uint96 proofBond;
+        uint16 proofWindow;
     }
 
     /// @dev Struct representing information about a transaction list.

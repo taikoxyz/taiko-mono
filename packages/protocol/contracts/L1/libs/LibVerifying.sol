@@ -49,8 +49,7 @@ library LibVerifying {
                 || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
                 || config.proofRegularCooldown < config.proofOracleCooldown
                 || config.proofWindow == 0 || config.proofBond == 0
-                || config.proofBond >= type(uint24).max * 1e18
-                || config.proofBond % 1e18 != 0
+                || config.proofBond >= type(uint96).max
                 || config.proofBond < 10 * config.blockInitialReward
                 || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
@@ -145,7 +144,7 @@ library LibVerifying {
                 signalRoot = fc.signalRoot;
                 blk.verifiedForkChoiceId = fcId;
 
-                _rewardProver(config, resolver, blk, fc);
+                _rewardProver(resolver, blk, fc);
                 emit BlockVerified(blockId, fc.prover, fc.blockHash);
 
                 ++blockId;
@@ -173,7 +172,6 @@ library LibVerifying {
     }
 
     function _rewardProver(
-        TaikoData.Config memory config,
         AddressResolver resolver,
         TaikoData.Block storage blk,
         TaikoData.ForkChoice memory fc
@@ -182,16 +180,15 @@ library LibVerifying {
     {
         unchecked {
             TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
-            uint256 proofBond = blk.bond * 1e18;
             if (
                 fc.prover == address(1)
-                    || fc.provenAt <= blk.proposedAt + config.proofWindow
+                    || fc.provenAt <= blk.proposedAt + blk.proofWindow
             ) {
                 // Refund all the bond
-                tt.mint(blk.prover, proofBond);
+                tt.mint(blk.prover, blk.proofBond);
             } else {
                 // 1/4 of the bond to the actual prover
-                tt.mint(fc.prover, proofBond / 4);
+                tt.mint(fc.prover, blk.proofBond / 4);
             }
         }
     }
