@@ -186,9 +186,10 @@ library LibProving {
 
         uint256[9] memory inputs;
 
-        inputs[0] = uint256(uint160(l1SignalService));
-        inputs[1] = uint256(uint160(l2SignalService));
-        inputs[2] = uint256(uint160(l2Taiko));
+        // TODO(brecht): OK with removing these inputs?
+        // inputs[0] = uint256(uint160(l1SignalService));
+        // inputs[1] = uint256(uint160(l2SignalService));
+        // inputs[2] = uint256(uint160(l2Taiko));
         inputs[3] = uint256(evidence.metaHash);
         inputs[4] = uint256(evidence.parentHash);
         inputs[5] = uint256(evidence.blockHash);
