@@ -29,7 +29,7 @@ contract TaikoL1Oracle is TaikoL1 {
         config.proofRegularCooldown = 15 minutes;
         config.skipProverAssignmentVerificaiton = true;
         config.proofBond = 1e18; // 1 Taiko token
-        config.blockInitialReward = 1e15; // 0.001 Taiko token
+        config.proposerRewardPerSecond = 1e15; // 0.001 Taiko token
     }
 }
 

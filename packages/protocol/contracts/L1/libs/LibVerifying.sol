@@ -49,7 +49,7 @@ library LibVerifying {
                 || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
                 || config.proofRegularCooldown < config.proofOracleCooldown
                 || config.proofWindow == 0 || config.proofBond == 0
-                || config.proofBond < 10 * config.blockInitialReward
+                || config.proofBond < 10 * config.proposerRewardPerSecond
                 || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
                 || config.ethDepositMaxCountPerBlock

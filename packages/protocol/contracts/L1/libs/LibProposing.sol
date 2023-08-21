@@ -97,37 +97,27 @@ library LibProposing {
             }
         }
 
-        // This block is the first L2 block proposed inside a L1 block.
-        // We only reward such L2 blocks.
-        // The reward halves every 2 years.
-        unchecked {
-            // The total block reward for both proposers and provers is nearly
-            // double the reward for the initial two years. It can be calculated
-            // as follows: `blockInitialReward * 2 * 2 * 730 * 86400 / 12 =
-            // 21024000 * blockInitialReward`. By setting `blockInitialReward`
-            // to 4 Taiko tokens, the total block rewards amount to 84,096,000.
-            // Assuming this represents 5% of the total supply, the initial
-            // supply can be determined using: `84,096,000 * 0.95 / 0.05 =
-            // 1,597,824,000`, or 1.6 billion Taiko tokens.
+        TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
+        // Burn the prover's bond to this address
+        tt.burn(assignment.prover, config.proofBond);
 
-            TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
-            uint256 blockReward;
-            if (
-                config.blockInitialReward > 0
-                    && block.timestamp
-                        != state.blocks[(b.numBlocks - 1) % config.blockRingBufferSize]
-                            .proposedAt
-            ) {
-                uint256 halves =
-                    (block.timestamp - state.slotA.genesisTimestamp) / 730 days;
-                blockReward = config.blockInitialReward >> halves;
+        // Reward proposers
+        if (config.proposerRewardPerSecond > 0 && config.proposerRewardMax > 0)
+        {
+            unchecked {
+                uint256 blockDelay = block.timestamp
+                    - state.blocks[(b.numBlocks - 1) % config.blockRingBufferSize]
+                        .proposedAt;
 
-                // Mint block reward to proposer
-                tt.mint(input.beneficiary, blockReward);
+                if (blockDelay > config.proposerRewardMinDelay) {
+                    uint256 reward = config.proposerRewardMax.min(
+                        blockDelay - config.proposerRewardMinDelay
+                    ) * config.proposerRewardPerSecond;
+
+                    // Mint block reward to proposer
+                    tt.mint(input.beneficiary, reward);
+                }
             }
-
-            // Burn the prover's bond to this address
-            tt.burn(assignment.prover, config.proofBond - blockReward);
         }
 
         if (_validateBlock(state, config, input, txList)) {

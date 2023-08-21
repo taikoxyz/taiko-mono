@@ -41,7 +41,9 @@ library TaikoData {
         uint256 blockTxListExpiry;
         // Amount of token to reward to the first block propsoed in each L1
         // block.
-        uint256 blockInitialReward;
+        uint256 proposerRewardPerSecond;
+        uint256 proposerRewardMax;
+        uint64 proposerRewardMinDelay;
         // ---------------------------------------------------------------------
         // Group 3: Proof related configs
         // ---------------------------------------------------------------------
