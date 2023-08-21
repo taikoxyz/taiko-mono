@@ -2,6 +2,7 @@
   import { t } from 'svelte-i18n';
   import { formatEther } from 'viem';
 
+  import { chainConfig } from '$chainConfig';
   import { Icon } from '$components/Icon';
   import { Tooltip } from '$components/Tooltip';
   import type { BridgeTransaction } from '$libs/bridge';
@@ -9,7 +10,6 @@
   import { uid } from '$libs/util/uid';
 
   import ChainSymbolName from './ChainSymbolName.svelte';
-  import { chainConfig } from '$chainConfig';
 
   export let closeDetails = noop;
   export let detailsOpen = false;

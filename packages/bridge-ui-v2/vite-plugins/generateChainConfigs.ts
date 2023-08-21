@@ -1,14 +1,13 @@
 /* eslint-disable no-console */
 import { promises as fs } from 'fs';
 import path from 'path';
-import * as prettier from "prettier";
-import { Project, SourceFile, VariableDeclarationKind } from "ts-morph";
+import * as prettier from 'prettier';
+import { Project, SourceFile, VariableDeclarationKind } from 'ts-morph';
 import type { Address } from 'viem';
 
 import { Logger } from './utils/Logger';
 
 const currentDir = path.resolve(new URL(import.meta.url).pathname);
-
 
 // Todo: make paths and names configurable via .env?
 const outputPath = path.join(path.join(path.dirname(currentDir)), '../src/generated/config.ts');
@@ -16,11 +15,10 @@ const outputPath = path.join(path.join(path.dirname(currentDir)), '../src/genera
 const configuredChainsConfigFile = path.join(path.dirname(currentDir), '../config', 'configuredChains.json');
 const configuredBridgesConfigFile = path.join(path.dirname(currentDir), '../config', 'configuredBridges.json');
 
-
 enum LayerType {
-  L1 = "L1",
-  L2 = "L2",
-  L3 = "L3"
+  L1 = 'L1',
+  L2 = 'L2',
+  L3 = 'L3',
 }
 
 type Urls = {
@@ -28,12 +26,11 @@ type Urls = {
   explorer: string;
 };
 
-
 type ChainConfig = {
   name: string;
   urls: Urls;
   type: LayerType;
-}
+};
 
 type AddressConfig = {
   bridgeAddress: Address;
@@ -48,7 +45,7 @@ type BridgeConfig = {
   source: string;
   destination: string;
   addresses: AddressConfig;
-}
+};
 
 type ChainConfigMap = Record<number, ChainConfig>;
 
@@ -56,18 +53,16 @@ type ConfiguredChains = {
   configuredChains: Array<Record<string, Omit<ChainConfig, 'chainId'>>>;
 };
 
-
 type RoutingMap = Record<string, Record<string, AddressConfig>>;
 
-const pluginName = "generate-Chains-Config";
+const pluginName = 'generate-Chains-Config';
 const logger = new Logger(pluginName);
-
 
 export default function generateTsFromJsonPlugin() {
   return {
     pluginName,
     async buildStart() {
-      logger.info("Plugin initialized.");
+      logger.info('Plugin initialized.');
       const project = new Project();
 
       // Path to where you want to save the generated TypeScript file
@@ -78,12 +73,12 @@ export default function generateTsFromJsonPlugin() {
       let sourceFile = project.createSourceFile(tsFilePath, undefined, { overwrite: true });
 
       sourceFile.addImportDeclaration({
-        namedImports: ["Address"],
-        moduleSpecifier: "viem",
-        isTypeOnly: true
+        namedImports: ['Address'],
+        moduleSpecifier: 'viem',
+        isTypeOnly: true,
       });
 
-      sourceFile = await storeTypesAndEnums(sourceFile)
+      sourceFile = await storeTypesAndEnums(sourceFile);
       sourceFile = await buildBridgeConfig(sourceFile);
       sourceFile = await buildChainConfig(sourceFile);
 
@@ -91,11 +86,11 @@ export default function generateTsFromJsonPlugin() {
       await sourceFile.saveSync();
       logger.info(`Generated config file`);
 
-      const generatedCode = await fs.readFile(tsFilePath, "utf-8");
+      const generatedCode = await fs.readFile(tsFilePath, 'utf-8');
 
       logger.info(`Formatting...`);
       // Format the code using Prettier
-      const formattedCode = await prettier.format(generatedCode, { parser: "typescript" });
+      const formattedCode = await prettier.format(generatedCode, { parser: 'typescript' });
 
       // Write the formatted code back to the file
       await fs.writeFile(tsFilePath, formattedCode);
@@ -108,39 +103,39 @@ async function storeTypesAndEnums(sourceFile: SourceFile) {
   logger.info(`Storing types and enums...`);
   // Urls
   sourceFile.addTypeAlias({
-    name: "Urls",
+    name: 'Urls',
     isExported: false,
     type: `{
       rpc: string;
       explorer: string;
-    }`
+    }`,
   });
 
   // LayerType
   sourceFile.addEnum({
-    name: "LayerType",
+    name: 'LayerType',
     isExported: false,
     members: [
-      { name: "L1", value: "L1" },
-      { name: "L2", value: "L2" },
-      { name: "L3", value: "L3" }
-    ]
+      { name: 'L1', value: 'L1' },
+      { name: 'L2', value: 'L2' },
+      { name: 'L3', value: 'L3' },
+    ],
   });
 
   // ChainConfig
   sourceFile.addTypeAlias({
-    name: "ChainConfig",
+    name: 'ChainConfig',
     isExported: true,
     type: `{
       name: string;
       urls: Urls;
       type: LayerType;
-    }`
+    }`,
   });
 
   // AddressConfig
   sourceFile.addTypeAlias({
-    name: "AddressConfig",
+    name: 'AddressConfig',
     isExported: true,
     type: `{ 
       bridgeAddress: Address;
@@ -149,27 +144,26 @@ async function storeTypesAndEnums(sourceFile: SourceFile) {
       erc1155VaultAddress: Address;
       crossChainSyncAddress: Address;
       signalServiceAddress: Address;
-    }`
+    }`,
   });
 
   // RoutingMap
   sourceFile.addTypeAlias({
-    name: "RoutingMap",
+    name: 'RoutingMap',
     isExported: true,
-    type: `Record<string, Record<string, AddressConfig>>`
+    type: `Record<string, Record<string, AddressConfig>>`,
   });
 
   // ChainConfigMap
   sourceFile.addTypeAlias({
-    name: "ChainConfigMap",
+    name: 'ChainConfigMap',
     isExported: true,
-    type: `Record<number, ChainConfig>`
+    type: `Record<number, ChainConfig>`,
   });
 
-  logger.info("Types and enums stored.")
+  logger.info('Types and enums stored.');
   return sourceFile;
 }
-
 
 async function buildChainConfig(sourceFile: SourceFile) {
   const chainConfig: ChainConfigMap = {};
@@ -200,30 +194,28 @@ async function buildChainConfig(sourceFile: SourceFile) {
       }
 
       chainConfig[chainId] = { ...config, type };
-
     }
   });
-
 
   // Add chainConfig variable to sourceFile
   sourceFile.addVariableStatement({
     declarationKind: VariableDeclarationKind.Const,
-    declarations: [{
-      name: 'chainConfig',
-      type: 'ChainConfigMap',
-      initializer: _formatObjectToTsLiteral(chainConfig)
-    }],
-    isExported: true
+    declarations: [
+      {
+        name: 'chainConfig',
+        type: 'ChainConfigMap',
+        initializer: _formatObjectToTsLiteral(chainConfig),
+      },
+    ],
+    isExported: true,
   });
 
   logger.info(`Configured ${Object.keys(chainConfig).length} chains.`);
   return sourceFile;
 }
 
-
-
 async function buildBridgeConfig(sourceFile: SourceFile) {
-  logger.info("Building bridge config...");
+  logger.info('Building bridge config...');
   const routingContractsMap: RoutingMap = {};
 
   const bridgesJsonContent = await fs.readFile(configuredBridgesConfigFile, 'utf-8');
@@ -241,22 +233,22 @@ async function buildBridgeConfig(sourceFile: SourceFile) {
     routingContractsMap[item.source][item.destination] = item.addresses;
   });
 
-
   // Add routingContractsMap variable
   sourceFile.addVariableStatement({
     declarationKind: VariableDeclarationKind.Const,
-    declarations: [{
-      name: 'routingContractsMap',
-      type: "RoutingMap",
-      initializer: _formatObjectToTsLiteral(routingContractsMap)
-    }],
-    isExported: true
+    declarations: [
+      {
+        name: 'routingContractsMap',
+        type: 'RoutingMap',
+        initializer: _formatObjectToTsLiteral(routingContractsMap),
+      },
+    ],
+    isExported: true,
   });
 
   logger.info(`Configured ${bridges.configuredBridges.length} bridges.`);
   return sourceFile;
 }
-
 
 const _formatObjectToTsLiteral = (obj: RoutingMap | ChainConfigMap): string => {
   const formatValue = (value: any): string => {
@@ -270,7 +262,7 @@ const _formatObjectToTsLiteral = (obj: RoutingMap | ChainConfigMap): string => {
       return String(value);
     }
     if (Array.isArray(value)) {
-      return `[${value.map(formatValue).join(", ")}]`;
+      return `[${value.map(formatValue).join(', ')}]`;
     }
     if (typeof value === 'object') {
       return _formatObjectToTsLiteral(value);
@@ -279,13 +271,11 @@ const _formatObjectToTsLiteral = (obj: RoutingMap | ChainConfigMap): string => {
   };
 
   if (Array.isArray(obj)) {
-    return `[${obj.map(formatValue).join(", ")}]`;
+    return `[${obj.map(formatValue).join(', ')}]`;
   }
 
   const entries = Object.entries(obj);
-  const formattedEntries = entries.map(
-    ([key, value]) => `${key}: ${formatValue(value)}`
-  );
+  const formattedEntries = entries.map(([key, value]) => `${key}: ${formatValue(value)}`);
 
-  return `{${formattedEntries.join(", ")}}`;
+  return `{${formattedEntries.join(', ')}}`;
 };

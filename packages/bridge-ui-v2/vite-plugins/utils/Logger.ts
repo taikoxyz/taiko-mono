@@ -1,35 +1,38 @@
 /* eslint-disable no-console */
-const FgMagenta = "\x1b[35m";
-const FgYellow = "\x1b[33m";
-const FgRed = "\x1b[31m";
-const Bright = "\x1b[1m";
-const Reset = "\x1b[0m";
+const FgMagenta = '\x1b[35m';
+const FgYellow = '\x1b[33m';
+const FgRed = '\x1b[31m';
+const Bright = '\x1b[1m';
+const Reset = '\x1b[0m';
 
 const timestamp = () => new Date().toLocaleTimeString();
 
-
 export class Logger {
-    pluginName: string;
+  pluginName: string;
 
-    constructor(pluginName: string) {
-        this.pluginName = pluginName;
-    }
+  constructor(pluginName: string) {
+    this.pluginName = pluginName;
+  }
 
-    info(message: string) {
-        this._logWithColor(FgMagenta, message);
-    }
+  info(message: string) {
+    this._logWithColor(FgMagenta, message);
+  }
 
-    warn(message: string) {
-        this._logWithColor(FgYellow, message);
-    }
+  warn(message: string) {
+    this._logWithColor(FgYellow, message);
+  }
 
-    error(message: string) {
-        this._logWithColor(FgRed, message, true);
-    }
+  error(message: string) {
+    this._logWithColor(FgRed, message, true);
+  }
 
-    _logWithColor(color: string, message: string, isError = false) {
-        console.log(`${color}${timestamp()}${Bright} [${this.pluginName}]${Reset} ${isError ? color : ''} ${message} ${isError ? Reset : ''} `);
-    }
+  _logWithColor(color: string, message: string, isError = false) {
+    console.log(
+      `${color}${timestamp()}${Bright} [${this.pluginName}]${Reset} ${isError ? color : ''} ${message} ${
+        isError ? Reset : ''
+      } `,
+    );
+  }
 }
 
 // Usage

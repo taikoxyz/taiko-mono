@@ -4,16 +4,16 @@
   import { t } from 'svelte-i18n';
   import { UserRejectedRequestError } from 'viem';
 
+  import { destNetwork } from '$components/Bridge/state';
   import { Icon } from '$components/Icon';
   import { LoadingMask } from '$components/LoadingMask';
   import { warningToast } from '$components/NotificationToast';
   import { chains } from '$libs/chain';
   import { chainToIconMap } from '$libs/util/chainToIconMap';
   import { classNames } from '$libs/util/classNames';
+  import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
-  import { destNetwork } from '$components/Bridge/state';
-  import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 
   export let label = '';
   export let value: Maybe<GetNetworkResult['chain']> = null;

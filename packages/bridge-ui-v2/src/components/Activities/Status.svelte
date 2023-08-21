@@ -4,6 +4,7 @@
   import { t } from 'svelte-i18n';
   import { parseEther, UserRejectedRequestError } from 'viem';
 
+  import { chainConfig } from '$chainConfig';
   import {
     errorToast,
     infoToast,
@@ -29,7 +30,6 @@
   import { account } from '$stores/account';
   import { network } from '$stores/network';
   import { pendingTransactions } from '$stores/pendingTransactions';
-  import { chainConfig } from '$chainConfig';
 
   const log = getLogger('components:Status');
 

@@ -8,12 +8,12 @@
 
   import { createEventDispatcher } from 'svelte';
 
+  import { chainConfig } from '$chainConfig';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { Icon } from '$components/Icon';
 
   import ChainSymbolName from './ChainSymbolName.svelte';
   import Status from './Status.svelte';
-  import { chainConfig } from '$chainConfig';
 
   const dispatch = createEventDispatcher();
 

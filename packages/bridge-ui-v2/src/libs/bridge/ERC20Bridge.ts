@@ -53,8 +53,8 @@ export class ERC20Bridge extends Bridge {
     const gasLimit = !isTokenAlreadyDeployed
       ? BigInt(bridgeService.noTokenDeployedGasLimit)
       : processingFee > 0
-        ? bridgeService.noOwnerGasLimit
-        : BigInt(0);
+      ? bridgeService.noOwnerGasLimit
+      : BigInt(0);
 
     const sendERC20Args: SendERC20Args = [
       BigInt(destChainId),
