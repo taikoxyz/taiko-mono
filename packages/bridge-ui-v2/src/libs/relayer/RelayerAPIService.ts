@@ -4,12 +4,13 @@ import axios from 'axios';
 import { Buffer } from 'buffer';
 
 import { bridgeABI } from '$abi';
+import { routingContractsMap } from '$chainConfig';
 import type { BridgeTransaction, MessageStatus } from '$libs/bridge';
+import { isSupportedChain } from '$libs/chain';
 import { TokenType } from '$libs/token';
 import { getLogger } from '$libs/util/logger';
 import { publicClient } from '$libs/wagmi';
 
-import { isSupportedChain, routingContractsMap } from '../chain/chains';
 import type {
   APIRequestParams,
   APIResponse,
@@ -56,7 +57,7 @@ export class RelayerAPIService {
       const isAddressPresent = Boolean(address);
       const isUniqueHash = !uniqueHashes.has(transactionHash);
       const isCorrectBridgeAddress = address?.toLowerCase() === bridgeAddress?.toLowerCase();
-      const areChainsSupported = isSupportedChain(BigInt(DestChainId)) && isSupportedChain(BigInt(SrcChainId));
+      const areChainsSupported = isSupportedChain(Number(DestChainId)) && isSupportedChain(Number(SrcChainId));
 
       // If the transaction hash is unique, add it to the set for future checks
       if (isUniqueHash) uniqueHashes.add(transactionHash);

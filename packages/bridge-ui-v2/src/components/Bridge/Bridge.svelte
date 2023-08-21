@@ -19,7 +19,6 @@
     MessageStatus,
   } from '$libs/bridge';
   import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
-  import { chains, chainUrlMap, routingContractsMap } from '$libs/chain';
   import {
     ApproveError,
     InsufficientAllowanceError,
@@ -40,6 +39,7 @@
   import Recipient from './Recipient.svelte';
   import { bridgeService, destNetwork, enteredAmount, processingFee, recipientAddress, selectedToken } from './state';
   import SwitchChainsButton from './SwitchChainsButton.svelte';
+  import { chainConfig, routingContractsMap } from '$chainConfig';
 
   let amountComponent: Amount;
   let recipientComponent: Recipient;
@@ -89,13 +89,13 @@
         wallet: walletClient,
       });
 
-      const { explorerUrl } = chainUrlMap[$network.id];
+      const { explorer } = chainConfig[$network.id].urls;
 
       infoToast(
         $t('bridge.actions.approve.tx', {
           values: {
             token: $selectedToken.symbol,
-            url: `${explorerUrl}/tx/${txHash}`,
+            url: `${explorer}/tx/${txHash}`,
           },
         }),
       );

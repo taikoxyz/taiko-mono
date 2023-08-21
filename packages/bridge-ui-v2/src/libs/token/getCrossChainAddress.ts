@@ -2,7 +2,8 @@ import { type Address, getContract } from '@wagmi/core';
 import { zeroAddress } from 'viem';
 
 import { tokenVaultABI } from '$abi';
-import { chains, routingContractsMap } from '$libs/chain';
+import { routingContractsMap } from '$chainConfig';
+import { chains } from '$libs/chain';
 import { getLogger } from '$libs/util/logger';
 
 import { type GetCrossChainAddressArgs, TokenType } from './types';

@@ -23,7 +23,7 @@ export function startWatching() {
 
       // We need to check if the chain is supported, and if not
       // we present the user with a modal to switch networks.
-      if (chain && !isSupportedChain(BigInt(chain.id))) {
+      if (chain && !isSupportedChain(Number(chain.id))) {
         log('Unsupported chain', chain);
         switchChainModal.set(true);
         return;

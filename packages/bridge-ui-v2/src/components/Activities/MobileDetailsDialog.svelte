@@ -5,11 +5,11 @@
   import { Icon } from '$components/Icon';
   import { Tooltip } from '$components/Tooltip';
   import type { BridgeTransaction } from '$libs/bridge';
-  import { chainUrlMap } from '$libs/chain';
   import { noop } from '$libs/util/noop';
   import { uid } from '$libs/util/uid';
 
   import ChainSymbolName from './ChainSymbolName.svelte';
+  import { chainConfig } from '$chainConfig';
 
   export let closeDetails = noop;
   export let detailsOpen = false;
@@ -59,7 +59,7 @@
         <li class="f-between-center">
           <h4 class="text-secondary-content">{$t('activities.header.explorer')}</h4>
           <a
-            href={`${chainUrlMap[Number(selectedItem.srcChainId)].explorerUrl}/tx/${selectedItem.hash}`}
+            href={`${chainConfig[Number(selectedItem.srcChainId)].urls.explorer}/tx/${selectedItem.hash}`}
             target="_blank">
             {$t('activities.link.explorer')}
           </a>

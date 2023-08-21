@@ -12,6 +12,8 @@
   import { classNames } from '$libs/util/classNames';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
+  import { destNetwork } from '$components/Bridge/state';
+  import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 
   export let label = '';
   export let value: Maybe<GetNetworkResult['chain']> = null;
@@ -33,14 +35,16 @@
   let buttonId = `button-${uid()}`;
   let dialogId = `dialog-${uid()}`;
   let modalOpen = false;
+  let srcChainId: Maybe<number> = null;
 
   function closeModal() {
     modalOpen = false;
   }
 
-  function openModal() {
+  async function openModal() {
     if (readOnly) return;
-
+    const wallet = await getConnectedWallet();
+    srcChainId = await wallet.getChainId();
     // We want to inform the user that they need to connect
     // their wallet if they want to change the network
     if (!$account.isConnected) {
@@ -132,7 +136,10 @@
       <h3 class="title-body-bold mb-[20px]">{$t('chain_selector.placeholder')}</h3>
       <ul role="menu">
         {#each chains as chain (chain.id)}
-          {@const disabled = chain.id === value?.id}
+          {@const disabled =
+            chain.id === value?.id ||
+            (chain.id === srcChainId && chain.id !== $destNetwork?.id) ||
+            (chain.id === $destNetwork?.id && chain.id !== srcChainId)}
           <li
             role="menuitem"
             tabindex="0"

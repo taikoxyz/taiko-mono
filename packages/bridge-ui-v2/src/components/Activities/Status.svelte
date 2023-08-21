@@ -16,7 +16,6 @@
   import { bridges, type BridgeTransaction, MessageStatus } from '$libs/bridge';
   import { isTransactionProcessable } from '$libs/bridge/isTransactionProcessable';
   import { PollingEvent, startPolling } from '$libs/bridge/messageStatusPoller';
-  import { chainUrlMap } from '$libs/chain';
   import {
     InsufficientBalanceError,
     InvalidProofError,
@@ -30,6 +29,7 @@
   import { account } from '$stores/account';
   import { network } from '$stores/network';
   import { pendingTransactions } from '$stores/pendingTransactions';
+  import { chainConfig } from '$chainConfig';
 
   const log = getLogger('components:Status');
 
@@ -101,13 +101,13 @@
       // Step 5: Call claim() method on the bridge
       const txHash = await bridge.claim({ msgHash, message, wallet });
 
-      const { explorerUrl } = chainUrlMap[Number(bridgeTx.destChainId)];
+      const { explorer } = chainConfig[Number(bridgeTx.destChainId)].urls;
 
       infoToast(
         $t('activities.actions.claim.tx', {
           values: {
             token: bridgeTx.symbol,
-            url: `${explorerUrl}/tx/${txHash}`,
+            url: `${explorer}/tx/${txHash}`,
           },
         }),
       );
@@ -182,13 +182,13 @@
       // Step 4: Call release() method on the bridge
       const txHash = await bridge.claim({ msgHash, message, wallet });
 
-      const { explorerUrl } = chainUrlMap[Number(bridgeTx.srcChainId)];
+      const { explorer } = chainConfig[Number(bridgeTx.srcChainId)].urls;
 
       infoToast(
         $t('activities.actions.release.tx', {
           values: {
             token: bridgeTx.symbol,
-            url: `${explorerUrl}/tx/${txHash}`,
+            url: `${explorer}/tx/${txHash}`,
           },
         }),
       );

@@ -2,7 +2,7 @@ import { getContract, type GetContractResult, type WalletClient } from '@wagmi/c
 import { type Hash, UserRejectedRequestError } from 'viem';
 
 import { bridgeABI } from '$abi';
-import { routingContractsMap } from '$libs/chain';
+import { routingContractsMap } from '$chainConfig';
 import { MessageStatusError, RetryError, WrongChainError, WrongOwnerError } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
 import { getLogger } from '$libs/util/logger';

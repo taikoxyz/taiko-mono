@@ -1,7 +1,7 @@
 import { getContract } from '@wagmi/core';
 
 import { crossChainSyncABI } from '$abi';
-import { routingContractsMap } from '$libs/chain';
+import { routingContractsMap } from '$chainConfig';
 import { publicClient } from '$libs/wagmi';
 
 import { type BridgeTransaction, MessageStatus } from './types';
