@@ -28,10 +28,3 @@ export const chains: Chain[] = Object.entries(chainConfig).map(([chainId, chainC
 export const isSupportedChain = (chainId: number) => {
   return chains.some((chain) => chain.id === chainId);
 };
-
-// Todo: export to env?
-// export const chainIcons = {
-//   [PUBLIC_L1_CHAIN_ID]: '/ethereum-chain.png',
-//   [PUBLIC_L2_CHAIN_ID]: '/taiko-chain.png',
-//   [PUBLIC_L3_CHAIN_ID]: '/eldfell.svg',
-// };

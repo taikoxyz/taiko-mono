@@ -1,15 +1,15 @@
 <script lang="ts">
   import { type Chain, type GetNetworkResult, switchNetwork } from '@wagmi/core';
-  import { onDestroy } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import { UserRejectedRequestError } from 'viem';
 
+  import { chainConfig } from '$chainConfig';
   import { destNetwork } from '$components/Bridge/state';
   import { Icon } from '$components/Icon';
   import { LoadingMask } from '$components/LoadingMask';
   import { warningToast } from '$components/NotificationToast';
   import { chains } from '$libs/chain';
-  import { chainToIconMap } from '$libs/util/chainToIconMap';
   import { classNames } from '$libs/util/classNames';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { uid } from '$libs/util/uid';
@@ -112,8 +112,9 @@
           <span>{$t('chain_selector.placeholder')}</span>
         {/if}
         {#if value}
+          {@const icon = chainConfig[Number(value.id)]?.icon || 'Unknown Chain'}
           <i role="img" aria-label={value.name}>
-            <svelte:component this={chainToIconMap[value.id]} size={20} />
+            <img src={icon} alt="chain-logo" class="rounded-full w-6 h-6" />
           </i>
           <span>{value.name}</span>
         {/if}
@@ -140,6 +141,7 @@
             chain.id === value?.id ||
             (chain.id === srcChainId && chain.id !== $destNetwork?.id) ||
             (chain.id === $destNetwork?.id && chain.id !== srcChainId)}
+          {@const icon = chainConfig[Number(chain.id)]?.icon || 'Unknown Chain'}
           <li
             role="menuitem"
             tabindex="0"
@@ -154,11 +156,11 @@
             <div class="f-row justify-between">
               <div class="f-items-center space-x-4">
                 <i role="img" aria-label={chain.name}>
-                  <svelte:component this={chainToIconMap[chain.id]} size={32} />
+                  <img src={icon} alt="chain-logo" class="rounded-full w-7 h-7" />
                 </i>
                 <span class="body-bold">{chain.name}</span>
               </div>
-              <span class="f-items-center body-regular">{chain.network}</span>
+              <span class="f-items-center body-regular">{chainConfig[chain.id].type}</span>
             </div>
           </li>
         {/each}

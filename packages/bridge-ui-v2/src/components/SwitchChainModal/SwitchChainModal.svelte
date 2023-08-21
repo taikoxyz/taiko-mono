@@ -3,10 +3,10 @@
   import { t } from 'svelte-i18n';
   import { UserRejectedRequestError } from 'viem';
 
+  import { chainConfig } from '$chainConfig';
   import { LoadingMask } from '$components/LoadingMask';
   import { warningToast } from '$components/NotificationToast';
   import { chains } from '$libs/chain';
-  import { chainToIconMap } from '$libs/util/chainToIconMap';
   import { switchChainModal } from '$stores/modal';
 
   let switchingNetwork = false;
@@ -56,6 +56,7 @@
     <p class="body-regular">{$t('switch_modal.description')}</p>
     <ul role="menu" class="space-y-4">
       {#each chains as chain (chain.id)}
+        {@const icon = chainConfig[Number(chain.id)]?.icon || 'Unknown Chain'}
         <li
           role="menuitem"
           tabindex="0"
@@ -66,7 +67,7 @@
           <div class="f-row justify-between">
             <div class="f-items-center space-x-4">
               <i role="img" aria-label={chain.name}>
-                <svelte:component this={chainToIconMap[chain.id]} size={32} />
+                <img src={icon} alt="chain-logo" />
               </i>
               <span class="body-bold">{chain.name}</span>
             </div>

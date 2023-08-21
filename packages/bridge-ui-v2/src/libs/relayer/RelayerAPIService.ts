@@ -48,7 +48,7 @@ export class RelayerAPIService {
       }
 
       const { DestChainId: destChainId, SrcChainId: srcChainId } = Message;
-      const { bridgeAddress } = routingContractsMap[Number(srcChainId)][Number(destChainId)]; // TODO: also handle unsupported chain
+      const { bridgeAddress } = routingContractsMap[Number(destChainId)][Number(srcChainId)]; // note: beware we switch destination and source here
       const { transactionHash, address } = Raw;
 
       // Check all conditions

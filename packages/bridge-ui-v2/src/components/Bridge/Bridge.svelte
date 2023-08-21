@@ -288,7 +288,6 @@
 
       <SwitchChainsButton />
 
-      <!-- TODO: should not be readOnly when multiple layers -->
       <ChainSelector class="flex-1" bind:value={$destNetwork} />
     </div>
 
