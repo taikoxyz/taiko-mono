@@ -114,7 +114,6 @@ library LibProposing {
                         config.proposerRewardPerSecond * blockTime
                     ).min(config.proposerRewardMax);
 
-                    // Mint block reward to proposer
                     tt.mint(input.beneficiary, reward);
                 }
             }
