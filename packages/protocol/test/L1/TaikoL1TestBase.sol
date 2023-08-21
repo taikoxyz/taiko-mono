@@ -29,6 +29,11 @@ abstract contract TaikoL1TestBase is TestBase {
     uint256 internal logCount;
     ProofVerifier public pv;
 
+    // Constants of the input - it is a workaround - most probably a
+    // forge/foundry issue. Issue link:
+    // https://github.com/foundry-rs/foundry/issues/5200
+    address[3] internal addressInputs;
+
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
     // 1 TKO --> it is to huge. It should be in 'wei' (?).
     // Because otherwise first proposal is around: 1TKO * (1_000_000+20_000)
@@ -88,6 +93,13 @@ abstract contract TaikoL1TestBase is TestBase {
 
         L1.init(address(addressManager), GENESIS_BLOCK_HASH);
         printVariables("init  ");
+
+        addressInputs[0] =
+            address(L1.resolve("signal_service", false));
+        addressInputs[1] =
+            address(L1.resolve(conf.chainId, "signal_service", false));
+        addressInputs[2] =
+            address(L1.resolve(conf.chainId, "taiko", false));
     }
 
     function proposeBlock(
@@ -164,9 +176,9 @@ abstract contract TaikoL1TestBase is TestBase {
 
         bytes32 instance = LibProving.getInstance(
             evidence,
-            L1.resolve("signal_service", false),
-            L1.resolve(conf.chainId, "signal_service", false),
-            L1.resolve(conf.chainId, "taiko", false)
+            addressInputs[0],
+            addressInputs[1],
+            addressInputs[2]
         );
         uint16 verifierId = 100;
 
