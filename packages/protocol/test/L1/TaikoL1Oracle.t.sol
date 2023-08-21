@@ -346,7 +346,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     }
 
     /// @dev Test if oracle prover cannot be overwritten
-    function test_L1_if_systemProver_can_prove_but_regular_provers_can_not_overwrite(
+    function test_L1_if_oracle_prover_can_prove_but_regular_provers_can_not_overwrite(
     )
         external
     {
