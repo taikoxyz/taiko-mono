@@ -43,7 +43,6 @@ library TaikoData {
         // block.
         uint256 proposerRewardPerSecond;
         uint256 proposerRewardMax;
-        uint64 proposerRewardMinDelay;
         // ---------------------------------------------------------------------
         // Group 3: Proof related configs
         // ---------------------------------------------------------------------

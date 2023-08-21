@@ -105,18 +105,14 @@ library LibProposing {
         if (config.proposerRewardPerSecond > 0 && config.proposerRewardMax > 0)
         {
             unchecked {
-                uint256 blockDelay = block.timestamp
-                    - state.blocks[(b.numBlocks - 1) % config.blockRingBufferSize]
-                        .proposedAt;
+                uint64 parentProposedAt = state.blocks[(b.numBlocks - 1)
+                    % config.blockRingBufferSize].proposedAt;
 
-                if (blockDelay > config.proposerRewardMinDelay) {
-                    uint256 reward = config.proposerRewardMax.min(
-                        blockDelay - config.proposerRewardMinDelay
-                    ) * config.proposerRewardPerSecond;
+                uint256 reward = config.proposerRewardPerSecond
+                    * (block.timestamp - parentProposedAt);
 
-                    // Mint block reward to proposer
-                    tt.mint(input.beneficiary, reward);
-                }
+                // Mint block reward to proposer
+                tt.mint(input.beneficiary, config.proposerRewardMax.min(reward));
             }
         }
 

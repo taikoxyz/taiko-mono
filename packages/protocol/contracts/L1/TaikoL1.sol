@@ -33,7 +33,6 @@ contract TaikoL1 is TaikoL1Base {
             blockTxListExpiry: 0,
             proposerRewardPerSecond: 25e16, // 0.25 Taiko token
             proposerRewardMax: 32e18, // 32 Taiko token
-            proposerRewardMinDelay: 6 seconds,
             proofRegularCooldown: 30 minutes,
             proofOracleCooldown: 15 minutes,
             proofWindow: 90 minutes,
