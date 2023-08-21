@@ -68,13 +68,6 @@ contract DeployOnL1 is Script {
             "taikoTokenPremintRecipients and taikoTokenPremintAmounts must be same length"
         );
 
-        uint256 premintSum;
-        for (uint8 i = 0; i < taikoTokenPremintAmounts.length; i++) {
-            premintSum += taikoTokenPremintAmounts[i];
-        }
-
-        require(premintSum < type(uint256).max, "premint amount too large");
-
         vm.startBroadcast(deployerPrivateKey);
 
         // AddressManager
