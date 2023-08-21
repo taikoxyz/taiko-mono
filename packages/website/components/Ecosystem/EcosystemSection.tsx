@@ -199,6 +199,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/phalcon-explorer.png",
+    name: "Phalcon Explorer",
+    link: "https://explorer.phalcon.xyz/",
+    description:
+      "Designed specifically for the DeFi community, Phalcon Explorer empowers developers, traders, and security researchers to delve deep into transactions. As of now, Phalcon Explorer boasts over 20,000 monthly active users, analyzing approximately 10,000 transactions daily across 160+ countries. Notably, 75% of our user base hails from major countries including the US, China, and the UK.",
+    filters: [],
+    isLive: false,
+  },
+  {
     icon: "/images/ecosystem/pheasant-network.png",
     name: "Pheasant Network",
     link: "https://pheasant.network",
