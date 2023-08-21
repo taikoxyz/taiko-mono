@@ -7,13 +7,13 @@
 pragma solidity ^0.8.20;
 
 import {
-    IERC20Upgradeable,
-    ERC20Upgradeable
+    ERC20Upgradeable,
+    IERC20Upgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { IERC20MetadataUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
-import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
+import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 

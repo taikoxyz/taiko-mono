@@ -39,6 +39,10 @@ library TaikoData {
         uint64 blockMaxTxListBytes;
         // The expiration time for the block transaction list.
         uint256 blockTxListExpiry;
+        // Amount of token to reward to the first block propsoed in each L1
+        // block.
+        uint256 proposerRewardPerSecond;
+        uint256 proposerRewardMax;
         // ---------------------------------------------------------------------
         // Group 3: Proof related configs
         // ---------------------------------------------------------------------
@@ -49,7 +53,7 @@ library TaikoData {
         // The maximum time window allowed for a proof submission (in minutes).
         uint16 proofWindow;
         // The amount of Taiko token as a bond
-        uint256 proofBond;
+        uint96 proofBond;
         // True to skip proof verification
         bool skipProverAssignmentVerificaiton;
         // ---------------------------------------------------------------------
@@ -149,6 +153,8 @@ library TaikoData {
         uint16 nextForkChoiceId;
         uint16 verifiedForkChoiceId;
         uint64 blockId; // slot 4
+        uint96 proofBond;
+        uint16 proofWindow;
     }
 
     /// @dev Struct representing information about a transaction list.
@@ -197,8 +203,9 @@ library TaikoData {
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         mapping(uint256 depositId_mode_ethDepositRingBufferSize => uint256)
             ethDeposits;
-        SlotA slotA; // slot 5
-        SlotB slotB; // slot 6
-        uint256[44] __gap;
+        mapping(address account => uint256 balance) taikoTokenBalances;
+        SlotA slotA; // slot 6
+        SlotB slotB; // slot 7
+        uint256[43] __gap;
     }
 }

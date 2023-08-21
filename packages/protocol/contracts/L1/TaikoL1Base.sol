@@ -12,10 +12,11 @@ import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { LibDepositing } from "./libs/LibDepositing.sol";
 import { LibProposing } from "./libs/LibProposing.sol";
 import { LibProving } from "./libs/LibProving.sol";
+import { LibTaikoToken } from "./libs/LibTaikoToken.sol";
 import { LibUtils } from "./libs/LibUtils.sol";
 import { LibVerifying } from "./libs/LibVerifying.sol";
-import { TaikoErrors } from "./TaikoErrors.sol";
 import { TaikoData } from "./TaikoData.sol";
+import { TaikoErrors } from "./TaikoErrors.sol";
 import { TaikoEvents } from "./TaikoEvents.sol";
 
 /// @title TaikoL1Base
@@ -148,6 +149,25 @@ abstract contract TaikoL1Base is
             resolver: AddressResolver(this),
             recipient: recipient
         });
+    }
+
+    /// @notice Deposits Taiko tokens to the contract.
+    /// @param amount Amount of Taiko tokens to deposit.
+    function depositTaikoToken(uint256 amount) public nonReentrant {
+        LibTaikoToken.depositTaikoToken(state, AddressResolver(this), amount);
+    }
+
+    /// @notice Withdraws Taiko tokens from the contract.
+    /// @param amount Amount of Taiko tokens to withdraw.
+    function withdrawTaikoToken(uint256 amount) public nonReentrant {
+        LibTaikoToken.withdrawTaikoToken(state, AddressResolver(this), amount);
+    }
+
+    /// @notice Gets the Taiko token balance for a specific address.
+    /// @param addr Address to check the Taiko token balance.
+    /// @return The Taiko token balance of the address.
+    function getTaikoTokenBalance(address addr) public view returns (uint256) {
+        return state.taikoTokenBalances[addr];
     }
 
     /// @notice Checks if Ether deposit is allowed for Layer 2.

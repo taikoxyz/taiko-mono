@@ -29,9 +29,11 @@ library LibProposing {
     event BlockProposed(
         uint256 indexed blockId,
         address indexed prover,
+        uint256 reward,
         TaikoData.BlockMetadata meta
     );
 
+    error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_ASSIGNMENT();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_METADATA();
@@ -87,19 +89,45 @@ library LibProposing {
                 IProver(assignment.prover).onBlockAssigned{ value: msg.value }(
                     input, assignment
                 );
+
+                // Burn the prover's bond
+                TaikoToken(resolver.resolve("taiko_token", false)).burn(
+                    assignment.prover, config.proofBond
+                );
             } else {
+                // For EOA, we deduct the token from taikoTokenBalances
+                if (state.taikoTokenBalances[msg.sender] < config.proofBond) {
+                    revert L1_INSUFFICIENT_TOKEN();
+                }
+
                 bytes32 hash =
                     keccak256(abi.encode(input, msg.value, assignment.expiry));
                 if (assignment.prover != hash.recover(assignment.data)) {
                     revert L1_INVALID_PROVER_SIG();
                 }
                 assignment.prover.sendEther(msg.value);
+                state.taikoTokenBalances[msg.sender] -= config.proofBond;
             }
         }
-        // Burn the prover's bond to this address
-        TaikoToken(resolver.resolve("taiko_token", false)).burn(
-            assignment.prover, config.proofBond
-        );
+
+        // Reward the proposer
+        uint256 reward;
+        if (config.proposerRewardPerSecond > 0 && config.proposerRewardMax > 0)
+        {
+            unchecked {
+                uint256 blockTime = block.timestamp
+                    - state.blocks[(b.numBlocks - 1) % config.blockRingBufferSize]
+                        .proposedAt;
+
+                if (blockTime > 0) {
+                    reward = (config.proposerRewardPerSecond * blockTime).min(
+                        config.proposerRewardMax
+                    );
+
+                    state.taikoTokenBalances[input.beneficiary] += reward;
+                }
+            }
+        }
 
         if (_validateBlock(state, config, input, txList)) {
             // returns true if we need to cache the txList info
@@ -139,10 +167,13 @@ library LibProposing {
             blk.nextForkChoiceId = 1;
             blk.verifiedForkChoiceId = 0;
             blk.blockId = meta.id;
+            blk.proofBond = config.proofBond;
+            blk.proofWindow = config.proofWindow;
 
             emit BlockProposed({
                 blockId: state.slotB.numBlocks++,
                 prover: blk.prover,
+                reward: reward,
                 meta: meta
             });
         }

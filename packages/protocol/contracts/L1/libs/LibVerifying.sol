@@ -49,6 +49,7 @@ library LibVerifying {
                 || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
                 || config.proofRegularCooldown < config.proofOracleCooldown
                 || config.proofWindow == 0 || config.proofBond == 0
+                || config.proofBond < 10 * config.proposerRewardPerSecond
                 || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
                 || config.ethDepositMaxCountPerBlock
@@ -142,7 +143,7 @@ library LibVerifying {
                 signalRoot = fc.signalRoot;
                 blk.verifiedForkChoiceId = fcId;
 
-                _rewardProver(config, resolver, blk, fc);
+                _rewardProver(state, resolver, blk, fc);
                 emit BlockVerified(blockId, fc.prover, fc.blockHash);
 
                 ++blockId;
@@ -170,25 +171,33 @@ library LibVerifying {
     }
 
     function _rewardProver(
-        TaikoData.Config memory config,
+        TaikoData.State storage state,
         AddressResolver resolver,
         TaikoData.Block storage blk,
         TaikoData.ForkChoice memory fc
     )
         private
     {
+        address recipient = blk.prover;
+        uint256 amount = blk.proofBond;
         unchecked {
-            TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
             if (
-                fc.prover == address(1)
-                    || fc.provenAt <= blk.proposedAt + config.proofWindow
+                fc.prover != address(1)
+                    && fc.provenAt > blk.proposedAt + blk.proofWindow
             ) {
-                // Refund all the bond
-                tt.mint(blk.prover, config.proofBond);
-            } else {
-                // Reward half of the bond to the actual prover
-                tt.mint(fc.prover, config.proofBond / 2);
+                recipient = fc.prover;
+                amount /= 4;
             }
+        }
+
+        if (recipient == address(0) || amount == 0) return;
+
+        if (recipient.isContract()) {
+            TaikoToken(resolver.resolve("taiko_token", false)).mint(
+                recipient, amount
+            );
+        } else {
+            state.taikoTokenBalances[recipient] += amount;
         }
     }
 }

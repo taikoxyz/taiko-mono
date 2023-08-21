@@ -6,13 +6,13 @@
 
 pragma solidity ^0.8.20;
 
-import { IERC1155Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
-import { IERC1155MetadataURIUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/IERC1155MetadataURIUpgradeable.sol";
 import { ERC1155Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
+import { IERC1155MetadataURIUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/IERC1155MetadataURIUpgradeable.sol";
+import { IERC1155Upgradeable } from
+    "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
