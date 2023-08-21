@@ -1,5 +1,4 @@
 <script lang="ts">
-  import type { FetchBalanceResult } from '@wagmi/core';
   import { t } from 'svelte-i18n';
   import { formatUnits, parseUnits } from 'viem';
 
@@ -9,12 +8,13 @@
   import { warningToast } from '$components/NotificationToast';
   import { checkBalanceToBridge, getMaxAmountToBridge } from '$libs/bridge';
   import { InsufficientAllowanceError, InsufficientBalanceError, RevertedWithFailedError } from '$libs/error';
-  import { getBalance as getTokenBalance } from '$libs/token';
+  import { ETHToken, getBalance as getTokenBalance } from '$libs/token';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
-  import { truncateString } from '$libs/util/truncateString';
+  import { renderBalance } from '$libs/util/renderBalance';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
+  import { ethBalance } from '$stores/balance';
   import { network } from '$stores/network';
 
   import {
@@ -108,6 +108,16 @@
         destChainId,
         userAddress,
       });
+      if (token.name === ETHToken.name) {
+        $ethBalance = $tokenBalance;
+      } else {
+        $ethBalance = await getTokenBalance({
+          token: ETHToken,
+          srcChainId,
+          destChainId,
+          userAddress,
+        });
+      }
     } catch (err) {
       log('Error updating balance: ', err);
       //most likely we have a custom token that is not bridged yet
@@ -121,13 +131,6 @@
   // We want to debounce this function for input events.
   // Could happen as the user enters an amount
   const debouncedValidateAmount = debounce(validateAmount, 300);
-
-  function renderBalance(balance: Maybe<FetchBalanceResult>) {
-    if (!balance) return '0.00';
-
-    let maxlength = Number(balance.formatted) < 0.000001 ? balance.decimals : 6;
-    return `${truncateString(balance.formatted, maxlength, '')} ${balance.symbol}`;
-  }
 
   // Will trigger on input events. We update the entered amount
   // and check it's validity
