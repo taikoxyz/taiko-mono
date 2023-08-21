@@ -30,7 +30,7 @@ library LibVerifying {
 
     error L1_BLOCK_ID_MISMATCH();
     error L1_INVALID_CONFIG();
-    error L1_UNEXPECTED_FC_ID();
+    error L1_UNEXPECTED_FORK_CHOICE_ID();
 
     function init(
         TaikoData.State storage state,
@@ -106,7 +106,7 @@ library LibVerifying {
         if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
 
         uint16 fcId = blk.verifiedForkChoiceId;
-        if (fcId == 0) revert L1_UNEXPECTED_FC_ID();
+        if (fcId == 0) revert L1_UNEXPECTED_FORK_CHOICE_ID();
 
         bytes32 blockHash = blk.forkChoices[fcId].blockHash;
         uint32 gasUsed = blk.forkChoices[fcId].gasUsed;
