@@ -14,6 +14,20 @@ cp .env.example .env
 source .env
 ```
 
+Set up chain/bridge configurations
+
+```bash
+cp config/sample/configuredBridges.example config/configuredBridges.json
+cp config/sample/configuredChains.example config/configuredChains.json
+
+# fill in all the configuration details...
+
+source config/configuredChains.json
+source config/configuredBridges.json
+```
+
+This will generate the config file in `src/generated/` when you start the server or run a build
+
 start a development server:
 
 ```bash
