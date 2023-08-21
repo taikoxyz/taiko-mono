@@ -119,9 +119,3 @@ __pycache__/
 
 # VSCode
 .vscode/launch.json
-
-# Bridge config files
-packages/bridge-ui-v2/config/*
-!packages/bridge-ui-v2/config/sample/
-
-

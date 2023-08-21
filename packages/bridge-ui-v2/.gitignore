@@ -13,6 +13,6 @@ vite.config.ts.timestamp-*
 /config/*
 !/config/sample/
 
-# generated/*
+generated/*
 
 
