@@ -123,11 +123,17 @@ library LibProving {
         fc.provenAt = uint64(block.timestamp);
         fc.gasUsed = evidence.gasUsed;
 
-        IProofVerifier(resolver.resolve("proof_verifier", false)).verifyProofs({
-            blockId: blockId,
-            blockProofs: evidence.proofs,
-            instance: getInstance(config, resolver, evidence)
-        });
+        bytes32 instance = getInstance(
+            config,
+            evidence,
+            resolver.resolve("signal_service", false),
+            resolver.resolve(config.chainId, "signal_service", false),
+            resolver.resolve(config.chainId, "taiko", false)
+        );
+
+        IProofVerifier(resolver.resolve("proof_verifier", false)).verifyProofs(
+            blockId, evidence.proofs, instance
+        );
 
         emit BlockProven({
             blockId: blockId,
@@ -169,29 +175,23 @@ library LibProving {
 
     function getInstance(
         TaikoData.Config memory config,
-        AddressResolver resolver,
-        TaikoData.BlockEvidence memory evidence
+        TaikoData.BlockEvidence memory evidence,
+        address l1SignalService,
+        address l2SignalService,
+        address l2Taiko
     )
         internal
-        view
+        pure
         returns (bytes32 instance)
     {
         if (evidence.prover != address(1)) return 0;
 
         uint256[10] memory inputs;
 
-        inputs[0] =
-            uint256(uint160(address(resolver.resolve("signal_service", false))));
-        inputs[1] = uint256(
-            uint160(
-                address(
-                    resolver.resolve(config.chainId, "signal_service", false)
-                )
-            )
-        );
-        inputs[2] = uint256(
-            uint160(address(resolver.resolve(config.chainId, "taiko", false)))
-        );
+        inputs[0] = uint256(uint160(l1SignalService));
+        inputs[1] = uint256(uint160(l2SignalService));
+
+        inputs[2] = uint256(uint160(l2Taiko));
 
         inputs[3] = uint256(evidence.metaHash);
         inputs[4] = uint256(evidence.parentHash);
@@ -203,9 +203,8 @@ library LibProving {
             | (uint256(evidence.gasUsed) << 32);
 
         // Also hash configs that will be used by circuits
-        inputs[9] = uint256(config.blockMaxGasLimit) << 192
-            | uint256(config.blockMaxTransactions) << 128
-            | uint256(config.blockMaxTxListBytes) << 64;
+        inputs[9] = uint256(config.blockMaxGasLimit) << 224
+            | uint256(config.blockMaxTxListBytes) << 200;
 
         assembly {
             instance := keccak256(inputs, mul(32, 10))
