@@ -2,6 +2,8 @@ import type { Chain } from '@wagmi/core';
 
 import { chainConfig, type ChainConfigMap } from '$chainConfig';
 
+export type ChainID = bigint;
+
 function mapChainConfigToChain(chainId: string, chainConfig: ChainConfigMap[number]): Chain {
   return {
     id: Number(chainId),

@@ -47,9 +47,8 @@ export class RelayerAPIService {
         continue;
       }
 
-      const { bridgeAddress } =
-        routingContractsMap[Number(item.data.Message.SrcChainId)][Number(item.data.Message.DestChainId)]; // TODO: also handle unsupported chain
-      const { DestChainId, SrcChainId } = Message;
+      const { DestChainId: destChainId, SrcChainId: srcChainId } = Message;
+      const { bridgeAddress } = routingContractsMap[Number(srcChainId)][Number(destChainId)]; // TODO: also handle unsupported chain
       const { transactionHash, address } = Raw;
 
       // Check all conditions
@@ -57,7 +56,7 @@ export class RelayerAPIService {
       const isAddressPresent = Boolean(address);
       const isUniqueHash = !uniqueHashes.has(transactionHash);
       const isCorrectBridgeAddress = address?.toLowerCase() === bridgeAddress?.toLowerCase();
-      const areChainsSupported = isSupportedChain(Number(DestChainId)) && isSupportedChain(Number(SrcChainId));
+      const areChainsSupported = isSupportedChain(Number(destChainId)) && isSupportedChain(Number(srcChainId));
 
       // If the transaction hash is unique, add it to the set for future checks
       if (isUniqueHash) uniqueHashes.add(transactionHash);

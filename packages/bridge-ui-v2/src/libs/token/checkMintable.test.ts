@@ -8,7 +8,6 @@ import {
 } from '@wagmi/core';
 
 import { freeMintErc20ABI } from '$abi';
-import { mainnetChain } from '$libs/chain';
 import { InsufficientBalanceError, TokenMintedError } from '$libs/error';
 
 import { checkMintable } from './checkMintable';
@@ -53,14 +52,14 @@ describe('checkMintable', () => {
     vi.mocked(mockTokenContract.read.minters).mockResolvedValueOnce(true);
 
     try {
-      await checkMintable(BLLToken, mainnetChain.id);
+      await checkMintable(BLLToken, 1);
       expect.fail('should have thrown');
     } catch (error) {
       expect(error).toBeInstanceOf(TokenMintedError);
       expect(getContract).toHaveBeenCalledWith({
         walletClient: mockWalletClient,
         abi: freeMintErc20ABI,
-        address: BLLToken.addresses[mainnetChain.id],
+        address: BLLToken.addresses[1],
       });
       expect(mockTokenContract.read.minters).toHaveBeenCalledWith([mockWalletClient.account.address]);
     }
@@ -81,7 +80,7 @@ describe('checkMintable', () => {
     vi.mocked(mockPublicClient.getBalance).mockResolvedValueOnce(BigInt(100));
 
     try {
-      await checkMintable(BLLToken, mainnetChain.id);
+      await checkMintable(BLLToken, 1);
       expect.fail('should have thrown');
     } catch (error) {
       expect(error).toBeInstanceOf(InsufficientBalanceError);
@@ -106,7 +105,7 @@ describe('checkMintable', () => {
     vi.mocked(mockPublicClient.getBalance).mockResolvedValueOnce(BigInt(300));
 
     try {
-      await checkMintable(BLLToken, mainnetChain.id);
+      await checkMintable(BLLToken, 1);
     } catch (error) {
       expect.fail('should not have thrown');
     }

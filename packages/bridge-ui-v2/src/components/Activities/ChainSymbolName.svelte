@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { chainIcons, type ChainID, getChainName } from '$libs/chain';
+  import { chainConfig } from '$chainConfig';
+  import type { ChainID } from '$libs/chain';
 
   export let chainId: ChainID;
-  const chainName = getChainName(Number(chainId));
-  const icon = chainIcons[Number(chainId)];
+  const chainName = chainConfig[Number(chainId)]?.name || 'Unknown Chain';
+  const icon = chainConfig[Number(chainId)]?.icon || 'Unknown Chain';
 </script>
 
 <div class="flex md:items-stretch self-center justify-items-start'}">
