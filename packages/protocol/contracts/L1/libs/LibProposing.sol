@@ -109,11 +109,14 @@ library LibProposing {
                     - state.blocks[(b.numBlocks - 1) % config.blockRingBufferSize]
                         .proposedAt;
 
-                uint256 reward = (config.proposerRewardPerSecond * blockTime)
-                    .min(config.proposerRewardMax);
+                if (blockTime > 0) {
+                    uint256 reward = (
+                        config.proposerRewardPerSecond * blockTime
+                    ).min(config.proposerRewardMax);
 
-                // Mint block reward to proposer
-                tt.mint(input.beneficiary, reward);
+                    // Mint block reward to proposer
+                    tt.mint(input.beneficiary, reward);
+                }
             }
         }
 
