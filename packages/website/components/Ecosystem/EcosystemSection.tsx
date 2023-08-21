@@ -24,6 +24,14 @@ interface EcosystemData {
 
 const ecosystemData: EcosystemData[] = [
   {
+    icon: "/images/ecosystem/bitget.png",
+    name: "BitGet Wallet",
+    link: "https://web3.bitget.com/",
+    description: "Faster trading with your Web3 trading wallet of the future.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/blockscout.svg",
     name: "Blockscout",
     link: "https://blockscout.com",
@@ -189,6 +197,15 @@ const ecosystemData: EcosystemData[] = [
     description: "The full-stack infrastructure to simplify Web3.",
     filters: [],
     isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/phalcon-explorer.png",
+    name: "Phalcon Explorer",
+    link: "https://explorer.phalcon.xyz/",
+    description:
+      "Designed specifically for the DeFi community, Phalcon Explorer empowers developers, traders, and security researchers to delve deep into transactions. As of now, Phalcon Explorer boasts over 20,000 monthly active users, analyzing approximately 10,000 transactions daily across 160+ countries. Notably, 75% of our user base hails from major countries including the US, China, and the UK.",
+    filters: [],
+    isLive: false,
   },
   {
     icon: "/images/ecosystem/pheasant-network.png",

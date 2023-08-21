@@ -9,7 +9,6 @@
   import { InputBox } from '$components/InputBox';
   import { LoadingText } from '$components/LoadingText';
   import { Tooltip } from '$components/Tooltip';
-  import { processingFeeComponent } from '$config';
   import { ProcessingFeeMethod } from '$libs/fee';
   import { parseToWei } from '$libs/util/parseToWei';
   import { uid } from '$libs/util/uid';
@@ -31,11 +30,11 @@
   let errorCalculatingEnoughEth = false;
 
   let modalOpen = false;
-  let inputBox: InputBox;
+  let inputBox: InputBox | undefined;
 
   // Public API
   export function resetProcessingFee() {
-    inputBox.clear();
+    inputBox?.clear();
     selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
   }
 
@@ -58,19 +57,13 @@
   }
 
   function cancelModal() {
-    inputBox.clear();
+    inputBox?.clear();
     selectedFeeMethod = prevOptionSelected;
     closeModal();
   }
 
-  function closeModalWithDelay() {
-    // By adding delay there is enough time to see the selected option
-    // before closing the modal. Better experience for the user.
-    setTimeout(closeModal, processingFeeComponent.closingDelayOptionClick);
-  }
-
   function focusInputBox() {
-    inputBox.focus();
+    inputBox?.focus();
   }
 
   function inputProcessFee(event: Event) {
@@ -125,7 +118,10 @@
   <div class="f-between-center">
     <div class="flex space-x-2">
       <span class="body-small-bold text-primary-content">{$t('processing_fee.title')}</span>
-      <Tooltip>TODO: add description about processing fee</Tooltip>
+      <Tooltip>
+        <div>{$t('processing_fee.tooltip_title')}</div>
+        <div>{$t('processing_fee.tooltip')}</div>
+      </Tooltip>
     </div>
     <button class="link" on:click={openModal} on:focus={openModal}>{$t('common.edit')}</button>
   </div>

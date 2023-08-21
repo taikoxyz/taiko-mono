@@ -20,12 +20,14 @@
     py-[20px]
     border-b
     border-b-divider-border
-    glassy-primary-background
+    glassy-background
+    bg-grey-5/10
+    dark:bg-grey-900/10
     md:border-b-0
     md:px-10
     md:py-7
  ">
-  <LogoWithText width={77} height={21} class="md:hidden" />
+  <LogoWithText width={77} height={21} class="md:hidden" textFillClass={'fill-primary-content'} />
 
   <div class="flex justify-end w-full">
     {#if isBridgePage}

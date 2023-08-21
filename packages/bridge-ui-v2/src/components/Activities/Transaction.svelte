@@ -34,7 +34,7 @@
   tabindex="0"
   on:click={handleClick}
   on:keydown={handlePress}
-  class="flex text-white md:h-[80px] h-[45px] w-full">
+  class="flex text-primary-content md:h-[80px] h-[45px] w-full">
   {#if isDesktopOrLarger}
     <div class="w-1/5 py-2 flex flex-row">
       <ChainSymbolName chainId={item.srcChainId} />
@@ -47,7 +47,7 @@
       {item.symbol}
     </div>
   {:else}
-    <div class="flex text-white h-[80px] w-full">
+    <div class="flex text-primary-content h-[80px] w-full">
       <div class="flex-col">
         <div class="flex">
           <ChainSymbolName chainId={item.srcChainId} />
