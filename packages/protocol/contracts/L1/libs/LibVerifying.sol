@@ -143,7 +143,7 @@ library LibVerifying {
                 signalRoot = fc.signalRoot;
                 blk.verifiedForkChoiceId = fcId;
 
-                _rewardProver(resolver, blk, fc);
+                _rewardProver(state, resolver, blk, fc);
                 emit BlockVerified(blockId, fc.prover, fc.blockHash);
 
                 ++blockId;
@@ -171,24 +171,33 @@ library LibVerifying {
     }
 
     function _rewardProver(
+        TaikoData.State storage state,
         AddressResolver resolver,
         TaikoData.Block storage blk,
         TaikoData.ForkChoice memory fc
     )
         private
     {
+        address recipient = blk.prover;
+        uint256 amount = blk.proofBond;
         unchecked {
-            TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
             if (
-                fc.prover == address(1)
-                    || fc.provenAt <= blk.proposedAt + blk.proofWindow
+                fc.prover != address(1)
+                    && fc.provenAt > blk.proposedAt + blk.proofWindow
             ) {
-                // Refund all the bond
-                tt.mint(blk.prover, blk.proofBond);
-            } else {
-                // 1/4 of the bond to the actual prover
-                tt.mint(fc.prover, blk.proofBond / 4);
+                recipient = fc.prover;
+                amount /= 4;
             }
+        }
+
+        if (recipient == address(0) || amount == 0) return;
+
+        if (recipient.isContract()) {
+            TaikoToken(resolver.resolve("taiko_token", false)).mint(
+                recipient, amount
+            );
+        } else {
+            state.taikoTokenBalances[recipient] += amount;
         }
     }
 }

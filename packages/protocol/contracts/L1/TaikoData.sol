@@ -203,8 +203,9 @@ library TaikoData {
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         mapping(uint256 depositId_mode_ethDepositRingBufferSize => uint256)
             ethDeposits;
-        SlotA slotA; // slot 5
-        SlotB slotB; // slot 6
-        uint256[44] __gap;
+        mapping(address account => uint256 balance) taikoTokenBalances;
+        SlotA slotA; // slot 6
+        SlotB slotB; // slot 7
+        uint256[43] __gap;
     }
 }

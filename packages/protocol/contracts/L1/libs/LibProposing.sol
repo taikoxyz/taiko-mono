@@ -33,6 +33,7 @@ library LibProposing {
         TaikoData.BlockMetadata meta
     );
 
+    error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_ASSIGNMENT();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_METADATA();
@@ -88,19 +89,26 @@ library LibProposing {
                 IProver(assignment.prover).onBlockAssigned{ value: msg.value }(
                     input, assignment
                 );
+
+                // Burn the prover's bond
+                TaikoToken(resolver.resolve("taiko_token", false)).burn(
+                    assignment.prover, config.proofBond
+                );
             } else {
+                // For EOA, we deduct the token from taikoTokenBalances
+                if (state.taikoTokenBalances[msg.sender] < config.proofBond) {
+                    revert L1_INSUFFICIENT_TOKEN();
+                }
+
                 bytes32 hash =
                     keccak256(abi.encode(input, msg.value, assignment.expiry));
                 if (assignment.prover != hash.recover(assignment.data)) {
                     revert L1_INVALID_PROVER_SIG();
                 }
                 assignment.prover.sendEther(msg.value);
+                state.taikoTokenBalances[msg.sender] -= config.proofBond;
             }
         }
-
-        TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
-        // Burn the prover's bond to this address
-        tt.burn(assignment.prover, config.proofBond);
 
         // Reward the proposer
         uint256 reward;
@@ -116,7 +124,7 @@ library LibProposing {
                         config.proposerRewardMax
                     );
 
-                    tt.mint(input.beneficiary, reward);
+                    state.taikoTokenBalances[input.beneficiary] += reward;
                 }
             }
         }
