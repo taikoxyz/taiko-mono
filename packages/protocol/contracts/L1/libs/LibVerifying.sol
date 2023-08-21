@@ -189,8 +189,6 @@ library LibVerifying {
             }
         }
 
-        if (recipient == address(0) || amount == 0) return;
-
         if (recipient.isContract()) {
             TaikoToken(resolver.resolve("taiko_token", false)).mint(
                 recipient, amount
