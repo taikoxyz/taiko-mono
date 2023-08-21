@@ -29,6 +29,7 @@ library LibProposing {
     event BlockProposed(
         uint256 indexed blockId,
         address indexed prover,
+        uint256 reward,
         TaikoData.BlockMetadata meta
     );
 
@@ -102,6 +103,7 @@ library LibProposing {
         tt.burn(assignment.prover, config.proofBond);
 
         // Reward the proposer
+        uint256 reward;
         if (config.proposerRewardPerSecond > 0 && config.proposerRewardMax > 0)
         {
             unchecked {
@@ -110,9 +112,9 @@ library LibProposing {
                         .proposedAt;
 
                 if (blockTime > 0) {
-                    uint256 reward = (
-                        config.proposerRewardPerSecond * blockTime
-                    ).min(config.proposerRewardMax);
+                    reward = (config.proposerRewardPerSecond * blockTime).min(
+                        config.proposerRewardMax
+                    );
 
                     tt.mint(input.beneficiary, reward);
                 }
@@ -163,6 +165,7 @@ library LibProposing {
             emit BlockProposed({
                 blockId: state.slotB.numBlocks++,
                 prover: blk.prover,
+                reward: reward,
                 meta: meta
             });
         }

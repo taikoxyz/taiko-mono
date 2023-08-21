@@ -18,11 +18,13 @@ abstract contract TaikoEvents {
     /// @dev Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
     /// @param prover The address of the assigned prover for the block.
+    /// @param reward The proposer's block reward in Taiko token.
     /// @param meta The block metadata containing information about the proposed
     /// block.
     event BlockProposed(
         uint256 indexed blockId,
         address indexed prover,
+        uint256 reward,
         TaikoData.BlockMetadata meta
     );
 
