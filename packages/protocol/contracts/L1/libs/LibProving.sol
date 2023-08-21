@@ -186,13 +186,11 @@ library LibProving {
     {
         if (evidence.prover != address(1)) return 0;
 
-        uint256[10] memory inputs;
+        uint256[9] memory inputs;
 
         inputs[0] = uint256(uint160(l1SignalService));
         inputs[1] = uint256(uint160(l2SignalService));
-
         inputs[2] = uint256(uint160(l2Taiko));
-
         inputs[3] = uint256(evidence.metaHash);
         inputs[4] = uint256(evidence.parentHash);
         inputs[5] = uint256(evidence.blockHash);
@@ -200,14 +198,11 @@ library LibProving {
         inputs[7] = uint256(evidence.graffiti);
         inputs[8] = (uint256(uint160(evidence.prover)) << 96)
             | (uint256(evidence.parentGasUsed) << 64)
-            | (uint256(evidence.gasUsed) << 32);
-
-        // Also hash configs that will be used by circuits
-        inputs[9] = uint256(config.blockMaxGasLimit) << 224
-            | uint256(config.blockMaxTxListBytes) << 200;
+            | (uint256(evidence.gasUsed) << 32)
+            | (uint256(evidence.blockMaxTxListBytes) << 8);
 
         assembly {
-            instance := keccak256(inputs, mul(32, 10))
+            instance := keccak256(inputs, mul(32, 9))
         }
         if (instance == 0) revert L1_INSTANCE_ZERO();
     }
