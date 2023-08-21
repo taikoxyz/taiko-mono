@@ -118,7 +118,10 @@
   <div class="f-between-center">
     <div class="flex space-x-2">
       <span class="body-small-bold text-primary-content">{$t('processing_fee.title')}</span>
-      <Tooltip>TODO: add description about processing fee</Tooltip>
+      <Tooltip>
+        <div>{$t('processing_fee.tooltip_title')}</div>
+        <div>{$t('processing_fee.tooltip')}</div>
+      </Tooltip>
     </div>
     <button class="link" on:click={openModal} on:focus={openModal}>{$t('common.edit')}</button>
   </div>

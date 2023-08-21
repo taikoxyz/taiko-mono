@@ -90,6 +90,37 @@
     @apply !shadow-[0_0_0_3px_#F15C5D];
   }
 
+  /* Tooltip */
+  .dialog-tooltip {
+    @apply rounded-[10px]
+      w-[283px]
+      p-[24px]
+      bg-primary-base-background
+      text-primary-base-content;
+
+    letter-spacing: 0.14px;
+
+    > div:first-of-type {
+      @apply title-body-bold;
+      padding-bottom: 8px;
+    }
+  }
+
+  .dialog-tooltip-top {
+    :before {
+      content: '';
+      position: absolute;
+      height: 0px;
+      width: 0px;
+      top: 100%;
+      left: 133px; /* (283px - 9px)/2 - 4px */
+      border-width: 9px;
+      border-color: transparent transparent transparent;
+      border-style: solid;
+      border-top: 9px solid white;
+    }
+  }
+
   /* Separatos */
   .h-sep {
     @apply divider h-[1px] border-divider-border;
