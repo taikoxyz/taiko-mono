@@ -110,11 +110,11 @@
         <div class="flex space-x-2 items-center">
           {#if symbolToIconMap[value.symbol]}
             <i role="img" aria-label={value.name}>
-              <svelte:component this={symbolToIconMap[value.symbol]} />
+              <svelte:component this={symbolToIconMap[value.symbol]} size={28}/>
             </i>
           {:else}
             <i role="img" aria-label={value.symbol}>
-              <Erc20 />
+              <svelte:component this={Erc20} size={28}/>
             </i>
           {/if}
           <span class="title-subsection-bold">{value.symbol}</span>
