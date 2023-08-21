@@ -101,7 +101,7 @@ library LibProposing {
         // Burn the prover's bond to this address
         tt.burn(assignment.prover, config.proofBond);
 
-        // Reward proposers
+        // Reward the proposer
         if (config.proposerRewardPerSecond > 0 && config.proposerRewardMax > 0)
         {
             unchecked {
