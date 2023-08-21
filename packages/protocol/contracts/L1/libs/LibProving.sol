@@ -124,7 +124,6 @@ library LibProving {
         fc.gasUsed = evidence.gasUsed;
 
         bytes32 instance = getInstance(
-            config,
             evidence,
             resolver.resolve("signal_service", false),
             resolver.resolve(config.chainId, "signal_service", false),
@@ -174,7 +173,6 @@ library LibProving {
     }
 
     function getInstance(
-        TaikoData.Config memory config,
         TaikoData.BlockEvidence memory evidence,
         address l1SignalService,
         address l2SignalService,
@@ -198,8 +196,7 @@ library LibProving {
         inputs[7] = uint256(evidence.graffiti);
         inputs[8] = (uint256(uint160(evidence.prover)) << 96)
             | (uint256(evidence.parentGasUsed) << 64)
-            | (uint256(evidence.gasUsed) << 32)
-            | (uint256(evidence.blockMaxTxListBytes) << 8);
+            | (uint256(evidence.gasUsed) << 32);
 
         assembly {
             instance := keccak256(inputs, mul(32, 9))

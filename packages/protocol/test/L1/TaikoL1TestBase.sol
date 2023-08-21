@@ -163,7 +163,6 @@ abstract contract TaikoL1TestBase is TestBase {
         });
 
         bytes32 instance = LibProving.getInstance(
-            conf,
             evidence,
             L1.resolve("signal_service", false),
             L1.resolve(conf.chainId, "signal_service", false),
