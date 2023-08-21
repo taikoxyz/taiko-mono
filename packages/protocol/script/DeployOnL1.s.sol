@@ -73,7 +73,7 @@ contract DeployOnL1 is Script {
             premintSum += taikoTokenPremintAmounts[i];
         }
 
-        require(premintSum < type(uint64).max, "premint amount too large");
+        require(premintSum < type(uint256).max, "premint amount too large");
 
         vm.startBroadcast(deployerPrivateKey);
 
