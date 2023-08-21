@@ -52,16 +52,18 @@
   },
   "recipient": {
     "title": "Recipient address",
-    "description": "Customize the recipient address for your bridged tokens instead of using your current wallet address.",
+    "description": "You can set a custom address as the recipient of your funds, instead of your current wallet address.",
     "link": "Change recipient",
     "placeholder": "Add custom recipient 0x…",
+    "tooltip_title": "What is Custom Recipient?",
     "tooltip": "Defaults to your address. You can add a custom recipient address as well."
   },
   "processing_fee": {
     "title": "Processing fee",
     "description": "Some description about the processing fee",
     "link": "Customize fee",
-    "tooltip": "The current calculated proccessing fee for this transaction. Click edit to customize it",
+    "tooltip_title": "What is Processing Fee?",
+    "tooltip": "The payment you provide to the relayer for handling your bridge message on the destination chain.",
     "recommended": {
       "label": "Recommended",
       "calculating": "Calculating",
