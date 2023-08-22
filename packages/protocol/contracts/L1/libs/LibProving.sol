@@ -170,19 +170,6 @@ library LibProving {
         returns (bytes32 instance)
     {
         if (evidence.prover != address(1)) return 0;
-
-        uint256[6] memory inputs;
-        inputs[0] = uint256(evidence.metaHash);
-        inputs[1] = uint256(evidence.parentHash);
-        inputs[2] = uint256(evidence.blockHash);
-        inputs[3] = uint256(evidence.signalRoot);
-        inputs[4] = uint256(evidence.graffiti);
-        inputs[5] = (uint256(uint160(evidence.prover)) << 96)
-            | (uint256(evidence.parentGasUsed) << 64)
-            | (uint256(evidence.gasUsed) << 32);
-
-        assembly {
-            instance := keccak256(inputs, mul(32, 6))
-        }
+        else return keccak256(abi.encode(evidence));
     }
 }
