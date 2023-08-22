@@ -169,7 +169,7 @@ library LibProving {
         pure
         returns (bytes32 instance)
     {
-        if (evidence.prover != address(1)) return 0;
+        if (evidence.prover == address(1)) return 0;
         else return keccak256(abi.encode(evidence));
     }
 }
