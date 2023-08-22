@@ -33,10 +33,8 @@ library TaikoData {
         uint32 blockMaxGasLimit;
         // The base gas for processing a block.
         uint32 blockFeeBaseGas;
-        // The maximum number of transactions allowed in a single block.
-        uint64 blockMaxTransactions;
         // The maximum allowed bytes for the proposed transaction list calldata.
-        uint64 blockMaxTxListBytes;
+        uint24 blockMaxTxListBytes;
         // The expiration time for the block transaction list.
         uint256 blockTxListExpiry;
         // Amount of token to reward to the first block propsoed in each L1

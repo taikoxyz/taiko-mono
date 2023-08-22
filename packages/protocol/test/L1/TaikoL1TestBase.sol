@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import { TestBase } from "../TestBase.sol";
 import { console2 } from "forge-std/console2.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
+import { LibProving } from "../../contracts/L1/libs/LibProving.sol";
 import { LibUtils } from "../../contracts/L1/libs/LibUtils.sol";
 import { TaikoData } from "../../contracts/L1/TaikoData.sol";
 import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
@@ -27,11 +28,6 @@ abstract contract TaikoL1TestBase is TestBase {
     TaikoData.Config conf;
     uint256 internal logCount;
     ProofVerifier public pv;
-
-    // Constants of the input - it is a workaround - most probably a
-    // forge/foundry issue. Issue link:
-    // https://github.com/foundry-rs/foundry/issues/5200
-    uint256[3] internal inputs012;
 
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
     // 1 TKO --> it is to huge. It should be in 'wei' (?).
@@ -92,14 +88,6 @@ abstract contract TaikoL1TestBase is TestBase {
 
         L1.init(address(addressManager), GENESIS_BLOCK_HASH);
         printVariables("init  ");
-
-        inputs012[0] =
-            uint256(uint160(address(L1.resolve("signal_service", false))));
-        inputs012[1] = uint256(
-            uint160(address(L1.resolve(conf.chainId, "signal_service", false)))
-        );
-        inputs012[2] =
-            uint256(uint160(address(L1.resolve(conf.chainId, "taiko", false))));
     }
 
     function proposeBlock(
@@ -174,7 +162,7 @@ abstract contract TaikoL1TestBase is TestBase {
             proofs: new bytes(102)
         });
 
-        bytes32 instance = getInstance(conf, evidence);
+        bytes32 instance = LibProving.getInstance(evidence);
         uint16 verifierId = 100;
 
         evidence.proofs = bytes.concat(
@@ -244,39 +232,6 @@ abstract contract TaikoL1TestBase is TestBase {
             comment
         );
         console2.log(str);
-    }
-
-    function getInstance(
-        TaikoData.Config memory config,
-        TaikoData.BlockEvidence memory evidence
-    )
-        internal
-        view
-        returns (bytes32 instance)
-    {
-        uint256[10] memory inputs;
-
-        inputs[0] = inputs012[0];
-        inputs[1] = inputs012[1];
-        inputs[2] = inputs012[2];
-
-        inputs[3] = uint256(evidence.metaHash);
-        inputs[4] = uint256(evidence.parentHash);
-        inputs[5] = uint256(evidence.blockHash);
-        inputs[6] = uint256(evidence.signalRoot);
-        inputs[7] = uint256(evidence.graffiti);
-        inputs[8] = (uint256(uint160(evidence.prover)) << 96)
-            | (uint256(evidence.parentGasUsed) << 64)
-            | (uint256(evidence.gasUsed) << 32);
-
-        // Also hash configs that will be used by circuits
-        inputs[9] = uint256(config.blockMaxGasLimit) << 192
-            | uint256(config.blockMaxTransactions) << 128
-            | uint256(config.blockMaxTxListBytes) << 64;
-
-        assembly {
-            instance := keccak256(inputs, mul(32, 10))
-        }
     }
 
     function mine(uint256 counts) internal {

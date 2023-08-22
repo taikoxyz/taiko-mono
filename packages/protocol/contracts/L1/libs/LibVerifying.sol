@@ -30,7 +30,7 @@ library LibVerifying {
 
     error L1_BLOCK_ID_MISMATCH();
     error L1_INVALID_CONFIG();
-    error L1_UNEXPECTED_FC_ID();
+    error L1_UNEXPECTED_FORK_CHOICE_ID();
 
     function init(
         TaikoData.State storage state,
@@ -43,8 +43,7 @@ library LibVerifying {
             config.chainId <= 1 //
                 || config.blockMaxProposals == 1
                 || config.blockRingBufferSize <= config.blockMaxProposals + 1
-                || config.blockMaxGasLimit == 0 || config.blockMaxTransactions == 0
-                || config.blockMaxTxListBytes == 0
+                || config.blockMaxGasLimit == 0 || config.blockMaxTxListBytes == 0
                 || config.blockTxListExpiry > 30 * 24 hours
                 || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
                 || config.proofRegularCooldown < config.proofOracleCooldown
@@ -107,7 +106,7 @@ library LibVerifying {
         if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
 
         uint16 fcId = blk.verifiedForkChoiceId;
-        if (fcId == 0) revert L1_UNEXPECTED_FC_ID();
+        if (fcId == 0) revert L1_UNEXPECTED_FORK_CHOICE_ID();
 
         bytes32 blockHash = blk.forkChoices[fcId].blockHash;
         uint32 gasUsed = blk.forkChoices[fcId].gasUsed;
@@ -189,8 +188,6 @@ library LibVerifying {
                 amount /= 4;
             }
         }
-
-        if (recipient == address(0) || amount == 0) return;
 
         if (recipient.isContract()) {
             TaikoToken(resolver.resolve("taiko_token", false)).mint(
