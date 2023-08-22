@@ -106,7 +106,7 @@ library LibProposing {
                     revert L1_INVALID_PROVER_SIG();
                 }
                 assignment.prover.sendEther(msg.value);
-                state.taikoTokenBalances[msg.sender] -= config.proofBond;
+                state.taikoTokenBalances[assignment.prover] -= config.proofBond;
             }
         }
 
