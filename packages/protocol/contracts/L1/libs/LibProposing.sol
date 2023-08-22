@@ -57,7 +57,7 @@ library LibProposing {
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
-        // Send some fee to the block builder
+        // Send some optional fee to the L1 validators
         block.coinbase.sendEther(input.boostFee);
 
         // Check proposer
