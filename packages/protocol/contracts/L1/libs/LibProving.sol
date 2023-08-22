@@ -123,15 +123,8 @@ library LibProving {
         fc.provenAt = uint64(block.timestamp);
         fc.gasUsed = evidence.gasUsed;
 
-        bytes32 instance = getInstance(
-            evidence,
-            resolver.resolve("signal_service", false),
-            resolver.resolve(config.chainId, "signal_service", false),
-            resolver.resolve(config.chainId, "taiko", false)
-        );
-
         IProofVerifier(resolver.resolve("proof_verifier", false)).verifyProofs(
-            blockId, evidence.proofs, instance
+            blockId, evidence.proofs, getInstance(evidence)
         );
 
         emit BlockProven({
@@ -172,12 +165,7 @@ library LibProving {
         fc = blk.forkChoices[fcId];
     }
 
-    function getInstance(
-        TaikoData.BlockEvidence memory evidence,
-        address l1SignalService,
-        address l2SignalService,
-        address l2Taiko
-    )
+    function getInstance(TaikoData.BlockEvidence memory evidence)
         internal
         pure
         returns (bytes32 instance)
