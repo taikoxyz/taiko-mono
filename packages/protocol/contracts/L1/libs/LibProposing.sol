@@ -126,8 +126,8 @@ library LibProposing {
                     reward = (config.proposerRewardPerSecond * blockTime).min(
                         config.proposerRewardMax
                     );
-
                     state.taikoTokenBalances[input.beneficiary] += reward;
+
                     // Send fee to the L1 validators if this L2 block is the
                     // first L2 block in this L1 block.
                     block.coinbase.sendEther(input.boost);
