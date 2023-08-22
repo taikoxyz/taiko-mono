@@ -54,7 +54,7 @@ rm -rf out && pnpm compile
 pnpm run generate:genesis $DIR/test_config.json
 
 # generate complete genesis json
-cat $DIR/../../deployments/genesis_alloc.json >> $GENESIS_JSON
+cat $DIR/../deployments/genesis_alloc.json >> $GENESIS_JSON
 
 echo '}' >> $GENESIS_JSON
 
@@ -101,5 +101,5 @@ forge test \
   --fork-url http://localhost:18545 \
   --fork-retry-backoff 120 \
   --no-storage-caching \
-  --match-path genesis/*.g.sol \
+  --match-path $DIR/*.g.sol \
   --block-gas-limit 1000000000
