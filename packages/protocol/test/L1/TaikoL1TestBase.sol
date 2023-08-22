@@ -112,7 +112,8 @@ abstract contract TaikoL1TestBase is TestBase {
             txListHash: keccak256(txList),
             txListByteStart: 0,
             txListByteEnd: txListSize,
-            cacheTxListInfo: false
+            cacheTxListInfo: false,
+            boostFee: 0
         });
 
         TaikoData.StateVariables memory variables = L1.getStateVariables();

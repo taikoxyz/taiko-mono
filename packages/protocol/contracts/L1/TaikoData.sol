@@ -90,6 +90,7 @@ library TaikoData {
         uint24 txListByteStart; // byte-wise start index (inclusive)
         uint24 txListByteEnd; // byte-wise end index (exclusive)
         bool cacheTxListInfo;
+        uint256 boostFee; // a fee to bribe L1 validators
     }
 
     /// @dev Struct representing prover assignment

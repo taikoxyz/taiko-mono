@@ -57,6 +57,9 @@ library LibProposing {
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
+        if (input.boostFee != 0) {
+            block.coinbase.call{ value: input.boostFee }(new bytes(0));
+        }
         // Check proposer
         address proposer = resolver.resolve("proposer", true);
         if (proposer != address(0) && msg.sender != proposer) {
