@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/taikoxyz/taiko-mono/compare/fork-diff-v0.2.0...fork-diff-v0.3.0) (2023-08-22)
+
+
+### Features
+
+* **website:** update forkdiff website ([#14515](https://github.com/taikoxyz/taiko-mono/issues/14515)) ([c820166](https://github.com/taikoxyz/taiko-mono/commit/c8201660635392f1112d5ce97a5401323f880fe1))
+
 ## [0.2.0](https://github.com/taikoxyz/taiko-mono/compare/fork-diff-v0.1.0...fork-diff-v0.2.0) (2023-06-12)
 
 
