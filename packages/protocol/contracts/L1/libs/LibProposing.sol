@@ -57,9 +57,6 @@ library LibProposing {
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
-        // Send some optional fee to the L1 validators
-        block.coinbase.sendEther(input.boost);
-
         // Check proposer
         address proposer = resolver.resolve("proposer", true);
         if (proposer != address(0) && msg.sender != proposer) {
@@ -83,7 +80,7 @@ library LibProposing {
 
         if (config.skipProverAssignmentVerificaiton) {
             // For testing only
-            assignment.prover.sendEther(msg.value);
+            assignment.prover.sendEther(msg.value - input.boost);
         } else {
             // Verify prover assignment and pay the prover Ether as proving fee.
             // Note that this payment is permanent. If the prover failed to
@@ -131,6 +128,9 @@ library LibProposing {
                     );
 
                     state.taikoTokenBalances[input.beneficiary] += reward;
+                    // Send fee to the L1 validators if this L2 block is the
+                    // first L2 block in this L1 block.
+                    block.coinbase.sendEther(input.boost);
                 }
             }
         }
