@@ -160,3 +160,7 @@ docker compose -f ./docker-compose.l3.yml --env-file .env.l3 up -d
 #### `dial tcp: connect: connection refused`
 
 This means that you are not able to connect to the RPC endpoint. Check if you have a firewall up and that you are allowing those ports. For Ubuntu, this would be checked with "sudo ufw status".
+
+#### `WARNING: Found orphan containers`
+
+You should not have orphan containers as the L2 and L3 image container names are different in each docker compose file. Check the [node runner manual](/docs/manual/node-runner-manual) for a command to remove orphan containers.
