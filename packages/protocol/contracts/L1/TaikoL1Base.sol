@@ -139,6 +139,18 @@ abstract contract TaikoL1Base is
         });
     }
 
+    /// @notice Deposits Taiko tokens to the contract.
+    /// @param amount Amount of Taiko tokens to deposit.
+    function depositTaikoToken(uint256 amount) external nonReentrant {
+        LibTaikoToken.depositTaikoToken(state, AddressResolver(this), amount);
+    }
+
+    /// @notice Withdraws Taiko tokens from the contract.
+    /// @param amount Amount of Taiko tokens to withdraw.
+    function withdrawTaikoToken(uint256 amount) external nonReentrant {
+        LibTaikoToken.withdrawTaikoToken(state, AddressResolver(this), amount);
+    }
+
     /// @notice Deposits Ether to Layer 2.
     /// @param recipient Address of the recipient for the deposited Ether on
     /// Layer 2.
@@ -149,18 +161,6 @@ abstract contract TaikoL1Base is
             resolver: AddressResolver(this),
             recipient: recipient
         });
-    }
-
-    /// @notice Deposits Taiko tokens to the contract.
-    /// @param amount Amount of Taiko tokens to deposit.
-    function depositTaikoToken(uint256 amount) public nonReentrant {
-        LibTaikoToken.depositTaikoToken(state, AddressResolver(this), amount);
-    }
-
-    /// @notice Withdraws Taiko tokens from the contract.
-    /// @param amount Amount of Taiko tokens to withdraw.
-    function withdrawTaikoToken(uint256 amount) public nonReentrant {
-        LibTaikoToken.withdrawTaikoToken(state, AddressResolver(this), amount);
     }
 
     /// @notice Gets the Taiko token balance for a specific address.

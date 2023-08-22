@@ -10,8 +10,6 @@ import { LibDepositing } from "./LibDepositing.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { TaikoData } from "../TaikoData.sol";
 
-import { console2 } from "forge-std/console2.sol";
-
 library LibUtils {
     using LibMath for uint256;
 
