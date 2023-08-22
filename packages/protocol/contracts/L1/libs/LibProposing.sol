@@ -96,7 +96,7 @@ library LibProposing {
                 );
             } else {
                 // For EOA, we deduct the token from taikoTokenBalances
-                if (state.taikoTokenBalances[msg.sender] < config.proofBond) {
+                if (state.taikoTokenBalances[assignment.prover] < config.proofBond) {
                     revert L1_INSUFFICIENT_TOKEN();
                 }
 
