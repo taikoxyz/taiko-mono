@@ -69,7 +69,7 @@
   $: displayedRecipient = $recipientAddress || $account?.address;
 </script>
 
-<div class="Recipient f-col space-y-2">
+<div class="Recipient f-col">
   <div class="f-between-center">
     <div class="flex space-x-2">
       <span class="body-small-bold text-primary-content">{$t('recipient.title')}</span>
@@ -81,7 +81,7 @@
     <button class="link" on:click={openModal} on:focus={openModal}>{$t('common.edit')}</button>
   </div>
 
-  <span class="body-small-regular text-secondary-content mt-[6px]">
+  <span class="body-small-regular text-secondary-content mt-[4px]">
     {#if displayedRecipient}
       {shortenAddress(displayedRecipient, 15, 13)}
     {:else}
