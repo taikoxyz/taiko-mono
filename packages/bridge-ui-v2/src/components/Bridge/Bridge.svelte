@@ -4,7 +4,6 @@
 
   import { chainConfig, routingContractsMap } from '$chainConfig';
   import { Card } from '$components/Card';
-  import { ChainSelector } from '$components/ChainSelector';
   import { successToast, warningToast } from '$components/NotificationToast';
   import { errorToast, infoToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { OnAccount } from '$components/OnAccount';
@@ -39,17 +38,33 @@
   import { ProcessingFee } from './ProcessingFee';
   import Recipient from './Recipient.svelte';
   import { bridgeService, destNetwork, enteredAmount, processingFee, recipientAddress, selectedToken } from './state';
-  import SwitchChainsButton from './SwitchChainsButton.svelte';
+  import ChainSelectorWrapper from '$components/ChainSelector/ChainSelectorWrapper.svelte';
+  import { hasBridge } from '$libs/chain';
 
   let amountComponent: Amount;
   let recipientComponent: Recipient;
   let processingFeeComponent: ProcessingFee;
 
   function onNetworkChange(newNetwork: Network, oldNetwork: Network) {
-    // since we just show two networks we simply swap them
     if (newNetwork) {
-      const otherChain = oldNetwork;
-      if (otherChain) destNetwork.set(otherChain);
+      const destChainId = $destNetwork?.id;
+      if (!$destNetwork?.id) return;
+
+      // determine if we simply swapped dest and src networks
+      if (newNetwork.id === destChainId) {
+        destNetwork.set(oldNetwork);
+        console.log('swap only');
+        return;
+      }
+      // check if the new network has a bridge to the current dest network
+      if (hasBridge(newNetwork.id, $destNetwork?.id)) {
+        console.log('has bridge');
+        destNetwork.set(oldNetwork);
+      } else {
+        // if not, set dest network to null
+        console.log('no bridge');
+        $destNetwork = null;
+      }
     }
   }
 
@@ -284,11 +299,7 @@
 <Card class="w-full md:w-[524px]" title={$t('bridge.title.default')} text={$t('bridge.description')}>
   <div class="space-y-[35px]">
     <div class="f-between-center gap-4">
-      <ChainSelector class="flex-1 " bind:value={$network} switchWallet />
-
-      <SwitchChainsButton />
-
-      <ChainSelector class="flex-1" bind:value={$destNetwork} />
+      <ChainSelectorWrapper />
     </div>
 
     <TokenDropdown {tokens} bind:value={$selectedToken} />
