@@ -9,6 +9,7 @@ pragma solidity ^0.8.20;
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import { IMintableERC20 } from "../../common/IMintableERC20.sol";
 import { IProver } from "../IProver.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
@@ -25,6 +26,8 @@ library LibProposing {
     using LibAddress for address payable;
     using LibMath for uint256;
     using LibUtils for TaikoData.State;
+
+    bytes4 internal constant EIP1271_MAGICVALUE = 0x1626ba7e;
 
     event BlockProposed(
         uint256 indexed blockId,
@@ -88,25 +91,37 @@ library LibProposing {
             );
         }
 
+        // Pay prover after verifying assignment
         if (config.skipProverAssignmentVerificaiton) {
             // For testing only
             assignment.prover.sendEther(msg.value);
-        } else {
-            // Verify prover assignment and pay the prover Ether as proving fee.
-            // Note that this payment is permanent. If the prover failed to
-            // prove the block, its bond is used to pay the actual prover.
-            if (assignment.prover.isContract()) {
-                IProver(assignment.prover).onBlockAssigned{ value: msg.value }(
-                    b.numBlocks, input, assignment
-                );
-            } else {
-                bytes32 hash =
-                    keccak256(abi.encode(input, msg.value, assignment.expiry));
-                if (assignment.prover != hash.recover(assignment.data)) {
-                    revert L1_INVALID_PROVER_SIG();
-                }
-                assignment.prover.sendEther(msg.value);
+        } else if (!assignment.prover.isContract()) {
+            if (
+                _hashAssignment(input, assignment).recover(assignment.data)
+                    != assignment.prover
+            ) {
+                revert L1_INVALID_PROVER_SIG();
             }
+            assignment.prover.sendEther(msg.value);
+        } else if (
+            assignment.prover.supportsInterface(type(IProver).interfaceId)
+        ) {
+            IProver(assignment.prover).onBlockAssigned{ value: msg.value }(
+                b.numBlocks, input, assignment
+            );
+        } else if (
+            assignment.prover.supportsInterface(type(IERC1271).interfaceId)
+        ) {
+            if (
+                IERC1271(assignment.prover).isValidSignature(
+                    _hashAssignment(input, assignment), assignment.data
+                ) != EIP1271_MAGICVALUE
+            ) {
+                revert L1_INVALID_PROVER_SIG();
+            }
+            assignment.prover.sendEther(msg.value);
+        } else {
+            revert L1_INVALID_PROVER();
         }
 
         // Reward the proposer
@@ -247,5 +262,16 @@ library LibProposing {
                 }
             }
         }
+    }
+
+    function _hashAssignment(
+        TaikoData.BlockMetadataInput memory input,
+        TaikoData.ProverAssignment memory assignment
+    )
+        private
+        view
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(input, msg.value, assignment.expiry));
     }
 }
