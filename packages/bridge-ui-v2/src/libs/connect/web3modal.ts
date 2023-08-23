@@ -23,7 +23,7 @@ export const web3modal = new Web3Modal(
 
       // button background-color
       '--w3m-accent-color': 'var(--neutral-background)',
-      '--w3m-accent-fill-color': '#F3F3F3', // grey-10
+      '--w3m-accent-fill-color': 'hsl(var(--nc) / var(--tw-text-opacity))', // grey-10
 
       '--w3m-button-border-radius': '9999px',
 

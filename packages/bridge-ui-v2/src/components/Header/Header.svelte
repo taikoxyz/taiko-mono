@@ -36,6 +36,7 @@
     {/if}
 
     <ConnectButton connected={$account?.isConnected} />
+    <div class="v-sep my-auto mx-[8px] h-[24px]" />
     <ThemeButton />
   </div>
 
