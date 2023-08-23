@@ -61,6 +61,10 @@ library LibDepositing {
             })
         );
 
+        // Unchecked is safe:
+        // - uint64 can store upt to cca. 1.8 * 1e19, which can represent 584K
+        // years
+        // if we depositing at every second
         unchecked {
             state.slotA.numEthDeposits++;
         }
@@ -106,6 +110,13 @@ library LibDepositing {
                 });
                 uint96 _fee =
                     deposits[i].amount > fee ? fee : deposits[i].amount;
+
+                // Unchecked is safe:
+                // - _fee cannot be bigger than deposits[i].amount
+                // - all values are in the same range (uint96) except loop
+                // counter, which obviously
+                // cannot be bigger than uint95 otherwise the function would be
+                // gassing out.
                 unchecked {
                     deposits[i].amount -= _fee;
                     totalFee += _fee;
@@ -118,6 +129,11 @@ library LibDepositing {
             state.ethDeposits[state.slotA.numEthDeposits
                 % config.ethDepositRingBufferSize] =
                 _encodeEthDeposit(feeRecipient, totalFee);
+
+            // Unchecked is safe:
+            // - uint64 can store upt to cca. 1.8 * 1e19, which can represent
+            // 584K years
+            // if we depositing at every second
             unchecked {
                 state.slotA.numEthDeposits++;
             }
@@ -138,6 +154,14 @@ library LibDepositing {
         view
         returns (bool)
     {
+        // Unchecked is safe:
+        // - both numEthDeposits and state.slotA.nextEthDepositToProcess are
+        // indexes. One is tracking
+        // the all deposits (numEthDeposits: unprocessed) and the next to be
+        // processed, so nextEthDepositToProcess
+        // cannot be bigger then numEthDeposits
+        // - ethDepositRingBufferSize cannot be 0 by default (validity checked
+        // in LibVerifying)
         unchecked {
             return amount >= config.ethDepositMinAmount
                 && amount <= config.ethDepositMaxAmount

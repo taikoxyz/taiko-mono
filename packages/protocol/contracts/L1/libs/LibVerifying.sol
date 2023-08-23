@@ -62,6 +62,10 @@ library LibVerifying {
                     >= type(uint96).max / config.ethDepositMaxCountPerBlock
         ) revert L1_INVALID_CONFIG();
 
+        // Unchecked is safe:
+        // - assignment is within ranges
+        // - block.timestamp will still be within uint64 range for the next
+        // 500K+ years.
         unchecked {
             uint64 timeNow = uint64(block.timestamp);
 
@@ -115,6 +119,12 @@ library LibVerifying {
         TaikoData.ForkChoice memory fc;
 
         uint64 processed;
+
+        // Unchecked is safe:
+        // - assignment is within ranges
+        // - blockId and processed values incremented will still be OK in the
+        // next 584K years
+        // if we verifying one block per every second
         unchecked {
             ++blockId;
 
@@ -179,6 +189,12 @@ library LibVerifying {
     {
         address recipient = blk.prover;
         uint256 amount = blk.proofBond;
+
+        // Unchecked is safe:
+        // - the uint64 of blk.proposedAt and blk.proofWindow will not exceed
+        // max.uint64 in the next 584K years
+        // - state.taikoTokenBalances[recipient] can hold up to all the supply
+        // of the TKO
         unchecked {
             if (
                 fc.prover != LibUtils.ORACLE_PROVER

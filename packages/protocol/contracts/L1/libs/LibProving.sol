@@ -87,6 +87,10 @@ library LibProving {
         if (fcId == 0) {
             fcId = blk.nextForkChoiceId;
 
+            // Unchecked is safe:
+            // - Not realistic 65K different fork choice per block will be
+            // proven
+            // and none of them is valid
             unchecked {
                 ++blk.nextForkChoiceId;
             }
