@@ -96,7 +96,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             proveBlock(
                 Carol,
-                address(1),
+                LibUtils.ORACLE_PROVER,
                 meta,
                 parentHash,
                 parentGasUsed,
@@ -175,7 +175,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             vm.expectRevert(TaikoErrors.L1_SAME_PROOF.selector);
             proveBlock(
                 Carol,
-                address(1),
+                LibUtils.ORACLE_PROVER,
                 meta,
                 parentHash,
                 parentGasUsed,
@@ -384,7 +384,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             proveBlock(
                 David,
-                address(1),
+                LibUtils.ORACLE_PROVER,
                 meta,
                 parentHash,
                 parentGasUsed,
@@ -415,7 +415,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             TaikoData.ForkChoice memory fc =
                 L1.getForkChoice(blockId, parentHash, parentGasUsed);
 
-            assertEq(fc.prover, address(1));
+            assertEq(fc.prover, LibUtils.ORACLE_PROVER);
 
             verifyBlock(Carol, 1);
 
