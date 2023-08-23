@@ -97,7 +97,7 @@ library LibProposing {
             // prove the block, its bond is used to pay the actual prover.
             if (assignment.prover.isContract()) {
                 IProver(assignment.prover).onBlockAssigned{ value: msg.value }(
-                    input, assignment
+                    b.numBlocks, input, assignment
                 );
             } else {
                 bytes32 hash =
