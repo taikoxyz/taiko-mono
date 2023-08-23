@@ -66,7 +66,7 @@ library LibProving {
             revert L1_EVIDENCE_MISMATCH();
         }
 
-        if (evidence.prover == address(1)) {
+        if (evidence.prover == LibUtils.ORACLE_PROVER) {
             // Oracle prover
             if (msg.sender != resolver.resolve("oracle_prover", false)) {
                 revert L1_INVALID_ORACLE_PROVER();
@@ -102,7 +102,7 @@ library LibProving {
                 state.forkChoiceIds[blockId][evidence.parentHash][evidence
                     .parentGasUsed] = fcId;
             }
-        } else if (evidence.prover == address(1)) {
+        } else if (evidence.prover == LibUtils.ORACLE_PROVER) {
             // This is the branch the oracle prover is trying to overwrite
             // We need to check the previous proof is not the same as the
             // new proof
@@ -169,7 +169,7 @@ library LibProving {
         pure
         returns (bytes32 instance)
     {
-        if (evidence.prover == address(1)) return 0;
+        if (evidence.prover == LibUtils.ORACLE_PROVER) return 0;
         else return keccak256(abi.encode(evidence));
     }
 }

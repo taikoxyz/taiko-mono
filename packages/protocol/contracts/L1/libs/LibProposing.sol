@@ -64,7 +64,8 @@ library LibProposing {
 
         // Check prover assignment
         if (
-            assignment.prover == address(0) || assignment.prover == address(1)
+            assignment.prover == address(0)
+                || assignment.prover == LibUtils.ORACLE_PROVER
                 || assignment.expiry <= block.timestamp
         ) {
             revert L1_INVALID_ASSIGNMENT();

@@ -85,7 +85,7 @@ library LibVerifying {
 
         emit BlockVerified({
             blockId: 0,
-            prover: address(1), // oracle prover
+            prover: LibUtils.ORACLE_PROVER,
             blockHash: genesisBlockHash
         });
     }
@@ -130,7 +130,8 @@ library LibVerifying {
                 fc = blk.forkChoices[fcId];
                 if (fc.prover == address(0)) break;
 
-                uint256 proofRegularCooldown = fc.prover == address(1)
+                uint256 proofRegularCooldown = fc.prover
+                    == LibUtils.ORACLE_PROVER
                     ? config.proofOracleCooldown
                     : config.proofRegularCooldown;
                 if (block.timestamp <= fc.provenAt + proofRegularCooldown) {
@@ -180,7 +181,7 @@ library LibVerifying {
         uint256 amount = blk.proofBond;
         unchecked {
             if (
-                fc.prover != address(1)
+                fc.prover != LibUtils.ORACLE_PROVER
                     && fc.provenAt > blk.proposedAt + blk.proofWindow
             ) {
                 recipient = fc.prover;

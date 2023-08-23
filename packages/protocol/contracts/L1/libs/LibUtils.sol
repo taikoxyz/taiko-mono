@@ -13,6 +13,8 @@ import { TaikoData } from "../TaikoData.sol";
 library LibUtils {
     using LibMath for uint256;
 
+    address internal constant ORACLE_PROVER = address(1);
+
     error L1_INVALID_BLOCK_ID();
 
     function getL2ChainData(
