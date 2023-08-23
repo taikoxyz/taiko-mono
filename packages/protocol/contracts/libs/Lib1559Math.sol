@@ -13,6 +13,9 @@ import { SafeCastUpgradeable } from
 /// @title Lib1559Math
 /// @dev This library provides utilities related to the L2 EIP-1559
 /// implementation.
+/// See formulas described in the whitepaper
+/// https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf
+// From section:  "9.6. Rate Limiting using EIP-1559."
 library Lib1559Math {
     using SafeCastUpgradeable for uint256;
 
