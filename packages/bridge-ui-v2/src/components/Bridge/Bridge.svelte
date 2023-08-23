@@ -292,9 +292,10 @@
 
     <Amount bind:this={amountComponent} />
 
-    <Recipient bind:this={recipientComponent} />
-
-    <ProcessingFee bind:this={processingFeeComponent} />
+    <div class="space-y-[16px]">
+      <Recipient bind:this={recipientComponent} />
+      <ProcessingFee bind:this={processingFeeComponent} />
+    </div>
 
     <div class="h-sep" />
 

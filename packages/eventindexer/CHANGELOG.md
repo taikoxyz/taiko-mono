@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.10.0...eventindexer-v0.10.1) (2023-08-22)
+
+
+### Bug Fixes
+
+* **relayer:** use erc20vault not token vault for required end var ([#14519](https://github.com/taikoxyz/taiko-mono/issues/14519)) ([a49c65c](https://github.com/taikoxyz/taiko-mono/commit/a49c65c6ba9535a761f4ef2abd7be2b2213a71c2))
+
 ## [0.10.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.9.0...eventindexer-v0.10.0) (2023-08-15)
 
 
