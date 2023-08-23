@@ -165,5 +165,8 @@
     backdrop-filter: blur(10px);
   }
 
+  input {
+    border: 1px solid var(--border-dark-primary, #5d636f);
+  }
   /* TODO: add more components here */
 }
