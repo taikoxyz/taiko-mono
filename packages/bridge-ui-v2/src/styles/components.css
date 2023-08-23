@@ -121,7 +121,7 @@
     }
   }
 
-  /* Separatos */
+  /* Separators */
   .h-sep {
     @apply divider h-[1px] border-divider-border;
   }

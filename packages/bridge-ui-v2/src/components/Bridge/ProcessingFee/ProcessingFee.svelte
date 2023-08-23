@@ -126,7 +126,7 @@
     <button class="link" on:click={openModal} on:focus={openModal}>{$t('common.edit')}</button>
   </div>
 
-  <span class="body-small-regular text-secondary-content mt-[6px]">
+  <span class="body-small-regular text-secondary-content mt-[4px]">
     {#if calculatingRecommendedAmount}
       <LoadingText mask="0.0001" /> ETH
     {:else if errorCalculatingRecommendedAmount}

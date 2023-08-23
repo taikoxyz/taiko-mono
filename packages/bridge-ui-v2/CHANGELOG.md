@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.5.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2-v2.4.0...bridge-ui-v2-v2.5.0) (2023-08-22)
+
+
+### Features
+
+* **bridge-ui-v2:** destination token bridged ([#14448](https://github.com/taikoxyz/taiko-mono/issues/14448)) ([072afbf](https://github.com/taikoxyz/taiko-mono/commit/072afbf3e54efe813a3eb76000faa4861620caba))
+* **bridge-ui-v2:** fix vercel routing ([#14522](https://github.com/taikoxyz/taiko-mono/issues/14522)) ([2ab5faf](https://github.com/taikoxyz/taiko-mono/commit/2ab5faf11789078730b3b3e3eab516fb6ca11d0a))
+* **bridge-ui-v2:** light theme ([#14524](https://github.com/taikoxyz/taiko-mono/issues/14524)) ([4fe5ccd](https://github.com/taikoxyz/taiko-mono/commit/4fe5ccdc6d91f11d697beba76f6ad205bc6af2bf))
+* **bridge-ui-v2:** Processing fee input box ([#14527](https://github.com/taikoxyz/taiko-mono/issues/14527)) ([886ab31](https://github.com/taikoxyz/taiko-mono/commit/886ab311812b4583c823976524d799b2b9e90d46))
+* **bridge-ui-v2:** switch chain on wrong network ([#14511](https://github.com/taikoxyz/taiko-mono/issues/14511)) ([89b8a86](https://github.com/taikoxyz/taiko-mono/commit/89b8a86134fe9227d6011f69c7de0b8420ad25dc))
+* **bridge-ui-v2:** update the style of chain selector ([#14517](https://github.com/taikoxyz/taiko-mono/issues/14517)) ([35ef27d](https://github.com/taikoxyz/taiko-mono/commit/35ef27db2df032b6639ce3ed719cb78c081b9c9f))
+* **bridge-ui-v2:** update the style of switch chain button ([#14518](https://github.com/taikoxyz/taiko-mono/issues/14518)) ([6099842](https://github.com/taikoxyz/taiko-mono/commit/6099842821935066c99fcc0f5996ba183ea11a89))
+
+
+### Bug Fixes
+
+* **bridge-ui-v2:** refresh ETH balance at the top right ([#14539](https://github.com/taikoxyz/taiko-mono/issues/14539)) ([63a6d41](https://github.com/taikoxyz/taiko-mono/commit/63a6d41da3fe2e0e63032f13456d7a47d85ae45f))
+
 ## [2.4.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2-v2.3.0...bridge-ui-v2-v2.4.0) (2023-08-15)
 
 

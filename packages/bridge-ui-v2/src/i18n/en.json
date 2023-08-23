@@ -60,7 +60,7 @@
   },
   "processing_fee": {
     "title": "Processing fee",
-    "description": "Some description about the processing fee",
+    "description": "The payment you provide to the relayer for handling your bridge message on the destination chain.",
     "link": "Customize fee",
     "tooltip_title": "What is Processing Fee?",
     "tooltip": "The payment you provide to the relayer for handling your bridge message on the destination chain.",
