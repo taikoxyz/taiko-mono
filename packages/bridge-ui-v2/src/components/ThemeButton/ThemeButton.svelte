@@ -12,11 +12,6 @@
     document.documentElement.setAttribute('data-theme', newTheme);
     localStorage.setItem('theme', newTheme);
   }
-
-  onMount(() => {
-    darkTheme = localStorage.getItem('theme')?.toLocaleLowerCase() === 'dark';
-  });
-
 </script>
 
 <div class="flex items-center">
