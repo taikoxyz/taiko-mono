@@ -33,7 +33,6 @@ library LibProposing {
         TaikoData.BlockMetadata meta
     );
 
-    error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_ASSIGNMENT();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_METADATA();
@@ -82,6 +81,18 @@ library LibProposing {
             // For testing only
             assignment.prover.sendEther(msg.value);
         } else {
+            if (state.taikoTokenBalances[assignment.prover] >= config.proofBond)
+            {
+                unchecked {
+                    state.taikoTokenBalances[assignment.prover] -=
+                        config.proofBond;
+                }
+            } else {
+                TaikoToken(resolver.resolve("taiko_token", false)).burn(
+                    assignment.prover, config.proofBond
+                );
+            }
+
             // Verify prover assignment and pay the prover Ether as proving fee.
             // Note that this payment is permanent. If the prover failed to
             // prove the block, its bond is used to pay the actual prover.
@@ -89,27 +100,13 @@ library LibProposing {
                 IProver(assignment.prover).onBlockAssigned{ value: msg.value }(
                     input, assignment
                 );
-
-                // Burn the prover's bond
-                TaikoToken(resolver.resolve("taiko_token", false)).burn(
-                    assignment.prover, config.proofBond
-                );
             } else {
-                // For EOA, we deduct the token from taikoTokenBalances
-                if (
-                    state.taikoTokenBalances[assignment.prover]
-                        < config.proofBond
-                ) {
-                    revert L1_INSUFFICIENT_TOKEN();
-                }
-
                 bytes32 hash =
                     keccak256(abi.encode(input, msg.value, assignment.expiry));
                 if (assignment.prover != hash.recover(assignment.data)) {
                     revert L1_INVALID_PROVER_SIG();
                 }
                 assignment.prover.sendEther(msg.value);
-                state.taikoTokenBalances[assignment.prover] -= config.proofBond;
             }
         }
 

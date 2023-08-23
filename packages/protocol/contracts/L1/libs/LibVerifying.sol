@@ -189,12 +189,6 @@ library LibVerifying {
             }
         }
 
-        if (recipient.isContract()) {
-            TaikoToken(resolver.resolve("taiko_token", false)).mint(
-                recipient, amount
-            );
-        } else {
-            state.taikoTokenBalances[recipient] += amount;
-        }
+        state.taikoTokenBalances[recipient] += amount;
     }
 }
