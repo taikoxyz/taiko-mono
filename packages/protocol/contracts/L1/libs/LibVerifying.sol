@@ -142,7 +142,7 @@ library LibVerifying {
                 signalRoot = fc.signalRoot;
                 blk.verifiedForkChoiceId = fcId;
 
-                _rewardProver(state, resolver, blk, fc);
+                _rewardProver(state, blk, fc);
                 emit BlockVerified(blockId, fc.prover, fc.blockHash);
 
                 ++blockId;
@@ -171,7 +171,6 @@ library LibVerifying {
 
     function _rewardProver(
         TaikoData.State storage state,
-        AddressResolver resolver,
         TaikoData.Block storage blk,
         TaikoData.ForkChoice memory fc
     )

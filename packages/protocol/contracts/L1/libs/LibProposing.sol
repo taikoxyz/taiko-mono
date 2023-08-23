@@ -77,22 +77,20 @@ library LibProposing {
             revert L1_TOO_MANY_BLOCKS();
         }
 
+        if (state.taikoTokenBalances[assignment.prover] >= config.proofBond) {
+            unchecked {
+                state.taikoTokenBalances[assignment.prover] -= config.proofBond;
+            }
+        } else {
+            TaikoToken(resolver.resolve("taiko_token", false)).burn(
+                assignment.prover, config.proofBond
+            );
+        }
+
         if (config.skipProverAssignmentVerificaiton) {
             // For testing only
             assignment.prover.sendEther(msg.value);
         } else {
-            if (state.taikoTokenBalances[assignment.prover] >= config.proofBond)
-            {
-                unchecked {
-                    state.taikoTokenBalances[assignment.prover] -=
-                        config.proofBond;
-                }
-            } else {
-                TaikoToken(resolver.resolve("taiko_token", false)).burn(
-                    assignment.prover, config.proofBond
-                );
-            }
-
             // Verify prover assignment and pay the prover Ether as proving fee.
             // Note that this payment is permanent. If the prover failed to
             // prove the block, its bond is used to pay the actual prover.
