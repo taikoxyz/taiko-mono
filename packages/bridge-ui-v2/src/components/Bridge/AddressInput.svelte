@@ -4,7 +4,8 @@
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
-  import { Alert } from '$components/Alert';
+  import FlatAlert from '$components/Alert/FlatAlert.svelte';
+  import { Icon } from '$components/Icon';
   import { uid } from '$libs/util/uid';
 
   let input: HTMLInputElement;
@@ -21,9 +22,11 @@
     if (address && address instanceof EventTarget) {
       address = (address as HTMLInputElement).value;
     }
+
     const addr = address as string;
     if (addr.length < 42) {
       tooShort = true;
+      isValidEthereumAddress = false;
     } else {
       tooShort = false;
       isValidEthereumAddress = isAddress(addr);
@@ -46,26 +49,24 @@
   <div class="f-between-center text-secondary-content">
     <label class="body-regular" for={inputId}>{$t('inputs.address_input.label')}</label>
   </div>
-  <div class="relative f-items-center">
+  <div class="relative f-items-center }">
     <input
+      bind:this={input}
       id={inputId}
       type="string"
       placeholder="0x1B77..."
       bind:value={ethereumAddress}
       on:input={(e) => validateEthereumAddress(e.target)}
-      class="w-full input-box outline-none py-6 pr-16 px-[26px] title-subsection-bold placeholder:text-tertiary-content" />
+      class="w-full input-box py-6 pr-16 px-[26px] title-subsection-bold placeholder:text-tertiary-content" />
+    <button class="absolute right-6 uppercase body-bold text-secondary-content" on:click={clear}>
+      <Icon type="x-close-circle" fillClass="fill-primary-icon" size={24} />
+    </button>
   </div>
 </div>
-<div>
+<div class="mt-3">
   {#if !isValidEthereumAddress && !tooShort}
-    <Alert type="error" forceColumnFlow>
-      <!-- TODO: i18n! -->
-      <p class="font-bold">Invalid address</p>
-      <p>This doesn't seem to be a valid Ethereum address</p>
-    </Alert>
+    <FlatAlert type="error" forceColumnFlow message={$t('inputs.address_input.errors.invalid')} />
   {:else if isValidEthereumAddress && !tooShort && showAlert}
-    <Alert type="success">
-      <p class="font-bold">Valid address format</p>
-    </Alert>
+    <FlatAlert type="success" forceColumnFlow message={$t('inputs.address_input.success')} />
   {/if}
 </div>
