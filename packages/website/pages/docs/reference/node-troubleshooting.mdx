@@ -164,3 +164,7 @@ This means that you are not able to connect to the RPC endpoint. Check if you ha
 #### `WARNING: Found orphan containers`
 
 You should not have orphan containers as the L2 and L3 image container names are different in each docker compose file. Check the [node runner manual](/docs/manual/node-runner-manual) for a command to remove orphan containers.
+
+#### `WARN Snapshot extension registration failed err="peer connected on snap without compatible eth support"`
+
+You can safely ignore this "warn" level message, it simply means you just ignored a peer which is not a Taiko node.
