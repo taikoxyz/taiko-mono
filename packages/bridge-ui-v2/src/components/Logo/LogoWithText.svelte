@@ -1,6 +1,6 @@
 <script lang="ts">
   // Default for dark mode
-  export let logoFillClass = 'fill-pink-500';
+  export let logoFillClass = 'fill-pink-400';
   export let textFillClass = 'fill-grey-5';
 
   export let width = 125;

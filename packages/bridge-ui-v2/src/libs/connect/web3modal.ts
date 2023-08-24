@@ -21,8 +21,9 @@ export const web3modal = new Web3Modal(
       '--w3m-font-family': '"Public Sans", sans-serif',
       '--w3m-font-feature-settings': 'normal',
 
-      '--w3m-accent-color': 'var(--primary-interactive)',
-      '--w3m-accent-fill-color': 'var(--primary-content)',
+      // button background-color
+      '--w3m-accent-color': 'var(--neutral-background)',
+      '--w3m-accent-fill-color': 'hsl(var(--nc) / var(--tw-text-opacity))', // grey-10
 
       '--w3m-button-border-radius': '9999px',
 
@@ -42,7 +43,7 @@ export const web3modal = new Web3Modal(
       '--w3m-text-big-bold-weight': '700',
       '--w3m-text-big-bold-line-height': '24px',
 
-      '--w3m-background-color': 'var(--neutral-background)',
+      '--w3m-background-color': 'var(--primary-brand)',
       '--w3m-overlay-background-color': 'var(--overlay-background)',
       '--w3m-background-border-radius': '20px',
       '--w3m-container-border-radius': '0',
@@ -57,7 +58,7 @@ export const web3modal = new Web3Modal(
       '--w3m-color-bg-1': 'var(--primary-background)',
       '--w3m-color-bg-2': 'var(--neutral-background)',
       // '--w3m-color-bg-3': '',
-      // '--w3m-color-overlay': 'var(--neutral-background)',
+      '--w3m-color-overlay': 'none',
     },
     themeMode: (localStorage.getItem('theme') as 'dark' | 'light') ?? 'dark',
   },

@@ -70,6 +70,22 @@ docker compose down -v
 docker compose -f ./docker-compose.l3.yml --env-file .env.l3 down -v
 ```
 
+## Start and remove orphan containers
+
+This command will start and remove containers that are not part of the current docker compose file.
+
+**Grimsvotn L2:**
+
+```sh
+docker compose up -d --remove-orphans
+```
+
+**Eldfell L3:**
+
+```sh
+docker compose -f ./docker-compose.l3.yml --env-file .env.l3 up -d --remove-orphans
+```
+
 ## View grafana dashboard
 
 **Grimsvotn L2:**

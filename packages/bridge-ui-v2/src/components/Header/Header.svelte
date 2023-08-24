@@ -5,6 +5,7 @@
   import { Icon } from '$components/Icon';
   import { LogoWithText } from '$components/Logo';
   import { drawerToggleId } from '$components/SideNavigation';
+  import { ThemeButton } from '$components/ThemeButton';
   import { account } from '$stores/account';
 
   $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
@@ -20,12 +21,14 @@
     py-[20px]
     border-b
     border-b-divider-border
-    glassy-primary-background
+    glassy-background
+    bg-grey-5/10
+    dark:bg-grey-900/10
     md:border-b-0
     md:px-10
     md:py-7
  ">
-  <LogoWithText width={77} height={21} class="md:hidden" />
+  <LogoWithText width={77} height={21} class="md:hidden" textFillClass={'fill-primary-content'} />
 
   <div class="flex justify-end w-full">
     {#if isBridgePage}
@@ -33,6 +36,8 @@
     {/if}
 
     <ConnectButton connected={$account?.isConnected} />
+    <div class="v-sep my-auto mx-[8px] h-[24px]" />
+    <ThemeButton />
   </div>
 
   <label for={drawerToggleId} class="ml-[10px] md:hidden">

@@ -2,7 +2,7 @@ import daisyuiPlugin from 'daisyui';
 
 /** @type {import('tailwindcss').Config} */
 export default {
-  darkMode: ['class', '[data-theme]'],
+  darkMode: ['class', '[data-theme="dark"]'],
   content: ['./src/**/*.{html,js,svelte,ts}'],
   theme: {
     extend: {
@@ -302,7 +302,7 @@ export default {
 
           primary: '#C8047D', // pink-500,
           'primary-focus': '#E81899', // pink-400
-          'primary-content': '#F3F3F3', // grey-10
+          'primary-content': '#191E28', // grey-800
 
           secondary: '#E81899', // pink-400
           // 'secondary-focus': '',
@@ -310,7 +310,7 @@ export default {
 
           neutral: '#E7E7E7', // grey-50
           'neutral-focus': '#CACBCE', // grey-100
-          'neutral-content': '#F3F3F3', // grey-10
+          'neutral-content': '#191E28', // grey-800
 
           'base-100': '#FAFAFA', // grey-5
           // 'base-200': '',

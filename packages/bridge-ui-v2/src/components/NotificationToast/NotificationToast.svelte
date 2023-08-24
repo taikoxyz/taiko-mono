@@ -59,6 +59,7 @@
     --toastContainerBottom: auto;
     --toastContainerTop: 77px;
     --toastContainerLeft: calc(50vw - 160px);
+    --toastBoxShadow: none;
     --toastWidth: 320px;
 
     /*

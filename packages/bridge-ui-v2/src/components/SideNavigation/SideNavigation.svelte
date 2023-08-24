@@ -13,10 +13,6 @@
 
   let drawerToggleElem: HTMLInputElement;
 
-  $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
-  $: isFaucetPage = $page.route.id === '/faucet';
-  $: isActivitiesPage = $page.route.id === '/activities';
-
   function closeDrawer() {
     drawerToggleElem.checked = false;
   }
@@ -30,6 +26,10 @@
   function getIconFillClass(active: boolean) {
     return active ? 'fill-white' : 'fill-primary-icon';
   }
+
+  $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
+  $: isFaucetPage = $page.route.id === '/faucet';
+  $: isActivitiesPage = $page.route.id === '/activities';
 </script>
 
 <div class="drawer md:drawer-open">
@@ -64,7 +64,7 @@
         md:w-[226px]
       ">
         <a href="/" class="hidden md:inline-block">
-          <LogoWithText />
+          <LogoWithText textFillClass="fill-primary-content" />
         </a>
 
         <div role="button" tabindex="0" on:click={closeDrawer} on:keydown={onMenuKeydown}>
@@ -87,7 +87,7 @@
                 <span>{$t('nav.activities')}</span>
               </LinkButton>
             </li>
-            <li>
+            <li class="border-t border-t-divider-border pt-2">
               <LinkButton href={PUBLIC_L2_EXPLORER_URL} external>
                 <Icon type="explorer" />
                 <span>{$t('nav.explorer')}</span>
