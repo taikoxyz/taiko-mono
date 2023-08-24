@@ -1,4 +1,4 @@
-# Actors and Privileges Documentation
+# Actors, Privileges, and Upgradeable Procedures Documentation
 
 ## Introduction
 
@@ -30,8 +30,6 @@ In the context of the smart contract system, various actors play distinct roles.
 - **Privileges**:
   - Part of token briding, the possibility to burn and mint the respective standard tokens (no autotelic minting/burning)
 
-### ...
-
 ## 2. Different access modifiers
 
 Beside the `onlyFromNamed` or `onlyFromNamed2` modifiers, we have others such as:
@@ -46,8 +44,24 @@ Beside the `onlyFromNamed` or `onlyFromNamed2` modifiers, we have others such as
 - **Description**: Only authorized (by owner) can be granted access - the address shall be a smart contract. (`Bridge` in our case)
 - **Associated Actors**: EtherVault
 
+## 3. Upgradeable Procedures
+
+The smart contract system incorporates upgradeable procedures to ensure flexibility and security. These procedures adhere to the following principles:
+
+### 3.1 Deployment Scripts
+
+- Deployment scripts are visible in the `packages/protocol/scripts` folder, encompassing both deployment and upgrade scripts for easy reference and replication.
+
+### 3.2 Transparent Upgradeability
+
+- Upgradeability is based on the Transparent Upgradeability Proxy by OpenZeppelin, ensuring that contract upgrades are secure and transparent to all stakeholders.
+
+### 3.3 Ownership Transition
+
+- Currently, on testnets, some privileges (like `onlyOwner`) are assigned to externally owned accounts (EOAs) for easier testing. However, it is essential to note that `TimeLockController` contracts will be the owners at a later stage.
+
 ## Conclusion
 
-This documentation ensures that all stakeholders understand their roles and responsibilities within the system, contributing to its security and effectiveness.
+Clear documentation of actors and their privileges, combined with robust upgradeable procedures, is essential for smart contract systems, especially for based rollups. This documentation ensures that all stakeholders understand their roles and responsibilities within the system and guarantees its adaptability and security over time.
 
 Please ensure that this document is kept up to date as changes are made to the smart contract system and its actors or privileges.
