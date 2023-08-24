@@ -102,7 +102,7 @@
       <div class="relative f-items-center my-[20px]">
         <InputBox
           placeholder={$t('recipient.placeholder')}
-          class="w-full input-box outline-none p-6 pr-16 title-subsection-bold placeholder:text-tertiary-content"
+          class="w-full input-box-outline p-6 pr-16 title-subsection-bold placeholder:text-tertiary-content"
           on:input={inputRecipientAddress}
           bind:this={inputBox} />
         <button class="absolute right-6 uppercase body-bold text-secondary-content" on:click={clearRecipient}>
