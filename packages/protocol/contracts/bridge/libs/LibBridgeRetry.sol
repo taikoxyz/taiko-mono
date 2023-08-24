@@ -71,32 +71,21 @@ library LibBridgeRetry {
             );
         }
 
-        // Attempt to invoke the messageCall.
-        if (
-            LibBridgeInvoke.invokeMessageCall({
-                state: state,
-                message: message,
-                msgHash: msgHash,
-                gasLimit: gasleft()
-            })
-        ) {
-            // Update the message status to "DONE" on successful invocation.
+        bool success = LibBridgeInvoke.invokeMessageCall({
+            state: state,
+            message: message,
+            msgHash: msgHash,
+            gasLimit: gasleft()
+        });
+
+        if (success) {
             LibBridgeStatus.updateMessageStatus(
                 msgHash, LibBridgeStatus.MessageStatus.DONE
             );
-        } else if (isLastAttempt) {
-            // Update the message status to "FAILED" on the last attempt if
-            // unsuccessful.
+        } else {
             LibBridgeStatus.updateMessageStatus(
                 msgHash, LibBridgeStatus.MessageStatus.FAILED
             );
-
-            // Refund to the specified address, or the user if not specified.
-            address refundTo =
-                message.refundTo == address(0) ? message.user : message.refundTo;
-            refundTo.sendEther(message.value);
-        } else {
-            // Release Ether back to EtherVault if not the last attempt.
             ethVault.sendEther(message.value);
         }
     }
