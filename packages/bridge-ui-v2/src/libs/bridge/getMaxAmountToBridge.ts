@@ -1,6 +1,6 @@
 import type { Address } from 'viem';
 
-import { routingContractsMap } from '$chainConfig';
+import { routingContractsMap } from '$config/bridges';
 import { type Token, TokenType } from '$libs/token';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';

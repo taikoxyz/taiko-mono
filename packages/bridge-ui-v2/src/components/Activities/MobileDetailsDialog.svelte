@@ -2,7 +2,7 @@
   import { t } from 'svelte-i18n';
   import { formatEther } from 'viem';
 
-  import { chainConfig } from '$chainConfig';
+  import { chainConfig } from '$config/chains';
   import { Icon } from '$components/Icon';
   import { Tooltip } from '$components/Tooltip';
   import type { BridgeTransaction } from '$libs/bridge';

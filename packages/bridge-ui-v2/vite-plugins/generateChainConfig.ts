@@ -3,17 +3,15 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import * as prettier from 'prettier';
 import { Project, SourceFile, VariableDeclarationKind } from 'ts-morph';
-import type { Address } from 'viem';
 
 import { Logger } from './utils/Logger';
 
 const currentDir = path.resolve(new URL(import.meta.url).pathname);
 
 // Todo: make paths and names configurable via .env?
-const outputPath = path.join(path.join(path.dirname(currentDir)), '../src/generated/config.ts');
+const outputPath = path.join(path.join(path.dirname(currentDir)), '../src/generated/chainConfig.ts');
 
 const configuredChainsConfigFile = path.join(path.dirname(currentDir), '../config', 'configuredChains.json');
-const configuredBridgesConfigFile = path.join(path.dirname(currentDir), '../config', 'configuredBridges.json');
 
 enum LayerType {
   L1 = 'L1',
@@ -34,33 +32,16 @@ type ChainConfig = {
   type: LayerType;
 };
 
-type AddressConfig = {
-  bridgeAddress: Address;
-  erc20VaultAddress: Address;
-  erc721VaultAddress: Address;
-  erc1155VaultAddress: Address;
-  crossChainSyncAddress: Address;
-  signalServiceAddress: Address;
-};
-
-type BridgeConfig = {
-  source: string;
-  destination: string;
-  addresses: AddressConfig;
-};
-
 type ChainConfigMap = Record<number, ChainConfig>;
 
 type ConfiguredChains = {
   configuredChains: Array<Record<string, Omit<ChainConfig, 'chainId'>>>;
 };
 
-type RoutingMap = Record<string, Record<string, AddressConfig>>;
-
-const pluginName = 'generate-Chains-Config';
+const pluginName = 'generateChainConfig';
 const logger = new Logger(pluginName);
 
-export default function generateTsFromJsonPlugin() {
+export function generateChainConfig() {
   return {
     name: pluginName,
     async buildStart() {
@@ -80,16 +61,7 @@ export default function generateTsFromJsonPlugin() {
 
       // Create the TypeScript content
 
-      // let sourceFile = project.createSourceFile(tsFilePath, undefined, { overwrite: true });
-
-      sourceFile.addImportDeclaration({
-        namedImports: ['Address'],
-        moduleSpecifier: 'viem',
-        isTypeOnly: true,
-      });
-
       sourceFile = await storeTypesAndEnums(sourceFile);
-      sourceFile = await buildBridgeConfig(sourceFile);
       sourceFile = await buildChainConfig(sourceFile);
 
       // Save the file
@@ -144,26 +116,6 @@ async function storeTypesAndEnums(sourceFile: SourceFile) {
     }`,
   });
 
-  // AddressConfig
-  sourceFile.addTypeAlias({
-    name: 'AddressConfig',
-    isExported: true,
-    type: `{ 
-      bridgeAddress: Address;
-      erc20VaultAddress: Address;
-      erc721VaultAddress: Address;
-      erc1155VaultAddress: Address;
-      crossChainSyncAddress: Address;
-      signalServiceAddress: Address;
-    }`,
-  });
-
-  // RoutingMap
-  sourceFile.addTypeAlias({
-    name: 'RoutingMap',
-    isExported: true,
-    type: `Record<string, Record<string, AddressConfig>>`,
-  });
 
   // ChainConfigMap
   sourceFile.addTypeAlias({
@@ -225,43 +177,8 @@ async function buildChainConfig(sourceFile: SourceFile) {
   return sourceFile;
 }
 
-async function buildBridgeConfig(sourceFile: SourceFile) {
-  logger.info('Building bridge config...');
-  const routingContractsMap: RoutingMap = {};
 
-  const bridgesJsonContent = await fs.readFile(configuredBridgesConfigFile, 'utf-8');
-
-  const bridges = JSON.parse(bridgesJsonContent);
-  if (!bridges.configuredBridges || !Array.isArray(bridges.configuredBridges)) {
-    logger.error('configuredBridges is not an array. Please check the content of the configuredBridgesConfigFile.');
-    throw new Error();
-  }
-
-  bridges.configuredBridges.forEach((item: BridgeConfig) => {
-    if (!routingContractsMap[item.source]) {
-      routingContractsMap[item.source] = {};
-    }
-    routingContractsMap[item.source][item.destination] = item.addresses;
-  });
-
-  // Add routingContractsMap variable
-  sourceFile.addVariableStatement({
-    declarationKind: VariableDeclarationKind.Const,
-    declarations: [
-      {
-        name: 'routingContractsMap',
-        type: 'RoutingMap',
-        initializer: _formatObjectToTsLiteral(routingContractsMap),
-      },
-    ],
-    isExported: true,
-  });
-
-  logger.info(`Configured ${bridges.configuredBridges.length} bridges.`);
-  return sourceFile;
-}
-
-const _formatObjectToTsLiteral = (obj: RoutingMap | ChainConfigMap): string => {
+const _formatObjectToTsLiteral = (obj: ChainConfigMap): string => {
   const formatValue = (value: any): string => {
     if (typeof value === 'string') {
       if (Object.values(LayerType).includes(value as LayerType)) {

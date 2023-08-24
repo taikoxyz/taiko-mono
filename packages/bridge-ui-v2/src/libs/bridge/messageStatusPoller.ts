@@ -2,8 +2,8 @@ import { getContract, type Hash } from '@wagmi/core';
 import { EventEmitter } from 'events';
 
 import { bridgeABI } from '$abi';
-import { routingContractsMap } from '$chainConfig';
 import { bridgeTransactionPoller } from '$config';
+import { routingContractsMap } from '$config/bridges';
 import { BridgeTxPollingError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { nextTick } from '$libs/util/nextTick';

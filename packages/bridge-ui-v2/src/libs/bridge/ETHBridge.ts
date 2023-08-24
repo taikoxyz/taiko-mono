@@ -2,8 +2,8 @@ import { getContract, type Hash } from '@wagmi/core';
 import { UserRejectedRequestError } from 'viem';
 
 import { bridgeABI } from '$abi';
-import { routingContractsMap } from '$chainConfig';
 import { bridgeService } from '$config';
+import { routingContractsMap } from '$config/bridges';
 import { ProcessMessageError, ReleaseError, SendMessageError } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
 import { getLogger } from '$libs/util/logger';

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { chainConfig } from '$chainConfig';
+  import { chainConfig } from '$config/chains';
   import type { ChainID } from '$libs/chain';
 
   export let chainId: ChainID;

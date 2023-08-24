@@ -4,7 +4,7 @@
   import { t } from 'svelte-i18n';
   import { parseEther, UserRejectedRequestError } from 'viem';
 
-  import { chainConfig } from '$chainConfig';
+  import { chainConfig } from '$config/chains';
   import {
     errorToast,
     infoToast,

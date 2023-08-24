@@ -8,7 +8,7 @@
 
   import { createEventDispatcher } from 'svelte';
 
-  import { chainConfig } from '$chainConfig';
+  import { chainConfig } from '$config/chains';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { Icon } from '$components/Icon';
 

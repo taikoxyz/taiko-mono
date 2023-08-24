@@ -19,7 +19,9 @@
       "$config": ["./src/app.config.ts"],
       "$libs/*": ["./src/libs/*"],
       "$abi": ["./src/abi/index.ts"],
-      "$chainConfig": ["./src/generated/config.ts"]
+      "$config/chains": ["./src/generated/chainConfig.ts"],
+      "$config/bridges": ["./src/generated/bridgeConfig.ts"],
+      "$config/relayer": ["./src/generated/relayerConfig.ts"]
     },
 
     // https://vitest.dev/config/#globals

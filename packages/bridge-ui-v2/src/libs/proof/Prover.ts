@@ -2,7 +2,7 @@ import { getContract, type GetContractResult, type PublicClient } from '@wagmi/c
 import { type Address, encodePacked, type Hex, keccak256 } from 'viem';
 
 import { crossChainSyncABI } from '$abi';
-import { routingContractsMap } from '$chainConfig';
+import { routingContractsMap } from '$config/bridges';
 import { PendingBlockError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { publicClient } from '$libs/wagmi';

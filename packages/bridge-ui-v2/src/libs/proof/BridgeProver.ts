@@ -1,6 +1,6 @@
 import { encodeAbiParameters, type Hash, toHex, toRlp } from 'viem';
 
-import { routingContractsMap } from '$chainConfig';
+import { routingContractsMap } from '$config/bridges';
 import { MessageStatus } from '$libs/bridge';
 import { InvalidProofError } from '$libs/error';
 

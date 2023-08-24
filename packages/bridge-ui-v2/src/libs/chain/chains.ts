@@ -1,6 +1,6 @@
 import type { Chain } from '@wagmi/core';
 
-import { chainConfig, type ChainConfigMap, routingContractsMap } from '$chainConfig';
+import { chainConfig, type ChainConfigMap } from '$config/chains';
 
 export type ChainID = bigint;
 
@@ -29,6 +29,3 @@ export const isSupportedChain = (chainId: number) => {
   return chains.some((chain) => chain.id === chainId);
 };
 
-export const hasBridge = (srcChainId: number, destChainId: number): boolean => {
-  return !!routingContractsMap[srcChainId] && !!routingContractsMap[srcChainId][destChainId];
-};

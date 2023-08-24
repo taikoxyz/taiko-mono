@@ -2,7 +2,6 @@
   import { t } from 'svelte-i18n';
   import { TransactionExecutionError, UserRejectedRequestError } from 'viem';
 
-  import { chainConfig, routingContractsMap } from '$chainConfig';
   import { Card } from '$components/Card';
   import { successToast, warningToast } from '$components/NotificationToast';
   import { errorToast, infoToast } from '$components/NotificationToast/NotificationToast.svelte';
@@ -39,7 +38,8 @@
   import Recipient from './Recipient.svelte';
   import { bridgeService, destNetwork, enteredAmount, processingFee, recipientAddress, selectedToken } from './state';
   import ChainSelectorWrapper from '$components/ChainSelector/ChainSelectorWrapper.svelte';
-  import { hasBridge } from '$libs/chain';
+  import { hasBridge } from '$libs/bridge/bridges';
+  import { routingContractsMap } from '$config/bridges';
 
   let amountComponent: Amount;
   let recipientComponent: Recipient;

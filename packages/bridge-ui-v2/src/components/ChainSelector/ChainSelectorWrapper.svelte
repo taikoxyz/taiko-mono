@@ -1,11 +1,12 @@
 <script lang="ts">
-  import { chains, hasBridge } from '$libs/chain';
+  import { chains } from '$libs/chain';
   import { writable } from 'svelte/store';
   import ChainSelector from './ChainSelector.svelte';
   import { network, type Network } from '$stores/network';
   import { destNetwork } from '$components/Bridge/state';
   import SwitchChainsButton from '$components/Bridge/SwitchChainsButton.svelte';
   import { OnNetwork } from '$components/OnNetwork';
+  import { hasBridge } from '$libs/bridge/bridges';
 
   //   const sourceOptions = writable(chains);
   const destOptions = writable(chains);

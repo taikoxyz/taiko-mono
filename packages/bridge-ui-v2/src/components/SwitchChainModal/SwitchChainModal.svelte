@@ -3,7 +3,7 @@
   import { t } from 'svelte-i18n';
   import { UserRejectedRequestError } from 'viem';
 
-  import { chainConfig } from '$chainConfig';
+  import { chainConfig } from '$config/chains';
   import { LoadingMask } from '$components/LoadingMask';
   import { warningToast } from '$components/NotificationToast';
   import { chains } from '$libs/chain';

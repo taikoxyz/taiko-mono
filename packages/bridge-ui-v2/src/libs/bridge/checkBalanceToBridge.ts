@@ -1,7 +1,7 @@
 import { getPublicClient } from '@wagmi/core';
 import { type Address, zeroAddress } from 'viem';
 
-import { routingContractsMap } from '$chainConfig';
+import { routingContractsMap } from '$config/bridges';
 import { InsufficientAllowanceError, InsufficientBalanceError, RevertedWithFailedError } from '$libs/error';
 import { getAddress, type Token, TokenType } from '$libs/token';
 import { isDeployedCrossChain } from '$libs/token/isDeployedCrossChain';

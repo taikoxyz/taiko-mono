@@ -2,8 +2,8 @@ import { getContract, type Hash } from '@wagmi/core';
 import { UserRejectedRequestError } from 'viem';
 
 import { erc20ABI, tokenVaultABI } from '$abi';
-import { routingContractsMap } from '$chainConfig';
 import { bridgeService } from '$config';
+import { routingContractsMap } from '$config/bridges';
 import {
   ApproveError,
   InsufficientAllowanceError,
@@ -53,8 +53,8 @@ export class ERC20Bridge extends Bridge {
     const gasLimit = !isTokenAlreadyDeployed
       ? BigInt(bridgeService.noTokenDeployedGasLimit)
       : processingFee > 0
-      ? bridgeService.noOwnerGasLimit
-      : BigInt(0);
+        ? bridgeService.noOwnerGasLimit
+        : BigInt(0);
 
     const sendERC20Args: SendERC20Args = [
       BigInt(destChainId),

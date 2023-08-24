@@ -4,7 +4,7 @@
   import { t } from 'svelte-i18n';
   import { UserRejectedRequestError } from 'viem';
   import { Alert } from '$components/Alert';
-  import { chainConfig } from '$chainConfig';
+
   import { Icon } from '$components/Icon';
   import { LoadingMask } from '$components/LoadingMask';
   import { warningToast } from '$components/NotificationToast';
@@ -14,6 +14,7 @@
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
   import { createEventDispatcher } from 'svelte';
+  import { chainConfig } from '$config/chains';
 
   export let label = '';
   export let value: Maybe<GetNetworkResult['chain']> = null;
