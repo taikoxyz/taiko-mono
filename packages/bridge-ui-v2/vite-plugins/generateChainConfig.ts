@@ -35,7 +35,7 @@ type ChainConfig = {
 type ChainConfigMap = Record<number, ChainConfig>;
 
 type ConfiguredChains = {
-  configuredChains: Array<Record<string, Omit<ChainConfig, 'chainId'>>>;
+  configuredChains: Array<Record<string, ChainConfig>>;
 };
 
 const pluginName = 'generateChainConfig';

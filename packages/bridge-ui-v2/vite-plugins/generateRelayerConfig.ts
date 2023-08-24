@@ -13,11 +13,16 @@ const currentDir = path.resolve(new URL(import.meta.url).pathname);
 // Todo: make paths and names configurable via .env?
 const outputPath = path.join(path.join(path.dirname(currentDir)), '../src/generated/relayerConfig.ts');
 
+const configuredRelayerConfigFile = path.join(path.dirname(currentDir), '../config', 'configuredRelayer.json');
 
 type RelayerConfig = {
-    "chainId": number[],
+    "chainIds": number[],
     "url": string,
 }
+
+type ConfiguredRelayer = {
+    configuredRelayer: RelayerConfig[];
+};
 
 
 export function generateRelayerConfig() {
@@ -61,13 +66,53 @@ export function generateRelayerConfig() {
 }
 
 async function storeTypesAndEnums(sourceFile: SourceFile) {
-    logger.info(`Storing types and enums...`);
-    // todo
+    logger.info(`Storing types...`);
+    // RelayerConfig
+    sourceFile.addTypeAlias({
+        name: 'RelayerConfig',
+        isExported: true,
+        type: `{ 
+            chainIds: number[];
+            url: string;
+        }`,
+    });
+    logger.info('Types stored.');
     return sourceFile
 }
-
 async function buildRelayerConfig(sourceFile: SourceFile) {
     logger.info('Building relayer config...');
-    // todo
-    return sourceFile
+
+    const relayerJsonContent = await fs.readFile(configuredRelayerConfigFile, 'utf-8');
+    const relayer: ConfiguredRelayer = JSON.parse(relayerJsonContent);
+
+    if (!relayer.configuredRelayer || !Array.isArray(relayer.configuredRelayer)) {
+        console.error('configuredRelayer is not an array. Please check the content of the configuredRelayerConfigFile.');
+        throw new Error();
+    }
+
+    // Create a constant variable for the configuration
+    const relayerConfigVariable = {
+        declarationKind: VariableDeclarationKind.Const,
+        declarations: [
+            {
+                name: 'configuredRelayer',
+                initializer: _formatObjectToTsLiteral(relayer.configuredRelayer),
+                type: 'RelayerConfig[]',
+            },
+        ],
+        isExported: true,
+    };
+
+    sourceFile.addVariableStatement(relayerConfigVariable);
+    logger.info('Relayer config built.');
+    return sourceFile;
 }
+
+const _formatRelayerConfigToTsLiteral = (config: RelayerConfig): string => {
+    return `{chainIds: [${config.chainIds ? config.chainIds.join(', ') : ''}], url: "${config.url}"}`;
+};
+
+const _formatObjectToTsLiteral = (relayers: RelayerConfig[]): string => {
+    return `[${relayers.map(_formatRelayerConfigToTsLiteral).join(', ')}]`;
+};
+

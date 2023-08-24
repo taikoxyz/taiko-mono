@@ -91,13 +91,13 @@ async function storeTypesAndEnums(sourceFile: SourceFile) {
         name: 'AddressConfig',
         isExported: true,
         type: `{ 
-      bridgeAddress: Address;
-      erc20VaultAddress: Address;
-      erc721VaultAddress: Address;
-      erc1155VaultAddress: Address;
-      crossChainSyncAddress: Address;
-      signalServiceAddress: Address;
-    }`,
+            bridgeAddress: Address;
+            erc20VaultAddress: Address;
+            erc721VaultAddress: Address;
+            erc1155VaultAddress: Address;
+            crossChainSyncAddress: Address;
+            signalServiceAddress: Address;
+        }`,
     });
 
     // RoutingMap
