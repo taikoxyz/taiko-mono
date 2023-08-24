@@ -219,7 +219,7 @@
   },
   "switch_modal": {
     "title": "Incorrect network detected",
-    "description": " You're currently on a different network. Please select the following network chain to proceed."
+    "description": "Your current network is not supported. Please select one of the following chains to proceed:"
   },
   "messages": {
     "account": {
