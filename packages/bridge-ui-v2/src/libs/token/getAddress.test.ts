@@ -1,4 +1,4 @@
-import { type Address, getContract, type GetContractResult } from '@wagmi/core';
+import { getContract, type GetContractResult } from '@wagmi/core';
 
 import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID } from '$env/static/public';
 
