@@ -10,6 +10,9 @@ import { type GetCrossChainAddressArgs, TokenType } from './types';
 
 const log = getLogger('token:getCrossChainAddress');
 
+
+// TODO: have another look at this function
+
 export async function getCrossChainAddress({
   token,
   srcChainId,
@@ -27,8 +30,6 @@ export async function getCrossChainAddress({
   if (destChainTokenAddress && destChainTokenAddress !== zeroAddress) {
     return token.addresses[destChainId];
   }
-
-  // if (!srcChainTokenAddress) return null;
 
   // it could be that we don't have the token address on the current chain, but we have it on another chain
   if (!srcChainTokenAddress || srcChainTokenAddress === zeroAddress) {

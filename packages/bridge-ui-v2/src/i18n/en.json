@@ -173,6 +173,7 @@
       "no_connected": "Please connect your wallet to mint tokens.",
       "insufficient_balance": "You don't have enough ETH to complete the transaction. Please add some ETH to your wallet.",
       "token_minted": "You have already minted this token.",
+      "not_mintable": "This token is not mintable on this network",
       "unknown": "Something did not work"
     }
   },

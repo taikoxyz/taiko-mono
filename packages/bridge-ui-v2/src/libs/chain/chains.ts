@@ -25,7 +25,14 @@ export const chains: Chain[] = Object.entries(chainConfig).map(([chainId, chainC
   mapChainConfigToChain(chainId, chainConfig),
 );
 
+export const getConfiguredChainIds = (): number[] => {
+  return chains.map((chain) => Number(chain.id));
+};
+
 export const isSupportedChain = (chainId: number) => {
   return chains.some((chain) => chain.id === chainId);
 };
 
+export const getChainImages = (): Record<number, string> => {
+  return Object.fromEntries(Object.entries(chainConfig).map(([chainId, config]) => [Number(chainId), config.icon]));
+};

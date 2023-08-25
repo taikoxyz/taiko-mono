@@ -124,7 +124,7 @@
           },
           decimals: tokenDetails.decimals,
           symbol: tokenDetails.symbol,
-          logoComponent: null,
+          logoURI: '',
           type: TokenType.ERC20,
           imported: true,
         } as Token;

@@ -6,18 +6,33 @@ import {
   type PublicClient,
   type WalletClient,
 } from '@wagmi/core';
+import { zeroAddress } from 'viem';
 
 import { freeMintErc20ABI } from '$abi';
 import { InsufficientBalanceError, TokenMintedError } from '$libs/error';
 
 import { checkMintable } from './checkMintable';
-import { testERC20Tokens } from './tokens';
+import { type Token, TokenType } from './types';
 
 vi.mock('$env/static/public');
 vi.mock('@wagmi/core');
 vi.mock('$abi');
 
-const BLLToken = testERC20Tokens[0];
+const PUBLIC_L1_CHAIN_ID = 11155111;
+const PUBLIC_L2_CHAIN_ID = 1670005;
+
+const L1_TOKEN_ADDRESS = '0x123456';
+
+const BLLToken: Token = {
+  name: 'MockToken',
+  addresses: {
+    [PUBLIC_L1_CHAIN_ID]: L1_TOKEN_ADDRESS,
+    [PUBLIC_L2_CHAIN_ID]: zeroAddress,
+  },
+  symbol: 'MOCK',
+  decimals: 18,
+  type: TokenType.ERC20,
+};
 
 const mockWalletClient = {
   account: { address: '0x123' },

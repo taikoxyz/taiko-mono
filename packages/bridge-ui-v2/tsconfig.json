@@ -21,7 +21,8 @@
       "$abi": ["./src/abi/index.ts"],
       "$config/chains": ["./src/generated/chainConfig.ts"],
       "$config/bridges": ["./src/generated/bridgeConfig.ts"],
-      "$config/relayer": ["./src/generated/relayerConfig.ts"]
+      "$config/relayer": ["./src/generated/relayerConfig.ts"],
+      "$config/customToken": ["./src/generated/customTokenConfig.ts"]
     },
 
     // https://vitest.dev/config/#globals

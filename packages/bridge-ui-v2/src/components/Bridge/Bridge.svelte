@@ -8,7 +8,6 @@
   import { OnAccount } from '$components/OnAccount';
   import { OnNetwork } from '$components/OnNetwork';
   import { TokenDropdown } from '$components/TokenDropdown';
-  import { PUBLIC_L1_EXPLORER_URL } from '$env/static/public';
   import {
     type BridgeArgs,
     bridges,
@@ -40,6 +39,7 @@
   import ChainSelectorWrapper from '$components/ChainSelector/ChainSelectorWrapper.svelte';
   import { hasBridge } from '$libs/bridge/bridges';
   import { routingContractsMap } from '$config/bridges';
+  import { chainConfig } from '$config/chains';
 
   let amountComponent: Amount;
   let recipientComponent: Recipient;
@@ -218,12 +218,13 @@
 
       const txHash = await $bridgeService.bridge(bridgeArgs);
 
+      const explorer = chainConfig[bridgeArgs.srcChainId].urls.explorer;
+
       infoToast(
         $t('bridge.actions.bridge.tx', {
           values: {
             token: $selectedToken.symbol,
-            //Todo: must link to the correct explorer, not just L1
-            url: `${PUBLIC_L1_EXPLORER_URL}/tx/${txHash}`,
+            url: `${explorer}/tx/${txHash}`,
           },
         }),
       );

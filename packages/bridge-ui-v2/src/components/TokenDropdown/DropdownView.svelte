@@ -68,9 +68,15 @@
       on:click={() => selectToken(token)}
       on:keydown={getTokenKeydownHandler(token)}>
       <div class="p-4">
-        <i role="img" aria-label={token.name}>
-          <svelte:component this={symbolToIconMap[token.symbol]} />
-        </i>
+        {#if symbolToIconMap[token.symbol]}
+          <i role="img" aria-label={token.name}>
+            <svelte:component this={symbolToIconMap[token.symbol]} size={28} />
+          </i>
+        {:else}
+          <i role="img" aria-label={token.symbol}>
+            <svelte:component this={Erc20} size={28} />
+          </i>
+        {/if}
         <span class="body-bold">{token.symbol}</span>
       </div>
     </li>
@@ -100,8 +106,7 @@
             bg-transparent
             flex-1
             
-            px-0"
-            >
+            px-0">
         {$t('token_dropdown.add_custom')}
       </span>
     </button>

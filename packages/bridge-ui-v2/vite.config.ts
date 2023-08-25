@@ -4,6 +4,7 @@ import { defineConfig } from 'vitest/config';
 
 import { generateBridgeConfig } from './vite-plugins/generateBridgeConfig';
 import { generateChainConfig } from './vite-plugins/generateChainConfig';
+import { generateCustomTokenConfig } from './vite-plugins/generateCustomTokenConfig';
 import { generateRelayerConfig } from './vite-plugins/generateRelayerConfig';
 
 
@@ -20,6 +21,7 @@ export default defineConfig({
     generateChainConfig(),
     generateBridgeConfig(),
     generateRelayerConfig(),
+    generateCustomTokenConfig()
   ],
   test: {
     environment: 'jsdom',
