@@ -215,12 +215,10 @@ abstract contract TaikoL1Base is
     /// @notice Gets the fork choice for a specific block.
     /// @param blockId Index of the block.
     /// @param parentHash Parent hash of the block.
-    /// @param parentGasUsed Gas used by the parent block.
     /// @return ForkChoice data of the block.
     function getForkChoice(
         uint64 blockId,
-        bytes32 parentHash,
-        uint32 parentGasUsed
+        bytes32 parentHash
     )
         public
         view
@@ -230,8 +228,7 @@ abstract contract TaikoL1Base is
             state: state,
             config: getConfig(),
             blockId: blockId,
-            parentHash: parentHash,
-            parentGasUsed: parentGasUsed
+            parentHash: parentHash
         });
     }
 

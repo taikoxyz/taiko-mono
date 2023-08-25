@@ -34,14 +34,12 @@ abstract contract TaikoEvents {
     /// @param blockHash The hash of the proven block.
     /// @param signalRoot The signal root of the proven block.
     /// @param prover The address of the prover who submitted the proof.
-    /// @param parentGasUsed The gas used in the parent block.
     event BlockProven(
         uint256 indexed blockId,
         bytes32 parentHash,
         bytes32 blockHash,
         bytes32 signalRoot,
-        address prover,
-        uint32 parentGasUsed
+        address prover
     );
 
     /// @dev Emitted when a block is verified.

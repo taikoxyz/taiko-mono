@@ -36,20 +36,16 @@ library LibUtils {
         TaikoData.State storage state,
         TaikoData.Block storage blk,
         uint64 blockId,
-        bytes32 parentHash,
-        uint32 parentGasUsed
+        bytes32 parentHash
     )
         internal
         view
         returns (uint16 fcId)
     {
-        if (
-            blk.forkChoices[1].key
-                == keyForForkChoice(parentHash, parentGasUsed)
-        ) {
+        if (blk.forkChoices[1].key == parentHash) {
             fcId = 1;
         } else {
-            fcId = state.forkChoiceIds[blockId][parentHash][parentGasUsed];
+            fcId = state.forkChoiceIds[blockId][parentHash];
         }
 
         if (fcId >= blk.nextForkChoiceId) {
@@ -99,23 +95,6 @@ library LibUtils {
 
         assembly {
             hash := keccak256(inputs, mul(6, 32))
-        }
-    }
-
-    function keyForForkChoice(
-        bytes32 parentHash,
-        uint32 parentGasUsed
-    )
-        internal
-        pure
-        returns (bytes32 key)
-    {
-        assembly {
-            let ptr := mload(0x40)
-            mstore(ptr, parentGasUsed)
-            mstore(add(ptr, 32), parentHash)
-            key := keccak256(add(ptr, 28), 36)
-            mstore(0x40, add(ptr, 64))
         }
     }
 

@@ -66,8 +66,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint32 parentGasUsed = 0;
-        uint32 gasUsed = 1_000_000;
         for (
             uint256 blockId = 1;
             blockId < conf.blockMaxProposals * 10;
@@ -83,24 +81,13 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1e9 + blockId);
             // This proof cannot be verified obviously because of
             // blockhash:blockId
-            proveBlock(
-                Bob,
-                Bob,
-                meta,
-                parentHash,
-                parentGasUsed,
-                gasUsed,
-                bytes32(blockId),
-                signalRoot
-            );
+            proveBlock(Bob, Bob, meta, parentHash, bytes32(blockId), signalRoot);
 
             proveBlock(
                 Carol,
                 LibUtils.ORACLE_PROVER,
                 meta,
                 parentHash,
-                parentGasUsed,
-                gasUsed,
                 blockHash,
                 signalRoot
             );
@@ -111,19 +98,9 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             // This is verified, user cannot re-verify it
             vm.expectRevert(TaikoErrors.L1_INVALID_BLOCK_ID.selector);
-            proveBlock(
-                Bob,
-                Bob,
-                meta,
-                parentHash,
-                parentGasUsed,
-                gasUsed,
-                blockHash,
-                signalRoot
-            );
+            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot);
 
             parentHash = blockHash;
-            parentGasUsed = gasUsed;
         }
         printVariables("");
     }
@@ -144,8 +121,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint32 parentGasUsed = 0;
-        uint32 gasUsed = 1_000_000;
         for (
             uint256 blockId = 1;
             blockId < conf.blockMaxProposals * 10;
@@ -161,16 +136,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1e9 + blockId);
             // This proof cannot be verified obviously because of
             // blockhash:blockId
-            proveBlock(
-                Bob,
-                Bob,
-                meta,
-                parentHash,
-                parentGasUsed,
-                gasUsed,
-                blockHash,
-                signalRoot
-            );
+            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot);
 
             vm.expectRevert(TaikoErrors.L1_SAME_PROOF.selector);
             proveBlock(
@@ -178,8 +144,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 LibUtils.ORACLE_PROVER,
                 meta,
                 parentHash,
-                parentGasUsed,
-                gasUsed,
                 blockHash,
                 signalRoot
             );
@@ -199,7 +163,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             assertFalse(lastVerifiedBlockIdNow == lastVerifiedBlockId);
 
             parentHash = blockHash;
-            parentGasUsed = gasUsed;
         }
         printVariables("");
     }
@@ -228,8 +191,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint32 parentGasUsed = 0;
-        uint32 gasUsed = 1_000_000;
 
         for (
             uint256 blockId = 1;
@@ -244,16 +205,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
 
-            proveBlock(
-                Bob,
-                Bob,
-                meta,
-                parentHash,
-                parentGasUsed,
-                gasUsed,
-                blockHash,
-                signalRoot
-            );
+            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot);
 
             uint256 lastVerifiedBlockId =
                 L1.getStateVariables().lastVerifiedBlockId;
@@ -277,7 +229,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             assertFalse(lastVerifiedBlockIdNow == lastVerifiedBlockId);
 
             parentHash = blockHash;
-            parentGasUsed = gasUsed;
         }
         printVariables("");
     }
@@ -301,8 +252,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint32 parentGasUsed = 0;
-        uint32 gasUsed = 1_000_000;
 
         for (
             uint256 blockId = 1;
@@ -317,16 +266,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
 
-            proveBlock(
-                Bob,
-                Bob,
-                meta,
-                parentHash,
-                parentGasUsed,
-                gasUsed,
-                blockHash,
-                signalRoot
-            );
+            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot);
 
             uint256 lastVerifiedBlockId =
                 L1.getStateVariables().lastVerifiedBlockId;
@@ -340,7 +280,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             assertFalse(lastVerifiedBlockIdNow == lastVerifiedBlockId);
 
             parentHash = blockHash;
-            parentGasUsed = gasUsed;
         }
         printVariables("");
     }
@@ -368,8 +307,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint32 parentGasUsed = 0;
-        uint32 gasUsed = 1_000_000;
 
         for (
             uint64 blockId = 1; blockId < conf.blockMaxProposals * 10; blockId++
@@ -387,8 +324,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 LibUtils.ORACLE_PROVER,
                 meta,
                 parentHash,
-                parentGasUsed,
-                gasUsed,
                 blockHash,
                 signalRoot
             );
@@ -398,22 +333,13 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             // Bob cannot overwrite it
             vm.expectRevert(TaikoErrors.L1_ALREADY_PROVEN.selector);
-            proveBlock(
-                Bob,
-                Bob,
-                meta,
-                parentHash,
-                parentGasUsed,
-                gasUsed,
-                blockHash,
-                signalRoot
-            );
+            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot);
 
             vm.warp(block.timestamp + 1 seconds);
             vm.warp(block.timestamp + conf.proofOracleCooldown);
 
             TaikoData.ForkChoice memory fc =
-                L1.getForkChoice(blockId, parentHash, parentGasUsed);
+                L1.getForkChoice(blockId, parentHash);
 
             assertEq(fc.prover, LibUtils.ORACLE_PROVER);
 
@@ -428,7 +354,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             assertFalse(lastVerifiedBlockIdNow == lastVerifiedBlockId);
 
             parentHash = blockHash;
-            parentGasUsed = gasUsed;
         }
         printVariables("");
     }
@@ -455,8 +380,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint32 parentGasUsed = 0;
-        uint32 gasUsed = 1_000_000;
 
         for (
             uint256 blockId = 1;
@@ -471,29 +394,11 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
 
-            proveBlock(
-                Bob,
-                Bob,
-                meta,
-                parentHash,
-                parentGasUsed,
-                gasUsed,
-                blockHash,
-                signalRoot
-            );
+            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot);
 
             // Carol could not overwrite it
             vm.expectRevert(TaikoErrors.L1_ALREADY_PROVEN.selector);
-            proveBlock(
-                Carol,
-                Carol,
-                meta,
-                parentHash,
-                parentGasUsed,
-                gasUsed,
-                blockHash,
-                signalRoot
-            );
+            proveBlock(Carol, Carol, meta, parentHash, blockHash, signalRoot);
 
             /// @notice: Based on the current codebase we still need to wait
             /// even if the system and oracle proofs are disbaled, which
@@ -503,7 +408,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             verifyBlock(Carol, 1);
 
             parentHash = blockHash;
-            parentGasUsed = gasUsed;
         }
         printVariables("");
     }
