@@ -47,7 +47,7 @@ library LibProving {
             evidence.prover == address(0) || evidence.parentHash == 0
                 || evidence.blockHash == 0
                 || evidence.blockHash == evidence.parentHash
-                || evidence.signalRoot == 0 || evidence.gasUsed == 0
+                || evidence.signalRoot == 0
         ) revert L1_INVALID_EVIDENCE();
 
         TaikoData.SlotB memory b = state.slotB;
@@ -109,7 +109,6 @@ library LibProving {
             if (
                 fc.blockHash == evidence.blockHash
                     && fc.signalRoot == evidence.signalRoot
-                    && fc.gasUsed == evidence.gasUsed
             ) revert L1_SAME_PROOF();
         } else {
             revert L1_ALREADY_PROVEN();
@@ -119,7 +118,6 @@ library LibProving {
         fc.signalRoot = evidence.signalRoot;
         fc.prover = evidence.prover;
         fc.provenAt = uint64(block.timestamp);
-        fc.gasUsed = evidence.gasUsed;
 
         IProofVerifier(resolver.resolve("proof_verifier", false)).verifyProofs(
             blockId, evidence.proofs, getInstance(evidence)

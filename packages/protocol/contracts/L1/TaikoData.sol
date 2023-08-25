@@ -124,7 +124,6 @@ library TaikoData {
         bytes32 signalRoot;
         bytes32 graffiti;
         address prover;
-        uint32 gasUsed;
         bytes proofs;
     }
 
@@ -136,7 +135,6 @@ library TaikoData {
         bytes32 signalRoot;
         address prover;
         uint64 provenAt;
-        uint32 gasUsed;
     }
 
     /// @dev Struct containing data required for verifying a block.
