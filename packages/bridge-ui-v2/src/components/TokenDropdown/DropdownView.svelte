@@ -18,6 +18,7 @@
   export let id: string;
   export let menuOpen = false;
   export let tokens: Token[] = [];
+  export let isFaucet = false;
   export let customTokens: Token[] = [];
   export let value: Maybe<Token> = null;
   export let selectToken: (token: Token) => void = noop;
@@ -81,36 +82,38 @@
       </div>
     </li>
   {/each}
-  {#each customTokens as token, index (index)}
-    <li
-      role="option"
-      tabindex="0"
-      aria-selected={token === value}
-      on:click={() => selectToken(token)}
-      on:keydown={getTokenKeydownHandler(token)}>
-      <div class="p-4">
-        <i role="img" aria-label={token.name}>
-          <Erc20 />
-        </i>
-        <span class="body-bold">{token.symbol}</span>
-      </div>
-    </li>
-  {/each}
-  <div class="h-sep my-[8px]" />
-  <li>
-    <button on:click={showAddERC20} class="flex hover:bg-dark-5 justify-center items-center rounded-lg h-[64px]">
-      <Icon type="plus-circle" fillClass="fill-primary-icon" size={32} vWidth={28} vHeight={28} />
-      <span
-        class="
+  {#if !isFaucet}
+    {#each customTokens as token, index (index)}
+      <li
+        role="option"
+        tabindex="0"
+        aria-selected={token === value}
+        on:click={() => selectToken(token)}
+        on:keydown={getTokenKeydownHandler(token)}>
+        <div class="p-4">
+          <i role="img" aria-label={token.name}>
+            <Erc20 />
+          </i>
+          <span class="body-bold">{token.symbol}</span>
+        </div>
+      </li>
+    {/each}
+    <div class="h-sep my-[8px]" />
+    <li>
+      <button on:click={showAddERC20} class="flex hover:bg-dark-5 justify-center items-center rounded-lg h-[64px]">
+        <Icon type="plus-circle" fillClass="fill-primary-icon" size={32} vWidth={28} vHeight={28} />
+        <span
+          class="
             body-bold
             bg-transparent
             flex-1
             
             px-0">
-        {$t('token_dropdown.add_custom')}
-      </span>
-    </button>
-  </li>
+          {$t('token_dropdown.add_custom')}
+        </span>
+      </button>
+    </li>
+  {/if}
 </ul>
 
 <AddCustomErc20 bind:modalOpen={addArc20ModalOpen} on:tokenRemoved />

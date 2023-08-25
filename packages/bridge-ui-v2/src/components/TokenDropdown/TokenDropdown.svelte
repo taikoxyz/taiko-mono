@@ -20,6 +20,7 @@
 
   export let tokens: Token[] = [];
   export let value: Maybe<Token> = null;
+  export let isFaucet = false;
 
   let id = `menu-${uid()}`;
   let menuOpen = false;
@@ -131,8 +132,8 @@
   </button>
 
   {#if isDesktopOrLarger}
-    <DropdownView {id} {menuOpen} {tokens} {value} {selectToken} on:tokenRemoved={handleTokenRemoved} />
+    <DropdownView {id} {isFaucet} {menuOpen} {tokens} {value} {selectToken} on:tokenRemoved={handleTokenRemoved} />
   {:else}
-    <DialogView {id} {menuOpen} {tokens} {value} {selectToken} {closeMenu} />
+    <DialogView {id} {isFaucet} {menuOpen} {tokens} {value} {selectToken} {closeMenu} />
   {/if}
 </div>
