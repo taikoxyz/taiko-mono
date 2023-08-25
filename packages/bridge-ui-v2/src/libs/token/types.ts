@@ -21,6 +21,7 @@ export type Token = {
   type: TokenType;
   logoURI?: string;
   imported?: boolean;
+  mintable?: boolean;
 };
 
 export type TokenEnv = {

@@ -3,6 +3,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { Project, SourceFile, VariableDeclarationKind } from 'ts-morph';
 
+import type { ConfiguredRelayer, RelayerConfig } from '../src/libs/relayer/types';
 import { formatSourceFile } from './utils/formatSourceFile';
 import { Logger } from "./utils/Logger";
 
@@ -12,16 +13,6 @@ const currentDir = path.dirname(new URL(import.meta.url).pathname);
 const outputPath = path.resolve(currentDir, '../src/generated/relayerConfig.ts');
 
 const configuredRelayerConfigFile = path.join(path.dirname(currentDir), '/config', 'configuredRelayer.json');
-
-type RelayerConfig = {
-    "chainIds": number[],
-    "url": string,
-}
-
-type ConfiguredRelayer = {
-    configuredRelayer: RelayerConfig[];
-};
-
 
 export function generateRelayerConfig() {
     return {

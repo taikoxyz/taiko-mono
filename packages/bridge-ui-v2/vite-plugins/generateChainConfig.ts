@@ -3,6 +3,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { Project, SourceFile, VariableDeclarationKind } from 'ts-morph';
 
+import { type ChainConfig, type ChainConfigMap, type ConfiguredChains, LayerType } from '../src/libs/chain/types';
 import { formatSourceFile } from './utils/formatSourceFile';
 import { Logger } from './utils/Logger';
 
@@ -12,31 +13,6 @@ const currentDir = path.resolve(new URL(import.meta.url).pathname);
 const outputPath = path.join(path.join(path.dirname(currentDir)), '../src/generated/chainConfig.ts');
 
 const configuredChainsConfigFile = path.join(path.dirname(currentDir), '../config', 'configuredChains.json');
-
-enum LayerType {
-  L1 = 'L1',
-  L2 = 'L2',
-  L3 = 'L3',
-}
-
-// Make sure all types match the ones in the functions below when making changes
-type Urls = {
-  rpc: string;
-  explorer: string;
-};
-
-type ChainConfig = {
-  name: string;
-  urls: Urls;
-  icon: string;
-  type: LayerType;
-};
-
-type ChainConfigMap = Record<number, ChainConfig>;
-
-type ConfiguredChains = {
-  configuredChains: Array<Record<string, ChainConfig>>;
-};
 
 const pluginName = 'generateChainConfig';
 const logger = new Logger(pluginName);
@@ -56,10 +32,8 @@ export function generateChainConfig() {
 
       let sourceFile = project.createSourceFile(tsFilePath, `${notification}\n${warning}\n`, { overwrite: true });
 
-
-
       // Create the TypeScript content
-      sourceFile = await storeTypesAndEnums(sourceFile);
+      sourceFile = await storeTypes(sourceFile);
       sourceFile = await buildChainConfig(sourceFile);
       await sourceFile.saveSync();
 
@@ -73,50 +47,23 @@ export function generateChainConfig() {
   };
 }
 
-async function storeTypesAndEnums(sourceFile: SourceFile) {
-  logger.info(`Storing types and enums...`);
-  // Urls
-  sourceFile.addTypeAlias({
-    name: 'Urls',
-    isExported: false,
-    type: `{
-      rpc: string;
-      explorer: string;
-    }`,
+async function storeTypes(sourceFile: SourceFile) {
+  logger.info(`Storing types...`);
+
+  // ChainConfigMap
+  sourceFile.addImportDeclaration({
+    namedImports: ['ChainConfigMap',],
+    moduleSpecifier: '$libs/chain',
+    isTypeOnly: true,
   });
 
   // LayerType
-  sourceFile.addEnum({
-    name: 'LayerType',
-    isExported: false,
-    members: [
-      { name: 'L1', value: 'L1' },
-      { name: 'L2', value: 'L2' },
-      { name: 'L3', value: 'L3' },
-    ],
+  sourceFile.addImportDeclaration({
+    namedImports: ['LayerType'],
+    moduleSpecifier: '$libs/chain',
   });
 
-  // ChainConfig
-  sourceFile.addTypeAlias({
-    name: 'ChainConfig',
-    isExported: true,
-    type: `{
-      name: string;
-      urls: Urls;
-      icon: string;
-      type: LayerType;
-    }`,
-  });
-
-
-  // ChainConfigMap
-  sourceFile.addTypeAlias({
-    name: 'ChainConfigMap',
-    isExported: true,
-    type: `Record<number, ChainConfig>`,
-  });
-
-  logger.info('Types and enums stored.');
+  logger.info('Types stored.');
   return sourceFile;
 }
 
@@ -171,10 +118,10 @@ async function buildChainConfig(sourceFile: SourceFile) {
 
 
 const _formatObjectToTsLiteral = (obj: ChainConfigMap): string => {
-  const formatValue = (value: any): string => {
+  const formatValue = (value: ChainConfig): string => {
     if (typeof value === 'string') {
-      if (Object.values(LayerType).includes(value as LayerType)) {
-        return `LayerType.${value}`;
+      if (typeof value === 'string') {
+        return `"${value}"`;
       }
       return `"${value}"`;
     }

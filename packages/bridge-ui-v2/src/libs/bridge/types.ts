@@ -148,3 +148,19 @@ export interface Bridge {
   estimateGas(args: BridgeArgs): Promise<bigint>;
   bridge(args: BridgeArgs): Promise<Hex>;
 }
+
+export type BridgeConfig = {
+  source: string;
+  destination: string;
+  addresses: AddressConfig;
+};
+
+export type AddressConfig = {
+  bridgeAddress: Address;
+  erc20VaultAddress: Address;
+  erc721VaultAddress: Address;
+  erc1155VaultAddress: Address;
+  crossChainSyncAddress: Address;
+  signalServiceAddress: Address;
+};
+export type RoutingMap = Record<string, Record<string, AddressConfig>>;

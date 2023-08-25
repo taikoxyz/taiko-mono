@@ -2,8 +2,8 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { Project, SourceFile, VariableDeclarationKind } from 'ts-morph';
-import type { Address } from 'viem';
 
+import type { BridgeConfig, RoutingMap } from '../src/libs/bridge/types';
 import { formatSourceFile } from './utils/formatSourceFile';
 import { Logger } from './utils/Logger';
 
@@ -13,23 +13,6 @@ const currentDir = path.resolve(new URL(import.meta.url).pathname);
 const outputPath = path.join(path.join(path.dirname(currentDir)), '../src/generated/bridgeConfig.ts');
 
 const configuredBridgesConfigFile = path.join(path.dirname(currentDir), '../config', 'configuredBridges.json');
-
-type AddressConfig = {
-    bridgeAddress: Address;
-    erc20VaultAddress: Address;
-    erc721VaultAddress: Address;
-    erc1155VaultAddress: Address;
-    crossChainSyncAddress: Address;
-    signalServiceAddress: Address;
-};
-
-type BridgeConfig = {
-    source: string;
-    destination: string;
-    addresses: AddressConfig;
-};
-
-type RoutingMap = Record<string, Record<string, AddressConfig>>;
 
 const pluginName = 'generateBridgeConfig';
 const logger = new Logger(pluginName);
@@ -50,13 +33,7 @@ export function generateBridgeConfig() {
             let sourceFile = project.createSourceFile(tsFilePath, `${notification}\n${warning}\n`, { overwrite: true });
 
             // Create the TypeScript content
-            sourceFile.addImportDeclaration({
-                namedImports: ['Address'],
-                moduleSpecifier: 'viem',
-                isTypeOnly: true,
-            });
-
-            sourceFile = await storeTypesAndEnums(sourceFile);
+            sourceFile = await storeTypes(sourceFile);
             sourceFile = await buildBridgeConfig(sourceFile);
 
             // Save the file
@@ -74,33 +51,17 @@ export function generateBridgeConfig() {
     };
 }
 
-async function storeTypesAndEnums(sourceFile: SourceFile) {
+async function storeTypes(sourceFile: SourceFile) {
     logger.info(`Storing types and enums...`);
 
-
-    // AddressConfig
-    sourceFile.addTypeAlias({
-        name: 'AddressConfig',
-        isExported: true,
-        type: `{ 
-            bridgeAddress: Address;
-            erc20VaultAddress: Address;
-            erc721VaultAddress: Address;
-            erc1155VaultAddress: Address;
-            crossChainSyncAddress: Address;
-            signalServiceAddress: Address;
-        }`,
-    });
-
     // RoutingMap
-    sourceFile.addTypeAlias({
-        name: 'RoutingMap',
-        isExported: true,
-        type: `Record<string, Record<string, AddressConfig>>`,
+    sourceFile.addImportDeclaration({
+        namedImports: ['RoutingMap'],
+        moduleSpecifier: '$libs/bridge',
+        isTypeOnly: true,
     });
 
-
-    logger.info('Types and enums stored.');
+    logger.info('Type stored.');
     return sourceFile;
 }
 

@@ -163,7 +163,7 @@
   <div class="space-y-[35px]">
     <div class="space-y-2">
       <ChainSelector label={$t('chain_selector.currently_on')} value={$network} switchWallet small />
-      <TokenDropdown tokens={testERC20Tokens} bind:value={selectedToken} isFaucet={true} />
+      <TokenDropdown tokens={testERC20Tokens} bind:value={selectedToken} />
     </div>
 
     {#if alertMessage}

@@ -1,8 +1,7 @@
 import type { Chain } from '@wagmi/core';
 
-import { chainConfig, type ChainConfigMap } from '$config/chains';
-
-export type ChainID = bigint;
+import { chainConfig } from '$config/chains';
+import type { ChainConfigMap } from '$libs/chain';
 
 function mapChainConfigToChain(chainId: string, chainConfig: ChainConfigMap[number]): Chain {
   return {
