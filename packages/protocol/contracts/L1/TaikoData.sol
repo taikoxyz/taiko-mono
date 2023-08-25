@@ -124,7 +124,6 @@ library TaikoData {
         bytes32 signalRoot;
         bytes32 graffiti;
         address prover;
-        uint32 parentGasUsed;
         uint32 gasUsed;
         bytes proofs;
     }
@@ -192,11 +191,7 @@ library TaikoData {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint64 blockId_mode_blockRingBufferSize => Block) blocks;
         mapping(
-            uint64 blockId
-                => mapping(
-                    bytes32 parentHash
-                        => mapping(uint32 parentGasUsed => uint16 forkChoiceId)
-                )
+            uint64 blockId => mapping(bytes32 parentHash => uint16 forkChoiceId)
             ) forkChoiceIds;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         mapping(uint256 depositId_mode_ethDepositRingBufferSize => uint256)

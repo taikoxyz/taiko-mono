@@ -20,8 +20,7 @@ library LibProving {
         bytes32 parentHash,
         bytes32 blockHash,
         bytes32 signalRoot,
-        address prover,
-        uint32 parentGasUsed
+        address prover
     );
 
     error L1_ALREADY_PROVEN();
@@ -84,9 +83,8 @@ library LibProving {
         }
 
         TaikoData.ForkChoice storage fc;
-        uint16 fcId = LibUtils.getForkChoiceId(
-            state, blk, blockId, evidence.parentHash, evidence.parentGasUsed
-        );
+        uint16 fcId =
+            LibUtils.getForkChoiceId(state, blk, blockId, evidence.parentHash);
 
         if (fcId == 0) {
             fcId = blk.nextForkChoiceId;
@@ -99,12 +97,9 @@ library LibProving {
 
             if (fcId == 1) {
                 // We only write the key when fcId is 1.
-                fc.key = LibUtils.keyForForkChoice(
-                    evidence.parentHash, evidence.parentGasUsed
-                );
+                fc.key = LibUtils.keyForForkChoice(evidence.parentHash);
             } else {
-                state.forkChoiceIds[blockId][evidence.parentHash][evidence
-                    .parentGasUsed] = fcId;
+                state.forkChoiceIds[blockId][evidence.parentHash] = fcId;
             }
         } else if (evidence.prover == LibUtils.ORACLE_PROVER) {
             // This is the branch the oracle prover is trying to overwrite
@@ -135,8 +130,7 @@ library LibProving {
             parentHash: evidence.parentHash,
             blockHash: evidence.blockHash,
             signalRoot: evidence.signalRoot,
-            prover: evidence.prover,
-            parentGasUsed: evidence.parentGasUsed
+            prover: evidence.prover
         });
     }
 
@@ -144,8 +138,7 @@ library LibProving {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint64 blockId,
-        bytes32 parentHash,
-        uint32 parentGasUsed
+        bytes32 parentHash
     )
         internal
         view
@@ -160,9 +153,7 @@ library LibProving {
             state.blocks[blockId % config.blockRingBufferSize];
         if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
 
-        uint16 fcId = LibUtils.getForkChoiceId(
-            state, blk, blockId, parentHash, parentGasUsed
-        );
+        uint16 fcId = LibUtils.getForkChoiceId(state, blk, blockId, parentHash);
         if (fcId == 0) revert L1_FORK_CHOICE_NOT_FOUND();
 
         fc = blk.forkChoices[fcId];

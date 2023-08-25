@@ -413,7 +413,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             vm.warp(block.timestamp + conf.proofOracleCooldown);
 
             TaikoData.ForkChoice memory fc =
-                L1.getForkChoice(blockId, parentHash, parentGasUsed);
+                L1.getForkChoice(blockId, parentHash);
 
             assertEq(fc.prover, LibUtils.ORACLE_PROVER);
 

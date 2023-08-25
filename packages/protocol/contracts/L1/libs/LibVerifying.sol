@@ -122,9 +122,7 @@ library LibVerifying {
                 blk = state.blocks[blockId % config.blockRingBufferSize];
                 if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
 
-                fcId = LibUtils.getForkChoiceId(
-                    state, blk, blockId, blockHash, gasUsed
-                );
+                fcId = LibUtils.getForkChoiceId(state, blk, blockId, blockHash);
                 if (fcId == 0) break;
 
                 fc = blk.forkChoices[fcId];

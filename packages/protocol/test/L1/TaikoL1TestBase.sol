@@ -157,7 +157,6 @@ abstract contract TaikoL1TestBase is TestBase {
             signalRoot: signalRoot,
             graffiti: 0x0,
             prover: prover,
-            parentGasUsed: parentGasUsed,
             gasUsed: gasUsed,
             proofs: new bytes(102)
         });
