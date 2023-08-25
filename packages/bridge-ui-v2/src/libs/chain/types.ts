@@ -22,4 +22,4 @@ export type ChainConfigMap = Record<number, ChainConfig>;
 
 export type ConfiguredChains = {
     configuredChains: Array<Record<string, ChainConfig>>;
-};
+}; 
