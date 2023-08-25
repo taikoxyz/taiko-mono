@@ -97,7 +97,7 @@ library LibProving {
 
             if (fcId == 1) {
                 // We only write the key when fcId is 1.
-                fc.key = LibUtils.keyForForkChoice(evidence.parentHash);
+                fc.key = evidence.parentHash;
             } else {
                 state.forkChoiceIds[blockId][evidence.parentHash] = fcId;
             }

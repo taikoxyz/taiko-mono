@@ -42,7 +42,7 @@ library LibUtils {
         view
         returns (uint16 fcId)
     {
-        if (blk.forkChoices[1].key == keyForForkChoice(parentHash)) {
+        if (blk.forkChoices[1].key == parentHash) {
             fcId = 1;
         } else {
             fcId = state.forkChoiceIds[blockId][parentHash];
@@ -95,20 +95,6 @@ library LibUtils {
 
         assembly {
             hash := keccak256(inputs, mul(6, 32))
-        }
-    }
-
-    function keyForForkChoice(bytes32 parentHash)
-        internal
-        pure
-        returns (bytes32 key)
-    {
-        assembly {
-            let ptr := mload(0x40)
-            // mstore(ptr, parentGasUsed)
-            mstore(add(ptr, 32), parentHash)
-            key := keccak256(add(ptr, 28), 36)
-            mstore(0x40, add(ptr, 64))
         }
     }
 
