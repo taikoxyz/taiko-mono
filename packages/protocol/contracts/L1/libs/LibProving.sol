@@ -72,9 +72,13 @@ library LibProving {
                 revert L1_INVALID_ORACLE_PROVER();
             }
         } else {
-            // Regular prover
+            // A block can be proven by a regular prover in the following cases:
+            // 1. The actual prover is the assigned prover
+            // 2. The block has at least one fork choice (which must be from the
+            // assigned prover)
+            // 3. The block has become open
             if (
-                evidence.prover != blk.prover
+                evidence.prover != blk.prover && blk.nextForkChoiceId == 1
                     && block.timestamp <= blk.proposedAt + config.proofWindow
             ) revert L1_NOT_PROVEABLE();
         }

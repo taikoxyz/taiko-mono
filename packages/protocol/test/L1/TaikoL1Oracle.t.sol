@@ -282,7 +282,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         printVariables("");
     }
 
-    /// @dev Test if system proofs can be verified
+    /// @dev Test if oracle proofs can be verified
     function test_L1_if_oracle_proofs_can_be_verified_without_regular_proofs()
         external
     {
@@ -433,7 +433,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         printVariables("");
     }
 
-    /// @dev Test if there is no system/oracle proofs
+    /// @dev Test if there is no oracle proofs
     function test_L1_if_there_is_no_oracle_prover_there_is_no_overwrite_at_all()
         external
     {
@@ -483,7 +483,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             );
 
             // Carol could not overwrite it
-            vm.expectRevert(TaikoErrors.L1_NOT_PROVEABLE.selector);
+            vm.expectRevert(TaikoErrors.L1_ALREADY_PROVEN.selector);
             proveBlock(
                 Carol,
                 Carol,
