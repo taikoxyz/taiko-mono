@@ -51,14 +51,12 @@ export function generateRelayerConfig() {
 async function storeTypesAndEnums(sourceFile: SourceFile) {
     logger.info(`Storing types...`);
     // RelayerConfig
-    sourceFile.addTypeAlias({
-        name: 'RelayerConfig',
-        isExported: true,
-        type: `{ 
-            chainIds: number[];
-            url: string;
-        }`,
+    sourceFile.addImportDeclaration({
+        namedImports: ['RelayerConfig'],
+        moduleSpecifier: '$libs/relayer',
+        isTypeOnly: true,
     });
+
     logger.info('Types stored.');
     return sourceFile
 }

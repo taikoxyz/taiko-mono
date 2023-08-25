@@ -3,9 +3,15 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { Project, SourceFile, VariableDeclarationKind } from 'ts-morph';
 
-import { type ChainConfig, type ChainConfigMap, type ConfiguredChains, LayerType } from '../src/libs/chain/types';
+import type { ChainConfig, ChainConfigMap, ConfiguredChains } from '../src/libs/chain/types';
 import { formatSourceFile } from './utils/formatSourceFile';
 import { Logger } from './utils/Logger';
+
+enum LayerType {
+  L1 = 'L1',
+  L2 = 'L2',
+  L3 = 'L3',
+}
 
 const currentDir = path.resolve(new URL(import.meta.url).pathname);
 
@@ -58,9 +64,14 @@ async function storeTypes(sourceFile: SourceFile) {
   });
 
   // LayerType
-  sourceFile.addImportDeclaration({
-    namedImports: ['LayerType'],
-    moduleSpecifier: '$libs/chain',
+  sourceFile.addEnum({
+    name: 'LayerType',
+    isExported: false,
+    members: [
+      { name: 'L1', value: 'L1' },
+      { name: 'L2', value: 'L2' },
+      { name: 'L3', value: 'L3' },
+    ],
   });
 
   logger.info('Types stored.');
