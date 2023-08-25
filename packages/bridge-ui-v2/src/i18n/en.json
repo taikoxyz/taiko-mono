@@ -72,7 +72,7 @@
     "none": {
       "label": "None",
       "text": "Use ETH to manually claim your bridged token later",
-      "warning": "This option cannot be selected. You have not enough ETH to cover the gas fees for claiming."
+      "warning": "Insufficient ETH to cover the gas fees for claiming."
     },
     "custom": {
       "label": "Custom",
@@ -189,7 +189,11 @@
     },
     "address_input": {
       "label": "Address",
-      "placeholder": "Enter an address"
+      "placeholder": "Enter an address",
+      "errors": {
+        "invalid": "Invalid address format"
+      },
+      "success": "Valid address format"
     },
     "amount": {
       "label": "Amount",
