@@ -143,8 +143,8 @@ abstract contract TaikoL1TestBase is TestBase {
         address prover,
         TaikoData.BlockMetadata memory meta,
         bytes32 parentHash,
-        uint32 parentGasUsed,
-        uint32 gasUsed,
+        uint32 parentGasUsed, // TODO(daniel): remove this
+        uint32 gasUsed, // TODO(daniel): remove this
         bytes32 blockHash,
         bytes32 signalRoot
     )
@@ -157,7 +157,6 @@ abstract contract TaikoL1TestBase is TestBase {
             signalRoot: signalRoot,
             graffiti: 0x0,
             prover: prover,
-            gasUsed: gasUsed,
             proofs: new bytes(102)
         });
 
