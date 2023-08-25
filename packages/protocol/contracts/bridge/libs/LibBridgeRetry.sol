@@ -71,6 +71,7 @@ library LibBridgeRetry {
             );
         }
 
+        // Attempt to invoke the messageCall.
         bool success = LibBridgeInvoke.invokeMessageCall({
             state: state,
             message: message,
@@ -79,13 +80,17 @@ library LibBridgeRetry {
         });
 
         if (success) {
+            // Update the message status to "DONE" on successful invocation.
             LibBridgeStatus.updateMessageStatus(
                 msgHash, LibBridgeStatus.MessageStatus.DONE
             );
         } else {
+            // Update the message status to "FAILED"
             LibBridgeStatus.updateMessageStatus(
                 msgHash, LibBridgeStatus.MessageStatus.FAILED
             );
+            // Release Ether back to EtherVault (if on Taiko it is OK)
+            // otherwise funds stay at Bridge anyways.
             ethVault.sendEther(message.value);
         }
     }
