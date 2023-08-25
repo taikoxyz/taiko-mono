@@ -26,7 +26,8 @@ contract TaikoL1_b is TaikoL1 {
         config.proofRegularCooldown = 5 minutes;
         config.proofOracleCooldown = 3 minutes;
         config.skipProverAssignmentVerificaiton = true;
-        config.proofBond = 1 ether;
+        config.proofBond = 1e18; // 1 Taiko token
+        config.proposerRewardPerSecond = 1e15; // 0.001 Taiko token
     }
 }
 
@@ -83,8 +84,6 @@ contract TaikoL1Simulation is TaikoL1TestBase {
     bytes32[] parentHashes = new bytes32[](blocksToSimulate);
     bytes32[] blockHashes = new bytes32[](blocksToSimulate);
     bytes32[] signalRoots = new bytes32[](blocksToSimulate);
-    uint32[] parentGasUsed = new uint32[](blocksToSimulate);
-    uint32[] gasUsed = new uint32[](blocksToSimulate);
     uint32[] gasLimits = new uint32[](blocksToSimulate);
 
     function deployTaikoL1() internal override returns (TaikoL1 taikoL1) {
@@ -221,21 +220,12 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                 salt = uint256(keccak256(abi.encodePacked(gasLimit, salt)));
 
                 if (proposedIndex == 0) {
-                    parentGasUsed[proposedIndex] = 0;
                     parentHashes[proposedIndex] = GENESIS_BLOCK_HASH;
                 } else {
-                    parentGasUsed[proposedIndex] = gasUsed[proposedIndex - 1];
                     parentHashes[proposedIndex] = blockHashes[proposedIndex - 1];
                 }
 
-                gasUsed[proposedIndex] = uint32(
-                    pickRandomNumber(
-                        newRandomWithoutSalt,
-                        (gasLimit / 2),
-                        ((gasLimit / 2) + 1)
-                    )
-                );
-                salt = uint256(keccak256(abi.encodePacked(gasUsed, salt)));
+                salt = uint256(keccak256(abi.encodePacked(salt)));
 
                 uint24 txListSize = uint24(
                     pickRandomNumber(
@@ -287,8 +277,6 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                         Bob,
                         metas[blockId],
                         parentHashes[blockId],
-                        parentGasUsed[blockId],
-                        gasUsed[blockId],
                         blockHashes[blockId],
                         signalRoots[blockId]
                     );
@@ -450,21 +438,12 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                 salt = uint256(keccak256(abi.encodePacked(gasLimit, salt)));
 
                 if (proposedIndex == 0) {
-                    parentGasUsed[proposedIndex] = 0;
                     parentHashes[proposedIndex] = GENESIS_BLOCK_HASH;
                 } else {
-                    parentGasUsed[proposedIndex] = gasUsed[proposedIndex - 1];
                     parentHashes[proposedIndex] = blockHashes[proposedIndex - 1];
                 }
 
-                gasUsed[proposedIndex] = uint32(
-                    pickRandomNumber(
-                        newRandomWithoutSalt,
-                        (gasLimit / 2),
-                        ((gasLimit / 2) + 1)
-                    )
-                );
-                salt = uint256(keccak256(abi.encodePacked(gasUsed, salt)));
+                salt = uint256(keccak256(abi.encodePacked(salt)));
 
                 uint24 txListSize = uint24(
                     pickRandomNumber(
@@ -516,8 +495,6 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                         Bob,
                         metas[blockId],
                         parentHashes[blockId],
-                        parentGasUsed[blockId],
-                        gasUsed[blockId],
                         blockHashes[blockId],
                         signalRoots[blockId]
                     );
@@ -684,21 +661,12 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                 salt = uint256(keccak256(abi.encodePacked(gasLimit, salt)));
 
                 if (proposedIndex == 0) {
-                    parentGasUsed[proposedIndex] = 0;
                     parentHashes[proposedIndex] = GENESIS_BLOCK_HASH;
                 } else {
-                    parentGasUsed[proposedIndex] = gasUsed[proposedIndex - 1];
                     parentHashes[proposedIndex] = blockHashes[proposedIndex - 1];
                 }
 
-                gasUsed[proposedIndex] = uint32(
-                    pickRandomNumber(
-                        newRandomWithoutSalt,
-                        (gasLimit / 2),
-                        ((gasLimit / 2) + 1)
-                    )
-                );
-                salt = uint256(keccak256(abi.encodePacked(gasUsed, salt)));
+                salt = uint256(keccak256(abi.encodePacked(salt)));
 
                 uint24 txListSize = uint24(
                     pickRandomNumber(
@@ -750,8 +718,6 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                         Bob,
                         metas[blockId],
                         parentHashes[blockId],
-                        parentGasUsed[blockId],
-                        gasUsed[blockId],
                         blockHashes[blockId],
                         signalRoots[blockId]
                     );

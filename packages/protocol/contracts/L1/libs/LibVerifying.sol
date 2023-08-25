@@ -113,7 +113,6 @@ library LibVerifying {
         if (fcId == 0) revert L1_UNEXPECTED_FORK_CHOICE_ID();
 
         bytes32 blockHash = blk.forkChoices[fcId].blockHash;
-        uint32 gasUsed = blk.forkChoices[fcId].gasUsed;
 
         bytes32 signalRoot;
         TaikoData.ForkChoice memory fc;
@@ -132,9 +131,7 @@ library LibVerifying {
                 blk = state.blocks[blockId % config.blockRingBufferSize];
                 if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
 
-                fcId = LibUtils.getForkChoiceId(
-                    state, blk, blockId, blockHash, gasUsed
-                );
+                fcId = LibUtils.getForkChoiceId(state, blk, blockId, blockHash);
                 if (fcId == 0) break;
 
                 fc = blk.forkChoices[fcId];
@@ -149,7 +146,6 @@ library LibVerifying {
                 }
 
                 blockHash = fc.blockHash;
-                gasUsed = fc.gasUsed;
                 signalRoot = fc.signalRoot;
                 blk.verifiedForkChoiceId = fcId;
 

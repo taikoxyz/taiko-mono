@@ -64,8 +64,6 @@ contract TaikoL1Test is TaikoL1TestBase {
         vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint32 parentGasUsed = 0;
-        uint32 gasUsed = 1_000_000;
 
         for (
             uint256 blockId = 1;
@@ -80,21 +78,11 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
-            proveBlock(
-                Bob,
-                Bob,
-                meta,
-                parentHash,
-                parentGasUsed,
-                gasUsed,
-                blockHash,
-                signalRoot
-            );
+            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot);
             vm.roll(block.number + 15 * 12);
             vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
             verifyBlock(Carol, 1);
             parentHash = blockHash;
-            parentGasUsed = gasUsed;
         }
         printVariables("");
     }
@@ -111,8 +99,6 @@ contract TaikoL1Test is TaikoL1TestBase {
         vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint32 parentGasUsed = 0;
-        uint32 gasUsed = 1_000_000;
 
         for (uint256 blockId = 1; blockId <= 2; blockId++) {
             printVariables("before propose");
@@ -123,21 +109,11 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
 
-            proveBlock(
-                Bob,
-                Bob,
-                meta,
-                parentHash,
-                parentGasUsed,
-                gasUsed,
-                blockHash,
-                signalRoot
-            );
+            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot);
             vm.roll(block.number + 15 * 12);
             vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
             verifyBlock(Alice, 2);
             parentHash = blockHash;
-            parentGasUsed = gasUsed;
         }
         printVariables("");
     }
@@ -153,8 +129,6 @@ contract TaikoL1Test is TaikoL1TestBase {
         vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint32 parentGasUsed = 0;
-        uint32 gasUsed = 1_000_000;
 
         for (uint256 blockId = 1; blockId <= conf.blockMaxProposals; blockId++)
         {
@@ -166,18 +140,8 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
 
-            proveBlock(
-                Bob,
-                Bob,
-                meta,
-                parentHash,
-                parentGasUsed,
-                gasUsed,
-                blockHash,
-                signalRoot
-            );
+            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot);
             parentHash = blockHash;
-            parentGasUsed = gasUsed;
         }
 
         vm.roll(block.number + 15 * 12);
@@ -289,14 +253,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             signalRoot = bytes32(1e9 + uint256(blockId));
 
             proveBlock(
-                Bob,
-                Bob,
-                meta,
-                parentHashes[blockId - 1],
-                blockId == 1 ? 0 : 1_000_000,
-                1_000_000,
-                blockHash,
-                signalRoot
+                Bob, Bob, meta, parentHashes[blockId - 1], blockHash, signalRoot
             );
 
             vm.roll(block.number + 15 * 12);
