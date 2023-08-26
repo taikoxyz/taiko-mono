@@ -127,11 +127,10 @@ library LibVerifying {
                 fc = state.forkChoices[blockId][fcId];
                 if (fc.prover == address(0)) break;
 
-                uint256 proofRegularCooldown = fc.prover
-                    == LibUtils.ORACLE_PROVER
+                uint256 proofCooldown = fc.prover == LibUtils.ORACLE_PROVER
                     ? config.proofOracleCooldown
                     : config.proofRegularCooldown;
-                if (block.timestamp <= fc.provenAt + proofRegularCooldown) {
+                if (block.timestamp <= fc.provenAt + proofCooldown) {
                     break;
                 }
 
