@@ -154,6 +154,8 @@ library LibProposing {
             // Init the block
             TaikoData.Block storage blk =
                 state.blocks[b.numBlocks % config.blockRingBufferSize];
+
+            // Note that all fields must be re-initalized.
             blk.metaHash = LibUtils.hashMetadata(meta);
             blk.prover = assignment.prover;
             blk.proposedAt = meta.timestamp;
@@ -199,6 +201,7 @@ library LibProposing {
                     } else {
                         // Reward the block proposer immediately
                         state.taikoTokenBalances[input.beneficiary] += reward;
+                        blk.reward = 0;
                     }
                 }
             }
