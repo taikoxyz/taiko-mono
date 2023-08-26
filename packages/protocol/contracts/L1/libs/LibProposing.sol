@@ -34,6 +34,7 @@ library LibProposing {
         uint256 indexed blockId,
         address indexed prover,
         uint256 reward,
+        bool isOptimistic,
         TaikoData.BlockMetadata meta
     );
 
@@ -202,6 +203,7 @@ library LibProposing {
                 blockId: state.slotB.numBlocks++,
                 prover: blk.prover,
                 reward: reward,
+                isOptimistic: blk.isOptimistic,
                 meta: meta
             });
         }

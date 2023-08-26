@@ -25,6 +25,7 @@ abstract contract TaikoEvents {
         uint256 indexed blockId,
         address indexed prover,
         uint256 reward,
+        bool isOptimistic,
         TaikoData.BlockMetadata meta
     );
 
