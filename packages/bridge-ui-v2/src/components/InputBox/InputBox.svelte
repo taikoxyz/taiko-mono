@@ -6,7 +6,7 @@
   let input: HTMLInputElement;
 
   let classes = classNames(
-    'w-full input-box placeholder:text-tertiary-content bg-neutral-background border-0 shadow-none outline-none font-bold text-2xl',
+    'w-full input-box placeholder:text-tertiary-content bg-neutral-background shadow-none font-bold text-2xl',
     $$props.class,
   );
 

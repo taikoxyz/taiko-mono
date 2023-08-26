@@ -4,9 +4,11 @@
 
   import { Button } from '$components/Button';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
-  import { Icon } from '$components/Icon';
+  import { EthIcon, Icon } from '$components/Icon';
   import { web3modal } from '$libs/connect';
   import { noop } from '$libs/util/noop';
+  import { renderBalance } from '$libs/util/renderBalance';
+  import { ethBalance } from '$stores/balance';
 
   export let connected = false;
 
@@ -16,8 +18,6 @@
 
   let web3modalOpen = false;
   let unsubscribeWeb3Modal = noop;
-
-  $: web3ButtonBalance = connected && isDesktopOrLarger ? 'show' : 'hide';
 
   function connectWallet() {
     if (web3modalOpen) return;
@@ -43,7 +43,13 @@
   https://docs.walletconnect.com/2.0/web/web3modal/html/wagmi/components
 -->
 {#if connected}
-  <w3m-core-button balance={web3ButtonBalance} />
+  <Button class="px-[20px] py-2 mr-[8px] rounded-full" type="neutral" on:click={connectWallet}>
+    <span class="body-regular f-items-center space-x-2">
+      <svelte:component this={EthIcon} size={20} />
+      <span>{renderBalance($ethBalance)}</span>
+    </span>
+  </Button>
+  <w3m-core-button balance="hide" />
 {:else}
   <!-- TODO: fixing the width for English. i18n? -->
   <Button class="px-[20px] py-2 rounded-full w-[215px]" type="neutral" loading={web3modalOpen} on:click={connectWallet}>

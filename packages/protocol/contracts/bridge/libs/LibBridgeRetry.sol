@@ -72,31 +72,25 @@ library LibBridgeRetry {
         }
 
         // Attempt to invoke the messageCall.
-        if (
-            LibBridgeInvoke.invokeMessageCall({
-                state: state,
-                message: message,
-                msgHash: msgHash,
-                gasLimit: gasleft()
-            })
-        ) {
+        bool success = LibBridgeInvoke.invokeMessageCall({
+            state: state,
+            message: message,
+            msgHash: msgHash,
+            gasLimit: gasleft()
+        });
+
+        if (success) {
             // Update the message status to "DONE" on successful invocation.
             LibBridgeStatus.updateMessageStatus(
                 msgHash, LibBridgeStatus.MessageStatus.DONE
             );
-        } else if (isLastAttempt) {
-            // Update the message status to "FAILED" on the last attempt if
-            // unsuccessful.
+        } else {
+            // Update the message status to "FAILED"
             LibBridgeStatus.updateMessageStatus(
                 msgHash, LibBridgeStatus.MessageStatus.FAILED
             );
-
-            // Refund to the specified address, or the user if not specified.
-            address refundTo =
-                message.refundTo == address(0) ? message.user : message.refundTo;
-            refundTo.sendEther(message.value);
-        } else {
-            // Release Ether back to EtherVault if not the last attempt.
+            // Release Ether back to EtherVault (if on Taiko it is OK)
+            // otherwise funds stay at Bridge anyways.
             ethVault.sendEther(message.value);
         }
     }

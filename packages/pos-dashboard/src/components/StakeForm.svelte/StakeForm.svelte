@@ -185,7 +185,7 @@
     </div>
 
     {#if errorMessage}
-      <p style="color: yellow">{errorMessage}</p>
+      <p style="color: #E81898">{errorMessage}</p>
     {/if}
     <button
       disabled={errorMessage != ''}

@@ -3,7 +3,7 @@
   import { t } from 'svelte-i18n';
   import { formatEther } from 'viem';
 
-  import { Alert } from '$components/Alert';
+  import FlatAlert from '$components/Alert/FlatAlert.svelte';
   import { Button } from '$components/Button';
   import { Icon } from '$components/Icon';
   import { InputBox } from '$components/InputBox';
@@ -118,12 +118,15 @@
   <div class="f-between-center">
     <div class="flex space-x-2">
       <span class="body-small-bold text-primary-content">{$t('processing_fee.title')}</span>
-      <Tooltip>TODO: add description about processing fee</Tooltip>
+      <Tooltip>
+        <div>{$t('processing_fee.tooltip_title')}</div>
+        <div>{$t('processing_fee.tooltip')}</div>
+      </Tooltip>
     </div>
     <button class="link" on:click={openModal} on:focus={openModal}>{$t('common.edit')}</button>
   </div>
 
-  <span class="body-small-regular text-secondary-content mt-[6px]">
+  <span class="body-small-regular text-secondary-content mt-[4px]">
     {#if calculatingRecommendedAmount}
       <LoadingText mask="0.0001" /> ETH
     {:else if errorCalculatingRecommendedAmount}
@@ -192,9 +195,7 @@
           </div>
 
           {#if !hasEnoughEth}
-            <Alert type="warning">
-              {$t('processing_fee.none.warning')}
-            </Alert>
+            <FlatAlert type="error" message={$t('processing_fee.none.warning')} />
           {/if}
         </li>
 
@@ -224,7 +225,7 @@
             min="0"
             placeholder="0.01"
             disabled={selectedFeeMethod !== ProcessingFeeMethod.CUSTOM}
-            class="w-full input-box outline-none p-6 pr-16 title-subsection-bold placeholder:text-tertiary-content"
+            class="w-full input-box p-6 pr-16 title-subsection-bold placeholder:text-tertiary-content"
             on:input={inputProcessFee}
             bind:this={inputBox} />
           <span class="absolute right-6 uppercase body-bold text-secondary-content">ETH</span>
