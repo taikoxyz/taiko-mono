@@ -93,13 +93,13 @@ library LibProving {
                 ++blk.nextForkChoiceId;
             }
 
-            fc = blk.forkChoices[fcId];
+            fc = state.forkChoices[blk.blockId][fcId];
             state.forkChoiceIds[blockId][evidence.parentHash] = fcId;
         } else if (evidence.prover == LibUtils.ORACLE_PROVER) {
             // This is the branch the oracle prover is trying to overwrite
             // We need to check the previous proof is not the same as the
             // new proof
-            fc = blk.forkChoices[fcId];
+            fc = state.forkChoices[blk.blockId][fcId];
             if (
                 fc.blockHash == evidence.blockHash
                     && fc.signalRoot == evidence.signalRoot
@@ -148,7 +148,7 @@ library LibProving {
         uint16 fcId = LibUtils.getForkChoiceId(state, blk, blockId, parentHash);
         if (fcId == 0) revert L1_FORK_CHOICE_NOT_FOUND();
 
-        fc = blk.forkChoices[fcId];
+        fc = state.forkChoices[blockId][fcId];
     }
 
     function getInstance(TaikoData.BlockEvidence memory evidence)
