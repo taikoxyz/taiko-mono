@@ -78,7 +78,7 @@ library LibVerifying {
             blk.proposedAt = timeNow;
 
             // Init the first fork choice
-            TaikoData.ForkChoice storage fc = state.blocks[0].forkChoices[1];
+            TaikoData.ForkChoice storage fc = state.forkChoices[0][1];
             fc.blockHash = genesisBlockHash;
             fc.provenAt = timeNow;
         }
@@ -108,7 +108,7 @@ library LibVerifying {
         uint16 fcId = blk.verifiedForkChoiceId;
         if (fcId == 0) revert L1_UNEXPECTED_FORK_CHOICE_ID();
 
-        bytes32 blockHash = blk.forkChoices[fcId].blockHash;
+        bytes32 blockHash = state.forkChoices[blockId][fcId].blockHash;
 
         bytes32 signalRoot;
         TaikoData.ForkChoice memory fc;
@@ -124,7 +124,7 @@ library LibVerifying {
                 fcId = LibUtils.getForkChoiceId(state, blk, blockId, blockHash);
                 if (fcId == 0) break;
 
-                fc = blk.forkChoices[fcId];
+                fc = state.forkChoices[blockId][fcId];
                 if (fc.prover == address(0)) break;
 
                 uint256 proofRegularCooldown = fc.prover

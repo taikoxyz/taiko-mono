@@ -183,33 +183,17 @@ abstract contract TaikoL1Base is
 
     /// @notice Gets the details of a block.
     /// @param blockId Index of the block.
-    /// @return _metaHash Metadata hash of the block.
-    /// @return _proposedAt Timestamp when the block was proposed.
-    /// @return _prover Address of the assigned prover for the block.
-    /// @return _nextForkChoiceId Next fork choice ID of the block.
-    /// @return _verifiedForkChoiceId Verified fork choice ID of the block.
+    /// @return blk The block.
     function getBlock(uint64 blockId)
         public
         view
-        returns (
-            bytes32 _metaHash,
-            uint64 _proposedAt,
-            address _prover,
-            uint16 _nextForkChoiceId,
-            uint16 _verifiedForkChoiceId
-        )
+        returns (TaikoData.Block memory blk)
     {
-        TaikoData.Block storage blk = LibProposing.getBlock({
+        return LibProposing.getBlock({
             state: state,
             config: getConfig(),
             blockId: blockId
         });
-
-        _metaHash = blk.metaHash;
-        _proposedAt = blk.proposedAt;
-        _prover = blk.prover;
-        _nextForkChoiceId = blk.nextForkChoiceId;
-        _verifiedForkChoiceId = blk.verifiedForkChoiceId;
     }
 
     /// @notice Gets the fork choice for a specific block.
@@ -245,7 +229,7 @@ abstract contract TaikoL1Base is
             blockId: blockId
         });
         return found
-            ? blk.forkChoices[blk.verifiedForkChoiceId].blockHash
+            ? state.forkChoices[blk.blockId][blk.verifiedForkChoiceId].blockHash
             : bytes32(0);
     }
 
@@ -263,7 +247,7 @@ abstract contract TaikoL1Base is
         });
 
         return found
-            ? blk.forkChoices[blk.verifiedForkChoiceId].signalRoot
+            ? state.forkChoices[blockId][blk.verifiedForkChoiceId].signalRoot
             : bytes32(0);
     }
 
