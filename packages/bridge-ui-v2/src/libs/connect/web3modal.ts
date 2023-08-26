@@ -20,9 +20,6 @@ export const web3modal = new Web3Modal(
     themeVariables: {
       '--w3m-font-family': '"Public Sans", sans-serif',
       '--w3m-font-feature-settings': 'normal',
-
-
-
       '--w3m-button-border-radius': '9999px',
 
       // Body small regular
@@ -52,7 +49,7 @@ export const web3modal = new Web3Modal(
       '--w3m-color-bg-1': 'var(--primary-background)',
       '--w3m-color-bg-2': 'var(--neutral-background)',
       '--w3m-color-overlay': 'none',
-      '--w3m-accent-color': 'var(--primary-brand)',
+      '--w3m-accent-color': 'var(--neutral-background)',
     },
     themeMode: (localStorage.getItem('theme') as 'dark' | 'light') ?? 'dark',
   },
