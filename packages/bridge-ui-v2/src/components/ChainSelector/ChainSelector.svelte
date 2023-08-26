@@ -138,12 +138,11 @@
             tabindex="0"
             class="p-4 rounded-[10px]"
             class:opacity-20={disabled}
-            class:hover:bg-primary-content={!disabled}
+            class:hover:bg-neutral={!disabled}
             class:hover:cursor-pointer={!disabled}
             aria-disabled={disabled}
             on:click={() => selectChain(chain)}
             on:keydown={getChainKeydownHandler(chain)}>
-            <!-- TODO: agree on hover:bg color -->
             <div class="f-row justify-between">
               <div class="f-items-center space-x-4">
                 <i role="img" aria-label={chain.name}>

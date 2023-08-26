@@ -222,8 +222,8 @@
     }
   },
   "switch_modal": {
-    "title": "Not on the right network",
-    "description": "Your current network is not supported. Please select one:"
+    "title": "Incorrect network detected",
+    "description": "Your current network is not supported. Please select one of the following chains to proceed:"
   },
   "messages": {
     "account": {
