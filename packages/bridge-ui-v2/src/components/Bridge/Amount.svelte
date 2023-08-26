@@ -185,7 +185,7 @@
 
   // There is no reason to show any error/warning message if we are computing the balance
   // or there is an issue computing it
-  $: showInsifficientBalanceAlert = $insufficientBalance && !$errorComputingBalance && !$computingBalance;
+  $: showInsufficientBalanceAlert = $insufficientBalance && !$errorComputingBalance && !$computingBalance;
   $: showInsiffucientAllowanceAlert = $insufficientAllowance && !$errorComputingBalance && !$computingBalance;
 </script>
 
@@ -229,7 +229,7 @@
         {$t('inputs.amount.button.max')}
       </button>
     </div>
-    {#if showInsifficientBalanceAlert}
+    {#if showInsufficientBalanceAlert}
       <FlatAlert type="error" message={$t('bridge.errors.insufficient_balance')} class="absolute bottom-[-26px]" />
     {:else if showInsiffucientAllowanceAlert}
       <FlatAlert type="warning" message={$t('bridge.errors.insufficient_allowance')} class="absolute bottom-[-26px]" />
