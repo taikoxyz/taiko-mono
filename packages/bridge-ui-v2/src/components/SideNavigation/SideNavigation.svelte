@@ -3,7 +3,6 @@
 </script>
 
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import { page } from '$app/stores';
@@ -12,7 +11,6 @@
   import { LogoWithText } from '$components/Logo';
   import { PUBLIC_GUIDE_URL, PUBLIC_L2_EXPLORER_URL } from '$env/static/public';
 
-  let darkTheme: boolean;
   let drawerToggleElem: HTMLInputElement;
 
   function closeDrawer() {
@@ -29,23 +27,9 @@
     return active ? 'fill-white' : 'fill-primary-icon';
   }
 
-  function switchTheme(dark: boolean) {
-    if (typeof darkTheme === 'undefined') return;
-
-    const theme = dark ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-  }
-
   $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
   $: isFaucetPage = $page.route.id === '/faucet';
   $: isActivitiesPage = $page.route.id === '/activities';
-
-  $: switchTheme(darkTheme);
-
-  onMount(() => {
-    darkTheme = localStorage.getItem('theme')?.toLocaleLowerCase() === 'dark';
-  });
 </script>
 
 <div class="drawer md:drawer-open">
@@ -114,13 +98,6 @@
                 <Icon type="guide" />
                 <span>{$t('nav.guide')}</span>
               </LinkButton>
-            </li>
-            <li>
-              <label>
-                <Icon type="adjustments" />
-                <span>{$t('nav.theme')}</span>
-                <input type="checkbox" class="toggle" bind:checked={darkTheme} />
-              </label>
             </li>
           </ul>
         </div>
