@@ -42,11 +42,7 @@ library LibUtils {
         view
         returns (uint16 fcId)
     {
-        if (blk.forkChoices[1].key == parentHash) {
-            fcId = 1;
-        } else {
-            fcId = state.forkChoiceIds[blockId][parentHash];
-        }
+        fcId = state.forkChoiceIds[blockId][parentHash];
 
         if (fcId >= blk.nextForkChoiceId) {
             fcId = 0;

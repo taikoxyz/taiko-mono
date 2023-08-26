@@ -130,7 +130,6 @@ library TaikoData {
     /// @dev Struct representing fork choice data.
     /// 4 slots.
     struct ForkChoice {
-        bytes32 key; //only written/read for the 1st fork choice.
         bytes32 blockHash;
         bytes32 signalRoot;
         address prover;
@@ -148,8 +147,9 @@ library TaikoData {
         uint16 nextForkChoiceId;
         uint16 verifiedForkChoiceId;
         uint64 blockId; // slot 4
-        uint96 proofBond;
+        uint256 bond;
         uint16 proofWindow;
+        bool isOptimistic;
     }
 
     /// @dev Struct representing information about a transaction list.
@@ -182,6 +182,10 @@ library TaikoData {
         uint64 nextEthDepositToProcess;
         uint64 lastVerifiedAt;
         uint64 lastVerifiedBlockId;
+    }
+
+    struct ForkChoiceGroup {
+        uint16 count;
     }
 
     /// @dev Struct holding the state variables for the {TaikoL1} contract.

@@ -174,7 +174,7 @@ library LibVerifying {
         private
     {
         address recipient = blk.prover;
-        uint256 amount = blk.proofBond;
+        uint256 amount = blk.bond;
         unchecked {
             if (
                 fc.prover != LibUtils.ORACLE_PROVER

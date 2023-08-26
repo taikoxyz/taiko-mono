@@ -94,13 +94,7 @@ library LibProving {
             }
 
             fc = blk.forkChoices[fcId];
-
-            if (fcId == 1) {
-                // We only write the key when fcId is 1.
-                fc.key = evidence.parentHash;
-            } else {
-                state.forkChoiceIds[blockId][evidence.parentHash] = fcId;
-            }
+            state.forkChoiceIds[blockId][evidence.parentHash] = fcId;
         } else if (evidence.prover == LibUtils.ORACLE_PROVER) {
             // This is the branch the oracle prover is trying to overwrite
             // We need to check the previous proof is not the same as the

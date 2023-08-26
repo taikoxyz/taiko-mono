@@ -28,6 +28,7 @@ library LibProposing {
     using LibUtils for TaikoData.State;
 
     bytes4 internal constant EIP1271_MAGICVALUE = 0x1626ba7e;
+    uint256 internal constant OPTIMISTIC_ODDS = 95; // 95%;
 
     event BlockProposed(
         uint256 indexed blockId,
@@ -181,8 +182,21 @@ library LibProposing {
             blk.nextForkChoiceId = 1;
             blk.verifiedForkChoiceId = 0;
             blk.blockId = meta.id;
-            blk.proofBond = config.proofBond;
-            blk.proofWindow = config.proofWindow;
+            blk.bond = config.proofBond;
+
+            blk.isOptimistic = uint256(
+                keccak256(
+                    abi.encodePacked(
+                        block.coinbase,
+                        blk.metaHash,
+                        blockhash(block.number - 1)
+                    )
+                )
+            ) % 100 < OPTIMISTIC_ODDS;
+
+            if (!blk.isOptimistic) {
+                blk.proofWindow = config.proofWindow;
+            }
 
             emit BlockProposed({
                 blockId: state.slotB.numBlocks++,
