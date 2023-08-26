@@ -20,9 +20,9 @@ interface IProver {
     /// @param assignment The assignment to evaluate
     function onBlockAssigned(
         uint64 blockId,
+        uint256 provingFee,
         TaikoData.BlockMetadataInput calldata input,
         TaikoData.ProverAssignment calldata assignment
     )
-        external
-        payable;
+        external;
 }

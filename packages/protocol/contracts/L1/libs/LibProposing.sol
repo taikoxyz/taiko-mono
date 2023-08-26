@@ -23,7 +23,6 @@ library LibProposing {
     using Address for address;
     using ECDSA for bytes32;
     using LibAddress for address;
-    using LibAddress for address payable;
     using LibMath for uint256;
     using LibUtils for TaikoData.State;
 
@@ -96,7 +95,6 @@ library LibProposing {
         // Pay prover after verifying assignment
         if (config.skipProverAssignmentVerificaiton) {
             // For testing only
-            assignment.prover.sendEther(msg.value);
         } else if (!assignment.prover.isContract()) {
             if (
                 _hashAssignment(input, assignment).recover(assignment.data)
@@ -104,12 +102,11 @@ library LibProposing {
             ) {
                 revert L1_INVALID_PROVER_SIG();
             }
-            assignment.prover.sendEther(msg.value);
         } else if (
             assignment.prover.supportsInterface(type(IProver).interfaceId)
         ) {
-            IProver(assignment.prover).onBlockAssigned{ value: msg.value }(
-                b.numBlocks, input, assignment
+            IProver(assignment.prover).onBlockAssigned(
+                b.numBlocks, msg.value, input, assignment
             );
         } else if (
             assignment.prover.supportsInterface(type(IERC1271).interfaceId)
@@ -121,28 +118,8 @@ library LibProposing {
             ) {
                 revert L1_INVALID_PROVER_SIG();
             }
-            assignment.prover.sendEther(msg.value);
         } else {
             revert L1_INVALID_PROVER();
-        }
-
-        // Reward the proposer
-        uint256 reward;
-        if (config.proposerRewardPerSecond > 0 && config.proposerRewardMax > 0)
-        {
-            unchecked {
-                uint256 blockTime = block.timestamp
-                    - state.blocks[(b.numBlocks - 1) % config.blockRingBufferSize]
-                        .proposedAt;
-
-                if (blockTime > 0) {
-                    reward = (config.proposerRewardPerSecond * blockTime).min(
-                        config.proposerRewardMax
-                    );
-
-                    state.taikoTokenBalances[input.beneficiary] += reward;
-                }
-            }
         }
 
         if (_validateBlock(state, config, input, txList)) {
@@ -183,6 +160,7 @@ library LibProposing {
             blk.nextForkChoiceId = 1;
             blk.verifiedForkChoiceId = 0;
             blk.blockId = meta.id;
+            blk.provingFee = msg.value;
             blk.bond = config.proofBond;
 
             blk.isOptimistic = uint256(
@@ -197,6 +175,32 @@ library LibProposing {
 
             if (!blk.isOptimistic) {
                 blk.proofWindow = config.proofWindow;
+            }
+
+            // Reward the proposer
+            uint256 reward;
+            if (
+                config.proposerRewardPerSecond > 0
+                    && config.proposerRewardMax > 0
+            ) {
+                uint256 blockTime = block.timestamp
+                    - state.blocks[(b.numBlocks - 1) % config.blockRingBufferSize]
+                        .proposedAt;
+
+                if (blockTime > 0) {
+                    reward = (config.proposerRewardPerSecond * blockTime).min(
+                        config.proposerRewardMax
+                    );
+
+                    if (blk.isOptimistic) {
+                        // Reward the block proposer later when his first fork
+                        // choice is selected to finalize the block.
+                        blk.reward = reward;
+                    } else {
+                        // Reward the block proposer immediately
+                        state.taikoTokenBalances[input.beneficiary] += reward;
+                    }
+                }
             }
 
             emit BlockProposed({

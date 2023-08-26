@@ -145,6 +145,8 @@ library TaikoData {
         uint16 nextForkChoiceId;
         uint16 verifiedForkChoiceId;
         uint64 blockId; // slot 3
+        uint256 provingFee;
+        uint256 reward;
         uint256 bond;
         uint16 proofWindow;
         bool isOptimistic;

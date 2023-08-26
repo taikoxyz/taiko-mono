@@ -11,6 +11,7 @@ import { AddressResolver } from "../../common/AddressResolver.sol";
 import { IMintableERC20 } from "../../common/IMintableERC20.sol";
 import { IProver } from "../IProver.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
+import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
@@ -18,6 +19,7 @@ import { TaikoToken } from "../TaikoToken.sol";
 
 library LibVerifying {
     using Address for address;
+    using LibAddress for address;
     using LibUtils for TaikoData.State;
     using LibMath for uint256;
 
@@ -185,6 +187,7 @@ library LibVerifying {
             }
         }
 
+        fc.prover.sendEther(blk.provingFee);
         state.taikoTokenBalances[recipient] += amount;
     }
 }
