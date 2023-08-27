@@ -31,10 +31,6 @@ pragma solidity ^0.8.20;
  * @title LibBytesUtils
  */
 library LibBytesUtils {
-    /*//////////////////////////////////////////////////////////////
-                           INTERNAL FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-
     function slice(
         bytes memory _bytes,
         uint256 _start,

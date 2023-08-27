@@ -33,10 +33,6 @@ pragma solidity ^0.8.20;
  * @author Bakaoh (with modifications)
  */
 library LibRLPWriter {
-    /*//////////////////////////////////////////////////////////////
-                           INTERNAL FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-
     /**
      * RLP encodes a byte string.
      * @param _in The byte string to encode.
@@ -177,7 +173,6 @@ library LibRLPWriter {
 
     /**
      * Encode integer in big endian binary form with no leading zeroes.
-     * @notice TODO: This should be optimized with assembly to save gas costs.
      * @param _x The integer to encode.
      * @return RLP encoded bytes.
      */
@@ -201,7 +196,6 @@ library LibRLPWriter {
 
     /**
      * Encode integer in big endian binary form with leading zeroes.
-     * @notice TODO: This should be optimized with assembly to save gas costs.
      * @param _x The integer to encode.
      * @return RLP encoded bytes.
      */

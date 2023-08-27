@@ -26,7 +26,7 @@ export const getNumProvers = async (
       uniqueProversResp.data.provers.splice(index, 1);
       uniqueProversResp.data.uniqueProvers--;
     }
-    // Filter out the system prover address since it doesn't submit the actual zk proof
+    // Filter out the oracle prover address since it doesn't submit the actual zk proof
     const systemIndex = uniqueProversResp.data.provers.findIndex(
       (uniqueProver) =>
         uniqueProver.address === "0x0000000000000000000000000000000000000001"
