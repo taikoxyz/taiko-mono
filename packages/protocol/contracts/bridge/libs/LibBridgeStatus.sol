@@ -97,7 +97,7 @@ library LibBridgeStatus {
 
         bytes32 syncedHeaderHash = ICrossChainSync(
             resolver.resolve("taiko", false)
-        ).getCrossChainBlockHash(sp.header.height);
+        ).getCrossChainBlockHash(uint64(sp.header.height));
 
         if (
             syncedHeaderHash == 0

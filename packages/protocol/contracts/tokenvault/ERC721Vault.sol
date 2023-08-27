@@ -6,22 +6,22 @@
 
 pragma solidity ^0.8.20;
 
-import { IERC721Receiver } from
-    "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import { IERC721Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
+import { BaseNFTVault } from "./BaseNFTVault.sol";
+import { Create2Upgradeable } from
+    "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 import { ERC721Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import { IERC165Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
-import { Create2Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
-import { IRecallableMessageSender, IBridge } from "../bridge/IBridge.sol";
-import { BaseNFTVault } from "./BaseNFTVault.sol";
-import { ProxiedBridgedERC721 } from "./BridgedERC721.sol";
-import { Proxied } from "../common/Proxied.sol";
-import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
+import { IERC721Receiver } from
+    "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import { IERC721Upgradeable } from
+    "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
+import { IBridge, IRecallableMessageSender } from "../bridge/IBridge.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
+import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
+import { Proxied } from "../common/Proxied.sol";
+import { ProxiedBridgedERC721 } from "./BridgedERC721.sol";
 
 /// @title ERC721Vault
 /// @notice This vault holds all ERC721 tokens that users have deposited.

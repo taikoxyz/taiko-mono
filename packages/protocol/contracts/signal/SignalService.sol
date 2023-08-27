@@ -7,16 +7,16 @@
 pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { Proxied } from "../common/Proxied.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { ISignalService } from "./ISignalService.sol";
 import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
+import { Proxied } from "../common/Proxied.sol";
 
 /// @title SignalService
 /// @notice See the documentation in {ISignalService} for more details.
 contract SignalService is ISignalService, EssentialContract {
     struct SignalProof {
-        uint256 height;
+        uint64 height;
         bytes proof; // A storage proof
     }
 

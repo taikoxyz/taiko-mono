@@ -2,18 +2,25 @@
 pragma solidity ^0.8.20;
 
 import { console2 } from "forge-std/console2.sol";
-import { Test } from "forge-std/Test.sol";
-import { AddressManager } from "../contracts/common/AddressManager.sol";
-import { IBridge, Bridge } from "../contracts/bridge/Bridge.sol";
-import { LibBridgeData } from "../contracts/bridge/libs/LibBridgeData.sol";
-import { BridgeErrors } from "../contracts/bridge/BridgeErrors.sol";
-import { BaseNFTVault } from "../contracts/tokenvault/BaseNFTVault.sol";
-import { ERC721Vault } from "../contracts/tokenvault/ERC721Vault.sol";
-import { BridgedERC721 } from "../contracts/tokenvault/BridgedERC721.sol";
-import { EtherVault } from "../contracts/bridge/EtherVault.sol";
-import { LibBridgeStatus } from "../contracts/bridge/libs/LibBridgeStatus.sol";
-import { SignalService } from "../contracts/signal/SignalService.sol";
-import { ICrossChainSync } from "../contracts/common/ICrossChainSync.sol";
+import {
+    TestBase,
+    SkipProofCheckBridge,
+    DummyCrossChainSync,
+    NonNftContract,
+    BadReceiver
+} from "../TestBase.sol";
+import { AddressManager } from "../../contracts/common/AddressManager.sol";
+import { IBridge, Bridge } from "../../contracts/bridge/Bridge.sol";
+import { LibBridgeData } from "../../contracts/bridge/libs/LibBridgeData.sol";
+import { BridgeErrors } from "../../contracts/bridge/BridgeErrors.sol";
+import { BaseNFTVault } from "../../contracts/tokenvault/BaseNFTVault.sol";
+import { ERC721Vault } from "../../contracts/tokenvault/ERC721Vault.sol";
+import { BridgedERC721 } from "../../contracts/tokenvault/BridgedERC721.sol";
+import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
+import { LibBridgeStatus } from
+    "../../contracts/bridge/libs/LibBridgeStatus.sol";
+import { SignalService } from "../../contracts/signal/SignalService.sol";
+import { ICrossChainSync } from "../../contracts/common/ICrossChainSync.sol";
 import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
@@ -45,15 +52,6 @@ contract TestTokenERC721 is ERC721 {
             _safeMint(msg.sender, minted + i);
         }
         minted += amount;
-    }
-}
-
-// NonNftContract
-contract NonNftContract {
-    uint256 dummyData;
-
-    constructor(uint256 _dummyData) {
-        dummyData = _dummyData;
     }
 }
 
@@ -128,51 +126,10 @@ contract PrankDestBridge {
 
 // PrankSrcBridge lets us mock Bridge/SignalService to return true when called
 // isMessageFailed()
-contract PrankSrcBridge is Bridge {
-    bool internal constant CHECK_MSG_FAILURE_USING_LIB = false;
-
-    function shouldCheckProof() internal pure override returns (bool) {
-        return CHECK_MSG_FAILURE_USING_LIB;
-    }
-
+contract PrankSrcBridge is SkipProofCheckBridge {
     function getPreDeterminedDataBytes() external pure returns (bytes memory) {
         return
         hex"a9976baf000000000000000000000000000000000000000000000000000000000000008000000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000000000000000000000000000000000000000001800000000000000000000000000000000000000000000000000000000000007a69000000000000000000000000f349eda7118cad7972b7401c1f5d71e9ea218ef8000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000000254540000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002545400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001";
-    }
-}
-
-contract BadReceiver {
-    receive() external payable {
-        revert("can not send to this contract");
-    }
-
-    fallback() external payable {
-        revert("can not send to this contract");
-    }
-
-    function transfer() public pure {
-        revert("this fails");
-    }
-}
-
-contract PrankCrossChainSync is ICrossChainSync {
-    bytes32 private _blockHash;
-    bytes32 private _signalRoot;
-
-    function setCrossChainBlockHeader(bytes32 blockHash) external {
-        _blockHash = blockHash;
-    }
-
-    function setCrossChainSignalRoot(bytes32 signalRoot) external {
-        _signalRoot = signalRoot;
-    }
-
-    function getCrossChainBlockHash(uint256) external view returns (bytes32) {
-        return _blockHash;
-    }
-
-    function getCrossChainSignalRoot(uint256) external view returns (bytes32) {
-        return _signalRoot;
     }
 }
 
@@ -182,7 +139,7 @@ contract UpdatedBridgedERC721 is BridgedERC721 {
     }
 }
 
-contract ERC721VaultTest is Test {
+contract ERC721VaultTest is TestBase {
     AddressManager addressManager;
     BadReceiver badReceiver;
     Bridge bridge;
@@ -194,17 +151,17 @@ contract ERC721VaultTest is Test {
     TestTokenERC721 canonicalToken721;
     EtherVault etherVault;
     SignalService signalService;
-    PrankCrossChainSync crossChainSync;
+    DummyCrossChainSync crossChainSync;
     uint256 destChainId = 19_389;
 
-    address public constant Alice = 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4;
-    address public constant Bob = 0x50081b12838240B1bA02b3177153Bca678a86078;
     //Need +1 bc. and Amelia is the proxied bridge contracts owner
     address public constant Amelia = 0x60081B12838240B1BA02b3177153BCa678A86080;
-    // Dave has nothing so that we can check if he gets the ether (and NFTs)
-    address public constant Dave = 0x70081B12838240b1ba02B3177153bcA678a86090;
 
     function setUp() public {
+        // TODO(dani): we have to overwrite Alice address, otherise
+        // test_onMessageRecalled_721 will fail. Do you know why?
+        Alice = 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4;
+
         vm.startPrank(Amelia);
         vm.deal(Alice, 100 ether);
         vm.deal(Amelia, 100 ether);
@@ -236,7 +193,7 @@ contract ERC721VaultTest is Test {
         srcPrankBridge = new PrankSrcBridge();
         srcPrankBridge.init(address(addressManager));
 
-        crossChainSync = new PrankCrossChainSync();
+        crossChainSync = new DummyCrossChainSync();
 
         addressManager.setAddress(
             block.chainid, "signal_service", address(signalService)
@@ -286,7 +243,7 @@ contract ERC721VaultTest is Test {
         vm.stopPrank();
     }
 
-    function test_sendToken_721() public {
+    function test_721Vault_sendToken_721() public {
         vm.prank(Alice, Alice);
         canonicalToken721.approve(address(erc721Vault), 1);
 
@@ -316,7 +273,7 @@ contract ERC721VaultTest is Test {
         assertEq(ERC721(canonicalToken721).ownerOf(1), address(erc721Vault));
     }
 
-    function test_sendToken_with_invalid_to_address_721() public {
+    function test_721Vault_sendToken_with_invalid_to_address_721() public {
         vm.prank(Alice, Alice);
         canonicalToken721.approve(address(erc721Vault), 1);
 
@@ -345,7 +302,7 @@ contract ERC721VaultTest is Test {
         erc721Vault.sendToken{ value: 140_000 }(sendOpts);
     }
 
-    function test_sendToken_with_invalid_token_address() public {
+    function test_721Vault_sendToken_with_invalid_token_address() public {
         vm.prank(Alice, Alice);
         canonicalToken721.approve(address(erc721Vault), 1);
 
@@ -374,7 +331,7 @@ contract ERC721VaultTest is Test {
         erc721Vault.sendToken{ value: 140_000 }(sendOpts);
     }
 
-    function test_sendToken_with_1_tokens_but_erc721_amount_1_invalid()
+    function test_721Vault_sendToken_with_1_tokens_but_erc721_amount_1_invalid()
         public
     {
         vm.prank(Alice, Alice);
@@ -404,7 +361,7 @@ contract ERC721VaultTest is Test {
         erc721Vault.sendToken{ value: 140_000 }(sendOpts);
     }
 
-    function test_receiveTokens_from_newly_deployed_bridged_contract_on_destination_chain_721(
+    function test_721Vault_receiveTokens_from_newly_deployed_bridged_contract_on_destination_chain_721(
     )
         public
     {
@@ -467,7 +424,8 @@ contract ERC721VaultTest is Test {
         assertEq(ERC721(deployedContract).ownerOf(1), Alice);
     }
 
-    function test_receiveTokens_but_mint_not_deploy_if_bridged_second_time_721()
+    function test_721Vault_receiveTokens_but_mint_not_deploy_if_bridged_second_time_721(
+    )
         public
     {
         vm.prank(Alice, Alice);
@@ -577,7 +535,7 @@ contract ERC721VaultTest is Test {
         assertEq(bridgedContract, deployedContract);
     }
 
-    function test_receiveTokens_erc721_with_ether_to_dave() public {
+    function test_721Vault_receiveTokens_erc721_with_ether_to_dave() public {
         vm.prank(Alice, Alice);
         canonicalToken721.approve(address(erc721Vault), 1);
 
@@ -593,7 +551,7 @@ contract ERC721VaultTest is Test {
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
             destChainId,
-            Dave,
+            David,
             address(canonicalToken721),
             tokenIds,
             amounts,
@@ -621,7 +579,7 @@ contract ERC721VaultTest is Test {
         destChainIdBridge.sendReceiveERC721ToERC721Vault(
             canonicalToken,
             Alice,
-            Dave,
+            David,
             tokenIds,
             bytes32(0),
             address(erc721Vault),
@@ -634,12 +592,12 @@ contract ERC721VaultTest is Test {
             chainId, address(canonicalToken721)
         );
 
-        // Alice bridged over tokenId 1 and etherValue to Dave
-        assertEq(ERC721(deployedContract).ownerOf(1), Dave);
-        assertEq(etherValue, Dave.balance);
+        // Alice bridged over tokenId 1 and etherValue to David
+        assertEq(ERC721(deployedContract).ownerOf(1), David);
+        assertEq(etherValue, David.balance);
     }
 
-    function test_onMessageRecalled_721() public {
+    function test_721Vault_onMessageRecalled_721() public {
         vm.prank(Alice, Alice);
         canonicalToken721.approve(address(erc721Vault), 1);
 
@@ -700,7 +658,7 @@ contract ERC721VaultTest is Test {
         assertEq(canonicalToken721.ownerOf(1), Alice);
     }
 
-    function test_receiveTokens_multiple_721() public {
+    function test_721Vault_receiveTokens_multiple_721() public {
         vm.prank(Alice, Alice);
         canonicalToken721.approve(address(erc721Vault), 1);
         vm.prank(Alice, Alice);
@@ -767,7 +725,9 @@ contract ERC721VaultTest is Test {
         assertEq(ERC721(deployedContract).ownerOf(2), Alice);
     }
 
-    function test_bridge_back_but_owner_is_different_now_721() public {
+    function test_721Vault_bridge_back_but_owner_is_different_now_721()
+        public
+    {
         vm.prank(Alice, Alice);
         canonicalToken721.approve(address(erc721Vault), 1);
         vm.prank(Alice, Alice);
@@ -881,7 +841,7 @@ contract ERC721VaultTest is Test {
         assertEq(canonicalToken721.ownerOf(1), Bob);
     }
 
-    function test_bridge_back_but_original_owner_cannot_claim_it_anymore_if_sold_721(
+    function test_721Vault_bridge_back_but_original_owner_cannot_claim_it_anymore_if_sold_721(
     )
         public
     {
@@ -976,7 +936,7 @@ contract ERC721VaultTest is Test {
         destChainErc721Vault.sendToken{ value: 140_000 }(sendOpts);
     }
 
-    function test_upgrade_bridged_tokens_721() public {
+    function test_721Vault_upgrade_bridged_tokens_721() public {
         vm.prank(Alice, Alice);
         canonicalToken721.approve(address(erc721Vault), 1);
         vm.prank(Alice, Alice);
@@ -1038,10 +998,9 @@ contract ERC721VaultTest is Test {
         );
 
         try UpdatedBridgedERC721(deployedContract).helloWorld() {
-            assertEq(false, true);
+            fail();
         } catch {
             //It should not yet support this function call
-            assertEq(true, true);
         }
 
         // Upgrade the implementation of that contract
@@ -1054,9 +1013,8 @@ contract ERC721VaultTest is Test {
 
         try UpdatedBridgedERC721(deployedContract).helloWorld() {
             //It should support now this function call
-            assertEq(true, true);
         } catch {
-            assertEq(false, true);
+            fail();
         }
     }
 }

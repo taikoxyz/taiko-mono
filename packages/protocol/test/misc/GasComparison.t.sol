@@ -3,8 +3,8 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "forge-std/console2.sol";
-import "../contracts/L1/TaikoData.sol";
-import "../contracts/libs/LibAddress.sol";
+import "../../contracts/L1/TaikoData.sol";
+import "../../contracts/libs/LibAddress.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 library LibAddress2 {
@@ -81,7 +81,6 @@ contract FooBar {
             l1Height: 1,
             l1Hash: bytes32(uint256(1)),
             beneficiary: address(this),
-            treasury: address(this),
             txListHash: bytes32(uint256(1)),
             txListByteStart: 0,
             txListByteEnd: 1000,
@@ -98,7 +97,6 @@ contract FooBar {
             l1Height: 1,
             l1Hash: bytes32(uint256(1)),
             beneficiary: address(this),
-            treasury: address(this),
             txListHash: bytes32(uint256(1)),
             txListByteStart: 0,
             txListByteEnd: 1000,

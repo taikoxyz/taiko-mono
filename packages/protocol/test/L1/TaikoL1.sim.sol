@@ -3,11 +3,10 @@ pragma solidity ^0.8.20;
 
 import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
-import { TaikoConfig } from "../contracts/L1/TaikoConfig.sol";
-import { TaikoData } from "../contracts/L1/TaikoData.sol";
-import { TaikoL1 } from "../contracts/L1/TaikoL1.sol";
+import { TaikoData } from "../../contracts/L1/TaikoData.sol";
+import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-import { TaikoL1TestBase } from "./TaikoL1TestBase.t.sol";
+import { TaikoL1TestBase } from "./TaikoL1TestBase.sol";
 
 /// @dev Warning: this test will take 7-10 minutes and require 1GB memory.
 ///      `pnpm sim`
@@ -18,13 +17,17 @@ contract TaikoL1_b is TaikoL1 {
         override
         returns (TaikoData.Config memory config)
     {
-        config = TaikoConfig.getConfig();
+        config = TaikoL1.getConfig();
 
         config.blockTxListExpiry = 0;
         config.blockMaxProposals = 1100;
         config.blockRingBufferSize = 1200;
         config.blockMaxVerificationsPerTx = 10;
         config.proofRegularCooldown = 5 minutes;
+        config.proofOracleCooldown = 3 minutes;
+        config.skipProverAssignmentVerificaiton = true;
+        config.proofBond = 1e18; // 1 Taiko token
+        config.proposerRewardPerSecond = 1e15; // 0.001 Taiko token
     }
 }
 
@@ -81,8 +84,6 @@ contract TaikoL1Simulation is TaikoL1TestBase {
     bytes32[] parentHashes = new bytes32[](blocksToSimulate);
     bytes32[] blockHashes = new bytes32[](blocksToSimulate);
     bytes32[] signalRoots = new bytes32[](blocksToSimulate);
-    uint32[] parentGasUsed = new uint32[](blocksToSimulate);
-    uint32[] gasUsed = new uint32[](blocksToSimulate);
     uint32[] gasLimits = new uint32[](blocksToSimulate);
 
     function deployTaikoL1() internal override returns (TaikoL1 taikoL1) {
@@ -100,7 +101,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
 
         assertEq(time, 1);
 
-        depositTaikoToken(Alice, 1e9 * 1e8, 10_000 ether);
+        giveEthAndTko(Bob, 1e9 ether, 10_000 ether);
 
         TaikoData.BlockMetadata[] memory metas = new TaikoData.BlockMetadata[](
             blocksToSimulate
@@ -219,21 +220,12 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                 salt = uint256(keccak256(abi.encodePacked(gasLimit, salt)));
 
                 if (proposedIndex == 0) {
-                    parentGasUsed[proposedIndex] = 0;
                     parentHashes[proposedIndex] = GENESIS_BLOCK_HASH;
                 } else {
-                    parentGasUsed[proposedIndex] = gasUsed[proposedIndex - 1];
                     parentHashes[proposedIndex] = blockHashes[proposedIndex - 1];
                 }
 
-                gasUsed[proposedIndex] = uint32(
-                    pickRandomNumber(
-                        newRandomWithoutSalt,
-                        (gasLimit / 2),
-                        ((gasLimit / 2) + 1)
-                    )
-                );
-                salt = uint256(keccak256(abi.encodePacked(gasUsed, salt)));
+                salt = uint256(keccak256(abi.encodePacked(salt)));
 
                 uint24 txListSize = uint24(
                     pickRandomNumber(
@@ -261,7 +253,8 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                     )
                 );
 
-                metas[proposedIndex] = proposeBlock(Alice, gasLimit, txListSize);
+                metas[proposedIndex] =
+                    proposeBlock(Alice, Bob, gasLimit, txListSize);
 
                 if (proposedIndex < blocksToSimulate - 1) proposedIndex++;
 
@@ -284,8 +277,6 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                         Bob,
                         metas[blockId],
                         parentHashes[blockId],
-                        parentGasUsed[blockId],
-                        gasUsed[blockId],
                         blockHashes[blockId],
                         signalRoots[blockId]
                     );
@@ -313,7 +304,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
 
         assertEq(time, 1);
 
-        depositTaikoToken(Alice, 1e6 * 1e8, 10_000 ether);
+        giveEthAndTko(Bob, 1e6 ether, 10_000 ether);
 
         TaikoData.BlockMetadata[] memory metas = new TaikoData.BlockMetadata[](
             blocksToSimulate
@@ -447,21 +438,12 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                 salt = uint256(keccak256(abi.encodePacked(gasLimit, salt)));
 
                 if (proposedIndex == 0) {
-                    parentGasUsed[proposedIndex] = 0;
                     parentHashes[proposedIndex] = GENESIS_BLOCK_HASH;
                 } else {
-                    parentGasUsed[proposedIndex] = gasUsed[proposedIndex - 1];
                     parentHashes[proposedIndex] = blockHashes[proposedIndex - 1];
                 }
 
-                gasUsed[proposedIndex] = uint32(
-                    pickRandomNumber(
-                        newRandomWithoutSalt,
-                        (gasLimit / 2),
-                        ((gasLimit / 2) + 1)
-                    )
-                );
-                salt = uint256(keccak256(abi.encodePacked(gasUsed, salt)));
+                salt = uint256(keccak256(abi.encodePacked(salt)));
 
                 uint24 txListSize = uint24(
                     pickRandomNumber(
@@ -489,7 +471,8 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                     )
                 );
 
-                metas[proposedIndex] = proposeBlock(Alice, gasLimit, txListSize);
+                metas[proposedIndex] =
+                    proposeBlock(Alice, Bob, gasLimit, txListSize);
 
                 if (proposedIndex < blocksToSimulate - 1) proposedIndex++;
 
@@ -512,8 +495,6 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                         Bob,
                         metas[blockId],
                         parentHashes[blockId],
-                        parentGasUsed[blockId],
-                        gasUsed[blockId],
                         blockHashes[blockId],
                         signalRoots[blockId]
                     );
@@ -540,7 +521,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
 
         assertEq(time, 1);
 
-        depositTaikoToken(Alice, 1e6 * 1e8, 10_000 ether);
+        giveEthAndTko(Bob, 1e6 ether, 10_000 ether);
 
         TaikoData.BlockMetadata[] memory metas = new TaikoData.BlockMetadata[](
             blocksToSimulate
@@ -680,21 +661,12 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                 salt = uint256(keccak256(abi.encodePacked(gasLimit, salt)));
 
                 if (proposedIndex == 0) {
-                    parentGasUsed[proposedIndex] = 0;
                     parentHashes[proposedIndex] = GENESIS_BLOCK_HASH;
                 } else {
-                    parentGasUsed[proposedIndex] = gasUsed[proposedIndex - 1];
                     parentHashes[proposedIndex] = blockHashes[proposedIndex - 1];
                 }
 
-                gasUsed[proposedIndex] = uint32(
-                    pickRandomNumber(
-                        newRandomWithoutSalt,
-                        (gasLimit / 2),
-                        ((gasLimit / 2) + 1)
-                    )
-                );
-                salt = uint256(keccak256(abi.encodePacked(gasUsed, salt)));
+                salt = uint256(keccak256(abi.encodePacked(salt)));
 
                 uint24 txListSize = uint24(
                     pickRandomNumber(
@@ -722,7 +694,8 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                     )
                 );
 
-                metas[proposedIndex] = proposeBlock(Alice, gasLimit, txListSize);
+                metas[proposedIndex] =
+                    proposeBlock(Alice, Bob, gasLimit, txListSize);
 
                 if (proposedIndex < blocksToSimulate - 1) proposedIndex++;
 
@@ -745,8 +718,6 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                         Bob,
                         metas[blockId],
                         parentHashes[blockId],
-                        parentGasUsed[blockId],
-                        gasUsed[blockId],
                         blockHashes[blockId],
                         signalRoots[blockId]
                     );

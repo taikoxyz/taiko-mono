@@ -7,13 +7,13 @@
 pragma solidity ^0.8.20;
 
 import {
-    IERC20Upgradeable,
-    ERC20Upgradeable
+    ERC20Upgradeable,
+    IERC20Upgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { IERC20MetadataUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
-import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
+import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
@@ -83,7 +83,7 @@ contract BridgedERC20 is
         uint256 amount
     )
         public
-        onlyFromNamed3("taiko", "prover_pool", "erc20_vault")
+        onlyFromNamed("erc20_vault")
     {
         _mint(account, amount);
         emit Transfer(address(0), account, amount);
@@ -98,7 +98,7 @@ contract BridgedERC20 is
         uint256 amount
     )
         public
-        onlyFromNamed3("taiko", "prover_pool", "erc20_vault")
+        onlyFromNamed("erc20_vault")
     {
         _burn(account, amount);
         emit Transfer(account, address(0), amount);

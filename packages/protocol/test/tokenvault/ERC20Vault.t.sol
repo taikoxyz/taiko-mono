@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { AddressManager } from "../contracts/common/AddressManager.sol";
-import { AddressResolver } from "../contracts/common/AddressResolver.sol";
-import { Bridge } from "../contracts/bridge/Bridge.sol";
-import { BridgedERC20 } from "../contracts/tokenvault/BridgedERC20.sol";
-import { BridgeErrors } from "../contracts/bridge/BridgeErrors.sol";
-import { FreeMintERC20 } from "../contracts/test/erc20/FreeMintERC20.sol";
-import { SignalService } from "../contracts/signal/SignalService.sol";
-import { TaikoToken } from "../contracts/L1/TaikoToken.sol";
+import { AddressManager } from "../../contracts/common/AddressManager.sol";
+import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
+import { Bridge } from "../../contracts/bridge/Bridge.sol";
+import { BridgedERC20 } from "../../contracts/tokenvault/BridgedERC20.sol";
+import { BridgeErrors } from "../../contracts/bridge/BridgeErrors.sol";
+import { FreeMintERC20 } from "../../contracts/test/erc20/FreeMintERC20.sol";
+import { SignalService } from "../../contracts/signal/SignalService.sol";
+import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
 import { Test } from "forge-std/Test.sol";
-import { ERC20Vault } from "../contracts/tokenvault/ERC20Vault.sol";
+import { ERC20Vault } from "../../contracts/tokenvault/ERC20Vault.sol";
 import
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
@@ -96,7 +96,6 @@ contract TestERC20Vault is Test {
     address public constant Amelia = 0x60081B12838240B1BA02b3177153BCa678A86080;
     // Dave has nothing so that we can check if he gets the ether (and other
     // erc20)
-
     address public constant Dave = 0x70081B12838240b1ba02B3177153bcA678a86090;
 
     function setUp() public {
@@ -150,7 +149,7 @@ contract TestERC20Vault is Test {
         vm.stopPrank();
     }
 
-    function test_send_erc20_revert_if_allowance_not_set() public {
+    function test_20Vault_send_erc20_revert_if_allowance_not_set() public {
         vm.startPrank(Alice);
 
         vm.expectRevert("ERC20: insufficient allowance");
@@ -161,7 +160,7 @@ contract TestERC20Vault is Test {
         );
     }
 
-    function test_send_erc20_no_processing_fee() public {
+    function test_20Vault_send_erc20_no_processing_fee() public {
         vm.startPrank(Alice);
 
         uint256 amount = 2 wei;
@@ -183,7 +182,8 @@ contract TestERC20Vault is Test {
         assertEq(erc20VaultBalanceAfter - erc20VaultBalanceBefore, amount);
     }
 
-    function test_send_erc20_processing_fee_reverts_if_msg_value_too_low()
+    function test_20Vault_send_erc20_processing_fee_reverts_if_msg_value_too_low(
+    )
         public
     {
         vm.startPrank(Alice);
@@ -206,7 +206,7 @@ contract TestERC20Vault is Test {
         );
     }
 
-    function test_send_erc20_processing_fee() public {
+    function test_20Vault_send_erc20_processing_fee() public {
         vm.startPrank(Alice);
 
         uint256 amount = 2 wei;
@@ -235,7 +235,7 @@ contract TestERC20Vault is Test {
         assertEq(erc20VaultBalanceAfter - erc20VaultBalanceBefore, 1);
     }
 
-    function test_send_erc20_reverts_invalid_amount() public {
+    function test_20Vault_send_erc20_reverts_invalid_amount() public {
         vm.startPrank(Alice);
 
         uint256 amount = 0;
@@ -248,7 +248,7 @@ contract TestERC20Vault is Test {
         );
     }
 
-    function test_send_erc20_reverts_invalid_token_address() public {
+    function test_20Vault_send_erc20_reverts_invalid_token_address() public {
         vm.startPrank(Alice);
 
         uint256 amount = 1;
@@ -261,7 +261,7 @@ contract TestERC20Vault is Test {
         );
     }
 
-    function test_send_erc20_reverts_invalid_to() public {
+    function test_20Vault_send_erc20_reverts_invalid_to() public {
         vm.startPrank(Alice);
 
         uint256 amount = 1;
@@ -281,7 +281,7 @@ contract TestERC20Vault is Test {
         );
     }
 
-    function test_receive_erc20_canonical_to_dest_chain_transfers_from_canonical_token(
+    function test_20Vault_receive_erc20_canonical_to_dest_chain_transfers_from_canonical_token(
     )
         public
     {
@@ -316,7 +316,7 @@ contract TestERC20Vault is Test {
         assertEq(toBalanceAfter - toBalanceBefore, amount);
     }
 
-    function test_receiveTokens_erc20_with_ether_to_dave() public {
+    function test_20Vault_receiveTokens_erc20_with_ether_to_dave() public {
         vm.startPrank(Alice);
 
         uint256 srcChainId = block.chainid;
@@ -350,7 +350,7 @@ contract TestERC20Vault is Test {
         assertEq(Dave.balance, etherAmount);
     }
 
-    function test_receive_erc20_non_canonical_to_dest_chain_deploys_new_bridged_token_and_mints(
+    function test_20Vault_receive_erc20_non_canonical_to_dest_chain_deploys_new_bridged_token_and_mints(
     )
         public
     {
@@ -401,7 +401,7 @@ contract TestERC20Vault is Test {
         });
     }
 
-    function test_upgrade_bridged_tokens_20() public {
+    function test_20Vault_upgrade_bridged_tokens_20() public {
         vm.startPrank(Alice);
 
         uint256 srcChainId = block.chainid;
@@ -431,10 +431,9 @@ contract TestERC20Vault is Test {
         assertEq(bridgedAddressAfter != address(0), true);
 
         try UpdatedBridgedERC20(bridgedAddressAfter).helloWorld() {
-            assertEq(false, true);
+            fail();
         } catch {
             //It should not yet support this function call
-            assertEq(true, true);
         }
 
         // Upgrade the implementation of that contract
@@ -449,9 +448,8 @@ contract TestERC20Vault is Test {
         vm.prank(Alice, Alice);
         try UpdatedBridgedERC20(bridgedAddressAfter).helloWorld() {
             //It should support now this function call
-            assertEq(true, true);
         } catch {
-            assertEq(false, true);
+            fail();
         }
     }
 }
