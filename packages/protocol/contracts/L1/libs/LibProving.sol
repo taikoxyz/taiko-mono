@@ -169,13 +169,4 @@ library LibProving {
         if (evidence.prover == LibUtils.ORACLE_PROVER) return 0;
         else return keccak256(abi.encode(evidence));
     }
-
-    function getInstance(TaikoData.BlockEvidence memory evidence)
-        internal
-        pure
-        returns (bytes32 instance)
-    {
-        if (evidence.prover == LibUtils.ORACLE_PROVER) return 0;
-        else return keccak256(abi.encode(evidence));
-    }
 }
