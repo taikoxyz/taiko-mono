@@ -81,14 +81,13 @@ library LibProposing {
             revert L1_TOO_MANY_BLOCKS();
         }
 
+        TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
         if (state.taikoTokenBalances[assignment.prover] >= config.proofBond) {
             unchecked {
                 state.taikoTokenBalances[assignment.prover] -= config.proofBond;
             }
         } else {
-            TaikoToken(resolver.resolve("taiko_token", false)).transferFrom(
-                assignment.prover, address(this), config.proofBond
-            );
+            tt.transferFrom(assignment.prover, address(this), config.proofBond);
         }
 
         // Pay prover after verifying assignment
@@ -138,7 +137,8 @@ library LibProposing {
                         config.proposerRewardMax
                     );
 
-                    state.taikoTokenBalances[input.beneficiary] += reward;
+                    // Reward must be minted
+                    tt.mint(input.beneficiary, reward);
                 }
             }
         }
