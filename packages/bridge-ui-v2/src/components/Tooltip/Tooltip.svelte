@@ -9,6 +9,7 @@
   export let position: Position = 'top';
 
   let tooltipId = `tooltip-${uid()}`;
+  let tooltipClass = `block dialog-tooltip`;
   let tooltipOpen = false;
   let classes = classNames('flex', $$props.class || 'relative');
 
@@ -26,6 +27,9 @@
   }
 
   onMount(() => {
+    if (position === 'top') {
+      tooltipClass = `block dialog-tooltip dialog-tooltip-top`;
+    }
     positionElementByTarget(dialogElem, triggerElem, position, GAP);
     document.addEventListener('click', closeTooltip);
   });
@@ -47,7 +51,7 @@
     <Icon type="question-circle" />
   </button>
 
-  <dialog id={tooltipId} class="block rounded-[10px]" class:block-hidden={!tooltipOpen} bind:this={dialogElem}>
+  <dialog id={tooltipId} class={tooltipClass} class:block-hidden={!tooltipOpen} bind:this={dialogElem}>
     <slot />
   </dialog>
 </div>

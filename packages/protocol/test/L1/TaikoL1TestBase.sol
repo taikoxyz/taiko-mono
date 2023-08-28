@@ -71,8 +71,12 @@ abstract contract TaikoL1TestBase is TestBase {
 
         tko = new TaikoToken();
         registerAddress("taiko_token", address(tko));
-        address[] memory premintRecipients;
-        uint256[] memory premintAmounts;
+        address[] memory premintRecipients = new address[](1);
+        premintRecipients[0] = address(this);
+
+        uint256[] memory premintAmounts = new uint256[](1);
+        premintAmounts[0] = 1e9 ether;
+
         tko.init(
             address(addressManager),
             "TaikoToken",
@@ -84,6 +88,7 @@ abstract contract TaikoL1TestBase is TestBase {
         // Set protocol broker
         registerAddress("taiko", address(this));
         tko.mint(address(this), 1e9 ether);
+
         registerAddress("taiko", address(L1));
 
         L1.init(address(addressManager), GENESIS_BLOCK_HASH);
@@ -203,6 +208,10 @@ abstract contract TaikoL1TestBase is TestBase {
         console2.log("TKO balance this:", tko.balanceOf(address(this)));
         console2.log(amountTko);
         tko.transfer(to, amountTko);
+
+        vm.prank(to, to);
+        tko.approve(address(L1), amountTko);
+
         console2.log("TKO balance:", to, tko.balanceOf(to));
         console2.log("ETH balance:", to, to.balance);
     }

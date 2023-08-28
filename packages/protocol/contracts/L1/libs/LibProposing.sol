@@ -87,8 +87,8 @@ library LibProposing {
                 state.taikoTokenBalances[assignment.prover] -= config.proofBond;
             }
         } else {
-            TaikoToken(resolver.resolve("taiko_token", false)).burn(
-                assignment.prover, config.proofBond
+            TaikoToken(resolver.resolve("taiko_token", false)).transferFrom(
+                assignment.prover, address(this), config.proofBond
             );
         }
 

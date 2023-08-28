@@ -66,6 +66,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/chainpray.png",
+    name: "ChainPray",
+    link: "https://chainpray.com",
+    description:
+      "ChainPray provides spiritual assistance to ordinary users in the cryptocurrency community, combining traditional prayer with blockchain technology.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/cloak.png",
     name: "Cloak",
     link: "https://cloak.exchange/",
@@ -89,6 +98,15 @@ const ecosystemData: EcosystemData[] = [
     link: "https://foxwallet.com",
     description:
       "FoxWallet is a safe and easy-to-use decentralized audited wallet, dedicated to creating an entrance and connection to the Web3 world.",
+    filters: [],
+    isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/mintpad.jpeg",
+    name: "Mintpad",
+    link: "https://mintpad.co/",
+    description:
+      "Mintpad is a multi-chain, no-code creator tool solution designed to assist creators in implementing artwork, passes, tickets, and other items on various EVM-compatible blockchain networks.",
     filters: [],
     isLive: true,
   },
@@ -133,8 +151,8 @@ const ecosystemData: EcosystemData[] = [
     name: "Morkie",
     link: "https://www.morkie.xyz/",
     description:
-      "Morkie aims to create an immersive oasis for NFT enthusiasts and collectors, offering them a unique space to not only showcase their digital assets but also to earn rewards for their loyalty and participation in the ecosystem. Our vision is to foster a thriving community that embraces the potential of NFTs beyond static ownership.",
-    filters: ['nft'],
+      "Morkie aims to create an immersive oasis for NFT enthusiasts and collectors, offering them a unique space to not only showcase their digital assets but also to earn rewards for their loyalty and participation in the ecosystem.",
+    filters: ["nft"],
     isLive: true,
   },
   {
@@ -197,6 +215,15 @@ const ecosystemData: EcosystemData[] = [
     description: "The full-stack infrastructure to simplify Web3.",
     filters: [],
     isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/phalcon-explorer.png",
+    name: "Phalcon Explorer",
+    link: "https://explorer.phalcon.xyz/",
+    description:
+      "Designed specifically for the DeFi community, Phalcon Explorer empowers developers, traders, and security researchers to delve deep into transactions.",
+    filters: [],
+    isLive: false,
   },
   {
     icon: "/images/ecosystem/pheasant-network.png",
@@ -298,7 +325,8 @@ const ecosystemData: EcosystemData[] = [
     icon: "/images/ecosystem/vooi.jpeg",
     name: "Vooi",
     link: "https://vooi.io/",
-    description: "vooi is a stableswap AMM DEX built for L2 chains on top of Unbounded pool technology.",
+    description:
+      "vooi is a stableswap AMM DEX built for L2 chains on top of Unbounded pool technology.",
     filters: [],
     isLive: true,
   },
@@ -317,6 +345,15 @@ const ecosystemData: EcosystemData[] = [
     link: "https://zkdelx-front.vercel.app",
     description:
       "zkDELX is a decentralized electricity exchange market based on zkEVM to facilitate the electrical vehicles and renewable energy industries.",
+    filters: [],
+    isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/zklink.png",
+    name: "zkLink",
+    link: "https://zk.link",
+    description:
+      "A ZK-Rollup trading infrastructure empowering DeFi, RWA, and NFT super dApps in a rollup-centric, multi-chain world.",
     filters: [],
     isLive: true,
   },
@@ -418,13 +455,15 @@ export function EcosystemSection() {
 function FilterLabel({ text, activeFilter, setActiveFilter }) {
   const isActive = activeFilter === text;
 
-  const buttonStyles = `border rounded-full py-1 px-4 text-sm focus:outline-none transition-colors duration-200 font-bold ${isActive
-    ? "bg-gray-300 text-black"
-    : "bg-white text-gray-700 dark:bg-black dark:text-gray-300"
-    } ${isActive
+  const buttonStyles = `border rounded-full py-1 px-4 text-sm focus:outline-none transition-colors duration-200 font-bold ${
+    isActive
+      ? "bg-gray-300 text-black"
+      : "bg-white text-gray-700 dark:bg-black dark:text-gray-300"
+  } ${
+    isActive
       ? "hover:bg-gray-400"
       : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
-    }`;
+  }`;
 
   return (
     <button className={buttonStyles} onClick={() => setActiveFilter(text)}>

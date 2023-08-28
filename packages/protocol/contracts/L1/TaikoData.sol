@@ -138,16 +138,14 @@ library TaikoData {
     }
 
     /// @dev Struct containing data required for verifying a block.
-    /// 4 slots.
+    /// 3 slots.
     struct Block {
-        // slot 1: ForkChoice storage are reusable
-        mapping(uint16 forkChoiceId => ForkChoice) forkChoices;
-        bytes32 metaHash; // slot 2
-        address prover; // slot 3
+        bytes32 metaHash; // slot 1
+        address prover; // slot 2
         uint64 proposedAt;
         uint16 nextForkChoiceId;
         uint16 verifiedForkChoiceId;
-        uint64 blockId; // slot 4
+        uint64 blockId; // slot 3
         uint96 proofBond;
         uint16 proofWindow;
     }
@@ -191,12 +189,14 @@ library TaikoData {
         mapping(
             uint64 blockId => mapping(bytes32 parentHash => uint16 forkChoiceId)
             ) forkChoiceIds;
+        mapping(uint64 blockId => mapping(uint16 forkChoiceId => ForkChoice))
+            forkChoices;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         mapping(uint256 depositId_mode_ethDepositRingBufferSize => uint256)
             ethDeposits;
         mapping(address account => uint256 balance) taikoTokenBalances;
-        SlotA slotA; // slot 6
-        SlotB slotB; // slot 7
-        uint256[43] __gap;
+        SlotA slotA; // slot 7
+        SlotB slotB; // slot 8
+        uint256[42] __gap;
     }
 }

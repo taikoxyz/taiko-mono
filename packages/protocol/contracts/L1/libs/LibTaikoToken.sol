@@ -30,7 +30,7 @@ library LibTaikoToken {
             state.taikoTokenBalances[msg.sender] -= amount;
         }
 
-        TaikoToken(resolver.resolve("taiko_token", false)).mint(
+        TaikoToken(resolver.resolve("taiko_token", false)).transfer(
             msg.sender, amount
         );
     }
@@ -43,8 +43,8 @@ library LibTaikoToken {
         internal
     {
         if (amount > 0) {
-            TaikoToken(resolver.resolve("taiko_token", false)).burn(
-                msg.sender, amount
+            TaikoToken(resolver.resolve("taiko_token", false)).transferFrom(
+                msg.sender, address(this), amount
             );
             state.taikoTokenBalances[msg.sender] += amount;
         }
