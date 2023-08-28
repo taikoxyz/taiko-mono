@@ -34,8 +34,7 @@ abstract contract AddressResolver {
     }
 
     /// @dev Modifier that ensures the caller is the resolved address of two
-    /// given
-    /// names.
+    /// given names.
     /// @param name1 The first name to check against.
     /// @param name2 The second name to check against.
     modifier onlyFromNamed2(bytes32 name1, bytes32 name2) {
