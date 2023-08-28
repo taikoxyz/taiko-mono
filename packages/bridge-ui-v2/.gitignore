@@ -12,6 +12,7 @@ vite.config.ts.timestamp-*
 # Bridge config files
 /config/*
 !/config/sample/
+!/config/schemas/
 
 src/generated/*
 

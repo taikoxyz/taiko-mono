@@ -149,6 +149,10 @@ export interface Bridge {
   bridge(args: BridgeArgs): Promise<Hex>;
 }
 
+export type ConfiguredBridgesType = {
+  configuredBridges: Array<BridgeConfig>
+}
+
 export type BridgeConfig = {
   source: string;
   destination: string;
@@ -163,4 +167,5 @@ export type AddressConfig = {
   crossChainSyncAddress: Address;
   signalServiceAddress: Address;
 };
+
 export type RoutingMap = Record<string, Record<string, AddressConfig>>;

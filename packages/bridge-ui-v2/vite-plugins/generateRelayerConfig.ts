@@ -1,18 +1,40 @@
 /* eslint-disable no-console */
+import dotenv from 'dotenv'
 import { promises as fs } from 'fs';
 import path from 'path';
 import { Project, SourceFile, VariableDeclarationKind } from 'ts-morph';
 
+import configuredRelayerSchema from '../config/schemas/configuredRelayer.schema.json';
 import type { ConfiguredRelayer, RelayerConfig } from '../src/libs/relayer/types';
+import { decodeBase64ToJson } from './utils/decodeBase64ToJson';
 import { formatSourceFile } from './utils/formatSourceFile';
 import { Logger } from "./utils/Logger";
+import { validateJsonAgainstSchema } from './utils/validateJson';
+
+dotenv.config()
 
 const pluginName = 'generateRelayerConfig';
 const logger = new Logger(pluginName);
-const currentDir = path.dirname(new URL(import.meta.url).pathname);
-const outputPath = path.resolve(currentDir, '../src/generated/relayerConfig.ts');
 
-const configuredRelayerConfigFile = path.join(path.dirname(currentDir), '/config', 'configuredRelayer.json');
+
+const currentDir = path.resolve(new URL(import.meta.url).pathname);
+
+const outputPath = path.join(
+    path.dirname(currentDir),
+    '../src/generated/relayerConfig.ts'
+);
+// Decode base64 encoded JSON string
+if (!process.env.CONFIGURED_RELAYER) {
+    throw new Error('CONFIGURED_RELAYER is not defined in environment.');
+}
+const configuredRelayerConfigFile = decodeBase64ToJson(process.env.CONFIGURED_RELAYER || '');
+
+// Valide JSON against schema
+const isValid = validateJsonAgainstSchema(configuredRelayerConfigFile, configuredRelayerSchema);
+
+if (!isValid) {
+    throw new Error('encoded configuredBridges.json is not valid.');
+}
 
 export function generateRelayerConfig() {
     return {
@@ -64,8 +86,7 @@ async function storeTypesAndEnums(sourceFile: SourceFile) {
 async function buildRelayerConfig(sourceFile: SourceFile) {
     logger.info('Building relayer config...');
 
-    const relayerJsonContent = await fs.readFile(configuredRelayerConfigFile, 'utf-8');
-    const relayer: ConfiguredRelayer = JSON.parse(relayerJsonContent);
+    const relayer: ConfiguredRelayer = configuredRelayerConfigFile;
 
     if (!relayer.configuredRelayer || !Array.isArray(relayer.configuredRelayer)) {
         console.error('configuredRelayer is not an array. Please check the content of the configuredRelayerConfigFile.');

@@ -1,21 +1,37 @@
-/* eslint-disable no-console */
+import dotenv from 'dotenv'
 import { promises as fs } from 'fs';
 import path from 'path';
 import { Project, SourceFile, VariableDeclarationKind } from 'ts-morph';
 
-import type { BridgeConfig, RoutingMap } from '../src/libs/bridge/types';
+import configuredBridgesSchema from '../config/schemas/configuredBridges.schema.json';
+import type { BridgeConfig, ConfiguredBridgesType, RoutingMap } from '../src/libs/bridge/types';
+import { decodeBase64ToJson } from './utils/decodeBase64ToJson';
 import { formatSourceFile } from './utils/formatSourceFile';
 import { Logger } from './utils/Logger';
+import { validateJsonAgainstSchema } from './utils/validateJson';
+
+dotenv.config()
+const pluginName = 'generateBridgeConfig';
+const logger = new Logger(pluginName);
 
 const currentDir = path.resolve(new URL(import.meta.url).pathname);
 
-// Todo: make paths and names configurable via .env?
-const outputPath = path.join(path.join(path.dirname(currentDir)), '../src/generated/bridgeConfig.ts');
+const outputPath = path.join(
+    path.dirname(currentDir),
+    '../src/generated/bridgeConfig.ts'
+);
+// Decode base64 encoded JSON string
+if (!process.env.CONFIGURED_BRIDGES) {
+    throw new Error('CONFIGURED_BRIDGES is not defined in environment.');
+}
+const configuredBridgesConfigFile = decodeBase64ToJson(process.env.CONFIGURED_BRIDGES || '')
 
-const configuredBridgesConfigFile = path.join(path.dirname(currentDir), '../config', 'configuredBridges.json');
+// Valide JSON against schema
+const isValid = validateJsonAgainstSchema(configuredBridgesConfigFile, configuredBridgesSchema);
 
-const pluginName = 'generateBridgeConfig';
-const logger = new Logger(pluginName);
+if (!isValid) {
+    throw new Error('encoded configuredBridges.json is not valid.');
+}
 
 export function generateBridgeConfig() {
     return {
@@ -23,7 +39,6 @@ export function generateBridgeConfig() {
         async buildStart() {
             logger.info('Plugin initialized.');
 
-            // Path to where you want to save the generated TypeScript file
             const tsFilePath = path.resolve(outputPath);
 
             const project = new Project();
@@ -52,7 +67,7 @@ export function generateBridgeConfig() {
 }
 
 async function storeTypes(sourceFile: SourceFile) {
-    logger.info(`Storing types and enums...`);
+    logger.info(`Storing types...`);
 
     // RoutingMap
     sourceFile.addImportDeclaration({
@@ -69,9 +84,8 @@ async function buildBridgeConfig(sourceFile: SourceFile) {
     logger.info('Building bridge config...');
     const routingContractsMap: RoutingMap = {};
 
-    const bridgesJsonContent = await fs.readFile(configuredBridgesConfigFile, 'utf-8');
+    const bridges: ConfiguredBridgesType = configuredBridgesConfigFile;
 
-    const bridges = JSON.parse(bridgesJsonContent);
     if (!bridges.configuredBridges || !Array.isArray(bridges.configuredBridges)) {
         logger.error('configuredBridges is not an array. Please check the content of the configuredBridgesConfigFile.');
         throw new Error();

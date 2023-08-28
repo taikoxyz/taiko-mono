@@ -17,7 +17,8 @@
     "format": "prettier --write .",
     "lint": "prettier --check . && eslint .",
     "lint:fix": "pnpm format && eslint . --fix",
-    "generate:abi": "pnpm wagmi generate"
+    "generate:abi": "pnpm wagmi generate",
+    "export:config": "bash ./scripts/export-json-to-env.sh"
   },
   "devDependencies": {
     "@playwright/test": "^1.28.1",
@@ -32,12 +33,14 @@
     "abitype": "^0.8.7",
     "autoprefixer": "^10.4.14",
     "daisyui": "3.1.7",
+    "dotenv": "^16.3.1",
     "eslint": "^8.28.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-simple-import-sort": "^10.0.0",
     "eslint-plugin-svelte": "^2.26.0",
     "ethereum-address": "^0.0.4",
     "jsdom": "^22.1.0",
+    "ajv": "^8.6.4",
     "lokijs": "^1.5.12",
     "postcss": "^8.4.24",
     "prettier": "^3.0.0",

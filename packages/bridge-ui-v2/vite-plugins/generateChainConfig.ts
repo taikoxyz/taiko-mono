@@ -1,27 +1,41 @@
 /* eslint-disable no-console */
+import dotenv from 'dotenv'
 import { promises as fs } from 'fs';
 import path from 'path';
 import { Project, SourceFile, VariableDeclarationKind } from 'ts-morph';
 
+import configuredChainsSchema from '../config/schemas/configuredChains.schema.json';
 import type { ChainConfig, ChainConfigMap, ConfiguredChains } from '../src/libs/chain/types';
+import { decodeBase64ToJson } from './utils/decodeBase64ToJson';
 import { formatSourceFile } from './utils/formatSourceFile';
 import { Logger } from './utils/Logger';
-
-enum LayerType {
-  L1 = 'L1',
-  L2 = 'L2',
-  L3 = 'L3',
-}
-
-const currentDir = path.resolve(new URL(import.meta.url).pathname);
-
-// Todo: make paths and names configurable via .env?
-const outputPath = path.join(path.join(path.dirname(currentDir)), '../src/generated/chainConfig.ts');
-
-const configuredChainsConfigFile = path.join(path.dirname(currentDir), '../config', 'configuredChains.json');
+import { validateJsonAgainstSchema } from './utils/validateJson';
+dotenv.config()
 
 const pluginName = 'generateChainConfig';
 const logger = new Logger(pluginName);
+
+const currentDir = path.resolve(new URL(import.meta.url).pathname);
+
+const outputPath = path.join(
+  path.dirname(currentDir),
+  '../src/generated/chainConfig.ts'
+);
+
+// Decode base64 encoded JSON string
+if (!process.env.CONFIGURED_CHAINS) {
+  throw new Error('CONFIGURED_CHAINS is not defined in environment.');
+}
+const configuredChainsConfigFile = decodeBase64ToJson(process.env.CONFIGURED_CHAINS || '');
+
+// Valide JSON against schema
+const isValid = validateJsonAgainstSchema(configuredChainsConfigFile, configuredChainsSchema);
+
+if (!isValid) {
+  throw new Error('encoded configuredBridges.json is not valid.');
+}
+
+
 
 export function generateChainConfig() {
   return {
@@ -79,10 +93,10 @@ async function storeTypes(sourceFile: SourceFile) {
 }
 
 async function buildChainConfig(sourceFile: SourceFile) {
+
   const chainConfig: ChainConfigMap = {};
 
-  const chainsJsonContent = await fs.readFile(configuredChainsConfigFile, 'utf-8');
-  const chains: ConfiguredChains = JSON.parse(chainsJsonContent);
+  const chains: ConfiguredChains = configuredChainsConfigFile;
 
   if (!chains.configuredChains || !Array.isArray(chains.configuredChains)) {
     console.error('configuredChains is not an array. Please check the content of the configuredChainsConfigFile.');
@@ -127,6 +141,11 @@ async function buildChainConfig(sourceFile: SourceFile) {
   return sourceFile;
 }
 
+enum LayerType {
+  L1 = 'L1',
+  L2 = 'L2',
+  L3 = 'L3',
+}
 
 const _formatObjectToTsLiteral = (obj: ChainConfigMap): string => {
   const formatValue = (value: ChainConfig): string => {
