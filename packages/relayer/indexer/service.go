@@ -15,9 +15,11 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/erc1155vault"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/erc20vault"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/erc721vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/icrosschainsync"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/taikol1"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/tokenvault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/message"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/proof"
 )
@@ -66,7 +68,9 @@ type NewServiceOpts struct {
 	DestBridgeAddress             common.Address
 	SrcTaikoAddress               common.Address
 	DestTaikoAddress              common.Address
-	DestTokenVaultAddress         common.Address
+	DestERC20VaultAddress         common.Address
+	DestERC721VaultAddress        common.Address
+	DestERC1155VaultAddress       common.Address
 	SrcSignalServiceAddress       common.Address
 	BlockBatchSize                uint64
 	NumGoroutines                 int
@@ -152,9 +156,25 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		}
 	}
 
-	destTokenVault, err := tokenvault.NewTokenVault(opts.DestTokenVaultAddress, opts.DestEthClient)
+	destERC20Vault, err := erc20vault.NewERC20Vault(opts.DestERC20VaultAddress, opts.DestEthClient)
 	if err != nil {
-		return nil, errors.Wrap(err, "tokenvault.NewTokenVault")
+		return nil, errors.Wrap(err, "erc20vault.NewERC20Vault")
+	}
+
+	var destERC721Vault *erc721vault.ERC721Vault
+	if opts.DestERC721VaultAddress.Hex() != relayer.ZeroAddress.Hex() {
+		destERC721Vault, err = erc721vault.NewERC721Vault(opts.DestERC721VaultAddress, opts.DestEthClient)
+		if err != nil {
+			return nil, errors.Wrap(err, "erc721vault.NewERC721Vault")
+		}
+	}
+
+	var destERC1155Vault *erc1155vault.ERC1155Vault
+	if opts.DestERC1155VaultAddress.Hex() != relayer.ZeroAddress.Hex() {
+		destERC1155Vault, err = erc1155vault.NewERC1155Vault(opts.DestERC1155VaultAddress, opts.DestEthClient)
+		if err != nil {
+			return nil, errors.Wrap(err, "erc1155vault.NewERC1155Vault")
+		}
 	}
 
 	processor, err := message.NewProcessor(message.NewProcessorOpts{
@@ -172,7 +192,9 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		HeaderSyncIntervalSeconds:     opts.HeaderSyncIntervalInSeconds,
 		SrcSignalServiceAddress:       opts.SrcSignalServiceAddress,
 		ConfirmationsTimeoutInSeconds: opts.ConfirmationsTimeoutInSeconds,
-		DestTokenVault:                destTokenVault,
+		DestERC20Vault:                destERC20Vault,
+		DestERC721Vault:               destERC721Vault,
+		DestERC1155Vault:              destERC1155Vault,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "message.NewProcessor")

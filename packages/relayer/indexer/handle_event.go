@@ -51,20 +51,20 @@ func (svc *Service) handleEvent(
 		ChainID:                chainID,
 		Status:                 eventStatus,
 		EventType:              eventType,
-		CanonicalTokenAddress:  canonicalToken.Addr.Hex(),
-		CanonicalTokenSymbol:   canonicalToken.Symbol,
-		CanonicalTokenName:     canonicalToken.Name,
-		CanonicalTokenDecimals: canonicalToken.Decimals,
+		CanonicalTokenAddress:  canonicalToken.Address().Hex(),
+		CanonicalTokenSymbol:   canonicalToken.ContractSymbol(),
+		CanonicalTokenName:     canonicalToken.ContractName(),
+		CanonicalTokenDecimals: canonicalToken.TokenDecimals(),
 		Amount:                 amount.String(),
 		MsgHash:                common.Hash(event.MsgHash).Hex(),
-		MessageOwner:           event.Message.Owner.Hex(),
+		MessageOwner:           event.Message.User.Hex(),
 		Event:                  relayer.EventNameMessageSent,
 	})
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.Save")
 	}
 
-	if !canProcessMessage(ctx, eventStatus, event.Message.Owner, svc.relayerAddr) {
+	if !canProcessMessage(ctx, eventStatus, event.Message.User, svc.relayerAddr) {
 		slog.Warn("cant process message", "msgHash", common.Hash(event.MsgHash).Hex(), "eventStatus", eventStatus)
 		return nil
 	}

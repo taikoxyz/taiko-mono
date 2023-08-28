@@ -14,7 +14,7 @@ import { Proxied } from "./Proxied.sol";
 /// @notice Specifies methods to manage address mappings for given domain-name
 /// pairs.
 interface IAddressManager {
-    /// @notice Set the address for a specific domain-name pair.
+    /// @notice Sets the address for a specific domain-name pair.
     /// @param domain The domain to which the address will be mapped.
     /// @param name The name to which the address will be mapped.
     /// @param newAddress The Ethereum address to be mapped.
@@ -25,7 +25,7 @@ interface IAddressManager {
     )
         external;
 
-    /// @notice Get the address mapped to a specific domain-name pair.
+    /// @notice Gets the address mapped to a specific domain-name pair.
     /// @param domain The domain for which the address needs to be fetched.
     /// @param name The name for which the address needs to be fetched.
     /// @return Address associated with the domain-name pair.
@@ -91,5 +91,5 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
 }
 
 /// @title ProxiedAddressManager
-/// @notice Proxied version of the AddressManager contract.
+/// @notice Proxied version of the parent contract.
 contract ProxiedAddressManager is Proxied, AddressManager { }

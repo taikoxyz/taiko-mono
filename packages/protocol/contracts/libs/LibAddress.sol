@@ -6,6 +6,9 @@
 
 pragma solidity ^0.8.20;
 
+import { IERC165Upgradeable } from
+    "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
+
 /// @title LibAddress
 /// @dev Provides utilities for address-related operations.
 library LibAddress {
@@ -24,5 +27,20 @@ library LibAddress {
 
         // Ensure the transfer was successful
         require(success, "ETH transfer failed");
+    }
+
+    function supportsInterface(
+        address addr,
+        bytes4 interfaceId
+    )
+        internal
+        view
+        returns (bool result)
+    {
+        try IERC165Upgradeable(addr).supportsInterface(interfaceId) returns (
+            bool _result
+        ) {
+            result = _result;
+        } catch { }
     }
 }
