@@ -16,6 +16,7 @@ const { ethGasLimit, erc20NotDeployedGasLimit, erc20DeployedGasLimit } = recomme
 
 export async function recommendProcessingFee({ token, destChainId, srcChainId }: RecommendProcessingFeeArgs) {
   const destPublicClient = getPublicClient({ chainId: destChainId });
+  // getGasPrice will return gasPrice as 3000000001, rather than 3000000000
   const gasPrice = await destPublicClient.getGasPrice();
 
   // The gas limit for processMessage call for ETH is about ~800k.

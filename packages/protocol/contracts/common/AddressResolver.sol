@@ -33,8 +33,7 @@ abstract contract AddressResolver {
         _;
     }
 
-    /// @dev Modifier that ensures the caller is one of the resolved addresses
-    /// of
+    /// @dev Modifier that ensures the caller is the resolved address of two
     /// given names.
     /// @param name1 The first name to check against.
     /// @param name2 The second name to check against.
@@ -42,43 +41,6 @@ abstract contract AddressResolver {
         if (
             msg.sender != resolve(name1, true)
                 && msg.sender != resolve(name2, true)
-        ) revert RESOLVER_DENIED();
-        _;
-    }
-
-    /// @dev Modifier that ensures the caller is one of the resolved addresses
-    /// of
-    /// given names.
-    /// @param name1 The first name to check against.
-    /// @param name2 The second name to check against.
-    /// @param name3 The third name to check against.
-    modifier onlyFromNamed3(bytes32 name1, bytes32 name2, bytes32 name3) {
-        if (
-            msg.sender != resolve(name1, true)
-                && msg.sender != resolve(name2, true)
-                && msg.sender != resolve(name3, true)
-        ) revert RESOLVER_DENIED();
-        _;
-    }
-
-    /// @dev Modifier that ensures the caller is one of the resolved addresses
-    /// of
-    /// given names.
-    /// @param name1 The first name to check against.
-    /// @param name2 The second name to check against.
-    /// @param name3 The third name to check against.
-    /// @param name4 The fourth name to check against.
-    modifier onlyFromNamed4(
-        bytes32 name1,
-        bytes32 name2,
-        bytes32 name3,
-        bytes32 name4
-    ) {
-        if (
-            msg.sender != resolve(name1, true)
-                && msg.sender != resolve(name2, true)
-                && msg.sender != resolve(name3, true)
-                && msg.sender != resolve(name4, true)
         ) revert RESOLVER_DENIED();
         _;
     }

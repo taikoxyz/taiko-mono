@@ -7,11 +7,11 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
+import { LibFixedPointMath as Math } from
+    "../../thirdparty/LibFixedPointMath.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { TaikoData } from "../TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
-import { LibFixedPointMath as Math } from
-    "../../thirdparty/LibFixedPointMath.sol";
 
 library LibTaikoToken {
     error L1_INSUFFICIENT_TOKEN();
@@ -30,7 +30,7 @@ library LibTaikoToken {
             state.taikoTokenBalances[msg.sender] -= amount;
         }
 
-        TaikoToken(resolver.resolve("taiko_token", false)).mint(
+        TaikoToken(resolver.resolve("taiko_token", false)).transfer(
             msg.sender, amount
         );
     }
@@ -43,8 +43,8 @@ library LibTaikoToken {
         internal
     {
         if (amount > 0) {
-            TaikoToken(resolver.resolve("taiko_token", false)).burn(
-                msg.sender, amount
+            TaikoToken(resolver.resolve("taiko_token", false)).transferFrom(
+                msg.sender, address(this), amount
             );
             state.taikoTokenBalances[msg.sender] += amount;
         }

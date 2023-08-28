@@ -5,6 +5,7 @@
   import { Icon } from '$components/Icon';
   import { LogoWithText } from '$components/Logo';
   import { drawerToggleId } from '$components/SideNavigation';
+  import { ThemeButton } from '$components/ThemeButton';
   import { account } from '$stores/account';
 
   $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
@@ -35,6 +36,8 @@
     {/if}
 
     <ConnectButton connected={$account?.isConnected} />
+    <div class="v-sep my-auto mx-[8px] h-[24px]" />
+    <ThemeButton />
   </div>
 
   <label for={drawerToggleId} class="ml-[10px] md:hidden">

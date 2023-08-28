@@ -220,7 +220,7 @@
         error={$insufficientBalance}
         on:input={inputAmount}
         bind:this={inputBox}
-        class="py-6 pr-16 px-[26px] title-subsection-bold" />
+        class="py-6 pr-16 px-[26px] title-subsection-bold border-0" />
       <!-- TODO: talk to Jane about the MAX button and its styling -->
       <button
         class="absolute right-6 uppercase hover:font-bold"

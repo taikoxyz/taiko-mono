@@ -12,35 +12,29 @@ import { ISignalService } from "../../signal/ISignalService.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibBridgeData } from "./LibBridgeData.sol";
 
-/**
- * Entry point for starting a bridge transaction.
- */
+/// @title LibBridgeSend
+/// @notice This library provides functions for sending bridge messages and
+/// checking their status.
+/// The library facilitates the process of sending messages to the Bridge,
+/// validating input parameters, and managing Ether custody based on destination
+/// chains.
 library LibBridgeSend {
     using LibAddress for address;
     using LibBridgeData for IBridge.Message;
 
     error B_INCORRECT_VALUE();
-    error B_OWNER_IS_NULL();
+    error B_USER_IS_NULL();
     error B_WRONG_CHAIN_ID();
     error B_WRONG_TO_ADDRESS();
 
-    /**
-     * Send a message to the Bridge with the details of the request.
-     * @dev The Bridge takes custody of the funds, unless the source chain is
-     * Taiko,
-     * in which case the funds are sent to and managed by the EtherVault.
-     * @param state The current state of the Bridge
-     * @param resolver The address resolver
-     * @param message Specifies the `depositValue`, `callValue`, and
-     * `processingFee`.
-     * These must sum to `msg.value`. It also specifies the `destChainId`
-     * which must have a `bridge` address set on the AddressResolver and
-     * differ from the current chain ID.
-     * @return msgHash The hash of the sent message.
-     * This is picked up by an off-chain relayer which indicates
-     * a bridge message has been sent and is ready to be processed on the
-     * destination chain.
-     */
+    /// @notice Sends a message to the Bridge with the details of the request.
+    /// @dev This function takes custody of the specified funds, sending them to
+    /// the EtherVault on Taiko or storing them on the Bridge for processing on
+    /// the destination chain.
+    /// @param state The current state of the Bridge.
+    /// @param resolver The address resolver.
+    /// @param message The message to be sent, including value and fee details.
+    /// @return msgHash The hash of the sent message.
     function sendMessage(
         LibBridgeData.State storage state,
         AddressResolver resolver,
@@ -49,53 +43,52 @@ library LibBridgeSend {
         internal
         returns (bytes32 msgHash)
     {
-        if (message.owner == address(0)) {
-            revert B_OWNER_IS_NULL();
+        // Ensure the message user is not null.
+        if (message.user == address(0)) {
+            revert B_USER_IS_NULL();
         }
 
-        (bool destChainEnabled, address destChain) =
+        // Check if the destination chain is enabled.
+        (bool destChainEnabled, address destBridge) =
             isDestChainEnabled(resolver, message.destChainId);
 
+        // Verify destination chain and to address.
         if (!destChainEnabled || message.destChainId == block.chainid) {
             revert B_WRONG_CHAIN_ID();
         }
-        if (message.to == address(0) || message.to == destChain) {
+        if (message.to == address(0) || message.to == destBridge) {
             revert B_WRONG_TO_ADDRESS();
         }
 
-        uint256 expectedAmount =
-            message.depositValue + message.callValue + message.processingFee;
-
+        // Ensure the sent value matches the expected amount.
+        uint256 expectedAmount = message.value + message.fee;
         if (expectedAmount != msg.value) {
             revert B_INCORRECT_VALUE();
         }
 
-        // If on Taiko, send the expectedAmount to the EtherVault. Otherwise,
-        // store it here on the Bridge. Processing will release Ether from the
-        // EtherVault or the Bridge on the destination chain.
+        // On Taiko, send the expectedAmount to the EtherVault; otherwise, store
+        // it on the Bridge.
         address ethVault = resolver.resolve("ether_vault", true);
         ethVault.sendEther(expectedAmount);
 
+        // Configure message details and send signal to indicate message
+        // sending.
         message.id = state.nextMessageId++;
-        message.sender = msg.sender;
+        message.from = msg.sender;
         message.srcChainId = block.chainid;
 
         msgHash = message.hashMessage();
-        // Store a key which is the hash of this contract address and the
-        // msgHash, with a value of 1.
         ISignalService(resolver.resolve("signal_service", false)).sendSignal(
             msgHash
         );
         emit LibBridgeData.MessageSent(msgHash, message);
     }
 
-    /**
-     * Check if the destination chain is enabled.
-     * @param resolver The address resolver
-     * @param chainId The destination chain id
-     * @return enabled True if the destination chain is enabled
-     * @return destBridge The bridge of the destination chain
-     */
+    /// @notice Checks if the destination chain is enabled.
+    /// @param resolver The address resolver.
+    /// @param chainId The destination chain ID.
+    /// @return enabled True if the destination chain is enabled.
+    /// @return destBridge The bridge of the destination chain.
     function isDestChainEnabled(
         AddressResolver resolver,
         uint256 chainId
@@ -108,12 +101,10 @@ library LibBridgeSend {
         enabled = destBridge != address(0);
     }
 
-    /**
-     * Check if the message was sent.
-     * @param resolver The address resolver
-     * @param msgHash The hash of the sent message
-     * @return True if the message was sent
-     */
+    /// @notice Checks if the message was sent.
+    /// @param resolver The address resolver.
+    /// @param msgHash The hash of the sent message.
+    /// @return True if the message was sent.
     function isMessageSent(
         AddressResolver resolver,
         bytes32 msgHash
@@ -126,14 +117,12 @@ library LibBridgeSend {
             .isSignalSent({ app: address(this), signal: msgHash });
     }
 
-    /**
-     * Check if the message was received.
-     * @param resolver The address resolver
-     * @param msgHash The hash of the received message
-     * @param srcChainId The id of the source chain
-     * @param proof The proof of message receipt
-     * @return True if the message was received
-     */
+    /// @notice Checks if the message was received.
+    /// @param resolver The address resolver.
+    /// @param msgHash The hash of the received message.
+    /// @param srcChainId The ID of the source chain.
+    /// @param proof The proof of message receipt.
+    /// @return True if the message was received.
     function isMessageReceived(
         AddressResolver resolver,
         bytes32 msgHash,

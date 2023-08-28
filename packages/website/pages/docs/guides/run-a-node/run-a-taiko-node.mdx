@@ -154,13 +154,13 @@ Make sure Docker is running and then run the following command to start the node
 For a Grimsvotn L2 node:
 
 ```sh
-sudo docker compose up -d --remove-orphans
+sudo docker compose up -d
 ```
 
 For an Eldfell L3 node:
 
 ```sh
-sudo docker compose -f ./docker-compose.l3.yml --env-file .env.l3 up -d --remove-orphans
+sudo docker compose -f ./docker-compose.l3.yml --env-file .env.l3 up -d
 ```
 
 ### Verify node is running
@@ -179,7 +179,7 @@ curl http://localhost:8547 \
 which should return the chainId as `0x28c5d` (167005):
 
 ```json
-{"jsonrpc":"2.0","id":0,"result":"0x28c5d"}
+{ "jsonrpc": "2.0", "id": 0, "result": "0x28c5d" }
 ```
 
 For Taiko L3, use port 8549 for the `eth_chainId` curl request and you should get chainId `0x28c5e` (167006).
@@ -194,18 +194,23 @@ curl http://localhost:8547 \
 ```
 
 3. If the blockNumber response value is `0` or not growing, check the Taiko L2 logs here:
+
 ```bash
 sudo docker compose logs -f
 ```
+
 or the Taiko L3 logs here
+
 ```bash
 sudo docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f
 ```
+
 If you find an error, check the [Node troubleshooting](/docs/reference/node-troubleshooting) page.
 
 #### Check with the node dashboard
 
 A node dashboard will be running on `localhost` on the `GRAFANA_PORT` you set in your `.env` or `.env.l3` file.
+
 - For a Grimsvotn L2 node that would default to: [http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview](http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview).
 - For a Eldfell L3 node that would default to: [http://localhost:3002/d/L2ExecutionEngine/l2-execution-engine-overview](http://localhost:3002/d/L2ExecutionEngine/l2-execution-engine-overview).
 

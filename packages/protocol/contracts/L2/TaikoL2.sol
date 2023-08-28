@@ -7,23 +7,20 @@
 pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { Proxied } from "../common/Proxied.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
-import { LibL2Consts } from "./LibL2Consts.sol";
-import { LibMath } from "../libs/LibMath.sol";
 import { Lib1559Math } from "../libs/Lib1559Math.sol";
-import { TaikoL2Signer } from "./TaikoL2Signer.sol";
+import { LibMath } from "../libs/LibMath.sol";
+import { Proxied } from "../common/Proxied.sol";
 import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import { TaikoL2Signer } from "./TaikoL2Signer.sol";
 
 /// @title TaikoL2
 /// @notice Taiko L2 is a smart contract that handles cross-layer message
 /// verification and manages EIP-1559 gas pricing for Layer 2 (L2) operations.
-///
 /// It is used to anchor the latest L1 block details to L2 for cross-layer
 /// communication, manage EIP-1559 parameters for gas pricing, and store
-/// verified
-/// L1 block information.
+/// verified L1 block information.
 contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     using SafeCastUpgradeable for uint256;
     using LibMath for uint256;
@@ -47,15 +44,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         uint32 gasIssuedPerSecond;
     }
 
-    /*//////////////////////////////////////////////////////////////
-                            STATE VARIABLES
-    //////////////////////////////////////////////////////////////*/
-
     // Mapping from L2 block numbers to their block hashes.
     // All L2 block hashes will be saved in this mapping.
-    mapping(uint256 blockNumber => bytes32 blockHash) private _l2Hashes;
-
-    mapping(uint256 blockNumber => VerifiedBlock) private _l1VerifiedBlocks;
+    mapping(uint256 blockId => bytes32 blockHash) private _l2Hashes;
+    mapping(uint256 blockId => VerifiedBlock) private _l1VerifiedBlocks;
 
     // A hash to check the integrity of public inputs.
     bytes32 public publicInputHash;
@@ -68,10 +60,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     uint64 private __reserved1;
 
     uint256[45] private __gap;
-
-    /*//////////////////////////////////////////////////////////////
-                                 EVENTS
-    //////////////////////////////////////////////////////////////*/
 
     // Captures all block variables mentioned in
     // https://docs.soliditylang.org/en/v0.8.20/units-and-global-variables.html
@@ -86,10 +74,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         uint32 chainid
     );
 
-    /*//////////////////////////////////////////////////////////////
-                             CUSTOM ERRORS
-    //////////////////////////////////////////////////////////////*/
-
     error L2_BASEFEE_MISMATCH(uint64 expected, uint64 actual);
     error L2_INVALID_1559_PARAMS();
     error L2_INVALID_CHAIN_ID();
@@ -98,10 +82,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     error L2_TOO_LATE();
     error L2_1559_UNEXPECTED_CHANGE(uint64 expected, uint64 actual);
     error L2_1559_OUT_OF_STOCK();
-
-    /*//////////////////////////////////////////////////////////////
-                         USER-FACING FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
 
     /// @notice Initializes the TaikoL2 contract.
     /// @param _addressManager Address of the {AddressManager} contract.
@@ -153,8 +133,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     }
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
-    /// message
-    /// verification.
+    /// message verification.
     /// @param l1Hash The latest L1 block hash when this block was proposed.
     /// @param l1SignalRoot The latest value of the L1 signal service storage
     /// root.
@@ -244,58 +223,45 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         });
     }
 
-    /// @notice Retrieves the L1 block hash for the given L1 block number or the
-    /// latest synced L1 block hash if the number is zero.
-    /// @param number The L1 block number to retrieve the block hash for, or
-    /// zero
-    /// to fetch the latest synced L1 block hash.
-    /// @return The L1 block hash for the specified L1 block number or the
-    /// latest
-    /// synced L1 block hash.
-    function getCrossChainBlockHash(uint256 number)
+    /// @inheritdoc ICrossChainSync
+    function getCrossChainBlockHash(uint64 blockId)
         public
         view
         override
         returns (bytes32)
     {
-        uint256 _number = number == 0 ? latestSyncedL1Height : number;
-        return _l1VerifiedBlocks[_number].blockHash;
+        uint256 id = blockId == 0 ? latestSyncedL1Height : blockId;
+        return _l1VerifiedBlocks[id].blockHash;
     }
 
-    /// @notice Retrieves the signal root for the given L1 block number or the
-    /// latest synced L1 signal root if the number is zero.
-    /// @param number The L1 block number to retrieve the signal root for, or
-    /// zero to fetch the latest synced L1 signal root.
-    /// @return The signal root for the specified L1 block number or the latest
-    /// synced L1 signal root.
-    function getCrossChainSignalRoot(uint256 number)
+    /// @inheritdoc ICrossChainSync
+    function getCrossChainSignalRoot(uint64 blockId)
         public
         view
         override
         returns (bytes32)
     {
-        uint256 _number = number == 0 ? latestSyncedL1Height : number;
-        return _l1VerifiedBlocks[_number].signalRoot;
+        uint256 id = blockId == 0 ? latestSyncedL1Height : blockId;
+        return _l1VerifiedBlocks[id].signalRoot;
     }
 
     /// @notice Retrieves the block hash for the given L2 block number.
-    /// @param number The L2 block number to retrieve the block hash for.
-    /// @return The block hash for the specified L2 block number, or zero if the
-    /// block number is greater than or equal to the current block number.
-    function getBlockHash(uint256 number) public view returns (bytes32) {
-        if (number >= block.number) {
+    /// @param blockId The L2 block number to retrieve the block hash for.
+    /// @return The block hash for the specified L2 block id, or zero if the
+    /// block id is greater than or equal to the current block number.
+    function getBlockHash(uint64 blockId) public view returns (bytes32) {
+        if (blockId >= block.number) {
             return 0;
-        } else if (number < block.number && number >= block.number - 256) {
-            return blockhash(number);
+        } else if (blockId < block.number && blockId >= block.number - 256) {
+            return blockhash(blockId);
         } else {
-            return _l2Hashes[number];
+            return _l2Hashes[blockId];
         }
     }
 
     /// @notice Retrieves the current EIP-1559 configuration details.
     /// @return The current EIP-1559 configuration details, including the
-    /// yscale,
-    /// xscale, and gasIssuedPerSecond parameters.
+    /// yscale, xscale, and gasIssuedPerSecond parameters.
     function getEIP1559Config()
         public
         view
@@ -305,11 +271,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         return _eip1559Config;
     }
 
-    /*//////////////////////////////////////////////////////////////
-                           PRIVATE FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-
-    function _calcPublicInputHash(uint256 blockNumber)
+    function _calcPublicInputHash(uint256 blockId)
         private
         view
         returns (bytes32 prevPIH, bytes32 currPIH)
@@ -318,8 +280,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         unchecked {
             // Put the previous 255 blockhashes (excluding the parent's) into a
             // ring buffer.
-            for (uint256 i; i < 255 && blockNumber >= i + 1; ++i) {
-                uint256 j = blockNumber - i - 1;
+            for (uint256 i; i < 255 && blockId >= i + 1; ++i) {
+                uint256 j = blockId - i - 1;
                 inputs[j % 255] = blockhash(j);
             }
         }
@@ -330,7 +292,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             prevPIH := keccak256(inputs, mul(256, 32))
         }
 
-        inputs[blockNumber % 255] = blockhash(blockNumber);
+        inputs[blockId % 255] = blockhash(blockId);
         assembly {
             currPIH := keccak256(inputs, mul(256, 32))
         }
@@ -346,13 +308,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         returns (uint256 _basefee, uint64 _gasExcess)
     {
         unchecked {
-            uint32 parentGasUsedNet;
-            if (parentGasUsed > LibL2Consts.ANCHOR_GAS_COST) {
-                parentGasUsedNet = parentGasUsed - LibL2Consts.ANCHOR_GAS_COST;
-            }
-
             uint256 issued = timeSinceParent * config.gasIssuedPerSecond;
-            uint256 excess = (uint256(gasExcess) + parentGasUsedNet).max(issued);
+            uint256 excess = (uint256(gasExcess) + parentGasUsed).max(issued);
             // Very important to cap _gasExcess uint64
             _gasExcess = uint64((excess - issued).min(type(uint64).max));
         }

@@ -121,7 +121,7 @@
         </div>
       {/if}
     </div>
-    <Icon type="chevron-down" />
+    <Icon type="chevron-down" size={24} />
   </button>
 
   {#if isDesktopOrLarger}

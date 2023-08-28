@@ -60,7 +60,7 @@
   },
   "processing_fee": {
     "title": "Processing fee",
-    "description": "Some description about the processing fee",
+    "description": "The payment you provide to the relayer for handling your bridge message on the destination chain.",
     "link": "Customize fee",
     "tooltip_title": "What is Processing Fee?",
     "tooltip": "The payment you provide to the relayer for handling your bridge message on the destination chain.",
@@ -72,7 +72,7 @@
     "none": {
       "label": "None",
       "text": "Use ETH to manually claim your bridged token later",
-      "warning": "This option cannot be selected. You have not enough ETH to cover the gas fees for claiming."
+      "warning": "Insufficient ETH to cover the gas fees for claiming."
     },
     "custom": {
       "label": "Custom",
@@ -189,7 +189,11 @@
     },
     "address_input": {
       "label": "Address",
-      "placeholder": "Enter an address"
+      "placeholder": "Enter an address",
+      "errors": {
+        "invalid": "Invalid address format"
+      },
+      "success": "Valid address format"
     },
     "amount": {
       "label": "Amount",
@@ -218,8 +222,8 @@
     }
   },
   "switch_modal": {
-    "title": "Not on the right network",
-    "description": "Your current network is not supported. Please select one:"
+    "title": "Incorrect network detected",
+    "description": "Your current network is not supported. Please select one of the following chains to proceed:"
   },
   "messages": {
     "account": {
