@@ -96,7 +96,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        onlyFromNamed("erc20_vault")
+        onlyFromNamed2("erc20_vault", "taiko")
     {
         _mint(to, amount);
     }
