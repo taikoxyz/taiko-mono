@@ -108,7 +108,7 @@ const ecosystemData: EcosystemData[] = [
     description:
       "MES is a cross-rollup orderbook DEX.",
     filters: [],
-    isLive: true,
+    isLive: false,
   },
   {
     icon: "/images/ecosystem/mintpad.jpeg",
