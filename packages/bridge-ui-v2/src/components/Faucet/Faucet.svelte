@@ -11,11 +11,11 @@
   import { successToast, warningToast } from '$components/NotificationToast';
   import { errorToast, infoToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { TokenDropdown } from '$components/TokenDropdown';
+  import { chainConfig } from '$config/chains';
+  import { chains } from '$libs/chain';
   import { InsufficientBalanceError, MintError, TokenMintedError } from '$libs/error';
   import { checkMintable, mint, testERC20Tokens, type Token } from '$libs/token';
   import { account, network, pendingTransactions } from '$stores';
-  import { chains } from '$libs/chain';
-  import { chainConfig } from '$config/chains';
 
   let minting = false;
   let checkingMintable = false;
@@ -105,7 +105,7 @@
       return false;
     }
     if (network?.id) {
-      return !Boolean(selectedToken.addresses[network.id]);
+      return !selectedToken.addresses[network.id];
     }
     return true;
   }

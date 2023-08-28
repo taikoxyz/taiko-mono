@@ -1,14 +1,15 @@
 <script lang="ts">
-  import { chains } from '$libs/chain';
   import { writable } from 'svelte/store';
-  import ChainSelector from './ChainSelector.svelte';
-  import { network, type Network } from '$stores/network';
+
   import { destNetwork } from '$components/Bridge/state';
   import SwitchChainsButton from '$components/Bridge/SwitchChainsButton.svelte';
   import { OnNetwork } from '$components/OnNetwork';
   import { hasBridge } from '$libs/bridge/bridges';
+  import { chains } from '$libs/chain';
+  import { type Network,network } from '$stores/network';
 
-  //   const sourceOptions = writable(chains);
+  import ChainSelector from './ChainSelector.svelte';
+
   const destOptions = writable(chains);
 
   function handleSourceChange(event: CustomEvent<number>): void {
@@ -22,13 +23,8 @@
   function updateDestOptions() {
     destOptions.set(
       chains.filter((chain) => {
-        console.log(`dest check: chain.id: ${chain.id}, srcChain: ${$network?.id}`);
         const excludeCurrentSrc = chain.id !== $network?.id;
         const hasBridgeCondition = $network?.id === null || ($network?.id && hasBridge($network?.id, chain.id));
-
-        console.log(
-          `destOptions - chain.id: ${chain.id}, excludeCurrentSrc: ${excludeCurrentSrc}, hasBridgeCondition: ${hasBridgeCondition}`,
-        );
 
         return excludeCurrentSrc && hasBridgeCondition;
       }),

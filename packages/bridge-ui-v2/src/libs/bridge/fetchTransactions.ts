@@ -29,7 +29,7 @@ export async function fetchTransactions(userAddress: Address) {
   // Flatten the arrays into a single array
   const relayerTxs: BridgeTransaction[] = relayerTxsArrays.reduce((acc, txs) => acc.concat(txs), []);
 
-  log(`fetched ${relayerTxs.length} transactions from all relayers`, relayerTxs)
+  log(`fetched ${relayerTxs.length} transactions from all relayers`, relayerTxs);
 
   const { mergedTransactions, outdatedLocalTransactions } = mergeAndCaptureOutdatedTransactions(localTxs, relayerTxs);
   if (outdatedLocalTransactions.length > 0) {

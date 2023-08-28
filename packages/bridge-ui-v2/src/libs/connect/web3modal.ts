@@ -9,7 +9,7 @@ const projectId = PUBLIC_WALLETCONNECT_PROJECT_ID;
 
 const ethereumClient = new EthereumClient(wagmiConfig, chains);
 
-const chainImages = getChainImages()
+const chainImages = getChainImages();
 
 export const web3modal = new Web3Modal(
   {

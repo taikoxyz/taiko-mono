@@ -3,11 +3,14 @@
   import { TransactionExecutionError, UserRejectedRequestError } from 'viem';
 
   import { Card } from '$components/Card';
+  import ChainSelectorWrapper from '$components/ChainSelector/ChainSelectorWrapper.svelte';
   import { successToast, warningToast } from '$components/NotificationToast';
   import { errorToast, infoToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { OnAccount } from '$components/OnAccount';
   import { OnNetwork } from '$components/OnNetwork';
   import { TokenDropdown } from '$components/TokenDropdown';
+  import { routingContractsMap } from '$config/bridges';
+  import { chainConfig } from '$config/chains';
   import {
     type BridgeArgs,
     bridges,
@@ -16,6 +19,7 @@
     type ETHBridgeArgs,
     MessageStatus,
   } from '$libs/bridge';
+  import { hasBridge } from '$libs/bridge/bridges';
   import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
   import {
     ApproveError,
@@ -36,10 +40,6 @@
   import { ProcessingFee } from './ProcessingFee';
   import Recipient from './Recipient.svelte';
   import { bridgeService, destNetwork, enteredAmount, processingFee, recipientAddress, selectedToken } from './state';
-  import ChainSelectorWrapper from '$components/ChainSelector/ChainSelectorWrapper.svelte';
-  import { hasBridge } from '$libs/bridge/bridges';
-  import { routingContractsMap } from '$config/bridges';
-  import { chainConfig } from '$config/chains';
 
   let amountComponent: Amount;
   let recipientComponent: Recipient;

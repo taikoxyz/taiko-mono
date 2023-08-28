@@ -25,7 +25,6 @@ const HORSEToken: Token = {
   type: TokenType.ERC20,
 };
 
-
 const mockTokenContract = {
   read: {
     canonicalToBridged: vi.fn(),

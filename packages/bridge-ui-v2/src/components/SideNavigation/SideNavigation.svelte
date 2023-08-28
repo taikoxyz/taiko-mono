@@ -9,9 +9,9 @@
   import { Icon } from '$components/Icon';
   import { LinkButton } from '$components/LinkButton';
   import { LogoWithText } from '$components/Logo';
+  import { chainConfig } from '$config/chains';
   import { PUBLIC_DEFAULT_EXPLORER, PUBLIC_GUIDE_URL } from '$env/static/public';
   import { network } from '$stores/network';
-  import { chainConfig } from '$config/chains';
 
   let drawerToggleElem: HTMLInputElement;
 

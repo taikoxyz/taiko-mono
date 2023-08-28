@@ -10,7 +10,6 @@ import { type GetCrossChainAddressArgs, TokenType } from './types';
 
 const log = getLogger('token:getCrossChainAddress');
 
-
 // TODO: have another look at this function
 
 export async function getCrossChainAddress({

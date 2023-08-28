@@ -3,9 +3,9 @@
   import { t } from 'svelte-i18n';
   import { UserRejectedRequestError } from 'viem';
 
-  import { chainConfig } from '$config/chains';
   import { LoadingMask } from '$components/LoadingMask';
   import { warningToast } from '$components/NotificationToast';
+  import { chainConfig } from '$config/chains';
   import { chains } from '$libs/chain';
   import { switchChainModal } from '$stores/modal';
 

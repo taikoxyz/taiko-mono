@@ -24,7 +24,6 @@ import type {
 const log = getLogger('RelayerAPIService');
 
 export class RelayerAPIService {
-
   constructor(baseUrl: string) {
     log('relayer service instantiated');
     // There is a chance that by accident the env var
@@ -32,7 +31,6 @@ export class RelayerAPIService {
     // this baseURL. Normalize it, preventing errors
     this.baseUrl = baseUrl.replace(/\/$/, '');
   }
-
 
   //Todo: duplicate code in BridgeTxService
   private static async _getTransactionReceipt(chainId: number, hash: Hash) {
@@ -107,7 +105,6 @@ export class RelayerAPIService {
   }
 
   private readonly baseUrl: string;
-
 
   async getTransactionsFromAPI(params: APIRequestParams): Promise<APIResponse> {
     const requestURL = `${this.baseUrl}/events`;

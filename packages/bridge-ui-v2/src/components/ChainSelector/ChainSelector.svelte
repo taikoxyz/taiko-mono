@@ -1,20 +1,20 @@
 <script lang="ts">
   import { type Chain, type GetNetworkResult, switchNetwork } from '@wagmi/core';
   import { onDestroy } from 'svelte';
+  import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
   import { UserRejectedRequestError } from 'viem';
-  import { Alert } from '$components/Alert';
 
+  import { Alert } from '$components/Alert';
   import { Icon } from '$components/Icon';
   import { LoadingMask } from '$components/LoadingMask';
   import { warningToast } from '$components/NotificationToast';
+  import { chainConfig } from '$config/chains';
   import { chains } from '$libs/chain';
   import { classNames } from '$libs/util/classNames';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
-  import { createEventDispatcher } from 'svelte';
-  import { chainConfig } from '$config/chains';
 
   export let label = '';
   export let value: Maybe<GetNetworkResult['chain']> = null;

@@ -7,7 +7,6 @@ import { generateChainConfig } from './vite-plugins/generateChainConfig';
 import { generateCustomTokenConfig } from './vite-plugins/generateCustomTokenConfig';
 import { generateRelayerConfig } from './vite-plugins/generateRelayerConfig';
 
-
 export default defineConfig({
   build: {
     sourcemap: true,
@@ -21,7 +20,7 @@ export default defineConfig({
     generateChainConfig(),
     generateBridgeConfig(),
     generateRelayerConfig(),
-    generateCustomTokenConfig()
+    generateCustomTokenConfig(),
   ],
   test: {
     environment: 'jsdom',
