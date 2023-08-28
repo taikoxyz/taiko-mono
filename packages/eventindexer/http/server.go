@@ -7,7 +7,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/patrickmn/go-cache"
@@ -26,13 +25,12 @@ type Server struct {
 }
 
 type NewServerOpts struct {
-	Echo              *echo.Echo
-	EventRepo         eventindexer.EventRepository
-	StatRepo          eventindexer.StatRepository
-	NFTBalanceRepo    eventindexer.NFTBalanceRepository
-	ProverPoolAddress common.Address
-	EthClient         *ethclient.Client
-	CorsOrigins       []string
+	Echo           *echo.Echo
+	EventRepo      eventindexer.EventRepository
+	StatRepo       eventindexer.StatRepository
+	NFTBalanceRepo eventindexer.NFTBalanceRepository
+	EthClient      *ethclient.Client
+	CorsOrigins    []string
 }
 
 func (opts NewServerOpts) Validate() error {
