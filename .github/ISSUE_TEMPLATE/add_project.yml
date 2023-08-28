@@ -1,6 +1,6 @@
 name: "Add a project to Taiko's ecosystem 🌐"
 description: "Add a project to Taiko's ecosystem"
-title: "Add [PROJECT_NAME] to the ecosystem"
+title: "Add [PROJECT_NAME] to the ecosystem page"
 labels: ["area.website", "category.ecosystem"]
 body:
   - type: markdown
