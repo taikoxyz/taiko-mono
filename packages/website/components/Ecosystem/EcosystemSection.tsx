@@ -262,6 +262,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/rubric.png",
+    name: "Rubric",
+    link: "https://rubic.exchange/",
+    description:
+      "Rubic enhances interoperability through network bridging and cross-chain dev tools for omnichain dApps. Users access diverse assets via varied DEXs under a unified interface with optimized cross-chain transactions.",
+    filters: [],
+    isLive: false,
+  },
+  {
     icon: "/images/ecosystem/rubydex.png",
     name: "RubyDex",
     link: "https://testnet.rubydex.com/en",
@@ -455,15 +464,13 @@ export function EcosystemSection() {
 function FilterLabel({ text, activeFilter, setActiveFilter }) {
   const isActive = activeFilter === text;
 
-  const buttonStyles = `border rounded-full py-1 px-4 text-sm focus:outline-none transition-colors duration-200 font-bold ${
-    isActive
-      ? "bg-gray-300 text-black"
-      : "bg-white text-gray-700 dark:bg-black dark:text-gray-300"
-  } ${
-    isActive
+  const buttonStyles = `border rounded-full py-1 px-4 text-sm focus:outline-none transition-colors duration-200 font-bold ${isActive
+    ? "bg-gray-300 text-black"
+    : "bg-white text-gray-700 dark:bg-black dark:text-gray-300"
+    } ${isActive
       ? "hover:bg-gray-400"
       : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
-  }`;
+    }`;
 
   return (
     <button className={buttonStyles} onClick={() => setActiveFilter(text)}>
