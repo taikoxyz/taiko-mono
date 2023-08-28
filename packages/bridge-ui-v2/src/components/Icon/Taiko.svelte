@@ -1,9 +1,9 @@
 <script lang="ts">
-  export let size: number = 20;
+  export let size = 20;
   export let width: number = size;
   export let height: number = size;
-  const originalViewBoxSize: number = 20;
-  const targetViewBoxSize: number = 20;
+  const originalViewBoxSize = 20;
+  const targetViewBoxSize = 20;
   const scale: number = targetViewBoxSize / originalViewBoxSize;
 </script>
 

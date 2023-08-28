@@ -24,7 +24,7 @@
   }
 
   body::before {
-    content: "";
+    content: '';
     position: fixed;
     top: 0;
     right: 0;
@@ -35,7 +35,7 @@
     background-size: 0, cover, cover;
     background-blend-mode: color-dodge, lighten, multiply;
     z-index: -1;
-}
+  }
 
   @media (min-width: 768px) {
     body::before {

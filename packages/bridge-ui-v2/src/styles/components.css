@@ -87,7 +87,7 @@
   }
 
   .input-box.withValdiation {
-    @apply outline-none
+    @apply outline-none;
   }
 
   .input-box.error {
@@ -96,7 +96,7 @@
   }
 
   .input-box.success {
-     box-shadow: 0 0 0 3px var(--positive-sentiment) !important;;
+    box-shadow: 0 0 0 3px var(--positive-sentiment) !important;
   }
 
   /* Tooltip */
