@@ -22,7 +22,6 @@ import "../contracts/signal/SignalService.sol";
 import "../contracts/common/AddressManager.sol";
 import "../contracts/test/erc20/FreeMintERC20.sol";
 import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
-import "../contracts/L1/ProverPool.sol";
 
 contract DeployOnL1 is Script {
     using SafeCastUpgradeable for uint256;
@@ -58,7 +57,6 @@ contract DeployOnL1 is Script {
         require(owner != address(0), "owner is zero");
         require(taikoL2Address != address(0), "taikoL2Address is zero");
         require(l2SignalService != address(0), "l2SignalService is zero");
-        require(treasury != address(0), "treasury is zero");
         require(
             taikoTokenPremintRecipients.length != 0,
             "taikoTokenPremintRecipients length is zero"
@@ -69,13 +67,6 @@ contract DeployOnL1 is Script {
                 == taikoTokenPremintAmounts.length,
             "taikoTokenPremintRecipients and taikoTokenPremintAmounts must be same length"
         );
-
-        uint256 premintSum;
-        for (uint8 i = 0; i < taikoTokenPremintAmounts.length; i++) {
-            premintSum += taikoTokenPremintAmounts[i];
-        }
-
-        require(premintSum < type(uint64).max, "premint amount too large");
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -95,7 +86,6 @@ contract DeployOnL1 is Script {
         setAddress(l2ChainId, "taiko", taikoL2Address);
         setAddress(l2ChainId, "signal_service", l2SignalService);
         setAddress("oracle_prover", oracleProver);
-        setAddress(l2ChainId, "treasury", treasury);
 
         // TaikoToken
         TaikoToken taikoToken = new ProxiedTaikoToken();
@@ -112,17 +102,6 @@ contract DeployOnL1 is Script {
                     taikoTokenPremintRecipients,
                     taikoTokenPremintAmounts
                 )
-            )
-        );
-
-        // ProverPool
-        ProverPool stakingProverPool = new ProxiedProverPool();
-        deployProxy(
-            "prover_pool",
-            address(stakingProverPool),
-            bytes.concat(
-                stakingProverPool.init.selector,
-                abi.encode(addressManagerProxy, 2048)
             )
         );
 

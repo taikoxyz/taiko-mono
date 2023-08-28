@@ -1,0 +1,12 @@
+version: "3.9"
+
+services:
+  geth:
+    image: ethereum/client-go:v1.10.26
+    restart: unless-stopped
+    volumes:
+      - ../../deployments:/data
+      - .:/host
+    ports:
+      - 18545:8545
+    entrypoint: "/host/init_geth.sh"

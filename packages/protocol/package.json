@@ -14,13 +14,13 @@
     "fmt:sol": "forge fmt",
     "generate:genesis": "ts-node ./utils/generate_genesis/main.ts",
     "lint:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol' --fix",
-    "sim": "forge test -vvv --gas-report --fuzz-seed $(date +%s) --match-path test/**/*.sim.sol --block-gas-limit 3000000000000000000",
+    "sim": "forge test -vvv --gas-report --fuzz-seed $(date +%s) --mp test/L1/TaikoL1.sim.sol --block-gas-limit 3000000000000000000",
     "sim:export": "pnpm test:sim > simulation/exports/simulation_data_$(date +%s).txt",
     "sizer": "pnpm hardhat size-contracts",
-    "snapshot": "forge snapshot --match-path test/**/*.t.sol",
-    "test": "forge test -vvv --gas-report --fuzz-seed $(date +%s) --match-path test/**/*.t.sol",
+    "snapshot": "forge snapshot --match-path 'test/**/*.t.sol'",
+    "test": "forge test -vvv --gas-report --fuzz-seed $(date +%s) --nmp test/L1/TaikoL1.sim.sol",
     "test:coverage": "forge coverage --report lcov",
-    "test:genesis": "./test/genesis/generate_genesis.test.sh",
+    "test:genesis": "./genesis/generate_genesis.test.sh",
     "upgrade": "./script/upgrade_to.sh"
   },
   "keywords": [

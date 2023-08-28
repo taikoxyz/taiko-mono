@@ -6,14 +6,14 @@
 
 pragma solidity ^0.8.20;
 
-import { SafeERC20Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import { BridgeErrors } from "./BridgeErrors.sol";
 import { Create2Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { Proxied } from "../common/Proxied.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
-import { BridgeErrors } from "./BridgeErrors.sol";
+import { Proxied } from "../common/Proxied.sol";
+import { SafeERC20Upgradeable } from
+    "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
 /// @title EtherVault
 /// @notice This contract is initialized with 2^128 Ether and allows authorized
@@ -22,13 +22,15 @@ import { BridgeErrors } from "./BridgeErrors.sol";
 contract EtherVault is EssentialContract, BridgeErrors {
     using LibAddress for address;
 
-    mapping(address addr => bool isAuthorized) private _authorizedAddrs;
+    mapping(address addr => bool isAuthorized) private _authorizedAddrs; // Authorized
+        // addresses
     uint256[49] private __gap;
 
     event Authorized(address indexed addr, bool authorized);
     event EtherReleased(address indexed to, uint256 amount);
 
     modifier onlyAuthorized() {
+        // Ensure the caller is authorized to perform the action
         if (!isAuthorized(msg.sender)) {
             revert B_EV_NOT_AUTHORIZED();
         }
@@ -50,7 +52,7 @@ contract EtherVault is EssentialContract, BridgeErrors {
         EssentialContract._init(addressManager);
     }
 
-    /// @notice Transfer Ether from EtherVault to the sender, checking that the
+    /// @notice Transfers Ether from EtherVault to the sender, checking that the
     /// sender is authorized.
     /// @param amount Amount of Ether to send.
     function releaseEther(uint256 amount) public onlyAuthorized nonReentrant {
@@ -58,8 +60,8 @@ contract EtherVault is EssentialContract, BridgeErrors {
         emit EtherReleased(msg.sender, amount);
     }
 
-    /// @notice Transfer Ether from EtherVault to a designated address, checking
-    /// that the sender is authorized.
+    /// @notice Transfers Ether from EtherVault to a designated address,
+    /// checking that the sender is authorized.
     /// @param recipient Address to receive Ether.
     /// @param amount Amount of ether to send.
     function releaseEther(
@@ -70,6 +72,7 @@ contract EtherVault is EssentialContract, BridgeErrors {
         onlyAuthorized
         nonReentrant
     {
+        if (amount == 0) return;
         if (recipient == address(0)) {
             revert B_EV_DO_NOT_BURN();
         }
@@ -77,8 +80,8 @@ contract EtherVault is EssentialContract, BridgeErrors {
         emit EtherReleased(recipient, amount);
     }
 
-    /// @notice Set the authorized status of an address, only the owner can call
-    /// this.
+    /// @notice Sets the authorized status of an address, only the owner can
+    /// call this function.
     /// @param addr Address to set the authorized status of.
     /// @param authorized Authorized status to set.
     function authorize(address addr, bool authorized) public onlyOwner {
@@ -89,7 +92,7 @@ contract EtherVault is EssentialContract, BridgeErrors {
         emit Authorized(addr, authorized);
     }
 
-    /// @notice Get the authorized status of an address.
+    /// @notice Gets the authorized status of an address.
     /// @param addr Address to get the authorized status of.
     function isAuthorized(address addr) public view returns (bool) {
         return _authorizedAddrs[addr];
@@ -97,5 +100,5 @@ contract EtherVault is EssentialContract, BridgeErrors {
 }
 
 /// @title ProxiedEtherVault
-/// @notice Proxied version of the EtherVault contract.
+/// @notice Proxied version of the parent contract.
 contract ProxiedEtherVault is Proxied, EtherVault { }

@@ -11,7 +11,7 @@ import (
 
 func (p *Processor) isProfitable(
 	ctx context.Context, message bridge.IBridgeMessage, cost *big.Int) (bool, error) {
-	processingFee := message.ProcessingFee
+	processingFee := message.Fee
 
 	if processingFee == nil || processingFee.Cmp(big.NewInt(0)) != 1 {
 		return false, nil
