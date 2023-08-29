@@ -15,7 +15,9 @@ import { SafeCastUpgradeable } from
 /// implementation.
 /// See formulas described in the whitepaper
 /// https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf
-// From section:  "9.6. Rate Limiting using EIP-1559."
+/// From section:  "9.6. Rate Limiting using EIP-1559."
+/// Additional info about the arithmetic formula:
+/// https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/docs/L2EIP1559.md
 library Lib1559Math {
     using SafeCastUpgradeable for uint256;
 

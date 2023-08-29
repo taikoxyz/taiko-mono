@@ -148,6 +148,28 @@ contract TaikoToken is
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
 
+    /// @notice Atomically increases the allowance granted to `spender` by the caller.
+    /// @param spender The address to which the allowance is increased.
+    /// @param addedValue The amount by which the allowance is increased.
+    /// @return A boolean indicating whether the increase was successful or not.
+    function increaseAllowance(address spender, uint256 addedValue) public virtual returns (bool) {
+        _approve(_msgSender(), spender, _allowances[_msgSender()][spender] + addedValue);
+        return true;
+    }
+
+    /// @notice Atomically decreases the allowance granted to `spender` by the caller.
+    /// @param spender The address to which the allowance is decreased.
+    /// @param subtractedValue The amount by which the allowance is decreased.
+    /// @return A boolean indicating whether the decrease was successful or not.
+    function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool) {
+        uint256 currentAllowance = _allowances[_msgSender()][spender];
+        require(currentAllowance >= subtractedValue, "ERC20: decreased allowance below zero");
+        unchecked {
+            _approve(_msgSender(), spender, currentAllowance - subtractedValue);
+        }
+        return true;
+    }
+
     function _beforeTokenTransfer(
         address from,
         address to,
