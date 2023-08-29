@@ -74,7 +74,7 @@
   <span class="body-small-regular text-secondary-content mt-[4px]">
     {#if displayedRecipient}
       {shortenAddress(displayedRecipient, 15, 13)}
-      <span class="text-secondary">{$recipientAddress === $account?.address ? '' : '| Customized'}</span>
+      <span class="text-secondary">{$recipientAddress !== $account?.address ? '' : '| Customized'}</span>
     {:else}
       {$t('recipient.placeholder')}
     {/if}
