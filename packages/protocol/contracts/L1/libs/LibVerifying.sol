@@ -109,11 +109,11 @@ library LibVerifying {
         if (tid == 0) revert L1_UNEXPECTED_TRANSITION_ID();
 
         bytes32 blockHash = state.transitions[blockId][tid].blockHash;
-
         bytes32 signalRoot;
         TaikoData.Transition memory fc;
-
+        uint256 totalBurn;
         uint64 processed;
+
         unchecked {
             ++blockId;
 
@@ -148,9 +148,7 @@ library LibVerifying {
                 } else {
                     uint96 reward = blk.proofBond >> 2; // 1/4
                     state.taikoTokenBalances[fc.prover] += reward;
-
-                    // Burn the rest
-                    tt.burn(address(this), blk.proofBond - reward);
+                    totalBurn += blk.proofBond - reward;
                 }
 
                 emit BlockVerified(blockId, fc.prover, fc.blockHash);
@@ -160,6 +158,12 @@ library LibVerifying {
             }
 
             if (processed > 0) {
+                if (totalBurn > 0) {
+                    TaikoToken(resolver.resolve("taiko_token", false)).burn(
+                        address(this), totalBurn
+                    );
+                }
+
                 uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + processed;
                 state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
                 state.slotB.lastVerifiedAt = uint64(block.timestamp);
