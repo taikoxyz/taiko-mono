@@ -138,7 +138,7 @@ library LibVerifying {
                 signalRoot = fc.signalRoot;
                 blk.verifiedTransitionId = tid;
 
-                // Refund bond or give 1/4 of it to the actual proer and burn
+                // Refund bond or give 1/4 of it to the actual prover and burn
                 // the rest.
                 if (
                     fc.prover == LibUtils.ORACLE_PROVER
