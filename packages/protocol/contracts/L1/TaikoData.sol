@@ -127,10 +127,10 @@ library TaikoData {
         bytes proofs;
     }
 
-    /// @dev Struct representing fork choice data.
+    /// @dev Struct representing state transition data.
     /// 4 slots.
-    struct ForkChoice {
-        bytes32 key; //only written/read for the 1st fork choice.
+    struct Transition {
+        bytes32 key; //only written/read for the 1st state transition.
         bytes32 blockHash;
         bytes32 signalRoot;
         address prover;
@@ -143,8 +143,8 @@ library TaikoData {
         bytes32 metaHash; // slot 1
         address prover; // slot 2
         uint64 proposedAt;
-        uint16 nextForkChoiceId;
-        uint16 verifiedForkChoiceId;
+        uint16 nextTransitionId;
+        uint16 verifiedTransitionId;
         uint64 blockId; // slot 3
         uint96 proofBond;
         uint16 proofWindow;
@@ -187,10 +187,10 @@ library TaikoData {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint64 blockId_mode_blockRingBufferSize => Block) blocks;
         mapping(
-            uint64 blockId => mapping(bytes32 parentHash => uint16 forkChoiceId)
-            ) forkChoiceIds;
-        mapping(uint64 blockId => mapping(uint16 forkChoiceId => ForkChoice))
-            forkChoices;
+            uint64 blockId => mapping(bytes32 parentHash => uint16 transitionId)
+            ) transitionIds;
+        mapping(uint64 blockId => mapping(uint16 transitionId => Transition))
+            transitions;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         mapping(uint256 depositId_mode_ethDepositRingBufferSize => uint256)
             ethDeposits;

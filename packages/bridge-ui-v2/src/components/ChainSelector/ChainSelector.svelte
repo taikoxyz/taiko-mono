@@ -10,6 +10,7 @@
   import { chains } from '$libs/chain';
   import { chainToIconMap } from '$libs/util/chainToIconMap';
   import { classNames } from '$libs/util/classNames';
+  import { truncateString } from '$libs/util/truncateString';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
 
@@ -22,11 +23,11 @@
   let classes = classNames('ChainSelector', $$props.class);
   let buttonClasses = classNames(
     'body-regular bg-neutral-background',
-    small ? 'px-2 py-[6px]' : 'px-6 py-[10px]',
+    small ? 'px-2 py-[6px]' : 'px-[24px] py-[10px]',
     small ? 'rounded-md' : 'rounded-[10px]',
     small ? 'w-auto' : 'w-full',
     readOnly ? '' : 'dark:hover:bg-tertiary-interactive-hover',
-    'flex justify-start content-center body-bold py-2 px-[20px]',
+    'flex justify-start content-center',
   );
 
   let switchingNetwork = false;
@@ -109,9 +110,9 @@
         {/if}
         {#if value}
           <i role="img" aria-label={value.name}>
-            <svelte:component this={chainToIconMap[value.id]} size={20} />
+            <svelte:component this={chainToIconMap[value.id]} size={28} />
           </i>
-          <span>{value.name}</span>
+          <span>{truncateString(value.name, 8)}</span>
         {/if}
       </div>
     </button>
@@ -138,7 +139,7 @@
             tabindex="0"
             class="p-4 rounded-[10px]"
             class:opacity-20={disabled}
-            class:hover:bg-neutral={!disabled}
+            class:hover:bg-grey-10={!disabled}
             class:hover:cursor-pointer={!disabled}
             aria-disabled={disabled}
             on:click={() => selectChain(chain)}

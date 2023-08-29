@@ -1,11 +1,9 @@
 package relayer
 
 import (
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 )
 
 type HeaderSyncer interface {
-	GetCrossChainBlockHash(opts *bind.CallOpts, number *big.Int) ([32]byte, error)
+	GetCrossChainBlockHash(opts *bind.CallOpts, blockId uint64) ([32]byte, error)
 }

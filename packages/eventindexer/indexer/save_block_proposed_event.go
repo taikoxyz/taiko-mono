@@ -67,7 +67,7 @@ func (svc *Service) saveBlockProposedEvent(
 
 	blockID := event.BlockId.Int64()
 
-	assignedProver := event.AssignedProver.Hex()
+	assignedProver := event.Prover.Hex()
 
 	_, err = svc.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
 		Name:           eventindexer.EventNameBlockProposed,

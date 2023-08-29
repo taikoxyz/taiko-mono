@@ -57,7 +57,7 @@ func L1FilterFunc(
 		})
 
 		wg.Go(func() error {
-			blockVerifiedEvents, err := svc.taikol1.FilterBlockVerified(filterOpts, nil)
+			blockVerifiedEvents, err := svc.taikol1.FilterBlockVerified(filterOpts, nil, nil)
 			if err != nil {
 				return errors.Wrap(err, "svc.taikol1.FilterBlockVerified")
 			}
@@ -83,63 +83,6 @@ func L1FilterFunc(
 				return errors.Wrap(err, "svc.saveMessageSentEvents")
 			}
 
-			return nil
-		})
-	}
-
-	if svc.proverPool != nil {
-		wg.Go(func() error {
-			slashedEvents, err := svc.proverPool.FilterSlashed(filterOpts, nil, nil)
-			if err != nil {
-				return errors.Wrap(err, "svc.proverPool.FilterSlashed")
-			}
-
-			err = svc.saveSlashedEvents(ctx, chainID, slashedEvents)
-			if err != nil {
-				return errors.Wrap(err, "svc.saveSlashedEvents")
-			}
-
-			return nil
-		})
-
-		wg.Go(func() error {
-			stakedEvents, err := svc.proverPool.FilterStaked(filterOpts, nil)
-			if err != nil {
-				return errors.Wrap(err, "svc.proverPool.FilterStaked")
-			}
-
-			err = svc.saveStakedEvents(ctx, chainID, stakedEvents)
-			if err != nil {
-				return errors.Wrap(err, "svc.saveStakedEvents")
-			}
-
-			return nil
-		})
-
-		wg.Go(func() error {
-			exitedEvents, err := svc.proverPool.FilterExited(filterOpts, nil)
-			if err != nil {
-				return errors.Wrap(err, "svc.proverPool.FilterExited")
-			}
-
-			err = svc.saveExitedEvents(ctx, chainID, exitedEvents)
-			if err != nil {
-				return errors.Wrap(err, "svc.saveExitedEvents")
-			}
-
-			return nil
-		})
-
-		wg.Go(func() error {
-			withdrawnEvents, err := svc.proverPool.FilterWithdrawn(filterOpts, nil)
-			if err != nil {
-				return errors.Wrap(err, "svc.proverPool.FilterWithdrawn")
-			}
-
-			err = svc.saveWithdrawnEvents(ctx, chainID, withdrawnEvents)
-			if err != nil {
-				return errors.Wrap(err, "svc.saveWithdrawnEvents")
-			}
 			return nil
 		})
 	}

@@ -20,22 +20,31 @@
   }
 
   body {
-    /* No grid background by default */
     height: 100%;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
     background-image: url(/bg/grid.svg), url(/bg/spotlights.svg), linear-gradient(270deg, #1f1f1f 0%, #000000 100%);
+    /* No grid background by default */
     background-size: 0, cover, cover;
     background-blend-mode: color-dodge, lighten, multiply;
-    background-attachment: fixed;
+    z-index: -1;
   }
 
   @media (min-width: 768px) {
-    body {
+    body::before {
       background-size: 700px, cover, cover;
     }
   }
 
   /* In light mode there is no background image */
-  [data-theme='light'] body {
+  [data-theme='light'] body::before {
     background-image: none;
   }
 }
