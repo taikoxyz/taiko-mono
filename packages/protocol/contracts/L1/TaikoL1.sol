@@ -20,7 +20,6 @@ contract TaikoL1 is TaikoL1Base {
     {
         return TaikoData.Config({
             chainId: 167_007,
-            relaySignalRoot: false,
             blockMaxProposals: 403_200,
             blockRingBufferSize: 403_210,
             // This number is calculated from blockMaxProposals to make the

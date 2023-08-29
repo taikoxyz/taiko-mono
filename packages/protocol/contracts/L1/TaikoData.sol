@@ -17,8 +17,6 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // The chain ID of the network where Taiko contracts are deployed.
         uint256 chainId;
-        // Flag indicating whether the relay signal root is enabled or not.
-        bool relaySignalRoot;
         // ---------------------------------------------------------------------
         // Group 2: Block level configs
         // ---------------------------------------------------------------------
