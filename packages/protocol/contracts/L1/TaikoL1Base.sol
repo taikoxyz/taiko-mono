@@ -199,7 +199,7 @@ abstract contract TaikoL1Base is
     /// @notice Gets the state transition for a specific block.
     /// @param blockId Index of the block.
     /// @param parentHash Parent hash of the block.
-    /// @return THe state transition data of the block.
+    /// @return The state transition data of the block.
     function getTransition(
         uint64 blockId,
         bytes32 parentHash
