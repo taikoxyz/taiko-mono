@@ -86,8 +86,17 @@
       focus:!shadow-[0_0_0_3px_#E81899];
   }
 
+  .input-box.withValdiation {
+    @apply outline-none;
+  }
+
   .input-box.error {
-    @apply !shadow-[0_0_0_3px_#F15C5D];
+    @apply !shadow;
+    box-shadow: 0 0 0 3px var(--negative-sentiment) !important;
+  }
+
+  .input-box.success {
+    box-shadow: 0 0 0 3px var(--positive-sentiment) !important;
   }
 
   /* Tooltip */
