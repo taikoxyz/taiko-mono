@@ -10,9 +10,9 @@
   import { chains } from '$libs/chain';
   import { chainToIconMap } from '$libs/util/chainToIconMap';
   import { classNames } from '$libs/util/classNames';
+  import { truncateString } from '$libs/util/truncateString';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
-  import { truncateString } from '$libs/util/truncateString';
 
   export let label = '';
   export let value: Maybe<GetNetworkResult['chain']> = null;
