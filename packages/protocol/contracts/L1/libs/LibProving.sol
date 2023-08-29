@@ -83,7 +83,7 @@ library LibProving {
             ) revert L1_NOT_PROVEABLE();
         }
 
-        TaikoData.Transition storage fc;
+        TaikoData.Transition storage tz;
         uint16 tid =
             LibUtils.getTransitionId(state, blk, blockId, evidence.parentHash);
 
@@ -94,11 +94,11 @@ library LibProving {
                 ++blk.nextTransitionId;
             }
 
-            fc = state.transitions[blk.blockId][tid];
+            tz = state.transitions[blk.blockId][tid];
 
             if (tid == 1) {
                 // We only write the key when tid is 1.
-                fc.key = evidence.parentHash;
+                tz.key = evidence.parentHash;
             } else {
                 state.transitionIds[blk.blockId][evidence.parentHash] = tid;
             }
@@ -106,19 +106,19 @@ library LibProving {
             // This is the branch the oracle prover is trying to overwrite
             // We need to check the previous proof is not the same as the
             // new proof
-            fc = state.transitions[blk.blockId][tid];
+            tz = state.transitions[blk.blockId][tid];
             if (
-                fc.blockHash == evidence.blockHash
-                    && fc.signalRoot == evidence.signalRoot
+                tz.blockHash == evidence.blockHash
+                    && tz.signalRoot == evidence.signalRoot
             ) revert L1_SAME_PROOF();
         } else {
             revert L1_ALREADY_PROVEN();
         }
 
-        fc.blockHash = evidence.blockHash;
-        fc.signalRoot = evidence.signalRoot;
-        fc.prover = evidence.prover;
-        fc.provenAt = uint64(block.timestamp);
+        tz.blockHash = evidence.blockHash;
+        tz.signalRoot = evidence.signalRoot;
+        tz.prover = evidence.prover;
+        tz.provenAt = uint64(block.timestamp);
 
         IProofVerifier(resolver.resolve("proof_verifier", false)).verifyProofs(
             blockId, evidence.proofs, getInstance(evidence)
@@ -141,7 +141,7 @@ library LibProving {
     )
         internal
         view
-        returns (TaikoData.Transition storage fc)
+        returns (TaikoData.Transition storage tz)
     {
         TaikoData.SlotB memory b = state.slotB;
         if (blockId < b.lastVerifiedBlockId || blockId >= b.numBlocks) {
@@ -155,7 +155,7 @@ library LibProving {
         uint16 tid = LibUtils.getTransitionId(state, blk, blockId, parentHash);
         if (tid == 0) revert L1_TRANSITION_NOT_FOUND();
 
-        fc = state.transitions[blockId][tid];
+        tz = state.transitions[blockId][tid];
     }
 
     function getInstance(TaikoData.BlockEvidence memory evidence)
