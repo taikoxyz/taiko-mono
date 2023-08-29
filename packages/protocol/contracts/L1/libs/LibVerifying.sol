@@ -30,7 +30,7 @@ library LibVerifying {
 
     error L1_BLOCK_ID_MISMATCH();
     error L1_INVALID_CONFIG();
-    error L1_UNEXPECTED_FORK_CHOICE_ID();
+    error L1_UNEXPECTED_TRANSITION_ID();
 
     function init(
         TaikoData.State storage state,
@@ -73,12 +73,12 @@ library LibVerifying {
 
             // Init the genesis block
             TaikoData.Block storage blk = state.blocks[0];
-            blk.nextForkChoiceId = 2;
-            blk.verifiedForkChoiceId = 1;
+            blk.nextTransitionId = 2;
+            blk.verifiedTransitionId = 1;
             blk.proposedAt = timeNow;
 
-            // Init the first fork choice
-            TaikoData.ForkChoice storage fc = state.forkChoices[0][1];
+            // Init the first state transition
+            TaikoData.Transition storage fc = state.transitions[0][1];
             fc.blockHash = genesisBlockHash;
             fc.provenAt = timeNow;
         }
@@ -105,13 +105,13 @@ library LibVerifying {
             state.blocks[blockId % config.blockRingBufferSize];
         if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
 
-        uint16 fcId = blk.verifiedForkChoiceId;
-        if (fcId == 0) revert L1_UNEXPECTED_FORK_CHOICE_ID();
+        uint16 tid = blk.verifiedTransitionId;
+        if (tid == 0) revert L1_UNEXPECTED_TRANSITION_ID();
 
-        bytes32 blockHash = state.forkChoices[blockId][fcId].blockHash;
+        bytes32 blockHash = state.transitions[blockId][tid].blockHash;
 
         bytes32 signalRoot;
-        TaikoData.ForkChoice memory fc;
+        TaikoData.Transition memory fc;
 
         uint64 processed;
         unchecked {
@@ -121,10 +121,10 @@ library LibVerifying {
                 blk = state.blocks[blockId % config.blockRingBufferSize];
                 if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
 
-                fcId = LibUtils.getForkChoiceId(state, blk, blockId, blockHash);
-                if (fcId == 0) break;
+                tid = LibUtils.getTransitionId(state, blk, blockId, blockHash);
+                if (tid == 0) break;
 
-                fc = state.forkChoices[blockId][fcId];
+                fc = state.transitions[blockId][tid];
                 if (fc.prover == address(0)) break;
 
                 uint256 proofCooldown = fc.prover == LibUtils.ORACLE_PROVER
@@ -136,7 +136,7 @@ library LibVerifying {
 
                 blockHash = fc.blockHash;
                 signalRoot = fc.signalRoot;
-                blk.verifiedForkChoiceId = fcId;
+                blk.verifiedTransitionId = tid;
 
                 _rewardProver(state, blk, fc);
                 emit BlockVerified(blockId, fc.prover, fc.blockHash);
@@ -168,7 +168,7 @@ library LibVerifying {
     function _rewardProver(
         TaikoData.State storage state,
         TaikoData.Block storage blk,
-        TaikoData.ForkChoice memory fc
+        TaikoData.Transition memory fc
     )
         private
     {

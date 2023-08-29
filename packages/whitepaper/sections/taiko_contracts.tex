@@ -7,7 +7,7 @@ The Taiko ZK-Rollup protocol has two major smart contracts deployed on L1 and L2
 \item[numProposedBlocks] The total number of proposed blocks, and the ID for the next proposed block, formally $R_\mathrm{i}$.
 \item[proposedBlocks] The list of proposed blocks, formally $R_\mathrm{b}$.
 \item[lastVerifiedBlockId] The ID of the last verified block, formally $R_\mathrm{f}$.
-\item[forkChoices] The mapping from proposed block IDs to their \emph{Fork Choices}, formally $R_\mathrm{f}$. The fork choices for the $i$-th block is $R_\mathrm{f}[i]$. Fork Choices are discussed in detail in Section \ref{sec:proving}.
+\item[forkChoices] The mapping from proposed block IDs to their \emph{State Transitions}, formally $R_\mathrm{f}$. The state transitions for the $i$-th block is $R_\mathrm{f}[i]$. State Transitions are discussed in detail in Section \ref{sec:proving}.
 \end{description}
 
 \subsubsection{{TaikoL2}} Deployed on Taiko. This contract on L2 allows us to reuse the programmability of the EVM to enforce certain protocol properties without having to extend other Taiko subsystems. This contract currently facilitates:
