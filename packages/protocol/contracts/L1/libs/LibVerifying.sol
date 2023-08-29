@@ -138,7 +138,21 @@ library LibVerifying {
                 signalRoot = fc.signalRoot;
                 blk.verifiedTransitionId = tid;
 
-                _rewardProver(state, blk, fc);
+                // Refund bond or give 1/4 of it to the actual proer and burn
+                // the rest.
+                if (
+                    fc.prover == LibUtils.ORACLE_PROVER
+                        || fc.provenAt <= blk.proposedAt + blk.proofWindow
+                ) {
+                    state.taikoTokenBalances[blk.prover] += blk.proofBond;
+                } else {
+                    uint96 reward = blk.proofBond >> 2; // 1/4
+                    state.taikoTokenBalances[fc.prover] += reward;
+
+                    // Burn the rest
+                    tt.burn(address(this), blk.proofBond - reward);
+                }
+
                 emit BlockVerified(blockId, fc.prover, fc.blockHash);
 
                 ++blockId;
@@ -163,27 +177,5 @@ library LibVerifying {
                 );
             }
         }
-    }
-
-    function _rewardProver(
-        TaikoData.State storage state,
-        TaikoData.Block storage blk,
-        TaikoData.Transition memory fc
-    )
-        private
-    {
-        address recipient = blk.prover;
-        uint256 amount = blk.proofBond;
-        unchecked {
-            if (
-                fc.prover != LibUtils.ORACLE_PROVER
-                    && fc.provenAt > blk.proposedAt + blk.proofWindow
-            ) {
-                recipient = fc.prover;
-                amount /= 4;
-            }
-        }
-
-        state.taikoTokenBalances[recipient] += amount;
     }
 }
