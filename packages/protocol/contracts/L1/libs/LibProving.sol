@@ -26,7 +26,7 @@ library LibProving {
     error L1_ALREADY_PROVEN();
     error L1_BLOCK_ID_MISMATCH();
     error L1_EVIDENCE_MISMATCH();
-    error L1_FORK_CHOICE_NOT_FOUND();
+    error L1_TRANSITION_NOT_FOUND();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_EVIDENCE();
     error L1_INVALID_ORACLE_PROVER();
@@ -73,39 +73,40 @@ library LibProving {
         } else {
             // A block can be proven by a regular prover in the following cases:
             // 1. The actual prover is the assigned prover
-            // 2. The block has at least one fork choice (which must be from the
+            // 2. The block has at least one state transition (which must be
+            // from the
             // assigned prover)
             // 3. The block has become open
             if (
-                evidence.prover != blk.prover && blk.nextForkChoiceId == 1
+                evidence.prover != blk.prover && blk.nextTransitionId == 1
                     && block.timestamp <= blk.proposedAt + config.proofWindow
             ) revert L1_NOT_PROVEABLE();
         }
 
-        TaikoData.ForkChoice storage fc;
-        uint16 fcId =
-            LibUtils.getForkChoiceId(state, blk, blockId, evidence.parentHash);
+        TaikoData.Transition storage fc;
+        uint16 tid =
+            LibUtils.getTransitionId(state, blk, blockId, evidence.parentHash);
 
-        if (fcId == 0) {
-            fcId = blk.nextForkChoiceId;
+        if (tid == 0) {
+            tid = blk.nextTransitionId;
 
             unchecked {
-                ++blk.nextForkChoiceId;
+                ++blk.nextTransitionId;
             }
 
-            fc = state.forkChoices[blk.blockId][fcId];
+            fc = state.transitions[blk.blockId][tid];
 
-            if (fcId == 1) {
-                // We only write the key when fcId is 1.
+            if (tid == 1) {
+                // We only write the key when tid is 1.
                 fc.key = evidence.parentHash;
             } else {
-                state.forkChoiceIds[blk.blockId][evidence.parentHash] = fcId;
+                state.transitionIds[blk.blockId][evidence.parentHash] = tid;
             }
         } else if (evidence.prover == LibUtils.ORACLE_PROVER) {
             // This is the branch the oracle prover is trying to overwrite
             // We need to check the previous proof is not the same as the
             // new proof
-            fc = state.forkChoices[blk.blockId][fcId];
+            fc = state.transitions[blk.blockId][tid];
             if (
                 fc.blockHash == evidence.blockHash
                     && fc.signalRoot == evidence.signalRoot
@@ -132,7 +133,7 @@ library LibProving {
         });
     }
 
-    function getForkChoice(
+    function getTransition(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint64 blockId,
@@ -140,7 +141,7 @@ library LibProving {
     )
         internal
         view
-        returns (TaikoData.ForkChoice storage fc)
+        returns (TaikoData.Transition storage fc)
     {
         TaikoData.SlotB memory b = state.slotB;
         if (blockId < b.lastVerifiedBlockId || blockId >= b.numBlocks) {
@@ -151,10 +152,10 @@ library LibProving {
             state.blocks[blockId % config.blockRingBufferSize];
         if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
 
-        uint16 fcId = LibUtils.getForkChoiceId(state, blk, blockId, parentHash);
-        if (fcId == 0) revert L1_FORK_CHOICE_NOT_FOUND();
+        uint16 tid = LibUtils.getTransitionId(state, blk, blockId, parentHash);
+        if (tid == 0) revert L1_TRANSITION_NOT_FOUND();
 
-        fc = state.forkChoices[blockId][fcId];
+        fc = state.transitions[blockId][tid];
     }
 
     function getInstance(TaikoData.BlockEvidence memory evidence)

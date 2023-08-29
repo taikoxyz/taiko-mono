@@ -178,8 +178,8 @@ library LibProposing {
             blk.metaHash = LibUtils.hashMetadata(meta);
             blk.prover = assignment.prover;
             blk.proposedAt = meta.timestamp;
-            blk.nextForkChoiceId = 1;
-            blk.verifiedForkChoiceId = 0;
+            blk.nextTransitionId = 1;
+            blk.verifiedTransitionId = 0;
             blk.blockId = meta.id;
             blk.proofBond = config.proofBond;
             blk.proofWindow = config.proofWindow;
