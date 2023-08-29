@@ -8,7 +8,6 @@ import (
 	"log/slog"
 
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
 )
@@ -69,45 +68,6 @@ func (svc *Service) saveBlockVerifiedEvent(
 	}
 
 	eventindexer.BlockVerifiedEventsProcessed.Inc()
-
-	if err := svc.updateAverageBlockReward(ctx, event); err != nil {
-		return errors.Wrap(err, "svc.updateAverageBlockReward")
-	}
-
-	return nil
-}
-
-func (svc *Service) updateAverageBlockReward(ctx context.Context, event *taikol1.TaikoL1BlockVerified) error {
-	reward := event.ProofReward
-
-	stat, err := svc.statRepo.Find(ctx)
-	if err != nil {
-		return errors.Wrap(err, "svc.statRepo.Find")
-	}
-
-	avg, ok := new(big.Int).SetString(stat.AverageProofReward, 10)
-	if !ok {
-		return errors.New("unable to convert average proof reward to string")
-	}
-
-	newAverageProofReward := calcNewAverage(
-		avg,
-		new(big.Int).SetUint64(stat.NumVerifiedBlocks),
-		new(big.Int).SetUint64(reward),
-	)
-	log.Infof("blockVerified reward update. id: %v, newAvg: %v, oldAvg: %v, reward: %v",
-		event.BlockId.String(),
-		newAverageProofReward.String(),
-		avg.String(),
-		reward,
-	)
-
-	_, err = svc.statRepo.Save(ctx, eventindexer.SaveStatOpts{
-		ProofReward: newAverageProofReward,
-	})
-	if err != nil {
-		return errors.Wrap(err, "svc.statRepo.Save")
-	}
 
 	return nil
 }
