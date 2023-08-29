@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-import dotenv from 'dotenv'
+import dotenv from 'dotenv';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { Project, SourceFile, VariableDeclarationKind } from 'ts-morph';
@@ -10,17 +10,14 @@ import { decodeBase64ToJson } from './utils/decodeBase64ToJson';
 import { formatSourceFile } from './utils/formatSourceFile';
 import { Logger } from './utils/Logger';
 import { validateJsonAgainstSchema } from './utils/validateJson';
-dotenv.config()
+dotenv.config();
 
 const pluginName = 'generateChainConfig';
 const logger = new Logger(pluginName);
 
 const currentDir = path.resolve(new URL(import.meta.url).pathname);
 
-const outputPath = path.join(
-  path.dirname(currentDir),
-  '../src/generated/chainConfig.ts'
-);
+const outputPath = path.join(path.dirname(currentDir), '../src/generated/chainConfig.ts');
 
 // Decode base64 encoded JSON string
 if (!process.env.CONFIGURED_CHAINS) {
@@ -34,8 +31,6 @@ const isValid = validateJsonAgainstSchema(configuredChainsConfigFile, configured
 if (!isValid) {
   throw new Error('encoded configuredBridges.json is not valid.');
 }
-
-
 
 export function generateChainConfig() {
   return {
@@ -57,7 +52,7 @@ export function generateChainConfig() {
       sourceFile = await buildChainConfig(sourceFile);
       await sourceFile.saveSync();
 
-      const formatted = await formatSourceFile(tsFilePath)
+      const formatted = await formatSourceFile(tsFilePath);
 
       // Write the formatted code back to the file
       await fs.writeFile(tsFilePath, formatted);
@@ -72,7 +67,7 @@ async function storeTypes(sourceFile: SourceFile) {
 
   // ChainConfigMap
   sourceFile.addImportDeclaration({
-    namedImports: ['ChainConfigMap',],
+    namedImports: ['ChainConfigMap'],
     moduleSpecifier: '$libs/chain',
     isTypeOnly: true,
   });
@@ -93,7 +88,6 @@ async function storeTypes(sourceFile: SourceFile) {
 }
 
 async function buildChainConfig(sourceFile: SourceFile) {
-
   const chainConfig: ChainConfigMap = {};
 
   const chains: ConfiguredChains = configuredChainsConfigFile;

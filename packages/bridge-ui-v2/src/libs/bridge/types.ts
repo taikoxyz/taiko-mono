@@ -150,8 +150,8 @@ export interface Bridge {
 }
 
 export type ConfiguredBridgesType = {
-  configuredBridges: Array<BridgeConfig>
-}
+  configuredBridges: Array<BridgeConfig>;
+};
 
 export type BridgeConfig = {
   source: string;
