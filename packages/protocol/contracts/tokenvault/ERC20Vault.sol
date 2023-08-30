@@ -330,23 +330,25 @@ contract ERC20Vault is
         private
         returns (address btoken)
     {
-        ProxiedBridgedERC20 bridgedToken = new ProxiedBridgedERC20();
-
-        btoken = LibVaultUtils.deployProxy(
-            address(bridgedToken),
-            owner(),
-            bytes.concat(
-                bridgedToken.init.selector,
-                abi.encode(
-                    address(_addressManager),
-                    ctoken.addr,
-                    ctoken.chainId,
-                    ctoken.decimals,
-                    ctoken.symbol,
-                    ctoken.name
+        btoken = Create2Upgradeable.deploy(
+            0, // amount of Ether to send
+            keccak256(
+                bytes.concat(
+                    bytes32(ctoken.chainId),
+                    bytes32(uint256(uint160(ctoken.addr)))
                 )
-            )
+            ),
+            type(BridgedERC20).creationCode
         );
+
+        BridgedERC20(payable(btoken)).init({
+            _addressManager: address(_addressManager),
+            _srcToken: ctoken.addr,
+            _srcChainId: ctoken.chainId,
+            _decimals: ctoken.decimals,
+            _symbol: ctoken.symbol,
+            _name: ctoken.name
+        });
 
         isBridgedToken[btoken] = true;
         bridgedToCanonical[btoken] = ctoken;
@@ -363,6 +365,7 @@ contract ERC20Vault is
     }
 }
 
+// If this is an issue, the deployment is different so we can delete this.
 /// @title ProxiedERC20Vault
 /// @notice Proxied version of the parent contract.
 contract ProxiedERC20Vault is Proxied, ERC20Vault { }
