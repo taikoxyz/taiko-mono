@@ -68,7 +68,8 @@ export class BridgeTxService {
   }
 
   private static _getBridgeMessageStatus({ msgHash, srcChainId, destChainId }: BridgeMessageParams) {
-    const bridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
+    // Gets the status of the message from the destination bridge contract
+    const bridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
 
     const bridgeContract = getContract({
       chainId: destChainId,

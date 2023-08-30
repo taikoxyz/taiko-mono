@@ -7,6 +7,7 @@ import { MessageStatusError, RetryError, WrongChainError, WrongOwnerError } from
 import type { BridgeProver } from '$libs/proof';
 import { getLogger } from '$libs/util/logger';
 
+import { srcChain } from './../../../../bridge-ui/src/store/chain';
 import { type BridgeArgs, type ClaimArgs, type Message, MessageStatus, type ReleaseArgs } from './types';
 
 const log = getLogger('bridge:Bridge');
@@ -30,6 +31,7 @@ export abstract class Bridge {
   protected async beforeClaiming({ msgHash, message, wallet }: ClaimArgs) {
     const connectedChainId = await wallet.getChainId();
     const destChainId = Number(message.destChainId);
+    const srcChainId = Number(message.srcChainId);
     // Are we connected to the destination chain?
     if (connectedChainId !== destChainId) {
       throw new WrongChainError('wallet must be connected to the destination chain');
@@ -42,7 +44,7 @@ export abstract class Bridge {
       throw new WrongOwnerError('user cannot process this as it is not their message');
     }
 
-    const destBridgeAddress = routingContractsMap[connectedChainId][destChainId].bridgeAddress;
+    const destBridgeAddress = routingContractsMap[connectedChainId][srcChainId].bridgeAddress;
 
     const destBridgeContract = getContract({
       address: destBridgeAddress,
