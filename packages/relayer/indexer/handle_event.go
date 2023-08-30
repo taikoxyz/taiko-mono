@@ -45,21 +45,26 @@ func (svc *Service) handleEvent(
 		return errors.Wrap(err, "eventTypeAmountAndCanonicalTokenFromEvent(event)")
 	}
 
-	e, err := svc.eventRepo.Save(ctx, relayer.SaveEventOpts{
-		Name:                   relayer.EventNameMessageSent,
-		Data:                   string(marshaled),
-		ChainID:                chainID,
-		Status:                 eventStatus,
-		EventType:              eventType,
-		CanonicalTokenAddress:  canonicalToken.Address().Hex(),
-		CanonicalTokenSymbol:   canonicalToken.ContractSymbol(),
-		CanonicalTokenName:     canonicalToken.ContractName(),
-		CanonicalTokenDecimals: canonicalToken.TokenDecimals(),
-		Amount:                 amount.String(),
-		MsgHash:                common.Hash(event.MsgHash).Hex(),
-		MessageOwner:           event.Message.User.Hex(),
-		Event:                  relayer.EventNameMessageSent,
-	})
+	opts := relayer.SaveEventOpts{
+		Name:         relayer.EventNameMessageSent,
+		Data:         string(marshaled),
+		ChainID:      chainID,
+		Status:       eventStatus,
+		EventType:    eventType,
+		Amount:       amount.String(),
+		MsgHash:      common.Hash(event.MsgHash).Hex(),
+		MessageOwner: event.Message.User.Hex(),
+		Event:        relayer.EventNameMessageSent,
+	}
+
+	if canonicalToken != nil {
+		opts.CanonicalTokenAddress = canonicalToken.Address().Hex()
+		opts.CanonicalTokenSymbol = canonicalToken.ContractSymbol()
+		opts.CanonicalTokenName = canonicalToken.ContractName()
+		opts.CanonicalTokenDecimals = canonicalToken.TokenDecimals()
+	}
+
+	e, err := svc.eventRepo.Save(ctx, opts)
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.Save")
 	}
