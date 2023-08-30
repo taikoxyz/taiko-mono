@@ -64,7 +64,7 @@ export class BridgeTxService {
     const messageSentEvents = await client.getFilterLogs({ filter });
 
     // Filter out those events that are not from the current address
-    return messageSentEvents.find(({ args }) => args.message?.owner.toLowerCase() === userAddress.toLowerCase());
+    return messageSentEvents.find(({ args }) => args.message?.user.toLowerCase() === userAddress.toLowerCase());
   }
 
   private static _getBridgeMessageStatus({ msgHash, srcChainId, destChainId }: BridgeMessageParams) {

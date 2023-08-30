@@ -1,7 +1,7 @@
 import { getContract, type Hash } from '@wagmi/core';
 import { UserRejectedRequestError } from 'viem';
 
-import { erc20ABI, tokenVaultABI } from '$abi';
+import { erc20ABI, erc20VaultABI } from '$abi';
 import { bridgeService } from '$config';
 import { routingContractsMap } from '$config/bridges';
 import {
@@ -18,12 +18,12 @@ import { getLogger } from '$libs/util/logger';
 import { Bridge } from './Bridge';
 import {
   type ApproveArgs,
+  type BridgeTransferOp,
   type ClaimArgs,
   type ERC20BridgeArgs,
   MessageStatus,
   type ReleaseArgs,
   type RequireAllowanceArgs,
-  type SendERC20Args,
 } from './types';
 
 const log = getLogger('ERC20Bridge');
@@ -35,8 +35,8 @@ export class ERC20Bridge extends Bridge {
       amount,
       wallet,
       destChainId,
-      tokenAddress,
-      processingFee,
+      token,
+      fee,
       tokenVaultAddress,
       isTokenAlreadyDeployed,
       memo = '',
@@ -44,28 +44,29 @@ export class ERC20Bridge extends Bridge {
 
     const tokenVaultContract = getContract({
       walletClient: wallet,
-      abi: tokenVaultABI,
+      abi: erc20VaultABI,
       address: tokenVaultAddress,
     });
 
-    const refundAddress = wallet.account.address;
+    const refundTo = wallet.account.address;
 
     const gasLimit = !isTokenAlreadyDeployed
       ? BigInt(bridgeService.noTokenDeployedGasLimit)
-      : processingFee > 0
-      ? bridgeService.noOwnerGasLimit
-      : BigInt(0);
+      : fee > 0
+        ? bridgeService.noOwnerGasLimit
+        : BigInt(0);
 
-    const sendERC20Args: SendERC20Args = [
-      BigInt(destChainId),
+    const sendERC20Args: BridgeTransferOp = {
+
+      destChainId: BigInt(destChainId),
       to,
-      tokenAddress,
+      token,
       amount,
       gasLimit,
-      processingFee,
-      refundAddress,
+      fee,
+      refundTo,
       memo,
-    ];
+    };
 
     log('Preparing transaction with args', sendERC20Args);
 
@@ -78,13 +79,13 @@ export class ERC20Bridge extends Bridge {
 
   async estimateGas(args: ERC20BridgeArgs) {
     const { tokenVaultContract, sendERC20Args } = await ERC20Bridge._prepareTransaction(args);
-    const [, , , , , processingFee] = sendERC20Args;
+    const { fee } = sendERC20Args;
 
-    const value = processingFee;
+    const value = fee;
 
     log('Estimating gas for sendERC20 call with value', value);
 
-    const estimatedGas = tokenVaultContract.estimateGas.sendERC20([...sendERC20Args], { value });
+    const estimatedGas = tokenVaultContract.estimateGas.sendToken([sendERC20Args], { value });
 
     log('Gas estimated', estimatedGas);
 
@@ -148,11 +149,11 @@ export class ERC20Bridge extends Bridge {
   }
 
   async bridge(args: ERC20BridgeArgs) {
-    const { amount, tokenAddress, wallet, tokenVaultAddress } = args;
+    const { amount, token, wallet, tokenVaultAddress } = args;
 
     const requireAllowance = await this.requireAllowance({
       amount,
-      tokenAddress,
+      tokenAddress: token,
       ownerAddress: wallet.account.address,
       spenderAddress: tokenVaultAddress,
     });
@@ -162,14 +163,14 @@ export class ERC20Bridge extends Bridge {
     }
 
     const { tokenVaultContract, sendERC20Args } = await ERC20Bridge._prepareTransaction(args);
-    const [, , , , , processingFee] = sendERC20Args;
+    const { fee } = sendERC20Args;
 
-    const value = processingFee;
+    const value = fee;
 
     try {
       log('Calling sendERC20 with value', value);
 
-      const txHash = await tokenVaultContract.write.sendERC20([...sendERC20Args], { value });
+      const txHash = await tokenVaultContract.write.sendToken([sendERC20Args], { value });
 
       log('Transaction hash for sendERC20 call', txHash);
 
@@ -241,7 +242,7 @@ export class ERC20Bridge extends Bridge {
     const srcTokenVaultAddress = routingContractsMap[connectedChainId][destChainId].erc20VaultAddress;
     const srcTokenVaultContract = getContract({
       walletClient: wallet,
-      abi: tokenVaultABI,
+      abi: erc20VaultABI,
       address: srcTokenVaultAddress,
     });
 

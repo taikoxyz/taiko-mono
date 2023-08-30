@@ -163,7 +163,7 @@
         srcChainId: $network.id,
         destChainId: $destNetwork.id,
         amount: $enteredAmount,
-        processingFee: $processingFee,
+        fee: $processingFee,
       } as BridgeArgs;
 
       switch ($selectedToken.type) {
@@ -200,7 +200,7 @@
 
           bridgeArgs = {
             ...bridgeArgs,
-            tokenAddress,
+            token: tokenAddress,
             tokenVaultAddress,
             isTokenAlreadyDeployed,
           } as ERC20BridgeArgs;

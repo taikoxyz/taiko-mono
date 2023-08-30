@@ -15,6 +15,7 @@
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
+  import { truncateString } from '$libs/util/truncateString';
 
   export let label = '';
   export let value: Maybe<GetNetworkResult['chain']> = null;

@@ -35,10 +35,10 @@ export abstract class Bridge {
       throw new WrongChainError('wallet must be connected to the destination chain');
     }
 
-    const { owner } = message;
+    const { user } = message;
     const userAddress = wallet.account.address;
     // Are we the owner of the message?
-    if (owner.toLowerCase() !== userAddress.toLowerCase()) {
+    if (user.toLowerCase() !== userAddress.toLowerCase()) {
       throw new WrongOwnerError('user cannot process this as it is not their message');
     }
 
@@ -84,10 +84,10 @@ export abstract class Bridge {
       throw new WrongChainError('wallet must be connected to the source chain');
     }
 
-    const { owner } = message;
+    const { user } = message;
     const userAddress = wallet.account.address;
     // Are we the owner of the message?
-    if (owner.toLowerCase() !== userAddress.toLowerCase()) {
+    if (user.toLowerCase() !== userAddress.toLowerCase()) {
       throw new WrongOwnerError('user cannot process this as it is not their message');
     }
 

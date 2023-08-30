@@ -15,7 +15,7 @@ const log = getLogger('bridge:ETHBridge');
 
 export class ETHBridge extends Bridge {
   private static async _prepareTransaction(args: ETHBridgeArgs) {
-    const { to, amount, wallet, srcChainId, destChainId, bridgeAddress, processingFee, memo = '' } = args;
+    const { to, amount, wallet, srcChainId, destChainId, bridgeAddress, fee: processingFee, memo = '' } = args;
 
     const bridgeContract = getContract({
       walletClient: wallet,
@@ -27,7 +27,7 @@ export class ETHBridge extends Bridge {
 
     // TODO: contract actually supports bridging to ourselves as well as
     //       to another address at the same time
-    const [depositValue, callValue] =
+    const [value] =
       to.toLowerCase() === owner.toLowerCase() ? [amount, BigInt(0)] : [BigInt(0), amount];
 
     // If there is a processing fee, use the specified message gas limit
@@ -36,17 +36,16 @@ export class ETHBridge extends Bridge {
 
     const message: Message = {
       to,
-      owner,
-      sender: owner,
-      refundAddress: owner,
+      user: owner,
+      from: owner,
+      refundTo: owner,
 
       srcChainId: BigInt(srcChainId),
       destChainId: BigInt(destChainId),
 
       gasLimit,
-      callValue,
-      depositValue,
-      processingFee,
+      value,
+      fee: processingFee,
 
       memo,
       data: '0x',
@@ -64,9 +63,9 @@ export class ETHBridge extends Bridge {
 
   async estimateGas(args: ETHBridgeArgs) {
     const { bridgeContract, message } = await ETHBridge._prepareTransaction(args);
-    const { depositValue, callValue, processingFee } = message;
+    const { value: callValue, fee: processingFee } = message;
 
-    const value = depositValue + callValue + processingFee;
+    const value = callValue + processingFee;
 
     log('Estimating gas for sendMessage call with value', value);
 
@@ -79,9 +78,9 @@ export class ETHBridge extends Bridge {
 
   async bridge(args: ETHBridgeArgs) {
     const { bridgeContract, message } = await ETHBridge._prepareTransaction(args);
-    const { depositValue, callValue, processingFee } = message;
+    const { value: callValue, fee: processingFee } = message;
 
-    const value = depositValue + callValue + processingFee;
+    const value = callValue + processingFee;
 
     try {
       log('Calling sendMessage with value', value);
@@ -157,7 +156,7 @@ export class ETHBridge extends Bridge {
     });
 
     try {
-      const txHash = await srcBridgeContract.write.releaseEther([message, proof]);
+      const txHash = await srcBridgeContract.write.recallMessage([message, proof]);
 
       log('Transaction hash for releaseEther call', txHash);
 

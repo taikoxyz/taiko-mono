@@ -56,7 +56,7 @@ export class RelayerAPIService {
       }
 
       const { DestChainId: destChainId, SrcChainId: srcChainId } = Message;
-      const { bridgeAddress } = routingContractsMap[Number(destChainId)][Number(srcChainId)]; // note: beware we switch destination and source here
+      const { bridgeAddress } = routingContractsMap[Number(srcChainId)][Number(destChainId)];
       const { transactionHash, address } = Raw;
 
       // Check all conditions
@@ -93,7 +93,7 @@ export class RelayerAPIService {
     srcChainId: number;
     destChainId: number;
   }) {
-    const { bridgeAddress } = routingContractsMap[Number(srcChainId)][Number(destChainId)];
+    const { bridgeAddress } = routingContractsMap[Number(destChainId)][Number(srcChainId)];
     const result = await readContract({
       address: bridgeAddress,
       abi: bridgeABI,
@@ -189,15 +189,14 @@ export class RelayerAPIService {
           to: tx.data.Message.To,
           data: tx.data.Message.Data,
           memo: tx.data.Message.Memo,
-          owner: tx.data.Message.Owner,
-          sender: tx.data.Message.Sender,
+          user: tx.data.Message.User,
+          from: tx.data.Message.From,
           gasLimit: BigInt(tx.data.Message.GasLimit),
-          callValue: BigInt(tx.data.Message.CallValue),
+          value: BigInt(tx.data.Message.CallValue),
           srcChainId: BigInt(tx.data.Message.SrcChainId),
           destChainId: BigInt(tx.data.Message.DestChainId),
-          depositValue: BigInt(tx.data.Message.DepositValue),
-          processingFee: BigInt(tx.data.Message.ProcessingFee),
-          refundAddress: tx.data.Message.RefundAddress,
+          fee: BigInt(tx.data.Message.ProcessingFee),
+          refundTo: tx.data.Message.RefundAddress,
         },
       } as BridgeTransaction;
 

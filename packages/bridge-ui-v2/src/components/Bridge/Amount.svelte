@@ -68,7 +68,7 @@
         to,
         token,
         amount: $enteredAmount,
-        processingFee: fee,
+        fee,
         balance: $tokenBalance.value,
         srcChainId: $network.id,
         destChainId: $destNetwork.id,
@@ -155,7 +155,7 @@
         to: $recipientAddress || $account.address,
         token: $selectedToken,
         balance: $tokenBalance.value,
-        processingFee: $processingFee,
+        fee: $processingFee,
         srcChainId: $network.id,
         destChainId: $destNetwork.id,
         amount: BigInt(1), // whatever amount to estimate the cost

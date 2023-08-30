@@ -16,7 +16,7 @@ type GetMaxToBridgeArgs = {
   amount?: bigint;
   srcChainId?: number;
   destChainId?: number;
-  processingFee?: bigint;
+  fee?: bigint;
 };
 
 const log = getLogger('bridge:getMaxAmountToBridge');
@@ -28,7 +28,7 @@ export async function getMaxAmountToBridge({
   balance,
   srcChainId,
   destChainId,
-  processingFee,
+  fee,
 }: GetMaxToBridgeArgs) {
   // For ERC20 tokens, we can bridge the whole balance
   let maxAmount = balance;
@@ -49,7 +49,7 @@ export async function getMaxAmountToBridge({
       srcChainId,
       destChainId,
       bridgeAddress,
-      processingFee,
+      fee,
     } as ETHBridgeArgs;
 
     const estimatedCost = await estimateCostOfBridging(bridges.ETH, bridgeArgs);
@@ -57,7 +57,7 @@ export async function getMaxAmountToBridge({
     log('Estimated cost of bridging', estimatedCost, 'with argument', bridgeArgs);
 
     // We also need to take into account the processing fee if any
-    maxAmount = balance - estimatedCost - (processingFee ?? BigInt(0));
+    maxAmount = balance - estimatedCost - (fee ?? BigInt(0));
   }
 
   return maxAmount;

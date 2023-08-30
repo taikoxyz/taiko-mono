@@ -1,7 +1,7 @@
 import { type Address, getContract } from '@wagmi/core';
 import { zeroAddress } from 'viem';
 
-import { tokenVaultABI } from '$abi';
+import { erc20VaultABI } from '$abi';
 import { routingContractsMap } from '$config/bridges';
 import { chains } from '$libs/chain';
 import { getLogger } from '$libs/util/logger';
@@ -18,10 +18,13 @@ export async function getCrossChainAddress({
   destChainId,
 }: GetCrossChainAddressArgs): Promise<Address | null> {
   if (token.type === TokenType.ETH) return null; // ETH doesn't have an address
-
   log(
     `Getting cross chain address for token ${token.symbol} (${token.name}) from chain ${srcChainId} to chain ${destChainId}`,
   );
+
+  if (token.type === TokenType.ERC721) return null; // TODO
+  if (token.type === TokenType.ERC1155) return null; // TODO
+
   const srcChainTokenAddress = token.addresses[srcChainId];
   const destChainTokenAddress = token.addresses[destChainId];
 
@@ -66,7 +69,7 @@ export async function getCrossChainAddress({
     const { chainId: foundChainId, vaultAddress: erc20VaultAddress } = erc20VaultInfo[0];
 
     const configuredTokenVaultContract = getContract({
-      abi: tokenVaultABI,
+      abi: erc20VaultABI,
       chainId: foundChainId,
       address: erc20VaultAddress,
     });
@@ -80,7 +83,7 @@ export async function getCrossChainAddress({
     const { erc20VaultAddress: destChainTokenVaultAddress } =
       routingContractsMap[destChainId][Number(configuredChainId)];
     const destTokenVaultContract = getContract({
-      abi: tokenVaultABI,
+      abi: erc20VaultABI,
       chainId: srcChainId,
       address: destChainTokenVaultAddress,
     });
@@ -90,13 +93,13 @@ export async function getCrossChainAddress({
     const { erc20VaultAddress: destChainTokenVaultAddress } = routingContractsMap[destChainId][srcChainId];
 
     const srcTokenVaultContract = getContract({
-      abi: tokenVaultABI,
+      abi: erc20VaultABI,
       chainId: srcChainId,
       address: srcChainTokenVaultAddress,
     });
 
     const destTokenVaultContract = getContract({
-      abi: tokenVaultABI,
+      abi: erc20VaultABI,
       chainId: destChainId,
       address: destChainTokenVaultAddress,
     });

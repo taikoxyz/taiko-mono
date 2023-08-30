@@ -19,7 +19,7 @@ type HasEnoughBalanceToBridgeArgs = {
   balance: bigint;
   srcChainId: number;
   destChainId: number;
-  processingFee?: bigint;
+  fee?: bigint;
 };
 
 export async function checkBalanceToBridge({
@@ -29,7 +29,7 @@ export async function checkBalanceToBridge({
   balance,
   srcChainId,
   destChainId,
-  processingFee,
+  fee,
 }: HasEnoughBalanceToBridgeArgs) {
   const wallet = await getConnectedWallet();
   let estimatedCost = BigInt(0);
@@ -40,7 +40,7 @@ export async function checkBalanceToBridge({
     wallet,
     srcChainId,
     destChainId,
-    processingFee,
+    fee,
   } as BridgeArgs;
 
   if (token.type === TokenType.ETH) {
@@ -103,7 +103,7 @@ export async function checkBalanceToBridge({
     try {
       estimatedCost = await estimateCostOfBridging(bridges.ERC20, {
         ...bridgeArgs,
-        tokenAddress,
+        token: tokenAddress,
         tokenVaultAddress: erc20VaultAddress,
         isTokenAlreadyDeployed,
       } as ERC20BridgeArgs);
