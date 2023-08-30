@@ -102,6 +102,24 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/metamerge.png",
+    name: "Meta Merge",
+    link: "https://taiko-match3.metamerge.xyz/",
+    description:
+      "Meta Merge (@MetaMerge_xyz) is a distinctive GameFi metaverse nurtured by Ultiverse (@UltiverseDAO), delivers ground-breaking gameplay and charming pets, thereby enriching the Web3 gaming ecosystem.",
+    filters: [],
+    isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/mesprotocol.png",
+    name: "MES Protocol",
+    link: "https://www.mesprotocol.com/",
+    description:
+      "MES is a cross-rollup orderbook DEX.",
+    filters: [],
+    isLive: false,
+  },
+  {
     icon: "/images/ecosystem/mintpad.jpeg",
     name: "Mintpad",
     link: "https://mintpad.co/",
@@ -260,6 +278,15 @@ const ecosystemData: EcosystemData[] = [
       "User can easily compare and swap multiple chains on top of the Taiko blockchain. A service that links multiple swaps and organizes multiple tokens.",
     filters: [],
     isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/rubic.png",
+    name: "Rubic",
+    link: "https://rubic.exchange/",
+    description:
+      "Rubic enhances interoperability through network bridging and cross-chain dev tools for omnichain dApps. Users access diverse assets via varied DEXs under a unified interface with optimized cross-chain transactions.",
+    filters: [],
+    isLive: false,
   },
   {
     icon: "/images/ecosystem/rubydex.png",
@@ -455,15 +482,13 @@ export function EcosystemSection() {
 function FilterLabel({ text, activeFilter, setActiveFilter }) {
   const isActive = activeFilter === text;
 
-  const buttonStyles = `border rounded-full py-1 px-4 text-sm focus:outline-none transition-colors duration-200 font-bold ${
-    isActive
-      ? "bg-gray-300 text-black"
-      : "bg-white text-gray-700 dark:bg-black dark:text-gray-300"
-  } ${
-    isActive
+  const buttonStyles = `border rounded-full py-1 px-4 text-sm focus:outline-none transition-colors duration-200 font-bold ${isActive
+    ? "bg-gray-300 text-black"
+    : "bg-white text-gray-700 dark:bg-black dark:text-gray-300"
+    } ${isActive
       ? "hover:bg-gray-400"
       : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
-  }`;
+    }`;
 
   return (
     <button className={buttonStyles} onClick={() => setActiveFilter(text)}>
