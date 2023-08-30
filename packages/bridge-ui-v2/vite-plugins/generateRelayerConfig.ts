@@ -19,24 +19,26 @@ const logger = new Logger(pluginName);
 const currentDir = path.resolve(new URL(import.meta.url).pathname);
 
 const outputPath = path.join(path.dirname(currentDir), '../src/generated/relayerConfig.ts');
-// Decode base64 encoded JSON string
-if (!process.env.CONFIGURED_RELAYER) {
-  throw new Error('CONFIGURED_RELAYER is not defined in environment.');
-}
-const configuredRelayerConfigFile = decodeBase64ToJson(process.env.CONFIGURED_RELAYER || '');
 
-// Valide JSON against schema
-const isValid = validateJsonAgainstSchema(configuredRelayerConfigFile, configuredRelayerSchema);
-
-if (!isValid) {
-  throw new Error('encoded configuredBridges.json is not valid.');
-}
 
 export function generateRelayerConfig() {
   return {
     name: pluginName,
     async buildStart() {
       logger.info('Plugin initialized.');
+
+      if (!process.env.CONFIGURED_RELAYER) {
+        throw new Error('CONFIGURED_RELAYER is not defined in environment. Make sure to run the export step in the documentation.');
+      }
+
+      // Decode base64 encoded JSON string
+      const configuredRelayerConfigFile = decodeBase64ToJson(process.env.CONFIGURED_RELAYER || '');
+
+      // Valide JSON against schema
+      const isValid = validateJsonAgainstSchema(configuredRelayerConfigFile, configuredRelayerSchema);
+      if (!isValid) {
+        throw new Error('encoded configuredBridges.json is not valid.');
+      }
 
       // Path to where you want to save the generated Typ eScript file
       const tsFilePath = path.resolve(outputPath);
@@ -49,7 +51,7 @@ export function generateRelayerConfig() {
 
       // Create the TypeScript content
       sourceFile = await storeTypesAndEnums(sourceFile);
-      sourceFile = await buildRelayerConfig(sourceFile);
+      sourceFile = await buildRelayerConfig(sourceFile, configuredRelayerConfigFile);
 
       await sourceFile.save();
 
@@ -76,7 +78,7 @@ async function storeTypesAndEnums(sourceFile: SourceFile) {
   return sourceFile;
 }
 
-async function buildRelayerConfig(sourceFile: SourceFile) {
+async function buildRelayerConfig(sourceFile: SourceFile, configuredRelayerConfigFile: ConfiguredRelayer) {
   logger.info('Building relayer config...');
 
   const relayer: ConfiguredRelayer = configuredRelayerConfigFile;

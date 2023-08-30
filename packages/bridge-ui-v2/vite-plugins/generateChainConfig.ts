@@ -19,24 +19,25 @@ const currentDir = path.resolve(new URL(import.meta.url).pathname);
 
 const outputPath = path.join(path.dirname(currentDir), '../src/generated/chainConfig.ts');
 
-// Decode base64 encoded JSON string
-if (!process.env.CONFIGURED_CHAINS) {
-  throw new Error('CONFIGURED_CHAINS is not defined in environment.');
-}
-const configuredChainsConfigFile = decodeBase64ToJson(process.env.CONFIGURED_CHAINS || '');
-
-// Valide JSON against schema
-const isValid = validateJsonAgainstSchema(configuredChainsConfigFile, configuredChainsSchema);
-
-if (!isValid) {
-  throw new Error('encoded configuredBridges.json is not valid.');
-}
-
 export function generateChainConfig() {
   return {
     name: pluginName,
     async buildStart() {
       logger.info('Plugin initialized.');
+
+
+
+      if (!process.env.CONFIGURED_CHAINS) {
+        throw new Error('CONFIGURED_CHAINS is not defined in environment. Make sure to run the export step in the documentation.');
+      }
+      // Decode base64 encoded JSON string
+      const configuredChainsConfigFile = decodeBase64ToJson(process.env.CONFIGURED_CHAINS || '');
+      // Valide JSON against schema
+      const isValid = validateJsonAgainstSchema(configuredChainsConfigFile, configuredChainsSchema);
+
+      if (!isValid) {
+        throw new Error('encoded configuredBridges.json is not valid.');
+      }
 
       // Path to where you want to save the generated TypeScript file
       const tsFilePath = path.resolve(outputPath);
@@ -49,7 +50,7 @@ export function generateChainConfig() {
 
       // Create the TypeScript content
       sourceFile = await storeTypes(sourceFile);
-      sourceFile = await buildChainConfig(sourceFile);
+      sourceFile = await buildChainConfig(sourceFile, configuredChainsConfigFile);
       await sourceFile.saveSync();
 
       const formatted = await formatSourceFile(tsFilePath);
@@ -87,7 +88,7 @@ async function storeTypes(sourceFile: SourceFile) {
   return sourceFile;
 }
 
-async function buildChainConfig(sourceFile: SourceFile) {
+async function buildChainConfig(sourceFile: SourceFile, configuredChainsConfigFile: ConfiguredChains) {
   const chainConfig: ChainConfigMap = {};
 
   const chains: ConfiguredChains = configuredChainsConfigFile;

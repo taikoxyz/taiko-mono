@@ -17,23 +17,28 @@ const logger = new Logger(pluginName);
 const currentDir = path.resolve(new URL(import.meta.url).pathname);
 
 const outputPath = path.join(path.dirname(currentDir), '../src/generated/bridgeConfig.ts');
-// Decode base64 encoded JSON string
-if (!process.env.CONFIGURED_BRIDGES) {
-  throw new Error('CONFIGURED_BRIDGES is not defined in environment.');
-}
-const configuredBridgesConfigFile = decodeBase64ToJson(process.env.CONFIGURED_BRIDGES || '');
 
-// Valide JSON against schema
-const isValid = validateJsonAgainstSchema(configuredBridgesConfigFile, configuredBridgesSchema);
-
-if (!isValid) {
-  throw new Error('encoded configuredBridges.json is not valid.');
-}
 
 export function generateBridgeConfig() {
+
   return {
     name: pluginName,
     async buildStart() {
+
+      if (!process.env.CONFIGURED_BRIDGES) {
+        throw new Error('CONFIGURED_BRIDGES is not defined in environment. Make sure to run the export step in the documentation.');
+      }
+
+      // Decode base64 encoded JSON string
+      const configuredBridgesConfigFile = decodeBase64ToJson(process.env.CONFIGURED_BRIDGES || '');
+
+
+      // Valide JSON against schema
+      const isValid = validateJsonAgainstSchema(configuredBridgesConfigFile, configuredBridgesSchema);
+
+      if (!isValid) {
+        throw new Error('encoded configuredBridges.json is not valid.');
+      }
       logger.info('Plugin initialized.');
 
       const tsFilePath = path.resolve(outputPath);
@@ -46,7 +51,7 @@ export function generateBridgeConfig() {
 
       // Create the TypeScript content
       sourceFile = await storeTypes(sourceFile);
-      sourceFile = await buildBridgeConfig(sourceFile);
+      sourceFile = await buildBridgeConfig(sourceFile, configuredBridgesConfigFile);
 
       // Save the file
       await sourceFile.saveSync();
@@ -77,7 +82,7 @@ async function storeTypes(sourceFile: SourceFile) {
   return sourceFile;
 }
 
-async function buildBridgeConfig(sourceFile: SourceFile) {
+async function buildBridgeConfig(sourceFile: SourceFile, configuredBridgesConfigFile: ConfiguredBridgesType) {
   logger.info('Building bridge config...');
   const routingContractsMap: RoutingMap = {};
 
@@ -94,6 +99,7 @@ async function buildBridgeConfig(sourceFile: SourceFile) {
     }
     routingContractsMap[item.source][item.destination] = item.addresses;
   });
+
 
   // Add routingContractsMap variable
   sourceFile.addVariableStatement({

@@ -18,24 +18,26 @@ const currentDir = path.resolve(new URL(import.meta.url).pathname);
 
 const outputPath = path.join(path.dirname(currentDir), '../src/generated/customTokenConfig.ts');
 
-// Decode base64 encoded JSON string
-if (!process.env.CONFIGURED_CUSTOM_TOKEN) {
-  throw new Error('CONFIGURED_CUSTOM_TOKEN is not defined in environment.');
-}
-const configuredTokenConfigFile = decodeBase64ToJson(process.env.CONFIGURED_CUSTOM_TOKEN || '');
-
-// Valide JSON against schema
-const isValid = validateJsonAgainstSchema(configuredTokenConfigFile, configuredChainsSchema);
-
-if (!isValid) {
-  throw new Error('encoded configuredBridges.json is not valid.');
-}
-
 export function generateCustomTokenConfig() {
   return {
     name: pluginName,
     async buildStart() {
       logger.info('Plugin initialized.');
+
+
+      if (!process.env.CONFIGURED_CUSTOM_TOKEN) {
+        throw new Error('CONFIGURED_CUSTOM_TOKEN is not defined in environment. Make sure to run the export step in the documentation.');
+      }
+
+      // Decode base64 encoded JSON string
+      const configuredTokenConfigFile = decodeBase64ToJson(process.env.CONFIGURED_CUSTOM_TOKEN || '');
+
+      // Valide JSON against schema
+      const isValid = validateJsonAgainstSchema(configuredTokenConfigFile, configuredChainsSchema);
+
+      if (!isValid) {
+        throw new Error('encoded configuredBridges.json is not valid.');
+      }
 
       const tsFilePath = path.resolve(outputPath);
 
@@ -47,7 +49,7 @@ export function generateCustomTokenConfig() {
 
       // Create the TypeScript content
       sourceFile = await storeTypes(sourceFile);
-      sourceFile = await buildCustomTokenConfig(sourceFile);
+      sourceFile = await buildCustomTokenConfig(sourceFile, configuredTokenConfigFile);
 
       await sourceFile.save();
 
@@ -76,7 +78,7 @@ async function storeTypes(sourceFile: SourceFile) {
   return sourceFile;
 }
 
-async function buildCustomTokenConfig(sourceFile: SourceFile) {
+async function buildCustomTokenConfig(sourceFile: SourceFile, configuredTokenConfigFile: Token[]) {
   logger.info('Building custom token config...');
   const tokens: Token[] = configuredTokenConfigFile;
 

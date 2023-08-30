@@ -33,19 +33,14 @@ for json_file in "${json_files[@]}"; do
     filename=$(basename "$json_file" .json) # removing the .json extension
     env_key=$(echo "$filename" | sed 's/\([a-z0-9]\)\([A-Z]\)/\1_\2/g' | tr '[:lower:]' '[:upper:]')
 
-   # Check if the key already exists in the .env file
-   if grep -q "^export $env_key=" $env_file; then
-     echo "Overwriting existing key $env_key in $env_file"
-     # Key exists, so replace it
-     sed -i "s/^$env_key=.*/export $env_key='$base64_content'/" $env_file
-   else
-     # Key doesn't exist, so append it
-     echo -e "\nexport $env_key='$base64_content'" >> $env_file
-   fi
-     else
-       echo "Warning: File $json_file does not exist."
-     fi
+    # Try to find and replace the line; if it fails, append to the file
+    if sed -i.bak "s/^export $env_key=.*/export $env_key='$base64_content'/" $env_file || echo -e "\nexport $env_key='$base64_content'" >> $env_file; then
+      echo "Successfully updated $env_key"
+    else
+      echo "Failed to update $env_key"
+    fi
+  else
+    echo "Warning: File $json_file does not exist."
+  fi
 done
 echo "Done."
-
-

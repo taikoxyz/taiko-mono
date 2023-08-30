@@ -2,6 +2,7 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { defineConfig } from 'vitest/config';
 
+import { exportConfigToEnv } from './vite-plugins/exportConfigToEnv';
 import { generateBridgeConfig } from './vite-plugins/generateBridgeConfig';
 import { generateChainConfig } from './vite-plugins/generateChainConfig';
 import { generateCustomTokenConfig } from './vite-plugins/generateCustomTokenConfig';
@@ -13,12 +14,11 @@ export default defineConfig({
   },
   plugins: [
     sveltekit(),
-
     // This plugin gives vite the ability to resolve imports using TypeScript's path mapping.
     // https://www.npmjs.com/package/vite-tsconfig-paths
     tsconfigPaths(),
-    generateChainConfig(),
     generateBridgeConfig(),
+    generateChainConfig(),
     generateRelayerConfig(),
     generateCustomTokenConfig(),
   ],
