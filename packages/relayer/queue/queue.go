@@ -12,6 +12,7 @@ type Queue interface {
 	Publish(ctx context.Context, msg []byte) error
 	Subscribe(ctx context.Context, msgs chan<- Message) error
 	Ack(ctx context.Context, msg Message) error
+	Nack(ctx context.Context, msg Message) error
 }
 
 type QueueMessageBody struct {

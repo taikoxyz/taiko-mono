@@ -14,8 +14,6 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/joho/godotenv"
-	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/db"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/http"
@@ -31,23 +29,6 @@ import (
 )
 
 var (
-	envVars = []string{
-		"HTTP_PORT",
-		"L1_BRIDGE_ADDRESS",
-		"L2_BRIDGE_ADDRESS",
-		"L2_TAIKO_ADDRESS",
-		"L1_ERC20_VAULT_ADDRESS",
-		"L2_ERC20_VAULT_ADDRESS",
-		"L1_RPC_URL",
-		"L2_RPC_URL",
-		"MYSQL_USER",
-		"MYSQL_DATABASE",
-		"MYSQL_HOST",
-		"RELAYER_ECDSA_KEY",
-		"CONFIRMATIONS_BEFORE_PROCESSING",
-		"PROMETHEUS_HTTP_PORT",
-	}
-
 	defaultBlockBatchSize                    = 2
 	defaultNumGoroutines                     = 10
 	defaultSubscriptionBackoff               = 600 * time.Second
@@ -65,10 +46,6 @@ func Run(
 	index relayer.Indexer,
 	process relayer.Processor,
 ) {
-	if err := loadAndValidateEnv(); err != nil {
-		log.Fatal(err)
-	}
-
 	db, err := openDBConnection(relayer.DBConnectionOpts{
 		Name:     os.Getenv("MYSQL_USER"),
 		Password: os.Getenv("MYSQL_PASSWORD"),
@@ -234,25 +211,6 @@ func openDBConnection(opts relayer.DBConnectionOpts) (relayer.DB, error) {
 	return db, nil
 }
 
-func loadAndValidateEnv() error {
-	_ = godotenv.Load()
-
-	missing := make([]string, 0)
-
-	for _, v := range envVars {
-		e := os.Getenv(v)
-		if e == "" {
-			missing = append(missing, v)
-		}
-	}
-
-	if len(missing) == 0 {
-		return nil
-	}
-
-	return errors.Errorf("Missing env vars: %v", missing)
-}
-
 func newHTTPServer(db relayer.DB, l1EthClient relayer.EthClient, l2EthClient relayer.EthClient) (*http.Server, error) {
 	eventRepo, err := repo.NewEventRepository(db)
 	if err != nil {
@@ -371,6 +329,7 @@ func makeIndexers(
 			RPCClient:           l2RpcClient,
 			BridgeAddress:       common.HexToAddress(os.Getenv("L2_BRIDGE_ADDRESS")),
 			DestBridgeAddress:   common.HexToAddress(os.Getenv("L1_BRIDGE_ADDRESS")),
+			SrcTaikoAddress:     common.HexToAddress(os.Getenv("L2_TAIKO_ADDRESS")),
 			BlockBatchSize:      uint64(blockBatchSize),
 			NumGoroutines:       numGoroutines,
 			SubscriptionBackoff: subscriptionBackoff,
@@ -462,11 +421,12 @@ func makeProcessors(layer relayer.Layer,
 			ProfitableOnly:                profitableOnly,
 			HeaderSyncIntervalInSeconds:   int64(headerSyncIntervalInSeconds),
 			ConfirmationsTimeoutInSeconds: int64(confirmationsTimeoutInSeconds),
+			DestBridgeAddress:             common.HexToAddress(os.Getenv("L2_BRIDGE_ADDRESS")),
 			DestERC20VaultAddress:         common.HexToAddress(os.Getenv("L2_ERC20_VAULT_ADDRESS")),
 			DestERC721VaultAddress:        common.HexToAddress(os.Getenv("L2_ERC721_VAULT_ADDRESS")),
 			DestERC1155VaultAddress:       common.HexToAddress(os.Getenv("L2_ERC1155_VAULT_ADDRESS")),
 			DestTaikoAddress:              common.HexToAddress(os.Getenv("L2_TAIKO_ADDRESS")),
-			SrcSignalServiceAddress:       common.HexToAddress(os.Getenv("L1_SIGNAL_Service_ADDRESS")),
+			SrcSignalServiceAddress:       common.HexToAddress(os.Getenv("L1_SIGNAL_SERVICE_ADDRESS")),
 		})
 		if err != nil {
 			log.Fatal(err)
@@ -493,11 +453,12 @@ func makeProcessors(layer relayer.Layer,
 			ProfitableOnly:                profitableOnly,
 			HeaderSyncIntervalInSeconds:   int64(headerSyncIntervalInSeconds),
 			ConfirmationsTimeoutInSeconds: int64(confirmationsTimeoutInSeconds),
+			DestBridgeAddress:             common.HexToAddress(os.Getenv("L1_BRIDGE_ADDRESS")),
 			DestERC20VaultAddress:         common.HexToAddress(os.Getenv("L1_ERC20_VAULT_ADDRESS")),
 			DestERC721VaultAddress:        common.HexToAddress(os.Getenv("L1_ERC721_VAULT_ADDRESS")),
 			DestERC1155VaultAddress:       common.HexToAddress(os.Getenv("L1_ERC1155_VAULT_ADDRESS")),
 			DestTaikoAddress:              common.HexToAddress(os.Getenv("L1_TAIKO_ADDRESS")),
-			SrcSignalServiceAddress:       common.HexToAddress(os.Getenv("L2_SIGNAL_Service_ADDRESS")),
+			SrcSignalServiceAddress:       common.HexToAddress(os.Getenv("L2_SIGNAL_SERVICE_ADDRESS")),
 		})
 		if err != nil {
 			log.Fatal(err)

@@ -25,6 +25,10 @@ func (r *Queue) Ack(ctx context.Context, msg queue.Message) error {
 	return nil
 }
 
+func (r *Queue) Nack(ctx context.Context, msg queue.Message) error {
+	return nil
+}
+
 func (r *Queue) Subscribe(ctx context.Context, msgChan chan<- queue.Message) error {
 	return nil
 }

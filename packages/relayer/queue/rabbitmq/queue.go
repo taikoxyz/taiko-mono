@@ -93,6 +93,14 @@ func (r *RabbitMQ) Ack(ctx context.Context, msg queue.Message) error {
 	return rmqMsg.Ack(false)
 }
 
+func (r *RabbitMQ) Nack(ctx context.Context, msg queue.Message) error {
+	rmqMsg := msg.Internal.(*amqp.Delivery)
+
+	slog.Info("acknowledging rabbitmq message", "msgId", rmqMsg.MessageId)
+
+	return rmqMsg.Nack(false, true)
+}
+
 func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message) error {
 	msgs, err := r.ch.Consume(
 		r.queue.Name,

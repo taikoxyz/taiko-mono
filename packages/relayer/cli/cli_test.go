@@ -2,7 +2,6 @@ package cli
 
 import (
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,30 +11,6 @@ import (
 
 var dummyEcdsaKey = "8da4ef21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41de8f"
 var dummyAddress = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
-
-func Test_loadAndValidateEnvVars(t *testing.T) {
-	for _, envVar := range envVars {
-		os.Setenv(envVar, "valid")
-	}
-
-	assert.Equal(t, loadAndValidateEnv(), nil)
-}
-
-func Test_loadAndValidateEnvVars_missing(t *testing.T) {
-	for _, envVar := range envVars {
-		os.Setenv(envVar, "valid")
-	}
-
-	for _, envVar := range envVars {
-		os.Setenv(envVar, "")
-
-		err := loadAndValidateEnv()
-
-		assert.NotEqual(t, err, nil)
-		assert.Equal(t, true, strings.Contains(err.Error(), envVar))
-		os.Setenv(envVar, "valid")
-	}
-}
 
 func Test_openDBConnection(t *testing.T) {
 	tests := []struct {

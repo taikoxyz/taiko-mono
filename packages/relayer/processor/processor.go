@@ -246,6 +246,10 @@ func (p *Processor) eventLoop(ctx context.Context) {
 		case msg := <-p.msgCh:
 			if err := p.processMessage(ctx, msg); err != nil {
 				slog.Error("err processing message", "msg", msg)
+
+				if err := p.queue.Nack(ctx, msg); err != nil {
+					slog.Error("Err nacking message", "msg", msg)
+				}
 			}
 		}
 	}
