@@ -31,7 +31,17 @@ source .env
 
 ### Set up configurations
 
-There are some additional configuration files that have to be filled in:
+**High-level flow:**
+
+1. Prepare .json config files
+2. Export as base64 to .env
+3. build/serve creates typescript configs for the app
+
+<br/>
+
+**Detailed process**
+
+These are are the additional configuration files that have to be filled in:
 
 | Name                                    | Description                                                                              |
 | --------------------------------------- | ---------------------------------------------------------------------------------------- |
@@ -61,8 +71,14 @@ To get started, open your terminal in `/packages/bridge-ui-v2/`
    pnpm export:config
    ```
 
-4. Now whenver a build is triggered it will generate the config files in `src/generated/`
-   <br>**Note:** In the `config/schemas` folder are schemas that will validate the correct json format and report any errors in your initial json configurations.
+   This command exports the json as base64 string to your .env file
+
+4. Now whenver a build is triggered it will generate the config files based on the .env file in `src/generated/`
+   <br>**Note: In the** `config/schemas` **folder are schemas that will validate the correct json format and report any errors in your initial json configurations, so check the log output for any errors!**
+   <br>
+
+**Beware**, that if you make changes to the json files, you need to export them to the .env again via script.
+<br>
 
 ### Start a development server:
 
