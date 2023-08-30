@@ -6,336 +6,48 @@
 
 pragma solidity ^0.8.20;
 
-import { AddressResolver } from "../common/AddressResolver.sol";
-import { EssentialContract } from "../common/EssentialContract.sol";
-import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { Proxied } from "../common/Proxied.sol";
-import { LibEthDepositing } from "./libs/LibEthDepositing.sol";
-import { LibProposing } from "./libs/LibProposing.sol";
-import { LibProving } from "./libs/LibProving.sol";
-import { LibTaikoToken } from "./libs/LibTaikoToken.sol";
-import { LibUtils } from "./libs/LibUtils.sol";
-import { LibVerifying } from "./libs/LibVerifying.sol";
-import { TaikoConfig } from "./TaikoConfig.sol";
-import { TaikoErrors } from "./TaikoErrors.sol";
 import { TaikoData } from "./TaikoData.sol";
-import { TaikoEvents } from "./TaikoEvents.sol";
+import { TaikoL1Base } from "./TaikoL1Base.sol";
 
-/// @title TaikoL1
-/// @notice This contract serves as the "base layer contract" of the Taiko
-/// protocol, providing functionalities for proposing, proving, and verifying
-/// blocks. The term "base layer contract" means that although this is usually
-/// deployed on L1, it can also be deployed on L2s to create L3s ("inception
-/// layers"). The contract also handles the deposit and withdrawal of Taiko
-/// tokens and Ether.
-contract TaikoL1 is
-    EssentialContract,
-    ICrossChainSync,
-    TaikoEvents,
-    TaikoErrors
-{
-    using LibUtils for TaikoData.State;
-
-    TaikoData.State public state;
-    uint256[100] private __gap;
-
-    /// @dev Fallback function to receive Ether and deposit to to Layer 2.
-    receive() external payable {
-        depositEtherToL2(address(0));
-    }
-
-    /// @notice Initialize the rollup.
-    /// @param _addressManager The {AddressManager} address.
-    /// @param _genesisBlockHash The block hash of the genesis block.
-    /// @param _initFeePerGas Initial (reasonable) block fee value.
-    /// @param _initAvgProofDelay Initial (reasonable) proof window.
-    function init(
-        address _addressManager,
-        bytes32 _genesisBlockHash,
-        uint32 _initFeePerGas,
-        uint16 _initAvgProofDelay
-    )
-        external
-        initializer
-    {
-        EssentialContract._init(_addressManager);
-        LibVerifying.init({
-            state: state,
-            config: getConfig(),
-            genesisBlockHash: _genesisBlockHash,
-            initFeePerGas: _initFeePerGas,
-            initAvgProofDelay: _initAvgProofDelay
-        });
-    }
-
-    /// @notice Propose a Taiko L2 block.
-    /// @param input An abi-encoded BlockMetadataInput that the actual L2 block
-    /// header must satisfy.
-    /// @param txList A list of transactions in this block, encoded with RLP.
-    /// Note, in the corresponding L2 block an "anchor transaction" will be the
-    /// first transaction in the block. If there are `n` transactions in the
-    /// `txList`, then there will be up to `n + 1` transactions in the L2 block.
-    /// @return meta The metadata of the proposed L2 block.
-    function proposeBlock(
-        bytes calldata input,
-        bytes calldata txList
-    )
-        external
-        nonReentrant
-        returns (TaikoData.BlockMetadata memory meta)
-    {
-        TaikoData.Config memory config = getConfig();
-        meta = LibProposing.proposeBlock({
-            state: state,
-            config: config,
-            resolver: AddressResolver(this),
-            input: abi.decode(input, (TaikoData.BlockMetadataInput)),
-            txList: txList
-        });
-        if (config.blockMaxVerificationsPerTx > 0) {
-            LibVerifying.verifyBlocks({
-                state: state,
-                config: config,
-                resolver: AddressResolver(this),
-                maxBlocks: config.blockMaxVerificationsPerTx
-            });
-        }
-    }
-
-    /// @notice Prove a block with a zero-knowledge proof.
-    /// @param blockId The index of the block to prove. This is also used to
-    /// select the right implementation version.
-    /// @param input An abi-encoded {TaikoData.BlockEvidence} object.
-    function proveBlock(
-        uint256 blockId,
-        bytes calldata input
-    )
-        external
-        nonReentrant
-    {
-        TaikoData.Config memory config = getConfig();
-        LibProving.proveBlock({
-            state: state,
-            config: config,
-            resolver: AddressResolver(this),
-            blockId: blockId,
-            evidence: abi.decode(input, (TaikoData.BlockEvidence))
-        });
-        if (config.blockMaxVerificationsPerTx > 0) {
-            LibVerifying.verifyBlocks({
-                state: state,
-                config: config,
-                resolver: AddressResolver(this),
-                maxBlocks: config.blockMaxVerificationsPerTx
-            });
-        }
-    }
-
-    /// @notice Verify up to N blocks.
-    /// @param maxBlocks Max number of blocks to verify.
-    function verifyBlocks(uint256 maxBlocks) external nonReentrant {
-        if (maxBlocks == 0) revert L1_INVALID_PARAM();
-        LibVerifying.verifyBlocks({
-            state: state,
-            config: getConfig(),
-            resolver: AddressResolver(this),
-            maxBlocks: maxBlocks
-        });
-    }
-
-    /// @notice Deposit Ether to Layer 2.
-    /// @param recipient Address of the recipient for the deposited Ether on
-    /// Layer 2.
-    function depositEtherToL2(address recipient) public payable {
-        LibEthDepositing.depositEtherToL2({
-            state: state,
-            config: getConfig(),
-            resolver: AddressResolver(this),
-            recipient: recipient
-        });
-    }
-
-    /// @notice Deposit Taiko tokens to the contract.
-    /// @param amount Amount of Taiko tokens to deposit.
-    function depositTaikoToken(uint256 amount) public nonReentrant {
-        LibTaikoToken.depositTaikoToken(state, AddressResolver(this), amount);
-    }
-
-    /// @notice Withdraw Taiko tokens from the contract.
-    /// @param amount Amount of Taiko tokens to withdraw.
-    function withdrawTaikoToken(uint256 amount) public nonReentrant {
-        LibTaikoToken.withdrawTaikoToken(state, AddressResolver(this), amount);
-    }
-
-    /// @notice Check if Ether deposit is allowed for Layer 2.
-    /// @param amount Amount of Ether to be deposited.
-    /// @return true if Ether deposit is allowed, false otherwise.
-    function canDepositEthToL2(uint256 amount) public view returns (bool) {
-        return LibEthDepositing.canDepositEthToL2({
-            state: state,
-            config: getConfig(),
-            amount: amount
-        });
-    }
-
-    /// @notice Get the block fee for a given gas limit.
-    /// @param gasLimit Gas limit for the block.
-    /// @return The block fee in Taiko tokens.
-    function getBlockFee(uint32 gasLimit) public view returns (uint64) {
-        return LibUtils.getBlockFee({
-            state: state,
-            config: getConfig(),
-            gasAmount: gasLimit
-        });
-    }
-
-    /// @notice Get the Taiko token balance for a specific address.
-    /// @param addr Address to check the Taiko token balance.
-    /// @return The Taiko token balance of the address.
-    function getTaikoTokenBalance(address addr) public view returns (uint256) {
-        return state.taikoTokenBalances[addr];
-    }
-
-    /// @notice Get the details of a block.
-    /// @param blockId Index of the block.
-    /// @return _metaHash Metadata hash of the block.
-    /// @return _gasLimit Gas limit of the block.
-    /// @return _nextForkChoiceId Next fork choice ID of the block.
-    /// @return _verifiedForkChoiceId Verified fork choice ID of the block.
-    /// @return _proverReleased True if the prover has been released for the
-    /// block, false otherwise.
-    /// @return _proposer Address of the block proposer.
-    /// @return _feePerGas Fee per gas of the block.
-    /// @return _proposedAt Timestamp when the block was proposed.
-    /// @return _assignedProver Address of the assigned prover for the block.
-    /// @return _rewardPerGas Reward per gas of the block.
-    /// @return _proofWindow Proof window of the block.
-    function getBlock(uint256 blockId)
-        public
-        view
-        returns (
-            bytes32 _metaHash,
-            uint32 _gasLimit,
-            uint24 _nextForkChoiceId,
-            uint24 _verifiedForkChoiceId,
-            bool _proverReleased,
-            address _proposer,
-            uint32 _feePerGas,
-            uint64 _proposedAt,
-            address _assignedProver,
-            uint32 _rewardPerGas,
-            uint64 _proofWindow
-        )
-    {
-        TaikoData.Block storage blk = LibProposing.getBlock({
-            state: state,
-            config: getConfig(),
-            blockId: blockId
-        });
-        _metaHash = blk.metaHash;
-        _gasLimit = blk.gasLimit;
-        _nextForkChoiceId = blk.nextForkChoiceId;
-        _verifiedForkChoiceId = blk.verifiedForkChoiceId;
-        _proverReleased = blk.proverReleased;
-        _proposer = blk.proposer;
-        _feePerGas = blk.feePerGas;
-        _proposedAt = blk.proposedAt;
-        _assignedProver = blk.assignedProver;
-        _rewardPerGas = blk.rewardPerGas;
-        _proofWindow = blk.proofWindow;
-    }
-
-    /// @notice Get the fork choice for a specific block.
-    /// @param blockId Index of the block.
-    /// @param parentHash Parent hash of the block.
-    /// @param parentGasUsed Gas used by the parent block.
-    /// @return ForkChoice data of the block.
-    function getForkChoice(
-        uint256 blockId,
-        bytes32 parentHash,
-        uint32 parentGasUsed
-    )
-        public
-        view
-        returns (TaikoData.ForkChoice memory)
-    {
-        return LibProving.getForkChoice({
-            state: state,
-            config: getConfig(),
-            blockId: blockId,
-            parentHash: parentHash,
-            parentGasUsed: parentGasUsed
-        });
-    }
-
-    /// @notice Get the block hash of the specified Layer 2 block.
-    /// @param blockId Index of the block.
-    /// @return Block hash of the specified block.
-    function getCrossChainBlockHash(uint256 blockId)
-        public
-        view
-        override
-        returns (bytes32)
-    {
-        (bool found, TaikoData.Block storage blk) = LibUtils.getL2ChainData({
-            state: state,
-            config: getConfig(),
-            blockId: blockId
-        });
-        return found
-            ? blk.forkChoices[blk.verifiedForkChoiceId].blockHash
-            : bytes32(0);
-    }
-
-    /// @notice Get the signal root of the specified Layer 2 block.
-    /// @param blockId Index of the block.
-    /// @return Signal root of the specified block.
-    function getCrossChainSignalRoot(uint256 blockId)
-        public
-        view
-        override
-        returns (bytes32)
-    {
-        (bool found, TaikoData.Block storage blk) = LibUtils.getL2ChainData({
-            state: state,
-            config: getConfig(),
-            blockId: blockId
-        });
-
-        return found
-            ? blk.forkChoices[blk.verifiedForkChoiceId].signalRoot
-            : bytes32(0);
-    }
-
-    /// @notice Get the state variables of the TaikoL1 contract.
-    /// @return StateVariables struct containing state variables.
-    function getStateVariables()
-        public
-        view
-        returns (TaikoData.StateVariables memory)
-    {
-        return state.getStateVariables();
-    }
-
-    /// @notice Get the configuration of the TaikoL1 contract.
-    /// @return Config struct containing configuration parameters.
+contract TaikoL1 is TaikoL1Base {
     function getConfig()
         public
         pure
         virtual
+        override
         returns (TaikoData.Config memory)
     {
-        return TaikoConfig.getConfig();
-    }
-
-    /// @notice Get the name of the proof verifier by ID.
-    /// @param id ID of the verifier.
-    /// @return Verifier name.
-    function getVerifierName(uint16 id) public pure returns (bytes32) {
-        return LibUtils.getVerifierName(id);
+        return TaikoData.Config({
+            chainId: 167_007,
+            relaySignalRoot: false,
+            blockMaxProposals: 403_200,
+            blockRingBufferSize: 403_210,
+            // This number is calculated from blockMaxProposals to make the
+            // maximum value of the multiplier close to 20.0
+            blockMaxVerificationsPerTx: 10,
+            blockMaxGasLimit: 6_000_000,
+            blockFeeBaseGas: 20_000,
+            blockMaxTxListBytes: 120_000,
+            blockTxListExpiry: 0,
+            proposerRewardPerSecond: 25e16, // 0.25 Taiko token
+            proposerRewardMax: 32e18, // 32 Taiko token
+            proofRegularCooldown: 30 minutes,
+            proofOracleCooldown: 15 minutes,
+            proofWindow: 90 minutes,
+            proofBond: 1024e18,
+            skipProverAssignmentVerificaiton: false,
+            ethDepositRingBufferSize: 1024,
+            ethDepositMinCountPerBlock: 8,
+            ethDepositMaxCountPerBlock: 32,
+            ethDepositMinAmount: 1 ether,
+            ethDepositMaxAmount: 10_000 ether,
+            ethDepositGas: 21_000,
+            ethDepositMaxFee: 1 ether / 10
+        });
     }
 }
 
 /// @title TaikoL1
-/// @notice Proxied version of the TaikoL1 contract.
+/// @notice Proxied version of the parent contract.
 contract ProxiedTaikoL1 is Proxied, TaikoL1 { }

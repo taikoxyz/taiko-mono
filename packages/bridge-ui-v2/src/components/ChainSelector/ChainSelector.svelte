@@ -28,11 +28,11 @@
   let classes = classNames('ChainSelector', $$props.class);
   let buttonClasses = classNames(
     'body-regular bg-neutral-background',
-    small ? 'px-2 py-[6px]' : 'px-6 py-[10px]',
+    small ? 'px-2 py-[6px]' : 'px-[24px] py-[10px]',
     small ? 'rounded-md' : 'rounded-[10px]',
     small ? 'w-auto' : 'w-full',
     readOnly ? '' : 'dark:hover:bg-tertiary-interactive-hover',
-    'flex justify-start content-center body-bold py-2 px-[20px]',
+    'flex justify-start content-center',
   );
 
   let switchingNetwork = false;
@@ -122,7 +122,7 @@
           <i role="img" aria-label={value.name}>
             <img src={icon} alt="chain-logo" class="rounded-full w-6 h-6" />
           </i>
-          <span>{value.name}</span>
+          <span>{truncateString(value.name, 8)}</span>
         {/if}
       </div>
     </button>

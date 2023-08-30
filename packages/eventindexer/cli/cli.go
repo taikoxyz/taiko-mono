@@ -142,7 +142,6 @@ func Run(
 			EthClient:           ethClient,
 			RPCClient:           rpcClient,
 			SrcTaikoAddress:     common.HexToAddress(os.Getenv("L1_TAIKO_ADDRESS")),
-			ProverPoolAddress:   common.HexToAddress(os.Getenv("PROVER_POOL_ADDRESS")),
 			SrcBridgeAddress:    common.HexToAddress(os.Getenv("BRIDGE_ADDRESS")),
 			SrcSwapAddresses:    stringsToAddresses(strings.Split(os.Getenv("SWAP_ADDRESSES"), ",")),
 			BlockBatchSize:      uint64(blockBatchSize),
@@ -283,13 +282,12 @@ func newHTTPServer(db eventindexer.DB, l1EthClient *ethclient.Client) (*http.Ser
 	}
 
 	srv, err := http.NewServer(http.NewServerOpts{
-		EventRepo:         eventRepo,
-		StatRepo:          statRepo,
-		NFTBalanceRepo:    nftBalanceRepo,
-		Echo:              echo.New(),
-		CorsOrigins:       strings.Split(os.Getenv("CORS_ORIGINS"), ","),
-		EthClient:         l1EthClient,
-		ProverPoolAddress: common.HexToAddress(os.Getenv("PROVER_POOL_ADDRESS")),
+		EventRepo:      eventRepo,
+		StatRepo:       statRepo,
+		NFTBalanceRepo: nftBalanceRepo,
+		Echo:           echo.New(),
+		CorsOrigins:    strings.Split(os.Getenv("CORS_ORIGINS"), ","),
+		EthClient:      l1EthClient,
 	})
 	if err != nil {
 		return nil, err

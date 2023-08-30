@@ -3,7 +3,6 @@ package indexer
 import (
 	"context"
 	"math/big"
-	"strconv"
 
 	"log/slog"
 
@@ -14,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/bridge"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/proverpool"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/swap"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
 )
@@ -29,13 +27,6 @@ func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 		go svc.subscribeBlockProven(ctx, chainID, errChan)
 		go svc.subscribeBlockProposed(ctx, chainID, errChan)
 		go svc.subscribeBlockVerified(ctx, chainID, errChan)
-	}
-
-	if svc.proverPool != nil {
-		go svc.subscribeSlashed(ctx, chainID, errChan)
-		go svc.subscribeStaked(ctx, chainID, errChan)
-		go svc.subscribeWithdrawn(ctx, chainID, errChan)
-		go svc.subscribeExited(ctx, chainID, errChan)
 	}
 
 	if svc.bridge != nil {
@@ -95,267 +86,6 @@ func (svc *Service) subscribeNftTransfers(
 			go func() {
 				if err := svc.indexNFTTransfers(ctx, chainID, header.Number.Uint64(), header.Number.Uint64()); err != nil {
 					slog.Error("svc.indexNFTTransfers", "error", err)
-				}
-			}()
-		}
-	}
-}
-
-func (svc *Service) subscribeSlashed(
-	ctx context.Context,
-	chainID *big.Int,
-	errChan chan error,
-) {
-	sink := make(chan *proverpool.ProverPoolSlashed)
-
-	sub := event.ResubscribeErr(svc.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
-		if err != nil {
-			slog.Error("svc.taikoL1.WatchSlashed", "error", err)
-		}
-		slog.Info("resubscribing to Slashed events")
-
-		return svc.proverPool.WatchSlashed(&bind.WatchOpts{
-			Context: ctx,
-		}, sink, nil, nil)
-	})
-
-	defer sub.Unsubscribe()
-
-	for {
-		select {
-		case <-ctx.Done():
-			slog.Info("context finished")
-			return
-		case err := <-sub.Err():
-			slog.Error("sub.Err()", "error", err)
-			errChan <- errors.Wrap(err, "sub.Err()")
-		case event := <-sink:
-			go func() {
-				slog.Info("slashedEvent",
-					"address", event.Addr.Hex(),
-					"amount", strconv.FormatUint(event.Amount, 10),
-				)
-
-				if err := svc.saveSlashedEvent(ctx, chainID, event); err != nil {
-					eventindexer.SlashedEventsProcessedError.Inc()
-
-					slog.Error("svc.subscribe, svc.saveSlashedEvent", "error", err)
-
-					return
-				}
-
-				block, err := svc.blockRepo.GetLatestBlockProcessed(chainID)
-				if err != nil {
-					slog.Error("svc.subscribe, svc.blockRepo.GetLatestBlockProcessed", "error", err)
-					return
-				}
-
-				if block.Height < event.Raw.BlockNumber {
-					err = svc.blockRepo.Save(eventindexer.SaveBlockOpts{
-						Height:  event.Raw.BlockNumber,
-						Hash:    event.Raw.BlockHash,
-						ChainID: chainID,
-					})
-					if err != nil {
-						slog.Error("svc.subscribe, blockRepo.save", "error", err)
-						return
-					}
-
-					eventindexer.BlocksProcessed.Inc()
-				}
-			}()
-		}
-	}
-}
-
-func (svc *Service) subscribeStaked(
-	ctx context.Context,
-	chainID *big.Int,
-	errChan chan error,
-) {
-	sink := make(chan *proverpool.ProverPoolStaked)
-
-	sub := event.ResubscribeErr(svc.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
-		if err != nil {
-			slog.Error("svc.taikoL1.WatchStaked", "error", err)
-		}
-		slog.Info("resubscribing to Staked events")
-
-		return svc.proverPool.WatchStaked(&bind.WatchOpts{
-			Context: ctx,
-		}, sink, nil)
-	})
-
-	defer sub.Unsubscribe()
-
-	for {
-		select {
-		case <-ctx.Done():
-			slog.Info("context finished")
-			return
-		case err := <-sub.Err():
-			slog.Error("sub.Err()", "error", err)
-			errChan <- errors.Wrap(err, "sub.Err()")
-		case event := <-sink:
-			go func() {
-				slog.Info("stakedEvent",
-					"address", event.Addr.Hex(),
-					"amount", event.Amount)
-
-				if err := svc.saveStakedEvent(ctx, chainID, event); err != nil {
-					eventindexer.StakedEventsProcessedError.Inc()
-
-					slog.Error("svc.subscribe, svc.saveStakedEvent", "error", err)
-
-					return
-				}
-
-				block, err := svc.blockRepo.GetLatestBlockProcessed(chainID)
-				if err != nil {
-					slog.Error("svc.subscribe, svc.blockRepo.GetLatestBlockProcessed", "error", err)
-					return
-				}
-
-				if block.Height < event.Raw.BlockNumber {
-					err = svc.blockRepo.Save(eventindexer.SaveBlockOpts{
-						Height:  event.Raw.BlockNumber,
-						Hash:    event.Raw.BlockHash,
-						ChainID: chainID,
-					})
-					if err != nil {
-						slog.Error("svc.subscribe, blockRepo.save", "error", err)
-						return
-					}
-
-					eventindexer.BlocksProcessed.Inc()
-				}
-			}()
-		}
-	}
-}
-
-func (svc *Service) subscribeExited(
-	ctx context.Context,
-	chainID *big.Int,
-	errChan chan error,
-) {
-	sink := make(chan *proverpool.ProverPoolExited)
-
-	sub := event.ResubscribeErr(svc.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
-		if err != nil {
-			slog.Error("svc.taikoL1.WatchExited", "error", err)
-		}
-		slog.Info("resubscribing to Exited events")
-
-		return svc.proverPool.WatchExited(&bind.WatchOpts{
-			Context: ctx,
-		}, sink, nil)
-	})
-
-	defer sub.Unsubscribe()
-
-	for {
-		select {
-		case <-ctx.Done():
-			slog.Info("context finished")
-			return
-		case err := <-sub.Err():
-			slog.Error("sub.Err()", "error", err)
-			errChan <- errors.Wrap(err, "sub.Err()")
-		case event := <-sink:
-			go func() {
-				slog.Info("exitedEvent", "address", event.Addr.Hex(), "amount", event.Amount)
-
-				if err := svc.saveExitedEvent(ctx, chainID, event); err != nil {
-					eventindexer.ExitedEventsProcessedError.Inc()
-
-					slog.Error("svc.subscribe, svc.saveExitedEvent", "error", err)
-
-					return
-				}
-
-				block, err := svc.blockRepo.GetLatestBlockProcessed(chainID)
-				if err != nil {
-					slog.Error("svc.subscribe, svc.blockRepo.GetLatestBlockProcessed", "error", err)
-					return
-				}
-
-				if block.Height < event.Raw.BlockNumber {
-					err = svc.blockRepo.Save(eventindexer.SaveBlockOpts{
-						Height:  event.Raw.BlockNumber,
-						Hash:    event.Raw.BlockHash,
-						ChainID: chainID,
-					})
-					if err != nil {
-						slog.Error("svc.subscribe, blockRepo.save", "error", err)
-						return
-					}
-
-					eventindexer.BlocksProcessed.Inc()
-				}
-			}()
-		}
-	}
-}
-
-func (svc *Service) subscribeWithdrawn(
-	ctx context.Context,
-	chainID *big.Int,
-	errChan chan error,
-) {
-	sink := make(chan *proverpool.ProverPoolWithdrawn)
-
-	sub := event.ResubscribeErr(svc.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
-		if err != nil {
-			slog.Error("svc.taikoL1.WatchWithdrawn", "error", err)
-		}
-		slog.Info("resubscribing to Withdrawn events")
-
-		return svc.proverPool.WatchWithdrawn(&bind.WatchOpts{
-			Context: ctx,
-		}, sink, nil)
-	})
-
-	defer sub.Unsubscribe()
-
-	for {
-		select {
-		case <-ctx.Done():
-			slog.Info("context finished")
-			return
-		case err := <-sub.Err():
-			slog.Error("sub.Err()", "error", err)
-			errChan <- errors.Wrap(err, "sub.Err()")
-		case event := <-sink:
-			go func() {
-				slog.Info("withdrawnEvent", "address", event.Addr.Hex(), "amount", event.Amount)
-
-				if err := svc.saveWithdrawnEvent(ctx, chainID, event); err != nil {
-					eventindexer.WithdrawnEventsProcessedError.Inc()
-
-					log.Error("svc.subscribe, svc.saveWithdrawnEvent", "error", err)
-
-					return
-				}
-
-				block, err := svc.blockRepo.GetLatestBlockProcessed(chainID)
-				if err != nil {
-					slog.Error("svc.subscribe, svc.blockRepo.GetLatestBlockProcessed", "error", err)
-					return
-				}
-
-				if block.Height < event.Raw.BlockNumber {
-					err = svc.blockRepo.Save(eventindexer.SaveBlockOpts{
-						Height:  event.Raw.BlockNumber,
-						Hash:    event.Raw.BlockHash,
-						ChainID: chainID,
-					})
-					if err != nil {
-						slog.Error("svc.subscribe, blockRepo.save", "error", err)
-						return
-					}
-
-					eventindexer.BlocksProcessed.Inc()
 				}
 			}()
 		}
@@ -514,7 +244,7 @@ func (svc *Service) subscribeBlockVerified(ctx context.Context, chainID *big.Int
 
 		return svc.taikol1.WatchBlockVerified(&bind.WatchOpts{
 			Context: ctx,
-		}, sink, nil)
+		}, sink, nil, nil)
 	})
 
 	defer sub.Unsubscribe()

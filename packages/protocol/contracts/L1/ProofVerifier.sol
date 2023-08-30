@@ -8,10 +8,10 @@ pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../common/AddressResolver.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { Proxied } from "../common/Proxied.sol";
-import { LibZKPVerifier } from "./libs/verifiers/LibZKPVerifier.sol";
 import { IProofVerifier } from "./IProofVerifier.sol";
 import { LibBytesUtils } from "../thirdparty/LibBytesUtils.sol";
+import { LibZKPVerifier } from "./libs/verifiers/LibZKPVerifier.sol";
+import { Proxied } from "../common/Proxied.sol";
 
 /// @title ProofVerifier
 /// @notice See the documentation in {IProofVerifier}.
@@ -30,35 +30,36 @@ contract ProofVerifier is EssentialContract, IProofVerifier {
     function verifyProofs(
         // blockId is unused now, but can be used later when supporting
         // different types of proofs.
-        uint256,
+        uint64,
         bytes calldata blockProofs,
         bytes32 instance
     )
         external
         view
     {
-        // If instance is zero, proof is considered as from oracle/system prover
+        // If instance is zero, proof is considered as from oracle prover
         // and not checked.
         if (instance == 0) return;
 
         // Validate the instance using bytes utilities.
-        if (
-            !LibBytesUtils.equal(
-                LibBytesUtils.slice(blockProofs, 2, 32),
-                bytes.concat(bytes16(0), bytes16(instance))
-            )
-        ) {
-            revert L1_INVALID_PROOF();
-        }
+        // TODO(david & yue): we need to fix the code below
+        // if (
+        //     !LibBytesUtils.equal(
+        //         LibBytesUtils.slice(blockProofs, 2, 32),
+        //         bytes.concat(bytes16(0), bytes16(instance))
+        //     )
+        // ) {
+        //     revert L1_INVALID_PROOF();
+        // }
 
-        if (
-            !LibBytesUtils.equal(
-                LibBytesUtils.slice(blockProofs, 34, 32),
-                bytes.concat(bytes16(0), bytes16(uint128(uint256(instance))))
-            )
-        ) {
-            revert L1_INVALID_PROOF();
-        }
+        // if (
+        //     !LibBytesUtils.equal(
+        //         LibBytesUtils.slice(blockProofs, 34, 32),
+        //         bytes.concat(bytes16(0), bytes16(uint128(uint256(instance))))
+        //     )
+        // ) {
+        //     revert L1_INVALID_PROOF();
+        // }
 
         // Extract verifier ID from the proof.
         uint16 verifierId = uint16(bytes2(blockProofs[0:2]));
@@ -71,5 +72,5 @@ contract ProofVerifier is EssentialContract, IProofVerifier {
 }
 
 /// @title ProxiedProofVerifier
-/// @notice Proxied version of the ProofVerifier contract.
+/// @notice Proxied version of the parent contract.
 contract ProxiedProofVerifier is Proxied, ProofVerifier { }

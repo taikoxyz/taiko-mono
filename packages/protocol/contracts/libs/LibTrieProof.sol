@@ -10,11 +10,6 @@ import { LibRLPReader } from "../thirdparty/LibRLPReader.sol";
 import { LibRLPWriter } from "../thirdparty/LibRLPWriter.sol";
 import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
 
-/**
- * This library is used for verifying the proof of values within the
- * storage trie of an Ethereum account.
- * @title LibTrieProof
- */
 /// @title LibTrieProof
 /// @dev This library is used for verifying the proof of values within the
 /// storage trie of an Ethereum account.

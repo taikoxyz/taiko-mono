@@ -349,6 +349,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/zklink.png",
+    name: "zkLink",
+    link: "https://zk.link",
+    description:
+      "A ZK-Rollup trading infrastructure empowering DeFi, RWA, and NFT super dApps in a rollup-centric, multi-chain world.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/zksynth.png",
     name: "ZKSynth",
     link: "https://app.zksynth.com/",

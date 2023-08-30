@@ -43,7 +43,7 @@
   https://docs.walletconnect.com/2.0/web/web3modal/html/wagmi/components
 -->
 {#if connected}
-  <Button class="px-[20px] py-2 mr-[8px] rounded-full" type="neutral" on:click={connectWallet}>
+  <Button class="hidden sm:flex px-[20px] py-2 mr-[8px] rounded-full" type="neutral" on:click={connectWallet}>
     <span class="body-regular f-items-center space-x-2">
       <svelte:component this={EthIcon} size={20} />
       <span>{renderBalance($ethBalance)}</span>

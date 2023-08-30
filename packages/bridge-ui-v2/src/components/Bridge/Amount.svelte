@@ -185,7 +185,7 @@
 
   // There is no reason to show any error/warning message if we are computing the balance
   // or there is an issue computing it
-  $: showInsifficientBalanceAlert = $insufficientBalance && !$errorComputingBalance && !$computingBalance;
+  $: showInsufficientBalanceAlert = $insufficientBalance && !$errorComputingBalance && !$computingBalance;
   $: showInsiffucientAllowanceAlert = $insufficientAllowance && !$errorComputingBalance && !$computingBalance;
 </script>
 
@@ -220,7 +220,7 @@
         error={$insufficientBalance}
         on:input={inputAmount}
         bind:this={inputBox}
-        class="py-6 pr-16 px-[26px] title-subsection-bold" />
+        class="py-6 pr-16 px-[26px] title-subsection-bold border-0" />
       <!-- TODO: talk to Jane about the MAX button and its styling -->
       <button
         class="absolute right-6 uppercase hover:font-bold"
@@ -229,7 +229,7 @@
         {$t('inputs.amount.button.max')}
       </button>
     </div>
-    {#if showInsifficientBalanceAlert}
+    {#if showInsufficientBalanceAlert}
       <FlatAlert type="error" message={$t('bridge.errors.insufficient_balance')} class="absolute bottom-[-26px]" />
     {:else if showInsiffucientAllowanceAlert}
       <FlatAlert type="warning" message={$t('bridge.errors.insufficient_allowance')} class="absolute bottom-[-26px]" />

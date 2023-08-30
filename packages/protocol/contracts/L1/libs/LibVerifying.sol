@@ -6,39 +6,36 @@
 
 pragma solidity ^0.8.20;
 
+import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { IMintableERC20 } from "../../common/IMintableERC20.sol";
-import { IProverPool } from "../ProverPool.sol";
+import { IProver } from "../IProver.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
-import { LibUtils } from "./LibUtils.sol";
 import { LibMath } from "../../libs/LibMath.sol";
+import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
-import { LibL2Consts } from "../../L2/LibL2Consts.sol";
 
 library LibVerifying {
+    using Address for address;
     using LibUtils for TaikoData.State;
     using LibMath for uint256;
 
     event BlockVerified(
-        uint256 indexed blockId,
-        bytes32 blockHash,
-        address prover,
-        uint64 blockFee,
-        uint64 proofReward
+        uint256 indexed blockId, address indexed prover, bytes32 blockHash
     );
     event CrossChainSynced(
-        uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
+        uint64 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
     );
 
+    error L1_BLOCK_ID_MISMATCH();
     error L1_INVALID_CONFIG();
+    error L1_UNEXPECTED_TRANSITION_ID();
 
     function init(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        bytes32 genesisBlockHash,
-        uint32 initFeePerGas,
-        uint16 initAvgProofDelay
+        bytes32 genesisBlockHash
     )
         internal
     {
@@ -46,14 +43,12 @@ library LibVerifying {
             config.chainId <= 1 //
                 || config.blockMaxProposals == 1
                 || config.blockRingBufferSize <= config.blockMaxProposals + 1
-                || config.blockMaxGasLimit == 0 || config.blockMaxTransactions == 0
-                || config.blockMaxTxListBytes == 0
+                || config.blockMaxGasLimit == 0 || config.blockMaxTxListBytes == 0
                 || config.blockTxListExpiry > 30 * 24 hours
                 || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
                 || config.proofRegularCooldown < config.proofOracleCooldown
-                || config.proofMinWindow == 0
-                || config.proofMaxWindow < config.proofMinWindow
-                || config.proofWindowMultiplier <= 100
+                || config.proofWindow == 0 || config.proofBond == 0
+                || config.proofBond < 10 * config.proposerRewardPerSecond
                 || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
                 || config.ethDepositMaxCountPerBlock
@@ -65,39 +60,33 @@ library LibVerifying {
                 || config.ethDepositMaxFee >= type(uint96).max
                 || config.ethDepositMaxFee
                     >= type(uint96).max / config.ethDepositMaxCountPerBlock
-                || config.rewardOpenMultipler < 100
-                || config.rewardMaxDelayPenalty >= 10_000
         ) revert L1_INVALID_CONFIG();
 
         unchecked {
             uint64 timeNow = uint64(block.timestamp);
 
             // Init state
-            state.genesisHeight = uint64(block.number);
-            state.genesisTimestamp = timeNow;
-            state.numBlocks = 1;
-            state.lastVerifiedAt = uint64(block.timestamp);
-            state.feePerGas = initFeePerGas;
-            state.avgProofDelay = initAvgProofDelay;
+            state.slotA.genesisHeight = uint64(block.number);
+            state.slotA.genesisTimestamp = timeNow;
+            state.slotB.numBlocks = 1;
+            state.slotB.lastVerifiedAt = uint64(block.timestamp);
 
             // Init the genesis block
             TaikoData.Block storage blk = state.blocks[0];
-            blk.nextForkChoiceId = 2;
-            blk.verifiedForkChoiceId = 1;
+            blk.nextTransitionId = 2;
+            blk.verifiedTransitionId = 1;
             blk.proposedAt = timeNow;
 
-            // Init the first fork choice
-            TaikoData.ForkChoice storage fc = state.blocks[0].forkChoices[1];
-            fc.blockHash = genesisBlockHash;
-            fc.provenAt = timeNow;
+            // Init the first state transition
+            TaikoData.Transition storage tz = state.transitions[0][1];
+            tz.blockHash = genesisBlockHash;
+            tz.provenAt = timeNow;
         }
 
         emit BlockVerified({
             blockId: 0,
-            blockHash: genesisBlockHash,
-            prover: address(0),
-            blockFee: 0,
-            proofReward: 0
+            prover: LibUtils.ORACLE_PROVER,
+            blockHash: genesisBlockHash
         });
     }
 
@@ -105,171 +94,84 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
-        uint256 maxBlocks
+        uint64 maxBlocks
     )
         internal
     {
-        uint256 i = state.lastVerifiedBlockId;
+        TaikoData.SlotB memory b = state.slotB;
+        uint64 blockId = b.lastVerifiedBlockId;
+
         TaikoData.Block storage blk =
-            state.blocks[i % config.blockRingBufferSize];
+            state.blocks[blockId % config.blockRingBufferSize];
+        if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
 
-        uint24 fcId = blk.verifiedForkChoiceId;
-        assert(fcId > 0);
+        uint16 tid = blk.verifiedTransitionId;
+        if (tid == 0) revert L1_UNEXPECTED_TRANSITION_ID();
 
-        bytes32 blockHash = blk.forkChoices[fcId].blockHash;
-        uint32 gasUsed = blk.forkChoices[fcId].gasUsed;
+        bytes32 blockHash = state.transitions[blockId][tid].blockHash;
+
         bytes32 signalRoot;
+        TaikoData.Transition memory tz;
 
         uint64 processed;
         unchecked {
-            ++i;
-        }
+            ++blockId;
 
-        while (i < state.numBlocks && processed < maxBlocks) {
-            blk = state.blocks[i % config.blockRingBufferSize];
-            assert(blk.blockId == i);
+            while (blockId < b.numBlocks && processed < maxBlocks) {
+                blk = state.blocks[blockId % config.blockRingBufferSize];
+                if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
 
-            fcId = LibUtils.getForkChoiceId(state, blk, blockHash, gasUsed);
-            if (fcId == 0) break;
+                tid = LibUtils.getTransitionId(state, blk, blockId, blockHash);
+                if (tid == 0) break;
 
-            TaikoData.ForkChoice memory fc = blk.forkChoices[fcId];
-            if (fc.prover == address(0)) break;
+                tz = state.transitions[blockId][tid];
+                if (tz.prover == address(0)) break;
 
-            uint256 proofRegularCooldown = fc.prover == address(1)
-                ? config.proofOracleCooldown
-                : config.proofRegularCooldown;
+                uint256 proofCooldown = tz.prover == LibUtils.ORACLE_PROVER
+                    ? config.proofOracleCooldown
+                    : config.proofRegularCooldown;
+                if (block.timestamp <= tz.provenAt + proofCooldown) {
+                    break;
+                }
 
-            if (block.timestamp <= fc.provenAt + proofRegularCooldown) break;
+                blockHash = tz.blockHash;
+                signalRoot = tz.signalRoot;
+                blk.verifiedTransitionId = tid;
 
-            blockHash = fc.blockHash;
-            gasUsed = fc.gasUsed;
-            signalRoot = fc.signalRoot;
+                // Refund bond or give 1/4 of it to the actual prover and burn
+                // the rest.
+                if (
+                    tz.prover == LibUtils.ORACLE_PROVER
+                        || tz.provenAt <= blk.proposedAt + blk.proofWindow
+                ) {
+                    state.taikoTokenBalances[blk.prover] += blk.proofBond;
+                } else {
+                    state.taikoTokenBalances[tz.prover] += blk.proofBond / 4;
+                }
 
-            _verifyBlock({
-                state: state,
-                config: config,
-                resolver: resolver,
-                blk: blk,
-                fcId: fcId,
-                fc: fc
-            });
+                emit BlockVerified(blockId, tz.prover, tz.blockHash);
 
-            unchecked {
-                ++i;
+                ++blockId;
                 ++processed;
             }
-        }
 
-        if (processed > 0) {
-            unchecked {
-                state.lastVerifiedAt = uint64(block.timestamp);
-                state.lastVerifiedBlockId += processed;
-            }
+            if (processed > 0) {
+                uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + processed;
+                state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
+                state.slotB.lastVerifiedAt = uint64(block.timestamp);
 
-            if (config.relaySignalRoot) {
-                // Send the L2's signal root to the signal service so other
-                // TaikoL1  deployments, if they share the same signal
-                // service, can relay the signal to their corresponding
-                // TaikoL2 contract.
-                ISignalService(resolver.resolve("signal_service", false))
-                    .sendSignal(signalRoot);
-            }
-            emit CrossChainSynced(
-                state.lastVerifiedBlockId, blockHash, signalRoot
-            );
-        }
-    }
-
-    function _verifyBlock(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        AddressResolver resolver,
-        TaikoData.Block storage blk,
-        TaikoData.ForkChoice memory fc,
-        uint24 fcId
-    )
-        private
-    {
-        // the actually mined L2 block's gasLimit is blk.gasLimit +
-        // LibL2Consts.ANCHOR_GAS_COST, so fc.gasUsed may greater than
-        // blk.gasLimit here.
-        uint32 _gasLimit = blk.gasLimit + LibL2Consts.ANCHOR_GAS_COST;
-        assert(fc.gasUsed <= _gasLimit);
-
-        IProverPool proverPool =
-            IProverPool(resolver.resolve("prover_pool", false));
-
-        if (blk.assignedProver == address(0)) {
-            --state.numOpenBlocks;
-        } else if (!blk.proverReleased) {
-            proverPool.releaseProver(blk.assignedProver);
-        }
-
-        // Reward the prover (including the oracle prover)
-        uint64 proofReward =
-            (config.blockFeeBaseGas + fc.gasUsed) * blk.rewardPerGas;
-
-        if (fc.prover == address(1)) {
-            // system prover is rewarded with `proofReward`.
-        } else if (blk.assignedProver == address(0)) {
-            // open prover is rewarded with more tokens
-            proofReward = proofReward * config.rewardOpenMultipler / 100;
-        } else if (blk.assignedProver != fc.prover) {
-            // proving out side of the proof window, by a prover other
-            // than the assigned prover
-            proofReward = proofReward * config.rewardOpenMultipler / 100;
-            proverPool.slashProver(blk.blockId, blk.assignedProver, proofReward);
-        } else if (fc.provenAt <= blk.proposedAt + blk.proofWindow) {
-            // proving inside the window, by the assigned prover
-            uint64 proofDelay;
-            unchecked {
-                proofDelay = fc.provenAt - blk.proposedAt;
-
-                if (config.rewardMaxDelayPenalty > 0) {
-                    // Give the reward a penalty up to a small percentage.
-                    // This will encourage prover to submit proof ASAP.
-                    proofReward -= proofReward * proofDelay
-                        * config.rewardMaxDelayPenalty / 10_000 / blk.proofWindow;
+                if (config.relaySignalRoot) {
+                    // Send the L2's signal root to the signal service so other
+                    // TaikoL1  deployments, if they share the same signal
+                    // service, can relay the signal to their corresponding
+                    // TaikoL2 contract.
+                    ISignalService(resolver.resolve("signal_service", false))
+                        .sendSignal(signalRoot);
                 }
+                emit CrossChainSynced(
+                    lastVerifiedBlockId, blockHash, signalRoot
+                );
             }
-
-            // The selected prover managed to prove the block in time
-            state.avgProofDelay = uint16(
-                LibUtils.movingAverage({
-                    maValue: state.avgProofDelay,
-                    newValue: proofDelay,
-                    maf: 7200
-                })
-            );
-
-            state.feePerGas = uint32(
-                LibUtils.movingAverage({
-                    maValue: state.feePerGas,
-                    newValue: blk.rewardPerGas,
-                    maf: 7200
-                })
-            );
-        } else {
-            // proving out side of the proof window, by the assigned prover
-            proverPool.slashProver(blk.blockId, blk.assignedProver, proofReward);
-            proofReward = 0;
         }
-
-        blk.verifiedForkChoiceId = fcId;
-
-        // refund the proposer
-        state.taikoTokenBalances[blk.proposer] +=
-            (_gasLimit - fc.gasUsed) * blk.feePerGas;
-
-        // Reward the prover
-        state.taikoTokenBalances[fc.prover] += proofReward;
-
-        emit BlockVerified({
-            blockId: blk.blockId,
-            blockHash: fc.blockHash,
-            prover: fc.prover,
-            blockFee: LibUtils.getBlockFee(state, config, fc.gasUsed),
-            proofReward: proofReward
-        });
     }
 }
