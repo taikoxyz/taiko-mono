@@ -98,7 +98,7 @@ export class BridgeTxService {
     const { destChainId, srcChainId, hash } = bridgeTx;
 
     // Ignore transactions from chains not supported by the bridge
-    if (isSupportedChain(Number(srcChainId))) return;
+    if (!isSupportedChain(Number(srcChainId))) return;
 
     let receipt: TransactionReceipt | null = null;
 

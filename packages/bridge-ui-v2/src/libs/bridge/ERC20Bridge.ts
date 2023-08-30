@@ -1,7 +1,7 @@
 import { getContract, type Hash } from '@wagmi/core';
 import { UserRejectedRequestError } from 'viem';
 
-import { erc20ABI, erc20VaultABI } from '$abi';
+import { bridgeABI, erc20ABI, erc20VaultABI } from '$abi';
 import { bridgeService } from '$config';
 import { routingContractsMap } from '$config/bridges';
 import {
@@ -239,15 +239,15 @@ export class ERC20Bridge extends Bridge {
 
     const proof = await this._prover.generateProofToRelease(msgHash, srcChainId, destChainId);
 
-    const srcTokenVaultAddress = routingContractsMap[connectedChainId][destChainId].erc20VaultAddress;
-    const srcTokenVaultContract = getContract({
+    const bridgeAddress = routingContractsMap[connectedChainId][destChainId].bridgeAddress;
+    const bridgeContract = getContract({
       walletClient: wallet,
-      abi: erc20VaultABI,
-      address: srcTokenVaultAddress,
+      abi: bridgeABI,
+      address: bridgeAddress,
     });
 
     try {
-      const txHash = await srcTokenVaultContract.write.releaseERC20([message, proof]);
+      const txHash = await bridgeContract.write.recallMessage([message, proof]);
 
       log('Transaction hash for releaseERC20 call', txHash);
 
