@@ -271,6 +271,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/rubic.png",
+    name: "Rubic",
+    link: "https://rubic.exchange/",
+    description:
+      "Rubic enhances interoperability through network bridging and cross-chain dev tools for omnichain dApps. Users access diverse assets via varied DEXs under a unified interface with optimized cross-chain transactions.",
+    filters: [],
+    isLive: false,
+  },
+  {
     icon: "/images/ecosystem/rubydex.png",
     name: "RubyDex",
     link: "https://testnet.rubydex.com/en",
