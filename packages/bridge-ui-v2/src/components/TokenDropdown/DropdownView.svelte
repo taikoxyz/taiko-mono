@@ -82,21 +82,19 @@
     </li>
   {/each}
   {#each customTokens as token, index (index)}
-    {#if token.mintable}
-      <li
-        role="option"
-        tabindex="0"
-        aria-selected={token === value}
-        on:click={() => selectToken(token)}
-        on:keydown={getTokenKeydownHandler(token)}>
-        <div class="p-4">
-          <i role="img" aria-label={token.name}>
-            <Erc20 />
-          </i>
-          <span class="body-bold">{token.symbol}</span>
-        </div>
-      </li>
-    {/if}
+    <li
+      role="option"
+      tabindex="0"
+      aria-selected={token === value}
+      on:click={() => selectToken(token)}
+      on:keydown={getTokenKeydownHandler(token)}>
+      <div class="p-4">
+        <i role="img" aria-label={token.name}>
+          <Erc20 />
+        </i>
+        <span class="body-bold">{token.symbol}</span>
+      </div>
+    </li>
   {/each}
   <div class="h-sep my-[8px]" />
   <li>

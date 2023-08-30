@@ -49,7 +49,9 @@
     };
   };
 
-  onMount(() => tokenService.subscribeToChanges(handleStorageChange));
+  onMount(() => {
+    tokenService.subscribeToChanges(handleStorageChange);
+  });
 
   onDestroy(() => tokenService.unsubscribeFromChanges(handleStorageChange));
 </script>
@@ -82,7 +84,7 @@
           </div>
         </li>
       {/each}
-      {#each tokens as token, index (index)}
+      {#each customTokens as token, index (index)}
         <li
           role="option"
           tabindex="0"

@@ -6,7 +6,7 @@
   import { OnNetwork } from '$components/OnNetwork';
   import { hasBridge } from '$libs/bridge/bridges';
   import { chains } from '$libs/chain';
-  import { type Network,network } from '$stores/network';
+  import { type Network, network } from '$stores/network';
 
   import ChainSelector from './ChainSelector.svelte';
 
@@ -29,7 +29,6 @@
         return excludeCurrentSrc && hasBridgeCondition;
       }),
     );
-    console.log('destOptions', $destOptions);
   }
 
   function onNetworkChange(newNetwork: Network, oldNetwork: Network) {
