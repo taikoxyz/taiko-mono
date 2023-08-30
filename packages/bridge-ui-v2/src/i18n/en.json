@@ -191,7 +191,8 @@
       "label": "Address",
       "placeholder": "Enter an address",
       "errors": {
-        "invalid": "Invalid address format"
+        "invalid": "Invalid address format",
+        "too_short": "Address length is too short"
       },
       "success": "Valid address format"
     },

@@ -32,7 +32,7 @@ library LibUtils {
         found = blk.blockId == id;
     }
 
-    function getForkChoiceId(
+    function getTransitionId(
         TaikoData.State storage state,
         TaikoData.Block storage blk,
         uint64 blockId,
@@ -40,16 +40,16 @@ library LibUtils {
     )
         internal
         view
-        returns (uint16 fcId)
+        returns (uint16 tid)
     {
-        if (state.forkChoices[blk.blockId][1].key == parentHash) {
-            fcId = 1;
+        if (state.transitions[blk.blockId][1].key == parentHash) {
+            tid = 1;
         } else {
-            fcId = state.forkChoiceIds[blockId][parentHash];
+            tid = state.transitionIds[blockId][parentHash];
         }
 
-        if (fcId >= blk.nextForkChoiceId) {
-            fcId = 0;
+        if (tid >= blk.nextTransitionId) {
+            tid = 0;
         }
     }
 

@@ -111,6 +111,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/mesprotocol.png",
+    name: "MES Protocol",
+    link: "https://www.mesprotocol.com/",
+    description:
+      "MES is a cross-rollup orderbook DEX.",
+    filters: [],
+    isLive: false,
+  },
+  {
     icon: "/images/ecosystem/mintpad.jpeg",
     name: "Mintpad",
     link: "https://mintpad.co/",
@@ -269,6 +278,15 @@ const ecosystemData: EcosystemData[] = [
       "User can easily compare and swap multiple chains on top of the Taiko blockchain. A service that links multiple swaps and organizes multiple tokens.",
     filters: [],
     isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/rubic.png",
+    name: "Rubic",
+    link: "https://rubic.exchange/",
+    description:
+      "Rubic enhances interoperability through network bridging and cross-chain dev tools for omnichain dApps. Users access diverse assets via varied DEXs under a unified interface with optimized cross-chain transactions.",
+    filters: [],
+    isLive: false,
   },
   {
     icon: "/images/ecosystem/rubydex.png",

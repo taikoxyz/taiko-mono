@@ -31,7 +31,7 @@ var (
 
 // ICrossChainSyncMetaData contains all meta data concerning the ICrossChainSync contract.
 var ICrossChainSyncMetaData = &bind.MetaData{
-	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"srcHeight\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"blockHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"signalRoot\",\"type\":\"bytes32\"}],\"name\":\"CrossChainSynced\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"number\",\"type\":\"uint256\"}],\"name\":\"getCrossChainBlockHash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"number\",\"type\":\"uint256\"}],\"name\":\"getCrossChainSignalRoot\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint64\",\"name\":\"srcHeight\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"blockHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"signalRoot\",\"type\":\"bytes32\"}],\"name\":\"CrossChainSynced\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"blockId\",\"type\":\"uint64\"}],\"name\":\"getCrossChainBlockHash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"blockId\",\"type\":\"uint64\"}],\"name\":\"getCrossChainSignalRoot\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
 }
 
 // ICrossChainSyncABI is the input ABI used to generate the binding from.
@@ -180,12 +180,12 @@ func (_ICrossChainSync *ICrossChainSyncTransactorRaw) Transact(opts *bind.Transa
 	return _ICrossChainSync.Contract.contract.Transact(opts, method, params...)
 }
 
-// GetCrossChainBlockHash is a free data retrieval call binding the contract method 0xbacb386d.
+// GetCrossChainBlockHash is a free data retrieval call binding the contract method 0xbdd6bc36.
 //
-// Solidity: function getCrossChainBlockHash(uint256 number) view returns(bytes32)
-func (_ICrossChainSync *ICrossChainSyncCaller) GetCrossChainBlockHash(opts *bind.CallOpts, number *big.Int) ([32]byte, error) {
+// Solidity: function getCrossChainBlockHash(uint64 blockId) view returns(bytes32)
+func (_ICrossChainSync *ICrossChainSyncCaller) GetCrossChainBlockHash(opts *bind.CallOpts, blockId uint64) ([32]byte, error) {
 	var out []interface{}
-	err := _ICrossChainSync.contract.Call(opts, &out, "getCrossChainBlockHash", number)
+	err := _ICrossChainSync.contract.Call(opts, &out, "getCrossChainBlockHash", blockId)
 
 	if err != nil {
 		return *new([32]byte), err
@@ -197,26 +197,26 @@ func (_ICrossChainSync *ICrossChainSyncCaller) GetCrossChainBlockHash(opts *bind
 
 }
 
-// GetCrossChainBlockHash is a free data retrieval call binding the contract method 0xbacb386d.
+// GetCrossChainBlockHash is a free data retrieval call binding the contract method 0xbdd6bc36.
 //
-// Solidity: function getCrossChainBlockHash(uint256 number) view returns(bytes32)
-func (_ICrossChainSync *ICrossChainSyncSession) GetCrossChainBlockHash(number *big.Int) ([32]byte, error) {
-	return _ICrossChainSync.Contract.GetCrossChainBlockHash(&_ICrossChainSync.CallOpts, number)
+// Solidity: function getCrossChainBlockHash(uint64 blockId) view returns(bytes32)
+func (_ICrossChainSync *ICrossChainSyncSession) GetCrossChainBlockHash(blockId uint64) ([32]byte, error) {
+	return _ICrossChainSync.Contract.GetCrossChainBlockHash(&_ICrossChainSync.CallOpts, blockId)
 }
 
-// GetCrossChainBlockHash is a free data retrieval call binding the contract method 0xbacb386d.
+// GetCrossChainBlockHash is a free data retrieval call binding the contract method 0xbdd6bc36.
 //
-// Solidity: function getCrossChainBlockHash(uint256 number) view returns(bytes32)
-func (_ICrossChainSync *ICrossChainSyncCallerSession) GetCrossChainBlockHash(number *big.Int) ([32]byte, error) {
-	return _ICrossChainSync.Contract.GetCrossChainBlockHash(&_ICrossChainSync.CallOpts, number)
+// Solidity: function getCrossChainBlockHash(uint64 blockId) view returns(bytes32)
+func (_ICrossChainSync *ICrossChainSyncCallerSession) GetCrossChainBlockHash(blockId uint64) ([32]byte, error) {
+	return _ICrossChainSync.Contract.GetCrossChainBlockHash(&_ICrossChainSync.CallOpts, blockId)
 }
 
-// GetCrossChainSignalRoot is a free data retrieval call binding the contract method 0xb8914ce4.
+// GetCrossChainSignalRoot is a free data retrieval call binding the contract method 0x0599d294.
 //
-// Solidity: function getCrossChainSignalRoot(uint256 number) view returns(bytes32)
-func (_ICrossChainSync *ICrossChainSyncCaller) GetCrossChainSignalRoot(opts *bind.CallOpts, number *big.Int) ([32]byte, error) {
+// Solidity: function getCrossChainSignalRoot(uint64 blockId) view returns(bytes32)
+func (_ICrossChainSync *ICrossChainSyncCaller) GetCrossChainSignalRoot(opts *bind.CallOpts, blockId uint64) ([32]byte, error) {
 	var out []interface{}
-	err := _ICrossChainSync.contract.Call(opts, &out, "getCrossChainSignalRoot", number)
+	err := _ICrossChainSync.contract.Call(opts, &out, "getCrossChainSignalRoot", blockId)
 
 	if err != nil {
 		return *new([32]byte), err
@@ -228,18 +228,18 @@ func (_ICrossChainSync *ICrossChainSyncCaller) GetCrossChainSignalRoot(opts *bin
 
 }
 
-// GetCrossChainSignalRoot is a free data retrieval call binding the contract method 0xb8914ce4.
+// GetCrossChainSignalRoot is a free data retrieval call binding the contract method 0x0599d294.
 //
-// Solidity: function getCrossChainSignalRoot(uint256 number) view returns(bytes32)
-func (_ICrossChainSync *ICrossChainSyncSession) GetCrossChainSignalRoot(number *big.Int) ([32]byte, error) {
-	return _ICrossChainSync.Contract.GetCrossChainSignalRoot(&_ICrossChainSync.CallOpts, number)
+// Solidity: function getCrossChainSignalRoot(uint64 blockId) view returns(bytes32)
+func (_ICrossChainSync *ICrossChainSyncSession) GetCrossChainSignalRoot(blockId uint64) ([32]byte, error) {
+	return _ICrossChainSync.Contract.GetCrossChainSignalRoot(&_ICrossChainSync.CallOpts, blockId)
 }
 
-// GetCrossChainSignalRoot is a free data retrieval call binding the contract method 0xb8914ce4.
+// GetCrossChainSignalRoot is a free data retrieval call binding the contract method 0x0599d294.
 //
-// Solidity: function getCrossChainSignalRoot(uint256 number) view returns(bytes32)
-func (_ICrossChainSync *ICrossChainSyncCallerSession) GetCrossChainSignalRoot(number *big.Int) ([32]byte, error) {
-	return _ICrossChainSync.Contract.GetCrossChainSignalRoot(&_ICrossChainSync.CallOpts, number)
+// Solidity: function getCrossChainSignalRoot(uint64 blockId) view returns(bytes32)
+func (_ICrossChainSync *ICrossChainSyncCallerSession) GetCrossChainSignalRoot(blockId uint64) ([32]byte, error) {
+	return _ICrossChainSync.Contract.GetCrossChainSignalRoot(&_ICrossChainSync.CallOpts, blockId)
 }
 
 // ICrossChainSyncCrossChainSyncedIterator is returned from FilterCrossChainSynced and is used to iterate over the raw logs and unpacked data for CrossChainSynced events raised by the ICrossChainSync contract.
@@ -311,16 +311,16 @@ func (it *ICrossChainSyncCrossChainSyncedIterator) Close() error {
 
 // ICrossChainSyncCrossChainSynced represents a CrossChainSynced event raised by the ICrossChainSync contract.
 type ICrossChainSyncCrossChainSynced struct {
-	SrcHeight  *big.Int
+	SrcHeight  uint64
 	BlockHash  [32]byte
 	SignalRoot [32]byte
 	Raw        types.Log // Blockchain specific contextual infos
 }
 
-// FilterCrossChainSynced is a free log retrieval operation binding the contract event 0x7528bbd1cef0e5d13408706892a51ee8ef82bbf33d4ec0c37216f8beba71205b.
+// FilterCrossChainSynced is a free log retrieval operation binding the contract event 0x004ce985b8852a486571d0545799251fd671adcf33b7854a5f0f6a6a2431a555.
 //
-// Solidity: event CrossChainSynced(uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot)
-func (_ICrossChainSync *ICrossChainSyncFilterer) FilterCrossChainSynced(opts *bind.FilterOpts, srcHeight []*big.Int) (*ICrossChainSyncCrossChainSyncedIterator, error) {
+// Solidity: event CrossChainSynced(uint64 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot)
+func (_ICrossChainSync *ICrossChainSyncFilterer) FilterCrossChainSynced(opts *bind.FilterOpts, srcHeight []uint64) (*ICrossChainSyncCrossChainSyncedIterator, error) {
 
 	var srcHeightRule []interface{}
 	for _, srcHeightItem := range srcHeight {
@@ -334,10 +334,10 @@ func (_ICrossChainSync *ICrossChainSyncFilterer) FilterCrossChainSynced(opts *bi
 	return &ICrossChainSyncCrossChainSyncedIterator{contract: _ICrossChainSync.contract, event: "CrossChainSynced", logs: logs, sub: sub}, nil
 }
 
-// WatchCrossChainSynced is a free log subscription operation binding the contract event 0x7528bbd1cef0e5d13408706892a51ee8ef82bbf33d4ec0c37216f8beba71205b.
+// WatchCrossChainSynced is a free log subscription operation binding the contract event 0x004ce985b8852a486571d0545799251fd671adcf33b7854a5f0f6a6a2431a555.
 //
-// Solidity: event CrossChainSynced(uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot)
-func (_ICrossChainSync *ICrossChainSyncFilterer) WatchCrossChainSynced(opts *bind.WatchOpts, sink chan<- *ICrossChainSyncCrossChainSynced, srcHeight []*big.Int) (event.Subscription, error) {
+// Solidity: event CrossChainSynced(uint64 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot)
+func (_ICrossChainSync *ICrossChainSyncFilterer) WatchCrossChainSynced(opts *bind.WatchOpts, sink chan<- *ICrossChainSyncCrossChainSynced, srcHeight []uint64) (event.Subscription, error) {
 
 	var srcHeightRule []interface{}
 	for _, srcHeightItem := range srcHeight {
@@ -376,9 +376,9 @@ func (_ICrossChainSync *ICrossChainSyncFilterer) WatchCrossChainSynced(opts *bin
 	}), nil
 }
 
-// ParseCrossChainSynced is a log parse operation binding the contract event 0x7528bbd1cef0e5d13408706892a51ee8ef82bbf33d4ec0c37216f8beba71205b.
+// ParseCrossChainSynced is a log parse operation binding the contract event 0x004ce985b8852a486571d0545799251fd671adcf33b7854a5f0f6a6a2431a555.
 //
-// Solidity: event CrossChainSynced(uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot)
+// Solidity: event CrossChainSynced(uint64 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot)
 func (_ICrossChainSync *ICrossChainSyncFilterer) ParseCrossChainSynced(log types.Log) (*ICrossChainSyncCrossChainSynced, error) {
 	event := new(ICrossChainSyncCrossChainSynced)
 	if err := _ICrossChainSync.contract.UnpackLog(event, "CrossChainSynced", log); err != nil {

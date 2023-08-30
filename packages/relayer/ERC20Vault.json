@@ -287,7 +287,7 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "btoken",
+        "name": "",
         "type": "address"
       }
     ],
@@ -326,12 +326,12 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "chainId",
+        "name": "",
         "type": "uint256"
       },
       {
         "internalType": "address",
-        "name": "canonicalAddress",
+        "name": "",
         "type": "address"
       }
     ],
@@ -339,7 +339,7 @@
     "outputs": [
       {
         "internalType": "address",
-        "name": "btoken",
+        "name": "",
         "type": "address"
       }
     ],
@@ -363,7 +363,7 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "tokenAddress",
+        "name": "",
         "type": "address"
       }
     ],
@@ -371,7 +371,7 @@
     "outputs": [
       {
         "internalType": "bool",
-        "name": "isBridged",
+        "name": "",
         "type": "bool"
       }
     ],
@@ -518,7 +518,7 @@
     ],
     "name": "receiveToken",
     "outputs": [],
-    "stateMutability": "nonpayable",
+    "stateMutability": "payable",
     "type": "function"
   },
   {
