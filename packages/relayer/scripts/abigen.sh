@@ -16,7 +16,7 @@ do
     abigen --abi ${names[i]}.json \
     --pkg $lower \
     --type ${names[i]} \
-    --out contracts/$lower/${names[i]}.go
+    --out bindings/$lower/${names[i]}.go
 done
 
 exit 0

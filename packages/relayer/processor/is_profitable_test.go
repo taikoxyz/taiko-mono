@@ -1,4 +1,4 @@
-package message
+package processor
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/mock"
 )
 

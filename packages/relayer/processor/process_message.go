@@ -1,8 +1,9 @@
-package message
+package processor
 
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"math/big"
@@ -16,7 +17,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/queue"
 )
 
 // Process prepares and calls `processMessage` on the bridge.
@@ -24,20 +26,24 @@ import (
 // then rlp-encoded and combined as a singular byte slice,
 // then abi encoded into a SignalProof struct as the contract
 // expects
-func (p *Processor) ProcessMessage(
+func (p *Processor) processMessage(
 	ctx context.Context,
-	event *bridge.BridgeMessageSent,
-	e *relayer.Event,
+	msg queue.Message,
 ) error {
-	if event.Message.GasLimit == nil || event.Message.GasLimit.Cmp(common.Big0) == 0 {
+	msgBody := &queue.QueueMessageBody{}
+	if err := json.Unmarshal(msg.Body, msgBody); err != nil {
+		return errors.Wrap(err, "json.Unmarshal")
+	}
+
+	if msgBody.Event.Message.GasLimit == nil || msgBody.Event.Message.GasLimit.Cmp(common.Big0) == 0 {
 		return errors.New("only user can process this, gasLimit set to 0")
 	}
 
-	if err := p.waitForConfirmations(ctx, event.Raw.TxHash, event.Raw.BlockNumber); err != nil {
+	if err := p.waitForConfirmations(ctx, msgBody.Event.Raw.TxHash, msgBody.Event.Raw.BlockNumber); err != nil {
 		return errors.Wrap(err, "p.waitForConfirmations")
 	}
 
-	if err := p.waitHeaderSynced(ctx, event); err != nil {
+	if err := p.waitHeaderSynced(ctx, msgBody.Event); err != nil {
 		return errors.Wrap(err, "p.waitHeaderSynced")
 	}
 
@@ -49,8 +55,8 @@ func (p *Processor) ProcessMessage(
 	}
 
 	hashed := crypto.Keccak256(
-		event.Raw.Address.Bytes(),
-		event.MsgHash[:],
+		msgBody.Event.Raw.Address.Bytes(),
+		msgBody.Event.MsgHash[:],
 	)
 
 	key := hex.EncodeToString(hashed)
@@ -58,11 +64,11 @@ func (p *Processor) ProcessMessage(
 	encodedSignalProof, err := p.prover.EncodedSignalProof(ctx, p.rpc, p.srcSignalServiceAddress, key, latestSyncedHeader)
 	if err != nil {
 		slog.Error("srcChainID: %v, destChainID: %v, txHash: %v: msgHash: %v, from: %v encountered signalProofError %v",
-			event.Message.SrcChainId.String(),
-			event.Message.DestChainId.String(),
-			event.Raw.TxHash.Hex(),
-			common.Hash(event.MsgHash).Hex(),
-			event.Message.User.Hex(),
+			msgBody.Event.Message.SrcChainId.String(),
+			msgBody.Event.Message.DestChainId.String(),
+			msgBody.Event.Raw.TxHash.Hex(),
+			common.Hash(msgBody.Event.MsgHash).Hex(),
+			msgBody.Event.Message.User.Hex(),
 			err,
 		)
 
@@ -74,7 +80,7 @@ func (p *Processor) ProcessMessage(
 	// an issue with the signal generation.
 	received, err := p.destBridge.IsMessageReceived(&bind.CallOpts{
 		Context: ctx,
-	}, event.MsgHash, event.Message.SrcChainId, encodedSignalProof)
+	}, msgBody.Event.MsgHash, msgBody.Event.Message.SrcChainId, encodedSignalProof)
 	if err != nil {
 		return errors.Wrap(err, "p.destBridge.IsMessageReceived")
 	}
@@ -82,8 +88,8 @@ func (p *Processor) ProcessMessage(
 	// message will fail when we try to process it
 	if !received {
 		slog.Warn("Message not received on dest chain",
-			"msgHash", common.Hash(event.MsgHash).Hex(),
-			"srcChainId", event.Message.SrcChainId.String(),
+			"msgHash", common.Hash(msgBody.Event.MsgHash).Hex(),
+			"srcChainId", msgBody.Event.Message.SrcChainId.String(),
 		)
 
 		relayer.MessagesNotReceivedOnDestChain.Inc()
@@ -91,7 +97,7 @@ func (p *Processor) ProcessMessage(
 		return errors.New("message not received")
 	}
 
-	tx, err := p.sendProcessMessageCall(ctx, event, encodedSignalProof)
+	tx, err := p.sendProcessMessageCall(ctx, msgBody.Event, encodedSignalProof)
 	if err != nil {
 		return errors.Wrap(err, "p.sendProcessMessageCall")
 	}
@@ -107,13 +113,13 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "relayer.WaitReceipt")
 	}
 
-	if err := p.saveMessageStatusChangedEvent(ctx, receipt, e, event); err != nil {
+	if err := p.saveMessageStatusChangedEvent(ctx, receipt, msgBody.Event); err != nil {
 		return errors.Wrap(err, "p.saveMEssageStatusChangedEvent")
 	}
 
 	slog.Info("Mined tx", "txHash", hex.EncodeToString(tx.Hash().Bytes()))
 
-	messageStatus, err := p.destBridge.GetMessageStatus(&bind.CallOpts{}, event.MsgHash)
+	messageStatus, err := p.destBridge.GetMessageStatus(&bind.CallOpts{}, msgBody.Event.MsgHash)
 	if err != nil {
 		return errors.Wrap(err, "p.destBridge.GetMessageStatus")
 	}
@@ -121,7 +127,7 @@ func (p *Processor) ProcessMessage(
 	slog.Info(
 		"updating message status",
 		"status", relayer.EventStatus(messageStatus).String(),
-		"occuredtxHash", event.Raw.TxHash.Hex(),
+		"occuredtxHash", msgBody.Event.Raw.TxHash.Hex(),
 		"processedTxHash", hex.EncodeToString(tx.Hash().Bytes()),
 	)
 
@@ -132,8 +138,12 @@ func (p *Processor) ProcessMessage(
 	}
 
 	// update message status
-	if err := p.eventRepo.UpdateStatus(ctx, e.ID, relayer.EventStatus(messageStatus)); err != nil {
+	if err := p.eventRepo.UpdateStatus(ctx, msgBody.ID, relayer.EventStatus(messageStatus)); err != nil {
 		return errors.Wrap(err, "s.eventRepo.UpdateStatus")
+	}
+
+	if err := p.queue.Ack(ctx, msg); err != nil {
+		return errors.Wrap(err, "p.queue.Ack")
 	}
 
 	return nil
@@ -345,7 +355,6 @@ func (p *Processor) setLatestNonce(nonce uint64) {
 func (p *Processor) saveMessageStatusChangedEvent(
 	ctx context.Context,
 	receipt *types.Receipt,
-	e *relayer.Event,
 	event *bridge.BridgeMessageSent,
 ) error {
 	bridgeAbi, err := abi.JSON(strings.NewReader(bridge.BridgeABI))
@@ -376,8 +385,8 @@ func (p *Processor) saveMessageStatusChangedEvent(
 			Data:         data,
 			ChainID:      event.Message.DestChainId,
 			Status:       relayer.EventStatus(m["status"].(uint8)),
-			MsgHash:      e.MsgHash,
-			MessageOwner: e.MessageOwner,
+			MsgHash:      common.Hash(event.MsgHash).Hex(),
+			MessageOwner: event.Message.User.Hex(),
 			Event:        relayer.EventNameMessageStatusChanged,
 		})
 		if err != nil {

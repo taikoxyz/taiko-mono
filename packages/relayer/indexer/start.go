@@ -17,49 +17,57 @@ var (
 	eventName = relayer.EventNameMessageSent
 )
 
-// FilterThenSubscribe gets the most recent block height that has been indexed, and works it's way
+func (i *Indexer) queueName() string {
+	return fmt.Sprintf("%v-queue", i.srcChainId.String())
+}
+
+// Start gets the most recent block height that has been indexed, and works it's way
 // up to the latest block. As it goes, it tries to process messages.
 // When it catches up, it then starts to Subscribe to latest events as they come in.
-func (svc *Service) FilterThenSubscribe(
+func (i *Indexer) Start(
 	ctx context.Context,
 	mode relayer.Mode,
 	watchMode relayer.WatchMode,
 ) error {
-	chainID, err := svc.ethClient.ChainID(ctx)
-	if err != nil {
-		return errors.Wrap(err, "svc.ethClient.ChainID()")
+	if err := i.queue.Start(ctx, i.queueName()); err != nil {
+		return err
 	}
 
-	go scanBlocks(ctx, svc.ethClient, chainID)
+	chainID, err := i.ethClient.ChainID(ctx)
+	if err != nil {
+		return errors.Wrap(err, "i.ethClient.ChainID()")
+	}
+
+	go scanBlocks(ctx, i.ethClient, chainID)
 
 	// if subscribing to new events, skip filtering and subscribe
 	if watchMode == relayer.SubscribeWatchMode {
-		return svc.subscribe(ctx, chainID)
+		return i.subscribe(ctx, chainID)
 	}
 
-	if err := svc.setInitialProcessingBlockByMode(ctx, mode, chainID); err != nil {
-		return errors.Wrap(err, "svc.setInitialProcessingBlockByMode")
+	if err := i.setInitialProcessingBlockByMode(ctx, mode, chainID); err != nil {
+		return errors.Wrap(err, "i.setInitialProcessingBlockByMode")
 	}
 
-	header, err := svc.ethClient.HeaderByNumber(ctx, nil)
+	header, err := i.ethClient.HeaderByNumber(ctx, nil)
 	if err != nil {
-		return errors.Wrap(err, "svc.ethClient.HeaderByNumber")
+		return errors.Wrap(err, "i.ethClient.HeaderByNumber")
 	}
 
-	if svc.processingBlockHeight == header.Number.Uint64() {
+	if i.processingBlockHeight == header.Number.Uint64() {
 		slog.Info("indexing caught up, subscribing to new incoming events", "chainID", chainID.Uint64())
-		return svc.subscribe(ctx, chainID)
+		return i.subscribe(ctx, chainID)
 	}
 
 	slog.Info("fetching batch block events",
 		"chainID", chainID.Uint64(),
-		"startblock", svc.processingBlockHeight,
+		"startblock", i.processingBlockHeight,
 		"endblock", header.Number.Int64(),
-		"batchsize", svc.blockBatchSize,
+		"batchsize", i.blockBatchSize,
 	)
 
-	for i := svc.processingBlockHeight; i < header.Number.Uint64(); i += svc.blockBatchSize {
-		end := svc.processingBlockHeight + svc.blockBatchSize
+	for j := i.processingBlockHeight; j < header.Number.Uint64(); j += i.blockBatchSize {
+		end := i.processingBlockHeight + i.blockBatchSize
 		// if the end of the batch is greater than the latest block number, set end
 		// to the latest block number
 		if end > header.Number.Uint64() {
@@ -71,16 +79,16 @@ func (svc *Service) FilterThenSubscribe(
 		// process up to end - 1 for this batch.
 		filterEnd := end - 1
 
-		fmt.Printf("block batch from %v to %v", i, filterEnd)
+		fmt.Printf("block batch from %v to %v", j, filterEnd)
 		fmt.Println()
 
 		filterOpts := &bind.FilterOpts{
-			Start:   svc.processingBlockHeight,
+			Start:   i.processingBlockHeight,
 			End:     &filterEnd,
 			Context: ctx,
 		}
 
-		messageStatusChangedEvents, err := svc.bridge.FilterMessageStatusChanged(filterOpts, nil)
+		messageStatusChangedEvents, err := i.bridge.FilterMessageStatusChanged(filterOpts, nil)
 		if err != nil {
 			return errors.Wrap(err, "bridge.FilterMessageStatusChanged")
 		}
@@ -88,12 +96,12 @@ func (svc *Service) FilterThenSubscribe(
 		// we dont need to do anything with msgStatus events except save them to the DB.
 		// we dont need to process them. they are for exposing via the API.
 
-		err = svc.saveMessageStatusChangedEvents(ctx, chainID, messageStatusChangedEvents)
+		err = i.saveMessageStatusChangedEvents(ctx, chainID, messageStatusChangedEvents)
 		if err != nil {
 			return errors.Wrap(err, "bridge.saveMessageStatusChangedEvents")
 		}
 
-		messageSentEvents, err := svc.bridge.FilterMessageSent(filterOpts, nil)
+		messageSentEvents, err := i.bridge.FilterMessageSent(filterOpts, nil)
 		if err != nil {
 			return errors.Wrap(err, "bridge.FilterMessageSent")
 		}
@@ -101,8 +109,8 @@ func (svc *Service) FilterThenSubscribe(
 		if !messageSentEvents.Next() || messageSentEvents.Event == nil {
 			// use "end" not "filterEnd" here, because it will be used as the start
 			// of the next batch.
-			if err := svc.handleNoEventsInBatch(ctx, chainID, int64(end)); err != nil {
-				return errors.Wrap(err, "svc.handleNoEventsInBatch")
+			if err := i.handleNoEventsInBatch(ctx, chainID, int64(end)); err != nil {
+				return errors.Wrap(err, "i.handleNoEventsInBatch")
 			}
 
 			continue
@@ -110,13 +118,13 @@ func (svc *Service) FilterThenSubscribe(
 
 		group, groupCtx := errgroup.WithContext(ctx)
 
-		group.SetLimit(svc.numGoroutines)
+		group.SetLimit(i.numGoroutines)
 
 		for {
 			event := messageSentEvents.Event
 
 			group.Go(func() error {
-				err := svc.handleEvent(groupCtx, chainID, event)
+				err := i.handleEvent(groupCtx, chainID, event)
 				if err != nil {
 					relayer.ErrorEvents.Inc()
 					// log error but always return nil to keep other goroutines active
@@ -134,8 +142,8 @@ func (svc *Service) FilterThenSubscribe(
 				}
 				// handle no events remaining, saving the processing block and restarting the for
 				// loop
-				if err := svc.handleNoEventsInBatch(ctx, chainID, int64(end)); err != nil {
-					return errors.Wrap(err, "svc.handleNoEventsInBatch")
+				if err := i.handleNoEventsInBatch(ctx, chainID, int64(end)); err != nil {
+					return errors.Wrap(err, "i.handleNoEventsInBatch")
 				}
 
 				break
@@ -148,13 +156,13 @@ func (svc *Service) FilterThenSubscribe(
 		chainID.Uint64(),
 	)
 
-	latestBlock, err := svc.ethClient.HeaderByNumber(ctx, nil)
+	latestBlock, err := i.ethClient.HeaderByNumber(ctx, nil)
 	if err != nil {
-		return errors.Wrap(err, "svc.ethclient.HeaderByNumber")
+		return errors.Wrap(err, "i.ethclient.HeaderByNumber")
 	}
 
-	if svc.processingBlockHeight < latestBlock.Number.Uint64() {
-		return svc.FilterThenSubscribe(ctx, relayer.SyncMode, watchMode)
+	if i.processingBlockHeight < latestBlock.Number.Uint64() {
+		return i.Start(ctx, relayer.SyncMode, watchMode)
 	}
 
 	// we are caught up and specified not to subscribe, we can return now
@@ -162,5 +170,5 @@ func (svc *Service) FilterThenSubscribe(
 		return nil
 	}
 
-	return svc.subscribe(ctx, chainID)
+	return i.subscribe(ctx, chainID)
 }

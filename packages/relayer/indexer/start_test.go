@@ -10,14 +10,14 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/mock"
 )
 
-func Test_FilterThenSubscribe(t *testing.T) {
+func Test_Start(t *testing.T) {
 	svc, bridge := newTestService()
 	b := bridge.(*mock.Bridge)
 
 	svc.processingBlockHeight = 0
 
 	go func() {
-		_ = svc.FilterThenSubscribe(
+		_ = svc.Start(
 			context.Background(),
 			relayer.Mode(relayer.SyncMode),
 			relayer.FilterAndSubscribeWatchMode,
@@ -31,12 +31,12 @@ func Test_FilterThenSubscribe(t *testing.T) {
 	assert.Equal(t, b.ErrorsSent, 2)
 }
 
-func Test_FilterThenSubscribe_subscribeWatchMode(t *testing.T) {
+func Test_Start_subscribeWatchMode(t *testing.T) {
 	svc, bridge := newTestService()
 	b := bridge.(*mock.Bridge)
 
 	go func() {
-		_ = svc.FilterThenSubscribe(
+		_ = svc.Start(
 			context.Background(),
 			relayer.Mode(relayer.SyncMode),
 			relayer.SubscribeWatchMode,
@@ -50,14 +50,14 @@ func Test_FilterThenSubscribe_subscribeWatchMode(t *testing.T) {
 	assert.Equal(t, b.ErrorsSent, 2)
 }
 
-func Test_FilterThenSubscribe_alreadyCaughtUp(t *testing.T) {
+func Test_Start_alreadyCaughtUp(t *testing.T) {
 	svc, bridge := newTestService()
 	b := bridge.(*mock.Bridge)
 
 	svc.processingBlockHeight = mock.LatestBlockNumber.Uint64()
 
 	go func() {
-		_ = svc.FilterThenSubscribe(
+		_ = svc.Start(
 			context.Background(),
 			relayer.Mode(relayer.SyncMode),
 			relayer.FilterAndSubscribeWatchMode,

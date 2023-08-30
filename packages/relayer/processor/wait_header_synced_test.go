@@ -1,4 +1,4 @@
-package message
+package processor
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 )
 
 func Test_waitHeaderSynced(t *testing.T) {

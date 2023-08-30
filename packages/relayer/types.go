@@ -13,10 +13,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/erc1155vault"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/erc20vault"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/erc721vault"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc1155vault"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc20vault"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc721vault"
 )
 
 var (

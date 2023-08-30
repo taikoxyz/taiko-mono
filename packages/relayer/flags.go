@@ -29,3 +29,7 @@ var (
 type HTTPOnly bool
 
 type ProfitableOnly bool
+
+type Indexer bool
+
+type Processor bool

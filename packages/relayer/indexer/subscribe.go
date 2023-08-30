@@ -11,18 +11,18 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 )
 
 // subscribe subscribes to latest events
-func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
+func (i *Indexer) subscribe(ctx context.Context, chainID *big.Int) error {
 	slog.Info("subscribing to new events")
 
 	errChan := make(chan error)
 
-	go svc.subscribeMessageSent(ctx, chainID, errChan)
+	go i.subscribeMessageSent(ctx, chainID, errChan)
 
-	go svc.subscribeMessageStatusChanged(ctx, chainID, errChan)
+	go i.subscribeMessageStatusChanged(ctx, chainID, errChan)
 
 	// nolint: gosimple
 	for {
@@ -38,17 +38,17 @@ func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 	}
 }
 
-func (svc *Service) subscribeMessageSent(ctx context.Context, chainID *big.Int, errChan chan error) {
+func (i *Indexer) subscribeMessageSent(ctx context.Context, chainID *big.Int, errChan chan error) {
 	sink := make(chan *bridge.BridgeMessageSent)
 
-	sub := event.ResubscribeErr(svc.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
+	sub := event.ResubscribeErr(i.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
 		if err != nil {
-			slog.Error("svc.bridge.WatchMessageSent", "error", err)
+			slog.Error("i.bridge.WatchMessageSent", "error", err)
 		}
 
 		slog.Info("resubscribing to WatchMessageSent events")
 
-		return svc.bridge.WatchMessageSent(&bind.WatchOpts{
+		return i.bridge.WatchMessageSent(&bind.WatchOpts{
 			Context: ctx,
 		}, sink, nil)
 	})
@@ -65,28 +65,28 @@ func (svc *Service) subscribeMessageSent(ctx context.Context, chainID *big.Int, 
 		case event := <-sink:
 			go func() {
 				slog.Info("new message sent event", "msgHash", common.Hash(event.MsgHash).Hex(), "chainID", chainID.String())
-				err := svc.handleEvent(ctx, chainID, event)
+				err := i.handleEvent(ctx, chainID, event)
 
 				if err != nil {
-					slog.Error("svc.subscribe, svc.handleEvent", "error", err)
+					slog.Error("i.subscribe, i.handleEvent", "error", err)
 					return
 				}
 
-				block, err := svc.blockRepo.GetLatestBlockProcessedForEvent(relayer.EventNameMessageSent, chainID)
+				block, err := i.blockRepo.GetLatestBlockProcessedForEvent(relayer.EventNameMessageSent, chainID)
 				if err != nil {
-					slog.Error("svc.subscribe, blockRepo.GetLatestBlockProcessedForEvent", "error", err)
+					slog.Error("i.subscribe, blockRepo.GetLatestBlockProcessedForEvent", "error", err)
 					return
 				}
 
 				if block.Height < event.Raw.BlockNumber {
-					err = svc.blockRepo.Save(relayer.SaveBlockOpts{
+					err = i.blockRepo.Save(relayer.SaveBlockOpts{
 						Height:    event.Raw.BlockNumber,
 						Hash:      event.Raw.BlockHash,
 						ChainID:   chainID,
 						EventName: relayer.EventNameMessageSent,
 					})
 					if err != nil {
-						slog.Error("svc.subscribe, svc.blockRepo.Save", "error", err)
+						slog.Error("i.subscribe, i.blockRepo.Save", "error", err)
 						return
 					}
 
@@ -97,16 +97,16 @@ func (svc *Service) subscribeMessageSent(ctx context.Context, chainID *big.Int, 
 	}
 }
 
-func (svc *Service) subscribeMessageStatusChanged(ctx context.Context, chainID *big.Int, errChan chan error) {
+func (i *Indexer) subscribeMessageStatusChanged(ctx context.Context, chainID *big.Int, errChan chan error) {
 	sink := make(chan *bridge.BridgeMessageStatusChanged)
 
-	sub := event.ResubscribeErr(svc.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
+	sub := event.ResubscribeErr(i.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
 		if err != nil {
-			slog.Error("svc.bridge.WatchMessageStatusChanged", "error", err)
+			slog.Error("i.bridge.WatchMessageStatusChanged", "error", err)
 		}
 		slog.Info("resubscribing to WatchMessageStatusChanged events")
 
-		return svc.bridge.WatchMessageStatusChanged(&bind.WatchOpts{
+		return i.bridge.WatchMessageStatusChanged(&bind.WatchOpts{
 			Context: ctx,
 		}, sink, nil)
 	})
@@ -126,8 +126,8 @@ func (svc *Service) subscribeMessageStatusChanged(ctx context.Context, chainID *
 				"chainID", chainID.String(),
 			)
 
-			if err := svc.saveMessageStatusChangedEvent(ctx, chainID, event); err != nil {
-				slog.Error("svc.subscribe, svc.saveMessageStatusChangedEvent", "error", err)
+			if err := i.saveMessageStatusChangedEvent(ctx, chainID, event); err != nil {
+				slog.Error("i.subscribe, i.saveMessageStatusChangedEvent", "error", err)
 			}
 		}
 	}

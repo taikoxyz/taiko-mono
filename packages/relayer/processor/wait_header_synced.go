@@ -1,4 +1,4 @@
-package message
+package processor
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 )
 
 func (p *Processor) waitHeaderSynced(ctx context.Context, event *bridge.BridgeMessageSent) error {

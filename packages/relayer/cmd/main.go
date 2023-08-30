@@ -42,7 +42,23 @@ func main() {
 	  false:
 	`)
 
+	indexerPtr := flag.Bool("indexer", false, `whether to index transactions 
+	options:
+	  true:
+	  false:
+	`)
+
+	processorPtr := flag.Bool("processor", false, `whether to process transactions 
+	options:
+	  true:
+	  false:
+	`)
+
 	flag.Parse()
+
+	if *indexerPtr && *processorPtr {
+		log.Fatal("can not index and process")
+	}
 
 	if !relayer.IsInSlice(relayer.Mode(*modePtr), relayer.Modes) {
 		log.Fatal("mode not valid")
@@ -58,5 +74,7 @@ func main() {
 		relayer.Layer(*layersPtr),
 		relayer.HTTPOnly(*httpOnlyPtr),
 		relayer.ProfitableOnly(*profitableOnlyPtr),
+		relayer.Indexer(*indexerPtr),
+		relayer.Processor(*processorPtr),
 	)
 }
