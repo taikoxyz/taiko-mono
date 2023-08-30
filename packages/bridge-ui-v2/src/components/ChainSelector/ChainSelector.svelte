@@ -10,6 +10,7 @@
   import { chains } from '$libs/chain';
   import { chainToIconMap } from '$libs/util/chainToIconMap';
   import { classNames } from '$libs/util/classNames';
+  import { truncateString } from '$libs/util/truncateString';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
 
@@ -111,7 +112,7 @@
           <i role="img" aria-label={value.name}>
             <svelte:component this={chainToIconMap[value.id]} size={28} />
           </i>
-          <span>{value.name}</span>
+          <span>{truncateString(value.name, 8)}</span>
         {/if}
       </div>
     </button>
@@ -138,7 +139,7 @@
             tabindex="0"
             class="p-4 rounded-[10px]"
             class:opacity-20={disabled}
-            class:hover:bg-neutral={!disabled}
+            class:hover:bg-grey-10={!disabled}
             class:hover:cursor-pointer={!disabled}
             aria-disabled={disabled}
             on:click={() => selectChain(chain)}
