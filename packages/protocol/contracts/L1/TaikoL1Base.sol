@@ -15,6 +15,8 @@ import { LibProving } from "./libs/LibProving.sol";
 import { LibTaikoToken } from "./libs/LibTaikoToken.sol";
 import { LibUtils } from "./libs/LibUtils.sol";
 import { LibVerifying } from "./libs/LibVerifying.sol";
+import { SafeCastUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import { TaikoData } from "./TaikoData.sol";
 import { TaikoErrors } from "./TaikoErrors.sol";
 import { TaikoEvents } from "./TaikoEvents.sol";
@@ -33,13 +35,15 @@ abstract contract TaikoL1Base is
     TaikoErrors
 {
     using LibUtils for TaikoData.State;
+    using SafeCastUpgradeable for uint256;
 
     TaikoData.State public state;
     uint256[100] private __gap;
 
     /// @dev Fallback function to receive Ether and deposit to to Layer 2.
     receive() external payable {
-        depositEtherToL2(address(0));
+        require(getConfig().feeTokenIsEther, "");
+        depositL2FeeToken(address(0), msg.value.toUint96());
     }
 
     /// @notice Initializes the rollup.
@@ -154,12 +158,19 @@ abstract contract TaikoL1Base is
     /// @notice Deposits Ether to Layer 2.
     /// @param recipient Address of the recipient for the deposited Ether on
     /// Layer 2.
-    function depositEtherToL2(address recipient) public payable {
-        LibDepositing.depositEtherToL2({
+    function depositL2FeeToken(
+        address recipient,
+        uint96 amount
+    )
+        public
+        payable
+    {
+        LibDepositing.depositL2FeeToken({
             state: state,
             config: getConfig(),
             resolver: AddressResolver(this),
-            recipient: recipient
+            recipient: recipient,
+            amount: amount
         });
     }
 
@@ -173,8 +184,8 @@ abstract contract TaikoL1Base is
     /// @notice Checks if Ether deposit is allowed for Layer 2.
     /// @param amount Amount of Ether to be deposited.
     /// @return true if Ether deposit is allowed, false otherwise.
-    function canDepositEthToL2(uint256 amount) public view returns (bool) {
-        return LibDepositing.canDepositEthToL2({
+    function canDepositFeeToken(uint256 amount) public view returns (bool) {
+        return LibDepositing.canDepositFeeToken({
             state: state,
             config: getConfig(),
             amount: amount

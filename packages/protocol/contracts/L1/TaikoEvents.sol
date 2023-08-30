@@ -54,5 +54,5 @@ abstract contract TaikoEvents {
     /// @dev Emitted when an Ethereum deposit is made.
     /// @param deposit The Ethereum deposit information including recipient,
     /// amount, and ID.
-    event EthDeposited(TaikoData.EthDeposit deposit);
+    event FeeTokenDeposited(TaikoData.FeeTokenDeposit deposit);
 }

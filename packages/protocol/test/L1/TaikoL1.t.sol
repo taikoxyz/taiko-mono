@@ -11,6 +11,8 @@ import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { TaikoL1TestBase } from "./TaikoL1TestBase.sol";
+import { SafeCastUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 contract TaikoL1_NoCooldown is TaikoL1 {
     function getConfig()
@@ -39,6 +41,8 @@ contract Verifier {
 }
 
 contract TaikoL1Test is TaikoL1TestBase {
+    using SafeCastUpgradeable for uint256;
+
     function deployTaikoL1() internal override returns (TaikoL1 taikoL1) {
         taikoL1 = new TaikoL1_NoCooldown();
     }
@@ -49,8 +53,12 @@ contract TaikoL1Test is TaikoL1TestBase {
         registerAddress(L1.getVerifierName(100), address(new Verifier()));
     }
 
+    function depositL2FeeToken(uint256 amount) public {
+        L1.depositL2FeeToken{ value: amount }(address(0), amount.toUint96());
+    }
     /// @dev Test we can propose, prove, then verify more blocks than
     /// 'blockMaxProposals'
+
     function test_L1_more_blocks_than_ring_buffer_size() external {
         giveEthAndTko(Alice, 1e8 ether, 100 ether);
         // This is a very weird test (code?) issue here.
@@ -152,24 +160,24 @@ contract TaikoL1Test is TaikoL1TestBase {
         printVariables("after verify");
     }
 
-    function test_L1_EthDepositsToL2Reverts() external {
-        uint96 minAmount = conf.ethDepositMinAmount;
-        uint96 maxAmount = conf.ethDepositMaxAmount;
+    function test_L1_FeeTokenDepositsToL2Reverts() external {
+        uint96 minAmount = conf.feeTokenDepositMinAmount;
+        uint96 maxAmount = conf.feeTokenDepositMaxAmount;
 
         giveEthAndTko(Alice, 0, maxAmount + 1 ether);
         vm.prank(Alice, Alice);
         vm.expectRevert();
-        L1.depositEtherToL2{ value: minAmount - 1 }(address(0));
+        depositL2FeeToken(minAmount - 1);
 
         vm.prank(Alice, Alice);
         vm.expectRevert();
-        L1.depositEtherToL2{ value: maxAmount + 1 }(address(0));
+        depositL2FeeToken(minAmount - 1);
 
-        assertEq(L1.getStateVariables().nextEthDepositToProcess, 0);
-        assertEq(L1.getStateVariables().numEthDeposits, 0);
+        assertEq(L1.getStateVariables().nextFeeTokenDepositToProcess, 0);
+        assertEq(L1.getStateVariables().numFeeTokenDeposits, 0);
     }
 
-    function test_L1_EthDepositsToL2Gas() external {
+    function test_L1_FeeTokenDepositsToL2Gas() external {
         vm.fee(25 gwei);
 
         bytes32 emptyDepositsRoot =
@@ -182,12 +190,12 @@ contract TaikoL1Test is TaikoL1TestBase {
             proposeBlock(Alice, Bob, 1_000_000, 1024);
         assertEq(meta.depositsProcessed.length, 0);
 
-        uint256 count = conf.ethDepositMaxCountPerBlock;
+        uint256 count = conf.feeTokenDepositMaxCountPerBlock;
 
         printVariables("before sending ethers");
         for (uint256 i; i < count; ++i) {
             vm.prank(Alice, Alice);
-            L1.depositEtherToL2{ value: (i + 1) * 1 ether }(address(0));
+            depositL2FeeToken((i + 1) * 1 ether);
         }
         printVariables("after sending ethers");
 
@@ -198,7 +206,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         printVariables("after processing send-ethers");
         assertTrue(
-            LibDepositing.hashEthDeposits(meta.depositsProcessed)
+            LibDepositing.hashFeeTokenDeposits(meta.depositsProcessed)
                 != emptyDepositsRoot
         );
         assertEq(meta.depositsProcessed.length, count);
@@ -209,11 +217,11 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         console2.log("gas used without eth deposits:", gasUsedWithoutDeposits);
 
-        uint256 gasPerEthDeposit =
+        uint256 gasPerFeeTokenDeposit =
             (gasUsedWithDeposits - gasUsedWithoutDeposits) / count;
 
-        console2.log("gas per eth deposit:", gasPerEthDeposit);
-        console2.log("ethDepositMaxCountPerBlock:", count);
+        console2.log("gas per eth deposit:", gasPerFeeTokenDeposit);
+        console2.log("feeTokenDepositMaxCountPerBlock:", count);
     }
 
     /// @dev getCrossChainBlockHash tests
@@ -284,8 +292,8 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     function test_L1_deposit_hash_creation() external {
         giveEthAndTko(Zachary, 1e6 ether, 0);
-        // uint96 minAmount = conf.ethDepositMinAmount;
-        uint96 maxAmount = conf.ethDepositMaxAmount;
+        // uint96 minAmount = conf.feeTokenDepositMinAmount;
+        uint96 maxAmount = conf.feeTokenDepositMaxAmount;
 
         // We need 8 depostis otherwise we are not processing them !
         giveEthAndTko(Alice, 1e6 ether, maxAmount + 1 ether);
@@ -299,29 +307,30 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         // So after this point we have 8 deposits
         vm.prank(Alice, Alice);
-        L1.depositEtherToL2{ value: 1 ether }(address(0));
+        depositL2FeeToken(1 ether);
         vm.prank(Bob, Bob);
-        L1.depositEtherToL2{ value: 2 ether }(address(0));
+        depositL2FeeToken(2 ether);
         vm.prank(Carol, Carol);
-        L1.depositEtherToL2{ value: 3 ether }(address(0));
+        depositL2FeeToken(3 ether);
         vm.prank(David, David);
-        L1.depositEtherToL2{ value: 4 ether }(address(0));
+        depositL2FeeToken(4 ether);
         vm.prank(Emma, Emma);
-        L1.depositEtherToL2{ value: 5 ether }(address(0));
+        depositL2FeeToken(5 ether);
         vm.prank(Frank, Frank);
-        L1.depositEtherToL2{ value: 6 ether }(address(0));
+        depositL2FeeToken(6 ether);
         vm.prank(Grace, Grace);
-        L1.depositEtherToL2{ value: 7 ether }(address(0));
+        depositL2FeeToken(7 ether);
         vm.prank(Henry, Henry);
-        L1.depositEtherToL2{ value: 8 ether }(address(0));
+        depositL2FeeToken(8 ether);
 
-        assertEq(L1.getStateVariables().numEthDeposits, 8); // The number of
+        assertEq(L1.getStateVariables().numFeeTokenDeposits, 8); // The number
+            // of
             // deposits
-        assertEq(L1.getStateVariables().nextEthDepositToProcess, 0); // The
+        assertEq(L1.getStateVariables().nextFeeTokenDepositToProcess, 0); // The
             // index / cursos of the next deposit
 
         // We shall invoke proposeBlock() because this is what will call the
-        // processDeposits()
+        // processFeeTokenDeposits()
         TaikoData.BlockMetadata memory meta =
             proposeBlock(Alice, Zachary, 1_000_000, 1024);
 
@@ -330,7 +339,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         // calculated with these values)
         //console2.logBytes32(meta.depositsRoot);
         assertEq(
-            LibDepositing.hashEthDeposits(meta.depositsProcessed),
+            LibDepositing.hashFeeTokenDeposits(meta.depositsProcessed),
             0x41c71a2af0eaa668a1241d7e1b09ac30d0e9ea6b6eb4a5a151029e87158d46f3
         );
     }

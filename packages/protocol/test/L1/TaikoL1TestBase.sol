@@ -227,10 +227,10 @@ abstract contract TaikoL1TestBase is TestBase {
 
         str = string.concat(
             str,
-            " nextEthDepositToProcess:",
-            Strings.toString(vars.nextEthDepositToProcess),
-            " numEthDeposits:",
-            Strings.toString(vars.numEthDeposits),
+            " nextFeeTokenDepositToProcess:",
+            Strings.toString(vars.nextFeeTokenDepositToProcess),
+            " numFeeTokenDeposits:",
+            Strings.toString(vars.numFeeTokenDeposits),
             " // ",
             comment
         );

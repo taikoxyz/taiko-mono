@@ -87,7 +87,7 @@ struct BlockMetadata {
  uint32 gasLimit;
  address beneficiary;
  address treasury;
- TaikoData.EthDeposit[] depositsProcessed;
+ TaikoData.FeeTokenDeposit[] depositsProcessed;
 }
 ```
 
@@ -264,7 +264,7 @@ m_treasury(treasury)
 m_beneficiary(beneficiary)
 l2_treasury("L2 basefee goes to treasury"):::constant;
 tx_list("txList\n(blob or calldata)"):::constant;
-m_processed_deposits("ethDepositsProcessed"):::constant
+m_processed_deposits("feeTokenDepositsProcessed"):::constant
 end
 
 BlockMetadata:::group

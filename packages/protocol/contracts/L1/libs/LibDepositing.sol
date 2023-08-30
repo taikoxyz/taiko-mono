@@ -12,32 +12,35 @@ import { LibMath } from "../../libs/LibMath.sol";
 import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import { TaikoData } from "../TaikoData.sol";
+import { TaikoToken } from "../TaikoToken.sol";
 
 /// @title LibDepositing
-/// @notice A library for handling Ether deposits in the Taiko protocol.
+/// @notice A library for handling L2 fee token deposits in the Taiko protocol.
 library LibDepositing {
     using LibAddress for address;
     using LibMath for uint256;
     using SafeCastUpgradeable for uint256;
 
-    event EthDeposited(TaikoData.EthDeposit deposit);
+    event FeeTokenDeposited(TaikoData.FeeTokenDeposit deposit);
 
     error L1_INVALID_ETH_DEPOSIT();
 
-    /// @dev Deposits Ether into Taiko.
+    /// @dev Deposits Ether or Taiko to Taiko L2 as fee token
     /// @param state The current state of the Taiko protocol.
     /// @param config The config of the Taiko protocol.
     /// @param resolver The {AddressResolver} instance for address resolution.
     /// @param recipient The address of the deposit recipient.
-    function depositEtherToL2(
+    function depositL2FeeToken(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
-        address recipient
+        address recipient,
+        uint96 amount
     )
         internal
     {
-        if (!canDepositEthToL2(state, config, msg.value)) {
+        require(amount > 0, "");
+        if (!canDepositFeeToken(state, config, amount)) {
             revert L1_INVALID_ETH_DEPOSIT();
         }
 
@@ -45,61 +48,70 @@ library LibDepositing {
         if (to == address(0)) {
             to = resolver.resolve("bridge", false);
         }
-        to.sendEther(msg.value);
+
+        if (config.feeTokenIsEther) {
+            require(msg.value == amount, "");
+            to.sendEther(amount);
+        } else {
+            require(msg.value == 0, "");
+            TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
+            tt.transferFrom(msg.sender, to, amount);
+        }
 
         // Append the deposit to the queue.
         address _recipient = recipient == address(0) ? msg.sender : recipient;
-        uint256 slot =
-            state.slotA.numEthDeposits % config.ethDepositRingBufferSize;
-        state.ethDeposits[slot] = _encodeEthDeposit(_recipient, msg.value);
+        uint256 slot = state.slotA.numFeeTokenDeposits
+            % config.feeTokenDepositRingBufferSize;
+        state.feeTokenDeposits[slot] =
+            _encodeFeeTokenDeposit(_recipient, amount);
 
-        emit EthDeposited(
-            TaikoData.EthDeposit({
+        emit FeeTokenDeposited(
+            TaikoData.FeeTokenDeposit({
                 recipient: _recipient,
-                amount: msg.value.toUint96(),
-                id: state.slotA.numEthDeposits
+                amount: amount,
+                id: state.slotA.numFeeTokenDeposits
             })
         );
 
         unchecked {
-            state.slotA.numEthDeposits++;
+            state.slotA.numFeeTokenDeposits++;
         }
     }
 
-    /// @dev Processes the ETH deposits in a batched manner.
+    /// @dev Processes the L2 fee token deposits in a batched manner.
     /// @param state The current state of the Taiko protocol.
     /// @param config The config of the Taiko protocol.
     /// @param feeRecipient Address to receive the deposit fee.
     /// @return deposits The array of processed deposits.
-    function processDeposits(
+    function processFeeTokenDeposits(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         address feeRecipient
     )
         internal
-        returns (TaikoData.EthDeposit[] memory deposits)
+        returns (TaikoData.FeeTokenDeposit[] memory deposits)
     {
         // Calculate the number of pending deposits.
-        uint256 numPending =
-            state.slotA.numEthDeposits - state.slotA.nextEthDepositToProcess;
+        uint256 numPending = state.slotA.numFeeTokenDeposits
+            - state.slotA.nextFeeTokenDepositToProcess;
 
-        if (numPending < config.ethDepositMinCountPerBlock) {
-            deposits = new TaikoData.EthDeposit[](0);
+        if (numPending < config.feeTokenDepositMinCountPerBlock) {
+            deposits = new TaikoData.FeeTokenDeposit[](0);
         } else {
-            deposits = new TaikoData.EthDeposit[](
-               numPending.min(config.ethDepositMaxCountPerBlock)
+            deposits = new TaikoData.FeeTokenDeposit[](
+               numPending.min(config.feeTokenDepositMaxCountPerBlock)
             );
             uint96 fee = uint96(
-                config.ethDepositMaxFee.min(
-                    block.basefee * config.ethDepositGas
+                config.feeTokenDepositMaxFee.min(
+                    block.basefee * config.feeTokenDepositGas
                 )
             );
-            uint64 j = state.slotA.nextEthDepositToProcess;
+            uint64 j = state.slotA.nextFeeTokenDepositToProcess;
             uint96 totalFee;
             for (uint256 i; i < deposits.length;) {
-                uint256 data =
-                    state.ethDeposits[j % config.ethDepositRingBufferSize];
-                deposits[i] = TaikoData.EthDeposit({
+                uint256 data = state.feeTokenDeposits[j
+                    % config.feeTokenDepositRingBufferSize];
+                deposits[i] = TaikoData.FeeTokenDeposit({
                     recipient: address(uint160(data >> 96)),
                     amount: uint96(data),
                     id: j
@@ -113,13 +125,13 @@ library LibDepositing {
                     ++j;
                 }
             }
-            state.slotA.nextEthDepositToProcess = j;
+            state.slotA.nextFeeTokenDepositToProcess = j;
             // This is the fee deposit
-            state.ethDeposits[state.slotA.numEthDeposits
-                % config.ethDepositRingBufferSize] =
-                _encodeEthDeposit(feeRecipient, totalFee);
+            state.feeTokenDeposits[state.slotA.numFeeTokenDeposits
+                % config.feeTokenDepositRingBufferSize] =
+                _encodeFeeTokenDeposit(feeRecipient, totalFee);
             unchecked {
-                state.slotA.numEthDeposits++;
+                state.slotA.numFeeTokenDeposits++;
             }
         }
     }
@@ -129,7 +141,7 @@ library LibDepositing {
     /// @param config The config of the Taiko protocol.
     /// @param amount The amount to deposit.
     /// @return true if the deposit is valid, false otherwise.
-    function canDepositEthToL2(
+    function canDepositFeeToken(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint256 amount
@@ -139,17 +151,18 @@ library LibDepositing {
         returns (bool)
     {
         unchecked {
-            return amount >= config.ethDepositMinAmount
-                && amount <= config.ethDepositMaxAmount
-                && state.slotA.numEthDeposits - state.slotA.nextEthDepositToProcess
-                    < config.ethDepositRingBufferSize - 1;
+            return amount >= config.feeTokenDepositMinAmount
+                && amount <= config.feeTokenDepositMaxAmount
+                && state.slotA.numFeeTokenDeposits
+                    - state.slotA.nextFeeTokenDepositToProcess
+                    < config.feeTokenDepositRingBufferSize - 1;
         }
     }
 
     /// @dev Computes the hash of the given deposits.
     /// @param deposits The deposits to hash.
     /// @return The computed hash.
-    function hashEthDeposits(TaikoData.EthDeposit[] memory deposits)
+    function hashFeeTokenDeposits(TaikoData.FeeTokenDeposit[] memory deposits)
         internal
         pure
         returns (bytes32)
@@ -161,7 +174,7 @@ library LibDepositing {
     /// @param addr The address of the deposit recipient.
     /// @param amount The amount of the deposit.
     /// @return The encoded deposit.
-    function _encodeEthDeposit(
+    function _encodeFeeTokenDeposit(
         address addr,
         uint256 amount
     )

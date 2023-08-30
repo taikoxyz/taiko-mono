@@ -66,8 +66,9 @@ library LibUtils {
             genesisTimestamp: a.genesisTimestamp,
             numBlocks: b.numBlocks,
             lastVerifiedBlockId: b.lastVerifiedBlockId,
-            nextEthDepositToProcess: a.nextEthDepositToProcess,
-            numEthDeposits: a.numEthDeposits - a.nextEthDepositToProcess
+            nextFeeTokenDepositToProcess: a.nextFeeTokenDepositToProcess,
+            numFeeTokenDeposits: a.numFeeTokenDeposits
+                - a.nextFeeTokenDepositToProcess
         });
     }
 
@@ -85,7 +86,7 @@ library LibUtils {
         inputs[1] = uint256(meta.l1Hash);
         inputs[2] = uint256(meta.mixHash);
         inputs[3] =
-            uint256(LibDepositing.hashEthDeposits(meta.depositsProcessed));
+            uint256(LibDepositing.hashFeeTokenDeposits(meta.depositsProcessed));
         inputs[4] = uint256(meta.txListHash);
 
         inputs[5] = (uint256(meta.txListByteStart) << 232)

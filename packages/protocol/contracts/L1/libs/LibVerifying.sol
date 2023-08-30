@@ -49,17 +49,19 @@ library LibVerifying {
                 || config.proofRegularCooldown < config.proofOracleCooldown
                 || config.proofWindow == 0 || config.proofBond == 0
                 || config.proofBond < 10 * config.proposerRewardPerSecond
-                || config.ethDepositRingBufferSize <= 1
-                || config.ethDepositMinCountPerBlock == 0
-                || config.ethDepositMaxCountPerBlock
-                    < config.ethDepositMinCountPerBlock
-                || config.ethDepositMinAmount == 0
-                || config.ethDepositMaxAmount <= config.ethDepositMinAmount
-                || config.ethDepositMaxAmount >= type(uint96).max
-                || config.ethDepositGas == 0 || config.ethDepositMaxFee == 0
-                || config.ethDepositMaxFee >= type(uint96).max
-                || config.ethDepositMaxFee
-                    >= type(uint96).max / config.ethDepositMaxCountPerBlock
+                || config.feeTokenDepositRingBufferSize <= 1
+                || config.feeTokenDepositMinCountPerBlock == 0
+                || config.feeTokenDepositMaxCountPerBlock
+                    < config.feeTokenDepositMinCountPerBlock
+                || config.feeTokenDepositMinAmount == 0
+                || config.feeTokenDepositMaxAmount
+                    <= config.feeTokenDepositMinAmount
+                || config.feeTokenDepositMaxAmount >= type(uint96).max
+                || config.feeTokenDepositGas == 0
+                || config.feeTokenDepositMaxFee == 0
+                || config.feeTokenDepositMaxFee >= type(uint96).max
+                || config.feeTokenDepositMaxFee
+                    >= type(uint96).max / config.feeTokenDepositMaxCountPerBlock
         ) revert L1_INVALID_CONFIG();
 
         unchecked {

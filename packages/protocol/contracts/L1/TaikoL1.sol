@@ -37,13 +37,14 @@ contract TaikoL1 is TaikoL1Base {
             proofWindow: 90 minutes,
             proofBond: 1024e18,
             skipProverAssignmentVerificaiton: false,
-            ethDepositRingBufferSize: 1024,
-            ethDepositMinCountPerBlock: 8,
-            ethDepositMaxCountPerBlock: 32,
-            ethDepositMinAmount: 1 ether,
-            ethDepositMaxAmount: 10_000 ether,
-            ethDepositGas: 21_000,
-            ethDepositMaxFee: 1 ether / 10
+            feeTokenIsEther: true,
+            feeTokenDepositRingBufferSize: 1024,
+            feeTokenDepositMinCountPerBlock: 8,
+            feeTokenDepositMaxCountPerBlock: 32,
+            feeTokenDepositMinAmount: 1 ether,
+            feeTokenDepositMaxAmount: 10_000 ether,
+            feeTokenDepositGas: 21_000,
+            feeTokenDepositMaxFee: 1 ether / 10
         });
     }
 }

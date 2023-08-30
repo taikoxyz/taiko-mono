@@ -169,8 +169,9 @@ library LibProposing {
             meta.txListByteEnd = input.txListByteEnd;
             meta.gasLimit = config.blockMaxGasLimit;
             meta.beneficiary = input.beneficiary;
-            meta.depositsProcessed =
-                LibDepositing.processDeposits(state, config, input.beneficiary);
+            meta.depositsProcessed = LibDepositing.processFeeTokenDeposits(
+                state, config, input.beneficiary
+            );
 
             // Init the block
             TaikoData.Block storage blk =

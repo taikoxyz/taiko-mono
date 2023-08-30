@@ -57,20 +57,21 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // Group 4: ETH deposit related configs
         // ---------------------------------------------------------------------
+        bool feeTokenIsEther;
         // The size of the ETH deposit ring buffer.
-        uint256 ethDepositRingBufferSize;
+        uint256 feeTokenDepositRingBufferSize;
         // The minimum number of ETH deposits allowed per block.
-        uint64 ethDepositMinCountPerBlock;
+        uint64 feeTokenDepositMinCountPerBlock;
         // The maximum number of ETH deposits allowed per block.
-        uint64 ethDepositMaxCountPerBlock;
+        uint64 feeTokenDepositMaxCountPerBlock;
         // The minimum amount of ETH required for a deposit.
-        uint96 ethDepositMinAmount;
+        uint96 feeTokenDepositMinAmount;
         // The maximum amount of ETH allowed for a deposit.
-        uint96 ethDepositMaxAmount;
+        uint96 feeTokenDepositMaxAmount;
         // The gas cost for processing an ETH deposit.
-        uint256 ethDepositGas;
+        uint256 feeTokenDepositGas;
         // The maximum fee allowed for an ETH deposit.
-        uint256 ethDepositMaxFee;
+        uint256 feeTokenDepositMaxFee;
     }
 
     /// @dev Struct holding state variables.
@@ -79,8 +80,8 @@ library TaikoData {
         uint64 genesisTimestamp;
         uint64 numBlocks;
         uint64 lastVerifiedBlockId;
-        uint64 nextEthDepositToProcess;
-        uint64 numEthDeposits;
+        uint64 nextFeeTokenDepositToProcess;
+        uint64 numFeeTokenDeposits;
     }
 
     /// @dev Struct representing input data for block metadata.
@@ -113,7 +114,7 @@ library TaikoData {
         uint24 txListByteEnd;
         uint32 gasLimit;
         address beneficiary;
-        TaikoData.EthDeposit[] depositsProcessed;
+        TaikoData.FeeTokenDeposit[] depositsProcessed;
     }
 
     /// @dev Struct representing block evidence.
@@ -157,7 +158,7 @@ library TaikoData {
     }
 
     /// @dev Struct representing an Ethereum deposit.
-    struct EthDeposit {
+    struct FeeTokenDeposit {
         address recipient;
         uint96 amount;
         uint64 id;
@@ -171,13 +172,13 @@ library TaikoData {
     struct SlotA {
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 numEthDeposits;
-        uint64 nextEthDepositToProcess;
+        uint64 numFeeTokenDeposits;
+        uint64 nextFeeTokenDepositToProcess;
     }
 
     struct SlotB {
         uint64 numBlocks;
-        uint64 nextEthDepositToProcess;
+        uint64 nextFeeTokenDepositToProcess;
         uint64 lastVerifiedAt;
         uint64 lastVerifiedBlockId;
     }
@@ -192,8 +193,8 @@ library TaikoData {
         mapping(uint64 blockId => mapping(uint16 transitionId => Transition))
             transitions;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
-        mapping(uint256 depositId_mode_ethDepositRingBufferSize => uint256)
-            ethDeposits;
+        mapping(uint256 depositId_mode_feeTokenDepositRingBufferSize => uint256)
+            feeTokenDeposits;
         mapping(address account => uint256 balance) taikoTokenBalances;
         SlotA slotA; // slot 7
         SlotB slotB; // slot 8
