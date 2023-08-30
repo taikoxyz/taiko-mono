@@ -31,6 +31,14 @@ for json_file in "${json_files[@]}"; do
 
     # Create env variable key from filename
     filename=$(basename "$json_file" .json) # removing the .json extension
+
+    # Conditionally trim whitespace, chain names might contain spaces, so we exclude that file
+    if [[ "$filename" != "configuredChains" ]]; then
+      base64_content=$(base64 -w 0 "$json_file" | tr -d '[:space:]')
+    else
+      base64_content=$(base64 -w 0 "$json_file")
+    fi
+
     env_key=$(echo "$filename" | sed 's/\([a-z0-9]\)\([A-Z]\)/\1_\2/g' | tr '[:lower:]' '[:upper:]')
 
     # Try to find and replace the line; if it fails, append to the file
