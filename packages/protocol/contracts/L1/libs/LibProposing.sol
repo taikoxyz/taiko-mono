@@ -129,7 +129,7 @@ library LibProposing {
         if (config.proposerRewardPerSecond > 0 && config.proposerRewardMax > 0)
         {
             // Unchecked is safe:
-            // - block.timestamp is always greater than a block.proposedAt
+            // - block.timestamp is always greater than block.proposedAt
             // (proposed in the past)
             // - 1x state.taikoTokenBalances[addr] uint256 could theoretically
             // store the whole token supply
@@ -161,7 +161,7 @@ library LibProposing {
         // Unchecked is safe:
         // - equation is done among same variable types
         // - incrementation (state.slotB.numBlocks++) is fine for 584K years if
-        // we proposing at every second
+        // we propose at every second
         unchecked {
             meta.id = b.numBlocks;
             meta.timestamp = uint64(block.timestamp);

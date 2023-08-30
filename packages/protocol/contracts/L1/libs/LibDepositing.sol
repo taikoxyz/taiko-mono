@@ -62,9 +62,8 @@ library LibDepositing {
         );
 
         // Unchecked is safe:
-        // - uint64 can store upt to cca. 1.8 * 1e19, which can represent 584K
-        // years
-        // if we depositing at every second
+        // - uint64 can store up to ~1.8 * 1e19, which can represent 584K years
+        // if we are depositing at every second
         unchecked {
             state.slotA.numEthDeposits++;
         }
@@ -130,8 +129,8 @@ library LibDepositing {
                 _encodeEthDeposit(feeRecipient, totalFee);
 
             // Unchecked is safe:
-            // - uint64 can store upt to cca. 1.8 * 1e19, which can represent
-            // 584K years if we depositing at every second
+            // - uint64 can store up to ~1.8 * 1e19, which can represent 584K
+            // years if we are depositing at every second
             unchecked {
                 state.slotA.numEthDeposits++;
             }
@@ -154,9 +153,9 @@ library LibDepositing {
     {
         // Unchecked is safe:
         // - both numEthDeposits and state.slotA.nextEthDepositToProcess are
-        // indexes. One is tracking the all deposits (numEthDeposits:
-        // unprocessed) and the next to be processed, so nextEthDepositToProcess
-        // cannot be bigger then numEthDeposits
+        // indexes. One is tracking all deposits (numEthDeposits: unprocessed)
+        // and the next to be processed, so nextEthDepositToProcess cannot be
+        // bigger than numEthDeposits
         // - ethDepositRingBufferSize cannot be 0 by default (validity checked
         // in LibVerifying)
         unchecked {
