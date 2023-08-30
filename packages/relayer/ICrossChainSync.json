@@ -4,9 +4,9 @@
     "inputs": [
       {
         "indexed": true,
-        "internalType": "uint256",
+        "internalType": "uint64",
         "name": "srcHeight",
-        "type": "uint256"
+        "type": "uint64"
       },
       {
         "indexed": false,
@@ -27,9 +27,9 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "number",
-        "type": "uint256"
+        "internalType": "uint64",
+        "name": "blockId",
+        "type": "uint64"
       }
     ],
     "name": "getCrossChainBlockHash",
@@ -46,9 +46,9 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "number",
-        "type": "uint256"
+        "internalType": "uint64",
+        "name": "blockId",
+        "type": "uint64"
       }
     ],
     "name": "getCrossChainSignalRoot",

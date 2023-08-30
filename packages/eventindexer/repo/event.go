@@ -3,7 +3,6 @@ package repo
 import (
 	"context"
 	"database/sql"
-	"math/big"
 	"net/http"
 
 	"github.com/morkid/paginate"
@@ -174,24 +173,6 @@ func (r *EventRepository) GetByAddressAndEventName(
 	page := reqCtx.Request(req).Response(&[]eventindexer.Event{})
 
 	return page, nil
-}
-
-func (r *EventRepository) GetTotalSlashedTokens(
-	ctx context.Context,
-) (*big.Int, error) {
-	var sum decimal.NullDecimal
-
-	if err := r.db.GormDB().
-		Raw("SELECT SUM(amount) FROM events WHERE event = ?", eventindexer.EventNameSlashed).
-		FirstOrInit(&sum).Error; err != nil {
-		return nil, errors.Wrap(err, "r.db.FirstOrInit")
-	}
-
-	if !sum.Valid {
-		return big.NewInt(0), nil
-	}
-
-	return sum.Decimal.BigInt(), nil
 }
 
 func (r *EventRepository) FirstByAddressAndEventName(

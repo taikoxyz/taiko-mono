@@ -15,12 +15,8 @@ var (
 	EventNameBlockProven   = "BlockProven"
 	EventNameBlockProposed = "BlockProposed"
 	EventNameBlockVerified = "BlockVerified"
-	EventNameSlashed       = "Slashed"
 	EventNameMessageSent   = "MessageSent"
 	EventNameSwap          = "Swap"
-	EventNameStaked        = "Staked"
-	EventNameExited        = "Exited"
-	EventNameWithdrawn     = "Withdrawn"
 	EventNameMint          = "Mint"
 	EventNameNFTTransfer   = "Transfer"
 )
@@ -92,7 +88,6 @@ type EventRepository interface {
 		address string,
 		event string,
 	) (paginate.Page, error)
-	GetTotalSlashedTokens(ctx context.Context) (*big.Int, error)
 	FirstByAddressAndEventName(
 		ctx context.Context,
 		address string,

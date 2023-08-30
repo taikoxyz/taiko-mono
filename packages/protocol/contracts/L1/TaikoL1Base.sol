@@ -196,19 +196,19 @@ abstract contract TaikoL1Base is
         });
     }
 
-    /// @notice Gets the fork choice for a specific block.
+    /// @notice Gets the state transition for a specific block.
     /// @param blockId Index of the block.
     /// @param parentHash Parent hash of the block.
-    /// @return ForkChoice data of the block.
-    function getForkChoice(
+    /// @return The state transition data of the block.
+    function getTransition(
         uint64 blockId,
         bytes32 parentHash
     )
         public
         view
-        returns (TaikoData.ForkChoice memory)
+        returns (TaikoData.Transition memory)
     {
-        return LibProving.getForkChoice({
+        return LibProving.getTransition({
             state: state,
             config: getConfig(),
             blockId: blockId,
@@ -229,7 +229,7 @@ abstract contract TaikoL1Base is
             blockId: blockId
         });
         return found
-            ? state.forkChoices[blk.blockId][blk.verifiedForkChoiceId].blockHash
+            ? state.transitions[blk.blockId][blk.verifiedTransitionId].blockHash
             : bytes32(0);
     }
 
@@ -247,7 +247,7 @@ abstract contract TaikoL1Base is
         });
 
         return found
-            ? state.forkChoices[blockId][blk.verifiedForkChoiceId].signalRoot
+            ? state.transitions[blockId][blk.verifiedTransitionId].signalRoot
             : bytes32(0);
     }
 
