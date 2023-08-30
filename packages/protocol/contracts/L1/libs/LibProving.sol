@@ -92,8 +92,7 @@ library LibProving {
 
             // Unchecked is safe:
             // - Not realistic 65K different fork choice per block will be
-            // proven
-            // and none of them is valid
+            // proven and none of them is valid
             unchecked {
                 ++blk.nextTransitionId;
             }

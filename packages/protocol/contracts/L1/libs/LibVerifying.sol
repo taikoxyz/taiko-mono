@@ -122,8 +122,7 @@ library LibVerifying {
         // Unchecked is safe:
         // - assignment is within ranges
         // - blockId and processed values incremented will still be OK in the
-        // next 584K years
-        // if we verifying one block per every second
+        // next 584K years if we verifying one block per every second
         unchecked {
             ++blockId;
 
