@@ -42,7 +42,10 @@ abstract contract TaikoL1Base is
 
     /// @dev Fallback function to receive Ether and deposit to to Layer 2.
     receive() external payable {
-        require(getConfig().feeTokenIsEther, "");
+        if (!getConfig().feeTokenIsEther) {
+            revert L1_INVALID_FEE_TOKEN_DEPOSIT();
+        }
+
         depositL2FeeToken(address(0), msg.value.toUint96());
     }
 

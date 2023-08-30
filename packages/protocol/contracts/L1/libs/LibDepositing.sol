@@ -23,7 +23,7 @@ library LibDepositing {
 
     event FeeTokenDeposited(TaikoData.FeeTokenDeposit deposit);
 
-    error L1_INVALID_ETH_DEPOSIT();
+    error L1_INVALID_FEE_TOKEN_DEPOSIT();
 
     /// @dev Deposits Ether or Taiko to Taiko L2 as fee token
     /// @param state The current state of the Taiko protocol.
@@ -39,9 +39,8 @@ library LibDepositing {
     )
         internal
     {
-        require(amount > 0, "");
-        if (!canDepositFeeToken(state, config, amount)) {
-            revert L1_INVALID_ETH_DEPOSIT();
+        if (amount == 0 || !canDepositFeeToken(state, config, amount)) {
+            revert L1_INVALID_FEE_TOKEN_DEPOSIT();
         }
 
         address to = resolver.resolve("ether_vault", true);
@@ -50,18 +49,23 @@ library LibDepositing {
         }
 
         if (config.feeTokenIsEther) {
-            require(msg.value == amount, "");
+            if (msg.value != amount) revert L1_INVALID_FEE_TOKEN_DEPOSIT();
+
             to.sendEther(amount);
         } else {
-            require(msg.value == 0, "");
-            TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
-            tt.transferFrom(msg.sender, to, amount);
+            if (msg.value != 0) revert L1_INVALID_FEE_TOKEN_DEPOSIT();
+
+            TaikoToken(resolver.resolve("taiko_token", false)).transferFrom(
+                msg.sender, to, amount
+            );
         }
 
         // Append the deposit to the queue.
         address _recipient = recipient == address(0) ? msg.sender : recipient;
+
         uint256 slot = state.slotA.numFeeTokenDeposits
             % config.feeTokenDepositRingBufferSize;
+
         state.feeTokenDeposits[slot] =
             _encodeFeeTokenDeposit(_recipient, amount);
 
@@ -182,7 +186,7 @@ library LibDepositing {
         pure
         returns (uint256)
     {
-        if (amount >= type(uint96).max) revert L1_INVALID_ETH_DEPOSIT();
+        if (amount >= type(uint96).max) revert L1_INVALID_FEE_TOKEN_DEPOSIT();
         return (uint256(uint160(addr)) << 96) | amount;
     }
 }

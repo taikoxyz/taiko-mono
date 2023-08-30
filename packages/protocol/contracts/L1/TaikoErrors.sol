@@ -20,8 +20,8 @@ abstract contract TaikoErrors {
     error L1_INVALID_ASSIGNMENT();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_CONFIG();
-    error L1_INVALID_ETH_DEPOSIT();
     error L1_INVALID_EVIDENCE();
+    error L1_INVALID_FEE_TOKEN_DEPOSIT();
     error L1_INVALID_METADATA();
     error L1_INVALID_ORACLE_PROVER();
     error L1_INVALID_PARAM();
