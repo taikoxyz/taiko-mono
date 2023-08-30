@@ -16,7 +16,6 @@ abstract contract TaikoErrors {
     error L1_ALREADY_PROVEN();
     error L1_BLOCK_ID_MISMATCH();
     error L1_EVIDENCE_MISMATCH();
-    error L1_FORK_CHOICE_NOT_FOUND();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_ASSIGNMENT();
     error L1_INVALID_BLOCK_ID();
@@ -33,9 +32,10 @@ abstract contract TaikoErrors {
     error L1_NOT_PROVEABLE();
     error L1_SAME_PROOF();
     error L1_TOO_MANY_BLOCKS();
+    error L1_TRANSITION_NOT_FOUND();
     error L1_TX_LIST_NOT_EXIST();
     error L1_TX_LIST_HASH();
     error L1_TX_LIST_RANGE();
     error L1_TX_LIST();
-    error L1_UNEXPECTED_FORK_CHOICE_ID();
+    error L1_UNEXPECTED_TRANSITION_ID();
 }

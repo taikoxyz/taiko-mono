@@ -201,7 +201,7 @@ To help people to visualize all the above elements. Here is a diagram:
 
 graph LR
 classDef default stroke-width:4px,stroke:#EA27C2,fill:#EA27C2,color:#FFF;
-classDef forkchoice stroke-width:4px,stroke:#FF715B,fill:#FF715B,color:#FFF;
+classDef transition stroke-width:4px,stroke:#FF715B,fill:#FF715B,color:#FFF;
 classDef otherCircuits stroke-width:4px,stroke:#6ECEB0,fill:#6ECEB0,color:#FFF;
 classDef constant stroke-width:4px,stroke:#323745,fill:#323745,color:#FFF;
 classDef group stroke-width:2px,stroke:#EA27C2,fill:#FFD2F630;
@@ -338,12 +338,12 @@ L2Storage:::group
 
 subgraph BlockEvidence
 e_meta_hash(metaHash)
-e_parent_hash(parentHash):::forkchoice
+e_parent_hash(parentHash):::transition
 e_block_hash(blockHash)
 e_signal_root(signalRoot)
 e_graffiti(graffiti)
 e_prover(prover)
-e_parent_gas_used(parentGasUsed):::forkchoice
+e_parent_gas_used(parentGasUsed):::transition
 e_gas_used(gasUsed)
 end
 

@@ -63,7 +63,7 @@
         <li
           role="menuitem"
           tabindex="0"
-          class="p-4 rounded-[10px] hover:bg-neutral hover:cursor-pointer"
+          class="p-4 rounded-[10px] hover:bg-grey-10 hover:cursor-pointer"
           on:click={() => selectChain(chain)}
           on:keydown={getChainKeydownHandler(chain)}>
           <!-- TODO: agree on hover:bg color -->

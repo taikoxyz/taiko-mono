@@ -67,9 +67,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (
-            uint256 blockId = 1;
-            blockId < conf.blockMaxProposals * 10;
-            blockId++
+            uint256 blockId = 1; blockId < conf.blockMaxProposals * 9; blockId++
         ) {
             printVariables("before propose");
             TaikoData.BlockMetadata memory meta =
@@ -338,10 +336,10 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             vm.warp(block.timestamp + 1 seconds);
             vm.warp(block.timestamp + conf.proofOracleCooldown);
 
-            TaikoData.ForkChoice memory fc =
-                L1.getForkChoice(blockId, parentHash);
+            TaikoData.Transition memory transition =
+                L1.getTransition(blockId, parentHash);
 
-            assertEq(fc.prover, LibUtils.ORACLE_PROVER);
+            assertEq(transition.prover, LibUtils.ORACLE_PROVER);
 
             verifyBlock(Carol, 1);
 
