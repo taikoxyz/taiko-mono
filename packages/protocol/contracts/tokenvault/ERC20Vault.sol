@@ -330,13 +330,21 @@ contract ERC20Vault is
         private
         returns (address btoken)
     {
-        ProxiedBridgedERC20 bridgedToken = new ProxiedBridgedERC20();
+        address bridgedToken = Create2Upgradeable.deploy({
+            amount: 0, // amount of Ether to send
+            salt: keccak256(
+                bytes.concat(
+                    bytes32(ctoken.chainId), bytes32(uint256(uint160(ctoken.addr)))
+                )
+                ),
+            bytecode: type(ProxiedBridgedERC20).creationCode
+        });
 
         btoken = LibVaultUtils.deployProxy(
             address(bridgedToken),
             owner(),
             bytes.concat(
-                bridgedToken.init.selector,
+                ProxiedBridgedERC20(bridgedToken).init.selector,
                 abi.encode(
                     address(_addressManager),
                     ctoken.addr,
