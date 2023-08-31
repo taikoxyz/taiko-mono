@@ -40,7 +40,7 @@ func Test_sendProcessMessageCall(t *testing.T) {
 	assert.Equal(t, p.destNonce, mock.PendingNonce)
 }
 
-func Test_ProcessMessage_messageNotReceived(t *testing.T) {
+func Test_ProcessMessage_messageUnprocessable(t *testing.T) {
 	p := newTestProcessor(true)
 	body := &queue.QueueMessageBody{
 		Event: &bridge.BridgeMessageSent{
@@ -66,7 +66,7 @@ func Test_ProcessMessage_messageNotReceived(t *testing.T) {
 	}
 
 	err = p.processMessage(context.Background(), msg)
-	assert.EqualError(t, err, "message not received")
+	assert.EqualError(t, err, "message is unprocessable")
 }
 
 func Test_ProcessMessage_gasLimit0(t *testing.T) {
