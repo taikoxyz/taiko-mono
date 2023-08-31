@@ -12,13 +12,6 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"SRC_BRIDGE_ADDRESS"},
 	}
-	SrcTaikoAddress = &cli.StringFlag{
-		Name:     "srcTaikoAddress",
-		Usage:    "Taiko address on the source chain",
-		Required: true,
-		Category: indexerCategory,
-		EnvVars:  []string{"SRC_TAIKO_ADDRESS"},
-	}
 )
 
 // optional
@@ -62,12 +55,18 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"SYNC_MODE"},
 	}
+	SrcTaikoAddress = &cli.StringFlag{
+		Name:     "srcTaikoAddress",
+		Usage:    "Taiko address on the source chain, required if L1=>L2, not if L2=>L1",
+		Category: indexerCategory,
+		EnvVars:  []string{"SRC_TAIKO_ADDRESS"},
+	}
 )
 
 var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	SrcBridgeAddress,
-	SrcTaikoAddress,
 	// optional
+	SrcTaikoAddress,
 	BlockBatchSize,
 	MaxNumGoroutines,
 	SubscriptionBackoff,

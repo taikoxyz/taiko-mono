@@ -2,27 +2,22 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"os"
-	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/utils"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/indexer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/processor"
 	"github.com/urfave/cli/v2"
 )
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
 
 func main() {
 	app := cli.NewApp()
 
 	// attempt to load a .env file to overwrite CLI flags, but allow it to not
 	// exist.
-	_ = godotenv.Load(".env")
+	_ = godotenv.Load(".l1processor.env")
 
 	app.Name = "Taiko Relayer"
 	app.Usage = "The taiko relayer softwares command line interface"
@@ -39,6 +34,13 @@ func main() {
 			Usage:       "Starts the indexer software",
 			Description: "Taiko relayer indexer software",
 			Action:      utils.SubcommandAction(new(indexer.Indexer)),
+		},
+		{
+			Name:        "processor",
+			Flags:       flags.ProcessorFlags,
+			Usage:       "Starts the processor software",
+			Description: "Taiko relayer processor software",
+			Action:      utils.SubcommandAction(new(processor.Processor)),
 		},
 	}
 

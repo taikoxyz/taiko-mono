@@ -86,7 +86,7 @@ func (r *RabbitMQ) Publish(ctx context.Context, msg []byte) error {
 }
 
 func (r *RabbitMQ) Ack(ctx context.Context, msg queue.Message) error {
-	rmqMsg := msg.Internal.(*amqp.Delivery)
+	rmqMsg := msg.Internal.(amqp.Delivery)
 
 	slog.Info("acknowledging rabbitmq message", "msgId", rmqMsg.MessageId)
 
@@ -94,7 +94,7 @@ func (r *RabbitMQ) Ack(ctx context.Context, msg queue.Message) error {
 }
 
 func (r *RabbitMQ) Nack(ctx context.Context, msg queue.Message) error {
-	rmqMsg := msg.Internal.(*amqp.Delivery)
+	rmqMsg := msg.Internal.(amqp.Delivery)
 
 	slog.Info("acknowledging rabbitmq message", "msgId", rmqMsg.MessageId)
 

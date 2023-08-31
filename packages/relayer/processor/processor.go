@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 	"crypto/ecdsa"
+	"database/sql"
 	"fmt"
 	"log/slog"
 	"math/big"
@@ -12,7 +13,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/pkg/errors"
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/urfave/cli/v2"
+	"gorm.io/gorm"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
@@ -22,7 +25,13 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/icrosschainsync"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/queue"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/repo"
 )
+
+type DB interface {
+	DB() (*sql.DB, error)
+	GormDB() *gorm.DB
+}
 
 type ethClient interface {
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
@@ -60,7 +69,7 @@ type Processor struct {
 	srcSignalServiceAddress common.Address
 	confirmations           uint64
 
-	profitableOnly            relayer.ProfitableOnly
+	profitableOnly            bool
 	headerSyncIntervalSeconds int64
 
 	confTimeoutInSeconds int64
@@ -72,150 +81,159 @@ type Processor struct {
 	srcChainId *big.Int
 }
 
-type NewProcessorOpts struct {
-	Prover                        *proof.Prover
-	ECDSAKey                      string
-	RPCClient                     relayer.Caller
-	SrcETHClient                  ethClient
-	DestETHClient                 ethClient
-	EventRepo                     relayer.EventRepository
-	Queue                         queue.Queue
-	DestBridgeAddress             common.Address
-	DestTaikoAddress              common.Address
-	DestERC20VaultAddress         common.Address
-	DestERC721VaultAddress        common.Address
-	DestERC1155VaultAddress       common.Address
-	SrcSignalServiceAddress       common.Address
-	Confirmations                 uint64
-	ProfitableOnly                relayer.ProfitableOnly
-	HeaderSyncIntervalInSeconds   int64
-	ConfirmationsTimeoutInSeconds int64
+func (p *Processor) InitFromCli(ctx context.Context, c *cli.Context) error {
+	cfg, err := NewConfigFromCliContext(c)
+	if err != nil {
+		return err
+	}
+
+	return InitFromConfig(ctx, p, cfg)
 }
 
-func NewProcessor(opts NewProcessorOpts) (*Processor, error) {
-	if opts.Prover == nil {
-		return nil, relayer.ErrNoProver
+// nolint: funlen
+func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
+	db, err := cfg.OpenDBFunc()
+	if err != nil {
+		return err
 	}
 
-	if opts.ECDSAKey == "" {
-		return nil, relayer.ErrNoECDSAKey
+	eventRepository, err := repo.NewEventRepository(db)
+	if err != nil {
+		return err
 	}
 
-	if opts.RPCClient == nil {
-		return nil, relayer.ErrNoRPCClient
+	srcRpcClient, err := rpc.Dial(cfg.SrcRPCUrl)
+	if err != nil {
+		return err
 	}
 
-	if opts.DestETHClient == nil {
-		return nil, relayer.ErrNoEthClient
+	srcEthClient, err := ethclient.Dial(cfg.SrcRPCUrl)
+	if err != nil {
+		return err
 	}
 
-	if opts.SrcETHClient == nil {
-		return nil, relayer.ErrNoEthClient
+	destEthClient, err := ethclient.Dial(cfg.DestRPCUrl)
+	if err != nil {
+		return err
 	}
 
-	if opts.EventRepo == nil {
-		return nil, relayer.ErrNoEventRepository
-	}
-
-	if opts.Confirmations == 0 {
-		return nil, relayer.ErrInvalidConfirmations
-	}
-
-	if opts.ConfirmationsTimeoutInSeconds == 0 {
-		return nil, relayer.ErrInvalidConfirmationsTimeoutInSeconds
+	q, err := cfg.OpenQueueFunc()
+	if err != nil {
+		return err
 	}
 
 	destHeaderSyncer, err := icrosschainsync.NewICrossChainSync(
-		opts.DestTaikoAddress,
-		opts.DestETHClient.(*ethclient.Client),
+		cfg.DestTaikoAddress,
+		destEthClient,
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "icrosschainsync.NewTaikoL2")
+		return err
 	}
 
-	destERC20Vault, err := erc20vault.NewERC20Vault(opts.DestERC20VaultAddress, opts.DestETHClient.(*ethclient.Client))
+	destERC20Vault, err := erc20vault.NewERC20Vault(
+		cfg.DestERC20VaultAddress,
+		destEthClient,
+	)
 	if err != nil {
-		return nil, errors.Wrap(err, "erc20vault.NewERC20Vault")
+		return err
 	}
 
 	var destERC721Vault *erc721vault.ERC721Vault
-	if opts.DestERC721VaultAddress.Hex() != relayer.ZeroAddress.Hex() {
-		destERC721Vault, err = erc721vault.NewERC721Vault(opts.DestERC721VaultAddress, opts.DestETHClient.(*ethclient.Client))
+	if cfg.DestERC721VaultAddress.Hex() != relayer.ZeroAddress.Hex() {
+		destERC721Vault, err = erc721vault.NewERC721Vault(cfg.DestERC721VaultAddress, destEthClient)
 		if err != nil {
-			return nil, errors.Wrap(err, "erc721vault.NewERC721Vault")
+			return err
 		}
 	}
 
 	var destERC1155Vault *erc1155vault.ERC1155Vault
-	if opts.DestERC1155VaultAddress.Hex() != relayer.ZeroAddress.Hex() {
+	if cfg.DestERC1155VaultAddress.Hex() != relayer.ZeroAddress.Hex() {
 		destERC1155Vault, err = erc1155vault.NewERC1155Vault(
-			opts.DestERC1155VaultAddress,
-			opts.DestETHClient.(*ethclient.Client),
+			cfg.DestERC1155VaultAddress,
+			destEthClient,
 		)
 		if err != nil {
-			return nil, errors.Wrap(err, "erc1155vault.NewERC1155Vault")
+			return err
 		}
 	}
 
-	destBridge, err := bridge.NewBridge(opts.DestBridgeAddress, opts.DestETHClient.(*ethclient.Client))
+	destBridge, err := bridge.NewBridge(cfg.DestBridgeAddress, destEthClient)
 	if err != nil {
-		return nil, errors.Wrap(err, "bridge.NewBridge")
+		return err
 	}
 
-	privateKey, err := crypto.HexToECDSA(opts.ECDSAKey)
+	chainID, err := srcEthClient.ChainID(context.Background())
 	if err != nil {
-		return nil, errors.Wrap(err, "crypto.HexToECDSA")
+		return err
 	}
 
-	publicKey := privateKey.Public()
+	prover, err := proof.New(srcEthClient)
+	if err != nil {
+		return err
+	}
+
+	srcChainId, err := srcEthClient.ChainID(context.Background())
+	if err != nil {
+		return err
+	}
+
+	publicKey := cfg.ProcessorPrivateKey.Public()
 
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
-		return nil, errors.Wrap(err, "publicKey.(*ecdsa.PublicKey)")
+		return err
 	}
 
 	relayerAddr := crypto.PubkeyToAddress(*publicKeyECDSA)
 
-	srcChainId, err := opts.SrcETHClient.ChainID(context.Background())
-	if err != nil {
-		return nil, errors.Wrap(err, "opts.SrcETHClient.ChainID")
-	}
+	p.prover = prover
+	p.eventRepo = eventRepository
 
-	return &Processor{
-		eventRepo: opts.EventRepo,
-		prover:    opts.Prover,
-		ecdsaKey:  privateKey,
-		rpc:       opts.RPCClient,
+	p.srcEthClient = srcEthClient
+	p.destEthClient = destEthClient
 
-		srcEthClient: opts.SrcETHClient,
+	p.destBridge = destBridge
+	p.destERC1155Vault = destERC1155Vault
+	p.destERC20Vault = destERC20Vault
+	p.destERC721Vault = destERC721Vault
+	p.destHeaderSyncer = destHeaderSyncer
 
-		destEthClient:    opts.DestETHClient,
-		destBridge:       destBridge,
-		destHeaderSyncer: destHeaderSyncer,
-		destERC20Vault:   destERC20Vault,
-		destERC721Vault:  destERC1155Vault,
-		destERC1155Vault: destERC721Vault,
+	p.ecdsaKey = cfg.ProcessorPrivateKey
+	p.relayerAddr = relayerAddr
 
-		mu: &sync.Mutex{},
+	p.profitableOnly = cfg.ProfitableOnly
 
-		destNonce:               0,
-		relayerAddr:             relayerAddr,
-		srcSignalServiceAddress: opts.SrcSignalServiceAddress,
-		confirmations:           opts.Confirmations,
+	p.queue = q
 
-		profitableOnly:            opts.ProfitableOnly,
-		headerSyncIntervalSeconds: opts.HeaderSyncIntervalInSeconds,
-		confTimeoutInSeconds:      opts.ConfirmationsTimeoutInSeconds,
+	p.srcChainId = chainID
+	p.headerSyncIntervalSeconds = int64(cfg.HeaderSyncInterval)
+	p.confTimeoutInSeconds = int64(cfg.ConfirmationsTimeout)
+	p.confirmations = cfg.Confirmations
 
-		queue: opts.Queue,
-		msgCh: make(chan queue.Message),
-		wg:    &sync.WaitGroup{},
+	p.srcSignalServiceAddress = cfg.SrcSignalServiceAddress
 
-		srcChainId: srcChainId,
-	}, nil
+	p.msgCh = make(chan queue.Message)
+	p.wg = &sync.WaitGroup{}
+	p.mu = &sync.Mutex{}
+	p.rpc = srcRpcClient
+
+	p.srcChainId = srcChainId
+
+	return nil
 }
 
-func (p *Processor) Start(ctx context.Context) error {
+func (p *Processor) Name() string {
+	return "processor"
+}
+
+// TODO
+func (p *Processor) Close(ctx context.Context) {
+	p.wg.Wait()
+}
+
+func (p *Processor) Start() error {
+	ctx := context.Background()
+
 	if err := p.queue.Start(ctx, p.queueName()); err != nil {
 		return err
 	}
@@ -245,10 +263,10 @@ func (p *Processor) eventLoop(ctx context.Context) {
 			return
 		case msg := <-p.msgCh:
 			if err := p.processMessage(ctx, msg); err != nil {
-				slog.Error("err processing message", "msg", msg)
+				slog.Error("err processing message", "err", err)
 
 				if err := p.queue.Nack(ctx, msg); err != nil {
-					slog.Error("Err nacking message", "msg", msg)
+					slog.Error("Err nacking message", "err", err)
 				}
 			}
 		}

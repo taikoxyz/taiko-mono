@@ -59,14 +59,14 @@ var (
 		EnvVars:  []string{"HEADER_SYNC_INTERVAL_IN_SECONDS"},
 	}
 	Confirmations = &cli.Uint64Flag{
-		Name:     "headerSyncInterval",
+		Name:     "confirmations",
 		Usage:    "Confirmations to wait for on source chain before processing on destination chain",
 		Value:    3,
 		Category: processorCategory,
 		EnvVars:  []string{"CONFIRMATIONS_BEFORE_PROCESSING"},
 	}
 	ConfirmationTimeout = &cli.Uint64Flag{
-		Name:     "headerSyncInterval",
+		Name:     "confirmationTimeout",
 		Usage:    "Timeout when waiting for a processed message receipt in seconds",
 		Value:    360,
 		Category: processorCategory,

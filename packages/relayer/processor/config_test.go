@@ -1,4 +1,4 @@
-package indexer
+package processor
 
 import (
 	"testing"
@@ -12,14 +12,12 @@ import (
 )
 
 var (
-	srcTaikoAddr   = "0x53FaC9201494f0bd17B9892B9fae4d52fe3BD377"
-	srcBridgeAddr  = "0x73FaC9201494f0bd17B9892B9fae4d52fe3BD377"
 	destBridgeAddr = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
 )
 
 func setupApp() *cli.App {
 	app := cli.NewApp()
-	app.Flags = flags.IndexerFlags
+	app.Flags = flags.ProcessorFlags
 	app.Action = func(ctx *cli.Context) error {
 		_, err := NewConfigFromCliContext(ctx)
 		return err
@@ -45,8 +43,11 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, "srcRpcUrl", c.SrcRPCUrl)
 		assert.Equal(t, "destRpcUrl", c.DestRPCUrl)
 		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.DestBridgeAddress)
-		assert.Equal(t, common.HexToAddress(srcBridgeAddr), c.SrcBridgeAddress)
-		assert.Equal(t, common.HexToAddress(srcTaikoAddr), c.SrcTaikoAddress)
+		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.SrcSignalServiceAddress)
+		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.DestERC20VaultAddress)
+		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.DestERC721VaultAddress)
+		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.DestERC1155VaultAddress)
+		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.DestTaikoAddress)
 
 		c.OpenDBFunc = func() (DB, error) {
 			return &mock.DB{}, nil
@@ -56,7 +57,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 			return &mock.Queue{}, nil
 		}
 
-		// assert.Nil(t, InitFromConfig(context.Background(), new(Indexer), c))
+		// assert.Nil(t, InitFromConfig(context.Background(), new(Processor), c))
 
 		return err
 	}
@@ -74,7 +75,11 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"-" + flags.SrcRPCUrl.Name, "srcRpcUrl",
 		"-" + flags.DestRPCUrl.Name, "destRpcUrl",
 		"-" + flags.DestBridgeAddress.Name, destBridgeAddr,
-		"-" + flags.SrcBridgeAddress.Name, srcBridgeAddr,
-		"-" + flags.SrcTaikoAddress.Name, srcTaikoAddr,
+		"-" + flags.SrcSignalServiceAddress.Name, destBridgeAddr,
+		"-" + flags.DestERC721VaultAddress.Name, destBridgeAddr,
+		"-" + flags.DestERC20VaultAddress.Name, destBridgeAddr,
+		"-" + flags.DestERC1155VaultAddress.Name, destBridgeAddr,
+		"-" + flags.DestTaikoAddress.Name, destBridgeAddr,
+		"-" + flags.ProcessorPrivateKey.Name, dummyEcdsaKey,
 	}))
 }
