@@ -23,5 +23,6 @@ func newTestService(syncMode SyncMode, watchMode WatchMode) (*Indexer, relayer.B
 
 		syncMode:  syncMode,
 		watchMode: watchMode,
+		httpPort:  4102,
 	}, b
 }
