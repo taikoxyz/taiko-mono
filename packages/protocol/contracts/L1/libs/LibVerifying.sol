@@ -62,6 +62,10 @@ library LibVerifying {
                     >= type(uint96).max / config.ethDepositMaxCountPerBlock
         ) revert L1_INVALID_CONFIG();
 
+        // Unchecked is safe:
+        // - assignment is within ranges
+        // - block.timestamp will still be within uint64 range for the next
+        // 500K+ years.
         unchecked {
             uint64 timeNow = uint64(block.timestamp);
 
@@ -114,6 +118,11 @@ library LibVerifying {
         TaikoData.Transition memory tz;
 
         uint64 processed;
+
+        // Unchecked is safe:
+        // - assignment is within ranges
+        // - blockId and processed values incremented will still be OK in the
+        // next 584K years if we verifying one block per every second
         unchecked {
             ++blockId;
 
