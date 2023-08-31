@@ -38,8 +38,8 @@ taiko-mono/
 ├── <a href="./README.md">README.md</a>
 ├── <a href="./packages">packages</a>
 │   ├── <a href="./packages/branding">branding</a>: Taiko branding materials.
-│   ├── <a href="./packages/bridge-ui">bridge-ui</a>: Taiko bridge frontend UI.
-│   ├── <a href="./packages/bridge-ui-v2">bridge-ui-v2</a>: Taiko bridge frontend UI v2 (🚧 under construction 🚧).
+│   ├── <a href="./packages/bridge-ui">bridge-ui</a>: Taiko bridge frontend UI v1 (🪦 deprecated 🪦).
+│   ├── <a href="./packages/bridge-ui-v2">bridge-ui-v2</a>: Taiko bridge frontend UI v2.
 │   ├── <a href="./packages/eventindexer">eventindexer</a>: Event indexer.
 │   ├── <a href="./packages/fork-diff">fork-diff</a>: Fork diff page (currently, for geth).
 │   ├── <a href="./packages/pos-dashboard">pos-dashboard</a>: TTKOe staking dashboard.
