@@ -164,6 +164,13 @@ library LibProving {
         returns (bytes32 instance)
     {
         if (evidence.prover == LibUtils.ORACLE_PROVER) return 0;
-        else return keccak256(abi.encode(evidence));
+        else return keccak256(abi.encode(
+            evidence.metaHash,
+            evidence.parentHash,
+            evidence.blockHash,
+            evidence.signalRoot,
+            evidence.graffiti,
+            evidence.prover
+        ));
     }
 }
