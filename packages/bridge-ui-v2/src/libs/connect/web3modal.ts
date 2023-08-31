@@ -49,6 +49,7 @@ export const web3modal = new Web3Modal(
       '--w3m-color-bg-2': 'var(--neutral-background)',
       '--w3m-color-overlay': 'none',
       '--w3m-accent-color': 'var(--neutral-background)',
+      '--w3m-accent-fill-color': 'var(--dark-background)',
     },
     themeMode: (localStorage.getItem('theme') as 'dark' | 'light') ?? 'dark',
   },
