@@ -1,80 +1,49 @@
 package main
 
 import (
-	"flag"
-	"log"
+	"fmt"
+	"math/rand"
+	"os"
+	"time"
 
-	"github.com/taikoxyz/taiko-mono/packages/relayer"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/cli"
+	"github.com/joho/godotenv"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/flags"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/utils"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/indexer"
+	"github.com/urfave/cli/v2"
 )
 
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
 func main() {
-	modePtr := flag.String("mode", string(relayer.SyncMode), `mode to run in. 
-	options:
-	  sync: continue syncing from previous block
-	  resync: restart syncing from block 0
-	  fromBlock: restart syncing from specified block number
-	`)
+	app := cli.NewApp()
 
-	layersPtr := flag.String("layers", string(relayer.Both), `layers to watch and process. 
-	options:
-	  l1: only watch l1 => l2 bridge messages
-	  l2: only watch l2 => l1 bridge messages
-	  both: watch l1 => l2 and l2 => l1 bridge messages
-	`)
+	// attempt to load a .env file to overwrite CLI flags, but allow it to not
+	// exist.
+	_ = godotenv.Load(".env")
 
-	watchModePtr := flag.String("watch-mode", string(relayer.FilterAndSubscribeWatchMode), `watch mode to run in. 
-	options:
-	  filter: only filter previous messages
-	  subscribe: only subscribe to new messages
-	  filter-and-subscribe: catch up on all previous messages, then subscribe to new messages
-	`)
+	app.Name = "Taiko Relayer"
+	app.Usage = "The taiko relayer softwares command line interface"
+	app.Copyright = "Copyright 2021-2023 Taiko Labs"
+	app.Description = "Bridge relayer implementation in Golang for Taiko protocol"
+	app.Authors = []*cli.Author{{Name: "Taiko Labs", Email: "info@taiko.xyz"}}
+	app.EnableBashCompletion = true
 
-	httpOnlyPtr := flag.Bool("http-only", false, `only run an http server and don't index blocks. 
-	options:
-	  true: only run an http server, dont index blocks
-	  false: run an http server and index blocks
-	`)
-
-	profitableOnlyPtr := flag.Bool("profitable-only", false, `only process profitable transactions. 
-	options:
-	  true:
-	  false:
-	`)
-
-	indexerPtr := flag.Bool("indexer", false, `whether to index transactions 
-	options:
-	  true:
-	  false:
-	`)
-
-	processorPtr := flag.Bool("processor", false, `whether to process transactions 
-	options:
-	  true:
-	  false:
-	`)
-
-	flag.Parse()
-
-	if *indexerPtr && *processorPtr {
-		log.Fatal("can not index and process")
+	// All supported sub commands.
+	app.Commands = []*cli.Command{
+		{
+			Name:        "indexer",
+			Flags:       flags.IndexerFlags,
+			Usage:       "Starts the indexer software",
+			Description: "Taiko relayer indexer software",
+			Action:      utils.SubcommandAction(new(indexer.Indexer)),
+		},
 	}
 
-	if !relayer.IsInSlice(relayer.Mode(*modePtr), relayer.Modes) {
-		log.Fatal("mode not valid")
+	if err := app.Run(os.Args); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
-
-	if !relayer.IsInSlice(relayer.Layer(*layersPtr), relayer.Layers) {
-		log.Fatal("mode not valid")
-	}
-
-	cli.Run(
-		relayer.Mode(*modePtr),
-		relayer.WatchMode(*watchModePtr),
-		relayer.Layer(*layersPtr),
-		relayer.HTTPOnly(*httpOnlyPtr),
-		relayer.ProfitableOnly(*profitableOnlyPtr),
-		relayer.Indexer(*indexerPtr),
-		relayer.Processor(*processorPtr),
-	)
 }

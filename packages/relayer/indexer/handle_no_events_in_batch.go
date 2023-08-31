@@ -17,9 +17,9 @@ func (i *Indexer) handleNoEventsInBatch(
 	chainID *big.Int,
 	blockNumber int64,
 ) error {
-	header, err := i.ethClient.HeaderByNumber(ctx, big.NewInt(blockNumber))
+	header, err := i.srcEthClient.HeaderByNumber(ctx, big.NewInt(blockNumber))
 	if err != nil {
-		return errors.Wrap(err, "svc.ethClient.HeaderByNumber")
+		return errors.Wrap(err, "i.srcEthClient.HeaderByNumber")
 	}
 
 	slog.Info("setting last processed block", "blockNum", blockNumber, "headerHash", header.Hash().Hex())

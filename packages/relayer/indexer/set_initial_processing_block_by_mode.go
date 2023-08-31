@@ -10,7 +10,7 @@ import (
 
 func (i *Indexer) setInitialProcessingBlockByMode(
 	ctx context.Context,
-	mode relayer.Mode,
+	mode SyncMode,
 	chainID *big.Int,
 ) error {
 	var startingBlock uint64 = 0
@@ -25,7 +25,7 @@ func (i *Indexer) setInitialProcessingBlockByMode(
 	}
 
 	switch mode {
-	case relayer.SyncMode:
+	case Sync:
 		// get most recently processed block height from the DB
 		latestProcessedBlock, err := i.blockRepo.GetLatestBlockProcessedForEvent(
 			eventName,
@@ -42,7 +42,7 @@ func (i *Indexer) setInitialProcessingBlockByMode(
 		i.processingBlockHeight = startingBlock
 
 		return nil
-	case relayer.ResyncMode:
+	case Resync:
 		i.processingBlockHeight = startingBlock
 		return nil
 	default:

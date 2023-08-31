@@ -5,6 +5,24 @@ import (
 )
 
 var (
+	SrcBridgeAddress = &cli.StringFlag{
+		Name:     "srcBridgeAddress",
+		Usage:    "Bridge address on the source chain",
+		Required: true,
+		Category: indexerCategory,
+		EnvVars:  []string{"SRC_BRIDGE_ADDRESS"},
+	}
+	SrcTaikoAddress = &cli.StringFlag{
+		Name:     "srcTaikoAddress",
+		Usage:    "Taiko address on the source chain",
+		Required: true,
+		Category: indexerCategory,
+		EnvVars:  []string{"SRC_TAIKO_ADDRESS"},
+	}
+)
+
+// optional
+var (
 	BlockBatchSize = &cli.Uint64Flag{
 		Name:     "blockBatchSize",
 		Usage:    "Block batch size when iterating through blocks",
@@ -26,8 +44,33 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"SUBSCRIPTION_BACKOFF_IN_SECONDS"},
 	}
+	SyncMode = &cli.StringFlag{
+		Name:     "syncMode",
+		Usage:    "Mode of syncing. Pass in 'sync' to continue, and 'resync' to start from genesis again.",
+		Value:    "sync",
+		Category: indexerCategory,
+		EnvVars:  []string{"SYNC_MODE"},
+	}
+	WatchMode = &cli.StringFlag{
+		Name: "watchMode",
+		Usage: `Mode of watching the chain. Options are:
+		filter: only filter the chain, when caught up, exit
+		subscribe: do not filter the chain, only subscribe to new events
+		filter-and-subscribe: the default behavior, filter the chain and subscribe when caught up
+		`,
+		Value:    "filter-and-subscribe",
+		Category: indexerCategory,
+		EnvVars:  []string{"SYNC_MODE"},
+	}
 )
 
 var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
+	SrcBridgeAddress,
+	SrcTaikoAddress,
+	// optional
 	BlockBatchSize,
+	MaxNumGoroutines,
+	SubscriptionBackoff,
+	SyncMode,
+	WatchMode,
 })

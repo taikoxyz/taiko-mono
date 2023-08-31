@@ -8,12 +8,12 @@ import (
 )
 
 type BlockRepository struct {
-	db relayer.DB
+	db DB
 }
 
-func NewBlockRepository(db relayer.DB) (*BlockRepository, error) {
+func NewBlockRepository(db DB) (*BlockRepository, error) {
 	if db == nil {
-		return nil, relayer.ErrNoDB
+		return nil, ErrNoDB
 	}
 
 	return &BlockRepository{

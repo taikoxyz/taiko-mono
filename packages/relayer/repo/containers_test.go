@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/pressly/goose/v3"
-	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/db"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -21,7 +20,7 @@ var (
 	dbPassword = "password"
 )
 
-func testMysql(t *testing.T) (relayer.DB, func(), error) {
+func testMysql(t *testing.T) (DB, func(), error) {
 	req := testcontainers.ContainerRequest{
 		Image:        "mysql:latest",
 		ExposedPorts: []string{"3306/tcp", "33060/tcp"},

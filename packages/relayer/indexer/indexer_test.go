@@ -5,7 +5,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/mock"
 )
 
-func newTestService() (*Indexer, relayer.Bridge) {
+func newTestService(syncMode SyncMode, watchMode WatchMode) (*Indexer, relayer.Bridge) {
 	b := &mock.Bridge{}
 
 	return &Indexer{
@@ -13,12 +13,15 @@ func newTestService() (*Indexer, relayer.Bridge) {
 		eventRepo:     &mock.EventRepository{},
 		bridge:        b,
 		destBridge:    b,
-		ethClient:     &mock.EthClient{},
+		srcEthClient:  &mock.EthClient{},
 		numGoroutines: 10,
 
 		processingBlockHeight: 0,
 		blockBatchSize:        100,
 
 		queue: &mock.Queue{},
+
+		syncMode:  syncMode,
+		watchMode: watchMode,
 	}, b
 }

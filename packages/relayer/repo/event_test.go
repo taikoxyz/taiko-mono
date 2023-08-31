@@ -79,7 +79,7 @@ var testEvents = []relayer.Event{
 func Test_NewEventRepo(t *testing.T) {
 	tests := []struct {
 		name    string
-		db      relayer.DB
+		db      DB
 		wantErr error
 	}{
 		{
@@ -90,7 +90,7 @@ func Test_NewEventRepo(t *testing.T) {
 		{
 			"noDb",
 			nil,
-			relayer.ErrNoDB,
+			ErrNoDB,
 		},
 	}
 

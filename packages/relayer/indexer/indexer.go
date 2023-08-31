@@ -2,23 +2,54 @@ package indexer
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
+	"log/slog"
 	"math/big"
 	"time"
 
 	"github.com/cyberhorsey/errors"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/gommon/log"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol1"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/http"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/queue"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/repo"
+	"github.com/urfave/cli/v2"
+	"golang.org/x/sync/errgroup"
+	"gorm.io/gorm"
 )
 
 var (
 	ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
+)
+
+var (
+	eventName = relayer.EventNameMessageSent
+)
+
+type WatchMode string
+
+var (
+	Filter             WatchMode = "filter"
+	Subscribe          WatchMode = "subscribe"
+	FilterAndSubscribe WatchMode = "filter-and-subscribe"
+	WatchModes                   = []WatchMode{Filter, Subscribe, FilterAndSubscribe}
+)
+
+type SyncMode string
+
+var (
+	Sync   SyncMode = "sync"
+	Resync SyncMode = "resync"
+	Modes           = []SyncMode{Sync, Resync}
 )
 
 type ethClient interface {
@@ -27,10 +58,15 @@ type ethClient interface {
 	SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error)
 }
 
+type DB interface {
+	DB() (*sql.DB, error)
+	GormDB() *gorm.DB
+}
+
 type Indexer struct {
-	eventRepo relayer.EventRepository
-	blockRepo relayer.BlockRepository
-	ethClient ethClient
+	eventRepo    relayer.EventRepository
+	blockRepo    relayer.BlockRepository
+	srcEthClient ethClient
 
 	processingBlockHeight uint64
 
@@ -46,90 +82,269 @@ type Indexer struct {
 	queue queue.Queue
 
 	srcChainId *big.Int
+
+	watchMode WatchMode
+	syncMode  SyncMode
+
+	srv *http.Server
 }
 
-type NewIndexerOpts struct {
-	EventRepo           relayer.EventRepository
-	BlockRepo           relayer.BlockRepository
-	Queue               queue.Queue
-	EthClient           ethClient
-	DestEthClient       ethClient
-	RPCClient           *rpc.Client
-	BridgeAddress       common.Address
-	DestBridgeAddress   common.Address
-	SrcTaikoAddress     common.Address
-	BlockBatchSize      uint64
-	NumGoroutines       int
-	SubscriptionBackoff time.Duration
+func (i *Indexer) InitFromCli(ctx context.Context, c *cli.Context) error {
+	cfg, err := NewConfigFromCliContext(c)
+	if err != nil {
+		return err
+	}
+
+	return InitFromConfig(ctx, i, cfg)
 }
 
-func NewIndexer(opts NewIndexerOpts) (*Indexer, error) {
-	if opts.EventRepo == nil {
-		return nil, relayer.ErrNoEventRepository
-	}
-
-	if opts.BlockRepo == nil {
-		return nil, relayer.ErrNoBlockRepository
-	}
-
-	if opts.EthClient == nil {
-		return nil, relayer.ErrNoEthClient
-	}
-
-	if opts.DestEthClient == nil {
-		return nil, relayer.ErrNoEthClient
-	}
-
-	if opts.BridgeAddress == ZeroAddress {
-		return nil, relayer.ErrNoBridgeAddress
-	}
-
-	if opts.DestBridgeAddress == ZeroAddress {
-		return nil, relayer.ErrNoBridgeAddress
-	}
-
-	if opts.RPCClient == nil {
-		return nil, relayer.ErrNoRPCClient
-	}
-
-	srcBridge, err := bridge.NewBridge(opts.BridgeAddress, opts.EthClient.(*ethclient.Client))
+func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
+	db, err := cfg.OpenDBFunc()
 	if err != nil {
-		return nil, errors.Wrap(err, "bridge.NewBridge")
+		return err
 	}
 
-	destBridge, err := bridge.NewBridge(opts.DestBridgeAddress, opts.DestEthClient.(*ethclient.Client))
+	eventRepository, err := repo.NewEventRepository(db)
 	if err != nil {
-		return nil, errors.Wrap(err, "bridge.NewBridge")
+		return err
+	}
+
+	blockRepository, err := repo.NewBlockRepository(db)
+	if err != nil {
+		return err
+	}
+
+	srcEthClient, err := ethclient.Dial(cfg.SrcRPCUrl)
+	if err != nil {
+		return err
+	}
+
+	destEthClient, err := ethclient.Dial(cfg.DestRPCUrl)
+	if err != nil {
+		return err
+	}
+
+	srv, err := http.NewServer(http.NewServerOpts{
+		EventRepo:   eventRepository,
+		Echo:        echo.New(),
+		CorsOrigins: cfg.CORSOrigins,
+		// TODO: should src/dest now
+		L1EthClient: srcEthClient,
+		L2EthClient: destEthClient,
+		BlockRepo:   blockRepository,
+	})
+	if err != nil {
+		return err
+	}
+
+	q, err := cfg.OpenQueueFunc()
+	if err != nil {
+		return err
+	}
+
+	srcBridge, err := bridge.NewBridge(cfg.SrcBridgeAddress, srcEthClient)
+	if err != nil {
+		return errors.Wrap(err, "bridge.NewBridge")
+	}
+
+	destBridge, err := bridge.NewBridge(cfg.DestBridgeAddress, destEthClient)
+	if err != nil {
+		return errors.Wrap(err, "bridge.NewBridge")
 	}
 
 	var taikoL1 *taikol1.TaikoL1
-	if opts.SrcTaikoAddress != ZeroAddress {
-		taikoL1, err = taikol1.NewTaikoL1(opts.SrcTaikoAddress, opts.EthClient.(*ethclient.Client))
+	if cfg.SrcTaikoAddress != ZeroAddress {
+		taikoL1, err = taikol1.NewTaikoL1(cfg.SrcTaikoAddress, srcEthClient)
 		if err != nil {
-			return nil, errors.Wrap(err, "taikol1.NewTaikoL1")
+			return errors.Wrap(err, "taikol1.NewTaikoL1")
 		}
 	}
 
-	chainID, err := opts.EthClient.ChainID(context.Background())
+	chainID, err := srcEthClient.ChainID(context.Background())
 	if err != nil {
-		return nil, errors.Wrap(err, "opts.EthClient.ChainID")
+		return errors.Wrap(err, "cfg.EthClient.ChainID")
 	}
 
-	return &Indexer{
-		blockRepo: opts.BlockRepo,
-		eventRepo: opts.EventRepo,
-		ethClient: opts.EthClient,
+	i.blockRepo = blockRepository
+	i.eventRepo = eventRepository
+	i.srcEthClient = srcEthClient
 
-		bridge:     srcBridge,
-		destBridge: destBridge,
-		taikol1:    taikoL1,
+	i.bridge = srcBridge
+	i.destBridge = destBridge
+	i.taikol1 = taikoL1
 
-		blockBatchSize:      opts.BlockBatchSize,
-		numGoroutines:       opts.NumGoroutines,
-		subscriptionBackoff: opts.SubscriptionBackoff,
+	i.blockBatchSize = cfg.BlockBatchSize
+	i.numGoroutines = int(cfg.NumGoroutines)
+	i.subscriptionBackoff = time.Duration(cfg.SubscriptionBackoff) * time.Second
 
-		queue: opts.Queue,
+	i.queue = q
 
-		srcChainId: chainID,
-	}, nil
+	i.srv = srv
+
+	i.srcChainId = chainID
+
+	i.syncMode = cfg.SyncMode
+	i.watchMode = cfg.WatchMode
+
+	return nil
+}
+
+func (i *Indexer) Name() string {
+	return "indexer"
+}
+
+// TODO
+func (i *Indexer) Close(ctx context.Context) {
+
+}
+
+func (i *Indexer) Start() error {
+	ctx := context.Background()
+
+	if err := i.queue.Start(ctx, i.queueName()); err != nil {
+		return err
+	}
+
+	chainID, err := i.srcEthClient.ChainID(ctx)
+	if err != nil {
+		return errors.Wrap(err, "i.srcEthClient.ChainID()")
+	}
+
+	go scanBlocks(ctx, i.srcEthClient, chainID)
+
+	// if subscribing to new events, skip filtering and subscribe
+	if i.watchMode == Subscribe {
+		return i.subscribe(ctx, chainID)
+	}
+
+	if err := i.setInitialProcessingBlockByMode(ctx, i.syncMode, chainID); err != nil {
+		return errors.Wrap(err, "i.setInitialProcessingBlockByMode")
+	}
+
+	header, err := i.srcEthClient.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return errors.Wrap(err, "i.srcEthClient.HeaderByNumber")
+	}
+
+	if i.processingBlockHeight == header.Number.Uint64() {
+		slog.Info("indexing caught up, subscribing to new incoming events", "chainID", chainID.Uint64())
+		return i.subscribe(ctx, chainID)
+	}
+
+	slog.Info("fetching batch block events",
+		"chainID", chainID.Uint64(),
+		"startblock", i.processingBlockHeight,
+		"endblock", header.Number.Int64(),
+		"batchsize", i.blockBatchSize,
+	)
+
+	for j := i.processingBlockHeight; j < header.Number.Uint64(); j += i.blockBatchSize {
+		end := i.processingBlockHeight + i.blockBatchSize
+		// if the end of the batch is greater than the latest block number, set end
+		// to the latest block number
+		if end > header.Number.Uint64() {
+			end = header.Number.Uint64()
+		}
+
+		// filter exclusive of the end block.
+		// we use "end" as the next starting point of the batch, and
+		// process up to end - 1 for this batch.
+		filterEnd := end - 1
+
+		fmt.Printf("block batch from %v to %v", j, filterEnd)
+		fmt.Println()
+
+		filterOpts := &bind.FilterOpts{
+			Start:   i.processingBlockHeight,
+			End:     &filterEnd,
+			Context: ctx,
+		}
+
+		messageStatusChangedEvents, err := i.bridge.FilterMessageStatusChanged(filterOpts, nil)
+		if err != nil {
+			return errors.Wrap(err, "bridge.FilterMessageStatusChanged")
+		}
+
+		// we dont need to do anything with msgStatus events except save them to the DB.
+		// we dont need to process them. they are for exposing via the API.
+
+		err = i.saveMessageStatusChangedEvents(ctx, chainID, messageStatusChangedEvents)
+		if err != nil {
+			return errors.Wrap(err, "bridge.saveMessageStatusChangedEvents")
+		}
+
+		messageSentEvents, err := i.bridge.FilterMessageSent(filterOpts, nil)
+		if err != nil {
+			return errors.Wrap(err, "bridge.FilterMessageSent")
+		}
+
+		if !messageSentEvents.Next() || messageSentEvents.Event == nil {
+			// use "end" not "filterEnd" here, because it will be used as the start
+			// of the next batch.
+			if err := i.handleNoEventsInBatch(ctx, chainID, int64(end)); err != nil {
+				return errors.Wrap(err, "i.handleNoEventsInBatch")
+			}
+
+			continue
+		}
+
+		group, groupCtx := errgroup.WithContext(ctx)
+
+		group.SetLimit(i.numGoroutines)
+
+		for {
+			event := messageSentEvents.Event
+
+			group.Go(func() error {
+				err := i.handleEvent(groupCtx, chainID, event)
+				if err != nil {
+					relayer.ErrorEvents.Inc()
+					// log error but always return nil to keep other goroutines active
+					log.Error(err.Error())
+				}
+
+				return nil
+			})
+
+			// if there are no more events
+			if !messageSentEvents.Next() {
+				// wait for the last of the goroutines to finish
+				if err := group.Wait(); err != nil {
+					return errors.Wrap(err, "group.Wait")
+				}
+				// handle no events remaining, saving the processing block and restarting the for
+				// loop
+				if err := i.handleNoEventsInBatch(ctx, chainID, int64(end)); err != nil {
+					return errors.Wrap(err, "i.handleNoEventsInBatch")
+				}
+
+				break
+			}
+		}
+	}
+
+	log.Infof(
+		"chain id %v indexer fully caught up, checking latest block number to see if it's advanced",
+		chainID.Uint64(),
+	)
+
+	latestBlock, err := i.srcEthClient.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return errors.Wrap(err, "i.srcEthClient.HeaderByNumber")
+	}
+
+	if i.processingBlockHeight < latestBlock.Number.Uint64() {
+		return i.Start()
+	}
+
+	// we are caught up and specified not to subscribe, we can return now
+	if i.watchMode == Filter {
+		return nil
+	}
+
+	return i.subscribe(ctx, chainID)
+}
+
+func (i *Indexer) queueName() string {
+	return fmt.Sprintf("%v-queue", i.srcChainId.String())
 }

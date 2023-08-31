@@ -64,7 +64,7 @@ func Test_eventStatusFromMsgHash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, _ := newTestService()
+			svc, _ := newTestService(Sync, FilterAndSubscribe)
 
 			status, err := svc.eventStatusFromMsgHash(tt.ctx, tt.gasLimit, tt.signal)
 			if tt.wantErr != nil {
