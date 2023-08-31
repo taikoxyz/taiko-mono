@@ -3,6 +3,7 @@
 
   import { Button } from '$components/Button';
   import { Icon } from '$components/Icon';
+  import { initWeb3Modal } from '$libs/connect/web3modal';
 
   let theme: 'dark' | 'light' = 'dark';
   $: isDarkTheme = theme === 'dark';
@@ -12,6 +13,7 @@
     theme = currentTheme === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
+    initWeb3Modal(theme);
   }
 
   onMount(() => {
