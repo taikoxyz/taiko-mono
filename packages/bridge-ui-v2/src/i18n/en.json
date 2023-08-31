@@ -37,7 +37,7 @@
       "cannot_fetch_balance": "Error fetching balance. Wrong chain?",
       "unknown_error": "An error occured",
       "custom_token": {
-        "not_found": "Token not found",
+        "not_found": "Token not found!",
         "description": "Are you on the right network?"
       }
     },
@@ -179,7 +179,12 @@
   },
   "token_dropdown": {
     "label": "Select token",
-    "add_custom": "Add Custom"
+    "add_custom": "Add Custom",
+    "custom_token": {
+      "title": "Add your own token",
+      "description": "You can add your own token by entering the contract address below. Make sure you are on the chain where the token is deployed.",
+      "button": "Add token"
+    }
   },
   "inputs": {
     "nft": {
@@ -247,6 +252,8 @@
     "confirm": "Confirm",
     "close": "Close",
     "loading": "Loading",
-    "ok": "Ok"
+    "ok": "Ok",
+    "name": "Name",
+    "balance": "Balance"
   }
 }

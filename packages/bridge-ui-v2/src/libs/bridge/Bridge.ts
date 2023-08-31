@@ -7,7 +7,6 @@ import { MessageStatusError, RetryError, WrongChainError, WrongOwnerError } from
 import type { BridgeProver } from '$libs/proof';
 import { getLogger } from '$libs/util/logger';
 
-import { srcChain } from './../../../../bridge-ui/src/store/chain';
 import { type BridgeArgs, type ClaimArgs, type Message, MessageStatus, type ReleaseArgs } from './types';
 
 const log = getLogger('bridge:Bridge');
