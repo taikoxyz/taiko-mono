@@ -105,7 +105,7 @@ library LibVerifying {
             state.blocks[blockId % config.blockRingBufferSize];
         if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
 
-        uint16 tid = blk.verifiedTransitionId;
+        uint32 tid = blk.verifiedTransitionId;
         if (tid == 0) revert L1_UNEXPECTED_TRANSITION_ID();
 
         bytes32 blockHash = state.transitions[blockId][tid].blockHash;
