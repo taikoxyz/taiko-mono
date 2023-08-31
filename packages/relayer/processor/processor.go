@@ -265,13 +265,13 @@ func (p *Processor) eventLoop(ctx context.Context) {
 		case msg := <-p.msgCh:
 			if err := p.processMessage(ctx, msg); err != nil {
 				if !errors.Is(err, errUnprocessable) {
-					slog.Error("err processing message", "err", err)
+					slog.Error("err processing message", "err", err.Error())
 				} else {
 					slog.Info("unprocessable message", "err", errUnprocessable)
 				}
 
 				if err := p.queue.Nack(ctx, msg); err != nil {
-					slog.Error("Err nacking message", "err", err)
+					slog.Error("Err nacking message", "err", err.Error())
 				}
 			}
 		}
