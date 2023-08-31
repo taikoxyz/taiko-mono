@@ -19,7 +19,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol1"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/http"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/indexer/http"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/repo"
 	"github.com/urfave/cli/v2"

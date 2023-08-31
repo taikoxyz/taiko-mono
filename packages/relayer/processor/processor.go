@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math/big"
@@ -263,7 +264,11 @@ func (p *Processor) eventLoop(ctx context.Context) {
 			return
 		case msg := <-p.msgCh:
 			if err := p.processMessage(ctx, msg); err != nil {
-				slog.Error("err processing message", "err", err)
+				if !errors.Is(err, errUnprocessable) {
+					slog.Error("err processing message", "err", err)
+				} else {
+					slog.Info("unprocessable message", "err", errUnprocessable)
+				}
 
 				if err := p.queue.Nack(ctx, msg); err != nil {
 					slog.Error("Err nacking message", "err", err)

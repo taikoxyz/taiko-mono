@@ -21,6 +21,33 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/queue"
 )
 
+var (
+	errUnprocessable = errors.New("message is unprocessable")
+)
+
+func (p *Processor) eventStatusFromMsgHash(
+	ctx context.Context,
+	gasLimit *big.Int,
+	signal [32]byte,
+) (relayer.EventStatus, error) {
+	var eventStatus relayer.EventStatus
+
+	messageStatus, err := p.destBridge.GetMessageStatus(nil, signal)
+	if err != nil {
+		return 0, errors.Wrap(err, "svc.destBridge.GetMessageStatus")
+	}
+
+	eventStatus = relayer.EventStatus(messageStatus)
+	if eventStatus == relayer.EventStatusNew {
+		if gasLimit == nil || gasLimit.Cmp(common.Big0) == 0 {
+			// if gasLimit is 0, relayer can not process this.
+			eventStatus = relayer.EventStatusNewOnlyOwner
+		}
+	}
+
+	return eventStatus, nil
+}
+
 // Process prepares and calls `processMessage` on the bridge.
 // the proof must be generated from the gethclient's eth_getProof via the Prover,
 // then rlp-encoded and combined as a singular byte slice,
@@ -37,6 +64,15 @@ func (p *Processor) processMessage(
 
 	if msgBody.Event.Message.GasLimit == nil || msgBody.Event.Message.GasLimit.Cmp(common.Big0) == 0 {
 		return errors.New("only user can process this, gasLimit set to 0")
+	}
+
+	eventStatus, err := p.eventStatusFromMsgHash(ctx, msgBody.Event.Message.GasLimit, msgBody.Event.MsgHash)
+	if err != nil {
+		return errors.Wrap(err, "p.eventStatusFromMsgHash")
+	}
+
+	if !canProcessMessage(ctx, eventStatus, msgBody.Event.Message.User, p.relayerAddr) {
+		return errUnprocessable
 	}
 
 	if err := p.waitForConfirmations(ctx, msgBody.Event.Raw.TxHash, msgBody.Event.Raw.BlockNumber); err != nil {
