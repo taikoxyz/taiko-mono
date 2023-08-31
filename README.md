@@ -42,14 +42,13 @@ taiko-mono/
 │   ├── <a href="./packages/bridge-ui-v2">bridge-ui-v2</a>: Taiko bridge frontend UI v2.
 │   ├── <a href="./packages/eventindexer">eventindexer</a>: Event indexer.
 │   ├── <a href="./packages/fork-diff">fork-diff</a>: Fork diff page (currently, for geth).
-│   ├── <a href="./packages/pos-dashboard">pos-dashboard</a>: TTKOe staking dashboard.
+│   ├── <a href="./packages/pos-dashboard">pos-dashboard</a>: TTKOe staking dashboard (🪦 deprecated 🪦).
 │   ├── <a href="./packages/protocol">protocol</a>: Taiko protocol and bridge smart contracts.
 │   ├── <a href="./packages/relayer">relayer</a>: Bridge backend relayer in Go.
 │   ├── <a href="./packages/starter-dapp">starter-dapp</a>: Template for Taiko dapps.
 │   ├── <a href="./packages/status-page">status-page</a>: Taiko protocol status page.
-│   ├── <a href="./packages/tokenomics">tokenomics</a>: Taiko tokenomics simulations.
 │   ├── <a href="./packages/website">website</a>: Main documentation website at https://taiko.xyz.
-│   └── <a href="./packages/whitepaper">whitepaper</a>: Whitepaper source files with automated publishing.
+│   └── <a href="./packages/whitepaper">whitepaper</a>: Whitepaper source files with automated publishing  (🪦 deprecated 🪦).
 ...
 </pre>
 
