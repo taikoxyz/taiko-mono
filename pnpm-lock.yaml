@@ -162,8 +162,8 @@ importers:
         specifier: ^3.53.1
         version: 3.59.2
       svelte-check:
-        specifier: ^2.8.0
-        version: 2.10.3(@babel/core@7.22.9)(node-sass@7.0.3)(postcss@8.4.27)(svelte@3.59.2)
+        specifier: ^3.5.1
+        version: 3.5.1(@babel/core@7.22.9)(postcss@8.4.27)(svelte@3.59.2)
       svelte-heros-v2:
         specifier: ^0.3.10
         version: 0.3.21(svelte@3.59.2)
@@ -304,8 +304,8 @@ importers:
         specifier: ^4.1.0
         version: 4.1.2
       svelte-check:
-        specifier: ^3.4.6
-        version: 3.4.6(postcss@8.4.27)(svelte@4.1.2)
+        specifier: ^3.5.1
+        version: 3.5.1(postcss@8.4.27)(svelte@4.1.2)
       tailwindcss:
         specifier: ^3.3.2
         version: 3.3.3
@@ -477,8 +477,8 @@ importers:
         specifier: ^3.53.1
         version: 3.59.2
       svelte-check:
-        specifier: ^2.8.0
-        version: 2.10.3(@babel/core@7.22.9)(node-sass@7.0.3)(postcss@8.4.27)(svelte@3.59.2)
+        specifier: ^3.5.1
+        version: 3.5.1(@babel/core@7.22.9)(postcss@8.4.27)(svelte@3.59.2)
       svelte-heros-v2:
         specifier: ^0.3.10
         version: 0.3.21(svelte@3.59.2)
@@ -762,8 +762,8 @@ importers:
         specifier: ^3.53.1
         version: 3.59.2
       svelte-check:
-        specifier: ^2.8.0
-        version: 2.10.3(@babel/core@7.22.9)(node-sass@7.0.3)(postcss@8.4.27)(svelte@3.59.2)
+        specifier: ^3.5.1
+        version: 3.5.1(@babel/core@7.22.9)(postcss@8.4.27)(svelte@3.59.2)
       svelte-heros-v2:
         specifier: ^0.3.10
         version: 0.3.21(svelte@3.59.2)
@@ -916,8 +916,8 @@ importers:
         specifier: ^3.53.1
         version: 3.59.2
       svelte-check:
-        specifier: ^2.8.0
-        version: 2.10.3(@babel/core@7.22.9)(node-sass@7.0.3)(postcss@8.4.27)(svelte@3.59.2)
+        specifier: ^3.5.1
+        version: 3.5.1(@babel/core@7.22.9)(postcss@8.4.27)(svelte@3.59.2)
       svelte-heros-v2:
         specifier: ^0.3.10
         version: 0.3.21(svelte@3.59.2)
@@ -22195,11 +22195,11 @@ packages:
     engines: {node: '>= 0.4'}
     dev: true
 
-  /svelte-check@2.10.3(@babel/core@7.22.9)(node-sass@7.0.3)(postcss@8.4.27)(svelte@3.59.2):
-    resolution: {integrity: sha512-Nt1aWHTOKFReBpmJ1vPug0aGysqPwJh2seM1OvICfM2oeyaA62mOiy5EvkXhltGfhCcIQcq2LoE0l1CwcWPjlw==}
+  /svelte-check@3.5.1(@babel/core@7.22.9)(postcss@8.4.27)(svelte@3.59.2):
+    resolution: {integrity: sha512-+Zb4iHxAhdUtcUg/WJPRjlS1RJalIsWAe9Mz6G1zyznSs7dDkT7VUBdXc3q7Iwg49O/VrZgyJRvOJkjuBfKjFA==}
     hasBin: true
     peerDependencies:
-      svelte: ^3.24.0
+      svelte: ^3.55.0 || ^4.0.0-next.0 || ^4.0.0
     dependencies:
       '@jridgewell/trace-mapping': 0.3.18
       chokidar: 3.5.3
@@ -22208,13 +22208,12 @@ packages:
       picocolors: 1.0.0
       sade: 1.8.1
       svelte: 3.59.2
-      svelte-preprocess: 4.10.7(@babel/core@7.22.9)(node-sass@7.0.3)(postcss@8.4.27)(svelte@3.59.2)(typescript@4.9.5)
-      typescript: 4.9.5
+      svelte-preprocess: 5.0.4(@babel/core@7.22.9)(postcss@8.4.27)(svelte@3.59.2)(typescript@5.1.6)
+      typescript: 5.1.6
     transitivePeerDependencies:
       - '@babel/core'
       - coffeescript
       - less
-      - node-sass
       - postcss
       - postcss-load-config
       - pug
@@ -22223,8 +22222,8 @@ packages:
       - sugarss
     dev: true
 
-  /svelte-check@3.4.6(postcss@8.4.27)(svelte@4.1.2):
-    resolution: {integrity: sha512-OBlY8866Zh1zHQTkBMPS6psPi7o2umTUyj6JWm4SacnIHXpWFm658pG32m3dKvKFL49V4ntAkfFHKo4ztH07og==}
+  /svelte-check@3.5.1(postcss@8.4.27)(svelte@4.1.2):
+    resolution: {integrity: sha512-+Zb4iHxAhdUtcUg/WJPRjlS1RJalIsWAe9Mz6G1zyznSs7dDkT7VUBdXc3q7Iwg49O/VrZgyJRvOJkjuBfKjFA==}
     hasBin: true
     peerDependencies:
       svelte: ^3.55.0 || ^4.0.0-next.0 || ^4.0.0
@@ -22412,6 +22411,55 @@ packages:
       strip-indent: 3.0.0
       svelte: 3.59.2
       typescript: 4.9.5
+    dev: true
+
+  /svelte-preprocess@5.0.4(@babel/core@7.22.9)(postcss@8.4.27)(svelte@3.59.2)(typescript@5.1.6):
+    resolution: {integrity: sha512-ABia2QegosxOGsVlsSBJvoWeXy1wUKSfF7SWJdTjLAbx/Y3SrVevvvbFNQqrSJw89+lNSsM58SipmZJ5SRi5iw==}
+    engines: {node: '>= 14.10.0'}
+    requiresBuild: true
+    peerDependencies:
+      '@babel/core': ^7.10.2
+      coffeescript: ^2.5.1
+      less: ^3.11.3 || ^4.0.0
+      postcss: ^7 || ^8
+      postcss-load-config: ^2.1.0 || ^3.0.0 || ^4.0.0
+      pug: ^3.0.0
+      sass: ^1.26.8
+      stylus: ^0.55.0
+      sugarss: ^2.0.0 || ^3.0.0 || ^4.0.0
+      svelte: ^3.23.0 || ^4.0.0-next.0 || ^4.0.0
+      typescript: '>=3.9.5 || ^4.0.0 || ^5.0.0'
+    peerDependenciesMeta:
+      '@babel/core':
+        optional: true
+      coffeescript:
+        optional: true
+      less:
+        optional: true
+      postcss:
+        optional: true
+      postcss-load-config:
+        optional: true
+      pug:
+        optional: true
+      sass:
+        optional: true
+      stylus:
+        optional: true
+      sugarss:
+        optional: true
+      typescript:
+        optional: true
+    dependencies:
+      '@babel/core': 7.22.9
+      '@types/pug': 2.0.6
+      detect-indent: 6.1.0
+      magic-string: 0.27.0
+      postcss: 8.4.27
+      sorcery: 0.11.0
+      strip-indent: 3.0.0
+      svelte: 3.59.2
+      typescript: 5.1.6
     dev: true
 
   /svelte-preprocess@5.0.4(postcss@8.4.27)(svelte@4.1.2)(typescript@5.1.6):
