@@ -27,7 +27,7 @@ export class Prover {
   async generateProof(args: GenerateProofArgs) {
     const { msgHash, clientChainId, contractAddress, crossChainSyncChainId, proofForAccountAddress } = args;
 
-    const crossChainSyncAddress = routingContractsMap[clientChainId][crossChainSyncChainId].crossChainSyncAddress;
+    const crossChainSyncAddress = routingContractsMap[crossChainSyncChainId][clientChainId].crossChainSyncAddress;
 
     // Get the block from chain A based on the latest block hash
     // we get cross chain (Taiko contract on chain B)

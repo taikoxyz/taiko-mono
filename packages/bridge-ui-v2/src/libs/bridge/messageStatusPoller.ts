@@ -64,7 +64,7 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = false
   let interval = hashIntervalMap[hash];
 
   // We are gonna be polling the destination bridge contract
-  const destBridgeAddress = routingContractsMap[Number(srcChainId)][Number(destChainId)].bridgeAddress;
+  const destBridgeAddress = routingContractsMap[Number(destChainId)][Number(srcChainId)].bridgeAddress;
   const destBridgeContract = getContract({
     address: destBridgeAddress,
     abi: bridgeABI,

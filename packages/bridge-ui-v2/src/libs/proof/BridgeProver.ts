@@ -60,7 +60,7 @@ export class BridgeProver extends Prover {
 
   async generateProofToRelease(msgHash: Hash, srcChainId: number, destChainId: number) {
     const srcBridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
-    const destBridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
+    const destBridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
 
     const { proof, block } = await this.generateProof({
       msgHash,

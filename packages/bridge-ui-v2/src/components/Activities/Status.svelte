@@ -180,7 +180,7 @@
       log(`Releasing ${bridgeTx.tokenType} for transaction`, bridgeTx);
 
       // Step 4: Call release() method on the bridge
-      const txHash = await bridge.claim({ msgHash, message, wallet });
+      const txHash = await bridge.release({ msgHash, message, wallet });
 
       const { explorer } = chainConfig[Number(bridgeTx.srcChainId)].urls;
 
@@ -273,14 +273,14 @@
     </button>
   {:else if bridgeTxStatus === MessageStatus.RETRIABLE}
     <button class="status-btn" on:click={claim}>
-      {$t('activities.button.claim')}
+      {$t('activities.button.retry')}
     </button>
   {:else if bridgeTxStatus === MessageStatus.DONE}
     <StatusDot type="success" />
     <span>{$t('activities.status.claimed.name')}</span>
   {:else if bridgeTxStatus === MessageStatus.FAILED}
     <button class="status-btn" on:click={release}>
-      {$t('activities.button.claim')}
+      {$t('activities.button.release')}
     </button>
   {:else}
     <!-- TODO: look into this possible state -->

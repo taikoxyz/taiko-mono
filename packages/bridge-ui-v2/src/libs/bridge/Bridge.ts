@@ -95,7 +95,7 @@ export abstract class Bridge {
 
     // Before releasing we need to make sure the message has failed
     const destChainId = Number(message.destChainId);
-    const destBridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
+    const destBridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
 
     const destBridgeContract = getContract({
       address: destBridgeAddress,
