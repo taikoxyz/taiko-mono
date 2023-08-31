@@ -19,32 +19,32 @@ type getBlockInfoResponse struct {
 }
 
 func (srv *Server) GetBlockInfo(c echo.Context) error {
-	l1ChainID, err := srv.l1EthClient.ChainID(c.Request().Context())
+	srcChainID, err := srv.srcEthClient.ChainID(c.Request().Context())
 	if err != nil {
 		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 	}
 
-	l2ChainID, err := srv.l2EthClient.ChainID(c.Request().Context())
+	destChainID, err := srv.destEthClient.ChainID(c.Request().Context())
 	if err != nil {
 		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 	}
 
-	latestL1Block, err := srv.l1EthClient.BlockNumber(c.Request().Context())
+	latestSrcBlock, err := srv.srcEthClient.BlockNumber(c.Request().Context())
 	if err != nil {
 		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 	}
 
-	latestL2Block, err := srv.l2EthClient.BlockNumber(c.Request().Context())
+	latestDestBlock, err := srv.destEthClient.BlockNumber(c.Request().Context())
 	if err != nil {
 		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 	}
 
-	latestProcessedL1Block, err := srv.blockRepo.GetLatestBlockProcessedForEvent(relayer.EventNameMessageSent, l1ChainID)
+	latestProcessedSrcBlock, err := srv.blockRepo.GetLatestBlockProcessedForEvent(relayer.EventNameMessageSent, srcChainID)
 	if err != nil {
 		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 	}
 
-	latestProcessedL2Block, err := srv.blockRepo.GetLatestBlockProcessedForEvent(relayer.EventNameMessageSent, l2ChainID)
+	latestProcessedDestBlock, err := srv.blockRepo.GetLatestBlockProcessedForEvent(relayer.EventNameMessageSent, destChainID)
 	if err != nil {
 		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 	}
@@ -52,14 +52,14 @@ func (srv *Server) GetBlockInfo(c echo.Context) error {
 	resp := getBlockInfoResponse{
 		Data: []blockInfo{
 			{
-				ChainID:              l1ChainID.Int64(),
-				LatestProcessedBlock: int64(latestProcessedL1Block.Height),
-				LatestBlock:          int64(latestL1Block),
+				ChainID:              srcChainID.Int64(),
+				LatestProcessedBlock: int64(latestProcessedSrcBlock.Height),
+				LatestBlock:          int64(latestSrcBlock),
 			},
 			{
-				ChainID:              l2ChainID.Int64(),
-				LatestProcessedBlock: int64(latestProcessedL2Block.Height),
-				LatestBlock:          int64(latestL2Block),
+				ChainID:              destChainID.Int64(),
+				LatestProcessedBlock: int64(latestProcessedDestBlock.Height),
+				LatestBlock:          int64(latestDestBlock),
 			},
 		},
 	}

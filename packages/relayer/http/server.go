@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"net/http"
 	"os"
 
@@ -13,21 +14,26 @@ import (
 	echo "github.com/labstack/echo/v4"
 )
 
+type ethClient interface {
+	BlockNumber(ctx context.Context) (uint64, error)
+	ChainID(ctx context.Context) (*big.Int, error)
+}
+
 type Server struct {
-	echo        *echo.Echo
-	eventRepo   relayer.EventRepository
-	blockRepo   relayer.BlockRepository
-	l1EthClient relayer.EthClient
-	l2EthClient relayer.EthClient
+	echo          *echo.Echo
+	eventRepo     relayer.EventRepository
+	blockRepo     relayer.BlockRepository
+	srcEthClient  ethClient
+	destEthClient ethClient
 }
 
 type NewServerOpts struct {
-	Echo        *echo.Echo
-	EventRepo   relayer.EventRepository
-	BlockRepo   relayer.BlockRepository
-	CorsOrigins []string
-	L1EthClient relayer.EthClient
-	L2EthClient relayer.EthClient
+	Echo          *echo.Echo
+	EventRepo     relayer.EventRepository
+	BlockRepo     relayer.BlockRepository
+	CorsOrigins   []string
+	SrcEthClient  ethClient
+	DestEthClient ethClient
 }
 
 func (opts NewServerOpts) Validate() error {
@@ -43,11 +49,11 @@ func (opts NewServerOpts) Validate() error {
 		return relayer.ErrNoCORSOrigins
 	}
 
-	if opts.L1EthClient == nil {
+	if opts.SrcEthClient == nil {
 		return relayer.ErrNoEthClient
 	}
 
-	if opts.L2EthClient == nil {
+	if opts.DestEthClient == nil {
 		return relayer.ErrNoEthClient
 	}
 
@@ -64,11 +70,11 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 	}
 
 	srv := &Server{
-		blockRepo:   opts.BlockRepo,
-		echo:        opts.Echo,
-		eventRepo:   opts.EventRepo,
-		l1EthClient: opts.L1EthClient,
-		l2EthClient: opts.L2EthClient,
+		blockRepo:     opts.BlockRepo,
+		echo:          opts.Echo,
+		eventRepo:     opts.EventRepo,
+		srcEthClient:  opts.SrcEthClient,
+		destEthClient: opts.DestEthClient,
 	}
 
 	corsOrigins := opts.CorsOrigins

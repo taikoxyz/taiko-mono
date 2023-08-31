@@ -343,8 +343,3 @@ func (c CanonicalNFT) TokenDecimals() uint8 {
 func (c CanonicalNFT) ContractSymbol() string {
 	return c.Symbol
 }
-
-type EthClient interface {
-	BlockNumber(ctx context.Context) (uint64, error)
-	ChainID(ctx context.Context) (*big.Int, error)
-}

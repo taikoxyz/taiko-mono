@@ -125,13 +125,12 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	}
 
 	srv, err := http.NewServer(http.NewServerOpts{
-		EventRepo:   eventRepository,
-		Echo:        echo.New(),
-		CorsOrigins: cfg.CORSOrigins,
-		// TODO: should src/dest now
-		L1EthClient: srcEthClient,
-		L2EthClient: destEthClient,
-		BlockRepo:   blockRepository,
+		EventRepo:     eventRepository,
+		Echo:          echo.New(),
+		CorsOrigins:   cfg.CORSOrigins,
+		SrcEthClient:  srcEthClient,
+		DestEthClient: destEthClient,
+		BlockRepo:     blockRepository,
 	})
 	if err != nil {
 		return err
