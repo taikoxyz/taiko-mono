@@ -1,12 +1,23 @@
 package indexer
 
 import (
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/labstack/echo/v4"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/indexer/http"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/mock"
 )
 
 func newTestService(syncMode SyncMode, watchMode WatchMode) (*Indexer, relayer.Bridge) {
 	b := &mock.Bridge{}
+	srv, _ := http.NewServer(http.NewServerOpts{
+		Echo:          echo.New(),
+		EventRepo:     &mock.EventRepository{},
+		BlockRepo:     &mock.BlockRepository{},
+		SrcEthClient:  &ethclient.Client{},
+		DestEthClient: &ethclient.Client{},
+		CorsOrigins:   []string{},
+	})
 
 	return &Indexer{
 		blockRepo:     &mock.BlockRepository{},
@@ -24,5 +35,6 @@ func newTestService(syncMode SyncMode, watchMode WatchMode) (*Indexer, relayer.B
 		syncMode:  syncMode,
 		watchMode: watchMode,
 		httpPort:  4102,
+		srv:       srv,
 	}, b
 }
