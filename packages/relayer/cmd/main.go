@@ -17,7 +17,7 @@ func main() {
 
 	// attempt to load a .env file to overwrite CLI flags, but allow it to not
 	// exist.
-	_ = godotenv.Load(".l1processor.env")
+	_ = godotenv.Load(".env")
 
 	app.Name = "Taiko Relayer"
 	app.Usage = "The taiko relayer softwares command line interface"
