@@ -78,8 +78,8 @@ importers:
         specifier: ^8.2.1
         version: 8.44.1
       '@types/estree':
-        specifier: ^0.0.50
-        version: 0.0.50
+        specifier: ^1.0.1
+        version: 1.0.1
       '@types/jest':
         specifier: ^27.5.2
         version: 27.5.2
@@ -393,8 +393,8 @@ importers:
         specifier: ^8.2.1
         version: 8.44.1
       '@types/estree':
-        specifier: ^0.0.50
-        version: 0.0.50
+        specifier: ^1.0.1
+        version: 1.0.1
       '@types/jest':
         specifier: ^27.0.2
         version: 27.5.2
@@ -702,8 +702,8 @@ importers:
         specifier: ^8.2.1
         version: 8.44.1
       '@types/estree':
-        specifier: ^0.0.50
-        version: 0.0.50
+        specifier: ^1.0.1
+        version: 1.0.1
       '@types/jest':
         specifier: ^27.0.2
         version: 27.5.2
@@ -856,8 +856,8 @@ importers:
         specifier: ^8.2.1
         version: 8.44.1
       '@types/estree':
-        specifier: ^0.0.50
-        version: 0.0.50
+        specifier: ^1.0.1
+        version: 1.0.1
       '@types/jest':
         specifier: ^27.0.2
         version: 27.5.2
@@ -5268,7 +5268,7 @@ packages:
   /@types/acorn@4.0.6:
     resolution: {integrity: sha512-veQTnWP+1D/xbxVrPC3zHnCZRjSrKfhbMUlEA43iMZLu7EsnTtkJklIuwrCPbOi8YkvDQAiW05VQQFvvz9oieQ==}
     dependencies:
-      '@types/estree': 0.0.50
+      '@types/estree': 1.0.1
     dev: false
 
   /@types/async-eventemitter@0.2.1:
@@ -5375,28 +5375,25 @@ packages:
     resolution: {integrity: sha512-9K4zoImiZc3HlIp6AVUDE4CWYx22a+lhSZMYNpbjW04+YF0KWj4pJXnEMjdnFTiQibFFmElcsasJXDbdI/EPhA==}
     dependencies:
       '@types/eslint': 8.44.1
-      '@types/estree': 0.0.50
+      '@types/estree': 1.0.1
     dev: true
 
   /@types/eslint@8.44.1:
     resolution: {integrity: sha512-XpNDc4Z5Tb4x+SW1MriMVeIsMoONHCkWFMkR/aPJbzEsxqHy+4Glu/BqTdPrApfDeMaXbtNh6bseNgl5KaWrSg==}
     dependencies:
-      '@types/estree': 0.0.50
+      '@types/estree': 1.0.1
       '@types/json-schema': 7.0.12
     dev: true
 
   /@types/estree-jsx@1.0.0:
     resolution: {integrity: sha512-3qvGd0z8F2ENTGr/GG1yViqfiKmRfrXVx5sJyHGFu3z7m5g5utCQtGp/g29JnjflhtQJBv1WDQukHiT58xPcYQ==}
     dependencies:
-      '@types/estree': 0.0.50
+      '@types/estree': 1.0.1
     dev: false
 
   /@types/estree@0.0.39:
     resolution: {integrity: sha512-EYNwp3bU+98cpU4lAWYYL7Zz+2gryWH1qbdDTidVd6hkiR6weksdbMadyXKXNPEkQFhXM+hVO9ZygomHXp+AIw==}
     dev: true
-
-  /@types/estree@0.0.50:
-    resolution: {integrity: sha512-C6N5s2ZFtuZRj54k2/zyRhNDjJwwcViAM3Nbm8zjBpbqAdZ00mr0CFxvSKeO8Y/e03WVFLpQMdHYVfUd6SB+Hw==}
 
   /@types/estree@1.0.1:
     resolution: {integrity: sha512-LG4opVs2ANWZ1TJoKc937iMmNstM/d0ae1vNbnBvBhqCSezgVUOzcLCqbI5elV8Vy6WKwKjaqR+zO9VKirBBCA==}
@@ -15541,7 +15538,7 @@ packages:
   /is-reference@3.0.1:
     resolution: {integrity: sha512-baJJdQLiYaJdvFbJqXrcGv3WU3QCzBlUcI5QhbesIm6/xPsvmO+2CDoi/GMOFBQEQm+PXkwOPrp9KK5ozZsp2w==}
     dependencies:
-      '@types/estree': 0.0.50
+      '@types/estree': 1.0.1
 
   /is-regex@1.1.4:
     resolution: {integrity: sha512-kvRdxDsxZjhzUX07ZnLydzS1TU/TJlTUHHY4YLL87e37oUA49DfkLqgy+VjFocowy29cKvcSiu+kIv728jTTVg==}
