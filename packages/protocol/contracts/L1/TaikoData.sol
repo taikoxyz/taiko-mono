@@ -142,11 +142,11 @@ library TaikoData {
     struct Block {
         bytes32 metaHash; // slot 1
         address prover; // slot 2
-        uint64 proposedAt;
-        uint16 nextTransitionId;
-        uint16 verifiedTransitionId;
-        uint64 blockId; // slot 3
         uint96 proofBond;
+        uint64 blockId; // slot 3
+        uint64 proposedAt;
+        uint32 nextTransitionId;
+        uint32 verifiedTransitionId;
         uint16 proofWindow;
     }
 
@@ -187,9 +187,9 @@ library TaikoData {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint64 blockId_mode_blockRingBufferSize => Block) blocks;
         mapping(
-            uint64 blockId => mapping(bytes32 parentHash => uint16 transitionId)
+            uint64 blockId => mapping(bytes32 parentHash => uint32 transitionId)
             ) transitionIds;
-        mapping(uint64 blockId => mapping(uint16 transitionId => Transition))
+        mapping(uint64 blockId => mapping(uint32 transitionId => Transition))
             transitions;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         mapping(uint256 depositId_mode_ethDepositRingBufferSize => uint256)
