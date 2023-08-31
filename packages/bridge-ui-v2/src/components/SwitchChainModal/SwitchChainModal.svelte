@@ -3,7 +3,6 @@
   import { t } from 'svelte-i18n';
   import { UserRejectedRequestError } from 'viem';
 
-  import { Icon } from '$components/Icon';
   import { LoadingMask } from '$components/LoadingMask';
   import { warningToast } from '$components/NotificationToast';
   import { chainConfig } from '$chainConfig';
@@ -53,9 +52,6 @@
         text={$t('messages.network.switching')} />
     {/if}
 
-    <button class="absolute right-6 top-[35px] md:top-[20px]" on:click={closeModal}>
-      <Icon type="x-close" fillClass="fill-secondary-icon" size={24} />
-    </button>
     <h3 class="title-body-bold mb-[30px]">{$t('switch_modal.title')}</h3>
     <p class="body-regular mb-[20px]">{$t('switch_modal.description')}</p>
     <ul role="menu" class="">
@@ -71,7 +67,7 @@
           <div class="f-row f-items-center justify-between">
             <div class="f-items-center space-x-4">
               <i role="img" aria-label={chain.name}>
-                <img src={icon} alt="chain-logo" />
+                <img src={icon} alt="chain-logo" class="rounded-full" width="30px" height="30px" />
               </i>
               <span class="body-bold">{chain.name}</span>
             </div>
