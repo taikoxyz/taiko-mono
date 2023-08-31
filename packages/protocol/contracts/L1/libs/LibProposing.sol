@@ -175,13 +175,14 @@ library LibProposing {
             // Init the block
             TaikoData.Block storage blk =
                 state.blocks[b.numBlocks % config.blockRingBufferSize];
+
             blk.metaHash = LibUtils.hashMetadata(meta);
             blk.prover = assignment.prover;
+            blk.proofBond = config.proofBond;
+            blk.blockId = meta.id;
             blk.proposedAt = meta.timestamp;
             blk.nextTransitionId = 1;
             blk.verifiedTransitionId = 0;
-            blk.blockId = meta.id;
-            blk.proofBond = config.proofBond;
             blk.proofWindow = config.proofWindow;
 
             emit BlockProposed({

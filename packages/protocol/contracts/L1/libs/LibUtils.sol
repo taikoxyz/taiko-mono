@@ -40,7 +40,7 @@ library LibUtils {
     )
         internal
         view
-        returns (uint16 tid)
+        returns (uint32 tid)
     {
         if (state.transitions[blk.blockId][1].key == parentHash) {
             tid = 1;
