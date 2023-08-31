@@ -61,11 +61,19 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"SRC_TAIKO_ADDRESS"},
 	}
+	HTTPPort = &cli.Uint64Flag{
+		Name:     "http.port",
+		Usage:    "Port to run http server on",
+		Category: indexerCategory,
+		Value:    4102,
+		EnvVars:  []string{"HTTP_PORT"},
+	}
 )
 
 var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	SrcBridgeAddress,
 	// optional
+	HTTPPort,
 	SrcTaikoAddress,
 	BlockBatchSize,
 	MaxNumGoroutines,

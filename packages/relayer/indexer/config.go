@@ -41,6 +41,7 @@ type Config struct {
 	SubscriptionBackoff uint64
 	SyncMode            SyncMode
 	WatchMode           WatchMode
+	HTTPPort            uint64
 	OpenQueueFunc       func() (queue.Queue, error)
 	OpenDBFunc          func() (DB, error)
 }
@@ -70,6 +71,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		SubscriptionBackoff:     c.Uint64(flags.SubscriptionBackoff.Name),
 		WatchMode:               WatchMode(c.String(flags.WatchMode.Name)),
 		SyncMode:                SyncMode(c.String(flags.SyncMode.Name)),
+		HTTPPort:                c.Uint64(flags.HTTPPort.Name),
 		OpenDBFunc: func() (DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),

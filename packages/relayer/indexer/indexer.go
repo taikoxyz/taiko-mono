@@ -86,7 +86,8 @@ type Indexer struct {
 	watchMode WatchMode
 	syncMode  SyncMode
 
-	srv *http.Server
+	srv      *http.Server
+	httpPort uint64
 }
 
 func (i *Indexer) InitFromCli(ctx context.Context, c *cli.Context) error {
@@ -179,6 +180,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	i.queue = q
 
 	i.srv = srv
+	i.httpPort = cfg.HTTPPort
 
 	i.srcChainId = chainID
 
@@ -194,10 +196,19 @@ func (i *Indexer) Name() string {
 
 // TODO
 func (i *Indexer) Close(ctx context.Context) {
-
+	if err := i.srv.Shutdown(ctx); err != nil {
+		slog.Error("srv shutdown", "error", err)
+	}
 }
 
+// nolint: funlen
 func (i *Indexer) Start() error {
+	go func() {
+		if err := i.srv.Start(fmt.Sprintf(":%v", i.httpPort)); err != nil {
+			slog.Error("http srv start", "error", err.Error())
+		}
+	}()
+
 	ctx := context.Background()
 
 	if err := i.queue.Start(ctx, i.queueName()); err != nil {
