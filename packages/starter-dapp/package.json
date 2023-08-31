@@ -22,7 +22,7 @@
     "@sveltejs/vite-plugin-svelte": "^1.0.1",
     "@tsconfig/svelte": "^3.0.0",
     "@types/eslint": "^8.2.1",
-    "@types/estree": "^0.0.50",
+    "@types/estree": "^1.0.1",
     "@types/jest": "^27.0.2",
     "@types/mixpanel": "^2.14.3",
     "@types/sanitize-html": "^2.6.2",
