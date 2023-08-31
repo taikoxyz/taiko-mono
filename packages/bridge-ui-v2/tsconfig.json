@@ -19,10 +19,10 @@
       "$config": ["./src/app.config.ts"],
       "$libs/*": ["./src/libs/*"],
       "$abi": ["./src/abi/index.ts"],
-      "$config/chains": ["./src/generated/chainConfig.ts"],
-      "$config/bridges": ["./src/generated/bridgeConfig.ts"],
-      "$config/relayer": ["./src/generated/relayerConfig.ts"],
-      "$config/customToken": ["./src/generated/customTokenConfig.ts"]
+      "$chainConfig": ["./src/generated/chainConfig.ts"],
+      "$bridgeConfig": ["./src/generated/bridgeConfig.ts"],
+      "$relayerConfig": ["./src/generated/relayerConfig.ts"],
+      "$customToken": ["./src/generated/customTokenConfig.ts"]
     },
 
     // https://vitest.dev/config/#globals

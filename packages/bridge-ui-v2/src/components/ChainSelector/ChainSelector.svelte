@@ -9,7 +9,7 @@
   import { Icon } from '$components/Icon';
   import { LoadingMask } from '$components/LoadingMask';
   import { warningToast } from '$components/NotificationToast';
-  import { chainConfig } from '$config/chains';
+  import { chainConfig } from '$chainConfig';
   import { chains } from '$libs/chain';
   import { classNames } from '$libs/util/classNames';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';

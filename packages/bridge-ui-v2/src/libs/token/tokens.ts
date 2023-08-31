@@ -1,6 +1,6 @@
 import { zeroAddress } from 'viem';
 
-import { customToken } from '$config/customToken';
+import { customToken } from '$customToken';
 import { getConfiguredChainIds } from '$libs/chain';
 
 import { type Token, TokenType } from './types';

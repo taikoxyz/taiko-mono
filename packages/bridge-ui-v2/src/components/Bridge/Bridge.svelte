@@ -9,8 +9,8 @@
   import { OnAccount } from '$components/OnAccount';
   import { OnNetwork } from '$components/OnNetwork';
   import { TokenDropdown } from '$components/TokenDropdown';
-  import { routingContractsMap } from '$config/bridges';
-  import { chainConfig } from '$config/chains';
+  import { routingContractsMap } from '$bridgeConfig';
+  import { chainConfig } from '$chainConfig';
   import {
     type BridgeArgs,
     bridges,

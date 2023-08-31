@@ -4,7 +4,7 @@ import axios from 'axios';
 import { Buffer } from 'buffer';
 
 import { bridgeABI } from '$abi';
-import { routingContractsMap } from '$config/bridges';
+import { routingContractsMap } from '$bridgeConfig';
 import type { BridgeTransaction, MessageStatus } from '$libs/bridge';
 import { isSupportedChain } from '$libs/chain';
 import { TokenType } from '$libs/token';

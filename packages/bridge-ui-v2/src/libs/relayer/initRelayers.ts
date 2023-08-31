@@ -1,4 +1,4 @@
-import { configuredRelayer } from '$config/relayer';
+import { configuredRelayer } from '$relayerConfig';
 
 import { RelayerAPIService } from './RelayerAPIService';
 

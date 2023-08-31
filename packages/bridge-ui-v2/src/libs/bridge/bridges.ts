@@ -1,4 +1,4 @@
-import { routingContractsMap } from '$config/bridges';
+import { routingContractsMap } from '$bridgeConfig';
 import { BridgeProver } from '$libs/proof';
 import type { TokenType } from '$libs/token';
 

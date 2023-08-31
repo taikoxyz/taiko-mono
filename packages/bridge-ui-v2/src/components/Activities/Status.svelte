@@ -13,7 +13,7 @@
   import { Spinner } from '$components/Spinner';
   import { StatusDot } from '$components/StatusDot';
   import { statusComponent } from '$config';
-  import { chainConfig } from '$config/chains';
+  import { chainConfig } from '$chainConfig';
   import { bridges, type BridgeTransaction, MessageStatus } from '$libs/bridge';
   import { isTransactionProcessable } from '$libs/bridge/isTransactionProcessable';
   import { PollingEvent, startPolling } from '$libs/bridge/messageStatusPoller';

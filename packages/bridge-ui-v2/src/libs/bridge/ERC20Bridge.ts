@@ -2,8 +2,8 @@ import { getContract, type Hash } from '@wagmi/core';
 import { UserRejectedRequestError } from 'viem';
 
 import { bridgeABI, erc20ABI, erc20VaultABI } from '$abi';
+import { routingContractsMap } from '$bridgeConfig';
 import { bridgeService } from '$config';
-import { routingContractsMap } from '$config/bridges';
 import {
   ApproveError,
   InsufficientAllowanceError,

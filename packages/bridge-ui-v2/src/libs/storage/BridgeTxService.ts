@@ -2,8 +2,8 @@ import { getContract, waitForTransaction } from '@wagmi/core';
 import type { Address, Hash, TransactionReceipt } from 'viem';
 
 import { bridgeABI } from '$abi';
+import { routingContractsMap } from '$bridgeConfig';
 import { pendingTransaction, storageService } from '$config';
-import { routingContractsMap } from '$config/bridges';
 import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
 import { isSupportedChain } from '$libs/chain';
 import { jsonParseWithDefault } from '$libs/util/jsonParseWithDefault';
