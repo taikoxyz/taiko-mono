@@ -121,6 +121,7 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 		return err
 	}
 
+	var nilCount int = 0
 	// wrap internal msg chan with a generic queue
 	go func() {
 		for {
@@ -139,6 +140,12 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 						}
 					}
 				} else {
+					nilCount++
+
+					if nilCount > 5 {
+						panic("repetitive nilBody delivery")
+					}
+
 					slog.Info("nil rabbitmq message found", "msg", d)
 					// error with channel if we got a nil body message
 					// it wont be able to be acknowledged.
