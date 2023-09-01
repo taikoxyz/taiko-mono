@@ -104,8 +104,9 @@
     @apply rounded-[10px]
       w-[283px]
       p-[24px]
-      bg-primary-base-background
-      text-primary-base-content;
+      bg-neutral-background
+      text-primary-content
+      box-shadow-small;
 
     letter-spacing: 0.14px;
 
@@ -126,7 +127,7 @@
       border-width: 9px;
       border-color: transparent transparent transparent;
       border-style: solid;
-      border-top: 9px solid white;
+      border-top: 9px solid var(--neutral-background);
     }
   }
 
@@ -179,5 +180,29 @@
   input {
     border: 1px solid var(--border-dark-primary, #5d636f);
   }
+
+  h1 {
+    color: var(--primary-content);
+    text-align: center;
+    /* Title Section/Bold */
+    font-family: Public Sans;
+    font-size: 26px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 32px; /* 123.077% */
+    letter-spacing: -0.39px;
+  }
+
+  h2 {
+    color: var(--primary-content);
+    font-family: Public Sans;
+    font-size: 18px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 24px; /* 133.333% */
+    letter-spacing: 0.09px;
+    margin-bottom: 8px;
+  }
+
   /* TODO: add more components here */
 }

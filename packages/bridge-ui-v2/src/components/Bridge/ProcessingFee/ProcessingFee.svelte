@@ -119,8 +119,8 @@
     <div class="flex space-x-2">
       <span class="body-small-bold text-primary-content">{$t('processing_fee.title')}</span>
       <Tooltip>
-        <div>{$t('processing_fee.tooltip_title')}</div>
-        <div>{$t('processing_fee.tooltip')}</div>
+        <h2>{$t('processing_fee.tooltip_title')}</h2>
+        {$t('processing_fee.tooltip')}
       </Tooltip>
     </div>
     <button class="link" on:click={openModal} on:focus={openModal}>{$t('common.edit')}</button>
