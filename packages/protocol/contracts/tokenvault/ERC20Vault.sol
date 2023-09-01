@@ -348,11 +348,9 @@ contract ERC20Vault is
         private
         returns (address btoken)
     {
-        bytes32 salt = keccak256(abi.encode(ctoken));
-
         address bridgedToken = Create2Upgradeable.deploy({
             amount: 0, // amount of Ether to send
-            salt: salt,
+            salt: keccak256(abi.encode(ctoken)),
             bytecode: type(ProxiedBridgedERC20).creationCode
         });
 
