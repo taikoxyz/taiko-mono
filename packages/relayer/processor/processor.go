@@ -79,7 +79,8 @@ type Processor struct {
 
 	wg *sync.WaitGroup
 
-	srcChainId *big.Int
+	srcChainId  *big.Int
+	destChainId *big.Int
 }
 
 func (p *Processor) InitFromCli(ctx context.Context, c *cli.Context) error {
@@ -163,7 +164,12 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		return err
 	}
 
-	chainID, err := srcEthClient.ChainID(context.Background())
+	srcChainID, err := srcEthClient.ChainID(context.Background())
+	if err != nil {
+		return err
+	}
+
+	destChainID, err := destEthClient.ChainID(context.Background())
 	if err != nil {
 		return err
 	}
@@ -206,7 +212,9 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 
 	p.queue = q
 
-	p.srcChainId = chainID
+	p.srcChainId = srcChainID
+	p.destChainId = destChainID
+
 	p.headerSyncIntervalSeconds = int64(cfg.HeaderSyncInterval)
 	p.confTimeoutInSeconds = int64(cfg.ConfirmationsTimeout)
 	p.confirmations = cfg.Confirmations
@@ -250,7 +258,7 @@ func (p *Processor) Start() error {
 }
 
 func (p *Processor) queueName() string {
-	return fmt.Sprintf("%v-queue", p.srcChainId.String())
+	return fmt.Sprintf("%v--%v-queue", p.srcChainId.String(), p.destChainId.String())
 }
 
 func (p *Processor) eventLoop(ctx context.Context) {

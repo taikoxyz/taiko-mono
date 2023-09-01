@@ -81,7 +81,8 @@ type Indexer struct {
 
 	queue queue.Queue
 
-	srcChainId *big.Int
+	srcChainId  *big.Int
+	destChainId *big.Int
 
 	watchMode WatchMode
 	syncMode  SyncMode
@@ -160,9 +161,14 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 		}
 	}
 
-	chainID, err := srcEthClient.ChainID(context.Background())
+	srcChainID, err := srcEthClient.ChainID(context.Background())
 	if err != nil {
-		return errors.Wrap(err, "cfg.EthClient.ChainID")
+		return errors.Wrap(err, "srcEthClient.ChainID")
+	}
+
+	destChainID, err := destEthClient.ChainID(context.Background())
+	if err != nil {
+		return errors.Wrap(err, "destEthClient.ChainID")
 	}
 
 	i.blockRepo = blockRepository
@@ -182,7 +188,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	i.srv = srv
 	i.httpPort = cfg.HTTPPort
 
-	i.srcChainId = chainID
+	i.srcChainId = srcChainID
+	i.destChainId = destChainID
 
 	i.syncMode = cfg.SyncMode
 	i.watchMode = cfg.WatchMode
