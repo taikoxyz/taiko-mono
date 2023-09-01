@@ -190,7 +190,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
-		return err
+		return errors.New("unable to convert public key")
 	}
 
 	relayerAddr := crypto.PubkeyToAddress(*publicKeyECDSA)

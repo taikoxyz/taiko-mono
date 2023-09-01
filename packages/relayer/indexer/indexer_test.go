@@ -1,6 +1,8 @@
 package indexer
 
 import (
+	"sync"
+
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/labstack/echo/v4"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
@@ -36,5 +38,7 @@ func newTestService(syncMode SyncMode, watchMode WatchMode) (*Indexer, relayer.B
 		watchMode: watchMode,
 		httpPort:  4102,
 		srv:       srv,
+
+		wg: &sync.WaitGroup{},
 	}, b
 }
