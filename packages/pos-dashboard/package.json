@@ -47,7 +47,7 @@
     "node-sass": "^7.0.1",
     "postcss": "^8.4.19",
     "postcss-cli": "^7.1.2",
-    "postcss-loader": "^6.2.0",
+    "postcss-loader": "^7.3.3",
     "prettier": "2.7.1",
     "prettier-plugin-svelte": "^2.9.0",
     "rollup-plugin-node-builtins": "^2.0.0",
