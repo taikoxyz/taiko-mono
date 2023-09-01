@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"context"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -40,5 +41,7 @@ func newTestService(syncMode SyncMode, watchMode WatchMode) (*Indexer, relayer.B
 		srv:       srv,
 
 		wg: &sync.WaitGroup{},
+
+		ctx: context.Background(),
 	}, b
 }
