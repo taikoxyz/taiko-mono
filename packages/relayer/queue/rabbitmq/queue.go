@@ -147,10 +147,11 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 						slog.Error("error establishing channel", "err", err.Error())
 					}
 
-					r.ch = ch
-
-					if err := r.Start(ctx, r.queue.Name); err != nil {
-						slog.Error("error starting queue", "err", err.Error())
+					if ch != nil {
+						r.ch = ch
+						if err := r.Start(ctx, r.queue.Name); err != nil {
+							slog.Error("error starting queue", "err", err.Error())
+						}
 					}
 				}
 			}
