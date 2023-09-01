@@ -43,5 +43,8 @@ func newTestService(syncMode SyncMode, watchMode WatchMode) (*Indexer, relayer.B
 		wg: &sync.WaitGroup{},
 
 		ctx: context.Background(),
+
+		srcChainId:  mock.MockChainID,
+		destChainId: mock.MockChainID,
 	}, b
 }
