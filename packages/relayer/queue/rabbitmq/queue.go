@@ -99,6 +99,8 @@ func (r *RabbitMQ) Publish(ctx context.Context, msg []byte) error {
 
 			r.conn = conn
 			r.ch = ch
+
+			return r.Publish(ctx, msg)
 		} else {
 			return err
 		}
