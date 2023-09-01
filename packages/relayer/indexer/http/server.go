@@ -2,7 +2,6 @@ package http
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"net/http"
 	"os"
@@ -10,7 +9,6 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 
-	echoprom "github.com/labstack/echo-contrib/prometheus"
 	echo "github.com/labstack/echo/v4"
 )
 
@@ -136,16 +134,4 @@ func (srv *Server) configureMiddleware(corsOrigins []string) {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
 		AllowMethods: []string{http.MethodGet, http.MethodHead},
 	}))
-}
-
-func (srv *Server) configureAndStartPrometheus() {
-	// Enable metrics middleware
-	p := echoprom.NewPrometheus("echo", nil)
-	p.Use(srv.echo)
-	e := echo.New()
-	p.SetMetricsPath(e)
-
-	go func() {
-		_ = e.Start(fmt.Sprintf(":%v", os.Getenv("PROMETHEUS_HTTP_PORT")))
-	}()
 }

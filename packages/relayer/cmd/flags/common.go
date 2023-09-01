@@ -112,6 +112,13 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"DATABASE_CONN_MAX_LIFETIME"},
 	}
+	MetricsHTTPPort = &cli.Uint64Flag{
+		Name:     "metrics.port",
+		Usage:    "Port to run metrics http server on",
+		Category: commonCategory,
+		Value:    6061,
+		EnvVars:  []string{"METRICS_HTTP_PORT"},
+	}
 )
 
 // optional
@@ -142,6 +149,7 @@ var CommonFlags = []cli.Flag{
 	DatabaseMaxIdleConns,
 	DatabaseConnMaxLifetime,
 	DatabaseMaxOpenConns,
+	MetricsHTTPPort,
 }
 
 // MergeFlags merges the given flag slices.

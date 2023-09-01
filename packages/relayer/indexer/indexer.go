@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/cyberhorsey/errors"
@@ -89,6 +90,8 @@ type Indexer struct {
 
 	srv      *http.Server
 	httpPort uint64
+
+	wg *sync.WaitGroup
 }
 
 func (i *Indexer) InitFromCli(ctx context.Context, c *cli.Context) error {
@@ -194,6 +197,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	i.syncMode = cfg.SyncMode
 	i.watchMode = cfg.WatchMode
 
+	i.wg = &sync.WaitGroup{}
+
 	return nil
 }
 
@@ -206,6 +211,8 @@ func (i *Indexer) Close(ctx context.Context) {
 	if err := i.srv.Shutdown(ctx); err != nil {
 		slog.Error("srv shutdown", "error", err)
 	}
+
+	i.wg.Wait()
 }
 
 // nolint: funlen
@@ -222,23 +229,30 @@ func (i *Indexer) Start() error {
 		return err
 	}
 
-	return i.filter(ctx)
+	i.wg.Add(1)
+
+	go func() {
+		defer func() {
+			i.wg.Done()
+		}()
+
+		if err := i.filter(ctx); err != nil {
+			slog.Error("error filtering blocks", "error", err.Error())
+		}
+	}()
+
+	go scanBlocks(ctx, i.srcEthClient, i.srcChainId, i.wg)
+
+	return nil
 }
 
 func (i *Indexer) filter(ctx context.Context) error {
-	chainID, err := i.srcEthClient.ChainID(ctx)
-	if err != nil {
-		return errors.Wrap(err, "i.srcEthClient.ChainID()")
-	}
-
-	go scanBlocks(ctx, i.srcEthClient, chainID)
-
 	// if subscribing to new events, skip filtering and subscribe
 	if i.watchMode == Subscribe {
-		return i.subscribe(ctx, chainID)
+		return i.subscribe(ctx, i.srcChainId)
 	}
 
-	if err := i.setInitialProcessingBlockByMode(ctx, i.syncMode, chainID); err != nil {
+	if err := i.setInitialProcessingBlockByMode(ctx, i.syncMode, i.srcChainId); err != nil {
 		return errors.Wrap(err, "i.setInitialProcessingBlockByMode")
 	}
 
@@ -248,12 +262,12 @@ func (i *Indexer) filter(ctx context.Context) error {
 	}
 
 	if i.processingBlockHeight == header.Number.Uint64() {
-		slog.Info("indexing caught up, subscribing to new incoming events", "chainID", chainID.Uint64())
-		return i.subscribe(ctx, chainID)
+		slog.Info("indexing caught up, subscribing to new incoming events", "chainID", i.srcChainId.Uint64())
+		return i.subscribe(ctx, i.srcChainId)
 	}
 
 	slog.Info("fetching batch block events",
-		"chainID", chainID.Uint64(),
+		"chainID", i.srcChainId.Uint64(),
 		"startblock", i.processingBlockHeight,
 		"endblock", header.Number.Int64(),
 		"batchsize", i.blockBatchSize,
@@ -272,8 +286,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 		// process up to end - 1 for this batch.
 		filterEnd := end - 1
 
-		fmt.Printf("block batch from %v to %v", j, filterEnd)
-		fmt.Println()
+		slog.Info("block batch", "start", j, "end", filterEnd)
 
 		filterOpts := &bind.FilterOpts{
 			Start:   i.processingBlockHeight,
@@ -289,7 +302,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 		// we dont need to do anything with msgStatus events except save them to the DB.
 		// we dont need to process them. they are for exposing via the API.
 
-		err = i.saveMessageStatusChangedEvents(ctx, chainID, messageStatusChangedEvents)
+		err = i.saveMessageStatusChangedEvents(ctx, i.srcChainId, messageStatusChangedEvents)
 		if err != nil {
 			return errors.Wrap(err, "bridge.saveMessageStatusChangedEvents")
 		}
@@ -302,7 +315,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 		if !messageSentEvents.Next() || messageSentEvents.Event == nil {
 			// use "end" not "filterEnd" here, because it will be used as the start
 			// of the next batch.
-			if err := i.handleNoEventsInBatch(ctx, chainID, int64(end)); err != nil {
+			if err := i.handleNoEventsInBatch(ctx, i.srcChainId, int64(end)); err != nil {
 				return errors.Wrap(err, "i.handleNoEventsInBatch")
 			}
 
@@ -317,7 +330,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 			event := messageSentEvents.Event
 
 			group.Go(func() error {
-				err := i.handleEvent(groupCtx, chainID, event)
+				err := i.handleEvent(groupCtx, i.srcChainId, event)
 				if err != nil {
 					relayer.ErrorEvents.Inc()
 					// log error but always return nil to keep other goroutines active
@@ -335,7 +348,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 				}
 				// handle no events remaining, saving the processing block and restarting the for
 				// loop
-				if err := i.handleNoEventsInBatch(ctx, chainID, int64(end)); err != nil {
+				if err := i.handleNoEventsInBatch(ctx, i.srcChainId, int64(end)); err != nil {
 					return errors.Wrap(err, "i.handleNoEventsInBatch")
 				}
 
@@ -354,7 +367,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 	}
 
 	if i.processingBlockHeight < latestBlock.Number.Uint64() {
-		return i.Start()
+		return i.filter(ctx)
 	}
 
 	// we are caught up and specified not to subscribe, we can return now
@@ -362,7 +375,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 		return nil
 	}
 
-	return i.subscribe(ctx, chainID)
+	return i.subscribe(ctx, i.srcChainId)
 }
 
 func (i *Indexer) queueName() string {

@@ -8,6 +8,7 @@ import (
 
 	"log/slog"
 
+	"github.com/taikoxyz/taiko-mono/packages/relayer/metrics"
 	"github.com/urfave/cli/v2"
 )
 
@@ -31,6 +32,11 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 
 		if err := app.Start(); err != nil {
 			slog.Error("Starting application error", "name", app.Name(), "error", err)
+			return err
+		}
+
+		if err := metrics.Serve(ctx, c); err != nil {
+			slog.Error("Starting metrics server error", "error", err)
 			return err
 		}
 
