@@ -139,6 +139,7 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 						}
 					}
 				} else {
+					slog.Info("nil rabbitmq message found", "msg", d)
 					// error with channel if we got a nil body message
 					// it wont be able to be acknowledged.
 					// re-establish connection
