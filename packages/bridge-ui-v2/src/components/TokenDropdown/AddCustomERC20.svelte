@@ -173,7 +173,7 @@
       <AddressInput bind:ethereumAddress={tokenAddress} on:addressvalidation={onAddressValidation} />
       {#if tokenDetails}
         <div class="w-full flex items-center justify-between">
-          <span>>{$t('common.name')}: {tokenDetails.symbol}</span>
+          <span>{$t('common.name')}: {tokenDetails.symbol}</span>
           <span>{$t('common.balance')}: {formatUnits(tokenDetails.balance, tokenDetails.decimals)}</span>
         </div>
       {:else if tokenError !== '' && tokenAddress !== '' && isValidEthereumAddress}

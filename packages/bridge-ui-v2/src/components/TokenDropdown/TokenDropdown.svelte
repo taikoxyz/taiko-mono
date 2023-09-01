@@ -69,8 +69,8 @@
       try {
         bridgedAddress = await getCrossChainAddress({
           token,
-          srcChainId: destChain.id,
-          destChainId: chain.id,
+          srcChainId: chain.id,
+          destChainId: destChain.id,
         });
       } catch (error) {
         console.error(error);
