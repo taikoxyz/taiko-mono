@@ -2,6 +2,7 @@ package processor
 
 import (
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/mock"
@@ -33,5 +34,7 @@ func newTestProcessor(profitableOnly bool) *Processor {
 		confTimeoutInSeconds:      900,
 		confirmations:             1,
 		queue:                     &mock.Queue{},
+		backOffRetryInterval:      1 * time.Second,
+		backOffMaxRetries:         1,
 	}
 }
