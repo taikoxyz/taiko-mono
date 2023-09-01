@@ -366,5 +366,5 @@ func (i *Indexer) filter(ctx context.Context) error {
 }
 
 func (i *Indexer) queueName() string {
-	return fmt.Sprintf("%v-queue", i.srcChainId.String())
+	return fmt.Sprintf("%v-%v-queue", i.srcChainId.String(), i.destChainId.String())
 }
