@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
+	nethttp "net/http"
 	"sync"
 	"time"
 
@@ -218,7 +219,7 @@ func (i *Indexer) Close(ctx context.Context) {
 // nolint: funlen
 func (i *Indexer) Start() error {
 	go func() {
-		if err := i.srv.Start(fmt.Sprintf(":%v", i.httpPort)); err != nil {
+		if err := i.srv.Start(fmt.Sprintf(":%v", i.httpPort)); err != nethttp.ErrServerClosed {
 			slog.Error("http srv start", "error", err.Error())
 		}
 	}()
