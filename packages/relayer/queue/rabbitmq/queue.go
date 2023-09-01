@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/queue"
@@ -101,7 +102,11 @@ func (r *RabbitMQ) Nack(ctx context.Context, msg queue.Message) error {
 	return rmqMsg.Nack(false, true)
 }
 
-func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message) error {
+func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, wg *sync.WaitGroup) error {
+	defer func() {
+		wg.Done()
+	}()
+
 	msgs, err := r.ch.Consume(
 		r.queue.Name,
 		"",

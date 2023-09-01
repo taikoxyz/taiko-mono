@@ -45,6 +45,8 @@ type ethClient interface {
 }
 
 type Processor struct {
+	cancel context.CancelFunc
+
 	eventRepo relayer.EventRepository
 
 	queue queue.Queue
@@ -237,17 +239,23 @@ func (p *Processor) Name() string {
 
 // TODO
 func (p *Processor) Close(ctx context.Context) {
+	p.cancel()
+
 	p.wg.Wait()
 }
 
 func (p *Processor) Start() error {
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+
+	p.cancel = cancel
 
 	if err := p.queue.Start(ctx, p.queueName()); err != nil {
 		return err
 	}
 
-	if err := p.queue.Subscribe(ctx, p.msgCh); err != nil {
+	p.wg.Add(1)
+
+	if err := p.queue.Subscribe(ctx, p.msgCh, p.wg); err != nil {
 		return err
 	}
 

@@ -2,6 +2,7 @@ package mock
 
 import (
 	"context"
+	"sync"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer/queue"
 )
@@ -29,6 +30,6 @@ func (r *Queue) Nack(ctx context.Context, msg queue.Message) error {
 	return nil
 }
 
-func (r *Queue) Subscribe(ctx context.Context, msgChan chan<- queue.Message) error {
+func (r *Queue) Subscribe(ctx context.Context, msgChan chan<- queue.Message, wg *sync.WaitGroup) error {
 	return nil
 }
