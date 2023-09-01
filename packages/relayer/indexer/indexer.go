@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/gommon/log"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol1"
@@ -337,7 +336,9 @@ func (i *Indexer) filter(ctx context.Context) error {
 				if err != nil {
 					relayer.ErrorEvents.Inc()
 					// log error but always return nil to keep other goroutines active
-					log.Error(err.Error())
+					slog.Error("error handling event", "err", err.Error())
+				} else {
+					slog.Info("handled event successfully")
 				}
 
 				return nil
