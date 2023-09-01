@@ -215,6 +215,10 @@ func (i *Indexer) Start() error {
 		return err
 	}
 
+	return i.filter(ctx)
+}
+
+func (i *Indexer) filter(ctx context.Context) error {
 	chainID, err := i.srcEthClient.ChainID(ctx)
 	if err != nil {
 		return errors.Wrap(err, "i.srcEthClient.ChainID()")
@@ -333,9 +337,8 @@ func (i *Indexer) Start() error {
 		}
 	}
 
-	log.Infof(
-		"chain id %v indexer fully caught up, checking latest block number to see if it's advanced",
-		chainID.Uint64(),
+	slog.Info(
+		"indexer fully caught up, checking latest block number to see if it's advanced",
 	)
 
 	latestBlock, err := i.srcEthClient.HeaderByNumber(ctx, nil)
