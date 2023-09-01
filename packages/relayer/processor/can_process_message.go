@@ -28,7 +28,7 @@ func canProcessMessage(
 		return true
 	}
 
-	slog.Info("cant process message", "eventStatus", eventStatus)
+	slog.Info("cant process message", "eventStatus", eventStatus.String())
 
 	return false
 }
