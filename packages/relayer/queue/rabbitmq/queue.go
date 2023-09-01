@@ -99,7 +99,7 @@ func (r *RabbitMQ) Nack(ctx context.Context, msg queue.Message) error {
 
 	slog.Info("acknowledging rabbitmq message", "msgId", rmqMsg.MessageId)
 
-	return rmqMsg.Nack(false, true)
+	return rmqMsg.Nack(false, false)
 }
 
 func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, wg *sync.WaitGroup) error {
@@ -126,7 +126,9 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 		for {
 			select {
 			case <-ctx.Done():
+				defer r.Close(ctx)
 				return
+
 			case d := <-msgs:
 				if d.Body != nil {
 					slog.Info("rabbitmq message found", "msgId", d.MessageId)
@@ -137,8 +139,18 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 						}
 					}
 				} else {
-					if err := d.Ack(false); err != nil {
-						slog.Error("error acking nil body delivery", "err", err.Error())
+					// error with channel if we got a nil body message
+					// it wont be able to be acknowledged.
+					// re-establish connection
+					ch, err := r.conn.Channel()
+					if err != nil {
+						slog.Error("error establishing channel", "err", err.Error())
+					}
+
+					r.ch = ch
+
+					if err := r.Start(ctx, r.queue.Name); err != nil {
+						slog.Error("error starting queue", "err", err.Error())
 					}
 				}
 			}
