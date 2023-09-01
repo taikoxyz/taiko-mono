@@ -33,7 +33,6 @@ func NewQueue(opts queue.NewQueueOpts) (*RabbitMQ, error) {
 }
 
 func connect(opts queue.NewQueueOpts) (*amqp.Connection, *amqp.Channel, error) {
-
 	conn, err := amqp.Dial(
 		fmt.Sprintf(
 			"amqp://%v:%v@%v:%v/",
