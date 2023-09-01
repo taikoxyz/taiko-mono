@@ -86,6 +86,9 @@ abstract contract TaikoL1TestBase is TestBase {
         );
 
         // Set protocol broker
+        registerAddress("taiko", address(this));
+        tko.mint(address(this), 1e9 ether);
+
         registerAddress("taiko", address(L1));
 
         L1.init(address(addressManager), GENESIS_BLOCK_HASH);
