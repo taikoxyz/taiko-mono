@@ -274,8 +274,6 @@ func (p *Processor) eventLoop(ctx context.Context) {
 			if err := p.processMessage(ctx, msg); err != nil {
 				if !errors.Is(err, errUnprocessable) {
 					slog.Error("err processing message", "err", err.Error())
-				} else {
-					slog.Info("unprocessable message", "err", errUnprocessable)
 				}
 
 				if err := p.queue.Nack(ctx, msg); err != nil {
