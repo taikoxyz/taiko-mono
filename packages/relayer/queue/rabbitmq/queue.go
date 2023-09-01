@@ -99,9 +99,9 @@ func (r *RabbitMQ) Publish(ctx context.Context, msg []byte) error {
 
 			r.conn = conn
 			r.ch = ch
+		} else {
+			return err
 		}
-
-		return err
 	}
 
 	return nil
