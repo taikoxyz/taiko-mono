@@ -14,7 +14,7 @@ type RabbitMQ struct {
 	conn  *amqp.Connection
 	ch    *amqp.Channel
 	queue amqp.Queue
-	opts  NewQueueOpts
+	opts  queue.NewQueueOpts
 }
 
 func NewQueue(opts queue.NewQueueOpts) (*RabbitMQ, error) {
