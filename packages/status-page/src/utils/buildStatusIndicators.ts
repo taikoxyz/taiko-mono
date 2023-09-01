@@ -414,7 +414,7 @@ export async function buildStatusIndicators(
     indicators.push({
       provider: config.l1Provider,
       contractAddress: config.l1TaikoAddress,
-      header: "Latest Oradle Proof",
+      header: "Latest Oracle Proof",
       intervalInMs: 0,
       status: "0",
       watchStatusFunc: async (

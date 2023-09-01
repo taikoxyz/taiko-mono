@@ -25,8 +25,8 @@ import { PausableUpgradeable } from
 import { Proxied } from "../common/Proxied.sol";
 
 /// @title TaikoToken
-/// @notice The TaikoToken (TKO) is used for proposing blocks and also for
-/// staking in the Taiko protocol. It is an ERC20 token with 8 decimal places of
+/// @notice The TaikoToken (TKO), in the protocol is used for prover collateral
+/// in the form of bonds. It is an ERC20 token with 18 decimal places of
 /// precision.
 contract TaikoToken is
     EssentialContract,
@@ -109,7 +109,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        onlyFromNamed("erc20_vault")
+        onlyFromNamed2("erc20_vault", "taiko")
     {
         _burn(from, amount);
     }

@@ -25,7 +25,7 @@ library LibTaikoToken {
     {
         uint256 balance = state.taikoTokenBalances[msg.sender];
         if (balance < amount) revert L1_INSUFFICIENT_TOKEN();
-
+        // Unchecked is safe per above check
         unchecked {
             state.taikoTokenBalances[msg.sender] -= amount;
         }

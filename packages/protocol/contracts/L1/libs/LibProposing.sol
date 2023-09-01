@@ -83,6 +83,7 @@ library LibProposing {
 
         TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
         if (state.taikoTokenBalances[assignment.prover] >= config.proofBond) {
+            // Safe, see the above constraint
             unchecked {
                 state.taikoTokenBalances[assignment.prover] -= config.proofBond;
             }
@@ -127,6 +128,11 @@ library LibProposing {
         uint256 reward;
         if (config.proposerRewardPerSecond > 0 && config.proposerRewardMax > 0)
         {
+            // Unchecked is safe:
+            // - block.timestamp is always greater than block.proposedAt
+            // (proposed in the past)
+            // - 1x state.taikoTokenBalances[addr] uint256 could theoretically
+            // store the whole token supply
             unchecked {
                 uint256 blockTime = block.timestamp
                     - state.blocks[(b.numBlocks - 1) % config.blockRingBufferSize]
@@ -152,6 +158,10 @@ library LibProposing {
         }
 
         // Init the metadata
+        // Unchecked is safe:
+        // - equation is done among same variable types
+        // - incrementation (state.slotB.numBlocks++) is fine for 584K years if
+        // we propose at every second
         unchecked {
             meta.id = b.numBlocks;
             meta.timestamp = uint64(block.timestamp);
@@ -175,13 +185,14 @@ library LibProposing {
             // Init the block
             TaikoData.Block storage blk =
                 state.blocks[b.numBlocks % config.blockRingBufferSize];
+
             blk.metaHash = LibUtils.hashMetadata(meta);
             blk.prover = assignment.prover;
+            blk.proofBond = config.proofBond;
+            blk.blockId = meta.id;
             blk.proposedAt = meta.timestamp;
             blk.nextTransitionId = 1;
             blk.verifiedTransitionId = 0;
-            blk.blockId = meta.id;
-            blk.proofBond = config.proofBond;
             blk.proofWindow = config.proofWindow;
 
             emit BlockProposed({
