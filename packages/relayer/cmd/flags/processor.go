@@ -79,6 +79,18 @@ var (
 		Category: processorCategory,
 		EnvVars:  []string{"PROFITABLE_ONLY"},
 	}
+	BackOffRetryInterval = &cli.Uint64Flag{
+		Name:     "backoff.retryInterval",
+		Usage:    "Retry interval in seconds when there is an error",
+		Category: processorCategory,
+		Value:    12,
+	}
+	BackOffMaxRetrys = &cli.Uint64Flag{
+		Name:     "backoff.maxRetrys",
+		Usage:    "Max retry times when there is an error",
+		Category: processorCategory,
+		Value:    3,
+	}
 )
 
 var ProcessorFlags = MergeFlags(CommonFlags, []cli.Flag{
@@ -93,4 +105,6 @@ var ProcessorFlags = MergeFlags(CommonFlags, []cli.Flag{
 	Confirmations,
 	ConfirmationTimeout,
 	ProfitableOnly,
+	BackOffRetryInterval,
+	BackOffMaxRetrys,
 })

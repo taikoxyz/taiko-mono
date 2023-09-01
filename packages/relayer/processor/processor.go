@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"math/big"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -76,6 +77,9 @@ type Processor struct {
 	headerSyncIntervalSeconds int64
 
 	confTimeoutInSeconds int64
+
+	backOffRetryInterval time.Duration
+	backOffMaxRetries    uint64
 
 	msgCh chan queue.Message
 
@@ -230,6 +234,9 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 
 	p.srcChainId = srcChainId
 
+	p.backOffRetryInterval = time.Duration(cfg.BackoffRetryInterval) * time.Second
+	p.backOffMaxRetries = cfg.BackOffMaxRetrys
+
 	return nil
 }
 
@@ -280,12 +287,19 @@ func (p *Processor) eventLoop(ctx context.Context) {
 			return
 		case msg := <-p.msgCh:
 			if err := p.processMessage(ctx, msg); err != nil {
+				// only log unexpected errors
 				if !errors.Is(err, errUnprocessable) {
 					slog.Error("err processing message", "err", err.Error())
-				}
-
-				if err := p.queue.Nack(ctx, msg); err != nil {
-					slog.Error("Err nacking message", "err", err.Error())
+					// nack all errors even errUnprocessable
+					if err := p.queue.Nack(ctx, msg); err != nil {
+						slog.Error("Err nacking message", "err", err.Error())
+					}
+				} else {
+					// if errUnprocessable, we can Ack it to remove it from
+					// beign re-added, message should never become processable.
+					if err := p.queue.Ack(ctx, msg); err != nil {
+						slog.Error("Err nacking message", "err", err.Error())
+					}
 				}
 			}
 		}

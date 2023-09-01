@@ -93,6 +93,8 @@ type Indexer struct {
 	httpPort uint64
 
 	wg *sync.WaitGroup
+
+	ctx context.Context
 }
 
 func (i *Indexer) InitFromCli(ctx context.Context, c *cli.Context) error {
@@ -224,9 +226,9 @@ func (i *Indexer) Start() error {
 		}
 	}()
 
-	ctx := context.Background()
+	i.ctx = context.Background()
 
-	if err := i.queue.Start(ctx, i.queueName()); err != nil {
+	if err := i.queue.Start(i.ctx, i.queueName()); err != nil {
 		return err
 	}
 
@@ -237,12 +239,12 @@ func (i *Indexer) Start() error {
 			i.wg.Done()
 		}()
 
-		if err := i.filter(ctx); err != nil {
+		if err := i.filter(i.ctx); err != nil {
 			slog.Error("error filtering blocks", "error", err.Error())
 		}
 	}()
 
-	go scanBlocks(ctx, i.srcEthClient, i.srcChainId, i.wg)
+	go scanBlocks(i.ctx, i.srcEthClient, i.srcChainId, i.wg)
 
 	return nil
 }

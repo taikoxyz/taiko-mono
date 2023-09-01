@@ -35,6 +35,10 @@ type Config struct {
 	ConfirmationsTimeout uint64
 	ProfitableOnly       bool
 
+	// backoff configs
+	BackoffRetryInterval uint64
+	BackOffMaxRetrys     uint64
+
 	// db configs
 	DatabaseUsername        string
 	DatabasePassword        string
@@ -91,6 +95,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		Confirmations:           c.Uint64(flags.Confirmations.Name),
 		ConfirmationsTimeout:    c.Uint64(flags.ConfirmationTimeout.Name),
 		ProfitableOnly:          c.Bool(flags.ProfitableOnly.Name),
+		BackoffRetryInterval:    c.Uint64(flags.BackOffRetryInterval.Name),
+		BackOffMaxRetrys:        c.Uint64(flags.BackOffMaxRetrys.Name),
 		OpenDBFunc: func() (DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),

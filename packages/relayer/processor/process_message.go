@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -133,9 +134,26 @@ func (p *Processor) processMessage(
 		return errors.New("message not received")
 	}
 
-	tx, err := p.sendProcessMessageCall(ctx, msgBody.Event, encodedSignalProof)
-	if err != nil {
-		return errors.Wrap(err, "p.sendProcessMessageCall")
+	var tx *types.Transaction
+
+	sendTx := func() error {
+		if ctx.Err() != nil {
+			return nil
+		}
+
+		tx, err = p.sendProcessMessageCall(ctx, msgBody.Event, encodedSignalProof)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	if err := backoff.Retry(sendTx, backoff.WithMaxRetries(
+		backoff.NewConstantBackOff(p.backOffRetryInterval),
+		p.backOffMaxRetries),
+	); err != nil {
+		return err
 	}
 
 	relayer.EventsProcessed.Inc()
