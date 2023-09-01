@@ -41,7 +41,7 @@ taiko-mono/
 │   ├── <a href="./packages/bridge-ui">bridge-ui</a>: Taiko bridge frontend UI v1 (🪦 deprecated 🪦).
 │   ├── <a href="./packages/bridge-ui-v2">bridge-ui-v2</a>: Taiko bridge frontend UI v2.
 │   ├── <a href="./packages/eventindexer">eventindexer</a>: Event indexer.
-│   ├── <a href="./packages/fork-diff">fork-diff</a>: Fork diff page (currently, for geth).
+│   ├── <a href="./packages/fork-diff">fork-diff</a>: Fork <a href="https://geth.taiko.xyz">diff page</a> (currently, for geth).
 │   ├── <a href="./packages/pos-dashboard">pos-dashboard</a>: TTKOe staking dashboard (🪦 deprecated 🪦).
 │   ├── <a href="./packages/protocol">protocol</a>: Taiko protocol and bridge smart contracts.
 │   ├── <a href="./packages/relayer">relayer</a>: Bridge backend relayer in Go.
