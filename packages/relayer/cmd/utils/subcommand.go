@@ -35,7 +35,9 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 			return err
 		}
 
-		if err := metrics.Serve(ctx, c); err != nil {
+		_, startMetrics := metrics.Serve(ctx, c)
+
+		if err := startMetrics(); err != nil {
 			slog.Error("Starting metrics server error", "error", err)
 			return err
 		}

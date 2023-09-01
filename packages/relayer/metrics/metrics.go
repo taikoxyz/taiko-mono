@@ -14,7 +14,7 @@ import (
 
 // Serve starts the metrics server on the given address, will be closed when the given
 // context is cancelled.
-func Serve(ctx context.Context, c *cli.Context) error {
+func Serve(ctx context.Context, c *cli.Context) (*echo.Echo, func() error) {
 	// Enable metrics middleware
 	p := echoprom.NewPrometheus("echo", nil)
 	e := echo.New()
@@ -30,5 +30,5 @@ func Serve(ctx context.Context, c *cli.Context) error {
 
 	slog.Info("Starting metrics server", "port", c.Uint64(flags.MetricsHTTPPort.Name))
 
-	return e.Start(fmt.Sprintf(":%v", c.Uint64(flags.MetricsHTTPPort.Name)))
+	return e, func() error { return e.Start(fmt.Sprintf(":%v", c.Uint64(flags.MetricsHTTPPort.Name))) }
 }

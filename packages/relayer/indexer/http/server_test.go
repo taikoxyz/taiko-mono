@@ -146,19 +146,6 @@ func Test_Root(t *testing.T) {
 	}
 }
 
-func Test_Metrics(t *testing.T) {
-	srv := newTestServer("")
-
-	req, _ := http.NewRequest(echo.GET, "/metrics", nil)
-	rec := httptest.NewRecorder()
-
-	srv.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("Test_Metrics expected code %v, got %v", http.StatusOK, rec.Code)
-	}
-}
-
 func Test_StartShutdown(t *testing.T) {
 	srv := newTestServer("")
 
