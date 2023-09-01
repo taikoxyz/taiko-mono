@@ -268,6 +268,16 @@ contract ERC20Vault is
         return interfaceId == type(IRecallableMessageSender).interfaceId;
     }
 
+    /// @dev Encodes sending bridged or canonical ERC20 tokens to the user.
+    /// @param user The user's address.
+    /// @param token The token address.
+    /// @param to To address.
+    /// @param amount Amount to be sent.
+    /// @return msgData Encoded message data.
+    /// @return _amount Token amount left in the contract. (Todo Daniel: why we
+    /// calcualte the left amount ? Why is it necessary ? It seems ambigous that
+    /// in one case we just return the amount while in other case we calculate
+    /// the left tokens.)
     function _encodeDestinationCall(
         address user,
         address token,
@@ -315,6 +325,9 @@ contract ERC20Vault is
         );
     }
 
+    /// @dev Retrieve or deploy a bridged ERC20 token contract.
+    /// @param ctoken CanonicalERC20 data.
+    /// @return btoken Address of the bridged token contract.
     function _getOrDeployBridgedToken(CanonicalERC20 calldata ctoken)
         private
         returns (address btoken)
@@ -326,17 +339,20 @@ contract ERC20Vault is
         }
     }
 
+    /// @dev Deploy a new BridgedERC20 contract and initialize it.
+    /// This must be called before the first time a bridged token is sent to
+    /// this chain.
+    /// @param ctoken CanonicalERC20 data.
+    /// @return btoken Address of the deployed bridged token contract.
     function _deployBridgedToken(CanonicalERC20 calldata ctoken)
         private
         returns (address btoken)
     {
+        bytes32 salt = keccak256(abi.encode(ctoken));
+
         address bridgedToken = Create2Upgradeable.deploy({
             amount: 0, // amount of Ether to send
-            salt: keccak256(
-                bytes.concat(
-                    bytes32(ctoken.chainId), bytes32(uint256(uint160(ctoken.addr)))
-                )
-                ),
+            salt: salt,
             bytecode: type(ProxiedBridgedERC20).creationCode
         });
 
