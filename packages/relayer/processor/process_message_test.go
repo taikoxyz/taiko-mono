@@ -127,7 +127,7 @@ func Test_ProcessMessage_noChainId(t *testing.T) {
 	}
 
 	err = p.processMessage(context.Background(), msg)
-	assert.EqualError(t, err, "p.sendProcessMessageCall: bind.NewKeyedTransactorWithChainID: no chain id specified")
+	assert.EqualError(t, err, "bind.NewKeyedTransactorWithChainID: no chain id specified")
 }
 
 func Test_ProcessMessage(t *testing.T) {
