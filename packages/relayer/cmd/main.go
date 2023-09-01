@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -15,6 +16,7 @@ import (
 func main() {
 	app := cli.NewApp()
 
+	log.SetOutput(os.Stdout)
 	// attempt to load a .env file to overwrite CLI flags, but allow it to not
 	// exist.
 	_ = godotenv.Load(".env")
