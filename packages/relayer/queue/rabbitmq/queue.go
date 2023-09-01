@@ -14,10 +14,25 @@ type RabbitMQ struct {
 	conn  *amqp.Connection
 	ch    *amqp.Channel
 	queue amqp.Queue
+	opts  NewQueueOpts
 }
 
 func NewQueue(opts queue.NewQueueOpts) (*RabbitMQ, error) {
 	slog.Info("dialing rabbitmq connection")
+
+	conn, ch, err := connect(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return &RabbitMQ{
+		conn: conn,
+		ch:   ch,
+		opts: opts,
+	}, nil
+}
+
+func connect(opts queue.NewQueueOpts) (*amqp.Connection, *amqp.Channel, error) {
 
 	conn, err := amqp.Dial(
 		fmt.Sprintf(
@@ -28,18 +43,15 @@ func NewQueue(opts queue.NewQueueOpts) (*RabbitMQ, error) {
 			opts.Port,
 		))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	ch, err := conn.Channel()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return &RabbitMQ{
-		conn: conn,
-		ch:   ch,
-	}, nil
+	return conn, ch, nil
 }
 
 func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
@@ -80,6 +92,15 @@ func (r *RabbitMQ) Publish(ctx context.Context, msg []byte) error {
 			Body:        msg,
 		})
 	if err != nil {
+		if err == amqp.ErrClosed {
+			conn, ch, err := connect(r.opts)
+			if err != nil {
+				return err
+			}
+
+			r.conn = conn
+			r.ch = ch
+		}
 		return err
 	}
 
