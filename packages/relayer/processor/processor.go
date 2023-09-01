@@ -185,11 +185,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		return err
 	}
 
-	srcChainId, err := srcEthClient.ChainID(context.Background())
-	if err != nil {
-		return err
-	}
-
 	publicKey := cfg.ProcessorPrivateKey.Public()
 
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
@@ -231,8 +226,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.wg = &sync.WaitGroup{}
 	p.mu = &sync.Mutex{}
 	p.rpc = srcRpcClient
-
-	p.srcChainId = srcChainId
 
 	p.backOffRetryInterval = time.Duration(cfg.BackoffRetryInterval) * time.Second
 	p.backOffMaxRetries = cfg.BackOffMaxRetrys
