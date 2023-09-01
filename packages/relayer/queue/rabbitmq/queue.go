@@ -128,11 +128,13 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 			case <-ctx.Done():
 				return
 			case d := <-msgs:
-				slog.Info("rabbitmq message found", "msgId", d.MessageId)
-				{
-					msgChan <- queue.Message{
-						Body:     d.Body,
-						Internal: d,
+				if d.Body != nil {
+					slog.Info("rabbitmq message found", "msgId", d.MessageId)
+					{
+						msgChan <- queue.Message{
+							Body:     d.Body,
+							Internal: d,
+						}
 					}
 				}
 			}
