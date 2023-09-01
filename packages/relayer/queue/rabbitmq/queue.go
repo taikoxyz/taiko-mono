@@ -136,6 +136,10 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 							Internal: d,
 						}
 					}
+				} else {
+					if err := d.Ack(false); err != nil {
+						slog.Error("error acking nil body delivery", "err", err.Error())
+					}
 				}
 			}
 		}
