@@ -9,7 +9,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
-func scanBlocks(ctx context.Context, ethClient ethClient, chainID *big.Int, wg *sync.WaitGroup) {
+func scanBlocks(ctx context.Context, ethClient ethClient, chainID *big.Int, wg *sync.WaitGroup) error {
 	wg.Add(1)
 
 	defer func() {
@@ -20,19 +20,16 @@ func scanBlocks(ctx context.Context, ethClient ethClient, chainID *big.Int, wg *
 
 	sub, err := ethClient.SubscribeNewHead(ctx, headers)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	for {
 		select {
 		case <-ctx.Done():
-			return
-		case <-sub.Err():
+			return nil
+		case err := <-sub.Err():
 			relayer.BlocksScannedError.Inc()
-
-			scanBlocks(ctx, ethClient, chainID, wg)
-
-			return
+			return err
 		case <-headers:
 			relayer.BlocksScanned.Inc()
 		}

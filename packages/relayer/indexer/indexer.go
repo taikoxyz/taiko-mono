@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/cyberhorsey/errors"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -243,7 +244,13 @@ func (i *Indexer) Start() error {
 		}
 	}()
 
-	go scanBlocks(i.ctx, i.srcEthClient, i.srcChainId, i.wg)
+	go func() {
+		if err := backoff.Retry(func() error {
+			return scanBlocks(i.ctx, i.srcEthClient, i.srcChainId, i.wg)
+		}, backoff.NewConstantBackOff(5*time.Second)); err != nil {
+			slog.Error("scan blocks backoff retry", "error", err)
+		}
+	}()
 
 	return nil
 }
