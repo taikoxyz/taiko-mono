@@ -45,7 +45,8 @@
 </script>
 
 <dialog class="modal modal-bottom md:modal-middle" class:modal-open={$switchChainModal}>
-  <div class="modal-box relative px-6 py-[35px] md:py-[35px] bg-primary-base-background text-primary-base-content">
+  <div
+    class="modal-box relative px-6 py-[35px] md:py-[35px] bg-neutral-background text-primary-content box-shadow-small">
     {#if switchingNetwork}
       <LoadingMask
         class="bg-grey-0/60"
@@ -58,16 +59,16 @@
     </button>
     <h3 class="title-body-bold mb-[30px]">{$t('switch_modal.title')}</h3>
     <p class="body-regular mb-[20px]">{$t('switch_modal.description')}</p>
-    <ul role="menu" class="">
+    <ul role="menu" class=" w-full">
       {#each chains as chain (chain.id)}
         <li
           role="menuitem"
           tabindex="0"
-          class="p-4 rounded-[10px] hover:bg-grey-10 hover:cursor-pointer"
+          class="p-4 rounded-[10px] hover:bg-primary-background hover:cursor-pointer w-full"
           on:click={() => selectChain(chain)}
           on:keydown={getChainKeydownHandler(chain)}>
           <!-- TODO: agree on hover:bg color -->
-          <div class="f-row f-items-center justify-between">
+          <div class="f-row f-items-center justify-between w-full">
             <div class="f-items-center space-x-4">
               <i role="img" aria-label={chain.name}>
                 <svelte:component this={chainToIconMap[chain.id]} size={32} />

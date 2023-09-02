@@ -33,3 +33,21 @@ input[type='number'] {
   --tw-text-opacity: 1;
   @apply text-tertiary-content;
 }
+
+.title-body-bold {
+  color: var(--primary-content);
+  text-align: center;
+  font-family: Public Sans;
+  font-size: 26px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 32px;
+  letter-spacing: 0.39px;
+}
+
+.modal-box {
+  display: inline-flex;
+  padding: 25px 24px 45px 24px;
+  flex-direction: column;
+  align-items: center;
+}
