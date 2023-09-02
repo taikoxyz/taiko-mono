@@ -15,46 +15,80 @@ type RabbitMQ struct {
 	ch    *amqp.Channel
 	queue amqp.Queue
 	opts  queue.NewQueueOpts
+
+	connErrCh chan *amqp.Error
+
+	chErrCh chan *amqp.Error
+
+	notifyCtx context.Context
+	cancel    context.CancelFunc
 }
 
 func NewQueue(opts queue.NewQueueOpts) (*RabbitMQ, error) {
 	slog.Info("dialing rabbitmq connection")
 
-	conn, ch, err := connect(opts)
+	r := &RabbitMQ{
+		opts: opts,
+	}
+
+	err := r.connect()
 	if err != nil {
 		return nil, err
 	}
 
-	return &RabbitMQ{
-		conn: conn,
-		ch:   ch,
-		opts: opts,
-	}, nil
+	return r, nil
 }
 
-func connect(opts queue.NewQueueOpts) (*amqp.Connection, *amqp.Channel, error) {
+func (r *RabbitMQ) connect() error {
 	slog.Info("connecting to rabbitmq")
+
+	if r.cancel != nil {
+		r.cancel()
+	}
+
+	r.notifyCtx, r.cancel = context.WithCancel(context.Background())
 
 	conn, err := amqp.Dial(
 		fmt.Sprintf(
 			"amqp://%v:%v@%v:%v/",
-			opts.Username,
-			opts.Password,
-			opts.Host,
-			opts.Port,
+			r.opts.Username,
+			r.opts.Password,
+			r.opts.Host,
+			r.opts.Port,
 		))
 	if err != nil {
-		return nil, nil, err
+		return err
 	}
 
 	ch, err := conn.Channel()
 	if err != nil {
-		return nil, nil, err
+		return err
 	}
+
+	r.conn = conn
+	r.ch = ch
+
+	r.connErrCh = r.conn.NotifyClose(make(chan *amqp.Error))
+
+	r.chErrCh = r.ch.NotifyClose(make(chan *amqp.Error))
+
+	go func() {
+		for {
+			select {
+			case <-r.notifyCtx.Done():
+				slog.Info("notifyCtx cancelled")
+				return
+			case err := <-r.connErrCh:
+				slog.Error("rabbitmq notify close connection", "err", err.Error())
+			case err := <-r.chErrCh:
+				slog.Error("rabbitmq notify close channel", "err", err.Error())
+			}
+		}
+	}()
 
 	slog.Info("connected to rabbitmq")
 
-	return conn, ch, nil
+	return nil
 }
 
 func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
@@ -78,6 +112,10 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 }
 
 func (r *RabbitMQ) Close(ctx context.Context) {
+	if r.cancel != nil {
+		r.cancel()
+	}
+
 	if err := r.ch.Close(); err != nil {
 		if err != amqp.ErrClosed {
 			slog.Info("error closing rabbitmq connection", "err", err.Error())
