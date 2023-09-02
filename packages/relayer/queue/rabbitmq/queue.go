@@ -149,13 +149,10 @@ func (r *RabbitMQ) Publish(ctx context.Context, msg []byte) error {
 		if err == amqp.ErrClosed {
 			slog.Error("amqp channel closed", "err", err.Error())
 
-			conn, ch, err := connect(r.opts)
+			err := r.connect()
 			if err != nil {
 				return err
 			}
-
-			r.conn = conn
-			r.ch = ch
 
 			return r.Publish(ctx, msg)
 		} else {
@@ -178,13 +175,10 @@ func (r *RabbitMQ) Ack(ctx context.Context, msg queue.Message) error {
 
 			r.Close(ctx)
 
-			conn, ch, err := connect(r.opts)
+			err := r.connect()
 			if err != nil {
 				return err
 			}
-
-			r.conn = conn
-			r.ch = ch
 
 			return r.Ack(ctx, msg)
 		} else {
@@ -205,13 +199,10 @@ func (r *RabbitMQ) Nack(ctx context.Context, msg queue.Message) error {
 		if err == amqp.ErrClosed {
 			slog.Error("amqp channel closed", "err", err.Error())
 
-			conn, ch, err := connect(r.opts)
+			err := r.connect()
 			if err != nil {
 				return err
 			}
-
-			r.conn = conn
-			r.ch = ch
 
 			return r.Nack(ctx, msg)
 		} else {
