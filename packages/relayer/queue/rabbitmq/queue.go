@@ -34,6 +34,7 @@ func NewQueue(opts queue.NewQueueOpts) (*RabbitMQ, error) {
 
 func connect(opts queue.NewQueueOpts) (*amqp.Connection, *amqp.Channel, error) {
 	slog.Info("connecting to rabbitmq")
+
 	conn, err := amqp.Dial(
 		fmt.Sprintf(
 			"amqp://%v:%v@%v:%v/",
@@ -90,7 +91,8 @@ func (r *RabbitMQ) Close(ctx context.Context) {
 			slog.Info("error closing rabbitmq connection", "err", err.Error())
 		}
 	}
-	slog.Info("closed rabbitmq connection"
+
+	slog.Info("closed rabbitmq connection")
 }
 
 func (r *RabbitMQ) Publish(ctx context.Context, msg []byte) error {
@@ -108,6 +110,7 @@ func (r *RabbitMQ) Publish(ctx context.Context, msg []byte) error {
 	if err != nil {
 		if err == amqp.ErrClosed {
 			slog.Error("amqp channel closed", "err", err.Error())
+
 			conn, ch, err := connect(r.opts)
 			if err != nil {
 				return err
@@ -134,7 +137,9 @@ func (r *RabbitMQ) Ack(ctx context.Context, msg queue.Message) error {
 	if err != nil {
 		if err == amqp.ErrClosed {
 			slog.Error("amqp channel closed", "err", err.Error())
+
 			r.Close(ctx)
+
 			conn, ch, err := connect(r.opts)
 			if err != nil {
 				return err
@@ -148,6 +153,8 @@ func (r *RabbitMQ) Ack(ctx context.Context, msg queue.Message) error {
 			return err
 		}
 	}
+
+	return nil
 }
 
 func (r *RabbitMQ) Nack(ctx context.Context, msg queue.Message) error {
@@ -159,6 +166,7 @@ func (r *RabbitMQ) Nack(ctx context.Context, msg queue.Message) error {
 	if err != nil {
 		if err == amqp.ErrClosed {
 			slog.Error("amqp channel closed", "err", err.Error())
+
 			conn, ch, err := connect(r.opts)
 			if err != nil {
 				return err
@@ -172,6 +180,8 @@ func (r *RabbitMQ) Nack(ctx context.Context, msg queue.Message) error {
 			return err
 		}
 	}
+
+	return nil
 }
 
 func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, wg *sync.WaitGroup) error {
@@ -199,7 +209,7 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 	for {
 		select {
 		case <-ctx.Done():
-			defer r.Close(ctx)
+			r.Close(ctx)
 			return nil
 
 		case d := <-msgs:
