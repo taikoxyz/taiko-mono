@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -255,9 +256,11 @@ func (p *Processor) Start() error {
 
 	p.wg.Add(1)
 
-	if err := p.queue.Subscribe(ctx, p.msgCh, p.wg); err != nil {
-		return err
-	}
+	go func() {
+		backoff.Retry(func() error {
+			return p.queue.Subscribe(ctx, p.msgCh, p.wg)
+		}, backoff.NewConstantBackOff(1*time.Second))
+	}()
 
 	p.wg.Add(1)
 	go p.eventLoop(ctx)

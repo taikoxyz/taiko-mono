@@ -2,9 +2,14 @@ package queue
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
+)
+
+var (
+	ErrClosed = errors.New("queue connection closed")
 )
 
 type Queue interface {
