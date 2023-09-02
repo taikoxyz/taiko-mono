@@ -274,10 +274,9 @@ contract ERC20Vault is
     /// @param to To address.
     /// @param amount Amount to be sent.
     /// @return msgData Encoded message data.
-    /// @return _amount Token amount left in the contract. (Todo Daniel: why we
-    /// calcualte the left amount ? Why is it necessary ? It seems ambigous that
-    /// in one case we just return the amount while in other case we calculate
-    /// the left tokens.)
+    /// @return _balanceChange User token balance actual change after the token
+    /// transfer. This value is calculated so we do not assume token balance
+    /// change is the amount of token transfered away.
     function _encodeDestinationCall(
         address user,
         address token,
@@ -285,7 +284,7 @@ contract ERC20Vault is
         uint256 amount
     )
         private
-        returns (bytes memory msgData, uint256 _amount)
+        returns (bytes memory msgData, uint256 _balanceChange)
     {
         CanonicalERC20 memory ctoken;
 
@@ -294,7 +293,7 @@ contract ERC20Vault is
             ctoken = bridgedToCanonical[token];
             assert(ctoken.addr != address(0));
             IMintableERC20(token).burn(msg.sender, amount);
-            _amount = amount;
+            _balanceChange = amount;
         } else {
             // If it's a canonical token
             ERC20Upgradeable t = ERC20Upgradeable(token);
@@ -308,7 +307,7 @@ contract ERC20Vault is
 
             if (token == resolve("taiko_token", true)) {
                 IMintableERC20(token).burn(msg.sender, amount);
-                _amount = amount;
+                _balanceChange = amount;
             } else {
                 uint256 _balance = t.balanceOf(address(this));
                 t.transferFrom({
@@ -316,12 +315,12 @@ contract ERC20Vault is
                     to: address(this),
                     amount: amount
                 });
-                _amount = t.balanceOf(address(this)) - _balance;
+                _balanceChange = t.balanceOf(address(this)) - _balance;
             }
         }
 
         msgData = abi.encodeWithSelector(
-            ERC20Vault.receiveToken.selector, ctoken, user, to, _amount
+            ERC20Vault.receiveToken.selector, ctoken, user, to, _balanceChange
         );
     }
 
