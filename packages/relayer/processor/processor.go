@@ -257,9 +257,11 @@ func (p *Processor) Start() error {
 	p.wg.Add(1)
 
 	go func() {
-		backoff.Retry(func() error {
+		if err := backoff.Retry(func() error {
 			return p.queue.Subscribe(ctx, p.msgCh, p.wg)
-		}, backoff.NewConstantBackOff(1*time.Second))
+		}, backoff.NewConstantBackOff(1*time.Second)); err != nil {
+			slog.Error("rabbitmq subscribe backoff retry error", "err", err.Error())
+		}
 	}()
 
 	p.wg.Add(1)
