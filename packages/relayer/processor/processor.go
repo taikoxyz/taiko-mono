@@ -254,8 +254,6 @@ func (p *Processor) Start() error {
 		return err
 	}
 
-	p.wg.Add(1)
-
 	go func() {
 		if err := backoff.Retry(func() error {
 			return p.queue.Subscribe(ctx, p.msgCh, p.wg)

@@ -19,9 +19,6 @@ type RabbitMQ struct {
 	connErrCh chan *amqp.Error
 
 	chErrCh chan *amqp.Error
-
-	notifyCtx context.Context
-	cancel    context.CancelFunc
 }
 
 func NewQueue(opts queue.NewQueueOpts) (*RabbitMQ, error) {
@@ -41,12 +38,6 @@ func NewQueue(opts queue.NewQueueOpts) (*RabbitMQ, error) {
 
 func (r *RabbitMQ) connect() error {
 	slog.Info("connecting to rabbitmq")
-
-	if r.cancel != nil {
-		r.cancel()
-	}
-
-	r.notifyCtx, r.cancel = context.WithCancel(context.Background())
 
 	conn, err := amqp.Dial(
 		fmt.Sprintf(
@@ -71,20 +62,6 @@ func (r *RabbitMQ) connect() error {
 	r.connErrCh = r.conn.NotifyClose(make(chan *amqp.Error))
 
 	r.chErrCh = r.ch.NotifyClose(make(chan *amqp.Error))
-
-	go func() {
-		for {
-			select {
-			case <-r.notifyCtx.Done():
-				slog.Info("notifyCtx cancelled")
-				return
-			case err := <-r.connErrCh:
-				slog.Error("rabbitmq notify close connection", "err", err.Error())
-			case err := <-r.chErrCh:
-				slog.Error("rabbitmq notify close channel", "err", err.Error())
-			}
-		}
-	}()
 
 	slog.Info("connected to rabbitmq")
 
@@ -112,10 +89,6 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 }
 
 func (r *RabbitMQ) Close(ctx context.Context) {
-	if r.cancel != nil {
-		r.cancel()
-	}
-
 	if err := r.ch.Close(); err != nil {
 		if err != amqp.ErrClosed {
 			slog.Info("error closing rabbitmq connection", "err", err.Error())
@@ -214,6 +187,8 @@ func (r *RabbitMQ) Nack(ctx context.Context, msg queue.Message) error {
 }
 
 func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, wg *sync.WaitGroup) error {
+	wg.Add(1)
+
 	defer func() {
 		wg.Done()
 	}()
@@ -231,16 +206,26 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 	)
 
 	if err != nil {
-		return err
+		if err == amqp.ErrClosed {
+			if err := r.connect(); err != nil {
+				slog.Error("error reconnecting to channel during subscribe", "err", err.Error())
+			}
+		} else {
+			return err
+		}
 	}
 
-	// wrap internal msg chan with a generic queue
 	for {
 		select {
 		case <-ctx.Done():
 			r.Close(ctx)
 			return nil
-
+		case err := <-r.connErrCh:
+			slog.Error("rabbitmq notify close connection", "err", err.Error())
+			return queue.ErrClosed
+		case err := <-r.chErrCh:
+			slog.Error("rabbitmq notify close channel", "err", err.Error())
+			return queue.ErrClosed
 		case d := <-msgs:
 			if d.Body != nil {
 				slog.Info("rabbitmq message found", "msgId", d.MessageId)
