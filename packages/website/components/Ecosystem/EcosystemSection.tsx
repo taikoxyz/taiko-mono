@@ -358,6 +358,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/zeroswap.png",
+    name: "ZeroSwap",
+    link: "https://testdrive.zeroswap.io/",
+    description:
+      "Build, Launch and Swap, with No Fee and Gas-Less Transactions.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/zkpool.png",
     name: "ZKPool",
     link: "https://zkpool.io",

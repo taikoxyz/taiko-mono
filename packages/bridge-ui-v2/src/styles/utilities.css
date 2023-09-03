@@ -49,4 +49,12 @@
   .f-col {
     @apply flex flex-col;
   }
+
+  .box-shadow-small {
+    box-shadow: 0px 10px 48px 0px rgba(5, 9, 18, 0.3);
+  }
+
+  .box-shadow-large {
+    box-shadow: 0px 20px 66px 0px rgba(5, 9, 18, 0.48);
+  }
 }
