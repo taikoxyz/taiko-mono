@@ -166,7 +166,6 @@ abstract contract TaikoL1TestBase is TestBase {
         bytes32 instance = LibProving.getInstance(evidence);
         uint16 verifierId = 100;
 
-        // TODO(daniel & yue): we need to fix here
         evidence.proofs = bytes.concat(
             bytes2(verifierId),
             bytes16(0),
