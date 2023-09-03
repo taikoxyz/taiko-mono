@@ -294,7 +294,7 @@ func (p *Processor) eventLoop(ctx context.Context) {
 					// if errUnprocessable, we can Ack it to remove it from
 					// beign re-added, message should never become processable.
 					if err := p.queue.Ack(ctx, msg); err != nil {
-						slog.Error("Err nacking message", "err", err.Error())
+						slog.Error("Err acking message", "err", err.Error())
 					}
 				}
 			}

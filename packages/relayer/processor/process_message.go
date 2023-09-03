@@ -193,7 +193,7 @@ func (p *Processor) processMessage(
 
 	// update message status
 	if err := p.eventRepo.UpdateStatus(ctx, msgBody.ID, relayer.EventStatus(messageStatus)); err != nil {
-		return errors.Wrap(err, "s.eventRepo.UpdateStatus")
+		return errors.Wrap(err, fmt.Sprintf("p.eventRepo.UpdateStatus, id: %v", msgBody.ID))
 	}
 
 	if err := p.queue.Ack(ctx, msg); err != nil {
