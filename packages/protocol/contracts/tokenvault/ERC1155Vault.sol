@@ -261,6 +261,10 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             || super.supportsInterface(interfaceId);
     }
 
+    /// @dev Encodes sending bridged or canonical ERC1155 tokens to the user.
+    /// @param user The user's address.
+    /// @param opt BridgeTransferOp data.
+    /// @return msgData Encoded message data.
     function _encodeDestinationCall(
         address user,
         BridgeTransferOp memory opt
@@ -314,7 +318,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         );
     }
 
-    /// @dev Returns the contract address per given canonical token.
+    /// @dev Retrieve or deploy a bridged ERC1155 token contract.
+    /// @param ctoken CanonicalNFT data.
+    /// @return btoken Address of the bridged token contract.
     function _getOrDeployBridgedToken(CanonicalNFT memory ctoken)
         private
         returns (address btoken)
@@ -325,18 +331,26 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         }
     }
 
-    /// @dev Deploys a new BridgedNFT contract and initializes it. This must be
-    /// called before the first time a btoken is sent to this chain.
+    /// @dev Deploy a new BridgedNFT contract and initialize it.
+    /// This must be called before the first time a bridged token is sent to
+    /// this chain.
+    /// @param ctoken CanonicalNFT data.
+    /// @return btoken Address of the deployed bridged token contract.
     function _deployBridgedToken(CanonicalNFT memory ctoken)
         private
         returns (address btoken)
     {
-        ProxiedBridgedERC1155 bridgedToken = new ProxiedBridgedERC1155();
+        address bridgedToken = Create2Upgradeable.deploy({
+            amount: 0, // amount of Ether to send
+            salt: keccak256(abi.encode(ctoken)),
+            bytecode: type(ProxiedBridgedERC1155).creationCode
+        });
+
         btoken = LibVaultUtils.deployProxy(
             address(bridgedToken),
             owner(),
             bytes.concat(
-                bridgedToken.init.selector,
+                ProxiedBridgedERC1155(bridgedToken).init.selector,
                 abi.encode(
                     address(_addressManager),
                     ctoken.addr,
