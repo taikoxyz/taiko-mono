@@ -136,7 +136,7 @@ func (r *RabbitMQ) Publish(ctx context.Context, msg []byte) error {
 		})
 	if err != nil {
 		if err == amqp.ErrClosed {
-			slog.Info("amqp channel closed", "err", err.Error())
+			slog.Error("amqp channel closed", "err", err.Error())
 
 			err := r.connect()
 			if err != nil {
@@ -158,21 +158,24 @@ func (r *RabbitMQ) Ack(ctx context.Context, msg queue.Message) error {
 	slog.Info("acknowledging rabbitmq message", "msgId", rmqMsg.MessageId)
 
 	err := rmqMsg.Ack(false)
+
+	slog.Info("attempted acknowledge rabbitmq message", "err", err.Error())
+
 	if err != nil {
 		if err == amqp.ErrClosed {
-			slog.Info("amqp channel closed", "err", err.Error())
+			slog.Error("amqp channel closed", "err", err.Error())
 
 			r.Close(ctx)
 
 			err := r.connect()
 			if err != nil {
-				slog.Info("error reconnecting to rabbitmq", "err", err.Error())
+				slog.Error("error reconnecting to rabbitmq", "err", err.Error())
 				return err
 			}
 
 			return err
 		} else {
-			slog.Info("error acknowledging rabbitmq message", "err", err.Error())
+			slog.Error("error acknowledging rabbitmq message", "err", err.Error())
 			return err
 		}
 	}
@@ -190,19 +193,19 @@ func (r *RabbitMQ) Nack(ctx context.Context, msg queue.Message) error {
 	err := rmqMsg.Nack(false, false)
 	if err != nil {
 		if err == amqp.ErrClosed {
-			slog.Info("amqp channel closed", "err", err.Error())
+			slog.Error("amqp channel closed", "err", err.Error())
 
 			r.Close(ctx)
 
 			err := r.connect()
 			if err != nil {
-				slog.Info("error reconnecting to rabbitmq", "err", err.Error())
+				slog.Error("error reconnecting to rabbitmq", "err", err.Error())
 				return err
 			}
 
 			return err
 		} else {
-			slog.Info("error negatively acknowledging rabbitmq message", "err", err.Error())
+			slog.Error("error negatively acknowledging rabbitmq message", "err", err.Error())
 			return err
 		}
 	}
@@ -229,17 +232,17 @@ func (r *RabbitMQ) Notify(ctx context.Context, wg *sync.WaitGroup) error {
 
 			return nil
 		case err := <-r.connErrCh:
-			slog.Info("rabbitmq notify close connection", "err", err.Error())
+			slog.Error("rabbitmq notify close connection", "err", err.Error())
 			return queue.ErrClosed
 		case err := <-r.chErrCh:
-			slog.Info("rabbitmq notify close channel", "err", err.Error())
+			slog.Error("rabbitmq notify close channel", "err", err.Error())
 			return queue.ErrClosed
 		case returnMsg := <-r.notifyReturnCh:
-			slog.Info("rabbitmq notify return", "id", returnMsg.MessageId, "err", returnMsg.ReplyText)
+			slog.Error("rabbitmq notify return", "id", returnMsg.MessageId, "err", returnMsg.ReplyText)
 			slog.Info("rabbitmq attempting republish of returned msg", "id", returnMsg.MessageId)
 
 			if err := r.Publish(ctx, returnMsg.Body); err != nil {
-				slog.Info("error publishing msg", "err", err.Error())
+				slog.Error("error publishing msg", "err", err.Error())
 			}
 		}
 	}
@@ -274,7 +277,7 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 			slog.Info("cant subscribe to rabbitmq, channel closed. attempting reconnection")
 
 			if err := r.connect(); err != nil {
-				slog.Info("error reconnecting to channel during subscribe", "err", err.Error())
+				slog.Error("error reconnecting to channel during subscribe", "err", err.Error())
 				return err
 			}
 
@@ -309,10 +312,10 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 
 			return nil
 		case err := <-r.connErrCh:
-			slog.Info("rabbitmq notify close connection", "err", err.Error())
+			slog.Error("rabbitmq notify close connection", "err", err.Error())
 			return queue.ErrClosed
 		case err := <-r.chErrCh:
-			slog.Info("rabbitmq notify close channel", "err", err.Error())
+			slog.Error("rabbitmq notify close channel", "err", err.Error())
 			return queue.ErrClosed
 		case d := <-msgs:
 			lastDelivery = time.Now()
