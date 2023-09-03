@@ -317,7 +317,11 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 		case err := <-r.chErrCh:
 			slog.Error("rabbitmq notify close channel", "err", err.Error())
 			return queue.ErrClosed
-		case d := <-msgs:
+		case d, ok := <-msgs:
+			if !ok {
+				return queue.ErrClosed
+			}
+
 			lastDelivery = time.Now()
 
 			if d.Body != nil {
