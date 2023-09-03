@@ -42,14 +42,16 @@ func NewQueue(opts queue.NewQueueOpts) (*RabbitMQ, error) {
 func (r *RabbitMQ) connect() error {
 	slog.Info("connecting to rabbitmq")
 
-	conn, err := amqp.Dial(
+	conn, err := amqp.DialConfig(
 		fmt.Sprintf(
 			"amqp://%v:%v@%v:%v/",
 			r.opts.Username,
 			r.opts.Password,
 			r.opts.Host,
 			r.opts.Port,
-		))
+		), amqp.Config{
+			Heartbeat: 1 * time.Second,
+		})
 	if err != nil {
 		return err
 	}
@@ -76,7 +78,7 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 
 	q, err := r.ch.QueueDeclare(
 		queueName,
-		false,
+		true,
 		false,
 		false,
 		false,
@@ -311,7 +313,7 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 			// inspect queue, check messages every tick.
 			q, err := r.ch.QueueDeclarePassive(
 				r.queue.Name,
-				false,
+				true,
 				false,
 				false,
 				false,
