@@ -285,6 +285,21 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 				return queue.ErrClosed
 			}
 		case <-t.C:
+			// inspect queue, check messages every tick.
+			q, err := r.ch.QueueDeclarePassive(
+				r.queue.Name,
+				false,
+				false,
+				false,
+				false,
+				nil,
+			)
+			if err != nil {
+				return err
+			}
+
+			slog.Info("rabbitmq queue info", "name", q.Name, "msgs", q.Messages)
+
 			if time.Since(lastDelivery) > (5 * time.Minute) {
 				// we havent had a delivery for 5 message. sometimes, rabbitmq queues
 				// can falter and the connection doesnt notify its closed. lets return an error

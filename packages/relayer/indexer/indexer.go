@@ -253,7 +253,11 @@ func (i *Indexer) Start() error {
 	}()
 
 	go func() {
-		i.queue.Notify(i.ctx, i.wg)
+		if err := backoff.Retry(func() error {
+			return i.queue.Notify(i.ctx, i.wg)
+		}, backoff.NewConstantBackOff(5*time.Second)); err != nil {
+			slog.Error("queue notify backoff retry", "error", err)
+		}
 	}()
 
 	return nil
