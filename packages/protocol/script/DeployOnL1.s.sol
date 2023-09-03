@@ -216,7 +216,7 @@ contract DeployOnL1 is Script {
         cmds[1] = "-c";
         cmds[2] = string.concat(
             vm.projectRoot(),
-            "/bin/solc --yul --bin ",
+            "/bin/solc --yul --bin ", //Ensure solc exists in ./protocol/bin by running pnpm install:solc
             string.concat(vm.projectRoot(), "/", contractPath),
             " | grep -A1 Binary | tail -1"
         );
