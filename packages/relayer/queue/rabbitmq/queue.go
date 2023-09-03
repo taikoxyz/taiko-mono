@@ -23,6 +23,9 @@ type RabbitMQ struct {
 	chErrCh chan *amqp.Error
 
 	notifyReturnCh chan amqp.Return
+
+	subscriptionCtx    context.Context
+	subscriptionCancel context.CancelFunc
 }
 
 func NewQueue(opts queue.NewQueueOpts) (*RabbitMQ, error) {
@@ -42,6 +45,10 @@ func NewQueue(opts queue.NewQueueOpts) (*RabbitMQ, error) {
 
 func (r *RabbitMQ) connect() error {
 	slog.Info("connecting to rabbitmq")
+
+	if r.subscriptionCancel != nil {
+		r.subscriptionCancel()
+	}
 
 	conn, err := amqp.DialConfig(
 		fmt.Sprintf(
@@ -68,6 +75,8 @@ func (r *RabbitMQ) connect() error {
 	r.connErrCh = r.conn.NotifyClose(make(chan *amqp.Error))
 
 	r.chErrCh = r.ch.NotifyClose(make(chan *amqp.Error))
+
+	r.subscriptionCtx, r.subscriptionCancel = context.WithCancel(context.Background())
 
 	slog.Info("connected to rabbitmq")
 
@@ -157,11 +166,13 @@ func (r *RabbitMQ) Ack(ctx context.Context, msg queue.Message) error {
 
 			err := r.connect()
 			if err != nil {
+				slog.Error("error reconnecting to rabbitmq", "err", err.Error())
 				return err
 			}
 
 			return r.Ack(ctx, msg)
 		} else {
+			slog.Error("error acknowledging rabbitmq message", "err", err.Error())
 			return err
 		}
 	}
@@ -181,13 +192,17 @@ func (r *RabbitMQ) Nack(ctx context.Context, msg queue.Message) error {
 		if err == amqp.ErrClosed {
 			slog.Error("amqp channel closed", "err", err.Error())
 
+			r.Close(ctx)
+
 			err := r.connect()
 			if err != nil {
+				slog.Error("error reconnecting to rabbitmq", "err", err.Error())
 				return err
 			}
 
 			return r.Nack(ctx, msg)
 		} else {
+			slog.Error("error negatively acknowledging rabbitmq message", "err", err.Error())
 			return err
 		}
 	}
@@ -286,8 +301,11 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 
 	for {
 		select {
+		case <-r.subscriptionCtx.Done():
+			slog.Info("rabbitmq subscription ctx cancelled")
+			return queue.ErrClosed
 		case <-ctx.Done():
-			slog.Info("rabbitmq context closed")
+			slog.Info("rabbitmq context cancelled")
 
 			return nil
 		case err := <-r.connErrCh:
@@ -312,6 +330,7 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 				return queue.ErrClosed
 			}
 		case <-t.C:
+			slog.Info("rabbitmq queue subscribe ticker")
 			// inspect queue, check messages every tick.
 			q, err := r.ch.QueueDeclarePassive(
 				r.queue.Name,

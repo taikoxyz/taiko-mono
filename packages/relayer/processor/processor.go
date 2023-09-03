@@ -256,7 +256,12 @@ func (p *Processor) Start() error {
 	go func() {
 		if err := backoff.Retry(func() error {
 			slog.Info("attempting backoff queue subscription")
-			return p.queue.Subscribe(ctx, p.msgCh, p.wg)
+			if err := p.queue.Subscribe(ctx, p.msgCh, p.wg); err != nil {
+				slog.Info("processor queue subscription error", "err", err.Error())
+				return err
+			}
+
+			return nil
 		}, backoff.NewConstantBackOff(1*time.Second)); err != nil {
 			slog.Error("rabbitmq subscribe backoff retry error", "err", err.Error())
 		}
