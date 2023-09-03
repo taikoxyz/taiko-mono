@@ -170,7 +170,7 @@ func (r *RabbitMQ) Ack(ctx context.Context, msg queue.Message) error {
 				return err
 			}
 
-			return r.Ack(ctx, msg)
+			return err
 		} else {
 			slog.Error("error acknowledging rabbitmq message", "err", err.Error())
 			return err
@@ -200,7 +200,7 @@ func (r *RabbitMQ) Nack(ctx context.Context, msg queue.Message) error {
 				return err
 			}
 
-			return r.Nack(ctx, msg)
+			return err
 		} else {
 			slog.Error("error negatively acknowledging rabbitmq message", "err", err.Error())
 			return err
