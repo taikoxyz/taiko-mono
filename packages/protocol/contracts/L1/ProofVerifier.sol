@@ -42,24 +42,23 @@ contract ProofVerifier is EssentialContract, IProofVerifier {
         if (instance == 0) return;
 
         // Validate the instance using bytes utilities.
-        // TODO(david & yue): we need to fix the code below
-        // if (
-        //     !LibBytesUtils.equal(
-        //         LibBytesUtils.slice(blockProofs, 2, 32),
-        //         bytes.concat(bytes16(0), bytes16(instance))
-        //     )
-        // ) {
-        //     revert L1_INVALID_PROOF();
-        // }
+        if (
+            !LibBytesUtils.equal(
+                LibBytesUtils.slice(blockProofs, 2, 32),
+                bytes.concat(bytes16(0), bytes16(instance))
+            )
+        ) {
+            revert L1_INVALID_PROOF();
+        }
 
-        // if (
-        //     !LibBytesUtils.equal(
-        //         LibBytesUtils.slice(blockProofs, 34, 32),
-        //         bytes.concat(bytes16(0), bytes16(uint128(uint256(instance))))
-        //     )
-        // ) {
-        //     revert L1_INVALID_PROOF();
-        // }
+        if (
+            !LibBytesUtils.equal(
+                LibBytesUtils.slice(blockProofs, 34, 32),
+                bytes.concat(bytes16(0), bytes16(uint128(uint256(instance))))
+            )
+        ) {
+            revert L1_INVALID_PROOF();
+        }
 
         // Extract verifier ID from the proof.
         uint16 verifierId = uint16(bytes2(blockProofs[0:2]));
