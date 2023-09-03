@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/queue"
 )
@@ -122,6 +123,7 @@ func (r *RabbitMQ) Publish(ctx context.Context, msg []byte) error {
 		amqp.Publishing{
 			ContentType: "text/plain",
 			Body:        msg,
+			MessageId:   uuid.New().String(),
 		})
 	if err != nil {
 		if err == amqp.ErrClosed {
