@@ -63,7 +63,7 @@
 
     <h3 class="title-body-bold mb-7">{$t('token_dropdown.label')}</h3>
 
-    <ul role="listbox" class="menu p-0 bg-neutral-background">
+    <ul role="listbox" class="menu p-0 bg-neutral-background box-shadow-small">
       {#each tokens as token (token.symbol)}
         {@const selected = token === value}
         <!-- svelte-ignore a11y-click-events-have-key-events -->

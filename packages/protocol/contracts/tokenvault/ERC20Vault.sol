@@ -268,6 +268,15 @@ contract ERC20Vault is
         return interfaceId == type(IRecallableMessageSender).interfaceId;
     }
 
+    /// @dev Encodes sending bridged or canonical ERC20 tokens to the user.
+    /// @param user The user's address.
+    /// @param token The token address.
+    /// @param to To address.
+    /// @param amount Amount to be sent.
+    /// @return msgData Encoded message data.
+    /// @return _balanceChange User token balance actual change after the token
+    /// transfer. This value is calculated so we do not assume token balance
+    /// change is the amount of token transfered away.
     function _encodeDestinationCall(
         address user,
         address token,
@@ -275,7 +284,7 @@ contract ERC20Vault is
         uint256 amount
     )
         private
-        returns (bytes memory msgData, uint256 _amount)
+        returns (bytes memory msgData, uint256 _balanceChange)
     {
         CanonicalERC20 memory ctoken;
 
@@ -284,7 +293,7 @@ contract ERC20Vault is
             ctoken = bridgedToCanonical[token];
             assert(ctoken.addr != address(0));
             IMintableERC20(token).burn(msg.sender, amount);
-            _amount = amount;
+            _balanceChange = amount;
         } else {
             // If it's a canonical token
             ERC20Upgradeable t = ERC20Upgradeable(token);
@@ -298,7 +307,7 @@ contract ERC20Vault is
 
             if (token == resolve("taiko_token", true)) {
                 IMintableERC20(token).burn(msg.sender, amount);
-                _amount = amount;
+                _balanceChange = amount;
             } else {
                 uint256 _balance = t.balanceOf(address(this));
                 t.transferFrom({
@@ -306,15 +315,18 @@ contract ERC20Vault is
                     to: address(this),
                     amount: amount
                 });
-                _amount = t.balanceOf(address(this)) - _balance;
+                _balanceChange = t.balanceOf(address(this)) - _balance;
             }
         }
 
         msgData = abi.encodeWithSelector(
-            ERC20Vault.receiveToken.selector, ctoken, user, to, _amount
+            ERC20Vault.receiveToken.selector, ctoken, user, to, _balanceChange
         );
     }
 
+    /// @dev Retrieve or deploy a bridged ERC20 token contract.
+    /// @param ctoken CanonicalERC20 data.
+    /// @return btoken Address of the bridged token contract.
     function _getOrDeployBridgedToken(CanonicalERC20 calldata ctoken)
         private
         returns (address btoken)
@@ -326,17 +338,26 @@ contract ERC20Vault is
         }
     }
 
+    /// @dev Deploy a new BridgedERC20 contract and initialize it.
+    /// This must be called before the first time a bridged token is sent to
+    /// this chain.
+    /// @param ctoken CanonicalERC20 data.
+    /// @return btoken Address of the deployed bridged token contract.
     function _deployBridgedToken(CanonicalERC20 calldata ctoken)
         private
         returns (address btoken)
     {
-        ProxiedBridgedERC20 bridgedToken = new ProxiedBridgedERC20();
+        address bridgedToken = Create2Upgradeable.deploy({
+            amount: 0, // amount of Ether to send
+            salt: keccak256(abi.encode(ctoken)),
+            bytecode: type(ProxiedBridgedERC20).creationCode
+        });
 
         btoken = LibVaultUtils.deployProxy(
             address(bridgedToken),
             owner(),
             bytes.concat(
-                bridgedToken.init.selector,
+                ProxiedBridgedERC20(bridgedToken).init.selector,
                 abi.encode(
                     address(_addressManager),
                     ctoken.addr,

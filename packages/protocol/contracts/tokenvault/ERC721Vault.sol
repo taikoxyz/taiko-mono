@@ -281,13 +281,17 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
         private
         returns (address btoken)
     {
-        ProxiedBridgedERC721 bridgedToken = new ProxiedBridgedERC721();
+        address bridgedToken = Create2Upgradeable.deploy({
+            amount: 0, // amount of Ether to send
+            salt: keccak256(abi.encode(ctoken)),
+            bytecode: type(ProxiedBridgedERC721).creationCode
+        });
 
         btoken = LibVaultUtils.deployProxy(
             address(bridgedToken),
             owner(),
             bytes.concat(
-                bridgedToken.init.selector,
+                ProxiedBridgedERC721(bridgedToken).init.selector,
                 abi.encode(
                     address(_addressManager),
                     ctoken.addr,
