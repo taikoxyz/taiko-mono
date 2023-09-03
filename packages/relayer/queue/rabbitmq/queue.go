@@ -159,7 +159,7 @@ func (r *RabbitMQ) Ack(ctx context.Context, msg queue.Message) error {
 
 	err := rmqMsg.Ack(false)
 
-	slog.Info("attempted acknowledge rabbitmq message", "err", err.Error())
+	slog.Info("attempted acknowledge rabbitmq message")
 
 	if err != nil {
 		if err == amqp.ErrClosed {
@@ -319,6 +319,7 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 			return queue.ErrClosed
 		case d, ok := <-msgs:
 			if !ok {
+				slog.Info("rabbitmq msg channel was closed")
 				return queue.ErrClosed
 			}
 
