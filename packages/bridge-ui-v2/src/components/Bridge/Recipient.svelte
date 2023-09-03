@@ -64,8 +64,8 @@
     <div class="flex space-x-2">
       <span class="body-small-bold text-primary-content">{$t('recipient.title')}</span>
       <Tooltip>
-        <div>{$t('recipient.tooltip_title')}</div>
-        <div>{$t('recipient.tooltip')}</div>
+        <h2>{$t('recipient.tooltip_title')}</h2>
+        {$t('recipient.tooltip')}
       </Tooltip>
     </div>
     <button class="link" on:click={openModal} on:focus={openModal}>{$t('common.edit')}</button>

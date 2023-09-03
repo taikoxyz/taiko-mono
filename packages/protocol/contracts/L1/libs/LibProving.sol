@@ -84,12 +84,15 @@ library LibProving {
         }
 
         TaikoData.Transition storage tz;
-        uint16 tid =
+        uint32 tid =
             LibUtils.getTransitionId(state, blk, blockId, evidence.parentHash);
 
         if (tid == 0) {
             tid = blk.nextTransitionId;
 
+            // Unchecked is safe:
+            // - Not realistic 2**32 different fork choice per block will be
+            // proven and none of them is valid
             unchecked {
                 ++blk.nextTransitionId;
             }
@@ -152,7 +155,7 @@ library LibProving {
             state.blocks[blockId % config.blockRingBufferSize];
         if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
 
-        uint16 tid = LibUtils.getTransitionId(state, blk, blockId, parentHash);
+        uint32 tid = LibUtils.getTransitionId(state, blk, blockId, parentHash);
         if (tid == 0) revert L1_TRANSITION_NOT_FOUND();
 
         tz = state.transitions[blockId][tid];
@@ -163,7 +166,19 @@ library LibProving {
         pure
         returns (bytes32 instance)
     {
-        if (evidence.prover == LibUtils.ORACLE_PROVER) return 0;
-        else return keccak256(abi.encode(evidence));
+        if (evidence.prover == LibUtils.ORACLE_PROVER) {
+            return 0;
+        } else {
+            return keccak256(
+                abi.encode(
+                    evidence.metaHash,
+                    evidence.parentHash,
+                    evidence.blockHash,
+                    evidence.signalRoot,
+                    evidence.graffiti,
+                    evidence.prover
+                )
+            );
+        }
     }
 }

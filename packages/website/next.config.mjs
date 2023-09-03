@@ -99,6 +99,13 @@ export default withNextra({
         destination: "/docs/guides/run-a-node/claim-prover-rewards",
         permanent: true,
       },
+      {
+        source: "/events",
+        destination:
+          "https://taikoxyz.notion.site/Taiko-Events-calendar-be7f37a0d11849e5abfd0c332783dfc1",
+        permanent: false,
+        basePath: false,
+      },
     ];
   },
 });

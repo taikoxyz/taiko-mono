@@ -277,6 +277,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         returns (bytes32 prevPIH, bytes32 currPIH)
     {
         bytes32[256] memory inputs;
+
+        // Unchecked is safe because it cannot overflow.
         unchecked {
             // Put the previous 255 blockhashes (excluding the parent's) into a
             // ring buffer.
@@ -307,6 +309,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         view
         returns (uint256 _basefee, uint64 _gasExcess)
     {
+        // Unchecked is safe because:
+        // - gasExcess is capped at uint64 max ever, so multiplying with a
+        // uint32 value is safe
+        // - 'excess' is bigger than 'issued'
         unchecked {
             uint256 issued = timeSinceParent * config.gasIssuedPerSecond;
             uint256 excess = (uint256(gasExcess) + parentGasUsed).max(issued);
