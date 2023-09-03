@@ -238,7 +238,6 @@ func (p *Processor) Name() string {
 	return "processor"
 }
 
-// TODO
 func (p *Processor) Close(ctx context.Context) {
 	p.cancel()
 
@@ -256,6 +255,7 @@ func (p *Processor) Start() error {
 
 	go func() {
 		if err := backoff.Retry(func() error {
+			slog.Info("attempting backoff queue subscription")
 			return p.queue.Subscribe(ctx, p.msgCh, p.wg)
 		}, backoff.NewConstantBackOff(1*time.Second)); err != nil {
 			slog.Error("rabbitmq subscribe backoff retry error", "err", err.Error())
