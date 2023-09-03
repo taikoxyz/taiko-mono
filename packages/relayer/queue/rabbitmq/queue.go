@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/queue"
@@ -194,6 +195,10 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 	wg.Add(1)
 
 	defer func() {
+		r.Close(ctx)
+	}()
+
+	defer func() {
 		wg.Done()
 	}()
 
@@ -220,6 +225,10 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 		}
 	}
 
+	t := time.NewTicker(5 * time.Second)
+
+	var lastDelivery time.Time = time.Now()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -234,6 +243,8 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 			slog.Error("rabbitmq notify close channel", "err", err.Error())
 			return queue.ErrClosed
 		case d := <-msgs:
+			lastDelivery = time.Now()
+
 			if d.Body != nil {
 				slog.Info("rabbitmq message found", "msgId", d.MessageId)
 				{
@@ -244,6 +255,14 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 				}
 			} else {
 				slog.Info("nil body message, queue is closed")
+				return queue.ErrClosed
+			}
+		case <-t.C:
+			if time.Since(lastDelivery) > (5 * time.Minute) {
+				// we havent had a delivery for 5 message. sometimes, rabbitmq queues
+				// can falter and the connection doesnt notify its closed. lets return an error
+				// and backoff will retry
+				slog.Info("five minutes passed since delivery found, reconnecting to rabbitmq")
 				return queue.ErrClosed
 			}
 		}
