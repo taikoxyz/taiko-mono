@@ -20,6 +20,8 @@ type RabbitMQ struct {
 	connErrCh chan *amqp.Error
 
 	chErrCh chan *amqp.Error
+
+	notifyReturnCh chan amqp.Return
 }
 
 func NewQueue(opts queue.NewQueueOpts) (*RabbitMQ, error) {
@@ -113,7 +115,7 @@ func (r *RabbitMQ) Publish(ctx context.Context, msg []byte) error {
 	err := r.ch.PublishWithContext(ctx,
 		"",
 		r.queue.Name,
-		false,
+		true,
 		false,
 		amqp.Publishing{
 			ContentType: "text/plain",
@@ -191,6 +193,38 @@ func (r *RabbitMQ) Nack(ctx context.Context, msg queue.Message) error {
 	return nil
 }
 
+// Notify should be called by publishers who wish to be notified of subscription errors.
+func (r *RabbitMQ) Notify(ctx context.Context, wg *sync.WaitGroup) error {
+	wg.Add(1)
+
+	defer func() {
+		wg.Done()
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("rabbitmq context closed")
+
+			return nil
+		case err := <-r.connErrCh:
+			slog.Error("rabbitmq notify close connection", "err", err.Error())
+			return queue.ErrClosed
+		case err := <-r.chErrCh:
+			slog.Error("rabbitmq notify close channel", "err", err.Error())
+			return queue.ErrClosed
+		case returnMsg := <-r.notifyReturnCh:
+			slog.Error("rabbitmq notify return", "id", returnMsg.MessageId, "err", returnMsg.ReplyText)
+			slog.Info("rabbitmq attempting republish of returned msg", "id", returnMsg.MessageId)
+
+			if err := r.Publish(ctx, returnMsg.Body); err != nil {
+				slog.Error("error publishing msg", "err", err.Error())
+			}
+		}
+	}
+}
+
+// Subscribe should be called by consumers.
 func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, wg *sync.WaitGroup) error {
 	wg.Add(1)
 
@@ -233,15 +267,8 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 		select {
 		case <-ctx.Done():
 			slog.Info("rabbitmq context closed")
-			r.Close(ctx)
 
 			return nil
-		case err := <-r.connErrCh:
-			slog.Error("rabbitmq notify close connection", "err", err.Error())
-			return queue.ErrClosed
-		case err := <-r.chErrCh:
-			slog.Error("rabbitmq notify close channel", "err", err.Error())
-			return queue.ErrClosed
 		case d := <-msgs:
 			lastDelivery = time.Now()
 

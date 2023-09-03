@@ -252,6 +252,10 @@ func (i *Indexer) Start() error {
 		}
 	}()
 
+	go func() {
+		i.queue.Notify(i.ctx, i.wg)
+	}()
+
 	return nil
 }
 

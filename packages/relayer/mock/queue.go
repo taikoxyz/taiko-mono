@@ -18,6 +18,10 @@ func (r *Queue) Close(ctx context.Context) {
 
 }
 
+func (r *Queue) Notify(ctx context.Context, wg *sync.WaitGroup) error {
+	return nil
+}
+
 func (r *Queue) Publish(ctx context.Context, msg []byte) error {
 	return nil
 }
