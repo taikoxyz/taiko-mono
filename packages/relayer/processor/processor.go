@@ -31,6 +31,10 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/repo"
 )
 
+var (
+	chBufferSize = 1024
+)
+
 type DB interface {
 	DB() (*sql.DB, error)
 	GormDB() *gorm.DB
@@ -223,7 +227,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 
 	p.srcSignalServiceAddress = cfg.SrcSignalServiceAddress
 
-	p.msgCh = make(chan queue.Message)
+	p.msgCh = make(chan queue.Message, chBufferSize)
 	p.wg = &sync.WaitGroup{}
 	p.mu = &sync.Mutex{}
 	p.rpc = srcRpcClient
