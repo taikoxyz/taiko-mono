@@ -201,6 +201,8 @@ func (r *RabbitMQ) Notify(ctx context.Context, wg *sync.WaitGroup) error {
 		wg.Done()
 	}()
 
+	slog.Info("rabbitmq notify running")
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -252,6 +254,19 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 		if err == amqp.ErrClosed {
 			if err := r.connect(); err != nil {
 				slog.Error("error reconnecting to channel during subscribe", "err", err.Error())
+				return err
+			}
+
+			msgs, err = r.ch.Consume(
+				r.queue.Name,
+				"",
+				false, // disable auto-acknowledge until after processing
+				false,
+				false,
+				false,
+				nil,
+			)
+			if err != nil {
 				return err
 			}
 		} else {
