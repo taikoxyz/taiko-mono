@@ -12,7 +12,7 @@
   const openModal = () => (modalOpen = true);
 
   const classes = {
-    headline: 'font-bold mt-[20px]',
+    headline: 'text-center text-base font-bold leading-[24px] tracking-[0.08px] pb-[5px]',
   };
 
   const closeModalIfClickedOutside = (e: MouseEvent) => {
@@ -39,42 +39,37 @@
 
 <svelte:window on:keydown={closeModalIfKeyDown} />
 
-<dialog id={dialogId} class="modal modal-bottom md:modal-middle" class:modal-open={modalOpen}>
+<dialog id={dialogId} class="modal" class:modal-open={modalOpen}>
   <div
-    class="modal-box relative px-6 py-[35px] md:py-[20px] bg-primary-base-background text-primary-base-content text-center">
-    <button class="absolute right-6 top-[35px] md:top-[20px]" on:click={closeModal}>
-      <Icon type="x-close" fillClass="fill-secondary-icon" size={24} />
-    </button>
-    <h3 class="title-body-bold mb-[20px]">{$t('activities.status.dialog.title')}</h3>
-
-    <p>{$t('activities.status.dialog.description')}</p>
-    <h4 class={classes.headline}>{$t('activities.status.initiated.name')}</h4>
-    <p>
+    class="modal-box
+ bg-neutral-background text-primary-content text-center max-w-[565px]">
+    <div class="w-full flex justify-end">
+      <button class="right-6" on:click={closeModal}>
+        <Icon type="x-close" fillClass="fill-primary-content" size={24} />
+      </button>
+    </div>
+    <div class="w-full">
+      <h1 class="title-body-bold">{$t('activities.status.dialog.title')}</h1>
+    </div>
+    <div class="inline-flex flex-col space-y-9 px-[37px]">
+      <br />
+      {$t('activities.status.dialog.description')}
+      <h4 class={classes.headline}>{$t('activities.status.initiated.name')}</h4>
       {$t('activities.status.initiated.description')}
-    </p>
-    <h4 class={classes.headline}>{$t('activities.status.claim.name')}</h4>
-    <p>
+      <h4 class={classes.headline}>{$t('activities.status.claim.name')}</h4>
       {$t('activities.status.claim.description')}
-    </p>
-    <h4 class={classes.headline}>{$t('activities.status.claimed.name')}</h4>
-    <p>
+      <h4 class={classes.headline}>{$t('activities.status.claimed.name')}</h4>
       {$t('activities.status.claimed.description')}
-    </p>
-    <h4 class={classes.headline}>{$t('activities.status.retry.name')}</h4>
-    <p>
+      <h4 class={classes.headline}>{$t('activities.status.retry.name')}</h4>
       {$t('activities.status.retry.description')}
-    </p>
-    <h4 class={classes.headline}>{$t('activities.status.release.name')}</h4>
-    <p>
+      <h4 class={classes.headline}>{$t('activities.status.release.name')}</h4>
       {$t('activities.status.release.description')}
-    </p>
-    <h4 class={classes.headline}>{$t('activities.status.failed.name')}</h4>
-    <p>
+      <h4 class={classes.headline}>{$t('activities.status.failed.name')}</h4>
       {$t('activities.status.failed.description')}
-    </p>
-  </div>
+    </div>
 
-  <!-- We catch key events aboe -->
-  <!-- svelte-ignore a11y-click-events-have-key-events -->
-  <div role="button" tabindex="0" class="overlay-backdrop" on:click={closeModalIfClickedOutside} />
+    <!-- We catch key events aboe -->
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
+    <div role="button" tabindex="0" class="overlay-backdrop" on:click={closeModalIfClickedOutside} />
+  </div>
 </dialog>

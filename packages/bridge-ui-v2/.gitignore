@@ -15,5 +15,3 @@ vite.config.ts.timestamp-*
 !/config/schemas/
 
 src/generated/*
-
-
