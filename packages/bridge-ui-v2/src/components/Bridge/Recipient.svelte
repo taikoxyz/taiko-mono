@@ -19,6 +19,12 @@
   let invalidAddress = false;
   let prevRecipientAddress: Maybe<Address> = null;
 
+  // Public API
+  export const clearRecipient = () => {
+    addressInput.clear(); // update UI
+    $recipientAddress = null; // update state
+  };
+
   function closeModal() {
     modalOpen = false;
   }

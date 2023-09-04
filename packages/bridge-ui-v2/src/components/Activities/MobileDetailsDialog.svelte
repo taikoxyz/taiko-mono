@@ -8,6 +8,7 @@
   import type { BridgeTransaction } from '$libs/bridge';
   import { noop } from '$libs/util/noop';
   import { uid } from '$libs/util/uid';
+  import Status from './Status.svelte';
 
   import ChainSymbolName from './ChainSymbolName.svelte';
 
@@ -16,13 +17,17 @@
 
   export let selectedItem: BridgeTransaction | null;
 
+  let tooltipOpen: boolean = false;
+  const openToolTip = (event: Event) => {
+    event.stopPropagation();
+    tooltipOpen = !tooltipOpen;
+  };
   let dialogId = `dialog-${uid()}`;
 </script>
 
 <dialog id={dialogId} class="modal modal-bottom" class:modal-open={detailsOpen}>
   <div
-    class="modal-box relative border border-neutral-background px-6 py-[30px] bg-gray-800/30 bg-gradient-to-r from-glass-gradient-from to-glass-gradient-to
-      backdrop-blur-sm">
+    class="modal-box relative border border-neutral-background px-6 py-[30px] dark:glassy-gradient-card dark:glass-background-gradient">
     <button class="absolute right-6 top-[30px]" on:click={closeDetails}>
       <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
     </button>
@@ -46,22 +51,24 @@
         <li class="f-between-center">
           <h4 class="text-secondary-content">
             <div class="f-items-center space-x-1">
-              <span>{$t('activities.header.status')}</span>
-              <Tooltip position="right">TODO: add description about status here</Tooltip>
+              <button on:click={openToolTip}>
+                <span>{$t('activities.header.status')}</span>
+              </button>
+              <Tooltip position="right" bind:tooltipOpen>TODO: add description about status here</Tooltip>
             </div>
           </h4>
           <div class="f-items-center space-x-1">
-            <!-- <StatusDot type={selectedItem.status} /> -->
-            {selectedItem.status}
-            <!-- <span>{$t('activities.status.initiated')}</span> -->
+            <Status bridgeTx={selectedItem} />
           </div>
         </li>
         <li class="f-between-center">
           <h4 class="text-secondary-content">{$t('activities.header.explorer')}</h4>
           <a
+            class="flex justify-start content-center"
             href={`${chainConfig[Number(selectedItem.srcChainId)].urls.explorer}/tx/${selectedItem.hash}`}
             target="_blank">
             {$t('activities.link.explorer')}
+            <Icon type="arrow-top-right" />
           </a>
         </li>
       </ul>

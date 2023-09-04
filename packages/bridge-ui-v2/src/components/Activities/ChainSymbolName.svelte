@@ -8,6 +8,6 @@
 </script>
 
 <div class="flex md:items-stretch self-center justify-items-start'}">
-  <img src={icon} alt="chain-logo" class="rounded-full w-5 h-5 hidden md:block mr-2" />
+  <img src={icon} alt="chain-logo" class="rounded-full w-5 h-5 mr-2" />
   <span class="md:font-bold font-normal">{chainName}</span>
 </div>
