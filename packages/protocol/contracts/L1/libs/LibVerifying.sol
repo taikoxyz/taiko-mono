@@ -130,7 +130,7 @@ library LibVerifying {
                 blk = state.blocks[blockId % config.blockRingBufferSize];
                 if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
 
-                tid = LibUtils.getTransitionId(state, blk, blockId, blockHash);
+                tid = LibUtils.getTransitionId(state, blk, blockHash);
                 if (tid == 0) break;
 
                 tz = state.transitions[blockId][tid];

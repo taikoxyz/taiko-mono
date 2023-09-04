@@ -35,7 +35,6 @@ library LibUtils {
     function getTransitionId(
         TaikoData.State storage state,
         TaikoData.Block storage blk,
-        uint64 blockId,
         bytes32 parentHash
     )
         internal
@@ -45,12 +44,10 @@ library LibUtils {
         if (state.transitions[blk.blockId][1].key == parentHash) {
             tid = 1;
         } else {
-            tid = state.transitionIds[blockId][parentHash];
+            tid = state.transitionIds[blk.blockId][parentHash];
         }
 
-        if (tid >= blk.nextTransitionId) {
-            tid = 0;
-        }
+        assert(tid < blk.nextTransitionId);
     }
 
     function getStateVariables(TaikoData.State storage state)

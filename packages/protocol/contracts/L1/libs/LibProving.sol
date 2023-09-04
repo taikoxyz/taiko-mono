@@ -84,8 +84,7 @@ library LibProving {
         }
 
         TaikoData.Transition storage tz;
-        uint32 tid =
-            LibUtils.getTransitionId(state, blk, blockId, evidence.parentHash);
+        uint32 tid = LibUtils.getTransitionId(state, blk, evidence.parentHash);
 
         if (tid == 0) {
             tid = blk.nextTransitionId;
@@ -155,7 +154,7 @@ library LibProving {
             state.blocks[blockId % config.blockRingBufferSize];
         if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
 
-        uint32 tid = LibUtils.getTransitionId(state, blk, blockId, parentHash);
+        uint32 tid = LibUtils.getTransitionId(state, blk, parentHash);
         if (tid == 0) revert L1_TRANSITION_NOT_FOUND();
 
         tz = state.transitions[blockId][tid];
