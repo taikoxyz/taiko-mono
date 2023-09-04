@@ -28,13 +28,16 @@ export async function getCrossChainAddress({
   const srcChainTokenAddress = token.addresses[srcChainId];
   const destChainTokenAddress = token.addresses[destChainId];
 
-  // check if we already have it
-  if (destChainTokenAddress && destChainTokenAddress !== zeroAddress) {
+  const existsOnDestinationChain = destChainTokenAddress && destChainTokenAddress !== zeroAddress;
+  const existsOnSourceChain = srcChainTokenAddress && srcChainTokenAddress !== zeroAddress;
+
+  // check if we already have it but only if we have it on the current chain as well
+  if (existsOnDestinationChain && existsOnSourceChain) {
     return token.addresses[destChainId];
   }
 
   // it could be that we don't have the token address on the current chain, but we have it on another chain
-  if (!srcChainTokenAddress || srcChainTokenAddress === zeroAddress) {
+  if (!existsOnSourceChain) {
     // find one chain with a configured address
     const configuredChainId = Object.keys(token.addresses).find((chainId) => token.addresses[chainId] !== zeroAddress);
 
@@ -44,7 +47,7 @@ export async function getCrossChainAddress({
     // get the configured token address on that chain
     const configuredTokenAddress = token.addresses[Number(configuredChainId)];
 
-    // we need find a vault that is configured with that chainId as the destination
+    // we need find a vault that is configured with the selected srcChainId and the configuredChainId
     const erc20VaultInfo = chains
       .filter((chain) => {
         const routesForChain = routingContractsMap[chain.id];
@@ -79,15 +82,18 @@ export async function getCrossChainAddress({
       configuredTokenAddress,
     ]);
 
+    return bridgedAddress;
+
     // now that we have the bridgedAddress address, we can check if it is bridged
-    const { erc20VaultAddress: destChainTokenVaultAddress } =
-      routingContractsMap[destChainId][Number(configuredChainId)];
-    const destTokenVaultContract = getContract({
-      abi: erc20VaultABI,
-      chainId: srcChainId,
-      address: destChainTokenVaultAddress,
-    });
-    return await destTokenVaultContract.read.canonicalToBridged([BigInt(destChainId), bridgedAddress]);
+    // const { erc20VaultAddress: destChainTokenVaultAddress } =
+    //   routingContractsMap[destChainId][foundChainId];
+    // const destTokenVaultContract = getContract({
+    //   abi: erc20VaultABI,
+    //   chainId: destChainId,
+    //   address: destChainTokenVaultAddress,
+    // });
+
+    // return await destTokenVaultContract.read.canonicalToBridged([BigInt(destChainId), bridgedAddress]);
   } else {
     const { erc20VaultAddress: srcChainTokenVaultAddress } = routingContractsMap[srcChainId][destChainId];
     const { erc20VaultAddress: destChainTokenVaultAddress } = routingContractsMap[destChainId][srcChainId];

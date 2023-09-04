@@ -56,7 +56,6 @@ export default defineConfig({
     {
       name: 'Erc1155',
       abi: ERC1155.abi as Abi,
-    }
-
+    },
   ],
 });

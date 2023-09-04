@@ -3,6 +3,7 @@
   import { t } from 'svelte-i18n';
   import { ContractFunctionExecutionError, UserRejectedRequestError } from 'viem';
 
+  import { chainConfig } from '$chainConfig';
   import { Alert } from '$components/Alert';
   import { Button } from '$components/Button';
   import { Card } from '$components/Card';
@@ -11,7 +12,6 @@
   import { successToast, warningToast } from '$components/NotificationToast';
   import { errorToast, infoToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { TokenDropdown } from '$components/TokenDropdown';
-  import { chainConfig } from '$chainConfig';
   import { chains } from '$libs/chain';
   import { InsufficientBalanceError, MintError, TokenMintedError } from '$libs/error';
   import { checkMintable, mint, testERC20Tokens, type Token } from '$libs/token';

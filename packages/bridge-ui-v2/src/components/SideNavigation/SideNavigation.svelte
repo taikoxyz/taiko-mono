@@ -6,10 +6,10 @@
   import { t } from 'svelte-i18n';
 
   import { page } from '$app/stores';
+  import { chainConfig } from '$chainConfig';
   import { Icon } from '$components/Icon';
   import { LinkButton } from '$components/LinkButton';
   import { LogoWithText } from '$components/Logo';
-  import { chainConfig } from '$chainConfig';
   import { PUBLIC_DEFAULT_EXPLORER, PUBLIC_GUIDE_URL } from '$env/static/public';
   import { network } from '$stores/network';
 

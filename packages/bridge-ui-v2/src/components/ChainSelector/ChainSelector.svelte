@@ -5,17 +5,17 @@
   import { t } from 'svelte-i18n';
   import { UserRejectedRequestError } from 'viem';
 
+  import { chainConfig } from '$chainConfig';
   import { Alert } from '$components/Alert';
   import { Icon } from '$components/Icon';
   import { LoadingMask } from '$components/LoadingMask';
   import { warningToast } from '$components/NotificationToast';
-  import { chainConfig } from '$chainConfig';
   import { chains } from '$libs/chain';
   import { classNames } from '$libs/util/classNames';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
+  import { truncateString } from '$libs/util/truncateString';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
-  import { truncateString } from '$libs/util/truncateString';
 
   export let label = '';
   export let value: Maybe<GetNetworkResult['chain']> = null;

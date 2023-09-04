@@ -4,12 +4,12 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { Project, SourceFile, VariableDeclarationKind } from 'ts-morph';
 
-import configuredRelayerSchema from '../config/schemas/configuredRelayer.schema.json';
-import type { ConfiguredRelayer, RelayerConfig } from '../src/libs/relayer/types';
-import { decodeBase64ToJson } from './utils/decodeBase64ToJson';
-import { formatSourceFile } from './utils/formatSourceFile';
-import { Logger } from './utils/Logger';
-import { validateJsonAgainstSchema } from './utils/validateJson';
+import configuredRelayerSchema from '../../config/schemas/configuredRelayer.schema.json';
+import type { ConfiguredRelayer, RelayerConfig } from '../../src/libs/relayer/types';
+import { decodeBase64ToJson } from './../utils/decodeBase64ToJson';
+import { formatSourceFile } from './../utils/formatSourceFile';
+import { Logger } from './../utils/Logger';
+import { validateJsonAgainstSchema } from './../utils/validateJson';
 
 dotenv.config();
 
@@ -18,8 +18,7 @@ const logger = new Logger(pluginName);
 
 const currentDir = path.resolve(new URL(import.meta.url).pathname);
 
-const outputPath = path.join(path.dirname(currentDir), '../src/generated/relayerConfig.ts');
-
+const outputPath = path.join(path.dirname(currentDir), '../../src/generated/relayerConfig.ts');
 
 export function generateRelayerConfig() {
   return {
@@ -28,7 +27,9 @@ export function generateRelayerConfig() {
       logger.info('Plugin initialized.');
 
       if (!process.env.CONFIGURED_RELAYER) {
-        throw new Error('CONFIGURED_RELAYER is not defined in environment. Make sure to run the export step in the documentation.');
+        throw new Error(
+          'CONFIGURED_RELAYER is not defined in environment. Make sure to run the export step in the documentation.',
+        );
       }
 
       // Decode base64 encoded JSON string

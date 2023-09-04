@@ -3,6 +3,8 @@ import type { FetchBalanceResult } from '@wagmi/core';
 import { truncateString } from '$libs/util/truncateString';
 
 export function renderBalance(balance: Maybe<FetchBalanceResult>) {
+  console.log('renderBalance', balance);
+
   if (!balance) return '0.00';
 
   const maxlength = Number(balance.formatted) < 0.000001 ? balance.decimals : 6;

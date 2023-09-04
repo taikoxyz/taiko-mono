@@ -3,12 +3,12 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { Project, SourceFile, VariableDeclarationKind } from 'ts-morph';
 
-import configuredBridgesSchema from '../config/schemas/configuredBridges.schema.json';
-import type { BridgeConfig, ConfiguredBridgesType, RoutingMap } from '../src/libs/bridge/types';
-import { decodeBase64ToJson } from './utils/decodeBase64ToJson';
-import { formatSourceFile } from './utils/formatSourceFile';
-import { Logger } from './utils/Logger';
-import { validateJsonAgainstSchema } from './utils/validateJson';
+import configuredBridgesSchema from '../../config/schemas/configuredBridges.schema.json';
+import type { BridgeConfig, ConfiguredBridgesType, RoutingMap } from '../../src/libs/bridge/types';
+import { decodeBase64ToJson } from '../utils/decodeBase64ToJson';
+import { formatSourceFile } from '../utils/formatSourceFile';
+import { Logger } from '../utils/Logger';
+import { validateJsonAgainstSchema } from '../utils/validateJson';
 
 dotenv.config();
 const pluginName = 'generateBridgeConfig';
@@ -16,22 +16,20 @@ const logger = new Logger(pluginName);
 
 const currentDir = path.resolve(new URL(import.meta.url).pathname);
 
-const outputPath = path.join(path.dirname(currentDir), '../src/generated/bridgeConfig.ts');
-
+const outputPath = path.join(path.dirname(currentDir), '../../src/generated/bridgeConfig.ts');
 
 export function generateBridgeConfig() {
-
   return {
     name: pluginName,
     async buildStart() {
-
       if (!process.env.CONFIGURED_BRIDGES) {
-        throw new Error('CONFIGURED_BRIDGES is not defined in environment. Make sure to run the export step in the documentation.');
+        throw new Error(
+          'CONFIGURED_BRIDGES is not defined in environment. Make sure to run the export step in the documentation.',
+        );
       }
 
       // Decode base64 encoded JSON string
       const configuredBridgesConfigFile = decodeBase64ToJson(process.env.CONFIGURED_BRIDGES || '');
-
 
       // Valide JSON against schema
       const isValid = validateJsonAgainstSchema(configuredBridgesConfigFile, configuredBridgesSchema);
@@ -99,7 +97,6 @@ async function buildBridgeConfig(sourceFile: SourceFile, configuredBridgesConfig
     }
     routingContractsMap[item.source][item.destination] = item.addresses;
   });
-
 
   // Add routingContractsMap variable
   sourceFile.addVariableStatement({

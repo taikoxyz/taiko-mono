@@ -77,7 +77,6 @@ export type BridgeTransaction = {
   message?: Message;
 };
 
-
 export type BridgeTransferOp = {
   destChainId: bigint;
   to: Address;

@@ -30,17 +30,7 @@ const log = getLogger('ERC20Bridge');
 
 export class ERC20Bridge extends Bridge {
   private static async _prepareTransaction(args: ERC20BridgeArgs) {
-    const {
-      to,
-      amount,
-      wallet,
-      destChainId,
-      token,
-      fee,
-      tokenVaultAddress,
-      isTokenAlreadyDeployed,
-      memo = '',
-    } = args;
+    const { to, amount, wallet, destChainId, token, fee, tokenVaultAddress, isTokenAlreadyDeployed, memo = '' } = args;
 
     const tokenVaultContract = getContract({
       walletClient: wallet,
@@ -53,11 +43,10 @@ export class ERC20Bridge extends Bridge {
     const gasLimit = !isTokenAlreadyDeployed
       ? BigInt(bridgeService.noTokenDeployedGasLimit)
       : fee > 0
-        ? bridgeService.noOwnerGasLimit
-        : BigInt(0);
+      ? bridgeService.noOwnerGasLimit
+      : BigInt(0);
 
     const sendERC20Args: BridgeTransferOp = {
-
       destChainId: BigInt(destChainId),
       to,
       token,

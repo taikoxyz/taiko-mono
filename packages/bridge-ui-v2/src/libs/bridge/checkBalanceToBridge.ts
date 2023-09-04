@@ -72,7 +72,7 @@ export async function checkBalanceToBridge({
     // since we are briding a token, we need the ETH balance of the wallet
     balance = await getPublicClient().getBalance(wallet.account);
 
-    if (!tokenAddress || tokenAddress === zeroAddress) return false;
+    if (!tokenAddress || tokenAddress === zeroAddress || balance === BigInt(0)) return false;
 
     const bridge = bridges[token.type];
 
@@ -90,9 +90,6 @@ export async function checkBalanceToBridge({
         throw new InsufficientAllowanceError(`insufficient allowance for the amount ${amount}`);
       }
     }
-
-    // since we are briding a token, we need the ETH balance of the wallet
-    balance = await getPublicClient().getBalance(wallet.account);
 
     const isTokenAlreadyDeployed = await isDeployedCrossChain({
       token,

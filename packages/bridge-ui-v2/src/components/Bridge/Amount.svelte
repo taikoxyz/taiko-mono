@@ -8,7 +8,7 @@
   import { warningToast } from '$components/NotificationToast';
   import { checkBalanceToBridge, getMaxAmountToBridge } from '$libs/bridge';
   import { InsufficientAllowanceError, InsufficientBalanceError, RevertedWithFailedError } from '$libs/error';
-  import { ETHToken, getBalance as getTokenBalance } from '$libs/token';
+  import { ETHToken, getBalance as getTokenBalance,TokenType } from '$libs/token';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
   import { renderBalance } from '$libs/util/renderBalance';
@@ -102,13 +102,15 @@
     $errorComputingBalance = false;
 
     try {
+      console.log('token1', token.symbol);
       $tokenBalance = await getTokenBalance({
         token,
         srcChainId,
         destChainId,
         userAddress,
       });
-      if (token.name === ETHToken.name) {
+      console.log('token2', $tokenBalance);
+      if (token.type === TokenType.ETH) {
         $ethBalance = $tokenBalance;
       } else {
         $ethBalance = await getTokenBalance({

@@ -2,22 +2,22 @@
   import { t } from 'svelte-i18n';
   import { formatEther } from 'viem';
 
+  import { chainConfig } from '$chainConfig';
   import { Icon } from '$components/Icon';
   import { Tooltip } from '$components/Tooltip';
-  import { chainConfig } from '$chainConfig';
   import type { BridgeTransaction } from '$libs/bridge';
   import { noop } from '$libs/util/noop';
   import { uid } from '$libs/util/uid';
-  import Status from './Status.svelte';
 
   import ChainSymbolName from './ChainSymbolName.svelte';
+  import Status from './Status.svelte';
 
   export let closeDetails = noop;
   export let detailsOpen = false;
 
   export let selectedItem: BridgeTransaction | null;
 
-  let tooltipOpen: boolean = false;
+  let tooltipOpen = false;
   const openToolTip = (event: Event) => {
     event.stopPropagation();
     tooltipOpen = !tooltipOpen;

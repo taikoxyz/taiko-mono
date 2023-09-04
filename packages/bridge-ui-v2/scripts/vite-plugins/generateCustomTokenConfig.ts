@@ -3,12 +3,12 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { Project, SourceFile, VariableDeclarationKind } from 'ts-morph';
 
-import configuredChainsSchema from '../config/schemas/configuredChains.schema.json';
-import type { Token } from '../src/libs/token/types';
-import { decodeBase64ToJson } from './utils/decodeBase64ToJson';
-import { formatSourceFile } from './utils/formatSourceFile';
-import { Logger } from './utils/Logger';
-import { validateJsonAgainstSchema } from './utils/validateJson';
+import configuredChainsSchema from '../../config/schemas/configuredChains.schema.json';
+import type { Token } from '../../src/libs/token/types';
+import { decodeBase64ToJson } from './../utils/decodeBase64ToJson';
+import { formatSourceFile } from './../utils/formatSourceFile';
+import { Logger } from './../utils/Logger';
+import { validateJsonAgainstSchema } from './../utils/validateJson';
 
 dotenv.config();
 const pluginName = 'generateTokens';
@@ -16,7 +16,7 @@ const logger = new Logger(pluginName);
 
 const currentDir = path.resolve(new URL(import.meta.url).pathname);
 
-const outputPath = path.join(path.dirname(currentDir), '../src/generated/customTokenConfig.ts');
+const outputPath = path.join(path.dirname(currentDir), '../../src/generated/customTokenConfig.ts');
 
 export function generateCustomTokenConfig() {
   return {
@@ -24,9 +24,10 @@ export function generateCustomTokenConfig() {
     async buildStart() {
       logger.info('Plugin initialized.');
 
-
       if (!process.env.CONFIGURED_CUSTOM_TOKEN) {
-        throw new Error('CONFIGURED_CUSTOM_TOKEN is not defined in environment. Make sure to run the export step in the documentation.');
+        throw new Error(
+          'CONFIGURED_CUSTOM_TOKEN is not defined in environment. Make sure to run the export step in the documentation.',
+        );
       }
 
       // Decode base64 encoded JSON string

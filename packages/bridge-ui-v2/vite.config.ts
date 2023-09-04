@@ -1,12 +1,11 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import tsconfigPaths from 'vite-tsconfig-paths';
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from 'vitest/dist/config';
 
-import { exportConfigToEnv } from './vite-plugins/exportConfigToEnv';
-import { generateBridgeConfig } from './vite-plugins/generateBridgeConfig';
-import { generateChainConfig } from './vite-plugins/generateChainConfig';
-import { generateCustomTokenConfig } from './vite-plugins/generateCustomTokenConfig';
-import { generateRelayerConfig } from './vite-plugins/generateRelayerConfig';
+import { generateBridgeConfig } from './scripts/vite-plugins/generateBridgeConfig';
+import { generateChainConfig } from './scripts/vite-plugins/generateChainConfig';
+import { generateCustomTokenConfig } from './scripts/vite-plugins/generateCustomTokenConfig';
+import { generateRelayerConfig } from './scripts/vite-plugins/generateRelayerConfig';
 
 export default defineConfig({
   build: {
