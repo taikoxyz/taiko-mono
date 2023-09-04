@@ -105,14 +105,14 @@ library LibVerifying {
         TaikoData.SlotB memory b = state.slotB;
         uint64 blockId = b.lastVerifiedBlockId;
 
-        TaikoData.Block storage blk =
-            state.blocks[blockId % config.blockRingBufferSize];
+        uint64 slot = blockId % config.blockRingBufferSize;
+        TaikoData.Block storage blk = state.blocks[slot];
         if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
 
         uint32 tid = blk.verifiedTransitionId;
         if (tid == 0) revert L1_UNEXPECTED_TRANSITION_ID();
 
-        bytes32 blockHash = state.transitions[blockId][tid].blockHash;
+        bytes32 blockHash = state.transitions[slot][tid].blockHash;
 
         bytes32 signalRoot;
         TaikoData.Transition memory tz;
@@ -127,13 +127,14 @@ library LibVerifying {
             ++blockId;
 
             while (blockId < b.numBlocks && processed < maxBlocks) {
-                blk = state.blocks[blockId % config.blockRingBufferSize];
+                slot = blockId % config.blockRingBufferSize;
+                blk = state.blocks[slot];
                 if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
 
-                tid = LibUtils.getTransitionId(state, blk, blockHash);
+                tid = LibUtils.getTransitionId(state, blk, slot, blockHash);
                 if (tid == 0) break;
 
-                tz = state.transitions[blockId][tid];
+                tz = state.transitions[slot][tid];
                 if (tz.prover == address(0)) break;
 
                 uint256 proofCooldown = tz.prover == LibUtils.ORACLE_PROVER
