@@ -253,10 +253,6 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 	wg.Add(1)
 
 	defer func() {
-		r.Close(ctx)
-	}()
-
-	defer func() {
 		wg.Done()
 	}()
 
@@ -305,17 +301,28 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 	for {
 		select {
 		case <-r.subscriptionCtx.Done():
+			defer r.Close(ctx)
+
 			slog.Info("rabbitmq subscription ctx cancelled")
+
 			return queue.ErrClosed
 		case <-ctx.Done():
+			defer r.Close(ctx)
+
 			slog.Info("rabbitmq context cancelled")
 
 			return nil
 		case err := <-r.connErrCh:
+			defer r.Close(ctx)
+
 			slog.Error("rabbitmq notify close connection", "err", err.Error())
+
 			return queue.ErrClosed
 		case err := <-r.chErrCh:
+			defer r.Close(ctx)
+
 			slog.Error("rabbitmq notify close channel", "err", err.Error())
+
 			return queue.ErrClosed
 		case d, ok := <-msgs:
 			if !ok {
@@ -358,7 +365,10 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 				// we havent had a delivery for 5 message. sometimes, rabbitmq queues
 				// can falter and the connection doesnt notify its closed. lets return an error
 				// and backoff will retry
+				defer r.Close(ctx)
+
 				slog.Info("five minutes passed since delivery found, reconnecting to rabbitmq")
+
 				return queue.ErrClosed
 			}
 		}
