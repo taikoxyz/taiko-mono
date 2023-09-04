@@ -162,7 +162,10 @@ func (r *RabbitMQ) Ack(ctx context.Context, msg queue.Message) error {
 	slog.Info("attempted acknowledge rabbitmq message")
 
 	if err != nil {
+		r.Close(ctx)
+
 		slog.Error("error acknowledging rabbitmq message", "err", err.Error())
+
 		return err
 	}
 
@@ -178,7 +181,10 @@ func (r *RabbitMQ) Nack(ctx context.Context, msg queue.Message) error {
 
 	err := rmqMsg.Nack(false, false)
 	if err != nil {
+		r.Close(ctx)
+
 		slog.Error("error negatively acknowledging rabbitmq message", "err", err.Error())
+
 		return err
 	}
 
@@ -266,10 +272,6 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 		}
 	}
 
-	t := time.NewTicker(5 * time.Second)
-
-	var lastDelivery time.Time = time.Now()
-
 	for {
 		select {
 		case <-r.subscriptionCtx.Done():
@@ -298,45 +300,15 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 				return queue.ErrClosed
 			}
 
-			lastDelivery = time.Now()
-
 			if d.Body != nil {
 				slog.Info("rabbitmq message found", "msgId", d.MessageId)
-				{
-					msgChan <- queue.Message{
-						Body:     d.Body,
-						Internal: d,
-					}
+
+				msgChan <- queue.Message{
+					Body:     d.Body,
+					Internal: d,
 				}
 			} else {
 				slog.Info("nil body message, queue is closed")
-				return queue.ErrClosed
-			}
-		case <-t.C:
-			slog.Info("rabbitmq queue subscribe ticker")
-			// inspect queue, check messages every tick.
-			q, err := r.ch.QueueDeclarePassive(
-				r.queue.Name,
-				true,
-				false,
-				false,
-				false,
-				nil,
-			)
-			if err != nil {
-				return err
-			}
-
-			slog.Info("rabbitmq queue info", "name", q.Name, "msgs", q.Messages)
-
-			if time.Since(lastDelivery) > (5 * time.Minute) {
-				// we havent had a delivery for 5 message. sometimes, rabbitmq queues
-				// can falter and the connection doesnt notify its closed. lets return an error
-				// and backoff will retry
-				defer r.Close(ctx)
-
-				slog.Info("five minutes passed since delivery found, reconnecting to rabbitmq")
-
 				return queue.ErrClosed
 			}
 		}

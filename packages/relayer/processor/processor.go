@@ -31,10 +31,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/repo"
 )
 
-var (
-	chBufferSize = 1024
-)
-
 type DB interface {
 	DB() (*sql.DB, error)
 	GormDB() *gorm.DB
@@ -227,7 +223,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 
 	p.srcSignalServiceAddress = cfg.SrcSignalServiceAddress
 
-	p.msgCh = make(chan queue.Message, chBufferSize)
+	p.msgCh = make(chan queue.Message)
 	p.wg = &sync.WaitGroup{}
 	p.mu = &sync.Mutex{}
 	p.rpc = srcRpcClient
@@ -291,20 +287,23 @@ func (p *Processor) eventLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case msg := <-p.msgCh:
-			if err := p.processMessage(ctx, msg); err != nil {
-				// only log unexpected errors
-				if !errors.Is(err, errUnprocessable) {
-					slog.Error("err processing message", "err", err.Error())
-					// nack all errors even errUnprocessable
-					if err := p.queue.Nack(ctx, msg); err != nil {
-						slog.Error("Err nacking message", "err", err.Error())
-					}
-				} else {
-					// if errUnprocessable, we can Ack it to remove it from
-					// beign re-added, message should never become processable.
+			err := p.processMessage(ctx, msg)
+
+			if err != nil {
+				slog.Error("err processing message", "err", err.Error())
+
+				if errors.Is(err, errUnprocessable) {
 					if err := p.queue.Ack(ctx, msg); err != nil {
 						slog.Error("Err acking message", "err", err.Error())
 					}
+				} else {
+					if err := p.queue.Nack(ctx, msg); err != nil {
+						slog.Error("Err nacking message", "err", err.Error())
+					}
+				}
+			} else {
+				if err := p.queue.Ack(ctx, msg); err != nil {
+					slog.Error("Err acking message", "err", err.Error())
 				}
 			}
 		}
