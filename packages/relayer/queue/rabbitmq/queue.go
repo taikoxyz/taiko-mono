@@ -162,10 +162,7 @@ func (r *RabbitMQ) Ack(ctx context.Context, msg queue.Message) error {
 	slog.Info("attempted acknowledge rabbitmq message")
 
 	if err != nil {
-		r.Close(ctx)
-
 		slog.Error("error acknowledging rabbitmq message", "err", err.Error())
-
 		return err
 	}
 
@@ -181,10 +178,7 @@ func (r *RabbitMQ) Nack(ctx context.Context, msg queue.Message) error {
 
 	err := rmqMsg.Nack(false, false)
 	if err != nil {
-		r.Close(ctx)
-
 		slog.Error("error negatively acknowledging rabbitmq message", "err", err.Error())
-
 		return err
 	}
 
@@ -296,7 +290,7 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 			return queue.ErrClosed
 		case d, ok := <-msgs:
 			if !ok {
-				slog.Info("rabbitmq msg channel was closed")
+				slog.Error("rabbitmq msg channel was closed")
 				return queue.ErrClosed
 			}
 

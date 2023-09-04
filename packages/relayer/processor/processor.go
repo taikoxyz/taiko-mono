@@ -257,7 +257,7 @@ func (p *Processor) Start() error {
 		if err := backoff.Retry(func() error {
 			slog.Info("attempting backoff queue subscription")
 			if err := p.queue.Subscribe(ctx, p.msgCh, p.wg); err != nil {
-				slog.Info("processor queue subscription error", "err", err.Error())
+				slog.Error("processor queue subscription error", "err", err.Error())
 				return err
 			}
 
