@@ -49,4 +49,24 @@ library LibTaikoToken {
             state.taikoTokenBalances[msg.sender] += amount;
         }
     }
+
+    function receiveTaikoToken(
+        TaikoData.State storage state,
+        AddressResolver resolver,
+        address from,
+        uint256 amount
+    )
+        internal
+        returns (TaikoToken tt)
+    {
+        tt = TaikoToken(resolver.resolve("taiko_token", false));
+        if (state.taikoTokenBalances[from] >= amount) {
+            // Safe, see the above constraint
+            unchecked {
+                state.taikoTokenBalances[from] -= amount;
+            }
+        } else {
+            tt.transferFrom(from, address(this), amount);
+        }
+    }
 }

@@ -14,7 +14,6 @@ import { ISignalService } from "../../signal/ISignalService.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
-import { TaikoToken } from "../TaikoToken.sol";
 
 library LibVerifying {
     using Address for address;
