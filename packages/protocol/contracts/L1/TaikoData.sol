@@ -186,7 +186,7 @@ library TaikoData {
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint64 blockId_mode_blockRingBufferSize => Block) blocks;
-        // Indexting to transition ids (ring buffer not possible)
+        // Indexing to transition ids (ring buffer not possible)
         mapping(
             uint64 blockId => mapping(bytes32 parentHash => uint32 transitionId)
             ) transitionIds;
