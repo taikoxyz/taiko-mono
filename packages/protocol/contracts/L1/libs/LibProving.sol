@@ -45,9 +45,7 @@ library LibProving {
     {
         if (
             evidence.prover == address(0) || evidence.parentHash == 0
-                || evidence.blockHash == 0
-                || evidence.blockHash == evidence.parentHash
-                || evidence.signalRoot == 0
+                || evidence.blockHash == 0 || evidence.signalRoot == 0
         ) revert L1_INVALID_EVIDENCE();
 
         TaikoData.SlotB memory b = state.slotB;
