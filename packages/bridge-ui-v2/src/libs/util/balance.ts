@@ -12,12 +12,7 @@ export function renderBalance(balance: Maybe<FetchBalanceResult>) {
 }
 
 export function renderEthBalance(balance: bigint, maxlength = 8): string {
-  let stringBalance = formatEther(balance).toString();
-  if (stringBalance.length > maxlength) {
-    stringBalance = stringBalance.slice(0, maxlength) + '...';
-  }
-
-  return `${truncateString(stringBalance, stringBalance.length, '')} ETH`;
+  return `${truncateString(formatEther(balance).toString(), maxlength, '')} ETH`;
 }
 
 export const refreshUserBalance = async () => {
