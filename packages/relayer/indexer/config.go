@@ -35,6 +35,7 @@ type Config struct {
 	// rpc configs
 	SrcRPCUrl           string
 	DestRPCUrl          string
+	ETHClientTimeout    uint64
 	CORSOrigins         []string
 	BlockBatchSize      uint64
 	NumGoroutines       uint64
@@ -72,6 +73,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		WatchMode:               WatchMode(c.String(flags.WatchMode.Name)),
 		SyncMode:                SyncMode(c.String(flags.SyncMode.Name)),
 		HTTPPort:                c.Uint64(flags.HTTPPort.Name),
+		ETHClientTimeout:        c.Uint64(flags.ETHClientTimeout.Name),
 		OpenDBFunc: func() (DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),

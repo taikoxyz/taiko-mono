@@ -81,6 +81,7 @@ type Processor struct {
 
 	backOffRetryInterval time.Duration
 	backOffMaxRetries    uint64
+	ethClientTimeout     time.Duration
 
 	msgCh chan queue.Message
 
@@ -230,6 +231,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 
 	p.backOffRetryInterval = time.Duration(cfg.BackoffRetryInterval) * time.Second
 	p.backOffMaxRetries = cfg.BackOffMaxRetrys
+	p.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
 
 	return nil
 }

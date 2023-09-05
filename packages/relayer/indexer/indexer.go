@@ -92,6 +92,8 @@ type Indexer struct {
 	srv      *http.Server
 	httpPort uint64
 
+	ethClientTimeout time.Duration
+
 	wg *sync.WaitGroup
 
 	ctx context.Context
@@ -201,6 +203,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	i.watchMode = cfg.WatchMode
 
 	i.wg = &sync.WaitGroup{}
+
+	i.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
 
 	return nil
 }

@@ -119,6 +119,13 @@ var (
 		Value:    6061,
 		EnvVars:  []string{"METRICS_HTTP_PORT"},
 	}
+	ETHClientTimeout = &cli.Uint64Flag{
+		Name:     "ethClientTimeout",
+		Usage:    "Timeout for eth client and contract binding calls",
+		Category: commonCategory,
+		Value:    10,
+		EnvVars:  []string{"ETH_CLIENT_TIMEOUT"},
+	}
 )
 
 // optional
@@ -150,6 +157,7 @@ var CommonFlags = []cli.Flag{
 	DatabaseConnMaxLifetime,
 	DatabaseMaxOpenConns,
 	MetricsHTTPPort,
+	ETHClientTimeout,
 }
 
 // MergeFlags merges the given flag slices.

@@ -53,11 +53,12 @@ type Config struct {
 	QueueHost     string
 	QueuePort     uint64
 	// rpc configs
-	SrcRPCUrl     string
-	DestRPCUrl    string
-	CORSOrigins   []string
-	OpenQueueFunc func() (queue.Queue, error)
-	OpenDBFunc    func() (DB, error)
+	SrcRPCUrl        string
+	DestRPCUrl       string
+	ETHClientTimeout uint64
+	CORSOrigins      []string
+	OpenQueueFunc    func() (queue.Queue, error)
+	OpenDBFunc       func() (DB, error)
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -97,6 +98,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ProfitableOnly:          c.Bool(flags.ProfitableOnly.Name),
 		BackoffRetryInterval:    c.Uint64(flags.BackOffRetryInterval.Name),
 		BackOffMaxRetrys:        c.Uint64(flags.BackOffMaxRetrys.Name),
+		ETHClientTimeout:        c.Uint64(flags.ETHClientTimeout.Name),
 		OpenDBFunc: func() (DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),

@@ -7,6 +7,7 @@ import (
 
 	"log/slog"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
@@ -95,7 +96,13 @@ func (i *Indexer) eventStatusFromMsgHash(
 ) (relayer.EventStatus, error) {
 	var eventStatus relayer.EventStatus
 
-	messageStatus, err := i.destBridge.GetMessageStatus(nil, signal)
+	ctx, cancel := context.WithTimeout(ctx, i.ethClientTimeout)
+
+	defer cancel()
+
+	messageStatus, err := i.destBridge.GetMessageStatus(&bind.CallOpts{
+		Context: ctx,
+	}, signal)
 	if err != nil {
 		return 0, errors.Wrap(err, "svc.destBridge.GetMessageStatus")
 	}

@@ -33,7 +33,13 @@ func (p *Processor) eventStatusFromMsgHash(
 ) (relayer.EventStatus, error) {
 	var eventStatus relayer.EventStatus
 
-	messageStatus, err := p.destBridge.GetMessageStatus(nil, signal)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+
+	defer cancel()
+
+	messageStatus, err := p.destBridge.GetMessageStatus(&bind.CallOpts{
+		Context: ctx,
+	}, signal)
 	if err != nil {
 		return 0, errors.Wrap(err, "svc.destBridge.GetMessageStatus")
 	}
@@ -303,19 +309,26 @@ func (p *Processor) needsContractDeployment(
 	chainID := canonicalToken.ChainID()
 	addr := canonicalToken.Address()
 
+	ctx, cancel := context.WithTimeout(ctx, p.ethClientTimeout)
+	defer cancel()
+
+	opts := &bind.CallOpts{
+		Context: ctx,
+	}
+
 	if eventType == relayer.EventTypeSendERC20 && event.Message.DestChainId.Cmp(chainID) != 0 {
 		// determine whether the canonical token is bridged or not on this chain
-		bridgedAddress, err = p.destERC20Vault.CanonicalToBridged(nil, chainID, addr)
+		bridgedAddress, err = p.destERC20Vault.CanonicalToBridged(opts, chainID, addr)
 	}
 
 	if eventType == relayer.EventTypeSendERC721 && event.Message.DestChainId.Cmp(chainID) != 0 {
 		// determine whether the canonical token is bridged or not on this chain
-		bridgedAddress, err = p.destERC721Vault.CanonicalToBridged(nil, chainID, addr)
+		bridgedAddress, err = p.destERC721Vault.CanonicalToBridged(opts, chainID, addr)
 	}
 
 	if eventType == relayer.EventTypeSendERC1155 && event.Message.DestChainId.Cmp(chainID) != 0 {
 		// determine whether the canonical token is bridged or not on this chain
-		bridgedAddress, err = p.destERC1155Vault.CanonicalToBridged(nil, chainID, addr)
+		bridgedAddress, err = p.destERC1155Vault.CanonicalToBridged(opts, chainID, addr)
 	}
 
 	if err != nil {
