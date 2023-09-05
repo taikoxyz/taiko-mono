@@ -53,16 +53,13 @@
       // determine if we simply swapped dest and src networks
       if (newNetwork.id === destChainId) {
         destNetwork.set(oldNetwork);
-        console.log('swap only');
         return;
       }
       // check if the new network has a bridge to the current dest network
       if (hasBridge(newNetwork.id, $destNetwork?.id)) {
-        console.log('has bridge');
         destNetwork.set(oldNetwork);
       } else {
         // if not, set dest network to null
-        console.log('no bridge');
         $destNetwork = null;
       }
     }
