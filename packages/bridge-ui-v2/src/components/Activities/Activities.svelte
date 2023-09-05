@@ -4,7 +4,7 @@
   import type { Address } from 'viem';
 
   import { Card } from '$components/Card';
-  import ChainSelector from '$components/ChainSelector/ChainSelector.svelte';
+  import { ChainSelector } from '$components/ChainSelector';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import { Paginator } from '$components/Paginator';
