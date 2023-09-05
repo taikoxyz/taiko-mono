@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.6.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2-v2.5.0...bridge-ui-v2-v2.6.0) (2023-09-05)
+
+
+### Features
+
+* **bridge-ui-v2:** AddressInput component ([#14572](https://github.com/taikoxyz/taiko-mono/issues/14572)) ([9f6a283](https://github.com/taikoxyz/taiko-mono/commit/9f6a283aef914efcf2284a93337179c402ee64ec))
+* **bridge-ui-v2:** Style adjustments for dialogs ([#14632](https://github.com/taikoxyz/taiko-mono/issues/14632)) ([148d6aa](https://github.com/taikoxyz/taiko-mono/commit/148d6aa39dd269d000b964ff6553e8646885d8f4))
+* **bridge-ui-v2:** Styling adjustments ([#14588](https://github.com/taikoxyz/taiko-mono/issues/14588)) ([85bef05](https://github.com/taikoxyz/taiko-mono/commit/85bef055c8778a473fff41318b06792c151efa52))
+* **bridge-ui-v2:** truncate-chainname ([#14603](https://github.com/taikoxyz/taiko-mono/issues/14603)) ([bdc9c43](https://github.com/taikoxyz/taiko-mono/commit/bdc9c434ba43bb213c79b03da83b090693658a54))
+
+
+### Bug Fixes
+
+* **bridge-ui-v2:** Fix dialogs being offset ([#14624](https://github.com/taikoxyz/taiko-mono/issues/14624)) ([2367c89](https://github.com/taikoxyz/taiko-mono/commit/2367c89940bbdc67de14d6fb71d138f9a2157d17))
+
 ## [2.5.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2-v2.4.0...bridge-ui-v2-v2.5.0) (2023-08-22)
 
 

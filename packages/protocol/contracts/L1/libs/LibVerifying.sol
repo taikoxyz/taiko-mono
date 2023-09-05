@@ -14,7 +14,6 @@ import { ISignalService } from "../../signal/ISignalService.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
-import { TaikoToken } from "../TaikoToken.sol";
 
 library LibVerifying {
     using Address for address;
@@ -62,30 +61,22 @@ library LibVerifying {
                     >= type(uint96).max / config.ethDepositMaxCountPerBlock
         ) revert L1_INVALID_CONFIG();
 
-        // Unchecked is safe:
-        // - assignment is within ranges
-        // - block.timestamp will still be within uint64 range for the next
-        // 500K+ years.
-        unchecked {
-            uint64 timeNow = uint64(block.timestamp);
+        // Init state
+        state.slotA.genesisHeight = uint64(block.number);
+        state.slotA.genesisTimestamp = uint64(block.timestamp);
+        state.slotB.numBlocks = 1;
+        state.slotB.lastVerifiedAt = uint64(block.timestamp);
 
-            // Init state
-            state.slotA.genesisHeight = uint64(block.number);
-            state.slotA.genesisTimestamp = timeNow;
-            state.slotB.numBlocks = 1;
-            state.slotB.lastVerifiedAt = uint64(block.timestamp);
+        // Init the genesis block
+        TaikoData.Block storage blk = state.blocks[0];
+        blk.nextTransitionId = 2;
+        blk.verifiedTransitionId = 1;
+        blk.proposedAt = uint64(block.timestamp);
 
-            // Init the genesis block
-            TaikoData.Block storage blk = state.blocks[0];
-            blk.nextTransitionId = 2;
-            blk.verifiedTransitionId = 1;
-            blk.proposedAt = timeNow;
-
-            // Init the first state transition
-            TaikoData.Transition storage tz = state.transitions[0][1];
-            tz.blockHash = genesisBlockHash;
-            tz.provenAt = timeNow;
-        }
+        // Init the first state transition
+        TaikoData.Transition storage tran = state.transitions[0][1];
+        tran.blockHash = genesisBlockHash;
+        tran.provenAt = uint64(block.timestamp);
 
         emit BlockVerified({
             blockId: 0,
@@ -105,17 +96,17 @@ library LibVerifying {
         TaikoData.SlotB memory b = state.slotB;
         uint64 blockId = b.lastVerifiedBlockId;
 
-        TaikoData.Block storage blk =
-            state.blocks[blockId % config.blockRingBufferSize];
+        uint64 slot = blockId % config.blockRingBufferSize;
+        TaikoData.Block storage blk = state.blocks[slot];
         if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
 
         uint32 tid = blk.verifiedTransitionId;
         if (tid == 0) revert L1_UNEXPECTED_TRANSITION_ID();
 
-        bytes32 blockHash = state.transitions[blockId][tid].blockHash;
+        bytes32 blockHash = state.transitions[slot][tid].blockHash;
 
         bytes32 signalRoot;
-        TaikoData.Transition memory tz;
+        TaikoData.Transition storage tran;
 
         uint64 processed;
 
@@ -127,38 +118,39 @@ library LibVerifying {
             ++blockId;
 
             while (blockId < b.numBlocks && processed < maxBlocks) {
-                blk = state.blocks[blockId % config.blockRingBufferSize];
+                slot = blockId % config.blockRingBufferSize;
+                blk = state.blocks[slot];
                 if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
 
-                tid = LibUtils.getTransitionId(state, blk, blockId, blockHash);
+                tid = LibUtils.getTransitionId(state, blk, slot, blockHash);
                 if (tid == 0) break;
 
-                tz = state.transitions[blockId][tid];
-                if (tz.prover == address(0)) break;
+                tran = state.transitions[slot][tid];
+                if (tran.prover == address(0)) break;
 
-                uint256 proofCooldown = tz.prover == LibUtils.ORACLE_PROVER
+                uint256 proofCooldown = tran.prover == LibUtils.ORACLE_PROVER
                     ? config.proofOracleCooldown
                     : config.proofRegularCooldown;
-                if (block.timestamp <= tz.provenAt + proofCooldown) {
+                if (block.timestamp <= tran.provenAt + proofCooldown) {
                     break;
                 }
 
-                blockHash = tz.blockHash;
-                signalRoot = tz.signalRoot;
+                blockHash = tran.blockHash;
+                signalRoot = tran.signalRoot;
                 blk.verifiedTransitionId = tid;
 
                 // Refund bond or give 1/4 of it to the actual prover and burn
                 // the rest.
                 if (
-                    tz.prover == LibUtils.ORACLE_PROVER
-                        || tz.provenAt <= blk.proposedAt + blk.proofWindow
+                    tran.prover == LibUtils.ORACLE_PROVER
+                        || tran.provenAt <= blk.proposedAt + config.proofWindow
                 ) {
                     state.taikoTokenBalances[blk.prover] += blk.proofBond;
                 } else {
-                    state.taikoTokenBalances[tz.prover] += blk.proofBond / 4;
+                    state.taikoTokenBalances[tran.prover] += blk.proofBond / 4;
                 }
 
-                emit BlockVerified(blockId, tz.prover, tz.blockHash);
+                emit BlockVerified(blockId, tran.prover, tran.blockHash);
 
                 ++blockId;
                 ++processed;
