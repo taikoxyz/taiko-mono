@@ -69,8 +69,8 @@ importers:
         specifier: ^1.0.1
         version: 1.4.0(svelte@3.59.2)(vite@3.2.7)
       '@tsconfig/svelte':
-        specifier: ^3.0.0
-        version: 3.0.0
+        specifier: ^5.0.2
+        version: 5.0.2
       '@types/debug':
         specifier: ^4.1.7
         version: 4.1.8
@@ -384,8 +384,8 @@ importers:
         specifier: ^1.0.1
         version: 1.4.0(svelte@3.59.2)(vite@3.2.7)
       '@tsconfig/svelte':
-        specifier: ^3.0.0
-        version: 3.0.0
+        specifier: ^5.0.2
+        version: 5.0.2
       '@types/debug':
         specifier: ^4.1.7
         version: 4.1.8
@@ -696,8 +696,8 @@ importers:
         specifier: ^1.0.1
         version: 1.4.0(svelte@3.59.2)(vite@3.2.7)
       '@tsconfig/svelte':
-        specifier: ^3.0.0
-        version: 3.0.0
+        specifier: ^5.0.2
+        version: 5.0.2
       '@types/eslint':
         specifier: ^8.2.1
         version: 8.44.1
@@ -850,8 +850,8 @@ importers:
         specifier: ^1.0.1
         version: 1.4.0(svelte@3.59.2)(vite@3.2.7)
       '@tsconfig/svelte':
-        specifier: ^3.0.0
-        version: 3.0.0
+        specifier: ^5.0.2
+        version: 5.0.2
       '@types/eslint':
         specifier: ^8.2.1
         version: 8.44.1
@@ -5179,8 +5179,8 @@ packages:
     resolution: {integrity: sha512-vxhUy4J8lyeyinH7Azl1pdd43GJhZH/tP2weN8TntQblOY+A0XbT8DJk1/oCPuOOyg/Ja757rG0CgHcWC8OfMA==}
     dev: true
 
-  /@tsconfig/svelte@3.0.0:
-    resolution: {integrity: sha512-pYrtLtOwku/7r1i9AMONsJMVYAtk3hzOfiGNekhtq5tYBGA7unMve8RvUclKLMT3PrihvJqUmzsRGh0RP84hKg==}
+  /@tsconfig/svelte@5.0.2:
+    resolution: {integrity: sha512-BRbo1fOtyVbhfLyuCWw6wAWp+U8UQle+ZXu84MYYWzYSEB28dyfnRBIE99eoG+qdAC0po6L2ScIEivcT07UaMA==}
     dev: true
 
   /@typechain/ethers-v5@2.0.0(ethers@5.7.2)(typechain@3.0.0):
