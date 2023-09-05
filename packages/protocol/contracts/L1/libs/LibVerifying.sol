@@ -151,7 +151,7 @@ library LibVerifying {
                 // the rest.
                 if (
                     tz.prover == LibUtils.ORACLE_PROVER
-                        || tz.provenAt <= blk.proposedAt + blk.proofWindow
+                        || tz.provenAt <= blk.proposedAt + config.proofWindow
                 ) {
                     state.taikoTokenBalances[blk.prover] += blk.proofBond;
                 } else {

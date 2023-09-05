@@ -191,7 +191,6 @@ library LibProposing {
             blk.proposedAt = meta.timestamp;
             blk.nextTransitionId = 1;
             blk.verifiedTransitionId = 0;
-            blk.proofWindow = config.proofWindow;
 
             emit BlockProposed({
                 blockId: state.slotB.numBlocks++,

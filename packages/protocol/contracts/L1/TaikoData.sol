@@ -147,7 +147,6 @@ library TaikoData {
         uint64 proposedAt;
         uint32 nextTransitionId;
         uint32 verifiedTransitionId;
-        uint16 proofWindow;
     }
 
     /// @dev Struct representing information about a transaction list.
