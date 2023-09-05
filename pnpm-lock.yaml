@@ -144,8 +144,8 @@ importers:
         specifier: ^7.1.2
         version: 7.1.2
       postcss-loader:
-        specifier: ^6.2.0
-        version: 6.2.1(postcss@8.4.27)(webpack@5.88.2)
+        specifier: ^7.3.3
+        version: 7.3.3(postcss@8.4.27)(webpack@5.88.2)
       prettier:
         specifier: 2.7.1
         version: 2.7.1
@@ -459,8 +459,8 @@ importers:
         specifier: ^7.1.2
         version: 7.1.2
       postcss-loader:
-        specifier: ^6.2.0
-        version: 6.2.1(postcss@8.4.27)(webpack@5.88.2)
+        specifier: ^7.3.3
+        version: 7.3.3(postcss@8.4.27)(webpack@5.88.2)
       prettier:
         specifier: 2.7.1
         version: 2.7.1
@@ -747,8 +747,8 @@ importers:
         specifier: ^7.1.2
         version: 7.1.2
       postcss-loader:
-        specifier: ^6.2.0
-        version: 6.2.1(postcss@8.4.27)(webpack@5.88.2)
+        specifier: ^7.3.3
+        version: 7.3.3(postcss@8.4.27)(webpack@5.88.2)
       prettier:
         specifier: 2.7.1
         version: 2.7.1
@@ -901,8 +901,8 @@ importers:
         specifier: ^7.1.2
         version: 7.1.2
       postcss-loader:
-        specifier: ^6.2.0
-        version: 6.2.1(postcss@8.4.27)(webpack@5.88.2)
+        specifier: ^7.3.3
+        version: 7.3.3(postcss@8.4.27)(webpack@5.88.2)
       prettier:
         specifier: 2.7.1
         version: 2.7.1
@@ -5533,10 +5533,6 @@ packages:
 
   /@types/normalize-package-data@2.4.1:
     resolution: {integrity: sha512-Gj7cI7z+98M282Tqmp2K5EIsoouUEzbBJhQQzDE3jSIRk6r9gsz0oUokqIUR4u1R3dMHo0pDHM7sNOHyhulypw==}
-    dev: true
-
-  /@types/parse-json@4.0.0:
-    resolution: {integrity: sha512-//oorEZjL6sbPcKUaCdIGlIUeH26mgzimjBB77G6XRgnDl/L5wOnpyBGRe/Mmf5CVW3PwEBE1NjiMZ/ssFh4wA==}
     dev: true
 
   /@types/pbkdf2@3.1.0:
@@ -10321,17 +10317,6 @@ packages:
       is-directory: 0.3.1
       js-yaml: 3.14.1
       parse-json: 4.0.0
-    dev: true
-
-  /cosmiconfig@7.1.0:
-    resolution: {integrity: sha512-AdmX6xUzdNASswsFtmwSt7Vj8po9IuqXm0UXz7QKPuEUmPB4XyjGfaAr2PSuELMwkRMVH1EpIkX5bTZGRB3eCA==}
-    engines: {node: '>=10'}
-    dependencies:
-      '@types/parse-json': 4.0.0
-      import-fresh: 3.3.0
-      parse-json: 5.2.0
-      path-type: 4.0.0
-      yaml: 1.10.2
     dev: true
 
   /cosmiconfig@8.2.0:
@@ -16541,11 +16526,6 @@ packages:
     resolution: {integrity: sha512-o+NO+8WrRiQEE4/7nwRJhN1HWpVmJm511pBHUxPLtp0BUISzlBplORYSmTclCnJvQq2tKu/sgl3xVpkc7ZWuQQ==}
     engines: {node: '>=6'}
 
-  /klona@2.0.6:
-    resolution: {integrity: sha512-dhG34DXATL5hSxJbIexCft8FChFXtmskoZYnoPWjXQuebWYCNkVeV3KkGegCK9CP1oswI/vQibS2GY7Em/sJJA==}
-    engines: {node: '>= 8'}
-    dev: true
-
   /known-css-properties@0.28.0:
     resolution: {integrity: sha512-9pSL5XB4J+ifHP0e0jmmC98OGC1nL8/JjS+fi6mnTlIf//yt/MfVLtKg7S6nCtj/8KTcWX7nRlY0XywoYY1ISQ==}
     dev: true
@@ -19838,15 +19818,15 @@ packages:
       yaml: 2.3.1
     dev: true
 
-  /postcss-loader@6.2.1(postcss@8.4.27)(webpack@5.88.2):
-    resolution: {integrity: sha512-WbbYpmAaKcux/P66bZ40bpWsBucjx/TTgVVzRZ9yUO8yQfVBlameJ0ZGVaPfH64hNSBh63a+ICP5nqOpBA0w+Q==}
-    engines: {node: '>= 12.13.0'}
+  /postcss-loader@7.3.3(postcss@8.4.27)(webpack@5.88.2):
+    resolution: {integrity: sha512-YgO/yhtevGO/vJePCQmTxiaEwER94LABZN0ZMT4A0vsak9TpO+RvKRs7EmJ8peIlB9xfXCsS7M8LjqncsUZ5HA==}
+    engines: {node: '>= 14.15.0'}
     peerDependencies:
       postcss: ^7.0.0 || ^8.0.1
       webpack: ^5.0.0
     dependencies:
-      cosmiconfig: 7.1.0
-      klona: 2.0.6
+      cosmiconfig: 8.2.0
+      jiti: 1.19.1
       postcss: 8.4.27
       semver: 7.5.4
       webpack: 5.88.2(esbuild@0.15.13)
