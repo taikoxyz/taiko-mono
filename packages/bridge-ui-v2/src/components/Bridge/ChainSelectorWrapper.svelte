@@ -6,7 +6,7 @@
   import { chains } from '$libs/chain';
   import { type Network, network } from '$stores/network';
 
-  import ChainSelector from '../ChainSelector/ChainSelector.svelte';
+  import ChainSelector from '$components/ChainSelector';
 
   function handleSourceChange(event: CustomEvent<number>): void {
     updateDestOptions();
