@@ -149,7 +149,8 @@
       }
     },
     "errors": {
-      "insufficient_balance": "Insufficient balance to claim. Please add some ETH to your wallet."
+      "insufficient_balance": "Insufficient balance to claim. Please add some ETH to your wallet.",
+      "relayer_offline": "Relayer did not respond. Your transactions may only be loaded partially."
     }
   },
   "faucet": {

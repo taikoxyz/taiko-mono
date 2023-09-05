@@ -18,6 +18,7 @@
   import MobileDetailsDialog from './MobileDetailsDialog.svelte';
   import StatusInfoDialog from './StatusInfoDialog.svelte';
   import Transaction from './Transaction.svelte';
+  import { warningToast } from '$components/NotificationToast';
 
   let transactions: BridgeTransaction[] = [];
 
@@ -57,7 +58,7 @@
       loadingTxs = true;
 
       try {
-        updateTransactions(newAccount.address);
+        await updateTransactions(newAccount.address);
       } catch (err) {
         console.error(err);
         // TODO: handle
@@ -78,28 +79,17 @@
   };
 
   const updateTransactions = async (address: Address) => {
-    const { mergedTransactions, outdatedLocalTransactions } = await fetchTransactions(address);
+    const { mergedTransactions, outdatedLocalTransactions, error } = await fetchTransactions(address);
     transactions = mergedTransactions;
     if (outdatedLocalTransactions.length > 0) {
       await bridgeTxService.removeTransactions(address, outdatedLocalTransactions);
     }
-  };
+    if (error) {
+      // Todo: handle different error scenarios
 
-  onMount(async () => {
-    // We want to make sure that we are connected before fetching
-    if (!$account?.isConnected || !$account?.address) return;
-
-    loadingTxs = true;
-
-    try {
-      await updateTransactions($account.address);
-    } catch (err) {
-      console.error(err);
-      // TODO: handle
-    } finally {
-      loadingTxs = false;
+      warningToast($t('activities.errors.relayer_offline'));
     }
-  });
+  };
 
   $: pageSize = isDesktopOrLarger ? activitiesConfig.pageSizeDesktop : activitiesConfig.pageSizeMobile;
 

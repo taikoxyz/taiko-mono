@@ -8,6 +8,7 @@ import { mergeAndCaptureOutdatedTransactions } from '$libs/util/mergeTransaction
 import type { BridgeTransaction } from './types';
 
 const log = getLogger('bridge:fetchTransactions');
+let error: Error;
 
 export async function fetchTransactions(userAddress: Address) {
   // Transactions from local storage
@@ -23,8 +24,14 @@ export async function fetchTransactions(userAddress: Address) {
     return txs;
   });
 
+  let relayerTxsArrays: BridgeTransaction[][]
   // Wait for all promises to resolve
-  const relayerTxsArrays: BridgeTransaction[][] = await Promise.all(relayerTxPromises);
+  try {
+    relayerTxsArrays = await Promise.all(relayerTxPromises);
+  } catch (e) {
+    error = e as Error;
+    relayerTxsArrays = []
+  }
 
   // Flatten the arrays into a single array
   const relayerTxs: BridgeTransaction[] = relayerTxsArrays.reduce((acc, txs) => acc.concat(txs), []);
@@ -39,5 +46,5 @@ export async function fetchTransactions(userAddress: Address) {
     );
   }
 
-  return { mergedTransactions, outdatedLocalTransactions };
+  return { mergedTransactions, outdatedLocalTransactions, error };
 }
