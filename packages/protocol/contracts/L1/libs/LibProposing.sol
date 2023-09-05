@@ -142,7 +142,7 @@ library LibProposing {
                     );
 
                     // Reward must be minted
-                    tt.mint(input.beneficiary, reward);
+                    tt.mint(input.proposer, reward);
                 }
             }
         }
@@ -176,9 +176,9 @@ library LibProposing {
             meta.txListByteStart = input.txListByteStart;
             meta.txListByteEnd = input.txListByteEnd;
             meta.gasLimit = config.blockMaxGasLimit;
-            meta.beneficiary = input.beneficiary;
+            meta.proposer = input.proposer;
             meta.depositsProcessed =
-                LibDepositing.processDeposits(state, config, input.beneficiary);
+                LibDepositing.processDeposits(state, config, input.proposer);
 
             // Init the block
             TaikoData.Block storage blk =
@@ -226,7 +226,7 @@ library LibProposing {
         view
         returns (bool cacheTxListInfo)
     {
-        if (input.beneficiary == address(0)) revert L1_INVALID_METADATA();
+        if (input.proposer == address(0)) revert L1_INVALID_METADATA();
 
         uint64 timeNow = uint64(block.timestamp);
         // handling txList

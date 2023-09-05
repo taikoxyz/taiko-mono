@@ -86,7 +86,7 @@ library TaikoData {
     /// @dev Struct representing input data for block metadata.
     struct BlockMetadataInput {
         bytes32 txListHash;
-        address beneficiary;
+        address proposer;
         uint24 txListByteStart; // byte-wise start index (inclusive)
         uint24 txListByteEnd; // byte-wise end index (exclusive)
         bool cacheTxListInfo;
@@ -112,7 +112,7 @@ library TaikoData {
         uint24 txListByteStart;
         uint24 txListByteEnd;
         uint32 gasLimit;
-        address beneficiary;
+        address proposer;
         TaikoData.EthDeposit[] depositsProcessed;
     }
 
