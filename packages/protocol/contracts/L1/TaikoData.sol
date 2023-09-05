@@ -184,7 +184,7 @@ library TaikoData {
     /// @dev Struct holding the state variables for the {TaikoL1} contract.
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
-        mapping(uint64 blockId_mode_blockRingBufferSize => Block) blocks;
+        mapping(uint64 blockId_mod_blockRingBufferSize => Block) blocks;
         // Indexing to transition ids (ring buffer not possible)
         mapping(
             uint64 blockId => mapping(bytes32 parentHash => uint32 transitionId)
@@ -197,7 +197,7 @@ library TaikoData {
         // txList cached info
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         // Ring buffer for Ether deposits
-        mapping(uint256 depositId_mode_ethDepositRingBufferSize => uint256)
+        mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256)
             ethDeposits;
         // In-protocol Taiko token balances
         mapping(address account => uint256 balance) taikoTokenBalances;
