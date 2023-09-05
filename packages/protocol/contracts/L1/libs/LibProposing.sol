@@ -228,46 +228,45 @@ library LibProposing {
     {
         if (input.proposer == address(0)) revert L1_INVALID_METADATA();
 
-        uint64 timeNow = uint64(block.timestamp);
         // handling txList
-        {
-            uint24 size = uint24(txList.length);
-            if (size > config.blockMaxTxListBytes) revert L1_TX_LIST();
 
-            if (input.txListByteStart > input.txListByteEnd) {
+        uint24 size = uint24(txList.length);
+        if (size > config.blockMaxTxListBytes) revert L1_TX_LIST();
+
+        if (input.txListByteStart > input.txListByteEnd) {
+            revert L1_TX_LIST_RANGE();
+        }
+
+        if (config.blockTxListExpiry == 0) {
+            // caching is disabled
+            if (input.txListByteStart != 0 || input.txListByteEnd != size) {
                 revert L1_TX_LIST_RANGE();
             }
+        } else {
+            // caching is enabled
+            if (size == 0) {
+                // This blob shall have been submitted earlier
+                TaikoData.TxListInfo memory info =
+                    state.txListInfo[input.txListHash];
 
-            if (config.blockTxListExpiry == 0) {
-                // caching is disabled
-                if (input.txListByteStart != 0 || input.txListByteEnd != size) {
+                if (input.txListByteEnd > info.size) {
                     revert L1_TX_LIST_RANGE();
                 }
-            } else {
-                // caching is enabled
-                if (size == 0) {
-                    // This blob shall have been submitted earlier
-                    TaikoData.TxListInfo memory info =
-                        state.txListInfo[input.txListHash];
 
-                    if (input.txListByteEnd > info.size) {
-                        revert L1_TX_LIST_RANGE();
-                    }
-
-                    if (
-                        info.size == 0
-                            || info.validSince + config.blockTxListExpiry < timeNow
-                    ) {
-                        revert L1_TX_LIST_NOT_EXIST();
-                    }
-                } else {
-                    if (input.txListByteEnd > size) revert L1_TX_LIST_RANGE();
-                    if (input.txListHash != keccak256(txList)) {
-                        revert L1_TX_LIST_HASH();
-                    }
-
-                    cacheTxListInfo = input.cacheTxListInfo;
+                if (
+                    info.size == 0
+                        || info.validSince + config.blockTxListExpiry
+                            < block.timestamp
+                ) {
+                    revert L1_TX_LIST_NOT_EXIST();
                 }
+            } else {
+                if (input.txListByteEnd > size) revert L1_TX_LIST_RANGE();
+                if (input.txListHash != keccak256(txList)) {
+                    revert L1_TX_LIST_HASH();
+                }
+
+                cacheTxListInfo = input.cacheTxListInfo;
             }
         }
     }
