@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.15.0](https://github.com/taikoxyz/taiko-mono/compare/website-v0.14.0...website-v0.15.0) (2023-09-05)
+
+
+### Features
+
+* **website:** add ethereum differences reference ([#14642](https://github.com/taikoxyz/taiko-mono/issues/14642)) ([40ac82b](https://github.com/taikoxyz/taiko-mono/commit/40ac82bd45b05ef183abedf2933418402b58a8e6))
+* **website:** add MES protocol to ecosystem ([#14593](https://github.com/taikoxyz/taiko-mono/issues/14593)) ([9812f1f](https://github.com/taikoxyz/taiko-mono/commit/9812f1f837324592da2ac1c77b5a55f194bb9e1c))
+* **website:** add metamerge to ecosystem ([#14592](https://github.com/taikoxyz/taiko-mono/issues/14592)) ([c170d72](https://github.com/taikoxyz/taiko-mono/commit/c170d7239cf9f16d11078926c711c7032569a910))
+* **website:** add redirect to events notion page ([#14625](https://github.com/taikoxyz/taiko-mono/issues/14625)) ([fae024d](https://github.com/taikoxyz/taiko-mono/commit/fae024d46b8c21553811a20ea55af97439949edc))
+* **website:** add rubic to ecosystem ([#14591](https://github.com/taikoxyz/taiko-mono/issues/14591)) ([2f5b9e2](https://github.com/taikoxyz/taiko-mono/commit/2f5b9e2b3c56802b2106ded2c6acdb12c5e91853))
+* **website:** add ZeroSwap to ecosystem ([#14613](https://github.com/taikoxyz/taiko-mono/issues/14613)) ([d44fc39](https://github.com/taikoxyz/taiko-mono/commit/d44fc399818bc15599be842b2136100cb4aaffd6))
+* **website:** remove blog section ([#14561](https://github.com/taikoxyz/taiko-mono/issues/14561)) ([5fc93af](https://github.com/taikoxyz/taiko-mono/commit/5fc93af8b56e6d514cc3c5d06795840a6227728d))
+
 ## [0.14.0](https://github.com/taikoxyz/taiko-mono/compare/website-v0.13.0...website-v0.14.0) (2023-08-22)
 
 
