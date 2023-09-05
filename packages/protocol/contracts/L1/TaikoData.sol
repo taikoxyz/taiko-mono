@@ -50,8 +50,14 @@ library TaikoData {
         uint256 proofOracleCooldown;
         // The maximum time window allowed for a proof submission (in minutes).
         uint16 proofWindow;
-        // The amount of Taiko token as a bond
+        // The amount of Taiko token as a zk proof bond
         uint96 proofBond;
+        // The amount of Taiko token as optmistic bond
+        uint96 transitionBond;
+        // Time to wait before an optimistic transition can be used to verify a
+        // block.
+        uint64 optimisticCooldown;
+        uint64 zkFactor;
         // True to skip proof verification
         bool skipProverAssignmentVerificaiton;
         // ---------------------------------------------------------------------
@@ -128,24 +134,30 @@ library TaikoData {
     }
 
     /// @dev Struct representing state transition data.
-    /// 4 slots.
+    /// 6 slots.
     struct Transition {
-        bytes32 key; //only written/read for the 1st state transition.
-        bytes32 blockHash;
-        bytes32 signalRoot;
-        address prover;
+        bytes32 key; // slot 1, only written/read for the 1st state transition.
+        bytes32 blockHash; // slot 2
+        bytes32 signalRoot; // slot 3
+        address owner; // slot 4
+        uint64 createdAt;
+        address challenger; // slot 5
+        uint64 challengedAt;
+        address prover; // slot 6
         uint64 provenAt;
     }
 
     /// @dev Struct containing data required for verifying a block.
-    /// 3 slots.
+    /// 4 slots.
     struct Block {
         bytes32 metaHash; // slot 1
         address prover; // slot 2
         uint96 proofBond;
+        address beneficiary;
         uint64 blockId; // slot 3
-        uint64 proposedAt;
         uint32 nextTransitionId;
+        uint96 transitionBond; // slot 4 (208 bits)
+        uint64 proposedAt;
         uint32 verifiedTransitionId;
         uint16 proofWindow;
     }
@@ -185,14 +197,14 @@ library TaikoData {
     /// @dev Struct holding the state variables for the {TaikoL1} contract.
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
-        mapping(uint64 blockId_mode_blockRingBufferSize => Block) blocks;
+        mapping(uint64 blockId_mod_blockRingBufferSize => Block) blocks;
         mapping(
             uint64 blockId => mapping(bytes32 parentHash => uint32 transitionId)
             ) transitionIds;
         mapping(uint64 blockId => mapping(uint32 transitionId => Transition))
             transitions;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
-        mapping(uint256 depositId_mode_ethDepositRingBufferSize => uint256)
+        mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256)
             ethDeposits;
         mapping(address account => uint256 balance) taikoTokenBalances;
         SlotA slotA; // slot 7

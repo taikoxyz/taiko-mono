@@ -189,15 +189,18 @@ library LibProposing {
             blk.metaHash = LibUtils.hashMetadata(meta);
             blk.prover = assignment.prover;
             blk.proofBond = config.proofBond;
+            blk.beneficiary = meta.beneficiary;
             blk.blockId = meta.id;
-            blk.proposedAt = meta.timestamp;
             blk.nextTransitionId = 1;
+            blk.transitionBond =
+                meta.id % config.zkFactor == 0 ? 0 : config.transitionBond;
+            blk.proposedAt = meta.timestamp;
             blk.verifiedTransitionId = 0;
             blk.proofWindow = config.proofWindow;
 
             emit BlockProposed({
                 blockId: state.slotB.numBlocks++,
-                prover: blk.prover,
+                prover: assignment.prover,
                 reward: reward,
                 meta: meta
             });
@@ -231,7 +234,6 @@ library LibProposing {
     {
         if (input.beneficiary == address(0)) revert L1_INVALID_METADATA();
 
-        uint64 timeNow = uint64(block.timestamp);
         // handling txList
         {
             uint24 size = uint24(txList.length);
@@ -259,7 +261,8 @@ library LibProposing {
 
                     if (
                         info.size == 0
-                            || info.validSince + config.blockTxListExpiry < timeNow
+                            || info.validSince + config.blockTxListExpiry
+                                < uint64(block.timestamp)
                     ) {
                         revert L1_TX_LIST_NOT_EXIST();
                     }

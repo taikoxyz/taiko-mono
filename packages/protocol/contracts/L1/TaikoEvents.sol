@@ -44,11 +44,15 @@ abstract contract TaikoEvents {
 
     /// @dev Emitted when a block is verified.
     /// @param blockId The ID of the verified block.
+    /// @param transitionOwner Transition owner to receive block reward.
     /// @param prover The address of the prover that proved the block which is
     /// verified.
     /// @param blockHash The hash of the verified block.
     event BlockVerified(
-        uint256 indexed blockId, address indexed prover, bytes32 blockHash
+        uint256 indexed blockId,
+        address indexed transitionOwner,
+        address indexed prover,
+        bytes32 blockHash
     );
 
     /// @dev Emitted when an Ethereum deposit is made.
