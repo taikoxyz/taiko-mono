@@ -81,9 +81,9 @@ library LibVerifying {
             blk.proposedAt = timeNow;
 
             // Init the first state transition
-            TaikoData.Transition storage tz = state.transitions[0][1];
-            tz.blockHash = genesisBlockHash;
-            tz.provenAt = timeNow;
+            TaikoData.Transition storage tran = state.transitions[0][1];
+            tran.blockHash = genesisBlockHash;
+            tran.provenAt = timeNow;
         }
 
         emit BlockVerified({
@@ -114,7 +114,7 @@ library LibVerifying {
         bytes32 blockHash = state.transitions[slot][tid].blockHash;
 
         bytes32 signalRoot;
-        TaikoData.Transition memory tz;
+        TaikoData.Transition storage tran;
 
         uint64 processed;
 
@@ -133,32 +133,32 @@ library LibVerifying {
                 tid = LibUtils.getTransitionId(state, blk, slot, blockHash);
                 if (tid == 0) break;
 
-                tz = state.transitions[slot][tid];
-                if (tz.prover == address(0)) break;
+                tran = state.transitions[slot][tid];
+                if (tran.prover == address(0)) break;
 
-                uint256 proofCooldown = tz.prover == LibUtils.ORACLE_PROVER
+                uint256 proofCooldown = tran.prover == LibUtils.ORACLE_PROVER
                     ? config.proofOracleCooldown
                     : config.proofRegularCooldown;
-                if (block.timestamp <= tz.provenAt + proofCooldown) {
+                if (block.timestamp <= tran.provenAt + proofCooldown) {
                     break;
                 }
 
-                blockHash = tz.blockHash;
-                signalRoot = tz.signalRoot;
+                blockHash = tran.blockHash;
+                signalRoot = tran.signalRoot;
                 blk.verifiedTransitionId = tid;
 
                 // Refund bond or give 1/4 of it to the actual prover and burn
                 // the rest.
                 if (
-                    tz.prover == LibUtils.ORACLE_PROVER
-                        || tz.provenAt <= blk.proposedAt + config.proofWindow
+                    tran.prover == LibUtils.ORACLE_PROVER
+                        || tran.provenAt <= blk.proposedAt + config.proofWindow
                 ) {
                     state.taikoTokenBalances[blk.prover] += blk.proofBond;
                 } else {
-                    state.taikoTokenBalances[tz.prover] += blk.proofBond / 4;
+                    state.taikoTokenBalances[tran.prover] += blk.proofBond / 4;
                 }
 
-                emit BlockVerified(blockId, tz.prover, tz.blockHash);
+                emit BlockVerified(blockId, tran.prover, tran.blockHash);
 
                 ++blockId;
                 ++processed;
