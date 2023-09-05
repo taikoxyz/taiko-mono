@@ -86,7 +86,7 @@ library TaikoData {
     /// @dev Struct representing input data for block metadata.
     struct BlockMetadataInput {
         bytes32 txListHash;
-        address beneficiary;
+        address proposer;
         uint24 txListByteStart; // byte-wise start index (inclusive)
         uint24 txListByteEnd; // byte-wise end index (exclusive)
         bool cacheTxListInfo;
@@ -112,7 +112,7 @@ library TaikoData {
         uint24 txListByteStart;
         uint24 txListByteEnd;
         uint32 gasLimit;
-        address beneficiary;
+        address proposer;
         TaikoData.EthDeposit[] depositsProcessed;
     }
 
@@ -147,7 +147,6 @@ library TaikoData {
         uint64 proposedAt;
         uint32 nextTransitionId;
         uint32 verifiedTransitionId;
-        uint16 proofWindow;
     }
 
     /// @dev Struct representing information about a transaction list.
@@ -185,15 +184,22 @@ library TaikoData {
     /// @dev Struct holding the state variables for the {TaikoL1} contract.
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
-        mapping(uint64 blockId_mode_blockRingBufferSize => Block) blocks;
+        mapping(uint64 blockId_mod_blockRingBufferSize => Block) blocks;
+        // Indexing to transition ids (ring buffer not possible)
         mapping(
             uint64 blockId => mapping(bytes32 parentHash => uint32 transitionId)
             ) transitionIds;
-        mapping(uint64 blockId => mapping(uint32 transitionId => Transition))
-            transitions;
+        // Ring buffer for transitions
+        mapping(
+            uint64 blockId_mod_blockRingBufferSize
+                => mapping(uint32 transitionId => Transition)
+            ) transitions;
+        // txList cached info
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
-        mapping(uint256 depositId_mode_ethDepositRingBufferSize => uint256)
+        // Ring buffer for Ether deposits
+        mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256)
             ethDeposits;
+        // In-protocol Taiko token balances
         mapping(address account => uint256 balance) taikoTokenBalances;
         SlotA slotA; // slot 7
         SlotB slotB; // slot 8

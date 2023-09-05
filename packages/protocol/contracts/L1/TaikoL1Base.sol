@@ -223,14 +223,8 @@ abstract contract TaikoL1Base is
         override
         returns (bytes32)
     {
-        (bool found, TaikoData.Block storage blk) = LibUtils.getL2ChainData({
-            state: state,
-            config: getConfig(),
-            blockId: blockId
-        });
-        return found
-            ? state.transitions[blk.blockId][blk.verifiedTransitionId].blockHash
-            : bytes32(0);
+        return LibUtils.getVerifyingTransition(state, getConfig(), blockId)
+            .blockHash;
     }
 
     /// @inheritdoc ICrossChainSync
@@ -240,15 +234,8 @@ abstract contract TaikoL1Base is
         override
         returns (bytes32)
     {
-        (bool found, TaikoData.Block storage blk) = LibUtils.getL2ChainData({
-            state: state,
-            config: getConfig(),
-            blockId: blockId
-        });
-
-        return found
-            ? state.transitions[blockId][blk.verifiedTransitionId].signalRoot
-            : bytes32(0);
+        return LibUtils.getVerifyingTransition(state, getConfig(), blockId)
+            .signalRoot;
     }
 
     /// @notice Gets the state variables of the TaikoL1 contract.
