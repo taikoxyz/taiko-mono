@@ -191,7 +191,7 @@ library TaikoData {
             ) transitionIds;
         // Ring buffer for transitions
         mapping(
-            uint64 blockId_mode_blockRingBufferSize
+            uint64 blockId_mod_blockRingBufferSize
                 => mapping(uint32 transitionId => Transition)
             ) transitions;
         // txList cached info
