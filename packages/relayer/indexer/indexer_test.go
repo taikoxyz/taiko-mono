@@ -3,6 +3,7 @@ package indexer
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/labstack/echo/v4"
@@ -46,5 +47,7 @@ func newTestService(syncMode SyncMode, watchMode WatchMode) (*Indexer, relayer.B
 
 		srcChainId:  mock.MockChainID,
 		destChainId: mock.MockChainID,
+
+		ethClientTimeout: 10 * time.Second,
 	}, b
 }
