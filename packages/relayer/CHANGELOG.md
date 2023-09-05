@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.10.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.9.1...relayer-v0.10.0) (2023-09-05)
+
+
+### Features
+
+* **eventindexer:** Eventindexer and relayer a5 updates ([#14597](https://github.com/taikoxyz/taiko-mono/issues/14597)) ([87c9d53](https://github.com/taikoxyz/taiko-mono/commit/87c9d53fa9c6911aada78a1746839d14e4401916))
+
+
+### Bug Fixes
+
+* **relayer:** Eth bridge ([#14609](https://github.com/taikoxyz/taiko-mono/issues/14609)) ([f5207ae](https://github.com/taikoxyz/taiko-mono/commit/f5207ae19c48d9aaa83dab2739cd05d9c2985112))
+
 ## [0.9.1](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.9.0...relayer-v0.9.1) (2023-08-22)
 
 

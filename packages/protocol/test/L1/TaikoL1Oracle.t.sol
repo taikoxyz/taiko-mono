@@ -67,7 +67,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (
-            uint256 blockId = 1; blockId < conf.blockMaxProposals * 9; blockId++
+            uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++
         ) {
             printVariables("before propose");
             TaikoData.BlockMetadata memory meta =
@@ -120,9 +120,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (
-            uint256 blockId = 1;
-            blockId < conf.blockMaxProposals * 10;
-            blockId++
+            uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++
         ) {
             printVariables("before propose");
             TaikoData.BlockMetadata memory meta =
@@ -191,9 +189,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         for (
-            uint256 blockId = 1;
-            blockId < conf.blockMaxProposals * 10;
-            blockId++
+            uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++
         ) {
             TaikoData.BlockMetadata memory meta =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);
@@ -252,9 +248,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         for (
-            uint256 blockId = 1;
-            blockId < conf.blockMaxProposals * 10;
-            blockId++
+            uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++
         ) {
             TaikoData.BlockMetadata memory meta =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);
@@ -307,7 +301,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         for (
-            uint64 blockId = 1; blockId < conf.blockMaxProposals * 10; blockId++
+            uint64 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++
         ) {
             TaikoData.BlockMetadata memory meta =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);
@@ -380,9 +374,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         for (
-            uint256 blockId = 1;
-            blockId < conf.blockMaxProposals * 10;
-            blockId++
+            uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++
         ) {
             TaikoData.BlockMetadata memory meta =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);

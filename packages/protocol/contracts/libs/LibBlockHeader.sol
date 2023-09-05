@@ -12,7 +12,7 @@ import { LibRLPWriter } from "../thirdparty/LibRLPWriter.sol";
 struct BlockHeader {
     bytes32 parentHash;
     bytes32 ommersHash;
-    address beneficiary;
+    address proposer;
     bytes32 stateRoot;
     bytes32 transactionsRoot;
     bytes32 receiptsRoot;
@@ -69,7 +69,7 @@ library LibBlockHeader {
         }
         list[0] = LibRLPWriter.writeHash(header.parentHash);
         list[1] = LibRLPWriter.writeHash(header.ommersHash);
-        list[2] = LibRLPWriter.writeAddress(header.beneficiary);
+        list[2] = LibRLPWriter.writeAddress(header.proposer);
         list[3] = LibRLPWriter.writeHash(header.stateRoot);
         list[4] = LibRLPWriter.writeHash(header.transactionsRoot);
         list[5] = LibRLPWriter.writeHash(header.receiptsRoot);

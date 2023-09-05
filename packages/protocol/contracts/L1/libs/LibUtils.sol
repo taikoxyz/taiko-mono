@@ -17,39 +17,40 @@ library LibUtils {
 
     error L1_INVALID_BLOCK_ID();
 
-    function getL2ChainData(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        uint64 blockId
-    )
-        internal
-        view
-        returns (bool found, TaikoData.Block storage blk)
-    {
-        uint64 id = blockId == 0 ? state.slotB.lastVerifiedBlockId : blockId;
-
-        blk = state.blocks[id % config.blockRingBufferSize];
-        found = blk.blockId == id;
-    }
-
     function getTransitionId(
         TaikoData.State storage state,
         TaikoData.Block storage blk,
-        uint64 blockId,
+        uint64 slot,
         bytes32 parentHash
     )
         internal
         view
         returns (uint32 tid)
     {
-        if (state.transitions[blk.blockId][1].key == parentHash) {
+        if (state.transitions[slot][1].key == parentHash) {
             tid = 1;
         } else {
-            tid = state.transitionIds[blockId][parentHash];
+            tid = state.transitionIds[blk.blockId][parentHash];
         }
 
-        if (tid >= blk.nextTransitionId) {
-            tid = 0;
+        assert(tid < blk.nextTransitionId);
+    }
+
+    function getVerifyingTransition(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        uint64 blockId
+    )
+        internal
+        view
+        returns (TaikoData.Transition memory transition)
+    {
+        uint64 id = blockId == 0 ? state.slotB.lastVerifiedBlockId : blockId;
+        uint64 slot = id % config.blockRingBufferSize;
+
+        TaikoData.Block storage blk = state.blocks[slot];
+        if (blk.blockId == id) {
+            transition = state.transitions[slot][blk.verifiedTransitionId];
         }
     }
 
@@ -91,7 +92,7 @@ library LibUtils {
         inputs[5] = (uint256(meta.txListByteStart) << 232)
             | (uint256(meta.txListByteEnd) << 208) //
             | (uint256(meta.gasLimit) << 176)
-            | (uint256(uint160(meta.beneficiary)) << 16);
+            | (uint256(uint160(meta.proposer)) << 16);
 
         assembly {
             hash := keccak256(inputs, mul(6, 32))
