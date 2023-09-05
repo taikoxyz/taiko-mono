@@ -19,7 +19,13 @@ func main() {
 	log.SetOutput(os.Stdout)
 	// attempt to load a .env file to overwrite CLI flags, but allow it to not
 	// exist.
-	_ = godotenv.Load(".env")
+
+	envFile := os.Getenv("RELAYER_ENV_FILE")
+	if envFile == "" {
+		envFile = ".env"
+	}
+
+	_ = godotenv.Load(envFile)
 
 	app.Name = "Taiko Relayer"
 	app.Usage = "The taiko relayer softwares command line interface"
