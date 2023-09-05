@@ -4,8 +4,8 @@
 
   import { routingContractsMap } from '$bridgeConfig';
   import { chainConfig } from '$chainConfig';
+  import ChainSelectorWrapper from '$components/Bridge/ChainSelectorWrapper.svelte';
   import { Card } from '$components/Card';
-  import ChainSelectorWrapper from '$components/ChainSelector/ChainSelectorWrapper.svelte';
   import { successToast, warningToast } from '$components/NotificationToast';
   import { errorToast, infoToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { OnAccount } from '$components/OnAccount';

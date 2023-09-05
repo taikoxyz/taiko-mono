@@ -1,16 +1,12 @@
 <script lang="ts">
-  import { writable } from 'svelte/store';
-
-  import { destNetwork } from '$components/Bridge/state';
+  import { destNetwork, destOptions } from '$components/Bridge/state';
   import SwitchChainsButton from '$components/Bridge/SwitchChainsButton.svelte';
   import { OnNetwork } from '$components/OnNetwork';
   import { hasBridge } from '$libs/bridge/bridges';
   import { chains } from '$libs/chain';
   import { type Network, network } from '$stores/network';
 
-  import ChainSelector from './ChainSelector.svelte';
-
-  const destOptions = writable(chains);
+  import ChainSelector from '../ChainSelector/ChainSelector.svelte';
 
   function handleSourceChange(event: CustomEvent<number>): void {
     updateDestOptions();
@@ -21,14 +17,12 @@
   }
 
   function updateDestOptions() {
-    destOptions.set(
-      chains.filter((chain) => {
-        const excludeCurrentSrc = chain.id !== $network?.id;
-        const hasBridgeCondition = $network?.id === null || ($network?.id && hasBridge($network?.id, chain.id));
+    $destOptions = chains.filter((chain) => {
+      const excludeCurrentSrc = chain.id !== $network?.id;
+      const hasBridgeCondition = $network?.id === null || ($network?.id && hasBridge($network?.id, chain.id));
 
-        return excludeCurrentSrc && hasBridgeCondition;
-      }),
-    );
+      return excludeCurrentSrc && hasBridgeCondition;
+    });
   }
 
   function onNetworkChange(newNetwork: Network, oldNetwork: Network) {
