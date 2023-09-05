@@ -583,7 +583,7 @@ importers:
         version: 8.10.0(eslint@7.32.0)
       eslint-config-standard:
         specifier: ^16.0.3
-        version: 16.0.3(eslint-plugin-import@2.28.0)(eslint-plugin-node@11.1.0)(eslint-plugin-promise@5.2.0)(eslint@7.32.0)
+        version: 16.0.3(eslint-plugin-import@2.28.0)(eslint-plugin-node@11.1.0)(eslint-plugin-promise@6.1.1)(eslint@7.32.0)
       eslint-plugin-import:
         specifier: ^2.27.5
         version: 2.28.0(@typescript-eslint/parser@4.33.0)(eslint@7.32.0)
@@ -594,8 +594,8 @@ importers:
         specifier: ^3.4.1
         version: 3.4.1(eslint-config-prettier@8.10.0)(eslint@7.32.0)(prettier@2.8.8)
       eslint-plugin-promise:
-        specifier: ^5.2.0
-        version: 5.2.0(eslint@7.32.0)
+        specifier: ^6.1.1
+        version: 6.1.1(eslint@7.32.0)
       ethers:
         specifier: ^5.7.2
         version: 5.7.2
@@ -12190,7 +12190,7 @@ packages:
       eslint: 8.46.0
     dev: true
 
-  /eslint-config-standard@16.0.3(eslint-plugin-import@2.28.0)(eslint-plugin-node@11.1.0)(eslint-plugin-promise@5.2.0)(eslint@7.32.0):
+  /eslint-config-standard@16.0.3(eslint-plugin-import@2.28.0)(eslint-plugin-node@11.1.0)(eslint-plugin-promise@6.1.1)(eslint@7.32.0):
     resolution: {integrity: sha512-x4fmJL5hGqNJKGHSjnLdgA6U6h1YW/G2dW9fA+cyVur4SK6lyue8+UgNKWlZtUDTXvgKDD/Oa3GQjmB5kjtVvg==}
     peerDependencies:
       eslint: ^7.12.1
@@ -12201,7 +12201,7 @@ packages:
       eslint: 7.32.0
       eslint-plugin-import: 2.28.0(@typescript-eslint/parser@4.33.0)(eslint@7.32.0)
       eslint-plugin-node: 11.1.0(eslint@7.32.0)
-      eslint-plugin-promise: 5.2.0(eslint@7.32.0)
+      eslint-plugin-promise: 6.1.1(eslint@7.32.0)
     dev: true
 
   /eslint-import-resolver-node@0.3.7:
@@ -12344,11 +12344,11 @@ packages:
       prettier-linter-helpers: 1.0.0
     dev: true
 
-  /eslint-plugin-promise@5.2.0(eslint@7.32.0):
-    resolution: {integrity: sha512-SftLb1pUG01QYq2A/hGAWfDRXqYD82zE7j7TopDOyNdU+7SvvoXREls/+PRTY17vUXzXnZA/zfnyKgRH6x4JJw==}
-    engines: {node: ^10.12.0 || >=12.0.0}
+  /eslint-plugin-promise@6.1.1(eslint@7.32.0):
+    resolution: {integrity: sha512-tjqWDwVZQo7UIPMeDReOpUgHCmCiH+ePnVT+5zVapL0uuHnegBUs2smM13CzOs2Xb5+MHMRFTs9v24yjba4Oig==}
+    engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
     peerDependencies:
-      eslint: ^7.0.0
+      eslint: ^7.0.0 || ^8.0.0
     dependencies:
       eslint: 7.32.0
     dev: true
