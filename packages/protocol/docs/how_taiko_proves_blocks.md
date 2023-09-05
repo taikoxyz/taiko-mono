@@ -85,7 +85,7 @@ struct BlockMetadata {
  uint24 txListByteStart;
  uint24 txListByteEnd;
  uint32 gasLimit;
- address beneficiary;
+ address proposer;
  address treasury;
  TaikoData.EthDeposit[] depositsProcessed;
 }
@@ -100,7 +100,7 @@ struct BlockMetadata {
 - `txListByteStart`: Byte start of the transaction list in L2.
 - `txListByteEnd`: Byte end of the transaction list in L2.
 - `gasLimit`: Gas limit for the L2 block.
-- `beneficiary`: The address of the beneficiary in L2.
+- `proposer`: The address of the proposer in L2.
 - `treasury`: The address where the base fee goes in L2.
 - `depositsProcessed`: The initiated L1->L2 Ether deposits that make up the depositRoot.
 
@@ -125,7 +125,7 @@ We need to verify when these variables are accessed within the EVM, their values
 - The other 255 hashes, `blockhash(block.number - 256)` to `blockhash(block.number - 2)` are checked in the anchor transaction to simplify circuits. Therefore, as long as the anchor transaction is zk-proven, these 255 ancestor hashes are proven indirectly.
 - `block.basefee`: verified to be the correct value in the anchor transaction.
 - `block.chainid`: this field is also checked by the anchor transaction, so no extra ZKP circuits are required.
-- `block.coinbase`: ZKP must verify the value must be the same as `meta.beneficiary`. Again, the metadata hash is part of the ZK instance.
+- `block.coinbase`: ZKP must verify the value must be the same as `meta.proposer`. Again, the metadata hash is part of the ZK instance.
 - `block.prevrandao`: this is now the same as `block.prevrandao`, so we only check `block.prevrandao`.
 - `block.gaslimit`: ZKP must verify this value must equal `meta.gasLimit`.
 - `block.number`: this must be checked against the block header and `meta.id`.
@@ -140,7 +140,7 @@ Not all block header data is available in the L1 contracts; therefore, the ZKP m
 struct BlockHeader {
  bytes32 parentHash;
  bytes32 ommersHash;
- address beneficiary;
+ address proposer;
  bytes32 stateRoot;
  bytes32 transactionsRoot;
  bytes32 receiptsRoot;
@@ -162,7 +162,7 @@ In addition, ZKP must also prove the following:
 
 - `parentHash` must be the same as `evidence.parentHash`.
 - `ommersHash` must be the keccak256 of `[]`,or `0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347`.
-- `beneficiary` must be `meta.beneficiary` (duplicated, as stated above).
+- `proposer` must be `meta.proposer` (duplicated, as stated above).
 - `logsBloom` must be a `bytes32[8]` with all zeros.
 - `difficulty` == 0.
 - `height` must be `meta.id`.
@@ -214,7 +214,7 @@ m_txlist_first ---|<=| m_txlist_last --- |<= len| tx_list;
 m_h1_hash --- a_l1_hash;
 m_mix_hash --- h_mix_hash --- v_block_prevrando;
 tx_list -.->|keccak| m_txlist_hash;
-m_beneficiary --- h_beneficiary;
+m_proposer --- h_proposer;
 h_parent_hash --- v_blockhash_1 & e_parent_hash;
 
 l2_treasury -.-> m_treasury;
@@ -261,7 +261,7 @@ m_txlist_hash(txListHash)
 m_txlist_first(txListByteStart)
 m_txlist_last(txListByteEnd)
 m_treasury(treasury)
-m_beneficiary(beneficiary)
+m_proposer(proposer)
 l2_treasury("L2 basefee goes to treasury"):::constant;
 tx_list("txList\n(blob or calldata)"):::constant;
 m_processed_deposits("ethDepositsProcessed"):::constant
@@ -277,7 +277,7 @@ h_gas_limit(gasLimit)
 h_gas_used(gasUsed)
 h_timestamp(timestamp)
 h_mix_hash(mixHash)
-h_beneficiary(beneficiary)
+h_proposer(proposer)
 h_parent_hash(parentHash)
 h_ommers_hash("ommersHash = keccak([])")
 h_state_root(stateRoot)
