@@ -3,7 +3,6 @@
   import { t } from 'svelte-i18n';
 
   import { Button } from '$components/Button';
-  import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { EthIcon, Icon } from '$components/Icon';
   import { Spinner } from '$components/Spinner';
   import { web3modal } from '$libs/connect';
