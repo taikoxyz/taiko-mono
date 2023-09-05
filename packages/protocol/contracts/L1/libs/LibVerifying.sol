@@ -61,30 +61,22 @@ library LibVerifying {
                     >= type(uint96).max / config.ethDepositMaxCountPerBlock
         ) revert L1_INVALID_CONFIG();
 
-        // Unchecked is safe:
-        // - assignment is within ranges
-        // - block.timestamp will still be within uint64 range for the next
-        // 500K+ years.
-        unchecked {
-            uint64 timeNow = uint64(block.timestamp);
+        // Init state
+        state.slotA.genesisHeight = uint64(block.number);
+        state.slotA.genesisTimestamp = uint64(block.timestamp);
+        state.slotB.numBlocks = 1;
+        state.slotB.lastVerifiedAt = uint64(block.timestamp);
 
-            // Init state
-            state.slotA.genesisHeight = uint64(block.number);
-            state.slotA.genesisTimestamp = timeNow;
-            state.slotB.numBlocks = 1;
-            state.slotB.lastVerifiedAt = uint64(block.timestamp);
+        // Init the genesis block
+        TaikoData.Block storage blk = state.blocks[0];
+        blk.nextTransitionId = 2;
+        blk.verifiedTransitionId = 1;
+        blk.proposedAt = uint64(block.timestamp);
 
-            // Init the genesis block
-            TaikoData.Block storage blk = state.blocks[0];
-            blk.nextTransitionId = 2;
-            blk.verifiedTransitionId = 1;
-            blk.proposedAt = timeNow;
-
-            // Init the first state transition
-            TaikoData.Transition storage tran = state.transitions[0][1];
-            tran.blockHash = genesisBlockHash;
-            tran.provenAt = timeNow;
-        }
+        // Init the first state transition
+        TaikoData.Transition storage tran = state.transitions[0][1];
+        tran.blockHash = genesisBlockHash;
+        tran.provenAt = uint64(block.timestamp);
 
         emit BlockVerified({
             blockId: 0,
