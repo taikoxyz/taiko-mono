@@ -33,7 +33,7 @@ func (p *Processor) eventStatusFromMsgHash(
 ) (relayer.EventStatus, error) {
 	var eventStatus relayer.EventStatus
 
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, p.ethClientTimeout)
 
 	defer cancel()
 
