@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.10.1...eventindexer-v0.11.0) (2023-09-05)
+
+
+### Features
+
+* **eventindexer:** Eventindexer and relayer a5 updates ([#14597](https://github.com/taikoxyz/taiko-mono/issues/14597)) ([87c9d53](https://github.com/taikoxyz/taiko-mono/commit/87c9d53fa9c6911aada78a1746839d14e4401916))
+
 ## [0.10.1](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.10.0...eventindexer-v0.10.1) (2023-08-22)
 
 

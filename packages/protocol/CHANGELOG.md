@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.14.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v0.13.0...protocol-v0.14.0) (2023-09-05)
+
+
+### Features
+
+* **protocol:** remove an unused flag in `DeployOnL1` script ([#14589](https://github.com/taikoxyz/taiko-mono/issues/14589)) ([a42c17a](https://github.com/taikoxyz/taiko-mono/commit/a42c17ad4e4a3b24d7077b124bf685a04d72224c))
+* **protocol:** validate `instance` the old way ([#14639](https://github.com/taikoxyz/taiko-mono/issues/14639)) ([8e8601b](https://github.com/taikoxyz/taiko-mono/commit/8e8601b44227f77444f4cb86406701cf00054ca1))
+
+
+### Bug Fixes
+
+* **protocol:** block reward must be minted ([#14595](https://github.com/taikoxyz/taiko-mono/issues/14595)) ([e92b1da](https://github.com/taikoxyz/taiko-mono/commit/e92b1da2ced73c2b28a825fce916acededab0a39))
+* **protocol:** change transition ID from uint16 to uint32 ([#14620](https://github.com/taikoxyz/taiko-mono/issues/14620)) ([c8969b6](https://github.com/taikoxyz/taiko-mono/commit/c8969b64bbaacf9ec6d239608509424fdc02ee97))
+* **protocol:** remove proof from getInstance calculation ([#14623](https://github.com/taikoxyz/taiko-mono/issues/14623)) ([2eedc33](https://github.com/taikoxyz/taiko-mono/commit/2eedc33c213cb5d0abf9daa8bc9bd21b730ae6af))
+* **protocol:** revert impl deployment V2 ([#14621](https://github.com/taikoxyz/taiko-mono/issues/14621)) ([7e59e0b](https://github.com/taikoxyz/taiko-mono/commit/7e59e0b0077e4d81bcd5333bc6f0900e0761d6ea))
+
 ## [0.13.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v0.12.0...protocol-v0.13.0) (2023-08-15)
 
 
