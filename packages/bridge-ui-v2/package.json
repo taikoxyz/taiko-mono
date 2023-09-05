@@ -18,7 +18,7 @@
     "lint": "prettier --check . && eslint .",
     "lint:fix": "pnpm format && eslint . --fix",
     "generate:abi": "cd ../protocol && pnpm forge build && cd - && pnpm wagmi generate",
-    "export:config": "bash ./scripts/export-json-to-env.sh"
+    "export:config": "pnpm ./scripts/exportJsonToEnv.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.28.1",
