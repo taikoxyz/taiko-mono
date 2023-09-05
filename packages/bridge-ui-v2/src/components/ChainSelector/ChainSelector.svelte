@@ -130,7 +130,7 @@
   </div>
 
   <dialog id={dialogId} class="modal modal-bottom md:modal-middle" class:modal-open={modalOpen}>
-    <div class="modal-box relative px-6 py-[35px] md:py-[20px] bg-primary-base-background text-primary-base-content">
+    <div class="modal-box relative px-6 py-[35px] md:py-[20px] bg-primary-background text-primary-content">
       {#if switchingNetwork}
         <LoadingMask
           class="bg-grey-0/60"
@@ -154,7 +154,7 @@
               tabindex="0"
               class="p-4 rounded-[10px]"
               class:opacity-20={disabled}
-              class:hover:bg-primary-content={!disabled}
+              class:hover:bg-neutral-background={!disabled}
               class:hover:cursor-pointer={!disabled}
               aria-disabled={disabled}
               on:click={() => {
