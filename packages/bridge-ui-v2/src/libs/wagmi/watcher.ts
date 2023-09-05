@@ -38,7 +38,7 @@ export async function startWatching() {
 
     // Action for subscribing to account changes.
     // See https://wagmi.sh/core/actions/watchAccount
-    unWatchAccount = watchAccount(async (data) => {
+    unWatchAccount = watchAccount((data) => {
       log('Account changed', data);
       account.set(data);
       refreshUserBalance();
