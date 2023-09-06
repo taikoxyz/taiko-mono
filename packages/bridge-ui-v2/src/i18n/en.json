@@ -212,7 +212,11 @@
   },
   "chain_selector": {
     "placeholder": "Select chain",
-    "currently_on": "You are currently on"
+    "currently_on": "You are currently on",
+    "disabled_options": {
+      "title": "Disabled options?",
+      "description": "Some options might be disabled due to not having a valid bridge configuration"
+    }
   },
   "chain": {
     "to": "To",
