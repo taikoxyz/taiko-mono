@@ -163,6 +163,10 @@
     @apply modal-backdrop bg-overlay-background rounded-xl;
   }
 
+  .overlay-dialog {
+    background-color: var(--overlay-dialog)
+  }
+
   .chainselector {
     @apply /* background: var(--interactive-dark-tertiary, #444A55); */
     hover:background-color: var(--interactive-dark-tertiary-hover, #5D636F);

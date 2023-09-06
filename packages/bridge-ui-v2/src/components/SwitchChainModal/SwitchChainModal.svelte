@@ -1,7 +1,7 @@
 <script lang="ts">
   import { type Chain, switchNetwork } from '@wagmi/core';
   import { t } from 'svelte-i18n';
-  import { UserRejectedRequestError } from 'viem';
+  import { SwitchChainError, UserRejectedRequestError } from 'viem';
 
   import { chainConfig } from '$chainConfig';
   import { LoadingMask } from '$components/LoadingMask';
@@ -25,7 +25,9 @@
       closeModal();
     } catch (err) {
       console.error(err);
-
+      if (err instanceof SwitchChainError) {
+        warningToast($t('messages.network.pending'));
+      }
       if (err instanceof UserRejectedRequestError) {
         warningToast($t('messages.network.rejected'));
       }
@@ -47,10 +49,7 @@
   <div
     class="modal-box relative px-6 py-[35px] md:py-[35px] bg-neutral-background text-primary-content box-shadow-small">
     {#if switchingNetwork}
-      <LoadingMask
-        class="bg-grey-0/60"
-        spinnerClass="border-primary-base-content"
-        text={$t('messages.network.switching')} />
+      <LoadingMask spinnerClass="border-white" text={$t('messages.network.switching')} />
     {/if}
 
     <h3 class="title-body-bold mb-[30px]">{$t('switch_modal.title')}</h3>

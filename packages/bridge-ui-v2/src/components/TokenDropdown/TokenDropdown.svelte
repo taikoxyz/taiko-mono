@@ -24,6 +24,7 @@
   let id = `menu-${uid()}`;
   let menuOpen = false;
 
+  const customTokens = tokenService.getTokens($account?.address as Address);
   // This will control which view to render depending on the screensize.
   // Since markup will differ, and there is logic running when interacting
   // with this component, it makes more sense to not render the view that's
@@ -131,8 +132,8 @@
   </button>
 
   {#if isDesktopOrLarger}
-    <DropdownView {id} {menuOpen} {tokens} {value} {selectToken} on:tokenRemoved={handleTokenRemoved} />
+    <DropdownView {id} {menuOpen} {tokens} {customTokens} {value} {selectToken} on:tokenRemoved={handleTokenRemoved} />
   {:else}
-    <DialogView {id} {menuOpen} {tokens} {value} {selectToken} {closeMenu} />
+    <DialogView {id} {menuOpen} {tokens} {customTokens} {value} {selectToken} {closeMenu} />
   {/if}
 </div>
