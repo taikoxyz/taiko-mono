@@ -132,13 +132,13 @@
   </div>
 
   <dialog id={dialogId} class="modal modal-bottom md:modal-middle" class:modal-open={modalOpen}>
-    <div class="modal-box relative px-6 py-[35px] md:py-[20px] bg-primary-background text-primary-content">
+    <div class="modal-box relative px-6 py-[35px] md:py-[20px] bg-neutral-background text-primary-content">
       {#if switchingNetwork}
         <LoadingMask spinnerClass="border-white" text={$t('messages.network.switching')} />
       {/if}
 
       <button class="absolute right-6 top-[35px] md:top-[20px]" on:click={closeModal}>
-        <Icon type="x-close" fillClass="fill-secondary-icon" size={24} />
+        <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
       </button>
       <div class="w-full">
         <h3 class="title-body-bold mb-[20px]">{$t('chain_selector.placeholder')}</h3>
@@ -154,7 +154,7 @@
                 tabindex="0"
                 class="p-4 rounded-[10px]"
                 class:opacity-20={disabled}
-                class:hover:bg-neutral-background={!disabled}
+                class:hover:bg-primary-background={!disabled}
                 class:hover:cursor-pointer={!disabled}
                 aria-disabled={disabled}
                 on:click={() => {

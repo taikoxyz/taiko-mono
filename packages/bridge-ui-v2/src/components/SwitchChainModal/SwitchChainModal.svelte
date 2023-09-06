@@ -9,6 +9,9 @@
   import { chains } from '$libs/chain';
   import { switchChainModal } from '$stores/modal';
 
+  // TODO: We should combine this with the ChainSelector component.
+  // Or at least share the same base component. There is a lot of code duplication
+
   let switchingNetwork = false;
 
   function closeModal() {
