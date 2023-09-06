@@ -8,7 +8,6 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import "./UpgradeScript.s.sol";
 
 interface IEssentialContract {

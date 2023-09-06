@@ -1,6 +1,7 @@
-import { watchAccount, watchNetwork /*, watchPublicClient, watchWalletClient*/ } from '@wagmi/core';
+import { watchAccount, watchNetwork } from '@wagmi/core';
 
 import { isSupportedChain } from '$libs/chain';
+import { refreshUserBalance } from '$libs/util/balance';
 import { getLogger } from '$libs/util/logger';
 import { account } from '$stores/account';
 import { switchChainModal } from '$stores/modal';
@@ -12,7 +13,7 @@ let isWatching = false;
 let unWatchNetwork: () => void;
 let unWatchAccount: () => void;
 
-export function startWatching() {
+export async function startWatching() {
   if (!isWatching) {
     // Action for subscribing to network changes.
     // See https://wagmi.sh/core/actions/watchNetwork
@@ -32,14 +33,15 @@ export function startWatching() {
       // When we switch networks, we are actually selecting
       // the source chain.
       network.set(chain);
+      refreshUserBalance();
     });
 
     // Action for subscribing to account changes.
     // See https://wagmi.sh/core/actions/watchAccount
     unWatchAccount = watchAccount((data) => {
       log('Account changed', data);
-
       account.set(data);
+      refreshUserBalance();
     });
 
     isWatching = true;

@@ -10,7 +10,7 @@ import (
 )
 
 func Test_subscribe(t *testing.T) {
-	svc, bridge := newTestService()
+	svc, bridge := newTestService(Sync, Subscribe)
 
 	go func() {
 		_ = svc.subscribe(context.Background(), mock.MockChainID)

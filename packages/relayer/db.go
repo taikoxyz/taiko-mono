@@ -12,11 +12,14 @@ var (
 )
 
 type DBConnectionOpts struct {
-	Name     string
-	Password string
-	Host     string
-	Database string
-	OpenFunc func(dsn string) (DB, error)
+	Name            string
+	Password        string
+	Host            string
+	Database        string
+	MaxIdleConns    uint64
+	MaxOpenConns    uint64
+	MaxConnLifetime uint64
+	OpenFunc        func(dsn string) (DB, error)
 }
 
 type DB interface {

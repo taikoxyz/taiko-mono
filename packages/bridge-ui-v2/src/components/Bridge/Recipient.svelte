@@ -12,6 +12,12 @@
   import AddressInput from './AddressInput.svelte';
   import { recipientAddress } from './state';
 
+  // Public API
+  export const clearRecipient = () => {
+    addressInput.clear(); // update UI
+    $recipientAddress = null; // update state
+  };
+
   let dialogId = `dialog-${uid()}`;
   let addressInput: AddressInput;
 
