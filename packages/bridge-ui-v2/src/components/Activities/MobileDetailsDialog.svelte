@@ -35,7 +35,7 @@
     <h3 class="title-body-bold mb-7 text-primary-content">{$t('processing_fee.title')}</h3>
 
     {#if selectedItem}
-      <ul class="space-y-[15px] body-small-regular">
+      <ul class="space-y-[15px] body-small-regular w-full">
         <li class="f-between-center">
           <h4 class="text-secondary-content">{$t('chain.from')}</h4>
           <ChainSymbolName chainId={selectedItem.srcChainId} />
