@@ -5,7 +5,7 @@ import { bridgeTxService } from '$libs/storage';
 import { getLogger } from '$libs/util/logger';
 import { mergeAndCaptureOutdatedTransactions } from '$libs/util/mergeTransactions';
 
-import type { BridgeTransaction } from './types';
+import { type BridgeTransaction, MessageStatus } from './types';
 
 const log = getLogger('bridge:fetchTransactions');
 let error: Error;
@@ -47,5 +47,18 @@ export async function fetchTransactions(userAddress: Address) {
     );
   }
 
+  // Sort by status
+  const statusOrder: MessageStatus[] = [
+    MessageStatus.NEW,
+    MessageStatus.RETRIABLE,
+    MessageStatus.FAILED,
+    MessageStatus.DONE,
+  ];
+
+  mergedTransactions.sort((a: BridgeTransaction, b: BridgeTransaction) => {
+    const aStatusIndex = a.status !== undefined ? statusOrder.indexOf(a.status) : -1;
+    const bStatusIndex = b.status !== undefined ? statusOrder.indexOf(b.status) : -1;
+    return aStatusIndex - bStatusIndex;
+  });
   return { mergedTransactions, outdatedLocalTransactions, error };
 }

@@ -50,7 +50,7 @@ export type RelayerMessage = {
   DestChainId: number | string | bigint;
   User: Address;
   To: Address;
-  RefundAddress: Address;
+  RefundTo: Address;
   Value: bigint;
   Fee: bigint;
   GasLimit: bigint;

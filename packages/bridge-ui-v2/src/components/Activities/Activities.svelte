@@ -86,7 +86,6 @@
     }
     if (error) {
       // Todo: handle different error scenarios
-
       warningToast($t('activities.errors.relayer_offline'));
     }
   };
