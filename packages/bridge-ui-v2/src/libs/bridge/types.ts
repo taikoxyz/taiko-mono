@@ -51,8 +51,8 @@ export type RelayerMessage = {
   User: Address;
   To: Address;
   RefundAddress: Address;
-  CallValue: bigint;
-  ProcessingFee: bigint;
+  Value: bigint;
+  Fee: bigint;
   GasLimit: bigint;
   Data: Hex;
   Memo: string;

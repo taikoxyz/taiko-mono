@@ -29,6 +29,7 @@ export async function fetchTransactions(userAddress: Address) {
   try {
     relayerTxsArrays = await Promise.all(relayerTxPromises);
   } catch (e) {
+    log('error fetching transactions from relayers', e);
     error = e as Error;
     relayerTxsArrays = []
   }
