@@ -142,7 +142,7 @@
         <Icon type="x-close" fillClass="fill-secondary-icon" size={24} />
       </button>
       <h3 class="title-body-bold mb-[20px]">{$t('chain_selector.placeholder')}</h3>
-      <ul role="menu">
+      <ul role="menu" class="min-w-full">
         {#each chains as chain (chain.id)}
           {@const disabled = validOptions
             ? !validOptions.some((validOption) => validOption.id === chain.id)
