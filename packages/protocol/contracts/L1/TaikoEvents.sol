@@ -55,4 +55,12 @@ abstract contract TaikoEvents {
     /// @param deposit The Ethereum deposit information including recipient,
     /// amount, and ID.
     event EthDeposited(TaikoData.EthDeposit deposit);
+
+    /// @dev The following events are emitted when bonds are received, returned,
+    /// or rewarded. Note that no event is emitted when a bond is kept/burnt as
+    /// for a single block, multiple bonds may get burned or retained by the
+    /// protocol, emitting events will consume more gas.
+    event BondReceived(address indexed from, uint64 blockId, uint256 bond);
+    event BondReturned(address indexed to, uint64 blockId, uint256 bond);
+    event BondRewarded(address indexed to, uint64 blockId, uint256 bond);
 }

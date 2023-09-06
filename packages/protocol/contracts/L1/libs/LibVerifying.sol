@@ -26,6 +26,8 @@ library LibVerifying {
     event CrossChainSynced(
         uint64 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
     );
+    event BondReturned(address indexed to, uint64 blockId, uint256 bond);
+    event BondRewarded(address indexed to, uint64 blockId, uint256 bond);
 
     error L1_BLOCK_ID_MISMATCH();
     error L1_INVALID_CONFIG();
@@ -146,8 +148,11 @@ library LibVerifying {
                         || tran.provenAt <= blk.proposedAt + config.proofWindow
                 ) {
                     state.taikoTokenBalances[blk.prover] += blk.proofBond;
+                    emit BondReturned(blk.prover, blockId, blk.proofBond);
                 } else {
-                    state.taikoTokenBalances[tran.prover] += blk.proofBond / 4;
+                    uint256 rewardAmount = blk.proofBond / 4;
+                    state.taikoTokenBalances[tran.prover] += rewardAmount;
+                    emit BondRewarded(tran.prover, blockId, rewardAmount);
                 }
 
                 emit BlockVerified(blockId, tran.prover, tran.blockHash);
