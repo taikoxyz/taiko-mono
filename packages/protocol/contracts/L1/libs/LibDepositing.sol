@@ -9,8 +9,6 @@ pragma solidity ^0.8.20;
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibMath } from "../../libs/LibMath.sol";
-import { SafeCastUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import { TaikoData } from "../TaikoData.sol";
 
 /// @title LibDepositing
@@ -18,7 +16,6 @@ import { TaikoData } from "../TaikoData.sol";
 library LibDepositing {
     using LibAddress for address;
     using LibMath for uint256;
-    using SafeCastUpgradeable for uint256;
 
     event EthDeposited(TaikoData.EthDeposit deposit);
 
@@ -51,12 +48,14 @@ library LibDepositing {
         address _recipient = recipient == address(0) ? msg.sender : recipient;
         uint256 slot =
             state.slotA.numEthDeposits % config.ethDepositRingBufferSize;
+
+        // range of msg.value is checked by next line.
         state.ethDeposits[slot] = _encodeEthDeposit(_recipient, msg.value);
 
         emit EthDeposited(
             TaikoData.EthDeposit({
                 recipient: _recipient,
-                amount: msg.value.toUint96(),
+                amount: uint96(msg.value),
                 id: state.slotA.numEthDeposits
             })
         );

@@ -10,7 +10,6 @@ import "forge-std/Script.sol";
 import "forge-std/console2.sol";
 import
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 contract UpgradeScript is Script {
     uint256 public deployerPrivateKey = vm.envUint("PRIVATE_KEY");

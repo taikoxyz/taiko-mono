@@ -11,8 +11,6 @@ import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { Lib1559Math } from "../libs/Lib1559Math.sol";
 import { LibMath } from "../libs/LibMath.sol";
 import { Proxied } from "../common/Proxied.sol";
-import { SafeCastUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import { TaikoL2Signer } from "./TaikoL2Signer.sol";
 
 /// @title TaikoL2
@@ -22,7 +20,6 @@ import { TaikoL2Signer } from "./TaikoL2Signer.sol";
 /// communication, manage EIP-1559 parameters for gas pricing, and store
 /// verified L1 block information.
 contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
-    using SafeCastUpgradeable for uint256;
     using LibMath for uint256;
 
     struct VerifiedBlock {
