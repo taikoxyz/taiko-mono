@@ -29,7 +29,6 @@ The anchor transaction is a way for the protocol to make use of the programmabil
 
 The anchor transaction is required to be the first transaction in a Taiko block (which is important to make the block deterministic). The anchor transaction is currently used as follows:
 
-1. Persisting `l1Height`, `l1Hash`, `l1SignalRoot`, and `parentGasUsed` (data inherited from L1) to the storage trie. These values can be used by bridges to validate cross-chain messages.
-2. Comparing the public input hash stored by the previous block, with the hash of the previous 255 block hashes. The anchor transaction will throw an exception if such comparison fails. The protocol requires the anchor transaction to execute successfully and will not accept a proof for a block that fails to do so. Note that the genesis block has $ρ_0$ ≡ `KEC(0, d, [0, ..., 0])`.
-3. Persisting a new public input hash to the storage trie for the next block to use. This allows transactions, in the current and all following blocks, to access these public input data with confidence as their values are now covered by ZK-EVM’s storage proof.
-4. Calculating the EIP-1559 `basefee` which will be used on L2.
+1. Persisting `l1Height`, `l1Hash` and `l1SignalRoot` to the storage trie. These values can be used by bridges to validate cross-chain messages.
+2. Ensuring that the previous 256 block hashes that are exposed to the EVM are correct.
+3. Calculating the EIP-1559 `basefee` which will be used on L2.
