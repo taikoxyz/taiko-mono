@@ -36,8 +36,7 @@ library LibProposing {
         uint256 reward,
         TaikoData.BlockMetadata meta
     );
-
-    event BondReceived(address indexed prover, uint64 blockId, uint256 bond);
+    event BondReceived(address indexed from, uint64 blockId, uint256 bond);
 
     error L1_INVALID_ASSIGNMENT();
     error L1_INVALID_BLOCK_ID();

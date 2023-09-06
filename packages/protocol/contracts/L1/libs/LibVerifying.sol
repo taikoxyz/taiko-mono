@@ -26,8 +26,8 @@ library LibVerifying {
     event CrossChainSynced(
         uint64 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
     );
-    event BondReturned(address indexed prover, uint64 blockId, uint256 bond);
-    event BondRewarded(address indexed prover, uint64 blockId, uint256 bond);
+    event BondReturned(address indexed to, uint64 blockId, uint256 bond);
+    event BondRewarded(address indexed to, uint64 blockId, uint256 bond);
 
     error L1_BLOCK_ID_MISMATCH();
     error L1_INVALID_CONFIG();
