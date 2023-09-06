@@ -207,6 +207,6 @@ library TaikoData {
         mapping(address account => uint256 balance) taikoTokenBalances;
         SlotA slotA; // slot 7
         SlotB slotB; // slot 8
-        uint256[42] __gap;
+        uint256[142] __gap;
     }
 }
