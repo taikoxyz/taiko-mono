@@ -117,8 +117,7 @@ export class RelayerAPIService {
         timeout: 5000, // todo: discuss and move to config
       });
 
-      // response.data.items.push(...mockedData);
-      if (response.status >= 400) throw response;
+      if (!response || response.status >= 400) throw response;
 
       log('Events form API', response.data);
 
@@ -192,11 +191,11 @@ export class RelayerAPIService {
           user: tx.data.Message.User,
           from: tx.data.Message.From,
           gasLimit: BigInt(tx.data.Message.GasLimit),
-          value: BigInt(tx.data.Message.CallValue),
+          value: BigInt(tx.data.Message.Value),
           srcChainId: BigInt(tx.data.Message.SrcChainId),
           destChainId: BigInt(tx.data.Message.DestChainId),
-          fee: BigInt(tx.data.Message.ProcessingFee),
-          refundTo: tx.data.Message.RefundAddress,
+          fee: BigInt(tx.data.Message.Fee),
+          refundTo: tx.data.Message.RefundTo,
         },
       } as BridgeTransaction;
 
@@ -240,11 +239,7 @@ export class RelayerAPIService {
     // Spreading to preserve original txs in case of array mutation
     log('Enhanced transactions', [...bridgeTxs]);
 
-    // We want to show the latest transactions first
-    bridgeTxs.reverse();
 
-    // Place new transactions at the top of the list
-    // bridgeTxs.sort((tx) => (tx.status === MessageStatus.NEW ? -1 : 1));
 
     return { txs: bridgeTxs, paginationInfo };
   }
@@ -277,11 +272,11 @@ export class RelayerAPIService {
 function _checkType(bridgeTx: BridgeTransaction): TokenType {
   const to = bridgeTx.message?.to;
   switch (to) {
-    case routingContractsMap[Number(bridgeTx.srcChainId)][Number(bridgeTx.destChainId)].erc20VaultAddress:
+    case routingContractsMap[Number(bridgeTx.destChainId)][Number(bridgeTx.srcChainId)].erc20VaultAddress:
       return TokenType.ERC20;
-    case routingContractsMap[Number(bridgeTx.srcChainId)][Number(bridgeTx.destChainId)].erc721VaultAddress:
+    case routingContractsMap[Number(bridgeTx.destChainId)][Number(bridgeTx.srcChainId)].erc721VaultAddress:
       return TokenType.ERC721;
-    case routingContractsMap[Number(bridgeTx.srcChainId)][Number(bridgeTx.destChainId)].erc1155VaultAddress:
+    case routingContractsMap[Number(bridgeTx.destChainId)][Number(bridgeTx.srcChainId)].erc1155VaultAddress:
       return TokenType.ERC1155;
     default:
       return TokenType.ETH;
