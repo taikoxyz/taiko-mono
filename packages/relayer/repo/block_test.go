@@ -13,7 +13,7 @@ import (
 func Test_NewBlockRepo(t *testing.T) {
 	tests := []struct {
 		name    string
-		db      relayer.DB
+		db      DB
 		wantErr error
 	}{
 		{
@@ -24,7 +24,7 @@ func Test_NewBlockRepo(t *testing.T) {
 		{
 			"noDb",
 			nil,
-			relayer.ErrNoDB,
+			ErrNoDB,
 		},
 	}
 

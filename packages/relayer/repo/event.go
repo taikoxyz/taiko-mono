@@ -14,12 +14,12 @@ import (
 )
 
 type EventRepository struct {
-	db relayer.DB
+	db DB
 }
 
-func NewEventRepository(db relayer.DB) (*EventRepository, error) {
+func NewEventRepository(db DB) (*EventRepository, error) {
 	if db == nil {
-		return nil, relayer.ErrNoDB
+		return nil, ErrNoDB
 	}
 
 	return &EventRepository{

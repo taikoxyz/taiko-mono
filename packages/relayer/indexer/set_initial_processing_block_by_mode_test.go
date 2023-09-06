@@ -6,42 +6,41 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/mock"
 )
 
 func Test_SetInitialProcessingBlockByMode(t *testing.T) {
 	tests := []struct {
 		name       string
-		mode       relayer.Mode
+		mode       SyncMode
 		chainID    *big.Int
 		wantErr    bool
 		wantHeight uint64
 	}{
 		{
 			"resync",
-			relayer.ResyncMode,
+			Resync,
 			mock.MockChainID,
 			false,
 			0,
 		},
 		{
 			"sync",
-			relayer.SyncMode,
+			Sync,
 			mock.MockChainID,
 			false,
 			mock.LatestBlock.Height,
 		},
 		{
 			"sync error getting latest block",
-			relayer.SyncMode,
+			Sync,
 			big.NewInt(328938),
 			true,
 			0,
 		},
 		{
 			"invalidMode",
-			relayer.Mode("fake"),
+			SyncMode("fake"),
 			mock.MockChainID,
 			true,
 			0,
@@ -50,7 +49,7 @@ func Test_SetInitialProcessingBlockByMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, _ := newTestService()
+			svc, _ := newTestService(tt.mode, FilterAndSubscribe)
 			err := svc.setInitialProcessingBlockByMode(
 				context.Background(),
 				tt.mode,

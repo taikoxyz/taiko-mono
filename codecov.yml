@@ -1,6 +1,6 @@
 coverage:
   ignore:
-    - "packages/relayer/contracts/**/*"
+    - "packages/relayer/bindings/**/*"
     - "packages/relayer/mock/**/*"
     - "packages/relayer/cmd/**/*"
   status:

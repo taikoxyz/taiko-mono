@@ -8,15 +8,15 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
-func (svc *Service) setInitialProcessingBlockByMode(
+func (i *Indexer) setInitialProcessingBlockByMode(
 	ctx context.Context,
-	mode relayer.Mode,
+	mode SyncMode,
 	chainID *big.Int,
 ) error {
 	var startingBlock uint64 = 0
 
-	if svc.taikol1 != nil {
-		stateVars, err := svc.taikol1.GetStateVariables(nil)
+	if i.taikol1 != nil {
+		stateVars, err := i.taikol1.GetStateVariables(nil)
 		if err != nil {
 			return errors.Wrap(err, "svc.taikoL1.GetStateVariables")
 		}
@@ -25,9 +25,9 @@ func (svc *Service) setInitialProcessingBlockByMode(
 	}
 
 	switch mode {
-	case relayer.SyncMode:
+	case Sync:
 		// get most recently processed block height from the DB
-		latestProcessedBlock, err := svc.blockRepo.GetLatestBlockProcessedForEvent(
+		latestProcessedBlock, err := i.blockRepo.GetLatestBlockProcessedForEvent(
 			eventName,
 			chainID,
 		)
@@ -39,11 +39,11 @@ func (svc *Service) setInitialProcessingBlockByMode(
 			startingBlock = latestProcessedBlock.Height
 		}
 
-		svc.processingBlockHeight = startingBlock
+		i.processingBlockHeight = startingBlock
 
 		return nil
-	case relayer.ResyncMode:
-		svc.processingBlockHeight = startingBlock
+	case Resync:
+		i.processingBlockHeight = startingBlock
 		return nil
 	default:
 		return relayer.ErrInvalidMode
