@@ -107,7 +107,7 @@ export class RelayerAPIService {
   private readonly baseUrl: string;
 
   async getTransactionsFromAPI(params: APIRequestParams): Promise<APIResponse> {
-    const requestURL = `/events`;
+    const requestURL = `${this.baseUrl}/events`;
 
     try {
       log('Fetching events from API with params', params);
