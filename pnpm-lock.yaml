@@ -69,8 +69,8 @@ importers:
         specifier: ^1.0.1
         version: 1.4.0(svelte@3.59.2)(vite@3.2.7)
       '@tsconfig/svelte':
-        specifier: ^5.0.2
-        version: 5.0.2
+        specifier: ^3.0.0
+        version: 3.0.0
       '@types/debug':
         specifier: ^4.1.7
         version: 4.1.8
@@ -5177,6 +5177,10 @@ packages:
 
   /@tsconfig/node16@1.0.4:
     resolution: {integrity: sha512-vxhUy4J8lyeyinH7Azl1pdd43GJhZH/tP2weN8TntQblOY+A0XbT8DJk1/oCPuOOyg/Ja757rG0CgHcWC8OfMA==}
+    dev: true
+
+  /@tsconfig/svelte@3.0.0:
+    resolution: {integrity: sha512-pYrtLtOwku/7r1i9AMONsJMVYAtk3hzOfiGNekhtq5tYBGA7unMve8RvUclKLMT3PrihvJqUmzsRGh0RP84hKg==}
     dev: true
 
   /@tsconfig/svelte@5.0.2:
