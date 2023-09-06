@@ -37,6 +37,8 @@ library LibProposing {
         TaikoData.BlockMetadata meta
     );
 
+    event BondReceived(address indexed prover, uint64 blockId, uint256 bond);
+
     error L1_INVALID_ASSIGNMENT();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_METADATA();
@@ -88,6 +90,8 @@ library LibProposing {
             from: assignment.prover,
             amount: config.proofBond
         });
+
+        emit BondReceived(assignment.prover, b.numBlocks, config.proofBond);
 
         // Pay prover after verifying assignment
         if (config.skipProverAssignmentVerificaiton) {
