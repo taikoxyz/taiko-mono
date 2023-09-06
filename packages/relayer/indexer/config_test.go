@@ -47,7 +47,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.DestBridgeAddress)
 		assert.Equal(t, common.HexToAddress(srcBridgeAddr), c.SrcBridgeAddress)
 		assert.Equal(t, common.HexToAddress(srcTaikoAddr), c.SrcTaikoAddress)
-		assert.Equal(t, "*", c.CORSOrigins)
+		assert.Equal(t, []string{"*"}, c.CORSOrigins)
 
 		c.OpenDBFunc = func() (DB, error) {
 			return &mock.DB{}, nil
