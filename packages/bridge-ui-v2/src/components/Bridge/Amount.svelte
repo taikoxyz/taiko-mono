@@ -8,13 +8,12 @@
   import { warningToast } from '$components/NotificationToast';
   import { checkBalanceToBridge, getMaxAmountToBridge } from '$libs/bridge';
   import { InsufficientAllowanceError, InsufficientBalanceError, RevertedWithFailedError } from '$libs/error';
-  import { ETHToken, getBalance as getTokenBalance } from '$libs/token';
+  import { ETHToken, getBalance as getTokenBalance,TokenType } from '$libs/token';
+  import { renderBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
-  import { renderBalance } from '$libs/util/renderBalance';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
-  import { ethBalance } from '$stores/balance';
   import { network } from '$stores/network';
 
   import {
@@ -102,16 +101,15 @@
     $errorComputingBalance = false;
 
     try {
-      $tokenBalance = await getTokenBalance({
-        token,
-        srcChainId,
-        destChainId,
-        userAddress,
-      });
-      if (token.name === ETHToken.name) {
-        $ethBalance = $tokenBalance;
+      if (token.type !== TokenType.ETH) {
+        $tokenBalance = await getTokenBalance({
+          token,
+          srcChainId,
+          destChainId,
+          userAddress,
+        });
       } else {
-        $ethBalance = await getTokenBalance({
+        $tokenBalance = await getTokenBalance({
           token: ETHToken,
           srcChainId,
           destChainId,
