@@ -87,14 +87,12 @@ func L1FilterFunc(
 		})
 	}
 
-	if svc.indexNfts {
-		wg.Go(func() error {
-			if err := svc.indexNFTTransfers(ctx, chainID, filterOpts.Start, *filterOpts.End); err != nil {
-				return errors.Wrap(err, "svc.indexNFTTransfers")
-			}
-			return nil
-		})
-	}
+	wg.Go(func() error {
+		if err := svc.indexRawBlockData(ctx, chainID, filterOpts.Start, *filterOpts.End); err != nil {
+			return errors.Wrap(err, "svc.indexNFTTransfers")
+		}
+		return nil
+	})
 
 	err := wg.Wait()
 

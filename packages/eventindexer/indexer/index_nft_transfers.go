@@ -8,7 +8,6 @@ import (
 
 	"log/slog"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -32,19 +31,8 @@ var (
 func (svc *Service) indexNFTTransfers(
 	ctx context.Context,
 	chainID *big.Int,
-	start uint64,
-	end uint64,
+	logs []types.Log,
 ) error {
-	query := ethereum.FilterQuery{
-		FromBlock: big.NewInt(int64(start)),
-		ToBlock:   big.NewInt(int64(end)),
-	}
-
-	logs, err := svc.ethClient.FilterLogs(ctx, query)
-	if err != nil {
-		return err
-	}
-
 	for _, vLog := range logs {
 		if !svc.isERC721Transfer(ctx, vLog) && !svc.isERC1155Transfer(ctx, vLog) {
 			continue
