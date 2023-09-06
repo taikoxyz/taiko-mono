@@ -73,8 +73,7 @@ library LibProving {
             // A block can be proven by a regular prover in the following cases:
             // 1. The actual prover is the assigned prover
             // 2. The block has at least one state transition (which must be
-            // from the
-            // assigned prover)
+            // from the assigned prover)
             // 3. The block has become open
             if (
                 evidence.prover != blk.prover && blk.nextTransitionId == 1
