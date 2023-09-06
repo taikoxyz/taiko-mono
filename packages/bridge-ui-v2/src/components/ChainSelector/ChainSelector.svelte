@@ -177,8 +177,8 @@
         {#if !small && validOptions?.length !== chains.length - 1}
           <li role="menuitem" tabindex="0" class="p-4 rounded-[10px]">
             <Alert type="warning" forceColumnFlow>
-              <p class="font-bold">Disabled options?</p>
-              <p>Some options might be disabled to to not having a valid bridge configuration</p>
+              <p class="font-bold">{$t('chain_selector.disabled_options.title')}</p>
+              <p>{$t('chain_selector.disabled_options.description')}</p>
             </Alert>
           </li>
         {/if}
