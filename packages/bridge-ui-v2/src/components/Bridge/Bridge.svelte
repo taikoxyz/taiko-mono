@@ -29,6 +29,7 @@
   } from '$libs/error';
   import { bridgeTxService } from '$libs/storage';
   import { ETHToken, getAddress, isDeployedCrossChain, tokens, TokenType } from '$libs/token';
+  import { refreshUserBalance } from '$libs/util/balance';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { type Account, account } from '$stores/account';
   import { type Network, network } from '$stores/network';
@@ -247,6 +248,9 @@
 
       // Update balance after bridging
       amountComponent.updateBalance();
+
+      // Refresh user's balance
+      refreshUserBalance();
     } catch (err) {
       console.error(err);
 

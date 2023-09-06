@@ -18,7 +18,7 @@
   let isAddressValid = false;
 
   let contractAddress = '';
-  let imageUrls = Array<string>();
+  let imageUrls = [];
 
   $: tokenIds = $tokenIdStore;
   $: isButtonDisabled = !($tokenIdStore?.length ?? 0);
