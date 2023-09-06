@@ -4,8 +4,9 @@
   const classes = classNames(
     'w-6 h-6',
     'animate-spin',
-    'box-border inline-block',
+    'inline-block',
     'border-[3px] border-b-transparent rounded-full',
+    'border-primary-content border-b-transparent ',
     $$props.class,
   );
 </script>
