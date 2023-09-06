@@ -128,16 +128,6 @@ var (
 	}
 )
 
-// optional
-var (
-	CORSOrigins = &cli.StringFlag{
-		Name:     "http.corsOrigins",
-		Usage:    "Comma-delinated list of cors origins",
-		Required: false,
-		Category: commonCategory,
-	}
-)
-
 // All common flags.
 var CommonFlags = []cli.Flag{
 	// required
