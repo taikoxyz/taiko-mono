@@ -128,17 +128,18 @@ library TaikoData {
     }
 
     /// @dev Struct representing state transition data.
-    /// 4 slots.
+    /// 10 slots reserved for upgradability, 4 slots used.
     struct Transition {
         bytes32 key; //only written/read for the 1st state transition.
         bytes32 blockHash;
         bytes32 signalRoot;
         address prover;
         uint64 provenAt;
+        bytes32[6] __reserved;
     }
 
     /// @dev Struct containing data required for verifying a block.
-    /// 3 slots.
+    /// 10 slots reserved for upgradability, 3 slots used.
     struct Block {
         bytes32 metaHash; // slot 1
         address prover; // slot 2
@@ -147,15 +148,18 @@ library TaikoData {
         uint64 proposedAt;
         uint32 nextTransitionId;
         uint32 verifiedTransitionId;
+        bytes32[7] __reserved;
     }
 
     /// @dev Struct representing information about a transaction list.
+    /// 1 slot used.
     struct TxListInfo {
         uint64 validSince;
         uint24 size;
     }
 
     /// @dev Struct representing an Ethereum deposit.
+    /// 1 slot used.
     struct EthDeposit {
         address recipient;
         uint96 amount;
@@ -203,6 +207,6 @@ library TaikoData {
         mapping(address account => uint256 balance) taikoTokenBalances;
         SlotA slotA; // slot 7
         SlotB slotB; // slot 8
-        uint256[42] __gap;
+        uint256[142] __gap;
     }
 }
