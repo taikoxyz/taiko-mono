@@ -2,7 +2,7 @@
 -- +goose StatementBegin
 CREATE TABLE IF NOT EXISTS time_series_data (
     id int NOT NULL PRIMARY KEY AUTO_INCREMENT,
-    data_type VARCHAR(20) NOT NULL,  
+    task VARCHAR(20) NOT NULL,  
     value VARCHAR(100) NOT NULL,
     date VARCHAR(20) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ,
@@ -12,5 +12,5 @@ CREATE TABLE IF NOT EXISTS time_series_data (
 -- +goose StatementEnd
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE nft_balances;
+DROP TABLE time_series_data;
 -- +goose StatementEnd

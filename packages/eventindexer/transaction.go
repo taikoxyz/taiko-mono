@@ -3,6 +3,7 @@ package eventindexer
 import (
 	"context"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -10,15 +11,16 @@ import (
 )
 
 type Transaction struct {
-	ID        int                 `json:"id"`
-	ChainID   int64               `json:"chainID"`
-	Sender    string              `json:"sender"`
-	Recipient string              `json:"recipient"`
-	BlockID   int64               `json:"blockID"`
-	Amount    decimal.NullDecimal `json:"amount"`
-	GasPrice  string              `json:"gasPrice"`
+	ID           int                 `json:"id"`
+	ChainID      int64               `json:"chainID"`
+	Sender       string              `json:"sender"`
+	Recipient    string              `json:"recipient"`
+	BlockID      int64               `json:"blockID"`
+	Amount       decimal.NullDecimal `json:"amount"`
+	GasPrice     string              `json:"gasPrice"`
+	TransactedAt time.Time           `json:"transactedAt"`
 }
 
 type TransactionRepository interface {
-	Save(ctx context.Context, tx *types.Transaction, sender common.Address, blockID *big.Int) error
+	Save(ctx context.Context, tx *types.Transaction, sender common.Address, blockID *big.Int, timestamp time.Time) error
 }

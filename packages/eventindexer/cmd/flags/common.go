@@ -7,7 +7,7 @@ import (
 var (
 	commonCategory    = "COMMON"
 	indexerCategory   = "INDEXER"
-	processorCategory = "PROCESSOR"
+	generatorCategory = "GENERATOR"
 )
 
 var (

@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/pkg/errors"
@@ -46,7 +47,7 @@ func (indxr *Indexer) indexRawBlockData(
 				return err
 			}
 
-			if err := indxr.txRepo.Save(ctx, tx, sender, block.Number()); err != nil {
+			if err := indxr.txRepo.Save(ctx, tx, sender, block.Number(), time.Unix(int64(block.Time()), 0)); err != nil {
 				return err
 			}
 		}

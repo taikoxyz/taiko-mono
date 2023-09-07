@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -30,12 +31,14 @@ func (r *TransactionRepository) Save(
 	tx *types.Transaction,
 	sender common.Address,
 	blockID *big.Int,
+	transactedAt time.Time,
 ) error {
 	t := &eventindexer.Transaction{
-		ChainID:  tx.ChainId().Int64(),
-		Sender:   sender.Hex(),
-		BlockID:  blockID.Int64(),
-		GasPrice: tx.GasPrice().String(),
+		ChainID:      tx.ChainId().Int64(),
+		Sender:       sender.Hex(),
+		BlockID:      blockID.Int64(),
+		GasPrice:     tx.GasPrice().String(),
+		TransactedAt: transactedAt,
 	}
 
 	if to := tx.To(); to != nil {

@@ -30,7 +30,7 @@ func main() {
 	app.Name = "Taiko EventIndexer"
 	app.Usage = "The taiko eventindexing softwares command line interface"
 	app.Copyright = "Copyright 2021-2023 Taiko Labs"
-	app.Description = "Bridge relayer implementation in Golang for Taiko protocol"
+	app.Description = "Eventindexer implementation in Golang for Taiko protocol"
 	app.Authors = []*cli.Author{{Name: "Taiko Labs", Email: "info@taiko.xyz"}}
 	app.EnableBashCompletion = true
 
