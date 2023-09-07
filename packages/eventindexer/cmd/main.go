@@ -8,6 +8,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/cmd/utils"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/generator"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/indexer"
 	"github.com/urfave/cli/v2"
 )
@@ -39,8 +40,15 @@ func main() {
 			Name:        "indexer",
 			Flags:       flags.IndexerFlags,
 			Usage:       "Starts the indexer software",
-			Description: "Taiko relayer indexer software",
+			Description: "Taiko indexer software",
 			Action:      utils.SubcommandAction(new(indexer.Indexer)),
+		},
+		{
+			Name:        "generator",
+			Flags:       flags.GeneratorFlags,
+			Usage:       "Starts the generator software",
+			Description: "Taiko time-series data generator",
+			Action:      utils.SubcommandAction(new(generator.Generator)),
 		},
 	}
 
