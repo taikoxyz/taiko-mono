@@ -49,6 +49,7 @@ var (
 )
 
 type Indexer struct {
+	accountRepo        eventindexer.AccountRepository
 	blockRepo          eventindexer.BlockRepository
 	eventRepo          eventindexer.EventRepository
 	processedBlockRepo eventindexer.ProcessedBlockRepository
@@ -121,6 +122,11 @@ func (indxr *Indexer) InitFromCli(ctx context.Context, c *cli.Context) error {
 
 func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	db, err := cfg.OpenDBFunc()
+	if err != nil {
+		return err
+	}
+
+	accountRepository, err := repo.NewAccountRepository(db)
 	if err != nil {
 		return err
 	}
@@ -203,6 +209,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 		return err
 	}
 
+	i.accountRepo = accountRepository
 	i.eventRepo = eventRepository
 	i.processedBlockRepo = processedBlockRepository
 	i.statRepo = statRepository

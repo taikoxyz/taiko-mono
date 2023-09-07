@@ -152,6 +152,36 @@ func (g *Generator) queryByTask(task string, date time.Time) (string, error) {
 	var err error
 
 	switch task {
+	case tasks.AccountsPerDay:
+		query := `SELECT 
+		COUNT(*)
+	FROM 
+		accounts
+	WHERE 
+		DATE(transacted_at) = ?`
+		err = g.db.GormDB().Raw(query, dateString).Scan(&result).Error
+	case tasks.TotalAccounts:
+		var dailyAccountsCount int
+		query := `SELECT 
+		COUNT(*)
+	FROM 
+		accounts
+	WHERE 
+		DATE(transacted_at) = ?`
+		err = g.db.GormDB().Raw(query, dateString).Scan(&dailyAccountsCount).Error
+		if err != nil {
+			return "", err
+		}
+
+		var tsdResult int
+		tsdQuery := `SELECT value FROM time_series_data WHERE task = ? AND date = ?`
+
+		err = g.db.GormDB().Raw(tsdQuery, task, date.AddDate(0, 0, -1).Format("2006-01-02")).Scan(&tsdResult).Error
+		if err != nil {
+			return "", err
+		}
+
+		result = strconv.Itoa(dailyAccountsCount + tsdResult)
 	case tasks.BlocksPerDay:
 		query := `SELECT 
 		COUNT(*)

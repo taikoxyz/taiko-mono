@@ -48,8 +48,8 @@ TRANSACTIONS
 
 BLOCKS
 
-1. total blocks
-2. blocks per day
+1. total blocks - done
+2. blocks per day - done
 
 CONTRACTS
 

@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -29,13 +30,23 @@ func (r *BlockRepository) Save(
 	block *types.Block,
 	chainID *big.Int,
 ) error {
+	// genesis block will have 0 time and no relevant information
+	if block.Time() == uint64(0) {
+		return nil
+	}
+
+	t := time.Unix(int64(block.Time()), 0)
+
 	b := &eventindexer.Block{
 		ChainID:      chainID.Int64(),
 		BlockID:      block.Number().Int64(),
-		TransactedAt: time.Unix(int64(block.Time()), 0),
+		TransactedAt: t,
 	}
 
 	if err := r.db.GormDB().Create(b).Error; err != nil {
+		if strings.Contains(err.Error(), "Duplicate") {
+			return nil
+		}
 		return errors.Wrap(err, "r.db.Create")
 	}
 

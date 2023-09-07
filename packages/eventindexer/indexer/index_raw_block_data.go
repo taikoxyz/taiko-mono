@@ -17,24 +17,17 @@ func (indxr *Indexer) indexRawBlockData(
 	start uint64,
 	end uint64,
 ) error {
-	query := ethereum.FilterQuery{
-		FromBlock: big.NewInt(int64(start)),
-		ToBlock:   big.NewInt(int64(end)),
-	}
-
-	logs, err := indxr.ethClient.FilterLogs(ctx, query)
-	if err != nil {
-		return err
-	}
-
 	wg, ctx := errgroup.WithContext(ctx)
 	// BLOCK parsing
 
 	// only index block/transaction data on L2
 	if indxr.layer == Layer2 {
 		for i := start; i < end; i++ {
+			id := i
 			wg.Go(func() error {
-				block, err := indxr.ethClient.BlockByNumber(ctx, big.NewInt(int64(i)))
+				slog.Info("processing block data", "blockNum", id)
+
+				block, err := indxr.ethClient.BlockByNumber(ctx, big.NewInt(int64(id)))
 				if err != nil {
 					return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
 				}
@@ -57,6 +50,10 @@ func (indxr *Indexer) indexRawBlockData(
 						return err
 					}
 
+					if err := indxr.accountRepo.Save(ctx, sender, time.Unix(int64(block.Time()), 0)); err != nil {
+						return err
+					}
+
 					if err := indxr.txRepo.Save(ctx, tx, sender, block.Number(), time.Unix(int64(block.Time()), 0)); err != nil {
 						return err
 					}
@@ -68,6 +65,15 @@ func (indxr *Indexer) indexRawBlockData(
 	}
 
 	// LOGS parsing
+	query := ethereum.FilterQuery{
+		FromBlock: big.NewInt(int64(start)),
+		ToBlock:   big.NewInt(int64(end)),
+	}
+
+	logs, err := indxr.ethClient.FilterLogs(ctx, query)
+	if err != nil {
+		return err
+	}
 
 	// index NFT transfers
 	if indxr.indexNfts {
@@ -81,7 +87,7 @@ func (indxr *Indexer) indexRawBlockData(
 
 	if err := wg.Wait(); err != nil {
 		if errors.Is(err, context.Canceled) {
-			slog.Error("wg context cancelled")
+			slog.Error("index raw block data context cancelled")
 			return err
 		}
 

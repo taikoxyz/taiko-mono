@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -58,6 +59,10 @@ func (r *TransactionRepository) Save(
 	}
 
 	if err := r.db.GormDB().Create(t).Error; err != nil {
+		if strings.Contains(err.Error(), "Duplicate") {
+			return nil
+		}
+
 		return errors.Wrap(err, "r.db.Create")
 	}
 

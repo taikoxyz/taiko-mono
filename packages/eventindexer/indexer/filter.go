@@ -137,7 +137,7 @@ func filterFunc(
 
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			slog.Error("context cancelled")
+			slog.Error("filter context cancelled")
 			return err
 		}
 
