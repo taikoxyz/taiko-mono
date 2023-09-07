@@ -37,7 +37,6 @@
     z-index: -1;
   }
 
-
   @media (min-width: 768px) {
     body::before {
       background-size: 700px, cover, cover;

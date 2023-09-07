@@ -164,7 +164,7 @@
   }
 
   .overlay-dialog {
-    background-color: var(--overlay-dialog)
+    background-color: var(--overlay-dialog);
   }
 
   .chainselector {
