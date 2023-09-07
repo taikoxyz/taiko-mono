@@ -6,19 +6,33 @@ import {
   type PublicClient,
   type WalletClient,
 } from '@wagmi/core';
+import { zeroAddress } from 'viem';
 
 import { freeMintErc20ABI } from '$abi';
-import { mainnetChain } from '$libs/chain';
 import { InsufficientBalanceError, TokenMintedError } from '$libs/error';
 
 import { checkMintable } from './checkMintable';
-import { testERC20Tokens } from './tokens';
+import { type Token, TokenType } from './types';
 
 vi.mock('$env/static/public');
 vi.mock('@wagmi/core');
 vi.mock('$abi');
 
-const BLLToken = testERC20Tokens[0];
+const PUBLIC_L1_CHAIN_ID = 11155111;
+const PUBLIC_L2_CHAIN_ID = 1670005;
+
+const L1_TOKEN_ADDRESS = '0x123456';
+
+const BLLToken: Token = {
+  name: 'MockToken',
+  addresses: {
+    [PUBLIC_L1_CHAIN_ID]: L1_TOKEN_ADDRESS,
+    [PUBLIC_L2_CHAIN_ID]: zeroAddress,
+  },
+  symbol: 'MOCK',
+  decimals: 18,
+  type: TokenType.ERC20,
+};
 
 const mockWalletClient = {
   account: { address: '0x123' },
@@ -53,14 +67,14 @@ describe('checkMintable', () => {
     vi.mocked(mockTokenContract.read.minters).mockResolvedValueOnce(true);
 
     try {
-      await checkMintable(BLLToken, mainnetChain.id);
+      await checkMintable(BLLToken, 1);
       expect.fail('should have thrown');
     } catch (error) {
       expect(error).toBeInstanceOf(TokenMintedError);
       expect(getContract).toHaveBeenCalledWith({
         walletClient: mockWalletClient,
         abi: freeMintErc20ABI,
-        address: BLLToken.addresses[mainnetChain.id],
+        address: BLLToken.addresses[1],
       });
       expect(mockTokenContract.read.minters).toHaveBeenCalledWith([mockWalletClient.account.address]);
     }
@@ -81,7 +95,7 @@ describe('checkMintable', () => {
     vi.mocked(mockPublicClient.getBalance).mockResolvedValueOnce(BigInt(100));
 
     try {
-      await checkMintable(BLLToken, mainnetChain.id);
+      await checkMintable(BLLToken, 1);
       expect.fail('should have thrown');
     } catch (error) {
       expect(error).toBeInstanceOf(InsufficientBalanceError);
@@ -106,7 +120,7 @@ describe('checkMintable', () => {
     vi.mocked(mockPublicClient.getBalance).mockResolvedValueOnce(BigInt(300));
 
     try {
-      await checkMintable(BLLToken, mainnetChain.id);
+      await checkMintable(BLLToken, 1);
     } catch (error) {
       expect.fail('should not have thrown');
     }

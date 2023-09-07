@@ -49,7 +49,9 @@
     };
   };
 
-  onMount(() => tokenService.subscribeToChanges(handleStorageChange));
+  onMount(() => {
+    tokenService.subscribeToChanges(handleStorageChange);
+  });
 
   onDestroy(() => tokenService.unsubscribeFromChanges(handleStorageChange));
 </script>

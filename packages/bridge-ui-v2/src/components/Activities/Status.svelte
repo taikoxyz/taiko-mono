@@ -4,6 +4,7 @@
   import { t } from 'svelte-i18n';
   import { parseEther, UserRejectedRequestError } from 'viem';
 
+  import { chainConfig } from '$chainConfig';
   import {
     errorToast,
     infoToast,
@@ -16,7 +17,6 @@
   import { bridges, type BridgeTransaction, MessageStatus } from '$libs/bridge';
   import { isTransactionProcessable } from '$libs/bridge/isTransactionProcessable';
   import { PollingEvent, startPolling } from '$libs/bridge/messageStatusPoller';
-  import { chainUrlMap } from '$libs/chain';
   import {
     InsufficientBalanceError,
     InvalidProofError,
@@ -101,13 +101,13 @@
       // Step 5: Call claim() method on the bridge
       const txHash = await bridge.claim({ msgHash, message, wallet });
 
-      const { explorerUrl } = chainUrlMap[Number(bridgeTx.destChainId)];
+      const { explorer } = chainConfig[Number(bridgeTx.destChainId)].urls;
 
       infoToast(
         $t('activities.actions.claim.tx', {
           values: {
             token: bridgeTx.symbol,
-            url: `${explorerUrl}/tx/${txHash}`,
+            url: `${explorer}/tx/${txHash}`,
           },
         }),
       );
@@ -180,15 +180,15 @@
       log(`Releasing ${bridgeTx.tokenType} for transaction`, bridgeTx);
 
       // Step 4: Call release() method on the bridge
-      const txHash = await bridge.claim({ msgHash, message, wallet });
+      const txHash = await bridge.release({ msgHash, message, wallet });
 
-      const { explorerUrl } = chainUrlMap[Number(bridgeTx.srcChainId)];
+      const { explorer } = chainConfig[Number(bridgeTx.srcChainId)].urls;
 
       infoToast(
         $t('activities.actions.release.tx', {
           values: {
             token: bridgeTx.symbol,
-            url: `${explorerUrl}/tx/${txHash}`,
+            url: `${explorer}/tx/${txHash}`,
           },
         }),
       );
@@ -273,14 +273,14 @@
     </button>
   {:else if bridgeTxStatus === MessageStatus.RETRIABLE}
     <button class="status-btn" on:click={claim}>
-      {$t('activities.button.claim')}
+      {$t('activities.button.retry')}
     </button>
   {:else if bridgeTxStatus === MessageStatus.DONE}
     <StatusDot type="success" />
     <span>{$t('activities.status.claimed.name')}</span>
   {:else if bridgeTxStatus === MessageStatus.FAILED}
     <button class="status-btn" on:click={release}>
-      {$t('activities.button.claim')}
+      {$t('activities.button.release')}
     </button>
   {:else}
     <!-- TODO: look into this possible state -->

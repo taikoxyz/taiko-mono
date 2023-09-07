@@ -1,0 +1,59 @@
+{
+  "$id": "configuredBridges.json",
+  "type": "object",
+  "properties": {
+    "configuredBridges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "destination": {
+            "type": "string"
+          },
+          "addresses": {
+            "type": "object",
+            "properties": {
+              "bridgeAddress": {
+                "type": "string"
+              },
+              "erc20VaultAddress": {
+                "type": "string"
+              },
+              "etherVaultAddress": {
+                "type": "string"
+              },
+              "erc721VaultAddress": {
+                "type": "string"
+              },
+              "erc1155VaultAddress": {
+                "type": "string"
+              },
+              "crossChainSyncAddress": {
+                "type": "string"
+              },
+              "signalServiceAddress": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "bridgeAddress",
+              "erc20VaultAddress",
+              "erc721VaultAddress",
+              "erc1155VaultAddress",
+              "crossChainSyncAddress",
+              "signalServiceAddress"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": ["source", "destination", "addresses"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["configuredBridges"],
+  "additionalProperties": false
+}

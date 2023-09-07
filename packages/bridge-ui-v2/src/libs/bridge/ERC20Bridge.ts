@@ -1,9 +1,9 @@
 import { getContract, type Hash } from '@wagmi/core';
 import { UserRejectedRequestError } from 'viem';
 
-import { erc20ABI, tokenVaultABI } from '$abi';
+import { bridgeABI, erc20ABI, erc20VaultABI } from '$abi';
+import { routingContractsMap } from '$bridgeConfig';
 import { bridgeService } from '$config';
-import { chainContractsMap } from '$libs/chain';
 import {
   ApproveError,
   InsufficientAllowanceError,
@@ -18,54 +18,44 @@ import { getLogger } from '$libs/util/logger';
 import { Bridge } from './Bridge';
 import {
   type ApproveArgs,
+  type BridgeTransferOp,
   type ClaimArgs,
   type ERC20BridgeArgs,
   MessageStatus,
   type ReleaseArgs,
   type RequireAllowanceArgs,
-  type SendERC20Args,
 } from './types';
 
 const log = getLogger('ERC20Bridge');
 
 export class ERC20Bridge extends Bridge {
   private static async _prepareTransaction(args: ERC20BridgeArgs) {
-    const {
-      to,
-      amount,
-      wallet,
-      destChainId,
-      tokenAddress,
-      processingFee,
-      tokenVaultAddress,
-      isTokenAlreadyDeployed,
-      memo = '',
-    } = args;
+    const { to, amount, wallet, destChainId, token, fee, tokenVaultAddress, isTokenAlreadyDeployed, memo = '' } = args;
 
     const tokenVaultContract = getContract({
       walletClient: wallet,
-      abi: tokenVaultABI,
+      abi: erc20VaultABI,
       address: tokenVaultAddress,
     });
 
-    const refundAddress = wallet.account.address;
+    const refundTo = wallet.account.address;
 
     const gasLimit = !isTokenAlreadyDeployed
       ? BigInt(bridgeService.noTokenDeployedGasLimit)
-      : processingFee > 0
+      : fee > 0
       ? bridgeService.noOwnerGasLimit
       : BigInt(0);
 
-    const sendERC20Args: SendERC20Args = [
-      BigInt(destChainId),
+    const sendERC20Args: BridgeTransferOp = {
+      destChainId: BigInt(destChainId),
       to,
-      tokenAddress,
+      token,
       amount,
       gasLimit,
-      processingFee,
-      refundAddress,
+      fee,
+      refundTo,
       memo,
-    ];
+    };
 
     log('Preparing transaction with args', sendERC20Args);
 
@@ -78,13 +68,13 @@ export class ERC20Bridge extends Bridge {
 
   async estimateGas(args: ERC20BridgeArgs) {
     const { tokenVaultContract, sendERC20Args } = await ERC20Bridge._prepareTransaction(args);
-    const [, , , , , processingFee] = sendERC20Args;
+    const { fee } = sendERC20Args;
 
-    const value = processingFee;
+    const value = fee;
 
     log('Estimating gas for sendERC20 call with value', value);
 
-    const estimatedGas = tokenVaultContract.estimateGas.sendERC20([...sendERC20Args], { value });
+    const estimatedGas = tokenVaultContract.estimateGas.sendToken([sendERC20Args], { value });
 
     log('Gas estimated', estimatedGas);
 
@@ -148,11 +138,11 @@ export class ERC20Bridge extends Bridge {
   }
 
   async bridge(args: ERC20BridgeArgs) {
-    const { amount, tokenAddress, wallet, tokenVaultAddress } = args;
+    const { amount, token, wallet, tokenVaultAddress } = args;
 
     const requireAllowance = await this.requireAllowance({
       amount,
-      tokenAddress,
+      tokenAddress: token,
       ownerAddress: wallet.account.address,
       spenderAddress: tokenVaultAddress,
     });
@@ -162,14 +152,14 @@ export class ERC20Bridge extends Bridge {
     }
 
     const { tokenVaultContract, sendERC20Args } = await ERC20Bridge._prepareTransaction(args);
-    const [, , , , , processingFee] = sendERC20Args;
+    const { fee } = sendERC20Args;
 
-    const value = processingFee;
+    const value = fee;
 
     try {
       log('Calling sendERC20 with value', value);
 
-      const txHash = await tokenVaultContract.write.sendERC20([...sendERC20Args], { value });
+      const txHash = await tokenVaultContract.write.sendToken([sendERC20Args], { value });
 
       log('Transaction hash for sendERC20 call', txHash);
 
@@ -238,15 +228,15 @@ export class ERC20Bridge extends Bridge {
 
     const proof = await this._prover.generateProofToRelease(msgHash, srcChainId, destChainId);
 
-    const srcTokenVaultAddress = chainContractsMap[connectedChainId].tokenVaultAddress;
-    const srcTokenVaultContract = getContract({
+    const bridgeAddress = routingContractsMap[connectedChainId][destChainId].bridgeAddress;
+    const bridgeContract = getContract({
       walletClient: wallet,
-      abi: tokenVaultABI,
-      address: srcTokenVaultAddress,
+      abi: bridgeABI,
+      address: bridgeAddress,
     });
 
     try {
-      const txHash = await srcTokenVaultContract.write.releaseERC20([message, proof]);
+      const txHash = await bridgeContract.write.recallMessage([message, proof]);
 
       log('Transaction hash for releaseERC20 call', txHash);
 

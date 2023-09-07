@@ -68,6 +68,13 @@ var (
 		Value:    4102,
 		EnvVars:  []string{"HTTP_PORT"},
 	}
+	CORSOrigins = &cli.StringFlag{
+		Name:     "http.corsOrigins",
+		Usage:    "Comma-delinated list of cors origins",
+		Required: false,
+		Value:    "*",
+		Category: commonCategory,
+	}
 )
 
 var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
@@ -80,4 +87,5 @@ var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	SubscriptionBackoff,
 	SyncMode,
 	WatchMode,
+	CORSOrigins,
 })

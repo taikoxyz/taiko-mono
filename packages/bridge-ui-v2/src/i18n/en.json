@@ -37,7 +37,7 @@
       "cannot_fetch_balance": "Error fetching balance. Wrong chain?",
       "unknown_error": "An error occured",
       "custom_token": {
-        "not_found": "Token not found",
+        "not_found": "Token not found!",
         "description": "Are you on the right network?"
       }
     },
@@ -139,7 +139,7 @@
     "actions": {
       "claim": {
         "tx": "Transaction sent to claim {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
-        "success": "Transaction completed! Your funds have been successfully claimed on ${network}.",
+        "success": "Transaction completed! Your funds have been successfully claimed on {network}.",
         "rejected": "Request to claim rejected."
       },
       "release": {
@@ -149,7 +149,8 @@
       }
     },
     "errors": {
-      "insufficient_balance": "Insufficient balance to claim. Please add some ETH to your wallet."
+      "insufficient_balance": "Insufficient balance to claim. Please add some ETH to your wallet.",
+      "relayer_offline": "Relayer did not respond. Your transactions may only be loaded partially."
     }
   },
   "faucet": {
@@ -173,12 +174,18 @@
       "no_connected": "Please connect your wallet to mint tokens.",
       "insufficient_balance": "You don't have enough ETH to complete the transaction. Please add some ETH to your wallet.",
       "token_minted": "You have already minted this token.",
+      "not_mintable": "This token is not mintable on this network",
       "unknown": "Something did not work"
     }
   },
   "token_dropdown": {
     "label": "Select token",
-    "add_custom": "Add Custom"
+    "add_custom": "Add Custom",
+    "custom_token": {
+      "title": "Add your own token",
+      "description": "You can add your own token by entering the contract address below. Make sure you are on the chain where the token is deployed.",
+      "button": "Add token"
+    }
   },
   "inputs": {
     "nft": {
@@ -205,7 +212,11 @@
   },
   "chain_selector": {
     "placeholder": "Select chain",
-    "currently_on": "You are currently on"
+    "currently_on": "You are currently on",
+    "disabled_options": {
+      "title": "Disabled options?",
+      "description": "Some options might be disabled due to not having a valid bridge configuration"
+    }
   },
   "chain": {
     "to": "To",
@@ -246,6 +257,8 @@
     "confirm": "Confirm",
     "close": "Close",
     "loading": "Loading",
-    "ok": "Ok"
+    "ok": "Ok",
+    "name": "Name",
+    "balance": "Balance"
   }
 }

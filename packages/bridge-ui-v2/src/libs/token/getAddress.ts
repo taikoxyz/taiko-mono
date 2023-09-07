@@ -25,13 +25,10 @@ export async function getAddress({ token, srcChainId, destChainId }: GetAddressA
     // there is nothing we can do here.
     if (!destChainId) return;
 
-    // Find the address on the destination chain instead. We are
-    // most likely on Taiko chain. We need to then query the
-    // canonicalToBridged mapping on the other chain
     address = await getCrossChainAddress({
       token,
-      srcChainId: destChainId,
-      destChainId: srcChainId,
+      srcChainId: srcChainId,
+      destChainId: destChainId,
     });
 
     if (!address || address === zeroAddress) {

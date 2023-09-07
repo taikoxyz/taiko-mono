@@ -1,15 +1,29 @@
 import { getContract, type GetContractResult } from '@wagmi/core';
-
-import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID } from '$env/static/public';
+import { zeroAddress } from 'viem';
 
 import { getAddress } from './getAddress';
-import { ETHToken, testERC20Tokens } from './tokens';
+import { ETHToken } from './tokens';
+import { type Token, TokenType } from './types';
 
 vi.mock('$env/static/public');
 vi.mock('@wagmi/core');
 vi.mock('$abi');
 
-const HORSEToken = testERC20Tokens[1];
+const PUBLIC_L1_CHAIN_ID = 11155111;
+const PUBLIC_L2_CHAIN_ID = 1670005;
+
+const L1_TOKEN_ADDRESS = '0x123456';
+
+const HORSEToken: Token = {
+  name: 'MockToken',
+  addresses: {
+    [PUBLIC_L1_CHAIN_ID]: L1_TOKEN_ADDRESS,
+    [PUBLIC_L2_CHAIN_ID]: zeroAddress,
+  },
+  symbol: 'MOCK',
+  decimals: 18,
+  type: TokenType.ERC20,
+};
 
 const mockTokenContract = {
   read: {

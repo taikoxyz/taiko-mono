@@ -3,12 +3,12 @@
   import { formatEther } from 'viem';
 
   import type { BridgeTransaction } from '$libs/bridge';
-  import { chainUrlMap } from '$libs/chain';
 
   export let item: BridgeTransaction;
 
   import { createEventDispatcher } from 'svelte';
 
+  import { chainConfig } from '$chainConfig';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { Icon } from '$components/Icon';
 
@@ -70,7 +70,7 @@
   <div class="hidden md:flex w-1/5 py-2 flex flex-col justify-center">
     <a
       class="flex justify-start py-3 link"
-      href={`${chainUrlMap[Number(item.srcChainId)].explorerUrl}/tx/${item.hash}`}
+      href={`${chainConfig[Number(item.srcChainId)].urls.explorer}/tx/${item.hash}`}
       target="_blank">
       {$t('activities.link.explorer')}
       <Icon type="arrow-top-right" fillClass="fill-primary-link" />

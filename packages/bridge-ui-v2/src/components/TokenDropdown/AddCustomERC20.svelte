@@ -6,7 +6,7 @@
   import type { Address } from 'viem';
   import { formatUnits } from 'viem';
 
-  import { Alert } from '$components/Alert';
+  import { Alert, FlatAlert } from '$components/Alert';
   import AddressInput from '$components/Bridge/AddressInput.svelte';
   import { Button } from '$components/Button';
   import { Icon } from '$components/Icon';
@@ -99,7 +99,7 @@
 
   const onAddressChange = async (tokenAddress: string) => {
     log('Fetching token details for address "%s"…', tokenAddress);
-    tokenError = '';
+    tokenError = 'unchecked';
     try {
       const tokenInfo = await fetchToken({ address: tokenAddress as Address });
       const balance = await readContract({
@@ -124,10 +124,11 @@
           },
           decimals: tokenDetails.decimals,
           symbol: tokenDetails.symbol,
-          logoComponent: null,
+          logoURI: '',
           type: TokenType.ERC20,
           imported: true,
         } as Token;
+        tokenError = '';
       }
     } catch (error) {
       tokenError = 'Error fetching token details';
@@ -165,27 +166,27 @@
       <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
     </button>
 
-    <h3 class="title-body-bold mb-7">{$t('processing_fee.title')}</h3>
+    <h3 class="title-body-bold mb-7">{$t('token_dropdown.custom_token.title')}</h3>
 
-    <p class="body-regular text-secondary-content mb-3">{$t('processing_fee.description')}</p>
+    <p class="body-regular text-secondary-content mb-3">{$t('token_dropdown.custom_token.description')}</p>
     <div class="mt-4 mb-2">
       <AddressInput bind:ethereumAddress={tokenAddress} on:addressvalidation={onAddressValidation} />
       {#if tokenDetails}
         <div class="w-full flex items-center justify-between">
-          <span>Name: {tokenDetails.symbol}</span>
-          <span>Balance: {formatUnits(tokenDetails.balance, tokenDetails.decimals)}</span>
+          <span>{$t('common.name')}: {tokenDetails.symbol}</span>
+          <span>{$t('common.balance')}: {formatUnits(tokenDetails.balance, tokenDetails.decimals)}</span>
         </div>
+      {:else if tokenError !== '' && tokenAddress !== '' && isValidEthereumAddress}
+        <FlatAlert
+          type="error"
+          message={$t('bridge.errors.custom_token.not_found') + ' ' + $t('bridge.errors.custom_token.description')} />
       {:else if loadingTokenDetails}
         <Spinner />
-      {:else if tokenError !== '' && tokenAddress !== '' && isValidEthereumAddress}
-        <Alert type="error" forceColumnFlow>
-          <p class="font-bold">{$t('bridge.errors.custom_token.not_found')}</p>
-          <p>{$t('bridge.errors.custom_token.description')}</p>
-        </Alert>
       {:else}
         <div class="min-h-[25px]" />
       {/if}
     </div>
+
     {#if loading}
       <Spinner />
     {:else}
@@ -194,7 +195,7 @@
         class="px-[28px] py-[14px] rounded-full flex-1 w-full"
         {disabled}
         on:click={addCustomErc20Token}>
-        Add
+        {$t('token_dropdown.custom_token.button')}
       </Button>
     {/if}
 
@@ -207,7 +208,6 @@
               <Erc20 />
               <span>{ct.symbol}</span>
             </div>
-
             <button class="btn btn-sm btn-ghost flex justify-center items-center" on:click={() => remove(ct)}>
               <Icon type="trash" fillClass="fill-primary-icon" size={24} />
             </button>

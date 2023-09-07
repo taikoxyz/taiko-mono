@@ -2,7 +2,7 @@ import { getContract, type GetContractResult, type WalletClient } from '@wagmi/c
 import { type Hash, UserRejectedRequestError } from 'viem';
 
 import { bridgeABI } from '$abi';
-import { chainContractsMap } from '$libs/chain';
+import { routingContractsMap } from '$bridgeConfig';
 import { MessageStatusError, RetryError, WrongChainError, WrongOwnerError } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
 import { getLogger } from '$libs/util/logger';
@@ -30,19 +30,20 @@ export abstract class Bridge {
   protected async beforeClaiming({ msgHash, message, wallet }: ClaimArgs) {
     const connectedChainId = await wallet.getChainId();
     const destChainId = Number(message.destChainId);
+    const srcChainId = Number(message.srcChainId);
     // Are we connected to the destination chain?
     if (connectedChainId !== destChainId) {
       throw new WrongChainError('wallet must be connected to the destination chain');
     }
 
-    const { owner } = message;
+    const { user } = message;
     const userAddress = wallet.account.address;
     // Are we the owner of the message?
-    if (owner.toLowerCase() !== userAddress.toLowerCase()) {
+    if (user.toLowerCase() !== userAddress.toLowerCase()) {
       throw new WrongOwnerError('user cannot process this as it is not their message');
     }
 
-    const destBridgeAddress = chainContractsMap[connectedChainId].bridgeAddress;
+    const destBridgeAddress = routingContractsMap[connectedChainId][srcChainId].bridgeAddress;
 
     const destBridgeContract = getContract({
       address: destBridgeAddress,
@@ -84,16 +85,16 @@ export abstract class Bridge {
       throw new WrongChainError('wallet must be connected to the source chain');
     }
 
-    const { owner } = message;
+    const { user } = message;
     const userAddress = wallet.account.address;
     // Are we the owner of the message?
-    if (owner.toLowerCase() !== userAddress.toLowerCase()) {
+    if (user.toLowerCase() !== userAddress.toLowerCase()) {
       throw new WrongOwnerError('user cannot process this as it is not their message');
     }
 
     // Before releasing we need to make sure the message has failed
     const destChainId = Number(message.destChainId);
-    const destBridgeAddress = chainContractsMap[destChainId].bridgeAddress;
+    const destBridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
 
     const destBridgeContract = getContract({
       address: destBridgeAddress,
