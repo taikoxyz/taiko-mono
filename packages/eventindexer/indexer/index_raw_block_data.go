@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 )
 
 func (indxr *Indexer) indexRawBlockData(
@@ -26,41 +27,56 @@ func (indxr *Indexer) indexRawBlockData(
 		return err
 	}
 
+	wg, ctx := errgroup.WithContext(ctx)
 	// BLOCK parsing
 	for i := start; i < end; i++ {
-		block, err := indxr.ethClient.BlockByNumber(ctx, big.NewInt(int64(i)))
-		if err != nil {
-			return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
-		}
-
-		txs := block.Transactions()
-
-		for _, tx := range txs {
-			slog.Info("transaction found", "hash", tx.Hash())
-			receipt, err := indxr.ethClient.TransactionReceipt(ctx, tx.Hash())
+		wg.Go(func() error {
+			block, err := indxr.ethClient.BlockByNumber(ctx, big.NewInt(int64(i)))
 			if err != nil {
-				return err
+				return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
 			}
 
-			sender, err := indxr.ethClient.TransactionSender(ctx, tx, block.Hash(), receipt.TransactionIndex)
-			if err != nil {
-				return err
-			}
+			txs := block.Transactions()
 
-			if err := indxr.txRepo.Save(ctx, tx, sender, block.Number(), time.Unix(int64(block.Time()), 0)); err != nil {
-				return err
+			for _, tx := range txs {
+				slog.Info("transaction found", "hash", tx.Hash())
+				receipt, err := indxr.ethClient.TransactionReceipt(ctx, tx.Hash())
+				if err != nil {
+					return err
+				}
+
+				sender, err := indxr.ethClient.TransactionSender(ctx, tx, block.Hash(), receipt.TransactionIndex)
+				if err != nil {
+					return err
+				}
+
+				if err := indxr.txRepo.Save(ctx, tx, sender, block.Number(), time.Unix(int64(block.Time()), 0)); err != nil {
+					return err
+				}
 			}
-		}
+			return nil
+		})
 	}
 
 	// LOGS parsing
 
 	// index NFT transfers
 	if indxr.indexNfts {
-		if err := indxr.indexNFTTransfers(ctx, chainID, logs); err != nil {
-			return errors.Wrap(err, "svc.indexNFTTransfers")
+		wg.Go(func() error {
+			if err := indxr.indexNFTTransfers(ctx, chainID, logs); err != nil {
+				return errors.Wrap(err, "svc.indexNFTTransfers")
+			}
+			return nil
+		})
+	}
+
+	if err := wg.Wait(); err != nil {
+		if errors.Is(err, context.Canceled) {
+			slog.Error("wg context cancelled")
+			return err
 		}
-		return nil
+
+		return err
 	}
 
 	return nil
