@@ -239,7 +239,11 @@
             class="px-[28px] py-[10px] rounded-full w-auto bg-transparent !border border-primary-brand hover:border-primary-interactive-hover">
             <span class="body-bold">{$t('common.cancel')}</span>
           </Button>
-          <Button type="primary" class="px-[28px] py-[10px] rounded-full w-auto" on:click={closeModal}>
+          <Button
+            type="primary"
+            class="px-[28px] py-[10px] rounded-full w-auto border-primary-brand"
+            hasBorder={true}
+            on:click={closeModal}>
             <span class="body-bold">{$t('common.confirm')}</span>
           </Button>
         </div>

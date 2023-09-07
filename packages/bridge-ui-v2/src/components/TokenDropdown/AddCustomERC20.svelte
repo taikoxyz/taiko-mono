@@ -192,6 +192,7 @@
     {:else}
       <Button
         type="primary"
+        hasBorder={true}
         class="px-[28px] py-[14px] rounded-full flex-1 w-full"
         {disabled}
         on:click={addCustomErc20Token}>

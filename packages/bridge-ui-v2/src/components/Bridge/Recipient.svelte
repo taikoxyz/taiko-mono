@@ -115,7 +115,8 @@
             type="primary"
             disabled={invalidAddress || !ethereumAddressBinding}
             class="px-[28px] py-[10px] rounded-full w-auto"
-            on:click={closeModal}>
+            on:click={closeModal}
+            hasBorder={true}>
             <span class="body-bold">{$t('common.confirm')}</span>
           </Button>
         </div>
