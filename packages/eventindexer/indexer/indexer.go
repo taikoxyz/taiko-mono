@@ -26,6 +26,11 @@ var (
 	ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
 )
 
+var (
+	Layer1 = "l1"
+	Layer2 = "l2"
+)
+
 type WatchMode string
 
 var (
@@ -44,11 +49,12 @@ var (
 )
 
 type Indexer struct {
-	eventRepo      eventindexer.EventRepository
-	blockRepo      eventindexer.BlockRepository
-	statRepo       eventindexer.StatRepository
-	nftBalanceRepo eventindexer.NFTBalanceRepository
-	txRepo         eventindexer.TransactionRepository
+	blockRepo          eventindexer.BlockRepository
+	eventRepo          eventindexer.EventRepository
+	processedBlockRepo eventindexer.ProcessedBlockRepository
+	statRepo           eventindexer.StatRepository
+	nftBalanceRepo     eventindexer.NFTBalanceRepository
+	txRepo             eventindexer.TransactionRepository
 
 	ethClient *ethclient.Client
 
@@ -65,6 +71,7 @@ type Indexer struct {
 	srv      *http.Server
 
 	indexNfts bool
+	layer     string
 
 	wg  *sync.WaitGroup
 	ctx context.Context
@@ -119,6 +126,11 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	}
 
 	eventRepository, err := repo.NewEventRepository(db)
+	if err != nil {
+		return err
+	}
+
+	processedBlockRepository, err := repo.NewProcessedBlockRepository(db)
 	if err != nil {
 		return err
 	}
@@ -192,10 +204,11 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	}
 
 	i.eventRepo = eventRepository
-	i.blockRepo = blockRepository
+	i.processedBlockRepo = processedBlockRepository
 	i.statRepo = statRepository
 	i.nftBalanceRepo = nftBalanceRepository
 	i.txRepo = txRepository
+	i.blockRepo = blockRepository
 
 	i.ethClient = ethClient
 	i.taikol1 = taikoL1
@@ -210,6 +223,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.syncMode = cfg.SyncMode
 	i.watchMode = cfg.WatchMode
 	i.indexNfts = cfg.IndexNFTs
+	i.layer = cfg.Layer
 
 	return nil
 }

@@ -10,7 +10,7 @@ import (
 	"gopkg.in/go-playground/assert.v1"
 )
 
-func Test_NewBlockRepo(t *testing.T) {
+func Test_NewProcessedBlockRepo(t *testing.T) {
 	tests := []struct {
 		name    string
 		db      eventindexer.DB
@@ -30,7 +30,7 @@ func Test_NewBlockRepo(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewBlockRepository(tt.db)
+			_, err := NewProcessedBlockRepository(tt.db)
 			assert.Equal(t, tt.wantErr, err)
 		})
 	}
@@ -42,16 +42,16 @@ func TestIntegration_Block_Save(t *testing.T) {
 
 	defer close()
 
-	blockRepo, err := NewBlockRepository(db)
+	blockRepo, err := NewProcessedBlockRepository(db)
 	assert.Equal(t, nil, err)
 	tests := []struct {
 		name    string
-		opts    eventindexer.SaveBlockOpts
+		opts    eventindexer.SaveProcessedBlockOpts
 		wantErr error
 	}{
 		{
 			"success",
-			eventindexer.SaveBlockOpts{
+			eventindexer.SaveProcessedBlockOpts{
 				ChainID: big.NewInt(1),
 				Height:  100,
 				Hash:    common.HexToHash("0x1234"),
@@ -74,7 +74,7 @@ func TestIntegration_Block_GetLatestBlockProcessedForEvent(t *testing.T) {
 
 	defer close()
 
-	blockRepo, err := NewBlockRepository(db)
+	blockRepo, err := NewProcessedBlockRepository(db)
 	assert.Equal(t, nil, err)
 	tests := []struct {
 		name      string

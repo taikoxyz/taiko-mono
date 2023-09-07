@@ -20,12 +20,12 @@ func main() {
 	// attempt to load a .env file to overwrite CLI flags, but allow it to not
 	// exist.
 
-	// envFile := os.Getenv("EVENTINDEXER_ENV_FILE")
-	// if envFile == "" {
-	// 	envFile = ".env"
-	// }
+	envFile := os.Getenv("EVENTINDEXER_ENV_FILE")
+	if envFile == "" {
+		envFile = ".env"
+	}
 
-	_ = godotenv.Load(".l1.env")
+	_ = godotenv.Load(envFile)
 
 	app.Name = "Taiko EventIndexer"
 	app.Usage = "The taiko eventindexing softwares command line interface"

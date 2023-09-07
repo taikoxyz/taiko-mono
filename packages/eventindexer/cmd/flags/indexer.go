@@ -108,6 +108,14 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"INDEX_NFTS"},
 	}
+	Layer = &cli.StringFlag{
+		Name:     "layer",
+		Usage:    "Which layer indexing is occurring on",
+		Required: false,
+		Value:    "l1",
+		Category: indexerCategory,
+		EnvVars:  []string{"LAYER"},
+	}
 )
 
 var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
@@ -124,4 +132,5 @@ var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	SyncMode,
 	WatchMode,
 	IndexNFTs,
+	Layer,
 })

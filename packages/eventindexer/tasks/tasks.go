@@ -1,11 +1,15 @@
 package tasks
 
 var (
-	TotalTransactions = "total-transctions"
-	TransactionsByDay = "transactions-by-day"
+	TotalTransactions  = "total-transctions"
+	TransactionsPerDay = "transactions-per-day"
+	TotalBlocks        = "total-blocks"
+	BlocksPerDay       = "blocks-per-day"
 )
 
 var Tasks = []string{
 	TotalTransactions,
-	TransactionsByDay,
+	TransactionsPerDay,
+	TotalBlocks,
+	BlocksPerDay,
 }

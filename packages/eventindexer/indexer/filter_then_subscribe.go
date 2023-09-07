@@ -79,7 +79,7 @@ func (indxr *Indexer) filterThenSubscribe(
 
 		slog.Info("setting last processed block", "height", end, "hash", header.Hash().Hex())
 
-		if err := indxr.blockRepo.Save(eventindexer.SaveBlockOpts{
+		if err := indxr.processedBlockRepo.Save(eventindexer.SaveProcessedBlockOpts{
 			Height:  uint64(end),
 			Hash:    header.Hash(),
 			ChainID: chainID,

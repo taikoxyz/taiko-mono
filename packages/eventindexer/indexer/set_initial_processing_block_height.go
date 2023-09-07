@@ -27,11 +27,11 @@ func (indxr *Indexer) setInitialProcessingBlockByMode(
 
 	switch mode {
 	case Sync:
-		latestProcessedBlock, err := indxr.blockRepo.GetLatestBlockProcessed(
+		latestProcessedBlock, err := indxr.processedBlockRepo.GetLatestBlockProcessed(
 			chainID,
 		)
 		if err != nil {
-			return errors.Wrap(err, "indxr.blockRepo.GetLatestBlock()")
+			return errors.Wrap(err, "indxr.processedBlockRepo.GetLatestBlock()")
 		}
 
 		if latestProcessedBlock.Height != 0 {

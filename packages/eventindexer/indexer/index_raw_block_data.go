@@ -29,33 +29,42 @@ func (indxr *Indexer) indexRawBlockData(
 
 	wg, ctx := errgroup.WithContext(ctx)
 	// BLOCK parsing
-	for i := start; i < end; i++ {
-		wg.Go(func() error {
-			block, err := indxr.ethClient.BlockByNumber(ctx, big.NewInt(int64(i)))
-			if err != nil {
-				return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
-			}
 
-			txs := block.Transactions()
-
-			for _, tx := range txs {
-				slog.Info("transaction found", "hash", tx.Hash())
-				receipt, err := indxr.ethClient.TransactionReceipt(ctx, tx.Hash())
+	// only index block/transaction data on L2
+	if indxr.layer == Layer2 {
+		for i := start; i < end; i++ {
+			wg.Go(func() error {
+				block, err := indxr.ethClient.BlockByNumber(ctx, big.NewInt(int64(i)))
 				if err != nil {
-					return err
+					return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
 				}
 
-				sender, err := indxr.ethClient.TransactionSender(ctx, tx, block.Hash(), receipt.TransactionIndex)
-				if err != nil {
-					return err
+				if err := indxr.blockRepo.Save(ctx, block, chainID); err != nil {
+					return errors.Wrap(err, "indxr.blockRepo.Save")
 				}
 
-				if err := indxr.txRepo.Save(ctx, tx, sender, block.Number(), time.Unix(int64(block.Time()), 0)); err != nil {
-					return err
+				txs := block.Transactions()
+
+				for _, tx := range txs {
+					slog.Info("transaction found", "hash", tx.Hash())
+					receipt, err := indxr.ethClient.TransactionReceipt(ctx, tx.Hash())
+					if err != nil {
+						return err
+					}
+
+					sender, err := indxr.ethClient.TransactionSender(ctx, tx, block.Hash(), receipt.TransactionIndex)
+					if err != nil {
+						return err
+					}
+
+					if err := indxr.txRepo.Save(ctx, tx, sender, block.Number(), time.Unix(int64(block.Time()), 0)); err != nil {
+						return err
+					}
 				}
-			}
-			return nil
-		})
+
+				return nil
+			})
+		}
 	}
 
 	// LOGS parsing

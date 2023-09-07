@@ -129,14 +129,14 @@ func (indxr *Indexer) subscribeBlockProven(ctx context.Context, chainID *big.Int
 					return
 				}
 
-				block, err := indxr.blockRepo.GetLatestBlockProcessed(chainID)
+				block, err := indxr.processedBlockRepo.GetLatestBlockProcessed(chainID)
 				if err != nil {
-					slog.Error("indxr.subscribe, indxr.blockRepo.GetLatestBlockProcessed", "error", err)
+					slog.Error("indxr.subscribe, indxr.processedBlockRepo.GetLatestBlockProcessed", "error", err)
 					return
 				}
 
 				if block.Height < event.Raw.BlockNumber {
-					err = indxr.blockRepo.Save(eventindexer.SaveBlockOpts{
+					err = indxr.processedBlockRepo.Save(eventindexer.SaveProcessedBlockOpts{
 						Height:  event.Raw.BlockNumber,
 						Hash:    event.Raw.BlockHash,
 						ChainID: chainID,
@@ -205,15 +205,15 @@ func (indxr *Indexer) subscribeBlockProposed(ctx context.Context, chainID *big.I
 					return
 				}
 
-				block, err := indxr.blockRepo.GetLatestBlockProcessed(chainID)
+				block, err := indxr.processedBlockRepo.GetLatestBlockProcessed(chainID)
 				if err != nil {
-					slog.Error("indxr.subscribe, indxr.blockRepo.GetLatestBlockProcessed", "error", err)
+					slog.Error("indxr.subscribe, indxr.processedBlockRepo.GetLatestBlockProcessed", "error", err)
 
 					return
 				}
 
 				if block.Height < event.Raw.BlockNumber {
-					err = indxr.blockRepo.Save(eventindexer.SaveBlockOpts{
+					err = indxr.processedBlockRepo.Save(eventindexer.SaveProcessedBlockOpts{
 						Height:  event.Raw.BlockNumber,
 						Hash:    event.Raw.BlockHash,
 						ChainID: chainID,
@@ -267,14 +267,14 @@ func (indxr *Indexer) subscribeBlockVerified(ctx context.Context, chainID *big.I
 					return
 				}
 
-				block, err := indxr.blockRepo.GetLatestBlockProcessed(chainID)
+				block, err := indxr.processedBlockRepo.GetLatestBlockProcessed(chainID)
 				if err != nil {
-					slog.Error("indxr.subscribe, indxr.blockRepo.GetLatestBlockProcessed", "error", err)
+					slog.Error("indxr.subscribe, indxr.processedBlockRepo.GetLatestBlockProcessed", "error", err)
 					return
 				}
 
 				if block.Height < event.Raw.BlockNumber {
-					err = indxr.blockRepo.Save(eventindexer.SaveBlockOpts{
+					err = indxr.processedBlockRepo.Save(eventindexer.SaveProcessedBlockOpts{
 						Height:  event.Raw.BlockNumber,
 						Hash:    event.Raw.BlockHash,
 						ChainID: chainID,
@@ -328,14 +328,14 @@ func (indxr *Indexer) subscribeMessageSent(ctx context.Context, chainID *big.Int
 					return
 				}
 
-				block, err := indxr.blockRepo.GetLatestBlockProcessed(chainID)
+				block, err := indxr.processedBlockRepo.GetLatestBlockProcessed(chainID)
 				if err != nil {
-					slog.Error("indxr.subscribe, indxr.blockRepo.GetLatestBlockProcessed", "error", err)
+					slog.Error("indxr.subscribe, indxr.processedBlockRepo.GetLatestBlockProcessed", "error", err)
 					return
 				}
 
 				if block.Height < event.Raw.BlockNumber {
-					err = indxr.blockRepo.Save(eventindexer.SaveBlockOpts{
+					err = indxr.processedBlockRepo.Save(eventindexer.SaveProcessedBlockOpts{
 						Height:  event.Raw.BlockNumber,
 						Hash:    event.Raw.BlockHash,
 						ChainID: chainID,
@@ -386,14 +386,14 @@ func (indxr *Indexer) subscribeSwap(ctx context.Context, s *swap.Swap, chainID *
 					return
 				}
 
-				block, err := indxr.blockRepo.GetLatestBlockProcessed(chainID)
+				block, err := indxr.processedBlockRepo.GetLatestBlockProcessed(chainID)
 				if err != nil {
-					slog.Error("indxr.subscribe, indxr.blockRepo.GetLatestBlockProcessed", "error", err)
+					slog.Error("indxr.subscribe, indxr.processedBlockRepo.GetLatestBlockProcessed", "error", err)
 					return
 				}
 
 				if block.Height < event.Raw.BlockNumber {
-					err = indxr.blockRepo.Save(eventindexer.SaveBlockOpts{
+					err = indxr.processedBlockRepo.Save(eventindexer.SaveProcessedBlockOpts{
 						Height:  event.Raw.BlockNumber,
 						Hash:    event.Raw.BlockHash,
 						ChainID: chainID,
@@ -444,20 +444,20 @@ func (indxr *Indexer) subscribeLiquidityAdded(ctx context.Context, s *swap.Swap,
 					return
 				}
 
-				block, err := indxr.blockRepo.GetLatestBlockProcessed(chainID)
+				block, err := indxr.processedBlockRepo.GetLatestBlockProcessed(chainID)
 				if err != nil {
 					slog.Error("indxr.subscribe, blockRepo.GetLatestBlockProcessed", "error", err)
 					return
 				}
 
 				if block.Height < event.Raw.BlockNumber {
-					err = indxr.blockRepo.Save(eventindexer.SaveBlockOpts{
+					err = indxr.processedBlockRepo.Save(eventindexer.SaveProcessedBlockOpts{
 						Height:  event.Raw.BlockNumber,
 						Hash:    event.Raw.BlockHash,
 						ChainID: chainID,
 					})
 					if err != nil {
-						slog.Error("indxr.subscribe, indxr.blockRepo.Save", "error", err)
+						slog.Error("indxr.subscribe, indxr.processedBlockRepo.Save", "error", err)
 						return
 					}
 
