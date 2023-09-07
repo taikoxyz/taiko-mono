@@ -1,14 +1,16 @@
 <script lang="ts">
   import { type Chain, switchNetwork } from '@wagmi/core';
   import { t } from 'svelte-i18n';
-  import { UserRejectedRequestError } from 'viem';
+  import { SwitchChainError, UserRejectedRequestError } from 'viem';
 
-  import { Icon } from '$components/Icon';
+  import { chainConfig } from '$chainConfig';
   import { LoadingMask } from '$components/LoadingMask';
   import { warningToast } from '$components/NotificationToast';
   import { chains } from '$libs/chain';
-  import { chainToIconMap } from '$libs/util/chainToIconMap';
   import { switchChainModal } from '$stores/modal';
+
+  // TODO: We should combine this with the ChainSelector component.
+  // Or at least share the same base component. There is a lot of code duplication
 
   let switchingNetwork = false;
 
@@ -26,7 +28,9 @@
       closeModal();
     } catch (err) {
       console.error(err);
-
+      if (err instanceof SwitchChainError) {
+        warningToast($t('messages.network.pending'));
+      }
       if (err instanceof UserRejectedRequestError) {
         warningToast($t('messages.network.rejected'));
       }
@@ -48,19 +52,14 @@
   <div
     class="modal-box relative px-6 py-[35px] md:py-[35px] bg-neutral-background text-primary-content box-shadow-small">
     {#if switchingNetwork}
-      <LoadingMask
-        class="bg-grey-0/60"
-        spinnerClass="border-primary-base-content"
-        text={$t('messages.network.switching')} />
+      <LoadingMask spinnerClass="border-white" text={$t('messages.network.switching')} />
     {/if}
 
-    <button class="absolute right-6 top-[35px] md:top-[20px]" on:click={closeModal}>
-      <Icon type="x-close" fillClass="fill-secondary-icon" size={24} />
-    </button>
     <h3 class="title-body-bold mb-[30px]">{$t('switch_modal.title')}</h3>
     <p class="body-regular mb-[20px]">{$t('switch_modal.description')}</p>
     <ul role="menu" class=" w-full">
       {#each chains as chain (chain.id)}
+        {@const icon = chainConfig[Number(chain.id)]?.icon || 'Unknown Chain'}
         <li
           role="menuitem"
           tabindex="0"
@@ -71,7 +70,7 @@
           <div class="f-row f-items-center justify-between w-full">
             <div class="f-items-center space-x-4">
               <i role="img" aria-label={chain.name}>
-                <svelte:component this={chainToIconMap[chain.id]} size={32} />
+                <img src={icon} alt="chain-logo" class="rounded-full" width="30px" height="30px" />
               </i>
               <span class="body-bold">{chain.name}</span>
             </div>

@@ -18,7 +18,11 @@
       "$stores": ["./src/stores/index.ts"],
       "$config": ["./src/app.config.ts"],
       "$libs/*": ["./src/libs/*"],
-      "$abi": ["./src/abi/index.ts"]
+      "$abi": ["./src/abi/index.ts"],
+      "$bridgeConfig": ["./src/generated/bridgeConfig.ts"],
+      "$chainConfig": ["./src/generated/chainConfig.ts"],
+      "$relayerConfig": ["./src/generated/relayerConfig.ts"],
+      "$customToken": ["./src/generated/customTokenConfig.ts"]
     },
 
     // https://vitest.dev/config/#globals

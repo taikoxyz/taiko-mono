@@ -1,7 +1,7 @@
 import { encodeAbiParameters, type Hash, toHex, toRlp } from 'viem';
 
+import { routingContractsMap } from '$bridgeConfig';
 import { MessageStatus } from '$libs/bridge';
-import { chainContractsMap } from '$libs/chain';
 import { InvalidProofError } from '$libs/error';
 
 import { Prover } from './Prover';
@@ -39,8 +39,8 @@ export class BridgeProver extends Prover {
   }
 
   async generateProofToProcessMessage(msgHash: Hash, srcChainId: number, destChainId: number) {
-    const srcBridgeAddress = chainContractsMap[srcChainId].bridgeAddress;
-    const srcSignalServiceAddress = chainContractsMap[srcChainId].signalServiceAddress;
+    const srcBridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
+    const srcSignalServiceAddress = routingContractsMap[srcChainId][destChainId].signalServiceAddress;
 
     const { proof, block } = await this.generateProof({
       msgHash,
@@ -59,8 +59,8 @@ export class BridgeProver extends Prover {
   }
 
   async generateProofToRelease(msgHash: Hash, srcChainId: number, destChainId: number) {
-    const srcBridgeAddress = chainContractsMap[srcChainId].bridgeAddress;
-    const destBridgeAddress = chainContractsMap[destChainId].bridgeAddress;
+    const srcBridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
+    const destBridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
 
     const { proof, block } = await this.generateProof({
       msgHash,

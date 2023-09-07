@@ -81,3 +81,12 @@ export type APIResponse = PaginationInfo & {
   items: APIResponseTransaction[];
   visible: number;
 };
+
+export type RelayerConfig = {
+  chainIds: number[];
+  url: string;
+};
+
+export type ConfiguredRelayer = {
+  configuredRelayer: RelayerConfig[];
+};

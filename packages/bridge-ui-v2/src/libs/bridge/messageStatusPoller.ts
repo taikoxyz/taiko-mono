@@ -2,8 +2,8 @@ import { getContract, type Hash } from '@wagmi/core';
 import { EventEmitter } from 'events';
 
 import { bridgeABI } from '$abi';
+import { routingContractsMap } from '$bridgeConfig';
 import { bridgeTransactionPoller } from '$config';
-import { chainContractsMap } from '$libs/chain';
 import { BridgeTxPollingError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { nextTick } from '$libs/util/nextTick';
@@ -46,7 +46,7 @@ const hashIntervalMap: Record<Hash, Interval> = {};
  * }
  */
 export function startPolling(bridgeTx: BridgeTransaction, runImmediately = false) {
-  const { hash, destChainId, msgHash, status } = bridgeTx;
+  const { hash, srcChainId, destChainId, msgHash, status } = bridgeTx;
 
   // Without this we cannot poll at all. Let's throw an error
   // that can be handled in the UI
@@ -64,7 +64,7 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = false
   let interval = hashIntervalMap[hash];
 
   // We are gonna be polling the destination bridge contract
-  const destBridgeAddress = chainContractsMap[Number(destChainId)].bridgeAddress;
+  const destBridgeAddress = routingContractsMap[Number(destChainId)][Number(srcChainId)].bridgeAddress;
   const destBridgeContract = getContract({
     address: destBridgeAddress,
     abi: bridgeABI,

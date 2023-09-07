@@ -1,0 +1,42 @@
+{
+  "$id": "configuredChains.json",
+  "properties": {
+    "configuredChains": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "propertyNames": {
+          "pattern": "^[0-9]+$"
+        },
+        "additionalProperties": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "icon": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "urls": {
+              "type": "object",
+              "properties": {
+                "rpc": {
+                  "type": "string"
+                },
+                "explorer": {
+                  "type": "string"
+                }
+              },
+              "required": ["rpc", "explorer"]
+            }
+          },
+          "required": ["name", "icon", "type", "urls"]
+        }
+      }
+    }
+  },
+  "required": ["configuredChains"]
+}

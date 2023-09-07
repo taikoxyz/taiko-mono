@@ -221,7 +221,7 @@ export default {
           '--elevated-background': '#191E28', // grey-800
           '--neutral-background': '#2B303B', // grey-700
           '--overlay-background': 'rgba(12, 17, 28, 0.5)', // grey-900|50%
-
+          '--overlay-dialog': 'rgba(12, 17, 28, 0.90)', // grey-900|90%
           '--divider-border': '#444A55', // grey-600
 
           // ================================ //
@@ -295,6 +295,7 @@ export default {
           '--elevated-background': '#FAFAFA', // grey-5
           '--neutral-background': '#E7E7E7', // grey-50
           '--overlay-background': 'rgba(12, 17, 28, 0.2)', // grey-900|20%
+          '--overlay-dialog': 'rgba(12, 17, 28, 0.9)', // grey-900|20%
 
           '--divider-border': '#CACBCE', // grey-100
 

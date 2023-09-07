@@ -10,7 +10,7 @@
 
   let tooltipId = `tooltip-${uid()}`;
   let tooltipClass = `block dialog-tooltip`;
-  let tooltipOpen = false;
+  export let tooltipOpen = false;
   let classes = classNames('flex', $$props.class || 'relative');
 
   const GAP = 10; // distance between trigger element and tooltip

@@ -24,6 +24,7 @@
   let id = `menu-${uid()}`;
   let menuOpen = false;
 
+  const customTokens = tokenService.getTokens($account?.address as Address);
   // This will control which view to render depending on the screensize.
   // Since markup will differ, and there is logic running when interacting
   // with this component, it makes more sense to not render the view that's
@@ -58,17 +59,23 @@
     // if it is an imported Token, chances are we do not yet have the bridged address
     // for the destination chain, so we need to fetch it
     if (token.imported) {
-      // ... in the case of imported tokens, we also require the destination chain to be selected.
+      // ... in the case of imported tokens, we also require the destination chain to be selected.    if (!destChain) {
       if (!destChain) {
         warningToast($t('messages.network.required_dest'));
         return;
       }
 
-      const bridgedAddress = await getCrossChainAddress({
-        token,
-        srcChainId: chain.id,
-        destChainId: destChain.id,
-      });
+      let bridgedAddress = null;
+
+      try {
+        bridgedAddress = await getCrossChainAddress({
+          token,
+          srcChainId: chain.id,
+          destChainId: destChain.id,
+        });
+      } catch (error) {
+        console.error(error);
+      }
 
       // only update the token if we actually have a new bridged address
       if (bridgedAddress && bridgedAddress !== token.addresses[destChain.id]) {
@@ -110,11 +117,11 @@
         <div class="flex space-x-2 items-center">
           {#if symbolToIconMap[value.symbol]}
             <i role="img" aria-label={value.name}>
-              <svelte:component this={symbolToIconMap[value.symbol]} size={28}/>
+              <svelte:component this={symbolToIconMap[value.symbol]} size={28} />
             </i>
           {:else}
             <i role="img" aria-label={value.symbol}>
-              <svelte:component this={Erc20} size={28}/>
+              <svelte:component this={Erc20} size={28} />
             </i>
           {/if}
           <span class="title-subsection-bold">{value.symbol}</span>
@@ -125,8 +132,8 @@
   </button>
 
   {#if isDesktopOrLarger}
-    <DropdownView {id} {menuOpen} {tokens} {value} {selectToken} on:tokenRemoved={handleTokenRemoved} />
+    <DropdownView {id} {menuOpen} {tokens} {customTokens} {value} {selectToken} on:tokenRemoved={handleTokenRemoved} />
   {:else}
-    <DialogView {id} {menuOpen} {tokens} {value} {selectToken} {closeMenu} />
+    <DialogView {id} {menuOpen} {tokens} {customTokens} {value} {selectToken} {closeMenu} />
   {/if}
 </div>
