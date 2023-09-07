@@ -19,6 +19,7 @@ type Server struct {
 	eventRepo      eventindexer.EventRepository
 	statRepo       eventindexer.StatRepository
 	nftBalanceRepo eventindexer.NFTBalanceRepository
+	chartRepo      eventindexer.ChartRepository
 	cache          *cache.Cache
 }
 
@@ -27,6 +28,7 @@ type NewServerOpts struct {
 	EventRepo      eventindexer.EventRepository
 	StatRepo       eventindexer.StatRepository
 	NFTBalanceRepo eventindexer.NFTBalanceRepository
+	ChartRepo      eventindexer.ChartRepository
 	EthClient      *ethclient.Client
 	CorsOrigins    []string
 }
@@ -67,6 +69,7 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 		eventRepo:      opts.EventRepo,
 		statRepo:       opts.StatRepo,
 		nftBalanceRepo: opts.NFTBalanceRepo,
+		chartRepo:      opts.ChartRepo,
 		cache:          cache,
 	}
 

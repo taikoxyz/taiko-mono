@@ -8,7 +8,7 @@ var (
 		Usage:    "Genesis date to start genrating data from, YYYY-MM-DD",
 		Required: true,
 		Category: generatorCategory,
-		EnvVars:  []string{"GENESIS_TIMESTAMP"},
+		EnvVars:  []string{"GENESIS_DATE"},
 	}
 )
 var GeneratorFlags = MergeFlags(CommonFlags, []cli.Flag{

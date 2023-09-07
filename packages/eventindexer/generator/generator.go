@@ -3,9 +3,11 @@ package generator
 import (
 	"context"
 	"log/slog"
+	"strconv"
 	"syscall"
 	"time"
 
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/tasks"
 	"github.com/urfave/cli/v2"
 )
 
@@ -59,16 +61,18 @@ func (g *Generator) Close(ctx context.Context) {
 }
 
 func (g *Generator) generateTimeSeriesData(ctx context.Context) error {
-	if err := g.generateTransactionTimeSeriesData(ctx); err != nil {
-		return err
+	for _, task := range tasks.Tasks {
+		if err := g.generateByTask(ctx, task); err != nil {
+			slog.Error("error generating for task", "task", task, "error", err.Error())
+			return err
+		}
 	}
 
 	return nil
 }
 
-func (g *Generator) generateTransactionTimeSeriesData(ctx context.Context) error {
-	// get last calculated date
-	task := taskTotalTransactions
+func (g *Generator) generateByTask(ctx context.Context, task string) error {
+	slog.Info("generating for task", "task", task)
 
 	latestDate, err := g.getLatestDateByTask(ctx, task)
 	if err != nil {
@@ -81,27 +85,19 @@ func (g *Generator) generateTransactionTimeSeriesData(ctx context.Context) error
 	for d := latestDate; d.Before(currentDate); d = d.AddDate(0, 0, 1) {
 		slog.Info("Processing", "task", task, "date", d.Format("2006-01-02"))
 
-		query := `SELECT 
-		    COUNT(*)
-		FROM 
-		    transactions
-		WHERE 
-		    DATE(transacted_at) = ?`
-
-		var numTransactions int
-		err = g.db.GormDB().Raw(query, d.Format("2006-01-02")).Scan(&numTransactions).Error
+		result, err := g.queryByTask(task, d)
 		if err != nil {
 			slog.Info("Query failed", "task", task, "date", d.Format("2006-01-02"), "error", err.Error())
 			return err
 		}
 
-		slog.Info("Query", "task", task, "date", d.Format("2006-01-02"), "numTxs", numTransactions)
+		slog.Info("Query successful", "task", task, "date", d.Format("2006-01-02"), "result", result)
 
 		insertStmt := `
 		INSERT INTO time_series_data(task, value, date)
 		VALUES (?, ?, ?)`
 
-		err = g.db.GormDB().Exec(insertStmt, task, numTransactions, d.Format("2006-01-02")).Error
+		err = g.db.GormDB().Exec(insertStmt, task, result, d.Format("2006-01-02")).Error
 		if err != nil {
 			slog.Info("Insert failed", "task", task, "date", d.Format("2006-01-02"), "error", err.Error())
 			return err
@@ -146,4 +142,53 @@ func (g *Generator) getCurrentDate() time.Time {
 
 	return currentDate
 
+}
+
+func (g *Generator) queryByTask(task string, date time.Time) (string, error) {
+	dateString := date.Format("2006-01-02")
+
+	var result string
+
+	var err error
+
+	switch task {
+	case tasks.TransactionsByDay:
+		query := `SELECT 
+		COUNT(*)
+	FROM 
+		transactions
+	WHERE 
+		DATE(transacted_at) = ?`
+		err = g.db.GormDB().Raw(query, dateString).Scan(&result).Error
+	case tasks.TotalTransactions:
+		var dailyTxCount int
+		// get current days txs, get previous entry for the time series data, add them together.
+		query := `SELECT 
+		COUNT(*)
+	FROM 
+		transactions
+	WHERE 
+		DATE(transacted_at) = ?`
+		err = g.db.GormDB().Raw(query, dateString).Scan(&dailyTxCount).Error
+		if err != nil {
+			return "", err
+		}
+
+		var tsdResult int
+		tsdQuery := `SELECT value FROM time_series_data WHERE task = ? AND date = ?`
+
+		err = g.db.GormDB().Raw(tsdQuery, task, date.AddDate(0, 0, -1).Format("2006-01-02")).Scan(&tsdResult).Error
+		if err != nil {
+			return "", err
+		}
+
+		result = strconv.Itoa(dailyTxCount + tsdResult)
+	default:
+	}
+
+	if err != nil {
+		return "", err
+	}
+
+	return result, nil
 }
