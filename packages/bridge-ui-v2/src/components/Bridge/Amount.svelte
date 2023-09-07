@@ -8,7 +8,7 @@
   import { warningToast } from '$components/NotificationToast';
   import { checkBalanceToBridge, getMaxAmountToBridge } from '$libs/bridge';
   import { InsufficientAllowanceError, InsufficientBalanceError, RevertedWithFailedError } from '$libs/error';
-  import { ETHToken, getBalance as getTokenBalance,TokenType } from '$libs/token';
+  import { ETHToken, getBalance as getTokenBalance, TokenType } from '$libs/token';
   import { renderBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
@@ -67,7 +67,7 @@
         to,
         token,
         amount: $enteredAmount,
-        processingFee: fee,
+        fee,
         balance: $tokenBalance.value,
         srcChainId: $network.id,
         destChainId: $destNetwork.id,
@@ -153,7 +153,7 @@
         to: $recipientAddress || $account.address,
         token: $selectedToken,
         balance: $tokenBalance.value,
-        processingFee: $processingFee,
+        fee: $processingFee,
         srcChainId: $network.id,
         destChainId: $destNetwork.id,
         amount: BigInt(1), // whatever amount to estimate the cost
@@ -227,10 +227,12 @@
         {$t('inputs.amount.button.max')}
       </button>
     </div>
-    {#if showInsufficientBalanceAlert}
-      <FlatAlert type="error" message={$t('bridge.errors.insufficient_balance')} class="absolute bottom-[-26px]" />
-    {:else if showInsiffucientAllowanceAlert}
-      <FlatAlert type="warning" message={$t('bridge.errors.insufficient_allowance')} class="absolute bottom-[-26px]" />
-    {/if}
+    <div class="flex mt-[8px] mb-[24px]">
+      {#if showInsufficientBalanceAlert}
+        <FlatAlert type="error" message={$t('bridge.errors.insufficient_balance')} class="relative" />
+      {:else if showInsiffucientAllowanceAlert}
+        <FlatAlert type="warning" message={$t('bridge.errors.insufficient_allowance')} class="absolute" />
+      {/if}
+    </div>
   </div>
 </div>

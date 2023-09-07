@@ -37,6 +37,10 @@
     z-index: -1;
   }
 
+  input {
+    border: 1px solid var(--border-dark-primary, #5d636f);
+  }
+
   @media (min-width: 768px) {
     body::before {
       background-size: 700px, cover, cover;

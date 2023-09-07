@@ -163,15 +163,18 @@
     @apply modal-backdrop bg-overlay-background rounded-xl;
   }
 
+  .overlay-dialog {
+    background-color: var(--overlay-dialog)
+  }
+
   .chainselector {
     @apply /* background: var(--interactive-dark-tertiary, #444A55); */
     hover:background-color: var(--interactive-dark-tertiary-hover, #5D636F);
   }
 
   .glassy-gradient-card::before {
-    background: linear-gradient(226deg, rgba(93, 99, 111, 0.1) 1.26%, rgba(25, 30, 40, 0.2) 100%);
+    @apply glassy-background;
     content: '';
-    backdrop-filter: blur(2px);
     position: absolute;
     inset: 0%;
     z-index: -1;

@@ -23,6 +23,7 @@
     try {
       // Get the balance of the user on the destination chain
       const destBalance = await getBalance({
+        token,
         userAddress,
         srcChainId: destChainId,
       });

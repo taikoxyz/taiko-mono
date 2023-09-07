@@ -1,8 +1,9 @@
 <script lang="ts">
   import { type Chain, switchNetwork } from '@wagmi/core';
   import { t } from 'svelte-i18n';
-  import { UserRejectedRequestError } from 'viem';
+  import { ContractFunctionExecutionError, UserRejectedRequestError } from 'viem';
 
+  import { chainConfig } from '$chainConfig';
   import { Alert } from '$components/Alert';
   import { Button } from '$components/Button';
   import { Card } from '$components/Card';
@@ -11,10 +12,9 @@
   import { successToast, warningToast } from '$components/NotificationToast';
   import { errorToast, infoToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { TokenDropdown } from '$components/TokenDropdown';
-  import { PUBLIC_L1_CHAIN_ID, PUBLIC_L1_CHAIN_NAME, PUBLIC_L1_EXPLORER_URL } from '$env/static/public';
+  import { chains } from '$libs/chain';
   import { InsufficientBalanceError, MintError, TokenMintedError } from '$libs/error';
-  import { testERC20Tokens, type Token } from '$libs/token';
-  import { checkMintable, mint } from '$libs/token';
+  import { checkMintable, mint, testERC20Tokens, type Token } from '$libs/token';
   import { account, network, pendingTransactions } from '$stores';
 
   let minting = false;
@@ -31,7 +31,7 @@
     switchingNetwork = true;
 
     try {
-      await switchNetwork({ chainId: Number(PUBLIC_L1_CHAIN_ID) });
+      await switchNetwork({ chainId: Number(chains[0]) });
     } catch (err) {
       console.error(err);
 
@@ -55,12 +55,13 @@
 
     try {
       const txHash = await mint(selectedToken, $network.id);
+      const explorer = chainConfig[$network.id].urls.explorer;
 
       infoToast(
         $t('faucet.mint.tx', {
           values: {
             token: selectedToken.symbol,
-            url: `${PUBLIC_L1_EXPLORER_URL}/tx/${txHash}`,
+            url: `${explorer}/tx/${txHash}`,
           },
         }),
       );
@@ -99,7 +100,14 @@
   }
 
   function isWrongChain(network: Maybe<Chain>) {
-    return Boolean(network?.id.toString() !== PUBLIC_L1_CHAIN_ID);
+    if (!selectedToken?.addresses) {
+      // nothing selected, can't determine if wrong chain
+      return false;
+    }
+    if (network?.id) {
+      return !selectedToken.addresses[network.id];
+    }
+    return true;
   }
 
   // This function will check whether or not the button to mint should be
@@ -125,6 +133,9 @@
         case err instanceof TokenMintedError:
           reasonNotMintable = $t('faucet.warning.token_minted');
           break;
+        case err instanceof ContractFunctionExecutionError:
+          reasonNotMintable = $t('faucet.warning.not_mintable');
+          break;
         default:
           reasonNotMintable = $t('faucet.warning.unknown');
           break;
@@ -136,7 +147,8 @@
 
   function getAlertMessage(connected: boolean, wrongChain: boolean, reasonNotMintable: string) {
     if (!connected) return $t('messages.account.required');
-    if (wrongChain) return $t('faucet.wrong_chain.message', { values: { network: PUBLIC_L1_CHAIN_NAME } });
+    //does this really need to be dynamic? Our mint tokens will most likely stay on Sepolia
+    if (wrongChain) return $t('faucet.wrong_chain.message', { values: { network: 'Sepolia' } });
     if (reasonNotMintable) return reasonNotMintable;
   }
 
@@ -170,9 +182,9 @@
         {#if switchingNetwork}
           <span>{$t('messages.network.switching')}</span>
         {:else}
-          <Icon type="up-down" fillClass="fill-white" class="rotate-90" size={24} />
+          <Icon type="up-down" fillClass="fill-white" class="rotate-90" height={24} width={24} />
           <span class="body-bold">
-            {$t('faucet.wrong_chain.button', { values: { network: PUBLIC_L1_CHAIN_NAME } })}
+            {alertMessage}
           </span>
         {/if}
       </Button>

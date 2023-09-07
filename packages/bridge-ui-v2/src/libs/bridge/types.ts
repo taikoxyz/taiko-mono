@@ -17,24 +17,22 @@ export enum MessageStatus {
 export type Message = {
   // Message ID. Will be set in contract
   id: bigint;
-  // Message sender address (auto filled)
-  sender: Address;
+  // Message from address (auto filled)
+  from: Address;
   // Source chain ID (auto filled)
   srcChainId: bigint;
   // Destination chain ID where the `to` address lives (auto filled)
   destChainId: bigint;
-  // Owner address of the bridged asset.
-  owner: Address;
+  // User address of the bridged asset.
+  user: Address;
   // Destination owner address
   to: Address;
   // Alternate address to send any refund. If blank, defaults to owner.
-  refundAddress: Address;
-  // Deposited Ether minus the processingFee.
-  depositValue: bigint;
-  // callValue to invoke on the destination chain, for ERC20 transfers.
-  callValue: bigint;
+  refundTo: Address;
+  // value to invoke on the destination chain, for ERC20 transfers.
+  value: bigint;
   // Processing fee for the relayer. Zero if owner will process themself.
-  processingFee: bigint;
+  fee: bigint;
   // gasLimit to invoke on the destination chain, for ERC20 transfers.
   gasLimit: bigint;
   // callData to invoke on the destination chain, for ERC20 transfers.
@@ -47,15 +45,14 @@ export type Message = {
 // Identical to Message, but relayer uses capitalization
 export type RelayerMessage = {
   Id: bigint;
-  Sender: Address;
+  From: Address;
   SrcChainId: number | string | bigint;
   DestChainId: number | string | bigint;
-  Owner: Address;
+  User: Address;
   To: Address;
-  RefundAddress: Address;
-  DepositValue: bigint;
-  CallValue: bigint;
-  ProcessingFee: bigint;
+  RefundTo: Address;
+  Value: bigint;
+  Fee: bigint;
   GasLimit: bigint;
   Data: Hex;
   Memo: string;
@@ -80,27 +77,14 @@ export type BridgeTransaction = {
   message?: Message;
 };
 
-// TokenVault sendERC20(...args)
-export type SendERC20Args = [
-  bigint, // destChainId
-  Address, // to
-  Address, // token
-  bigint, // amount
-  bigint, // gasLimit
-  bigint, // processingFee
-  Address, // refundAddress
-  string, // memo
-];
-
-// TODO: future sendToken(op: BridgeTransferOp)
 export type BridgeTransferOp = {
   destChainId: bigint;
   to: Address;
   token: Address;
   amount: bigint;
   gasLimit: bigint;
-  processingFee: bigint;
-  refundAddress: Address;
+  fee: bigint;
+  refundTo: Address;
   memo: string;
 };
 
@@ -117,7 +101,7 @@ export type BridgeArgs = {
   srcChainId: number;
   destChainId: number;
   amount: bigint;
-  processingFee: bigint;
+  fee: bigint;
   memo?: string;
 };
 
@@ -126,7 +110,7 @@ export type ETHBridgeArgs = BridgeArgs & {
 };
 
 export type ERC20BridgeArgs = BridgeArgs & {
-  tokenAddress: Address;
+  token: Address;
   tokenVaultAddress: Address;
   isTokenAlreadyDeployed?: boolean;
 };
@@ -148,3 +132,25 @@ export interface Bridge {
   estimateGas(args: BridgeArgs): Promise<bigint>;
   bridge(args: BridgeArgs): Promise<Hex>;
 }
+
+export type ConfiguredBridgesType = {
+  configuredBridges: Array<BridgeConfig>;
+};
+
+export type BridgeConfig = {
+  source: string;
+  destination: string;
+  addresses: AddressConfig;
+};
+
+export type AddressConfig = {
+  bridgeAddress: Address;
+  erc20VaultAddress: Address;
+  etherVaultAddress?: Address;
+  erc721VaultAddress: Address;
+  erc1155VaultAddress: Address;
+  crossChainSyncAddress: Address;
+  signalServiceAddress: Address;
+};
+
+export type RoutingMap = Record<string, Record<string, AddressConfig>>;

@@ -2,14 +2,15 @@
   import { t } from 'svelte-i18n';
   import { TransactionExecutionError, UserRejectedRequestError } from 'viem';
 
+  import { routingContractsMap } from '$bridgeConfig';
+  import { chainConfig } from '$chainConfig';
+  import ChainSelectorWrapper from '$components/Bridge/ChainSelectorWrapper.svelte';
   import { Card } from '$components/Card';
-  import { ChainSelector } from '$components/ChainSelector';
   import { successToast, warningToast } from '$components/NotificationToast';
   import { errorToast, infoToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { OnAccount } from '$components/OnAccount';
   import { OnNetwork } from '$components/OnNetwork';
   import { TokenDropdown } from '$components/TokenDropdown';
-  import { PUBLIC_L1_EXPLORER_URL } from '$env/static/public';
   import {
     type BridgeArgs,
     bridges,
@@ -18,8 +19,8 @@
     type ETHBridgeArgs,
     MessageStatus,
   } from '$libs/bridge';
+  import { hasBridge } from '$libs/bridge/bridges';
   import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
-  import { chainContractsMap, chains, chainUrlMap } from '$libs/chain';
   import {
     ApproveError,
     InsufficientAllowanceError,
@@ -40,18 +41,28 @@
   import { ProcessingFee } from './ProcessingFee';
   import Recipient from './Recipient.svelte';
   import { bridgeService, destNetwork, enteredAmount, processingFee, recipientAddress, selectedToken } from './state';
-  import SwitchChainsButton from './SwitchChainsButton.svelte';
 
   let amountComponent: Amount;
   let recipientComponent: Recipient;
   let processingFeeComponent: ProcessingFee;
 
-  function onNetworkChange(network: Network) {
-    if (network && chains.length === 2) {
-      // If there are only two chains, the destination chain will be the other one
-      const otherChain = chains.find((chain) => chain.id !== network.id);
+  function onNetworkChange(newNetwork: Network, oldNetwork: Network) {
+    if (newNetwork) {
+      const destChainId = $destNetwork?.id;
+      if (!$destNetwork?.id) return;
 
-      if (otherChain) destNetwork.set(otherChain);
+      // determine if we simply swapped dest and src networks
+      if (newNetwork.id === destChainId) {
+        destNetwork.set(oldNetwork);
+        return;
+      }
+      // check if the new network has a bridge to the current dest network
+      if (hasBridge(newNetwork.id, $destNetwork?.id)) {
+        destNetwork.set(oldNetwork);
+      } else {
+        // if not, set dest network to null
+        $destNetwork = null;
+      }
     }
   }
 
@@ -82,7 +93,7 @@
         throw new Error('token address not found');
       }
 
-      const spenderAddress = chainContractsMap[$network.id].tokenVaultAddress;
+      const spenderAddress = routingContractsMap[$network.id][$destNetwork.id].erc20VaultAddress;
 
       const txHash = await erc20Bridge.approve({
         tokenAddress,
@@ -91,13 +102,13 @@
         wallet: walletClient,
       });
 
-      const { explorerUrl } = chainUrlMap[$network.id];
+      const { explorer } = chainConfig[$network.id].urls;
 
       infoToast(
         $t('bridge.actions.approve.tx', {
           values: {
             token: $selectedToken.symbol,
-            url: `${explorerUrl}/tx/${txHash}`,
+            url: `${explorer}/tx/${txHash}`,
           },
         }),
       );
@@ -150,14 +161,14 @@
         srcChainId: $network.id,
         destChainId: $destNetwork.id,
         amount: $enteredAmount,
-        processingFee: $processingFee,
+        fee: $processingFee,
       } as BridgeArgs;
 
       switch ($selectedToken.type) {
         case TokenType.ETH: {
           // Specific arguments for ETH bridge:
           // - bridgeAddress
-          const bridgeAddress = chainContractsMap[$network.id].bridgeAddress;
+          const bridgeAddress = routingContractsMap[$network.id][$destNetwork.id].bridgeAddress;
           bridgeArgs = { ...bridgeArgs, bridgeAddress } as ETHBridgeArgs;
           break;
         }
@@ -177,7 +188,7 @@
             throw new Error('token address not found');
           }
 
-          const tokenVaultAddress = chainContractsMap[$network.id].tokenVaultAddress;
+          const tokenVaultAddress = routingContractsMap[$network.id][$destNetwork.id].erc20VaultAddress;
 
           const isTokenAlreadyDeployed = await isDeployedCrossChain({
             token: $selectedToken,
@@ -187,25 +198,31 @@
 
           bridgeArgs = {
             ...bridgeArgs,
-            tokenAddress,
+            token: tokenAddress,
             tokenVaultAddress,
             isTokenAlreadyDeployed,
           } as ERC20BridgeArgs;
           break;
         }
-
+        case TokenType.ERC721:
+          // todo: implement
+          break;
+        case TokenType.ERC1155:
+          // todo: implement
+          break;
         default:
           throw new Error('invalid token type');
       }
 
       const txHash = await $bridgeService.bridge(bridgeArgs);
 
+      const explorer = chainConfig[bridgeArgs.srcChainId].urls.explorer;
+
       infoToast(
         $t('bridge.actions.bridge.tx', {
           values: {
             token: $selectedToken.symbol,
-            //Todo: must link to the correct explorer, not just L1
-            url: `${PUBLIC_L1_EXPLORER_URL}/tx/${txHash}`,
+            url: `${explorer}/tx/${txHash}`,
           },
         }),
       );
@@ -284,12 +301,7 @@
 <Card class="w-full md:w-[524px]" title={$t('bridge.title.default')} text={$t('bridge.description')}>
   <div class="space-y-[35px]">
     <div class="f-between-center gap-4">
-      <ChainSelector class="flex-1 " value={$network} switchWallet />
-
-      <SwitchChainsButton />
-
-      <!-- TODO: should not be readOnly when multiple layers -->
-      <ChainSelector class="flex-1" value={$destNetwork} readOnly />
+      <ChainSelectorWrapper />
     </div>
 
     <TokenDropdown {tokens} bind:value={$selectedToken} />

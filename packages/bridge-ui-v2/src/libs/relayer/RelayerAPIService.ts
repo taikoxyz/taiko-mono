@@ -4,12 +4,13 @@ import axios from 'axios';
 import { Buffer } from 'buffer';
 
 import { bridgeABI } from '$abi';
-import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
+import { routingContractsMap } from '$bridgeConfig';
+import type { BridgeTransaction, MessageStatus } from '$libs/bridge';
+import { isSupportedChain } from '$libs/chain';
 import { TokenType } from '$libs/token';
 import { getLogger } from '$libs/util/logger';
 import { publicClient } from '$libs/wagmi';
 
-import { chainContractsMap, isSupportedChain } from '../chain/chains';
 import type {
   APIRequestParams,
   APIResponse,
@@ -23,9 +24,16 @@ import type {
 const log = getLogger('RelayerAPIService');
 
 export class RelayerAPIService {
+  constructor(baseUrl: string) {
+    log('relayer service instantiated');
+    // There is a chance that by accident the env var
+    // does (or does not) have trailing slash for
+    // this baseURL. Normalize it, preventing errors
+    this.baseUrl = baseUrl.replace(/\/$/, '');
+  }
+
   //Todo: duplicate code in BridgeTxService
   private static async _getTransactionReceipt(chainId: number, hash: Hash) {
-    log(`Getting transaction receipt for ${hash} on chain ${chainId}`);
     try {
       const client = publicClient({ chainId });
       const receipt = await client.getTransactionReceipt({ hash });
@@ -47,8 +55,8 @@ export class RelayerAPIService {
         continue;
       }
 
-      const { bridgeAddress } = chainContractsMap[item.chainID]; // TODO: also handle unsupported chain
-      const { DestChainId, SrcChainId } = Message;
+      const { DestChainId: destChainId, SrcChainId: srcChainId } = Message;
+      const { bridgeAddress } = routingContractsMap[Number(srcChainId)][Number(destChainId)];
       const { transactionHash, address } = Raw;
 
       // Check all conditions
@@ -56,7 +64,7 @@ export class RelayerAPIService {
       const isAddressPresent = Boolean(address);
       const isUniqueHash = !uniqueHashes.has(transactionHash);
       const isCorrectBridgeAddress = address?.toLowerCase() === bridgeAddress?.toLowerCase();
-      const areChainsSupported = isSupportedChain(BigInt(DestChainId)) && isSupportedChain(BigInt(SrcChainId));
+      const areChainsSupported = isSupportedChain(Number(destChainId)) && isSupportedChain(Number(srcChainId));
 
       // If the transaction hash is unique, add it to the set for future checks
       if (isUniqueHash) uniqueHashes.add(transactionHash);
@@ -76,12 +84,20 @@ export class RelayerAPIService {
     return filteredItems;
   }
 
-  private static async _getBridgeMessageStatus(msgHash: Hash, chainId: number) {
-    const { bridgeAddress } = chainContractsMap[Number(chainId)];
+  private static async _getBridgeMessageStatus({
+    msgHash,
+    srcChainId,
+    destChainId,
+  }: {
+    msgHash: Hash;
+    srcChainId: number;
+    destChainId: number;
+  }) {
+    const { bridgeAddress } = routingContractsMap[Number(destChainId)][Number(srcChainId)];
     const result = await readContract({
       address: bridgeAddress,
       abi: bridgeABI,
-      chainId: Number(chainId),
+      chainId: Number(destChainId),
       functionName: 'getMessageStatus',
       args: [msgHash],
     });
@@ -89,14 +105,6 @@ export class RelayerAPIService {
   }
 
   private readonly baseUrl: string;
-
-  constructor(baseUrl: string) {
-    log('relayer service instantiated');
-    // There is a chance that by accident the env var
-    // does (or does not) have trailing slash for
-    // this baseURL. Normalize it, preventing errors
-    this.baseUrl = baseUrl.replace(/\/$/, '');
-  }
 
   async getTransactionsFromAPI(params: APIRequestParams): Promise<APIResponse> {
     const requestURL = `${this.baseUrl}/events`;
@@ -109,8 +117,7 @@ export class RelayerAPIService {
         timeout: 5000, // todo: discuss and move to config
       });
 
-      // response.data.items.push(...mockedData);
-      if (response.status >= 400) throw response;
+      if (!response || response.status >= 400) throw response;
 
       log('Events form API', response.data);
 
@@ -157,7 +164,6 @@ export class RelayerAPIService {
     }
 
     const items = RelayerAPIService._filterDuplicateAndWrongBridge(apiTxs.items);
-
     const txs: BridgeTransaction[] = items.map((tx: APIResponseTransaction) => {
       let data: string = tx.data.Message.Data;
       if (data === '') {
@@ -180,17 +186,16 @@ export class RelayerAPIService {
         message: {
           id: tx.data.Message.Id,
           to: tx.data.Message.To,
-          data: tx.data.Message.Data,
+          data,
           memo: tx.data.Message.Memo,
-          owner: tx.data.Message.Owner,
-          sender: tx.data.Message.Sender,
+          user: tx.data.Message.User,
+          from: tx.data.Message.From,
           gasLimit: BigInt(tx.data.Message.GasLimit),
-          callValue: BigInt(tx.data.Message.CallValue),
+          value: BigInt(tx.data.Message.Value),
           srcChainId: BigInt(tx.data.Message.SrcChainId),
           destChainId: BigInt(tx.data.Message.DestChainId),
-          depositValue: BigInt(tx.data.Message.DepositValue),
-          processingFee: BigInt(tx.data.Message.ProcessingFee),
-          refundAddress: tx.data.Message.RefundAddress,
+          fee: BigInt(tx.data.Message.Fee),
+          refundTo: tx.data.Message.RefundTo,
         },
       } as BridgeTransaction;
 
@@ -213,7 +218,11 @@ export class RelayerAPIService {
 
       if (!msgHash) return; //todo: handle this case
 
-      const status = await RelayerAPIService._getBridgeMessageStatus(msgHash, Number(destChainId));
+      const status = await RelayerAPIService._getBridgeMessageStatus({
+        msgHash,
+        srcChainId: Number(srcChainId),
+        destChainId: Number(destChainId),
+      });
 
       // Update the status
       bridgeTx.status = status;
@@ -230,11 +239,7 @@ export class RelayerAPIService {
     // Spreading to preserve original txs in case of array mutation
     log('Enhanced transactions', [...bridgeTxs]);
 
-    // We want to show the latest transactions first
-    bridgeTxs.reverse();
 
-    // Place new transactions at the top of the list
-    bridgeTxs.sort((tx) => (tx.status === MessageStatus.NEW ? -1 : 1));
 
     return { txs: bridgeTxs, paginationInfo };
   }
@@ -267,11 +272,11 @@ export class RelayerAPIService {
 function _checkType(bridgeTx: BridgeTransaction): TokenType {
   const to = bridgeTx.message?.to;
   switch (to) {
-    case chainContractsMap[Number(bridgeTx.srcChainId)].tokenVaultAddress:
+    case routingContractsMap[Number(bridgeTx.destChainId)][Number(bridgeTx.srcChainId)].erc20VaultAddress:
       return TokenType.ERC20;
-    case chainContractsMap[Number(bridgeTx.srcChainId)].erc721VaultAddress:
+    case routingContractsMap[Number(bridgeTx.destChainId)][Number(bridgeTx.srcChainId)].erc721VaultAddress:
       return TokenType.ERC721;
-    case chainContractsMap[Number(bridgeTx.srcChainId)].erc1155VaultAddress:
+    case routingContractsMap[Number(bridgeTx.destChainId)][Number(bridgeTx.srcChainId)].erc1155VaultAddress:
       return TokenType.ERC1155;
     default:
       return TokenType.ETH;
