@@ -169,7 +169,7 @@
     <h3 class="title-body-bold mb-7">{$t('token_dropdown.custom_token.title')}</h3>
 
     <p class="body-regular text-secondary-content mb-3">{$t('token_dropdown.custom_token.description')}</p>
-    <div class="mt-4 mb-2">
+    <div class="mt-4 mb-2 w-full">
       <AddressInput bind:ethereumAddress={tokenAddress} on:addressvalidation={onAddressValidation} />
       {#if tokenDetails}
         <div class="w-full flex items-center justify-between">
