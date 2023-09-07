@@ -6,7 +6,7 @@
   import type { Address } from 'viem';
   import { formatUnits } from 'viem';
 
-  import { Alert, FlatAlert } from '$components/Alert';
+  import { FlatAlert } from '$components/Alert';
   import AddressInput from '$components/Bridge/AddressInput.svelte';
   import { Button } from '$components/Button';
   import { Icon } from '$components/Icon';

@@ -5,13 +5,13 @@
   import { OnNetwork } from '$components/OnNetwork';
   import { hasBridge } from '$libs/bridge/bridges';
   import { chains } from '$libs/chain';
-  import { type Network, network } from '$stores/network';
+  import { network } from '$stores/network';
 
-  function handleSourceChange(event: CustomEvent<number>): void {
+  function handleSourceChange(): void {
     updateDestOptions();
   }
 
-  function handleDestChange(event: CustomEvent<number>): void {
+  function handleDestChange(): void {
     updateDestOptions();
   }
 
@@ -24,7 +24,7 @@
     });
   }
 
-  function onNetworkChange(newNetwork: Network, oldNetwork: Network) {
+  function onNetworkChange() {
     updateDestOptions();
   }
 </script>

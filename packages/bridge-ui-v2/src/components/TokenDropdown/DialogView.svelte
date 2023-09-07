@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
