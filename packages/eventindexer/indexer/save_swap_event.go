@@ -18,7 +18,7 @@ var (
 	minTradeAmount = big.NewInt(10000000000000000)
 )
 
-func (svc *Service) saveSwapEvents(
+func (indxr *Indexer) saveSwapEvents(
 	ctx context.Context,
 	chainID *big.Int,
 	events *swap.SwapSwapIterator,
@@ -31,10 +31,10 @@ func (svc *Service) saveSwapEvents(
 	for {
 		event := events.Event
 
-		if err := svc.saveSwapEvent(ctx, chainID, event); err != nil {
+		if err := indxr.saveSwapEvent(ctx, chainID, event); err != nil {
 			eventindexer.SwapEventsProcessedError.Inc()
 
-			return errors.Wrap(err, "svc.saveSwapEvent")
+			return errors.Wrap(err, "indxr.saveSwapEvent")
 		}
 
 		if !events.Next() {
@@ -43,7 +43,7 @@ func (svc *Service) saveSwapEvents(
 	}
 }
 
-func (svc *Service) saveSwapEvent(
+func (indxr *Indexer) saveSwapEvent(
 	ctx context.Context,
 	chainID *big.Int,
 	event *swap.SwapSwap,
@@ -68,7 +68,7 @@ func (svc *Service) saveSwapEvent(
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
-	_, err = svc.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
+	_, err = indxr.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
 		Name:    eventindexer.EventNameSwap,
 		Data:    string(marshaled),
 		ChainID: chainID,
@@ -76,7 +76,7 @@ func (svc *Service) saveSwapEvent(
 		Address: fmt.Sprintf("0x%v", common.Bytes2Hex(event.Raw.Topics[2].Bytes()[12:])),
 	})
 	if err != nil {
-		return errors.Wrap(err, "svc.eventRepo.Save")
+		return errors.Wrap(err, "indxr.eventRepo.Save")
 	}
 
 	eventindexer.SwapEventsProcessed.Inc()

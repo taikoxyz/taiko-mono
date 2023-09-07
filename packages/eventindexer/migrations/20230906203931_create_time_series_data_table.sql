@@ -1,11 +1,10 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE IF NOT EXISTS transactions (
+CREATE TABLE IF NOT EXISTS time_series_data (
     id int NOT NULL PRIMARY KEY AUTO_INCREMENT,
-    average_proof_time VARCHAR(255) NOT NULL DEFAULT "0",
-    average_proof_reward VARCHAR(255) NOT NULL DEFAULT "0",
-    num_proofs int NOT NULL default 0,
-    num_verified_blocks int NOT NULL default 0,
+    data_type VARCHAR(20) NOT NULL,  
+    value VARCHAR(100) NOT NULL,
+    date VARCHAR(20) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -13,5 +12,5 @@ CREATE TABLE IF NOT EXISTS transactions (
 -- +goose StatementEnd
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE transactions;
+DROP TABLE nft_balances;
 -- +goose StatementEnd

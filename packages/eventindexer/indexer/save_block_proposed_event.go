@@ -13,7 +13,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
 )
 
-func (svc *Service) saveBlockProposedEvents(
+func (indxr *Indexer) saveBlockProposedEvents(
 	ctx context.Context,
 	chainID *big.Int,
 	events *taikol1.TaikoL1BlockProposedIterator,
@@ -26,24 +26,24 @@ func (svc *Service) saveBlockProposedEvents(
 	for {
 		event := events.Event
 
-		if err := svc.detectAndHandleReorg(ctx, eventindexer.EventNameBlockProposed, event.BlockId.Int64()); err != nil {
-			return errors.Wrap(err, "svc.detectAndHandleReorg")
+		if err := indxr.detectAndHandleReorg(ctx, eventindexer.EventNameBlockProposed, event.BlockId.Int64()); err != nil {
+			return errors.Wrap(err, "indxr.detectAndHandleReorg")
 		}
 
-		tx, _, err := svc.ethClient.TransactionByHash(ctx, event.Raw.TxHash)
+		tx, _, err := indxr.ethClient.TransactionByHash(ctx, event.Raw.TxHash)
 		if err != nil {
-			return errors.Wrap(err, "svc.ethClient.TransactionByHash")
+			return errors.Wrap(err, "indxr.ethClient.TransactionByHash")
 		}
 
-		sender, err := svc.ethClient.TransactionSender(ctx, tx, event.Raw.BlockHash, event.Raw.TxIndex)
+		sender, err := indxr.ethClient.TransactionSender(ctx, tx, event.Raw.BlockHash, event.Raw.TxIndex)
 		if err != nil {
-			return errors.Wrap(err, "svc.ethClient.TransactionSender")
+			return errors.Wrap(err, "indxr.ethClient.TransactionSender")
 		}
 
-		if err := svc.saveBlockProposedEvent(ctx, chainID, event, sender); err != nil {
+		if err := indxr.saveBlockProposedEvent(ctx, chainID, event, sender); err != nil {
 			eventindexer.BlockProposedEventsProcessedError.Inc()
 
-			return errors.Wrap(err, "svc.saveBlockProposedEvent")
+			return errors.Wrap(err, "indxr.saveBlockProposedEvent")
 		}
 
 		if !events.Next() {
@@ -52,7 +52,7 @@ func (svc *Service) saveBlockProposedEvents(
 	}
 }
 
-func (svc *Service) saveBlockProposedEvent(
+func (indxr *Indexer) saveBlockProposedEvent(
 	ctx context.Context,
 	chainID *big.Int,
 	event *taikol1.TaikoL1BlockProposed,
@@ -69,7 +69,7 @@ func (svc *Service) saveBlockProposedEvent(
 
 	assignedProver := event.Prover.Hex()
 
-	_, err = svc.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
+	_, err = indxr.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
 		Name:           eventindexer.EventNameBlockProposed,
 		Data:           string(marshaled),
 		ChainID:        chainID,
@@ -79,7 +79,7 @@ func (svc *Service) saveBlockProposedEvent(
 		AssignedProver: &assignedProver,
 	})
 	if err != nil {
-		return errors.Wrap(err, "svc.eventRepo.Save")
+		return errors.Wrap(err, "indxr.eventRepo.Save")
 	}
 
 	eventindexer.BlockProposedEventsProcessed.Inc()

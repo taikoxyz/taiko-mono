@@ -2,7 +2,6 @@ package http
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -12,7 +11,6 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 
-	echoprom "github.com/labstack/echo-contrib/prometheus"
 	echo "github.com/labstack/echo/v4"
 )
 
@@ -131,18 +129,4 @@ func (srv *Server) configureMiddleware(corsOrigins []string) {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
 		AllowMethods: []string{http.MethodGet, http.MethodHead},
 	}))
-
-	srv.configureAndStartPrometheus()
-}
-
-func (srv *Server) configureAndStartPrometheus() {
-	// Enable metrics middleware
-	p := echoprom.NewPrometheus("echo", nil)
-	p.Use(srv.echo)
-	e := echo.New()
-	p.SetMetricsPath(e)
-
-	go func() {
-		_ = e.Start(fmt.Sprintf(":%v", os.Getenv("PROMETHEUS_HTTP_PORT")))
-	}()
 }

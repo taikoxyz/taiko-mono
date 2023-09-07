@@ -18,7 +18,7 @@ var (
 	zeroHash     = common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
 )
 
-func (svc *Service) saveMessageSentEvents(
+func (indxr *Indexer) saveMessageSentEvents(
 	ctx context.Context,
 	chainID *big.Int,
 	events *bridge.BridgeMessageSentIterator,
@@ -33,10 +33,10 @@ func (svc *Service) saveMessageSentEvents(
 
 		slog.Info("new messageSent event", "owner", event.Message.From.Hex())
 
-		if err := svc.saveMessageSentEvent(ctx, chainID, event); err != nil {
+		if err := indxr.saveMessageSentEvent(ctx, chainID, event); err != nil {
 			eventindexer.MessageSentEventsProcessedError.Inc()
 
-			return errors.Wrap(err, "svc.saveMessageSentEvent")
+			return errors.Wrap(err, "indxr.saveMessageSentEvent")
 		}
 
 		if !events.Next() {
@@ -45,7 +45,7 @@ func (svc *Service) saveMessageSentEvents(
 	}
 }
 
-func (svc *Service) saveMessageSentEvent(
+func (indxr *Indexer) saveMessageSentEvent(
 	ctx context.Context,
 	chainID *big.Int,
 	event *bridge.BridgeMessageSent,
@@ -73,7 +73,7 @@ func (svc *Service) saveMessageSentEvent(
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
-	_, err = svc.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
+	_, err = indxr.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
 		Name:    eventindexer.EventNameMessageSent,
 		Data:    string(marshaled),
 		ChainID: chainID,
@@ -81,7 +81,7 @@ func (svc *Service) saveMessageSentEvent(
 		Address: event.Message.From.Hex(),
 	})
 	if err != nil {
-		return errors.Wrap(err, "svc.eventRepo.Save")
+		return errors.Wrap(err, "indxr.eventRepo.Save")
 	}
 
 	eventindexer.MessageSentEventsProcessed.Inc()

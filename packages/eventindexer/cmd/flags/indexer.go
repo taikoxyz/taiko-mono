@@ -5,7 +5,7 @@ import "github.com/urfave/cli/v2"
 // required flags
 var (
 	RPCUrl = &cli.StringFlag{
-		Name:     "srcRpcUrl",
+		Name:     "rpcUrl",
 		Usage:    "RPC URL for the source chain",
 		Required: true,
 		Category: commonCategory,
@@ -26,7 +26,7 @@ var (
 	MetricsHTTPPort = &cli.Uint64Flag{
 		Name:     "metrics.port",
 		Usage:    "Port to run metrics http server on",
-		Category: commonCategory,
+		Category: indexerCategory,
 		Required: false,
 		Value:    6061,
 		EnvVars:  []string{"METRICS_HTTP_PORT"},
@@ -34,7 +34,7 @@ var (
 	ETHClientTimeout = &cli.Uint64Flag{
 		Name:     "ethClientTimeout",
 		Usage:    "Timeout for eth client and contract binding calls",
-		Category: commonCategory,
+		Category: indexerCategory,
 		Required: false,
 		Value:    10,
 		EnvVars:  []string{"ETH_CLIENT_TIMEOUT"},
@@ -42,22 +42,22 @@ var (
 	L1TaikoAddress = &cli.StringFlag{
 		Name:     "l1TaikoAddress",
 		Usage:    "Address of the TaikoL1 contract",
-		Required: true,
-		Category: commonCategory,
+		Required: false,
+		Category: indexerCategory,
 		EnvVars:  []string{"L1_TAIKO_ADDRESS"},
 	}
 	BridgeAddress = &cli.StringFlag{
 		Name:     "bridgeAddress",
 		Usage:    "Address of the Bridge contract",
-		Required: true,
-		Category: commonCategory,
+		Required: false,
+		Category: indexerCategory,
 		EnvVars:  []string{"BRIDGE_ADDRESS"},
 	}
 	SwapAddresses = &cli.StringFlag{
 		Name:     "swapAddresses",
 		Usage:    "Comma-delinated list of Swap contract addresses",
-		Required: true,
-		Category: commonCategory,
+		Required: false,
+		Category: indexerCategory,
 		EnvVars:  []string{"SWAP_ADDRESSES"},
 	}
 	CORSOrigins = &cli.StringFlag{
@@ -67,16 +67,61 @@ var (
 		Value:    "*",
 		Category: indexerCategory,
 	}
+	BlockBatchSize = &cli.Uint64Flag{
+		Name:     "blockBatchSize",
+		Usage:    "Block batch size when iterating through blocks",
+		Value:    10,
+		Required: false,
+		Category: indexerCategory,
+		EnvVars:  []string{"BLOCK_BATCH_SIZE"},
+	}
+	SubscriptionBackoff = &cli.Uint64Flag{
+		Name:     "subscriptionBackoff",
+		Usage:    "Subscription backoff in seconds",
+		Value:    30,
+		Required: false,
+		Category: indexerCategory,
+		EnvVars:  []string{"SUBSCRIPTION_BACKOFF_IN_SECONDS"},
+	}
+	SyncMode = &cli.StringFlag{
+		Name:     "syncMode",
+		Usage:    "Mode of syncing. Pass in 'sync' to continue, and 'resync' to start from genesis again.",
+		Value:    "sync",
+		Category: indexerCategory,
+		EnvVars:  []string{"SYNC_MODE"},
+	}
+	WatchMode = &cli.StringFlag{
+		Name: "watchMode",
+		Usage: `Mode of watching the chain. Options are:
+		filter: only filter the chain, when caught up, exit
+		subscribe: do not filter the chain, only subscribe to new events
+		filter-and-subscribe: the default behavior, filter the chain and subscribe when caught up
+		`,
+		Value:    "filter-and-subscribe",
+		Category: indexerCategory,
+		EnvVars:  []string{"SYNC_MODE"},
+	}
+	IndexNFTs = &cli.StringFlag{
+		Name:     "indexNfts",
+		Usage:    "Whether to index nft transfer events orn ot",
+		Required: false,
+		Category: indexerCategory,
+		EnvVars:  []string{"INDEX_NFTS"},
+	}
 )
 
 var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
-	L1TaikoAddress,
+	RPCUrl,
 	// optional
+	L1TaikoAddress,
 	HTTPPort,
-	SrcTaikoAddress,
+	MetricsHTTPPort,
+	BridgeAddress,
+	SwapAddresses,
+	CORSOrigins,
 	BlockBatchSize,
-	MaxNumGoroutines,
 	SubscriptionBackoff,
 	SyncMode,
 	WatchMode,
+	IndexNFTs,
 })

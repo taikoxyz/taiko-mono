@@ -29,7 +29,6 @@ func newTestServer(url string) *Server {
 
 	srv.configureMiddleware([]string{"*"})
 	srv.configureRoutes()
-	srv.configureAndStartPrometheus()
 
 	return srv
 }

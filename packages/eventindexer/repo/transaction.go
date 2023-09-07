@@ -33,10 +33,13 @@ func (r *TransactionRepository) Save(
 ) error {
 	t := &eventindexer.Transaction{
 		ChainID:  tx.ChainId().Int64(),
-		From:     sender.Hex(),
-		To:       tx.To().Hex(),
+		Sender:   sender.Hex(),
 		BlockID:  blockID.Int64(),
 		GasPrice: tx.GasPrice().String(),
+	}
+
+	if to := tx.To(); to != nil {
+		t.Recipient = to.Hex()
 	}
 
 	if tx.Value() != nil {
@@ -45,7 +48,7 @@ func (r *TransactionRepository) Save(
 			return errors.Wrap(err, "decimal.NewFromString")
 		}
 
-		t.Value = decimal.NullDecimal{
+		t.Amount = decimal.NullDecimal{
 			Valid:   true,
 			Decimal: v,
 		}
