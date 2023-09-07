@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/labstack/gommon/log"
 	"github.com/pkg/errors"
@@ -39,9 +40,7 @@ func (indxr *Indexer) subscribe(ctx context.Context, chainID *big.Int) error {
 		}
 	}
 
-	// if indxr.indexNfts {
-	// 	go indxr.subscribeNftTransfers(ctx, chainID, errChan)
-	// }
+	go indxr.subscribeRawBlockData(ctx, chainID, errChan)
 
 	// nolint: gosimple
 	for {
@@ -57,39 +56,41 @@ func (indxr *Indexer) subscribe(ctx context.Context, chainID *big.Int) error {
 	}
 }
 
-// func (indxr *Indexer) subscribeNftTransfers(
-// 	ctx context.Context,
-// 	chainID *big.Int,
-// 	errChan chan error,
-// ) {
-// 	headers := make(chan *types.Header)
+func (indxr *Indexer) subscribeRawBlockData(
+	ctx context.Context,
+	chainID *big.Int,
+	errChan chan error,
+) {
+	headers := make(chan *types.Header)
 
-// 	sub := event.ResubscribeErr(indxr.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
-// 		if err != nil {
-// 			slog.Error("indxr.SubscribeNewHead", "error", err)
-// 		}
-// 		slog.Info("resubscribing to NewHead events for nft trasnfers")
+	sub := event.ResubscribeErr(indxr.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
+		if err != nil {
+			slog.Error("indxr.SubscribeNewHead", "error", err)
+		}
+		slog.Info("resubscribing to NewHead events for block data")
 
-// 		return indxr.ethClient.SubscribeNewHead(ctx, headers)
-// 	})
+		return indxr.ethClient.SubscribeNewHead(ctx, headers)
+	})
 
-// 	for {
-// 		select {
-// 		case <-ctx.Done():
-// 			slog.Info("context finished")
-// 			return
-// 		case err := <-sub.Err():
-// 			slog.Error("sub.Err()", "error", err)
-// 			errChan <- errors.Wrap(err, "sub.Err()")
-// 		case header := <-headers:
-// 			go func() {
-// 				if err := indxr.indexNFTTransfers(ctx, chainID, header.Number.Uint64(), header.Number.Uint64()); err != nil {
-// 					slog.Error("indxr.indexNFTTransfers", "error", err)
-// 				}
-// 			}()
-// 		}
-// 	}
-// }
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("context finished")
+			return
+		case err := <-sub.Err():
+			slog.Error("sub.Err()", "error", err)
+			errChan <- errors.Wrap(err, "sub.Err()")
+		case header := <-headers:
+			slog.Info("new header", "header", header.Number)
+
+			go func() {
+				if err := indxr.indexRawBlockData(ctx, chainID, header.Number.Uint64(), header.Number.Uint64()+1); err != nil {
+					slog.Error("indxr.indexRawBlockData", "error", err)
+				}
+			}()
+		}
+	}
+}
 
 func (indxr *Indexer) subscribeBlockProven(ctx context.Context, chainID *big.Int, errChan chan error) {
 	sink := make(chan *taikol1.TaikoL1BlockProven)

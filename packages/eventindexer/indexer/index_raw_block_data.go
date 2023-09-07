@@ -20,6 +20,8 @@ func (indxr *Indexer) indexRawBlockData(
 	wg, ctx := errgroup.WithContext(ctx)
 	// BLOCK parsing
 
+	slog.Info("indexRawBlockData", "start", start, "end", end)
+
 	// only index block/transaction data on L2
 	if indxr.layer == Layer2 {
 		for i := start; i < end; i++ {

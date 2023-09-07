@@ -19,8 +19,8 @@ Run `go run cmd/main.go --help` to see a list of possible configuration flags, o
 
 ACCOUNTS
 
-1. accounts growth
-2. new accounts per day
+1. accounts growth - DONE
+2. new accounts per day - DONE
 
 PROPOSING
 

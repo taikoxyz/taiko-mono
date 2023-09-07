@@ -1,7 +1,7 @@
 package tasks
 
 var (
-	TotalTransactions  = "total-transctions"
+	TotalTransactions  = "total-transactions"
 	TransactionsPerDay = "transactions-per-day"
 	TotalBlocks        = "total-blocks"
 	BlocksPerDay       = "blocks-per-day"
