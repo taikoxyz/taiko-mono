@@ -2,6 +2,7 @@ import type { Address, Chain, FetchBalanceResult } from '@wagmi/core';
 import { derived, writable } from 'svelte/store';
 
 import { bridges } from '$libs/bridge';
+import { chains } from '$libs/chain';
 import type { Token } from '$libs/token';
 
 // Note: we could combine this with Context API, but since we'll only
@@ -17,6 +18,7 @@ export const selectedToken = writable<Maybe<Token>>(null);
 export const tokenBalance = writable<Maybe<FetchBalanceResult>>(null);
 export const enteredAmount = writable<bigint>(BigInt(0));
 export const destNetwork = writable<Maybe<Chain>>(null);
+export const destOptions = writable<Chain[]>(chains);
 export const processingFee = writable<bigint>(BigInt(0));
 export const recipientAddress = writable<Maybe<Address>>(null);
 

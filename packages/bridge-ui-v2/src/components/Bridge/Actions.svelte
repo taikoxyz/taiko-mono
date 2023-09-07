@@ -84,7 +84,7 @@
 
   <Button
     type="primary"
-    class="px-[28px] py-[14px] rounded-full flex-1"
+    class="px-[28px] py-[14px] rounded-full flex-1 text-white"
     disabled={disableBridge}
     loading={bridging}
     on:click={onBridgeClick}>

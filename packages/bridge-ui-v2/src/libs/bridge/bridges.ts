@@ -1,3 +1,4 @@
+import { routingContractsMap } from '$bridgeConfig';
 import { BridgeProver } from '$libs/proof';
 import type { TokenType } from '$libs/token';
 
@@ -14,4 +15,8 @@ export const bridges: Record<TokenType, Bridge> = {
   ERC20: new ERC20Bridge(prover),
   ERC721: new ERC721Bridge(prover),
   ERC1155: new ERC1155Bridge(prover),
+};
+
+export const hasBridge = (srcChainId: number, destChainId: number): boolean => {
+  return !!routingContractsMap[srcChainId] && !!routingContractsMap[srcChainId][destChainId];
 };

@@ -6,10 +6,12 @@
   import { t } from 'svelte-i18n';
 
   import { page } from '$app/stores';
+  import { chainConfig } from '$chainConfig';
   import { Icon } from '$components/Icon';
   import { LinkButton } from '$components/LinkButton';
   import { LogoWithText } from '$components/Logo';
-  import { PUBLIC_GUIDE_URL, PUBLIC_L2_EXPLORER_URL } from '$env/static/public';
+  import { PUBLIC_DEFAULT_EXPLORER, PUBLIC_GUIDE_URL } from '$env/static/public';
+  import { network } from '$stores/network';
 
   let drawerToggleElem: HTMLInputElement;
 
@@ -88,7 +90,7 @@
               </LinkButton>
             </li>
             <li class="border-t border-t-divider-border pt-2">
-              <LinkButton href={PUBLIC_L2_EXPLORER_URL} external>
+              <LinkButton href={$network ? chainConfig[$network.id].urls.explorer : PUBLIC_DEFAULT_EXPLORER} external>
                 <Icon type="explorer" />
                 <span>{$t('nav.explorer')}</span>
               </LinkButton>

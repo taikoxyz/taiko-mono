@@ -19,7 +19,9 @@ export type Token = {
   symbol: string;
   decimals: number;
   type: TokenType;
+  logoURI?: string;
   imported?: boolean;
+  mintable?: boolean;
 };
 
 export type TokenEnv = {

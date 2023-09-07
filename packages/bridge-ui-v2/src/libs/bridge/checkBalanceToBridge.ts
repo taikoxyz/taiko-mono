@@ -1,7 +1,7 @@
 import { getPublicClient } from '@wagmi/core';
 import { type Address, zeroAddress } from 'viem';
 
-import { chainContractsMap } from '$libs/chain';
+import { routingContractsMap } from '$bridgeConfig';
 import { InsufficientAllowanceError, InsufficientBalanceError, RevertedWithFailedError } from '$libs/error';
 import { getAddress, type Token, TokenType } from '$libs/token';
 import { isDeployedCrossChain } from '$libs/token/isDeployedCrossChain';
@@ -19,7 +19,7 @@ type HasEnoughBalanceToBridgeArgs = {
   balance: bigint;
   srcChainId: number;
   destChainId: number;
-  processingFee?: bigint;
+  fee?: bigint;
 };
 
 export async function checkBalanceToBridge({
@@ -29,7 +29,7 @@ export async function checkBalanceToBridge({
   balance,
   srcChainId,
   destChainId,
-  processingFee,
+  fee,
 }: HasEnoughBalanceToBridgeArgs) {
   const wallet = await getConnectedWallet();
   let estimatedCost = BigInt(0);
@@ -40,12 +40,11 @@ export async function checkBalanceToBridge({
     wallet,
     srcChainId,
     destChainId,
-    processingFee,
+    fee,
   } as BridgeArgs;
 
   if (token.type === TokenType.ETH) {
-    const { bridgeAddress } = chainContractsMap[srcChainId];
-
+    const { bridgeAddress } = routingContractsMap[srcChainId][destChainId];
     try {
       estimatedCost = await estimateCostOfBridging(bridges.ETH, {
         ...bridgeArgs,
@@ -67,13 +66,13 @@ export async function checkBalanceToBridge({
       throw new InsufficientBalanceError('you do not have enough balance to bridge');
     }
   } else {
-    const { tokenVaultAddress } = chainContractsMap[srcChainId];
+    const { erc20VaultAddress } = routingContractsMap[srcChainId][destChainId];
     const tokenAddress = await getAddress({ token, srcChainId, destChainId });
 
     // since we are briding a token, we need the ETH balance of the wallet
     balance = await getPublicClient().getBalance(wallet.account);
 
-    if (!tokenAddress || tokenAddress === zeroAddress) return false;
+    if (!tokenAddress || tokenAddress === zeroAddress || balance === BigInt(0)) return false;
 
     const bridge = bridges[token.type];
 
@@ -84,16 +83,13 @@ export async function checkBalanceToBridge({
         amount,
         tokenAddress,
         ownerAddress: wallet.account.address,
-        spenderAddress: tokenVaultAddress,
+        spenderAddress: erc20VaultAddress,
       });
 
       if (allowance) {
         throw new InsufficientAllowanceError(`insufficient allowance for the amount ${amount}`);
       }
     }
-
-    // since we are briding a token, we need the ETH balance of the wallet
-    balance = await getPublicClient().getBalance(wallet.account);
 
     const isTokenAlreadyDeployed = await isDeployedCrossChain({
       token,
@@ -104,8 +100,8 @@ export async function checkBalanceToBridge({
     try {
       estimatedCost = await estimateCostOfBridging(bridges.ERC20, {
         ...bridgeArgs,
-        tokenAddress,
-        tokenVaultAddress,
+        token: tokenAddress,
+        tokenVaultAddress: erc20VaultAddress,
         isTokenAlreadyDeployed,
       } as ERC20BridgeArgs);
     } catch (err) {
