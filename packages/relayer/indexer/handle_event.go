@@ -57,6 +57,7 @@ func (i *Indexer) handleEvent(
 		MsgHash:      common.Hash(event.MsgHash).Hex(),
 		MessageOwner: event.Message.User.Hex(),
 		Event:        relayer.EventNameMessageSent,
+		TransactedAt: 
 	}
 
 	if canonicalToken != nil {
