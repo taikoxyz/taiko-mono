@@ -147,6 +147,11 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 		return err
 	}
 
+	chartRepository, err := repo.NewChartRepository(db)
+	if err != nil {
+		return err
+	}
+
 	statRepository, err := repo.NewStatRepository(db)
 	if err != nil {
 		return err
@@ -202,6 +207,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 		EventRepo:      eventRepository,
 		StatRepo:       statRepository,
 		NFTBalanceRepo: nftBalanceRepository,
+		ChartRepo:      chartRepository,
 		Echo:           echo.New(),
 		CorsOrigins:    cfg.CORSOrigins,
 		EthClient:      ethClient,
