@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
   import { Card } from '$components/Card';
   import { ChainSelector } from '$components/ChainSelector';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
+  import { warningToast } from '$components/NotificationToast';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import { Paginator } from '$components/Paginator';
   import { Spinner } from '$components/Spinner';
@@ -18,7 +18,6 @@
   import MobileDetailsDialog from './MobileDetailsDialog.svelte';
   import StatusInfoDialog from './StatusInfoDialog.svelte';
   import Transaction from './Transaction.svelte';
-  import { warningToast } from '$components/NotificationToast';
 
   let transactions: BridgeTransaction[] = [];
 

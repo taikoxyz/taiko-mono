@@ -92,31 +92,34 @@
         <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
       </button>
 
-      <h3 class="title-body-bold mb-7">{$t('recipient.title')}</h3>
+      <div class="w-full">
+        <h3 class="title-body-bold mb-7">{$t('recipient.title')}</h3>
 
-      <p class="body-regular text-secondary-content mb-3">{$t('recipient.description')}</p>
+        <p class="body-regular text-secondary-content mb-3">{$t('recipient.description')}</p>
 
-      <div class="relative my-[20px]">
-        <AddressInput
-          bind:this={addressInput}
-          bind:ethereumAddress={ethereumAddressBinding}
-          on:addressvalidation={onAddressValidation} />
-      </div>
+        <div class="relative my-[20px]">
+          <AddressInput
+            bind:this={addressInput}
+            bind:ethereumAddress={ethereumAddressBinding}
+            on:addressvalidation={onAddressValidation} />
+        </div>
 
-      <div class="grid grid-cols-2 gap-[20px]">
-        <Button
-          on:click={cancelModal}
-          type="neutral"
-          class="px-[28px] py-[10px] rounded-full w-auto bg-transparent !border border-primary-brand hover:border-primary-interactive-hover">
-          <span class="body-bold">{$t('common.cancel')}</span>
-        </Button>
-        <Button
-          type="primary"
-          disabled={invalidAddress || !ethereumAddressBinding}
-          class="px-[28px] py-[10px] rounded-full w-auto"
-          on:click={closeModal}>
-          <span class="body-bold">{$t('common.confirm')}</span>
-        </Button>
+        <div class="grid grid-cols-2 gap-[20px]">
+          <Button
+            on:click={cancelModal}
+            type="neutral"
+            class="px-[28px] py-[10px] rounded-full w-auto bg-transparent !border border-primary-brand hover:border-primary-interactive-hover">
+            <span class="body-bold">{$t('common.cancel')}</span>
+          </Button>
+          <Button
+            type="primary"
+            disabled={invalidAddress || !ethereumAddressBinding}
+            class="px-[28px] py-[10px] rounded-full w-auto"
+            on:click={closeModal}
+            hasBorder={true}>
+            <span class="body-bold">{$t('common.confirm')}</span>
+          </Button>
+        </div>
       </div>
     </div>
   </dialog>
