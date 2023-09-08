@@ -22,7 +22,9 @@ func (r *ProcessedBlockRepository) Save(opts eventindexer.SaveProcessedBlockOpts
 	return nil
 }
 
-func (r *ProcessedBlockRepository) GetLatestBlockProcessedForEvent(chainID *big.Int) (*eventindexer.ProcessedBlock, error) {
+func (r *ProcessedBlockRepository) GetLatestBlockProcessedForEvent(
+	chainID *big.Int,
+) (*eventindexer.ProcessedBlock, error) {
 	if chainID.Int64() != MockChainID.Int64() {
 		return nil, errors.New("error getting latest block processed for event")
 	}
