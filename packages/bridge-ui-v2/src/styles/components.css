@@ -164,7 +164,7 @@
   }
 
   .overlay-dialog {
-    background-color: var(--overlay-dialog)
+    background-color: var(--overlay-dialog);
   }
 
   .chainselector {
@@ -181,7 +181,7 @@
   }
 
   input {
-    border: 1px solid var(--border-dark-primary, #5d636f);
+    border: 1px solid var(--primary-border);
   }
 
   h1 {

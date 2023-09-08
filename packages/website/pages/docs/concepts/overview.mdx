@@ -54,7 +54,7 @@ the same mechanism is used on Ethereum it allows Taiko to be Ethereum equivalent
 (with some small implementation detail changes) even for this part of its network,
 which is not obviously the case for L2s.
 
-## EIP-1559 powered prover fees
+## Off-chain proof market
 
 Proving blocks requires significant compute power to calculate the proof
 to submit and verify the proof on Ethereum. Provers need
@@ -71,40 +71,19 @@ to pay for a proof is not obvious however:
 4. The proof generation cost depends on how fast a
    proof needs to be generated.
 
-Because the proving cost impacts the transaction fees
-paid by the users, the goal is to pay only as much as
-required for the network to function well. This means not
-underpaying provers because blocks may remain unproven,
-but certainly also not overpaying provers so that it doesn’t
-make sense to incur very high costs to try and generate
-proofs as quickly as absolutely possible. A good balance is
-key to a well working solution that takes into account the
-needs of the different network participants.
-It’s clear that a fixed proving fee does not work. The
-protocol should also not be dependent on a single prover
-for a block because this will put too much power in the
-hands of a single entity that can impact the stable progress
-of the chain.
+In the pursuit of optimizing network efficiency and balancing costs, the ecosystem introduces a robust off-chain proof market. Proposers, on a per-block basis, actively seek potential proof service providers through this dynamic marketplace. A pivotal component of this setup is the publicly exposed API, providing proposers with the means to query and engage with available proof providers off-chain.
 
-The network, somehow, has to find the correct price between
-two resources where the demand/supply is ever changing.
-We can model this problem as a market between the proving
-fee (per gas) per proof delay (per time unit), striking
-a dynamic balance between proving cost and proof delay.
-An additional complication is that the protocol expects
-the block proposer to pay the proving fee at block proposal
-time. As such, the baseFee of this model is used to charge
-the proposer of a block using the total gas used in the block.
-This is only an estimate of the actual cost because the
-actual cost is only known when the proof is submitted. If
-the estimated cost was too high the difference is returned
-to the block proposer and the baseFee is decreased. If
-the estimated cost was too low extra Taiko tokens are
-minted to make up the difference and the baseFee is
-increased. To lower the chance that the estimated cost is too
-low and extra Taiko tokens need to be minted, a slightly
-higher baseFee can be charged to the proposer than the
-one predicted by the model.
+When an agreement is reached concerning the proving fee for a specific block, the chosen proof service provider is then tasked with granting a cryptographic signature to the proposer. This signature serves as a binding commitment, signifying the prover's dedication to delivering the proof within the agreed-upon timeframe.
+
+Provers within this off-chain proof market come in two primary forms: Externally Owned Accounts (EOA) and contracts, often referred to as Prover pools. To qualify as a Prover pool, a contract must adhere to specific criteria, implementing either the IProver interface, as previously defined by Taiko, or the IERC1271 (isValidSignature) interface.
+
+Upon a proposer's submission of a block, the signature granted by the chosen provider is subjected to verification. Any deviations result in a reverted transaction.
+
+As an additional incentive for proposers, the system incorporates the issuance of TKO tokens. This serves as an extra motivator, as proposing blocks alone may not always prove profitable, especially when considering Ethereum's on-chain fees plus the proving fee. The issuance of TKO tokens operates on a dynamic 'emission rate per second,' comparing each block proposal to the last.
+
+The reward depends on the proof service provider and the agreement. For EOAs and Prover pools that implement the IERC1271 interface, the reward is disbursed in ETH. However, in cases where providers implement the IProver interface, the prover fee can be ETH, any other ERC20 tokens, or even NFTs, based on the negotiated terms.
+
+To add a layer of security and commitment to the process, provers must provide a substantial amount of TKO tokens per block, effectively serving as insurance. In the unfortunate event of a failure to deliver the proof within the given time, a portion, specifically 1/4, is directed to the actual prover, while the remaining 3/4 are permanently burnt. Conversely, successful and timely proof delivery ensures the return of these tokens to the Prover.
 
 ## EIP-4844 scaling via blob data
 
