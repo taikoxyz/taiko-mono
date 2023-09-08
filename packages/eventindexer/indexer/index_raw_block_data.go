@@ -56,7 +56,13 @@ func (indxr *Indexer) indexRawBlockData(
 						return err
 					}
 
-					if err := indxr.txRepo.Save(ctx, tx, sender, block.Number(), time.Unix(int64(block.Time()), 0)); err != nil {
+					if err := indxr.txRepo.Save(ctx,
+						tx,
+						sender,
+						block.Number(),
+						time.Unix(int64(block.Time()), 0),
+						receipt.ContractAddress,
+					); err != nil {
 						return err
 					}
 				}

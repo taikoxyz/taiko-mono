@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"math/big"
+	"time"
 
 	"log/slog"
 
@@ -63,13 +64,19 @@ func (indxr *Indexer) saveBlockProvenEvent(
 
 	blockID := event.BlockId.Int64()
 
+	block, err := indxr.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
+	if err != nil {
+		return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
+	}
+
 	_, err = indxr.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
-		Name:    eventindexer.EventNameBlockProven,
-		Data:    string(marshaled),
-		ChainID: chainID,
-		Event:   eventindexer.EventNameBlockProven,
-		Address: event.Prover.Hex(),
-		BlockID: &blockID,
+		Name:         eventindexer.EventNameBlockProven,
+		Data:         string(marshaled),
+		ChainID:      chainID,
+		Event:        eventindexer.EventNameBlockProven,
+		Address:      event.Prover.Hex(),
+		BlockID:      &blockID,
+		TransactedAt: time.Unix(int64(block.Time()), 0),
 	})
 	if err != nil {
 		return errors.Wrap(err, "indxr.eventRepo.Save")

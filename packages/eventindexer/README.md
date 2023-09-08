@@ -24,17 +24,17 @@ ACCOUNTS
 
 PROPOSING
 
-1. total unique proposers
-2. unique proposers per day
-3. proposeBlock tx per day
-4. total proposeBlock tx per day
+1. total unique proposers - DONE
+2. unique proposers per day - DONE
+3. proposeBlock tx per day - DONE
+4. total proposeBlock tx per day - DONE
 
 PROVING
 
-1. total unique provers
-2. unique provers per day
-3. proveBlock tx per day
-4. total proveBlock tx
+1. total unique provers - DONE
+2. unique provers per day - DONE
+3. proveBlock tx per day - DONE
+4. total proveBlock tx - DONE
 
 VERIFICATION
 
@@ -43,21 +43,24 @@ VERIFICATION
 
 TRANSACTIONS
 
-1. total transactions - done
-2. transactions per day - done
+1. total transactions - DONE
+2. transactions per day - DONE
 
 BLOCKS
 
-1. total blocks - done
-2. blocks per day - done
+1. total blocks - DONE
+2. blocks per day - DONE
 
 CONTRACTS
 
-1. total deployed contracts
-2. deployed contracts per day
+1. total deployed contracts - DONE
+2. deployed contracts per day - DONE
 
-NETWORK
+BRIDGE
 
-1. latestVerifiedId over time
-2. proposalFee over time
-3. blockReward over time
+1. bridge messages sent per day
+2. total bridge messages sent
+3. bridge messages claimed per day
+4. total bridge messages claimed
+5. bridge processing fee average per day
+6. total bridge processing fee average

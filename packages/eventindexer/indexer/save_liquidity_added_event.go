@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"math/big"
+	"time"
 
 	"log/slog"
 
@@ -78,12 +79,18 @@ func (indxr *Indexer) saveLiquidityAddedEvent(
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
+	block, err := indxr.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
+	if err != nil {
+		return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
+	}
+
 	_, err = indxr.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
-		Name:    eventindexer.EventNameMint,
-		Data:    string(marshaled),
-		ChainID: chainID,
-		Event:   eventindexer.EventNameMint,
-		Address: from.Hex(),
+		Name:         eventindexer.EventNameMint,
+		Data:         string(marshaled),
+		ChainID:      chainID,
+		Event:        eventindexer.EventNameMint,
+		Address:      from.Hex(),
+		TransactedAt: time.Unix(int64(block.Time()), 0),
 	})
 	if err != nil {
 		return errors.Wrap(err, "indxr.eventRepo.Save")

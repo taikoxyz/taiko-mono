@@ -2,13 +2,20 @@ package generator
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strconv"
 	"syscall"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/tasks"
 	"github.com/urfave/cli/v2"
+)
+
+var (
+	ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
 )
 
 var (
@@ -156,22 +163,100 @@ func (g *Generator) queryByTask(task string, date time.Time) (string, error) {
 	var err error
 
 	switch task {
+	case tasks.ProposeBlockTxPerDay:
+		query := "SELECT COUNT(*) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
+		err = g.db.GormDB().
+			Raw(query, eventindexer.EventNameBlockProposed, date).
+			Scan(&result).Error
+	case tasks.TotalProposeBlockTx:
+		var dailyProposerCount int
+		query := `SELECT COUNT(*) FROM events WHERE event = ? AND DATE(transacted_at) = ?`
+		err = g.db.GormDB().Raw(query, eventindexer.EventNameBlockProposed, dateString).Scan(&dailyProposerCount).Error
+		if err != nil {
+			return "", err
+		}
+
+		var tsdResult int
+		tsdQuery := `SELECT value FROM time_series_data WHERE task = ? AND date = ?`
+
+		err = g.db.GormDB().Raw(tsdQuery, task, date.AddDate(0, 0, -1).Format("2006-01-02")).Scan(&tsdResult).Error
+		if err != nil {
+			return "", err
+		}
+
+		result = strconv.Itoa(dailyProposerCount + tsdResult)
+	case tasks.UniqueProposersPerDay:
+		query := "SELECT COUNT(DISTINCT address) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
+		err = g.db.GormDB().
+			Raw(query, eventindexer.EventNameBlockProposed, date).
+			Scan(&result).Error
+	case tasks.TotalUniqueProposers:
+		var dailyProposerCount int
+		query := `SELECT COUNT(DISTINCT address) FROM events WHERE event = ? AND DATE(transacted_at) = ?`
+		err = g.db.GormDB().Raw(query, eventindexer.EventNameBlockProposed, dateString).Scan(&dailyProposerCount).Error
+		if err != nil {
+			return "", err
+		}
+
+		var tsdResult int
+		tsdQuery := `SELECT value FROM time_series_data WHERE task = ? AND date = ?`
+
+		err = g.db.GormDB().Raw(tsdQuery, task, date.AddDate(0, 0, -1).Format("2006-01-02")).Scan(&tsdResult).Error
+		if err != nil {
+			return "", err
+		}
+
+		result = strconv.Itoa(dailyProposerCount + tsdResult)
+	case tasks.UniqueProversPerDay:
+		query := "SELECT COUNT(DISTINCT address) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
+		err = g.db.GormDB().
+			Raw(query, eventindexer.EventNameBlockProven, date).
+			Scan(&result).Error
+	case tasks.TotalUniqueProvers:
+		var dailyProposerCount int
+		query := `SELECT COUNT(DISTINCT address) FROM events WHERE event = ? AND DATE(transacted_at) = ?`
+		err = g.db.GormDB().Raw(query, eventindexer.EventNameBlockProven, dateString).Scan(&dailyProposerCount).Error
+		if err != nil {
+			return "", err
+		}
+
+		var tsdResult int
+		tsdQuery := `SELECT value FROM time_series_data WHERE task = ? AND date = ?`
+
+		err = g.db.GormDB().Raw(tsdQuery, task, date.AddDate(0, 0, -1).Format("2006-01-02")).Scan(&tsdResult).Error
+		if err != nil {
+			return "", err
+		}
+
+		result = strconv.Itoa(dailyProposerCount + tsdResult)
+	case tasks.ProveBlockTxPerDay:
+		query := "SELECT COUNT(*) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
+		err = g.db.GormDB().
+			Raw(query, eventindexer.EventNameBlockProven, date).
+			Scan(&result).Error
+	case tasks.TotalProveBlockTx:
+		var dailyProposerCount int
+		query := `SELECT COUNT(*) FROM events WHERE event = ? AND DATE(transacted_at) = ?`
+		err = g.db.GormDB().Raw(query, eventindexer.EventNameBlockProven, dateString).Scan(&dailyProposerCount).Error
+		if err != nil {
+			return "", err
+		}
+
+		var tsdResult int
+		tsdQuery := `SELECT value FROM time_series_data WHERE task = ? AND date = ?`
+
+		err = g.db.GormDB().Raw(tsdQuery, task, date.AddDate(0, 0, -1).Format("2006-01-02")).Scan(&tsdResult).Error
+		if err != nil {
+			return "", err
+		}
+
+		result = strconv.Itoa(dailyProposerCount + tsdResult)
 	case tasks.AccountsPerDay:
-		query := `SELECT 
-		COUNT(*)
-	FROM 
-		accounts
-	WHERE 
-		DATE(transacted_at) = ?`
+		query := `SELECT COUNT(*) FROM accounts WHERE DATE(transacted_at) = ?`
 		err = g.db.GormDB().Raw(query, dateString).Scan(&result).Error
 	case tasks.TotalAccounts:
 		var dailyAccountsCount int
-		query := `SELECT 
-		COUNT(*)
-	FROM 
-		accounts
-	WHERE 
-		DATE(transacted_at) = ?`
+		query := `SELECT COUNT(*) FROM accounts WHERE DATE(transacted_at) = ?`
 		err = g.db.GormDB().Raw(query, dateString).Scan(&dailyAccountsCount).Error
 		if err != nil {
 			return "", err
@@ -187,22 +272,12 @@ func (g *Generator) queryByTask(task string, date time.Time) (string, error) {
 
 		result = strconv.Itoa(dailyAccountsCount + tsdResult)
 	case tasks.BlocksPerDay:
-		query := `SELECT 
-		COUNT(*)
-	FROM 
-		blocks
-	WHERE 
-		DATE(transacted_at) = ?`
+		query := `SELECT COUNT(*) FROM blocks WHERE DATE(transacted_at) = ?`
 		err = g.db.GormDB().Raw(query, dateString).Scan(&result).Error
 	case tasks.TotalBlocks:
 		var dailyBlockCount int
 		// get current days txs, get previous entry for the time series data, add them together.
-		query := `SELECT 
-		COUNT(*)
-	FROM 
-		blocks
-	WHERE 
-		DATE(transacted_at) = ?`
+		query := `SELECT COUNT(*) FROM blocks WHERE DATE(transacted_at) = ?`
 		err = g.db.GormDB().Raw(query, dateString).Scan(&dailyBlockCount).Error
 		if err != nil {
 			return "", err
@@ -218,22 +293,12 @@ func (g *Generator) queryByTask(task string, date time.Time) (string, error) {
 
 		result = strconv.Itoa(dailyBlockCount + tsdResult)
 	case tasks.TransactionsPerDay:
-		query := `SELECT 
-		COUNT(*)
-	FROM 
-		transactions
-	WHERE 
-		DATE(transacted_at) = ?`
+		query := `SELECT COUNT(*) FROM transactions WHERE DATE(transacted_at) = ?`
 		err = g.db.GormDB().Raw(query, dateString).Scan(&result).Error
 	case tasks.TotalTransactions:
 		var dailyTxCount int
 		// get current days txs, get previous entry for the time series data, add them together.
-		query := `SELECT 
-		COUNT(*)
-	FROM 
-		transactions
-	WHERE 
-		DATE(transacted_at) = ?`
+		query := `SELECT COUNT(*) FROM transactions WHERE DATE(transacted_at) = ?`
 		err = g.db.GormDB().Raw(query, dateString).Scan(&dailyTxCount).Error
 		if err != nil {
 			return "", err
@@ -248,7 +313,29 @@ func (g *Generator) queryByTask(task string, date time.Time) (string, error) {
 		}
 
 		result = strconv.Itoa(dailyTxCount + tsdResult)
+	case tasks.ContractDeploymentsPerDay:
+		query := `SELECT COUNT(*) FROM transactions WHERE DATE(transacted_at) = ? AND contract_address != ?`
+		err = g.db.GormDB().Raw(query, dateString, ZeroAddress).Scan(&result).Error
+	case tasks.TotalContractDeployments:
+		var dailyContractCount int
+		// get current days txs, get previous entry for the time series data, add them together.
+		query := `SELECT COUNT(*) FROM transactions WHERE DATE(transacted_at) = ? AND contract_address != ?`
+		err = g.db.GormDB().Raw(query, dateString, ZeroAddress).Scan(&dailyContractCount).Error
+		if err != nil {
+			return "", err
+		}
+
+		var tsdResult int
+		tsdQuery := `SELECT value FROM time_series_data WHERE task = ? AND date = ?`
+
+		err = g.db.GormDB().Raw(tsdQuery, task, date.AddDate(0, 0, -1).Format("2006-01-02")).Scan(&tsdResult).Error
+		if err != nil {
+			return "", err
+		}
+
+		result = strconv.Itoa(dailyContractCount + tsdResult)
 	default:
+		return "", errors.New("task not supported")
 	}
 
 	if err != nil {

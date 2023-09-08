@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"time"
 
 	"log/slog"
 
@@ -68,12 +69,18 @@ func (indxr *Indexer) saveSwapEvent(
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
+	block, err := indxr.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
+	if err != nil {
+		return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
+	}
+
 	_, err = indxr.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
-		Name:    eventindexer.EventNameSwap,
-		Data:    string(marshaled),
-		ChainID: chainID,
-		Event:   eventindexer.EventNameSwap,
-		Address: fmt.Sprintf("0x%v", common.Bytes2Hex(event.Raw.Topics[2].Bytes()[12:])),
+		Name:         eventindexer.EventNameSwap,
+		Data:         string(marshaled),
+		ChainID:      chainID,
+		Event:        eventindexer.EventNameSwap,
+		Address:      fmt.Sprintf("0x%v", common.Bytes2Hex(event.Raw.Topics[2].Bytes()[12:])),
+		TransactedAt: time.Unix(int64(block.Time()), 0),
 	})
 	if err != nil {
 		return errors.Wrap(err, "indxr.eventRepo.Save")
