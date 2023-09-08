@@ -47,6 +47,7 @@ func (r *BlockRepository) Save(
 		if strings.Contains(err.Error(), "Duplicate") {
 			return nil
 		}
+
 		return errors.Wrap(err, "r.db.Create")
 	}
 

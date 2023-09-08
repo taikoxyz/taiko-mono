@@ -26,6 +26,7 @@ func (indxr *Indexer) indexRawBlockData(
 	if indxr.layer == Layer2 {
 		for i := start; i < end; i++ {
 			id := i
+
 			wg.Go(func() error {
 				slog.Info("processing block data", "blockNum", id)
 

@@ -63,14 +63,16 @@ func (indxr *Indexer) subscribeRawBlockData(
 ) {
 	headers := make(chan *types.Header)
 
-	sub := event.ResubscribeErr(indxr.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
-		if err != nil {
-			slog.Error("indxr.SubscribeNewHead", "error", err)
-		}
-		slog.Info("resubscribing to NewHead events for block data")
+	sub := event.ResubscribeErr(
+		indxr.subscriptionBackoff,
+		func(ctx context.Context, err error) (event.Subscription, error) {
+			if err != nil {
+				slog.Error("indxr.SubscribeNewHead", "error", err)
+			}
+			slog.Info("resubscribing to NewHead events for block data")
 
-		return indxr.ethClient.SubscribeNewHead(ctx, headers)
-	})
+			return indxr.ethClient.SubscribeNewHead(ctx, headers)
+		})
 
 	for {
 		select {
@@ -95,16 +97,18 @@ func (indxr *Indexer) subscribeRawBlockData(
 func (indxr *Indexer) subscribeBlockProven(ctx context.Context, chainID *big.Int, errChan chan error) {
 	sink := make(chan *taikol1.TaikoL1BlockProven)
 
-	sub := event.ResubscribeErr(indxr.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
-		if err != nil {
-			log.Error("indxr.taikoL1.WatchBlockProven", "error", err)
-		}
-		log.Info("resubscribing to BlockProven events")
+	sub := event.ResubscribeErr(
+		indxr.subscriptionBackoff,
+		func(ctx context.Context, err error) (event.Subscription, error) {
+			if err != nil {
+				log.Error("indxr.taikoL1.WatchBlockProven", "error", err)
+			}
+			log.Info("resubscribing to BlockProven events")
 
-		return indxr.taikol1.WatchBlockProven(&bind.WatchOpts{
-			Context: ctx,
-		}, sink, nil)
-	})
+			return indxr.taikol1.WatchBlockProven(&bind.WatchOpts{
+				Context: ctx,
+			}, sink, nil)
+		})
 
 	defer sub.Unsubscribe()
 
@@ -157,16 +161,18 @@ func (indxr *Indexer) subscribeBlockProven(ctx context.Context, chainID *big.Int
 func (indxr *Indexer) subscribeBlockProposed(ctx context.Context, chainID *big.Int, errChan chan error) {
 	sink := make(chan *taikol1.TaikoL1BlockProposed)
 
-	sub := event.ResubscribeErr(indxr.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
-		if err != nil {
-			log.Error("indxr.taikoL1.WatchBlockProposed", "error", err)
-		}
-		log.Info("resubscribing to BlockProposed events")
+	sub := event.ResubscribeErr(
+		indxr.subscriptionBackoff,
+		func(ctx context.Context, err error) (event.Subscription, error) {
+			if err != nil {
+				log.Error("indxr.taikoL1.WatchBlockProposed", "error", err)
+			}
+			log.Info("resubscribing to BlockProposed events")
 
-		return indxr.taikol1.WatchBlockProposed(&bind.WatchOpts{
-			Context: ctx,
-		}, sink, nil, nil)
-	})
+			return indxr.taikol1.WatchBlockProposed(&bind.WatchOpts{
+				Context: ctx,
+			}, sink, nil, nil)
+		})
 
 	defer sub.Unsubscribe()
 
@@ -235,17 +241,19 @@ func (indxr *Indexer) subscribeBlockProposed(ctx context.Context, chainID *big.I
 func (indxr *Indexer) subscribeBlockVerified(ctx context.Context, chainID *big.Int, errChan chan error) {
 	sink := make(chan *taikol1.TaikoL1BlockVerified)
 
-	sub := event.ResubscribeErr(indxr.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
-		if err != nil {
-			slog.Error("indxr.taikoL1.WatchBlockVerified", "error", err)
-		}
+	sub := event.ResubscribeErr(
+		indxr.subscriptionBackoff,
+		func(ctx context.Context, err error) (event.Subscription, error) {
+			if err != nil {
+				slog.Error("indxr.taikoL1.WatchBlockVerified", "error", err)
+			}
 
-		slog.Info("resubscribing to BlockVerified events")
+			slog.Info("resubscribing to BlockVerified events")
 
-		return indxr.taikol1.WatchBlockVerified(&bind.WatchOpts{
-			Context: ctx,
-		}, sink, nil, nil)
-	})
+			return indxr.taikol1.WatchBlockVerified(&bind.WatchOpts{
+				Context: ctx,
+			}, sink, nil, nil)
+		})
 
 	defer sub.Unsubscribe()
 
@@ -295,17 +303,19 @@ func (indxr *Indexer) subscribeBlockVerified(ctx context.Context, chainID *big.I
 func (indxr *Indexer) subscribeMessageSent(ctx context.Context, chainID *big.Int, errChan chan error) {
 	sink := make(chan *bridge.BridgeMessageSent)
 
-	sub := event.ResubscribeErr(indxr.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
-		if err != nil {
-			slog.Error("indxr.taikoL1.WatchMessageSent", "error", err)
-		}
+	sub := event.ResubscribeErr(
+		indxr.subscriptionBackoff,
+		func(ctx context.Context, err error) (event.Subscription, error) {
+			if err != nil {
+				slog.Error("indxr.taikoL1.WatchMessageSent", "error", err)
+			}
 
-		slog.Info("resubscribing to MessageSent events")
+			slog.Info("resubscribing to MessageSent events")
 
-		return indxr.bridge.WatchMessageSent(&bind.WatchOpts{
-			Context: ctx,
-		}, sink, nil)
-	})
+			return indxr.bridge.WatchMessageSent(&bind.WatchOpts{
+				Context: ctx,
+			}, sink, nil)
+		})
 
 	defer sub.Unsubscribe()
 
@@ -356,16 +366,18 @@ func (indxr *Indexer) subscribeMessageSent(ctx context.Context, chainID *big.Int
 func (indxr *Indexer) subscribeSwap(ctx context.Context, s *swap.Swap, chainID *big.Int, errChan chan error) {
 	sink := make(chan *swap.SwapSwap)
 
-	sub := event.ResubscribeErr(indxr.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
-		if err != nil {
-			slog.Error("s.WatchSwap", "error", err)
-		}
-		slog.Info("resubscribing to Swap events")
+	sub := event.ResubscribeErr(
+		indxr.subscriptionBackoff,
+		func(ctx context.Context, err error) (event.Subscription, error) {
+			if err != nil {
+				slog.Error("s.WatchSwap", "error", err)
+			}
+			slog.Info("resubscribing to Swap events")
 
-		return s.WatchSwap(&bind.WatchOpts{
-			Context: ctx,
-		}, sink, nil, nil)
-	})
+			return s.WatchSwap(&bind.WatchOpts{
+				Context: ctx,
+			}, sink, nil, nil)
+		})
 
 	defer sub.Unsubscribe()
 
@@ -414,16 +426,18 @@ func (indxr *Indexer) subscribeSwap(ctx context.Context, s *swap.Swap, chainID *
 func (indxr *Indexer) subscribeLiquidityAdded(ctx context.Context, s *swap.Swap, chainID *big.Int, errChan chan error) {
 	sink := make(chan *swap.SwapMint)
 
-	sub := event.ResubscribeErr(indxr.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
-		if err != nil {
-			slog.Error("s.WatchMint", "error", err)
-		}
-		slog.Info("resubscribing to Swap events")
+	sub := event.ResubscribeErr(
+		indxr.subscriptionBackoff,
+		func(ctx context.Context, err error) (event.Subscription, error) {
+			if err != nil {
+				slog.Error("s.WatchMint", "error", err)
+			}
+			slog.Info("resubscribing to Swap events")
 
-		return s.WatchMint(&bind.WatchOpts{
-			Context: ctx,
-		}, sink, nil)
-	})
+			return s.WatchMint(&bind.WatchOpts{
+				Context: ctx,
+			}, sink, nil)
+		})
 
 	defer sub.Unsubscribe()
 

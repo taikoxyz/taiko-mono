@@ -120,6 +120,7 @@ func (indxr *Indexer) InitFromCli(ctx context.Context, c *cli.Context) error {
 	return InitFromConfig(ctx, indxr, cfg)
 }
 
+// nolint: funlen
 func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	db, err := cfg.OpenDBFunc()
 	if err != nil {
@@ -235,12 +236,10 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	return nil
 }
 
-// TODO: stubbed
 func (indxr *Indexer) Close(ctx context.Context) {
 	if err := indxr.srv.Shutdown(ctx); err != nil {
 		slog.Error("srv shutdown", "error", err)
 	}
 
 	indxr.wg.Wait()
-
 }

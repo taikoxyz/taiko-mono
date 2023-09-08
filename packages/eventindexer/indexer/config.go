@@ -58,13 +58,9 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 
 	// and the same for CORS origins
 
-	corsOrigins := strings.Split(c.String(flags.CORSOrigins.Name), ",")
-
 	cors := make([]string, 0)
 
-	for _, v := range corsOrigins {
-		cors = append(cors, v)
-	}
+	cors = append(cors, strings.Split(c.String(flags.CORSOrigins.Name), ",")...)
 
 	return &Config{
 		DatabaseUsername:        c.String(flags.DatabaseUsername.Name),
