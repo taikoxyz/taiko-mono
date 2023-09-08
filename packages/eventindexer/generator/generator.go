@@ -162,17 +162,28 @@ func (g *Generator) queryByTask(task string, date time.Time) (string, error) {
 	var err error
 
 	switch task {
+	case tasks.BridgeMessagesSentPerDay:
+		err = g.eventCount(task, date, eventindexer.EventNameMessageSent, &result)
+	case tasks.TotalBridgeMessagesSent:
+		var dailyMsgSentCount int
+
+		err = g.eventCount(task, date, eventindexer.EventNameMessageSent, &dailyMsgSentCount)
+		if err != nil {
+			return "", err
+		}
+
+		tsdResult, err := g.previousDayTsdResultByTask(task, date)
+		if err != nil {
+			return "", err
+		}
+
+		result = strconv.Itoa(dailyMsgSentCount + tsdResult)
 	case tasks.ProposeBlockTxPerDay:
-		query := "SELECT COUNT(*) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
-		err = g.db.GormDB().
-			Raw(query, eventindexer.EventNameBlockProposed, date).
-			Scan(&result).Error
+		err = g.eventCount(task, date, eventindexer.EventNameBlockProposed, &result)
 	case tasks.TotalProposeBlockTx:
 		var dailyProposerCount int
 
-		query := `SELECT COUNT(*) FROM events WHERE event = ? AND DATE(transacted_at) = ?`
-
-		err = g.db.GormDB().Raw(query, eventindexer.EventNameBlockProposed, dateString).Scan(&dailyProposerCount).Error
+		err = g.eventCount(task, date, eventindexer.EventNameBlockProposed, &dailyProposerCount)
 		if err != nil {
 			return "", err
 		}
@@ -347,4 +358,12 @@ func (g *Generator) previousDayTsdResultByTask(task string, date time.Time) (int
 	}
 
 	return tsdResult, nil
+}
+
+func (g *Generator) eventCount(task string, date time.Time, event string, result interface{}) error {
+	query := "SELECT COUNT(*) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
+
+	return g.db.GormDB().
+		Raw(query, event, date).
+		Scan(result).Error
 }
