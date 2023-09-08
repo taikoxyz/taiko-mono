@@ -64,7 +64,7 @@ Let's walk through an example:
 2. Next, we call `eth_getProof`, which will give us a proof that we did indeed send a message on the source chain.
 3. Finally, we call `isSignalReceived` on the destination chain's SignalService which essentially just verifies the merkle proof. `isSignalReceived` will look up the block hash you are asserting you had stored a message on the source chain (where you originally sent the message), and with the sibling hashes inside the merkle proof it will rebuild the merkle root, which verifies the signal was included in that merkle root—meaning it was sent.
 
-And boom! We have sent a cross-chain message. Confusing? Well, leave some feedback please if it is, so we can clear it up but a simple dApp was built during one of our workshops to demonstrate the fundamentals. You can find it [here](https://github.com/adaki2004/MessageService).
+And boom! We have sent a cross-chain message. Confusing? Well, leave some feedback please if it is, so we can clear it up but a simple dApp was built during one of our workshops to demonstrate the fundamentals. You can find it [here](https://github.com/taikoxyz/MessageServiceShowCaseApp).
 
 ## How the bridge works
 
@@ -84,8 +84,8 @@ Taiko's bridge utilizes the Signal Service we described. Here is the general use
 3. The user receives Ether on the destination chain, if they (or another) provide a valid merkle proof that the message was received on the source chain
 
 With the current design there are 2 ways to bridge `Ether`:
-1. `Ether` only case: The user interacts directly with the Bridge contract (currently this is the only one supported by our UI) by calling `sendMessage`
-2. `ERC-XXX` + `Ether` +  case: The user interacts with the `ERCXXXVault` (ERC20, ERC721, ERC1155) because he/she wants to bridge over some tokens, but in case he/she fills the `message.value` field, also `Ether` will be bridged (currently this is not supported by our UI)
+1. `Ether` only case: The user interacts directly with the Bridge contract by calling `sendMessage`
+2. `ERC-XXX` + `Ether` +  case: The user interacts with the `ERCXXXVault` (ERC20, ERC721, ERC1155) because he/she wants to bridge over some tokens, but in case he/she fills the `message.value` field, also `Ether` will be bridged
 
 ### How does ERC-20 (or ERC-721, ERC-1155) bridging work?
 
