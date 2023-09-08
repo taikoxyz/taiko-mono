@@ -21,6 +21,17 @@
   export let outline = false;
   export let block = false;
   export let wide = false;
+  export let disabled = false;
+
+  export let hasBorder = false;
+
+  let borderClasses: string = '';
+
+  if (hasBorder) {
+    borderClasses = 'border-1 border-primary-border';
+  } else {
+    borderClasses = 'border-0';
+  }
 
   // Remember, with Tailwind's classes you cannot use string interpolation: `btn-${type}`.
   // The whole class name must appear in the code in order for Tailwind compiler to know
@@ -45,7 +56,7 @@
   };
 
   $: classes = classNames(
-    'btn h-auto min-h-fit border-0',
+    'btn h-auto min-h-fit ',
 
     type === 'primary' ? 'body-bold' : 'body-regular',
 
@@ -60,6 +71,8 @@
     // since we're showing some important information.
     loading ? 'btn-disabled !text-primary-content' : null,
 
+    disabled ? borderClasses : '',
+
     $$props.class,
   );
 
@@ -69,7 +82,7 @@
   }
 </script>
 
-<button {...$$restProps} class={classes} on:click>
+<button {...$$restProps} {disabled} class={classes} on:click>
   {#if loading}
     <Spinner />
   {/if}
