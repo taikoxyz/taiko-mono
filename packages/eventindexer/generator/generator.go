@@ -128,7 +128,7 @@ func (g *Generator) getLatestDateByTask(ctx context.Context, task string) (time.
 
 	err := g.db.GormDB().Raw(q, task).Scan(&latestDateString).Error
 
-	slog.Info("latestDateString", "date", latestDateString)
+	slog.Info("latestDateString", "task", task, "date", latestDateString)
 
 	if err != nil || latestDateString == "" {
 		latestDate = g.genesisDate
