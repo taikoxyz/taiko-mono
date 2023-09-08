@@ -168,3 +168,8 @@ You should not have orphan containers as the L2 and L3 image container names are
 #### `WARN Snapshot extension registration failed err="peer connected on snap without compatible eth support"`
 
 You can safely ignore this "warn" level message, it simply means you just ignored a peer which is not a Taiko node.
+
+#### `PROPOSE_BLOCK_TX_GAS_TIP_CAP: parameter not set`
+
+A flag might not be set in your .env file. 
+Copy the default .env file, then reset your RPC node and proposer with the updated flag values. 
