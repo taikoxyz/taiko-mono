@@ -6,7 +6,7 @@
   import type { Address } from 'viem';
   import { formatUnits } from 'viem';
 
-  import { Alert, FlatAlert } from '$components/Alert';
+  import { FlatAlert } from '$components/Alert';
   import AddressInput from '$components/Bridge/AddressInput.svelte';
   import { Button } from '$components/Button';
   import { Icon } from '$components/Icon';
@@ -169,7 +169,7 @@
     <h3 class="title-body-bold mb-7">{$t('token_dropdown.custom_token.title')}</h3>
 
     <p class="body-regular text-secondary-content mb-3">{$t('token_dropdown.custom_token.description')}</p>
-    <div class="mt-4 mb-2">
+    <div class="mt-4 mb-2 w-full">
       <AddressInput bind:ethereumAddress={tokenAddress} on:addressvalidation={onAddressValidation} />
       {#if tokenDetails}
         <div class="w-full flex items-center justify-between">
@@ -192,6 +192,7 @@
     {:else}
       <Button
         type="primary"
+        hasBorder={true}
         class="px-[28px] py-[14px] rounded-full flex-1 w-full"
         {disabled}
         on:click={addCustomErc20Token}>

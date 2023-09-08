@@ -142,105 +142,111 @@
         <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
       </button>
 
-      <h3 class="title-body-bold mb-7">{$t('processing_fee.title')}</h3>
+      <div class="w-full">
+        <h3 class="title-body-bold mb-7">{$t('processing_fee.title')}</h3>
 
-      <p class="body-regular text-secondary-content mb-3">{$t('processing_fee.description')}</p>
+        <p class="body-regular text-secondary-content mb-3">{$t('processing_fee.description')}</p>
 
-      <ul class="space-y-7">
-        <!-- RECOMMENDED -->
-        <li class="f-between-center">
-          <div class="f-col">
-            <label for="input-recommended" class="body-bold">
-              {$t('processing_fee.recommended.label')}
-            </label>
-            <span class="body-small-regular text-secondary-content">
-              <!-- TODO: think about the UI for this part. Talk to Jane -->
-              {#if calculatingRecommendedAmount}
-                <LoadingText mask="0.0001" /> ETH
-              {:else if errorCalculatingRecommendedAmount}
-                {$t('processing_fee.recommended.error')}
-              {:else}
-                {formatEther(recommendedAmount)} ETH
-              {/if}
-            </span>
-          </div>
-          <input
-            id="input-recommended"
-            class="radio w-6 h-6 checked:bg-primary-interactive-accent hover:border-primary-interactive-hover"
-            type="radio"
-            value={ProcessingFeeMethod.RECOMMENDED}
-            name="processingFeeMethod"
-            bind:group={selectedFeeMethod} />
-        </li>
-
-        <!-- NONE -->
-        <li class="space-y-2">
-          <div class="f-between-center">
+        <ul class="space-y-7">
+          <!-- RECOMMENDED -->
+          <li class="f-between-center">
             <div class="f-col">
-              <label for="input-none" class="body-bold">
-                {$t('processing_fee.none.label')}
+              <label for="input-recommended" class="body-bold">
+                {$t('processing_fee.recommended.label')}
               </label>
               <span class="body-small-regular text-secondary-content">
-                {$t('processing_fee.none.text')}
+                <!-- TODO: think about the UI for this part. Talk to Jane -->
+                {#if calculatingRecommendedAmount}
+                  <LoadingText mask="0.0001" /> ETH
+                {:else if errorCalculatingRecommendedAmount}
+                  {$t('processing_fee.recommended.error')}
+                {:else}
+                  {formatEther(recommendedAmount)} ETH
+                {/if}
               </span>
             </div>
             <input
-              id="input-none"
+              id="input-recommended"
               class="radio w-6 h-6 checked:bg-primary-interactive-accent hover:border-primary-interactive-hover"
               type="radio"
-              disabled={!hasEnoughEth}
-              value={ProcessingFeeMethod.NONE}
+              value={ProcessingFeeMethod.RECOMMENDED}
               name="processingFeeMethod"
               bind:group={selectedFeeMethod} />
-          </div>
+          </li>
 
-          {#if !hasEnoughEth}
-            <FlatAlert type="error" message={$t('processing_fee.none.warning')} />
+          <!-- NONE -->
+          <li class="space-y-2">
+            <div class="f-between-center">
+              <div class="f-col">
+                <label for="input-none" class="body-bold">
+                  {$t('processing_fee.none.label')}
+                </label>
+                <span class="body-small-regular text-secondary-content">
+                  {$t('processing_fee.none.text')}
+                </span>
+              </div>
+              <input
+                id="input-none"
+                class="radio w-6 h-6 checked:bg-primary-interactive-accent hover:border-primary-interactive-hover"
+                type="radio"
+                disabled={!hasEnoughEth}
+                value={ProcessingFeeMethod.NONE}
+                name="processingFeeMethod"
+                bind:group={selectedFeeMethod} />
+            </div>
+
+            {#if !hasEnoughEth}
+              <FlatAlert type="error" message={$t('processing_fee.none.warning')} />
+            {/if}
+          </li>
+
+          <!-- CUSTOM -->
+          <li class="f-between-center">
+            <div class="f-col">
+              <label for="input-custom" class="body-bold">
+                {$t('processing_fee.custom.label')}
+              </label>
+              <span class="body-small-regular text-secondary-content">
+                {$t('processing_fee.custom.text')}
+              </span>
+            </div>
+            <input
+              id="input-custom"
+              class="radio w-6 h-6 checked:bg-primary-interactive-accent hover:border-primary-interactive-hover"
+              type="radio"
+              value={ProcessingFeeMethod.CUSTOM}
+              name="processingFeeMethod"
+              bind:group={selectedFeeMethod} />
+          </li>
+        </ul>
+        <div class="relative f-items-center my-[20px]">
+          {#if selectedFeeMethod === ProcessingFeeMethod.CUSTOM}
+            <InputBox
+              type="number"
+              min="0"
+              placeholder="0.01"
+              disabled={selectedFeeMethod !== ProcessingFeeMethod.CUSTOM}
+              class="w-full input-box p-6 pr-16 title-subsection-bold placeholder:text-tertiary-content"
+              on:input={inputProcessFee}
+              bind:this={inputBox} />
+            <span class="absolute right-6 uppercase body-bold text-secondary-content">ETH</span>
           {/if}
-        </li>
-
-        <!-- CUSTOM -->
-        <li class="f-between-center">
-          <div class="f-col">
-            <label for="input-custom" class="body-bold">
-              {$t('processing_fee.custom.label')}
-            </label>
-            <span class="body-small-regular text-secondary-content">
-              {$t('processing_fee.custom.text')}
-            </span>
-          </div>
-          <input
-            id="input-custom"
-            class="radio w-6 h-6 checked:bg-primary-interactive-accent hover:border-primary-interactive-hover"
-            type="radio"
-            value={ProcessingFeeMethod.CUSTOM}
-            name="processingFeeMethod"
-            bind:group={selectedFeeMethod} />
-        </li>
-      </ul>
-      <div class="relative f-items-center my-[20px]">
-        {#if selectedFeeMethod === ProcessingFeeMethod.CUSTOM}
-          <InputBox
-            type="number"
-            min="0"
-            placeholder="0.01"
-            disabled={selectedFeeMethod !== ProcessingFeeMethod.CUSTOM}
-            class="w-full input-box p-6 pr-16 title-subsection-bold placeholder:text-tertiary-content"
-            on:input={inputProcessFee}
-            bind:this={inputBox} />
-          <span class="absolute right-6 uppercase body-bold text-secondary-content">ETH</span>
-        {/if}
-      </div>
-      <div class="grid grid-cols-2 gap-[20px]">
-        <Button
-          on:click={cancelModal}
-          type="neutral"
-          class="px-[28px] py-[10px] rounded-full w-auto bg-transparent !border border-primary-brand hover:border-primary-interactive-hover">
-          <span class="body-bold">{$t('common.cancel')}</span>
-        </Button>
-        <Button type="primary" class="px-[28px] py-[10px] rounded-full w-auto" on:click={closeModal}>
-          <span class="body-bold">{$t('common.confirm')}</span>
-        </Button>
+        </div>
+        <div class="grid grid-cols-2 gap-[20px]">
+          <Button
+            on:click={cancelModal}
+            type="neutral"
+            class="px-[28px] py-[10px] rounded-full w-auto bg-transparent !border border-primary-brand hover:border-primary-interactive-hover">
+            <span class="body-bold">{$t('common.cancel')}</span>
+          </Button>
+          <Button
+            type="primary"
+            class="px-[28px] py-[10px] rounded-full w-auto border-primary-brand"
+            hasBorder={true}
+            on:click={closeModal}>
+            <span class="body-bold">{$t('common.confirm')}</span>
+          </Button>
+        </div>
       </div>
     </div>
   </dialog>
