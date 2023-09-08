@@ -141,7 +141,7 @@
         <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
       </button>
       <div class="w-full">
-        <h3 class="title-body-bold mb-[20px]">{$t('chain_selector.placeholder')}</h3>
+        <h3 class="title-body-bold mb-[20px]">{ #if switchWallet } {$t('chain_selector.from_placeholder')} {:else} {$t('chain_selector.to_placeholder')} {/if}</h3>
         <ul role="menu">
           {#each chains as chain (chain.id)}
             {@const disabled = validOptions
@@ -174,7 +174,7 @@
               </li>
             {/if}
           {/each}
-          {#if !small && validOptions?.length !== chains.length - 1}
+          {#if !small}
             <li role="menuitem" tabindex="0" class="p-4 rounded-[10px]">
               <Alert type="warning" forceColumnFlow>
                 <p class="font-bold">{$t('chain_selector.disabled_options.title')}</p>
