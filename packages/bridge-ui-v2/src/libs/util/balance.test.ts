@@ -7,7 +7,7 @@ test('renderBalance lib', () => {
       decimals: 18,
       formatted: '0',
       symbol: 'ETH',
-      value: 0,
+      value: BigInt(0),
     }),
   ).toBe('0 ETH');
   expect(
