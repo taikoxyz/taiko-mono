@@ -18,6 +18,9 @@ var (
 	ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
 )
 
+// Generator is a subcommand which is intended to be run on an interval, like
+// a cronjob, to parse the indexed data from the database, and generate
+// time series data that can easily be displayed via charting libraries.
 type Generator struct {
 	db          DB
 	genesisDate time.Time
@@ -73,6 +76,7 @@ func (g *Generator) Close(ctx context.Context) {
 	}
 }
 
+// generateTimeSeriesData iterates over each task and generates time series data.
 func (g *Generator) generateTimeSeriesData(ctx context.Context) error {
 	for _, task := range tasks.Tasks {
 		if err := g.generateByTask(ctx, task); err != nil {
@@ -84,6 +88,8 @@ func (g *Generator) generateTimeSeriesData(ctx context.Context) error {
 	return nil
 }
 
+// generateByTask generates time series data for each day in between the current date
+// and the most recently generated time series data, for the given task.
 func (g *Generator) generateByTask(ctx context.Context, task string) error {
 	slog.Info("generating for task", "task", task)
 
@@ -126,6 +132,8 @@ func (g *Generator) generateByTask(ctx context.Context, task string) error {
 	return nil
 }
 
+// getLatestDateByTask returns the last time time series data has been generated
+// for the given task.
 func (g *Generator) getLatestDateByTask(ctx context.Context, task string) (time.Time, error) {
 	var latestDateString string
 
@@ -152,6 +160,7 @@ func (g *Generator) getLatestDateByTask(ctx context.Context, task string) (time.
 	return latestDate, nil
 }
 
+// getCurrentDate returns the current date in YYYY-MM-DD format
 func (g *Generator) getCurrentDate() time.Time {
 	// Get current date
 	currentTime := time.Now()
@@ -161,6 +170,8 @@ func (g *Generator) getCurrentDate() time.Time {
 }
 
 // nolint: funlen
+// queryByTask runs a database query which should return result data based on the
+// task
 func (g *Generator) queryByTask(task string, date time.Time) (string, error) {
 	dateString := date.Format("2006-01-02")
 
@@ -354,6 +365,8 @@ func (g *Generator) queryByTask(task string, date time.Time) (string, error) {
 	return result, nil
 }
 
+// previousDayTsdResultByTask returns the previous day's time series data, based on
+// task and time passed in.
 func (g *Generator) previousDayTsdResultByTask(task string, date time.Time) (int, error) {
 	var tsdResult int
 
@@ -367,6 +380,8 @@ func (g *Generator) previousDayTsdResultByTask(task string, date time.Time) (int
 	return tsdResult, nil
 }
 
+// eventCount is a helper method to query the database for the count of a specific event
+// based on the date.
 func (g *Generator) eventCount(task string, date time.Time, event string, result interface{}) error {
 	query := "SELECT COUNT(*) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
 
