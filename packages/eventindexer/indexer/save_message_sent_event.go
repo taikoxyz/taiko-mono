@@ -51,24 +51,6 @@ func (indxr *Indexer) saveMessageSentEvent(
 	chainID *big.Int,
 	event *bridge.BridgeMessageSent,
 ) error {
-	// only save eth transfers
-	if event.Message.Data != nil && common.BytesToHash(event.Message.Data) != zeroHash {
-		slog.Info("skipping message sent event, is not eth transfer")
-		return nil
-	}
-
-	// amount must be >= 0.15 eth
-	if event.Message.Value.Cmp(minEthAmount) < 0 {
-		slog.Info("skipping message sent event",
-			"value",
-			event.Message.Value.String(),
-			"requiredValue",
-			minEthAmount.String(),
-		)
-
-		return nil
-	}
-
 	marshaled, err := json.Marshal(event)
 	if err != nil {
 		return errors.Wrap(err, "json.Marshal(event)")
