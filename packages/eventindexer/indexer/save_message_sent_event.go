@@ -8,15 +8,9 @@ import (
 
 	"log/slog"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/bridge"
-)
-
-var (
-	minEthAmount = new(big.Int).SetUint64(150000000000000000)
-	zeroHash     = common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
 )
 
 func (indxr *Indexer) saveMessageSentEvents(
