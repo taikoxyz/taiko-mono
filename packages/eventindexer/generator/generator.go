@@ -63,7 +63,14 @@ func (g *Generator) Start() error {
 }
 
 func (g *Generator) Close(ctx context.Context) {
+	sqlDB, err := g.db.DB()
+	if err != nil {
+		slog.Error("error getting sqldb when closing generator", "err", err.Error())
+	}
 
+	if err := sqlDB.Close(); err != nil {
+		slog.Error("error closing sqlbd connecting", "err", err.Error())
+	}
 }
 
 func (g *Generator) generateTimeSeriesData(ctx context.Context) error {
