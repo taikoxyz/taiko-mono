@@ -1,0 +1,36 @@
+{
+  "name": "Taiko tokens list",
+  "version": {
+    "major": 0,
+    "minor": 1,
+    "patch": 0
+  },
+  "logoURI": "ipfs://QmSDq61wAD7scrneS42RedA59pxWiHQNYDeJVEoi2xz2ZZ",
+  "timestamp": "2023-09-09 00:00:00.000+00:00",
+  "tokens": [
+    {
+      "chainId": 167006,
+      "address": "0x8fa0a752c585b749a5a8d555cc50a350c93f7693",
+      "name": "Bull Token",
+      "symbol": "BLL",
+      "decimals": 18,
+      "logoURI": "ipfs://QmezMTpT6ovJ3szb3SKDM9GVGeQ1R8DfjYyXG12ppMe2BY"
+    },
+    {
+      "chainId": 167006,
+      "address": "0x060b5388daf7e57b52bf5959a9fe8462b88a9b86",
+      "name": "Horse Token",
+      "symbol": "HORSE",
+      "decimals": 18,
+      "logoURI": "ipfs://QmU52ZxmSiGX24uDPNUGG3URyZr5aQdLpACCiD6tap4Mgc"
+    },
+    {
+      "chainId": 167006,
+      "address": "0x8A791620dd6260079BF849Dc5567aDC3F2FdC318",
+      "name": "Taiko Token Eldfell",
+      "symbol": "TTKOe",
+      "decimals": 18,
+      "logoURI": "ipfs://Qmd7dsvTKZBYJmQ6Mhse4hWbEx8faT4AnCMfByK5j9C8yS"
+    }
+  ]
+}
