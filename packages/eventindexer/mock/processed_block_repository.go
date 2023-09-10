@@ -8,21 +8,23 @@ import (
 )
 
 var (
-	LatestBlock = &eventindexer.Block{
+	LatestBlock = &eventindexer.ProcessedBlock{
 		Height:  100,
 		Hash:    "0x",
 		ChainID: MockChainID.Int64(),
 	}
 )
 
-type BlockRepository struct {
+type ProcessedBlockRepository struct {
 }
 
-func (r *BlockRepository) Save(opts eventindexer.SaveBlockOpts) error {
+func (r *ProcessedBlockRepository) Save(opts eventindexer.SaveProcessedBlockOpts) error {
 	return nil
 }
 
-func (r *BlockRepository) GetLatestBlockProcessedForEvent(chainID *big.Int) (*eventindexer.Block, error) {
+func (r *ProcessedBlockRepository) GetLatestBlockProcessedForEvent(
+	chainID *big.Int,
+) (*eventindexer.ProcessedBlock, error) {
 	if chainID.Int64() != MockChainID.Int64() {
 		return nil, errors.New("error getting latest block processed for event")
 	}
