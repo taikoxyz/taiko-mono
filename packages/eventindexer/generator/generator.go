@@ -58,7 +58,7 @@ func (g *Generator) Start() error {
 		return err
 	}
 
-	if err := syscall.Kill(syscall.Getpid(), syscall.SIGINT); err != nil {
+	if err := syscall.Kill(syscall.Getpid(), syscall.SIGTERM); err != nil {
 		return err
 	}
 
