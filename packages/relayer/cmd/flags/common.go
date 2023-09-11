@@ -126,6 +126,13 @@ var (
 		Value:    10,
 		EnvVars:  []string{"ETH_CLIENT_TIMEOUT"},
 	}
+	CORSOrigins = &cli.StringFlag{
+		Name:     "http.corsOrigins",
+		Usage:    "Comma-delinated list of cors origins",
+		Required: false,
+		Value:    "*",
+		Category: commonCategory,
+	}
 )
 
 // All common flags.
@@ -148,6 +155,7 @@ var CommonFlags = []cli.Flag{
 	DatabaseMaxOpenConns,
 	MetricsHTTPPort,
 	ETHClientTimeout,
+	CORSOrigins,
 }
 
 // MergeFlags merges the given flag slices.
