@@ -21,7 +21,6 @@
   export let outline = false;
   export let block = false;
   export let wide = false;
-  export let disabled = false;
 
   export let hasBorder = false;
 
@@ -71,7 +70,7 @@
     // since we're showing some important information.
     loading ? 'btn-disabled !text-primary-content' : null,
 
-    disabled ? borderClasses : '',
+    $$restProps.disabled ? borderClasses : '',
 
     $$props.class,
   );
@@ -82,7 +81,7 @@
   }
 </script>
 
-<button {...$$restProps} {disabled} class={classes} on:click>
+<button {...$$restProps} class={classes} on:click>
   {#if loading}
     <Spinner />
   {/if}

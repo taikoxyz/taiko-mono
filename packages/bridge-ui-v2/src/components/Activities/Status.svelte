@@ -114,6 +114,7 @@
 
       await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
 
+      //Todo: just because we have a claim tx doesn't mean it was successful
       successToast(
         $t('activities.actions.claim.success', {
           values: {
