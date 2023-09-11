@@ -80,5 +80,4 @@ var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	SubscriptionBackoff,
 	SyncMode,
 	WatchMode,
-	CORSOrigins,
 })
