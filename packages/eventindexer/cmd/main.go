@@ -1,45 +1,59 @@
 package main
 
 import (
-	"flag"
+	"fmt"
+	"log"
+	"os"
 
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/cli"
+	"github.com/joho/godotenv"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/cmd/flags"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/cmd/utils"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/generator"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/indexer"
+	"github.com/urfave/cli/v2"
 )
 
 func main() {
-	modePtr := flag.String("mode", string(eventindexer.SyncMode), `mode to run in. 
-	options:
-	  sync: continue syncing from previous block
-	  resync: restart syncing from block 0
-	  fromBlock: restart syncing from specified block number
-	`)
+	app := cli.NewApp()
 
-	watchModePtr := flag.String("watch-mode", string(eventindexer.FilterAndSubscribeWatchMode), `watch mode to run in. 
-	options:
-	  filter: only filter previous messages
-	  subscribe: only subscribe to new messages
-	  filter-and-subscribe: catch up on all previous messages, then subscribe to new messages
-	`)
+	log.SetOutput(os.Stdout)
+	// attempt to load a .env file to overwrite CLI flags, but allow it to not
+	// exist.
 
-	httpOnlyPtr := flag.Bool("http-only", false, `only run an http server and don't index blocks. 
-	options:
-	  true: only run an http server, dont index blocks
-	  false: run an http server and index blocks
-	`)
+	envFile := os.Getenv("EVENTINDEXER_ENV_FILE")
+	if envFile == "" {
+		envFile = ".env"
+	}
 
-	indexNfts := flag.Bool("index-nfts", false, `index nft transfer events.
-	options:
-	  true: index
-	  false: dont index
-	`)
+	_ = godotenv.Load(envFile)
 
-	flag.Parse()
+	app.Name = "Taiko EventIndexer"
+	app.Usage = "The taiko eventindexing softwares command line interface"
+	app.Copyright = "Copyright 2021-2023 Taiko Labs"
+	app.Description = "Eventindexer implementation in Golang for Taiko protocol"
+	app.Authors = []*cli.Author{{Name: "Taiko Labs", Email: "info@taiko.xyz"}}
+	app.EnableBashCompletion = true
 
-	cli.Run(
-		eventindexer.Mode(*modePtr),
-		eventindexer.WatchMode(*watchModePtr),
-		eventindexer.HTTPOnly(*httpOnlyPtr),
-		eventindexer.IndexNFTS(*indexNfts),
-	)
+	// All supported sub commands.
+	app.Commands = []*cli.Command{
+		{
+			Name:        "indexer",
+			Flags:       flags.IndexerFlags,
+			Usage:       "Starts the indexer software",
+			Description: "Taiko indexer software",
+			Action:      utils.SubcommandAction(new(indexer.Indexer)),
+		},
+		{
+			Name:        "generator",
+			Flags:       flags.GeneratorFlags,
+			Usage:       "Starts the generator software",
+			Description: "Taiko time-series data generator",
+			Action:      utils.SubcommandAction(new(generator.Generator)),
+		},
+	}
+
+	if err := app.Run(os.Args); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
