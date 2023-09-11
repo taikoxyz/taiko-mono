@@ -26,7 +26,7 @@ contract TaikoL1 is TaikoL1Base {
             // This number is calculated from blockMaxProposals to make the
             // maximum value of the multiplier close to 20.0
             blockMaxVerificationsPerTx: 10,
-            blockMaxGasLimit: 6_000_000,
+            blockMaxGasLimit: 8_000_000,
             blockFeeBaseGas: 20_000,
             blockMaxTxListBytes: 120_000,
             blockTxListExpiry: 0,
