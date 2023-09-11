@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"math/big"
+	"time"
 
 	"log/slog"
 
@@ -17,7 +18,7 @@ var (
 	minLiquidityAddedAmount = big.NewInt(100000000000000000)
 )
 
-func (svc *Service) saveLiquidityAddedEvents(
+func (indxr *Indexer) saveLiquidityAddedEvents(
 	ctx context.Context,
 	chainID *big.Int,
 	events *swap.SwapMintIterator,
@@ -30,10 +31,10 @@ func (svc *Service) saveLiquidityAddedEvents(
 	for {
 		event := events.Event
 
-		if err := svc.saveLiquidityAddedEvent(ctx, chainID, event); err != nil {
+		if err := indxr.saveLiquidityAddedEvent(ctx, chainID, event); err != nil {
 			eventindexer.LiquidityAddedEventsProcessedError.Inc()
 
-			return errors.Wrap(err, "svc.saveSwapEvent")
+			return errors.Wrap(err, "indxr.saveSwapEvent")
 		}
 
 		if !events.Next() {
@@ -42,12 +43,12 @@ func (svc *Service) saveLiquidityAddedEvents(
 	}
 }
 
-func (svc *Service) saveLiquidityAddedEvent(
+func (indxr *Indexer) saveLiquidityAddedEvent(
 	ctx context.Context,
 	chainID *big.Int,
 	event *swap.SwapMint,
 ) error {
-	tx, _, err := svc.ethClient.TransactionByHash(ctx, event.Raw.TxHash)
+	tx, _, err := indxr.ethClient.TransactionByHash(ctx, event.Raw.TxHash)
 	if err != nil {
 		return err
 	}
@@ -78,15 +79,21 @@ func (svc *Service) saveLiquidityAddedEvent(
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
-	_, err = svc.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
-		Name:    eventindexer.EventNameMint,
-		Data:    string(marshaled),
-		ChainID: chainID,
-		Event:   eventindexer.EventNameMint,
-		Address: from.Hex(),
+	block, err := indxr.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
+	if err != nil {
+		return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
+	}
+
+	_, err = indxr.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
+		Name:         eventindexer.EventNameMint,
+		Data:         string(marshaled),
+		ChainID:      chainID,
+		Event:        eventindexer.EventNameMint,
+		Address:      from.Hex(),
+		TransactedAt: time.Unix(int64(block.Time()), 0),
 	})
 	if err != nil {
-		return errors.Wrap(err, "svc.eventRepo.Save")
+		return errors.Wrap(err, "indxr.eventRepo.Save")
 	}
 
 	eventindexer.LiquidityAddedEventsProcessed.Inc()
