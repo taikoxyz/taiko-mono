@@ -26,6 +26,27 @@ var (
 	watchMode               = "filter"
 	indexNFTs               = "true"
 	layer                   = "l1"
+	// openFunc                = func() (DB, error) {
+	// 	return db.OpenDBConnection(db.DBConnectionOpts{
+	// 		Name:            "dbuser",
+	// 		Password:        "dbpass",
+	// 		Database:        "dbname",
+	// 		Host:            "dbhost",
+	// 		MaxIdleConns:    uint64(10),
+	// 		MaxOpenConns:    uint64(10),
+	// 		MaxConnLifetime: uint64(30),
+	// 		OpenFunc: func(dsn string) (*db.DB, error) {
+	// 			gormDB, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
+	// 				Logger: logger.Default.LogMode(logger.Silent),
+	// 			})
+	// 			if err != nil {
+	// 				return nil, err
+	// 			}
+
+	// 			return db.New(gormDB), nil
+	// 		},
+	// 	})
+	// }
 )
 
 func setupApp() *cli.App {
@@ -65,6 +86,10 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, WatchMode(watchMode), c.WatchMode)
 		assert.Equal(t, true, c.IndexNFTs)
 		assert.Equal(t, layer, c.Layer)
+		assert.NotNil(t, c.OpenDBFunc)
+		// assert.Equal(t,
+		// 	runtime.FuncForPC(reflect.ValueOf(openFunc).Pointer()).Name(),
+		// 	runtime.FuncForPC(reflect.ValueOf(c.OpenDBFunc).Pointer()).Name())
 		// assert.Nil(t, InitFromConfig(context.Background(), new(Indexer), c))
 
 		return err
