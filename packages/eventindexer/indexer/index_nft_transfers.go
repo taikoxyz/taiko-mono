@@ -8,7 +8,6 @@ import (
 
 	"log/slog"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -29,28 +28,17 @@ var (
 
 // indexNFTTransfers indexes from a given starting block to a given end block and parses all event logs
 // to find ERC721 or ERC1155 transfer events
-func (svc *Service) indexNFTTransfers(
+func (indxr *Indexer) indexNFTTransfers(
 	ctx context.Context,
 	chainID *big.Int,
-	start uint64,
-	end uint64,
+	logs []types.Log,
 ) error {
-	query := ethereum.FilterQuery{
-		FromBlock: big.NewInt(int64(start)),
-		ToBlock:   big.NewInt(int64(end)),
-	}
-
-	logs, err := svc.ethClient.FilterLogs(ctx, query)
-	if err != nil {
-		return err
-	}
-
 	for _, vLog := range logs {
-		if !svc.isERC721Transfer(ctx, vLog) && !svc.isERC1155Transfer(ctx, vLog) {
+		if !indxr.isERC721Transfer(ctx, vLog) && !indxr.isERC1155Transfer(ctx, vLog) {
 			continue
 		}
 
-		if err := svc.saveNFTTransfer(ctx, chainID, vLog); err != nil {
+		if err := indxr.saveNFTTransfer(ctx, chainID, vLog); err != nil {
 			return err
 		}
 	}
@@ -59,7 +47,7 @@ func (svc *Service) indexNFTTransfers(
 }
 
 // isERC1155Transfer determines whether a given log is a valid ERC1155 transfer event
-func (svc *Service) isERC1155Transfer(ctx context.Context, vLog types.Log) bool {
+func (indxr *Indexer) isERC1155Transfer(ctx context.Context, vLog types.Log) bool {
 	// malformed event
 	if len(vLog.Topics) == 0 {
 		return false
@@ -76,7 +64,7 @@ func (svc *Service) isERC1155Transfer(ctx context.Context, vLog types.Log) bool 
 }
 
 // isERC721Transfer determines whether a given log is a valid ERC721 transfer event
-func (svc *Service) isERC721Transfer(ctx context.Context, vLog types.Log) bool {
+func (indxr *Indexer) isERC721Transfer(ctx context.Context, vLog types.Log) bool {
 	// malformed event
 	if len(vLog.Topics) == 0 {
 		return false
@@ -99,20 +87,20 @@ func (svc *Service) isERC721Transfer(ctx context.Context, vLog types.Log) bool {
 
 // saveNFTTrasnfer parses the event logs and saves either an ERC721 or ERC1155 event, updating
 // users balances
-func (svc *Service) saveNFTTransfer(ctx context.Context, chainID *big.Int, vLog types.Log) error {
-	if svc.isERC721Transfer(ctx, vLog) {
-		return svc.saveERC721Transfer(ctx, chainID, vLog)
+func (indxr *Indexer) saveNFTTransfer(ctx context.Context, chainID *big.Int, vLog types.Log) error {
+	if indxr.isERC721Transfer(ctx, vLog) {
+		return indxr.saveERC721Transfer(ctx, chainID, vLog)
 	}
 
-	if svc.isERC1155Transfer(ctx, vLog) {
-		return svc.saveERC1155Transfer(ctx, chainID, vLog)
+	if indxr.isERC1155Transfer(ctx, vLog) {
+		return indxr.saveERC1155Transfer(ctx, chainID, vLog)
 	}
 
 	return errors.New("nftTransferVlog not ERC721 or ERC1155")
 }
 
 // saveERC721Transfer updates the user's balances on the from and to of a ERC721 transfer event
-func (svc *Service) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog types.Log) error {
+func (indxr *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog types.Log) error {
 	from := fmt.Sprintf("0x%v", common.Bytes2Hex(vLog.Topics[1].Bytes()[12:]))
 
 	to := fmt.Sprintf("0x%v", common.Bytes2Hex(vLog.Topics[2].Bytes()[12:]))
@@ -129,7 +117,7 @@ func (svc *Service) saveERC721Transfer(ctx context.Context, chainID *big.Int, vL
 
 	// increment To address's balance
 
-	_, err := svc.nftBalanceRepo.IncreaseBalance(ctx, eventindexer.UpdateNFTBalanceOpts{
+	_, err := indxr.nftBalanceRepo.IncreaseBalance(ctx, eventindexer.UpdateNFTBalanceOpts{
 		ChainID:         chainID.Int64(),
 		Address:         to,
 		TokenID:         tokenID,
@@ -144,7 +132,7 @@ func (svc *Service) saveERC721Transfer(ctx context.Context, chainID *big.Int, vL
 	// decrement From address's balance
 	// ignore zero address since that is usually the "mint"
 	if from != ZeroAddress.Hex() {
-		_, err = svc.nftBalanceRepo.SubtractBalance(ctx, eventindexer.UpdateNFTBalanceOpts{
+		_, err = indxr.nftBalanceRepo.SubtractBalance(ctx, eventindexer.UpdateNFTBalanceOpts{
 			ChainID:         chainID.Int64(),
 			Address:         from,
 			TokenID:         tokenID,
@@ -162,7 +150,7 @@ func (svc *Service) saveERC721Transfer(ctx context.Context, chainID *big.Int, vL
 
 // saveERC1155Transfer parses and saves either a TransferSingle or TransferBatch event to
 // the database and updates the user's balances
-func (svc *Service) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLog types.Log) error {
+func (indxr *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLog types.Log) error {
 	from := fmt.Sprintf("0x%v", common.Bytes2Hex(vLog.Topics[2].Bytes()[12:]))
 
 	to := fmt.Sprintf("0x%v", common.Bytes2Hex(vLog.Topics[3].Bytes()[12:]))
@@ -212,7 +200,7 @@ func (svc *Service) saveERC1155Transfer(ctx context.Context, chainID *big.Int, v
 	// increment To address's balance
 
 	for _, transfer := range transfers {
-		_, err = svc.nftBalanceRepo.IncreaseBalance(ctx, eventindexer.UpdateNFTBalanceOpts{
+		_, err = indxr.nftBalanceRepo.IncreaseBalance(ctx, eventindexer.UpdateNFTBalanceOpts{
 			ChainID:         chainID.Int64(),
 			Address:         to,
 			TokenID:         transfer.ID.Int64(),
@@ -226,7 +214,7 @@ func (svc *Service) saveERC1155Transfer(ctx context.Context, chainID *big.Int, v
 
 		if from != ZeroAddress.Hex() {
 			// decrement From address's balance
-			_, err = svc.nftBalanceRepo.SubtractBalance(ctx, eventindexer.UpdateNFTBalanceOpts{
+			_, err = indxr.nftBalanceRepo.SubtractBalance(ctx, eventindexer.UpdateNFTBalanceOpts{
 				ChainID:         chainID.Int64(),
 				Address:         from,
 				TokenID:         transfer.ID.Int64(),
