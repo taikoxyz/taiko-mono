@@ -84,10 +84,10 @@
     "ERC1155VaultProxy": "0x1000777700000000000000000000000000000009"
   },
   "param1559": {
-    "yscale": "358298803609133338137582400989",
-    "xscale": "1488514844",
-    "gasIssuedPerSecond": "12500000",
-    "gasExcess": "45450000000"
+    "yscale": "1679526101464767541687441923934",
+    "xscale": "6977415078",
+    "gasIssuedPerSecond": "2666666",
+    "gasExcess": "9695997576"
   },
   "predeployERC20": true
 }
