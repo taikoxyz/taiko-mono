@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { destNetwork, destOptions } from '$components/Bridge/state';
   import SwitchChainsButton from '$components/Bridge/SwitchChainsButton.svelte';
   import { ChainSelector } from '$components/ChainSelector';
@@ -27,6 +28,10 @@
   function onNetworkChange() {
     updateDestOptions();
   }
+
+  onMount(() => {
+    updateDestOptions();
+  });
 </script>
 
 <ChainSelector class="flex-1" bind:value={$network} on:change={handleSourceChange} switchWallet />

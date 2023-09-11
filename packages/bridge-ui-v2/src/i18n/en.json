@@ -212,6 +212,8 @@
   },
   "chain_selector": {
     "placeholder": "Select chain",
+    "from_placeholder": "Select Source Chain",
+    "to_placeholder": "Select Destination Chain",
     "currently_on": "You are currently on",
     "disabled_options": {
       "title": "Disabled options?",
