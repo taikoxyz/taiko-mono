@@ -229,7 +229,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.bridge = bridgeContract
 	i.swaps = swapContracts
 	i.blockBatchSize = cfg.BlockBatchSize
-	i.subscriptionBackoff = time.Duration(cfg.Subscriptionbackoff) * time.Second
+	i.subscriptionBackoff = time.Duration(cfg.SubscriptionBackoff) * time.Second
 	i.srv = srv
 	i.httpPort = cfg.HTTPPort
 	i.wg = &sync.WaitGroup{}
