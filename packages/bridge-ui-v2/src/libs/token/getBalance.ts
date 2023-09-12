@@ -31,11 +31,10 @@ export async function getBalance({ userAddress, token, srcChainId, destChainId }
 
     if (!tokenAddress || tokenAddress === zeroAddress) return;
 
-    // Wagmi is such an amazing library. We had to do this
-    // more manually before.
     tokenBalance = await fetchBalance({
       address: userAddress,
       token: tokenAddress,
+      chainId: srcChainId,
     });
   }
 
