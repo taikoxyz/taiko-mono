@@ -23,7 +23,6 @@ var (
 	databaseMaxOpenConns    = "10"
 	databaseMaxConnLifetime = "30"
 	ethClientTimeout        = "10"
-	corsOrigins             = "*"
 )
 
 func setupApp() *cli.App {
@@ -68,7 +67,6 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, uint64(10), c.DatabaseMaxOpenConns)
 		assert.Equal(t, uint64(30), c.DatabaseMaxConnLifetime)
 		assert.Equal(t, uint64(10), c.ETHClientTimeout)
-		assert.Equal(t, []string{"*"}, c.CORSOrigins)
 		assert.Equal(t, true, c.ProfitableOnly)
 
 		c.OpenDBFunc = func() (DB, error) {
@@ -112,7 +110,6 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"-" + flags.DatabaseMaxOpenConns.Name, databaseMaxOpenConns,
 		"-" + flags.DatabaseConnMaxLifetime.Name, databaseMaxConnLifetime,
 		"-" + flags.ETHClientTimeout.Name, ethClientTimeout,
-		"-" + flags.CORSOrigins.Name, corsOrigins,
 		"-" + flags.ProfitableOnly.Name, profitableOnly,
 	}))
 }
