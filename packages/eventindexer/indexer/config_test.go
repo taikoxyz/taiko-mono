@@ -10,11 +10,22 @@ import (
 )
 
 var (
-	httpPort        = "1000"
-	metricsHttpPort = "1001"
-	l1TaikoAddress  = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
-	bridgeAddress   = "0x73FaC9201494f0bd17B9892B9fae4d52fe3BD377"
-	swapAddresses   = "0x33FaC9201494f0bd17B9892B9fae4d52fe3BD377,0x13FaC9201494f0bd17B9892B9fae4d52fe3BD377"
+	httpPort                = "1000"
+	metricsHttpPort         = "1001"
+	l1TaikoAddress          = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
+	bridgeAddress           = "0x73FaC9201494f0bd17B9892B9fae4d52fe3BD377"
+	swapAddresses           = "0x33FaC9201494f0bd17B9892B9fae4d52fe3BD377,0x13FaC9201494f0bd17B9892B9fae4d52fe3BD377"
+	corsOrigins             = "http://localhost:3000,http://localhost:3001"
+	databaseMaxIdleConns    = "10"
+	databaseMaxOpenConns    = "10"
+	databaseMaxConnLifetime = "30"
+	ethClientTimeout        = "30"
+	blockBatchSize          = "100"
+	subscriptionBackoff     = "30"
+	syncMode                = "sync"
+	watchMode               = "filter"
+	indexNFTs               = "true"
+	layer                   = "l1"
 )
 
 func setupApp() *cli.App {
@@ -44,6 +55,17 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, uint64(1001), c.MetricsHTTPPort)
 		assert.Equal(t, common.HexToAddress(l1TaikoAddress), c.L1TaikoAddress)
 		assert.Equal(t, common.HexToAddress(bridgeAddress), c.BridgeAddress)
+		assert.Equal(t, uint64(10), c.DatabaseMaxIdleConns)
+		assert.Equal(t, uint64(10), c.DatabaseMaxOpenConns)
+		assert.Equal(t, uint64(30), c.DatabaseMaxConnLifetime)
+		assert.Equal(t, uint64(30), c.ETHClientTimeout)
+		assert.Equal(t, uint64(100), c.BlockBatchSize)
+		assert.Equal(t, uint64(30), c.SubscriptionBackoff)
+		assert.Equal(t, SyncMode(syncMode), c.SyncMode)
+		assert.Equal(t, WatchMode(watchMode), c.WatchMode)
+		assert.Equal(t, true, c.IndexNFTs)
+		assert.Equal(t, layer, c.Layer)
+		assert.NotNil(t, c.OpenDBFunc)
 
 		// assert.Nil(t, InitFromConfig(context.Background(), new(Indexer), c))
 
@@ -62,5 +84,16 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"-" + flags.SwapAddresses.Name, swapAddresses,
 		"-" + flags.HTTPPort.Name, httpPort,
 		"-" + flags.MetricsHTTPPort.Name, metricsHttpPort,
+		"-" + flags.CORSOrigins.Name, corsOrigins,
+		"-" + flags.DatabaseMaxIdleConns.Name, databaseMaxIdleConns,
+		"-" + flags.DatabaseMaxOpenConns.Name, databaseMaxOpenConns,
+		"-" + flags.DatabaseConnMaxLifetime.Name, databaseMaxConnLifetime,
+		"-" + flags.ETHClientTimeout.Name, ethClientTimeout,
+		"-" + flags.BlockBatchSize.Name, blockBatchSize,
+		"-" + flags.SubscriptionBackoff.Name, subscriptionBackoff,
+		"-" + flags.SyncMode.Name, syncMode,
+		"-" + flags.WatchMode.Name, watchMode,
+		"-" + flags.IndexNFTs.Name, indexNFTs,
+		"-" + flags.Layer.Name, layer,
 	}))
 }

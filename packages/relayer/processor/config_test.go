@@ -12,7 +12,17 @@ import (
 )
 
 var (
-	destBridgeAddr = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
+	destBridgeAddr          = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
+	headerSyncInterval      = "30"
+	confirmations           = "10"
+	confirmationTimeout     = "30"
+	profitableOnly          = "true"
+	backoffRetryInterval    = "20"
+	backOffMaxRetrys        = "10"
+	databaseMaxIdleConns    = "10"
+	databaseMaxOpenConns    = "10"
+	databaseMaxConnLifetime = "30"
+	ethClientTimeout        = "10"
 )
 
 func setupApp() *cli.App {
@@ -48,6 +58,16 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.DestERC721VaultAddress)
 		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.DestERC1155VaultAddress)
 		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.DestTaikoAddress)
+		assert.Equal(t, uint64(30), c.HeaderSyncInterval)
+		assert.Equal(t, uint64(10), c.Confirmations)
+		assert.Equal(t, uint64(30), c.ConfirmationsTimeout)
+		assert.Equal(t, uint64(20), c.BackoffRetryInterval)
+		assert.Equal(t, uint64(10), c.BackOffMaxRetrys)
+		assert.Equal(t, uint64(10), c.DatabaseMaxIdleConns)
+		assert.Equal(t, uint64(10), c.DatabaseMaxOpenConns)
+		assert.Equal(t, uint64(30), c.DatabaseMaxConnLifetime)
+		assert.Equal(t, uint64(10), c.ETHClientTimeout)
+		assert.Equal(t, true, c.ProfitableOnly)
 
 		c.OpenDBFunc = func() (DB, error) {
 			return &mock.DB{}, nil
@@ -81,5 +101,39 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"-" + flags.DestERC1155VaultAddress.Name, destBridgeAddr,
 		"-" + flags.DestTaikoAddress.Name, destBridgeAddr,
 		"-" + flags.ProcessorPrivateKey.Name, dummyEcdsaKey,
+		"-" + flags.HeaderSyncInterval.Name, headerSyncInterval,
+		"-" + flags.Confirmations.Name, confirmations,
+		"-" + flags.ConfirmationTimeout.Name, confirmationTimeout,
+		"-" + flags.BackOffRetryInterval.Name, backoffRetryInterval,
+		"-" + flags.BackOffMaxRetrys.Name, backOffMaxRetrys,
+		"-" + flags.DatabaseMaxIdleConns.Name, databaseMaxIdleConns,
+		"-" + flags.DatabaseMaxOpenConns.Name, databaseMaxOpenConns,
+		"-" + flags.DatabaseConnMaxLifetime.Name, databaseMaxConnLifetime,
+		"-" + flags.ETHClientTimeout.Name, ethClientTimeout,
+		"-" + flags.ProfitableOnly.Name, profitableOnly,
 	}))
+}
+
+func TestNewConfigFromCliContext_PrivKeyError(t *testing.T) {
+	app := setupApp()
+	assert.ErrorContains(t, app.Run([]string{
+		"TestingNewConfigFromCliContext",
+		"-" + flags.DatabaseUsername.Name, "dbuser",
+		"-" + flags.DatabasePassword.Name, "dbpass",
+		"-" + flags.DatabaseHost.Name, "dbhost",
+		"-" + flags.DatabaseName.Name, "dbname",
+		"-" + flags.QueueUsername.Name, "queuename",
+		"-" + flags.QueuePassword.Name, "queuepassword",
+		"-" + flags.QueueHost.Name, "queuehost",
+		"-" + flags.QueuePort.Name, "5555",
+		"-" + flags.SrcRPCUrl.Name, "srcRpcUrl",
+		"-" + flags.DestRPCUrl.Name, "destRpcUrl",
+		"-" + flags.DestBridgeAddress.Name, destBridgeAddr,
+		"-" + flags.SrcSignalServiceAddress.Name, destBridgeAddr,
+		"-" + flags.DestERC721VaultAddress.Name, destBridgeAddr,
+		"-" + flags.DestERC20VaultAddress.Name, destBridgeAddr,
+		"-" + flags.DestERC1155VaultAddress.Name, destBridgeAddr,
+		"-" + flags.DestTaikoAddress.Name, destBridgeAddr,
+		"-" + flags.ProcessorPrivateKey.Name, "invalid-priv-key",
+	}), "invalid processorPrivateKey")
 }
