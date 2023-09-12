@@ -264,6 +264,12 @@ async function generateContractConfigs(
                 contractArtifacts.LibTrieProof.deployedBytecode.object,
             variables: {},
         },
+        LibVaultUtils: {
+            address: addressMap.LibVaultUtils,
+            deployedBytecode:
+                contractArtifacts.LibVaultUtils.deployedBytecode.object,
+            variables: {},
+        },
         LibBridgeRetry: {
             address: addressMap.LibBridgeRetry,
             deployedBytecode:
