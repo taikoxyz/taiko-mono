@@ -11,11 +11,14 @@
 
   import ChainSymbolName from './ChainSymbolName.svelte';
   import Status from './Status.svelte';
+  import StatusInfoDialog from './StatusInfoDialog.svelte';
 
   export let closeDetails = noop;
   export let detailsOpen = false;
 
   export let selectedItem: BridgeTransaction | null;
+
+  let openStatusDialog = false;
 
   let tooltipOpen = false;
   const openToolTip = (event: Event) => {
@@ -23,6 +26,10 @@
     tooltipOpen = !tooltipOpen;
   };
   let dialogId = `dialog-${uid()}`;
+
+  const handleStatusDialog = () => {
+    openStatusDialog = !openStatusDialog;
+  };
 </script>
 
 <dialog id={dialogId} class="modal modal-bottom" class:modal-open={detailsOpen}>
@@ -54,7 +61,9 @@
               <button on:click={openToolTip}>
                 <span>{$t('activities.header.status')}</span>
               </button>
-              <Tooltip position="right" bind:tooltipOpen>TODO: add description about status here</Tooltip>
+              <button on:click={handleStatusDialog} class="flex justify-start content-center">
+                <Icon type="question-circle" />
+              </button>
             </div>
           </h4>
           <div class="f-items-center space-x-1">
@@ -77,3 +86,5 @@
 
   <button class="overlay-backdrop" on:click={closeDetails} />
 </dialog>
+
+<StatusInfoDialog bind:modalOpen={openStatusDialog} noIcon />
