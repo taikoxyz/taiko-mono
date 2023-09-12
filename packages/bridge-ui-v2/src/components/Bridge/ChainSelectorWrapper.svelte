@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+
   import { destNetwork, destOptions } from '$components/Bridge/state';
   import SwitchChainsButton from '$components/Bridge/SwitchChainsButton.svelte';
   import { ChainSelector } from '$components/ChainSelector';
