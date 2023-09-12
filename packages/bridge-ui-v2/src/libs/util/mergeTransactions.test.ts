@@ -1,10 +1,47 @@
 import type { Address, Hex } from 'viem';
 
 import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
-import { TokenType } from '$libs/token';
+import type { TokenType } from '$libs/token';
 import { mergeAndCaptureOutdatedTransactions } from '$libs/util/mergeTransactions';
 
+function setupMocks() {
+  vi.mock('$customToken', () => {
+    return {
+      customToken: [
+        {
+          name: 'Bull Token',
+          addresses: {
+            '31336': '0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0',
+            '167002': '0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE',
+          },
+          symbol: 'BLL',
+          decimals: 18,
+          type: 'ERC20',
+          logoURI: 'ipfs://QmezMTpT6ovJ3szb3SKDM9GVGeQ1R8DfjYyXG12ppMe2BY',
+          mintable: true,
+        },
+        {
+          name: 'Horse Token',
+          addresses: {
+            '31336': '0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e',
+            '167002': '0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1',
+          },
+          symbol: 'HORSE',
+          decimals: 18,
+          type: 'ERC20',
+          logoURI: 'ipfs://QmU52ZxmSiGX24uDPNUGG3URyZr5aQdLpACCiD6tap4Mgc',
+          mintable: true,
+        },
+      ],
+    };
+  });
+}
+
 describe('mergeUniqueTransactions', () => {
+  beforeEach(() => {
+    setupMocks();
+  });
+
   // Given
   const localTxs: BridgeTransaction[] = [
     {
@@ -18,7 +55,7 @@ describe('mergeUniqueTransactions', () => {
       status: MessageStatus.DONE,
       msgHash: 'msg1' as Hex,
       receipt: undefined,
-      tokenType: TokenType.ERC20,
+      tokenType: 'ERC20' as TokenType,
     },
     {
       hash: 'hash2' as Hex,
@@ -31,7 +68,7 @@ describe('mergeUniqueTransactions', () => {
       status: MessageStatus.DONE,
       msgHash: 'msg2' as Hex,
       receipt: undefined,
-      tokenType: TokenType.ERC20,
+      tokenType: 'ERC20' as TokenType,
     },
   ];
 
@@ -47,7 +84,7 @@ describe('mergeUniqueTransactions', () => {
       status: MessageStatus.DONE,
       msgHash: 'msg3' as Hex,
       receipt: undefined,
-      tokenType: TokenType.ERC20,
+      tokenType: 'ERC20' as TokenType,
     },
     {
       hash: 'hash4' as Hex,
@@ -60,7 +97,7 @@ describe('mergeUniqueTransactions', () => {
       status: MessageStatus.DONE,
       msgHash: 'msg4' as Hex,
       receipt: undefined,
-      tokenType: TokenType.ERC20,
+      tokenType: 'ERC20' as TokenType,
     },
   ];
 
@@ -102,7 +139,7 @@ describe('mergeUniqueTransactions', () => {
         status: MessageStatus.DONE,
         msgHash: 'msg2' as Hex,
         receipt: undefined,
-        tokenType: TokenType.ERC20,
+        tokenType: 'ERC20' as TokenType,
       },
     ];
 
