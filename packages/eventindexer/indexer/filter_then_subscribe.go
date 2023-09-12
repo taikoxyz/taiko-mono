@@ -12,44 +12,42 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 )
 
-func (svc *Service) FilterThenSubscribe(
+func (indxr *Indexer) filterThenSubscribe(
 	ctx context.Context,
-	mode eventindexer.Mode,
-	watchMode eventindexer.WatchMode,
 	filter FilterFunc,
 ) error {
-	chainID, err := svc.ethClient.ChainID(ctx)
+	chainID, err := indxr.ethClient.ChainID(ctx)
 	if err != nil {
-		return errors.Wrap(err, "svc.ethClient.ChainID()")
+		return errors.Wrap(err, "indxr.ethClient.ChainID()")
 	}
 
-	if watchMode == eventindexer.SubscribeWatchMode {
-		return svc.subscribe(ctx, chainID)
+	if indxr.watchMode == Subscribe {
+		return indxr.subscribe(ctx, chainID)
 	}
 
-	if err := svc.setInitialProcessingBlockByMode(ctx, mode, chainID); err != nil {
-		return errors.Wrap(err, "svc.setInitialProcessingBlockByMode")
+	if err := indxr.setInitialProcessingBlockByMode(ctx, indxr.syncMode, chainID); err != nil {
+		return errors.Wrap(err, "indxr.setInitialProcessingBlockByMode")
 	}
 
-	header, err := svc.ethClient.HeaderByNumber(ctx, nil)
+	header, err := indxr.ethClient.HeaderByNumber(ctx, nil)
 	if err != nil {
-		return errors.Wrap(err, "svc.ethClient.HeaderByNumber")
+		return errors.Wrap(err, "indxr.ethClient.HeaderByNumber")
 	}
 
-	if svc.processingBlockHeight == header.Number.Uint64() {
+	if indxr.processingBlockHeight == header.Number.Uint64() {
 		slog.Info("indexing caught up subscribing to new incoming events", "chainID", chainID.Uint64())
-		return svc.subscribe(ctx, chainID)
+		return indxr.subscribe(ctx, chainID)
 	}
 
 	slog.Info("getting batch of events",
 		"chainID", chainID.Uint64(),
-		"startBlock", svc.processingBlockHeight,
+		"startBlock", indxr.processingBlockHeight,
 		"endBlock", header.Number.Int64(),
-		"batchSize", svc.blockBatchSize,
+		"batchSize", indxr.blockBatchSize,
 	)
 
-	for i := svc.processingBlockHeight; i < header.Number.Uint64(); i += svc.blockBatchSize {
-		end := svc.processingBlockHeight + svc.blockBatchSize
+	for i := indxr.processingBlockHeight; i < header.Number.Uint64(); i += indxr.blockBatchSize {
+		end := indxr.processingBlockHeight + indxr.blockBatchSize
 		// if the end of the batch is greater than the latest block number, set end
 		// to the latest block number
 		if end > header.Number.Uint64() {
@@ -65,33 +63,33 @@ func (svc *Service) FilterThenSubscribe(
 		fmt.Println()
 
 		filterOpts := &bind.FilterOpts{
-			Start:   svc.processingBlockHeight,
+			Start:   indxr.processingBlockHeight,
 			End:     &filterEnd,
 			Context: ctx,
 		}
 
-		if err := filter(ctx, chainID, svc, filterOpts); err != nil {
+		if err := filter(ctx, chainID, indxr, filterOpts); err != nil {
 			return errors.Wrap(err, "filter")
 		}
 
-		header, err := svc.ethClient.HeaderByNumber(ctx, big.NewInt(int64(end)))
+		header, err := indxr.ethClient.HeaderByNumber(ctx, big.NewInt(int64(end)))
 		if err != nil {
-			return errors.Wrap(err, "svc.ethClient.HeaderByNumber")
+			return errors.Wrap(err, "indxr.ethClient.HeaderByNumber")
 		}
 
 		slog.Info("setting last processed block", "height", end, "hash", header.Hash().Hex())
 
-		if err := svc.blockRepo.Save(eventindexer.SaveBlockOpts{
+		if err := indxr.processedBlockRepo.Save(eventindexer.SaveProcessedBlockOpts{
 			Height:  uint64(end),
 			Hash:    header.Hash(),
 			ChainID: chainID,
 		}); err != nil {
-			return errors.Wrap(err, "svc.blockRepo.Save")
+			return errors.Wrap(err, "indxr.blockRepo.Save")
 		}
 
 		eventindexer.BlocksProcessed.Inc()
 
-		svc.processingBlockHeight = uint64(end)
+		indxr.processingBlockHeight = uint64(end)
 	}
 
 	slog.Info(
@@ -99,19 +97,19 @@ func (svc *Service) FilterThenSubscribe(
 		"chainID", chainID.Uint64(),
 	)
 
-	latestBlock, err := svc.ethClient.HeaderByNumber(ctx, nil)
+	latestBlock, err := indxr.ethClient.HeaderByNumber(ctx, nil)
 	if err != nil {
-		return errors.Wrap(err, "svc.ethclient.HeaderByNumber")
+		return errors.Wrap(err, "indxr.ethclient.HeaderByNumber")
 	}
 
-	if svc.processingBlockHeight < latestBlock.Number.Uint64() {
-		return svc.FilterThenSubscribe(ctx, eventindexer.SyncMode, watchMode, filter)
+	if indxr.processingBlockHeight < latestBlock.Number.Uint64() {
+		return indxr.filterThenSubscribe(ctx, filter)
 	}
 
 	// we are caught up and specified not to subscribe, we can return now
-	if watchMode == eventindexer.FilterWatchMode {
+	if indxr.watchMode == Filter {
 		return nil
 	}
 
-	return svc.subscribe(ctx, chainID)
+	return indxr.subscribe(ctx, chainID)
 }

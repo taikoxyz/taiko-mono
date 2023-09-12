@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
@@ -13,20 +14,22 @@ import (
 var (
 	blockID             int64 = 1
 	dummyProveEventOpts       = eventindexer.SaveEventOpts{
-		Name:    eventindexer.EventNameBlockProven,
-		Address: "0x123",
-		Data:    "{\"data\":\"something\"}",
-		Event:   eventindexer.EventNameBlockProven,
-		ChainID: big.NewInt(1),
-		BlockID: &blockID,
+		Name:         eventindexer.EventNameBlockProven,
+		Address:      "0x123",
+		Data:         "{\"data\":\"something\"}",
+		Event:        eventindexer.EventNameBlockProven,
+		ChainID:      big.NewInt(1),
+		BlockID:      &blockID,
+		TransactedAt: time.Now(),
 	}
 	dummyProposeEventOpts = eventindexer.SaveEventOpts{
-		Name:    eventindexer.EventNameBlockProposed,
-		Address: "0x123",
-		Data:    "{\"data\":\"something\"}",
-		Event:   eventindexer.EventNameBlockProposed,
-		ChainID: big.NewInt(1),
-		BlockID: &blockID,
+		Name:         eventindexer.EventNameBlockProposed,
+		Address:      "0x123",
+		Data:         "{\"data\":\"something\"}",
+		Event:        eventindexer.EventNameBlockProposed,
+		ChainID:      big.NewInt(1),
+		BlockID:      &blockID,
+		TransactedAt: time.Now(),
 	}
 )
 
@@ -46,11 +49,12 @@ func TestIntegration_Event_Save(t *testing.T) {
 		{
 			"success",
 			eventindexer.SaveEventOpts{
-				Name:    "test",
-				ChainID: big.NewInt(1),
-				Data:    "{\"data\":\"something\"}",
-				Event:   eventindexer.EventNameBlockProposed,
-				Address: "0x123",
+				Name:         "test",
+				ChainID:      big.NewInt(1),
+				Data:         "{\"data\":\"something\"}",
+				Event:        eventindexer.EventNameBlockProposed,
+				Address:      "0x123",
+				TransactedAt: time.Now(),
 			},
 			nil,
 		},

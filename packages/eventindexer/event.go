@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"math/big"
 	"net/http"
+	"time"
 
 	"github.com/morkid/paginate"
 	"github.com/shopspring/decimal"
@@ -37,6 +38,7 @@ type Event struct {
 	To              string              `json:"to"`
 	TokenID         sql.NullInt64       `json:"tokenID"`
 	ContractAddress string              `json:"contractAddress"`
+	TransactedAt    time.Time           `json:"transactedAt"`
 }
 
 // SaveEventOpts
@@ -52,6 +54,7 @@ type SaveEventOpts struct {
 	To              *string
 	TokenID         *int64
 	ContractAddress *string
+	TransactedAt    time.Time
 }
 
 type UniqueProversResponse struct {

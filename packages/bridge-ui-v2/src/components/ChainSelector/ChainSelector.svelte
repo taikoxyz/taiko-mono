@@ -141,40 +141,38 @@
         <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
       </button>
       <div class="w-full">
-        <h3 class="title-body-bold mb-[20px]">{$t('chain_selector.placeholder')}</h3>
+        <h3 class="title-body-bold mb-[20px]">{ #if switchWallet } {$t('chain_selector.from_placeholder')} {:else} {$t('chain_selector.to_placeholder')} {/if}</h3>
         <ul role="menu">
           {#each chains as chain (chain.id)}
-            {@const disabled = validOptions
-              ? !validOptions.some((validOption) => validOption.id === chain.id)
-              : chain.id === value?.id}
+            {@const disabled = (validOptions
+              ? !validOptions.some((validOption) => validOption.id === chain.id) : true)
+              || chain.id === value?.id}
             {@const icon = chainConfig[Number(chain.id)]?.icon || 'Unknown Chain'}
-            {#if chain.id !== value?.id}
-              <li
-                role="menuitem"
-                tabindex="0"
-                class="p-4 rounded-[10px]"
-                class:opacity-20={disabled}
-                class:hover:bg-primary-background={!disabled}
-                class:hover:cursor-pointer={!disabled}
-                aria-disabled={disabled}
-                on:click={() => {
-                  if (!disabled) selectChain(chain);
-                }}
-                on:keydown={getChainKeydownHandler(chain)}>
-                <!-- TODO: agree on hover:bg color -->
-                <div class="f-row justify-between">
-                  <div class="f-items-center space-x-4">
-                    <i role="img" aria-label={chain.name}>
-                      <img src={icon} alt="chain-logo" class="rounded-full w-7 h-7" />
-                    </i>
-                    <span class="body-bold">{chain.name}</span>
-                  </div>
-                  <span class="f-items-center body-regular">{chainConfig[chain.id].type}</span>
+            <li
+              role="menuitem"
+              tabindex="0"
+              class="p-4 rounded-[10px]"
+              class:opacity-20={disabled}
+              class:hover:bg-primary-background={!disabled}
+              class:hover:cursor-pointer={!disabled}
+              aria-disabled={disabled}
+              on:click={() => {
+                if (!disabled) selectChain(chain);
+              }}
+              on:keydown={getChainKeydownHandler(chain)}>
+              <!-- TODO: agree on hover:bg color -->
+              <div class="f-row justify-between">
+                <div class="f-items-center space-x-4">
+                  <i role="img" aria-label={chain.name}>
+                    <img src={icon} alt="chain-logo" class="rounded-full w-7 h-7" />
+                  </i>
+                  <span class="body-bold">{chain.name}</span>
                 </div>
-              </li>
-            {/if}
+                <span class="f-items-center body-regular">{chainConfig[chain.id].type}</span>
+              </div>
+            </li>
           {/each}
-          {#if !small && validOptions?.length !== chains.length - 1}
+          {#if !small}
             <li role="menuitem" tabindex="0" class="p-4 rounded-[10px]">
               <Alert type="warning" forceColumnFlow>
                 <p class="font-bold">{$t('chain_selector.disabled_options.title')}</p>
