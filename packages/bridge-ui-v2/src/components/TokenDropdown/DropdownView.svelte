@@ -60,39 +60,39 @@
 
 <!-- Desktop (or larger) view -->
 <ul role="listbox" {id} class={menuClasses}>
-  {#each tokens as token (token.symbol)}
+  {#each tokens as t (t.symbol)}
     <li
       role="option"
       tabindex="0"
-      aria-selected={token === value}
-      on:click={() => selectToken(token)}
-      on:keydown={getTokenKeydownHandler(token)}>
+      aria-selected={t === value}
+      on:click={() => selectToken(t)}
+      on:keydown={getTokenKeydownHandler(t)}>
       <div class="p-4">
-        {#if symbolToIconMap[token.symbol]}
-          <i role="img" aria-label={token.name}>
-            <svelte:component this={symbolToIconMap[token.symbol]} size={28} />
+        {#if symbolToIconMap[t.symbol]}
+          <i role="img" aria-label={t.name}>
+            <svelte:component this={symbolToIconMap[t.symbol]} size={28} />
           </i>
         {:else}
-          <i role="img" aria-label={token.symbol}>
+          <i role="img" aria-label={t.symbol}>
             <svelte:component this={Erc20} size={28} />
           </i>
         {/if}
-        <span class="body-bold">{token.symbol}</span>
+        <span class="body-bold">{t.symbol}</span>
       </div>
     </li>
   {/each}
-  {#each customTokens as token, index (index)}
+  {#each customTokens as ct, index (index)}
     <li
       role="option"
       tabindex="0"
-      aria-selected={token === value}
-      on:click={() => selectToken(token)}
-      on:keydown={getTokenKeydownHandler(token)}>
+      aria-selected={ct === value}
+      on:click={() => selectToken(ct)}
+      on:keydown={getTokenKeydownHandler(ct)}>
       <div class="p-4">
-        <i role="img" aria-label={token.name}>
+        <i role="img" aria-label={ct.name}>
           <Erc20 />
         </i>
-        <span class="body-bold">{token.symbol}</span>
+        <span class="body-bold">{ct.symbol}</span>
       </div>
     </li>
   {/each}
@@ -105,7 +105,6 @@
             body-bold
             bg-transparent
             flex-1
-            
             px-0">
         {$t('token_dropdown.add_custom')}
       </span>
