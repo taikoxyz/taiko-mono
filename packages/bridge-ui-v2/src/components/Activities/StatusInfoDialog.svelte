@@ -4,8 +4,11 @@
   import { Icon } from '$components/Icon';
   import { uid } from '$libs/util/uid';
 
-  let dialogId = `dialog-${uid()}`;
-  let modalOpen = false;
+  export let modalOpen = false;
+
+  export let noIcon = false;
+
+  const dialogId = `dialog-${uid()}`;
 
   const closeModal = () => (modalOpen = false);
 
@@ -34,7 +37,9 @@
   on:click={openModal}
   on:focus={openModal}
   class=" ml-[4px]">
-  <Icon type="question-circle" />
+  {#if !noIcon}
+    <Icon type="question-circle" />
+  {/if}
 </button>
 
 <svelte:window on:keydown={closeModalIfKeyDown} />
