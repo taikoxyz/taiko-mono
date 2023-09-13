@@ -188,14 +188,14 @@ func (g *Generator) queryByTask(task string, date time.Time) (string, error) {
 
 	switch task {
 	case tasks.ProposerRewardsPerDay:
-		query := "SELECT SUM(proposer_reward) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
+		query := "SELECT COALESCE(SUM(proposer_reward), 0) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
 		err = g.db.GormDB().
 			Raw(query, eventindexer.EventNameBlockProposed, date).
 			Scan(&result).Error
 	case tasks.TotalProposerRewards:
 		var dailyProposerRewards int
 
-		query := "SELECT SUM(proposer_reward) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
+		query := "SELECT COALESCE(SUM(proposer_reward), 0) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
 		err = g.db.GormDB().
 			Raw(query, eventindexer.EventNameBlockProposed, date).
 			Scan(&result).Error
@@ -209,7 +209,7 @@ func (g *Generator) queryByTask(task string, date time.Time) (string, error) {
 	case tasks.TotalProofRewards:
 		var dailyProofRewards int
 
-		query := "SELECT SUM(proof_reward) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
+		query := "SELECT COALESCE(SUM(proof_reward), 0) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
 		err = g.db.GormDB().
 			Raw(query, eventindexer.EventNameBlockProposed, date).
 			Scan(&result).Error
@@ -221,7 +221,7 @@ func (g *Generator) queryByTask(task string, date time.Time) (string, error) {
 
 		result = strconv.Itoa(dailyProofRewards + tsdResult)
 	case tasks.ProofRewardsPerDay:
-		query := "SELECT SUM(proof_reward) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
+		query := "SELECT COALESCE(SUM(proof_reward), 0) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
 		err = g.db.GormDB().
 			Raw(query, eventindexer.EventNameBlockProposed, date).
 			Scan(&result).Error
