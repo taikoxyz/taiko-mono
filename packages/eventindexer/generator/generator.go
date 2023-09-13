@@ -104,6 +104,7 @@ func (g *Generator) generateByTask(ctx context.Context, task string) error {
 			"data already generated up-to-date for task",
 			"task", task,
 			"date", startingDate.Format("2006-01-02"),
+			"currentDate", currentDate.Format("2006-01-02"),
 		)
 
 		return nil
