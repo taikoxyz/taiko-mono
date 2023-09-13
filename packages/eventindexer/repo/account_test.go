@@ -40,6 +40,7 @@ func Test_NewAccountRepository(t *testing.T) {
 func TestIntegration_Account_Save(t *testing.T) {
 	db, close, err := testMysql(t)
 	assert.Equal(t, nil, err)
+
 	defer close()
 
 	accountRepo, err := NewAccountRepository(db)
