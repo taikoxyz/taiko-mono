@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/shopspring/decimal"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/tasks"
 	"github.com/urfave/cli/v2"
@@ -120,7 +120,7 @@ func (g *Generator) generateByTask(ctx context.Context, task string) error {
 			return err
 		}
 
-		slog.Info("Query successful", "task", task, "date", d.Format("2006-01-02"), "result", result)
+		slog.Info("Query successful", "task", task, "date", d.Format("2006-01-02"), "result", result.String())
 
 		insertStmt := `
 		INSERT INTO time_series_data(task, value, date)
@@ -176,13 +176,13 @@ func (g *Generator) getCurrentDate() time.Time {
 	return currentDate
 }
 
-// nolint: funlen
+// nolint: funlen, gocognit
 // queryByTask runs a database query which should return result data based on the
 // task
-func (g *Generator) queryByTask(task string, date time.Time) (string, error) {
+func (g *Generator) queryByTask(task string, date time.Time) (decimal.Decimal, error) {
 	dateString := date.Format("2006-01-02")
 
-	var result string
+	var result decimal.Decimal
 
 	var err error
 
@@ -190,179 +190,181 @@ func (g *Generator) queryByTask(task string, date time.Time) (string, error) {
 	case tasks.ProposerRewardsPerDay:
 		query := "SELECT COALESCE(SUM(proposer_reward), 0) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
 		err = g.db.GormDB().
-			Raw(query, eventindexer.EventNameBlockProposed, date).
+			Raw(query, eventindexer.EventNameBlockProposed, dateString).
 			Scan(&result).Error
+
 	case tasks.TotalProposerRewards:
-		var dailyProposerRewards int
+		var dailyProposerRewards decimal.NullDecimal
 
 		query := "SELECT COALESCE(SUM(proposer_reward), 0) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
 		err = g.db.GormDB().
-			Raw(query, eventindexer.EventNameBlockProposed, date).
-			Scan(&result).Error
+			Raw(query, eventindexer.EventNameBlockProposed, dateString).
+			Scan(&dailyProposerRewards).Error
 
 		tsdResult, err := g.previousDayTsdResultByTask(task, date)
 		if err != nil {
-			return "", err
+			return result, err
 		}
 
-		result = strconv.Itoa(dailyProposerRewards + tsdResult)
+		result = tsdResult.Decimal.Add(dailyProposerRewards.Decimal)
+
 	case tasks.TotalProofRewards:
-		var dailyProofRewards int
+		var dailyProofRewards decimal.NullDecimal
 
 		query := "SELECT COALESCE(SUM(proof_reward), 0) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
 		err = g.db.GormDB().
-			Raw(query, eventindexer.EventNameBlockProposed, date).
-			Scan(&result).Error
+			Raw(query, eventindexer.EventNameBlockProposed, dateString).
+			Scan(&dailyProofRewards).Error
 
 		tsdResult, err := g.previousDayTsdResultByTask(task, date)
 		if err != nil {
-			return "", err
+			return result, err
 		}
 
-		result = strconv.Itoa(dailyProofRewards + tsdResult)
+		result = tsdResult.Decimal.Add(dailyProofRewards.Decimal)
 	case tasks.ProofRewardsPerDay:
 		query := "SELECT COALESCE(SUM(proof_reward), 0) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
 		err = g.db.GormDB().
-			Raw(query, eventindexer.EventNameBlockProposed, date).
+			Raw(query, eventindexer.EventNameBlockProposed, dateString).
 			Scan(&result).Error
 	case tasks.BridgeMessagesSentPerDay:
 		err = g.eventCount(task, date, eventindexer.EventNameMessageSent, &result)
 	case tasks.TotalBridgeMessagesSent:
-		var dailyMsgSentCount int
+		var dailyMsgSentCount decimal.NullDecimal
 
 		err = g.eventCount(task, date, eventindexer.EventNameMessageSent, &dailyMsgSentCount)
 		if err != nil {
-			return "", err
+			return result, err
 		}
 
 		tsdResult, err := g.previousDayTsdResultByTask(task, date)
 		if err != nil {
-			return "", err
+			return result, err
 		}
 
-		result = strconv.Itoa(dailyMsgSentCount + tsdResult)
+		result = tsdResult.Decimal.Add(dailyMsgSentCount.Decimal)
 	case tasks.ProposeBlockTxPerDay:
 		err = g.eventCount(task, date, eventindexer.EventNameBlockProposed, &result)
 	case tasks.TotalProposeBlockTx:
-		var dailyProposerCount int
+		var dailyProposerCount decimal.NullDecimal
 
 		err = g.eventCount(task, date, eventindexer.EventNameBlockProposed, &dailyProposerCount)
 		if err != nil {
-			return "", err
+			return result, err
 		}
 
 		tsdResult, err := g.previousDayTsdResultByTask(task, date)
 		if err != nil {
-			return "", err
+			return result, err
 		}
 
-		result = strconv.Itoa(dailyProposerCount + tsdResult)
+		result = tsdResult.Decimal.Add(dailyProposerCount.Decimal)
 	case tasks.UniqueProposersPerDay:
 		query := "SELECT COUNT(DISTINCT address) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
 		err = g.db.GormDB().
-			Raw(query, eventindexer.EventNameBlockProposed, date).
+			Raw(query, eventindexer.EventNameBlockProposed, dateString).
 			Scan(&result).Error
 	case tasks.TotalUniqueProposers:
-		var dailyProposerCount int
+		var dailyProposerCount decimal.NullDecimal
 
 		query := `SELECT COUNT(DISTINCT address) FROM events WHERE event = ? AND DATE(transacted_at) = ?`
 
 		err = g.db.GormDB().Raw(query, eventindexer.EventNameBlockProposed, dateString).Scan(&dailyProposerCount).Error
 		if err != nil {
-			return "", err
+			return result, err
 		}
 
 		tsdResult, err := g.previousDayTsdResultByTask(task, date)
 		if err != nil {
-			return "", err
+			return result, err
 		}
 
-		result = strconv.Itoa(dailyProposerCount + tsdResult)
+		result = tsdResult.Decimal.Add(dailyProposerCount.Decimal)
 	case tasks.UniqueProversPerDay:
 		query := "SELECT COUNT(DISTINCT address) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
 		err = g.db.GormDB().
-			Raw(query, eventindexer.EventNameBlockProven, date).
+			Raw(query, eventindexer.EventNameBlockProven, dateString).
 			Scan(&result).Error
 	case tasks.TotalUniqueProvers:
-		var dailyProposerCount int
+		var dailyProverCount decimal.NullDecimal
 
 		query := `SELECT COUNT(DISTINCT address) FROM events WHERE event = ? AND DATE(transacted_at) = ?`
 
-		err = g.db.GormDB().Raw(query, eventindexer.EventNameBlockProven, dateString).Scan(&dailyProposerCount).Error
+		err = g.db.GormDB().Raw(query, eventindexer.EventNameBlockProven, dateString).Scan(&dailyProverCount).Error
 		if err != nil {
-			return "", err
+			return result, err
 		}
 
 		tsdResult, err := g.previousDayTsdResultByTask(task, date)
 		if err != nil {
-			return "", err
+			return result, err
 		}
 
-		result = strconv.Itoa(dailyProposerCount + tsdResult)
+		result = tsdResult.Decimal.Add(dailyProverCount.Decimal)
 	case tasks.ProveBlockTxPerDay:
 		query := "SELECT COUNT(*) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
 		err = g.db.GormDB().
-			Raw(query, eventindexer.EventNameBlockProven, date).
+			Raw(query, eventindexer.EventNameBlockProven, dateString).
 			Scan(&result).Error
 	case tasks.TotalProveBlockTx:
-		var dailyProposerCount int
+		var dailyProveBlockCount decimal.NullDecimal
 
 		query := `SELECT COUNT(*) FROM events WHERE event = ? AND DATE(transacted_at) = ?`
 
-		err = g.db.GormDB().Raw(query, eventindexer.EventNameBlockProven, dateString).Scan(&dailyProposerCount).Error
+		err = g.db.GormDB().Raw(query, eventindexer.EventNameBlockProven, dateString).Scan(&dailyProveBlockCount).Error
 		if err != nil {
-			return "", err
+			return result, err
 		}
 
 		tsdResult, err := g.previousDayTsdResultByTask(task, date)
 		if err != nil {
-			return "", err
+			return result, err
 		}
 
-		result = strconv.Itoa(dailyProposerCount + tsdResult)
+		result = tsdResult.Decimal.Add(dailyProveBlockCount.Decimal)
 	case tasks.AccountsPerDay:
 		query := `SELECT COUNT(*) FROM accounts WHERE DATE(transacted_at) = ?`
 		err = g.db.GormDB().Raw(query, dateString).Scan(&result).Error
 	case tasks.TotalAccounts:
-		var dailyAccountsCount int
+		var dailyAccountsCount decimal.NullDecimal
 
 		query := `SELECT COUNT(*) FROM accounts WHERE DATE(transacted_at) = ?`
 
 		err = g.db.GormDB().Raw(query, dateString).Scan(&dailyAccountsCount).Error
 		if err != nil {
-			return "", err
+			return result, err
 		}
 
 		tsdResult, err := g.previousDayTsdResultByTask(task, date)
 		if err != nil {
-			return "", err
+			return result, err
 		}
 
-		result = strconv.Itoa(dailyAccountsCount + tsdResult)
+		result = tsdResult.Decimal.Add(dailyAccountsCount.Decimal)
 	case tasks.BlocksPerDay:
 		query := `SELECT COUNT(*) FROM blocks WHERE DATE(transacted_at) = ?`
 		err = g.db.GormDB().Raw(query, dateString).Scan(&result).Error
 	case tasks.TotalBlocks:
-		var dailyBlockCount int
+		var dailyBlockCount decimal.NullDecimal
 
 		query := `SELECT COUNT(*) FROM blocks WHERE DATE(transacted_at) = ?`
 
 		err = g.db.GormDB().Raw(query, dateString).Scan(&dailyBlockCount).Error
 		if err != nil {
-			return "", err
+			return result, err
 		}
 
 		tsdResult, err := g.previousDayTsdResultByTask(task, date)
 		if err != nil {
-			return "", err
+			return result, err
 		}
 
-		result = strconv.Itoa(dailyBlockCount + tsdResult)
+		result = tsdResult.Decimal.Add(dailyBlockCount.Decimal)
 	case tasks.TransactionsPerDay:
 		query := `SELECT COUNT(*) FROM transactions WHERE DATE(transacted_at) = ?`
 		err = g.db.GormDB().Raw(query, dateString).Scan(&result).Error
 	case tasks.TotalTransactions:
-		var dailyTxCount int
+		var dailyTxCount decimal.NullDecimal
 
 		// get current days txs, get previous entry for the time series data, add them together.
 
@@ -370,41 +372,41 @@ func (g *Generator) queryByTask(task string, date time.Time) (string, error) {
 
 		err = g.db.GormDB().Raw(query, dateString).Scan(&dailyTxCount).Error
 		if err != nil {
-			return "", err
+			return result, err
 		}
 
 		tsdResult, err := g.previousDayTsdResultByTask(task, date)
 		if err != nil {
-			return "", err
+			return result, err
 		}
 
-		result = strconv.Itoa(dailyTxCount + tsdResult)
+		result = tsdResult.Decimal.Add(dailyTxCount.Decimal)
 	case tasks.ContractDeploymentsPerDay:
 		query := `SELECT COUNT(*) FROM transactions WHERE DATE(transacted_at) = ? AND contract_address != ?`
 		err = g.db.GormDB().Raw(query, dateString, ZeroAddress.Hex()).Scan(&result).Error
 	case tasks.TotalContractDeployments:
-		var dailyContractCount int
+		var dailyContractCount decimal.NullDecimal
 
 		// get current days txs, get previous entry for the time series data, add them together.
 		query := `SELECT COUNT(*) FROM transactions WHERE DATE(transacted_at) = ? AND contract_address != ?`
 
 		err = g.db.GormDB().Raw(query, dateString, ZeroAddress.Hex()).Scan(&dailyContractCount).Error
 		if err != nil {
-			return "", err
+			return result, err
 		}
 
 		tsdResult, err := g.previousDayTsdResultByTask(task, date)
 		if err != nil {
-			return "", err
+			return result, err
 		}
 
-		result = strconv.Itoa(dailyContractCount + tsdResult)
+		result = tsdResult.Decimal.Add(dailyContractCount.Decimal)
 	default:
-		return "", errors.New("task not supported")
+		return result, errors.New("task not supported")
 	}
 
 	if err != nil {
-		return "", err
+		return result, err
 	}
 
 	return result, nil
@@ -412,16 +414,22 @@ func (g *Generator) queryByTask(task string, date time.Time) (string, error) {
 
 // previousDayTsdResultByTask returns the previous day's time series data, based on
 // task and time passed in.
-func (g *Generator) previousDayTsdResultByTask(task string, date time.Time) (int, error) {
-	var tsdResult int
+func (g *Generator) previousDayTsdResultByTask(task string, date time.Time) (decimal.NullDecimal, error) {
+	var tsdResult decimal.NullDecimal
 
 	tsdQuery := `SELECT value FROM time_series_data WHERE task = ? AND date = ?`
 
 	err := g.db.GormDB().Raw(tsdQuery, task, date.AddDate(0, 0, -1).Format("2006-01-02")).Scan(&tsdResult).Error
 	if err != nil {
-		return 0, err
+		return tsdResult, err
 	}
 
+	if !tsdResult.Valid {
+		return decimal.NullDecimal{
+			Valid:   true,
+			Decimal: decimal.Zero,
+		}, nil
+	}
 	return tsdResult, nil
 }
 
@@ -431,6 +439,6 @@ func (g *Generator) eventCount(task string, date time.Time, event string, result
 	query := "SELECT COUNT(*) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
 
 	return g.db.GormDB().
-		Raw(query, event, date).
+		Raw(query, event, date.Format("2006-01-02")).
 		Scan(result).Error
 }
