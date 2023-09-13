@@ -50,8 +50,8 @@ library TaikoData {
         uint256 proofOracleCooldown;
         // The maximum time window allowed for a proof submission (in minutes).
         uint16 proofWindow;
-        // The amount of Taiko token as a bond
-        uint96 proofBond;
+        // The amount of Taiko token as a zk proof bond
+        uint96 proverBond;
         // True to skip proof verification
         bool skipProverAssignmentVerificaiton;
         // ---------------------------------------------------------------------
@@ -124,31 +124,39 @@ library TaikoData {
         bytes32 signalRoot;
         bytes32 graffiti;
         address prover;
+        uint16 tier;
         bytes proofs;
     }
 
     /// @dev Struct representing state transition data.
-    /// 10 slots reserved for upgradability, 4 slots used.
+    /// 10 slots reserved for upgradability, 6 slots used.
     struct Transition {
-        bytes32 key; //only written/read for the 1st state transition.
-        bytes32 blockHash;
-        bytes32 signalRoot;
-        address prover;
-        uint64 provenAt;
-        bytes32[6] __reserved;
+        bytes32 key; // slot 1, only written/read for the 1st state transition.
+        bytes32 blockHash; // slot 2
+        bytes32 signalRoot; // slot 3
+        address prover; // slot 4
+        uint96 proverBond;
+        address challenger; // slot 5
+        uint96 challengerBond;
+        uint64 provenAt; // slot 6 (144 bits)
+        uint64 challengedAt;
+        uint16 tier;
+        bytes32[4] __reserved;
     }
 
     /// @dev Struct containing data required for verifying a block.
-    /// 10 slots reserved for upgradability, 3 slots used.
+    /// 10 slots reserved for upgradability, 4 slots used.
     struct Block {
         bytes32 metaHash; // slot 1
         address prover; // slot 2
-        uint96 proofBond;
+        uint96 proverBond;
+        address proposer;
         uint64 blockId; // slot 3
-        uint64 proposedAt;
         uint32 nextTransitionId;
+        uint64 proposedAt; // slot 4 (128 bits)
         uint32 verifiedTransitionId;
-        bytes32[7] __reserved;
+        uint16 minTier;
+        bytes32[6] __reserved;
     }
 
     /// @dev Struct representing information about a transaction list.

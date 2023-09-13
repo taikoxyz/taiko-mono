@@ -16,6 +16,7 @@ import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibDepositing } from "./LibDepositing.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibTaikoToken } from "./LibTaikoToken.sol";
+import { LibTransition } from "./LibTransition.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
@@ -83,14 +84,11 @@ library LibProposing {
             revert L1_TOO_MANY_BLOCKS();
         }
 
-        TaikoToken tt = LibTaikoToken.receiveTaikoToken({
-            state: state,
-            resolver: resolver,
-            from: assignment.prover,
-            amount: config.proofBond
-        });
+        TaikoToken tt = LibTaikoToken.receiveTaikoToken(
+            state, resolver, assignment.prover, config.proverBond
+        );
 
-        emit BondReceived(assignment.prover, b.numBlocks, config.proofBond);
+        emit BondReceived(assignment.prover, b.numBlocks, config.proverBond);
 
         // Pay prover after verifying assignment
         if (config.skipProverAssignmentVerificaiton) {
@@ -167,7 +165,7 @@ library LibProposing {
             meta.id = b.numBlocks;
             meta.timestamp = uint64(block.timestamp);
             meta.l1Height = uint64(block.number - 1);
-            meta.l1Hash = blockhash(block.number - 1);
+            meta.l1Hash = blockhash(meta.l1Height);
 
             // After The Merge, L1 mixHash contains the prevrandao
             // from the beacon chain. Since multiple Taiko blocks
@@ -189,15 +187,19 @@ library LibProposing {
 
             blk.metaHash = LibUtils.hashMetadata(meta);
             blk.prover = assignment.prover;
-            blk.proofBond = config.proofBond;
+            blk.proverBond = config.proverBond;
+            blk.proposer = meta.proposer;
             blk.blockId = meta.id;
-            blk.proposedAt = meta.timestamp;
             blk.nextTransitionId = 1;
+            blk.proposedAt = meta.timestamp;
             blk.verifiedTransitionId = 0;
+            blk.minTier = LibTransition.getBlockMinTier(uint256(blk.metaHash));
+
+            ++state.slotB.numBlocks;
 
             emit BlockProposed({
-                blockId: state.slotB.numBlocks++,
-                prover: blk.prover,
+                blockId: meta.id,
+                prover: assignment.prover,
                 reward: reward,
                 meta: meta
             });

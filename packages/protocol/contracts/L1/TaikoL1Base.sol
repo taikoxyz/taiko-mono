@@ -13,6 +13,7 @@ import { LibDepositing } from "./libs/LibDepositing.sol";
 import { LibProposing } from "./libs/LibProposing.sol";
 import { LibProving } from "./libs/LibProving.sol";
 import { LibTaikoToken } from "./libs/LibTaikoToken.sol";
+import { LibTransition } from "./libs/LibTransition.sol";
 import { LibUtils } from "./libs/LibUtils.sol";
 import { LibVerifying } from "./libs/LibVerifying.sol";
 import { TaikoData } from "./TaikoData.sol";
@@ -208,7 +209,7 @@ abstract contract TaikoL1Base is
         view
         returns (TaikoData.Transition memory)
     {
-        return LibProving.getTransition({
+        return LibTransition.getTransition({
             state: state,
             config: getConfig(),
             blockId: blockId,

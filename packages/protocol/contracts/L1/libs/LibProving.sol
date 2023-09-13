@@ -7,32 +7,30 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { IProofVerifier } from "../IProofVerifier.sol";
+import { IPseProofVerifier } from "../PseProofVerifier.sol";
 import { LibMath } from "../../libs/LibMath.sol";
+import { LibTaikoToken } from "./LibTaikoToken.sol";
+import { LibTransition } from "./LibTransition.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
 
 library LibProving {
     using LibMath for uint256;
+    using LibTransition for TaikoData.State;
+    using LibUtils for TaikoData.State;
 
-    event BlockProven(
-        uint256 indexed blockId,
-        bytes32 parentHash,
-        bytes32 blockHash,
-        bytes32 signalRoot,
-        address prover
-    );
-
-    error L1_ALREADY_PROVEN();
-    error L1_BLOCK_ID_MISMATCH();
-    error L1_EVIDENCE_MISMATCH();
+    error L1_BLOCK_MISMATCH();
     error L1_TRANSITION_NOT_FOUND();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_EVIDENCE();
     error L1_INVALID_ORACLE_PROVER();
     error L1_INVALID_PROOF();
+    error L1_INVALID_TIER();
+    error L1_NOT_PROPOSER();
     error L1_NOT_PROVEABLE();
     error L1_SAME_PROOF();
+
+    error L1_TIER_INVALID();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -44,8 +42,8 @@ library LibProving {
         internal
     {
         if (
-            evidence.prover == address(0) || evidence.parentHash == 0
-                || evidence.blockHash == 0 || evidence.signalRoot == 0
+            evidence.parentHash == 0 || evidence.blockHash == 0
+                || evidence.signalRoot == 0
         ) revert L1_INVALID_EVIDENCE();
 
         TaikoData.SlotB memory b = state.slotB;
@@ -56,108 +54,46 @@ library LibProving {
         uint64 slot = blockId % config.blockRingBufferSize;
         TaikoData.Block storage blk = state.blocks[slot];
 
-        if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
-
-        // Check the metadata hash matches the proposed block's. This is
-        // necessary to handle chain reorgs.
-        if (blk.metaHash != evidence.metaHash) {
-            revert L1_EVIDENCE_MISMATCH();
+        if (blk.blockId != blockId || blk.metaHash != evidence.metaHash) {
+            revert L1_BLOCK_MISMATCH();
         }
 
-        if (evidence.prover == LibUtils.ORACLE_PROVER) {
-            // Oracle prover
-            if (msg.sender != resolver.resolve("oracle_prover", false)) {
-                revert L1_INVALID_ORACLE_PROVER();
-            }
-        } else {
-            // A block can be proven by a regular prover in the following cases:
-            // 1. The actual prover is the assigned prover
-            // 2. The block has at least one state transition (which must be
-            // from the assigned prover)
-            // 3. The block has become open
-            if (
-                evidence.prover != blk.prover && blk.nextTransitionId == 1
-                    && block.timestamp <= blk.proposedAt + config.proofWindow
-            ) revert L1_NOT_PROVEABLE();
-        }
+        if (evidence.tier < blk.minTier) revert L1_INVALID_TIER();
 
+        uint32 tid = state.getTransitionId(blk, slot, evidence.parentHash);
         TaikoData.Transition storage tran;
 
-        uint32 tid =
-            LibUtils.getTransitionId(state, blk, slot, evidence.parentHash);
-
         if (tid == 0) {
-            tid = blk.nextTransitionId;
-
-            // Unchecked is safe:
-            // - Not realistic 2**32 different fork choice per block will be
-            // proven and none of them is valid
+            // This is the first transition for a given parentHash.
             unchecked {
-                ++blk.nextTransitionId;
+                // Unchecked is safe:  Not realistic 2**32 different fork choice
+                // per block will be proven and none of them is valid
+                tid = blk.nextTransitionId++;
             }
 
             tran = state.transitions[slot][tid];
 
             if (tid == 1) {
-                // We only write the key when tid is 1.
+                // This is a trick to reduce gas cost for most blocks whose
+                // first transition should be the correct one.
+                // Writing to `tran` is cheaper as it's in the ring buffer,
+                // while writing to `transitionIds` is not.
                 tran.key = evidence.parentHash;
             } else {
                 state.transitionIds[blk.blockId][evidence.parentHash] = tid;
             }
-        } else if (evidence.prover == LibUtils.ORACLE_PROVER) {
-            // This is the branch the oracle prover is trying to overwrite
-            // We need to check the previous proof is not the same as the
-            // new proof
-            tran = state.transitions[slot][tid];
-            if (
-                tran.blockHash == evidence.blockHash
-                    && tran.signalRoot == evidence.signalRoot
-            ) revert L1_SAME_PROOF();
+
+            // Very important to reset the tier to zero.
+            tran.tier = 0;
+            tran.challengedAt = blk.proposedAt;
         } else {
-            revert L1_ALREADY_PROVEN();
+            tran = state.transitions[slot][tid];
+            assert(tran.tier != 0);
         }
 
-        tran.blockHash = evidence.blockHash;
-        tran.signalRoot = evidence.signalRoot;
-        tran.prover = evidence.prover;
-        tran.provenAt = uint64(block.timestamp);
-
-        IProofVerifier(resolver.resolve("proof_verifier", false)).verifyProofs(
-            blockId, evidence.proofs, getInstance(evidence)
-        );
-
-        emit BlockProven({
-            blockId: blockId,
-            parentHash: evidence.parentHash,
-            blockHash: evidence.blockHash,
-            signalRoot: evidence.signalRoot,
-            prover: evidence.prover
-        });
-    }
-
-    function getTransition(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        uint64 blockId,
-        bytes32 parentHash
-    )
-        internal
-        view
-        returns (TaikoData.Transition storage tran)
-    {
-        TaikoData.SlotB memory b = state.slotB;
-        if (blockId < b.lastVerifiedBlockId || blockId >= b.numBlocks) {
-            revert L1_INVALID_BLOCK_ID();
+        if (state.applyEvidence(resolver, blk, tran, evidence)) {
+            _verifyProof(resolver, blk, tran, evidence);
         }
-
-        uint64 slot = blockId % config.blockRingBufferSize;
-        TaikoData.Block storage blk = state.blocks[slot];
-        if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
-
-        uint32 tid = LibUtils.getTransitionId(state, blk, slot, parentHash);
-        if (tid == 0) revert L1_TRANSITION_NOT_FOUND();
-
-        tran = state.transitions[slot][tid];
     }
 
     function getInstance(TaikoData.BlockEvidence memory evidence)
@@ -178,6 +114,33 @@ library LibProving {
                     evidence.prover
                 )
             );
+        }
+    }
+
+    function _verifyProof(
+        AddressResolver resolver,
+        TaikoData.Block storage blk,
+        TaikoData.Transition storage tran,
+        TaikoData.BlockEvidence memory evidence
+    )
+        private
+    {
+        if (evidence.tier == LibTransition.TIER_OPTIMISTIC) {
+            require(evidence.proofs.length == 0);
+        } else if (evidence.tier == LibTransition.TIER_PSE_ZKEVM) {
+            if (
+                evidence.prover != blk.prover
+                    && block.timestamp <= tran.challengedAt + 1 hours
+            ) revert L1_NOT_PROVEABLE();
+
+            IPseProofVerifier(resolver.resolve("proof_verifier", false))
+                .verifyProofs(blk.blockId, evidence.proofs, getInstance(evidence));
+        } else if (evidence.tier == LibTransition.TIER_ORACLE) {
+            if (msg.sender != resolver.resolve("oracle_prover", false)) {
+                revert L1_INVALID_ORACLE_PROVER();
+            }
+        } else {
+            revert L1_TIER_INVALID();
         }
     }
 }
