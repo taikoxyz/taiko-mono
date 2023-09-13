@@ -170,7 +170,7 @@ func (g *Generator) getStartingDateByTask(ctx context.Context, task string) (tim
 // getCurrentDate returns the current date in YYYY-MM-DD format
 func (g *Generator) getCurrentDate() time.Time {
 	// Get current date
-	currentTime := time.Now()
+	currentTime := time.Now().UTC()
 	currentDate := time.Date(currentTime.Year(), currentTime.Month(), currentTime.Day(), 0, 0, 0, 0, time.UTC)
 
 	return currentDate
