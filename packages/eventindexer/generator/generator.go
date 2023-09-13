@@ -152,6 +152,7 @@ func (g *Generator) getLatestDateByTask(ctx context.Context, task string) (time.
 		if err != nil {
 			return time.Time{}, err
 		}
+
 		latestDate = latestDate.AddDate(0, 0, 1)
 	}
 
