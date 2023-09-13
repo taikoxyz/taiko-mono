@@ -93,7 +93,7 @@ func (indxr *Indexer) saveBlockProposedEvent(
 		Address:        sender.Hex(),
 		BlockID:        &blockID,
 		AssignedProver: &assignedProver,
-		TransactedAt:   time.Unix(int64(block.Time()), 0),
+		TransactedAt:   time.Unix(int64(block.Time()), 0).UTC(),
 		Amount:         event.Reward,
 		ProposerReward: proposerReward,
 		ProofReward:    proverReward,
