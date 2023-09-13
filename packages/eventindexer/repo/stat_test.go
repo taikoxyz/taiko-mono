@@ -5,7 +5,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"gotest.tools/assert"
 )
@@ -74,9 +73,9 @@ func TestIntegration_Stat_Find(t *testing.T) {
 			"success",
 			&eventindexer.Stat{
 				ID:                    1,
-				AverageProofReward:    new(big.Int).Mul(proofReward, big.NewInt(3)).String(),
+				AverageProofReward:    proofReward.String(),
 				AverageProofTime:      "0",
-				AverageProposerReward: new(big.Int).Mul(proposerReward, big.NewInt(3)).String(),
+				AverageProposerReward: proposerReward.String(),
 				NumProposerRewards:    3,
 				NumProofs:             0,
 				NumVerifiedBlocks:     3,
@@ -88,7 +87,7 @@ func TestIntegration_Stat_Find(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			resp, err := statRepo.Find(context.Background())
-			spew.Dump(resp)
+
 			assert.Equal(t, tt.wantErr, err)
 			assert.Equal(t, *tt.wantResp, *resp)
 		})
