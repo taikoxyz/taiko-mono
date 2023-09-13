@@ -35,7 +35,7 @@ contract TaikoL1 is TaikoL1Base {
             proofRegularCooldown: 30 minutes,
             proofOracleCooldown: 15 minutes,
             proofWindow: 90 minutes,
-            proofBond: 1024e18,
+            proofBond: 25e17,
             skipProverAssignmentVerificaiton: false,
             ethDepositRingBufferSize: 1024,
             ethDepositMinCountPerBlock: 8,
