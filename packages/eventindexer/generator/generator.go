@@ -187,6 +187,44 @@ func (g *Generator) queryByTask(task string, date time.Time) (string, error) {
 	var err error
 
 	switch task {
+	case tasks.ProposerRewardsPerDay:
+		query := "SELECT SUM(proposer_reward) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
+		err = g.db.GormDB().
+			Raw(query, eventindexer.EventNameBlockProposed, date).
+			Scan(&result).Error
+	case tasks.TotalProposerRewards:
+		var dailyProposerRewards int
+
+		query := "SELECT SUM(proposer_reward) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
+		err = g.db.GormDB().
+			Raw(query, eventindexer.EventNameBlockProposed, date).
+			Scan(&result).Error
+
+		tsdResult, err := g.previousDayTsdResultByTask(task, date)
+		if err != nil {
+			return "", err
+		}
+
+		result = strconv.Itoa(dailyProposerRewards + tsdResult)
+	case tasks.TotalProofRewards:
+		var dailyProofRewards int
+
+		query := "SELECT SUM(proof_reward) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
+		err = g.db.GormDB().
+			Raw(query, eventindexer.EventNameBlockProposed, date).
+			Scan(&result).Error
+
+		tsdResult, err := g.previousDayTsdResultByTask(task, date)
+		if err != nil {
+			return "", err
+		}
+
+		result = strconv.Itoa(dailyProofRewards + tsdResult)
+	case tasks.ProofRewardsPerDay:
+		query := "SELECT SUM(proof_reward) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
+		err = g.db.GormDB().
+			Raw(query, eventindexer.EventNameBlockProposed, date).
+			Scan(&result).Error
 	case tasks.BridgeMessagesSentPerDay:
 		err = g.eventCount(task, date, eventindexer.EventNameMessageSent, &result)
 	case tasks.TotalBridgeMessagesSent:

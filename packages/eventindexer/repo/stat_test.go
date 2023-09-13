@@ -54,9 +54,14 @@ func TestIntegration_Stat_Find(t *testing.T) {
 
 	var proofReward = big.NewInt(4)
 
-	_, err = statRepo.Save(context.Background(), eventindexer.SaveStatOpts{
-		ProofReward: proofReward,
-	})
+	var proposerReward = big.NewInt(7)
+
+	for i := 0; i < 3; i++ {
+		_, err = statRepo.Save(context.Background(), eventindexer.SaveStatOpts{
+			ProofReward:    proofReward,
+			ProposerReward: proposerReward,
+		})
+	}
 
 	assert.Equal(t, nil, err)
 
@@ -68,11 +73,13 @@ func TestIntegration_Stat_Find(t *testing.T) {
 		{
 			"success",
 			&eventindexer.Stat{
-				ID:                 1,
-				AverageProofReward: proofReward.String(),
-				AverageProofTime:   "0",
-				NumProofs:          0,
-				NumVerifiedBlocks:  1,
+				ID:                    1,
+				AverageProofReward:    new(big.Int).Mul(proofReward, big.NewInt(3)).String(),
+				AverageProofTime:      "0",
+				AverageProposerReward: new(big.Int).Mul(proposerReward, big.NewInt(3)).String(),
+				NumProposerRewards:    3,
+				NumProofs:             0,
+				NumVerifiedBlocks:     3,
 			},
 			nil,
 		},
