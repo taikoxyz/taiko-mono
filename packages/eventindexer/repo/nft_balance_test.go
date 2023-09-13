@@ -104,6 +104,7 @@ func TestIntegration_NFTBalance_FindByAddress(t *testing.T) {
 	}
 
 	get, err := http.NewRequest("GET", "", nil)
+	assert.Equal(t, nil, err)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
