@@ -93,19 +93,24 @@ func (g *Generator) generateTimeSeriesData(ctx context.Context) error {
 func (g *Generator) generateByTask(ctx context.Context, task string) error {
 	slog.Info("generating for task", "task", task)
 
-	latestDate, err := g.getStartingDateByTask(ctx, task)
+	startingDate, err := g.getStartingDateByTask(ctx, task)
 	if err != nil {
 		return err
 	}
 
 	currentDate := g.getCurrentDate()
-	if latestDate.AddDate(0, 0, 1).Compare(currentDate) == 0 {
-		slog.Info("data already generated up-to-date for task", "task", task, "date", latestDate.Format("2006-01-02"))
+	if startingDate.Compare(currentDate) == 0 {
+		slog.Info(
+			"data already generated up-to-date for task",
+			"task", task,
+			"date", startingDate.Format("2006-01-02"),
+		)
+
 		return nil
 	}
 
 	// Loop through each date from latestDate to currentDate
-	for d := latestDate; d.Before(currentDate); d = d.AddDate(0, 0, 1) {
+	for d := startingDate; d.Before(currentDate); d = d.AddDate(0, 0, 1) {
 		slog.Info("Processing", "task", task, "date", d.Format("2006-01-02"), "currentDate", currentDate.Format("2006-01-02"))
 
 		result, err := g.queryByTask(task, d)
