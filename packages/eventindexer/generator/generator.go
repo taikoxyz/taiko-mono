@@ -430,6 +430,7 @@ func (g *Generator) previousDayTsdResultByTask(task string, date time.Time) (dec
 			Decimal: decimal.Zero,
 		}, nil
 	}
+
 	return tsdResult, nil
 }
 
