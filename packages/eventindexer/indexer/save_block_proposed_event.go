@@ -75,6 +75,16 @@ func (indxr *Indexer) saveBlockProposedEvent(
 		return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
 	}
 
+	proposerReward, err := indxr.updateAverageProposerReward(ctx, event)
+	if err != nil {
+		return errors.Wrap(err, "indxr.updateAverageProposerReward")
+	}
+
+	proverReward, err := indxr.updateAverageProverReward(ctx, event)
+	if err != nil {
+		return errors.Wrap(err, "indxr.updateAverageProposerReward")
+	}
+
 	_, err = indxr.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
 		Name:           eventindexer.EventNameBlockProposed,
 		Data:           string(marshaled),
@@ -85,17 +95,11 @@ func (indxr *Indexer) saveBlockProposedEvent(
 		AssignedProver: &assignedProver,
 		TransactedAt:   time.Unix(int64(block.Time()), 0),
 		Amount:         event.Reward,
+		ProposerReward: proposerReward,
+		ProofReward:    proverReward,
 	})
 	if err != nil {
 		return errors.Wrap(err, "indxr.eventRepo.Save")
-	}
-
-	if err := indxr.updateAverageProposerReward(ctx, event); err != nil {
-		return errors.Wrap(err, "indxr.updateAverageProposerReward")
-	}
-
-	if err := indxr.updateAverageProverReward(ctx, event); err != nil {
-		return errors.Wrap(err, "indxr.updateAverageProposerReward")
 	}
 
 	eventindexer.BlockProposedEventsProcessed.Inc()
@@ -106,17 +110,17 @@ func (indxr *Indexer) saveBlockProposedEvent(
 func (indxr *Indexer) updateAverageProposerReward(
 	ctx context.Context,
 	event *taikol1.TaikoL1BlockProposed,
-) error {
+) (*big.Int, error) {
 	stat, err := indxr.statRepo.Find(ctx)
 	if err != nil {
-		return errors.Wrap(err, "indxr.statRepo.Find")
+		return nil, errors.Wrap(err, "indxr.statRepo.Find")
 	}
 
 	reward := event.Reward
 
 	avg, ok := new(big.Int).SetString(stat.AverageProposerReward, 10)
 	if !ok {
-		return errors.New("unable to convert average proposer to string")
+		return nil, errors.New("unable to convert average proposer to string")
 	}
 
 	newAverageProposerReward := calcNewAverage(
@@ -140,31 +144,31 @@ func (indxr *Indexer) updateAverageProposerReward(
 		ProposerReward: newAverageProposerReward,
 	})
 	if err != nil {
-		return errors.Wrap(err, "indxr.statRepo.Save")
+		return nil, errors.Wrap(err, "indxr.statRepo.Save")
 	}
 
-	return nil
+	return reward, err
 }
 
 func (indxr *Indexer) updateAverageProverReward(
 	ctx context.Context,
 	event *taikol1.TaikoL1BlockProposed,
-) error {
+) (*big.Int, error) {
 	stat, err := indxr.statRepo.Find(ctx)
 	if err != nil {
-		return errors.Wrap(err, "indxr.statRepo.Find")
+		return nil, errors.Wrap(err, "indxr.statRepo.Find")
 	}
 
 	tx, _, err := indxr.ethClient.TransactionByHash(ctx, event.Raw.TxHash)
 	if err != nil {
-		return errors.Wrap(err, "indxr.ethClient.TransactionByHash")
+		return nil, errors.Wrap(err, "indxr.ethClient.TransactionByHash")
 	}
 
 	reward := tx.Value()
 
 	avg, ok := new(big.Int).SetString(stat.AverageProofReward, 10)
 	if !ok {
-		return errors.New("unable to convert average proof time to string")
+		return nil, errors.New("unable to convert average proof time to string")
 	}
 
 	newAverageProofReward := calcNewAverage(
@@ -188,8 +192,8 @@ func (indxr *Indexer) updateAverageProverReward(
 		ProofReward: newAverageProofReward,
 	})
 	if err != nil {
-		return errors.Wrap(err, "indxr.statRepo.Save")
+		return nil, errors.Wrap(err, "indxr.statRepo.Save")
 	}
 
-	return nil
+	return reward, nil
 }
