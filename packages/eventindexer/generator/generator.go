@@ -93,7 +93,7 @@ func (g *Generator) generateTimeSeriesData(ctx context.Context) error {
 func (g *Generator) generateByTask(ctx context.Context, task string) error {
 	slog.Info("generating for task", "task", task)
 
-	latestDate, err := g.getLatestDateByTask(ctx, task)
+	latestDate, err := g.getStartingDateByTask(ctx, task)
 	if err != nil {
 		return err
 	}
@@ -132,12 +132,12 @@ func (g *Generator) generateByTask(ctx context.Context, task string) error {
 	return nil
 }
 
-// getLatestDateByTask returns the last time time series data has been generated
-// for the given task.
-func (g *Generator) getLatestDateByTask(ctx context.Context, task string) (time.Time, error) {
+// getStartingDateByTask returns first required time series data, one after the latest date entry,
+// or the genesis date.
+func (g *Generator) getStartingDateByTask(ctx context.Context, task string) (time.Time, error) {
 	var latestDateString string
 
-	var latestDate time.Time
+	var nextRequiredDate time.Time
 
 	q := `SELECT date FROM time_series_data WHERE task = ? ORDER BY date DESC LIMIT 1;`
 
@@ -146,19 +146,19 @@ func (g *Generator) getLatestDateByTask(ctx context.Context, task string) (time.
 	slog.Info("latestDateString", "task", task, "date", latestDateString)
 
 	if err != nil || latestDateString == "" {
-		latestDate = g.genesisDate
+		nextRequiredDate = g.genesisDate
 	} else {
-		latestDate, err = time.Parse("2006-01-02", latestDateString)
+		latestDate, err := time.Parse("2006-01-02", latestDateString)
 		if err != nil {
 			return time.Time{}, err
 		}
 
-		latestDate = latestDate.AddDate(0, 0, 1)
+		nextRequiredDate = latestDate.AddDate(0, 0, 1)
 	}
 
-	slog.Info("latest date for task", "task", task, "latestDate", latestDate.Format("2006-01-02"))
+	slog.Info("next required date for task", "task", task, "latestDate", nextRequiredDate.Format("2006-01-02"))
 
-	return latestDate, nil
+	return nextRequiredDate, nil
 }
 
 // getCurrentDate returns the current date in YYYY-MM-DD format
