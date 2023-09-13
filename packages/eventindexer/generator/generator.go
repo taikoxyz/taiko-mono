@@ -162,7 +162,7 @@ func (g *Generator) getStartingDateByTask(ctx context.Context, task string) (tim
 		nextRequiredDate = latestDate.AddDate(0, 0, 1)
 	}
 
-	slog.Info("next required date for task", "task", task, "latestDate", nextRequiredDate.Format("2006-01-02"))
+	slog.Info("next required date for task", "task", task, "nextRequiredDate", nextRequiredDate.Format("2006-01-02"))
 
 	return nextRequiredDate, nil
 }
@@ -343,14 +343,14 @@ func (g *Generator) queryByTask(task string, date time.Time) (string, error) {
 		result = strconv.Itoa(dailyTxCount + tsdResult)
 	case tasks.ContractDeploymentsPerDay:
 		query := `SELECT COUNT(*) FROM transactions WHERE DATE(transacted_at) = ? AND contract_address != ?`
-		err = g.db.GormDB().Raw(query, dateString, ZeroAddress).Scan(&result).Error
+		err = g.db.GormDB().Raw(query, dateString, ZeroAddress.Hex()).Scan(&result).Error
 	case tasks.TotalContractDeployments:
 		var dailyContractCount int
 
 		// get current days txs, get previous entry for the time series data, add them together.
 		query := `SELECT COUNT(*) FROM transactions WHERE DATE(transacted_at) = ? AND contract_address != ?`
 
-		err = g.db.GormDB().Raw(query, dateString, ZeroAddress).Scan(&dailyContractCount).Error
+		err = g.db.GormDB().Raw(query, dateString, ZeroAddress.Hex()).Scan(&dailyContractCount).Error
 		if err != nil {
 			return "", err
 		}
