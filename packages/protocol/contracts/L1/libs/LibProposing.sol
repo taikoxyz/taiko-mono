@@ -84,12 +84,6 @@ library LibProposing {
             revert L1_TOO_MANY_BLOCKS();
         }
 
-        TaikoToken tt = LibTaikoToken.receiveTaikoToken(
-            state, resolver, assignment.prover, config.proverBond
-        );
-
-        emit BondReceived(assignment.prover, b.numBlocks, config.proverBond);
-
         // Pay prover after verifying assignment
         if (config.skipProverAssignmentVerificaiton) {
             // For testing only
@@ -143,7 +137,7 @@ library LibProposing {
                     );
 
                     // Reward must be minted
-                    tt.mint(input.proposer, reward);
+                    TaikoToken(resolver.resolve("taiko_token", false)).mint(input.proposer, reward);
                 }
             }
         }
@@ -155,6 +149,8 @@ library LibProposing {
                 size: uint24(txList.length)
             });
         }
+
+        uint96 defaultProverBond;
 
         // Init the metadata
         // Unchecked is safe:
@@ -186,14 +182,22 @@ library LibProposing {
                 state.blocks[b.numBlocks % config.blockRingBufferSize];
 
             blk.metaHash = LibUtils.hashMetadata(meta);
+            // Determine the default tier and the necessary default bond
+            uint16 currentTier = LibTransition.getBlockDefaultTier(uint256(blk.metaHash));
+            defaultProverBond = config.proverBondOp; //Assume OP tier
+        
+            if(currentTier == LibTransition.TIER_ID_PSE_ZKEVM) {
+                defaultProverBond = config.proverBondZk;
+            }
+
             blk.prover = assignment.prover;
-            blk.proverBond = config.proverBond;
+            blk.proverBond = defaultProverBond;
             blk.proposer = meta.proposer;
             blk.blockId = meta.id;
             blk.nextTransitionId = 1;
             blk.proposedAt = meta.timestamp;
             blk.verifiedTransitionId = 0;
-            blk.minTier = LibTransition.getBlockMinTier(uint256(blk.metaHash));
+            blk.currentTier = currentTier;
 
             ++state.slotB.numBlocks;
 
@@ -204,6 +208,12 @@ library LibProposing {
                 meta: meta
             });
         }
+
+        LibTaikoToken.receiveTaikoToken(
+            state, resolver, assignment.prover, defaultProverBond
+        );
+
+        emit BondReceived(assignment.prover, b.numBlocks, defaultProverBond);
     }
 
     function getBlock(

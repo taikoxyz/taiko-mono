@@ -27,7 +27,8 @@ contract TaikoL1_NoCooldown is TaikoL1 {
         config.blockRingBufferSize = 12;
         config.proofRegularCooldown = 15 minutes;
         config.skipProverAssignmentVerificaiton = true;
-        config.proverBond = 1e18; // 1 Taiko token
+        config.proverBondOp = 10e18; // 10 Taiko token
+        config.proverBondZk = 1e18; // 1 Taiko token
         config.proposerRewardPerSecond = 1e15; // 0.001 Taiko token
     }
 }

@@ -33,6 +33,10 @@ library LibTransition {
     uint16 public constant TIER_PSE_ZKEVM = 30;
     uint16 public constant TIER_ORACLE = 100;
 
+    uint8 public constant TIER_ID_OPTIMISTIC = 1;
+    uint8 public constant TIER_ID_PSE_ZKEVM = 2;
+    uint8 public constant TIER_ID_ORACLE = 3;
+
     event TransitionProven(
         uint256 indexed blockId,
         bytes32 parentHash,
@@ -164,6 +168,42 @@ library LibTransition {
         }
     }
 
+
+    function challange(
+        TaikoData.State storage state,
+        AddressResolver resolver,
+        TaikoData.Block storage blk,
+        TaikoData.Transition storage tran,
+        TaikoData.BlockEvidence memory evidence
+    )
+        internal
+    {
+        if (tran.challenger != address(0)) revert L1_ALREADY_CHALLANGED();
+
+        (, uint96 newBond) = getTierBonds(evidence.tier);
+
+        if (newBond == 0) revert L1_TRANSITION_NOT_CHALLENGABLE();
+
+        tran.challenger = evidence.prover;
+        tran.challengerBond = newBond;
+        tran.provenAt = 0;
+        tran.challengedAt = uint64(block.timestamp);
+    
+        emit TransitionChallenged(
+            blk.blockId,
+            evidence.parentHash,
+            tran.blockHash,
+            evidence.prover,
+            newBond,
+            evidence.tier
+        );
+
+        if (newBond != 0) {
+            state.receiveTaikoToken(resolver, evidence.prover, newBond);
+            emit BondReceived(evidence.prover, blk.blockId, newBond);
+        }
+    }
+
     function getTransition(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -189,14 +229,36 @@ library LibTransition {
         tran = state.transitions[slot][tid];
     }
 
+    function isTransitionRegisteredAlready(
+        TaikoData.State storage state,
+        uint64 slot,
+        bytes32 blockHash,
+        bytes32 signalRoot
+    )
+        internal
+        view
+        returns (bool registered)
+    {
+        TaikoData.Block memory blk = state.blocks[slot];
+
+        // Todo: Most probably we cannot go with it - best to have a separate mapping
+        // checking this but for now is OK.
+        for(uint32 i; i < blk.nextTransitionId; i++) {
+            if (state.transitions[slot][i].blockHash == blockHash &&
+            state.transitions[slot][i].signalRoot == signalRoot) {
+                registered = true;
+            }
+        }
+    }
+
     function getTierBonds(uint16 tier)
         internal
         pure
         returns (uint96 provingBond, uint96 challangingBond)
     {
-        if (tier == TIER_OPTIMISTIC) return (10_000 ether, 10_000 ether);
-        if (tier == TIER_PSE_ZKEVM) return (0, 20_000 ether);
-        if (tier == TIER_ORACLE) return (0, 0 /* note allowed */ );
+        if (tier == TIER_ID_OPTIMISTIC) return (10_000 ether, 10_000 ether);
+        if (tier == TIER_ID_PSE_ZKEVM) return (0, 20_000 ether);
+        if (tier == TIER_ID_ORACLE) return (0, 0 /* note allowed */ );
         revert L1_TIER_INVALID();
     }
 
@@ -205,22 +267,22 @@ library LibTransition {
         pure
         returns (uint256)
     {
-        if (tier == TIER_OPTIMISTIC) return 4 hours;
-        if (tier == TIER_PSE_ZKEVM) return 30 minutes;
-        if (tier == TIER_ORACLE) return 15 minutes;
+        if (tier == TIER_ID_OPTIMISTIC) return 4 hours;
+        if (tier == TIER_ID_PSE_ZKEVM) return 30 minutes;
+        if (tier == TIER_ID_ORACLE) return 15 minutes;
         revert L1_TIER_INVALID();
     }
 
     function getTierMinMax()
         internal
         pure
-        returns (uint16 minTier, uint16 maxTier)
+        returns (uint16 currentTier, uint16 maxTier)
     {
-        return (TIER_OPTIMISTIC, TIER_ORACLE);
+        return (TIER_ID_OPTIMISTIC, TIER_ID_ORACLE);
     }
 
-    function getBlockMinTier(uint256 rand) internal pure returns (uint16) {
-        if (rand % 100 == 0) return TIER_PSE_ZKEVM; // 1%
-        return TIER_OPTIMISTIC; // 99%
+    function getBlockDefaultTier(uint256 rand) internal pure returns (uint16) {
+        if (rand % 100 == 0) return TIER_ID_PSE_ZKEVM; // 1%
+        return TIER_ID_OPTIMISTIC; // 99%
     }
 }
