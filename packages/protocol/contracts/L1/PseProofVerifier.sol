@@ -8,14 +8,30 @@ pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../common/AddressResolver.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { IProofVerifier } from "./IProofVerifier.sol";
 import { LibBytesUtils } from "../thirdparty/LibBytesUtils.sol";
-import { LibZKPVerifier } from "./libs/verifiers/LibZKPVerifier.sol";
+import { LibUtils } from "./libs/LibUtils.sol";
 import { Proxied } from "../common/Proxied.sol";
 
-/// @title ProofVerifier
-/// @notice See the documentation in {IProofVerifier}.
-contract ProofVerifier is EssentialContract, IProofVerifier {
+/// @title IPseProofVerifier
+/// @notice Contract that is responsible for verifying proofs.
+interface IPseProofVerifier {
+    /// @notice Verify the given proof(s) for the given blockId. This function
+    /// should revert if the verification fails.
+    /// @param blockId Unique identifier for the block.
+    /// @param blockProofs Raw bytes representing the proof(s).
+    /// @param instance Hashed evidence & config data. If set to zero, proof is
+    /// assumed to be from oracle prover.
+    function verifyProofs(
+        uint64 blockId,
+        bytes calldata blockProofs,
+        bytes32 instance
+    )
+        external;
+}
+
+/// @title PseProofVerifier
+/// @notice See the documentation in {IPseProofVerifier}.
+contract PseProofVerifier is EssentialContract, IPseProofVerifier {
     uint256[50] private __gap;
 
     error L1_INVALID_PROOF();
@@ -26,7 +42,7 @@ contract ProofVerifier is EssentialContract, IProofVerifier {
         EssentialContract._init(_addressManager);
     }
 
-    /// @inheritdoc IProofVerifier
+    /// @inheritdoc IPseProofVerifier
     function verifyProofs(
         // blockId is unused now, but can be used later when supporting
         // different types of proofs.
@@ -64,12 +80,33 @@ contract ProofVerifier is EssentialContract, IProofVerifier {
         uint16 verifierId = uint16(bytes2(blockProofs[0:2]));
 
         // Delegate to the ZKP verifier library to validate the proof.
-        LibZKPVerifier.verifyProof(
-            AddressResolver(address(this)), blockProofs[2:], verifierId
-        );
+        _verify(AddressResolver(address(this)), blockProofs[2:], verifierId);
+    }
+
+    function _verify(
+        AddressResolver resolver,
+        bytes memory proof,
+        uint16 verifierId
+    )
+        private
+        view
+    {
+        // Resolve the verifier's name and obtain its address.
+        address verifierAddress =
+            resolver.resolve(LibUtils.getVerifierName(verifierId), false);
+
+        // Call the verifier contract with the provided proof.
+        (bool verified, bytes memory ret) =
+            verifierAddress.staticcall(bytes.concat(proof));
+
+        // Check if the proof is valid.
+        if (!verified || ret.length != 32 || bytes32(ret) != keccak256("taiko"))
+        {
+            revert L1_INVALID_PROOF();
+        }
     }
 }
 
 /// @title ProxiedProofVerifier
 /// @notice Proxied version of the parent contract.
-contract ProxiedProofVerifier is Proxied, ProofVerifier { }
+contract ProxiedPseProofVerifier is Proxied, PseProofVerifier { }

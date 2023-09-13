@@ -13,7 +13,9 @@ import { IProver } from "../IProver.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
+import { LibTransition } from "./LibTransition.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
+import { TaikoToken } from "../TaikoToken.sol";
 
 library LibVerifying {
     using Address for address;
@@ -29,7 +31,7 @@ library LibVerifying {
     event BondReturned(address indexed to, uint64 blockId, uint256 bond);
     event BondRewarded(address indexed to, uint64 blockId, uint256 bond);
 
-    error L1_BLOCK_ID_MISMATCH();
+    error L1_BLOCK_MISMATCH();
     error L1_INVALID_CONFIG();
     error L1_UNEXPECTED_TRANSITION_ID();
 
@@ -48,8 +50,8 @@ library LibVerifying {
                 || config.blockTxListExpiry > 30 * 24 hours
                 || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
                 || config.proofRegularCooldown < config.proofOracleCooldown
-                || config.proofWindow == 0 || config.proofBond == 0
-                || config.proofBond < 10 * config.proposerRewardPerSecond
+                || config.proofWindow == 0 || config.proverBond == 0
+                || config.proverBond < 10 * config.proposerRewardPerSecond
                 || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
                 || config.ethDepositMaxCountPerBlock
@@ -72,17 +74,20 @@ library LibVerifying {
         // Init the genesis block
         TaikoData.Block storage blk = state.blocks[0];
         blk.nextTransitionId = 2;
-        blk.verifiedTransitionId = 1;
         blk.proposedAt = uint64(block.timestamp);
+        blk.verifiedTransitionId = 1;
 
         // Init the first state transition
         TaikoData.Transition storage tran = state.transitions[0][1];
         tran.blockHash = genesisBlockHash;
+        tran.prover = LibUtils.ORACLE_PROVER;
         tran.provenAt = uint64(block.timestamp);
+        tran.challengedAt = tran.provenAt;
+        tran.tier = LibTransition.TIER_ORACLE;
 
         emit BlockVerified({
             blockId: 0,
-            prover: LibUtils.ORACLE_PROVER,
+            prover: tran.prover,
             blockHash: genesisBlockHash
         });
     }
@@ -100,7 +105,7 @@ library LibVerifying {
 
         uint64 slot = blockId % config.blockRingBufferSize;
         TaikoData.Block storage blk = state.blocks[slot];
-        if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
+        if (blk.blockId != blockId) revert L1_BLOCK_MISMATCH();
 
         uint32 tid = blk.verifiedTransitionId;
         if (tid == 0) revert L1_UNEXPECTED_TRANSITION_ID();
@@ -108,8 +113,6 @@ library LibVerifying {
         bytes32 blockHash = state.transitions[slot][tid].blockHash;
 
         bytes32 signalRoot;
-        TaikoData.Transition storage tran;
-
         uint64 processed;
 
         // Unchecked is safe:
@@ -122,39 +125,45 @@ library LibVerifying {
             while (blockId < b.numBlocks && processed < maxBlocks) {
                 slot = blockId % config.blockRingBufferSize;
                 blk = state.blocks[slot];
-                if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
+                if (blk.blockId != blockId) revert L1_BLOCK_MISMATCH();
 
                 tid = LibUtils.getTransitionId(state, blk, slot, blockHash);
                 if (tid == 0) break;
 
-                tran = state.transitions[slot][tid];
-                if (tran.prover == address(0)) break;
+                TaikoData.Transition storage tran = state.transitions[slot][tid];
 
-                uint256 proofCooldown = tran.prover == LibUtils.ORACLE_PROVER
-                    ? config.proofOracleCooldown
-                    : config.proofRegularCooldown;
-                if (block.timestamp <= tran.provenAt + proofCooldown) {
-                    break;
-                }
+                // if (tran.prover != address(0)) {
+                //     // Use a ZK transition to verify the block
+                //     uint256 cooldownPeriod = tran.prover
+                //         == LibUtils.ORACLE_PROVER
+                //         ? config.proofOracleCooldown
+                //         : config.proofRegularCooldown;
+                //     if (block.timestamp <= tran.timestamp + cooldownPeriod) {
+                //         break;
+                //     }
+                // } else {
+                //     // Use an optmistic transition to verify the block.
+
+                //     // If this block requires an ZK transition, or this
+                //     // transition is being challenged or is not mature, we
+                // have
+                //     // to wait.
+                //     if (
+                //         blk.optimisticBond == 0 // this is a ZK block
+                //             || tran.challenger != address(0) // being
+                // challenged
+                //             || block.timestamp
+                //                 <= tran.timestamp + config.optimisticCooldown
+                //     ) {
+                //         break;
+                //     }
+                // }
 
                 blockHash = tran.blockHash;
                 signalRoot = tran.signalRoot;
                 blk.verifiedTransitionId = tid;
 
-                // Refund bond or give 1/4 of it to the actual prover and burn
-                // the rest.
-                if (
-                    tran.prover == LibUtils.ORACLE_PROVER
-                        || tran.provenAt <= blk.proposedAt + config.proofWindow
-                ) {
-                    state.taikoTokenBalances[blk.prover] += blk.proofBond;
-                    emit BondReturned(blk.prover, blockId, blk.proofBond);
-                } else {
-                    uint256 rewardAmount = blk.proofBond / 4;
-                    state.taikoTokenBalances[tran.prover] += rewardAmount;
-                    emit BondRewarded(tran.prover, blockId, rewardAmount);
-                }
-
+                _processTokenomics(state, config, resolver, blk, tran);
                 emit BlockVerified(blockId, tran.prover, tran.blockHash);
 
                 ++blockId;
@@ -179,5 +188,72 @@ library LibVerifying {
                 );
             }
         }
+    }
+
+    function _processTokenomics(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        AddressResolver resolver,
+        TaikoData.Block storage blk,
+        TaikoData.Transition storage tran
+    )
+        private
+    {
+        // uint256 extraReward =
+        //     tran.challenger == address(0) ? 0 : blk.optimisticBond / 4;
+
+        // // The tran.prover always receives block reward
+        // state.taikoTokenBalances[tran.prover] += _mintBlockReward(
+        //     state, config, resolver, blk
+        // ) + blk.optimisticBond + extraReward;
+
+        // if (
+        //     tran.prover == address(0) || tran.prover ==
+        // LibUtils.ORACLE_PROVER
+        //         || tran.prover == blk.prover
+        // ) {
+        //     // Return bond to the assigned prover
+        //     state.taikoTokenBalances[blk.prover] += blk.proverBond +
+        // extraReward;
+        // } else if (tran.prover != address(0)) {
+        //     // Reward 1/4 bond to the actual prover
+        //     state.taikoTokenBalances[tran.prover] +=
+        //         blk.proverBond / 4 + extraReward;
+        // }
+    }
+
+    function _mintBlockReward(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        AddressResolver resolver,
+        TaikoData.Block storage blk
+    )
+        private
+        returns (uint256 reward)
+    {
+        if (
+            config.proposerRewardPerSecond == 0 || config.proposerRewardMax == 0
+        ) return 0;
+
+        // Unchecked is safe:
+        // - block.timestamp is always greater than block.proposedAt (proposed
+        // in the past)
+        // - 1x state.taikoTokenBalances[addr] uint256 could theoretically store
+        // the whole token supply
+        uint64 blockTime;
+        unchecked {
+            blockTime = blk.proposedAt
+                - state.blocks[(blk.blockId - 1) % config.blockRingBufferSize]
+                    .proposedAt;
+        }
+        if (blockTime == 0) return 0;
+
+        reward = (config.proposerRewardPerSecond * blockTime).min(
+            config.proposerRewardMax
+        );
+
+        // Reward must be minted
+        TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
+        tt.mint(address(this), reward);
     }
 }

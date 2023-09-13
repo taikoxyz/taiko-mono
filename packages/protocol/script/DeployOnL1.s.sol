@@ -12,7 +12,7 @@ import
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
-import "../contracts/L1/ProofVerifier.sol";
+import "../contracts/L1/PseProofVerifier.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
@@ -161,8 +161,8 @@ contract DeployOnL1 is Script {
             )
         );
 
-        // ProofVerifier
-        ProofVerifier proofVerifier = new ProxiedProofVerifier();
+        // PseProofVerifier
+        PseProofVerifier proofVerifier = new ProxiedPseProofVerifier();
         deployProxy(
             "proof_verifier",
             address(proofVerifier),

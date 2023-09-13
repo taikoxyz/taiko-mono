@@ -28,18 +28,22 @@ abstract contract TaikoEvents {
         TaikoData.BlockMetadata meta
     );
 
-    /// @dev Emitted when a block is proven.
-    /// @param blockId The ID of the proven block.
-    /// @param parentHash The hash of the parent block.
-    /// @param blockHash The hash of the proven block.
-    /// @param signalRoot The signal root of the proven block.
-    /// @param prover The address of the prover who submitted the proof.
-    event BlockProven(
+    event TransitionProven(
         uint256 indexed blockId,
         bytes32 parentHash,
         bytes32 blockHash,
-        bytes32 signalRoot,
-        address prover
+        address prover,
+        uint96 proverbond,
+        uint16 tier
+    );
+
+    event TransitionChallenged(
+        uint256 indexed blockId,
+        bytes32 parentHash,
+        bytes32 blockHash,
+        address challenger,
+        uint96 challengerBond,
+        uint16 tier
     );
 
     /// @dev Emitted when a block is verified.

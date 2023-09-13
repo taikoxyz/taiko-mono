@@ -5,11 +5,12 @@ import { TestBase } from "../TestBase.sol";
 import { console2 } from "forge-std/console2.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { LibProving } from "../../contracts/L1/libs/LibProving.sol";
+import { LibTransition } from "../../contracts/L1/libs/LibTransition.sol";
 import { LibUtils } from "../../contracts/L1/libs/LibUtils.sol";
 import { TaikoData } from "../../contracts/L1/TaikoData.sol";
 import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
 import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
-import { ProofVerifier } from "../../contracts/L1/ProofVerifier.sol";
+import { PseProofVerifier } from "../../contracts/L1/PseProofVerifier.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
@@ -27,7 +28,7 @@ abstract contract TaikoL1TestBase is TestBase {
     TaikoL1 public L1;
     TaikoData.Config conf;
     uint256 internal logCount;
-    ProofVerifier public pv;
+    PseProofVerifier public pv;
 
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
     // 1 TKO --> it is to huge. It should be in 'wei' (?).
@@ -56,7 +57,7 @@ abstract contract TaikoL1TestBase is TestBase {
         ss = new SignalService();
         ss.init(address(addressManager));
 
-        pv = new ProofVerifier();
+        pv = new PseProofVerifier();
         pv.init(address(addressManager));
 
         registerAddress("proof_verifier", address(pv));
@@ -160,6 +161,7 @@ abstract contract TaikoL1TestBase is TestBase {
             signalRoot: signalRoot,
             graffiti: 0x0,
             prover: prover,
+            tier: 1,
             proofs: new bytes(102)
         });
 

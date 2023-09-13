@@ -13,9 +13,10 @@ pragma solidity ^0.8.20;
 abstract contract TaikoErrors {
     // NOTE: The following custom errors must match the definitions in
     // `L1/libs/*.sol`.
+    error L1_ALREADY_ASSERTED();
+    error L1_ALREADY_CHALLANGED();
     error L1_ALREADY_PROVEN();
-    error L1_BLOCK_ID_MISMATCH();
-    error L1_EVIDENCE_MISMATCH();
+    error L1_BLOCK_MISMATCH();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_ASSIGNMENT();
     error L1_INVALID_BLOCK_ID();
@@ -29,6 +30,9 @@ abstract contract TaikoErrors {
     error L1_INVALID_PROPOSER();
     error L1_INVALID_PROVER();
     error L1_INVALID_PROVER_SIG();
+    error L1_INVALID_TIER();
+    error L1_NOT_CHALLANGED();
+    error L1_NOT_PROPOSER();
     error L1_NOT_PROVEABLE();
     error L1_SAME_PROOF();
     error L1_TOO_MANY_BLOCKS();
