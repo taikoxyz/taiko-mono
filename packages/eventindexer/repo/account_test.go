@@ -45,6 +45,8 @@ func TestIntegration_Account_Save(t *testing.T) {
 
 	accountRepo, err := NewAccountRepository(db)
 	assert.Equal(t, nil, err)
+
+	t1 := time.Now()
 	tests := []struct {
 		name    string
 		acct    eventindexer.Account
@@ -55,7 +57,16 @@ func TestIntegration_Account_Save(t *testing.T) {
 			eventindexer.Account{
 				ID:           0,
 				Address:      "0x1234",
-				TransactedAt: time.Now(),
+				TransactedAt: t1,
+			},
+			nil,
+		},
+		{
+			"duplicate",
+			eventindexer.Account{
+				ID:           0,
+				Address:      "0x1234",
+				TransactedAt: t1,
 			},
 			nil,
 		},
