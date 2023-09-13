@@ -2,9 +2,17 @@
 
 For a given block, a transition can be uniquely identified by its _parent hash_. The transition's _block hash_ (and _signal root_) may change over time by new proofs, but the transition is always referred to as the same transition in this document.
 
+## Terminology
+
+- **The First Transition**: Refers to the transition with ID = 1.
+
+- **Prover Bond**: The bond provided by a block's assigned prover, serving as a commitment to initially prove the first transition and to provide post-challenge proofs within the corresponding proving window.
+
+- **Proof Bond**: The bond provided by the actual prover of a proof, signifying their commitment that the proof is indeed correct and that they are ready to withstand a challenge.
+
 ## The First Transition
 
-The _first transition_ of a block, denoted by id = 1, is reserved for the block's assigned prover. However, this exclusivity is contingent upon the assigned prover successfully proving the block within the stipulated proof window of the tier. If the assigned prover fails to meet this deadline, the transition is considered _open_. Upon its opening, the assigned prover is no longer allowed to prove the first transition.
+The _first transition_ of a block is reserved for the block's assigned prover. However, this exclusivity is contingent upon the assigned prover successfully proving the block within the stipulated proof window of the tier. If the assigned prover fails to meet this deadline, the transition is considered _open_. Upon its opening, the assigned prover is no longer allowed to prove the first transition.
 
 For all other transitions, no the proof window doesn't apply. Here, the principle is straightforward: the quickest prover takes the lead. Importantly, the assigned prover retains the right to compete in proving these transitions on equal footing with other provers.
 
