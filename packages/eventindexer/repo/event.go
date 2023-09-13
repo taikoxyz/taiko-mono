@@ -29,11 +29,12 @@ func NewEventRepository(db eventindexer.DB) (*EventRepository, error) {
 
 func (r *EventRepository) Save(ctx context.Context, opts eventindexer.SaveEventOpts) (*eventindexer.Event, error) {
 	e := &eventindexer.Event{
-		Data:    datatypes.JSON(opts.Data),
-		ChainID: opts.ChainID.Int64(),
-		Name:    opts.Name,
-		Event:   opts.Event,
-		Address: opts.Address,
+		Data:         datatypes.JSON(opts.Data),
+		ChainID:      opts.ChainID.Int64(),
+		Name:         opts.Name,
+		Event:        opts.Event,
+		Address:      opts.Address,
+		TransactedAt: opts.TransactedAt,
 	}
 
 	if opts.BlockID != nil {

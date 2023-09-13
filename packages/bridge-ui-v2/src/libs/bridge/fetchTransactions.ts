@@ -24,14 +24,14 @@ export async function fetchTransactions(userAddress: Address) {
     return txs;
   });
 
-  let relayerTxsArrays: BridgeTransaction[][]
+  let relayerTxsArrays: BridgeTransaction[][];
   // Wait for all promises to resolve
   try {
     relayerTxsArrays = await Promise.all(relayerTxPromises);
   } catch (e) {
     log('error fetching transactions from relayers', e);
     error = e as Error;
-    relayerTxsArrays = []
+    relayerTxsArrays = [];
   }
 
   // Flatten the arrays into a single array

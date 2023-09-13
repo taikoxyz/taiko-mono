@@ -14,160 +14,130 @@ import (
 type FilterFunc func(
 	ctx context.Context,
 	chainID *big.Int,
-	svc *Service,
+	indxr *Indexer,
 	filterOpts *bind.FilterOpts,
 ) error
 
 // nolint
-func L1FilterFunc(
+func filterFunc(
 	ctx context.Context,
 	chainID *big.Int,
-	svc *Service,
+	indxr *Indexer,
 	filterOpts *bind.FilterOpts,
 ) error {
 	wg, ctx := errgroup.WithContext(ctx)
 
-	if svc.taikol1 != nil {
+	if indxr.taikol1 != nil {
 		wg.Go(func() error {
-			blockProvenEvents, err := svc.taikol1.FilterBlockProven(filterOpts, nil)
+			blockProvenEvents, err := indxr.taikol1.FilterBlockProven(filterOpts, nil)
 			if err != nil {
-				return errors.Wrap(err, "svc.taikol1.FilterBlockProven")
+				return errors.Wrap(err, "indxr.taikol1.FilterBlockProven")
 			}
 
-			err = svc.saveBlockProvenEvents(ctx, chainID, blockProvenEvents)
+			err = indxr.saveBlockProvenEvents(ctx, chainID, blockProvenEvents)
 			if err != nil {
-				return errors.Wrap(err, "svc.saveBlockProvenEvents")
+				return errors.Wrap(err, "indxr.saveBlockProvenEvents")
 			}
 
 			return nil
 		})
 
 		wg.Go(func() error {
-			blockProposedEvents, err := svc.taikol1.FilterBlockProposed(filterOpts, nil, nil)
+			blockProposedEvents, err := indxr.taikol1.FilterBlockProposed(filterOpts, nil, nil)
 			if err != nil {
-				return errors.Wrap(err, "svc.taikol1.FilterBlockProposed")
+				return errors.Wrap(err, "indxr.taikol1.FilterBlockProposed")
 			}
 
-			err = svc.saveBlockProposedEvents(ctx, chainID, blockProposedEvents)
+			err = indxr.saveBlockProposedEvents(ctx, chainID, blockProposedEvents)
 			if err != nil {
-				return errors.Wrap(err, "svc.saveBlockProposedEvents")
+				return errors.Wrap(err, "indxr.saveBlockProposedEvents")
 			}
 
 			return nil
 		})
 
 		wg.Go(func() error {
-			blockVerifiedEvents, err := svc.taikol1.FilterBlockVerified(filterOpts, nil, nil)
+			blockVerifiedEvents, err := indxr.taikol1.FilterBlockVerified(filterOpts, nil, nil)
 			if err != nil {
-				return errors.Wrap(err, "svc.taikol1.FilterBlockVerified")
+				return errors.Wrap(err, "indxr.taikol1.FilterBlockVerified")
 			}
 
-			err = svc.saveBlockVerifiedEvents(ctx, chainID, blockVerifiedEvents)
+			err = indxr.saveBlockVerifiedEvents(ctx, chainID, blockVerifiedEvents)
 			if err != nil {
-				return errors.Wrap(err, "svc.saveBlockVerifiedEvents")
-			}
-
-			return nil
-		})
-	}
-
-	if svc.bridge != nil {
-		wg.Go(func() error {
-			messagesSent, err := svc.bridge.FilterMessageSent(filterOpts, nil)
-			if err != nil {
-				return errors.Wrap(err, "svc.bridge.FilterMessageSent")
-			}
-
-			err = svc.saveMessageSentEvents(ctx, chainID, messagesSent)
-			if err != nil {
-				return errors.Wrap(err, "svc.saveMessageSentEvents")
+				return errors.Wrap(err, "indxr.saveBlockVerifiedEvents")
 			}
 
 			return nil
 		})
 	}
 
-	if svc.indexNfts {
+	if indxr.bridge != nil {
 		wg.Go(func() error {
-			if err := svc.indexNFTTransfers(ctx, chainID, filterOpts.Start, *filterOpts.End); err != nil {
-				return errors.Wrap(err, "svc.indexNFTTransfers")
+			messagesSent, err := indxr.bridge.FilterMessageSent(filterOpts, nil)
+			if err != nil {
+				return errors.Wrap(err, "indxr.bridge.FilterMessageSent")
 			}
+
+			err = indxr.saveMessageSentEvents(ctx, chainID, messagesSent)
+			if err != nil {
+				return errors.Wrap(err, "indxr.saveMessageSentEvents")
+			}
+
 			return nil
 		})
 	}
 
-	err := wg.Wait()
+	if indxr.swaps != nil {
+		for _, s := range indxr.swaps {
+			swap := s
 
-	if err != nil {
-		if errors.Is(err, context.Canceled) {
-			slog.Error("context cancelled")
-			return err
+			wg.Go(func() error {
+				swaps, err := swap.FilterSwap(filterOpts, nil, nil)
+				if err != nil {
+					return errors.Wrap(err, "indxr.bridge.FilterSwap")
+				}
+
+				// only save ones above 0.01 ETH, this is only for Galaxe
+				// and we dont care about the rest
+				err = indxr.saveSwapEvents(ctx, chainID, swaps)
+				if err != nil {
+					return errors.Wrap(err, "indxr.saveSwapEvents")
+				}
+
+				return nil
+			})
+
+			wg.Go(func() error {
+				liquidityAdded, err := swap.FilterMint(filterOpts, nil)
+
+				if err != nil {
+					return errors.Wrap(err, "indxr.bridge.FilterMint")
+				}
+
+				// only save ones above 0.1 ETH, this is only for Galaxe
+				// and we dont care about the rest
+				err = indxr.saveLiquidityAddedEvents(ctx, chainID, liquidityAdded)
+				if err != nil {
+					return errors.Wrap(err, "indxr.saveLiquidityAddedEvents")
+				}
+
+				return nil
+			})
 		}
-
-		return err
 	}
 
-	return nil
-}
-
-func L2FilterFunc(
-	ctx context.Context,
-	chainID *big.Int,
-	svc *Service,
-	filterOpts *bind.FilterOpts,
-) error {
-	wg, ctx := errgroup.WithContext(ctx)
-
-	for _, s := range svc.swaps {
-		swap := s
-
-		wg.Go(func() error {
-			swaps, err := swap.FilterSwap(filterOpts, nil, nil)
-			if err != nil {
-				return errors.Wrap(err, "svc.bridge.FilterSwap")
-			}
-
-			// only save ones above 0.01 ETH, this is only for Galaxe
-			// and we dont care about the rest
-			err = svc.saveSwapEvents(ctx, chainID, swaps)
-			if err != nil {
-				return errors.Wrap(err, "svc.saveSwapEvents")
-			}
-
-			return nil
-		})
-
-		wg.Go(func() error {
-			liquidityAdded, err := swap.FilterMint(filterOpts, nil)
-
-			if err != nil {
-				return errors.Wrap(err, "svc.bridge.FilterMint")
-			}
-
-			// only save ones above 0.1 ETH, this is only for Galaxe
-			// and we dont care about the rest
-			err = svc.saveLiquidityAddedEvents(ctx, chainID, liquidityAdded)
-			if err != nil {
-				return errors.Wrap(err, "svc.saveLiquidityAddedEvents")
-			}
-
-			return nil
-		})
-	}
-
-	if svc.indexNfts {
-		wg.Go(func() error {
-			if err := svc.indexNFTTransfers(ctx, chainID, filterOpts.Start, *filterOpts.End); err != nil {
-				return errors.Wrap(err, "svc.indexNFTTransfers")
-			}
-			return nil
-		})
-	}
+	wg.Go(func() error {
+		if err := indxr.indexRawBlockData(ctx, chainID, filterOpts.Start, *filterOpts.End); err != nil {
+			return errors.Wrap(err, "indxr.indexRawBlockData")
+		}
+		return nil
+	})
 
 	err := wg.Wait()
+
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			slog.Error("context cancelled")
+			slog.Error("filter context cancelled")
 			return err
 		}
 
