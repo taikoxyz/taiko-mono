@@ -149,10 +149,10 @@ func (g *Generator) getLatestDateByTask(ctx context.Context, task string) (time.
 		latestDate = g.genesisDate
 	} else {
 		latestDate, err = time.Parse("2006-01-02", latestDateString)
-	}
-
-	if err != nil {
-		return time.Time{}, err
+		if err != nil {
+			return time.Time{}, err
+		}
+		latestDate = latestDate.AddDate(0, 0, 1)
 	}
 
 	slog.Info("latest date for task", "task", task, "latestDate", latestDate.Format("2006-01-02"))
