@@ -55,6 +55,7 @@ func (g *Generator) Name() string {
 func (g *Generator) Start() error {
 	if g.regenerate {
 		slog.Info("regenerating, deleting existing data")
+
 		if err := g.deleteTimeSeriesData(context.Background()); err != nil {
 			return err
 		}
