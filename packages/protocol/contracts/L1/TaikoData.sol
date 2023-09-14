@@ -52,8 +52,6 @@ library TaikoData {
         uint16 proofWindow;
         // The amount of Taiko token as a bond (moved to diff. struct so most prob. can be deleted)
         uint96 proverBond;
-        // The amount of Taiko token as a zk proof bond
-        uint96 proverBondZk;
         // True to skip proof verification
         bool skipProverAssignmentVerificaiton;
         // ---------------------------------------------------------------------
