@@ -50,9 +50,8 @@ library LibVerifying {
                 || config.blockTxListExpiry > 30 * 24 hours
                 || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
                 || config.proofRegularCooldown < config.proofOracleCooldown
-                || config.proofWindow == 0 || config.proverBondOp == 0 || config.proverBondZk == 0
-                || config.proverBondOp < config.proverBondZk
-                || config.proverBondZk < 10 * config.proposerRewardPerSecond
+                || config.proofWindow == 0 || config.proverBond == 0 
+                || config.proverBond < 10 * config.proposerRewardPerSecond
                 || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
                 || config.ethDepositMaxCountPerBlock

@@ -50,8 +50,8 @@ library TaikoData {
         uint256 proofOracleCooldown;
         // The maximum time window allowed for a proof submission (in minutes).
         uint16 proofWindow;
-        // The amount of Taiko token as an op proof bond
-        uint96 proverBondOp;
+        // The amount of Taiko token as a bond (moved to diff. struct so most prob. can be deleted)
+        uint96 proverBond;
         // The amount of Taiko token as a zk proof bond
         uint96 proverBondZk;
         // True to skip proof verification
