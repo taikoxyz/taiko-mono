@@ -23,6 +23,7 @@ var (
 type Generator struct {
 	db          DB
 	genesisDate time.Time
+	regenerate  bool
 }
 
 func (g *Generator) InitFromCli(ctx context.Context, c *cli.Context) error {
@@ -42,6 +43,7 @@ func InitFromConfig(ctx context.Context, g *Generator, cfg *Config) error {
 
 	g.db = db
 	g.genesisDate = cfg.GenesisDate
+	g.regenerate = cfg.Regenerate
 
 	return nil
 }
@@ -51,6 +53,13 @@ func (g *Generator) Name() string {
 }
 
 func (g *Generator) Start() error {
+	if g.regenerate {
+		slog.Info("regenerating, deleting existing data")
+		if err := g.deleteTimeSeriesData(context.Background()); err != nil {
+			return err
+		}
+	}
+
 	slog.Info("generating time series data")
 
 	if err := g.generateTimeSeriesData(context.Background()); err != nil {
@@ -69,6 +78,15 @@ func (g *Generator) Close(ctx context.Context) {
 	if err := sqlDB.Close(); err != nil {
 		slog.Error("error closing sqlbd connecting", "err", err.Error())
 	}
+}
+
+func (g *Generator) deleteTimeSeriesData(ctx context.Context) error {
+	deleteStmt := "DELETE FROM time_series_data;"
+	if err := g.db.GormDB().Exec(deleteStmt).Error; err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // generateTimeSeriesData iterates over each task and generates time series data.
