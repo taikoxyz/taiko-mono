@@ -86,7 +86,7 @@ abstract contract TaikoL1Base is
         meta = LibProposing.proposeBlock({
             state: state,
             config: config,
-            tierConfig:tierConfig,
+            tierConfig: tierConfig,
             resolver: AddressResolver(this),
             input: abi.decode(input, (TaikoData.BlockMetadataInput)),
             assignment: abi.decode(assignment, (TaikoData.ProverAssignment)),

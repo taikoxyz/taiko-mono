@@ -82,7 +82,8 @@ library LibProving {
         // 1. The very first proof -> if (tid == 0){}
         // 2.1 Challange 'proof' (not an actual proof) -> else {}
         // 2.2 Proofs coming in for NOT the default tier -> else{}
-        // 3. Oracle proofs -> else if (evidence.prover == LibUtils.ORACLE_PROVER) {}
+        // 3. Oracle proofs -> else if (evidence.prover ==
+        // LibUtils.ORACLE_PROVER) {}
 
         if (tid == 0) {
             // This is the first transition for a given parentHash.
@@ -104,12 +105,14 @@ library LibProving {
                 state.transitionIds[blk.blockId][evidence.parentHash] = tid;
             }
 
-            // Initialize tier as the 'default' one (which is the currentTier for the first time)
-            // No need to init other tran vars like (challenger, challengedAt) bc. they are default now.
+            // Initialize tier as the 'default' one (which is the currentTier
+            // for the first time)
+            // No need to init other tran vars like (challenger, challengedAt)
+            // bc. they are default now.
             tran.tier = blk.currentTier;
-            // By default it is in a WAITING_FOR_PROOF_XXXX state. Now increasing it to have PROVEN_XXX
+            // By default it is in a WAITING_FOR_PROOF_XXXX state. Now
+            // increasing it to have PROVEN_XXX
             blk.provingStatus++;
-
         } else if (evidence.prover == LibUtils.ORACLE_PROVER) {
             // This is the branch the oracle prover is trying to overwrite
             // We need to check the previous proof is not the same as the
@@ -129,15 +132,18 @@ library LibProving {
             // A: Is it a challange ?
             // OR
             // B: Is it a proof for an existing (challenged) transition ?
-            if (evidence.tier == tran.tier ) {
+            if (evidence.tier == tran.tier) {
                 // This is a challenge
-                LibTransition.challenge(state, tierConfig, resolver, blk, tran, evidence);
+                LibTransition.challenge(
+                    state, tierConfig, resolver, blk, tran, evidence
+                );
                 // return as no need to verify since it is just a challenge
                 return;
-            }
-            else {
+            } else {
                 // It is a new proof on a higher tier then the previous one
-                LibTransition.proveChallenged(state, tierConfig, resolver, blk, tran, evidence);
+                LibTransition.proveChallenged(
+                    state, tierConfig, resolver, blk, tran, evidence
+                );
             }
         }
 

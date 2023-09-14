@@ -138,7 +138,9 @@ library LibProposing {
                     );
 
                     // Reward must be minted
-                    TaikoToken(resolver.resolve("taiko_token", false)).mint(input.proposer, reward);
+                    TaikoToken(resolver.resolve("taiko_token", false)).mint(
+                        input.proposer, reward
+                    );
                 }
             }
         }
@@ -184,8 +186,10 @@ library LibProposing {
 
             blk.metaHash = LibUtils.hashMetadata(meta);
             // Determine the default tier and the necessary prover bond
-            (uint8 currentTier, uint8 currentProvingStatus) = LibTransition.getBlockDefaultTierStatus(uint256(blk.metaHash));
-            (defaultProverBond, ) = LibTransition.getTierBonds(tierConfig, currentTier);
+            (uint8 currentTier, uint8 currentProvingStatus) =
+                LibTransition.getBlockDefaultTierStatus(uint256(blk.metaHash));
+            (defaultProverBond,) =
+                LibTransition.getTierBonds(tierConfig, currentTier);
 
             blk.prover = assignment.prover;
             blk.proverBond = defaultProverBond;

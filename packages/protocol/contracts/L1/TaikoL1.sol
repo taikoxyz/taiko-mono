@@ -57,7 +57,7 @@ contract TaikoL1 is TaikoL1Base {
         returns (TaikoData.TierConfig memory tierConfig)
     {
         tierConfig.tierData[LibTransition.TIER_ID_NONE] = TaikoData.TierData({
-            id : LibTransition.TIER_ID_NONE,
+            id: LibTransition.TIER_ID_NONE,
             proofRegularCooldown: 60 minutes,
             proofOracleCooldown: 30 minutes,
             proofWindow: 60 minutes,
@@ -66,7 +66,7 @@ contract TaikoL1 is TaikoL1Base {
         });
 
         tierConfig.tierData[LibTransition.TIER_ID_1] = TaikoData.TierData({
-            id : LibTransition.TIER_ID_1,
+            id: LibTransition.TIER_ID_1,
             proofRegularCooldown: 60 minutes,
             proofOracleCooldown: 30 minutes,
             proofWindow: 60 minutes,
@@ -75,16 +75,17 @@ contract TaikoL1 is TaikoL1Base {
         });
 
         tierConfig.tierData[LibTransition.TIER_ID_2] = TaikoData.TierData({
-            id : LibTransition.TIER_ID_2,
+            id: LibTransition.TIER_ID_2,
             proofRegularCooldown: 60 minutes,
             proofOracleCooldown: 30 minutes,
             proofWindow: 60 minutes,
             proverBond: 10_240e18,
-            challengerBond: 15_240e18 // Still can challange, but then it goes to 'GUARDIAN' level
-        });
+            challengerBond: 15_240e18 // Still can challange, but then it goes
+                // to 'GUARDIAN' level
+         });
 
         tierConfig.tierData[LibTransition.TIER_ID_GUARDIAN] = TaikoData.TierData({
-            id : LibTransition.TIER_ID_GUARDIAN,
+            id: LibTransition.TIER_ID_GUARDIAN,
             proofRegularCooldown: 60 minutes,
             proofOracleCooldown: 30 minutes,
             proofWindow: 60 minutes,

@@ -50,7 +50,8 @@ library TaikoData {
         uint256 proofOracleCooldown;
         // The maximum time window allowed for a proof submission (in minutes).
         uint16 proofWindow;
-        // The amount of Taiko token as a bond (moved to diff. struct so most prob. can be deleted)
+        // The amount of Taiko token as a bond (moved to diff. struct so most
+        // prob. can be deleted)
         uint96 proverBond;
         // True to skip proof verification
         bool skipProverAssignmentVerificaiton;
@@ -90,7 +91,8 @@ library TaikoData {
 
     /// @dev Struct holding Taiko proof configuration parameters.
     struct TierConfig {
-        uint8 maxId; // Indicates the size of the array, max being the ORACLE (Guard).
+        uint8 maxId; // Indicates the size of the array, max being the ORACLE
+            // (Guard).
         TaikoData.TierData[] tierData;
     }
 
@@ -174,7 +176,7 @@ library TaikoData {
         address proposer; // slot 3
         uint64 blockId;
         uint32 nextTransitionId;
-        uint64 proposedAt; 
+        uint64 proposedAt;
         uint32 verifiedTransitionId;
         uint8 currentTier;
         uint8 provingStatus; // slot 4 (128 bits)
