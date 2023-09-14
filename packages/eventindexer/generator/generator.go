@@ -260,42 +260,30 @@ func (g *Generator) queryByTask(task string, date time.Time) (decimal.Decimal, e
 			Raw(query, eventindexer.EventNameBlockProposed, dateString).
 			Scan(&result).Error
 	case tasks.TotalUniqueProposers:
-		var dailyProposerCount decimal.NullDecimal
+		query := `SELECT COUNT(DISTINCT address) FROM events WHERE event = ?`
 
-		query := `SELECT COUNT(DISTINCT address) FROM events WHERE event = ? AND DATE(transacted_at) = ?`
-
-		err = g.db.GormDB().Raw(query, eventindexer.EventNameBlockProposed, dateString).Scan(&dailyProposerCount).Error
+		err = g.db.GormDB().Raw(
+			query,
+			eventindexer.EventNameBlockProposed,
+		).Scan(&result).Error
 		if err != nil {
 			return result, err
 		}
-
-		tsdResult, err := g.previousDayTsdResultByTask(task, date)
-		if err != nil {
-			return result, err
-		}
-
-		result = tsdResult.Decimal.Add(dailyProposerCount.Decimal)
 	case tasks.UniqueProversPerDay:
 		query := "SELECT COUNT(DISTINCT address) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
 		err = g.db.GormDB().
 			Raw(query, eventindexer.EventNameBlockProven, dateString).
 			Scan(&result).Error
 	case tasks.TotalUniqueProvers:
-		var dailyProverCount decimal.NullDecimal
+		query := `SELECT COUNT(DISTINCT address) FROM events WHERE event = ?`
 
-		query := `SELECT COUNT(DISTINCT address) FROM events WHERE event = ? AND DATE(transacted_at) = ?`
-
-		err = g.db.GormDB().Raw(query, eventindexer.EventNameBlockProven, dateString).Scan(&dailyProverCount).Error
+		err = g.db.GormDB().Raw(
+			query,
+			eventindexer.EventNameBlockProven,
+		).Scan(&result).Error
 		if err != nil {
 			return result, err
 		}
-
-		tsdResult, err := g.previousDayTsdResultByTask(task, date)
-		if err != nil {
-			return result, err
-		}
-
-		result = tsdResult.Decimal.Add(dailyProverCount.Decimal)
 	case tasks.ProveBlockTxPerDay:
 		query := "SELECT COUNT(*) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
 		err = g.db.GormDB().
