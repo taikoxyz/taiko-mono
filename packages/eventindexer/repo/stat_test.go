@@ -5,7 +5,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"gotest.tools/assert"
 )
@@ -54,9 +53,14 @@ func TestIntegration_Stat_Find(t *testing.T) {
 
 	var proofReward = big.NewInt(4)
 
-	_, err = statRepo.Save(context.Background(), eventindexer.SaveStatOpts{
-		ProofReward: proofReward,
-	})
+	var proposerReward = big.NewInt(7)
+
+	for i := 0; i < 3; i++ {
+		_, err = statRepo.Save(context.Background(), eventindexer.SaveStatOpts{
+			ProofReward:    proofReward,
+			ProposerReward: proposerReward,
+		})
+	}
 
 	assert.Equal(t, nil, err)
 
@@ -68,11 +72,13 @@ func TestIntegration_Stat_Find(t *testing.T) {
 		{
 			"success",
 			&eventindexer.Stat{
-				ID:                 1,
-				AverageProofReward: proofReward.String(),
-				AverageProofTime:   "0",
-				NumProofs:          0,
-				NumVerifiedBlocks:  1,
+				ID:                    1,
+				AverageProofReward:    proofReward.String(),
+				AverageProofTime:      "0",
+				AverageProposerReward: proposerReward.String(),
+				NumProposerRewards:    3,
+				NumProofs:             0,
+				NumVerifiedBlocks:     3,
 			},
 			nil,
 		},
@@ -81,7 +87,7 @@ func TestIntegration_Stat_Find(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			resp, err := statRepo.Find(context.Background())
-			spew.Dump(resp)
+
 			assert.Equal(t, tt.wantErr, err)
 			assert.Equal(t, *tt.wantResp, *resp)
 		})

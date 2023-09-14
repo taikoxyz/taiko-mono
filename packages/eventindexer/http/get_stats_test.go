@@ -37,7 +37,8 @@ func Test_GetStats(t *testing.T) {
 			"success",
 			"0x123",
 			http.StatusOK,
-			[]string{`{"id":1,"averageProofTime":"5","averageProofReward":"7","numProofs":1,"numVerifiedBlocks":1}`},
+			// nolint: lll
+			[]string{`{"id":1,"averageProofTime":"5","averageProofReward":"7","averageProposerReward":"","numProposerRewards":0,"numProofs":1,"numVerifiedBlocks":1}`},
 		},
 	}
 

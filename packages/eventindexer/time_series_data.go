@@ -1,11 +1,15 @@
 package eventindexer
 
-import "time"
+import (
+	"time"
+
+	"github.com/shopspring/decimal"
+)
 
 type TimeSeriesData struct {
 	ID        int
 	Task      string
-	Value     string
+	Value     decimal.NullDecimal
 	Date      string
 	CreatedAt time.Time
 	UpdatedAt time.Time
