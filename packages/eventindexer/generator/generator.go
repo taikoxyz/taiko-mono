@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"syscall"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -55,10 +54,6 @@ func (g *Generator) Start() error {
 	slog.Info("generating time series data")
 
 	if err := g.generateTimeSeriesData(context.Background()); err != nil {
-		return err
-	}
-
-	if err := syscall.Kill(syscall.Getpid(), syscall.SIGTERM); err != nil {
 		return err
 	}
 

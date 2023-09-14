@@ -46,20 +46,18 @@ func OpenDBConnection(opts DBConnectionOpts) (*DB, error) {
 	dsn := ""
 	if opts.Password == "" {
 		dsn = fmt.Sprintf(
-			"%v@tcp(%v)/%v?charset=utf8mb4&parseTime=True&loc=%v",
+			"%v@tcp(%v)/%v?charset=utf8mb4&parseTime=True",
 			opts.Name,
 			opts.Host,
 			opts.Database,
-			"UTC",
 		)
 	} else {
 		dsn = fmt.Sprintf(
-			"%v:%v@tcp(%v)/%v?charset=utf8mb4&parseTime=True&loc=%v",
+			"%v:%v@tcp(%v)/%v?charset=utf8mb4&parseTime=True",
 			opts.Name,
 			opts.Password,
 			opts.Host,
 			opts.Database,
-			"UTC",
 		)
 	}
 
