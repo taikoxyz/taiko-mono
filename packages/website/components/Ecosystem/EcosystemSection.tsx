@@ -60,8 +60,7 @@ const ecosystemData: EcosystemData[] = [
     icon: "/images/ecosystem/catalyst.png",
     name: "Catalyst",
     link: "https://catalyst.exchange/",
-    description:
-      "Catalyst is the cross-chain AMM built to connect all chains",
+    description: "Catalyst is the cross-chain AMM built to connect all chains",
     filters: [],
     isLive: false,
   },
@@ -132,8 +131,7 @@ const ecosystemData: EcosystemData[] = [
     icon: "/images/ecosystem/mesprotocol.png",
     name: "MES Protocol",
     link: "https://www.mesprotocol.com/",
-    description:
-      "MES is a cross-rollup orderbook DEX.",
+    description: "MES is a cross-rollup orderbook DEX.",
     filters: [],
     isLive: false,
   },
@@ -514,7 +512,7 @@ export function EcosystemSection() {
           setActiveFilter={setActiveFilter}
         />
       </div> */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pt-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 pt-6">
         {/* NOTE: commented out because we won't need this until we have grown our ecosystem page further */}
         {filteredData.map((_) => (
           // {ecosystemData.map((_) => (
@@ -536,13 +534,15 @@ export function EcosystemSection() {
 function FilterLabel({ text, activeFilter, setActiveFilter }) {
   const isActive = activeFilter === text;
 
-  const buttonStyles = `border rounded-full py-1 px-4 text-sm focus:outline-none transition-colors duration-200 font-bold ${isActive
-    ? "bg-gray-300 text-black"
-    : "bg-white text-gray-700 dark:bg-black dark:text-gray-300"
-    } ${isActive
+  const buttonStyles = `border rounded-full py-1 px-4 text-sm focus:outline-none transition-colors duration-200 font-bold ${
+    isActive
+      ? "bg-gray-300 text-black"
+      : "bg-white text-gray-700 dark:bg-black dark:text-gray-300"
+  } ${
+    isActive
       ? "hover:bg-gray-400"
       : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
-    }`;
+  }`;
 
   return (
     <button className={buttonStyles} onClick={() => setActiveFilter(text)}>

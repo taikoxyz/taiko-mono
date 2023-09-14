@@ -1,6 +1,4 @@
 import "../styles.css";
-
-import { Analytics } from "@vercel/analytics/react";
 import localFont from "next/font/local";
 
 export const grotesk = localFont({
@@ -20,7 +18,6 @@ export default function App({ Component, pageProps }) {
     <>
       <main className={`${grotesk.variable} ${groteskmedium.variable}`}>
         <Component {...pageProps} />
-        <Analytics />
       </main>
     </>
   );
