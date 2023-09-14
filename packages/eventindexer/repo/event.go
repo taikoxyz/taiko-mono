@@ -56,6 +56,30 @@ func (r *EventRepository) Save(ctx context.Context, opts eventindexer.SaveEventO
 		}
 	}
 
+	if opts.ProposerReward != nil {
+		amt, err := decimal.NewFromString(opts.ProposerReward.String())
+		if err != nil {
+			return nil, errors.Wrap(err, "decimal.NewFromString")
+		}
+
+		e.ProposerReward = decimal.NullDecimal{
+			Valid:   true,
+			Decimal: amt,
+		}
+	}
+
+	if opts.ProofReward != nil {
+		amt, err := decimal.NewFromString(opts.ProofReward.String())
+		if err != nil {
+			return nil, errors.Wrap(err, "decimal.NewFromString")
+		}
+
+		e.ProofReward = decimal.NullDecimal{
+			Valid:   true,
+			Decimal: amt,
+		}
+	}
+
 	if opts.AssignedProver != nil {
 		e.AssignedProver = *opts.AssignedProver
 	}

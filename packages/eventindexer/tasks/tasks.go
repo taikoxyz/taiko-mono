@@ -19,6 +19,10 @@ var (
 	TotalProposeBlockTx       = "total-propose-block-tx"
 	BridgeMessagesSentPerDay  = "bridge-messages-sent-per-day"
 	TotalBridgeMessagesSent   = "total-bridge-messages-sent"
+	TotalProofRewards         = "total-proof-rewards"
+	ProofRewardsPerDay        = "proof-rewards-per-day"
+	TotalProposerRewards      = "total-proposer-rewards"
+	ProposerRewardsPerDay     = "proposer-rewards-per-day"
 )
 
 var Tasks = []string{
@@ -40,4 +44,8 @@ var Tasks = []string{
 	TotalProposeBlockTx,
 	BridgeMessagesSentPerDay,
 	TotalBridgeMessagesSent,
+	TotalProofRewards,
+	ProofRewardsPerDay,
+	TotalProposerRewards,
+	ProposerRewardsPerDay,
 }

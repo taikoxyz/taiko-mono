@@ -32,6 +32,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, "dbpass", c.DatabasePassword)
 		assert.Equal(t, "dbname", c.DatabaseName)
 		assert.Equal(t, "dbhost", c.DatabaseHost)
+		assert.Equal(t, true, c.Regenerate)
 
 		wantTime, _ := time.Parse("2006-01-02", "2023-07-07")
 		assert.Equal(t, wantTime, c.GenesisDate)
@@ -52,5 +53,6 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"-" + flags.DatabaseHost.Name, "dbhost",
 		"-" + flags.DatabaseName.Name, "dbname",
 		"-" + flags.GenesisDate.Name, "2023-07-07",
+		"-" + flags.Regenerate.Name, "true",
 	}))
 }
