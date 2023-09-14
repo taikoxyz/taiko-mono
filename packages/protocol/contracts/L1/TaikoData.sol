@@ -75,6 +75,27 @@ library TaikoData {
         uint256 ethDepositMaxFee;
     }
 
+    /// @dev Struct holding tier parameters.
+    struct TierData {
+        uint8 id; // Example: 0 - none; 1 - OP; 2 - SGX; 3 - ZK; etc.
+        // The cooldown period for regular proofs (in minutes).
+        uint256 proofRegularCooldown;
+        // The cooldown period for oracle proofs (in minutes).
+        uint256 proofOracleCooldown;
+        // The maximum time window allowed for a proof submission (in minutes).
+        uint16 proofWindow;
+        // The amount of Taiko token as proof bond
+        uint96 proverBond;
+        // The amount of Taiko token as challenging bond
+        uint96 challengerBond;
+    }
+
+    /// @dev Struct holding Taiko proof configuration parameters.
+    struct TierConfig {
+        uint8 maxId; // Indicates the size of the array, max being the ORACLE (Guard).
+        TaikoData.TierData[] tierData;
+    }
+
     /// @dev Struct holding state variables.
     struct StateVariables {
         uint64 genesisHeight;
@@ -126,7 +147,7 @@ library TaikoData {
         bytes32 signalRoot;
         bytes32 graffiti;
         address prover;
-        uint16 tier;
+        uint8 tier;
         bytes proofs;
     }
 
@@ -142,7 +163,7 @@ library TaikoData {
         uint96 challengerBond;
         uint64 provenAt; // slot 6 (144 bits)
         uint64 challengedAt;
-        uint16 tier;
+        uint8 tier;
         bytes32[4] __reserved;
     }
 
@@ -152,12 +173,13 @@ library TaikoData {
         bytes32 metaHash; // slot 1
         address prover; // slot 2
         uint96 proverBond;
-        address proposer;
-        uint64 blockId; // slot 3
+        address proposer; // slot 3
+        uint64 blockId;
         uint32 nextTransitionId;
-        uint64 proposedAt; // slot 4 (128 bits)
+        uint64 proposedAt; 
         uint32 verifiedTransitionId;
-        uint16 currentTier;
+        uint8 currentTier;
+        uint8 provingStatus; // slot 4 (128 bits)
         bytes32[6] __reserved;
     }
 

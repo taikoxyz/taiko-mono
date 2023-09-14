@@ -84,7 +84,7 @@ library LibVerifying {
         tran.prover = LibUtils.ORACLE_PROVER;
         tran.provenAt = uint64(block.timestamp);
         tran.challengedAt = tran.provenAt;
-        tran.tier = LibTransition.TIER_ORACLE;
+        tran.tier = LibTransition.TIER_ID_GUARDIAN;
 
         emit BlockVerified({
             blockId: 0,

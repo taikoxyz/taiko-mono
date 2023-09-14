@@ -16,7 +16,20 @@ import { TaikoData } from "../../L1/TaikoData.sol";
 library LibTransition {
     using LibTaikoToken for TaikoData.State;
 
-    event BondReceived(address indexed from, uint64 blockId, uint256 bond);
+    /// @dev Basically implementing a state machine from None -> Guardian per block
+    enum ProvingStatus {
+        WAITING_FOR_PROOF_IN_TIER_ID_NONE,
+        PROVEN_IN_TIER_ID_NONE,
+        WAITING_FOR_PROOF_IN_TIER_ID_1,
+        PROVEN_IN_TIER_ID_1,
+        WAITING_FOR_PROOF_IN_TIER_ID_2,
+        PROVEN_IN_TIER_ID_2,
+        WAITING_FOR_PROOF_IN_GUARDIAN_TIER,
+        PROVEN_IN_GUARDIAN
+    }
+
+    event ProverBondReceived(address indexed from, uint64 blockId, uint256 bond);
+    event ChallengerBondReceived(address indexed from, uint64 blockId, uint256 bond);
 
     error L1_TIER_INVALID();
     error L1_TRANSITION_NOT_FOUND();
@@ -29,13 +42,10 @@ library LibTransition {
     error L1_NOT_PROVEABLE();
     error L1_TRANSITION_NOT_CHALLENGABLE();
 
-    uint16 public constant TIER_OPTIMISTIC = 10;
-    uint16 public constant TIER_PSE_ZKEVM = 30;
-    uint16 public constant TIER_ORACLE = 100;
-
-    uint8 public constant TIER_ID_OPTIMISTIC = 1;
-    uint8 public constant TIER_ID_PSE_ZKEVM = 2;
-    uint8 public constant TIER_ID_ORACLE = 3;
+    uint8 public constant TIER_ID_NONE = 0;
+    uint8 public constant TIER_ID_1 = 1; // Currently OP
+    uint8 public constant TIER_ID_2 = 2; // Currently ZK
+    uint8 public constant TIER_ID_GUARDIAN = 3; // Oracle (in the previous naming)
 
     event TransitionProven(
         uint256 indexed blockId,
@@ -43,7 +53,7 @@ library LibTransition {
         bytes32 blockHash,
         address prover,
         uint96 proverbond,
-        uint16 tier
+        uint8 tier
     );
 
     event TransitionChallenged(
@@ -55,134 +65,40 @@ library LibTransition {
         uint16 tier
     );
 
-    function applyEvidence(
+    function challenge(
         TaikoData.State storage state,
+        TaikoData.TierConfig memory tierConfig,
         AddressResolver resolver,
         TaikoData.Block storage blk,
         TaikoData.Transition storage tran,
         TaikoData.BlockEvidence memory evidence
     )
         internal
-        returns (bool isProving)
     {
-        uint96 newBond;
-
-        if (tran.tier == 0) {
-            // This is the first transition for this parentHash
-            isProving = true;
-            (newBond,) = getTierBonds(evidence.tier);
-
-            tran.prover = evidence.prover;
-            tran.proverBond = newBond;
-            tran.challenger = address(0); // keep challengerBond as is
-            tran.provenAt = uint64(block.timestamp);
-            tran.challengedAt = 0;
-            tran.tier = evidence.tier;
-        } else if (evidence.tier == tran.tier) {
-            if (
-                evidence.blockHash == tran.blockHash
-                    && evidence.signalRoot == tran.signalRoot
-            ) {
-                revert L1_ALREADY_PROVEN();
-            }
-
-            if (tran.challenger != address(0)) revert L1_ALREADY_CHALLANGED();
-
-            (, newBond) = getTierBonds(tran.tier);
-
-            if (newBond == 0) revert L1_TRANSITION_NOT_CHALLENGABLE();
-
-            tran.challenger = evidence.prover;
-            tran.challengerBond = newBond;
-            tran.provenAt = 0;
-            tran.challengedAt = uint64(block.timestamp);
-        } else if (
+        if (
             evidence.blockHash == tran.blockHash
                 && evidence.signalRoot == tran.signalRoot
         ) {
-            if (tran.challenger == address(0)) revert L1_NOT_CHALLANGED();
-
-            isProving = true;
-            (newBond,) = getTierBonds(evidence.tier);
-
-            uint96 reward = tran.challengerBond / 4;
-
-            // proving the tran.prover is right
-            state.taikoTokenBalances[tran.prover] += tran.proverBond + reward;
-
-            tran.prover = evidence.prover;
-            tran.proverBond = newBond + reward;
-
-            tran.challenger = address(0); // keep challengerBond as is
-
-            tran.tier = evidence.tier;
-        } else {
-            isProving = true;
-            (newBond,) = getTierBonds(evidence.tier);
-
-            uint96 reward;
-            if (tran.challenger != address(0)) {
-                // proving the tran.challenger is right
-                reward = tran.proverBond / 4;
-                state.taikoTokenBalances[tran.challenger] +=
-                    tran.challengerBond + reward;
-            } else {
-                // prove evidence.prover is right
-                reward = tran.proverBond;
-            }
-
-            tran.prover = evidence.prover;
-            tran.proverBond = reward + newBond;
-            tran.challenger = address(0); // keep challengerBond as is
-            tran.challengedAt = tran.provenAt;
-            tran.tier = evidence.tier;
+            revert L1_ALREADY_PROVEN();
         }
-
-        if (isProving) {
-            tran.blockHash = evidence.blockHash;
-            tran.signalRoot = evidence.signalRoot;
-            tran.provenAt = uint64(block.timestamp);
-
-            emit TransitionProven(
-                blk.blockId,
-                evidence.parentHash,
-                evidence.blockHash,
-                evidence.prover,
-                newBond,
-                evidence.tier
-            );
-        } else {
-            emit TransitionChallenged(
-                blk.blockId,
-                evidence.parentHash,
-                tran.blockHash,
-                evidence.prover,
-                newBond,
-                evidence.tier
-            );
-        }
-
-        if (newBond != 0) {
-            state.receiveTaikoToken(resolver, evidence.prover, newBond);
-            emit BondReceived(evidence.prover, blk.blockId, newBond);
-        }
-    }
-
-
-    function challange(
-        TaikoData.State storage state,
-        AddressResolver resolver,
-        TaikoData.Block storage blk,
-        TaikoData.Transition storage tran,
-        TaikoData.BlockEvidence memory evidence
-    )
-        internal
-    {
+        // Check if challenged already
         if (tran.challenger != address(0)) revert L1_ALREADY_CHALLANGED();
 
-        (, uint96 newBond) = getTierBonds(evidence.tier);
+        // Query the challenging bond
+        (, uint96 newBond) = getTierBonds(tierConfig, evidence.tier);
 
+        // If we are at "TIER_ID_GUARDIAN" then not challengeable
+        // newBond is 0 if we are at TIER_ID_GUARDIAN
         if (newBond == 0) revert L1_TRANSITION_NOT_CHALLENGABLE();
+
+        // Raise the currentTier of the given block
+        if(blk.currentTier == TIER_ID_GUARDIAN - 1) {
+            revert L1_TRANSITION_NOT_CHALLENGABLE();
+        }
+        blk.currentTier++;
+
+        // Raise ProvingStatus from PROVEN_XX -> WAITING_FOR_PROOF_XX
+        blk.provingStatus++;
 
         tran.challenger = evidence.prover;
         tran.challengerBond = newBond;
@@ -200,7 +116,65 @@ library LibTransition {
 
         if (newBond != 0) {
             state.receiveTaikoToken(resolver, evidence.prover, newBond);
-            emit BondReceived(evidence.prover, blk.blockId, newBond);
+            emit ChallengerBondReceived(evidence.prover, blk.blockId, newBond);
+        }
+    }
+
+
+    function proveChallenged(
+        TaikoData.State storage state,
+        TaikoData.TierConfig memory tierConfig,
+        AddressResolver resolver,
+        TaikoData.Block storage blk,
+        TaikoData.Transition storage tran,
+        TaikoData.BlockEvidence memory evidence
+    )
+        internal
+    {   
+        if (tran.challenger == address(0)) revert L1_NOT_CHALLANGED();
+
+        // Query the proverBond
+        (uint96 newProverBond,) = getTierBonds(tierConfig, evidence.tier);
+        uint96 reward = tran.proverBond / 4;
+        // We have 2 scenario:
+        // A: new proof confirms transition
+        // OR 
+        // B: denies the previous transition
+        if (
+            evidence.blockHash == tran.blockHash
+                && evidence.signalRoot == tran.signalRoot
+        ) {
+            // A: new proof confirms transition
+            // proving the tran.prover is right
+            state.taikoTokenBalances[tran.prover] += tran.proverBond + reward;
+        } else {
+            // B: denies the previous transition
+            // proving the tran.challenger is right
+            state.taikoTokenBalances[tran.challenger] +=
+                tran.challengerBond + reward;
+        }
+
+        // Set respective values. Rest (like signalRoot, blockHash set in the LibProving.sol)
+        tran.proverBond = reward + newProverBond;
+        tran.challenger = address(0); // keep challengerBond as is
+        tran.challengedAt = 0;
+        tran.tier = evidence.tier;
+
+        // Raise ProvingStatus from WAITING_FOR_PROOF_XX -> PROVEN_XX
+        blk.provingStatus++;
+
+        emit TransitionProven(
+            blk.blockId,
+            evidence.parentHash,
+            evidence.blockHash,
+            evidence.prover,
+            newProverBond,
+            evidence.tier
+        );
+
+        if (newProverBond != 0) {
+            state.receiveTaikoToken(resolver, evidence.prover, newProverBond);
+            emit ProverBondReceived(evidence.prover, blk.blockId, newProverBond);
         }
     }
 
@@ -251,38 +225,38 @@ library LibTransition {
         }
     }
 
-    function getTierBonds(uint16 tier)
+    function getTierBonds(TaikoData.TierConfig memory tierConfig, uint8 tier)
         internal
         pure
         returns (uint96 provingBond, uint96 challangingBond)
     {
-        if (tier == TIER_ID_OPTIMISTIC) return (10_000 ether, 10_000 ether);
-        if (tier == TIER_ID_PSE_ZKEVM) return (0, 20_000 ether);
-        if (tier == TIER_ID_ORACLE) return (0, 0 /* note allowed */ );
-        revert L1_TIER_INVALID();
+        if (tier > TIER_ID_GUARDIAN) {
+            revert L1_TIER_INVALID();
+        }
+        return (tierConfig.tierData[tier].proverBond, tierConfig.tierData[tier].challengerBond);
     }
 
-    function getTierCooldownPeriod(uint16 tier)
+    function getTierCooldownPeriod(uint8 tier)
         internal
         pure
         returns (uint256)
     {
-        if (tier == TIER_ID_OPTIMISTIC) return 4 hours;
-        if (tier == TIER_ID_PSE_ZKEVM) return 30 minutes;
-        if (tier == TIER_ID_ORACLE) return 15 minutes;
+        if (tier == TIER_ID_1) return 4 hours;
+        if (tier == TIER_ID_2) return 30 minutes;
+        if (tier == TIER_ID_GUARDIAN) return 15 minutes;
         revert L1_TIER_INVALID();
     }
 
     function getTierMinMax()
         internal
         pure
-        returns (uint16 currentTier, uint16 maxTier)
+        returns (uint8 currentTier, uint8 maxTier)
     {
-        return (TIER_ID_OPTIMISTIC, TIER_ID_ORACLE);
+        return (TIER_ID_1, TIER_ID_GUARDIAN);
     }
 
-    function getBlockDefaultTier(uint256 rand) internal pure returns (uint16) {
-        if (rand % 100 == 0) return TIER_ID_PSE_ZKEVM; // 1%
-        return TIER_ID_OPTIMISTIC; // 99%
+    function getBlockDefaultTierStatus(uint256 rand) internal pure returns (uint8, uint8) {
+        if (rand % 100 == 0) return (TIER_ID_2, uint8(ProvingStatus.WAITING_FOR_PROOF_IN_TIER_ID_2)); // 1%
+        return (TIER_ID_1, uint8(ProvingStatus.WAITING_FOR_PROOF_IN_TIER_ID_1)); // 99%
     }
 }

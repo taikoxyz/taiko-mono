@@ -81,9 +81,12 @@ abstract contract TaikoL1Base is
         returns (TaikoData.BlockMetadata memory meta)
     {
         TaikoData.Config memory config = getConfig();
+        TaikoData.TierConfig memory tierConfig = getTierConfig();
+
         meta = LibProposing.proposeBlock({
             state: state,
             config: config,
+            tierConfig:tierConfig,
             resolver: AddressResolver(this),
             input: abi.decode(input, (TaikoData.BlockMetadataInput)),
             assignment: abi.decode(assignment, (TaikoData.ProverAssignment)),
@@ -111,9 +114,11 @@ abstract contract TaikoL1Base is
         nonReentrant
     {
         TaikoData.Config memory config = getConfig();
+        TaikoData.TierConfig memory tierConfig = getTierConfig();
         LibProving.proveBlock({
             state: state,
             config: config,
+            tierConfig: tierConfig,
             resolver: AddressResolver(this),
             blockId: blockId,
             evidence: abi.decode(input, (TaikoData.BlockEvidence))
@@ -263,4 +268,12 @@ abstract contract TaikoL1Base is
         pure
         virtual
         returns (TaikoData.Config memory);
+
+    /// @notice Gets the configuration of the TaikoL1 contract tiers.
+    /// @return TierConfig struct containing configuration parameters.
+    function getTierConfig()
+        public
+        pure
+        virtual
+        returns (TaikoData.TierConfig memory);
 }

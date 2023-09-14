@@ -54,6 +54,7 @@ library LibProposing {
     function proposeBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
+        TaikoData.TierConfig memory tierConfig,
         AddressResolver resolver,
         TaikoData.BlockMetadataInput memory input,
         TaikoData.ProverAssignment memory assignment,
@@ -182,13 +183,9 @@ library LibProposing {
                 state.blocks[b.numBlocks % config.blockRingBufferSize];
 
             blk.metaHash = LibUtils.hashMetadata(meta);
-            // Determine the default tier and the necessary default bond
-            uint16 currentTier = LibTransition.getBlockDefaultTier(uint256(blk.metaHash));
-            defaultProverBond = config.proverBondOp; //Assume OP tier
-        
-            if(currentTier == LibTransition.TIER_ID_PSE_ZKEVM) {
-                defaultProverBond = config.proverBondZk;
-            }
+            // Determine the default tier and the necessary prover bond
+            (uint8 currentTier, uint8 currentProvingStatus) = LibTransition.getBlockDefaultTierStatus(uint256(blk.metaHash));
+            (defaultProverBond, ) = LibTransition.getTierBonds(tierConfig, currentTier);
 
             blk.prover = assignment.prover;
             blk.proverBond = defaultProverBond;
@@ -198,6 +195,7 @@ library LibProposing {
             blk.proposedAt = meta.timestamp;
             blk.verifiedTransitionId = 0;
             blk.currentTier = currentTier;
+            blk.provingStatus = currentProvingStatus;
 
             ++state.slotB.numBlocks;
 
