@@ -17,7 +17,7 @@ library LibTransition {
     using LibTaikoToken for TaikoData.State;
 
     /// @dev Basically implementing a state machine from None -> Guardian per
-    /// block
+    /// block. (At verifyBlock will be helpful.)
     enum ProvingStatus {
         WAITING_FOR_PROOF_IN_TIER_ID_NONE,
         PROVEN_IN_TIER_ID_NONE,
