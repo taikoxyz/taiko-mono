@@ -16,19 +16,6 @@ import { TaikoData } from "../../L1/TaikoData.sol";
 library LibTransition {
     using LibTaikoToken for TaikoData.State;
 
-    /// @dev Basically implementing a state machine from None -> Guardian per
-    /// block. (At verifyBlock will be helpful.)
-    enum ProvingStatus {
-        WAITING_FOR_PROOF_IN_TIER_ID_NONE,
-        PROVEN_IN_TIER_ID_NONE,
-        WAITING_FOR_PROOF_IN_TIER_ID_1,
-        PROVEN_IN_TIER_ID_1,
-        WAITING_FOR_PROOF_IN_TIER_ID_2,
-        PROVEN_IN_TIER_ID_2,
-        WAITING_FOR_PROOF_IN_GUARDIAN_TIER,
-        PROVEN_IN_GUARDIAN
-    }
-
     event ProverBondReceived(
         address indexed from, uint64 blockId, uint256 bond
     );
@@ -97,14 +84,11 @@ library LibTransition {
         // newBond is 0 if we are at TIER_ID_GUARDIAN
         if (newBond == 0) revert L1_TRANSITION_NOT_CHALLENGABLE();
 
-        // Raise the currentTier of the given block
-        if (blk.currentTier == TIER_ID_GUARDIAN - 1) {
+        // Raise the current tier of the given transition
+        if (tran.tier == TIER_ID_GUARDIAN - 1) {
             revert L1_TRANSITION_NOT_CHALLENGABLE();
         }
-        blk.currentTier++;
-
-        // Raise ProvingStatus from PROVEN_XX -> WAITING_FOR_PROOF_XX
-        blk.provingStatus++;
+        tran.tier++;
 
         tran.challenger = evidence.prover;
         tran.challengerBond = newBond;
@@ -165,9 +149,6 @@ library LibTransition {
         tran.challenger = address(0); // keep challengerBond as is
         tran.challengedAt = 0;
         tran.tier = evidence.tier;
-
-        // Raise ProvingStatus from WAITING_FOR_PROOF_XX -> PROVEN_XX
-        blk.provingStatus++;
 
         emit TransitionProven(
             blk.blockId,
@@ -246,7 +227,7 @@ library LibTransition {
     function getTierMinMax()
         internal
         pure
-        returns (uint8 currentTier, uint8 maxTier)
+        returns (uint8, uint8)
     {
         return (TIER_ID_1, TIER_ID_GUARDIAN);
     }
@@ -254,12 +235,11 @@ library LibTransition {
     function getBlockDefaultTierStatus(uint256 rand)
         internal
         pure
-        returns (uint8, uint8)
+        returns (uint8)
     {
         if (rand % 100 == 0) {
-            return
-                (TIER_ID_2, uint8(ProvingStatus.WAITING_FOR_PROOF_IN_TIER_ID_2));
+            return TIER_ID_2;
         } // 1%
-        return (TIER_ID_1, uint8(ProvingStatus.WAITING_FOR_PROOF_IN_TIER_ID_1)); // 99%
+        return TIER_ID_1; // 99%
     }
 }

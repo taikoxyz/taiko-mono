@@ -186,10 +186,10 @@ library LibProposing {
 
             blk.metaHash = LibUtils.hashMetadata(meta);
             // Determine the default tier and the necessary prover bond
-            (uint8 currentTier, uint8 currentProvingStatus) =
+            uint8 blkDefaultTier =
                 LibTransition.getBlockDefaultTierStatus(uint256(blk.metaHash));
             (defaultProverBond,) =
-                LibTransition.getTierBonds(tierConfig, currentTier);
+                LibTransition.getTierBonds(tierConfig, blkDefaultTier);
 
             blk.prover = assignment.prover;
             blk.proverBond = defaultProverBond;
@@ -198,8 +198,7 @@ library LibProposing {
             blk.nextTransitionId = 1;
             blk.proposedAt = meta.timestamp;
             blk.verifiedTransitionId = 0;
-            blk.currentTier = currentTier;
-            blk.provingStatus = currentProvingStatus;
+            blk.blkDefaultTier = blkDefaultTier;
 
             ++state.slotB.numBlocks;
 

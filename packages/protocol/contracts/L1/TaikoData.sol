@@ -178,8 +178,7 @@ library TaikoData {
         uint32 nextTransitionId;
         uint64 proposedAt;
         uint32 verifiedTransitionId;
-        uint8 currentTier;
-        uint8 provingStatus; // slot 4 (128 bits)
+        uint8 blkDefaultTier;
         bytes32[6] __reserved;
     }
 

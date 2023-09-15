@@ -73,7 +73,7 @@ library LibProving {
             ) revert L1_NOT_PROVEABLE();
         }
 
-        if (evidence.tier < blk.currentTier) revert L1_INVALID_TIER();
+        if (evidence.tier < blk.blkDefaultTier) revert L1_INVALID_TIER();
 
         uint32 tid = state.getTransitionId(blk, slot, evidence.parentHash);
         TaikoData.Transition storage tran;
@@ -105,14 +105,8 @@ library LibProving {
                 state.transitionIds[blk.blockId][evidence.parentHash] = tid;
             }
 
-            // Initialize tier as the 'default' one (which is the currentTier
-            // for the first time)
-            // No need to init other tran vars like (challenger, challengedAt)
-            // bc. they are default now.
-            tran.tier = blk.currentTier;
-            // By default it is in a WAITING_FOR_PROOF_XXXX state. Now
-            // increasing it to have PROVEN_XXX
-            blk.provingStatus++;
+            // Initialize as the evidence.tier
+            tran.tier = evidence.tier;
         } else if (evidence.prover == LibUtils.ORACLE_PROVER) {
             // This is the branch the oracle prover is trying to overwrite
             // We need to check the previous proof is not the same as the
@@ -122,10 +116,7 @@ library LibProving {
                 tran.blockHash == evidence.blockHash
                     && tran.signalRoot == evidence.signalRoot
             ) revert L1_SAME_PROOF();
-
-            blk.currentTier = LibTransition.TIER_ID_GUARDIAN;
-            blk.provingStatus = LibTransition.TIER_ID_GUARDIAN;
-            tran.tier = uint8(LibTransition.ProvingStatus.PROVEN_IN_GUARDIAN);
+            tran.tier = uint8(LibTransition.TIER_ID_GUARDIAN);
         } else {
             tran = state.transitions[slot][tid];
             // We need to know NOW:

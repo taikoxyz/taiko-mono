@@ -131,12 +131,11 @@ library LibVerifying {
                 tid = LibUtils.getTransitionId(state, blk, slot, blockHash);
                 if (tid == 0) break;
 
-                // Break if proving status is in PROVEN_IN_TIER_XXX state
-                if(blk.provingStatus % 2 != 1) break;
-
                 TaikoData.Transition storage tran = state.transitions[slot][tid];
 
-                (uint256 proofRegular, uint256 proofOracle) = LibTransition.getTierCooldownPeriod(tierConfig, blk.currentTier);
+                if(tran.challenger != address(0)) break;
+
+                (uint256 proofRegular, uint256 proofOracle) = LibTransition.getTierCooldownPeriod(tierConfig, tran.tier);
 
                 uint256 proofCooldown = tran.prover == LibUtils.ORACLE_PROVER
                     ? proofOracle
