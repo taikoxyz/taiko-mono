@@ -176,14 +176,15 @@
               </div>
             </li>
           {/each}
-          {#if !small}
+          <!-- Todo: disabled for now -->
+          <!-- {#if !small}
             <li role="menuitem" tabindex="0" class="p-4 rounded-[10px]">
               <Alert type="warning" forceColumnFlow>
                 <p class="font-bold">{$t('chain_selector.disabled_options.title')}</p>
                 <p>{$t('chain_selector.disabled_options.description')}</p>
               </Alert>
             </li>
-          {/if}
+          {/if} -->
         </ul>
       </div>
     </div>
