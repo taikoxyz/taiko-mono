@@ -15,7 +15,8 @@
   const openModal = () => (modalOpen = true);
 
   const classes = {
-    headline: 'text-center text-base font-bold leading-[24px] tracking-[0.08px] pb-[5px]',
+    headline: 'text-center text-base font-bold leading-[24px] tracking-[0.08px] pb-[5px] pt-[25px]',
+    content: 'text-sm font-normal leading-5',
   };
 
   const closeModalIfClickedOutside = (e: MouseEvent) => {
@@ -54,23 +55,23 @@
       </button>
     </div>
     <div class="w-full">
-      <h1 class="title-body-bold">{$t('activities.status.dialog.title')}</h1>
+      <h1 class="title-dialog-large">{$t('activities.status.dialog.title')}</h1>
     </div>
-    <div class="inline-flex flex-col space-y-9 px-[37px]">
+    <div class="inline-flex flex-col px-[37px] text-base">
       <br />
-      {$t('activities.status.dialog.description')}
+      <p class={classes.content}>{$t('activities.status.dialog.description')}</p>
       <h4 class={classes.headline}>{$t('activities.status.initiated.name')}</h4>
-      {$t('activities.status.initiated.description')}
+      <p class={classes.content}>{$t('activities.status.initiated.description')}</p>
       <h4 class={classes.headline}>{$t('activities.status.claim.name')}</h4>
-      {$t('activities.status.claim.description')}
+      <p class={classes.content}>{$t('activities.status.claim.description')}</p>
       <h4 class={classes.headline}>{$t('activities.status.claimed.name')}</h4>
-      {$t('activities.status.claimed.description')}
+      <p class={classes.content}>{$t('activities.status.claimed.description')}</p>
       <h4 class={classes.headline}>{$t('activities.status.retry.name')}</h4>
-      {$t('activities.status.retry.description')}
+      <p class={classes.content}>{$t('activities.status.retry.description')}</p>
       <h4 class={classes.headline}>{$t('activities.status.release.name')}</h4>
-      {$t('activities.status.release.description')}
+      <p class={classes.content}>{$t('activities.status.release.description')}</p>
       <h4 class={classes.headline}>{$t('activities.status.failed.name')}</h4>
-      {$t('activities.status.failed.description')}
+      <p class={classes.content}>{$t('activities.status.failed.description')}</p>
     </div>
 
     <!-- We catch key events aboe -->
