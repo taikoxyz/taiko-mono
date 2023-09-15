@@ -209,31 +209,6 @@ library LibTransition {
         tran = state.transitions[slot][tid];
     }
 
-    function isTransitionRegisteredAlready(
-        TaikoData.State storage state,
-        uint64 slot,
-        bytes32 blockHash,
-        bytes32 signalRoot
-    )
-        internal
-        view
-        returns (bool registered)
-    {
-        TaikoData.Block memory blk = state.blocks[slot];
-
-        // Todo: Most probably we cannot go with it - best to have a separate
-        // mapping
-        // checking this but for now is OK.
-        for (uint32 i; i < blk.nextTransitionId; i++) {
-            if (
-                state.transitions[slot][i].blockHash == blockHash
-                    && state.transitions[slot][i].signalRoot == signalRoot
-            ) {
-                registered = true;
-            }
-        }
-    }
-
     function getTierBonds(
         TaikoData.TierConfig memory tierConfig,
         uint8 tier
