@@ -41,6 +41,11 @@ func (r *StatRepository) Save(ctx context.Context, opts eventindexer.SaveStatOpt
 		s.AverageProofTime = opts.ProofTime.String()
 	}
 
+	if opts.ProposerReward != nil {
+		s.NumProposerRewards++
+		s.AverageProposerReward = opts.ProposerReward.String()
+	}
+
 	if err := r.db.GormDB().Save(s).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Save")
 	}
@@ -64,6 +69,10 @@ func (r *StatRepository) Find(ctx context.Context) (*eventindexer.Stat, error) {
 
 	if s.AverageProofTime == "" {
 		s.AverageProofTime = "0"
+	}
+
+	if s.AverageProposerReward == "" {
+		s.AverageProposerReward = "0"
 	}
 
 	return s, nil

@@ -258,13 +258,13 @@
 
       bridgeTxService.addTxByAddress($account.address, bridgeTx);
 
-      // Reset the form
-      amountComponent.clearAmount();
-      recipientComponent.clearRecipient();
-      processingFeeComponent.resetProcessingFee();
+      // Reset the form (we check if these are still mounted, as the user might have left the page)
+      if (amountComponent) amountComponent.clearAmount();
+      if (recipientComponent) recipientComponent.clearRecipient();
+      if (processingFeeComponent) processingFeeComponent.resetProcessingFee();
 
       // Update balance after bridging
-      amountComponent.updateBalance();
+      if (amountComponent) amountComponent.updateBalance();
 
       // Refresh user's balance
       refreshUserBalance();

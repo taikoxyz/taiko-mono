@@ -121,6 +121,7 @@ var (
 var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	RPCUrl,
 	// optional
+	ETHClientTimeout,
 	L1TaikoAddress,
 	HTTPPort,
 	MetricsHTTPPort,

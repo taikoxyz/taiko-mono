@@ -36,7 +36,7 @@ type Config struct {
 	SwapAddresses           []common.Address
 	CORSOrigins             []string
 	BlockBatchSize          uint64
-	Subscriptionbackoff     uint64
+	SubscriptionBackoff     uint64
 	SyncMode                SyncMode
 	WatchMode               WatchMode
 	IndexNFTs               bool
@@ -78,7 +78,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		SwapAddresses:           swaps,
 		CORSOrigins:             cors,
 		BlockBatchSize:          c.Uint64(flags.BlockBatchSize.Name),
-		Subscriptionbackoff:     c.Uint64(flags.SubscriptionBackoff.Name),
+		SubscriptionBackoff:     c.Uint64(flags.SubscriptionBackoff.Name),
 		RPCUrl:                  c.String(flags.RPCUrl.Name),
 		WatchMode:               WatchMode(c.String(flags.WatchMode.Name)),
 		SyncMode:                SyncMode(c.String(flags.SyncMode.Name)),

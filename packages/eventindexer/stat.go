@@ -9,17 +9,20 @@ import (
 // into the Data field to be unmarshalled into a concrete struct
 // dependant on the name of the event
 type Stat struct {
-	ID                 int    `json:"id"`
-	AverageProofTime   string `json:"averageProofTime"`
-	AverageProofReward string `json:"averageProofReward"`
-	NumProofs          uint64 `json:"numProofs"`
-	NumVerifiedBlocks  uint64 `json:"numVerifiedBlocks"`
+	ID                    int    `json:"id"`
+	AverageProofTime      string `json:"averageProofTime"`
+	AverageProofReward    string `json:"averageProofReward"`
+	AverageProposerReward string `json:"averageProposerReward"`
+	NumProposerRewards    uint64 `json:"numProposerRewards"`
+	NumProofs             uint64 `json:"numProofs"`
+	NumVerifiedBlocks     uint64 `json:"numVerifiedBlocks"`
 }
 
 // SaveStatOpts
 type SaveStatOpts struct {
-	ProofTime   *big.Int
-	ProofReward *big.Int
+	ProofTime      *big.Int
+	ProofReward    *big.Int
+	ProposerReward *big.Int
 }
 
 // StatRepository is used to interact with stats in the store

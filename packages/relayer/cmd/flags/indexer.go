@@ -71,9 +71,9 @@ var (
 	CORSOrigins = &cli.StringFlag{
 		Name:     "http.corsOrigins",
 		Usage:    "Comma-delinated list of cors origins",
-		Required: false,
+		Category: indexerCategory,
 		Value:    "*",
-		Category: commonCategory,
+		EnvVars:  []string{"HTTP_CORS_ORIGINS"},
 	}
 )
 

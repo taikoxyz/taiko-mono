@@ -25,13 +25,17 @@ const mockTokenVaultContract = {
   },
 } as unknown as GetContractResult<readonly unknown[], unknown>;
 
-vi.mock('$libs/chain', () => ({
-  chainContractsMap: {
+vi.mock('$bridgeConfig', () => ({
+  routingContractsMap: {
     1: {
-      tokenVaultAddress: '0x00001',
+      2: {
+        erc20VaultAddress: '0x00001',
+      },
     },
     2: {
-      tokenVaultAddress: '0x00002',
+      1: {
+        erc20VaultAddress: '0x00002',
+      },
     },
   },
 }));

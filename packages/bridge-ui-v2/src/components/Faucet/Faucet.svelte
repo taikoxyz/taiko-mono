@@ -23,7 +23,7 @@
 
   let selectedToken: Token;
   let mintButtonEnabled = false;
-  let reasonNotMintable = '';
+  let alertMessage = '';
 
   async function switchNetworkToL1() {
     if (switchingNetwork) return;
@@ -113,12 +113,12 @@
   // This function will check whether or not the button to mint should be
   // enabled. If it shouldn't it'll also set the reason why so we can inform
   // the user why they can't mint
-  async function updateMintButtonState(token?: Token, network?: Chain) {
+  async function updateMintButtonState(connected: boolean, token?: Token, network?: Chain) {
     if (!token || !network) return false;
 
     checkingMintable = true;
     mintButtonEnabled = false;
-    reasonNotMintable = '';
+    let reasonNotMintable = '';
 
     try {
       await checkMintable(token, network.id);
@@ -143,6 +143,8 @@
     } finally {
       checkingMintable = false;
     }
+
+    alertMessage = getAlertMessage(connected, wrongChain, reasonNotMintable);
   }
 
   function getAlertMessage(connected: boolean, wrongChain: boolean, reasonNotMintable: string) {
@@ -150,13 +152,13 @@
     //does this really need to be dynamic? Our mint tokens will most likely stay on Sepolia
     if (wrongChain) return $t('faucet.wrong_chain.message', { values: { network: 'Sepolia' } });
     if (reasonNotMintable) return reasonNotMintable;
+    return ''
   }
 
   $: connected = isUserConnected($account);
   $: wrongChain = isWrongChain($network);
-  $: alertMessage = getAlertMessage(connected, wrongChain, reasonNotMintable);
 
-  $: updateMintButtonState(selectedToken, $network);
+  $: updateMintButtonState(connected, selectedToken, $network);
 </script>
 
 <Card class="w-full md:w-[524px]" title={$t('faucet.title')} text={$t('faucet.description')}>

@@ -28,6 +28,7 @@ type Config struct {
 	DatabaseMaxConnLifetime uint64
 	MetricsHTTPPort         uint64
 	GenesisDate             time.Time
+	Regenerate              bool
 	OpenDBFunc              func() (DB, error)
 }
 
@@ -48,6 +49,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		DatabaseMaxConnLifetime: c.Uint64(flags.DatabaseConnMaxLifetime.Name),
 		MetricsHTTPPort:         c.Uint64(flags.MetricsHTTPPort.Name),
 		GenesisDate:             date,
+		Regenerate:              c.Bool(flags.Regenerate.Name),
 		OpenDBFunc: func() (DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),

@@ -10,7 +10,15 @@ var (
 		Category: generatorCategory,
 		EnvVars:  []string{"GENESIS_DATE"},
 	}
+	Regenerate = &cli.StringFlag{
+		Name:     "regenerate",
+		Usage:    "True to delete all existing data and regenerate from genesis, false to not",
+		Required: false,
+		Category: generatorCategory,
+		EnvVars:  []string{"REGENERATE"},
+	}
 )
 var GeneratorFlags = MergeFlags(CommonFlags, []cli.Flag{
 	GenesisDate,
+	Regenerate,
 })

@@ -2,10 +2,10 @@ package http
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/cyberhorsey/webutils"
 	"github.com/labstack/echo/v4"
-	"github.com/patrickmn/go-cache"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 )
 
@@ -26,7 +26,7 @@ func (srv *Server) GetStats(c echo.Context) error {
 			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 		}
 
-		srv.cache.Set(CacheKeyStats, stats, cache.DefaultExpiration)
+		srv.cache.Set(CacheKeyStats, stats, 1*time.Minute)
 	}
 
 	return c.JSON(http.StatusOK, stats)
