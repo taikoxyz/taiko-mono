@@ -4530,8 +4530,20 @@ packages:
     resolution: {integrity: sha512-bcKpo1oj54hGholplGLpqPHRbIsnbixFtc06nwuNM5/dwSXOq/AAYoIBRsBmnZJSdfeNW5rnff7NTAz3ZCqR9Q==}
     dependencies:
       '@noble/curves': 1.0.0
+<<<<<<< HEAD
       '@noble/hashes': 1.3.2
       '@scure/base': 1.1.1
+=======
+      '@noble/hashes': 1.3.0
+      '@scure/base': 1.1.3
+
+  /@scure/bip32@1.3.1:
+    resolution: {integrity: sha512-osvveYtyzdEVbt3OfwwXFr4P2iVBL5u1Q3q4ONBfDY/UpOuXmOlbgwc1xECEboY8wIays8Yt6onaWMUdUbfl0A==}
+    dependencies:
+      '@noble/curves': 1.1.0
+      '@noble/hashes': 1.3.2
+      '@scure/base': 1.1.3
+>>>>>>> a082b9c0 (lockfile)
     dev: true
 
   /@scure/bip32@1.3.2:
@@ -5545,7 +5557,11 @@ packages:
     resolution: {integrity: sha512-DHqhlq5jeESLy19TYhLakJ07kNumXWjcDdxXsLUMJZ6ue8VZJj4kLPQVE/2mdHh3xZziNF1xppu5lwmS53HR+A==}
     dependencies:
       '@types/node': 20.6.0
+<<<<<<< HEAD
       form-data: 3.0.1
+=======
+      form-data: 4.0.0
+>>>>>>> a082b9c0 (lockfile)
     dev: true
 
   /@types/node@10.17.60:
@@ -8645,12 +8661,33 @@ packages:
     engines: {node: '>= 0.4'}
     dependencies:
       call-bind: 1.0.2
+<<<<<<< HEAD
       define-properties: 1.1.4
       es-abstract: 1.20.4
+=======
+      define-properties: 1.2.1
+      es-abstract: 1.22.1
+>>>>>>> a082b9c0 (lockfile)
       es-array-method-boxes-properly: 1.0.0
       is-string: 1.0.7
     dev: true
 
+<<<<<<< HEAD
+=======
+  /arraybuffer.prototype.slice@1.0.2:
+    resolution: {integrity: sha512-yMBKppFur/fbHu9/6USUe03bZ4knMYiwFBcyiaXB8Go0qNehwX6inYPzK9U0NeQvGxKthcmHcaR8P5MStSRBAw==}
+    engines: {node: '>= 0.4'}
+    dependencies:
+      array-buffer-byte-length: 1.0.0
+      call-bind: 1.0.2
+      define-properties: 1.2.1
+      es-abstract: 1.22.1
+      get-intrinsic: 1.2.1
+      is-array-buffer: 3.0.2
+      is-shared-array-buffer: 1.0.2
+    dev: true
+
+>>>>>>> a082b9c0 (lockfile)
   /arrify@1.0.1:
     resolution: {integrity: sha512-3CYzex9M9FGQjCGMGyi6/31c8GJbgb0qGyrx5HWxPd0aCwh4cB2YjMb2Xf9UuoogrMrlO9cTqnB5rI5GHZTcUA==}
     engines: {node: '>=0.10.0'}
@@ -14506,8 +14543,13 @@ packages:
     engines: {node: '>= 0.4'}
     dependencies:
       call-bind: 1.0.2
+<<<<<<< HEAD
       define-properties: 1.1.4
       es-abstract: 1.20.4
+=======
+      define-properties: 1.2.1
+      es-abstract: 1.22.1
+>>>>>>> a082b9c0 (lockfile)
       functions-have-names: 1.2.3
     dev: true
 
@@ -14767,6 +14809,20 @@ packages:
       path-is-absolute: 1.0.1
     dev: true
 
+<<<<<<< HEAD
+=======
+  /glob@7.1.7:
+    resolution: {integrity: sha512-OvD9ENzPLbegENnYP5UUfJIirTg4+XwMWGaQfQTY0JenxNvvIKP3U3/tAQSPIu/lHxXYSZmpXlUHeqAIdKzBLQ==}
+    dependencies:
+      fs.realpath: 1.0.0
+      inflight: 1.0.6
+      inherits: 2.0.4
+      minimatch: 3.1.2
+      once: 1.4.0
+      path-is-absolute: 1.0.1
+    dev: true
+
+>>>>>>> a082b9c0 (lockfile)
   /glob@7.2.0:
     resolution: {integrity: sha512-lmLf6gtyrPq8tTjSmrO94wBeQbFR3HbLHbuyD69wuyQkImp2hWqMGB47OX65FBkPffO641IP9jWa1z4ivqG26Q==}
     dependencies:
@@ -14856,6 +14912,16 @@ packages:
     engines: {node: '>=0.10.0'}
     dev: true
 
+<<<<<<< HEAD
+=======
+  /globalthis@1.0.3:
+    resolution: {integrity: sha512-sFdI5LyBiNTHjRd7cGPWapiHWMOXKyuBNX/cWJ3NfzrZQVa8GI/8cofCl74AOVqq9W5kNmguTIzJ/1s2gyI9wA==}
+    engines: {node: '>= 0.4'}
+    dependencies:
+      define-properties: 1.2.1
+    dev: true
+
+>>>>>>> a082b9c0 (lockfile)
   /globalyzer@0.1.0:
     resolution: {integrity: sha512-40oNTM9UfG6aBmuKxk/giHn5nQ8RVz/SS4Ir6zgzOv9/qC3kKZ9v4etGTcJbEl/NyVQH7FGU7d+X1egr57Md2Q==}
     dev: false
@@ -17515,6 +17581,7 @@ packages:
     resolution: {integrity: sha512-PWYqG4Q00asOrLhX7BejSajByB4EmG2GaKHfj3h5UmmZ2duciXLPGYWIjBzLECFWUGOZWlm5B20h/n3Gs3HKew==}
     dependencies:
       ltgt: 2.2.1
+<<<<<<< HEAD
     dev: true
 
   /level-sublevel@5.2.3:
@@ -17524,6 +17591,8 @@ packages:
       level-hooks: 4.5.0
       string-range: 1.2.2
       xtend: 2.0.6
+=======
+>>>>>>> a082b9c0 (lockfile)
     dev: true
 
   /level-sublevel@6.6.4:
@@ -19659,7 +19728,7 @@ packages:
     resolution: {integrity: sha512-4GUt3kSEYmk4ITxzB/b9vaIDfUVWN/Ml1Fwl11IlnIG2iaJ9O6WXZ9SrYM9NLI8OCBieN2Y8SWC2oJV0RQ7qYg==}
     hasBin: true
     dependencies:
-      abbrev: 1.0.9
+      abbrev: 1.1.1
     dev: true
 
   /nopt@5.0.0:
@@ -19842,7 +19911,11 @@ packages:
     resolution: {integrity: sha512-exHJeq6kBKj58mqGyTQ9DFvrZC/eR6OwxzoM9YRoGBqrXYonaFyGiFMuc9VZrXf7DarreEwMpurG3dd+CNyW5w==}
     engines: {node: '>= 0.4'}
     dependencies:
+<<<<<<< HEAD
       define-properties: 1.1.4
+=======
+      define-properties: 1.2.1
+>>>>>>> a082b9c0 (lockfile)
       function-bind: 1.1.1
       has-symbols: 1.0.3
       object-keys: 1.1.1
@@ -19853,7 +19926,11 @@ packages:
     engines: {node: '>= 0.4'}
     dependencies:
       call-bind: 1.0.2
+<<<<<<< HEAD
       define-properties: 1.1.4
+=======
+      define-properties: 1.2.1
+>>>>>>> a082b9c0 (lockfile)
       has-symbols: 1.0.3
       object-keys: 1.1.1
     dev: true
@@ -19864,8 +19941,14 @@ packages:
     dependencies:
       array.prototype.reduce: 1.0.5
       call-bind: 1.0.2
+<<<<<<< HEAD
       define-properties: 1.1.4
       es-abstract: 1.20.4
+=======
+      define-properties: 1.2.1
+      es-abstract: 1.22.1
+      safe-array-concat: 1.0.1
+>>>>>>> a082b9c0 (lockfile)
     dev: true
 
   /object.pick@1.3.0:
@@ -21423,7 +21506,11 @@ packages:
     engines: {node: '>= 0.4'}
     dependencies:
       call-bind: 1.0.2
+<<<<<<< HEAD
       define-properties: 1.1.4
+=======
+      define-properties: 1.2.1
+>>>>>>> a082b9c0 (lockfile)
       functions-have-names: 1.2.3
     dev: true
 
@@ -22793,24 +22880,48 @@ packages:
     engines: {node: '>= 0.4'}
     dependencies:
       call-bind: 1.0.2
+<<<<<<< HEAD
       define-properties: 1.1.4
       es-abstract: 1.20.4
+=======
+      define-properties: 1.2.1
+      es-abstract: 1.22.1
+    dev: true
+
+  /string.prototype.trim@1.2.8:
+    resolution: {integrity: sha512-lfjY4HcixfQXOfaqCvcBuOIapyaroTXhbkfJN3gcB1OtyupngWK4sEET9Knd0cXd28kTUqu/kHoV4HKSJdnjiQ==}
+    engines: {node: '>= 0.4'}
+    dependencies:
+      call-bind: 1.0.2
+      define-properties: 1.2.1
+      es-abstract: 1.22.1
+>>>>>>> a082b9c0 (lockfile)
     dev: true
 
   /string.prototype.trimend@1.0.6:
     resolution: {integrity: sha512-JySq+4mrPf9EsDBEDYMOb/lM7XQLulwg5R/m1r0PXEFqrV0qHvl58sdTilSXtKOflCsK2E8jxf+GKC0T07RWwQ==}
     dependencies:
       call-bind: 1.0.2
+<<<<<<< HEAD
       define-properties: 1.1.4
       es-abstract: 1.20.4
+=======
+      define-properties: 1.2.1
+      es-abstract: 1.22.1
+>>>>>>> a082b9c0 (lockfile)
     dev: true
 
   /string.prototype.trimstart@1.0.6:
     resolution: {integrity: sha512-omqjMDaY92pbn5HOX7f9IccLA+U1tA9GvtU4JrodiXFfYB7jPzzHpRzpglLAjtUV6bB557zwClJezTqnAiYnQA==}
     dependencies:
       call-bind: 1.0.2
+<<<<<<< HEAD
       define-properties: 1.1.4
       es-abstract: 1.20.4
+=======
+      define-properties: 1.2.1
+      es-abstract: 1.22.1
+>>>>>>> a082b9c0 (lockfile)
     dev: true
 
   /string_decoder@0.10.31:
