@@ -116,6 +116,7 @@ async function buildBridgeConfig(sourceFile: SourceFile, configuredBridgesConfig
 }
 
 const _formatObjectToTsLiteral = (obj: RoutingMap): string => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const formatValue = (value: any): string => {
     if (typeof value === 'string') {
       return `"${value}"`;
