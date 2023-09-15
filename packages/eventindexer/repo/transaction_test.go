@@ -51,6 +51,22 @@ func TestIntegration_Transaction_Save(t *testing.T) {
 	txRepo, err := NewTransactionRepository(db)
 	assert.Equal(t, nil, err)
 
+	to := common.HexToAddress("0x3a537c89809712367218bb171b3b1c46aa95df3dee7200ae9dc78f4052024068")
+	accessList := make(types.AccessList, 0)
+	tx := types.NewTx(&types.AccessListTx{
+		Nonce:      10,
+		GasPrice:   big.NewInt(10),
+		Gas:        100,
+		To:         &to,
+		Value:      common.Big0,
+		Data:       []byte{},
+		V:          big.NewInt(1),
+		R:          big.NewInt(1),
+		S:          big.NewInt(1),
+		ChainID:    big.NewInt(1),
+		AccessList: accessList,
+	})
+
 	tests := []struct {
 		name            string
 		tx              *types.Transaction
@@ -59,7 +75,17 @@ func TestIntegration_Transaction_Save(t *testing.T) {
 		transactedAt    time.Time
 		contractAddress common.Address
 		wantErr         error
-	}{}
+	}{
+		{
+			"success",
+			tx,
+			common.HexToAddress("0x3a537c89809712367218bb171b3b1c46aa95df3dee7200ae9dc78f4052024068"),
+			big.NewInt(1),
+			time.Now(),
+			common.HexToAddress("0x3a537c89809712367218bb171b3b1c46aa95df3dee7200ae9dc78f4052024068"),
+			nil,
+		},
+	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
