@@ -1,11 +1,11 @@
-import { GRIMSVOTN_CONFIG } from "./config";
+import { JOLNIR_CONFIG } from "./config";
 import { AddEthereumChainParameter } from "../baseTypes";
 
 export const GRIMSVOTN_ADD_ETHEREUM_CHAIN: AddEthereumChainParameter = {
-  chainId: GRIMSVOTN_CONFIG.chainId.hex,
-  chainName: GRIMSVOTN_CONFIG.names.mediumName,
-  nativeCurrency: GRIMSVOTN_CONFIG.nativeCurrency,
-  rpcUrls: [GRIMSVOTN_CONFIG.rpc.https],
-  blockExplorerUrls: [GRIMSVOTN_CONFIG.blockExplorer.url],
+  chainId: JOLNIR_CONFIG.chainId.hex,
+  chainName: JOLNIR_CONFIG.names.mediumName,
+  nativeCurrency: JOLNIR_CONFIG.nativeCurrency,
+  rpcUrls: [JOLNIR_CONFIG.rpc.https],
+  blockExplorerUrls: [JOLNIR_CONFIG.blockExplorer.url],
   iconUrls: [],
 };
