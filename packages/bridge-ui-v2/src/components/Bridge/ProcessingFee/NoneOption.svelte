@@ -2,7 +2,7 @@
   import type { Address } from 'viem';
 
   import { recommendProcessingFee } from '$libs/fee';
-  import { getBalance, type Token } from '$libs/token';
+  import { getBalance, TokenType, type Token } from '$libs/token';
   import { account, network } from '$stores';
 
   import { destNetwork, selectedToken } from '../state';
@@ -21,9 +21,9 @@
     error = false;
 
     try {
+      let destBalance;
       // Get the balance of the user on the destination chain
-      const destBalance = await getBalance({
-        token,
+      destBalance = await getBalance({
         userAddress,
         srcChainId: destChainId,
       });
