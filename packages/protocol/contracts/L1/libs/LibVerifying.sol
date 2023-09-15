@@ -95,6 +95,7 @@ library LibVerifying {
     function verifyBlocks(
         TaikoData.State storage state,
         TaikoData.Config memory config,
+        TaikoData.TierConfig memory tierConfig,
         AddressResolver resolver,
         uint64 maxBlocks
     )
@@ -130,40 +131,25 @@ library LibVerifying {
                 tid = LibUtils.getTransitionId(state, blk, slot, blockHash);
                 if (tid == 0) break;
 
+                // Break if proving status is in PROVEN_IN_TIER_XXX state
+                if(blk.provingStatus % 2 != 1) break;
+
                 TaikoData.Transition storage tran = state.transitions[slot][tid];
 
-                // if (tran.prover != address(0)) {
-                //     // Use a ZK transition to verify the block
-                //     uint256 cooldownPeriod = tran.prover
-                //         == LibUtils.ORACLE_PROVER
-                //         ? config.proofOracleCooldown
-                //         : config.proofRegularCooldown;
-                //     if (block.timestamp <= tran.timestamp + cooldownPeriod) {
-                //         break;
-                //     }
-                // } else {
-                //     // Use an optmistic transition to verify the block.
+                (uint256 proofRegular, uint256 proofOracle) = LibTransition.getTierCooldownPeriod(tierConfig, blk.currentTier);
 
-                //     // If this block requires an ZK transition, or this
-                //     // transition is being challenged or is not mature, we
-                // have
-                //     // to wait.
-                //     if (
-                //         blk.optimisticBond == 0 // this is a ZK block
-                //             || tran.challenger != address(0) // being
-                // challenged
-                //             || block.timestamp
-                //                 <= tran.timestamp + config.optimisticCooldown
-                //     ) {
-                //         break;
-                //     }
-                // }
+                uint256 proofCooldown = tran.prover == LibUtils.ORACLE_PROVER
+                    ? proofOracle
+                    : proofRegular;
+                if (block.timestamp <= tran.provenAt + proofCooldown) {
+                    break;
+                }
 
                 blockHash = tran.blockHash;
                 signalRoot = tran.signalRoot;
                 blk.verifiedTransitionId = tid;
 
-                _processTokenomics(state, config, resolver, blk, tran);
+                //_processTokenomics(state, config, resolver, blk, tran);
                 emit BlockVerified(blockId, tran.prover, tran.blockHash);
 
                 ++blockId;

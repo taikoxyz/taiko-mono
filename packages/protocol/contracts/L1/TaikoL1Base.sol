@@ -96,6 +96,7 @@ abstract contract TaikoL1Base is
             LibVerifying.verifyBlocks({
                 state: state,
                 config: config,
+                tierConfig: tierConfig,
                 resolver: AddressResolver(this),
                 maxBlocks: config.blockMaxVerificationsPerTx
             });
@@ -127,6 +128,7 @@ abstract contract TaikoL1Base is
             LibVerifying.verifyBlocks({
                 state: state,
                 config: config,
+                tierConfig: tierConfig,
                 resolver: AddressResolver(this),
                 maxBlocks: config.blockMaxVerificationsPerTx
             });
@@ -137,9 +139,13 @@ abstract contract TaikoL1Base is
     /// @param maxBlocks Max number of blocks to verify.
     function verifyBlocks(uint64 maxBlocks) external nonReentrant {
         if (maxBlocks == 0) revert L1_INVALID_PARAM();
+
+        TaikoData.TierConfig memory tierConfig = getTierConfig();
+
         LibVerifying.verifyBlocks({
             state: state,
             config: getConfig(),
+            tierConfig: tierConfig,
             resolver: AddressResolver(this),
             maxBlocks: maxBlocks
         });

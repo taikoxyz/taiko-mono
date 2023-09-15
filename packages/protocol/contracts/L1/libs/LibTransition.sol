@@ -226,15 +226,21 @@ library LibTransition {
         );
     }
 
-    function getTierCooldownPeriod(uint8 tier)
+    function getTierCooldownPeriod(
+        TaikoData.TierConfig memory tierConfig,
+        uint8 tier
+    )
         internal
         pure
-        returns (uint256)
+        returns (uint256, uint256)
     {
-        if (tier == TIER_ID_1) return 4 hours;
-        if (tier == TIER_ID_2) return 30 minutes;
-        if (tier == TIER_ID_GUARDIAN) return 15 minutes;
-        revert L1_TIER_INVALID();
+        if (tier > TIER_ID_GUARDIAN) {
+            revert L1_TIER_INVALID();
+        }
+        return (
+            tierConfig.tierData[tier].proofRegularCooldown,
+            tierConfig.tierData[tier].proofOracleCooldown
+        );
     }
 
     function getTierMinMax()
