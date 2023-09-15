@@ -75,19 +75,19 @@ func TestIntegration_RawBlock_Save(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		block   types.Block
+		block   *types.Block
 		chainID *big.Int
 		wantErr error
 	}{
 		{
 			"success",
-			*b,
+			b,
 			big.NewInt(0),
 			nil,
 		},
 		{
 			"genesis",
-			*b2,
+			b2,
 			big.NewInt(0),
 			nil,
 		},
@@ -95,7 +95,7 @@ func TestIntegration_RawBlock_Save(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := blockRepo.Save(context.Background(), &tt.block, tt.chainID)
+			err := blockRepo.Save(context.Background(), tt.block, tt.chainID)
 			assert.Equal(t, tt.wantErr, err)
 		})
 	}
