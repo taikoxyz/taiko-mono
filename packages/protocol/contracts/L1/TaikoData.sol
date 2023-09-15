@@ -78,6 +78,7 @@ library TaikoData {
     struct TierData {
         uint8 id; // Example: 0 - none; 1 - OP; 2 - SGX; 3 - ZK; etc.
         // The cooldown period for regular proofs (in minutes).
+        // Serves as "challenge window"
         uint256 proofRegularCooldown;
         // The cooldown period for oracle proofs (in minutes).
         uint256 proofOracleCooldown;
@@ -162,7 +163,7 @@ library TaikoData {
         address challenger; // slot 5
         uint96 challengerBond;
         uint64 provenAt; // slot 6 (144 bits)
-        uint64 challengedAt;
+        uint64 challengedAt; // Todo: Do we really need this one ?
         uint8 tier;
         bytes32[4] __reserved;
     }

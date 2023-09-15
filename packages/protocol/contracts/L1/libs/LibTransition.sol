@@ -23,7 +23,8 @@ library LibTransition {
         address indexed from, uint64 blockId, uint256 bond
     );
 
-    error L1_TIER_INVALID();
+    error L1_INVALID_TIER();
+    error L1_TIER_MISMATCH();
     error L1_TRANSITION_NOT_FOUND();
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_BLOCK_ID();
@@ -122,22 +123,21 @@ library LibTransition {
     {
         if (tran.challenger == address(0)) revert L1_NOT_CHALLANGED();
 
+        if (tran.tier == evidence.tier) revert L1_TIER_MISMATCH();
+
         // Query the proverBond
         (uint96 newProverBond,) = getTierBonds(tierConfig, evidence.tier);
         uint96 reward = tran.proverBond / 4;
         // We have 2 scenario:
-        // A: new proof confirms transition
-        // OR
-        // B: denies the previous transition
+        // 1.: new proof confirms transition
+        // 2.: denies the previous transition
         if (
             evidence.blockHash == tran.blockHash
                 && evidence.signalRoot == tran.signalRoot
         ) {
-            // A: new proof confirms transition
             // proving the tran.prover is right
             state.taikoTokenBalances[tran.prover] += tran.proverBond + reward;
         } else {
-            // B: denies the previous transition
             // proving the tran.challenger is right
             state.taikoTokenBalances[tran.challenger] +=
                 tran.challengerBond + reward;
@@ -199,7 +199,7 @@ library LibTransition {
         returns (uint96 provingBond, uint96 challangingBond)
     {
         if (tier > TIER_ID_GUARDIAN) {
-            revert L1_TIER_INVALID();
+            revert L1_INVALID_TIER();
         }
         return (
             tierConfig.tierData[tier].proverBond,
@@ -216,7 +216,7 @@ library LibTransition {
         returns (uint256, uint256)
     {
         if (tier > TIER_ID_GUARDIAN) {
-            revert L1_TIER_INVALID();
+            revert L1_INVALID_TIER();
         }
         return (
             tierConfig.tierData[tier].proofRegularCooldown,
@@ -224,14 +224,12 @@ library LibTransition {
         );
     }
 
-    function getTierMinMax()
-        internal
-        pure
-        returns (uint8, uint8)
-    {
+    function getTierMinMax() internal pure returns (uint8, uint8) {
         return (TIER_ID_1, TIER_ID_GUARDIAN);
     }
 
+    // Todo: This has to be properly tunable with tier configs (see PR desc.) -
+    // fine as is now.
     function getBlockDefaultTierStatus(uint256 rand)
         internal
         pure

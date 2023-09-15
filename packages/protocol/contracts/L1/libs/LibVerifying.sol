@@ -133,9 +133,10 @@ library LibVerifying {
 
                 TaikoData.Transition storage tran = state.transitions[slot][tid];
 
-                if(tran.challenger != address(0)) break;
+                if (tran.challenger != address(0)) break;
 
-                (uint256 proofRegular, uint256 proofOracle) = LibTransition.getTierCooldownPeriod(tierConfig, tran.tier);
+                (uint256 proofRegular, uint256 proofOracle) =
+                    LibTransition.getTierCooldownPeriod(tierConfig, tran.tier);
 
                 uint256 proofCooldown = tran.prover == LibUtils.ORACLE_PROVER
                     ? proofOracle

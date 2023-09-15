@@ -25,9 +25,9 @@ library LibProving {
     error L1_INVALID_EVIDENCE();
     error L1_INVALID_ORACLE_PROVER();
     error L1_INVALID_TIER();
+    error L1_INVALID_CHALLENGE_TIER();
     error L1_NOT_PROVEABLE();
     error L1_SAME_PROOF();
-    error L1_TIER_INVALID();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -56,35 +56,15 @@ library LibProving {
             revert L1_BLOCK_MISMATCH();
         }
 
-        if (evidence.prover == LibUtils.ORACLE_PROVER) {
-            // Oracle prover
-            if (msg.sender != resolver.resolve("oracle_prover", false)) {
-                revert L1_INVALID_ORACLE_PROVER();
-            }
-        } else {
-            // A block can be proven by a regular prover in the following cases:
-            // 1. The actual prover is the assigned prover
-            // 2. The block has at least one state transition (which must be
-            // from the assigned prover)
-            // 3. The block has become open
-            if (
-                evidence.prover != blk.prover && blk.nextTransitionId == 1
-                    && block.timestamp <= blk.proposedAt + config.proofWindow
-            ) revert L1_NOT_PROVEABLE();
-        }
-
         if (evidence.tier < blk.blkDefaultTier) revert L1_INVALID_TIER();
 
         uint32 tid = state.getTransitionId(blk, slot, evidence.parentHash);
         TaikoData.Transition storage tran;
 
         // Cases we need to distinguish:
-        // 1. The very first proof -> if (tid == 0){}
+        // 1. The very first proof per supplied parentHash -> if (tid == 0){}
         // 2.1 Challange 'proof' (not an actual proof) -> else {}
         // 2.2 Proofs coming in for NOT the default tier -> else{}
-        // 3. Oracle proofs -> else if (evidence.prover ==
-        // LibUtils.ORACLE_PROVER) {}
-
         if (tid == 0) {
             // This is the first transition for a given parentHash.
             unchecked {
@@ -107,29 +87,32 @@ library LibProving {
 
             // Initialize as the evidence.tier
             tran.tier = evidence.tier;
-        } else if (evidence.prover == LibUtils.ORACLE_PROVER) {
-            // This is the branch the oracle prover is trying to overwrite
-            // We need to check the previous proof is not the same as the
-            // new proof
-            tran = state.transitions[slot][tid];
-            if (
-                tran.blockHash == evidence.blockHash
-                    && tran.signalRoot == evidence.signalRoot
-            ) revert L1_SAME_PROOF();
-            tran.tier = uint8(LibTransition.TIER_ID_GUARDIAN);
         } else {
             tran = state.transitions[slot][tid];
-            // We need to know NOW:
-            // A: Is it a challange ?
-            // OR
-            // B: Is it a proof for an existing (challenged) transition ?
-            if (evidence.tier == tran.tier) {
+            // Cases:
+            // 1.: Is it a challange ? If so
+            // 1.1.: valid -> call challenge()
+            // 1.2.: invalid -> revert
+            // 2.: Is it a proof for an existing (challenged) transition ?
+
+            // Indicates saying like:
+            // Bob: "I challange this Transition with id: x, on tier level Y,
+            // that this is incorrect."
+            if (
+                evidence.tier == tran.tier
+                    && keccak256(evidence.proofs) == keccak256(bytes("CHALLANGE"))
+            ) {
                 // This is a challenge
                 LibTransition.challenge(
                     state, tierConfig, resolver, blk, tran, evidence
                 );
-                // return as no need to verify since it is just a challenge
+                // return as no need to verify since it is a challenge
                 return;
+            } else if (
+                evidence.tier != tran.tier
+                    && keccak256(evidence.proofs) == keccak256(bytes("CHALLANGE"))
+            ) {
+                revert L1_INVALID_CHALLENGE_TIER();
             } else {
                 // It is a new proof on a higher tier then the previous one
                 LibTransition.proveChallenged(
@@ -178,11 +161,6 @@ library LibProving {
         if (evidence.tier == LibTransition.TIER_ID_1) {
             require(evidence.proofs.length == 0);
         } else if (evidence.tier == LibTransition.TIER_ID_2) {
-            if (
-                evidence.prover != blk.prover
-                    && block.timestamp <= tran.challengedAt + 1 hours
-            ) revert L1_NOT_PROVEABLE();
-
             IPseProofVerifier(resolver.resolve("proof_verifier", false))
                 .verifyProofs(blk.blockId, evidence.proofs, getInstance(evidence));
         } else if (evidence.tier == LibTransition.TIER_ID_GUARDIAN) {
@@ -190,7 +168,7 @@ library LibProving {
                 revert L1_INVALID_ORACLE_PROVER();
             }
         } else {
-            revert L1_TIER_INVALID();
+            revert L1_INVALID_TIER();
         }
     }
 }
