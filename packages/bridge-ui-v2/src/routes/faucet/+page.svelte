@@ -3,6 +3,9 @@
   import { Page } from '$components/Page';
 </script>
 
+<svelte:head>
+  <title>Taiko Bridge | Faucet</title>
+</svelte:head>
 <Page>
   <Faucet />
 </Page>
