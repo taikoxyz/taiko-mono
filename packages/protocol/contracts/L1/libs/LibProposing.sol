@@ -91,9 +91,6 @@ library LibProposing {
             });
 
             emit BondReceived(assignment.prover, b.numBlocks, config.proofBond);
-        } else {
-            if (assignment.prover == resolver.resolve("oracle_prover", false)) {
-            }
         }
 
         // Pay prover after verifying assignment
