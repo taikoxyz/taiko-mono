@@ -95,6 +95,17 @@ func TestIntegration_NFTBalance_Decrease(t *testing.T) {
 		})
 	assert.Equal(t, nil, err2)
 
+	_, err3 := nftBalanceRepo.IncreaseBalance(context.Background(),
+		eventindexer.UpdateNFTBalanceOpts{
+			ChainID:         1,
+			Address:         "0x123",
+			TokenID:         1,
+			ContractAddress: "0x123456",
+			ContractType:    "ERC721",
+			Amount:          2,
+		})
+	assert.Equal(t, nil, err3)
+
 	tests := []struct {
 		name    string
 		opts    eventindexer.UpdateNFTBalanceOpts
@@ -112,6 +123,18 @@ func TestIntegration_NFTBalance_Decrease(t *testing.T) {
 			},
 			nil,
 		},
+		{
+			"one left",
+			eventindexer.UpdateNFTBalanceOpts{
+				ChainID:         1,
+				Address:         "0x123",
+				TokenID:         1,
+				ContractAddress: "0x123456",
+				ContractType:    "ERC721",
+				Amount:          2,
+			},
+			nil,
+		},
 	}
 
 	for _, tt := range tests {
@@ -120,8 +143,20 @@ func TestIntegration_NFTBalance_Decrease(t *testing.T) {
 			assert.Equal(t, tt.wantErr, err)
 		})
 	}
+
+	_, err4 := nftBalanceRepo.SubtractBalance(context.Background(),
+		eventindexer.UpdateNFTBalanceOpts{
+			ChainID:         1,
+			Address:         "0x123",
+			TokenID:         1,
+			ContractAddress: "0x1234",
+			ContractType:    "ERC721",
+			Amount:          1,
+		})
+	assert.ErrorContains(t, err4, "record not found")
 }
 
+// TODO: fix this test
 func TestIntegration_NFTBalance_FindByAddress(t *testing.T) {
 	db, close, err := testMysql(t)
 	assert.Equal(t, nil, err)
@@ -137,7 +172,12 @@ func TestIntegration_NFTBalance_FindByAddress(t *testing.T) {
 		chainID string
 		wantErr error
 	}{
-		{},
+		{
+			"success",
+			"0x123",
+			"1",
+			nil,
+		},
 	}
 
 	get, err := http.NewRequest("GET", "", nil)
