@@ -299,7 +299,7 @@
 </script>
 
 <Card class="w-full md:w-[524px]" title={$t('bridge.title.default')} text={$t('bridge.description')}>
-  <div class="space-y-[35px]">
+  <div class="space-y-[30px]">
     <div class="f-between-center gap-4">
       <ChainSelectorWrapper />
     </div>
