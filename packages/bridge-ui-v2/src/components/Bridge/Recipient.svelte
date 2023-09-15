@@ -32,12 +32,13 @@
   function openModal() {
     modalOpen = true;
     addressInput.focus();
+    addEscKeyListener();
   }
 
   function cancelModal() {
     // Revert change of recipient address
     $recipientAddress = prevRecipientAddress;
-
+    removeEscKeyListener();
     closeModal();
   }
 
@@ -57,6 +58,21 @@
       invalidAddress = true;
     }
   }
+
+  let escKeyListener: (event: KeyboardEvent) => void;
+
+  const addEscKeyListener = () => {
+    escKeyListener = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeModal();
+      }
+    };
+    window.addEventListener('keydown', escKeyListener);
+  };
+
+  const removeEscKeyListener = () => {
+    window.removeEventListener('keydown', escKeyListener);
+  };
 
   $: modalOpenChange(modalOpen);
 

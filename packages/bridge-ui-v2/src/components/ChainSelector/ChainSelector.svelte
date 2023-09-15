@@ -6,7 +6,6 @@
   import { SwitchChainError, UserRejectedRequestError } from 'viem';
 
   import { chainConfig } from '$chainConfig';
-  import { Alert } from '$components/Alert';
   import { Icon } from '$components/Icon';
   import { LoadingMask } from '$components/LoadingMask';
   import { warningToast } from '$components/NotificationToast';
@@ -24,6 +23,21 @@
   export let small = false;
   export let validOptions: Maybe<Chain[]> = chains;
 
+  let escKeyListener: (event: KeyboardEvent) => void;
+
+  const addEscKeyListener = () => {
+    escKeyListener = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeModal();
+      }
+    };
+    window.addEventListener('keydown', escKeyListener);
+  };
+
+  const removeEscKeyListener = () => {
+    window.removeEventListener('keydown', escKeyListener);
+  };
+
   const dispatch = createEventDispatcher();
 
   let classes = classNames('ChainSelector', $$props.class);
@@ -40,23 +54,22 @@
   let buttonId = `button-${uid()}`;
   let dialogId = `dialog-${uid()}`;
   let modalOpen = false;
-  let srcChainId: Maybe<number> = null;
 
   function closeModal() {
+    removeEscKeyListener();
     modalOpen = false;
   }
 
   async function openModal() {
     if (readOnly) return;
     const wallet = await getConnectedWallet();
-    srcChainId = await wallet.getChainId();
     // We want to inform the user that they need to connect
     // their wallet if they want to change the network
     if (!$account.isConnected) {
       warningToast($t('messages.account.required'));
       return;
     }
-
+    addEscKeyListener();
     modalOpen = true;
   }
 
@@ -141,12 +154,18 @@
         <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
       </button>
       <div class="w-full">
-        <h3 class="title-body-bold mb-[20px]">{ #if switchWallet } {$t('chain_selector.from_placeholder')} {:else} {$t('chain_selector.to_placeholder')} {/if}</h3>
+        <h3 class="title-body-bold mb-[20px]">
+          {#if switchWallet}
+            {$t('chain_selector.from_placeholder')}
+          {:else}
+            {$t('chain_selector.to_placeholder')}
+          {/if}
+        </h3>
         <ul role="menu">
           {#each chains as chain (chain.id)}
-            {@const disabled = (validOptions
-              ? !validOptions.some((validOption) => validOption.id === chain.id) : true)
-              || chain.id === value?.id}
+            {@const disabled =
+              (validOptions ? !validOptions.some((validOption) => validOption.id === chain.id) : true) ||
+              chain.id === value?.id}
             {@const icon = chainConfig[Number(chain.id)]?.icon || 'Unknown Chain'}
             <li
               role="menuitem"
@@ -172,14 +191,15 @@
               </div>
             </li>
           {/each}
-          {#if !small}
+          <!-- Todo: disabled for now -->
+          <!-- {#if !small}
             <li role="menuitem" tabindex="0" class="p-4 rounded-[10px]">
               <Alert type="warning" forceColumnFlow>
                 <p class="font-bold">{$t('chain_selector.disabled_options.title')}</p>
                 <p>{$t('chain_selector.disabled_options.description')}</p>
               </Alert>
             </li>
-          {/if}
+          {/if} -->
         </ul>
       </div>
     </div>

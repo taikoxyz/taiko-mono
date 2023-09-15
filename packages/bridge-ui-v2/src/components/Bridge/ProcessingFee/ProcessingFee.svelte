@@ -44,7 +44,7 @@
       // If so, let's switch to RECOMMENDED method
       selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
     }
-
+    removeEscKeyListener();
     modalOpen = false;
   }
 
@@ -52,7 +52,7 @@
     // Keep track of the selected method before opening the modal
     // so if we cancel we can go back to the previous method
     prevOptionSelected = selectedFeeMethod;
-
+    addEscKeyListener();
     modalOpen = true;
   }
 
@@ -72,6 +72,21 @@
     const { value } = event.target as HTMLInputElement;
     $processingFee = parseToWei(value);
   }
+
+  let escKeyListener: (event: KeyboardEvent) => void;
+
+  const addEscKeyListener = () => {
+    escKeyListener = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        cancelModal();
+      }
+    };
+    window.addEventListener('keydown', escKeyListener);
+  };
+
+  const removeEscKeyListener = () => {
+    window.removeEventListener('keydown', escKeyListener);
+  };
 
   async function updateProcessingFee(method: ProcessingFeeMethod, recommendedAmount: bigint) {
     switch (method) {

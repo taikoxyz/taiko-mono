@@ -33,7 +33,7 @@
 
   const closeMenu = () => {
     menuOpen = false;
-    document.removeEventListener('click', closeMenu);
+    removeListener();
   };
 
   const openMenu = (event: Event) => {
@@ -41,8 +41,24 @@
 
     menuOpen = true;
 
-    // Click away to close menu
+    addListener();
+  };
+
+  let escKeyListener: (event: KeyboardEvent) => void;
+
+  const addListener = () => {
     document.addEventListener('click', closeMenu, { once: true });
+    escKeyListener = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeMenu();
+      }
+    };
+    window.addEventListener('keydown', escKeyListener);
+  };
+
+  const removeListener = () => {
+    window.removeEventListener('click', closeMenu);
+    window.removeEventListener('keydown', escKeyListener);
   };
 
   const selectToken = async (token: Token) => {
