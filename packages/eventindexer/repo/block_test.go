@@ -3,7 +3,6 @@ package repo
 import (
 	"context"
 	"math/big"
-	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -74,7 +73,6 @@ func TestIntegration_RawBlock_Save(t *testing.T) {
 
 	b2 := types.NewBlockWithHeader(genesisHeader)
 
-	os.Getenv("TAIKO_GENESIS_BLOCK")
 	tests := []struct {
 		name    string
 		block   types.Block
