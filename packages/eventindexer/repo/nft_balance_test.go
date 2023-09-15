@@ -52,7 +52,20 @@ func TestIntegration_NFTBalance_Increase(t *testing.T) {
 		name    string
 		opts    eventindexer.UpdateNFTBalanceOpts
 		wantErr error
-	}{}
+	}{
+		{
+			"success",
+			eventindexer.UpdateNFTBalanceOpts{
+				ChainID:         1,
+				Address:         "0x123",
+				TokenID:         1,
+				ContractAddress: "0x123",
+				ContractType:    "ERC721",
+				Amount:          1,
+			},
+			nil,
+		},
+	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -71,11 +84,35 @@ func TestIntegration_NFTBalance_Decrease(t *testing.T) {
 	nftBalanceRepo, err := NewNFTBalanceRepository(db)
 	assert.Equal(t, nil, err)
 
+	_, err2 := nftBalanceRepo.IncreaseBalance(context.Background(),
+		eventindexer.UpdateNFTBalanceOpts{
+			ChainID:         1,
+			Address:         "0x123",
+			TokenID:         1,
+			ContractAddress: "0x123",
+			ContractType:    "ERC721",
+			Amount:          1,
+		})
+	assert.Equal(t, nil, err2)
+
 	tests := []struct {
 		name    string
 		opts    eventindexer.UpdateNFTBalanceOpts
 		wantErr error
-	}{}
+	}{
+		{
+			"success",
+			eventindexer.UpdateNFTBalanceOpts{
+				ChainID:         1,
+				Address:         "0x123",
+				TokenID:         1,
+				ContractAddress: "0x123",
+				ContractType:    "ERC721",
+				Amount:          1,
+			},
+			nil,
+		},
+	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
