@@ -165,17 +165,6 @@ library LibDepositing {
         }
     }
 
-    /// @dev Computes the hash of the given deposits.
-    /// @param deposits The deposits to hash.
-    /// @return The computed hash.
-    function hashEthDeposits(TaikoData.EthDeposit[] memory deposits)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(deposits));
-    }
-
     /// @dev Encodes the given deposit into a uint256.
     /// @param addr The address of the deposit recipient.
     /// @param amount The amount of the deposit.

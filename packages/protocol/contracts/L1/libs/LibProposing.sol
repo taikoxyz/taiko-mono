@@ -15,7 +15,7 @@ import { IProver } from "../IProver.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibDepositing } from "./LibDepositing.sol";
 import { LibMath } from "../../libs/LibMath.sol";
-import { LibTaikoToken } from "./LibTaikoToken.sol";
+import { LibTiers } from "./LibTiers.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
@@ -26,29 +26,25 @@ library LibProposing {
     using LibAddress for address;
     using LibAddress for address payable;
     using LibMath for uint256;
-    using LibUtils for TaikoData.State;
 
     bytes4 internal constant EIP1271_MAGICVALUE = 0x1626ba7e;
 
     event BlockProposed(
         uint256 indexed blockId,
-        address indexed prover,
+        address indexed assignedProver,
+        uint96 assignmentBond,
         uint256 reward,
         TaikoData.BlockMetadata meta
     );
-    event BondReceived(address indexed from, uint64 blockId, uint256 bond);
 
     error L1_INVALID_ASSIGNMENT();
-    error L1_INVALID_BLOCK_ID();
     error L1_INVALID_METADATA();
-    error L1_INVALID_PROPOSER();
-    error L1_INVALID_PROVER();
-    error L1_INVALID_PROVER_SIG();
     error L1_TOO_MANY_BLOCKS();
-    error L1_TX_LIST_NOT_EXIST();
-    error L1_TX_LIST_HASH();
-    error L1_TX_LIST_RANGE();
-    error L1_TX_LIST();
+    error L1_TXLIST_INVALID_RANGE();
+    error L1_TXLIST_MISMATCH();
+    error L1_TXLIST_NOT_FOUND();
+    error L1_TXLIST_TOO_LARGE();
+    error L1_UNAUTHORIZED();
 
     function proposeBlock(
         TaikoData.State storage state,
@@ -64,13 +60,12 @@ library LibProposing {
         // Check proposer
         address proposer = resolver.resolve("proposer", true);
         if (proposer != address(0) && msg.sender != proposer) {
-            revert L1_INVALID_PROPOSER();
+            revert L1_UNAUTHORIZED();
         }
 
         // Check prover assignment
         if (
             assignment.prover == address(0)
-                || assignment.prover == LibUtils.ORACLE_PROVER
                 || assignment.expiry <= block.timestamp
         ) {
             revert L1_INVALID_ASSIGNMENT();
@@ -83,17 +78,11 @@ library LibProposing {
             revert L1_TOO_MANY_BLOCKS();
         }
 
-        TaikoToken tt = LibTaikoToken.receiveTaikoToken({
-            state: state,
-            resolver: resolver,
-            from: assignment.prover,
-            amount: config.proofBond
-        });
-
-        emit BondReceived(assignment.prover, b.numBlocks, config.proofBond);
+        TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
+        tt.burn(assignment.prover, config.assignmentBond);
 
         // Pay prover after verifying assignment
-        if (config.skipProverAssignmentVerificaiton) {
+        if (config.skipAssignmentVerificaiton) {
             // For testing only
             assignment.prover.sendEther(msg.value);
         } else if (!assignment.prover.isContract()) {
@@ -101,7 +90,7 @@ library LibProposing {
                 _hashAssignment(input, assignment).recover(assignment.data)
                     != assignment.prover
             ) {
-                revert L1_INVALID_PROVER_SIG();
+                revert L1_INVALID_ASSIGNMENT();
             }
             assignment.prover.sendEther(msg.value);
         } else if (
@@ -118,11 +107,11 @@ library LibProposing {
                     _hashAssignment(input, assignment), assignment.data
                 ) != EIP1271_MAGICVALUE
             ) {
-                revert L1_INVALID_PROVER_SIG();
+                revert L1_INVALID_ASSIGNMENT();
             }
             assignment.prover.sendEther(msg.value);
         } else {
-            revert L1_INVALID_PROVER();
+            revert L1_INVALID_ASSIGNMENT();
         }
 
         // Reward the proposer
@@ -167,7 +156,7 @@ library LibProposing {
             meta.id = b.numBlocks;
             meta.timestamp = uint64(block.timestamp);
             meta.l1Height = uint64(block.number - 1);
-            meta.l1Hash = blockhash(block.number - 1);
+            meta.l1Hash = blockhash(meta.l1Height);
 
             // After The Merge, L1 mixHash contains the prevrandao
             // from the beacon chain. Since multiple Taiko blocks
@@ -188,34 +177,24 @@ library LibProposing {
                 state.blocks[b.numBlocks % config.blockRingBufferSize];
 
             blk.metaHash = LibUtils.hashMetadata(meta);
-            blk.prover = assignment.prover;
-            blk.proofBond = config.proofBond;
+            blk.assignedProver = assignment.prover;
+            blk.assignmentBond = config.assignmentBond;
+            blk.proposer = meta.proposer;
             blk.blockId = meta.id;
-            blk.proposedAt = meta.timestamp;
             blk.nextTransitionId = 1;
+            blk.proposedAt = meta.timestamp;
             blk.verifiedTransitionId = 0;
+            blk.minTier = LibTiers.getBlockMinTier(uint256(blk.metaHash));
+
+            ++state.slotB.numBlocks;
 
             emit BlockProposed({
-                blockId: state.slotB.numBlocks++,
-                prover: blk.prover,
+                blockId: meta.id,
+                assignedProver: assignment.prover,
+                assignmentBond: config.assignmentBond,
                 reward: reward,
                 meta: meta
             });
-        }
-    }
-
-    function getBlock(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        uint64 blockId
-    )
-        internal
-        view
-        returns (TaikoData.Block storage blk)
-    {
-        blk = state.blocks[blockId % config.blockRingBufferSize];
-        if (blk.blockId != blockId) {
-            revert L1_INVALID_BLOCK_ID();
         }
     }
 
@@ -234,16 +213,16 @@ library LibProposing {
         // handling txList
 
         uint24 size = uint24(txList.length);
-        if (size > config.blockMaxTxListBytes) revert L1_TX_LIST();
+        if (size > config.blockMaxTxListBytes) revert L1_TXLIST_TOO_LARGE();
 
         if (input.txListByteStart > input.txListByteEnd) {
-            revert L1_TX_LIST_RANGE();
+            revert L1_TXLIST_INVALID_RANGE();
         }
 
         if (config.blockTxListExpiry == 0) {
             // caching is disabled
             if (input.txListByteStart != 0 || input.txListByteEnd != size) {
-                revert L1_TX_LIST_RANGE();
+                revert L1_TXLIST_INVALID_RANGE();
             }
         } else {
             // caching is enabled
@@ -253,7 +232,7 @@ library LibProposing {
                     state.txListInfo[input.txListHash];
 
                 if (input.txListByteEnd > info.size) {
-                    revert L1_TX_LIST_RANGE();
+                    revert L1_TXLIST_INVALID_RANGE();
                 }
 
                 if (
@@ -261,12 +240,14 @@ library LibProposing {
                         || info.validSince + config.blockTxListExpiry
                             < block.timestamp
                 ) {
-                    revert L1_TX_LIST_NOT_EXIST();
+                    revert L1_TXLIST_NOT_FOUND();
                 }
             } else {
-                if (input.txListByteEnd > size) revert L1_TX_LIST_RANGE();
+                if (input.txListByteEnd > size) {
+                    revert L1_TXLIST_INVALID_RANGE();
+                }
                 if (input.txListHash != keccak256(txList)) {
-                    revert L1_TX_LIST_HASH();
+                    revert L1_TXLIST_MISMATCH();
                 }
 
                 cacheTxListInfo = input.cacheTxListInfo;

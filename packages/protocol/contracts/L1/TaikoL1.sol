@@ -32,11 +32,8 @@ contract TaikoL1 is TaikoL1Base {
             blockTxListExpiry: 0,
             proposerRewardPerSecond: 25e16, // 0.25 Taiko token
             proposerRewardMax: 32e18, // 32 Taiko token
-            proofRegularCooldown: 30 minutes,
-            proofOracleCooldown: 15 minutes,
-            proofWindow: 90 minutes,
-            proofBond: 1024e18,
-            skipProverAssignmentVerificaiton: false,
+            assignmentBond: 10_240e18,
+            skipAssignmentVerificaiton: false,
             ethDepositRingBufferSize: 1024,
             ethDepositMinCountPerBlock: 8,
             ethDepositMaxCountPerBlock: 32,

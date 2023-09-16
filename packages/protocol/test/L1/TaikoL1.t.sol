@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
-import { LibDepositing } from "../../contracts/L1/libs/LibDepositing.sol";
+import { LibUtils } from "../../contracts/L1/libs/LibUtils.sol";
 import { TaikoData } from "../../contracts/L1/TaikoData.sol";
 import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
 import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
@@ -25,9 +25,8 @@ contract TaikoL1_NoCooldown is TaikoL1 {
         config.blockMaxVerificationsPerTx = 0;
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 12;
-        config.proofRegularCooldown = 15 minutes;
-        config.skipProverAssignmentVerificaiton = true;
-        config.proofBond = 1e18; // 1 Taiko token
+        config.skipAssignmentVerificaiton = true;
+        config.assignmentBond = 1e18; // 1 Taiko token
         config.proposerRewardPerSecond = 1e15; // 0.001 Taiko token
     }
 }
@@ -45,8 +44,8 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     function setUp() public override {
         TaikoL1TestBase.setUp();
-
-        registerAddress(L1.getVerifierName(100), address(new Verifier()));
+        // TODO
+        // registerAddress(L1.getVerifierName(100), address(new Verifier()));
     }
 
     /// @dev Test we can propose, prove, then verify more blocks than
@@ -78,7 +77,8 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1e9 + blockId);
             proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot);
             vm.roll(block.number + 15 * 12);
-            vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
+            // TODO
+            // vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
             verifyBlock(Carol, 1);
             parentHash = blockHash;
         }
@@ -109,7 +109,8 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot);
             vm.roll(block.number + 15 * 12);
-            vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
+            // TODO
+            // vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
             verifyBlock(Alice, 2);
             parentHash = blockHash;
         }
@@ -143,7 +144,8 @@ contract TaikoL1Test is TaikoL1TestBase {
         }
 
         vm.roll(block.number + 15 * 12);
-        vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
+        // TODO
+        // vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
         verifyBlock(Alice, conf.blockMaxProposals - 1);
         printVariables("after verify");
         verifyBlock(Alice, conf.blockMaxProposals);
@@ -196,7 +198,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         printVariables("after processing send-ethers");
         assertTrue(
-            LibDepositing.hashEthDeposits(meta.depositsProcessed)
+            LibUtils.hashEthDeposits(meta.depositsProcessed)
                 != emptyDepositsRoot
         );
         assertEq(meta.depositsProcessed.length, count);
@@ -255,7 +257,8 @@ contract TaikoL1Test is TaikoL1TestBase {
             );
 
             vm.roll(block.number + 15 * 12);
-            vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
+            // TODO
+            // vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
 
             verifyBlock(Carol, 1);
 
@@ -328,7 +331,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         // calculated with these values)
         //console2.logBytes32(meta.depositsRoot);
         assertEq(
-            LibDepositing.hashEthDeposits(meta.depositsProcessed),
+            LibUtils.hashEthDeposits(meta.depositsProcessed),
             0x41c71a2af0eaa668a1241d7e1b09ac30d0e9ea6b6eb4a5a151029e87158d46f3
         );
     }

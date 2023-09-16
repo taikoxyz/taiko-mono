@@ -9,7 +9,8 @@ import { LibUtils } from "../../contracts/L1/libs/LibUtils.sol";
 import { TaikoData } from "../../contracts/L1/TaikoData.sol";
 import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
 import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
-import { ProofVerifier } from "../../contracts/L1/ProofVerifier.sol";
+
+import { PseZkVerifier } from "../../contracts/L1/verifiers/PseZkVerifier.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
@@ -27,14 +28,14 @@ abstract contract TaikoL1TestBase is TestBase {
     TaikoL1 public L1;
     TaikoData.Config conf;
     uint256 internal logCount;
-    ProofVerifier public pv;
+    PseZkVerifier public pv;
 
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
     // 1 TKO --> it is to huge. It should be in 'wei' (?).
     // Because otherwise first proposal is around: 1TKO * (1_000_000+20_000)
     // required as a deposit.
     // uint32 feePerGas = 10;
-    // uint16 proofWindow = 60 minutes;
+    // uint16 provingWindow = 60 minutes;
     uint64 l2GasExcess = 1e18;
 
     address public constant L2Treasury =
@@ -56,7 +57,7 @@ abstract contract TaikoL1TestBase is TestBase {
         ss = new SignalService();
         ss.init(address(addressManager));
 
-        pv = new ProofVerifier();
+        pv = new PseZkVerifier();
         pv.init(address(addressManager));
 
         registerAddress("proof_verifier", address(pv));
@@ -66,8 +67,10 @@ abstract contract TaikoL1TestBase is TestBase {
         registerL2Address("taiko", address(TaikoL2));
         registerL2Address("signal_service", address(L2SS));
         registerL2Address("taiko_l2", address(TaikoL2));
-        registerAddress(L1.getVerifierName(100), address(new MockVerifier()));
-        registerAddress(L1.getVerifierName(0), address(new MockVerifier()));
+        // TODO
+        // registerAddress(L1.getVerifierName(100), address(new
+        // MockVerifier()));
+        // registerAddress(L1.getVerifierName(0), address(new MockVerifier()));
 
         tko = new TaikoToken();
         registerAddress("taiko_token", address(tko));
@@ -160,13 +163,14 @@ abstract contract TaikoL1TestBase is TestBase {
             signalRoot: signalRoot,
             graffiti: 0x0,
             prover: prover,
-            proofs: new bytes(102)
+            tier: 1,
+            proof: new bytes(102)
         });
 
-        bytes32 instance = LibProving.getInstance(evidence);
+        bytes32 instance; // TODO = LibTransition.getInstance(evidence);
         uint16 verifierId = 100;
 
-        evidence.proofs = bytes.concat(
+        evidence.proof = bytes.concat(
             bytes2(verifierId),
             bytes16(0),
             bytes16(instance),

@@ -44,16 +44,10 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // Group 3: Proof related configs
         // ---------------------------------------------------------------------
-        // The cooldown period for regular proofs (in minutes).
-        uint256 proofRegularCooldown;
-        // The cooldown period for oracle proofs (in minutes).
-        uint256 proofOracleCooldown;
-        // The maximum time window allowed for a proof submission (in minutes).
-        uint16 proofWindow;
-        // The amount of Taiko token as a bond
-        uint96 proofBond;
+        // The amount of Taiko token as a zk proof bond
+        uint96 assignmentBond;
         // True to skip proof verification
-        bool skipProverAssignmentVerificaiton;
+        bool skipAssignmentVerificaiton;
         // ---------------------------------------------------------------------
         // Group 4: ETH deposit related configs
         // ---------------------------------------------------------------------
@@ -71,6 +65,15 @@ library TaikoData {
         uint256 ethDepositGas;
         // The maximum fee allowed for an ETH deposit.
         uint256 ethDepositMaxFee;
+    }
+
+    struct TierConfig {
+        bytes32 name;
+        uint96 proofBond;
+        uint96 contestBond;
+        uint24 cooldownWindow;
+        uint16 provingWindow;
+        uint16 id;
     }
 
     /// @dev Struct holding state variables.
@@ -100,7 +103,8 @@ library TaikoData {
     }
 
     /// @dev Struct containing data only required for proving a block
-    /// Warning: changing this struct requires changing {LibUtils.hashMetadata}
+    /// Warning: changing this struct requires changing
+    /// {LibUtils.hashMetadata}
     /// accordingly.
     struct BlockMetadata {
         uint64 id;
@@ -124,31 +128,38 @@ library TaikoData {
         bytes32 signalRoot;
         bytes32 graffiti;
         address prover;
-        bytes proofs;
+        uint16 tier;
+        bytes proof;
     }
 
     /// @dev Struct representing state transition data.
-    /// 10 slots reserved for upgradability, 4 slots used.
+    /// 10 slots reserved for upgradability, 6 slots used.
     struct Transition {
-        bytes32 key; //only written/read for the 1st state transition.
-        bytes32 blockHash;
-        bytes32 signalRoot;
-        address prover;
-        uint64 provenAt;
-        bytes32[6] __reserved;
+        bytes32 key; // slot 1, only written/read for the 1st state transition.
+        bytes32 blockHash; // slot 2
+        bytes32 signalRoot; // slot 3
+        address prover; // slot 4
+        uint96 proofBond;
+        address contester; // slot 5
+        uint96 contestBond;
+        uint64 timestamp; // slot 6 (82 bits)
+        uint16 tier;
+        bytes32[4] __reserved;
     }
 
     /// @dev Struct containing data required for verifying a block.
-    /// 10 slots reserved for upgradability, 3 slots used.
+    /// 10 slots reserved for upgradability, 4 slots used.
     struct Block {
         bytes32 metaHash; // slot 1
-        address prover; // slot 2
-        uint96 proofBond;
+        address assignedProver; // slot 2
+        uint96 assignmentBond;
+        address proposer;
         uint64 blockId; // slot 3
-        uint64 proposedAt;
         uint32 nextTransitionId;
+        uint64 proposedAt; // slot 4 (128 bits)
         uint32 verifiedTransitionId;
-        bytes32[7] __reserved;
+        uint16 minTier;
+        bytes32[6] __reserved;
     }
 
     /// @dev Struct representing information about a transaction list.
@@ -203,10 +214,8 @@ library TaikoData {
         // Ring buffer for Ether deposits
         mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256)
             ethDeposits;
-        // In-protocol Taiko token balances
-        mapping(address account => uint256 balance) taikoTokenBalances;
-        SlotA slotA; // slot 7
-        SlotB slotB; // slot 8
-        uint256[142] __gap;
+        SlotA slotA; // slot 6
+        SlotB slotB; // slot 7
+        uint256[143] __gap;
     }
 }

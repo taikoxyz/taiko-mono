@@ -17,29 +17,36 @@ import { TaikoData } from "./TaikoData.sol";
 abstract contract TaikoEvents {
     /// @dev Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
-    /// @param prover The address of the assigned prover for the block.
+    /// @param assignedProver The address of the assigned prover for the block.
     /// @param reward The proposer's block reward in Taiko token.
     /// @param meta The block metadata containing information about the proposed
     /// block.
     event BlockProposed(
         uint256 indexed blockId,
-        address indexed prover,
+        address indexed assignedProver,
+        uint96 assignmentBond,
         uint256 reward,
         TaikoData.BlockMetadata meta
     );
 
-    /// @dev Emitted when a block is proven.
-    /// @param blockId The ID of the proven block.
-    /// @param parentHash The hash of the parent block.
-    /// @param blockHash The hash of the proven block.
-    /// @param signalRoot The signal root of the proven block.
-    /// @param prover The address of the prover who submitted the proof.
-    event BlockProven(
+    event Proven(
         uint256 indexed blockId,
         bytes32 parentHash,
         bytes32 blockHash,
         bytes32 signalRoot,
-        address prover
+        address prover,
+        uint96 proofBond,
+        uint16 tier
+    );
+
+    event Contested(
+        uint256 indexed blockId,
+        bytes32 parentHash,
+        bytes32 blockHash,
+        bytes32 signalRoot,
+        address contester,
+        uint96 contestBond,
+        uint16 tier
     );
 
     /// @dev Emitted when a block is verified.
@@ -48,7 +55,10 @@ abstract contract TaikoEvents {
     /// verified.
     /// @param blockHash The hash of the verified block.
     event BlockVerified(
-        uint256 indexed blockId, address indexed prover, bytes32 blockHash
+        uint256 indexed blockId,
+        address indexed assignedProver,
+        address indexed prover,
+        bytes32 blockHash
     );
 
     /// @dev Emitted when an Ethereum deposit is made.
