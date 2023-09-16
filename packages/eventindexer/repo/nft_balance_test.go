@@ -131,7 +131,7 @@ func TestIntegration_NFTBalance_Decrease(t *testing.T) {
 				TokenID:         1,
 				ContractAddress: "0x123456",
 				ContractType:    "ERC721",
-				Amount:          2,
+				Amount:          1,
 			},
 			nil,
 		},
