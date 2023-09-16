@@ -34,6 +34,8 @@ type Event struct {
 	Address         string              `json:"address"`
 	BlockID         sql.NullInt64       `json:"blockID"`
 	Amount          decimal.NullDecimal `json:"amount"`
+	ProofReward     decimal.NullDecimal `json:"proofReward"`
+	ProposerReward  decimal.NullDecimal `json:"proposerReward"`
 	AssignedProver  string              `json:"assignedProver"`
 	To              string              `json:"to"`
 	TokenID         sql.NullInt64       `json:"tokenID"`
@@ -50,6 +52,8 @@ type SaveEventOpts struct {
 	Address         string
 	BlockID         *int64
 	Amount          *big.Int
+	ProposerReward  *big.Int
+	ProofReward     *big.Int
 	AssignedProver  *string
 	To              *string
 	TokenID         *int64

@@ -163,7 +163,24 @@ library LibVerifying {
                 signalRoot = tran.signalRoot;
                 blk.verifiedTransitionId = tid;
 
-                _processTokenomics(state, config, resolver, blk, tran);
+                // If the default assigned prover is the oracle do not refund
+                // because was not even charged.
+                if (blk.prover != LibUtils.ORACLE_PROVER) {
+                    // Refund bond or give 1/4 of it to the actual prover and
+                    // burn the rest.
+                    if (
+                        tran.prover == LibUtils.ORACLE_PROVER
+                            || tran.provenAt <= blk.proposedAt + config.proofWindow
+                    ) {
+                        state.taikoTokenBalances[blk.prover] += blk.proofBond;
+                        emit BondReturned(blk.prover, blockId, blk.proofBond);
+                    } else {
+                        uint256 rewardAmount = blk.proofBond / 4;
+                        state.taikoTokenBalances[tran.prover] += rewardAmount;
+                        emit BondRewarded(tran.prover, blockId, rewardAmount);
+                    }
+                }
+
                 emit BlockVerified(blockId, tran.prover, tran.blockHash);
 
                 ++blockId;
@@ -188,38 +205,6 @@ library LibVerifying {
                 );
             }
         }
-    }
-
-    function _processTokenomics(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        AddressResolver resolver,
-        TaikoData.Block storage blk,
-        TaikoData.Transition storage tran
-    )
-        private
-    {
-        // uint256 extraReward =
-        //     tran.challenger == address(0) ? 0 : blk.optimisticBond / 4;
-
-        // // The tran.prover always receives block reward
-        // state.taikoTokenBalances[tran.prover] += _mintBlockReward(
-        //     state, config, resolver, blk
-        // ) + blk.optimisticBond + extraReward;
-
-        // if (
-        //     tran.prover == address(0) || tran.prover ==
-        // LibUtils.ORACLE_PROVER
-        //         || tran.prover == blk.prover
-        // ) {
-        //     // Return bond to the assigned prover
-        //     state.taikoTokenBalances[blk.prover] += blk.proverBond +
-        // extraReward;
-        // } else if (tran.prover != address(0)) {
-        //     // Reward 1/4 bond to the actual prover
-        //     state.taikoTokenBalances[tran.prover] +=
-        //         blk.proverBond / 4 + extraReward;
-        // }
     }
 
     function _mintBlockReward(

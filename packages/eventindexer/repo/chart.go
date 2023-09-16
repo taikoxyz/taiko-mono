@@ -48,7 +48,7 @@ func (r *ChartRepository) Find(
 	for _, d := range tsd {
 		chart.Chart = append(chart.Chart, eventindexer.ChartItem{
 			Date:  d.Date,
-			Value: d.Value,
+			Value: d.Value.Decimal.String(),
 		})
 	}
 
