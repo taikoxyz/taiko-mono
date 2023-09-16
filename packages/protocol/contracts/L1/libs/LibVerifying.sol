@@ -13,27 +13,28 @@ import { IProver } from "../IProver.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
-import { LibTransition } from "./LibTransition.sol";
+import { LibTiers } from "./LibTiers.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
 
 library LibVerifying {
     using Address for address;
-    using LibUtils for TaikoData.State;
     using LibMath for uint256;
 
     event BlockVerified(
-        uint256 indexed blockId, address indexed prover, bytes32 blockHash
+        uint256 indexed blockId,
+        address indexed assignedProver,
+        address indexed prover,
+        bytes32 blockHash
     );
+
     event CrossChainSynced(
         uint64 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
     );
-    event BondReturned(address indexed to, uint64 blockId, uint256 bond);
-    event BondRewarded(address indexed to, uint64 blockId, uint256 bond);
 
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_CONFIG();
-    error L1_UNEXPECTED_TRANSITION_ID();
+    error L1_TRANSITION_ID_ZERO();
 
     function init(
         TaikoData.State storage state,
@@ -49,9 +50,8 @@ library LibVerifying {
                 || config.blockMaxGasLimit == 0 || config.blockMaxTxListBytes == 0
                 || config.blockTxListExpiry > 30 * 24 hours
                 || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
-                || config.proofRegularCooldown < config.proofOracleCooldown
-                || config.proofWindow == 0 || config.proverBond == 0
-                || config.proverBond < 10 * config.proposerRewardPerSecond
+                || config.assignmentBond == 0
+                || config.assignmentBond < 10 * config.proposerRewardPerSecond
                 || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
                 || config.ethDepositMaxCountPerBlock
@@ -80,13 +80,13 @@ library LibVerifying {
         // Init the first state transition
         TaikoData.Transition storage tran = state.transitions[0][1];
         tran.blockHash = genesisBlockHash;
-        tran.prover = LibUtils.ORACLE_PROVER;
-        tran.provenAt = uint64(block.timestamp);
-        tran.challengedAt = tran.provenAt;
-        tran.tier = LibTransition.TIER_ORACLE;
+        tran.prover = LibUtils.PLACEHOLDER_ADDR;
+        tran.timestamp = uint64(block.timestamp);
+        tran.tier = LibTiers.TIER_GUARDIAN;
 
         emit BlockVerified({
             blockId: 0,
+            assignedProver: address(0),
             prover: tran.prover,
             blockHash: genesisBlockHash
         });
@@ -108,12 +108,13 @@ library LibVerifying {
         if (blk.blockId != blockId) revert L1_BLOCK_MISMATCH();
 
         uint32 tid = blk.verifiedTransitionId;
-        if (tid == 0) revert L1_UNEXPECTED_TRANSITION_ID();
+        if (tid == 0) revert L1_TRANSITION_ID_ZERO();
 
         bytes32 blockHash = state.transitions[slot][tid].blockHash;
 
         bytes32 signalRoot;
         uint64 processed;
+        address tt; // taiko token address
 
         // Unchecked is safe:
         // - assignment is within ranges
@@ -132,56 +133,34 @@ library LibVerifying {
 
                 TaikoData.Transition storage tran = state.transitions[slot][tid];
 
-                // if (tran.prover != address(0)) {
-                //     // Use a ZK transition to verify the block
-                //     uint256 cooldownPeriod = tran.prover
-                //         == LibUtils.ORACLE_PROVER
-                //         ? config.proofOracleCooldown
-                //         : config.proofRegularCooldown;
-                //     if (block.timestamp <= tran.timestamp + cooldownPeriod) {
-                //         break;
-                //     }
-                // } else {
-                //     // Use an optmistic transition to verify the block.
-
-                //     // If this block requires an ZK transition, or this
-                //     // transition is being challenged or is not mature, we
-                // have
-                //     // to wait.
-                //     if (
-                //         blk.optimisticBond == 0 // this is a ZK block
-                //             || tran.challenger != address(0) // being
-                // challenged
-                //             || block.timestamp
-                //                 <= tran.timestamp + config.optimisticCooldown
-                //     ) {
-                //         break;
-                //     }
-                // }
+                if (
+                    tran.contester != address(0)
+                        || block.timestamp
+                            <= uint256(tran.timestamp)
+                                + LibTiers.getTierConfig(tran.tier).cooldownWindow
+                ) {
+                    break;
+                }
 
                 blockHash = tran.blockHash;
                 signalRoot = tran.signalRoot;
                 blk.verifiedTransitionId = tid;
 
-                // If the default assigned prover is the oracle do not refund
-                // because was not even charged.
-                if (blk.prover != LibUtils.ORACLE_PROVER) {
-                    // Refund bond or give 1/4 of it to the actual prover and
-                    // burn the rest.
-                    if (
-                        tran.prover == LibUtils.ORACLE_PROVER
-                            || tran.provenAt <= blk.proposedAt + config.proofWindow
-                    ) {
-                        state.taikoTokenBalances[blk.prover] += blk.proofBond;
-                        emit BondReturned(blk.prover, blockId, blk.proofBond);
-                    } else {
-                        uint256 rewardAmount = blk.proofBond / 4;
-                        state.taikoTokenBalances[tran.prover] += rewardAmount;
-                        emit BondRewarded(tran.prover, blockId, rewardAmount);
-                    }
+                uint256 bondToReturn =
+                    uint256(tran.proofBond) + blk.assignmentBond;
+
+                if (tran.prover != blk.assignedProver) {
+                    bondToReturn -= blk.assignmentBond / 2;
                 }
 
-                emit BlockVerified(blockId, tran.prover, tran.blockHash);
+                if (tt == address(0)) {
+                    tt = resolver.resolve("taiko_token", false);
+                }
+                TaikoToken(tt).mint(tran.prover, bondToReturn);
+
+                emit BlockVerified(
+                    blockId, blk.assignedProver, tran.prover, tran.blockHash
+                );
 
                 ++blockId;
                 ++processed;
@@ -205,40 +184,5 @@ library LibVerifying {
                 );
             }
         }
-    }
-
-    function _mintBlockReward(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        AddressResolver resolver,
-        TaikoData.Block storage blk
-    )
-        private
-        returns (uint256 reward)
-    {
-        if (
-            config.proposerRewardPerSecond == 0 || config.proposerRewardMax == 0
-        ) return 0;
-
-        // Unchecked is safe:
-        // - block.timestamp is always greater than block.proposedAt (proposed
-        // in the past)
-        // - 1x state.taikoTokenBalances[addr] uint256 could theoretically store
-        // the whole token supply
-        uint64 blockTime;
-        unchecked {
-            blockTime = blk.proposedAt
-                - state.blocks[(blk.blockId - 1) % config.blockRingBufferSize]
-                    .proposedAt;
-        }
-        if (blockTime == 0) return 0;
-
-        reward = (config.proposerRewardPerSecond * blockTime).min(
-            config.proposerRewardMax
-        );
-
-        // Reward must be minted
-        TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
-        tt.mint(address(this), reward);
     }
 }

@@ -44,16 +44,10 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // Group 3: Proof related configs
         // ---------------------------------------------------------------------
-        // The cooldown period for regular proofs (in minutes).
-        uint256 proofRegularCooldown;
-        // The cooldown period for oracle proofs (in minutes).
-        uint256 proofOracleCooldown;
-        // The maximum time window allowed for a proof submission (in minutes).
-        uint16 proofWindow;
         // The amount of Taiko token as a zk proof bond
-        uint96 proverBond;
+        uint96 assignmentBond;
         // True to skip proof verification
-        bool skipProverAssignmentVerificaiton;
+        bool skipAssignmentVerificaiton;
         // ---------------------------------------------------------------------
         // Group 4: ETH deposit related configs
         // ---------------------------------------------------------------------
@@ -71,6 +65,15 @@ library TaikoData {
         uint256 ethDepositGas;
         // The maximum fee allowed for an ETH deposit.
         uint256 ethDepositMaxFee;
+    }
+
+    struct TierConfig {
+        bytes32 name;
+        uint96 proofBond;
+        uint96 contestBond;
+        uint24 cooldownWindow;
+        uint16 provingWindow;
+        uint16 id;
     }
 
     /// @dev Struct holding state variables.
@@ -100,7 +103,8 @@ library TaikoData {
     }
 
     /// @dev Struct containing data only required for proving a block
-    /// Warning: changing this struct requires changing {LibUtils.hashMetadata}
+    /// Warning: changing this struct requires changing
+    /// {LibUtils.hashMetadata}
     /// accordingly.
     struct BlockMetadata {
         uint64 id;
@@ -125,7 +129,7 @@ library TaikoData {
         bytes32 graffiti;
         address prover;
         uint16 tier;
-        bytes proofs;
+        bytes proof;
     }
 
     /// @dev Struct representing state transition data.
@@ -135,11 +139,10 @@ library TaikoData {
         bytes32 blockHash; // slot 2
         bytes32 signalRoot; // slot 3
         address prover; // slot 4
-        uint96 proverBond;
-        address challenger; // slot 5
-        uint96 challengerBond;
-        uint64 provenAt; // slot 6 (144 bits)
-        uint64 challengedAt;
+        uint96 proofBond;
+        address contester; // slot 5
+        uint96 contestBond;
+        uint64 timestamp; // slot 6 (82 bits)
         uint16 tier;
         bytes32[4] __reserved;
     }
@@ -148,8 +151,8 @@ library TaikoData {
     /// 10 slots reserved for upgradability, 4 slots used.
     struct Block {
         bytes32 metaHash; // slot 1
-        address prover; // slot 2
-        uint96 proverBond;
+        address assignedProver; // slot 2
+        uint96 assignmentBond;
         address proposer;
         uint64 blockId; // slot 3
         uint32 nextTransitionId;
@@ -211,10 +214,8 @@ library TaikoData {
         // Ring buffer for Ether deposits
         mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256)
             ethDeposits;
-        // In-protocol Taiko token balances
-        mapping(address account => uint256 balance) taikoTokenBalances;
-        SlotA slotA; // slot 7
-        SlotB slotB; // slot 8
-        uint256[142] __gap;
+        SlotA slotA; // slot 6
+        SlotB slotB; // slot 7
+        uint256[143] __gap;
     }
 }

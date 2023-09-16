@@ -13,9 +13,26 @@ import { TaikoData } from "../TaikoData.sol";
 library LibUtils {
     using LibMath for uint256;
 
-    address internal constant ORACLE_PROVER = address(1);
+    address internal constant PLACEHOLDER_ADDR = address(1);
 
+    error L1_BLOCK_MISMATCH();
     error L1_INVALID_BLOCK_ID();
+    error L1_TRANSITION_NOT_FOUND();
+
+    function getBlock(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        uint64 blockId
+    )
+        internal
+        view
+        returns (TaikoData.Block storage blk)
+    {
+        blk = state.blocks[blockId % config.blockRingBufferSize];
+        if (blk.blockId != blockId) {
+            revert L1_INVALID_BLOCK_ID();
+        }
+    }
 
     function getTransitionId(
         TaikoData.State storage state,
@@ -34,6 +51,31 @@ library LibUtils {
         }
 
         assert(tid < blk.nextTransitionId);
+    }
+
+    function getTransition(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        uint64 blockId,
+        bytes32 parentHash
+    )
+        internal
+        view
+        returns (TaikoData.Transition storage tran)
+    {
+        TaikoData.SlotB memory b = state.slotB;
+        if (blockId < b.lastVerifiedBlockId || blockId >= b.numBlocks) {
+            revert L1_INVALID_BLOCK_ID();
+        }
+
+        uint64 slot = blockId % config.blockRingBufferSize;
+        TaikoData.Block storage blk = state.blocks[slot];
+        if (blk.blockId != blockId) revert L1_BLOCK_MISMATCH();
+
+        uint32 tid = getTransitionId(state, blk, slot, parentHash);
+        if (tid == 0) revert L1_TRANSITION_NOT_FOUND();
+
+        tran = state.transitions[slot][tid];
     }
 
     function getVerifyingTransition(
@@ -85,8 +127,7 @@ library LibUtils {
 
         inputs[1] = uint256(meta.l1Hash);
         inputs[2] = uint256(meta.mixHash);
-        inputs[3] =
-            uint256(LibDepositing.hashEthDeposits(meta.depositsProcessed));
+        inputs[3] = uint256(hashEthDeposits(meta.depositsProcessed));
         inputs[4] = uint256(meta.txListHash);
 
         inputs[5] = (uint256(meta.txListByteStart) << 232)
@@ -99,7 +140,14 @@ library LibUtils {
         }
     }
 
-    function getVerifierName(uint16 id) internal pure returns (bytes32) {
-        return bytes32(uint256(0x1000000) + id);
+    /// @dev Computes the hash of the given deposits.
+    /// @param deposits The deposits to hash.
+    /// @return The computed hash.
+    function hashEthDeposits(TaikoData.EthDeposit[] memory deposits)
+        internal
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(deposits));
     }
 }

@@ -12,8 +12,6 @@ import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { LibDepositing } from "./libs/LibDepositing.sol";
 import { LibProposing } from "./libs/LibProposing.sol";
 import { LibProving } from "./libs/LibProving.sol";
-import { LibTaikoToken } from "./libs/LibTaikoToken.sol";
-import { LibTransition } from "./libs/LibTransition.sol";
 import { LibUtils } from "./libs/LibUtils.sol";
 import { LibVerifying } from "./libs/LibVerifying.sol";
 import { TaikoData } from "./TaikoData.sol";
@@ -33,8 +31,6 @@ abstract contract TaikoL1Base is
     TaikoEvents,
     TaikoErrors
 {
-    using LibUtils for TaikoData.State;
-
     TaikoData.State public state;
     uint256[100] private __gap;
 
@@ -140,18 +136,6 @@ abstract contract TaikoL1Base is
         });
     }
 
-    /// @notice Deposits Taiko tokens to the contract.
-    /// @param amount Amount of Taiko tokens to deposit.
-    function depositTaikoToken(uint256 amount) external nonReentrant {
-        LibTaikoToken.depositTaikoToken(state, AddressResolver(this), amount);
-    }
-
-    /// @notice Withdraws Taiko tokens from the contract.
-    /// @param amount Amount of Taiko tokens to withdraw.
-    function withdrawTaikoToken(uint256 amount) external nonReentrant {
-        LibTaikoToken.withdrawTaikoToken(state, AddressResolver(this), amount);
-    }
-
     /// @notice Deposits Ether to Layer 2.
     /// @param recipient Address of the recipient for the deposited Ether on
     /// Layer 2.
@@ -162,13 +146,6 @@ abstract contract TaikoL1Base is
             resolver: AddressResolver(this),
             recipient: recipient
         });
-    }
-
-    /// @notice Gets the Taiko token balance for a specific address.
-    /// @param addr Address to check the Taiko token balance.
-    /// @return The Taiko token balance of the address.
-    function getTaikoTokenBalance(address addr) public view returns (uint256) {
-        return state.taikoTokenBalances[addr];
     }
 
     /// @notice Checks if Ether deposit is allowed for Layer 2.
@@ -190,7 +167,7 @@ abstract contract TaikoL1Base is
         view
         returns (TaikoData.Block memory blk)
     {
-        return LibProposing.getBlock({
+        return LibUtils.getBlock({
             state: state,
             config: getConfig(),
             blockId: blockId
@@ -209,7 +186,7 @@ abstract contract TaikoL1Base is
         view
         returns (TaikoData.Transition memory)
     {
-        return LibTransition.getTransition({
+        return LibUtils.getTransition({
             state: state,
             config: getConfig(),
             blockId: blockId,
@@ -246,14 +223,7 @@ abstract contract TaikoL1Base is
         view
         returns (TaikoData.StateVariables memory)
     {
-        return state.getStateVariables();
-    }
-
-    /// @notice Gets the name of the proof verifier by ID.
-    /// @param id ID of the verifier.
-    /// @return Verifier name.
-    function getVerifierName(uint16 id) public pure returns (bytes32) {
-        return LibUtils.getVerifierName(id);
+        return LibUtils.getStateVariables(state);
     }
 
     /// @notice Gets the configuration of the TaikoL1 contract.

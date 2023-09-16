@@ -17,32 +17,35 @@ import { TaikoData } from "./TaikoData.sol";
 abstract contract TaikoEvents {
     /// @dev Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
-    /// @param prover The address of the assigned prover for the block.
+    /// @param assignedProver The address of the assigned prover for the block.
     /// @param reward The proposer's block reward in Taiko token.
     /// @param meta The block metadata containing information about the proposed
     /// block.
     event BlockProposed(
         uint256 indexed blockId,
-        address indexed prover,
+        address indexed assignedProver,
+        uint96 assignmentBond,
         uint256 reward,
         TaikoData.BlockMetadata meta
     );
 
-    event TransitionProven(
+    event Proven(
         uint256 indexed blockId,
         bytes32 parentHash,
         bytes32 blockHash,
+        bytes32 signalRoot,
         address prover,
-        uint96 proverbond,
+        uint96 proofBond,
         uint16 tier
     );
 
-    event TransitionChallenged(
+    event Contested(
         uint256 indexed blockId,
         bytes32 parentHash,
         bytes32 blockHash,
-        address challenger,
-        uint96 challengerBond,
+        bytes32 signalRoot,
+        address contester,
+        uint96 contestBond,
         uint16 tier
     );
 
@@ -52,7 +55,10 @@ abstract contract TaikoEvents {
     /// verified.
     /// @param blockHash The hash of the verified block.
     event BlockVerified(
-        uint256 indexed blockId, address indexed prover, bytes32 blockHash
+        uint256 indexed blockId,
+        address indexed assignedProver,
+        address indexed prover,
+        bytes32 blockHash
     );
 
     /// @dev Emitted when an Ethereum deposit is made.
