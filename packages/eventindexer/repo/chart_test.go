@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -32,4 +33,34 @@ func Test_NewChartRepo(t *testing.T) {
 			assert.Equal(t, tt.wantErr, err)
 		})
 	}
+}
+
+func Test_GetDB(t *testing.T) {
+	db, close, err := testMysql(t)
+	assert.Equal(t, nil, err)
+
+	defer close()
+
+	chartRepo, err := NewChartRepository(db)
+	assert.Equal(t, nil, err)
+	assert.NotNil(t, chartRepo.getDB())
+}
+
+func Test_Integration_FindChart(t *testing.T) {
+	db, close, err := testMysql(t)
+	assert.Equal(t, nil, err)
+
+	defer close()
+
+	chartRepo, err := NewChartRepository(db)
+	assert.Equal(t, nil, err)
+
+	chart, err := chartRepo.Find(
+		context.Background(),
+		"test",
+		"2023-09-08",
+		"2023-09-09",
+	)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, 0, len(chart.Chart))
 }
