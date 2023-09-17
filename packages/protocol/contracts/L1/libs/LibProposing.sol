@@ -20,6 +20,8 @@ import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
 
+/// @title LibProposing
+/// @notice A library for handling block proposals in the Taiko protocol.
 library LibProposing {
     using Address for address;
     using ECDSA for bytes32;
@@ -29,6 +31,7 @@ library LibProposing {
 
     bytes4 internal constant EIP1271_MAGICVALUE = 0x1626ba7e;
 
+    // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     event BlockProposed(
         uint256 indexed blockId,
         address indexed assignedProver,
@@ -37,6 +40,7 @@ library LibProposing {
         TaikoData.BlockMetadata meta
     );
 
+    // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_INVALID_ASSIGNMENT();
     error L1_TOO_MANY_BLOCKS();
     error L1_TXLIST_INVALID_RANGE();

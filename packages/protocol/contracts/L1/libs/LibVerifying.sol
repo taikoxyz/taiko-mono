@@ -21,6 +21,7 @@ library LibVerifying {
     using Address for address;
     using LibMath for uint256;
 
+    // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     event BlockVerified(
         uint256 indexed blockId,
         address indexed assignedProver,
@@ -32,6 +33,7 @@ library LibVerifying {
         uint64 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
     );
 
+    // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_CONFIG();
     error L1_TRANSITION_ID_ZERO();

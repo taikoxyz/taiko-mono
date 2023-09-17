@@ -14,6 +14,7 @@ library LibTiers {
     uint16 public constant TIER_PSE_ZKEVM = 300;
     uint16 public constant TIER_GUARDIAN = 1000;
 
+    // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_TIER_NOT_FOUND();
 
     function getTierConfig(uint16 tierId)

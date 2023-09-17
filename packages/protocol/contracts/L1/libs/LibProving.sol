@@ -17,16 +17,7 @@ import { TaikoToken } from ".././TaikoToken.sol";
 library LibProving {
     using LibMath for uint256;
 
-    error L1_ALREADY_CONTESTED();
-    error L1_ALREADY_PROVED();
-    error L1_ASSIGNED_PROVER_NOT_ALLOWED();
-    error L1_BLOCK_MISMATCH();
-    error L1_INVALID_BLOCK_ID();
-    error L1_INVALID_EVIDENCE();
-    error L1_INVALID_TIER();
-    error L1_NOT_ASSIGNED_PROVER();
-    error L1_NOT_CONTESTABLE();
-
+    // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     event Proved(
         uint256 indexed blockId,
         bytes32 parentHash,
@@ -46,6 +37,17 @@ library LibProving {
         uint96 contestBond,
         uint16 tier
     );
+
+    // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
+    error L1_ALREADY_CONTESTED();
+    error L1_ALREADY_PROVED();
+    error L1_ASSIGNED_PROVER_NOT_ALLOWED();
+    error L1_BLOCK_MISMATCH();
+    error L1_INVALID_BLOCK_ID();
+    error L1_INVALID_EVIDENCE();
+    error L1_INVALID_TIER();
+    error L1_NOT_ASSIGNED_PROVER();
+    error L1_NOT_CONTESTABLE();
 
     function proveBlock(
         TaikoData.State storage state,

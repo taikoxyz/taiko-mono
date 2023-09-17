@@ -15,7 +15,8 @@ library LibUtils {
 
     address internal constant PLACEHOLDER_ADDR = address(1);
 
-    error L1_BLOCK_MISMATCH();
+    // Warning: Any errors defined here must also be defined in TaikoErrors.sol.    error
+    // L1_BLOCK_MISMATCH();
     error L1_INVALID_BLOCK_ID();
     error L1_TRANSITION_NOT_FOUND();
 
