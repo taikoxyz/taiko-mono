@@ -127,7 +127,7 @@ library LibProving {
         TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
 
         {
-            address verifier = resolver.resolve(tier.name, true);
+            address verifier = resolver.resolve(tier.verifierName, true);
             if (verifier != address(0)) {
                 IEvidenceVerifier(verifier).verifyProof({
                     blockId: blk.blockId,

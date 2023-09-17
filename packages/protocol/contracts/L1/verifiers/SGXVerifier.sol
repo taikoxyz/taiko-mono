@@ -26,12 +26,12 @@ contract SGXVerifier is EssentialContract, IEvidenceVerifier {
         // blockId is unused now, but can be used later when supporting
         // different types of proofs.
         uint64,
-        address prover,
+        address,
         bool,
         TaikoData.BlockEvidence calldata
     )
         external
-        view
+        pure
     {
         // TODO
         revert("not implemented");

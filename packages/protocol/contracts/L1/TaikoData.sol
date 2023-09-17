@@ -68,7 +68,7 @@ library TaikoData {
     }
 
     struct TierConfig {
-        bytes32 name;
+        bytes32 verifierName;
         uint96 proofBond;
         uint96 contestBond;
         uint24 cooldownWindow;

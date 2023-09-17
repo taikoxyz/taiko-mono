@@ -148,7 +148,7 @@ abstract contract TaikoL1TestBase is TestBase {
 
     function proveBlock(
         address msgSender,
-        address prover,
+        address, /*prover*/
         TaikoData.BlockMetadata memory meta,
         bytes32 parentHash,
         bytes32 blockHash,
