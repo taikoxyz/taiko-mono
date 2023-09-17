@@ -120,22 +120,18 @@ library LibUtils {
         pure
         returns (bytes32 hash)
     {
-        uint256[6] memory inputs;
+        uint256[5] memory inputs;
 
-        inputs[0] = (uint256(meta.id) << 192) | (uint256(meta.timestamp) << 128)
-            | (uint256(meta.l1Height) << 64);
+        inputs[0] = (uint256(meta.timestamp) << 192)
+            | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 96);
 
         inputs[1] = uint256(meta.l1Hash);
         inputs[2] = uint256(meta.mixHash);
         inputs[3] = uint256(hashEthDeposits(meta.depositsProcessed));
         inputs[4] = uint256(meta.txListHash);
 
-        inputs[5] = (uint256(meta.txListByteStart) << 232)
-            | (uint256(meta.txListByteEnd) << 208) //
-            | (uint256(meta.gasLimit) << 176);
-
         assembly {
-            hash := keccak256(inputs, mul(6, 32))
+            hash := keccak256(inputs, mul(5, 32))
         }
     }
 

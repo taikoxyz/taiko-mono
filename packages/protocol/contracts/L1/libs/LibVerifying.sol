@@ -48,7 +48,6 @@ library LibVerifying {
                 || config.blockMaxProposals == 1
                 || config.blockRingBufferSize <= config.blockMaxProposals + 1
                 || config.blockMaxGasLimit == 0 || config.blockMaxTxListBytes == 0
-                || config.blockTxListExpiry > 30 * 24 hours
                 || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
                 || config.assignmentBond == 0
                 || config.assignmentBond < 10 * config.proposerRewardPerSecond

@@ -21,7 +21,6 @@ contract TaikoL1_NoCooldown is TaikoL1 {
     {
         config = TaikoL1.getConfig();
 
-        config.blockTxListExpiry = 5 minutes;
         config.blockMaxVerificationsPerTx = 0;
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 12;

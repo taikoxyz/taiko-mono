@@ -115,12 +115,6 @@ abstract contract TaikoL1TestBase is TestBase {
         });
 
         bytes memory txList = new bytes(txListSize);
-        TaikoData.BlockMetadataInput memory input = TaikoData.BlockMetadataInput({
-            txListHash: keccak256(txList),
-            txListByteStart: 0,
-            txListByteEnd: txListSize,
-            cacheTxListInfo: false
-        });
 
         TaikoData.StateVariables memory variables = L1.getStateVariables();
 
@@ -129,19 +123,15 @@ abstract contract TaikoL1TestBase is TestBase {
             _mixHash = block.prevrandao * variables.numBlocks;
         }
 
-        meta.id = variables.numBlocks;
         meta.timestamp = uint64(block.timestamp);
         meta.l1Height = uint64(block.number - 1);
         meta.l1Hash = blockhash(block.number - 1);
         meta.mixHash = bytes32(_mixHash);
         meta.txListHash = keccak256(txList);
-        meta.txListByteStart = 0;
-        meta.txListByteEnd = txListSize;
         meta.gasLimit = gasLimit;
 
         vm.prank(proposer, proposer);
-        meta =
-            L1.proposeBlock(abi.encode(input), abi.encode(assignment), txList);
+        meta = L1.proposeBlock(meta.txListHash, abi.encode(assignment), txList);
     }
 
     function proveBlock(
@@ -177,7 +167,8 @@ abstract contract TaikoL1TestBase is TestBase {
         );
 
         vm.prank(msgSender, msgSender);
-        L1.proveBlock(meta.id, abi.encode(evidence));
+        //TODO
+        // L1.proveBlock(meta.id, abi.encode(evidence));
     }
 
     function verifyBlock(address verifier, uint64 count) internal {

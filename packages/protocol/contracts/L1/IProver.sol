@@ -16,11 +16,11 @@ interface IProver {
     /// @param blockId The ID of the proposed block. Note that the ID is only
     /// known when the block is proposed, therefore, it should not be used for
     /// verifying prover authorization.
-    /// @param input The block's BlockMetadataInput data.
+    /// @param txListHash The block's txList hash
     /// @param assignment The assignment to evaluate
     function onBlockAssigned(
         uint64 blockId,
-        TaikoData.BlockMetadataInput calldata input,
+        bytes32 txListHash,
         TaikoData.ProverAssignment calldata assignment
     )
         external

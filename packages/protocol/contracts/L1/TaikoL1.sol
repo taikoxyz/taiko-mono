@@ -29,7 +29,6 @@ contract TaikoL1 is TaikoL1Base {
             blockMaxGasLimit: 8_000_000,
             blockFeeBaseGas: 20_000,
             blockMaxTxListBytes: 120_000,
-            blockTxListExpiry: 0,
             proposerRewardPerSecond: 25e16, // 0.25 Taiko token
             proposerRewardMax: 32e18, // 32 Taiko token
             assignmentBond: 10_240e18,

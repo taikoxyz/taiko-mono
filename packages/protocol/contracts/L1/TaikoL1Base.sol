@@ -59,8 +59,7 @@ abstract contract TaikoL1Base is
     }
 
     /// @notice Proposes a Taiko L2 block.
-    /// @param input An abi-encoded BlockMetadataInput that the actual L2 block
-    /// header must satisfy.
+    /// @param txListHash The hash of the block's txList
     /// @param assignment Data to assign a prover.
     /// @param txList A list of transactions in this block, encoded with RLP.
     /// Note, in the corresponding L2 block an "anchor transaction" will be the
@@ -68,7 +67,7 @@ abstract contract TaikoL1Base is
     /// `txList`, then there will be up to `n + 1` transactions in the L2 block.
     /// @return meta The metadata of the proposed L2 block.
     function proposeBlock(
-        bytes calldata input,
+        bytes32 txListHash,
         bytes calldata assignment,
         bytes calldata txList
     )
@@ -82,7 +81,7 @@ abstract contract TaikoL1Base is
             state: state,
             config: config,
             resolver: AddressResolver(this),
-            input: abi.decode(input, (TaikoData.BlockMetadataInput)),
+            txListHash: txListHash,
             assignment: abi.decode(assignment, (TaikoData.ProverAssignment)),
             txList: txList
         });

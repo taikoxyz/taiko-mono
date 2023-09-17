@@ -35,8 +35,6 @@ library TaikoData {
         uint32 blockFeeBaseGas;
         // The maximum allowed bytes for the proposed transaction list calldata.
         uint24 blockMaxTxListBytes;
-        // The expiration time for the block transaction list.
-        uint256 blockTxListExpiry;
         // Amount of token to reward to the first block propsoed in each L1
         // block.
         uint256 proposerRewardPerSecond;
@@ -85,14 +83,6 @@ library TaikoData {
         uint64 numEthDeposits;
     }
 
-    /// @dev Struct representing input data for block metadata.
-    struct BlockMetadataInput {
-        bytes32 txListHash;
-        uint24 txListByteStart; // byte-wise start index (inclusive)
-        uint24 txListByteEnd; // byte-wise end index (exclusive)
-        bool cacheTxListInfo;
-    }
-
     /// @dev Struct representing prover assignment
     struct ProverAssignment {
         address prover;
@@ -104,14 +94,11 @@ library TaikoData {
     /// Warning: changing this struct requires changing
     /// {LibUtils.hashMetadata} accordingly.
     struct BlockMetadata {
-        uint64 id;
         uint64 timestamp;
         uint64 l1Height;
         bytes32 l1Hash;
         bytes32 mixHash;
         bytes32 txListHash;
-        uint24 txListByteStart;
-        uint24 txListByteEnd;
         uint32 gasLimit;
         TaikoData.EthDeposit[] depositsProcessed;
     }
@@ -203,13 +190,11 @@ library TaikoData {
             uint64 blockId_mod_blockRingBufferSize
                 => mapping(uint32 transitionId => Transition)
             ) transitions;
-        // txList cached info
-        mapping(bytes32 txListHash => TxListInfo) txListInfo;
         // Ring buffer for Ether deposits
         mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256)
             ethDeposits;
-        SlotA slotA; // slot 6
-        SlotB slotB; // slot 7
-        uint256[143] __gap;
+        SlotA slotA; // slot 5
+        SlotB slotB; // slot 6
+        uint256[144] __gap;
     }
 }
