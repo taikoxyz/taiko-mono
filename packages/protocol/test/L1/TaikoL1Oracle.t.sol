@@ -330,7 +330,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 L1.getStateVariables().lastVerifiedBlockId;
 
             // Bob cannot overwrite it
-            vm.expectRevert(TaikoErrors.L1_ALREADY_PROVEN.selector);
+            vm.expectRevert(TaikoErrors.L1_ALREADY_PROVED.selector);
             proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot);
 
             vm.warp(block.timestamp + 1 seconds);
@@ -394,7 +394,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot);
 
             // Carol could not overwrite it
-            vm.expectRevert(TaikoErrors.L1_ALREADY_PROVEN.selector);
+            vm.expectRevert(TaikoErrors.L1_ALREADY_PROVED.selector);
             proveBlock(Carol, Carol, meta, parentHash, blockHash, signalRoot);
 
             /// @notice: Based on the current codebase we still need to wait

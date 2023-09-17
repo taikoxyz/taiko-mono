@@ -14,7 +14,7 @@ abstract contract TaikoErrors {
     // NOTE: The following custom errors must match the definitions in
     // `L1/libs/*.sol`.
     error L1_ALREADY_CONTESTED();
-    error L1_ALREADY_PROVEN();
+    error L1_ALREADY_PROVED();
     error L1_ASSIGNED_PROVER_NOT_ALLOWED();
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_ASSIGNMENT();
@@ -32,6 +32,7 @@ abstract contract TaikoErrors {
     error L1_INVALID_TIER();
     error L1_NOT_ASSIGNED_PROVER();
     error L1_NOT_CONTESTABLE();
+    error L1_TIER_NOT_FOUND();
     error L1_TOO_MANY_BLOCKS();
     error L1_TRANSITION_ID_ZERO();
     error L1_TRANSITION_NOT_FOUND();

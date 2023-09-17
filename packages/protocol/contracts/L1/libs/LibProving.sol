@@ -19,7 +19,7 @@ library LibProving {
     using LibMath for uint256;
 
     error L1_ALREADY_CONTESTED();
-    error L1_ALREADY_PROVEN();
+    error L1_ALREADY_PROVED();
     error L1_ASSIGNED_PROVER_NOT_ALLOWED();
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_BLOCK_ID();
@@ -28,7 +28,7 @@ library LibProving {
     error L1_NOT_ASSIGNED_PROVER();
     error L1_NOT_CONTESTABLE();
 
-    event Proven(
+    event Proved(
         uint256 indexed blockId,
         bytes32 parentHash,
         bytes32 blockHash,
@@ -126,6 +126,18 @@ library LibProving {
         TaikoData.TierConfig memory tier = LibTiers.getTierConfig(evidence.tier);
         TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
 
+        {
+            address verifier = resolver.resolve(tier.name, true);
+            if (verifier != address(0)) {
+                IEvidenceVerifier(verifier).verifyProof({
+                    blockId: blk.blockId,
+                    prover: msg.sender,
+                    isContesting: evidence.tier == tran.tier,
+                    evidence: evidence
+                });
+            }
+        }
+
         if (evidence.tier == tran.tier) {
             // To contest the existing transition
             // The block hash or signal root must be different
@@ -133,7 +145,7 @@ library LibProving {
                 evidence.blockHash == tran.blockHash
                     && evidence.signalRoot == tran.signalRoot
             ) {
-                revert L1_ALREADY_PROVEN();
+                revert L1_ALREADY_PROVED();
             }
 
             // The existing transiton must not have been contested
@@ -145,9 +157,9 @@ library LibProving {
             }
 
             // Burn the contest bond
-            tt.burn(evidence.prover, tier.contestBond);
+            tt.burn(msg.sender, tier.contestBond);
 
-            tran.contester = evidence.prover;
+            tran.contester = msg.sender;
             tran.contestBond = tier.contestBond;
             tran.timestamp = uint64(block.timestamp);
 
@@ -156,21 +168,18 @@ library LibProving {
                 evidence.parentHash,
                 tran.blockHash,
                 tran.signalRoot,
-                evidence.prover,
+                msg.sender,
                 tier.contestBond,
                 evidence.tier
             );
         } else {
             // To prove or re-approve the transition
-            bool isSame = tran.blockHash == evidence.blockHash
-                && tran.signalRoot == evidence.signalRoot;
-
             if (
                 tran.contester == address(0)
                     && tran.blockHash == evidence.blockHash
                     && tran.signalRoot == evidence.signalRoot
             ) {
-                revert L1_ALREADY_PROVEN();
+                revert L1_ALREADY_PROVED();
             }
 
             if (tid == 1) {
@@ -179,7 +188,7 @@ library LibProving {
                 // approve to aprove within the proof window.
                 if (
                     tran.prover == blk.assignedProver
-                        && evidence.prover != blk.assignedProver
+                        && msg.sender != blk.assignedProver
                         && block.timestamp <= tran.timestamp + tier.provingWindow
                 ) {
                     revert L1_NOT_ASSIGNED_PROVER();
@@ -187,26 +196,19 @@ library LibProving {
             } else {
                 // The assigned prover cannot prove transitions other than the
                 // first one.
-                if (evidence.prover == blk.assignedProver) {
+                if (msg.sender == blk.assignedProver) {
                     revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
                 }
             }
 
-            {
-                address verifier = resolver.resolve(tier.name, true);
-
-                if (verifier != address(0)) {
-                    IEvidenceVerifier(verifier).verifyProof(
-                        blk.blockId, msg.sender, evidence
-                    );
-                }
-            }
-
-            tt.burn(evidence.prover, tier.proofBond);
+            tt.burn(msg.sender, tier.proofBond);
 
             unchecked {
                 uint256 reward;
-                if (isSame) {
+                if (
+                    tran.blockHash == evidence.blockHash
+                        && tran.signalRoot == evidence.signalRoot
+                ) {
                     // Challenger lost
                     reward = tran.contestBond / 4;
                     tt.mint(tran.prover, reward + tran.proofBond);
@@ -224,23 +226,23 @@ library LibProving {
                 }
 
                 if (reward != 0) {
-                    tt.mint(evidence.prover, reward);
+                    tt.mint(msg.sender, reward);
                 }
             }
 
-            tran.prover = evidence.prover;
+            tran.prover = msg.sender;
             tran.proofBond = tier.proofBond;
             tran.contester = address(0);
             tran.contestBond = 1; // non-zero to save gas
             tran.timestamp = uint64(block.timestamp);
             tran.tier = evidence.tier;
 
-            emit Proven(
+            emit Proved(
                 blk.blockId,
                 evidence.parentHash,
                 evidence.blockHash,
                 evidence.signalRoot,
-                evidence.prover,
+                msg.sender,
                 tier.proofBond,
                 evidence.tier
             );

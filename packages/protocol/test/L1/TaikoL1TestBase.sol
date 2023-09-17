@@ -162,12 +162,11 @@ abstract contract TaikoL1TestBase is TestBase {
             blockHash: blockHash,
             signalRoot: signalRoot,
             graffiti: 0x0,
-            prover: prover,
             tier: 1,
             proof: new bytes(102)
         });
 
-        bytes32 instance; // TODO = LibTransition.getInstance(evidence);
+        bytes32 instance; // TODO = LibTransition.getInstance(prover, evidence);
         uint16 verifierId = 100;
 
         evidence.proof = bytes.concat(

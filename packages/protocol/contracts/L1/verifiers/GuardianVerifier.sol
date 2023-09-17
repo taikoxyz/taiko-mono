@@ -29,6 +29,7 @@ contract GuardianVerifier is EssentialContract, IEvidenceVerifier {
         // different types of proofs.
         uint64,
         address prover,
+        bool,
         TaikoData.BlockEvidence calldata
     )
         external

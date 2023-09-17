@@ -73,7 +73,6 @@ library TaikoData {
         uint96 contestBond;
         uint24 cooldownWindow;
         uint16 provingWindow;
-        uint16 id;
     }
 
     /// @dev Struct holding state variables.
@@ -127,7 +126,6 @@ library TaikoData {
         bytes32 blockHash;
         bytes32 signalRoot;
         bytes32 graffiti;
-        address prover;
         uint16 tier;
         bytes proof;
     }

@@ -12,6 +12,7 @@ interface IEvidenceVerifier {
     function verifyProof(
         uint64 blockId,
         address prover,
+        bool isContesting,
         TaikoData.BlockEvidence memory evidence
     )
         external;

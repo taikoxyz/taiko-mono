@@ -31,13 +31,17 @@ contract PseZkVerifier is EssentialContract, IEvidenceVerifier {
         // blockId is unused now, but can be used later when supporting
         // different types of proofs.
         uint64,
-        address,
+        address prover,
+        bool isContesting,
         TaikoData.BlockEvidence calldata evidence
     )
         external
         view
     {
-        bytes32 instance = getInstance(evidence);
+        // Do not run proof verification to contest an existing proof
+        if (isContesting) return;
+
+        bytes32 instance = getInstance(prover, evidence);
 
         // Validate the instance using bytes utilities.
         if (
@@ -77,7 +81,10 @@ contract PseZkVerifier is EssentialContract, IEvidenceVerifier {
         }
     }
 
-    function getInstance(TaikoData.BlockEvidence memory evidence)
+    function getInstance(
+        address prover,
+        TaikoData.BlockEvidence memory evidence
+    )
         internal
         pure
         returns (bytes32 instance)
@@ -89,7 +96,7 @@ contract PseZkVerifier is EssentialContract, IEvidenceVerifier {
                 evidence.blockHash,
                 evidence.signalRoot,
                 evidence.graffiti,
-                evidence.prover
+                prover
             )
         );
     }

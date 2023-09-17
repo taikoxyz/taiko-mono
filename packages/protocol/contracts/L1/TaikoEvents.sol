@@ -29,7 +29,7 @@ abstract contract TaikoEvents {
         TaikoData.BlockMetadata meta
     );
 
-    event Proven(
+    event Proved(
         uint256 indexed blockId,
         bytes32 parentHash,
         bytes32 blockHash,

@@ -10,10 +10,11 @@ import { TaikoData } from "../../L1/TaikoData.sol";
 
 library LibTiers {
     uint16 public constant TIER_OPTIMISTIC = 100;
+    uint16 public constant TIER_SGX = 200;
     uint16 public constant TIER_PSE_ZKEVM = 300;
     uint16 public constant TIER_GUARDIAN = 1000;
 
-    error L1_INVALID_TIER();
+    error L1_TIER_NOT_FOUND();
 
     function getTierConfig(uint16 tierId)
         internal
@@ -26,8 +27,17 @@ library LibTiers {
                 proofBond: 100_000,
                 contestBond: 100_000,
                 cooldownWindow: 4 hours,
-                provingWindow: 30 minutes,
-                id: tierId
+                provingWindow: 20 minutes
+            });
+        }
+
+        if (tierId == TIER_SGX) {
+            return TaikoData.TierConfig({
+                name: "tier_sgx",
+                proofBond: 50_000,
+                contestBond: 50_000,
+                cooldownWindow: 3 hours,
+                provingWindow: 60 minutes
             });
         }
 
@@ -37,8 +47,7 @@ library LibTiers {
                 proofBond: 10_000,
                 contestBond: 10_000,
                 cooldownWindow: 2 hours,
-                provingWindow: 90 minutes,
-                id: tierId
+                provingWindow: 90 minutes
             });
         }
 
@@ -48,12 +57,11 @@ library LibTiers {
                 proofBond: 0,
                 contestBond: 0,
                 cooldownWindow: 1 hours,
-                provingWindow: 90 minutes,
-                id: tierId
+                provingWindow: 120 minutes
             });
         }
 
-        revert L1_INVALID_TIER();
+        revert L1_TIER_NOT_FOUND();
     }
 
     function getBlockMinTier(uint256 rand) internal pure returns (uint16) {
