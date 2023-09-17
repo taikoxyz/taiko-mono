@@ -197,8 +197,20 @@ library LibProving {
         TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
 
         if (evidence.tier == tran.tier) {
-            // To contest the existing transition
-            // The block hash or signal root must be different
+            // The new tier is the same as the previous tier, we are in the
+            // contest mode.
+
+            // Contesting an existing transition requires either the blockHash
+            // or signalRoot to be different. This precaution is necessary
+            // because this `proveBlock` transaction might aim to prove a
+            // transition but could potentially be front-run by another prover
+            // attempting to prove the same transition.
+            //
+            // It's important to note that evidence.blockHash and
+            // evidence.signalRoot are not permanently stored, so their specific
+            // values are inconsequential. They only need to differ from the
+            // existing values to signify a contest. Therefore, a contester can
+            // conveniently utilize the value 1 for these two parameters.
             if (
                 evidence.blockHash == tran.blockHash
                     && evidence.signalRoot == tran.signalRoot
@@ -206,19 +218,24 @@ library LibProving {
                 revert L1_ALREADY_PROVED();
             }
 
-            // The existing transiton must not have been contested
+            // The existing transiton must not have been contested.
             if (tran.contester != address(0)) revert L1_ALREADY_CONTESTED();
 
-            // Contest bond being zero means this tier is not contestable.
+            // When the contestBond for the current tier is set to zero, it
+            // indicates that this tier cannot be contested and is regarded as
+            // the most trusted tier.
             if (tier.contestBond == 0) {
                 revert L1_NOT_CONTESTABLE();
             }
 
-            // Burn the contest bond
+            // Burn the contest bond from the prover.
             tt.burn(msg.sender, tier.contestBond);
 
-            tran.contester = msg.sender;
+            // We retain the contest bond within the transition, just in case
+            // this configuration is altered to a different value before the
+            // contest is resolved.
             tran.contestBond = tier.contestBond;
+            tran.contester = msg.sender;
             tran.timestamp = uint64(block.timestamp);
 
             emit Contested(
@@ -231,8 +248,12 @@ library LibProving {
                 evidence.tier
             );
         } else {
-            // To prove or re-approve the transition
+            // The new tier is higher than the previous tier, we  are in the
+            // proof mode.
 
+            // We should outright prohibit the use of zero values for both
+            // blockHash and signalRoot since, when we initialize a new
+            // transition, we set both blockHash and signalRoot to 0.
             if (evidence.blockHash == 0 || evidence.signalRoot == 0) {
                 revert L1_INVALID_EVIDENCE();
             }
