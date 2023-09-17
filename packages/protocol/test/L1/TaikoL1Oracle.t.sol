@@ -39,6 +39,9 @@ contract Verifier {
 }
 
 contract TaikoL1OracleTest is TaikoL1TestBase {
+    // TODO
+    address PLACEHOLDER_ADDR = address(1);
+
     function deployTaikoL1() internal override returns (TaikoL1 taikoL1) {
         taikoL1 = new TaikoL1Oracle();
     }
@@ -82,12 +85,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             proveBlock(Bob, Bob, meta, parentHash, bytes32(blockId), signalRoot);
 
             proveBlock(
-                Carol,
-                LibUtils.PLACEHOLDER_ADDR,
-                meta,
-                parentHash,
-                blockHash,
-                signalRoot
+                Carol, PLACEHOLDER_ADDR, meta, parentHash, blockHash, signalRoot
             );
 
             // TODO
@@ -138,12 +136,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             // TODO
             // vm.expectRevert(TaikoErrors.L1_SAME_PROOF.selector);
             proveBlock(
-                Carol,
-                LibUtils.PLACEHOLDER_ADDR,
-                meta,
-                parentHash,
-                blockHash,
-                signalRoot
+                Carol, PLACEHOLDER_ADDR, meta, parentHash, blockHash, signalRoot
             );
 
             // TODO
@@ -317,12 +310,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1e9 + uint256(blockId));
 
             proveBlock(
-                David,
-                LibUtils.PLACEHOLDER_ADDR,
-                meta,
-                parentHash,
-                blockHash,
-                signalRoot
+                David, PLACEHOLDER_ADDR, meta, parentHash, blockHash, signalRoot
             );
 
             uint256 lastVerifiedBlockId =
@@ -339,7 +327,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             TaikoData.Transition memory transition =
                 L1.getTransition(blockId, parentHash);
 
-            assertEq(transition.prover, LibUtils.PLACEHOLDER_ADDR);
+            assertEq(transition.prover, PLACEHOLDER_ADDR);
 
             verifyBlock(Carol, 1);
 

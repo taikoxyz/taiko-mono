@@ -14,6 +14,9 @@ import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../TaikoData.sol";
 import { TaikoToken } from ".././TaikoToken.sol";
 
+/// @title LibProving
+/// @notice A library for handling block contestation and proving in the Taiko
+/// protocol.
 library LibProving {
     using LibMath for uint256;
 
@@ -110,7 +113,7 @@ library LibProving {
             tran.signalRoot = 0;
             tran.proofBond = 0;
             tran.contester = address(0);
-            tran.contestBond = 0;
+            tran.contestBond = 1; // see below (the value does't matter)
             tran.timestamp = uint64(block.timestamp);
             tran.tier = 0;
 
@@ -134,10 +137,9 @@ library LibProving {
                 // such changes would require additional if-else logic.
                 tran.prover = blk.assignedProver;
             } else {
-                // In scenarios where this transition is not the first one, the
-                // block's assigned prover is treated no differently than any
-                // other provers. Consequently, we straightforwardly reset the
-                // transition prover to address zero.
+                // In scenarios where this transition is not the first one, we
+                // straightforwardly reset the transition prover to address
+                // zero.
                 tran.prover = address(0);
 
                 // Furthermore, we index the transition for future retrieval.
@@ -234,6 +236,9 @@ library LibProving {
             // We retain the contest bond within the transition, just in case
             // this configuration is altered to a different value before the
             // contest is resolved.
+            //
+            // It's worth noting that the previous value of tran.contestBond
+            // doesn't have any significance.
             tran.contestBond = tier.contestBond;
             tran.contester = msg.sender;
             tran.timestamp = uint64(block.timestamp);
@@ -249,7 +254,8 @@ library LibProving {
             );
         } else {
             // The new tier is higher than the previous tier, we  are in the
-            // proof mode.
+            // proof mode. This works even if this transition's contester is
+            // address zero.
 
             // We should outright prohibit the use of zero values for both
             // blockHash and signalRoot since, when we initialize a new
@@ -258,66 +264,110 @@ library LibProving {
                 revert L1_INVALID_EVIDENCE();
             }
 
+            // The ability to prove a transition is granted under the following
+            // two circumstances:
+            // 1. When the transition has been contested, indicated by
+            // tran.contester not being address zero.
+            // 2. When the transition's blockHash and/or signalRoot differs. In
+            // this case, the new prover essentially contests the previous proof
+            // but immediately validates it, obviating the requirement to set a
+            // contester, burn the contest bond, and other associated actions.
+            // This streamlined process is applied to 0-to-non-zero transition
+            // updates.
             if (
                 tran.contester == address(0)
                     && tran.blockHash == evidence.blockHash
                     && tran.signalRoot == evidence.signalRoot
             ) {
+                // Alternatively, it can be understood that a transition cannot
+                // be re-approved by higher-tier proofs without undergoing
+                // contestation.
                 revert L1_ALREADY_PROVED();
             }
 
-            if (tid == 1) {
-                // Special handing for the first transition, if the current
-                // prover is the assigned prover, we only allow the assigned
-                // approve to aprove within the proof window.
+            if (tid == 1 && tran.prover == blk.assignedProver) {
+                // For the first transition, if the previous prover is still the
+                // assigned prover, we exclusively grant permission to the
+                // assigned approver to re-prove the block, unless the proof
+                // window has elapsed.
                 if (
-                    tran.prover == blk.assignedProver
+                    block.timestamp <= tran.timestamp + tier.provingWindow
                         && msg.sender != blk.assignedProver
-                        && block.timestamp <= tran.timestamp + tier.provingWindow
-                ) {
-                    revert L1_NOT_ASSIGNED_PROVER();
-                }
+                ) revert L1_NOT_ASSIGNED_PROVER();
             } else {
-                // The assigned prover cannot prove transitions other than the
-                // first one.
+                // However, if the previous prover of the first transition is
+                // not the block's assigned prover, or for any other
+                // transitions, the assigned prover is not permitted to prove
+                // such transitions.
                 if (msg.sender == blk.assignedProver) {
                     revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
                 }
             }
 
+            // Burn the proof bond from the prover.
             tt.burn(msg.sender, tier.proofBond);
 
             unchecked {
+                // This is the amount of Taiko tokens to send to the new prover
+                // and the winner of the contest.
                 uint256 reward;
                 if (
                     tran.blockHash == evidence.blockHash
                         && tran.signalRoot == evidence.signalRoot
                 ) {
-                    // Challenger lost
+                    // In the event that the previous prover emerges as the
+                    // winner, half of the contest bond is designated as the
+                    // reward, to be divided equally between the new prover and
+                    // the previous prover.
                     reward = tran.contestBond / 4;
+
+                    // Mint the reward and the proof bond and return it to the
+                    // previous prover.
                     tt.mint(tran.prover, reward + tran.proofBond);
                 } else {
-                    // Challenger won
+                    // In the event that the contester is the winner, half of
+                    // the proof bond is designated as the reward, to be divided
+                    // equally between the new prover and the contester.
                     reward = tran.proofBond / 4;
-                    if (
-                        tran.contester != address(0)
-                            && tran.contester != LibUtils.PLACEHOLDER_ADDR
-                    ) {
+
+                    // It's important to note that the contester is set to zero
+                    // for the tier-0 transition. Consequently, we only grant a
+                    // reward to the contester if it is not a zero-address.
+                    if (tran.contester != address(0)) {
                         tt.mint(tran.contester, reward + tran.contestBond);
+                    } else if (reward != 0) {
+                        //The prover is also the contester, so the reward is
+                        // sent to him.
+                        tt.mint(msg.sender, reward);
                     }
+
+                    // Given that the contester emerges as the winner, the
+                    // previous blockHash and signalRoot are considered
+                    // incorrect, and we must replace them with the correct
+                    // values.
                     tran.blockHash = evidence.blockHash;
                     tran.signalRoot = evidence.signalRoot;
                 }
 
+                // In theory, the reward can also be zero for certain tiers if
+                // their proof bonds are set to zero.
                 if (reward != 0) {
                     tt.mint(msg.sender, reward);
                 }
             }
 
+            // Regardless of whether the previous prover or the contester
+            // emerges as the winner, we consistently erase the contest history
+            // to make this transition appear entirely new.
             tran.prover = msg.sender;
             tran.proofBond = tier.proofBond;
             tran.contester = address(0);
-            tran.contestBond = 1; // non-zero to save gas
+
+            // We designate the contest bond as 1 because it shares the same
+            // storage slot with "tran.contester," which is now set to zero. If
+            // we were to set the contest bond to zero as well, this slot would
+            // be zero, making the next sstore operation more costly.
+            tran.contestBond = 1;
             tran.timestamp = uint64(block.timestamp);
             tran.tier = evidence.tier;
 

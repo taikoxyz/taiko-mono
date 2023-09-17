@@ -124,9 +124,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     }
 
     /// @notice Returns an empty token URI.
-    /// @param tokenId ID of the token.
-    /// @return An empty string.
-    function tokenURI(uint256 tokenId)
+    function tokenURI(uint256)
         public
         pure
         virtual

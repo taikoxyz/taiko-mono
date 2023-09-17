@@ -17,6 +17,8 @@ import { LibTiers } from "./LibTiers.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
 
+/// @title LibVerifying
+/// @notice A library for handling block verification in the Taiko protocol.
 library LibVerifying {
     using Address for address;
     using LibMath for uint256;
@@ -81,7 +83,7 @@ library LibVerifying {
         // Init the first state transition
         TaikoData.Transition storage tran = state.transitions[0][1];
         tran.blockHash = genesisBlockHash;
-        tran.prover = LibUtils.PLACEHOLDER_ADDR;
+        tran.prover = address(0);
         tran.timestamp = uint64(block.timestamp);
         tran.tier = LibTiers.TIER_GUARDIAN;
 
@@ -93,6 +95,7 @@ library LibVerifying {
         });
     }
 
+    /// @dev Verifies up to N blocks.
     function verifyBlocks(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -101,21 +104,30 @@ library LibVerifying {
     )
         internal
     {
+        // Retrieve the latest verified block and the associated transition used
+        // for its verification.
         TaikoData.SlotB memory b = state.slotB;
         uint64 blockId = b.lastVerifiedBlockId;
 
         uint64 slot = blockId % config.blockRingBufferSize;
+
         TaikoData.Block storage blk = state.blocks[slot];
         if (blk.blockId != blockId) revert L1_BLOCK_MISMATCH();
 
         uint32 tid = blk.verifiedTransitionId;
+
+        // The following scenario should never occur but is included as a
+        // precaution.
         if (tid == 0) revert L1_TRANSITION_ID_ZERO();
 
+        // The `blockHash` variable represents the most recently trusted
+        // blockHash on L2.
         bytes32 blockHash = state.transitions[slot][tid].blockHash;
-
         bytes32 signalRoot;
         uint64 processed;
-        address tt; // taiko token address
+
+        // The Taiko token address which will be initialized as needed.
+        address tt;
 
         // Unchecked is safe:
         // - assignment is within ranges
@@ -126,14 +138,23 @@ library LibVerifying {
 
             while (blockId < b.numBlocks && processed < maxBlocks) {
                 slot = blockId % config.blockRingBufferSize;
+
                 blk = state.blocks[slot];
                 if (blk.blockId != blockId) revert L1_BLOCK_MISMATCH();
 
                 tid = LibUtils.getTransitionId(state, blk, slot, blockHash);
+
+                // When `tid` is 0, it indicates that there is no proven
+                // transition with its parentHash equal to the blockHash of the
+                // most recently verified block.
                 if (tid == 0) break;
 
+                // A transition with the correct `parentHash` has been located.
                 TaikoData.Transition storage tran = state.transitions[slot][tid];
 
+                // It's not possible to verify this block if either the
+                // transition is contested and awaiting higher-tier proof or if
+                // the transition is still within its cooldown period.
                 if (
                     tran.contester != address(0)
                         || block.timestamp
@@ -143,13 +164,29 @@ library LibVerifying {
                     break;
                 }
 
-                blockHash = tran.blockHash;
-                signalRoot = tran.signalRoot;
+                // Mark this block as verified
                 blk.verifiedTransitionId = tid;
 
+                // Update variables
+                blockHash = tran.blockHash;
+                signalRoot = tran.signalRoot;
+
+                // We consistently return the assignment bond and the proof bond
+                // to the actual prover of the transition utilized for block
+                // verification. If the actual prover happens to be the block's
+                // assigned prover, he will receive both deposits, ultimately
+                // earning the proving fee paid during block proposal. In
+                // contrast, if the actual prover is different from the block's
+                // assigned prover, the assignment bond serves as a reward to
+                // the actual prover, while the assigned prover forfeits his
+                // assignment bond due to failure to fulfill their commitment.
                 uint256 bondToReturn =
                     uint256(tran.proofBond) + blk.assignmentBond;
 
+                // Nevertheless, it's possible for the actual prover to be the
+                // same individual or entity as the block's assigned prover.
+                // Consequently, we have chosen to grant the actual prover only
+                // half of the assignment bond as a reward.
                 if (tran.prover != blk.assignedProver) {
                     bondToReturn -= blk.assignmentBond / 2;
                 }
@@ -158,6 +195,14 @@ library LibVerifying {
                     tt = resolver.resolve("taiko_token", false);
                 }
                 TaikoToken(tt).mint(tran.prover, bondToReturn);
+
+                // Note: We exclusively address the bonds linked to the
+                // transition used for verification. While there may exist
+                // other transitions for this block, we disregard them entirely.
+                // The bonds for these other transitions are burned either when
+                // the transitions are generated or proven. In such cases, both
+                // the provers and contesters of  of those transitions forfeit
+                // their bonds.
 
                 emit BlockVerified(
                     blockId, blk.assignedProver, tran.prover, tran.blockHash
@@ -169,14 +214,18 @@ library LibVerifying {
 
             if (processed > 0) {
                 uint64 lastVerifiedBlockId = b.lastVerifiedBlockId + processed;
+
+                // Update protocol level state variables
                 state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
                 state.slotB.lastVerifiedAt = uint64(block.timestamp);
 
                 if (config.relaySignalRoot) {
-                    // Send the L2's signal root to the signal service so other
-                    // TaikoL1  deployments, if they share the same signal
-                    // service, can relay the signal to their corresponding
-                    // TaikoL2 contract.
+                    // Forward the L2's signal root to the signal service to
+                    // enable other TaikoL1 deployments, which share the same
+                    // signal service, to relay the signal to their respective
+                    // TaikoL2 contracts. This enables direct L1-to-L3 and
+                    // L2-to-L2 bridging without assets passing an intermediary
+                    // layer.
                     ISignalService(resolver.resolve("signal_service", false))
                         .sendSignal(signalRoot);
                 }

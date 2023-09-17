@@ -8,6 +8,8 @@ pragma solidity ^0.8.20;
 
 import { TaikoData } from "../../L1/TaikoData.sol";
 
+/// @title LibTiers
+/// @notice A library for providing tier configurations.
 library LibTiers {
     uint16 public constant TIER_OPTIMISTIC = 100;
     uint16 public constant TIER_SGX = 200;
@@ -17,6 +19,7 @@ library LibTiers {
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_TIER_NOT_FOUND();
 
+    /// @dev Retrieves the configuration for a specified tier.
     function getTierConfig(uint16 tierId)
         internal
         pure
@@ -65,7 +68,8 @@ library LibTiers {
         revert L1_TIER_NOT_FOUND();
     }
 
-    function getAllTiers() internal pure returns (uint16[] memory tiers) {
+    /// @dev Retrieves the IDs of all supported tiers.
+    function getTierIds() internal pure returns (uint16[] memory tiers) {
         tiers = new uint16[](4);
         tiers[0] = TIER_OPTIMISTIC;
         tiers[1] = TIER_SGX;
@@ -73,6 +77,7 @@ library LibTiers {
         tiers[3] = TIER_GUARDIAN;
     }
 
+    /// @dev Determines the minimal tier for a block based on a random input.
     function getMinTier(uint256 rand) internal pure returns (uint16) {
         if (rand % 100 == 0) return TIER_PSE_ZKEVM; // 1%
 

@@ -234,6 +234,10 @@ abstract contract TaikoL1Base is
         virtual
         returns (TaikoData.Config memory);
 
+    /// @notice Retrieves the configuration for a specified tier.
+    /// @param tierId ID of the tier.
+    /// @return TierConfig struct containing the tier's parameters. This
+    /// function will revert if the tier is not supported.
     function getTierConfig(uint16 tierId)
         public
         pure
@@ -242,7 +246,9 @@ abstract contract TaikoL1Base is
         return LibTiers.getTierConfig(tierId);
     }
 
-    function getAllTiers() public pure returns (uint16[] memory) {
-        return LibTiers.getAllTiers();
+    /// @notice Determines the minimal tier for a block based on a random input.
+    /// @return A block's minimal tier ID.
+    function getTierIds() public pure returns (uint16[] memory) {
+        return LibTiers.getTierIds();
     }
 }

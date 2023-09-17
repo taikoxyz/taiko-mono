@@ -10,10 +10,10 @@ import { LibDepositing } from "./LibDepositing.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { TaikoData } from "../TaikoData.sol";
 
+/// @title LibUtils
+/// @notice A library that offers helper functions.
 library LibUtils {
     using LibMath for uint256;
-
-    address internal constant PLACEHOLDER_ADDR = address(1);
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOCK_MISMATCH();
