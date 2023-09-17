@@ -12,6 +12,7 @@ import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { LibDepositing } from "./libs/LibDepositing.sol";
 import { LibProposing } from "./libs/LibProposing.sol";
 import { LibProving } from "./libs/LibProving.sol";
+import { LibTiers } from "./libs/LibTiers.sol";
 import { LibUtils } from "./libs/LibUtils.sol";
 import { LibVerifying } from "./libs/LibVerifying.sol";
 import { TaikoData } from "./TaikoData.sol";
@@ -233,4 +234,16 @@ abstract contract TaikoL1Base is
         pure
         virtual
         returns (TaikoData.Config memory);
+
+    function getTierConfig(uint16 tierId)
+        public
+        pure
+        returns (TaikoData.TierConfig memory)
+    {
+        return LibTiers.getTierConfig(tierId);
+    }
+
+    function getAllTiers() public pure returns (uint16[] memory) {
+        return LibTiers.getAllTiers();
+    }
 }

@@ -64,6 +64,14 @@ library LibTiers {
         revert L1_TIER_NOT_FOUND();
     }
 
+    function getAllTiers() internal pure returns (uint16[] memory tiers) {
+        tiers = new uint16[](4);
+        tiers[0] = TIER_OPTIMISTIC;
+        tiers[1] = TIER_SGX;
+        tiers[2] = TIER_PSE_ZKEVM;
+        tiers[3] = TIER_GUARDIAN;
+    }
+
     function getMinTier(uint256 rand) internal pure returns (uint16) {
         if (rand % 100 == 0) return TIER_PSE_ZKEVM; // 1%
 

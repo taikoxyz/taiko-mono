@@ -7,13 +7,12 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
-
+import { IEvidenceVerifier } from "../verifiers/IEvidenceVerifier.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibTiers } from "./LibTiers.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../TaikoData.sol";
 import { TaikoToken } from ".././TaikoToken.sol";
-import { IEvidenceVerifier } from "../verifiers/IEvidenceVerifier.sol";
 
 library LibProving {
     using LibMath for uint256;
