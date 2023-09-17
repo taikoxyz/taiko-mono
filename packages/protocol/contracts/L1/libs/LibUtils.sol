@@ -132,8 +132,7 @@ library LibUtils {
 
         inputs[5] = (uint256(meta.txListByteStart) << 232)
             | (uint256(meta.txListByteEnd) << 208) //
-            | (uint256(meta.gasLimit) << 176)
-            | (uint256(uint160(meta.proposer)) << 16);
+            | (uint256(meta.gasLimit) << 176);
 
         assembly {
             hash := keccak256(inputs, mul(6, 32))

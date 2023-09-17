@@ -88,7 +88,6 @@ library TaikoData {
     /// @dev Struct representing input data for block metadata.
     struct BlockMetadataInput {
         bytes32 txListHash;
-        address proposer;
         uint24 txListByteStart; // byte-wise start index (inclusive)
         uint24 txListByteEnd; // byte-wise end index (exclusive)
         bool cacheTxListInfo;
@@ -103,8 +102,7 @@ library TaikoData {
 
     /// @dev Struct containing data only required for proving a block
     /// Warning: changing this struct requires changing
-    /// {LibUtils.hashMetadata}
-    /// accordingly.
+    /// {LibUtils.hashMetadata} accordingly.
     struct BlockMetadata {
         uint64 id;
         uint64 timestamp;
@@ -115,7 +113,6 @@ library TaikoData {
         uint24 txListByteStart;
         uint24 txListByteEnd;
         uint32 gasLimit;
-        address proposer;
         TaikoData.EthDeposit[] depositsProcessed;
     }
 
@@ -146,18 +143,17 @@ library TaikoData {
     }
 
     /// @dev Struct containing data required for verifying a block.
-    /// 10 slots reserved for upgradability, 4 slots used.
+    /// 10 slots reserved for upgradability, 3 slots used.
     struct Block {
         bytes32 metaHash; // slot 1
         address assignedProver; // slot 2
         uint96 assignmentBond;
-        address proposer;
         uint64 blockId; // slot 3
+        uint64 proposedAt;
         uint32 nextTransitionId;
-        uint64 proposedAt; // slot 4 (128 bits)
         uint32 verifiedTransitionId;
         uint16 minTier;
-        bytes32[6] __reserved;
+        bytes32[7] __reserved;
     }
 
     /// @dev Struct representing information about a transaction list.

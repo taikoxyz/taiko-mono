@@ -38,7 +38,6 @@ library LibProposing {
     );
 
     error L1_INVALID_ASSIGNMENT();
-    error L1_INVALID_METADATA();
     error L1_TOO_MANY_BLOCKS();
     error L1_TXLIST_INVALID_RANGE();
     error L1_TXLIST_MISMATCH();
@@ -134,7 +133,7 @@ library LibProposing {
                     );
 
                     // Reward must be minted
-                    tt.mint(input.proposer, reward);
+                    tt.mint(msg.sender, reward);
                 }
             }
         }
@@ -168,9 +167,8 @@ library LibProposing {
             meta.txListByteStart = input.txListByteStart;
             meta.txListByteEnd = input.txListByteEnd;
             meta.gasLimit = config.blockMaxGasLimit;
-            meta.proposer = input.proposer;
             meta.depositsProcessed =
-                LibDepositing.processDeposits(state, config, input.proposer);
+                LibDepositing.processDeposits(state, config, msg.sender);
 
             // Init the block
             TaikoData.Block storage blk =
@@ -179,10 +177,9 @@ library LibProposing {
             blk.metaHash = LibUtils.hashMetadata(meta);
             blk.assignedProver = assignment.prover;
             blk.assignmentBond = config.assignmentBond;
-            blk.proposer = meta.proposer;
             blk.blockId = meta.id;
-            blk.nextTransitionId = 1;
             blk.proposedAt = meta.timestamp;
+            blk.nextTransitionId = 1;
             blk.verifiedTransitionId = 0;
             blk.minTier = LibTiers.getMinTier(uint256(blk.metaHash));
 
@@ -208,10 +205,6 @@ library LibProposing {
         view
         returns (bool cacheTxListInfo)
     {
-        if (input.proposer == address(0)) revert L1_INVALID_METADATA();
-
-        // handling txList
-
         uint24 size = uint24(txList.length);
         if (size > config.blockMaxTxListBytes) revert L1_TXLIST_TOO_LARGE();
 

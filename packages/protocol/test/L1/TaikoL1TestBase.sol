@@ -116,7 +116,6 @@ abstract contract TaikoL1TestBase is TestBase {
 
         bytes memory txList = new bytes(txListSize);
         TaikoData.BlockMetadataInput memory input = TaikoData.BlockMetadataInput({
-            proposer: proposer,
             txListHash: keccak256(txList),
             txListByteStart: 0,
             txListByteEnd: txListSize,
@@ -139,7 +138,6 @@ abstract contract TaikoL1TestBase is TestBase {
         meta.txListByteStart = 0;
         meta.txListByteEnd = txListSize;
         meta.gasLimit = gasLimit;
-        meta.proposer = proposer;
 
         vm.prank(proposer, proposer);
         meta =
