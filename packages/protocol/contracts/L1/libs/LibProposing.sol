@@ -49,6 +49,7 @@ library LibProposing {
     error L1_TXLIST_TOO_LARGE();
     error L1_UNAUTHORIZED();
 
+    /// @dev Proposes a Taiko L2 block.
     function proposeBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -193,7 +194,6 @@ library LibProposing {
             // the block data to be stored on-chain for future integrity checks.
             // If we choose to persist all data fields in the metadata, it will
             // require additional storage slots.
-
             meta.l1Hash = blockhash(meta.l1Height);
 
             // Following the Merge, the L1 mixHash incorporates the prevrandao

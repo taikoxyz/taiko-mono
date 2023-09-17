@@ -23,11 +23,7 @@ library LibDepositing {
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_INVALID_ETH_DEPOSIT();
 
-    /// @dev Deposits Ether into Taiko.
-    /// @param state The current state of the Taiko protocol.
-    /// @param config The config of the Taiko protocol.
-    /// @param resolver The {AddressResolver} instance for address resolution.
-    /// @param recipient The address of the deposit recipient.
+    /// @dev Deposits Ether to Layer 2.
     function depositEtherToL2(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -71,10 +67,6 @@ library LibDepositing {
     }
 
     /// @dev Processes the ETH deposits in a batched manner.
-    /// @param state The current state of the Taiko protocol.
-    /// @param config The config of the Taiko protocol.
-    /// @param feeRecipient Address to receive the deposit fee.
-    /// @return deposits The array of processed deposits.
     function processDeposits(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -138,11 +130,7 @@ library LibDepositing {
         }
     }
 
-    /// @dev Checks if the given deposit amount is valid.
-    /// @param state The current state of the Taiko protocol.
-    /// @param config The config of the Taiko protocol.
-    /// @param amount The amount to deposit.
-    /// @return true if the deposit is valid, false otherwise.
+    /// @dev Checks if Ether deposit is allowed for Layer 2.
     function canDepositEthToL2(
         TaikoData.State storage state,
         TaikoData.Config memory config,

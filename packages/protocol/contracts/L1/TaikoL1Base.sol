@@ -95,7 +95,7 @@ abstract contract TaikoL1Base is
         }
     }
 
-    /// @notice Proves a block with a zero-knowledge proof.
+    /// @notice Proves or contests a block transition.
     /// @param blockId The index of the block to prove. This is also used to
     /// select the right implementation version.
     /// @param input An abi-encoded {TaikoData.BlockEvidence} object.
