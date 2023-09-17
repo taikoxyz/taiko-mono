@@ -24,8 +24,8 @@ library LibTiers {
         if (tierId == TIER_OPTIMISTIC) {
             return TaikoData.TierConfig({
                 name: "tier_optimistic",
-                proofBond: 100_000,
-                contestBond: 100_000,
+                proofBond: 100_000 * 1e18, // TKO
+                contestBond: 100_000 * 1e18, // TKO
                 cooldownWindow: 4 hours,
                 provingWindow: 20 minutes
             });
@@ -34,8 +34,8 @@ library LibTiers {
         if (tierId == TIER_SGX) {
             return TaikoData.TierConfig({
                 name: "tier_sgx",
-                proofBond: 50_000,
-                contestBond: 50_000,
+                proofBond: 50_000 * 1e18, // TKO
+                contestBond: 50_000 * 1e18, // TKO
                 cooldownWindow: 3 hours,
                 provingWindow: 60 minutes
             });
@@ -44,8 +44,8 @@ library LibTiers {
         if (tierId == TIER_PSE_ZKEVM) {
             return TaikoData.TierConfig({
                 name: "tier_pse_zkevm",
-                proofBond: 10_000,
-                contestBond: 10_000,
+                proofBond: 10_000 * 1e18, // TKO
+                contestBond: 10_000 * 1e18, // TKO
                 cooldownWindow: 2 hours,
                 provingWindow: 90 minutes
             });
@@ -55,7 +55,7 @@ library LibTiers {
             return TaikoData.TierConfig({
                 name: "tier_guardian",
                 proofBond: 0,
-                contestBond: 0,
+                contestBond: 0, // not contestable
                 cooldownWindow: 1 hours,
                 provingWindow: 120 minutes
             });
@@ -64,7 +64,7 @@ library LibTiers {
         revert L1_TIER_NOT_FOUND();
     }
 
-    function getBlockMinTier(uint256 rand) internal pure returns (uint16) {
+    function getMinTier(uint256 rand) internal pure returns (uint16) {
         if (rand % 100 == 0) return TIER_PSE_ZKEVM; // 1%
 
         else return TIER_OPTIMISTIC; // 99%

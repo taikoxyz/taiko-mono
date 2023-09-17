@@ -6,12 +6,11 @@
 
 pragma solidity ^0.8.20;
 
-import { AddressResolver } from "../../common/AddressResolver.sol";
 import { EssentialContract } from "../../common/EssentialContract.sol";
+import { IEvidenceVerifier } from "./IEvidenceVerifier.sol";
 import { LibBytesUtils } from "../../thirdparty/LibBytesUtils.sol";
 import { Proxied } from "../../common/Proxied.sol";
 import { TaikoData } from "../TaikoData.sol";
-import { IEvidenceVerifier } from "./IEvidenceVerifier.sol";
 
 /// @title PseZkVerifier
 /// @notice See the documentation in {IEvidenceVerifier}.

@@ -12,11 +12,8 @@ import { Proxied } from "../../common/Proxied.sol";
 import { TaikoData } from "../TaikoData.sol";
 
 /// @title GuardianVerifier
-contract GuardianVerifier is EssentialContract, IEvidenceVerifier {
+contract SGXVerifier is EssentialContract, IEvidenceVerifier {
     uint256[50] private __gap;
-
-    error PERMISSION_DENIED();
-    error INVALID_PROOF();
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
@@ -31,16 +28,16 @@ contract GuardianVerifier is EssentialContract, IEvidenceVerifier {
         uint64,
         address prover,
         bool,
-        TaikoData.BlockEvidence calldata evidence
+        TaikoData.BlockEvidence calldata
     )
         external
         view
     {
-        if (evidence.proof.length != 0) revert INVALID_PROOF();
-        if (prover != resolve("guardian", false)) revert PERMISSION_DENIED();
+        // TODO
+        revert("not implemented");
     }
 }
 
-/// @title ProxiedGuardianVerifier
+/// @title ProxiedSGXVerifier
 /// @notice Proxied version of the parent contract.
-contract ProxiedGuardianVerifier is Proxied, GuardianVerifier { }
+contract ProxiedSGXVerifier is Proxied, SGXVerifier { }

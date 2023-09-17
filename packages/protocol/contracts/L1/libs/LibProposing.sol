@@ -184,7 +184,7 @@ library LibProposing {
             blk.nextTransitionId = 1;
             blk.proposedAt = meta.timestamp;
             blk.verifiedTransitionId = 0;
-            blk.minTier = LibTiers.getBlockMinTier(uint256(blk.metaHash));
+            blk.minTier = LibTiers.getMinTier(uint256(blk.metaHash));
 
             ++state.slotB.numBlocks;
 
