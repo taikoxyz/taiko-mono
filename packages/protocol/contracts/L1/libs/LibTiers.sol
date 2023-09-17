@@ -11,10 +11,10 @@ import { TaikoData } from "../../L1/TaikoData.sol";
 /// @title LibTiers
 /// @notice A library for providing tier configurations.
 library LibTiers {
-    uint16 public constant TIER_OPTIMISTIC = 100;
-    uint16 public constant TIER_SGX = 200;
-    uint16 public constant TIER_PSE_ZKEVM = 300;
-    uint16 public constant TIER_GUARDIAN = 1000;
+    uint16 internal constant TIER_OPTIMISTIC = 100;
+    uint16 internal constant TIER_SGX = 200;
+    uint16 internal constant TIER_PSE_ZKEVM = 300;
+    uint16 internal constant TIER_GUARDIAN = 1000;
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_TIER_NOT_FOUND();

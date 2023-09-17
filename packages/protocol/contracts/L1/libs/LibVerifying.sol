@@ -90,9 +90,10 @@ library LibVerifying {
         emit BlockVerified({
             blockId: 0,
             assignedProver: address(0),
-            prover: tran.prover,
+            prover: address(0),
             blockHash: genesisBlockHash
         });
+        /// @dev Verifies up to N blocks.
     }
 
     /// @dev Verifies up to N blocks.
