@@ -113,36 +113,4 @@ library LibUtils {
             numEthDeposits: a.numEthDeposits - a.nextEthDepositToProcess
         });
     }
-
-    /// @dev Hashing the block metadata.
-    function hashMetadata(TaikoData.BlockMetadata memory meta)
-        internal
-        pure
-        returns (bytes32 hash)
-    {
-        uint256[5] memory inputs;
-
-        inputs[0] = (uint256(meta.timestamp) << 192)
-            | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 96);
-
-        inputs[1] = uint256(meta.l1Hash);
-        inputs[2] = uint256(meta.mixHash);
-        inputs[3] = uint256(hashEthDeposits(meta.depositsProcessed));
-        inputs[4] = uint256(meta.txListHash);
-
-        assembly {
-            hash := keccak256(inputs, mul(5, 32))
-        }
-    }
-
-    /// @dev Computes the hash of the given deposits.
-    /// @param deposits The deposits to hash.
-    /// @return The computed hash.
-    function hashEthDeposits(TaikoData.EthDeposit[] memory deposits)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(deposits));
-    }
 }

@@ -197,8 +197,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         printVariables("after processing send-ethers");
         assertTrue(
-            LibUtils.hashEthDeposits(meta.depositsProcessed)
-                != emptyDepositsRoot
+            keccak256(abi.encode(meta.depositsProcessed)) != emptyDepositsRoot
         );
         assertEq(meta.depositsProcessed.length, count);
 
@@ -330,7 +329,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         // calculated with these values)
         //console2.logBytes32(meta.depositsRoot);
         assertEq(
-            LibUtils.hashEthDeposits(meta.depositsProcessed),
+            keccak256(abi.encode(meta.depositsProcessed)),
             0x41c71a2af0eaa668a1241d7e1b09ac30d0e9ea6b6eb4a5a151029e87158d46f3
         );
     }

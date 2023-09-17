@@ -145,7 +145,7 @@ abstract contract TaikoL1TestBase is TestBase {
         internal
     {
         TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
-            metaHash: LibUtils.hashMetadata(meta),
+            metaHash: keccak256(abi.encode(meta)),
             parentHash: parentHash,
             blockHash: blockHash,
             signalRoot: signalRoot,

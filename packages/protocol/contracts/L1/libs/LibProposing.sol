@@ -189,8 +189,7 @@ library LibProposing {
             // the block data to be stored on-chain for future integrity checks.
             // If we choose to persist all data fields in the metadata, it will
             // require additional storage slots.
-            meta.timestamp = uint64(block.timestamp);
-            meta.l1Height = uint64(block.number - 1);
+
             meta.l1Hash = blockhash(meta.l1Height);
 
             // Following the Merge, the L1 mixHash incorporates the prevrandao
@@ -200,6 +199,8 @@ library LibProposing {
             meta.mixHash = bytes32(block.prevrandao * b.numBlocks);
 
             meta.txListHash = txListHash;
+            meta.timestamp = uint64(block.timestamp);
+            meta.l1Height = uint64(block.number - 1);
             meta.gasLimit = config.blockMaxGasLimit;
 
             // Each transaction must handle a specific quantity of L1-to-L2
@@ -217,7 +218,7 @@ library LibProposing {
             // Please note that all fields must be re-initialized since we are
             // utilizing an existing ring buffer slot, not creating a new
             // storage slot.
-            blk.metaHash = LibUtils.hashMetadata(meta);
+            blk.metaHash = keccak256(abi.encode(meta));
             blk.assignedProver = assignment.prover;
 
             // Safeguard the assignment bond to ensure its preservation,
@@ -239,6 +240,7 @@ library LibProposing {
             // that provers are consistently available when needed.
             blk.minTier = LibTiers.getMinTier(uint256(blk.metaHash));
 
+            // Increment the counter (cursor) by 1.
             ++state.slotB.numBlocks;
 
             emit BlockProposed({
@@ -259,6 +261,8 @@ library LibProposing {
         view
         returns (bytes32)
     {
-        return keccak256(abi.encode(txListHash, msg.value, assignment.expiry));
+        return keccak256(
+            abi.encodePacked(txListHash, msg.value, assignment.expiry)
+        );
     }
 }
