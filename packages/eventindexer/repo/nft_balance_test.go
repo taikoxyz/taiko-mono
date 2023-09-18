@@ -84,7 +84,7 @@ func TestIntegration_NFTBalance_Decrease(t *testing.T) {
 	nftBalanceRepo, err := NewNFTBalanceRepository(db)
 	assert.Equal(t, nil, err)
 
-	_, err := nftBalanceRepo.IncreaseBalance(context.Background(),
+	bal1, err := nftBalanceRepo.IncreaseBalance(context.Background(),
 		eventindexer.UpdateNFTBalanceOpts{
 			ChainID:         1,
 			Address:         "0x123",
@@ -94,8 +94,9 @@ func TestIntegration_NFTBalance_Decrease(t *testing.T) {
 			Amount:          1,
 		})
 	assert.Equal(t, nil, err)
+	assert.NotNil(t, bal1)
 
-	_, err := nftBalanceRepo.IncreaseBalance(context.Background(),
+	bal2, err := nftBalanceRepo.IncreaseBalance(context.Background(),
 		eventindexer.UpdateNFTBalanceOpts{
 			ChainID:         1,
 			Address:         "0x123",
@@ -105,6 +106,7 @@ func TestIntegration_NFTBalance_Decrease(t *testing.T) {
 			Amount:          2,
 		})
 	assert.Equal(t, nil, err)
+	assert.NotNil(t, bal2)
 
 	tests := []struct {
 		name    string
@@ -144,7 +146,7 @@ func TestIntegration_NFTBalance_Decrease(t *testing.T) {
 		})
 	}
 
-	_, err := nftBalanceRepo.SubtractBalance(context.Background(),
+	bal3, err := nftBalanceRepo.SubtractBalance(context.Background(),
 		eventindexer.UpdateNFTBalanceOpts{
 			ChainID:         1,
 			Address:         "0x123",
@@ -154,6 +156,7 @@ func TestIntegration_NFTBalance_Decrease(t *testing.T) {
 			Amount:          1,
 		})
 	assert.ErrorContains(t, err, "record not found")
+	assert.Nil(t, bal3)
 }
 
 // TODO: fix this test
