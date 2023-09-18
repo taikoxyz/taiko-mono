@@ -4,7 +4,7 @@ export const PUBLIC_TEST_ERC20 =
   '[{"address": "0x876", "symbol": "BLL", "name": "Bull Token"}, {"address": "0x765", "symbol": "HORSE", "name": "Horse Token"}]';
 export const PUBLIC_WALLETCONNECT_PROJECT_ID = '123';
 export const PUBLIC_SENTRY_DSN = 'https://sentry.com';
-export const CONFIGURED_BRIDGES = ''
-export const CONFIGURED_CHAINS = ''
-export const CONFIGURED_CUSTOM_TOKEN = ''
-export const CONFIGURED_RELAYER = ''
+export const CONFIGURED_BRIDGES = '';
+export const CONFIGURED_CHAINS = '';
+export const CONFIGURED_CUSTOM_TOKEN = '';
+export const CONFIGURED_RELAYER = '';

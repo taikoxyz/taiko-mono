@@ -10,7 +10,7 @@ export const getContract = vi.fn();
 
 export const fetchBalance = vi.fn();
 
-export const configureChains = vi.fn((chains, providers) => {
+export const configureChains = vi.fn(() => {
     return { publicClient: 'mockPublicClient' };
 });
 
