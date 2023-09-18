@@ -21,6 +21,5 @@ declare module '$relayerConfig' {
 }
 
 declare module '$customToken' {
-  
   export const customToken: Token[]
 }
