@@ -11,7 +11,6 @@
   import { warningToast } from '$components/NotificationToast';
   import { chains } from '$libs/chain';
   import { classNames } from '$libs/util/classNames';
-  import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { truncateString } from '$libs/util/truncateString';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
@@ -62,7 +61,6 @@
 
   async function openModal() {
     if (readOnly) return;
-    const wallet = await getConnectedWallet();
     // We want to inform the user that they need to connect
     // their wallet if they want to change the network
     if (!$account.isConnected) {

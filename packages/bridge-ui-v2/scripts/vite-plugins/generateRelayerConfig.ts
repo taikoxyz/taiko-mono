@@ -8,13 +8,15 @@ import configuredRelayerSchema from '../../config/schemas/configuredRelayer.sche
 import type { ConfiguredRelayer, RelayerConfig } from '../../src/libs/relayer/types';
 import { decodeBase64ToJson } from './../utils/decodeBase64ToJson';
 import { formatSourceFile } from './../utils/formatSourceFile';
-import { Logger } from './../utils/Logger';
+import { PluginLogger } from './../utils/PluginLogger';
 import { validateJsonAgainstSchema } from './../utils/validateJson';
 
 dotenv.config();
 
 const pluginName = 'generateRelayerConfig';
-const logger = new Logger(pluginName);
+const logger = new PluginLogger(pluginName);
+
+const skip = process.env.SKIP_ENV_VALDIATION || false;
 
 const currentDir = path.resolve(new URL(import.meta.url).pathname);
 
@@ -25,22 +27,26 @@ export function generateRelayerConfig() {
     name: pluginName,
     async buildStart() {
       logger.info('Plugin initialized.');
+      let configuredRelayerConfigFile;
 
-      if (!process.env.CONFIGURED_RELAYER) {
-        throw new Error(
-          'CONFIGURED_RELAYER is not defined in environment. Make sure to run the export step in the documentation.',
-        );
+      if (!skip) {
+        if (!process.env.CONFIGURED_RELAYER) {
+          throw new Error(
+            'CONFIGURED_RELAYER is not defined in environment. Make sure to run the export step in the documentation.',
+          );
+        }
+
+        // Decode base64 encoded JSON string
+        configuredRelayerConfigFile = decodeBase64ToJson(process.env.CONFIGURED_RELAYER || '');
+
+        // Valide JSON against schema
+        const isValid = validateJsonAgainstSchema(configuredRelayerConfigFile, configuredRelayerSchema);
+        if (!isValid) {
+          throw new Error('encoded configuredBridges.json is not valid.');
+        }
+      } else {
+        configuredRelayerConfigFile = '';
       }
-
-      // Decode base64 encoded JSON string
-      const configuredRelayerConfigFile = decodeBase64ToJson(process.env.CONFIGURED_RELAYER || '');
-
-      // Valide JSON against schema
-      const isValid = validateJsonAgainstSchema(configuredRelayerConfigFile, configuredRelayerSchema);
-      if (!isValid) {
-        throw new Error('encoded configuredBridges.json is not valid.');
-      }
-
       // Path to where you want to save the generated Typ eScript file
       const tsFilePath = path.resolve(outputPath);
 
@@ -84,25 +90,39 @@ async function buildRelayerConfig(sourceFile: SourceFile, configuredRelayerConfi
 
   const relayer: ConfiguredRelayer = configuredRelayerConfigFile;
 
-  if (!relayer.configuredRelayer || !Array.isArray(relayer.configuredRelayer)) {
-    console.error('configuredRelayer is not an array. Please check the content of the configuredRelayerConfigFile.');
-    throw new Error();
+  if (!skip) {
+    if (!relayer.configuredRelayer || !Array.isArray(relayer.configuredRelayer)) {
+      console.error('configuredRelayer is not an array. Please check the content of the configuredRelayerConfigFile.');
+      throw new Error();
+    }
+    // Create a constant variable for the configuration
+    const relayerConfigVariable = {
+      declarationKind: VariableDeclarationKind.Const,
+      declarations: [
+        {
+          name: 'configuredRelayer',
+          initializer: _formatObjectToTsLiteral(relayer.configuredRelayer),
+          type: 'RelayerConfig[]',
+        },
+      ],
+      isExported: true,
+    };
+    sourceFile.addVariableStatement(relayerConfigVariable);
+  } else {
+    const emptyRelayerConfigVariable = {
+      declarationKind: VariableDeclarationKind.Const,
+      declarations: [
+        {
+          name: 'configuredRelayer',
+          initializer: '[]',
+          type: 'RelayerConfig[]',
+        },
+      ],
+      isExported: true,
+    };
+    sourceFile.addVariableStatement(emptyRelayerConfigVariable);
   }
 
-  // Create a constant variable for the configuration
-  const relayerConfigVariable = {
-    declarationKind: VariableDeclarationKind.Const,
-    declarations: [
-      {
-        name: 'configuredRelayer',
-        initializer: _formatObjectToTsLiteral(relayer.configuredRelayer),
-        type: 'RelayerConfig[]',
-      },
-    ],
-    isExported: true,
-  };
-
-  sourceFile.addVariableStatement(relayerConfigVariable);
   logger.info('Relayer config built.');
   return sourceFile;
 }
