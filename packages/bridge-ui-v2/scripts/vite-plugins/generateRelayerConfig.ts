@@ -30,7 +30,7 @@ export function generateRelayerConfig() {
       let configuredRelayerConfigFile;
 
       if (!skip) {
-        if (!process.env.CONFIGURED_RELAYER || !process.env.SKIP_ENV_VALDIATION) {
+        if (!process.env.CONFIGURED_RELAYER) {
           throw new Error(
             'CONFIGURED_RELAYER is not defined in environment. Make sure to run the export step in the documentation.',
           );
