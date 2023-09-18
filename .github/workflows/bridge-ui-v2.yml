@@ -31,6 +31,16 @@ jobs:
         working-directory: ./packages/bridge-ui-v2
         run: cp .env.example .env
 
+      - name: Export config to .env
+        working-directory: ./packages/bridge-ui-v2
+        run: pnpm export:config
+
+      - name: Build Svelte app
+        env:
+          SKIP_ENV_VALDIATION: "true"
+        working-directory: ./packages/bridge-ui-v2
+        run: pnpm build
+
       - name: Svelte check
         working-directory: ./packages/bridge-ui-v2
         run: pnpm svelte:check
@@ -40,6 +50,8 @@ jobs:
         run: pnpm lint
 
       - name: Unit tests
+        env:
+          SKIP_ENV_VALDIATION: "true"
         working-directory: ./packages/bridge-ui-v2
         run: pnpm test:unit
 

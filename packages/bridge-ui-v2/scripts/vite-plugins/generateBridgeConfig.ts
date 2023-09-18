@@ -7,12 +7,14 @@ import configuredBridgesSchema from '../../config/schemas/configuredBridges.sche
 import type { BridgeConfig, ConfiguredBridgesType, RoutingMap } from '../../src/libs/bridge/types';
 import { decodeBase64ToJson } from '../utils/decodeBase64ToJson';
 import { formatSourceFile } from '../utils/formatSourceFile';
-import { Logger } from '../utils/Logger';
+import { PluginLogger } from '../utils/PluginLogger';
 import { validateJsonAgainstSchema } from '../utils/validateJson';
 
 dotenv.config();
 const pluginName = 'generateBridgeConfig';
-const logger = new Logger(pluginName);
+const logger = new PluginLogger(pluginName);
+
+const skip = process.env.SKIP_ENV_VALDIATION || false;
 
 const currentDir = path.resolve(new URL(import.meta.url).pathname);
 
@@ -22,22 +24,27 @@ export function generateBridgeConfig() {
   return {
     name: pluginName,
     async buildStart() {
-      if (!process.env.CONFIGURED_BRIDGES) {
-        throw new Error(
-          'CONFIGURED_BRIDGES is not defined in environment. Make sure to run the export step in the documentation.',
-        );
-      }
-
-      // Decode base64 encoded JSON string
-      const configuredBridgesConfigFile = decodeBase64ToJson(process.env.CONFIGURED_BRIDGES || '');
-
-      // Valide JSON against schema
-      const isValid = validateJsonAgainstSchema(configuredBridgesConfigFile, configuredBridgesSchema);
-
-      if (!isValid) {
-        throw new Error('encoded configuredBridges.json is not valid.');
-      }
       logger.info('Plugin initialized.');
+      let configuredBridgesConfigFile;
+      if (!skip) {
+        if (!process.env.CONFIGURED_BRIDGES) {
+          throw new Error(
+            'CONFIGURED_BRIDGES is not defined in environment. Make sure to run the export step in the documentation.',
+          );
+        }
+
+        // Decode base64 encoded JSON string
+        configuredBridgesConfigFile = decodeBase64ToJson(process.env.CONFIGURED_BRIDGES || '');
+
+        // Valide JSON against schema
+        const isValid = validateJsonAgainstSchema(configuredBridgesConfigFile, configuredBridgesSchema);
+
+        if (!isValid) {
+          throw new Error('encoded configuredBridges.json is not valid.');
+        }
+      } else {
+        configuredBridgesConfigFile = '';
+      }
 
       const tsFilePath = path.resolve(outputPath);
 
@@ -86,58 +93,70 @@ async function buildBridgeConfig(sourceFile: SourceFile, configuredBridgesConfig
 
   const bridges: ConfiguredBridgesType = configuredBridgesConfigFile;
 
-  if (!bridges.configuredBridges || !Array.isArray(bridges.configuredBridges)) {
-    logger.error('configuredBridges is not an array. Please check the content of the configuredBridgesConfigFile.');
-    throw new Error();
-  }
-
-  bridges.configuredBridges.forEach((item: BridgeConfig) => {
-    if (!routingContractsMap[item.source]) {
-      routingContractsMap[item.source] = {};
+  if (!skip) {
+    if (!bridges.configuredBridges || !Array.isArray(bridges.configuredBridges)) {
+      logger.error('configuredBridges is not an array. Please check the content of the configuredBridgesConfigFile.');
+      throw new Error();
     }
-    routingContractsMap[item.source][item.destination] = item.addresses;
-  });
-
-  // Add routingContractsMap variable
-  sourceFile.addVariableStatement({
-    declarationKind: VariableDeclarationKind.Const,
-    declarations: [
-      {
-        name: 'routingContractsMap',
-        type: 'RoutingMap',
-        initializer: _formatObjectToTsLiteral(routingContractsMap),
-      },
-    ],
-    isExported: true,
-  });
-
-  logger.info(`Configured ${bridges.configuredBridges.length} bridges.`);
+    bridges.configuredBridges.forEach((item: BridgeConfig) => {
+      if (!routingContractsMap[item.source]) {
+        routingContractsMap[item.source] = {};
+      }
+      routingContractsMap[item.source][item.destination] = item.addresses;
+    });
+  }
+  if (skip) {
+    // Add empty routingContractsMap variable
+    sourceFile.addVariableStatement({
+      declarationKind: VariableDeclarationKind.Const,
+      declarations: [
+        {
+          name: 'routingContractsMap',
+          type: 'RoutingMap',
+          initializer: '{}',
+        },
+      ],
+      isExported: true,
+    });
+    logger.info(`Skipped bridge.`);
+  } else {
+    // Add routingContractsMap variable
+    sourceFile.addVariableStatement({
+      declarationKind: VariableDeclarationKind.Const,
+      declarations: [
+        {
+          name: 'routingContractsMap',
+          type: 'RoutingMap',
+          initializer: _formatObjectToTsLiteral(routingContractsMap),
+        },
+      ],
+      isExported: true,
+    });
+    logger.info(`Configured ${bridges.configuredBridges.length} bridges.`);
+  }
   return sourceFile;
 }
 
 const _formatObjectToTsLiteral = (obj: RoutingMap): string => {
-  const formatValue = (value: any): string => {
+  const formatValue = (value: string | number | boolean | null): string => {
     if (typeof value === 'string') {
       return `"${value}"`;
     }
-    if (typeof value === 'number' || typeof value === 'boolean' || value === null) {
-      return String(value);
-    }
-    if (Array.isArray(value)) {
-      return `[${value.map(formatValue).join(', ')}]`;
-    }
-    if (typeof value === 'object') {
-      return _formatObjectToTsLiteral(value);
-    }
-    return 'undefined';
+    return String(value);
   };
 
-  if (Array.isArray(obj)) {
-    return `[${obj.map(formatValue).join(', ')}]`;
-  }
-
   const entries = Object.entries(obj);
-  const formattedEntries = entries.map(([key, value]) => `${key}: ${formatValue(value)}`);
+  const formattedEntries = entries.map(([key, value]) => {
+    const innerEntries = Object.entries(value);
+    const innerFormattedEntries = innerEntries.map(([innerKey, innerValue]) => {
+      const innerInnerEntries = Object.entries(innerValue);
+      const innerInnerFormattedEntries = innerInnerEntries.map(
+        ([innerInnerKey, innerInnerValue]) => `${innerInnerKey}: ${formatValue(innerInnerValue)}`,
+      );
+      return `${innerKey}: {${innerInnerFormattedEntries.join(', ')}}`;
+    });
+    return `${key}: {${innerFormattedEntries.join(', ')}}`;
+  });
 
   return `{${formattedEntries.join(', ')}}`;
 };
