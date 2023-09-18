@@ -12,9 +12,10 @@ declare module '$chainConfig' {
 }
 
 declare module '$relayerConfig' {
-  export const customToken: Token[]
+  export const configuredRelayer: RelayerConfig[]
 }
 
 declare module '$customToken' {
-  export const configuredRelayer: RelayerConfig[]
+  
+  export const customToken: Token[]
 }
