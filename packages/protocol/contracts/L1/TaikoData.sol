@@ -91,8 +91,8 @@ library TaikoData {
     }
 
     /// @dev Struct containing data only required for proving a block
-    /// Warning: changing this struct requires changing {LibUtils.hashMetadata}
-    /// accordingly.
+    /// Warning: changing this struct requires changing
+    /// {LibProposing.hashMetadata} accordingly.
     struct BlockMetadata {
         bytes32 l1Hash;
         bytes32 mixHash;
