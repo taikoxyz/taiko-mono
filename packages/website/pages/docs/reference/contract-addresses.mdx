@@ -105,11 +105,11 @@ import { ContractAddressTable } from "components/ContractAddressTable";
     </tr>
   </thead>
   <tbody>
-    {Object.keys(JOLNIR_CONFIG.basedContracts).map((key) => {
+    {Object.keys(TAIKO_CONFIG.basedContracts).map((key) => {
       if (key === "erc20Contracts") return;
-      const contract = JOLNIR_CONFIG.basedContracts[key];
-      const baseUrl = JOLNIR_CONFIG.blockExplorer.url;
-      const blockExplorerName = JOLNIR_CONFIG.blockExplorer.name;
+      const contract = TAIKO_CONFIG.basedContracts[key];
+      const baseUrl = TAIKO_CONFIG.blockExplorer.url;
+      const blockExplorerName = TAIKO_CONFIG.blockExplorer.name;
       const proxyAddress = contract.address.proxy;
       const implementationAddress = contract.address.impl;
       return (
@@ -146,10 +146,10 @@ import { ContractAddressTable } from "components/ContractAddressTable";
     </tr>
   </thead>
   <tbody>
-    {Object.keys(JOLNIR_CONFIG.basedContracts.erc20Contracts).map((key) => {
-      const contract = JOLNIR_CONFIG.basedContracts.erc20Contracts[key];
-      const baseUrl = JOLNIR_CONFIG.blockExplorer.url;
-      const blockExplorerName = JOLNIR_CONFIG.blockExplorer.name;
+    {Object.keys(TAIKO_CONFIG.basedContracts.erc20Contracts).map((key) => {
+      const contract = TAIKO_CONFIG.basedContracts.erc20Contracts[key];
+      const baseUrl = TAIKO_CONFIG.blockExplorer.url;
+      const blockExplorerName = TAIKO_CONFIG.blockExplorer.name;
       const proxyAddress = contract.address.proxy;
       const implementationAddress = contract.address.impl;
       return (
