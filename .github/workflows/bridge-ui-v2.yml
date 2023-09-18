@@ -50,6 +50,8 @@ jobs:
         run: pnpm lint
 
       - name: Unit tests
+        env:
+          SKIP_ENV_VALDIATION: "true"
         working-directory: ./packages/bridge-ui-v2
         run: pnpm test:unit
 
