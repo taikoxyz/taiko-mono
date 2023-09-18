@@ -30,7 +30,6 @@ abstract contract TaikoErrors {
     error L1_INVALID_PROVER_SIG();
     error L1_INVALID_TIER();
     error L1_NOT_ASSIGNED_PROVER();
-    error L1_NOT_CONTESTABLE();
     error L1_TIER_NOT_FOUND();
     error L1_TOO_MANY_BLOCKS();
     error L1_TRANSITION_ID_ZERO();
