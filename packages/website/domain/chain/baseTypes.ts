@@ -142,8 +142,12 @@ interface TaikoL2Alpha3 extends Network {
   otherContracts: OtherContracts;
 }
 
-interface TaikoL2Alpha5 extends Network {
+interface TaikoL1Alpha5 extends Network {
   basedContracts: Alpha5BasedContracts;
+  otherContracts: OtherContracts;
+}
+
+interface TaikoL2Alpha5 extends Network {
   rollupContracts: Alpha5RollupContracts;
   otherContracts: OtherContracts;
 }
@@ -155,6 +159,7 @@ export type {
   AddTokenParameter,
   TaikoL1Alpha3,
   TaikoL1Alpha4,
+  TaikoL1Alpha5,
   TaikoL2Alpha3,
   TaikoL2Alpha4,
   TaikoL2Alpha5,
