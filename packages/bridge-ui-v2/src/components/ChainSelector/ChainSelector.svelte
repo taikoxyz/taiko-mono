@@ -12,7 +12,6 @@
   import { warningToast } from '$components/NotificationToast';
   import { chains } from '$libs/chain';
   import { classNames } from '$libs/util/classNames';
-  import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { truncateString } from '$libs/util/truncateString';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
@@ -40,7 +39,6 @@
   let buttonId = `button-${uid()}`;
   let dialogId = `dialog-${uid()}`;
   let modalOpen = false;
-  let srcChainId: Maybe<number> = null;
 
   function closeModal() {
     modalOpen = false;
@@ -48,8 +46,6 @@
 
   async function openModal() {
     if (readOnly) return;
-    const wallet = await getConnectedWallet();
-    srcChainId = await wallet.getChainId();
     // We want to inform the user that they need to connect
     // their wallet if they want to change the network
     if (!$account.isConnected) {
@@ -141,12 +137,18 @@
         <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
       </button>
       <div class="w-full">
-        <h3 class="title-body-bold mb-[20px]">{ #if switchWallet } {$t('chain_selector.from_placeholder')} {:else} {$t('chain_selector.to_placeholder')} {/if}</h3>
+        <h3 class="title-body-bold mb-[20px]">
+          {#if switchWallet}
+            {$t('chain_selector.from_placeholder')}
+          {:else}
+            {$t('chain_selector.to_placeholder')}
+          {/if}
+        </h3>
         <ul role="menu">
           {#each chains as chain (chain.id)}
-            {@const disabled = (validOptions
-              ? !validOptions.some((validOption) => validOption.id === chain.id) : true)
-              || chain.id === value?.id}
+            {@const disabled =
+              (validOptions ? !validOptions.some((validOption) => validOption.id === chain.id) : true) ||
+              chain.id === value?.id}
             {@const icon = chainConfig[Number(chain.id)]?.icon || 'Unknown Chain'}
             <li
               role="menuitem"

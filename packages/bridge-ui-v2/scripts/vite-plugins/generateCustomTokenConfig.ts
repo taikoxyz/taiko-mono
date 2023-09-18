@@ -7,12 +7,14 @@ import configuredChainsSchema from '../../config/schemas/configuredChains.schema
 import type { Token } from '../../src/libs/token/types';
 import { decodeBase64ToJson } from './../utils/decodeBase64ToJson';
 import { formatSourceFile } from './../utils/formatSourceFile';
-import { Logger } from './../utils/Logger';
+import { PluginLogger } from './../utils/PluginLogger';
 import { validateJsonAgainstSchema } from './../utils/validateJson';
 
 dotenv.config();
 const pluginName = 'generateTokens';
-const logger = new Logger(pluginName);
+const logger = new PluginLogger(pluginName);
+
+const skip = process.env.SKIP_ENV_VALDIATION || false;
 
 const currentDir = path.resolve(new URL(import.meta.url).pathname);
 
@@ -23,23 +25,27 @@ export function generateCustomTokenConfig() {
     name: pluginName,
     async buildStart() {
       logger.info('Plugin initialized.');
+      let configuredTokenConfigFile;
 
-      if (!process.env.CONFIGURED_CUSTOM_TOKEN) {
-        throw new Error(
-          'CONFIGURED_CUSTOM_TOKEN is not defined in environment. Make sure to run the export step in the documentation.',
-        );
+      if (!skip) {
+        if (!process.env.CONFIGURED_CUSTOM_TOKEN) {
+          throw new Error(
+            'CONFIGURED_CUSTOM_TOKEN is not defined in environment. Make sure to run the export step in the documentation.',
+          );
+        }
+
+        // Decode base64 encoded JSON string
+        configuredTokenConfigFile = decodeBase64ToJson(process.env.CONFIGURED_CUSTOM_TOKEN || '');
+
+        // Valide JSON against schema
+        const isValid = validateJsonAgainstSchema(configuredTokenConfigFile, configuredChainsSchema);
+
+        if (!isValid) {
+          throw new Error('encoded configuredBridges.json is not valid.');
+        }
+      } else {
+        configuredTokenConfigFile = '';
       }
-
-      // Decode base64 encoded JSON string
-      const configuredTokenConfigFile = decodeBase64ToJson(process.env.CONFIGURED_CUSTOM_TOKEN || '');
-
-      // Valide JSON against schema
-      const isValid = validateJsonAgainstSchema(configuredTokenConfigFile, configuredChainsSchema);
-
-      if (!isValid) {
-        throw new Error('encoded configuredBridges.json is not valid.');
-      }
-
       const tsFilePath = path.resolve(outputPath);
 
       const project = new Project();
@@ -81,21 +87,35 @@ async function storeTypes(sourceFile: SourceFile) {
 
 async function buildCustomTokenConfig(sourceFile: SourceFile, configuredTokenConfigFile: Token[]) {
   logger.info('Building custom token config...');
-  const tokens: Token[] = configuredTokenConfigFile;
+  if (skip) {
+    sourceFile.addVariableStatement({
+      declarationKind: VariableDeclarationKind.Const,
+      declarations: [
+        {
+          name: 'customToken',
+          initializer: '[]',
+          type: 'Token[]',
+        },
+      ],
+      isExported: true,
+    });
+    logger.info(`Skipped token.`);
+  } else {
+    const tokens: Token[] = configuredTokenConfigFile;
 
-  sourceFile.addVariableStatement({
-    declarationKind: VariableDeclarationKind.Const,
-    declarations: [
-      {
-        name: 'customToken',
-        initializer: _formatObjectToTsLiteral(tokens),
-        type: 'Token[]',
-      },
-    ],
-    isExported: true,
-  });
-
-  logger.info(`Configured ${tokens.length} tokens.`);
+    sourceFile.addVariableStatement({
+      declarationKind: VariableDeclarationKind.Const,
+      declarations: [
+        {
+          name: 'customToken',
+          initializer: _formatObjectToTsLiteral(tokens),
+          type: 'Token[]',
+        },
+      ],
+      isExported: true,
+    });
+    logger.info(`Configured ${tokens.length} tokens.`);
+  }
 
   return sourceFile;
 }

@@ -8,12 +8,14 @@ import configuredChainsSchema from '../../config/schemas/configuredChains.schema
 import type { ChainConfig, ChainConfigMap, ConfiguredChains } from '../../src/libs/chain/types';
 import { decodeBase64ToJson } from './../utils/decodeBase64ToJson';
 import { formatSourceFile } from './../utils/formatSourceFile';
-import { Logger } from './../utils/Logger';
+import { PluginLogger } from './../utils/PluginLogger';
 import { validateJsonAgainstSchema } from './../utils/validateJson';
 dotenv.config();
 
 const pluginName = 'generateChainConfig';
-const logger = new Logger(pluginName);
+const logger = new PluginLogger(pluginName);
+
+const skip = process.env.SKIP_ENV_VALDIATION || false;
 
 const currentDir = path.resolve(new URL(import.meta.url).pathname);
 
@@ -24,19 +26,23 @@ export function generateChainConfig() {
     name: pluginName,
     async buildStart() {
       logger.info('Plugin initialized.');
+      let configuredChainsConfigFile;
+      if (!skip) {
+        if (!process.env.CONFIGURED_CHAINS) {
+          throw new Error(
+            'CONFIGURED_CHAINS is not defined in environment. Make sure to run the export step in the documentation.',
+          );
+        }
+        // Decode base64 encoded JSON string
+        configuredChainsConfigFile = decodeBase64ToJson(process.env.CONFIGURED_CHAINS || '');
+        // Valide JSON against schema
+        const isValid = validateJsonAgainstSchema(configuredChainsConfigFile, configuredChainsSchema);
 
-      if (!process.env.CONFIGURED_CHAINS) {
-        throw new Error(
-          'CONFIGURED_CHAINS is not defined in environment. Make sure to run the export step in the documentation.',
-        );
-      }
-      // Decode base64 encoded JSON string
-      const configuredChainsConfigFile = decodeBase64ToJson(process.env.CONFIGURED_CHAINS || '');
-      // Valide JSON against schema
-      const isValid = validateJsonAgainstSchema(configuredChainsConfigFile, configuredChainsSchema);
-
-      if (!isValid) {
-        throw new Error('encoded configuredBridges.json is not valid.');
+        if (!isValid) {
+          throw new Error('encoded configuredBridges.json is not valid.');
+        }
+      } else {
+        configuredChainsConfigFile = '';
       }
 
       // Path to where you want to save the generated TypeScript file
@@ -93,31 +99,33 @@ async function buildChainConfig(sourceFile: SourceFile, configuredChainsConfigFi
 
   const chains: ConfiguredChains = configuredChainsConfigFile;
 
-  if (!chains.configuredChains || !Array.isArray(chains.configuredChains)) {
-    console.error('configuredChains is not an array. Please check the content of the configuredChainsConfigFile.');
-    throw new Error();
-  }
-
-  chains.configuredChains.forEach((item: Record<string, ChainConfig>) => {
-    for (const [chainIdStr, config] of Object.entries(item)) {
-      const chainId = Number(chainIdStr);
-      const type = config.type as LayerType;
-
-      // Check for duplicates
-      if (Object.prototype.hasOwnProperty.call(chainConfig, chainId)) {
-        logger.error(`Duplicate chainId ${chainId} found in configuredChains.json`);
-        throw new Error();
-      }
-
-      // Validate LayerType
-      if (!Object.values(LayerType).includes(config.type)) {
-        logger.error(`Invalid LayerType ${config.type} found for chainId ${chainId}`);
-        throw new Error();
-      }
-
-      chainConfig[chainId] = { ...config, type };
+  if (!skip) {
+    if (!chains.configuredChains || !Array.isArray(chains.configuredChains)) {
+      console.error('configuredChains is not an array. Please check the content of the configuredChainsConfigFile.');
+      throw new Error();
     }
-  });
+
+    chains.configuredChains.forEach((item: Record<string, ChainConfig>) => {
+      for (const [chainIdStr, config] of Object.entries(item)) {
+        const chainId = Number(chainIdStr);
+        const type = config.type as LayerType;
+
+        // Check for duplicates
+        if (Object.prototype.hasOwnProperty.call(chainConfig, chainId)) {
+          logger.error(`Duplicate chainId ${chainId} found in configuredChains.json`);
+          throw new Error();
+        }
+
+        // Validate LayerType
+        if (!Object.values(LayerType).includes(config.type)) {
+          logger.error(`Invalid LayerType ${config.type} found for chainId ${chainId}`);
+          throw new Error();
+        }
+
+        chainConfig[chainId] = { ...config, type };
+      }
+    });
+  }
 
   // Add chainConfig variable to sourceFile
   sourceFile.addVariableStatement({
@@ -132,7 +140,11 @@ async function buildChainConfig(sourceFile: SourceFile, configuredChainsConfigFi
     isExported: true,
   });
 
-  logger.info(`Configured ${Object.keys(chainConfig).length} chains.`);
+  if (skip) {
+    logger.info(`Skipped chains.`);
+  } else {
+    logger.info(`Configured ${Object.keys(chainConfig).length} chains.`);
+  }
   return sourceFile;
 }
 
