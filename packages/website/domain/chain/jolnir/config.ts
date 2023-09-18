@@ -18,12 +18,12 @@ export const JOLNIR_CONFIG = {
     decimals: 18,
   },
   rpc: {
-    https: "https://rpc.test.taiko.xyz",
-    wss: "wss://ws.test.taiko.xyz",
+    https: "https://rpc.jolnir.taiko.xyz",
+    wss: "wss://ws.jolnir.taiko.xyz",
   },
   blockExplorer: {
     name: "Blockscout",
-    url: "https://explorer.test.taiko.xyz",
+    url: "https://explorer.jolnir.taiko.xyz",
   },
   testnet: true,
   basedContracts: {
