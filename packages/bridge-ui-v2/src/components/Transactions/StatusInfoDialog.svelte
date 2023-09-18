@@ -15,7 +15,8 @@
   const openModal = () => (modalOpen = true);
 
   const classes = {
-    headline: 'text-center text-base font-bold leading-[24px] tracking-[0.08px] pb-[5px]',
+    headline: 'text-center text-base font-bold leading-[24px] tracking-[0.08px] pb-[5px] pt-[25px]',
+    content: 'text-sm font-normal leading-5',
   };
 
   const closeModalIfClickedOutside = (e: MouseEvent) => {
@@ -28,7 +29,6 @@
       closeModal();
     }
   };
-  
 </script>
 
 <button
@@ -57,7 +57,7 @@
     <div class="w-full">
       <h1 class="title-body-bold">{$t('transactions.status.dialog.title')}</h1>
     </div>
-    <div class="inline-flex flex-col space-y-9 px-[37px]">
+    <div class="inline-flex flex-col px-[37px] text-base">
       <br />
       {$t('transactions.status.dialog.description')}
       <h4 class={classes.headline}>{$t('transactions.status.initiated.name')}</h4>

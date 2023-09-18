@@ -22,7 +22,7 @@
     {#if text}
       <p>{text}</p>
     {/if}
-    <div class="f-col mt-[35px]">
+    <div class="f-col mt-[30px]">
       <slot />
     </div>
   </div>
