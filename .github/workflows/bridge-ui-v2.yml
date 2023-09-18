@@ -36,6 +36,8 @@ jobs:
         run: pnpm export:config
 
       - name: Build Svelte app
+        env:
+          SKIP_ENV_VALDIATION: true
         working-directory: ./packages/bridge-ui-v2
         run: pnpm build
 
