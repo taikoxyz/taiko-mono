@@ -104,7 +104,7 @@
       const { explorer } = chainConfig[Number(bridgeTx.destChainId)].urls;
 
       infoToast(
-        $t('activities.actions.claim.tx', {
+        $t('transactions.actions.claim.tx', {
           values: {
             token: bridgeTx.symbol,
             url: `${explorer}/tx/${txHash}`,
@@ -116,7 +116,7 @@
 
       //Todo: just because we have a claim tx doesn't mean it was successful
       successToast(
-        $t('activities.actions.claim.success', {
+        $t('transactions.actions.claim.success', {
           values: {
             network: $network.name,
           },
@@ -133,10 +133,10 @@
           warningToast($t('messages.account.required'));
           break;
         case err instanceof UserRejectedRequestError:
-          warningToast($t('activities.actions.claim.rejected'));
+          warningToast($t('transactions.actions.claim.rejected'));
           break;
         case err instanceof InsufficientBalanceError:
-          errorToast($t('activities.errors.insufficient_balance'));
+          errorToast($t('transactions.errors.insufficient_balance'));
           break;
         case err instanceof InvalidProofError:
           errorToast($t('TODO: InvalidProofError'));
@@ -186,7 +186,7 @@
       const { explorer } = chainConfig[Number(bridgeTx.srcChainId)].urls;
 
       infoToast(
-        $t('activities.actions.release.tx', {
+        $t('transactions.actions.release.tx', {
           values: {
             token: bridgeTx.symbol,
             url: `${explorer}/tx/${txHash}`,
@@ -197,7 +197,7 @@
       await pendingTransactions.add(txHash, Number(bridgeTx.srcChainId));
 
       successToast(
-        $t('activities.actions.release.success', {
+        $t('transactions.actions.release.success', {
           values: {
             network: $network.name,
           },
@@ -211,7 +211,7 @@
           warningToast($t('messages.account.required'));
           break;
         case err instanceof UserRejectedRequestError:
-          warningToast($t('activities.actions.release_rejected'));
+          warningToast($t('transactions.actions.release_rejected'));
           break;
         case err instanceof InvalidProofError:
           errorToast($t('TODO: InvalidProofError'));
@@ -262,30 +262,30 @@
 <div class="Status f-items-center space-x-1">
   {#if !processable}
     <StatusDot type="pending" />
-    <span>{$t('activities.status.initiated.name')}</span>
+    <span>{$t('transactions.status.initiated.name')}</span>
   {:else if loading}
     <div class="f-items-center space-x-2">
       <Spinner />
-      <span>{$t(`activities.status.${loading}`)}</span>
+      <span>{$t(`transactions.status.${loading}`)}</span>
     </div>
   {:else if bridgeTxStatus === MessageStatus.NEW}
     <button class="status-btn" on:click={claim}>
-      {$t('activities.button.claim')}
+      {$t('transactions.button.claim')}
     </button>
   {:else if bridgeTxStatus === MessageStatus.RETRIABLE}
     <button class="status-btn" on:click={claim}>
-      {$t('activities.button.retry')}
+      {$t('transactions.button.retry')}
     </button>
   {:else if bridgeTxStatus === MessageStatus.DONE}
     <StatusDot type="success" />
-    <span>{$t('activities.status.claimed.name')}</span>
+    <span>{$t('transactions.status.claimed.name')}</span>
   {:else if bridgeTxStatus === MessageStatus.FAILED}
     <button class="status-btn" on:click={release}>
-      {$t('activities.button.release')}
+      {$t('transactions.button.release')}
     </button>
   {:else}
     <!-- TODO: look into this possible state -->
     <StatusDot type="error" />
-    <span>{$t('activities.status.error.name')}</span>
+    <span>{$t('transactions.status.error.name')}</span>
   {/if}
 </div>

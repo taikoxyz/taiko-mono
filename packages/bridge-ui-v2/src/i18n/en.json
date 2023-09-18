@@ -2,7 +2,7 @@
   "nav": {
     "bridge": "Bridge",
     "faucet": "Faucet",
-    "activities": "Activities",
+    "transactions": "Transactions",
     "explorer": "Explorer",
     "theme": "Theme",
     "guide": "Guide",
@@ -83,8 +83,8 @@
       "cancel": "Cancel"
     }
   },
-  "activities": {
-    "title": "Activities",
+  "transactions": {
+    "title": "Transactions",
     "description": "Track your bridge transactions here.",
     "header": {
       "explorer": "Explorer",
