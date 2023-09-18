@@ -227,6 +227,24 @@ contract TaikoL1 is
         return LibUtils.getStateVariables(state);
     }
 
+    /// @notice Retrieves the configuration for a specified tier.
+    /// @param tierId ID of the tier.
+    /// @return TierConfig struct containing the tier's parameters. This
+    /// function will revert if the tier is not supported.
+    function getTierConfig(uint16 tierId)
+        public
+        pure
+        virtual
+        returns (TaikoData.TierConfig memory)
+    {
+        return LibTiers.getTierConfig(tierId);
+    }
+
+    /// @notice Retrieves the IDs of all supported tiers.
+    function getTierIds() public pure virtual returns (uint16[] memory) {
+        return LibTiers.getTierIds();
+    }
+
     /// @notice Gets the configuration of the TaikoL1 contract.
     /// @return Config struct containing configuration parameters.
     function getConfig()
@@ -258,25 +276,6 @@ contract TaikoL1 is
             ethDepositGas: 21_000,
             ethDepositMaxFee: 1 ether / 10
         });
-    }
-
-    /// @notice Retrieves the configuration for a specified tier.
-    /// @param tierId ID of the tier.
-    /// @return TierConfig struct containing the tier's parameters. This
-    /// function will revert if the tier is not supported.
-    function getTierConfig(uint16 tierId)
-        public
-        pure
-        virtual
-        returns (TaikoData.TierConfig memory)
-    {
-        return LibTiers.getTierConfig(tierId);
-    }
-
-    /// @notice Determines the minimal tier for a block based on a random input.
-    /// @return A block's minimal tier ID.
-    function getTierIds() public pure virtual returns (uint16[] memory) {
-        return LibTiers.getTierIds();
     }
 }
 
