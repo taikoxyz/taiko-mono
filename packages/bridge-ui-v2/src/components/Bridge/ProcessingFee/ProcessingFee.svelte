@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { onDestroy, tick } from 'svelte';
   import { t } from 'svelte-i18n';
   import { formatEther } from 'viem';
 
@@ -87,6 +87,10 @@
   const removeEscKeyListener = () => {
     window.removeEventListener('keydown', escKeyListener);
   };
+
+  onDestroy(() => {
+    removeEscKeyListener();
+  });
 
   async function updateProcessingFee(method: ProcessingFeeMethod, recommendedAmount: bigint) {
     switch (method) {

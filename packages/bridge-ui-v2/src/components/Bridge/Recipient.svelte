@@ -11,6 +11,7 @@
 
   import AddressInput from './AddressInput.svelte';
   import { recipientAddress } from './state';
+  import { onDestroy } from 'svelte';
 
   // Public API
   export const clearRecipient = () => {
@@ -73,6 +74,10 @@
   const removeEscKeyListener = () => {
     window.removeEventListener('keydown', escKeyListener);
   };
+
+  onDestroy(() => {
+    removeEscKeyListener();
+  });
 
   $: modalOpenChange(modalOpen);
 
