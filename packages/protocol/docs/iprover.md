@@ -1,10 +1,12 @@
-# Implementing ERC20 Token Payments in ProverPool
+# Implementing ERC-20 Token Payments in ProverPool
 
-In this guide, we will outline the steps to implement a solution that enables prover pools to accept arbitrary ERC20 tokens as payments for providing with proofs. This solution allows proposers to interact with pools (implementing `IProver`), agree on a price for proving a block, and make payments using ERC20 tokens.
+In this guide, we will outline the steps to implement a solution that enables prover pools to accept arbitrary ERC-20 tokens as payments for providing with proofs. This solution allows proposers to interact with pools (implementing `IProver`), agree on a price for proving a block, and make payments using ERC-20 tokens.
+
+NOTE: This works also with NFTs (ERC-721/ERC-1155) as well (applying the proper `approval`/`approvalForAll`), just because it might be less likely those will be used as payment methods, we highlighted the ERC-20. 
 
 ## Prerequisites
 
-Before implementing this solution, make sure you have an existing ERC20 token contract that you want to accept as payment in your ProverPool.
+Before implementing this solution, make sure you have an existing ERC-20 token contract that you want to accept as payment in your ProverPool.
 
 ## Implementation Steps
 
@@ -21,7 +23,7 @@ import "./IProver.sol";
 contract ProverPool is IProver {
 
     // ERC-20 address of the payment token
-    address erc20TokenAddress;
+    address ERC-20TokenAddress;
     
     // Implement the onBlockAssigned function
     function onBlockAssigned(
@@ -36,10 +38,10 @@ contract ProverPool is IProver {
         require(isValidSignature(proverSignature, input), "Invalid prover signature");
 
         // 2. Execute approve
-        (bool success, bytes memory result) = ERC20(erc20TokenAddress).call(signedApproveTxn);
+        (bool success, bytes memory result) = ERC-20(ERC-20TokenAddress).call(signedApproveTxn);
 
         // 3. Execute the transaction transfer tokens
-        ERC20(erc20TokenAddress).transferFrom(input.proposer, address(this), tokenAmount);
+        ERC-20(ERC-20TokenAddress).transferFrom(input.proposer, address(this), tokenAmount);
 
         // Additional logic for block proving goes here
     }
@@ -50,14 +52,14 @@ contract ProverPool is IProver {
 
 ### Step 2: Off-Chain Interaction
 
-The proposer and prover interact off-chain to agree on the price and perform the ERC20 token approval. Here's an example of how this interaction might work:
+The proposer and prover interact off-chain to agree on the price and perform the ERC-20 token approval. Here's an example of how this interaction might work:
 
 1. Proposer asks the ProverPool for the cost of proving a block and receives a price (e.g., `10 DAI` tokens). If price is acceptable, prover provides proposer with a valid ECDSA signature which signs the commitment (e.g.: transaction list hash), expiration and price.
 
-2. Proposer signs the following transaction off-chain: `ERC20(DAI_ADDRESS).approve(proverPool, 10)`.
+2. Proposer signs the following transaction off-chain: `ERC-20(DAI_ADDRESS).approve(proverPool, 10)`.
 
 3. Proposer encodes these signatures into the `assignment.data` and calls the `proposeBlock()`.
 
 During `proposeBlock()` transaction, the `onBlockAssigned()` hook which will evaluate the validity of the prover signature, and if that one is correct then executes 2 transactions:
-1. The approval `ERC20(DAI_ADDRESS).approve(proverPool, 10)` which is signed by the proposer.
+1. The approval `ERC-20(DAI_ADDRESS).approve(proverPool, 10)` which is signed by the proposer.
 2. The transfer of that `10 DAI`.
