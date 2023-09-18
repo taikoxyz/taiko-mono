@@ -60,7 +60,8 @@ func (b *Bridge) WatchMessageSent(
 
 		sink <- &bridge.BridgeMessageSent{
 			Message: bridge.IBridgeMessage{
-				SrcChainId: big.NewInt(1),
+				SrcChainId:  big.NewInt(1),
+				DestChainId: MockChainID,
 			},
 		}
 		b.MessagesSent++
