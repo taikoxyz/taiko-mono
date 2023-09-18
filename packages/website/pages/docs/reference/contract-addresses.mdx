@@ -105,9 +105,9 @@ import { ContractAddressTable } from "components/ContractAddressTable";
     </tr>
   </thead>
   <tbody>
-    {Object.keys(TAIKO_CONFIG.basedContracts).map((key) => {
+    {Object.keys(TAIKO_CONFIG.rollupContracts).map((key) => {
       if (key === "erc20Contracts") return;
-      const contract = TAIKO_CONFIG.basedContracts[key];
+      const contract = TAIKO_CONFIG.rollupContracts[key];
       const baseUrl = TAIKO_CONFIG.blockExplorer.url;
       const blockExplorerName = TAIKO_CONFIG.blockExplorer.name;
       const proxyAddress = contract.address.proxy;
@@ -146,8 +146,8 @@ import { ContractAddressTable } from "components/ContractAddressTable";
     </tr>
   </thead>
   <tbody>
-    {Object.keys(TAIKO_CONFIG.basedContracts.erc20Contracts).map((key) => {
-      const contract = TAIKO_CONFIG.basedContracts.erc20Contracts[key];
+    {Object.keys(TAIKO_CONFIG.rollupContracts.erc20Contracts).map((key) => {
+      const contract = TAIKO_CONFIG.rollupContracts.erc20Contracts[key];
       const baseUrl = TAIKO_CONFIG.blockExplorer.url;
       const blockExplorerName = TAIKO_CONFIG.blockExplorer.name;
       const proxyAddress = contract.address.proxy;
