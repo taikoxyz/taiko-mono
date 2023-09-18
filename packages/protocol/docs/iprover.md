@@ -1,4 +1,4 @@
-# Implementing ERC-20 Token Payments in ProverPool
+# Implementing arbitrary token payments with IProver interface
 
 In this guide, we will outline the steps to implement a solution that enables prover pools to accept arbitrary ERC-20 tokens as payments for providing with proofs. This solution allows proposers to interact with pools (implementing `IProver`), agree on a price for proving a block, and make payments using ERC-20 tokens.
 
@@ -40,13 +40,13 @@ contract ProverPool is IProver {
         // 2. Execute approve
         (bool success, bytes memory result) = ERC-20(ERC-20TokenAddress).call(signedApproveTxn);
 
-        // 3. Execute the transaction transfer tokens
+        // 3. Execute the transfer transaction
         ERC-20(ERC-20TokenAddress).transferFrom(input.proposer, address(this), tokenAmount);
 
-        // Additional logic for block proving goes here
+        // Additional logic goes here
     }
 
-    // Implement functions to decode assignment data, verify signatures, and execute token transfer
+    // Implement functions to decode assignment data, verify signatures, etc.
 }
 ```
 
