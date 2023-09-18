@@ -2,7 +2,7 @@
   import type { Address } from 'viem';
 
   import { recommendProcessingFee } from '$libs/fee';
-  import { getBalance, TokenType, type Token } from '$libs/token';
+  import { getBalance, type Token } from '$libs/token';
   import { account, network } from '$stores';
 
   import { destNetwork, selectedToken } from '../state';
