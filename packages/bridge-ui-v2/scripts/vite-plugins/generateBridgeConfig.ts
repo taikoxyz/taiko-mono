@@ -151,7 +151,7 @@ const _formatObjectToTsLiteral = (obj: RoutingMap): string => {
     const innerFormattedEntries = innerEntries.map(([innerKey, innerValue]) => {
       const innerInnerEntries = Object.entries(innerValue);
       const innerInnerFormattedEntries = innerInnerEntries.map(
-        ([innerInnerKey, innerInnerValue]) => `${innerInnerKey}: ${formatValue(innerInnerValue)}`
+        ([innerInnerKey, innerInnerValue]) => `${innerInnerKey}: ${formatValue(innerInnerValue)}`,
       );
       return `${innerKey}: {${innerInnerFormattedEntries.join(', ')}}`;
     });

@@ -42,7 +42,8 @@ export class PluginLogger {
    */
   _logWithColor(color, message, isError = false) {
     console.log(
-      `${color}${timestamp()}${Bright} [${this.pluginName}]${Reset}${isError ? color : ''} ${message} ${isError ? Reset : ''
+      `${color}${timestamp()}${Bright} [${this.pluginName}]${Reset}${isError ? color : ''} ${message} ${
+        isError ? Reset : ''
       } `,
     );
   }

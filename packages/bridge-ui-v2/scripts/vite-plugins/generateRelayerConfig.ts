@@ -30,7 +30,6 @@ export function generateRelayerConfig() {
       let configuredRelayerConfigFile;
 
       if (!skip) {
-
         if (!process.env.CONFIGURED_RELAYER || !process.env.SKIP_ENV_VALDIATION) {
           throw new Error(
             'CONFIGURED_RELAYER is not defined in environment. Make sure to run the export step in the documentation.',
@@ -109,7 +108,6 @@ async function buildRelayerConfig(sourceFile: SourceFile, configuredRelayerConfi
       isExported: true,
     };
     sourceFile.addVariableStatement(relayerConfigVariable);
-
   } else {
     const emptyRelayerConfigVariable = {
       declarationKind: VariableDeclarationKind.Const,
