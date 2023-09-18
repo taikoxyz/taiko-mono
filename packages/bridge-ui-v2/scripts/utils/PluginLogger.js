@@ -7,7 +7,7 @@ const Reset = '\x1b[0m';
 
 const timestamp = () => new Date().toLocaleTimeString();
 
-export class Logger {
+export class PluginLogger {
   /**
    * @param {string} pluginName
    */
@@ -42,8 +42,7 @@ export class Logger {
    */
   _logWithColor(color, message, isError = false) {
     console.log(
-      `${color}${timestamp()}${Bright} [${this.pluginName}]${Reset}${isError ? color : ''} ${message} ${
-        isError ? Reset : ''
+      `${color}${timestamp()}${Bright} [${this.pluginName}]${Reset}${isError ? color : ''} ${message} ${isError ? Reset : ''
       } `,
     );
   }

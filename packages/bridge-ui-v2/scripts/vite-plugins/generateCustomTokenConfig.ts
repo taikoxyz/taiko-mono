@@ -7,12 +7,12 @@ import configuredChainsSchema from '../../config/schemas/configuredChains.schema
 import type { Token } from '../../src/libs/token/types';
 import { decodeBase64ToJson } from './../utils/decodeBase64ToJson';
 import { formatSourceFile } from './../utils/formatSourceFile';
-import { Logger } from './../utils/Logger';
+import { PluginLogger } from './../utils/PluginLogger';
 import { validateJsonAgainstSchema } from './../utils/validateJson';
 
 dotenv.config();
 const pluginName = 'generateTokens';
-const logger = new Logger(pluginName);
+const logger = new PluginLogger(pluginName);
 
 const currentDir = path.resolve(new URL(import.meta.url).pathname);
 

@@ -8,13 +8,13 @@ import configuredRelayerSchema from '../../config/schemas/configuredRelayer.sche
 import type { ConfiguredRelayer, RelayerConfig } from '../../src/libs/relayer/types';
 import { decodeBase64ToJson } from './../utils/decodeBase64ToJson';
 import { formatSourceFile } from './../utils/formatSourceFile';
-import { Logger } from './../utils/Logger';
+import { PluginLogger } from './../utils/PluginLogger';
 import { validateJsonAgainstSchema } from './../utils/validateJson';
 
 dotenv.config();
 
 const pluginName = 'generateRelayerConfig';
-const logger = new Logger(pluginName);
+const logger = new PluginLogger(pluginName);
 
 const currentDir = path.resolve(new URL(import.meta.url).pathname);
 

@@ -7,12 +7,12 @@ import configuredBridgesSchema from '../../config/schemas/configuredBridges.sche
 import type { BridgeConfig, ConfiguredBridgesType, RoutingMap } from '../../src/libs/bridge/types';
 import { decodeBase64ToJson } from '../utils/decodeBase64ToJson';
 import { formatSourceFile } from '../utils/formatSourceFile';
-import { Logger } from '../utils/Logger';
+import { PluginLogger } from '../utils/PluginLogger';
 import { validateJsonAgainstSchema } from '../utils/validateJson';
 
 dotenv.config();
 const pluginName = 'generateBridgeConfig';
-const logger = new Logger(pluginName);
+const logger = new PluginLogger(pluginName);
 
 const currentDir = path.resolve(new URL(import.meta.url).pathname);
 
@@ -116,28 +116,25 @@ async function buildBridgeConfig(sourceFile: SourceFile, configuredBridgesConfig
 }
 
 const _formatObjectToTsLiteral = (obj: RoutingMap): string => {
-  const formatValue = (value: any): string => {
+  const formatValue = (value: string | number | boolean | null): string => {
     if (typeof value === 'string') {
       return `"${value}"`;
     }
-    if (typeof value === 'number' || typeof value === 'boolean' || value === null) {
-      return String(value);
-    }
-    if (Array.isArray(value)) {
-      return `[${value.map(formatValue).join(', ')}]`;
-    }
-    if (typeof value === 'object') {
-      return _formatObjectToTsLiteral(value);
-    }
-    return 'undefined';
+    return String(value);
   };
 
-  if (Array.isArray(obj)) {
-    return `[${obj.map(formatValue).join(', ')}]`;
-  }
-
   const entries = Object.entries(obj);
-  const formattedEntries = entries.map(([key, value]) => `${key}: ${formatValue(value)}`);
+  const formattedEntries = entries.map(([key, value]) => {
+    const innerEntries = Object.entries(value);
+    const innerFormattedEntries = innerEntries.map(([innerKey, innerValue]) => {
+      const innerInnerEntries = Object.entries(innerValue);
+      const innerInnerFormattedEntries = innerInnerEntries.map(
+        ([innerInnerKey, innerInnerValue]) => `${innerInnerKey}: ${formatValue(innerInnerValue)}`
+      );
+      return `${innerKey}: {${innerInnerFormattedEntries.join(', ')}}`;
+    });
+    return `${key}: {${innerFormattedEntries.join(', ')}}`;
+  });
 
   return `{${formattedEntries.join(', ')}}`;
 };
