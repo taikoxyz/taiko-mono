@@ -28,7 +28,7 @@ export function generateCustomTokenConfig() {
       let configuredTokenConfigFile;
 
       if (!skip) {
-        if (!process.env.CONFIGURED_CUSTOM_TOKEN || !process.env.SKIP_ENV_VALDIATION) {
+        if (!process.env.CONFIGURED_CUSTOM_TOKEN) {
           throw new Error(
             'CONFIGURED_CUSTOM_TOKEN is not defined in environment. Make sure to run the export step in the documentation.',
           );
