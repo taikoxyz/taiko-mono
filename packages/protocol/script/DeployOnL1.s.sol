@@ -12,7 +12,7 @@ import
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
-import "../contracts/L1/ProofVerifier.sol";
+import "../contracts/L1/verifiers/PseZkVerifier.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
@@ -33,7 +33,7 @@ contract DeployOnL1 is Script {
 
     address public owner = vm.envAddress("OWNER");
 
-    address public oracleProver = vm.envAddress("ORACLE_PROVER");
+    address public oracleProver = vm.envAddress("PLACEHOLDER_ADDR");
 
     address public sharedSignalService = vm.envAddress("SHARED_SIGNAL_SERVICE");
 
@@ -109,7 +109,7 @@ contract DeployOnL1 is Script {
         console2.log("BullToken", bullToken);
 
         uint64 feePerGas = 10;
-        uint64 proofWindow = 60 minutes;
+        uint64 provingWindow = 60 minutes;
 
         address taikoL1Proxy = deployProxy(
             "taiko",
@@ -117,7 +117,7 @@ contract DeployOnL1 is Script {
             bytes.concat(
                 taikoL1.init.selector,
                 abi.encode(
-                    addressManagerProxy, genesisHash, feePerGas, proofWindow
+                    addressManagerProxy, genesisHash, feePerGas, provingWindow
                 )
             )
         );
@@ -161,8 +161,8 @@ contract DeployOnL1 is Script {
             )
         );
 
-        // ProofVerifier
-        ProofVerifier proofVerifier = new ProxiedProofVerifier();
+        // PseZkVerifier
+        PseZkVerifier proofVerifier = new ProxiedPseZkVerifier();
         deployProxy(
             "proof_verifier",
             address(proofVerifier),
@@ -195,13 +195,14 @@ contract DeployOnL1 is Script {
     }
 
     function deployPlonkVerifiers() private {
-        address[] memory plonkVerifiers = new address[](1);
-        plonkVerifiers[0] =
-            deployYulContract("contracts/libs/yul/PlonkVerifier.yulp");
+        // TODO
+        // address[] memory plonkVerifiers = new address[](1);
+        // plonkVerifiers[0] =
+        //     deployYulContract("contracts/libs/yul/PlonkVerifier.yulp");
 
-        for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
-            setAddress(taikoL1.getVerifierName(i), plonkVerifiers[i]);
-        }
+        // for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
+        //     setAddress(taikoL1.getVerifierName(i), plonkVerifiers[i]);
+        // }
     }
 
     function deployYulContract(string memory contractPath)
