@@ -28,6 +28,7 @@
       closeModal();
     }
   };
+  
 </script>
 
 <button

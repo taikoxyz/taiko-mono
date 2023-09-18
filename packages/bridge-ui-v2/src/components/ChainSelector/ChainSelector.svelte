@@ -6,7 +6,6 @@
   import { SwitchChainError, UserRejectedRequestError } from 'viem';
 
   import { chainConfig } from '$chainConfig';
-  import { Alert } from '$components/Alert';
   import { Icon } from '$components/Icon';
   import { LoadingMask } from '$components/LoadingMask';
   import { warningToast } from '$components/NotificationToast';
@@ -22,6 +21,21 @@
   export let readOnly = false;
   export let small = false;
   export let validOptions: Maybe<Chain[]> = chains;
+
+  let escKeyListener: (event: KeyboardEvent) => void;
+
+  const addEscKeyListener = () => {
+    escKeyListener = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeModal();
+      }
+    };
+    window.addEventListener('keydown', escKeyListener);
+  };
+
+  const removeEscKeyListener = () => {
+    window.removeEventListener('keydown', escKeyListener);
+  };
 
   const dispatch = createEventDispatcher();
 
@@ -41,6 +55,7 @@
   let modalOpen = false;
 
   function closeModal() {
+    removeEscKeyListener();
     modalOpen = false;
   }
 
@@ -52,7 +67,7 @@
       warningToast($t('messages.account.required'));
       return;
     }
-
+    addEscKeyListener();
     modalOpen = true;
   }
 
@@ -174,14 +189,15 @@
               </div>
             </li>
           {/each}
-          {#if !small}
+          <!-- Todo: disabled for now -->
+          <!-- {#if !small}
             <li role="menuitem" tabindex="0" class="p-4 rounded-[10px]">
               <Alert type="warning" forceColumnFlow>
                 <p class="font-bold">{$t('chain_selector.disabled_options.title')}</p>
                 <p>{$t('chain_selector.disabled_options.description')}</p>
               </Alert>
             </li>
-          {/if}
+          {/if} -->
         </ul>
       </div>
     </div>
