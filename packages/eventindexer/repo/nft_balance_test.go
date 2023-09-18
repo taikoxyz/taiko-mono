@@ -84,7 +84,7 @@ func TestIntegration_NFTBalance_Decrease(t *testing.T) {
 	nftBalanceRepo, err := NewNFTBalanceRepository(db)
 	assert.Equal(t, nil, err)
 
-	_, err2 := nftBalanceRepo.IncreaseBalance(context.Background(),
+	bal, err := nftBalanceRepo.IncreaseBalance(context.Background(),
 		eventindexer.UpdateNFTBalanceOpts{
 			ChainID:         1,
 			Address:         "0x123",
@@ -93,9 +93,10 @@ func TestIntegration_NFTBalance_Decrease(t *testing.T) {
 			ContractType:    "ERC721",
 			Amount:          1,
 		})
-	assert.Equal(t, nil, err2)
+	assert.Equal(t, nil, err)
+	assert.NotNil(t, bal)
 
-	_, err3 := nftBalanceRepo.IncreaseBalance(context.Background(),
+	_, err := nftBalanceRepo.IncreaseBalance(context.Background(),
 		eventindexer.UpdateNFTBalanceOpts{
 			ChainID:         1,
 			Address:         "0x123",
@@ -104,7 +105,7 @@ func TestIntegration_NFTBalance_Decrease(t *testing.T) {
 			ContractType:    "ERC721",
 			Amount:          2,
 		})
-	assert.Equal(t, nil, err3)
+	assert.Equal(t, nil, err)
 
 	tests := []struct {
 		name    string
