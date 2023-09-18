@@ -51,6 +51,7 @@ library LibProving {
     error L1_INVALID_TIER();
     error L1_NOT_ASSIGNED_PROVER();
     error L1_NOT_CONTESTABLE();
+    error L1_UNEXPECTED_TRANSITION_TIER();
 
     /// @dev Proves or contests a block transition.
     function proveBlock(
@@ -152,7 +153,7 @@ library LibProving {
         } else {
             // A transition with the provided parentHash has been located.
             tran = state.transitions[slot][tid];
-            assert(tran.tier >= blk.minTier);
+            if (tran.tier < blk.minTier) revert L1_UNEXPECTED_TRANSITION_TIER();
         }
 
         // The new proof must meet or exceed the minimum tier required by the

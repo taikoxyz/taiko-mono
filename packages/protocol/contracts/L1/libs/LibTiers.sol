@@ -28,8 +28,8 @@ library LibTiers {
         if (tierId == TIER_OPTIMISTIC) {
             return TaikoData.TierConfig({
                 verifierName: "tier_optimistic",
-                proofBond: 100_000 * 1e18, // TKO
-                contestBond: 100_000 * 1e18, // TKO
+                proofBond: 100_000 ether, // TKO
+                contestBond: 100_000 ether, // TKO
                 cooldownWindow: 4 hours,
                 provingWindow: 20 minutes
             });
@@ -38,8 +38,8 @@ library LibTiers {
         if (tierId == TIER_SGX) {
             return TaikoData.TierConfig({
                 verifierName: "tier_sgx",
-                proofBond: 50_000 * 1e18, // TKO
-                contestBond: 50_000 * 1e18, // TKO
+                proofBond: 50_000 ether, // TKO
+                contestBond: 50_000 ether, // TKO
                 cooldownWindow: 3 hours,
                 provingWindow: 60 minutes
             });
@@ -48,8 +48,8 @@ library LibTiers {
         if (tierId == TIER_PSE_ZKEVM) {
             return TaikoData.TierConfig({
                 verifierName: "tier_pse_zkevm",
-                proofBond: 10_000 * 1e18, // TKO
-                contestBond: 10_000 * 1e18, // TKO
+                proofBond: 10_000 ether, // TKO
+                contestBond: 10_000 ether, // TKO
                 cooldownWindow: 2 hours,
                 provingWindow: 90 minutes
             });

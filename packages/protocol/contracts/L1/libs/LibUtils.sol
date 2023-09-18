@@ -19,7 +19,9 @@ library LibUtils {
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_BLOCK_ID();
     error L1_TRANSITION_NOT_FOUND();
+    error L1_UNEXPECTED_TRANSITION_ID();
 
+    /// @dev Retrieves a block based on its ID.
     function getBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -35,6 +37,8 @@ library LibUtils {
         }
     }
 
+    /// @dev Retrieves the ID of the transition with a given parentHash.
+    /// This function will return 0 if the transtion is not found.
     function getTransitionId(
         TaikoData.State storage state,
         TaikoData.Block storage blk,
@@ -51,9 +55,11 @@ library LibUtils {
             tid = state.transitionIds[blk.blockId][parentHash];
         }
 
-        assert(tid < blk.nextTransitionId);
+        if (tid >= blk.nextTransitionId) revert L1_UNEXPECTED_TRANSITION_ID();
     }
 
+    /// @dev Retrieves the transition with a given parentHash.
+    /// This function will revert if the transition is not found.
     function getTransition(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -79,6 +85,8 @@ library LibUtils {
         tran = state.transitions[slot][tid];
     }
 
+    /// @dev Retrieves the transition that is used to verify the given block.
+    /// This function will revert if the block is not verified.
     function getVerifyingTransition(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -86,15 +94,17 @@ library LibUtils {
     )
         internal
         view
-        returns (TaikoData.Transition memory transition)
+        returns (TaikoData.Transition memory)
     {
-        uint64 id = blockId == 0 ? state.slotB.lastVerifiedBlockId : blockId;
-        uint64 slot = id % config.blockRingBufferSize;
+        uint64 _blockId =
+            blockId == 0 ? state.slotB.lastVerifiedBlockId : blockId;
+        uint64 slot = _blockId % config.blockRingBufferSize;
 
         TaikoData.Block storage blk = state.blocks[slot];
-        if (blk.blockId == id) {
-            transition = state.transitions[slot][blk.verifiedTransitionId];
-        }
+        if (blk.blockId != _blockId) revert L1_BLOCK_MISMATCH();
+        if (blk.verifiedTransitionId == 0) revert L1_TRANSITION_NOT_FOUND();
+
+        return state.transitions[slot][blk.verifiedTransitionId];
     }
 
     function getStateVariables(TaikoData.State storage state)
@@ -108,10 +118,10 @@ library LibUtils {
         return TaikoData.StateVariables({
             genesisHeight: a.genesisHeight,
             genesisTimestamp: a.genesisTimestamp,
-            numBlocks: b.numBlocks,
-            lastVerifiedBlockId: b.lastVerifiedBlockId,
             nextEthDepositToProcess: a.nextEthDepositToProcess,
-            numEthDeposits: a.numEthDeposits - a.nextEthDepositToProcess
+            numEthDeposits: a.numEthDeposits - a.nextEthDepositToProcess,
+            numBlocks: b.numBlocks,
+            lastVerifiedBlockId: b.lastVerifiedBlockId
         });
     }
 }

@@ -77,10 +77,10 @@ library TaikoData {
     struct StateVariables {
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 numBlocks;
-        uint64 lastVerifiedBlockId;
         uint64 nextEthDepositToProcess;
         uint64 numEthDeposits;
+        uint64 numBlocks;
+        uint64 lastVerifiedBlockId;
     }
 
     /// @dev Struct representing prover assignment
