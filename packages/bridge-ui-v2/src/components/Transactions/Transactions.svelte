@@ -9,7 +9,7 @@
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import { Paginator } from '$components/Paginator';
   import { Spinner } from '$components/Spinner';
-  import { activitiesConfig } from '$config';
+  import { transactionConfig } from '$config';
   import { type BridgeTransaction, fetchTransactions } from '$libs/bridge';
   import { bridgeTxService } from '$libs/storage';
   import { account, network } from '$stores';
@@ -24,10 +24,10 @@
   let currentPage = 1;
 
   let isBlurred = false;
-  const transitionTime = activitiesConfig.blurTransitionTime;
+  const transitionTime = transactionConfig.blurTransitionTime;
 
   let totalItems = 0;
-  let pageSize = activitiesConfig.pageSizeDesktop;
+  let pageSize = transactionConfig.pageSizeDesktop;
 
   let loadingTxs = false;
 
@@ -85,11 +85,11 @@
     }
     if (error) {
       // Todo: handle different error scenarios
-      warningToast($t('activities.errors.relayer_offline'));
+      warningToast($t('transactions.errors.relayer_offline'));
     }
   };
 
-  $: pageSize = isDesktopOrLarger ? activitiesConfig.pageSizeDesktop : activitiesConfig.pageSizeMobile;
+  $: pageSize = isDesktopOrLarger ? transactionConfig.pageSizeDesktop : transactionConfig.pageSizeMobile;
 
   $: transactionsToShow = getTransactionsToShow(currentPage, pageSize, transactions);
 
@@ -106,21 +106,21 @@
 </script>
 
 <div class="flex flex-col justify-center w-full">
-  <Card title={$t('activities.title')} text={$t('activities.description')}>
+  <Card title={$t('transactions.title')} text={$t('transactions.description')}>
     <div class="space-y-[35px]">
       <ChainSelector label={$t('chain_selector.currently_on')} value={$network} switchWallet small />
       <div class="flex flex-col" style={`min-height: calc(${transactionsToShow.length} * 80px);`}>
         {#if isDesktopOrLarger}
           <div class="h-sep" />
           <div class="text-primary-content flex">
-            <div class="w-1/5 py-2">{$t('activities.header.from')}</div>
-            <div class="w-1/5 py-2">{$t('activities.header.to')}</div>
-            <div class="w-1/5 py-2">{$t('activities.header.amount')}</div>
+            <div class="w-1/5 py-2">{$t('transactions.header.from')}</div>
+            <div class="w-1/5 py-2">{$t('transactions.header.to')}</div>
+            <div class="w-1/5 py-2">{$t('transactions.header.amount')}</div>
             <div class="w-1/5 py-2 flex flex-row">
-              {$t('activities.header.status')}
+              {$t('transactions.header.status')}
               <StatusInfoDialog />
             </div>
-            <div class="w-1/5 py-2">{$t('activities.header.explorer')}</div>
+            <div class="w-1/5 py-2">{$t('transactions.header.explorer')}</div>
           </div>
           <div class="h-sep" />
         {/if}
@@ -144,7 +144,7 @@
 
         {#if renderNoTransactions}
           <div class="flex items-center justify-center text-primary-content h-[80px]">
-            <span class="pl-3">{$t('activities.no_transactions')}</span>
+            <span class="pl-3">{$t('transactions.no_transactions')}</span>
           </div>
         {/if}
       </div>

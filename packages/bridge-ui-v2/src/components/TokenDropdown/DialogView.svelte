@@ -43,6 +43,9 @@
       if (event.key === 'Enter') {
         selectToken(token);
       }
+      if (event.key === 'Escape') {
+        closeMenu();
+      }
     };
   };
 

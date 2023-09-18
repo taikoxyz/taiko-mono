@@ -22,6 +22,21 @@
   export let small = false;
   export let validOptions: Maybe<Chain[]> = chains;
 
+  let escKeyListener: (event: KeyboardEvent) => void;
+
+  const addEscKeyListener = () => {
+    escKeyListener = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeModal();
+      }
+    };
+    window.addEventListener('keydown', escKeyListener);
+  };
+
+  const removeEscKeyListener = () => {
+    window.removeEventListener('keydown', escKeyListener);
+  };
+
   const dispatch = createEventDispatcher();
 
   let classes = classNames('ChainSelector', $$props.class);
@@ -40,6 +55,7 @@
   let modalOpen = false;
 
   function closeModal() {
+    removeEscKeyListener();
     modalOpen = false;
   }
 
@@ -51,7 +67,7 @@
       warningToast($t('messages.account.required'));
       return;
     }
-
+    addEscKeyListener();
     modalOpen = true;
   }
 

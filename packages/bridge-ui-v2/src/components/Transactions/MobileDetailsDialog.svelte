@@ -58,7 +58,7 @@
           <h4 class="text-secondary-content">
             <div class="f-items-center space-x-1">
               <button on:click={openToolTip}>
-                <span>{$t('activities.header.status')}</span>
+                <span>{$t('transactions.header.status')}</span>
               </button>
               <button on:click={handleStatusDialog} class="flex justify-start content-center">
                 <Icon type="question-circle" />
@@ -70,12 +70,12 @@
           </div>
         </li>
         <li class="f-between-center">
-          <h4 class="text-secondary-content">{$t('activities.header.explorer')}</h4>
+          <h4 class="text-secondary-content">{$t('transactions.header.explorer')}</h4>
           <a
             class="flex justify-start content-center"
             href={`${chainConfig[Number(selectedItem.srcChainId)].urls.explorer}/tx/${selectedItem.hash}`}
             target="_blank">
-            {$t('activities.link.explorer')}
+            {$t('transactions.link.explorer')}
             <Icon type="arrow-top-right" />
           </a>
         </li>
