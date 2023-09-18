@@ -277,14 +277,11 @@ library LibProposing {
         returns (bytes32 hash)
     {
         uint256[5] memory inputs;
-
         inputs[0] = uint256(meta.l1Hash);
         inputs[1] = uint256(meta.mixHash);
         inputs[2] = uint256(meta.txListHash);
-
         inputs[3] = (uint256(meta.timestamp) << 192)
             | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 96);
-
         inputs[4] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
 
         assembly {
