@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
   import { formatUnits, parseUnits } from 'viem';
 
@@ -35,6 +36,10 @@
   let inputId = `input-${uid()}`;
   let inputBox: InputBox;
   let computingMaxAmount = false;
+
+  onDestroy(() => {
+    clearAmount();
+  });
 
   // Public API
   export function clearAmount() {
