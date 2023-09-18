@@ -7,12 +7,12 @@
 pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../../common/EssentialContract.sol";
-import { IEvidenceVerifier } from "./IEvidenceVerifier.sol";
+import { IVerifier } from "./IVerifier.sol";
 import { Proxied } from "../../common/Proxied.sol";
 import { TaikoData } from "../TaikoData.sol";
 
 /// @title GuardianVerifier
-contract SGXVerifier is EssentialContract, IEvidenceVerifier {
+contract SGXVerifier is EssentialContract, IVerifier {
     uint256[50] private __gap;
 
     /// @notice Initializes the contract with the provided address manager.
@@ -21,7 +21,7 @@ contract SGXVerifier is EssentialContract, IEvidenceVerifier {
         EssentialContract._init(_addressManager);
     }
 
-    /// @inheritdoc IEvidenceVerifier
+    /// @inheritdoc IVerifier
     function verifyProof(
         // blockId is unused now, but can be used later when supporting
         // different types of proofs.

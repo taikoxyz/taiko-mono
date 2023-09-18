@@ -7,14 +7,14 @@
 pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../../common/EssentialContract.sol";
-import { IEvidenceVerifier } from "./IEvidenceVerifier.sol";
+import { IVerifier } from "./IVerifier.sol";
 import { LibBytesUtils } from "../../thirdparty/LibBytesUtils.sol";
 import { Proxied } from "../../common/Proxied.sol";
 import { TaikoData } from "../TaikoData.sol";
 
 /// @title PseZkVerifier
-/// @notice See the documentation in {IEvidenceVerifier}.
-contract PseZkVerifier is EssentialContract, IEvidenceVerifier {
+/// @notice See the documentation in {IVerifier}.
+contract PseZkVerifier is EssentialContract, IVerifier {
     uint256[50] private __gap;
 
     error L1_INVALID_PROOF();
@@ -25,7 +25,7 @@ contract PseZkVerifier is EssentialContract, IEvidenceVerifier {
         EssentialContract._init(_addressManager);
     }
 
-    /// @inheritdoc IEvidenceVerifier
+    /// @inheritdoc IVerifier
     function verifyProof(
         // blockId is unused now, but can be used later when supporting
         // different types of proofs.

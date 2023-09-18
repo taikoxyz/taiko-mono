@@ -7,7 +7,7 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { IEvidenceVerifier } from "../verifiers/IEvidenceVerifier.sol";
+import { IVerifier } from "../verifiers/IVerifier.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibTiers } from "./LibTiers.sol";
 import { LibUtils } from "./LibUtils.sol";
@@ -171,7 +171,7 @@ library LibProving {
         // It's crucial to emphasize that the proof can be assessed in two
         // potential modes: "proving mode" and "contesting mode." However, the
         // precise verification logic is defined within each
-        // tier'IEvidenceVerifier contract implementation. We simply specify to
+        // tier'IVerifier contract implementation. We simply specify to
         // the verifier contract which mode it should utilize - if the new tier
         // is higher than the previous tier, we employ the proving mode;
         // otherwise, we employ the contesting mode (the new tier cannot be
@@ -186,7 +186,7 @@ library LibProving {
             // proof checks for the tier. In practice, this only applies to
             // optimistic proofs.
             if (verifier != address(0)) {
-                IEvidenceVerifier(verifier).verifyProof({
+                IVerifier(verifier).verifyProof({
                     blockId: blk.blockId,
                     prover: msg.sender,
                     isContesting: evidence.tier == tran.tier

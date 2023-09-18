@@ -8,7 +8,9 @@ pragma solidity ^0.8.20;
 
 import { TaikoData } from "../TaikoData.sol";
 
-interface IEvidenceVerifier {
+/// @title IVerifier Interface
+/// @notice Defines the function that handles proof verification.
+interface IVerifier {
     function verifyProof(
         uint64 blockId,
         address prover,
