@@ -4,7 +4,6 @@
 
   import { chainConfig } from '$chainConfig';
   import { Icon } from '$components/Icon';
-  import { Tooltip } from '$components/Tooltip';
   import type { BridgeTransaction } from '$libs/bridge';
   import { noop } from '$libs/util/noop';
   import { uid } from '$libs/util/uid';
