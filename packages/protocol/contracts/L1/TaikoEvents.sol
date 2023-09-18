@@ -17,7 +17,7 @@ import { TaikoData } from "./TaikoData.sol";
 abstract contract TaikoEvents {
     /// @dev Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
-    /// @param assignedProver The address of the assigned prover for the block.
+    /// @param assignedProver The block's assigned prover
     /// @param reward The proposer's block reward in Taiko token.
     /// @param meta The block metadata containing information about the proposed
     /// block.
@@ -29,7 +29,22 @@ abstract contract TaikoEvents {
         TaikoData.BlockMetadata meta
     );
 
-    event Proved(
+    /// @dev Emitted when a block is verified.
+    /// @param blockId The ID of the verified block.
+    /// @param assignedProver The block's assigned prover
+    /// @param prover The prover whose transition is used for verifing the
+    /// block.
+    /// @param blockHash The hash of the verified block.
+    event BlockVerified(
+        uint256 indexed blockId,
+        address indexed assignedProver,
+        address indexed prover,
+        bytes32 blockHash,
+        bytes32 signalRoot
+    );
+
+    /// @dev Emitted when a block transition is proved or re-proved.
+    event TransitionProved(
         uint256 indexed blockId,
         bytes32 parentHash,
         bytes32 blockHash,
@@ -39,7 +54,8 @@ abstract contract TaikoEvents {
         uint16 tier
     );
 
-    event Contested(
+    /// @dev Emitted when a block transition is contested.
+    event TransitionContested(
         uint256 indexed blockId,
         bytes32 parentHash,
         bytes32 blockHash,
@@ -49,28 +65,8 @@ abstract contract TaikoEvents {
         uint16 tier
     );
 
-    /// @dev Emitted when a block is verified.
-    /// @param blockId The ID of the verified block.
-    /// @param prover The address of the prover that proved the block which is
-    /// verified.
-    /// @param blockHash The hash of the verified block.
-    event BlockVerified(
-        uint256 indexed blockId,
-        address indexed assignedProver,
-        address indexed prover,
-        bytes32 blockHash
-    );
-
     /// @dev Emitted when an Ethereum deposit is made.
     /// @param deposit The Ethereum deposit information including recipient,
     /// amount, and ID.
     event EthDeposited(TaikoData.EthDeposit deposit);
-
-    /// @dev The following events are emitted when bonds are received, returned,
-    /// or rewarded. Note that no event is emitted when a bond is kept/burnt as
-    /// for a single block, multiple bonds may get burned or retained by the
-    /// protocol, emitting events will consume more gas.
-    event BondReceived(address indexed from, uint64 blockId, uint256 bond);
-    event BondReturned(address indexed to, uint64 blockId, uint256 bond);
-    event BondRewarded(address indexed to, uint64 blockId, uint256 bond);
 }

@@ -79,8 +79,7 @@ library LibTiers {
 
     /// @dev Determines the minimal tier for a block based on a random input.
     function getMinTier(uint256 rand) internal pure returns (uint16) {
-        if (rand % 100 == 0) return TIER_PSE_ZKEVM; // 1%
-
-        else return TIER_OPTIMISTIC; // 99%
+        if (rand % 100 == 0) return TIER_PSE_ZKEVM;
+        else return TIER_OPTIMISTIC;
     }
 }

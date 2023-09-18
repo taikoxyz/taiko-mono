@@ -131,9 +131,12 @@ library LibProposing {
             // charge other tokens like ERC20 or NFT as prooving fees, so the
             // value of msg.value can be zero. Taiko does not mandate Ether as
             // the exclusive proofing fees.
-            IProver(assignment.prover).onBlockAssigned{ value: msg.value }(
-                b.numBlocks, txListHash, assignment
-            );
+
+            IProver(assignment.prover).onBlockAssigned{ value: msg.value }({
+                blockId: b.numBlocks,
+                txListHash: txListHash,
+                assignment: assignment
+            });
         } else if (
             assignment.prover.supportsInterface(type(IERC1271).interfaceId)
         ) {

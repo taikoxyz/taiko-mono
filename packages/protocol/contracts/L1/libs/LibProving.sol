@@ -21,7 +21,7 @@ library LibProving {
     using LibMath for uint256;
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
-    event Proved(
+    event TransitionProved(
         uint256 indexed blockId,
         bytes32 parentHash,
         bytes32 blockHash,
@@ -31,7 +31,7 @@ library LibProving {
         uint16 tier
     );
 
-    event Contested(
+    event TransitionContested(
         uint256 indexed blockId,
         bytes32 parentHash,
         bytes32 blockHash,
@@ -244,15 +244,15 @@ library LibProving {
             tran.contester = msg.sender;
             tran.timestamp = uint64(block.timestamp);
 
-            emit Contested(
-                blk.blockId,
-                evidence.parentHash,
-                tran.blockHash,
-                tran.signalRoot,
-                msg.sender,
-                tier.contestBond,
-                evidence.tier
-            );
+            emit TransitionContested({
+                blockId: blk.blockId,
+                parentHash: evidence.parentHash,
+                blockHash: tran.blockHash,
+                signalRoot: tran.signalRoot,
+                contester: msg.sender,
+                contestBond: tier.contestBond,
+                tier: evidence.tier
+            });
         } else {
             // The new tier is higher than the previous tier, we  are in the
             // proof mode. This works even if this transition's contester is
@@ -372,15 +372,15 @@ library LibProving {
             tran.timestamp = uint64(block.timestamp);
             tran.tier = evidence.tier;
 
-            emit Proved(
-                blk.blockId,
-                evidence.parentHash,
-                evidence.blockHash,
-                evidence.signalRoot,
-                msg.sender,
-                tier.proofBond,
-                evidence.tier
-            );
+            emit TransitionProved({
+                blockId: blk.blockId,
+                parentHash: evidence.parentHash,
+                blockHash: evidence.blockHash,
+                signalRoot: evidence.signalRoot,
+                prover: msg.sender,
+                proofBond: tier.proofBond,
+                tier: evidence.tier
+            });
         }
     }
 }

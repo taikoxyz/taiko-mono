@@ -28,7 +28,8 @@ library LibVerifying {
         uint256 indexed blockId,
         address indexed assignedProver,
         address indexed prover,
-        bytes32 blockHash
+        bytes32 blockHash,
+        bytes32 signalRoot
     );
 
     event CrossChainSynced(
@@ -91,9 +92,9 @@ library LibVerifying {
             blockId: 0,
             assignedProver: address(0),
             prover: address(0),
-            blockHash: genesisBlockHash
+            blockHash: genesisBlockHash,
+            signalRoot: 0
         });
-        /// @dev Verifies up to N blocks.
     }
 
     /// @dev Verifies up to N blocks.
@@ -205,9 +206,13 @@ library LibVerifying {
                 // the provers and contesters of  of those transitions forfeit
                 // their bonds.
 
-                emit BlockVerified(
-                    blockId, blk.assignedProver, tran.prover, tran.blockHash
-                );
+                emit BlockVerified({
+                    blockId: blockId,
+                    assignedProver: blk.assignedProver,
+                    prover: tran.prover,
+                    blockHash: tran.blockHash,
+                    signalRoot: tran.signalRoot
+                });
 
                 ++blockId;
                 ++processed;
