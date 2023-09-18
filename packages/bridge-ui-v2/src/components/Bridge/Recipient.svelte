@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
@@ -11,7 +12,6 @@
 
   import AddressInput from './AddressInput.svelte';
   import { recipientAddress } from './state';
-  import { onDestroy } from 'svelte';
 
   // Public API
   export const clearRecipient = () => {
