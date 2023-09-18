@@ -30,6 +30,8 @@ func (i *Indexer) handleEvent(
 			"indexerDestChainID",
 			i.destChainId.Uint64(),
 		)
+
+		return nil
 	}
 
 	if err := i.detectAndHandleReorg(ctx, relayer.EventNameMessageSent, common.Hash(event.MsgHash).Hex()); err != nil {
