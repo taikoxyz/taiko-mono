@@ -31,6 +31,14 @@ jobs:
         working-directory: ./packages/bridge-ui-v2
         run: cp .env.example .env
 
+      - name: Export config to .env
+        working-directory: ./packages/bridge-ui-v2
+        run: pnpm export:config
+
+      - name: Build Svelte app
+        working-directory: ./packages/bridge-ui-v2
+        run: pnpm build
+
       - name: Svelte check
         working-directory: ./packages/bridge-ui-v2
         run: pnpm svelte:check
