@@ -167,11 +167,8 @@ library LibProposing {
         uint256 reward;
         if (config.proposerRewardPerSecond > 0 && config.proposerRewardMax > 0)
         {
-            // Unchecked is safe:
-            // - block.timestamp is always greater than block.proposedAt
-            // (proposed in the past)
-            // - 1x state.taikoTokenBalances[addr] uint256 could theoretically
-            // store the whole token supply
+            // Unchecked is safe as block.timestamp is always greater than
+            // block.proposedAt (proposed in the past)
             unchecked {
                 uint256 blockTime = block.timestamp
                     - state.blocks[(b.numBlocks - 1) % config.blockRingBufferSize]
