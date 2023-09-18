@@ -29,6 +29,7 @@
       closeModal();
     }
   };
+  
 </script>
 
 <button
