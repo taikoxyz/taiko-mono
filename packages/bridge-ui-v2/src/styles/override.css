@@ -37,23 +37,8 @@ input[type='number'] {
 .title-body-bold {
   color: var(--primary-content);
   text-align: left;
-  font-family: Public Sans;
   font-size: 18px;
-  font-style: normal;
-  font-weight: 700;
-  line-height: 24px;
   letter-spacing: 0.09px;
-}
-
-.title-dialog-large {
-  color: var(--primary-content);
-  text-align: center;
-  font-family: Public Sans;
-  font-size: 26px;
-  font-style: normal;
-  font-weight: 700;
-  line-height: 32px;
-  letter-spacing: 0.39px;
 }
 
 .modal-box {

@@ -55,7 +55,9 @@
       </button>
     </div>
     <div class="w-full">
-      <h1 class="title-dialog-large">{$t('activities.status.dialog.title')}</h1>
+      <h1 class="text-center text-primary-content font-semibold tracking-[0.39px]">
+        {$t('activities.status.dialog.title')}
+      </h1>
     </div>
     <div class="inline-flex flex-col px-[37px] text-base">
       <br />
