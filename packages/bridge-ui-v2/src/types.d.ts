@@ -11,7 +11,7 @@ declare module '$chainConfig' {
   export const chainConfig: ChainConfigMap
 }
 
-declare module '$relayerConfi' {
+declare module '$relayerConfig' {
   export const customToken: Token[]
 }
 
