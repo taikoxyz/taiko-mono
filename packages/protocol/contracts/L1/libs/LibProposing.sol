@@ -70,7 +70,6 @@ library LibProposing {
         // Check prover assignment
         if (
             assignment.prover == address(0)
-                || assignment.prover == LibUtils.ORACLE_PROVER
                 || assignment.expiry <= block.timestamp
         ) {
             revert L1_INVALID_ASSIGNMENT();
@@ -83,27 +82,34 @@ library LibProposing {
             revert L1_TOO_MANY_BLOCKS();
         }
 
-        TaikoToken tt = LibTaikoToken.receiveTaikoToken({
-            state: state,
-            resolver: resolver,
-            from: assignment.prover,
-            amount: config.proofBond
-        });
+        if (assignment.prover != LibUtils.ORACLE_PROVER) {
+            LibTaikoToken.receiveTaikoToken({
+                state: state,
+                resolver: resolver,
+                from: assignment.prover,
+                amount: config.proofBond
+            });
 
-        emit BondReceived(assignment.prover, b.numBlocks, config.proofBond);
+            emit BondReceived(assignment.prover, b.numBlocks, config.proofBond);
+        }
 
         // Pay prover after verifying assignment
         if (config.skipProverAssignmentVerificaiton) {
             // For testing only
             assignment.prover.sendEther(msg.value);
         } else if (!assignment.prover.isContract()) {
+            address assignedProver = assignment.prover;
+            if (assignment.prover == LibUtils.ORACLE_PROVER) {
+                assignedProver = resolver.resolve("oracle_prover", false);
+            }
+
             if (
                 _hashAssignment(input, assignment).recover(assignment.data)
-                    != assignment.prover
+                    != assignedProver
             ) {
                 revert L1_INVALID_PROVER_SIG();
             }
-            assignment.prover.sendEther(msg.value);
+            assignedProver.sendEther(msg.value);
         } else if (
             assignment.prover.supportsInterface(type(IProver).interfaceId)
         ) {
@@ -145,7 +151,9 @@ library LibProposing {
                     );
 
                     // Reward must be minted
-                    tt.mint(input.proposer, reward);
+                    TaikoToken(resolver.resolve("taiko_token", false)).mint(
+                        input.proposer, reward
+                    );
                 }
             }
         }

@@ -1,8 +1,8 @@
 <script>
-  import { Activities } from '$components/Activities';
   import { Page } from '$components/Page';
+  import { Transactions } from '$components/Transactions';
 </script>
 
 <Page>
-  <Activities />
+  <Transactions />
 </Page>
