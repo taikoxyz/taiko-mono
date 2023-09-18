@@ -31,7 +31,7 @@
 
   $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
   $: isFaucetPage = $page.route.id === '/faucet';
-  $: isActivitiesPage = $page.route.id === '/activities';
+  $: isTransactionPage = $page.route.id === '/transactions';
 </script>
 
 <div class="drawer md:drawer-open">
@@ -84,9 +84,9 @@
               </LinkButton>
             </li>
             <li>
-              <LinkButton href="/activities" active={isActivitiesPage}>
-                <Icon type="activities" fillClass={getIconFillClass(isActivitiesPage)} />
-                <span>{$t('nav.activities')}</span>
+              <LinkButton href="/transactions" active={isTransactionPage}>
+                <Icon type="transactions" fillClass={getIconFillClass(isTransactionPage)} />
+                <span>{$t('nav.transactions')}</span>
               </LinkButton>
             </li>
             <li class="border-t border-t-divider-border pt-2">
