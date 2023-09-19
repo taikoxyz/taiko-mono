@@ -26,7 +26,7 @@ This guide will help get your contract verified on Taiko!
         solidity: "0.8.18",
         networks: {
             taiko: {
-                url: "https://rpc.test.taiko.xyz",
+                url: "https://rpc.jolnir.taiko.xyz",
                 accounts: [
                     "0xf214f2b2cd398c806f84e317254e0f0b801d0643303237d97a22a48e01628897",
                 ],
@@ -39,10 +39,10 @@ This guide will help get your contract verified on Taiko!
             customChains: [
                 {
                     network: "taiko",
-                    chainId: 167005,
+                    chainId: 167007,
                     urls: {
-                        apiURL: "https://explorer.test.taiko.xyz/api",
-                        browserURL: "https://explorer.test.taiko.xyz",
+                        apiURL: "https://blockscoutapi.jolnir.taiko.xyz/api",
+                        browserURL: "https://explorer.jolnir.taiko.xyz",
                     },
                 },
             ],
@@ -62,7 +62,7 @@ This guide will help get your contract verified on Taiko!
 
     **3. View your verified contract on Blockscout**
 
-    Check the [Taiko block explorer](https://explorer.test.taiko.xyz) link from the output to see your contract was verified.
+    Check the [Taiko block explorer](https://explorer.jolnir.taiko.xyz) link from the output to see your contract was verified.
 
   </Tab>
   <Tab>
@@ -76,7 +76,7 @@ This guide will help get your contract verified on Taiko!
 
     Deploy to Taiko and verify at the same time on Blockscout (with EIP-1559 gas [transaction type 1]):
     ```sh
-    forge create --rpc-url https://rpc.test.taiko.xyz --private-key $devTestnetPrivateKey src/Contract.sol:SimpleStorage --verify --verifier blockscout --verifier-url https://explorer.test.taiko.xyz/api\?
+    forge create --rpc-url https://rpc.jolnir.taiko.xyz --private-key $devTestnetPrivateKey src/Contract.sol:SimpleStorage --verify --verifier blockscout --verifier-url https://blockscoutapi.jolnir.taiko.xyz/api\?
     ```
     <Callout type="info">
         To use Legacy gas for [transaction type 0], add the
@@ -85,7 +85,7 @@ This guide will help get your contract verified on Taiko!
         ```
         flag with forge create. Example:
         ```
-        forge create --legacy --rpc-url https://rpc.test.taiko.xyz --private-key $devTestnetPrivateKey src/Contract.sol:SimpleStorage --verify --verifier blockscout --verifier-url https://explorer.test.taiko.xyz/api\?
+        forge create --legacy --rpc-url https://rpc.jolnir.taiko.xyz --private-key $devTestnetPrivateKey src/Contract.sol:SimpleStorage --verify --verifier blockscout --verifier-url https://blockscoutapi.jolnir.taiko.xyz/api\?
         ```
     </Callout>
 
