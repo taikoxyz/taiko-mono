@@ -114,7 +114,7 @@ library LibProving {
             tran.proofBond = 0;
             tran.contester = address(0);
             tran.contestBond = 1; // see below (the value does't matter)
-            tran.timestamp = uint64(block.timestamp);
+            tran.timestamp = blk.proposedAt;
             tran.tier = 0;
 
             if (tid == 1) {
