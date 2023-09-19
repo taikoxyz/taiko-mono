@@ -2,7 +2,7 @@ import { Callout, Steps } from "nextra-theme-docs";
 
 # Enable a prover
 
-This guide will help you enable your Taiko node as a prover. Your node will generate proofs, but this does not mean you will be able to submit a proof in time to earn a reward, see the warning above. Read more about prover dynamics [here](/docs/concepts/proving#prover-dynamics) (especially to set your expectations about running a prover).
+This guide will help you enable your Taiko node as a prover. Read more about prover dynamics [here](/docs/concepts/proving#prover-dynamics).
 
 ## Prerequisites
 
@@ -27,20 +27,17 @@ nano .env
   risk of losing your assets. You should **only use a test account**.
 </Callout>
 
-Set the following environment variables to enable your node as a prover:
+Open the `.env` file and set the following environment variables to enable your node as a prover:
 
-```sh
-ENABLE_PROVER=true # change from false to true
-# A L1 account (with balance) private key which will send the TaikoL1.proveBlock transactions.
-L1_PROVER_PRIVATE_KEY=0x0000000000000000000000000000000000000000000000000000000000000000 # your prover's private key
-```
+- Set `ENABLE_PROVER` to `true`
+- Set `L1_PROVER_PRIVATE_KEY` to your L1 account private key (with balance of TTKOj on TaikoL1)
 
 ### Verify prover logs
 
 Run this command to verify you have some prover logs:
 
 ```sh
-docker compose logs -f taiko_client_prover_relayer |egrep "block proof was|proof submission error|Block proven"
+docker compose logs -f taiko_client_prover_relayer | egrep "block proof was|proof submission error|Block proven"
 ```
 
 You should see logs like this if it was successful:
@@ -53,6 +50,8 @@ You can check all commands to see prover logs in the [node runner manual](/docs/
 ### Register your prover (optionally)
 
 Add your prover to the [prover registration page](/docs/reference/prover-market.mdx) so that other block proposers can find your prover and request bonds.
+
+</Steps>
 
 ## Videos
 
