@@ -189,7 +189,9 @@
   // There is no reason to show any error/warning message if we are computing the balance
   // or there is an issue computing it
   $: showInsufficientBalanceAlert = $insufficientBalance && !$errorComputingBalance && !$computingBalance;
-  $: showInsiffucientAllowanceAlert = $insufficientAllowance && !$errorComputingBalance && !$computingBalance;
+
+  // TODO: Disabled for now, potentially confusing users
+  // $: showInsiffucientAllowanceAlert = $insufficientAllowance && !$errorComputingBalance && !$computingBalance;
 </script>
 
 <div class="Amount f-col space-y-2">
@@ -235,8 +237,10 @@
     <div class="flex mt-[8px] min-h-[24px]">
       {#if showInsufficientBalanceAlert}
         <FlatAlert type="error" message={$t('bridge.errors.insufficient_balance')} class="relative" />
-      {:else if showInsiffucientAllowanceAlert}
-        <FlatAlert type="warning" message={$t('bridge.errors.insufficient_allowance')} class="absolute" />
+        <!-- TODO: Disabled for now, potentially confusing users -->
+
+        <!-- {:else if showInsiffucientAllowanceAlert}
+        <FlatAlert type="warning" message={$t('bridge.errors.insufficient_allowance')} class="absolute" /> -->
       {/if}
     </div>
   </div>
