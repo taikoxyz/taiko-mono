@@ -1,3 +1,5 @@
+import { Callout } from "nextra-theme-docs";
+
 # Prover market registration page
 
 Edit this page by opening a pull request and modifying the table below to add your prover to the prover market table. Proposers can also use this page to find the endpoints of provers offering their service to the open market.
@@ -7,6 +9,16 @@ Edit this page by opening a pull request and modifying the table below to add yo
 
 ## Prover market table
 
+<Callout type="warning">
+  These endpoints are not checked, so it's possible they don't work or a
+  community member has shut off their prover. If you find an endpoint not
+  working please feel free to open a PR and remove it from this list.
+</Callout>
+
 | Name           | API Endpoint                           | Minimum fee |
 | -------------- | -------------------------------------- | ----------- |
 | Example prover | https://this.is.just.an.example.prover | 10 wei      |
+
+## Other options
+
+You can also use proving pool service providers like [ZKPool](https://zkpool.io).
