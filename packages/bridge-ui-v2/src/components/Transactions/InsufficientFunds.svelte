@@ -1,0 +1,68 @@
+<script lang="ts">
+  import { onDestroy } from 'svelte';
+  import { t } from 'svelte-i18n';
+
+  import { Button } from '$components/Button';
+  import { Icon } from '$components/Icon';
+  import { PUBLIC_GUIDE_URL } from '$env/static/public';
+  import { uid } from '$libs/util/uid';
+
+  let dialogId = `dialog-${uid()}`;
+  export let modalOpen = false;
+
+  function closeModal() {
+    removeEscKeyListener();
+    modalOpen = false;
+  }
+
+  let escKeyListener: (event: KeyboardEvent) => void;
+
+  const addEscKeyListener = () => {
+    escKeyListener = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeModal();
+      }
+    };
+    window.addEventListener('keydown', escKeyListener);
+  };
+
+  const removeEscKeyListener = () => {
+    window.removeEventListener('keydown', escKeyListener);
+  };
+
+  onDestroy(() => {
+    removeEscKeyListener();
+  });
+
+  $: if (modalOpen) {
+    addEscKeyListener();
+  } else {
+    removeEscKeyListener();
+  }
+</script>
+
+<dialog id={dialogId} class="modal" class:modal-open={modalOpen}>
+  <div class="modal-box relative px-6 py-[35px] md:rounded-[20px] bg-neutral-background">
+    <button class="absolute right-6 top-[35px]" on:click={closeModal}>
+      <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
+    </button>
+    <div class="w-full space-y-6">
+      <h3 class="title-body-bold mb-7">{$t('transactions.actions.claim.dialog.title')}</h3>
+      <p class="body-regular text-secondary-content mb-3">
+        {@html $t('transactions.actions.claim.dialog.description', {
+          values: {
+            classes: 'link',
+            url: PUBLIC_GUIDE_URL,
+          },
+        })}
+      </p>
+      <Button
+        type="primary"
+        class="px-[28px] py-[10px] rounded-full w-full border-primary-brand"
+        hasBorder={true}
+        on:click={closeModal}>
+        <span class="body-bold">{$t('common.ok')}</span>
+      </Button>
+    </div>
+  </div>
+</dialog>

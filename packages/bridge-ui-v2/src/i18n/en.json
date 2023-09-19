@@ -141,7 +141,11 @@
       "claim": {
         "tx": "Transaction sent to claim {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
         "success": "Transaction completed! Your funds have been successfully claimed on {network}.",
-        "rejected": "Request to claim rejected."
+        "rejected": "Request to claim rejected.",
+        "dialog": {
+          "title": "Please wait",
+          "description": "Insufficient balance to claim yourself. Please wait for the relayer to claim for you automatically. Refer to <a class=\"{classes}\" href=\"{url}\" target=\"_blank\"><b>our guide</b></a> for more information."
+        }
       },
       "release": {
         "tx": "Transaction sent to release {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
@@ -150,7 +154,7 @@
       }
     },
     "errors": {
-      "insufficient_balance": "Insufficient balance to claim. Please add some ETH to your wallet.",
+      "insufficient_balance": "Insufficient balance to claim yourself. Please wait for the relayer to claim for you automatically. Refer to our guide for more information.",
       "relayer_offline": "Relayer did not respond. Your transactions may only be loaded partially."
     }
   },
