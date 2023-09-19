@@ -9,6 +9,10 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 )
 
+var (
+	gasPaddingAmt uint64 = 50000
+)
+
 func (p *Processor) estimateGas(
 	ctx context.Context, message bridge.IBridgeMessage, proof []byte) (uint64, *big.Int, error) {
 	auth, err := bind.NewKeyedTransactorWithChainID(p.ecdsaKey, message.DestChainId)
@@ -26,5 +30,5 @@ func (p *Processor) estimateGas(
 		return 0, nil, errors.Wrap(err, "p.destBridge.ProcessMessage")
 	}
 
-	return tx.Gas(), tx.Cost(), nil
+	return tx.Gas() + gasPaddingAmt, tx.Cost(), nil
 }
