@@ -4,6 +4,7 @@
 
   import { routingContractsMap } from '$bridgeConfig';
   import { chainConfig } from '$chainConfig';
+  import { FlatAlert } from '$components/Alert';
   import ChainSelectorWrapper from '$components/Bridge/ChainSelectorWrapper.svelte';
   import { Card } from '$components/Card';
   import { successToast, warningToast } from '$components/NotificationToast';
@@ -41,7 +42,6 @@
   import { ProcessingFee } from './ProcessingFee';
   import Recipient from './Recipient.svelte';
   import { bridgeService, destNetwork, enteredAmount, processingFee, recipientAddress, selectedToken } from './state';
-  import { FlatAlert } from '$components/Alert';
 
   let amountComponent: Amount;
   let recipientComponent: Recipient;
