@@ -33,7 +33,7 @@ export const statusComponent = {
   minimumEthToClaim: 0.0001,
 };
 
-export const activitiesConfig = {
+export const transactionConfig = {
   pageSizeDesktop: 6,
   pageSizeMobile: 4,
   blurTransitionTime: 300,

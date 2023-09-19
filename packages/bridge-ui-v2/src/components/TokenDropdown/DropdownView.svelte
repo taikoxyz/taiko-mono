@@ -21,6 +21,7 @@
   export let customTokens: Token[] = [];
   export let value: Maybe<Token> = null;
   export let selectToken: (token: Token) => void = noop;
+  export let onlyMintable: boolean = false;
 
   let addArc20ModalOpen = false;
 
@@ -81,35 +82,37 @@
       </div>
     </li>
   {/each}
-  {#each customTokens as ct, index (index)}
-    <li
-      role="option"
-      tabindex="0"
-      aria-selected={ct === value}
-      on:click={() => selectToken(ct)}
-      on:keydown={getTokenKeydownHandler(ct)}>
-      <div class="p-4">
-        <i role="img" aria-label={ct.name}>
-          <Erc20 />
-        </i>
-        <span class="body-bold">{ct.symbol}</span>
-      </div>
-    </li>
-  {/each}
-  <div class="h-sep my-[8px]" />
-  <li>
-    <button on:click={showAddERC20} class="flex hover:bg-dark-5 justify-center items-center rounded-lg h-[64px]">
-      <Icon type="plus-circle" fillClass="fill-primary-icon" size={32} vWidth={28} vHeight={28} />
-      <span
-        class="
+  {#if !onlyMintable}
+    {#each customTokens as ct, index (index)}
+      <li
+        role="option"
+        tabindex="0"
+        aria-selected={ct === value}
+        on:click={() => selectToken(ct)}
+        on:keydown={getTokenKeydownHandler(ct)}>
+        <div class="p-4">
+          <i role="img" aria-label={ct.name}>
+            <Erc20 />
+          </i>
+          <span class="body-bold">{ct.symbol}</span>
+        </div>
+      </li>
+    {/each}
+    <div class="h-sep my-[8px]" />
+    <li>
+      <button on:click={showAddERC20} class="flex hover:bg-dark-5 justify-center items-center rounded-lg h-[64px]">
+        <Icon type="plus-circle" fillClass="fill-primary-icon" size={32} vWidth={28} vHeight={28} />
+        <span
+          class="
             body-bold
             bg-transparent
             flex-1
             px-0">
-        {$t('token_dropdown.add_custom')}
-      </span>
-    </button>
-  </li>
+          {$t('token_dropdown.add_custom')}
+        </span>
+      </button>
+    </li>
+  {/if}
 </ul>
 
 <AddCustomErc20 bind:modalOpen={addArc20ModalOpen} on:tokenRemoved />

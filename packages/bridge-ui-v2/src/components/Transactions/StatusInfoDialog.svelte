@@ -15,7 +15,8 @@
   const openModal = () => (modalOpen = true);
 
   const classes = {
-    headline: 'text-center text-base font-bold leading-[24px] tracking-[0.08px] pb-[5px]',
+    headline: 'text-center text-base font-bold leading-[24px] tracking-[0.08px] pb-[5px] pt-[25px]',
+    content: 'text-sm font-normal leading-5',
   };
 
   const closeModalIfClickedOutside = (e: MouseEvent) => {
@@ -28,6 +29,7 @@
       closeModal();
     }
   };
+  
 </script>
 
 <button
@@ -54,23 +56,23 @@
       </button>
     </div>
     <div class="w-full">
-      <h1 class="title-body-bold">{$t('activities.status.dialog.title')}</h1>
+      <h1 class="title-body-bold">{$t('transactions.status.dialog.title')}</h1>
     </div>
-    <div class="inline-flex flex-col space-y-9 px-[37px]">
+    <div class="inline-flex flex-col px-[37px] text-base">
       <br />
-      {$t('activities.status.dialog.description')}
-      <h4 class={classes.headline}>{$t('activities.status.initiated.name')}</h4>
-      {$t('activities.status.initiated.description')}
-      <h4 class={classes.headline}>{$t('activities.status.claim.name')}</h4>
-      {$t('activities.status.claim.description')}
-      <h4 class={classes.headline}>{$t('activities.status.claimed.name')}</h4>
-      {$t('activities.status.claimed.description')}
-      <h4 class={classes.headline}>{$t('activities.status.retry.name')}</h4>
-      {$t('activities.status.retry.description')}
-      <h4 class={classes.headline}>{$t('activities.status.release.name')}</h4>
-      {$t('activities.status.release.description')}
-      <h4 class={classes.headline}>{$t('activities.status.failed.name')}</h4>
-      {$t('activities.status.failed.description')}
+      {$t('transactions.status.dialog.description')}
+      <h4 class={classes.headline}>{$t('transactions.status.initiated.name')}</h4>
+      {$t('transactions.status.initiated.description')}
+      <h4 class={classes.headline}>{$t('transactions.status.claim.name')}</h4>
+      {$t('transactions.status.claim.description')}
+      <h4 class={classes.headline}>{$t('transactions.status.claimed.name')}</h4>
+      {$t('transactions.status.claimed.description')}
+      <h4 class={classes.headline}>{$t('transactions.status.retry.name')}</h4>
+      {$t('transactions.status.retry.description')}
+      <h4 class={classes.headline}>{$t('transactions.status.release.name')}</h4>
+      {$t('transactions.status.release.description')}
+      <h4 class={classes.headline}>{$t('transactions.status.failed.name')}</h4>
+      {$t('transactions.status.failed.description')}
     </div>
 
     <!-- We catch key events aboe -->

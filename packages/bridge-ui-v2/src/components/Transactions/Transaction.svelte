@@ -72,7 +72,7 @@
       class="flex justify-start py-3 link"
       href={`${chainConfig[Number(item.srcChainId)].urls.explorer}/tx/${item.hash}`}
       target="_blank">
-      {$t('activities.link.explorer')}
+      {$t('transactions.link.explorer')}
       <Icon type="arrow-top-right" fillClass="fill-primary-link" />
     </a>
   </div>
