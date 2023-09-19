@@ -30,7 +30,33 @@ nano .env
 Open the `.env` file and set the following environment variables to enable your node as a prover:
 
 - Set `ENABLE_PROVER` to `true`
-- Set `L1_PROVER_PRIVATE_KEY` to your L1 account private key (with balance of TTKOj on TaikoL1)
+- Set `L1_PROVER_PRIVATE_KEY` to your L1 account private key (with balance of TTKOj on TaikoL1), we will the public key of this account in the next Steps
+
+### Approve TaikoL1 as TTKOj spender
+
+You will need TTKOj deposited on the TaikoL1 contract to secure the bond for the proofs you generate.
+
+First, you will need to **approve the TaikoL1 contract as a spender**. Visit the TTKOj contract on Sepolia [here](https://sepolia.etherscan.io/address/0x75F94f04d2144cB6056CCd0CFF1771573d838974#writeProxyContract).
+
+Next, click the **Connect to Web3** button.
+
+Next, click the **approve** function and set the spender address to the TaikoL1 contract address: `0x95fF8D3CE9dcB7455BEB7845143bEA84Fe5C4F6f`.
+
+Next, set the amount to at least the minimum bond amount of 2.5 TTKOj. You will need 2.5 TTKOj for each bond you sign.
+
+Finally, click the **Write** button.
+
+### Deposit TTKOj to TaikoL1
+
+Visit the TaikoL1 contract [here](https://sepolia.etherscan.io/address/0x95fF8D3CE9dcB7455BEB7845143bEA84Fe5C4F6f#writeProxyContract).
+
+Next, click the **Connect to Web3** button.
+
+Next, click the **depositTaikoToken** function.
+
+Next, set the amount to at least the minimum bond amount of 2.5 TTKOj. You will need 2.5 TTKOj for each bond you sign.
+
+Finally, click the **Write** button.
 
 ### Verify prover logs
 
