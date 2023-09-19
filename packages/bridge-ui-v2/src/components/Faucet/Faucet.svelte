@@ -1,5 +1,6 @@
 <script lang="ts">
   import { type Chain, switchNetwork } from '@wagmi/core';
+  import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import { ContractFunctionExecutionError, UserRejectedRequestError } from 'viem';
 
@@ -24,6 +25,8 @@
   let selectedToken: Token;
   let mintButtonEnabled = false;
   let alertMessage = '';
+  let mintableTokens: Token[] = [];
+  const onlyMintable: boolean = true;
 
   async function switchNetworkToL1() {
     if (switchingNetwork) return;
@@ -152,8 +155,13 @@
     //does this really need to be dynamic? Our mint tokens will most likely stay on Sepolia
     if (wrongChain) return $t('faucet.wrong_chain.message', { values: { network: 'Sepolia' } });
     if (reasonNotMintable) return reasonNotMintable;
-    return ''
+    return '';
   }
+
+  onMount(() => {
+    // Only show tokens in the dropdown that are mintable
+    mintableTokens = testERC20Tokens.filter((token) => token.mintable);
+  });
 
   $: connected = isUserConnected($account);
   $: wrongChain = isWrongChain($network);
@@ -165,7 +173,7 @@
   <div class="space-y-[35px]">
     <div class="space-y-2">
       <ChainSelector label={$t('chain_selector.currently_on')} value={$network} switchWallet small />
-      <TokenDropdown tokens={testERC20Tokens} bind:value={selectedToken} />
+      <TokenDropdown tokens={mintableTokens} {onlyMintable} bind:value={selectedToken} />
     </div>
 
     {#if alertMessage}

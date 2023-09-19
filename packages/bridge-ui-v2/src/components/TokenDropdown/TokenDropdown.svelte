@@ -20,6 +20,7 @@
 
   export let tokens: Token[] = [];
   export let value: Maybe<Token> = null;
+  export let onlyMintable: boolean = false;
 
   let id = `menu-${uid()}`;
   let menuOpen = false;
@@ -148,8 +149,16 @@
   </button>
 
   {#if isDesktopOrLarger}
-    <DropdownView {id} {menuOpen} {tokens} {customTokens} {value} {selectToken} on:tokenRemoved={handleTokenRemoved} />
+    <DropdownView
+      {id}
+      {menuOpen}
+      {onlyMintable}
+      {tokens}
+      {customTokens}
+      {value}
+      {selectToken}
+      on:tokenRemoved={handleTokenRemoved} />
   {:else}
-    <DialogView {id} {menuOpen} {tokens} {customTokens} {value} {selectToken} {closeMenu} />
+    <DialogView {id} {menuOpen} {onlyMintable} {tokens} {customTokens} {value} {selectToken} {closeMenu} />
   {/if}
 </div>
