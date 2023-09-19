@@ -48,59 +48,33 @@ For the visual learners here is a visualization of the three stages (proposed ->
   />
 </center>
 
-## Types of provers
+## Off chain prover market (PBS style)
 
-### Community prover
+Proving blocks requires significant compute power to calculate the proof
+to submit and verify the proof on Ethereum. Provers need
+to be compensated for this work as the network needs to
+attract provers that are willing to do this work. How much
+to pay for a proof is not obvious however:
 
-Currently, you only need a single proof from any prover to verify a block.
+1. The Ethereum gas cost to publish/verify a proof
+   on Ethereum is unpredictable.
+2. The proof generation cost does not necessarily
+   match perfectly with the gas cost.
+3. The proof generation cost keeps changing as proving software is optimized and the hardware used
+   gets faster and cheaper.
+4. The proof generation cost depends on how fast a
+   proof needs to be generated.
 
-### Oracle prover
+In the pursuit of optimizing network efficiency and balancing costs, the ecosystem introduces a robust off-chain proof market. Proposers, on a per-block basis, actively seek potential proof service providers through this dynamic marketplace. A pivotal component of this setup is the publicly exposed API, providing proposers with the means to query and engage with available proof providers off-chain.
 
-The oracle prover is a prover from a unique address (our own address) that is able to override the community prover. This is a safety mechanism we have in place while the ZK-EVM is still in development and in case an invalid block was marked as verified from a community proof.
+When an agreement is reached concerning the proving fee for a specific block, the chosen proof service provider is then tasked with granting a cryptographic signature to the proposer. This signature serves as a binding commitment, signifying the prover's dedication to delivering the proof within the agreed-upon timeframe.
 
-### The proof cooldown period
+Provers within this off-chain proof market come in two primary forms: Externally Owned Accounts (EOA) and contracts, often referred to as Prover pools. To qualify as a Prover pool, a contract must adhere to specific criteria, implementing either the IProver interface, as previously defined by Taiko, or the IERC1271 (isValidSignature) interface.
 
-We have a proof cooldown period which is an interval of time we set after fully verifying a block. The reason we do that is to allow for a fault proof to come in, once we have a multi-prover system set in place.
+Upon a proposer's submission of a block, the signature granted by the chosen provider is subjected to verification. Any deviations result in a reverted transaction.
 
-## Prover dynamics
+As an additional incentive for proposers, the system incorporates the issuance of TKO tokens. This serves as an extra motivator, as proposing blocks alone may not always prove profitable, especially when considering Ethereum's on-chain fees plus the proving fee. The issuance of TKO tokens operates on a dynamic 'emission rate per second,' comparing each block proposal to the last.
 
-Keep in mind that running a prover on mainnet will be a very competitive space, and those who generate proofs will have very powerful machines. It's unlikely anyone will be able to be a "casual prover".
+The reward depends on the proof service provider and the agreement. For EOAs and Prover pools that implement the IERC1271 interface, the reward is disbursed in ETH. However, in cases where providers implement the IProver interface, the prover fee can be ETH, any other ERC20 tokens, or even NFTs, based on the negotiated terms.
 
-{/* TODO: we should not mention testnet details inside concept documentation (this is like a whitepaper), we can find another abstraction for it */}
-
-### Grimsvotn L2 (alpha-3)
-
-In the alpha-3 protocol, the protocol rewards the most efficient prover. The prover that can submit a valid proof the fastest, will win the reward. This trades off decentralization for efficiency, because in a mainnet scenario it's likely only a single prover will prevail, which is a bit risky for liveness.
-
-#### How the proof reward is determined
-
-A proof reward in TTKO is rewarded for successfully proving a block. This reward is dependent on the `proofTimeTarget`. You can see the current proof reward by calling `getProofReward` on the TaikoL1 contract.
-
-So that we don't grow a long list of unverified blocks for too long, we want to target proofs coming in at a certain rate. So we set a target proof time. If it has taken a long time since the last verified block, the proof reward increases to incentivize provers to generate a proof.
-
-Conversely, if everyone is submitting proofs quickly, then the proof reward decreases towards zero. This means that as a prover, you should query `getProofReward` on the TaikoL1 contract to determine if it is profitable to generate a proof. If you submit proofs as quickly as possible, then the proof reward will trend towards zero.
-
-#### Default in simple-taiko-node
-
-The [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node) will come pre-configured to not submit proofs as quickly as possible, by querying `getProofReward`. This hopefully means that most nodes in the network are acting in the group interest, by responsibly not submitting the proof as quickly as possible. However, because the first prover will win the reward, and because the project is open source, anybody can modify the [taiko-client](https://github.com/taikoxyz/taiko-client) and act rationally to submit a proof slightly earlier than the default set in `simple-taiko-node`. As you can see, it causes somewhat of a prisoner's dilemma.
-
-#### Proof skip
-
-We have a `realProofSkipSize` set [here](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/L1/TaikoConfig.sol#LL40C13-L40C30) so that a real proof is only needed every N blocks for the testnet.
-
-#### Your role as a prover
-
-We are describing this dynamic so you can be informed when you run a prover. It's very possible that without the correct strategy, you will not be profitable as a prover. You are naturally competing in an open space where others could have more efficient hardware and generate a proof in a short amount of time that you cannot compete against.
-
-### Eldfell L3 (alpha-4)
-
-In the alpha-4 protocol we have developed a staking based proving system. There exists a pool of (currently 32) top provers. Entering this pool depends on several factors:
-
-- The capacity a prover can handle
-- The amount of TTKOe staked
-- The expected reward per gas
-- The current fee per gas
-
-Essentially, this design is slightly less efficient but more decentralized (with better liveness).
-
-You can read more about the staking system [here](https://github.com/taikoxyz/taiko-mono/blob/alpha-4/packages/protocol/docs/tokenomics_staking.md).
+To add a layer of security and commitment to the process, provers must provide a substantial amount of TKO tokens per block, effectively serving as insurance. In the unfortunate event of a failure to deliver the proof within the given time, a portion, specifically 1/4, is directed to the actual prover, while the remaining 3/4 are permanently burnt. Conversely, successful and timely proof delivery ensures the return of these tokens to the Prover.

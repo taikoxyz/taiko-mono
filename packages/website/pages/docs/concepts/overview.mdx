@@ -4,8 +4,8 @@ import Image from "next/image";
 
 Taiko is a secure, decentralized, and permissionless [rollup](https://www.youtube.com/watch?v=7pWxCklcNsU) on Ethereum. Taiko achieves this by:
 
-1. writing all block data required to reconstruct the post-block state to Ethereum. Recording block data to Ethereum as an L1 makes the data decentralized and public. This data is needed for everyone to know the latest chain state to add new blocks to Taiko. Taiko's proof generation requires an even stricter requirement: all executable data must be saved publicly in sequence. Consequently, provers can generate proofs for a block using only publicly known data.
-2. creating and proposing blocks should be a fast and efficient process. Anyone should be able to add blocks to the chain on a level playing field, having access to the same chain data at all times. Proposers, of course, should be able to compete on e.g., transaction fees and [Maximal Extractable Value (MEV)](https://ethereum.org/en/developers/docs/mev/).
+1. Writing all block data required to reconstruct the post-block state to Ethereum. Recording block data to Ethereum as an L1 makes the data decentralized and public. This data is needed for everyone to know the latest chain state to add new blocks to Taiko. Taiko's proof generation requires an even stricter requirement: all executable data must be saved publicly in sequence. Consequently, provers can generate proofs for a block using only publicly known data.
+2. Creating and proposing blocks should be a fast and efficient process. Anyone should be able to add blocks to the chain on a level playing field, having access to the same chain data at all times. Proposers, of course, should be able to compete on e.g., transaction fees and [Maximal Extractable Value (MEV)](https://ethereum.org/en/developers/docs/mev/).
 
 We achieve this by splitting the block submission process into two parts:
 
@@ -53,37 +53,6 @@ a fair way while allowing the Taiko network to capture the created value. And be
 the same mechanism is used on Ethereum it allows Taiko to be Ethereum equivalent
 (with some small implementation detail changes) even for this part of its network,
 which is not obviously the case for L2s.
-
-## Off-chain proof market
-
-Proving blocks requires significant compute power to calculate the proof
-to submit and verify the proof on Ethereum. Provers need
-to be compensated for this work as the network needs to
-attract provers that are willing to do this work. How much
-to pay for a proof is not obvious however:
-
-1. The Ethereum gas cost to publish/verify a proof
-   on Ethereum is unpredictable.
-2. The proof generation cost does not necessarily
-   match perfectly with the gas cost.
-3. The proof generation cost keeps changing as proving software is optimized and the hardware used
-   gets faster and cheaper.
-4. The proof generation cost depends on how fast a
-   proof needs to be generated.
-
-In the pursuit of optimizing network efficiency and balancing costs, the ecosystem introduces a robust off-chain proof market. Proposers, on a per-block basis, actively seek potential proof service providers through this dynamic marketplace. A pivotal component of this setup is the publicly exposed API, providing proposers with the means to query and engage with available proof providers off-chain.
-
-When an agreement is reached concerning the proving fee for a specific block, the chosen proof service provider is then tasked with granting a cryptographic signature to the proposer. This signature serves as a binding commitment, signifying the prover's dedication to delivering the proof within the agreed-upon timeframe.
-
-Provers within this off-chain proof market come in two primary forms: Externally Owned Accounts (EOA) and contracts, often referred to as Prover pools. To qualify as a Prover pool, a contract must adhere to specific criteria, implementing either the IProver interface, as previously defined by Taiko, or the IERC1271 (isValidSignature) interface.
-
-Upon a proposer's submission of a block, the signature granted by the chosen provider is subjected to verification. Any deviations result in a reverted transaction.
-
-As an additional incentive for proposers, the system incorporates the issuance of TKO tokens. This serves as an extra motivator, as proposing blocks alone may not always prove profitable, especially when considering Ethereum's on-chain fees plus the proving fee. The issuance of TKO tokens operates on a dynamic 'emission rate per second,' comparing each block proposal to the last.
-
-The reward depends on the proof service provider and the agreement. For EOAs and Prover pools that implement the IERC1271 interface, the reward is disbursed in ETH. However, in cases where providers implement the IProver interface, the prover fee can be ETH, any other ERC20 tokens, or even NFTs, based on the negotiated terms.
-
-To add a layer of security and commitment to the process, provers must provide a substantial amount of TKO tokens per block, effectively serving as insurance. In the unfortunate event of a failure to deliver the proof within the given time, a portion, specifically 1/4, is directed to the actual prover, while the remaining 3/4 are permanently burnt. Conversely, successful and timely proof delivery ensures the return of these tokens to the Prover.
 
 ## EIP-4844 scaling via blob data
 

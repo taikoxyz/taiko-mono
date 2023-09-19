@@ -1,0 +1,88 @@
+import { Callout, Steps } from "nextra-theme-docs";
+
+# Enable a prover
+
+This guide will help you enable your Taiko node as a prover. Read more about prover dynamics [here](/docs/concepts/proving#prover-dynamics).
+
+## Prerequisites
+
+- You have already setup a node (see: [Run a node](/docs/guides/run-a-node)).
+- Must have a balance of ETH on Sepolia L1 (see: [Receive tokens](/docs/guides/receive-tokens)).
+- Should have at least 8/16 core CPU and 32GB of RAM.
+
+## Steps
+
+<Steps>
+### Open the .env file in `simple-taiko-node`
+
+```sh
+nano .env
+```
+
+### Set environment variables to enable prover
+
+<Callout type="warning">
+  Do **not** use a private key that is valuable to you. The private key will be
+  stored in plain text in the `.env` and this is not secure. There is a real
+  risk of losing your assets. You should **only use a test account**.
+</Callout>
+
+Open the `.env` file and set the following environment variables to enable your node as a prover:
+
+- Set `ENABLE_PROVER` to `true`
+- Set `L1_PROVER_PRIVATE_KEY` to your L1 account private key (with balance of TTKOj on TaikoL1), we will the public key of this account in the next Steps
+
+### Approve TaikoL1 as TTKOj spender
+
+You will need TTKOj deposited on the TaikoL1 contract to secure the bond for the proofs you generate.
+
+First, you will need to **approve the TaikoL1 contract as a spender**. Visit the TTKOj contract on Sepolia [here](https://sepolia.etherscan.io/address/0x75F94f04d2144cB6056CCd0CFF1771573d838974#writeProxyContract).
+
+Next, click the **Connect to Web3** button.
+
+Next, click the **approve** function and set the spender address to the TaikoL1 contract address: `0x95fF8D3CE9dcB7455BEB7845143bEA84Fe5C4F6f`.
+
+Next, set the amount to at least the minimum bond amount of 2.5 TTKOj. You will need 2.5 TTKOj for each bond you sign.
+
+Finally, click the **Write** button.
+
+### Deposit TTKOj to TaikoL1
+
+Visit the TaikoL1 contract [here](https://sepolia.etherscan.io/address/0x95fF8D3CE9dcB7455BEB7845143bEA84Fe5C4F6f#writeProxyContract).
+
+Next, click the **Connect to Web3** button.
+
+Next, click the **depositTaikoToken** function.
+
+Next, set the amount to at least the minimum bond amount of 2.5 TTKOj. You will need 2.5 TTKOj for each bond you sign.
+
+Finally, click the **Write** button.
+
+### Verify prover logs
+
+Run this command to verify you have some prover logs:
+
+```sh
+docker compose logs -f taiko_client_prover_relayer | egrep "block proof was|proof submission error|Block proven"
+```
+
+You should see logs like this if it was successful:
+
+- `💰 Your block proof was accepted` means you successfully submitted a proof and your bond is returned.
+- `✅ Block proven` means a proposed block was successfully proved on TaikoL1 (by anyone).
+
+You can check all commands to see prover logs in the [node runner manual](/docs/manuals/node-runner-manual#view-client-prover-relayer-logs).
+
+### Register your prover (optionally)
+
+Add your prover to the [prover registration page](/docs/reference/prover-market.mdx) so that other block proposers can find your prover and request bonds.
+
+</Steps>
+
+## Videos
+
+- [Enable and exit a prover on your L2/L3 node](https://www.youtube.com/watch?v=yAHpbmNEC0M) (deprecated, but still useful)
+
+## Troubleshooting
+
+View the [Node troubleshooting reference](/docs/reference/node-troubleshooting) for help on any common error codes / issues.

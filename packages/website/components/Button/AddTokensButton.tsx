@@ -1,40 +1,32 @@
 import {
-  ELDFELL_ADD_ETHEREUM_CHAIN,
-  ELDFELL_ADD_TOKENS,
-  ELDFELL_CONFIG,
-  GRIMSVOTN_ADD_ETHEREUM_CHAIN,
-  GRIMSVOTN_ADD_TOKENS,
-  GRIMSVOTN_CONFIG,
   SEPOLIA_ADD_ETHEREUM_CHAIN,
   SEPOLIA_ADD_TOKENS,
   SEPOLIA_CONFIG,
+  JOLNIR_ADD_ETHEREUM_CHAIN,
+  JOLNIR_ADD_TOKENS,
+  JOLNIR_CONFIG,
 } from "../../domain/chain";
 
 import { ethereumRequest } from "../../utils/ethereumRequest";
 
 type ConnectButtonProps = {
   network:
-  | typeof SEPOLIA_CONFIG.names.shortName
-  | typeof ELDFELL_CONFIG.names.shortName
-  | typeof GRIMSVOTN_CONFIG.names.shortName;
+    | typeof SEPOLIA_CONFIG.names.shortName
+    | typeof JOLNIR_CONFIG.names.shortName;
 };
 
 const chainMap = {
-  Eldfell: ELDFELL_CONFIG.chainId.hex, // 167005
-  Grimsvotn: GRIMSVOTN_CONFIG.chainId.hex, // 167005
-  Sepolia: SEPOLIA_CONFIG.chainId.hex, // 11155111
+  Sepolia: SEPOLIA_CONFIG.chainId.hex,
 };
 
 const configMap = {
-  Eldfell: ELDFELL_ADD_ETHEREUM_CHAIN,
-  Grimsvotn: GRIMSVOTN_ADD_ETHEREUM_CHAIN,
   Sepolia: SEPOLIA_ADD_ETHEREUM_CHAIN,
+  Jolnir: JOLNIR_ADD_ETHEREUM_CHAIN,
 };
 
 const tokenConfigMap = {
-  Grimsvotn: GRIMSVOTN_ADD_TOKENS,
   Sepolia: SEPOLIA_ADD_TOKENS,
-  Eldfell: ELDFELL_ADD_TOKENS,
+  Jolnir: JOLNIR_ADD_TOKENS,
 };
 
 interface AddTokensButtonProps {

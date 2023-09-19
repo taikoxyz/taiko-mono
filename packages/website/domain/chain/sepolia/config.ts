@@ -1,4 +1,4 @@
-import { TaikoL1Alpha3 } from "../baseTypes";
+import { TaikoL1Alpha5 } from "../baseTypes";
 
 export const SEPOLIA_CONFIG = {
   names: {
@@ -29,71 +29,86 @@ export const SEPOLIA_CONFIG = {
     addressManager: {
       name: "AddressManager",
       address: {
-        proxy: "0xB566C97d37662f8a5843D523bE7806e04b02D99d",
-        impl: "0x98c5042C5fD3B38F250961546d271760b504278E",
+        proxy: "0x6b390878aCf6e3AdF5fAEb4771c6FB6be518D569",
+        impl: "0x39bF8d5A8Ad841381E4075A009035a6a22d46bFE",
       },
     },
     taikoL1: {
       name: "TaikoL1",
       address: {
-        proxy: "0x6375394335f34848b850114b66A49D6F47f2cdA8",
-        impl: "0x07eb4fe3c621393702cee6643af9c728fbac116a",
+        proxy: "0x95fF8D3CE9dcB7455BEB7845143bEA84Fe5C4F6f",
+        impl: "0xD0979F959D788dD0C55c743Cb5D5c2175F2AB097",
       },
     },
-    tokenVault: {
-      name: "TokenVault",
+    erc20Vault: {
+      name: "ERC20Vault",
       address: {
-        proxy: "0xD70506580B5F65e68ed0dbA7B4Ae507641C48197",
-        impl: "0x90871108691796cee8307C8610Da353F4Ef41774",
+        proxy: "0x9f1a34A0e4f6C77C3648C4d9E922DA615C64D194",
+        impl: "0xA17D83Fe61bF1D13446ed70A50dDab8b400Fa988",
+      },
+    },
+    erc721Vault: {
+      name: "ERC721Vault",
+      address: {
+        proxy: "0x116649D245c08979E20FeDa89162A3D02fFeA88a",
+        impl: "0xFc168aF3235C76bDb8C544b71E4d55c458EbA2cf",
+      },
+    },
+    erc1155Vault: {
+      name: "ERC1155Vault",
+      address: {
+        proxy: "0xF92938C48D078797E1Eb201D0fbB1Ac739F50B90",
+        impl: "0xFbBE73bD5682Db685eAe986d713F84Af4851b2e9",
       },
     },
     bridge: {
       name: "Bridge",
       address: {
-        proxy: "0x7D992599E1B8b4508Ba6E2Ba97893b4C36C23A28",
-        impl: "0xd7C538576c78ab62EFE867CffC23F7e722E73A7D",
+        proxy: "0x5293Bb897db0B64FFd11E0194984E8c5F1f06178",
+        impl: "0xa239b8f15e3BF3789D184873300cB6bdCe3BcC05",
       },
     },
     signalService: {
       name: "SignalService",
       address: {
-        proxy: "0x23baAc3892a823e9E59B85d6c90068474fe60086",
-        impl: "0x4E0924758cBbe463c58c6F2519086411d084f242",
+        proxy: "0xcD5e2bebd3DfE46e4BF96aE2ac7B89B22cc6a982",
+        impl: "0xD3ac5E6d9DB6e9845f53521D36b81cc14dA5424a",
       },
     },
-    plonkVerifier: {
-      name: "PlonkVerifier",
+    proofVerifier: {
+      name: "ProofVerifier",
       address: {
-        impl: "0xd46eb8cF2b47cd99bdb1dD8C76EEc55ac6eb930E",
+        proxy: "0xdC396C7478C5C985fc19386BdD29370e10572ed9",
+        impl: "0x05764AeD55E200200C0f50AAdEa377E9cf3C6Fb0",
       },
     },
     erc20Contracts: {
       taikoToken: {
-        name: "Taiko Token",
+        name: "Taiko Token Jolnir",
+        symbol: "TTKOj",
+        decimals: 18,
         address: {
-          proxy: "0xE52952B8063d0AE6Bd35E894866d8148976ce645",
-          impl: "0x517976c137606f040168E5ec7f15e5d32f29C73F",
+          proxy: "0x75F94f04d2144cB6056CCd0CFF1771573d838974",
+          impl: "0xB3458D8Ba7fcA9Eab341E986005df155e1243AE4",
         },
-        decimals: 8,
-        symbol: "TTKO",
       },
       horseToken: {
         name: "Horse Token",
-        address: {
-          impl: "0x958b482c4E9479a600bFFfDDfe94D974951Ca3c7",
-        },
-        decimals: 18,
         symbol: "HORSE",
+        decimals: 18,
+        address: {
+          impl: "0xe9f36Ec3F1B8056A67a2B542551D248D511aA7d6",
+        },
       },
       bullToken: {
         name: "Bull Token",
-        address: {
-          impl: "0x39e12053803898211F21047D56017986E0f070c1",
-        },
-        decimals: 18,
         symbol: "BLL",
+        decimals: 18,
+        address: {
+          impl: "0x0505f8EA58319b96bd7FffCec82d29AcC78Fb57e",
+        },
       },
     },
   },
   otherContracts: {},
-} as const satisfies TaikoL1Alpha3;
+} as const satisfies TaikoL1Alpha5;

@@ -14,17 +14,18 @@
     "nextra-theme-docs": "^2.12.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "remark-mdx-disable-explicit-jsx": "^0.1.0"
+    "remark-mdx-disable-explicit-jsx": "^0.1.0",
+    "sharp": "^0.32.5"
   },
   "devDependencies": {
     "@heroicons/react": "^2.0.18",
-    "@types/node": "^20.6.0",
+    "@types/node": "^20.6.2",
     "@types/react": "^18.2.21",
     "autoprefixer": "^10.4.15",
-    "daisyui": "^3.7.4",
+    "daisyui": "^3.7.5",
     "postcss": "^8.4.29",
     "tailwindcss": "^3.3.3",
     "typescript": "^5.2.2",
-    "viem": "^1.10.12"
+    "viem": "^1.10.14"
   }
 }
