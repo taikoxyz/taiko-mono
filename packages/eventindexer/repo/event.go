@@ -29,11 +29,12 @@ func NewEventRepository(db eventindexer.DB) (*EventRepository, error) {
 
 func (r *EventRepository) Save(ctx context.Context, opts eventindexer.SaveEventOpts) (*eventindexer.Event, error) {
 	e := &eventindexer.Event{
-		Data:    datatypes.JSON(opts.Data),
-		ChainID: opts.ChainID.Int64(),
-		Name:    opts.Name,
-		Event:   opts.Event,
-		Address: opts.Address,
+		Data:         datatypes.JSON(opts.Data),
+		ChainID:      opts.ChainID.Int64(),
+		Name:         opts.Name,
+		Event:        opts.Event,
+		Address:      opts.Address,
+		TransactedAt: opts.TransactedAt,
 	}
 
 	if opts.BlockID != nil {
@@ -50,6 +51,30 @@ func (r *EventRepository) Save(ctx context.Context, opts eventindexer.SaveEventO
 		}
 
 		e.Amount = decimal.NullDecimal{
+			Valid:   true,
+			Decimal: amt,
+		}
+	}
+
+	if opts.ProposerReward != nil {
+		amt, err := decimal.NewFromString(opts.ProposerReward.String())
+		if err != nil {
+			return nil, errors.Wrap(err, "decimal.NewFromString")
+		}
+
+		e.ProposerReward = decimal.NullDecimal{
+			Valid:   true,
+			Decimal: amt,
+		}
+	}
+
+	if opts.ProofReward != nil {
+		amt, err := decimal.NewFromString(opts.ProofReward.String())
+		if err != nil {
+			return nil, errors.Wrap(err, "decimal.NewFromString")
+		}
+
+		e.ProofReward = decimal.NullDecimal{
 			Valid:   true,
 			Decimal: amt,
 		}

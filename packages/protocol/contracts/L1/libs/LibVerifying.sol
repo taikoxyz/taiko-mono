@@ -141,18 +141,22 @@ library LibVerifying {
                 signalRoot = tran.signalRoot;
                 blk.verifiedTransitionId = tid;
 
-                // Refund bond or give 1/4 of it to the actual prover and burn
-                // the rest.
-                if (
-                    tran.prover == LibUtils.ORACLE_PROVER
-                        || tran.provenAt <= blk.proposedAt + config.proofWindow
-                ) {
-                    state.taikoTokenBalances[blk.prover] += blk.proofBond;
-                    emit BondReturned(blk.prover, blockId, blk.proofBond);
-                } else {
-                    uint256 rewardAmount = blk.proofBond / 4;
-                    state.taikoTokenBalances[tran.prover] += rewardAmount;
-                    emit BondRewarded(tran.prover, blockId, rewardAmount);
+                // If the default assigned prover is the oracle do not refund
+                // because was not even charged.
+                if (blk.prover != LibUtils.ORACLE_PROVER) {
+                    // Refund bond or give 1/4 of it to the actual prover and
+                    // burn the rest.
+                    if (
+                        tran.prover == LibUtils.ORACLE_PROVER
+                            || tran.provenAt <= blk.proposedAt + config.proofWindow
+                    ) {
+                        state.taikoTokenBalances[blk.prover] += blk.proofBond;
+                        emit BondReturned(blk.prover, blockId, blk.proofBond);
+                    } else {
+                        uint256 rewardAmount = blk.proofBond / 4;
+                        state.taikoTokenBalances[tran.prover] += rewardAmount;
+                        emit BondRewarded(tran.prover, blockId, rewardAmount);
+                    }
                 }
 
                 emit BlockVerified(blockId, tran.prover, tran.blockHash);

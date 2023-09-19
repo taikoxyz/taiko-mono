@@ -179,7 +179,6 @@ contract TaikoToken is
         override(ERC20Upgradeable, ERC20VotesUpgradeable)
     {
         super._mint(to, amount);
-        emit Transfer(address(0), to, amount);
     }
 
     function _burn(
@@ -190,7 +189,6 @@ contract TaikoToken is
         override(ERC20Upgradeable, ERC20VotesUpgradeable)
     {
         super._burn(from, amount);
-        emit Transfer(from, address(0), amount);
     }
 }
 

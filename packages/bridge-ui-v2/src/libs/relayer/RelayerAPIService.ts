@@ -239,8 +239,6 @@ export class RelayerAPIService {
     // Spreading to preserve original txs in case of array mutation
     log('Enhanced transactions', [...bridgeTxs]);
 
-
-
     return { txs: bridgeTxs, paginationInfo };
   }
 

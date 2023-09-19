@@ -2,7 +2,7 @@
   "nav": {
     "bridge": "Bridge",
     "faucet": "Faucet",
-    "activities": "Activities",
+    "transactions": "Transactions",
     "explorer": "Explorer",
     "theme": "Theme",
     "guide": "Guide",
@@ -83,8 +83,8 @@
       "cancel": "Cancel"
     }
   },
-  "activities": {
-    "title": "Activities",
+  "transactions": {
+    "title": "Transactions",
     "description": "Track your bridge transactions here.",
     "header": {
       "explorer": "Explorer",
@@ -212,6 +212,8 @@
   },
   "chain_selector": {
     "placeholder": "Select chain",
+    "from_placeholder": "Select Source Chain",
+    "to_placeholder": "Select Destination Chain",
     "currently_on": "You are currently on",
     "disabled_options": {
       "title": "Disabled options?",

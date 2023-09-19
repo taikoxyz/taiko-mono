@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"math/big"
+	"time"
 
 	"log/slog"
 
@@ -12,7 +13,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
 )
 
-func (svc *Service) saveBlockVerifiedEvents(
+func (indxr *Indexer) saveBlockVerifiedEvents(
 	ctx context.Context,
 	chainID *big.Int,
 	events *taikol1.TaikoL1BlockVerifiedIterator,
@@ -25,14 +26,14 @@ func (svc *Service) saveBlockVerifiedEvents(
 	for {
 		event := events.Event
 
-		if err := svc.detectAndHandleReorg(ctx, eventindexer.EventNameBlockVerified, event.BlockId.Int64()); err != nil {
-			return errors.Wrap(err, "svc.detectAndHandleReorg")
+		if err := indxr.detectAndHandleReorg(ctx, eventindexer.EventNameBlockVerified, event.BlockId.Int64()); err != nil {
+			return errors.Wrap(err, "indxr.detectAndHandleReorg")
 		}
 
-		if err := svc.saveBlockVerifiedEvent(ctx, chainID, event); err != nil {
+		if err := indxr.saveBlockVerifiedEvent(ctx, chainID, event); err != nil {
 			eventindexer.BlockVerifiedEventsProcessedError.Inc()
 
-			return errors.Wrap(err, "svc.saveBlockVerifiedEvent")
+			return errors.Wrap(err, "indxr.saveBlockVerifiedEvent")
 		}
 
 		if !events.Next() {
@@ -41,7 +42,7 @@ func (svc *Service) saveBlockVerifiedEvents(
 	}
 }
 
-func (svc *Service) saveBlockVerifiedEvent(
+func (indxr *Indexer) saveBlockVerifiedEvent(
 	ctx context.Context,
 	chainID *big.Int,
 	event *taikol1.TaikoL1BlockVerified,
@@ -55,16 +56,22 @@ func (svc *Service) saveBlockVerifiedEvent(
 
 	blockID := event.BlockId.Int64()
 
-	_, err = svc.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
-		Name:    eventindexer.EventNameBlockVerified,
-		Data:    string(marshaled),
-		ChainID: chainID,
-		Event:   eventindexer.EventNameBlockVerified,
-		Address: "",
-		BlockID: &blockID,
+	block, err := indxr.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
+	if err != nil {
+		return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
+	}
+
+	_, err = indxr.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
+		Name:         eventindexer.EventNameBlockVerified,
+		Data:         string(marshaled),
+		ChainID:      chainID,
+		Event:        eventindexer.EventNameBlockVerified,
+		Address:      "",
+		BlockID:      &blockID,
+		TransactedAt: time.Unix(int64(block.Time()), 0),
 	})
 	if err != nil {
-		return errors.Wrap(err, "svc.eventRepo.Save")
+		return errors.Wrap(err, "indxr.eventRepo.Save")
 	}
 
 	eventindexer.BlockVerifiedEventsProcessed.Inc()

@@ -3,13 +3,13 @@ import Image from "next/image";
 
 # Run a Taiko node
 
-This guide will help you start up a Taiko L2/L3 RPC node using [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node).
+This guide will help you start up a Taiko RPC node using [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node).
 
 ## Prerequisites
 
 - [Docker](https://docs.docker.com/engine/install/) is installed and **running**.
 - [Git](https://github.com/git-guides/install-git/) is installed.
-- Meet the [Geth minimum hardware requirements](https://github.com/ethereum/go-ethereum#hardware-requirements) except for the storage requirement because Taiko nodes will require less storage. As of `2023-07-27` an L2 sync takes **55 GB** and an L3 sync takes **4 GB**.
+- Meet the [Geth minimum hardware requirements](https://github.com/ethereum/go-ethereum#hardware-requirements) except for the storage requirement because Taiko nodes will require less storage. As of `2023-09-18` a node uses less than **10 GB**. **100 GB** should be future proof enough if you intend to run your node for a while.
 
 ## Steps
 
@@ -39,12 +39,12 @@ git config core.autocrlf false
 ### Copy the sample .env files
 
 ```sh
-cp .env.sample .env && cp .env.sample.l3 .env.l3
+cp .env.sample .env
 ```
 
 ### Set the required values in the .env file
 
-**First**, open the `.env` or `.env.l3` file in your preferred text editor:
+**First**, open the `.env` in your preferred text editor:
 
 <Tabs items={["Mac/Linux", "Windows"]} defaultIndex="0">
   <Tab>
@@ -63,13 +63,13 @@ notepad .env
   </Tab>
 </Tabs>
 
-**Next**, you will retrieve the base layer endpoints.
+**Next**, you will set the L1 archive node endpoints.
 
 <Callout>
-You can get a base layer endpoint from a few places, but it **must point to an archive node** to access the state trie beyond the last 128 blocks.
+You can get a L1 endpoint from a few places, but it **must point to an archive node** to access the state trie beyond the last 128 blocks.
 
 **Recommended**:
-Run your own Sepolia archive node, see: [Run a Sepolia node](/docs/guides/run-a-sepolia-node). This is recommended because you will eventually be rate-limited by public RPC providers. If you are running an Eldfell L3 node, you will need to have a fully synced Grimsvotn L2 node.
+Run your own Sepolia archive node, see: [Run a Sepolia node](/docs/guides/run-a-sepolia-node). This is recommended because you will eventually be rate-limited by public RPC providers.
 
 **Alternative**:
 [Alchemy](https://www.alchemy.com/) and [Infura](https://www.infura.io/) are two popular RPC providers. Make sure you select the RPC as Sepolia testnet, and not Ethereum mainnet.
@@ -133,41 +133,32 @@ This is your `L1_ENDPOINT_WS` on your `.env`.
   </Tab>
 </Tabs>
 
-**Finally**, set the base layer endpoints.
-
-For a Grimsvotn L2 node this would be:
+**Finally**, set the following L1 node endpoints in your `.env` file:
 
 - `L1_ENDPOINT_HTTP`
 - `L1_ENDPOINT_WS`
 
-For an Eldfell L3 node this would be:
-
-- `L2_ENDPOINT_HTTP`
-- `L2_ENDPOINT_WS`
-
-Take a look at the comments above these values in the `.env.sample` and `.env.sample.l3` to see how to set them up.
+Take a look at the comments above these values in the `.env.sample` to see how to set them up.
 
 ### Start a node
 
-Make sure Docker is running and then run the following command to start the node.
-
-For a Grimsvotn L2 node:
+Make sure Docker is running and then run the following command to start the node:
 
 ```sh
 sudo docker compose up -d
 ```
 
-For an Eldfell L3 node:
-
-```sh
-sudo docker compose -f ./docker-compose.l3.yml --env-file .env.l3 up -d
-```
-
 ### Verify node is running
+
+#### Check with the node dashboard
+
+A node dashboard will be running on `localhost` on the `GRAFANA_PORT` you set in your `.env` file, which defaults to `3001`: [http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview](http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview).
+
+You can verify that your node is syncing by checking the **chain head** on the dashboard and seeing that it is increasing. Once the chain head matches what's on the block explorer, you are fully synced.
 
 #### Check with curl commands
 
-1. Check if the Execution Layer client is connected to Taiko L2 / L3:
+1. Check if the Execution Layer client is connected to Taiko L2:
 
 ```bash
 curl http://localhost:8547 \
@@ -181,8 +172,6 @@ which should return the chainId as `0x28c5d` (167005):
 ```json
 { "jsonrpc": "2.0", "id": 0, "result": "0x28c5d" }
 ```
-
-For Taiko L3, use port 8549 for the `eth_chainId` curl request and you should get chainId `0x28c5e` (167006).
 
 2. Check if the Execution Layer client is synced by requesting the latest Taiko L2 / L3 block from the Execution Layer client:
 
@@ -199,22 +188,7 @@ curl http://localhost:8547 \
 sudo docker compose logs -f
 ```
 
-or the Taiko L3 logs here
-
-```bash
-sudo docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f
-```
-
 If you find an error, check the [Node troubleshooting](/docs/reference/node-troubleshooting) page.
-
-#### Check with the node dashboard
-
-A node dashboard will be running on `localhost` on the `GRAFANA_PORT` you set in your `.env` or `.env.l3` file.
-
-- For a Grimsvotn L2 node that would default to: [http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview](http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview).
-- For a Eldfell L3 node that would default to: [http://localhost:3002/d/L2ExecutionEngine/l2-execution-engine-overview](http://localhost:3002/d/L2ExecutionEngine/l2-execution-engine-overview).
-
-You can verify that your node is syncing by checking the **chain head** on the dashboard and seeing that it is increasing. Once the chain head matches what's on the block explorer, you are fully synced.
 
 <br />
 
@@ -235,8 +209,9 @@ You can find all node operations (eg. stop node, update node, remove node, view 
 
 ## Videos
 
-- [Run a Taiko L2 node (YouTube)](https://www.youtube.com/watch?v=l_tVvDcuK5o)
-- [Run a Taiko L3 node (YouTube)](https://www.youtube.com/watch?v=FCerB2PhLZI)
+{/* TODO(docs): add new video for L2 node running below */}
+
+- [Run a Taiko L2 node (YouTube)](https://www.youtube.com/watch?v=l_tVvDcuK5o) (deprecated, but still useful)
 
 ## Troubleshooting
 

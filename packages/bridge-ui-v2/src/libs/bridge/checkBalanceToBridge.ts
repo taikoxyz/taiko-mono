@@ -1,4 +1,4 @@
-import { getPublicClient } from '@wagmi/core';
+import { fetchBalance, getPublicClient } from '@wagmi/core';
 import { type Address, zeroAddress } from 'viem';
 
 import { routingContractsMap } from '$bridgeConfig';
@@ -72,7 +72,14 @@ export async function checkBalanceToBridge({
     // since we are briding a token, we need the ETH balance of the wallet
     balance = await getPublicClient().getBalance(wallet.account);
 
-    if (!tokenAddress || tokenAddress === zeroAddress || balance === BigInt(0)) return false;
+    const tokenBalance = await fetchBalance({
+      address: wallet.account.address,
+      token: tokenAddress,
+      chainId: srcChainId,
+    });
+
+    if (!tokenAddress || tokenAddress === zeroAddress || balance === BigInt(0) || tokenBalance.value <= amount)
+      throw new InsufficientBalanceError('you do not have enough balance to bridge');
 
     const bridge = bridges[token.type];
 

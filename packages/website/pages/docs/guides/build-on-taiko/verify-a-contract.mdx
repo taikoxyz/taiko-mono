@@ -2,19 +2,13 @@ import { Callout, Steps, Tab, Tabs } from "nextra-theme-docs";
 
 # Verify a contract
 
-This guide will help get your contract verified on a Taiko testnet!
+This guide will help get your contract verified on Taiko!
 
 ## Prerequisites
 
-- You have a contract deployed on a Taiko testnet and the source code available.
+- You have a contract deployed on Taiko and the source code available.
 
 ## Steps
-
-<Callout type="info">
-  Make sure to set the RPC to the network you are trying to deploy to. The ones
-  here just use Grimsvotn L2 as an example. You can see all the RPC urls under
-  [RPC configuration](/docs/reference/rpc-configuration).
-</Callout>
 
 <Tabs items={["Hardhat", "Blockscout", "Foundry"]} defaultIndex="0">
   <Tab>
@@ -75,27 +69,25 @@ This guide will help get your contract verified on a Taiko testnet!
     Follow Blockscout's [official guide](https://docs.blockscout.com/for-users/verifying-a-smart-contract) to verify your contract on Taiko's blockscout explorers.
   </Tab>
   <Tab>
-    Copy the following Foundry test repo https://github.com/MarcusWentz/foundry-testing using git clone SSH
+    Copy the following Foundry test repo https://github.com/MarcusWentz/foundry-testing using git clone SSH:
     ```sh
     git clone git@github.com:MarcusWentz/foundry-testing.git
     ```
-    Deploy to Taiko Grimsvotn L2 network and verify at the same time on Blockscout (with EIP-1559 gas [transaction type 1])
+
+    Deploy to Taiko and verify at the same time on Blockscout (with EIP-1559 gas [transaction type 1]):
     ```sh
-    forge create --rpc-url https://rpc.test.taiko.xyz --private-key $devTestnetPrivateKey src/Contract.sol:SimpleStorage --verify --verifier blockscout --verifier-url https://explorer.test.taiko.xyz/api\? 
+    forge create --rpc-url https://rpc.test.taiko.xyz --private-key $devTestnetPrivateKey src/Contract.sol:SimpleStorage --verify --verifier blockscout --verifier-url https://explorer.test.taiko.xyz/api\?
     ```
-    Deploy to Taiko Eldfell L3 network and verify at the same time on Blockscout (with EIP-1559 gas [transaction type 1]) 
-    ```sh
-    forge create --rpc-url https://rpc.l3test.taiko.xyz --private-key $devTestnetPrivateKey src/Contract.sol:SimpleStorage --verify --verifier blockscout --verifier-url https://blockscoutapi.l3test.taiko.xyz/api\?
-    ```    
     <Callout type="info">
-        To use Legacy gas for [transaction type 0], add the 
+        To use Legacy gas for [transaction type 0], add the
         ```sh
-        --legacy 
+        --legacy
         ```
-        flag with forge create. Example: 
+        flag with forge create. Example:
         ```
-        forge create --legacy --rpc-url https://rpc.test.taiko.xyz --private-key $devTestnetPrivateKey src/Contract.sol:SimpleStorage --verify --verifier blockscout --verifier-url https://explorer.test.taiko.xyz/api\?  
+        forge create --legacy --rpc-url https://rpc.test.taiko.xyz --private-key $devTestnetPrivateKey src/Contract.sol:SimpleStorage --verify --verifier blockscout --verifier-url https://explorer.test.taiko.xyz/api\?
         ```
-    </Callout> 
+    </Callout>
+
   </Tab>
 </Tabs>

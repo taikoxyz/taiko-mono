@@ -57,6 +57,14 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/catalyst.png",
+    name: "Catalyst",
+    link: "https://catalyst.exchange/",
+    description: "Catalyst is the cross-chain AMM built to connect all chains",
+    filters: [],
+    isLive: false,
+  },
+  {
     icon: "/images/ecosystem/chaindrop-faucet.png",
     name: "Chaindrop Faucet",
     link: "https://chaindrop.org",
@@ -93,6 +101,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/cyberscan.png",
+    name: "Cyberscan",
+    link: "https://www.cyberscope.io/cyberscan",
+    description:
+      "Cyberscan is a convenient tool that helps investors quickly gain insight into a given cryptocurrency token",
+    filters: [],
+    isLive: false,
+  },
+  {
     icon: "/images/ecosystem/foxwallet.png",
     name: "FoxWallet",
     link: "https://foxwallet.com",
@@ -114,8 +131,7 @@ const ecosystemData: EcosystemData[] = [
     icon: "/images/ecosystem/mesprotocol.png",
     name: "MES Protocol",
     link: "https://www.mesprotocol.com/",
-    description:
-      "MES is a cross-rollup orderbook DEX.",
+    description: "MES is a cross-rollup orderbook DEX.",
     filters: [],
     isLive: false,
   },
@@ -172,6 +188,15 @@ const ecosystemData: EcosystemData[] = [
       "Morkie aims to create an immersive oasis for NFT enthusiasts and collectors, offering them a unique space to not only showcase their digital assets but also to earn rewards for their loyalty and participation in the ecosystem.",
     filters: ["nft"],
     isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/movechess.png",
+    name: "Movechess",
+    link: "https://movechess.com",
+    description:
+      "MoveChess is a chess project currently under development by the MoveLabs team. Its primary goal is to provide a platform for chess enthusiasts within the Taiko community and offer various activities related to NFT rewards on the MoveChess platform.",
+    filters: [],
+    isLive: false,
   },
   {
     icon: "/images/ecosystem/mxc.svg",
@@ -298,6 +323,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/stakeme.png",
+    name: "STAKEME",
+    link: "https://stakeme.pro/",
+    description:
+      "STAKEME assists web 3.0 projects with product testing, increasing testnet participants, and offers optimal development tools. As reliable validators, we offer RPC, snapshots, and essential utilities. We have developed a multi-chain faucet and a self-writing explorer adapted to high loads.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/soul-wallet.svg",
     name: "Soul Wallet",
     link: "https://soulwallet.io",
@@ -356,6 +390,15 @@ const ecosystemData: EcosystemData[] = [
       "vooi is a stableswap AMM DEX built for L2 chains on top of Unbounded pool technology.",
     filters: [],
     isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/x7finance.png",
+    name: "X7R",
+    link: "https://x7.finance/",
+    description:
+      "Launch your project on Xchange with 10-1000x the initial liquidity into the Ethereum ecosystem where anyone can Swap, Borrow and Lend.",
+    filters: [],
+    isLive: false,
   },
   {
     icon: "/images/ecosystem/zeroswap.png",
@@ -469,7 +512,7 @@ export function EcosystemSection() {
           setActiveFilter={setActiveFilter}
         />
       </div> */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pt-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 pt-6">
         {/* NOTE: commented out because we won't need this until we have grown our ecosystem page further */}
         {filteredData.map((_) => (
           // {ecosystemData.map((_) => (
@@ -491,13 +534,15 @@ export function EcosystemSection() {
 function FilterLabel({ text, activeFilter, setActiveFilter }) {
   const isActive = activeFilter === text;
 
-  const buttonStyles = `border rounded-full py-1 px-4 text-sm focus:outline-none transition-colors duration-200 font-bold ${isActive
-    ? "bg-gray-300 text-black"
-    : "bg-white text-gray-700 dark:bg-black dark:text-gray-300"
-    } ${isActive
+  const buttonStyles = `border rounded-full py-1 px-4 text-sm focus:outline-none transition-colors duration-200 font-bold ${
+    isActive
+      ? "bg-gray-300 text-black"
+      : "bg-white text-gray-700 dark:bg-black dark:text-gray-300"
+  } ${
+    isActive
       ? "hover:bg-gray-400"
       : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
-    }`;
+  }`;
 
   return (
     <button className={buttonStyles} onClick={() => setActiveFilter(text)}>

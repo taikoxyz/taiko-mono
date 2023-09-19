@@ -3,7 +3,6 @@ package processor
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -56,7 +55,6 @@ type Config struct {
 	SrcRPCUrl        string
 	DestRPCUrl       string
 	ETHClientTimeout uint64
-	CORSOrigins      []string
 	OpenQueueFunc    func() (queue.Queue, error)
 	OpenDBFunc       func() (DB, error)
 }
@@ -91,7 +89,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		QueueHost:               c.String(flags.QueueHost.Name),
 		SrcRPCUrl:               c.String(flags.SrcRPCUrl.Name),
 		DestRPCUrl:              c.String(flags.DestRPCUrl.Name),
-		CORSOrigins:             strings.Split(c.String(flags.CORSOrigins.Name), ","),
 		HeaderSyncInterval:      c.Uint64(flags.HeaderSyncInterval.Name),
 		Confirmations:           c.Uint64(flags.Confirmations.Name),
 		ConfirmationsTimeout:    c.Uint64(flags.ConfirmationTimeout.Name),

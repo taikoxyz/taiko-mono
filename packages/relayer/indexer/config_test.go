@@ -12,9 +12,19 @@ import (
 )
 
 var (
-	srcTaikoAddr   = "0x53FaC9201494f0bd17B9892B9fae4d52fe3BD377"
-	srcBridgeAddr  = "0x73FaC9201494f0bd17B9892B9fae4d52fe3BD377"
-	destBridgeAddr = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
+	srcTaikoAddr            = "0x53FaC9201494f0bd17B9892B9fae4d52fe3BD377"
+	srcBridgeAddr           = "0x73FaC9201494f0bd17B9892B9fae4d52fe3BD377"
+	destBridgeAddr          = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
+	ethClientTimeout        = "10"
+	databaseMaxIdleConns    = "10"
+	databaseMaxOpenConns    = "10"
+	databaseMaxConnLifetime = "30"
+	blockBatchSize          = "100"
+	numGoroutines           = "10"
+	subscriptionBackoff     = "30"
+	syncMode                = "sync"
+	watchMode               = "filter"
+	HTTPPort                = "1000"
 )
 
 func setupApp() *cli.App {
@@ -48,6 +58,16 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, common.HexToAddress(srcBridgeAddr), c.SrcBridgeAddress)
 		assert.Equal(t, common.HexToAddress(srcTaikoAddr), c.SrcTaikoAddress)
 		assert.Equal(t, []string{"*"}, c.CORSOrigins)
+		assert.Equal(t, uint64(10), c.ETHClientTimeout)
+		assert.Equal(t, uint64(10), c.DatabaseMaxIdleConns)
+		assert.Equal(t, uint64(10), c.DatabaseMaxOpenConns)
+		assert.Equal(t, uint64(30), c.DatabaseMaxConnLifetime)
+		assert.Equal(t, uint64(100), c.BlockBatchSize)
+		assert.Equal(t, uint64(10), c.NumGoroutines)
+		assert.Equal(t, uint64(30), c.SubscriptionBackoff)
+		assert.Equal(t, SyncMode(syncMode), c.SyncMode)
+		assert.Equal(t, WatchMode(watchMode), c.WatchMode)
+		assert.Equal(t, uint64(1000), c.HTTPPort)
 
 		c.OpenDBFunc = func() (DB, error) {
 			return &mock.DB{}, nil
@@ -78,5 +98,15 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"-" + flags.SrcBridgeAddress.Name, srcBridgeAddr,
 		"-" + flags.SrcTaikoAddress.Name, srcTaikoAddr,
 		"-" + flags.CORSOrigins.Name, "*",
+		"-" + flags.ETHClientTimeout.Name, ethClientTimeout,
+		"-" + flags.DatabaseMaxOpenConns.Name, databaseMaxOpenConns,
+		"-" + flags.DatabaseMaxIdleConns.Name, databaseMaxIdleConns,
+		"-" + flags.DatabaseConnMaxLifetime.Name, databaseMaxConnLifetime,
+		"-" + flags.BlockBatchSize.Name, blockBatchSize,
+		"-" + flags.MaxNumGoroutines.Name, numGoroutines,
+		"-" + flags.SubscriptionBackoff.Name, subscriptionBackoff,
+		"-" + flags.SyncMode.Name, syncMode,
+		"-" + flags.WatchMode.Name, watchMode,
+		"-" + flags.HTTPPort.Name, HTTPPort,
 	}))
 }
