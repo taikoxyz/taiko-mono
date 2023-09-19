@@ -27,17 +27,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         bytes32 signalRoot;
     }
 
-    struct EIP1559Params {
-        uint64 basefee;
-        uint32 gasIssuedPerSecond;
-        uint64 gasExcessMax;
-        uint64 gasTarget;
-        uint64 ratio2x1x;
-    }
-
     struct EIP1559Config {
+        uint128 xscale;
         uint128 yscale;
-        uint64 xscale;
         uint32 gasIssuedPerSecond;
     }
 
@@ -48,15 +40,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     // A hash to check the integrity of public inputs.
     bytes32 public publicInputHash; // slot 3
-
-    EIP1559Config public eip1559Config; // slot 4
-
-    uint64 public parentTimestamp; // slot 5
+    uint64 public parentTimestamp; // slot 4
     uint64 public latestSyncedL1Height;
     uint64 public gasExcess;
-    uint64 private __reserved1;
 
-    uint256[145] private __gap;
+    uint256[146] private __gap;
 
     // Captures all block variables mentioned in
     // https://docs.soliditylang.org/en/v0.8.20/units-and-global-variables.html
@@ -71,8 +59,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         uint64 chainid
     );
 
-    event EIP1559ConfigUpdated(EIP1559Config config, uint64 gasExcess);
-
     error L2_BASEFEE_MISMATCH();
     error L2_INVALID_1559_PARAMS();
     error L2_INVALID_CHAIN_ID();
@@ -82,20 +68,14 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     /// @notice Initializes the TaikoL2 contract.
     /// @param _addressManager Address of the {AddressManager} contract.
-    /// @param _param1559 EIP-1559 parameters to set up the gas pricing model.
-    function init(
-        address _addressManager,
-        EIP1559Params calldata _param1559
-    )
-        external
-        initializer
-    {
+    function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
+
+        if (block.number > 1) revert L2_TOO_LATE();
 
         if (block.chainid <= 1 || block.chainid >= type(uint64).max) {
             revert L2_INVALID_CHAIN_ID();
         }
-        if (block.number > 1) revert L2_TOO_LATE();
 
         parentTimestamp = uint64(block.timestamp);
         (publicInputHash,) = _calcPublicInputHash(block.number);
@@ -104,8 +84,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             uint256 parentHeight = block.number - 1;
             _l2Hashes[parentHeight] = blockhash(parentHeight);
         }
-
-        updateEIP1559Config(_param1559);
     }
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
@@ -154,6 +132,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             });
         }
 
+        // To make sure when EIP-1559 is enabled, the basefee is non-zero
+        // (Geth never uses 0 values for basefee)
+        if (basefee == 0) {
+            basefee = 1;
+        }
         // On L2, basefee is not burnt, but sent to a treasury instead.
         // The circuits will need to verify the basefee recipient is the
         // designated address.
@@ -177,41 +160,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             coinbase: block.coinbase,
             chainid: uint64(block.chainid)
         });
-    }
-
-    /// @notice Updates EIP-1559 configurations.
-    /// @param _param1559 EIP-1559 parameters to set up the gas pricing model.
-    function updateEIP1559Config(EIP1559Params calldata _param1559)
-        public
-        onlyOwner
-    {
-        if (_param1559.gasIssuedPerSecond == 0) {
-            delete eip1559Config;
-            delete gasExcess;
-        } else {
-            if (
-                _param1559.basefee == 0 || _param1559.gasExcessMax == 0
-                    || _param1559.gasTarget == 0 || _param1559.ratio2x1x == 0
-            ) revert L2_INVALID_1559_PARAMS();
-
-            (uint128 xscale, uint128 yscale) = Lib1559Math.calculateScales({
-                xExcessMax: _param1559.gasExcessMax,
-                price: _param1559.basefee,
-                target: _param1559.gasTarget,
-                ratio2x1x: _param1559.ratio2x1x
-            });
-
-            if (xscale == 0 || xscale >= type(uint64).max || yscale == 0) {
-                revert L2_INVALID_1559_PARAMS();
-            }
-            eip1559Config.yscale = yscale;
-            eip1559Config.xscale = uint64(xscale);
-            eip1559Config.gasIssuedPerSecond = _param1559.gasIssuedPerSecond;
-
-            gasExcess = _param1559.gasExcessMax / 2;
-        }
-
-        emit EIP1559ConfigUpdated(eip1559Config, gasExcess);
     }
 
     /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
@@ -270,16 +218,48 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         }
     }
 
-    /// @notice Retrieves the current EIP-1559 configuration details.
-    /// @return The current EIP-1559 configuration details, including the
-    /// yscale, xscale, and gasIssuedPerSecond parameters.
+    /// @notice Cauclates the EIP-1559 configurations.
+    function calcEIP1559Config(
+        uint64 basefee,
+        uint32 gasIssuedPerSecond,
+        uint64 gasExcessMax,
+        uint64 gasTarget,
+        uint64 ratio2x1x
+    )
+        public
+        pure
+        returns (EIP1559Config memory config)
+    {
+        if (
+            gasIssuedPerSecond == 0 || basefee == 0 || gasExcessMax == 0
+                || gasTarget == 0 || ratio2x1x == 0
+        ) revert L2_INVALID_1559_PARAMS();
+
+        (config.xscale, config.yscale) = Lib1559Math.calculateScales({
+            xExcessMax: gasExcessMax,
+            price: basefee,
+            target: gasTarget,
+            ratio2x1x: ratio2x1x
+        });
+
+        if (config.xscale == 0 || config.yscale == 0) {
+            revert L2_INVALID_1559_PARAMS();
+        }
+        config.gasIssuedPerSecond = gasIssuedPerSecond;
+    }
+
+    /// @notice Returns the current EIP-1559 configuration details.
+    /// @return config The current EIP-1559 configuration details.
     function getEIP1559Config()
         public
-        view
+        pure
         virtual
-        returns (EIP1559Config memory)
+        returns (EIP1559Config memory config)
     {
-        return eip1559Config;
+        // The following values are caculated in TestTaikoL2_1559.sol.
+        config.xscale = 1_488_514_844;
+        config.yscale = 358_298_803_609_133_338_138_868_404_779;
+        config.gasIssuedPerSecond = 12_500_000;
     }
 
     function _calcPublicInputHash(uint256 blockId)
@@ -337,12 +317,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             xExcess: _gasExcess,
             xPurchase: 0
         });
-
-        if (_basefee == 0) {
-            // To make sure when EIP-1559 is enabled, the basefee is non-zero
-            // (Geth never uses 0 values for basefee)
-            _basefee = 1;
-        }
     }
 }
 
