@@ -23,6 +23,17 @@ func (i *Indexer) handleEvent(
 ) error {
 	slog.Info("event found for msgHash", "msgHash", common.Hash(event.MsgHash).Hex(), "txHash", event.Raw.TxHash.Hex())
 
+	if event.Message.DestChainId.Cmp(i.destChainId) != 0 {
+		slog.Info("skipping event, wrong chainID",
+			"messageDestChainID",
+			event.Message.DestChainId.Uint64(),
+			"indexerDestChainID",
+			i.destChainId.Uint64(),
+		)
+
+		return nil
+	}
+
 	if err := i.detectAndHandleReorg(ctx, relayer.EventNameMessageSent, common.Hash(event.MsgHash).Hex()); err != nil {
 		return errors.Wrap(err, "svc.detectAndHandleReorg")
 	}
@@ -71,7 +82,6 @@ func (i *Indexer) handleEvent(
 		return errors.Wrap(err, "svc.eventRepo.Save")
 	}
 
-	// TODO: add to queue
 	msg := queue.QueueMessageBody{
 		ID:    e.ID,
 		Event: event,
