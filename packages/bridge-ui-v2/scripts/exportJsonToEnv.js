@@ -3,7 +3,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { Logger as LogUtil } from './utils/Logger.js';
+import { PluginLogger as LogUtil } from './utils/PluginLogger.js';
 
 const Logger = new LogUtil('exportJsonToEnv');
 

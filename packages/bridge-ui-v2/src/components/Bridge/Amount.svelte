@@ -232,7 +232,7 @@
         {$t('inputs.amount.button.max')}
       </button>
     </div>
-    <div class="flex mt-[8px] mb-[24px]">
+    <div class="flex mt-[8px] min-h-[24px]">
       {#if showInsufficientBalanceAlert}
         <FlatAlert type="error" message={$t('bridge.errors.insufficient_balance')} class="relative" />
       {:else if showInsiffucientAllowanceAlert}

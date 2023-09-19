@@ -7,7 +7,7 @@ const Reset = '\x1b[0m';
 
 const timestamp = () => new Date().toLocaleTimeString();
 
-export class Logger {
+export class PluginLogger {
   /**
    * @param {string} pluginName
    */

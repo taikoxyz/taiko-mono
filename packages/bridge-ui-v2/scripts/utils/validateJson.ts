@@ -1,13 +1,13 @@
 /* eslint-disable no-console */
 import Ajv, { type Schema } from 'ajv';
 
-import { Logger } from './Logger';
+import { PluginLogger } from './PluginLogger';
 
 const ajv = new Ajv({ strict: false });
 
 type SchmaWithId = Schema & { $id?: string };
 
-const logger = new Logger('json-validator');
+const logger = new PluginLogger('json-validator');
 
 export const validateJsonAgainstSchema = (json: JSON, schema: SchmaWithId): boolean => {
   logger.info(`Validating ${schema.$id}`);

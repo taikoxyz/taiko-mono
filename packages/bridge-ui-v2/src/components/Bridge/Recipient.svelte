@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
@@ -32,12 +33,13 @@
   function openModal() {
     modalOpen = true;
     addressInput.focus();
+    addEscKeyListener();
   }
 
   function cancelModal() {
     // Revert change of recipient address
     $recipientAddress = prevRecipientAddress;
-
+    removeEscKeyListener();
     closeModal();
   }
 
@@ -57,6 +59,25 @@
       invalidAddress = true;
     }
   }
+
+  let escKeyListener: (event: KeyboardEvent) => void;
+
+  const addEscKeyListener = () => {
+    escKeyListener = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeModal();
+      }
+    };
+    window.addEventListener('keydown', escKeyListener);
+  };
+
+  const removeEscKeyListener = () => {
+    window.removeEventListener('keydown', escKeyListener);
+  };
+
+  onDestroy(() => {
+    removeEscKeyListener();
+  });
 
   $: modalOpenChange(modalOpen);
 
@@ -87,8 +108,8 @@
   </span>
 
   <dialog id={dialogId} class="modal" class:modal-open={modalOpen}>
-    <div class="modal-box relative px-6 py-[35px] md:rounded-[20px] bg-neutral-background">
-      <button class="absolute right-6 top-[35px]" on:click={closeModal}>
+    <div class="modal-box relative px-6 md:rounded-[20px] bg-neutral-background">
+      <button class="absolute right-6" on:click={closeModal}>
         <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
       </button>
 

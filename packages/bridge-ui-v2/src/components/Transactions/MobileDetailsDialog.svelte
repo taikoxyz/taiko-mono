@@ -4,7 +4,6 @@
 
   import { chainConfig } from '$chainConfig';
   import { Icon } from '$components/Icon';
-  import { Tooltip } from '$components/Tooltip';
   import type { BridgeTransaction } from '$libs/bridge';
   import { noop } from '$libs/util/noop';
   import { uid } from '$libs/util/uid';
@@ -35,7 +34,7 @@
 <dialog id={dialogId} class="modal modal-bottom" class:modal-open={detailsOpen}>
   <div
     class="modal-box relative border border-neutral-background px-6 py-[30px] dark:glassy-gradient-card dark:glass-background-gradient">
-    <button class="absolute right-6 top-[30px]" on:click={closeDetails}>
+    <button class="absolute right-6" on:click={closeDetails}>
       <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
     </button>
 
@@ -59,7 +58,7 @@
           <h4 class="text-secondary-content">
             <div class="f-items-center space-x-1">
               <button on:click={openToolTip}>
-                <span>{$t('activities.header.status')}</span>
+                <span>{$t('transactions.header.status')}</span>
               </button>
               <button on:click={handleStatusDialog} class="flex justify-start content-center">
                 <Icon type="question-circle" />
@@ -71,12 +70,12 @@
           </div>
         </li>
         <li class="f-between-center">
-          <h4 class="text-secondary-content">{$t('activities.header.explorer')}</h4>
+          <h4 class="text-secondary-content">{$t('transactions.header.explorer')}</h4>
           <a
             class="flex justify-start content-center"
             href={`${chainConfig[Number(selectedItem.srcChainId)].urls.explorer}/tx/${selectedItem.hash}`}
             target="_blank">
-            {$t('activities.link.explorer')}
+            {$t('transactions.link.explorer')}
             <Icon type="arrow-top-right" />
           </a>
         </li>
