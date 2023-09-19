@@ -19,17 +19,17 @@ contract TestTaikoL2 is TestBase {
 
     function setUp() public {
         uint16 rand = 2;
-        TaikoL2.EIP1559Params memory param1559 = TaikoL2.EIP1559Params({
-            basefee: (uint256(BLOCK_GAS_LIMIT * 10) * rand).toUint64(),
-            gasIssuedPerSecond: 1_000_000,
-            gasExcessMax: (uint256(15_000_000) * 256 * rand).toUint64(),
-            gasTarget: (uint256(6_000_000) * rand).toUint64(),
-            ratio2x1x: 11_177
-        });
+        // TaikoL2.EIP1559Params memory param1559 = TaikoL2.EIP1559Params({
+        //     basefee: (uint256(BLOCK_GAS_LIMIT * 10) * rand).toUint64(),
+        //     gasIssuedPerSecond: 1_000_000,
+        //     gasExcessMax: (uint256(15_000_000) * 256 * rand).toUint64(),
+        //     gasTarget: (uint256(6_000_000) * rand).toUint64(),
+        //     ratio2x1x: 11_177
+        // });
 
         L2 = new TaikoL2();
         address dummyAddressManager = getRandomAddress();
-        L2.init(dummyAddressManager, param1559);
+        L2.init(dummyAddressManager);
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);

@@ -166,31 +166,35 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     }
 
     /// @notice Updates EIP-1559 configurations.
-    /// @param _param1559 EIP-1559 parameters to set up the gas pricing model.
-    function calculateEIP1559Config(EIP1559Params calldata _param1559)
+    function calculateEIP1559Config(
+        uint64 basefee,
+        uint32 gasIssuedPerSecond,
+        uint64 gasExcessMax,
+        uint64 gasTarget,
+        uint64 ratio2x1x
+    )
         public
         pure
-        returns (uint64 xscale, uint128 yscale, uint32 gasIssuedPerSecond)
+        returns (uint64 xscale, uint128 yscale)
     {
-        if (_param1559.gasIssuedPerSecond != 0) {
+        if (gasIssuedPerSecond != 0) {
             if (
-                _param1559.basefee == 0 || _param1559.gasExcessMax == 0
-                    || _param1559.gasTarget == 0 || _param1559.ratio2x1x == 0
+                basefee == 0 || gasExcessMax == 0 || gasTarget == 0
+                    || ratio2x1x == 0
             ) revert L2_INVALID_1559_PARAMS();
 
             uint128 _xscale;
             (_xscale, yscale) = Lib1559Math.calculateScales({
-                xExcessMax: _param1559.gasExcessMax,
-                price: _param1559.basefee,
-                target: _param1559.gasTarget,
-                ratio2x1x: _param1559.ratio2x1x
+                xExcessMax: gasExcessMax,
+                price: basefee,
+                target: gasTarget,
+                ratio2x1x: ratio2x1x
             });
 
-            if (xscale == 0 || xscale >= type(uint64).max || yscale == 0) {
+            if (_xscale == 0 || _xscale >= type(uint64).max || yscale == 0) {
                 revert L2_INVALID_1559_PARAMS();
             }
             xscale = uint64(_xscale);
-            gasIssuedPerSecond = _param1559.gasIssuedPerSecond;
         }
     }
 
