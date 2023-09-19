@@ -30,6 +30,7 @@
   import { account } from '$stores/account';
   import { network } from '$stores/network';
   import { pendingTransactions } from '$stores/pendingTransactions';
+
   import InsufficientFunds from './InsufficientFunds.svelte';
 
   const log = getLogger('components:Status');
