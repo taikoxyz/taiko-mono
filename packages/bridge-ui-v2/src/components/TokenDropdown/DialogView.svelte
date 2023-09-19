@@ -20,6 +20,7 @@
   export let value: Maybe<Token> = null;
   export let menuOpen = false;
   export let modalOpen = false;
+  export let onlyMintable: boolean = false;
   export let selectToken: (token: Token) => void = noop;
   export let closeMenu: () => void = noop;
 
@@ -83,37 +84,40 @@
             </div>
           </li>
         {/each}
-        {#each customTokens as token, index (index)}
-          <li
-            role="option"
-            tabindex="0"
-            aria-selected={token === value}
-            on:click={() => selectToken(token)}
-            on:keydown={getTokenKeydownHandler(token)}>
-            <div class="p-4">
-              <i role="img" aria-label={token.name}>
-                <Erc20 />
-              </i>
-              <span class="body-bold">{token.symbol}</span>
-            </div>
-          </li>
-        {/each}
-        <div class="h-sep" />
-        <li>
-          <button on:click={showAddERC20} class="flex hover:bg-dark-5 justify-center items-center p-4 rounded-sm">
-            <Icon type="plus-circle" fillClass="fill-primary-icon" size={20} vWidth={30} vHeight={30} />
-            <span
-              class="
+        {#if !onlyMintable}
+          {#each customTokens as token, index (index)}
+            <li
+              role="option"
+              tabindex="0"
+              aria-selected={token === value}
+              on:click={() => selectToken(token)}
+              on:keydown={getTokenKeydownHandler(token)}>
+              <div class="p-4">
+                <i role="img" aria-label={token.name}>
+                  <Erc20 />
+                </i>
+                <span class="body-bold">{token.symbol}</span>
+              </div>
+            </li>
+          {/each}
+
+          <div class="h-sep" />
+          <li>
+            <button on:click={showAddERC20} class="flex hover:bg-dark-5 justify-center items-center p-4 rounded-sm">
+              <Icon type="plus-circle" fillClass="fill-primary-icon" size={20} vWidth={30} vHeight={30} />
+              <span
+                class="
             body-bold
             bg-transparent
             flex-1
             w-[100px]
             px-0
             pl-2">
-              {$t('token_dropdown.add_custom')}
-            </span>
-          </button>
-        </li>
+                {$t('token_dropdown.add_custom')}
+              </span>
+            </button>
+          </li>
+        {/if}
       </ul>
     </div>
   </div>
