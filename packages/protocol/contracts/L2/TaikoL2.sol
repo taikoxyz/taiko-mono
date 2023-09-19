@@ -47,11 +47,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     mapping(uint256 blockId => VerifiedBlock) private _l1VerifiedBlocks;
 
     // A hash to check the integrity of public inputs.
-    bytes32 public publicInputHash;
+    bytes32 public publicInputHash; // slot 3
 
-    EIP1559Config private _eip1559Config;
+    EIP1559Config public eip1559Config; // slot 4
 
-    uint64 public parentTimestamp;
+    uint64 public parentTimestamp; // slot 5
     uint64 public latestSyncedL1Height;
     uint64 public gasExcess;
     uint64 private __reserved1;
@@ -68,17 +68,17 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         bytes32 parentHash,
         uint256 prevrandao,
         address coinbase,
-        uint32 chainid
+        uint64 chainid
     );
 
-    error L2_BASEFEE_MISMATCH(uint64 expected, uint64 actual);
+    event EIP1559ConfigUpdated(EIP1559Config config, uint64 gasExcess);
+
+    error L2_BASEFEE_MISMATCH();
     error L2_INVALID_1559_PARAMS();
     error L2_INVALID_CHAIN_ID();
     error L2_INVALID_SENDER();
-    error L2_PUBLIC_INPUT_HASH_MISMATCH(bytes32 expected, bytes32 actual);
+    error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
-    error L2_1559_UNEXPECTED_CHANGE(uint64 expected, uint64 actual);
-    error L2_1559_OUT_OF_STOCK();
 
     /// @notice Initializes the TaikoL2 contract.
     /// @param _addressManager Address of the {AddressManager} contract.
@@ -90,43 +90,22 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         external
         initializer
     {
-        if (block.chainid <= 1 || block.chainid >= type(uint32).max) {
+        EssentialContract._init(_addressManager);
+
+        if (block.chainid <= 1 || block.chainid >= type(uint64).max) {
             revert L2_INVALID_CHAIN_ID();
         }
         if (block.number > 1) revert L2_TOO_LATE();
 
-        if (_param1559.gasIssuedPerSecond != 0) {
-            if (
-                _param1559.basefee == 0 || _param1559.gasExcessMax == 0
-                    || _param1559.gasTarget == 0 || _param1559.ratio2x1x == 0
-            ) revert L2_INVALID_1559_PARAMS();
-
-            (uint128 xscale, uint128 yscale) = Lib1559Math.calculateScales({
-                xExcessMax: _param1559.gasExcessMax,
-                price: _param1559.basefee,
-                target: _param1559.gasTarget,
-                ratio2x1x: _param1559.ratio2x1x
-            });
-
-            if (xscale == 0 || xscale >= type(uint64).max || yscale == 0) {
-                revert L2_INVALID_1559_PARAMS();
-            }
-            _eip1559Config.yscale = yscale;
-            _eip1559Config.xscale = uint64(xscale);
-            _eip1559Config.gasIssuedPerSecond = _param1559.gasIssuedPerSecond;
-
-            gasExcess = _param1559.gasExcessMax / 2;
-        }
-
         parentTimestamp = uint64(block.timestamp);
-
-        EssentialContract._init(_addressManager);
-
         (publicInputHash,) = _calcPublicInputHash(block.number);
+
         if (block.number > 0) {
             uint256 parentHeight = block.number - 1;
             _l2Hashes[parentHeight] = blockhash(parentHeight);
         }
+
+        updateEIP1559Config(_param1559);
     }
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
@@ -152,7 +131,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         (bytes32 prevPIH, bytes32 currPIH) = _calcPublicInputHash(parentHeight);
 
         if (publicInputHash != prevPIH) {
-            revert L2_PUBLIC_INPUT_HASH_MISMATCH(publicInputHash, prevPIH);
+            revert L2_PUBLIC_INPUT_HASH_MISMATCH();
         }
 
         // Replace the oldest block hash with the parent's blockhash
@@ -179,7 +158,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         // The circuits will need to verify the basefee recipient is the
         // designated address.
         if (block.basefee != basefee) {
-            revert L2_BASEFEE_MISMATCH(uint64(basefee), uint64(block.basefee));
+            revert L2_BASEFEE_MISMATCH();
         }
 
         parentTimestamp = uint64(block.timestamp);
@@ -196,8 +175,43 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             parentHash: parentHash,
             prevrandao: block.prevrandao,
             coinbase: block.coinbase,
-            chainid: uint32(block.chainid)
+            chainid: uint64(block.chainid)
         });
+    }
+
+    /// @notice Updates EIP-1559 configurations.
+    /// @param _param1559 EIP-1559 parameters to set up the gas pricing model.
+    function updateEIP1559Config(EIP1559Params calldata _param1559)
+        public
+        onlyOwner
+    {
+        if (_param1559.gasIssuedPerSecond == 0) {
+            delete eip1559Config;
+            delete gasExcess;
+        } else {
+            if (
+                _param1559.basefee == 0 || _param1559.gasExcessMax == 0
+                    || _param1559.gasTarget == 0 || _param1559.ratio2x1x == 0
+            ) revert L2_INVALID_1559_PARAMS();
+
+            (uint128 xscale, uint128 yscale) = Lib1559Math.calculateScales({
+                xExcessMax: _param1559.gasExcessMax,
+                price: _param1559.basefee,
+                target: _param1559.gasTarget,
+                ratio2x1x: _param1559.ratio2x1x
+            });
+
+            if (xscale == 0 || xscale >= type(uint64).max || yscale == 0) {
+                revert L2_INVALID_1559_PARAMS();
+            }
+            eip1559Config.yscale = yscale;
+            eip1559Config.xscale = uint64(xscale);
+            eip1559Config.gasIssuedPerSecond = _param1559.gasIssuedPerSecond;
+
+            gasExcess = _param1559.gasExcessMax / 2;
+        }
+
+        emit EIP1559ConfigUpdated(eip1559Config, gasExcess);
     }
 
     /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
@@ -265,7 +279,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         virtual
         returns (EIP1559Config memory)
     {
-        return _eip1559Config;
+        return eip1559Config;
     }
 
     function _calcPublicInputHash(uint256 blockId)
