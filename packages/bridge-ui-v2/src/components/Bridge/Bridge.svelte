@@ -51,7 +51,6 @@
     if (newNetwork) {
       const destChainId = $destNetwork?.id;
       if (!$destNetwork?.id) return;
-
       // determine if we simply swapped dest and src networks
       if (newNetwork.id === destChainId) {
         destNetwork.set(oldNetwork);
