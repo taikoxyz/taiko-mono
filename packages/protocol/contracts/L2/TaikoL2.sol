@@ -232,12 +232,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             timeSinceParent: timeSinceParent,
             parentGasUsed: parentGasUsed
         });
-
-        if (_basefee == 0) {
-            // To make sure when EIP-1559 is enabled, the basefee is non-zero
-            // (Geth never uses 0 values for basefee)
-            _basefee = 1;
-        }
     }
 
     /// @inheritdoc ICrossChainSync
