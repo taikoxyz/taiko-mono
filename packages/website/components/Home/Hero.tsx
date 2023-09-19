@@ -59,10 +59,10 @@ export function Hero() {
                 </div>
                 <div className="inline-flex">
                   <a
-                    href="/docs/guides/run-a-node"
+                    href="/docs/guides/run-a-taiko-node"
                     className="inline-flex items-center rounded-md border-2 border-[#e81899] bg-transparent px-5 py-2.5 text-base font-semibold text-[#e81899] hover:border-[#d1168a] hover:text-[#d1168a] hover:no-underline w-auto"
                   >
-                    Run a node
+                    Run a Taiko node
                   </a>
                 </div>
               </div>
