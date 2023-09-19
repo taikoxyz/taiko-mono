@@ -5,6 +5,9 @@
   "rpc-configuration": {
     "title": "RPC configuration"
   },
+  "contract-documentation": {
+    "title": "Contract documentation"
+  },
   "prover-market": {
     "title": "Prover market"
   },
