@@ -353,7 +353,7 @@ async function generateContractConfigs(
                             ]),
                     ]
                 )}`,
-                _eip1559Config: {
+                eip1559Config: {
                     yscale: ethers.BigNumber.from(param1559.yscale),
                     xscale: ethers.BigNumber.from(param1559.xscale),
                     gasIssuedPerSecond: ethers.BigNumber.from(
