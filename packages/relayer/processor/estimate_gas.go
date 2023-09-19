@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	gasPaddingAmt uint64 = 50000
+	gasPaddingAmt uint64 = 80000
 )
 
 func (p *Processor) estimateGas(
