@@ -36,9 +36,11 @@ Set the following environment variables to enable your node as a proposer:
 - Set `L1_PROPOSER_PRIVATE_KEY` to the private key of your L1 account (with balance) who will send TaikoL1.proposeBlock transactions
 - Set `L2_SUGGESTED_FEE_RECIPIENT` to the address of your L2 account who will be the tx fee beneficiary of the L2 blocks that you proposed
 
-### Set a prover market prover
+### Set a prover market prover (needed if not running a prover locally)
 
-By default, the proposer will select a local prover to acquire the bond needed to propose a block. You can also specify a prover from the [prover market](/docs/reference/prover-market) by overriding the default value for:
+Doing this is optional if you are already running a local prover. See [enable a prover](/docs/guides/enable-a-prover) for more information on how to set that up. By default the proposer will select your local prover to provide bonds for the proposed blocks.
+
+If you are not running a local prover, then you can specify a prover from the [prover market](/docs/reference/prover-market-page) by overriding the default value for:
 
 - `PROVER_ENDPOINTS`
 
