@@ -229,6 +229,16 @@ library LibProving {
                 tran.signalRoot = evidence.signalRoot;
                 tran.prover = msg.sender;
                 tran.timestamp = uint64(block.timestamp);
+
+                emit TransitionProved({
+                    blockId: blk.blockId,
+                    parentHash: evidence.parentHash,
+                    blockHash: evidence.blockHash,
+                    signalRoot: evidence.signalRoot,
+                    prover: msg.sender,
+                    proofBond: 0,
+                    tier: evidence.tier
+                });
             } else {
                 // The new tier is the same as the previous tier, but they are
                 // not the top tier, we are in the contesting mode.
@@ -300,9 +310,9 @@ library LibProving {
             }
 
             if (tid == 1 && tran.prover == blk.assignedProver) {
-                // For the first transition, (1.) if the previous prover is
+                // For the first transition, (1) if the previous prover is
                 // still the assigned prover, we exclusively grant permission to
-                // the assigned approver to re-prove the block, (2.) unless the
+                // the assigned approver to re-prove the block, (2) unless the
                 // proof window has elapsed.
                 if (
                     block.timestamp <= tran.timestamp + tier.provingWindow
