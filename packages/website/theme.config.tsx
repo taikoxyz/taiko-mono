@@ -29,7 +29,7 @@ export default {
       <button
         onClick={() => {
           const win = window.open(
-            "https://forms.gle/9JWjWtjbWytZZcNRA",
+            "https://forms.gle/TAnV1xLmFwH13ryj7",
             "_blank",
             "noopener,noreferrer"
           );
