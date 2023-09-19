@@ -144,7 +144,8 @@
         "rejected": "Request to claim rejected.",
         "dialog": {
           "title": "Please wait",
-          "description": "Insufficient balance to claim yourself. Please wait for the relayer to claim for you automatically. Refer to <a class=\"{classes}\" href=\"{url}\" target=\"_blank\"><b>our guide</b></a> for more information."
+          "description": "Insufficient balance to claim yourself. Please wait for the relayer to claim for you automatically. Refer to our guide for more information.",
+          "link": "Go to guide"
         }
       },
       "release": {

@@ -7,8 +7,9 @@
   import { PUBLIC_GUIDE_URL } from '$env/static/public';
   import { uid } from '$libs/util/uid';
 
-  let dialogId = `dialog-${uid()}`;
   export let modalOpen = false;
+
+  let dialogId = `dialog-${uid()}`;
 
   function closeModal() {
     removeEscKeyListener();
@@ -48,14 +49,15 @@
     </button>
     <div class="w-full space-y-6">
       <h3 class="title-body-bold mb-7">{$t('transactions.actions.claim.dialog.title')}</h3>
-      <p class="body-regular text-secondary-content mb-3">
-        {@html $t('transactions.actions.claim.dialog.description', {
-          values: {
-            classes: 'link',
-            url: PUBLIC_GUIDE_URL,
-          },
-        })}
-      </p>
+      <div class="body-regular text-secondary-content mb-3 flex flex-col items-end">
+        <div>
+          {$t('transactions.actions.claim.dialog.description')}
+        </div>
+        <a href={PUBLIC_GUIDE_URL} target="_blank" class="flex link py-[10px]">
+          {$t('transactions.actions.claim.dialog.link')}<Icon type="arrow-top-right" />
+        </a>
+      </div>
+
       <Button
         type="primary"
         class="px-[28px] py-[10px] rounded-full w-full border-primary-brand"
