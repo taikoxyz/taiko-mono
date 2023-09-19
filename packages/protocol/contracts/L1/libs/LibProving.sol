@@ -313,14 +313,12 @@ library LibProving {
                     block.timestamp > tran.timestamp + tier.provingWindow
                         && msg.sender == blk.assignedProver
                 ) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
-            } else {
+            } else if (msg.sender == blk.assignedProver) {
                 // However, if the previous prover of the first transition is
                 // not the block's assigned prover, or for any other
                 // transitions, the assigned prover is not permitted to prove
                 // such transitions.
-                if (msg.sender == blk.assignedProver) {
-                    revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
-                }
+                revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
             }
 
             // Burn the proof bond from the prover.
