@@ -29,20 +29,14 @@ contract TestTaikoL2_1559 is TestBase {
         uint64 gasExcessMax = gasIssuedPerSecond * maxSeconds;
 
         uint64 initialBasefee = ethereumBasefeeNow / costFactor;
+        uint64 ratio2x1x = 11_250; // ~12.5% increase
+        uint64 gasTarget = gasIssuedPerSecond * ethereumBlockTime;
 
-        TaikoL2.EIP1559Params memory param1559 = TaikoL2.EIP1559Params({
-            basefee: initialBasefee,
-            gasIssuedPerSecond: gasIssuedPerSecond,
-            gasExcessMax: gasExcessMax,
-            gasTarget: gasIssuedPerSecond * ethereumBlockTime,
-            ratio2x1x: 11_250 // ~12.5% increase
-         });
-
-        console2.log("basefee           :", param1559.basefee);
-        console2.log("gasIssuedPerSecond:", param1559.gasIssuedPerSecond);
-        console2.log("gasExcessMax      :", param1559.gasExcessMax);
-        console2.log("gasTarget         :", param1559.gasTarget);
-        console2.log("ratio2x1x         :", param1559.ratio2x1x);
+        console2.log("basefee           :", initialBasefee);
+        console2.log("gasIssuedPerSecond:", gasIssuedPerSecond);
+        console2.log("gasExcessMax      :", gasExcessMax);
+        console2.log("gasTarget         :", gasTarget);
+        console2.log("ratio2x1x         :", ratio2x1x);
 
         // basefee           : 1120000000
         // gasIssuedPerSecond: 12500000
@@ -51,7 +45,18 @@ contract TestTaikoL2_1559 is TestBase {
         // ratio2x1x         : 11250
 
         TaikoL2 L2 = new TaikoL2();
-        address dummyAddressManager = getRandomAddress();
-        L2.init(dummyAddressManager, param1559);
+        L2.init(getRandomAddress());
+
+        TaikoL2.EIP1559Config memory config = L2.calcEIP1559Config(
+            initialBasefee,
+            gasIssuedPerSecond,
+            gasExcessMax,
+            gasTarget,
+            ratio2x1x
+        );
+
+        console2.log("config.xscale            : ", config.xscale);
+        console2.log("config.yscale            : ", config.yscale);
+        console2.log("config.gasIssuedPerSecond: ", config.gasIssuedPerSecond);
     }
 }
