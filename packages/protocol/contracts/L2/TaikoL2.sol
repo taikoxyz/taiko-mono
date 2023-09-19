@@ -40,11 +40,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     // A hash to check the integrity of public inputs.
     bytes32 public publicInputHash; // slot 3
-    uint64 public parentTimestamp; // slot 5
+    uint64 public parentTimestamp; // slot 4
     uint64 public latestSyncedL1Height;
     uint64 public gasExcess;
 
-    uint256[145] private __gap;
+    uint256[146] private __gap;
 
     // Captures all block variables mentioned in
     // https://docs.soliditylang.org/en/v0.8.20/units-and-global-variables.html
