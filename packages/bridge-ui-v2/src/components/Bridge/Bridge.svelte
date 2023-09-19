@@ -41,6 +41,7 @@
   import { ProcessingFee } from './ProcessingFee';
   import Recipient from './Recipient.svelte';
   import { bridgeService, destNetwork, enteredAmount, processingFee, recipientAddress, selectedToken } from './state';
+  import { FlatAlert } from '$components/Alert';
 
   let amountComponent: Amount;
   let recipientComponent: Recipient;
@@ -305,7 +306,9 @@
     </div>
 
     <TokenDropdown {tokens} bind:value={$selectedToken} />
-
+    {#if $selectedToken?.symbol === 'BLL' && !$selectedToken?.imported}
+      <FlatAlert class="!mt-2" message={$t('bridge.errors.bll_token')} type="warning" />
+    {/if}
     <Amount bind:this={amountComponent} />
 
     <div class="space-y-[16px]">
