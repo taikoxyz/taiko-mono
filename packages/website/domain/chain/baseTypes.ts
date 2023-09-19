@@ -62,7 +62,6 @@ interface AddTokenParameter {
   image: string;
 }
 
-
 // Taiko network types
 interface BasedContracts {
   addressManager: Contract;
@@ -79,10 +78,41 @@ interface BasedContracts {
   };
 }
 
+interface Alpha5BasedContracts {
+  addressManager: Contract;
+  taikoL1: Contract;
+  erc20Vault: Contract;
+  erc721Vault: Contract;
+  erc1155Vault: Contract;
+  bridge: Contract;
+  signalService: Contract;
+  proofVerifier: Contract;
+  erc20Contracts?: {
+    taikoToken?: ERC20Contract;
+    horseToken?: ERC20Contract;
+    bullToken?: ERC20Contract;
+  };
+}
+
 interface RollupContracts {
   taikoL2: Contract;
   tokenVault: Contract;
   etherVault: Contract;
+  bridge: Contract;
+  signalService: Contract;
+  erc20Contracts: {
+    bridgedTaikoToken: ERC20Contract;
+    bridgedHorseToken: ERC20Contract;
+    bridgedBullToken: ERC20Contract;
+  };
+}
+
+interface Alpha5RollupContracts {
+  taikoL2: Contract;
+  etherVault: Contract;
+  erc20Vault: Contract;
+  erc721Vault: Contract;
+  erc1155Vault: Contract;
   bridge: Contract;
   signalService: Contract;
   erc20Contracts: {
@@ -112,6 +142,16 @@ interface TaikoL2Alpha3 extends Network {
   otherContracts: OtherContracts;
 }
 
+interface TaikoL1Alpha5 extends Network {
+  basedContracts: Alpha5BasedContracts;
+  otherContracts: OtherContracts;
+}
+
+interface TaikoL2Alpha5 extends Network {
+  rollupContracts: Alpha5RollupContracts;
+  otherContracts: OtherContracts;
+}
+
 type TaikoL2Alpha4 = TaikoL2Alpha3;
 
 export type {
@@ -119,8 +159,10 @@ export type {
   AddTokenParameter,
   TaikoL1Alpha3,
   TaikoL1Alpha4,
+  TaikoL1Alpha5,
   TaikoL2Alpha3,
   TaikoL2Alpha4,
+  TaikoL2Alpha5,
   BasedContracts,
   RollupContracts,
   OtherContracts,

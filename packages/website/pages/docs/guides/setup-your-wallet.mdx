@@ -1,12 +1,11 @@
 import { Steps } from "nextra-theme-docs";
 import { AddTokensButton } from "components/Button/AddTokensButton";
 import { ConnectToMetamaskButton } from "components/Button/ConnectToMetamaskButton";
-
-import { ELDFELL_CONFIG, GRIMSVOTN_CONFIG, SEPOLIA_CONFIG } from "domain/chain";
+import { TAIKO_CONFIG, SEPOLIA_CONFIG } from "domain/chain";
 
 # Setup your wallet
 
-This guide helps you connect your wallet to Taiko's networks.
+This guide helps you connect your wallet to Taiko.
 
 ## Prerequisites
 
@@ -18,19 +17,15 @@ This guide helps you connect your wallet to Taiko's networks.
     ### Add chains to your wallet
     <ConnectToMetamaskButton network={SEPOLIA_CONFIG.names.shortName} />
     <br />
-    <ConnectToMetamaskButton network={GRIMSVOTN_CONFIG.names.shortName} />
+    <ConnectToMetamaskButton network={TAIKO_CONFIG.names.shortName} />
     <br />
-    <ConnectToMetamaskButton network={ELDFELL_CONFIG.names.shortName} />
 
     ### Add tokens to your wallet
     <AddTokensButton
     network={SEPOLIA_CONFIG.names.shortName}/>
     <br />
     <AddTokensButton
-    network={GRIMSVOTN_CONFIG.names.shortName}/>
-    <br />
-    <AddTokensButton
-    network={ELDFELL_CONFIG.names.shortName}/>
+    network={TAIKO_CONFIG.names.shortName}/>
 
 </Steps>
 

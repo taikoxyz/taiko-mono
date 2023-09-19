@@ -11,72 +11,17 @@
     "title": "Docs",
     "type": "page"
   },
-  "grimsvotn": {
-    "title": "Grimsvotn L2",
-    "type": "menu",
-    "items": {
-      "bridge": {
-        "title": "Bridge (L1 ↔ L2)",
-        "href": "https://bridge.test.taiko.xyz",
-        "newWindow": true
-      },
-      "swap": {
-        "title": "Swap",
-        "href": "https://swap.test.taiko.xyz",
-        "newWindow": true
-      },
-      "status": {
-        "title": "Grimsvotn Protocol Status",
-        "href": "https://status.test.taiko.xyz",
-        "newWindow": true
-      },
-      "l2-block-explorer": {
-        "title": "Grimsvotn L2 Block Explorer",
-        "href": "https://explorer.test.taiko.xyz",
-        "newWindow": true
-      },
-      "uptime": {
-        "title": "Uptime",
-        "href": "https://status.taiko.xyz",
-        "newWindow": true
-      }
-    }
+  "bridge": {
+    "title": "Bridge ↗",
+    "type": "page",
+    "href": "https://bridge.jolnir.taiko.xyz",
+    "newWindow": true
   },
-  "eldfell": {
-    "title": "Eldfell L3",
-    "type": "menu",
-    "items": {
-      "bridge": {
-        "title": "Bridge (L2 ↔ L3)",
-        "href": "https://bridge.l3test.taiko.xyz",
-        "newWindow": true
-      },
-      "swap": {
-        "title": "Swap",
-        "href": "https://swap.l3test.taiko.xyz",
-        "newWindow": true
-      },
-      "status": {
-        "title": "Eldfell Protocol Status",
-        "href": "https://explorer.l3test.taiko.xyz/stats",
-        "newWindow": true
-      },
-      "l3-block-explorer": {
-        "title": "Eldfell L3 Block Explorer",
-        "href": "https://explorer.l3test.taiko.xyz",
-        "newWindow": true
-      },
-      "staking-dashboard": {
-        "title": "Staking dashboard",
-        "href": "https://staking.l3test.taiko.xyz",
-        "newWindow": true
-      },
-      "uptime": {
-        "title": "Uptime",
-        "href": "https://status.taiko.xyz",
-        "newWindow": true
-      }
-    }
+  "block-explorer": {
+    "title": "Block Explorer ↗",
+    "type": "page",
+    "href": "https://explorer.jolnir.taiko.xyz",
+    "newWindow": true
   },
   "ecosystem": {
     "title": "Ecosystem",

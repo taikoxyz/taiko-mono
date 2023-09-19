@@ -1,24 +1,20 @@
 import {
-  ELDFELL_ADD_ETHEREUM_CHAIN,
-  ELDFELL_CONFIG,
-  GRIMSVOTN_ADD_ETHEREUM_CHAIN,
-  GRIMSVOTN_CONFIG,
   SEPOLIA_CONFIG,
+  TAIKO_CONFIG,
+  TAIKO_ADD_ETHEREUM_CHAIN,
 } from "../../domain/chain";
 
 import { ethereumRequest } from "../../utils/ethereumRequest";
 
 type ConnectButtonProps = {
   network:
-  | typeof SEPOLIA_CONFIG.names.shortName
-  | typeof ELDFELL_CONFIG.names.shortName
-  | typeof GRIMSVOTN_CONFIG.names.shortName;
+    | typeof SEPOLIA_CONFIG.names.shortName
+    | typeof TAIKO_CONFIG.names.shortName;
 };
 
 const chainMap = {
-  Eldfell: ELDFELL_CONFIG.chainId.hex, // 167005
-  Grimsvotn: GRIMSVOTN_CONFIG.chainId.hex, // 167005
-  Sepolia: SEPOLIA_CONFIG.chainId.hex, // 11155111
+  Sepolia: SEPOLIA_CONFIG.chainId.hex,
+  Jolnir: TAIKO_CONFIG.chainId.hex,
 };
 
 async function ConnectToMetamask(network: ConnectButtonProps["network"]) {
@@ -37,11 +33,7 @@ async function ConnectToMetamask(network: ConnectButtonProps["network"]) {
   if (network === SEPOLIA_CONFIG.names.shortName) {
     params = [{ chainId: chainMap[network] }];
   } else {
-    params = [
-      network === ELDFELL_CONFIG.names.shortName
-        ? ELDFELL_ADD_ETHEREUM_CHAIN
-        : GRIMSVOTN_ADD_ETHEREUM_CHAIN,
-    ];
+    params = [TAIKO_ADD_ETHEREUM_CHAIN];
   }
   try {
     await ethereumRequest(
@@ -53,7 +45,7 @@ async function ConnectToMetamask(network: ConnectButtonProps["network"]) {
   } catch (error) {
     alert(
       "Failed to add the network with wallet_addEthereumChain request. Add the network with https://chainlist.org/ or do it manually. Error log: " +
-      error.message
+        error.message
     );
   }
 }

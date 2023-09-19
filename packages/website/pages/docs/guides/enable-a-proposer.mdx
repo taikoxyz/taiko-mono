@@ -1,0 +1,59 @@
+import { Callout, Steps } from "nextra-theme-docs";
+import { contractAddressToLink } from "../../../utils/contractAddressToLink";
+import { SEPOLIA_CONFIG, GRIMSVOTN_CONFIG } from "../../../domain/chain";
+import { StyledLink } from "/components/StyledLink";
+
+# Enable a proposer
+
+This guide will help you enable your Taiko node as a proposer.
+
+## Prerequisites
+
+- You have already setup a node (see: [Run a node](/docs/guides/run-a-node))
+- Must have a balance of ETH on Sepolia L1 (see: [Receive tokens](/docs/guides/receive-tokens)).
+
+## Steps
+
+<Steps>
+
+### Open .env file in `simple-taiko-node`
+
+```sh
+nano .env
+```
+
+### Set environment variables to enable a proposer
+
+<Callout type="warning">
+  Do **not** use a private key that is valuable to you. The private key will be
+  stored in plain text in the `.env` file, and this is not secure. There is a
+  real risk of losing your assets. You should **only use a test account**.
+</Callout>
+
+Set the following environment variables to enable your node as a proposer:
+
+- Set `ENABLE_PROPOSER` to `true`
+- Set `L1_PROPOSER_PRIVATE_KEY` to the private key of your L1 account (with balance) who will send TaikoL1.proposeBlock transactions
+- Set `L2_SUGGESTED_FEE_RECIPIENT` to the address of your L2 account who will be the tx fee beneficiary of the L2 blocks that you proposed
+
+### Set a prover market prover
+
+By default, the proposer will select a local prover to acquire the bond needed to propose a block. You can also specify a prover from the [prover market](/docs/reference/prover-market) by overriding the default value for:
+
+- `PROVER_ENDPOINTS`
+
+### Verify proposer logs
+
+You should see a log if you have proposed a block: `📝 Propose transactions succeeded`.
+
+You can check all commands to see proposer logs in the [node runner manual](/docs/manuals/node-runner-manual#view-client-proposer-logs).
+
+</Steps>
+
+## Videos
+
+- [Enable a proposer on your Taiko L2 node](https://www.youtube.com/watch?v=z3gWKEoJidw) (deprecated, but still useful)
+
+## Troubleshooting
+
+View the [Node troubleshooting reference](/docs/reference/node-troubleshooting) for help on any common error codes / issues.
