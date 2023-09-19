@@ -301,11 +301,9 @@ library LibProving {
 
             if (tid == 1 && tran.prover == blk.assignedProver) {
                 // For the first transition, (1.) if the previous prover is
-                // still the
-                // assigned prover, we exclusively grant permission to the
-                // assigned approver to re-prove the block, (2.) unless the
-                // proof
-                // window has elapsed.
+                // still the assigned prover, we exclusively grant permission to
+                // the assigned approver to re-prove the block, (2.) unless the
+                // proof window has elapsed.
                 if (
                     block.timestamp <= tran.timestamp + tier.provingWindow
                         && msg.sender != blk.assignedProver
