@@ -124,9 +124,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         // Check EIP-1559 basefee
         uint256 basefee;
         EIP1559Config memory config = getEIP1559Config();
-        if (config.gasIssuedPerSecond == 0) {
-            basefee = 1;
-        } else {
+        if (config.gasIssuedPerSecond != 0) {
             (basefee, gasExcess) = _calcBasefee({
                 config: config,
                 timeSinceParent: block.timestamp - parentTimestamp,
@@ -134,6 +132,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             });
         }
 
+        // To make sure when EIP-1559 is enabled, the basefee is non-zero
+        // (Geth never uses 0 values for basefee)
+        if (basefee == 0) {
+            basefee = 1;
+        }
         // On L2, basefee is not burnt, but sent to a treasury instead.
         // The circuits will need to verify the basefee recipient is the
         // designated address.
@@ -253,6 +256,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         virtual
         returns (EIP1559Config memory config)
     {
+        // The following values are caculated in TestTaikoL2_1559.sol.
         config.xscale = 1_488_514_844;
         config.yscale = 358_298_803_609_133_338_138_868_404_779;
         config.gasIssuedPerSecond = 12_500_000;
@@ -313,12 +317,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             xExcess: _gasExcess,
             xPurchase: 0
         });
-
-        if (_basefee == 0) {
-            // To make sure when EIP-1559 is enabled, the basefee is non-zero
-            // (Geth never uses 0 values for basefee)
-            _basefee = 1;
-        }
     }
 }
 
