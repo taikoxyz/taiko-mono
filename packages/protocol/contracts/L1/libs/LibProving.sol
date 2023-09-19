@@ -229,6 +229,16 @@ library LibProving {
                 tran.signalRoot = evidence.signalRoot;
                 tran.prover = msg.sender;
                 tran.timestamp = uint64(block.timestamp);
+
+                emit TransitionProved({
+                    blockId: blk.blockId,
+                    parentHash: evidence.parentHash,
+                    blockHash: evidence.blockHash,
+                    signalRoot: evidence.signalRoot,
+                    prover: msg.sender,
+                    proofBond: 0,
+                    tier: evidence.tier
+                });
             } else {
                 // The new tier is the same as the previous tier, but they are
                 // not the top tier, we are in the contesting mode.
