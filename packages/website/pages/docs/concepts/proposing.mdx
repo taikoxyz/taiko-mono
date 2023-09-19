@@ -13,15 +13,24 @@ On Taiko, the next L2 state is known immediately and deterministically at the ti
 The Ethereum yellow paper has well-defined rules to compute the state transition. We use these same rules to take a proposed block, and compute the post-block state on Taiko. The high level overview of creating L2 blocks as follows:
 
 1. The system starts by creating a new L2 block with an anchor transaction. This anchor transaction is always the first transaction in the block even if the block is empty. (More about anchor transactions in the next section.)
+
 2. There are validity checks performed at the node (or sometimes protocol) level as well:
-2.1 Asserts that the length of the transaction list does not exceed a predefined maximum (MAX_TX_LIST_BYTES), ensuring that the list is within the limits.
-2.2 The transaction list is (RLP) decoded into a list of transactions (txList). If the bytes are not decodeable it will result in an empty block.
-2.3 The amount of gas required to include transactions is available. (If a transaction cannot fit into a block, it is simply excluded from it, but the block is still valid with other transactions.)
-2.4 The transaction signature is valid.
-2.5 The transaction nonce is valid.
-2.6 The sender account has no contract code deployed (EIP-3607).
-2.7 The transaction's gas limit is no smaller than the intrinsic gas.
-2.8. The sender has enough balance to cover the transaction (gasLimit * gasPrice + tx.value).
+
+   2.1 Asserts that the length of the transaction list does not exceed a predefined maximum (MAX_TX_LIST_BYTES), ensuring that the list is within the limits.
+
+   2.2 The transaction list is (RLP) decoded into a list of transactions (txList). If the bytes are not decodeable it will result in an empty block.
+
+   2.3 The amount of gas required to include transactions is available. (If a transaction cannot fit into a block, it is simply excluded from it, but the block is still valid with other transactions.)
+
+   2.4 The transaction signature is valid.
+
+   2.5 The transaction nonce is valid.
+
+   2.6 The sender account has no contract code deployed (EIP-3607).
+
+   2.7 The transaction's gas limit is no smaller than the intrinsic gas.
+
+   2.8. The sender has enough balance to cover the transaction (gasLimit \* gasPrice + tx.value).
 
 ## Anchor transaction
 
