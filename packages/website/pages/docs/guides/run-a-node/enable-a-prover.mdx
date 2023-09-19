@@ -4,7 +4,7 @@ import { Callout, Steps } from "nextra-theme-docs";
   Keep in mind that running a prover is a very competitive space, and those who
   generate proofs will have very powerful machines and optimized clients. It's
   unlikely to prove a block and gain rewards with the default client and minimum
-  hardware requirements (e.g. even a i9-13900K is not fast enough to prove for Grimsvotn L2).
+  hardware requirements (e.g. even a i9-13900K is not fast enough to prove a single block).
 </Callout>
 
 # Enable a prover
@@ -15,32 +15,16 @@ This guide will help you enable your Taiko node as a prover. Your node will gene
 
 - You have already setup a node (see: [Run a node](/docs/guides/run-a-node))
 - Should have at least 8/16 core CPU and 32GB of RAM.
-
-### Grimsvotn L2
-
 - Must have a balance of ETH on Sepolia L1 (see: [Receive tokens](/docs/guides/receive-tokens)).
-
-### Eldfell L3
-
-- Must have a balance of ETH on Grimsvotn L2 (see: [Receive tokens](/docs/guides/receive-tokens)).
 
 ## Steps
 
 <Steps>
 ### Open the .env file in `simple-taiko-node`
 
-For Grimsvotn L2:
-
 ```sh
 nano .env
 ```
-
-For Eldfell L3:
-
-```sh
-nano .env.l3
-```
-
 
 ### Set environment variables to enable prover
 
@@ -53,20 +37,10 @@ nano .env.l3
 
 Set the following environment variables to enable your node as a prover:
 
-For Grimsvotn L2 `.env`:
-
 ```sh
 ENABLE_PROVER=true # change from false to true
 # A L1 account (with balance) private key which will send the TaikoL1.proveBlock transactions.
 L1_PROVER_PRIVATE_KEY=0x0000000000000000000000000000000000000000000000000000000000000000 # your prover's private key
-```
-
-For Eldfell L3 `.env.l3`:
-
-```sh
-ENABLE_PROVER=true # change from false to true
-# A L2 account (with balance) private key which will send the TaikoL1.proveBlock transactions.
-L2_PROVER_PRIVATE_KEY=0x0000000000000000000000000000000000000000000000000000000000000000 # your prover's private key
 ```
 
 ### Verify prover logs
@@ -78,14 +52,8 @@ Verify you have some prover logs:
 
 You can check all commands to see prover logs in the [node runner manual](/docs/manuals/node-runner-manual#view-client-prover-relayer-logs).
 
-L2
 ```sh
 docker compose logs -f taiko_client_prover_relayer |egrep "block proof was|proof submission error|Block proven"
-```
-
-L3
-```sh
-docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f l3_taiko_client_prover_relayer |egrep "block proof was|proof submission error|Block proven"
 ```
 
 ### Stake your TTKOe (Eldfell L3 provers only)
