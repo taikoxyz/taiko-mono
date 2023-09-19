@@ -95,6 +95,7 @@
       }
     } finally {
       minting = false;
+      updateMintButtonState(connected, selectedToken, $network);
     }
   }
 
