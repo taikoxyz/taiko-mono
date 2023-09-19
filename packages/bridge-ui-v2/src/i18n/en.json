@@ -35,6 +35,7 @@
       "insufficient_balance": "Not enough balance in your wallet for this token.",
       "insufficient_allowance": "You need to increase your allowance in order to be able to bridge.",
       "cannot_fetch_balance": "Error fetching balance. Wrong chain?",
+      "bll_token": "BLL has a deliberate ~50% failure rate. Refer to our guide",
       "unknown_error": "An error occured",
       "custom_token": {
         "not_found": "Token not found!",

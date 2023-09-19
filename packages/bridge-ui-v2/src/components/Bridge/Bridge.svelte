@@ -4,6 +4,7 @@
 
   import { routingContractsMap } from '$bridgeConfig';
   import { chainConfig } from '$chainConfig';
+  import { FlatAlert } from '$components/Alert';
   import ChainSelectorWrapper from '$components/Bridge/ChainSelectorWrapper.svelte';
   import { Card } from '$components/Card';
   import { successToast, warningToast } from '$components/NotificationToast';
@@ -50,7 +51,6 @@
     if (newNetwork) {
       const destChainId = $destNetwork?.id;
       if (!$destNetwork?.id) return;
-
       // determine if we simply swapped dest and src networks
       if (newNetwork.id === destChainId) {
         destNetwork.set(oldNetwork);
@@ -305,7 +305,9 @@
     </div>
 
     <TokenDropdown {tokens} bind:value={$selectedToken} />
-
+    {#if $selectedToken?.symbol === 'BLL' && !$selectedToken?.imported}
+      <FlatAlert class="!mt-2" message={$t('bridge.errors.bll_token')} type="warning" />
+    {/if}
     <Amount bind:this={amountComponent} />
 
     <div class="space-y-[16px]">
