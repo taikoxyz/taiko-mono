@@ -67,6 +67,7 @@ We have a proof cooldown period which is an interval of time we set after fully 
 Keep in mind that running a prover on mainnet will be a very competitive space, and those who generate proofs will have very powerful machines. It's unlikely anyone will be able to be a "casual prover".
 
 {/* TODO: we should not mention testnet details inside concept documentation (this is like a whitepaper), we can find another abstraction for it */}
+{/* TODO: Update with prover bonded concepts */}
 
 ### Grimsvotn L2 (alpha-3)
 
@@ -91,16 +92,3 @@ We have a `realProofSkipSize` set [here](https://github.com/taikoxyz/taiko-mono/
 #### Your role as a prover
 
 We are describing this dynamic so you can be informed when you run a prover. It's very possible that without the correct strategy, you will not be profitable as a prover. You are naturally competing in an open space where others could have more efficient hardware and generate a proof in a short amount of time that you cannot compete against.
-
-### Eldfell L3 (alpha-4)
-
-In the alpha-4 protocol we have developed a staking based proving system. There exists a pool of (currently 32) top provers. Entering this pool depends on several factors:
-
-- The capacity a prover can handle
-- The amount of TTKOe staked
-- The expected reward per gas
-- The current fee per gas
-
-Essentially, this design is slightly less efficient but more decentralized (with better liveness).
-
-You can read more about the staking system [here](https://github.com/taikoxyz/taiko-mono/blob/alpha-4/packages/protocol/docs/tokenomics_staking.md).
