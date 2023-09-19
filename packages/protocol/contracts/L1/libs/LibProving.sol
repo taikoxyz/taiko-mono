@@ -300,14 +300,21 @@ library LibProving {
             }
 
             if (tid == 1 && tran.prover == blk.assignedProver) {
-                // For the first transition, if the previous prover is still the
+                // For the first transition, (1.) if the previous prover is
+                // still the
                 // assigned prover, we exclusively grant permission to the
-                // assigned approver to re-prove the block, unless the proof
+                // assigned approver to re-prove the block, (2.) unless the
+                // proof
                 // window has elapsed.
                 if (
                     block.timestamp <= tran.timestamp + tier.provingWindow
                         && msg.sender != blk.assignedProver
                 ) revert L1_NOT_ASSIGNED_PROVER();
+
+                if (
+                    block.timestamp > tran.timestamp + tier.provingWindow
+                        && msg.sender == blk.assignedProver
+                ) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
             } else {
                 // However, if the previous prover of the first transition is
                 // not the block's assigned prover, or for any other
