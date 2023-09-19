@@ -5,6 +5,9 @@
   "rpc-configuration": {
     "title": "RPC configuration"
   },
+  "prover-market": {
+    "title": "Prover market"
+  },
   "node-troubleshooting": {
     "title": "Node troubleshooting"
   },
