@@ -132,7 +132,8 @@
       {/if}
       {#if value}
         <div class="flex space-x-2 items-center">
-          {#if symbolToIconMap[value.symbol]}
+          <!-- Only match icons to configurd tokens -->
+          {#if symbolToIconMap[value.symbol] && !value.imported}
             <i role="img" aria-label={value.name}>
               <svelte:component this={symbolToIconMap[value.symbol]} size={28} />
             </i>

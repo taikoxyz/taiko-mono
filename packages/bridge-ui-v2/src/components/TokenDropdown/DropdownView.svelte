@@ -69,7 +69,8 @@
       on:click={() => selectToken(t)}
       on:keydown={getTokenKeydownHandler(t)}>
       <div class="p-4">
-        {#if symbolToIconMap[t.symbol]}
+        <!-- Only match icons to configurd tokens -->
+        {#if symbolToIconMap[t.symbol] && !t.imported}
           <i role="img" aria-label={t.name}>
             <svelte:component this={symbolToIconMap[t.symbol]} size={28} />
           </i>

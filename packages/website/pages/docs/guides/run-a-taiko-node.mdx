@@ -167,10 +167,10 @@ curl http://localhost:8547 \
   --data '{"method":"eth_chainId","params":[],"id":1,"jsonrpc":"2.0"}'
 ```
 
-which should return the chainId as `0x28c5d` (167005):
+which should return the chainId as `0x28c5f` (167007):
 
 ```json
-{ "jsonrpc": "2.0", "id": 0, "result": "0x28c5d" }
+{ "jsonrpc": "2.0", "id": 1, "result": "0x28c5f" }
 ```
 
 2. Check if the Execution Layer client is synced by requesting the latest Taiko L2 / L3 block from the Execution Layer client:
