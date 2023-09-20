@@ -8,9 +8,10 @@ pragma solidity ^0.8.20;
 
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { AddressResolver } from "../../common/AddressResolver.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import { IMintableERC20 } from "../../common/IMintableERC20.sol";
-import { AssignmentValidator } from "../AssignmentValidator.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibDepositing } from "./LibDepositing.sol";
 import { LibMath } from "../../libs/LibMath.sol";
@@ -23,6 +24,7 @@ import { TaikoToken } from "../TaikoToken.sol";
 /// @notice A library for handling block proposals in the Taiko protocol.
 library LibProposing {
     using Address for address;
+    using ECDSA for bytes32;
     using LibAddress for address;
     using LibAddress for address payable;
     using LibMath for uint256;
@@ -40,7 +42,12 @@ library LibProposing {
     );
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
-    error L1_INVALID_ASSIGNMENT();
+    error L1_ASSIGNMENT_EXPIRED();
+    error L1_ASSIGNMENT_INVALID_SIGNATURE();
+    error L1_ASSIGNMENT_INVALID_PARAMS();
+    error L1_ASSIGNMENT_INSUFFICIENT_TX_VALUE();
+    error L1_ASSIGNMENT_TIER_NOT_FUND();
+
     error L1_TOO_MANY_BLOCKS();
     error L1_TXLIST_INVALID_RANGE();
     error L1_TXLIST_MISMATCH();
@@ -183,16 +190,12 @@ library LibProposing {
         // doesn't mandate Ether as the only proofing fee.
 
         uint256 proverFee;
-        (blk.assignedProver, proverFee) = AssignmentValidator(
-            resolver.resolve("assignment_validator", false)
-        ).validateAssignment{ value: msg.value }({
+        (blk.assignedProver, proverFee) = _validateAssignment({
             proposer: msg.sender,
             minTier: blk.minTier,
             txListHash: txListHash,
             assignment: assignment
         });
-
-        if (blk.assignedProver == address(0)) revert L1_INVALID_ASSIGNMENT();
 
         // The assigned prover burns Taiko tokens, referred to as the
         // "assignment bond." This bond remains non-refundable to the
@@ -247,5 +250,73 @@ library LibProposing {
         assembly {
             hash := keccak256(inputs, mul(5, 32))
         }
+    }
+
+    function _validateAssignment(
+        address proposer,
+        uint16 minTier,
+        bytes32 txListHash,
+        TaikoData.ProverAssignment memory assignment
+    )
+        internal
+        returns (address prover, uint256 fee)
+    {
+        // Checl txList not zero
+        if (txListHash == 0 || proposer == address(0)) {
+            revert L1_ASSIGNMENT_INVALID_PARAMS();
+        }
+
+        // Check assignment not expired
+        if (block.timestamp >= assignment.expiry) {
+            revert L1_ASSIGNMENT_EXPIRED();
+        }
+
+        // Recover the prover address
+        prover = keccak256(
+            abi.encode(
+                "PROVER_ASSIGNMENT",
+                txListHash,
+                assignment.feeToken,
+                assignment.expiry,
+                assignment.tierFees
+            )
+        ).recover(assignment.signature);
+
+        // The prover address cannot be zero
+        if (prover == address(0)) revert L1_ASSIGNMENT_INVALID_SIGNATURE();
+
+        // Find the fee for the min tier
+        fee = _findFee(assignment.tierFees, minTier);
+
+        if (assignment.feeToken == address(0)) {
+            // feeToken is Ether
+            if (msg.value < fee) revert L1_ASSIGNMENT_INSUFFICIENT_TX_VALUE();
+            prover.sendEther(fee);
+            unchecked {
+                // Return the extra Ether to the proposer
+                uint256 refund = msg.value - fee;
+                if (refund != 0) proposer.sendEther(refund);
+            }
+        } else {
+            // ERC20 token as fee. We send back Ether if msg.value is nonzero.
+            if (msg.value != 0) proposer.sendEther(msg.value);
+            ERC20(assignment.feeToken).transferFrom(proposer, prover, fee);
+        }
+    }
+
+    function _findFee(
+        TaikoData.TierFee[] memory tierFees,
+        uint16 tierId
+    )
+        private
+        pure
+        returns (uint256)
+    {
+        for (uint256 i = 0; i < tierFees.length; ++i) {
+            if (tierFees[i].tier == tierId) {
+                return tierFees[i].fee;
+            }
+        }
+        revert L1_ASSIGNMENT_TIER_NOT_FUND();
     }
 }
