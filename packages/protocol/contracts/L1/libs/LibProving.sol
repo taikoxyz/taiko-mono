@@ -157,7 +157,10 @@ library LibProving {
 
         // The new proof must meet or exceed the minimum tier required by the
         // block or the previous proof; it cannot be on a lower tier.
-        if (evidence.tier < blk.minTier || evidence.tier < tran.tier) {
+        if (
+            evidence.tier == 0 || evidence.tier < blk.minTier
+                || evidence.tier < tran.tier
+        ) {
             revert L1_INVALID_TIER();
         }
 
