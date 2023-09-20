@@ -2,11 +2,16 @@ package processor
 
 import (
 	"context"
+	"log/slog"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
+)
+
+var (
+	gasPaddingAmt uint64 = 80000
 )
 
 func (p *Processor) estimateGas(
@@ -26,5 +31,7 @@ func (p *Processor) estimateGas(
 		return 0, nil, errors.Wrap(err, "p.destBridge.ProcessMessage")
 	}
 
-	return tx.Gas(), tx.Cost(), nil
+	slog.Info("estimated gas", "gas", tx.Gas(), "paddingAmt", gasPaddingAmt)
+
+	return tx.Gas() + gasPaddingAmt, tx.Cost(), nil
 }
