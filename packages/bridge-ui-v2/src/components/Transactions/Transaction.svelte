@@ -21,16 +21,12 @@
   let isDesktopOrLarger = false;
 
   const handleClick = () => {
-    if (item?.status === MessageStatus.DONE) {
-      openDetails();
-    }
+    openDetails();
     dispatch('click');
   };
 
   const handlePress = () => {
-    if (item?.status === MessageStatus.DONE) {
-      openDetails();
-    }
+    openDetails();
     dispatch('press');
   };
 
@@ -39,7 +35,9 @@
   };
 
   const openDetails = () => {
-    detailsOpen = true;
+    if (item?.status === MessageStatus.DONE && !isDesktopOrLarger) {
+      detailsOpen = true;
+    }
   };
 
   const handleInsufficientFunds = () => {
