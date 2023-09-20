@@ -8,9 +8,9 @@ pragma solidity ^0.8.20;
 
 import { TaikoData } from "./TaikoData.sol";
 
-/// @title IProver Interface
+/// @title IAssignmentValidator Interface
 /// @notice Defines the function that handles prover assignment.
-interface IProver {
+interface IAssignmentValidator {
     /// @notice Assigns a prover to a specific block or reverts if this prover
     /// is not available.
     /// @param blockId The ID of the proposed block. Note that the ID is only

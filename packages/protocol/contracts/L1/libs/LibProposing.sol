@@ -11,7 +11,7 @@ import { AddressResolver } from "../../common/AddressResolver.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import { IMintableERC20 } from "../../common/IMintableERC20.sol";
-import { IProver } from "../IProver.sol";
+import { IAssignmentValidator } from "../IAssignmentValidator.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibDepositing } from "./LibDepositing.sol";
 import { LibMath } from "../../libs/LibMath.sol";
@@ -112,19 +112,7 @@ library LibProposing {
         if (config.skipAssignmentVerificaiton) {
             // For testing only
             assignment.prover.sendEther(msg.value);
-        } else if (!assignment.prover.isContract()) {
-            // To verify an EOA (Externally Owned Account) prover, we perform a
-            // straightforward check of an ECDSA signature.
-            if (
-                _hashAssignment(txListHash, assignment).recover(assignment.data)
-                    != assignment.prover
-            ) {
-                revert L1_INVALID_ASSIGNMENT();
-            }
-            assignment.prover.sendEther(msg.value);
-        } else if (
-            assignment.prover.supportsInterface(type(IProver).interfaceId)
-        ) {
+        } else {
             // When the prover's address corresponds to an IProver contract, we
             // transfer Ether and invoke its "onBlockAssigned" function for
             // verification. Within this function, the prover has the option to
@@ -132,26 +120,13 @@ library LibProposing {
             // value of msg.value can be zero. Taiko does not mandate Ether as
             // the exclusive proofing fees.
 
-            IProver(assignment.prover).onBlockAssigned{ value: msg.value }({
+            IAssignmentValidator(assignment.prover).onBlockAssigned{
+                value: msg.value
+            }({
                 blockId: b.numBlocks,
                 txListHash: txListHash,
                 assignment: assignment
             });
-        } else if (
-            assignment.prover.supportsInterface(type(IERC1271).interfaceId)
-        ) {
-            // If the prover is a contract implementing EIP1271, we invoke its
-            // "isValidSignature" function for ECDSA signature verification.
-            if (
-                IERC1271(assignment.prover).isValidSignature(
-                    _hashAssignment(txListHash, assignment), assignment.data
-                ) != EIP1271_MAGICVALUE
-            ) {
-                revert L1_INVALID_ASSIGNMENT();
-            }
-            assignment.prover.sendEther(msg.value);
-        } else {
-            revert L1_INVALID_ASSIGNMENT();
         }
 
         // In situations where the network lacks sufficient transactions for the
