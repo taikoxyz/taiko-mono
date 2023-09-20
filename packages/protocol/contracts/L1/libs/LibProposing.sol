@@ -137,14 +137,14 @@ library LibProposing {
         // value from the beacon chain. Given the possibility of multiple
         // Taiko blocks being proposed within a single Ethereum block, we
         // must introduce a salt to this random number as the L2 mixHash.
-        meta.mixHash = bytes32(block.prevrandao * b.numBlocks);
+        unchecked {
+            meta.mixHash = bytes32(block.prevrandao * b.numBlocks);
+            meta.l1Height = uint64(block.number - 1);
+        }
 
         meta.txListHash = txListHash;
         meta.timestamp = uint64(block.timestamp);
         meta.gasLimit = config.blockMaxGasLimit;
-        unchecked {
-            meta.l1Height = uint64(block.number - 1);
-        }
 
         // Each transaction must handle a specific quantity of L1-to-L2
         // Ether deposits.
