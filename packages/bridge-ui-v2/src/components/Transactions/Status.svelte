@@ -5,6 +5,7 @@
   import { parseEther, UserRejectedRequestError } from 'viem';
 
   import { chainConfig } from '$chainConfig';
+  import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import {
     errorToast,
     infoToast,
@@ -36,14 +37,15 @@
   const log = getLogger('components:Status');
 
   export let bridgeTx: BridgeTransaction;
-  export let isDesktopOrLarger: boolean;
-  export let isMobileDetailsDialog: boolean;
+  export let isFromMobileDetailsDialog: boolean;
 
   let polling: ReturnType<typeof startPolling>;
 
   // UI state
   let processable = false; // bridge tx state to be processed: claimed/retried/released
   let bridgeTxStatus: Maybe<MessageStatus>;
+
+  let isDesktopOrLarger = false;
 
   let modalOpen = false;
 
@@ -142,7 +144,7 @@
           warningToast($t('transactions.actions.claim.rejected'));
           break;
         case err instanceof InsufficientBalanceError:
-          if (isDesktopOrLarger || isMobileDetailsDialog) {
+          if (isDesktopOrLarger || isFromMobileDetailsDialog) {
             modalOpen = true;
           }
           break;
@@ -299,3 +301,5 @@
 </div>
 
 <InsufficientFunds bind:modalOpen />
+
+<DesktopOrLarger bind:is={isDesktopOrLarger} />
