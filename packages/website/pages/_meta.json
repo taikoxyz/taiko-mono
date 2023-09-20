@@ -17,6 +17,12 @@
     "href": "https://bridge.jolnir.taiko.xyz",
     "newWindow": true
   },
+  "swap": {
+    "title": "Swap ↗",
+    "type": "page",
+    "href": "https://swap.jolnir.taiko.xyz",
+    "newWindow": true
+  },
   "block-explorer": {
     "title": "Block Explorer ↗",
     "type": "page",

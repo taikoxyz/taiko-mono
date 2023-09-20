@@ -31,6 +31,8 @@
   import { network } from '$stores/network';
   import { pendingTransactions } from '$stores/pendingTransactions';
 
+  import InsufficientFunds from './InsufficientFunds.svelte';
+
   const log = getLogger('components:Status');
 
   export let bridgeTx: BridgeTransaction;
@@ -40,6 +42,8 @@
   // UI state
   let processable = false; // bridge tx state to be processed: claimed/retried/released
   let bridgeTxStatus: Maybe<MessageStatus>;
+
+  let modalOpen = false;
 
   // TODO: enum?
   let loading: 'claiming' | 'releasing' | false = false;
@@ -136,7 +140,7 @@
           warningToast($t('transactions.actions.claim.rejected'));
           break;
         case err instanceof InsufficientBalanceError:
-          errorToast($t('transactions.errors.insufficient_balance'));
+          modalOpen = true;
           break;
         case err instanceof InvalidProofError:
           errorToast($t('TODO: InvalidProofError'));
@@ -289,3 +293,5 @@
     <span>{$t('transactions.status.error.name')}</span>
   {/if}
 </div>
+
+<InsufficientFunds bind:modalOpen />
