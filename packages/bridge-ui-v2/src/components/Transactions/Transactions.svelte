@@ -15,7 +15,6 @@
   import { account, network } from '$stores';
   import type { Account } from '$stores/account';
 
-  import MobileDetailsDialog from './MobileDetailsDialog.svelte';
   import StatusInfoDialog from './StatusInfoDialog.svelte';
   import Transaction from './Transaction.svelte';
 
@@ -31,10 +30,7 @@
 
   let loadingTxs = false;
 
-  let detailsOpen = false;
   let isDesktopOrLarger: boolean;
-
-  let selectedItem: BridgeTransaction | null = null;
 
   const handlePageChange = (detail: number) => {
     isBlurred = true;
@@ -65,16 +61,6 @@
         loadingTxs = false;
       }
     }
-  };
-
-  const closeDetails = () => {
-    detailsOpen = false;
-    selectedItem = null;
-  };
-
-  const openDetails = (tx: BridgeTransaction) => {
-    detailsOpen = true;
-    selectedItem = tx;
   };
 
   const updateTransactions = async (address: Address) => {
@@ -136,7 +122,7 @@
             class="flex flex-col items-center"
             style={isBlurred ? `filter: blur(5px); transition: filter ${transitionTime / 1000}s ease-in-out` : ''}>
             {#each transactionsToShow as item (item.hash)}
-              <Transaction {item} on:click={isDesktopOrLarger ? undefined : () => openDetails(item)} />
+              <Transaction {item} />
               <div class="h-sep" />
             {/each}
           </div>
@@ -155,8 +141,6 @@
     <Paginator {pageSize} {totalItems} on:pageChange={({ detail }) => handlePageChange(detail)} />
   </div>
 </div>
-
-<MobileDetailsDialog {closeDetails} {detailsOpen} {selectedItem} />
 
 <OnAccount change={onAccountChange} />
 
