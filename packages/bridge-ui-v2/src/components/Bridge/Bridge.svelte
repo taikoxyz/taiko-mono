@@ -296,6 +296,9 @@
       }
     }
   }
+  $: if ($selectedToken) {
+    amountComponent.validateAmount();
+  }
 </script>
 
 <Card class="w-full md:w-[524px]" title={$t('bridge.title.default')} text={$t('bridge.description')}>
