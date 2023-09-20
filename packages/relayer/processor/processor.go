@@ -40,6 +40,7 @@ type ethClient interface {
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	BlockNumber(ctx context.Context) (uint64, error)
+	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 	HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error)
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)

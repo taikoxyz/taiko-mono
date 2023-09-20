@@ -14,8 +14,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
@@ -258,13 +260,13 @@ func (p *Processor) sendProcessMessageCall(
 
 	err = p.setGasTipOrPrice(ctx, auth)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "p.setGasTipOrPrice")
 	}
 
-	// new function getCost: auth.GasLimit and auth.GasPrice || auth.GasTipCap should be set by here
-	// use to predict cost. gasLimit * gasPrice = cost or gasLimit * (gasTipCap + baseFeePerGas) = cost
-
-	// pass actual cost to isProfitable below instead of bs above
+	cost, err = p.getCost(ctx, auth)
+	if err != nil {
+		return nil, errors.Wrap(err, "p.getCost")
+	}
 
 	if bool(p.profitableOnly) {
 		profitable, err := p.isProfitable(ctx, event.Message, cost)
@@ -479,27 +481,24 @@ func (p *Processor) setGasTipOrPrice(ctx context.Context, auth *bind.TransactOpt
 	return nil
 }
 
-// func (p *Processor) getCost(ctx context.Context, auth *bind.TransactOpts) (*big.Int, error) {
-// 	if auth.GasPrice == nil {
+func (p *Processor) getCost(ctx context.Context, auth *bind.TransactOpts) (*big.Int, error) {
+	if auth.GasPrice == nil {
 
-// 		bn, err := p.destEthClient.BlockNumber(ctx)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		blk, _ := p.destEthClient.BlockByNumber(context.Background(), bn)
-// 		// blockNum, err := p.destEthClient.BlockNumber(ctx)
-// 		// if err != nil {
-// 		// 	return nil, err
-// 		// }
-// 		// var header *types.Header
-// 		// p.rpc.CallContext(ctx, header, "eth_getBlockByNumber", blockNum, true)
+		bn, err := p.destEthClient.BlockNumber(ctx)
+		if err != nil {
+			return nil, err
+		}
+		blk, _ := p.destEthClient.BlockByNumber(context.Background(), new(big.Int).SetUint64(bn))
 
-// 		// baseFee := misc.CalcBaseFee(, header)
+		var cfg *params.ChainConfig
+		err = p.rpc.CallContext(ctx, &cfg, "eth_getChainConfig")
 
-// 		return new(big.Int).Mul(
-// 			new(big.Int).SetUint64(auth.GasLimit),
-// 			new(big.Int).Add(auth.GasTipCap)), nil
-// 	} else {
-// 		return new(big.Int).Mul(auth.GasPrice, new(big.Int).SetUint64(auth.GasLimit)), nil
-// 	}
-// }
+		baseFee := eip1559.CalcBaseFee(cfg, blk.Header())
+
+		return new(big.Int).Mul(
+			new(big.Int).SetUint64(auth.GasLimit),
+			new(big.Int).Add(auth.GasTipCap, baseFee)), nil
+	} else {
+		return new(big.Int).Mul(auth.GasPrice, new(big.Int).SetUint64(auth.GasLimit)), nil
+	}
+}
