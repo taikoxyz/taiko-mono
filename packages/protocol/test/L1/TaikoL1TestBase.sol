@@ -188,7 +188,6 @@ abstract contract TaikoL1TestBase is TestBase {
     }
 
     function verifyBlock(address, uint64 count) internal {
-        //vm.prank(verifier, verifier);
         L1.verifyBlocks(count);
     }
 
