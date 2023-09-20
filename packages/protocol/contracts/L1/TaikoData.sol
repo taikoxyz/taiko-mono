@@ -88,6 +88,7 @@ library TaikoData {
     }
 
     struct ProverAssignment {
+        address prover;
         address feeToken;
         TierFee[] tierFees;
         uint64 expiry;

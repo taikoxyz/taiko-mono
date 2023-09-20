@@ -43,9 +43,9 @@ library LibProposing {
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_ASSIGNMENT_EXPIRED();
-    error L1_ASSIGNMENT_INVALID_SIGNATURE();
+    error L1_ASSIGNMENT_INVALID_SIG();
     error L1_ASSIGNMENT_INVALID_PARAMS();
-    error L1_ASSIGNMENT_INSUFFICIENT_TX_VALUE();
+    error L1_ASSIGNMENT_INSUFFICIENT_FEE();
     error L1_ASSIGNMENT_TIER_NOT_FUND();
 
     error L1_TOO_MANY_BLOCKS();
@@ -188,14 +188,7 @@ library LibProposing {
         // verification.
         // Prover can charge ERC20/NFT as fees; msg.value can be zero. Taiko
         // doesn't mandate Ether as the only proofing fee.
-
-        uint256 proverFee;
-        (blk.assignedProver, proverFee) = _validateAssignment({
-            proposer: msg.sender,
-            minTier: blk.minTier,
-            txListHash: txListHash,
-            assignment: assignment
-        });
+        blk.assignedProver = assignment.prover;
 
         // The assigned prover burns Taiko tokens, referred to as the
         // "assignment bond." This bond remains non-refundable to the
@@ -209,6 +202,13 @@ library LibProposing {
         unchecked {
             ++state.slotB.numBlocks;
         }
+
+        uint256 proverFee = _validateAssignment({
+            proposer: msg.sender,
+            minTier: blk.minTier,
+            txListHash: txListHash,
+            assignment: assignment
+        });
 
         emit BlockProposed({
             blockId: blk.blockId,
@@ -233,25 +233,6 @@ library LibProposing {
         );
     }
 
-    /// @dev Hashing the block metadata.
-    function _hashMetadata(TaikoData.BlockMetadata memory meta)
-        private
-        pure
-        returns (bytes32 hash)
-    {
-        uint256[5] memory inputs;
-        inputs[0] = uint256(meta.l1Hash);
-        inputs[1] = uint256(meta.mixHash);
-        inputs[2] = uint256(meta.txListHash);
-        inputs[3] = (uint256(meta.timestamp) << 192)
-            | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 96);
-        inputs[4] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
-
-        assembly {
-            hash := keccak256(inputs, mul(5, 32))
-        }
-    }
-
     function _validateAssignment(
         address proposer,
         uint16 minTier,
@@ -259,21 +240,22 @@ library LibProposing {
         TaikoData.ProverAssignment memory assignment
     )
         internal
-        returns (address prover, uint256 fee)
+        returns (uint256 fee)
     {
-        // Checl txList not zero
-        if (txListHash == 0 || proposer == address(0)) {
-            revert L1_ASSIGNMENT_INVALID_PARAMS();
-        }
-
         // Check assignment not expired
         if (block.timestamp >= assignment.expiry) {
             revert L1_ASSIGNMENT_EXPIRED();
         }
 
-        // Recover the prover address
-        // TODO(daniel): enable contract as a prover
-        prover = keccak256(
+        if (
+            txListHash == 0 || proposer == address(0)
+                || assignment.prover == address(0)
+        ) {
+            revert L1_ASSIGNMENT_INVALID_PARAMS();
+        }
+
+        // Check assignment authorization
+        bytes32 hash = keccak256(
             abi.encode(
                 "PROVER_ASSIGNMENT",
                 txListHash,
@@ -281,18 +263,29 @@ library LibProposing {
                 assignment.expiry,
                 assignment.tierFees
             )
-        ).recover(assignment.signature);
+        );
 
-        // The prover address cannot be zero
-        if (prover == address(0)) revert L1_ASSIGNMENT_INVALID_SIGNATURE();
+        if (assignment.prover.isContract()) {
+            if (
+                IERC1271(assignment.prover).isValidSignature(
+                    hash, assignment.signature
+                ) != EIP1271_MAGICVALUE
+            ) {
+                revert L1_ASSIGNMENT_INVALID_SIG();
+            }
+        } else {
+            if (assignment.prover != hash.recover(assignment.signature)) {
+                revert L1_ASSIGNMENT_INVALID_SIG();
+            }
+        }
 
         // Find the fee for the min tier
         fee = _findFee(assignment.tierFees, minTier);
 
         if (assignment.feeToken == address(0)) {
             // feeToken is Ether
-            if (msg.value < fee) revert L1_ASSIGNMENT_INSUFFICIENT_TX_VALUE();
-            prover.sendEther(fee);
+            if (msg.value < fee) revert L1_ASSIGNMENT_INSUFFICIENT_FEE();
+            assignment.prover.sendEther(fee);
             unchecked {
                 // Return the extra Ether to the proposer
                 uint256 refund = msg.value - fee;
@@ -301,7 +294,9 @@ library LibProposing {
         } else {
             // ERC20 token as fee. We send back Ether if msg.value is nonzero.
             if (msg.value != 0) proposer.sendEther(msg.value);
-            ERC20(assignment.feeToken).transferFrom(proposer, prover, fee);
+            ERC20(assignment.feeToken).transferFrom(
+                proposer, assignment.prover, fee
+            );
         }
     }
 
@@ -319,5 +314,24 @@ library LibProposing {
             }
         }
         revert L1_ASSIGNMENT_TIER_NOT_FUND();
+    }
+
+    /// @dev Hashing the block metadata.
+    function _hashMetadata(TaikoData.BlockMetadata memory meta)
+        private
+        pure
+        returns (bytes32 hash)
+    {
+        uint256[5] memory inputs;
+        inputs[0] = uint256(meta.l1Hash);
+        inputs[1] = uint256(meta.mixHash);
+        inputs[2] = uint256(meta.txListHash);
+        inputs[3] = (uint256(meta.timestamp) << 192)
+            | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 96);
+        inputs[4] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
+
+        assembly {
+            hash := keccak256(inputs, mul(5, 32))
+        }
     }
 }
