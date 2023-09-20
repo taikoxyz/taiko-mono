@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
   import { formatEther } from 'viem';
 
@@ -15,7 +16,9 @@
   export let closeDetails = noop;
   export let detailsOpen = false;
 
-  export let selectedItem: BridgeTransaction | null;
+  export let selectedItem: BridgeTransaction;
+
+  const dispatch = createEventDispatcher();
 
   let openStatusDialog = false;
 
@@ -28,6 +31,10 @@
 
   const handleStatusDialog = () => {
     openStatusDialog = !openStatusDialog;
+  };
+
+  const handleInsufficientFunds = (e: CustomEvent) => {
+    dispatch('insufficientFunds', e.detail);
   };
 </script>
 
@@ -66,7 +73,7 @@
             </div>
           </h4>
           <div class="f-items-center space-x-1">
-            <Status bridgeTx={selectedItem} />
+            <Status bridgeTx={selectedItem} on:insufficientFunds={handleInsufficientFunds} />
           </div>
         </li>
         <li class="f-between-center">
