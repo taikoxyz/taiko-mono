@@ -219,19 +219,6 @@ library LibProposing {
         });
     }
 
-    function _hashAssignment(
-        bytes32 txListHash,
-        TaikoData.ProverAssignment memory assignment
-    )
-        private
-        view
-        returns (bytes32)
-    {
-        return keccak256(
-            abi.encodePacked(txListHash, msg.value, assignment.expiry)
-        );
-    }
-
     function _validateAssignment(
         address proposer,
         uint16 minTier,
