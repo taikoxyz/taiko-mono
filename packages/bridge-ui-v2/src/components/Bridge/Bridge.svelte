@@ -296,7 +296,7 @@
       }
     }
   }
-  $: if ($selectedToken) {
+  $: if ($selectedToken && amountComponent) {
     amountComponent.validateAmount();
   }
 </script>
