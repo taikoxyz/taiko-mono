@@ -77,9 +77,15 @@
             class:bg-tertiary-interactive-accent={selected}
             on:click={() => selectToken(token)}>
             <div class="p-4">
-              <i role="img" aria-label={token.name}>
-                <svelte:component this={symbolToIconMap[token.symbol]} />
-              </i>
+              {#if symbolToIconMap[token.symbol] && !token.imported}
+                <i role="img" aria-label={token.name}>
+                  <svelte:component this={symbolToIconMap[token.symbol]} size={28} />
+                </i>
+              {:else}
+                <i role="img" aria-label={token.symbol}>
+                  <svelte:component this={Erc20} size={28} />
+                </i>
+              {/if}
               <span class="body-bold">{token.symbol}</span>
             </div>
           </li>
