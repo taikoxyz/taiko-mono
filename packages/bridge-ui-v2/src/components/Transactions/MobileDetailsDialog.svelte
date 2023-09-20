@@ -66,7 +66,7 @@
             </div>
           </h4>
           <div class="f-items-center space-x-1">
-            <Status bridgeTx={selectedItem} />
+            <Status bridgeTx={selectedItem} isDesktopOrLarger={false} isMobileDetailsDialog={true}/>
           </div>
         </li>
         <li class="f-between-center">

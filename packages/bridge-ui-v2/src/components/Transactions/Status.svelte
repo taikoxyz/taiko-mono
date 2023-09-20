@@ -36,6 +36,8 @@
   const log = getLogger('components:Status');
 
   export let bridgeTx: BridgeTransaction;
+  export let isDesktopOrLarger: boolean;
+  export let isMobileDetailsDialog: boolean;
 
   let polling: ReturnType<typeof startPolling>;
 
@@ -140,7 +142,9 @@
           warningToast($t('transactions.actions.claim.rejected'));
           break;
         case err instanceof InsufficientBalanceError:
-          modalOpen = true;
+          if (isDesktopOrLarger || isMobileDetailsDialog) {
+            modalOpen = true;
+          }
           break;
         case err instanceof InvalidProofError:
           errorToast($t('TODO: InvalidProofError'));

@@ -65,7 +65,7 @@
   {/if}
 
   <div class="sm:w-1/4 md:w-1/5 py-2 flex flex-col justify-center">
-    <Status bridgeTx={item} />
+    <Status bridgeTx={item} isDesktopOrLarger={isDesktopOrLarger} isMobileDetailsDialog={false}/>
   </div>
   <div class="hidden md:flex w-1/5 py-2 flex flex-col justify-center">
     <a
