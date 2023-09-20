@@ -96,6 +96,7 @@ var (
 		Usage:    "How many messages to prefetch",
 		Category: processorCategory,
 		Value:    1,
+		EnvVars:  []string{"QUEUE_PREFETCH_COUNT"},
 	}
 )
 
