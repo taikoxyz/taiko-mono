@@ -2,7 +2,7 @@
 
 In this guide, we will outline the steps to implement a solution that enables prover pools to accept arbitrary ERC-20 tokens as payments for providing with proofs. This solution allows proposers to interact with pools (implementing `IProver`), agree on a price for proving a block, and make payments using ERC-20 tokens.
 
-NOTE: This works also with NFTs (ERC-721/ERC-1155) as well (applying the proper `approval`/`approvalForAll`), just because it might be less likely those will be used as payment methods, we highlighted the ERC-20. 
+NOTE: This works also with NFTs (ERC-721/ERC-1155) as well (applying the proper `approval`/`approvalForAll`), just because it might be less likely those will be used as payment methods, we highlighted the ERC-20.
 
 ## Prerequisites
 
@@ -24,7 +24,7 @@ contract ProverPool is IProver {
 
     // ERC-20 address of the payment token
     address ERC20TokenAddress;
-    
+
     // Implement the onBlockAssigned function
     function onBlockAssigned(
         uint64 blockId,
@@ -38,7 +38,7 @@ contract ProverPool is IProver {
         require(isValidSignature(proverSignature, input), "Invalid prover signature");
 
         // 2. Execute the transfer transaction
-        ERC20(ERC20TokenAddress).transferFrom(input.proposer, address(this), tokenAmount);
+        ERC20(ERC20TokenAddress).transferFrom(tx.origin, address(this), tokenAmount);
 
         // Additional logic goes here
     }
