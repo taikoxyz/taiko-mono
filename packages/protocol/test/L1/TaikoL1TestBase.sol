@@ -107,12 +107,15 @@ abstract contract TaikoL1TestBase is TestBase {
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
-        TaikoData.ProverAssignment memory assignment = TaikoData
-            .ProverAssignment({
-            prover: prover,
-            expiry: uint64(block.timestamp + 60 minutes),
-            data: new bytes(0)
-        });
+        TaikoData.ProverAssignment memory assignment;
+
+        // TODO
+        // =  TaikoData
+        //      .ProverAssignment({
+        //      prover: prover,
+        //      expiry: uint64(block.timestamp + 60 minutes),
+        //      data: new bytes(0)
+        //  });
 
         bytes memory txList = new bytes(txListSize);
 

@@ -267,7 +267,6 @@ contract TaikoL1 is
             proposerRewardPerSecond: 25e16, // 0.25 Taiko token
             proposerRewardMax: 32e18, // 32 Taiko token
             assignmentBond: 10_240e18,
-            skipAssignmentVerificaiton: false,
             ethDepositRingBufferSize: 1024,
             ethDepositMinCountPerBlock: 8,
             ethDepositMaxCountPerBlock: 32,
@@ -279,6 +278,6 @@ contract TaikoL1 is
     }
 }
 
-/// @title TaikoL1
+/// @title ProxiedTaikoL1
 /// @notice Proxied version of the parent contract.
 contract ProxiedTaikoL1 is Proxied, TaikoL1 { }

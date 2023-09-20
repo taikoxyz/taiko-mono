@@ -44,8 +44,6 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // The amount of Taiko token as a zk proof bond
         uint96 assignmentBond;
-        // True to skip proof verification
-        bool skipAssignmentVerificaiton;
         // ---------------------------------------------------------------------
         // Group 4: ETH deposit related configs
         // ---------------------------------------------------------------------
@@ -84,10 +82,16 @@ library TaikoData {
     }
 
     /// @dev Struct representing prover assignment
+    struct TierFee {
+        uint16 tier;
+        uint256 fee;
+    }
+
     struct ProverAssignment {
-        address prover;
+        address feeToken;
+        TierFee[] tierFees;
         uint64 expiry;
-        bytes data;
+        bytes signature;
     }
 
     /// @dev Struct containing data only required for proving a block
