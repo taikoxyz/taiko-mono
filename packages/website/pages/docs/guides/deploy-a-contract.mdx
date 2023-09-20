@@ -2,38 +2,33 @@ import { Callout, Steps, Tab, Tabs } from "nextra-theme-docs";
 
 # Deploy a contract
 
-This guide will help you deploy a smart contract to Taiko using Foundry or Hardhat.
+This guide will help you deploy a smart contract to Taiko.
 
 ## Prerequisites
 
-- You have [Foundry](https://book.getfoundry.sh/getting-started/installation) or [Hardhat](https://hardhat.org/hardhat-runner/docs/getting-started#quick-start) installed.
-- You have testnet ETH on a Taiko testnet (to pay the transaction fee for deploying the contract).
-  - You can [request Sepolia ETH](/docs/guides/build-on-taiko/receive-tokens#receive-sepolia-eth) from the faucet and then [bridge tokens](/docs/guides/build-on-taiko/bridge-tokens) to send the testnet ETH to a Taiko testnet.
-- You have the private key to the account with testnet ETH on a Taiko testnet.
+- You have testnet ETH on Taiko (to pay the transaction fee for deploying the contract).
+  - You can [request Sepolia ETH](/docs/guides/receive-tokens#receive-sepolia-eth) from the faucet and then [use the bridge](/docs/guides/bridge-tokens) to send testnet ETH to Taiko.
+- You have the private key to the account with testnet ETH on Taiko.
 
 ### Additional Remix prerequisites
 
-- You have [setup your wallet](/docs/guides/build-on-taiko/setup-your-wallet) to connect to the relevant testnets.
+- You have [setup your wallet](/docs/guides/setup-your-wallet) to connect to the relevant testnets.
 
 ## Steps
 
-{" "}
-
-<Callout type="info">
-  Make sure to set the RPC to the network you are trying to deploy to. The ones
-  here just use Grimsvotn L2 as an example. You can see all the RPC urls under
-  [RPC configuration](/docs/reference/rpc-configuration).
-</Callout>
-
 <Tabs items={["Foundry", "Hardhat", "Remix", "thirdweb"]} defaultIndex="0">
   <Tab>
-      **1. Create a project with Foundry**
+      **1. Install Foundry**
+
+      See the [Foundry installation guide](https://book.getfoundry.sh/getting-started/installation).
+
+      **2. Create a project with Foundry**
 
       ```sh
       forge init hello_foundry && cd hello_foundry
       ```
 
-      **2. Deploy your contract**
+      **3. Deploy your contract**
 
       Deploy the contract located at `src/Counter.sol`. Replace `YOUR_PRIVATE_KEY` below with your private key which has some testnet ETH on Taiko.
 
@@ -43,12 +38,12 @@ This guide will help you deploy a smart contract to Taiko using Foundry or Hardh
       </Callout>
 
       ```sh
-      forge create --rpc-url https://rpc.test.taiko.xyz --private-key YOUR_PRIVATE_KEY src/Counter.sol:Counter
+      forge create --rpc-url https://rpc.jolnir.taiko.xyz --private-key YOUR_PRIVATE_KEY src/Counter.sol:Counter
       ```
 
-      **3. View your contract**
+      **4. View your contract**
 
-      Paste the address from the output into the [Taiko block explorer](https://explorer.test.taiko.xyz) and verify that the contract was deployed.
+      Paste the address from the output into the [Taiko block explorer](https://explorer.jolnir.taiko.xyz) and verify that the contract was deployed.
 
   </Tab>
   <Tab>
@@ -73,7 +68,7 @@ This guide will help you deploy a smart contract to Taiko using Foundry or Hardh
          solidity: "0.8.18",
          networks: {
             taiko: {
-               url: "https://rpc.test.taiko.xyz",
+               url: "https://rpc.jolnir.taiko.xyz",
                accounts: [
                   "0xf214f2b2cd398c806f84e317254e0f0b801d0643303237d97a22a48e01628897",
                ],

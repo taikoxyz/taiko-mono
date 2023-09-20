@@ -32,7 +32,7 @@ export function Footer() {
                   className="hover:underline"
                   target={"_blank"}
                 >
-                  Brand kit
+                  Media kit
                 </a>
               </li>
             </ul>
@@ -58,10 +58,11 @@ export function Footer() {
               </li>
               <li className="mb-4">
                 <a
-                  href="/docs/resources/integration-guide"
+                  href="https://status.taiko.xyz"
                   className="hover:underline"
+                  target={"_blank"}
                 >
-                  Integration manual
+                  Status
                 </a>
               </li>
             </ul>

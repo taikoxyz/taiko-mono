@@ -51,7 +51,7 @@ const ecosystemData: EcosystemData[] = [
   {
     icon: "/images/ecosystem/taiko.svg",
     name: "Bridge",
-    link: "https://bridge.test.taiko.xyz",
+    link: "https://bridge.jolnir.taiko.xyz",
     description: "Bridge is a dapp that lets you bridge tokens with Taiko.",
     filters: [],
     isLive: true,
@@ -351,7 +351,7 @@ const ecosystemData: EcosystemData[] = [
   {
     icon: "/images/ecosystem/taiko.svg",
     name: "Swap",
-    link: "https://swap.test.taiko.xyz",
+    link: "https://swap.jolnir.taiko.xyz",
     description: "Swap is a dapp that lets you swap tokens on Taiko.",
     filters: [],
     isLive: true,

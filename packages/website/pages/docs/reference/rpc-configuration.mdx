@@ -1,13 +1,9 @@
 import { ConnectToMetamaskButton } from "components/Button/ConnectToMetamaskButton";
-import {
-  SEPOLIA_CONFIG,
-  GRIMSVOTN_CONFIG,
-  ELDFELL_CONFIG,
-} from "../../../domain/chain";
+import { SEPOLIA_CONFIG, TAIKO_CONFIG } from "../../../domain/chain";
 
 # RPC configuration
 
-**{SEPOLIA_CONFIG.names.mediumName}**
+**{SEPOLIA_CONFIG.names.shortishName}**
 
 <br />
 <ConnectToMetamaskButton network={SEPOLIA_CONFIG.names.shortName} />
@@ -19,27 +15,15 @@ import {
 | Symbol             | {SEPOLIA_CONFIG.nativeCurrency.symbol} |
 | Block Explorer URL | {SEPOLIA_CONFIG.blockExplorer.url}     |
 
-**{GRIMSVOTN_CONFIG.names.mediumName}**
+**{TAIKO_CONFIG.names.shortishName}**
 
 <br />
-<ConnectToMetamaskButton network={GRIMSVOTN_CONFIG.names.shortName} />
+<ConnectToMetamaskButton network={TAIKO_CONFIG.names.shortName} />
 
-| Name               | Value                                    |
-| ------------------ | ---------------------------------------- |
-| Chain ID           | {GRIMSVOTN_CONFIG.chainId.decimal }      |
-| RPC (HTTPS)        | {GRIMSVOTN_CONFIG.rpc.https}             |
-| RPC (WebSocket)    | {GRIMSVOTN_CONFIG.rpc.wss}               |
-| Symbol             | {GRIMSVOTN_CONFIG.nativeCurrency.symbol} |
-| Block Explorer URL | {GRIMSVOTN_CONFIG.blockExplorer.url}     |
-
-**{ELDFELL_CONFIG.names.mediumName}**
-
-<br />
-<ConnectToMetamaskButton network={ELDFELL_CONFIG.names.shortName} />
-
-| Name               | Value                                  |
-| ------------------ | -------------------------------------- |
-| Chain ID           | {ELDFELL_CONFIG.chainId.decimal}       |
-| RPC (HTTPS)        | {ELDFELL_CONFIG.rpc.https}             |
-| Symbol             | {ELDFELL_CONFIG.nativeCurrency.symbol} |
-| Block Explorer URL | {ELDFELL_CONFIG.blockExplorer.url}     |
+| Name               | Value                                |
+| ------------------ | ------------------------------------ |
+| Chain ID           | {TAIKO_CONFIG.chainId.decimal }      |
+| RPC (HTTPS)        | {TAIKO_CONFIG.rpc.https}             |
+| RPC (WebSocket)    | {TAIKO_CONFIG.rpc.wss}               |
+| Symbol             | {TAIKO_CONFIG.nativeCurrency.symbol} |
+| Block Explorer URL | {TAIKO_CONFIG.blockExplorer.url}     |
