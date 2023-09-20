@@ -490,7 +490,7 @@ func (p *Processor) getCost(ctx context.Context, auth *bind.TransactOpts) (*big.
 
 		blk, _ := p.destEthClient.BlockByNumber(context.Background(), new(big.Int).SetUint64(bn))
 
-		var cfg *params.ChainConfig
+		cfg := params.NetworkIDToChainConfigOrDefault(p.destChainId)
 
 		baseFee := eip1559.CalcBaseFee(cfg, blk.Header())
 
