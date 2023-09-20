@@ -101,6 +101,7 @@ library LibUtils {
         uint64 slot = _blockId % config.blockRingBufferSize;
 
         TaikoData.Block storage blk = state.blocks[slot];
+
         if (blk.blockId != _blockId) revert L1_BLOCK_MISMATCH();
         if (blk.verifiedTransitionId == 0) revert L1_TRANSITION_NOT_FOUND();
 
@@ -123,5 +124,25 @@ library LibUtils {
             numBlocks: b.numBlocks,
             lastVerifiedBlockId: b.lastVerifiedBlockId
         });
+    }
+
+    function getInstance(
+        address prover,
+        TaikoData.BlockEvidence memory evidence
+    )
+        internal
+        pure
+        returns (bytes32 instance)
+    {
+        return keccak256(
+            abi.encode(
+                evidence.metaHash,
+                evidence.parentHash,
+                evidence.blockHash,
+                evidence.signalRoot,
+                evidence.graffiti,
+                prover
+            )
+        );
     }
 }
