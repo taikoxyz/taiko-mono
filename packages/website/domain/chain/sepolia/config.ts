@@ -88,8 +88,8 @@ export const SEPOLIA_CONFIG = {
         symbol: "TTKOj",
         decimals: 18,
         address: {
-          proxy: "0x75F94f04d2144cB6056CCd0CFF1771573d838974",
-          impl: "0xB3458D8Ba7fcA9Eab341E986005df155e1243AE4",
+          proxy: "0xB3458D8Ba7fcA9Eab341E986005df155e1243AE4",
+          impl: "0x75F94f04d2144cB6056CCd0CFF1771573d838974",
         },
       },
       horseToken: {
