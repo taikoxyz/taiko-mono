@@ -47,7 +47,6 @@ library LibProposing {
     error L1_ASSIGNMENT_INVALID_PARAMS();
     error L1_ASSIGNMENT_INSUFFICIENT_FEE();
     error L1_ASSIGNMENT_TIER_NOT_FUND();
-
     error L1_TOO_MANY_BLOCKS();
     error L1_TXLIST_INVALID_RANGE();
     error L1_TXLIST_MISMATCH();
