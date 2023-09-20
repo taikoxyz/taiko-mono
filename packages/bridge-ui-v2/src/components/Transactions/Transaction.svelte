@@ -1,27 +1,49 @@
 <script lang="ts">
+  import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
   import { formatEther } from 'viem';
-
-  import type { BridgeTransaction } from '$libs/bridge';
-
-  export let item: BridgeTransaction;
-
-  import { createEventDispatcher } from 'svelte';
 
   import { chainConfig } from '$chainConfig';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { Icon } from '$components/Icon';
+  import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
 
   import ChainSymbolName from './ChainSymbolName.svelte';
+  import InsufficientFunds from './InsufficientFunds.svelte';
+  import MobileDetailsDialog from './MobileDetailsDialog.svelte';
   import Status from './Status.svelte';
 
-  const dispatch = createEventDispatcher();
+  export let item: BridgeTransaction;
 
+  const dispatch = createEventDispatcher();
+  let insufficientModal = false;
+  let detailsOpen = false;
   let isDesktopOrLarger = false;
 
-  const handleClick = () => dispatch('click');
+  const handleClick = () => {
+    openDetails();
+    dispatch('click');
+  };
 
-  const handlePress = () => dispatch('press');
+  const handlePress = () => {
+    openDetails();
+    dispatch('press');
+  };
+
+  const closeDetails = () => {
+    detailsOpen = false;
+  };
+
+  const openDetails = () => {
+    if (item?.status === MessageStatus.DONE && !isDesktopOrLarger) {
+      detailsOpen = true;
+    }
+  };
+
+  const handleInsufficientFunds = () => {
+    insufficientModal = true;
+    openDetails();
+  };
 
   let attrs = isDesktopOrLarger ? {} : { role: 'button' };
 </script>
@@ -65,7 +87,11 @@
   {/if}
 
   <div class="sm:w-1/4 md:w-1/5 py-2 flex flex-col justify-center">
-    <Status bridgeTx={item} />
+    <Status
+      on:click={isDesktopOrLarger ? undefined : openDetails}
+      bridgeTx={item}
+      on:insufficientFunds={handleInsufficientFunds} />
+    <!-- <div class="btn btn-primary" on:click={isDesktopOrLarger ? undefined : openDetails}></div> -->
   </div>
   <div class="hidden md:flex w-1/5 py-2 flex flex-col justify-center">
     <a
@@ -77,4 +103,9 @@
     </a>
   </div>
 </div>
+
 <DesktopOrLarger bind:is={isDesktopOrLarger} />
+
+<MobileDetailsDialog {closeDetails} {detailsOpen} selectedItem={item} on:insufficientFunds={handleInsufficientFunds} />
+
+<InsufficientFunds bind:modalOpen={insufficientModal} />
