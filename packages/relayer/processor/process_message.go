@@ -243,11 +243,11 @@ func (p *Processor) sendProcessMessageCall(
 		auth.GasLimit = 3000000
 	} else {
 		// otherwise we can estimate gas
-		gas, cost, err = p.estimateGas(ctx, event.Message, proof)
+		gas, _, err = p.estimateGas(ctx, event.Message, proof)
 		// and if gas estimation failed, we just try to hardcore a value no matter what type of event,
 		// or whether the contract is deployed.
 		if err != nil || gas == 0 {
-			cost, err = p.hardcodeGasLimit(ctx, auth, event, eventType, canonicalToken)
+			_, err = p.hardcodeGasLimit(ctx, auth, event, eventType, canonicalToken)
 			if err != nil {
 				return nil, errors.Wrap(err, "p.hardcodeGasLimit")
 			}
@@ -256,21 +256,15 @@ func (p *Processor) sendProcessMessageCall(
 		}
 	}
 
-	gasTipCap, err := p.destEthClient.SuggestGasTipCap(ctx)
+	err = p.setGasTipOrPrice(ctx, auth)
 	if err != nil {
-		if IsMaxPriorityFeePerGasNotFoundError(err) {
-			auth.GasTipCap = FallbackGasTipCap
-		} else {
-			gasPrice, err := p.destEthClient.SuggestGasPrice(context.Background())
-			if err != nil {
-				return nil, errors.Wrap(err, "p.destBridge.SuggestGasPrice")
-			}
-
-			auth.GasPrice = gasPrice
-		}
-	} else {
-		auth.GasTipCap = gasTipCap
+		return nil, err
 	}
+
+	// new function getCost: auth.GasLimit and auth.GasPrice || auth.GasTipCap should be set by here
+	// use to predict cost. gasLimit * gasPrice = cost or gasLimit * (gasTipCap + baseFeePerGas) = cost
+
+	// pass actual cost to isProfitable below instead of bs above
 
 	if bool(p.profitableOnly) {
 		profitable, err := p.isProfitable(ctx, event.Message, cost)
@@ -461,3 +455,51 @@ func (p *Processor) saveMessageStatusChangedEvent(
 
 	return nil
 }
+
+func (p *Processor) setGasTipOrPrice(ctx context.Context, auth *bind.TransactOpts) error {
+	gasTipCap, err := p.destEthClient.SuggestGasTipCap(ctx)
+	if err != nil {
+		if IsMaxPriorityFeePerGasNotFoundError(err) {
+			auth.GasTipCap = FallbackGasTipCap
+		} else {
+			gasPrice, err := p.destEthClient.SuggestGasPrice(context.Background())
+			if err != nil {
+				return errors.Wrap(err, "p.destBridge.SuggestGasPrice")
+			}
+			auth.GasPrice = gasPrice
+
+			return nil
+		}
+	} else {
+		auth.GasTipCap = gasTipCap
+
+		return nil
+	}
+
+	return nil
+}
+
+// func (p *Processor) getCost(ctx context.Context, auth *bind.TransactOpts) (*big.Int, error) {
+// 	if auth.GasPrice == nil {
+
+// 		bn, err := p.destEthClient.BlockNumber(ctx)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		blk, _ := p.destEthClient.BlockByNumber(context.Background(), bn)
+// 		// blockNum, err := p.destEthClient.BlockNumber(ctx)
+// 		// if err != nil {
+// 		// 	return nil, err
+// 		// }
+// 		// var header *types.Header
+// 		// p.rpc.CallContext(ctx, header, "eth_getBlockByNumber", blockNum, true)
+
+// 		// baseFee := misc.CalcBaseFee(, header)
+
+// 		return new(big.Int).Mul(
+// 			new(big.Int).SetUint64(auth.GasLimit),
+// 			new(big.Int).Add(auth.GasTipCap)), nil
+// 	} else {
+// 		return new(big.Int).Mul(auth.GasPrice, new(big.Int).SetUint64(auth.GasLimit)), nil
+// 	}
+// }
