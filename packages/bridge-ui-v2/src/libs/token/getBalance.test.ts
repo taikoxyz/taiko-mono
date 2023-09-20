@@ -64,7 +64,10 @@ describe('getBalance', () => {
 
     expect(balance).toEqual(mockBalanceForETH);
     expect(getAddress).not.toHaveBeenCalled();
-    expect(fetchBalance).toHaveBeenCalledWith({ address: mockWalletClient.account.address });
+    expect(fetchBalance).toHaveBeenCalledWith({
+      address: mockWalletClient.account.address,
+      chainId: Number(PUBLIC_L1_CHAIN_ID),
+    });
   });
 
   it('should return the balance of ERC20 token', async () => {
