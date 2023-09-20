@@ -251,6 +251,8 @@ func (p *Processor) sendProcessMessageCall(
 			if err != nil {
 				return nil, errors.Wrap(err, "p.hardcodeGasLimit")
 			}
+		} else {
+			auth.GasLimit = gas
 		}
 	}
 

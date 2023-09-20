@@ -62,8 +62,7 @@
       !$destNetwork ||
       !$tokenBalance ||
       !$selectedToken ||
-      $enteredAmount === BigInt(0) || // no need to check if the amount is 0
-      $tokenBalance.symbol !== $selectedToken.symbol
+      $enteredAmount === BigInt(0) // no need to check if the amount is 0
     )
       return;
 
