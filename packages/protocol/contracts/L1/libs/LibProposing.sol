@@ -272,6 +272,7 @@ library LibProposing {
         }
 
         // Recover the prover address
+        // TODO(daniel): enable contract as a prover
         prover = keccak256(
             abi.encode(
                 "PROVER_ASSIGNMENT",
