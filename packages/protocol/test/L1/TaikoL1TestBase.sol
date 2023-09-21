@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import { TestBase } from "../TestBase.sol";
-import { console2 } from "@forge-std/console2.sol";
+import { console2 } from "forge-std/console2.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { LibProving } from "../../contracts/L1/libs/LibProving.sol";
 import { LibTiers } from "../../contracts/L1/libs/LibTiers.sol";

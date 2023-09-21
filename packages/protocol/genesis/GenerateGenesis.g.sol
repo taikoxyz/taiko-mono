@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { console2 } from "@forge-std/console2.sol";
-import { stdJson } from "@forge-std/StdJson.sol";
-import { Test } from "@forge-std/Test.sol";
+import { console2 } from "forge-std/console2.sol";
+import { stdJson } from "forge-std/StdJson.sol";
+import { Test } from "forge-std/Test.sol";
 
 import { TransparentUpgradeableProxy } from "@oz/proxy/transparent/TransparentUpgradeableProxy.sol";
 

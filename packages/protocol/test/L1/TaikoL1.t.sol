@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { Test } from "@forge-std/Test.sol";
-import { console2 } from "@forge-std/console2.sol";
+import { Test } from "forge-std/Test.sol";
+import { console2 } from "forge-std/console2.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { LibUtils } from "../../contracts/L1/libs/LibUtils.sol";
 import { LibTiers } from "../../contracts/L1/libs/LibTiers.sol";
