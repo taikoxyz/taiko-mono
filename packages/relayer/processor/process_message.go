@@ -483,7 +483,19 @@ func (p *Processor) getCost(ctx context.Context, auth *bind.TransactOpts) (*big.
 
 		cfg := params.NetworkIDToChainConfigOrDefault(p.destChainId)
 
-		baseFee := eip1559.CalcBaseFee(cfg, blk.Header())
+		var baseFee *big.Int
+
+		if p.taikoL2 != nil {
+			gasUsed := uint32(blk.GasUsed())
+			timeSince := uint64(time.Since(time.Unix(int64(blk.Time()), 0)))
+			baseFee, err = p.taikoL2.GetBasefee(&bind.CallOpts{}, timeSince, gasUsed)
+
+			if err != nil {
+				return nil, errors.Wrap(err, "p.taikoL2.GetBasefee")
+			}
+		} else {
+			baseFee = eip1559.CalcBaseFee(cfg, blk.Header())
+		}
 
 		return new(big.Int).Mul(
 			new(big.Int).SetUint64(auth.GasLimit),

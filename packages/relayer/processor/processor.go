@@ -26,6 +26,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc20vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc721vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/icrosschainsync"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/repo"
@@ -90,6 +91,8 @@ type Processor struct {
 
 	srcChainId  *big.Int
 	destChainId *big.Int
+
+	taikoL2 *taikol2.TaikoL2
 }
 
 func (p *Processor) InitFromCli(ctx context.Context, c *cli.Context) error {
@@ -196,6 +199,16 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	}
 
 	relayerAddr := crypto.PubkeyToAddress(*publicKeyECDSA)
+
+	var taikoL2 *taikol2.TaikoL2
+	if cfg.EnableTaikoL2 {
+		taikoL2, err = taikol2.NewTaikoL2(cfg.DestTaikoAddress, destEthClient)
+		if err != nil {
+			return err
+		}
+
+		p.taikoL2 = taikoL2
+	}
 
 	p.prover = prover
 	p.eventRepo = eventRepository
