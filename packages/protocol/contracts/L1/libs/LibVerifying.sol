@@ -6,11 +6,8 @@
 
 pragma solidity ^0.8.20;
 
-import { AddressUpgradeable } from "@ozu/utils/AddressUpgradeable.sol";
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { IMintableERC20 } from "../../common/IMintableERC20.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
-import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { LibTiers } from "./LibTiers.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
@@ -19,9 +16,6 @@ import { TaikoToken } from "../TaikoToken.sol";
 /// @title LibVerifying
 /// @notice A library for handling block verification in the Taiko protocol.
 library LibVerifying {
-    using AddressUpgradeable for address;
-    using LibMath for uint256;
-
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     event BlockVerified(
         uint256 indexed blockId,

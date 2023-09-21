@@ -11,7 +11,6 @@ import { AddressResolver } from "../../common/AddressResolver.sol";
 import { ECDSAUpgradeable } from "@ozu/utils/cryptography/ECDSAUpgradeable.sol";
 import { ERC20Upgradeable } from "@ozu/token/ERC20/ERC20Upgradeable.sol";
 import { IERC1271Upgradeable } from "@ozu/interfaces/IERC1271Upgradeable.sol";
-import { IMintableERC20 } from "../../common/IMintableERC20.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibDepositing } from "./LibDepositing.sol";
 import { LibMath } from "../../libs/LibMath.sol";
@@ -26,7 +25,6 @@ library LibProposing {
     using AddressUpgradeable for address;
     using ECDSAUpgradeable for bytes32;
     using LibAddress for address;
-    using LibAddress for address payable;
     using LibMath for uint256;
 
     bytes4 internal constant EIP1271_MAGICVALUE = 0x1626ba7e;
