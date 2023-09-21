@@ -8,13 +8,6 @@ export const SEPOLIA_ADD_TTKO: AddTokenParameter = {
     image: "https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/testnet-token-images/ttko.svg"
 };
 
-export const SEPOLIA_ADD_BLL: AddTokenParameter = {
-    address: SEPOLIA_CONFIG.basedContracts.erc20Contracts.bullToken.address.impl,
-    symbol: SEPOLIA_CONFIG.basedContracts.erc20Contracts.bullToken.symbol,
-    decimals: SEPOLIA_CONFIG.basedContracts.erc20Contracts.bullToken.decimals,
-    image: "https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/testnet-token-images/bull.svg"
-};
-
 
 export const SEPOLIA_ADD_HORSE: AddTokenParameter = {
     address: SEPOLIA_CONFIG.basedContracts.erc20Contracts.horseToken.address.impl,
@@ -25,7 +18,6 @@ export const SEPOLIA_ADD_HORSE: AddTokenParameter = {
 
 export const SEPOLIA_ADD_TOKENS = [
     SEPOLIA_ADD_TTKO,
-    SEPOLIA_ADD_BLL,
     SEPOLIA_ADD_HORSE
 ]
 
