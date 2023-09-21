@@ -83,7 +83,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         address prover,
         TaikoData.BlockEvidence memory evidence
     )
-        internal
+        public
         pure
         returns (bytes32 instance)
     {

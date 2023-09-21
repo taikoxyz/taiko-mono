@@ -195,6 +195,182 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         printVariables("");
     }
 
+    function test_L1_ContestingWithInvalidBlockHash() external {
+        giveEthAndTko(Alice, 1e8 ether, 1000 ether);
+        giveEthAndTko(Carol, 1e8 ether, 1000 ether);
+        console2.log("Alice balance:", tko.balanceOf(Alice));
+        // This is a very weird test (code?) issue here.
+        // If this line is uncommented,
+        // Alice/Bob has no balance.. (Causing reverts !!!)
+        // Current investigations are ongoing with foundry team
+        giveEthAndTko(Bob, 1e8 ether, 100 ether);
+        console2.log("Bob balance:", tko.balanceOf(Bob));
+        // Bob
+        vm.prank(Bob, Bob);
+
+        bytes32 parentHash = GENESIS_BLOCK_HASH;
+        for (uint256 blockId = 1; blockId < 10; blockId++) {
+            printVariables("before propose");
+            TaikoData.BlockMetadata memory meta =
+                proposeBlock(Alice, Bob, 1_000_000, 1024);
+            //printVariables("after propose");
+            mine(1);
+
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
+            // This proof cannot be verified obviously because of
+            // signalRoot instead of blockHash
+            uint16 minTier = L1.getBlock(meta.id).minTier;
+            proveBlock(
+                Bob, Bob, meta, parentHash, signalRoot, signalRoot, minTier, ""
+            );
+
+            if (minTier == LibTiers.TIER_OPTIMISTIC) {
+                // Try to contest
+                proveBlock(
+                    Carol,
+                    Carol,
+                    meta,
+                    parentHash,
+                    blockHash,
+                    signalRoot,
+                    minTier,
+                    ""
+                );
+
+                vm.roll(block.number + 15 * 12);
+
+                vm.warp(
+                    block.timestamp
+                        + LibTiers.getTierConfig(minTier).cooldownWindow + 1
+                );
+
+                // Cannot verify block because it is contested..
+                verifyBlock(Carol, 1);
+
+                proveBlock(
+                    Carol,
+                    Carol,
+                    meta,
+                    parentHash,
+                    0,
+                    signalRoot,
+                    LibTiers.TIER_PSE_ZKEVM,
+                    TaikoErrors.L1_INVALID_EVIDENCE.selector
+                );
+            }
+
+            // Otherwise just not contest
+            vm.warp(
+                block.timestamp + LibTiers.getTierConfig(minTier).cooldownWindow
+                    + 1
+            );
+            // Now can verify
+            verifyBlock(Carol, 1);
+
+            parentHash = blockHash;
+        }
+        printVariables("");
+    }
+
+    function test_L1_NonAsignedProverCannotBeFirstInProofWindowTime()
+        external
+    {
+        giveEthAndTko(Alice, 1e8 ether, 100 ether);
+        // This is a very weird test (code?) issue here.
+        // If this line (or Bob's query balance) is uncommented,
+        // Alice/Bob has no balance.. (Causing reverts !!!)
+        console2.log("Alice balance:", tko.balanceOf(Alice));
+        giveEthAndTko(Bob, 1e8 ether, 100 ether);
+        console2.log("Bob balance:", tko.balanceOf(Bob));
+        giveEthAndTko(Carol, 1e8 ether, 100 ether);
+        // Bob
+        vm.prank(Bob, Bob);
+
+        bytes32 parentHash = GENESIS_BLOCK_HASH;
+
+        for (uint256 blockId = 1; blockId < 10; blockId++) {
+            //printVariables("before propose");
+            TaikoData.BlockMetadata memory meta =
+                proposeBlock(Alice, Bob, 1_000_000, 1024);
+            //printVariables("after propose");
+            mine(1);
+
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
+            proveBlock(
+                Carol,
+                Carol,
+                meta,
+                parentHash,
+                blockHash,
+                signalRoot,
+                L1.getBlock(meta.id).minTier,
+                TaikoErrors.L1_NOT_ASSIGNED_PROVER.selector
+            );
+            vm.roll(block.number + 15 * 12);
+
+            uint16 minTier = L1.getBlock(meta.id).minTier;
+            vm.warp(
+                block.timestamp + LibTiers.getTierConfig(minTier).cooldownWindow
+                    + 1
+            );
+
+            verifyBlock(Carol, 1);
+            parentHash = blockHash;
+        }
+        printVariables("");
+    }
+
+    function test_L1_asignedProverCannotProveAfterHisWindowElapsed() external {
+        giveEthAndTko(Alice, 1e8 ether, 100 ether);
+        // This is a very weird test (code?) issue here.
+        // If this line (or Bob's query balance) is uncommented,
+        // Alice/Bob has no balance.. (Causing reverts !!!)
+        console2.log("Alice balance:", tko.balanceOf(Alice));
+        giveEthAndTko(Bob, 1e8 ether, 100 ether);
+        console2.log("Bob balance:", tko.balanceOf(Bob));
+        giveEthAndTko(Carol, 1e8 ether, 100 ether);
+        // Bob
+        vm.prank(Bob, Bob);
+
+        bytes32 parentHash = GENESIS_BLOCK_HASH;
+
+        for (uint256 blockId = 1; blockId < 10; blockId++) {
+            //printVariables("before propose");
+            TaikoData.BlockMetadata memory meta =
+                proposeBlock(Alice, Bob, 1_000_000, 1024);
+            //printVariables("after propose");
+            mine(1);
+
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
+
+            vm.roll(block.number + 15 * 12);
+
+            uint16 minTier = L1.getBlock(meta.id).minTier;
+            vm.warp(
+                block.timestamp + LibTiers.getTierConfig(minTier).cooldownWindow
+                    + 1
+            );
+
+            proveBlock(
+                Bob,
+                Bob,
+                meta,
+                parentHash,
+                blockHash,
+                signalRoot,
+                L1.getBlock(meta.id).minTier,
+                TaikoErrors.L1_ASSIGNED_PROVER_NOT_ALLOWED.selector
+            );
+
+            verifyBlock(Carol, 1);
+            parentHash = blockHash;
+        }
+        printVariables("");
+    }
+
     function test_L1_GuardianProverCannotOverwriteIfSameProof() external {
         registerAddress("guardian", Carol);
 
@@ -245,6 +421,73 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 signalRoot,
                 LibTiers.TIER_GUARDIAN,
                 TaikoErrors.L1_ALREADY_PROVED.selector
+            );
+
+            vm.roll(block.number + 15 * 12);
+
+            uint16 minTier = L1.getBlock(meta.id).minTier;
+            vm.warp(
+                block.timestamp + LibTiers.getTierConfig(minTier).cooldownWindow
+                    + 1
+            );
+
+            verifyBlock(Carol, 1);
+
+            parentHash = blockHash;
+        }
+        printVariables("");
+    }
+
+    function test_L1_GuardianProverFailsWithInvalidBlockHash() external {
+        registerAddress("guardian", Carol);
+
+        giveEthAndTko(Alice, 1e7 ether, 1000 ether);
+        giveEthAndTko(Carol, 1e7 ether, 1000 ether);
+        console2.log("Alice balance:", tko.balanceOf(Alice));
+        // This is a very weird test (code?) issue here.
+        // If this line is uncommented,
+        // Alice/Bob has no balance.. (Causing reverts !!!)
+        // Current investigations are ongoing with foundry team
+        giveEthAndTko(Bob, 1e6 ether, 100 ether);
+        console2.log("Bob balance:", tko.balanceOf(Bob));
+        // Bob
+        vm.prank(Bob, Bob);
+
+        bytes32 parentHash = GENESIS_BLOCK_HASH;
+        for (
+            uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++
+        ) {
+            printVariables("before propose");
+            TaikoData.BlockMetadata memory meta =
+                proposeBlock(Alice, Bob, 1_000_000, 1024);
+            //printVariables("after propose");
+            mine(1);
+
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
+            // This proof cannot be verified obviously because of
+            // blockhash:blockId
+            proveBlock(
+                Bob,
+                Bob,
+                meta,
+                parentHash,
+                blockHash,
+                signalRoot,
+                L1.getBlock(meta.id).minTier,
+                ""
+            );
+
+            // Try to contest - but should revert with L1_ALREADY_PROVED
+            proveBlock(
+                Carol,
+                Carol,
+                meta,
+                parentHash,
+                0,
+                signalRoot,
+                LibTiers.TIER_GUARDIAN,
+                TaikoErrors.L1_INVALID_EVIDENCE.selector
             );
 
             vm.roll(block.number + 15 * 12);
@@ -388,6 +631,93 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             );
 
             verifyBlock(Carol, 1);
+
+            parentHash = blockHash;
+        }
+        printVariables("");
+    }
+
+    function test_L1_ProveWithInvalidBlockId() external {
+        registerAddress("guardian", Alice);
+
+        giveEthAndTko(Alice, 1e8 ether, 1000 ether);
+        giveEthAndTko(Carol, 1e8 ether, 1000 ether);
+        console2.log("Alice balance:", tko.balanceOf(Alice));
+        // This is a very weird test (code?) issue here.
+        // If this line is uncommented,
+        // Alice/Bob has no balance.. (Causing reverts !!!)
+        // Current investigations are ongoing with foundry team
+        giveEthAndTko(Bob, 1e8 ether, 100 ether);
+        console2.log("Bob balance:", tko.balanceOf(Bob));
+        // Bob
+        vm.prank(Bob, Bob);
+
+        bytes32 parentHash = GENESIS_BLOCK_HASH;
+        for (uint256 blockId = 1; blockId < 10; blockId++) {
+            printVariables("before propose");
+            TaikoData.BlockMetadata memory meta =
+                proposeBlock(Alice, Bob, 1_000_000, 1024);
+            //printVariables("after propose");
+            mine(1);
+
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
+
+            meta.id = 100;
+            proveBlock(
+                Carol,
+                Carol,
+                meta,
+                parentHash,
+                blockHash,
+                signalRoot,
+                LibTiers.TIER_PSE_ZKEVM,
+                TaikoErrors.L1_INVALID_BLOCK_ID.selector
+            );
+
+            parentHash = blockHash;
+        }
+        printVariables("");
+    }
+
+    function test_L1_ProveWithInvalidMetahash() external {
+        registerAddress("guardian", Alice);
+
+        giveEthAndTko(Alice, 1e8 ether, 1000 ether);
+        giveEthAndTko(Carol, 1e8 ether, 1000 ether);
+        console2.log("Alice balance:", tko.balanceOf(Alice));
+        // This is a very weird test (code?) issue here.
+        // If this line is uncommented,
+        // Alice/Bob has no balance.. (Causing reverts !!!)
+        // Current investigations are ongoing with foundry team
+        giveEthAndTko(Bob, 1e8 ether, 100 ether);
+        console2.log("Bob balance:", tko.balanceOf(Bob));
+        // Bob
+        vm.prank(Bob, Bob);
+
+        bytes32 parentHash = GENESIS_BLOCK_HASH;
+        for (uint256 blockId = 1; blockId < 10; blockId++) {
+            printVariables("before propose");
+            TaikoData.BlockMetadata memory meta =
+                proposeBlock(Alice, Bob, 1_000_000, 1024);
+            //printVariables("after propose");
+            mine(1);
+
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
+
+            // Mess up metahash
+            meta.l1Height = 200;
+            proveBlock(
+                Bob,
+                Bob,
+                meta,
+                parentHash,
+                blockHash,
+                signalRoot,
+                LibTiers.TIER_PSE_ZKEVM,
+                TaikoErrors.L1_BLOCK_MISMATCH.selector
+            );
 
             parentHash = blockHash;
         }

@@ -113,7 +113,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
-        for (uint256 blockId = 1; blockId <= 2; blockId++) {
+        for (uint256 blockId = 1; blockId <= 20; blockId++) {
             printVariables("before propose");
             TaikoData.BlockMetadata memory meta =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);
@@ -133,8 +133,12 @@ contract TaikoL1Test is TaikoL1TestBase {
                 ""
             );
             vm.roll(block.number + 15 * 12);
-            // TODO
-            // vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
+            uint16 minTier = L1.getBlock(meta.id).minTier;
+            vm.warp(
+                block.timestamp + LibTiers.getTierConfig(minTier).cooldownWindow
+                    + 1
+            );
+
             verifyBlock(Alice, 2);
             parentHash = blockHash;
         }

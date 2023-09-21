@@ -161,7 +161,7 @@ abstract contract TaikoL1TestBase is TestBase {
             proof: new bytes(102)
         });
 
-        bytes32 instance = getInstance(prover, evidence);
+        bytes32 instance = pv.getInstance(prover, evidence);
         uint16 verifierId = tier;
 
         evidence.proof = bytes.concat(
@@ -178,8 +178,8 @@ abstract contract TaikoL1TestBase is TestBase {
         }
 
         if (revertReason != "") {
-            vm.expectRevert(revertReason);
             vm.prank(msgSender, msgSender);
+            vm.expectRevert(revertReason);
             L1.proveBlock(meta.id, abi.encode(evidence));
         } else {
             vm.prank(msgSender, msgSender);
@@ -200,26 +200,6 @@ abstract contract TaikoL1TestBase is TestBase {
         addressManager.setAddress(conf.chainId, nameHash, addr);
         console2.log(
             conf.chainId, string(abi.encodePacked(nameHash)), unicode"→", addr
-        );
-    }
-
-    function getInstance(
-        address prover,
-        TaikoData.BlockEvidence memory evidence
-    )
-        internal
-        pure
-        returns (bytes32 instance)
-    {
-        return keccak256(
-            abi.encode(
-                evidence.metaHash,
-                evidence.parentHash,
-                evidence.blockHash,
-                evidence.signalRoot,
-                evidence.graffiti,
-                prover
-            )
         );
     }
 
