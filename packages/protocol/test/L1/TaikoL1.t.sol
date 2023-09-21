@@ -5,7 +5,9 @@ import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { LibUtils } from "../../contracts/L1/libs/LibUtils.sol";
+import { LibTiers } from "../../contracts/L1/libs/LibTiers.sol";
 import { TaikoData } from "../../contracts/L1/TaikoData.sol";
+import { TaikoErrors } from "../../contracts/L1/TaikoErrors.sol";
 import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
 import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
@@ -73,10 +75,24 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
-            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(
+                Bob,
+                Bob,
+                meta,
+                parentHash,
+                blockHash,
+                signalRoot,
+                L1.getBlock(meta.id).minTier,
+                ""
+            );
             vm.roll(block.number + 15 * 12);
-            // TODO
-            // vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
+
+            uint16 minTier = L1.getBlock(meta.id).minTier;
+            vm.warp(
+                block.timestamp + LibTiers.getTierConfig(minTier).cooldownWindow
+                    + 1
+            );
+
             verifyBlock(Carol, 1);
             parentHash = blockHash;
         }
@@ -96,7 +112,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
-        for (uint256 blockId = 1; blockId <= 2; blockId++) {
+        for (uint256 blockId = 1; blockId <= 20; blockId++) {
             printVariables("before propose");
             TaikoData.BlockMetadata memory meta =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);
@@ -105,10 +121,23 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
 
-            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(
+                Bob,
+                Bob,
+                meta,
+                parentHash,
+                blockHash,
+                signalRoot,
+                L1.getBlock(meta.id).minTier,
+                ""
+            );
             vm.roll(block.number + 15 * 12);
-            // TODO
-            // vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
+            uint16 minTier = L1.getBlock(meta.id).minTier;
+            vm.warp(
+                block.timestamp + LibTiers.getTierConfig(minTier).cooldownWindow
+                    + 1
+            );
+
             verifyBlock(Alice, 2);
             parentHash = blockHash;
         }
@@ -137,7 +166,16 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
 
-            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(
+                Bob,
+                Bob,
+                meta,
+                parentHash,
+                blockHash,
+                signalRoot,
+                L1.getBlock(meta.id).minTier,
+                ""
+            );
             parentHash = blockHash;
         }
 
@@ -218,8 +256,9 @@ contract TaikoL1Test is TaikoL1TestBase {
         bytes32 genHash = L1.getCrossChainBlockHash(0);
         assertEq(GENESIS_BLOCK_HASH, genHash);
 
-        // Not yet avail.
-        assertEq(L1.getCrossChainBlockHash(1), bytes32(0));
+        // Reverts if block is not yet verified!
+        vm.expectRevert(TaikoErrors.L1_BLOCK_MISMATCH.selector);
+        L1.getCrossChainBlockHash(1);
     }
 
     /// @dev getCrossChainSignalRoot tests
@@ -237,9 +276,6 @@ contract TaikoL1Test is TaikoL1TestBase {
         giveEthAndTko(Bob, 1e7 ether, 100_000 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
 
-        // Bob is the staker / prover
-        vm.prank(Bob, Bob);
-
         // Propose blocks
         for (uint64 blockId = 1; blockId < count; blockId++) {
             printVariables("before propose");
@@ -250,12 +286,22 @@ contract TaikoL1Test is TaikoL1TestBase {
             signalRoot = bytes32(1e9 + uint256(blockId));
 
             proveBlock(
-                Bob, Bob, meta, parentHashes[blockId - 1], blockHash, signalRoot
+                Bob,
+                Bob,
+                meta,
+                parentHashes[blockId - 1],
+                blockHash,
+                signalRoot,
+                L1.getBlock(meta.id).minTier,
+                ""
             );
 
             vm.roll(block.number + 15 * 12);
-            // TODO
-            // vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
+            uint16 minTier = L1.getBlock(meta.id).minTier;
+            vm.warp(
+                block.timestamp + LibTiers.getTierConfig(minTier).cooldownWindow
+                    + 1
+            );
 
             verifyBlock(Carol, 1);
 
@@ -276,8 +322,9 @@ contract TaikoL1Test is TaikoL1TestBase {
         expectedSR = bytes32(1e9 + uint256(queriedBlockId));
         assertEq(expectedSR, L1.getCrossChainSignalRoot(queriedBlockId));
 
-        // Not found
-        assertEq(bytes32(0), L1.getCrossChainSignalRoot((count + 1)));
+        // Not found -> reverts
+        vm.expectRevert(TaikoErrors.L1_BLOCK_MISMATCH.selector);
+        L1.getCrossChainSignalRoot((count + 1));
     }
 
     function test_L1_deposit_hash_creation() external {

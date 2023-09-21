@@ -135,6 +135,7 @@ library LibProposing {
         }
 
         meta.txListHash = txListHash;
+        meta.id = b.numBlocks;
         meta.timestamp = uint64(block.timestamp);
         meta.gasLimit = config.blockMaxGasLimit;
 
@@ -210,6 +211,25 @@ library LibProposing {
             reward: reward,
             meta: meta
         });
+    }
+
+    /// @dev Hashing the block metadata.
+    function hashMetadata(TaikoData.BlockMetadata memory meta)
+        internal
+        pure
+        returns (bytes32 hash)
+    {
+        uint256[5] memory inputs;
+        inputs[0] = uint256(meta.l1Hash);
+        inputs[1] = uint256(meta.mixHash);
+        inputs[2] = uint256(meta.txListHash);
+        inputs[3] = (uint256(meta.id)) | (uint256(meta.timestamp) << 64)
+            | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 192);
+        inputs[4] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
+
+        assembly {
+            hash := keccak256(inputs, mul(5, 32))
+        }
     }
 
     function hashAssignmentForTxList(
@@ -293,25 +313,5 @@ library LibProposing {
             }
         }
         revert L1_TIER_NOT_FOUND();
-    }
-
-    // TODO(daniel): change funciton ordering
-    /// @dev Hashing the block metadata.
-    function hashMetadata(TaikoData.BlockMetadata memory meta)
-        internal
-        pure
-        returns (bytes32 hash)
-    {
-        uint256[5] memory inputs;
-        inputs[0] = uint256(meta.l1Hash);
-        inputs[1] = uint256(meta.mixHash);
-        inputs[2] = uint256(meta.txListHash);
-        inputs[3] = (uint256(meta.timestamp) << 192)
-            | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 96);
-        inputs[4] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
-
-        assembly {
-            hash := keccak256(inputs, mul(5, 32))
-        }
     }
 }
