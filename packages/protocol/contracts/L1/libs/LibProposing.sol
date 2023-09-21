@@ -6,15 +6,9 @@
 
 pragma solidity ^0.8.20;
 
-import { AddressUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { ECDSAUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
 import { ERC20Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import { IERC1271Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/interfaces/IERC1271Upgradeable.sol";
 import { IMintableERC20 } from "../../common/IMintableERC20.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibDepositing } from "./LibDepositing.sol";
@@ -27,13 +21,8 @@ import { TaikoToken } from "../TaikoToken.sol";
 /// @title LibProposing
 /// @notice A library for handling block proposals in the Taiko protocol.
 library LibProposing {
-    using AddressUpgradeable for address;
-    using ECDSAUpgradeable for bytes32;
     using LibAddress for address;
-    using LibAddress for address payable;
     using LibMath for uint256;
-
-    bytes4 internal constant EIP1271_MAGICVALUE = 0x1626ba7e;
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     event BlockProposed(
@@ -164,7 +153,7 @@ library LibProposing {
         // Please note that all fields must be re-initialized since we are
         // utilizing an existing ring buffer slot, not creating a new storage
         // slot.
-        blk.metaHash = _hashMetadata(meta);
+        blk.metaHash = hashMetadata(meta);
 
         // Safeguard the assignment bond to ensure its preservation,
         // particularly in scenarios where it might be altered after the
@@ -205,6 +194,8 @@ library LibProposing {
             ++state.slotB.numBlocks;
         }
 
+        // Validate the prover assignment, then charge Ether or ERC20 as the
+        // prover fee based on the block's minTier.
         uint256 proverFee = _validateAssignment({
             minTier: blk.minTier,
             txListHash: txListHash,
@@ -221,13 +212,32 @@ library LibProposing {
         });
     }
 
+    function hashAssignmentWithTxListHash(
+        TaikoData.ProverAssignment memory assignment,
+        bytes32 txListHash
+    )
+        internal
+        pure
+        returns (bytes32)
+    {
+        return keccak256(
+            abi.encode(
+                "PROVER_ASSIGNMENT",
+                txListHash,
+                assignment.feeToken,
+                assignment.expiry,
+                assignment.tierFees
+            )
+        );
+    }
+
     function _validateAssignment(
         uint16 minTier,
         bytes32 txListHash,
         TaikoData.ProverAssignment memory assignment
     )
-        internal
-        returns (uint256 fee)
+        private
+        returns (uint256 proverFee)
     {
         // Check assignment not expired
         if (block.timestamp >= assignment.expiry) {
@@ -238,48 +248,32 @@ library LibProposing {
             revert L1_ASSIGNMENT_INVALID_PARAMS();
         }
 
-        // Check assignment authorization
-        bytes32 hash = keccak256(
-            abi.encode(
-                "PROVER_ASSIGNMENT",
-                txListHash,
-                assignment.feeToken,
-                assignment.expiry,
-                assignment.tierFees
-            )
-        );
+        // Hash the assignment with the txListHash, this hash will be signed by
+        // the prover, therefore, we add a string as a prefix.
+        bytes32 hash = hashAssignmentWithTxListHash(assignment, txListHash);
 
-        if (assignment.prover.isContract()) {
-            if (
-                IERC1271Upgradeable(assignment.prover).isValidSignature(
-                    hash, assignment.signature
-                ) != EIP1271_MAGICVALUE
-            ) {
-                revert L1_ASSIGNMENT_INVALID_SIG();
-            }
-        } else {
-            if (assignment.prover != hash.recover(assignment.signature)) {
-                revert L1_ASSIGNMENT_INVALID_SIG();
-            }
+        if (!assignment.prover.isValidSignature(hash, assignment.signature)) {
+            revert L1_ASSIGNMENT_INVALID_SIG();
         }
 
-        // Find the fee for the min tier
-        fee = _getProverFee(assignment.tierFees, minTier);
+        // Find the prover fee using the minimal tier
+        proverFee = _getProverFee(assignment.tierFees, minTier);
 
         if (assignment.feeToken == address(0)) {
             // feeToken is Ether
-            if (msg.value < fee) revert L1_ASSIGNMENT_INSUFFICIENT_FEE();
-            assignment.prover.sendEther(fee);
+            if (msg.value < proverFee) revert L1_ASSIGNMENT_INSUFFICIENT_FEE();
+            assignment.prover.sendEther(proverFee);
             unchecked {
                 // Return the extra Ether to the proposer
-                uint256 refund = msg.value - fee;
+                uint256 refund = msg.value - proverFee;
                 if (refund != 0) msg.sender.sendEther(refund);
             }
         } else {
-            // ERC20 token as fee. We send back Ether if msg.value is nonzero.
+            // ERC20 token as the prover fee. We send back Ether if msg.value is
+            // nonzero.
             if (msg.value != 0) msg.sender.sendEther(msg.value);
             ERC20Upgradeable(assignment.feeToken).transferFrom(
-                msg.sender, assignment.prover, fee
+                msg.sender, assignment.prover, proverFee
             );
         }
     }
@@ -300,9 +294,10 @@ library LibProposing {
         revert L1_TIER_NOT_FOUND();
     }
 
+    // TODO(daniel): change funciton ordering
     /// @dev Hashing the block metadata.
-    function _hashMetadata(TaikoData.BlockMetadata memory meta)
-        private
+    function hashMetadata(TaikoData.BlockMetadata memory meta)
+        internal
         pure
         returns (bytes32 hash)
     {

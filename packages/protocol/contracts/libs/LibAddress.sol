@@ -8,12 +8,18 @@ pragma solidity ^0.8.20;
 
 import { AddressUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
+import { ECDSAUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
 import { IERC165Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
-
+import { IERC1271Upgradeable } from
+    "@openzeppelin/contracts-upgradeable/interfaces/IERC1271Upgradeable.sol";
 /// @title LibAddress
 /// @dev Provides utilities for address-related operations.
+
 library LibAddress {
+    bytes4 private constant EIP1271_MAGICVALUE = 0x1626ba7e;
+
     /// @dev Wrap this into a new function so the parameter `to` is `address`
     /// instead of `address payable`.
     function sendEther(address to, uint256 amount) internal {
@@ -33,5 +39,25 @@ library LibAddress {
         ) {
             result = _result;
         } catch { }
+    }
+
+    function isValidSignature(
+        address addr,
+        bytes32 hash,
+        bytes memory sig
+    )
+        internal
+        view
+        returns (bool valid)
+    {
+        if (
+            AddressUpgradeable.isContract(addr)
+                && IERC1271Upgradeable(addr).isValidSignature(hash, sig)
+                    == EIP1271_MAGICVALUE
+        ) {
+            valid = true;
+        } else if (ECDSAUpgradeable.recover(hash, sig) == addr) {
+            valid = true;
+        }
     }
 }
