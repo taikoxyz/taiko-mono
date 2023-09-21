@@ -116,14 +116,14 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_ContestingWithDifferentProof() external {
-        giveEthAndTko(Alice, 1e7 ether, 1000 ether);
-        giveEthAndTko(Carol, 1e7 ether, 1000 ether);
+        giveEthAndTko(Alice, 1e8 ether, 1000 ether);
+        giveEthAndTko(Carol, 1e8 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e6 ether, 100 ether);
+        giveEthAndTko(Bob, 1e8 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
@@ -175,7 +175,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     Carol,
                     meta,
                     parentHash,
-                    signalRoot,
+                    blockHash,
                     signalRoot,
                     LibTiers.TIER_PSE_ZKEVM,
                     ""
@@ -329,25 +329,23 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         printVariables("");
     }
 
-    function test_L1_IfGuardianIsNotGrantedToProver() external {
+    function test_L1_IfGuardianRoleIsNotGrantedToProver() external {
         registerAddress("guardian", Alice);
 
-        giveEthAndTko(Alice, 1e7 ether, 1000 ether);
-        giveEthAndTko(Carol, 1e7 ether, 1000 ether);
+        giveEthAndTko(Alice, 1e8 ether, 1000 ether);
+        giveEthAndTko(Carol, 1e8 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
         // Current investigations are ongoing with foundry team
-        giveEthAndTko(Bob, 1e7 ether, 100 ether);
+        giveEthAndTko(Bob, 1e8 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
-        for (
-            uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++
-        ) {
+        for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
             TaikoData.BlockMetadata memory meta =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);

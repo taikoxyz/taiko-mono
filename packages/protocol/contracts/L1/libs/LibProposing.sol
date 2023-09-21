@@ -223,7 +223,7 @@ library LibProposing {
             // Please note that all fields must be re-initialized since we are
             // utilizing an existing ring buffer slot, not creating a new
             // storage slot.
-            blk.metaHash = _hashMetadata(meta);
+            blk.metaHash = hashMetadata(meta);
             blk.assignedProver = assignment.prover;
 
             // Safeguard the assignment bond to ensure its preservation,
@@ -272,7 +272,7 @@ library LibProposing {
     }
 
     /// @dev Hashing the block metadata.
-    function _hashMetadata(TaikoData.BlockMetadata memory meta)
+    function hashMetadata(TaikoData.BlockMetadata memory meta)
         internal
         pure
         returns (bytes32 hash)

@@ -237,12 +237,11 @@ library LibProving {
                 tier: evidence.tier
             });
         } else if (evidence.tier == tran.tier) {
-            // Contesting an existing transition or the top tier re-proving an
-            // existing transition requires either the blockHash or signalRoot
-            // to be different. This precaution is necessary because this
-            // `proveBlock` transaction might aim to prove a transition but
-            // could potentially be front-run by another prover attempting to
-            // prove the same transition.
+            // Contesting an existing transition requires either the blockHash
+            // or signalRoot to be different. This precaution is necessary
+            // because this `proveBlock` transaction might aim to prove a
+            // transition but could potentially be front-run by another prover
+            // attempting to prove the same transition.
             if (
                 evidence.blockHash == tran.blockHash
                     && evidence.signalRoot == tran.signalRoot
@@ -250,8 +249,8 @@ library LibProving {
                 revert L1_ALREADY_PROVED();
             }
 
-            // The new tier is the same as the previous tier, but they are
-            // not the top tier, we are in the contesting mode.
+            // The new tier is the same as the previous tier, we are in the
+            // contesting mode.
             //
             // It's important to note that evidence.blockHash and
             // evidence.signalRoot are not permanently stored, so their

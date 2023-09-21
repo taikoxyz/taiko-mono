@@ -144,6 +144,7 @@ library LibVerifying {
                 blk = state.blocks[slot];
                 if (blk.blockId != blockId) revert L1_BLOCK_MISMATCH();
 
+                tid = LibUtils.getTransitionId(state, blk, slot, blockHash);
                 // When `tid` is 0, it indicates that there is no proven
                 // transition with its parentHash equal to the blockHash of the
                 // most recently verified block.

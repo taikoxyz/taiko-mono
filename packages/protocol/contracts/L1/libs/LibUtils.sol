@@ -125,24 +125,4 @@ library LibUtils {
             lastVerifiedBlockId: b.lastVerifiedBlockId
         });
     }
-
-    function getInstance(
-        address prover,
-        TaikoData.BlockEvidence memory evidence
-    )
-        internal
-        pure
-        returns (bytes32 instance)
-    {
-        return keccak256(
-            abi.encode(
-                evidence.metaHash,
-                evidence.parentHash,
-                evidence.blockHash,
-                evidence.signalRoot,
-                evidence.graffiti,
-                prover
-            )
-        );
-    }
 }
