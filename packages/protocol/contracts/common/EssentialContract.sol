@@ -6,11 +6,12 @@
 
 pragma solidity ^0.8.20;
 
-import { AddressResolver } from "./AddressResolver.sol";
-import { IAddressManager } from "./AddressManager.sol";
 import { OwnableUpgradeable } from "@ozu/access/OwnableUpgradeable.sol";
 import { ReentrancyGuardUpgradeable } from
     "@ozu/security/ReentrancyGuardUpgradeable.sol";
+
+import { AddressResolver } from "./AddressResolver.sol";
+import { IAddressManager } from "./AddressManager.sol";
 
 /// @title EssentialContract
 /// @notice This contract serves as the base contract for many core components.

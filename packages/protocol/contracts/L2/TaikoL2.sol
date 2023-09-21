@@ -8,9 +8,11 @@ pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
+import { Proxied } from "../common/Proxied.sol";
+
 import { Lib1559Math } from "../libs/Lib1559Math.sol";
 import { LibMath } from "../libs/LibMath.sol";
-import { Proxied } from "../common/Proxied.sol";
+
 import { TaikoL2Signer } from "./TaikoL2Signer.sol";
 
 /// @title TaikoL2

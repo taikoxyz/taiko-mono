@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import { TestBase } from "../TestBase.sol";
-import { console2 } from "forge-std/console2.sol";
+import { console2 } from "@forge-std/console2.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { LibProving } from "../../contracts/L1/libs/LibProving.sol";
 import { LibUtils } from "../../contracts/L1/libs/LibUtils.sol";
@@ -12,7 +12,8 @@ import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
 
 import { PseZkVerifier } from "../../contracts/L1/verifiers/PseZkVerifier.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
-import { Strings } from "@oz/utils/Strings.sol";
+import { StringsUpgradeable as Strings } from
+    "@ozu/utils/StringsUpgradeable.sol";
 import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
 
 contract MockVerifier {

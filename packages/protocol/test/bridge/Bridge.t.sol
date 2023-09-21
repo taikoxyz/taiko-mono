@@ -5,7 +5,7 @@ import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { IBridge, Bridge } from "../../contracts/bridge/Bridge.sol";
 import { BridgeErrors } from "../../contracts/bridge/BridgeErrors.sol";
 import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
-import { console2 } from "forge-std/console2.sol";
+import { console2 } from "@forge-std/console2.sol";
 import { LibBridgeStatus } from
     "../../contracts/bridge/libs/LibBridgeStatus.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";

@@ -12,10 +12,11 @@ import {
 } from "@ozu/token/ERC20/ERC20Upgradeable.sol";
 import { IERC20MetadataUpgradeable } from
     "@ozu/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
+import { StringsUpgradeable } from "@ozu/utils/StringsUpgradeable.sol";
+
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { Proxied } from "../common/Proxied.sol";
-import { StringsUpgradeable } from "@ozu/utils/StringsUpgradeable.sol";
 
 /// @title BridgedERC20
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from

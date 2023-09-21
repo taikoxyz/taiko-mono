@@ -7,15 +7,7 @@
 pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { IERC1155ReceiverUpgradeable } from
-    "@ozu/token/ERC1155/IERC1155ReceiverUpgradeable.sol";
-import { IERC165Upgradeable } from
-    "@ozu/utils/introspection/IERC165Upgradeable.sol";
-import { IERC721ReceiverUpgradeable } from
-    "@ozu/token/ERC721/IERC721ReceiverUpgradeable.sol";
-import { IERC721Upgradeable } from "@ozu/token/ERC721/IERC721Upgradeable.sol";
-import { IRecallableMessageSender, IBridge } from "../bridge/IBridge.sol";
-import { Proxied } from "../common/Proxied.sol";
+import { IRecallableMessageSender } from "../bridge/IBridge.sol";
 
 /// @title BaseNFTVault
 /// @notice Abstract contract for bridging NFTs across different chains.

@@ -6,7 +6,7 @@ import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
 import { Bridge } from "../../contracts/bridge/Bridge.sol";
 import { BridgedERC20 } from "../../contracts/tokenvault/BridgedERC20.sol";
 import { BridgeErrors } from "../../contracts/bridge/BridgeErrors.sol";
-import { console2 } from "forge-std/console2.sol";
+import { console2 } from "@forge-std/console2.sol";
 import { FreeMintERC20 } from "../../contracts/test/erc20/FreeMintERC20.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { TestBase, DummyCrossChainSync } from "../TestBase.sol";

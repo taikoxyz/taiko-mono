@@ -9,13 +9,15 @@ pragma solidity ^0.8.20;
 import { AddressResolver } from "../common/AddressResolver.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
+import { Proxied } from "../common/Proxied.sol";
+
 import { LibDepositing } from "./libs/LibDepositing.sol";
 import { LibProposing } from "./libs/LibProposing.sol";
 import { LibProving } from "./libs/LibProving.sol";
 import { LibTiers } from "./libs/LibTiers.sol";
 import { LibUtils } from "./libs/LibUtils.sol";
 import { LibVerifying } from "./libs/LibVerifying.sol";
-import { Proxied } from "../common/Proxied.sol";
+
 import { TaikoData } from "./TaikoData.sol";
 import { TaikoErrors } from "./TaikoErrors.sol";
 import { TaikoEvents } from "./TaikoEvents.sol";

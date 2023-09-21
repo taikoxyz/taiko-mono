@@ -6,6 +6,7 @@
 pragma solidity ^0.8.20;
 
 import { BlockHeader } from "../../libs/LibBlockHeader.sol";
+
 import { IBridge } from "../IBridge.sol";
 
 /// @title LibBridgeData

@@ -9,6 +9,7 @@ pragma solidity ^0.8.20;
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibMath } from "../../libs/LibMath.sol";
+
 import { TaikoData } from "../TaikoData.sol";
 
 /// @title LibDepositing

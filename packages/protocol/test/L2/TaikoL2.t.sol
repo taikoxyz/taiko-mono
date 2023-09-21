@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { console2 } from "forge-std/console2.sol";
+import { console2 } from "@forge-std/console2.sol";
 import { Strings } from "@oz/utils/Strings.sol";
 import { SafeCastUpgradeable } from "@ozu/utils/math/SafeCastUpgradeable.sol";
 import { TestBase } from "../TestBase.sol";

@@ -18,9 +18,10 @@ import {
 } from "@ozu/token/ERC20/ERC20Upgradeable.sol";
 import { ERC20VotesUpgradeable } from
     "@ozu/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
+import { PausableUpgradeable } from "@ozu/security/PausableUpgradeable.sol";
+
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { IMintableERC20 } from "../common/IMintableERC20.sol";
-import { PausableUpgradeable } from "@ozu/security/PausableUpgradeable.sol";
 import { Proxied } from "../common/Proxied.sol";
 
 /// @title TaikoToken
