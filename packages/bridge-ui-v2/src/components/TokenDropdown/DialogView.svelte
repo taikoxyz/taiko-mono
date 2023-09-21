@@ -58,7 +58,7 @@
 <!-- Mobile view -->
 <dialog {id} class="modal modal-bottom" class:modal-open={menuOpen}>
   <div class="modal-box relative px-6 py-[35px] w-full bg-neutral-background">
-    <button class="absolute right-6 top-[35px]" on:click={closeMenu}>
+    <button class="absolute right-6 top-[35px] z-50" on:click={closeMenu}>
       <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
     </button>
 
@@ -77,9 +77,15 @@
             class:bg-tertiary-interactive-accent={selected}
             on:click={() => selectToken(token)}>
             <div class="p-4">
-              <i role="img" aria-label={token.name}>
-                <svelte:component this={symbolToIconMap[token.symbol]} />
-              </i>
+              {#if symbolToIconMap[token.symbol] && !token.imported}
+                <i role="img" aria-label={token.name}>
+                  <svelte:component this={symbolToIconMap[token.symbol]} size={28} />
+                </i>
+              {:else}
+                <i role="img" aria-label={token.symbol}>
+                  <svelte:component this={Erc20} size={28} />
+                </i>
+              {/if}
               <span class="body-bold">{token.symbol}</span>
             </div>
           </li>
