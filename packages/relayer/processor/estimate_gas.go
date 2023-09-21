@@ -3,7 +3,6 @@ package processor
 import (
 	"context"
 	"log/slog"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/pkg/errors"
@@ -15,10 +14,10 @@ var (
 )
 
 func (p *Processor) estimateGas(
-	ctx context.Context, message bridge.IBridgeMessage, proof []byte) (uint64, *big.Int, error) {
+	ctx context.Context, message bridge.IBridgeMessage, proof []byte) (uint64, error) {
 	auth, err := bind.NewKeyedTransactorWithChainID(p.ecdsaKey, message.DestChainId)
 	if err != nil {
-		return 0, nil, errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
+		return 0, errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
 	}
 
 	auth.NoSend = true
@@ -28,10 +27,10 @@ func (p *Processor) estimateGas(
 	// estimate gas with auth.NoSend set to true
 	tx, err := p.destBridge.ProcessMessage(auth, message, proof)
 	if err != nil {
-		return 0, nil, errors.Wrap(err, "p.destBridge.ProcessMessage")
+		return 0, errors.Wrap(err, "p.destBridge.ProcessMessage")
 	}
 
 	slog.Info("estimated gas", "gas", tx.Gas(), "paddingAmt", gasPaddingAmt)
 
-	return tx.Gas() + gasPaddingAmt, tx.Cost(), nil
+	return tx.Gas() + gasPaddingAmt, nil
 }

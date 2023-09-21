@@ -245,11 +245,11 @@ func (p *Processor) sendProcessMessageCall(
 		auth.GasLimit = 3000000
 	} else {
 		// otherwise we can estimate gas
-		gas, _, err = p.estimateGas(ctx, event.Message, proof)
+		gas, err = p.estimateGas(ctx, event.Message, proof)
 		// and if gas estimation failed, we just try to hardcore a value no matter what type of event,
 		// or whether the contract is deployed.
 		if err != nil || gas == 0 {
-			_, err = p.hardcodeGasLimit(ctx, auth, event, eventType, canonicalToken)
+			err = p.hardcodeGasLimit(ctx, auth, event, eventType, canonicalToken)
 			if err != nil {
 				return nil, errors.Wrap(err, "p.hardcodeGasLimit")
 			}
@@ -348,7 +348,7 @@ func (p *Processor) hardcodeGasLimit(
 	event *bridge.BridgeMessageSent,
 	eventType relayer.EventType,
 	canonicalToken relayer.CanonicalToken,
-) (*big.Int, error) {
+) error {
 	var bridgedAddress common.Address
 
 	var err error
@@ -365,7 +365,7 @@ func (p *Processor) hardcodeGasLimit(
 			canonicalToken.Address(),
 		)
 		if err != nil {
-			return nil, errors.Wrap(err, "p.destERC20Vault.CanonicalToBridged")
+			return errors.Wrap(err, "p.destERC20Vault.CanonicalToBridged")
 		}
 	case relayer.EventTypeSendERC721:
 		// determine whether the canonical token is bridged or not on this chain
@@ -375,7 +375,7 @@ func (p *Processor) hardcodeGasLimit(
 			canonicalToken.Address(),
 		)
 		if err != nil {
-			return nil, errors.Wrap(err, "p.destERC721Vault.CanonicalToBridged")
+			return errors.Wrap(err, "p.destERC721Vault.CanonicalToBridged")
 		}
 	case relayer.EventTypeSendERC1155:
 		// determine whether the canonical token is bridged or not on this chain
@@ -385,10 +385,10 @@ func (p *Processor) hardcodeGasLimit(
 			canonicalToken.Address(),
 		)
 		if err != nil {
-			return nil, errors.Wrap(err, "p.destERC1155Vault.CanonicalToBridged")
+			return errors.Wrap(err, "p.destERC1155Vault.CanonicalToBridged")
 		}
 	default:
-		return nil, errors.New("unexpected event type")
+		return errors.New("unexpected event type")
 	}
 
 	if bridgedAddress == relayer.ZeroAddress {
@@ -401,12 +401,7 @@ func (p *Processor) hardcodeGasLimit(
 		auth.GasLimit = 600000
 	}
 
-	gasPrice, err := p.destEthClient.SuggestGasPrice(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "p.destEthClient.SuggestGasPrice")
-	}
-
-	return new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(auth.GasLimit)), nil
+	return nil
 }
 
 func (p *Processor) setLatestNonce(nonce uint64) {
@@ -469,8 +464,6 @@ func (p *Processor) setGasTipOrPrice(ctx context.Context, auth *bind.TransactOpt
 				return errors.Wrap(err, "p.destBridge.SuggestGasPrice")
 			}
 			auth.GasPrice = gasPrice
-
-			return nil
 		}
 	} else {
 		auth.GasTipCap = gasTipCap
@@ -482,7 +475,7 @@ func (p *Processor) setGasTipOrPrice(ctx context.Context, auth *bind.TransactOpt
 }
 
 func (p *Processor) getCost(ctx context.Context, auth *bind.TransactOpts) (*big.Int, error) {
-	if auth.GasPrice == nil {
+	if auth.GasTipCap != nil {
 		bn, err := p.destEthClient.BlockNumber(ctx)
 		if err != nil {
 			return nil, err
