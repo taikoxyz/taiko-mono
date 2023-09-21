@@ -148,7 +148,7 @@
         <LoadingMask spinnerClass="border-white" text={$t('messages.network.switching')} />
       {/if}
 
-      <button class="absolute right-6 top-[35px] md:top-[20px]" on:click={closeModal}>
+      <button class="absolute right-6 top-[35px] md:top-[20px] z-50" on:click={closeModal}>
         <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
       </button>
       <div class="w-full">

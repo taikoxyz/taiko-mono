@@ -20,7 +20,7 @@ export async function getBalance({ userAddress, token, srcChainId, destChainId }
 
   if (!token || token.type === TokenType.ETH) {
     // If no token is passed in, we assume is ETH
-    tokenBalance = await fetchBalance({ address: userAddress });
+    tokenBalance = await fetchBalance({ address: userAddress, chainId: srcChainId });
   } else {
     // We need at least the source chain to find the address
     if (!srcChainId) return;

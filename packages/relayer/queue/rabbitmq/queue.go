@@ -69,6 +69,10 @@ func (r *RabbitMQ) connect() error {
 		return err
 	}
 
+	if err := ch.Qos(int(r.opts.PrefetchCount), 0, false); err != nil {
+		return err
+	}
+
 	r.conn = conn
 	r.ch = ch
 

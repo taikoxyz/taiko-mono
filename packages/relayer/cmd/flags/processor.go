@@ -91,6 +91,13 @@ var (
 		Category: processorCategory,
 		Value:    3,
 	}
+	QueuePrefetchCount = &cli.Uint64Flag{
+		Name:     "queue.prefetch",
+		Usage:    "How many messages to prefetch",
+		Category: processorCategory,
+		Value:    1,
+		EnvVars:  []string{"QUEUE_PREFETCH_COUNT"},
+	}
 )
 
 var ProcessorFlags = MergeFlags(CommonFlags, []cli.Flag{
@@ -107,4 +114,5 @@ var ProcessorFlags = MergeFlags(CommonFlags, []cli.Flag{
 	ProfitableOnly,
 	BackOffRetryInterval,
 	BackOffMaxRetrys,
+	QueuePrefetchCount,
 })

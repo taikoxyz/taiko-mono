@@ -51,6 +51,7 @@ type Config struct {
 	QueuePassword string
 	QueueHost     string
 	QueuePort     uint64
+	QueuePrefetch uint64
 	// rpc configs
 	SrcRPCUrl        string
 	DestRPCUrl       string
@@ -87,6 +88,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		QueuePassword:           c.String(flags.QueuePassword.Name),
 		QueuePort:               c.Uint64(flags.QueuePort.Name),
 		QueueHost:               c.String(flags.QueueHost.Name),
+		QueuePrefetch:           c.Uint64(flags.QueuePrefetchCount.Name),
 		SrcRPCUrl:               c.String(flags.SrcRPCUrl.Name),
 		DestRPCUrl:              c.String(flags.DestRPCUrl.Name),
 		HeaderSyncInterval:      c.Uint64(flags.HeaderSyncInterval.Name),
@@ -119,10 +121,11 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		},
 		OpenQueueFunc: func() (queue.Queue, error) {
 			opts := queue.NewQueueOpts{
-				Username: c.String(flags.QueueUsername.Name),
-				Password: c.String(flags.QueuePassword.Name),
-				Host:     c.String(flags.QueueHost.Name),
-				Port:     c.String(flags.QueuePort.Name),
+				Username:      c.String(flags.QueueUsername.Name),
+				Password:      c.String(flags.QueuePassword.Name),
+				Host:          c.String(flags.QueueHost.Name),
+				Port:          c.String(flags.QueuePort.Name),
+				PrefetchCount: c.Uint64(flags.QueuePrefetchCount.Name),
 			}
 
 			q, err := rabbitmq.NewQueue(opts)
