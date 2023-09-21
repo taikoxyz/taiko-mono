@@ -41,7 +41,7 @@
 <dialog id={dialogId} class="modal modal-bottom" class:modal-open={detailsOpen}>
   <div
     class="modal-box relative border border-neutral-background px-6 py-[30px] dark:glassy-gradient-card dark:glass-background-gradient">
-    <button class="absolute right-6" on:click={closeDetails}>
+    <button class="absolute right-6 z-50" on:click={closeDetails}>
       <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
     </button>
 
