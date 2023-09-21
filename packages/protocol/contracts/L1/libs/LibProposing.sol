@@ -13,7 +13,8 @@ import { ECDSAUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
 import { ERC20Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
+import { IERC1271Upgradeable } from
+    "@openzeppelin/contracts-upgradeable/interfaces/IERC1271Upgradeable.sol";
 import { IMintableERC20 } from "../../common/IMintableERC20.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibDepositing } from "./LibDepositing.sol";
@@ -250,7 +251,7 @@ library LibProposing {
 
         if (assignment.prover.isContract()) {
             if (
-                IERC1271(assignment.prover).isValidSignature(
+                IERC1271Upgradeable(assignment.prover).isValidSignature(
                     hash, assignment.signature
                 ) != EIP1271_MAGICVALUE
             ) {
