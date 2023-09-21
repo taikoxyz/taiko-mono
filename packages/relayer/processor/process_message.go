@@ -258,8 +258,7 @@ func (p *Processor) sendProcessMessageCall(
 		}
 	}
 
-	err = p.setGasTipOrPrice(ctx, auth)
-	if err != nil {
+	if err = p.setGasTipOrPrice(ctx, auth); err != nil {
 		return nil, errors.Wrap(err, "p.setGasTipOrPrice")
 	}
 
@@ -481,7 +480,10 @@ func (p *Processor) getCost(ctx context.Context, auth *bind.TransactOpts) (*big.
 			return nil, err
 		}
 
-		blk, _ := p.destEthClient.BlockByNumber(context.Background(), new(big.Int).SetUint64(bn))
+		blk, err := p.destEthClient.BlockByNumber(context.Background(), new(big.Int).SetUint64(bn))
+		if err != nil {
+			return nil, err
+		}
 
 		cfg := params.NetworkIDToChainConfigOrDefault(p.destChainId)
 
