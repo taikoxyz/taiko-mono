@@ -33,6 +33,7 @@ type Config struct {
 	Confirmations        uint64
 	ConfirmationsTimeout uint64
 	ProfitableOnly       bool
+	EnableTaikoL2        bool
 
 	// backoff configs
 	BackoffRetryInterval uint64
@@ -58,9 +59,6 @@ type Config struct {
 	ETHClientTimeout uint64
 	OpenQueueFunc    func() (queue.Queue, error)
 	OpenDBFunc       func() (DB, error)
-
-	// bool config
-	EnableTaikoL2 bool
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -97,11 +95,11 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		HeaderSyncInterval:      c.Uint64(flags.HeaderSyncInterval.Name),
 		Confirmations:           c.Uint64(flags.Confirmations.Name),
 		ConfirmationsTimeout:    c.Uint64(flags.ConfirmationTimeout.Name),
+		EnableTaikoL2:           c.Bool(flags.EnableTaikoL2.Name),
 		ProfitableOnly:          c.Bool(flags.ProfitableOnly.Name),
 		BackoffRetryInterval:    c.Uint64(flags.BackOffRetryInterval.Name),
 		BackOffMaxRetrys:        c.Uint64(flags.BackOffMaxRetrys.Name),
 		ETHClientTimeout:        c.Uint64(flags.ETHClientTimeout.Name),
-		EnableTaikoL2:           c.Bool(flags.EnableTaikoL2.Name),
 		OpenDBFunc: func() (DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),

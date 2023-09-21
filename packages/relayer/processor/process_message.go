@@ -465,11 +465,9 @@ func (p *Processor) setGasTipOrPrice(ctx context.Context, auth *bind.TransactOpt
 			}
 			auth.GasPrice = gasPrice
 		}
-	} else {
-		auth.GasTipCap = gasTipCap
-
-		return nil
 	}
+
+	auth.GasTipCap = gasTipCap
 
 	return nil
 }
@@ -481,19 +479,18 @@ func (p *Processor) getCost(ctx context.Context, auth *bind.TransactOpts) (*big.
 			return nil, err
 		}
 
-		cfg := params.NetworkIDToChainConfigOrDefault(p.destChainId)
-
 		var baseFee *big.Int
 
 		if p.taikoL2 != nil {
 			gasUsed := uint32(blk.GasUsed())
 			timeSince := uint64(time.Since(time.Unix(int64(blk.Time()), 0)))
-			baseFee, err = p.taikoL2.GetBasefee(&bind.CallOpts{}, timeSince, gasUsed)
+			baseFee, err = p.taikoL2.GetBasefee(&bind.CallOpts{Context: ctx}, timeSince, gasUsed)
 
 			if err != nil {
 				return nil, errors.Wrap(err, "p.taikoL2.GetBasefee")
 			}
 		} else {
+			cfg := params.NetworkIDToChainConfigOrDefault(p.destChainId)
 			baseFee = eip1559.CalcBaseFee(cfg, blk.Header())
 		}
 

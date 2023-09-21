@@ -23,6 +23,7 @@ var (
 	databaseMaxOpenConns    = "10"
 	databaseMaxConnLifetime = "30"
 	ethClientTimeout        = "10"
+	enableTaikoL2           = "true"
 )
 
 func setupApp() *cli.App {
@@ -69,6 +70,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, uint64(10), c.ETHClientTimeout)
 		assert.Equal(t, true, c.ProfitableOnly)
 		assert.Equal(t, uint64(100), c.QueuePrefetch)
+		assert.Equal(t, true, c.EnableTaikoL2)
 
 		c.OpenDBFunc = func() (DB, error) {
 			return &mock.DB{}, nil
@@ -113,6 +115,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"-" + flags.ETHClientTimeout.Name, ethClientTimeout,
 		"-" + flags.QueuePrefetchCount.Name, "100",
 		"-" + flags.ProfitableOnly.Name, profitableOnly,
+		"-" + flags.EnableTaikoL2.Name, enableTaikoL2,
 	}))
 }
 
