@@ -19,7 +19,6 @@ abstract contract TaikoErrors {
     error L1_ASSIGNMENT_INVALID_SIG();
     error L1_ASSIGNMENT_INVALID_PARAMS();
     error L1_ASSIGNMENT_INSUFFICIENT_FEE();
-    error L1_ASSIGNMENT_TIER_NOT_FUND();
     error L1_ASSIGNED_PROVER_NOT_ALLOWED();
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_BLOCK_ID();

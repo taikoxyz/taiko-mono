@@ -46,7 +46,7 @@ library LibProposing {
     error L1_ASSIGNMENT_INVALID_SIG();
     error L1_ASSIGNMENT_INVALID_PARAMS();
     error L1_ASSIGNMENT_INSUFFICIENT_FEE();
-    error L1_ASSIGNMENT_TIER_NOT_FUND();
+    error L1_TIER_NOT_FOUND();
     error L1_TOO_MANY_BLOCKS();
     error L1_TXLIST_INVALID_RANGE();
     error L1_TXLIST_MISMATCH();
@@ -100,7 +100,6 @@ library LibProposing {
         // Taiko tokens per second as block rewards. It's important to note that
         // if multiple blocks are proposed within the same L1 block, only the
         // first one will receive the block reward.
-
         TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
 
         // The block reward doesn't undergo automatic halving; instead, we
@@ -203,7 +202,6 @@ library LibProposing {
         }
 
         uint256 proverFee = _validateAssignment({
-            proposer: msg.sender,
             minTier: blk.minTier,
             txListHash: txListHash,
             assignment: assignment
@@ -220,7 +218,6 @@ library LibProposing {
     }
 
     function _validateAssignment(
-        address proposer,
         uint16 minTier,
         bytes32 txListHash,
         TaikoData.ProverAssignment memory assignment
@@ -233,10 +230,7 @@ library LibProposing {
             revert L1_ASSIGNMENT_EXPIRED();
         }
 
-        if (
-            txListHash == 0 || proposer == address(0)
-                || assignment.prover == address(0)
-        ) {
+        if (txListHash == 0 || assignment.prover == address(0)) {
             revert L1_ASSIGNMENT_INVALID_PARAMS();
         }
 
@@ -266,7 +260,7 @@ library LibProposing {
         }
 
         // Find the fee for the min tier
-        fee = _findFee(assignment.tierFees, minTier);
+        fee = _getProverFee(assignment.tierFees, minTier);
 
         if (assignment.feeToken == address(0)) {
             // feeToken is Ether
@@ -275,18 +269,18 @@ library LibProposing {
             unchecked {
                 // Return the extra Ether to the proposer
                 uint256 refund = msg.value - fee;
-                if (refund != 0) proposer.sendEther(refund);
+                if (refund != 0) msg.sender.sendEther(refund);
             }
         } else {
             // ERC20 token as fee. We send back Ether if msg.value is nonzero.
-            if (msg.value != 0) proposer.sendEther(msg.value);
+            if (msg.value != 0) msg.sender.sendEther(msg.value);
             ERC20(assignment.feeToken).transferFrom(
-                proposer, assignment.prover, fee
+                msg.sender, assignment.prover, fee
             );
         }
     }
 
-    function _findFee(
+    function _getProverFee(
         TaikoData.TierFee[] memory tierFees,
         uint16 tierId
     )
@@ -294,12 +288,12 @@ library LibProposing {
         pure
         returns (uint256)
     {
-        for (uint256 i = 0; i < tierFees.length; ++i) {
+        for (uint256 i; i < tierFees.length; ++i) {
             if (tierFees[i].tier == tierId) {
                 return tierFees[i].fee;
             }
         }
-        revert L1_ASSIGNMENT_TIER_NOT_FUND();
+        revert L1_TIER_NOT_FOUND();
     }
 
     /// @dev Hashing the block metadata.
