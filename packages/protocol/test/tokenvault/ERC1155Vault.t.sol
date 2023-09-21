@@ -23,7 +23,8 @@ import { LibBridgeStatus } from
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../../contracts/common/ICrossChainSync.sol";
 import { ERC1155 } from "@oz/token/ERC1155/ERC1155.sol";
-import "@oz/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { TransparentUpgradeableProxy } from
+    "@oz/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract TestTokenERC1155 is ERC1155 {
     constructor(string memory baseURI) ERC1155(baseURI) { }

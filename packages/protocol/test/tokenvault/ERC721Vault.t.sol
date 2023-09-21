@@ -22,7 +22,8 @@ import { LibBridgeStatus } from
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../../contracts/common/ICrossChainSync.sol";
 import { ERC721 } from "@oz/token/ERC721/ERC721.sol";
-import "@oz/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { TransparentUpgradeableProxy } from
+    "@oz/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract TestTokenERC721 is ERC721 {
     string _baseTokenURI;
