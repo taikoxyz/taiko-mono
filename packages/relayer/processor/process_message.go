@@ -475,12 +475,7 @@ func (p *Processor) setGasTipOrPrice(ctx context.Context, auth *bind.TransactOpt
 
 func (p *Processor) getCost(ctx context.Context, auth *bind.TransactOpts) (*big.Int, error) {
 	if auth.GasTipCap != nil {
-		bn, err := p.destEthClient.BlockNumber(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		blk, err := p.destEthClient.BlockByNumber(context.Background(), new(big.Int).SetUint64(bn))
+		blk, err := p.destEthClient.BlockByNumber(ctx, nil)
 		if err != nil {
 			return nil, err
 		}
