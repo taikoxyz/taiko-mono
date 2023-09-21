@@ -100,14 +100,6 @@ export const SEPOLIA_CONFIG = {
           impl: "0xe9f36Ec3F1B8056A67a2B542551D248D511aA7d6",
         },
       },
-      bullToken: {
-        name: "Bull Token",
-        symbol: "BLL",
-        decimals: 18,
-        address: {
-          impl: "0x0505f8EA58319b96bd7FffCec82d29AcC78Fb57e",
-        },
-      },
     },
   },
   otherContracts: {},

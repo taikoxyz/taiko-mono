@@ -58,7 +58,7 @@
 <!-- Mobile view -->
 <dialog {id} class="modal modal-bottom" class:modal-open={menuOpen}>
   <div class="modal-box relative px-6 py-[35px] w-full bg-neutral-background">
-    <button class="absolute right-6 top-[35px]" on:click={closeMenu}>
+    <button class="absolute right-6 top-[35px] z-50" on:click={closeMenu}>
       <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
     </button>
 

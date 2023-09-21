@@ -33,8 +33,9 @@ type Message struct {
 }
 
 type NewQueueOpts struct {
-	Username string
-	Password string
-	Host     string
-	Port     string
+	Username      string
+	Password      string
+	Host          string
+	Port          string
+	PrefetchCount uint64
 }
