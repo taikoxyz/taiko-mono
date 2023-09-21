@@ -6,9 +6,11 @@
 
 pragma solidity ^0.8.20;
 
-import { Address } from "@openzeppelin/contracts/utils/Address.sol";
+import { AddressUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { ECDSAUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
 import { ERC20Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
@@ -24,8 +26,8 @@ import { TaikoToken } from "../TaikoToken.sol";
 /// @title LibProposing
 /// @notice A library for handling block proposals in the Taiko protocol.
 library LibProposing {
-    using Address for address;
-    using ECDSA for bytes32;
+    using AddressUpgradeable for address;
+    using ECDSAUpgradeable for bytes32;
     using LibAddress for address;
     using LibAddress for address payable;
     using LibMath for uint256;
