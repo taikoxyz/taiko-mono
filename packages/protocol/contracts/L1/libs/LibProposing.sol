@@ -24,12 +24,8 @@ import { LibUtils } from "./LibUtils.sol";
 /// @title LibProposing
 /// @notice A library for handling block proposals in the Taiko protocol.
 library LibProposing {
-    using AddressUpgradeable for address;
-    using ECDSAUpgradeable for bytes32;
     using LibAddress for address;
     using LibMath for uint256;
-
-    bytes4 internal constant EIP1271_MAGICVALUE = 0x1626ba7e;
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     event BlockProposed(
@@ -142,6 +138,7 @@ library LibProposing {
         }
 
         meta.txListHash = txListHash;
+        meta.id = b.numBlocks;
         meta.timestamp = uint64(block.timestamp);
         meta.gasLimit = config.blockMaxGasLimit;
 
@@ -160,7 +157,7 @@ library LibProposing {
         // Please note that all fields must be re-initialized since we are
         // utilizing an existing ring buffer slot, not creating a new storage
         // slot.
-        blk.metaHash = _hashMetadata(meta);
+        blk.metaHash = hashMetadata(meta);
 
         // Safeguard the assignment bond to ensure its preservation,
         // particularly in scenarios where it might be altered after the
@@ -201,6 +198,8 @@ library LibProposing {
             ++state.slotB.numBlocks;
         }
 
+        // Validate the prover assignment, then charge Ether or ERC20 as the
+        // prover fee based on the block's minTier.
         uint256 proverFee = _validateAssignment({
             minTier: blk.minTier,
             txListHash: txListHash,
@@ -217,13 +216,51 @@ library LibProposing {
         });
     }
 
+    /// @dev Hashing the block metadata.
+    function hashMetadata(TaikoData.BlockMetadata memory meta)
+        internal
+        pure
+        returns (bytes32 hash)
+    {
+        uint256[5] memory inputs;
+        inputs[0] = uint256(meta.l1Hash);
+        inputs[1] = uint256(meta.mixHash);
+        inputs[2] = uint256(meta.txListHash);
+        inputs[3] = (uint256(meta.id)) | (uint256(meta.timestamp) << 64)
+            | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 192);
+        inputs[4] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
+
+        assembly {
+            hash := keccak256(inputs, mul(5, 32))
+        }
+    }
+
+    function hashAssignmentForTxList(
+        TaikoData.ProverAssignment memory assignment,
+        bytes32 txListHash
+    )
+        internal
+        pure
+        returns (bytes32)
+    {
+        return keccak256(
+            abi.encode(
+                "PROVER_ASSIGNMENT",
+                txListHash,
+                assignment.feeToken,
+                assignment.expiry,
+                assignment.tierFees
+            )
+        );
+    }
+
     function _validateAssignment(
         uint16 minTier,
         bytes32 txListHash,
         TaikoData.ProverAssignment memory assignment
     )
-        internal
-        returns (uint256 fee)
+        private
+        returns (uint256 proverFee)
     {
         // Check assignment not expired
         if (block.timestamp >= assignment.expiry) {
@@ -234,48 +271,33 @@ library LibProposing {
             revert L1_ASSIGNMENT_INVALID_PARAMS();
         }
 
-        // Check assignment authorization
-        bytes32 hash = keccak256(
-            abi.encode(
-                "PROVER_ASSIGNMENT",
-                txListHash,
-                assignment.feeToken,
-                assignment.expiry,
-                assignment.tierFees
-            )
-        );
+        // Hash the assignment with the txListHash, this hash will be signed by
+        // the prover, therefore, we add a string as a prefix.
+        bytes32 hash = hashAssignmentForTxList(assignment, txListHash);
 
-        if (assignment.prover.isContract()) {
-            if (
-                IERC1271Upgradeable(assignment.prover).isValidSignature(
-                    hash, assignment.signature
-                ) != EIP1271_MAGICVALUE
-            ) {
-                revert L1_ASSIGNMENT_INVALID_SIG();
-            }
-        } else {
-            if (assignment.prover != hash.recover(assignment.signature)) {
-                revert L1_ASSIGNMENT_INVALID_SIG();
-            }
+        if (!assignment.prover.isValidSignature(hash, assignment.signature)) {
+            revert L1_ASSIGNMENT_INVALID_SIG();
         }
 
-        // Find the fee for the min tier
-        fee = _getProverFee(assignment.tierFees, minTier);
+        // Find the prover fee using the minimal tier
+        proverFee = _getProverFee(assignment.tierFees, minTier);
 
+        // The proposer irrevocably pays a fee to the assigned prover, either in
+        // Ether or ERC20 tokens.
         if (assignment.feeToken == address(0)) {
-            // feeToken is Ether
-            if (msg.value < fee) revert L1_ASSIGNMENT_INSUFFICIENT_FEE();
-            assignment.prover.sendEther(fee);
+            // Paying Ether
+            if (msg.value < proverFee) revert L1_ASSIGNMENT_INSUFFICIENT_FEE();
+            assignment.prover.sendEther(proverFee);
             unchecked {
                 // Return the extra Ether to the proposer
-                uint256 refund = msg.value - fee;
+                uint256 refund = msg.value - proverFee;
                 if (refund != 0) msg.sender.sendEther(refund);
             }
         } else {
-            // ERC20 token as fee. We send back Ether if msg.value is nonzero.
+            // Paying ERC20 tokens
             if (msg.value != 0) msg.sender.sendEther(msg.value);
             ERC20Upgradeable(assignment.feeToken).transferFrom(
-                msg.sender, assignment.prover, fee
+                msg.sender, assignment.prover, proverFee
             );
         }
     }
@@ -294,24 +316,5 @@ library LibProposing {
             }
         }
         revert L1_TIER_NOT_FOUND();
-    }
-
-    /// @dev Hashing the block metadata.
-    function _hashMetadata(TaikoData.BlockMetadata memory meta)
-        private
-        pure
-        returns (bytes32 hash)
-    {
-        uint256[5] memory inputs;
-        inputs[0] = uint256(meta.l1Hash);
-        inputs[1] = uint256(meta.mixHash);
-        inputs[2] = uint256(meta.txListHash);
-        inputs[3] = (uint256(meta.timestamp) << 192)
-            | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 96);
-        inputs[4] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
-
-        assembly {
-            hash := keccak256(inputs, mul(5, 32))
-        }
     }
 }

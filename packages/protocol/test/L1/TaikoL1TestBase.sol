@@ -5,11 +5,14 @@ import { TestBase } from "../TestBase.sol";
 import { console2 } from "@forge-std/console2.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { LibProving } from "../../contracts/L1/libs/LibProving.sol";
+import { LibTiers } from "../../contracts/L1/libs/LibTiers.sol";
+import { LibProposing } from "../../contracts/L1/libs/LibProposing.sol";
 import { LibUtils } from "../../contracts/L1/libs/LibUtils.sol";
 import { TaikoData } from "../../contracts/L1/TaikoData.sol";
 import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
 import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
-
+import { GuardianVerifier } from
+    "../../contracts/L1/verifiers/GuardianVerifier.sol";
 import { PseZkVerifier } from "../../contracts/L1/verifiers/PseZkVerifier.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { StringsUpgradeable as Strings } from
@@ -30,6 +33,7 @@ abstract contract TaikoL1TestBase is TestBase {
     TaikoData.Config conf;
     uint256 internal logCount;
     PseZkVerifier public pv;
+    GuardianVerifier public gv;
 
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
     // 1 TKO --> it is to huge. It should be in 'wei' (?).
@@ -61,17 +65,18 @@ abstract contract TaikoL1TestBase is TestBase {
         pv = new PseZkVerifier();
         pv.init(address(addressManager));
 
-        registerAddress("proof_verifier", address(pv));
+        gv = new GuardianVerifier();
+        gv.init(address(addressManager));
+
+        registerAddress("tier_pse_zkevm", address(pv));
+        registerAddress("tier_guardian", address(gv));
         registerAddress("signal_service", address(ss));
         registerAddress("ether_vault", address(L1EthVault));
         registerL2Address("treasury", L2Treasury);
         registerL2Address("taiko", address(TaikoL2));
         registerL2Address("signal_service", address(L2SS));
         registerL2Address("taiko_l2", address(TaikoL2));
-        // TODO
-        // registerAddress(L1.getVerifierName(100), address(new
-        // MockVerifier()));
-        // registerAddress(L1.getVerifierName(0), address(new MockVerifier()));
+        registerAddress(pv.getVerifierName(300), address(new MockVerifier()));
 
         tko = new TaikoToken();
         registerAddress("taiko_token", address(tko));
@@ -140,26 +145,28 @@ abstract contract TaikoL1TestBase is TestBase {
 
     function proveBlock(
         address msgSender,
-        address, /*prover*/
+        address prover,
         TaikoData.BlockMetadata memory meta,
         bytes32 parentHash,
         bytes32 blockHash,
-        bytes32 signalRoot
+        bytes32 signalRoot,
+        uint16 tier,
+        bytes4 revertReason
     )
         internal
     {
         TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
-            metaHash: keccak256(abi.encode(meta)),
+            metaHash: LibProposing.hashMetadata(meta),
             parentHash: parentHash,
             blockHash: blockHash,
             signalRoot: signalRoot,
             graffiti: 0x0,
-            tier: 1,
+            tier: tier,
             proof: new bytes(102)
         });
 
-        bytes32 instance; // TODO = LibTransition.getInstance(prover, evidence);
-        uint16 verifierId = 100;
+        bytes32 instance = pv.getInstance(prover, evidence);
+        uint16 verifierId = tier;
 
         evidence.proof = bytes.concat(
             bytes2(verifierId),
@@ -170,13 +177,21 @@ abstract contract TaikoL1TestBase is TestBase {
             new bytes(100)
         );
 
-        vm.prank(msgSender, msgSender);
-        //TODO
-        // L1.proveBlock(meta.id, abi.encode(evidence));
+        if (tier == LibTiers.TIER_GUARDIAN) {
+            evidence.proof = "";
+        }
+
+        if (revertReason != "") {
+            vm.prank(msgSender, msgSender);
+            vm.expectRevert(revertReason);
+            L1.proveBlock(meta.id, abi.encode(evidence));
+        } else {
+            vm.prank(msgSender, msgSender);
+            L1.proveBlock(meta.id, abi.encode(evidence));
+        }
     }
 
-    function verifyBlock(address verifier, uint64 count) internal {
-        vm.prank(verifier, verifier);
+    function verifyBlock(address, uint64 count) internal {
         L1.verifyBlocks(count);
     }
 

@@ -118,7 +118,6 @@ interface Alpha5RollupContracts {
   erc20Contracts: {
     bridgedTaikoToken: ERC20Contract;
     bridgedHorseToken: ERC20Contract;
-    bridgedBullToken: ERC20Contract;
   };
 }
 

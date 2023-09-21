@@ -289,25 +289,27 @@ func (p *Processor) eventLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case msg := <-p.msgCh:
-			err := p.processMessage(ctx, msg)
+			go func(msg queue.Message) {
+				err := p.processMessage(ctx, msg)
 
-			if err != nil {
-				slog.Error("err processing message", "err", err.Error())
+				if err != nil {
+					slog.Error("err processing message", "err", err.Error())
 
-				if errors.Is(err, errUnprocessable) {
+					if errors.Is(err, errUnprocessable) {
+						if err := p.queue.Ack(ctx, msg); err != nil {
+							slog.Error("Err acking message", "err", err.Error())
+						}
+					} else {
+						if err := p.queue.Nack(ctx, msg); err != nil {
+							slog.Error("Err nacking message", "err", err.Error())
+						}
+					}
+				} else {
 					if err := p.queue.Ack(ctx, msg); err != nil {
 						slog.Error("Err acking message", "err", err.Error())
 					}
-				} else {
-					if err := p.queue.Nack(ctx, msg); err != nil {
-						slog.Error("Err nacking message", "err", err.Error())
-					}
 				}
-			} else {
-				if err := p.queue.Ack(ctx, msg); err != nil {
-					slog.Error("Err acking message", "err", err.Error())
-				}
-			}
+			}(msg)
 		}
 	}
 }

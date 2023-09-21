@@ -97,6 +97,7 @@ library LibUtils {
         uint64 slot = _blockId % config.blockRingBufferSize;
 
         TaikoData.Block storage blk = state.blocks[slot];
+
         if (blk.blockId != _blockId) revert L1_BLOCK_MISMATCH();
         if (blk.verifiedTransitionId == 0) revert L1_TRANSITION_NOT_FOUND();
 
