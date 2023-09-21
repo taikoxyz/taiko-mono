@@ -6,7 +6,8 @@
 
 pragma solidity ^0.8.20;
 
-import { Address } from "@openzeppelin/contracts/utils/Address.sol";
+import { AddressUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { IERC165Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 
@@ -14,7 +15,7 @@ import { IERC165Upgradeable } from
 /// @dev Provides utilities for address-related operations.
 library LibAddress {
     function sendEther(address to, uint256 amount) internal {
-        Address.sendValue(payable(to), amount);
+        AddressUpgradeable.sendValue(payable(to), amount);
     }
 
     function supportsInterface(
