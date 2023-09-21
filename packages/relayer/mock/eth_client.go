@@ -54,6 +54,7 @@ func (c *EthClient) BlockByNumber(ctx context.Context, number *big.Int) (*types.
 
 	hdr := Header
 	hdr.Number = number
+	hdr.BaseFee = big.NewInt(1)
 
 	blk := types.NewBlockWithHeader(hdr)
 
