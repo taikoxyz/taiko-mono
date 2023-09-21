@@ -7,12 +7,12 @@
 pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { IERC1155Receiver } from
-    "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
-import { IERC165 } from
-    "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import { IERC721Receiver } from
-    "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import { IERC1155ReceiverUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155ReceiverUpgradeable.sol";
+import { IERC165Upgradeable } from
+    "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
+import { IERC721ReceiverUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721ReceiverUpgradeable.sol";
 import { IERC721Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
 import { IRecallableMessageSender, IBridge } from "../bridge/IBridge.sol";

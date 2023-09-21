@@ -14,7 +14,8 @@ import { IERC1155MetadataURIUpgradeable } from
 import { IERC1155Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
 import { Proxied } from "../common/Proxied.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { StringsUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/utils/StringsUpgradeable.sol";
 
 /// @title BridgedERC1155
 /// @notice Contract for bridging ERC1155 tokens across different chains.
@@ -132,7 +133,9 @@ contract BridgedERC1155 is
     /// @notice Gets the concatenated name of the bridged token.
     /// @return The concatenated name.
     function name() public view returns (string memory) {
-        return string.concat(name_, unicode" ⭀", Strings.toString(srcChainId));
+        return string.concat(
+            name_, unicode" ⭀", StringsUpgradeable.toString(srcChainId)
+        );
     }
 }
 
