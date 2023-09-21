@@ -212,7 +212,7 @@ library LibProposing {
         });
     }
 
-    function hashAssignmentWithTxListHash(
+    function hashAssignmentForTxList(
         TaikoData.ProverAssignment memory assignment,
         bytes32 txListHash
     )
@@ -250,7 +250,7 @@ library LibProposing {
 
         // Hash the assignment with the txListHash, this hash will be signed by
         // the prover, therefore, we add a string as a prefix.
-        bytes32 hash = hashAssignmentWithTxListHash(assignment, txListHash);
+        bytes32 hash = hashAssignmentForTxList(assignment, txListHash);
 
         if (!assignment.prover.isValidSignature(hash, assignment.signature)) {
             revert L1_ASSIGNMENT_INVALID_SIG();
@@ -259,8 +259,10 @@ library LibProposing {
         // Find the prover fee using the minimal tier
         proverFee = _getProverFee(assignment.tierFees, minTier);
 
+        // The proposer irrevocably pays a fee to the assigned prover, either in
+        // Ether or ERC20 tokens.
         if (assignment.feeToken == address(0)) {
-            // feeToken is Ether
+            // Paying Ether
             if (msg.value < proverFee) revert L1_ASSIGNMENT_INSUFFICIENT_FEE();
             assignment.prover.sendEther(proverFee);
             unchecked {
@@ -269,8 +271,7 @@ library LibProposing {
                 if (refund != 0) msg.sender.sendEther(refund);
             }
         } else {
-            // ERC20 token as the prover fee. We send back Ether if msg.value is
-            // nonzero.
+            // Paying ERC20 tokens
             if (msg.value != 0) msg.sender.sendEther(msg.value);
             ERC20Upgradeable(assignment.feeToken).transferFrom(
                 msg.sender, assignment.prover, proverFee
