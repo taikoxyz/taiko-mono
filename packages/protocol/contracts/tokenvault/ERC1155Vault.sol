@@ -24,7 +24,6 @@ import { LibAddress } from "../libs/LibAddress.sol";
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { ProxiedBridgedERC1155 } from "./BridgedERC1155.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 /// @title ERC1155NameAndSymbol
 /// @notice Interface for ERC1155 contracts that provide name() and symbol()
