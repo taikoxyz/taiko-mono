@@ -7,7 +7,6 @@
 pragma solidity ^0.8.20;
 
 import { IAddressManager } from "./AddressManager.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 /// @title AddressResolver
 /// @notice This contract acts as a bridge for name-to-address resolution.
