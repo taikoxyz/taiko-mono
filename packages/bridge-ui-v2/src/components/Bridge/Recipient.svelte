@@ -109,7 +109,7 @@
 
   <dialog id={dialogId} class="modal" class:modal-open={modalOpen}>
     <div class="modal-box relative px-6 md:rounded-[20px] bg-neutral-background">
-      <button class="absolute right-6" on:click={closeModal}>
+      <button class="absolute right-6 z-50" on:click={closeModal}>
         <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
       </button>
 

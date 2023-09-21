@@ -97,15 +97,6 @@ export const JOLNIR_CONFIG = {
         decimals: 18,
         symbol: "HORSE",
       },
-      bridgedBullToken: {
-        name: "Bridged Bull Token",
-        address: {
-          proxy: "0xc02D1fE3aA2134D2d7561e99f0A699C5Ca7B44ED",
-          impl: "0x073C9b4Ed7059eEdd2ad6F8a8bFd48AAB2413eC3",
-        },
-        decimals: 18,
-        symbol: "BLL",
-      },
     },
   },
   otherContracts: {

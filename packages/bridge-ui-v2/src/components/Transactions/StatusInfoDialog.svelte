@@ -50,7 +50,7 @@
     class="modal-box
  bg-neutral-background text-primary-content text-center max-w-[565px]">
     <div class="w-full flex justify-end">
-      <button class="right-6" on:click={closeModal}>
+      <button class="right-6 z-50" on:click={closeModal}>
         <Icon type="x-close" fillClass="fill-primary-content" size={24} />
       </button>
     </div>
@@ -60,8 +60,8 @@
     <div class="inline-flex flex-col px-[37px] text-base">
       <br />
       {$t('transactions.status.dialog.description')}
-      <h4 class={classes.headline}>{$t('transactions.status.initiated.name')}</h4>
-      {$t('transactions.status.initiated.description')}
+      <h4 class={classes.headline}>{$t('transactions.status.processing.name')}</h4>
+      {$t('transactions.status.processing.description')}
       <h4 class={classes.headline}>{$t('transactions.status.claim.name')}</h4>
       {$t('transactions.status.claim.description')}
       <h4 class={classes.headline}>{$t('transactions.status.claimed.name')}</h4>
