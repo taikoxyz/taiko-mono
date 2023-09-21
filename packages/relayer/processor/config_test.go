@@ -16,14 +16,12 @@ var (
 	headerSyncInterval      = "30"
 	confirmations           = "10"
 	confirmationTimeout     = "30"
-	profitableOnly          = "true"
 	backoffRetryInterval    = "20"
 	backOffMaxRetrys        = "10"
 	databaseMaxIdleConns    = "10"
 	databaseMaxOpenConns    = "10"
 	databaseMaxConnLifetime = "30"
 	ethClientTimeout        = "10"
-	enableTaikoL2           = "true"
 )
 
 func setupApp() *cli.App {
@@ -114,8 +112,8 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"-" + flags.DatabaseConnMaxLifetime.Name, databaseMaxConnLifetime,
 		"-" + flags.ETHClientTimeout.Name, ethClientTimeout,
 		"-" + flags.QueuePrefetchCount.Name, "100",
-		"-" + flags.ProfitableOnly.Name, profitableOnly,
-		"-" + flags.EnableTaikoL2.Name, enableTaikoL2,
+		"--" + flags.ProfitableOnly.Name,
+		"--" + flags.EnableTaikoL2.Name,
 	}))
 }
 
