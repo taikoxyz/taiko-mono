@@ -8,8 +8,7 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
-import
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "@oz/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/verifiers/PseZkVerifier.sol";

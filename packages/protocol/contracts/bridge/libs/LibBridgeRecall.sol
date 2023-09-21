@@ -9,9 +9,9 @@ pragma solidity ^0.8.20;
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { EtherVault } from "../EtherVault.sol";
 import { IRecallableMessageSender, IBridge } from "../IBridge.sol";
+import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibBridgeData } from "./LibBridgeData.sol";
 import { LibBridgeStatus } from "./LibBridgeStatus.sol";
-import { LibAddress } from "../../libs/LibAddress.sol";
 
 /// @title LibBridgeRecall
 /// @notice This library provides functions for releasing Ether and tokens

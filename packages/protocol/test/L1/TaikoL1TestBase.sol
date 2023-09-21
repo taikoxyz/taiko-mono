@@ -12,7 +12,7 @@ import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
 
 import { PseZkVerifier } from "../../contracts/L1/verifiers/PseZkVerifier.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { Strings } from "@oz/utils/Strings.sol";
 import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
 
 contract MockVerifier {

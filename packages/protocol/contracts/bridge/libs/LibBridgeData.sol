@@ -5,11 +5,8 @@
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 pragma solidity ^0.8.20;
 
-import { AddressResolver } from "../../common/AddressResolver.sol";
 import { BlockHeader } from "../../libs/LibBlockHeader.sol";
 import { IBridge } from "../IBridge.sol";
-import { LibAddress } from "../../libs/LibAddress.sol";
-import { LibMath } from "../../libs/LibMath.sol";
 
 /// @title LibBridgeData
 /// @notice This library provides functions and data structures for storing and

@@ -15,7 +15,7 @@ import { RegularERC20 } from "../contracts/test/erc20/RegularERC20.sol";
 import { SignalService } from "../contracts/signal/SignalService.sol";
 import { TaikoL2 } from "../contracts/L2/TaikoL2.sol";
 import { Test } from "forge-std/Test.sol";
-import { TransparentUpgradeableProxy } from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { TransparentUpgradeableProxy } from "@oz/proxy/transparent/TransparentUpgradeableProxy.sol";
 import { console2 } from "forge-std/console2.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 

@@ -7,22 +7,21 @@
 pragma solidity ^0.8.20;
 
 import { BridgedERC20, ProxiedBridgedERC20 } from "./BridgedERC20.sol";
-import { Create2Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
+import { Create2Upgradeable } from "@ozu/utils/Create2Upgradeable.sol";
 import {
     ERC20Upgradeable,
     IERC20Upgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+} from "@ozu/token/ERC20/ERC20Upgradeable.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { IERC165Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
+    "@ozu/utils/introspection/IERC165Upgradeable.sol";
 import { IRecallableMessageSender, IBridge } from "../bridge/IBridge.sol";
 import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { SafeERC20Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+    "@ozu/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import { TaikoToken } from "../L1/TaikoToken.sol";
 
 /// @title ERC20Vault

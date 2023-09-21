@@ -6,8 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-import { AddressUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
+import { AddressUpgradeable } from "@ozu/utils/AddressUpgradeable.sol";
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { IMintableERC20 } from "../../common/IMintableERC20.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";

@@ -7,16 +7,13 @@
 pragma solidity ^0.8.20;
 
 import { BaseNFTVault } from "./BaseNFTVault.sol";
-import { Create2Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
-import { ERC721Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+import { Create2Upgradeable } from "@ozu/utils/Create2Upgradeable.sol";
+import { ERC721Upgradeable } from "@ozu/token/ERC721/ERC721Upgradeable.sol";
 import { IERC165Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
+    "@ozu/utils/introspection/IERC165Upgradeable.sol";
 import { IERC721ReceiverUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721ReceiverUpgradeable.sol";
-import { IERC721Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
+    "@ozu/token/ERC721/IERC721ReceiverUpgradeable.sol";
+import { IERC721Upgradeable } from "@ozu/token/ERC721/IERC721Upgradeable.sol";
 import { IBridge, IRecallableMessageSender } from "../bridge/IBridge.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";

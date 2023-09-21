@@ -7,7 +7,6 @@
 pragma solidity ^0.8.20;
 
 import { IBridge } from "../IBridge.sol";
-import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibBridgeData } from "./LibBridgeData.sol";
 
 /// @title LibBridgeInvoke
@@ -16,7 +15,6 @@ import { LibBridgeData } from "./LibBridgeData.sol";
 /// The library facilitates the interaction with messages sent across the
 /// bridge, allowing for call execution and state updates.
 library LibBridgeInvoke {
-    using LibAddress for address;
     using LibBridgeData for IBridge.Message;
 
     error B_GAS_LIMIT();

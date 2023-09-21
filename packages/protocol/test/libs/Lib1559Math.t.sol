@@ -4,8 +4,7 @@ pragma solidity ^0.8.20;
 import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
 import { Lib1559Math as T } from "../../contracts/libs/Lib1559Math.sol";
-import { SafeCastUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import { SafeCastUpgradeable } from "@ozu/utils/math/SafeCastUpgradeable.sol";
 
 contract TestLib1559Math is Test {
     using SafeCastUpgradeable for uint256;

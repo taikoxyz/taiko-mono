@@ -11,8 +11,7 @@ import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
 import { Test } from "forge-std/Test.sol";
 import { ERC20Vault } from "../../contracts/tokenvault/ERC20Vault.sol";
-import
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "@oz/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 // PrankDestBridge lets us simulate a transaction to the ERC20Vault
 // from a named Bridge, without having to test/run through the real Bridge code,

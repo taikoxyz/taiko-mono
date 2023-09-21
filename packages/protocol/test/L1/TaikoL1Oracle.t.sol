@@ -10,7 +10,7 @@ import { TaikoErrors } from "../../contracts/L1/TaikoErrors.sol";
 import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
 import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { Strings } from "@oz/utils/Strings.sol";
 import { TaikoL1TestBase } from "./TaikoL1TestBase.sol";
 
 contract TaikoL1Oracle is TaikoL1 {

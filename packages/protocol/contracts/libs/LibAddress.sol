@@ -6,10 +6,9 @@
 
 pragma solidity ^0.8.20;
 
-import { AddressUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
+import { AddressUpgradeable } from "@ozu/utils/AddressUpgradeable.sol";
 import { IERC165Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
+    "@ozu/utils/introspection/IERC165Upgradeable.sol";
 
 /// @title LibAddress
 /// @dev Provides utilities for address-related operations.

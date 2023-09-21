@@ -6,15 +6,11 @@
 
 pragma solidity ^0.8.20;
 
-import { AddressUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
+import { AddressUpgradeable } from "@ozu/utils/AddressUpgradeable.sol";
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { ECDSAUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
-import { ERC20Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import { IERC1271Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/interfaces/IERC1271Upgradeable.sol";
+import { ECDSAUpgradeable } from "@ozu/utils/cryptography/ECDSAUpgradeable.sol";
+import { ERC20Upgradeable } from "@ozu/token/ERC20/ERC20Upgradeable.sol";
+import { IERC1271Upgradeable } from "@ozu/interfaces/IERC1271Upgradeable.sol";
 import { IMintableERC20 } from "../../common/IMintableERC20.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibDepositing } from "./LibDepositing.sol";
