@@ -65,7 +65,6 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         uint16 verifierId = uint16(bytes2(evidence.proof[0:2]));
 
         // Delegate to the ZKP verifier library to validate the proof.
-
         // Resolve the verifier's name and obtain its address.
         address verifierAddress = resolve(getVerifierName(verifierId), false);
 
@@ -84,7 +83,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         address prover,
         TaikoData.BlockEvidence memory evidence
     )
-        internal
+        public
         pure
         returns (bytes32 instance)
     {
@@ -100,7 +99,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         );
     }
 
-    function getVerifierName(uint16 id) internal pure returns (bytes32) {
+    function getVerifierName(uint16 id) public pure returns (bytes32) {
         return bytes32(uint256(0x1000000) + id);
     }
 }

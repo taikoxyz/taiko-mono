@@ -203,6 +203,7 @@ library LibProposing {
             meta.mixHash = bytes32(block.prevrandao * b.numBlocks);
 
             meta.txListHash = txListHash;
+            meta.id = b.numBlocks;
             meta.timestamp = uint64(block.timestamp);
             meta.l1Height = uint64(block.number - 1);
             meta.gasLimit = config.blockMaxGasLimit;
@@ -222,7 +223,7 @@ library LibProposing {
             // Please note that all fields must be re-initialized since we are
             // utilizing an existing ring buffer slot, not creating a new
             // storage slot.
-            blk.metaHash = _hashMetadata(meta);
+            blk.metaHash = hashMetadata(meta);
             blk.assignedProver = assignment.prover;
 
             // Safeguard the assignment bond to ensure its preservation,
@@ -271,8 +272,8 @@ library LibProposing {
     }
 
     /// @dev Hashing the block metadata.
-    function _hashMetadata(TaikoData.BlockMetadata memory meta)
-        private
+    function hashMetadata(TaikoData.BlockMetadata memory meta)
+        internal
         pure
         returns (bytes32 hash)
     {
@@ -280,8 +281,8 @@ library LibProposing {
         inputs[0] = uint256(meta.l1Hash);
         inputs[1] = uint256(meta.mixHash);
         inputs[2] = uint256(meta.txListHash);
-        inputs[3] = (uint256(meta.timestamp) << 192)
-            | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 96);
+        inputs[3] = (uint256(meta.id)) | (uint256(meta.timestamp) << 64)
+            | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 192);
         inputs[4] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
 
         assembly {
