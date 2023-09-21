@@ -50,7 +50,7 @@
     class="modal-box
  bg-neutral-background text-primary-content text-center max-w-[565px]">
     <div class="w-full flex justify-end">
-      <button class="right-6" on:click={closeModal}>
+      <button class="right-6 z-50" on:click={closeModal}>
         <Icon type="x-close" fillClass="fill-primary-content" size={24} />
       </button>
     </div>

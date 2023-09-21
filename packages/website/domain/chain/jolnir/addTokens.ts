@@ -11,16 +11,6 @@ export const JOLNIR_ADD_TTKOJ: AddTokenParameter = {
     "https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/testnet-token-images/ttko.svg",
 };
 
-export const JOLNIR_ADD_BLL: AddTokenParameter = {
-  address:
-    JOLNIR_CONFIG.rollupContracts.erc20Contracts.bridgedBullToken.address.impl,
-  symbol: JOLNIR_CONFIG.rollupContracts.erc20Contracts.bridgedBullToken.symbol,
-  decimals:
-    JOLNIR_CONFIG.rollupContracts.erc20Contracts.bridgedBullToken.decimals,
-  image:
-    "https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/testnet-token-images/bull.svg",
-};
-
 export const JOLNIR_ADD_HORSE: AddTokenParameter = {
   address:
     JOLNIR_CONFIG.rollupContracts.erc20Contracts.bridgedHorseToken.address.impl,
@@ -33,6 +23,5 @@ export const JOLNIR_ADD_HORSE: AddTokenParameter = {
 
 export const JOLNIR_ADD_TOKENS = [
   JOLNIR_ADD_TTKOJ,
-  JOLNIR_ADD_BLL,
   JOLNIR_ADD_HORSE,
 ];
