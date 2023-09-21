@@ -14,6 +14,8 @@ import { IERC165Upgradeable } from
 /// @title LibAddress
 /// @dev Provides utilities for address-related operations.
 library LibAddress {
+    /// @dev Wrap this into a new function so the parameter `to` is `address`
+    /// instead of `address payable`.
     function sendEther(address to, uint256 amount) internal {
         AddressUpgradeable.sendValue(payable(to), amount);
     }

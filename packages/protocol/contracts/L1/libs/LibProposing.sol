@@ -9,7 +9,8 @@ pragma solidity ^0.8.20;
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { ERC20Upgradeable } from
+    "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import { IMintableERC20 } from "../../common/IMintableERC20.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
@@ -274,7 +275,7 @@ library LibProposing {
         } else {
             // ERC20 token as fee. We send back Ether if msg.value is nonzero.
             if (msg.value != 0) msg.sender.sendEther(msg.value);
-            ERC20(assignment.feeToken).transferFrom(
+            ERC20Upgradeable(assignment.feeToken).transferFrom(
                 msg.sender, assignment.prover, fee
             );
         }
