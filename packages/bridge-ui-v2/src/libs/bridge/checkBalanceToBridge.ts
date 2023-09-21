@@ -78,7 +78,7 @@ export async function checkBalanceToBridge({
       chainId: srcChainId,
     });
 
-    if (!tokenAddress || tokenAddress === zeroAddress || balance === BigInt(0) || tokenBalance.value <= amount)
+    if (!tokenAddress || tokenAddress === zeroAddress || balance === BigInt(0) || tokenBalance.value < amount)
       throw new InsufficientBalanceError('you do not have enough balance to bridge');
 
     const bridge = bridges[token.type];

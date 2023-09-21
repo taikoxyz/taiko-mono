@@ -1,6 +1,6 @@
 <script lang="ts">
   import { type Address, fetchBalance, switchNetwork } from '@wagmi/core';
-  import { onDestroy, onMount } from 'svelte';
+  import { createEventDispatcher, onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import { parseEther, UserRejectedRequestError } from 'viem';
 
@@ -31,11 +31,10 @@
   import { network } from '$stores/network';
   import { pendingTransactions } from '$stores/pendingTransactions';
 
-  import InsufficientFunds from './InsufficientFunds.svelte';
+  export let bridgeTx: BridgeTransaction;
 
   const log = getLogger('components:Status');
-
-  export let bridgeTx: BridgeTransaction;
+  const dispatch = createEventDispatcher();
 
   let polling: ReturnType<typeof startPolling>;
 
@@ -43,10 +42,12 @@
   let processable = false; // bridge tx state to be processed: claimed/retried/released
   let bridgeTxStatus: Maybe<MessageStatus>;
 
-  let modalOpen = false;
+  enum LoadingState {
+    CLAIMING = 'claiming',
+    RELEASING = 'releasing',
+  }
 
-  // TODO: enum?
-  let loading: 'claiming' | 'releasing' | false = false;
+  let loading: LoadingState | false = false;
 
   function onProcessable(isTxProcessable: boolean) {
     processable = isTxProcessable;
@@ -78,7 +79,7 @@
   async function claim() {
     if (!$network || !$account?.address) return;
 
-    loading = 'claiming';
+    loading = LoadingState.CLAIMING;
 
     try {
       const { msgHash, message } = bridgeTx;
@@ -140,7 +141,7 @@
           warningToast($t('transactions.actions.claim.rejected'));
           break;
         case err instanceof InsufficientBalanceError:
-          modalOpen = true;
+          dispatch('insufficientFunds', { tx: bridgeTx });
           break;
         case err instanceof InvalidProofError:
           errorToast($t('TODO: InvalidProofError'));
@@ -163,7 +164,7 @@
   async function release() {
     if (!$network || !$account?.address) return;
 
-    loading = 'releasing';
+    loading = LoadingState.RELEASING;
 
     try {
       const { msgHash, message } = bridgeTx;
@@ -266,7 +267,7 @@
 <div class="Status f-items-center space-x-1">
   {#if !processable}
     <StatusDot type="pending" />
-    <span>{$t('transactions.status.initiated.name')}</span>
+    <span>{$t('transactions.status.processing.name')}</span>
   {:else if loading}
     <div class="f-items-center space-x-2">
       <Spinner />
@@ -293,5 +294,3 @@
     <span>{$t('transactions.status.error.name')}</span>
   {/if}
 </div>
-
-<InsufficientFunds bind:modalOpen />

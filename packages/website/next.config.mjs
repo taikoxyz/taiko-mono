@@ -45,6 +45,12 @@ export default withNextra({
         permanent: false,
         basePath: false,
       },
+      // Redirect run a node to run a taiko node
+      {
+        source: "/docs/guides/run-a-node",
+        destination: "/docs/guides/run-a-taiko-node",
+        permanent: true,
+      },
     ];
   },
 });

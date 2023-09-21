@@ -102,9 +102,9 @@
       "release": "Release"
     },
     "status": {
-      "initiated": {
-        "name": "Initiated",
-        "description": "Transaction initiated"
+      "processing": {
+        "name": "Processing",
+        "description": "Transaction is processing. Depending on the pending blocks to be verified this can take up to several minutes."
       },
       "pending": {
         "name": "Pending",
