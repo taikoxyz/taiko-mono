@@ -21,9 +21,9 @@ abstract contract TestBase is Test {
         return uint256(keccak256(abi.encodePacked("uint256", _seed++)));
     }
 
-    address internal Alice = getRandomAddress();
-    address internal Bob = getRandomAddress();
-    address internal Carol = getRandomAddress();
+    address internal Alice = vm.addr(0x1);
+    address internal Bob = vm.addr(0x2);
+    address internal Carol = vm.addr(0x3);
     address internal David = getRandomAddress();
     address internal Emma = getRandomAddress();
     address internal Frank = getRandomAddress();

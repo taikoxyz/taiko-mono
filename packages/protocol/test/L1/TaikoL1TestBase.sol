@@ -12,6 +12,8 @@ import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
 import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
 import { GuardianVerifier } from
     "../../contracts/L1/verifiers/GuardianVerifier.sol";
+import { OPL2ConfigProvider } from
+    "../../contracts/L1/tiers/OPL2ConfigProvider.sol";
 import { PseZkVerifier } from "../../contracts/L1/verifiers/PseZkVerifier.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { StringsUpgradeable as Strings } from
@@ -34,6 +36,7 @@ abstract contract TaikoL1TestBase is TestBase {
     uint256 internal logCount;
     PseZkVerifier public pv;
     GuardianVerifier public gv;
+    OPL2ConfigProvider public cp;
 
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
     // 1 TKO --> it is to huge. It should be in 'wei' (?).
@@ -68,8 +71,11 @@ abstract contract TaikoL1TestBase is TestBase {
         gv = new GuardianVerifier();
         gv.init(address(addressManager));
 
+        cp = new OPL2ConfigProvider();
+
         registerAddress("tier_pse_zkevm", address(pv));
         registerAddress("tier_guardian", address(gv));
+        registerAddress("tier_provider", address(cp));
         registerAddress("signal_service", address(ss));
         registerAddress("ether_vault", address(L1EthVault));
         registerL2Address("treasury", L2Treasury);
@@ -113,17 +119,31 @@ abstract contract TaikoL1TestBase is TestBase {
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
-        TaikoData.ProverAssignment memory assignment;
+        TaikoData.TierFee[] memory tierFees = new TaikoData.TierFee[](2);
+        // Register the tier fees
+        // Based on OPL2ConfigTier we need 2:
+        // - LibTiers.TIER_PSE_ZKEVM;
+        // - LibTiers.TIER_OPTIMISTIC;
+        tierFees[0] = TaikoData.TierFee(LibTiers.TIER_OPTIMISTIC, 1 ether);
+        tierFees[1] = TaikoData.TierFee(LibTiers.TIER_OPTIMISTIC, 2 ether);
+        // For the test not to fail, set the message.value to the highest, the
+        // rest will be returned
+        // anyways
+        uint256 msgValue = 2 ether;
 
-        // TODO
-        // =  TaikoData
-        //      .ProverAssignment({
-        //      prover: prover,
-        //      expiry: uint64(block.timestamp + 60 minutes),
-        //      data: new bytes(0)
-        //  });
+        TaikoData.ProverAssignment memory assignment = TaikoData
+            .ProverAssignment({
+            prover: prover,
+            feeToken: address(0),
+            tierFees: tierFees,
+            expiry: uint64(block.timestamp + 60 minutes),
+            signature: new bytes(0)
+        });
 
         bytes memory txList = new bytes(txListSize);
+
+        assignment.signature =
+            grantWithSignature(prover, assignment, keccak256(txList));
 
         TaikoData.StateVariables memory variables = L1.getStateVariables();
 
@@ -140,7 +160,9 @@ abstract contract TaikoL1TestBase is TestBase {
         meta.gasLimit = gasLimit;
 
         vm.prank(proposer, proposer);
-        meta = L1.proposeBlock(meta.txListHash, abi.encode(assignment), txList);
+        meta = L1.proposeBlock{ value: msgValue }(
+            meta.txListHash, abi.encode(assignment), txList
+        );
     }
 
     function proveBlock(
@@ -205,6 +227,31 @@ abstract contract TaikoL1TestBase is TestBase {
         console2.log(
             conf.chainId, string(abi.encodePacked(nameHash)), unicode"→", addr
         );
+    }
+
+    function grantWithSignature(
+        address signer,
+        TaikoData.ProverAssignment memory assignment,
+        bytes32 txListHash
+    )
+        internal
+        returns (bytes memory signature)
+    {
+        bytes32 digest =
+            LibProposing.hashAssignmentForTxList(assignment, txListHash);
+        uint256 signerPrivateKey;
+
+        // In the test suite these are the 3 which acts as provers
+        if (signer == Alice) {
+            signerPrivateKey = 0x1;
+        } else if (signer == Bob) {
+            signerPrivateKey = 0x2;
+        } else if (signer == Carol) {
+            signerPrivateKey = 0x3;
+        }
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, digest);
+        signature = abi.encodePacked(r, s, v);
     }
 
     function giveEthAndTko(
