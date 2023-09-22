@@ -152,6 +152,7 @@ library LibVerifying {
                 // transition is contested and awaiting higher-tier proof or if
                 // the transition is still within its cooldown period.
                 if (tran.contester != address(0)) {
+
                     break;
                 } else {
                     if (tierProvider == address(0)) {
