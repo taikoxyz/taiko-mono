@@ -87,9 +87,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = L1.getBlock(meta.id).minTier;
-            vm.warp(
-                block.timestamp + L1.getTierConfig(minTier).cooldownWindow + 1
-            );
+            vm.warp(block.timestamp + L1.getConfig(minTier).cooldownWindow + 1);
 
             verifyBlock(Carol, 1);
             parentHash = blockHash;
@@ -131,9 +129,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             );
             vm.roll(block.number + 15 * 12);
             uint16 minTier = L1.getBlock(meta.id).minTier;
-            vm.warp(
-                block.timestamp + L1.getTierConfig(minTier).cooldownWindow + 1
-            );
+            vm.warp(block.timestamp + L1.getConfig(minTier).cooldownWindow + 1);
 
             verifyBlock(Alice, 2);
             parentHash = blockHash;
@@ -295,9 +291,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             vm.roll(block.number + 15 * 12);
             uint16 minTier = L1.getBlock(meta.id).minTier;
-            vm.warp(
-                block.timestamp + L1.getTierConfig(minTier).cooldownWindow + 1
-            );
+            vm.warp(block.timestamp + L1.getConfig(minTier).cooldownWindow + 1);
 
             verifyBlock(Carol, 1);
 

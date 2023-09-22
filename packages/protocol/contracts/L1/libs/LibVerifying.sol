@@ -161,7 +161,7 @@ library LibVerifying {
                     tran.contester != address(0)
                         || block.timestamp
                             <= uint256(tran.timestamp)
-                                + tierProvider.getTierConfig(tran.tier).cooldownWindow
+                                + tierProvider.getConfig(tran.tier).cooldownWindow
                 ) {
                     break;
                 }

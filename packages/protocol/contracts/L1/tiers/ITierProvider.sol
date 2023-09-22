@@ -6,8 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-import { TaikoData } from "../TaikoData.sol";
-
 library LibTiers {
     uint16 public constant TIER_OPTIMISTIC = 100;
     uint16 public constant TIER_SGX = 200;
@@ -18,11 +16,16 @@ library LibTiers {
 /// @title ITierProvider
 /// @notice Defines interface to return tier configuration.
 interface ITierProvider {
+    struct Tier {
+        bytes32 verifierName;
+        uint96 proofBond;
+        uint96 contestBond;
+        uint24 cooldownWindow;
+        uint16 provingWindow;
+    }
+
     /// @dev Retrieves the configuration for a specified tier.
-    function getTierConfig(uint16 tierId)
-        external
-        view
-        returns (TaikoData.TierConfig memory);
+    function getConfig(uint16 tierId) external view returns (Tier memory);
 
     /// @dev Retrieves the IDs of all supported tiers.
     function getTierIds() external view returns (uint16[] memory);

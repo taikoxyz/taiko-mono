@@ -13,14 +13,14 @@ import { TaikoData } from "../../L1/TaikoData.sol";
 contract OPL2ConfigProvider is ITierProvider {
     error TIER_NOT_FOUND();
 
-    function getTierConfig(uint16 tierId)
+    function getConfig(uint16 tierId)
         public
         pure
         override
-        returns (TaikoData.TierConfig memory)
+        returns (ITierProvider.Tier memory)
     {
         if (tierId == LibTiers.TIER_OPTIMISTIC) {
-            return TaikoData.TierConfig({
+            return ITierProvider.Tier({
                 verifierName: "tier_optimistic",
                 proofBond: 100_000 ether, // TKO
                 contestBond: 100_000 ether, // TKO
@@ -30,7 +30,7 @@ contract OPL2ConfigProvider is ITierProvider {
         }
 
         if (tierId == LibTiers.TIER_SGX) {
-            return TaikoData.TierConfig({
+            return ITierProvider.Tier({
                 verifierName: "tier_sgx",
                 proofBond: 50_000 ether, // TKO
                 contestBond: 50_000 ether, // TKO
@@ -40,7 +40,7 @@ contract OPL2ConfigProvider is ITierProvider {
         }
 
         if (tierId == LibTiers.TIER_PSE_ZKEVM) {
-            return TaikoData.TierConfig({
+            return ITierProvider.Tier({
                 verifierName: "tier_pse_zkevm",
                 proofBond: 10_000 ether, // TKO
                 contestBond: 10_000 ether, // TKO
@@ -50,7 +50,7 @@ contract OPL2ConfigProvider is ITierProvider {
         }
 
         if (tierId == LibTiers.TIER_GUARDIAN) {
-            return TaikoData.TierConfig({
+            return ITierProvider.Tier({
                 verifierName: "tier_guardian",
                 proofBond: 0,
                 contestBond: 0, // not contestable

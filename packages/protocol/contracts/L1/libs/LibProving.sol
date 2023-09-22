@@ -166,9 +166,9 @@ library LibProving {
 
         // Retrieve the tier configurations. If the tier is not supported, the
         // subsequent action will result in a revert.
-        TaikoData.TierConfig memory tier = ITierProvider(
+        ITierProvider.Tier memory tier = ITierProvider(
             resolver.resolve("tier_provider", false)
-        ).getTierConfig(evidence.tier);
+        ).getConfig(evidence.tier);
 
         // We must verify the proof, and any failure in proof verification will
         // result in a revert of the following code.
