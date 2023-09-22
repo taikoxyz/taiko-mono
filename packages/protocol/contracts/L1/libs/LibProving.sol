@@ -7,12 +7,12 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
+import { ITierProvider } from "../tiers/ITierProvider.sol";
 import { IVerifier } from "../verifiers/IVerifier.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../TaikoData.sol";
 import { TaikoToken } from ".././TaikoToken.sol";
-import { ITierProvider } from "../tiers/ITierProvider.sol";
 
 /// @title LibProving
 /// @notice A library for handling block contestation and proving in the Taiko

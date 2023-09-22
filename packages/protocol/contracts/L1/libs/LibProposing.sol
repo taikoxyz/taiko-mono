@@ -10,13 +10,13 @@ import { AddressResolver } from "../../common/AddressResolver.sol";
 import { ERC20Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { IMintableERC20 } from "../../common/IMintableERC20.sol";
+import { ITierProvider } from "../tiers/ITierProvider.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibDepositing } from "./LibDepositing.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
-import { ITierProvider } from "../tiers/ITierProvider.sol";
 
 /// @title LibProposing
 /// @notice A library for handling block proposals in the Taiko protocol.
