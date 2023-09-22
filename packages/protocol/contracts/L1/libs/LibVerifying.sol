@@ -14,8 +14,7 @@ import { ISignalService } from "../../signal/ISignalService.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 
 import { ITierProvider } from "../tiers/ITierProvider.sol";
-
-import { TaikoData } from "../../L1/TaikoData.sol";
+import { TaikoData } from "../TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
 
 import { LibUtils } from "./LibUtils.sol";
