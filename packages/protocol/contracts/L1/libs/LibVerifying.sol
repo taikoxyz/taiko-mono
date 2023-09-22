@@ -124,8 +124,10 @@ library LibVerifying {
 
         // The Taiko token address which will be initialized as needed.
         address tt;
-        ITierProvider tierProvider =
-            ITierProvider(resolver.resolve("tier_provider", false));
+        address tierProvider;
+
+        // ITierProvider tierProvider =
+        //     ITierProvider(resolver.resolve("tier_provider", false));
 
         // Unchecked is safe:
         // - assignment is within ranges
@@ -152,13 +154,20 @@ library LibVerifying {
                 // It's not possible to verify this block if either the
                 // transition is contested and awaiting higher-tier proof or if
                 // the transition is still within its cooldown period.
-                if (
-                    tran.contester != address(0)
-                        || block.timestamp
-                            <= uint256(tran.timestamp)
-                                + tierProvider.getTier(tran.tier).cooldownWindow
-                ) {
+                if (tran.contester != address(0)) {
                     break;
+                } else {
+                    if (tierProvider == address(0)) {
+                        tierProvider = resolver.resolve("tier_provider", false);
+                    }
+                    if (
+                        uint256(
+                            ITierProvider(tierProvider).getTier(tran.tier)
+                                .cooldownWindow
+                        ) + tran.timestamp > block.timestamp
+                    ) {
+                        break;
+                    }
                 }
 
                 // Mark this block as verified
