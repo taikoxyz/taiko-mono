@@ -22,9 +22,7 @@ func NewStatRepository(db eventindexer.DB) (*StatRepository, error) {
 }
 
 func (r *StatRepository) Save(ctx context.Context, opts eventindexer.SaveStatOpts) (*eventindexer.Stat, error) {
-	s := &eventindexer.Stat{
-		ID: 1,
-	}
+	s := &eventindexer.Stat{}
 
 	if err := r.db.
 		GormDB().
