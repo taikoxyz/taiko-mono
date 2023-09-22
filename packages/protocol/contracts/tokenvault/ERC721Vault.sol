@@ -13,8 +13,8 @@ import { ERC721Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import { IERC165Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
-import { IERC721Receiver } from
-    "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import { IERC721ReceiverUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721ReceiverUpgradeable.sol";
 import { IERC721Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
 import { IBridge, IRecallableMessageSender } from "../bridge/IBridge.sol";
@@ -27,7 +27,11 @@ import { ProxiedBridgedERC721 } from "./BridgedERC721.sol";
 /// @notice This vault holds all ERC721 tokens that users have deposited.
 /// It also manages the mapping between canonical tokens and their bridged
 /// tokens.
-contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
+contract ERC721Vault is
+    BaseNFTVault,
+    IERC721ReceiverUpgradeable,
+    IERC165Upgradeable
+{
     using LibAddress for address;
 
     uint256[50] private __gap;
@@ -193,7 +197,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
         });
     }
 
-    /// @inheritdoc IERC721Receiver
+    /// @inheritdoc IERC721ReceiverUpgradeable
     function onERC721Received(
         address,
         address,
@@ -204,7 +208,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
         pure
         returns (bytes4)
     {
-        return IERC721Receiver.onERC721Received.selector;
+        return IERC721ReceiverUpgradeable.onERC721Received.selector;
     }
 
     /// @inheritdoc IERC165Upgradeable

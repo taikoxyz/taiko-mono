@@ -15,9 +15,12 @@ abstract contract TaikoErrors {
     // `L1/libs/*.sol`.
     error L1_ALREADY_CONTESTED();
     error L1_ALREADY_PROVED();
+    error L1_ASSIGNMENT_EXPIRED();
+    error L1_ASSIGNMENT_INVALID_SIG();
+    error L1_ASSIGNMENT_INVALID_PARAMS();
+    error L1_ASSIGNMENT_INSUFFICIENT_FEE();
     error L1_ASSIGNED_PROVER_NOT_ALLOWED();
     error L1_BLOCK_MISMATCH();
-    error L1_INVALID_ASSIGNMENT();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_CONFIG();
     error L1_INVALID_ETH_DEPOSIT();

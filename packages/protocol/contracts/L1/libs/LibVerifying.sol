@@ -6,10 +6,10 @@
 
 pragma solidity ^0.8.20;
 
-import { Address } from "@openzeppelin/contracts/utils/Address.sol";
+import { AddressUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { IMintableERC20 } from "../../common/IMintableERC20.sol";
-import { IProver } from "../IProver.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
@@ -20,7 +20,7 @@ import { TaikoToken } from "../TaikoToken.sol";
 /// @title LibVerifying
 /// @notice A library for handling block verification in the Taiko protocol.
 library LibVerifying {
-    using Address for address;
+    using AddressUpgradeable for address;
     using LibMath for uint256;
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.

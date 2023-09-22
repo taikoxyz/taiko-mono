@@ -28,8 +28,6 @@ contract TaikoL1Tiers is TaikoL1 {
         config.blockMaxVerificationsPerTx = 0;
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 12;
-        // config.proofRegularCooldown = 15 minutes;
-        config.skipAssignmentVerificaiton = true;
         config.assignmentBond = 1e18; // 1 Taiko token
         config.proposerRewardPerSecond = 1e15; // 0.001 Taiko token
     }

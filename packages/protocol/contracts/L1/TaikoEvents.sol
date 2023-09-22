@@ -17,7 +17,9 @@ import { TaikoData } from "./TaikoData.sol";
 abstract contract TaikoEvents {
     /// @dev Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
-    /// @param assignedProver The block's assigned prover
+    /// @param assignedProver The block's assigned prover.
+    /// @param assignmentBond The bond in Taiko token from the assigned prover.
+    /// @param proverFee The fee paid to the assigned prover.
     /// @param reward The proposer's block reward in Taiko token.
     /// @param meta The block metadata containing information about the proposed
     /// block.
@@ -25,13 +27,14 @@ abstract contract TaikoEvents {
         uint256 indexed blockId,
         address indexed assignedProver,
         uint96 assignmentBond,
+        uint256 proverFee,
         uint256 reward,
         TaikoData.BlockMetadata meta
     );
 
     /// @dev Emitted when a block is verified.
     /// @param blockId The ID of the verified block.
-    /// @param assignedProver The block's assigned prover
+    /// @param assignedProver The block's assigned prover.
     /// @param prover The prover whose transition is used for verifing the
     /// block.
     /// @param blockHash The hash of the verified block.

@@ -10,7 +10,8 @@ import { EssentialContract } from "../common/EssentialContract.sol";
 import { ERC721Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import { Proxied } from "../common/Proxied.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { StringsUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/utils/StringsUpgradeable.sol";
 
 /// @title BridgedERC721
 /// @notice Contract for bridging ERC721 tokens across different chains.
@@ -113,7 +114,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         returns (string memory)
     {
         return string.concat(
-            super.name(), unicode" ⭀", Strings.toString(srcChainId)
+            super.name(), unicode" ⭀", StringsUpgradeable.toString(srcChainId)
         );
     }
 

@@ -15,7 +15,8 @@ import { IERC20MetadataUpgradeable } from
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { Proxied } from "../common/Proxied.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { StringsUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/utils/StringsUpgradeable.sol";
 
 /// @title BridgedERC20
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
@@ -153,7 +154,7 @@ contract BridgedERC20 is
         returns (string memory)
     {
         return string.concat(
-            super.name(), unicode" ⭀", Strings.toString(srcChainId)
+            super.name(), unicode" ⭀", StringsUpgradeable.toString(srcChainId)
         );
     }
 
