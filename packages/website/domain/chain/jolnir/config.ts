@@ -112,5 +112,11 @@ export const JOLNIR_CONFIG = {
         impl: "0xTODO(docs)",
       },
     },
+    weth: {
+      name: "WETH",
+      address: {
+        impl: "0xf86E3b4cde65c0cd59580Ee3F8dd34343E23ea5B",
+      },
+    },
   },
 } as const satisfies TaikoL2Alpha5;
