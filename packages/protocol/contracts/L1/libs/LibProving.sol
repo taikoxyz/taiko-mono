@@ -12,7 +12,7 @@ import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../TaikoData.sol";
 import { TaikoToken } from ".././TaikoToken.sol";
-import { TierProvider } from "../tiers/TierProvider.sol";
+import { ITierProvider } from "../tiers/ITierProvider.sol";
 
 /// @title LibProving
 /// @notice A library for handling block contestation and proving in the Taiko
@@ -166,7 +166,7 @@ library LibProving {
 
         // Retrieve the tier configurations. If the tier is not supported, the
         // subsequent action will result in a revert.
-        TaikoData.TierConfig memory tier = TierProvider(
+        TaikoData.TierConfig memory tier = ITierProvider(
             resolver.resolve("tier_provider", false)
         ).getTierConfig(evidence.tier);
 

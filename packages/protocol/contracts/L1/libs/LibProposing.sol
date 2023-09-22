@@ -16,7 +16,7 @@ import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
-import { TierProvider } from "../tiers/TierProvider.sol";
+import { ITierProvider } from "../tiers/ITierProvider.sol";
 
 /// @title LibProposing
 /// @notice A library for handling block proposals in the Taiko protocol.
@@ -173,7 +173,7 @@ library LibProposing {
         // required for the block's validity proof. It's imperative to
         // maintain a certain percentage of blocks for each tier to ensure
         // that provers are consistently available when needed.
-        blk.minTier = TierProvider(resolver.resolve("tier_provider", false))
+        blk.minTier = ITierProvider(resolver.resolve("tier_provider", false))
             .getMinTier(uint256(blk.metaHash));
 
         // Verify assignment authorization; if prover's address is an IProver

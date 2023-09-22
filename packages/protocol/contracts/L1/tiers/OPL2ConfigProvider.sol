@@ -6,11 +6,13 @@
 
 pragma solidity ^0.8.20;
 
-import { TierProvider, LibTiers } from "./TierProvider.sol";
+import { ITierProvider, LibTiers } from "./ITierProvider.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
 
 /// @title OPL2ConfigProvider
-contract OPL2ConfigProvider is TierProvider {
+contract OPL2ConfigProvider is ITierProvider {
+    error TIER_NOT_FOUND();
+
     function getTierConfig(uint16 tierId)
         public
         pure

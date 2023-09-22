@@ -14,22 +14,19 @@ library LibTiers {
     uint16 public constant TIER_PSE_ZKEVM = 300;
     uint16 public constant TIER_GUARDIAN = 1000;
 }
-/// @title TierProvider
+
+/// @title ITierProvider
 /// @notice Defines interface to return tier configuration.
-
-abstract contract TierProvider {
-    error TIER_NOT_FOUND();
-
+interface ITierProvider {
     /// @dev Retrieves the configuration for a specified tier.
     function getTierConfig(uint16 tierId)
-        public
+        external
         view
-        virtual
         returns (TaikoData.TierConfig memory);
 
     /// @dev Retrieves the IDs of all supported tiers.
-    function getTierIds() public view virtual returns (uint16[] memory);
+    function getTierIds() external view returns (uint16[] memory);
 
     /// @dev Determines the minimal tier for a block based on a random input.
-    function getMinTier(uint256 rand) public view virtual returns (uint16);
+    function getMinTier(uint256 rand) external view returns (uint16);
 }

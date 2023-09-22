@@ -15,7 +15,7 @@ import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
-import { TierProvider } from "../tiers/TierProvider.sol";
+import { ITierProvider } from "../tiers/ITierProvider.sol";
 
 /// @title LibVerifying
 /// @notice A library for handling block verification in the Taiko protocol.
@@ -129,8 +129,8 @@ library LibVerifying {
 
         // The Taiko token address which will be initialized as needed.
         address tt;
-        TierProvider tierProvider =
-            TierProvider(resolver.resolve("tier_provider", false));
+        ITierProvider tierProvider =
+            ITierProvider(resolver.resolve("tier_provider", false));
 
         // Unchecked is safe:
         // - assignment is within ranges

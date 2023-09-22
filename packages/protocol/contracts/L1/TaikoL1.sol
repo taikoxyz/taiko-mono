@@ -18,7 +18,7 @@ import { Proxied } from "../common/Proxied.sol";
 import { TaikoData } from "./TaikoData.sol";
 import { TaikoErrors } from "./TaikoErrors.sol";
 import { TaikoEvents } from "./TaikoEvents.sol";
-import { TierProvider } from "./tiers/TierProvider.sol";
+import { ITierProvider } from "./tiers/ITierProvider.sol";
 
 /// @title TaikoL1
 /// @notice This contract serves as the "base layer contract" of the Taiko
@@ -30,7 +30,7 @@ import { TierProvider } from "./tiers/TierProvider.sol";
 contract TaikoL1 is
     EssentialContract,
     ICrossChainSync,
-    TierProvider,
+    ITierProvider,
     TaikoEvents,
     TaikoErrors
 {
@@ -240,7 +240,7 @@ contract TaikoL1 is
         returns (TaikoData.TierConfig memory)
     {
         return
-            TierProvider(resolve("tier_provider", false)).getTierConfig(tierId);
+            ITierProvider(resolve("tier_provider", false)).getTierConfig(tierId);
     }
 
     /// @notice Retrieves the IDs of all supported tiers.
@@ -251,7 +251,7 @@ contract TaikoL1 is
         override
         returns (uint16[] memory)
     {
-        return TierProvider(resolve("tier_provider", false)).getTierIds();
+        return ITierProvider(resolve("tier_provider", false)).getTierIds();
     }
 
     /// @notice Determines the minimal tier for a block based on a random input.
@@ -262,7 +262,7 @@ contract TaikoL1 is
         override
         returns (uint16)
     {
-        return TierProvider(resolve("tier_provider", false)).getMinTier(rand);
+        return ITierProvider(resolve("tier_provider", false)).getMinTier(rand);
     }
 
     /// @notice Gets the configuration of the TaikoL1 contract.

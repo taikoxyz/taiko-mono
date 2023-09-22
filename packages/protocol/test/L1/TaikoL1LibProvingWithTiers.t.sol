@@ -14,7 +14,7 @@ import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { TaikoL1TestBase } from "./TaikoL1TestBase.sol";
-import { LibTiers } from "../../contracts/L1/tiers/TierProvider.sol";
+import { LibTiers } from "../../contracts/L1/tiers/ITierProvider.sol";
 
 contract TaikoL1Tiers is TaikoL1 {
     function getConfig()

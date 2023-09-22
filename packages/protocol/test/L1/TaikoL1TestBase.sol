@@ -16,7 +16,7 @@ import { PseZkVerifier } from "../../contracts/L1/verifiers/PseZkVerifier.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
-import { LibTiers } from "../../contracts/L1/tiers/TierProvider.sol";
+import { LibTiers } from "../../contracts/L1/tiers/ITierProvider.sol";
 
 contract MockVerifier {
     fallback(bytes calldata) external returns (bytes memory) {
