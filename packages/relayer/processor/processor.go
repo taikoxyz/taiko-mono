@@ -26,6 +26,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc20vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc721vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/icrosschainsync"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/repo"
@@ -40,6 +41,7 @@ type ethClient interface {
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	BlockNumber(ctx context.Context) (uint64, error)
+	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 	HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error)
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
@@ -89,6 +91,8 @@ type Processor struct {
 
 	srcChainId  *big.Int
 	destChainId *big.Int
+
+	taikoL2 *taikol2.TaikoL2
 }
 
 func (p *Processor) InitFromCli(ctx context.Context, c *cli.Context) error {
@@ -195,6 +199,16 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	}
 
 	relayerAddr := crypto.PubkeyToAddress(*publicKeyECDSA)
+
+	var taikoL2 *taikol2.TaikoL2
+	if cfg.EnableTaikoL2 {
+		taikoL2, err = taikol2.NewTaikoL2(cfg.DestTaikoAddress, destEthClient)
+		if err != nil {
+			return err
+		}
+
+		p.taikoL2 = taikoL2
+	}
 
 	p.prover = prover
 	p.eventRepo = eventRepository

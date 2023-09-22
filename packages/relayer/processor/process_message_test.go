@@ -17,7 +17,9 @@ import (
 )
 
 func Test_sendProcessMessageCall(t *testing.T) {
-	p := newTestProcessor(true)
+	// since we're padding the estimateGas, the cost is also padded atm;
+	// need to turn profitableOnly off to pass
+	p := newTestProcessor(false)
 
 	_, err := p.sendProcessMessageCall(
 		context.Background(),

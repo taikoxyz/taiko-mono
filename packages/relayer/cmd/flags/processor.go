@@ -98,6 +98,13 @@ var (
 		Value:    1,
 		EnvVars:  []string{"QUEUE_PREFETCH_COUNT"},
 	}
+	EnableTaikoL2 = &cli.BoolFlag{
+		Name:     "enableTaikoL2",
+		Usage:    "Whether to instantiate a taikoL2 contract based off the config.DestTaikoAddress",
+		Value:    false,
+		Category: processorCategory,
+		EnvVars:  []string{"ENABLE_TAIKO_L2"},
+	}
 )
 
 var ProcessorFlags = MergeFlags(CommonFlags, []cli.Flag{
@@ -115,4 +122,5 @@ var ProcessorFlags = MergeFlags(CommonFlags, []cli.Flag{
 	BackOffRetryInterval,
 	BackOffMaxRetrys,
 	QueuePrefetchCount,
+	EnableTaikoL2,
 })
