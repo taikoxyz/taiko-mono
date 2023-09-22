@@ -168,7 +168,7 @@ library LibProving {
         // subsequent action will result in a revert.
         ITierProvider.Tier memory tier = ITierProvider(
             resolver.resolve("tier_provider", false)
-        ).getConfig(evidence.tier);
+        ).getTier(evidence.tier);
 
         // We must verify the proof, and any failure in proof verification will
         // result in a revert of the following code.

@@ -230,16 +230,16 @@ contract TaikoL1 is
 
     /// @notice Retrieves the configuration for a specified tier.
     /// @param tierId ID of the tier.
-    /// @return Config struct containing the tier's parameters. This
+    /// @return Tier struct containing the tier's parameters. This
     /// function will revert if the tier is not supported.
-    function getConfig(uint16 tierId)
+    function getTier(uint16 tierId)
         public
         view
         virtual
         override
         returns (ITierProvider.Tier memory)
     {
-        return ITierProvider(resolve("tier_provider", false)).getConfig(tierId);
+        return ITierProvider(resolve("tier_provider", false)).getTier(tierId);
     }
 
     /// @notice Retrieves the IDs of all supported tiers.

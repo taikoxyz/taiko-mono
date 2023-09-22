@@ -13,7 +13,7 @@ import { TaikoData } from "../../L1/TaikoData.sol";
 contract ZKL2ConfigProvider is ITierProvider {
     error TIER_NOT_FOUND();
 
-    function getConfig(uint16 tierId)
+    function getTier(uint16 tierId)
         public
         pure
         override

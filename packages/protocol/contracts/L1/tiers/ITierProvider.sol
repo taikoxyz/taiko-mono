@@ -25,7 +25,7 @@ interface ITierProvider {
     }
 
     /// @dev Retrieves the configuration for a specified tier.
-    function getConfig(uint16 tierId) external view returns (Tier memory);
+    function getTier(uint16 tierId) external view returns (Tier memory);
 
     /// @dev Retrieves the IDs of all supported tiers.
     function getTierIds() external view returns (uint16[] memory);
