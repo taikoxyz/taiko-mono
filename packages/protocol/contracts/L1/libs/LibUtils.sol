@@ -6,15 +6,11 @@
 
 pragma solidity ^0.8.20;
 
-import { LibDepositing } from "./LibDepositing.sol";
-import { LibMath } from "../../libs/LibMath.sol";
 import { TaikoData } from "../TaikoData.sol";
 
 /// @title LibUtils
 /// @notice A library that offers helper functions.
 library LibUtils {
-    using LibMath for uint256;
-
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_BLOCK_ID();

@@ -78,7 +78,7 @@ contract OPL2ConfigProvider is ITierProvider {
 
     function getMinTier(uint256 rand) public pure override returns (uint16) {
         if (rand % 100 == 0) return LibTiers.TIER_PSE_ZKEVM;
-        // if (rand % 10 == 0) return LibTiers.TIER_SGX;
+        // else if (rand % 10 == 0) return LibTiers.TIER_SGX;
         else return LibTiers.TIER_OPTIMISTIC;
     }
 }

@@ -7,14 +7,15 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { EtherVault } from "../EtherVault.sol";
-import { IBridge } from "../IBridge.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
+
+import { EtherVault } from "../EtherVault.sol";
+import { IBridge } from "../IBridge.sol";
+
 import { LibBridgeData } from "./LibBridgeData.sol";
 import { LibBridgeInvoke } from "./LibBridgeInvoke.sol";
 import { LibBridgeStatus } from "./LibBridgeStatus.sol";
-import { LibMath } from "../../libs/LibMath.sol";
 
 /// @title LibBridgeProcess Library
 /// @notice This library provides functions for processing bridge messages on
@@ -22,7 +23,6 @@ import { LibMath } from "../../libs/LibMath.sol";
 /// The library handles the execution of bridge messages, status updates, and
 /// fee refunds.
 library LibBridgeProcess {
-    using LibMath for uint256;
     using LibAddress for address;
     using LibBridgeData for IBridge.Message;
     using LibBridgeData for LibBridgeData.State;

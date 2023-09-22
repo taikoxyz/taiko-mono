@@ -6,14 +6,11 @@
 
 pragma solidity ^0.8.20;
 
-import { BridgeErrors } from "./BridgeErrors.sol";
-import { Create2Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 import { Proxied } from "../common/Proxied.sol";
-import { SafeERC20Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+
+import { BridgeErrors } from "./BridgeErrors.sol";
 
 /// @title EtherVault
 /// @notice This contract is initialized with 2^128 Ether and allows authorized

@@ -14,7 +14,8 @@ import { GuardianVerifier } from
     "../../contracts/L1/verifiers/GuardianVerifier.sol";
 import { PseZkVerifier } from "../../contracts/L1/verifiers/PseZkVerifier.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { StringsUpgradeable as Strings } from
+    "@ozu/utils/StringsUpgradeable.sol";
 import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
 import { LibTiers } from "../../contracts/L1/tiers/ITierProvider.sol";
 

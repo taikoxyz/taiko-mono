@@ -7,19 +7,18 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
+
 import { ITierProvider } from "../tiers/ITierProvider.sol";
 import { IVerifier } from "../verifiers/IVerifier.sol";
-import { LibMath } from "../../libs/LibMath.sol";
-import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../TaikoData.sol";
-import { TaikoToken } from ".././TaikoToken.sol";
+import { TaikoToken } from "../TaikoToken.sol";
+
+import { LibUtils } from "./LibUtils.sol";
 
 /// @title LibProving
 /// @notice A library for handling block contestation and proving in the Taiko
 /// protocol.
 library LibProving {
-    using LibMath for uint256;
-
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     event TransitionProved(
         uint256 indexed blockId,

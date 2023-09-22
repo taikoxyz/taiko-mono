@@ -7,9 +7,11 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { IBridge } from "../IBridge.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
+
+import { IBridge } from "../IBridge.sol";
+
 import { LibBridgeData } from "./LibBridgeData.sol";
 
 /// @title LibBridgeSend

@@ -7,10 +7,12 @@
 pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../../common/EssentialContract.sol";
-import { IVerifier } from "./IVerifier.sol";
 import { LibBytesUtils } from "../../thirdparty/LibBytesUtils.sol";
 import { Proxied } from "../../common/Proxied.sol";
+
 import { TaikoData } from "../TaikoData.sol";
+
+import { IVerifier } from "./IVerifier.sol";
 
 /// @title PseZkVerifier
 /// @notice See the documentation in {IVerifier}.

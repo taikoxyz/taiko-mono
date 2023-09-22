@@ -6,9 +6,9 @@
 
 pragma solidity ^0.8.20;
 
+import { SafeCastUpgradeable } from "@ozu/utils/math/SafeCastUpgradeable.sol";
+
 import { LibFixedPointMath } from "../thirdparty/LibFixedPointMath.sol";
-import { SafeCastUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 /// @title Lib1559Math
 /// @dev This library provides utilities related to the L2 EIP-1559

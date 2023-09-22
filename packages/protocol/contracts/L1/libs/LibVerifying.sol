@@ -6,12 +6,8 @@
 
 pragma solidity ^0.8.20;
 
-import { AddressUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { IMintableERC20 } from "../../common/IMintableERC20.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
-import { LibMath } from "../../libs/LibMath.sol";
 
 import { ITierProvider } from "../tiers/ITierProvider.sol";
 import { TaikoData } from "../TaikoData.sol";
@@ -22,9 +18,6 @@ import { LibUtils } from "./LibUtils.sol";
 /// @title LibVerifying
 /// @notice A library for handling block verification in the Taiko protocol.
 library LibVerifying {
-    using AddressUpgradeable for address;
-    using LibMath for uint256;
-
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     event BlockVerified(
         uint256 indexed blockId,
@@ -129,10 +122,9 @@ library LibVerifying {
         bytes32 signalRoot;
         uint64 processed;
 
-        // The Taiko token address which will be initialized as needed.
-        address tt;
-        ITierProvider tierProvider =
-            ITierProvider(resolver.resolve("tier_provider", false));
+        // These address are only initialized when necessary
+        address taikoToken;
+        address tierProvider;
 
         // Unchecked is safe:
         // - assignment is within ranges
@@ -159,13 +151,22 @@ library LibVerifying {
                 // It's not possible to verify this block if either the
                 // transition is contested and awaiting higher-tier proof or if
                 // the transition is still within its cooldown period.
-                if (
-                    tran.contester != address(0)
-                        || block.timestamp
-                            <= uint256(tran.timestamp)
-                                + tierProvider.getTier(tran.tier).cooldownWindow
-                ) {
+                if (tran.contester != address(0)) {
                     break;
+                } else {
+                    if (tierProvider == address(0)) {
+                        tierProvider = resolver.resolve("tier_provider", false);
+                    }
+                    if (
+                        uint256(
+                            ITierProvider(tierProvider).getTier(tran.tier)
+                                .cooldownWindow
+                        ) + tran.timestamp > block.timestamp
+                    ) {
+                        // If cooldownWindow is 0, the block can theoretically
+                        // be proved and verified within the same L1 block.
+                        break;
+                    }
                 }
 
                 // Mark this block as verified
@@ -195,10 +196,10 @@ library LibVerifying {
                     bondToReturn -= blk.assignmentBond / 2;
                 }
 
-                if (tt == address(0)) {
-                    tt = resolver.resolve("taiko_token", false);
+                if (taikoToken == address(0)) {
+                    taikoToken = resolver.resolve("taiko_token", false);
                 }
-                TaikoToken(tt).mint(tran.prover, bondToReturn);
+                TaikoToken(taikoToken).mint(tran.prover, bondToReturn);
 
                 // Note: We exclusively address the bonds linked to the
                 // transition used for verification. While there may exist
