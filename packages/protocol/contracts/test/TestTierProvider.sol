@@ -6,23 +6,17 @@
 
 pragma solidity ^0.8.20;
 
-import { TaikoData } from "../../L1/TaikoData.sol";
+import { TierProvider } from "../L1/tiers/TierProvider.sol";
+import { TaikoData } from "../L1//TaikoData.sol";
 
-/// @title LibTiers
-/// @notice A library for providing tier configurations.
-library LibTiers {
-    uint16 internal constant TIER_OPTIMISTIC = 100;
-    uint16 internal constant TIER_SGX = 200;
-    uint16 internal constant TIER_PSE_ZKEVM = 300;
-    uint16 internal constant TIER_GUARDIAN = 1000;
-
-    // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
-    error L1_TIER_NOT_FOUND();
-
+/// @title TestTierProvider
+/// @notice A test TierProvider implementation
+contract TestTierProvider is TierProvider {
     /// @dev Retrieves the configuration for a specified tier.
     function getTierConfig(uint16 tierId)
-        internal
+        public
         pure
+        override
         returns (TaikoData.TierConfig memory)
     {
         if (tierId == TIER_OPTIMISTIC) {
@@ -69,7 +63,12 @@ library LibTiers {
     }
 
     /// @dev Retrieves the IDs of all supported tiers.
-    function getTierIds() internal pure returns (uint16[] memory tiers) {
+    function getTierIds()
+        public
+        pure
+        override
+        returns (uint16[] memory tiers)
+    {
         tiers = new uint16[](4);
         tiers[0] = TIER_OPTIMISTIC;
         tiers[1] = TIER_SGX;
@@ -78,7 +77,7 @@ library LibTiers {
     }
 
     /// @dev Determines the minimal tier for a block based on a random input.
-    function getMinTier(uint256 rand) internal pure returns (uint16) {
+    function getMinTier(uint256 rand) public pure override returns (uint16) {
         if (rand % 100 == 0) return TIER_PSE_ZKEVM;
         else return TIER_OPTIMISTIC;
     }

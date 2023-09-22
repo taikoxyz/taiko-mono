@@ -13,9 +13,9 @@ import { IMintableERC20 } from "../../common/IMintableERC20.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
-import { LibTiers } from "./LibTiers.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
+import { TierProvider } from "../tiers/TierProvider.sol";
 
 /// @title LibVerifying
 /// @notice A library for handling block verification in the Taiko protocol.
@@ -86,7 +86,6 @@ library LibVerifying {
         tran.blockHash = genesisBlockHash;
         tran.prover = address(0);
         tran.timestamp = uint64(block.timestamp);
-        tran.tier = LibTiers.TIER_GUARDIAN;
 
         emit BlockVerified({
             blockId: 0,
@@ -130,6 +129,8 @@ library LibVerifying {
 
         // The Taiko token address which will be initialized as needed.
         address tt;
+        TierProvider tierProvider =
+            TierProvider(resolver.resolve("tier_provider", false));
 
         // Unchecked is safe:
         // - assignment is within ranges
@@ -160,7 +161,7 @@ library LibVerifying {
                     tran.contester != address(0)
                         || block.timestamp
                             <= uint256(tran.timestamp)
-                                + LibTiers.getTierConfig(tran.tier).cooldownWindow
+                                + tierProvider.getTierConfig(tran.tier).cooldownWindow
                 ) {
                     break;
                 }

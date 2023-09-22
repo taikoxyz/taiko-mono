@@ -5,7 +5,6 @@ import { TestBase } from "../TestBase.sol";
 import { console2 } from "forge-std/console2.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { LibProving } from "../../contracts/L1/libs/LibProving.sol";
-import { LibTiers } from "../../contracts/L1/libs/LibTiers.sol";
 import { LibProposing } from "../../contracts/L1/libs/LibProposing.sol";
 import { LibUtils } from "../../contracts/L1/libs/LibUtils.sol";
 import { TaikoData } from "../../contracts/L1/TaikoData.sol";
@@ -25,6 +24,11 @@ contract MockVerifier {
 }
 
 abstract contract TaikoL1TestBase is TestBase {
+    uint16 public constant TIER_OPTIMISTIC = 100;
+    uint16 public constant TIER_SGX = 200;
+    uint16 public constant TIER_PSE_ZKEVM = 300;
+    uint16 public constant TIER_GUARDIAN = 1000;
+
     AddressManager public addressManager;
     TaikoToken public tko;
     SignalService public ss;
@@ -176,7 +180,7 @@ abstract contract TaikoL1TestBase is TestBase {
             new bytes(100)
         );
 
-        if (tier == LibTiers.TIER_GUARDIAN) {
+        if (tier == TIER_GUARDIAN) {
             evidence.proof = "";
         }
 

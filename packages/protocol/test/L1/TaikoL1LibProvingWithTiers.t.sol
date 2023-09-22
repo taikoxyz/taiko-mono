@@ -5,7 +5,6 @@ import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { LibUtils } from "../../contracts/L1/libs/LibUtils.sol";
-import { LibTiers } from "../../contracts/L1/libs/LibTiers.sol";
 import { GuardianVerifier } from
     "../../contracts/L1/verifiers/GuardianVerifier.sol";
 import { TaikoData } from "../../contracts/L1/TaikoData.sol";
@@ -102,8 +101,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
             uint16 minTier = L1.getBlock(meta.id).minTier;
             vm.warp(
-                block.timestamp + LibTiers.getTierConfig(minTier).cooldownWindow
-                    + 1
+                block.timestamp + L1.getTierConfig(minTier).cooldownWindow + 1
             );
 
             verifyBlock(Carol, 1);
@@ -145,7 +143,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 Bob, Bob, meta, parentHash, signalRoot, signalRoot, minTier, ""
             );
 
-            if (minTier == LibTiers.TIER_OPTIMISTIC) {
+            if (minTier == TIER_OPTIMISTIC) {
                 // Try to contest
                 proveBlock(
                     Carol,
@@ -161,8 +159,8 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 vm.roll(block.number + 15 * 12);
 
                 vm.warp(
-                    block.timestamp
-                        + LibTiers.getTierConfig(minTier).cooldownWindow + 1
+                    block.timestamp + L1.getTierConfig(minTier).cooldownWindow
+                        + 1
                 );
 
                 // Cannot verify block because it is contested..
@@ -175,15 +173,14 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     parentHash,
                     blockHash,
                     signalRoot,
-                    LibTiers.TIER_PSE_ZKEVM,
+                    TIER_PSE_ZKEVM,
                     ""
                 );
             }
 
             // Otherwise just not contest
             vm.warp(
-                block.timestamp + LibTiers.getTierConfig(minTier).cooldownWindow
-                    + 1
+                block.timestamp + L1.getTierConfig(minTier).cooldownWindow + 1
             );
             // Now can verify
             verifyBlock(Carol, 1);
@@ -223,7 +220,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 Bob, Bob, meta, parentHash, signalRoot, signalRoot, minTier, ""
             );
 
-            if (minTier == LibTiers.TIER_OPTIMISTIC) {
+            if (minTier == TIER_OPTIMISTIC) {
                 // Try to contest
                 proveBlock(
                     Carol,
@@ -239,8 +236,8 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 vm.roll(block.number + 15 * 12);
 
                 vm.warp(
-                    block.timestamp
-                        + LibTiers.getTierConfig(minTier).cooldownWindow + 1
+                    block.timestamp + L1.getTierConfig(minTier).cooldownWindow
+                        + 1
                 );
 
                 // Cannot verify block because it is contested..
@@ -253,15 +250,14 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     parentHash,
                     0,
                     signalRoot,
-                    LibTiers.TIER_PSE_ZKEVM,
+                    TIER_PSE_ZKEVM,
                     TaikoErrors.L1_INVALID_EVIDENCE.selector
                 );
             }
 
             // Otherwise just not contest
             vm.warp(
-                block.timestamp + LibTiers.getTierConfig(minTier).cooldownWindow
-                    + 1
+                block.timestamp + L1.getTierConfig(minTier).cooldownWindow + 1
             );
             // Now can verify
             verifyBlock(Carol, 1);
@@ -310,8 +306,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
             uint16 minTier = L1.getBlock(meta.id).minTier;
             vm.warp(
-                block.timestamp + LibTiers.getTierConfig(minTier).cooldownWindow
-                    + 1
+                block.timestamp + L1.getTierConfig(minTier).cooldownWindow + 1
             );
 
             verifyBlock(Carol, 1);
@@ -348,8 +343,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
             uint16 minTier = L1.getBlock(meta.id).minTier;
             vm.warp(
-                block.timestamp + LibTiers.getTierConfig(minTier).cooldownWindow
-                    + 1
+                block.timestamp + L1.getTierConfig(minTier).cooldownWindow + 1
             );
 
             proveBlock(
@@ -417,7 +411,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 parentHash,
                 blockHash,
                 signalRoot,
-                LibTiers.TIER_GUARDIAN,
+                TIER_GUARDIAN,
                 TaikoErrors.L1_ALREADY_PROVED.selector
             );
 
@@ -425,8 +419,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
             uint16 minTier = L1.getBlock(meta.id).minTier;
             vm.warp(
-                block.timestamp + LibTiers.getTierConfig(minTier).cooldownWindow
-                    + 1
+                block.timestamp + L1.getTierConfig(minTier).cooldownWindow + 1
             );
 
             verifyBlock(Carol, 1);
@@ -484,7 +477,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 parentHash,
                 0,
                 signalRoot,
-                LibTiers.TIER_GUARDIAN,
+                TIER_GUARDIAN,
                 TaikoErrors.L1_INVALID_EVIDENCE.selector
             );
 
@@ -492,8 +485,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
             uint16 minTier = L1.getBlock(meta.id).minTier;
             vm.warp(
-                block.timestamp + LibTiers.getTierConfig(minTier).cooldownWindow
-                    + 1
+                block.timestamp + L1.getTierConfig(minTier).cooldownWindow + 1
             );
 
             verifyBlock(Carol, 1);
@@ -551,7 +543,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 parentHash,
                 blockHash,
                 signalRoot,
-                LibTiers.TIER_GUARDIAN,
+                TIER_GUARDIAN,
                 ""
             );
 
@@ -559,8 +551,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
             uint16 minTier = L1.getBlock(meta.id).minTier;
             vm.warp(
-                block.timestamp + LibTiers.getTierConfig(minTier).cooldownWindow
-                    + 1
+                block.timestamp + L1.getTierConfig(minTier).cooldownWindow + 1
             );
 
             verifyBlock(Carol, 1);
@@ -616,7 +607,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 parentHash,
                 blockHash,
                 signalRoot,
-                LibTiers.TIER_GUARDIAN,
+                TIER_GUARDIAN,
                 GuardianVerifier.PERMISSION_DENIED.selector
             );
 
@@ -624,8 +615,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
             uint16 minTier = L1.getBlock(meta.id).minTier;
             vm.warp(
-                block.timestamp + LibTiers.getTierConfig(minTier).cooldownWindow
-                    + 1
+                block.timestamp + L1.getTierConfig(minTier).cooldownWindow + 1
             );
 
             verifyBlock(Carol, 1);
@@ -669,7 +659,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 parentHash,
                 blockHash,
                 signalRoot,
-                LibTiers.TIER_PSE_ZKEVM,
+                TIER_PSE_ZKEVM,
                 TaikoErrors.L1_INVALID_BLOCK_ID.selector
             );
 
@@ -713,7 +703,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 parentHash,
                 blockHash,
                 signalRoot,
-                LibTiers.TIER_PSE_ZKEVM,
+                TIER_PSE_ZKEVM,
                 TaikoErrors.L1_BLOCK_MISMATCH.selector
             );
 
@@ -770,7 +760,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 parentHash,
                 blockHash,
                 signalRoot,
-                LibTiers.TIER_GUARDIAN,
+                TIER_GUARDIAN,
                 ""
             );
 
@@ -782,7 +772,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 parentHash,
                 signalRoot,
                 signalRoot,
-                LibTiers.TIER_PSE_ZKEVM,
+                TIER_PSE_ZKEVM,
                 TaikoErrors.L1_INVALID_TIER.selector
             );
 
@@ -790,8 +780,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
             uint16 minTier = L1.getBlock(meta.id).minTier;
             vm.warp(
-                block.timestamp + LibTiers.getTierConfig(minTier).cooldownWindow
-                    + 1
+                block.timestamp + L1.getTierConfig(minTier).cooldownWindow + 1
             );
 
             verifyBlock(Carol, 1);

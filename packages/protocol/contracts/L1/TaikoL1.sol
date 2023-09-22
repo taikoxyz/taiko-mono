@@ -12,13 +12,13 @@ import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { LibDepositing } from "./libs/LibDepositing.sol";
 import { LibProposing } from "./libs/LibProposing.sol";
 import { LibProving } from "./libs/LibProving.sol";
-import { LibTiers } from "./libs/LibTiers.sol";
 import { LibUtils } from "./libs/LibUtils.sol";
 import { LibVerifying } from "./libs/LibVerifying.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { TaikoData } from "./TaikoData.sol";
 import { TaikoErrors } from "./TaikoErrors.sol";
 import { TaikoEvents } from "./TaikoEvents.sol";
+import { TierProvider } from "./tiers/TierProvider.sol";
 
 /// @title TaikoL1
 /// @notice This contract serves as the "base layer contract" of the Taiko
@@ -30,6 +30,7 @@ import { TaikoEvents } from "./TaikoEvents.sol";
 contract TaikoL1 is
     EssentialContract,
     ICrossChainSync,
+    TierProvider,
     TaikoEvents,
     TaikoErrors
 {
@@ -233,16 +234,35 @@ contract TaikoL1 is
     /// function will revert if the tier is not supported.
     function getTierConfig(uint16 tierId)
         public
-        pure
+        view
         virtual
+        override
         returns (TaikoData.TierConfig memory)
     {
-        return LibTiers.getTierConfig(tierId);
+        return
+            TierProvider(resolve("tier_provider", false)).getTierConfig(tierId);
     }
 
     /// @notice Retrieves the IDs of all supported tiers.
-    function getTierIds() public pure virtual returns (uint16[] memory) {
-        return LibTiers.getTierIds();
+    function getTierIds()
+        public
+        view
+        virtual
+        override
+        returns (uint16[] memory)
+    {
+        return TierProvider(resolve("tier_provider", false)).getTierIds();
+    }
+
+    /// @notice Determines the minimal tier for a block based on a random input.
+    function getMinTier(uint256 rand)
+        public
+        view
+        virtual
+        override
+        returns (uint16)
+    {
+        return TierProvider(resolve("tier_provider", false)).getMinTier(rand);
     }
 
     /// @notice Gets the configuration of the TaikoL1 contract.

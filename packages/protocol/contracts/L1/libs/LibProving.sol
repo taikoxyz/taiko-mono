@@ -9,10 +9,10 @@ pragma solidity ^0.8.20;
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { IVerifier } from "../verifiers/IVerifier.sol";
 import { LibMath } from "../../libs/LibMath.sol";
-import { LibTiers } from "./LibTiers.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../TaikoData.sol";
 import { TaikoToken } from ".././TaikoToken.sol";
+import { TierProvider } from "../tiers/TierProvider.sol";
 
 /// @title LibProving
 /// @notice A library for handling block contestation and proving in the Taiko
@@ -166,7 +166,9 @@ library LibProving {
 
         // Retrieve the tier configurations. If the tier is not supported, the
         // subsequent action will result in a revert.
-        TaikoData.TierConfig memory tier = LibTiers.getTierConfig(evidence.tier);
+        TaikoData.TierConfig memory tier = TierProvider(
+            resolver.resolve("tier_provider", false)
+        ).getTierConfig(evidence.tier);
 
         // We must verify the proof, and any failure in proof verification will
         // result in a revert of the following code.
