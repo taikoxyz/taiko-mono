@@ -10,7 +10,6 @@ import { EssentialContract } from "../../common/EssentialContract.sol";
 import { Proxied } from "../../common/Proxied.sol";
 
 import { TaikoData } from "../TaikoData.sol";
-import { IVerifier } from "./IVerifier.sol";
 
 import { IVerifier } from "./IVerifier.sol";
 
