@@ -11,9 +11,11 @@ import { ERC20Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { IMintableERC20 } from "../../common/IMintableERC20.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
+
+import { ITierProvider } from "../tiers/ITierProvider.sol";
+
 import { LibDepositing } from "./LibDepositing.sol";
 import { LibMath } from "../../libs/LibMath.sol";
-import { LibTiers } from "./LibTiers.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
@@ -173,7 +175,8 @@ library LibProposing {
         // required for the block's validity proof. It's imperative to
         // maintain a certain percentage of blocks for each tier to ensure
         // that provers are consistently available when needed.
-        blk.minTier = LibTiers.getMinTier(uint256(blk.metaHash));
+        blk.minTier = ITierProvider(resolver.resolve("tier_provider", false))
+            .getMinTier(uint256(blk.metaHash));
 
         // Verify assignment authorization; if prover's address is an IProver
         // contract, transfer Ether and call "validateAssignment" for

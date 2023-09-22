@@ -5,7 +5,6 @@ import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { LibUtils } from "../../contracts/L1/libs/LibUtils.sol";
-import { LibTiers } from "../../contracts/L1/libs/LibTiers.sol";
 import { TaikoData } from "../../contracts/L1/TaikoData.sol";
 import { TaikoErrors } from "../../contracts/L1/TaikoErrors.sol";
 import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
@@ -88,10 +87,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = L1.getBlock(meta.id).minTier;
-            vm.warp(
-                block.timestamp + LibTiers.getTierConfig(minTier).cooldownWindow
-                    + 1
-            );
+            vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow + 1);
 
             verifyBlock(Carol, 1);
             parentHash = blockHash;
@@ -133,10 +129,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             );
             vm.roll(block.number + 15 * 12);
             uint16 minTier = L1.getBlock(meta.id).minTier;
-            vm.warp(
-                block.timestamp + LibTiers.getTierConfig(minTier).cooldownWindow
-                    + 1
-            );
+            vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow + 1);
 
             verifyBlock(Alice, 2);
             parentHash = blockHash;
@@ -298,10 +291,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             vm.roll(block.number + 15 * 12);
             uint16 minTier = L1.getBlock(meta.id).minTier;
-            vm.warp(
-                block.timestamp + LibTiers.getTierConfig(minTier).cooldownWindow
-                    + 1
-            );
+            vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow + 1);
 
             verifyBlock(Carol, 1);
 
