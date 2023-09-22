@@ -51,7 +51,7 @@ contract ZKL2ConfigProvider is TierProvider {
         tiers[1] = TIER_GUARDIAN;
     }
 
-    function getMinTier(uint256 rand) public pure override returns (uint16) {
+    function getMinTier(uint256) public pure override returns (uint16) {
         return TIER_PSE_ZKEVM;
     }
 }
