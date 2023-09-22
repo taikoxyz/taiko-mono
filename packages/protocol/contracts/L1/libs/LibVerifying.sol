@@ -7,13 +7,14 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
+import { ISignalService } from "../../signal/ISignalService.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
 
 import { ITierProvider } from "../tiers/ITierProvider.sol";
+import { TaikoData } from "../TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
 
 import { LibUtils } from "./LibUtils.sol";
-import { LibTiers } from "./LibTiers.sol";
 
 /// @title LibVerifying
 /// @notice A library for handling block verification in the Taiko protocol.

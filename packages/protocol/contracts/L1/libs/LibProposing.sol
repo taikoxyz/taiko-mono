@@ -21,7 +21,6 @@ import { TaikoData } from "../TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
 
 import { LibDepositing } from "./LibDepositing.sol";
-import { LibTiers } from "./LibTiers.sol";
 import { LibUtils } from "./LibUtils.sol";
 
 /// @title LibProposing
