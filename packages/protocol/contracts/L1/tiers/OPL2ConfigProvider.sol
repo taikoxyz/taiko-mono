@@ -6,8 +6,9 @@
 
 pragma solidity ^0.8.20;
 
+import { TaikoData } from "../TaikoData.sol";
+
 import { ITierProvider, LibTiers } from "./ITierProvider.sol";
-import { TaikoData } from "../../L1/TaikoData.sol";
 
 /// @title OPL2ConfigProvider
 contract OPL2ConfigProvider is ITierProvider {
