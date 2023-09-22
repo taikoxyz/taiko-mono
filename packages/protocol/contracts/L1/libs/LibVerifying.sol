@@ -122,12 +122,9 @@ library LibVerifying {
         bytes32 signalRoot;
         uint64 processed;
 
-        // The Taiko token address which will be initialized as needed.
+        // These address are only initialized when necessary
         address taikoToken;
         address tierProvider;
-
-        // ITierProvider tierProvider =
-        //     ITierProvider(resolver.resolve("tier_provider", false));
 
         // Unchecked is safe:
         // - assignment is within ranges
