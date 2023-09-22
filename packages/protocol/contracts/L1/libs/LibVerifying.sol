@@ -163,6 +163,8 @@ library LibVerifying {
                                 .cooldownWindow
                         ) + tran.timestamp > block.timestamp
                     ) {
+                        // If cooldownWindow is 0, the block can theoretically
+                        // be proved and verified within the same L1 block.
                         break;
                     }
                 }
