@@ -7,9 +7,9 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { ISignalService } from "../../signal/ISignalService.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
 
+import { ITierProvider } from "../tiers/ITierProvider.sol";
 import { TaikoToken } from "../TaikoToken.sol";
 
 import { LibUtils } from "./LibUtils.sol";
@@ -81,7 +81,6 @@ library LibVerifying {
         tran.blockHash = genesisBlockHash;
         tran.prover = address(0);
         tran.timestamp = uint64(block.timestamp);
-        tran.tier = LibTiers.TIER_GUARDIAN;
 
         emit BlockVerified({
             blockId: 0,
@@ -125,6 +124,8 @@ library LibVerifying {
 
         // The Taiko token address which will be initialized as needed.
         address tt;
+        ITierProvider tierProvider =
+            ITierProvider(resolver.resolve("tier_provider", false));
 
         // Unchecked is safe:
         // - assignment is within ranges
@@ -155,7 +156,7 @@ library LibVerifying {
                     tran.contester != address(0)
                         || block.timestamp
                             <= uint256(tran.timestamp)
-                                + LibTiers.getTierConfig(tran.tier).cooldownWindow
+                                + tierProvider.getTier(tran.tier).cooldownWindow
                 ) {
                     break;
                 }

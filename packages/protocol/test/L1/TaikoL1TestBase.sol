@@ -5,7 +5,6 @@ import { TestBase } from "../TestBase.sol";
 import { console2 } from "forge-std/console2.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { LibProving } from "../../contracts/L1/libs/LibProving.sol";
-import { LibTiers } from "../../contracts/L1/libs/LibTiers.sol";
 import { LibProposing } from "../../contracts/L1/libs/LibProposing.sol";
 import { LibUtils } from "../../contracts/L1/libs/LibUtils.sol";
 import { TaikoData } from "../../contracts/L1/TaikoData.sol";
@@ -18,6 +17,7 @@ import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { StringsUpgradeable as Strings } from
     "@ozu/utils/StringsUpgradeable.sol";
 import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
+import { LibTiers } from "../../contracts/L1/tiers/ITierProvider.sol";
 
 contract MockVerifier {
     fallback(bytes calldata) external returns (bytes memory) {
