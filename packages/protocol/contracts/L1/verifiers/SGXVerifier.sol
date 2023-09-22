@@ -14,8 +14,11 @@ import { TaikoData } from "../TaikoData.sol";
 import { IVerifier } from "./IVerifier.sol";
 
 /// @title GuardianVerifier
+// TODO(dani): implement this verifier.
 contract SGXVerifier is EssentialContract, IVerifier {
     uint256[50] private __gap;
+
+    error UNIMPLEMENTED();
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
@@ -35,8 +38,7 @@ contract SGXVerifier is EssentialContract, IVerifier {
         external
         pure
     {
-        // TODO
-        revert("not implemented");
+        revert UNIMPLEMENTED();
     }
 }
 
