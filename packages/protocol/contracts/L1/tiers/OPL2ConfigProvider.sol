@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-import { TierProvider } from "./TierProvider.sol";
+import { TierProvider, LibTiers } from "./TierProvider.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
 
 /// @title OPL2ConfigProvider
@@ -17,7 +17,7 @@ contract OPL2ConfigProvider is TierProvider {
         override
         returns (TaikoData.TierConfig memory)
     {
-        if (tierId == TIER_OPTIMISTIC) {
+        if (tierId == LibTiers.TIER_OPTIMISTIC) {
             return TaikoData.TierConfig({
                 verifierName: "tier_optimistic",
                 proofBond: 100_000 ether, // TKO
@@ -27,7 +27,7 @@ contract OPL2ConfigProvider is TierProvider {
             });
         }
 
-        if (tierId == TIER_SGX) {
+        if (tierId == LibTiers.TIER_SGX) {
             return TaikoData.TierConfig({
                 verifierName: "tier_sgx",
                 proofBond: 50_000 ether, // TKO
@@ -37,7 +37,7 @@ contract OPL2ConfigProvider is TierProvider {
             });
         }
 
-        if (tierId == TIER_PSE_ZKEVM) {
+        if (tierId == LibTiers.TIER_PSE_ZKEVM) {
             return TaikoData.TierConfig({
                 verifierName: "tier_pse_zkevm",
                 proofBond: 10_000 ether, // TKO
@@ -47,7 +47,7 @@ contract OPL2ConfigProvider is TierProvider {
             });
         }
 
-        if (tierId == TIER_GUARDIAN) {
+        if (tierId == LibTiers.TIER_GUARDIAN) {
             return TaikoData.TierConfig({
                 verifierName: "tier_guardian",
                 proofBond: 0,
@@ -57,7 +57,7 @@ contract OPL2ConfigProvider is TierProvider {
             });
         }
 
-        revert L1_TIER_NOT_FOUND();
+        revert TIER_NOT_FOUND();
     }
 
     function getTierIds()
@@ -67,15 +67,15 @@ contract OPL2ConfigProvider is TierProvider {
         returns (uint16[] memory tiers)
     {
         tiers = new uint16[](4);
-        tiers[0] = TIER_OPTIMISTIC;
-        tiers[1] = TIER_SGX;
-        tiers[2] = TIER_PSE_ZKEVM;
-        tiers[3] = TIER_GUARDIAN;
+        tiers[0] = LibTiers.TIER_OPTIMISTIC;
+        tiers[1] = LibTiers.TIER_SGX;
+        tiers[2] = LibTiers.TIER_PSE_ZKEVM;
+        tiers[3] = LibTiers.TIER_GUARDIAN;
     }
 
     function getMinTier(uint256 rand) public pure override returns (uint16) {
-        if (rand % 100 == 0) return TIER_PSE_ZKEVM;
-        // if (rand % 10 == 0) return TIER_SGX;
-        else return TIER_OPTIMISTIC;
+        if (rand % 100 == 0) return LibTiers.TIER_PSE_ZKEVM;
+        // if (rand % 10 == 0) return LibTiers.TIER_SGX;
+        else return LibTiers.TIER_OPTIMISTIC;
     }
 }

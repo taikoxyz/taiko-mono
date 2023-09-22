@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-import { TierProvider } from "./TierProvider.sol";
+import { TierProvider, LibTiers } from "./TierProvider.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
 
 /// @title ZKL2ConfigProvider
@@ -17,7 +17,7 @@ contract ZKL2ConfigProvider is TierProvider {
         override
         returns (TaikoData.TierConfig memory)
     {
-        if (tierId == TIER_PSE_ZKEVM) {
+        if (tierId == LibTiers.TIER_PSE_ZKEVM) {
             return TaikoData.TierConfig({
                 verifierName: "tier_pse_zkevm",
                 proofBond: 10_000 ether, // TKO
@@ -27,7 +27,7 @@ contract ZKL2ConfigProvider is TierProvider {
             });
         }
 
-        if (tierId == TIER_GUARDIAN) {
+        if (tierId == LibTiers.TIER_GUARDIAN) {
             return TaikoData.TierConfig({
                 verifierName: "tier_guardian",
                 proofBond: 0,
@@ -37,7 +37,7 @@ contract ZKL2ConfigProvider is TierProvider {
             });
         }
 
-        revert L1_TIER_NOT_FOUND();
+        revert TIER_NOT_FOUND();
     }
 
     function getTierIds()
@@ -47,11 +47,11 @@ contract ZKL2ConfigProvider is TierProvider {
         returns (uint16[] memory tiers)
     {
         tiers = new uint16[](2);
-        tiers[0] = TIER_PSE_ZKEVM;
-        tiers[1] = TIER_GUARDIAN;
+        tiers[0] = LibTiers.TIER_PSE_ZKEVM;
+        tiers[1] = LibTiers.TIER_GUARDIAN;
     }
 
     function getMinTier(uint256) public pure override returns (uint16) {
-        return TIER_PSE_ZKEVM;
+        return LibTiers.TIER_PSE_ZKEVM;
     }
 }

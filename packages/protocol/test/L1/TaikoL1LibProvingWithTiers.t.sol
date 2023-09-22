@@ -14,6 +14,7 @@ import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { TaikoL1TestBase } from "./TaikoL1TestBase.sol";
+import { LibTiers } from "../../contracts/L1/tiers/TierProvider.sol";
 
 contract TaikoL1Tiers is TaikoL1 {
     function getConfig()
@@ -143,7 +144,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 Bob, Bob, meta, parentHash, signalRoot, signalRoot, minTier, ""
             );
 
-            if (minTier == TIER_OPTIMISTIC) {
+            if (minTier == LibTiers.TIER_OPTIMISTIC) {
                 // Try to contest
                 proveBlock(
                     Carol,
@@ -173,7 +174,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     parentHash,
                     blockHash,
                     signalRoot,
-                    TIER_PSE_ZKEVM,
+                    LibTiers.TIER_PSE_ZKEVM,
                     ""
                 );
             }
@@ -220,7 +221,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 Bob, Bob, meta, parentHash, signalRoot, signalRoot, minTier, ""
             );
 
-            if (minTier == TIER_OPTIMISTIC) {
+            if (minTier == LibTiers.TIER_OPTIMISTIC) {
                 // Try to contest
                 proveBlock(
                     Carol,
@@ -250,7 +251,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     parentHash,
                     0,
                     signalRoot,
-                    TIER_PSE_ZKEVM,
+                    LibTiers.TIER_PSE_ZKEVM,
                     TaikoErrors.L1_INVALID_EVIDENCE.selector
                 );
             }
@@ -411,7 +412,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 parentHash,
                 blockHash,
                 signalRoot,
-                TIER_GUARDIAN,
+                LibTiers.TIER_GUARDIAN,
                 TaikoErrors.L1_ALREADY_PROVED.selector
             );
 
@@ -477,7 +478,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 parentHash,
                 0,
                 signalRoot,
-                TIER_GUARDIAN,
+                LibTiers.TIER_GUARDIAN,
                 TaikoErrors.L1_INVALID_EVIDENCE.selector
             );
 
@@ -543,7 +544,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 parentHash,
                 blockHash,
                 signalRoot,
-                TIER_GUARDIAN,
+                LibTiers.TIER_GUARDIAN,
                 ""
             );
 
@@ -607,7 +608,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 parentHash,
                 blockHash,
                 signalRoot,
-                TIER_GUARDIAN,
+                LibTiers.TIER_GUARDIAN,
                 GuardianVerifier.PERMISSION_DENIED.selector
             );
 
@@ -659,7 +660,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 parentHash,
                 blockHash,
                 signalRoot,
-                TIER_PSE_ZKEVM,
+                LibTiers.TIER_PSE_ZKEVM,
                 TaikoErrors.L1_INVALID_BLOCK_ID.selector
             );
 
@@ -703,7 +704,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 parentHash,
                 blockHash,
                 signalRoot,
-                TIER_PSE_ZKEVM,
+                LibTiers.TIER_PSE_ZKEVM,
                 TaikoErrors.L1_BLOCK_MISMATCH.selector
             );
 
@@ -760,7 +761,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 parentHash,
                 blockHash,
                 signalRoot,
-                TIER_GUARDIAN,
+                LibTiers.TIER_GUARDIAN,
                 ""
             );
 
@@ -772,7 +773,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 parentHash,
                 signalRoot,
                 signalRoot,
-                TIER_PSE_ZKEVM,
+                LibTiers.TIER_PSE_ZKEVM,
                 TaikoErrors.L1_INVALID_TIER.selector
             );
 

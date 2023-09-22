@@ -16,6 +16,7 @@ import { PseZkVerifier } from "../../contracts/L1/verifiers/PseZkVerifier.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
+import { LibTiers } from "../../contracts/L1/tiers/TierProvider.sol";
 
 contract MockVerifier {
     fallback(bytes calldata) external returns (bytes memory) {
@@ -24,11 +25,6 @@ contract MockVerifier {
 }
 
 abstract contract TaikoL1TestBase is TestBase {
-    uint16 public constant TIER_OPTIMISTIC = 100;
-    uint16 public constant TIER_SGX = 200;
-    uint16 public constant TIER_PSE_ZKEVM = 300;
-    uint16 public constant TIER_GUARDIAN = 1000;
-
     AddressManager public addressManager;
     TaikoToken public tko;
     SignalService public ss;
@@ -180,7 +176,7 @@ abstract contract TaikoL1TestBase is TestBase {
             new bytes(100)
         );
 
-        if (tier == TIER_GUARDIAN) {
+        if (tier == LibTiers.TIER_GUARDIAN) {
             evidence.proof = "";
         }
 
