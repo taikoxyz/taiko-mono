@@ -123,7 +123,7 @@ library LibVerifying {
         uint64 processed;
 
         // The Taiko token address which will be initialized as needed.
-        address tt;
+        address taikoToken;
         address tierProvider;
 
         // ITierProvider tierProvider =
@@ -197,10 +197,10 @@ library LibVerifying {
                     bondToReturn -= blk.assignmentBond / 2;
                 }
 
-                if (tt == address(0)) {
-                    tt = resolver.resolve("taiko_token", false);
+                if (taikoToken == address(0)) {
+                    taikoToken = resolver.resolve("taiko_token", false);
                 }
-                TaikoToken(tt).mint(tran.prover, bondToReturn);
+                TaikoToken(taikoToken).mint(tran.prover, bondToReturn);
 
                 // Note: We exclusively address the bonds linked to the
                 // transition used for verification. While there may exist
