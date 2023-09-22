@@ -10,12 +10,16 @@ import { AddressUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { IMintableERC20 } from "../../common/IMintableERC20.sol";
-import { ITierProvider } from "../tiers/ITierProvider.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
 import { LibMath } from "../../libs/LibMath.sol";
+
+import { ITierProvider } from "../tiers/ITierProvider.sol";
+
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
+
+import { LibUtils } from "./LibUtils.sol";
 
 /// @title LibVerifying
 /// @notice A library for handling block verification in the Taiko protocol.

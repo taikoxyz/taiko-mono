@@ -10,8 +10,10 @@ import { AddressResolver } from "../../common/AddressResolver.sol";
 import { ERC20Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { IMintableERC20 } from "../../common/IMintableERC20.sol";
-import { ITierProvider } from "../tiers/ITierProvider.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
+
+import { ITierProvider } from "../tiers/ITierProvider.sol";
+
 import { LibDepositing } from "./LibDepositing.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
