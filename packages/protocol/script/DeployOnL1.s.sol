@@ -187,21 +187,7 @@ contract DeployOnL1 is Script {
             setAddress("signal_service", sharedSignalService);
         }
 
-        // PlonkVerifier
-        deployPlonkVerifiers();
-
         vm.stopBroadcast();
-    }
-
-    function deployPlonkVerifiers() private {
-        // TODO
-        // address[] memory plonkVerifiers = new address[](1);
-        // plonkVerifiers[0] =
-        //     deployYulContract("contracts/libs/yul/PlonkVerifier.yulp");
-
-        // for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
-        //     setAddress(taikoL1.getVerifierName(i), plonkVerifiers[i]);
-        // }
     }
 
     function deployYulContract(string memory contractPath)

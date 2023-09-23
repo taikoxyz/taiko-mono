@@ -7,6 +7,20 @@ import { SafeCastUpgradeable } from "@ozu/utils/math/SafeCastUpgradeable.sol";
 import { TestBase } from "../TestBase.sol";
 import { TaikoL2 } from "../../contracts/L2/TaikoL2.sol";
 
+contract TaikoL2CustomConfig is TaikoL2 {
+    function getEIP1559Config()
+        public
+        pure
+        override
+        returns (EIP1559Config memory config)
+    {
+        config.xscale = 17_617_968_667;
+        config.yscale = 7_867_664_977_129_350_145_899_915_356_087;
+        config.gasIssuedPerSecond = 1_000_000;
+        config.gasExcessMax = 7_680_000_000;
+    }
+}
+
 contract TestTaikoL2 is TestBase {
     using SafeCastUpgradeable for uint256;
 
@@ -17,16 +31,7 @@ contract TestTaikoL2 is TestBase {
     uint256 private logIndex;
 
     function setUp() public {
-        // uint16 rand = 2;
-        // TaikoL2.EIP1559Params memory param1559 = TaikoL2.EIP1559Params({
-        //     basefee: (uint256(BLOCK_GAS_LIMIT * 10) * rand).toUint64(),
-        //     gasIssuedPerSecond: 1_000_000,
-        //     gasExcessMax: (uint256(15_000_000) * 256 * rand).toUint64(),
-        //     gasTarget: (uint256(6_000_000) * rand).toUint64(),
-        //     ratio2x1x: 11_177
-        // });
-
-        L2 = new TaikoL2();
+        L2 = new TaikoL2CustomConfig();
         address dummyAddressManager = getRandomAddress();
         L2.init(dummyAddressManager);
 
@@ -131,6 +136,12 @@ contract TestTaikoL2 is TestBase {
     }
 
     function test_L2_getBasefee() external {
+        TaikoL2.EIP1559Config memory config = L2.getEIP1559Config();
+
+        console2.log(config.xscale);
+        console2.log(config.yscale);
+        console2.log(config.gasIssuedPerSecond);
+
         uint64 timeSinceParent = uint64(block.timestamp - L2.parentTimestamp());
         assertEq(_getBasefeeAndPrint(timeSinceParent, 0), 317_609_019);
 

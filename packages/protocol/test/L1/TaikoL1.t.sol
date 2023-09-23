@@ -42,8 +42,6 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     function setUp() public override {
         TaikoL1TestBase.setUp();
-        // TODO
-        // registerAddress(L1.getVerifierName(100), address(new Verifier()));
     }
 
     /// @dev Test we can propose, prove, then verify more blocks than
@@ -172,8 +170,6 @@ contract TaikoL1Test is TaikoL1TestBase {
         }
 
         vm.roll(block.number + 15 * 12);
-        // TODO
-        // vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
         verifyBlock(Alice, conf.blockMaxProposals - 1);
         printVariables("after verify");
         verifyBlock(Alice, conf.blockMaxProposals);
@@ -317,6 +313,7 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     function test_L1_deposit_hash_creation() external {
+        giveEthAndTko(Bob, 1e6 ether, 100 ether);
         giveEthAndTko(Zachary, 1e6 ether, 0);
         // uint96 minAmount = conf.ethDepositMinAmount;
         uint96 maxAmount = conf.ethDepositMaxAmount;
@@ -357,15 +354,14 @@ contract TaikoL1Test is TaikoL1TestBase {
         // We shall invoke proposeBlock() because this is what will call the
         // processDeposits()
         TaikoData.BlockMetadata memory meta =
-            proposeBlock(Alice, Zachary, 1_000_000, 1024);
-
+            proposeBlock(Alice, Bob, 1_000_000, 1024);
         // Expected:
-        // 0x41c71a2af0eaa668a1241d7e1b09ac30d0e9ea6b6eb4a5a151029e87158d46f3  (pre
+        // 0x3b61cf81fd007398a8efd07a055ac8fb542bcfa62d76cf6dc28a889371afb21e  (pre
         // calculated with these values)
         //console2.logBytes32(meta.depositsRoot);
         assertEq(
             keccak256(abi.encode(meta.depositsProcessed)),
-            0x41c71a2af0eaa668a1241d7e1b09ac30d0e9ea6b6eb4a5a151029e87158d46f3
+            0x3b61cf81fd007398a8efd07a055ac8fb542bcfa62d76cf6dc28a889371afb21e
         );
     }
 }
