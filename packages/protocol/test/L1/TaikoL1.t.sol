@@ -42,8 +42,6 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     function setUp() public override {
         TaikoL1TestBase.setUp();
-        // TODO
-        // registerAddress(L1.getVerifierName(100), address(new Verifier()));
     }
 
     /// @dev Test we can propose, prove, then verify more blocks than
@@ -172,8 +170,6 @@ contract TaikoL1Test is TaikoL1TestBase {
         }
 
         vm.roll(block.number + 15 * 12);
-        // TODO
-        // vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
         verifyBlock(Alice, conf.blockMaxProposals - 1);
         printVariables("after verify");
         verifyBlock(Alice, conf.blockMaxProposals);
