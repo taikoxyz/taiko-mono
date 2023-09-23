@@ -16,7 +16,6 @@ var (
 	headerSyncInterval      = "30"
 	confirmations           = "10"
 	confirmationTimeout     = "30"
-	profitableOnly          = "true"
 	backoffRetryInterval    = "20"
 	backOffMaxRetrys        = "10"
 	databaseMaxIdleConns    = "10"
@@ -69,6 +68,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, uint64(10), c.ETHClientTimeout)
 		assert.Equal(t, true, c.ProfitableOnly)
 		assert.Equal(t, uint64(100), c.QueuePrefetch)
+		assert.Equal(t, true, c.EnableTaikoL2)
 
 		c.OpenDBFunc = func() (DB, error) {
 			return &mock.DB{}, nil
@@ -112,7 +112,8 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"-" + flags.DatabaseConnMaxLifetime.Name, databaseMaxConnLifetime,
 		"-" + flags.ETHClientTimeout.Name, ethClientTimeout,
 		"-" + flags.QueuePrefetchCount.Name, "100",
-		"-" + flags.ProfitableOnly.Name, profitableOnly,
+		"--" + flags.ProfitableOnly.Name,
+		"--" + flags.EnableTaikoL2.Name,
 	}))
 }
 

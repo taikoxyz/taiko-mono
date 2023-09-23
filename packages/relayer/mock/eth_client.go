@@ -47,6 +47,20 @@ func (c *EthClient) HeaderByNumber(ctx context.Context, number *big.Int) (*types
 	}, nil
 }
 
+func (c *EthClient) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
+	if number == nil {
+		number = LatestBlockNumber
+	}
+
+	hdr := Header
+	hdr.Number = number
+	hdr.BaseFee = big.NewInt(1)
+
+	blk := types.NewBlockWithHeader(hdr)
+
+	return blk, nil
+}
+
 func (c *EthClient) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
 	return PendingNonce, nil
 }

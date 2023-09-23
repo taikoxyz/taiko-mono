@@ -14,8 +14,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
@@ -243,11 +245,12 @@ func (p *Processor) sendProcessMessageCall(
 		auth.GasLimit = 3000000
 	} else {
 		// otherwise we can estimate gas
-		gas, cost, err = p.estimateGas(ctx, event.Message, proof)
+		gas, err = p.estimateGas(ctx, event.Message, proof)
 		// and if gas estimation failed, we just try to hardcore a value no matter what type of event,
 		// or whether the contract is deployed.
 		if err != nil || gas == 0 {
-			cost, err = p.hardcodeGasLimit(ctx, auth, event, eventType, canonicalToken)
+			slog.Info("gas estimation failed, hardcoding gas limit", "p.estimateGas:", err)
+			err = p.hardcodeGasLimit(ctx, auth, event, eventType, canonicalToken)
 			if err != nil {
 				return nil, errors.Wrap(err, "p.hardcodeGasLimit")
 			}
@@ -256,20 +259,13 @@ func (p *Processor) sendProcessMessageCall(
 		}
 	}
 
-	gasTipCap, err := p.destEthClient.SuggestGasTipCap(ctx)
-	if err != nil {
-		if IsMaxPriorityFeePerGasNotFoundError(err) {
-			auth.GasTipCap = FallbackGasTipCap
-		} else {
-			gasPrice, err := p.destEthClient.SuggestGasPrice(context.Background())
-			if err != nil {
-				return nil, errors.Wrap(err, "p.destBridge.SuggestGasPrice")
-			}
+	if err = p.setGasTipOrPrice(ctx, auth); err != nil {
+		return nil, errors.Wrap(err, "p.setGasTipOrPrice")
+	}
 
-			auth.GasPrice = gasPrice
-		}
-	} else {
-		auth.GasTipCap = gasTipCap
+	cost, err = p.getCost(ctx, auth)
+	if err != nil {
+		return nil, errors.Wrap(err, "p.getCost")
 	}
 
 	if bool(p.profitableOnly) {
@@ -352,7 +348,7 @@ func (p *Processor) hardcodeGasLimit(
 	event *bridge.BridgeMessageSent,
 	eventType relayer.EventType,
 	canonicalToken relayer.CanonicalToken,
-) (*big.Int, error) {
+) error {
 	var bridgedAddress common.Address
 
 	var err error
@@ -369,7 +365,7 @@ func (p *Processor) hardcodeGasLimit(
 			canonicalToken.Address(),
 		)
 		if err != nil {
-			return nil, errors.Wrap(err, "p.destERC20Vault.CanonicalToBridged")
+			return errors.Wrap(err, "p.destERC20Vault.CanonicalToBridged")
 		}
 	case relayer.EventTypeSendERC721:
 		// determine whether the canonical token is bridged or not on this chain
@@ -379,7 +375,7 @@ func (p *Processor) hardcodeGasLimit(
 			canonicalToken.Address(),
 		)
 		if err != nil {
-			return nil, errors.Wrap(err, "p.destERC721Vault.CanonicalToBridged")
+			return errors.Wrap(err, "p.destERC721Vault.CanonicalToBridged")
 		}
 	case relayer.EventTypeSendERC1155:
 		// determine whether the canonical token is bridged or not on this chain
@@ -389,10 +385,10 @@ func (p *Processor) hardcodeGasLimit(
 			canonicalToken.Address(),
 		)
 		if err != nil {
-			return nil, errors.Wrap(err, "p.destERC1155Vault.CanonicalToBridged")
+			return errors.Wrap(err, "p.destERC1155Vault.CanonicalToBridged")
 		}
 	default:
-		return nil, errors.New("unexpected event type")
+		return errors.New("unexpected event type")
 	}
 
 	if bridgedAddress == relayer.ZeroAddress {
@@ -405,12 +401,7 @@ func (p *Processor) hardcodeGasLimit(
 		auth.GasLimit = 600000
 	}
 
-	gasPrice, err := p.destEthClient.SuggestGasPrice(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "p.destEthClient.SuggestGasPrice")
-	}
-
-	return new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(auth.GasLimit)), nil
+	return nil
 }
 
 func (p *Processor) setLatestNonce(nonce uint64) {
@@ -460,4 +451,53 @@ func (p *Processor) saveMessageStatusChangedEvent(
 	}
 
 	return nil
+}
+
+func (p *Processor) setGasTipOrPrice(ctx context.Context, auth *bind.TransactOpts) error {
+	gasTipCap, err := p.destEthClient.SuggestGasTipCap(ctx)
+	if err != nil {
+		if IsMaxPriorityFeePerGasNotFoundError(err) {
+			auth.GasTipCap = FallbackGasTipCap
+		} else {
+			gasPrice, err := p.destEthClient.SuggestGasPrice(context.Background())
+			if err != nil {
+				return errors.Wrap(err, "p.destBridge.SuggestGasPrice")
+			}
+			auth.GasPrice = gasPrice
+		}
+	}
+
+	auth.GasTipCap = gasTipCap
+
+	return nil
+}
+
+func (p *Processor) getCost(ctx context.Context, auth *bind.TransactOpts) (*big.Int, error) {
+	if auth.GasTipCap != nil {
+		blk, err := p.destEthClient.BlockByNumber(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		var baseFee *big.Int
+
+		if p.taikoL2 != nil {
+			gasUsed := uint32(blk.GasUsed())
+			timeSince := uint64(time.Since(time.Unix(int64(blk.Time()), 0)))
+			baseFee, err = p.taikoL2.GetBasefee(&bind.CallOpts{Context: ctx}, timeSince, gasUsed)
+
+			if err != nil {
+				return nil, errors.Wrap(err, "p.taikoL2.GetBasefee")
+			}
+		} else {
+			cfg := params.NetworkIDToChainConfigOrDefault(p.destChainId)
+			baseFee = eip1559.CalcBaseFee(cfg, blk.Header())
+		}
+
+		return new(big.Int).Mul(
+			new(big.Int).SetUint64(auth.GasLimit),
+			new(big.Int).Add(auth.GasTipCap, baseFee)), nil
+	} else {
+		return new(big.Int).Mul(auth.GasPrice, new(big.Int).SetUint64(auth.GasLimit)), nil
+	}
 }
