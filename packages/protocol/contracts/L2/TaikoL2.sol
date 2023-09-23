@@ -257,6 +257,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         config.xscale = 1_488_514_844;
         config.yscale = 358_298_803_609_133_338_138_868_404_779;
         config.gasIssuedPerSecond = 12_500_000;
+        config.gasExcessMax = 90_900_000_000;
     }
 
     function _calcPublicInputHash(uint256 blockId)
