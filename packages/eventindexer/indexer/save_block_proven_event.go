@@ -98,6 +98,8 @@ func (indxr *Indexer) updateAverageProofTime(ctx context.Context, event *taikol1
 	// will be unable to GetBlock for older blocks, just return nil, we dont
 	// care about averageProofTime that much to be honest for older blocks
 	if err != nil {
+		slog.Error("getBlock error", "err", err.Error())
+
 		return nil
 	}
 
