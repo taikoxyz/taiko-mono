@@ -33,6 +33,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         uint128 xscale;
         uint128 yscale;
         uint32 gasIssuedPerSecond;
+        uint64 gasExcessMax;
     }
 
     // Mapping from L2 block numbers to their block hashes.
@@ -81,6 +82,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
         parentTimestamp = uint64(block.timestamp);
         (publicInputHash,) = _calcPublicInputHash(block.number);
+
+        gasExcess = getEIP1559Config().gasExcessMax / 2;
 
         if (block.number > 0) {
             uint256 parentHeight = block.number - 1;
