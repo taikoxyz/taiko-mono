@@ -17,6 +17,7 @@ contract TaikoL2CustomConfig is TaikoL2 {
         config.xscale = 17_617_968_667;
         config.yscale = 7_867_664_977_129_350_145_899_915_356_087;
         config.gasIssuedPerSecond = 1_000_000;
+        config.gasExcessMax = 7_680_000_000;
     }
 }
 
