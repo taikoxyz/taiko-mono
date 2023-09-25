@@ -132,6 +132,7 @@ interface OtherContracts {
   v3MigratorAddress?: Contract;
   nonfungiblePositionManagerAddress?: Contract;
   tickLensAddress?: Contract;
+  swapRouter02Address?: Contract;
 }
 
 interface TaikoL1Alpha3 extends Network {
