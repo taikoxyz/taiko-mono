@@ -1,5 +1,6 @@
 <script lang="ts">
   import { classNames } from '$libs/util/classNames';
+  export let activeStep: number = 0;
 
   const styles = `
     w-full 
@@ -10,22 +11,13 @@
     dark:md:glassy-gradient-card
     dark:md:glass-background-gradient`;
 
-  export let title: string;
-  export let text = '';
-
   $: classes = classNames(styles, $$props.class);
 </script>
 
 <div class={classes}>
-  <div class="card-body body-regular p-4 md:p-[50px] gap-0">
-    {#if title}
-      <h2 class="card-title title-screen-bold">{title}</h2>
-    {/if}
-    {#if text}
-      <p>{text}</p>
-    {/if}
-    <div class="f-col mt-[30px]">
-      <slot />
-    </div>
+  <div class="card-body body-regular gap-0 p-0">
+    <ul class="steps my-[30px]">
+      <slot {activeStep} />
+    </ul>
   </div>
 </div>
