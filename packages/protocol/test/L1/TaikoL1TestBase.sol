@@ -235,6 +235,7 @@ abstract contract TaikoL1TestBase is TestBase {
         bytes32 txListHash
     )
         internal
+        view
         returns (bytes memory signature)
     {
         bytes32 digest =
