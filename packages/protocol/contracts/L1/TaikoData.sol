@@ -191,7 +191,7 @@ library TaikoData {
         // Ring buffer for Ether deposits
         mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256)
             ethDeposits;
-        // In protocol Taiko token balance
+        // In-protocol Taiko token balance
         mapping(address => uint256) taikoTokenBalances;
         SlotA slotA; // slot 6
         SlotB slotB; // slot 7

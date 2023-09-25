@@ -141,6 +141,18 @@ contract TaikoL1 is
         });
     }
 
+    /// @notice Deposit Taiko token to this contract
+    /// @param amount Amount of Taiko token to deposit.
+    function depositTaikoToken(uint256 amount) public {
+        LibTaikoToken.depositTaikoToken(state, AddressResolver(this), amount);
+    }
+
+    /// @notice Withdraw Taiko token from this contract
+    /// @param amount Amount of Taiko token to withdraw.
+    function withdrawTaikoToken(uint256 amount) public {
+        LibTaikoToken.withdrawTaikoToken(state, AddressResolver(this), amount);
+    }
+
     /// @notice Deposits Ether to Layer 2.
     /// @param recipient Address of the recipient for the deposited Ether on
     /// Layer 2.
@@ -164,21 +176,9 @@ contract TaikoL1 is
         });
     }
 
-    /// @notice Deposit Taiko token to this contract
-    /// @param amount Amount of Taiko token to deposit.
-    function depositTaikoToken(uint256 amount) public {
-        LibTaikoToken.depositTaikoToken(state, AddressResolver(this), amount);
-    }
-
-    /// @notice Withdraw Taiko token from this contract
-    /// @param amount Amount of Taiko token to withdraw.
-    function withdrawTaikoToken(uint256 amount) public {
-        LibTaikoToken.withdrawTaikoToken(state, AddressResolver(this), amount);
-    }
     /// @notice Gets the details of a block.
     /// @param blockId Index of the block.
     /// @return blk The block.
-
     function getBlock(uint64 blockId)
         public
         view
@@ -241,6 +241,13 @@ contract TaikoL1 is
         returns (TaikoData.StateVariables memory)
     {
         return LibUtils.getStateVariables(state);
+    }
+
+    /// @notice Gets the in-protocol Taiko token balance for a user
+    /// @param user The user.
+    /// @return The user's Taiko token balance.
+    function getTaikoTokenBalance(address user) public view returns (uint256) {
+        return state.taikoTokenBalances[user];
     }
 
     /// @notice Retrieves the configuration for a specified tier.
