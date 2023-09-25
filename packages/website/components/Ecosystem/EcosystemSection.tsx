@@ -24,6 +24,14 @@ interface EcosystemData {
 
 const ecosystemData: EcosystemData[] = [
   {
+    icon: "/images/ecosystem/alphamint.png",
+    name: "Alphamint",
+    link: "https://www.alphamint.online/",
+    description: "Multichain NFT marketplace to create, sell and buy ERC-721 tokens.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/bitget.png",
     name: "BitGet Wallet",
     link: "https://web3.bitget.com/",
@@ -399,6 +407,14 @@ const ecosystemData: EcosystemData[] = [
       "Launch your project on Xchange with 10-1000x the initial liquidity into the Ethereum ecosystem where anyone can Swap, Borrow and Lend.",
     filters: [],
     isLive: false,
+  },
+  {
+    icon: "/images/ecosystem/xverse.png",
+    name: "Xverse",
+    link: "https://taiko-test.xverse.fi/?chain=taiko_testnet",
+    description: "Stablecoin Project, using Uniswap V3 LP token. With CDP mechanism, LP NFT of stable coin pair will become collateral of our Stable coin.",
+    filters: [],
+    isLive: true,
   },
   {
     icon: "/images/ecosystem/zeroswap.png",
