@@ -6,11 +6,13 @@
   import { chainConfig } from '$chainConfig';
   import { FlatAlert } from '$components/Alert';
   import ChainSelectorWrapper from '$components/Bridge/ChainSelectorWrapper.svelte';
+  import { Button } from '$components/Button';
   import { Card } from '$components/Card';
   import { successToast, warningToast } from '$components/NotificationToast';
   import { errorToast, infoToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { OnAccount } from '$components/OnAccount';
   import { OnNetwork } from '$components/OnNetwork';
+  import { Step, Stepper } from '$components/Stepper';
   import { TokenDropdown } from '$components/TokenDropdown';
   import {
     type BridgeArgs,
@@ -41,8 +43,18 @@
   import Amount from './Amount.svelte';
   import { ProcessingFee } from './ProcessingFee';
   import Recipient from './Recipient.svelte';
-  import { bridgeService, destNetwork, enteredAmount, processingFee, recipientAddress, selectedToken } from './state';
+  import {
+    activeBridge,
+    bridgeService,
+    destNetwork,
+    enteredAmount,
+    processingFee,
+    recipientAddress,
+    selectedToken,
+  } from './state';
+  import { BridgeTypes, NFTSteps } from './types';
 
+  let activeStep: NFTSteps = NFTSteps.IMPORT;
   let amountComponent: Amount;
   let recipientComponent: Recipient;
   let processingFeeComponent: ProcessingFee;
@@ -296,33 +308,68 @@
       }
     }
   }
+
+  const nextStep = () => (activeStep = Math.min(activeStep + 1, NFTSteps.CONFIRM));
+  const back = () => (activeStep = Math.max(activeStep - 1, NFTSteps.IMPORT));
+
+  let nftStepTitle: string;
+  let nftStepDescription: string;
+
+  $: {
+    const stepKey = NFTSteps[activeStep].toLowerCase(); // Convert enum to string and to lowercase
+    nftStepTitle = $t(`bridge.title.nft.${stepKey}`);
+    nftStepDescription = $t(`bridge.description.nft.${stepKey}`);
+  }
+
   $: if ($selectedToken && amountComponent) {
     amountComponent.validateAmount();
   }
 </script>
 
-<Card class="w-full md:w-[524px]" title={$t('bridge.title.default')} text={$t('bridge.description')}>
-  <div class="space-y-[30px]">
-    <div class="f-between-center gap-4">
-      <ChainSelectorWrapper />
+{#if $activeBridge === BridgeTypes.FUNGIBLE}
+  <Card class="w-full md:w-[524px]" title={$t('bridge.title.default')} text={$t('bridge.description')}>
+    <div class="space-y-[30px]">
+      <div class="f-between-center gap-4">
+        <ChainSelectorWrapper />
+      </div>
+
+      <TokenDropdown {tokens} bind:value={$selectedToken} />
+      {#if $selectedToken?.symbol === 'BLL' && !$selectedToken?.imported}
+        <FlatAlert class="!mt-2" message={$t('bridge.errors.bll_token')} type="warning" />
+      {/if}
+      <Amount bind:this={amountComponent} />
+
+      <div class="space-y-[16px]">
+        <Recipient bind:this={recipientComponent} />
+        <ProcessingFee bind:this={processingFeeComponent} />
+      </div>
+
+      <div class="h-sep" />
+
+      <Actions {approve} {bridge} />
     </div>
+  </Card>
+{:else if $activeBridge === BridgeTypes.NFT}
+  <div class="f-col">
+    <Stepper {activeStep}>
+      <Step stepIndex={NFTSteps.IMPORT} currentStepIndex={activeStep} isActive={activeStep === NFTSteps.IMPORT}
+        >{$t('bridge.title.nft.import')}</Step>
+      <Step stepIndex={NFTSteps.REVIEW} currentStepIndex={activeStep} isActive={activeStep === NFTSteps.REVIEW}
+        >{$t('bridge.title.nft.review')}</Step>
+      <Step stepIndex={NFTSteps.CONFIRM} currentStepIndex={activeStep} isActive={activeStep === NFTSteps.CONFIRM}
+        >{$t('bridge.title.nft.confirm')}</Step>
+    </Stepper>
 
-    <TokenDropdown {tokens} bind:value={$selectedToken} />
-    {#if $selectedToken?.symbol === 'BLL' && !$selectedToken?.imported}
-      <FlatAlert class="!mt-2" message={$t('bridge.errors.bll_token')} type="warning" />
-    {/if}
-    <Amount bind:this={amountComponent} />
-
-    <div class="space-y-[16px]">
-      <Recipient bind:this={recipientComponent} />
-      <ProcessingFee bind:this={processingFeeComponent} />
-    </div>
-
-    <div class="h-sep" />
-
-    <Actions {approve} {bridge} />
+    <Card class="mt-[32px] w-full md:w-[524px]" title={nftStepTitle} text={nftStepDescription}>
+      <div class="f-between-center w-full gap-4">
+        <Button type="primary" class="px-[28px] py-[14px] rounded-full flex-1 text-white" on:click={back}
+          >Previous Step</Button>
+        <Button type="primary" class="px-[28px] py-[14px] rounded-full flex-1 text-white" on:click={nextStep}
+          >Next Step</Button>
+      </div>
+    </Card>
   </div>
-</Card>
+{/if}
 
 <OnNetwork change={onNetworkChange} />
 
