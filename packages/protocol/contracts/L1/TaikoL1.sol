@@ -14,6 +14,7 @@ import { Proxied } from "../common/Proxied.sol";
 import { LibDepositing } from "./libs/LibDepositing.sol";
 import { LibProposing } from "./libs/LibProposing.sol";
 import { LibProving } from "./libs/LibProving.sol";
+import { LibTaikoToken } from "./libs/LibTaikoToken.sol";
 import { LibUtils } from "./libs/LibUtils.sol";
 import { LibVerifying } from "./libs/LibVerifying.sol";
 
@@ -163,9 +164,21 @@ contract TaikoL1 is
         });
     }
 
+    /// @notice Deposit Taiko token to this contract
+    /// @param amount Amount of Taiko token to deposit.
+    function depositTaikoToken(uint256 amount) public {
+        LibTaikoToken.depositTaikoToken(state, AddressResolver(this), amount);
+    }
+
+    /// @notice Withdraw Taiko token from this contract
+    /// @param amount Amount of Taiko token to withdraw.
+    function withdrawTaikoToken(uint256 amount) public {
+        LibTaikoToken.withdrawTaikoToken(state, AddressResolver(this), amount);
+    }
     /// @notice Gets the details of a block.
     /// @param blockId Index of the block.
     /// @return blk The block.
+
     function getBlock(uint64 blockId)
         public
         view
