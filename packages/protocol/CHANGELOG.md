@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.15.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v0.14.0...protocol-v0.15.0) (2023-09-25)
+
+
+### Features
+
+* **protocol:** make L2 1559 config upgradable ([#14715](https://github.com/taikoxyz/taiko-mono/issues/14715)) ([ee26881](https://github.com/taikoxyz/taiko-mono/commit/ee2688156733d49cbf43c5178211db95a7079b26))
+* **protocol:** Modify LibProposing to accept oracle as assigned prover ([#14695](https://github.com/taikoxyz/taiko-mono/issues/14695)) ([52a50b7](https://github.com/taikoxyz/taiko-mono/commit/52a50b7fe5f771a249d6e39b66ebfb77317aa21e))
+* **protocol:** update `PlonkVerifier` based on current public input ([#14647](https://github.com/taikoxyz/taiko-mono/issues/14647)) ([9808185](https://github.com/taikoxyz/taiko-mono/commit/9808185af79760f7a3e115ed9ed818f77ed930b2))
+
+
+### Bug Fixes
+
+* **protocol:** Remove duplicated events during mint and burn ([#14686](https://github.com/taikoxyz/taiko-mono/issues/14686)) ([3ff0018](https://github.com/taikoxyz/taiko-mono/commit/3ff0018e9a36c0aec6ad934a4607c6acbcb4d50b))
+
 ## [0.14.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v0.13.0...protocol-v0.14.0) (2023-09-05)
 
 

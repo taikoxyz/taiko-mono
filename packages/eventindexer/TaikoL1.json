@@ -36,16 +36,6 @@
   },
   {
     "inputs": [],
-    "name": "L1_FORK_CHOICE_NOT_FOUND",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_FORK_CHOICE_NOT_FOUND",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "L1_INSUFFICIENT_TOKEN",
     "type": "error"
   },
@@ -201,6 +191,16 @@
   },
   {
     "inputs": [],
+    "name": "L1_TRANSITION_NOT_FOUND",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "L1_TRANSITION_NOT_FOUND",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "L1_TX_LIST",
     "type": "error"
   },
@@ -241,12 +241,12 @@
   },
   {
     "inputs": [],
-    "name": "L1_UNEXPECTED_FORK_CHOICE_ID",
+    "name": "L1_UNEXPECTED_TRANSITION_ID",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "L1_UNEXPECTED_FORK_CHOICE_ID",
+    "name": "L1_UNEXPECTED_TRANSITION_ID",
     "type": "error"
   },
   {
@@ -358,7 +358,7 @@
           },
           {
             "internalType": "address",
-            "name": "beneficiary",
+            "name": "proposer",
             "type": "address"
           },
           {
@@ -463,7 +463,7 @@
           },
           {
             "internalType": "address",
-            "name": "beneficiary",
+            "name": "proposer",
             "type": "address"
           },
           {
@@ -620,6 +620,156 @@
       }
     ],
     "name": "BlockVerified",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "from",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "blockId",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "bond",
+        "type": "uint256"
+      }
+    ],
+    "name": "BondReceived",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "from",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "blockId",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "bond",
+        "type": "uint256"
+      }
+    ],
+    "name": "BondReceived",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "blockId",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "bond",
+        "type": "uint256"
+      }
+    ],
+    "name": "BondReturned",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "blockId",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "bond",
+        "type": "uint256"
+      }
+    ],
+    "name": "BondReturned",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "blockId",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "bond",
+        "type": "uint256"
+      }
+    ],
+    "name": "BondRewarded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "blockId",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "bond",
+        "type": "uint256"
+      }
+    ],
+    "name": "BondRewarded",
     "type": "event"
   },
   {
@@ -845,19 +995,9 @@
             "type": "address"
           },
           {
-            "internalType": "uint64",
-            "name": "proposedAt",
-            "type": "uint64"
-          },
-          {
-            "internalType": "uint16",
-            "name": "nextForkChoiceId",
-            "type": "uint16"
-          },
-          {
-            "internalType": "uint16",
-            "name": "verifiedForkChoiceId",
-            "type": "uint16"
+            "internalType": "uint96",
+            "name": "proofBond",
+            "type": "uint96"
           },
           {
             "internalType": "uint64",
@@ -865,14 +1005,24 @@
             "type": "uint64"
           },
           {
-            "internalType": "uint96",
-            "name": "proofBond",
-            "type": "uint96"
+            "internalType": "uint64",
+            "name": "proposedAt",
+            "type": "uint64"
           },
           {
-            "internalType": "uint16",
-            "name": "proofWindow",
-            "type": "uint16"
+            "internalType": "uint32",
+            "name": "nextTransitionId",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint32",
+            "name": "verifiedTransitionId",
+            "type": "uint32"
+          },
+          {
+            "internalType": "bytes32[7]",
+            "name": "__reserved",
+            "type": "bytes32[7]"
           }
         ],
         "internalType": "struct TaikoData.Block",
@@ -1052,57 +1202,6 @@
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "blockId",
-        "type": "uint64"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "parentHash",
-        "type": "bytes32"
-      }
-    ],
-    "name": "getForkChoice",
-    "outputs": [
-      {
-        "components": [
-          {
-            "internalType": "bytes32",
-            "name": "key",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "blockHash",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "signalRoot",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "address",
-            "name": "prover",
-            "type": "address"
-          },
-          {
-            "internalType": "uint64",
-            "name": "provenAt",
-            "type": "uint64"
-          }
-        ],
-        "internalType": "struct TaikoData.ForkChoice",
-        "name": "",
-        "type": "tuple"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "inputs": [],
     "name": "getStateVariables",
     "outputs": [
@@ -1161,6 +1260,62 @@
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "blockId",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "parentHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "getTransition",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "bytes32",
+            "name": "key",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "blockHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "signalRoot",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "address",
+            "name": "prover",
+            "type": "address"
+          },
+          {
+            "internalType": "uint64",
+            "name": "provenAt",
+            "type": "uint64"
+          },
+          {
+            "internalType": "bytes32[6]",
+            "name": "__reserved",
+            "type": "bytes32[6]"
+          }
+        ],
+        "internalType": "struct TaikoData.Transition",
+        "name": "",
+        "type": "tuple"
       }
     ],
     "stateMutability": "view",
@@ -1285,7 +1440,7 @@
           },
           {
             "internalType": "address",
-            "name": "beneficiary",
+            "name": "proposer",
             "type": "address"
           },
           {
