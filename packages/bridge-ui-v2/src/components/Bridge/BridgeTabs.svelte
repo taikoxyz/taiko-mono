@@ -1,7 +1,6 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
 
-  import { Button } from '$components/Button';
   import { PUBLIC_NFT_BRIDGE_ENABLED } from '$env/static/public';
   import { classNames } from '$libs/util/classNames';
 
@@ -20,18 +19,16 @@
 
 {#if PUBLIC_NFT_BRIDGE_ENABLED === 'true'}
   <div class={classes}>
-    <Button
-      type={isERC20Bridge ? 'primary' : 'neutral'}
-      class="px-[28px] py-[14px] rounded-full flex-1 text-white"
+    <button
+      class="{isERC20Bridge ? 'btn-primary' : 'btn-ghost'} px-[28px] py-[14px] rounded-full text-white"
       on:click={() => onBridgeClick(BridgeTypes.FUNGIBLE)}>
       <span> {$t('nav.token')}</span>
-    </Button>
+    </button>
 
-    <Button
-      type={isNFTBridge ? 'primary' : 'neutral'}
-      class="px-[28px] py-[14px] rounded-full flex-1 text-white"
+    <button
+      class="{isNFTBridge ? 'btn-primary' : 'btn-ghost'}  h-[44px] px-[28px] py-[14px] rounded-full text-white"
       on:click={() => onBridgeClick(BridgeTypes.NFT)}>
       <span> {$t('nav.nft')}</span>
-    </Button>
+    </button>
   </div>
 {/if}
