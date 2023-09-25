@@ -146,8 +146,10 @@ Take a look at the comments above these values in the `.env.sample` to see how t
 Make sure Docker is running and then run the following command to start the node:
 
 ```sh
-sudo docker compose up -d
+docker compose up -d
 ```
+
+> Note: You may need to use `sudo docker compose up -d` if you are not in the `docker` group.
 
 ### Verify node is running
 
@@ -194,8 +196,10 @@ curl http://localhost:8547 \
 3. If the blockNumber response value is `0` or not growing, check the Taiko L2 logs here:
 
 ```bash
-sudo docker compose logs -f
+docker compose logs -f
 ```
+
+> Note: You may need to use `sudo docker compose logs -f` if you are not in the `docker` group.
 
 ### Operate the node
 
