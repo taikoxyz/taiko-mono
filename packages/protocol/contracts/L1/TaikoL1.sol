@@ -14,6 +14,7 @@ import { Proxied } from "../common/Proxied.sol";
 import { LibDepositing } from "./libs/LibDepositing.sol";
 import { LibProposing } from "./libs/LibProposing.sol";
 import { LibProving } from "./libs/LibProving.sol";
+import { LibTaikoToken } from "./libs/LibTaikoToken.sol";
 import { LibUtils } from "./libs/LibUtils.sol";
 import { LibVerifying } from "./libs/LibVerifying.sol";
 
@@ -140,6 +141,18 @@ contract TaikoL1 is
         });
     }
 
+    /// @notice Deposit Taiko token to this contract
+    /// @param amount Amount of Taiko token to deposit.
+    function depositTaikoToken(uint256 amount) public {
+        LibTaikoToken.depositTaikoToken(state, AddressResolver(this), amount);
+    }
+
+    /// @notice Withdraw Taiko token from this contract
+    /// @param amount Amount of Taiko token to withdraw.
+    function withdrawTaikoToken(uint256 amount) public {
+        LibTaikoToken.withdrawTaikoToken(state, AddressResolver(this), amount);
+    }
+
     /// @notice Deposits Ether to Layer 2.
     /// @param recipient Address of the recipient for the deposited Ether on
     /// Layer 2.
@@ -228,6 +241,13 @@ contract TaikoL1 is
         returns (TaikoData.StateVariables memory)
     {
         return LibUtils.getStateVariables(state);
+    }
+
+    /// @notice Gets the in-protocol Taiko token balance for a user
+    /// @param user The user.
+    /// @return The user's Taiko token balance.
+    function getTaikoTokenBalance(address user) public view returns (uint256) {
+        return state.taikoTokenBalances[user];
     }
 
     /// @notice Retrieves the configuration for a specified tier.

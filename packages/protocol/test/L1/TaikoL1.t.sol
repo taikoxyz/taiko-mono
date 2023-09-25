@@ -320,7 +320,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         // We need 8 depostis otherwise we are not processing them !
         giveEthAndTko(Alice, 1e6 ether, maxAmount + 1 ether);
-        giveEthAndTko(Bob, 0, maxAmount + 1 ether);
+        giveEthAndTko(Bob, 1e6 ether, maxAmount + 1 ether);
         giveEthAndTko(Carol, 0, maxAmount + 1 ether);
         giveEthAndTko(David, 0, maxAmount + 1 ether);
         giveEthAndTko(Emma, 0, maxAmount + 1 ether);

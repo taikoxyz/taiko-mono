@@ -11,8 +11,8 @@ import { AddressResolver } from "../../common/AddressResolver.sol";
 import { ITierProvider } from "../tiers/ITierProvider.sol";
 import { IVerifier } from "../verifiers/IVerifier.sol";
 import { TaikoData } from "../TaikoData.sol";
-import { TaikoToken } from "../TaikoToken.sol";
 
+import { LibTaikoToken } from "./LibTaikoToken.sol";
 import { LibUtils } from "./LibUtils.sol";
 
 /// @title LibProving
@@ -200,9 +200,6 @@ library LibProving {
             }
         }
 
-        // Prepare to burn either the proof bond or the contest bond below.
-        TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
-
         if (tier.contestBond == 0) {
             // When contestBond is zero for the current tier, it signifies
             // it's the top tier. In this case, it can overwrite existing
@@ -264,7 +261,9 @@ library LibProving {
             if (tran.contester != address(0)) revert L1_ALREADY_CONTESTED();
 
             // Burn the contest bond from the prover.
-            tt.burn(msg.sender, tier.contestBond);
+            LibTaikoToken.decrementTaikoTokenBalance(
+                state, resolver, msg.sender, tier.contestBond
+            );
 
             // We retain the contest bond within the transition, just in
             // case this configuration is altered to a different value
@@ -341,7 +340,9 @@ library LibProving {
             }
 
             // Burn the proof bond from the prover.
-            tt.burn(msg.sender, tier.proofBond);
+            LibTaikoToken.decrementTaikoTokenBalance(
+                state, resolver, msg.sender, tier.proofBond
+            );
 
             unchecked {
                 // This is the amount of Taiko tokens to send to the new prover
@@ -359,7 +360,13 @@ library LibProving {
 
                     // Mint the reward and the proof bond and return it to the
                     // previous prover.
-                    tt.mint(tran.prover, reward + tran.proofBond);
+                    LibTaikoToken.incrementTaikoTokenBalance(
+                        state,
+                        resolver,
+                        tran.prover,
+                        reward + tran.proofBond,
+                        false
+                    );
                 } else {
                     // In the event that the contester is the winner, half of
                     // the proof bond is designated as the reward, to be divided
@@ -370,11 +377,19 @@ library LibProving {
                     // for the tier-0 transition. Consequently, we only grant a
                     // reward to the contester if it is not a zero-address.
                     if (tran.contester != address(0)) {
-                        tt.mint(tran.contester, reward + tran.contestBond);
+                        LibTaikoToken.incrementTaikoTokenBalance(
+                            state,
+                            resolver,
+                            tran.contester,
+                            reward + tran.contestBond,
+                            false
+                        );
                     } else if (reward != 0) {
                         //The prover is also the contester, so the reward is
                         // sent to him.
-                        tt.mint(msg.sender, reward);
+                        LibTaikoToken.incrementTaikoTokenBalance(
+                            state, resolver, msg.sender, reward, false
+                        );
                     }
 
                     // Given that the contester emerges as the winner, the
@@ -388,7 +403,9 @@ library LibProving {
                 // In theory, the reward can also be zero for certain tiers if
                 // their proof bonds are set to zero.
                 if (reward != 0) {
-                    tt.mint(msg.sender, reward);
+                    LibTaikoToken.incrementTaikoTokenBalance(
+                        state, resolver, msg.sender, reward, false
+                    );
                 }
             }
 

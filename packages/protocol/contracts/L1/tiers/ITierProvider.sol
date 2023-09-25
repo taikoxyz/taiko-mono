@@ -6,13 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-library LibTiers {
-    uint16 public constant TIER_OPTIMISTIC = 100;
-    uint16 public constant TIER_SGX = 200;
-    uint16 public constant TIER_PSE_ZKEVM = 300;
-    uint16 public constant TIER_GUARDIAN = 1000;
-}
-
 /// @title ITierProvider
 /// @notice Defines interface to return tier configuration.
 interface ITierProvider {
@@ -32,4 +25,11 @@ interface ITierProvider {
 
     /// @dev Determines the minimal tier for a block based on a random input.
     function getMinTier(uint256 rand) external view returns (uint16);
+}
+
+library LibTiers {
+    uint16 public constant TIER_OPTIMISTIC = 100;
+    uint16 public constant TIER_SGX = 200;
+    uint16 public constant TIER_PSE_ZKEVM = 300;
+    uint16 public constant TIER_GUARDIAN = 1000;
 }

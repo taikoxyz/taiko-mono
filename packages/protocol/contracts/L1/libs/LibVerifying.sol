@@ -11,8 +11,8 @@ import { ISignalService } from "../../signal/ISignalService.sol";
 
 import { ITierProvider } from "../tiers/ITierProvider.sol";
 import { TaikoData } from "../TaikoData.sol";
-import { TaikoToken } from "../TaikoToken.sol";
 
+import { LibTaikoToken } from "./LibTaikoToken.sol";
 import { LibUtils } from "./LibUtils.sol";
 
 /// @title LibVerifying
@@ -121,9 +121,6 @@ library LibVerifying {
         bytes32 blockHash = state.transitions[slot][tid].blockHash;
         bytes32 signalRoot;
         uint64 processed;
-
-        // These address are only initialized when necessary
-        address taikoToken;
         address tierProvider;
 
         // Unchecked is safe:
@@ -196,10 +193,9 @@ library LibVerifying {
                     bondToReturn -= blk.assignmentBond / 2;
                 }
 
-                if (taikoToken == address(0)) {
-                    taikoToken = resolver.resolve("taiko_token", false);
-                }
-                TaikoToken(taikoToken).mint(tran.prover, bondToReturn);
+                LibTaikoToken.incrementTaikoTokenBalance(
+                    state, resolver, tran.prover, bondToReturn, false
+                );
 
                 // Note: We exclusively address the bonds linked to the
                 // transition used for verification. While there may exist

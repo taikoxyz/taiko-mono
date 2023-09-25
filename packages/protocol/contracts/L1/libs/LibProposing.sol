@@ -6,22 +6,17 @@
 
 pragma solidity ^0.8.20;
 
-import { AddressUpgradeable } from "@ozu/utils/AddressUpgradeable.sol";
-import { ECDSAUpgradeable } from "@ozu/utils/cryptography/ECDSAUpgradeable.sol";
 import { ERC20Upgradeable } from "@ozu/token/ERC20/ERC20Upgradeable.sol";
-import { IERC1271Upgradeable } from "@ozu/interfaces/IERC1271Upgradeable.sol";
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { IMintableERC20 } from "../../common/IMintableERC20.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 
 import { ITierProvider } from "../tiers/ITierProvider.sol";
 import { TaikoData } from "../TaikoData.sol";
-import { TaikoToken } from "../TaikoToken.sol";
 
 import { LibDepositing } from "./LibDepositing.sol";
-import { LibUtils } from "./LibUtils.sol";
+import { LibTaikoToken } from "./LibTaikoToken.sol";
 
 /// @title LibProposing
 /// @notice A library for handling block proposals in the Taiko protocol.
@@ -98,7 +93,6 @@ library LibProposing {
         // Taiko tokens per second as block rewards. It's important to note that
         // if multiple blocks are proposed within the same L1 block, only the
         // first one will receive the block reward.
-        TaikoToken tt = TaikoToken(resolver.resolve("taiko_token", false));
 
         // The block reward doesn't undergo automatic halving; instead, we
         // depend on Taiko DAO to make necessary adjustments to the rewards.
@@ -119,7 +113,9 @@ library LibProposing {
                     );
 
                     // Reward must be minted
-                    tt.mint(msg.sender, reward);
+                    LibTaikoToken.incrementTaikoTokenBalance(
+                        state, resolver, msg.sender, reward, true
+                    );
                 }
             }
         }
@@ -194,7 +190,9 @@ library LibProposing {
         // transition is not the initial one or if it was generated and
         // validated by different provers. Instead, a portion of the assignment
         // bond serves as a reward for the actual prover.
-        tt.burn(blk.assignedProver, config.assignmentBond);
+        LibTaikoToken.decrementTaikoTokenBalance(
+            state, resolver, blk.assignedProver, config.assignmentBond
+        );
 
         // Increment the counter (cursor) by 1.
         unchecked {
