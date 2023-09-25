@@ -54,23 +54,6 @@ library LibTaikoToken {
         );
     }
 
-    function decrementTaikoTokenBalance(
-        TaikoData.State storage state,
-        address from,
-        uint256 amount
-    )
-        internal
-    {
-        if (amount == 0) return;
-        if (state.taikoTokenBalances[from] < amount) {
-            revert L1_INSUFFICIENT_TOKEN();
-        }
-
-        unchecked {
-            state.taikoTokenBalances[from] -= amount;
-        }
-    }
-
     function incrementTaikoTokenBalance(
         TaikoData.State storage state,
         AddressResolver resolver,
@@ -87,5 +70,22 @@ library LibTaikoToken {
             );
         }
         state.taikoTokenBalances[to] += amount;
+    }
+
+    function decrementTaikoTokenBalance(
+        TaikoData.State storage state,
+        address from,
+        uint256 amount
+    )
+        internal
+    {
+        if (amount == 0) return;
+        if (state.taikoTokenBalances[from] < amount) {
+            revert L1_INSUFFICIENT_TOKEN();
+        }
+
+        unchecked {
+            state.taikoTokenBalances[from] -= amount;
+        }
     }
 }
