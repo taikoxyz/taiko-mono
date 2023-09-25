@@ -205,7 +205,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++
         ) {
             printVariables("before propose");
-            console2.log("Propose-olom a block-ot:", blockId);
             TaikoData.BlockMetadata memory meta =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
@@ -217,15 +216,12 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             // signalRoot instead of blockHash
             uint16 minTier = L1.getBlock(meta.id).minTier;
 
-            console2.log("Proveolom a block-ot:", blockId);
             proveBlock(
                 Bob, Bob, meta, parentHash, blockHash, signalRoot, minTier, ""
             );
 
             if (minTier == LibTiers.TIER_OPTIMISTIC) {
                 // Try to contest
-
-                console2.log("Contest-alom a block-ot:", blockId);
                 proveBlock(
                     Carol,
                     Carol,
@@ -246,7 +242,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 // Cannot verify block because it is contested..
                 verifyBlock(Carol, 1);
 
-                console2.log("Re-proveolom a block-ot:", blockId);
                 proveBlock(
                     Carol,
                     Carol,
