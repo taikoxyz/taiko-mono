@@ -6,13 +6,9 @@
 
 pragma solidity ^0.8.20;
 
-import { AddressUpgradeable } from "@ozu/utils/AddressUpgradeable.sol";
-import { ECDSAUpgradeable } from "@ozu/utils/cryptography/ECDSAUpgradeable.sol";
 import { ERC20Upgradeable } from "@ozu/token/ERC20/ERC20Upgradeable.sol";
-import { IERC1271Upgradeable } from "@ozu/interfaces/IERC1271Upgradeable.sol";
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { IMintableERC20 } from "../../common/IMintableERC20.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 
@@ -21,7 +17,6 @@ import { TaikoData } from "../TaikoData.sol";
 
 import { LibDepositing } from "./LibDepositing.sol";
 import { LibTaikoToken } from "./LibTaikoToken.sol";
-import { LibUtils } from "./LibUtils.sol";
 
 /// @title LibProposing
 /// @notice A library for handling block proposals in the Taiko protocol.

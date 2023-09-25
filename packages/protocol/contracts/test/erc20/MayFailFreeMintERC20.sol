@@ -15,6 +15,7 @@ contract MayFailFreeMintERC20 is ERC20 {
     mapping(address minter => bool hasMinted) public minters;
 
     error HasMinted();
+    error Failed();
 
     constructor(string memory name, string memory symbol) ERC20(name, symbol) { }
 
@@ -55,7 +56,7 @@ contract MayFailFreeMintERC20 is ERC20 {
     // Have a 50% change of failure.
     function _mayFail() private view {
         if (block.number % 2 == 0) {
-            revert("Failed");
+            revert Failed();
         }
     }
 }

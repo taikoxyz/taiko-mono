@@ -7,10 +7,7 @@
 pragma solidity ^0.8.20;
 
 import { Create2Upgradeable } from "@ozu/utils/Create2Upgradeable.sol";
-import {
-    ERC20Upgradeable,
-    IERC20Upgradeable
-} from "@ozu/token/ERC20/ERC20Upgradeable.sol";
+import { ERC20Upgradeable } from "@ozu/token/ERC20/ERC20Upgradeable.sol";
 import { SafeERC20Upgradeable } from
     "@ozu/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import { IERC165Upgradeable } from
@@ -21,9 +18,8 @@ import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { IRecallableMessageSender, IBridge } from "../bridge/IBridge.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
-import { TaikoToken } from "../L1/TaikoToken.sol";
 
-import { BridgedERC20, ProxiedBridgedERC20 } from "./BridgedERC20.sol";
+import { ProxiedBridgedERC20 } from "./BridgedERC20.sol";
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 /// @title ERC20Vault
 /// @notice This vault holds all ERC20 tokens (excluding Ether) that users have

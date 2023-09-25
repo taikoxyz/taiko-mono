@@ -7,9 +7,6 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { LibFixedPointMath as Math } from
-    "../../thirdparty/LibFixedPointMath.sol";
-import { LibMath } from "../../libs/LibMath.sol";
 
 import { TaikoData } from "../TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
