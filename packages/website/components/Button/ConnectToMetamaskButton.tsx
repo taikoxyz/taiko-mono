@@ -1,10 +1,9 @@
 import {
   SEPOLIA_CONFIG,
   TAIKO_CONFIG,
-  TAIKO_ADD_ETHEREUM_CHAIN,
 } from "../../domain/chain";
 
-import { ethereumRequest } from "../../utils/ethereumRequest";
+import { switchOrAddChain } from "../../utils/switchOrAddChain";
 
 type ConnectButtonProps = {
   network:
@@ -24,24 +23,15 @@ async function ConnectToMetamask(network: ConnectButtonProps["network"]) {
     return;
   }
 
-  if (ethereum.chainId == chainMap[network]) {
+  const chainId = await ethereum.request({ method: "eth_chainId" });
+
+  if (chainId == chainMap[network]) {
     alert(`You are already connected to ${network}.`);
     return;
   }
 
-  let params: any;
-  if (network === SEPOLIA_CONFIG.names.shortName) {
-    params = [{ chainId: chainMap[network] }];
-  } else {
-    params = [TAIKO_ADD_ETHEREUM_CHAIN];
-  }
   try {
-    await ethereumRequest(
-      network === SEPOLIA_CONFIG.names.shortName
-        ? "wallet_switchEthereumChain"
-        : "wallet_addEthereumChain",
-      params
-    );
+    await switchOrAddChain(network);
   } catch (error) {
     alert(
       "Failed to add the network with wallet_addEthereumChain request. Add the network with https://chainlist.org/ or do it manually. Error log: " +
