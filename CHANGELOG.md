@@ -1,5 +1,69 @@
 # Changelog
 
+## [0.21.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-mono-v0.20.0...taiko-mono-v0.21.0) (2023-09-25)
+
+
+### Features
+
+* **bridge-ui-v2:** add BLL warning ([#14723](https://github.com/taikoxyz/taiko-mono/issues/14723)) ([6e5b789](https://github.com/taikoxyz/taiko-mono/commit/6e5b789e06d74c98c22a18af7f59ee94572d0866))
+* **bridge-ui-v2:** add dialog for claim with insufficient funds ([#14742](https://github.com/taikoxyz/taiko-mono/issues/14742)) ([75a1c71](https://github.com/taikoxyz/taiko-mono/commit/75a1c71851d1ae348b503ccb8b318760e97e6b0e))
+* **bridge-ui-v2:** allow bridging to all layers ([#14525](https://github.com/taikoxyz/taiko-mono/issues/14525)) ([e25e0cd](https://github.com/taikoxyz/taiko-mono/commit/e25e0cd060e651f1e626d2e8a104e261ff90e94e))
+* **bridge-ui-v2:** close dialogs with ESC key ([#14700](https://github.com/taikoxyz/taiko-mono/issues/14700)) ([dbf7a24](https://github.com/taikoxyz/taiko-mono/commit/dbf7a24a32a4518f4a9dbbfbbead732ab8a9b548))
+* **bridge-ui-v2:** Improve refreshing users balance ([#14651](https://github.com/taikoxyz/taiko-mono/issues/14651)) ([8028a49](https://github.com/taikoxyz/taiko-mono/commit/8028a49ea2dfc123b1c818afb722a029d3743e5c))
+* **bridge-ui-v2:** insufficient funds modal ([#14759](https://github.com/taikoxyz/taiko-mono/issues/14759)) ([c6e23ad](https://github.com/taikoxyz/taiko-mono/commit/c6e23ad79eeb899551572b0a2a4abcac02339893))
+* **bridge-ui-v2:** styling adjustments for dialogs ([#14666](https://github.com/taikoxyz/taiko-mono/issues/14666)) ([91c6284](https://github.com/taikoxyz/taiko-mono/commit/91c6284e2da231233fdb9ad8adfecb7790d6b90a))
+* **eventindexer:** Timeseries data indexing + refactor to taiko-client/relayer CLI approach and architecture ([#14663](https://github.com/taikoxyz/taiko-mono/issues/14663)) ([7e760b6](https://github.com/taikoxyz/taiko-mono/commit/7e760b63022162ccfc0a11a861900d68958e650a))
+* **eventindexer:** Track proposer/prover rewards, + generate tasks for total/per day ([#14690](https://github.com/taikoxyz/taiko-mono/issues/14690)) ([cc477b9](https://github.com/taikoxyz/taiko-mono/commit/cc477b97c00e8339a87c4d4502a0ee8ad811c10f))
+* **protocol:** make L2 1559 config upgradable ([#14715](https://github.com/taikoxyz/taiko-mono/issues/14715)) ([ee26881](https://github.com/taikoxyz/taiko-mono/commit/ee2688156733d49cbf43c5178211db95a7079b26))
+* **protocol:** Modify LibProposing to accept oracle as assigned prover ([#14695](https://github.com/taikoxyz/taiko-mono/issues/14695)) ([52a50b7](https://github.com/taikoxyz/taiko-mono/commit/52a50b7fe5f771a249d6e39b66ebfb77317aa21e))
+* **protocol:** update `PlonkVerifier` based on current public input ([#14647](https://github.com/taikoxyz/taiko-mono/issues/14647)) ([9808185](https://github.com/taikoxyz/taiko-mono/commit/9808185af79760f7a3e115ed9ed818f77ed930b2))
+* **relayer:** fix cost calculation for isProfitable ([#14767](https://github.com/taikoxyz/taiko-mono/issues/14767)) ([8e1c897](https://github.com/taikoxyz/taiko-mono/commit/8e1c89748fcb42e354d2219ceac2be1c668bcf31))
+* **relayer:** queue processor Prefetch ([#14765](https://github.com/taikoxyz/taiko-mono/issues/14765)) ([a37797a](https://github.com/taikoxyz/taiko-mono/commit/a37797a6115fda37e933b0742881649a411a29ef))
+* **relayer:** Relayer indexer/processor separation and refactor, messaging queue ([#14605](https://github.com/taikoxyz/taiko-mono/issues/14605)) ([15b0e50](https://github.com/taikoxyz/taiko-mono/commit/15b0e50c130687cac32eef97ba5f396f79ad933f))
+* **relayer:** support L2-L2 bridging ([#14711](https://github.com/taikoxyz/taiko-mono/issues/14711)) ([1410217](https://github.com/taikoxyz/taiko-mono/commit/1410217363077ea6179080fca4a7aeadc6c7d149))
+* **website:** add Catalyst, Cyberscan, MoveChess, STAKEME, X7Finance to ecosystem ([#14691](https://github.com/taikoxyz/taiko-mono/issues/14691)) ([b6f3b71](https://github.com/taikoxyz/taiko-mono/commit/b6f3b7116a0fa8c7d0fa11399e18ccb1688cab37))
+* **website:** add swap to navigation ([#14745](https://github.com/taikoxyz/taiko-mono/issues/14745)) ([36d56bc](https://github.com/taikoxyz/taiko-mono/commit/36d56bc00651d74403a0e1f9a95b6cc9c6513cce))
+* **website:** alpha-5 docs ([#14725](https://github.com/taikoxyz/taiko-mono/issues/14725)) ([2abe121](https://github.com/taikoxyz/taiko-mono/commit/2abe121f30fd754ef7c91afb0e37270f1a5df7cc))
+* **website:** fix a5 contract addresses ([#14751](https://github.com/taikoxyz/taiko-mono/issues/14751)) ([c5abdea](https://github.com/taikoxyz/taiko-mono/commit/c5abdea452444f072c9fec3c0c45b0aedf612c58))
+* **website:** update forkdiff ([#14692](https://github.com/taikoxyz/taiko-mono/issues/14692)) ([57a7d28](https://github.com/taikoxyz/taiko-mono/commit/57a7d28480f14adcb78bda25a868b520c9545566))
+* **website:** update prereqs proposing and proving ([#14752](https://github.com/taikoxyz/taiko-mono/issues/14752)) ([cb73d98](https://github.com/taikoxyz/taiko-mono/commit/cb73d9868e1fa2eed3d7fb83a3b94eaed043b8e0))
+* **website:** update prover market page ([#14786](https://github.com/taikoxyz/taiko-mono/issues/14786)) ([069ffcf](https://github.com/taikoxyz/taiko-mono/commit/069ffcfcc8df54192c157475700df58f94980c76))
+* **website:** update verify contracts guide ([#14747](https://github.com/taikoxyz/taiko-mono/issues/14747)) ([fb9b42b](https://github.com/taikoxyz/taiko-mono/commit/fb9b42b742de96dd54e7506d150c2e5c6f69900d))
+
+
+### Bug Fixes
+
+* **bridge-ui-v2:** Add z-index for close button on mobile ([#14769](https://github.com/taikoxyz/taiko-mono/issues/14769)) ([6dff6fc](https://github.com/taikoxyz/taiko-mono/commit/6dff6fc9990bab20cf2042cab0010fac826e14e1))
+* **bridge-ui-v2:** approve button not updating ([#14746](https://github.com/taikoxyz/taiko-mono/issues/14746)) ([ccbfa9a](https://github.com/taikoxyz/taiko-mono/commit/ccbfa9a62d2f918a8c321e1c147ccc606f599bb0))
+* **bridge-ui-v2:** build errors ([#14706](https://github.com/taikoxyz/taiko-mono/issues/14706)) ([f180bcd](https://github.com/taikoxyz/taiko-mono/commit/f180bcd188452f65542e18250652b9c243d4a303))
+* **bridge-ui-v2:** button disable status ([#14674](https://github.com/taikoxyz/taiko-mono/issues/14674)) ([4b304dc](https://github.com/taikoxyz/taiko-mono/commit/4b304dc37369ba7775fb3669b1e6af5967f95db8))
+* **bridge-ui-v2:** check destination funds for ETH ([#14762](https://github.com/taikoxyz/taiko-mono/issues/14762)) ([fa2e842](https://github.com/taikoxyz/taiko-mono/commit/fa2e842c256c28713c3ebd9a50a99f945048df12))
+* **bridge-ui-v2:** custom tokens from local storage ([#14677](https://github.com/taikoxyz/taiko-mono/issues/14677)) ([3ebf022](https://github.com/taikoxyz/taiko-mono/commit/3ebf0226606b9561ee60fa47ef7d292a3b843678))
+* **bridge-ui-v2:** fix unit tests ([#14679](https://github.com/taikoxyz/taiko-mono/issues/14679)) ([7ddd7ef](https://github.com/taikoxyz/taiko-mono/commit/7ddd7ef77e735fbcffecac538e206fb64e9c14bf))
+* **bridge-ui-v2:** improve claim message when not enough funds ([#14738](https://github.com/taikoxyz/taiko-mono/issues/14738)) ([ff938a0](https://github.com/taikoxyz/taiko-mono/commit/ff938a00733d399710bc2fcabc5c42a0960ee8ab))
+* **bridge-ui-v2:** missing TTKO icon  ([#14754](https://github.com/taikoxyz/taiko-mono/issues/14754)) ([3bb4fd2](https://github.com/taikoxyz/taiko-mono/commit/3bb4fd28d24e644554c7a607ab362e081bb4039d))
+* **bridge-ui-v2:** processing fee ([#14696](https://github.com/taikoxyz/taiko-mono/issues/14696)) ([1103695](https://github.com/taikoxyz/taiko-mono/commit/1103695fa77265b8670be4ecaee2a5ead8e8e5c0))
+* **bridge-ui-v2:** Show warnings on faucet correctly ([#14676](https://github.com/taikoxyz/taiko-mono/issues/14676)) ([861c7f3](https://github.com/taikoxyz/taiko-mono/commit/861c7f31f800813570579c4b0e7dc69956f4c04f))
+* **bridge-ui-v2:** update mint button state ([#14720](https://github.com/taikoxyz/taiko-mono/issues/14720)) ([3ee161b](https://github.com/taikoxyz/taiko-mono/commit/3ee161b7a1ebac006594961457e9e7f426ed29a2))
+* **bridge-ui-v2:** validate amount only if component is mounted ([#14757](https://github.com/taikoxyz/taiko-mono/issues/14757)) ([c506409](https://github.com/taikoxyz/taiko-mono/commit/c506409d6a41d84c110f6ba715f1bbf023d1e192))
+* **bridge-ui-v2:** validation of token balance  ([#14755](https://github.com/taikoxyz/taiko-mono/issues/14755)) ([40bbaf1](https://github.com/taikoxyz/taiko-mono/commit/40bbaf13df1db158073299f9b1b9ffc5d1c8123a))
+* **docs:** fix outdated documentation and simplify explanations ([#14653](https://github.com/taikoxyz/taiko-mono/issues/14653)) ([f16d45d](https://github.com/taikoxyz/taiko-mono/commit/f16d45dcce1d92b7e8c1dc7f2b80a048ec1e828a))
+* **eventindexer:** update ABI so avgProofTime can be calculated ([#14785](https://github.com/taikoxyz/taiko-mono/issues/14785)) ([cc93140](https://github.com/taikoxyz/taiko-mono/commit/cc931402d368cfcfeff5b3f628368b38c53cdb33))
+* **protocol:** Remove duplicated events during mint and burn ([#14686](https://github.com/taikoxyz/taiko-mono/issues/14686)) ([3ff0018](https://github.com/taikoxyz/taiko-mono/commit/3ff0018e9a36c0aec6ad934a4607c6acbcb4d50b))
+* **relayer:** Relayer cors flag was not being used ([#14661](https://github.com/taikoxyz/taiko-mono/issues/14661)) ([19f35f7](https://github.com/taikoxyz/taiko-mono/commit/19f35f74e8a955c2776defe6e5cac48a9b6456a3))
+* **relayer:** Relayer paid gas ([#14748](https://github.com/taikoxyz/taiko-mono/issues/14748)) ([b4cb3ff](https://github.com/taikoxyz/taiko-mono/commit/b4cb3ffe9d4bad67682a8217621b8b67cb263f65))
+* **repo:** fix vercel build for bridge-ui ([#14655](https://github.com/taikoxyz/taiko-mono/issues/14655)) ([09c11bb](https://github.com/taikoxyz/taiko-mono/commit/09c11bb378c23ef021b947455eb2c7f59fb4e9eb))
+* **repo:** re-created pnpm lockfile ([#14654](https://github.com/taikoxyz/taiko-mono/issues/14654)) ([8783d5e](https://github.com/taikoxyz/taiko-mono/commit/8783d5e1b502938ecb792d065b790b7ca09b3d24))
+* **website:** add redirect for broken link ([#14758](https://github.com/taikoxyz/taiko-mono/issues/14758)) ([2503bea](https://github.com/taikoxyz/taiko-mono/commit/2503beab51ef52ecd3e6fbd6444ad6348fa70a68))
+* **website:** broken link ([#14729](https://github.com/taikoxyz/taiko-mono/issues/14729)) ([7e51709](https://github.com/taikoxyz/taiko-mono/commit/7e51709d92d8ab7ca0451896cb45a60580566e72))
+* **website:** broken link ([#14730](https://github.com/taikoxyz/taiko-mono/issues/14730)) ([0a7ec84](https://github.com/taikoxyz/taiko-mono/commit/0a7ec84982c9a676b56043d875ccf8d695054cf2))
+* **website:** Fix chain ID ([#14736](https://github.com/taikoxyz/taiko-mono/issues/14736)) ([7812cf9](https://github.com/taikoxyz/taiko-mono/commit/7812cf9123f8dc62802681a409d2b9c577446ca4))
+* **website:** Fix error in curl command results ([#14737](https://github.com/taikoxyz/taiko-mono/issues/14737)) ([854df7c](https://github.com/taikoxyz/taiko-mono/commit/854df7c358c7e9e575f96b8172ea6cb17bda1236))
+* **website:** fix feedback link ([#14740](https://github.com/taikoxyz/taiko-mono/issues/14740)) ([8cd0759](https://github.com/taikoxyz/taiko-mono/commit/8cd0759760017fa2688c3c19c3338495204bbcb6))
+* **website:** remove all traces of BLL ([#14770](https://github.com/taikoxyz/taiko-mono/issues/14770)) ([7726028](https://github.com/taikoxyz/taiko-mono/commit/772602837575a19a3978d5da60fc15b18a04b5f5))
+* **website:** temp fix contributing manual ([#14710](https://github.com/taikoxyz/taiko-mono/issues/14710)) ([06ac1a6](https://github.com/taikoxyz/taiko-mono/commit/06ac1a6e0e537d6bb714ffe5984c7e71cbeba614))
+* **website:** Update bridge concept ([#14665](https://github.com/taikoxyz/taiko-mono/issues/14665)) ([4190685](https://github.com/taikoxyz/taiko-mono/commit/419068553d877704d5149dd4a4f222e7ee8b8b58))
+
 ## [0.20.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-mono-v0.19.0...taiko-mono-v0.20.0) (2023-09-05)
 
 

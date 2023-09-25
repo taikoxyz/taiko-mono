@@ -154,7 +154,15 @@ sudo docker compose up -d
 
 A node dashboard will be running on `localhost` on the `GRAFANA_PORT` you set in your `.env` file, which defaults to `3001`: [http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview](http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview).
 
-You can verify that your node is syncing by checking the **chain head** on the dashboard and seeing that it is increasing. Once the chain head matches what's on the block explorer, you are fully synced.
+<br />
+<Image
+  src="/images/guides/node-dashboard.png"
+  alt="taiko node dashboard"
+  width={2539}
+  height={1106}
+/>
+
+You can verify that your node is syncing by checking that the **chain head** on the dashboard (see above) is increasing. Once the chain head matches what's on the block explorer, you are fully synced.
 
 #### Check with curl commands
 
@@ -187,19 +195,6 @@ curl http://localhost:8547 \
 ```bash
 sudo docker compose logs -f
 ```
-
-If you find an error, check the [Node troubleshooting](/docs/reference/node-troubleshooting) page.
-
-<br />
-
-<Image
-  src="/images/guides/node-dashboard.png"
-  alt="taiko node dashboard"
-  width={2539}
-  height={1106}
-/>
-
-If you find an error, check the [Node troubleshooting](/docs/reference/node-troubleshooting) page.
 
 ### Operate the node
 

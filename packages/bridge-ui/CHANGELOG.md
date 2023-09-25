@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.10.0...bridge-ui-v0.10.1) (2023-09-25)
+
+
+### Bug Fixes
+
+* **repo:** fix vercel build for bridge-ui ([#14655](https://github.com/taikoxyz/taiko-mono/issues/14655)) ([09c11bb](https://github.com/taikoxyz/taiko-mono/commit/09c11bb378c23ef021b947455eb2c7f59fb4e9eb))
+
 ## [0.10.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.9.1...bridge-ui-v0.10.0) (2023-08-15)
 
 

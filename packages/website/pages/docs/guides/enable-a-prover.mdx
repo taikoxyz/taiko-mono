@@ -59,6 +59,8 @@ Next, set the amount to at least the minimum bond amount of 2.5 TTKOj. You will 
 
 Finally, click the **Write** button.
 
+> Note: If you were already running a prover from your address when you approved TaikoL1 as a spender, the contract may directly drain up to the approved amount of TTKOj from your wallet to use as bond for proving. This may cause `depositTaikoToken` transactions to fail.
+
 ### Verify prover logs
 
 Run this command to verify you have some prover logs:

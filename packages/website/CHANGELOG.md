@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.16.0](https://github.com/taikoxyz/taiko-mono/compare/website-v0.15.0...website-v0.16.0) (2023-09-25)
+
+
+### Features
+
+* **website:** add Catalyst, Cyberscan, MoveChess, STAKEME, X7Finance to ecosystem ([#14691](https://github.com/taikoxyz/taiko-mono/issues/14691)) ([b6f3b71](https://github.com/taikoxyz/taiko-mono/commit/b6f3b7116a0fa8c7d0fa11399e18ccb1688cab37))
+* **website:** add swap to navigation ([#14745](https://github.com/taikoxyz/taiko-mono/issues/14745)) ([36d56bc](https://github.com/taikoxyz/taiko-mono/commit/36d56bc00651d74403a0e1f9a95b6cc9c6513cce))
+* **website:** alpha-5 docs ([#14725](https://github.com/taikoxyz/taiko-mono/issues/14725)) ([2abe121](https://github.com/taikoxyz/taiko-mono/commit/2abe121f30fd754ef7c91afb0e37270f1a5df7cc))
+* **website:** fix a5 contract addresses ([#14751](https://github.com/taikoxyz/taiko-mono/issues/14751)) ([c5abdea](https://github.com/taikoxyz/taiko-mono/commit/c5abdea452444f072c9fec3c0c45b0aedf612c58))
+* **website:** update prereqs proposing and proving ([#14752](https://github.com/taikoxyz/taiko-mono/issues/14752)) ([cb73d98](https://github.com/taikoxyz/taiko-mono/commit/cb73d9868e1fa2eed3d7fb83a3b94eaed043b8e0))
+* **website:** update prover market page ([#14786](https://github.com/taikoxyz/taiko-mono/issues/14786)) ([069ffcf](https://github.com/taikoxyz/taiko-mono/commit/069ffcfcc8df54192c157475700df58f94980c76))
+* **website:** update verify contracts guide ([#14747](https://github.com/taikoxyz/taiko-mono/issues/14747)) ([fb9b42b](https://github.com/taikoxyz/taiko-mono/commit/fb9b42b742de96dd54e7506d150c2e5c6f69900d))
+
+
+### Bug Fixes
+
+* **docs:** fix outdated documentation and simplify explanations ([#14653](https://github.com/taikoxyz/taiko-mono/issues/14653)) ([f16d45d](https://github.com/taikoxyz/taiko-mono/commit/f16d45dcce1d92b7e8c1dc7f2b80a048ec1e828a))
+* **website:** add redirect for broken link ([#14758](https://github.com/taikoxyz/taiko-mono/issues/14758)) ([2503bea](https://github.com/taikoxyz/taiko-mono/commit/2503beab51ef52ecd3e6fbd6444ad6348fa70a68))
+* **website:** broken link ([#14729](https://github.com/taikoxyz/taiko-mono/issues/14729)) ([7e51709](https://github.com/taikoxyz/taiko-mono/commit/7e51709d92d8ab7ca0451896cb45a60580566e72))
+* **website:** broken link ([#14730](https://github.com/taikoxyz/taiko-mono/issues/14730)) ([0a7ec84](https://github.com/taikoxyz/taiko-mono/commit/0a7ec84982c9a676b56043d875ccf8d695054cf2))
+* **website:** Fix chain ID ([#14736](https://github.com/taikoxyz/taiko-mono/issues/14736)) ([7812cf9](https://github.com/taikoxyz/taiko-mono/commit/7812cf9123f8dc62802681a409d2b9c577446ca4))
+* **website:** Fix error in curl command results ([#14737](https://github.com/taikoxyz/taiko-mono/issues/14737)) ([854df7c](https://github.com/taikoxyz/taiko-mono/commit/854df7c358c7e9e575f96b8172ea6cb17bda1236))
+* **website:** fix feedback link ([#14740](https://github.com/taikoxyz/taiko-mono/issues/14740)) ([8cd0759](https://github.com/taikoxyz/taiko-mono/commit/8cd0759760017fa2688c3c19c3338495204bbcb6))
+* **website:** remove all traces of BLL ([#14770](https://github.com/taikoxyz/taiko-mono/issues/14770)) ([7726028](https://github.com/taikoxyz/taiko-mono/commit/772602837575a19a3978d5da60fc15b18a04b5f5))
+* **website:** temp fix contributing manual ([#14710](https://github.com/taikoxyz/taiko-mono/issues/14710)) ([06ac1a6](https://github.com/taikoxyz/taiko-mono/commit/06ac1a6e0e537d6bb714ffe5984c7e71cbeba614))
+* **website:** Update bridge concept ([#14665](https://github.com/taikoxyz/taiko-mono/issues/14665)) ([4190685](https://github.com/taikoxyz/taiko-mono/commit/419068553d877704d5149dd4a4f222e7ee8b8b58))
+
 ## [0.15.0](https://github.com/taikoxyz/taiko-mono/compare/website-v0.14.0...website-v0.15.0) (2023-09-05)
 
 
