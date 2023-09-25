@@ -262,7 +262,7 @@ library LibProving {
 
             // Burn the contest bond from the prover.
             LibTaikoToken.decrementTaikoTokenBalance(
-                state, msg.sender, tier.contestBond
+                state, resolver, msg.sender, tier.contestBond
             );
 
             // We retain the contest bond within the transition, just in
@@ -341,7 +341,7 @@ library LibProving {
 
             // Burn the proof bond from the prover.
             LibTaikoToken.decrementTaikoTokenBalance(
-                state, msg.sender, tier.proofBond
+                state, resolver, msg.sender, tier.proofBond
             );
 
             unchecked {

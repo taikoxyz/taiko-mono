@@ -196,7 +196,7 @@ library LibProposing {
         // validated by different provers. Instead, a portion of the assignment
         // bond serves as a reward for the actual prover.
         LibTaikoToken.decrementTaikoTokenBalance(
-            state, blk.assignedProver, config.assignmentBond
+            state, resolver, blk.assignedProver, config.assignmentBond
         );
 
         // Increment the counter (cursor) by 1.

@@ -74,6 +74,7 @@ library LibTaikoToken {
 
     function decrementTaikoTokenBalance(
         TaikoData.State storage state,
+        AddressResolver resolver,
         address from,
         uint256 amount
     )
@@ -81,11 +82,13 @@ library LibTaikoToken {
     {
         if (amount == 0) return;
         if (state.taikoTokenBalances[from] < amount) {
-            revert L1_INSUFFICIENT_TOKEN();
-        }
-
-        unchecked {
-            state.taikoTokenBalances[from] -= amount;
+            TaikoToken(resolver.resolve("taiko_token", false)).transferFrom(
+                from, address(this), amount
+            );
+        } else {
+            unchecked {
+                state.taikoTokenBalances[from] -= amount;
+            }
         }
     }
 }
