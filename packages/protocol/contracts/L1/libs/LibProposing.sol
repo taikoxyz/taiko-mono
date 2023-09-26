@@ -59,7 +59,8 @@ library LibProposing {
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
-        // Taiko, as a Based Rollup, enables permissionless block proposals. However,
+        // Taiko, as a Based Rollup, enables permissionless block proposals.
+        // However,
         // if the "proposer" address is set to a non-zero value, we ensure that
         // only that specific address has the authority to propose blocks.
         address proposer = resolver.resolve("proposer", true);
@@ -124,17 +125,19 @@ library LibProposing {
         // the block data to be stored on-chain for future integrity checks.
         // If we choose to persist all data fields in the metadata, it will
         // require additional storage slots.
-        meta.l1Hash = blockhash(meta.l1Height);
 
-        // Following the Merge, the L1 mixHash incorporates the prevrandao
-        // value from the beacon chain. Given the possibility of multiple
-        // Taiko blocks being proposed within a single Ethereum block, we
-        // must introduce a salt to this random number as the L2 mixHash.
         unchecked {
+            // Following the Merge, the L1 mixHash incorporates the prevrandao
+            // value from the beacon chain. Given the possibility of multiple
+            // Taiko blocks being proposed within a single Ethereum block, we
+            // must introduce a salt to this random number as the L2 mixHash.
+
             meta.mixHash = bytes32(block.prevrandao * b.numBlocks);
             meta.l1Height = uint64(block.number - 1);
         }
 
+        // TODO(dani):this change fails two tests.
+        meta.l1Hash = blockhash(meta.l1Height);
         meta.txListHash = txListHash;
         meta.id = b.numBlocks;
         meta.timestamp = uint64(block.timestamp);
@@ -228,7 +231,8 @@ library LibProposing {
         inputs[1] = uint256(meta.mixHash);
         inputs[2] = uint256(meta.txListHash);
         inputs[3] = (uint256(meta.id)) | (uint256(meta.timestamp) << 64)
-            | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 192);
+            | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 192)
+            | uint256(uint160(meta.proposer)) << 32;
         inputs[4] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
 
         assembly {

@@ -98,6 +98,7 @@ library TaikoData {
         uint64 timestamp;
         uint64 l1Height;
         uint32 gasLimit;
+        address proposer; // = L2 coinbase
         TaikoData.EthDeposit[] depositsProcessed;
     }
 
