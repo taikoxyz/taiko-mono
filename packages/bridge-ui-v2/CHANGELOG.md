@@ -1,5 +1,36 @@
 # Changelog
 
+## [2.7.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2-v2.6.0...bridge-ui-v2-v2.7.0) (2023-09-25)
+
+
+### Features
+
+* **bridge-ui-v2:** add BLL warning ([#14723](https://github.com/taikoxyz/taiko-mono/issues/14723)) ([6e5b789](https://github.com/taikoxyz/taiko-mono/commit/6e5b789e06d74c98c22a18af7f59ee94572d0866))
+* **bridge-ui-v2:** add dialog for claim with insufficient funds ([#14742](https://github.com/taikoxyz/taiko-mono/issues/14742)) ([75a1c71](https://github.com/taikoxyz/taiko-mono/commit/75a1c71851d1ae348b503ccb8b318760e97e6b0e))
+* **bridge-ui-v2:** allow bridging to all layers ([#14525](https://github.com/taikoxyz/taiko-mono/issues/14525)) ([e25e0cd](https://github.com/taikoxyz/taiko-mono/commit/e25e0cd060e651f1e626d2e8a104e261ff90e94e))
+* **bridge-ui-v2:** close dialogs with ESC key ([#14700](https://github.com/taikoxyz/taiko-mono/issues/14700)) ([dbf7a24](https://github.com/taikoxyz/taiko-mono/commit/dbf7a24a32a4518f4a9dbbfbbead732ab8a9b548))
+* **bridge-ui-v2:** Improve refreshing users balance ([#14651](https://github.com/taikoxyz/taiko-mono/issues/14651)) ([8028a49](https://github.com/taikoxyz/taiko-mono/commit/8028a49ea2dfc123b1c818afb722a029d3743e5c))
+* **bridge-ui-v2:** insufficient funds modal ([#14759](https://github.com/taikoxyz/taiko-mono/issues/14759)) ([c6e23ad](https://github.com/taikoxyz/taiko-mono/commit/c6e23ad79eeb899551572b0a2a4abcac02339893))
+* **bridge-ui-v2:** styling adjustments for dialogs ([#14666](https://github.com/taikoxyz/taiko-mono/issues/14666)) ([91c6284](https://github.com/taikoxyz/taiko-mono/commit/91c6284e2da231233fdb9ad8adfecb7790d6b90a))
+
+
+### Bug Fixes
+
+* **bridge-ui-v2:** Add z-index for close button on mobile ([#14769](https://github.com/taikoxyz/taiko-mono/issues/14769)) ([6dff6fc](https://github.com/taikoxyz/taiko-mono/commit/6dff6fc9990bab20cf2042cab0010fac826e14e1))
+* **bridge-ui-v2:** approve button not updating ([#14746](https://github.com/taikoxyz/taiko-mono/issues/14746)) ([ccbfa9a](https://github.com/taikoxyz/taiko-mono/commit/ccbfa9a62d2f918a8c321e1c147ccc606f599bb0))
+* **bridge-ui-v2:** build errors ([#14706](https://github.com/taikoxyz/taiko-mono/issues/14706)) ([f180bcd](https://github.com/taikoxyz/taiko-mono/commit/f180bcd188452f65542e18250652b9c243d4a303))
+* **bridge-ui-v2:** button disable status ([#14674](https://github.com/taikoxyz/taiko-mono/issues/14674)) ([4b304dc](https://github.com/taikoxyz/taiko-mono/commit/4b304dc37369ba7775fb3669b1e6af5967f95db8))
+* **bridge-ui-v2:** check destination funds for ETH ([#14762](https://github.com/taikoxyz/taiko-mono/issues/14762)) ([fa2e842](https://github.com/taikoxyz/taiko-mono/commit/fa2e842c256c28713c3ebd9a50a99f945048df12))
+* **bridge-ui-v2:** custom tokens from local storage ([#14677](https://github.com/taikoxyz/taiko-mono/issues/14677)) ([3ebf022](https://github.com/taikoxyz/taiko-mono/commit/3ebf0226606b9561ee60fa47ef7d292a3b843678))
+* **bridge-ui-v2:** fix unit tests ([#14679](https://github.com/taikoxyz/taiko-mono/issues/14679)) ([7ddd7ef](https://github.com/taikoxyz/taiko-mono/commit/7ddd7ef77e735fbcffecac538e206fb64e9c14bf))
+* **bridge-ui-v2:** improve claim message when not enough funds ([#14738](https://github.com/taikoxyz/taiko-mono/issues/14738)) ([ff938a0](https://github.com/taikoxyz/taiko-mono/commit/ff938a00733d399710bc2fcabc5c42a0960ee8ab))
+* **bridge-ui-v2:** missing TTKO icon  ([#14754](https://github.com/taikoxyz/taiko-mono/issues/14754)) ([3bb4fd2](https://github.com/taikoxyz/taiko-mono/commit/3bb4fd28d24e644554c7a607ab362e081bb4039d))
+* **bridge-ui-v2:** processing fee ([#14696](https://github.com/taikoxyz/taiko-mono/issues/14696)) ([1103695](https://github.com/taikoxyz/taiko-mono/commit/1103695fa77265b8670be4ecaee2a5ead8e8e5c0))
+* **bridge-ui-v2:** Show warnings on faucet correctly ([#14676](https://github.com/taikoxyz/taiko-mono/issues/14676)) ([861c7f3](https://github.com/taikoxyz/taiko-mono/commit/861c7f31f800813570579c4b0e7dc69956f4c04f))
+* **bridge-ui-v2:** update mint button state ([#14720](https://github.com/taikoxyz/taiko-mono/issues/14720)) ([3ee161b](https://github.com/taikoxyz/taiko-mono/commit/3ee161b7a1ebac006594961457e9e7f426ed29a2))
+* **bridge-ui-v2:** validate amount only if component is mounted ([#14757](https://github.com/taikoxyz/taiko-mono/issues/14757)) ([c506409](https://github.com/taikoxyz/taiko-mono/commit/c506409d6a41d84c110f6ba715f1bbf023d1e192))
+* **bridge-ui-v2:** validation of token balance  ([#14755](https://github.com/taikoxyz/taiko-mono/issues/14755)) ([40bbaf1](https://github.com/taikoxyz/taiko-mono/commit/40bbaf13df1db158073299f9b1b9ffc5d1c8123a))
+
 ## [2.6.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2-v2.5.0...bridge-ui-v2-v2.6.0) (2023-09-05)
 
 

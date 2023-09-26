@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to add your project. You can see existing examples on Taiko's ecosystem page [here](https://taiko.xyz/ecosystem)!
+        Thanks for taking the time to add your project. You can see existing examples on Taiko's ecosystem page [here](https://taiko.xyz/ecosystem)! NOTE: We can only accept ecosystem projects that have integrated with Taiko or have clear plans to do so in the future.
   - type: input
     id: title
     attributes:
@@ -39,7 +39,7 @@ body:
   - type: input
     id: evidence
     attributes:
-      label: If your project is live on one of Taiko's testnets, please provide evidence of that here (eg. links, screenshots).
+      label: If your project is live on one of Taiko's testnets, please provide evidence of that here (eg. links, screenshots). If your project is NOT live, please provide your plan for integration here.
     validations:
       required: false
   - type: textarea

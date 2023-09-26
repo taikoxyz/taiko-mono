@@ -24,6 +24,14 @@ interface EcosystemData {
 
 const ecosystemData: EcosystemData[] = [
   {
+    icon: "/images/ecosystem/alphamint.png",
+    name: "Alphamint",
+    link: "https://www.alphamint.online/",
+    description: "Multichain NFT marketplace to create, sell and buy ERC-721 tokens.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/bitget.png",
     name: "BitGet Wallet",
     link: "https://web3.bitget.com/",
@@ -115,6 +123,15 @@ const ecosystemData: EcosystemData[] = [
     link: "https://foxwallet.com",
     description:
       "FoxWallet is a safe and easy-to-use decentralized audited wallet, dedicated to creating an entrance and connection to the Web3 world.",
+    filters: [],
+    isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/gourds.jpeg",
+    name: "Gourds",
+    link: "https://gourds.studio",
+    description:
+      "Gourds aims to achieve crypto market efficiency by introducing novel trading instruments for mass adoption.",
     filters: [],
     isLive: true,
   },
@@ -401,6 +418,14 @@ const ecosystemData: EcosystemData[] = [
     isLive: false,
   },
   {
+    icon: "/images/ecosystem/xverse.png",
+    name: "Xverse",
+    link: "https://taiko-test.xverse.fi/?chain=taiko_testnet",
+    description: "Stablecoin Project, using Uniswap V3 LP token. With CDP mechanism, LP NFT of stable coin pair will become collateral of our Stable coin.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/zeroswap.png",
     name: "ZeroSwap",
     link: "https://testdrive.zeroswap.io/",
@@ -534,15 +559,13 @@ export function EcosystemSection() {
 function FilterLabel({ text, activeFilter, setActiveFilter }) {
   const isActive = activeFilter === text;
 
-  const buttonStyles = `border rounded-full py-1 px-4 text-sm focus:outline-none transition-colors duration-200 font-bold ${
-    isActive
-      ? "bg-gray-300 text-black"
-      : "bg-white text-gray-700 dark:bg-black dark:text-gray-300"
-  } ${
-    isActive
+  const buttonStyles = `border rounded-full py-1 px-4 text-sm focus:outline-none transition-colors duration-200 font-bold ${isActive
+    ? "bg-gray-300 text-black"
+    : "bg-white text-gray-700 dark:bg-black dark:text-gray-300"
+    } ${isActive
       ? "hover:bg-gray-400"
       : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
-  }`;
+    }`;
 
   return (
     <button className={buttonStyles} onClick={() => setActiveFilter(text)}>

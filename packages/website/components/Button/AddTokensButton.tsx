@@ -1,13 +1,11 @@
 import {
-  SEPOLIA_ADD_ETHEREUM_CHAIN,
   SEPOLIA_ADD_TOKENS,
   SEPOLIA_CONFIG,
-  JOLNIR_ADD_ETHEREUM_CHAIN,
   JOLNIR_ADD_TOKENS,
   JOLNIR_CONFIG,
 } from "../../domain/chain";
 
-import { ethereumRequest } from "../../utils/ethereumRequest";
+import { switchOrAddChain } from "../../utils/switchOrAddChain";
 
 type ConnectButtonProps = {
   network:
@@ -17,11 +15,7 @@ type ConnectButtonProps = {
 
 const chainMap = {
   Sepolia: SEPOLIA_CONFIG.chainId.hex,
-};
-
-const configMap = {
-  Sepolia: SEPOLIA_ADD_ETHEREUM_CHAIN,
-  Jolnir: JOLNIR_ADD_ETHEREUM_CHAIN,
+  Jolnir: JOLNIR_CONFIG.chainId.hex,
 };
 
 const tokenConfigMap = {
@@ -35,9 +29,18 @@ interface AddTokensButtonProps {
 
 const addTokensToWallet = async ({ network }: AddTokensButtonProps) => {
   const { ethereum } = window as any;
-  if (ethereum.chainId != chainMap[network]) {
-    await ethereumRequest("wallet_addEthereumChain", [configMap[network]]);
+
+  const chainId = await ethereum.request({ method: "eth_chainId" });
+
+  if (chainId != chainMap[network]) {
+    try {
+      await switchOrAddChain(network);
+    } catch (error) {
+      alert("Failed to switch the network with wallet_switchEthereumNetwork. Error log: " + error.message);
+      return;
+    }
   }
+
   for (const token of tokenConfigMap[network]) {
     const params = {
       options: {
@@ -48,7 +51,7 @@ const addTokensToWallet = async ({ network }: AddTokensButtonProps) => {
       },
       type: "ERC20",
     };
-    await ethereumRequest("wallet_watchAsset", params);
+    await ethereum.request({ method: "wallet_watchAsset", params });
   }
 };
 
