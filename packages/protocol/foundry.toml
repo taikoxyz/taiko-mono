@@ -27,8 +27,10 @@ fs_permissions = [
 ]
 
 fuzz = { runs = 256 }
-# Workaround to have a static fuzz seed in the config
-# until the issue is resolved with forge/foundry.
+
+# Workaround as a fixed fuzz seed.
+# Bug is confirmed, will be fixed soon:
+# https://github.com/foundry-rs/foundry/issues/5913 
 seed = 13623721389213
 
 [fmt]
