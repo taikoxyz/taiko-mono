@@ -18,7 +18,7 @@ abstract contract TaikoEvents {
     /// @dev Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
     /// @param assignedProver The block's assigned prover.
-    /// @param assignmentBond The bond in Taiko token from the assigned prover.
+    /// @param livenessBond The bond in Taiko token from the assigned prover.
     /// @param proverFee The fee paid to the assigned prover.
     /// @param reward The proposer's block reward in Taiko token.
     /// @param meta The block metadata containing information about the proposed
@@ -26,7 +26,7 @@ abstract contract TaikoEvents {
     event BlockProposed(
         uint256 indexed blockId,
         address indexed assignedProver,
-        uint96 assignmentBond,
+        uint96 livenessBond,
         uint256 proverFee,
         uint256 reward,
         TaikoData.BlockMetadata meta
@@ -53,7 +53,7 @@ abstract contract TaikoEvents {
         bytes32 blockHash,
         bytes32 signalRoot,
         address prover,
-        uint96 proofBond,
+        uint96 validityBond,
         uint16 tier
     );
 

@@ -49,8 +49,8 @@ library LibVerifying {
                 || config.blockRingBufferSize <= config.blockMaxProposals + 1
                 || config.blockMaxGasLimit == 0 || config.blockMaxTxListBytes == 0
                 || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
-                || config.assignmentBond == 0
-                || config.assignmentBond < 10 * config.proposerRewardPerSecond
+                || config.livenessBond == 0
+                || config.livenessBond < 10 * config.proposerRewardPerSecond
                 || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
                 || config.ethDepositMaxCountPerBlock
@@ -173,24 +173,25 @@ library LibVerifying {
                 blockHash = tran.blockHash;
                 signalRoot = tran.signalRoot;
 
-                // We consistently return the assignment bond and the proof bond
-                // to the actual prover of the transition utilized for block
-                // verification. If the actual prover happens to be the block's
-                // assigned prover, he will receive both deposits, ultimately
-                // earning the proving fee paid during block proposal. In
-                // contrast, if the actual prover is different from the block's
-                // assigned prover, the assignment bond serves as a reward to
-                // the actual prover, while the assigned prover forfeits his
-                // assignment bond due to failure to fulfill their commitment.
+                // We consistently return the liveness bond and the validity
+                // bond to the actual prover of the transition utilized for
+                // block verification. If the actual prover happens to be the
+                // block's assigned prover, he will receive both deposits,
+                // ultimately earning the proving fee paid during block
+                // proposal. In contrast, if the actual prover is different from
+                // the block's assigned prover, the liveness bond serves as a
+                // reward to the actual prover, while the assigned prover
+                // forfeits his liveness bond due to failure to fulfill their
+                // commitment.
                 uint256 bondToReturn =
-                    uint256(tran.proofBond) + blk.assignmentBond;
+                    uint256(tran.validityBond) + blk.livenessBond;
 
                 // Nevertheless, it's possible for the actual prover to be the
                 // same individual or entity as the block's assigned prover.
                 // Consequently, we have chosen to grant the actual prover only
-                // half of the assignment bond as a reward.
+                // half of the liveness bond as a reward.
                 if (tran.prover != blk.assignedProver) {
-                    bondToReturn -= blk.assignmentBond / 2;
+                    bondToReturn -= blk.livenessBond / 2;
                 }
 
                 LibTaikoToken.creditToken(

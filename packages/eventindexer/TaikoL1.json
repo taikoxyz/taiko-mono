@@ -996,7 +996,7 @@
           },
           {
             "internalType": "uint96",
-            "name": "proofBond",
+            "name": "validityBond",
             "type": "uint96"
           },
           {
@@ -1111,7 +1111,7 @@
           },
           {
             "internalType": "uint96",
-            "name": "proofBond",
+            "name": "validityBond",
             "type": "uint96"
           },
           {
