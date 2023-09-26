@@ -226,17 +226,17 @@ library LibProposing {
         pure
         returns (bytes32 hash)
     {
-        uint256[5] memory inputs;
+        uint256[6] memory inputs;
         inputs[0] = uint256(meta.l1Hash);
         inputs[1] = uint256(meta.mixHash);
         inputs[2] = uint256(meta.txListHash);
         inputs[3] = (uint256(meta.id)) | (uint256(meta.timestamp) << 64)
-            | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 192)
-            | uint256(uint160(meta.proposer)) << 32;
-        inputs[4] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
+            | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 192);
+        inputs[4] = uint256(uint160(meta.proposer));
+        inputs[5] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
 
         assembly {
-            hash := keccak256(inputs, mul(5, 32))
+            hash := keccak256(inputs, mul(6, 32))
         }
     }
 
