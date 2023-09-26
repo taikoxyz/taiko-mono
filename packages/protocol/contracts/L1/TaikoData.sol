@@ -192,7 +192,7 @@ library TaikoData {
         mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256)
             ethDeposits;
         // In-protocol Taiko token balances
-        mapping(address account => uint256 balance) taikoTokenBalances;
+        mapping(address account => uint256 balance) tokenBalances;
         SlotA slotA; // slot 6
         SlotB slotB; // slot 7
         uint256[143] __gap;

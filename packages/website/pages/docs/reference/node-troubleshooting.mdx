@@ -179,3 +179,10 @@ You can safely ignore this "warn" level message, it simply means you just ignore
 
 A flag might not be set in your .env file.
 Copy the default .env file, then reset your RPC node and proposer with the updated flag values.
+
+#### `info: Skip an invalid proposed transaction reason="nonce too low`
+
+Scenario when the mempool is small and proposers are trying to propose the same transactions within an L1 block.
+The first proposer included on chain will successfully propose these transactions. 
+However, all others proposer included transactions will end up with status `propose empty blocks`, 
+since the proposed transactions will be filtered by nodes.

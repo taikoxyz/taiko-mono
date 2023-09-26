@@ -261,7 +261,7 @@ library LibProving {
             if (tran.contester != address(0)) revert L1_ALREADY_CONTESTED();
 
             // Burn the contest bond from the prover.
-            LibTaikoToken.decrementTaikoTokenBalance(
+            LibTaikoToken.debitToken(
                 state, resolver, msg.sender, tier.contestBond
             );
 
@@ -340,7 +340,7 @@ library LibProving {
             }
 
             // Burn the validity bond from the prover.
-            LibTaikoToken.decrementTaikoTokenBalance(
+            LibTaikoToken.debitToken(
                 state, resolver, msg.sender, tier.validityBond
             );
 
@@ -360,7 +360,7 @@ library LibProving {
 
                     // Mint the reward and the validity bond and return it to
                     // the previous prover.
-                    LibTaikoToken.incrementTaikoTokenBalance(
+                    LibTaikoToken.creditToken(
                         state,
                         resolver,
                         tran.prover,
@@ -377,7 +377,7 @@ library LibProving {
                     // for the tier-0 transition. Consequently, we only grant a
                     // reward to the contester if it is not a zero-address.
                     if (tran.contester != address(0)) {
-                        LibTaikoToken.incrementTaikoTokenBalance(
+                        LibTaikoToken.creditToken(
                             state,
                             resolver,
                             tran.contester,
@@ -387,7 +387,7 @@ library LibProving {
                     } else if (reward != 0) {
                         //The prover is also the contester, so the reward is
                         // sent to him.
-                        LibTaikoToken.incrementTaikoTokenBalance(
+                        LibTaikoToken.creditToken(
                             state, resolver, msg.sender, reward, false
                         );
                     }
@@ -403,7 +403,7 @@ library LibProving {
                 // In theory, the reward can also be zero for certain tiers if
                 // their validity bonds are set to zero.
                 if (reward != 0) {
-                    LibTaikoToken.incrementTaikoTokenBalance(
+                    LibTaikoToken.creditToken(
                         state, resolver, msg.sender, reward, false
                     );
                 }
