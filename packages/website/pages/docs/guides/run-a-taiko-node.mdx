@@ -9,6 +9,7 @@ This guide will help you start up a Taiko RPC node using [simple-taiko-node](htt
 
 - [Docker](https://docs.docker.com/engine/install/) is installed and **running**.
 - [Git](https://github.com/git-guides/install-git/) is installed.
+- If using Windows, you should install [Git BASH](https://gitforwindows.org/) or [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) to use as your terminal.
 - Meet the [Geth minimum hardware requirements](https://github.com/ethereum/go-ethereum#hardware-requirements) except for the storage requirement because Taiko nodes will require less storage. As of `2023-09-18` a node uses less than **10 GB**. **100 GB** should be future proof enough if you intend to run your node for a while.
 
 ## Steps
@@ -145,8 +146,10 @@ Take a look at the comments above these values in the `.env.sample` to see how t
 Make sure Docker is running and then run the following command to start the node:
 
 ```sh
-sudo docker compose up -d
+docker compose up -d
 ```
+
+> Note: You may need to use `sudo docker compose up -d` if you are not in the `docker` group.
 
 ### Verify node is running
 
@@ -193,8 +196,10 @@ curl http://localhost:8547 \
 3. If the blockNumber response value is `0` or not growing, check the Taiko L2 logs here:
 
 ```bash
-sudo docker compose logs -f
+docker compose logs -f
 ```
+
+> Note: You may need to use `sudo docker compose logs -f` if you are not in the `docker` group.
 
 ### Operate the node
 
