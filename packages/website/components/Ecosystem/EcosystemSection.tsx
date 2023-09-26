@@ -127,6 +127,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/izar.png",
+    name: "IZAR",
+    link: "https://izar.xyz/",
+    description:
+      "IZAR is a privacy-preserving interoperability protocol between Ethereum and Aleo ecosystem, harnessing the power of zero-knowledge cryptography to protect user privacy and security.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/metamerge.png",
     name: "Meta Merge",
     link: "https://taiko-match3.metamerge.xyz/",
@@ -230,6 +239,15 @@ const ecosystemData: EcosystemData[] = [
     link: "https://omnikingdoms.io",
     description:
       "MMORPG focused on state transitions and asset evolution. Train and level up in order to quest, craft and battle!",
+    filters: [],
+    isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/omnisea.png",
+    name: "Omnisea",
+    link: "https://www.omnisea.org",
+    description:
+      "Omnisea is the first permissionless Omnichain NFT Launchpad and Bridge powered by LayerZero.",
     filters: [],
     isLive: true,
   },
@@ -550,15 +568,13 @@ export function EcosystemSection() {
 function FilterLabel({ text, activeFilter, setActiveFilter }) {
   const isActive = activeFilter === text;
 
-  const buttonStyles = `border rounded-full py-1 px-4 text-sm focus:outline-none transition-colors duration-200 font-bold ${
-    isActive
-      ? "bg-gray-300 text-black"
-      : "bg-white text-gray-700 dark:bg-black dark:text-gray-300"
-  } ${
-    isActive
+  const buttonStyles = `border rounded-full py-1 px-4 text-sm focus:outline-none transition-colors duration-200 font-bold ${isActive
+    ? "bg-gray-300 text-black"
+    : "bg-white text-gray-700 dark:bg-black dark:text-gray-300"
+    } ${isActive
       ? "hover:bg-gray-400"
       : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
-  }`;
+    }`;
 
   return (
     <button className={buttonStyles} onClick={() => setActiveFilter(text)}>
