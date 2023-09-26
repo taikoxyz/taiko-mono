@@ -125,28 +125,28 @@ library LibProposing {
         // the block data to be stored on-chain for future integrity checks.
         // If we choose to persist all data fields in the metadata, it will
         // require additional storage slots.
-
         unchecked {
-            // Following the Merge, the L1 mixHash incorporates the prevrandao
-            // value from the beacon chain. Given the possibility of multiple
-            // Taiko blocks being proposed within a single Ethereum block, we
-            // must introduce a salt to this random number as the L2 mixHash.
-            meta.mixHash = bytes32(block.prevrandao * b.numBlocks);
-
-            meta.l1Height = uint64(block.number - 1);
+            meta = TaikoData.BlockMetadata({
+                l1Hash: blockhash(block.number - 1),
+                // Following the Merge, the L1 mixHash incorporates the
+                // prevrandao value from the beacon chain. Given the possibility
+                // of multiple Taiko blocks being proposed within a single
+                // Ethereum block, we must introduce a salt to this random
+                // number as the L2 mixHash.
+                mixHash: bytes32(block.prevrandao * b.numBlocks),
+                txListHash: txListHash,
+                id: b.numBlocks,
+                timestamp: uint64(block.timestamp),
+                l1Height: uint64(block.number - 1),
+                gasLimit: config.blockMaxGasLimit,
+                proposer: msg.sender,
+                // Each transaction must handle a specific quantity of L1-to-L2
+                // Ether deposits.
+                depositsProcessed: LibDepositing.processDeposits(
+                    state, config, msg.sender
+                    )
+            });
         }
-
-        // TODO(dani):this change fails two tests.
-        meta.l1Hash = blockhash(meta.l1Height);
-        meta.txListHash = txListHash;
-        meta.id = b.numBlocks;
-        meta.timestamp = uint64(block.timestamp);
-        meta.gasLimit = config.blockMaxGasLimit;
-
-        // Each transaction must handle a specific quantity of L1-to-L2
-        // Ether deposits.
-        meta.depositsProcessed =
-            LibDepositing.processDeposits(state, config, msg.sender);
 
         // Now, it's essential to initialize the block that will be stored
         // on L1. We should aim to utilize as few storage slots as possible,
