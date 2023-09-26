@@ -12,6 +12,12 @@ import { TaikoData } from "../TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
 
 library LibTaikoToken {
+    event TokenDeposited(uint256 amount);
+    event TokenWithdrawn(uint256 amount);
+    event TokenCredited(uint256 amount, bool minted);
+    event TokenDebited(uint256 amount, bool fromLocalBalance);
+    event TokenWithdrawnByOwner(uint256 amount);
+
     error L1_INSUFFICIENT_TOKEN();
 
     function depositTaikoToken(
@@ -28,6 +34,7 @@ library LibTaikoToken {
         unchecked {
             state.taikoTokenBalances[msg.sender] += amount;
         }
+        emit TokenDeposited(amount);
     }
 
     function withdrawTaikoToken(
@@ -49,9 +56,11 @@ library LibTaikoToken {
         TaikoToken(resolver.resolve("taiko_token", false)).transfer(
             msg.sender, amount
         );
+
+        emit TokenWithdrawn(amount);
     }
 
-    function incrementTaikoTokenBalance(
+    function creditTaikoToken(
         TaikoData.State storage state,
         AddressResolver resolver,
         address to,
@@ -67,9 +76,10 @@ library LibTaikoToken {
             );
         }
         state.taikoTokenBalances[to] += amount;
+        emit TokenCredited(amount, mint);
     }
 
-    function decrementTaikoTokenBalance(
+    function debitTaikoToken(
         TaikoData.State storage state,
         AddressResolver resolver,
         address from,
@@ -82,10 +92,24 @@ library LibTaikoToken {
             TaikoToken(resolver.resolve("taiko_token", false)).transferFrom(
                 from, address(this), amount
             );
+            emit TokenDebited(amount, false);
         } else {
             unchecked {
                 state.taikoTokenBalances[from] -= amount;
             }
+            emit TokenDebited(amount, true);
         }
+    }
+
+    function ownerWithdrawTaikoToken(
+        AddressResolver resolver,
+        uint256 amount
+    )
+        internal
+    {
+        TaikoToken(resolver.resolve("taiko_token", false)).transferFrom(
+            address(this), msg.sender, amount
+        );
+        emit TokenWithdrawnByOwner(amount);
     }
 }
