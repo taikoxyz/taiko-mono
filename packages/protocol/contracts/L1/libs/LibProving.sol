@@ -358,8 +358,8 @@ library LibProving {
                     // the previous prover.
                     reward = tran.contestBond / 4;
 
-                    // Mint the reward and the validity bond and return it to the
-                    // previous prover.
+                    // Mint the reward and the validity bond and return it to
+                    // the previous prover.
                     LibTaikoToken.incrementTaikoTokenBalance(
                         state,
                         resolver,
@@ -369,8 +369,8 @@ library LibProving {
                     );
                 } else {
                     // In the event that the contester is the winner, half of
-                    // the validity bond is designated as the reward, to be divided
-                    // equally between the new prover and the contester.
+                    // the validity bond is designated as the reward, to be
+                    // divided equally between the new prover and the contester.
                     reward = tran.validityBond / 4;
 
                     // It's important to note that the contester is set to zero

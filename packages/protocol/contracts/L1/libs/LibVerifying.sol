@@ -173,15 +173,16 @@ library LibVerifying {
                 blockHash = tran.blockHash;
                 signalRoot = tran.signalRoot;
 
-                // We consistently return the liveness bond and the validity bond
-                // to the actual prover of the transition utilized for block
-                // verification. If the actual prover happens to be the block's
-                // assigned prover, he will receive both deposits, ultimately
-                // earning the proving fee paid during block proposal. In
-                // contrast, if the actual prover is different from the block's
-                // assigned prover, the liveness bond serves as a reward to
-                // the actual prover, while the assigned prover forfeits his
-                // liveness bond due to failure to fulfill their commitment.
+                // We consistently return the liveness bond and the validity
+                // bond to the actual prover of the transition utilized for
+                // block verification. If the actual prover happens to be the
+                // block's assigned prover, he will receive both deposits,
+                // ultimately earning the proving fee paid during block
+                // proposal. In contrast, if the actual prover is different from
+                // the block's assigned prover, the liveness bond serves as a
+                // reward to the actual prover, while the assigned prover
+                // forfeits his liveness bond due to failure to fulfill their
+                // commitment.
                 uint256 bondToReturn =
                     uint256(tran.validityBond) + blk.livenessBond;
 
