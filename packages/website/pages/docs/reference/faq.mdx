@@ -33,3 +33,8 @@ See [contract addresses](/docs/reference/contract-addresses) for a list of deplo
 ## I ran a node during a previous testnet do I need to do anything different
 
 Your Sepolia archive node should be fine. For your Taiko node, you should remove the node (see the [node runner manual](/docs/manuals/node-runner-manual)) and directory, and then follow the [Taiko node running guide](/docs/guides/run-a-taiko-node) again.
+
+## Does Taiko have a sequencer?
+
+Taiko does not have an L2 sequencer, since everyone can become a proposer permissionlessly.
+Ultimately the L1 Ethereum validator for the current block is the sequencer that can sequence multiple L2 blocks. 

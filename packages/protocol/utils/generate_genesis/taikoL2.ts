@@ -353,13 +353,6 @@ async function generateContractConfigs(
                             ]),
                     ]
                 )}`,
-                eip1559Config: {
-                    yscale: ethers.BigNumber.from(param1559.yscale),
-                    xscale: ethers.BigNumber.from(param1559.xscale),
-                    gasIssuedPerSecond: ethers.BigNumber.from(
-                        param1559.gasIssuedPerSecond
-                    ),
-                },
                 parentTimestamp: Math.floor(new Date().getTime() / 1000),
                 gasExcess: ethers.BigNumber.from(param1559.gasExcess),
                 // AddressResolver
