@@ -219,6 +219,15 @@ library LibProving {
                 revert L1_INVALID_EVIDENCE();
             }
 
+            if (
+                evidence.proof.length != 0
+                    && evidence.proof[0] == keccak256("UNPROVABLE")
+            ) {
+                LibTaikoToken.creditToken(
+                    state, resolver, blk.assignedProver, blk.livenessBond, false
+                );
+            }
+
             tran.blockHash = evidence.blockHash;
             tran.signalRoot = evidence.signalRoot;
             tran.prover = msg.sender;
