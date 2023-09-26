@@ -206,7 +206,8 @@ abstract contract TaikoL1TestBase is TestBase {
             evidence.proof = "";
 
             if (unprovable) {
-                evidence.proof = bytes.concat(bytes32(keccak256("UNPROVABLE")));
+                evidence.proof =
+                    bytes.concat(bytes32(keccak256("RETURN_LIVENESS_BOND")));
             }
         }
 

@@ -40,7 +40,7 @@ contract GuardianVerifier is EssentialContract, IVerifier {
     {
         if (
             evidence.proof.length != 0
-                && bytes32(evidence.proof) != keccak256("UNPROVABLE")
+                && bytes32(evidence.proof) != keccak256("RETURN_LIVENESS_BOND")
         ) revert INVALID_PROOF();
         if (prover != resolve("guardian", false)) revert PERMISSION_DENIED();
     }

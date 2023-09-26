@@ -221,7 +221,7 @@ library LibProving {
 
             if (
                 evidence.proof.length != 0
-                    && bytes32(evidence.proof) == keccak256("UNPROVABLE")
+                    && bytes32(evidence.proof) == keccak256("RETURN_LIVENESS_BOND")
             ) {
                 LibTaikoToken.creditToken(
                     state, resolver, blk.assignedProver, blk.livenessBond, false
