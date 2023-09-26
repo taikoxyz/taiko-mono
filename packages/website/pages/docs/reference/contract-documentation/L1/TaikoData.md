@@ -27,7 +27,7 @@ struct Config {
   uint256 proofRegularCooldown;
   uint256 proofOracleCooldown;
   uint16 proofWindow;
-  uint96 proofBond;
+  uint96 validityBond;
   bool skipProverAssignmentVerificaiton;
   uint256 ethDepositRingBufferSize;
   uint64 ethDepositMinCountPerBlock;
@@ -143,7 +143,7 @@ _Struct containing data required for verifying a block.
 struct Block {
   bytes32 metaHash;
   address prover;
-  uint96 proofBond;
+  uint96 validityBond;
   uint64 blockId;
   uint64 proposedAt;
   uint32 nextTransitionId;

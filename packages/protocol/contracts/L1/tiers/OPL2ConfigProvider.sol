@@ -21,7 +21,7 @@ contract OPL2ConfigProvider is ITierProvider {
         if (tierId == LibTiers.TIER_OPTIMISTIC) {
             return ITierProvider.Tier({
                 verifierName: "tier_optimistic",
-                proofBond: 100_000 ether, // TKO
+                validityBond: 100_000 ether, // TKO
                 contestBond: 100_000 ether, // TKO
                 cooldownWindow: 4 hours,
                 provingWindow: 20 minutes
@@ -31,7 +31,7 @@ contract OPL2ConfigProvider is ITierProvider {
         if (tierId == LibTiers.TIER_SGX) {
             return ITierProvider.Tier({
                 verifierName: "tier_sgx",
-                proofBond: 50_000 ether, // TKO
+                validityBond: 50_000 ether, // TKO
                 contestBond: 50_000 ether, // TKO
                 cooldownWindow: 3 hours,
                 provingWindow: 60 minutes
@@ -41,7 +41,7 @@ contract OPL2ConfigProvider is ITierProvider {
         if (tierId == LibTiers.TIER_PSE_ZKEVM) {
             return ITierProvider.Tier({
                 verifierName: "tier_pse_zkevm",
-                proofBond: 10_000 ether, // TKO
+                validityBond: 10_000 ether, // TKO
                 contestBond: 10_000 ether, // TKO
                 cooldownWindow: 2 hours,
                 provingWindow: 90 minutes
@@ -51,7 +51,7 @@ contract OPL2ConfigProvider is ITierProvider {
         if (tierId == LibTiers.TIER_GUARDIAN) {
             return ITierProvider.Tier({
                 verifierName: "tier_guardian",
-                proofBond: 0,
+                validityBond: 0,
                 contestBond: 0, // not contestable
                 cooldownWindow: 1 hours,
                 provingWindow: 120 minutes

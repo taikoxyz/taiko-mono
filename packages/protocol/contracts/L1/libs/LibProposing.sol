@@ -28,7 +28,7 @@ library LibProposing {
     event BlockProposed(
         uint256 indexed blockId,
         address indexed assignedProver,
-        uint96 assignmentBond,
+        uint96 livenessBond,
         uint256 proverFee,
         uint256 reward,
         TaikoData.BlockMetadata meta
@@ -157,10 +157,10 @@ library LibProposing {
         // slot.
         blk.metaHash = hashMetadata(meta);
 
-        // Safeguard the assignment bond to ensure its preservation,
+        // Safeguard the liveness bond to ensure its preservation,
         // particularly in scenarios where it might be altered after the
         // block's proposal but before it has been proven or verified.
-        blk.assignmentBond = config.assignmentBond;
+        blk.livenessBond = config.livenessBond;
         blk.blockId = b.numBlocks;
         blk.proposedAt = meta.timestamp;
 
@@ -185,13 +185,13 @@ library LibProposing {
         blk.assignedProver = assignment.prover;
 
         // The assigned prover burns Taiko tokens, referred to as the
-        // "assignment bond." This bond remains non-refundable to the
+        // "liveness bond." This bond remains non-refundable to the
         // assigned prover under two conditions: if the block's verification
         // transition is not the initial one or if it was generated and
         // validated by different provers. Instead, a portion of the assignment
         // bond serves as a reward for the actual prover.
         LibTaikoToken.decrementTaikoTokenBalance(
-            state, resolver, blk.assignedProver, config.assignmentBond
+            state, resolver, blk.assignedProver, config.livenessBond
         );
 
         // Increment the counter (cursor) by 1.
@@ -210,7 +210,7 @@ library LibProposing {
         emit BlockProposed({
             blockId: blk.blockId,
             assignedProver: blk.assignedProver,
-            assignmentBond: config.assignmentBond,
+            livenessBond: config.livenessBond,
             proverFee: proverFee,
             reward: reward,
             meta: meta

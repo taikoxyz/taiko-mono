@@ -21,7 +21,7 @@ contract ZKL2ConfigProvider is ITierProvider {
         if (tierId == LibTiers.TIER_PSE_ZKEVM) {
             return ITierProvider.Tier({
                 verifierName: "tier_pse_zkevm",
-                proofBond: 10_000 ether, // TKO
+                validityBond: 10_000 ether, // TKO
                 contestBond: 10_000 ether, // TKO
                 cooldownWindow: 2 hours,
                 provingWindow: 90 minutes
@@ -31,7 +31,7 @@ contract ZKL2ConfigProvider is ITierProvider {
         if (tierId == LibTiers.TIER_GUARDIAN) {
             return ITierProvider.Tier({
                 verifierName: "tier_guardian",
-                proofBond: 0,
+                validityBond: 0,
                 contestBond: 0, // not contestable
                 cooldownWindow: 1 hours,
                 provingWindow: 120 minutes

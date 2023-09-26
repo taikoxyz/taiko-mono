@@ -11,7 +11,7 @@ pragma solidity ^0.8.20;
 interface ITierProvider {
     struct Tier {
         bytes32 verifierName;
-        uint96 proofBond;
+        uint96 validityBond;
         uint96 contestBond;
         uint24 cooldownWindow;
         uint16 provingWindow;
