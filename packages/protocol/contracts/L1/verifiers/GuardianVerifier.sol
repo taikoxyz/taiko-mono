@@ -38,7 +38,10 @@ contract GuardianVerifier is EssentialContract, IVerifier {
         external
         view
     {
-        if (evidence.proof.length != 0) revert INVALID_PROOF();
+        if (
+            evidence.proof.length != 0
+                && bytes32(evidence.proof) != keccak256("UNPROVABLE")
+        ) revert INVALID_PROOF();
         if (prover != resolve("guardian", false)) revert PERMISSION_DENIED();
     }
 }

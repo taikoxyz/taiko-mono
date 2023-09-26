@@ -175,7 +175,8 @@ abstract contract TaikoL1TestBase is TestBase {
         bytes32 blockHash,
         bytes32 signalRoot,
         uint16 tier,
-        bytes4 revertReason
+        bytes4 revertReason,
+        bool unprovable
     )
         internal
     {
@@ -203,6 +204,10 @@ abstract contract TaikoL1TestBase is TestBase {
 
         if (tier == LibTiers.TIER_GUARDIAN) {
             evidence.proof = "";
+
+            if (unprovable) {
+                evidence.proof = bytes.concat(bytes32(keccak256("UNPROVABLE")));
+            }
         }
 
         if (revertReason != "") {
