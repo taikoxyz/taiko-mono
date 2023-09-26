@@ -21,7 +21,7 @@ library LibTaikoToken {
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_ADDRESS();
 
-    function depositTaikoToken(
+    function depositToken(
         TaikoData.State storage state,
         AddressResolver resolver,
         uint256 amount
@@ -33,12 +33,12 @@ library LibTaikoToken {
             msg.sender, address(this), amount
         );
         unchecked {
-            state.taikoTokenBalances[msg.sender] += amount;
+            state.tokenBalances[msg.sender] += amount;
         }
         emit TokenDeposited(amount);
     }
 
-    function withdrawTaikoToken(
+    function withdrawToken(
         TaikoData.State storage state,
         AddressResolver resolver,
         uint256 amount
@@ -46,12 +46,12 @@ library LibTaikoToken {
         internal
     {
         if (amount == 0) return;
-        if (state.taikoTokenBalances[msg.sender] < amount) {
+        if (state.tokenBalances[msg.sender] < amount) {
             revert L1_INSUFFICIENT_TOKEN();
         }
         // Unchecked is safe per above check
         unchecked {
-            state.taikoTokenBalances[msg.sender] -= amount;
+            state.tokenBalances[msg.sender] -= amount;
         }
 
         TaikoToken(resolver.resolve("taiko_token", false)).transfer(
@@ -61,7 +61,7 @@ library LibTaikoToken {
         emit TokenWithdrawn(amount);
     }
 
-    function creditTaikoToken(
+    function creditToken(
         TaikoData.State storage state,
         AddressResolver resolver,
         address to,
@@ -76,11 +76,11 @@ library LibTaikoToken {
                 address(this), amount
             );
         }
-        state.taikoTokenBalances[to] += amount;
+        state.tokenBalances[to] += amount;
         emit TokenCredited(amount, mint);
     }
 
-    function debitTaikoToken(
+    function debitToken(
         TaikoData.State storage state,
         AddressResolver resolver,
         address from,
@@ -89,20 +89,20 @@ library LibTaikoToken {
         internal
     {
         if (amount == 0) return;
-        if (state.taikoTokenBalances[from] < amount) {
+        if (state.tokenBalances[from] < amount) {
             TaikoToken(resolver.resolve("taiko_token", false)).transferFrom(
                 from, address(this), amount
             );
             emit TokenDebited(amount, false);
         } else {
             unchecked {
-                state.taikoTokenBalances[from] -= amount;
+                state.tokenBalances[from] -= amount;
             }
             emit TokenDebited(amount, true);
         }
     }
 
-    function ownerWithdrawTaikoToken(
+    function ownerWithdrawToken(
         AddressResolver resolver,
         address to,
         uint256 amount

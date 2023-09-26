@@ -113,7 +113,7 @@ library LibProposing {
                     );
 
                     // Reward must be minted
-                    LibTaikoToken.creditTaikoToken(
+                    LibTaikoToken.creditToken(
                         state, resolver, msg.sender, reward, true
                     );
                 }
@@ -190,7 +190,7 @@ library LibProposing {
         // transition is not the initial one or if it was generated and
         // validated by different provers. Instead, a portion of the assignment
         // bond serves as a reward for the actual prover.
-        LibTaikoToken.debitTaikoToken(
+        LibTaikoToken.debitToken(
             state, resolver, blk.assignedProver, config.assignmentBond
         );
 
