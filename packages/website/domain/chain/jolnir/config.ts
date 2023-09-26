@@ -112,5 +112,47 @@ export const JOLNIR_CONFIG = {
         impl: "0xTODO(docs)",
       },
     },
+    weth: {
+      name: "WETH",
+      address: {
+        impl: "0xf86E3b4cde65c0cd59580Ee3F8dd34343E23ea5B",
+      },
+    },
+    v3CoreFactoryAddress: {
+      name: "Uniswap V3 Core Factory",
+      address: {
+        impl: "0xae2C46ddb314B9Ba743C6dEE4878F151881333D9",
+      },
+    },
+    multicallAddress: {
+      name: "Multicall",
+      address: {
+        impl: "0xC4d03e4055381525F9d7B545f87AC6F7c114218D",
+      },
+    },
+    tickLensAddress: {
+      name: "TickLens",
+      address: {
+        impl: "0xaF23C54A651A548Eb17B9aF1Fd5b33a224579769",
+      },
+    },
+    nonfungiblePositionManagerAddress: {
+      name: "NonfungiblePositionManager",
+      address: {
+        impl: "0x0b89d0FB71B81D0C04f3F71c47bbBd128896DA6b",
+      },
+    },
+    v3MigratorAddress: {
+      name: "Uniswap V3 Migrator",
+      address: {
+        impl: "0xA4ACE40E895C11977a57FbCE154F2790f1C18892",
+      },
+    },
+    swapRouter02Address: {
+      name: "SwapRouter02",
+      address: {
+        impl: "0x73B721608Ec729cE60c8a2746Ea3dcdd36a4EA10",
+      },
+    },
   },
 } as const satisfies TaikoL2Alpha5;

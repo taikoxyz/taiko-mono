@@ -124,6 +124,15 @@ interface Alpha5RollupContracts {
 interface OtherContracts {
   deterministicDeploymentProxy?: Contract;
   erc4337Entrypoint?: Contract;
+  weth?: Contract;
+  /** Uniswap V3 */
+  v3CoreFactoryAddress?: Contract;
+  multicallAddress?: Contract;
+  quoterAddress?: Contract;
+  v3MigratorAddress?: Contract;
+  nonfungiblePositionManagerAddress?: Contract;
+  tickLensAddress?: Contract;
+  swapRouter02Address?: Contract;
 }
 
 interface TaikoL1Alpha3 extends Network {
