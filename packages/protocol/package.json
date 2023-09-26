@@ -16,7 +16,7 @@
     "lint:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol' --fix",
     "sizer": "pnpm hardhat size-contracts",
     "snapshot": "forge snapshot --match-path 'test/**/*.t.sol'",
-    "test": "forge test -vvv --gas-report --fuzz-seed 20210210 --match-path test/*.t.sol",
+    "test": "RUST_BACKTRACE=1 forge test -vvv --gas-report --fuzz-seed 20210210 --match-path test/*.t.sol",
     "test:coverage": "forge coverage --report lcov",
     "test:genesis": "FOUNDRY_PROFILE=genesis ./genesis/generate_genesis.test.sh",
     "upgrade": "./script/upgrade_to.sh"
