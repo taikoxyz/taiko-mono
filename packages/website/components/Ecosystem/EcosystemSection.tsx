@@ -340,15 +340,6 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
-    icon: "/images/ecosystem/gourds.jpeg",
-    name: "Gourds",
-    link: "https://gourds.studio",
-    description:
-      "Gourds aims to achieve crypto market efficiency by introducing novel trading instruments for mass adoption.",
-    filters: [],
-    isLive: true,
-  },
-  {
     icon: "/images/ecosystem/stakeme.png",
     name: "STAKEME",
     link: "https://stakeme.pro/",
