@@ -18,7 +18,7 @@
     "snapshot": "forge snapshot --match-path 'test/**/*.t.sol'",
     "test": "forge test -vvv --gas-report --fuzz-seed $(date +%s) --nmp test/L1/TaikoL1.sim.sol",
     "test:coverage": "forge coverage --report lcov",
-    "test:genesis": "./genesis/generate_genesis.test.sh",
+    "test:genesis": "FOUNDRY_PROFILE=genesis ./genesis/generate_genesis.test.sh",
     "upgrade": "./script/upgrade_to.sh"
   },
   "keywords": [
