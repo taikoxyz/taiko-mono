@@ -27,9 +27,6 @@ fs_permissions = [
 ]
 
 fuzz = { runs = 256 }
-# Workaround to have a static fuzz seed in the config
-# until the issue is resolved with forge/foundry.
-seed = 13623721389213
 
 [fmt]
 bracket_spacing = true
