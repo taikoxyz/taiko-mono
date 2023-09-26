@@ -88,5 +88,5 @@ abstract contract TaikoEvents {
     event TokenDebited(uint256 amount, bool fromLocalBalance);
 
     /// @dev Emitted when the owner withdrawn Taiko token from this contract.
-    event TokenWithdrawnByOwner(uint256 amount);
+    event TokenWithdrawnByOwner(address to, uint256 amount);
 }

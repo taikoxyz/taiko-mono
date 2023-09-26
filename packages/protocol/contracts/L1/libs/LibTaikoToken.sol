@@ -16,9 +16,10 @@ library LibTaikoToken {
     event TokenWithdrawn(uint256 amount);
     event TokenCredited(uint256 amount, bool minted);
     event TokenDebited(uint256 amount, bool fromLocalBalance);
-    event TokenWithdrawnByOwner(uint256 amount);
+    event TokenWithdrawnByOwner(address to, uint256 amount);
 
     error L1_INSUFFICIENT_TOKEN();
+    error L1_INVALID_ADDRESS();
 
     function depositTaikoToken(
         TaikoData.State storage state,
@@ -103,13 +104,15 @@ library LibTaikoToken {
 
     function ownerWithdrawTaikoToken(
         AddressResolver resolver,
+        address to,
         uint256 amount
     )
         internal
     {
+        if (to == address(0)) revert L1_INVALID_ADDRESS();
         TaikoToken(resolver.resolve("taiko_token", false)).transferFrom(
-            address(this), msg.sender, amount
+            address(this), to, amount
         );
-        emit TokenWithdrawnByOwner(amount);
+        emit TokenWithdrawnByOwner(to, amount);
     }
 }

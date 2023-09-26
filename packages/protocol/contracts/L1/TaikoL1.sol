@@ -153,8 +153,14 @@ contract TaikoL1 is
         LibTaikoToken.withdrawTaikoToken(state, AddressResolver(this), amount);
     }
 
-    function ownerWithdrawTaikoToken(uint256 amount) public onlyOwner {
-        LibTaikoToken.ownerWithdrawTaikoToken(AddressResolver(this), amount);
+    function ownerWithdrawTaikoToken(
+        address to,
+        uint256 amount
+    )
+        public
+        onlyOwner
+    {
+        LibTaikoToken.ownerWithdrawTaikoToken(AddressResolver(this), to, amount);
     }
 
     /// @notice Deposits Ether to Layer 2.
