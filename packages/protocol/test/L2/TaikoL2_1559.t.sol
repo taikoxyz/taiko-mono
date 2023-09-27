@@ -6,6 +6,10 @@ import { TestBase } from "../TestBase.sol";
 import { TaikoL2 } from "../../contracts/L2/TaikoL2.sol";
 
 contract TestTaikoL2_1559 is TestBase {
+    function run() external {
+        this.test_1559ParamCalculation();
+    }
+
     function test_1559ParamCalculation() external {
         // Assume we scale L1 throughput by 10 times.
         uint64 scaleFactor = 10;
@@ -14,14 +18,13 @@ contract TestTaikoL2_1559 is TestBase {
         uint64 costFactor = 25;
 
         // Calculate gas space issuance per second
-        uint64 ethereumBlockGasTarget = 15_000_000;
         uint64 ethereumBlockTime = 12;
 
         // https://ultrasound.money/
         uint64 ethereumBasefeeNow = 28_000_000_000; // 28Gwei
 
-        uint32 gasIssuedPerSecond =
-            uint32(scaleFactor * ethereumBlockGasTarget / ethereumBlockTime);
+        uint32 gasIssuedPerSecond = 666_666; // We make gasIssuedPerSecond
+            // 8,000,000 / 12 = 666,666 gas/s
 
         // Tune this number manually so ratio2x1x is ~112.5%.
         uint64 maxSeconds = 7272;
@@ -45,9 +48,9 @@ contract TestTaikoL2_1559 is TestBase {
         console2.log("ratio2x1x         :", param1559.ratio2x1x);
 
         // basefee           : 1120000000
-        // gasIssuedPerSecond: 12500000
-        // gasExcessMax      : 90900000000
-        // gasTarget         : 150000000
+        // gasIssuedPerSecond: 666666
+        // gasExcessMax      : 4847995152
+        // gasTarget         : 7999992
         // ratio2x1x         : 11250
 
         TaikoL2 L2 = new TaikoL2();
