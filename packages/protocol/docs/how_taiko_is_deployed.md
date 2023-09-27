@@ -1,6 +1,6 @@
 # How Taiko is deployed
 
-The Taiko protocol smart contracts are deployed on L1 and L2. The L2 contracts are pre-deployed first by creating a genesis block, and then the L1 contracts are deployed using a sciprt. The general flow is like this:
+The Taiko protocol smart contracts are deployed on L1 and L2. The L2 contracts are pre-deployed first by creating a genesis block, and then the L1 contracts are deployed using a script. The general flow is like this:
 
 1. A `genesis.json` is generated, which includes the L2 contracts (see: [generate genesis](../utils/generate_genesis/main.ts)).
 2. The `genesis.json` is used as input to generate the genesis block (see: https://geth.ethereum.org/docs/fundamentals/private-network#creating-genesis-block).
