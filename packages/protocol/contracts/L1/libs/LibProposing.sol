@@ -234,6 +234,7 @@ library LibProposing {
             | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 192);
         inputs[4] = uint256(uint160(meta.coinbase));
         inputs[5] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
+
         assembly {
             hash := keccak256(inputs, 192 /*mul(6, 32)*/ )
         }
