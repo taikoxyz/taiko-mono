@@ -38,6 +38,7 @@ abstract contract TaikoEvents {
     /// @param prover The prover whose transition is used for verifing the
     /// block.
     /// @param blockHash The hash of the verified block.
+    /// @param signalRoot The latest value of the signal service storage.
     event BlockVerified(
         uint256 indexed blockId,
         address indexed assignedProver,
@@ -79,7 +80,7 @@ abstract contract TaikoEvents {
     /// @dev Emitted when a user withdrawed Taiko token from this contract.
     event TokenWithdrawn(uint256 amount);
 
-    /// @dev Emitted when Taiko token are credited  to the user's in-protocol
+    /// @dev Emitted when Taiko token are credited to the user's in-protocol
     /// balance.
     event TokenCredited(uint256 amount, bool minted);
 

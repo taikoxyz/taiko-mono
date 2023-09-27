@@ -40,7 +40,7 @@ contract TaikoL1 is
     TaikoData.State public state;
     uint256[100] private __gap;
 
-    /// @dev Fallback function to receive Ether and deposit to to Layer 2.
+    /// @dev Fallback function to receive Ether and deposit to Layer 2.
     receive() external payable {
         depositEtherToL2(address(0));
     }

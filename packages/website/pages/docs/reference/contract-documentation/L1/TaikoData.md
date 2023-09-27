@@ -1,6 +1,5 @@
-s---
+---
 title: TaikoData
-
 ---
 
 ## TaikoData
