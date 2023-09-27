@@ -7,6 +7,7 @@
 pragma solidity ^0.8.20;
 
 import { ITierProvider, LibTiers } from "./ITierProvider.sol";
+import { Proxied } from "../../common/Proxied.sol";
 
 /// @title ZKRollupConfigProvider
 contract ZKRollupConfigProvider is ITierProvider {
@@ -56,3 +57,7 @@ contract ZKRollupConfigProvider is ITierProvider {
         return LibTiers.TIER_PSE_ZKEVM;
     }
 }
+
+/// @title ProxiedZKRollupConfigProvider
+/// @notice Proxied version of the parent contract.
+contract ProxiedZKRollupConfigProvider is Proxied, ZKRollupConfigProvider { }

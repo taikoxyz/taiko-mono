@@ -7,6 +7,7 @@
 pragma solidity ^0.8.20;
 
 import { ITierProvider, LibTiers } from "./ITierProvider.sol";
+import { Proxied } from "../../common/Proxied.sol";
 
 /// @title ValidityRollupConfigProvider
 contract ValidityRollupConfigProvider is ITierProvider {
@@ -68,3 +69,10 @@ contract ValidityRollupConfigProvider is ITierProvider {
         else return LibTiers.TIER_SGX;
     }
 }
+
+/// @title ProxiedValidityRollupConfigProvider
+/// @notice Proxied version of the parent contract.
+contract ProxiedValidityRollupConfigProvider is
+    Proxied,
+    ValidityRollupConfigProvider
+{ }

@@ -9,9 +9,16 @@ pragma solidity ^0.8.20;
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
 import "@oz/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "@oz/utils/Strings.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/verifiers/PseZkVerifier.sol";
+import "../contracts/L1/verifiers/SGXVerifier.sol";
+import "../contracts/L1/verifiers/GuardianVerifier.sol";
+import "../contracts/L1/tiers/ITierProvider.sol";
+import "../contracts/L1/tiers/OptimisticRollupConfigProvider.sol";
+import "../contracts/L1/tiers/ValidityRollupConfigProvider.sol";
+import "../contracts/L1/tiers/ZKRollupConfigProvider.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
@@ -32,9 +39,13 @@ contract DeployOnL1 is Script {
 
     address public owner = vm.envAddress("OWNER");
 
-    address public oracleProver = vm.envAddress("PLACEHOLDER_ADDR");
+    address public guardianProver = vm.envAddress("GUARDIAN_PROVER");
+
+    address public proposer = vm.envAddress("PROPOSER");
 
     address public sharedSignalService = vm.envAddress("SHARED_SIGNAL_SERVICE");
+
+    uint256 public tierProvider = vm.envUint("TIER_PROVIDER");
 
     address[] public taikoTokenPremintRecipients =
         vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENTS", ",");
@@ -44,6 +55,12 @@ contract DeployOnL1 is Script {
 
     TaikoL1 taikoL1;
     address public addressManagerProxy;
+
+    enum tierProviders {
+        OptimisticRollupConfigProvider,
+        ValidityRollupConfigProvider,
+        ZKRollupConfigProvider
+    }
 
     error FAILED_TO_DEPLOY_PLONK_VERIFIER(string contractPath);
 
@@ -55,12 +72,12 @@ contract DeployOnL1 is Script {
             taikoTokenPremintRecipients.length != 0,
             "taikoTokenPremintRecipients length is zero"
         );
-
         require(
             taikoTokenPremintRecipients.length
                 == taikoTokenPremintAmounts.length,
             "taikoTokenPremintRecipients and taikoTokenPremintAmounts must be same length"
         );
+        require(validateTierProvider(tierProvider), "invalid tier provider");
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -79,7 +96,10 @@ contract DeployOnL1 is Script {
 
         setAddress(l2ChainId, "taiko", taikoL2Address);
         setAddress(l2ChainId, "signal_service", l2SignalService);
-        setAddress("oracle_prover", oracleProver);
+        setAddress("guardian", guardianProver);
+        if (proposer != address(0)) {
+            setAddress("proposer", proposer);
+        }
 
         // TaikoToken
         TaikoToken taikoToken = new ProxiedTaikoToken();
@@ -160,10 +180,33 @@ contract DeployOnL1 is Script {
             )
         );
 
+        // TierProvider
+        deployProxy("tier_provider", deployTierProvider(tierProvider), "");
+
+        // GuardianVerifier
+        GuardianVerifier guardianVerifier = new ProxiedGuardianVerifier();
+        deployProxy(
+            "tier_guardian",
+            address(guardianVerifier),
+            bytes.concat(
+                guardianVerifier.init.selector, abi.encode(addressManagerProxy)
+            )
+        );
+
+        // SGXVerifier
+        SGXVerifier sgxVerifier = new ProxiedSGXVerifier();
+        deployProxy(
+            "tier_sgx",
+            address(sgxVerifier),
+            bytes.concat(
+                sgxVerifier.init.selector, abi.encode(addressManagerProxy)
+            )
+        );
+
         // PseZkVerifier
         PseZkVerifier proofVerifier = new ProxiedPseZkVerifier();
         deployProxy(
-            "proof_verifier",
+            "tier_pse_zkevm",
             address(proofVerifier),
             bytes.concat(
                 proofVerifier.init.selector, abi.encode(addressManagerProxy)
@@ -188,6 +231,22 @@ contract DeployOnL1 is Script {
         }
 
         vm.stopBroadcast();
+    }
+
+    function validateTierProvider(uint256 provier)
+        private
+        pure
+        returns (bool)
+    {
+        if (
+            provier == uint256(tierProviders.OptimisticRollupConfigProvider)
+                || provier == uint256(tierProviders.ValidityRollupConfigProvider)
+                || provier == uint256(tierProviders.ZKRollupConfigProvider)
+        ) {
+            return true;
+        }
+
+        return false;
     }
 
     function deployYulContract(string memory contractPath)
@@ -218,6 +277,23 @@ contract DeployOnL1 is Script {
         console2.log(contractPath, deployedAddress);
 
         return deployedAddress;
+    }
+
+    function deployTierProvider(uint256 provier)
+        private
+        returns (address providerAddress)
+    {
+        if (provier == uint256(tierProviders.OptimisticRollupConfigProvider)) {
+            return address(new ProxiedOptimisticRollupConfigProvider());
+        } else if (
+            provier == uint256(tierProviders.ValidityRollupConfigProvider)
+        ) {
+            return address(new ProxiedValidityRollupConfigProvider());
+        } else if (provier == uint256(tierProviders.ZKRollupConfigProvider)) {
+            return address(new ProxiedZKRollupConfigProvider());
+        }
+
+        revert();
     }
 
     function deployProxy(
