@@ -59,9 +59,10 @@ library LibProposing {
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
-        // Taiko, as a Based Rollup, enables permissionless block proposals. However,
-        // if the "proposer" address is set to a non-zero value, we ensure that
-        // only that specific address has the authority to propose blocks.
+        // Taiko, as a Based Rollup, enables permissionless block proposals.
+        // However, if the "proposer" address is set to a non-zero value, we
+        // ensure that only that specific address has the authority to propose
+        // blocks.
         address proposer = resolver.resolve("proposer", true);
         if (proposer != address(0) && msg.sender != proposer) {
             revert L1_UNAUTHORIZED();

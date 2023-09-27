@@ -8,8 +8,8 @@ pragma solidity ^0.8.20;
 
 import { ITierProvider, LibTiers } from "./ITierProvider.sol";
 
-/// @title OPL2ConfigProvider
-contract OPL2ConfigProvider is ITierProvider {
+/// @title ZKRollupConfigProvider
+contract ZKRollupConfigProvider is ITierProvider {
     error TIER_NOT_FOUND();
 
     function getTier(uint16 tierId)
@@ -18,26 +18,6 @@ contract OPL2ConfigProvider is ITierProvider {
         override
         returns (ITierProvider.Tier memory)
     {
-        if (tierId == LibTiers.TIER_OPTIMISTIC) {
-            return ITierProvider.Tier({
-                verifierName: "tier_optimistic",
-                validityBond: 100_000 ether, // TKO
-                contestBond: 100_000 ether, // TKO
-                cooldownWindow: 4 hours,
-                provingWindow: 20 minutes
-            });
-        }
-
-        if (tierId == LibTiers.TIER_SGX) {
-            return ITierProvider.Tier({
-                verifierName: "tier_sgx",
-                validityBond: 50_000 ether, // TKO
-                contestBond: 50_000 ether, // TKO
-                cooldownWindow: 3 hours,
-                provingWindow: 60 minutes
-            });
-        }
-
         if (tierId == LibTiers.TIER_PSE_ZKEVM) {
             return ITierProvider.Tier({
                 verifierName: "tier_pse_zkevm",
@@ -67,16 +47,12 @@ contract OPL2ConfigProvider is ITierProvider {
         override
         returns (uint16[] memory tiers)
     {
-        tiers = new uint16[](4);
-        tiers[0] = LibTiers.TIER_OPTIMISTIC;
-        tiers[1] = LibTiers.TIER_SGX;
-        tiers[2] = LibTiers.TIER_PSE_ZKEVM;
-        tiers[3] = LibTiers.TIER_GUARDIAN;
+        tiers = new uint16[](2);
+        tiers[0] = LibTiers.TIER_PSE_ZKEVM;
+        tiers[1] = LibTiers.TIER_GUARDIAN;
     }
 
-    function getMinTier(uint256 rand) public pure override returns (uint16) {
-        if (rand % 100 == 0) return LibTiers.TIER_PSE_ZKEVM;
-        // else if (rand % 10 == 0) return LibTiers.TIER_SGX;
-        else return LibTiers.TIER_OPTIMISTIC;
+    function getMinTier(uint256) public pure override returns (uint16) {
+        return LibTiers.TIER_PSE_ZKEVM;
     }
 }
