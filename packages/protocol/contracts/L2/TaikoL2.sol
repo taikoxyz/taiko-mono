@@ -56,7 +56,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     uint64 public gasExcess;
     uint64 private __reserved1;
 
-    uint256[144] private __gap;
+    uint256[145] private __gap;
 
     // Captures all block variables mentioned in
     // https://docs.soliditylang.org/en/v0.8.20/units-and-global-variables.html
