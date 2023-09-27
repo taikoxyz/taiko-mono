@@ -220,7 +220,7 @@ library LibProving {
             }
 
             if (
-                evidence.proof.length != 0
+                evidence.proof.length == 32
                     && bytes32(evidence.proof) == keccak256("RETURN_LIVENESS_BOND")
             ) {
                 LibTaikoToken.creditToken(
