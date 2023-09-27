@@ -27,12 +27,10 @@ contract GuardianVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        // blockId is unused now, but can be used later when supporting
-        // different types of proofs.
         uint64,
         address prover,
         bool,
-        TaikoData.BlockEvidence calldata evidence
+        TaikoData.BlockEvidence calldata
     )
         external
         view
