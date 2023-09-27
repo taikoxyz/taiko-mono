@@ -79,6 +79,18 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     error L2_INVALID_SENDER();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
+    error L2_UNATHORIZED();
+
+    // Currently the contract has no owner (since pre-deplyoed contract) - hence
+    // the onlyOwner of OwnableUpgradeable cannot be called. This is a temporary
+    // solution for A5 to have such functionality.
+    // It can be upgraded with proxy upgrade then.
+    modifier ownerOnly() {
+        if (msg.sender != 0x19B4F9C381C7927FE33D853e48b560141A380C44) {
+            revert L2_UNATHORIZED();
+        }
+        _;
+    }
 
     /// @notice Initializes the TaikoL2 contract.
     /// @param _addressManager Address of the {AddressManager} contract.
@@ -183,7 +195,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     /// @param _param1559 EIP-1559 parameters to set up the gas pricing model.
     function updateEIP1559Config(EIP1559Params calldata _param1559)
         public
-        onlyOwner
+        ownerOnly
     {
         if (_param1559.gasIssuedPerSecond == 0) {
             delete eip1559Config;
