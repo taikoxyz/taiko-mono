@@ -283,13 +283,13 @@ contract DeployOnL1 is Script {
         returns (address providerAddress)
     {
         if (provier == uint256(tierProviders.OptimisticRollupConfigProvider)) {
-            return address(new ProxiedOptimisticRollupConfigProvider());
+            return address(new OptimisticRollupConfigProvider());
         } else if (
             provier == uint256(tierProviders.ValidityRollupConfigProvider)
         ) {
-            return address(new ProxiedValidityRollupConfigProvider());
+            return address(new ValidityRollupConfigProvider());
         } else if (provier == uint256(tierProviders.ZKRollupConfigProvider)) {
-            return address(new ProxiedZKRollupConfigProvider());
+            return address(new ZKRollupConfigProvider());
         }
 
         revert();
