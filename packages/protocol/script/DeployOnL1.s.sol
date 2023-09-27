@@ -28,6 +28,9 @@ import "../contracts/common/AddressManager.sol";
 import "../contracts/test/erc20/FreeMintERC20.sol";
 import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
 
+/// @title DeployOnL1
+/// @notice This script deploys the core Taiko protocol smart contract on L1,
+/// initializing the rollup.
 contract DeployOnL1 is Script {
     bytes32 public genesisHash = vm.envBytes32("L2_GENESIS_HASH");
 
@@ -119,13 +122,9 @@ contract DeployOnL1 is Script {
             )
         );
 
-        // HorseToken && BullToken
+        // HorseToken
         address horseToken = address(new FreeMintERC20("Horse Token", "HORSE"));
         console2.log("HorseToken", horseToken);
-
-        address bullToken =
-            address(new MayFailFreeMintERC20("Bull Token", "BLL"));
-        console2.log("BullToken", bullToken);
 
         uint64 feePerGas = 10;
         uint64 provingWindow = 60 minutes;
