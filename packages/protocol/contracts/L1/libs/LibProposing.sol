@@ -28,7 +28,7 @@ library LibProposing {
     event BlockProposed(
         uint256 indexed blockId,
         address indexed assignedProver,
-        uint96 assignmentBond,
+        uint96 livenessBond,
         uint256 proverFee,
         uint256 reward,
         TaikoData.BlockMetadata meta
@@ -59,9 +59,10 @@ library LibProposing {
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
-        // Taiko, as a Rased Rollup, enables permissionless block proposals.  However,
-        // if the "proposer" address is set to a non-zero value, we ensure that
-        // only that specific address has the authority to propose blocks.
+        // Taiko, as a Based Rollup, enables permissionless block proposals.
+        // However, if the "proposer" address is set to a non-zero value, we
+        // ensure that only that specific address has the authority to propose
+        // blocks.
         address proposer = resolver.resolve("proposer", true);
         if (proposer != address(0) && msg.sender != proposer) {
             revert L1_UNAUTHORIZED();
@@ -113,7 +114,7 @@ library LibProposing {
                     );
 
                     // Reward must be minted
-                    LibTaikoToken.incrementTaikoTokenBalance(
+                    LibTaikoToken.creditToken(
                         state, resolver, msg.sender, reward, true
                     );
                 }
@@ -124,26 +125,28 @@ library LibProposing {
         // the block data to be stored on-chain for future integrity checks.
         // If we choose to persist all data fields in the metadata, it will
         // require additional storage slots.
-        meta.l1Hash = blockhash(meta.l1Height);
-
-        // Following the Merge, the L1 mixHash incorporates the prevrandao
-        // value from the beacon chain. Given the possibility of multiple
-        // Taiko blocks being proposed within a single Ethereum block, we
-        // must introduce a salt to this random number as the L2 mixHash.
         unchecked {
-            meta.mixHash = bytes32(block.prevrandao * b.numBlocks);
-            meta.l1Height = uint64(block.number - 1);
+            meta = TaikoData.BlockMetadata({
+                l1Hash: blockhash(block.number - 1),
+                // Following the Merge, the L1 mixHash incorporates the
+                // prevrandao value from the beacon chain. Given the possibility
+                // of multiple Taiko blocks being proposed within a single
+                // Ethereum block, we must introduce a salt to this random
+                // number as the L2 mixHash.
+                mixHash: bytes32(block.prevrandao * b.numBlocks),
+                txListHash: txListHash,
+                id: b.numBlocks,
+                timestamp: uint64(block.timestamp),
+                l1Height: uint64(block.number - 1),
+                gasLimit: config.blockMaxGasLimit,
+                coinbase: msg.sender,
+                // Each transaction must handle a specific quantity of L1-to-L2
+                // Ether deposits.
+                depositsProcessed: LibDepositing.processDeposits(
+                    state, config, msg.sender
+                    )
+            });
         }
-
-        meta.txListHash = txListHash;
-        meta.id = b.numBlocks;
-        meta.timestamp = uint64(block.timestamp);
-        meta.gasLimit = config.blockMaxGasLimit;
-
-        // Each transaction must handle a specific quantity of L1-to-L2
-        // Ether deposits.
-        meta.depositsProcessed =
-            LibDepositing.processDeposits(state, config, msg.sender);
 
         // Now, it's essential to initialize the block that will be stored
         // on L1. We should aim to utilize as few storage slots as possible,
@@ -157,10 +160,10 @@ library LibProposing {
         // slot.
         blk.metaHash = hashMetadata(meta);
 
-        // Safeguard the assignment bond to ensure its preservation,
+        // Safeguard the liveness bond to ensure its preservation,
         // particularly in scenarios where it might be altered after the
         // block's proposal but before it has been proven or verified.
-        blk.assignmentBond = config.assignmentBond;
+        blk.livenessBond = config.livenessBond;
         blk.blockId = b.numBlocks;
         blk.proposedAt = meta.timestamp;
 
@@ -185,13 +188,13 @@ library LibProposing {
         blk.assignedProver = assignment.prover;
 
         // The assigned prover burns Taiko tokens, referred to as the
-        // "assignment bond." This bond remains non-refundable to the
+        // "liveness bond." This bond remains non-refundable to the
         // assigned prover under two conditions: if the block's verification
         // transition is not the initial one or if it was generated and
         // validated by different provers. Instead, a portion of the assignment
         // bond serves as a reward for the actual prover.
-        LibTaikoToken.decrementTaikoTokenBalance(
-            state, resolver, blk.assignedProver, config.assignmentBond
+        LibTaikoToken.debitToken(
+            state, resolver, blk.assignedProver, config.livenessBond
         );
 
         // Increment the counter (cursor) by 1.
@@ -210,7 +213,7 @@ library LibProposing {
         emit BlockProposed({
             blockId: blk.blockId,
             assignedProver: blk.assignedProver,
-            assignmentBond: config.assignmentBond,
+            livenessBond: config.livenessBond,
             proverFee: proverFee,
             reward: reward,
             meta: meta
@@ -223,16 +226,17 @@ library LibProposing {
         pure
         returns (bytes32 hash)
     {
-        uint256[5] memory inputs;
+        uint256[6] memory inputs;
         inputs[0] = uint256(meta.l1Hash);
         inputs[1] = uint256(meta.mixHash);
         inputs[2] = uint256(meta.txListHash);
         inputs[3] = (uint256(meta.id)) | (uint256(meta.timestamp) << 64)
             | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 192);
-        inputs[4] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
+        inputs[4] = uint256(uint160(meta.coinbase));
+        inputs[5] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
 
         assembly {
-            hash := keccak256(inputs, mul(5, 32))
+            hash := keccak256(inputs, 192 /*mul(6, 32)*/ )
         }
     }
 

@@ -26,7 +26,7 @@ library LibProving {
         bytes32 blockHash,
         bytes32 signalRoot,
         address prover,
-        uint96 proofBond,
+        uint96 validityBond,
         uint16 tier
     );
 
@@ -110,7 +110,7 @@ library LibProving {
             tran = state.transitions[slot][tid];
             tran.blockHash = 0;
             tran.signalRoot = 0;
-            tran.proofBond = 0;
+            tran.validityBond = 0;
             tran.contester = address(0);
             tran.contestBond = 1; // see below (the value does't matter)
             tran.timestamp = blk.proposedAt;
@@ -219,6 +219,15 @@ library LibProving {
                 revert L1_INVALID_EVIDENCE();
             }
 
+            if (
+                evidence.proof.length == 32
+                    && bytes32(evidence.proof) == keccak256("RETURN_LIVENESS_BOND")
+            ) {
+                LibTaikoToken.creditToken(
+                    state, resolver, blk.assignedProver, blk.livenessBond, false
+                );
+            }
+
             tran.blockHash = evidence.blockHash;
             tran.signalRoot = evidence.signalRoot;
             tran.prover = msg.sender;
@@ -231,7 +240,7 @@ library LibProving {
                 blockHash: evidence.blockHash,
                 signalRoot: evidence.signalRoot,
                 prover: msg.sender,
-                proofBond: 0,
+                validityBond: 0,
                 tier: evidence.tier
             });
         } else if (evidence.tier == tran.tier) {
@@ -261,7 +270,7 @@ library LibProving {
             if (tran.contester != address(0)) revert L1_ALREADY_CONTESTED();
 
             // Burn the contest bond from the prover.
-            LibTaikoToken.decrementTaikoTokenBalance(
+            LibTaikoToken.debitToken(
                 state, resolver, msg.sender, tier.contestBond
             );
 
@@ -339,9 +348,9 @@ library LibProving {
                 revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
             }
 
-            // Burn the proof bond from the prover.
-            LibTaikoToken.decrementTaikoTokenBalance(
-                state, resolver, msg.sender, tier.proofBond
+            // Burn the validity bond from the prover.
+            LibTaikoToken.debitToken(
+                state, resolver, msg.sender, tier.validityBond
             );
 
             unchecked {
@@ -358,26 +367,26 @@ library LibProving {
                     // the previous prover.
                     reward = tran.contestBond / 4;
 
-                    // Mint the reward and the proof bond and return it to the
-                    // previous prover.
-                    LibTaikoToken.incrementTaikoTokenBalance(
+                    // Mint the reward and the validity bond and return it to
+                    // the previous prover.
+                    LibTaikoToken.creditToken(
                         state,
                         resolver,
                         tran.prover,
-                        reward + tran.proofBond,
+                        reward + tran.validityBond,
                         false
                     );
                 } else {
                     // In the event that the contester is the winner, half of
-                    // the proof bond is designated as the reward, to be divided
-                    // equally between the new prover and the contester.
-                    reward = tran.proofBond / 4;
+                    // the validity bond is designated as the reward, to be
+                    // divided equally between the new prover and the contester.
+                    reward = tran.validityBond / 4;
 
                     // It's important to note that the contester is set to zero
                     // for the tier-0 transition. Consequently, we only grant a
                     // reward to the contester if it is not a zero-address.
                     if (tran.contester != address(0)) {
-                        LibTaikoToken.incrementTaikoTokenBalance(
+                        LibTaikoToken.creditToken(
                             state,
                             resolver,
                             tran.contester,
@@ -387,7 +396,7 @@ library LibProving {
                     } else if (reward != 0) {
                         //The prover is also the contester, so the reward is
                         // sent to him.
-                        LibTaikoToken.incrementTaikoTokenBalance(
+                        LibTaikoToken.creditToken(
                             state, resolver, msg.sender, reward, false
                         );
                     }
@@ -401,9 +410,9 @@ library LibProving {
                 }
 
                 // In theory, the reward can also be zero for certain tiers if
-                // their proof bonds are set to zero.
+                // their validity bonds are set to zero.
                 if (reward != 0) {
-                    LibTaikoToken.incrementTaikoTokenBalance(
+                    LibTaikoToken.creditToken(
                         state, resolver, msg.sender, reward, false
                     );
                 }
@@ -413,7 +422,7 @@ library LibProving {
             // emerges as the winner, we consistently erase the contest history
             // to make this transition appear entirely new.
             tran.prover = msg.sender;
-            tran.proofBond = tier.proofBond;
+            tran.validityBond = tier.validityBond;
             tran.contester = address(0);
             tran.contestBond = 1;
             tran.timestamp = uint64(block.timestamp);
@@ -425,7 +434,7 @@ library LibProving {
                 blockHash: evidence.blockHash,
                 signalRoot: evidence.signalRoot,
                 prover: msg.sender,
-                proofBond: tier.proofBond,
+                validityBond: tier.validityBond,
                 tier: evidence.tier
             });
         }

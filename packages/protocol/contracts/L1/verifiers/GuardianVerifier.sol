@@ -18,7 +18,6 @@ contract GuardianVerifier is EssentialContract, IVerifier {
     uint256[50] private __gap;
 
     error PERMISSION_DENIED();
-    error INVALID_PROOF();
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
@@ -28,17 +27,14 @@ contract GuardianVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        // blockId is unused now, but can be used later when supporting
-        // different types of proofs.
         uint64,
         address prover,
         bool,
-        TaikoData.BlockEvidence calldata evidence
+        TaikoData.BlockEvidence calldata
     )
         external
         view
     {
-        if (evidence.proof.length != 0) revert INVALID_PROOF();
         if (prover != resolve("guardian", false)) revert PERMISSION_DENIED();
     }
 }

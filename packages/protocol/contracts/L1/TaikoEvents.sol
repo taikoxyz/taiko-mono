@@ -18,7 +18,7 @@ abstract contract TaikoEvents {
     /// @dev Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
     /// @param assignedProver The block's assigned prover.
-    /// @param assignmentBond The bond in Taiko token from the assigned prover.
+    /// @param livenessBond The bond in Taiko token from the assigned prover.
     /// @param proverFee The fee paid to the assigned prover.
     /// @param reward The proposer's block reward in Taiko token.
     /// @param meta The block metadata containing information about the proposed
@@ -26,7 +26,7 @@ abstract contract TaikoEvents {
     event BlockProposed(
         uint256 indexed blockId,
         address indexed assignedProver,
-        uint96 assignmentBond,
+        uint96 livenessBond,
         uint256 proverFee,
         uint256 reward,
         TaikoData.BlockMetadata meta
@@ -53,7 +53,7 @@ abstract contract TaikoEvents {
         bytes32 blockHash,
         bytes32 signalRoot,
         address prover,
-        uint96 proofBond,
+        uint96 validityBond,
         uint16 tier
     );
 
@@ -72,4 +72,21 @@ abstract contract TaikoEvents {
     /// @param deposit The Ethereum deposit information including recipient,
     /// amount, and ID.
     event EthDeposited(TaikoData.EthDeposit deposit);
+
+    /// @dev Emitted when a user deposited Taiko token into this contract.
+    event TokenDeposited(uint256 amount);
+
+    /// @dev Emitted when a user withdrawed Taiko token from this contract.
+    event TokenWithdrawn(uint256 amount);
+
+    /// @dev Emitted when Taiko token are credited  to the user's in-protocol
+    /// balance.
+    event TokenCredited(uint256 amount, bool minted);
+
+    /// @dev Emitted when Taiko token are debited from the user's in-protocol
+    /// balance.
+    event TokenDebited(uint256 amount, bool fromLocalBalance);
+
+    /// @dev Emitted when the owner withdrawn Taiko token from this contract.
+    event TokenWithdrawnByOwner(address to, uint256 amount);
 }

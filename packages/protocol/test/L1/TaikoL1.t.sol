@@ -24,7 +24,7 @@ contract TaikoL1_NoCooldown is TaikoL1 {
         config.blockMaxVerificationsPerTx = 0;
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 12;
-        config.assignmentBond = 1e18; // 1 Taiko token
+        config.livenessBond = 1e18; // 1 Taiko token
         config.proposerRewardPerSecond = 1e15; // 0.001 Taiko token
     }
 }
@@ -79,7 +79,8 @@ contract TaikoL1Test is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 L1.getBlock(meta.id).minTier,
-                ""
+                "",
+                false
             );
             vm.roll(block.number + 15 * 12);
 
@@ -122,7 +123,8 @@ contract TaikoL1Test is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 L1.getBlock(meta.id).minTier,
-                ""
+                "",
+                false
             );
             vm.roll(block.number + 15 * 12);
             uint16 minTier = L1.getBlock(meta.id).minTier;
@@ -164,7 +166,8 @@ contract TaikoL1Test is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 L1.getBlock(meta.id).minTier,
-                ""
+                "",
+                false
             );
             parentHash = blockHash;
         }
@@ -281,7 +284,8 @@ contract TaikoL1Test is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 L1.getBlock(meta.id).minTier,
-                ""
+                "",
+                false
             );
 
             vm.roll(block.number + 15 * 12);

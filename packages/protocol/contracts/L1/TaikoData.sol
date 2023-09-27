@@ -42,8 +42,8 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // Group 3: Proof related configs
         // ---------------------------------------------------------------------
-        // The amount of Taiko token as a zk proof bond
-        uint96 assignmentBond;
+        // The amount of Taiko token as a prover liveness bond
+        uint96 livenessBond;
         // ---------------------------------------------------------------------
         // Group 4: ETH deposit related configs
         // ---------------------------------------------------------------------
@@ -98,6 +98,7 @@ library TaikoData {
         uint64 timestamp;
         uint64 l1Height;
         uint32 gasLimit;
+        address coinbase; // L2 coinbase
         TaikoData.EthDeposit[] depositsProcessed;
     }
 
@@ -119,7 +120,7 @@ library TaikoData {
         bytes32 blockHash; // slot 2
         bytes32 signalRoot; // slot 3
         address prover; // slot 4
-        uint96 proofBond;
+        uint96 validityBond;
         address contester; // slot 5
         uint96 contestBond;
         uint64 timestamp; // slot 6 (82 bits)
@@ -132,7 +133,7 @@ library TaikoData {
     struct Block {
         bytes32 metaHash; // slot 1
         address assignedProver; // slot 2
-        uint96 assignmentBond;
+        uint96 livenessBond;
         uint64 blockId; // slot 3
         uint64 proposedAt;
         uint32 nextTransitionId;
@@ -192,7 +193,7 @@ library TaikoData {
         mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256)
             ethDeposits;
         // In-protocol Taiko token balances
-        mapping(address account => uint256 balance) taikoTokenBalances;
+        mapping(address account => uint256 balance) tokenBalances;
         SlotA slotA; // slot 6
         SlotB slotB; // slot 7
         uint256[143] __gap;

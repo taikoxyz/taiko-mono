@@ -144,13 +144,23 @@ contract TaikoL1 is
     /// @notice Deposit Taiko token to this contract
     /// @param amount Amount of Taiko token to deposit.
     function depositTaikoToken(uint256 amount) public {
-        LibTaikoToken.depositTaikoToken(state, AddressResolver(this), amount);
+        LibTaikoToken.depositToken(state, AddressResolver(this), amount);
     }
 
     /// @notice Withdraw Taiko token from this contract
     /// @param amount Amount of Taiko token to withdraw.
     function withdrawTaikoToken(uint256 amount) public {
-        LibTaikoToken.withdrawTaikoToken(state, AddressResolver(this), amount);
+        LibTaikoToken.withdrawToken(state, AddressResolver(this), amount);
+    }
+
+    function ownerWithdrawTaikoToken(
+        address to,
+        uint256 amount
+    )
+        public
+        onlyOwner
+    {
+        LibTaikoToken.ownerWithdrawToken(AddressResolver(this), to, amount);
     }
 
     /// @notice Deposits Ether to Layer 2.
@@ -247,7 +257,7 @@ contract TaikoL1 is
     /// @param user The user.
     /// @return The user's Taiko token balance.
     function getTaikoTokenBalance(address user) public view returns (uint256) {
-        return state.taikoTokenBalances[user];
+        return state.tokenBalances[user];
     }
 
     /// @notice Retrieves the configuration for a specified tier.
@@ -307,7 +317,7 @@ contract TaikoL1 is
             blockMaxTxListBytes: 120_000,
             proposerRewardPerSecond: 25e16, // 0.25 Taiko token
             proposerRewardMax: 32e18, // 32 Taiko token
-            assignmentBond: 10_240e18,
+            livenessBond: 10_240e18,
             ethDepositRingBufferSize: 1024,
             ethDepositMinCountPerBlock: 8,
             ethDepositMaxCountPerBlock: 32,

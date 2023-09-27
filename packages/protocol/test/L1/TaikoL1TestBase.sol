@@ -12,8 +12,8 @@ import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
 import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
 import { GuardianVerifier } from
     "../../contracts/L1/verifiers/GuardianVerifier.sol";
-import { OPL2ConfigProvider } from
-    "../../contracts/L1/tiers/OPL2ConfigProvider.sol";
+import { OptimisticRollupConfigProvider } from
+    "../../contracts/L1/tiers/OptimisticRollupConfigProvider.sol";
 import { PseZkVerifier } from "../../contracts/L1/verifiers/PseZkVerifier.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { StringsUpgradeable as Strings } from
@@ -36,7 +36,7 @@ abstract contract TaikoL1TestBase is TestBase {
     uint256 internal logCount;
     PseZkVerifier public pv;
     GuardianVerifier public gv;
-    OPL2ConfigProvider public cp;
+    OptimisticRollupConfigProvider public cp;
 
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
     // 1 TKO --> it is to huge. It should be in 'wei' (?).
@@ -71,7 +71,7 @@ abstract contract TaikoL1TestBase is TestBase {
         gv = new GuardianVerifier();
         gv.init(address(addressManager));
 
-        cp = new OPL2ConfigProvider();
+        cp = new OptimisticRollupConfigProvider();
 
         registerAddress("tier_pse_zkevm", address(pv));
         registerAddress("tier_guardian", address(gv));
@@ -119,13 +119,15 @@ abstract contract TaikoL1TestBase is TestBase {
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
-        TaikoData.TierFee[] memory tierFees = new TaikoData.TierFee[](2);
+        TaikoData.TierFee[] memory tierFees = new TaikoData.TierFee[](3);
         // Register the tier fees
-        // Based on OPL2ConfigTier we need 2:
+        // Based on OPL2ConfigTier we need 3:
         // - LibTiers.TIER_PSE_ZKEVM;
         // - LibTiers.TIER_OPTIMISTIC;
+        // - LibTiers.TIER_GUARDIAN;
         tierFees[0] = TaikoData.TierFee(LibTiers.TIER_OPTIMISTIC, 1 ether);
-        tierFees[1] = TaikoData.TierFee(LibTiers.TIER_OPTIMISTIC, 2 ether);
+        tierFees[1] = TaikoData.TierFee(LibTiers.TIER_PSE_ZKEVM, 2 ether);
+        tierFees[2] = TaikoData.TierFee(LibTiers.TIER_GUARDIAN, 0 ether);
         // For the test not to fail, set the message.value to the highest, the
         // rest will be returned
         // anyways
@@ -173,7 +175,8 @@ abstract contract TaikoL1TestBase is TestBase {
         bytes32 blockHash,
         bytes32 signalRoot,
         uint16 tier,
-        bytes4 revertReason
+        bytes4 revertReason,
+        bool unprovable
     )
         internal
     {
@@ -201,6 +204,11 @@ abstract contract TaikoL1TestBase is TestBase {
 
         if (tier == LibTiers.TIER_GUARDIAN) {
             evidence.proof = "";
+
+            if (unprovable) {
+                evidence.proof =
+                    bytes.concat(bytes32(keccak256("RETURN_LIVENESS_BOND")));
+            }
         }
 
         if (revertReason != "") {

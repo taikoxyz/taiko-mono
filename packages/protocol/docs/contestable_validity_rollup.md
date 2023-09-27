@@ -6,9 +6,9 @@ For a given block, a transition can be uniquely identified by its _parent hash_.
 
 - **The First Transition**: Refers to the transition with ID = 1.
 
-- **Assignment Bond**: The bond provided by a block's assigned prover, serving as a commitment to initially prove the first transition and to provide post-contest proofs within the corresponding proving window.
+- **Liveness Bond**: The bond provided by a block's assigned prover, serving as a commitment to initially prove the first transition and to provide post-contest proofs within the corresponding proving window.
 
-- **Proof Bond**: The bond provided by the actual prover of a proof, signifying their commitment that the proof is indeed correct and that they are ready to withstand a contest.
+- **Validity Bond**: The bond provided by the actual prover of a proof, signifying their commitment that the proof is indeed correct and that they are ready to withstand a contest.
 
 - **Contest Bond**: The bond provided by the contester.
 
@@ -24,25 +24,25 @@ After a block is contested, it's eligible to be re-proven using a higher-tier pr
 
 Each tier is associated with a distinct proving window. Generally, it's advisable for provers to opt for a lower-tier proof when feasible, as choosing a higher-tier proof, despite its acceptability, might not be the most efficient or profitable choice.
 
-## Proof Bonds and Contest Bonds
+## Validity Bonds and Contest Bonds
 
-Each tier mandates two values: a _proof bond_ and a _contest bond_.
+Each tier mandates two values: a _validity bond_ and a _contest bond_.
 
-Submitting a tier-N proof necessitates depositing a tier-N proof bond into the transition. If a subsequent higher-tier proof invalidates this transition, the bond is burned. Conversely, contesting a tier-N transition requires a contester to deposit the respective contest bond, which is forfeited if the contest is wrong.
+Submitting a tier-N proof necessitates depositing a tier-N validity bond into the transition. If a subsequent higher-tier proof invalidates this transition, the bond is burned. Conversely, contesting a tier-N transition requires a contester to deposit the respective contest bond, which is forfeited if the contest is wrong.
 
 ### Contest Bond Configuration
 
-To determine the size of the contest bond in relation to the proof bond, a few considerations come into play:
+To determine the size of the contest bond in relation to the validity bond, a few considerations come into play:
 
 1. **Tier Differences:** As we move up the tiers, the assumed trustworthiness of proofs increases. Given this, contests against higher tiers should necessitate larger bonds, reflecting the increased certainty and reliability of these tiers. A contest against a high-tier transition asserts that a major flaw exists in a supposedly secure tier, and so the bond should match this gravity.
 
-2. **Optimistic (tier-1):** Given that tier-1 is an optimistic assertion without a proof, it's logical for its contest bond to be equal to its proof bond. This recognizes the provisional nature of such transitions and ensures that contests are neither discouraged nor incentivized excessively.
+2. **Optimistic (tier-1):** Given that tier-1 is an optimistic assertion without a proof, it's logical for its contest bond to be equal to its validity bond. This recognizes the provisional nature of such transitions and ensures that contests are neither discouraged nor incentivized excessively.
 
 In essence, the size of the contest bond should mirror the risk and certainty levels associated with the proofs and contests in each tier.
 
 ## Re-proving a Transition
 
-Consider Alice proves a transition with a $10,000 bond, and Bob contests it with a bond of $20,000. Now, Cindy can prove this transition with a proof bond of $5,000.
+Consider Alice proves a transition with a $10,000 bond, and Bob contests it with a bond of $20,000. Now, Cindy can prove this transition with a validity bond of $5,000.
 
 **If Cindy's proof upholds Alice:**
 
@@ -86,7 +86,7 @@ To exemplify, given the accepted rationale, the bond distribution dynamics would
 
 From an engineering standpoint, this approach of erasing prior proving impacts streamlines the implementation and reduces code complexity.
 
-Indeed, allowing a new prover to deposit a proof bond that's smaller than the potential reward from either the original prover or the contester is not viewed as a system flaw or bug. The rationale behind this is that the new proof is expected to be more trustworthy than the previous one.
+Indeed, allowing a new prover to deposit a validity bond that's smaller than the potential reward from either the original prover or the contester is not viewed as a system flaw or bug. The rationale behind this is that the new proof is expected to be more trustworthy than the previous one.
 
 ## Prover Fees
 

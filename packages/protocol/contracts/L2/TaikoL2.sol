@@ -279,12 +279,12 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         inputs[255] = bytes32(block.chainid);
 
         assembly {
-            prevPIH := keccak256(inputs, mul(256, 32))
+            prevPIH := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
 
         inputs[blockId % 255] = blockhash(blockId);
         assembly {
-            currPIH := keccak256(inputs, mul(256, 32))
+            currPIH := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
     }
 
