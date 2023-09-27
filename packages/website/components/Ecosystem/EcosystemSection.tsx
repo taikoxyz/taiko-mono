@@ -136,6 +136,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/izar.png",
+    name: "IZAR",
+    link: "https://izar.xyz/",
+    description:
+      "IZAR is a privacy-preserving interoperability protocol between Ethereum and Aleo ecosystem, harnessing the power of zero-knowledge cryptography to protect user privacy and security.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/metamerge.png",
     name: "Meta Merge",
     link: "https://taiko-match3.metamerge.xyz/",
@@ -239,6 +248,15 @@ const ecosystemData: EcosystemData[] = [
     link: "https://omnikingdoms.io",
     description:
       "MMORPG focused on state transitions and asset evolution. Train and level up in order to quest, craft and battle!",
+    filters: [],
+    isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/omnisea.png",
+    name: "Omnisea",
+    link: "https://www.omnisea.org",
+    description:
+      "Omnisea is the first permissionless Omnichain NFT Launchpad and Bridge powered by LayerZero.",
     filters: [],
     isLive: true,
   },
