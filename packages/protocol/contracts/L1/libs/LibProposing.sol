@@ -236,7 +236,7 @@ library LibProposing {
         inputs[5] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
 
         assembly {
-            hash := keccak256(inputs, mul(6, 32))
+            hash := keccak256(inputs, 192 /*mul(6, 32)*/ )
         }
     }
 
