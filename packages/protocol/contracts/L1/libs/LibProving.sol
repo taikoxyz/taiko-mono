@@ -219,6 +219,15 @@ library LibProving {
                 revert L1_INVALID_EVIDENCE();
             }
 
+            if (
+                evidence.proof.length == 32
+                    && bytes32(evidence.proof) == keccak256("RETURN_LIVENESS_BOND")
+            ) {
+                LibTaikoToken.creditToken(
+                    state, resolver, blk.assignedProver, blk.livenessBond, false
+                );
+            }
+
             tran.blockHash = evidence.blockHash;
             tran.signalRoot = evidence.signalRoot;
             tran.prover = msg.sender;
