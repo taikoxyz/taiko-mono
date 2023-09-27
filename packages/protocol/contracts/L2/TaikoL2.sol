@@ -79,6 +79,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     error L2_INVALID_SENDER();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
+    error L2_UNATHORIZED();
 
     // Currently the contract has no owner (since pre-deplyoed contract) - hence
     // the onlyOwner of OwnableUpgradeable cannot be called. This is a temporary
@@ -86,8 +87,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     // It can be upgraded with proxy upgrade then.
     modifier ownerOnly() {
         if (msg.sender != 0x19B4F9C381C7927FE33D853e48b560141A380C44) {
-            revert OwnableUnauthorizedAccount(msg.sender);
+            revert L2_UNATHORIZED();
         }
+        _;
     }
 
     /// @notice Initializes the TaikoL2 contract.
