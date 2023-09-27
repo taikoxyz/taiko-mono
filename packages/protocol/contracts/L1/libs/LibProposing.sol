@@ -125,26 +125,28 @@ library LibProposing {
         // the block data to be stored on-chain for future integrity checks.
         // If we choose to persist all data fields in the metadata, it will
         // require additional storage slots.
-        meta.l1Hash = blockhash(meta.l1Height);
-
-        // Following the Merge, the L1 mixHash incorporates the prevrandao
-        // value from the beacon chain. Given the possibility of multiple
-        // Taiko blocks being proposed within a single Ethereum block, we
-        // must introduce a salt to this random number as the L2 mixHash.
         unchecked {
-            meta.mixHash = bytes32(block.prevrandao * b.numBlocks);
-            meta.l1Height = uint64(block.number - 1);
+            meta = TaikoData.BlockMetadata({
+                l1Hash: blockhash(block.number - 1),
+                // Following the Merge, the L1 mixHash incorporates the
+                // prevrandao value from the beacon chain. Given the possibility
+                // of multiple Taiko blocks being proposed within a single
+                // Ethereum block, we must introduce a salt to this random
+                // number as the L2 mixHash.
+                mixHash: bytes32(block.prevrandao * b.numBlocks),
+                txListHash: txListHash,
+                id: b.numBlocks,
+                timestamp: uint64(block.timestamp),
+                l1Height: uint64(block.number - 1),
+                gasLimit: config.blockMaxGasLimit,
+                coinbase: msg.sender,
+                // Each transaction must handle a specific quantity of L1-to-L2
+                // Ether deposits.
+                depositsProcessed: LibDepositing.processDeposits(
+                    state, config, msg.sender
+                    )
+            });
         }
-
-        meta.txListHash = txListHash;
-        meta.id = b.numBlocks;
-        meta.timestamp = uint64(block.timestamp);
-        meta.gasLimit = config.blockMaxGasLimit;
-
-        // Each transaction must handle a specific quantity of L1-to-L2
-        // Ether deposits.
-        meta.depositsProcessed =
-            LibDepositing.processDeposits(state, config, msg.sender);
 
         // Now, it's essential to initialize the block that will be stored
         // on L1. We should aim to utilize as few storage slots as possible,
@@ -224,16 +226,17 @@ library LibProposing {
         pure
         returns (bytes32 hash)
     {
-        uint256[5] memory inputs;
+        uint256[6] memory inputs;
         inputs[0] = uint256(meta.l1Hash);
         inputs[1] = uint256(meta.mixHash);
         inputs[2] = uint256(meta.txListHash);
         inputs[3] = (uint256(meta.id)) | (uint256(meta.timestamp) << 64)
             | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 192);
-        inputs[4] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
+        inputs[4] = uint256(uint160(meta.coinbase));
+        inputs[5] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
 
         assembly {
-            hash := keccak256(inputs, mul(5, 32))
+            hash := keccak256(inputs, 192 /*mul(6, 32)*/ )
         }
     }
 
