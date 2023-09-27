@@ -142,13 +142,6 @@ library TaikoData {
         bytes32[7] __reserved;
     }
 
-    /// @dev Struct representing information about a transaction list.
-    /// 1 slot used.
-    struct TxListInfo {
-        uint64 validSince;
-        uint24 size;
-    }
-
     /// @dev Struct representing an Ethereum deposit.
     /// 1 slot used.
     struct EthDeposit {
