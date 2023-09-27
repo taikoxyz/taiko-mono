@@ -12,8 +12,8 @@ import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
 import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
 import { GuardianVerifier } from
     "../../contracts/L1/verifiers/GuardianVerifier.sol";
-import { OPL2ConfigProvider } from
-    "../../contracts/L1/tiers/OPL2ConfigProvider.sol";
+import { OptimisticRollupConfigProvider } from
+    "../../contracts/L1/tiers/OptimisticRollupConfigProvider.sol";
 import { PseZkVerifier } from "../../contracts/L1/verifiers/PseZkVerifier.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { StringsUpgradeable as Strings } from
@@ -36,7 +36,7 @@ abstract contract TaikoL1TestBase is TestBase {
     uint256 internal logCount;
     PseZkVerifier public pv;
     GuardianVerifier public gv;
-    OPL2ConfigProvider public cp;
+    OptimisticRollupConfigProvider public cp;
 
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
     // 1 TKO --> it is to huge. It should be in 'wei' (?).
@@ -71,7 +71,7 @@ abstract contract TaikoL1TestBase is TestBase {
         gv = new GuardianVerifier();
         gv.init(address(addressManager));
 
-        cp = new OPL2ConfigProvider();
+        cp = new OptimisticRollupConfigProvider();
 
         registerAddress("tier_pse_zkevm", address(pv));
         registerAddress("tier_guardian", address(gv));

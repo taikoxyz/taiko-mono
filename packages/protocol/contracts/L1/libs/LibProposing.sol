@@ -139,7 +139,7 @@ library LibProposing {
                 timestamp: uint64(block.timestamp),
                 l1Height: uint64(block.number - 1),
                 gasLimit: config.blockMaxGasLimit,
-                proposer: msg.sender,
+                coinbase: msg.sender,
                 // Each transaction must handle a specific quantity of L1-to-L2
                 // Ether deposits.
                 depositsProcessed: LibDepositing.processDeposits(
@@ -232,11 +232,11 @@ library LibProposing {
         inputs[2] = uint256(meta.txListHash);
         inputs[3] = (uint256(meta.id)) | (uint256(meta.timestamp) << 64)
             | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 192);
-        inputs[4] = uint256(uint160(meta.proposer));
+        inputs[4] = uint256(uint160(meta.coinbase));
         inputs[5] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
-
         assembly {
-            hash := keccak256(inputs, mul(6, 32))
+            hash := keccak256(inputs, 192 /*mul(6, 32)*/ )
+
         }
     }
 
