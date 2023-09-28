@@ -117,14 +117,18 @@ contract TestLib1559Math is TestBase {
             totalGas += gasUsed;
         }
 
-        uint256 baseFee = 10 * 1_000_000_000; // 10 Gwei
+        uint256 baseFeePerGas = 10 * 1_000_000_000; // 10 Gwei
         uint256 blockGasTarget = totalGas / n;
         console2.log("blockGasTarget", blockGasTarget);
 
         for (uint64 i = 0; i < n; i++) {
             uint32 gasUsed = data[i];
-            baseFee = Lib1559Math.calcBaseFee(baseFee, gasUsed, blockGasTarget);
-            console2.log("gasUsed:", gasUsed, " => baseFee:", baseFee);
+            baseFeePerGas = Lib1559Math.calcBaseFeePerGas(
+                baseFeePerGas, gasUsed, blockGasTarget
+            );
+            console2.log(
+                "gasUsed:", gasUsed, " => baseFeePerGas:", baseFeePerGas
+            );
         }
     }
 }
