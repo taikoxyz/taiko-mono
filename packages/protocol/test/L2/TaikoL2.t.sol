@@ -7,17 +7,11 @@ import { SafeCastUpgradeable } from "@ozu/utils/math/SafeCastUpgradeable.sol";
 import { TestBase } from "../TestBase.sol";
 import { TaikoL2 } from "../../contracts/L2/TaikoL2.sol";
 
-contract TaikoL2CustomConfig is TaikoL2 {
-    function getEIP1559Config()
-        public
-        pure
-        override
-        returns (EIP1559Config memory config)
-    {
-        config.xscale = 17_617_968_667;
-        config.yscale = 7_867_664_977_129_350_145_899_915_356_087;
-        config.gasIssuedPerSecond = 1_000_000;
-        config.gasExcessMax = 7_680_000_000;
+contract TaikoL2NoBaseFeeCheck is TaikoL2 {
+    function getConfig() public pure override returns (Config memory config) {
+        config.blockGasTarget = 20_000_000;
+        config.minBaseFee = 1_000_000_000 / 10_000; // 1/10000 Gwei;
+        config.checkBaseFee = false;
     }
 }
 
@@ -25,98 +19,59 @@ contract TestTaikoL2 is TestBase {
     using SafeCastUpgradeable for uint256;
 
     // same as `block_gas_limit` in foundry.toml
-    uint32 public constant BLOCK_GAS_LIMIT = 30_000_000;
+    uint32 public constant GAS_USED = 30_000_000;
 
     TaikoL2 public L2;
-    uint256 private logIndex;
 
     function setUp() public {
-        L2 = new TaikoL2CustomConfig();
+        L2 = new TaikoL2NoBaseFeeCheck();
         address dummyAddressManager = getRandomAddress();
-        L2.init(dummyAddressManager);
+        uint64 basefee = 10 * 1_000_000_000; // 10 Gwei
+        L2.init(dummyAddressManager, basefee);
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);
     }
 
-    function test_L2_AnchorTx_with_constant_block_time() external {
-        uint256 firstBasefee;
-        for (uint256 i = 0; i < 100; i++) {
-            uint256 basefee = _getBasefeeAndPrint2(0, BLOCK_GAS_LIMIT);
-            vm.fee(basefee);
-
-            if (firstBasefee == 0) {
-                firstBasefee = basefee;
-            } else {
-                assertEq(firstBasefee, basefee);
-            }
-
+    function test_L2_AnchorTxs() external {
+        for (uint256 i = 0; i < 5; i++) {
             vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
-            _anchor(BLOCK_GAS_LIMIT);
-
+            _anchor(GAS_USED);
             vm.roll(block.number + 1);
             vm.warp(block.timestamp + 30);
         }
     }
 
-    function test_L2_AnchorTx_with_decreasing_block_time() external {
-        uint256 prevBasefee;
-
-        for (uint256 i = 0; i < 32; i++) {
-            uint256 basefee = _getBasefeeAndPrint2(0, BLOCK_GAS_LIMIT);
-            vm.fee(basefee);
-
-            assertGe(basefee, prevBasefee);
-            prevBasefee = basefee;
-
-            vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
-            _anchor(BLOCK_GAS_LIMIT);
-
-            vm.roll(block.number + 1);
-            vm.warp(block.timestamp + 30 - i);
-        }
-    }
-
-    function test_L2_AnchorTx_with_increasing_block_time() external {
-        uint256 prevBasefee;
-
-        for (uint256 i = 0; i < 30; i++) {
-            uint256 basefee = _getBasefeeAndPrint2(0, BLOCK_GAS_LIMIT);
-            vm.fee(basefee);
-
-            if (prevBasefee != 0) {
-                assertLe(basefee, prevBasefee);
-            }
-            prevBasefee = basefee;
-
-            vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
-            _anchor(BLOCK_GAS_LIMIT);
-
-            vm.roll(block.number + 1);
-
-            vm.warp(block.timestamp + 30 + i);
-        }
-    }
-
     // calling anchor in the same block more than once should fail
     function test_L2_AnchorTx_revert_in_same_block() external {
-        uint256 expectedBasefee = _getBasefeeAndPrint2(0, BLOCK_GAS_LIMIT);
-        vm.fee(expectedBasefee);
-
         vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
-        _anchor(BLOCK_GAS_LIMIT);
+        _anchor(GAS_USED);
 
         vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
         vm.expectRevert(); // L2_PUBLIC_INPUT_HASH_MISMATCH
-        _anchor(BLOCK_GAS_LIMIT);
+        _anchor(GAS_USED);
+    }
+
+    // skip over a block without Anchor will also fail
+    function test_L2_AnchorTx_revert_if_skip_anchor() external {
+        vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
+        _anchor(GAS_USED);
+
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 30);
+
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 30);
+
+        vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
+        vm.expectRevert(); // L2_PUBLIC_INPUT_HASH_MISMATCH
+        _anchor(GAS_USED);
     }
 
     // calling anchor in the same block more than once should fail
     function test_L2_AnchorTx_revert_from_wrong_signer() external {
-        uint256 expectedBasefee = _getBasefeeAndPrint2(0, BLOCK_GAS_LIMIT);
-        vm.fee(expectedBasefee);
         vm.expectRevert();
-        _anchor(BLOCK_GAS_LIMIT);
+        _anchor(GAS_USED);
     }
 
     function test_L2_AnchorTx_signing(bytes32 digest) external {
@@ -135,73 +90,9 @@ contract TestTaikoL2 is TestBase {
         L2.signAnchor(digest, uint8(3));
     }
 
-    function test_L2_getBasefee() external {
-        TaikoL2.EIP1559Config memory config = L2.getEIP1559Config();
-        console2.log(config.xscale);
-        console2.log(config.yscale);
-        console2.log(config.gasIssuedPerSecond);
-
-        assertEq(_getBasefeeAndPrint(block.timestamp, 0), 317_609_019);
-        assertEq(_getBasefeeAndPrint(block.timestamp + 100, 0), 54_544_902);
-        assertEq(_getBasefeeAndPrint(block.timestamp + 10_000, 0), 1);
-    }
-
-    function _getBasefeeAndPrint(
-        uint256 currentTimestamp,
-        uint32 parentGasUsed
-    )
-        private
-        returns (uint256 _basefee)
-    {
-        uint256 timeSinceParent = currentTimestamp - L2.parentTimestamp();
-        uint256 gasIssued =
-            L2.getEIP1559Config().gasIssuedPerSecond * timeSinceParent;
-
-        uint64 _gasExcess;
-        (_basefee, _gasExcess) =
-            L2.calcBaseFeeAndGasExcess(currentTimestamp, parentGasUsed);
-
-        assertTrue(_basefee != 0);
-
-        string memory _msg = string.concat(
-            "#",
-            Strings.toString(logIndex++),
-            ": gasExcess=",
-            Strings.toString(L2.gasExcess()),
-            ", timeSinceParent=",
-            Strings.toString(timeSinceParent),
-            ", gasIssued=",
-            Strings.toString(gasIssued),
-            ", parentGasUsed=",
-            Strings.toString(parentGasUsed)
-        );
-
-        _msg = string.concat(
-            _msg,
-            ", gasExcess(before)=",
-            Strings.toString(L2.gasExcess()),
-            ", gasExcess(after)=",
-            Strings.toString(_gasExcess),
-            ", basefee=",
-            Strings.toString(_basefee)
-        );
-
-        console2.log(_msg);
-    }
-
-    function _getBasefeeAndPrint2(
-        uint32 timeSinceNow,
-        uint32 gasLimit
-    )
-        private
-        returns (uint256 _basefee)
-    {
-        return _getBasefeeAndPrint(block.timestamp + timeSinceNow, gasLimit);
-    }
-
-    function _anchor(uint32 parentGasLimit) private {
+    function _anchor(uint32 parentGasUsed) private {
         bytes32 l1Hash = getRandomBytes32();
         bytes32 l1SignalRoot = getRandomBytes32();
-        L2.anchor(l1Hash, l1SignalRoot, 12_345, parentGasLimit);
+        L2.anchor(l1Hash, l1SignalRoot, 12_345, parentGasUsed);
     }
 }

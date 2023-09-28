@@ -10,9 +10,9 @@ import { EssentialContract } from "../common/EssentialContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { Proxied } from "../common/Proxied.sol";
 
-import { Lib1559Math } from "../libs/Lib1559Math.sol";
 import { LibMath } from "../libs/LibMath.sol";
 
+import { LibEIP1559 } from "./LibEIP1559.sol";
 import { TaikoL2Signer } from "./TaikoL2Signer.sol";
 
 /// @title TaikoL2
@@ -29,11 +29,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         bytes32 signalRoot;
     }
 
-    struct EIP1559Config {
-        uint128 xscale;
-        uint128 yscale;
-        uint32 gasIssuedPerSecond;
-        uint64 gasExcessMax;
+    struct Config {
+        uint32 blockGasTarget;
+        uint64 minBaseFee;
+        bool checkBaseFee;
     }
 
     // Mapping from L2 block numbers to their block hashes.
@@ -43,9 +42,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     // A hash to check the integrity of public inputs.
     bytes32 public publicInputHash; // slot 3
-    uint64 public parentTimestamp; // slot 4
-    uint64 public latestSyncedL1Height;
-    uint64 public gasExcess;
+    uint64 public latestSyncedL1Height; // slot 4
+    uint64 public basefee;
 
     uint256[146] private __gap;
 
@@ -63,7 +61,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     );
 
     error L2_BASEFEE_MISMATCH();
-    error L2_INVALID_1559_PARAMS();
+    error L2_INVALID_BASEFEE();
     error L2_INVALID_CHAIN_ID();
     error L2_INVALID_SENDER();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
@@ -71,7 +69,13 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     /// @notice Initializes the TaikoL2 contract.
     /// @param _addressManager Address of the {AddressManager} contract.
-    function init(address _addressManager) external initializer {
+    function init(
+        address _addressManager,
+        uint64 _basefee
+    )
+        external
+        initializer
+    {
         EssentialContract._init(_addressManager);
 
         if (block.chainid <= 1 || block.chainid >= type(uint64).max) {
@@ -79,10 +83,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         }
         if (block.number > 1) revert L2_TOO_LATE();
 
-        parentTimestamp = uint64(block.timestamp);
-        (publicInputHash,) = _calcPublicInputHash(block.number);
+        Config memory config = getConfig();
+        if (_basefee < config.minBaseFee) revert L2_INVALID_BASEFEE();
+        basefee = _basefee;
 
-        gasExcess = getEIP1559Config().gasExcessMax / 2;
+        (publicInputHash,,) = _calcPublicInputHash(block.number);
 
         if (block.number > 0) {
             uint256 parentHeight = block.number - 1;
@@ -105,52 +110,53 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     )
         external
     {
-        if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
+        unchecked {
+            // Check the message sender must be the protocol specific golden
+            // touch
+            // address.
+            if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
 
-        uint256 parentHeight = block.number - 1;
-        bytes32 parentHash = blockhash(parentHeight);
+            // Verify the base fee is correct
+            Config memory config = getConfig();
+            basefee = calcBaseFee(basefee, parentGasUsed, config);
+            if (config.checkBaseFee && block.basefee != basefee) {
+                revert L2_BASEFEE_MISMATCH();
+            }
 
-        (bytes32 prevPIH, bytes32 currPIH) = _calcPublicInputHash(parentHeight);
+            (
+                bytes32 _publicInputHash,
+                bytes32 _publicInputHashNew,
+                bytes32 _parentHash
+            ) = _calcPublicInputHash(block.number - 1);
 
-        if (publicInputHash != prevPIH) {
-            revert L2_PUBLIC_INPUT_HASH_MISMATCH();
+            // Verify the 256 ancestor block hashes match our record
+            if (publicInputHash != _publicInputHash) {
+                revert L2_PUBLIC_INPUT_HASH_MISMATCH();
+            }
+
+            // Replace the oldest block hash with the parent's blockhash
+            publicInputHash = _publicInputHashNew;
+
+            // Update other state data
+            _l2Hashes[block.number - 1] = _parentHash;
+            latestSyncedL1Height = l1Height;
+            _l1VerifiedBlocks[l1Height] = VerifiedBlock(l1Hash, l1SignalRoot);
+
+            // We emit this event so circuits can grab its data to verify block
+            // variables.
+            emit Anchored({
+                number: uint64(block.number),
+                basefee: basefee,
+                gaslimit: uint32(block.gaslimit),
+                timestamp: uint64(block.timestamp),
+                parentHash: _parentHash,
+                prevrandao: block.prevrandao,
+                coinbase: block.coinbase,
+                chainid: uint64(block.chainid)
+            });
+
+            emit CrossChainSynced(l1Height, l1Hash, l1SignalRoot);
         }
-
-        // Replace the oldest block hash with the parent's blockhash
-        publicInputHash = currPIH;
-        _l2Hashes[parentHeight] = parentHash;
-
-        latestSyncedL1Height = l1Height;
-        _l1VerifiedBlocks[l1Height] = VerifiedBlock(l1Hash, l1SignalRoot);
-
-        emit CrossChainSynced(l1Height, l1Hash, l1SignalRoot);
-
-        // On L2, basefee is not burnt, but sent to a treasury instead.
-        // The circuits will need to verify the basefee recipient is the
-        // designated address.
-        (uint64 _basefee, uint64 _gasExcess) =
-            calcBaseFeeAndGasExcess(block.timestamp, parentGasUsed);
-        if (block.basefee != _basefee) {
-            revert L2_BASEFEE_MISMATCH();
-        }
-
-        gasExcess = _gasExcess;
-        parentTimestamp = uint64(block.timestamp);
-
-        // We emit this event so circuits can grab its data to verify block
-        // variables.
-        // If plonk lookup table already has all these data, we can still use
-        // this event for debugging purpose.
-        emit Anchored({
-            number: uint64(block.number),
-            basefee: _basefee,
-            gaslimit: uint32(block.gaslimit),
-            timestamp: uint64(block.timestamp),
-            parentHash: parentHash,
-            prevrandao: block.prevrandao,
-            coinbase: block.coinbase,
-            chainid: uint64(block.chainid)
-        });
     }
 
     /// @inheritdoc ICrossChainSync
@@ -189,61 +195,44 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         }
     }
 
-    /// @notice Cauclates the EIP-1559 configurations.
-    function calcEIP1559Config(
-        uint64 basefee,
-        uint32 gasIssuedPerSecond,
-        uint64 gasExcessMax,
-        uint64 gasTarget,
-        uint64 ratio2x1x
+    function calcBaseFee(
+        uint256 prevBaseFee,
+        uint32 gasUsed,
+        Config memory config
     )
         public
         pure
-        returns (EIP1559Config memory config)
+        returns (uint64)
     {
-        if (
-            gasIssuedPerSecond == 0 || basefee == 0 || gasExcessMax == 0
-                || gasTarget == 0 || ratio2x1x == 0
-        ) revert L2_INVALID_1559_PARAMS();
-
-        (config.xscale, config.yscale) = Lib1559Math.calculateScales({
-            xExcessMax: gasExcessMax,
-            price: basefee,
-            target: gasTarget,
-            ratio2x1x: ratio2x1x
-        });
-
-        if (config.xscale == 0 || config.yscale == 0) {
-            revert L2_INVALID_1559_PARAMS();
+        uint256 _baseFee =
+            LibEIP1559.basefee(prevBaseFee, gasUsed, config.blockGasTarget);
+        if (_baseFee < config.minBaseFee) {
+            _baseFee = config.minBaseFee;
         }
-        config.gasIssuedPerSecond = gasIssuedPerSecond;
+        return uint64(_baseFee.min(type(uint64).max));
     }
 
-    /// @notice Returns the current EIP-1559 configuration details.
-    /// @return config The current EIP-1559 configuration details.
-    function getEIP1559Config()
-        public
-        pure
-        virtual
-        returns (EIP1559Config memory config)
-    {
-        // The following values are caculated in TestTaikoL2_1559.sol.
-        config.xscale = 1_488_514_844;
-        config.yscale = 358_298_803_609_133_338_138_868_404_779;
-        config.gasIssuedPerSecond = 12_500_000;
-        config.gasExcessMax = 90_900_000_000;
+    function getConfig() public pure virtual returns (Config memory config) {
+        config.blockGasTarget = 20_000_000;
+        config.minBaseFee = 1_000_000_000 / 10_000; // 1/10000 Gwei;
+        config.checkBaseFee = true;
     }
 
     function _calcPublicInputHash(uint256 blockId)
         private
         view
-        returns (bytes32 prevPIH, bytes32 currPIH)
+        returns (
+            bytes32 _publicInputHash,
+            bytes32 _publicInputHashNew,
+            bytes32 _parentHash
+        )
     {
+        // This is a ring buffer to hash the block hashes.
         bytes32[256] memory inputs;
 
         // Unchecked is safe because it cannot overflow.
         unchecked {
-            // Put the previous 255 blockhashes (excluding the parent's) into a
+            // Put the previous 255 block hashes (excluding the parent's) into a
             // ring buffer.
             for (uint256 i; i < 255 && blockId >= i + 1; ++i) {
                 uint256 j = blockId - i - 1;
@@ -254,55 +243,13 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         inputs[255] = bytes32(block.chainid);
 
         assembly {
-            prevPIH := keccak256(inputs, 8192 /*mul(256, 32)*/ )
+            _publicInputHash := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
 
-        inputs[blockId % 255] = blockhash(blockId);
+        _parentHash = blockhash(blockId);
+        inputs[blockId % 255] = _parentHash;
         assembly {
-            currPIH := keccak256(inputs, 8192 /*mul(256, 32)*/ )
-        }
-    }
-
-    function calcBaseFeeAndGasExcess(
-        uint256 currentTimestamp,
-        uint32 parentGasUsed
-    )
-        public
-        view
-        returns (uint64 _basefee, uint64 _gasExcess)
-    {
-        EIP1559Config memory config = getEIP1559Config();
-        if (config.gasIssuedPerSecond == 0) {
-            _basefee = 1;
-            _gasExcess = gasExcess;
-        } else {
-            // Unchecked is safe because:
-            // - gasExcess is capped at uint64 max ever, so multiplying with a
-            // uint32 value is safe
-            // - 'excess' is bigger than 'issued'
-            unchecked {
-                uint256 issued = (currentTimestamp - parentTimestamp)
-                    * config.gasIssuedPerSecond;
-                uint256 excess =
-                    (uint256(gasExcess) + parentGasUsed).max(issued);
-                // Very important to cap gasExcess uint64
-                _gasExcess = uint64((excess - issued).min(type(uint64).max));
-            }
-
-            _basefee = uint64(
-                Lib1559Math.calculatePrice({
-                    xscale: config.xscale,
-                    yscale: config.yscale,
-                    xExcess: _gasExcess,
-                    xPurchase: 0
-                }).min(type(uint64).max)
-            );
-
-            // To make sure when EIP-1559 is enabled, the basefee is non-zero
-            // (Geth never uses 0 values for basefee)
-            if (_basefee == 0) {
-                _basefee = 1;
-            }
+            _publicInputHashNew := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
     }
 }
