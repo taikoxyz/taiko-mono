@@ -6,9 +6,9 @@
 
 pragma solidity ^0.8.20;
 
-library LibEIP1559 {
-    function basefee(
-        uint256 prevBaseFee,
+library Lib1559Math {
+    function calcBasefee(
+        uint256 prevBasefee,
         uint256 gasUsed,
         uint256 blockGasTarget
     )
@@ -19,6 +19,6 @@ library LibEIP1559 {
         // Formula:
         // base_fee * (1 + 1/8 * (block_gas_used / block_gas_target - 1))
         return
-            prevBaseFee * (gasUsed + blockGasTarget * 7) / (blockGasTarget * 8);
+            prevBasefee * (gasUsed + blockGasTarget * 7) / (blockGasTarget * 8);
     }
 }

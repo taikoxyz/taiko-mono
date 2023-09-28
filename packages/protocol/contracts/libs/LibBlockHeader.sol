@@ -25,7 +25,7 @@ struct BlockHeader {
     bytes extraData;
     bytes32 mixHash;
     uint64 nonce;
-    uint256 baseFeePerGas;
+    uint256 basefeePerGas;
     bytes32 withdrawalsRoot;
 }
 
@@ -60,7 +60,7 @@ library LibBlockHeader {
         if (header.withdrawalsRoot != 0) {
             // EIP-4895 transaction
             list = new bytes[](17 + extraCapacity);
-        } else if (header.baseFeePerGas != 0) {
+        } else if (header.basefeePerGas != 0) {
             // EIP-1559 transaction
             list = new bytes[](16 + extraCapacity);
         } else {
@@ -84,9 +84,9 @@ library LibBlockHeader {
         // According to the Ethereum yellow paper, we should treat `nonce`
         // as [8]byte when hashing the block.
         list[14] = LibRLPWriter.writeBytes(abi.encodePacked(header.nonce));
-        if (header.baseFeePerGas != 0) {
+        if (header.basefeePerGas != 0) {
             // EIP-1559 transaction
-            list[15] = LibRLPWriter.writeUint(header.baseFeePerGas);
+            list[15] = LibRLPWriter.writeUint(header.basefeePerGas);
         }
         if (header.withdrawalsRoot != 0) {
             // EIP-4895 transaction

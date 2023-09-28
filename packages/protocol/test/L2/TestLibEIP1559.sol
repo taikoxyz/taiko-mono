@@ -3,10 +3,10 @@ pragma solidity ^0.8.20;
 
 import { console2 } from "forge-std/console2.sol";
 import { TestBase } from "../TestBase.sol";
-import { LibEIP1559 } from "../../contracts/L2/LibEIP1559.sol";
+import { Lib1559Math } from "../../contracts/L2/Lib1559Math.sol";
 
-contract TestLibEIP1559 is TestBase {
-    function test_1559() external {
+contract TestLib1559Math is TestBase {
+    function test_1559() public view {
         uint24[100] memory data = [
             127_856,
             6_046_273,
@@ -117,14 +117,14 @@ contract TestLibEIP1559 is TestBase {
             totalGas += gasUsed;
         }
 
-        uint256 baseFee = 10 * 1_000_000_000; // 10 Gwei
+        uint256 basefee = 10 * 1_000_000_000; // 10 Gwei
         uint256 blockGasTarget = totalGas / n;
         console2.log("blockGasTarget", blockGasTarget);
 
         for (uint64 i = 0; i < n; i++) {
             uint32 gasUsed = data[i];
-            baseFee = LibEIP1559.basefee(baseFee, gasUsed, blockGasTarget);
-            console2.log("gasUsed:", gasUsed, " => basefee:", baseFee);
+            basefee = Lib1559Math.calcBasefee(basefee, gasUsed, blockGasTarget);
+            console2.log("gasUsed:", gasUsed, " => basefee:", basefee);
         }
     }
 }

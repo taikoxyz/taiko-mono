@@ -153,7 +153,7 @@ struct BlockHeader {
  bytes extraData;
  bytes32 mixHash;
  uint64 nonce;
- uint256 baseFeePerGas;
+ uint256 basefeePerGas;
  bytes32 withdrawalsRoot;
 }
 ```
@@ -172,7 +172,7 @@ In addition, ZKP must also prove the following:
 - `extraData` == "".
 - `mixHash` == `meta.mixHash`.
 - `nonce` == 0.
-- `baseFeePerGas` == `block.basefee`
+- `basefeePerGas` == `block.basefee`
 
 Note that some of the header field checks above are duplicates of checks done in the Global Variable section.
 

@@ -2,10 +2,10 @@
 
 This package contains rollup contracts on both L1 and L2, along with other assisting code. Taiko L2's chain ID is [167](https://github.com/ethereum-lists/chains/pull/1611).
 
-
 ## Compile
 
 To compile smart contracts, run:
+
 ```sh
 pnpm compile
 ```
@@ -49,7 +49,7 @@ Start by creating a `config.json`, for example:
     { "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39": 1024 },
     { "0x79fcdef22feed20eddacbb2587640e45491b757f": 1024 }
   ],
-  // L2 EIP-1559 baseFee calculation related fields.
+  // L2 EIP-1559 basefee calculation related fields.
   "param1559": {
     "yscale": "358298803609133338137582400989",
     "xscale": "1488514844",

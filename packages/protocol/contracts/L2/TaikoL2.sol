@@ -12,7 +12,7 @@ import { Proxied } from "../common/Proxied.sol";
 
 import { LibMath } from "../libs/LibMath.sol";
 
-import { LibEIP1559 } from "./LibEIP1559.sol";
+import { Lib1559Math } from "./Lib1559Math.sol";
 import { TaikoL2Signer } from "./TaikoL2Signer.sol";
 
 /// @title TaikoL2
@@ -31,8 +31,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     struct Config {
         uint32 blockGasTarget;
-        uint64 minBaseFee;
-        bool checkBaseFee;
+        uint64 minBasefee;
+        bool checkBasefee;
     }
 
     // Mapping from L2 block numbers to their block hashes.
@@ -84,7 +84,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         if (block.number > 1) revert L2_TOO_LATE();
 
         Config memory config = getConfig();
-        if (_basefee < config.minBaseFee) revert L2_INVALID_BASEFEE();
+        if (_basefee < config.minBasefee) revert L2_INVALID_BASEFEE();
         basefee = _basefee;
 
         (publicInputHash,,) = _calcPublicInputHash(block.number);
@@ -118,8 +118,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
             // Verify the base fee is correct
             Config memory config = getConfig();
-            basefee = calcBaseFee(basefee, parentGasUsed, config);
-            if (config.checkBaseFee && block.basefee != basefee) {
+            basefee = calcBasefee(basefee, parentGasUsed, config);
+            if (config.checkBasefee && block.basefee != basefee) {
                 revert L2_BASEFEE_MISMATCH();
             }
 
@@ -195,8 +195,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         }
     }
 
-    function calcBaseFee(
-        uint256 prevBaseFee,
+    function calcBasefee(
+        uint256 prevBasefee,
         uint32 gasUsed,
         Config memory config
     )
@@ -204,18 +204,18 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         pure
         returns (uint64)
     {
-        uint256 _baseFee =
-            LibEIP1559.basefee(prevBaseFee, gasUsed, config.blockGasTarget);
-        if (_baseFee < config.minBaseFee) {
-            _baseFee = config.minBaseFee;
+        uint256 _basefee =
+            Lib1559Math.calcBasefee(prevBasefee, gasUsed, config.blockGasTarget);
+        if (_basefee < config.minBasefee) {
+            _basefee = config.minBasefee;
         }
-        return uint64(_baseFee.min(type(uint64).max));
+        return uint64(_basefee.min(type(uint64).max));
     }
 
     function getConfig() public pure virtual returns (Config memory config) {
         config.blockGasTarget = 20_000_000;
-        config.minBaseFee = 1_000_000_000 / 10_000; // 1/10000 Gwei;
-        config.checkBaseFee = true;
+        config.minBasefee = 1_000_000_000 / 10_000; // 1/10000 Gwei;
+        config.checkBasefee = true;
     }
 
     function _calcPublicInputHash(uint256 blockId)
