@@ -100,6 +100,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.stopPrank();
     }
 
+    // TODO(david): David, could you help me fix this test? I don't have docker installed.
     function testTaikoL2() public {
         TaikoL2 taikoL2 = TaikoL2(getPredeployedContractAddress("TaikoL2Proxy"));
 
