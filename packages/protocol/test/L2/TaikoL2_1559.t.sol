@@ -23,8 +23,8 @@ contract TestTaikoL2_1559 is TestBase {
         // https://ultrasound.money/
         uint64 ethereumBasefeeNow = 28_000_000_000; // 28Gwei
 
-        uint32 gasIssuedPerSecond = 666_666; // We make gasIssuedPerSecond
-            // 8,000,000 / 12 = 666,666 gas/s
+        uint32 gasIssuedPerSecond = 2_000_000; // We make gasIssuedPerSecond
+            // 20,000,000 / 12 = 2,000,000 gas/s
 
         // Tune this number manually so ratio2x1x is ~112.5%.
         uint64 maxSeconds = 7272;
@@ -48,9 +48,9 @@ contract TestTaikoL2_1559 is TestBase {
         console2.log("ratio2x1x         :", param1559.ratio2x1x);
 
         // basefee           : 1120000000
-        // gasIssuedPerSecond: 666666
-        // gasExcessMax      : 4847995152
-        // gasTarget         : 7999992
+        // gasIssuedPerSecond: 2000000
+        // gasExcessMax      : 14544000000
+        // gasTarget         : 24000000
         // ratio2x1x         : 11250
 
         TaikoL2 L2 = new TaikoL2();
