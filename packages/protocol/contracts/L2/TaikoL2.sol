@@ -114,8 +114,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     {
         unchecked {
             // Check the message sender must be the protocol specific golden
-            // touch
-            // address.
+            // touch address.
             if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
 
             // Verify the base fee is correct
