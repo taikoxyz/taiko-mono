@@ -149,15 +149,15 @@ abstract contract TaikoL1TestBase is TestBase {
 
         TaikoData.StateVariables memory variables = L1.getStateVariables();
 
-        uint256 _mixHash;
+        uint256 _difficulty;
         unchecked {
-            _mixHash = block.prevrandao * variables.numBlocks;
+            _difficulty = block.prevrandao * variables.numBlocks;
         }
 
         meta.timestamp = uint64(block.timestamp);
         meta.l1Height = uint64(block.number - 1);
         meta.l1Hash = blockhash(block.number - 1);
-        meta.difficulty = bytes32(_mixHash);
+        meta.difficulty = bytes32(_difficulty);
         meta.txListHash = keccak256(txList);
         meta.gasLimit = gasLimit;
 
