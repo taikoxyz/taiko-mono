@@ -196,10 +196,7 @@ contract TestTaikoL2 is TestBase {
         private
         returns (uint256 _basefee)
     {
-        return _getBasefeeAndPrint(
-             block.timestamp+timeSinceNow,
-            gasLimit
-        );
+        return _getBasefeeAndPrint(block.timestamp + timeSinceNow, gasLimit);
     }
 
     function _anchor(uint32 parentGasLimit) private {
