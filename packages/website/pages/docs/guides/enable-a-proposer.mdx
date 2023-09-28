@@ -47,6 +47,12 @@ If you are not running a local prover, then you can specify a prover from the [p
 
 ### Verify proposer logs
 
+Run this command to verify you have some proposer logs:
+
+```sh
+docker compose logs -f taiko_client_proposer | egrep "Propose transactions succeeded"
+```
+
 You should see a log if you have proposed a block: `📝 Propose transactions succeeded`.
 
 You can check all commands to see proposer logs in the [node runner manual](/docs/manuals/node-runner-manual#view-client-proposer-logs).
