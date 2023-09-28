@@ -104,6 +104,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         uint32 parentGasUsed
     )
         external
+        returns (uint64 basefee)
     {
         if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
 
@@ -126,12 +127,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         emit CrossChainSynced(l1Height, l1Hash, l1SignalRoot);
 
         // Check EIP-1559 basefee
-        uint64 basefee;
-        (basefee, gasExcess) = _calcBasefee({
-            config: getEIP1559Config(),
-            timeSinceParent: block.timestamp - parentTimestamp,
-            parentGasUsed: parentGasUsed
-        });
+        (basefee, gasExcess) =
+            calcBasefee(block.timestamp - parentTimestamp, parentGasUsed);
 
         // On L2, basefee is not burnt, but sent to a treasury instead.
         // The circuits will need to verify the basefee recipient is the
@@ -171,11 +168,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         view
         returns (uint256 _basefee)
     {
-        (_basefee,) = _calcBasefee({
-            config: getEIP1559Config(),
-            timeSinceParent: timeSinceParent,
-            parentGasUsed: parentGasUsed
-        });
+        (_basefee,) = calcBasefee(timeSinceParent, parentGasUsed);
     }
 
     /// @inheritdoc ICrossChainSync
@@ -288,15 +281,15 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         }
     }
 
-    function _calcBasefee(
-        EIP1559Config memory config,
+    function calcBasefee(
         uint256 timeSinceParent,
         uint32 parentGasUsed
     )
-        private
+        public
         view
         returns (uint64 _basefee, uint64 _gasExcess)
     {
+        EIP1559Config memory config = getEIP1559Config();
         if (config.gasIssuedPerSecond == 0) {
             _basefee = 1;
             _gasExcess = gasExcess;
