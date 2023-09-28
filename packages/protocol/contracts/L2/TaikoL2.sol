@@ -119,9 +119,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
 
             // Verify the base fee is correct
-            Config memory config = getConfig();
-            baseFeePerGas = calcBaseFeePerGas(parentGasUsed, config);
-            if (config.checkBaseFeePerGas && block.basefee != baseFeePerGas) {
+            baseFeePerGas = calcBaseFeePerGas(parentGasUsed);
+            if (
+                getConfig().checkBaseFeePerGas && block.basefee != baseFeePerGas
+            ) {
                 revert L2_BASEFEE_MISMATCH();
             }
 
@@ -197,16 +198,15 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         }
     }
 
-    function calcBaseFeePerGas(
-        uint32 gasUsed,
-        Config memory config
-    )
+    function calcBaseFeePerGas(uint32 parentGasUsed)
         public
         view
+        virtual
         returns (uint64)
     {
+        Config memory config = getConfig();
         uint256 _baseFeePerGas = Lib1559Math.calcBaseFeePerGas(
-            baseFeePerGas, gasUsed, config.blockGasTarget
+            baseFeePerGas, parentGasUsed, config.blockGasTarget
         );
         if (_baseFeePerGas < config.minBaseFeePerGas) {
             _baseFeePerGas = config.minBaseFeePerGas;
