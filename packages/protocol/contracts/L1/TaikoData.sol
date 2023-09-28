@@ -92,8 +92,9 @@ library TaikoData {
     /// {LibProposing.hashMetadata} accordingly.
     struct BlockMetadata {
         bytes32 l1Hash;
-        bytes32 mixHash;
+        bytes32 difficulty;
         bytes32 txListHash;
+        bytes32 extraData;
         uint64 id;
         uint64 timestamp;
         uint64 l1Height;

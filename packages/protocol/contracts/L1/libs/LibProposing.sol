@@ -53,6 +53,7 @@ library LibProposing {
         TaikoData.Config memory config,
         AddressResolver resolver,
         bytes32 txListHash,
+        bytes32 extraData,
         TaikoData.ProverAssignment memory assignment,
         bytes calldata txList
     )
@@ -133,8 +134,9 @@ library LibProposing {
                 // of multiple Taiko blocks being proposed within a single
                 // Ethereum block, we must introduce a salt to this random
                 // number as the L2 mixHash.
-                mixHash: bytes32(block.prevrandao * b.numBlocks),
+                difficulty: bytes32(block.prevrandao * b.numBlocks),
                 txListHash: txListHash,
+                extraData: extraData,
                 id: b.numBlocks,
                 timestamp: uint64(block.timestamp),
                 l1Height: uint64(block.number - 1),
@@ -226,17 +228,18 @@ library LibProposing {
         pure
         returns (bytes32 hash)
     {
-        uint256[6] memory inputs;
+        uint256[7] memory inputs;
         inputs[0] = uint256(meta.l1Hash);
-        inputs[1] = uint256(meta.mixHash);
+        inputs[1] = uint256(meta.difficulty);
         inputs[2] = uint256(meta.txListHash);
-        inputs[3] = (uint256(meta.id)) | (uint256(meta.timestamp) << 64)
+        inputs[3] = uint256(meta.extraData);
+        inputs[4] = (uint256(meta.id)) | (uint256(meta.timestamp) << 64)
             | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 192);
-        inputs[4] = uint256(uint160(meta.coinbase));
-        inputs[5] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
+        inputs[5] = uint256(uint160(meta.coinbase));
+        inputs[6] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
 
         assembly {
-            hash := keccak256(inputs, 192 /*mul(6, 32)*/ )
+            hash := keccak256(inputs, 224 /*mul(7, 32)*/ )
         }
     }
 

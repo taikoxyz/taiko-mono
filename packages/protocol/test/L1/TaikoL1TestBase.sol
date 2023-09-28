@@ -157,13 +157,13 @@ abstract contract TaikoL1TestBase is TestBase {
         meta.timestamp = uint64(block.timestamp);
         meta.l1Height = uint64(block.number - 1);
         meta.l1Hash = blockhash(block.number - 1);
-        meta.mixHash = bytes32(_mixHash);
+        meta.difficulty = bytes32(_mixHash);
         meta.txListHash = keccak256(txList);
         meta.gasLimit = gasLimit;
 
         vm.prank(proposer, proposer);
         meta = L1.proposeBlock{ value: msgValue }(
-            meta.txListHash, abi.encode(assignment), txList
+            meta.txListHash, bytes32(0), abi.encode(assignment), txList
         );
     }
 

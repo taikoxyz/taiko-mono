@@ -73,6 +73,7 @@ contract TaikoL1 is
     /// @return meta The metadata of the proposed L2 block.
     function proposeBlock(
         bytes32 txListHash,
+        bytes32 extraData,
         bytes calldata assignment,
         bytes calldata txList
     )
@@ -87,6 +88,7 @@ contract TaikoL1 is
             config: config,
             resolver: AddressResolver(this),
             txListHash: txListHash,
+            extraData: extraData,
             assignment: abi.decode(assignment, (TaikoData.ProverAssignment)),
             txList: txList
         });
