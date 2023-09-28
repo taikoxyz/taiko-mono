@@ -92,7 +92,7 @@ library TaikoData {
     /// {LibProposing.hashMetadata} accordingly.
     struct BlockMetadata {
         bytes32 l1Hash;
-        // On L2, `block.difficulty` is the pseuduo name of `block.prevrandao`,
+        // On L2, `block.difficulty` is the pseudo name of `block.prevrandao`,
         // which returns a random number provided by the layer 1 chain.
         bytes32 difficulty;
         bytes32 txListHash;
