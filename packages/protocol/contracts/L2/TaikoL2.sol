@@ -104,7 +104,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         uint32 parentGasUsed
     )
         external
-        returns (uint64 basefee)
     {
         if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
 
