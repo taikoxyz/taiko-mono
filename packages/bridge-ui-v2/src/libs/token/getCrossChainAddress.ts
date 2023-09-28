@@ -98,7 +98,6 @@ export async function getCrossChainAddress({
     if (!(srcChainId in routingContractsMap) || !(destChainId in routingContractsMap[srcChainId])) {
       return null;
     }
-
     if (!(destChainId in routingContractsMap) || !(srcChainId in routingContractsMap[destChainId])) {
       return null;
     }
