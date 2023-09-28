@@ -5,7 +5,7 @@ import { console2 } from "forge-std/console2.sol";
 import { TestBase } from "../TestBase.sol";
 import { Lib1559Math } from "../../contracts/L2/Lib1559Math.sol";
 
-contract TestLib1559Math is TestBase {
+contract Lib1559MathTest is TestBase {
     function test_1559() public view {
         uint24[100] memory data = [
             127_856,
