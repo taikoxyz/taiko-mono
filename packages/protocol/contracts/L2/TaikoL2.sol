@@ -125,17 +125,16 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
         emit CrossChainSynced(l1Height, l1Hash, l1SignalRoot);
 
-        // Check EIP-1559 basefee
-        (basefee, gasExcess) =
-            calcBasefee(block.timestamp - parentTimestamp, parentGasUsed);
-
         // On L2, basefee is not burnt, but sent to a treasury instead.
         // The circuits will need to verify the basefee recipient is the
         // designated address.
-        if (block.basefee != basefee) {
+        (uint64 _basefee, uint64 _gasExcess) =
+            calcBaseFeeAndGasExcess(block.timestamp, parentGasUsed);
+        if (block.basefee != _basefee) {
             revert L2_BASEFEE_MISMATCH();
         }
 
+        gasExcess = _gasExcess;
         parentTimestamp = uint64(block.timestamp);
 
         // We emit this event so circuits can grab its data to verify block
@@ -144,7 +143,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         // this event for debugging purpose.
         emit Anchored({
             number: uint64(block.number),
-            basefee: basefee,
+            basefee: _basefee,
             gaslimit: uint32(block.gaslimit),
             timestamp: uint64(block.timestamp),
             parentHash: parentHash,
@@ -152,22 +151,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             coinbase: block.coinbase,
             chainid: uint64(block.chainid)
         });
-    }
-
-    /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
-    /// the given parameters.
-    /// @param timeSinceParent Time elapsed since the parent block's timestamp.
-    /// @param parentGasUsed Gas used in the parent block.
-    /// @return _basefee The calculated EIP-1559 basefee.
-    function getBasefee(
-        uint64 timeSinceParent,
-        uint32 parentGasUsed
-    )
-        public
-        view
-        returns (uint256 _basefee)
-    {
-        (_basefee,) = calcBasefee(timeSinceParent, parentGasUsed);
     }
 
     /// @inheritdoc ICrossChainSync
@@ -280,8 +263,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         }
     }
 
-    function calcBasefee(
-        uint256 timeSinceParent,
+    function calcBaseFeeAndGasExcess(
+        uint256 currentTimestamp,
         uint32 parentGasUsed
     )
         public
@@ -298,10 +281,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             // uint32 value is safe
             // - 'excess' is bigger than 'issued'
             unchecked {
-                uint256 issued = timeSinceParent * config.gasIssuedPerSecond;
+                uint256 issued = (currentTimestamp - parentTimestamp)
+                    * config.gasIssuedPerSecond;
                 uint256 excess =
                     (uint256(gasExcess) + parentGasUsed).max(issued);
-                // Very important to cap _gasExcess uint64
+                // Very important to cap gasExcess uint64
                 _gasExcess = uint64((excess - issued).min(type(uint64).max));
             }
 

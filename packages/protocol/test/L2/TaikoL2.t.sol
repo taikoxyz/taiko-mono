@@ -137,30 +137,32 @@ contract TestTaikoL2 is TestBase {
 
     function test_L2_getBasefee() external {
         TaikoL2.EIP1559Config memory config = L2.getEIP1559Config();
-
         console2.log(config.xscale);
         console2.log(config.yscale);
         console2.log(config.gasIssuedPerSecond);
 
-        uint64 timeSinceParent = uint64(block.timestamp - L2.parentTimestamp());
-        assertEq(_getBasefeeAndPrint(timeSinceParent, 0), 317_609_019);
-
-        timeSinceParent += 100;
-        assertEq(_getBasefeeAndPrint(timeSinceParent, 0), 54_544_902);
-
-        timeSinceParent += 10_000;
-        assertEq(_getBasefeeAndPrint(timeSinceParent, 0), 1);
+        assertEq(_getBasefeeAndPrint(block.timestamp, 0), 317_609_019);
+        assertEq(_getBasefeeAndPrint(block.timestamp + 100, 0), 54_544_902);
+        assertEq(_getBasefeeAndPrint(block.timestamp + 10_000, 0), 1);
     }
 
     function _getBasefeeAndPrint(
-        uint64 timeSinceParent,
+        uint256 currentTimestamp,
         uint32 parentGasUsed
     )
         private
         returns (uint256 _basefee)
     {
+        uint256 timeSinceParent = currentTimestamp - L2.parentTimestamp();
         uint256 gasIssued =
             L2.getEIP1559Config().gasIssuedPerSecond * timeSinceParent;
+
+        uint64 _gasExcess;
+        (_basefee, _gasExcess) =
+            L2.calcBaseFeeAndGasExcess(currentTimestamp, parentGasUsed);
+
+        assertTrue(_basefee != 0);
+
         string memory _msg = string.concat(
             "#",
             Strings.toString(logIndex++),
@@ -173,13 +175,13 @@ contract TestTaikoL2 is TestBase {
             ", parentGasUsed=",
             Strings.toString(parentGasUsed)
         );
-        _basefee = L2.getBasefee(timeSinceParent, parentGasUsed);
-        assertTrue(_basefee != 0);
 
         _msg = string.concat(
             _msg,
-            ", gasExcess(changed)=",
+            ", gasExcess(before)=",
             Strings.toString(L2.gasExcess()),
+            ", gasExcess(after)=",
+            Strings.toString(_gasExcess),
             ", basefee=",
             Strings.toString(_basefee)
         );
@@ -195,7 +197,7 @@ contract TestTaikoL2 is TestBase {
         returns (uint256 _basefee)
     {
         return _getBasefeeAndPrint(
-            uint32(timeSinceNow + block.timestamp - L2.parentTimestamp()),
+             block.timestamp+timeSinceNow,
             gasLimit
         );
     }
