@@ -95,6 +95,14 @@ export async function getCrossChainAddress({
 
     // return await destTokenVaultContract.read.canonicalToBridged([BigInt(destChainId), bridgedAddress]);
   } else {
+    if (!(srcChainId in routingContractsMap) || !(destChainId in routingContractsMap[srcChainId])) {
+      return null;
+    }
+
+    if (!(destChainId in routingContractsMap) || !(srcChainId in routingContractsMap[destChainId])) {
+      return null;
+    }
+
     const { erc20VaultAddress: srcChainTokenVaultAddress } = routingContractsMap[srcChainId][destChainId];
     const { erc20VaultAddress: destChainTokenVaultAddress } = routingContractsMap[destChainId][srcChainId];
 
