@@ -339,7 +339,7 @@ async function generateContractConfigs(
                 contractArtifacts.TaikoL2Proxy.deployedBytecode.object,
             variables: {
                 // TaikoL2
-                // keccak256(abi.encodePacked(block.chainid, baseFee, ancestors))
+                // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
                 publicInputHash: `${ethers.utils.solidityKeccak256(
                     ["bytes32[256]"],
                     [
