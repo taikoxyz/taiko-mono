@@ -7,6 +7,7 @@ import { Lib1559Math } from "../../contracts/L2/Lib1559Math.sol";
 
 contract Lib1559MathTest is TestBase {
     function test_1559() public view {
+        // Some data from A5 testnet
         uint24[100] memory data = [
             127_856,
             6_046_273,
