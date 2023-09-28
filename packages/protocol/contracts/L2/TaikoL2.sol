@@ -215,8 +215,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     }
 
     function getConfig() public pure virtual returns (Config memory config) {
-        config.blockGasTarget = 20_000_000;
-        config.minBaseFeePerGas = 1_000_000_000 / 10_000; // 1/10000 Gwei;
+        config.blockGasTarget = 500_000;
+        config.minBaseFeePerGas = 1000; // 1000 Wei;
         config.checkBaseFeePerGas = true;
     }
 
