@@ -107,7 +107,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         for (uint32 i = 0; i < 300; i++) {
             vm.roll(block.number + 1);
             vm.warp(taikoL2.parentTimestamp() + 12);
-            vm.fee(taikoL2.getBasefee(12, i));
+            vm.fee(taikoL2.getBaseFee(12, i));
 
             uint256 gasLeftBefore = gasleft();
 

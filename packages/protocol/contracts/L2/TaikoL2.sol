@@ -31,8 +31,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     struct Config {
         uint32 blockGasTarget;
-        uint64 minBasefee;
-        bool checkBasefee;
+        uint64 minBaseFee;
+        bool checkBaseFee;
     }
 
     // Mapping from L2 block numbers to their block hashes.
@@ -43,7 +43,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     // A hash to check the integrity of public inputs.
     bytes32 public publicInputHash; // slot 3
     uint64 public latestSyncedL1Height; // slot 4
-    uint64 public basefee;
+    uint64 public baseFee;
 
     uint256[146] private __gap;
 
@@ -51,7 +51,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     // https://docs.soliditylang.org/en/v0.8.20/units-and-global-variables.html
     event Anchored(
         uint64 number,
-        uint64 basefee,
+        uint64 baseFee,
         uint32 gaslimit,
         uint64 timestamp,
         bytes32 parentHash,
@@ -71,7 +71,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     /// @param _addressManager Address of the {AddressManager} contract.
     function init(
         address _addressManager,
-        uint64 _basefee
+        uint64 _baseFee
     )
         external
         initializer
@@ -84,8 +84,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         if (block.number > 1) revert L2_TOO_LATE();
 
         Config memory config = getConfig();
-        if (_basefee < config.minBasefee) revert L2_INVALID_BASEFEE();
-        basefee = _basefee;
+        if (_baseFee < config.minBaseFee) revert L2_INVALID_BASEFEE();
+        baseFee = _baseFee;
 
         (publicInputHash,,) = _calcPublicInputHash(block.number);
 
@@ -118,8 +118,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
             // Verify the base fee is correct
             Config memory config = getConfig();
-            basefee = calcBasefee(basefee, parentGasUsed, config);
-            if (config.checkBasefee && block.basefee != basefee) {
+            baseFee = calcBaseFee(baseFee, parentGasUsed, config);
+            if (config.checkBaseFee && block.basefee != baseFee) {
                 revert L2_BASEFEE_MISMATCH();
             }
 
@@ -146,7 +146,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             // variables.
             emit Anchored({
                 number: uint64(block.number),
-                basefee: basefee,
+                baseFee: baseFee,
                 gaslimit: uint32(block.gaslimit),
                 timestamp: uint64(block.timestamp),
                 parentHash: _parentHash,
@@ -195,8 +195,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         }
     }
 
-    function calcBasefee(
-        uint256 prevBasefee,
+    function calcBaseFee(
+        uint256 prevBaseFee,
         uint32 gasUsed,
         Config memory config
     )
@@ -204,18 +204,18 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         pure
         returns (uint64)
     {
-        uint256 _basefee =
-            Lib1559Math.calcBasefee(prevBasefee, gasUsed, config.blockGasTarget);
-        if (_basefee < config.minBasefee) {
-            _basefee = config.minBasefee;
+        uint256 _baseFee =
+            Lib1559Math.calcBaseFee(prevBaseFee, gasUsed, config.blockGasTarget);
+        if (_baseFee < config.minBaseFee) {
+            _baseFee = config.minBaseFee;
         }
-        return uint64(_basefee.min(type(uint64).max));
+        return uint64(_baseFee.min(type(uint64).max));
     }
 
     function getConfig() public pure virtual returns (Config memory config) {
         config.blockGasTarget = 20_000_000;
-        config.minBasefee = 1_000_000_000 / 10_000; // 1/10000 Gwei;
-        config.checkBasefee = true;
+        config.minBaseFee = 1_000_000_000 / 10_000; // 1/10000 Gwei;
+        config.checkBaseFee = true;
     }
 
     function _calcPublicInputHash(uint256 blockId)

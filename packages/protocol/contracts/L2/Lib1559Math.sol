@@ -7,8 +7,8 @@
 pragma solidity ^0.8.20;
 
 library Lib1559Math {
-    function calcBasefee(
-        uint256 prevBasefee,
+    function calcBaseFee(
+        uint256 prevBaseFee,
         uint256 gasUsed,
         uint256 blockGasTarget
     )
@@ -19,6 +19,6 @@ library Lib1559Math {
         // Formula:
         // base_fee * (1 + 1/8 * (block_gas_used / block_gas_target - 1))
         return
-            prevBasefee * (gasUsed + blockGasTarget * 7) / (blockGasTarget * 8);
+            prevBaseFee * (gasUsed + blockGasTarget * 7) / (blockGasTarget * 8);
     }
 }
