@@ -28,7 +28,7 @@ A valid transaction (defined in the Ethereum Yellow Paper):
 - Has a gas limit no smaller than the intrinsic gas, _`g0`_, used by the transaction.
 - The sender account balance contains at least the cost, _`v0`_, required in up-front payment.
 - The transaction has a gas limit that is smaller or equal to the amount of gas left in the block (with the block gas limit being the protocol constant _`blockMaxGasLimit`_).
-- The transaction has a baseFee that is greater than or equal the baseFee of the block.
+- The transaction has a basefee that is greater than or equal the basefee of the block.
 
 #### Slicing and Consistency
 
@@ -186,7 +186,7 @@ The ZKP also needs to prove that the cross chain signal service’s storage root
 
 ### EIP-1559
 
-In the Taiko L2 protocol, instead of being burned, the baseFee is transferred to a designated `treasury` address. To ensure the integrity of this process, the ZKP needs to verify that the treasury address specified by the Taiko L1 contract is indeed the intended recipient.
+In the Taiko L2 protocol, instead of being burned, the basefee is transferred to a designated `treasury` address. To ensure the integrity of this process, the ZKP needs to verify that the treasury address specified by the Taiko L1 contract is indeed the intended recipient.
 
 ### LibProving Verification
 
@@ -222,12 +222,12 @@ l2_treasury -.-> m_treasury;
 v_block_chainid -.-> dot1;
 v_blockhash_others -.-> dot1 -.->|keccak| s_public_input_hash;
 
-v_block_baseFee -.-> h_baseFee;
+v_block_basefee -.-> h_basefee;
 
 v_block_gaslimit -.-> dot2;
 v_block_timestamp -.-> dot2;
 s_parent_timestamp -.-> dot2;
-s_gas_excess -.-> dot2 ---|calcBaseFee| v_block_baseFee;
+s_gas_excess -.-> dot2 ---|calcBasefee| v_block_basefee;
 
 
 m_processed_deposits -.->|keccak| dot4;
@@ -262,7 +262,7 @@ m_txlist_first(txListByteStart)
 m_txlist_last(txListByteEnd)
 m_treasury(treasury)
 m_proposer(proposer)
-l2_treasury("L2 baseFee goes to treasury"):::constant;
+l2_treasury("L2 basefee goes to treasury"):::constant;
 tx_list("txList\n(blob or calldata)"):::constant;
 m_processed_deposits("ethDepositsProcessed"):::constant
 end
@@ -287,7 +287,7 @@ h_logs_bloom("logsBloom = []")
 h_difficulty("difficulty = 0")
 h_extra_data("extraData = ''")
 h_nonce("nonce = 0")
-h_baseFee(baseFee)
+h_basefee(basefee)
 end
 
 BlockHeader:::group
@@ -300,7 +300,7 @@ v_block_prevrando(block.prevrando)
 v_blockhash_1("blockhash(1)")
 v_blockhash_others("blockhash(2..256)")
 v_block_chainid("block.chainid")
-v_block_baseFee("block.basefee")
+v_block_basefee("block.basefee")
 dot1((" "))
 dot2((" "))
 end
