@@ -120,8 +120,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
             // Verify the base fee is correct
             Config memory config = getConfig();
-            baseFeePerGas =
-                calcBaseFeePerGas(baseFeePerGas, parentGasUsed, config);
+            baseFeePerGas = calcBaseFeePerGas(parentGasUsed, config);
             if (config.checkBaseFeePerGas && block.basefee != baseFeePerGas) {
                 revert L2_BASEFEE_MISMATCH();
             }
@@ -199,16 +198,15 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     }
 
     function calcBaseFeePerGas(
-        uint256 prevBaseFeePerGas,
         uint32 gasUsed,
         Config memory config
     )
         public
-        pure
+        view
         returns (uint64)
     {
         uint256 _baseFeePerGas = Lib1559Math.calcBaseFeePerGas(
-            prevBaseFeePerGas, gasUsed, config.blockGasTarget
+            baseFeePerGas, gasUsed, config.blockGasTarget
         );
         if (_baseFeePerGas < config.minBaseFeePerGas) {
             _baseFeePerGas = config.minBaseFeePerGas;
