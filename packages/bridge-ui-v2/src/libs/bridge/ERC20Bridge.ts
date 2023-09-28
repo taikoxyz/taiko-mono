@@ -226,7 +226,7 @@ export class ERC20Bridge extends Bridge {
     const destChainId = Number(message.destChainId);
     const connectedChainId = await wallet.getChainId();
 
-    const proof = await this._prover.generateProofToRelease(msgHash, srcChainId, destChainId);
+    const proof = await this._prover.generateProofToRecallMessage(msgHash, srcChainId, destChainId);
 
     const bridgeAddress = routingContractsMap[connectedChainId][destChainId].bridgeAddress;
     const bridgeContract = getContract({

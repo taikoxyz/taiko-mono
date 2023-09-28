@@ -4,8 +4,8 @@ export type GenerateProofArgs = {
   msgHash: Hash;
   contractAddress: Address;
   proofForAccountAddress: Address;
-  crossChainSyncChainId: number;
-  clientChainId: number;
+  srcChainId: number;
+  destChainId: number;
 };
 
 export type StorageEntry = {
@@ -34,4 +34,49 @@ export type ClientWithEthGetProofRequest = {
     method: 'eth_getProof';
     params: [Address, Hex[], number | Hash | 'latest' | 'earliest'];
   }): Promise<EthGetProofResponse>;
+};
+
+export type Block = {
+  number: Hex;
+  hash: Hex;
+  parentHash: Hex;
+  nonce: bigint;
+  sha3Uncles: Hex;
+  logsBloom: Hex[] | Hex;
+  transactionsRoot: Hex;
+  stateRoot: Hex;
+  receiptsRoot: Hex;
+  miner: Hex;
+  difficulty: bigint;
+  totalDifficulty: bigint;
+  extraData: Hex;
+  size: bigint;
+  gasLimit: bigint;
+  gasUsed: bigint;
+  timestamp: bigint;
+  transactions: Hex[];
+  uncles: Hex[];
+  baseFeePerGas?: number;
+  mixHash: Hex;
+  withdrawalsRoot?: Hex;
+};
+
+export type BlockHeader = {
+  parentHash: Hex;
+  ommersHash: Hex;
+  proposer: Address;
+  stateRoot: Hex;
+  transactionsRoot: Hex;
+  receiptsRoot: Hex;
+  logsBloom: Hex[];
+  difficulty: bigint;
+  height: Hex;
+  gasLimit: bigint;
+  gasUsed: bigint;
+  timestamp: bigint;
+  extraData: Hex;
+  mixHash: Hex;
+  nonce: bigint | null;
+  baseFeePerGas: number | 0;
+  withdrawalsRoot: Hex;
 };
