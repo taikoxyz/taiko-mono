@@ -24,7 +24,8 @@ import time
 n = 400
 
 # Medians and proportions
-median1 = 3
+AVG_BLOCK_TIME = 3
+BLOCK_GAS_TARGET = 4300000
 median2 = 100
 prop1 = 0.95
 prop2 = 0.05
@@ -38,13 +39,13 @@ np.random.seed(int(time.time()))
 for _ in range(n):
     selector = np.random.uniform(0, 1)
     if selector < prop1:
-        sample = abs(np.random.normal(median1, 1))
+        sample = abs(np.random.normal(AVG_BLOCK_TIME, 1))
     else:
         sample = abs(np.random.normal(median2, 10))
     samples1.append(sample)
 
 # Generate the second set of samples
-samples2 = np.random.normal(4300000, 100000, n)
+samples2 = np.random.normal(BLOCK_GAS_TARGET, 100000, n)
 
 # Combine samples into pairs and round to integers
 pairs = [(int(round(a)), int(round(b))) for a, b in zip(samples1, samples2)]
