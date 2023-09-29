@@ -15,6 +15,7 @@ import { GuardianVerifier } from
 import { OptimisticRollupConfigProvider } from
     "../../contracts/L1/tiers/OptimisticRollupConfigProvider.sol";
 import { PseZkVerifier } from "../../contracts/L1/verifiers/PseZkVerifier.sol";
+import { SGXVerifier } from "../../contracts/L1/verifiers/SGXVerifier.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { StringsUpgradeable as Strings } from
     "@ozu/utils/StringsUpgradeable.sol";
@@ -35,6 +36,7 @@ abstract contract TaikoL1TestBase is TestBase {
     TaikoData.Config conf;
     uint256 internal logCount;
     PseZkVerifier public pv;
+    SGXVerifier public sv;
     GuardianVerifier public gv;
     OptimisticRollupConfigProvider public cp;
 
@@ -68,12 +70,19 @@ abstract contract TaikoL1TestBase is TestBase {
         pv = new PseZkVerifier();
         pv.init(address(addressManager));
 
+        sv = new SGXVerifier();
+        sv.init(address(addressManager));
+        address[] memory initSgxInstances = new address[](1);
+        initSgxInstances[0] = SGX_X_0;
+        sv.addToRegistryByOwner(initSgxInstances);
+
         gv = new GuardianVerifier();
         gv.init(address(addressManager));
 
         cp = new OptimisticRollupConfigProvider();
 
         registerAddress("tier_pse_zkevm", address(pv));
+        registerAddress("tier_sgx", address(sv));
         registerAddress("tier_guardian", address(gv));
         registerAddress("tier_provider", address(cp));
         registerAddress("signal_service", address(ss));
@@ -119,15 +128,17 @@ abstract contract TaikoL1TestBase is TestBase {
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
-        TaikoData.TierFee[] memory tierFees = new TaikoData.TierFee[](3);
+        TaikoData.TierFee[] memory tierFees = new TaikoData.TierFee[](4);
         // Register the tier fees
         // Based on OPL2ConfigTier we need 3:
         // - LibTiers.TIER_PSE_ZKEVM;
+        // - LibTiers.TIER_SGX;
         // - LibTiers.TIER_OPTIMISTIC;
         // - LibTiers.TIER_GUARDIAN;
         tierFees[0] = TaikoData.TierFee(LibTiers.TIER_OPTIMISTIC, 1 ether);
-        tierFees[1] = TaikoData.TierFee(LibTiers.TIER_PSE_ZKEVM, 2 ether);
-        tierFees[2] = TaikoData.TierFee(LibTiers.TIER_GUARDIAN, 0 ether);
+        tierFees[1] = TaikoData.TierFee(LibTiers.TIER_SGX, 1 ether);
+        tierFees[2] = TaikoData.TierFee(LibTiers.TIER_PSE_ZKEVM, 2 ether);
+        tierFees[3] = TaikoData.TierFee(LibTiers.TIER_GUARDIAN, 0 ether);
         // For the test not to fail, set the message.value to the highest, the
         // rest will be returned
         // anyways
@@ -202,6 +213,22 @@ abstract contract TaikoL1TestBase is TestBase {
             new bytes(100)
         );
 
+        if(tier == LibTiers.TIER_SGX) {
+            address newPubKey;
+            // Keep changing the pub key associated with an instance to avoid attacks,
+            // obviously just a mock due to 2 addresses changing all the time.
+            if (sv.sgxRegistry(0) == SGX_X_0) {
+                newPubKey = SGX_X_1;
+            }
+            else {
+                newPubKey = SGX_X_0;
+            }
+
+            bytes memory signature = createSgxSignature(evidence, newPubKey, prover);
+            // Id is 0 by default, we using the first instance
+            evidence.proof = abi.encode(0, newPubKey, signature);
+        }
+
         if (tier == LibTiers.TIER_GUARDIAN) {
             evidence.proof = "";
 
@@ -257,6 +284,39 @@ abstract contract TaikoL1TestBase is TestBase {
             signerPrivateKey = 0x2;
         } else if (signer == Carol) {
             signerPrivateKey = 0x3;
+        }
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, digest);
+        signature = abi.encodePacked(r, s, v);
+    }
+
+    function createSgxSignature(
+        TaikoData.BlockEvidence memory evidence,
+        address newPubKey,
+        address prover
+    )
+        internal
+        view
+        returns (bytes memory signature)
+    {
+        bytes32 digest = keccak256(
+            abi.encode(
+                evidence.metaHash,
+                evidence.parentHash,
+                evidence.blockHash,
+                evidence.signalRoot,
+                evidence.graffiti,
+                prover,
+                newPubKey
+            )
+        );
+        uint256 signerPrivateKey;
+
+        // In the test suite these are the 3 which acts as provers
+        if (SGX_X_0 == newPubKey) {
+            signerPrivateKey = 0x5;
+        } else if (SGX_X_1 == newPubKey) {
+            signerPrivateKey = 0x4;
         }
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, digest);

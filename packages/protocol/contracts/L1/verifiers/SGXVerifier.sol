@@ -112,8 +112,10 @@ contract SGXVerifier is EssentialContract, IVerifier {
         // Do not run proof verification to contest an existing proof
         if (isContesting) return;
 
-        // Size shall be 2x32 bytes (id + address on a word) + 65 bytes (r,s,v)
-        if (evidence.proof.length != 129) {
+        // Size is: 224 bytes
+        // Struct encoding data+
+        // 2x32 bytes (id + address on a word) + 65 bytes (r,s,v)
+        if (evidence.proof.length != 224) {
             revert SGX_INVALID_PROOF_SIZE();
         }
 
