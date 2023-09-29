@@ -33,6 +33,8 @@ contract Lib1559MathTest is TestBase {
         uint32[2][] memory blocks = Data.blocks();
 
         for (uint256 i; i < blocks.length; i++) {
+            // blocks[i][0] is the block delay
+            // blocks[i][1] is the parent gas used
             uint256 delay = _regtime(time + blocks[i][0]) - _regtime(time);
             time += blocks[i][0];
 

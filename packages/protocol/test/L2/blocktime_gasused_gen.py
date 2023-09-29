@@ -21,7 +21,7 @@ import numpy as np
 import time
 
 # Number of samples
-n = 200
+n = 400
 
 # Medians and proportions
 median1 = 3
@@ -50,17 +50,17 @@ samples2 = np.random.normal(4300000, 100000, n)
 pairs = [(int(round(a)), int(round(b))) for a, b in zip(samples1, samples2)]
 
 # Generate Solidity assignment statements
-assignments = "\n".join([f"       _blocks[{i}][0] = {a}; _blocks[{i}][1] = {b};" for i, (a, b) in enumerate(pairs)])
+assignments = "\n".join([f"_blocks[{i}][0] = {a}; _blocks[{i}][1] = {b};" for i, (a, b) in enumerate(pairs)])
 
 # Write to a Solidity file
 with open("test/L2/Lib1559MathTest.d.sol", "w") as f:
     f.write("pragma solidity ^0.8.0;\n\n")
     f.write("library Lib1559MathTestData {\n")
-    f.write(f"   function blocks() public pure returns (uint32[2][] memory _blocks)")
+    f.write(f"function blocks() public pure returns (uint32[2][] memory _blocks)")
     f.write("{\n")
-    f.write(f"  _blocks = new uint32[2][]({n});")
+    f.write(f"_blocks = new uint32[2][]({n});")
     f.write(assignments)
-    f.write("\n   }\n")
+    f.write("\n}\n")
     f.write("}\n")
 
 print("Lib1559MathTest.d.sol file has been generated.")
