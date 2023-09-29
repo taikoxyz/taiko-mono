@@ -47,8 +47,10 @@ abstract contract TestBase is Test {
     address internal Xavier = getRandomAddress();
     address internal Yasmine = getRandomAddress();
     address internal Zachary = getRandomAddress();
-    address internal SGX_X_0 = vm.addr(0x4); //First (and every %2 == 0) pub key of instance X
-    address internal SGX_X_1 = vm.addr(0x5); //Second (and every %2 == 1) pub key of instance X
+    address internal SGX_X_0 = vm.addr(0x4); //First (and every %2 == 0) pub key
+        // of instance X
+    address internal SGX_X_1 = vm.addr(0x5); //Second (and every %2 == 1) pub
+        // key of instance X
     address internal SGX_Y = getRandomAddress();
     address internal SGX_Z = getRandomAddress();
 }

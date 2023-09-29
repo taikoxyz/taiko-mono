@@ -53,16 +53,11 @@ contract SGXVerifier is EssentialContract, IVerifier {
         external
         onlyOwner
     {
-        for (uint256 i; i < trustedInstances.length; i++) {
-            sgxRegistry[uniqueVerifiers] = trustedInstances[i];
-
-            emit InstanceAdded(uniqueVerifiers, trustedInstances[i]);
-
-            uniqueVerifiers++;
-        }
+        addTrustedInstances(trustedInstances);
     }
 
-    /// @notice Adds trusted SGX instances to the registry by another SGX instance.
+    /// @notice Adds trusted SGX instances to the registry by another SGX
+    /// instance.
     /// @param instanceId The id of the SGX instance who is adding new members.
     /// @param newPubKey The new address of the instance.
     /// @param trustedInstances The address array of trusted SGX instances.
@@ -77,21 +72,14 @@ contract SGXVerifier is EssentialContract, IVerifier {
     {
         bytes32 signedHash = keccak256(abi.encode(newPubKey, trustedInstances));
         // Would throw in case invalid
-        address signer =
-            ECDSAUpgradeable.recover(signedHash, signature);
+        address signer = ECDSAUpgradeable.recover(signedHash, signature);
 
-        if (sgxRegistry[instanceId] != signer) {
+        if (!isValidInstance(instanceId, signer)) {
             revert SGX_NOT_VALID_SIGNER_OR_ID_MISMATCH();
         }
 
         // Allow user to add
-        for (uint256 i; i < trustedInstances.length; i++) {
-            sgxRegistry[uniqueVerifiers] = trustedInstances[i];
-
-            emit InstanceAdded(uniqueVerifiers, trustedInstances[i]);
-
-            uniqueVerifiers++;
-        }
+        addTrustedInstances(trustedInstances);
 
         // Invalidate current key, because it cannot be used again (side-channel
         // attacks).
@@ -128,7 +116,7 @@ contract SGXVerifier is EssentialContract, IVerifier {
         address signer =
             ECDSAUpgradeable.recover(signedInstance, proofData.signature);
 
-        if (sgxRegistry[proofData.id] != signer) {
+        if (!isValidInstance(proofData.id, signer)) {
             revert SGX_NOT_VALID_SIGNER_OR_ID_MISMATCH();
         }
 
@@ -157,6 +145,27 @@ contract SGXVerifier is EssentialContract, IVerifier {
                 newPubKey
             )
         );
+    }
+
+    function isValidInstance(
+        uint256 instanceId,
+        address instance
+    )
+        internal
+        view
+        returns (bool)
+    {
+        return sgxRegistry[instanceId] == instance;
+    }
+
+    function addTrustedInstances(address[] memory trustedInstances) internal {
+        for (uint256 i; i < trustedInstances.length; i++) {
+            sgxRegistry[uniqueVerifiers] = trustedInstances[i];
+
+            emit InstanceAdded(uniqueVerifiers, trustedInstances[i]);
+
+            uniqueVerifiers++;
+        }
     }
 }
 
