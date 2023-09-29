@@ -119,3 +119,4 @@ __pycache__/
 
 # VSCode
 .vscode/launch.json
+packages/protocol/test/L2/Lib1559MathTest.d.sol
