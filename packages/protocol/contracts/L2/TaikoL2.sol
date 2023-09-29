@@ -6,6 +6,8 @@
 
 pragma solidity ^0.8.20;
 
+import { SafeCastUpgradeable } from "@ozu/utils/math/SafeCastUpgradeable.sol";
+
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { Proxied } from "../common/Proxied.sol";
@@ -23,6 +25,7 @@ import { TaikoL2Signer } from "./TaikoL2Signer.sol";
 /// verified L1 block information.
 contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     using LibMath for uint256;
+    using SafeCastUpgradeable for uint256;
 
     struct VerifiedBlock {
         bytes32 blockHash;
@@ -30,9 +33,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     }
 
     struct Config {
-        uint32 blockGasTarget;
-        uint64 minBaseFeePerGas;
         bool checkBaseFeePerGas;
+        uint32 gasIssuePerSecond;
+        uint256 poolProduct;
     }
 
     // Mapping from L2 block numbers to their block hashes.
@@ -42,8 +45,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     // A hash to check the integrity of public inputs.
     bytes32 public publicInputHash; // slot 3
+    uint128 public gasInPool;
+    uint64 public poolUpdatedAt;
     uint64 public latestSyncedL1Height; // slot 4
-    uint64 public baseFeePerGas;
 
     uint256[146] private __gap;
 
@@ -63,6 +67,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     error L2_BASEFEE_MISMATCH();
     error L2_INVALID_BASEFEE();
     error L2_INVALID_CHAIN_ID();
+    error L2_INVALID_PARAM();
     error L2_INVALID_SENDER();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
@@ -71,7 +76,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     /// @param _addressManager Address of the {AddressManager} contract.
     function init(
         address _addressManager,
-        uint64 _baseFeePerGas
+        uint128 _gasInPool
     )
         external
         initializer
@@ -83,11 +88,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         }
         if (block.number > 1) revert L2_TOO_LATE();
 
-        Config memory config = getConfig();
-        if (_baseFeePerGas < config.minBaseFeePerGas) {
-            revert L2_INVALID_BASEFEE();
-        }
-        baseFeePerGas = _baseFeePerGas;
+        if (_gasInPool == 0) revert L2_INVALID_PARAM();
+        gasInPool = _gasInPool;
+        poolUpdatedAt = uint64(block.timestamp);
 
         (publicInputHash,,) = _calcPublicInputHash(block.number);
 
@@ -118,25 +121,28 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
 
             // Verify the base fee is correct
-            baseFeePerGas = calcBaseFeePerGas(parentGasUsed);
+            uint64 baseFeePerGas;
+            (baseFeePerGas, gasInPool) = calcBaseFeePerGas(
+                block.timestamp - poolUpdatedAt, parentGasUsed
+            );
+
             if (
                 getConfig().checkBaseFeePerGas && block.basefee != baseFeePerGas
             ) {
                 revert L2_BASEFEE_MISMATCH();
             }
+            poolUpdatedAt = uint64(block.timestamp);
 
+            // Verify the 256 ancestor block hashes match our record
             (
                 bytes32 _publicInputHash,
                 bytes32 _publicInputHashNew,
                 bytes32 _parentHash
             ) = _calcPublicInputHash(block.number - 1);
 
-            // Verify the 256 ancestor block hashes match our record
             if (publicInputHash != _publicInputHash) {
                 revert L2_PUBLIC_INPUT_HASH_MISMATCH();
             }
-
-            // Replace the oldest block hash with the parent's blockhash
             publicInputHash = _publicInputHashNew;
 
             // Update other state data
@@ -197,26 +203,31 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         }
     }
 
-    function calcBaseFeePerGas(uint32 parentGasUsed)
+    function calcBaseFeePerGas(
+        uint256 blockTime,
+        uint32 parentGasUsed
+    )
         public
         view
         virtual
-        returns (uint64)
+        returns (uint64 _baseFeePerGas, uint128 _gasInPool)
     {
         Config memory config = getConfig();
-        uint256 _baseFeePerGas = Lib1559Math.calcBaseFeePerGas(
-            baseFeePerGas, parentGasUsed, config.blockGasTarget
+        (uint256 baseFeePerGas_, uint256 gasInPool_) = Lib1559Math
+            .calcBaseFeePerGasFromPool(
+            config.poolProduct,
+            config.gasIssuePerSecond,
+            gasInPool,
+            blockTime,
+            parentGasUsed
         );
-        if (_baseFeePerGas < config.minBaseFeePerGas) {
-            _baseFeePerGas = config.minBaseFeePerGas;
-        }
-        return uint64(_baseFeePerGas.min(type(uint64).max));
+        _baseFeePerGas = baseFeePerGas_.toUint64();
+        _gasInPool = gasInPool_.toUint128();
     }
 
     function getConfig() public pure virtual returns (Config memory config) {
-        config.blockGasTarget = 500_000;
-        config.minBaseFeePerGas = 1000; // 1000 Wei;
         config.checkBaseFeePerGas = true;
+        config.gasIssuePerSecond = 1_000_000;
     }
 
     function _calcPublicInputHash(uint256 blockId)
