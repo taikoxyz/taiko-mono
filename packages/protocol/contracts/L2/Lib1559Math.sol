@@ -6,6 +6,8 @@
 
 pragma solidity ^0.8.20;
 
+import { console2 } from "forge-std/console2.sol";
+
 import { LibMath } from "../libs/LibMath.sol";
 
 library Lib1559Math {
@@ -19,9 +21,12 @@ library Lib1559Math {
         uint256 blockGasTarget
     )
         public
-        pure
+        view
         returns (uint256)
     {
+        // console2.log(prevBaseFeePerGas);
+        // console2.log(gasUsed);
+        // console2.log(blockGasTarget);
         // Formula:
         // base_fee * (1 + 1/8 * (block_gas_used / block_gas_target - 1))
         return prevBaseFeePerGas * (gasUsed + blockGasTarget * 7)
@@ -37,9 +42,16 @@ library Lib1559Math {
         uint256 gasToBuy
     )
         public
-        pure
+        view
         returns (uint256 _baseFeePerGas, uint256 _gasInPool)
     {
+        // console2.log(poolProduct);
+        // console2.log(gasIssuePerSecond);
+        // console2.log(maxGasInPool);
+        // console2.log(gasInPool);
+        // console2.log(blockTime);
+        // console2.log(gasToBuy);
+
         _gasInPool = maxGasInPool.min(gasInPool + gasIssuePerSecond * blockTime);
         uint256 _ethInPool = poolProduct / _gasInPool;
 
