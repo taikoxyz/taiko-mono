@@ -29,6 +29,7 @@ abstract contract TaikoEvents {
         uint96 livenessBond,
         uint256 proverFee,
         uint256 reward,
+        uint16 minTier,
         TaikoData.BlockMetadata meta
     );
 
