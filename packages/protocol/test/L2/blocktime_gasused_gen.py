@@ -18,6 +18,7 @@ The generated Solidity library file (test/L2/Lib1559MathTest.d.sol) contains the
 """
 
 import numpy as np
+import time
 
 # Number of samples
 n = 200
@@ -32,6 +33,8 @@ prop2 = 0.05
 samples1 = []
 
 # Generate random numbers
+# Seed the random number generator
+np.random.seed(int(time.time()))
 for _ in range(n):
     selector = np.random.uniform(0, 1)
     if selector < prop1:
