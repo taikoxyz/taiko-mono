@@ -11,7 +11,6 @@ import { SafeCastUpgradeable } from "@ozu/utils/math/SafeCastUpgradeable.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { Proxied } from "../common/Proxied.sol";
-
 import { LibMath } from "../libs/LibMath.sol";
 
 import { Lib1559Math } from "./Lib1559Math.sol";
