@@ -33,7 +33,7 @@ const ecosystemData: EcosystemData[] = [
   },
   {
     icon: "/images/ecosystem/bitget.png",
-    name: "BitGet Wallet",
+    name: "Bitget Wallet",
     link: "https://web3.bitget.com/",
     description: "Faster trading with your Web3 trading wallet of the future.",
     filters: [],
