@@ -214,7 +214,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     {
         Config memory config = getConfig();
         (uint256 baseFeePerGas_, uint256 gasInPool_) = Lib1559Math
-            .calcBaseFeePerGasFromPool(
+            .calcBaseFeePerGasAMM(
             config.poolProduct,
             config.gasIssuePerSecond,
             config.maxGasInPool,

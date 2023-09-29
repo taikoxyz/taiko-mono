@@ -2,17 +2,17 @@
 This Python program generates a Solidity library file (data.sol) containing a function named `data()`.
 The function returns a two-dimensional uint32 array with dimensions 2x100.
 
-The array's elements are generated based on two different normal distributions for each sub-array [blockProposedAt, parentGasUsed]:
+The array's elements are generated based on two different normal distributions for each sub-array [blockDelay, parentGasUsed]:
 
-1. The first element 'blockProposedAt' is based on a mixed normal distribution with:
+1. The first element 'blockDelay' is based on a mixed normal distribution with:
     - 95% of the values following a normal distribution centered around 3
     - 5% of the values following a normal distribution centered around 100
 
 2. The second element 'parentGasUsed' follows a normal distribution centered around 4,300,000.
 
-Each sub-array [blockProposedAt, parentGasUsed] is a sample, and there are 100 such samples in the array.
+Each sub-array [blockDelay, parentGasUsed] is a sample, and there are 100 such samples in the array.
 
-Note: Negative values for 'blockProposedAt' are avoided by taking the absolute value of the generated sample.
+Note: Negative values for 'blockDelay' are avoided by taking the absolute value of the generated sample.
 
 The generated Solidity library file (test/L2/Lib1559MathTest.d.sol) contains the `data()` function, which initializes the two-dimensional array in memory and assigns each element individually based on the generated values.
 """
@@ -20,7 +20,7 @@ The generated Solidity library file (test/L2/Lib1559MathTest.d.sol) contains the
 import numpy as np
 
 # Number of samples
-n = 100
+n = 200
 
 # Medians and proportions
 median1 = 3
@@ -53,8 +53,9 @@ assignments = "\n".join([f"       _blocks[{i}][0] = {a}; _blocks[{i}][1] = {b};"
 with open("test/L2/Lib1559MathTest.d.sol", "w") as f:
     f.write("pragma solidity ^0.8.0;\n\n")
     f.write("library Lib1559MathTestData {\n")
-    f.write(f"   function blocks() public pure returns (uint32[2][{n}] memory _blocks)")
+    f.write(f"   function blocks() public pure returns (uint32[2][] memory _blocks)")
     f.write("{\n")
+    f.write(f"  _blocks = new uint32[2][]({n});")
     f.write(assignments)
     f.write("\n   }\n")
     f.write("}\n")
