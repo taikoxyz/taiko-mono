@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { Callout, Steps } from "nextra-theme-docs";
+import { Callout, Steps, Tab, Tabs } from "nextra-theme-docs";
 
 # Enable a prover
 
@@ -22,10 +22,34 @@ nano .env
 
 ### Set environment variables to enable prover
 
-<Callout type="warning">
+<Callout type="error">
   Do **not** use a private key that is valuable to you. The private key will be
-  stored in plain text in the `.env` and this is not secure. There is a real
-  risk of losing your assets. You should **only use a test account**.
+  stored in plain text in the `.env` file, and this is not secure. There is a
+  real risk of losing your assets. You should **only use a test account**.
+
+  To generate an isolated burner wallet locally:
+
+  <Tabs items={["foundry", "ethers.js"]} defaultIndex="0">
+    <Tab>
+        ```shell
+        cast wallet new | tee /dev/tty | 
+        grep 'Private key:' | awk '{print "export PRIVATE_KEY="$3}' >> .env && source .env
+        ```
+    </Tab>
+    <Tab>
+      ```js
+      var ethers = require('ethers');  
+      var crypto = require('crypto');
+
+      var id = crypto.randomBytes(32).toString('hex');
+      var privateKey = "0x"+id;
+      console.log("SAVE BUT DO NOT SHARE THIS:", privateKey);
+
+      var wallet = new ethers.Wallet(privateKey);
+      console.log("Address: " + wallet.address);
+      ```
+    </Tab>
+  </Tabs> 
 </Callout>
 
 Open the `.env` file and set the following environment variables to enable your node as a prover:
