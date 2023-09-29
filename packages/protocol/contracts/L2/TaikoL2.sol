@@ -36,6 +36,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         bool checkBaseFeePerGas;
         uint32 gasIssuePerSecond;
         uint256 poolProduct;
+        uint256 maxGasInPool;
     }
 
     // Mapping from L2 block numbers to their block hashes.
@@ -217,6 +218,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             .calcBaseFeePerGasFromPool(
             config.poolProduct,
             config.gasIssuePerSecond,
+            config.maxGasInPool,
             gasInPool,
             blockTime,
             parentGasUsed
@@ -228,6 +230,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     function getConfig() public pure virtual returns (Config memory config) {
         config.checkBaseFeePerGas = true;
         config.gasIssuePerSecond = 1_000_000;
+        config.poolProduct = 1_000_000_000;
+        config.maxGasInPool = 5_000_000_000; // 500 million
     }
 
     function _calcPublicInputHash(uint256 blockId)

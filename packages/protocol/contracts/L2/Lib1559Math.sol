@@ -6,7 +6,11 @@
 
 pragma solidity ^0.8.20;
 
+import { LibMath } from "../libs/LibMath.sol";
+
 library Lib1559Math {
+    using LibMath for uint256;
+
     error EIP1559_OUT_OF_GAS();
 
     function calcBaseFeePerGas(
@@ -27,6 +31,7 @@ library Lib1559Math {
     function calcBaseFeePerGasFromPool(
         uint256 poolProduct,
         uint256 gasIssuePerSecond,
+        uint256 maxGasInPool,
         uint256 gasInPool,
         uint256 blockTime,
         uint256 gasToBuy
@@ -35,7 +40,7 @@ library Lib1559Math {
         pure
         returns (uint256 _baseFeePerGas, uint256 _gasInPool)
     {
-        _gasInPool = gasInPool + gasIssuePerSecond * blockTime;
+        _gasInPool = maxGasInPool.min(gasInPool + gasIssuePerSecond * blockTime);
         uint256 _ethInPool = poolProduct / _gasInPool;
 
         if (gasToBuy == 0) {
