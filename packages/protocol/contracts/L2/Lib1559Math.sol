@@ -6,8 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-import { console2 } from "forge-std/console2.sol";
-
 import { LibMath } from "../libs/LibMath.sol";
 
 library Lib1559Math {
