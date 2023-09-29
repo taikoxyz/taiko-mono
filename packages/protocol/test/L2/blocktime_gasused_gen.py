@@ -1,3 +1,22 @@
+"""
+This Python program generates a Solidity library file (data.sol) containing a function named `data()`.
+The function returns a two-dimensional uint32 array with dimensions 2x100.
+
+The array's elements are generated based on two different normal distributions for each sub-array [blockProposedAt, parentGasUsed]:
+
+1. The first element 'blockProposedAt' is based on a mixed normal distribution with:
+    - 95% of the values following a normal distribution centered around 3
+    - 5% of the values following a normal distribution centered around 100
+
+2. The second element 'parentGasUsed' follows a normal distribution centered around 4,300,000.
+
+Each sub-array [blockProposedAt, parentGasUsed] is a sample, and there are 100 such samples in the array.
+
+Note: Negative values for 'blockProposedAt' are avoided by taking the absolute value of the generated sample.
+
+The generated Solidity library file (test/L2/Lib1559MathTest.d.sol) contains the `data()` function, which initializes the two-dimensional array in memory and assigns each element individually based on the generated values.
+"""
+
 import numpy as np
 
 # Number of samples
