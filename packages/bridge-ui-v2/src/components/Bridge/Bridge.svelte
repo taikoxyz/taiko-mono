@@ -5,9 +5,9 @@
   import { routingContractsMap } from '$bridgeConfig';
   import { chainConfig } from '$chainConfig';
   import { FlatAlert } from '$components/Alert';
-  import ChainSelectorWrapper from '$components/Bridge/ChainSelectorWrapper.svelte';
   import { Button } from '$components/Button';
   import { Card } from '$components/Card';
+  import { ChainSelectorWrapper } from '$components/ChainSelector';
   import { successToast, warningToast } from '$components/NotificationToast';
   import { errorToast, infoToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { OnAccount } from '$components/OnAccount';
@@ -327,7 +327,7 @@
 </script>
 
 {#if $activeBridge === BridgeTypes.FUNGIBLE}
-  <Card class="w-full md:w-[524px]" title={$t('bridge.title.default')} text={$t('bridge.description')}>
+  <Card class="w-full md:w-[524px]" title={$t('bridge.title.default')} text={$t('bridge.description.default')}>
     <div class="space-y-[30px]">
       <div class="f-between-center gap-4">
         <ChainSelectorWrapper />
