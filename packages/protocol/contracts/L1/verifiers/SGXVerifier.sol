@@ -49,7 +49,7 @@ contract SGXVerifier is EssentialContract, IVerifier {
 
     /// @notice Adds trusted SGX instances to the registry.
     /// @param trustedInstances The address array of trusted SGX instances.
-    function addToRegistry(address[] memory trustedInstances)
+    function addToRegistryByOwner(address[] memory trustedInstances)
         external
         onlyOwner
     {
@@ -60,6 +60,42 @@ contract SGXVerifier is EssentialContract, IVerifier {
 
             uniqueVerifiers++;
         }
+    }
+
+    /// @notice Adds trusted SGX instances to the registry by another SGX instance.
+    /// @param instanceId The id of the SGX instance who is adding new members.
+    /// @param newPubKey The new address of the instance.
+    /// @param trustedInstances The address array of trusted SGX instances.
+    /// @param signature The signature proving authenticity.
+    function addToRegistryBySgxInstance(
+        uint256 instanceId,
+        address newPubKey,
+        address[] memory trustedInstances,
+        bytes memory signature
+    )
+        external
+    {
+        bytes32 signedHash = keccak256(abi.encode(newPubKey, trustedInstances));
+        // Would throw in case invalid
+        address signer =
+            ECDSAUpgradeable.recover(signedHash, signature);
+
+        if (sgxRegistry[instanceId] != signer) {
+            revert SGX_NOT_VALID_SIGNER_OR_ID_MISMATCH();
+        }
+
+        // Allow user to add
+        for (uint256 i; i < trustedInstances.length; i++) {
+            sgxRegistry[uniqueVerifiers] = trustedInstances[i];
+
+            emit InstanceAdded(uniqueVerifiers, trustedInstances[i]);
+
+            uniqueVerifiers++;
+        }
+
+        // Invalidate current key, because it cannot be used again (side-channel
+        // attacks).
+        sgxRegistry[instanceId] = newPubKey;
     }
 
     /// @inheritdoc IVerifier
