@@ -57,6 +57,15 @@ nano .env
 
 Set the following environment variables to enable your node as a proposer:
 
+<Callout type="error">
+  For `L1_PROPOSER_PRIVATE_KEY` 
+  make sure your private key is in hexadecimal format and with the `0x` prefix removed!
+  Otherwise you will get this error in your proposer status logs:
+  ```
+  simple-taiko-node-taiko_client_proposer-1  | invalid L1 proposer private key: invalid length, need 256 bits
+  ```
+</Callout>
+
 - Set `ENABLE_PROPOSER` to `true`
 - Set `L1_PROPOSER_PRIVATE_KEY` to the private key of your L1 account (with balance) who will send TaikoL1.proposeBlock transactions
 - Set `L2_SUGGESTED_FEE_RECIPIENT` to the address of your L2 account who will be the tx fee beneficiary of the L2 blocks that you proposed
@@ -69,15 +78,23 @@ If you are not running a local prover, then you can specify a prover from the [p
 
 - `PROVER_ENDPOINTS`
 
-### Verify proposer logs
+### Check proposer status logs
 
-Run this command to verify you have some proposer logs:
+To see if your proposer is running correctly or has errors run:
+
+```sh
+docker compose logs -f taiko_client_proposer
+```
+
+### See proposed blocks
+
+When you run:
 
 ```sh
 docker compose logs -f taiko_client_proposer | egrep "Propose transactions succeeded"
 ```
 
-You should see a log if you have proposed a block: `📝 Propose transactions succeeded`.
+if your proposer successfully proposed a block, your logs should show: `📝 Propose transactions succeeded`.
 
 You can check all commands to see proposer logs in the [node runner manual](/docs/manuals/node-runner-manual#view-client-proposer-logs).
 

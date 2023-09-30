@@ -54,6 +54,15 @@ nano .env
 
 Open the `.env` file and set the following environment variables to enable your node as a prover:
 
+<Callout type="error">
+  For `L1_PROVER_PRIVATE_KEY` 
+  make sure your private key is in hexadecimal format and with the `0x` prefix removed!
+  Otherwise you will get this error in your prover status logs:
+  ```
+  simple-taiko-node-taiko_client_prover_relayer-1  | invalid L1 prover private key: invalid length, need 256 bits
+  ```
+</Callout>
+
 - Set `ENABLE_PROVER` to `true`
 - Set `L1_PROVER_PRIVATE_KEY` to your L1 account private key (with balance of TTKOj on TaikoL1), we will the public key of this account in the next Steps
 
@@ -85,15 +94,23 @@ Finally, click the **Write** button.
 
 > Note: If you were already running a prover from your address when you approved TaikoL1 as a spender, the contract may directly drain up to the approved amount of TTKOj from your wallet to use as bond for proving. This may cause `depositTaikoToken` transactions to fail.
 
+### Check prover status logs
+
+To see if your prover is running correctly or has errors run:
+
+```sh
+docker compose logs -f taiko_client_prover_relayer
+```
+
 ### Verify prover logs
 
-Run this command to verify you have some prover logs:
+When you run:
 
 ```sh
 docker compose logs -f taiko_client_prover_relayer | egrep "block proof was|proof submission error|Block proven"
 ```
 
-You should see logs like this if it was successful:
+if your prover has successfully proven a block, your logs should show:
 
 - `💰 Your block proof was accepted` means you successfully submitted a proof and your bond is returned.
 - `✅ Block proven` means a proposed block was successfully proved on TaikoL1 (by anyone).
