@@ -49,3 +49,7 @@ When the block is proposed the taiko-client will send the `L2_SUGGESTED_FEE_RECI
 Then, when the L2 client builds the L2 block, it will set the `block.coinbase` to the `meta.proposer` specified for the block on L1. The validity proof (ZKP) for this block must check that the `block.coinbase` is indeed the `meta.proposer`.
 
 When the ZKP instance is returned from the `TaikoL1` contract with `getInstance()`, the `evidence.metaHash` for the proposed block is included. This is how the ZKP verifier can check that the `block.coinbase` (and other block-level variables as well) are correctly set to what is specified in the metadata on L1.
+
+## How does the proposer earn TKO
+
+The first proposeBlock tx in the enclosing L1 block will earn the TKO reward.
