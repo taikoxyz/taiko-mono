@@ -41,3 +41,11 @@ The anchor transaction is required to be the first transaction in a Taiko block 
 1. Persisting `l1Height`, `l1Hash` and `l1SignalRoot` to the storage trie. These values can be used by bridges to validate cross-chain messages.
 2. Ensuring that the previous 256 block hashes that are exposed to the EVM are correct.
 3. Calculating the EIP-1559 `basefee` which will be used on L2.
+
+## How does the proposer earn Ether
+
+When the block is proposed the taiko-client will send the `L2_SUGGESTED_FEE_RECIPIENT` in the proposeBlock() input data. The TaikoL1 contract sets this value in the L2 block metadata which is stored on L1.
+
+Then, when the L2 client builds the L2 block, it will set the `block.coinbase` to the `meta.proposer` specified for the block on L1. The validity proof (ZKP) for this block must check that the `block.coinbase` is indeed the `meta.proposer`.
+
+When the ZKP instance is returned from the `TaikoL1` contract with `getInstance()`, the `evidence.metaHash` for the proposed block is included. This is how the ZKP verifier can check that the `block.coinbase` (and other block-level variables as well) are correctly set to what is specified in the metadata on L1.

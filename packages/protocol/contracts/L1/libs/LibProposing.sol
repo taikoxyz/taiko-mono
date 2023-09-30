@@ -141,16 +141,20 @@ library LibProposing {
             // - 1x state.taikoTokenBalances[addr] uint256 could theoretically
             // store the whole token supply
             unchecked {
+                // Calculate the time elapsed since the last block was proposed
                 uint256 blockTime = block.timestamp
                     - state.blocks[(b.numBlocks - 1) % config.blockRingBufferSize]
                         .proposedAt;
 
+                // Reward only the first proposer in an L1 block. Subsequent
+                // proposeBlock transactions in the same L1 block will have
+                // blockTime as 0, and receive no reward
                 if (blockTime > 0) {
                     reward = (config.proposerRewardPerSecond * blockTime).min(
                         config.proposerRewardMax
                     );
 
-                    // Reward must be minted
+                    // Reward the proposer
                     TaikoToken(resolver.resolve("taiko_token", false)).mint(
                         input.proposer, reward
                     );
