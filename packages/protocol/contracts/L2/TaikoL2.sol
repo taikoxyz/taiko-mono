@@ -37,7 +37,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     // A hash to check the integrity of public inputs.
     bytes32 public publicInputHash; // slot 3
     uint64 public latestSyncedL1Height; // slot 4
-    uint64 private lastAnchoredAt;
 
     uint256[146] private __gap;
 
@@ -54,6 +53,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         uint64 chainid
     );
 
+    error L2_BASEFEE_MISMATCH();
     error L2_INVALID_CHAIN_ID();
     error L2_INVALID_SENDER();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
@@ -75,8 +75,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             uint256 parentHeight = block.number - 1;
             _l2Hashes[parentHeight] = blockhash(parentHeight);
         }
-
-        lastAnchoredAt = uint64(block.number);
     }
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
@@ -117,14 +115,17 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         latestSyncedL1Height = l1Height;
         _l1VerifiedBlocks[l1Height] = VerifiedBlock(l1Hash, l1SignalRoot);
 
+        uint64 baseFeePerGas;
+        address checker = resolve("1559_checker", true);
+        if (checker != address(0)) {
+            baseFeePerGas =
+                I1559Checker(checker).updateBaseFeePerGas(parentGasUsed);
+        }
+        if (baseFeePerGas == 0) baseFeePerGas = 1;
+        if (block.basefee != baseFeePerGas) revert L2_BASEFEE_MISMATCH();
+
         // We emit this event so circuits can grab its data to verify block
         // variables.
-
-        address checker = resolve("1559_checker", true);
-        uint64 baseFeePerGas = checker == address(0)
-            ? 1 // Node requires this vaue to be non-zero
-            : I1559Checker(checker).checkBaseFeePerGas(parentGasUsed);
-
         emit Anchored({
             number: uint64(block.number),
             baseFeePerGas: baseFeePerGas,

@@ -7,8 +7,18 @@
 pragma solidity ^0.8.20;
 
 /// @title I1559Checker
+/// @notice Interface for updating the L2 EIP-1559 base fee.
+/// Defines a function to calculate and set the new base fee per gas.
 interface I1559Checker {
-    function checkBaseFeePerGas(uint32 gasUsed)
+    /// @notice Emitted when the base fee is set or updated.
+    event BaseFeeUpdated(uint64 value);
+
+    /// @notice Computes and updates the L2 EIP-1559 base fee using the gas
+    /// consumption of the parent block.
+    /// @param gasUsed Gas consumed by the parent block, used to calculate the
+    /// new base fee.
+    /// @return baseFeePerGas Updated base fee per gas for the current block.
+    function updateBaseFeePerGas(uint32 gasUsed)
         external
         returns (uint64 baseFeePerGas);
 }

@@ -12,12 +12,9 @@ import { LibMath } from "../../libs/LibMath.sol";
 import { I1559Checker } from "./I1559Checker.sol";
 import { Lib1559Math } from "./Lib1559Math.sol";
 
-/// @title TaikoL2
-/// @notice Taiko L2 is a smart contract that handles cross-layer message
-/// verification and manages EIP-1559 gas pricing for Layer 2 (L2) operations.
-/// It is used to anchor the latest L1 block details to L2 for cross-layer
-/// communication, manage EIP-1559 parameters for gas pricing, and store
-/// verified L1 block information.
+/// @title Standard1559Checker
+/// @notice Contract that implements the standard EIP-1559 base fee update
+/// algorithm.
 contract Standard1559Checker is EssentialContract, I1559Checker {
     using LibMath for uint256;
 
@@ -26,9 +23,6 @@ contract Standard1559Checker is EssentialContract, I1559Checker {
 
     uint64 public baseFeePerGas;
     uint256[49] private __gap;
-
-    error L2_BASEFEE_MISMATCH();
-    error L2_INVALID_BASEFEE();
 
     /// @notice Initializes the TaikoL2 contract.
     /// @param _baseFeePerGas The initial value of base fee per gas
@@ -40,33 +34,25 @@ contract Standard1559Checker is EssentialContract, I1559Checker {
         initializer
     {
         EssentialContract._init(_addressManager);
-
-        if (_baseFeePerGas < MIN_BASE_FEE_PER_GAS) {
-            revert L2_INVALID_BASEFEE();
-        }
         baseFeePerGas = _baseFeePerGas;
+        emit BaseFeeUpdated(baseFeePerGas);
     }
 
-    function checkBaseFeePerGas(uint32 gasUsed)
+    function updateBaseFeePerGas(uint32 gasUsed)
         external
         onlyFromNamed("taiko")
         returns (uint64)
     {
-        // Verify the base fee is correct
         baseFeePerGas = calcBaseFeePerGas(gasUsed);
-        if (block.basefee != baseFeePerGas) {
-            revert L2_BASEFEE_MISMATCH();
-        }
-
+        emit BaseFeeUpdated(baseFeePerGas);
         return baseFeePerGas;
     }
 
-    function calcBaseFeePerGas(uint32 gasUsed)
-        public
-        view
-        virtual
-        returns (uint64)
-    {
+    /// @dev Calculate and returns the new base fee per gas.
+    /// @param gasUsed Gas consumed by the parent block, used to calculate the
+    /// new base fee.
+    /// @return baseFeePerGas Updated base fee per gas for the current block.
+    function calcBaseFeePerGas(uint32 gasUsed) public view returns (uint64) {
         uint256 _baseFeePerGas = Lib1559Math.calcBaseFeePerGas(
             baseFeePerGas, gasUsed, BLOCK_GAS_TARGET
         );
