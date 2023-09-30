@@ -37,17 +37,11 @@ contract AMM1559Manager is EssentialContract, I1559Manager {
     uint256[49] private __gap;
 
     /// @notice Initializes the TaikoL2 contract.
-    /// @param _gasInPool The initial value of gasInPool
-    function init(
-        address _addressManager,
-        uint64 _gasInPool
-    )
-        external
-        initializer
-    {
+    function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
-        gasInPool = _gasInPool;
+        gasInPool = INIT_GAS_IN_POOL;
         parentTimestamp = uint64(block.timestamp);
+
         emit BaseFeeUpdated(POOL_PRODUCT / gasInPool / gasInPool);
     }
 
@@ -68,10 +62,10 @@ contract AMM1559Manager is EssentialContract, I1559Manager {
             gasToBuy: gasUsed
         });
 
-        gasInPool = uint128(_gasInPool.min(type(uint128).max));
         parentTimestamp = uint64(block.timestamp);
-
+        gasInPool = uint128(_gasInPool.min(type(uint128).max));
         baseFeePerGas = uint64(_baseFeePerGas.min(type(uint64).max));
+
         emit BaseFeeUpdated(baseFeePerGas);
     }
 
