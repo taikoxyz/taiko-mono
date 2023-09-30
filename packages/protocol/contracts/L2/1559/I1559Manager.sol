@@ -11,7 +11,7 @@ pragma solidity ^0.8.20;
 /// Defines a function to calculate and set the new base fee per gas.
 interface I1559Manager {
     /// @notice Emitted when the base fee is set or updated.
-    event BaseFeeUpdated(uint64 value);
+    event BaseFeeUpdated(uint256 value);
 
     /// @notice Computes and updates the L2 EIP-1559 base fee using the gas
     /// consumption of the parent block.
