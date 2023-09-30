@@ -16,8 +16,7 @@ contract Lib1559MathTest is TestBase {
     uint256 public constant AVG_BLOCK_TIME = 3;
     uint256 public constant BLOCK_GAS_TARGET = 4_300_000; // 4.3 million
 
-    uint256 public constant INIT_BASEFEE_PER_GAS = 10 * 1_000_000_000; // 10
-        // Gwei
+    uint256 public constant INIT_BASEFEE_PER_GAS = 10 gwei;
     uint256 public constant INIT_GAS_IN_POOL = BLOCK_GAS_TARGET * 1000;
     uint256 public constant POOL_AMM_PRODUCT =
         INIT_BASEFEE_PER_GAS * INIT_GAS_IN_POOL * INIT_GAS_IN_POOL;

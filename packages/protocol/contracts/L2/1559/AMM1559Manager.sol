@@ -17,45 +17,75 @@ import { Lib1559Math } from "./Lib1559Math.sol";
 contract AMM1559Manager is EssentialContract, I1559Manager {
     using LibMath for uint256;
 
-    uint64 public constant BLOCK_GAS_TARGET = 500_000;
-    uint64 public constant MIN_BASE_FEE_PER_GAS = 1000; // 1000 Wei;
+    uint256 public constant AVG_BLOCK_TIME = 3;
+    uint256 public constant BLOCK_GAS_TARGET = 4_300_000; // 4.3 million
+    uint256 public constant INIT_BASEFEE_PER_GAS = 10 gwei;
+    uint256 public constant INIT_GAS_IN_POOL = BLOCK_GAS_TARGET * 1000;
+    uint256 public constant MAX_GAS_IN_POOL = INIT_GAS_IN_POOL * 10;
 
-    uint64 public baseFeePerGas;
+    uint256 public constant POOL_AMM_PRODUCT =
+        INIT_BASEFEE_PER_GAS * INIT_GAS_IN_POOL * INIT_GAS_IN_POOL;
+
+    uint256 public constant GAS_ISSUE_PER_SECOND =
+        BLOCK_GAS_TARGET / AVG_BLOCK_TIME;
+
+    uint256 public constant POOL_PRODUCT =
+        INIT_BASEFEE_PER_GAS * INIT_GAS_IN_POOL * INIT_GAS_IN_POOL;
+
+    uint128 public gasInPool;
+    uint64 public parentTimestamp;
     uint256[49] private __gap;
 
     /// @notice Initializes the TaikoL2 contract.
-    /// @param _baseFeePerGas The initial value of base fee per gas
+    /// @param _gasInPool The initial value of gasInPool
     function init(
         address _addressManager,
-        uint64 _baseFeePerGas
+        uint64 _gasInPool
     )
         external
         initializer
     {
         EssentialContract._init(_addressManager);
-        baseFeePerGas = _baseFeePerGas;
-        emit BaseFeeUpdated(baseFeePerGas);
+        gasInPool = _gasInPool;
+        parentTimestamp = uint64(block.timestamp);
+        emit BaseFeeUpdated(POOL_PRODUCT / gasInPool / gasInPool);
     }
 
     /// @inheritdoc I1559Manager
     function updateBaseFeePerGas(uint32 gasUsed)
         external
         onlyFromNamed("taiko")
-        returns (uint64)
+        returns (uint64 baseFeePerGas)
     {
-        baseFeePerGas = calcBaseFeePerGas(gasUsed);
+        uint256 _baseFeePerGas;
+        uint256 _gasInPool;
+        (_baseFeePerGas, _gasInPool) = Lib1559Math.calcBaseFeePerGasAMM({
+            poolProduct: POOL_PRODUCT,
+            gasIssuePerSecond: GAS_ISSUE_PER_SECOND,
+            maxGasInPool: MAX_GAS_IN_POOL,
+            gasInPool: gasInPool,
+            blockTime: block.timestamp - parentTimestamp,
+            gasToBuy: gasUsed
+        });
+
+        gasInPool = uint128(_gasInPool.min(type(uint128).max));
+        parentTimestamp = uint64(block.timestamp);
+
+        baseFeePerGas = uint64(_baseFeePerGas.min(type(uint64).max));
         emit BaseFeeUpdated(baseFeePerGas);
-        return baseFeePerGas;
     }
 
     /// @inheritdoc I1559Manager
     function calcBaseFeePerGas(uint32 gasUsed) public view returns (uint64) {
-        uint256 _baseFeePerGas = Lib1559Math.calcBaseFeePerGas(
-            baseFeePerGas, gasUsed, BLOCK_GAS_TARGET
-        );
-        if (_baseFeePerGas < MIN_BASE_FEE_PER_GAS) {
-            _baseFeePerGas = MIN_BASE_FEE_PER_GAS;
-        }
+        (uint256 _baseFeePerGas,) = Lib1559Math.calcBaseFeePerGasAMM({
+            poolProduct: POOL_PRODUCT,
+            gasIssuePerSecond: GAS_ISSUE_PER_SECOND,
+            maxGasInPool: MAX_GAS_IN_POOL,
+            gasInPool: gasInPool,
+            blockTime: block.timestamp - parentTimestamp,
+            gasToBuy: gasUsed
+        });
+
         return uint64(_baseFeePerGas.min(type(uint64).max));
     }
 }
