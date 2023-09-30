@@ -140,6 +140,23 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         emit CrossChainSynced(l1Height, l1Hash, l1SignalRoot);
     }
 
+    /// @dev Calculate and returns the new base fee per gas.
+    /// @param parentGasUsed Gas consumed by the parent block, used to calculate
+    /// the new base fee.
+    /// @return baseFeePerGas Updated base fee per gas for the current block.
+    function calcBaseFeePerGas(uint32 parentGasUsed)
+        public
+        view
+        returns (uint64 baseFeePerGas)
+    {
+        address checker = resolve("1559_manager", true);
+        if (checker != address(0)) {
+            baseFeePerGas =
+                I1559Manager(checker).calcBaseFeePerGas(parentGasUsed);
+        }
+        if (baseFeePerGas == 0) baseFeePerGas = 1;
+    }
+
     /// @inheritdoc ICrossChainSync
     function getCrossChainBlockHash(uint64 blockId)
         public

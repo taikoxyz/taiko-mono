@@ -21,4 +21,13 @@ interface I1559Manager {
     function updateBaseFeePerGas(uint32 gasUsed)
         external
         returns (uint64 baseFeePerGas);
+
+    /// @dev Calculate and returns the new base fee per gas.
+    /// @param gasUsed Gas consumed by the parent block, used to calculate the
+    /// new base fee.
+    /// @return baseFeePerGas Updated base fee per gas for the current block.
+    function calcBaseFeePerGas(uint32 gasUsed)
+        external
+        view
+        returns (uint64 baseFeePerGas);
 }

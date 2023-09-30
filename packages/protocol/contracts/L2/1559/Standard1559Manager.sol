@@ -38,6 +38,7 @@ contract Standard1559Manager is EssentialContract, I1559Manager {
         emit BaseFeeUpdated(baseFeePerGas);
     }
 
+    /// @inheritdoc I1559Manager
     function updateBaseFeePerGas(uint32 gasUsed)
         external
         onlyFromNamed("taiko")
@@ -48,10 +49,7 @@ contract Standard1559Manager is EssentialContract, I1559Manager {
         return baseFeePerGas;
     }
 
-    /// @dev Calculate and returns the new base fee per gas.
-    /// @param gasUsed Gas consumed by the parent block, used to calculate the
-    /// new base fee.
-    /// @return baseFeePerGas Updated base fee per gas for the current block.
+    /// @inheritdoc I1559Manager
     function calcBaseFeePerGas(uint32 gasUsed) public view returns (uint64) {
         uint256 _baseFeePerGas = Lib1559Math.calcBaseFeePerGas(
             baseFeePerGas, gasUsed, BLOCK_GAS_TARGET
