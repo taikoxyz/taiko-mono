@@ -52,4 +52,4 @@ When the ZKP instance is returned from the `TaikoL1` contract with `getInstance(
 
 ## How does the proposer earn TKO
 
-The first proposeBlock tx in the enclosing L1 block will earn the TKO reward.
+The first proposeBlock tx in the enclosing L1 block will earn the TKO reward. The proposer will receive either the maximum reward (specified in the L1 config), or the reward per second (also specified in the L1 config as well) times the block time, whichever is smaller.
