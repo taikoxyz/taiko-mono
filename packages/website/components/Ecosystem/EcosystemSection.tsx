@@ -24,6 +24,14 @@ interface EcosystemData {
 
 const ecosystemData: EcosystemData[] = [
   {
+    icon: "/images/ecosystem/ait.png",
+    name: "AIT Protocol",
+    link: "https://ait.tech/",
+    description: "AIT Protocol is the first’s Web3 data infrastructure focusing on AI data annotations, leverages blockchain technology to deliver a trustless and cross-border labor market being strategically incentivized by crypto economics and having instant cross-nation payment settlements.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/alphamint.png",
     name: "Alphamint",
     link: "https://www.alphamint.online/",
