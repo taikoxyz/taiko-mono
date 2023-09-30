@@ -25,7 +25,7 @@ n = 400
 
 # Medians and proportions
 AVG_BLOCK_TIME = 3
-BLOCK_GAS_TARGET = 4300000
+BLOCK_GAS_TARGET = 5_000_000
 median2 = 100
 prop1 = 0.95
 prop2 = 0.05
@@ -56,7 +56,7 @@ assignments = "\n".join([f"_blocks[{i}][0] = {a}; _blocks[{i}][1] = {b};" for i,
 # Write to a Solidity file
 with open("test/L2/1559/Lib1559MathTest.d.sol", "w") as f:
     f.write("pragma solidity ^0.8.0;\n\n")
-    f.write("library Lib1559MathTestData {\n")
+    f.write("library EIP1559TestData {\n")
     f.write(f"function blocks() public pure returns (uint32[2][] memory _blocks)")
     f.write("{\n")
     f.write(f"_blocks = new uint32[2][]({n});")

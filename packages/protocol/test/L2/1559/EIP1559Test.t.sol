@@ -9,9 +9,9 @@ import { Lib1559AMM } from "../../../contracts/L2/1559/EIP1559ManagerAMM.sol";
 import { Lib1559Standard } from
     "../../../contracts/L2/1559/EIP1559ManagerStandard.sol";
 import { TestBase } from "../../TestBase.sol";
-import { Lib1559MathTestData as Data } from "./Lib1559MathTest.d.sol";
+import { EIP1559TestData as Data } from "./Lib1559MathTest.d.sol";
 
-contract EIP1559MathTest is TestBase {
+contract EIP1559Test is TestBase {
     // WARNING:
     // AVG_BLOCK_TIME and BLOCK_GAS_TARGET should match the values in
     // blocktime_gasused_gen.py
@@ -25,7 +25,7 @@ contract EIP1559MathTest is TestBase {
     uint256 public constant GAS_ISSUE_PER_SECOND =
         BLOCK_GAS_TARGET / AVG_BLOCK_TIME;
 
-    function test_1559() public view {
+    function test_1559_compare() public view {
         uint256 baseFeePerGasVanilla = INIT_BASEFEE_PER_GAS;
         uint256 gasInPool = INIT_GAS_IN_POOL;
         uint256 maxGasInPool = type(uint256).max; // INIT_GAS_IN_POOL * 100000;
