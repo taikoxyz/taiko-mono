@@ -16,7 +16,7 @@ contract EIP1559Test is TestBase {
     // AVG_BLOCK_TIME and BLOCK_GAS_TARGET should match the values in
     // blocktime_gasused_gen.py
     uint256 public constant AVG_BLOCK_TIME = 3;
-    uint256 public constant BLOCK_GAS_TARGET = 4_300_000; // 4.3 million
+    uint256 public constant BLOCK_GAS_TARGET = 5_000_000; // 4.3 million
 
     uint256 public constant INIT_BASEFEE_PER_GAS = 10 gwei;
     uint256 public constant INIT_GAS_IN_POOL = BLOCK_GAS_TARGET * 1000;
