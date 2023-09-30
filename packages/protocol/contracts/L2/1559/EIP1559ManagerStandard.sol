@@ -9,13 +9,29 @@ pragma solidity ^0.8.20;
 import { EssentialContract } from "../../common/EssentialContract.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 
-import { I1559Checker } from "./I1559Checker.sol";
-import { Lib1559Math } from "./Lib1559Math.sol";
+import { EIP1559Manager } from "./EIP1559Manager.sol";
 
-/// @title Standard1559Checker
+library Lib1559Standard {
+    function calcBaseFeePerGas(
+        uint256 prevBaseFeePerGas,
+        uint256 gasUsed,
+        uint256 blockGasTarget
+    )
+        public
+        pure
+        returns (uint256)
+    {
+        // Formula:
+        // base_fee * (1 + 1/8 * (block_gas_used / block_gas_target - 1))
+        return prevBaseFeePerGas * (gasUsed + blockGasTarget * 7)
+            / (blockGasTarget * 8);
+    }
+}
+
+/// @title EIP1559ManagerStandard
 /// @notice Contract that implements the standard EIP-1559 base fee update
 /// algorithm.
-contract Standard1559Checker is EssentialContract, I1559Checker {
+contract EIP1559ManagerStandard is EssentialContract, EIP1559Manager {
     using LibMath for uint256;
 
     uint64 public constant BLOCK_GAS_TARGET = 500_000;
@@ -38,6 +54,7 @@ contract Standard1559Checker is EssentialContract, I1559Checker {
         emit BaseFeeUpdated(baseFeePerGas);
     }
 
+    /// @inheritdoc EIP1559Manager
     function updateBaseFeePerGas(uint32 gasUsed)
         external
         onlyFromNamed("taiko")
@@ -48,12 +65,9 @@ contract Standard1559Checker is EssentialContract, I1559Checker {
         return baseFeePerGas;
     }
 
-    /// @dev Calculate and returns the new base fee per gas.
-    /// @param gasUsed Gas consumed by the parent block, used to calculate the
-    /// new base fee.
-    /// @return baseFeePerGas Updated base fee per gas for the current block.
+    /// @inheritdoc EIP1559Manager
     function calcBaseFeePerGas(uint32 gasUsed) public view returns (uint64) {
-        uint256 _baseFeePerGas = Lib1559Math.calcBaseFeePerGas(
+        uint256 _baseFeePerGas = Lib1559Standard.calcBaseFeePerGas(
             baseFeePerGas, gasUsed, BLOCK_GAS_TARGET
         );
         if (_baseFeePerGas < MIN_BASE_FEE_PER_GAS) {
