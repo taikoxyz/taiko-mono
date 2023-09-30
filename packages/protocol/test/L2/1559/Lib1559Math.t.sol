@@ -4,8 +4,9 @@ pragma solidity ^0.8.20;
 import { StringsUpgradeable as Strings } from
     "@ozu/utils/StringsUpgradeable.sol";
 import { console2 } from "forge-std/console2.sol";
-import { TestBase } from "../TestBase.sol";
-import { Lib1559Math } from "../../contracts/L2/Lib1559Math.sol";
+
+import { Lib1559Math } from "../../../contracts/L2/1559/Lib1559Math.sol";
+import { TestBase } from "../../TestBase.sol";
 import { Lib1559MathTestData as Data } from "./Lib1559MathTest.d.sol";
 
 contract Lib1559MathTest is TestBase {

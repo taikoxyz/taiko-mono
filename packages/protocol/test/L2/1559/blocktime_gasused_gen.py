@@ -14,7 +14,7 @@ Each sub-array [blockDelay, parentGasUsed] is a sample, and there are 100 such s
 
 Note: Negative values for 'blockDelay' are avoided by taking the absolute value of the generated sample.
 
-The generated Solidity library file (test/L2/Lib1559MathTest.d.sol) contains the `data()` function, which initializes the two-dimensional array in memory and assigns each element individually based on the generated values.
+The generated Solidity library file (test/L2/1559/Lib1559MathTest.d.sol) contains the `data()` function, which initializes the two-dimensional array in memory and assigns each element individually based on the generated values.
 """
 
 import numpy as np
@@ -54,7 +54,7 @@ pairs = [(int(round(a)), int(round(b))) for a, b in zip(samples1, samples2)]
 assignments = "\n".join([f"_blocks[{i}][0] = {a}; _blocks[{i}][1] = {b};" for i, (a, b) in enumerate(pairs)])
 
 # Write to a Solidity file
-with open("test/L2/Lib1559MathTest.d.sol", "w") as f:
+with open("test/L2/1559/Lib1559MathTest.d.sol", "w") as f:
     f.write("pragma solidity ^0.8.0;\n\n")
     f.write("library Lib1559MathTestData {\n")
     f.write(f"function blocks() public pure returns (uint32[2][] memory _blocks)")

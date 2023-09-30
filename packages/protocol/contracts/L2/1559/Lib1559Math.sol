@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-import { LibMath } from "../libs/LibMath.sol";
+import { LibMath } from "../../libs/LibMath.sol";
 
 library Lib1559Math {
     using LibMath for uint256;
