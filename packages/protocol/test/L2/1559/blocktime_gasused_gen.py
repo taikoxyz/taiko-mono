@@ -54,7 +54,7 @@ pairs = [(int(round(a)), int(round(b))) for a, b in zip(samples1, samples2)]
 assignments = "\n".join([f"_blocks[{i}][0] = {a}; _blocks[{i}][1] = {b};" for i, (a, b) in enumerate(pairs)])
 
 # Write to a Solidity file
-with open("test/L2/1559/Lib1559MathTest.d.sol", "w") as f:
+with open("test/L2/1559/EIP1559Test.d.sol", "w") as f:
     f.write("pragma solidity ^0.8.0;\n\n")
     f.write("library EIP1559TestData {\n")
     f.write(f"function blocks() public pure returns (uint32[2][] memory _blocks)")
@@ -64,4 +64,4 @@ with open("test/L2/1559/Lib1559MathTest.d.sol", "w") as f:
     f.write("\n}\n")
     f.write("}\n")
 
-print("Lib1559MathTest.d.sol file has been generated.")
+print("EIP1559Test.d.sol file has been generated.")

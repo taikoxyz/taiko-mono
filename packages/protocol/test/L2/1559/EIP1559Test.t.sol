@@ -9,7 +9,7 @@ import { Lib1559AMM } from "../../../contracts/L2/1559/EIP1559ManagerAMM.sol";
 import { Lib1559Standard } from
     "../../../contracts/L2/1559/EIP1559ManagerStandard.sol";
 import { TestBase } from "../../TestBase.sol";
-import { EIP1559TestData as Data } from "./Lib1559MathTest.d.sol";
+import { EIP1559TestData as Data } from "./EIP1559Test.d.sol";
 
 contract EIP1559Test is TestBase {
     // WARNING:
