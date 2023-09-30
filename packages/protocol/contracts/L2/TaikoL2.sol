@@ -35,8 +35,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     // A hash to check the integrity of public inputs.
     bytes32 public publicInputHash; // slot 3
-    uint64 public parentTimestamp; // slot 4
-    uint64 public latestSyncedL1Height;
+    uint64 public latestSyncedL1Height; // slot 4
 
     uint256[146] private __gap;
 
@@ -70,13 +69,12 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         }
         if (block.number > 1) revert L2_TOO_LATE();
 
-        parentTimestamp = uint64(block.timestamp);
-        (publicInputHash,) = _calcPublicInputHash(block.number);
-
         if (block.number > 0) {
             uint256 parentHeight = block.number - 1;
             _l2Hashes[parentHeight] = blockhash(parentHeight);
         }
+
+        (publicInputHash,) = _calcPublicInputHash(block.number);
     }
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
@@ -118,8 +116,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         if (block.basefee != baseFeePerGas) {
             revert L2_BASEFEE_MISMATCH();
         }
-
-        parentTimestamp = uint64(block.timestamp);
 
         // We emit this event so circuits can grab its data to verify block
         // variables.
