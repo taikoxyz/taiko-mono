@@ -12,7 +12,7 @@ import { Proxied } from "../common/Proxied.sol";
 
 import { LibMath } from "../libs/LibMath.sol";
 
-import { I1559Checker } from "./1559/I1559Checker.sol";
+import { I1559Manager } from "./1559/I1559Manager.sol";
 import { TaikoL2Signer } from "./TaikoL2Signer.sol";
 
 /// @title TaikoL2
@@ -116,10 +116,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         _l1VerifiedBlocks[l1Height] = VerifiedBlock(l1Hash, l1SignalRoot);
 
         uint64 baseFeePerGas;
-        address checker = resolve("1559_checker", true);
+        address checker = resolve("1559_manager", true);
         if (checker != address(0)) {
             baseFeePerGas =
-                I1559Checker(checker).updateBaseFeePerGas(parentGasUsed);
+                I1559Manager(checker).updateBaseFeePerGas(parentGasUsed);
         }
         if (baseFeePerGas == 0) baseFeePerGas = 1;
         if (block.basefee != baseFeePerGas) revert L2_BASEFEE_MISMATCH();

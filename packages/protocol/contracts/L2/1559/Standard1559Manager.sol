@@ -9,13 +9,13 @@ pragma solidity ^0.8.20;
 import { EssentialContract } from "../../common/EssentialContract.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 
-import { I1559Checker } from "./I1559Checker.sol";
+import { I1559Manager } from "./I1559Manager.sol";
 import { Lib1559Math } from "./Lib1559Math.sol";
 
-/// @title Standard1559Checker
+/// @title Standard1559Manager
 /// @notice Contract that implements the standard EIP-1559 base fee update
 /// algorithm.
-contract Standard1559Checker is EssentialContract, I1559Checker {
+contract Standard1559Manager is EssentialContract, I1559Manager {
     using LibMath for uint256;
 
     uint64 public constant BLOCK_GAS_TARGET = 500_000;
