@@ -31,6 +31,7 @@ library LibProposing {
         uint96 livenessBond,
         uint256 proverFee,
         uint256 reward,
+        uint16 minTier,
         TaikoData.BlockMetadata meta
     );
 
@@ -218,6 +219,7 @@ library LibProposing {
             livenessBond: config.livenessBond,
             proverFee: proverFee,
             reward: reward,
+            minTier: blk.minTier,
             meta: meta
         });
     }
