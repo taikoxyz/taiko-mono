@@ -61,6 +61,9 @@ library TaikoData {
         uint256 ethDepositGas;
         // The maximum fee allowed for an ETH deposit.
         uint256 ethDepositMaxFee;
+        // Denominator used to calculated L2 base fee per gas based on the
+        // correspodning value on L1.
+        uint256 baseFeeDenominator;
     }
 
     /// @dev Struct holding state variables.
@@ -100,6 +103,7 @@ library TaikoData {
         uint64 id;
         uint64 timestamp;
         uint64 l1Height;
+        uint64 basefee;
         uint32 gasLimit;
         address coinbase; // L2 coinbase
         TaikoData.EthDeposit[] depositsProcessed;

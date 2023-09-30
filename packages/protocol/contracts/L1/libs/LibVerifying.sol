@@ -62,6 +62,7 @@ library LibVerifying {
                 || config.ethDepositMaxFee >= type(uint96).max
                 || config.ethDepositMaxFee
                     >= type(uint96).max / config.ethDepositMaxCountPerBlock
+                || config.baseFeeDenominator <= 1
         ) revert L1_INVALID_CONFIG();
 
         // Init state

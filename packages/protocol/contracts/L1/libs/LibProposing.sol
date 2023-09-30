@@ -141,6 +141,11 @@ library LibProposing {
                 id: b.numBlocks,
                 timestamp: uint64(block.timestamp),
                 l1Height: uint64(block.number - 1),
+                basefee: uint64(
+                    (block.basefee / config.baseFeeDenominator).min(
+                        type(uint64).max
+                    )
+                    ),
                 gasLimit: config.blockMaxGasLimit,
                 coinbase: msg.sender,
                 // Each transaction must handle a specific quantity of L1-to-L2
@@ -236,8 +241,9 @@ library LibProposing {
         inputs[2] = uint256(meta.txListHash);
         inputs[3] = uint256(meta.extraData);
         inputs[4] = (uint256(meta.id)) | (uint256(meta.timestamp) << 64)
-            | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 192);
-        inputs[5] = uint256(uint160(meta.coinbase));
+            | (uint256(meta.l1Height) << 128) | (uint256(meta.basefee) << 192);
+        inputs[5] = (uint256(uint160(meta.coinbase)) << 160)
+            | (uint256(meta.gasLimit) << 192);
         inputs[6] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
 
         assembly {
