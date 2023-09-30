@@ -12,7 +12,7 @@ import { Proxied } from "../common/Proxied.sol";
 
 import { LibMath } from "../libs/LibMath.sol";
 
-import { Lib1559Math } from "./Lib1559Math.sol";
+import { I1559Checker } from "./1559/I1559Checker.sol";
 import { TaikoL2Signer } from "./TaikoL2Signer.sol";
 
 /// @title TaikoL2
@@ -29,12 +29,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         bytes32 signalRoot;
     }
 
-    struct Config {
-        uint32 blockGasTarget;
-        uint64 minBaseFeePerGas;
-        bool checkBaseFeePerGas;
-    }
-
     // Mapping from L2 block numbers to their block hashes.
     // All L2 block hashes will be saved in this mapping.
     mapping(uint256 blockId => bytes32 blockHash) private _l2Hashes;
@@ -43,7 +37,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     // A hash to check the integrity of public inputs.
     bytes32 public publicInputHash; // slot 3
     uint64 public latestSyncedL1Height; // slot 4
-    uint64 public baseFeePerGas;
+    uint64 private lastAnchoredAt;
 
     uint256[146] private __gap;
 
@@ -60,8 +54,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         uint64 chainid
     );
 
-    error L2_BASEFEE_MISMATCH();
-    error L2_INVALID_BASEFEE();
     error L2_INVALID_CHAIN_ID();
     error L2_INVALID_SENDER();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
@@ -69,13 +61,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     /// @notice Initializes the TaikoL2 contract.
     /// @param _addressManager Address of the {AddressManager} contract.
-    function init(
-        address _addressManager,
-        uint64 _baseFeePerGas
-    )
-        external
-        initializer
-    {
+    function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
 
         if (block.chainid <= 1 || block.chainid >= type(uint64).max) {
@@ -83,18 +69,14 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         }
         if (block.number > 1) revert L2_TOO_LATE();
 
-        Config memory config = getConfig();
-        if (_baseFeePerGas < config.minBaseFeePerGas) {
-            revert L2_INVALID_BASEFEE();
-        }
-        baseFeePerGas = _baseFeePerGas;
-
         (publicInputHash,,) = _calcPublicInputHash(block.number);
 
         if (block.number > 0) {
             uint256 parentHeight = block.number - 1;
             _l2Hashes[parentHeight] = blockhash(parentHeight);
         }
+
+        lastAnchoredAt = uint64(block.number);
     }
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
@@ -112,53 +94,49 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     )
         external
     {
-        unchecked {
-            // Check the message sender must be the protocol specific golden
-            // touch address.
-            if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
+        // Check the message sender must be the protocol specific golden touch
+        // address.
+        if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
 
-            // Verify the base fee is correct
-            baseFeePerGas = calcBaseFeePerGas(parentGasUsed);
-            if (
-                getConfig().checkBaseFeePerGas && block.basefee != baseFeePerGas
-            ) {
-                revert L2_BASEFEE_MISMATCH();
-            }
+        (
+            bytes32 _publicInputHash,
+            bytes32 _publicInputHashNew,
+            bytes32 _parentHash
+        ) = _calcPublicInputHash(block.number - 1);
 
-            (
-                bytes32 _publicInputHash,
-                bytes32 _publicInputHashNew,
-                bytes32 _parentHash
-            ) = _calcPublicInputHash(block.number - 1);
-
-            // Verify the 256 ancestor block hashes match our record
-            if (publicInputHash != _publicInputHash) {
-                revert L2_PUBLIC_INPUT_HASH_MISMATCH();
-            }
-
-            // Replace the oldest block hash with the parent's blockhash
-            publicInputHash = _publicInputHashNew;
-
-            // Update other state data
-            _l2Hashes[block.number - 1] = _parentHash;
-            latestSyncedL1Height = l1Height;
-            _l1VerifiedBlocks[l1Height] = VerifiedBlock(l1Hash, l1SignalRoot);
-
-            // We emit this event so circuits can grab its data to verify block
-            // variables.
-            emit Anchored({
-                number: uint64(block.number),
-                baseFeePerGas: baseFeePerGas,
-                gaslimit: uint32(block.gaslimit),
-                timestamp: uint64(block.timestamp),
-                parentHash: _parentHash,
-                prevrandao: block.prevrandao,
-                coinbase: block.coinbase,
-                chainid: uint64(block.chainid)
-            });
-
-            emit CrossChainSynced(l1Height, l1Hash, l1SignalRoot);
+        // Verify the 256 ancestor block hashes match our record
+        if (publicInputHash != _publicInputHash) {
+            revert L2_PUBLIC_INPUT_HASH_MISMATCH();
         }
+
+        // Replace the oldest block hash with the parent's blockhash
+        publicInputHash = _publicInputHashNew;
+
+        // Update other state data
+        _l2Hashes[block.number - 1] = _parentHash;
+        latestSyncedL1Height = l1Height;
+        _l1VerifiedBlocks[l1Height] = VerifiedBlock(l1Hash, l1SignalRoot);
+
+        // We emit this event so circuits can grab its data to verify block
+        // variables.
+
+        address checker = resolve("1559_checker", true);
+        uint64 baseFeePerGas = checker == address(0)
+            ? 1 // Node requires this vaue to be non-zero
+            : I1559Checker(checker).checkBaseFeePerGas(parentGasUsed);
+
+        emit Anchored({
+            number: uint64(block.number),
+            baseFeePerGas: baseFeePerGas,
+            gaslimit: uint32(block.gaslimit),
+            timestamp: uint64(block.timestamp),
+            parentHash: _parentHash,
+            prevrandao: block.prevrandao,
+            coinbase: block.coinbase,
+            chainid: uint64(block.chainid)
+        });
+
+        emit CrossChainSynced(l1Height, l1Hash, l1SignalRoot);
     }
 
     /// @inheritdoc ICrossChainSync
@@ -195,28 +173,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         } else {
             return _l2Hashes[blockId];
         }
-    }
-
-    function calcBaseFeePerGas(uint32 parentGasUsed)
-        public
-        view
-        virtual
-        returns (uint64)
-    {
-        Config memory config = getConfig();
-        uint256 _baseFeePerGas = Lib1559Math.calcBaseFeePerGas(
-            baseFeePerGas, parentGasUsed, config.blockGasTarget
-        );
-        if (_baseFeePerGas < config.minBaseFeePerGas) {
-            _baseFeePerGas = config.minBaseFeePerGas;
-        }
-        return uint64(_baseFeePerGas.min(type(uint64).max));
-    }
-
-    function getConfig() public pure virtual returns (Config memory config) {
-        config.blockGasTarget = 500_000;
-        config.minBaseFeePerGas = 1000; // 1000 Wei;
-        config.checkBaseFeePerGas = true;
     }
 
     function _calcPublicInputHash(uint256 blockId)

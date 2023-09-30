@@ -7,14 +7,6 @@ import { SafeCastUpgradeable } from "@ozu/utils/math/SafeCastUpgradeable.sol";
 import { TestBase } from "../TestBase.sol";
 import { TaikoL2 } from "../../contracts/L2/TaikoL2.sol";
 
-contract TaikoL2NoBaseFeePerGasCheck is TaikoL2 {
-    function getConfig() public pure override returns (Config memory config) {
-        config.blockGasTarget = 20_000_000;
-        config.minBaseFeePerGas = 1_000_000_000 / 10_000; // 1/10000 Gwei;
-        config.checkBaseFeePerGas = false;
-    }
-}
-
 contract TestTaikoL2 is TestBase {
     using SafeCastUpgradeable for uint256;
 
@@ -24,10 +16,9 @@ contract TestTaikoL2 is TestBase {
     TaikoL2 public L2;
 
     function setUp() public {
-        L2 = new TaikoL2NoBaseFeePerGasCheck();
+        L2 = new TaikoL2();
         address dummyAddressManager = getRandomAddress();
-        uint64 baseFeePerGas = 10 * 1_000_000_000; // 10 Gwei
-        L2.init(dummyAddressManager, baseFeePerGas);
+        L2.init(dummyAddressManager);
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);
