@@ -5,11 +5,13 @@ import { StringsUpgradeable as Strings } from
     "@ozu/utils/StringsUpgradeable.sol";
 import { console2 } from "forge-std/console2.sol";
 
-import { Lib1559Math } from "../../../contracts/L2/1559/Lib1559Math.sol";
+import { Lib1559AMM } from "../../../contracts/L2/1559/EIP1559ManagerAMM.sol";
+import { Lib1559Standard } from
+    "../../../contracts/L2/1559/EIP1559ManagerStandard.sol";
 import { TestBase } from "../../TestBase.sol";
 import { Lib1559MathTestData as Data } from "./Lib1559MathTest.d.sol";
 
-contract Lib1559MathTest is TestBase {
+contract EIP1559MathTest is TestBase {
     // WARNING:
     // AVG_BLOCK_TIME and BLOCK_GAS_TARGET should match the values in
     // blocktime_gasused_gen.py
@@ -42,12 +44,12 @@ contract Lib1559MathTest is TestBase {
             uint256 delay = _regtime(time + blocks[i][0]) - _regtime(time);
             time += blocks[i][0];
 
-            baseFeePerGasVanilla = Lib1559Math.calcBaseFeePerGas(
+            baseFeePerGasVanilla = Lib1559Standard.calcBaseFeePerGas(
                 baseFeePerGasVanilla, blocks[i][1], BLOCK_GAS_TARGET
             );
 
             uint256 baseFeePerGasAMM;
-            (baseFeePerGasAMM, gasInPool) = Lib1559Math.calcBaseFeePerGasAMM(
+            (baseFeePerGasAMM, gasInPool) = Lib1559AMM.calcBaseFeePerGasAMM(
                 POOL_AMM_PRODUCT,
                 GAS_ISSUE_PER_SECOND,
                 maxGasInPool,
