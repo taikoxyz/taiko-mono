@@ -30,7 +30,7 @@ contract TaikoL1 is TaikoL1Base {
             blockFeeBaseGas: 20_000,
             blockMaxTxListBytes: 120_000,
             blockTxListExpiry: 0,
-            proposerRewardPerSecond: 25e16, // 0.25 Taiko token
+            proposerRewardPerSecond: 10e16, // 0.10 Taiko token
             proposerRewardMax: 32e18, // 32 Taiko token
             proofRegularCooldown: 10 minutes,
             proofOracleCooldown: 5 minutes,
