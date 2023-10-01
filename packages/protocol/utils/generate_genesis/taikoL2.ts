@@ -353,8 +353,6 @@ async function generateContractConfigs(
                             ]),
                     ]
                 )}`,
-                parentTimestamp: Math.floor(new Date().getTime() / 1000),
-                gasExcess: ethers.BigNumber.from(param1559.gasExcess),
                 // AddressResolver
                 _addressManager: addressMap.AddressManagerProxy,
             },
