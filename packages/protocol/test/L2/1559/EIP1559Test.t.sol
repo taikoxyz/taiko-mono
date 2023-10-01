@@ -66,7 +66,9 @@ contract EIP1559Test is TestBase {
 
         // Variables for AMM-based 1559
         uint256 gasInPool = INIT_GAS_IN_POOL;
-        uint256 maxGasInPool = type(uint256).max; // INIT_GAS_IN_POOL * 100000;
+        uint256 maxGasInPool =
+            INIT_GAS_IN_POOL + BLOCK_GAS_TARGET * 60 / AVG_BLOCK_TIME; // INIT_GAS_IN_POOL
+            // * 100000;
 
         // Variables for Exp 1559
         uint256 gasExcess = GAS_EXCESS_MAX / 2;
