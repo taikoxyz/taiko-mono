@@ -37,18 +37,19 @@ library Lib1559Exp {
 
         if (_gasExcess > gasExcessMax) revert EIP1559_OUT_OF_GAS();
 
-        _baseFeePerGas = _calculatePrice(xscale, yscale, _gasExcess, gasToBuy);
+        _baseFeePerGas =
+            _calculatePrice(xscale, yscale, _gasExcessOld, gasToBuy);
     }
 
     /// @dev Calculates xscale and yscale values used for pricing.
-    /// @param xExcessMax The maximum excess value.
-    /// @param price The current price.
+    /// @param gasExcessMax The maximum excess value.
+    /// @param price The current price (base fee per gas).
     /// @param target The target gas value.
     /// @param ratio2x1x Expected ratio of gas price for two blocks.
     /// @return xscale Calculated x scale value.
     /// @return yscale Calculated y scale value.
     function calculateScales(
-        uint256 xExcessMax,
+        uint256 gasExcessMax,
         uint256 price,
         uint256 target,
         uint256 ratio2x1x
@@ -57,11 +58,11 @@ library Lib1559Exp {
         pure
         returns (uint256 xscale, uint256 yscale)
     {
-        assert(xExcessMax != 0);
-        uint256 x = xExcessMax / 2;
+        assert(gasExcessMax != 0);
+        uint256 x = gasExcessMax / 2;
 
         // Calculate xscale
-        xscale = LibFixedPointMath.MAX_EXP_INPUT / xExcessMax;
+        xscale = LibFixedPointMath.MAX_EXP_INPUT / gasExcessMax;
 
         // Calculate yscale
         yscale = _calculatePrice(xscale, price, x, target);
