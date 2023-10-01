@@ -52,7 +52,8 @@ contract EIP1559ManagerAMM is EssentialContract, EIP1559Manager {
     uint256 public constant AVG_BLOCK_TIME = 3;
     uint128 public constant BLOCK_GAS_TARGET = 5_000_000; // 5 million
     uint128 public constant INIT_GAS_IN_POOL = BLOCK_GAS_TARGET * 1000;
-    uint256 public constant MAX_GAS_IN_POOL = INIT_GAS_IN_POOL * 10;
+    uint256 public constant MAX_GAS_IN_POOL =
+        INIT_GAS_IN_POOL + BLOCK_GAS_TARGET * 60 / AVG_BLOCK_TIME;
     uint64 public constant INIT_BASEFEE_PER_GAS = 10 gwei;
 
     uint256 public constant GAS_ISSUE_PER_SECOND =

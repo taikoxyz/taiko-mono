@@ -28,7 +28,8 @@ contract EIP1559Test is TestBase {
     function test_1559_compare() public view {
         uint256 baseFeePerGasVanilla = INIT_BASEFEE_PER_GAS;
         uint256 gasInPool = INIT_GAS_IN_POOL;
-        uint256 maxGasInPool = type(uint256).max; // INIT_GAS_IN_POOL * 100000;
+        uint256 maxGasInPool =
+            INIT_GAS_IN_POOL + BLOCK_GAS_TARGET * 60 / AVG_BLOCK_TIME;
 
         uint256 time;
 
