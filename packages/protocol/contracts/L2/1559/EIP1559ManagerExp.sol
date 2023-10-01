@@ -17,29 +17,6 @@ library Lib1559Exp {
 
     error EIP1559_OUT_OF_GAS();
 
-    function calcBaseFeePerGas(
-        uint256 gasIssuePerSecond,
-        uint256 xscale,
-        uint256 yscale,
-        uint256 gasExcessMax,
-        uint256 gasExcess,
-        uint256 blockTime,
-        uint256 gasToBuy
-    )
-        internal
-        pure
-        returns (uint256 _baseFeePerGas, uint256 _gasExcess)
-    {
-        uint256 issued = gasIssuePerSecond * blockTime;
-        uint256 _gasExcessOld = gasExcess.max(issued) - issued;
-        _gasExcess = _gasExcessOld + gasToBuy;
-
-        if (_gasExcess > gasExcessMax) revert EIP1559_OUT_OF_GAS();
-
-        _baseFeePerGas =
-            _calculatePrice(xscale, yscale, _gasExcessOld, gasToBuy);
-    }
-
     /// @dev Calculates xscale and yscale values used for pricing.
     /// @param gasExcessMax The maximum excess value.
     /// @param price The current price (base fee per gas).
@@ -71,6 +48,29 @@ library Lib1559Exp {
         uint256 price1x = _calculatePrice(xscale, yscale, x, target);
         uint256 price2x = _calculatePrice(xscale, yscale, x, target * 2);
         actualRatio = price2x * 10_000 / price1x;
+    }
+
+    function calcBaseFeePerGas(
+        uint256 gasIssuePerSecond,
+        uint256 xscale,
+        uint256 yscale,
+        uint256 gasExcessMax,
+        uint256 gasExcess,
+        uint256 blockTime,
+        uint256 gasToBuy
+    )
+        internal
+        pure
+        returns (uint256 _baseFeePerGas, uint256 _gasExcess)
+    {
+        uint256 issued = gasIssuePerSecond * blockTime;
+        uint256 _gasExcessOld = gasExcess.max(issued) - issued;
+        _gasExcess = _gasExcessOld + gasToBuy;
+
+        if (_gasExcess > gasExcessMax) revert EIP1559_OUT_OF_GAS();
+
+        _baseFeePerGas =
+            _calculatePrice(xscale, yscale, _gasExcessOld, gasToBuy);
     }
 
     function _calculatePrice(
