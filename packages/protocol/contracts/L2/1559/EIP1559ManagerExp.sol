@@ -21,14 +21,12 @@ library Lib1559Exp {
     /// @param gasExcessMax The maximum excess value.
     /// @param price The current price (base fee per gas).
     /// @param target The target gas value.
-    /// @param ratio2x1x Expected ratio of gas price for two blocks.
     /// @return xscale Calculated x scale value.
     /// @return yscale Calculated y scale value.
     function calculateScales(
         uint256 gasExcessMax,
         uint256 price,
-        uint256 target,
-        uint256 ratio2x1x
+        uint256 target
     )
         internal
         pure
