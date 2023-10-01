@@ -21,7 +21,7 @@
   "devDependencies": {
     "@babel/preset-env": "^7.16.0",
     "@sentry/vite-plugin": "^2.2.1",
-    "@sveltejs/vite-plugin-svelte": "^1.0.1",
+    "@sveltejs/vite-plugin-svelte": "^2.4.6",
     "@tsconfig/svelte": "^5.0.2",
     "@types/debug": "^4.1.7",
     "@types/eslint": "^8.2.1",
