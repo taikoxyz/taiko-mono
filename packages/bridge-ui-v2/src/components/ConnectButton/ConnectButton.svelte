@@ -31,17 +31,17 @@
 </script>
 
 {#if connected}
-  <Button class="hidden sm:flex px-[20px] py-2 mr-[8px] rounded-full" type="neutral" on:click={connectWallet}>
-    <span class="body-regular f-items-center space-x-2">
-      <svelte:component this={EthIcon} size={20} />
+  <Button class="hidden sm:flex  pl-[10px] pr-[15px] h-[40px] mr-[8px] rounded-full" type="neutral" on:click={connectWallet}>
+    <span class="body-regular f-items-center">
+      <svelte:component this={EthIcon} size={24} />
       {#if $ethBalance >= 0}
-        <span>{renderEthBalance($ethBalance)}</span>
+        <span class="ml-[6px]">{renderEthBalance($ethBalance)}</span>
       {:else}
         <Spinner /> <span>Fetching balance...</span>
       {/if}
     </span>
   </Button>
-  <w3m-core-button balance="hide" />
+  <w3m-core-button class="h-[40px]" balance="hide" />
 {:else}
   <Button class="px-[20px] py-2 rounded-full w-[215px]" type="neutral" loading={web3modalOpen} on:click={connectWallet}>
     <span class="body-regular f-items-center space-x-2">
