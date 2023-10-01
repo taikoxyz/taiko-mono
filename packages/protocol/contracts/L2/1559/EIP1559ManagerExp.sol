@@ -6,13 +6,18 @@
 
 pragma solidity ^0.8.20;
 
+import { SafeCastUpgradeable } from "@ozu/utils/math/SafeCastUpgradeable.sol";
+
 import { EssentialContract } from "../../common/EssentialContract.sol";
 import { LibMath } from "../../libs/LibMath.sol";
+
+import { LibFixedPointMath } from "../thirdparty/LibFixedPointMath.sol";
 
 import { EIP1559Manager } from "./EIP1559Manager.sol";
 
 library Lib1559Exp {
     using LibMath for uint256;
+    using SafeCastUpgradeable for uint256;
 
     error EIP1559_OUT_OF_GAS();
 
