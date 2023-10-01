@@ -16,7 +16,7 @@ library Lib1559AMM {
 
     error EIP1559_OUT_OF_GAS();
 
-    function calcBaseFeePerGasAMM(
+    function calcBaseFeePerGas(
         uint256 poolProduct,
         uint256 gasIssuePerSecond,
         uint256 maxGasInPool,
@@ -82,7 +82,7 @@ contract EIP1559ManagerAMM is EssentialContract, EIP1559Manager {
     {
         uint256 _baseFeePerGas;
         uint256 _gasInPool;
-        (_baseFeePerGas, _gasInPool) = Lib1559AMM.calcBaseFeePerGasAMM({
+        (_baseFeePerGas, _gasInPool) = Lib1559AMM.calcBaseFeePerGas({
             poolProduct: POOL_PRODUCT,
             gasIssuePerSecond: GAS_ISSUE_PER_SECOND,
             maxGasInPool: MAX_GAS_IN_POOL,
@@ -100,7 +100,7 @@ contract EIP1559ManagerAMM is EssentialContract, EIP1559Manager {
 
     /// @inheritdoc EIP1559Manager
     function calcBaseFeePerGas(uint32 gasUsed) public view returns (uint64) {
-        (uint256 _baseFeePerGas,) = Lib1559AMM.calcBaseFeePerGasAMM({
+        (uint256 _baseFeePerGas,) = Lib1559AMM.calcBaseFeePerGas({
             poolProduct: POOL_PRODUCT,
             gasIssuePerSecond: GAS_ISSUE_PER_SECOND,
             maxGasInPool: MAX_GAS_IN_POOL,
