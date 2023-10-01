@@ -65,7 +65,7 @@
     "glob": "^8.1.0",
     "hardhat": "^2.14.0",
     "hardhat-abi-exporter": "^2.10.1",
-    "hardhat-contract-sizer": "^2.8.0",
+    "hardhat-contract-sizer": "^2.10.0",
     "hardhat-docgen": "^1.3.0",
     "hardhat-gas-reporter": "^1.0.9",
     "hardhat-preprocessor": "^0.1.5",
