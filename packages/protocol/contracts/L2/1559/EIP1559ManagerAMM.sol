@@ -24,7 +24,7 @@ library Lib1559AMM {
         uint256 blockTime,
         uint256 gasToBuy
     )
-        public
+        internal
         pure
         returns (uint256 _baseFeePerGas, uint256 _gasInPool)
     {

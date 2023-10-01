@@ -49,7 +49,7 @@ contract EIP1559Test is TestBase {
             );
 
             uint256 baseFeePerGasAMM;
-            (baseFeePerGasAMM, gasInPool) = Lib1559AMM.calcBaseFeePerGasAMM(
+            (baseFeePerGasAMM, gasInPool) = Lib1559AMM.calcBaseFeePerGas(
                 POOL_AMM_PRODUCT,
                 GAS_ISSUE_PER_SECOND,
                 maxGasInPool,

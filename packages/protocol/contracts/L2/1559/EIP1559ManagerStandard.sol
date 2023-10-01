@@ -17,7 +17,7 @@ library Lib1559Standard {
         uint256 gasUsed,
         uint256 blockGasTarget
     )
-        public
+        internal
         pure
         returns (uint256)
     {
