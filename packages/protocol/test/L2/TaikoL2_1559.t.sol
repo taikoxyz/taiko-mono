@@ -24,7 +24,7 @@ contract TestTaikoL2_1559 is TestBase {
         uint64 ethereumBasefeeNow = 28_000_000_000; // 28Gwei
 
         uint32 gasIssuedPerSecond = 1_250_000; // We make gasIssuedPerSecond
-            // 15,000,000 / 12 = 1,256,000 gas/s
+            // 15,000,000 / 12 = 1,250,000 gas/s
 
         // Tune this number manually so ratio2x1x is ~112.5%.
         uint64 maxSeconds = 7272;
