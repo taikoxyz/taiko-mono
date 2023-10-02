@@ -39,11 +39,14 @@ print("exp(1) =", result/SCALE)
 
 ## Calculate initial gas_excess_issued
 GWEI = 1e9
-TARGET = 20 * 106
+
+# the block gas limit target in ethereum post 1559
+ETHEREUM_TARGET = 15 * 1e6
+TAIKO_TARGET = ETHEREUM_TARGET * 10
 ADJUSTMENT_QUOTIENT = 8
 
 def calc_eth_qty( qty):
-    return math.exp(qty/TARGET/ADJUSTMENT_QUOTIENT);
+    return math.exp(qty/TAIKO_TARGET/ADJUSTMENT_QUOTIENT);
 
 def calc_basefee( excess, gas_in_block):
     diff = calc_eth_qty(excess + gas_in_block) -calc_eth_qty( excess)
@@ -52,10 +55,10 @@ def calc_basefee( excess, gas_in_block):
 
 def calculate_excess_gas_issued(expected_base_fee, gas_used):
     numerator = expected_base_fee * gas_used / (calc_eth_qty(gas_used) - 1) + 1
-    excess_gas_issued = math.log(numerator) * TARGET * ADJUSTMENT_QUOTIENT 
+    excess_gas_issued = math.log(numerator) * TAIKO_TARGET * ADJUSTMENT_QUOTIENT 
     return excess_gas_issued
 
-expected_basefee = 10 * GWEI
+expected_basefee = 1 * GWEI
 gas_in_block = 1
 gas_excess_issued = calculate_excess_gas_issued(expected_basefee, gas_in_block)
 print("gas_excess_issued          : ", gas_excess_issued)
@@ -63,7 +66,7 @@ print("actual_basefee             : ", calc_basefee(gas_excess_issued, gas_in_bl
 print("expected_basefee           : ", expected_basefee)
 
 def eth_qty(gas_qty):
-    return fixed_point_exp(int(gas_qty * SCALE  / TARGET / ADJUSTMENT_QUOTIENT))
+    return fixed_point_exp(int(gas_qty * SCALE  / TAIKO_TARGET / ADJUSTMENT_QUOTIENT))
 
 def basefee(gas_used):
     diff = eth_qty(gas_excess_issued + gas_used) - eth_qty(gas_excess_issued)
@@ -79,7 +82,7 @@ x1 = []
 y1 = []
 for i in range(10):
     x1.append(i*12)
-    y1.append(basefee(TARGET))
+    y1.append(basefee(TAIKO_TARGET))
 
 x2 = []
 y2 = []
@@ -87,9 +90,9 @@ y2 = []
 for i in range(10):
     for j in range(12):
         x2.append(i*12+j)
-        y2.append(basefee(TARGET/12))
-        gas_excess_issued += TARGET/12
-    gas_excess_issued -= TARGET
+        y2.append(basefee(TAIKO_TARGET/12))
+        gas_excess_issued += TAIKO_TARGET/12
+    gas_excess_issued -= TAIKO_TARGET
 
 plt.scatter(x1, y1, label='12s', color='blue', marker='x')
 plt.scatter(x2, y2, label='1s', color='red', marker='x')
