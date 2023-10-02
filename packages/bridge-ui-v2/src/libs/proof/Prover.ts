@@ -65,7 +65,7 @@ export class Prover {
         // Array of storage-keys that should be proofed and included
         [key],
 
-        'latest', //todo: why does it not work with block.hash?
+        block.number,
       ],
     });
     return { proof, block };

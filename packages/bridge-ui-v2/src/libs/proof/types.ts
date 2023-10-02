@@ -70,13 +70,13 @@ export type BlockHeader = {
   receiptsRoot: Hex;
   logsBloom: Hex[];
   difficulty: bigint;
-  height: Hex;
+  height: bigint;
   gasLimit: bigint;
   gasUsed: bigint;
   timestamp: bigint;
   extraData: Hex;
   mixHash: Hex;
   nonce: bigint | null;
-  baseFeePerGas: number | 0;
+  baseFeePerGas: bigint | 0;
   withdrawalsRoot: Hex;
 };

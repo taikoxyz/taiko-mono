@@ -1,4 +1,4 @@
-import { encodeAbiParameters, type Hash, type Hex, toHex, toRlp } from 'viem';
+import { encodeAbiParameters, getAddress, type Hash, type Hex, toHex, toRlp } from 'viem';
 
 import { routingContractsMap } from '$bridgeConfig';
 import { MessageStatus } from '$libs/bridge';
@@ -64,37 +64,43 @@ export class BridgeProver extends Prover {
 
     const params = [
       {
-        name: 'header',
+        name: '',
         type: 'tuple',
         components: [
-          { name: 'parentHash', type: 'bytes32' },
-          { name: 'ommersHash', type: 'bytes32' },
-          { name: 'proposer', type: 'address' },
-          { name: 'stateRoot', type: 'bytes32' },
-          { name: 'transactionsRoot', type: 'bytes32' },
-          { name: 'receiptsRoot', type: 'bytes32' },
-          { name: 'logsBloom', type: 'bytes32[8]' },
-          { name: 'difficulty', type: 'uint256' },
-          { name: 'height', type: 'uint128' },
-          { name: 'gasLimit', type: 'uint64' },
-          { name: 'gasUsed', type: 'uint64' },
-          { name: 'timestamp', type: 'uint64' },
-          { name: 'extraData', type: 'bytes' },
-          { name: 'mixHash', type: 'bytes32' },
-          { name: 'nonce', type: 'uint64' },
-          { name: 'baseFeePerGas', type: 'uint256' },
-          { name: 'withdrawalsRoot', type: 'bytes32' },
+          {
+            name: 'header',
+            type: 'tuple',
+            components: [
+              { name: 'parentHash', type: 'bytes32' },
+              { name: 'ommersHash', type: 'bytes32' },
+              { name: 'proposer', type: 'address' },
+              { name: 'stateRoot', type: 'bytes32' },
+              { name: 'transactionsRoot', type: 'bytes32' },
+              { name: 'receiptsRoot', type: 'bytes32' },
+              { name: 'logsBloom', type: 'bytes32[8]' },
+              { name: 'difficulty', type: 'uint256' },
+              { name: 'height', type: 'uint128' },
+              { name: 'gasLimit', type: 'uint64' },
+              { name: 'gasUsed', type: 'uint64' },
+              { name: 'timestamp', type: 'uint64' },
+              { name: 'extraData', type: 'bytes' },
+              { name: 'mixHash', type: 'bytes32' },
+              { name: 'nonce', type: 'uint64' },
+              { name: 'baseFeePerGas', type: 'uint256' },
+              { name: 'withdrawalsRoot', type: 'bytes32' },
+            ],
+          },
+          {
+            name: 'proof',
+            type: 'bytes',
+          },
         ],
-      },
-      {
-        name: 'proof',
-        type: 'bytes',
       },
     ];
 
-    const values = [blockHeader, encodedProofs];
-
+    const values = [[blockHeader, encodedProofs]];
     const signalProof = encodeAbiParameters(params, values);
+
     return signalProof;
   }
 
@@ -119,7 +125,6 @@ export class BridgeProver extends Prover {
   }
 
   async generateProofToRecallMessage(msgHash: Hash, srcChainId: number, destChainId: number) {
-    // const srcBridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
     const destBridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
 
     const { proof, block } = await this.generateRecallProof({
@@ -132,63 +137,47 @@ export class BridgeProver extends Prover {
 
     const blockHeader = buildBlockHeaderFromBlock(block);
 
-    // eslint-disable-next-line no-console
-    console.log('Proof from eth_getProof', proof);
     // Value must be 0x3 => MessageStatus.FAILED
     if (proof.storageProof[0].value !== toHex(MessageStatus.FAILED)) {
       throw new InvalidProofError('storage proof value is not FAILED');
     }
 
-    return this._getSignalProofForRelease(proof, blockHeader);
+    const signalProof = this._getSignalProofForRelease(proof, blockHeader);
+    return signalProof;
   }
 }
 const buildBlockHeaderFromBlock = (block: Block): BlockHeader => {
-  const {
-    parentHash,
-    sha3Uncles,
-    miner,
-    stateRoot,
-    transactionsRoot,
-    receiptsRoot,
-    logsBloom,
-    difficulty,
-    number,
-    gasLimit,
-    gasUsed,
-    timestamp,
-    extraData,
-    mixHash,
-    baseFeePerGas,
-    nonce,
-    withdrawalsRoot,
-  } = block;
-
   let logsBloomArray: Hex[];
+  let baseFeePerGas: bigint = BigInt(0);
 
-  if (Array.isArray(logsBloom)) {
-    logsBloomArray = logsBloom;
+  if (block.baseFeePerGas) {
+    baseFeePerGas = BigInt(block.baseFeePerGas);
+  }
+
+  if (Array.isArray(block.logsBloom)) {
+    logsBloomArray = block.logsBloom;
   } else {
-    const logsBloomString = logsBloom.substring(2);
+    const logsBloomString = block.logsBloom.substring(2);
     logsBloomArray = logsBloomString.match(/.{1,64}/g)!.map((s) => `0x${s}`) as Hex[];
   }
 
   return {
-    parentHash,
-    ommersHash: sha3Uncles,
-    proposer: miner,
-    stateRoot,
-    transactionsRoot,
-    receiptsRoot,
+    parentHash: block.parentHash,
+    ommersHash: block.sha3Uncles,
+    proposer: getAddress(block.miner),
+    stateRoot: block.stateRoot,
+    transactionsRoot: block.transactionsRoot,
+    receiptsRoot: block.receiptsRoot,
     logsBloom: logsBloomArray,
-    difficulty,
-    height: number ? toHex(number) : toHex(0),
-    gasLimit,
-    gasUsed,
-    timestamp,
-    extraData,
-    mixHash,
-    nonce,
-    baseFeePerGas: baseFeePerGas ? baseFeePerGas : 0,
-    withdrawalsRoot: withdrawalsRoot ? withdrawalsRoot : generateZeroHex(32),
+    difficulty: block.difficulty,
+    height: block.number ? BigInt(block.number) : BigInt(0),
+    gasLimit: block.gasLimit,
+    gasUsed: block.gasUsed,
+    timestamp: block.timestamp,
+    extraData: block.extraData,
+    mixHash: block.mixHash,
+    nonce: block.nonce,
+    baseFeePerGas,
+    withdrawalsRoot: block.withdrawalsRoot ? block.withdrawalsRoot : generateZeroHex(32),
   };
 };

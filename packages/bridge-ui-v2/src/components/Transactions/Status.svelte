@@ -18,6 +18,7 @@
   import { isTransactionProcessable } from '$libs/bridge/isTransactionProcessable';
   import { PollingEvent, startPolling } from '$libs/bridge/messageStatusPoller';
   import {
+    FailedTransactionError,
     InsufficientBalanceError,
     InvalidProofError,
     NotConnectedError,
@@ -210,19 +211,21 @@
       );
     } catch (err) {
       console.error(err);
-
       switch (true) {
         case err instanceof NotConnectedError:
           warningToast($t('messages.account.required'));
           break;
         case err instanceof UserRejectedRequestError:
-          warningToast($t('transactions.actions.release_rejected'));
+          warningToast($t('transactions.actions.release.rejected'));
           break;
         case err instanceof InvalidProofError:
           errorToast($t('TODO: InvalidProofError'));
           break;
         case err instanceof ReleaseError:
           errorToast($t('TODO: ReleaseError'));
+          break;
+        case err instanceof FailedTransactionError:
+          errorToast($t('transactions.actions.release.failed'));
           break;
         default:
           errorToast($t('TODO: UnknownError'));

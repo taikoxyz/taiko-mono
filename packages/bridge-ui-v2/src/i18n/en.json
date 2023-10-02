@@ -30,7 +30,11 @@
       "approve": {
         "tx": "Transaction sent to approve {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
         "success": "Approved {token} tokens!. You can now proceed to bridge.",
-        "rejected": "Request to approve rejected."
+        "rejected": "Request to approve rejected by user."
+      },
+      "release": {
+        "rejected": "Request to release rejected by user.",
+        "failed": "Transaction failed on chain"
       },
       "bridge": {
         "tx": "Transaction sent to bridge {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
