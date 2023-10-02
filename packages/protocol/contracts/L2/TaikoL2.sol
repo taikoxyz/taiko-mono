@@ -151,7 +151,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         if (gasExcess == 0) return 1;
 
         (baseFeePerGas, gasExcess) = Lib1559Math.calcBaseFee({
-            numL1Blocks: l1Height - latestSyncedL1Height,
+            numL1Blocks: latestSyncedL1Height == 0
+                ? 0
+                : l1Height - latestSyncedL1Height,
             gasExcess: gasExcess,
             gasInBlock: gasInBlock,
             gasTarget: GAS_TARGET_PER_L1_BLOCK,
