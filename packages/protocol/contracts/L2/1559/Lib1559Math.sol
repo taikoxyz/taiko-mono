@@ -6,8 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-import { LibFixedPointMath as Math } from
-    "../../thirdparty/LibFixedPointMath.sol";
+import { LibFixedPointMath } from "../../thirdparty/LibFixedPointMath.sol";
 
 library Lib1559Math {
     error EIP1559_INPUT_TOO_BIG();
@@ -49,7 +48,8 @@ library Lib1559Math {
         int256 diff = _ethQty(
             gasExcess + gasInBlock, gasTarget, adjustmentQuotient
         ) - _ethQty(gasExcess, gasTarget, adjustmentQuotient);
-        baseFeePerGas = uint256(diff) / gasInBlock / Math.SCALING_FACTOR_1E18;
+        baseFeePerGas =
+            uint256(diff) / gasInBlock / LibFixedPointMath.SCALING_FACTOR_1E18;
     }
 
     function _ethQty(
@@ -61,9 +61,11 @@ library Lib1559Math {
         pure
         returns (int256)
     {
-        uint256 input = gasQuantity * Math.SCALING_FACTOR_1E18 / gasTarget
-            / adjustmentQuotient;
-        if (input >= Math.MAX_EXP_INPUT) revert EIP1559_INPUT_TOO_BIG();
-        return Math.exp(int256(input));
+        uint256 input = gasQuantity * LibFixedPointMath.SCALING_FACTOR_1E18
+            / gasTarget / adjustmentQuotient;
+        if (input >= LibFixedPointMath.MAX_EXP_INPUT) {
+            revert EIP1559_INPUT_TOO_BIG();
+        }
+        return LibFixedPointMath.exp(int256(input));
     }
 }
