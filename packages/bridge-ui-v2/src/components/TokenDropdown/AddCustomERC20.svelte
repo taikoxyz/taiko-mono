@@ -13,7 +13,7 @@
   import Erc20 from '$components/Icon/ERC20.svelte';
   import { Spinner } from '$components/Spinner';
   import { tokenService } from '$libs/storage/services';
-  import { type GetCrossChainAddressArgs, type Token, type TokenEnv, TokenType } from '$libs/token';
+  import { type GetCrossChainAddressArgs, type Token, type TokenDetails, TokenType } from '$libs/token';
   import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
   import { getLogger } from '$libs/util/logger';
   import { uid } from '$libs/util/uid';
@@ -30,7 +30,7 @@
   export let loading = false;
   export let loadingTokenDetails = false;
 
-  let tokenDetails: (TokenEnv & { balance: bigint; decimals: number }) | null;
+  let tokenDetails: TokenDetails | null;
   let tokenError = '';
   let tokenAddress: Address | string = '';
   let customTokens: Token[] = [];

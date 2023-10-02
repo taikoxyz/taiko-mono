@@ -24,11 +24,12 @@ export type Token = {
   mintable?: boolean;
 };
 
-export type TokenEnv = {
+export type TokenDetails = {
   name: string;
   address: Address;
   symbol: string;
   balance: bigint;
+  decimals: number;
 };
 
 export type GetCrossChainAddressArgs = {
