@@ -67,7 +67,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     /// @param _addressManager Address of the {AddressManager} contract.
     function init(
         address _addressManager,
-        uint128 _gasExcess
+        uint128 _gasExcess,
+        uint64 _latestSyncedL1Height
     )
         external
         initializer
@@ -85,6 +86,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         }
 
         gasExcess = _gasExcess;
+        latestSyncedL1Height = _latestSyncedL1Height;
         (publicInputHash,) = _calcPublicInputHash(block.number);
     }
 
@@ -151,7 +153,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         if (gasExcess == 0) return 1;
 
         (baseFeePerGas, gasExcess) = Lib1559Math.calcBaseFee({
-            numL1Blocks: l1Height - latestSyncedL1Height,
+            numL1Blocks: l1Height > latestSyncedL1Height
+                ? l1Height - latestSyncedL1Height
+                : 0,
             gasExcess: gasExcess,
             gasInBlock: gasInBlock,
             gasTarget: GAS_TARGET_PER_L1_BLOCK,
