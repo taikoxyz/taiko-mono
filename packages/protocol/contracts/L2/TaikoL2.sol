@@ -10,9 +10,9 @@ import { EssentialContract } from "../common/EssentialContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { Proxied } from "../common/Proxied.sol";
 
-import { Lib1559Math } from "../libs/Lib1559Math.sol";
 import { LibMath } from "../libs/LibMath.sol";
 
+import { Lib1559Math } from "./1559/Lib1559Math.sol";
 import { TaikoL2Signer } from "./TaikoL2Signer.sol";
 
 /// @title TaikoL2
@@ -23,6 +23,9 @@ import { TaikoL2Signer } from "./TaikoL2Signer.sol";
 /// verified L1 block information.
 contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     using LibMath for uint256;
+
+    uint64 public constant GAS_TARGET_PER_L1_BLOCK = 150 * 1e6;
+    uint64 public constant ADJUSTMENT_QUOTIENT = 8;
 
     struct VerifiedBlock {
         bytes32 blockHash;
@@ -45,7 +48,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     // https://docs.soliditylang.org/en/v0.8.20/units-and-global-variables.html
     event Anchored(
         uint64 number,
-        uint64 basefee,
+        uint256 basefee,
         uint32 gaslimit,
         uint64 timestamp,
         bytes32 parentHash,
@@ -104,35 +107,25 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     {
         if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
 
-        uint256 parentHeight = block.number - 1;
-        bytes32 parentHash = blockhash(parentHeight);
-
-        (bytes32 prevPIH, bytes32 currPIH) = _calcPublicInputHash(parentHeight);
-
-        if (publicInputHash != prevPIH) {
+        // verify ancestor hashes
+        (bytes32 publicInputHashOld, bytes32 publicInputHashNew) =
+            _calcPublicInputHash(block.number - 1);
+        if (publicInputHash != publicInputHashOld) {
             revert L2_PUBLIC_INPUT_HASH_MISMATCH();
         }
+        publicInputHash = publicInputHashNew;
 
-        // Replace the oldest block hash with the parent's blockhash
-        publicInputHash = currPIH;
-        _l2Hashes[parentHeight] = parentHash;
+        // Verify the base fee per gas is correct
+        if (block.basefee != _update1559BaseFee(l1Height, parentGasUsed)) {
+            revert L2_BASEFEE_MISMATCH();
+        }
 
+        bytes32 parentHash = blockhash(block.number - 1);
+        _l2Hashes[block.number - 1] = parentHash;
         latestSyncedL1Height = l1Height;
         _l1VerifiedBlocks[l1Height] = VerifiedBlock(l1Hash, l1SignalRoot);
 
         emit CrossChainSynced(l1Height, l1Hash, l1SignalRoot);
-
-        // Check EIP-1559 basefee
-
-        uint64 basefee;
-        if (gasExcess == 0) basefee = 1;
-
-        // On L2, basefee is not burnt, but sent to a treasury instead.
-        // The circuits will need to verify the basefee recipient is the
-        // designated address.
-        if (block.basefee != basefee) {
-            revert L2_BASEFEE_MISMATCH();
-        }
 
         // We emit this event so circuits can grab its data to verify block
         // variables.
@@ -140,7 +133,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         // this event for debugging purpose.
         emit Anchored({
             number: uint64(block.number),
-            basefee: basefee,
+            basefee: block.basefee,
             gaslimit: uint32(block.gaslimit),
             timestamp: uint64(block.timestamp),
             parentHash: parentHash,
@@ -148,6 +141,25 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             coinbase: block.coinbase,
             chainid: uint64(block.chainid)
         });
+    }
+
+    function _update1559BaseFee(
+        uint64 l1Height,
+        uint32 gasInBlock
+    )
+        private
+        returns (uint256 baseFeePerGas)
+    {
+        if (gasExcess == 0) return 1;
+
+        (baseFeePerGas, gasExcess) = Lib1559Math.calcBaseFee({
+            numL1Blocks: l1Height - latestSyncedL1Height,
+            gasExcessIssued: gasExcess,
+            gasInBlock: gasInBlock,
+            gasTarget: GAS_TARGET_PER_L1_BLOCK,
+            adjustmentQuotient: ADJUSTMENT_QUOTIENT
+        });
+        if (gasExcess == 0) gasExcess = 1;
     }
 
     /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
@@ -205,7 +217,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     function _calcPublicInputHash(uint256 blockId)
         private
         view
-        returns (bytes32 prevPIH, bytes32 currPIH)
+        returns (bytes32 publicInputHashOld, bytes32 publicInputHashNew)
     {
         bytes32[256] memory inputs;
 
@@ -222,12 +234,12 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         inputs[255] = bytes32(block.chainid);
 
         assembly {
-            prevPIH := keccak256(inputs, 8192 /*mul(256, 32)*/ )
+            publicInputHashOld := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
 
         inputs[blockId % 255] = blockhash(blockId);
         assembly {
-            currPIH := keccak256(inputs, 8192 /*mul(256, 32)*/ )
+            publicInputHashNew := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
     }
 }
