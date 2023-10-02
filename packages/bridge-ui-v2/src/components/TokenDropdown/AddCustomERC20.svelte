@@ -7,7 +7,7 @@
   import { formatUnits } from 'viem';
 
   import { FlatAlert } from '$components/Alert';
-  import AddressInput from '$components/Bridge/AddressInput.svelte';
+  import AddressInput from '$components/Bridge/AddressInput/AddressInput.svelte';
   import { Button } from '$components/Button';
   import { Icon } from '$components/Icon';
   import Erc20 from '$components/Icon/ERC20.svelte';

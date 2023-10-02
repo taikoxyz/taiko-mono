@@ -1,65 +1,48 @@
 import { readContract } from '@wagmi/core';
+import { ContractFunctionExecutionError, UnknownTypeError } from 'viem';
 
-export async function detectContractType(contractAddress: string, tokenId: number) {
-  // eslint-disable-next-line no-console
-  console.info('detectContractType', contractAddress);
+import { erc721ABI, erc1155ABI } from '$abi';
+import { getLogger } from '$libs/util/logger';
 
-  // Use abi from @wagmi/core, and get it setup in wagmi.config.ts
-  const ERC721_ABI = [
-    {
-      constant: true,
-      inputs: [{ name: 'tokenId', type: 'uint256' }],
-      name: 'ownerOf',
-      outputs: [{ name: '', type: 'address' }],
-      payable: false,
-      stateMutability: 'view',
-      type: 'function',
-    },
-  ];
+import { TokenType } from './types';
 
-  const ERC1155_ABI = [
-    {
-      constant: true,
-      inputs: [
-        { name: 'owner', type: 'address' },
-        { name: 'operator', type: 'address' },
-      ],
-      name: 'isApprovedForAll',
-      outputs: [{ name: '', type: 'bool' }],
-      payable: false,
-      stateMutability: 'view',
-      type: 'function',
-    },
-  ];
+const log = getLogger('detectContractType');
+
+export async function detectContractType(contractAddress: string) {
+  log('detectContractType', { contractAddress });
 
   try {
     await readContract({
       address: contractAddress as `0x${string}`, // TODO: type Address
-      abi: ERC721_ABI,
+      abi: erc721ABI,
       functionName: 'ownerOf',
-      args: [tokenId],
+      args: [0n],
     });
-    // TODO: please use getLogger from util/logger
-    // eslint-disable-next-line no-console
-    console.info('ERC721');
-    return 'ERC721'; // TODO: use TokenType
+    log('is ERC721');
+    return TokenType.ERC721;
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.log(err);
+    if (err instanceof ContractFunctionExecutionError) {
+      if (err.cause.message.includes('ERC721: invalid token ID')) {
+        // valid erc721 contract, but invalid token id
+        log('is ERC721');
+        return TokenType.ERC721;
+      }
+    }
+
+    log('is not ERC721', err);
     try {
       await readContract({
         address: contractAddress as `0x${string}`,
-        abi: ERC1155_ABI,
+        abi: erc1155ABI,
         functionName: 'isApprovedForAll',
         args: ['0x0000000000000000000000000000000000000000', '0x0000000000000000000000000000000000000000'],
       });
-      // eslint-disable-next-line no-console
-      console.info('ERC1155');
-      return 'ERC1155'; // TODO: use TokenType
+      log('is ERC1155');
+      return TokenType.ERC1155;
     } catch (err) {
       // eslint-disable-next-line no-console
       console.log(err);
-      return 'UNKNOWN'; // TODO: throw UnknownTypeError and handle in the UI?
+      throw new UnknownTypeError({ type: 'Unknown tokentype' });
     }
   }
 }

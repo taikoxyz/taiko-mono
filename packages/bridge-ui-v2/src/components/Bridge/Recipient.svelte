@@ -10,7 +10,7 @@
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
 
-  import AddressInput from './AddressInput.svelte';
+  import AddressInput from './AddressInput/AddressInput.svelte';
   import { recipientAddress } from './state';
 
   // Public API

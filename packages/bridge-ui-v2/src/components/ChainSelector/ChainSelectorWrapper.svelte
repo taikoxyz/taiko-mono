@@ -10,6 +10,8 @@
   import { chainIdToChain, chains } from '$libs/chain';
   import { network } from '$stores/network';
 
+  let destChainElement: ChainSelector;
+
   function handleSourceChange(): void {
     updateDestOptions();
   }
@@ -62,6 +64,11 @@
 
 <SwitchChainsButton />
 
-<ChainSelector class="flex-1" bind:value={$destNetwork} on:change={handleDestChange} validOptions={$destOptions} />
+<ChainSelector
+  bind:this={destChainElement}
+  class="flex-1 "
+  bind:value={$destNetwork}
+  on:change={handleDestChange}
+  validOptions={$destOptions} />
 
 <OnNetwork change={onNetworkChange} />

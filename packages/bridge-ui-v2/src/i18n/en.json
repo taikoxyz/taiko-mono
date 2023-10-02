@@ -206,18 +206,23 @@
     }
   },
   "inputs": {
-    "nft": {
-      "token_id": {
-        "label": "Token ID(s)",
-        "placeholder": "1 or 5,14,733"
+    "token_id_input": {
+      "label": "Token ID(s)",
+      "placeholder": "1 or 5,14,733",
+      "errors": {
+        "invalid": "Not a valid numeric value"
       }
     },
     "address_input": {
-      "label": "Address",
-      "placeholder": "Enter an address",
+      "label": {
+        "default": "Address",
+        "contract": "Contract address",
+        "recipient": "Recipient address"
+      },
+      "placeholder": "Enter a valid ethereum address",
       "errors": {
         "invalid": "Invalid address format",
-        "too_short": "Address length is too short"
+        "too_short": "Address is too short"
       },
       "success": "Valid address format"
     },
