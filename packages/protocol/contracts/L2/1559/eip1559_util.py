@@ -2,7 +2,7 @@ import math
 import matplotlib.pyplot as plt
 
 SCALE = int(1e18) ## fix point scale
-def exp(x):
+def fixed_point_exp(x):
     if x <= -42_139_678_854_452_767_551:
         return 0
 
@@ -34,7 +34,7 @@ def exp(x):
     return r
 
 # Test exp()
-result = exp(SCALE)
+result = fixed_point_exp(SCALE)
 print("exp(1) =", result/SCALE)
 
 ## Calculate initial gas_excess_issued
@@ -63,7 +63,7 @@ print("actual_basefee             : ", calc_basefee(gas_excess_issued, gas_in_bl
 print("expected_basefee           : ", expected_basefee)
 
 def eth_qty(gas_qty):
-    return exp(int(gas_qty * SCALE  / TARGET / ADJUSTMENT_QUOTIENT))
+    return fixed_point_exp(int(gas_qty * SCALE  / TARGET / ADJUSTMENT_QUOTIENT))
 
 def basefee(gas_used):
     diff = eth_qty(gas_excess_issued + gas_used) - eth_qty(gas_excess_issued)
