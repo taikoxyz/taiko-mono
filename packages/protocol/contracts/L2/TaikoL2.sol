@@ -80,14 +80,13 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         }
         if (block.number > 1) revert L2_TOO_LATE();
 
-        (publicInputHash,) = _calcPublicInputHash(block.number);
-
-        gasExcess = _gasExcess;
-
         if (block.number > 0) {
             uint256 parentHeight = block.number - 1;
             _l2Hashes[parentHeight] = blockhash(parentHeight);
         }
+
+        gasExcess = _gasExcess;
+        (publicInputHash,) = _calcPublicInputHash(block.number);
     }
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
