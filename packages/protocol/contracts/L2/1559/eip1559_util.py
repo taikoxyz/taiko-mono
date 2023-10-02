@@ -33,16 +33,15 @@ def fixed_point_exp(x):
 
     return r
 
-# Test exp()
-result = fixed_point_exp(SCALE)
-print("exp(1) =", result/SCALE)
+# Test exp(1)
+print("exp(1) =", fixed_point_exp(SCALE)/SCALE)
 
 ## Calculate initial gas_excess_issued
 GWEI = 1e9
-
-# the block gas limit target in ethereum post 1559
 ETHEREUM_TARGET = 15 * 1e6
+ETHEREUM_BASE_FEE = 10 * GWEI
 TAIKO_TARGET = ETHEREUM_TARGET * 10
+TAIKO_BASE_FEE = ETHEREUM_BASE_FEE / 10
 ADJUSTMENT_QUOTIENT = 8
 
 def calc_eth_qty( qty):
@@ -58,7 +57,7 @@ def calculate_excess_gas_issued(expected_base_fee, gas_used):
     excess_gas_issued = math.log(numerator) * TAIKO_TARGET * ADJUSTMENT_QUOTIENT 
     return excess_gas_issued
 
-expected_basefee = 1 * GWEI
+expected_basefee = TAIKO_BASE_FEE
 gas_in_block = 1
 gas_excess_issued = calculate_excess_gas_issued(expected_basefee, gas_in_block)
 print("gas_excess_issued          : ", gas_excess_issued)
