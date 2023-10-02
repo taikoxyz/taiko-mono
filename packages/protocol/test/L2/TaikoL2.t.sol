@@ -20,7 +20,7 @@ contract TestTaikoL2 is TestBase {
         L2 = new TaikoL2();
         address dummyAddressManager = getRandomAddress();
         uint128 gasExcess = 0;
-        L2.init(dummyAddressManager, gasExcess, 0);
+        L2.init(dummyAddressManager, gasExcess);
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);
