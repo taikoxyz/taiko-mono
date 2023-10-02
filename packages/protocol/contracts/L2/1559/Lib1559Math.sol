@@ -15,31 +15,29 @@ library Lib1559Math {
 
     function calcBaseFee(
         uint64 numL1Blocks,
-        uint128 gasExcessIssued,
+        uint128 gasExcess,
         uint32 gasInBlock,
         uint64 gasTarget,
         uint64 adjustmentQuotient
     )
         internal
         pure
-        returns (uint256 _baseFeePerGas, uint128 _gasExcessIssued)
+        returns (uint256 _baseFeePerGas, uint128 _gasExcess)
     {
         if (gasTarget == 0 || adjustmentQuotient <= 1 || gasInBlock == 0) {
             revert EIP1559_INVALID_PARAMS();
         }
 
         uint128 issuance = numL1Blocks * gasTarget;
-        _gasExcessIssued =
-            issuance >= gasExcessIssued ? 0 : gasExcessIssued - issuance;
+        _gasExcess = issuance >= gasExcess ? 0 : gasExcess - issuance;
 
-        _baseFeePerGas = _calcBaseFee(
-            _gasExcessIssued, gasInBlock, gasTarget, adjustmentQuotient
-        );
-        _gasExcessIssued += gasInBlock;
+        _baseFeePerGas =
+            _calcBaseFee(_gasExcess, gasInBlock, gasTarget, adjustmentQuotient);
+        _gasExcess += gasInBlock;
     }
 
     function _calcBaseFee(
-        uint256 gasExcessIssued,
+        uint256 gasExcess,
         uint256 gasInBlock,
         uint256 gasTarget,
         uint256 adjustmentQuotient
@@ -49,8 +47,8 @@ library Lib1559Math {
         returns (uint256 baseFeePerGas)
     {
         int256 diff = _ethQty(
-            gasExcessIssued + gasInBlock, gasTarget, adjustmentQuotient
-        ) - _ethQty(gasExcessIssued, gasTarget, adjustmentQuotient);
+            gasExcess + gasInBlock, gasTarget, adjustmentQuotient
+        ) - _ethQty(gasExcess, gasTarget, adjustmentQuotient);
         baseFeePerGas = uint256(diff) / gasInBlock / Math.SCALING_FACTOR_1E18;
     }
 

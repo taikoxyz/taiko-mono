@@ -58,7 +58,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     );
 
     error L2_BASEFEE_MISMATCH();
-    error L2_INVALID_1559_PARAMS();
     error L2_INVALID_CHAIN_ID();
     error L2_INVALID_SENDER();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
@@ -153,7 +152,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
         (baseFeePerGas, gasExcess) = Lib1559Math.calcBaseFee({
             numL1Blocks: l1Height - latestSyncedL1Height,
-            gasExcessIssued: gasExcess,
+            gasExcess: gasExcess,
             gasInBlock: gasInBlock,
             gasTarget: GAS_TARGET_PER_L1_BLOCK,
             adjustmentQuotient: ADJUSTMENT_QUOTIENT
