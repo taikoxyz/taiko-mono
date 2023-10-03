@@ -12,10 +12,10 @@ library Lib1559Math {
     error EIP1559_INPUT_TOO_BIG();
     error EIP1559_INVALID_PARAMS();
 
-    function calcBaseFee(
+    function calcPurchaseBaseFee(
         uint64 numL1Blocks,
-        uint128 gasExcess,
         uint32 gasInBlock,
+        uint128 gasExcess,
         uint64 gasTarget,
         uint64 adjustmentQuotient
     )
@@ -33,6 +33,23 @@ library Lib1559Math {
         _baseFeePerGas =
             _calcBaseFee(_gasExcess, gasInBlock, gasTarget, adjustmentQuotient);
         _gasExcess += gasInBlock;
+    }
+
+    function calcSpotBaseFee(
+        uint256 gasExcess,
+        uint256 gasTarget,
+        uint256 adjustmentQuotient
+    )
+        internal
+        pure
+        returns (uint256)
+    {
+        if (gasTarget == 0 || adjustmentQuotient <= 1) {
+            revert EIP1559_INVALID_PARAMS();
+        }
+
+        return uint256(_ethQty(gasExcess, gasTarget, adjustmentQuotient))
+            / gasTarget / adjustmentQuotient / LibFixedPointMath.SCALING_FACTOR_1E18;
     }
 
     function _calcBaseFee(

@@ -67,12 +67,17 @@ print("expected_basefee           : ", expected_basefee)
 def eth_qty(gas_qty):
     return fixed_point_exp(int(gas_qty * SCALE  / TAIKO_TARGET / ADJUSTMENT_QUOTIENT))
 
-def basefee(gas_used):
+def calc_purchase_basefee(gas_used):
+    # Returns the average base fee per gas for purchasing gas_used gas
     diff = eth_qty(gas_excess_issued + gas_used) - eth_qty(gas_excess_issued)
     return int(diff / gas_used /SCALE)
 
+def calc_spot_basefee():
+    # Returns the spot price
+    return eth_qty(gas_excess_issued) / SCALE/ TAIKO_TARGET / ADJUSTMENT_QUOTIENT
 
-print("actual_basefee[fix point]  : ", basefee(gas_in_block))
+print("purchase basefee (1 gas) [fix point]  : ", calc_purchase_basefee(gas_in_block))
+print("spot basefee             [fix point]  : ", calc_spot_basefee())
 
 exit()
 
