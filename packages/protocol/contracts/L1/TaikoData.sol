@@ -39,6 +39,7 @@ library TaikoData {
         // block.
         uint256 proposerRewardPerSecond;
         uint256 proposerRewardMax;
+        uint8 proposerRewardHalving;
         // ---------------------------------------------------------------------
         // Group 3: Proof related configs
         // ---------------------------------------------------------------------
@@ -179,6 +180,11 @@ library TaikoData {
         uint64 lastVerifiedBlockId;
     }
 
+    struct SlotC {
+        uint128 accumulatedReward;
+        uint128 latestRewardAccL1Height;
+    }
+
     /// @dev Struct holding the state variables for the {TaikoL1} contract.
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
@@ -199,6 +205,7 @@ library TaikoData {
         mapping(address account => uint256 balance) tokenBalances;
         SlotA slotA; // slot 6
         SlotB slotB; // slot 7
-        uint256[143] __gap;
+        SlotC slotC; // slot 8
+        uint256[142] __gap;
     }
 }

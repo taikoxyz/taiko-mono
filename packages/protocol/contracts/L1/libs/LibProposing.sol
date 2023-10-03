@@ -101,26 +101,29 @@ library LibProposing {
         // depend on Taiko DAO to make necessary adjustments to the rewards.
         uint256 reward;
 
-        if (config.proposerRewardPerSecond > 0 && config.proposerRewardMax > 0)
-        {
-            // Unchecked is safe as block.timestamp is always greater than
-            // block.proposedAt (proposed in the past)
-            unchecked {
-                uint256 blockTime = block.timestamp
-                    - state.blocks[(b.numBlocks - 1) % config.blockRingBufferSize]
-                        .proposedAt;
-
-                if (blockTime > 0) {
-                    reward = (config.proposerRewardPerSecond * blockTime).min(
-                        config.proposerRewardMax
-                    );
-
-                    // Reward must be minted
-                    LibTaikoToken.creditToken(
-                        state, resolver, msg.sender, reward, true
-                    );
-                }
+        // First proposer per L1 block updates the L1 block height and the accumulated reward.
+        if(state.slotC.latestRewardAccL1Height < block.number) {
+            // The very first proposal within the protocol starts the 'clock' and from that point on we calculate the accumulation.
+            if(state.slotC.latestRewardAccL1Height != 0) {
+                // Calculate the addition to the accumulated rewards by getting how many blocks elapsed since the last 'sync' then multiply it by 12 (L1 block time) and the reward issued per second.
+                state.slotC.accumulatedReward += uint128((block.number - state.slotC.latestRewardAccL1Height) * 12 * config.proposerRewardPerSecond);
+                state.slotC.latestRewardAccL1Height = uint128(block.number);
             }
+            state.slotC.latestRewardAccL1Height = uint128(block.number);
+        }
+
+        if (config.proposerRewardPerSecond > 0 && config.proposerRewardMax > 0 && state.slotC.accumulatedReward > 0)
+        {
+            // Might happen that network is congested on L1, so the pool would grow too big for the next proposeBlock() so best to have an absolute maximum upper limit.
+            reward = uint256(state.slotC.accumulatedReward / config.proposerRewardHalving).min(
+                config.proposerRewardMax
+            );
+            // Always do halving (by config numb) even if reward is config.proposerRewardMax, so that to shrinken the pool.
+            state.slotC.accumulatedReward -= state.slotC.accumulatedReward / config.proposerRewardHalving;
+            // Reward must be minted
+            LibTaikoToken.creditToken(
+                state, resolver, msg.sender, reward, true
+            );
         }
 
         // Initialize metadata to compute a metaHash, which forms a part of
