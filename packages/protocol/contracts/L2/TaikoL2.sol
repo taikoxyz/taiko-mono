@@ -123,7 +123,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         // variables.
         // If plonk lookup table already has all these data, we can still use
         // this event for debugging purpose.
-        emit Anchored({ parentHash: parentHash, gasExcess: gasExcess });
+        emit Anchored(parentHash, gasExcess);
     }
 
     /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
