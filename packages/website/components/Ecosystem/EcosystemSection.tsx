@@ -426,6 +426,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/uniswapV3.png",
+    name: "Uniswap V3",
+    link: "https://swap-v3.jolnir.taiko.xyz/#/swap",
+    description:
+      "Uniswap V3 fork on Taiko Jolnir.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/vooi.jpeg",
     name: "Vooi",
     link: "https://vooi.io/",
