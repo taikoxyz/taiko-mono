@@ -15,35 +15,34 @@ library Lib1559Math {
     error EIP1559_INVALID_PARAMS();
 
     /// @dev eth_qty(excess_gas_issued) / (TARGET * ADJUSTMENT_QUOTIENT)
+    /// @param adjustmentFactor The product of gasTarget and adjustmentQuotient
     function basefee(
         uint256 gasExcess,
-        uint256 gasTarget,
-        uint256 adjustmentQuotient
+        uint256 adjustmentFactor
     )
         internal
         pure
         returns (uint256)
     {
-        if (gasTarget == 0 || adjustmentQuotient <= 1) {
+        if (adjustmentFactor == 0) {
             revert EIP1559_INVALID_PARAMS();
         }
 
-        return _ethQty(gasExcess, gasTarget, adjustmentQuotient) / gasTarget
-            / adjustmentQuotient / LibFixedPointMath.SCALING_FACTOR_1E18;
+        return _ethQty(gasExcess, adjustmentFactor)
+            / LibFixedPointMath.SCALING_FACTOR_1E18 / adjustmentFactor;
     }
 
     /// @dev exp(gas_qty / TARGET / ADJUSTMENT_QUOTIENT)
     function _ethQty(
         uint256 gasQuantity,
-        uint256 gasTarget,
-        uint256 adjustmentQuotient
+        uint256 adjustmentFactor
     )
         private
         pure
         returns (uint256)
     {
         uint256 input = gasQuantity * LibFixedPointMath.SCALING_FACTOR_1E18
-            / gasTarget / adjustmentQuotient;
+            / adjustmentFactor;
         if (input > LibFixedPointMath.MAX_EXP_INPUT) {
             input = LibFixedPointMath.MAX_EXP_INPUT;
         }
