@@ -29,20 +29,20 @@ library Lib1559Math {
         }
 
         return _ethQty(gasExcess, adjustmentFactor)
-            / LibFixedPointMath.SCALING_FACTOR_1E18 / adjustmentFactor;
+            / LibFixedPointMath.SCALING_FACTOR / adjustmentFactor;
     }
 
     /// @dev exp(gas_qty / TARGET / ADJUSTMENT_QUOTIENT)
     function _ethQty(
-        uint256 gasQuantity,
+        uint256 gasExcess,
         uint256 adjustmentFactor
     )
         private
         pure
         returns (uint256)
     {
-        uint256 input = gasQuantity * LibFixedPointMath.SCALING_FACTOR_1E18
-            / adjustmentFactor;
+        uint256 input =
+            gasExcess * LibFixedPointMath.SCALING_FACTOR / adjustmentFactor;
         if (input > LibFixedPointMath.MAX_EXP_INPUT) {
             input = LibFixedPointMath.MAX_EXP_INPUT;
         }

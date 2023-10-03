@@ -30,7 +30,7 @@ contract TestLib1559Math is TestBase {
             48_246_703_821_869_050_543_408_253_349_256_099_602_613_005_189_120,
             Lib1559Math.basefee({
                 gasExcess: LibFixedPointMath.MAX_EXP_INPUT * adjustmentFactor
-                    / LibFixedPointMath.SCALING_FACTOR_1E18,
+                    / LibFixedPointMath.SCALING_FACTOR,
                 adjustmentFactor: adjustmentFactor
             })
         );

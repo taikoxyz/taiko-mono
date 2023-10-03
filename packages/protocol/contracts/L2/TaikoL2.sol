@@ -28,7 +28,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     uint64 public constant ETHEREUM_GAS_TARGET = 15 * 1e6;
     uint64 public constant TAIKO_GAS_TARGET = ETHEREUM_GAS_TARGET * 10;
     uint64 public constant ADJUSTMENT_QUOTIENT = 8;
-    uint256 public constant GAS_PRODUCT = TAIKO_GAS_TARGET * ADJUSTMENT_QUOTIENT;
+    uint256 public constant ADJUSTMENT_FACTOR =
+        TAIKO_GAS_TARGET * ADJUSTMENT_QUOTIENT;
 
     struct VerifiedBlock {
         bytes32 blockHash;
@@ -82,8 +83,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         (publicInputHash,) = _calcPublicInputHash(block.number);
 
         if (
-            _gasExcess * LibFixedPointMath.SCALING_FACTOR_1E18
-                > LibFixedPointMath.MAX_EXP_INPUT * GAS_PRODUCT
+            _gasExcess * LibFixedPointMath.SCALING_FACTOR / ADJUSTMENT_FACTOR
+                > LibFixedPointMath.MAX_EXP_INPUT
         ) {
             revert L2_GAS_EXCESS_TOO_LARGE();
         }
@@ -249,7 +250,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             // bonding curve, regardless the actual amount of gas used by this
             // block, however, the this block's gas used will affect the next
             // block's base fee.
-            _basefee = Lib1559Math.basefee(_gasExcess, GAS_PRODUCT);
+            _basefee = Lib1559Math.basefee(_gasExcess, ADJUSTMENT_FACTOR);
         }
 
         // Always make sure basefee is nonzero, this is required by the node.
