@@ -225,9 +225,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         if (gasExcess > 0) {
             // We always add the gas used by parent block to the gas excess
             // value as this has already happend
-            _gasExcess = uint128(
-                (uint256(gasExcess) + parentGasUsed).min(type(uint128).max)
-            );
+            uint256 excess = uint256(gasExcess) + parentGasUsed;
 
             // Calculate how much more gas to issue to offset gas excess.
             // after each L1 block time, config.gasTarget more gas is issued,
@@ -245,8 +243,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
             if (numL1Blocks > 0) {
                 uint128 issuance = numL1Blocks * gasTarget;
-                _gasExcess = _gasExcess > issuance ? _gasExcess - issuance : 1;
+                excess = excess > issuance ? excess - issuance : 1;
             }
+
+            _gasExcess = uint128(excess.min(type(uint128).max));
 
             // The base fee per gas used by this block is the spot price at the
             // bonding curve, regardless the actual amount of gas used by this
