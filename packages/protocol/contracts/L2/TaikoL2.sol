@@ -46,16 +46,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     // Captures all block variables mentioned in
     // https://docs.soliditylang.org/en/v0.8.20/units-and-global-variables.html
-    event Anchored(
-        uint64 number,
-        uint256 basefee,
-        uint32 gaslimit,
-        uint64 timestamp,
-        bytes32 parentHash,
-        uint256 prevrandao,
-        address coinbase,
-        uint64 chainid
-    );
+    event Anchored(bytes32 parentHash, uint128 gasExcess);
 
     error L2_BASEFEE_MISMATCH();
     error L2_INVALID_CHAIN_ID();
@@ -132,16 +123,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         // variables.
         // If plonk lookup table already has all these data, we can still use
         // this event for debugging purpose.
-        emit Anchored({
-            number: uint64(block.number),
-            basefee: block.basefee,
-            gaslimit: uint32(block.gaslimit),
-            timestamp: uint64(block.timestamp),
-            parentHash: parentHash,
-            prevrandao: block.prevrandao,
-            coinbase: block.coinbase,
-            chainid: uint64(block.chainid)
-        });
+        emit Anchored({ parentHash: parentHash, gasExcess: gasExcess });
     }
 
     /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
