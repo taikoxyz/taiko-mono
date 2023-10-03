@@ -47,3 +47,34 @@ input[type='number'] {
   flex-direction: column;
   align-items: center;
 }
+
+.step:after {
+  height: 0px !important;
+  width: 0px !important;
+}
+
+.step-primary:after {
+  height: 8px !important;
+  width: 8px !important;
+}
+
+.step:before {
+  background-color: rgba(255, 198, 233, 0.2) !important;
+  height: 2px !important;
+}
+
+.step-primary:before {
+  background-color: #e81899 !important;
+  height: 2px !important;
+}
+
+.step-previous:before {
+  background-color: #e81899 !important;
+  height: 2px !important;
+}
+
+.step-previous:after {
+  @apply step-primary;
+  height: 0px !important;
+  width: 0px !important;
+}

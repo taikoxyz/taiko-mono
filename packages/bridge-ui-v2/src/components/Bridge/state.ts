@@ -5,6 +5,8 @@ import { bridges } from '$libs/bridge';
 import { chains } from '$libs/chain';
 import type { Token } from '$libs/token';
 
+import { type BridgeType, BridgeTypes } from './types';
+
 // Note: we could combine this with Context API, but since we'll only
 // have one Bridge component, it would be an overkill. If we wanted to
 // instantiate multiple Bridge components, then we'd need to use
@@ -14,6 +16,7 @@ import type { Token } from '$libs/token';
 // but once again, we don't need such level of security that we have to
 // prevent other components outside the Bridge from accessing this store.
 
+export const activeBridge = writable<BridgeType>(BridgeTypes.FUNGIBLE);
 export const selectedToken = writable<Maybe<Token>>(null);
 export const tokenBalance = writable<Maybe<FetchBalanceResult>>(null);
 export const enteredAmount = writable<bigint>(BigInt(0));

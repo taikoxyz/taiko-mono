@@ -12,9 +12,20 @@
   "bridge": {
     "title": {
       "default": "Bridge Token",
-      "nft": "Bridge NFT"
+      "nft": {
+        "import": "Import NFT",
+        "review": "Review",
+        "confirm": "Confirm"
+      }
     },
-    "description": "Send your assets across chains.",
+    "description": {
+      "default": "Send your assets across chains.",
+      "nft": {
+        "import": "Transfer your NFTs across chains",
+        "review": "Verify your NFT details.",
+        "confirm": "Confirm your NFT details."
+      }
+    },
     "actions": {
       "approve": {
         "tx": "Transaction sent to approve {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
@@ -48,7 +59,8 @@
       "approved": "Approved",
       "bridge": "Bridge",
       "bridging": "Bridging",
-      "import": "Fetch NFT data"
+      "fetch": "Fetch NFT data",
+      "import": "Import"
     }
   },
   "recipient": {

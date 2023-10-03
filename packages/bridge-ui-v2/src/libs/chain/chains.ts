@@ -20,6 +20,14 @@ function mapChainConfigToChain(chainId: string, chainConfig: ChainConfigMap[numb
   };
 }
 
+export const chainIdToChain = (chainId: number): Chain => {
+  const chain = chains.find((chain) => chain.id === chainId);
+  if (!chain) {
+    throw new Error(`Chain with id ${chainId} not found`);
+  }
+  return chain;
+};
+
 export const chains: Chain[] = Object.entries(chainConfig).map(([chainId, chainConfig]) =>
   mapChainConfigToChain(chainId, chainConfig),
 );
