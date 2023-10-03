@@ -118,11 +118,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         _l1VerifiedBlocks[syncedL1Height] = VerifiedBlock(l1Hash, l1SignalRoot);
 
         emit CrossChainSynced(syncedL1Height, l1Hash, l1SignalRoot);
-
-        // We emit this event so circuits can grab its data to verify block
-        // variables.
-        // If plonk lookup table already has all these data, we can still use
-        // this event for debugging purpose.
         emit Anchored(parentHash, gasExcess);
     }
 
