@@ -28,8 +28,8 @@ library Lib1559Math {
             revert EIP1559_INVALID_PARAMS();
         }
 
-        return uint256(_ethQty(gasExcess, gasTarget, adjustmentQuotient))
-            / gasTarget / adjustmentQuotient / LibFixedPointMath.SCALING_FACTOR_1E18;
+        return _ethQty(gasExcess, gasTarget, adjustmentQuotient) / gasTarget
+            / adjustmentQuotient / LibFixedPointMath.SCALING_FACTOR_1E18;
     }
 
     /// @dev exp(gas_qty / TARGET / ADJUSTMENT_QUOTIENT)
@@ -40,13 +40,13 @@ library Lib1559Math {
     )
         private
         pure
-        returns (int256)
+        returns (uint256)
     {
         uint256 input = gasQuantity * LibFixedPointMath.SCALING_FACTOR_1E18
             / gasTarget / adjustmentQuotient;
         if (input > LibFixedPointMath.MAX_EXP_INPUT) {
             input = LibFixedPointMath.MAX_EXP_INPUT;
         }
-        return LibFixedPointMath.exp(int256(input));
+        return uint256(LibFixedPointMath.exp(int256(input)));
     }
 }
