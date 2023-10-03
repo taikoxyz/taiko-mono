@@ -93,12 +93,13 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     /// @param l1Hash The latest L1 block hash when this block was proposed.
     /// @param l1SignalRoot The latest value of the L1 signal service storage
     /// root.
-    /// @param l1Height The latest L1 block height when this block was proposed.
+    /// @param syncedL1Height The latest L1 block height when this block was
+    /// proposed.
     /// @param parentGasUsed The gas used in the parent block.
     function anchor(
         bytes32 l1Hash,
         bytes32 l1SignalRoot,
-        uint64 l1Height,
+        uint64 syncedL1Height,
         uint32 parentGasUsed
     )
         external
@@ -114,16 +115,18 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         publicInputHash = publicInputHashNew;
 
         // Verify the base fee per gas is correct
-        if (block.basefee != _update1559BaseFee(l1Height, parentGasUsed)) {
+        uint256 basefee;
+        (basefee, gasExcess) = _calc1559BaseFee(syncedL1Height, parentGasUsed);
+        if (block.basefee != basefee) {
             revert L2_BASEFEE_MISMATCH();
         }
 
         bytes32 parentHash = blockhash(block.number - 1);
         _l2Hashes[block.number - 1] = parentHash;
-        latestSyncedL1Height = l1Height;
-        _l1VerifiedBlocks[l1Height] = VerifiedBlock(l1Hash, l1SignalRoot);
+        latestSyncedL1Height = syncedL1Height;
+        _l1VerifiedBlocks[syncedL1Height] = VerifiedBlock(l1Hash, l1SignalRoot);
 
-        emit CrossChainSynced(l1Height, l1Hash, l1SignalRoot);
+        emit CrossChainSynced(syncedL1Height, l1Hash, l1SignalRoot);
 
         // We emit this event so circuits can grab its data to verify block
         // variables.
@@ -141,41 +144,20 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         });
     }
 
-    function _update1559BaseFee(
-        uint64 l1Height,
-        uint32 gasInBlock
-    )
-        private
-        returns (uint256 baseFeePerGas)
-    {
-        if (gasExcess == 0) return 1;
-
-        (baseFeePerGas, gasExcess) = Lib1559Math.calcPurchaseBaseFee({
-            numL1Blocks: latestSyncedL1Height == 0
-                ? 0
-                : l1Height - latestSyncedL1Height,
-            gasInBlock: gasInBlock,
-            gasExcess: gasExcess,
-            gasTarget: GAS_TARGET_PER_L1_BLOCK,
-            adjustmentQuotient: ADJUSTMENT_QUOTIENT
-        });
-        if (gasExcess == 0) gasExcess = 1;
-    }
-
     /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
     /// the given parameters.
-    /// @param numL1Blocks Time elapsed since the parent block's timestamp.
-    /// @param gasInBlock Gas used in the parent block.
-    /// @return baseFeePerGas The calculated EIP-1559 base fee per gas.
+    /// @param syncedL1Height The synced L1 height in the next Taiko block
+    /// @param parentGasUsed Gas used in the parent block.
+    /// @return basefee The calculated EIP-1559 base fee per gas.
     function getBasefee(
-        uint64 numL1Blocks,
-        uint32 gasInBlock
+        uint64 syncedL1Height,
+        uint32 parentGasUsed
     )
         public
         view
-        returns (uint256 baseFeePerGas)
+        returns (uint256 basefee)
     {
-        // TODO
+        (basefee,) = _calc1559BaseFee(syncedL1Height, parentGasUsed);
     }
 
     /// @inheritdoc ICrossChainSync
@@ -241,6 +223,39 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         assembly {
             publicInputHashNew := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
+    }
+
+    function _calc1559BaseFee(
+        uint64 syncedL1Height,
+        uint32 parentGasUsed
+    )
+        private
+        view
+        returns (uint256 _basefee, uint128 _gasExcess)
+    {
+        // gasExcess being 0 indicate the dynamic 1559 base fee is disabled.
+        if (gasExcess > 0) {
+            _gasExcess = gasExcess + parentGasUsed;
+
+            uint128 numL1Blocks;
+            if (
+                latestSyncedL1Height > 0
+                    && syncedL1Height > latestSyncedL1Height
+            ) {
+                numL1Blocks = syncedL1Height - latestSyncedL1Height;
+            }
+
+            if (numL1Blocks > 0) {
+                uint128 issuance = numL1Blocks * GAS_TARGET_PER_L1_BLOCK;
+                _gasExcess = _gasExcess > issuance ? _gasExcess - issuance : 1;
+            }
+
+            _basefee = Lib1559Math.calcBaseFee(
+                _gasExcess, GAS_TARGET_PER_L1_BLOCK, ADJUSTMENT_QUOTIENT
+            );
+        }
+        // Always make sure basefee is nonzero
+        if (_basefee == 0) _basefee = 1;
     }
 }
 
