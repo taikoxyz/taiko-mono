@@ -13,8 +13,8 @@ var (
 	TotalUniqueProvers        = "total-provers"
 	TotalContractDeployments  = "total-contract-deployments"
 	ContractDeploymentsPerDay = "contract-deployments-per-day"
-	ProveBlockTxPerDay        = "prove-block-tx-per-day"
-	TotalProveBlockTx         = "total-prove-block-tx"
+	TransitionProvedTxPerDay  = "transition-proved-tx-per-day"
+	TotalTransitionProvedTx   = "total-transition-proved-tx"
 	ProposeBlockTxPerDay      = "propose-block-tx-per-day"
 	TotalProposeBlockTx       = "total-propose-block-tx"
 	BridgeMessagesSentPerDay  = "bridge-messages-sent-per-day"
@@ -38,8 +38,8 @@ var Tasks = []string{
 	TotalUniqueProvers,
 	TotalContractDeployments,
 	ContractDeploymentsPerDay,
-	ProveBlockTxPerDay,
-	TotalProveBlockTx,
+	TransitionProvedTxPerDay,
+	TotalTransitionProvedTx,
 	ProposeBlockTxPerDay,
 	TotalProposeBlockTx,
 	BridgeMessagesSentPerDay,

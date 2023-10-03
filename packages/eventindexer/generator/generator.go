@@ -291,29 +291,29 @@ func (g *Generator) queryByTask(task string, date time.Time) (decimal.Decimal, e
 	case tasks.UniqueProversPerDay:
 		query := "SELECT COUNT(DISTINCT address) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
 		err = g.db.GormDB().
-			Raw(query, eventindexer.EventNameBlockProven, dateString).
+			Raw(query, eventindexer.EventNameTransitionProved, dateString).
 			Scan(&result).Error
 	case tasks.TotalUniqueProvers:
 		query := `SELECT COUNT(DISTINCT address) FROM events WHERE event = ?`
 
 		err = g.db.GormDB().Raw(
 			query,
-			eventindexer.EventNameBlockProven,
+			eventindexer.EventNameTransitionProved,
 		).Scan(&result).Error
 		if err != nil {
 			return result, err
 		}
-	case tasks.ProveBlockTxPerDay:
+	case tasks.TransitionProvedTxPerDay:
 		query := "SELECT COUNT(*) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
 		err = g.db.GormDB().
-			Raw(query, eventindexer.EventNameBlockProven, dateString).
+			Raw(query, eventindexer.EventNameTransitionProved, dateString).
 			Scan(&result).Error
-	case tasks.TotalProveBlockTx:
+	case tasks.TotalTransitionProvedTx:
 		var dailyProveBlockCount decimal.NullDecimal
 
 		query := `SELECT COUNT(*) FROM events WHERE event = ? AND DATE(transacted_at) = ?`
 
-		err = g.db.GormDB().Raw(query, eventindexer.EventNameBlockProven, dateString).Scan(&dailyProveBlockCount).Error
+		err = g.db.GormDB().Raw(query, eventindexer.EventNameTransitionProved, dateString).Scan(&dailyProveBlockCount).Error
 		if err != nil {
 			return result, err
 		}

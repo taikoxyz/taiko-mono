@@ -24,7 +24,7 @@ func (indxr *Indexer) subscribe(ctx context.Context, chainID *big.Int) error {
 	errChan := make(chan error)
 
 	if indxr.taikol1 != nil {
-		go indxr.subscribeBlockProven(ctx, chainID, errChan)
+		go indxr.subscribeTransitionProved(ctx, chainID, errChan)
 		go indxr.subscribeBlockProposed(ctx, chainID, errChan)
 		go indxr.subscribeBlockVerified(ctx, chainID, errChan)
 	}
@@ -94,18 +94,18 @@ func (indxr *Indexer) subscribeRawBlockData(
 	}
 }
 
-func (indxr *Indexer) subscribeBlockProven(ctx context.Context, chainID *big.Int, errChan chan error) {
-	sink := make(chan *taikol1.TaikoL1BlockProven)
+func (indxr *Indexer) subscribeTransitionProved(ctx context.Context, chainID *big.Int, errChan chan error) {
+	sink := make(chan *taikol1.TaikoL1TransitionProved)
 
 	sub := event.ResubscribeErr(
 		indxr.subscriptionBackoff,
 		func(ctx context.Context, err error) (event.Subscription, error) {
 			if err != nil {
-				log.Error("indxr.taikoL1.WatchBlockProven", "error", err)
+				log.Error("indxr.taikoL1.WatchTransitionProved", "error", err)
 			}
-			log.Info("resubscribing to BlockProven events")
+			log.Info("resubscribing to TransitionProved events")
 
-			return indxr.taikol1.WatchBlockProven(&bind.WatchOpts{
+			return indxr.taikol1.WatchTransitionProved(&bind.WatchOpts{
 				Context: ctx,
 			}, sink, nil)
 		})
@@ -122,14 +122,15 @@ func (indxr *Indexer) subscribeBlockProven(ctx context.Context, chainID *big.Int
 			errChan <- errors.Wrap(err, "sub.Err()")
 		case event := <-sink:
 			go func() {
-				log.Info("blockProvenEvent from subscription for prover",
+				log.Info("transitionProvenEvent from subscription for prover",
 					"prover", event.Prover.Hex(),
+					"blockId", event.BlockId.String(),
 				)
 
-				if err := indxr.saveBlockProvenEvent(ctx, chainID, event); err != nil {
-					eventindexer.BlockProvenEventsProcessedError.Inc()
+				if err := indxr.saveTransitionProvedEvent(ctx, chainID, event); err != nil {
+					eventindexer.TransitionProvedEventsProcessedError.Inc()
 
-					log.Error("indxr.subscribe, indxr.saveBlockProvenEvent", "error", err)
+					log.Error("indxr.subscribe, indxr.saveTransitionProvedEvent", "error", err)
 
 					return
 				}
@@ -252,7 +253,7 @@ func (indxr *Indexer) subscribeBlockVerified(ctx context.Context, chainID *big.I
 
 			return indxr.taikol1.WatchBlockVerified(&bind.WatchOpts{
 				Context: ctx,
-			}, sink, nil, nil)
+			}, sink, nil, nil, nil)
 		})
 
 	defer sub.Unsubscribe()

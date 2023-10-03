@@ -14,11 +14,11 @@ var (
 		Name: "block_proposed_events_processed_error_ops_total",
 		Help: "The total number of processed BlockProposed event errors encountered",
 	})
-	BlockProvenEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
+	TransitionProvedEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "block_proven_events_processed_ops_total",
 		Help: "The total number of processed BlockProven events",
 	})
-	BlockProvenEventsProcessedError = promauto.NewCounter(prometheus.CounterOpts{
+	TransitionProvedEventsProcessedError = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "block_proven_events_processed_error_ops_total",
 		Help: "The total number of processed BlockProven event errors encountered",
 	})
