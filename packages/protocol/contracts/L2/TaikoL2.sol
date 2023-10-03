@@ -121,22 +121,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         emit Anchored(parentHash, gasExcess);
     }
 
-    /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
-    /// the given parameters.
-    /// @param syncedL1Height The synced L1 height in the next Taiko block
-    /// @param parentGasUsed Gas used in the parent block.
-    /// @return basefee The calculated EIP-1559 base fee per gas.
-    function getBasefee(
-        uint64 syncedL1Height,
-        uint32 parentGasUsed
-    )
-        public
-        view
-        returns (uint256 basefee)
-    {
-        (basefee,) = _calc1559BaseFee(syncedL1Height, parentGasUsed);
-    }
-
     /// @inheritdoc ICrossChainSync
     function getCrossChainBlockHash(uint64 blockId)
         public
@@ -157,6 +141,22 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     {
         uint256 id = blockId == 0 ? latestSyncedL1Height : blockId;
         return _l1VerifiedBlocks[id].signalRoot;
+    }
+
+    /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
+    /// the given parameters.
+    /// @param syncedL1Height The synced L1 height in the next Taiko block
+    /// @param parentGasUsed Gas used in the parent block.
+    /// @return basefee The calculated EIP-1559 base fee per gas.
+    function getBasefee(
+        uint64 syncedL1Height,
+        uint32 parentGasUsed
+    )
+        public
+        view
+        returns (uint256 basefee)
+    {
+        (basefee,) = _calc1559BaseFee(syncedL1Height, parentGasUsed);
     }
 
     /// @notice Retrieves the block hash for the given L2 block number.
