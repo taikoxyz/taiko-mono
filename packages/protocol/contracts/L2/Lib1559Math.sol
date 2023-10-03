@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-import { LibFixedPointMath } from "../../thirdparty/LibFixedPointMath.sol";
+import { LibFixedPointMath } from "../thirdparty/LibFixedPointMath.sol";
 
 library Lib1559Math {
     error EIP1559_INPUT_TOO_BIG();

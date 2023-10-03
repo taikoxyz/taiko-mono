@@ -12,7 +12,7 @@ import { Proxied } from "../common/Proxied.sol";
 
 import { LibMath } from "../libs/LibMath.sol";
 
-import { Lib1559Math } from "./1559/Lib1559Math.sol";
+import { Lib1559Math } from "./Lib1559Math.sol";
 import { TaikoL2Signer } from "./TaikoL2Signer.sol";
 
 /// @title TaikoL2
