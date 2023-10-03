@@ -24,7 +24,8 @@ import { TaikoL2Signer } from "./TaikoL2Signer.sol";
 contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     using LibMath for uint256;
 
-    uint64 public constant GAS_TARGET_PER_L1_BLOCK = 150 * 1e6;
+    uint64 public constant ETHEREUM_GAS_TARGET = 15 * 1e6;
+    uint64 public constant TAIKO_GAS_TARGET = ETHEREUM_GAS_TARGET * 10;
     uint64 public constant ADJUSTMENT_QUOTIENT = 8;
 
     struct VerifiedBlock {
@@ -223,12 +224,12 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             }
 
             if (numL1Blocks > 0) {
-                uint128 issuance = numL1Blocks * GAS_TARGET_PER_L1_BLOCK;
+                uint128 issuance = numL1Blocks * TAIKO_GAS_TARGET;
                 _gasExcess = _gasExcess > issuance ? _gasExcess - issuance : 1;
             }
 
             _basefee = Lib1559Math.basefee(
-                _gasExcess, GAS_TARGET_PER_L1_BLOCK, ADJUSTMENT_QUOTIENT
+                _gasExcess, TAIKO_GAS_TARGET, ADJUSTMENT_QUOTIENT
             );
         }
         // Always make sure basefee is nonzero
