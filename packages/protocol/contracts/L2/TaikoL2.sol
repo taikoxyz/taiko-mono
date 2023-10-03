@@ -227,7 +227,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
                 _gasExcess = _gasExcess > issuance ? _gasExcess - issuance : 1;
             }
 
-            _basefee = Lib1559Math.calcBaseFee(
+            _basefee = Lib1559Math.basefee(
                 _gasExcess, GAS_TARGET_PER_L1_BLOCK, ADJUSTMENT_QUOTIENT
             );
         }

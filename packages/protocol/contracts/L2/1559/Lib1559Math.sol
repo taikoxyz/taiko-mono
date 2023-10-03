@@ -12,7 +12,7 @@ library Lib1559Math {
     error EIP1559_INPUT_TOO_BIG();
     error EIP1559_INVALID_PARAMS();
 
-    function calcBaseFee(
+    function basefee(
         uint256 gasExcess,
         uint256 gasTarget,
         uint256 adjustmentQuotient
