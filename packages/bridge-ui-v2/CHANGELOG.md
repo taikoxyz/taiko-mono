@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.8.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2-v2.7.0...bridge-ui-v2-v2.8.0) (2023-10-03)
+
+
+### Features
+
+* **bridge-ui-v2:** NFT bridge stepper ([#14811](https://github.com/taikoxyz/taiko-mono/issues/14811)) ([90e19fc](https://github.com/taikoxyz/taiko-mono/commit/90e19fc8b2e76d7f049b2ceedd7a54992b85b398))
+
 ## [2.7.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2-v2.6.0...bridge-ui-v2-v2.7.0) (2023-09-25)
 
 
