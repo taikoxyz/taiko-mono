@@ -74,7 +74,7 @@ def calc_purchase_basefee(gas_used):
 
 def calc_spot_basefee():
     # Returns the spot price
-    return eth_qty(gas_excess_issued) / SCALE/ TAIKO_TARGET / ADJUSTMENT_QUOTIENT
+    return int(eth_qty(gas_excess_issued) / SCALE/ TAIKO_TARGET / ADJUSTMENT_QUOTIENT)
 
 print("purchase basefee (1 gas) [fix point]  : ", calc_purchase_basefee(gas_in_block))
 print("spot basefee             [fix point]  : ", calc_spot_basefee())
