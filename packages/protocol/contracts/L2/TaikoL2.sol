@@ -6,6 +6,7 @@
 
 pragma solidity ^0.8.20;
 
+import { LibFixedPointMath } from "../thirdparty/LibFixedPointMath.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { Proxied } from "../common/Proxied.sol";
@@ -52,6 +53,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     error L2_BASEFEE_MISMATCH();
     error L2_INVALID_CHAIN_ID();
     error L2_INVALID_SENDER();
+    error L2_GAS_EXCESS_TOO_LARGE();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
 
@@ -76,8 +78,17 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             _l2Hashes[parentHeight] = blockhash(parentHeight);
         }
 
-        gasExcess = _gasExcess;
         (publicInputHash,) = _calcPublicInputHash(block.number);
+
+        if (
+            _gasExcess * LibFixedPointMath.SCALING_FACTOR_1E18
+                / TAIKO_GAS_TARGET / ADJUSTMENT_QUOTIENT
+                > LibFixedPointMath.MAX_EXP_INPUT
+        ) {
+            revert L2_GAS_EXCESS_TOO_LARGE();
+        }
+
+        gasExcess = _gasExcess;
     }
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
