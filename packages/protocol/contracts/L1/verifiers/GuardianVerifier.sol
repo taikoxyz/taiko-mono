@@ -6,15 +6,14 @@
 
 pragma solidity ^0.8.20;
 
-import { EssentialContract } from "../../common/EssentialContract.sol";
 import { Proxied } from "../../common/Proxied.sol";
 
 import { TaikoData } from "../TaikoData.sol";
 
-import { IVerifier } from "./IVerifier.sol";
+import { BaseVerifier } from "./IVerifier.sol";
 
 /// @title GuardianVerifier
-contract GuardianVerifier is EssentialContract, IVerifier {
+contract GuardianVerifier is BaseVerifier {
     uint256[50] private __gap;
 
     error PERMISSION_DENIED();
@@ -22,10 +21,9 @@ contract GuardianVerifier is EssentialContract, IVerifier {
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
     function init(address _addressManager) external initializer {
-        EssentialContract._init(_addressManager);
+        BaseVerifier._init(_addressManager);
     }
 
-    /// @inheritdoc IVerifier
     function verifyProof(
         uint64,
         address prover,
@@ -37,15 +35,6 @@ contract GuardianVerifier is EssentialContract, IVerifier {
     {
         if (prover != resolve("guardian", false)) revert PERMISSION_DENIED();
     }
-
-    function handleLostContestation(
-        uint64 blockId,
-        address prover,
-        bytes32 blockHash
-    )
-        public
-        pure
-    { }
 }
 
 /// @title ProxiedGuardianVerifier

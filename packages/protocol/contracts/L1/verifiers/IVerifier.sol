@@ -7,9 +7,10 @@
 pragma solidity ^0.8.20;
 
 import { TaikoData } from "../TaikoData.sol";
-
+import { EssentialContract } from "../../common/EssentialContract.sol";
 /// @title IVerifier Interface
 /// @notice Defines the function that handles proof verification.
+
 interface IVerifier {
     /// @notice Verify a proof
     function verifyProof(
@@ -28,4 +29,25 @@ interface IVerifier {
         bytes32 blockHash
     )
         external;
+}
+
+abstract contract BaseVerifier is EssentialContract, IVerifier {
+    event ContestationLost(
+        uint64 indexed blockId, address prover, bytes32 blockHash
+    );
+
+    function handleLostContestation(
+        uint64 blockId,
+        address prover,
+        bytes32 blockHash
+    )
+        external
+        onlyFromNamed("taiko")
+    {
+        emit ContestationLost(blockId, prover, blockHash);
+    }
+
+    function _init(address _addressManager) internal override {
+        EssentialContract._init(_addressManager);
+    }
 }

@@ -6,17 +6,16 @@
 
 pragma solidity ^0.8.20;
 
-import { EssentialContract } from "../../common/EssentialContract.sol";
 import { LibBytesUtils } from "../../thirdparty/LibBytesUtils.sol";
 import { Proxied } from "../../common/Proxied.sol";
 
 import { TaikoData } from "../TaikoData.sol";
 
-import { IVerifier } from "./IVerifier.sol";
+import { BaseVerifier } from "./IVerifier.sol";
 
 /// @title PseZkVerifier
 /// @notice See the documentation in {IVerifier}.
-contract PseZkVerifier is EssentialContract, IVerifier {
+contract PseZkVerifier is BaseVerifier {
     uint256[50] private __gap;
 
     error L1_INVALID_PROOF();
@@ -24,13 +23,10 @@ contract PseZkVerifier is EssentialContract, IVerifier {
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
     function init(address _addressManager) external initializer {
-        EssentialContract._init(_addressManager);
+        BaseVerifier._init(_addressManager);
     }
 
-    /// @inheritdoc IVerifier
     function verifyProof(
-        // blockId is unused now, but can be used later when supporting
-        // different types of proofs.
         uint64,
         address prover,
         bool isContesting,
@@ -80,15 +76,6 @@ contract PseZkVerifier is EssentialContract, IVerifier {
             revert L1_INVALID_PROOF();
         }
     }
-
-    function handleLostContestation(
-        uint64 blockId,
-        address prover,
-        bytes32 blockHash
-    )
-        public
-        pure
-    { }
 
     function getInstance(
         address prover,

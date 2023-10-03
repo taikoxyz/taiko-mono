@@ -11,11 +11,11 @@ import { Proxied } from "../../common/Proxied.sol";
 
 import { TaikoData } from "../TaikoData.sol";
 
-import { IVerifier } from "./IVerifier.sol";
+import { BaseVerifier } from "./IVerifier.sol";
 
 /// @title GuardianVerifier
 // TODO(dani): implement this verifier.
-contract SGXVerifier is EssentialContract, IVerifier {
+contract SGXVerifier is BaseVerifier {
     uint256[50] private __gap;
 
     error UNIMPLEMENTED();
@@ -23,13 +23,10 @@ contract SGXVerifier is EssentialContract, IVerifier {
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
     function init(address _addressManager) external initializer {
-        EssentialContract._init(_addressManager);
+        BaseVerifier._init(_addressManager);
     }
 
-    /// @inheritdoc IVerifier
     function verifyProof(
-        // blockId is unused now, but can be used later when supporting
-        // different types of proofs.
         uint64,
         address,
         bool,
@@ -40,15 +37,6 @@ contract SGXVerifier is EssentialContract, IVerifier {
     {
         revert UNIMPLEMENTED();
     }
-
-    function handleLostContestation(
-        uint64 blockId,
-        address prover,
-        bytes32 blockHash
-    )
-        public
-        pure
-    { }
 }
 
 /// @title ProxiedSGXVerifier
