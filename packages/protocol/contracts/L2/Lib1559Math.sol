@@ -8,9 +8,13 @@ pragma solidity ^0.8.20;
 
 import { LibFixedPointMath } from "../thirdparty/LibFixedPointMath.sol";
 
+/// @title Lib1559Math
+/// @dev Implementation of e^(x) based bonding curve for EIP-1559
+/// See https://ethresear.ch/t/make-eip-1559-more-like-an-amm-curve/9082
 library Lib1559Math {
     error EIP1559_INVALID_PARAMS();
 
+    /// @dev eth_qty(excess_gas_issued) / (TARGET * ADJUSTMENT_QUOTIENT)
     function basefee(
         uint256 gasExcess,
         uint256 gasTarget,
@@ -28,6 +32,7 @@ library Lib1559Math {
             / gasTarget / adjustmentQuotient / LibFixedPointMath.SCALING_FACTOR_1E18;
     }
 
+    /// @dev exp(gas_qty / TARGET / ADJUSTMENT_QUOTIENT)
     function _ethQty(
         uint256 gasQuantity,
         uint256 gasTarget,

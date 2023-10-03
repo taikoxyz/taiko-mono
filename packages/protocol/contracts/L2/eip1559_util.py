@@ -2,6 +2,9 @@ import math
 import matplotlib.pyplot as plt
 
 SCALE = int(1e18) ## fix point scale
+
+
+# Python function that matches the `exp(int256 x)` function in LibFixedPointMath.sol
 def fixed_point_exp(x):
     if x <= -42_139_678_854_452_767_551:
         return 0
@@ -51,7 +54,6 @@ def calc_basefee( excess, gas_in_block):
     diff = calc_eth_qty(excess + gas_in_block) -calc_eth_qty( excess)
     return diff / gas_in_block
 
-
 def calculate_excess_gas_issued(expected_base_fee, gas_used):
     numerator = expected_base_fee * gas_used / (calc_eth_qty(gas_used) - 1) + 1
     excess_gas_issued = math.log(numerator) * TAIKO_TARGET * ADJUSTMENT_QUOTIENT 
@@ -64,6 +66,8 @@ print("gas_excess_issued          : ", gas_excess_issued)
 print("actual_basefee             : ", calc_basefee(gas_excess_issued, gas_in_block))
 print("expected_basefee           : ", expected_basefee)
 
+
+# See https://ethresear.ch/t/make-eip-1559-more-like-an-amm-curve/9082
 def eth_qty(gas_qty):
     return fixed_point_exp(int(gas_qty * SCALE  / TAIKO_TARGET / ADJUSTMENT_QUOTIENT))
 

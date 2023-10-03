@@ -213,8 +213,14 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     {
         // gasExcess being 0 indicate the dynamic 1559 base fee is disabled.
         if (gasExcess > 0) {
+            // We always add the gas used by parent block to the gas excess
+            // value as this has already happend
             _gasExcess = gasExcess + parentGasUsed;
 
+            // Calculate how much more gas to issue to offset gas excess.
+            // after each L1 block time, TAIKO_GAS_TARGET more gas is issued,
+            // the gas excess will be reduced accordingly.
+            // Note that when latestSyncedL1Height is zero, we skip this step.
             uint128 numL1Blocks;
             if (
                 latestSyncedL1Height > 0
@@ -228,11 +234,16 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
                 _gasExcess = _gasExcess > issuance ? _gasExcess - issuance : 1;
             }
 
+            // The base fee per gas used by this block is the spot price at the
+            // bonding curve, regardless the actual amount of gas used by this
+            // block, however, the this block's gas used will affect the next
+            // block's base fee.
             _basefee = Lib1559Math.basefee(
                 _gasExcess, TAIKO_GAS_TARGET, ADJUSTMENT_QUOTIENT
             );
         }
-        // Always make sure basefee is nonzero
+
+        // Always make sure basefee is nonzero, this is required by the node.
         if (_basefee == 0) _basefee = 1;
     }
 }
