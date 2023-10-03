@@ -25,7 +25,7 @@ func (indxr *Indexer) saveTransitionProvedEvents(
 	events *taikol1.TaikoL1TransitionProvedIterator,
 ) error {
 	if !events.Next() || events.Event == nil {
-		slog.Info("no blockProven events")
+		slog.Info("no transitionProved events")
 		return nil
 	}
 

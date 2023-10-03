@@ -25,6 +25,7 @@ func (indxr *Indexer) subscribe(ctx context.Context, chainID *big.Int) error {
 
 	if indxr.taikol1 != nil {
 		go indxr.subscribeTransitionProved(ctx, chainID, errChan)
+		go indxr.subscribeTransitionContested(ctx, chainID, errChan)
 		go indxr.subscribeBlockProposed(ctx, chainID, errChan)
 		go indxr.subscribeBlockVerified(ctx, chainID, errChan)
 	}
@@ -131,6 +132,73 @@ func (indxr *Indexer) subscribeTransitionProved(ctx context.Context, chainID *bi
 					eventindexer.TransitionProvedEventsProcessedError.Inc()
 
 					log.Error("indxr.subscribe, indxr.saveTransitionProvedEvent", "error", err)
+
+					return
+				}
+
+				block, err := indxr.processedBlockRepo.GetLatestBlockProcessed(chainID)
+				if err != nil {
+					slog.Error("indxr.subscribe, indxr.processedBlockRepo.GetLatestBlockProcessed", "error", err)
+					return
+				}
+
+				if block.Height < event.Raw.BlockNumber {
+					err = indxr.processedBlockRepo.Save(eventindexer.SaveProcessedBlockOpts{
+						Height:  event.Raw.BlockNumber,
+						Hash:    event.Raw.BlockHash,
+						ChainID: chainID,
+					})
+					if err != nil {
+						slog.Error("indxr.subscribe, blockRepo.save", "error", err)
+						return
+					}
+
+					eventindexer.BlocksProcessed.Inc()
+				}
+			}()
+		}
+	}
+}
+
+func (indxr *Indexer) subscribeTransitionContested(ctx context.Context, chainID *big.Int, errChan chan error) {
+	sink := make(chan *taikol1.TaikoL1TransitionContested)
+
+	sub := event.ResubscribeErr(
+		indxr.subscriptionBackoff,
+		func(ctx context.Context, err error) (event.Subscription, error) {
+			if err != nil {
+				log.Error("indxr.taikoL1.WatchTransitionContested", "error", err)
+			}
+			log.Info("resubscribing to TransitionContested events")
+
+			return indxr.taikol1.WatchTransitionContested(&bind.WatchOpts{
+				Context: ctx,
+			}, sink, nil)
+		})
+
+	defer sub.Unsubscribe()
+
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("context finished")
+			return
+		case err := <-sub.Err():
+			slog.Error("sub.Err()", "error", err)
+			errChan <- errors.Wrap(err, "sub.Err()")
+		case event := <-sink:
+			go func() {
+				log.Info("transitionContestedEvent from subscription for prover",
+					"contester", event.Contester.Hex(),
+					"blockId", event.BlockId.String(),
+					"contestBond", event.ContestBond.String(),
+					"tier", event.Tier,
+				)
+
+				if err := indxr.saveTransitionContestedEvent(ctx, chainID, event); err != nil {
+					eventindexer.TransitionContestedEventsProcessedError.Inc()
+
+					log.Error("indxr.subscribe, indxr.saveTransitionContestedEvent", "error", err)
 
 					return
 				}

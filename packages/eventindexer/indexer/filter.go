@@ -43,6 +43,20 @@ func filterFunc(
 		})
 
 		wg.Go(func() error {
+			transitionContestedEvents, err := indxr.taikol1.FilterTransitionContested(filterOpts, nil)
+			if err != nil {
+				return errors.Wrap(err, "indxr.taikol1.FilterTransitionContested")
+			}
+
+			err = indxr.saveTransitionContestedEvents(ctx, chainID, transitionContestedEvents)
+			if err != nil {
+				return errors.Wrap(err, "indxr.saveTransitionContestedEvents")
+			}
+
+			return nil
+		})
+
+		wg.Go(func() error {
 			blockProposedEvents, err := indxr.taikol1.FilterBlockProposed(filterOpts, nil, nil)
 			if err != nil {
 				return errors.Wrap(err, "indxr.taikol1.FilterBlockProposed")

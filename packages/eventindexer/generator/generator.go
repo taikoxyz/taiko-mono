@@ -309,11 +309,15 @@ func (g *Generator) queryByTask(task string, date time.Time) (decimal.Decimal, e
 			Raw(query, eventindexer.EventNameTransitionProved, dateString).
 			Scan(&result).Error
 	case tasks.TotalTransitionProvedTx:
-		var dailyProveBlockCount decimal.NullDecimal
+		var dailyTransitionProvedCount decimal.NullDecimal
 
 		query := `SELECT COUNT(*) FROM events WHERE event = ? AND DATE(transacted_at) = ?`
 
-		err = g.db.GormDB().Raw(query, eventindexer.EventNameTransitionProved, dateString).Scan(&dailyProveBlockCount).Error
+		err = g.db.GormDB().Raw(
+			query,
+			eventindexer.EventNameTransitionProved,
+			dateString,
+		).Scan(&dailyTransitionProvedCount).Error
 		if err != nil {
 			return result, err
 		}
@@ -323,7 +327,32 @@ func (g *Generator) queryByTask(task string, date time.Time) (decimal.Decimal, e
 			return result, err
 		}
 
-		result = tsdResult.Decimal.Add(dailyProveBlockCount.Decimal)
+		result = tsdResult.Decimal.Add(dailyTransitionProvedCount.Decimal)
+	case tasks.TransitionContestedTxPerDay:
+		query := "SELECT COUNT(*) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
+		err = g.db.GormDB().
+			Raw(query, eventindexer.EventNameTransitionContested, dateString).
+			Scan(&result).Error
+	case tasks.TotalTransitionContestedTx:
+		var dailyTransitionContestedCount decimal.NullDecimal
+
+		query := `SELECT COUNT(*) FROM events WHERE event = ? AND DATE(transacted_at) = ?`
+
+		err = g.db.GormDB().Raw(
+			query,
+			eventindexer.EventNameTransitionContested,
+			dateString,
+		).Scan(&dailyTransitionContestedCount).Error
+		if err != nil {
+			return result, err
+		}
+
+		tsdResult, err := g.previousDayTsdResultByTask(task, date)
+		if err != nil {
+			return result, err
+		}
+
+		result = tsdResult.Decimal.Add(dailyTransitionContestedCount.Decimal)
 	case tasks.AccountsPerDay:
 		query := `SELECT COUNT(*) FROM accounts WHERE DATE(transacted_at) = ?`
 		err = g.db.GormDB().Raw(query, dateString).Scan(&result).Error
