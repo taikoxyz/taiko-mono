@@ -100,18 +100,19 @@ print("spot basefee             [fix point]1 : ", calc_spot_basefee())
 
 
 # Set the excess value to the max possible
+bkup = gas_excess_issued
 gas_excess_issued = MAX_EXP_INPUT * ADJUSTMENT_FACTOR // SCALE
 print("spot basefee             [fix point]2 : ", calc_spot_basefee())
 
 
 exit()
-
+gas_excess_issued = bkup
 # one L2 block per L1 block vs multiple L2 blocks per L1 block
 x1 = []
 y1 = []
 for i in range(10):
     x1.append(i * 12)
-    y1.append(basefee(TAIKO_TARGET))
+    y1.append(calc_spot_basefee())
 
 x2 = []
 y2 = []
@@ -119,12 +120,12 @@ y2 = []
 for i in range(10):
     for j in range(12):
         x2.append(i * 12 + j)
-        y2.append(basefee(TAIKO_TARGET / 12))
+        y2.append(calc_spot_basefee())
         gas_excess_issued += TAIKO_TARGET / 12
     gas_excess_issued -= TAIKO_TARGET
 
+plt.scatter(x2, y2, label="1s", color="red", marker="o")
 plt.scatter(x1, y1, label="12s", color="blue", marker="x")
-plt.scatter(x2, y2, label="1s", color="red", marker="x")
 
 plt.xlabel("basefee")
 plt.ylabel("time")
