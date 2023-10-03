@@ -6,8 +6,9 @@
 
 pragma solidity ^0.8.20;
 
-import { TaikoData } from "../TaikoData.sol";
 import { EssentialContract } from "../../common/EssentialContract.sol";
+
+import { TaikoData } from "../TaikoData.sol";
 /// @title IVerifier Interface
 /// @notice Defines the function that handles proof verification.
 
