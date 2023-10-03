@@ -25,12 +25,6 @@ import { TaikoL2Signer } from "./TaikoL2Signer.sol";
 contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     using LibMath for uint256;
 
-    uint64 public constant ETHEREUM_GAS_TARGET = 15 * 1e6;
-    uint64 public constant TAIKO_GAS_TARGET = ETHEREUM_GAS_TARGET * 10;
-    uint64 public constant ADJUSTMENT_QUOTIENT = 8;
-    uint256 public constant ADJUSTMENT_FACTOR =
-        TAIKO_GAS_TARGET * ADJUSTMENT_QUOTIENT;
-
     struct VerifiedBlock {
         bytes32 blockHash;
         bytes32 signalRoot;
@@ -80,16 +74,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             _l2Hashes[parentHeight] = blockhash(parentHeight);
         }
 
-        (publicInputHash,) = _calcPublicInputHash(block.number);
-
-        if (
-            _gasExcess * LibFixedPointMath.SCALING_FACTOR / ADJUSTMENT_FACTOR
-                > LibFixedPointMath.MAX_EXP_INPUT
-        ) {
-            revert L2_GAS_EXCESS_TOO_LARGE();
-        }
-
         gasExcess = _gasExcess;
+        (publicInputHash,) = _calcPublicInputHash(block.number);
     }
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
@@ -172,10 +158,22 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         (basefee,) = _calc1559BaseFee(syncedL1Height, parentGasUsed);
     }
 
+    /// @notice Returns EIP1559 related configurations
+    function get1559Params()
+        public
+        pure
+        virtual
+        returns (uint64 gasTarget, uint256 adjustmentQuotient)
+    {
+        gasTarget = 15 * 1e6 * 10; // 10x Ethereum gas target
+        adjustmentQuotient = 8;
+    }
+
     /// @notice Retrieves the block hash for the given L2 block number.
     /// @param blockId The L2 block number to retrieve the block hash for.
     /// @return The block hash for the specified L2 block id, or zero if the
     /// block id is greater than or equal to the current block number.
+
     function getBlockHash(uint64 blockId) public view returns (bytes32) {
         if (blockId >= block.number) {
             return 0;
@@ -230,7 +228,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             _gasExcess = gasExcess + parentGasUsed;
 
             // Calculate how much more gas to issue to offset gas excess.
-            // after each L1 block time, TAIKO_GAS_TARGET more gas is issued,
+            // after each L1 block time, config.gasTarget more gas is issued,
             // the gas excess will be reduced accordingly.
             // Note that when latestSyncedL1Height is zero, we skip this step.
             uint128 numL1Blocks;
@@ -241,8 +239,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
                 numL1Blocks = syncedL1Height - latestSyncedL1Height;
             }
 
+            (uint64 gasTarget, uint256 adjustmentQuotient) = get1559Params();
+
             if (numL1Blocks > 0) {
-                uint128 issuance = numL1Blocks * TAIKO_GAS_TARGET;
+                uint128 issuance = numL1Blocks * gasTarget;
                 _gasExcess = _gasExcess > issuance ? _gasExcess - issuance : 1;
             }
 
@@ -250,7 +250,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             // bonding curve, regardless the actual amount of gas used by this
             // block, however, the this block's gas used will affect the next
             // block's base fee.
-            _basefee = Lib1559Math.basefee(_gasExcess, ADJUSTMENT_FACTOR);
+            _basefee =
+                Lib1559Math.basefee(_gasExcess, adjustmentQuotient * gasTarget);
         }
 
         // Always make sure basefee is nonzero, this is required by the node.
