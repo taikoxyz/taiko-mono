@@ -81,6 +81,15 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         }
     }
 
+    function handleLostContestation(
+        uint64 blockId,
+        address prover,
+        bytes32 blockHash
+    )
+        public
+        pure
+    { }
+
     function getInstance(
         address prover,
         TaikoData.BlockEvidence memory evidence

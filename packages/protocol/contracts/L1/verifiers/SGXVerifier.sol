@@ -40,6 +40,15 @@ contract SGXVerifier is EssentialContract, IVerifier {
     {
         revert UNIMPLEMENTED();
     }
+
+    function handleLostContestation(
+        uint64 blockId,
+        address prover,
+        bytes32 blockHash
+    )
+        public
+        pure
+    { }
 }
 
 /// @title ProxiedSGXVerifier

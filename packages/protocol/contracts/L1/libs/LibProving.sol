@@ -394,11 +394,29 @@ library LibProving {
                             false
                         );
                     } else if (reward != 0) {
-                        //The prover is also the contester, so the reward is
+                        // The prover is also the contester, so the reward is
                         // sent to him.
                         LibTaikoToken.creditToken(
                             state, resolver, msg.sender, reward, false
                         );
+                    }
+
+                    {
+                        // We tell the verifyer that a proof verified by itself
+                        // is
+                        // contested and lost, this will enable the verifiery to
+                        // implement logics to disable itself.
+                        ITierProvider.Tier memory prevTier = ITierProvider(
+                            resolver.resolve("tier_provider", false)
+                        ).getTier(tran.tier);
+
+                        address verifier =
+                            resolver.resolve(prevTier.verifierName, true);
+                        if (verifier != address(0)) {
+                            IVerifier(verifier).handleLostContestation(
+                                blockId, tran.prover, tran.blockHash
+                            );
+                        }
                     }
 
                     // Given that the contester emerges as the winner, the

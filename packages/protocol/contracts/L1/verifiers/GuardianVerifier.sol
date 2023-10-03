@@ -37,6 +37,15 @@ contract GuardianVerifier is EssentialContract, IVerifier {
     {
         if (prover != resolve("guardian", false)) revert PERMISSION_DENIED();
     }
+
+    function handleLostContestation(
+        uint64 blockId,
+        address prover,
+        bytes32 blockHash
+    )
+        public
+        pure
+    { }
 }
 
 /// @title ProxiedGuardianVerifier
