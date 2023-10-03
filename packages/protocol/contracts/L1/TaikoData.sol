@@ -37,7 +37,7 @@ library TaikoData {
         uint24 blockMaxTxListBytes;
         // Amount of token to reward to the first block propsoed in each L1
         // block.
-        uint256 proposerRewardPerSecond;
+        uint256 proposerRewardPerL1Block;
         uint256 proposerRewardMax;
         uint8 proposerRewardHalving;
         // ---------------------------------------------------------------------
@@ -182,7 +182,7 @@ library TaikoData {
 
     struct SlotC {
         uint128 accumulatedReward;
-        uint128 latestRewardAccL1Height;
+        uint128 lastProposedHeight;
     }
 
     /// @dev Struct holding the state variables for the {TaikoL1} contract.

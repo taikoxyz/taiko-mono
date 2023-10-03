@@ -317,7 +317,7 @@ contract TaikoL1 is
             blockMaxGasLimit: 8_000_000,
             blockFeeBaseGas: 20_000,
             blockMaxTxListBytes: 120_000,
-            proposerRewardPerSecond: 25e16, // 0.25 Taiko token
+            proposerRewardPerL1Block: 3e18, // 0.25 Taiko token * 12s = 3 TKO
             proposerRewardMax: 32e18, // 32 Taiko token
             proposerRewardHalving: 3, // means that 1/3 of the accumulated reward is given to every (next) proposer
             livenessBond: 10_240e18,

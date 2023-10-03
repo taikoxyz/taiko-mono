@@ -102,17 +102,17 @@ library LibProposing {
         uint256 reward;
 
         // First proposer per L1 block updates the L1 block height and the accumulated reward.
-        if(state.slotC.latestRewardAccL1Height < block.number) {
+        if(state.slotC.lastProposedHeight < block.number) {
             // The very first proposal within the protocol starts the 'clock' and from that point on we calculate the accumulation.
-            if(state.slotC.latestRewardAccL1Height != 0) {
+            if(state.slotC.lastProposedHeight != 0) {
                 // Calculate the addition to the accumulated rewards by getting how many blocks elapsed since the last 'sync' then multiply it by 12 (L1 block time) and the reward issued per second.
-                state.slotC.accumulatedReward += uint128((block.number - state.slotC.latestRewardAccL1Height) * 12 * config.proposerRewardPerSecond);
-                state.slotC.latestRewardAccL1Height = uint128(block.number);
+                state.slotC.accumulatedReward += uint128((block.number - state.slotC.lastProposedHeight) * config.proposerRewardPerL1Block);
+                state.slotC.lastProposedHeight = uint128(block.number);
             }
-            state.slotC.latestRewardAccL1Height = uint128(block.number);
+            state.slotC.lastProposedHeight = uint128(block.number);
         }
 
-        if (config.proposerRewardPerSecond > 0 && config.proposerRewardMax > 0 && state.slotC.accumulatedReward > 0)
+        if (config.proposerRewardPerL1Block > 0 && config.proposerRewardMax > 0 && state.slotC.accumulatedReward > 0)
         {
             // Might happen that network is congested on L1, so the pool would grow too big for the next proposeBlock() so best to have an absolute maximum upper limit.
             reward = uint256(state.slotC.accumulatedReward / config.proposerRewardHalving).min(
