@@ -294,7 +294,7 @@ library LibProving {
                 tier: evidence.tier
             });
         } else {
-            // The new tier is higher than the previous tier, we  are in the
+            // The new tier is higher than the previous tier, we are in the
             // proving mode. This works even if this transition's contester is
             // address zero.
 
@@ -377,6 +377,24 @@ library LibProving {
                         false
                     );
                 } else {
+                    // Notify the verifier that a proof it verified has been
+                    // contested and invalidated. This allows the verifier to
+                    // implement logic for self-disabling.
+                    if (tran.tier != 0) {
+                        ITierProvider.Tier memory prevTier = ITierProvider(
+                            resolver.resolve("tier_provider", false)
+                        ).getTier(tran.tier);
+
+                        address verifier =
+                            resolver.resolve(prevTier.verifierName, true);
+
+                        if (verifier != address(0)) {
+                            IVerifier(verifier).handleLostContestation(
+                                blockId, tran.prover, tran.blockHash
+                            );
+                        }
+                    }
+
                     // In the event that the contester is the winner, half of
                     // the validity bond is designated as the reward, to be
                     // divided equally between the new prover and the contester.
@@ -399,24 +417,6 @@ library LibProving {
                         LibTaikoToken.creditToken(
                             state, resolver, msg.sender, reward, false
                         );
-                    }
-
-                    {
-                        // We tell the verifyer that a proof verified by itself
-                        // is
-                        // contested and lost, this will enable the verifiery to
-                        // implement logics to disable itself.
-                        ITierProvider.Tier memory prevTier = ITierProvider(
-                            resolver.resolve("tier_provider", false)
-                        ).getTier(tran.tier);
-
-                        address verifier =
-                            resolver.resolve(prevTier.verifierName, true);
-                        if (verifier != address(0)) {
-                            IVerifier(verifier).handleLostContestation(
-                                blockId, tran.prover, tran.blockHash
-                            );
-                        }
                     }
 
                     // Given that the contester emerges as the winner, the
