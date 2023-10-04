@@ -141,6 +141,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             // This proof cannot be verified obviously because of
             // signalRoot instead of blockHash
             uint16 minTier = L1.getBlock(meta.id).minTier;
+
             proveBlock(
                 Bob,
                 Bob,
@@ -153,8 +154,27 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 false
             );
 
+            // Try to contest
+            proveBlock(
+                Carol,
+                Carol,
+                meta,
+                parentHash,
+                blockHash,
+                signalRoot,
+                minTier,
+                "",
+                false
+            );
+
+            vm.roll(block.number + 15 * 12);
+
+            vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow + 1);
+
+            // Cannot verify block because it is contested..
+            verifyBlock(Carol, 1);
+
             if (minTier == LibTiers.TIER_OPTIMISTIC) {
-                // Try to contest
                 proveBlock(
                     Carol,
                     Carol,
@@ -162,20 +182,11 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     parentHash,
                     blockHash,
                     signalRoot,
-                    minTier,
+                    LibTiers.TIER_SGX,
                     "",
                     false
                 );
-
-                vm.roll(block.number + 15 * 12);
-
-                vm.warp(
-                    block.timestamp + L1.getTier(minTier).cooldownWindow + 1
-                );
-
-                // Cannot verify block because it is contested..
-                verifyBlock(Carol, 1);
-
+            } else if (minTier == LibTiers.TIER_SGX) {
                 proveBlock(
                     Carol,
                     Carol,
@@ -187,9 +198,20 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     "",
                     false
                 );
+            } else if (minTier == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
+                proveBlock(
+                    Carol,
+                    Carol,
+                    meta,
+                    parentHash,
+                    blockHash,
+                    signalRoot,
+                    LibTiers.TIER_GUARDIAN,
+                    "",
+                    false
+                );
             }
 
-            // Otherwise just not contest
             vm.warp(
                 block.timestamp
                     + L1.getTier(LibTiers.TIER_GUARDIAN).cooldownWindow + 1
@@ -242,29 +264,27 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 false
             );
 
+            // Try to contest
+            proveBlock(
+                Carol,
+                Carol,
+                meta,
+                parentHash,
+                blockHash,
+                signalRoot,
+                minTier,
+                "",
+                false
+            );
+
+            vm.roll(block.number + 15 * 12);
+
+            vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow + 1);
+
+            // Cannot verify block because it is contested..
+            verifyBlock(Carol, 1);
+
             if (minTier == LibTiers.TIER_OPTIMISTIC) {
-                // Try to contest
-                proveBlock(
-                    Carol,
-                    Carol,
-                    meta,
-                    parentHash,
-                    blockHash,
-                    signalRoot,
-                    minTier,
-                    "",
-                    false
-                );
-
-                vm.roll(block.number + 15 * 12);
-
-                vm.warp(
-                    block.timestamp + L1.getTier(minTier).cooldownWindow + 1
-                );
-
-                // Cannot verify block because it is contested..
-                verifyBlock(Carol, 1);
-
                 proveBlock(
                     Carol,
                     Carol,
@@ -273,6 +293,30 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     blockHash,
                     signalRoot,
                     LibTiers.TIER_SGX,
+                    "",
+                    false
+                );
+            } else if (minTier == LibTiers.TIER_SGX) {
+                proveBlock(
+                    Carol,
+                    Carol,
+                    meta,
+                    parentHash,
+                    blockHash,
+                    signalRoot,
+                    LibTiers.TIER_SGX_AND_PSE_ZKEVM,
+                    "",
+                    false
+                );
+            } else if (minTier == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
+                proveBlock(
+                    Carol,
+                    Carol,
+                    meta,
+                    parentHash,
+                    blockHash,
+                    signalRoot,
+                    LibTiers.TIER_GUARDIAN,
                     "",
                     false
                 );
