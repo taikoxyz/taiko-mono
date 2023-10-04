@@ -1,10 +1,8 @@
 <script lang="ts">
-  import { readContract } from '@wagmi/core';
   import { onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
-  import { type Abi, type Address, TransactionExecutionError, UserRejectedRequestError } from 'viem';
+  import { type Address, TransactionExecutionError, UserRejectedRequestError } from 'viem';
 
-  import { erc721ABI, erc1155ABI } from '$abi';
   import { routingContractsMap } from '$bridgeConfig';
   import { chainConfig } from '$chainConfig';
   import { FlatAlert } from '$components/Alert';
@@ -36,6 +34,7 @@
   } from '$libs/error';
   import { bridgeTxService } from '$libs/storage';
   import { detectContractType, ETHToken, getAddress, isDeployedCrossChain, tokens, TokenType } from '$libs/token';
+  import { checkOwnership } from '$libs/token/checkOwnership';
   import { refreshUserBalance } from '$libs/util/balance';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { type Account, account } from '$stores/account';
@@ -351,6 +350,7 @@
         .then((type) => {
           detectedTokenType = type;
           addressInputState = AddressInputState.Valid;
+          //TODO: update selectedToken
         })
         .catch((err) => {
           console.error(err);
@@ -363,44 +363,6 @@
     }
   }
 
-  // TODO: Move out of component!
-  let checkOwnerOfToken = async (tokenAddress: Address, tokenType: TokenType | null, tokenIds: number[]) => {
-    if (!tokenType || tokenIds.length === 0) return false;
-    let abi: Abi;
-    let checked: { id: number; isOwner: boolean }[] = [];
-
-    if (tokenType === TokenType.ERC1155) {
-      abi = erc1155ABI;
-    } else if (tokenType === TokenType.ERC721) {
-      abi = erc721ABI;
-    } else {
-      return false;
-    }
-
-    const checkPromises = tokenIds.map(async (tokenId) => {
-      try {
-        const ownsToken = await readContract({
-          address: tokenAddress,
-          abi,
-          functionName: 'ownerOf',
-          chainId: $network?.id,
-          args: [tokenId],
-        });
-        checked.push({ id: tokenId, isOwner: ownsToken as boolean });
-      } catch (err) {
-        console.error('error reading contract', err);
-        checked.push({ id: tokenId, isOwner: false });
-      }
-    });
-
-    await Promise.all(checkPromises);
-
-    if (checked.length === tokenIds.length) {
-      return checked.every((token) => token.isOwner);
-    }
-    return false;
-  };
-
   $: {
     const stepKey = NFTSteps[activeStep].toLowerCase(); // Convert enum to string and to lowercase
     nftStepTitle = $t(`bridge.title.nft.${stepKey}`);
@@ -410,7 +372,14 @@
   $: {
     if (contractAddress) validating = true;
     (async () => {
-      isOwnerOfAllToken = await checkOwnerOfToken(contractAddress, detectedTokenType, nftIdArray);
+      if ($account?.address && $network?.id)
+        isOwnerOfAllToken = await checkOwnership(
+          contractAddress,
+          detectedTokenType,
+          nftIdArray,
+          $account?.address,
+          $network?.id,
+        );
       validating = false;
     })();
   }
@@ -492,6 +461,10 @@
                 <FlatAlert type="error" forceColumnFlow message="todo: must be owner of all token" />
               {/if}
             </div>
+
+            {#if detectedTokenType === TokenType.ERC1155}
+              <Amount bind:this={amountComponent} />
+            {/if}
           </div>
         {:else if activeStep === NFTSteps.REVIEW}
           <div class="f-between-center gap-4">
