@@ -13,13 +13,14 @@ import (
 )
 
 var (
-	EventNameBlockProven   = "BlockProven"
-	EventNameBlockProposed = "BlockProposed"
-	EventNameBlockVerified = "BlockVerified"
-	EventNameMessageSent   = "MessageSent"
-	EventNameSwap          = "Swap"
-	EventNameMint          = "Mint"
-	EventNameNFTTransfer   = "Transfer"
+	EventNameTransitionProved    = "TransitionProved"
+	EventNameTransitionContested = "TransitionContested"
+	EventNameBlockProposed       = "BlockProposed"
+	EventNameBlockVerified       = "BlockVerified"
+	EventNameMessageSent         = "MessageSent"
+	EventNameSwap                = "Swap"
+	EventNameMint                = "Mint"
+	EventNameNFTTransfer         = "Transfer"
 )
 
 // Event represents a stored EVM event. The fields will be serialized
