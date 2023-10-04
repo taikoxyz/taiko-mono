@@ -35,7 +35,8 @@ const ecosystemData: EcosystemData[] = [
     icon: "/images/ecosystem/alphamint.png",
     name: "Alphamint",
     link: "https://www.alphamint.online/",
-    description: "Multichain NFT marketplace to create, sell and buy ERC-721 tokens.",
+    description:
+      "Multichain NFT marketplace to create, sell and buy ERC-721 tokens.",
     filters: [],
     isLive: true,
   },
@@ -393,9 +394,19 @@ const ecosystemData: EcosystemData[] = [
   },
   {
     icon: "/images/ecosystem/taiko.svg",
-    name: "Swap",
+    name: "Swap v2",
     link: "https://swap.jolnir.taiko.xyz",
-    description: "Swap is a dapp that lets you swap tokens on Taiko.",
+    description:
+      "Swap v2 is a dapp that lets you swap tokens on Taiko (fork of Uniswap v2).",
+    filters: [],
+    isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/taiko.svg",
+    name: "Swap v3",
+    link: "https://swap-v3.jolnir.taiko.xyz",
+    description:
+      "Swap v3 is a dapp that lets you swap tokens on Taiko (fork of Uniswap v3).",
     filters: [],
     isLive: true,
   },
@@ -447,7 +458,8 @@ const ecosystemData: EcosystemData[] = [
     icon: "/images/ecosystem/xverse.png",
     name: "Xverse",
     link: "https://taiko-test.xverse.fi/?chain=taiko_testnet",
-    description: "Stablecoin Project, using Uniswap V3 LP token. With CDP mechanism, LP NFT of stable coin pair will become collateral of our Stable coin.",
+    description:
+      "Stablecoin Project, using Uniswap V3 LP token. With CDP mechanism, LP NFT of stable coin pair will become collateral of our Stable coin.",
     filters: [],
     isLive: true,
   },
@@ -585,13 +597,15 @@ export function EcosystemSection() {
 function FilterLabel({ text, activeFilter, setActiveFilter }) {
   const isActive = activeFilter === text;
 
-  const buttonStyles = `border rounded-full py-1 px-4 text-sm focus:outline-none transition-colors duration-200 font-bold ${isActive
-    ? "bg-gray-300 text-black"
-    : "bg-white text-gray-700 dark:bg-black dark:text-gray-300"
-    } ${isActive
+  const buttonStyles = `border rounded-full py-1 px-4 text-sm focus:outline-none transition-colors duration-200 font-bold ${
+    isActive
+      ? "bg-gray-300 text-black"
+      : "bg-white text-gray-700 dark:bg-black dark:text-gray-300"
+  } ${
+    isActive
       ? "hover:bg-gray-400"
       : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
-    }`;
+  }`;
 
   return (
     <button className={buttonStyles} onClick={() => setActiveFilter(text)}>
