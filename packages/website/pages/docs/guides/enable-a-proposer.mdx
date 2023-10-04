@@ -100,6 +100,16 @@ You can check all commands to see proposer logs in the [node runner manual](/doc
 
 </Steps>
 
+## Tokenomics
+
+The proposer orders (sequences) transactions in a block. Transaction fees to be included into a block are paid in ETH.
+To extract as much MEV (Maximal Extractable Value) as possible paid in ETH, each proposer will try to search the mempool to:
+```
+-✅ fit as many valid transctions into a block as possible
+-💰 include transactions with the highest fees
+``` 
+The proposer must then deliver their proposed blocks to a prover.
+
 ## Videos
 
 - [Enable a proposer on your Taiko L2 node](https://www.youtube.com/watch?v=z3gWKEoJidw) (deprecated, but still useful)
