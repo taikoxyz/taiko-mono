@@ -1,7 +1,7 @@
 import { readContract } from '@wagmi/core';
-import { UnknownTypeError } from 'viem';
 
 import { erc20ABI, erc721ABI, erc1155ABI } from '$abi';
+import { UnknownTokenTypeError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 
 import { TokenType } from './types';
@@ -72,7 +72,6 @@ export async function detectContractType(contractAddress: Address): Promise<Toke
     return TokenType.ERC20;
   }
 
-  log('Unknown token type');
-  console.error('Unable to determine token type');
-  throw new UnknownTypeError({ type: 'Unknown tokentype' });
+  log('Unable to determine token type', { contractAddress });
+  throw new UnknownTokenTypeError();
 }

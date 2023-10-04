@@ -1,5 +1,7 @@
 import { readContract } from '@wagmi/core';
-import { UnknownTypeError, zeroAddress } from 'viem';
+import { zeroAddress } from 'viem';
+
+import { UnknownTokenTypeError } from '$libs/error';
 
 import { detectContractType } from './detectContractType';
 import { TokenType } from './types';
@@ -63,12 +65,10 @@ describe('detectContractType', () => {
   it('should throw an error for an unknown contract type', async () => {
     // Given
     const contractAddress = zeroAddress;
-    vi.mocked(readContract).mockImplementation(() =>
-      Promise.reject(new UnknownTypeError({ type: 'Unknown tokentype' })),
-    );
+    vi.mocked(readContract).mockImplementation(() => Promise.reject(UnknownTokenTypeError));
 
     // When & Then
-    await expect(detectContractType(contractAddress)).rejects.toThrow('Unknown tokentype');
+    await expect(detectContractType(contractAddress)).rejects.toThrow(UnknownTokenTypeError);
   });
 
   it('should throw an error for if none of the checks passed', async () => {
@@ -80,6 +80,6 @@ describe('detectContractType', () => {
       .mockImplementation(() => Promise.reject());
 
     // When & Then
-    await expect(detectContractType(contractAddress)).rejects.toThrow('Unknown tokentype');
+    await expect(detectContractType(contractAddress)).rejects.toThrow(UnknownTokenTypeError);
   });
 });
