@@ -37,7 +37,7 @@ export const SEPOLIA_CONFIG = {
       name: "TaikoL1",
       address: {
         proxy: "0x95fF8D3CE9dcB7455BEB7845143bEA84Fe5C4F6f",
-        impl: "0xD0979F959D788dD0C55c743Cb5D5c2175F2AB097",
+        impl: "0xb6Ac7F87c35686b9db84cC51474895BA628f490E",
       },
     },
     erc20Vault: {
