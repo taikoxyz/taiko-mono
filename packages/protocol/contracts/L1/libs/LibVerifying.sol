@@ -64,6 +64,13 @@ library LibVerifying {
                     >= type(uint96).max / config.ethDepositMaxCountPerBlock
         ) revert L1_INVALID_CONFIG();
 
+        if (config.proposerRewardPerL1Block != 0) {
+            if (
+                config.proposerRewardMax == 0
+                    || config.proposerRewardPoolPctg == 0
+            ) revert L1_INVALID_CONFIG();
+        }
+
         // Init state
         state.slotA.genesisHeight = uint64(block.number);
         state.slotA.genesisTimestamp = uint64(block.timestamp);
