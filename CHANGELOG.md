@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.22.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-mono-v0.21.0...taiko-mono-v0.22.0) (2023-10-03)
+
+
+### Features
+
+* **bridge-ui-v2:** NFT bridge stepper ([#14811](https://github.com/taikoxyz/taiko-mono/issues/14811)) ([90e19fc](https://github.com/taikoxyz/taiko-mono/commit/90e19fc8b2e76d7f049b2ceedd7a54992b85b398))
+* **website:** add `ZK Nodes` to prover fee market ([#14817](https://github.com/taikoxyz/taiko-mono/issues/14817)) ([7c28677](https://github.com/taikoxyz/taiko-mono/commit/7c286774a56a1cd91c474b513a2ba00fbe3a4715))
+* **website:** add AIT Protocol to ecosystem ([#14868](https://github.com/taikoxyz/taiko-mono/issues/14868)) ([bfd1c62](https://github.com/taikoxyz/taiko-mono/commit/bfd1c62d79968ea225436abc0a1de00dd30d8645))
+* **website:** add Alphamint and Xverse to ecosystem ([#14807](https://github.com/taikoxyz/taiko-mono/issues/14807)) ([0ea2e42](https://github.com/taikoxyz/taiko-mono/commit/0ea2e422d747871719ffbff39def01c5310b294f))
+* **website:** add gourds to ecosystem ([#14818](https://github.com/taikoxyz/taiko-mono/issues/14818)) ([48a911e](https://github.com/taikoxyz/taiko-mono/commit/48a911ee627cab054f1594eed110ae17e45203e3))
+* **website:** add izar and omnisea to ecosystem page ([#14825](https://github.com/taikoxyz/taiko-mono/issues/14825)) ([ad26ebe](https://github.com/taikoxyz/taiko-mono/commit/ad26ebe8564535a94a343596dd4a6faac6c65946))
+* **website:** add link to swap v3 ([#14883](https://github.com/taikoxyz/taiko-mono/issues/14883)) ([145f0d8](https://github.com/taikoxyz/taiko-mono/commit/145f0d84e37f8d5ec2cf62a217cc4951f73564d9))
+* **website:** add proof market video ([#14824](https://github.com/taikoxyz/taiko-mono/issues/14824)) ([4f57c75](https://github.com/taikoxyz/taiko-mono/commit/4f57c75b7faf12f2353c8b11f417e83d85ed4594))
+* **website:** add uniswap v3 addresses ([#14804](https://github.com/taikoxyz/taiko-mono/issues/14804)) ([ce83fba](https://github.com/taikoxyz/taiko-mono/commit/ce83fba51ed21e0a63eb99b65d502b5552597728))
+* **website:** Improve behavior on adding chains and tokens ([#14781](https://github.com/taikoxyz/taiko-mono/issues/14781)) ([fa59e09](https://github.com/taikoxyz/taiko-mono/commit/fa59e092de6114f586f6b8104aae718c61ff01cf))
+* **website:** update Bitget on ecosystem page ([#14855](https://github.com/taikoxyz/taiko-mono/issues/14855)) ([e2360c9](https://github.com/taikoxyz/taiko-mono/commit/e2360c9f04aefbc91f135336f6fde45dc817ad08))
+* **website:** update enable-a-prover to address common friction point ([#14787](https://github.com/taikoxyz/taiko-mono/issues/14787)) ([0de615b](https://github.com/taikoxyz/taiko-mono/commit/0de615ba70cb4a3d54359960020ee9bc39215f0e))
+* **website:** update TaikoL1 impl address ([#14879](https://github.com/taikoxyz/taiko-mono/issues/14879)) ([093ae34](https://github.com/taikoxyz/taiko-mono/commit/093ae3486c5715e85c086c9a9f9d1c5438fdc14a))
+
+
+### Bug Fixes
+
+* **protocol:** Fix genesis tests ([#14813](https://github.com/taikoxyz/taiko-mono/issues/14813)) ([a38b1d4](https://github.com/taikoxyz/taiko-mono/commit/a38b1d4a87225b77f86989dc69cbbcebd7f1a7f0))
+* **repo:** add required flag to project template ([#14882](https://github.com/taikoxyz/taiko-mono/issues/14882)) ([b6d3e06](https://github.com/taikoxyz/taiko-mono/commit/b6d3e0695732a931afcedfd49c52d2a7145bcdb5))
+* **website:** broken link ([#14839](https://github.com/taikoxyz/taiko-mono/issues/14839)) ([cb9922f](https://github.com/taikoxyz/taiko-mono/commit/cb9922fd615b23578141b26a4a9093f847a3083b))
+* **website:** Correcting broken link ([#14840](https://github.com/taikoxyz/taiko-mono/issues/14840)) ([8fe85b9](https://github.com/taikoxyz/taiko-mono/commit/8fe85b98f02416c8ee7336accd6113fa476d0064))
+* **website:** remove duplicate and miswording on run a taiko node docs ([#14791](https://github.com/taikoxyz/taiko-mono/issues/14791)) ([9cc10ba](https://github.com/taikoxyz/taiko-mono/commit/9cc10ba6872f744f0c76c64c4bf1120d9199a1a6))
+
 ## [0.21.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-mono-v0.20.0...taiko-mono-v0.21.0) (2023-09-25)
 
 
