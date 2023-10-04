@@ -49,6 +49,19 @@ describe('isDeployedCrossChain', () => {
   });
 
   it('should return false if not configured', async () => {
+    delete mockToken.addresses[destChainId];
+    // When
+    const result = await isDeployedCrossChain({
+      token: mockToken,
+      srcChainId,
+      destChainId,
+    });
+
+    // Then
+    expect(result).toEqual(false);
+  });
+
+  it('should return false if the address is zero address', async () => {
     mockToken.addresses[destChainId] = zeroAddress;
     // When
     const result = await isDeployedCrossChain({
