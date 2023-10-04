@@ -3,11 +3,11 @@ import { Callout } from "nextra-theme-docs";
 
 # Proving Taiko blocks
 
-The purpose of proving blocks is to give certainty to bridges about the execution that happened in the rollup. To rely on some state that happened inside of the rollup, a bridge will want a proof that everything was done correctly. On Taiko you can run a node as a prover and prove blocks, permissionlessly. This means that you can examine the proposed blocks on the TaikoL1 contract, and generate proofs for them. Currently, any prover can create proofs for proposed blocks. This means that the number of "state transitions" has no upper bound, because we don't know what is the correct state transition yet. Only first prover with a valid proof of the correct state transition will receive the reward of `ETH` (and possibly any `ERC20` or even NFTs if the Prover pool implementation favors it).
+The purpose of proving blocks is to give certainty to bridges about the execution that happened in the rollup. To rely on some state that happened inside of the rollup, a bridge will want a proof that everything was done correctly. On Taiko you can run a node as a prover and prove blocks, permissionlessly. This means that you can examine the proposed blocks on the TaikoL1 contract, and generate proofs for them. Currently, any prover can create proofs for proposed blocks. This means that the number of "state transitions" has no upper bound, because we don't know what is the correct state transition yet. Only first prover with a valid proof of the correct state transition will receive Ether or ERC20 token as the proving fee.
 
-## Verified blocks and parallel proving
+## Generic overview of proving and verifying blocks
 
-There are three states that a block can be in on Taiko:
+There are 3 main states that a block can be in on Taiko:
 
 - Proposed
 - Proved
@@ -43,6 +43,69 @@ For the visual learners here is a visualization of the three stages (proposed ->
   <Image
     src="/images/diagrams/concepts/proving-taiko-blocks/verified.png"
     alt="verified"
+    width={400}
+    height={400}
+  />
+</center>
+
+## Multi-tier, contestable proof system
+
+To ensure the safety of funds and maintain a high level of security, a multi-tier proof system is introduced by Taiko. The system is fully customizable to require:
+- no proofs at all
+- only fraud proofs (optimistic-style)
+- only ZK proofs
+- only SGX proofs
+- SGX + ZK proofs
+- SGX proofs 40% of the time, and ZK proofs 60% of the time
+- no-proofs 50%, SGX proofs 30% and ZK proofs 20% of the time
+
+or any combination of the above. (See diagram below).
+
+This system categorizes blocks into different default tiers. Here's an overview of how this system works:
+
+### Tiered proof system
+    Tier Hierarchy:
+        The multi-proof system is organized into tiers, with Tier N being more secure than Tier N-1. Tier N-1 is (should be) always a subset of Tier N.
+        Tiers are designed to offer varying degrees of security and resource requirements for block validation.
+
+    Default Tier Assignment:
+        Each block is assigned a default tier during proposeBlock().
+
+    Example of having Tier N and Tier N+1 types within the configuration:
+        Blocks with a default assigned Tier N can be proven with a Tier N related proof.
+        Blocks each has a validity- and a contestbond attached to it which has to be paid accordingly. (More about contesting one section above).
+        The underlying cryptographic techniques used for proofs can vary between tiers, with Tier 2 proofs typically being more robust and resource-intensive.
+
+### Contesting block transitions
+    Contest Mechanism:
+        In this multi-tier proof system, participants can contest the validity of block transition proofs.
+        If a participant believes that a block's transition proof is invalid, they can initiate a "contest" by submitting the approrpiate transaction.
+
+    Contest Bond:
+        To participate in a contest, the contester is required to post a contest bond. This bond signals their legitimate intention to challenge the validity of the transition proof.
+        The bond is a financial commitment that discourages frivolous or malicious contests.
+
+    Auto-Escalation of Tiers:
+        Upon the submission of a contest, the block's transition tier is automatically raised to the next higher tier (e.g., from Tier 1 to Tier 2).
+        This escalation ensures that a higher level of security is required to validate the block's transition.
+
+Here is a visual breakdown of the above mentioned process:
+
+**System overview:**
+
+<center>
+  <Image
+    src="/images/protocol/ContestableZkRollup.png"
+    alt="overview"
+    width={400}
+    height={400}
+  />
+</center>
+**Block lifecycle:**
+<center>
+  <Image
+    src="/images/protocol/BlockLifecycle.png"
+    alt="lifecycle"
     width={400}
     height={400}
   />

@@ -106,7 +106,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.startPrank(taikoL2.GOLDEN_TOUCH_ADDRESS());
         for (uint32 i = 0; i < 300; i++) {
             vm.roll(block.number + 1);
-            vm.warp(taikoL2.parentTimestamp() + 12);
+            vm.warp(block.number + 12);
             vm.fee(taikoL2.getBasefee(12, i));
 
             uint256 gasLeftBefore = gasleft();
