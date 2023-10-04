@@ -183,7 +183,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     parentHash,
                     blockHash,
                     signalRoot,
-                    LibTiers.TIER_PSE_ZKEVM,
+                    LibTiers.TIER_SGX_AND_PSE_ZKEVM,
                     "",
                     false
                 );
@@ -362,7 +362,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     parentHash,
                     blockHash,
                     signalRoot,
-                    LibTiers.TIER_PSE_ZKEVM,
+                    LibTiers.TIER_SGX_AND_PSE_ZKEVM,
                     "",
                     false
                 );
@@ -450,7 +450,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     parentHash,
                     0,
                     signalRoot,
-                    LibTiers.TIER_PSE_ZKEVM,
+                    LibTiers.TIER_SGX_AND_PSE_ZKEVM,
                     TaikoErrors.L1_INVALID_EVIDENCE.selector,
                     false
                 );

@@ -12,10 +12,12 @@ import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
 import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
 import { GuardianVerifier } from
     "../../contracts/L1/verifiers/GuardianVerifier.sol";
-import { OptimisticRollupConfigProvider } from
-    "../../contracts/L1/tiers/OptimisticRollupConfigProvider.sol";
+import { ZkAndSgxCombinedRollupConfigProvider } from
+    "../../contracts/L1/tiers/ZkAndSgxCombinedRollupConfigProvider.sol";
 import { PseZkVerifier } from "../../contracts/L1/verifiers/PseZkVerifier.sol";
 import { SGXVerifier } from "../../contracts/L1/verifiers/SGXVerifier.sol";
+import { SgxAndZkVerifier } from
+    "../../contracts/L1/verifiers/SgxAndZkVerifier.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { StringsUpgradeable as Strings } from
     "@ozu/utils/StringsUpgradeable.sol";
@@ -37,15 +39,11 @@ abstract contract TaikoL1TestBase is TestBase {
     uint256 internal logCount;
     PseZkVerifier public pv;
     SGXVerifier public sv;
+    SgxAndZkVerifier public sgxZkVerifier;
     GuardianVerifier public gv;
-    OptimisticRollupConfigProvider public cp;
+    ZkAndSgxCombinedRollupConfigProvider public cp;
 
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
-    // 1 TKO --> it is to huge. It should be in 'wei' (?).
-    // Because otherwise first proposal is around: 1TKO * (1_000_000+20_000)
-    // required as a deposit.
-    // uint32 feePerGas = 10;
-    // uint16 provingWindow = 60 minutes;
     uint64 l2GasExcess = 1e18;
 
     address public constant L2Treasury =
@@ -76,14 +74,18 @@ abstract contract TaikoL1TestBase is TestBase {
         initSgxInstances[0] = SGX_X_0;
         sv.addToRegistryByOwner(initSgxInstances);
 
+        sgxZkVerifier = new SgxAndZkVerifier();
+        sgxZkVerifier.init(address(addressManager));
+
         gv = new GuardianVerifier();
         gv.init(address(addressManager));
 
-        cp = new OptimisticRollupConfigProvider();
+        cp = new ZkAndSgxCombinedRollupConfigProvider();
 
         registerAddress("tier_pse_zkevm", address(pv));
         registerAddress("tier_sgx", address(sv));
         registerAddress("tier_guardian", address(gv));
+        registerAddress("tier_sgx_and_pse_zkevm", address(sgxZkVerifier));
         registerAddress("tier_provider", address(cp));
         registerAddress("signal_service", address(ss));
         registerAddress("ether_vault", address(L1EthVault));
@@ -128,17 +130,20 @@ abstract contract TaikoL1TestBase is TestBase {
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
-        TaikoData.TierFee[] memory tierFees = new TaikoData.TierFee[](4);
+        TaikoData.TierFee[] memory tierFees = new TaikoData.TierFee[](5);
         // Register the tier fees
         // Based on OPL2ConfigTier we need 3:
         // - LibTiers.TIER_PSE_ZKEVM;
         // - LibTiers.TIER_SGX;
         // - LibTiers.TIER_OPTIMISTIC;
         // - LibTiers.TIER_GUARDIAN;
+        // - LibTier.TIER_SGX_AND_PSE_ZKEVM
         tierFees[0] = TaikoData.TierFee(LibTiers.TIER_OPTIMISTIC, 1 ether);
         tierFees[1] = TaikoData.TierFee(LibTiers.TIER_SGX, 1 ether);
         tierFees[2] = TaikoData.TierFee(LibTiers.TIER_PSE_ZKEVM, 2 ether);
-        tierFees[3] = TaikoData.TierFee(LibTiers.TIER_GUARDIAN, 0 ether);
+        tierFees[3] =
+            TaikoData.TierFee(LibTiers.TIER_SGX_AND_PSE_ZKEVM, 2 ether);
+        tierFees[4] = TaikoData.TierFee(LibTiers.TIER_GUARDIAN, 0 ether);
         // For the test not to fail, set the message.value to the highest, the
         // rest will be returned
         // anyways
@@ -202,7 +207,7 @@ abstract contract TaikoL1TestBase is TestBase {
         });
 
         bytes32 instance = pv.getInstance(prover, evidence);
-        uint16 verifierId = tier;
+        uint16 verifierId = 300; // 300 as see mock verifier in line 95
 
         evidence.proof = bytes.concat(
             bytes2(verifierId),
@@ -228,6 +233,26 @@ abstract contract TaikoL1TestBase is TestBase {
                 createSgxSignature(evidence, newPubKey, prover);
             // Id is 0 by default, we using the first instance
             evidence.proof = abi.encode(0, newPubKey, signature);
+        }
+
+        if (tier == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
+            address newPubKey;
+            // Keep changing the pub key associated with an instance to avoid
+            // attacks,
+            // obviously just a mock due to 2 addresses changing all the time.
+            if (sv.sgxRegistry(0) == SGX_X_0) {
+                newPubKey = SGX_X_1;
+            } else {
+                newPubKey = SGX_X_0;
+            }
+
+            bytes memory signature =
+                createSgxSignature(evidence, newPubKey, prover);
+            // Id is 0 by default, we using the first instance
+            bytes memory sgxProof = abi.encode(0, newPubKey, signature);
+
+            // Concatenate SGX and ZK (in this order)
+            evidence.proof = bytes.concat(sgxProof, evidence.proof);
         }
 
         if (tier == LibTiers.TIER_GUARDIAN) {

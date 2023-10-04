@@ -19,6 +19,7 @@ import "../contracts/L1/tiers/ITierProvider.sol";
 import "../contracts/L1/tiers/OptimisticRollupConfigProvider.sol";
 import "../contracts/L1/tiers/ValidityRollupConfigProvider.sol";
 import "../contracts/L1/tiers/ZKRollupConfigProvider.sol";
+import "../contracts/L1/tiers/ZkAndSgxCombinedRollupConfigProvider.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
@@ -62,7 +63,8 @@ contract DeployOnL1 is Script {
     enum tierProviders {
         OptimisticRollupConfigProvider,
         ValidityRollupConfigProvider,
-        ZKRollupConfigProvider
+        ZKRollupConfigProvider,
+        ZkAndSgxCombinedRollupConfigProvider
     }
 
     error FAILED_TO_DEPLOY_PLONK_VERIFIER(string contractPath);
@@ -232,15 +234,17 @@ contract DeployOnL1 is Script {
         vm.stopBroadcast();
     }
 
-    function validateTierProvider(uint256 provier)
+    function validateTierProvider(uint256 provider)
         private
         pure
         returns (bool)
     {
         if (
-            provier == uint256(tierProviders.OptimisticRollupConfigProvider)
-                || provier == uint256(tierProviders.ValidityRollupConfigProvider)
-                || provier == uint256(tierProviders.ZKRollupConfigProvider)
+            provider == uint256(tierProviders.OptimisticRollupConfigProvider)
+                || provider == uint256(tierProviders.ValidityRollupConfigProvider)
+                || provider == uint256(tierProviders.ZKRollupConfigProvider)
+                || provider
+                    == uint256(tierProviders.ZkAndSgxCombinedRollupConfigProvider)
         ) {
             return true;
         }
@@ -290,6 +294,11 @@ contract DeployOnL1 is Script {
             return address(new ValidityRollupConfigProvider());
         } else if (provier == uint256(tierProviders.ZKRollupConfigProvider)) {
             return address(new ZKRollupConfigProvider());
+        } else if (
+            provier
+                == uint256(tierProviders.ZkAndSgxCombinedRollupConfigProvider)
+        ) {
+            return address(new ZkAndSgxCombinedRollupConfigProvider());
         }
 
         revert();
