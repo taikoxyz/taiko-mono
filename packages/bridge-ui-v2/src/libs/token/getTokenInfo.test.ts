@@ -1,4 +1,4 @@
-import { fetchToken, type FetchTokenResult } from '@wagmi/core';
+import { fetchToken, type FetchTokenResult, readContract } from '@wagmi/core';
 import { type Address, zeroAddress } from 'viem';
 
 import { UnknownTokenTypeError } from '$libs/error';
@@ -49,10 +49,28 @@ describe('getTokenInfoFromAddress', () => {
       name: 'MockToken',
       symbol: 'MTK',
       decimals: 18,
+      type: TokenType.ERC20,
     });
   });
 
-  // ...repeat similar structure for ERC1155 and ERC721 token types
+  it('should return correct token details for ERC721 tokens', async () => {
+    // Given
+    const address: Address = zeroAddress;
+    vi.mocked(detectContractType).mockResolvedValue(TokenType.ERC721);
+    vi.mocked(readContract).mockResolvedValueOnce('MockNFT').mockResolvedValueOnce('MNFT');
+
+    // When
+    const result = await getTokenInfoFromAddress(address);
+
+    // Then
+    expect(result).toEqual({
+      address,
+      name: 'MockNFT',
+      symbol: 'MNFT',
+      decimals: 0,
+      type: TokenType.ERC721,
+    });
+  });
 
   it('should return null for unknown token types', async () => {
     // Given

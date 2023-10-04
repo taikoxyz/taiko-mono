@@ -328,11 +328,12 @@
     if (amountComponent) amountComponent.clearAmount();
     if (recipientComponent) recipientComponent.clearRecipient();
     if (processingFeeComponent) processingFeeComponent.resetProcessingFee();
-    if (addressInputComponent) addressInputComponent.clear();
+    if (addressInputComponent) addressInputComponent.clearAddress();
 
     // Update balance after bridging
     if (amountComponent) amountComponent.updateBalance();
-    $selectedToken = null;
+    if (nftIdInputComponent) nftIdInputComponent.clearIds();
+    $selectedToken = ETHToken;
     contractAddress = '';
   };
 
@@ -430,9 +431,7 @@
       </div>
 
       <TokenDropdown {tokens} bind:value={$selectedToken} />
-      {#if $selectedToken?.symbol === 'BLL' && !$selectedToken?.imported}
-        <FlatAlert class="!mt-2" message={$t('bridge.errors.bll_token')} type="warning" />
-      {/if}
+
       <Amount bind:this={amountComponent} />
 
       <div class="space-y-[16px]">

@@ -15,7 +15,7 @@
 
   // Public API
   export const clearRecipient = () => {
-    addressInput.clear(); // update UI
+    addressInput.clearAddress(); // update UI
     $recipientAddress = null; // update state
   };
 

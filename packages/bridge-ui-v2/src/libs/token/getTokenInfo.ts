@@ -34,6 +34,7 @@ export const getTokenInfoFromAddress = async (address: Address) => {
         abi: erc721ABI,
         functionName: 'symbol',
       });
+
       details.type = tokenType;
       details.address = address;
       details.name = name;
