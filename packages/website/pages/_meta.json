@@ -18,13 +18,23 @@
     "newWindow": true
   },
   "swap": {
-    "title": "Swap ↗",
-    "type": "page",
-    "href": "https://swap.jolnir.taiko.xyz",
-    "newWindow": true
+    "title": "Swap",
+    "type": "menu",
+    "items": {
+      "swap-v2": {
+        "title": "Swap V2 ↗",
+        "href": "https://swap.jolnir.taiko.xyz",
+        "newWindow": true
+      },
+      "swap-v3": {
+        "title": "Swap V3 ↗",
+        "href": "https://swap-v3.jolnir.taiko.xyz",
+        "newWindow": true
+      }
+    }
   },
   "block-explorer": {
-    "title": "Block Explorer ↗",
+    "title": "Explorer ↗",
     "type": "page",
     "href": "https://explorer.jolnir.taiko.xyz",
     "newWindow": true

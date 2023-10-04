@@ -123,6 +123,23 @@ Add your prover to the [prover registration page](/docs/reference/prover-market-
 
 </Steps>
 
+## Tokenomics
+
+When a prover receives a block from a proposer, the prover must bond TTKOj tokens to the TaikoL1 contract. 
+Once TTKOj is bonded, a countdown is started to prove the block. 
+
+✅ If the prover is successful in proving the block in time, the prover will receive their bond back with additional TTKOj rewards.
+
+❌ If the prover fails to prove a block in time, part of their bonded TTKOj will be slashed.
+Then a new prover will be given the chance to prove that block with the remaining TTKOj that wasn't slashed.
+
+🛒 A prover market has been added with testnet Jolnir.
+This gives proposers the ability to pick provers based on:
+```
+-fees paid in ETH 
+-competitive proving speed (reported from community reputation)
+```
+
 ## Videos
 
 - [Enable and exit a prover on your L2/L3 node](https://www.youtube.com/watch?v=yAHpbmNEC0M) (deprecated, but still useful)

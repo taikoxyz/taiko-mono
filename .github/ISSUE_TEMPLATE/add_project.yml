@@ -41,7 +41,7 @@ body:
     attributes:
       label: If your project is live on one of Taiko's testnets, please provide evidence of that here (eg. links, screenshots). If your project is NOT live, please provide your plan for integration here.
     validations:
-      required: false
+      required: true
   - type: textarea
     id: logo
     attributes:
