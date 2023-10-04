@@ -30,6 +30,7 @@ export type TokenDetails = {
   symbol: string;
   balance: bigint;
   decimals: number;
+  type: TokenType;
 };
 
 export type GetCrossChainAddressArgs = {

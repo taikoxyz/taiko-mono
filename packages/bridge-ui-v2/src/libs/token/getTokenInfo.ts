@@ -12,6 +12,7 @@ export const getTokenInfoFromAddress = async (address: Address) => {
       const token = await fetchToken({
         address,
       });
+      details.type = tokenType;
       details.address = address;
       details.name = token.name;
       details.symbol = token.symbol;
@@ -19,6 +20,7 @@ export const getTokenInfoFromAddress = async (address: Address) => {
       return details;
     } else if (tokenType === TokenType.ERC1155) {
       // todo: via URI?
+      details.type = tokenType;
       return details;
     } else if (tokenType === TokenType.ERC721) {
       const name = await readContract({
@@ -32,6 +34,7 @@ export const getTokenInfoFromAddress = async (address: Address) => {
         abi: erc721ABI,
         functionName: 'symbol',
       });
+      details.type = tokenType;
       details.address = address;
       details.name = name;
       details.symbol = symbol;

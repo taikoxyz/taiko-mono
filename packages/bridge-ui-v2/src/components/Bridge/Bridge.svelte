@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import { onDestroy, tick } from 'svelte';
   import { t } from 'svelte-i18n';
   import { type Address, TransactionExecutionError, UserRejectedRequestError } from 'viem';
 
@@ -33,8 +33,9 @@
     SendMessageError,
   } from '$libs/error';
   import { bridgeTxService } from '$libs/storage';
-  import { detectContractType, ETHToken, getAddress, isDeployedCrossChain, tokens, TokenType } from '$libs/token';
+  import { ETHToken, getAddress, isDeployedCrossChain, type Token, tokens, TokenType } from '$libs/token';
   import { checkOwnership } from '$libs/token/checkOwnership';
+  import { getTokenInfoFromAddress } from '$libs/token/getTokenInfo';
   import { refreshUserBalance } from '$libs/util/balance';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { type Account, account } from '$stores/account';
@@ -64,6 +65,11 @@
   let processingFeeComponent: ProcessingFee;
 
   function onNetworkChange(newNetwork: Network, oldNetwork: Network) {
+    tick().then(() => {
+      // run validations again
+      runValidations();
+    });
+
     if (newNetwork) {
       const destChainId = $destinationChain?.id;
       if (!$destinationChain?.id) return;
@@ -81,6 +87,11 @@
       }
     }
   }
+
+  const runValidations = () => {
+    if (amountComponent) amountComponent.validateAmount();
+    if (addressInputComponent) addressInputComponent.validateAddress();
+  };
 
   function onAccountChange(account: Account) {
     if (account && account.isConnected && !$selectedToken) {
@@ -321,6 +332,8 @@
 
     // Update balance after bridging
     if (amountComponent) amountComponent.updateBalance();
+    $selectedToken = null;
+    contractAddress = '';
   };
 
   // NFT Bridge logic
@@ -333,7 +346,7 @@
   let nftStepDescription: string;
   let nftIdArray: number[];
   let enteredIds: string = '';
-  let contractAddress: Address;
+  let contractAddress: Address | '';
   let addressInputComponent: AddressInput;
   let nftIdInputComponent: IdInput;
   let addressInputState: AddressInputState = AddressInputState.Default;
@@ -346,11 +359,24 @@
     addressInputState = AddressInputState.Validating;
 
     if (isValidEthereumAddress && typeof addr === 'string') {
-      detectContractType(addr)
-        .then((type) => {
-          detectedTokenType = type;
+      getTokenInfoFromAddress(addr)
+        .then((details) => {
+          if (!details) throw new Error('token details not found');
+          if (!$network?.id) throw new Error('network not found');
+
+          detectedTokenType = details.type;
           addressInputState = AddressInputState.Valid;
-          //TODO: update selectedToken
+
+          $selectedToken = {
+            type: details.type,
+            symbol: details.symbol,
+            decimals: details.decimals,
+            name: details.name,
+            logoURI: '',
+            addresses: {
+              [$network.id]: addr,
+            },
+          } as Token;
         })
         .catch((err) => {
           console.error(err);
@@ -363,16 +389,16 @@
     }
   }
 
-  $: {
-    const stepKey = NFTSteps[activeStep].toLowerCase(); // Convert enum to string and to lowercase
-    nftStepTitle = $t(`bridge.title.nft.${stepKey}`);
-    nftStepDescription = $t(`bridge.description.nft.${stepKey}`);
-  }
+  // Whenever the user switches bridge types, we should reset the forms
+  $: $activeBridge && resetForm();
 
   $: {
-    if (contractAddress) validating = true;
     (async () => {
-      if ($account?.address && $network?.id)
+      if (addressInputState !== AddressInputState.Valid) return;
+      if (contractAddress === '') return;
+      validating = true;
+
+      if ($account?.address && $network?.id && contractAddress)
         isOwnerOfAllToken = await checkOwnership(
           contractAddress,
           detectedTokenType,
@@ -383,6 +409,7 @@
       validating = false;
     })();
   }
+
   $: canProceed =
     addressInputState === AddressInputState.Valid &&
     nftIdArray.length > 0 &&
@@ -478,6 +505,10 @@
             <ChainSelectorWrapper />
           </div>
         {/if}
+        <div class="space-y-[16px]">
+          <Recipient bind:this={recipientComponent} />
+          <ProcessingFee bind:this={processingFeeComponent} />
+        </div>
         <div class="h-sep" />
         <div class="f-between-center w-full gap-4">
           {#if activeStep !== NFTSteps.IMPORT}

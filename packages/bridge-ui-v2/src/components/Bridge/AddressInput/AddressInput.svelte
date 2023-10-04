@@ -16,6 +16,17 @@
   export let quiet = false;
   export let state: State = State.Default;
 
+  export const validateAddress = () => {
+    validateEthereumAddress(ethereumAddress);
+  };
+
+  export const clearAddress = () => {
+    if (input) input.value = '';
+    validateEthereumAddress('');
+  };
+
+  export const focus = () => input.focus();
+
   let input: HTMLInputElement;
   let inputId = `input-${uid()}`;
 
@@ -23,6 +34,7 @@
 
   const validateEthereumAddress = (address: string | EventTarget | null) => {
     let addr: string;
+    if (!address) return;
 
     if (address && address instanceof EventTarget) {
       addr = (address as HTMLInputElement).value;
@@ -48,13 +60,6 @@
   };
 
   $: validateEthereumAddress(ethereumAddress);
-
-  export const clear = () => {
-    if (input) input.value = '';
-    validateEthereumAddress('');
-  };
-
-  export const focus = () => input.focus();
 </script>
 
 <div class="f-col space-y-2">
@@ -72,7 +77,7 @@
       class="w-full input-box withValdiation py-6 pr-16 px-[26px] title-subsection-bold placeholder:text-tertiary-content {$$props.class}
       {state === State.Valid ? 'success' : ethereumAddress && state !== State.Validating ? 'error' : ''}
       " />
-    <button class="absolute right-6 uppercase body-bold text-secondary-content" on:click={clear}>
+    <button class="absolute right-6 uppercase body-bold text-secondary-content" on:click={clearAddress}>
       <Icon type="x-close-circle" fillClass="fill-primary-icon" size={24} />
     </button>
   </div>

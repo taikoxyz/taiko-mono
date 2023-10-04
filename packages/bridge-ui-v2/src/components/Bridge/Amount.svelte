@@ -43,7 +43,7 @@
 
   // Public API
   export function clearAmount() {
-    inputBox.clear();
+    inputBox?.clear();
     $enteredAmount = BigInt(0);
   }
 
