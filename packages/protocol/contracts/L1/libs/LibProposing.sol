@@ -128,8 +128,8 @@ library LibProposing {
                 if (state.slotC.accumulatedReward != 0) {
                     // The current proposer receives a fixed percentage of the
                     // reward pool.
-                    reward = state.slotC.accumulatedReward / 100
-                        * config.proposerRewardPoolPctg;
+                    reward = state.slotC.accumulatedReward
+                        * config.proposerRewardPoolPctg / 100;
 
                     state.slotC.accumulatedReward -= reward;
 
