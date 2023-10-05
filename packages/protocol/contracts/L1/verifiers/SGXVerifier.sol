@@ -16,14 +16,21 @@ import { IVerifier } from "./IVerifier.sol";
 
 /// @title GuardianVerifier
 contract SGXVerifier is EssentialContract, IVerifier {
+    uint256 public constant EXPIRY = 180 days;
+
     event InstanceAdded(
-        uint256 indexed instanceId, address indexed instanceInitPubKey
+        uint256 indexed instanceId, address indexed instanceInitAddress
     );
 
     struct ProofData {
         uint256 id;
-        address newPubKey;
+        address newAddress;
         bytes signature;
+    }
+
+    struct InstanceData {
+        address activeAddress;
+        uint256 setAt; // We can calculate if expired
     }
 
     /// @dev For gas savings, we shall assign each SGX instance with an id
@@ -31,15 +38,18 @@ contract SGXVerifier is EssentialContract, IVerifier {
     uint256 public uniqueVerifiers;
 
     /// @dev One SGX instance is uniquely identified (on-chain) by it's ECDSA
-    /// public key. Once that public key is used (by proof verification) it has
-    /// to be overwritten by a new one (representing the same instance). This is
-    /// due to side-channel protection.
-    mapping(uint256 instanceId => address sgxInstance) public sgxRegistry;
+    /// public key (or rather ethereum address). Once that address is used (by
+    /// proof verification) it has to be overwritten by a new one (representing
+    /// the same instance). This is due to side-channel protection. Also this
+    /// public key shall expire after some time. (For now it is a long enough 6
+    /// months setting.)
+    mapping(uint256 instanceId => InstanceData sgxInstance) public sgxRegistry;
 
     uint256[48] private __gap;
 
-    error SGX_NOT_VALID_SIGNER_OR_ID_MISMATCH();
+    error SGX_ADDRESS_EXPIRED();
     error SGX_INVALID_PROOF_SIZE();
+    error SGX_NOT_VALID_SIGNER_OR_ID_MISMATCH();
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
@@ -59,18 +69,18 @@ contract SGXVerifier is EssentialContract, IVerifier {
     /// @notice Adds trusted SGX instances to the registry by another SGX
     /// instance.
     /// @param instanceId The id of the SGX instance who is adding new members.
-    /// @param newPubKey The new address of the instance.
+    /// @param newAddress The new address of the instance.
     /// @param trustedInstances The address array of trusted SGX instances.
     /// @param signature The signature proving authenticity.
     function addToRegistryBySgxInstance(
         uint256 instanceId,
-        address newPubKey,
+        address newAddress,
         address[] memory trustedInstances,
         bytes memory signature
     )
         external
     {
-        bytes32 signedHash = keccak256(abi.encode(newPubKey, trustedInstances));
+        bytes32 signedHash = keccak256(abi.encode(newAddress, trustedInstances));
         // Would throw in case invalid
         address signer = ECDSAUpgradeable.recover(signedHash, signature);
 
@@ -83,7 +93,7 @@ contract SGXVerifier is EssentialContract, IVerifier {
 
         // Invalidate current key, because it cannot be used again (side-channel
         // attacks).
-        sgxRegistry[instanceId] = newPubKey;
+        sgxRegistry[instanceId] = InstanceData(newAddress, block.timestamp);
     }
 
     /// @inheritdoc IVerifier
@@ -109,8 +119,12 @@ contract SGXVerifier is EssentialContract, IVerifier {
 
         ProofData memory proofData = abi.decode(evidence.proof, (ProofData));
 
+        if (sgxRegistry[proofData.id].setAt + EXPIRY < block.timestamp) {
+            revert SGX_ADDRESS_EXPIRED();
+        }
+
         bytes32 signedInstance =
-            getSignedHash(evidence, prover, proofData.newPubKey);
+            getSignedHash(evidence, prover, proofData.newAddress);
 
         // Would throw in case invalid
         address signer =
@@ -122,13 +136,13 @@ contract SGXVerifier is EssentialContract, IVerifier {
 
         // Invalidate current key, because it cannot be used again (side-channel
         // attacks).
-        sgxRegistry[proofData.id] = proofData.newPubKey;
+        sgxRegistry[proofData.id] = InstanceData(proofData.newAddress, block.timestamp);
     }
 
     function getSignedHash(
         TaikoData.BlockEvidence memory evidence,
         address assignedProver,
-        address newPubKey
+        address newAddress
     )
         public
         pure
@@ -142,7 +156,7 @@ contract SGXVerifier is EssentialContract, IVerifier {
                 evidence.signalRoot,
                 evidence.graffiti,
                 assignedProver,
-                newPubKey
+                newAddress
             )
         );
     }
@@ -155,12 +169,12 @@ contract SGXVerifier is EssentialContract, IVerifier {
         view
         returns (bool)
     {
-        return sgxRegistry[instanceId] == instance;
+        return sgxRegistry[instanceId].activeAddress == instance;
     }
 
     function addTrustedInstances(address[] memory trustedInstances) internal {
         for (uint256 i; i < trustedInstances.length; i++) {
-            sgxRegistry[uniqueVerifiers] = trustedInstances[i];
+            sgxRegistry[uniqueVerifiers] = InstanceData(trustedInstances[i], block.timestamp);
 
             emit InstanceAdded(uniqueVerifiers, trustedInstances[i]);
 
