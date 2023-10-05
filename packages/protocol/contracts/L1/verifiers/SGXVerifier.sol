@@ -6,11 +6,11 @@
 
 pragma solidity ^0.8.20;
 
+import { ECDSAUpgradeable } from "@ozu/utils/cryptography/ECDSAUpgradeable.sol";
+
 import { EssentialContract } from "../../common/EssentialContract.sol";
 import { Proxied } from "../../common/Proxied.sol";
 import { LibBytesUtils } from "../../thirdparty/LibBytesUtils.sol";
-
-import { ECDSAUpgradeable } from "@ozu/utils/cryptography/ECDSAUpgradeable.sol";
 
 import { TaikoData } from "../TaikoData.sol";
 
@@ -138,7 +138,7 @@ contract SGXVerifier is EssentialContract, IVerifier {
 
     function getSignedHash(
         TaikoData.BlockEvidence memory evidence,
-        address assignedProver,
+        address prover,
         address newAddress
     )
         public
@@ -152,7 +152,7 @@ contract SGXVerifier is EssentialContract, IVerifier {
                 evidence.blockHash,
                 evidence.signalRoot,
                 evidence.graffiti,
-                assignedProver,
+                prover,
                 newAddress
             )
         );
