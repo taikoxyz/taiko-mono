@@ -327,7 +327,7 @@
 </script>
 
 {#if $activeBridge === BridgeTypes.FUNGIBLE}
-  <Card class="w-full md:w-[524px]" title={$t('bridge.title.default')} text={$t('bridge.description')}>
+  <Card class="w-full md:w-[524px]" title={$t('bridge.title.default')} text={$t('bridge.description.default')}>
     <div class="space-y-[30px]">
       <div class="f-between-center gap-4">
         <ChainSelectorWrapper />
