@@ -233,7 +233,7 @@ abstract contract TaikoL1TestBase is TestBase {
             bytes memory signature =
                 createSgxSignature(evidence, newPubKey, prover);
             // Id is 0 by default, we using the first instance
-            evidence.proof = abi.encode(0, newPubKey, signature);
+            evidence.proof = bytes.concat(bytes2(0), bytes20(newPubKey), signature);
         }
 
         if (tier == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
