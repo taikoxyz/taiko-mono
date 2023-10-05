@@ -7,8 +7,10 @@
 pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../../common/EssentialContract.sol";
-import { ECDSAUpgradeable } from "@ozu/utils/cryptography/ECDSAUpgradeable.sol";
 import { Proxied } from "../../common/Proxied.sol";
+import { LibBytesUtils } from "../../thirdparty/LibBytesUtils.sol";
+
+import { ECDSAUpgradeable } from "@ozu/utils/cryptography/ECDSAUpgradeable.sol";
 
 import { TaikoData } from "../TaikoData.sol";
 
@@ -21,12 +23,6 @@ contract SGXVerifier is EssentialContract, IVerifier {
     event InstanceAdded(
         uint256 indexed instanceId, address indexed instanceInitAddress
     );
-
-    struct ProofData {
-        uint256 id;
-        address newAddress;
-        bytes signature;
-    }
 
     struct InstanceData {
         address activeAddress;
@@ -110,33 +106,34 @@ contract SGXVerifier is EssentialContract, IVerifier {
         // Do not run proof verification to contest an existing proof
         if (isContesting) return;
 
-        // Size is: 224 bytes
-        // Struct encoding data+
-        // 2x32 bytes (id + address on a word) + 65 bytes (r,s,v)
-        if (evidence.proof.length != 224) {
+        // Size is: 87 bytes
+        // 2 bytes + 20 bytes + 65 bytes = 87
+        if (evidence.proof.length != 87) {
             revert SGX_INVALID_PROOF_SIZE();
         }
 
-        ProofData memory proofData = abi.decode(evidence.proof, (ProofData));
+        uint256 id = uint256(bytes32(LibBytesUtils.slice(evidence.proof, 0, 2)));
+        address newAddress = address(bytes20(LibBytesUtils.slice(evidence.proof, 2, 20)));
+        bytes memory signature = LibBytesUtils.slice(evidence.proof, 22, (evidence.proof.length-22));
 
-        if (sgxRegistry[proofData.id].setAt + EXPIRY < block.timestamp) {
+        if (sgxRegistry[id].setAt + EXPIRY < block.timestamp) {
             revert SGX_ADDRESS_EXPIRED();
         }
 
         bytes32 signedInstance =
-            getSignedHash(evidence, prover, proofData.newAddress);
+            getSignedHash(evidence, prover, newAddress);
 
         // Would throw in case invalid
         address signer =
-            ECDSAUpgradeable.recover(signedInstance, proofData.signature);
+            ECDSAUpgradeable.recover(signedInstance, signature);
 
-        if (!isValidInstance(proofData.id, signer)) {
+        if (!isValidInstance(id, signer)) {
             revert SGX_NOT_VALID_SIGNER_OR_ID_MISMATCH();
         }
 
         // Invalidate current key, because it cannot be used again (side-channel
         // attacks).
-        sgxRegistry[proofData.id] = InstanceData(proofData.newAddress, block.timestamp);
+        sgxRegistry[id] = InstanceData(newAddress, block.timestamp);
     }
 
     function getSignedHash(
