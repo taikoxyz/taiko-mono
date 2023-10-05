@@ -41,7 +41,7 @@ export class BridgeProver extends Prover {
 
   private _encodeProofs(proof: EthGetProofResponse): Hex {
     // RLP encode the proof together for LibTrieProof to decode
-    const encodedAccountProof = toRlp(proof.accountProof[0]);
+    const encodedAccountProof = toRlp(proof.accountProof);
     const encodedStorageProof = toRlp(proof.storageProof[0].proof);
 
     const params = [
