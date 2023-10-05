@@ -17,10 +17,8 @@ import { IVerifier } from "./IVerifier.sol";
 /// @title SgxAndZkVerifier
 /// @notice See the documentation in {IVerifier}.
 contract SgxAndZkVerifier is EssentialContract, IVerifier {
-    uint8 public constant SGX_PROOF_SIZE = 224;
+    uint8 public constant SGX_PROOF_SIZE = 87;
     uint256[50] private __gap;
-
-    error L1_INVALID_PROOF();
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
@@ -42,18 +40,23 @@ contract SgxAndZkVerifier is EssentialContract, IVerifier {
         // Do not run proof verification to contest an existing proof
         if (isContesting) return;
 
-        bytes memory sgxBytes = LibBytesUtils.slice(evidence.proof, 0, SGX_PROOF_SIZE);
-        bytes memory zkProofBytes = LibBytesUtils.slice(evidence.proof, SGX_PROOF_SIZE, (evidence.proof.length - SGX_PROOF_SIZE));
-
         TaikoData.BlockEvidence memory mEvidence = evidence;
-        
-        // Verify the ZK part
-        mEvidence.proof = zkProofBytes;
-        IVerifier(resolve("tier_pse_zkevm", true)).verifyProof(0, prover, false, mEvidence);
 
         // Verify the SGX part
-        mEvidence.proof = sgxBytes;
-        IVerifier(resolve("tier_sgx", true)).verifyProof(0, prover, false, mEvidence);
+        mEvidence.proof = LibBytesUtils.slice(evidence.proof, 0, SGX_PROOF_SIZE);
+        IVerifier(resolve("tier_sgx", true)).verifyProof(
+            0, prover, false, mEvidence
+        );
+
+        // Verify the ZK part
+        mEvidence.proof = LibBytesUtils.slice(
+            evidence.proof,
+            SGX_PROOF_SIZE,
+            (evidence.proof.length - SGX_PROOF_SIZE)
+        );
+        IVerifier(resolve("tier_pse_zkevm", true)).verifyProof(
+            0, prover, false, mEvidence
+        );
     }
 }
 
