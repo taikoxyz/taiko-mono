@@ -218,7 +218,8 @@ abstract contract TaikoL1TestBase is TestBase {
             // Keep changing the pub key associated with an instance to avoid
             // attacks,
             // obviously just a mock due to 2 addresses changing all the time.
-            if (sv.sgxRegistry(0) == SGX_X_0) {
+            (newPubKey, )= sv.sgxRegistry(0);
+            if (newPubKey == SGX_X_0) {
                 newPubKey = SGX_X_1;
             } else {
                 newPubKey = SGX_X_0;
