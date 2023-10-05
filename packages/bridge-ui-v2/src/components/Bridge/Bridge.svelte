@@ -522,22 +522,20 @@
                 loading={scanning}
                 type="primary"
                 class="px-[28px] py-[14px] rounded-full flex-1 text-white"
-                on:click={scanForNFTs}>Scan for NFTs</Button>
+                on:click={scanForNFTs}>todo:Scan for NFTs</Button>
+              {foundNFTs}
             </div>
-            {foundNFTs}
-            {#if foundNFTs.length === 0 && scanned}
-              Don't see your NFTs? Try adding them manually.
-              <Button
-                type="secondary"
-                class="px-[28px] py-[14px] rounded-full flex-1 text-white"
-                on:click={() => (manualNFTInput = !manualNFTInput)}>
-                {#if manualNFTInput}
-                  Cancel
-                {:else}
-                  Add manually
-                {/if}
-              </Button>
-            {/if}
+            <div class="f-col w-full gap-4">
+              {#if foundNFTs.length === 0 && scanned}
+                todo: Don't see your NFTs? Try adding them manually.
+                <Button
+                  type="secondary"
+                  class="px-[28px] py-[14px] rounded-full flex-1 text-white"
+                  on:click={() => (manualNFTInput = !manualNFTInput)}>
+                  Todo:Add manually
+                </Button>
+              {/if}
+            </div>
           {/if}
 
           <div class="space-y-[16px]">
