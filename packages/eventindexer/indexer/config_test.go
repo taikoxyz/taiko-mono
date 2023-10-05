@@ -24,7 +24,6 @@ var (
 	subscriptionBackoff     = "30"
 	syncMode                = "sync"
 	watchMode               = "filter"
-	indexNFTs               = "true"
 	layer                   = "l1"
 )
 
@@ -93,7 +92,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"-" + flags.SubscriptionBackoff.Name, subscriptionBackoff,
 		"-" + flags.SyncMode.Name, syncMode,
 		"-" + flags.WatchMode.Name, watchMode,
-		"-" + flags.IndexNFTs.Name, indexNFTs,
+		"-" + flags.IndexNFTs.Name, "true",
 		"-" + flags.Layer.Name, layer,
 	}))
 }
