@@ -1,10 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
 
-  import { Button } from '$components/Button';
   import { Icon } from '$components/Icon';
 
-  let theme: 'dark' | 'light' = 'dark';
+  let theme: 'dark' | 'light' = (localStorage.getItem('theme') as 'dark' | 'light') || 'dark';
   $: isDarkTheme = theme === 'dark';
 
   function switchTheme() {
@@ -24,8 +23,8 @@
   });
 </script>
 
-<div class="flex items-center">
-  <Button class="bg-transparent hover:bg-neutral rounded-full p-[5px] rounded-full" on:click={switchTheme}>
-    <Icon type={isDarkTheme ? 'moon' : 'sun'} width={25} height={25} />
-  </Button>
-</div>
+<label class="swap swap-rotate">
+  <input type="checkbox" class="border-none" bind:checked={isDarkTheme} on:change={switchTheme} />
+  <Icon type="sun" class="fill-primary-icon swap-on" width={25} height={25} vHeight={25} vWidth={25} />
+  <Icon type="moon" class="fill-primary-icon swap-off" width={25} height={25} vHeight={25} vWidth={25} />
+</label>
