@@ -25,6 +25,7 @@
   } from '$libs/bridge';
   import { hasBridge } from '$libs/bridge/bridges';
   import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
+  import { fetchNFTs } from '$libs/bridge/fetchNFTs';
   import {
     ApproveError,
     InsufficientAllowanceError,
@@ -355,6 +356,12 @@
   let validating: boolean = false;
   let detectedTokenType: TokenType | null = null;
 
+  let manualNFTInput: boolean = false;
+  let scanning: boolean = false;
+  let scanned: boolean = false;
+
+  let foundNFTs: Token[] = [];
+
   function onAddressValidation(event: CustomEvent<{ isValidEthereumAddress: boolean; addr: Address }>) {
     const { isValidEthereumAddress, addr } = event.detail;
     addressInputState = AddressInputState.Validating;
@@ -389,9 +396,25 @@
       addressInputState = AddressInputState.Invalid;
     }
   }
+  const scanForNFTs = async () => {
+    scanning = true;
+    const accountAddress = $account?.address;
+    const srcChainId = $network?.id;
+    if (!accountAddress || !srcChainId) return;
+    const nftsFromAPIs = await fetchNFTs(accountAddress, BigInt(srcChainId));
+    foundNFTs = nftsFromAPIs.nfts;
+    scanning = false;
+    scanned = true;
+  };
 
   // Whenever the user switches bridge types, we should reset the forms
   $: $activeBridge && resetForm();
+
+  $: {
+    const stepKey = NFTSteps[activeStep].toLowerCase();
+    nftStepTitle = $t(`bridge.title.nft.${stepKey}`);
+    nftStepDescription = $t(`bridge.description.nft.${stepKey}`);
+  }
 
   $: {
     (async () => {
@@ -461,36 +484,65 @@
           <div class="f-between-center gap-4">
             <ChainSelectorWrapper />
           </div>
-          <AddressInput
-            bind:this={addressInputComponent}
-            bind:ethereumAddress={contractAddress}
-            bind:state={addressInputState}
-            class="bg-neutral-background border-0 h-[56px]"
-            on:addressvalidation={onAddressValidation}
-            labelText={$t('inputs.address_input.label.contract')}
-            quiet />
 
-          <div class="min-h-[20px] !mt-3">
-            {#if detectedTokenType === TokenType.ERC721 && contractAddress}
-              <FlatAlert type="success" forceColumnFlow message="todo: valid erc721" />
-            {:else if detectedTokenType === TokenType.ERC1155 && contractAddress}
-              <FlatAlert type="success" forceColumnFlow message="todo: valid erc1155" />
-            {/if}
-
-            <IdInput
-              bind:this={nftIdInputComponent}
-              bind:enteredIds
-              bind:numbersArray={nftIdArray}
-              class="bg-neutral-background border-0 h-[56px]" />
+          {#if manualNFTInput}
+            <AddressInput
+              bind:this={addressInputComponent}
+              bind:ethereumAddress={contractAddress}
+              bind:state={addressInputState}
+              class="bg-neutral-background border-0 h-[56px]"
+              on:addressvalidation={onAddressValidation}
+              labelText={$t('inputs.address_input.label.contract')}
+              quiet />
             <div class="min-h-[20px] !mt-3">
-              {#if !isOwnerOfAllToken && nftIdArray?.length > 0 && !validating}
-                <FlatAlert type="error" forceColumnFlow message="todo: must be owner of all token" />
+              {#if detectedTokenType === TokenType.ERC721 && contractAddress}
+                <FlatAlert type="success" forceColumnFlow message="todo: valid erc721" />
+              {:else if detectedTokenType === TokenType.ERC1155 && contractAddress}
+                <FlatAlert type="success" forceColumnFlow message="todo: valid erc1155" />
+              {/if}
+
+              <IdInput
+                bind:this={nftIdInputComponent}
+                bind:enteredIds
+                bind:numbersArray={nftIdArray}
+                class="bg-neutral-background border-0 h-[56px]" />
+              <div class="min-h-[20px] !mt-3">
+                {#if !isOwnerOfAllToken && nftIdArray?.length > 0 && !validating}
+                  <FlatAlert type="error" forceColumnFlow message="todo: must be owner of all token" />
+                {/if}
+              </div>
+
+              {#if detectedTokenType === TokenType.ERC1155}
+                <Amount bind:this={amountComponent} />
               {/if}
             </div>
-
-            {#if detectedTokenType === TokenType.ERC1155}
-              <Amount bind:this={amountComponent} />
+          {:else}
+            <div class="f-between-center w-full gap-4">
+              <Button
+                loading={scanning}
+                type="primary"
+                class="px-[28px] py-[14px] rounded-full flex-1 text-white"
+                on:click={scanForNFTs}>Scan for NFTs</Button>
+            </div>
+            {foundNFTs}
+            {#if foundNFTs.length === 0 && scanned}
+              Don't see your NFTs? Try adding them manually.
+              <Button
+                type="secondary"
+                class="px-[28px] py-[14px] rounded-full flex-1 text-white"
+                on:click={() => (manualNFTInput = !manualNFTInput)}>
+                {#if manualNFTInput}
+                  Cancel
+                {:else}
+                  Add manually
+                {/if}
+              </Button>
             {/if}
+          {/if}
+
+          <div class="space-y-[16px]">
+            <Recipient bind:this={recipientComponent} />
+            <ProcessingFee bind:this={processingFeeComponent} />
           </div>
         {:else if activeStep === NFTSteps.REVIEW}
           <div class="f-between-center gap-4">
@@ -504,10 +556,7 @@
             <ChainSelectorWrapper />
           </div>
         {/if}
-        <div class="space-y-[16px]">
-          <Recipient bind:this={recipientComponent} />
-          <ProcessingFee bind:this={processingFeeComponent} />
-        </div>
+
         <div class="h-sep" />
         <div class="f-between-center w-full gap-4">
           {#if activeStep !== NFTSteps.IMPORT}

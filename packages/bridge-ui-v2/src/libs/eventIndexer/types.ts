@@ -1,0 +1,56 @@
+import type { Address } from '@wagmi/core';
+
+import type { ChainID } from '$libs/chain';
+import type { Token } from '$libs/token';
+
+export type GetAllByAddressResponse = {
+  nfts: Token[];
+  paginationInfo: PaginationInfo;
+};
+
+export type PaginationParams = {
+  size: number;
+  page: number;
+};
+
+export interface EventIndexerAPI {
+  getNftsByAddress(params: EventIndexerAPIRequestParams): Promise<EventIndexerAPIResponse>;
+}
+
+export type EventIndexerAPIResponseNFT = {
+  TokenID: number;
+  ContractAddress: Address;
+  ContractType: string;
+  Address: Address;
+  ChainID: number;
+  Amount: number;
+};
+
+export type EventIndexerAPIRequestParams = {
+  address: Address;
+  chainID?: ChainID;
+};
+
+export type PaginationInfo = {
+  page: number;
+  size: number;
+  max_page: number;
+  total_pages: number;
+  total: number;
+  last: boolean;
+  first: boolean;
+};
+
+export type EventIndexerAPIResponse = PaginationInfo & {
+  nfts: EventIndexerAPIResponseNFT[];
+  visible: number;
+};
+
+export type EventIndexerConfig = {
+  chainIds: number[];
+  url: string;
+};
+
+export type ConfiguredEventIndexer = {
+  configuredEventIndexer: EventIndexerConfig[];
+};
