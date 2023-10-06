@@ -49,6 +49,36 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         TaikoL1TestBase.setUp();
     }
 
+    function proveHigherTierProof(
+        TaikoData.BlockMetadata memory meta,
+        bytes32 parentHash,
+        bytes32 signalRoot,
+        bytes32 blockHash,
+        uint16 minTier
+    )
+        internal
+    {
+        uint16 tierToProveWith;
+        if (minTier == LibTiers.TIER_OPTIMISTIC) {
+            tierToProveWith = LibTiers.TIER_SGX;
+        } else if (minTier == LibTiers.TIER_SGX) {
+            tierToProveWith = LibTiers.TIER_SGX_AND_PSE_ZKEVM;
+        } else if (minTier == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
+            tierToProveWith = LibTiers.TIER_GUARDIAN;
+        }
+        proveBlock(
+            Carol,
+            Carol,
+            meta,
+            parentHash,
+            blockHash,
+            signalRoot,
+            tierToProveWith,
+            "",
+            false
+        );
+    }
+
     function test_L1_ContestingWithSameProof() external {
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
         giveEthAndTko(Carol, 1e7 ether, 1000 ether);
@@ -174,43 +204,9 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             // Cannot verify block because it is contested..
             verifyBlock(Carol, 1);
 
-            if (minTier == LibTiers.TIER_OPTIMISTIC) {
-                proveBlock(
-                    Carol,
-                    Carol,
-                    meta,
-                    parentHash,
-                    blockHash,
-                    signalRoot,
-                    LibTiers.TIER_SGX,
-                    "",
-                    false
-                );
-            } else if (minTier == LibTiers.TIER_SGX) {
-                proveBlock(
-                    Carol,
-                    Carol,
-                    meta,
-                    parentHash,
-                    blockHash,
-                    signalRoot,
-                    LibTiers.TIER_SGX_AND_PSE_ZKEVM,
-                    "",
-                    false
-                );
-            } else if (minTier == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
-                proveBlock(
-                    Carol,
-                    Carol,
-                    meta,
-                    parentHash,
-                    blockHash,
-                    signalRoot,
-                    LibTiers.TIER_GUARDIAN,
-                    "",
-                    false
-                );
-            }
+            proveHigherTierProof(
+                meta, parentHash, signalRoot, blockHash, minTier
+            );
 
             vm.warp(
                 block.timestamp
@@ -284,43 +280,9 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             // Cannot verify block because it is contested..
             verifyBlock(Carol, 1);
 
-            if (minTier == LibTiers.TIER_OPTIMISTIC) {
-                proveBlock(
-                    Carol,
-                    Carol,
-                    meta,
-                    parentHash,
-                    blockHash,
-                    signalRoot,
-                    LibTiers.TIER_SGX,
-                    "",
-                    false
-                );
-            } else if (minTier == LibTiers.TIER_SGX) {
-                proveBlock(
-                    Carol,
-                    Carol,
-                    meta,
-                    parentHash,
-                    blockHash,
-                    signalRoot,
-                    LibTiers.TIER_SGX_AND_PSE_ZKEVM,
-                    "",
-                    false
-                );
-            } else if (minTier == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
-                proveBlock(
-                    Carol,
-                    Carol,
-                    meta,
-                    parentHash,
-                    blockHash,
-                    signalRoot,
-                    LibTiers.TIER_GUARDIAN,
-                    "",
-                    false
-                );
-            }
+            proveHigherTierProof(
+                meta, parentHash, signalRoot, blockHash, minTier
+            );
 
             // Otherwise just not contest
             vm.warp(

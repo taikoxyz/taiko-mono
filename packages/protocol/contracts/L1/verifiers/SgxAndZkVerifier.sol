@@ -30,32 +30,29 @@ contract SgxAndZkVerifier is EssentialContract, IVerifier {
     function verifyProof(
         // blockId is unused now, but can be used later when supporting
         // different types of proofs.
-        uint64,
+        uint64 blockId,
         address prover,
         bool isContesting,
         TaikoData.BlockEvidence calldata evidence
     )
         external
     {
-        // Do not run proof verification to contest an existing proof
-        if (isContesting) return;
-
-        TaikoData.BlockEvidence memory mEvidence = evidence;
+        TaikoData.BlockEvidence memory _evidence = evidence;
 
         // Verify the SGX part
-        mEvidence.proof = LibBytesUtils.slice(evidence.proof, 0, SGX_PROOF_SIZE);
-        IVerifier(resolve("tier_sgx", true)).verifyProof(
-            0, prover, false, mEvidence
+        _evidence.proof = LibBytesUtils.slice(evidence.proof, 0, SGX_PROOF_SIZE);
+        IVerifier(resolve("tier_sgx", false)).verifyProof(
+            blockId, prover, isContesting, _evidence
         );
 
         // Verify the ZK part
-        mEvidence.proof = LibBytesUtils.slice(
+        _evidence.proof = LibBytesUtils.slice(
             evidence.proof,
             SGX_PROOF_SIZE,
             (evidence.proof.length - SGX_PROOF_SIZE)
         );
-        IVerifier(resolve("tier_pse_zkevm", true)).verifyProof(
-            0, prover, false, mEvidence
+        IVerifier(resolve("tier_pse_zkevm", false)).verifyProof(
+            blockId, prover, isContesting, _evidence
         );
     }
 }

@@ -137,7 +137,7 @@ abstract contract TaikoL1TestBase is TestBase {
         // - LibTiers.TIER_SGX;
         // - LibTiers.TIER_OPTIMISTIC;
         // - LibTiers.TIER_GUARDIAN;
-        // - LibTier.TIER_SGX_AND_PSE_ZKEVM
+        // - LibTiers.TIER_SGX_AND_PSE_ZKEVM
         tierFees[0] = TaikoData.TierFee(LibTiers.TIER_OPTIMISTIC, 1 ether);
         tierFees[1] = TaikoData.TierFee(LibTiers.TIER_SGX, 1 ether);
         tierFees[2] = TaikoData.TierFee(LibTiers.TIER_PSE_ZKEVM, 2 ether);
