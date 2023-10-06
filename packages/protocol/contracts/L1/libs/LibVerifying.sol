@@ -50,7 +50,7 @@ library LibVerifying {
                 || config.blockMaxGasLimit == 0 || config.blockMaxTxListBytes == 0
                 || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
                 || config.livenessBond == 0
-                || config.livenessBond < 10 * config.proposerRewardPerSecond
+                || config.livenessBond < 10 * config.proposerRewardPerL1Block
                 || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
                 || config.ethDepositMaxCountPerBlock
@@ -63,6 +63,13 @@ library LibVerifying {
                 || config.ethDepositMaxFee
                     >= type(uint96).max / config.ethDepositMaxCountPerBlock
         ) revert L1_INVALID_CONFIG();
+
+        if (config.proposerRewardPerL1Block != 0) {
+            if (
+                config.proposerRewardMax == 0
+                    || config.proposerRewardPoolPctg == 0
+            ) revert L1_INVALID_CONFIG();
+        }
 
         // Init state
         state.slotA.genesisHeight = uint64(block.number);
