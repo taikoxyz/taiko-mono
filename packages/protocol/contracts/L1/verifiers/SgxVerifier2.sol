@@ -45,7 +45,7 @@ contract SgxVerifier2 is EssentialContract, IVerifier {
     // sgxRegistry;
     mapping(address instance => uint256 registeredAt) instances;
 
-    uint256[48] private __gap;
+    uint256[49] private __gap;
 
     error SGX_INVALID_AUTH();
     error SGX_INVALID_INSTANCE();
