@@ -218,7 +218,7 @@ abstract contract TaikoL1TestBase is TestBase {
             // Keep changing the pub key associated with an instance to avoid
             // attacks,
             // obviously just a mock due to 2 addresses changing all the time.
-            (newPubKey, )= sv.sgxRegistry(0);
+            (newPubKey,) = sv.sgxRegistry(0);
             if (newPubKey == SGX_X_0) {
                 newPubKey = SGX_X_1;
             } else {
@@ -228,7 +228,8 @@ abstract contract TaikoL1TestBase is TestBase {
             bytes memory signature =
                 createSgxSignature(evidence, newPubKey, prover);
             // Id is 0 by default, we using the first instance
-            evidence.proof = bytes.concat(bytes2(0), bytes20(newPubKey), signature);
+            evidence.proof =
+                bytes.concat(bytes2(0), bytes20(newPubKey), signature);
         }
 
         if (tier == LibTiers.TIER_GUARDIAN) {

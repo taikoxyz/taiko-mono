@@ -113,19 +113,20 @@ contract SGXVerifier is EssentialContract, IVerifier {
         }
 
         uint256 id = uint256(bytes32(LibBytesUtils.slice(evidence.proof, 0, 2)));
-        address newAddress = address(bytes20(LibBytesUtils.slice(evidence.proof, 2, 20)));
-        bytes memory signature = LibBytesUtils.slice(evidence.proof, 22, (evidence.proof.length-22));
+        address newAddress =
+            address(bytes20(LibBytesUtils.slice(evidence.proof, 2, 20)));
+        bytes memory signature = LibBytesUtils.slice(
+            evidence.proof, 22, (evidence.proof.length - 22)
+        );
 
         if (sgxRegistry[id].setAt + EXPIRY < block.timestamp) {
             revert SGX_ADDRESS_EXPIRED();
         }
 
-        bytes32 signedInstance =
-            getSignedHash(evidence, prover, newAddress);
+        bytes32 signedInstance = getSignedHash(evidence, prover, newAddress);
 
         // Would throw in case invalid
-        address signer =
-            ECDSAUpgradeable.recover(signedInstance, signature);
+        address signer = ECDSAUpgradeable.recover(signedInstance, signature);
 
         if (!isValidInstance(id, signer)) {
             revert SGX_NOT_VALID_SIGNER_OR_ID_MISMATCH();
@@ -171,7 +172,8 @@ contract SGXVerifier is EssentialContract, IVerifier {
 
     function addTrustedInstances(address[] memory trustedInstances) internal {
         for (uint256 i; i < trustedInstances.length; i++) {
-            sgxRegistry[uniqueVerifiers] = InstanceData(trustedInstances[i], block.timestamp);
+            sgxRegistry[uniqueVerifiers] =
+                InstanceData(trustedInstances[i], block.timestamp);
 
             emit InstanceAdded(uniqueVerifiers, trustedInstances[i]);
 
