@@ -27,7 +27,8 @@ const ecosystemData: EcosystemData[] = [
     icon: "/images/ecosystem/ait.png",
     name: "AIT Protocol",
     link: "https://ait.tech/",
-    description: "AIT Protocol is the first’s Web3 data infrastructure focusing on AI data annotations, leverages blockchain technology to deliver a trustless and cross-border labor market being strategically incentivized by crypto economics and having instant cross-nation payment settlements.",
+    description:
+      "AIT Protocol is the first’s Web3 data infrastructure focusing on AI data annotations, leverages blockchain technology to deliver a trustless and cross-border labor market being strategically incentivized by crypto economics and having instant cross-nation payment settlements.",
     filters: [],
     isLive: true,
   },
@@ -62,6 +63,15 @@ const ecosystemData: EcosystemData[] = [
     link: "https://www.brianknows.org",
     description:
       "Brian is a collection of AI models, trained on web3-related data, that allows everyone to learn and interact with the decentralized world by prompting.",
+    filters: [],
+    isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/covalent.png",
+    name: "Covalent",
+    link: "https://www.covalenthq.com/",
+    description:
+      "Covalent's industry-leading Unified API brings visibility to billions of data points across 200+ blockchains for developers building multi-chain applications.",
     filters: [],
     isLive: true,
   },
