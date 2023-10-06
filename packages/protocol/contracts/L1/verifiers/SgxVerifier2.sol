@@ -149,6 +149,6 @@ contract SgxVerifier2 is EssentialContract, IVerifier {
     }
 }
 
-/// @title ProxiedSGXVerifier
+/// @title ProxiedSgxVerifier2
 /// @notice Proxied version of the parent contract.
 contract ProxiedSgxVerifier2 is Proxied, SgxVerifier2 { }
