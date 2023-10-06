@@ -16,7 +16,7 @@ import { TaikoData } from "../TaikoData.sol";
 
 import { IVerifier } from "./IVerifier.sol";
 
-/// @title GuardianVerifier
+/// @title SGXVerifier
 contract SGXVerifier is EssentialContract, IVerifier {
     uint256 public constant EXPIRY = 180 days;
 

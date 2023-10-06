@@ -16,7 +16,7 @@ import { TaikoData } from "../TaikoData.sol";
 
 import { IVerifier } from "./IVerifier.sol";
 
-/// @title GuardianVerifier
+/// @title SgxVerifier2
 contract SgxVerifier2 is EssentialContract, IVerifier {
     using ECDSAUpgradeable for bytes32;
 
