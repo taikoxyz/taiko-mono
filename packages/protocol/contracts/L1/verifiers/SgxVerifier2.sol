@@ -45,7 +45,7 @@ contract SgxVerifier2 is EssentialContract, IVerifier {
     // sgxRegistry;
     mapping(address instance => uint256 registeredAt) instances;
 
-    uint256[48] private __gap;
+    uint256[49] private __gap;
 
     error SGX_INVALID_AUTH();
     error SGX_INVALID_INSTANCE();
@@ -149,6 +149,6 @@ contract SgxVerifier2 is EssentialContract, IVerifier {
     }
 }
 
-/// @title ProxiedSGXVerifier
+/// @title ProxiedSgxVerifier2
 /// @notice Proxied version of the parent contract.
 contract ProxiedSgxVerifier2 is Proxied, SgxVerifier2 { }
