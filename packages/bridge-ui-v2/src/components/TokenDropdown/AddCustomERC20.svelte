@@ -1,20 +1,20 @@
 <script lang="ts">
   import { erc20ABI, getNetwork, readContract } from '@wagmi/core';
-  import { fetchToken } from '@wagmi/core';
   import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
   import { formatUnits } from 'viem';
 
   import { FlatAlert } from '$components/Alert';
-  import AddressInput from '$components/Bridge/AddressInput.svelte';
+  import AddressInput from '$components/Bridge/AddressInput/AddressInput.svelte';
   import { Button } from '$components/Button';
   import { Icon } from '$components/Icon';
   import Erc20 from '$components/Icon/ERC20.svelte';
   import { Spinner } from '$components/Spinner';
   import { tokenService } from '$libs/storage/services';
-  import { type GetCrossChainAddressArgs, type Token, type TokenEnv, TokenType } from '$libs/token';
+  import { type GetCrossChainAddressArgs, type Token, type TokenDetails, TokenType } from '$libs/token';
   import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
+  import { getTokenInfoFromAddress } from '$libs/token/getTokenInfo';
   import { getLogger } from '$libs/util/logger';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
@@ -30,7 +30,7 @@
   export let loading = false;
   export let loadingTokenDetails = false;
 
-  let tokenDetails: (TokenEnv & { balance: bigint; decimals: number }) | null;
+  let tokenDetails: TokenDetails | null;
   let tokenError = '';
   let tokenAddress: Address | string = '';
   let customTokens: Token[] = [];
@@ -101,7 +101,8 @@
     log('Fetching token details for address "%s"…', tokenAddress);
     tokenError = 'unchecked';
     try {
-      const tokenInfo = await fetchToken({ address: tokenAddress as Address });
+      const tokenInfo = await getTokenInfoFromAddress(tokenAddress as Address);
+      if (!tokenInfo) return;
       const balance = await readContract({
         address: tokenAddress as Address,
         abi: erc20ABI,

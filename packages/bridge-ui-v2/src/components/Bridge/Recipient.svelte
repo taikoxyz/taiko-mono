@@ -10,12 +10,12 @@
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
 
-  import AddressInput from './AddressInput.svelte';
+  import AddressInput from './AddressInput/AddressInput.svelte';
   import { recipientAddress } from './state';
 
   // Public API
   export const clearRecipient = () => {
-    addressInput.clear(); // update UI
+    addressInput.clearAddress(); // update UI
     $recipientAddress = null; // update state
   };
 
