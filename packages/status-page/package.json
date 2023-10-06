@@ -35,7 +35,7 @@
     "daisyui": "1.16.6",
     "jest": "^27.5.1",
     "node-sass": "^7.0.1",
-    "postcss": "^8.4.19",
+    "postcss": "^8.4.31",
     "postcss-cli": "^7.1.2",
     "postcss-loader": "^7.3.3",
     "prettier": "2.7.1",

@@ -42,7 +42,7 @@
     "jsdom": "^22.1.0",
     "ajv": "^8.6.4",
     "lokijs": "^1.5.12",
-    "postcss": "^8.4.24",
+    "postcss": "^8.4.31",
     "prettier": "^3.0.0",
     "prettier-plugin-svelte": "^3.0.0",
     "svelte": "^4.1.0",
