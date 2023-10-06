@@ -61,6 +61,7 @@ contract SgxVerifier2 is EssentialContract, IVerifier {
         _replaceInstance(address(0), instance);
     }
 
+    // TODO(dani): who will call this function?
     function replaceInstance(
         address newInstance,
         bytes memory signature
@@ -76,14 +77,13 @@ contract SgxVerifier2 is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        // blockId is unused now, but can be used later when supporting
-        // different types of proofs.
         uint64,
         address prover,
         bool isContesting,
         TaikoData.BlockEvidence calldata evidence
     )
         external
+        onlyFromNamed("taiko")
     {
         // Do not run proof verification to contest an existing proof
         if (isContesting) return;
@@ -103,6 +103,11 @@ contract SgxVerifier2 is EssentialContract, IVerifier {
             getSignedHash(evidence, prover, newInstance).recover(signature);
 
         _replaceInstance(oldInstance, newInstance);
+    }
+
+    function isInstanceValid(address instance) public view returns (bool) {
+        return instances[instance] != 0
+            && instances[instance] + INSTANCE_EXPIRY > block.timestamp;
     }
 
     function getSignedHash(
@@ -134,18 +139,13 @@ contract SgxVerifier2 is EssentialContract, IVerifier {
         private
     {
         if (oldInstance != address(0)) {
-            if (!_isInstanceValid(oldInstance)) revert SGX_INVALID_AUTH();
+            if (!isInstanceValid(oldInstance)) revert SGX_INVALID_AUTH();
             delete instances[oldInstance];
         }
 
         if (newInstance == address(0)) revert SGX_INVALID_INSTANCE();
         instances[newInstance] = block.timestamp;
         emit InstanceRegistered(oldInstance, newInstance, block.timestamp);
-    }
-
-    function _isInstanceValid(address instance) internal view returns (bool) {
-        return instances[instance] != 0
-            && instances[instance] + INSTANCE_EXPIRY > block.timestamp;
     }
 }
 
