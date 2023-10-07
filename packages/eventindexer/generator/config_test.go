@@ -48,11 +48,11 @@ func TestNewConfigFromCliContext(t *testing.T) {
 
 	assert.Nil(t, app.Run([]string{
 		"TestNewConfigFromCliContext",
-		"-" + flags.DatabaseUsername.Name, "dbuser",
-		"-" + flags.DatabasePassword.Name, "dbpass",
-		"-" + flags.DatabaseHost.Name, "dbhost",
-		"-" + flags.DatabaseName.Name, "dbname",
-		"-" + flags.GenesisDate.Name, "2023-07-07",
-		"-" + flags.Regenerate.Name, "true",
+		"--" + flags.DatabaseUsername.Name, "dbuser",
+		"--" + flags.DatabasePassword.Name, "dbpass",
+		"--" + flags.DatabaseHost.Name, "dbhost",
+		"--" + flags.DatabaseName.Name, "dbname",
+		"--" + flags.GenesisDate.Name, "2023-07-07",
+		"--" + flags.Regenerate.Name, "true",
 	}))
 }
