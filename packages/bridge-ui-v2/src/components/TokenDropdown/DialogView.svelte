@@ -59,7 +59,7 @@
 <!-- Mobile view -->
 <dialog {id} class="modal modal-bottom" class:modal-open={menuOpen}>
   <div class="modal-box relative px-6 py-[35px] w-full bg-neutral-background">
-    <CloseButton onClick={closeMenu}/>
+    <CloseButton onClick={closeMenu} />
 
     <div class="w-full">
       <h3 class="title-body-bold mb-7">{$t('token_dropdown.label')}</h3>

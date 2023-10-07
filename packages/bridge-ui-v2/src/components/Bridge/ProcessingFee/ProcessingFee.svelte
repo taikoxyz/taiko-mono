@@ -157,7 +157,7 @@
 
   <dialog id={dialogId} class="modal" class:modal-open={modalOpen}>
     <div class="modal-box relative px-6 py-[35px] md:rounded-[20px] bg-neutral-background">
-      <CloseButton onClick={cancelModal}/>
+      <CloseButton onClick={cancelModal} />
 
       <div class="w-full">
         <h3 class="title-body-bold mb-7">{$t('processing_fee.title')}</h3>

@@ -42,7 +42,7 @@
 <dialog id={dialogId} class="modal modal-bottom" class:modal-open={detailsOpen}>
   <div
     class="modal-box relative border border-neutral-background px-6 py-[30px] dark:glassy-gradient-card dark:glass-background-gradient">
-    <CloseButton onClick={closeDetails}/>
+    <CloseButton onClick={closeDetails} />
 
     <h3 class="title-body-bold mb-7 text-primary-content">{$t('processing_fee.title')}</h3>
 

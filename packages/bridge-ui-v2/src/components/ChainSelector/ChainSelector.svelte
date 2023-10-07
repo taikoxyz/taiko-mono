@@ -148,8 +148,7 @@
         <LoadingMask spinnerClass="border-white" text={$t('messages.network.switching')} />
       {/if}
 
-      <CloseButton onClick={closeModal}/>
-
+      <CloseButton onClick={closeModal} />
       <div class="w-full">
         <h3 class="title-body-bold mb-[20px]">
           {#if switchWallet}

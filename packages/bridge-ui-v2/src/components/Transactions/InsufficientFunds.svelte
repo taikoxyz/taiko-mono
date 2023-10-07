@@ -45,7 +45,7 @@
 
 <dialog id={dialogId} class="modal" class:modal-open={modalOpen}>
   <div class="modal-box relative px-6 py-[35px] md:rounded-[20px] bg-neutral-background">
-    <CloseButton onClick={closeModal}/>
+    <CloseButton onClick={closeModal} />
     <div class="w-full space-y-6">
       <h3 class="title-body-bold mb-7">{$t('transactions.actions.claim.dialog.title')}</h3>
       <div class="body-regular text-secondary-content mb-3 flex flex-col items-end">

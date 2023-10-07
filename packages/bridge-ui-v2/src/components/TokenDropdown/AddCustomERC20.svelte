@@ -163,7 +163,7 @@
 
 <dialog id={dialogId} class="modal modal-bottom md:modal-middle" class:modal-open={modalOpen}>
   <div class="modal-box relative px-6 py-[35px] md:rounded-[20px] bg-neutral-background">
-    <CloseButton onClick={closeModal}/>
+    <CloseButton onClick={closeModal} />
 
     <h3 class="title-body-bold mb-7">{$t('token_dropdown.custom_token.title')}</h3>
 

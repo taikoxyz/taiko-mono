@@ -50,7 +50,7 @@
   <div
     class="modal-box bg-neutral-background text-primary-content text-center max-w-[565px]">
     <div class="w-full flex justify-end">
-      <CloseButton onClick={closeModal}/>
+      <CloseButton onClick={closeModal} />
     </div>
     <div class="w-full">
       <h1 class="title-body-bold">{$t('transactions.status.dialog.title')}</h1>
