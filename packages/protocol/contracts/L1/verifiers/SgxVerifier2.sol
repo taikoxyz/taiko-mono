@@ -26,14 +26,14 @@ contract SgxVerifier2 is EssentialContract, IVerifier {
 
     uint256[49] private __gap;
 
-    event InstanceRegistered(
-        address indexed replaced, address indexed instance, uint256 registeredAt
-    );
+    event InstanceRegistered(address indexed instance, uint256 registeredAt);
 
-    error SGX_INVALID_AUTH();
+    event InstanceDeleted(address indexed instance, uint256 deletedAt);
+
+    error SGX_INSTANCE_NOT_FOUND();
+    error SGX_INSTANCE_REGISTERED();
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_PROOF_SIZE();
-    error SGX_INSTANCE_REGISTERED();
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
@@ -42,21 +42,24 @@ contract SgxVerifier2 is EssentialContract, IVerifier {
     }
 
     function registerInstance(address instance) external onlyOwner {
-        _replaceInstance(address(0), instance);
+        _registerInstance(instance);
     }
 
-    // TODO(dani): who will call this function?
-    function replaceInstance(
-        address newInstance,
+    function updateInstance(
+        address[] calldata newInstances,
         bytes memory signature
     )
         external
     {
         address oldInstance = keccak256(
-            abi.encode("REGISTER_SGX_INSTANCE", newInstance)
+            abi.encode("REGISTER_SGX_INSTANCE", newInstances)
         ).recover(signature);
 
-        _replaceInstance(oldInstance, newInstance);
+        _deregisterInstance(oldInstance);
+
+        for (uint256 i; i < newInstances.length; ++i) {
+            _registerInstance(newInstances[i]);
+        }
     }
 
     /// @inheritdoc IVerifier
@@ -86,7 +89,8 @@ contract SgxVerifier2 is EssentialContract, IVerifier {
         address oldInstance =
             getSignedHash(evidence, prover, newInstance).recover(signature);
 
-        _replaceInstance(oldInstance, newInstance);
+        _deregisterInstance(oldInstance);
+        _registerInstance(newInstance);
     }
 
     function isInstanceValid(address instance) public view returns (bool) {
@@ -115,22 +119,19 @@ contract SgxVerifier2 is EssentialContract, IVerifier {
         );
     }
 
-    function _replaceInstance(
-        address oldInstance,
-        address newInstance
-    )
-        private
-    {
-        if (oldInstance != address(0)) {
-            if (!isInstanceValid(oldInstance)) revert SGX_INVALID_AUTH();
-            instances[oldInstance] = 1;
-        }
+    function _deregisterInstance(address instance) private {
+        if (instance == address(0)) revert SGX_INVALID_INSTANCE();
+        if (!isInstanceValid(instance)) revert SGX_INSTANCE_NOT_FOUND();
+        instances[instance] = 1;
+        emit InstanceDeleted(instance, block.timestamp);
+    }
 
-        if (newInstance == address(0)) revert SGX_INVALID_INSTANCE();
-        if (instances[newInstance] != 0) revert SGX_INSTANCE_REGISTERED();
+    function _registerInstance(address instance) private {
+        if (instance == address(0)) revert SGX_INVALID_INSTANCE();
+        if (instances[instance] != 0) revert SGX_INSTANCE_REGISTERED();
 
-        instances[newInstance] = block.timestamp;
-        emit InstanceRegistered(oldInstance, newInstance, block.timestamp);
+        instances[instance] = block.timestamp;
+        emit InstanceRegistered(instance, block.timestamp);
     }
 }
 
