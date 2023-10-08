@@ -26,12 +26,11 @@ contract SgxVerifier2 is EssentialContract, IVerifier {
 
     uint256[49] private __gap;
 
-    event InstanceRegistered(address indexed instance, uint256 registeredAt);
+    event InstanceAdded(address indexed instance);
+    event InstanceRemoved(address indexed instance);
 
-    event InstanceDeleted(address indexed instance, uint256 deletedAt);
-
+    error SGX_INSTANCE_ADDED_ALREADY();
     error SGX_INSTANCE_NOT_FOUND();
-    error SGX_INSTANCE_REGISTERED();
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_PROOF_SIZE();
 
@@ -41,11 +40,11 @@ contract SgxVerifier2 is EssentialContract, IVerifier {
         EssentialContract._init(_addressManager);
     }
 
-    function registerInstance(address instance) external onlyOwner {
-        _registerInstance(instance);
+    function addInstance(address instance) external onlyOwner {
+        _addInstance(instance);
     }
 
-    function updateInstance(
+    function replaceInstance(
         address[] calldata newInstances,
         bytes memory signature
     )
@@ -55,10 +54,10 @@ contract SgxVerifier2 is EssentialContract, IVerifier {
             abi.encode("REGISTER_SGX_INSTANCE", newInstances)
         ).recover(signature);
 
-        _deregisterInstance(oldInstance);
+        _removeInstance(oldInstance);
 
         for (uint256 i; i < newInstances.length; ++i) {
-            _registerInstance(newInstances[i]);
+            _addInstance(newInstances[i]);
         }
     }
 
@@ -89,8 +88,8 @@ contract SgxVerifier2 is EssentialContract, IVerifier {
         address oldInstance =
             getSignedHash(evidence, prover, newInstance).recover(signature);
 
-        _deregisterInstance(oldInstance);
-        _registerInstance(newInstance);
+        _removeInstance(oldInstance);
+        _addInstance(newInstance);
     }
 
     function isInstanceValid(address instance) public view returns (bool) {
@@ -119,19 +118,19 @@ contract SgxVerifier2 is EssentialContract, IVerifier {
         );
     }
 
-    function _deregisterInstance(address instance) private {
+    function _removeInstance(address instance) private {
         if (instance == address(0)) revert SGX_INVALID_INSTANCE();
         if (!isInstanceValid(instance)) revert SGX_INSTANCE_NOT_FOUND();
         instances[instance] = 1;
-        emit InstanceDeleted(instance, block.timestamp);
+        emit InstanceRemoved(instance);
     }
 
-    function _registerInstance(address instance) private {
+    function _addInstance(address instance) private {
         if (instance == address(0)) revert SGX_INVALID_INSTANCE();
-        if (instances[instance] != 0) revert SGX_INSTANCE_REGISTERED();
+        if (instances[instance] != 0) revert SGX_INSTANCE_ADDED_ALREADY();
 
         instances[instance] = block.timestamp;
-        emit InstanceRegistered(instance, block.timestamp);
+        emit InstanceAdded(instance);
     }
 }
 
