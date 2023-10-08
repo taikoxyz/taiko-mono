@@ -121,6 +121,8 @@ contract SgxVerifier2 is EssentialContract, IVerifier {
     function _removeInstance(address instance) private {
         if (instance == address(0)) revert SGX_INVALID_INSTANCE();
         if (!isInstanceValid(instance)) revert SGX_INSTANCE_NOT_FOUND();
+        // Set 'registeredAt' to 1 to invalidate the instance and prevent its
+        // re-addition.
         instances[instance] = 1;
         emit InstanceRemoved(instance);
     }
