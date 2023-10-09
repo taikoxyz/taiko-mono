@@ -50,7 +50,7 @@ library LibVerifying {
                 || config.blockMaxGasLimit == 0 || config.blockMaxTxListBytes == 0
                 || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
                 || config.livenessBond == 0
-                || config.livenessBond < 10 * config.proposerRewardPerL1Block
+                || config.livenessBond < 100 * config.proposerRewardPerL1Block
                 || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
                 || config.ethDepositMaxCountPerBlock
