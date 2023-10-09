@@ -12,6 +12,7 @@ import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { Proxied } from "../common/Proxied.sol";
 
 import { LibMath } from "../libs/LibMath.sol";
+import { TaikoToken } from "../L1/TaikoToken.sol";
 
 import { Lib1559Math } from "./Lib1559Math.sol";
 import { TaikoL2Signer } from "./TaikoL2Signer.sol";
@@ -39,6 +40,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     bytes32 public publicInputHash; // slot 3
     uint128 public gasExcess; // slot 4
     uint64 public latestSyncedL1Height;
+
+    uint32 avgGasUsed;
+    address parentProposer;
 
     uint256[146] private __gap;
 
@@ -90,7 +94,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         bytes32 l1Hash,
         bytes32 l1SignalRoot,
         uint64 syncedL1Height,
-        uint32 parentGasUsed
+        uint32 parentGasUsed,
+        uint96 parentRewardBase
     )
         external
     {
@@ -115,6 +120,25 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         _l2Hashes[block.number - 1] = parentHash;
         latestSyncedL1Height = syncedL1Height;
         _l1VerifiedBlocks[syncedL1Height] = VerifiedBlock(l1Hash, l1SignalRoot);
+
+        // Reward Taiko token as block reward on L2
+        if (avgGasUsed == 0) {
+            avgGasUsed = parentGasUsed;
+        } else {
+            avgGasUsed =
+                uint32((uint256(avgGasUsed) * 1023 + parentGasUsed) / 1024);
+        }
+
+        address tt = resolve("taiko", true);
+        if (tt != address(0) && avgGasUsed != 0 && parentProposer != address(0))
+        {
+            // TODO(daniel): correct the calculation
+            // TODO(daniel): adjust anchor gas cost
+            uint256 reward = parentRewardBase * parentGasUsed / avgGasUsed / 2;
+            TaikoToken(tt).mint(parentProposer, reward);
+        }
+
+        parentProposer = block.coinbase;
 
         emit CrossChainSynced(syncedL1Height, l1Hash, l1SignalRoot);
         emit Anchored(parentHash, gasExcess);

@@ -102,6 +102,7 @@ library TaikoData {
         uint64 l1Height;
         uint32 gasLimit;
         address coinbase; // L2 coinbase
+        uint96 rewardBase;
         TaikoData.EthDeposit[] depositsProcessed;
     }
 
