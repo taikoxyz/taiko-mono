@@ -30,14 +30,6 @@ export type NFT = Token & {
   tokenId: number;
 };
 
-// export type TokenDetails = {
-//   type: TokenType;
-//   name: string;
-//   address: Address;
-//   symbol: string;
-//   decimals: number;
-// };
-
 export type GetCrossChainAddressArgs = {
   token: Token;
   srcChainId: number;
