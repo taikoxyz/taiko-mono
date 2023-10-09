@@ -26,9 +26,8 @@ library TaikoData {
         uint64 blockMaxProposals;
         // Size of the block ring buffer, allowing extra space for proposals.
         uint64 blockRingBufferSize;
-        // The maximum number of verifications allowed per transaction in a
-        // block.
-        uint64 blockMaxVerificationsPerTx;
+        // The maximum number of verifications allowed when a block is proposed.
+        uint64 maxBlocksToVerifyPerProposal;
         // The maximum gas limit allowed for a block.
         uint32 blockMaxGasLimit;
         // The base gas for processing a block.
@@ -37,8 +36,9 @@ library TaikoData {
         uint24 blockMaxTxListBytes;
         // Amount of token to reward to the first block propsoed in each L1
         // block.
-        uint256 proposerRewardPerSecond;
-        uint256 proposerRewardMax;
+        uint128 proposerRewardPerL1Block;
+        uint128 proposerRewardMax;
+        uint8 proposerRewardPoolPctg;
         // ---------------------------------------------------------------------
         // Group 3: Proof related configs
         // ---------------------------------------------------------------------
@@ -172,6 +172,11 @@ library TaikoData {
         uint64 lastVerifiedBlockId;
     }
 
+    struct SlotC {
+        uint128 accumulatedReward;
+        uint64 lastProposedHeight;
+    }
+
     /// @dev Struct holding the state variables for the {TaikoL1} contract.
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
@@ -192,6 +197,7 @@ library TaikoData {
         mapping(address account => uint256 balance) tokenBalances;
         SlotA slotA; // slot 6
         SlotB slotB; // slot 7
-        uint256[143] __gap;
+        SlotC slotC; // slot 8
+        uint256[142] __gap;
     }
 }

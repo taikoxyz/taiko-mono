@@ -17,7 +17,7 @@ struct Config {
   bool relaySignalRoot;
   uint64 blockMaxProposals;
   uint64 blockRingBufferSize;
-  uint64 blockMaxVerificationsPerTx;
+  uint64 maxBlocksToVerifyPerProposal;
   uint32 blockMaxGasLimit;
   uint32 blockFeeBaseGas;
   uint24 blockMaxTxListBytes;

@@ -24,7 +24,8 @@ contract ZKRollupConfigProvider is ITierProvider {
                 validityBond: 10_000 ether, // TKO
                 contestBond: 10_000 ether, // TKO
                 cooldownWindow: 2 hours,
-                provingWindow: 90 minutes
+                provingWindow: 90 minutes,
+                maxBlocksToVerify: 8
             });
         }
 
@@ -34,7 +35,8 @@ contract ZKRollupConfigProvider is ITierProvider {
                 validityBond: 0,
                 contestBond: 0, // not contestable
                 cooldownWindow: 1 hours,
-                provingWindow: 120 minutes
+                provingWindow: 120 minutes,
+                maxBlocksToVerify: 0
             });
         }
 
