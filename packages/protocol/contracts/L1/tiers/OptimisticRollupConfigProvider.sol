@@ -24,7 +24,8 @@ contract OptimisticRollupConfigProvider is ITierProvider {
                 validityBond: 100_000 ether, // TKO
                 contestBond: 100_000 ether, // TKO
                 cooldownWindow: 4 hours,
-                provingWindow: 20 minutes
+                provingWindow: 20 minutes,
+                maxBlocksToVerify: 16
             });
         }
 
@@ -34,7 +35,8 @@ contract OptimisticRollupConfigProvider is ITierProvider {
                 validityBond: 50_000 ether, // TKO
                 contestBond: 50_000 ether, // TKO
                 cooldownWindow: 3 hours,
-                provingWindow: 60 minutes
+                provingWindow: 60 minutes,
+                maxBlocksToVerify: 12
             });
         }
 
@@ -44,7 +46,8 @@ contract OptimisticRollupConfigProvider is ITierProvider {
                 validityBond: 10_000 ether, // TKO
                 contestBond: 10_000 ether, // TKO
                 cooldownWindow: 2 hours,
-                provingWindow: 90 minutes
+                provingWindow: 90 minutes,
+                maxBlocksToVerify: 8
             });
         }
 
@@ -54,7 +57,8 @@ contract OptimisticRollupConfigProvider is ITierProvider {
                 validityBond: 0,
                 contestBond: 0, // not contestable
                 cooldownWindow: 1 hours,
-                provingWindow: 120 minutes
+                provingWindow: 120 minutes,
+                maxBlocksToVerify: 0
             });
         }
 

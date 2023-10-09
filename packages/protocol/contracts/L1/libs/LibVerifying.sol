@@ -103,7 +103,7 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
-        uint64 maxBlocks
+        uint64 maxBlocksToVerify
     )
         internal
     {
@@ -137,7 +137,7 @@ library LibVerifying {
         unchecked {
             ++blockId;
 
-            while (blockId < b.numBlocks && processed < maxBlocks) {
+            while (blockId < b.numBlocks && processed < maxBlocksToVerify) {
                 slot = blockId % config.blockRingBufferSize;
 
                 blk = state.blocks[slot];
