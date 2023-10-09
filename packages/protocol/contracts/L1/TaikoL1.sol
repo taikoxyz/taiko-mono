@@ -114,14 +114,14 @@ contract TaikoL1 is
         nonReentrant
     {
         TaikoData.Config memory config = getConfig();
-        LibProving.proveBlock({
+        bool isTopTier = LibProving.proveBlock({
             state: state,
             config: config,
             resolver: AddressResolver(this),
             blockId: blockId,
             evidence: abi.decode(input, (TaikoData.BlockEvidence))
         });
-        if (config.blockMaxVerificationsPerTx > 0) {
+        if (!isTopTier && config.blockMaxVerificationsPerTx > 0) {
             LibVerifying.verifyBlocks({
                 state: state,
                 config: config,
