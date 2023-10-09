@@ -22,8 +22,7 @@ import { SafeERC20Upgradeable } from
 contract EtherVault is EssentialContract, BridgeErrors {
     using LibAddress for address;
 
-    mapping(address addr => bool isAuthorized) public authorizedAddrs; // Authorized
-        // addresses
+    mapping(address addr => bool isAuthorized) public authorizedAddrs;
     uint256[49] private __gap;
 
     event Authorized(address indexed addr, bool authorized);
