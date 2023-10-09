@@ -92,12 +92,12 @@ contract TaikoL1 is
             assignment: abi.decode(assignment, (TaikoData.ProverAssignment)),
             txList: txList
         });
-        if (config.blockMaxVerificationsPerTx > 0) {
+        if (config.maxBlocksToVerifyPerProposal > 0) {
             LibVerifying.verifyBlocks({
                 state: state,
                 config: config,
                 resolver: AddressResolver(this),
-                maxBlocks: config.blockMaxVerificationsPerTx
+                maxBlocksToVerify: config.maxBlocksToVerifyPerProposal
             });
         }
     }
@@ -114,32 +114,32 @@ contract TaikoL1 is
         nonReentrant
     {
         TaikoData.Config memory config = getConfig();
-        bool isTopTier = LibProving.proveBlock({
+        uint8 maxBlocksToVerify = LibProving.proveBlock({
             state: state,
             config: config,
             resolver: AddressResolver(this),
             blockId: blockId,
             evidence: abi.decode(input, (TaikoData.BlockEvidence))
         });
-        if (!isTopTier && config.blockMaxVerificationsPerTx > 0) {
+        if (maxBlocksToVerify > 0) {
             LibVerifying.verifyBlocks({
                 state: state,
                 config: config,
                 resolver: AddressResolver(this),
-                maxBlocks: config.blockMaxVerificationsPerTx
+                maxBlocksToVerify: maxBlocksToVerify
             });
         }
     }
 
     /// @notice Verifies up to N blocks.
-    /// @param maxBlocks Max number of blocks to verify.
-    function verifyBlocks(uint64 maxBlocks) external nonReentrant {
-        if (maxBlocks == 0) revert L1_INVALID_PARAM();
+    /// @param maxBlocksToVerify Max number of blocks to verify.
+    function verifyBlocks(uint64 maxBlocksToVerify) external nonReentrant {
+        if (maxBlocksToVerify == 0) revert L1_INVALID_PARAM();
         LibVerifying.verifyBlocks({
             state: state,
             config: getConfig(),
             resolver: AddressResolver(this),
-            maxBlocks: maxBlocks
+            maxBlocksToVerify: maxBlocksToVerify
         });
     }
 
@@ -313,7 +313,7 @@ contract TaikoL1 is
             blockRingBufferSize: 403_210,
             // This number is calculated from blockMaxProposals to make the
             // maximum value of the multiplier close to 20.0
-            blockMaxVerificationsPerTx: 10,
+            maxBlocksToVerifyPerProposal: 10,
             blockMaxGasLimit: 8_000_000,
             blockFeeBaseGas: 20_000,
             blockMaxTxListBytes: 120_000,

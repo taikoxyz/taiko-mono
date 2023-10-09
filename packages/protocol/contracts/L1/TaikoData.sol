@@ -26,9 +26,8 @@ library TaikoData {
         uint64 blockMaxProposals;
         // Size of the block ring buffer, allowing extra space for proposals.
         uint64 blockRingBufferSize;
-        // The maximum number of verifications allowed per transaction in a
-        // block.
-        uint64 blockMaxVerificationsPerTx;
+        // The maximum number of verifications allowed when a block is proposed.
+        uint64 maxBlocksToVerifyPerProposal;
         // The maximum gas limit allowed for a block.
         uint32 blockMaxGasLimit;
         // The base gas for processing a block.

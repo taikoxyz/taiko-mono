@@ -60,7 +60,7 @@ library LibProving {
         TaikoData.BlockEvidence memory evidence
     )
         internal
-        returns (bool isTopTier)
+        returns (uint8 maxBlocksToVerify)
     {
         // Make sure parentHash is not zero
         if (evidence.parentHash == 0) revert L1_INVALID_EVIDENCE();
@@ -201,8 +201,9 @@ library LibProving {
             }
         }
 
+        maxBlocksToVerify = tier.maxBlocksToVerify;
+
         if (tier.contestBond == 0) {
-            isTopTier = true;
             // When contestBond is zero for the current tier, it signifies
             // it's the top tier. In this case, it can overwrite existing
             // transitions without contestation.
