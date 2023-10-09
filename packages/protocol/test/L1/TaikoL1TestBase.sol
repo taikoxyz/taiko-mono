@@ -231,13 +231,14 @@ abstract contract TaikoL1TestBase is TestBase {
 
         if (tier == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
             address newPubKey = vm.addr(variablePKey + 1);
-            
-            bytes memory sgxProof =
-                bytes.concat(bytes20(newPubKey), signature);
 
+            bytes memory signature =
+                createSgxSignatureProof(evidence, newPubKey, prover);
+
+            bytes memory sgxProof = bytes.concat(bytes20(newPubKey), signature);
             // Concatenate SGX and ZK (in this order)
             evidence.proof = bytes.concat(sgxProof, evidence.proof);
-            
+
             variablePKey += 1;
         }
 
