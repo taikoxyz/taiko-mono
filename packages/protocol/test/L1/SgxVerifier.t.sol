@@ -18,10 +18,10 @@ contract SgxVerifier is TaikoL1TestBase {
 
     function test_addToRegistryByOwner() external {
         address[] memory trustedInstances = new address[](3);
-        trustedInstances[0] = SGX_X_0;
+        trustedInstances[0] = SGX_X_1;
         trustedInstances[1] = SGX_Y;
         trustedInstances[2] = SGX_Z;
-        sv.addToRegistryByOwner(trustedInstances);
+        sv.registerInstance(trustedInstances);
     }
 
     function test_addToRegistryByOwner_WithoutOwnerRole() external {
@@ -32,7 +32,7 @@ contract SgxVerifier is TaikoL1TestBase {
 
         vm.expectRevert();
         vm.prank(Bob, Bob);
-        sv.addToRegistryByOwner(trustedInstances);
+        sv.registerInstance(trustedInstances);
     }
 
     function test_addToRegistryBySgxInstance() external {
@@ -44,25 +44,7 @@ contract SgxVerifier is TaikoL1TestBase {
             createAddRegistrySignature(SGX_X_1, trustedInstances, 0x4);
 
         vm.prank(Bob, Bob);
-        sv.addToRegistryBySgxInstance(0, SGX_X_1, trustedInstances, signature);
-    }
-
-    function test_addToRegistryBySgxInstance_with_correct_signature_but_incorrect_instanceid(
-    )
-        external
-    {
-        address[] memory trustedInstances = new address[](2);
-        trustedInstances[0] = SGX_Y;
-        trustedInstances[1] = SGX_Z;
-
-        bytes memory signature =
-            createAddRegistrySignature(SGX_X_1, trustedInstances, 0x4);
-
-        vm.expectRevert(
-            SGXVerifier.SGX_NOT_VALID_SIGNER_OR_ID_MISMATCH.selector
-        );
-        vm.prank(Bob, Bob);
-        sv.addToRegistryBySgxInstance(1, SGX_X_1, trustedInstances, signature);
+        sv.registerBySgxInstance(SGX_X_1, trustedInstances, signature);
     }
 
     function createAddRegistrySignature(
@@ -74,7 +56,9 @@ contract SgxVerifier is TaikoL1TestBase {
         pure
         returns (bytes memory signature)
     {
-        bytes32 digest = keccak256(abi.encode(newAddress, trustedInstances));
+        bytes32 digest = keccak256(
+            abi.encode("REGISTER_SGX_INSTANCE", newAddress, trustedInstances)
+        );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privKey, digest);
         signature = abi.encodePacked(r, s, v);
     }

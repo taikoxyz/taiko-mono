@@ -72,9 +72,10 @@ abstract contract TaikoL1TestBase is TestBase {
 
         sv = new SGXVerifier();
         sv.init(address(addressManager));
-        address[] memory initSgxInstances = new address[](1);
+        address[] memory initSgxInstances = new address[](2);
         initSgxInstances[0] = SGX_X_0;
-        sv.addToRegistryByOwner(initSgxInstances);
+        initSgxInstances[1] = SGX_VARIANT;
+        sv.registerInstance(initSgxInstances);
 
         gv = new GuardianVerifier();
         gv.init(address(addressManager));
@@ -214,22 +215,17 @@ abstract contract TaikoL1TestBase is TestBase {
         );
 
         if (tier == LibTiers.TIER_SGX) {
-            address newPubKey;
+            address newPubKey = vm.addr(variablePKey + 1);
             // Keep changing the pub key associated with an instance to avoid
             // attacks,
             // obviously just a mock due to 2 addresses changing all the time.
-            (newPubKey,) = sv.sgxRegistry(0);
-            if (newPubKey == SGX_X_0) {
-                newPubKey = SGX_X_1;
-            } else {
-                newPubKey = SGX_X_0;
-            }
 
             bytes memory signature =
-                createSgxSignature(evidence, newPubKey, prover);
+                createSgxSignatureProof(evidence, newPubKey, prover);
             // Id is 0 by default, we using the first instance
-            evidence.proof =
-                bytes.concat(bytes2(0), bytes20(newPubKey), signature);
+            evidence.proof = bytes.concat(bytes20(newPubKey), signature);
+
+            variablePKey += 1;
         }
 
         if (tier == LibTiers.TIER_GUARDIAN) {
@@ -293,7 +289,7 @@ abstract contract TaikoL1TestBase is TestBase {
         signature = abi.encodePacked(r, s, v);
     }
 
-    function createSgxSignature(
+    function createSgxSignatureProof(
         TaikoData.BlockEvidence memory evidence,
         address newPubKey,
         address prover
@@ -313,14 +309,7 @@ abstract contract TaikoL1TestBase is TestBase {
                 newPubKey
             )
         );
-        uint256 signerPrivateKey;
-
-        // In the test suite these are the 3 which acts as provers
-        if (SGX_X_0 == newPubKey) {
-            signerPrivateKey = 0x5;
-        } else if (SGX_X_1 == newPubKey) {
-            signerPrivateKey = 0x4;
-        }
+        uint256 signerPrivateKey = variablePKey;
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, digest);
         signature = abi.encodePacked(r, s, v);
