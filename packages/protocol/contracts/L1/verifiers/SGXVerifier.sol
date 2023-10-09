@@ -112,6 +112,10 @@ contract SGXVerifier is EssentialContract, IVerifier {
         _replaceInstance(oldInstance, newInstance);
     }
 
+    function isInstanceValid(address instance) public view returns (bool) {
+        return instances[instance] + INSTANCE_EXPIRY > block.timestamp;
+    }
+
     function getSignedHash(
         TaikoData.BlockEvidence memory evidence,
         address prover,
@@ -132,10 +136,6 @@ contract SGXVerifier is EssentialContract, IVerifier {
                 newAddress
             )
         );
-    }
-
-    function isInstanceValid(address instance) public view returns (bool) {
-        return instances[instance] + INSTANCE_EXPIRY > block.timestamp;
     }
 
     function _replaceInstance(
