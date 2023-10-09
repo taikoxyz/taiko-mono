@@ -28,8 +28,6 @@ contract SgxAndZkVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        // blockId is unused now, but can be used later when supporting
-        // different types of proofs.
         uint64 blockId,
         address prover,
         bool isContesting,
