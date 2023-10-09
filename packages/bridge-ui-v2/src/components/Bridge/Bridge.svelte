@@ -351,6 +351,7 @@
     scanned = false;
     isOwnerOfAllToken = false;
     foundNFTs = [];
+    selectedNFT = [];
   };
 
   /**
@@ -449,7 +450,7 @@
       contractAddress &&
       $destinationChain &&
       isOwnerOfAllToken
-    : selectedNFT.length > 0 && $destinationChain;
+    : selectedNFT.length > 0 && $destinationChain && scanned;
 
   $: canScan = $account?.isConnected && $network?.id && $destinationChain && !scanning;
 
@@ -581,7 +582,15 @@
           <div class="f-between-center gap-4">
             <div class="f-col">
               <p>Contract: {contractAddress}</p>
-              <p>IDs: {nftIdArray.join(', ')}</p>
+              {#each selectedNFT as nft}
+                <p>Name: {nft.name}</p>
+                <p>Type: {nft.type}</p>
+                <p>ID: {nft.tokenId}</p>
+                <p>URI: {nft.uri}</p>
+                <p>Balance: {nft.balance}</p>
+              {/each}
+
+              <!-- <p>IDs: {nftIdArray.join(', ')}</p> -->
             </div>
           </div>
           <!-- CONFIRM STEP -->

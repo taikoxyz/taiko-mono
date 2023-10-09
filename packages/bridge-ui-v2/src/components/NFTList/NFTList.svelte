@@ -1,15 +1,15 @@
 <script lang="ts">
   import type { Address } from 'viem';
 
-  import { PUBLIC_NFT_BATCH_TRANSFERS_EANABLED } from '$env/static/public';
-  import { type NFT,TokenType } from '$libs/token';
+  import { PUBLIC_NFT_BATCH_TRANSFERS_ENABLED } from '$env/static/public';
+  import { type NFT, TokenType } from '$libs/token';
   import { fetchNFTImage } from '$libs/token/fetchNFTImage';
 
   export let nfts: NFT[];
   export let chainId: number | undefined;
   export let selectedNFT: NFT[] | null = [];
 
-  const multiSelectEnabled = (PUBLIC_NFT_BATCH_TRANSFERS_EANABLED || 'false') === 'true';
+  const multiSelectEnabled = (PUBLIC_NFT_BATCH_TRANSFERS_ENABLED || 'false') === 'true';
 
   let allChecked = false;
   let checkedAddresses: Map<string, boolean> = new Map();
