@@ -6,7 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-import { LibFixedPointMath } from "../thirdparty/LibFixedPointMath.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { Proxied } from "../common/Proxied.sol";
@@ -158,17 +157,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         (basefee,) = _calc1559BaseFee(syncedL1Height, parentGasUsed);
     }
 
-    /// @notice Returns EIP1559 related configurations
-    function get1559Params()
-        public
-        pure
-        virtual
-        returns (uint64 gasTarget, uint256 adjustmentQuotient)
-    {
-        gasTarget = 15 * 1e6 * 10; // 10x Ethereum gas target
-        adjustmentQuotient = 8;
-    }
-
     /// @notice Retrieves the block hash for the given L2 block number.
     /// @param blockId The L2 block number to retrieve the block hash for.
     /// @return The block hash for the specified L2 block id, or zero if the
@@ -182,6 +170,17 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         } else {
             return _l2Hashes[blockId];
         }
+    }
+    /// @notice Returns EIP1559 related configurations
+
+    function get1559Params()
+        public
+        pure
+        virtual
+        returns (uint64 gasTarget, uint256 adjustmentQuotient)
+    {
+        gasTarget = 15 * 1e6 * 10; // 10x Ethereum gas target
+        adjustmentQuotient = 8;
     }
 
     function _calcPublicInputHash(uint256 blockId)

@@ -99,27 +99,46 @@ library LibProposing {
 
         // The block reward doesn't undergo automatic halving; instead, we
         // depend on Taiko DAO to make necessary adjustments to the rewards.
-        uint256 reward;
+        uint128 reward;
 
-        if (config.proposerRewardPerSecond > 0 && config.proposerRewardMax > 0)
-        {
-            // Unchecked is safe as block.timestamp is always greater than
-            // block.proposedAt (proposed in the past)
+        // Reward block proposers with Taiko tokens to encourage chain adoption
+        // and ensure liveness.
+        // Rewards are issued only if `proposerRewardPerL1Block` and
+        // `proposerRewardMax` are set to nonzero values in the configuration.
+        if (config.proposerRewardPerL1Block != 0) {
             unchecked {
-                uint256 blockTime = block.timestamp
-                    - state.blocks[(b.numBlocks - 1) % config.blockRingBufferSize]
-                        .proposedAt;
+                // Mint additional tokens into the reward pool as L1 block
+                // numbers increase, to incentivize future proposers.
+                if (
+                    state.slotC.lastProposedHeight != 0
+                        && state.slotC.lastProposedHeight < block.number
+                ) {
+                    uint256 extraRewardMinted = (
+                        block.number - state.slotC.lastProposedHeight
+                    ) * config.proposerRewardPerL1Block;
 
-                if (blockTime > 0) {
-                    reward = (config.proposerRewardPerSecond * blockTime).min(
-                        config.proposerRewardMax
+                    // Reward pool is capped to `proposerRewardMax`
+                    state.slotC.accumulatedReward = uint128(
+                        (extraRewardMinted + state.slotC.accumulatedReward).min(
+                            config.proposerRewardMax
+                        )
                     );
+                }
+
+                if (state.slotC.accumulatedReward != 0) {
+                    // The current proposer receives a fixed percentage of the
+                    // reward pool.
+                    reward = state.slotC.accumulatedReward / 100
+                        * config.proposerRewardPoolPctg;
+
+                    state.slotC.accumulatedReward -= reward;
 
                     // Reward must be minted
                     LibTaikoToken.creditToken(
                         state, resolver, msg.sender, reward, true
                     );
                 }
+                state.slotC.lastProposedHeight = uint64(block.number);
             }
         }
 

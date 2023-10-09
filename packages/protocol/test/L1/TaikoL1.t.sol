@@ -21,11 +21,11 @@ contract TaikoL1_NoCooldown is TaikoL1 {
     {
         config = TaikoL1.getConfig();
 
-        config.blockMaxVerificationsPerTx = 0;
+        config.maxBlocksToVerifyPerProposal = 0;
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 12;
         config.livenessBond = 1e18; // 1 Taiko token
-        config.proposerRewardPerSecond = 1e15; // 0.001 Taiko token
+        config.proposerRewardPerL1Block = 1e15; // 0.001 Taiko token
     }
 }
 

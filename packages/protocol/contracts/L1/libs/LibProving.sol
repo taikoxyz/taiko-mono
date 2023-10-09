@@ -60,6 +60,7 @@ library LibProving {
         TaikoData.BlockEvidence memory evidence
     )
         internal
+        returns (uint8 maxBlocksToVerify)
     {
         // Make sure parentHash is not zero
         if (evidence.parentHash == 0) revert L1_INVALID_EVIDENCE();
@@ -199,6 +200,8 @@ library LibProving {
                 });
             }
         }
+
+        maxBlocksToVerify = tier.maxBlocksToVerify;
 
         if (tier.contestBond == 0) {
             // When contestBond is zero for the current tier, it signifies

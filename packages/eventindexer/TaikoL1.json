@@ -1304,7 +1304,7 @@
           },
           {
             "internalType": "uint64",
-            "name": "blockMaxVerificationsPerTx",
+            "name": "maxBlocksToVerifyPerProposal",
             "type": "uint64"
           },
           {
