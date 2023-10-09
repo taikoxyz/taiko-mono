@@ -38,7 +38,7 @@ This block has been proven by someone else, but it's not verified yet, you can i
 
 The proposer is not able to connect with a prover. By default, the prover endpoint is local so check your local prover first.
 If you are not running a local prover, select another prover from the [prover market](/docs/reference/prover-market-page). 
-You can connect to multiple provers at the same time in case a selected prover hits its max capacity.
+You can connect to multiple provers at the same time in case a selected prover hits its max capacity. Just add the addresses of any provers from [prover market](/docs/reference/prover-market-page) in your .env file. Type nano .env in your command line and add more provers addresses in the PROVER_ENDPOINTS field so it looks like PROVER_ENDPOINTS=http://taiko_client_prover_relayer:9876,"URL OF ADDITIONAL PROVER FROM MARKET PLACE 1","URL OF ADDITIONAL PROVER FROM MARKET PLACE 2"... Write out, exit and restart your node. 
 Note: you may need to switch provers if your selected prover hits its max capacity. 
 
 #### `Fatal: Failed to register the Ethereum service: database contains incompatible genesis`
