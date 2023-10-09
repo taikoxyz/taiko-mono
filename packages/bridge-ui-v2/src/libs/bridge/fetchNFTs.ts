@@ -2,14 +2,14 @@ import type { Address } from 'viem';
 
 import type { ChainID } from '$libs/chain';
 import { eventIndexerApiServices } from '$libs/eventIndexer/initEventIndexer';
-import { type Token, TokenType } from '$libs/token';
-import { getTokenInfoFromAddress } from '$libs/token/getTokenInfo';
+import { type NFT, TokenType } from '$libs/token';
+import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
 import { getLogger } from '$libs/util/logger';
 
 const log = getLogger('bridge:fetchNFTs');
 
-function deduplicateNFTs(nftArrays: Token[][]): Token[] {
-  const nftMap: Map<string, Token> = new Map();
+function deduplicateNFTs(nftArrays: NFT[][]): NFT[] {
+  const nftMap: Map<string, NFT> = new Map();
   nftArrays.flat().forEach((nft) => {
     Object.entries(nft.addresses).forEach(([chainID, address]) => {
       const uniqueKey = `${address}-${chainID}`;
@@ -21,41 +21,35 @@ function deduplicateNFTs(nftArrays: Token[][]): Token[] {
   return Array.from(nftMap.values());
 }
 
-export async function fetchNFTs(
-  userAddress: Address,
-  chainID: ChainID,
-): Promise<{ nfts: Token[]; error: Error | null }> {
+export async function fetchNFTs(userAddress: Address, chainID: ChainID): Promise<{ nfts: NFT[]; error: Error | null }> {
   let error: Error | null = null;
 
   // Fetch from all indexers
-  const indexerPromises: Promise<Token[]>[] = eventIndexerApiServices.map(async (eventIndexerApiService) => {
-    const { nfts: result = [] } = await eventIndexerApiService.getAllNftsByAddressFromAPI(userAddress, chainID, {
+  const indexerPromises: Promise<NFT[]>[] = eventIndexerApiServices.map(async (eventIndexerApiService) => {
+    const { items: result } = await eventIndexerApiService.getAllNftsByAddressFromAPI(userAddress, chainID, {
       page: 0,
       size: 100,
     });
-    const nftsPromises: Promise<Token>[] = result.map(async (nft) => {
-      const type: TokenType = TokenType[nft.ContractType as keyof typeof TokenType];
-      const { name, symbol, decimals } = await getTokenInfoFromAddress(nft.ContractAddress);
-      return {
-        id: nft.TokenID,
-        chainID: nft.ChainID,
-        addresses: {
-          [nft.ChainID]: nft.ContractAddress,
-        },
+
+    const nftsPromises: Promise<NFT>[] = result.map(async (nft) => {
+      const type: TokenType = TokenType[nft.contractType as keyof typeof TokenType];
+      //TODO: tokenID should not be cast to number, but the ABI only allows for numbers, so it would fail either way if it wasn't a number
+      return (await getTokenWithInfoFromAddress({
+        contractAddress: nft.contractAddress,
+        srcChainId: Number(chainID),
+        owner: userAddress,
+        tokenId: Number(nft.tokenID),
         type,
-        name,
-        symbol,
-        decimals,
-      };
+      })) as NFT;
     });
     return await Promise.all(nftsPromises);
   });
 
-  let nftArrays: Token[][] = [];
+  let nftArrays: NFT[][] = [];
   try {
     nftArrays = await Promise.all(indexerPromises);
   } catch (e) {
-    log('error fetching transactions from relayers', e);
+    log('error fetching nfts from indexer services', e);
     error = e as Error;
   }
 

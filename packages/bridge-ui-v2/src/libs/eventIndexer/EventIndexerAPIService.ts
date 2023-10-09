@@ -35,6 +35,7 @@ export class EventIndexerAPIService implements EventIndexerAPI {
       return response.data;
     } catch (error) {
       console.error(error);
+      log('Failed to fetch from API', error);
       throw new Error('could not fetch transactions from API', {
         cause: error,
       });
