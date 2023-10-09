@@ -22,7 +22,7 @@ import { SafeERC20Upgradeable } from
 contract EtherVault is EssentialContract, BridgeErrors {
     using LibAddress for address;
 
-    mapping(address addr => bool isAuthorized) private _authorizedAddrs; // Authorized
+    mapping(address addr => bool isAuthorized) public authorizedAddrs; // Authorized
         // addresses
     uint256[49] private __gap;
 
@@ -85,17 +85,17 @@ contract EtherVault is EssentialContract, BridgeErrors {
     /// @param addr Address to set the authorized status of.
     /// @param authorized Authorized status to set.
     function authorize(address addr, bool authorized) public onlyOwner {
-        if (addr == address(0) || _authorizedAddrs[addr] == authorized) {
+        if (addr == address(0) || authorizedAddrs[addr] == authorized) {
             revert B_EV_PARAM();
         }
-        _authorizedAddrs[addr] = authorized;
+        authorizedAddrs[addr] = authorized;
         emit Authorized(addr, authorized);
     }
 
     /// @notice Gets the authorized status of an address.
     /// @param addr Address to get the authorized status of.
     function isAuthorized(address addr) public view returns (bool) {
-        return _authorizedAddrs[addr];
+        return authorizedAddrs[addr];
     }
 }
 
