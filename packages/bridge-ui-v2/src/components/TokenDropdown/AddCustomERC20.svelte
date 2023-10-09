@@ -8,6 +8,7 @@
   import { FlatAlert } from '$components/Alert';
   import AddressInput from '$components/Bridge/AddressInput/AddressInput.svelte';
   import { Button } from '$components/Button';
+  import { CloseButton } from '$components/CloseButton';
   import { Icon } from '$components/Icon';
   import Erc20 from '$components/Icon/ERC20.svelte';
   import { Spinner } from '$components/Spinner';
@@ -163,9 +164,7 @@
 
 <dialog id={dialogId} class="modal modal-bottom md:modal-middle" class:modal-open={modalOpen}>
   <div class="modal-box relative px-6 py-[35px] md:rounded-[20px] bg-neutral-background">
-    <button class="absolute right-6 top-[35px] z-50" on:click={closeModal}>
-      <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
-    </button>
+    <CloseButton onClick={closeModal} />
 
     <h3 class="title-body-bold mb-7">{$t('token_dropdown.custom_token.title')}</h3>
 

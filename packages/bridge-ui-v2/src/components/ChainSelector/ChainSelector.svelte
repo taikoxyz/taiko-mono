@@ -6,7 +6,7 @@
   import { SwitchChainError, UserRejectedRequestError } from 'viem';
 
   import { chainConfig } from '$chainConfig';
-  import { Icon } from '$components/Icon';
+  import { CloseButton } from '$components/CloseButton';
   import { LoadingMask } from '$components/LoadingMask';
   import { warningToast } from '$components/NotificationToast';
   import { chains } from '$libs/chain';
@@ -148,9 +148,7 @@
         <LoadingMask spinnerClass="border-white" text={$t('messages.network.switching')} />
       {/if}
 
-      <button class="absolute right-6 top-[35px] md:top-[20px] z-50" on:click={closeModal}>
-        <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
-      </button>
+      <CloseButton onClick={closeModal} />
       <div class="w-full">
         <h3 class="title-body-bold mb-[20px]">
           {#if switchWallet}

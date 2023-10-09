@@ -4,7 +4,7 @@
   import type { Address } from 'viem';
 
   import { Button } from '$components/Button';
-  import { Icon } from '$components/Icon';
+  import { CloseButton } from '$components/CloseButton';
   import { Tooltip } from '$components/Tooltip';
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { uid } from '$libs/util/uid';
@@ -109,9 +109,7 @@
 
   <dialog id={dialogId} class="modal" class:modal-open={modalOpen}>
     <div class="modal-box relative px-6 md:rounded-[20px] bg-neutral-background">
-      <button class="absolute right-6 z-50" on:click={closeModal}>
-        <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
-      </button>
+      <CloseButton onClick={closeModal} />
 
       <div class="w-full">
         <h3 class="title-body-bold mb-7">{$t('recipient.title')}</h3>
