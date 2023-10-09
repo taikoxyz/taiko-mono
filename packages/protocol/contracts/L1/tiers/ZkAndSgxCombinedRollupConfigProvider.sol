@@ -76,7 +76,7 @@ contract ZkAndSgxCombinedRollupConfigProvider is ITierProvider {
 
     function getMinTier(uint256 rand) public pure override returns (uint16) {
         if (rand % 100 == 0) return LibTiers.TIER_SGX_AND_PSE_ZKEVM;
-        else if (rand % 25 == 0) return LibTiers.TIER_SGX;
+        else if (rand % 10 == 0) return LibTiers.TIER_SGX;
         else return LibTiers.TIER_OPTIMISTIC;
     }
 }
