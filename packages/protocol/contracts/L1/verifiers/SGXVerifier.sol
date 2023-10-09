@@ -18,34 +18,22 @@ import { IVerifier } from "./IVerifier.sol";
 
 /// @title SGXVerifier
 contract SGXVerifier is EssentialContract, IVerifier {
-    uint256 public constant EXPIRY = 180 days;
+    using ECDSAUpgradeable for bytes32;
 
-    event InstanceAdded(
-        uint256 indexed instanceId, address indexed instanceInitAddress
+    uint256 public constant INSTANCE_EXPIRY = 180 days;
+
+    mapping(address instance => uint256 registeredAt) public instances;
+
+    uint256[49] private __gap;
+
+    event InstanceRegistered(
+        address indexed replaced, address indexed instance, uint256 registeredAt
     );
 
-    struct InstanceData {
-        address activeAddress;
-        uint256 setAt; // We can calculate if expired
-    }
-
-    /// @dev For gas savings, we shall assign each SGX instance with an id
-    /// so that when we need to set a new pub key, just write storage once.
-    uint256 public uniqueVerifiers;
-
-    /// @dev One SGX instance is uniquely identified (on-chain) by it's ECDSA
-    /// public key (or rather ethereum address). Once that address is used (by
-    /// proof verification) it has to be overwritten by a new one (representing
-    /// the same instance). This is due to side-channel protection. Also this
-    /// public key shall expire after some time. (For now it is a long enough 6
-    /// months setting.)
-    mapping(uint256 instanceId => InstanceData sgxInstance) public sgxRegistry;
-
-    uint256[48] private __gap;
-
-    error SGX_ADDRESS_EXPIRED();
+    error SGX_INVALID_AUTH();
+    error SGX_INVALID_INSTANCE();
     error SGX_INVALID_PROOF_SIZE();
-    error SGX_NOT_VALID_SIGNER_OR_ID_MISMATCH();
+    error SGX_INSTANCE_REGISTERED();
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
@@ -55,47 +43,48 @@ contract SGXVerifier is EssentialContract, IVerifier {
 
     /// @notice Adds trusted SGX instances to the registry.
     /// @param trustedInstances The address array of trusted SGX instances.
-    function addToRegistryByOwner(address[] memory trustedInstances)
+    function registerInstance(address[] memory trustedInstances)
         external
         onlyOwner
     {
-        addTrustedInstances(trustedInstances);
+        for (uint256 i; i < trustedInstances.length; i++) {
+            _replaceInstance(address(0), trustedInstances[i]);
+        }
+    }
+
+    /// @notice Removes trusted SGX instances from the registry.
+    /// @param oldInstance The address of a compromised SGX instance.
+    function invalidateInstance(address oldInstance) external onlyOwner {
+        instances[oldInstance] = 1;
     }
 
     /// @notice Adds trusted SGX instances to the registry by another SGX
     /// instance.
-    /// @param instanceId The id of the SGX instance who is adding new members.
     /// @param newAddress The new address of the instance.
     /// @param trustedInstances The address array of trusted SGX instances.
     /// @param signature The signature proving authenticity.
-    function addToRegistryBySgxInstance(
-        uint256 instanceId,
+    function registerBySgxInstance(
         address newAddress,
         address[] memory trustedInstances,
         bytes memory signature
     )
         external
     {
-        bytes32 signedHash = keccak256(abi.encode(newAddress, trustedInstances));
+        bytes32 signedHash = keccak256(
+            abi.encode("REGISTER_SGX_INSTANCE", newAddress, trustedInstances)
+        );
         // Would throw in case invalid
-        address signer = ECDSAUpgradeable.recover(signedHash, signature);
+        address signer = signedHash.recover(signature);
 
-        if (!isValidInstance(instanceId, signer)) {
-            revert SGX_NOT_VALID_SIGNER_OR_ID_MISMATCH();
+        for (uint256 i; i < trustedInstances.length; i++) {
+            _replaceInstance(address(0), trustedInstances[i]);
         }
 
-        // Allow user to add
-        addTrustedInstances(trustedInstances);
-
-        // Invalidate current key, because it cannot be used again (side-channel
-        // attacks).
-        sgxRegistry[instanceId] = InstanceData(newAddress, block.timestamp);
+        _replaceInstance(signer, newAddress);
     }
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        // blockId is unused now, but can be used later when supporting
-        // different types of proofs.
         uint64,
         address prover,
         bool isContesting,
@@ -106,35 +95,25 @@ contract SGXVerifier is EssentialContract, IVerifier {
         // Do not run proof verification to contest an existing proof
         if (isContesting) return;
 
-        // Size is: 87 bytes
-        // 2 bytes + 20 bytes + 65 bytes = 87
-        if (evidence.proof.length != 87) {
+        // Size is: 85 bytes
+        // 20 bytes + 65 bytes (signature) = 85
+        if (evidence.proof.length != 85) {
             revert SGX_INVALID_PROOF_SIZE();
         }
 
-        uint256 id = uint256(bytes32(LibBytesUtils.slice(evidence.proof, 0, 2)));
-        address newAddress =
-            address(bytes20(LibBytesUtils.slice(evidence.proof, 2, 20)));
-        bytes memory signature = LibBytesUtils.slice(
-            evidence.proof, 22, (evidence.proof.length - 22)
-        );
+        address newInstance =
+            address(bytes20(LibBytesUtils.slice(evidence.proof, 0, 20)));
 
-        if (sgxRegistry[id].setAt + EXPIRY < block.timestamp) {
-            revert SGX_ADDRESS_EXPIRED();
-        }
+        bytes memory signature = LibBytesUtils.slice(evidence.proof, 20);
 
-        bytes32 signedInstance = getSignedHash(evidence, prover, newAddress);
+        address oldInstance =
+            getSignedHash(evidence, prover, newInstance).recover(signature);
 
-        // Would throw in case invalid
-        address signer = ECDSAUpgradeable.recover(signedInstance, signature);
+        _replaceInstance(oldInstance, newInstance);
+    }
 
-        if (!isValidInstance(id, signer)) {
-            revert SGX_NOT_VALID_SIGNER_OR_ID_MISMATCH();
-        }
-
-        // Invalidate current key, because it cannot be used again (side-channel
-        // attacks).
-        sgxRegistry[id] = InstanceData(newAddress, block.timestamp);
+    function isInstanceValid(address instance) public view returns (bool) {
+        return instances[instance] + INSTANCE_EXPIRY > block.timestamp;
     }
 
     function getSignedHash(
@@ -159,26 +138,22 @@ contract SGXVerifier is EssentialContract, IVerifier {
         );
     }
 
-    function isValidInstance(
-        uint256 instanceId,
-        address instance
+    function _replaceInstance(
+        address oldInstance,
+        address newInstance
     )
-        internal
-        view
-        returns (bool)
+        private
     {
-        return sgxRegistry[instanceId].activeAddress == instance;
-    }
-
-    function addTrustedInstances(address[] memory trustedInstances) internal {
-        for (uint256 i; i < trustedInstances.length; i++) {
-            sgxRegistry[uniqueVerifiers] =
-                InstanceData(trustedInstances[i], block.timestamp);
-
-            emit InstanceAdded(uniqueVerifiers, trustedInstances[i]);
-
-            uniqueVerifiers++;
+        if (oldInstance != address(0)) {
+            if (!isInstanceValid(oldInstance)) revert SGX_INVALID_AUTH();
+            instances[oldInstance] = 1;
         }
+
+        if (newInstance == address(0)) revert SGX_INVALID_INSTANCE();
+        if (instances[newInstance] != 0) revert SGX_INSTANCE_REGISTERED();
+
+        instances[newInstance] = block.timestamp;
+        emit InstanceRegistered(oldInstance, newInstance, block.timestamp);
     }
 }
 

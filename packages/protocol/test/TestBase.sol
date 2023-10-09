@@ -7,6 +7,7 @@ import { ICrossChainSync } from "../contracts/common/ICrossChainSync.sol";
 
 abstract contract TestBase is Test {
     uint256 private _seed = 0x12345678;
+    uint256 internal variablePKey = 0x6;
 
     function getRandomAddress() internal returns (address) {
         bytes32 randomHash = keccak256(abi.encodePacked("address", _seed++));
@@ -47,12 +48,11 @@ abstract contract TestBase is Test {
     address internal Xavier = getRandomAddress();
     address internal Yasmine = getRandomAddress();
     address internal Zachary = getRandomAddress();
-    address internal SGX_X_0 = vm.addr(0x4); //First (and every %2 == 0) pub key
-        // of instance X
-    address internal SGX_X_1 = vm.addr(0x5); //Second (and every %2 == 1) pub
-        // key of instance X
+    address internal SGX_X_0 = vm.addr(0x4);
+    address internal SGX_X_1 = vm.addr(0x5);
     address internal SGX_Y = getRandomAddress();
     address internal SGX_Z = getRandomAddress();
+    address internal SGX_VARIANT = vm.addr(variablePKey);
 }
 
 contract BadReceiver {
