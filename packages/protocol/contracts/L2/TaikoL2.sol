@@ -132,9 +132,12 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         address tt = resolve("taiko", true);
         if (tt != address(0) && avgGasUsed != 0 && parentProposer != address(0))
         {
-            // TODO(daniel): correct the calculation
+            // TODO(daniel): correct the calculation below - it is not right but
+            // good enough to show the idea.
             // TODO(daniel): adjust anchor gas cost
-            uint256 reward = parentRewardBase * parentGasUsed / avgGasUsed / 2;
+            uint256 anchorTxCost = 100_000;
+            uint256 reward = parentRewardBase * (parentGasUsed - anchorTxCost)
+                / (avgGasUsed - anchorTxCost) / 2;
             TaikoToken(tt).mint(parentProposer, reward);
         }
 
