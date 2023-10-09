@@ -9,7 +9,8 @@
     "title": "🌉 Bridge tokens"
   },
   "swap-tokens": {
-    "title": "🔄 Swap tokens"
+    "title": "🔄 Swap tokens",
+    "display": "hidden"
   },
   "deploy-a-contract": {
     "title": "🚀 Deploy a contract"
