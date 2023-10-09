@@ -333,7 +333,7 @@ contract TaikoL1 is
     }
 
     function isConfigValid() public pure returns (bool) {
-        return LibVerifying.validateConfig(getConfig());
+        return LibVerifying.isConfigValid(getConfig());
     }
 }
 

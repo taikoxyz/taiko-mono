@@ -43,7 +43,7 @@ library LibVerifying {
     )
         internal
     {
-        validateConfig(config);
+        if (!isConfigValid(config)) revert L1_INVALID_CONFIG();
 
         // Init state
         state.slotA.genesisHeight = uint64(block.number);
@@ -223,7 +223,7 @@ library LibVerifying {
         }
     }
 
-    function validateConfig(TaikoData.Config memory config)
+    function isConfigValid(TaikoData.Config memory config)
         internal
         pure
         returns (bool isValid)
@@ -247,13 +247,13 @@ library LibVerifying {
                 || config.ethDepositMaxFee >= type(uint96).max
                 || config.ethDepositMaxFee
                     >= type(uint96).max / config.ethDepositMaxCountPerBlock
-        ) revert L1_INVALID_CONFIG();
+        ) return false;
 
         if (config.proposerRewardPerL1Block != 0) {
             if (
                 config.proposerRewardMax == 0
                     || config.proposerRewardPoolPctg == 0
-            ) revert L1_INVALID_CONFIG();
+            ) return false;
         }
 
         return true;
