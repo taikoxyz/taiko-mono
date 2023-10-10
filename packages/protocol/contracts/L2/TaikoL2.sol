@@ -49,18 +49,17 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     // A hash to check the integrity of public inputs.
     bytes32 public publicInputHash; // slot 3
+
     uint128 public gasExcess; // slot 4
+    uint128 public accumulatedReward;
+
+    address public parentProposer; // slot 5
     uint64 public latestSyncedL1Height;
+    uint32 public avgGasUsed;
 
-    uint32 avgGasUsed;
-    address parentProposer;
-    uint128 accumulatedReward;
+    uint256[145] private __gap;
 
-    uint256[146] private __gap;
-
-    // Captures all block variables mentioned in
-    // https://docs.soliditylang.org/en/v0.8.20/units-and-global-variables.html
-    event Anchored(bytes32 parentHash, uint128 gasExcess);
+    event Anchored(bytes32 parentHash, uint128 gasExcess, uint128 blockReward);
 
     error L2_BASEFEE_MISMATCH();
     error L2_INVALID_CHAIN_ID();
@@ -99,8 +98,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     /// @param l1Hash The latest L1 block hash when this block was proposed.
     /// @param l1SignalRoot The latest value of the L1 signal service storage
     /// root.
-    /// @param l1Height The latest L1 block height when this block was
-    /// proposed.
+    /// @param l1Height The latest L1 block height when this block was proposed.
     /// @param parentGasUsed The gas used in the parent block.
     function anchor(
         bytes32 l1Hash,
@@ -112,7 +110,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     {
         if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
 
-        // verify ancestor hashes
+        // Verify ancestor hashes
         (bytes32 publicInputHashOld, bytes32 publicInputHashNew) =
             _calcPublicInputHash(block.number - 1);
         if (publicInputHash != publicInputHashOld) {
@@ -128,8 +126,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             revert L2_BASEFEE_MISMATCH();
         }
 
-        _rewardParentBlock(config, l1Height, parentGasUsed);
+        // Reward block reward in Taiko token to the parent block's proposer
+        uint128 blockReward =
+            _rewardParentBlock(config, l1Height, parentGasUsed);
 
+        // Update state variables
         _l2Hashes[block.number - 1] = blockhash(block.number - 1);
         _l1VerifiedBlocks[l1Height] = VerifiedBlock(l1Hash, l1SignalRoot);
 
@@ -137,84 +138,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         latestSyncedL1Height = l1Height;
         parentProposer = block.coinbase;
 
+        // Emit events
         emit CrossChainSynced(l1Height, l1Hash, l1SignalRoot);
-        emit Anchored(blockhash(block.number - 1), gasExcess);
-    }
-
-    function _rewardParentBlock(
-        Config memory config,
-        uint64 l1Height,
-        uint32 parentGasUsed
-    )
-        private
-    {
-        if (
-            config.blockRewardPerL1Block == 0 || config.blockRewardPoolMax == 0
-                || config.blockRewardPoolPctg == 0 || latestSyncedL1Height == 0
-                || accumulatedReward == 0
-        ) return;
-
-        //     In situations where the network lacks sufficient transactions for
-        // the
-        // proposer to profit, they are still obligated to pay the prover the
-        // proving fee, which can be a substantial cost compared to the total L2
-        // transaction fees collected. As a solution, Taiko mints additional
-        // Taiko tokens per second as block rewards. It's important to note that
-        // if multiple blocks are proposed within the same L1 block, only the
-        // first one will receive the block reward.
-
-        // The block reward doesn't undergo automatic halving; instead, we
-        // depend on Taiko DAO to make necessary adjustments to the rewards.
-        // uint96 rewardBase;
-
-        // Reward block proposers with Taiko tokens to encourage chain
-        // adoption and ensure liveness.
-        // Rewards are issued only if `blockRewardPerL1Block` and
-        // `blockRewardPoolMax` are set to nonzero values in the
-        // configuration.
-
-        // Mint additional tokens into the reward pool as L1 block
-        // numbers increase, to incentivize future proposers.
-        if (latestSyncedL1Height < l1Height) {
-            uint256 extraRewardMinted = uint256(l1Height - latestSyncedL1Height)
-                * config.blockRewardPerL1Block;
-
-            // Reward pool is capped to `blockRewardPoolMax`
-            accumulatedReward = uint128(
-                (extraRewardMinted + accumulatedReward).min(
-                    config.blockRewardPoolMax
-                )
-            );
-        }
-
-        if (avgGasUsed == 0) {
-            avgGasUsed = parentGasUsed;
-            return;
-        }
-
-        avgGasUsed = avgGasUsed / 1024 * 1023 + parentGasUsed / 1024;
-
-        if (parentGasUsed <= ANCHOR_GAS) return;
-
-        address tt = resolve("taiko", true);
-        if (tt == address(0)) return;
-        if (parentProposer == address(0)) return;
-
-        // The parent proposer receives a percentage of the reward pool.
-        uint128 maxBlockReward =
-            accumulatedReward / 100 * config.blockRewardPoolPctg;
-
-        uint64 _parentGasUsed = parentGasUsed - ANCHOR_GAS;
-        uint64 _avgGasUsed = avgGasUsed - ANCHOR_GAS;
-
-        uint128 ratio; // = (uint128(_parentGasUsed) * 10000/
-            // _avgGasUsed).min(20000);
-
-        uint128 blockReward = maxBlockReward * ratio / 20_000;
-        accumulatedReward -= blockReward;
-
-        // accumulatedReward -= blockReward;
-        TaikoToken(tt).mint(parentProposer, blockReward);
+        emit Anchored(blockhash(block.number - 1), gasExcess, blockReward);
     }
 
     /// @inheritdoc ICrossChainSync
@@ -276,6 +202,80 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         config.blockRewardPerL1Block = 1e15; // 0.001 Taiko token;
         config.blockRewardPoolMax = 12e18; // 12 Taiko token
         config.blockRewardPoolPctg = 40; // 40%
+    }
+
+    // In situations where the network lacks sufficient transactions for the
+    // proposer to profit, they are still obligated to pay the prover the
+    // proving fee, which can be a substantial cost compared to the total L2
+    // transaction fees collected. As a solution, Taiko mints additional Taiko
+    // tokens per second as block rewards. It's important to note that if
+    // multiple blocks are proposed within the same L1 block, only the first one
+    // will receive the block reward.
+    //
+    // The block reward doesn't undergo automatic halving; instead, we depend on
+    // Taiko DAO to make necessary adjustments to the rewards. uint96
+    // rewardBase;
+    //
+    // Reward block proposers with Taiko tokens to encourage chain adoption and
+    // ensure liveness. Rewards are issued only if `blockRewardPerL1Block` and
+    // `blockRewardPoolMax` are set to nonzero values in the configuration.
+    //
+    // Mint additional tokens into the reward pool as L1 block numbers increase,
+    // to incentivize future proposers.
+    function _rewardParentBlock(
+        Config memory config,
+        uint64 l1Height,
+        uint32 parentGasUsed
+    )
+        private
+        returns (uint128 blockReward)
+    {
+        if (
+            config.blockRewardPerL1Block == 0 || config.blockRewardPoolMax == 0
+                || config.blockRewardPoolPctg == 0 || latestSyncedL1Height == 0
+                || accumulatedReward == 0
+        ) return 0;
+
+        if (latestSyncedL1Height < l1Height) {
+            uint256 extraRewardMinted = uint256(l1Height - latestSyncedL1Height)
+                * config.blockRewardPerL1Block;
+
+            // Reward pool is capped to `blockRewardPoolMax`
+            accumulatedReward = uint128(
+                (extraRewardMinted + accumulatedReward).min(
+                    config.blockRewardPoolMax
+                )
+            );
+        }
+
+        if (avgGasUsed == 0) {
+            avgGasUsed = parentGasUsed;
+            return 0;
+        }
+
+        avgGasUsed = avgGasUsed / 1024 * 1023 + parentGasUsed / 1024;
+
+        if (parentGasUsed <= ANCHOR_GAS || parentProposer == address(0)) {
+            return 0;
+        }
+
+        address tt = resolve("taiko", true);
+        if (tt == address(0)) return 0;
+
+        // The parent proposer receives a percentage of the reward pool.
+        uint128 maxBlockReward =
+            accumulatedReward / 100 * config.blockRewardPoolPctg;
+
+        uint64 _parentGasUsed = parentGasUsed - ANCHOR_GAS;
+        uint64 _avgGasUsed = avgGasUsed - ANCHOR_GAS;
+
+        uint128 ratio; // = (uint128(_parentGasUsed) * 10000/
+            // _avgGasUsed).min(20000);
+
+        blockReward = maxBlockReward * ratio / 20_000;
+        accumulatedReward -= maxBlockReward;
+
+        TaikoToken(tt).mint(parentProposer, blockReward);
     }
 
     function _calcPublicInputHash(uint256 blockId)
