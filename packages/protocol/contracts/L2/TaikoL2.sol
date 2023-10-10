@@ -25,13 +25,16 @@ import { TaikoL2Signer } from "./TaikoL2Signer.sol";
 /// verified L1 block information.
 contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     using LibMath for uint256;
+    using LibMath for uint128;
+
+    uint32 public constant ANCHOR_GAS = 100_000;
 
     struct Config {
         uint64 blockGasTarget;
         uint256 basefeeAdjustmentQuotient;
-        uint256 proposerRewardPerL1Block;
-        uint256 proposerRewardMax;
-        uint256 proposerRewardPoolPctg;
+        uint256 blockRewardPerL1Block;
+        uint128 blockRewardPoolMax;
+        uint8 blockRewardPoolPctg;
     }
 
     struct VerifiedBlock {
@@ -51,6 +54,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     uint32 avgGasUsed;
     address parentProposer;
+    uint128 accumulatedReward;
 
     uint256[146] private __gap;
 
@@ -95,15 +99,14 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     /// @param l1Hash The latest L1 block hash when this block was proposed.
     /// @param l1SignalRoot The latest value of the L1 signal service storage
     /// root.
-    /// @param syncedL1Height The latest L1 block height when this block was
+    /// @param l1Height The latest L1 block height when this block was
     /// proposed.
     /// @param parentGasUsed The gas used in the parent block.
     function anchor(
         bytes32 l1Hash,
         bytes32 l1SignalRoot,
-        uint64 syncedL1Height,
-        uint32 parentGasUsed,
-        uint96 parentRewardBase
+        uint64 l1Height,
+        uint32 parentGasUsed
     )
         external
     {
@@ -115,21 +118,44 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         if (publicInputHash != publicInputHashOld) {
             revert L2_PUBLIC_INPUT_HASH_MISMATCH();
         }
-        publicInputHash = publicInputHashNew;
+
+        Config memory config = getConfig();
 
         // Verify the base fee per gas is correct
         uint256 basefee;
-        (basefee, gasExcess) = _calc1559BaseFee(syncedL1Height, parentGasUsed);
+        (basefee, gasExcess) = _calc1559BaseFee(config, l1Height, parentGasUsed);
         if (block.basefee != basefee) {
             revert L2_BASEFEE_MISMATCH();
         }
 
-        bytes32 parentHash = blockhash(block.number - 1);
-        _l2Hashes[block.number - 1] = parentHash;
-        latestSyncedL1Height = syncedL1Height;
-        _l1VerifiedBlocks[syncedL1Height] = VerifiedBlock(l1Hash, l1SignalRoot);
+        _rewardParentBlock(config, l1Height, parentGasUsed);
 
-        // In situations where the network lacks sufficient transactions for the
+        _l2Hashes[block.number - 1] = blockhash(block.number - 1);
+        _l1VerifiedBlocks[l1Height] = VerifiedBlock(l1Hash, l1SignalRoot);
+
+        publicInputHash = publicInputHashNew;
+        latestSyncedL1Height = l1Height;
+        parentProposer = block.coinbase;
+
+        emit CrossChainSynced(l1Height, l1Hash, l1SignalRoot);
+        emit Anchored(blockhash(block.number - 1), gasExcess);
+    }
+
+    function _rewardParentBlock(
+        Config memory config,
+        uint64 l1Height,
+        uint32 parentGasUsed
+    )
+        private
+    {
+        if (
+            config.blockRewardPerL1Block == 0 || config.blockRewardPoolMax == 0
+                || config.blockRewardPoolPctg == 0 || latestSyncedL1Height == 0
+                || accumulatedReward == 0
+        ) return;
+
+        //     In situations where the network lacks sufficient transactions for
+        // the
         // proposer to profit, they are still obligated to pay the prover the
         // proving fee, which can be a substantial cost compared to the total L2
         // transaction fees collected. As a solution, Taiko mints additional
@@ -141,74 +167,54 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         // depend on Taiko DAO to make necessary adjustments to the rewards.
         // uint96 rewardBase;
 
-        // // Reward block proposers with Taiko tokens to encourage chain
-        // adoption
-        // // and ensure liveness.
-        // // Rewards are issued only if `proposerRewardPerL1Block` and
-        // // `proposerRewardMax` are set to nonzero values in the
+        // Reward block proposers with Taiko tokens to encourage chain
+        // adoption and ensure liveness.
+        // Rewards are issued only if `blockRewardPerL1Block` and
+        // `blockRewardPoolMax` are set to nonzero values in the
         // configuration.
-        // if (config.proposerRewardPerL1Block != 0) {
-        //     unchecked {
-        //         // Mint additional tokens into the reward pool as L1 block
-        //         // numbers increase, to incentivize future proposers.
-        //         if (
-        //             state.slotC.lastProposedHeight != 0
-        //                 && state.slotC.lastProposedHeight < block.number
-        //         ) {
-        //             uint256 extraRewardMinted = (
-        //                 block.number - state.slotC.lastProposedHeight
-        //             ) * config.proposerRewardPerL1Block;
 
-        //             // Reward pool is capped to `proposerRewardMax`
-        //             state.slotC.accumulatedReward = uint128(
-        //                 (extraRewardMinted +
-        // state.slotC.accumulatedReward).min(
-        //                     config.proposerRewardMax
-        //                 )
-        //             );
-        //         }
+        // Mint additional tokens into the reward pool as L1 block
+        // numbers increase, to incentivize future proposers.
+        if (latestSyncedL1Height < l1Height) {
+            uint256 extraRewardMinted = uint256(l1Height - latestSyncedL1Height)
+                * config.blockRewardPerL1Block;
 
-        //         if (state.slotC.accumulatedReward != 0) {
-        //             // The current proposer receives a fixed percentage of
-        // the
-        //             // reward pool.
-        //             rewardBase = uint96(
-        //                 (
-        //                     state.slotC.accumulatedReward / 100
-        //                         * config.proposerRewardPoolPctg
-        //                 ).min(type(uint96).max)
-        //             );
+            // Reward pool is capped to `blockRewardPoolMax`
+            accumulatedReward = uint128(
+                (extraRewardMinted + accumulatedReward).min(
+                    config.blockRewardPoolMax
+                )
+            );
+        }
 
-        //             state.slotC.accumulatedReward -= rewardBase;
-        //         }
-        //         state.slotC.lastProposedHeight = uint64(block.number);
-        //     }
-        // }
-
-        // Reward Taiko token as block reward on L2
         if (avgGasUsed == 0) {
             avgGasUsed = parentGasUsed;
-        } else {
-            avgGasUsed =
-                uint32((uint256(avgGasUsed) * 1023 + parentGasUsed) / 1024);
+            return;
         }
+
+        avgGasUsed = avgGasUsed / 1024 * 1023 + parentGasUsed / 1024;
+
+        if (parentGasUsed <= ANCHOR_GAS) return;
 
         address tt = resolve("taiko", true);
-        if (tt != address(0) && avgGasUsed != 0 && parentProposer != address(0))
-        {
-            // TODO(daniel): correct the calculation below - it is not right but
-            // good enough to show the idea.
-            // TODO(daniel): adjust anchor gas cost
-            uint256 anchorTxCost = 100_000;
-            uint256 reward = parentRewardBase * (parentGasUsed - anchorTxCost)
-                / (avgGasUsed - anchorTxCost) / 2;
-            TaikoToken(tt).mint(parentProposer, reward);
-        }
+        if (tt == address(0)) return;
+        if (parentProposer == address(0)) return;
 
-        parentProposer = block.coinbase;
+        // The parent proposer receives a percentage of the reward pool.
+        uint128 maxBlockReward =
+            accumulatedReward / 100 * config.blockRewardPoolPctg;
 
-        emit CrossChainSynced(syncedL1Height, l1Hash, l1SignalRoot);
-        emit Anchored(parentHash, gasExcess);
+        uint64 _parentGasUsed = parentGasUsed - ANCHOR_GAS;
+        uint64 _avgGasUsed = avgGasUsed - ANCHOR_GAS;
+
+        uint128 ratio; // = (uint128(_parentGasUsed) * 10000/
+            // _avgGasUsed).min(20000);
+
+        uint128 blockReward = maxBlockReward * ratio / 20_000;
+        accumulatedReward -= blockReward;
+
+        // accumulatedReward -= blockReward;
+        TaikoToken(tt).mint(parentProposer, blockReward);
     }
 
     /// @inheritdoc ICrossChainSync
@@ -235,18 +241,18 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
     /// the given parameters.
-    /// @param syncedL1Height The synced L1 height in the next Taiko block
+    /// @param l1Height The synced L1 height in the next Taiko block
     /// @param parentGasUsed Gas used in the parent block.
     /// @return basefee The calculated EIP-1559 base fee per gas.
     function getBasefee(
-        uint64 syncedL1Height,
+        uint64 l1Height,
         uint32 parentGasUsed
     )
         public
         view
         returns (uint256 basefee)
     {
-        (basefee,) = _calc1559BaseFee(syncedL1Height, parentGasUsed);
+        (basefee,) = _calc1559BaseFee(getConfig(), l1Height, parentGasUsed);
     }
 
     /// @notice Retrieves the block hash for the given L2 block number.
@@ -267,9 +273,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     function getConfig() public pure virtual returns (Config memory config) {
         config.blockGasTarget = 15 * 1e6 * 10; // 10x Ethereum gas target
         config.basefeeAdjustmentQuotient = 8;
-        config.proposerRewardPerL1Block = 1e15; // 0.001 Taiko token;
-        config.proposerRewardMax = 12e18; // 12 Taiko token
-        config.proposerRewardPoolPctg = 40; // 40%
+        config.blockRewardPerL1Block = 1e15; // 0.001 Taiko token;
+        config.blockRewardPoolMax = 12e18; // 12 Taiko token
+        config.blockRewardPoolPctg = 40; // 40%
     }
 
     function _calcPublicInputHash(uint256 blockId)
@@ -302,7 +308,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     }
 
     function _calc1559BaseFee(
-        uint64 syncedL1Height,
+        Config memory config,
+        uint64 l1Height,
         uint32 parentGasUsed
     )
         private
@@ -320,14 +327,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             // the gas excess will be reduced accordingly.
             // Note that when latestSyncedL1Height is zero, we skip this step.
             uint128 numL1Blocks;
-            if (
-                latestSyncedL1Height > 0
-                    && syncedL1Height > latestSyncedL1Height
-            ) {
-                numL1Blocks = syncedL1Height - latestSyncedL1Height;
+            if (latestSyncedL1Height > 0 && l1Height > latestSyncedL1Height) {
+                numL1Blocks = l1Height - latestSyncedL1Height;
             }
-
-            Config memory config = getConfig();
 
             if (numL1Blocks > 0) {
                 uint128 issuance = numL1Blocks * config.blockGasTarget;

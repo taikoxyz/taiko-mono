@@ -101,6 +101,6 @@ contract TestTaikoL2 is TestBase {
     function _anchor(uint32 parentGasLimit) private {
         bytes32 l1Hash = getRandomBytes32();
         bytes32 l1SignalRoot = getRandomBytes32();
-        L2.anchor(l1Hash, l1SignalRoot, 12_345, parentGasLimit, 0);
+        L2.anchor(l1Hash, l1SignalRoot, 12_345, parentGasLimit);
     }
 }
