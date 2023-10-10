@@ -17,10 +17,10 @@ library Lib4844 {
     error EVAL_FAILED();
 
     /// @param versionHash The versioned hash
-    // @param x The evaluation point
-    // @param y: The expected output
-    // @param commitment The input kzg point
-    // @param proof The quotient kzg
+    /// @param x The evaluation point
+    /// @param y: The expected output
+    /// @param commitment The input kzg point
+    /// @param proof The quotient kzg
     function point_evaluation_precompile(
         bytes32 versionHash,
         uint256 x,
