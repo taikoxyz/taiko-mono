@@ -311,8 +311,6 @@ contract TaikoL1 is
             relaySignalRoot: false,
             blockMaxProposals: 403_200,
             blockRingBufferSize: 403_210,
-            // This number is calculated from blockMaxProposals to make the
-            // maximum value of the multiplier close to 20.0
             maxBlocksToVerifyPerProposal: 10,
             blockMaxGasLimit: 8_000_000,
             blockMaxTxListBytes: 120_000,
