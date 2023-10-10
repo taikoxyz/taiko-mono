@@ -14,11 +14,11 @@ import { TaikoData } from "../TaikoData.sol";
 
 /// @title GuardianProver
 contract GuardianProver is EssentialContract {
-    uint256 public constant MAX_GUARDIANS = 5;
+    uint256 public constant NUM_GUARDIANS = 5;
     uint256 public constant REQUIRED_GUARDIANS = 3;
     uint256 private constant DONE = type(uint256).max;
 
-    mapping(uint256 id => address guardian) public guardians;
+    mapping(address signer => uint256 id) public guardians;
     mapping(bytes32 => uint256 approvalBits) public blocks;
 
     uint256[48] private __gap;
@@ -26,7 +26,8 @@ contract GuardianProver is EssentialContract {
     error INVALID_GUARDIAN_SET();
     error INVALID_GUARDIAN();
     error INVALID_PROOF();
-    error PROVE_FAILED(bytes);
+    error MULTISIG_DONE();
+    error PROVING_FAILED(bytes);
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
@@ -34,20 +35,22 @@ contract GuardianProver is EssentialContract {
         EssentialContract._init(_addressManager);
     }
 
-    /// @notice Adds guardians
+    /// @notice Adds or modify guardians
     /// @param multisigParticipants The address array of the guardians.
-    function addGuardians(address[] memory multisigParticipants)
+    function changeGuardians(address[] memory multisigParticipants)
         external
         onlyOwner
     {
         // Always send 5 addresses, even if you just want to modify 1 address,
         // so that (Bob, 0, 0, 0, 0) will set Bob only with index 1.
-        if (multisigParticipants.length != MAX_GUARDIANS) {
+        if (multisigParticipants.length != NUM_GUARDIANS) {
             revert INVALID_GUARDIAN_SET();
         }
 
-        for (uint256 i = 1; i <= MAX_GUARDIANS; i++) {
-            guardians[i] = multisigParticipants[i - 1];
+        for (uint256 i = 1; i <= NUM_GUARDIANS; i++) {
+            if(multisigParticipants[i - 1] != address(0)) {
+                guardians[multisigParticipants[i - 1]] = i;
+            }
         }
     }
 
@@ -66,7 +69,10 @@ contract GuardianProver is EssentialContract {
         bytes32 hash = keccak256(abi.encode(blockId, evidence, unprovable));
 
         uint256 approvalBits = blocks[hash];
-        require(approvalBits != DONE);
+
+        if(approvalBits == DONE) {
+            revert MULTISIG_DONE();
+        }
 
         approvalBits |= uint8(1 << getGuardianId(msg.sender));
 
@@ -83,7 +89,7 @@ contract GuardianProver is EssentialContract {
             (bool success, bytes memory result) =
                 resolve("taiko", false).call(data);
             if (!success) {
-                revert PROVE_FAILED(result);
+                revert PROVING_FAILED(result);
             }
             blocks[hash] = DONE;
         } else {
@@ -92,18 +98,14 @@ contract GuardianProver is EssentialContract {
     }
 
     function getGuardianId(address addr) public view returns (uint256 id) {
-        for (uint256 i = 1; i < MAX_GUARDIANS; i++) {
-            if (guardians[i] == addr) {
-                return i;
-            }
-        }
-        if (id == 0 || id > MAX_GUARDIANS) revert INVALID_GUARDIAN();
+        id = guardians[addr];
+        if (id == 0 || id > NUM_GUARDIANS) revert INVALID_GUARDIAN();
     }
 
     function isApproved(uint256 approvalBits) public pure returns (bool) {
         uint256 count;
         uint256 bits = approvalBits >> 1;
-        for (uint256 i = 0; i < MAX_GUARDIANS; ++i) {
+        for (uint256 i = 0; i < NUM_GUARDIANS; ++i) {
             if (bits & 1 == 1) ++count;
             if (count == REQUIRED_GUARDIANS) return true;
             bits >>= 1;

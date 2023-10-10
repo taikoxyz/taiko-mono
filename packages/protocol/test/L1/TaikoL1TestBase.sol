@@ -91,7 +91,7 @@ abstract contract TaikoL1TestBase is TestBase {
         initMultiSig[2] = Frank;
         initMultiSig[3] = Grace;
         initMultiSig[4] = Henry;
-        gp.addGuardians(initMultiSig);
+        gp.changeGuardians(initMultiSig);
 
         cp = new ZkAndSgxCombinedRollupConfigProvider();
 
