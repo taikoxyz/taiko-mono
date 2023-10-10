@@ -20,7 +20,7 @@ export async function fetchTransactions(userAddress: Address) {
       page: 0,
       size: 100,
     });
-    log(`fetched ${txs.length} transactions from relayer`, txs);
+    log(`fetched ${txs?.length ?? 0} transactions from relayer`, txs);
     return txs;
   });
 
@@ -37,7 +37,7 @@ export async function fetchTransactions(userAddress: Address) {
   // Flatten the arrays into a single array
   const relayerTxs: BridgeTransaction[] = relayerTxsArrays.reduce((acc, txs) => acc.concat(txs), []);
 
-  log(`fetched ${relayerTxs.length} transactions from all relayers`, relayerTxs);
+  log(`fetched ${relayerTxs?.length ?? 0} transactions from all relayers`, relayerTxs);
 
   const { mergedTransactions, outdatedLocalTransactions } = mergeAndCaptureOutdatedTransactions(localTxs, relayerTxs);
   if (outdatedLocalTransactions.length > 0) {
