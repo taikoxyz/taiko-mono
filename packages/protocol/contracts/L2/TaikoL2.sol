@@ -264,7 +264,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             return 0;
         }
 
-        address tt = resolve("taiko", true);
+        address tt = resolve("taiko_token", true);
         if (tt == address(0)) return 0;
 
         // The ratio is in [0-20000]
