@@ -72,7 +72,7 @@ export const getTokenWithInfoFromAddress = async ({
 
       const token = {
         type: tokenType,
-        name: name ? name : 'No name specified',
+        name: name ? name : 'No collection name',
         uri: uri ? uri.toString() : undefined,
         addresses: {
           [srcChainId]: contractAddress,

@@ -12,7 +12,8 @@ function deduplicateNFTs(nftArrays: NFT[][]): NFT[] {
   const nftMap: Map<string, NFT> = new Map();
   nftArrays.flat().forEach((nft) => {
     Object.entries(nft.addresses).forEach(([chainID, address]) => {
-      const uniqueKey = `${address}-${chainID}`;
+      const uniqueKey = `${address}-${chainID}-${nft.tokenId}`;
+
       if (!nftMap.has(uniqueKey)) {
         nftMap.set(uniqueKey, nft);
       }

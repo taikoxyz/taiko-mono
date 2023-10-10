@@ -4,6 +4,7 @@
   import { PUBLIC_NFT_BATCH_TRANSFERS_ENABLED } from '$env/static/public';
   import { type NFT, TokenType } from '$libs/token';
   import { fetchNFTImage } from '$libs/token/fetchNFTImage';
+  import { groupNFTByCollection } from '$libs/token/groupNFTByCollection';
 
   export let nfts: NFT[];
   export let chainId: number | undefined;
@@ -67,48 +68,61 @@
       {#if !chainId}
         Select a chain
       {:else}
-        {#each nfts as nft (nft.addresses[chainId])}
-          {@const address = nft.addresses[chainId]}
-          {@const tokenImage = fetchNFTImage(nft)}
+        {#each Object.entries(groupNFTByCollection(nfts)) as [address, nftsGroup] (address)}
+          <div>
+            {#if nftsGroup.length > 0}
+              <div class="collection-header">
+                <span class="font-bold">
+                  {nftsGroup[0].name}
+                </span>
+                <span class="badge badge-primary badge-outline badge-xs p-2">{nftsGroup[0].type}</span>
+              </div>
+              <div class="token-ids my-2">
+                {#each nftsGroup as nft}
+                  {@const address = nft.addresses[chainId]}
+                  {@const tokenImage = fetchNFTImage(nft)}
 
-          {#if address === undefined}
-            <div>Address for {nft.name} is undefined</div>
-          {:else}
-            <div class="form-control flex">
-              <label class="cursor-pointer label">
-                <div class="mr-2">
-                  {#if tokenImage}
-                    {tokenImage}
+                  {#if address === undefined}
+                    <div>Address for {nft.name} is undefined</div>
                   {:else}
-                    <img alt="placeholder nft" src="/chains/taiko.svg" class="w-[40px] h-[40px] rounded" />
+                    <div class="form-control flex">
+                      <label class="cursor-pointer label">
+                        <div class="mr-2">
+                          {#if tokenImage}
+                            {tokenImage}
+                          {:else}
+                            <img alt="placeholder nft" src="/chains/taiko.svg" class="w-[40px] h-[40px] rounded" />
+                          {/if}
+                        </div>
+                        <div class="f-col grow">
+                          <span class=" text-xs text-neutral-content">ID: {nft.tokenId}</span>
+                          {#if nft.type === TokenType.ERC1155}
+                            <span class=" text-xs text-neutral-content">Balance: {nft.balance}</span>
+                          {/if}
+                        </div>
+                        {#if multiSelectEnabled}
+                          <input
+                            type="checkbox"
+                            class="checkbox checkbox-secondary"
+                            checked={checkedAddresses.get(address) || false}
+                            on:change={() => toggleAddressCheckBox(address)} />
+                        {:else}
+                          <input
+                            type="radio"
+                            name="nft-radio"
+                            class="flex-none radio radio-secondary"
+                            on:change={() => selectNFT(address)} />
+                        {/if}
+                      </label>
+                    </div>
                   {/if}
-                </div>
-                <div class="f-col grow">
-                  <span class="font-bold">
-                    {nft.name}
-                    <span class="badge badge-primary badge-outline badge-xs p-2">{nft.type}</span></span>
-                  <span class=" text-xs text-neutral-content">ID: {nft.tokenId}</span>
-                  {#if nft.type === TokenType.ERC1155}
-                    <span class=" text-xs text-neutral-content">Balance: {nft.balance}</span>
-                  {/if}
-                  <!-- <span class=" text-xs text-neutral-content">{truncateString(nft.addresses[chainId], 18)}</span> -->
-                </div>
-                {#if multiSelectEnabled}
-                  <input
-                    type="checkbox"
-                    class="checkbox checkbox-secondary"
-                    checked={checkedAddresses.get(address) || false}
-                    on:change={() => toggleAddressCheckBox(address)} />
-                {:else}
-                  <input
-                    type="radio"
-                    name="nft-radio"
-                    class="flex-none radio radio-secondary"
-                    on:change={() => selectNFT(address)} />
-                {/if}
-              </label>
-            </div>
-          {/if}
+                {/each}
+                <div class="h-sep" />
+              </div>
+            {/if}
+          </div>
+
+          <!-- -->
         {/each}
       {/if}
     </div>

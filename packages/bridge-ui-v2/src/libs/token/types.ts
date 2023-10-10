@@ -23,11 +23,11 @@ export type Token = {
   imported?: boolean;
   mintable?: boolean;
   balance?: bigint;
-  uri?: string;
 };
 
 export type NFT = Token & {
   tokenId: number;
+  uri?: string;
 };
 
 export type GetCrossChainAddressArgs = {
