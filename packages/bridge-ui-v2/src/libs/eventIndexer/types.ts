@@ -18,12 +18,13 @@ export interface EventIndexerAPI {
 }
 
 export type EventIndexerAPIResponseNFT = {
-  TokenID: number;
-  ContractAddress: Address;
-  ContractType: string;
-  Address: Address;
-  ChainID: number;
-  Amount: number;
+  id: number;
+  tokenID: string;
+  contractAddress: Address;
+  contractType: string;
+  address: Address;
+  chainID: number;
+  amount: number;
 };
 
 export type EventIndexerAPIRequestParams = {
@@ -42,7 +43,7 @@ export type PaginationInfo = {
 };
 
 export type EventIndexerAPIResponse = PaginationInfo & {
-  nfts: EventIndexerAPIResponseNFT[];
+  items: EventIndexerAPIResponseNFT[];
   visible: number;
 };
 
