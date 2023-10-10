@@ -27,7 +27,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     using LibMath for uint256;
 
     struct Config {
-        uint64 blockGasTarget;
+        uint64 gasTargetPerL1Block;
         uint256 basefeeAdjustmentQuotient;
         uint256 blockRewardPerL1Block;
         uint128 blockRewardPoolMax;
@@ -196,7 +196,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     /// @notice Returns EIP1559 related configurations
     function getConfig() public pure virtual returns (Config memory config) {
-        config.blockGasTarget = 15 * 1e6 * 10; // 10x Ethereum gas target
+        config.gasTargetPerL1Block = 15 * 1e6 * 10; // 10x Ethereum gas target
         config.basefeeAdjustmentQuotient = 8;
         config.blockRewardPerL1Block = 1e15; // 0.001 Taiko token;
         config.blockRewardPoolMax = 12e18; // 12 Taiko token
@@ -334,7 +334,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             }
 
             if (numL1Blocks > 0) {
-                uint128 issuance = numL1Blocks * config.blockGasTarget;
+                uint128 issuance = numL1Blocks * config.gasTargetPerL1Block;
                 excess = excess > issuance ? excess - issuance : 1;
             }
 
@@ -346,7 +346,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             // block's base fee.
             _basefee = Lib1559Math.basefee(
                 _gasExcess,
-                config.basefeeAdjustmentQuotient * config.blockGasTarget
+                config.basefeeAdjustmentQuotient * config.gasTargetPerL1Block
             );
         }
 
