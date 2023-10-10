@@ -14,6 +14,8 @@ import { TaikoData } from "../TaikoData.sol";
 
 /// @title GuardianProver
 contract GuardianProver is EssentialContract {
+    event GuardiansAdded(address[]);
+
     uint256 public constant NUM_GUARDIANS = 5;
     uint256 public constant REQUIRED_GUARDIANS = 3;
     uint256 private constant DONE = type(uint256).max;
@@ -48,10 +50,10 @@ contract GuardianProver is EssentialContract {
         }
 
         for (uint256 i = 1; i <= NUM_GUARDIANS; i++) {
-            if(multisigParticipants[i - 1] != address(0)) {
                 guardians[multisigParticipants[i - 1]] = i;
-            }
         }
+
+        emit GuardiansAdded(multisigParticipants);
     }
 
     /// @dev Called by each of the 5 guardians
