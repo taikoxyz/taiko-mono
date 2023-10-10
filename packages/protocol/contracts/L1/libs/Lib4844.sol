@@ -26,8 +26,8 @@ library Lib4844 {
         bytes32 versionHash,
         uint256 x,
         uint256 y,
-        bytes32[2] memory commitment,
-        bytes32[2] memory proof
+        bytes1[48] memory commitment,
+        bytes1[48] memory proof
     )
         internal
         view
