@@ -26,6 +26,14 @@ import { TaikoL2Signer } from "./TaikoL2Signer.sol";
 contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     using LibMath for uint256;
 
+    struct Config {
+        uint64 blockGasTarget;
+        uint256 basefeeAdjustmentQuotient;
+        uint256 proposerRewardPerL1Block;
+        uint256 proposerRewardMax;
+        uint256 proposerRewardPoolPctg;
+    }
+
     struct VerifiedBlock {
         bytes32 blockHash;
         bytes32 signalRoot;
@@ -121,6 +129,62 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         latestSyncedL1Height = syncedL1Height;
         _l1VerifiedBlocks[syncedL1Height] = VerifiedBlock(l1Hash, l1SignalRoot);
 
+        // In situations where the network lacks sufficient transactions for the
+        // proposer to profit, they are still obligated to pay the prover the
+        // proving fee, which can be a substantial cost compared to the total L2
+        // transaction fees collected. As a solution, Taiko mints additional
+        // Taiko tokens per second as block rewards. It's important to note that
+        // if multiple blocks are proposed within the same L1 block, only the
+        // first one will receive the block reward.
+
+        // The block reward doesn't undergo automatic halving; instead, we
+        // depend on Taiko DAO to make necessary adjustments to the rewards.
+        // uint96 rewardBase;
+
+        // // Reward block proposers with Taiko tokens to encourage chain
+        // adoption
+        // // and ensure liveness.
+        // // Rewards are issued only if `proposerRewardPerL1Block` and
+        // // `proposerRewardMax` are set to nonzero values in the
+        // configuration.
+        // if (config.proposerRewardPerL1Block != 0) {
+        //     unchecked {
+        //         // Mint additional tokens into the reward pool as L1 block
+        //         // numbers increase, to incentivize future proposers.
+        //         if (
+        //             state.slotC.lastProposedHeight != 0
+        //                 && state.slotC.lastProposedHeight < block.number
+        //         ) {
+        //             uint256 extraRewardMinted = (
+        //                 block.number - state.slotC.lastProposedHeight
+        //             ) * config.proposerRewardPerL1Block;
+
+        //             // Reward pool is capped to `proposerRewardMax`
+        //             state.slotC.accumulatedReward = uint128(
+        //                 (extraRewardMinted +
+        // state.slotC.accumulatedReward).min(
+        //                     config.proposerRewardMax
+        //                 )
+        //             );
+        //         }
+
+        //         if (state.slotC.accumulatedReward != 0) {
+        //             // The current proposer receives a fixed percentage of
+        // the
+        //             // reward pool.
+        //             rewardBase = uint96(
+        //                 (
+        //                     state.slotC.accumulatedReward / 100
+        //                         * config.proposerRewardPoolPctg
+        //                 ).min(type(uint96).max)
+        //             );
+
+        //             state.slotC.accumulatedReward -= rewardBase;
+        //         }
+        //         state.slotC.lastProposedHeight = uint64(block.number);
+        //     }
+        // }
+
         // Reward Taiko token as block reward on L2
         if (avgGasUsed == 0) {
             avgGasUsed = parentGasUsed;
@@ -185,22 +249,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         (basefee,) = _calc1559BaseFee(syncedL1Height, parentGasUsed);
     }
 
-    /// @notice Returns EIP1559 related configurations
-    function get1559Params()
-        public
-        pure
-        virtual
-        returns (uint64 gasTarget, uint256 adjustmentQuotient)
-    {
-        gasTarget = 15 * 1e6 * 10; // 10x Ethereum gas target
-        adjustmentQuotient = 8;
-    }
-
     /// @notice Retrieves the block hash for the given L2 block number.
     /// @param blockId The L2 block number to retrieve the block hash for.
     /// @return The block hash for the specified L2 block id, or zero if the
     /// block id is greater than or equal to the current block number.
-
     function getBlockHash(uint64 blockId) public view returns (bytes32) {
         if (blockId >= block.number) {
             return 0;
@@ -209,6 +261,15 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         } else {
             return _l2Hashes[blockId];
         }
+    }
+
+    /// @notice Returns EIP1559 related configurations
+    function getConfig() public pure virtual returns (Config memory config) {
+        config.blockGasTarget = 15 * 1e6 * 10; // 10x Ethereum gas target
+        config.basefeeAdjustmentQuotient = 8;
+        config.proposerRewardPerL1Block = 1e15; // 0.001 Taiko token;
+        config.proposerRewardMax = 12e18; // 12 Taiko token
+        config.proposerRewardPoolPctg = 40; // 40%
     }
 
     function _calcPublicInputHash(uint256 blockId)
@@ -266,10 +327,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
                 numL1Blocks = syncedL1Height - latestSyncedL1Height;
             }
 
-            (uint64 gasTarget, uint256 adjustmentQuotient) = get1559Params();
+            Config memory config = getConfig();
 
             if (numL1Blocks > 0) {
-                uint128 issuance = numL1Blocks * gasTarget;
+                uint128 issuance = numL1Blocks * config.blockGasTarget;
                 excess = excess > issuance ? excess - issuance : 1;
             }
 
@@ -279,8 +340,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             // bonding curve, regardless the actual amount of gas used by this
             // block, however, the this block's gas used will affect the next
             // block's base fee.
-            _basefee =
-                Lib1559Math.basefee(_gasExcess, adjustmentQuotient * gasTarget);
+            _basefee = Lib1559Math.basefee(
+                _gasExcess,
+                config.basefeeAdjustmentQuotient * config.blockGasTarget
+            );
         }
 
         // Always make sure basefee is nonzero, this is required by the node.

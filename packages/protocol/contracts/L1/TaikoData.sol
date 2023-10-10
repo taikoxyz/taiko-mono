@@ -34,9 +34,6 @@ library TaikoData {
         uint32 blockFeeBaseGas;
         // The maximum allowed bytes for the proposed transaction list calldata.
         uint24 blockMaxTxListBytes;
-        // Amount of token to reward to the first block propsoed in each L1
-        // block.
-        uint128 proposerRewardPerL1Block;
         uint128 proposerRewardMax;
         uint8 proposerRewardPoolPctg;
         // ---------------------------------------------------------------------
@@ -102,7 +99,6 @@ library TaikoData {
         uint64 l1Height;
         uint32 gasLimit;
         address coinbase; // L2 coinbase
-        uint96 rewardBase;
         TaikoData.EthDeposit[] depositsProcessed;
     }
 
