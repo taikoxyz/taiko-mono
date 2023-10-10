@@ -267,7 +267,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         address tt = resolve("taiko_token", true);
         if (tt == address(0)) return 0;
 
-        // The ratio is in [0-20000]
+        // The ratio is in [0-200]
         uint128 ratio = uint128(
             (
                 uint256(parentGasUsed - ANCHOR_GAS_DEDUCT) * 100
