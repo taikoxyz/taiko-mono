@@ -570,8 +570,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_GuardianProverCannotOverwriteIfSameProof() external {
-        registerAddress("guardian", Carol);
-
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
         giveEthAndTko(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
@@ -636,8 +634,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_GuardianProverFailsWithInvalidBlockHash() external {
-        registerAddress("guardian", Carol);
-
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
         giveEthAndTko(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
@@ -702,8 +698,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_GuardianProverCanOverwriteIfNotSameProof() external {
-        registerAddress("guardian", Carol);
-
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
         giveEthAndTko(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
@@ -921,8 +915,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_GuardianProofCannotBeOverwrittenByLowerTier() external {
-        registerAddress("guardian", Carol);
-
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
         giveEthAndTko(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
@@ -1000,8 +992,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_GuardianCanReturnBondIfBlockUnprovable() external {
-        registerAddress("guardian", Carol);
-
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
         giveEthAndTko(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));

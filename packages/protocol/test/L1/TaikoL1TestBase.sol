@@ -18,6 +18,7 @@ import { PseZkVerifier } from "../../contracts/L1/verifiers/PseZkVerifier.sol";
 import { SGXVerifier } from "../../contracts/L1/verifiers/SGXVerifier.sol";
 import { SgxAndZkVerifier } from
     "../../contracts/L1/verifiers/SgxAndZkVerifier.sol";
+import { GuardianProver } from "../../contracts/L1/provers/GuardianProver.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { StringsUpgradeable as Strings } from
     "@ozu/utils/StringsUpgradeable.sol";
@@ -41,6 +42,7 @@ abstract contract TaikoL1TestBase is TestBase {
     SGXVerifier public sv;
     SgxAndZkVerifier public sgxZkVerifier;
     GuardianVerifier public gv;
+    GuardianProver public gp;
     ZkAndSgxCombinedRollupConfigProvider public cp;
 
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
@@ -81,6 +83,16 @@ abstract contract TaikoL1TestBase is TestBase {
         gv = new GuardianVerifier();
         gv.init(address(addressManager));
 
+        gp = new GuardianProver();
+        gp.init(address(addressManager));
+        address[] memory initMultiSig = new address[](5);
+        initMultiSig[0] = David;
+        initMultiSig[1] = Emma;
+        initMultiSig[2] = Frank;
+        initMultiSig[3] = Grace;
+        initMultiSig[4] = Henry;
+        gp.addGuardians(initMultiSig);
+
         cp = new ZkAndSgxCombinedRollupConfigProvider();
 
         registerAddress("tier_pse_zkevm", address(pv));
@@ -89,6 +101,7 @@ abstract contract TaikoL1TestBase is TestBase {
         registerAddress("tier_sgx_and_pse_zkevm", address(sgxZkVerifier));
         registerAddress("tier_provider", address(cp));
         registerAddress("signal_service", address(ss));
+        registerAddress("guardian", address(gp));
         registerAddress("ether_vault", address(L1EthVault));
         registerL2Address("treasury", L2Treasury);
         registerL2Address("taiko", address(TaikoL2));
@@ -245,19 +258,30 @@ abstract contract TaikoL1TestBase is TestBase {
         if (tier == LibTiers.TIER_GUARDIAN) {
             evidence.proof = "";
 
-            if (unprovable) {
-                evidence.proof =
-                    bytes.concat(bytes32(keccak256("RETURN_LIVENESS_BOND")));
-            }
-        }
+            // Grant 2 signatures, 3rd might be a revert
+            vm.prank(David, David);
+            gp.proveBlock(meta.id, evidence, unprovable);
+            vm.prank(Emma, Emma);
+            gp.proveBlock(meta.id, evidence, unprovable);
 
-        if (revertReason != "") {
-            vm.prank(msgSender, msgSender);
-            vm.expectRevert(revertReason);
-            L1.proveBlock(meta.id, abi.encode(evidence));
+            if (revertReason != "") {
+                vm.prank(Frank, Frank);
+                vm.expectRevert(); // Revert reason is 'wrapped' so will not be
+                    // identical to the expectedRevert
+                gp.proveBlock(meta.id, evidence, unprovable);
+            } else {
+                vm.prank(Frank, Frank);
+                gp.proveBlock(meta.id, evidence, unprovable);
+            }
         } else {
-            vm.prank(msgSender, msgSender);
-            L1.proveBlock(meta.id, abi.encode(evidence));
+            if (revertReason != "") {
+                vm.prank(msgSender, msgSender);
+                vm.expectRevert(revertReason);
+                L1.proveBlock(meta.id, abi.encode(evidence));
+            } else {
+                vm.prank(msgSender, msgSender);
+                L1.proveBlock(meta.id, abi.encode(evidence));
+            }
         }
     }
 
