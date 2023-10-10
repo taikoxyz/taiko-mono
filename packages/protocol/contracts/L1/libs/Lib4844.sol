@@ -10,6 +10,7 @@ pragma solidity ^0.8.20;
 /// @notice A library for handling EIP-4844 blobs
 library Lib4844 {
     address public constant POINT_EVALUATION_PRECOMPILE_ADDRESS = address(10);
+    uint32 constant FIELD_ELEMENTS_PERBLOB = 4096;
     uint256 public constant BLS_MODULUS =
         52_435_875_175_126_190_479_447_740_508_185_965_837_690_552_500_527_637_822_603_658_699_938_581_184_513;
 
@@ -32,7 +33,7 @@ library Lib4844 {
         internal
         view
     {
-        if (x >= BLS_MODULUS) revert POINT_X_TOO_LARGE();
+        if (x >= FIELD_ELEMENTS_PERBLOB) revert POINT_X_TOO_LARGE();
         if (y >= BLS_MODULUS) revert POINT_Y_TOO_LARGE();
 
         (bool ok,) = POINT_EVALUATION_PRECOMPILE_ADDRESS.staticcall(
