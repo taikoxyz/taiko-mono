@@ -15,7 +15,7 @@ import { GuardianVerifier } from
 import { ZkAndSgxCombinedRollupConfigProvider } from
     "../../contracts/L1/tiers/ZkAndSgxCombinedRollupConfigProvider.sol";
 import { PseZkVerifier } from "../../contracts/L1/verifiers/PseZkVerifier.sol";
-import { SGXVerifier } from "../../contracts/L1/verifiers/SGXVerifier.sol";
+import { SgxVerifier } from "../../contracts/L1/verifiers/SgxVerifier.sol";
 import { SgxAndZkVerifier } from
     "../../contracts/L1/verifiers/SgxAndZkVerifier.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
@@ -38,7 +38,7 @@ abstract contract TaikoL1TestBase is TestBase {
     TaikoData.Config conf;
     uint256 internal logCount;
     PseZkVerifier public pv;
-    SGXVerifier public sv;
+    SgxVerifier public sv;
     SgxAndZkVerifier public sgxZkVerifier;
     GuardianVerifier public gv;
     ZkAndSgxCombinedRollupConfigProvider public cp;
@@ -68,7 +68,7 @@ abstract contract TaikoL1TestBase is TestBase {
         pv = new PseZkVerifier();
         pv.init(address(addressManager));
 
-        sv = new SGXVerifier();
+        sv = new SgxVerifier();
         sv.init(address(addressManager));
         address[] memory initSgxInstances = new address[](2);
         initSgxInstances[0] = SGX_X_0;

@@ -4,10 +4,10 @@ pragma solidity ^0.8.20;
 import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
 import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
-import { SGXVerifier } from "../../contracts/L1/verifiers/SGXVerifier.sol";
+import { SgxVerifier } from "../../contracts/L1/verifiers/SgxVerifier.sol";
 import { TaikoL1TestBase } from "./TaikoL1TestBase.sol";
 
-contract SgxVerifier is TaikoL1TestBase {
+contract TestSgxVerifier is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1 taikoL1) {
         taikoL1 = new TaikoL1();
     }

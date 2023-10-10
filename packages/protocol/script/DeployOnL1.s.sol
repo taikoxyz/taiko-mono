@@ -194,8 +194,8 @@ contract DeployOnL1 is Script {
             )
         );
 
-        // SGXVerifier
-        SGXVerifier sgxVerifier = new ProxiedSGXVerifier();
+        // SgxVerifier
+        SgxVerifier sgxVerifier = new ProxiedSgxVerifier();
         deployProxy(
             "tier_sgx",
             address(sgxVerifier),

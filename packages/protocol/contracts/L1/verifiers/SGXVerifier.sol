@@ -16,8 +16,8 @@ import { TaikoData } from "../TaikoData.sol";
 
 import { IVerifier } from "./IVerifier.sol";
 
-/// @title SGXVerifier
-contract SGXVerifier is EssentialContract, IVerifier {
+/// @title SgxVerifier
+contract SgxVerifier is EssentialContract, IVerifier {
     using ECDSAUpgradeable for bytes32;
 
     uint256 public constant INSTANCE_EXPIRY = 180 days;
@@ -157,6 +157,6 @@ contract SGXVerifier is EssentialContract, IVerifier {
     }
 }
 
-/// @title ProxiedSGXVerifier
+/// @title ProxiedSgxVerifier
 /// @notice Proxied version of the parent contract.
-contract ProxiedSGXVerifier is Proxied, SGXVerifier { }
+contract ProxiedSgxVerifier is Proxied, SgxVerifier { }
