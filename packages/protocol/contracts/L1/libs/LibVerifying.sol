@@ -43,33 +43,7 @@ library LibVerifying {
     )
         internal
     {
-        if (
-            config.chainId <= 1 //
-                || config.blockMaxProposals == 1
-                || config.blockRingBufferSize <= config.blockMaxProposals + 1
-                || config.blockMaxGasLimit == 0 || config.blockMaxTxListBytes == 0
-                || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
-                || config.livenessBond == 0
-                || config.livenessBond < 10 * config.proposerRewardPerL1Block
-                || config.ethDepositRingBufferSize <= 1
-                || config.ethDepositMinCountPerBlock == 0
-                || config.ethDepositMaxCountPerBlock
-                    < config.ethDepositMinCountPerBlock
-                || config.ethDepositMinAmount == 0
-                || config.ethDepositMaxAmount <= config.ethDepositMinAmount
-                || config.ethDepositMaxAmount >= type(uint96).max
-                || config.ethDepositGas == 0 || config.ethDepositMaxFee == 0
-                || config.ethDepositMaxFee >= type(uint96).max
-                || config.ethDepositMaxFee
-                    >= type(uint96).max / config.ethDepositMaxCountPerBlock
-        ) revert L1_INVALID_CONFIG();
-
-        if (config.proposerRewardPerL1Block != 0) {
-            if (
-                config.proposerRewardMax == 0
-                    || config.proposerRewardPoolPctg == 0
-            ) revert L1_INVALID_CONFIG();
-        }
+        if (!isConfigValid(config)) revert L1_INVALID_CONFIG();
 
         // Init state
         state.slotA.genesisHeight = uint64(block.number);
@@ -247,5 +221,41 @@ library LibVerifying {
                 );
             }
         }
+    }
+
+    function isConfigValid(TaikoData.Config memory config)
+        internal
+        pure
+        returns (bool isValid)
+    {
+        if (
+            config.chainId <= 1 //
+                || config.blockMaxProposals == 1
+                || config.blockRingBufferSize <= config.blockMaxProposals + 1
+                || config.blockMaxGasLimit == 0 || config.blockMaxTxListBytes == 0
+                || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
+                || config.livenessBond == 0
+                || config.livenessBond < 100 * config.proposerRewardPerL1Block
+                || config.ethDepositRingBufferSize <= 1
+                || config.ethDepositMinCountPerBlock == 0
+                || config.ethDepositMaxCountPerBlock
+                    < config.ethDepositMinCountPerBlock
+                || config.ethDepositMinAmount == 0
+                || config.ethDepositMaxAmount <= config.ethDepositMinAmount
+                || config.ethDepositMaxAmount >= type(uint96).max
+                || config.ethDepositGas == 0 || config.ethDepositMaxFee == 0
+                || config.ethDepositMaxFee >= type(uint96).max
+                || config.ethDepositMaxFee
+                    >= type(uint96).max / config.ethDepositMaxCountPerBlock
+        ) return false;
+
+        if (config.proposerRewardPerL1Block != 0) {
+            if (
+                config.proposerRewardMax == 0
+                    || config.proposerRewardPoolPctg == 0
+            ) return false;
+        }
+
+        return true;
     }
 }
