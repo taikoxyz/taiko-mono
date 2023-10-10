@@ -26,7 +26,7 @@ import { TaikoL2Signer } from "./TaikoL2Signer.sol";
 contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     using LibMath for uint256;
 
-    uint32 public constant ANCHOR_GAS = 100_000;
+    uint32 public constant ANCHOR_GAS_DEDUCT = 40_000;
 
     struct Config {
         uint64 blockGasTarget;
@@ -255,8 +255,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         avgGasUsed = avgGasUsed / 1024 * 1023 + parentGasUsed / 1024;
 
         if (
-            parentGasUsed <= ANCHOR_GAS || avgGasUsed <= ANCHOR_GAS
-                || parentProposer == address(0)
+            parentGasUsed <= ANCHOR_GAS_DEDUCT
+                || avgGasUsed <= ANCHOR_GAS_DEDUCT || parentProposer == address(0)
         ) {
             return 0;
         }
@@ -267,15 +267,15 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         // The ratio is in [0-20000]
         uint128 ratio = uint128(
             (
-                uint256(parentGasUsed - ANCHOR_GAS) * 10_000
-                    / (avgGasUsed - ANCHOR_GAS)
-            ).min(20_000)
+                uint256(parentGasUsed - ANCHOR_GAS_DEDUCT) * 100
+                    / (avgGasUsed - ANCHOR_GAS_DEDUCT)
+            ).min(200)
         );
 
         uint128 maxBlockReward =
             accumulatedReward / 100 * config.blockRewardPoolPctg;
 
-        blockReward = maxBlockReward * ratio / 20_000;
+        blockReward = maxBlockReward * ratio / 200;
         accumulatedReward -= maxBlockReward;
         TaikoToken(tt).mint(parentProposer, blockReward);
     }
