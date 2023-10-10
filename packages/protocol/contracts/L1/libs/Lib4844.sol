@@ -13,7 +13,8 @@ library Lib4844 {
     uint256 public constant BLS_MODULUS =
         52_435_875_175_126_190_479_447_740_508_185_965_837_690_552_500_527_637_822_603_658_699_938_581_184_513;
 
-    error EVAL_POINT_TOO_LARGE();
+    error POINT_X_TOO_LARGE();
+    error POINT_Y_TOO_LARGE();
     error EVAL_FAILED();
 
     /// @param versionHash The versioned hash
@@ -31,7 +32,9 @@ library Lib4844 {
         internal
         view
     {
-        if (x >= BLS_MODULUS) revert EVAL_POINT_TOO_LARGE();
+        if (x >= BLS_MODULUS) revert POINT_X_TOO_LARGE();
+        if (y >= BLS_MODULUS) revert POINT_Y_TOO_LARGE();
+
         (bool ok,) = POINT_EVALUATION_PRECOMPILE_ADDRESS.staticcall(
             abi.encodePacked(versionHash, x, y, commitment, proof)
         );
