@@ -30,12 +30,8 @@ library TaikoData {
         uint64 maxBlocksToVerifyPerProposal;
         // The maximum gas limit allowed for a block.
         uint32 blockMaxGasLimit;
-        // The base gas for processing a block.
-        uint32 blockFeeBaseGas;
         // The maximum allowed bytes for the proposed transaction list calldata.
         uint24 blockMaxTxListBytes;
-        uint128 proposerRewardMax;
-        uint8 proposerRewardPoolPctg;
         // ---------------------------------------------------------------------
         // Group 3: Proof related configs
         // ---------------------------------------------------------------------

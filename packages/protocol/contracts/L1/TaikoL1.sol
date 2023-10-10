@@ -315,11 +315,7 @@ contract TaikoL1 is
             // maximum value of the multiplier close to 20.0
             maxBlocksToVerifyPerProposal: 10,
             blockMaxGasLimit: 8_000_000,
-            blockFeeBaseGas: 20_000,
             blockMaxTxListBytes: 120_000,
-            proposerRewardMax: 32e18, // 32 Taiko token
-            proposerRewardPoolPctg: 30, // means that 30% of the accumulated
-                // reward is given to the next proposer
             livenessBond: 10_240e18,
             ethDepositRingBufferSize: 1024,
             ethDepositMinCountPerBlock: 8,
