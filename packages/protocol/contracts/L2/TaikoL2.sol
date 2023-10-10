@@ -253,6 +253,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
         avgGasUsed = avgGasUsed / 1024 * 1023 + parentGasUsed / 1024;
 
+        uint128 maxBlockReward =
+            accumulatedReward / 100 * config.blockRewardPoolPctg;
+        accumulatedReward -= maxBlockReward;
+
         if (
             parentGasUsed <= ANCHOR_GAS_DEDUCT
                 || avgGasUsed <= ANCHOR_GAS_DEDUCT || parentProposer == address(0)
@@ -271,11 +275,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             ).min(200)
         );
 
-        uint128 maxBlockReward =
-            accumulatedReward / 100 * config.blockRewardPoolPctg;
-
         blockReward = maxBlockReward * ratio / 200;
-        accumulatedReward -= maxBlockReward;
         TaikoToken(tt).mint(parentProposer, blockReward);
     }
 
