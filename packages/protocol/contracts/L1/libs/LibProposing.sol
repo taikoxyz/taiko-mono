@@ -10,7 +10,6 @@ import { ERC20Upgradeable } from "@ozu/token/ERC20/ERC20Upgradeable.sol";
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
-import { LibMath } from "../../libs/LibMath.sol";
 
 import { ITierProvider } from "../tiers/ITierProvider.sol";
 import { TaikoData } from "../TaikoData.sol";
@@ -22,8 +21,6 @@ import { LibTaikoToken } from "./LibTaikoToken.sol";
 /// @notice A library for handling block proposals in the Taiko protocol.
 library LibProposing {
     using LibAddress for address;
-    using LibMath for uint256;
-    using LibMath for uint128;
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     event BlockProposed(
