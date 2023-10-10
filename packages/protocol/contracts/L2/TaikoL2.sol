@@ -6,7 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-import { LibFixedPointMath } from "../thirdparty/LibFixedPointMath.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { Proxied } from "../common/Proxied.sol";
