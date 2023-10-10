@@ -18,7 +18,7 @@ library Lib4844 {
 
     /// @param versionHash The versioned hash
     /// @param x The evaluation point
-    /// @param y: The expected output
+    /// @param y The expected output
     /// @param commitment The input kzg point
     /// @param proof The quotient kzg
     function point_evaluation_precompile(
