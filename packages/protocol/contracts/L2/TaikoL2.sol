@@ -39,6 +39,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         bytes32 signalRoot;
     }
 
+    // TODO(david): figure out this value from internal devnet.
     uint32 public constant ANCHOR_GAS_DEDUCT = 40_000;
 
     // Mapping from L2 block numbers to their block hashes.
