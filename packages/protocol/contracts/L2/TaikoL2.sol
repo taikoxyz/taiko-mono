@@ -43,8 +43,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     // Mapping from L2 block numbers to their block hashes.
     // All L2 block hashes will be saved in this mapping.
-    mapping(uint256 blockId => bytes32 blockHash) private _l2Hashes;
-    mapping(uint256 blockId => VerifiedBlock) private _l1VerifiedBlocks;
+    mapping(uint256 blockId => bytes32 blockHash) public l2Hashes;
+    mapping(uint256 blockId => VerifiedBlock) public l1VerifiedBlocks;
 
     // A hash to check the integrity of public inputs.
     bytes32 public publicInputHash; // slot 3
@@ -85,7 +85,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
         if (block.number > 0) {
             uint256 parentHeight = block.number - 1;
-            _l2Hashes[parentHeight] = blockhash(parentHeight);
+            l2Hashes[parentHeight] = blockhash(parentHeight);
         }
 
         gasExcess = _gasExcess;
@@ -130,9 +130,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             _rewardParentBlock(config, l1Height, parentGasUsed);
 
         // Update state variables
-        _l2Hashes[block.number - 1] = blockhash(block.number - 1);
-        _l1VerifiedBlocks[l1Height] = VerifiedBlock(l1Hash, l1SignalRoot);
-
+        l2Hashes[block.number - 1] = blockhash(block.number - 1);
+        l1VerifiedBlocks[l1Height] = VerifiedBlock(l1Hash, l1SignalRoot);
         publicInputHash = publicInputHashNew;
         latestSyncedL1Height = l1Height;
         parentProposer = block.coinbase;
@@ -150,7 +149,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         returns (bytes32)
     {
         uint256 id = blockId == 0 ? latestSyncedL1Height : blockId;
-        return _l1VerifiedBlocks[id].blockHash;
+        return l1VerifiedBlocks[id].blockHash;
     }
 
     /// @inheritdoc ICrossChainSync
@@ -161,7 +160,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         returns (bytes32)
     {
         uint256 id = blockId == 0 ? latestSyncedL1Height : blockId;
-        return _l1VerifiedBlocks[id].signalRoot;
+        return l1VerifiedBlocks[id].signalRoot;
     }
 
     /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
@@ -190,7 +189,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         } else if (blockId < block.number && blockId >= block.number - 256) {
             return blockhash(blockId);
         } else {
-            return _l2Hashes[blockId];
+            return l2Hashes[blockId];
         }
     }
 
