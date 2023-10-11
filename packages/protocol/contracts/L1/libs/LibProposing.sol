@@ -146,6 +146,7 @@ library LibProposing {
         // the block data to be stored on-chain for future integrity checks.
         // If we choose to persist all data fields in the metadata, it will
         // require additional storage slots.
+
         unchecked {
             meta = TaikoData.BlockMetadata({
                 l1Hash: blockhash(block.number - 1),
@@ -155,7 +156,8 @@ library LibProposing {
                 // Ethereum block, we must introduce a salt to this random
                 // number as the L2 mixHash.
                 difficulty: bytes32(block.prevrandao * b.numBlocks),
-                txListHash: txListHash,
+                blobVersionHash: bytes32(uint256(1)), // TODO: somehow get this
+                    // version hash using the new opcode
                 extraData: extraData,
                 id: b.numBlocks,
                 timestamp: uint64(block.timestamp),
@@ -187,6 +189,7 @@ library LibProposing {
         // block's proposal but before it has been proven or verified.
         blk.livenessBond = config.livenessBond;
         blk.blockId = b.numBlocks;
+        blk.blobVersionHash = meta.blobVersionHash;
         blk.proposedAt = meta.timestamp;
 
         // For a new block, the next transition ID is always 1, not 0.
@@ -252,7 +255,7 @@ library LibProposing {
         uint256[7] memory inputs;
         inputs[0] = uint256(meta.l1Hash);
         inputs[1] = uint256(meta.difficulty);
-        inputs[2] = uint256(meta.txListHash);
+        inputs[2] = uint256(meta.blobVersionHash);
         inputs[3] = uint256(meta.extraData);
         inputs[4] = (uint256(meta.id)) | (uint256(meta.timestamp) << 64)
             | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 192);

@@ -30,6 +30,7 @@ contract GuardianVerifier is EssentialContract, IVerifier {
         uint64,
         address prover,
         bool,
+        bytes32 blobVersionHash,
         TaikoData.BlockEvidence calldata
     )
         external

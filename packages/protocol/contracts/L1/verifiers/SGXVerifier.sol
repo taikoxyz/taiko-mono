@@ -33,6 +33,7 @@ contract SGXVerifier is EssentialContract, IVerifier {
         uint64,
         address,
         bool,
+        bytes32 blobVersionHash,
         TaikoData.BlockEvidence calldata
     )
         external

@@ -9,6 +9,7 @@ pragma solidity ^0.8.20;
 import { EssentialContract } from "../../common/EssentialContract.sol";
 import { LibBytesUtils } from "../../thirdparty/LibBytesUtils.sol";
 import { Proxied } from "../../common/Proxied.sol";
+import { Lib4844 } from "../../L1/libs/Lib4844.sol";
 
 import { TaikoData } from "../TaikoData.sol";
 
@@ -20,6 +21,15 @@ contract PseZkVerifier is EssentialContract, IVerifier {
     uint256[50] private __gap;
 
     error L1_INVALID_PROOF();
+
+    struct ProofData {
+        bytes32 txListHash;
+        uint256 pointValue;
+        bytes1[48] pointCommitment;
+        bytes1[48] pointProof;
+        uint16 verifierId;
+        bytes zkp;
+    }
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
@@ -34,6 +44,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         uint64,
         address prover,
         bool isContesting,
+        bytes32 blobVersionHash,
         TaikoData.BlockEvidence calldata evidence
     )
         external
@@ -42,12 +53,29 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         // Do not run proof verification to contest an existing proof
         if (isContesting) return;
 
+        ProofData memory data = abi.decode(evidence.proof, (ProofData));
+        // Verify blob
+        {
+            bytes32 hash =
+                keccak256(abi.encodePacked(blobVersionHash, data.txListHash));
+            uint256 x = uint256(hash) % Lib4844.FIELD_ELEMENTS_PERBLOB;
+
+            Lib4844.point_evaluation_precompile(
+                blobVersionHash,
+                x,
+                data.pointValue,
+                data.pointCommitment,
+                data.pointProof
+            );
+        }
+
+        // Verify ZKP
         bytes32 instance = getInstance(prover, evidence);
 
         // Validate the instance using bytes utilities.
         if (
             !LibBytesUtils.equal(
-                LibBytesUtils.slice(evidence.proof, 2, 32),
+                LibBytesUtils.slice(data.zkp, 0, 32),
                 bytes.concat(bytes16(0), bytes16(instance))
             )
         ) {
@@ -56,23 +84,21 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
         if (
             !LibBytesUtils.equal(
-                LibBytesUtils.slice(evidence.proof, 34, 32),
+                LibBytesUtils.slice(data.zkp, 32, 32),
                 bytes.concat(bytes16(0), bytes16(uint128(uint256(instance))))
             )
         ) {
             revert L1_INVALID_PROOF();
         }
 
-        // Extract verifier ID from the proof.
-        uint16 verifierId = uint16(bytes2(evidence.proof[0:2]));
-
         // Delegate to the ZKP verifier library to validate the proof.
         // Resolve the verifier's name and obtain its address.
-        address verifierAddress = resolve(getVerifierName(verifierId), false);
+        address verifierAddress =
+            resolve(getVerifierName(data.verifierId), false);
 
         // Call the verifier contract with the provided proof.
         (bool verified, bytes memory ret) =
-            verifierAddress.staticcall(bytes.concat(evidence.proof[2:]));
+            verifierAddress.staticcall(bytes.concat(data.zkp));
 
         // Check if the proof is valid.
         if (!verified || ret.length != 32 || bytes32(ret) != keccak256("taiko"))
