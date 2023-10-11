@@ -22,8 +22,15 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     uint256 public constant INSTANCE_EXPIRY = 180 days;
 
-    event InstanceAdded(uint256 indexed instanceId, address instanceInitAddress, uint64 timstamp);
-    event InstanceChanged(uint256 indexed instanceId, address oldInstance, address newInstance, uint64 timstamp);
+    event InstanceAdded(
+        uint256 indexed instanceId, address instanceInitAddress, uint64 timstamp
+    );
+    event InstanceChanged(
+        uint256 indexed instanceId,
+        address oldInstance,
+        address newInstance,
+        uint64 timstamp
+    );
 
     struct InstanceData {
         address activeAddress;
@@ -91,7 +98,8 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
         // Invalidate current key, because it cannot be used again (side-channel
         // attacks).
-        sgxRegistry[instanceId] = InstanceData(newAddress, uint64(block.timestamp));
+        sgxRegistry[instanceId] =
+            InstanceData(newAddress, uint64(block.timestamp));
     }
 
     /// @inheritdoc IVerifier
@@ -131,9 +139,12 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
         // Invalidate current key, because it cannot be used again (side-channel
         // attacks).
-        sgxRegistry[instanceId] = InstanceData(newInstance, uint64(block.timestamp));
+        sgxRegistry[instanceId] =
+            InstanceData(newInstance, uint64(block.timestamp));
 
-        emit InstanceChanged(instanceId, oldInstance, newInstance, uint64(block.timestamp));
+        emit InstanceChanged(
+            instanceId, oldInstance, newInstance, uint64(block.timestamp)
+        );
     }
 
     function getSignedHash(
@@ -166,14 +177,21 @@ contract SgxVerifier is EssentialContract, IVerifier {
         view
         returns (bool)
     {
-        return (sgxRegistry[instanceId].activeAddress == instance && sgxRegistry[instanceId].effectiveSince + INSTANCE_EXPIRY > block.timestamp);
+        return (
+            sgxRegistry[instanceId].activeAddress == instance
+                && sgxRegistry[instanceId].effectiveSince + INSTANCE_EXPIRY
+                    > block.timestamp
+        );
     }
 
     function addTrustedInstances(address[] memory trustedInstances) internal {
         for (uint256 i; i < trustedInstances.length; i++) {
-            sgxRegistry[uniqueVerifiers] = InstanceData(trustedInstances[i], uint64(block.timestamp));
+            sgxRegistry[uniqueVerifiers] =
+                InstanceData(trustedInstances[i], uint64(block.timestamp));
 
-            emit InstanceAdded(uniqueVerifiers, trustedInstances[i], uint64(block.timestamp));
+            emit InstanceAdded(
+                uniqueVerifiers, trustedInstances[i], uint64(block.timestamp)
+            );
 
             uniqueVerifiers++;
         }
