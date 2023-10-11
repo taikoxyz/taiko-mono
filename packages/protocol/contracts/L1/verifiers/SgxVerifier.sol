@@ -22,18 +22,28 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     uint256 public constant INSTANCE_EXPIRY = 180 days;
 
-    mapping(address instance => uint256 registeredAt) public instances;
+    event InstancesChanged();
+
+    struct Instance {
+        address addr;
+        uint64 effectiveSince;
+    }
+
+    Instance[] public instances;
+    // mapping(address instance => uint256 registeredAt) public instances;
 
     uint256[49] private __gap;
 
-    event InstanceRegistered(
-        address indexed replaced, address indexed instance, uint256 registeredAt
-    );
-
     error SGX_INVALID_AUTH();
+    error SGX_INVALID_ID();
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_PROOF_SIZE();
-    error SGX_INSTANCE_REGISTERED();
+    error SGX_INSTANCE_EXPIRED();
+
+    modifier onlyValidId(uint256 id) {
+        if (!_isIdValid(id)) revert SGX_INVALID_ID();
+        _;
+    }
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
@@ -42,50 +52,53 @@ contract SgxVerifier is EssentialContract, IVerifier {
     }
 
     /// @notice Adds trusted SGX instances to the registry.
-    /// @param trustedInstances The address array of trusted SGX instances.
-    function registerInstance(address[] memory trustedInstances)
-        external
-        onlyOwner
-    {
-        for (uint256 i; i < trustedInstances.length; i++) {
-            _replaceInstance(address(0), trustedInstances[i]);
-        }
+    /// @param instance The address of a new SGX instances.
+    function addInstance(address instance) external onlyOwner {
+        _addInstance(instance);
+        emit InstancesChanged();
     }
 
     /// @notice Removes trusted SGX instances from the registry.
-    /// @param oldInstance The address of a compromised SGX instance.
-    function invalidateInstance(address oldInstance) external onlyOwner {
-        instances[oldInstance] = 1;
+    /// @param id The Id of the instance to remove.
+    function removeInstance(uint256 id) external onlyOwner onlyValidId(id) {
+        _removeInstance(id);
+        emit InstancesChanged();
     }
 
     /// @notice Adds trusted SGX instances to the registry by another SGX
     /// instance.
-    /// @param newAddress The new address of the instance.
-    /// @param trustedInstances The address array of trusted SGX instances.
+    /// @param newInstances The address array of trusted SGX instances.
     /// @param signature The signature proving authenticity.
-    function registerBySgxInstance(
-        address newAddress,
-        address[] memory trustedInstances,
-        bytes memory signature
+    function addInstanceBySgx(
+        uint256 id,
+        bytes memory signature,
+        address[] memory newInstances
     )
         external
+        onlyValidId(id)
     {
-        bytes32 signedHash = keccak256(
-            abi.encode("REGISTER_SGX_INSTANCE", newAddress, trustedInstances)
-        );
-        // Would throw in case invalid
-        address signer = signedHash.recover(signature);
+        if (
+            instances[id - 1].effectiveSince + INSTANCE_EXPIRY
+                >= block.timestamp
+        ) revert SGX_INSTANCE_EXPIRED();
 
-        for (uint256 i; i < trustedInstances.length; i++) {
-            _replaceInstance(address(0), trustedInstances[i]);
+        bytes32 hash = keccak256(abi.encode("ADD_NEW_INSTANCES", newInstances));
+        // Would throw in case invalid
+        if (instances[id].addr != hash.recover(signature)) {
+            revert SGX_INVALID_AUTH();
         }
 
-        _replaceInstance(signer, newAddress);
+        _removeInstance(id);
+        for (uint256 i; i < newInstances.length; ++i) {
+            _addInstance(newInstances[i]);
+        }
+
+        emit InstancesChanged();
     }
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        uint64,
+        uint64 blockId,
         address prover,
         bool isContesting,
         TaikoData.BlockEvidence calldata evidence
@@ -101,25 +114,31 @@ contract SgxVerifier is EssentialContract, IVerifier {
             revert SGX_INVALID_PROOF_SIZE();
         }
 
+        uint64 id = 0; // TODO
+
+        if (!_isIdValid(id)) revert SGX_INVALID_ID();
+        if (!_isExpired(instances[id - 1].effectiveSince)) {
+            revert SGX_INSTANCE_EXPIRED();
+        }
+
         address newInstance =
             address(bytes20(LibBytesUtils.slice(evidence.proof, 0, 20)));
-
         bytes memory signature = LibBytesUtils.slice(evidence.proof, 20);
+        bytes32 hash = getSignedHash(blockId, evidence, prover, newInstance);
 
-        address oldInstance =
-            getSignedHash(evidence, prover, newInstance).recover(signature);
-
-        _replaceInstance(oldInstance, newInstance);
-    }
-
-    function isInstanceValid(address instance) public view returns (bool) {
-        return instances[instance] + INSTANCE_EXPIRY > block.timestamp;
+        if (instances[id].addr != hash.recover(signature)) {
+            revert SGX_INVALID_AUTH();
+        }
+        _removeInstance(id);
+        _addInstance(newInstance);
+        emit InstancesChanged();
     }
 
     function getSignedHash(
+        uint64 blockId,
         TaikoData.BlockEvidence memory evidence,
         address prover,
-        address newAddress
+        address newInstance
     )
         public
         pure
@@ -127,33 +146,45 @@ contract SgxVerifier is EssentialContract, IVerifier {
     {
         return keccak256(
             abi.encode(
+                blockId,
                 evidence.metaHash,
                 evidence.parentHash,
                 evidence.blockHash,
                 evidence.signalRoot,
                 evidence.graffiti,
                 prover,
-                newAddress
+                newInstance
             )
         );
     }
 
-    function _replaceInstance(
-        address oldInstance,
-        address newInstance
-    )
-        private
-    {
-        if (oldInstance != address(0)) {
-            if (!isInstanceValid(oldInstance)) revert SGX_INVALID_AUTH();
-            instances[oldInstance] = 1;
+    function _isIdValid(uint256 id) private view returns (bool) {
+        return id > 0 && id <= instances.length;
+    }
+
+    function _addInstance(address instance) private {
+        if (instance == address(0)) revert SGX_INVALID_INSTANCE();
+        instances.push(Instance(instance, uint64(block.timestamp)));
+    }
+
+    function _removeInstance(uint256 id) private onlyValidId(id) {
+        // purge up to 10 instances
+        for (uint256 i; i < 10; ++i) {
+            Instance memory last = instances[instances.length - 1];
+            if (_isExpired(last.effectiveSince)) instances.pop();
+            else break;
         }
 
-        if (newInstance == address(0)) revert SGX_INVALID_INSTANCE();
-        if (instances[newInstance] != 0) revert SGX_INSTANCE_REGISTERED();
+        if (id != instances.length) {
+            // Move the last element to the emply slot
+            Instance memory last = instances[instances.length - 1];
+            instances[id - 1] = last;
+        }
+        instances.pop();
+    }
 
-        instances[newInstance] = block.timestamp;
-        emit InstanceRegistered(oldInstance, newInstance, block.timestamp);
+    function _isExpired(uint64 effectiveSince) private view returns (bool) {
+        return effectiveSince + INSTANCE_EXPIRY <= block.timestamp;
     }
 }
 
