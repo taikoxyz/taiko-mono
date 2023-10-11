@@ -33,7 +33,7 @@
           "description": "Import your NFT from the source chain.",
           "scan_screen": {
             "title": "Scan for NFT",
-            "description": "Don't see your NFTs?\nTry adding them manually!"
+            "description": "Don't see your NFTs? Try adding them manually!"
           }
         },
         "review": {
@@ -56,6 +56,7 @@
         "success": "Transaction completed!. Your funds are getting ready to be claimed on {network}"
       },
       "nft_scan": "Scan for NFT",
+      "nft_scan_again": "Scan again",
       "nft_manual": "Add manually"
     },
     "errors": {
@@ -308,6 +309,9 @@
     "name": "Name",
     "balance": "Balance",
     "destination": "Destination",
-    "contract_address": "Contract address"
+    "contract_address": "Contract address",
+    "id": "ID",
+    "collection": "Collection",
+    "address": "Address"
   }
 }

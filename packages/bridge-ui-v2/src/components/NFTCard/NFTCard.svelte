@@ -52,8 +52,8 @@
         >{nft.tokenId}
       </span></span>
     <span
-      ><span class="font-bold">{$t('common.contract_address')}: </span><span class="text-secondary-content"
-        >{truncateString(address, 14)}
+      ><span class="font-bold">{$t('common.address')}: </span><span class="text-secondary-content"
+        >{truncateString(address, 13)}
       </span>
     </span>
   </div>

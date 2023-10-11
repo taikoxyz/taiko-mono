@@ -571,29 +571,39 @@
             Automatic NFT Input 
           -->
             <div class="f-between-center w-full gap-4">
-              <Button
-                disabled={!canScan}
-                loading={scanning}
-                type="primary"
-                class="px-[28px] py-[14px] rounded-full flex-1 text-white"
-                on:click={scanForNFTs}>{$t('bridge.actions.nft_scan')}</Button>
+              {#if !scanned}
+                <Button
+                  disabled={!canScan}
+                  loading={scanning}
+                  type="primary"
+                  class="px-[28px] py-[14px] rounded-full flex-1 text-white"
+                  on:click={scanForNFTs}>{$t('bridge.actions.nft_scan')}</Button>
+              {:else}
+                <Button
+                  disabled={!canScan}
+                  loading={scanning}
+                  type="neutral"
+                  class="px-[28px] py-[14px] rounded-full flex-1 bg-transparent !border border-primary-brand hover:border-primary-interactive-hover"
+                  on:click={scanForNFTs}>{$t('bridge.actions.nft_scan_again')}</Button>
+              {/if}
             </div>
 
             <div class="f-col w-full gap-4">
               {#if scanned}
                 <h2>{$t('bridge.nft.step.import.scan_screen.title')}</h2>
+                <!-- Todo: also enable card view here? -->
+                <NFTList bind:nfts={foundNFTs} chainId={$network?.id} bind:selectedNFT />
+
                 <div class="flex items-center justify-between space-x-2">
-                  <span class="text-sm">{$t('bridge.nft.step.import.scan_screen.description')}</span>
+                  <FlatAlert type="warning" message={$t('bridge.nft.step.import.scan_screen.description')} />
                   <Button
                     type="neutral"
-                    class="bg-transparent !border border-primary-brand hover:border-primary-interactive-hover py-[14px]"
+                    class="bg-transparent !border border-primary-brand hover:border-primary-interactive-hover "
                     on:click={() => (manualNFTInput = !manualNFTInput)}>
                     {$t('bridge.actions.nft_manual')}
                   </Button>
                 </div>
               {/if}
-              <!-- Todo: also enable card view here? -->
-              <NFTList bind:nfts={foundNFTs} chainId={$network?.id} bind:selectedNFT />
             </div>
           {/if}
 
