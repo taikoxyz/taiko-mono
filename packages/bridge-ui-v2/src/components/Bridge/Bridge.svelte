@@ -576,19 +576,19 @@
                 loading={scanning}
                 type="primary"
                 class="px-[28px] py-[14px] rounded-full flex-1 text-white"
-                on:click={scanForNFTs}>Scan for NFTs</Button>
+                on:click={scanForNFTs}>{$t('bridge.actions.nft_scan')}</Button>
             </div>
 
             <div class="f-col w-full gap-4">
               {#if scanned}
-                <h2>Your NFTs:</h2>
+                <h2>{$t('bridge.nft.step.import.scan_screen.title')}</h2>
                 <div class="flex items-center justify-between space-x-2">
-                  <span class="text-sm">Don't see your NFTs?<br /> Try adding them manually!</span>
+                  <span class="text-sm">{$t('bridge.nft.step.import.scan_screen.description')}</span>
                   <Button
                     type="neutral"
                     class="bg-transparent !border border-primary-brand hover:border-primary-interactive-hover py-[14px]"
                     on:click={() => (manualNFTInput = !manualNFTInput)}>
-                    Add manually
+                    {$t('bridge.actions.nft_manual')}
                   </Button>
                 </div>
               {/if}
@@ -601,12 +601,12 @@
         {:else if activeStep === NFTSteps.REVIEW}
           <div class="container mx-auto inline-block align-middle space-y-[25px]">
             <div class="flex justify-between mb-2 items-center">
-              <div class="font-bold">Destination</div>
+              <div class="font-bold">{$t('common.destination')}</div>
               <div><ChainSelector small value={$destinationChain} readOnly /></div>
             </div>
 
             <div class="flex justify-between mb-2">
-              <div class="font-bold">Contract address</div>
+              <div class="font-bold">{$t('common.contract_address')}</div>
               <div class="text-secondary-content">
                 <ul>
                   {#each selectedNFT as nft}
@@ -628,7 +628,7 @@
             </div>
 
             <div class="flex justify-between">
-              <div class="font-bold">Token IDs</div>
+              <div class="font-bold">{$t('bridge.nft.step.review.token_id')}</div>
               <div class="break-words text-right text-secondary-content">
                 <ul>
                   {#each selectedNFT as nft}
@@ -649,7 +649,7 @@
           <div class="h-sep" />
           <div class="flex justify-between items-center w-full">
             <div class="flex items-center gap-2">
-              <span>Your NFTs on</span>
+              <span>{$t('bridge.nft.step.review.your_tokens')}</span>
               <ChainSelector small value={$network} readOnly />
             </div>
             <div class="flex gap-2">

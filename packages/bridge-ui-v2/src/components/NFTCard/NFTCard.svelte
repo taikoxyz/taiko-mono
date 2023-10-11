@@ -1,5 +1,6 @@
 <script lang="ts">
   import { get } from 'svelte/store';
+  import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
   import type { NFT } from '$libs/token';
@@ -30,22 +31,30 @@
   <img alt={nft.name} src={imageUrl} />
   <div class="f-col p-5 text-xs">
     {#if nft.name}<span
-        ><span class="font-bold">Collection:</span> <span class="text-secondary-content">{nft.name}</span></span
+        ><span class="font-bold">{$t('common.collection')}:</span>
+        <span class="text-secondary-content">{nft.name}</span></span
       >{/if}
     {#if nft.symbol}
       <span><span class="text-secondary-content">{nft.symbol}</span></span>
     {/if}
 
     {#if nft.metadata?.name}
-      <span><span class="font-bold">Name:</span> <span class="text-secondary-content">{nft.metadata?.name}</span></span>
+      <span
+        ><span class="font-bold">{$t('common.name')}:</span>
+        <span class="text-secondary-content">{nft.metadata?.name}</span></span>
     {/if}
     <!-- {#if nft.metadata?.description}
       {nft.metadata?.description}
     {/if} -->
 
-    <span><span class="font-bold">ID: </span><span class="text-secondary-content">{nft.tokenId} </span></span>
     <span
-      ><span class="font-bold">Addr: </span><span class="text-secondary-content">{truncateString(address, 14)} </span>
+      ><span class="font-bold">{$t('common.id')}: </span><span class="text-secondary-content"
+        >{nft.tokenId}
+      </span></span>
+    <span
+      ><span class="font-bold">{$t('common.contract_address')}: </span><span class="text-secondary-content"
+        >{truncateString(address, 14)}
+      </span>
     </span>
   </div>
 </div>

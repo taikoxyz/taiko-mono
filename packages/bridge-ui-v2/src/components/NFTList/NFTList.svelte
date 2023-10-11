@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { t } from 'svelte-i18n';
+
   import { PUBLIC_NFT_BATCH_TRANSFERS_ENABLED } from '$env/static/public';
   import type { NFT } from '$libs/token';
   import { groupNFTByCollection } from '$libs/util/groupNFTByCollection';
@@ -56,7 +58,7 @@
     {#if multiSelectEnabled && !viewOnly}
       <div class="form-control">
         <label class="cursor-pointer label">
-          <span class="label-text">Select all NFTs</span>
+          <span class="label-text">{$t('bridge.nft.step.import.select_all')}</span>
           <input
             type="checkbox"
             bind:checked={allChecked}
@@ -84,7 +86,7 @@
                   <!-- {@const tokenImage = fetchNFTImage(nft)} -->
 
                   {#if collectionAddress === undefined}
-                    <div>Address for {nft.name} is undefined</div>
+                    <div>TODO: Address for {nft.name} is undefined</div>
                   {:else}
                     <NftListItem
                       {nft}

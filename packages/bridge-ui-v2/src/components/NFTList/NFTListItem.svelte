@@ -1,8 +1,9 @@
 <script lang="ts">
   import { get } from 'svelte/store';
+  import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
-  import { type NFT,TokenType } from '$libs/token';
+  import { type NFT, TokenType } from '$libs/token';
   import { fetchNFTImageUrl } from '$libs/token/fetchNFTImageUrl';
   import { noop } from '$libs/util/noop';
   import { network } from '$stores/network';
@@ -53,9 +54,9 @@
       {#if nft.metadata?.name}
         <span class=" text-xs text-neutral-content">{nft.metadata?.name}</span>
       {/if}
-      <span class=" text-xs text-neutral-content">ID: {nft.tokenId}</span>
+      <span class=" text-xs text-neutral-content">{$t('common.id')}: {nft.tokenId}</span>
       {#if nft.type === TokenType.ERC1155}
-        <span class=" text-xs text-neutral-content">Balance: {nft.balance}</span>
+        <span class=" text-xs text-neutral-content">{$t('common.balance')}: {nft.balance}</span>
       {/if}
     </div>
     {#if multiSelectEnabled && selectable}
@@ -71,6 +72,7 @@
 </div>
 
 <style>
+  /* Todo: temporary test, remove or move */
   .animate-pulse {
     animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
