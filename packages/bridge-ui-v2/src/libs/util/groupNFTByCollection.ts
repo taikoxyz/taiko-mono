@@ -1,4 +1,4 @@
-import type { NFT } from './types';
+import type { NFT } from '../token/types';
 
 export function groupNFTByCollection(nfts: NFT[]): Record<string, NFT[]> {
   const grouped: Record<string, NFT[]> = {};

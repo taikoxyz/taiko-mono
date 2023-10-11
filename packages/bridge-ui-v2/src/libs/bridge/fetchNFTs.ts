@@ -34,16 +34,21 @@ export async function fetchNFTs(userAddress: Address, chainID: ChainID): Promise
 
     const nftsPromises: Promise<NFT>[] = result.map(async (nft) => {
       const type: TokenType = TokenType[nft.contractType as keyof typeof TokenType];
-      //TODO: tokenID should not be cast to number, but the ABI only allows for numbers, so it would fail either way if it wasn't a number
-      return (await getTokenWithInfoFromAddress({
+      return getTokenWithInfoFromAddress({
         contractAddress: nft.contractAddress,
         srcChainId: Number(chainID),
         owner: userAddress,
         tokenId: Number(nft.tokenID),
         type,
-      })) as NFT;
+      }) as Promise<NFT>;
     });
-    return await Promise.all(nftsPromises);
+
+    const nftsSettled = await Promise.allSettled(nftsPromises);
+    const nfts = nftsSettled
+      .filter((result) => result.status === 'fulfilled')
+      .map((result) => (result as PromiseFulfilledResult<NFT>).value);
+
+    return nfts;
   });
 
   let nftArrays: NFT[][] = [];
