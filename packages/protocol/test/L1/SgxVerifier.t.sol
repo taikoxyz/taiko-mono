@@ -21,7 +21,7 @@ contract TestSgxVerifier is TaikoL1TestBase {
         trustedInstances[0] = SGX_X_1;
         trustedInstances[1] = SGX_Y;
         trustedInstances[2] = SGX_Z;
-        sv.registerInstance(trustedInstances);
+        sv.registerInstances(trustedInstances);
     }
 
     function test_addToRegistryByOwner_WithoutOwnerRole() external {
@@ -32,7 +32,7 @@ contract TestSgxVerifier is TaikoL1TestBase {
 
         vm.expectRevert();
         vm.prank(Bob, Bob);
-        sv.registerInstance(trustedInstances);
+        sv.registerInstances(trustedInstances);
     }
 
     function test_addToRegistryBySgxInstance() external {
@@ -44,7 +44,7 @@ contract TestSgxVerifier is TaikoL1TestBase {
             createAddRegistrySignature(SGX_X_1, trustedInstances, 0x4);
 
         vm.prank(Bob, Bob);
-        sv.registerBySgxInstance(SGX_X_1, trustedInstances, signature);
+        sv.registerInstancesBySgx(0, SGX_X_1, trustedInstances, signature);
     }
 
     function createAddRegistrySignature(
