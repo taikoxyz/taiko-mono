@@ -56,10 +56,18 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         ProofData memory data = abi.decode(evidence.proof, (ProofData));
         // Verify blob
         {
+            // Hash and x are both deterministic and can be calculated off-chain
+            // by provers
+            // We can use `blobVersionHash` to replace `evidence.metaHash`, but
+            // `evidence.metaHash` is even better.
             bytes32 hash =
-                keccak256(abi.encodePacked(blobVersionHash, data.txListHash));
+                keccak256(abi.encodePacked(evidence.metaHash, data.txListHash));
             uint256 x = uint256(hash) % Lib4844.FIELD_ELEMENTS_PERBLOB;
 
+            // Question: What if x * 32 is larger than the blob data size
+
+            // Question: how to calculate pointCommitment and pointProof
+            // offchain?
             Lib4844.point_evaluation_precompile(
                 blobVersionHash,
                 x,
