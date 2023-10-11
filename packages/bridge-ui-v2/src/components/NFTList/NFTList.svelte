@@ -1,14 +1,14 @@
 <script lang="ts">
-  import type { Address } from 'viem';
-
   import { PUBLIC_NFT_BATCH_TRANSFERS_ENABLED } from '$env/static/public';
-  import { type NFT, TokenType } from '$libs/token';
-  import { fetchNFTImage } from '$libs/token/fetchNFTImage';
-  import { groupNFTByCollection } from '$libs/token/groupNFTByCollection';
+  import type { NFT } from '$libs/token';
+  import { groupNFTByCollection } from '$libs/util/groupNFTByCollection';
+
+  import NftListItem from './NFTListItem.svelte';
 
   export let nfts: NFT[];
   export let chainId: number | undefined;
   export let selectedNFT: NFT[] | null = [];
+  export let viewOnly = false;
 
   const multiSelectEnabled = (PUBLIC_NFT_BATCH_TRANSFERS_ENABLED || 'false') === 'true';
 
@@ -27,32 +27,33 @@
     checkedAddresses = new Map(checkedAddresses);
   };
 
-  const toggleAddressCheckBox = (address: string) => {
-    if (!address) return;
-    checkedAddresses.set(address, !checkedAddresses.get(address));
+  const toggleAddressCheckBox = (collectionAddress: string) => {
+    if (!collectionAddress) return;
+    checkedAddresses.set(collectionAddress, !checkedAddresses.get(collectionAddress));
     checkedAddresses = new Map(checkedAddresses);
     checkAllCheckboxes();
   };
 
-  const selectNFT = (address: Address) => {
-    if (!selectedNFT || !chainId) return;
+  const selectNFT = (nft: NFT) => {
+    if (!selectedNFT || !chainId || !nft) return;
     const currentChainId = chainId;
-    const foundNFT = nfts.find((nft) => nft.addresses[currentChainId] === address);
+    const address = nft.addresses[currentChainId];
+    const foundNFT = nfts.find((n) => n.addresses[currentChainId] === address && nft.tokenId === n.tokenId);
     selectedNFT = foundNFT ? [foundNFT] : null;
   };
 
   const checkAllCheckboxes = () => {
     allChecked = nfts.every((nft) => {
       if (!chainId) return;
-      const address = nft.addresses[chainId];
-      return address && checkedAddresses.get(address);
+      const collectionAddress = nft.addresses[chainId];
+      return collectionAddress && checkedAddresses.get(collectionAddress);
     });
   };
 </script>
 
 {#if nfts.length > 0}
   <div class="flex flex-col">
-    {#if multiSelectEnabled}
+    {#if multiSelectEnabled && !viewOnly}
       <div class="form-control">
         <label class="cursor-pointer label">
           <span class="label-text">Select all NFTs</span>
@@ -64,7 +65,7 @@
         </label>
       </div>
     {/if}
-    <div class="max-h-[200px] min-h-[150px] overflow-y-scroll bg-neutral rounded p-2">
+    <div class="max-h-[200px] min-h-[150px] overflow-y-scroll bg-neutral rounded-[20px] p-2">
       {#if !chainId}
         Select a chain
       {:else}
@@ -79,45 +80,25 @@
               </div>
               <div class="token-ids my-2">
                 {#each nftsGroup as nft}
-                  {@const address = nft.addresses[chainId]}
-                  {@const tokenImage = fetchNFTImage(nft)}
+                  {@const collectionAddress = nft.addresses[chainId]}
+                  <!-- {@const tokenImage = fetchNFTImage(nft)} -->
 
-                  {#if address === undefined}
+                  {#if collectionAddress === undefined}
                     <div>Address for {nft.name} is undefined</div>
                   {:else}
-                    <div class="form-control flex">
-                      <label class="cursor-pointer label">
-                        <div class="mr-2">
-                          {#if tokenImage}
-                            {tokenImage}
-                          {:else}
-                            <img alt="placeholder nft" src="/chains/taiko.svg" class="w-[40px] h-[40px] rounded" />
-                          {/if}
-                        </div>
-                        <div class="f-col grow">
-                          <span class=" text-xs text-neutral-content">ID: {nft.tokenId}</span>
-                          {#if nft.type === TokenType.ERC1155}
-                            <span class=" text-xs text-neutral-content">Balance: {nft.balance}</span>
-                          {/if}
-                        </div>
-                        {#if multiSelectEnabled}
-                          <input
-                            type="checkbox"
-                            class="checkbox checkbox-secondary"
-                            checked={checkedAddresses.get(address) || false}
-                            on:change={() => toggleAddressCheckBox(address)} />
-                        {:else}
-                          <input
-                            type="radio"
-                            name="nft-radio"
-                            class="flex-none radio radio-secondary"
-                            on:change={() => selectNFT(address)} />
-                        {/if}
-                      </label>
-                    </div>
+                    <NftListItem
+                      {nft}
+                      selectable={!viewOnly}
+                      {multiSelectEnabled}
+                      {checkedAddresses}
+                      {collectionAddress}
+                      {toggleAddressCheckBox}
+                      {selectNFT} />
                   {/if}
                 {/each}
-                <div class="h-sep" />
+                {#if nftsGroup.length > 2}
+                  <div class="h-sep" />
+                {/if}
               </div>
             {/if}
           </div>
