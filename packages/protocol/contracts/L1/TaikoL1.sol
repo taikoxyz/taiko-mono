@@ -324,6 +324,10 @@ contract TaikoL1 is
             ethDepositMaxFee: 1 ether / 10
         });
     }
+
+    function isConfigValid() public pure returns (bool) {
+        return LibVerifying.isConfigValid(getConfig());
+    }
 }
 
 /// @title ProxiedTaikoL1
