@@ -103,13 +103,13 @@ export const JOLNIR_CONFIG = {
     deterministicDeploymentProxy: {
       name: "Deterministic Deployment Proxy",
       address: {
-        impl: "0xTODO(docs)",
+        impl: "0x4e59b44847b379578588920ca78fbf26c0b4956c",
       },
     },
     erc4337Entrypoint: {
       name: "ERC-4337 Entrypoint",
       address: {
-        impl: "0xTODO(docs)",
+        impl: "0x4e59b44847b379578588920ca78fbf26c0b4956c",
       },
     },
     weth: {

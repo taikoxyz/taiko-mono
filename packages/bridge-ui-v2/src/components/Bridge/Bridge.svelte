@@ -453,6 +453,12 @@
   }
 
   $: {
+    const stepKey = NFTSteps[activeStep].toLowerCase();
+    nftStepTitle = $t(`bridge.title.nft.${stepKey}`);
+    nftStepDescription = $t(`bridge.description.nft.${stepKey}`);
+  }
+
+  $: {
     (async () => {
       if (addressInputState !== AddressInputState.Valid) return;
       if (contractAddress === '') return;
@@ -587,7 +593,9 @@
                   on:click={scanForNFTs}>{$t('bridge.actions.nft_scan_again')}</Button>
               {/if}
             </div>
-
+            <!-- 
+            Automatic NFT Input 
+            -->
             <div class="f-col w-full gap-4">
               {#if scanned}
                 <h2>{$t('bridge.nft.step.import.scan_screen.title')}</h2>
