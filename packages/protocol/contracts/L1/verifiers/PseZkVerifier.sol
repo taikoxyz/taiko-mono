@@ -54,31 +54,23 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         if (isContesting) return;
 
         ProofData memory data = abi.decode(evidence.proof, (ProofData));
+        bytes32 instance = getInstance(prover, data.txListHash, evidence);
+
         // Verify blob
-        {
-            // Hash and x are both deterministic and can be calculated off-chain
-            // by provers
-            // We can use `blobVersionHash` to replace `evidence.metaHash`, but
-            // `evidence.metaHash` is even better.
-            bytes32 hash =
-                keccak256(abi.encodePacked(evidence.metaHash, data.txListHash));
-            uint256 x = uint256(hash) % Lib4844.FIELD_ELEMENTS_PERBLOB;
 
-            // Question: What if x * 32 is larger than the blob data size
+        // Question: What if x is larger than the blob data size
 
-            // Question: how to calculate pointCommitment and pointProof
-            // offchain?
-            Lib4844.point_evaluation_precompile(
-                blobVersionHash,
-                x,
-                data.pointValue,
-                data.pointCommitment,
-                data.pointProof
-            );
-        }
+        // Question: how to calculate pointCommitment and pointProof
+        // offchain?
+        Lib4844.point_evaluation_precompile({
+            versionHash: blobVersionHash,
+            x: uint256(instance) % Lib4844.FIELD_ELEMENTS_PERBLOB,
+            y: data.pointValue,
+            commitment: data.pointCommitment,
+            proof: data.pointProof
+        });
 
         // Verify ZKP
-        bytes32 instance = getInstance(prover, evidence);
 
         // Validate the instance using bytes utilities.
         if (
@@ -117,6 +109,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
     function getInstance(
         address prover,
+        bytes32 txListHash,
         TaikoData.BlockEvidence memory evidence
     )
         public
@@ -130,6 +123,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
                 evidence.blockHash,
                 evidence.signalRoot,
                 evidence.graffiti,
+                txListHash,
                 prover
             )
         );
