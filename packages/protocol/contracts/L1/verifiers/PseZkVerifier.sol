@@ -39,9 +39,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        // blockId is unused now, but can be used later when supporting
-        // different types of proofs.
-        uint64,
+        uint64, /*blockId*/
         address prover,
         bool isContesting,
         bytes32 blobVersionHash,
@@ -54,7 +52,12 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         if (isContesting) return;
 
         ProofData memory data = abi.decode(evidence.proof, (ProofData));
-        bytes32 instance = getInstance(prover, data.txListHash, evidence);
+        bytes32 instance = getInstance({
+            prover: prover,
+            txListHash: data.txListHash,
+            pointValue: data.pointValue,
+            evidence: evidence
+        });
 
         // Verify blob
 
@@ -64,7 +67,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         // offchain?
         Lib4844.point_evaluation_precompile({
             versionHash: blobVersionHash,
-            x: uint256(instance) % Lib4844.FIELD_ELEMENTS_PERBLOB,
+            x: uint256(instance) % Lib4844.BLS_MODULUS,
             y: data.pointValue,
             commitment: data.pointCommitment,
             proof: data.pointProof
@@ -110,6 +113,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
     function getInstance(
         address prover,
         bytes32 txListHash,
+        uint256 pointValue,
         TaikoData.BlockEvidence memory evidence
     )
         public
@@ -123,8 +127,9 @@ contract PseZkVerifier is EssentialContract, IVerifier {
                 evidence.blockHash,
                 evidence.signalRoot,
                 evidence.graffiti,
+                prover,
                 txListHash,
-                prover
+                pointValue
             )
         );
     }

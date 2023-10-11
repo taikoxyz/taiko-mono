@@ -190,7 +190,7 @@ abstract contract TaikoL1TestBase is TestBase {
             proof: new bytes(102)
         });
 
-        bytes32 instance = pv.getInstance(prover, 0x0, evidence);
+        bytes32 instance = pv.getInstance(prover, 0x0, 0, evidence);
         uint16 verifierId = tier;
 
         evidence.proof = bytes.concat(

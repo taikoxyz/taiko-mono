@@ -28,13 +28,11 @@ contract SGXVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        // blockId is unused now, but can be used later when supporting
-        // different types of proofs.
-        uint64,
-        address,
-        bool,
-        bytes32 blobVersionHash,
-        TaikoData.BlockEvidence calldata
+        uint64, /*blockId*/
+        address, /*prover*/
+        bool, /*isContesting*/
+        bytes32, /*blobVersionHash*/
+        TaikoData.BlockEvidence calldata /*evidence*/
     )
         external
         pure
