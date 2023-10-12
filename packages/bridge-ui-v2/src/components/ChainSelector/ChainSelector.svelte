@@ -49,6 +49,8 @@
     'flex justify-start content-center',
   );
 
+  let iconSize = small ? 'w-5 h-5' : 'w-7 h-7';
+
   let switchingNetwork = false;
   let buttonId = `button-${uid()}`;
   let dialogId = `dialog-${uid()}`;
@@ -134,7 +136,7 @@
         {#if value}
           {@const icon = chainConfig[Number(value.id)]?.icon || 'Unknown Chain'}
           <i role="img" aria-label={value.name}>
-            <img src={icon} alt="chain-logo" class="rounded-full w-6 h-6" />
+            <img src={icon} alt="chain-logo" class="rounded-full {iconSize}" />
           </i>
           <span>{truncateString(value.name, 8)}</span>
         {/if}

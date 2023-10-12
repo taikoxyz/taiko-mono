@@ -26,6 +26,25 @@
         "confirm": "Confirm your NFT details."
       }
     },
+    "nft": {
+      "step": {
+        "import": {
+          "title": "Import NFT",
+          "description": "Import your NFT from the source chain.",
+          "scan_screen": {
+            "title": "Scan for NFT",
+            "description": "Don't see your NFTs? Try adding them manually!"
+          }
+        },
+        "review": {
+          "title": "Import NFT",
+          "description": "Review your NFT details.",
+          "token_id": "Token ID",
+          "your_tokens": "Your tokens on"
+        },
+        "confirm": "Confirm"
+      }
+    },
     "actions": {
       "approve": {
         "tx": "Transaction sent to approve {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
@@ -35,7 +54,10 @@
       "bridge": {
         "tx": "Transaction sent to bridge {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
         "success": "Transaction completed!. Your funds are getting ready to be claimed on {network}"
-      }
+      },
+      "nft_scan": "Scan for NFT",
+      "nft_scan_again": "Scan again",
+      "nft_manual": "Add manually"
     },
     "errors": {
       "send_erc20_error": "Failed to send ERC20 token",
@@ -278,12 +300,18 @@
   },
   "common": {
     "edit": "Edit",
+    "continue": "Continue",
     "cancel": "Cancel",
     "confirm": "Confirm",
     "close": "Close",
     "loading": "Loading",
     "ok": "Ok",
     "name": "Name",
-    "balance": "Balance"
+    "balance": "Balance",
+    "destination": "Destination",
+    "contract_address": "Contract address",
+    "id": "ID",
+    "collection": "Collection",
+    "address": "Address"
   }
 }
