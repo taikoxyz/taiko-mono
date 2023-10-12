@@ -77,9 +77,9 @@ library LibBridgeProcess {
             revert B_STATUS_MISMATCH();
         }
 
-        // Check a chain of inclusion proofs
-
         if (checkProof) {
+            // Check a chain of inclusion proofs, from the message's source
+            // chain all the way to the destination chain.
             uint256 srcChainId = message.srcChainId;
             address app = resolver.resolve(message.srcChainId, "bridge", false);
             bytes32 signal = msgHash;
