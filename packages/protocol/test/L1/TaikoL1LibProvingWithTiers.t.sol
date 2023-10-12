@@ -6,6 +6,7 @@ import { console2 } from "forge-std/console2.sol";
 
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { LibUtils } from "../../contracts/L1/libs/LibUtils.sol";
+import { LibProposing } from "../../contracts/L1/libs/LibProposing.sol";
 import { GuardianVerifier } from
     "../../contracts/L1/verifiers/GuardianVerifier.sol";
 import { TaikoData } from "../../contracts/L1/TaikoData.sol";
@@ -973,22 +974,31 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 ""
             );
 
-            // Let's say the 10th block is unprovable
+            // Let's say the 10th block is unprovable so prove accordingly
             if (blockId == 10) {
-                // Prove as guardian
-                proveBlock(
-                    Carol,
-                    Carol,
-                    meta,
-                    parentHash,
-                    blockHash,
-                    signalRoot,
-                    LibTiers.TIER_GUARDIAN,
-                    ""
-                );
+                TaikoData.BlockEvidence memory evidence = TaikoData
+                    .BlockEvidence({
+                    metaHash: LibProposing.hashMetadata(meta),
+                    parentHash: parentHash,
+                    blockHash: blockHash,
+                    signalRoot: signalRoot,
+                    graffiti: 0x0,
+                    tier: LibTiers.TIER_GUARDIAN,
+                    proof: new bytes(102)
+                });
 
-                // Credited back the bond (not transferred to the user wallet,
-                // but in-contract account credited only.)
+                evidence.proof = bytes.concat(keccak256("RETURN_LIVENESS_BOND"));
+
+                vm.prank(David, David);
+                gp.approveGuardianProof(meta.id, evidence);
+                vm.prank(Emma, Emma);
+                gp.approveGuardianProof(meta.id, evidence);
+                vm.prank(Frank, Frank);
+                gp.approveGuardianProof(meta.id, evidence);
+
+                // // Credited back the bond (not transferred to the user
+                // wallet,
+                // // but in-contract account credited only.)
                 assertEq(L1.getTaikoTokenBalance(Bob), 1 ether);
             } else {
                 // Prove as guardian

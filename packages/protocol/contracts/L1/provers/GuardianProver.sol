@@ -26,12 +26,13 @@ contract GuardianProver is EssentialContract {
     );
 
     address[NUM_GUARDIANS] public guardians;
-    mapping(address signer => uint256 id) public guardianIds;
+    mapping(address guardian => uint256 id) public guardianIds;
     mapping(bytes32 => uint256 approvalBits) public approvals;
 
     uint256[47] private __gap;
 
     error INVALID_GUARDIAN();
+    error INVALID_GUARDIAN_SET();
     error INVALID_PROOF();
     error PROVING_FAILED();
 
@@ -47,6 +48,14 @@ contract GuardianProver is EssentialContract {
         external
         onlyOwner
     {
+        // In case there is a pending 'approval' and we call setGuardians() with
+        // an existing guardian but with different array position (id), then
+        // accidentally 2 guardian signatures could lead to firing away a
+        // proveBlock() transaction.
+        if (!_correctOverlaps(_guardians)) {
+            revert INVALID_GUARDIAN_SET();
+        }
+
         for (uint256 i; i < NUM_GUARDIANS; ++i) {
             delete guardianIds[guardians[i]];
 
@@ -105,6 +114,23 @@ contract GuardianProver is EssentialContract {
             bits >>= 1;
         }
         return false;
+    }
+
+    function _correctOverlaps(address[NUM_GUARDIANS] memory _guardians)
+        private
+        view
+        returns (bool result)
+    {
+        // Basically going over the array and see if there is a duplicate and if
+        // so, they are NOT in the same position, revert.
+        for (uint256 i; i < NUM_GUARDIANS; ++i) {
+            if (
+                guardianIds[_guardians[i]] != 0 && guardians[i] != _guardians[i]
+            ) {
+                return false;
+            }
+        }
+        result = true;
     }
 }
 
