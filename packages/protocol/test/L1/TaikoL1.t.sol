@@ -106,7 +106,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
-        for (uint256 blockId = 1; blockId <= 20; blockId++) {
+        for (uint256 blockId = 1; blockId <= 20; ++blockId) {
             printVariables("before propose");
             TaikoData.BlockMetadata memory meta =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);
@@ -268,7 +268,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         console2.log("Bob balance:", tko.balanceOf(Bob));
 
         // Propose blocks
-        for (uint64 blockId = 1; blockId < count; blockId++) {
+        for (uint64 blockId = 1; blockId < count; ++blockId) {
             printVariables("before propose");
             meta = proposeBlock(Alice, Bob, 1_000_000, 1024);
             mine(5);

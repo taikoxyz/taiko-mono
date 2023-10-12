@@ -47,7 +47,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         external
         onlyOwner
     {
-        for (uint256 i; i < trustedInstances.length; i++) {
+        for (uint256 i; i < trustedInstances.length; ++i) {
             _replaceInstance(address(0), trustedInstances[i]);
         }
     }
@@ -76,7 +76,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         // Would throw in case invalid
         address signer = signedHash.recover(signature);
 
-        for (uint256 i; i < trustedInstances.length; i++) {
+        for (uint256 i; i < trustedInstances.length; ++i) {
             _replaceInstance(address(0), trustedInstances[i]);
         }
 
