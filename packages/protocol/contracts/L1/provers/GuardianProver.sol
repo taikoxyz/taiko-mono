@@ -14,22 +14,26 @@ import { TaikoData } from "../TaikoData.sol";
 
 /// @title GuardianProver
 contract GuardianProver is EssentialContract {
-    event GuardiansAdded(address[]);
-
     uint256 public constant NUM_GUARDIANS = 5;
     uint256 public constant REQUIRED_GUARDIANS = 3;
-    uint256 private constant DONE = type(uint256).max;
 
-    mapping(address signer => uint256 id) public guardians;
-    mapping(bytes32 => uint256 approvalBits) public blocks;
+    event GuardiansUpdated(address[NUM_GUARDIANS]);
+    event Approved(
+        uint64 blockId,
+        TaikoData.BlockEvidence evidence,
+        uint256 approvalBits,
+        bool proofSubmitted
+    );
 
-    uint256[48] private __gap;
+    address[NUM_GUARDIANS] public guardians;
+    mapping(address signer => uint256 id) public guardianIds;
+    mapping(bytes32 => uint256 approvalBits) public approvals;
 
-    error INVALID_GUARDIAN_SET();
+    uint256[47] private __gap;
+
     error INVALID_GUARDIAN();
     error INVALID_PROOF();
-    error MULTISIG_DONE();
-    error PROVING_FAILED(bytes);
+    error PROVING_FAILED();
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
@@ -37,77 +41,65 @@ contract GuardianProver is EssentialContract {
         EssentialContract._init(_addressManager);
     }
 
-    /// @notice Adds or modify guardians
-    /// @param multisigParticipants The address array of the guardians.
-    function changeGuardians(address[] memory multisigParticipants)
+    /// @notice Set the set of guardians
+    /// @param _guardians The new set of guardians
+    function setGuardians(address[NUM_GUARDIANS] memory _guardians)
         external
         onlyOwner
     {
-        // Always send 5 addresses, even if you just want to modify 1 address,
-        // so that (Bob, 0, 0, 0, 0) will set Bob only with index 1.
-        if (multisigParticipants.length != NUM_GUARDIANS) {
-            revert INVALID_GUARDIAN_SET();
+        for (uint256 i; i < NUM_GUARDIANS; ++i) {
+            delete guardianIds[guardians[i]];
+
+            address guardian = _guardians[i];
+            if (guardian == address(0) || guardianIds[guardian] != 0) {
+                revert INVALID_GUARDIAN();
+            }
+
+            guardianIds[guardian] = i + 1;
+            guardians[i] = guardian;
         }
 
-        for (uint256 i = 1; i <= NUM_GUARDIANS; i++) {
-                guardians[multisigParticipants[i - 1]] = i;
-        }
-
-        emit GuardiansAdded(multisigParticipants);
+        emit GuardiansUpdated(_guardians);
     }
 
-    /// @dev Called by each of the 5 guardians
-    function proveBlock(
+    /// @dev Called by guardians to approve a guardian proof
+    function approveGuardianProof(
         uint64 blockId,
-        TaikoData.BlockEvidence memory evidence,
-        bool unprovable
+        TaikoData.BlockEvidence memory evidence
     )
         external
     {
-        if (
-            evidence.proof.length != 0
-                && evidence.tier != LibTiers.TIER_GUARDIAN
-        ) revert INVALID_PROOF();
-        bytes32 hash = keccak256(abi.encode(blockId, evidence, unprovable));
+        uint256 id = guardianIds[msg.sender];
+        if (id == 0) revert INVALID_GUARDIAN();
 
-        uint256 approvalBits = blocks[hash];
+        if (evidence.tier != LibTiers.TIER_GUARDIAN) revert INVALID_PROOF();
 
-        if(approvalBits == DONE) {
-            revert MULTISIG_DONE();
-        }
+        bytes32 hash = keccak256(abi.encode(blockId, evidence));
+        uint256 approvalBits = approvals[hash];
 
-        approvalBits |= uint8(1 << getGuardianId(msg.sender));
+        approvalBits |= 1 << id;
 
-        if (isApproved(approvalBits)) {
-            if (unprovable) {
-                evidence.proof =
-                    bytes.concat(bytes32(keccak256("RETURN_LIVENESS_BOND")));
-            }
-
+        if (_isApproved(approvalBits)) {
             bytes memory data = abi.encodeWithSignature(
                 "proveBlock(uint64,bytes)", blockId, abi.encode(evidence)
             );
 
-            (bool success, bytes memory result) =
-                resolve("taiko", false).call(data);
-            if (!success) {
-                revert PROVING_FAILED(result);
-            }
-            blocks[hash] = DONE;
+            (bool success,) = resolve("taiko", false).call(data);
+
+            if (!success) revert PROVING_FAILED();
+            delete approvals[hash];
+
+            emit Approved(blockId, evidence, approvalBits, true);
         } else {
-            blocks[hash] = approvalBits;
+            approvals[hash] = approvalBits;
+            emit Approved(blockId, evidence, approvalBits, false);
         }
     }
 
-    function getGuardianId(address addr) public view returns (uint256 id) {
-        id = guardians[addr];
-        if (id == 0 || id > NUM_GUARDIANS) revert INVALID_GUARDIAN();
-    }
-
-    function isApproved(uint256 approvalBits) public pure returns (bool) {
+    function _isApproved(uint256 approvalBits) private pure returns (bool) {
         uint256 count;
         uint256 bits = approvalBits >> 1;
-        for (uint256 i = 0; i < NUM_GUARDIANS; ++i) {
+        for (uint256 i; i < NUM_GUARDIANS; ++i) {
             if (bits & 1 == 1) ++count;
             if (count == REQUIRED_GUARDIANS) return true;
             bits >>= 1;
