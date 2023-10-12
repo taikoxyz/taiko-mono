@@ -25,11 +25,13 @@
     bridges,
     type BridgeTransaction,
     type ERC20BridgeArgs,
+    type ERC721BridgeArgs,
     type ETHBridgeArgs,
     MessageStatus,
   } from '$libs/bridge';
   import { hasBridge } from '$libs/bridge/bridges';
   import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
+  import type { ERC721Bridge } from '$libs/bridge/ERC721Bridge';
   import { fetchNFTs } from '$libs/bridge/fetchNFTs';
   import {
     ApproveError,
@@ -61,6 +63,7 @@
     bridgeService,
     destNetwork as destinationChain,
     enteredAmount,
+    notApproved,
     processingFee,
     recipientAddress,
     selectedToken,
@@ -121,53 +124,101 @@
   async function approve() {
     if (!$selectedToken || !$network || !$destinationChain) return;
 
-    const erc20Bridge = bridges.ERC20 as ERC20Bridge;
-
     try {
-      const walletClient = await getConnectedWallet($network.id);
+      if ($selectedToken.type === TokenType.ERC721) {
+        const erc721Bridge = bridges[$selectedToken.type] as ERC721Bridge;
+        const walletClient = await getConnectedWallet($network.id);
 
-      const tokenAddress = await getAddress({
-        token: $selectedToken,
-        srcChainId: $network.id,
-        destChainId: $destinationChain.id,
-      });
+        const tokenAddress = $selectedToken.addresses[$network.id];
 
-      if (!tokenAddress) {
-        throw new Error('token address not found');
+        if (!tokenAddress) {
+          throw new Error('token address not found');
+        }
+
+        const spenderAddress = routingContractsMap[$network.id][$destinationChain.id].erc721VaultAddress;
+
+        const tokenIds = nftIdArray
+          ? nftIdArray.map((num) => BigInt(num))
+          : selectedNFT.map((nft) => BigInt(nft.tokenId));
+
+        const txHash = await erc721Bridge.approve({
+          tokenAddress,
+          spenderAddress,
+          tokenIds,
+          wallet: walletClient,
+        });
+
+        const { explorer } = chainConfig[$network.id].urls;
+
+        infoToast(
+          $t('bridge.actions.approve.tx', {
+            values: {
+              token: $selectedToken.symbol,
+              url: `${explorer}/tx/${txHash}`,
+            },
+          }),
+        );
+
+        // await pendingTransactions.add(txHash, $network.id);
+
+        successToast(
+          $t('bridge.actions.approve.success', {
+            values: {
+              token: $selectedToken.symbol,
+            },
+          }),
+        );
       }
+      if ($selectedToken.type === TokenType.ERC1155) {
+        //TODO: implement
+      }
+      if ($selectedToken.type === TokenType.ERC20) {
+        const erc20Bridge = bridges.ERC20 as ERC20Bridge;
+        const walletClient = await getConnectedWallet($network.id);
 
-      const spenderAddress = routingContractsMap[$network.id][$destinationChain.id].erc20VaultAddress;
+        const tokenAddress = await getAddress({
+          token: $selectedToken,
+          srcChainId: $network.id,
+          destChainId: $destinationChain.id,
+        });
 
-      const txHash = await erc20Bridge.approve({
-        tokenAddress,
-        spenderAddress,
-        amount: $enteredAmount,
-        wallet: walletClient,
-      });
+        if (!tokenAddress) {
+          throw new Error('token address not found');
+        }
 
-      const { explorer } = chainConfig[$network.id].urls;
+        const spenderAddress = routingContractsMap[$network.id][$destinationChain.id].erc20VaultAddress;
 
-      infoToast(
-        $t('bridge.actions.approve.tx', {
-          values: {
-            token: $selectedToken.symbol,
-            url: `${explorer}/tx/${txHash}`,
-          },
-        }),
-      );
+        const txHash = await erc20Bridge.approve({
+          tokenAddress,
+          spenderAddress,
+          amount: $enteredAmount,
+          wallet: walletClient,
+        });
 
-      await pendingTransactions.add(txHash, $network.id);
+        const { explorer } = chainConfig[$network.id].urls;
 
-      successToast(
-        $t('bridge.actions.approve.success', {
-          values: {
-            token: $selectedToken.symbol,
-          },
-        }),
-      );
+        infoToast(
+          $t('bridge.actions.approve.tx', {
+            values: {
+              token: $selectedToken.symbol,
+              url: `${explorer}/tx/${txHash}`,
+            },
+          }),
+        );
 
-      // Let's run the validation again, which will update UI
-      amountComponent.validateAmount();
+        await pendingTransactions.add(txHash, $network.id);
+
+        successToast(
+          $t('bridge.actions.approve.success', {
+            values: {
+              token: $selectedToken.symbol,
+            },
+          }),
+        );
+
+        // Let's run the validation again, which will update UI
+        amountComponent.validateAmount();
+      }
     } catch (err) {
       console.error(err);
 
@@ -248,7 +299,31 @@
           break;
         }
         case TokenType.ERC721:
-          // todo: implement
+          {
+            //TODO: only handles single NFTs for now
+            const tokenAddress = selectedNFT[0].addresses[$network.id];
+            const tokenVaultAddress = routingContractsMap[$network.id][$destinationChain.id].erc721VaultAddress;
+
+            const tokenIds = nftIdArray
+              ? nftIdArray.map((num) => BigInt(num))
+              : selectedNFT.map((nft) => BigInt(nft.tokenId));
+
+            const isTokenAlreadyDeployed = await isDeployedCrossChain({
+              token: $selectedToken,
+              srcChainId: $network.id,
+              destChainId: $destinationChain.id,
+            });
+
+            bridgeArgs = {
+              ...bridgeArgs,
+              token: tokenAddress,
+              tokenVaultAddress,
+              isTokenAlreadyDeployed,
+              tokenIds,
+              amounts: [BigInt(0)], // ERC721 is always 0
+            } as ERC721BridgeArgs;
+          }
+
           break;
         case TokenType.ERC1155:
           // todo: implement
@@ -449,13 +524,57 @@
     const stepKey = NFTSteps[activeStep].toLowerCase();
     nftStepTitle = $t(`bridge.title.nft.${stepKey}`);
     nftStepDescription = $t(`bridge.description.nft.${stepKey}`);
-    nextStepButtonText = activeStep === NFTSteps.CONFIRM ? $t('common.confirm') : $t('common.continue');
+    nextStepButtonText = getStepText();
   }
 
-  $: {
-    const stepKey = NFTSteps[activeStep].toLowerCase();
-    nftStepTitle = $t(`bridge.title.nft.${stepKey}`);
-    nftStepDescription = $t(`bridge.description.nft.${stepKey}`);
+  const getStepText = () => {
+    if (activeStep === NFTSteps.REVIEW) {
+      return $t('common.confirm');
+    }
+    if (activeStep === NFTSteps.CONFIRM) {
+      return $t('common.ok');
+    } else {
+      return $t('common.continue');
+    }
+  };
+
+  function updateApproval(tokenId: number, approval: boolean) {
+    notApproved.update((currentMap) => {
+      // Clone the current map
+      const updatedMap = new Map(currentMap);
+      // Update the approval status of the specified tokenId
+      updatedMap.set(tokenId, approval);
+      return updatedMap;
+    });
+  }
+  $: if (selectedNFT) {
+    //TODO: this needs changing if we do batch transfers in the future:
+    // Update either selectedToken store to handle arrays or the actions to access a different store for NFTs
+    $selectedToken = selectedNFT[0];
+    const currentNetwork = $network?.id;
+    if (currentNetwork && $destinationChain?.id && $selectedToken) {
+      const sourceTokenVault = routingContractsMap[currentNetwork][$destinationChain?.id].erc721VaultAddress;
+      if (selectedNFT[0].type === TokenType.ERC721) {
+        const bridge = bridges[selectedNFT[0].type] as ERC721Bridge;
+        bridge
+          .requiresApproval({
+            tokenAddress: selectedNFT[0].addresses[currentNetwork],
+            spenderAddress: sourceTokenVault,
+            tokenId: BigInt(selectedNFT[0].tokenId),
+          })
+          .then((isApproved: boolean) => {
+            if (isApproved) {
+              updateApproval(selectedNFT[0].tokenId, false);
+            } else {
+              updateApproval(selectedNFT[0].tokenId, true);
+            }
+          })
+          .catch((err: Error) => {
+            console.error(err);
+            //TODO: handle error
+          });
+      }
+    }
   }
 
   $: {
@@ -557,6 +676,7 @@
                 <FlatAlert type="success" forceColumnFlow message="todo: valid erc1155" />
               {/if}
 
+              // TODO: prop to only allow single input
               <IdInput
                 bind:this={nftIdInputComponent}
                 bind:enteredIds
@@ -716,11 +836,15 @@
               on:click={previousStep}>
               <span class="body-bold">{$t('common.edit')}</span></Button>
           {/if}
-          <Button
-            disabled={!canProceed}
-            type="primary"
-            class="px-[28px] py-[14px] rounded-full flex-1 text-white"
-            on:click={nextStep}><span class="body-bold">{nextStepButtonText}</span></Button>
+          {#if activeStep === NFTSteps.REVIEW}
+            <Actions {approve} {bridge} />
+          {:else if activeStep === NFTSteps.IMPORT}
+            <Button
+              disabled={!canProceed}
+              type="primary"
+              class="px-[28px] py-[14px] rounded-full flex-1 text-white"
+              on:click={nextStep}><span class="body-bold">{nextStepButtonText}</span></Button>
+          {/if}
         </div>
       </div></Card>
   </div>

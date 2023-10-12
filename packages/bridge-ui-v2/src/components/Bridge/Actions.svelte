@@ -3,7 +3,7 @@
 
   import { Button } from '$components/Button';
   import { Icon } from '$components/Icon';
-  import { TokenType } from '$libs/token';
+  import { type NFT,TokenType } from '$libs/token';
   import { account, network } from '$stores';
 
   import {
@@ -13,6 +13,7 @@
     errorComputingBalance,
     insufficientAllowance,
     insufficientBalance,
+    notApproved,
     recipientAddress,
     selectedToken,
     tokenBalance,
@@ -50,18 +51,45 @@
 
   // Conditions for approve/bridge steps
   $: isSelectedERC20 = $selectedToken && $selectedToken.type === TokenType.ERC20;
-  $: isTokenApproved = isSelectedERC20 && $enteredAmount && !$insufficientAllowance && !$validatingAmount;
+
+  $: isTokenApproved =
+    $selectedToken?.type === TokenType.ERC20
+      ? isSelectedERC20 && $enteredAmount && !$insufficientAllowance && !$validatingAmount
+      : $selectedToken?.type === TokenType.ERC721
+      ? allTokensApproved
+      : true;
 
   // Conditions to disable/enable buttons
-  $: disableApprove = canDoNothing || !$insufficientAllowance || $validatingAmount || approving;
-  $: disableBridge = canDoNothing || $insufficientAllowance || $insufficientBalance || $validatingAmount || bridging;
+  $: disableApprove =
+    $selectedToken?.type === TokenType.ERC20
+      ? canDoNothing || $insufficientBalance || $validatingAmount || approving
+      : $selectedToken?.type === TokenType.ERC721
+      ? allTokensApproved || approving
+      : approving;
+
+  $: disableBridge =
+    $selectedToken?.type === TokenType.ERC20
+      ? canDoNothing || $insufficientAllowance || $insufficientBalance || $validatingAmount || bridging
+      : $selectedToken?.type === TokenType.ERC721
+      ? !allTokensApproved
+      : bridging;
+
+  // $: allTokensApproved = $selectedToken?.every(token => {
+  //   if(token.type === TokenType.ERC721){
+  //     return !$notApproved.get(token.tokenId);
+  //   }
+  //   return true;
+  // });
+
+  $: allTokensApproved =
+    $selectedToken?.type === TokenType.ERC721 ? $notApproved.get(($selectedToken as NFT).tokenId) : true;
 
   // General loading state
   // $: loading = approving || bridging;
 </script>
 
 <div class="f-between-center w-full gap-4">
-  {#if isSelectedERC20}
+  {#if $selectedToken}
     <Button
       type="primary"
       class="px-[28px] py-[14px] rounded-full flex-1"
@@ -81,7 +109,6 @@
     </Button>
     <Icon type="arrow-right" />
   {/if}
-
   <Button
     type="primary"
     class="px-[28px] py-[14px] rounded-full flex-1 text-white"

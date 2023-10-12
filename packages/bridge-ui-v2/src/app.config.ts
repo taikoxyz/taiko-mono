@@ -2,9 +2,9 @@ export const recommentProcessingFee = {
   ethGasLimit: BigInt(900_000),
   erc20NotDeployedGasLimit: BigInt(3_100_000),
   erc20DeployedGasLimit: BigInt(1_100_000),
-  erc721NotDeployedGasLimit: BigInt(3_400_000),
+  erc721NotDeployedGasLimit: BigInt(2_400_000),
   erc721DeployedGasLimit: BigInt(1_100_000),
-  erc1155NotDeployedGasLimit: BigInt(4_000_000),
+  erc1155NotDeployedGasLimit: BigInt(2_600_000),
   erc1155DeployedGasLimit: BigInt(1_100_000),
 };
 
@@ -15,9 +15,14 @@ export const processingFeeComponent = {
 
 export const bridgeService = {
   noOwnerGasLimit: BigInt(140_000),
-  noTokenDeployedGasLimit: BigInt(3_000_000),
+  noERC20TokenDeployedGasLimit: BigInt(3_000_000),
   erc20GasLimitThreshold: BigInt(2_500_000),
-  unpredictableGasLimit: BigInt(1_000_000),
+
+  noERC721TokenDeployedGasLimit: BigInt(2_400_000),
+  erc721GasLimitThreshold: BigInt(3_000_000),
+
+  noERC1155TokenDeployedGasLimit: BigInt(2_600_000),
+  erc1155GasLimitThreshold: BigInt(3_000_000),
 };
 
 export const pendingTransaction = {
