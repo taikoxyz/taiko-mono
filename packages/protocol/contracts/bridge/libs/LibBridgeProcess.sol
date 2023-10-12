@@ -81,7 +81,9 @@ library LibBridgeProcess {
 
         if (checkProof) {
             uint256 srcChainId = message.srcChainId;
+            address app = resolver.resolve(message.srcChainId, "bridge", false);
             bytes32 signal = msgHash;
+
             bool verified;
 
             for (uint256 i; i < proofs.length - 1; ++i) {
@@ -89,12 +91,7 @@ library LibBridgeProcess {
                     abi.decode(proofs[i], (IBridge.IntermediateProof));
                 // perform inclusion check
                 verified = LibSecureMerkleTrie.verifyInclusionProof(
-                    bytes.concat(
-                        LibSignalService.getSignalSlot(
-                            resolver.resolve(iproof.chainId, "taiko", false),
-                            signal
-                        )
-                    ),
+                    bytes.concat(LibSignalService.getSignalSlot(app, signal)),
                     hex"01",
                     iproof.mkproof,
                     iproof.signalRoot
@@ -102,13 +99,14 @@ library LibBridgeProcess {
                 if (!verified) revert B_SIGNAL_NOT_RECEIVED();
 
                 srcChainId = iproof.chainId;
+                app = resolver.resolve(iproof.chainId, "taiko", false);
                 signal = iproof.signalRoot;
             }
 
             verified = ISignalService(resolver.resolve("signal_service", false))
                 .isSignalReceived({
                 srcChainId: srcChainId,
-                app: resolver.resolve(message.srcChainId, "bridge", false),
+                app: app,
                 signal: signal,
                 proof: proofs[proofs.length - 1]
             });
