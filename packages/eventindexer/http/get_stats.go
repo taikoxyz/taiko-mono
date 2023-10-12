@@ -9,6 +9,14 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 )
 
+// GetStats returns the current computed stats for the deployed network.
+//
+//	@Summary		Get stats
+//	@ID			   	get-stats
+//	@Accept			json
+//	@Produce		json
+//	@Success		200	{object} eventindexer.Stat
+//	@Router			/stats [get]
 func (srv *Server) GetStats(c echo.Context) error {
 	cached, found := srv.cache.Get(CacheKeyStats)
 
