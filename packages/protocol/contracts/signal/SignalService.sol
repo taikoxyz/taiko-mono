@@ -12,6 +12,31 @@ import { ISignalService } from "./ISignalService.sol";
 import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
 import { Proxied } from "../common/Proxied.sol";
 
+library LibSignalService {
+    function getSignalSlot(
+        address app,
+        bytes32 signal
+    )
+        internal
+        pure
+        returns (bytes32 signalSlot)
+    {
+        // Equivalent to `keccak256(abi.encodePacked(app, signal))`
+        assembly {
+            // Load the free memory pointer
+            let ptr := mload(0x40)
+            // Store the app address and signal bytes32 value in the allocated
+            // memory
+            mstore(ptr, app)
+            mstore(add(ptr, 32), signal)
+            // Calculate the hash of the concatenated arguments using keccak256
+            signalSlot := keccak256(add(ptr, 12), 52)
+            // Update free memory pointer
+            mstore(0x40, add(ptr, 64))
+        }
+    }
+}
+
 /// @title SignalService
 /// @notice See the documentation in {ISignalService} for more details.
 contract SignalService is ISignalService, EssentialContract {
@@ -114,19 +139,7 @@ contract SignalService is ISignalService, EssentialContract {
         pure
         returns (bytes32 signalSlot)
     {
-        // Equivalent to `keccak256(abi.encodePacked(app, signal))`
-        assembly {
-            // Load the free memory pointer
-            let ptr := mload(0x40)
-            // Store the app address and signal bytes32 value in the allocated
-            // memory
-            mstore(ptr, app)
-            mstore(add(ptr, 32), signal)
-            // Calculate the hash of the concatenated arguments using keccak256
-            signalSlot := keccak256(add(ptr, 12), 52)
-            // Update free memory pointer
-            mstore(0x40, add(ptr, 64))
-        }
+        return LibSignalService.getSignalSlot(app, signal);
     }
 }
 

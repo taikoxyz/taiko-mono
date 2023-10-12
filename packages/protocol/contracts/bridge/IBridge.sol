@@ -47,6 +47,12 @@ interface IBridge {
         string memo;
     }
 
+    struct IntermediateProof {
+        uint256 chainId;
+        bytes32 signalRoot;
+        bytes mkproof;
+    }
+
     // Struct representing the context of a bridge operation.
     struct Context {
         bytes32 msgHash; // Message hash.
@@ -69,10 +75,10 @@ interface IBridge {
 
     /// @notice Processes a message received from another chain.
     /// @param message The message to process.
-    /// @param proof The proof of the cross-chain transfer.
+    /// @param proofs The proofs of the cross-chain transfer.
     function processMessage(
         Message calldata message,
-        bytes calldata proof
+        bytes[] calldata proofs
     )
         external;
 

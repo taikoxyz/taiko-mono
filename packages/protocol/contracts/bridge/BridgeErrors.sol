@@ -20,6 +20,7 @@ abstract contract BridgeErrors {
     error B_FORBIDDEN();
     error B_GAS_LIMIT();
     error B_INCORRECT_VALUE();
+    error B_INVALID_PROOFS();
     error B_INIT_PARAM_ERROR();
     error B_MSG_HASH_NULL();
     error B_MSG_NON_RETRIABLE();

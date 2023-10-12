@@ -61,7 +61,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     /// @inheritdoc IBridge
     function processMessage(
         Message calldata message,
-        bytes calldata proof
+        bytes[] calldata proofs
     )
         external
         nonReentrant
@@ -70,7 +70,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
             state: _state,
             resolver: AddressResolver(this),
             message: message,
-            proof: proof,
+            proofs: proofs,
             checkProof: shouldCheckProof()
         });
     }
