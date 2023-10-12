@@ -110,9 +110,7 @@ library LibBridgeProcess {
                 signal: signal,
                 proof: proofs[proofs.length - 1]
             });
-            if (!verified) {
-                revert B_SIGNAL_NOT_RECEIVED();
-            }
+            if (!verified) revert B_SIGNAL_NOT_RECEIVED();
         }
 
         // Release necessary Ether from EtherVault if on Taiko, otherwise it's
