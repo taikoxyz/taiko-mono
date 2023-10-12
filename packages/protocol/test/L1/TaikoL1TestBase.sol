@@ -85,13 +85,13 @@ abstract contract TaikoL1TestBase is TestBase {
 
         gp = new GuardianProver();
         gp.init(address(addressManager));
-        address[] memory initMultiSig = new address[](5);
+        address[5] memory initMultiSig;
         initMultiSig[0] = David;
         initMultiSig[1] = Emma;
         initMultiSig[2] = Frank;
         initMultiSig[3] = Grace;
         initMultiSig[4] = Henry;
-        gp.changeGuardians(initMultiSig);
+        gp.setGuardians(initMultiSig);
 
         cp = new ZkAndSgxCombinedRollupConfigProvider();
 
@@ -205,8 +205,7 @@ abstract contract TaikoL1TestBase is TestBase {
         bytes32 blockHash,
         bytes32 signalRoot,
         uint16 tier,
-        bytes4 revertReason,
-        bool unprovable
+        bytes4 revertReason
     )
         internal
     {
@@ -260,18 +259,18 @@ abstract contract TaikoL1TestBase is TestBase {
 
             // Grant 2 signatures, 3rd might be a revert
             vm.prank(David, David);
-            gp.proveBlock(meta.id, evidence, unprovable);
+            gp.approveGuardianProof(meta.id, evidence);
             vm.prank(Emma, Emma);
-            gp.proveBlock(meta.id, evidence, unprovable);
+            gp.approveGuardianProof(meta.id, evidence);
 
             if (revertReason != "") {
                 vm.prank(Frank, Frank);
                 vm.expectRevert(); // Revert reason is 'wrapped' so will not be
                     // identical to the expectedRevert
-                gp.proveBlock(meta.id, evidence, unprovable);
+                gp.approveGuardianProof(meta.id, evidence);
             } else {
                 vm.prank(Frank, Frank);
-                gp.proveBlock(meta.id, evidence, unprovable);
+                gp.approveGuardianProof(meta.id, evidence);
             }
         } else {
             if (revertReason != "") {
