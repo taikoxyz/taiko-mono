@@ -44,7 +44,7 @@ library LibBridgeProcess {
     /// @param state The state of the bridge.
     /// @param resolver The address resolver.
     /// @param message The message to be processed.
-    /// @param proofs The lsit of merkle inclusion proofs.
+    /// @param proofs The list of merkle inclusion proofs.
     /// @param checkProof A boolean flag indicating whether to verify the signal
     /// receipt proof.
     function processMessage(
