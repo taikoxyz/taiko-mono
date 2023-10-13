@@ -29,7 +29,7 @@ contract Bridge is EssentialContract, IBridge {
         FAILED
     }
 
-    struct IntermediateProof {
+    struct HopProof {
         uint256 chainId;
         bytes32 signalRoot;
         bytes mkproof;
@@ -490,8 +490,7 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 _signal = signal;
 
         for (uint256 i; i < proofs.length - 1; ++i) {
-            IntermediateProof memory iproof =
-                abi.decode(proofs[i], (IntermediateProof));
+            HopProof memory iproof = abi.decode(proofs[i], (HopProof));
             // perform inclusion check
             bool verified = LibSecureMerkleTrie.verifyInclusionProof(
                 bytes.concat(LibSignalService.getSignalSlot(_app, _signal)),
