@@ -33,44 +33,7 @@ export const getTokenWithInfoFromAddress = async ({
     } else if (tokenType === TokenType.ERC1155) {
       return getERC1155Info(contractAddress, srcChainId, owner, tokenId, tokenType);
     } else if (tokenType === TokenType.ERC721) {
-      const name = await readContract({
-        address: contractAddress,
-        abi: erc721ABI,
-        functionName: 'name',
-        chainId: srcChainId,
-      });
-
-      const symbol = await readContract({
-        address: contractAddress,
-        abi: erc721ABI,
-        functionName: 'symbol',
-        chainId: srcChainId,
-      });
-
-      let uri;
-
-      if (tokenId) {
-        uri = await safeReadContract({
-          address: contractAddress,
-          abi: erc721ABI,
-          functionName: 'tokenURI',
-          args: [BigInt(tokenId)],
-          chainId: srcChainId,
-        });
-      }
-
-      const token = {
-        type: tokenType,
-        addresses: {
-          [srcChainId]: contractAddress,
-        },
-        name,
-        symbol,
-        tokenId: tokenId ?? 0,
-        uri: uri ? uri.toString() : undefined,
-      } as NFT;
-
-      return token;
+      return getERC721Info(contractAddress, srcChainId, tokenId, tokenType);
     } else {
       throw new Error('Unsupported token type');
     }
@@ -118,6 +81,7 @@ const getERC1155Info = async (
     functionName: 'uri',
     chainId: srcChainId,
   });
+
   if (tokenId && !uri)
     uri = await safeReadContract({
       address: contractAddress,
@@ -160,4 +124,49 @@ const getERC1155Info = async (
     log(`error fetching metadata for ${contractAddress} id: ${tokenId}`, error);
   }
   throw new Error('Error getting token info');
+};
+
+const getERC721Info = async (
+  contractAddress: Address,
+  srcChainId: number,
+  tokenId: number | undefined,
+  type: TokenType,
+) => {
+  const name = await readContract({
+    address: contractAddress,
+    abi: erc721ABI,
+    functionName: 'name',
+    chainId: srcChainId,
+  });
+
+  const symbol = await readContract({
+    address: contractAddress,
+    abi: erc721ABI,
+    functionName: 'symbol',
+    chainId: srcChainId,
+  });
+
+  let uri;
+
+  if (tokenId) {
+    uri = await safeReadContract({
+      address: contractAddress,
+      abi: erc721ABI,
+      functionName: 'tokenURI',
+      args: [BigInt(tokenId)],
+      chainId: srcChainId,
+    });
+  }
+
+  const token = {
+    type,
+    addresses: {
+      [srcChainId]: contractAddress,
+    },
+    name,
+    symbol,
+    tokenId: tokenId ?? 0,
+    uri: uri ? uri.toString() : undefined,
+  } as NFT;
+  return token;
 };
