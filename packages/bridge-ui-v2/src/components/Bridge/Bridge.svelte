@@ -55,7 +55,8 @@
   import AddressInput from './AddressInput/AddressInput.svelte';
   import { AddressInputState } from './AddressInput/state';
   import Amount from './Amount.svelte';
-  import IdInput from './IDInput.svelte';
+  import IdInput from './IDInput/IDInput.svelte';
+  import { IDInputState } from './IDInput/state';
   import { ProcessingFee } from './ProcessingFee';
   import Recipient from './Recipient.svelte';
   import {
@@ -445,17 +446,20 @@
   let nftStepTitle: string;
   let nftStepDescription: string;
   let nextStepButtonText: string;
+
+  let manualNFTInput: boolean = false;
   let nftIdArray: number[];
   let enteredIds: string = '';
   let contractAddress: Address | '';
+
   let addressInputComponent: AddressInput;
   let nftIdInputComponent: IdInput;
+
   let addressInputState: AddressInputState = AddressInputState.Default;
   let isOwnerOfAllToken: boolean = false;
   let validating: boolean = false;
   let detectedTokenType: TokenType | null = null;
 
-  let manualNFTInput: boolean = false;
   let scanning: boolean = false;
   let scanned: boolean = false;
 
@@ -471,16 +475,13 @@
   function onAddressValidation(event: CustomEvent<{ isValidEthereumAddress: boolean; addr: Address }>) {
     const { isValidEthereumAddress, addr } = event.detail;
     addressInputState = AddressInputState.Validating;
-
     if (isValidEthereumAddress && typeof addr === 'string') {
       if (!$network?.id) throw new Error('network not found');
       const srcChainId = $network?.id;
       getTokenWithInfoFromAddress({ contractAddress: addr, srcChainId: srcChainId, owner: $account?.address })
         .then((token) => {
           if (!token) throw new Error('no token with info');
-
           addressInputState = AddressInputState.Valid;
-
           $selectedToken = token;
         })
         .catch((err) => {
@@ -517,16 +518,6 @@
     // TODO: implement
   };
 
-  // Whenever the user switches bridge types, we should reset the forms
-  $: $activeBridge && (resetForm(), (activeStep = NFTSteps.IMPORT));
-
-  $: {
-    const stepKey = NFTSteps[activeStep].toLowerCase();
-    nftStepTitle = $t(`bridge.title.nft.${stepKey}`);
-    nftStepDescription = $t(`bridge.description.nft.${stepKey}`);
-    nextStepButtonText = getStepText();
-  }
-
   const getStepText = () => {
     if (activeStep === NFTSteps.REVIEW) {
       return $t('common.confirm');
@@ -547,6 +538,38 @@
       return updatedMap;
     });
   }
+
+  // Whenever the user switches bridge types, we should reset the forms
+  $: $activeBridge && (resetForm(), (activeStep = NFTSteps.IMPORT));
+
+  $: {
+    const stepKey = NFTSteps[activeStep].toLowerCase();
+    nftStepTitle = $t(`bridge.title.nft.${stepKey}`);
+    nftStepDescription = $t(`bridge.description.nft.${stepKey}`);
+    nextStepButtonText = getStepText();
+  }
+
+  const manualImportAction = () => {
+    if (!$network?.id) throw new Error('network not found');
+    const srcChainId = $network?.id;
+    const tokenId = nftIdArray[0];
+
+    if (contractAddress && srcChainId)
+      getTokenWithInfoFromAddress({ contractAddress, srcChainId, owner: $account?.address, tokenId })
+        .then((token) => {
+          if (!token) throw new Error('no token with info');
+
+          selectedNFT = [token as NFT];
+          $selectedToken = token;
+        })
+        .catch((err) => {
+          console.error(err);
+          detectedTokenType = null;
+          addressInputState = AddressInputState.Invalid;
+        });
+    nextStep();
+  };
+
   $: if (selectedNFT.length > 0) {
     //TODO: this needs changing if we do batch transfers in the future:
     // Update either selectedToken store to handle arrays or the actions to access a different store for NFTs
@@ -584,15 +607,25 @@
       validating = true;
 
       if ($account?.address && $network?.id && contractAddress)
-        isOwnerOfAllToken = await checkOwnership(
-          contractAddress,
-          detectedTokenType,
-          nftIdArray,
-          $account?.address,
-          $network?.id,
+        await checkOwnership(contractAddress, detectedTokenType, nftIdArray, $account?.address, $network?.id).then(
+          (result) => {
+            result;
+            isOwnerOfAllToken = result.every((value) => value.isOwner === true);
+          },
         );
       validating = false;
     })();
+  }
+
+  let idInputState: IDInputState;
+  $: {
+    if (isOwnerOfAllToken && nftIdArray?.length > 0) {
+      idInputState = IDInputState.VALID;
+    } else if (!isOwnerOfAllToken && nftIdArray?.length > 0) {
+      idInputState = IDInputState.INVALID;
+    } else {
+      idInputState = IDInputState.DEFAULT;
+    }
   }
 
   $: canProceed = manualNFTInput
@@ -620,8 +653,6 @@
         <ChainSelectorWrapper />
       </div>
 
-      {$selectedToken}
-      !{selectedNFT}!
       <TokenDropdown {tokens} bind:value={$selectedToken} />
 
       <Amount bind:this={amountComponent} />
@@ -678,11 +709,13 @@
                 <FlatAlert type="success" forceColumnFlow message="todo: valid erc1155" />
               {/if}
 
-              // TODO: prop to only allow single input
+              <!-- TODO: limit to config -->
               <IdInput
                 bind:this={nftIdInputComponent}
                 bind:enteredIds
                 bind:numbersArray={nftIdArray}
+                bind:state={idInputState}
+                limit={1}
                 class="bg-neutral-background border-0 h-[56px]" />
               <div class="min-h-[20px] !mt-3">
                 {#if !isOwnerOfAllToken && nftIdArray?.length > 0 && !validating}
@@ -699,25 +732,20 @@
             Automatic NFT Input 
           -->
             <div class="f-between-center w-full gap-4">
-              {#if !scanned}
-                <Button
-                  disabled={!canScan}
-                  loading={scanning}
-                  type="primary"
-                  class="px-[28px] py-[14px] rounded-full flex-1 text-white"
-                  on:click={scanForNFTs}>{$t('bridge.actions.nft_scan')}</Button>
-              {:else}
-                <Button
-                  disabled={!canScan}
-                  loading={scanning}
-                  type="neutral"
-                  class="px-[28px] py-[14px] rounded-full flex-1 bg-transparent !border border-primary-brand hover:border-primary-interactive-hover"
-                  on:click={scanForNFTs}>{$t('bridge.actions.nft_scan_again')}</Button>
-              {/if}
+              <Button
+                disabled={!canScan}
+                loading={scanning}
+                type={scanned ? 'neutral' : 'primary'}
+                class="px-[28px] py-[14px] rounded-full flex-1 text-white"
+                on:click={scanForNFTs}>
+                {#if !scanned}
+                  {$t('bridge.actions.nft_scan')}
+                {:else}
+                  {$t('bridge.actions.nft_scan_again')}
+                {/if}
+              </Button>
             </div>
-            <!-- 
-            Automatic NFT Input 
-            -->
+
             <div class="f-col w-full gap-4">
               {#if scanned}
                 <h2>{$t('bridge.nft.step.import.scan_screen.title')}</h2>
@@ -744,7 +772,6 @@
               <div class="font-bold">{$t('common.destination')}</div>
               <div><ChainSelector small value={$destinationChain} readOnly /></div>
             </div>
-
             <div class="flex justify-between mb-2">
               <div class="font-bold">{$t('common.contract_address')}</div>
               <div class="text-secondary-content">
@@ -778,6 +805,7 @@
               </div>
             </div>
           </div>
+
           <div class="h-sep" />
           <!-- 
             Recipient & Processing Fee
@@ -786,46 +814,51 @@
             <Recipient bind:this={recipientComponent} />
             <ProcessingFee bind:this={processingFeeComponent} />
           </div>
+
           <div class="h-sep" />
-          <div class="flex justify-between items-center w-full">
-            <div class="flex items-center gap-2">
-              <span>{$t('bridge.nft.step.review.your_tokens')}</span>
-              <ChainSelector small value={$network} readOnly />
+          <!-- 
+            NFT List or Card View
+           -->
+          <section class="space-y-2">
+            <div class="flex justify-between items-center w-full">
+              <div class="flex items-center gap-2">
+                <span>{$t('bridge.nft.step.review.your_tokens')}</span>
+                <ChainSelector small value={$network} readOnly />
+              </div>
+              <div class="flex gap-2">
+                <Button
+                  disabled={true}
+                  shape="circle"
+                  type="neutral"
+                  class="!w-9 !h-9 rounded-full"
+                  on:click={searchNFTs}>
+                  <Icon type="magnifier" fillClass="fill-primary-icon" size={24} vWidth={24} vHeight={24} />
+                </Button>
+                <IconFlipper
+                  iconType1="list"
+                  iconType2="cards"
+                  selectedDefault="list"
+                  class="bg-neutral w-9 h-9 rounded-full"
+                  on:labelclick={changeNFTView} />
+                <!-- <Icon type="list" fillClass="fill-primary-icon" size={24} vWidth={24} vHeight={24} /> -->
+              </div>
             </div>
-            <div class="flex gap-2">
-              <Button
-                disabled={true}
-                shape="circle"
-                type="neutral"
-                class="!w-9 !h-9 rounded-full"
-                on:click={searchNFTs}>
-                <Icon type="magnifier" fillClass="fill-primary-icon" size={24} vWidth={24} vHeight={24} />
-              </Button>
-              <IconFlipper
-                iconType1="list"
-                iconType2="cards"
-                selectedDefault="list"
-                class="bg-neutral w-9 h-9 rounded-full"
-                on:labelclick={changeNFTView} />
-              <!-- <Icon type="list" fillClass="fill-primary-icon" size={24} vWidth={24} vHeight={24} /> -->
-            </div>
-          </div>
-          {#if nftView === NFTView.LIST}
-            <NFTList bind:nfts={selectedNFT} chainId={$network?.id} viewOnly />
-          {:else if nftView === NFTView.CARDS}
-            <div class="rounded-[20px] bg-neutral min-h-[200px] w-full p-2 f-center">
-              {#each selectedNFT as nft}
-                <NFTCard {nft} />
-              {/each}
-            </div>
-          {/if}
+            {#if nftView === NFTView.LIST}
+              <NFTList bind:nfts={selectedNFT} chainId={$network?.id} viewOnly />
+            {:else if nftView === NFTView.CARDS}
+              <div class="rounded-[20px] bg-neutral min-h-[200px] w-full p-2 f-center">
+                {#each selectedNFT as nft}
+                  <NFTCard {nft} />
+                {/each}
+              </div>
+            {/if}
+          </section>
           <!-- CONFIRM STEP -->
         {:else if activeStep === NFTSteps.CONFIRM}
           <div class="f-between-center gap-4">
             <ChainSelectorWrapper />
           </div>
         {/if}
-
         <div class="h-sep" />
         <!-- 
           User Actions
@@ -841,14 +874,23 @@
           {#if activeStep === NFTSteps.REVIEW}
             <Actions {approve} {bridge} />
           {:else if activeStep === NFTSteps.IMPORT}
-            <Button
-              disabled={!canProceed}
-              type="primary"
-              class="px-[28px] py-[14px] rounded-full flex-1 text-white"
-              on:click={nextStep}><span class="body-bold">{nextStepButtonText}</span></Button>
+            {#if manualNFTInput}
+              <Button
+                disabled={!canProceed}
+                type="primary"
+                class="px-[28px] py-[14px] rounded-full flex-1 text-white"
+                on:click={manualImportAction}><span class="body-bold">{nextStepButtonText} (manual)</span></Button>
+            {:else}
+              <Button
+                disabled={!canProceed}
+                type="primary"
+                class="px-[28px] py-[14px] rounded-full flex-1 text-white"
+                on:click={nextStep}><span class="body-bold">{nextStepButtonText}</span></Button>
+            {/if}
           {/if}
         </div>
-      </div></Card>
+      </div>
+    </Card>
   </div>
 {/if}
 
