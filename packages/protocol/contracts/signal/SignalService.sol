@@ -80,7 +80,7 @@ contract SignalService is ISignalService, EssentialContract {
 
     /// @inheritdoc ISignalService
     function proveSignalReceived(
-        uint256 srcChainId,
+        uint256 srcChainId, // TODO: not used????
         address app,
         bytes32 signal,
         bytes calldata proof
