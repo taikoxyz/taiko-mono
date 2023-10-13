@@ -294,9 +294,7 @@ contract Bridge is EssentialContract, IBridge {
         if (_shouldCheckProof()) {
             bool failed = message.srcChainId == block.chainid
                 && _isSignalReceived(
-                    _getDerivedSignalForFailedMessage(
-                        keccak256(abi.encode(message))
-                    ),
+                    _signalForFailedMessage(keccak256(abi.encode(message))),
                     message.destChainId,
                     proofs
                 );
@@ -379,7 +377,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         return message.srcChainId == block.chainid
             && _isSignalReceived(
-                _getDerivedSignalForFailedMessage(keccak256(abi.encode(message))),
+                _signalForFailedMessage(keccak256(abi.encode(message))),
                 message.destChainId,
                 proofs
             );
@@ -463,7 +461,7 @@ contract Bridge is EssentialContract, IBridge {
             messageStatus[msgHash] = status;
             if (status == Status.FAILED) {
                 ISignalService(resolve("signal_service", false)).sendSignal(
-                    _getDerivedSignalForFailedMessage(msgHash)
+                    _signalForFailedMessage(msgHash)
                 );
             }
             emit MessageStatusChanged(msgHash, status);
@@ -519,7 +517,7 @@ contract Bridge is EssentialContract, IBridge {
         });
     }
 
-    function _getDerivedSignalForFailedMessage(bytes32 msgHash)
+    function _signalForFailedMessage(bytes32 msgHash)
         private
         pure
         returns (bytes32)
