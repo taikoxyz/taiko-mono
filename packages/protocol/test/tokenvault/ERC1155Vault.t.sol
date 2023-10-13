@@ -101,7 +101,7 @@ contract PrankDestBridge {
 }
 
 // PrankSrcBridge lets us mock Bridge/SignalService to return true when called
-// isMessageFailed()
+// proveMessageFailed()
 contract PrankSrcBridge is SkipProofCheckBridge {
     function getPreDeterminedDataBytes() external pure returns (bytes memory) {
         return
@@ -641,9 +641,7 @@ contract ERC1155VaultTest is TestBase {
         message.refundTo = Alice;
         message.memo = "";
 
-        bytes[] memory proofs = new bytes[](1);
-        proofs[0] = bytes("");
-        srcPrankBridge.recallMessage(message, proofs);
+        srcPrankBridge.recallMessage(message, bytes(""));
 
         // Alice got back her NFTs, and vault has 0
         assertEq(ctoken1155.balanceOf(Alice, 1), 10);

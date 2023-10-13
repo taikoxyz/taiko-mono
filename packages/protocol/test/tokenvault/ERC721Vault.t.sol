@@ -121,7 +121,7 @@ contract PrankDestBridge {
 }
 
 // PrankSrcBridge lets us mock Bridge/SignalService to return true when called
-// isMessageFailed()
+// proveMessageFailed()
 contract PrankSrcBridge is SkipProofCheckBridge {
     function getPreDeterminedDataBytes() external pure returns (bytes memory) {
         return
@@ -647,9 +647,7 @@ contract ERC721VaultTest is TestBase {
         message.refundTo = Alice;
         message.memo = "";
 
-        bytes[] memory proofs = new bytes[](1);
-        proofs[0] = bytes("");
-        srcPrankBridge.recallMessage(message, proofs);
+        srcPrankBridge.recallMessage(message, bytes(""));
 
         // Alice got back her NFT
         assertEq(canonicalToken721.ownerOf(1), Alice);
@@ -1013,17 +1011,5 @@ contract ERC721VaultTest is TestBase {
         } catch {
             fail();
         }
-    }
-
-    function _recallMessage(
-        Bridge srcBridge,
-        IBridge.Message memory message,
-        bytes memory proof
-    )
-        internal
-    {
-        bytes[] memory proofs = new bytes[](1);
-        proofs[0] = proof;
-        srcBridge.recallMessage(message, proofs);
     }
 }

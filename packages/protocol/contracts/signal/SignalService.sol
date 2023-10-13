@@ -41,9 +41,16 @@ library LibSignalService {
 /// @title SignalService
 /// @notice See the documentation in {ISignalService} for more details.
 contract SignalService is ISignalService, EssentialContract {
+    struct Hop {
+        uint256 chainId;
+        bytes32 signalRoot;
+        bytes mkproof;
+    }
+
     struct SignalProof {
         uint64 height;
         bytes proof; // A storage proof
+        Hop[] hops;
     }
 
     error SS_INVALID_SIGNAL();
@@ -116,15 +123,50 @@ contract SignalService is ISignalService, EssentialContract {
         returns (bool)
     {
         SignalProof memory signalProof = abi.decode(proof, (SignalProof));
-        bytes32 syncedSignalRoot = ICrossChainSync(resolve("taiko", false))
-            .getCrossChainSignalRoot(signalProof.height);
 
-        return LibSecureMerkleTrie.verifyInclusionProof(
-            bytes.concat(getSignalSlot(app, signal)),
-            hex"01",
-            signalProof.proof,
-            syncedSignalRoot
-        );
+        if (signal == 0x0) return false;
+        if (app == address(0)) return false;
+        if (srcChainId == block.chainid) return false;
+
+        // // Check a chain of inclusion proofs, from the message's source
+        // // chain all the way to the destination chain.
+        // uint256 _srcChainId = srcChainId;
+        // address _app = app;
+        // bytes32 _signal = signal;
+        //  bytes32 syncedSignalRoot = ICrossChainSync(resolve("taiko", false))
+        //     .getCrossChainSignalRoot(signalProof.height);
+
+        // for (uint256 i; i < proofs.length - 1; ++i) {
+        //     HopProof memory iproof = abi.decode(proofs[i], (HopProof));
+        //     // perform inclusion check
+        //     bool verified = LibSecureMerkleTrie.verifyInclusionProof(
+        //         bytes.concat(LibSignalService.getSignalSlot(_app, _signal)),
+        //         hex"01",
+        //         iproof.mkproof,
+        //         iproof.signalRoot
+        //     );
+        //     if (!verified) return false;
+
+        //     _srcChainId = iproof.chainId;
+        //     _app = resolve(iproof.chainId, "taiko", false);
+        //     _signal = iproof.signalRoot;
+        // }
+
+        // return ISignalService(resolve("signal_service", false))
+        //     .proveSignalReceived({
+        //     srcChainId: srcChainId,
+        //     app: _app,
+        //     signal: _signal,
+        //     proof: proofs[proofs.length - 1]
+        // });
+
+        // bool verified = LibSecureMerkleTrie.verifyInclusionProof(
+        //     bytes.concat(getSignalSlot(app, signal)),
+        //     hex"01",
+        //     signalProof.proof,
+        //     syncedSignalRoot
+        // );
+        return true;
     }
 
     /// @notice Get the storage slot of the signal.
