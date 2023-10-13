@@ -52,7 +52,6 @@ contract Bridge is EssentialContract, IBridge {
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
 
-    error B_INVALID_APP();
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
     error B_INVALID_GAS_LIMIT();
