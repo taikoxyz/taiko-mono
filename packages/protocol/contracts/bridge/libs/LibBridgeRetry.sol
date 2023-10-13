@@ -55,7 +55,7 @@ library LibBridgeRetry {
         }
 
         bytes32 msgHash = message.hashMessage();
-        if (state.messageStatus[msgHash] != LibBridgeData.Status.RETRIABLE) {
+        if (state.statuses[msgHash] != LibBridgeData.Status.RETRIABLE) {
             revert B_MSG_NON_RETRIABLE();
         }
 

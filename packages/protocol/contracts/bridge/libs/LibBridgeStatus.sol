@@ -42,8 +42,8 @@ library LibBridgeStatus {
     )
         internal
     {
-        if (state.messageStatus[msgHash] != status) {
-            state.messageStatus[msgHash] = status;
+        if (state.statuses[msgHash] != status) {
+            state.statuses[msgHash] = status;
             if (status == LibBridgeData.Status.FAILED) {
                 ISignalService(resolver.resolve("signal_service", false))
                     .sendSignal(getStatusFailedSignal(msgHash));

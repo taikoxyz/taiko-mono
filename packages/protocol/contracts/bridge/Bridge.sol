@@ -182,7 +182,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         virtual
         returns (LibBridgeData.Status)
     {
-        return _state.messageStatus[msgHash];
+        return _state.statuses[msgHash];
     }
 
     /// @notice Gets the current context.

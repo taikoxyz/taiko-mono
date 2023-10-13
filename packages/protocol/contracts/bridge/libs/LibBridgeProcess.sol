@@ -69,7 +69,7 @@ library LibBridgeProcess {
         // The message status must be "NEW"; "RETRIABLE" is managed in
         // LibBridgeRetry.sol.
         bytes32 msgHash = message.hashMessage();
-        if (state.messageStatus[msgHash] != LibBridgeData.Status.NEW) {
+        if (state.statuses[msgHash] != LibBridgeData.Status.NEW) {
             revert B_STATUS_MISMATCH();
         }
 
