@@ -160,7 +160,6 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
             message.data[4:], (CanonicalNFT, address, address, uint256[])
         );
 
-        bytes32 msgHash = keccak256(abi.encode(message));
         if (nft.addr == address(0)) revert VAULT_INVALID_TOKEN();
 
         unchecked {
@@ -185,7 +184,6 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
         message.user.sendEther(message.value);
 
         emit TokenReleased({
-            msgHash: msgHash,
             from: message.user,
             token: nft.addr,
             tokenIds: tokenIds,

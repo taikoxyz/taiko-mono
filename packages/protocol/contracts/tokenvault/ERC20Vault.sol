@@ -86,12 +86,7 @@ contract ERC20Vault is
         address token,
         uint256 amount
     );
-    event TokenReleased(
-        bytes32 indexed msgHash,
-        address indexed from,
-        address token,
-        uint256 amount
-    );
+    event TokenReleased(address indexed from, address token, uint256 amount);
     event TokenReceived(
         bytes32 indexed msgHash,
         address indexed from,
@@ -247,12 +242,7 @@ contract ERC20Vault is
             }
         }
 
-        emit TokenReleased({
-            msgHash: msgHash,
-            from: message.user,
-            token: token,
-            amount: amount
-        });
+        emit TokenReleased({ from: message.user, token: token, amount: amount });
     }
 
     /// @notice Checks if the contract supports the given interface.
