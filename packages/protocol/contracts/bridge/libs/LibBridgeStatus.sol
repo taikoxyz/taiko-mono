@@ -28,9 +28,7 @@ library LibBridgeStatus {
         FAILED
     }
 
-    event MessageStatusChanged(
-        bytes32 indexed msgHash, MessageStatus status, address transactor
-    );
+    event MessageStatusChanged(bytes32 indexed msgHash, MessageStatus status);
 
     error B_MSG_HASH_NULL();
     error B_WRONG_CHAIN_ID();
@@ -48,7 +46,7 @@ library LibBridgeStatus {
     {
         if (getMessageStatus(msgHash) != status) {
             _setMessageStatus(msgHash, status);
-            emit MessageStatusChanged(msgHash, status, msg.sender);
+            emit MessageStatusChanged(msgHash, status);
         }
     }
 

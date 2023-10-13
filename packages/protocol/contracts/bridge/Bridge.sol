@@ -26,9 +26,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     LibBridgeData.State private _state; // 50 slots reserved
 
     event MessageStatusChanged(
-        bytes32 indexed msgHash,
-        LibBridgeStatus.MessageStatus status,
-        address transactor
+        bytes32 indexed msgHash, LibBridgeStatus.MessageStatus status
     );
 
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
