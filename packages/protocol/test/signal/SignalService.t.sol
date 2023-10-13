@@ -87,29 +87,31 @@ contract TestSignalService is TestBase {
         }
     }
 
-    function test_SignalService_isSignalReceived_revert() public {
+    function test_SignalService_proveSignalReceived_revert() public {
         bytes32 signal = bytes32(uint256(1));
         bytes memory proof = new bytes(1);
         vm.expectRevert(SignalService.SS_INVALID_CHAINID.selector);
-        signalService.isSignalReceived(block.chainid, Alice, signal, proof);
+        signalService.proveSignalReceived(block.chainid, Alice, signal, proof);
 
         signal = bytes32(uint256(1));
         proof = new bytes(1);
         vm.expectRevert(SignalService.SS_INVALID_APP.selector);
-        signalService.isSignalReceived(destChainId, address(0), signal, proof);
+        signalService.proveSignalReceived(
+            destChainId, address(0), signal, proof
+        );
 
         signal = bytes32(uint256(0));
         proof = new bytes(1);
         vm.expectRevert(SignalService.SS_INVALID_SIGNAL.selector);
-        signalService.isSignalReceived(destChainId, Alice, signal, proof);
+        signalService.proveSignalReceived(destChainId, Alice, signal, proof);
 
         signal = bytes32(uint256(1));
         proof = new bytes(1);
         vm.expectRevert();
-        signalService.isSignalReceived(destChainId, Alice, signal, proof);
+        signalService.proveSignalReceived(destChainId, Alice, signal, proof);
     }
 
-    function test_SignalService_isSignalReceived() public {
+    function test_SignalService_proveSignalReceived() public {
         // This specific value is used, do not change it.
         address Brecht = 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39;
 
@@ -132,7 +134,7 @@ contract TestSignalService is TestBase {
         vm.chainId(destChainId);
 
         assertTrue(
-            destSignalService.isSignalReceived(1336, Brecht, signal, proof)
+            destSignalService.proveSignalReceived(1336, Brecht, signal, proof)
         );
     }
 }

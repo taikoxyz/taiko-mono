@@ -153,7 +153,7 @@ contract Bridge is EssentialContract, IBridge {
 
         if (_shouldCheckProof()) {
             bool received = message.destChainId == block.chainid
-                && _isSignalReceived(
+                && _proveSignalReceived(
                     keccak256(abi.encode(message)), message.srcChainId, proofs
                 );
 
@@ -281,7 +281,7 @@ contract Bridge is EssentialContract, IBridge {
 
         if (_shouldCheckProof()) {
             bool failed = message.srcChainId == block.chainid
-                && _isSignalReceived(
+                && _proveSignalReceived(
                     _signalForFailedMessage(keccak256(abi.encode(message))),
                     message.destChainId,
                     proofs
@@ -344,7 +344,7 @@ contract Bridge is EssentialContract, IBridge {
         returns (bool)
     {
         return message.srcChainId == block.chainid
-            && _isSignalReceived(
+            && _proveSignalReceived(
                 _signalForFailedMessage(keccak256(abi.encode(message))),
                 message.destChainId,
                 proofs
@@ -364,7 +364,7 @@ contract Bridge is EssentialContract, IBridge {
         returns (bool)
     {
         return message.destChainId == block.chainid
-            && _isSignalReceived(
+            && _proveSignalReceived(
                 keccak256(abi.encode(message)), message.srcChainId, proofs
             );
     }
@@ -458,7 +458,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @param srcChainId The ID of the source chain.
     /// @param proofs The proofs of message receipt.
     /// @return True if the message was received.
-    function _isSignalReceived(
+    function _proveSignalReceived(
         bytes32 signal,
         uint256 srcChainId,
         bytes[] calldata proofs
@@ -493,7 +493,8 @@ contract Bridge is EssentialContract, IBridge {
             _signal = iproof.signalRoot;
         }
 
-        return ISignalService(resolve("signal_service", false)).isSignalReceived({
+        return ISignalService(resolve("signal_service", false))
+            .proveSignalReceived({
             srcChainId: srcChainId,
             app: _app,
             signal: _signal,

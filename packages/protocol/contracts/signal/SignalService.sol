@@ -102,7 +102,7 @@ contract SignalService is ISignalService, EssentialContract {
     }
 
     /// @inheritdoc ISignalService
-    function isSignalReceived(
+    function proveSignalReceived(
         uint256 srcChainId,
         address app,
         bytes32 signal,
