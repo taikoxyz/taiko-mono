@@ -89,6 +89,7 @@ abstract contract BaseNFTVault is EssentialContract, IRecallableSender {
     );
 
     event TokenReleased(
+        bytes32 indexed msgHash,
         address indexed from,
         address token,
         uint256[] tokenIds,

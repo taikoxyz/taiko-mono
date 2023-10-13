@@ -186,6 +186,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             (CanonicalNFT, address, address, uint256[], uint256[])
         );
 
+        bytes32 msgHash = keccak256(abi.encode(message));
         if (nft.addr == address(0)) revert VAULT_INVALID_TOKEN();
 
         unchecked {
@@ -211,6 +212,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         message.user.sendEther(message.value);
         // Emit TokenReleased event
         emit TokenReleased({
+            msgHash: msgHash,
             from: message.user,
             token: nft.addr,
             tokenIds: tokenIds,
