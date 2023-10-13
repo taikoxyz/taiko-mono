@@ -187,13 +187,7 @@ contract Bridge is EssentialContract, IBridge {
             uint256 gasLimit =
                 msg.sender == message.user ? gasleft() : message.gasLimit;
 
-            bool success = _invokeMessageCall({
-                message: message,
-                msgHash: msgHash,
-                gasLimit: gasLimit
-            });
-
-            if (success) {
+            if (_invokeMessageCall(message, msgHash, gasLimit)) {
                 status = Status.DONE;
             } else {
                 status = Status.RETRIABLE;
@@ -350,7 +344,6 @@ contract Bridge is EssentialContract, IBridge {
     )
         public
         view
-        virtual
         returns (bool)
     {
         return message.destChainId == block.chainid
@@ -369,7 +362,6 @@ contract Bridge is EssentialContract, IBridge {
     )
         public
         view
-        virtual
         returns (bool)
     {
         return message.srcChainId == block.chainid
