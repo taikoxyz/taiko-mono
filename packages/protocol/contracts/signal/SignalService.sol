@@ -12,6 +12,8 @@ import { ISignalService } from "./ISignalService.sol";
 import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
 import { Proxied } from "../common/Proxied.sol";
 
+import { console2 } from "forge-std/console2.sol";
+
 library LibSignalService {
     function getSignalSlot(
         address app,
@@ -92,6 +94,7 @@ contract SignalService is ISignalService, EssentialContract {
         validSignal(signal)
         returns (bool)
     {
+        console2.log("---------signal: ", uint256(signal));
         bytes32 slot = getSignalSlot(app, signal);
         uint256 value;
         assembly {

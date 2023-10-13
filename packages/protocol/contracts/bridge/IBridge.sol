@@ -49,10 +49,11 @@ interface IBridge {
     /// of Ether required in this contract. All extra Ether will be refunded.
     /// @param message The message to be sent.
     /// @return msgHash The hash of the sent message.
-    function sendMessage(Message memory message)
+    /// @return updatedMessage The updated message sent.
+    function sendMessage(Message calldata message)
         external
         payable
-        returns (bytes32 msgHash);
+        returns (bytes32 msgHash, Message memory updatedMessage);
 
     /// @notice Returns the bridge state context.
     /// @return context The context of the current bridge operation.

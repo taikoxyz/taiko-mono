@@ -160,7 +160,7 @@ contract ERC20Vault is
         message.refundTo = opt.refundTo;
         message.memo = opt.memo;
 
-        bytes32 msgHash = IBridge(resolve("bridge", false)).sendMessage{
+        (bytes32 msgHash,) = IBridge(resolve("bridge", false)).sendMessage{
             value: msg.value
         }(message);
 

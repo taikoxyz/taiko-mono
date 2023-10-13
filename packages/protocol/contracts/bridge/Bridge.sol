@@ -16,6 +16,8 @@ import { LibAddress } from "../libs/LibAddress.sol";
 import { EtherVault } from "./EtherVault.sol";
 import { IBridge, IRecallableSender } from "./IBridge.sol";
 
+import { console2 } from "forge-std/console2.sol";
+
 /// @title Bridge
 /// @notice See the documentation for {IBridge}.
 /// @dev The code hash for the same address on L1 and L2 may be different.
@@ -78,11 +80,12 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Sends a message to the destination chain and takes custody
     /// of Ether required in this contract. All extra Ether will be refunded.
     /// @inheritdoc IBridge
-    function sendMessage(Message memory message)
+    function sendMessage(Message calldata message)
         external
         payable
         override
-        returns (bytes32 msgHash)
+        nonReentrant
+        returns (bytes32 msgHash, Message memory _message)
     {
         // Ensure the message user is not null.
         if (message.user == address(0)) revert B_INVALID_USER();
@@ -108,16 +111,18 @@ contract Bridge is EssentialContract, IBridge {
         address ethVault = resolve("ether_vault", true);
         ethVault.sendEther(expectedAmount);
 
+        _message = message;
         // Configure message details and send signal to indicate message
         // sending.
-        message.id = nextMessageId++;
-        message.from = msg.sender;
-        message.srcChainId = block.chainid;
+        _message.id = nextMessageId++;
+        _message.from = msg.sender;
+        _message.srcChainId = block.chainid;
 
-        msgHash = hashMessage(message);
+        msgHash = keccak256(abi.encode(_message));
+        console2.log("------- msgHash: ", uint256(msgHash));
 
         ISignalService(resolve("signal_service", false)).sendSignal(msgHash);
-        emit MessageSent(msgHash, message);
+        emit MessageSent(msgHash, _message);
     }
 
     /// @notice Processes a bridge message on the destination chain. This
@@ -133,6 +138,7 @@ contract Bridge is EssentialContract, IBridge {
         bytes[] calldata proofs
     )
         external
+        nonReentrant
     {
         // If the gas limit is set to zero, only the user can process the
         // message.
@@ -146,7 +152,7 @@ contract Bridge is EssentialContract, IBridge {
 
         // The message status must be "NEW"; "RETRIABLE" is managed in
         // LibBridgeRetry.sol.
-        bytes32 msgHash = hashMessage(message);
+        bytes32 msgHash = keccak256(abi.encode(message));
         if (messageStatus[msgHash] != Status.NEW) {
             revert B_STATUS_MISMATCH();
         }
@@ -154,7 +160,7 @@ contract Bridge is EssentialContract, IBridge {
         if (_shouldCheckProof()) {
             bool received = message.destChainId == block.chainid
                 && _isSignalReceived(
-                    hashMessage(message), message.srcChainId, proofs
+                    keccak256(abi.encode(message)), message.srcChainId, proofs
                 );
 
             if (!received) revert B_NOT_RECEIVED();
@@ -230,6 +236,7 @@ contract Bridge is EssentialContract, IBridge {
         bool isLastAttempt
     )
         external
+        nonReentrant
     {
         // If the gasLimit is set to 0 or isLastAttempt is true, the caller must
         // be the message.user.
@@ -237,7 +244,7 @@ contract Bridge is EssentialContract, IBridge {
             if (msg.sender != message.user) revert B_PERMISSION_DENIED();
         }
 
-        bytes32 msgHash = hashMessage(message);
+        bytes32 msgHash = keccak256(abi.encode(message));
 
         if (messageStatus[msgHash] != Status.RETRIABLE) {
             revert B_NON_RETRIABLE();
@@ -278,15 +285,18 @@ contract Bridge is EssentialContract, IBridge {
         bytes[] calldata proofs
     )
         external
+        nonReentrant
     {
-        bytes32 msgHash = hashMessage(message);
+        bytes32 msgHash = keccak256(abi.encode(message));
 
         if (isMessageRecalled[msgHash]) revert B_RECALLED_ALREADY();
 
         if (_shouldCheckProof()) {
             bool failed = message.srcChainId == block.chainid
                 && _isSignalReceived(
-                    _getDerivedSignalForFailedMessage(hashMessage(message)),
+                    _getDerivedSignalForFailedMessage(
+                        keccak256(abi.encode(message))
+                    ),
                     message.destChainId,
                     proofs
                 );
@@ -331,7 +341,7 @@ contract Bridge is EssentialContract, IBridge {
         return message.srcChainId == block.chainid
             && ISignalService(resolve("signal_service", false)).isSignalSent({
                 app: address(this),
-                signal: hashMessage(message)
+                signal: keccak256(abi.encode(message))
             });
     }
 
@@ -349,7 +359,9 @@ contract Bridge is EssentialContract, IBridge {
         returns (bool)
     {
         return message.destChainId == block.chainid
-            && _isSignalReceived(hashMessage(message), message.srcChainId, proofs);
+            && _isSignalReceived(
+                keccak256(abi.encode(message)), message.srcChainId, proofs
+            );
     }
 
     /// @notice Checks if a msgHash has failed on its destination chain.
@@ -367,7 +379,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         return message.srcChainId == block.chainid
             && _isSignalReceived(
-                _getDerivedSignalForFailedMessage(hashMessage(message)),
+                _getDerivedSignalForFailedMessage(keccak256(abi.encode(message))),
                 message.destChainId,
                 proofs
             );
@@ -395,13 +407,6 @@ contract Bridge is EssentialContract, IBridge {
         return _ctx;
     }
 
-    function hashMessage(Message memory message)
-        public
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(message));
-    }
     /// @notice Tells if we need to check real proof or it is a test.
     /// @return Returns true if this contract, or can be false if mock/test.
 
