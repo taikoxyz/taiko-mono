@@ -16,6 +16,7 @@ export class ERC721Bridge extends Bridge {
   constructor(prover: BridgeProver) {
     super(prover);
   }
+
   async requiresApproval({ tokenAddress, spenderAddress, tokenId }: RequireApprovalArgs) {
     const tokenContract = getContract({
       abi: erc721ABI,
@@ -103,51 +104,43 @@ export class ERC721Bridge extends Bridge {
   async approve(args: NFTApproveArgs) {
     const { tokenAddress, spenderAddress, wallet, tokenIds } = args;
 
-    await Promise.all(
-      tokenIds.map(async (tokenId) => {
-        try {
-          const requireApproval = await this.requiresApproval({
-            tokenAddress,
-            spenderAddress,
-            tokenId: tokenId,
-          });
+    const tokenId = tokenIds[0]; //TODO: handle multiple tokenIds
+    const requireApproval = await this.requiresApproval({
+      tokenAddress,
+      spenderAddress,
+      tokenId,
+    });
 
-          log(`required approval for token ${tokenId}: ${requireApproval}`);
+    log(`required approval for token ${tokenId}: ${requireApproval}`);
 
-          if (!requireApproval) {
-            log(`No allowance required for the token ${tokenId}`);
-            return null;
-          }
+    if (!requireApproval) {
+      log(`No allowance required for the token ${tokenId}`);
+      throw new Error(`No allowance required for the token ${tokenId}`); // todo: better error
+    }
 
-          const tokenContract = getContract({
-            walletClient: wallet,
-            abi: erc721ABI,
-            address: tokenAddress,
-          });
+    const tokenContract = getContract({
+      walletClient: wallet,
+      abi: erc721ABI,
+      address: tokenAddress,
+    });
 
-          try {
-            log(`Calling approve for spender "${spenderAddress}" for token`, tokenIds);
+    try {
+      log(`Calling approve for spender "${spenderAddress}" for token`, tokenIds);
 
-            const txHash = await tokenContract.write.approve([spenderAddress, tokenId]);
+      const txHash = await tokenContract.write.approve([spenderAddress, tokenId]);
 
-            log('Transaction hash for approve call', txHash);
+      log('Transaction hash for approve call', txHash);
 
-            return txHash;
-          } catch (err) {
-            console.error(err);
+      return txHash;
+    } catch (err) {
+      console.error(err);
 
-            if (`${err}`.includes('denied transaction signature')) {
-              throw new UserRejectedRequestError(err as Error);
-            }
+      if (`${err}`.includes('denied transaction signature')) {
+        throw new UserRejectedRequestError(err as Error);
+      }
 
-            throw new ApproveError('failed to approve ERC721 token', { cause: err });
-          }
-        } catch (err) {
-          //TODO: proper error handling
-          console.error(err);
-        }
-      }),
-    );
+      throw new ApproveError('failed to approve ERC721 token', { cause: err });
+    }
   }
 
   private static async _prepareTransaction(args: ERC721BridgeArgs) {

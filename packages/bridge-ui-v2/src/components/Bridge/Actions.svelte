@@ -55,14 +55,20 @@
   $: isTokenApproved =
     $selectedToken?.type === TokenType.ERC20
       ? isSelectedERC20 && $enteredAmount && !$insufficientAllowance && !$validatingAmount
-      : $selectedToken?.type === TokenType.ERC721
+      : $selectedToken?.type === TokenType.ERC721 || $selectedToken?.type === TokenType.ERC1155
       ? allTokensApproved
-      : true;
+      : false;
+
+  // Check if all NFTs are approved
+  $: allTokensApproved =
+    $selectedToken?.type === TokenType.ERC721 || $selectedToken?.type === TokenType.ERC1155
+      ? $notApproved.get(($selectedToken as NFT).tokenId)
+      : false;
 
   // Conditions to disable/enable buttons
   $: disableApprove =
     $selectedToken?.type === TokenType.ERC20
-      ? canDoNothing || $insufficientBalance || $validatingAmount || approving
+      ? canDoNothing || $insufficientBalance || $validatingAmount || approving || isTokenApproved
       : $selectedToken?.type === TokenType.ERC721
       ? allTokensApproved || approving
       : $selectedToken?.type === TokenType.ERC1155
@@ -72,19 +78,13 @@
   $: disableBridge =
     $selectedToken?.type === TokenType.ERC20
       ? canDoNothing || $insufficientAllowance || $insufficientBalance || $validatingAmount || bridging
-      : $selectedToken?.type === TokenType.ERC721
+      : $selectedToken?.type === TokenType.ERC721 || $selectedToken?.type === TokenType.ERC1155
       ? !allTokensApproved
-      : bridging;
-
-  $: allTokensApproved =
-    $selectedToken?.type === TokenType.ERC721 ? $notApproved.get(($selectedToken as NFT).tokenId) : true;
-
-  // General loading state
-  // $: loading = approving || bridging;
+      : bridging || !hasAddress || !hasNetworks || !hasBalance || !$selectedToken || !$enteredAmount;
 </script>
 
 <div class="f-between-center w-full gap-4">
-  {#if $selectedToken}
+  {#if $selectedToken && $selectedToken.type !== TokenType.ETH}
     <Button
       type="primary"
       class="px-[28px] py-[14px] rounded-full flex-1"

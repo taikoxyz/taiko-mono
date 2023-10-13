@@ -103,8 +103,8 @@ export type ApproveArgs = {
 export type NFTApproveArgs = {
   tokenAddress: Address;
   spenderAddress: Address;
-  tokenIds: bigint[];
   wallet: WalletClient;
+  tokenIds: bigint[];
 };
 
 export type BridgeArgs = {
@@ -148,6 +148,7 @@ export type RequireApprovalArgs = {
   tokenAddress: Address;
   spenderAddress: Address;
   tokenId: bigint;
+  owner?: Address;
 };
 
 export type ClaimArgs = {
