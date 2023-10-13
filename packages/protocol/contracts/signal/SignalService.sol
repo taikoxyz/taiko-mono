@@ -15,7 +15,7 @@ import { ISignalService } from "./ISignalService.sol";
 
 /// @title SignalService
 /// @notice See the documentation in {ISignalService} for more details.
-contract SignalService is ISignalService, EssentialContract {
+contract SignalService is EssentialContract, ISignalService {
     struct Hop {
         uint256 chainId;
         bytes32 signalRoot;
