@@ -6,10 +6,14 @@
 
 pragma solidity ^0.8.20;
 
-// import { BridgeData } from "./BridgeData.sol";
+import { BridgeData } from "./BridgeData.sol";
 
 /// @title BridgeEvents
 /// @notice This abstract contract provides event declarations for the Bridge.
 /// @dev The events defined here must match the definitions in the corresponding
 /// libraries.
-abstract contract BridgeEvents { }
+abstract contract BridgeEvents {
+    event SignalSent(address indexed sender, bytes32 msgHash);
+    event MessageSent(bytes32 indexed msgHash, BridgeData.Message message);
+    event MessageRecalled(bytes32 indexed msgHash);
+}

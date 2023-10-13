@@ -475,7 +475,7 @@ contract BridgeTest is TestBase {
     }
 
     function _processMessage(
-        IBridge _bridge,
+        Bridge _bridge,
         BridgeData.Message memory message,
         bytes memory proof
     )

@@ -56,7 +56,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors, BridgeEvents {
     }
 
     /// @notice Processes a message received from another chain.
-    /// @inheritdoc IBridge
+    /// @param message The message to process.
+    /// @param proofs The proofs of the cross-chain transfer.
     function processMessage(
         BridgeData.Message calldata message,
         bytes[] calldata proofs
@@ -75,7 +76,9 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors, BridgeEvents {
 
     /// @notice Retries executing a message that previously failed on its
     /// destination chain.
-    /// @inheritdoc IBridge
+    /// @param message The message to retry.
+    /// @param isLastAttempt Specifies whether this is the last attempt to send
+    /// the message.
     function retryMessage(
         BridgeData.Message calldata message,
         bool isLastAttempt
@@ -90,9 +93,10 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors, BridgeEvents {
             isLastAttempt: isLastAttempt
         });
     }
+    /// @notice Recalls a failed message on its source chain.
+    /// @param message The message to be recalled.
+    /// @param proofs The proofs of message processing failure.
 
-    /// @notice Recalls a failed message on its source chain
-    /// @inheritdoc IBridge
     function recallMessage(
         BridgeData.Message calldata message,
         bytes[] calldata proofs
@@ -111,7 +115,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors, BridgeEvents {
 
     /// @notice Checks if the message with the given hash has been sent on its
     /// source chain.
-    /// @inheritdoc IBridge
+    /// @param msgHash The hash of the message.
+    /// @return Returns true if the message has been sent, false otherwise.
     function isMessageSent(bytes32 msgHash)
         public
         view
@@ -123,7 +128,10 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors, BridgeEvents {
 
     /// @notice Checks if the message with the given hash has been received on
     /// its destination chain.
-    /// @inheritdoc IBridge
+    /// @param msgHash The hash of the message.
+    /// @param srcChainId The source chain ID.
+    /// @param proofs The proofs of message receipt.
+    /// @return Returns true if the message has been received, false otherwise.
     function isMessageReceived(
         bytes32 msgHash,
         uint256 srcChainId,
@@ -132,7 +140,6 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors, BridgeEvents {
         public
         view
         virtual
-        override
         returns (bool)
     {
         return LibBridgeSignal.isSignalReceived({
@@ -144,7 +151,10 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors, BridgeEvents {
     }
 
     /// @notice Checks if a msgHash has failed on its destination chain.
-    /// @inheritdoc IBridge
+    /// @param msgHash The hash of the message.
+    /// @param destChainId The destination chain ID.
+    /// @param proofs The proofs of message failure.
+    /// @return Returns true if the message has failed, false otherwise.
     function isMessageFailed(
         bytes32 msgHash,
         uint256 destChainId,
@@ -153,7 +163,6 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors, BridgeEvents {
         public
         view
         virtual
-        override
         returns (bool)
     {
         return LibBridgeSignal.isSignalReceived({
@@ -166,7 +175,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors, BridgeEvents {
 
     /// @notice Checks if a failed message has been recalled on its source
     /// chain.
-    /// @inheritdoc IBridge
+    /// @param msgHash The hash of the message.
+    /// @return Returns true if the Ether has been released, false otherwise.
     function isMessageRecalled(bytes32 msgHash) public view returns (bool) {
         return _state.recalls[msgHash];
     }

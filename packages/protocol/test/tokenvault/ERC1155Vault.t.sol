@@ -1016,7 +1016,7 @@ contract ERC1155VaultTest is TestBase {
     }
 
     function _recallMessage(
-        IBridge srcBridge,
+        Bridge srcBridge,
         BridgeData.Message memory message,
         bytes memory proof
     )
