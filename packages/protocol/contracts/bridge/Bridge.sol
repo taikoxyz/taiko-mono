@@ -151,7 +151,7 @@ contract Bridge is EssentialContract, IBridge {
             revert B_STATUS_MISMATCH();
         }
 
-        if (shouldCheckProof()) {
+        if (_shouldCheckProof()) {
             bool received = message.destChainId == block.chainid
                 && _isSignalReceived(
                     keccak256(abi.encode(message)), message.srcChainId, proofs
@@ -283,7 +283,7 @@ contract Bridge is EssentialContract, IBridge {
 
         if (isMessageRecalled[msgHash]) revert B_RECALLED_ALREADY();
 
-        if (shouldCheckProof()) {
+        if (_shouldCheckProof()) {
             bool failed = message.srcChainId == block.chainid
                 && _isSignalReceived(
                     _getDerivedSignalForFailedMessage(
@@ -401,7 +401,7 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice Tells if we need to check real proof or it is a test.
     /// @return Returns true if this contract, or can be false if mock/test.
-    function shouldCheckProof() public pure virtual returns (bool) {
+    function _shouldCheckProof() internal pure virtual returns (bool) {
         return true;
     }
 
@@ -418,7 +418,7 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 msgHash,
         uint256 gasLimit
     )
-        internal
+        private
         returns (bool success)
     {
         if (gasLimit == 0) revert B_INVALID_GAS_LIMIT();

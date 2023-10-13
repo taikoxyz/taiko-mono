@@ -321,7 +321,7 @@ contract BridgeTest is TestBase {
     // in foundry
     function test_Bridge_process_message() public {
         /* DISCALIMER: From now on we do not need to have real
-        proofs because we cna bypass with overriding shouldCheckProof()
+        proofs because we cna bypass with overriding _shouldCheckProof()
         in a mockBirdge AND proof system already 'battle tested'.*/
         // This predefined successful process message call fails now
         // since we modified the iBridge.Message struct and cut out
@@ -344,7 +344,7 @@ contract BridgeTest is TestBase {
     // in foundry
     function test_Bridge_retry_message_and_end_up_in_failed_status() public {
         /* DISCALIMER: From now on we do not need to have real
-        proofs because we cna bypass with overriding shouldCheckProof()
+        proofs because we cna bypass with overriding _shouldCheckProof()
         in a mockBirdge AND proof system already 'battle tested'.*/
         vm.startPrank(Alice);
         (IBridge.Message memory message, bytes memory proof) =
@@ -403,7 +403,7 @@ contract BridgeTest is TestBase {
     }
 
     /* DISCALIMER: From now on we do not need to have real
-    proofs because we cna bypass with overriding shouldCheckProof()
+    proofs because we cna bypass with overriding _shouldCheckProof()
     in a mockBirdge AND proof system already 'battle tested'.*/
     function setUpPredefinedSuccessfulProcessMessageCall()
         internal
