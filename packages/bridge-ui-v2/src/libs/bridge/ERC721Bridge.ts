@@ -29,6 +29,7 @@ export class ERC721Bridge extends Bridge {
   constructor(prover: BridgeProver) {
     super(prover);
   }
+
   async requiresApproval({ tokenAddress, spenderAddress, tokenId }: RequireApprovalArgs) {
     const tokenContract = getContract({
       abi: erc721ABI,
@@ -75,11 +76,6 @@ export class ERC721Bridge extends Bridge {
     } catch (err) {
       throw new SendERC721Error('failed to bridge ERC721 token', { cause: err });
     }
-
-    // if (tokenIdsWithoutApproval.length > 0) {
-    //   log(`Tokens missing approval ${tokenIdsWithoutApproval}`);
-    //   throw new NotApprovedError(`The following tokens are not approved ${tokenIdsWithoutApproval}`);
-    // }
 
     try {
       log('Sending ERC721 with fee', value);
@@ -146,14 +142,14 @@ export class ERC721Bridge extends Bridge {
     const requireApproval = await this.requiresApproval({
       tokenAddress,
       spenderAddress,
-      tokenId: tokenId,
+      tokenId,
     });
 
     log(`required approval for token ${tokenId}: ${requireApproval}`);
 
     if (!requireApproval) {
       log(`No allowance required for the token ${tokenId}`);
-      throw new NoApprovalRequiredError(`no approval required for token ${tokenId}`);
+      throw new NoApprovalRequiredError(`No approval required for the token ${tokenId}`);
     }
 
     const tokenContract = getContract({
