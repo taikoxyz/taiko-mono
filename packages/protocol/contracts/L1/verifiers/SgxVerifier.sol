@@ -96,10 +96,8 @@ contract SgxVerifier is EssentialContract, IVerifier {
         // Allow user to add
         addTrustedInstances(trustedInstances);
 
-        // Invalidate current key, because it cannot be used again (side-channel
-        // attacks).
-        sgxRegistry[instanceId] =
-            InstanceData(newAddress, uint64(block.timestamp));
+        // Exchange this instanceId's address
+        exchangeSgxInstanceAddr(instanceId, signer, newAddress);
     }
 
     /// @inheritdoc IVerifier
@@ -137,14 +135,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
             revert SGX_INSTANCE_INVALID();
         }
 
-        // Invalidate current key, because it cannot be used again (side-channel
-        // attacks).
-        sgxRegistry[instanceId] =
-            InstanceData(newInstance, uint64(block.timestamp));
-
-        emit InstanceChanged(
-            instanceId, oldInstance, newInstance, uint64(block.timestamp)
-        );
+        exchangeSgxInstanceAddr(instanceId, oldInstance, newInstance);
     }
 
     function getSignedHash(
@@ -195,6 +186,17 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
             uniqueVerifiers++;
         }
+    }
+
+    function exchangeSgxInstanceAddr(uint256 instanceId, address oldInstance, address newInstance) internal {
+        // Invalidate current key, because it cannot be used again (side-channel
+        // attacks).
+        sgxRegistry[instanceId] =
+            InstanceData(newInstance, uint64(block.timestamp));
+
+        emit InstanceChanged(
+            instanceId, oldInstance, newInstance, uint64(block.timestamp)
+        );
     }
 }
 
