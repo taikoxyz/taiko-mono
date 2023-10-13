@@ -57,7 +57,7 @@ library LibBridgeRetry {
         bytes32 msgHash = message.hashMessage();
         if (
             LibBridgeStatus.getMessageStatus(msgHash)
-                != LibBridgeStatus.MessageStatus.RETRIABLE
+                != LibBridgeData.Status.RETRIABLE
         ) {
             revert B_MSG_NON_RETRIABLE();
         }
@@ -82,12 +82,12 @@ library LibBridgeRetry {
         if (success) {
             // Update the message status to "DONE" on successful invocation.
             LibBridgeStatus.updateMessageStatus(
-                msgHash, LibBridgeStatus.MessageStatus.DONE
+                msgHash, LibBridgeData.Status.DONE
             );
         } else {
             // Update the message status to "FAILED"
             LibBridgeStatus.updateMessageStatus(
-                msgHash, LibBridgeStatus.MessageStatus.FAILED
+                msgHash, LibBridgeData.Status.FAILED
             );
             // Release Ether back to EtherVault (if on Taiko it is OK)
             // otherwise funds stay at Bridge anyways.

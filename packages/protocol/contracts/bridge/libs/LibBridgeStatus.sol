@@ -21,14 +21,9 @@ import { LibTrieProof } from "../../libs/LibTrieProof.sol";
 library LibBridgeStatus {
     using LibBlockHeader for BlockHeader;
 
-    enum MessageStatus {
-        NEW,
-        RETRIABLE,
-        DONE,
-        FAILED
-    }
-
-    event MessageStatusChanged(bytes32 indexed msgHash, MessageStatus status);
+    event MessageStatusChanged(
+        bytes32 indexed msgHash, LibBridgeData.Status status
+    );
 
     error B_MSG_HASH_NULL();
     error B_WRONG_CHAIN_ID();
@@ -40,7 +35,7 @@ library LibBridgeStatus {
     /// @param status The new status of the message.
     function updateMessageStatus(
         bytes32 msgHash,
-        MessageStatus status
+        LibBridgeData.Status status
     )
         internal
     {
@@ -56,14 +51,14 @@ library LibBridgeStatus {
     function getMessageStatus(bytes32 msgHash)
         internal
         view
-        returns (MessageStatus)
+        returns (LibBridgeData.Status)
     {
         bytes32 slot = getMessageStatusSlot(msgHash);
         uint256 value;
         assembly {
             value := sload(slot)
         }
-        return MessageStatus(value);
+        return LibBridgeData.Status(value);
     }
 
     /// @notice Checks whether a bridge message has failed on its destination
@@ -108,7 +103,7 @@ library LibBridgeStatus {
             stateRoot: sp.header.stateRoot,
             addr: resolver.resolve(destChainId, "bridge", false),
             slot: getMessageStatusSlot(msgHash),
-            value: bytes32(uint256(LibBridgeStatus.MessageStatus.FAILED)),
+            value: bytes32(uint256(LibBridgeData.Status.FAILED)),
             mkproof: sp.proof
         });
     }
@@ -127,7 +122,12 @@ library LibBridgeStatus {
     /// @notice Sets the status of a bridge message.
     /// @param msgHash The hash of the message.
     /// @param status The new status of the message.
-    function _setMessageStatus(bytes32 msgHash, MessageStatus status) private {
+    function _setMessageStatus(
+        bytes32 msgHash,
+        LibBridgeData.Status status
+    )
+        private
+    {
         bytes32 slot = getMessageStatusSlot(msgHash);
         uint256 value = uint256(status);
         assembly {

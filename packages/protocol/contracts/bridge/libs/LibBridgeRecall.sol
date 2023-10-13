@@ -48,7 +48,7 @@ library LibBridgeRecall {
     {
         bytes32 msgHash = message.hashMessage();
 
-        if (state.recalls[msgHash]) {
+        if (state.messageRecall[msgHash]) {
             revert B_MSG_RECALLED_ALREADY();
         }
 
@@ -61,7 +61,7 @@ library LibBridgeRecall {
             revert B_MSG_NOT_FAILED();
         }
 
-        state.recalls[msgHash] = true;
+        state.messageRecall[msgHash] = true;
 
         // Release necessary Ether from EtherVault if on Taiko, otherwise it's
         // already available on this Bridge.
