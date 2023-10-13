@@ -9,8 +9,6 @@ import { AddressResolver } from "../common/AddressResolver.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { ISignalService } from "../signal/ISignalService.sol";
-import { LibSignalService } from "../signal/SignalService.sol";
-import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 
 import { EtherVault } from "./EtherVault.sol";
@@ -65,6 +63,11 @@ contract Bridge is EssentialContract, IBridge {
     error B_PERMISSION_DENIED();
     error B_RECALLED_ALREADY();
     error B_STATUS_MISMATCH();
+
+    modifier onlyThisChain(uint256 chainId) {
+        if (chainId != block.chainid) revert B_INVALID_CHAINID();
+        _;
+    }
 
     receive() external payable { }
 
@@ -128,13 +131,14 @@ contract Bridge is EssentialContract, IBridge {
     /// taken from the EtherVault, and the message is invoked. The status is
     /// updated accordingly, and processing fees are refunded as needed.
     /// @param message The message to be processed.
-    /// @param proofs The list of merkle inclusion proofs.
+    /// @param proof The merkle inclusion proof.
     function processMessage(
         Message calldata message,
-        bytes[] calldata proofs
+        bytes calldata proof
     )
         external
         nonReentrant
+        onlyThisChain(message.destChainId)
     {
         // If the gas limit is set to zero, only the user can process the
         // message.
@@ -142,22 +146,13 @@ contract Bridge is EssentialContract, IBridge {
             revert B_PERMISSION_DENIED();
         }
 
-        if (message.destChainId != block.chainid) {
-            revert B_INVALID_CHAINID();
-        }
-
         bytes32 msgHash = keccak256(abi.encode(message));
         if (messageStatus[msgHash] != Status.NEW) {
             revert B_STATUS_MISMATCH();
         }
 
-        if (_shouldCheckProof()) {
-            bool received = message.destChainId == block.chainid
-                && _isSignalReceived(
-                    keccak256(abi.encode(message)), message.srcChainId, proofs
-                );
-
-            if (!received) revert B_NOT_RECEIVED();
+        if (!_proveSignalReceived(msgHash, message.srcChainId, proof)) {
+            revert B_NOT_RECEIVED();
         }
 
         // Release necessary Ether from EtherVault if on Taiko, otherwise it's
@@ -225,6 +220,7 @@ contract Bridge is EssentialContract, IBridge {
     )
         external
         nonReentrant
+        onlyThisChain(message.destChainId)
     {
         // If the gasLimit is set to 0 or isLastAttempt is true, the caller must
         // be the message.user.
@@ -233,7 +229,6 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         bytes32 msgHash = keccak256(abi.encode(message));
-
         if (messageStatus[msgHash] != Status.RETRIABLE) {
             revert B_NON_RETRIABLE();
         }
@@ -248,9 +243,7 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         // Attempt to invoke the messageCall.
-        bool success = _invokeMessageCall(message, msgHash, gasleft());
-
-        if (success) {
+        if (_invokeMessageCall(message, msgHash, gasleft())) {
             // Update the message status to "DONE" on successful invocation.
             _updateMessageStatus(msgHash, Status.DONE);
         } else {
@@ -267,27 +260,21 @@ contract Bridge is EssentialContract, IBridge {
     /// @dev This function checks if the message failed on the source chain and
     /// releases associated Ether or tokens.
     /// @param message The message whose associated Ether should be released.
-    /// @param proofs The proof data array.
+    /// @param proof The merkle inclusion proof.
     function recallMessage(
         Message calldata message,
-        bytes[] calldata proofs
+        bytes calldata proof
     )
         external
         nonReentrant
+        onlyThisChain(message.srcChainId)
     {
         bytes32 msgHash = keccak256(abi.encode(message));
-
         if (isMessageRecalled[msgHash]) revert B_RECALLED_ALREADY();
 
-        if (_shouldCheckProof()) {
-            bool failed = message.srcChainId == block.chainid
-                && _isSignalReceived(
-                    _signalForFailedMessage(keccak256(abi.encode(message))),
-                    message.destChainId,
-                    proofs
-                );
-
-            if (!failed) revert B_NOT_FAILED();
+        bytes32 failedSignal = _signalForFailedMessage(msgHash);
+        if (!_proveSignalReceived(failedSignal, message.destChainId, proof)) {
+            revert B_NOT_FAILED();
         }
 
         isMessageRecalled[msgHash] = true;
@@ -324,49 +311,49 @@ contract Bridge is EssentialContract, IBridge {
         view
         returns (bool)
     {
-        return message.srcChainId == block.chainid
-            && ISignalService(resolve("signal_service", false)).isSignalSent({
-                app: address(this),
-                signal: keccak256(abi.encode(message))
-            });
+        if (message.srcChainId != block.chainid) return false;
+        return ISignalService(resolve("signal_service", false)).isSignalSent({
+            app: address(this),
+            signal: keccak256(abi.encode(message))
+        });
     }
 
     /// @notice Checks if a msgHash has failed on its destination chain.
     /// @param message The message.
-    /// @param proofs The proofs of message failure.
+    /// @param proof The merkle inclusion proof.
     /// @return Returns true if the message has failed, false otherwise.
-    function isMessageFailed(
+    function proveMessageFailed(
         Message calldata message,
-        bytes[] calldata proofs
+        bytes calldata proof
     )
         public
         view
         returns (bool)
     {
-        return message.srcChainId == block.chainid
-            && _isSignalReceived(
-                _signalForFailedMessage(keccak256(abi.encode(message))),
-                message.destChainId,
-                proofs
-            );
+        if (message.srcChainId != block.chainid) return false;
+        return _proveSignalReceived(
+            _signalForFailedMessage(keccak256(abi.encode(message))),
+            message.destChainId,
+            proof
+        );
     }
 
     /// @notice Checks if a msgHash has failed on its destination chain.
     /// @param message The message.
-    /// @param proofs The proofs of message failure.
+    /// @param proof The merkle inclusion proof.
     /// @return Returns true if the message has failed, false otherwise.
-    function isMessageReceived(
+    function proveMessageReceived(
         Message calldata message,
-        bytes[] calldata proofs
+        bytes calldata proof
     )
         public
         view
         returns (bool)
     {
-        return message.destChainId == block.chainid
-            && _isSignalReceived(
-                keccak256(abi.encode(message)), message.srcChainId, proofs
-            );
+        if (message.destChainId != block.chainid) return false;
+        return _proveSignalReceived(
+            keccak256(abi.encode(message)), message.srcChainId, proof
+        );
     }
 
     /// @notice Checks if the destination chain is enabled.
@@ -392,10 +379,8 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @notice Tells if we need to check real proof or it is a test.
-    /// @return Returns true if this contract, or can be false if mock/test.
-    function _shouldCheckProof() internal pure virtual returns (bool) {
-        return true;
-    }
+    /// @return Returns true to skip checking inclusion proofs.
+    function skipProofCheck() public pure virtual returns (bool) { }
 
     /// @notice Invokes a call message on the Bridge.
     /// @param message The call message to be invoked.
@@ -456,48 +441,25 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Checks if the signal was received.
     /// @param signal The signal.
     /// @param srcChainId The ID of the source chain.
-    /// @param proofs The proofs of message receipt.
+    /// @param proof The merkle inclusion proof.
     /// @return True if the message was received.
-    function _isSignalReceived(
+    function _proveSignalReceived(
         bytes32 signal,
         uint256 srcChainId,
-        bytes[] calldata proofs
+        bytes calldata proof
     )
         private
         view
         returns (bool)
     {
-        if (proofs.length == 0) return false;
-        if (signal == 0x0) revert B_INVALID_SIGNAL();
-        if (srcChainId == block.chainid) revert B_INVALID_CHAINID();
+        if (skipProofCheck()) return true;
 
-        // Check a chain of inclusion proofs, from the message's source
-        // chain all the way to the destination chain.
-        uint256 _srcChainId = srcChainId;
-        address _app = resolve(srcChainId, "bridge", false);
-        bytes32 _signal = signal;
-
-        for (uint256 i; i < proofs.length - 1; ++i) {
-            HopProof memory iproof = abi.decode(proofs[i], (HopProof));
-            // perform inclusion check
-            bool verified = LibSecureMerkleTrie.verifyInclusionProof(
-                bytes.concat(LibSignalService.getSignalSlot(_app, _signal)),
-                hex"01",
-                iproof.mkproof,
-                iproof.signalRoot
-            );
-            if (!verified) return false;
-
-            _srcChainId = iproof.chainId;
-            _app = resolve(iproof.chainId, "taiko", false);
-            _signal = iproof.signalRoot;
-        }
-
-        return ISignalService(resolve("signal_service", false)).isSignalReceived({
+        return ISignalService(resolve("signal_service", false))
+            .proveSignalReceived({
             srcChainId: srcChainId,
-            app: _app,
-            signal: _signal,
-            proof: proofs[proofs.length - 1]
+            app: resolve(srcChainId, "bridge", false),
+            signal: signal,
+            proof: proof
         });
     }
 

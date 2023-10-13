@@ -81,8 +81,8 @@ contract NonNftContract {
 }
 
 contract SkipProofCheckBridge is Bridge {
-    function _shouldCheckProof() internal pure override returns (bool) {
-        return false;
+    function skipProofCheck() public pure override returns (bool) {
+        return true;
     }
 }
 
