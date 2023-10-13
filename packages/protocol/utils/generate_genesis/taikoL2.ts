@@ -240,12 +240,6 @@ async function generateContractConfigs(
                 contractArtifacts.LibTrieProof.deployedBytecode.object,
             variables: {},
         },
-        LibBridgeRetry: {
-            address: addressMap.LibBridgeRetry,
-            deployedBytecode:
-                contractArtifacts.LibBridgeRetry.deployedBytecode.object,
-            variables: {},
-        },
         ProxiedAddressManager: {
             address: addressMap.ProxiedAddressManager,
             deployedBytecode:
