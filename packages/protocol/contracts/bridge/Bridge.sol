@@ -146,8 +146,6 @@ contract Bridge is EssentialContract, IBridge {
             revert B_INVALID_CHAINID();
         }
 
-        // The message status must be "NEW"; "RETRIABLE" is managed in
-        // LibBridgeRetry.sol.
         bytes32 msgHash = keccak256(abi.encode(message));
         if (messageStatus[msgHash] != Status.NEW) {
             revert B_STATUS_MISMATCH();
@@ -395,7 +393,6 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice Tells if we need to check real proof or it is a test.
     /// @return Returns true if this contract, or can be false if mock/test.
-
     function _shouldCheckProof() internal pure virtual returns (bool) {
         return true;
     }
