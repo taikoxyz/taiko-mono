@@ -22,7 +22,7 @@ contract SignalService is ISignalService, EssentialContract {
         bytes mkproof;
     }
 
-    struct SignalProof {
+    struct Proof {
         uint64 height;
         bytes mkproof; // A storage proof
         Hop[] hops;
@@ -30,7 +30,6 @@ contract SignalService is ISignalService, EssentialContract {
 
     error SS_INVALID_SIGNAL();
     error SS_INVALID_APP();
-    error SS_INVALID_CHAINID();
 
     modifier validApp(address app) {
         if (app == address(0)) revert SS_INVALID_APP();
@@ -87,22 +86,22 @@ contract SignalService is ISignalService, EssentialContract {
     )
         public
         view
-        validApp(app)
-        validSignal(signal)
         returns (bool)
     {
+        if (app == address(0)) return false;
+        if (signal == 0) return false;
         if (srcChainId == 0 || srcChainId == block.chainid) {
-            revert SS_INVALID_CHAINID();
+            return false;
         }
 
         // Check a chain of inclusion proofs, from the message's source
         // chain all the way to the destination chain.
-        SignalProof memory sp = abi.decode(proof, (SignalProof));
+        Proof memory p = abi.decode(proof, (Proof));
         bytes32 signalRoot = ICrossChainSync(resolve("taiko", false))
-            .getCrossChainSignalRoot(sp.height);
+            .getCrossChainSignalRoot(p.height);
 
-        for (uint256 i; i < sp.hops.length; ++i) {
-            Hop memory hop = sp.hops[i];
+        for (uint256 i; i < p.hops.length; ++i) {
+            Hop memory hop = p.hops[i];
             bytes32 slot = getSignalSlot(
                 hop.chainId,
                 resolve(hop.chainId, "taiko", false),
@@ -118,7 +117,7 @@ contract SignalService is ISignalService, EssentialContract {
         return LibSecureMerkleTrie.verifyInclusionProof(
             bytes.concat(getSignalSlot(srcChainId, app, signal)),
             hex"01",
-            sp.mkproof,
+            p.mkproof,
             signalRoot
         );
     }
