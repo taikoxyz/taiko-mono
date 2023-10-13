@@ -55,10 +55,10 @@ contract PrankDestBridge {
     function sendMessage(IBridge.Message memory message)
         external
         payable
-        returns (bytes32 msgHash)
+        returns (bytes32 msgHash, IBridge.Message memory _message)
     {
         // Dummy return value
-        return keccak256(abi.encode(message.id));
+        return (keccak256(abi.encode(message.id)), _message);
     }
 
     function context() public view returns (BridgeContext memory) {
@@ -778,7 +778,6 @@ contract ERC1155VaultTest is TestBase {
             chainId,
             0
         );
-
         // Query canonicalToBridged
         address deployedContract = destChainErc1155Vault.canonicalToBridged(
             chainId, address(ctoken1155)
