@@ -35,9 +35,7 @@ contract EtherVault is EssentialContract {
 
     modifier onlyAuthorized() {
         // Ensure the caller is authorized to perform the action
-        if (!isAuthorized(msg.sender)) {
-            revert VAULT_PERMISSION_DENIED();
-        }
+        if (!isAuthorized(msg.sender)) revert VAULT_PERMISSION_DENIED();
         _;
     }
 
