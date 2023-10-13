@@ -67,18 +67,6 @@ export class ERC1155Bridge extends Bridge {
       throw new NotApprovedError(`Not approved for all for token`);
     }
 
-    // if (!isApprovedForAll) {
-    //   log(`No allowance required for the token ${tokenId}`);
-    //   return null;
-    // } else {
-    //   tokenIdsWithoutApproval.push(tokenId);
-    // }
-
-    // if (tokenIdsWithoutApproval.length > 0) {
-    //   log(`Tokens missing approval ${tokenIdsWithoutApproval}`);
-    //   throw new NotApprovedError(`The following tokens are not approved ${tokenIdsWithoutApproval}`);
-    // }
-
     try {
       log('Sending ERC1155 with fee', value);
       log('Sending ERC1155 with args', sendERC1155Args);
