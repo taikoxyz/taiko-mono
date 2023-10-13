@@ -22,8 +22,7 @@ import { LibAddress } from "../libs/LibAddress.sol";
 contract EtherVault is EssentialContract {
     using LibAddress for address;
 
-    mapping(address addr => bool isAuthorized) private _authorizedAddrs; // Authorized
-        // addresses
+    mapping(address addr => bool isAuthorized) private _authorizedAddrs;
     uint256[49] private __gap;
 
     event Authorized(address indexed addr, bool authorized);
