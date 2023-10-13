@@ -3,7 +3,7 @@
 
   import { Button } from '$components/Button';
   import { Icon } from '$components/Icon';
-  import { type NFT,TokenType } from '$libs/token';
+  import { type NFT, TokenType } from '$libs/token';
   import { account, network } from '$stores';
 
   import {
@@ -65,6 +65,8 @@
       ? canDoNothing || $insufficientBalance || $validatingAmount || approving
       : $selectedToken?.type === TokenType.ERC721
       ? allTokensApproved || approving
+      : $selectedToken?.type === TokenType.ERC1155
+      ? allTokensApproved || approving
       : approving;
 
   $: disableBridge =
@@ -73,13 +75,6 @@
       : $selectedToken?.type === TokenType.ERC721
       ? !allTokensApproved
       : bridging;
-
-  // $: allTokensApproved = $selectedToken?.every(token => {
-  //   if(token.type === TokenType.ERC721){
-  //     return !$notApproved.get(token.tokenId);
-  //   }
-  //   return true;
-  // });
 
   $: allTokensApproved =
     $selectedToken?.type === TokenType.ERC721 ? $notApproved.get(($selectedToken as NFT).tokenId) : true;
