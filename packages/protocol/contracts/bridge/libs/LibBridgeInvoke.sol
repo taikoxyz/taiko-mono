@@ -8,7 +8,7 @@ pragma solidity ^0.8.20;
 
 import { IBridge } from "../IBridge.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
-import { LibBridgeData } from "./LibBridgeData.sol";
+import { BridgeData } from "../BridgeData.sol";
 
 /// @title LibBridgeInvoke
 /// @notice This library provides functions for handling the invocation of call
@@ -17,7 +17,6 @@ import { LibBridgeData } from "./LibBridgeData.sol";
 /// bridge, allowing for call execution and state updates.
 library LibBridgeInvoke {
     using LibAddress for address;
-    using LibBridgeData for IBridge.Message;
 
     error B_GAS_LIMIT();
 
@@ -31,8 +30,8 @@ library LibBridgeInvoke {
     /// @dev This function updates the context in the state before and after the
     /// message call.
     function invokeMessageCall(
-        LibBridgeData.State storage state,
-        IBridge.Message calldata message,
+        BridgeData.State storage state,
+        BridgeData.Message calldata message,
         bytes32 msgHash,
         uint256 gasLimit
     )
@@ -44,7 +43,7 @@ library LibBridgeInvoke {
         // Update the context for the message call
         // Should we simply provide the message itself rather than
         // a context object?
-        state.ctx = IBridge.Context({
+        state.ctx = BridgeData.Context({
             msgHash: msgHash,
             from: message.from,
             srcChainId: message.srcChainId
@@ -55,10 +54,10 @@ library LibBridgeInvoke {
             message.to.call{ value: message.value, gas: gasLimit }(message.data);
 
         // Reset the context after the message call
-        state.ctx = IBridge.Context({
-            msgHash: LibBridgeData.MESSAGE_HASH_PLACEHOLDER,
-            from: LibBridgeData.SRC_CHAIN_SENDER_PLACEHOLDER,
-            srcChainId: LibBridgeData.CHAINID_PLACEHOLDER
+        state.ctx = BridgeData.Context({
+            msgHash: BridgeData.MESSAGE_HASH_PLACEHOLDER,
+            from: BridgeData.SRC_CHAIN_SENDER_PLACEHOLDER,
+            srcChainId: BridgeData.CHAINID_PLACEHOLDER
         });
     }
 }

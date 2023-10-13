@@ -6,10 +6,12 @@
 
 pragma solidity ^0.8.20;
 
+import { BridgeData } from "./BridgeData.sol";
+
 /// @title IRecallableMessageSender
 /// @notice An interface that all recallable message senders shall implement.
 interface IRecallableMessageSender {
-    function onMessageRecalled(IBridge.Message calldata message)
+    function onMessageRecalled(BridgeData.Message calldata message)
         external
         payable;
 }
@@ -19,56 +21,15 @@ interface IRecallableMessageSender {
 /// @dev Ether is held by Bridges on L1 and by the EtherVault on L2,
 /// not by token vaults.
 interface IBridge {
-    // Struct representing a message sent across the bridge.
-    struct Message {
-        // Message ID.
-        uint256 id;
-        // Message sender address (auto filled).
-        address from;
-        // Source chain ID (auto filled).
-        uint256 srcChainId;
-        // Destination chain ID where the `to` address lives (auto filled).
-        uint256 destChainId;
-        // User address of the bridged asset.
-        address user;
-        // Destination address.
-        address to;
-        // Alternate address to send any refund. If blank, defaults to user.
-        address refundTo;
-        // value to invoke on the destination chain, for ERC20 transfers.
-        uint256 value;
-        // Processing fee for the relayer. Zero if user will process themself.
-        uint256 fee;
-        // gasLimit to invoke on the destination chain, for ERC20 transfers.
-        uint256 gasLimit;
-        // callData to invoke on the destination chain, for ERC20 transfers.
-        bytes data;
-        // Optional memo.
-        string memo;
-    }
-
-    struct IntermediateProof {
-        uint256 chainId;
-        bytes32 signalRoot;
-        bytes mkproof;
-    }
-
-    // Struct representing the context of a bridge operation.
-    struct Context {
-        bytes32 msgHash; // Message hash.
-        address from; // Sender's address.
-        uint256 srcChainId; // Source chain ID.
-    }
-
     event SignalSent(address indexed sender, bytes32 msgHash);
-    event MessageSent(bytes32 indexed msgHash, Message message);
+    event MessageSent(bytes32 indexed msgHash, BridgeData.Message message);
     event MessageRecalled(bytes32 indexed msgHash);
 
     /// @notice Sends a message to the destination chain and takes custody
     /// of Ether required in this contract. All extra Ether will be refunded.
     /// @param message The message to be sent.
     /// @return msgHash The hash of the sent message.
-    function sendMessage(Message memory message)
+    function sendMessage(BridgeData.Message memory message)
         external
         payable
         returns (bytes32 msgHash);
@@ -77,7 +38,7 @@ interface IBridge {
     /// @param message The message to process.
     /// @param proofs The proofs of the cross-chain transfer.
     function processMessage(
-        Message calldata message,
+        BridgeData.Message calldata message,
         bytes[] calldata proofs
     )
         external;
@@ -88,7 +49,7 @@ interface IBridge {
     /// @param isLastAttempt Specifies whether this is the last attempt to send
     /// the message.
     function retryMessage(
-        Message calldata message,
+        BridgeData.Message calldata message,
         bool isLastAttempt
     )
         external;
@@ -97,7 +58,7 @@ interface IBridge {
     /// @param message The message to be recalled.
     /// @param proofs The proofs of message processing failure.
     function recallMessage(
-        IBridge.Message calldata message,
+        BridgeData.Message calldata message,
         bytes[] calldata proofs
     )
         external;
@@ -145,13 +106,8 @@ interface IBridge {
 
     /// @notice Returns the bridge state context.
     /// @return context The context of the current bridge operation.
-    function context() external view returns (Context memory context);
-
-    /// @notice Computes the hash of a given message.
-    /// @param message The message to compute the hash for.
-    /// @return Returns the hash of the message.
-    function hashMessage(IBridge.Message calldata message)
+    function context()
         external
-        pure
-        returns (bytes32);
+        view
+        returns (BridgeData.Context memory context);
 }

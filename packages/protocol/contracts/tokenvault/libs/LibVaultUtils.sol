@@ -8,6 +8,7 @@ pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { IBridge } from "../../bridge/IBridge.sol";
+import { BridgeData } from "../../bridge/BridgeData.sol";
 import { TransparentUpgradeableProxy } from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
@@ -48,7 +49,7 @@ library LibVaultUtils {
     )
         external
         view
-        returns (IBridge.Context memory ctx)
+        returns (BridgeData.Context memory ctx)
     {
         ctx = IBridge(msg.sender).context();
         if (
@@ -59,25 +60,6 @@ library LibVaultUtils {
         ) {
             revert VAULT_INVALID_FROM();
         }
-    }
-
-    /// @dev Checks if token is invalid and returns the message hash
-    /// @param message The bridged message struct data
-    /// @param bridgeAddress The bridge contract
-    /// @param tokenAddress The token address to be checked
-    function hashAndCheckToken(
-        IBridge.Message calldata message,
-        address bridgeAddress,
-        address tokenAddress
-    )
-        external
-        pure
-        returns (bytes32 msgHash)
-    {
-        IBridge bridge = IBridge(bridgeAddress);
-        msgHash = bridge.hashMessage(message);
-
-        if (tokenAddress == address(0)) revert VAULT_INVALID_TOKEN();
     }
 
     function checkIfValidAddresses(

@@ -10,7 +10,7 @@ import { AddressResolver } from "../../common/AddressResolver.sol";
 import { IBridge } from "../IBridge.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
-import { LibBridgeData } from "./LibBridgeData.sol";
+import { BridgeData } from "../BridgeData.sol";
 import { LibSecureMerkleTrie } from "../../thirdparty/LibSecureMerkleTrie.sol";
 import { LibSignalService } from "../../signal/SignalService.sol";
 
@@ -65,8 +65,8 @@ library LibBridgeSignal {
         bytes32 _signal = signal;
 
         for (uint256 i; i < proofs.length - 1; ++i) {
-            IBridge.IntermediateProof memory iproof =
-                abi.decode(proofs[i], (IBridge.IntermediateProof));
+            BridgeData.IntermediateProof memory iproof =
+                abi.decode(proofs[i], (BridgeData.IntermediateProof));
             // perform inclusion check
             bool verified = LibSecureMerkleTrie.verifyInclusionProof(
                 bytes.concat(LibSignalService.getSignalSlot(_app, _signal)),

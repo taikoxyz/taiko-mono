@@ -18,6 +18,8 @@ import { IERC721Receiver } from
 import { IERC721Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
 import { IBridge, IRecallableMessageSender } from "../bridge/IBridge.sol";
+import { BridgeData } from "../bridge/BridgeData.sol";
+
 import { LibAddress } from "../libs/LibAddress.sol";
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 import { Proxied } from "../common/Proxied.sol";
@@ -56,7 +58,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
         address _token = opt.token;
         uint256[] memory _tokenIds = opt.tokenIds;
 
-        IBridge.Message memory message;
+        BridgeData.Message memory message;
         message.destChainId = opt.destChainId;
         message.data = _encodeDestinationCall(msg.sender, opt);
         message.user = msg.sender;
@@ -98,7 +100,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
         nonReentrant
         onlyFromNamed("bridge")
     {
-        IBridge.Context memory ctx =
+        BridgeData.Context memory ctx =
             LibVaultUtils.checkValidContext("erc721_vault", address(this));
         address token;
 
@@ -138,7 +140,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
     /// has failed.
     /// @param message The message that corresponds to the ERC721 deposit on the
     /// source chain.
-    function onMessageRecalled(IBridge.Message calldata message)
+    function onMessageRecalled(BridgeData.Message calldata message)
         external
         payable
         override
@@ -159,9 +161,8 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
             message.data[4:], (CanonicalNFT, address, address, uint256[])
         );
 
-        bytes32 msgHash = LibVaultUtils.hashAndCheckToken(
-            message, resolve("bridge", false), nft.addr
-        );
+        bytes32 msgHash = keccak256(abi.encode(message));
+        if (nft.addr == address(0)) revert VAULT_INVALID_TOKEN();
 
         unchecked {
             if (isBridgedToken[nft.addr]) {

@@ -9,7 +9,8 @@ import { AddressResolver } from "../common/AddressResolver.sol";
 import { BridgeErrors } from "./BridgeErrors.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { IBridge } from "./IBridge.sol";
-import { LibBridgeData } from "./libs/LibBridgeData.sol";
+import { BridgeData } from "./BridgeData.sol";
+import { BridgeEvents } from "./BridgeEvents.sol";
 import { LibBridgeProcess } from "./libs/LibBridgeProcess.sol";
 import { LibBridgeRecall } from "./libs/LibBridgeRecall.sol";
 import { LibBridgeRetry } from "./libs/LibBridgeRetry.sol";
@@ -21,13 +22,11 @@ import { Proxied } from "../common/Proxied.sol";
 /// @title Bridge
 /// @notice See the documentation for {IBridge}.
 /// @dev The code hash for the same address on L1 and L2 may be different.
-contract Bridge is EssentialContract, IBridge, BridgeErrors {
-    using LibBridgeData for Message;
-
-    LibBridgeData.State private _state; // 50 slots reserved
+contract Bridge is EssentialContract, IBridge, BridgeErrors, BridgeEvents {
+    BridgeData.State private _state; // 50 slots reserved
 
     event MessageStatusChanged(
-        bytes32 indexed msgHash, LibBridgeData.Status status
+        bytes32 indexed msgHash, BridgeData.Status status
     );
 
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
@@ -43,7 +42,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     /// @notice Sends a message from the current chain to the destination chain
     /// specified in the message.
     /// @inheritdoc IBridge
-    function sendMessage(Message calldata message)
+    function sendMessage(BridgeData.Message calldata message)
         external
         payable
         nonReentrant
@@ -59,7 +58,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     /// @notice Processes a message received from another chain.
     /// @inheritdoc IBridge
     function processMessage(
-        Message calldata message,
+        BridgeData.Message calldata message,
         bytes[] calldata proofs
     )
         external
@@ -78,7 +77,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     /// destination chain.
     /// @inheritdoc IBridge
     function retryMessage(
-        Message calldata message,
+        BridgeData.Message calldata message,
         bool isLastAttempt
     )
         external
@@ -95,7 +94,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     /// @notice Recalls a failed message on its source chain
     /// @inheritdoc IBridge
     function recallMessage(
-        IBridge.Message calldata message,
+        BridgeData.Message calldata message,
         bytes[] calldata proofs
     )
         external
@@ -180,14 +179,14 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         public
         view
         virtual
-        returns (LibBridgeData.Status)
+        returns (BridgeData.Status)
     {
         return _state.statuses[msgHash];
     }
 
     /// @notice Gets the current context.
     /// @inheritdoc IBridge
-    function context() public view returns (Context memory) {
+    function context() public view returns (BridgeData.Context memory) {
         return _state.ctx;
     }
 
@@ -202,16 +201,6 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     {
         (enabled,) =
             LibBridgeSend.isDestChainEnabled(AddressResolver(this), _chainId);
-    }
-
-    /// @notice Computes the hash of a given message.
-    /// @inheritdoc IBridge
-    function hashMessage(Message calldata message)
-        public
-        pure
-        returns (bytes32)
-    {
-        return LibBridgeData.hashMessage(message);
     }
 
     /// @notice Tells if we need to check real proof or it is a test.

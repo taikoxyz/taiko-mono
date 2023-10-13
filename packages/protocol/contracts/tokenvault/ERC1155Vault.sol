@@ -19,18 +19,19 @@ import { IERC1155Upgradeable } from
 import { IERC165Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import { IRecallableMessageSender, IBridge } from "../bridge/IBridge.sol";
+import { BridgeData } from "../bridge/BridgeData.sol";
 import { BaseNFTVault } from "./BaseNFTVault.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { ProxiedBridgedERC1155 } from "./BridgedERC1155.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-
 /// @title ERC1155NameAndSymbol
 /// @notice Interface for ERC1155 contracts that provide name() and symbol()
 /// functions. These functions may not be part of the official interface but are
 /// used by
 /// some contracts.
+
 interface ERC1155NameAndSymbol {
     function name() external view returns (string memory);
     function symbol() external view returns (string memory);
@@ -71,7 +72,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         uint256[] memory _tokenIds = opt.tokenIds;
 
         // Create a message to send to the destination chain
-        IBridge.Message memory message;
+        BridgeData.Message memory message;
         message.destChainId = opt.destChainId;
         message.data = _encodeDestinationCall(msg.sender, opt);
         message.user = msg.sender;
@@ -121,7 +122,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         onlyFromNamed("bridge")
     {
         // Check context validity
-        IBridge.Context memory ctx =
+        BridgeData.Context memory ctx =
             LibVaultUtils.checkValidContext("erc1155_vault", address(this));
         address token;
 
@@ -167,7 +168,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     /// Bridge has failed.
     /// @param message The message that corresponds to the ERC1155 deposit on
     /// the source chain.
-    function onMessageRecalled(IBridge.Message calldata message)
+    function onMessageRecalled(BridgeData.Message calldata message)
         external
         payable
         override
@@ -185,9 +186,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             (CanonicalNFT, address, address, uint256[], uint256[])
         );
 
-        bytes32 msgHash = LibVaultUtils.hashAndCheckToken(
-            message, resolve("bridge", false), nft.addr
-        );
+        bytes32 msgHash = keccak256(abi.encode(message));
+        if (nft.addr == address(0)) revert VAULT_INVALID_TOKEN();
 
         unchecked {
             if (isBridgedToken[nft.addr]) {

@@ -10,7 +10,7 @@ import { AddressResolver } from "../../common/AddressResolver.sol";
 import { IBridge } from "../IBridge.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
-import { LibBridgeData } from "./LibBridgeData.sol";
+import { BridgeData } from "../BridgeData.sol";
 import { LibSecureMerkleTrie } from "../../thirdparty/LibSecureMerkleTrie.sol";
 import { LibSignalService } from "../../signal/SignalService.sol";
 
@@ -22,7 +22,8 @@ import { LibSignalService } from "../../signal/SignalService.sol";
 /// chains.
 library LibBridgeSend {
     using LibAddress for address;
-    using LibBridgeData for IBridge.Message;
+
+    event MessageSent(bytes32 indexed msgHash, BridgeData.Message message);
 
     error B_INCORRECT_VALUE();
     error B_USER_IS_NULL();
@@ -38,9 +39,9 @@ library LibBridgeSend {
     /// @param message The message to be sent, including value and fee details.
     /// @return msgHash The hash of the sent message.
     function sendMessage(
-        LibBridgeData.State storage state,
+        BridgeData.State storage state,
         AddressResolver resolver,
-        IBridge.Message memory message
+        BridgeData.Message memory message
     )
         internal
         returns (bytes32 msgHash)
@@ -75,11 +76,12 @@ library LibBridgeSend {
         message.from = msg.sender;
         message.srcChainId = block.chainid;
 
-        msgHash = message.hashMessage();
+        msgHash = keccak256(abi.encode(message));
+
         ISignalService(resolver.resolve("signal_service", false)).sendSignal(
             msgHash
         );
-        emit LibBridgeData.MessageSent(msgHash, message);
+        emit MessageSent(msgHash, message);
     }
 
     /// @notice Checks if the destination chain is enabled.

@@ -12,7 +12,7 @@ import { IBridge } from "../IBridge.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
 import { LibSignalService } from "../../signal/SignalService.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
-import { LibBridgeData } from "./LibBridgeData.sol";
+import { BridgeData } from "../BridgeData.sol";
 import { LibBridgeInvoke } from "./LibBridgeInvoke.sol";
 import { LibBridgeSend } from "./LibBridgeSend.sol";
 import { LibBridgeSignal } from "./LibBridgeSignal.sol";
@@ -28,8 +28,6 @@ import { LibSecureMerkleTrie } from "../../thirdparty/LibSecureMerkleTrie.sol";
 library LibBridgeProcess {
     using LibMath for uint256;
     using LibAddress for address;
-    using LibBridgeData for IBridge.Message;
-    using LibBridgeData for LibBridgeData.State;
 
     error B_FORBIDDEN();
     error B_INVALID_PROOFS();
@@ -50,9 +48,9 @@ library LibBridgeProcess {
     /// @param checkProof A boolean flag indicating whether to verify the signal
     /// receipt proof.
     function processMessage(
-        LibBridgeData.State storage state,
+        BridgeData.State storage state,
         AddressResolver resolver,
-        IBridge.Message calldata message,
+        BridgeData.Message calldata message,
         bytes[] calldata proofs,
         bool checkProof
     )
@@ -68,8 +66,8 @@ library LibBridgeProcess {
 
         // The message status must be "NEW"; "RETRIABLE" is managed in
         // LibBridgeRetry.sol.
-        bytes32 msgHash = message.hashMessage();
-        if (state.statuses[msgHash] != LibBridgeData.Status.NEW) {
+        bytes32 msgHash = keccak256(abi.encode(message));
+        if (state.statuses[msgHash] != BridgeData.Status.NEW) {
             revert B_STATUS_MISMATCH();
         }
 
@@ -89,14 +87,14 @@ library LibBridgeProcess {
             );
         }
 
-        LibBridgeData.Status status;
+        BridgeData.Status status;
         uint256 refundAmount;
 
         // Process message differently based on the target address
         if (message.to == address(this) || message.to == address(0)) {
             // Handle special addresses that don't require actual invocation but
             // mark message as DONE
-            status = LibBridgeData.Status.DONE;
+            status = BridgeData.Status.DONE;
             refundAmount = message.value;
         } else {
             // Use the specified message gas limit if called by the user, else
@@ -112,9 +110,9 @@ library LibBridgeProcess {
             });
 
             if (success) {
-                status = LibBridgeData.Status.DONE;
+                status = BridgeData.Status.DONE;
             } else {
-                status = LibBridgeData.Status.RETRIABLE;
+                status = BridgeData.Status.RETRIABLE;
                 ethVault.sendEther(message.value);
             }
         }

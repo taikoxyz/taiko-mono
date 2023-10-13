@@ -144,7 +144,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         vm.expectRevert(BridgeErrors.B_FORBIDDEN.selector);
         bridge.processMessage(
-            IBridge.Message({
+            BridgeData.Message({
                 id: 0,
                 from: address(0),
                 srcChainId: 1,

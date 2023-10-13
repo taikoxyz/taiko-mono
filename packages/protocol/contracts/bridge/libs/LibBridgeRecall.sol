@@ -9,7 +9,7 @@ pragma solidity ^0.8.20;
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { EtherVault } from "../EtherVault.sol";
 import { IRecallableMessageSender, IBridge } from "../IBridge.sol";
-import { LibBridgeData } from "./LibBridgeData.sol";
+import { BridgeData } from "../BridgeData.sol";
 import { LibBridgeSignal } from "./LibBridgeSignal.sol";
 import { LibBridgeStatus } from "./LibBridgeStatus.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
@@ -20,7 +20,6 @@ import { LibAddress } from "../../libs/LibAddress.sol";
 /// The library allows recalling failed messages on their source chain,
 /// releasing associated assets.
 library LibBridgeRecall {
-    using LibBridgeData for IBridge.Message;
     using LibAddress for address;
 
     event MessageRecalled(bytes32 indexed msgHash);
@@ -39,15 +38,15 @@ library LibBridgeRecall {
     /// @param checkProof A flag indicating whether to check the proof (test
     /// version).
     function recallMessage(
-        LibBridgeData.State storage state,
+        BridgeData.State storage state,
         AddressResolver resolver,
-        IBridge.Message calldata message,
+        BridgeData.Message calldata message,
         bytes[] calldata proofs,
         bool checkProof
     )
         internal
     {
-        bytes32 msgHash = message.hashMessage();
+        bytes32 msgHash = keccak256(abi.encode(message));
 
         if (state.recalls[msgHash]) revert B_MSG_RECALLED_ALREADY();
 

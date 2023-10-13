@@ -9,7 +9,7 @@ pragma solidity ^0.8.20;
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { BlockHeader, LibBlockHeader } from "../../libs/LibBlockHeader.sol";
 import { ICrossChainSync } from "../../common/ICrossChainSync.sol";
-import { LibBridgeData } from "./LibBridgeData.sol";
+import { BridgeData } from "../BridgeData.sol";
 import { LibTrieProof } from "../../libs/LibTrieProof.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
 
@@ -23,7 +23,7 @@ library LibBridgeStatus {
     using LibBlockHeader for BlockHeader;
 
     event MessageStatusChanged(
-        bytes32 indexed msgHash, LibBridgeData.Status status
+        bytes32 indexed msgHash, BridgeData.Status status
     );
 
     error B_SIGNAL_NULL();
@@ -35,16 +35,16 @@ library LibBridgeStatus {
     /// @param msgHash The hash of the message.
     /// @param status The new status of the message.
     function updateMessageStatus(
-        LibBridgeData.State storage state,
+        BridgeData.State storage state,
         AddressResolver resolver,
         bytes32 msgHash,
-        LibBridgeData.Status status
+        BridgeData.Status status
     )
         internal
     {
         if (state.statuses[msgHash] != status) {
             state.statuses[msgHash] = status;
-            if (status == LibBridgeData.Status.FAILED) {
+            if (status == BridgeData.Status.FAILED) {
                 ISignalService(resolver.resolve("signal_service", false))
                     .sendSignal(getDerivedSignalForFailedMessage(msgHash));
             }
@@ -58,7 +58,7 @@ library LibBridgeStatus {
         returns (bytes32)
     {
         return keccak256(
-            abi.encodePacked("SIGNAL", LibBridgeData.Status.FAILED, msgHash)
+            abi.encodePacked("SIGNAL", BridgeData.Status.FAILED, msgHash)
         );
     }
 }
