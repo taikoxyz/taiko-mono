@@ -81,7 +81,7 @@ contract TestSignalService is TestBase {
             // confirm our assembly gives same output as expected native
             // solidity hash/packing
             assertEq(
-                signalService.getSignalSlot(Alice, signal),
+                signalService.getSignalSlot(block.chainid, Alice, signal),
                 keccak256(abi.encodePacked(Alice, signal))
             );
         }
