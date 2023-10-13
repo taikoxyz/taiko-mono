@@ -80,11 +80,6 @@ contract TestSignalService is TestBase {
         }
     }
 
-    struct AProof {
-        uint64 height;
-        bytes proof; // A storage proof
-    }
-
     function test_SignalService_proveSignalReceived() public {
         // This specific value is used, do not change it.
         address Brecht = 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39;
