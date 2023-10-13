@@ -16,9 +16,8 @@ import {
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { IERC165Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
-import { IRecallableSender } from "../bridge/IRecallableSender.sol";
-import { IBridge } from "../bridge/IBridge.sol";
-import { BridgeData } from "../bridge/BridgeData.sol";
+import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
+
 import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
@@ -143,7 +142,7 @@ contract ERC20Vault is
         if (opt.amount == 0) revert VAULT_INVALID_AMOUNT();
 
         uint256 _amount;
-        BridgeData.Message memory message;
+        IBridge.Message memory message;
 
         (message.data, _amount) = _encodeDestinationCall({
             user: msg.sender,
@@ -191,7 +190,7 @@ contract ERC20Vault is
         nonReentrant
         onlyFromNamed("bridge")
     {
-        BridgeData.Context memory ctx =
+        IBridge.Context memory ctx =
             LibVaultUtils.checkValidContext("erc20_vault", address(this));
 
         address token;
@@ -224,7 +223,7 @@ contract ERC20Vault is
     /// Bridge has failed.
     /// @param message The message that corresponds to the ERC20 deposit on the
     /// source chain.
-    function onMessageRecalled(BridgeData.Message calldata message)
+    function onMessageRecalled(IBridge.Message calldata message)
         external
         payable
         override

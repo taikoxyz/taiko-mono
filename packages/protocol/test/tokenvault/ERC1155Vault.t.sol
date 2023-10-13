@@ -12,14 +12,10 @@ import {
 import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { IBridge, Bridge } from "../../contracts/bridge/Bridge.sol";
-import { BridgeData } from "../../contracts/bridge/BridgeData.sol";
-import { BridgeErrors } from "../../contracts/bridge/BridgeErrors.sol";
 import { BaseNFTVault } from "../../contracts/tokenvault/BaseNFTVault.sol";
 import { ERC1155Vault } from "../../contracts/tokenvault/ERC1155Vault.sol";
 import { BridgedERC1155 } from "../../contracts/tokenvault/BridgedERC1155.sol";
 import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
-import { LibBridgeStatus } from
-    "../../contracts/bridge/libs/LibBridgeStatus.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../../contracts/common/ICrossChainSync.sol";
 import { ERC1155 } from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
@@ -56,7 +52,7 @@ contract PrankDestBridge {
         destERC1155Vault = ERC1155Vault(addr);
     }
 
-    function sendMessage(BridgeData.Message memory message)
+    function sendMessage(IBridge.Message memory message)
         external
         payable
         returns (bytes32 msgHash)
@@ -633,7 +629,7 @@ contract ERC1155VaultTest is TestBase {
         // srcChain, because we mock the bridge functions, but good to have data
         // here so that it could have been hashed back to the exact same bytes32
         // value - if we were not mocking.
-        BridgeData.Message memory message;
+        IBridge.Message memory message;
         message.srcChainId = 31_337;
         message.destChainId = destChainId;
         message.user = Alice;
@@ -1017,7 +1013,7 @@ contract ERC1155VaultTest is TestBase {
 
     function _recallMessage(
         Bridge srcBridge,
-        BridgeData.Message memory message,
+        IBridge.Message memory message,
         bytes memory proof
     )
         internal

@@ -18,9 +18,8 @@ import { IERC1155Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
 import { IERC165Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
-import { IRecallableSender } from "../bridge/IRecallableSender.sol";
-import { IBridge } from "../bridge/IBridge.sol";
-import { BridgeData } from "../bridge/BridgeData.sol";
+import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
+
 import { BaseNFTVault } from "./BaseNFTVault.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
@@ -73,7 +72,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         uint256[] memory _tokenIds = opt.tokenIds;
 
         // Create a message to send to the destination chain
-        BridgeData.Message memory message;
+        IBridge.Message memory message;
         message.destChainId = opt.destChainId;
         message.data = _encodeDestinationCall(msg.sender, opt);
         message.user = msg.sender;
@@ -123,7 +122,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         onlyFromNamed("bridge")
     {
         // Check context validity
-        BridgeData.Context memory ctx =
+        IBridge.Context memory ctx =
             LibVaultUtils.checkValidContext("erc1155_vault", address(this));
         address token;
 
@@ -169,7 +168,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     /// Bridge has failed.
     /// @param message The message that corresponds to the ERC1155 deposit on
     /// the source chain.
-    function onMessageRecalled(BridgeData.Message calldata message)
+    function onMessageRecalled(IBridge.Message calldata message)
         external
         payable
         override

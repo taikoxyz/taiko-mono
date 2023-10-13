@@ -15,8 +15,7 @@ import { IERC721Receiver } from
     "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import { IERC721Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
-import { IBridge } from "../bridge/IBridge.sol";
-import { IRecallableSender } from "../bridge/IRecallableSender.sol";
+import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
 import { Proxied } from "../common/Proxied.sol";
 
 /// @title BaseNFTVault

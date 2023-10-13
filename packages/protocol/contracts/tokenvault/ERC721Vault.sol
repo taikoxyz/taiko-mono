@@ -17,9 +17,7 @@ import { IERC721Receiver } from
     "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import { IERC721Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
-import { IRecallableSender } from "../bridge/IRecallableSender.sol";
-import { IBridge } from "../bridge/IBridge.sol";
-import { BridgeData } from "../bridge/BridgeData.sol";
+import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
 
 import { LibAddress } from "../libs/LibAddress.sol";
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
@@ -59,7 +57,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
         address _token = opt.token;
         uint256[] memory _tokenIds = opt.tokenIds;
 
-        BridgeData.Message memory message;
+        IBridge.Message memory message;
         message.destChainId = opt.destChainId;
         message.data = _encodeDestinationCall(msg.sender, opt);
         message.user = msg.sender;
@@ -101,7 +99,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
         nonReentrant
         onlyFromNamed("bridge")
     {
-        BridgeData.Context memory ctx =
+        IBridge.Context memory ctx =
             LibVaultUtils.checkValidContext("erc721_vault", address(this));
         address token;
 
@@ -141,7 +139,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
     /// has failed.
     /// @param message The message that corresponds to the ERC721 deposit on the
     /// source chain.
-    function onMessageRecalled(BridgeData.Message calldata message)
+    function onMessageRecalled(IBridge.Message calldata message)
         external
         payable
         override

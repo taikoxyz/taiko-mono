@@ -3,12 +3,8 @@ pragma solidity ^0.8.20;
 
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { IBridge, Bridge } from "../../contracts/bridge/Bridge.sol";
-import { BridgeErrors } from "../../contracts/bridge/BridgeErrors.sol";
 import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
 import { console2 } from "forge-std/console2.sol";
-import { BridgeData } from "../../contracts/bridge/BridgeData.sol";
-import { LibBridgeStatus } from
-    "../../contracts/bridge/libs/LibBridgeStatus.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import {
     TestBase,
@@ -71,7 +67,7 @@ contract BridgeTest is TestBase {
     }
 
     function test_Bridge_send_ether_to_to_with_value() public {
-        BridgeData.Message memory message = BridgeData.Message({
+        IBridge.Message memory message = IBridge.Message({
             id: 0,
             from: address(bridge),
             srcChainId: block.chainid,
@@ -95,9 +91,9 @@ contract BridgeTest is TestBase {
         vm.prank(Bob, Bob);
         _processMessage(mockProofBridge, message, proof);
 
-        BridgeData.Status status = mockProofBridge.getMessageStatus(msgHash);
+        Bridge.Status status = mockProofBridge.messageStatus(msgHash);
 
-        assertEq(status == BridgeData.Status.DONE, true);
+        assertEq(status == Bridge.Status.DONE, true);
         // Alice has 100 ether + 1000 wei balance, because we did not use the
         // 'sendMessage'
         // since we mocking the proof, so therefore the 1000 wei
@@ -110,7 +106,7 @@ contract BridgeTest is TestBase {
     function test_Bridge_send_ether_to_contract_with_value() public {
         goodReceiver = new GoodReceiver();
 
-        BridgeData.Message memory message = BridgeData.Message({
+        IBridge.Message memory message = IBridge.Message({
             id: 0,
             from: address(bridge),
             srcChainId: block.chainid,
@@ -135,9 +131,9 @@ contract BridgeTest is TestBase {
         vm.prank(Bob, Bob);
         _processMessage(mockProofBridge, message, proof);
 
-        BridgeData.Status status = mockProofBridge.getMessageStatus(msgHash);
+        Bridge.Status status = mockProofBridge.messageStatus(msgHash);
 
-        assertEq(status == BridgeData.Status.DONE, true);
+        assertEq(status == Bridge.Status.DONE, true);
 
         // Bob (relayer) and goodContract has 1000 wei balance
         assertEq(address(goodReceiver).balance, 1000);
@@ -149,7 +145,7 @@ contract BridgeTest is TestBase {
     {
         goodReceiver = new GoodReceiver();
 
-        BridgeData.Message memory message = BridgeData.Message({
+        IBridge.Message memory message = IBridge.Message({
             id: 0,
             from: address(bridge),
             srcChainId: block.chainid,
@@ -174,9 +170,9 @@ contract BridgeTest is TestBase {
         vm.prank(Bob, Bob);
         _processMessage(mockProofBridge, message, proof);
 
-        BridgeData.Status status = mockProofBridge.getMessageStatus(msgHash);
+        Bridge.Status status = mockProofBridge.messageStatus(msgHash);
 
-        assertEq(status == BridgeData.Status.DONE, true);
+        assertEq(status == Bridge.Status.DONE, true);
 
         // Carol and goodContract has 500 wei balance
         assertEq(address(goodReceiver).balance, 500);
@@ -188,7 +184,7 @@ contract BridgeTest is TestBase {
         public
     {
         //uint256 amount = 1 wei;
-        BridgeData.Message memory message = newMessage({
+        IBridge.Message memory message = newMessage({
             user: Alice,
             to: Alice,
             value: 0,
@@ -197,7 +193,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        vm.expectRevert(BridgeErrors.B_INVALID_VALUE.selector);
+        vm.expectRevert(Bridge.B_INVALID_VALUE.selector);
         bridge.sendMessage(message);
     }
 
@@ -205,7 +201,7 @@ contract BridgeTest is TestBase {
         public
     {
         uint256 amount = 1 wei;
-        BridgeData.Message memory message = newMessage({
+        IBridge.Message memory message = newMessage({
             user: address(0),
             to: Alice,
             value: 0,
@@ -214,7 +210,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        vm.expectRevert(BridgeErrors.B_INVALID_USER.selector);
+        vm.expectRevert(Bridge.B_INVALID_USER.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 
@@ -223,7 +219,7 @@ contract BridgeTest is TestBase {
         public
     {
         uint256 amount = 1 wei;
-        BridgeData.Message memory message = newMessage({
+        IBridge.Message memory message = newMessage({
             user: Alice,
             to: Alice,
             value: 0,
@@ -232,7 +228,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId + 1
         });
 
-        vm.expectRevert(BridgeErrors.B_INVALID_CHAINID.selector);
+        vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 
@@ -241,7 +237,7 @@ contract BridgeTest is TestBase {
         public
     {
         uint256 amount = 1 wei;
-        BridgeData.Message memory message = newMessage({
+        IBridge.Message memory message = newMessage({
             user: Alice,
             to: Alice,
             value: 0,
@@ -250,7 +246,7 @@ contract BridgeTest is TestBase {
             destChain: block.chainid
         });
 
-        vm.expectRevert(BridgeErrors.B_INVALID_CHAINID.selector);
+        vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 
@@ -258,7 +254,7 @@ contract BridgeTest is TestBase {
         public
     {
         uint256 amount = 1 wei;
-        BridgeData.Message memory message = newMessage({
+        IBridge.Message memory message = newMessage({
             user: Alice,
             to: address(0),
             value: 0,
@@ -267,13 +263,13 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        vm.expectRevert(BridgeErrors.B_INVALID_TO.selector);
+        vm.expectRevert(Bridge.B_INVALID_TO.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 
     function test_Bridge_send_message_ether_with_no_processing_fee() public {
         uint256 amount = 0 wei;
-        BridgeData.Message memory message = newMessage({
+        IBridge.Message memory message = newMessage({
             user: Alice,
             to: Alice,
             value: 0,
@@ -282,16 +278,14 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        bytes32 msgHash = bridge.sendMessage{ value: amount }(message);
-
-        bool isMessageSent = bridge.isMessageSent(msgHash);
-        assertEq(isMessageSent, true);
+        bridge.sendMessage{ value: amount }(message);
+        assertEq(bridge.isMessageSent(message), true);
     }
 
     function test_Bridge_send_message_ether_with_processing_fee() public {
         uint256 amount = 0 wei;
         uint256 fee = 1 wei;
-        BridgeData.Message memory message = newMessage({
+        IBridge.Message memory message = newMessage({
             user: Alice,
             to: Alice,
             value: 0,
@@ -300,10 +294,8 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        bytes32 msgHash = bridge.sendMessage{ value: amount + fee }(message);
-
-        bool isMessageSent = bridge.isMessageSent(msgHash);
-        assertEq(isMessageSent, true);
+        bridge.sendMessage{ value: amount + fee }(message);
+        assertEq(bridge.isMessageSent(message), true);
     }
 
     function test_Bridge_send_message_ether_with_processing_fee_invalid_amount()
@@ -311,7 +303,7 @@ contract BridgeTest is TestBase {
     {
         uint256 amount = 0 wei;
         uint256 fee = 1 wei;
-        BridgeData.Message memory message = newMessage({
+        IBridge.Message memory message = newMessage({
             user: Alice,
             to: Alice,
             value: 0,
@@ -320,7 +312,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        vm.expectRevert(BridgeErrors.B_INVALID_VALUE.selector);
+        vm.expectRevert(Bridge.B_INVALID_VALUE.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 
@@ -335,16 +327,16 @@ contract BridgeTest is TestBase {
         // since we modified the iBridge.Message struct and cut out
         // depositValue
         vm.startPrank(Alice);
-        (BridgeData.Message memory message, bytes memory proof) =
+        (IBridge.Message memory message, bytes memory proof) =
             setUpPredefinedSuccessfulProcessMessageCall();
 
         bytes32 msgHash = keccak256(abi.encode(message));
 
         _processMessage(mockProofBridge, message, proof);
 
-        BridgeData.Status status = mockProofBridge.getMessageStatus(msgHash);
+        Bridge.Status status = mockProofBridge.messageStatus(msgHash);
 
-        assertEq(status == BridgeData.Status.DONE, true);
+        assertEq(status == Bridge.Status.DONE, true);
     }
 
     // test with a known good merkle proof / message since we cant generate
@@ -355,7 +347,7 @@ contract BridgeTest is TestBase {
         proofs because we cna bypass with overriding shouldCheckProof()
         in a mockBirdge AND proof system already 'battle tested'.*/
         vm.startPrank(Alice);
-        (BridgeData.Message memory message, bytes memory proof) =
+        (IBridge.Message memory message, bytes memory proof) =
             setUpPredefinedSuccessfulProcessMessageCall();
 
         // etch bad receiver at the to address, so it fails.
@@ -365,23 +357,22 @@ contract BridgeTest is TestBase {
 
         _processMessage(mockProofBridge, message, proof);
 
-        BridgeData.Status status = mockProofBridge.getMessageStatus(msgHash);
+        Bridge.Status status = mockProofBridge.messageStatus(msgHash);
 
-        assertEq(status == BridgeData.Status.RETRIABLE, true);
+        assertEq(status == Bridge.Status.RETRIABLE, true);
 
         vm.stopPrank();
         vm.prank(message.user);
 
         mockProofBridge.retryMessage(message, true);
 
-        BridgeData.Status postRetryStatus =
-            mockProofBridge.getMessageStatus(msgHash);
+        Bridge.Status postRetryStatus = mockProofBridge.messageStatus(msgHash);
 
-        assertEq(postRetryStatus == BridgeData.Status.FAILED, true);
+        assertEq(postRetryStatus == Bridge.Status.FAILED, true);
     }
 
     function retry_message_reverts_when_status_non_retriable() public {
-        BridgeData.Message memory message = newMessage({
+        IBridge.Message memory message = newMessage({
             user: Alice,
             to: Alice,
             value: 0,
@@ -390,7 +381,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        vm.expectRevert(BridgeErrors.B_NON_RETRIABLE.selector);
+        vm.expectRevert(Bridge.B_NON_RETRIABLE.selector);
         destChainBridge.retryMessage(message, true);
     }
 
@@ -398,7 +389,7 @@ contract BridgeTest is TestBase {
         public
     {
         vm.startPrank(Alice);
-        BridgeData.Message memory message = newMessage({
+        IBridge.Message memory message = newMessage({
             user: Bob,
             to: Alice,
             value: 0,
@@ -407,7 +398,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        vm.expectRevert(BridgeErrors.B_PERMISSION_DENIED.selector);
+        vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
         destChainBridge.retryMessage(message, true);
     }
 
@@ -416,7 +407,7 @@ contract BridgeTest is TestBase {
     in a mockBirdge AND proof system already 'battle tested'.*/
     function setUpPredefinedSuccessfulProcessMessageCall()
         internal
-        returns (BridgeData.Message memory, bytes memory)
+        returns (IBridge.Message memory, bytes memory)
     {
         badReceiver = new BadReceiver();
 
@@ -453,7 +444,7 @@ contract BridgeTest is TestBase {
         vm.chainId(dest);
 
         // known message that corresponds with below proof.
-        BridgeData.Message memory message = BridgeData.Message({
+        IBridge.Message memory message = IBridge.Message({
             id: 0,
             from: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
             srcChainId: 1336,
@@ -476,7 +467,7 @@ contract BridgeTest is TestBase {
 
     function _processMessage(
         Bridge _bridge,
-        BridgeData.Message memory message,
+        IBridge.Message memory message,
         bytes memory proof
     )
         internal
@@ -496,9 +487,9 @@ contract BridgeTest is TestBase {
     )
         internal
         view
-        returns (BridgeData.Message memory)
+        returns (IBridge.Message memory)
     {
-        return BridgeData.Message({
+        return IBridge.Message({
             user: user,
             destChainId: destChain,
             to: to,

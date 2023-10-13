@@ -8,7 +8,6 @@ pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { IBridge } from "../../bridge/IBridge.sol";
-import { BridgeData } from "../../bridge/BridgeData.sol";
 import { TransparentUpgradeableProxy } from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
@@ -49,7 +48,7 @@ library LibVaultUtils {
     )
         external
         view
-        returns (BridgeData.Context memory ctx)
+        returns (IBridge.Context memory ctx)
     {
         ctx = IBridge(msg.sender).context();
         if (

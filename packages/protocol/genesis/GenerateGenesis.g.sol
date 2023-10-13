@@ -143,11 +143,11 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         assertEq(owner, bridge.owner());
 
-        vm.expectRevert(BridgeErrors.B_PERMISSION_DENIED.selector);
+        vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
         bytes[] memory proofs = new bytes[](1);
         proofs[0] = "";
         bridge.processMessage(
-            BridgeData.Message({
+            IBridge.Message({
                 id: 0,
                 from: address(0),
                 srcChainId: 1,
