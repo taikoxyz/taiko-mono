@@ -95,10 +95,10 @@ interface IBridge {
 
     /// @notice Recalls a failed message on its source chain.
     /// @param message The message to be recalled.
-    /// @param proof The proof of message processing failure.
+    /// @param proofs The proofs of message processing failure.
     function recallMessage(
         IBridge.Message calldata message,
-        bytes calldata proof
+        bytes[] calldata proofs
     )
         external;
 
@@ -112,12 +112,12 @@ interface IBridge {
     /// its destination chain.
     /// @param msgHash The hash of the message.
     /// @param srcChainId The source chain ID.
-    /// @param proof The proof of message receipt.
+    /// @param proofs The proofs of message receipt.
     /// @return Returns true if the message has been received, false otherwise.
     function isMessageReceived(
         bytes32 msgHash,
         uint256 srcChainId,
-        bytes calldata proof
+        bytes[] calldata proofs
     )
         external
         view
@@ -126,12 +126,12 @@ interface IBridge {
     /// @notice Checks if a msgHash has failed on its destination chain.
     /// @param msgHash The hash of the message.
     /// @param destChainId The destination chain ID.
-    /// @param proof The proof of message failure.
+    /// @param proofs The proofs of message failure.
     /// @return Returns true if the message has failed, false otherwise.
     function isMessageFailed(
         bytes32 msgHash,
         uint256 destChainId,
-        bytes calldata proof
+        bytes[] calldata proofs
     )
         external
         view

@@ -73,13 +73,13 @@ library LibBridgeStatus {
     /// @param resolver The address resolver.
     /// @param msgHash The hash of the message.
     /// @param destChainId The ID of the destination chain.
-    /// @param proof The proof of the status of the message.
+    /// @param proofs The proofs of the status of the message.
     /// @return True if the message has failed, false otherwise.
     function isMessageFailed(
         AddressResolver resolver,
         bytes32 msgHash,
         uint256 destChainId,
-        bytes calldata proof
+        bytes[] calldata proofs
     )
         internal
         view
@@ -92,8 +92,9 @@ library LibBridgeStatus {
             revert B_MSG_HASH_NULL();
         }
 
+        // TODO
         LibBridgeData.StatusProof memory sp =
-            abi.decode(proof, (LibBridgeData.StatusProof));
+            abi.decode(proofs[0], (LibBridgeData.StatusProof));
 
         bytes32 syncedHeaderHash = ICrossChainSync(
             resolver.resolve("taiko", false)

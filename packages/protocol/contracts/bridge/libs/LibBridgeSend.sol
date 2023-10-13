@@ -121,25 +121,26 @@ library LibBridgeSend {
     /// @param resolver The address resolver.
     /// @param msgHash The hash of the received message.
     /// @param srcChainId The ID of the source chain.
-    /// @param proof The proof of message receipt.
+    /// @param proofs The proofs of message receipt.
     /// @return True if the message was received.
     function isMessageReceived(
         AddressResolver resolver,
         bytes32 msgHash,
         uint256 srcChainId,
-        bytes calldata proof
+        bytes[] calldata proofs
     )
         internal
         view
         returns (bool)
     {
-        address srcBridge = resolver.resolve(srcChainId, "bridge", false);
-        return ISignalService(resolver.resolve("signal_service", false))
-            .isSignalReceived({
-            srcChainId: srcChainId,
-            app: srcBridge,
-            signal: msgHash,
-            proof: proof
-        });
+        // TODO
+        // address srcBridge = resolver.resolve(srcChainId, "bridge", false);
+        // return ISignalService(resolver.resolve("signal_service", false))
+        //     .isSignalReceived({
+        //     srcChainId: srcChainId,
+        //     app: srcBridge,
+        //     signal: msgHash,
+        //     proof: proof
+        // });
     }
 }

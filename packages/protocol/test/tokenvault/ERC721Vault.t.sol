@@ -652,7 +652,7 @@ contract ERC721VaultTest is TestBase {
         message.memo = "";
         bytes memory proof = bytes("");
 
-        srcPrankBridge.recallMessage(message, proof);
+        _recallMessage(srcPrankBridge, message, proof);
 
         // Alice got back her NFT
         assertEq(canonicalToken721.ownerOf(1), Alice);
@@ -1016,5 +1016,17 @@ contract ERC721VaultTest is TestBase {
         } catch {
             fail();
         }
+    }
+
+    function _recallMessage(
+        IBridge srcBridge,
+        IBridge.Message memory message,
+        bytes memory proof
+    )
+        internal
+    {
+        bytes[] memory proofs = new bytes[](1);
+        proofs[0] = proof;
+        srcBridge.recallMessage(message, proofs);
     }
 }

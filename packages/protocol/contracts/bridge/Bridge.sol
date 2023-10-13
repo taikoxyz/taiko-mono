@@ -97,7 +97,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     /// @inheritdoc IBridge
     function recallMessage(
         IBridge.Message calldata message,
-        bytes calldata proof
+        bytes[] calldata proofs
     )
         external
         nonReentrant
@@ -106,7 +106,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
             state: _state,
             resolver: AddressResolver(this),
             message: message,
-            proof: proof,
+            proofs: proofs,
             checkProof: shouldCheckProof()
         });
     }
@@ -129,7 +129,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     function isMessageReceived(
         bytes32 msgHash,
         uint256 srcChainId,
-        bytes calldata proof
+        bytes[] calldata proofs
     )
         public
         view
@@ -141,7 +141,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
             resolver: AddressResolver(this),
             msgHash: msgHash,
             srcChainId: srcChainId,
-            proof: proof
+            proofs: proofs
         });
     }
 
@@ -150,7 +150,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     function isMessageFailed(
         bytes32 msgHash,
         uint256 destChainId,
-        bytes calldata proof
+        bytes[] calldata proofs
     )
         public
         view
@@ -162,7 +162,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
             resolver: AddressResolver(this),
             msgHash: msgHash,
             destChainId: destChainId,
-            proof: proof
+            proofs: proofs
         });
     }
 
