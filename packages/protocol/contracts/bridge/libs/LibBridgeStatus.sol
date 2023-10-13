@@ -7,11 +7,9 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { BlockHeader, LibBlockHeader } from "../../libs/LibBlockHeader.sol";
-import { ICrossChainSync } from "../../common/ICrossChainSync.sol";
-import { BridgeData } from "../BridgeData.sol";
-import { LibTrieProof } from "../../libs/LibTrieProof.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
+
+import { BridgeData } from "../BridgeData.sol";
 
 /// @title LibBridgeStatus
 /// @notice This library provides functions for getting and updating the status
@@ -20,14 +18,9 @@ import { ISignalService } from "../../signal/ISignalService.sol";
 /// retrieval, update, and verification of failure status on the destination
 /// chain.
 library LibBridgeStatus {
-    using LibBlockHeader for BlockHeader;
-
     event MessageStatusChanged(
         bytes32 indexed msgHash, BridgeData.Status status
     );
-
-    error B_SIGNAL_NULL();
-    error B_WRONG_CHAIN_ID();
 
     /// @notice Updates the status of a bridge message.
     /// @dev If the new status is different from the current status in the

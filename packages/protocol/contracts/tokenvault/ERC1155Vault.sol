@@ -18,7 +18,8 @@ import { IERC1155Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
 import { IERC165Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
-import { IRecallableMessageSender, IBridge } from "../bridge/IBridge.sol";
+import { IRecallableSender } from "../bridge/IRecallableSender.sol";
+import { IBridge } from "../bridge/IBridge.sol";
 import { BridgeData } from "../bridge/BridgeData.sol";
 import { BaseNFTVault } from "./BaseNFTVault.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
@@ -257,7 +258,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         returns (bool)
     {
         return interfaceId == type(ERC1155ReceiverUpgradeable).interfaceId
-            || interfaceId == type(IRecallableMessageSender).interfaceId
+            || interfaceId == type(IRecallableSender).interfaceId
             || super.supportsInterface(interfaceId);
     }
 

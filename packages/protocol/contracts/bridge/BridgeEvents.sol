@@ -14,6 +14,14 @@ import { BridgeData } from "./BridgeData.sol";
 /// libraries.
 abstract contract BridgeEvents {
     event SignalSent(address indexed sender, bytes32 msgHash);
+
     event MessageSent(bytes32 indexed msgHash, BridgeData.Message message);
+
     event MessageRecalled(bytes32 indexed msgHash);
+
+    event DestChainEnabled(uint256 indexed chainId, bool enabled);
+
+    event MessageStatusChanged(
+        bytes32 indexed msgHash, BridgeData.Status status
+    );
 }

@@ -17,7 +17,8 @@ import { IERC721Receiver } from
     "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import { IERC721Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
-import { IBridge, IRecallableMessageSender } from "../bridge/IBridge.sol";
+import { IRecallableSender } from "../bridge/IRecallableSender.sol";
+import { IBridge } from "../bridge/IBridge.sol";
 import { BridgeData } from "../bridge/BridgeData.sol";
 
 import { LibAddress } from "../libs/LibAddress.sol";
@@ -216,7 +217,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
         override
         returns (bool)
     {
-        return interfaceId == type(IRecallableMessageSender).interfaceId;
+        return interfaceId == type(IRecallableSender).interfaceId;
     }
 
     /// @dev Encodes sending bridged or canonical ERC721 tokens to the user.

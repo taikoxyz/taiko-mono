@@ -6,30 +6,26 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../common/AddressResolver.sol";
-import { BridgeErrors } from "./BridgeErrors.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { IBridge } from "./IBridge.sol";
-import { BridgeData } from "./BridgeData.sol";
-import { BridgeEvents } from "./BridgeEvents.sol";
+import { Proxied } from "../common/Proxied.sol";
+
 import { LibBridgeProcess } from "./libs/LibBridgeProcess.sol";
 import { LibBridgeRecall } from "./libs/LibBridgeRecall.sol";
 import { LibBridgeRetry } from "./libs/LibBridgeRetry.sol";
 import { LibBridgeSend } from "./libs/LibBridgeSend.sol";
 import { LibBridgeSignal } from "./libs/LibBridgeSignal.sol";
 import { LibBridgeStatus } from "./libs/LibBridgeStatus.sol";
-import { Proxied } from "../common/Proxied.sol";
 
+import { BridgeData } from "./BridgeData.sol";
+import { BridgeErrors } from "./BridgeErrors.sol";
+import { BridgeEvents } from "./BridgeEvents.sol";
+import { IBridge } from "./IBridge.sol";
 /// @title Bridge
 /// @notice See the documentation for {IBridge}.
 /// @dev The code hash for the same address on L1 and L2 may be different.
+
 contract Bridge is EssentialContract, IBridge, BridgeErrors, BridgeEvents {
     BridgeData.State private _state; // 50 slots reserved
-
-    event MessageStatusChanged(
-        bytes32 indexed msgHash, BridgeData.Status status
-    );
-
-    event DestChainEnabled(uint256 indexed chainId, bool enabled);
 
     receive() external payable { }
 

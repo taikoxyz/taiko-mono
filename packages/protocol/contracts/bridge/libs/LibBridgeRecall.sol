@@ -7,12 +7,14 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { EtherVault } from "../EtherVault.sol";
-import { IRecallableMessageSender, IBridge } from "../IBridge.sol";
+import { LibAddress } from "../../libs/LibAddress.sol";
+
 import { BridgeData } from "../BridgeData.sol";
+import { IRecallableSender } from "../IRecallableSender.sol";
+import { EtherVault } from "../EtherVault.sol";
+
 import { LibBridgeSignal } from "./LibBridgeSignal.sol";
 import { LibBridgeStatus } from "./LibBridgeStatus.sol";
-import { LibAddress } from "../../libs/LibAddress.sol";
 
 /// @title LibBridgeRecall
 /// @notice This library provides functions for releasing Ether and tokens
@@ -24,8 +26,8 @@ library LibBridgeRecall {
 
     event MessageRecalled(bytes32 indexed msgHash);
 
-    error B_MSG_NOT_FAILED();
-    error B_MSG_RECALLED_ALREADY();
+    error B_NOT_FAILED();
+    error B_RECALLED_ALREADY();
 
     /// @notice Recalls a failed message on its source chain, releasing
     /// associated assets.
@@ -48,7 +50,7 @@ library LibBridgeRecall {
     {
         bytes32 msgHash = keccak256(abi.encode(message));
 
-        if (state.recalls[msgHash]) revert B_MSG_RECALLED_ALREADY();
+        if (state.recalls[msgHash]) revert B_RECALLED_ALREADY();
 
         if (checkProof) {
             bool failed = LibBridgeSignal.isSignalReceived(
@@ -57,7 +59,7 @@ library LibBridgeRecall {
                 message.srcChainId,
                 proofs
             );
-            if (!failed) revert B_MSG_NOT_FAILED();
+            if (!failed) revert B_NOT_FAILED();
         }
 
         state.recalls[msgHash] = true;
@@ -72,12 +74,11 @@ library LibBridgeRecall {
         }
 
         // Execute the recall logic based on the contract's support for the
-        // IRecallableMessageSender interface
-        bool support = message.from.supportsInterface(
-            type(IRecallableMessageSender).interfaceId
-        );
+        // IRecallableSender interface
+        bool support =
+            message.from.supportsInterface(type(IRecallableSender).interfaceId);
         if (support) {
-            IRecallableMessageSender(message.from).onMessageRecalled{
+            IRecallableSender(message.from).onMessageRecalled{
                 value: message.value
             }(message);
         } else {

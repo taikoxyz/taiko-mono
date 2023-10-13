@@ -8,14 +8,6 @@ pragma solidity ^0.8.20;
 
 import { BridgeData } from "./BridgeData.sol";
 
-/// @title IRecallableMessageSender
-/// @notice An interface that all recallable message senders shall implement.
-interface IRecallableMessageSender {
-    function onMessageRecalled(BridgeData.Message calldata message)
-        external
-        payable;
-}
-
 /// @title IBridge
 /// @notice The bridge used in conjunction with the {ISignalService}.
 /// @dev Ether is held by Bridges on L1 and by the EtherVault on L2,

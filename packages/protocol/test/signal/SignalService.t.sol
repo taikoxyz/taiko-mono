@@ -49,17 +49,17 @@ contract TestSignalService is TestBase {
     }
 
     function test_SignalService_sendSignal_revert() public {
-        vm.expectRevert(SignalService.B_ZERO_SIGNAL.selector);
+        vm.expectRevert(SignalService.SS_INVALID_SIGNAL.selector);
         signalService.sendSignal(0);
     }
 
     function test_SignalService_isSignalSent_revert() public {
         bytes32 signal = bytes32(uint256(1));
-        vm.expectRevert(SignalService.B_NULL_APP_ADDR.selector);
+        vm.expectRevert(SignalService.SS_INVALID_APP.selector);
         signalService.isSignalSent(address(0), signal);
 
         signal = bytes32(uint256(0));
-        vm.expectRevert(SignalService.B_ZERO_SIGNAL.selector);
+        vm.expectRevert(SignalService.SS_INVALID_SIGNAL.selector);
         signalService.isSignalSent(Alice, signal);
     }
 
@@ -91,17 +91,17 @@ contract TestSignalService is TestBase {
     function test_SignalService_isSignalReceived_revert() public {
         bytes32 signal = bytes32(uint256(1));
         bytes memory proof = new bytes(1);
-        vm.expectRevert(SignalService.B_WRONG_CHAIN_ID.selector);
+        vm.expectRevert(SignalService.SS_INVALID_CHAINID.selector);
         signalService.isSignalReceived(block.chainid, Alice, signal, proof);
 
         signal = bytes32(uint256(1));
         proof = new bytes(1);
-        vm.expectRevert(SignalService.B_NULL_APP_ADDR.selector);
+        vm.expectRevert(SignalService.SS_INVALID_APP.selector);
         signalService.isSignalReceived(destChainId, address(0), signal, proof);
 
         signal = bytes32(uint256(0));
         proof = new bytes(1);
-        vm.expectRevert(SignalService.B_ZERO_SIGNAL.selector);
+        vm.expectRevert(SignalService.SS_INVALID_SIGNAL.selector);
         signalService.isSignalReceived(destChainId, Alice, signal, proof);
 
         signal = bytes32(uint256(1));

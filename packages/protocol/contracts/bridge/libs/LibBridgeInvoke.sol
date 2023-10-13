@@ -6,8 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-import { IBridge } from "../IBridge.sol";
-import { LibAddress } from "../../libs/LibAddress.sol";
 import { BridgeData } from "../BridgeData.sol";
 
 /// @title LibBridgeInvoke
@@ -16,9 +14,7 @@ import { BridgeData } from "../BridgeData.sol";
 /// The library facilitates the interaction with messages sent across the
 /// bridge, allowing for call execution and state updates.
 library LibBridgeInvoke {
-    using LibAddress for address;
-
-    error B_GAS_LIMIT();
+    error B_INVALID_GAS_LIMIT();
 
     /// @notice Invokes a call message on the Bridge.
     /// @param state The current state of the Bridge.
@@ -38,7 +34,7 @@ library LibBridgeInvoke {
         internal
         returns (bool success)
     {
-        if (gasLimit == 0) revert B_GAS_LIMIT();
+        if (gasLimit == 0) revert B_INVALID_GAS_LIMIT();
 
         // Update the context for the message call
         // Should we simply provide the message itself rather than

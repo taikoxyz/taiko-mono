@@ -7,10 +7,11 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { EtherVault } from "../EtherVault.sol";
-import { IBridge } from "../IBridge.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
+
 import { BridgeData } from "../BridgeData.sol";
+import { EtherVault } from "../EtherVault.sol";
+
 import { LibBridgeInvoke } from "./LibBridgeInvoke.sol";
 import { LibBridgeStatus } from "./LibBridgeStatus.sol";
 
@@ -24,8 +25,8 @@ import { LibBridgeStatus } from "./LibBridgeStatus.sol";
 library LibBridgeRetry {
     using LibAddress for address;
 
-    error B_DENIED();
-    error B_MSG_NON_RETRIABLE();
+    error B_NON_RETRIABLE();
+    error B_PERMISSION_DENIED();
 
     /// @notice Retries to invoke the messageCall after releasing associated
     /// Ether and tokens.
@@ -49,13 +50,13 @@ library LibBridgeRetry {
         // If the gasLimit is set to 0 or isLastAttempt is true, the caller must
         // be the message.user.
         if (message.gasLimit == 0 || isLastAttempt) {
-            if (msg.sender != message.user) revert B_DENIED();
+            if (msg.sender != message.user) revert B_PERMISSION_DENIED();
         }
 
         bytes32 msgHash = keccak256(abi.encode(message));
 
         if (state.statuses[msgHash] != BridgeData.Status.RETRIABLE) {
-            revert B_MSG_NON_RETRIABLE();
+            revert B_NON_RETRIABLE();
         }
 
         // Release necessary Ether from EtherVault if on Taiko, otherwise it's

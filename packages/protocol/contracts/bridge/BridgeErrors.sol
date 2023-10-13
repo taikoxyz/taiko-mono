@@ -10,26 +10,17 @@ pragma solidity ^0.8.20;
 /// @dev This abstract contract defines custom errors that are used throughout
 /// the Bridge contract.
 abstract contract BridgeErrors {
-    error B_DENIED();
-    error B_ERC20_CANNOT_RECEIVE();
-    error B_MSG_RECALLED_ALREADY();
-    error B_EV_DO_NOT_BURN();
-    error B_EV_NOT_AUTHORIZED();
-    error B_EV_PARAM();
-    error B_FAILED_TRANSFER();
-    error B_FORBIDDEN();
-    error B_GAS_LIMIT();
-    error B_INCORRECT_VALUE();
-    error B_INVALID_PROOFS();
-    error B_INIT_PARAM_ERROR();
-    error B_SIGNAL_NULL();
-    error B_MSG_NON_RETRIABLE();
-    error B_MSG_NOT_FAILED();
-    error B_NULL_APP_ADDR();
-    error B_USER_IS_NULL();
-    error B_SIGNAL_NOT_RECEIVED();
+    error B_INVALID_APP();
+    error B_INVALID_CHAINID();
+    error B_INVALID_GAS_LIMIT();
+    error B_INVALID_SIGNAL();
+    error B_INVALID_TO();
+    error B_INVALID_USER();
+    error B_INVALID_VALUE();
+    error B_NON_RETRIABLE();
+    error B_NOT_FAILED();
+    error B_NOT_RECEIVED();
+    error B_PERMISSION_DENIED();
+    error B_RECALLED_ALREADY();
     error B_STATUS_MISMATCH();
-    error B_WRONG_CHAIN_ID();
-    error B_WRONG_TO_ADDRESS();
-    error B_ZERO_SIGNAL();
 }

@@ -197,7 +197,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        vm.expectRevert(BridgeErrors.B_INCORRECT_VALUE.selector);
+        vm.expectRevert(BridgeErrors.B_INVALID_VALUE.selector);
         bridge.sendMessage(message);
     }
 
@@ -214,7 +214,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        vm.expectRevert(BridgeErrors.B_USER_IS_NULL.selector);
+        vm.expectRevert(BridgeErrors.B_INVALID_USER.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 
@@ -232,7 +232,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId + 1
         });
 
-        vm.expectRevert(BridgeErrors.B_WRONG_CHAIN_ID.selector);
+        vm.expectRevert(BridgeErrors.B_INVALID_CHAINID.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 
@@ -250,7 +250,7 @@ contract BridgeTest is TestBase {
             destChain: block.chainid
         });
 
-        vm.expectRevert(BridgeErrors.B_WRONG_CHAIN_ID.selector);
+        vm.expectRevert(BridgeErrors.B_INVALID_CHAINID.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 
@@ -267,7 +267,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        vm.expectRevert(BridgeErrors.B_WRONG_TO_ADDRESS.selector);
+        vm.expectRevert(BridgeErrors.B_INVALID_TO.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 
@@ -320,7 +320,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        vm.expectRevert(BridgeErrors.B_INCORRECT_VALUE.selector);
+        vm.expectRevert(BridgeErrors.B_INVALID_VALUE.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 
@@ -390,7 +390,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        vm.expectRevert(BridgeErrors.B_MSG_NON_RETRIABLE.selector);
+        vm.expectRevert(BridgeErrors.B_NON_RETRIABLE.selector);
         destChainBridge.retryMessage(message, true);
     }
 
@@ -407,7 +407,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        vm.expectRevert(BridgeErrors.B_DENIED.selector);
+        vm.expectRevert(BridgeErrors.B_PERMISSION_DENIED.selector);
         destChainBridge.retryMessage(message, true);
     }
 

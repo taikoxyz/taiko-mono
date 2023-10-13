@@ -45,22 +45,22 @@ contract SignalService is ISignalService, EssentialContract {
         bytes proof; // A storage proof
     }
 
-    error B_ZERO_SIGNAL();
-    error B_NULL_APP_ADDR();
-    error B_WRONG_CHAIN_ID();
+    error SS_INVALID_SIGNAL();
+    error SS_INVALID_APP();
+    error SS_INVALID_CHAINID();
 
     modifier validApp(address app) {
-        if (app == address(0)) revert B_NULL_APP_ADDR();
+        if (app == address(0)) revert SS_INVALID_APP();
         _;
     }
 
     modifier validSignal(bytes32 signal) {
-        if (signal == 0) revert B_ZERO_SIGNAL();
+        if (signal == 0) revert SS_INVALID_SIGNAL();
         _;
     }
 
     modifier validChainId(uint256 srcChainId) {
-        if (srcChainId == block.chainid) revert B_WRONG_CHAIN_ID();
+        if (srcChainId == block.chainid) revert SS_INVALID_CHAINID();
         _;
     }
 
