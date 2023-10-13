@@ -20,10 +20,19 @@ import { LibMath } from "../../libs/LibMath.sol";
 library LibBridgeData {
     /// @dev The State struct stores the state of messages in the Bridge
     /// contract.
+
+    enum Status {
+        NEW,
+        RETRIABLE,
+        DONE,
+        FAILED
+    }
+
     struct State {
         uint256 nextMessageId;
         IBridge.Context ctx; // 3 slots
-        mapping(bytes32 msgHash => bool recalled) recalls;
+        mapping(bytes32 msgHash => bool recalled) messageRecall;
+        mapping(bytes32 msgHash => Status) messageStatus;
         uint256[45] __gap;
     }
 

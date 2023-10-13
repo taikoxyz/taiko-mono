@@ -6,6 +6,7 @@ import { IBridge, Bridge } from "../../contracts/bridge/Bridge.sol";
 import { BridgeErrors } from "../../contracts/bridge/BridgeErrors.sol";
 import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
 import { console2 } from "forge-std/console2.sol";
+import { LibBridgeData } from "../../contracts/bridge/libs/LibBridgeData.sol";
 import { LibBridgeStatus } from
     "../../contracts/bridge/libs/LibBridgeStatus.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
@@ -94,10 +95,9 @@ contract BridgeTest is TestBase {
         vm.prank(Bob, Bob);
         _processMessage(mockProofBridge, message, proof);
 
-        LibBridgeStatus.MessageStatus status =
-            mockProofBridge.getMessageStatus(msgHash);
+        LibBridgeData.Status status = mockProofBridge.getMessageStatus(msgHash);
 
-        assertEq(status == LibBridgeStatus.MessageStatus.DONE, true);
+        assertEq(status == LibBridgeData.Status.DONE, true);
         // Alice has 100 ether + 1000 wei balance, because we did not use the
         // 'sendMessage'
         // since we mocking the proof, so therefore the 1000 wei
@@ -135,10 +135,9 @@ contract BridgeTest is TestBase {
         vm.prank(Bob, Bob);
         _processMessage(mockProofBridge, message, proof);
 
-        LibBridgeStatus.MessageStatus status =
-            mockProofBridge.getMessageStatus(msgHash);
+        LibBridgeData.Status status = mockProofBridge.getMessageStatus(msgHash);
 
-        assertEq(status == LibBridgeStatus.MessageStatus.DONE, true);
+        assertEq(status == LibBridgeData.Status.DONE, true);
 
         // Bob (relayer) and goodContract has 1000 wei balance
         assertEq(address(goodReceiver).balance, 1000);
@@ -175,10 +174,9 @@ contract BridgeTest is TestBase {
         vm.prank(Bob, Bob);
         _processMessage(mockProofBridge, message, proof);
 
-        LibBridgeStatus.MessageStatus status =
-            mockProofBridge.getMessageStatus(msgHash);
+        LibBridgeData.Status status = mockProofBridge.getMessageStatus(msgHash);
 
-        assertEq(status == LibBridgeStatus.MessageStatus.DONE, true);
+        assertEq(status == LibBridgeData.Status.DONE, true);
 
         // Carol and goodContract has 500 wei balance
         assertEq(address(goodReceiver).balance, 500);
@@ -344,10 +342,9 @@ contract BridgeTest is TestBase {
 
         _processMessage(mockProofBridge, message, proof);
 
-        LibBridgeStatus.MessageStatus status =
-            mockProofBridge.getMessageStatus(msgHash);
+        LibBridgeData.Status status = mockProofBridge.getMessageStatus(msgHash);
 
-        assertEq(status == LibBridgeStatus.MessageStatus.DONE, true);
+        assertEq(status == LibBridgeData.Status.DONE, true);
     }
 
     // test with a known good merkle proof / message since we cant generate
@@ -368,20 +365,19 @@ contract BridgeTest is TestBase {
 
         _processMessage(mockProofBridge, message, proof);
 
-        LibBridgeStatus.MessageStatus status =
-            mockProofBridge.getMessageStatus(msgHash);
+        LibBridgeData.Status status = mockProofBridge.getMessageStatus(msgHash);
 
-        assertEq(status == LibBridgeStatus.MessageStatus.RETRIABLE, true);
+        assertEq(status == LibBridgeData.Status.RETRIABLE, true);
 
         vm.stopPrank();
         vm.prank(message.user);
 
         mockProofBridge.retryMessage(message, true);
 
-        LibBridgeStatus.MessageStatus postRetryStatus =
+        LibBridgeData.Status postRetryStatus =
             mockProofBridge.getMessageStatus(msgHash);
 
-        assertEq(postRetryStatus == LibBridgeStatus.MessageStatus.FAILED, true);
+        assertEq(postRetryStatus == LibBridgeData.Status.FAILED, true);
     }
 
     function retry_message_reverts_when_status_non_retriable() public {
