@@ -85,8 +85,9 @@ library LibBridgeStatus {
         view
         returns (bool)
     {
-        if (destChainId == block.chainid) revert B_WRONG_CHAIN_ID();
+        if (proofs.length == 0) return false;
         if (msgHash == 0x0) revert B_MSG_HASH_NULL();
+        if (destChainId == block.chainid) revert B_WRONG_CHAIN_ID();
 
         // TODO
         LibBridgeData.StatusProof memory sp =

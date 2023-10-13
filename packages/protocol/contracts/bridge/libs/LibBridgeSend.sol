@@ -132,6 +132,8 @@ library LibBridgeSend {
         returns (bool)
     {
         if (proofs.length == 0) return false;
+        if (msgHash == 0x0) revert B_MSG_HASH_NULL();
+        if (srcChainId == block.chainid) revert B_WRONG_CHAIN_ID();
 
         // Check a chain of inclusion proofs, from the message's source
         // chain all the way to the destination chain.
