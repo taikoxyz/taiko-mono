@@ -68,15 +68,15 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
         message.refundTo = opt.refundTo;
         message.memo = opt.memo;
 
-        (bytes32 msgHash,) = IBridge(resolve("bridge", false)).sendMessage{
-            value: msg.value
-        }(message);
+        (bytes32 msgHash, IBridge.Message memory _message) = IBridge(
+            resolve("bridge", false)
+        ).sendMessage{ value: msg.value }(message);
 
         emit TokenSent({
             msgHash: msgHash,
-            from: message.user,
+            from: _message.user,
             to: opt.to,
-            destChainId: message.destChainId,
+            destChainId: _message.destChainId,
             token: _token,
             tokenIds: _tokenIds,
             amounts: _amounts

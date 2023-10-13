@@ -84,16 +84,16 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         message.memo = opt.memo;
 
         // Send the message and obtain the message hash
-        (bytes32 msgHash,) = IBridge(resolve("bridge", false)).sendMessage{
-            value: msg.value
-        }(message);
+        (bytes32 msgHash, IBridge.Message memory _message) = IBridge(
+            resolve("bridge", false)
+        ).sendMessage{ value: msg.value }(message);
 
         // Emit TokenSent event
         emit TokenSent({
             msgHash: msgHash,
-            from: message.user,
+            from: _message.user,
             to: opt.to,
-            destChainId: message.destChainId,
+            destChainId: _message.destChainId,
             token: _token,
             tokenIds: _tokenIds,
             amounts: _amounts
