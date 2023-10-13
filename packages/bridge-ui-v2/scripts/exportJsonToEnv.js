@@ -13,11 +13,12 @@ const bridgesPath = 'config/configuredBridges.json';
 const chainsPath = 'config/configuredChains.json';
 const tokensPath = 'config/configuredCustomToken.json';
 const relayerPath = 'config/configuredRelayer.json';
+const eventIndexerPath = 'config/configuredEventIndexer.json';
 
 // Create a backup of the existing .env file
 fs.copyFileSync(envFile, `${envFile}.bak`);
 
-const jsonFiles = [bridgesPath, chainsPath, tokensPath, relayerPath];
+const jsonFiles = [bridgesPath, chainsPath, tokensPath, relayerPath, eventIndexerPath];
 
 jsonFiles.forEach((jsonFile) => {
   if (fs.existsSync(jsonFile)) {

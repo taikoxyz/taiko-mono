@@ -37,8 +37,9 @@ This block has been proven by someone else, but it's not verified yet, you can i
 #### `error: "failed to propose transactions: unable to find prover"`
 
 The proposer is not able to connect with a prover. By default, the prover endpoint is local so check your local prover first.
-If you are not running a local prover, select another prover from the [prover market](/docs/reference/prover-market-page). Note: you may need to switch provers if
-your selected prover hits its max capacity.
+If you are not running a local prover, select another prover from the [prover market](/docs/reference/prover-market-page). 
+You can connect to multiple provers at the same time in case a selected prover hits its max capacity.
+Note: you may need to switch provers if your selected prover hits its max capacity. 
 
 #### `Fatal: Failed to register the Ethereum service: database contains incompatible genesis`
 
@@ -180,7 +181,7 @@ You can safely ignore this "warn" level message, it simply means you just ignore
 A flag might not be set in your .env file.
 Copy the default .env file, then reset your RPC node and proposer with the updated flag values.
 
-#### `info: Skip an invalid proposed transaction reason="nonce too low`
+#### `info: Skip an invalid proposed transaction reason="nonce too low"`
 
 Scenario when the mempool is small and proposers are trying to propose the same transactions within an L1 block.
 The first proposer included on chain will successfully propose these transactions. 

@@ -34,7 +34,10 @@ export class CustomTokenService implements TokenService {
       tokens.push(token);
     }
 
-    this.storage.setItem(`${STORAGE_PREFIX}-${address.toLowerCase()}`, JSON.stringify(tokens));
+    this.storage.setItem(
+      `${STORAGE_PREFIX}-${address.toLowerCase()}`,
+      JSON.stringify(tokens, (_, value) => (typeof value === 'bigint' ? Number(value) : value)),
+    );
     this.storageChangeNotifier.dispatchEvent(new CustomEvent('storageChange', { detail: tokens }));
 
     return tokens;

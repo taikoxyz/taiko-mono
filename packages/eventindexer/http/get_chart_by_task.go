@@ -9,6 +9,17 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 )
 
+// GetChartByTask
+//
+//	 returns time series data for displaying charts
+//
+//			@Summary		Get time series data for displaying charts
+//			@ID			   	get-charts-by-task
+//		    @Param			task	query		string		true	"task to query"
+//			@Accept			json
+//			@Produce		json
+//			@Success		200	{object} eventindexer.ChartResponse
+//			@Router			/chartByTask [get]
 func (srv *Server) GetChartByTask(c echo.Context) error {
 	cached, found := srv.cache.Get(c.QueryParam("task"))
 

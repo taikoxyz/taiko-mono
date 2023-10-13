@@ -31,7 +31,8 @@
         "href": "https://swap-v3.jolnir.taiko.xyz",
         "newWindow": true
       }
-    }
+    },
+    "display": "hidden"
   },
   "block-explorer": {
     "title": "Explorer ↗",
