@@ -9,6 +9,10 @@
   import { Button } from '$components/Button';
   import { Card } from '$components/Card';
   import { ChainSelectorWrapper } from '$components/ChainSelector';
+  import ChainSelector from '$components/ChainSelector/ChainSelector.svelte';
+  import { Icon } from '$components/Icon';
+  import IconFlipper from '$components/Icon/IconFlipper.svelte';
+  import { NFTCard } from '$components/NFTCard';
   import { NFTList } from '$components/NFTList';
   import { successToast, warningToast } from '$components/NotificationToast';
   import { errorToast, infoToast } from '$components/NotificationToast/NotificationToast.svelte';
@@ -40,6 +44,7 @@
   import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
   import { refreshUserBalance } from '$libs/util/balance';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
+  import { shortenAddress } from '$libs/util/shortenAddress';
   import { type Account, account } from '$stores/account';
   import { type Network, network } from '$stores/network';
   import { pendingTransactions } from '$stores/pendingTransactions';
@@ -364,6 +369,7 @@
 
   let nftStepTitle: string;
   let nftStepDescription: string;
+  let nextStepButtonText: string;
   let nftIdArray: number[];
   let enteredIds: string = '';
   let contractAddress: Address | '';
@@ -380,6 +386,12 @@
 
   let foundNFTs: NFT[] = [];
   let selectedNFT: NFT[] = [];
+
+  enum NFTView {
+    CARDS,
+    LIST,
+  }
+  let nftView: NFTView = NFTView.CARDS;
 
   function onAddressValidation(event: CustomEvent<{ isValidEthereumAddress: boolean; addr: Address }>) {
     const { isValidEthereumAddress, addr } = event.detail;
@@ -406,6 +418,7 @@
       addressInputState = AddressInputState.Invalid;
     }
   }
+
   const scanForNFTs = async () => {
     scanning = true;
     const accountAddress = $account?.address;
@@ -417,8 +430,27 @@
     scanned = true;
   };
 
+  const changeNFTView = () => {
+    if (nftView === NFTView.CARDS) {
+      nftView = NFTView.LIST;
+    } else {
+      nftView = NFTView.CARDS;
+    }
+  };
+
+  const searchNFTs = () => {
+    // TODO: implement
+  };
+
   // Whenever the user switches bridge types, we should reset the forms
-  $: $activeBridge && resetForm();
+  $: $activeBridge && (resetForm(), (activeStep = NFTSteps.IMPORT));
+
+  $: {
+    const stepKey = NFTSteps[activeStep].toLowerCase();
+    nftStepTitle = $t(`bridge.title.nft.${stepKey}`);
+    nftStepDescription = $t(`bridge.description.nft.${stepKey}`);
+    nextStepButtonText = activeStep === NFTSteps.CONFIRM ? $t('common.confirm') : $t('common.continue');
+  }
 
   $: {
     const stepKey = NFTSteps[activeStep].toLowerCase();
@@ -545,31 +577,86 @@
             Automatic NFT Input 
           -->
             <div class="f-between-center w-full gap-4">
-              <Button
-                disabled={!canScan}
-                loading={scanning}
-                type="primary"
-                class="px-[28px] py-[14px] rounded-full flex-1 text-white"
-                on:click={scanForNFTs}>Scan for NFTs</Button>
+              {#if !scanned}
+                <Button
+                  disabled={!canScan}
+                  loading={scanning}
+                  type="primary"
+                  class="px-[28px] py-[14px] rounded-full flex-1 text-white"
+                  on:click={scanForNFTs}>{$t('bridge.actions.nft_scan')}</Button>
+              {:else}
+                <Button
+                  disabled={!canScan}
+                  loading={scanning}
+                  type="neutral"
+                  class="px-[28px] py-[14px] rounded-full flex-1 bg-transparent !border border-primary-brand hover:border-primary-interactive-hover"
+                  on:click={scanForNFTs}>{$t('bridge.actions.nft_scan_again')}</Button>
+              {/if}
             </div>
-
+            <!-- 
+            Automatic NFT Input 
+            -->
             <div class="f-col w-full gap-4">
               {#if scanned}
-                <h2>Your NFTs:</h2>
+                <h2>{$t('bridge.nft.step.import.scan_screen.title')}</h2>
+                <!-- Todo: also enable card view here? -->
+                <NFTList bind:nfts={foundNFTs} chainId={$network?.id} bind:selectedNFT />
+
                 <div class="flex items-center justify-between space-x-2">
-                  <span class="text-sm">Don't see your NFTs?<br /> Try adding them manually!</span>
+                  <FlatAlert type="warning" message={$t('bridge.nft.step.import.scan_screen.description')} />
                   <Button
                     type="neutral"
-                    class="bg-transparent !border border-primary-brand hover:border-primary-interactive-hover py-[14px]"
+                    class="bg-transparent !border border-primary-brand hover:border-primary-interactive-hover "
                     on:click={() => (manualNFTInput = !manualNFTInput)}>
-                    Add manually
+                    {$t('bridge.actions.nft_manual')}
                   </Button>
                 </div>
               {/if}
-
-              <NFTList bind:nfts={foundNFTs} chainId={$network?.id} bind:selectedNFT />
             </div>
           {/if}
+
+          <!-- REVIEW STEP -->
+        {:else if activeStep === NFTSteps.REVIEW}
+          <div class="container mx-auto inline-block align-middle space-y-[25px]">
+            <div class="flex justify-between mb-2 items-center">
+              <div class="font-bold">{$t('common.destination')}</div>
+              <div><ChainSelector small value={$destinationChain} readOnly /></div>
+            </div>
+
+            <div class="flex justify-between mb-2">
+              <div class="font-bold">{$t('common.contract_address')}</div>
+              <div class="text-secondary-content">
+                <ul>
+                  {#each selectedNFT as nft}
+                    {@const currentChain = $network?.id}
+                    {#if currentChain && $destinationChain?.id}
+                      <li>
+                        <a
+                          class="flex justify-start link"
+                          href={`${chainConfig[$destinationChain?.id].urls.explorer}`}
+                          target="_blank">
+                          {shortenAddress(nft.addresses[currentChain], 8, 12)}
+                          <Icon type="arrow-top-right" fillClass="fill-primary-link" />
+                        </a>
+                      </li>
+                    {/if}
+                  {/each}
+                </ul>
+              </div>
+            </div>
+
+            <div class="flex justify-between">
+              <div class="font-bold">{$t('bridge.nft.step.review.token_id')}</div>
+              <div class="break-words text-right text-secondary-content">
+                <ul>
+                  {#each selectedNFT as nft}
+                    <li>{nft.tokenId}</li>
+                  {/each}
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="h-sep" />
           <!-- 
             Recipient & Processing Fee
            -->
@@ -577,22 +664,39 @@
             <Recipient bind:this={recipientComponent} />
             <ProcessingFee bind:this={processingFeeComponent} />
           </div>
-          <!-- REVIEW STEP -->
-        {:else if activeStep === NFTSteps.REVIEW}
-          <div class="f-between-center gap-4">
-            <div class="f-col">
-              <p>Contract: {contractAddress}</p>
-              {#each selectedNFT as nft}
-                <p>Name: {nft.name}</p>
-                <p>Type: {nft.type}</p>
-                <p>ID: {nft.tokenId}</p>
-                <p>URI: {nft.uri}</p>
-                <p>Balance: {nft.balance}</p>
-              {/each}
-
-              <!-- <p>IDs: {nftIdArray.join(', ')}</p> -->
+          <div class="h-sep" />
+          <div class="flex justify-between items-center w-full">
+            <div class="flex items-center gap-2">
+              <span>{$t('bridge.nft.step.review.your_tokens')}</span>
+              <ChainSelector small value={$network} readOnly />
+            </div>
+            <div class="flex gap-2">
+              <Button
+                disabled={true}
+                shape="circle"
+                type="neutral"
+                class="!w-9 !h-9 rounded-full"
+                on:click={searchNFTs}>
+                <Icon type="magnifier" fillClass="fill-primary-icon" size={24} vWidth={24} vHeight={24} />
+              </Button>
+              <IconFlipper
+                iconType1="list"
+                iconType2="cards"
+                selectedDefault="list"
+                class="bg-neutral w-9 h-9 rounded-full"
+                on:labelclick={changeNFTView} />
+              <!-- <Icon type="list" fillClass="fill-primary-icon" size={24} vWidth={24} vHeight={24} /> -->
             </div>
           </div>
+          {#if nftView === NFTView.LIST}
+            <NFTList bind:nfts={selectedNFT} chainId={$network?.id} viewOnly />
+          {:else if nftView === NFTView.CARDS}
+            <div class="rounded-[20px] bg-neutral min-h-[200px] w-full p-2 f-center">
+              {#each selectedNFT as nft}
+                <NFTCard {nft} />
+              {/each}
+            </div>
+          {/if}
           <!-- CONFIRM STEP -->
         {:else if activeStep === NFTSteps.CONFIRM}
           <div class="f-between-center gap-4">
@@ -607,15 +711,16 @@
         <div class="f-between-center w-full gap-4">
           {#if activeStep !== NFTSteps.IMPORT}
             <Button
-              type="secondary"
-              class="px-[28px] py-[14px] rounded-full flex-1 text-secondary-content"
-              on:click={previousStep}>Previous Step</Button>
+              type="neutral"
+              class="px-[28px] py-[14px] rounded-full w-auto flex-1 bg-transparent !border border-primary-brand hover:border-primary-interactive-hover"
+              on:click={previousStep}>
+              <span class="body-bold">{$t('common.edit')}</span></Button>
           {/if}
           <Button
             disabled={!canProceed}
             type="primary"
             class="px-[28px] py-[14px] rounded-full flex-1 text-white"
-            on:click={nextStep}>Next Step</Button>
+            on:click={nextStep}><span class="body-bold">{nextStepButtonText}</span></Button>
         </div>
       </div></Card>
   </div>
