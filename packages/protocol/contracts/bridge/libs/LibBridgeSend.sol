@@ -11,6 +11,8 @@ import { IBridge } from "../IBridge.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibBridgeData } from "./LibBridgeData.sol";
+import { LibSecureMerkleTrie } from "../../thirdparty/LibSecureMerkleTrie.sol";
+import { LibSignalService } from "../../signal/SignalService.sol";
 
 /// @title LibBridgeSend
 /// @notice This library provides functions for sending bridge messages and
@@ -133,14 +135,38 @@ library LibBridgeSend {
         view
         returns (bool)
     {
-        // TODO
-        // address srcBridge = resolver.resolve(srcChainId, "bridge", false);
-        // return ISignalService(resolver.resolve("signal_service", false))
-        //     .isSignalReceived({
-        //     srcChainId: srcChainId,
-        //     app: srcBridge,
-        //     signal: msgHash,
-        //     proof: proof
-        // });
+        if (proofs.length == 0) return false;
+
+        // Check a chain of inclusion proofs, from the message's source
+        // chain all the way to the destination chain.
+        uint256 _srcChainId = srcChainId;
+        address _app = resolver.resolve(srcChainId, "bridge", false);
+        bytes32 _signal = msgHash;
+
+        for (uint256 i; i < proofs.length - 1; ++i) {
+            IBridge.IntermediateProof memory iproof =
+                abi.decode(proofs[i], (IBridge.IntermediateProof));
+            // perform inclusion check
+            if (
+                !LibSecureMerkleTrie.verifyInclusionProof(
+                    bytes.concat(LibSignalService.getSignalSlot(_app, _signal)),
+                    hex"01",
+                    iproof.mkproof,
+                    iproof.signalRoot
+                )
+            ) return false;
+
+            _srcChainId = iproof.chainId;
+            _app = resolver.resolve(iproof.chainId, "taiko", false);
+            _signal = iproof.signalRoot;
+        }
+
+        return ISignalService(resolver.resolve("signal_service", false))
+            .isSignalReceived({
+            srcChainId: srcChainId,
+            app: _app,
+            signal: _signal,
+            proof: proofs[proofs.length - 1]
+        });
     }
 }

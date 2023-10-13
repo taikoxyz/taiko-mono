@@ -14,6 +14,7 @@ import { LibSignalService } from "../../signal/SignalService.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibBridgeData } from "./LibBridgeData.sol";
 import { LibBridgeInvoke } from "./LibBridgeInvoke.sol";
+import { LibBridgeSend } from "./LibBridgeSend.sol";
 import { LibBridgeStatus } from "./LibBridgeStatus.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibSecureMerkleTrie } from "../../thirdparty/LibSecureMerkleTrie.sol";
@@ -56,7 +57,6 @@ library LibBridgeProcess {
     )
         internal
     {
-        if (proofs.length == 0) revert B_INVALID_PROOFS();
         // If the gas limit is set to zero, only the user can process the
         // message.
         if (message.gasLimit == 0 && msg.sender != message.user) {
@@ -78,39 +78,13 @@ library LibBridgeProcess {
         }
 
         if (checkProof) {
-            // Check a chain of inclusion proofs, from the message's source
-            // chain all the way to the destination chain.
-            uint256 srcChainId = message.srcChainId;
-            address app = resolver.resolve(message.srcChainId, "bridge", false);
-            bytes32 signal = msgHash;
-
-            bool verified;
-
-            for (uint256 i; i < proofs.length - 1; ++i) {
-                IBridge.IntermediateProof memory iproof =
-                    abi.decode(proofs[i], (IBridge.IntermediateProof));
-                // perform inclusion check
-                verified = LibSecureMerkleTrie.verifyInclusionProof(
-                    bytes.concat(LibSignalService.getSignalSlot(app, signal)),
-                    hex"01",
-                    iproof.mkproof,
-                    iproof.signalRoot
-                );
-                if (!verified) revert B_SIGNAL_NOT_RECEIVED();
-
-                srcChainId = iproof.chainId;
-                app = resolver.resolve(iproof.chainId, "taiko", false);
-                signal = iproof.signalRoot;
+            if (
+                !LibBridgeSend.isMessageReceived(
+                    resolver, msgHash, message.srcChainId, proofs
+                )
+            ) {
+                revert B_SIGNAL_NOT_RECEIVED();
             }
-
-            verified = ISignalService(resolver.resolve("signal_service", false))
-                .isSignalReceived({
-                srcChainId: srcChainId,
-                app: app,
-                signal: signal,
-                proof: proofs[proofs.length - 1]
-            });
-            if (!verified) revert B_SIGNAL_NOT_RECEIVED();
         }
 
         // Release necessary Ether from EtherVault if on Taiko, otherwise it's
