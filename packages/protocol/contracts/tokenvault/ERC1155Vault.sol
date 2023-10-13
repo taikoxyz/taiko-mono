@@ -17,7 +17,7 @@ import {
 } from "@ozu/token/ERC1155/ERC1155Upgradeable.sol";
 
 import { Proxied } from "../common/Proxied.sol";
-import { IRecallableMessageSender, IBridge } from "../bridge/IBridge.sol";
+import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";

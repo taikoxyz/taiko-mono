@@ -16,7 +16,7 @@ import { IERC165Upgradeable } from
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { Proxied } from "../common/Proxied.sol";
-import { IRecallableMessageSender, IBridge } from "../bridge/IBridge.sol";
+import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 
 import { ProxiedBridgedERC20 } from "./BridgedERC20.sol";
