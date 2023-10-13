@@ -5,14 +5,21 @@ import { TestBase } from "../TestBase.sol";
 import { console2 } from "forge-std/console2.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { LibProving } from "../../contracts/L1/libs/LibProving.sol";
+import { LibProposing } from "../../contracts/L1/libs/LibProposing.sol";
 import { LibUtils } from "../../contracts/L1/libs/LibUtils.sol";
 import { TaikoData } from "../../contracts/L1/TaikoData.sol";
 import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
 import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
-import { ProofVerifier } from "../../contracts/L1/ProofVerifier.sol";
+import { GuardianVerifier } from
+    "../../contracts/L1/verifiers/GuardianVerifier.sol";
+import { OptimisticRollupConfigProvider } from
+    "../../contracts/L1/tiers/OptimisticRollupConfigProvider.sol";
+import { PseZkVerifier } from "../../contracts/L1/verifiers/PseZkVerifier.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { StringsUpgradeable as Strings } from
+    "@ozu/utils/StringsUpgradeable.sol";
 import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
+import { LibTiers } from "../../contracts/L1/tiers/ITierProvider.sol";
 
 contract MockVerifier {
     fallback(bytes calldata) external returns (bytes memory) {
@@ -27,14 +34,16 @@ abstract contract TaikoL1TestBase is TestBase {
     TaikoL1 public L1;
     TaikoData.Config conf;
     uint256 internal logCount;
-    ProofVerifier public pv;
+    PseZkVerifier public pv;
+    GuardianVerifier public gv;
+    OptimisticRollupConfigProvider public cp;
 
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
     // 1 TKO --> it is to huge. It should be in 'wei' (?).
     // Because otherwise first proposal is around: 1TKO * (1_000_000+20_000)
     // required as a deposit.
     // uint32 feePerGas = 10;
-    // uint16 proofWindow = 60 minutes;
+    // uint16 provingWindow = 60 minutes;
     uint64 l2GasExcess = 1e18;
 
     address public constant L2Treasury =
@@ -56,18 +65,24 @@ abstract contract TaikoL1TestBase is TestBase {
         ss = new SignalService();
         ss.init(address(addressManager));
 
-        pv = new ProofVerifier();
+        pv = new PseZkVerifier();
         pv.init(address(addressManager));
 
-        registerAddress("proof_verifier", address(pv));
+        gv = new GuardianVerifier();
+        gv.init(address(addressManager));
+
+        cp = new OptimisticRollupConfigProvider();
+
+        registerAddress("tier_pse_zkevm", address(pv));
+        registerAddress("tier_guardian", address(gv));
+        registerAddress("tier_provider", address(cp));
         registerAddress("signal_service", address(ss));
         registerAddress("ether_vault", address(L1EthVault));
         registerL2Address("treasury", L2Treasury);
         registerL2Address("taiko", address(TaikoL2));
         registerL2Address("signal_service", address(L2SS));
         registerL2Address("taiko_l2", address(TaikoL2));
-        registerAddress(L1.getVerifierName(100), address(new MockVerifier()));
-        registerAddress(L1.getVerifierName(0), address(new MockVerifier()));
+        registerAddress(pv.getVerifierName(300), address(new MockVerifier()));
 
         tko = new TaikoToken();
         registerAddress("taiko_token", address(tko));
@@ -104,43 +119,52 @@ abstract contract TaikoL1TestBase is TestBase {
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
+        TaikoData.TierFee[] memory tierFees = new TaikoData.TierFee[](3);
+        // Register the tier fees
+        // Based on OPL2ConfigTier we need 3:
+        // - LibTiers.TIER_PSE_ZKEVM;
+        // - LibTiers.TIER_OPTIMISTIC;
+        // - LibTiers.TIER_GUARDIAN;
+        tierFees[0] = TaikoData.TierFee(LibTiers.TIER_OPTIMISTIC, 1 ether);
+        tierFees[1] = TaikoData.TierFee(LibTiers.TIER_PSE_ZKEVM, 2 ether);
+        tierFees[2] = TaikoData.TierFee(LibTiers.TIER_GUARDIAN, 0 ether);
+        // For the test not to fail, set the message.value to the highest, the
+        // rest will be returned
+        // anyways
+        uint256 msgValue = 2 ether;
+
         TaikoData.ProverAssignment memory assignment = TaikoData
             .ProverAssignment({
             prover: prover,
+            feeToken: address(0),
+            tierFees: tierFees,
             expiry: uint64(block.timestamp + 60 minutes),
-            data: new bytes(0)
+            signature: new bytes(0)
         });
 
         bytes memory txList = new bytes(txListSize);
-        TaikoData.BlockMetadataInput memory input = TaikoData.BlockMetadataInput({
-            proposer: proposer,
-            txListHash: keccak256(txList),
-            txListByteStart: 0,
-            txListByteEnd: txListSize,
-            cacheTxListInfo: false
-        });
+
+        assignment.signature =
+            grantWithSignature(prover, assignment, keccak256(txList));
 
         TaikoData.StateVariables memory variables = L1.getStateVariables();
 
-        uint256 _mixHash;
+        uint256 _difficulty;
         unchecked {
-            _mixHash = block.prevrandao * variables.numBlocks;
+            _difficulty = block.prevrandao * variables.numBlocks;
         }
 
-        meta.id = variables.numBlocks;
         meta.timestamp = uint64(block.timestamp);
         meta.l1Height = uint64(block.number - 1);
         meta.l1Hash = blockhash(block.number - 1);
-        meta.mixHash = bytes32(_mixHash);
+        meta.difficulty = bytes32(_difficulty);
         meta.txListHash = keccak256(txList);
-        meta.txListByteStart = 0;
-        meta.txListByteEnd = txListSize;
         meta.gasLimit = gasLimit;
-        meta.proposer = proposer;
 
         vm.prank(proposer, proposer);
-        meta =
-            L1.proposeBlock(abi.encode(input), abi.encode(assignment), txList);
+        meta = L1.proposeBlock{ value: msgValue }(
+            meta.txListHash, bytes32(0), abi.encode(assignment), txList
+        );
     }
 
     function proveBlock(
@@ -149,24 +173,27 @@ abstract contract TaikoL1TestBase is TestBase {
         TaikoData.BlockMetadata memory meta,
         bytes32 parentHash,
         bytes32 blockHash,
-        bytes32 signalRoot
+        bytes32 signalRoot,
+        uint16 tier,
+        bytes4 revertReason,
+        bool unprovable
     )
         internal
     {
         TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
-            metaHash: LibUtils.hashMetadata(meta),
+            metaHash: LibProposing.hashMetadata(meta),
             parentHash: parentHash,
             blockHash: blockHash,
             signalRoot: signalRoot,
             graffiti: 0x0,
-            prover: prover,
-            proofs: new bytes(102)
+            tier: tier,
+            proof: new bytes(102)
         });
 
-        bytes32 instance = LibProving.getInstance(evidence);
-        uint16 verifierId = 100;
+        bytes32 instance = pv.getInstance(prover, evidence);
+        uint16 verifierId = tier;
 
-        evidence.proofs = bytes.concat(
+        evidence.proof = bytes.concat(
             bytes2(verifierId),
             bytes16(0),
             bytes16(instance),
@@ -175,12 +202,26 @@ abstract contract TaikoL1TestBase is TestBase {
             new bytes(100)
         );
 
-        vm.prank(msgSender, msgSender);
-        L1.proveBlock(meta.id, abi.encode(evidence));
+        if (tier == LibTiers.TIER_GUARDIAN) {
+            evidence.proof = "";
+
+            if (unprovable) {
+                evidence.proof =
+                    bytes.concat(bytes32(keccak256("RETURN_LIVENESS_BOND")));
+            }
+        }
+
+        if (revertReason != "") {
+            vm.prank(msgSender, msgSender);
+            vm.expectRevert(revertReason);
+            L1.proveBlock(meta.id, abi.encode(evidence));
+        } else {
+            vm.prank(msgSender, msgSender);
+            L1.proveBlock(meta.id, abi.encode(evidence));
+        }
     }
 
-    function verifyBlock(address verifier, uint64 count) internal {
-        vm.prank(verifier, verifier);
+    function verifyBlock(address, uint64 count) internal {
         L1.verifyBlocks(count);
     }
 
@@ -194,6 +235,32 @@ abstract contract TaikoL1TestBase is TestBase {
         console2.log(
             conf.chainId, string(abi.encodePacked(nameHash)), unicode"→", addr
         );
+    }
+
+    function grantWithSignature(
+        address signer,
+        TaikoData.ProverAssignment memory assignment,
+        bytes32 txListHash
+    )
+        internal
+        view
+        returns (bytes memory signature)
+    {
+        bytes32 digest =
+            LibProposing.hashAssignmentForTxList(assignment, txListHash);
+        uint256 signerPrivateKey;
+
+        // In the test suite these are the 3 which acts as provers
+        if (signer == Alice) {
+            signerPrivateKey = 0x1;
+        } else if (signer == Bob) {
+            signerPrivateKey = 0x2;
+        } else if (signer == Carol) {
+            signerPrivateKey = 0x3;
+        }
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, digest);
+        signature = abi.encodePacked(r, s, v);
     }
 
     function giveEthAndTko(

@@ -9,13 +9,14 @@ pragma solidity ^0.8.20;
 import {
     ERC20Upgradeable,
     IERC20Upgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+} from "@ozu/token/ERC20/ERC20Upgradeable.sol";
 import { IERC20MetadataUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
+    "@ozu/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
+import { StringsUpgradeable } from "@ozu/utils/StringsUpgradeable.sol";
+
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { Proxied } from "../common/Proxied.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 /// @title BridgedERC20
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
@@ -153,7 +154,7 @@ contract BridgedERC20 is
         returns (string memory)
     {
         return string.concat(
-            super.name(), unicode" ⭀", Strings.toString(srcChainId)
+            super.name(), unicode" ⭀", StringsUpgradeable.toString(srcChainId)
         );
     }
 

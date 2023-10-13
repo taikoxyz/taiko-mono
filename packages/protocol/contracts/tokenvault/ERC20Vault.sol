@@ -6,30 +6,26 @@
 
 pragma solidity ^0.8.20;
 
-import { BridgedERC20, ProxiedBridgedERC20 } from "./BridgedERC20.sol";
-import { Create2Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
-import {
-    ERC20Upgradeable,
-    IERC20Upgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import { EssentialContract } from "../common/EssentialContract.sol";
-import { IERC165Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
-import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
-
-import { IMintableERC20 } from "../common/IMintableERC20.sol";
-import { LibAddress } from "../libs/LibAddress.sol";
-import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
-import { Proxied } from "../common/Proxied.sol";
+import { Create2Upgradeable } from "@ozu/utils/Create2Upgradeable.sol";
+import { ERC20Upgradeable } from "@ozu/token/ERC20/ERC20Upgradeable.sol";
 import { SafeERC20Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import { TaikoToken } from "../L1/TaikoToken.sol";
+    "@ozu/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import { IERC165Upgradeable } from
+    "@ozu/utils/introspection/IERC165Upgradeable.sol";
 
+import { EssentialContract } from "../common/EssentialContract.sol";
+import { IMintableERC20 } from "../common/IMintableERC20.sol";
+import { Proxied } from "../common/Proxied.sol";
+import { IRecallableMessageSender, IBridge } from "../bridge/IBridge.sol";
+import { LibAddress } from "../libs/LibAddress.sol";
+
+import { ProxiedBridgedERC20 } from "./BridgedERC20.sol";
+import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 /// @title ERC20Vault
 /// @notice This vault holds all ERC20 tokens (excluding Ether) that users have
 /// deposited. It also manages the mapping between canonical ERC20 tokens and
 /// their bridged tokens.
+
 contract ERC20Vault is
     EssentialContract,
     IERC165Upgradeable,

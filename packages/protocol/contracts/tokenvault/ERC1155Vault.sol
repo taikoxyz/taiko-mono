@@ -6,32 +6,29 @@
 
 pragma solidity ^0.8.20;
 
-import { Create2Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
-import { ERC1155ReceiverUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
-import { ERC1155Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
-import { IERC1155Receiver } from
-    "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
-import { IERC1155Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
-import { IERC165Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
-import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
+import { Create2Upgradeable } from "@ozu/utils/Create2Upgradeable.sol";
+import {
+    ERC1155ReceiverUpgradeable,
+    IERC1155ReceiverUpgradeable
+} from "@ozu/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
+import {
+    ERC1155Upgradeable,
+    IERC1155Upgradeable
+} from "@ozu/token/ERC1155/ERC1155Upgradeable.sol";
 
-import { BaseNFTVault } from "./BaseNFTVault.sol";
-import { LibAddress } from "../libs/LibAddress.sol";
-import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 import { Proxied } from "../common/Proxied.sol";
+import { IRecallableMessageSender, IBridge } from "../bridge/IBridge.sol";
+import { LibAddress } from "../libs/LibAddress.sol";
+
+import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
+import { BaseNFTVault } from "./BaseNFTVault.sol";
 import { ProxiedBridgedERC1155 } from "./BridgedERC1155.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+
 /// @title ERC1155NameAndSymbol
 /// @notice Interface for ERC1155 contracts that provide name() and symbol()
 /// functions. These functions may not be part of the official interface but are
 /// used by
 /// some contracts.
-
 interface ERC1155NameAndSymbol {
     function name() external view returns (string memory);
     function symbol() external view returns (string memory);
@@ -229,7 +226,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         pure
         returns (bytes4)
     {
-        return IERC1155Receiver.onERC1155BatchReceived.selector;
+        return IERC1155ReceiverUpgradeable.onERC1155BatchReceived.selector;
     }
 
     function onERC1155Received(
@@ -243,7 +240,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         pure
         returns (bytes4)
     {
-        return IERC1155Receiver.onERC1155Received.selector;
+        return IERC1155ReceiverUpgradeable.onERC1155Received.selector;
     }
 
     /// @dev See {IERC165-supportsInterface}.

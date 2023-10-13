@@ -6,10 +6,11 @@
 
 pragma solidity ^0.8.20;
 
+import { TransparentUpgradeableProxy } from
+    "@oz/proxy/transparent/TransparentUpgradeableProxy.sol";
+
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { IBridge } from "../../bridge/IBridge.sol";
-import { TransparentUpgradeableProxy } from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 library LibVaultUtils {
     uint256 public constant MAX_TOKEN_PER_TXN = 10;

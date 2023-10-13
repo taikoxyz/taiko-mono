@@ -29,14 +29,28 @@ func filterFunc(
 
 	if indxr.taikol1 != nil {
 		wg.Go(func() error {
-			blockProvenEvents, err := indxr.taikol1.FilterBlockProven(filterOpts, nil)
+			transitionProvedEvents, err := indxr.taikol1.FilterTransitionProved(filterOpts, nil)
 			if err != nil {
-				return errors.Wrap(err, "indxr.taikol1.FilterBlockProven")
+				return errors.Wrap(err, "indxr.taikol1.FilterTransitionProved")
 			}
 
-			err = indxr.saveBlockProvenEvents(ctx, chainID, blockProvenEvents)
+			err = indxr.saveTransitionProvedEvents(ctx, chainID, transitionProvedEvents)
 			if err != nil {
 				return errors.Wrap(err, "indxr.saveBlockProvenEvents")
+			}
+
+			return nil
+		})
+
+		wg.Go(func() error {
+			transitionContestedEvents, err := indxr.taikol1.FilterTransitionContested(filterOpts, nil)
+			if err != nil {
+				return errors.Wrap(err, "indxr.taikol1.FilterTransitionContested")
+			}
+
+			err = indxr.saveTransitionContestedEvents(ctx, chainID, transitionContestedEvents)
+			if err != nil {
+				return errors.Wrap(err, "indxr.saveTransitionContestedEvents")
 			}
 
 			return nil
@@ -57,7 +71,7 @@ func filterFunc(
 		})
 
 		wg.Go(func() error {
-			blockVerifiedEvents, err := indxr.taikol1.FilterBlockVerified(filterOpts, nil, nil)
+			blockVerifiedEvents, err := indxr.taikol1.FilterBlockVerified(filterOpts, nil, nil, nil)
 			if err != nil {
 				return errors.Wrap(err, "indxr.taikol1.FilterBlockVerified")
 			}

@@ -339,6 +339,8 @@ async function generateContractConfigs(
                 contractArtifacts.TaikoL2Proxy.deployedBytecode.object,
             variables: {
                 // TaikoL2
+                // OwnableUpgradeable
+                _owner: contractOwner,
                 // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
                 publicInputHash: `${ethers.utils.solidityKeccak256(
                     ["bytes32[256]"],
@@ -353,14 +355,6 @@ async function generateContractConfigs(
                             ]),
                     ]
                 )}`,
-                eip1559Config: {
-                    yscale: ethers.BigNumber.from(param1559.yscale),
-                    xscale: ethers.BigNumber.from(param1559.xscale),
-                    gasIssuedPerSecond: ethers.BigNumber.from(
-                        param1559.gasIssuedPerSecond
-                    ),
-                },
-                parentTimestamp: Math.floor(new Date().getTime() / 1000),
                 gasExcess: ethers.BigNumber.from(param1559.gasExcess),
                 // AddressResolver
                 _addressManager: addressMap.AddressManagerProxy,
