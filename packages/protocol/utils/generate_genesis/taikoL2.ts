@@ -125,14 +125,6 @@ async function generateContractConfigs(
             ARTIFACTS_PATH,
             "./LibTrieProof.sol/LibTrieProof.json"
         )),
-        LibBridgeRetry: require(path.join(
-            ARTIFACTS_PATH,
-            "./LibBridgeRetry.sol/LibBridgeRetry.json"
-        )),
-        LibBridgeProcess: require(path.join(
-            ARTIFACTS_PATH,
-            "./LibBridgeProcess.sol/LibBridgeProcess.json"
-        )),
         LibVaultUtils: require(path.join(
             ARTIFACTS_PATH,
             "./LibVaultUtils.sol/LibVaultUtils.json"
