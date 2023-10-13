@@ -7,12 +7,10 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { IBridge } from "../IBridge.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
-import { LibBridgeData } from "./LibBridgeData.sol";
-import { LibSecureMerkleTrie } from "../../thirdparty/LibSecureMerkleTrie.sol";
-import { LibSignalService } from "../../signal/SignalService.sol";
+
+import { BridgeData } from "../BridgeData.sol";
 
 /// @title LibBridgeSend
 /// @notice This library provides functions for sending bridge messages and
@@ -22,12 +20,13 @@ import { LibSignalService } from "../../signal/SignalService.sol";
 /// chains.
 library LibBridgeSend {
     using LibAddress for address;
-    using LibBridgeData for IBridge.Message;
 
-    error B_INCORRECT_VALUE();
-    error B_USER_IS_NULL();
-    error B_WRONG_CHAIN_ID();
-    error B_WRONG_TO_ADDRESS();
+    event MessageSent(bytes32 indexed msgHash, BridgeData.Message message);
+
+    error B_INVALID_CHAINID();
+    error B_INVALID_TO();
+    error B_INVALID_USER();
+    error B_INVALID_VALUE();
 
     /// @notice Sends a message to the Bridge with the details of the request.
     /// @dev This function takes custody of the specified funds, sending them to
@@ -38,15 +37,15 @@ library LibBridgeSend {
     /// @param message The message to be sent, including value and fee details.
     /// @return msgHash The hash of the sent message.
     function sendMessage(
-        LibBridgeData.State storage state,
+        BridgeData.State storage state,
         AddressResolver resolver,
-        IBridge.Message memory message
+        BridgeData.Message memory message
     )
         internal
         returns (bytes32 msgHash)
     {
         // Ensure the message user is not null.
-        if (message.user == address(0)) revert B_USER_IS_NULL();
+        if (message.user == address(0)) revert B_INVALID_USER();
 
         // Check if the destination chain is enabled.
         (bool destChainEnabled, address destBridge) =
@@ -54,15 +53,15 @@ library LibBridgeSend {
 
         // Verify destination chain and to address.
         if (!destChainEnabled || message.destChainId == block.chainid) {
-            revert B_WRONG_CHAIN_ID();
+            revert B_INVALID_CHAINID();
         }
         if (message.to == address(0) || message.to == destBridge) {
-            revert B_WRONG_TO_ADDRESS();
+            revert B_INVALID_TO();
         }
 
         // Ensure the sent value matches the expected amount.
         uint256 expectedAmount = message.value + message.fee;
-        if (expectedAmount != msg.value) revert B_INCORRECT_VALUE();
+        if (expectedAmount != msg.value) revert B_INVALID_VALUE();
 
         // On Taiko, send the expectedAmount to the EtherVault; otherwise, store
         // it on the Bridge.
@@ -75,11 +74,12 @@ library LibBridgeSend {
         message.from = msg.sender;
         message.srcChainId = block.chainid;
 
-        msgHash = message.hashMessage();
+        msgHash = keccak256(abi.encode(message));
+
         ISignalService(resolver.resolve("signal_service", false)).sendSignal(
             msgHash
         );
-        emit LibBridgeData.MessageSent(msgHash, message);
+        emit MessageSent(msgHash, message);
     }
 
     /// @notice Checks if the destination chain is enabled.

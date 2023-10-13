@@ -7,20 +7,17 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { IBridge } from "../IBridge.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
-import { LibAddress } from "../../libs/LibAddress.sol";
-import { LibBridgeData } from "./LibBridgeData.sol";
-import { LibSecureMerkleTrie } from "../../thirdparty/LibSecureMerkleTrie.sol";
 import { LibSignalService } from "../../signal/SignalService.sol";
+import { LibSecureMerkleTrie } from "../../thirdparty/LibSecureMerkleTrie.sol";
+
+import { BridgeData } from "../BridgeData.sol";
 
 /// @title LibBridgeSignal
 /// @notice This library provides functions for verifying signal status
 library LibBridgeSignal {
-    using LibAddress for address;
-
-    error B_SIGNAL_NULL();
-    error B_WRONG_CHAIN_ID();
+    error B_INVALID_CHAINID();
+    error B_INVALID_SIGNAL();
 
     /// @notice Checks if the signal was sent.
     /// @param resolver The address resolver.
@@ -55,8 +52,8 @@ library LibBridgeSignal {
         returns (bool)
     {
         if (proofs.length == 0) return false;
-        if (signal == 0x0) revert B_SIGNAL_NULL();
-        if (srcChainId == block.chainid) revert B_WRONG_CHAIN_ID();
+        if (signal == 0x0) revert B_INVALID_SIGNAL();
+        if (srcChainId == block.chainid) revert B_INVALID_CHAINID();
 
         // Check a chain of inclusion proofs, from the message's source
         // chain all the way to the destination chain.
@@ -65,8 +62,8 @@ library LibBridgeSignal {
         bytes32 _signal = signal;
 
         for (uint256 i; i < proofs.length - 1; ++i) {
-            IBridge.IntermediateProof memory iproof =
-                abi.decode(proofs[i], (IBridge.IntermediateProof));
+            BridgeData.IntermediateProof memory iproof =
+                abi.decode(proofs[i], (BridgeData.IntermediateProof));
             // perform inclusion check
             bool verified = LibSecureMerkleTrie.verifyInclusionProof(
                 bytes.concat(LibSignalService.getSignalSlot(_app, _signal)),

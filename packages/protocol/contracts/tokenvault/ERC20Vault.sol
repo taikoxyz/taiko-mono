@@ -16,7 +16,9 @@ import {
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { IERC165Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
-import { IRecallableMessageSender, IBridge } from "../bridge/IBridge.sol";
+import { IRecallableSender } from "../bridge/IRecallableSender.sol";
+import { IBridge } from "../bridge/IBridge.sol";
+import { BridgeData } from "../bridge/BridgeData.sol";
 import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
@@ -32,7 +34,7 @@ import { TaikoToken } from "../L1/TaikoToken.sol";
 contract ERC20Vault is
     EssentialContract,
     IERC165Upgradeable,
-    IRecallableMessageSender
+    IRecallableSender
 {
     using LibAddress for address;
     using SafeERC20Upgradeable for ERC20Upgradeable;
@@ -141,7 +143,7 @@ contract ERC20Vault is
         if (opt.amount == 0) revert VAULT_INVALID_AMOUNT();
 
         uint256 _amount;
-        IBridge.Message memory message;
+        BridgeData.Message memory message;
 
         (message.data, _amount) = _encodeDestinationCall({
             user: msg.sender,
@@ -189,7 +191,7 @@ contract ERC20Vault is
         nonReentrant
         onlyFromNamed("bridge")
     {
-        IBridge.Context memory ctx =
+        BridgeData.Context memory ctx =
             LibVaultUtils.checkValidContext("erc20_vault", address(this));
 
         address token;
@@ -222,15 +224,14 @@ contract ERC20Vault is
     /// Bridge has failed.
     /// @param message The message that corresponds to the ERC20 deposit on the
     /// source chain.
-    function onMessageRecalled(IBridge.Message calldata message)
+    function onMessageRecalled(BridgeData.Message calldata message)
         external
         payable
         override
         nonReentrant
         onlyFromNamed("bridge")
     {
-        IBridge bridge = IBridge(resolve("bridge", false));
-        bytes32 msgHash = bridge.hashMessage(message);
+        bytes32 msgHash = keccak256(abi.encode(message));
 
         (, address token,, uint256 amount) = abi.decode(
             message.data[4:], (CanonicalERC20, address, address, uint256)
@@ -265,7 +266,7 @@ contract ERC20Vault is
         override
         returns (bool)
     {
-        return interfaceId == type(IRecallableMessageSender).interfaceId;
+        return interfaceId == type(IRecallableSender).interfaceId;
     }
 
     /// @dev Encodes sending bridged or canonical ERC20 tokens to the user.

@@ -7,18 +7,14 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { EtherVault } from "../EtherVault.sol";
-import { IBridge } from "../IBridge.sol";
-import { ISignalService } from "../../signal/ISignalService.sol";
-import { LibSignalService } from "../../signal/SignalService.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
-import { LibBridgeData } from "./LibBridgeData.sol";
+
+import { BridgeData } from "../BridgeData.sol";
+import { EtherVault } from "../EtherVault.sol";
+
 import { LibBridgeInvoke } from "./LibBridgeInvoke.sol";
-import { LibBridgeSend } from "./LibBridgeSend.sol";
 import { LibBridgeSignal } from "./LibBridgeSignal.sol";
 import { LibBridgeStatus } from "./LibBridgeStatus.sol";
-import { LibMath } from "../../libs/LibMath.sol";
-import { LibSecureMerkleTrie } from "../../thirdparty/LibSecureMerkleTrie.sol";
 /// @title LibBridgeProcess Library
 /// @notice This library provides functions for processing bridge messages on
 /// the destination chain.
@@ -26,16 +22,12 @@ import { LibSecureMerkleTrie } from "../../thirdparty/LibSecureMerkleTrie.sol";
 /// fee refunds.
 
 library LibBridgeProcess {
-    using LibMath for uint256;
     using LibAddress for address;
-    using LibBridgeData for IBridge.Message;
-    using LibBridgeData for LibBridgeData.State;
 
-    error B_FORBIDDEN();
-    error B_INVALID_PROOFS();
-    error B_SIGNAL_NOT_RECEIVED();
+    error B_INVALID_CHAINID();
+    error B_NOT_RECEIVED();
+    error B_PERMISSION_DENIED();
     error B_STATUS_MISMATCH();
-    error B_WRONG_CHAIN_ID();
 
     /// @notice Processes a bridge message on the destination chain. This
     /// function is callable by any address, including the `message.user`.
@@ -50,9 +42,9 @@ library LibBridgeProcess {
     /// @param checkProof A boolean flag indicating whether to verify the signal
     /// receipt proof.
     function processMessage(
-        LibBridgeData.State storage state,
+        BridgeData.State storage state,
         AddressResolver resolver,
-        IBridge.Message calldata message,
+        BridgeData.Message calldata message,
         bytes[] calldata proofs,
         bool checkProof
     )
@@ -61,15 +53,17 @@ library LibBridgeProcess {
         // If the gas limit is set to zero, only the user can process the
         // message.
         if (message.gasLimit == 0 && msg.sender != message.user) {
-            revert B_FORBIDDEN();
+            revert B_PERMISSION_DENIED();
         }
 
-        if (message.destChainId != block.chainid) revert B_WRONG_CHAIN_ID();
+        if (message.destChainId != block.chainid) {
+            revert B_INVALID_CHAINID();
+        }
 
         // The message status must be "NEW"; "RETRIABLE" is managed in
         // LibBridgeRetry.sol.
-        bytes32 msgHash = message.hashMessage();
-        if (state.statuses[msgHash] != LibBridgeData.Status.NEW) {
+        bytes32 msgHash = keccak256(abi.encode(message));
+        if (state.statuses[msgHash] != BridgeData.Status.NEW) {
             revert B_STATUS_MISMATCH();
         }
 
@@ -77,7 +71,7 @@ library LibBridgeProcess {
             bool received = LibBridgeSignal.isSignalReceived(
                 resolver, msgHash, message.srcChainId, proofs
             );
-            if (!received) revert B_SIGNAL_NOT_RECEIVED();
+            if (!received) revert B_NOT_RECEIVED();
         }
 
         // Release necessary Ether from EtherVault if on Taiko, otherwise it's
@@ -89,14 +83,14 @@ library LibBridgeProcess {
             );
         }
 
-        LibBridgeData.Status status;
+        BridgeData.Status status;
         uint256 refundAmount;
 
         // Process message differently based on the target address
         if (message.to == address(this) || message.to == address(0)) {
             // Handle special addresses that don't require actual invocation but
             // mark message as DONE
-            status = LibBridgeData.Status.DONE;
+            status = BridgeData.Status.DONE;
             refundAmount = message.value;
         } else {
             // Use the specified message gas limit if called by the user, else
@@ -112,9 +106,9 @@ library LibBridgeProcess {
             });
 
             if (success) {
-                status = LibBridgeData.Status.DONE;
+                status = BridgeData.Status.DONE;
             } else {
-                status = LibBridgeData.Status.RETRIABLE;
+                status = BridgeData.Status.RETRIABLE;
                 ethVault.sendEther(message.value);
             }
         }

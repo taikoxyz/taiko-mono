@@ -11,7 +11,7 @@ import {
 } from "../TestBase.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { IBridge, Bridge } from "../../contracts/bridge/Bridge.sol";
-import { LibBridgeData } from "../../contracts/bridge/libs/LibBridgeData.sol";
+import { BridgeData } from "../../contracts/bridge/BridgeData.sol";
 import { BridgeErrors } from "../../contracts/bridge/BridgeErrors.sol";
 import { BaseNFTVault } from "../../contracts/tokenvault/BaseNFTVault.sol";
 import { ERC721Vault } from "../../contracts/tokenvault/ERC721Vault.sol";
@@ -77,7 +77,7 @@ contract PrankDestBridge {
         destERC721Vault = ERC721Vault(addr);
     }
 
-    function sendMessage(IBridge.Message memory message)
+    function sendMessage(BridgeData.Message memory message)
         external
         payable
         returns (bytes32 msgHash)
@@ -639,7 +639,7 @@ contract ERC721VaultTest is TestBase {
         // srcChain, because we mock the bridge functions, but good to have data
         // here so that it could have been hashed back to the exact same bytes32
         // value - if we were not mocking.
-        IBridge.Message memory message;
+        BridgeData.Message memory message;
         message.srcChainId = 31_337;
         message.destChainId = destChainId;
         message.user = Alice;
@@ -1019,8 +1019,8 @@ contract ERC721VaultTest is TestBase {
     }
 
     function _recallMessage(
-        IBridge srcBridge,
-        IBridge.Message memory message,
+        Bridge srcBridge,
+        BridgeData.Message memory message,
         bytes memory proof
     )
         internal
