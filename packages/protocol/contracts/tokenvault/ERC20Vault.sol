@@ -218,20 +218,17 @@ contract ERC20Vault is
         });
     }
 
-    /// @notice Releases deposited ERC20 tokens back to the user on the source
-    /// ERC20Vault with a proof that the message processing on the destination
-    /// Bridge has failed.
-    /// @param message The message that corresponds to the ERC20 deposit on the
-    /// source chain.
-    function onMessageRecalled(IBridge.Message calldata message)
+    /// @inheritdoc IRecallableSender
+    function onMessageRecalled(
+        IBridge.Message calldata message,
+        bytes32 msgHash
+    )
         external
         payable
         override
         nonReentrant
         onlyFromNamed("bridge")
     {
-        bytes32 msgHash = keccak256(abi.encode(message));
-
         (, address token,, uint256 amount) = abi.decode(
             message.data[4:], (CanonicalERC20, address, address, uint256)
         );

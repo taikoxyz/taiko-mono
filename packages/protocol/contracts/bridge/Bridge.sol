@@ -322,7 +322,7 @@ contract Bridge is EssentialContract, IBridge {
         if (support) {
             IRecallableSender(message.from).onMessageRecalled{
                 value: message.value
-            }(message);
+            }(message, msgHash);
         } else {
             message.user.sendEther(message.value);
         }

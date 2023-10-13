@@ -134,12 +134,11 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
         });
     }
 
-    /// @notice Release deposited ERC721 token(s) back to the user on the source
-    /// chain with a proof that the message processing on the destination Bridge
-    /// has failed.
-    /// @param message The message that corresponds to the ERC721 deposit on the
-    /// source chain.
-    function onMessageRecalled(IBridge.Message calldata message)
+    /// @inheritdoc IRecallableSender
+    function onMessageRecalled(
+        IBridge.Message calldata message,
+        bytes32 msgHash
+    )
         external
         payable
         override
@@ -160,7 +159,6 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
             message.data[4:], (CanonicalNFT, address, address, uint256[])
         );
 
-        bytes32 msgHash = keccak256(abi.encode(message));
         if (nft.addr == address(0)) revert VAULT_INVALID_TOKEN();
 
         unchecked {

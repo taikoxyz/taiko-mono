@@ -63,7 +63,10 @@ interface IBridge {
 /// @title IRecallableSender
 /// @notice An interface that all recallable message senders shall implement.
 interface IRecallableSender {
-    function onMessageRecalled(IBridge.Message calldata message)
+    function onMessageRecalled(
+        IBridge.Message calldata message,
+        bytes32 msgHash
+    )
         external
         payable;
 }
