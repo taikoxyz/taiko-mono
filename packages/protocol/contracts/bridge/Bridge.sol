@@ -159,7 +159,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     {
         return LibBridgeSignal.isSignalReceived({
             resolver: AddressResolver(this),
-            signal: LibBridgeStatus.getStatusFailedSignal(msgHash),
+            signal: LibBridgeStatus.getDerivedSignalForFailedMessage(msgHash),
             srcChainId: destChainId,
             proofs: proofs
         });

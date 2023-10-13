@@ -46,13 +46,13 @@ library LibBridgeStatus {
             state.statuses[msgHash] = status;
             if (status == LibBridgeData.Status.FAILED) {
                 ISignalService(resolver.resolve("signal_service", false))
-                    .sendSignal(getStatusFailedSignal(msgHash));
+                    .sendSignal(getDerivedSignalForFailedMessage(msgHash));
             }
             emit MessageStatusChanged(msgHash, status);
         }
     }
 
-    function getStatusFailedSignal(bytes32 msgHash)
+    function getDerivedSignalForFailedMessage(bytes32 msgHash)
         internal
         pure
         returns (bytes32)

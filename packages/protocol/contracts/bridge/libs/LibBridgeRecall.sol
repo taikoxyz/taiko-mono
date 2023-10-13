@@ -54,7 +54,7 @@ library LibBridgeRecall {
         if (checkProof) {
             bool failed = LibBridgeSignal.isSignalReceived(
                 resolver,
-                LibBridgeStatus.getStatusFailedSignal(msgHash),
+                LibBridgeStatus.getDerivedSignalForFailedMessage(msgHash),
                 message.srcChainId,
                 proofs
             );
