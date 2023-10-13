@@ -189,25 +189,9 @@ async function generateContractConfigs(
                     addressMap
                 );
                 break;
-            case "LibBridgeProcess":
+            case "ProxiedBridge":
                 if (!addressMap.LibTrieProof) {
                     throw new Error("LibTrieProof not initialized");
-                }
-
-                bytecode = linkContractLibs(
-                    contractArtifacts.LibBridgeProcess,
-                    addressMap
-                );
-                break;
-            case "ProxiedBridge":
-                if (
-                    !addressMap.LibTrieProof ||
-                    !addressMap.LibBridgeRetry ||
-                    !addressMap.LibBridgeProcess
-                ) {
-                    throw new Error(
-                        "LibTrieProof/LibBridgeRetry/LibBridgeProcess not initialized"
-                    );
                 }
 
                 bytecode = linkContractLibs(
@@ -260,14 +244,6 @@ async function generateContractConfigs(
             address: addressMap.LibBridgeRetry,
             deployedBytecode:
                 contractArtifacts.LibBridgeRetry.deployedBytecode.object,
-            variables: {},
-        },
-        LibBridgeProcess: {
-            address: addressMap.LibBridgeProcess,
-            deployedBytecode: linkContractLibs(
-                contractArtifacts.LibBridgeProcess,
-                addressMap
-            ),
             variables: {},
         },
         ProxiedAddressManager: {
