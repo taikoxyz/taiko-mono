@@ -348,8 +348,6 @@ async function generateContractConfigs(
                 _owner: contractOwner,
                 // AddressResolver
                 _addressManager: addressMap.AddressManagerProxy,
-                // Bridge
-                _state: {},
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
