@@ -10,7 +10,6 @@ import { ERC20Upgradeable } from "@ozu/token/ERC20/ERC20Upgradeable.sol";
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
-import { LibMath } from "../../libs/LibMath.sol";
 
 import { ITierProvider } from "../tiers/ITierProvider.sol";
 import { TaikoData } from "../TaikoData.sol";
@@ -22,7 +21,6 @@ import { LibTaikoToken } from "./LibTaikoToken.sol";
 /// @notice A library for handling block proposals in the Taiko protocol.
 library LibProposing {
     using LibAddress for address;
-    using LibMath for uint256;
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     event BlockProposed(
@@ -30,7 +28,6 @@ library LibProposing {
         address indexed assignedProver,
         uint96 livenessBond,
         uint256 proverFee,
-        uint256 reward,
         uint16 minTier,
         TaikoData.BlockMetadata meta
     );
@@ -87,59 +84,6 @@ library LibProposing {
         if (b.numBlocks >= b.lastVerifiedBlockId + config.blockMaxProposals + 1)
         {
             revert L1_TOO_MANY_BLOCKS();
-        }
-
-        // In situations where the network lacks sufficient transactions for the
-        // proposer to profit, they are still obligated to pay the prover the
-        // proving fee, which can be a substantial cost compared to the total L2
-        // transaction fees collected. As a solution, Taiko mints additional
-        // Taiko tokens per second as block rewards. It's important to note that
-        // if multiple blocks are proposed within the same L1 block, only the
-        // first one will receive the block reward.
-
-        // The block reward doesn't undergo automatic halving; instead, we
-        // depend on Taiko DAO to make necessary adjustments to the rewards.
-        uint128 reward;
-
-        // Reward block proposers with Taiko tokens to encourage chain adoption
-        // and ensure liveness.
-        // Rewards are issued only if `proposerRewardPerL1Block` and
-        // `proposerRewardMax` are set to nonzero values in the configuration.
-        if (config.proposerRewardPerL1Block != 0) {
-            unchecked {
-                // Mint additional tokens into the reward pool as L1 block
-                // numbers increase, to incentivize future proposers.
-                if (
-                    state.slotC.lastProposedHeight != 0
-                        && state.slotC.lastProposedHeight < block.number
-                ) {
-                    uint256 extraRewardMinted = (
-                        block.number - state.slotC.lastProposedHeight
-                    ) * config.proposerRewardPerL1Block;
-
-                    // Reward pool is capped to `proposerRewardMax`
-                    state.slotC.accumulatedReward = uint128(
-                        (extraRewardMinted + state.slotC.accumulatedReward).min(
-                            config.proposerRewardMax
-                        )
-                    );
-                }
-
-                if (state.slotC.accumulatedReward != 0) {
-                    // The current proposer receives a fixed percentage of the
-                    // reward pool.
-                    reward = state.slotC.accumulatedReward / 100
-                        * config.proposerRewardPoolPctg;
-
-                    state.slotC.accumulatedReward -= reward;
-
-                    // Reward must be minted
-                    LibTaikoToken.creditToken(
-                        state, resolver, msg.sender, reward, true
-                    );
-                }
-                state.slotC.lastProposedHeight = uint64(block.number);
-            }
         }
 
         // Initialize metadata to compute a metaHash, which forms a part of
@@ -237,7 +181,6 @@ library LibProposing {
             assignedProver: blk.assignedProver,
             livenessBond: config.livenessBond,
             proverFee: proverFee,
-            reward: reward,
             minTier: blk.minTier,
             meta: meta
         });
