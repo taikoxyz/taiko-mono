@@ -12,6 +12,21 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
+// GetEventsByAddress
+//
+//	 returns events by address
+//
+//			@Summary		Get events by address
+//			@ID			   	get-events-by-address
+//		    @Param			address	query		string		true	"address to query"
+//		    @Param			msgHash	query		string		false	"msgHash to query"
+//		    @Param			chainID	query		string		false	"chainID to query"
+//		    @Param			eventType	query		string		false	"eventType to query"
+//		    @Param			event	query		string		false	"event to query"
+//			@Accept			json
+//			@Produce		json
+//			@Success		200	{object} paginate.Page
+//			@Router			/events [get]
 func (srv *Server) GetEventsByAddress(c echo.Context) error {
 	chainID, _ := new(big.Int).SetString(c.QueryParam("chainID"), 10)
 

@@ -1,0 +1,189 @@
+definitions:
+  eventindexer.Stat:
+    properties:
+      averageProofReward:
+        type: string
+      averageProofTime:
+        type: string
+      averageProposerReward:
+        type: string
+      id:
+        type: integer
+      numProofs:
+        type: integer
+      numProposerRewards:
+        type: integer
+      numVerifiedBlocks:
+        type: integer
+    type: object
+  eventindexer.UniqueProposersResponse:
+    properties:
+      address:
+        type: string
+      count:
+        type: integer
+    type: object
+  eventindexer.UniqueProversResponse:
+    properties:
+      address:
+        type: string
+      count:
+        type: integer
+    type: object
+  http.uniqueProposersResp:
+    properties:
+      proposers:
+        items:
+          $ref: "#/definitions/eventindexer.UniqueProposersResponse"
+        type: array
+      uniqueProposers:
+        type: integer
+    type: object
+  http.uniqueProversResp:
+    properties:
+      provers:
+        items:
+          $ref: "#/definitions/eventindexer.UniqueProversResponse"
+        type: array
+      uniqueProvers:
+        type: integer
+    type: object
+  paginate.Page:
+    properties:
+      first:
+        type: boolean
+      items: {}
+      last:
+        type: boolean
+      max_page:
+        type: integer
+      page:
+        type: integer
+      size:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+      visible:
+        type: integer
+    type: object
+host: eventindexer.jolnir.taiko.xyz
+info:
+  contact:
+    email: info@taiko.xyz
+    name: API Support
+    url: https://community.taiko.xyz/
+  license:
+    name: MIT
+  termsOfService: http://swagger.io/terms/
+  title: Taiko Eventindexer API
+  version: "1.0"
+paths:
+  /assignedBlocks:
+    get:
+      consumes:
+        - application/json
+      operationId: get-assigned-blocks-by-prover-address
+      parameters:
+        - description: address to query
+          in: query
+          name: address
+          required: true
+          type: string
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: "#/definitions/paginate.Page"
+      summary: Get assigned blocks by prover address
+  /events:
+    get:
+      consumes:
+        - application/json
+      operationId: get-events-by-address-and-event-name
+      parameters:
+        - description: address to query
+          in: query
+          name: address
+          required: true
+          type: string
+        - description: event name to query
+          in: query
+          name: event
+          required: true
+          type: string
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: "#/definitions/paginate.Page"
+      summary: Get events by address and event name
+  /nftsByAddress:
+    get:
+      consumes:
+        - application/json
+      operationId: get-nft-balances-by-address-and-chain-id
+      parameters:
+        - description: address to query
+          in: query
+          name: address
+          required: true
+          type: string
+        - description: chainID to query
+          in: query
+          name: chainID
+          required: true
+          type: string
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: "#/definitions/paginate.Page"
+      summary: Get nft balances by address and chain ID
+  /stats:
+    get:
+      consumes:
+        - application/json
+      operationId: get-stats
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: "#/definitions/eventindexer.Stat"
+      summary: Get stats
+  /uniqueProposers:
+    get:
+      consumes:
+        - application/json
+      operationId: get-unique-proposers
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: "#/definitions/http.uniqueProposersResp"
+      summary: Get unique proposers
+  /uniqueProvers:
+    get:
+      consumes:
+        - application/json
+      operationId: get-unique-provers
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: "#/definitions/http.uniqueProversResp"
+      summary: Get unique provers
+swagger: "2.0"

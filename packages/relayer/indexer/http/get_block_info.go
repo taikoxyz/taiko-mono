@@ -18,6 +18,16 @@ type getBlockInfoResponse struct {
 	Data []blockInfo `json:"data"`
 }
 
+// getBlockInfoResponse
+//
+//	 returns block info for the chains
+//
+//			@Summary		Get block info
+//			@ID			   	get-block-info
+//			@Accept			json
+//			@Produce		json
+//			@Success		200	{object} getBlockInfoResponse
+//			@Router			/blockInfo [get]
 func (srv *Server) GetBlockInfo(c echo.Context) error {
 	srcChainID, err := srv.srcEthClient.ChainID(c.Request().Context())
 	if err != nil {
