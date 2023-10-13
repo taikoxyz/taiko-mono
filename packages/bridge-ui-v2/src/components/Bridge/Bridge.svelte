@@ -547,7 +547,7 @@
       return updatedMap;
     });
   }
-  $: if (selectedNFT) {
+  $: if (selectedNFT.length > 0) {
     //TODO: this needs changing if we do batch transfers in the future:
     // Update either selectedToken store to handle arrays or the actions to access a different store for NFTs
     $selectedToken = selectedNFT[0];
@@ -620,6 +620,8 @@
         <ChainSelectorWrapper />
       </div>
 
+      {$selectedToken}
+      !{selectedNFT}!
       <TokenDropdown {tokens} bind:value={$selectedToken} />
 
       <Amount bind:this={amountComponent} />
