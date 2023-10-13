@@ -16,8 +16,6 @@ import { LibAddress } from "../libs/LibAddress.sol";
 import { EtherVault } from "./EtherVault.sol";
 import { IBridge, IRecallableSender } from "./IBridge.sol";
 
-import { console2 } from "forge-std/console2.sol";
-
 /// @title Bridge
 /// @notice See the documentation for {IBridge}.
 /// @dev The code hash for the same address on L1 and L2 may be different.
@@ -119,7 +117,6 @@ contract Bridge is EssentialContract, IBridge {
         _message.srcChainId = block.chainid;
 
         msgHash = keccak256(abi.encode(_message));
-        console2.log("------- msgHash: ", uint256(msgHash));
 
         ISignalService(resolve("signal_service", false)).sendSignal(msgHash);
         emit MessageSent(msgHash, _message);
