@@ -66,10 +66,7 @@ library LibBridgeProcess {
         // The message status must be "NEW"; "RETRIABLE" is managed in
         // LibBridgeRetry.sol.
         bytes32 msgHash = message.hashMessage();
-        if (
-            LibBridgeStatus.getMessageStatus(msgHash)
-                != LibBridgeData.Status.NEW
-        ) {
+        if (state.messageStatus[msgHash] != LibBridgeData.Status.NEW) {
             revert B_STATUS_MISMATCH();
         }
 
@@ -130,7 +127,7 @@ library LibBridgeProcess {
         }
 
         // Update the message status
-        LibBridgeStatus.updateMessageStatus(msgHash, status);
+        LibBridgeStatus.updateMessageStatus(state, msgHash, status);
 
         // Determine the refund recipient
         address refundTo =
