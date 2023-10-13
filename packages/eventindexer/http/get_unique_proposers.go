@@ -14,6 +14,16 @@ type uniqueProposersResp struct {
 	UniqueProposers int                                    `json:"uniqueProposers"`
 }
 
+// GetUniqueProposers
+//
+//	 returns all unique proposers
+//
+//			@Summary		Get unique proposers
+//			@ID			   	get-unique-proposers
+//			@Accept			json
+//			@Produce		json
+//			@Success		200	{object} uniqueProposersResp
+//			@Router			/uniqueProposers [get]
 func (srv *Server) GetUniqueProposers(c echo.Context) error {
 	cached, found := srv.cache.Get(CacheKeyUniqueProposers)
 

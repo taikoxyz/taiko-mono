@@ -14,6 +14,18 @@ import (
 	echo "github.com/labstack/echo/v4"
 )
 
+// @title Taiko Eventindexer API
+// @version 1.0
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.url https://community.taiko.xyz/
+// @contact.email info@taiko.xyz
+
+// @license.name MIT
+
+// @host eventindexer.jolnir.taiko.xyz
+// Server represents an eventindexer http server instance.
 type Server struct {
 	echo           *echo.Echo
 	eventRepo      eventindexer.EventRepository
