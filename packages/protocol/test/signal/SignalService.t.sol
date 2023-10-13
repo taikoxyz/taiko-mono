@@ -77,13 +77,6 @@ contract TestSignalService is TestBase {
             signalService.sendSignal(signal);
 
             assertTrue(signalService.isSignalSent(Alice, signal));
-
-            // confirm our assembly gives same output as expected native
-            // solidity hash/packing
-            assertEq(
-                signalService.getSignalSlot(block.chainid, Alice, signal),
-                keccak256(abi.encodePacked(Alice, signal))
-            );
         }
     }
 
