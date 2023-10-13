@@ -114,7 +114,7 @@ contract Bridge is EssentialContract, IBridge {
         message.from = msg.sender;
         message.srcChainId = block.chainid;
 
-        msgHash = keccak256(abi.encode(message));
+        msgHash = hashMessage(message);
 
         ISignalService(resolve("signal_service", false)).sendSignal(msgHash);
         emit MessageSent(msgHash, message);
@@ -146,7 +146,7 @@ contract Bridge is EssentialContract, IBridge {
 
         // The message status must be "NEW"; "RETRIABLE" is managed in
         // LibBridgeRetry.sol.
-        bytes32 msgHash = keccak256(abi.encode(message));
+        bytes32 msgHash = hashMessage(message);
         if (messageStatus[msgHash] != Status.NEW) {
             revert B_STATUS_MISMATCH();
         }
@@ -154,7 +154,7 @@ contract Bridge is EssentialContract, IBridge {
         if (_shouldCheckProof()) {
             bool received = message.destChainId == block.chainid
                 && _isSignalReceived(
-                    keccak256(abi.encode(message)), message.srcChainId, proofs
+                    hashMessage(message), message.srcChainId, proofs
                 );
 
             if (!received) revert B_NOT_RECEIVED();
@@ -237,7 +237,7 @@ contract Bridge is EssentialContract, IBridge {
             if (msg.sender != message.user) revert B_PERMISSION_DENIED();
         }
 
-        bytes32 msgHash = keccak256(abi.encode(message));
+        bytes32 msgHash = hashMessage(message);
 
         if (messageStatus[msgHash] != Status.RETRIABLE) {
             revert B_NON_RETRIABLE();
@@ -279,16 +279,14 @@ contract Bridge is EssentialContract, IBridge {
     )
         external
     {
-        bytes32 msgHash = keccak256(abi.encode(message));
+        bytes32 msgHash = hashMessage(message);
 
         if (isMessageRecalled[msgHash]) revert B_RECALLED_ALREADY();
 
         if (_shouldCheckProof()) {
             bool failed = message.srcChainId == block.chainid
                 && _isSignalReceived(
-                    _getDerivedSignalForFailedMessage(
-                        keccak256(abi.encode(message))
-                    ),
+                    _getDerivedSignalForFailedMessage(hashMessage(message)),
                     message.destChainId,
                     proofs
                 );
@@ -333,7 +331,7 @@ contract Bridge is EssentialContract, IBridge {
         return message.srcChainId == block.chainid
             && ISignalService(resolve("signal_service", false)).isSignalSent({
                 app: address(this),
-                signal: keccak256(abi.encode(message))
+                signal: hashMessage(message)
             });
     }
 
@@ -351,9 +349,7 @@ contract Bridge is EssentialContract, IBridge {
         returns (bool)
     {
         return message.destChainId == block.chainid
-            && _isSignalReceived(
-                keccak256(abi.encode(message)), message.srcChainId, proofs
-            );
+            && _isSignalReceived(hashMessage(message), message.srcChainId, proofs);
     }
 
     /// @notice Checks if a msgHash has failed on its destination chain.
@@ -371,7 +367,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         return message.srcChainId == block.chainid
             && _isSignalReceived(
-                _getDerivedSignalForFailedMessage(keccak256(abi.encode(message))),
+                _getDerivedSignalForFailedMessage(hashMessage(message)),
                 message.destChainId,
                 proofs
             );
@@ -399,8 +395,16 @@ contract Bridge is EssentialContract, IBridge {
         return _ctx;
     }
 
+    function hashMessage(Message memory message)
+        public
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(message));
+    }
     /// @notice Tells if we need to check real proof or it is a test.
     /// @return Returns true if this contract, or can be false if mock/test.
+
     function _shouldCheckProof() internal pure virtual returns (bool) {
         return true;
     }
