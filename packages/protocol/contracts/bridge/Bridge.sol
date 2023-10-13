@@ -337,24 +337,6 @@ contract Bridge is EssentialContract, IBridge {
     /// @param message The message.
     /// @param proofs The proofs of message failure.
     /// @return Returns true if the message has failed, false otherwise.
-    function isMessageReceived(
-        Message calldata message,
-        bytes[] calldata proofs
-    )
-        public
-        view
-        returns (bool)
-    {
-        return message.destChainId == block.chainid
-            && _isSignalReceived(
-                keccak256(abi.encode(message)), message.srcChainId, proofs
-            );
-    }
-
-    /// @notice Checks if a msgHash has failed on its destination chain.
-    /// @param message The message.
-    /// @param proofs The proofs of message failure.
-    /// @return Returns true if the message has failed, false otherwise.
     function isMessageFailed(
         Message calldata message,
         bytes[] calldata proofs
@@ -368,6 +350,24 @@ contract Bridge is EssentialContract, IBridge {
                 _signalForFailedMessage(keccak256(abi.encode(message))),
                 message.destChainId,
                 proofs
+            );
+    }
+
+    /// @notice Checks if a msgHash has failed on its destination chain.
+    /// @param message The message.
+    /// @param proofs The proofs of message failure.
+    /// @return Returns true if the message has failed, false otherwise.
+    function isMessageReceived(
+        Message calldata message,
+        bytes[] calldata proofs
+    )
+        public
+        view
+        returns (bool)
+    {
+        return message.destChainId == block.chainid
+            && _isSignalReceived(
+                keccak256(abi.encode(message)), message.srcChainId, proofs
             );
     }
 
