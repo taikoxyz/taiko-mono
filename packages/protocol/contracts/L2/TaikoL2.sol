@@ -206,9 +206,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     // proposer to profit, they are still obligated to pay the prover the
     // proving fee, which can be a substantial cost compared to the total L2
     // transaction fees collected. As a solution, Taiko mints additional Taiko
-    // tokens per second as block rewards. It's important to note that if
-    // multiple blocks are proposed within the same L1 block, only the first one
-    // will receive the block reward.
+    // tokens per second as block rewards.
     //
     // The block reward doesn't undergo automatic halving; instead, we depend on
     // Taiko DAO to make necessary adjustments to the rewards. uint96
