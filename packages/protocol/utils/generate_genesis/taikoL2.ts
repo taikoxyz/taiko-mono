@@ -125,14 +125,6 @@ async function generateContractConfigs(
             ARTIFACTS_PATH,
             "./LibTrieProof.sol/LibTrieProof.json"
         )),
-        LibBridgeRetry: require(path.join(
-            ARTIFACTS_PATH,
-            "./LibBridgeRetry.sol/LibBridgeRetry.json"
-        )),
-        LibBridgeProcess: require(path.join(
-            ARTIFACTS_PATH,
-            "./LibBridgeProcess.sol/LibBridgeProcess.json"
-        )),
         LibVaultUtils: require(path.join(
             ARTIFACTS_PATH,
             "./LibVaultUtils.sol/LibVaultUtils.json"
@@ -197,25 +189,9 @@ async function generateContractConfigs(
                     addressMap
                 );
                 break;
-            case "LibBridgeProcess":
+            case "ProxiedBridge":
                 if (!addressMap.LibTrieProof) {
                     throw new Error("LibTrieProof not initialized");
-                }
-
-                bytecode = linkContractLibs(
-                    contractArtifacts.LibBridgeProcess,
-                    addressMap
-                );
-                break;
-            case "ProxiedBridge":
-                if (
-                    !addressMap.LibTrieProof ||
-                    !addressMap.LibBridgeRetry ||
-                    !addressMap.LibBridgeProcess
-                ) {
-                    throw new Error(
-                        "LibTrieProof/LibBridgeRetry/LibBridgeProcess not initialized"
-                    );
                 }
 
                 bytecode = linkContractLibs(
@@ -262,20 +238,6 @@ async function generateContractConfigs(
             address: addressMap.LibTrieProof,
             deployedBytecode:
                 contractArtifacts.LibTrieProof.deployedBytecode.object,
-            variables: {},
-        },
-        LibBridgeRetry: {
-            address: addressMap.LibBridgeRetry,
-            deployedBytecode:
-                contractArtifacts.LibBridgeRetry.deployedBytecode.object,
-            variables: {},
-        },
-        LibBridgeProcess: {
-            address: addressMap.LibBridgeProcess,
-            deployedBytecode: linkContractLibs(
-                contractArtifacts.LibBridgeProcess,
-                addressMap
-            ),
             variables: {},
         },
         ProxiedAddressManager: {
@@ -386,8 +348,6 @@ async function generateContractConfigs(
                 _owner: contractOwner,
                 // AddressResolver
                 _addressManager: addressMap.AddressManagerProxy,
-                // Bridge
-                _state: {},
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
