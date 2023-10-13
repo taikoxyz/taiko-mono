@@ -15,15 +15,12 @@ import { IERC721Receiver } from
     "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import { IERC721Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
-import { IRecallableMessageSender, IBridge } from "../bridge/IBridge.sol";
+import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
 import { Proxied } from "../common/Proxied.sol";
 
 /// @title BaseNFTVault
 /// @notice Abstract contract for bridging NFTs across different chains.
-abstract contract BaseNFTVault is
-    EssentialContract,
-    IRecallableMessageSender
-{
+abstract contract BaseNFTVault is EssentialContract, IRecallableSender {
     // Struct representing the canonical NFT on another chain.
     struct CanonicalNFT {
         // Chain ID of the NFT.

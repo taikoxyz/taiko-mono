@@ -12,14 +12,10 @@ import {
 import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { IBridge, Bridge } from "../../contracts/bridge/Bridge.sol";
-import { LibBridgeData } from "../../contracts/bridge/libs/LibBridgeData.sol";
-import { BridgeErrors } from "../../contracts/bridge/BridgeErrors.sol";
 import { BaseNFTVault } from "../../contracts/tokenvault/BaseNFTVault.sol";
 import { ERC1155Vault } from "../../contracts/tokenvault/ERC1155Vault.sol";
 import { BridgedERC1155 } from "../../contracts/tokenvault/BridgedERC1155.sol";
 import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
-import { LibBridgeStatus } from
-    "../../contracts/bridge/libs/LibBridgeStatus.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../../contracts/common/ICrossChainSync.sol";
 import { ERC1155 } from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
@@ -644,9 +640,10 @@ contract ERC1155VaultTest is TestBase {
         message.fee = 140_000;
         message.refundTo = Alice;
         message.memo = "";
-        bytes memory proof = bytes("");
 
-        srcPrankBridge.recallMessage(message, proof);
+        bytes[] memory proofs = new bytes[](1);
+        proofs[0] = bytes("");
+        srcPrankBridge.recallMessage(message, proofs);
 
         // Alice got back her NFTs, and vault has 0
         assertEq(ctoken1155.balanceOf(Alice, 1), 10);

@@ -3,11 +3,8 @@ pragma solidity ^0.8.20;
 
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { IBridge, Bridge } from "../../contracts/bridge/Bridge.sol";
-import { BridgeErrors } from "../../contracts/bridge/BridgeErrors.sol";
 import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
 import { console2 } from "forge-std/console2.sol";
-import { LibBridgeStatus } from
-    "../../contracts/bridge/libs/LibBridgeStatus.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import {
     TestBase,
@@ -88,16 +85,15 @@ contract BridgeTest is TestBase {
         // coresponding to the message
         bytes memory proof = hex"00";
 
-        bytes32 msgHash = destChainBridge.hashMessage(message);
+        bytes32 msgHash = keccak256(abi.encode(message));
 
         vm.chainId(destChainId);
         vm.prank(Bob, Bob);
-        mockProofBridge.processMessage(message, proof);
+        _processMessage(mockProofBridge, message, proof);
 
-        LibBridgeStatus.MessageStatus status =
-            mockProofBridge.getMessageStatus(msgHash);
+        Bridge.Status status = mockProofBridge.messageStatus(msgHash);
 
-        assertEq(status == LibBridgeStatus.MessageStatus.DONE, true);
+        assertEq(status == Bridge.Status.DONE, true);
         // Alice has 100 ether + 1000 wei balance, because we did not use the
         // 'sendMessage'
         // since we mocking the proof, so therefore the 1000 wei
@@ -128,17 +124,16 @@ contract BridgeTest is TestBase {
         // coresponding to the message
         bytes memory proof = hex"00";
 
-        bytes32 msgHash = destChainBridge.hashMessage(message);
+        bytes32 msgHash = keccak256(abi.encode(message));
 
         vm.chainId(destChainId);
 
         vm.prank(Bob, Bob);
-        mockProofBridge.processMessage(message, proof);
+        _processMessage(mockProofBridge, message, proof);
 
-        LibBridgeStatus.MessageStatus status =
-            mockProofBridge.getMessageStatus(msgHash);
+        Bridge.Status status = mockProofBridge.messageStatus(msgHash);
 
-        assertEq(status == LibBridgeStatus.MessageStatus.DONE, true);
+        assertEq(status == Bridge.Status.DONE, true);
 
         // Bob (relayer) and goodContract has 1000 wei balance
         assertEq(address(goodReceiver).balance, 1000);
@@ -168,17 +163,16 @@ contract BridgeTest is TestBase {
         // coresponding to the message
         bytes memory proof = hex"00";
 
-        bytes32 msgHash = destChainBridge.hashMessage(message);
+        bytes32 msgHash = keccak256(abi.encode(message));
 
         vm.chainId(destChainId);
 
         vm.prank(Bob, Bob);
-        mockProofBridge.processMessage(message, proof);
+        _processMessage(mockProofBridge, message, proof);
 
-        LibBridgeStatus.MessageStatus status =
-            mockProofBridge.getMessageStatus(msgHash);
+        Bridge.Status status = mockProofBridge.messageStatus(msgHash);
 
-        assertEq(status == LibBridgeStatus.MessageStatus.DONE, true);
+        assertEq(status == Bridge.Status.DONE, true);
 
         // Carol and goodContract has 500 wei balance
         assertEq(address(goodReceiver).balance, 500);
@@ -199,7 +193,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        vm.expectRevert(BridgeErrors.B_INCORRECT_VALUE.selector);
+        vm.expectRevert(Bridge.B_INVALID_VALUE.selector);
         bridge.sendMessage(message);
     }
 
@@ -216,7 +210,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        vm.expectRevert(BridgeErrors.B_USER_IS_NULL.selector);
+        vm.expectRevert(Bridge.B_INVALID_USER.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 
@@ -234,7 +228,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId + 1
         });
 
-        vm.expectRevert(BridgeErrors.B_WRONG_CHAIN_ID.selector);
+        vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 
@@ -252,7 +246,7 @@ contract BridgeTest is TestBase {
             destChain: block.chainid
         });
 
-        vm.expectRevert(BridgeErrors.B_WRONG_CHAIN_ID.selector);
+        vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 
@@ -269,7 +263,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        vm.expectRevert(BridgeErrors.B_WRONG_TO_ADDRESS.selector);
+        vm.expectRevert(Bridge.B_INVALID_TO.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 
@@ -284,10 +278,9 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        bytes32 msgHash = bridge.sendMessage{ value: amount }(message);
-
-        bool isMessageSent = bridge.isMessageSent(msgHash);
-        assertEq(isMessageSent, true);
+        (, IBridge.Message memory _message) =
+            bridge.sendMessage{ value: amount }(message);
+        assertEq(bridge.isMessageSent(_message), true);
     }
 
     function test_Bridge_send_message_ether_with_processing_fee() public {
@@ -302,10 +295,9 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        bytes32 msgHash = bridge.sendMessage{ value: amount + fee }(message);
-
-        bool isMessageSent = bridge.isMessageSent(msgHash);
-        assertEq(isMessageSent, true);
+        (, IBridge.Message memory _message) =
+            bridge.sendMessage{ value: amount + fee }(message);
+        assertEq(bridge.isMessageSent(_message), true);
     }
 
     function test_Bridge_send_message_ether_with_processing_fee_invalid_amount()
@@ -322,7 +314,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        vm.expectRevert(BridgeErrors.B_INCORRECT_VALUE.selector);
+        vm.expectRevert(Bridge.B_INVALID_VALUE.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 
@@ -331,7 +323,7 @@ contract BridgeTest is TestBase {
     // in foundry
     function test_Bridge_process_message() public {
         /* DISCALIMER: From now on we do not need to have real
-        proofs because we cna bypass with overriding shouldCheckProof()
+        proofs because we cna bypass with overriding _shouldCheckProof()
         in a mockBirdge AND proof system already 'battle tested'.*/
         // This predefined successful process message call fails now
         // since we modified the iBridge.Message struct and cut out
@@ -340,14 +332,13 @@ contract BridgeTest is TestBase {
         (IBridge.Message memory message, bytes memory proof) =
             setUpPredefinedSuccessfulProcessMessageCall();
 
-        bytes32 msgHash = destChainBridge.hashMessage(message);
+        bytes32 msgHash = keccak256(abi.encode(message));
 
-        mockProofBridge.processMessage(message, proof);
+        _processMessage(mockProofBridge, message, proof);
 
-        LibBridgeStatus.MessageStatus status =
-            mockProofBridge.getMessageStatus(msgHash);
+        Bridge.Status status = mockProofBridge.messageStatus(msgHash);
 
-        assertEq(status == LibBridgeStatus.MessageStatus.DONE, true);
+        assertEq(status == Bridge.Status.DONE, true);
     }
 
     // test with a known good merkle proof / message since we cant generate
@@ -355,7 +346,7 @@ contract BridgeTest is TestBase {
     // in foundry
     function test_Bridge_retry_message_and_end_up_in_failed_status() public {
         /* DISCALIMER: From now on we do not need to have real
-        proofs because we cna bypass with overriding shouldCheckProof()
+        proofs because we cna bypass with overriding _shouldCheckProof()
         in a mockBirdge AND proof system already 'battle tested'.*/
         vm.startPrank(Alice);
         (IBridge.Message memory message, bytes memory proof) =
@@ -364,24 +355,22 @@ contract BridgeTest is TestBase {
         // etch bad receiver at the to address, so it fails.
         vm.etch(message.to, address(badReceiver).code);
 
-        bytes32 msgHash = destChainBridge.hashMessage(message);
+        bytes32 msgHash = keccak256(abi.encode(message));
 
-        mockProofBridge.processMessage(message, proof);
+        _processMessage(mockProofBridge, message, proof);
 
-        LibBridgeStatus.MessageStatus status =
-            mockProofBridge.getMessageStatus(msgHash);
+        Bridge.Status status = mockProofBridge.messageStatus(msgHash);
 
-        assertEq(status == LibBridgeStatus.MessageStatus.RETRIABLE, true);
+        assertEq(status == Bridge.Status.RETRIABLE, true);
 
         vm.stopPrank();
         vm.prank(message.user);
 
         mockProofBridge.retryMessage(message, true);
 
-        LibBridgeStatus.MessageStatus postRetryStatus =
-            mockProofBridge.getMessageStatus(msgHash);
+        Bridge.Status postRetryStatus = mockProofBridge.messageStatus(msgHash);
 
-        assertEq(postRetryStatus == LibBridgeStatus.MessageStatus.FAILED, true);
+        assertEq(postRetryStatus == Bridge.Status.FAILED, true);
     }
 
     function retry_message_reverts_when_status_non_retriable() public {
@@ -394,7 +383,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        vm.expectRevert(BridgeErrors.B_MSG_NON_RETRIABLE.selector);
+        vm.expectRevert(Bridge.B_NON_RETRIABLE.selector);
         destChainBridge.retryMessage(message, true);
     }
 
@@ -411,12 +400,12 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        vm.expectRevert(BridgeErrors.B_DENIED.selector);
+        vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
         destChainBridge.retryMessage(message, true);
     }
 
     /* DISCALIMER: From now on we do not need to have real
-    proofs because we cna bypass with overriding shouldCheckProof()
+    proofs because we cna bypass with overriding _shouldCheckProof()
     in a mockBirdge AND proof system already 'battle tested'.*/
     function setUpPredefinedSuccessfulProcessMessageCall()
         internal
@@ -476,6 +465,18 @@ contract BridgeTest is TestBase {
             hex"0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000003e0f7ff3b519ec113138509a5b1b6f54761cebc6891bc0ba4f904b89688b1ef8e051dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d493470000000000000000000000000000000000000000000000000000000000000000a85358ff57974db8c9ce2ecabe743d44133f9d11e5da97e386111073f1a2f92c345bd00c2ef9db5726d84c184af67fdbad0be00921eb1dcbca674c427abb5c3ebda7d1e94e5b2b3d5e6a54c9a42423b1746afa4b264e7139877c0523c3397ec4000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000002000800002000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000001000040000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000001500000000000000000000000000000000000000000000000000000000009bbf55000000000000000000000000000000000000000000000000000000000001d4fb0000000000000000000000000000000000000000000000000000000064435d130000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004d2e85500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000061d883010a1a846765746888676f312e31382e38856c696e75780000000000000015b1ca61fbe1aa968ab60a461913aa40046b5357162466a4134d195647c14dd7488dd438abb39d6574e7d9d752fa2381bbd9dc780efc3fcc66af5285ebcb117b010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000dbf8d9b8b3f8b18080a04fc5f13ab2f9ba0c2da88b0151ab0e7cf4d85d08cca45ccd923c6ab76323eb28a02b70a98baa2507beffe8c266006cae52064dccf4fd1998af774ab3399029b38380808080a07394a09684ef3b2c87e9e2a753eb4ac78e2047b980e16d2e2133aee78946370d8080a0f4984a11f61a2921456141df88de6e1a710d28681b91af794c5a721e47839cd78080a09248167635e6f0eb40f782a6bbd237174104259b6af88b3c52086214098f0e2c8080a3e2a03ecd5e1f251bf1676a367f6b16e92ffe6b2638b4a27b3d31870d25442bd59ef4010000000000";
 
         return (message, proof);
+    }
+
+    function _processMessage(
+        Bridge _bridge,
+        IBridge.Message memory message,
+        bytes memory proof
+    )
+        internal
+    {
+        bytes[] memory proofs = new bytes[](1);
+        proofs[0] = proof;
+        _bridge.processMessage(message, proofs);
     }
 
     function newMessage(

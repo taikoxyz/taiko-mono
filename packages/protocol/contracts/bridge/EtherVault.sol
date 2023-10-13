@@ -6,20 +6,20 @@
 
 pragma solidity ^0.8.20;
 
-import { BridgeErrors } from "./BridgeErrors.sol";
 import { Create2Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
-import { EssentialContract } from "../common/EssentialContract.sol";
-import { LibAddress } from "../libs/LibAddress.sol";
-import { Proxied } from "../common/Proxied.sol";
 import { SafeERC20Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+
+import { EssentialContract } from "../common/EssentialContract.sol";
+import { Proxied } from "../common/Proxied.sol";
+import { LibAddress } from "../libs/LibAddress.sol";
 
 /// @title EtherVault
 /// @notice This contract is initialized with 2^128 Ether and allows authorized
 /// addresses to release Ether.
 /// @dev Only the contract owner can authorize or deauthorize addresses.
-contract EtherVault is EssentialContract, BridgeErrors {
+contract EtherVault is EssentialContract {
     using LibAddress for address;
 
     mapping(address addr => bool isAuthorized) private _authorizedAddrs; // Authorized
@@ -29,11 +29,13 @@ contract EtherVault is EssentialContract, BridgeErrors {
     event Authorized(address indexed addr, bool authorized);
     event EtherReleased(address indexed to, uint256 amount);
 
+    error VAULT_PERMISSION_DENIED();
+    error VAULT_INVALID_RECIPIENT();
+    error VAULT_INVALID_PARAMS();
+
     modifier onlyAuthorized() {
         // Ensure the caller is authorized to perform the action
-        if (!isAuthorized(msg.sender)) {
-            revert B_EV_NOT_AUTHORIZED();
-        }
+        if (!isAuthorized(msg.sender)) revert VAULT_PERMISSION_DENIED();
         _;
     }
 
@@ -42,7 +44,7 @@ contract EtherVault is EssentialContract, BridgeErrors {
     receive() external payable {
         // EthVault's balance must == 0 OR the sender isAuthorized.
         if (address(this).balance != 0 && !isAuthorized(msg.sender)) {
-            revert B_EV_NOT_AUTHORIZED();
+            revert VAULT_PERMISSION_DENIED();
         }
     }
 
@@ -73,9 +75,8 @@ contract EtherVault is EssentialContract, BridgeErrors {
         nonReentrant
     {
         if (amount == 0) return;
-        if (recipient == address(0)) {
-            revert B_EV_DO_NOT_BURN();
-        }
+        if (recipient == address(0)) revert VAULT_INVALID_RECIPIENT();
+
         recipient.sendEther(amount);
         emit EtherReleased(recipient, amount);
     }
@@ -86,7 +87,7 @@ contract EtherVault is EssentialContract, BridgeErrors {
     /// @param authorized Authorized status to set.
     function authorize(address addr, bool authorized) public onlyOwner {
         if (addr == address(0) || _authorizedAddrs[addr] == authorized) {
-            revert B_EV_PARAM();
+            revert VAULT_INVALID_PARAMS();
         }
         _authorizedAddrs[addr] = authorized;
         emit Authorized(addr, authorized);

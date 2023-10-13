@@ -61,25 +61,6 @@ library LibVaultUtils {
         }
     }
 
-    /// @dev Checks if token is invalid and returns the message hash
-    /// @param message The bridged message struct data
-    /// @param bridgeAddress The bridge contract
-    /// @param tokenAddress The token address to be checked
-    function hashAndCheckToken(
-        IBridge.Message calldata message,
-        address bridgeAddress,
-        address tokenAddress
-    )
-        external
-        pure
-        returns (bytes32 msgHash)
-    {
-        IBridge bridge = IBridge(bridgeAddress);
-        msgHash = bridge.hashMessage(message);
-
-        if (tokenAddress == address(0)) revert VAULT_INVALID_TOKEN();
-    }
-
     function checkIfValidAddresses(
         address vault,
         address to,

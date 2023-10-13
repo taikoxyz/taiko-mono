@@ -10,6 +10,7 @@ import { ERC20Vault } from "../contracts/tokenvault/ERC20Vault.sol";
 import { ERC721Vault } from "../contracts/tokenvault/ERC721Vault.sol";
 import { EtherVault } from "../contracts/bridge/EtherVault.sol";
 import { IBridge } from "../contracts/bridge/IBridge.sol";
+import { BridgeData } from "../contracts/bridge/BridgeData.sol";
 import { LibBridgeStatus } from "../contracts/bridge/libs/LibBridgeStatus.sol";
 import { RegularERC20 } from "../contracts/test/erc20/RegularERC20.sol";
 import { SignalService } from "../contracts/signal/SignalService.sol";
@@ -142,7 +143,9 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         assertEq(owner, bridge.owner());
 
-        vm.expectRevert(BridgeErrors.B_FORBIDDEN.selector);
+        vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
+        bytes[] memory proofs = new bytes[](1);
+        proofs[0] = "";
         bridge.processMessage(
             IBridge.Message({
                 id: 0,
@@ -158,7 +161,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
                 data: "",
                 memo: ""
             }),
-            ""
+            proofs
         );
 
         vm.startPrank(admin);

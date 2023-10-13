@@ -16,7 +16,8 @@ import {
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { IERC165Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
-import { IRecallableMessageSender, IBridge } from "../bridge/IBridge.sol";
+import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
+
 import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
@@ -32,7 +33,7 @@ import { TaikoToken } from "../L1/TaikoToken.sol";
 contract ERC20Vault is
     EssentialContract,
     IERC165Upgradeable,
-    IRecallableMessageSender
+    IRecallableSender
 {
     using LibAddress for address;
     using SafeERC20Upgradeable for ERC20Upgradeable;
@@ -159,13 +160,13 @@ contract ERC20Vault is
         message.refundTo = opt.refundTo;
         message.memo = opt.memo;
 
-        bytes32 msgHash = IBridge(resolve("bridge", false)).sendMessage{
-            value: msg.value
-        }(message);
+        (bytes32 msgHash, IBridge.Message memory _message) = IBridge(
+            resolve("bridge", false)
+        ).sendMessage{ value: msg.value }(message);
 
         emit TokenSent({
             msgHash: msgHash,
-            from: message.user,
+            from: _message.user,
             to: opt.to,
             destChainId: opt.destChainId,
             token: opt.token,
@@ -217,21 +218,17 @@ contract ERC20Vault is
         });
     }
 
-    /// @notice Releases deposited ERC20 tokens back to the user on the source
-    /// ERC20Vault with a proof that the message processing on the destination
-    /// Bridge has failed.
-    /// @param message The message that corresponds to the ERC20 deposit on the
-    /// source chain.
-    function onMessageRecalled(IBridge.Message calldata message)
+    /// @inheritdoc IRecallableSender
+    function onMessageRecalled(
+        IBridge.Message calldata message,
+        bytes32 msgHash
+    )
         external
         payable
         override
         nonReentrant
         onlyFromNamed("bridge")
     {
-        IBridge bridge = IBridge(resolve("bridge", false));
-        bytes32 msgHash = bridge.hashMessage(message);
-
         (, address token,, uint256 amount) = abi.decode(
             message.data[4:], (CanonicalERC20, address, address, uint256)
         );
@@ -265,7 +262,7 @@ contract ERC20Vault is
         override
         returns (bool)
     {
-        return interfaceId == type(IRecallableMessageSender).interfaceId;
+        return interfaceId == type(IRecallableSender).interfaceId;
     }
 
     /// @dev Encodes sending bridged or canonical ERC20 tokens to the user.

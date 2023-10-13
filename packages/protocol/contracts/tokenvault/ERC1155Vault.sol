@@ -18,19 +18,20 @@ import { IERC1155Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
 import { IERC165Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
-import { IRecallableMessageSender, IBridge } from "../bridge/IBridge.sol";
+import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
+
 import { BaseNFTVault } from "./BaseNFTVault.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { ProxiedBridgedERC1155 } from "./BridgedERC1155.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-
 /// @title ERC1155NameAndSymbol
 /// @notice Interface for ERC1155 contracts that provide name() and symbol()
 /// functions. These functions may not be part of the official interface but are
 /// used by
 /// some contracts.
+
 interface ERC1155NameAndSymbol {
     function name() external view returns (string memory);
     function symbol() external view returns (string memory);
@@ -83,16 +84,16 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         message.memo = opt.memo;
 
         // Send the message and obtain the message hash
-        bytes32 msgHash = IBridge(resolve("bridge", false)).sendMessage{
-            value: msg.value
-        }(message);
+        (bytes32 msgHash, IBridge.Message memory _message) = IBridge(
+            resolve("bridge", false)
+        ).sendMessage{ value: msg.value }(message);
 
         // Emit TokenSent event
         emit TokenSent({
             msgHash: msgHash,
-            from: message.user,
+            from: _message.user,
             to: opt.to,
-            destChainId: message.destChainId,
+            destChainId: _message.destChainId,
             token: _token,
             tokenIds: _tokenIds,
             amounts: _amounts
@@ -162,12 +163,11 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         });
     }
 
-    /// @notice Releases deposited ERC1155 token(s) back to the user on the
-    /// source chain with a proof that the message processing on the destination
-    /// Bridge has failed.
-    /// @param message The message that corresponds to the ERC1155 deposit on
-    /// the source chain.
-    function onMessageRecalled(IBridge.Message calldata message)
+    /// @inheritdoc IRecallableSender
+    function onMessageRecalled(
+        IBridge.Message calldata message,
+        bytes32 msgHash
+    )
         external
         payable
         override
@@ -185,9 +185,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             (CanonicalNFT, address, address, uint256[], uint256[])
         );
 
-        bytes32 msgHash = LibVaultUtils.hashAndCheckToken(
-            message, resolve("bridge", false), nft.addr
-        );
+        if (nft.addr == address(0)) revert VAULT_INVALID_TOKEN();
 
         unchecked {
             if (isBridgedToken[nft.addr]) {
@@ -257,7 +255,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         returns (bool)
     {
         return interfaceId == type(ERC1155ReceiverUpgradeable).interfaceId
-            || interfaceId == type(IRecallableMessageSender).interfaceId
+            || interfaceId == type(IRecallableSender).interfaceId
             || super.supportsInterface(interfaceId);
     }
 

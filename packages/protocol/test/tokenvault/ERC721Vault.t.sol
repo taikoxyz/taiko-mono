@@ -11,14 +11,10 @@ import {
 } from "../TestBase.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { IBridge, Bridge } from "../../contracts/bridge/Bridge.sol";
-import { LibBridgeData } from "../../contracts/bridge/libs/LibBridgeData.sol";
-import { BridgeErrors } from "../../contracts/bridge/BridgeErrors.sol";
 import { BaseNFTVault } from "../../contracts/tokenvault/BaseNFTVault.sol";
 import { ERC721Vault } from "../../contracts/tokenvault/ERC721Vault.sol";
 import { BridgedERC721 } from "../../contracts/tokenvault/BridgedERC721.sol";
 import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
-import { LibBridgeStatus } from
-    "../../contracts/bridge/libs/LibBridgeStatus.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../../contracts/common/ICrossChainSync.sol";
 import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
@@ -650,9 +646,10 @@ contract ERC721VaultTest is TestBase {
         message.fee = 140_000;
         message.refundTo = Alice;
         message.memo = "";
-        bytes memory proof = bytes("");
 
-        srcPrankBridge.recallMessage(message, proof);
+        bytes[] memory proofs = new bytes[](1);
+        proofs[0] = bytes("");
+        srcPrankBridge.recallMessage(message, proofs);
 
         // Alice got back her NFT
         assertEq(canonicalToken721.ownerOf(1), Alice);
@@ -1016,5 +1013,17 @@ contract ERC721VaultTest is TestBase {
         } catch {
             fail();
         }
+    }
+
+    function _recallMessage(
+        Bridge srcBridge,
+        IBridge.Message memory message,
+        bytes memory proof
+    )
+        internal
+    {
+        bytes[] memory proofs = new bytes[](1);
+        proofs[0] = proof;
+        srcBridge.recallMessage(message, proofs);
     }
 }

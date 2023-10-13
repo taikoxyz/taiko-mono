@@ -12,6 +12,31 @@ import { ISignalService } from "./ISignalService.sol";
 import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
 import { Proxied } from "../common/Proxied.sol";
 
+library LibSignalService {
+    function getSignalSlot(
+        address app,
+        bytes32 signal
+    )
+        internal
+        pure
+        returns (bytes32 signalSlot)
+    {
+        // Equivalent to `keccak256(abi.encodePacked(app, signal))`
+        assembly {
+            // Load the free memory pointer
+            let ptr := mload(0x40)
+            // Store the app address and signal bytes32 value in the allocated
+            // memory
+            mstore(ptr, app)
+            mstore(add(ptr, 32), signal)
+            // Calculate the hash of the concatenated arguments using keccak256
+            signalSlot := keccak256(add(ptr, 12), 52)
+            // Update free memory pointer
+            mstore(0x40, add(ptr, 64))
+        }
+    }
+}
+
 /// @title SignalService
 /// @notice See the documentation in {ISignalService} for more details.
 contract SignalService is ISignalService, EssentialContract {
@@ -20,22 +45,22 @@ contract SignalService is ISignalService, EssentialContract {
         bytes proof; // A storage proof
     }
 
-    error B_ZERO_SIGNAL();
-    error B_NULL_APP_ADDR();
-    error B_WRONG_CHAIN_ID();
+    error SS_INVALID_SIGNAL();
+    error SS_INVALID_APP();
+    error SS_INVALID_CHAINID();
 
     modifier validApp(address app) {
-        if (app == address(0)) revert B_NULL_APP_ADDR();
+        if (app == address(0)) revert SS_INVALID_APP();
         _;
     }
 
     modifier validSignal(bytes32 signal) {
-        if (signal == 0) revert B_ZERO_SIGNAL();
+        if (signal == 0) revert SS_INVALID_SIGNAL();
         _;
     }
 
     modifier validChainId(uint256 srcChainId) {
-        if (srcChainId == block.chainid) revert B_WRONG_CHAIN_ID();
+        if (srcChainId == block.chainid) revert SS_INVALID_CHAINID();
         _;
     }
 
@@ -114,19 +139,7 @@ contract SignalService is ISignalService, EssentialContract {
         pure
         returns (bytes32 signalSlot)
     {
-        // Equivalent to `keccak256(abi.encodePacked(app, signal))`
-        assembly {
-            // Load the free memory pointer
-            let ptr := mload(0x40)
-            // Store the app address and signal bytes32 value in the allocated
-            // memory
-            mstore(ptr, app)
-            mstore(add(ptr, 32), signal)
-            // Calculate the hash of the concatenated arguments using keccak256
-            signalSlot := keccak256(add(ptr, 12), 52)
-            // Update free memory pointer
-            mstore(0x40, add(ptr, 64))
-        }
+        return LibSignalService.getSignalSlot(app, signal);
     }
 }
 
