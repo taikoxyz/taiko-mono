@@ -63,9 +63,7 @@ library LibBridgeProcess {
             revert B_FORBIDDEN();
         }
 
-        if (message.destChainId != block.chainid) {
-            revert B_WRONG_CHAIN_ID();
-        }
+        if (message.destChainId != block.chainid) revert B_WRONG_CHAIN_ID();
 
         // The message status must be "NEW"; "RETRIABLE" is managed in
         // LibBridgeRetry.sol.
@@ -78,13 +76,10 @@ library LibBridgeProcess {
         }
 
         if (checkProof) {
-            if (
-                !LibBridgeSend.isMessageReceived(
-                    resolver, msgHash, message.srcChainId, proofs
-                )
-            ) {
-                revert B_SIGNAL_NOT_RECEIVED();
-            }
+            bool received = LibBridgeSend.isMessageReceived(
+                resolver, msgHash, message.srcChainId, proofs
+            );
+            if (!received) revert B_SIGNAL_NOT_RECEIVED();
         }
 
         // Release necessary Ether from EtherVault if on Taiko, otherwise it's

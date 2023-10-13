@@ -39,9 +39,8 @@ library LibBridgeInvoke {
         internal
         returns (bool success)
     {
-        if (gasLimit == 0) {
-            revert B_GAS_LIMIT();
-        }
+        if (gasLimit == 0) revert B_GAS_LIMIT();
+
         // Update the context for the message call
         // Should we simply provide the message itself rather than
         // a context object?

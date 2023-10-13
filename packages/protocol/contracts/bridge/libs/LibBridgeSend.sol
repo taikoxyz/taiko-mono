@@ -46,9 +46,7 @@ library LibBridgeSend {
         returns (bytes32 msgHash)
     {
         // Ensure the message user is not null.
-        if (message.user == address(0)) {
-            revert B_USER_IS_NULL();
-        }
+        if (message.user == address(0)) revert B_USER_IS_NULL();
 
         // Check if the destination chain is enabled.
         (bool destChainEnabled, address destBridge) =
@@ -64,9 +62,7 @@ library LibBridgeSend {
 
         // Ensure the sent value matches the expected amount.
         uint256 expectedAmount = message.value + message.fee;
-        if (expectedAmount != msg.value) {
-            revert B_INCORRECT_VALUE();
-        }
+        if (expectedAmount != msg.value) revert B_INCORRECT_VALUE();
 
         // On Taiko, send the expectedAmount to the EtherVault; otherwise, store
         // it on the Bridge.
@@ -147,14 +143,13 @@ library LibBridgeSend {
             IBridge.IntermediateProof memory iproof =
                 abi.decode(proofs[i], (IBridge.IntermediateProof));
             // perform inclusion check
-            if (
-                !LibSecureMerkleTrie.verifyInclusionProof(
-                    bytes.concat(LibSignalService.getSignalSlot(_app, _signal)),
-                    hex"01",
-                    iproof.mkproof,
-                    iproof.signalRoot
-                )
-            ) return false;
+            bool verified = LibSecureMerkleTrie.verifyInclusionProof(
+                bytes.concat(LibSignalService.getSignalSlot(_app, _signal)),
+                hex"01",
+                iproof.mkproof,
+                iproof.signalRoot
+            );
+            if (!verified) return false;
 
             _srcChainId = iproof.chainId;
             _app = resolver.resolve(iproof.chainId, "taiko", false);

@@ -48,17 +48,13 @@ library LibBridgeRecall {
     {
         bytes32 msgHash = message.hashMessage();
 
-        if (state.recalls[msgHash]) {
-            revert B_MSG_RECALLED_ALREADY();
-        }
+        if (state.recalls[msgHash]) revert B_MSG_RECALLED_ALREADY();
 
-        if (
-            checkProof
-                && !LibBridgeStatus.isMessageFailed(
-                    resolver, msgHash, message.destChainId, proofs
-                )
-        ) {
-            revert B_MSG_NOT_FAILED();
+        if (checkProof) {
+            bool failed = LibBridgeStatus.isMessageFailed(
+                resolver, msgHash, message.destChainId, proofs
+            );
+            if (!failed) revert B_MSG_NOT_FAILED();
         }
 
         state.recalls[msgHash] = true;
@@ -74,11 +70,10 @@ library LibBridgeRecall {
 
         // Execute the recall logic based on the contract's support for the
         // IRecallableMessageSender interface
-        if (
-            message.from.supportsInterface(
-                type(IRecallableMessageSender).interfaceId
-            )
-        ) {
+        bool support = message.from.supportsInterface(
+            type(IRecallableMessageSender).interfaceId
+        );
+        if (support) {
             IRecallableMessageSender(message.from).onMessageRecalled{
                 value: message.value
             }(message);

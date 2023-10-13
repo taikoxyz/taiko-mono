@@ -85,12 +85,8 @@ library LibBridgeStatus {
         view
         returns (bool)
     {
-        if (destChainId == block.chainid) {
-            revert B_WRONG_CHAIN_ID();
-        }
-        if (msgHash == 0x0) {
-            revert B_MSG_HASH_NULL();
-        }
+        if (destChainId == block.chainid) revert B_WRONG_CHAIN_ID();
+        if (msgHash == 0x0) revert B_MSG_HASH_NULL();
 
         // TODO
         LibBridgeData.StatusProof memory sp =
@@ -100,12 +96,8 @@ library LibBridgeStatus {
             resolver.resolve("taiko", false)
         ).getCrossChainBlockHash(uint64(sp.header.height));
 
-        if (
-            syncedHeaderHash == 0
-                || syncedHeaderHash != sp.header.hashBlockHeader()
-        ) {
-            return false;
-        }
+        if (syncedHeaderHash == 0) return false;
+        if (syncedHeaderHash != sp.header.hashBlockHeader()) return false;
 
         return LibTrieProof.verifyWithFullMerkleProof({
             stateRoot: sp.header.stateRoot,
