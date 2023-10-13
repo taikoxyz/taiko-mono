@@ -640,8 +640,10 @@ contract ERC1155VaultTest is TestBase {
         message.fee = 140_000;
         message.refundTo = Alice;
         message.memo = "";
-        bytes memory proof = bytes("");
-        _recallMessage(srcPrankBridge, message, proof);
+
+        bytes[] memory proofs = new bytes[](1);
+        proofs[0] = bytes("");
+        srcPrankBridge.recallMessage(message, proofs);
 
         // Alice got back her NFTs, and vault has 0
         assertEq(ctoken1155.balanceOf(Alice, 1), 10);
@@ -1009,17 +1011,5 @@ contract ERC1155VaultTest is TestBase {
         catch {
             fail();
         }
-    }
-
-    function _recallMessage(
-        Bridge srcBridge,
-        IBridge.Message memory message,
-        bytes memory proof
-    )
-        internal
-    {
-        bytes[] memory proofs = new bytes[](1);
-        proofs[0] = proof;
-        srcBridge.recallMessage(message, proofs);
     }
 }

@@ -646,9 +646,10 @@ contract ERC721VaultTest is TestBase {
         message.fee = 140_000;
         message.refundTo = Alice;
         message.memo = "";
-        bytes memory proof = bytes("");
 
-        _recallMessage(srcPrankBridge, message, proof);
+        bytes[] memory proofs = new bytes[](1);
+        proofs[0] = bytes("");
+        srcPrankBridge.recallMessage(message, proofs);
 
         // Alice got back her NFT
         assertEq(canonicalToken721.ownerOf(1), Alice);
