@@ -278,8 +278,9 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        bridge.sendMessage{ value: amount }(message);
-        assertEq(bridge.isMessageSent(message), true);
+        (, IBridge.Message memory _message) =
+            bridge.sendMessage{ value: amount }(message);
+        assertEq(bridge.isMessageSent(_message), true);
     }
 
     function test_Bridge_send_message_ether_with_processing_fee() public {
@@ -294,8 +295,9 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        bridge.sendMessage{ value: amount + fee }(message);
-        assertEq(bridge.isMessageSent(message), true);
+        (, IBridge.Message memory _message) =
+            bridge.sendMessage{ value: amount + fee }(message);
+        assertEq(bridge.isMessageSent(_message), true);
     }
 
     function test_Bridge_send_message_ether_with_processing_fee_invalid_amount()
