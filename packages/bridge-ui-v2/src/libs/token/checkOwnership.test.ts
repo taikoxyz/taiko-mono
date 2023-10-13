@@ -25,7 +25,7 @@ describe('checkOwnership', () => {
   });
 
   describe('ERC1155', () => {
-    it('should return true if the account owns all the tokens', async () => {
+    it('should return the correct result if the account owns all the tokens', async () => {
       // Given
       vi.mocked(readContract).mockResolvedValueOnce(BigInt(10)).mockResolvedValueOnce(BigInt(10));
 
@@ -33,10 +33,13 @@ describe('checkOwnership', () => {
       const result = await checkOwnership(TOKEN_ADDRESS, TokenType.ERC1155, TOKEN_IDS, OWNER, CHAIN_ID);
 
       // Then
-      expect(result).toBe(true);
+      expect(result).toEqual([
+        { tokenId: TOKEN_IDS[0], isOwner: true },
+        { tokenId: TOKEN_IDS[1], isOwner: true },
+      ]);
     });
 
-    it('should return true if a single token is passed and the account owns it', async () => {
+    it('should return the correct result if a single token is passed and the account owns it', async () => {
       // Given
       vi.mocked(readContract).mockResolvedValueOnce(BigInt(10)).mockResolvedValueOnce(BigInt(10));
 
@@ -44,10 +47,10 @@ describe('checkOwnership', () => {
       const result = await checkOwnership(TOKEN_ADDRESS, TokenType.ERC1155, TOKEN_IDS[0], OWNER, CHAIN_ID);
 
       // Then
-      expect(result).toBe(true);
+      expect(result).toEqual([{ tokenId: TOKEN_IDS[0], isOwner: true }]);
     });
 
-    it('should return false if the account does not own any of the tokens', async () => {
+    it('should return the correct result if the account does not own any of the tokens', async () => {
       // Given
       vi.mocked(readContract).mockResolvedValueOnce(BigInt(0)).mockResolvedValueOnce(BigInt(0));
 
@@ -55,10 +58,27 @@ describe('checkOwnership', () => {
       const result = await checkOwnership(TOKEN_ADDRESS, TokenType.ERC1155, TOKEN_IDS, OWNER, CHAIN_ID);
 
       // Then
-      expect(result).toBe(false);
+      expect(result).toEqual([
+        { tokenId: TOKEN_IDS[0], isOwner: false },
+        { tokenId: TOKEN_IDS[1], isOwner: false },
+      ]);
     });
 
-    it('should return false if a single token is passed and the account does not own it', async () => {
+    it('should return the correct result if the account only owns some of the tokens', async () => {
+      // Given
+      vi.mocked(readContract).mockResolvedValueOnce(BigInt(10)).mockResolvedValueOnce(BigInt(0));
+
+      // When
+      const result = await checkOwnership(TOKEN_ADDRESS, TokenType.ERC1155, TOKEN_IDS, OWNER, CHAIN_ID);
+
+      // Then
+      expect(result).toEqual([
+        { tokenId: TOKEN_IDS[0], isOwner: true },
+        { tokenId: TOKEN_IDS[1], isOwner: false },
+      ]);
+    });
+
+    it('should return the correct result if a single token is passed and the account does not own it', async () => {
       // Given
       vi.mocked(readContract).mockResolvedValueOnce(BigInt(0)).mockResolvedValueOnce(BigInt(0));
 
@@ -66,10 +86,10 @@ describe('checkOwnership', () => {
       const result = await checkOwnership(TOKEN_ADDRESS, TokenType.ERC1155, TOKEN_IDS[0], OWNER, CHAIN_ID);
 
       // Then
-      expect(result).toBe(false);
+      expect(result).toEqual([{ tokenId: TOKEN_IDS[0], isOwner: false }]);
     });
 
-    it('should return false if the account does not own any of the tokens ', async () => {
+    it('should return the correct result if the account does not own any of the tokens ', async () => {
       // Given
       vi.mocked(readContract).mockResolvedValueOnce(BigInt(0)).mockResolvedValueOnce(BigInt(0));
 
@@ -77,7 +97,10 @@ describe('checkOwnership', () => {
       const result = await checkOwnership(TOKEN_ADDRESS, TokenType.ERC1155, TOKEN_IDS, OWNER, CHAIN_ID);
 
       // Then
-      expect(result).toBe(false);
+      expect(result).toEqual([
+        { tokenId: TOKEN_IDS[0], isOwner: false },
+        { tokenId: TOKEN_IDS[1], isOwner: false },
+      ]);
     });
   });
 
@@ -90,10 +113,13 @@ describe('checkOwnership', () => {
       const result = await checkOwnership(TOKEN_ADDRESS, TokenType.ERC721, TOKEN_IDS, OWNER, CHAIN_ID);
 
       // Then
-      expect(result).toBe(true);
+      expect(result).toEqual([
+        { tokenId: TOKEN_IDS[0], isOwner: true },
+        { tokenId: TOKEN_IDS[1], isOwner: true },
+      ]);
     });
 
-    it('should return true if the account owns all the tokens (no token type passed)', async () => {
+    it('should return the correct result if the account owns all the tokens (no token type passed)', async () => {
       // Given
       vi.mocked(readContract).mockResolvedValueOnce(OWNER).mockResolvedValueOnce(OWNER);
 
@@ -103,10 +129,13 @@ describe('checkOwnership', () => {
       const result = await checkOwnership(TOKEN_ADDRESS, null, TOKEN_IDS, OWNER, CHAIN_ID);
 
       // Then
-      expect(result).toBe(true);
+      expect(result).toEqual([
+        { tokenId: TOKEN_IDS[0], isOwner: true },
+        { tokenId: TOKEN_IDS[1], isOwner: true },
+      ]);
     });
 
-    it('should return true if a single token is passed and the account owns it', async () => {
+    it('should return the correct result if a single token is passed and the account owns it', async () => {
       // Given
       vi.mocked(readContract).mockResolvedValueOnce(OWNER);
 
@@ -114,10 +143,10 @@ describe('checkOwnership', () => {
       const result = await checkOwnership(TOKEN_ADDRESS, TokenType.ERC721, TOKEN_IDS[0], OWNER, CHAIN_ID);
 
       // Then
-      expect(result).toBe(true);
+      expect(result).toEqual([{ tokenId: TOKEN_IDS[0], isOwner: true }]);
     });
 
-    it('should return false if the account does not own any of the tokens', async () => {
+    it('should return correct result if the account does not own any of the tokens', async () => {
       // Given
       vi.mocked(readContract).mockResolvedValueOnce('0x2').mockResolvedValueOnce('0x3');
 
@@ -125,10 +154,27 @@ describe('checkOwnership', () => {
       const result = await checkOwnership(TOKEN_ADDRESS, TokenType.ERC721, TOKEN_IDS, OWNER, CHAIN_ID);
 
       // Then
-      expect(result).toBe(false);
+      expect(result).toEqual([
+        { tokenId: TOKEN_IDS[0], isOwner: false },
+        { tokenId: TOKEN_IDS[1], isOwner: false },
+      ]);
     });
 
-    it('should return falseif a single token is passed and the account does not own it', async () => {
+    it('should return the correct result if the account only owns some of the tokens', async () => {
+      // Given
+      vi.mocked(readContract).mockResolvedValueOnce(OWNER).mockResolvedValueOnce('0x3');
+
+      // When
+      const result = await checkOwnership(TOKEN_ADDRESS, TokenType.ERC721, TOKEN_IDS, OWNER, CHAIN_ID);
+
+      // Then
+      expect(result).toEqual([
+        { tokenId: TOKEN_IDS[0], isOwner: true },
+        { tokenId: TOKEN_IDS[1], isOwner: false },
+      ]);
+    });
+
+    it('should return the correct result if a single token is passed and the account does not own it', async () => {
       // Given
       vi.mocked(readContract).mockResolvedValueOnce('0x2').mockResolvedValueOnce('0x3');
 
@@ -136,25 +182,25 @@ describe('checkOwnership', () => {
       const result = await checkOwnership(TOKEN_ADDRESS, TokenType.ERC721, TOKEN_IDS[0], OWNER, CHAIN_ID);
 
       // Then
-      expect(result).toBe(false);
+      expect(result).toEqual([{ tokenId: TOKEN_IDS[0], isOwner: false }]);
     });
   });
 
   describe('General tests', () => {
-    it('should return false if tokenType is null', async () => {
+    it('should return an emtpy array if tokenType is null', async () => {
       // When
       const result = await checkOwnership(TOKEN_ADDRESS, null, TOKEN_IDS, OWNER, CHAIN_ID);
 
       // Then
-      expect(result).toBe(false);
+      expect(result).toEqual([]);
     });
 
-    it('should return false if tokenIds array is empty', async () => {
+    it('should return an emtpy array if tokenIds array is empty', async () => {
       // When
       const result = await checkOwnership(TOKEN_ADDRESS, TokenType.ERC721, [], OWNER, CHAIN_ID);
 
       // Then
-      expect(result).toBe(false);
+      expect(result).toEqual([]);
     });
   });
 });
