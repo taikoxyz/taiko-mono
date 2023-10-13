@@ -9,8 +9,6 @@ import { AddressResolver } from "../common/AddressResolver.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { ISignalService } from "../signal/ISignalService.sol";
-import { LibSignalService } from "../signal/SignalService.sol";
-import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 
 import { EtherVault } from "./EtherVault.sol";
@@ -153,10 +151,8 @@ contract Bridge is EssentialContract, IBridge {
             revert B_STATUS_MISMATCH();
         }
 
-        if (!skipProofCheck()) {
-            if (!_proveSignalReceived(msgHash, message.srcChainId, proof)) {
-                revert B_NOT_RECEIVED();
-            }
+        if (!_proveSignalReceived(msgHash, message.srcChainId, proof)) {
+            revert B_NOT_RECEIVED();
         }
 
         // Release necessary Ether from EtherVault if on Taiko, otherwise it's
@@ -276,11 +272,9 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 msgHash = keccak256(abi.encode(message));
         if (isMessageRecalled[msgHash]) revert B_RECALLED_ALREADY();
 
-        if (!skipProofCheck()) {
-            bool received = _proveSignalReceived(
-                _signalForFailedMessage(msgHash), message.destChainId, proof
-            );
-            if (!received) revert B_NOT_FAILED();
+        bytes32 failedSignal = _signalForFailedMessage(msgHash);
+        if (!_proveSignalReceived(failedSignal, message.destChainId, proof)) {
+            revert B_NOT_FAILED();
         }
 
         isMessageRecalled[msgHash] = true;
@@ -458,6 +452,8 @@ contract Bridge is EssentialContract, IBridge {
         view
         returns (bool)
     {
+        if (skipProofCheck()) return true;
+
         return ISignalService(resolve("signal_service", false))
             .proveSignalReceived({
             srcChainId: srcChainId,

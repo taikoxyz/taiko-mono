@@ -13,31 +13,6 @@ import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
 
 import { ISignalService } from "./ISignalService.sol";
 
-library LibSignalService {
-    function getSignalSlot(
-        address app,
-        bytes32 signal
-    )
-        internal
-        pure
-        returns (bytes32 signalSlot)
-    {
-        // Equivalent to `keccak256(abi.encodePacked(app, signal))`
-        assembly {
-            // Load the free memory pointer
-            let ptr := mload(0x40)
-            // Store the app address and signal bytes32 value in the allocated
-            // memory
-            mstore(ptr, app)
-            mstore(add(ptr, 32), signal)
-            // Calculate the hash of the concatenated arguments using keccak256
-            signalSlot := keccak256(add(ptr, 12), 52)
-            // Update free memory pointer
-            mstore(0x40, add(ptr, 64))
-        }
-    }
-}
-
 /// @title SignalService
 /// @notice See the documentation in {ISignalService} for more details.
 contract SignalService is ISignalService, EssentialContract {
@@ -49,7 +24,7 @@ contract SignalService is ISignalService, EssentialContract {
 
     struct SignalProof {
         uint64 height;
-        bytes proof; // A storage proof
+        bytes mkproof; // A storage proof
         Hop[] hops;
     }
 
@@ -64,11 +39,6 @@ contract SignalService is ISignalService, EssentialContract {
 
     modifier validSignal(bytes32 signal) {
         if (signal == 0) revert SS_INVALID_SIGNAL();
-        _;
-    }
-
-    modifier validChainId(uint256 srcChainId) {
-        if (srcChainId == block.chainid) revert SS_INVALID_CHAINID();
         _;
     }
 
@@ -117,56 +87,38 @@ contract SignalService is ISignalService, EssentialContract {
     )
         public
         view
-        validChainId(srcChainId)
         validApp(app)
         validSignal(signal)
         returns (bool)
     {
-        SignalProof memory signalProof = abi.decode(proof, (SignalProof));
+        if (srcChainId == 0 || srcChainId == block.chainid) {
+            revert SS_INVALID_CHAINID();
+        }
 
-        if (signal == 0x0) return false;
-        if (app == address(0)) return false;
-        if (srcChainId == block.chainid) return false;
+        // Check a chain of inclusion proofs, from the message's source
+        // chain all the way to the destination chain.
+        SignalProof memory sp = abi.decode(proof, (SignalProof));
+        bytes32 signalRoot = ICrossChainSync(resolve("taiko", false))
+            .getCrossChainSignalRoot(sp.height);
 
-        // // Check a chain of inclusion proofs, from the message's source
-        // // chain all the way to the destination chain.
-        // uint256 _srcChainId = srcChainId;
-        // address _app = app;
-        // bytes32 _signal = signal;
-        //  bytes32 syncedSignalRoot = ICrossChainSync(resolve("taiko", false))
-        //     .getCrossChainSignalRoot(signalProof.height);
+        for (uint256 i; i < sp.hops.length; ++i) {
+            Hop memory hop = sp.hops[i];
+            bytes32 slot = getSignalSlot(
+                resolve(hop.chainId, "taiko", false), hop.signalRoot
+            );
+            bool verified = LibSecureMerkleTrie.verifyInclusionProof(
+                bytes.concat(slot), hex"01", hop.mkproof, signalRoot
+            );
+            if (!verified) return false;
+            signalRoot = hop.signalRoot;
+        }
 
-        // for (uint256 i; i < proofs.length - 1; ++i) {
-        //     HopProof memory iproof = abi.decode(proofs[i], (HopProof));
-        //     // perform inclusion check
-        //     bool verified = LibSecureMerkleTrie.verifyInclusionProof(
-        //         bytes.concat(LibSignalService.getSignalSlot(_app, _signal)),
-        //         hex"01",
-        //         iproof.mkproof,
-        //         iproof.signalRoot
-        //     );
-        //     if (!verified) return false;
-
-        //     _srcChainId = iproof.chainId;
-        //     _app = resolve(iproof.chainId, "taiko", false);
-        //     _signal = iproof.signalRoot;
-        // }
-
-        // return ISignalService(resolve("signal_service", false))
-        //     .proveSignalReceived({
-        //     srcChainId: srcChainId,
-        //     app: _app,
-        //     signal: _signal,
-        //     proof: proofs[proofs.length - 1]
-        // });
-
-        // bool verified = LibSecureMerkleTrie.verifyInclusionProof(
-        //     bytes.concat(getSignalSlot(app, signal)),
-        //     hex"01",
-        //     signalProof.proof,
-        //     syncedSignalRoot
-        // );
-        return true;
+        return LibSecureMerkleTrie.verifyInclusionProof(
+            bytes.concat(getSignalSlot(app, signal)),
+            hex"01",
+            sp.mkproof,
+            signalRoot
+        );
     }
 
     /// @notice Get the storage slot of the signal.
@@ -182,7 +134,19 @@ contract SignalService is ISignalService, EssentialContract {
         pure
         returns (bytes32 signalSlot)
     {
-        return LibSignalService.getSignalSlot(app, signal);
+        // Equivalent to `keccak256(abi.encodePacked(app, signal))`
+        assembly {
+            // Load the free memory pointer
+            let ptr := mload(0x40)
+            // Store the app address and signal bytes32 value in the allocated
+            // memory
+            mstore(ptr, app)
+            mstore(add(ptr, 32), signal)
+            // Calculate the hash of the concatenated arguments using keccak256
+            signalSlot := keccak256(add(ptr, 12), 52)
+            // Update free memory pointer
+            mstore(0x40, add(ptr, 64))
+        }
     }
 }
 
