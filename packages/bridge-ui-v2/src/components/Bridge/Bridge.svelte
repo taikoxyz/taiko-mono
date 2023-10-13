@@ -159,7 +159,7 @@
           }),
         );
 
-        // await pendingTransactions.add(txHash, $network.id);
+        await pendingTransactions.add(txHash, $network.id);
 
         successToast(
           $t('bridge.actions.approve.success', {
