@@ -169,7 +169,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     /// chain.
     /// @inheritdoc IBridge
     function isMessageRecalled(bytes32 msgHash) public view returns (bool) {
-        return _state.messageRecall[msgHash];
+        return _state.recalls[msgHash];
     }
 
     /// @notice Gets the execution status of the message with the given hash on

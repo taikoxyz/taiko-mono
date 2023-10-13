@@ -31,7 +31,7 @@ library LibBridgeData {
     struct State {
         uint256 nextMessageId;
         IBridge.Context ctx; // 3 slots
-        mapping(bytes32 msgHash => bool recalled) messageRecall;
+        mapping(bytes32 msgHash => bool recalled) recalls;
         mapping(bytes32 msgHash => Status) messageStatus;
         uint256[45] __gap;
     }
