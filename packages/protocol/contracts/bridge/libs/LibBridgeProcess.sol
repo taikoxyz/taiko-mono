@@ -15,6 +15,7 @@ import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibBridgeData } from "./LibBridgeData.sol";
 import { LibBridgeInvoke } from "./LibBridgeInvoke.sol";
 import { LibBridgeSend } from "./LibBridgeSend.sol";
+import { LibBridgeSignal } from "./LibBridgeSignal.sol";
 import { LibBridgeStatus } from "./LibBridgeStatus.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibSecureMerkleTrie } from "../../thirdparty/LibSecureMerkleTrie.sol";
@@ -73,7 +74,7 @@ library LibBridgeProcess {
         }
 
         if (checkProof) {
-            bool received = LibBridgeSend.isMessageReceived(
+            bool received = LibBridgeSignal.isSignalReceived(
                 resolver, msgHash, message.srcChainId, proofs
             );
             if (!received) revert B_SIGNAL_NOT_RECEIVED();
@@ -119,7 +120,7 @@ library LibBridgeProcess {
         }
 
         // Update the message status
-        LibBridgeStatus.updateMessageStatus(state, msgHash, status);
+        LibBridgeStatus.updateMessageStatus(state, resolver, msgHash, status);
 
         // Determine the refund recipient
         address refundTo =

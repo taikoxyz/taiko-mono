@@ -10,6 +10,7 @@ import { AddressResolver } from "../../common/AddressResolver.sol";
 import { EtherVault } from "../EtherVault.sol";
 import { IRecallableMessageSender, IBridge } from "../IBridge.sol";
 import { LibBridgeData } from "./LibBridgeData.sol";
+import { LibBridgeSignal } from "./LibBridgeSignal.sol";
 import { LibBridgeStatus } from "./LibBridgeStatus.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 
@@ -48,11 +49,14 @@ library LibBridgeRecall {
     {
         bytes32 msgHash = message.hashMessage();
 
-        if (state.messageRecall[msgHash])   revert B_MSG_RECALLED_ALREADY();
+        if (state.messageRecall[msgHash]) revert B_MSG_RECALLED_ALREADY();
 
         if (checkProof) {
-            bool failed = LibBridgeStatus.isMessageFailed(
-                resolver, msgHash, message.destChainId, proofs
+            bool failed = LibBridgeSignal.isSignalReceived(
+                resolver,
+                LibBridgeStatus.getStatusFailedSignal(msgHash),
+                message.srcChainId,
+                proofs
             );
             if (!failed) revert B_MSG_NOT_FAILED();
         }

@@ -79,12 +79,12 @@ library LibBridgeRetry {
         if (success) {
             // Update the message status to "DONE" on successful invocation.
             LibBridgeStatus.updateMessageStatus(
-                state, msgHash, LibBridgeData.Status.DONE
+                state, resolver, msgHash, LibBridgeData.Status.DONE
             );
         } else {
             // Update the message status to "FAILED"
             LibBridgeStatus.updateMessageStatus(
-                state, msgHash, LibBridgeData.Status.FAILED
+                state, resolver, msgHash, LibBridgeData.Status.FAILED
             );
             // Release Ether back to EtherVault (if on Taiko it is OK)
             // otherwise funds stay at Bridge anyways.

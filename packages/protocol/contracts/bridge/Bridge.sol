@@ -14,6 +14,7 @@ import { LibBridgeProcess } from "./libs/LibBridgeProcess.sol";
 import { LibBridgeRecall } from "./libs/LibBridgeRecall.sol";
 import { LibBridgeRetry } from "./libs/LibBridgeRetry.sol";
 import { LibBridgeSend } from "./libs/LibBridgeSend.sol";
+import { LibBridgeSignal } from "./libs/LibBridgeSignal.sol";
 import { LibBridgeStatus } from "./libs/LibBridgeStatus.sol";
 import { Proxied } from "../common/Proxied.sol";
 
@@ -118,7 +119,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         virtual
         returns (bool)
     {
-        return LibBridgeSend.isMessageSent(AddressResolver(this), msgHash);
+        return LibBridgeSignal.isSignalSent(AddressResolver(this), msgHash);
     }
 
     /// @notice Checks if the message with the given hash has been received on
@@ -135,9 +136,9 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         override
         returns (bool)
     {
-        return LibBridgeSend.isMessageReceived({
+        return LibBridgeSignal.isSignalReceived({
             resolver: AddressResolver(this),
-            msgHash: msgHash,
+            signal: msgHash,
             srcChainId: srcChainId,
             proofs: proofs
         });
@@ -156,10 +157,10 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         override
         returns (bool)
     {
-        return LibBridgeStatus.isMessageFailed({
+        return LibBridgeSignal.isSignalReceived({
             resolver: AddressResolver(this),
-            msgHash: msgHash,
-            destChainId: destChainId,
+            signal: LibBridgeStatus.getStatusFailedSignal(msgHash),
+            srcChainId: destChainId,
             proofs: proofs
         });
     }

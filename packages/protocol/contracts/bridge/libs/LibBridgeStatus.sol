@@ -11,6 +11,7 @@ import { BlockHeader, LibBlockHeader } from "../../libs/LibBlockHeader.sol";
 import { ICrossChainSync } from "../../common/ICrossChainSync.sol";
 import { LibBridgeData } from "./LibBridgeData.sol";
 import { LibTrieProof } from "../../libs/LibTrieProof.sol";
+import { ISignalService } from "../../signal/ISignalService.sol";
 
 /// @title LibBridgeStatus
 /// @notice This library provides functions for getting and updating the status
@@ -25,7 +26,7 @@ library LibBridgeStatus {
         bytes32 indexed msgHash, LibBridgeData.Status status
     );
 
-    error B_MSG_HASH_NULL();
+    error B_SIGNAL_NULL();
     error B_WRONG_CHAIN_ID();
 
     /// @notice Updates the status of a bridge message.
@@ -35,6 +36,7 @@ library LibBridgeStatus {
     /// @param status The new status of the message.
     function updateMessageStatus(
         LibBridgeData.State storage state,
+        AddressResolver resolver,
         bytes32 msgHash,
         LibBridgeData.Status status
     )
@@ -43,51 +45,20 @@ library LibBridgeStatus {
         if (state.messageStatus[msgHash] != status) {
             state.messageStatus[msgHash] = status;
             if (status == LibBridgeData.Status.FAILED) {
-                // TODO: write a signal
+                ISignalService(resolver.resolve("signal_service", false))
+                    .sendSignal(getStatusFailedSignal(msgHash));
             }
             emit MessageStatusChanged(msgHash, status);
         }
     }
 
-    /// @notice Checks whether a bridge message has failed on its destination
-    /// chain.
-    /// @param resolver The address resolver.
-    /// @param msgHash The hash of the message.
-    /// @param destChainId The ID of the destination chain.
-    /// @param proofs The proofs of the status of the message.
-    /// @return True if the message has failed, false otherwise.
-    function isMessageFailed(
-        AddressResolver resolver,
-        bytes32 msgHash,
-        uint256 destChainId,
-        bytes[] calldata proofs
-    )
+    function getStatusFailedSignal(bytes32 msgHash)
         internal
-        view
-        returns (bool)
+        pure
+        returns (bytes32)
     {
-        if (proofs.length == 0) return false;
-        if (msgHash == 0x0) revert B_MSG_HASH_NULL();
-        if (destChainId == block.chainid) revert B_WRONG_CHAIN_ID();
-
-        // TODO
-        LibBridgeData.StatusProof memory sp =
-            abi.decode(proofs[0], (LibBridgeData.StatusProof));
-
-        bytes32 syncedHeaderHash = ICrossChainSync(
-            resolver.resolve("taiko", false)
-        ).getCrossChainBlockHash(uint64(sp.header.height));
-
-        if (syncedHeaderHash == 0) return false;
-        if (syncedHeaderHash != sp.header.hashBlockHeader()) return false;
-
-        // TODO:
-        // return LibTrieProof.verifyWithFullMerkleProof({
-        //     stateRoot: sp.header.stateRoot,
-        //     addr: resolver.resolve(destChainId, "bridge", false),
-        //     slot: getMessageStatusSlot(msgHash),
-        //     value: bytes32(uint256(LibBridgeData.Status.FAILED)),
-        //     mkproof: sp.proof
-        // });
+        return keccak256(
+            abi.encodePacked("SIGNAL", LibBridgeData.Status.FAILED, msgHash)
+        );
     }
 }

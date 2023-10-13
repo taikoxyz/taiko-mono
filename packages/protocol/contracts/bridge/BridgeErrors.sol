@@ -22,7 +22,7 @@ abstract contract BridgeErrors {
     error B_INCORRECT_VALUE();
     error B_INVALID_PROOFS();
     error B_INIT_PARAM_ERROR();
-    error B_MSG_HASH_NULL();
+    error B_SIGNAL_NULL();
     error B_MSG_NON_RETRIABLE();
     error B_MSG_NOT_FAILED();
     error B_NULL_APP_ADDR();
