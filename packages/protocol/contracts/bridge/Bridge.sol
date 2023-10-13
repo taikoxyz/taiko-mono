@@ -26,9 +26,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     LibBridgeData.State private _state; // 50 slots reserved
 
     event MessageStatusChanged(
-        bytes32 indexed msgHash,
-        LibBridgeStatus.MessageStatus status,
-        address transactor
+        bytes32 indexed msgHash, LibBridgeData.Status status
     );
 
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
@@ -170,7 +168,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     /// chain.
     /// @inheritdoc IBridge
     function isMessageRecalled(bytes32 msgHash) public view returns (bool) {
-        return _state.recalls[msgHash];
+        return _state.messageRecall[msgHash];
     }
 
     /// @notice Gets the execution status of the message with the given hash on
@@ -181,9 +179,9 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         public
         view
         virtual
-        returns (LibBridgeStatus.MessageStatus)
+        returns (LibBridgeData.Status)
     {
-        return LibBridgeStatus.getMessageStatus(msgHash);
+        return _state.messageStatus[msgHash];
     }
 
     /// @notice Gets the current context.
@@ -213,17 +211,6 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         returns (bytes32)
     {
         return LibBridgeData.hashMessage(message);
-    }
-
-    /// @notice Gets the slot associated with a given message hash status.
-    /// @param msgHash The hash of the message.
-    /// @return Returns the slot associated with the given message hash status.
-    function getMessageStatusSlot(bytes32 msgHash)
-        public
-        pure
-        returns (bytes32)
-    {
-        return LibBridgeStatus.getMessageStatusSlot(msgHash);
     }
 
     /// @notice Tells if we need to check real proof or it is a test.

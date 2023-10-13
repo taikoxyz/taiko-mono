@@ -21,15 +21,8 @@ import { LibTrieProof } from "../../libs/LibTrieProof.sol";
 library LibBridgeStatus {
     using LibBlockHeader for BlockHeader;
 
-    enum MessageStatus {
-        NEW,
-        RETRIABLE,
-        DONE,
-        FAILED
-    }
-
     event MessageStatusChanged(
-        bytes32 indexed msgHash, MessageStatus status, address transactor
+        bytes32 indexed msgHash, LibBridgeData.Status status
     );
 
     error B_MSG_HASH_NULL();
@@ -41,31 +34,19 @@ library LibBridgeStatus {
     /// @param msgHash The hash of the message.
     /// @param status The new status of the message.
     function updateMessageStatus(
+        LibBridgeData.State storage state,
         bytes32 msgHash,
-        MessageStatus status
+        LibBridgeData.Status status
     )
         internal
     {
-        if (getMessageStatus(msgHash) != status) {
-            _setMessageStatus(msgHash, status);
-            emit MessageStatusChanged(msgHash, status, msg.sender);
+        if (state.messageStatus[msgHash] != status) {
+            state.messageStatus[msgHash] = status;
+            if (status == LibBridgeData.Status.FAILED) {
+                // TODO: write a signal
+            }
+            emit MessageStatusChanged(msgHash, status);
         }
-    }
-
-    /// @notice Gets the status of a bridge message on the destination chain.
-    /// @param msgHash The hash of the message.
-    /// @return The status of the message.
-    function getMessageStatus(bytes32 msgHash)
-        internal
-        view
-        returns (MessageStatus)
-    {
-        bytes32 slot = getMessageStatusSlot(msgHash);
-        uint256 value;
-        assembly {
-            value := sload(slot)
-        }
-        return MessageStatus(value);
     }
 
     /// @notice Checks whether a bridge message has failed on its destination
@@ -99,34 +80,13 @@ library LibBridgeStatus {
         if (syncedHeaderHash == 0) return false;
         if (syncedHeaderHash != sp.header.hashBlockHeader()) return false;
 
-        return LibTrieProof.verifyWithFullMerkleProof({
-            stateRoot: sp.header.stateRoot,
-            addr: resolver.resolve(destChainId, "bridge", false),
-            slot: getMessageStatusSlot(msgHash),
-            value: bytes32(uint256(LibBridgeStatus.MessageStatus.FAILED)),
-            mkproof: sp.proof
-        });
-    }
-
-    /// @notice Gets the storage slot for a bridge message status.
-    /// @param msgHash The hash of the message.
-    /// @return The storage slot for the message status.
-    function getMessageStatusSlot(bytes32 msgHash)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(bytes.concat(bytes("MESSAGE_STATUS"), msgHash));
-    }
-
-    /// @notice Sets the status of a bridge message.
-    /// @param msgHash The hash of the message.
-    /// @param status The new status of the message.
-    function _setMessageStatus(bytes32 msgHash, MessageStatus status) private {
-        bytes32 slot = getMessageStatusSlot(msgHash);
-        uint256 value = uint256(status);
-        assembly {
-            sstore(slot, value)
-        }
+        // TODO:
+        // return LibTrieProof.verifyWithFullMerkleProof({
+        //     stateRoot: sp.header.stateRoot,
+        //     addr: resolver.resolve(destChainId, "bridge", false),
+        //     slot: getMessageStatusSlot(msgHash),
+        //     value: bytes32(uint256(LibBridgeData.Status.FAILED)),
+        //     mkproof: sp.proof
+        // });
     }
 }

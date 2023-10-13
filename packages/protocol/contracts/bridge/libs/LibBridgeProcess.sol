@@ -68,10 +68,7 @@ library LibBridgeProcess {
         // The message status must be "NEW"; "RETRIABLE" is managed in
         // LibBridgeRetry.sol.
         bytes32 msgHash = message.hashMessage();
-        if (
-            LibBridgeStatus.getMessageStatus(msgHash)
-                != LibBridgeStatus.MessageStatus.NEW
-        ) {
+        if (state.messageStatus[msgHash] != LibBridgeData.Status.NEW) {
             revert B_STATUS_MISMATCH();
         }
 
@@ -91,14 +88,14 @@ library LibBridgeProcess {
             );
         }
 
-        LibBridgeStatus.MessageStatus status;
+        LibBridgeData.Status status;
         uint256 refundAmount;
 
         // Process message differently based on the target address
         if (message.to == address(this) || message.to == address(0)) {
             // Handle special addresses that don't require actual invocation but
             // mark message as DONE
-            status = LibBridgeStatus.MessageStatus.DONE;
+            status = LibBridgeData.Status.DONE;
             refundAmount = message.value;
         } else {
             // Use the specified message gas limit if called by the user, else
@@ -114,15 +111,15 @@ library LibBridgeProcess {
             });
 
             if (success) {
-                status = LibBridgeStatus.MessageStatus.DONE;
+                status = LibBridgeData.Status.DONE;
             } else {
-                status = LibBridgeStatus.MessageStatus.RETRIABLE;
+                status = LibBridgeData.Status.RETRIABLE;
                 ethVault.sendEther(message.value);
             }
         }
 
         // Update the message status
-        LibBridgeStatus.updateMessageStatus(msgHash, status);
+        LibBridgeStatus.updateMessageStatus(state, msgHash, status);
 
         // Determine the refund recipient
         address refundTo =
