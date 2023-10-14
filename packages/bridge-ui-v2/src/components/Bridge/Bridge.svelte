@@ -148,7 +148,8 @@
       const { explorer } = chainConfig[$network.id].urls;
 
       infoToast(
-        $t('bridge.actions.approve.tx', {
+        $t('bridge.actions.approve.tx.title'),
+        $t('bridge.actions.approve.tx.message', {
           values: {
             token: $selectedToken.symbol,
             url: `${explorer}/tx/${txHash}`,
@@ -159,7 +160,8 @@
       await pendingTransactions.add(txHash, $network.id);
 
       successToast(
-        $t('bridge.actions.approve.success', {
+        $t('bridge.actions.approve.tx.title'),
+        $t('bridge.actions.approve.success.message', {
           values: {
             token: $selectedToken.symbol,
           },
@@ -262,7 +264,8 @@
       const explorer = chainConfig[bridgeArgs.srcChainId].urls.explorer;
 
       infoToast(
-        $t('bridge.actions.bridge.tx', {
+        $t('bridge.actions.bridge.tx.title'),
+        $t('bridge.actions.bridge.tx.message', {
           values: {
             token: $selectedToken.symbol,
             url: `${explorer}/tx/${txHash}`,
@@ -273,7 +276,8 @@
       await pendingTransactions.add(txHash, $network.id);
 
       successToast(
-        $t('bridge.actions.bridge.success', {
+        $t('bridge.actions.bridge.success.title'),
+        $t('bridge.actions.bridge.success.message', {
           values: {
             network: $destinationChain.name,
           },

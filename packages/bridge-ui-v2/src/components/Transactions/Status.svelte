@@ -109,6 +109,7 @@
       const { explorer } = chainConfig[Number(bridgeTx.destChainId)].urls;
 
       infoToast(
+        '',
         $t('transactions.actions.claim.tx', {
           values: {
             token: bridgeTx.symbol,
@@ -121,6 +122,7 @@
 
       //Todo: just because we have a claim tx doesn't mean it was successful
       successToast(
+        '',
         $t('transactions.actions.claim.success', {
           values: {
             network: $network.name,
@@ -191,6 +193,7 @@
       const { explorer } = chainConfig[Number(bridgeTx.srcChainId)].urls;
 
       infoToast(
+        '',
         $t('transactions.actions.release.tx', {
           values: {
             token: bridgeTx.symbol,
@@ -202,6 +205,7 @@
       await pendingTransactions.add(txHash, Number(bridgeTx.srcChainId));
 
       successToast(
+        '',
         $t('transactions.actions.release.success', {
           values: {
             network: $network.name,

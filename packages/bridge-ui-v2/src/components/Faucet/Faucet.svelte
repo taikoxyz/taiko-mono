@@ -61,6 +61,7 @@
       const explorer = chainConfig[$network.id].urls.explorer;
 
       infoToast(
+        $t('faucet.mint.tx.title'),
         $t('faucet.mint.tx', {
           values: {
             token: selectedToken.symbol,
@@ -72,11 +73,8 @@
       await pendingTransactions.add(txHash, $network.id);
 
       successToast(
-        $t('faucet.mint.success', {
-          values: {
-            token: selectedToken.symbol,
-          },
-        }),
+        $t('faucet.mint.success.title'),
+        $t('faucet.mint.success.message'),
       );
     } catch (err) {
       console.error(err);

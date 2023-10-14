@@ -8,7 +8,7 @@
 
   // Public API
 
-  export function notify(message: string, type: TypeToast = 'unknown', closeManually = false) {
+  export function notify(title: string, message: string = '', type: TypeToast = 'unknown', closeManually = false) {
     const id = Number(uid());
     const close = () => toast.pop(id);
 
@@ -17,25 +17,25 @@
       ...(closeManually ? { initial: 0 } : {}),
       component: {
         src: ItemToast,
-        props: { type, message, close },
+        props: { type, title, message, close },
       },
     });
   }
 
-  export function successToast(message: string, closeManually = false) {
-    notify(message, 'success', closeManually);
+  export function successToast(title: string, message: string = '', closeManually = false) {
+    notify(title, message, 'success', closeManually);
   }
 
-  export function errorToast(message: string, closeManually = true) {
-    notify(message, 'error', closeManually);
+  export function errorToast(title: string, message: string = '', closeManually = true) {
+    notify(title, message, 'error', closeManually);
   }
 
-  export function warningToast(message: string, closeManually = false) {
-    notify(message, 'warning', closeManually);
+  export function warningToast(title: string, message: string = '', closeManually = false) {
+    notify(title, message, 'warning', closeManually);
   }
 
-  export function infoToast(message: string, closeManually = false) {
-    notify(message, 'info', closeManually);
+  export function infoToast(title: string, message: string = '', closeManually = false) {
+    notify(title, message, 'info', closeManually);
   }
 </script>
 
@@ -44,7 +44,7 @@
   import type { SvelteToastOptions } from '@zerodevx/svelte-toast/stores';
 
   const options: SvelteToastOptions = {
-    duration: 5000, // TODO: config file?
+    duration: 5000,
     pausable: false,
   };
 </script>
@@ -60,7 +60,7 @@
     --toastContainerTop: 77px;
     --toastContainerLeft: calc(50vw - 160px);
     --toastBoxShadow: none;
-    --toastWidth: 320px;
+    --toastWidth: 339px;
 
     /*
       We need to makes the surroundings dissapear in order
