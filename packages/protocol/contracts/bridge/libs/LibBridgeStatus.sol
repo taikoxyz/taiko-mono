@@ -9,8 +9,9 @@ pragma solidity ^0.8.20;
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { BlockHeader, LibBlockHeader } from "../../libs/LibBlockHeader.sol";
 import { ICrossChainSync } from "../../common/ICrossChainSync.sol";
-import { LibBridgeData } from "./LibBridgeData.sol";
 import { LibTrieProof } from "../../libs/LibTrieProof.sol";
+
+import { LibBridgeData } from "./LibBridgeData.sol";
 
 /// @title LibBridgeStatus
 /// @notice This library provides functions for getting and updating the status

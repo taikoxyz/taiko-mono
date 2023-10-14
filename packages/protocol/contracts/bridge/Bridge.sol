@@ -6,16 +6,18 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../common/AddressResolver.sol";
-import { BridgeErrors } from "./BridgeErrors.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { IBridge } from "./IBridge.sol";
+import { Proxied } from "../common/Proxied.sol";
+
 import { LibBridgeData } from "./libs/LibBridgeData.sol";
 import { LibBridgeProcess } from "./libs/LibBridgeProcess.sol";
 import { LibBridgeRecall } from "./libs/LibBridgeRecall.sol";
 import { LibBridgeRetry } from "./libs/LibBridgeRetry.sol";
 import { LibBridgeSend } from "./libs/LibBridgeSend.sol";
 import { LibBridgeStatus } from "./libs/LibBridgeStatus.sol";
-import { Proxied } from "../common/Proxied.sol";
+
+import { BridgeErrors } from "./BridgeErrors.sol";
+import { IBridge } from "./IBridge.sol";
 
 /// @title Bridge
 /// @notice See the documentation for {IBridge}.

@@ -7,66 +7,112 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { LibFixedPointMath as Math } from
-    "../../thirdparty/LibFixedPointMath.sol";
-import { LibMath } from "../../libs/LibMath.sol";
+
 import { TaikoData } from "../TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
 
 library LibTaikoToken {
-    error L1_INSUFFICIENT_TOKEN();
+    event TokenDeposited(uint256 amount);
+    event TokenWithdrawn(uint256 amount);
+    event TokenCredited(uint256 amount, bool minted);
+    event TokenDebited(uint256 amount, bool fromLocalBalance);
+    event TokenWithdrawnByOwner(address to, uint256 amount);
 
-    function withdrawTaikoToken(
+    error L1_INSUFFICIENT_TOKEN();
+    error L1_INVALID_ADDRESS();
+
+    function depositToken(
         TaikoData.State storage state,
         AddressResolver resolver,
         uint256 amount
     )
         internal
     {
-        uint256 balance = state.taikoTokenBalances[msg.sender];
-        if (balance < amount) revert L1_INSUFFICIENT_TOKEN();
+        if (amount == 0) return;
+        TaikoToken(resolver.resolve("taiko_token", false)).transferFrom(
+            msg.sender, address(this), amount
+        );
+        unchecked {
+            state.tokenBalances[msg.sender] += amount;
+        }
+        emit TokenDeposited(amount);
+    }
+
+    function withdrawToken(
+        TaikoData.State storage state,
+        AddressResolver resolver,
+        uint256 amount
+    )
+        internal
+    {
+        if (amount == 0) return;
+        if (state.tokenBalances[msg.sender] < amount) {
+            revert L1_INSUFFICIENT_TOKEN();
+        }
         // Unchecked is safe per above check
         unchecked {
-            state.taikoTokenBalances[msg.sender] -= amount;
+            state.tokenBalances[msg.sender] -= amount;
         }
 
         TaikoToken(resolver.resolve("taiko_token", false)).transfer(
             msg.sender, amount
         );
+
+        emit TokenWithdrawn(amount);
     }
 
-    function depositTaikoToken(
+    function creditToken(
         TaikoData.State storage state,
         AddressResolver resolver,
-        uint256 amount
+        address to,
+        uint256 amount,
+        bool mint
     )
         internal
     {
-        if (amount > 0) {
-            TaikoToken(resolver.resolve("taiko_token", false)).transferFrom(
-                msg.sender, address(this), amount
+        if (amount == 0) return;
+        if (mint) {
+            TaikoToken(resolver.resolve("taiko_token", false)).mint(
+                address(this), amount
             );
-            state.taikoTokenBalances[msg.sender] += amount;
         }
+        state.tokenBalances[to] += amount;
+        emit TokenCredited(amount, mint);
     }
 
-    function receiveTaikoToken(
+    function debitToken(
         TaikoData.State storage state,
         AddressResolver resolver,
         address from,
         uint256 amount
     )
         internal
-        returns (TaikoToken tt)
     {
-        tt = TaikoToken(resolver.resolve("taiko_token", false));
-        if (state.taikoTokenBalances[from] >= amount) {
-            // Safe, see the above constraint
-            unchecked {
-                state.taikoTokenBalances[from] -= amount;
-            }
+        if (amount == 0) return;
+        if (state.tokenBalances[from] < amount) {
+            TaikoToken(resolver.resolve("taiko_token", false)).transferFrom(
+                from, address(this), amount
+            );
+            emit TokenDebited(amount, false);
         } else {
-            tt.transferFrom(from, address(this), amount);
+            unchecked {
+                state.tokenBalances[from] -= amount;
+            }
+            emit TokenDebited(amount, true);
         }
+    }
+
+    function ownerWithdrawToken(
+        AddressResolver resolver,
+        address to,
+        uint256 amount
+    )
+        internal
+    {
+        if (to == address(0)) revert L1_INVALID_ADDRESS();
+        TaikoToken(resolver.resolve("taiko_token", false)).transferFrom(
+            address(this), to, amount
+        );
+        emit TokenWithdrawnByOwner(to, amount);
     }
 }

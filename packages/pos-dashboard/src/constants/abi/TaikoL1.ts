@@ -993,7 +993,7 @@ export default [
           },
           {
             internalType: 'uint256',
-            name: 'blockMaxVerificationsPerTx',
+            name: 'maxBlocksToVerifyPerProposal',
             type: 'uint256',
           },
           {

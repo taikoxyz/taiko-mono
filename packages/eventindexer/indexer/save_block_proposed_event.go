@@ -68,7 +68,7 @@ func (indxr *Indexer) saveBlockProposedEvent(
 
 	blockID := event.BlockId.Int64()
 
-	assignedProver := event.Prover.Hex()
+	assignedProver := event.AssignedProver.Hex()
 
 	block, err := indxr.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
 	if err != nil {
@@ -133,7 +133,7 @@ func (indxr *Indexer) updateAverageProposerReward(
 		"id",
 		event.BlockId.Int64(),
 		"prover",
-		event.Prover.Hex(),
+		event.AssignedProver.Hex(),
 		"avg",
 		avg.String(),
 		"newAvg",
@@ -181,7 +181,7 @@ func (indxr *Indexer) updateAverageProverReward(
 		"id",
 		event.BlockId.Int64(),
 		"prover",
-		event.Prover.Hex(),
+		event.AssignedProver.Hex(),
 		"avg",
 		avg.String(),
 		"newAvg",

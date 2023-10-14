@@ -7,16 +7,7 @@
 pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { IERC1155Receiver } from
-    "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
-import { IERC165 } from
-    "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import { IERC721Receiver } from
-    "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import { IERC721Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
-import { IRecallableMessageSender, IBridge } from "../bridge/IBridge.sol";
-import { Proxied } from "../common/Proxied.sol";
+import { IRecallableMessageSender } from "../bridge/IBridge.sol";
 
 /// @title BaseNFTVault
 /// @notice Abstract contract for bridging NFTs across different chains.

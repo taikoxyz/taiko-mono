@@ -14,10 +14,10 @@ import (
 var (
 	blockID             int64 = 1
 	dummyProveEventOpts       = eventindexer.SaveEventOpts{
-		Name:         eventindexer.EventNameBlockProven,
+		Name:         eventindexer.EventNameTransitionProved,
 		Address:      "0x123",
 		Data:         "{\"data\":\"something\"}",
-		Event:        eventindexer.EventNameBlockProven,
+		Event:        eventindexer.EventNameTransitionProved,
 		ChainID:      big.NewInt(1),
 		BlockID:      &blockID,
 		TransactedAt: time.Now(),

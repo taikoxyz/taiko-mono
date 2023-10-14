@@ -9,6 +9,7 @@ pragma solidity ^0.8.20;
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibMath } from "../../libs/LibMath.sol";
+
 import { TaikoData } from "../TaikoData.sol";
 
 /// @title LibDepositing
@@ -17,15 +18,13 @@ library LibDepositing {
     using LibAddress for address;
     using LibMath for uint256;
 
+    // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     event EthDeposited(TaikoData.EthDeposit deposit);
 
+    // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_INVALID_ETH_DEPOSIT();
 
-    /// @dev Deposits Ether into Taiko.
-    /// @param state The current state of the Taiko protocol.
-    /// @param config The config of the Taiko protocol.
-    /// @param resolver The {AddressResolver} instance for address resolution.
-    /// @param recipient The address of the deposit recipient.
+    /// @dev Deposits Ether to Layer 2.
     function depositEtherToL2(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -69,10 +68,6 @@ library LibDepositing {
     }
 
     /// @dev Processes the ETH deposits in a batched manner.
-    /// @param state The current state of the Taiko protocol.
-    /// @param config The config of the Taiko protocol.
-    /// @param feeRecipient Address to receive the deposit fee.
-    /// @return deposits The array of processed deposits.
     function processDeposits(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -136,11 +131,7 @@ library LibDepositing {
         }
     }
 
-    /// @dev Checks if the given deposit amount is valid.
-    /// @param state The current state of the Taiko protocol.
-    /// @param config The config of the Taiko protocol.
-    /// @param amount The amount to deposit.
-    /// @return true if the deposit is valid, false otherwise.
+    /// @dev Checks if Ether deposit is allowed for Layer 2.
     function canDepositEthToL2(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -163,17 +154,6 @@ library LibDepositing {
                 && state.slotA.numEthDeposits - state.slotA.nextEthDepositToProcess
                     < config.ethDepositRingBufferSize - 1;
         }
-    }
-
-    /// @dev Computes the hash of the given deposits.
-    /// @param deposits The deposits to hash.
-    /// @return The computed hash.
-    function hashEthDeposits(TaikoData.EthDeposit[] memory deposits)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(deposits));
     }
 
     /// @dev Encodes the given deposit into a uint256.
