@@ -72,7 +72,7 @@ contract TestSignalService is TestBase {
 
     function test_SignalService_getSignalSlot() public {
         vm.startPrank(Alice);
-        for (uint8 i = 1; i < 100; i++) {
+        for (uint8 i = 1; i < 100; ++i) {
             bytes32 signal = bytes32(block.prevrandao + i);
             signalService.sendSignal(signal);
 

@@ -102,7 +102,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         TaikoL2 taikoL2 = TaikoL2(getPredeployedContractAddress("TaikoL2Proxy"));
 
         vm.startPrank(taikoL2.GOLDEN_TOUCH_ADDRESS());
-        for (uint32 i = 0; i < 300; i++) {
+        for (uint32 i = 0; i < 300; ++i) {
             vm.roll(block.number + 1);
             vm.warp(block.number + 12);
             vm.fee(taikoL2.getBasefee(12, i));

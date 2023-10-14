@@ -44,7 +44,7 @@ contract TestTokenERC721 is ERC721 {
     }
 
     function mint(uint256 amount) public {
-        for (uint256 i; i < amount; i++) {
+        for (uint256 i; i < amount; ++i) {
             _safeMint(msg.sender, minted + i);
         }
         minted += amount;
