@@ -129,7 +129,7 @@ contract SignalService is EssentialContract, ISignalService {
     /// @param chainId The address's chainId.
     /// @param app The address that initiated the signal.
     /// @param signal The signal to get the storage slot of.
-    /// @return  The unique storage slot of the signal which is
+    /// @return The unique storage slot of the signal which is
     /// created by encoding the sender address with the signal (message).
     function getSignalSlot(
         uint256 chainId, // TODO: add chainId here
