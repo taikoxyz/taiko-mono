@@ -47,6 +47,7 @@ contract GuardianProver is EssentialContract {
     function setGuardians(address[NUM_GUARDIANS] memory _guardians)
         external
         onlyOwner
+        nonReentrant
     {
         for (uint256 i; i < NUM_GUARDIANS; ++i) {
             address guardian = _guardians[i];
@@ -76,6 +77,7 @@ contract GuardianProver is EssentialContract {
         TaikoData.BlockEvidence memory evidence
     )
         external
+        nonReentrant
     {
         uint256 id = guardianIds[msg.sender];
         if (id == 0) revert INVALID_GUARDIAN();
