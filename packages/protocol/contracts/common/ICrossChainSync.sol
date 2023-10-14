@@ -29,9 +29,9 @@ interface ICrossChainSync {
     /// @notice Fetches the hash of a block from the opposite chain.
     /// @param blockId The target block id. Specifying 0 retrieves the hash
     /// of the latest block.
-    /// @return data The block hash and signal root synced.
+    /// @return snippet The block hash and signal root synced.
     function getSyncedSnippet(uint64 blockId)
         external
         view
-        returns (Snippet memory);
+        returns (Snippet memory snippet);
 }

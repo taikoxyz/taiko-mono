@@ -19,17 +19,17 @@ contract SignalService is EssentialContract, ISignalService {
     struct Hop {
         uint256 chainId;
         bytes32 signalRoot;
-        bytes mkproof;
+        bytes storageProof;
     }
 
     struct Proof {
         uint64 height;
-        bytes mkproof; // A storage proof
+        bytes storageProof; // A storage proof
         Hop[] hops;
     }
 
-    error SS_INVALID_SIGNAL();
     error SS_INVALID_APP();
+    error SS_INVALID_SIGNAL();
 
     modifier validApp(address app) {
         if (app == address(0)) revert SS_INVALID_APP();
@@ -50,11 +50,11 @@ contract SignalService is EssentialContract, ISignalService {
     function sendSignal(bytes32 signal)
         public
         validSignal(signal)
-        returns (bytes32 storageSlot)
+        returns (bytes32 slot)
     {
-        storageSlot = getSignalSlot(block.chainid, msg.sender, signal);
+        slot = getSignalSlot(block.chainid, msg.sender, signal);
         assembly {
-            sstore(storageSlot, 1)
+            sstore(slot, 1)
         }
     }
 
@@ -90,15 +90,15 @@ contract SignalService is EssentialContract, ISignalService {
     {
         if (app == address(0)) return false;
         if (signal == 0) return false;
-        if (srcChainId == 0 || srcChainId == block.chainid) {
-            return false;
-        }
+        if (srcChainId == 0) return false;
+        if (srcChainId == block.chainid) return false;
 
         // Check a chain of inclusion proofs, from the message's source
         // chain all the way to the destination chain.
         Proof memory p = abi.decode(proof, (Proof));
         bytes32 signalRoot = ICrossChainSync(resolve("taiko", false))
             .getSyncedSnippet(p.height).signalRoot;
+
         if (signalRoot == 0) return false;
 
         for (uint256 i; i < p.hops.length; ++i) {
@@ -109,7 +109,7 @@ contract SignalService is EssentialContract, ISignalService {
                 hop.signalRoot
             );
             bool verified = LibSecureMerkleTrie.verifyInclusionProof(
-                bytes.concat(slot), hex"01", hop.mkproof, signalRoot
+                bytes.concat(slot), hex"01", hop.storageProof, signalRoot
             );
             if (!verified) return false;
 
@@ -120,7 +120,7 @@ contract SignalService is EssentialContract, ISignalService {
         return LibSecureMerkleTrie.verifyInclusionProof(
             bytes.concat(getSignalSlot(srcChainId, app, signal)),
             hex"01",
-            p.mkproof,
+            p.storageProof,
             signalRoot
         );
     }
