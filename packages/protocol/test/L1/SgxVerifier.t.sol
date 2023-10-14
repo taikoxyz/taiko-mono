@@ -16,7 +16,7 @@ contract TestSgxVerifier is TaikoL1TestBase {
         TaikoL1TestBase.setUp();
     }
 
-    function test_addToRegistryByOwner() external {
+    function test_addInstancesByOwner() external {
         address[] memory _instances = new address[](3);
         _instances[0] = SGX_X_1;
         _instances[1] = SGX_Y;
@@ -24,7 +24,7 @@ contract TestSgxVerifier is TaikoL1TestBase {
         sv.addInstances(_instances);
     }
 
-    function test_addToRegistryByOwner_WithoutOwnerRole() external {
+    function test_addInstancesByOwner_WithoutOwnerRole() external {
         address[] memory _instances = new address[](3);
         _instances[0] = SGX_X_0;
         _instances[1] = SGX_Y;
@@ -35,23 +35,23 @@ contract TestSgxVerifier is TaikoL1TestBase {
         sv.addInstances(_instances);
     }
 
-    function test_addToRegistryBySgxInstance() external {
+    function test_addInstancesBySgxInstance() external {
         address[] memory _instances = new address[](3);
         _instances[0] = SGX_X_1;
         _instances[1] = SGX_Y;
         _instances[2] = SGX_Z;
 
-        bytes memory signature = createAddRegistrySignature(_instances, 0x4);
+        bytes memory signature = _getSignature(_instances, 0x4);
 
         vm.prank(Bob, Bob);
         sv.addInstances(0, _instances, signature);
     }
 
-    function createAddRegistrySignature(
+    function _getSignature(
         address[] memory _instances,
         uint256 privKey
     )
-        public
+        private
         pure
         returns (bytes memory signature)
     {
