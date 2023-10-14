@@ -53,10 +53,9 @@ contract GuardianProver is EssentialContract {
             if (guardian == address(0)) revert INVALID_GUARDIAN();
 
             // In case there is a pending 'approval' and we call setGuardians()
-            // with
-            // an existing guardian but with different array position (id), then
-            // accidentally 2 guardian signatures could lead to firing away a
-            // proveBlock() transaction.
+            // with an existing guardian but with different array position (id),
+            // then accidentally 2 guardian signatures could lead to firing away
+            // a proveBlock() transaction.
             uint256 id = guardianIds[guardian];
 
             if (id != 0) {
