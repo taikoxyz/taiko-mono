@@ -144,8 +144,6 @@ contract TestGenerateGenesis is Test, AddressResolver {
         assertEq(owner, bridge.owner());
 
         vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
-        bytes[] memory proofs = new bytes[](1);
-        proofs[0] = "";
         bridge.processMessage(
             IBridge.Message({
                 id: 0,
@@ -161,7 +159,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
                 data: "",
                 memo: ""
             }),
-            proofs
+            ""
         );
 
         vm.startPrank(admin);
