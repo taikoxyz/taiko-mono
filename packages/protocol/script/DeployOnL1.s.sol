@@ -16,8 +16,7 @@ import "../contracts/L1/verifiers/PseZkVerifier.sol";
 import "../contracts/L1/verifiers/SgxVerifier.sol";
 import "../contracts/L1/verifiers/GuardianVerifier.sol";
 import "../contracts/L1/tiers/ITierProvider.sol";
-import "../contracts/L1/tiers/OPRConfigProvider.sol";
-import "../contracts/L1/tiers/ZKRConfigProvider.sol";
+import "../contracts/L1/tiers/TaikoConfigProvider.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
@@ -58,10 +57,7 @@ contract DeployOnL1 is Script {
     TaikoL1 taikoL1;
     address public addressManagerProxy;
 
-    enum TierConfigProviders {
-        OP,
-        ZK
-    }
+    enum TierConfigProviders { TAIKO }
 
     error FAILED_TO_DEPLOY_PLONK_VERIFIER(string contractPath);
 
@@ -235,13 +231,7 @@ contract DeployOnL1 is Script {
         pure
         returns (bool)
     {
-        if (
-            provider == uint256(TierConfigProviders.OP)
-                || provider == uint256(TierConfigProviders.ZK)
-        ) {
-            return true;
-        }
-
+        if (provider == uint256(TierConfigProviders.TAIKO)) return true;
         return false;
     }
 
@@ -275,19 +265,15 @@ contract DeployOnL1 is Script {
         return deployedAddress;
     }
 
-    function deployTierProvider(uint256 provier)
+    function deployTierProvider(uint256 provider)
         private
         returns (address providerAddress)
     {
-        if (provier == uint256(TierConfigProviders.OP)) {
-            return address(new OPRConfigProvider());
-        } else if (provier == uint256(TierConfigProviders.ZK)) {
-            return address(new ZKRConfigProvider());
-        } else if (provier == uint256(TierConfigProviders.ZK)) {
-            return address(new ZKRConfigProvider());
+        if (provider == uint256(TierConfigProviders.TAIKO)) {
+            return address(new TaikoConfigProvider());
         }
 
-        revert();
+        revert("invalid provider");
     }
 
     function deployProxy(

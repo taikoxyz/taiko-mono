@@ -8,9 +8,12 @@ pragma solidity ^0.8.20;
 
 import { ITierProvider, LibTiers } from "./ITierProvider.sol";
 
-/// @title OPRConfigProvider
-contract OPRConfigProvider is ITierProvider {
+/// @title TaikoConfigProvider
+contract TaikoConfigProvider is ITierProvider {
     error TIER_NOT_FOUND();
+
+    uint96 private constant UNIT = 10_000e18; // 10000 Taiko token
+    uint24 private constant COOLDOWN_BASE = 24 hours;
 
     function getTier(uint16 tierId)
         public
@@ -21,33 +24,33 @@ contract OPRConfigProvider is ITierProvider {
         if (tierId == LibTiers.TIER_OPTIMISTIC) {
             return ITierProvider.Tier({
                 verifierName: "tier_optimistic",
-                validityBond: 100_000 ether, // TKO
-                contestBond: 100_000 ether, // TKO
-                cooldownWindow: 4 hours,
-                provingWindow: 20 minutes,
-                maxBlocksToVerify: 16
+                validityBond: 20 * UNIT,
+                contestBond: 20 * UNIT,
+                cooldownWindow: 4 hours + COOLDOWN_BASE,
+                provingWindow: 1 hours,
+                maxBlocksToVerify: 10
             });
         }
 
         if (tierId == LibTiers.TIER_SGX) {
             return ITierProvider.Tier({
                 verifierName: "tier_sgx",
-                validityBond: 50_000 ether, // TKO
-                contestBond: 50_000 ether, // TKO
-                cooldownWindow: 3 hours,
-                provingWindow: 60 minutes,
-                maxBlocksToVerify: 12
+                validityBond: 10 * UNIT,
+                contestBond: 10 * UNIT,
+                cooldownWindow: 3 hours + COOLDOWN_BASE,
+                provingWindow: 2 hours,
+                maxBlocksToVerify: 8
             });
         }
 
-        if (tierId == LibTiers.TIER_PSE_ZKEVM) {
+        if (tierId == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
             return ITierProvider.Tier({
-                verifierName: "tier_pse_zkevm",
-                validityBond: 10_000 ether, // TKO
-                contestBond: 10_000 ether, // TKO
-                cooldownWindow: 2 hours,
-                provingWindow: 90 minutes,
-                maxBlocksToVerify: 8
+                verifierName: "tier_sgx_and_pse_zkevm",
+                validityBond: 2 * UNIT,
+                contestBond: 2 * UNIT,
+                cooldownWindow: 2 hours + COOLDOWN_BASE,
+                provingWindow: 4 hours,
+                maxBlocksToVerify: 6
             });
         }
 
@@ -56,9 +59,9 @@ contract OPRConfigProvider is ITierProvider {
                 verifierName: "tier_guardian",
                 validityBond: 0,
                 contestBond: 0, // not contestable
-                cooldownWindow: 1 hours,
-                provingWindow: 120 minutes,
-                maxBlocksToVerify: 0
+                cooldownWindow: 1 hours + COOLDOWN_BASE,
+                provingWindow: 4 hours,
+                maxBlocksToVerify: 4
             });
         }
 
@@ -74,13 +77,13 @@ contract OPRConfigProvider is ITierProvider {
         tiers = new uint16[](4);
         tiers[0] = LibTiers.TIER_OPTIMISTIC;
         tiers[1] = LibTiers.TIER_SGX;
-        tiers[2] = LibTiers.TIER_PSE_ZKEVM;
+        tiers[2] = LibTiers.TIER_SGX_AND_PSE_ZKEVM;
         tiers[3] = LibTiers.TIER_GUARDIAN;
     }
 
     function getMinTier(uint256 rand) public pure override returns (uint16) {
-        if (rand % 100 == 0) return LibTiers.TIER_PSE_ZKEVM;
-        // else if (rand % 10 == 0) return LibTiers.TIER_SGX;
+        if (rand % 1000 == 0) return LibTiers.TIER_SGX_AND_PSE_ZKEVM;
+        else if (rand % 100 == 0) return LibTiers.TIER_SGX;
         else return LibTiers.TIER_OPTIMISTIC;
     }
 }
