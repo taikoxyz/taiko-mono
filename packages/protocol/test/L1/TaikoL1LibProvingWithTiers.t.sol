@@ -989,11 +989,11 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 evidence.proof = bytes.concat(keccak256("RETURN_LIVENESS_BOND"));
 
                 vm.prank(David, David);
-                gp.approveGuardianProof(meta.id, evidence);
+                gp.approveEvidence(meta.id, evidence);
                 vm.prank(Emma, Emma);
-                gp.approveGuardianProof(meta.id, evidence);
+                gp.approveEvidence(meta.id, evidence);
                 vm.prank(Frank, Frank);
-                gp.approveGuardianProof(meta.id, evidence);
+                gp.approveEvidence(meta.id, evidence);
 
                 // // Credited back the bond (not transferred to the user
                 // wallet,

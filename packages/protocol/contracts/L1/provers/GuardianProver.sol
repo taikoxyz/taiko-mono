@@ -71,7 +71,7 @@ contract GuardianProver is EssentialContract {
     }
 
     /// @dev Called by guardians to approve a guardian proof
-    function approveGuardianProof(
+    function approveEvidence(
         uint64 blockId,
         TaikoData.BlockEvidence memory evidence
     )
