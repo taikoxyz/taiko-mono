@@ -188,17 +188,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         if (blockId >= block.number - 256) return blockhash(blockId);
         return l2Hashes[blockId];
     }
-    /// @notice Returns EIP1559 related configurations
-
-    function get1559Params()
-        public
-        pure
-        virtual
-        returns (uint64 gasTarget, uint256 adjustmentQuotient)
-    {
-        gasTarget = 15 * 1e6 * 10; // 10x Ethereum gas target
-        adjustmentQuotient = 8;
-    }
 
     /// @notice Returns EIP1559 related configurations
     function getConfig() public pure virtual returns (Config memory config) {
