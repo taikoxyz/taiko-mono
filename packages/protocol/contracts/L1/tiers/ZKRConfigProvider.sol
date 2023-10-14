@@ -8,8 +8,8 @@ pragma solidity ^0.8.20;
 
 import { ITierProvider, LibTiers } from "./ITierProvider.sol";
 
-/// @title ZkAndSgxCombinedRollupConfigProvider
-contract ZkAndSgxCombinedRollupConfigProvider is ITierProvider {
+/// @title ZKRConfigProvider
+contract ZKRConfigProvider is ITierProvider {
     error TIER_NOT_FOUND();
 
     function getTier(uint16 tierId)

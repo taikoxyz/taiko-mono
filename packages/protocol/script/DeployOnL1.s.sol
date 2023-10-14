@@ -16,10 +16,8 @@ import "../contracts/L1/verifiers/PseZkVerifier.sol";
 import "../contracts/L1/verifiers/SgxVerifier.sol";
 import "../contracts/L1/verifiers/GuardianVerifier.sol";
 import "../contracts/L1/tiers/ITierProvider.sol";
-import "../contracts/L1/tiers/OptimisticRollupConfigProvider.sol";
-import "../contracts/L1/tiers/ValidityRollupConfigProvider.sol";
-import "../contracts/L1/tiers/ZKRollupConfigProvider.sol";
-import "../contracts/L1/tiers/ZkAndSgxCombinedRollupConfigProvider.sol";
+import "../contracts/L1/tiers/OPRConfigProvider.sol";
+import "../contracts/L1/tiers/ZKRConfigProvider.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
@@ -60,11 +58,9 @@ contract DeployOnL1 is Script {
     TaikoL1 taikoL1;
     address public addressManagerProxy;
 
-    enum tierProviders {
-        OptimisticRollupConfigProvider,
-        ValidityRollupConfigProvider,
-        ZKRollupConfigProvider,
-        ZkAndSgxCombinedRollupConfigProvider
+    enum TierConfigProviders {
+        OP,
+        ZK
     }
 
     error FAILED_TO_DEPLOY_PLONK_VERIFIER(string contractPath);
@@ -240,11 +236,8 @@ contract DeployOnL1 is Script {
         returns (bool)
     {
         if (
-            provider == uint256(tierProviders.OptimisticRollupConfigProvider)
-                || provider == uint256(tierProviders.ValidityRollupConfigProvider)
-                || provider == uint256(tierProviders.ZKRollupConfigProvider)
-                || provider
-                    == uint256(tierProviders.ZkAndSgxCombinedRollupConfigProvider)
+            provider == uint256(TierConfigProviders.OP)
+                || provider == uint256(TierConfigProviders.ZK)
         ) {
             return true;
         }
@@ -286,19 +279,12 @@ contract DeployOnL1 is Script {
         private
         returns (address providerAddress)
     {
-        if (provier == uint256(tierProviders.OptimisticRollupConfigProvider)) {
-            return address(new OptimisticRollupConfigProvider());
-        } else if (
-            provier == uint256(tierProviders.ValidityRollupConfigProvider)
-        ) {
-            return address(new ValidityRollupConfigProvider());
-        } else if (provier == uint256(tierProviders.ZKRollupConfigProvider)) {
-            return address(new ZKRollupConfigProvider());
-        } else if (
-            provier
-                == uint256(tierProviders.ZkAndSgxCombinedRollupConfigProvider)
-        ) {
-            return address(new ZkAndSgxCombinedRollupConfigProvider());
+        if (provier == uint256(TierConfigProviders.OP)) {
+            return address(new OPRConfigProvider());
+        } else if (provier == uint256(TierConfigProviders.ZK)) {
+            return address(new ZKRConfigProvider());
+        } else if (provier == uint256(TierConfigProviders.ZK)) {
+            return address(new ZKRConfigProvider());
         }
 
         revert();
