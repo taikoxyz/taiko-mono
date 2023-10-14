@@ -72,7 +72,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// @param id The id of the SGX instance who is adding new members.
     /// @param _instances The address array of SGX instances.
     /// @param signature The signature proving authenticity.
-    function addInstancesBySgx(
+    function addInstances(
         uint256 id,
         address[] calldata _instances,
         bytes calldata signature
@@ -93,8 +93,6 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        // blockId is unused now, but can be used later when supporting
-        // different types of proofs.
         uint64,
         address prover,
         bool isContesting,

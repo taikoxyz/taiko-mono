@@ -44,7 +44,7 @@ contract TestSgxVerifier is TaikoL1TestBase {
         bytes memory signature = createAddRegistrySignature(_instances, 0x4);
 
         vm.prank(Bob, Bob);
-        sv.addInstancesBySgx(0, _instances, signature);
+        sv.addInstances(0, _instances, signature);
     }
 
     function createAddRegistrySignature(
