@@ -185,12 +185,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     /// block id is greater than or equal to the current block number.
 
     function getBlockHash(uint64 blockId) public view returns (bytes32) {
-        if (blockId >= block.number)  return 0;
-        
-        if (blockId < block.number && blockId >= block.number - 256)
-            return blockhash(blockId);
-       
-       return l2Hashes[blockId]; 
+        if (blockId >= block.number) return 0;
+        if (blockId >= block.number - 256) return blockhash(blockId);
+        return l2Hashes[blockId];
     }
 
     /// @notice Returns EIP1559 related configurations
