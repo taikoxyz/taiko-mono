@@ -13,7 +13,7 @@ pragma solidity ^0.8.20;
 /// block hashes across chains. The core idea is to ensure that data between
 /// both chains remain consistent and can be cross-referenced with integrity.
 interface ICrossChainSync {
-    struct Data {
+    struct Snippet {
         bytes32 blockHash;
         bytes32 signalRoot;
     }
@@ -30,8 +30,8 @@ interface ICrossChainSync {
     /// @param blockId The target block id. Specifying 0 retrieves the hash
     /// of the latest block.
     /// @return data The block hash and signal root synced.
-    function getSyncedData(uint64 blockId)
+    function getSyncedSnippet(uint64 blockId)
         external
         view
-        returns (Data memory);
+        returns (Snippet memory);
 }

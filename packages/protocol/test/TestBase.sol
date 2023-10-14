@@ -87,14 +87,14 @@ contract SkipProofCheckBridge is Bridge {
 }
 
 contract DummyCrossChainSync is ICrossChainSync {
-    Data private _data;
+    Snippet private _snippet;
 
     function setSyncedData(bytes32 blockHash, bytes32 signalRoot) external {
-        _data.blockHash = blockHash;
-        _data.signalRoot = signalRoot;
+        _snippet.blockHash = blockHash;
+        _snippet.signalRoot = signalRoot;
     }
 
-    function getSyncedData(uint64) external view returns (Data memory) {
-        return _data;
+    function getSyncedSnippet(uint64) external view returns (Snippet memory) {
+        return _snippet;
     }
 }

@@ -224,11 +224,11 @@ contract TaikoL1 is
     }
 
     /// @inheritdoc ICrossChainSync
-    function getSyncedData(uint64 blockId)
+    function getSyncedSnippet(uint64 blockId)
         public
         view
         override
-        returns (ICrossChainSync.Data memory data)
+        returns (ICrossChainSync.Snippet memory data)
     {
         TaikoData.Transition storage transition =
             LibUtils.getVerifyingTransition(state, getConfig(), blockId);
