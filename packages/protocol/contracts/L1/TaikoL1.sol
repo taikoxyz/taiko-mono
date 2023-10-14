@@ -224,25 +224,16 @@ contract TaikoL1 is
     }
 
     /// @inheritdoc ICrossChainSync
-    function getCrossChainBlockHash(uint64 blockId)
+    function getSyncedData(uint64 blockId)
         public
         view
         override
-        returns (bytes32)
+        returns (ICrossChainSync.Data memory data)
     {
-        return LibUtils.getVerifyingTransition(state, getConfig(), blockId)
-            .blockHash;
-    }
-
-    /// @inheritdoc ICrossChainSync
-    function getCrossChainSignalRoot(uint64 blockId)
-        public
-        view
-        override
-        returns (bytes32)
-    {
-        return LibUtils.getVerifyingTransition(state, getConfig(), blockId)
-            .signalRoot;
+        TaikoData.Transition storage transition =
+            LibUtils.getVerifyingTransition(state, getConfig(), blockId);
+        data.blockHash = transition.blockHash;
+        data.signalRoot = transition.signalRoot;
     }
 
     /// @notice Gets the state variables of the TaikoL1 contract.

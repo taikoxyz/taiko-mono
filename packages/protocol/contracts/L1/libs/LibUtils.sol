@@ -90,7 +90,7 @@ library LibUtils {
     )
         internal
         view
-        returns (TaikoData.Transition memory)
+        returns (TaikoData.Transition storage)
     {
         uint64 _blockId =
             blockId == 0 ? state.slotB.lastVerifiedBlockId : blockId;

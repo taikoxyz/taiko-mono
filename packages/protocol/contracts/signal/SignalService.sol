@@ -98,7 +98,7 @@ contract SignalService is EssentialContract, ISignalService {
         // chain all the way to the destination chain.
         Proof memory p = abi.decode(proof, (Proof));
         bytes32 signalRoot = ICrossChainSync(resolve("taiko", false))
-            .getCrossChainSignalRoot(p.height);
+            .getSyncedData(p.height).signalRoot;
 
         for (uint256 i; i < p.hops.length; ++i) {
             Hop memory hop = p.hops[i];

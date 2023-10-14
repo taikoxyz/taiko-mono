@@ -92,10 +92,8 @@ contract TestSignalService is TestBase {
         );
         bytes memory proof = "????????";
 
-        crossChainSync.setCrossChainBlockHeader(
-            0x986278442ae7469dbd55f478348b4547c399004c93325b18ed995d2bc008f98d
-        );
-        crossChainSync.setCrossChainSignalRoot(
+        crossChainSync.setSyncedData(
+            0x986278442ae7469dbd55f478348b4547c399004c93325b18ed995d2bc008f98d,
             0x58900f5366437923bb250887d359d828a1a89e1837f9369f75c3e1bb238b854f
         );
 
