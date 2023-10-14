@@ -6,7 +6,7 @@
   import { SwitchChainError, UserRejectedRequestError } from 'viem';
 
   import { chainConfig } from '$chainConfig';
-  import { Icon } from '$components/Icon';
+  import { CloseButton } from '$components/CloseButton';
   import { LoadingMask } from '$components/LoadingMask';
   import { warningToast } from '$components/NotificationToast';
   import { chains } from '$libs/chain';
@@ -48,6 +48,8 @@
     readOnly ? '' : 'dark:hover:bg-tertiary-interactive-hover',
     'flex justify-start content-center',
   );
+
+  let iconSize = small ? 'w-5 h-5' : 'w-7 h-7';
 
   let switchingNetwork = false;
   let buttonId = `button-${uid()}`;
@@ -134,7 +136,7 @@
         {#if value}
           {@const icon = chainConfig[Number(value.id)]?.icon || 'Unknown Chain'}
           <i role="img" aria-label={value.name}>
-            <img src={icon} alt="chain-logo" class="rounded-full w-6 h-6" />
+            <img src={icon} alt="chain-logo" class="rounded-full {iconSize}" />
           </i>
           <span>{truncateString(value.name, 8)}</span>
         {/if}
@@ -148,9 +150,7 @@
         <LoadingMask spinnerClass="border-white" text={$t('messages.network.switching')} />
       {/if}
 
-      <button class="absolute right-6 top-[35px] md:top-[20px] z-50" on:click={closeModal}>
-        <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
-      </button>
+      <CloseButton onClick={closeModal} />
       <div class="w-full">
         <h3 class="title-body-bold mb-[20px]">
           {#if switchWallet}

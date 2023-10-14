@@ -2,6 +2,10 @@ export const recommentProcessingFee = {
   ethGasLimit: BigInt(900_000),
   erc20NotDeployedGasLimit: BigInt(3_100_000),
   erc20DeployedGasLimit: BigInt(1_100_000),
+  erc721NotDeployedGasLimit: BigInt(3_400_000),
+  erc721DeployedGasLimit: BigInt(1_100_000),
+  erc1155NotDeployedGasLimit: BigInt(4_000_000),
+  erc1155DeployedGasLimit: BigInt(1_100_000),
 };
 
 export const processingFeeComponent = {

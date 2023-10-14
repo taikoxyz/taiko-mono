@@ -81,3 +81,7 @@ export class RetryError extends Error {
 export class ReleaseError extends Error {
   name = 'ReleaseError';
 }
+
+export class UnknownTokenTypeError extends Error {
+  name = 'UnknownTokenTypeError';
+}

@@ -24,7 +24,6 @@ var (
 	subscriptionBackoff     = "30"
 	syncMode                = "sync"
 	watchMode               = "filter"
-	indexNFTs               = "true"
 	layer                   = "l1"
 )
 
@@ -74,26 +73,26 @@ func TestNewConfigFromCliContext(t *testing.T) {
 
 	assert.Nil(t, app.Run([]string{
 		"TestNewConfigFromCliContext",
-		"-" + flags.DatabaseUsername.Name, "dbuser",
-		"-" + flags.DatabasePassword.Name, "dbpass",
-		"-" + flags.DatabaseHost.Name, "dbhost",
-		"-" + flags.DatabaseName.Name, "dbname",
-		"-" + flags.RPCUrl.Name, "rpcUrl",
-		"-" + flags.L1TaikoAddress.Name, l1TaikoAddress,
-		"-" + flags.BridgeAddress.Name, bridgeAddress,
-		"-" + flags.SwapAddresses.Name, swapAddresses,
-		"-" + flags.HTTPPort.Name, httpPort,
-		"-" + flags.MetricsHTTPPort.Name, metricsHttpPort,
-		"-" + flags.CORSOrigins.Name, corsOrigins,
-		"-" + flags.DatabaseMaxIdleConns.Name, databaseMaxIdleConns,
-		"-" + flags.DatabaseMaxOpenConns.Name, databaseMaxOpenConns,
-		"-" + flags.DatabaseConnMaxLifetime.Name, databaseMaxConnLifetime,
-		"-" + flags.ETHClientTimeout.Name, ethClientTimeout,
-		"-" + flags.BlockBatchSize.Name, blockBatchSize,
-		"-" + flags.SubscriptionBackoff.Name, subscriptionBackoff,
-		"-" + flags.SyncMode.Name, syncMode,
-		"-" + flags.WatchMode.Name, watchMode,
-		"-" + flags.IndexNFTs.Name, indexNFTs,
-		"-" + flags.Layer.Name, layer,
+		"--" + flags.DatabaseUsername.Name, "dbuser",
+		"--" + flags.DatabasePassword.Name, "dbpass",
+		"--" + flags.DatabaseHost.Name, "dbhost",
+		"--" + flags.DatabaseName.Name, "dbname",
+		"--" + flags.RPCUrl.Name, "rpcUrl",
+		"--" + flags.L1TaikoAddress.Name, l1TaikoAddress,
+		"--" + flags.BridgeAddress.Name, bridgeAddress,
+		"--" + flags.SwapAddresses.Name, swapAddresses,
+		"--" + flags.HTTPPort.Name, httpPort,
+		"--" + flags.MetricsHTTPPort.Name, metricsHttpPort,
+		"--" + flags.CORSOrigins.Name, corsOrigins,
+		"--" + flags.DatabaseMaxIdleConns.Name, databaseMaxIdleConns,
+		"--" + flags.DatabaseMaxOpenConns.Name, databaseMaxOpenConns,
+		"--" + flags.DatabaseConnMaxLifetime.Name, databaseMaxConnLifetime,
+		"--" + flags.ETHClientTimeout.Name, ethClientTimeout,
+		"--" + flags.BlockBatchSize.Name, blockBatchSize,
+		"--" + flags.SubscriptionBackoff.Name, subscriptionBackoff,
+		"--" + flags.SyncMode.Name, syncMode,
+		"--" + flags.WatchMode.Name, watchMode,
+		"--" + flags.IndexNFTs.Name,
+		"--" + flags.Layer.Name, layer,
 	}))
 }
