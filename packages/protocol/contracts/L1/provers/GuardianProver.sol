@@ -48,17 +48,24 @@ contract GuardianProver is EssentialContract {
         external
         onlyOwner
     {
-        // delete all existing guardian indexing
-        for (uint256 i; i < NUM_GUARDIANS; ++i) {
-            delete guardianIds[guardians[i]];
-        }
-
         for (uint256 i; i < NUM_GUARDIANS; ++i) {
             address guardian = _guardians[i];
             if (guardian == address(0)) revert INVALID_GUARDIAN();
 
-            guardians[i] = guardian;
-            guardianIds[guardian] = i + 1;
+            // In case there is a pending 'approval' and we call setGuardians()
+            // with
+            // an existing guardian but with different array position (id), then
+            // accidentally 2 guardian signatures could lead to firing away a
+            // proveBlock() transaction.
+            uint256 id = guardianIds[guardian];
+
+            if (id != 0) {
+                if (id != i + 1) revert INVALID_GUARDIAN_SET();
+            } else {
+                delete guardianIds[guardians[i]];
+                guardianIds[guardian] = i + 1;
+                guardians[i] = guardian;
+            }
         }
 
         emit GuardiansUpdated(_guardians);
