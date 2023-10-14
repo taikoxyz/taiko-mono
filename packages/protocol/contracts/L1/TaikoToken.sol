@@ -68,7 +68,7 @@ contract TaikoToken is
         __ERC20Permit_init(_name);
         __ERC20Votes_init();
 
-        for (uint256 i = 0; i < _premintRecipients.length; ++i) {
+        for (uint256 i; i < _premintRecipients.length; ++i) {
             _mint(_premintRecipients[i], _premintAmounts[i]);
         }
     }
