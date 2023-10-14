@@ -103,7 +103,7 @@ contract SignalService is EssentialContract, ISignalService {
         }
 
         // Check a chain of inclusion proofs. If this chain is chainA, and the
-        // message is sent on chainC, and we have chiainB in the middle, we
+        // message is sent on chainC, and we have chainB in the middle, we
         // verify that chainB's signalRoot has been sent as a signal by chainB's
         // "taiko" contract, then using chainB's signalRoot, we further check
         // the signal is sent by chainC's "bridge" contract.
