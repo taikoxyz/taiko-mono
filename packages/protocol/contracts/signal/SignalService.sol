@@ -94,15 +94,22 @@ contract SignalService is EssentialContract, ISignalService {
         if (srcChainId == 0) return false;
         if (srcChainId == block.chainid) return false;
 
+        Proof memory p = abi.decode(proof, (Proof));
+        if (p.storageProof.length == 0) return false;
+
+        for (uint256 i; i < p.hops.length; ++i) {
+            if (p.hops[i].signalRoot == 0) return false;
+            if (p.hops[i].storageProof.length == 0) return false;
+        }
+
         // Check a chain of inclusion proofs. If this chain is chainA, and the
         // message is sent on chainC, and we have chiainB in the middle, we
         // verify that chainB's signalRoot has been sent as a signal by chainB's
         // "taiko" contract, then using chainB's signalRoot, we further check
         // the signal is sent by chainC's "bridge" contract.
-        Proof memory p = abi.decode(proof, (Proof));
+
         bytes32 signalRoot = ICrossChainSync(resolve("taiko", false))
             .getSyncedSnippet(p.height).signalRoot;
-
         if (signalRoot == 0) return false;
 
         for (uint256 i; i < p.hops.length; ++i) {
@@ -118,7 +125,6 @@ contract SignalService is EssentialContract, ISignalService {
             if (!verified) return false;
 
             signalRoot = hop.signalRoot;
-            if (signalRoot == 0) return false;
         }
 
         return LibTrie.verifyInclusionProof(
