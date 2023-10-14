@@ -29,7 +29,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @dev For gas savings, we shall assign each SGX instance with an id
     /// so that when we need to set a new pub key, just write storage once.
-    uint256 public numInstances; // slot 1
+    uint256 public nextInstanceId; // slot 1
 
     /// @dev One SGX instance is uniquely identified (on-chain) by it's ECDSA
     /// public key (or rather ethereum address). Once that address is used (by
@@ -143,7 +143,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     function _addInstance(address instance) private {
         if (instance == address(0)) revert SGX_INVALID_INSTANCE();
 
-        uint256 id = numInstances++;
+        uint256 id = nextInstanceId++;
         instances[id] = Instance(instance, uint64(block.timestamp));
         emit InstanceAdded(id, instance, address(0), block.timestamp);
     }
