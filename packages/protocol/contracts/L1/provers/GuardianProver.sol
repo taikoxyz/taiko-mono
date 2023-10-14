@@ -25,11 +25,11 @@ contract GuardianProver is EssentialContract {
         bool proofSubmitted
     );
 
-    address[NUM_GUARDIANS] public guardians;
-    mapping(address guardian => uint256 id) public guardianIds;
-    mapping(bytes32 => uint256 approvalBits) public approvals;
+    address[NUM_GUARDIANS] public guardians; //  slots 1 - 5
+    mapping(address guardian => uint256 id) public guardianIds; // slot 6
+    mapping(bytes32 => uint256 approvalBits) public approvals; // slot 7
 
-    uint256[47] private __gap;
+    uint256[43] private __gap;
 
     error INVALID_GUARDIAN();
     error INVALID_GUARDIAN_SET();
@@ -48,24 +48,24 @@ contract GuardianProver is EssentialContract {
         external
         onlyOwner
     {
-        // In case there is a pending 'approval' and we call setGuardians() with
-        // an existing guardian but with different array position (id), then
-        // accidentally 2 guardian signatures could lead to firing away a
-        // proveBlock() transaction.
-        if (!_correctOverlaps(_guardians)) {
-            revert INVALID_GUARDIAN_SET();
-        }
-
         for (uint256 i; i < NUM_GUARDIANS; ++i) {
-            delete guardianIds[guardians[i]];
-
             address guardian = _guardians[i];
-            if (guardian == address(0) || guardianIds[guardian] != 0) {
-                revert INVALID_GUARDIAN();
-            }
+            if (guardian == address(0)) revert INVALID_GUARDIAN();
 
-            guardianIds[guardian] = i + 1;
-            guardians[i] = guardian;
+            // In case there is a pending 'approval' and we call setGuardians()
+            // with
+            // an existing guardian but with different array position (id), then
+            // accidentally 2 guardian signatures could lead to firing away a
+            // proveBlock() transaction.
+            uint256 id = guardianIds[guardian];
+
+            if (id != 0) {
+                if (id != i + 1) revert INVALID_GUARDIAN_SET();
+            } else {
+                delete guardianIds[guardians[i]];
+                guardianIds[guardian] = i + 1;
+                guardians[i] = guardian;
+            }
         }
 
         emit GuardiansUpdated(_guardians);
@@ -114,23 +114,6 @@ contract GuardianProver is EssentialContract {
             bits >>= 1;
         }
         return false;
-    }
-
-    function _correctOverlaps(address[NUM_GUARDIANS] memory _guardians)
-        private
-        view
-        returns (bool result)
-    {
-        // Basically going over the array and see if there is a duplicate and if
-        // so, they are NOT in the same position, revert.
-        for (uint256 i; i < NUM_GUARDIANS; ++i) {
-            if (
-                guardianIds[_guardians[i]] != 0 && guardians[i] != _guardians[i]
-            ) {
-                return false;
-            }
-        }
-        result = true;
     }
 }
 
