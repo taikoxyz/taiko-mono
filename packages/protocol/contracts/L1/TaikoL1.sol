@@ -308,7 +308,6 @@ contract TaikoL1 is
     {
         return TaikoData.Config({
             chainId: 167_007,
-            relaySignalRoot: false,
             blockMaxProposals: 403_200,
             blockRingBufferSize: 403_210,
             maxBlocksToVerifyPerProposal: 10,
