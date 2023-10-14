@@ -17,6 +17,12 @@ contract GuardianProver is EssentialContract {
     uint256 public constant NUM_GUARDIANS = 5;
     uint256 public constant REQUIRED_GUARDIANS = 3;
 
+    address[NUM_GUARDIANS] public guardians; //  slots 1 - 5
+    mapping(address guardian => uint256 id) public guardianIds; // slot 6
+    mapping(bytes32 => uint256 approvalBits) public approvals; // slot 7
+
+    uint256[43] private __gap;
+
     event GuardiansUpdated(address[NUM_GUARDIANS]);
     event Approved(
         uint64 blockId,
@@ -24,12 +30,6 @@ contract GuardianProver is EssentialContract {
         uint256 approvalBits,
         bool proofSubmitted
     );
-
-    address[NUM_GUARDIANS] public guardians; //  slots 1 - 5
-    mapping(address guardian => uint256 id) public guardianIds; // slot 6
-    mapping(bytes32 => uint256 approvalBits) public approvals; // slot 7
-
-    uint256[43] private __gap;
 
     error INVALID_GUARDIAN();
     error INVALID_GUARDIAN_SET();

@@ -45,23 +45,17 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         bytes32 instance = getInstance(prover, evidence);
 
         // Validate the instance using bytes utilities.
-        if (
-            !LibBytesUtils.equal(
-                LibBytesUtils.slice(evidence.proof, 2, 32),
-                bytes.concat(bytes16(0), bytes16(instance))
-            )
-        ) {
-            revert L1_INVALID_PROOF();
-        }
+        bool verified = LibBytesUtils.equal(
+            LibBytesUtils.slice(evidence.proof, 2, 32),
+            bytes.concat(bytes16(0), bytes16(instance))
+        );
+        if (!verified) revert L1_INVALID_PROOF();
 
-        if (
-            !LibBytesUtils.equal(
-                LibBytesUtils.slice(evidence.proof, 34, 32),
-                bytes.concat(bytes16(0), bytes16(uint128(uint256(instance))))
-            )
-        ) {
-            revert L1_INVALID_PROOF();
-        }
+        verified = LibBytesUtils.equal(
+            LibBytesUtils.slice(evidence.proof, 34, 32),
+            bytes.concat(bytes16(0), bytes16(uint128(uint256(instance))))
+        );
+        if (!verified) revert L1_INVALID_PROOF();
 
         // Extract verifier ID from the proof.
         uint16 verifierId = uint16(bytes2(evidence.proof[0:2]));
@@ -71,14 +65,14 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         address verifierAddress = resolve(getVerifierName(verifierId), false);
 
         // Call the verifier contract with the provided proof.
-        (bool verified, bytes memory ret) =
+        bytes memory ret;
+        (verified, ret) =
             verifierAddress.staticcall(bytes.concat(evidence.proof[2:]));
 
         // Check if the proof is valid.
-        if (!verified || ret.length != 32 || bytes32(ret) != keccak256("taiko"))
-        {
-            revert L1_INVALID_PROOF();
-        }
+        if (!verified) revert L1_INVALID_PROOF();
+        if (ret.length != 32) revert L1_INVALID_PROOF();
+        if (bytes32(ret) != keccak256("taiko")) revert L1_INVALID_PROOF();
     }
 
     function getInstance(

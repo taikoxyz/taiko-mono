@@ -10,10 +10,10 @@ import { ITierProvider, LibTiers } from "./ITierProvider.sol";
 
 /// @title TaikoConfigProvider
 contract TaikoConfigProvider is ITierProvider {
-    error TIER_NOT_FOUND();
-
     uint96 private constant UNIT = 10_000e18; // 10000 Taiko token
     uint24 private constant COOLDOWN_BASE = 24 hours;
+
+    error TIER_NOT_FOUND();
 
     function getTier(uint16 tierId)
         public
