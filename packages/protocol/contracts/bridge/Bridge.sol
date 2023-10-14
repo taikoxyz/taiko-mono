@@ -95,12 +95,13 @@ contract Bridge is EssentialContract, IBridge {
             isDestChainEnabled(message.destChainId);
 
         // Verify destination chain and to address.
-        if (!destChainEnabled || message.destChainId == block.chainid) {
+        if (!destChainEnabled) revert B_INVALID_CHAINID();
+        if (message.destChainId == block.chainid) {
             revert B_INVALID_CHAINID();
         }
-        if (message.to == address(0) || message.to == destBridge) {
-            revert B_INVALID_TO();
-        }
+
+        if (message.to == address(0)) revert B_INVALID_TO();
+        if (message.to == destBridge) revert B_INVALID_TO();
 
         // Ensure the sent value matches the expected amount.
         uint256 expectedAmount = message.value + message.fee;
@@ -147,13 +148,10 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         bytes32 msgHash = keccak256(abi.encode(message));
-        if (messageStatus[msgHash] != Status.NEW) {
-            revert B_STATUS_MISMATCH();
-        }
+        if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
-        if (!_proveSignalReceived(msgHash, message.srcChainId, proof)) {
-            revert B_NOT_RECEIVED();
-        }
+        bool received = _proveSignalReceived(msgHash, message.srcChainId, proof);
+        if (!received) revert B_NOT_RECEIVED();
 
         // Release necessary Ether from EtherVault if on Taiko, otherwise it's
         // already available on this Bridge.
@@ -272,10 +270,10 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 msgHash = keccak256(abi.encode(message));
         if (isMessageRecalled[msgHash]) revert B_RECALLED_ALREADY();
 
-        bytes32 failedSignal = _signalForFailedMessage(msgHash);
-        if (!_proveSignalReceived(failedSignal, message.destChainId, proof)) {
-            revert B_NOT_FAILED();
-        }
+        bool received = _proveSignalReceived(
+            _signalForFailedMessage(msgHash), message.destChainId, proof
+        );
+        if (!received) revert B_NOT_FAILED();
 
         isMessageRecalled[msgHash] = true;
 
@@ -427,15 +425,16 @@ contract Bridge is EssentialContract, IBridge {
     /// @param msgHash The hash of the message.
     /// @param status The new status of the message.
     function _updateMessageStatus(bytes32 msgHash, Status status) private {
-        if (messageStatus[msgHash] != status) {
-            messageStatus[msgHash] = status;
-            if (status == Status.FAILED) {
-                ISignalService(resolve("signal_service", false)).sendSignal(
-                    _signalForFailedMessage(msgHash)
-                );
-            }
-            emit MessageStatusChanged(msgHash, status);
-        }
+        if (messageStatus[msgHash] == status) return;
+
+        messageStatus[msgHash] = status;
+        emit MessageStatusChanged(msgHash, status);
+
+        if (status != Status.FAILED) return;
+
+        ISignalService(resolve("signal_service", false)).sendSignal(
+            _signalForFailedMessage(msgHash)
+        );
     }
 
     /// @notice Checks if the signal was received.
