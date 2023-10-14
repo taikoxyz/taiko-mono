@@ -17,7 +17,7 @@ import { Proxied } from "../common/Proxied.sol";
 contract EtherVault is EssentialContract {
     using LibAddress for address;
 
-    mapping(address addr => bool isAuthorized) private _authorizedAddrs;
+    mapping(address addr => bool authorized) public isAuthorized;
     uint256[49] private __gap;
 
     event Authorized(address indexed addr, bool authorized);
@@ -29,7 +29,7 @@ contract EtherVault is EssentialContract {
 
     modifier onlyAuthorized() {
         // Ensure the caller is authorized to perform the action
-        if (!isAuthorized(msg.sender)) revert VAULT_PERMISSION_DENIED();
+        if (!isAuthorized[msg.sender]) revert VAULT_PERMISSION_DENIED();
         _;
     }
 
@@ -37,7 +37,7 @@ contract EtherVault is EssentialContract {
     /// @dev Only authorized addresses can send Ether to the contract.
     receive() external payable {
         // EthVault's balance must == 0 OR the sender isAuthorized.
-        if (address(this).balance != 0 && !isAuthorized(msg.sender)) {
+        if (address(this).balance != 0 && !isAuthorized[msg.sender]) {
             revert VAULT_PERMISSION_DENIED();
         }
     }
@@ -68,7 +68,6 @@ contract EtherVault is EssentialContract {
         onlyAuthorized
         nonReentrant
     {
-        if (amount == 0) return;
         if (recipient == address(0)) revert VAULT_INVALID_RECIPIENT();
 
         recipient.sendEther(amount);
@@ -80,17 +79,11 @@ contract EtherVault is EssentialContract {
     /// @param addr Address to set the authorized status of.
     /// @param authorized Authorized status to set.
     function authorize(address addr, bool authorized) public onlyOwner {
-        if (addr == address(0) || _authorizedAddrs[addr] == authorized) {
-            revert VAULT_INVALID_PARAMS();
-        }
-        _authorizedAddrs[addr] = authorized;
-        emit Authorized(addr, authorized);
-    }
+        if (addr == address(0)) revert VAULT_INVALID_PARAMS();
+        if (isAuthorized[addr] == authorized) revert VAULT_INVALID_PARAMS();
 
-    /// @notice Gets the authorized status of an address.
-    /// @param addr Address to get the authorized status of.
-    function isAuthorized(address addr) public view returns (bool) {
-        return _authorizedAddrs[addr];
+        isAuthorized[addr] = authorized;
+        emit Authorized(addr, authorized);
     }
 }
 
