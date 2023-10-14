@@ -39,7 +39,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     // Mapping from L2 block numbers to their block hashes.
     // All L2 block hashes will be saved in this mapping.
     mapping(uint256 blockId => bytes32 blockHash) public l2Hashes;
-    mapping(uint256 blockId => ICrossChainSync.Snippet) public snippets;
+    mapping(uint256 l1height => ICrossChainSync.Snippet) public snippets;
 
     // A hash to check the integrity of public inputs.
     bytes32 public publicInputHash; // slot 3
