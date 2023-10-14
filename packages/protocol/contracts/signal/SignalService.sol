@@ -24,7 +24,7 @@ contract SignalService is EssentialContract, ISignalService {
 
     struct Proof {
         uint64 height;
-        bytes storageProof; // A storage proof
+        bytes storageProof;
         Hop[] hops;
     }
 
