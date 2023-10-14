@@ -46,8 +46,8 @@ contract TaikoConfigProvider is ITierProvider {
         if (tierId == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
             return ITierProvider.Tier({
                 verifierName: "tier_sgx_and_pse_zkevm",
-                validityBond: 2 * UNIT,
-                contestBond: 2 * UNIT,
+                validityBond: 5 * UNIT,
+                contestBond: 5 * UNIT,
                 cooldownWindow: 2 hours + COOLDOWN_BASE,
                 provingWindow: 4 hours,
                 maxBlocksToVerify: 6
