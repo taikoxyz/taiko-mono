@@ -9,7 +9,8 @@ pragma solidity ^0.8.20;
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { Proxied } from "../common/Proxied.sol";
-import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
+import { LibSecureMerkleTrie as LibTrie } from
+    "../thirdparty/LibSecureMerkleTrie.sol";
 
 import { ISignalService } from "./ISignalService.sol";
 
@@ -93,8 +94,11 @@ contract SignalService is EssentialContract, ISignalService {
         if (srcChainId == 0) return false;
         if (srcChainId == block.chainid) return false;
 
-        // Check a chain of inclusion proofs, from the message's source
-        // chain all the way to the destination chain.
+        // Check a chain of inclusion proofs. If this chain is chainA, and the
+        // message is sent on chainC, and we have chiainB in the middle, we
+        // verify that chainB's signalRoot has been sent as a signal by chainB's
+        // "taiko" contract, then using chainB's signalRoot, we further check
+        // the signal is sent by chainC's "bridge" contract.
         Proof memory p = abi.decode(proof, (Proof));
         bytes32 signalRoot = ICrossChainSync(resolve("taiko", false))
             .getSyncedSnippet(p.height).signalRoot;
@@ -108,7 +112,7 @@ contract SignalService is EssentialContract, ISignalService {
                 resolve(hop.chainId, "taiko", false),
                 hop.signalRoot
             );
-            bool verified = LibSecureMerkleTrie.verifyInclusionProof(
+            bool verified = LibTrie.verifyInclusionProof(
                 bytes.concat(slot), hex"01", hop.storageProof, signalRoot
             );
             if (!verified) return false;
@@ -117,7 +121,7 @@ contract SignalService is EssentialContract, ISignalService {
             if (signalRoot == 0) return false;
         }
 
-        return LibSecureMerkleTrie.verifyInclusionProof(
+        return LibTrie.verifyInclusionProof(
             bytes.concat(getSignalSlot(srcChainId, app, signal)),
             hex"01",
             p.storageProof,
