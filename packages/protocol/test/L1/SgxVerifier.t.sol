@@ -17,48 +17,45 @@ contract TestSgxVerifier is TaikoL1TestBase {
     }
 
     function test_addToRegistryByOwner() external {
-        address[] memory trustedInstances = new address[](3);
-        trustedInstances[0] = SGX_X_1;
-        trustedInstances[1] = SGX_Y;
-        trustedInstances[2] = SGX_Z;
-        sv.addInstances(trustedInstances);
+        address[] memory _instances = new address[](3);
+        _instances[0] = SGX_X_1;
+        _instances[1] = SGX_Y;
+        _instances[2] = SGX_Z;
+        sv.addInstances(_instances);
     }
 
     function test_addToRegistryByOwner_WithoutOwnerRole() external {
-        address[] memory trustedInstances = new address[](3);
-        trustedInstances[0] = SGX_X_0;
-        trustedInstances[1] = SGX_Y;
-        trustedInstances[2] = SGX_Z;
+        address[] memory _instances = new address[](3);
+        _instances[0] = SGX_X_0;
+        _instances[1] = SGX_Y;
+        _instances[2] = SGX_Z;
 
         vm.expectRevert();
         vm.prank(Bob, Bob);
-        sv.addInstances(trustedInstances);
+        sv.addInstances(_instances);
     }
 
     function test_addToRegistryBySgxInstance() external {
-        address[] memory trustedInstances = new address[](2);
-        trustedInstances[0] = SGX_Y;
-        trustedInstances[1] = SGX_Z;
+        address[] memory _instances = new address[](3);
+        _instances[0] = SGX_X_1;
+        _instances[1] = SGX_Y;
+        _instances[2] = SGX_Z;
 
-        bytes memory signature =
-            createAddRegistrySignature(SGX_X_1, trustedInstances, 0x4);
+        bytes memory signature = createAddRegistrySignature(_instances, 0x4);
 
         vm.prank(Bob, Bob);
-        sv.addInstancesBySgx(0, SGX_X_1, trustedInstances, signature);
+        sv.addInstancesBySgx(0, _instances, signature);
     }
 
     function createAddRegistrySignature(
-        address newAddress,
-        address[] memory trustedInstances,
+        address[] memory _instances,
         uint256 privKey
     )
         public
         pure
         returns (bytes memory signature)
     {
-        bytes32 digest = keccak256(
-            abi.encode("REGISTER_SGX_INSTANCE", newAddress, trustedInstances)
-        );
+        bytes32 digest = keccak256(abi.encode("ADD_INSTANCES", _instances));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privKey, digest);
         signature = abi.encodePacked(r, s, v);
     }
