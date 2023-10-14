@@ -64,7 +64,7 @@ contract Bridge is EssentialContract, IBridge {
     error B_RECALLED_ALREADY();
     error B_STATUS_MISMATCH();
 
-    modifier onlyThisChain(uint256 chainId) {
+    modifier sameChain(uint256 chainId) {
         if (chainId != block.chainid) revert B_INVALID_CHAINID();
         _;
     }
@@ -138,7 +138,7 @@ contract Bridge is EssentialContract, IBridge {
     )
         external
         nonReentrant
-        onlyThisChain(message.destChainId)
+        sameChain(message.destChainId)
     {
         // If the gas limit is set to zero, only the user can process the
         // message.
@@ -220,7 +220,7 @@ contract Bridge is EssentialContract, IBridge {
     )
         external
         nonReentrant
-        onlyThisChain(message.destChainId)
+        sameChain(message.destChainId)
     {
         // If the gasLimit is set to 0 or isLastAttempt is true, the caller must
         // be the message.user.
@@ -267,7 +267,7 @@ contract Bridge is EssentialContract, IBridge {
     )
         external
         nonReentrant
-        onlyThisChain(message.srcChainId)
+        sameChain(message.srcChainId)
     {
         bytes32 msgHash = keccak256(abi.encode(message));
         if (isMessageRecalled[msgHash]) revert B_RECALLED_ALREADY();
