@@ -20,19 +20,12 @@ import { IVerifier } from "./IVerifier.sol";
 contract SgxVerifier is EssentialContract, IVerifier {
     using ECDSAUpgradeable for bytes32;
 
-    uint256 public constant INSTANCE_EXPIRY = 180 days;
-
-    event InstanceAdded(
-        uint256 indexed id,
-        address indexed instance,
-        address replaced,
-        uint256 timstamp
-    );
-
     struct Instance {
         address addr;
         uint64 addedAt; // We can calculate if expired
     }
+
+    uint256 public constant INSTANCE_EXPIRY = 180 days;
 
     /// @dev For gas savings, we shall assign each SGX instance with an id
     /// so that when we need to set a new pub key, just write storage once.
@@ -47,6 +40,13 @@ contract SgxVerifier is EssentialContract, IVerifier {
     mapping(uint256 instanceId => Instance) public instances; // slot 2
 
     uint256[48] private __gap;
+
+    event InstanceAdded(
+        uint256 indexed id,
+        address indexed instance,
+        address replaced,
+        uint256 timstamp
+    );
 
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_INSTANCES();
