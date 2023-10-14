@@ -89,13 +89,14 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
     /// message verification.
-    /// @param l1Hash The latest L1 block hash when this block was proposed.
+    /// @param l1BlockHash The latest L1 block hash when this block was
+    /// proposed.
     /// @param l1SignalRoot The latest value of the L1 signal service storage
     /// root.
     /// @param l1Height The latest L1 block height when this block was proposed.
     /// @param parentGasUsed The gas used in the parent block.
     function anchor(
-        bytes32 l1Hash,
+        bytes32 l1BlockHash,
         bytes32 l1SignalRoot,
         uint64 l1Height,
         uint32 parentGasUsed
@@ -126,13 +127,13 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
         // Update state variables
         l2Hashes[block.number - 1] = blockhash(block.number - 1);
-        syncdData[l1Height] = ICrossChainSync.Data(l1Hash, l1SignalRoot);
+        syncdData[l1Height] = ICrossChainSync.Data(l1BlockHash, l1SignalRoot);
         publicInputHash = publicInputHashNew;
         latestSyncedL1Height = l1Height;
         parentProposer = block.coinbase;
 
         // Emit events
-        emit CrossChainSynced(l1Height, l1Hash, l1SignalRoot);
+        emit CrossChainSynced(l1Height, l1BlockHash, l1SignalRoot);
         emit Anchored(blockhash(block.number - 1), gasExcess, blockReward);
     }
 
