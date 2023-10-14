@@ -175,7 +175,7 @@ library LibVerifying {
                     bondToReturn -= blk.livenessBond / 2;
                 }
 
-                LibTaikoToken.creditToken(
+                LibTaikoToken.creditTaikoToken(
                     state, resolver, tran.prover, bondToReturn, false
                 );
 

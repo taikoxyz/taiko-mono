@@ -56,11 +56,7 @@ contract TaikoL1 is
         initializer
     {
         EssentialContract._init(_addressManager);
-        LibVerifying.init({
-            state: state,
-            config: getConfig(),
-            genesisBlockHash: _genesisBlockHash
-        });
+        LibVerifying.init(state, getConfig(), _genesisBlockHash);
     }
 
     /// @notice Proposes a Taiko L2 block.
@@ -83,22 +79,22 @@ contract TaikoL1 is
         returns (TaikoData.BlockMetadata memory meta)
     {
         TaikoData.Config memory config = getConfig();
-        meta = LibProposing.proposeBlock({
-            state: state,
-            config: config,
-            resolver: AddressResolver(this),
-            txListHash: txListHash,
-            extraData: extraData,
-            assignment: abi.decode(assignment, (TaikoData.ProverAssignment)),
-            txList: txList
-        });
+        meta = LibProposing.proposeBlock(
+            state,
+            config,
+            AddressResolver(this),
+            txListHash,
+            extraData,
+            abi.decode(assignment, (TaikoData.ProverAssignment)),
+            txList
+        );
         if (config.maxBlocksToVerifyPerProposal > 0) {
-            LibVerifying.verifyBlocks({
-                state: state,
-                config: config,
-                resolver: AddressResolver(this),
-                maxBlocksToVerify: config.maxBlocksToVerifyPerProposal
-            });
+            LibVerifying.verifyBlocks(
+                state,
+                config,
+                AddressResolver(this),
+                config.maxBlocksToVerifyPerProposal
+            );
         }
     }
 
@@ -114,20 +110,17 @@ contract TaikoL1 is
         nonReentrant
     {
         TaikoData.Config memory config = getConfig();
-        uint8 maxBlocksToVerify = LibProving.proveBlock({
-            state: state,
-            config: config,
-            resolver: AddressResolver(this),
-            blockId: blockId,
-            evidence: abi.decode(input, (TaikoData.BlockEvidence))
-        });
+        uint8 maxBlocksToVerify = LibProving.proveBlock(
+            state,
+            config,
+            AddressResolver(this),
+            blockId,
+            abi.decode(input, (TaikoData.BlockEvidence))
+        );
         if (maxBlocksToVerify > 0) {
-            LibVerifying.verifyBlocks({
-                state: state,
-                config: config,
-                resolver: AddressResolver(this),
-                maxBlocksToVerify: maxBlocksToVerify
-            });
+            LibVerifying.verifyBlocks(
+                state, config, AddressResolver(this), maxBlocksToVerify
+            );
         }
     }
 
@@ -135,24 +128,21 @@ contract TaikoL1 is
     /// @param maxBlocksToVerify Max number of blocks to verify.
     function verifyBlocks(uint64 maxBlocksToVerify) external nonReentrant {
         if (maxBlocksToVerify == 0) revert L1_INVALID_PARAM();
-        LibVerifying.verifyBlocks({
-            state: state,
-            config: getConfig(),
-            resolver: AddressResolver(this),
-            maxBlocksToVerify: maxBlocksToVerify
-        });
+        LibVerifying.verifyBlocks(
+            state, getConfig(), AddressResolver(this), maxBlocksToVerify
+        );
     }
 
     /// @notice Deposit Taiko token to this contract
     /// @param amount Amount of Taiko token to deposit.
     function depositTaikoToken(uint256 amount) public {
-        LibTaikoToken.depositToken(state, AddressResolver(this), amount);
+        LibTaikoToken.depositTaikoToken(state, AddressResolver(this), amount);
     }
 
     /// @notice Withdraw Taiko token from this contract
     /// @param amount Amount of Taiko token to withdraw.
     function withdrawTaikoToken(uint256 amount) public {
-        LibTaikoToken.withdrawToken(state, AddressResolver(this), amount);
+        LibTaikoToken.withdrawTaikoToken(state, AddressResolver(this), amount);
     }
 
     function ownerWithdrawTaikoToken(
@@ -162,30 +152,23 @@ contract TaikoL1 is
         public
         onlyOwner
     {
-        LibTaikoToken.ownerWithdrawToken(AddressResolver(this), to, amount);
+        LibTaikoToken.ownerWithdrawTaikoToken(AddressResolver(this), to, amount);
     }
 
     /// @notice Deposits Ether to Layer 2.
     /// @param recipient Address of the recipient for the deposited Ether on
     /// Layer 2.
     function depositEtherToL2(address recipient) public payable {
-        LibDepositing.depositEtherToL2({
-            state: state,
-            config: getConfig(),
-            resolver: AddressResolver(this),
-            recipient: recipient
-        });
+        LibDepositing.depositEtherToL2(
+            state, getConfig(), AddressResolver(this), recipient
+        );
     }
 
     /// @notice Checks if Ether deposit is allowed for Layer 2.
     /// @param amount Amount of Ether to be deposited.
     /// @return true if Ether deposit is allowed, false otherwise.
     function canDepositEthToL2(uint256 amount) public view returns (bool) {
-        return LibDepositing.canDepositEthToL2({
-            state: state,
-            config: getConfig(),
-            amount: amount
-        });
+        return LibDepositing.canDepositEthToL2(state, getConfig(), amount);
     }
 
     /// @notice Gets the details of a block.
@@ -196,11 +179,7 @@ contract TaikoL1 is
         view
         returns (TaikoData.Block memory blk)
     {
-        return LibUtils.getBlock({
-            state: state,
-            config: getConfig(),
-            blockId: blockId
-        });
+        return LibUtils.getBlock(state, getConfig(), blockId);
     }
 
     /// @notice Gets the state transition for a specific block.
@@ -215,12 +194,7 @@ contract TaikoL1 is
         view
         returns (TaikoData.Transition memory)
     {
-        return LibUtils.getTransition({
-            state: state,
-            config: getConfig(),
-            blockId: blockId,
-            parentHash: parentHash
-        });
+        return LibUtils.getTransition(state, getConfig(), blockId, parentHash);
     }
 
     /// @inheritdoc ICrossChainSync
@@ -232,6 +206,7 @@ contract TaikoL1 is
     {
         TaikoData.Transition storage transition =
             LibUtils.getVerifyingTransition(state, getConfig(), blockId);
+
         data.blockHash = transition.blockHash;
         data.signalRoot = transition.signalRoot;
     }
