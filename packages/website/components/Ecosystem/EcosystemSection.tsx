@@ -332,6 +332,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/pixelswap.png",
+    name: "PixelSwap",
+    link: "https://pixelswap.xyz",
+    description:
+      "Pixelswap: Pioneering the Future of Decentralized Exchange with Seamless Multichain Support and Enhanced User Experience.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/pizzap.png",
     name: "Pizzap",
     link: "https://taiko.pizzap.io",
@@ -391,6 +400,15 @@ const ecosystemData: EcosystemData[] = [
     link: "https://soulwallet.io",
     description:
       "The next-generation smart contract wallet powered by ERC-4337. Simply set up in seconds without recovery phrase.",
+    filters: [],
+    isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/superscalar.png",
+    name: "SuperScalar",
+    link: "https://www.superscalar.io/",
+    description:
+      "Superscalar specializes in cutting-edge computing acceleration solutions, with a focus on zero-knowledge proof algorithm optimization, FPGA development, and ASIC design.",
     filters: [],
     isLive: true,
   },
