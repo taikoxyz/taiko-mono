@@ -188,7 +188,13 @@ contract SgxVerifier is EssentialContract, IVerifier {
         }
     }
 
-    function exchangeSgxInstanceAddr(uint256 instanceId, address oldInstance, address newInstance) internal {
+    function exchangeSgxInstanceAddr(
+        uint256 instanceId,
+        address oldInstance,
+        address newInstance
+    )
+        internal
+    {
         // Invalidate current key, because it cannot be used again (side-channel
         // attacks).
         sgxRegistry[instanceId] =

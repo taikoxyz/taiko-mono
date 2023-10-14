@@ -6,6 +6,7 @@ import { console2 } from "forge-std/console2.sol";
 
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { LibUtils } from "../../contracts/L1/libs/LibUtils.sol";
+import { LibProposing } from "../../contracts/L1/libs/LibProposing.sol";
 import { GuardianVerifier } from
     "../../contracts/L1/verifiers/GuardianVerifier.sol";
 import { TaikoData } from "../../contracts/L1/TaikoData.sol";
@@ -73,8 +74,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             blockHash,
             signalRoot,
             tierToProveWith,
-            "",
-            false
+            ""
         );
     }
 
@@ -113,8 +113,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 L1.getBlock(meta.id).minTier,
-                "",
-                false
+                ""
             );
 
             // Try to contest - but should revert with L1_ALREADY_PROVED
@@ -126,8 +125,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 L1.getBlock(meta.id).minTier,
-                TaikoErrors.L1_ALREADY_PROVED.selector,
-                false
+                TaikoErrors.L1_ALREADY_PROVED.selector
             );
 
             vm.roll(block.number + 15 * 12);
@@ -172,15 +170,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             uint16 minTier = L1.getBlock(meta.id).minTier;
 
             proveBlock(
-                Bob,
-                Bob,
-                meta,
-                parentHash,
-                signalRoot,
-                signalRoot,
-                minTier,
-                "",
-                false
+                Bob, Bob, meta, parentHash, signalRoot, signalRoot, minTier, ""
             );
 
             // Try to contest
@@ -192,8 +182,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 minTier,
-                "",
-                false
+                ""
             );
 
             vm.roll(block.number + 15 * 12);
@@ -248,15 +237,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             // signalRoot instead of blockHash
             uint16 minTier = L1.getBlock(meta.id).minTier;
             proveBlock(
-                Bob,
-                Bob,
-                meta,
-                parentHash,
-                signalRoot,
-                signalRoot,
-                minTier,
-                "",
-                false
+                Bob, Bob, meta, parentHash, signalRoot, signalRoot, minTier, ""
             );
 
             // Try to contest
@@ -268,8 +249,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 minTier,
-                "",
-                false
+                ""
             );
 
             vm.roll(block.number + 15 * 12);
@@ -326,15 +306,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             uint16 minTier = L1.getBlock(meta.id).minTier;
 
             proveBlock(
-                Bob,
-                Bob,
-                meta,
-                parentHash,
-                blockHash,
-                signalRoot,
-                minTier,
-                "",
-                false
+                Bob, Bob, meta, parentHash, blockHash, signalRoot, minTier, ""
             );
 
             if (minTier == LibTiers.TIER_OPTIMISTIC) {
@@ -347,8 +319,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     signalRoot,
                     signalRoot,
                     minTier,
-                    "",
-                    false
+                    ""
                 );
 
                 vm.roll(block.number + 15 * 12);
@@ -368,8 +339,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     blockHash,
                     signalRoot,
                     LibTiers.TIER_SGX_AND_PSE_ZKEVM,
-                    "",
-                    false
+                    ""
                 );
             }
 
@@ -413,15 +383,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             // signalRoot instead of blockHash
             uint16 minTier = L1.getBlock(meta.id).minTier;
             proveBlock(
-                Bob,
-                Bob,
-                meta,
-                parentHash,
-                signalRoot,
-                signalRoot,
-                minTier,
-                "",
-                false
+                Bob, Bob, meta, parentHash, signalRoot, signalRoot, minTier, ""
             );
 
             if (minTier == LibTiers.TIER_OPTIMISTIC) {
@@ -434,8 +396,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     blockHash,
                     signalRoot,
                     minTier,
-                    "",
-                    false
+                    ""
                 );
 
                 vm.roll(block.number + 15 * 12);
@@ -456,8 +417,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     0,
                     signalRoot,
                     LibTiers.TIER_SGX_AND_PSE_ZKEVM,
-                    TaikoErrors.L1_INVALID_EVIDENCE.selector,
-                    false
+                    TaikoErrors.L1_INVALID_EVIDENCE.selector
                 );
             }
 
@@ -507,8 +467,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 L1.getBlock(meta.id).minTier,
-                TaikoErrors.L1_NOT_ASSIGNED_PROVER.selector,
-                false
+                TaikoErrors.L1_NOT_ASSIGNED_PROVER.selector
             );
             vm.roll(block.number + 15 * 12);
 
@@ -558,8 +517,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 L1.getBlock(meta.id).minTier,
-                TaikoErrors.L1_ASSIGNED_PROVER_NOT_ALLOWED.selector,
-                false
+                TaikoErrors.L1_ASSIGNED_PROVER_NOT_ALLOWED.selector
             );
 
             verifyBlock(Carol, 1);
@@ -569,8 +527,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_GuardianProverCannotOverwriteIfSameProof() external {
-        registerAddress("guardian", Carol);
-
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
         giveEthAndTko(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
@@ -605,8 +561,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 L1.getBlock(meta.id).minTier,
-                "",
-                false
+                ""
             );
 
             // Try to contest - but should revert with L1_ALREADY_PROVED
@@ -618,8 +573,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 LibTiers.TIER_GUARDIAN,
-                TaikoErrors.L1_ALREADY_PROVED.selector,
-                false
+                TaikoErrors.L1_ALREADY_PROVED.selector
             );
 
             vm.roll(block.number + 15 * 12);
@@ -635,8 +589,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_GuardianProverFailsWithInvalidBlockHash() external {
-        registerAddress("guardian", Carol);
-
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
         giveEthAndTko(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
@@ -671,8 +623,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 L1.getBlock(meta.id).minTier,
-                "",
-                false
+                ""
             );
 
             // Try to contest - but should revert with L1_ALREADY_PROVED
@@ -684,8 +635,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 0,
                 signalRoot,
                 LibTiers.TIER_GUARDIAN,
-                TaikoErrors.L1_INVALID_EVIDENCE.selector,
-                false
+                TaikoErrors.L1_INVALID_EVIDENCE.selector
             );
 
             vm.roll(block.number + 15 * 12);
@@ -701,8 +651,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_GuardianProverCanOverwriteIfNotSameProof() external {
-        registerAddress("guardian", Carol);
-
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
         giveEthAndTko(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
@@ -737,8 +685,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 signalRoot,
                 signalRoot,
                 L1.getBlock(meta.id).minTier,
-                "",
-                false
+                ""
             );
 
             // Prove as guardian
@@ -750,8 +697,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 LibTiers.TIER_GUARDIAN,
-                "",
-                false
+                ""
             );
 
             vm.roll(block.number + 15 * 12);
@@ -801,8 +747,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 signalRoot,
                 signalRoot,
                 L1.getBlock(meta.id).minTier,
-                "",
-                false
+                ""
             );
 
             // Prove as guardian but in reality not a guardian
@@ -814,8 +759,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 LibTiers.TIER_GUARDIAN,
-                GuardianVerifier.PERMISSION_DENIED.selector,
-                false
+                GuardianVerifier.PERMISSION_DENIED.selector
             );
 
             vm.roll(block.number + 15 * 12);
@@ -865,8 +809,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 LibTiers.TIER_PSE_ZKEVM,
-                TaikoErrors.L1_INVALID_BLOCK_ID.selector,
-                false
+                TaikoErrors.L1_INVALID_BLOCK_ID.selector
             );
 
             parentHash = blockHash;
@@ -910,8 +853,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 LibTiers.TIER_PSE_ZKEVM,
-                TaikoErrors.L1_BLOCK_MISMATCH.selector,
-                false
+                TaikoErrors.L1_BLOCK_MISMATCH.selector
             );
 
             parentHash = blockHash;
@@ -920,8 +862,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_GuardianProofCannotBeOverwrittenByLowerTier() external {
-        registerAddress("guardian", Carol);
-
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
         giveEthAndTko(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
@@ -956,8 +896,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 signalRoot,
                 signalRoot,
                 L1.getBlock(meta.id).minTier,
-                "",
-                false
+                ""
             );
 
             // Prove as guardian
@@ -969,8 +908,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 LibTiers.TIER_GUARDIAN,
-                "",
-                false
+                ""
             );
 
             // Try to re-prove but reverts
@@ -982,8 +920,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 signalRoot,
                 signalRoot,
                 LibTiers.TIER_PSE_ZKEVM,
-                TaikoErrors.L1_INVALID_TIER.selector,
-                false
+                TaikoErrors.L1_INVALID_TIER.selector
             );
 
             vm.roll(block.number + 15 * 12);
@@ -999,8 +936,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_GuardianCanReturnBondIfBlockUnprovable() external {
-        registerAddress("guardian", Carol);
-
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
         giveEthAndTko(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
@@ -1035,27 +970,34 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 signalRoot,
                 signalRoot,
                 L1.getBlock(meta.id).minTier,
-                "",
-                false
+                ""
             );
 
-            // Let's say the 10th block is unprovable
+            // Let's say the 10th block is unprovable so prove accordingly
             if (blockId == 10) {
-                // Prove as guardian
-                proveBlock(
-                    Carol,
-                    Carol,
-                    meta,
-                    parentHash,
-                    blockHash,
-                    signalRoot,
-                    LibTiers.TIER_GUARDIAN,
-                    "",
-                    true
-                );
+                TaikoData.BlockEvidence memory evidence = TaikoData
+                    .BlockEvidence({
+                    metaHash: LibProposing.hashMetadata(meta),
+                    parentHash: parentHash,
+                    blockHash: blockHash,
+                    signalRoot: signalRoot,
+                    graffiti: 0x0,
+                    tier: LibTiers.TIER_GUARDIAN,
+                    proof: new bytes(102)
+                });
 
-                // Credited back the bond (not transferred to the user wallet,
-                // but in-contract account credited only.)
+                evidence.proof = bytes.concat(keccak256("RETURN_LIVENESS_BOND"));
+
+                vm.prank(David, David);
+                gp.approveEvidence(meta.id, evidence);
+                vm.prank(Emma, Emma);
+                gp.approveEvidence(meta.id, evidence);
+                vm.prank(Frank, Frank);
+                gp.approveEvidence(meta.id, evidence);
+
+                // // Credited back the bond (not transferred to the user
+                // wallet,
+                // // but in-contract account credited only.)
                 assertEq(L1.getTaikoTokenBalance(Bob), 1 ether);
             } else {
                 // Prove as guardian
@@ -1067,8 +1009,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     blockHash,
                     signalRoot,
                     LibTiers.TIER_GUARDIAN,
-                    "",
-                    false
+                    ""
                 );
             }
             vm.roll(block.number + 15 * 12);

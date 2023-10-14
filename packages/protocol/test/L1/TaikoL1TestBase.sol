@@ -18,6 +18,7 @@ import { PseZkVerifier } from "../../contracts/L1/verifiers/PseZkVerifier.sol";
 import { SgxVerifier } from "../../contracts/L1/verifiers/SgxVerifier.sol";
 import { SgxAndZkVerifier } from
     "../../contracts/L1/verifiers/SgxAndZkVerifier.sol";
+import { GuardianProver } from "../../contracts/L1/provers/GuardianProver.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { StringsUpgradeable as Strings } from
     "@ozu/utils/StringsUpgradeable.sol";
@@ -41,6 +42,7 @@ abstract contract TaikoL1TestBase is TestBase {
     SgxVerifier public sv;
     SgxAndZkVerifier public sgxZkVerifier;
     GuardianVerifier public gv;
+    GuardianProver public gp;
     ZkAndSgxCombinedRollupConfigProvider public cp;
 
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
@@ -81,6 +83,16 @@ abstract contract TaikoL1TestBase is TestBase {
         gv = new GuardianVerifier();
         gv.init(address(addressManager));
 
+        gp = new GuardianProver();
+        gp.init(address(addressManager));
+        address[5] memory initMultiSig;
+        initMultiSig[0] = David;
+        initMultiSig[1] = Emma;
+        initMultiSig[2] = Frank;
+        initMultiSig[3] = Grace;
+        initMultiSig[4] = Henry;
+        gp.setGuardians(initMultiSig);
+
         cp = new ZkAndSgxCombinedRollupConfigProvider();
 
         registerAddress("tier_pse_zkevm", address(pv));
@@ -89,6 +101,7 @@ abstract contract TaikoL1TestBase is TestBase {
         registerAddress("tier_sgx_and_pse_zkevm", address(sgxZkVerifier));
         registerAddress("tier_provider", address(cp));
         registerAddress("signal_service", address(ss));
+        registerAddress("guardian", address(gp));
         registerAddress("ether_vault", address(L1EthVault));
         registerL2Address("treasury", L2Treasury);
         registerL2Address("taiko", address(TaikoL2));
@@ -192,8 +205,7 @@ abstract contract TaikoL1TestBase is TestBase {
         bytes32 blockHash,
         bytes32 signalRoot,
         uint16 tier,
-        bytes4 revertReason,
-        bool unprovable
+        bytes4 revertReason
     )
         internal
     {
@@ -223,7 +235,7 @@ abstract contract TaikoL1TestBase is TestBase {
         // Keep changing the pub key associated with an instance to avoid
         // attacks,
         // obviously just a mock due to 2 addresses changing all the time.
-        (newPubKey, )= sv.sgxRegistry(0);
+        (newPubKey,) = sv.sgxRegistry(0);
         if (newPubKey == SGX_X_0) {
             newPubKey = SGX_X_1;
         } else {
@@ -234,14 +246,16 @@ abstract contract TaikoL1TestBase is TestBase {
             bytes memory signature =
                 createSgxSignatureProof(evidence, newPubKey, prover);
 
-            evidence.proof = bytes.concat(bytes2(0),bytes20(newPubKey), signature);
+            evidence.proof =
+                bytes.concat(bytes2(0), bytes20(newPubKey), signature);
         }
 
         if (tier == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
             bytes memory signature =
                 createSgxSignatureProof(evidence, newPubKey, prover);
 
-            bytes memory sgxProof = bytes.concat(bytes2(0),bytes20(newPubKey), signature);
+            bytes memory sgxProof =
+                bytes.concat(bytes2(0), bytes20(newPubKey), signature);
             // Concatenate SGX and ZK (in this order)
             evidence.proof = bytes.concat(sgxProof, evidence.proof);
         }
@@ -249,19 +263,30 @@ abstract contract TaikoL1TestBase is TestBase {
         if (tier == LibTiers.TIER_GUARDIAN) {
             evidence.proof = "";
 
-            if (unprovable) {
-                evidence.proof =
-                    bytes.concat(bytes32(keccak256("RETURN_LIVENESS_BOND")));
-            }
-        }
+            // Grant 2 signatures, 3rd might be a revert
+            vm.prank(David, David);
+            gp.approveEvidence(meta.id, evidence);
+            vm.prank(Emma, Emma);
+            gp.approveEvidence(meta.id, evidence);
 
-        if (revertReason != "") {
-            vm.prank(msgSender, msgSender);
-            vm.expectRevert(revertReason);
-            L1.proveBlock(meta.id, abi.encode(evidence));
+            if (revertReason != "") {
+                vm.prank(Frank, Frank);
+                vm.expectRevert(); // Revert reason is 'wrapped' so will not be
+                    // identical to the expectedRevert
+                gp.approveEvidence(meta.id, evidence);
+            } else {
+                vm.prank(Frank, Frank);
+                gp.approveEvidence(meta.id, evidence);
+            }
         } else {
-            vm.prank(msgSender, msgSender);
-            L1.proveBlock(meta.id, abi.encode(evidence));
+            if (revertReason != "") {
+                vm.prank(msgSender, msgSender);
+                vm.expectRevert(revertReason);
+                L1.proveBlock(meta.id, abi.encode(evidence));
+            } else {
+                vm.prank(msgSender, msgSender);
+                L1.proveBlock(meta.id, abi.encode(evidence));
+            }
         }
     }
 
