@@ -23,23 +23,20 @@ contract SgxVerifier is EssentialContract, IVerifier {
     uint256 public constant INSTANCE_EXPIRY = 180 days;
 
     event InstanceAdded(
-        uint256 indexed instanceId, address instanceInitAddress, uint64 timstamp
-    );
-    event InstanceChanged(
-        uint256 indexed instanceId,
-        address oldInstance,
-        address newInstance,
+        uint256 indexed id,
+        address indexed instance,
+        address replaced,
         uint64 timstamp
     );
 
-    struct InstanceData {
-        address activeAddress;
-        uint64 effectiveSince; // We can calculate if expired
+    struct Instance {
+        address addr;
+        uint64 addedAt; // We can calculate if expired
     }
 
     /// @dev For gas savings, we shall assign each SGX instance with an id
     /// so that when we need to set a new pub key, just write storage once.
-    uint256 public uniqueVerifiers;
+    uint256 public numInstances; // slot 1
 
     /// @dev One SGX instance is uniquely identified (on-chain) by it's ECDSA
     /// public key (or rather ethereum address). Once that address is used (by
@@ -47,12 +44,12 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// the same instance). This is due to side-channel protection. Also this
     /// public key shall expire after some time. (For now it is a long enough 6
     /// months setting.)
-    mapping(uint256 instanceId => InstanceData sgxInstance) public sgxRegistry;
+    mapping(uint256 instanceId => Instance) public instances; // slot 2
 
     uint256[48] private __gap;
 
     error SGX_INVALID_PROOF_SIZE();
-    error SGX_INSTANCE_INVALID();
+    error SGX_INVALID_INSTANCE();
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
@@ -61,43 +58,40 @@ contract SgxVerifier is EssentialContract, IVerifier {
     }
 
     /// @notice Adds trusted SGX instances to the registry.
-    /// @param trustedInstances The address array of trusted SGX instances.
-    function registerInstances(address[] memory trustedInstances)
-        external
-        onlyOwner
-    {
-        addTrustedInstances(trustedInstances);
+    /// @param _instances The address array of trusted SGX instances.
+    function addInstances(address[] calldata _instances) external onlyOwner {
+        _addInstances(_instances);
     }
 
     /// @notice Adds trusted SGX instances to the registry by another SGX
     /// instance.
-    /// @param instanceId The id of the SGX instance who is adding new members.
+    /// @param id The id of the SGX instance who is adding new members.
     /// @param newAddress The new address of the instance.
-    /// @param trustedInstances The address array of trusted SGX instances.
+    /// @param _instances The address array of trusted SGX instances.
     /// @param signature The signature proving authenticity.
-    function registerInstancesBySgx(
-        uint256 instanceId,
+    function addInstancesBySgx(
+        uint256 id,
         address newAddress,
-        address[] memory trustedInstances,
-        bytes memory signature
+        address[] calldata _instances,
+        bytes calldata signature
     )
         external
     {
         bytes32 signedHash = keccak256(
-            abi.encode("REGISTER_SGX_INSTANCE", newAddress, trustedInstances)
+            abi.encode("REGISTER_SGX_INSTANCE", newAddress, _instances)
         );
         // Would throw in case invalid
         address signer = signedHash.recover(signature);
 
-        if (!isInstanceValid(instanceId, signer)) {
-            revert SGX_INSTANCE_INVALID();
+        if (!isInstanceValid(id, signer)) {
+            revert SGX_INVALID_INSTANCE();
         }
 
         // Allow user to add
-        addTrustedInstances(trustedInstances);
+        _addInstances(_instances);
 
-        // Exchange this instanceId's address
-        exchangeSgxInstanceAddr(instanceId, signer, newAddress);
+        // Exchange this id's address
+        _replaceInstance(id, signer, newAddress);
     }
 
     /// @inheritdoc IVerifier
@@ -120,8 +114,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
             revert SGX_INVALID_PROOF_SIZE();
         }
 
-        uint16 instanceId =
-            uint16(bytes2(LibBytesUtils.slice(evidence.proof, 0, 2)));
+        uint16 id = uint16(bytes2(LibBytesUtils.slice(evidence.proof, 0, 2)));
 
         address newInstance =
             address(bytes20(LibBytesUtils.slice(evidence.proof, 2, 20)));
@@ -131,11 +124,11 @@ contract SgxVerifier is EssentialContract, IVerifier {
         address oldInstance =
             getSignedHash(evidence, prover, newInstance).recover(signature);
 
-        if (!isInstanceValid(instanceId, oldInstance)) {
-            revert SGX_INSTANCE_INVALID();
+        if (!isInstanceValid(id, oldInstance)) {
+            revert SGX_INVALID_INSTANCE();
         }
 
-        exchangeSgxInstanceAddr(instanceId, oldInstance, newInstance);
+        _replaceInstance(id, oldInstance, newInstance);
     }
 
     function getSignedHash(
@@ -161,7 +154,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     }
 
     function isInstanceValid(
-        uint256 instanceId,
+        uint256 id,
         address instance
     )
         internal
@@ -169,39 +162,37 @@ contract SgxVerifier is EssentialContract, IVerifier {
         returns (bool)
     {
         return (
-            sgxRegistry[instanceId].activeAddress == instance
-                && sgxRegistry[instanceId].effectiveSince + INSTANCE_EXPIRY
-                    > block.timestamp
+            instances[id].addr == instance
+                && instances[id].addedAt + INSTANCE_EXPIRY > block.timestamp
         );
     }
 
-    function addTrustedInstances(address[] memory trustedInstances) internal {
-        for (uint256 i; i < trustedInstances.length; i++) {
-            sgxRegistry[uniqueVerifiers] =
-                InstanceData(trustedInstances[i], uint64(block.timestamp));
+    function _addInstances(address[] calldata _instances) private {
+        for (uint256 i; i < _instances.length; i++) {
+            instances[numInstances] =
+                Instance(_instances[i], uint64(block.timestamp));
 
             emit InstanceAdded(
-                uniqueVerifiers, trustedInstances[i], uint64(block.timestamp)
+                numInstances, _instances[i], address(0), uint64(block.timestamp)
             );
 
-            uniqueVerifiers++;
+            numInstances++;
         }
     }
 
-    function exchangeSgxInstanceAddr(
-        uint256 instanceId,
+    function _replaceInstance(
+        uint256 id,
         address oldInstance,
         address newInstance
     )
-        internal
+        private
     {
         // Invalidate current key, because it cannot be used again (side-channel
         // attacks).
-        sgxRegistry[instanceId] =
-            InstanceData(newInstance, uint64(block.timestamp));
+        instances[id] = Instance(newInstance, uint64(block.timestamp));
 
-        emit InstanceChanged(
-            instanceId, oldInstance, newInstance, uint64(block.timestamp)
+        emit InstanceAdded(
+            id, newInstance, oldInstance, uint64(block.timestamp)
         );
     }
 }

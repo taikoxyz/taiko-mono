@@ -75,7 +75,7 @@ abstract contract TaikoL1TestBase is TestBase {
         address[] memory initSgxInstances = new address[](2);
         initSgxInstances[0] = SGX_X_0;
         initSgxInstances[1] = SGX_VARIANT;
-        sv.registerInstances(initSgxInstances);
+        sv.addInstances(initSgxInstances);
 
         sgxZkVerifier = new SgxAndZkVerifier();
         sgxZkVerifier.init(address(addressManager));
@@ -235,7 +235,7 @@ abstract contract TaikoL1TestBase is TestBase {
         // Keep changing the pub key associated with an instance to avoid
         // attacks,
         // obviously just a mock due to 2 addresses changing all the time.
-        (newPubKey,) = sv.sgxRegistry(0);
+        (newPubKey,) = sv.instances(0);
         if (newPubKey == SGX_X_0) {
             newPubKey = SGX_X_1;
         } else {
