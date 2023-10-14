@@ -99,6 +99,7 @@ contract SignalService is EssentialContract, ISignalService {
         Proof memory p = abi.decode(proof, (Proof));
         bytes32 signalRoot = ICrossChainSync(resolve("taiko", false))
             .getSyncedSnippet(p.height).signalRoot;
+        if (signalRoot == 0) return false;
 
         for (uint256 i; i < p.hops.length; ++i) {
             Hop memory hop = p.hops[i];
@@ -111,7 +112,9 @@ contract SignalService is EssentialContract, ISignalService {
                 bytes.concat(slot), hex"01", hop.mkproof, signalRoot
             );
             if (!verified) return false;
+
             signalRoot = hop.signalRoot;
+            if (signalRoot == 0) return false;
         }
 
         return LibSecureMerkleTrie.verifyInclusionProof(
