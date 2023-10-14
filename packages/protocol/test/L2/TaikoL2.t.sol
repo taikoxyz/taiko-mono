@@ -27,7 +27,7 @@ contract TestTaikoL2 is TestBase {
     }
 
     function test_L2_AnchorTx_with_constant_block_time() external {
-        for (uint256 i; i < 100; i++) {
+        for (uint256 i; i < 100; ++i) {
             vm.fee(1);
 
             vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
@@ -39,7 +39,7 @@ contract TestTaikoL2 is TestBase {
     }
 
     function test_L2_AnchorTx_with_decreasing_block_time() external {
-        for (uint256 i; i < 32; i++) {
+        for (uint256 i; i < 32; ++i) {
             vm.fee(1);
 
             vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
@@ -51,7 +51,7 @@ contract TestTaikoL2 is TestBase {
     }
 
     function test_L2_AnchorTx_with_increasing_block_time() external {
-        for (uint256 i; i < 30; i++) {
+        for (uint256 i; i < 30; ++i) {
             vm.fee(1);
 
             vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
