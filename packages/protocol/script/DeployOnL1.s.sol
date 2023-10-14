@@ -13,7 +13,7 @@ import "@oz/utils/Strings.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/verifiers/PseZkVerifier.sol";
-import "../contracts/L1/verifiers/SGXVerifier.sol";
+import "../contracts/L1/verifiers/SgxVerifier.sol";
 import "../contracts/L1/verifiers/GuardianVerifier.sol";
 import "../contracts/L1/tiers/ITierProvider.sol";
 import "../contracts/L1/tiers/OptimisticRollupConfigProvider.sol";
@@ -194,8 +194,8 @@ contract DeployOnL1 is Script {
             )
         );
 
-        // SGXVerifier
-        SGXVerifier sgxVerifier = new ProxiedSGXVerifier();
+        // SgxVerifier
+        SgxVerifier sgxVerifier = new ProxiedSgxVerifier();
         deployProxy(
             "tier_sgx",
             address(sgxVerifier),

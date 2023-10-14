@@ -31,7 +31,6 @@ contract TaikoL1Tiers is TaikoL1 {
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 12;
         config.livenessBond = 1e18; // 1 Taiko token
-        config.proposerRewardPerL1Block = 1e15; // 0.001 Taiko token
     }
 }
 

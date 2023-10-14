@@ -15,7 +15,7 @@ import { GuardianVerifier } from
 import { ZkAndSgxCombinedRollupConfigProvider } from
     "../../contracts/L1/tiers/ZkAndSgxCombinedRollupConfigProvider.sol";
 import { PseZkVerifier } from "../../contracts/L1/verifiers/PseZkVerifier.sol";
-import { SGXVerifier } from "../../contracts/L1/verifiers/SGXVerifier.sol";
+import { SgxVerifier } from "../../contracts/L1/verifiers/SgxVerifier.sol";
 import { SgxAndZkVerifier } from
     "../../contracts/L1/verifiers/SgxAndZkVerifier.sol";
 import { GuardianProver } from "../../contracts/L1/provers/GuardianProver.sol";
@@ -39,7 +39,7 @@ abstract contract TaikoL1TestBase is TestBase {
     TaikoData.Config conf;
     uint256 internal logCount;
     PseZkVerifier public pv;
-    SGXVerifier public sv;
+    SgxVerifier public sv;
     SgxAndZkVerifier public sgxZkVerifier;
     GuardianVerifier public gv;
     GuardianProver public gp;
@@ -70,12 +70,12 @@ abstract contract TaikoL1TestBase is TestBase {
         pv = new PseZkVerifier();
         pv.init(address(addressManager));
 
-        sv = new SGXVerifier();
+        sv = new SgxVerifier();
         sv.init(address(addressManager));
         address[] memory initSgxInstances = new address[](2);
         initSgxInstances[0] = SGX_X_0;
         initSgxInstances[1] = SGX_VARIANT;
-        sv.registerInstance(initSgxInstances);
+        sv.registerInstances(initSgxInstances);
 
         sgxZkVerifier = new SgxAndZkVerifier();
         sgxZkVerifier.init(address(addressManager));
@@ -231,27 +231,31 @@ abstract contract TaikoL1TestBase is TestBase {
             new bytes(100)
         );
 
+        address newPubKey;
+        // Keep changing the pub key associated with an instance to avoid
+        // attacks,
+        // obviously just a mock due to 2 addresses changing all the time.
+        (newPubKey, )= sv.sgxRegistry(0);
+        if (newPubKey == SGX_X_0) {
+            newPubKey = SGX_X_1;
+        } else {
+            newPubKey = SGX_X_0;
+        }
+
         if (tier == LibTiers.TIER_SGX) {
-            address newPubKey = vm.addr(variablePKey + 1);
             bytes memory signature =
                 createSgxSignatureProof(evidence, newPubKey, prover);
 
-            evidence.proof = bytes.concat(bytes20(newPubKey), signature);
-
-            variablePKey += 1;
+            evidence.proof = bytes.concat(bytes2(0),bytes20(newPubKey), signature);
         }
 
         if (tier == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
-            address newPubKey = vm.addr(variablePKey + 1);
-
             bytes memory signature =
                 createSgxSignatureProof(evidence, newPubKey, prover);
 
-            bytes memory sgxProof = bytes.concat(bytes20(newPubKey), signature);
+            bytes memory sgxProof = bytes.concat(bytes2(0),bytes20(newPubKey), signature);
             // Concatenate SGX and ZK (in this order)
             evidence.proof = bytes.concat(sgxProof, evidence.proof);
-
-            variablePKey += 1;
         }
 
         if (tier == LibTiers.TIER_GUARDIAN) {
@@ -346,7 +350,15 @@ abstract contract TaikoL1TestBase is TestBase {
                 newPubKey
             )
         );
-        uint256 signerPrivateKey = variablePKey;
+
+        uint256 signerPrivateKey;
+
+        // In the test suite these are the 3 which acts as provers
+        if (SGX_X_0 == newPubKey) {
+            signerPrivateKey = 0x5;
+        } else if (SGX_X_1 == newPubKey) {
+            signerPrivateKey = 0x4;
+        }
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, digest);
         signature = abi.encodePacked(r, s, v);

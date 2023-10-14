@@ -4,10 +4,10 @@ pragma solidity ^0.8.20;
 import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
 import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
-import { SGXVerifier } from "../../contracts/L1/verifiers/SGXVerifier.sol";
+import { SgxVerifier } from "../../contracts/L1/verifiers/SgxVerifier.sol";
 import { TaikoL1TestBase } from "./TaikoL1TestBase.sol";
 
-contract SgxVerifier is TaikoL1TestBase {
+contract TestSgxVerifier is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1 taikoL1) {
         taikoL1 = new TaikoL1();
     }
@@ -21,7 +21,7 @@ contract SgxVerifier is TaikoL1TestBase {
         trustedInstances[0] = SGX_X_1;
         trustedInstances[1] = SGX_Y;
         trustedInstances[2] = SGX_Z;
-        sv.registerInstance(trustedInstances);
+        sv.registerInstances(trustedInstances);
     }
 
     function test_addToRegistryByOwner_WithoutOwnerRole() external {
@@ -32,7 +32,7 @@ contract SgxVerifier is TaikoL1TestBase {
 
         vm.expectRevert();
         vm.prank(Bob, Bob);
-        sv.registerInstance(trustedInstances);
+        sv.registerInstances(trustedInstances);
     }
 
     function test_addToRegistryBySgxInstance() external {
@@ -44,7 +44,7 @@ contract SgxVerifier is TaikoL1TestBase {
             createAddRegistrySignature(SGX_X_1, trustedInstances, 0x4);
 
         vm.prank(Bob, Bob);
-        sv.registerBySgxInstance(SGX_X_1, trustedInstances, signature);
+        sv.registerInstancesBySgx(0, SGX_X_1, trustedInstances, signature);
     }
 
     function createAddRegistrySignature(

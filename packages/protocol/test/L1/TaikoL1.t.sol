@@ -25,7 +25,6 @@ contract TaikoL1_NoCooldown is TaikoL1 {
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 12;
         config.livenessBond = 1e18; // 1 Taiko token
-        config.proposerRewardPerL1Block = 1e15; // 0.001 Taiko token
     }
 }
 
@@ -105,7 +104,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
-        for (uint256 blockId = 1; blockId <= 20; blockId++) {
+        for (uint256 blockId = 1; blockId <= 20; ++blockId) {
             printVariables("before propose");
             TaikoData.BlockMetadata memory meta =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);
@@ -265,7 +264,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         console2.log("Bob balance:", tko.balanceOf(Bob));
 
         // Propose blocks
-        for (uint64 blockId = 1; blockId < count; blockId++) {
+        for (uint64 blockId = 1; blockId < count; ++blockId) {
             printVariables("before propose");
             meta = proposeBlock(Alice, Bob, 1_000_000, 1024);
             mine(5);
