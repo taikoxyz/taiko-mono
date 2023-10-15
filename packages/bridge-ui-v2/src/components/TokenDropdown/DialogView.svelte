@@ -3,6 +3,7 @@
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
+  import { CloseButton } from '$components/CloseButton';
   import { Icon } from '$components/Icon';
   import Erc20 from '$components/Icon/ERC20.svelte';
   import { OnAccount } from '$components/OnAccount';
@@ -58,9 +59,7 @@
 <!-- Mobile view -->
 <dialog {id} class="modal modal-bottom" class:modal-open={menuOpen}>
   <div class="modal-box relative px-6 py-[35px] w-full bg-neutral-background">
-    <button class="absolute right-6 top-[35px] z-50" on:click={closeMenu}>
-      <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
-    </button>
+    <CloseButton onClick={closeMenu} />
 
     <div class="w-full">
       <h3 class="title-body-bold mb-7">{$t('token_dropdown.label')}</h3>

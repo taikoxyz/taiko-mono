@@ -12,9 +12,20 @@ type RecommendProcessingFeeArgs = {
   srcChainId?: number;
 };
 
-const { ethGasLimit, erc20NotDeployedGasLimit, erc20DeployedGasLimit } = recommentProcessingFee;
+const {
+  ethGasLimit,
+  erc20NotDeployedGasLimit,
+  erc20DeployedGasLimit,
+  erc1155DeployedGasLimit,
+  erc1155NotDeployedGasLimit,
+  erc721DeployedGasLimit,
+  erc721NotDeployedGasLimit,
+} = recommentProcessingFee;
 
 export async function recommendProcessingFee({ token, destChainId, srcChainId }: RecommendProcessingFeeArgs) {
+  if (!srcChainId) {
+    throw Error('missing required source chain');
+  }
   const destPublicClient = getPublicClient({ chainId: destChainId });
   // getGasPrice will return gasPrice as 3000000001, rather than 3000000000
   const gasPrice = await destPublicClient.getGasPrice();
@@ -24,10 +35,6 @@ export async function recommendProcessingFee({ token, destChainId, srcChainId }:
   let gasLimit = ethGasLimit;
 
   if (token.type === TokenType.ERC20) {
-    if (!srcChainId) {
-      throw Error('missing required source chain for ERC20 token');
-    }
-
     const isTokenAlreadyDeployed = await isDeployedCrossChain({
       token,
       srcChainId,
@@ -35,14 +42,36 @@ export async function recommendProcessingFee({ token, destChainId, srcChainId }:
     });
 
     if (isTokenAlreadyDeployed) {
-      // Gas limit for erc20 if already deployed on the destination chain is
-      // about ~1m, so again, add some to ensure processing
       gasLimit = erc20DeployedGasLimit;
       log(`token ${token.symbol} is already deployed on chain ${destChainId}`);
     } else {
-      // Gas limit for erc20 if not deployed on the destination chain
-      // already is about ~2.9m, so we add some to make it enticing
       gasLimit = erc20NotDeployedGasLimit;
+      log(`token ${token.symbol} is not deployed on chain ${destChainId}`);
+    }
+  } else if (token.type === TokenType.ERC721) {
+    const isTokenAlreadyDeployed = await isDeployedCrossChain({
+      token,
+      srcChainId,
+      destChainId,
+    });
+    if (isTokenAlreadyDeployed) {
+      gasLimit = erc721DeployedGasLimit;
+      log(`token ${token.symbol} is already deployed on chain ${destChainId}`);
+    } else {
+      gasLimit = erc721NotDeployedGasLimit;
+      log(`token ${token.symbol} is not deployed on chain ${destChainId}`);
+    }
+  } else if (token.type === TokenType.ERC1155) {
+    const isTokenAlreadyDeployed = await isDeployedCrossChain({
+      token,
+      srcChainId,
+      destChainId,
+    });
+    if (isTokenAlreadyDeployed) {
+      gasLimit = erc1155DeployedGasLimit;
+      log(`token ${token.symbol} is already deployed on chain ${destChainId}`);
+    } else {
+      gasLimit = erc1155NotDeployedGasLimit;
       log(`token ${token.symbol} is not deployed on chain ${destChainId}`);
     }
   }

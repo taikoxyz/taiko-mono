@@ -141,7 +141,7 @@ contract ERC20Vault is
         IBridge.Message memory message;
 
         (message.data, _amount) = _encodeDestinationCall({
-            user: message.user,
+            user: msg.sender,
             token: opt.token,
             amount: opt.amount,
             to: opt.to

@@ -78,6 +78,11 @@ If you are not running a local prover, then you can specify a prover from the [p
 
 - `PROVER_ENDPOINTS`
 
+To select multiple prover endpoints at the same time
+```shell
+PROVER_ENDPOINTS=<PROVER_ENDPOINT_1>,<PROVER_ENDPOINT_2>,<PROVER_ENDPOINT_3>
+```
+
 ### Check proposer status logs
 
 To see if your proposer is running correctly or has errors run:
@@ -105,8 +110,8 @@ You can check all commands to see proposer logs in the [node runner manual](/doc
 The proposer orders (sequences) transactions in a block. Transaction fees to be included into a block are paid in ETH.
 To extract as much MEV (Maximal Extractable Value) as possible paid in ETH, each proposer will try to search the mempool to:
 ```
--✅ fit as many valid transctions into a block as possible
--💰 include transactions with the highest fees
+- ✅ Fit as many valid transactions into a block as possible
+- 💰 Include transactions with the highest fees
 ``` 
 The proposer must then deliver their proposed blocks to a prover.
 
