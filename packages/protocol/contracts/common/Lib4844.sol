@@ -20,12 +20,13 @@ library Lib4844 {
     error POINT_Y_TOO_LARGE();
     error EVAL_FAILED();
 
+    /// @notice Evaluates the 4844 point using the precompile.
     /// @param blobHash The versioned hash
     /// @param x The evaluation point
     /// @param y The expected output
     /// @param commitment The input kzg point
     /// @param proof The quotient kzg
-    function pointEvaluationPrecompile(
+    function evaluatePoint(
         bytes32 blobHash,
         uint256 x,
         uint256 y,
