@@ -52,7 +52,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         if (isContesting) return;
 
         PseZkEvmProof memory p = abi.decode(evidence.proof, (PseZkEvmProof));
-        bytes32 instance = getInstance({
+        bytes32 instance = calcInstance({
             prover: prover,
             txListHash: p.txListHash,
             pointValue: p.pointValue,
@@ -60,7 +60,6 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         });
 
         // Verify blob
-        // Question: What if x is larger than the blob data size
         Lib4844.point_evaluation_precompile({
             versionHash: blobVersionHash,
             x: uint256(instance) % Lib4844.BLS_MODULUS,
@@ -96,7 +95,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         if (bytes32(ret) != keccak256("taiko")) revert L1_INVALID_PROOF();
     }
 
-    function getInstance(
+    function calcInstance(
         address prover,
         bytes32 txListHash,
         uint256 pointValue,
