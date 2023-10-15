@@ -25,7 +25,7 @@ library Lib4844 {
     /// @param y The expected output
     /// @param commitment The input kzg point
     /// @param proof The quotient kzg
-    function point_evaluation_precompile(
+    function pointEvaluationPrecompile(
         bytes32 blobHash,
         uint256 x,
         uint256 y,

@@ -61,7 +61,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         });
 
         // Verify blob
-        Lib4844.point_evaluation_precompile({
+        Lib4844.pointEvaluationPrecompile({
             blobHash: blobHash,
             x: uint256(instance) % Lib4844.BLS_MODULUS,
             y: p.pointValue,
