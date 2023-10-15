@@ -236,7 +236,7 @@ b_signal_root --- a_l1_signal_root;
 h_gas_used --- e_gas_used;
 
 BlockMetadata -.-> dot4((" ")) --- |keccak| e_meta_hash -.-> dot3((" ")) -.->|keccak| zk_instance;
-e_parent_hash & e_block_hash & e_signal_root & e_graffiti & e_prover & e_parent_gas_used & e_gas_used -.-> dot3;
+e_parent_hash & e_block_hash & e_signal_root & e_prover & e_parent_gas_used & e_gas_used -.-> dot3;
 b_l1_signal_service_addr -.-> dot3;
 b_l2_signal_service_addr -.-> dot3;
 b_l1_taiko_addr -.-> dot3;
@@ -341,7 +341,6 @@ e_meta_hash(metaHash)
 e_parent_hash(parentHash):::transition
 e_block_hash(blockHash)
 e_signal_root(signalRoot)
-e_graffiti(graffiti)
 e_prover(prover)
 e_parent_gas_used(parentGasUsed):::transition
 e_gas_used(gasUsed)

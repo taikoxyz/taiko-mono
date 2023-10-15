@@ -95,7 +95,6 @@ contract PseZkVerifier is EssentialContract, IVerifier {
                 evidence.parentHash,
                 evidence.blockHash,
                 evidence.signalRoot,
-                evidence.graffiti,
                 prover
             )
         );
