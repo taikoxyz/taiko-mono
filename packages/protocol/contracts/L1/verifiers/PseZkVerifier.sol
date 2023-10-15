@@ -69,26 +69,18 @@ contract PseZkVerifier is EssentialContract, IVerifier {
             proof: data.pointProof
         });
 
-        // Verify ZKP
-
         // Validate the instance using bytes utilities.
-        if (
-            !LibBytesUtils.equal(
-                LibBytesUtils.slice(data.zkp, 0, 32),
-                bytes.concat(bytes16(0), bytes16(instance))
-            )
-        ) {
-            revert L1_INVALID_PROOF();
-        }
+        bool verified = LibBytesUtils.equal(
+            LibBytesUtils.slice(data.zkp, 0, 32),
+            bytes.concat(bytes16(0), bytes16(instance))
+        );
+        if (!verified) revert L1_INVALID_PROOF();
 
-        if (
-            !LibBytesUtils.equal(
-                LibBytesUtils.slice(data.zkp, 32, 32),
-                bytes.concat(bytes16(0), bytes16(uint128(uint256(instance))))
-            )
-        ) {
-            revert L1_INVALID_PROOF();
-        }
+        verified = LibBytesUtils.equal(
+            LibBytesUtils.slice(data.zkp, 32, 32),
+            bytes.concat(bytes16(0), bytes16(uint128(uint256(instance))))
+        );
+        if (!verified) revert L1_INVALID_PROOF();
 
         // Delegate to the ZKP verifier library to validate the proof.
         // Resolve the verifier's name and obtain its address.
@@ -96,14 +88,13 @@ contract PseZkVerifier is EssentialContract, IVerifier {
             resolve(getVerifierName(data.verifierId), false);
 
         // Call the verifier contract with the provided proof.
-        (bool verified, bytes memory ret) =
-            verifierAddress.staticcall(bytes.concat(data.zkp));
+        bytes memory ret;
+        (verified, ret) = verifierAddress.staticcall(bytes.concat(data.zkp));
 
         // Check if the proof is valid.
-        if (!verified || ret.length != 32 || bytes32(ret) != keccak256("taiko"))
-        {
-            revert L1_INVALID_PROOF();
-        }
+        if (!verified) revert L1_INVALID_PROOF();
+        if (ret.length != 32) revert L1_INVALID_PROOF();
+        if (bytes32(ret) != keccak256("taiko")) revert L1_INVALID_PROOF();
     }
 
     function getInstance(

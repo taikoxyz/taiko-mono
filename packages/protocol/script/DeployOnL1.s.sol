@@ -13,12 +13,10 @@ import "@oz/utils/Strings.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/verifiers/PseZkVerifier.sol";
-import "../contracts/L1/verifiers/SGXVerifier.sol";
+import "../contracts/L1/verifiers/SgxVerifier.sol";
 import "../contracts/L1/verifiers/GuardianVerifier.sol";
 import "../contracts/L1/tiers/ITierProvider.sol";
-import "../contracts/L1/tiers/OptimisticRollupConfigProvider.sol";
-import "../contracts/L1/tiers/ValidityRollupConfigProvider.sol";
-import "../contracts/L1/tiers/ZKRollupConfigProvider.sol";
+import "../contracts/L1/tiers/TaikoConfigProvider.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
@@ -59,11 +57,7 @@ contract DeployOnL1 is Script {
     TaikoL1 taikoL1;
     address public addressManagerProxy;
 
-    enum tierProviders {
-        OptimisticRollupConfigProvider,
-        ValidityRollupConfigProvider,
-        ZKRollupConfigProvider
-    }
+    enum TierConfigProviders { TAIKO }
 
     error FAILED_TO_DEPLOY_PLONK_VERIFIER(string contractPath);
 
@@ -192,8 +186,8 @@ contract DeployOnL1 is Script {
             )
         );
 
-        // SGXVerifier
-        SGXVerifier sgxVerifier = new ProxiedSGXVerifier();
+        // SgxVerifier
+        SgxVerifier sgxVerifier = new ProxiedSgxVerifier();
         deployProxy(
             "tier_sgx",
             address(sgxVerifier),
@@ -232,19 +226,12 @@ contract DeployOnL1 is Script {
         vm.stopBroadcast();
     }
 
-    function validateTierProvider(uint256 provier)
+    function validateTierProvider(uint256 provider)
         private
         pure
         returns (bool)
     {
-        if (
-            provier == uint256(tierProviders.OptimisticRollupConfigProvider)
-                || provier == uint256(tierProviders.ValidityRollupConfigProvider)
-                || provier == uint256(tierProviders.ZKRollupConfigProvider)
-        ) {
-            return true;
-        }
-
+        if (provider == uint256(TierConfigProviders.TAIKO)) return true;
         return false;
     }
 
@@ -278,21 +265,15 @@ contract DeployOnL1 is Script {
         return deployedAddress;
     }
 
-    function deployTierProvider(uint256 provier)
+    function deployTierProvider(uint256 provider)
         private
         returns (address providerAddress)
     {
-        if (provier == uint256(tierProviders.OptimisticRollupConfigProvider)) {
-            return address(new OptimisticRollupConfigProvider());
-        } else if (
-            provier == uint256(tierProviders.ValidityRollupConfigProvider)
-        ) {
-            return address(new ValidityRollupConfigProvider());
-        } else if (provier == uint256(tierProviders.ZKRollupConfigProvider)) {
-            return address(new ZKRollupConfigProvider());
+        if (provider == uint256(TierConfigProviders.TAIKO)) {
+            return address(new TaikoConfigProvider());
         }
 
-        revert();
+        revert("invalid provider");
     }
 
     function deployProxy(

@@ -78,8 +78,7 @@ contract TaikoL1Test is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 L1.getBlock(meta.id).minTier,
-                "",
-                false
+                ""
             );
             vm.roll(block.number + 15 * 12);
 
@@ -105,7 +104,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
-        for (uint256 blockId = 1; blockId <= 20; blockId++) {
+        for (uint256 blockId = 1; blockId <= 20; ++blockId) {
             printVariables("before propose");
             TaikoData.BlockMetadata memory meta =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);
@@ -122,8 +121,7 @@ contract TaikoL1Test is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 L1.getBlock(meta.id).minTier,
-                "",
-                false
+                ""
             );
             vm.roll(block.number + 15 * 12);
             uint16 minTier = L1.getBlock(meta.id).minTier;
@@ -165,8 +163,7 @@ contract TaikoL1Test is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 L1.getBlock(meta.id).minTier,
-                "",
-                false
+                ""
             );
             parentHash = blockHash;
         }
@@ -267,7 +264,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         console2.log("Bob balance:", tko.balanceOf(Bob));
 
         // Propose blocks
-        for (uint64 blockId = 1; blockId < count; blockId++) {
+        for (uint64 blockId = 1; blockId < count; ++blockId) {
             printVariables("before propose");
             meta = proposeBlock(Alice, Bob, 1_000_000, 1024);
             mine(5);
@@ -283,8 +280,7 @@ contract TaikoL1Test is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 L1.getBlock(meta.id).minTier,
-                "",
-                false
+                ""
             );
 
             vm.roll(block.number + 15 * 12);

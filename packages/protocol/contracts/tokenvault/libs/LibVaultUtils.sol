@@ -113,13 +113,13 @@ library LibVaultUtils {
         }
 
         if (isERC721) {
-            for (uint256 i; i < tokenIds.length; i++) {
+            for (uint256 i; i < tokenIds.length; ++i) {
                 if (amounts[i] != 0) {
                     revert VAULT_INVALID_AMOUNT();
                 }
             }
         } else {
-            for (uint256 i; i < amounts.length; i++) {
+            for (uint256 i; i < amounts.length; ++i) {
                 if (amounts[i] == 0) {
                     revert VAULT_INVALID_AMOUNT();
                 }
