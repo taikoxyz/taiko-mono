@@ -16,9 +16,10 @@ library Lib4844 {
 
     bytes1 public constant BLOBHASH = bytes1(0x49);
 
+    error EVAL_FAILED();
     error POINT_X_TOO_LARGE();
     error POINT_Y_TOO_LARGE();
-    error EVAL_FAILED();
+    error TX_HAS_NO_BLOB();
 
     /// @notice Evaluates the 4844 point using the precompile.
     /// @param blobHash The versioned hash
@@ -45,18 +46,13 @@ library Lib4844 {
         if (!ok) revert EVAL_FAILED();
     }
 
-    function blobhash(uint256 index) internal pure returns (bytes32) {
-        // bytes32 result;
-        // assembly {
-        //       let idx := index
-        //     // Opcode for BLOBHASH (replace HASH_OPCODE_BYTE with the actual
-        // opcode)
-        //     let opcode := 0x49
-        //     push(0x49)
-        //     // push(opcode)
-        //     // call
-        //     result := mload(add(0x20, 0))
-        // }
-        // return result;
+    function getBlobHash(uint256 blobIdx)
+        internal
+        view
+        returns (bytes32 blobHash)
+    {
+        // TODO(daniel): implement this function
+
+        if (blobHash == 0) revert TX_HAS_NO_BLOB();
     }
 }

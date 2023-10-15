@@ -9,6 +9,7 @@ pragma solidity ^0.8.20;
 import { ERC20Upgradeable } from "@ozu/token/ERC20/ERC20Upgradeable.sol";
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
+import { Lib4844 } from "../../common/Lib4844.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 
 import { ITierProvider } from "../tiers/ITierProvider.sol";
@@ -130,8 +131,10 @@ library LibProposing {
         // block's proposal but before it has been proven or verified.
         blk.livenessBond = config.livenessBond;
         blk.blockId = b.numBlocks;
-        blk.blobHash = bytes32(uint256(1)); // TODO: somehow get this
-            // version hash using the new opcode
+
+        // Always use the first blob in this transaction.
+        blk.blobHash = Lib4844.getBlobHash(0);
+
         blk.proposedAt = meta.timestamp;
 
         // For a new block, the next transition ID is always 1, not 0.
