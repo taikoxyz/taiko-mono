@@ -31,7 +31,7 @@ contract SgxAndZkVerifier is EssentialContract, IVerifier {
         uint64 blockId,
         address prover,
         bool isContesting,
-        bytes32 blobVersionHash,
+        bytes32 blobHash,
         TaikoData.BlockEvidence calldata evidence
     )
         external
@@ -41,7 +41,7 @@ contract SgxAndZkVerifier is EssentialContract, IVerifier {
         // Verify the SGX part
         _evidence.proof = LibBytesUtils.slice(evidence.proof, 0, SGX_PROOF_SIZE);
         IVerifier(resolve("tier_sgx", false)).verifyProof(
-            blockId, prover, isContesting, blobVersionHash, _evidence
+            blockId, prover, isContesting, blobHash, _evidence
         );
 
         // Verify the ZK part
@@ -51,7 +51,7 @@ contract SgxAndZkVerifier is EssentialContract, IVerifier {
             (evidence.proof.length - SGX_PROOF_SIZE)
         );
         IVerifier(resolve("tier_pse_zkevm", false)).verifyProof(
-            blockId, prover, isContesting, blobVersionHash, _evidence
+            blockId, prover, isContesting, blobHash, _evidence
         );
     }
 }

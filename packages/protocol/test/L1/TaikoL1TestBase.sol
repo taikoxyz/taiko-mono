@@ -188,12 +188,14 @@ abstract contract TaikoL1TestBase is TestBase {
         meta.l1Height = uint64(block.number - 1);
         meta.l1Hash = blockhash(block.number - 1);
         meta.difficulty = bytes32(_difficulty);
-        meta.blobVersionHash = keccak256(txList);
         meta.gasLimit = gasLimit;
 
         vm.prank(proposer, proposer);
         meta = L1.proposeBlock{ value: msgValue }(
-            meta.blobVersionHash, bytes32(0), abi.encode(assignment), txList
+            0x0, // meta.blobHash
+            bytes32(0),
+            abi.encode(assignment),
+            txList
         );
     }
 
@@ -219,7 +221,7 @@ abstract contract TaikoL1TestBase is TestBase {
             proof: new bytes(102)
         });
 
-        bytes32 instance = pv.calcInstance(prover, 0x0, 0, evidence);
+        bytes32 instance = pv.calcInstance(prover, 0x0, 0x0, 0, evidence);
         uint16 verifierId = 300; // 300 as see mock verifier in line 95
 
         evidence.proof = bytes.concat(

@@ -15,7 +15,7 @@ interface IVerifier {
         uint64 blockId,
         address prover,
         bool isContesting,
-        bytes32 blobVersionHash,
+        bytes32 blobHash,
         TaikoData.BlockEvidence memory evidence
     )
         external;

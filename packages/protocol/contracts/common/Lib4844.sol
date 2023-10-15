@@ -20,13 +20,13 @@ library Lib4844 {
     error POINT_Y_TOO_LARGE();
     error EVAL_FAILED();
 
-    /// @param versionHash The versioned hash
+    /// @param blobHash The versioned hash
     /// @param x The evaluation point
     /// @param y The expected output
     /// @param commitment The input kzg point
     /// @param proof The quotient kzg
     function point_evaluation_precompile(
-        bytes32 versionHash,
+        bytes32 blobHash,
         uint256 x,
         uint256 y,
         bytes1[48] memory commitment,
@@ -39,7 +39,7 @@ library Lib4844 {
         if (y >= BLS_MODULUS) revert POINT_Y_TOO_LARGE();
 
         (bool ok,) = POINT_EVALUATION_PRECOMPILE_ADDRESS.staticcall(
-            abi.encodePacked(versionHash, x, y, commitment, proof)
+            abi.encodePacked(blobHash, x, y, commitment, proof)
         );
         if (!ok) revert EVAL_FAILED();
     }
