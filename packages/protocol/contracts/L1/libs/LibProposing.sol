@@ -90,7 +90,6 @@ library LibProposing {
         // the block data to be stored on-chain for future integrity checks.
         // If we choose to persist all data fields in the metadata, it will
         // require additional storage slots.
-
         unchecked {
             meta = TaikoData.BlockMetadata({
                 l1Hash: blockhash(block.number - 1),

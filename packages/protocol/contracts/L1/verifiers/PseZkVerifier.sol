@@ -22,7 +22,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
     error L1_INVALID_PROOF();
 
-    struct ProofData {
+    struct PseZkEvmProof {
         bytes32 txListHash;
         uint256 pointValue;
         bytes1[48] pointCommitment;
@@ -51,11 +51,11 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         // Do not run proof verification to contest an existing proof
         if (isContesting) return;
 
-        ProofData memory data = abi.decode(evidence.proof, (ProofData));
+        PseZkEvmProof memory p = abi.decode(evidence.proof, (PseZkEvmProof));
         bytes32 instance = getInstance({
             prover: prover,
-            txListHash: data.txListHash,
-            pointValue: data.pointValue,
+            txListHash: p.txListHash,
+            pointValue: p.pointValue,
             evidence: evidence
         });
 
@@ -64,32 +64,31 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         Lib4844.point_evaluation_precompile({
             versionHash: blobVersionHash,
             x: uint256(instance) % Lib4844.BLS_MODULUS,
-            y: data.pointValue,
-            commitment: data.pointCommitment,
-            proof: data.pointProof
+            y: p.pointValue,
+            commitment: p.pointCommitment,
+            proof: p.pointProof
         });
 
         // Validate the instance using bytes utilities.
         bool verified = LibBytesUtils.equal(
-            LibBytesUtils.slice(data.zkp, 0, 32),
+            LibBytesUtils.slice(p.zkp, 0, 32),
             bytes.concat(bytes16(0), bytes16(instance))
         );
         if (!verified) revert L1_INVALID_PROOF();
 
         verified = LibBytesUtils.equal(
-            LibBytesUtils.slice(data.zkp, 32, 32),
+            LibBytesUtils.slice(p.zkp, 32, 32),
             bytes.concat(bytes16(0), bytes16(uint128(uint256(instance))))
         );
         if (!verified) revert L1_INVALID_PROOF();
 
         // Delegate to the ZKP verifier library to validate the proof.
         // Resolve the verifier's name and obtain its address.
-        address verifierAddress =
-            resolve(getVerifierName(data.verifierId), false);
+        address verifierAddress = resolve(getVerifierName(p.verifierId), false);
 
         // Call the verifier contract with the provided proof.
         bytes memory ret;
-        (verified, ret) = verifierAddress.staticcall(bytes.concat(data.zkp));
+        (verified, ret) = verifierAddress.staticcall(bytes.concat(p.zkp));
 
         // Check if the proof is valid.
         if (!verified) revert L1_INVALID_PROOF();
