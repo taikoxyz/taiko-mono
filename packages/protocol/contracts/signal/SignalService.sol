@@ -9,8 +9,7 @@ pragma solidity ^0.8.20;
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { Proxied } from "../common/Proxied.sol";
-import { LibSecureMerkleTrie as LibTrie } from
-    "../thirdparty/LibSecureMerkleTrie.sol";
+import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
 
 import { ISignalService } from "./ISignalService.sol";
 
@@ -119,7 +118,7 @@ contract SignalService is EssentialContract, ISignalService {
                 resolve(hop.chainId, "taiko", false),
                 hop.signalRoot
             );
-            bool verified = LibTrie.verifyInclusionProof(
+            bool verified = LibSecureMerkleTrie.verifyInclusionProof(
                 bytes.concat(slot), hex"01", hop.storageProof, signalRoot
             );
             if (!verified) return false;
@@ -127,7 +126,7 @@ contract SignalService is EssentialContract, ISignalService {
             signalRoot = hop.signalRoot;
         }
 
-        return LibTrie.verifyInclusionProof(
+        return LibSecureMerkleTrie.verifyInclusionProof(
             bytes.concat(getSignalSlot(srcChainId, app, signal)),
             hex"01",
             p.storageProof,
