@@ -5,6 +5,8 @@ import { Test } from "forge-std/Test.sol";
 import { Bridge } from "../contracts/bridge/Bridge.sol";
 import { ICrossChainSync } from "../contracts/common/ICrossChainSync.sol";
 
+// TODO (dani): remove some code to sub-contracts, this one shall only contain
+// shared logics and data.
 abstract contract TestBase is Test {
     uint256 private _seed = 0x12345678;
     uint256 internal variablePKey = 0x6;

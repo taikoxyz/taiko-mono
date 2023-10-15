@@ -31,6 +31,8 @@ contract MockVerifier {
     }
 }
 
+// TODO (dani): remove some code to sub-contracts, this one shall only contain
+// shared logics and data.
 abstract contract TaikoL1TestBase is TestBase {
     AddressManager public addressManager;
     TaikoToken public tko;
