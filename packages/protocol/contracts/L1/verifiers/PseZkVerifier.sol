@@ -60,11 +60,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         });
 
         // Verify blob
-
         // Question: What if x is larger than the blob data size
-
-        // Question: how to calculate pointCommitment and pointProof
-        // offchain?
         Lib4844.point_evaluation_precompile({
             versionHash: blobVersionHash,
             x: uint256(instance) % Lib4844.BLS_MODULUS,
