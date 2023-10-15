@@ -148,7 +148,7 @@ export class ERC721Bridge extends Bridge {
     log(`required approval for token ${tokenId}: ${requireApproval}`);
 
     if (!requireApproval) {
-      log(`No allowance required for the token ${tokenId}`);
+      log(`No approval required for the token ${tokenId}`);
       throw new NoApprovalRequiredError(`No approval required for the token ${tokenId}`);
     }
 

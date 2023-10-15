@@ -101,6 +101,7 @@ export type ApproveArgs = {
 };
 
 export type NFTApproveArgs = {
+  amount?: bigint;
   tokenAddress: Address;
   spenderAddress: Address;
   wallet: WalletClient;
@@ -136,6 +137,13 @@ export type ERC721BridgeArgs = BridgeArgs & {
 };
 
 export type ERC1155BridgeArgs = ERC721BridgeArgs;
+
+export type BridgeArgsMap = {
+  [TokenType.ETH]: ETHBridgeArgs;
+  [TokenType.ERC20]: ERC20BridgeArgs;
+  [TokenType.ERC721]: ERC721BridgeArgs;
+  [TokenType.ERC1155]: ERC1155BridgeArgs;
+};
 
 export type RequireAllowanceArgs = {
   tokenAddress: Address;
