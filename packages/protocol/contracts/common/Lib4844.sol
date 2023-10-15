@@ -35,7 +35,7 @@ library Lib4844 {
         internal
         view
     {
-        if (x >= FIELD_ELEMENTS_PERBLOB) revert POINT_X_TOO_LARGE();
+        if (x >= BLS_MODULUS) revert POINT_X_TOO_LARGE();
         if (y >= BLS_MODULUS) revert POINT_Y_TOO_LARGE();
 
         (bool ok,) = POINT_EVALUATION_PRECOMPILE_ADDRESS.staticcall(
