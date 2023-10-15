@@ -176,3 +176,32 @@ Below are the contracts we have deployed on the base layer (Sepolia L1) and the 
     })}
   </tbody>
 </table>
+
+<table>
+  <thead>
+    <tr>
+      <th style={{ textAlign: "left" }}>Name</th>
+      <th style={{ textAlign: "left" }}>Implementation</th>
+    </tr>
+  </thead>
+  <tbody>
+    {Object.keys(TAIKO_CONFIG.otherContracts).map((key) => {
+      const contract = TAIKO_CONFIG.otherContracts[key];
+      const baseUrl = TAIKO_CONFIG.blockExplorer.url;
+      const blockExplorerName = TAIKO_CONFIG.blockExplorer.name;
+      const proxyAddress = contract.address.proxy;
+      const implementationAddress = contract.address.impl;
+      return (
+        <tr key={contract.name}>
+          <td>{contract.name}</td>
+          <td>
+            <a href={contractAddressToLink(baseUrl, implementationAddress)}>
+              {`${implementationAddress}`}
+            </a>
+          </td>
+        </tr>
+      );
+    })}
+  </tbody>
+</table>
+

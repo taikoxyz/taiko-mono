@@ -311,16 +311,9 @@ contract TaikoL1 is
             relaySignalRoot: false,
             blockMaxProposals: 403_200,
             blockRingBufferSize: 403_210,
-            // This number is calculated from blockMaxProposals to make the
-            // maximum value of the multiplier close to 20.0
             maxBlocksToVerifyPerProposal: 10,
             blockMaxGasLimit: 8_000_000,
-            blockFeeBaseGas: 20_000,
             blockMaxTxListBytes: 120_000,
-            proposerRewardPerL1Block: 3e18, // 0.25 Taiko token * 12s = 3 TKO
-            proposerRewardMax: 32e18, // 32 Taiko token
-            proposerRewardPoolPctg: 30, // means that 30% of the accumulated
-                // reward is given to the next proposer
             livenessBond: 10_240e18,
             ethDepositRingBufferSize: 1024,
             ethDepositMinCountPerBlock: 8,
@@ -330,6 +323,10 @@ contract TaikoL1 is
             ethDepositGas: 21_000,
             ethDepositMaxFee: 1 ether / 10
         });
+    }
+
+    function isConfigValid() public pure returns (bool) {
+        return LibVerifying.isConfigValid(getConfig());
     }
 }
 

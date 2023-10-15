@@ -3,6 +3,7 @@
   import { t } from 'svelte-i18n';
 
   import { Button } from '$components/Button';
+  import { CloseButton } from '$components/CloseButton';
   import { Icon } from '$components/Icon';
   import { PUBLIC_GUIDE_URL } from '$env/static/public';
   import { uid } from '$libs/util/uid';
@@ -44,9 +45,7 @@
 
 <dialog id={dialogId} class="modal" class:modal-open={modalOpen}>
   <div class="modal-box relative px-6 py-[35px] md:rounded-[20px] bg-neutral-background">
-    <button class="absolute right-6 top-[35px] z-50" on:click={closeModal}>
-      <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
-    </button>
+    <CloseButton onClick={closeModal} />
     <div class="w-full space-y-6">
       <h3 class="title-body-bold mb-7">{$t('transactions.actions.claim.dialog.title')}</h3>
       <div class="body-regular text-secondary-content mb-3 flex flex-col items-end">

@@ -6,12 +6,12 @@
 
 pragma solidity ^0.8.20;
 
-import { LibFixedPointMath } from "../thirdparty/LibFixedPointMath.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { Proxied } from "../common/Proxied.sol";
 
 import { LibMath } from "../libs/LibMath.sol";
+import { TaikoToken } from "../L1/TaikoToken.sol";
 
 import { Lib1559Math } from "./Lib1559Math.sol";
 import { TaikoL2Signer } from "./TaikoL2Signer.sol";
@@ -25,26 +25,40 @@ import { TaikoL2Signer } from "./TaikoL2Signer.sol";
 contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     using LibMath for uint256;
 
+    struct Config {
+        uint64 gasTargetPerL1Block;
+        uint256 basefeeAdjustmentQuotient;
+        uint256 blockRewardPerL1Block;
+        uint128 blockRewardPoolMax;
+        uint8 blockRewardPoolPctg;
+    }
+
     struct VerifiedBlock {
         bytes32 blockHash;
         bytes32 signalRoot;
     }
 
+    // TODO(david): figure out this value from internal devnet.
+    uint32 public constant ANCHOR_GAS_DEDUCT = 40_000;
+
     // Mapping from L2 block numbers to their block hashes.
     // All L2 block hashes will be saved in this mapping.
-    mapping(uint256 blockId => bytes32 blockHash) private _l2Hashes;
-    mapping(uint256 blockId => VerifiedBlock) private _l1VerifiedBlocks;
+    mapping(uint256 blockId => bytes32 blockHash) public l2Hashes;
+    mapping(uint256 blockId => VerifiedBlock) public l1VerifiedBlocks;
 
     // A hash to check the integrity of public inputs.
     bytes32 public publicInputHash; // slot 3
+
     uint128 public gasExcess; // slot 4
+    uint128 public accumulatedReward;
+
+    address public parentProposer; // slot 5
     uint64 public latestSyncedL1Height;
+    uint32 public avgGasUsed;
 
-    uint256[146] private __gap;
+    uint256[145] private __gap;
 
-    // Captures all block variables mentioned in
-    // https://docs.soliditylang.org/en/v0.8.20/units-and-global-variables.html
-    event Anchored(bytes32 parentHash, uint128 gasExcess);
+    event Anchored(bytes32 parentHash, uint128 gasExcess, uint128 blockReward);
 
     error L2_BASEFEE_MISMATCH();
     error L2_INVALID_CHAIN_ID();
@@ -71,7 +85,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
         if (block.number > 0) {
             uint256 parentHeight = block.number - 1;
-            _l2Hashes[parentHeight] = blockhash(parentHeight);
+            l2Hashes[parentHeight] = blockhash(parentHeight);
         }
 
         gasExcess = _gasExcess;
@@ -83,41 +97,48 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     /// @param l1Hash The latest L1 block hash when this block was proposed.
     /// @param l1SignalRoot The latest value of the L1 signal service storage
     /// root.
-    /// @param syncedL1Height The latest L1 block height when this block was
-    /// proposed.
+    /// @param l1Height The latest L1 block height when this block was proposed.
     /// @param parentGasUsed The gas used in the parent block.
     function anchor(
         bytes32 l1Hash,
         bytes32 l1SignalRoot,
-        uint64 syncedL1Height,
+        uint64 l1Height,
         uint32 parentGasUsed
     )
         external
     {
         if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
 
-        // verify ancestor hashes
+        // Verify ancestor hashes
         (bytes32 publicInputHashOld, bytes32 publicInputHashNew) =
             _calcPublicInputHash(block.number - 1);
         if (publicInputHash != publicInputHashOld) {
             revert L2_PUBLIC_INPUT_HASH_MISMATCH();
         }
-        publicInputHash = publicInputHashNew;
+
+        Config memory config = getConfig();
 
         // Verify the base fee per gas is correct
         uint256 basefee;
-        (basefee, gasExcess) = _calc1559BaseFee(syncedL1Height, parentGasUsed);
+        (basefee, gasExcess) = _calc1559BaseFee(config, l1Height, parentGasUsed);
         if (block.basefee != basefee) {
             revert L2_BASEFEE_MISMATCH();
         }
 
-        bytes32 parentHash = blockhash(block.number - 1);
-        _l2Hashes[block.number - 1] = parentHash;
-        latestSyncedL1Height = syncedL1Height;
-        _l1VerifiedBlocks[syncedL1Height] = VerifiedBlock(l1Hash, l1SignalRoot);
+        // Reward block reward in Taiko token to the parent block's proposer
+        uint128 blockReward =
+            _rewardParentBlock(config, l1Height, parentGasUsed);
 
-        emit CrossChainSynced(syncedL1Height, l1Hash, l1SignalRoot);
-        emit Anchored(parentHash, gasExcess);
+        // Update state variables
+        l2Hashes[block.number - 1] = blockhash(block.number - 1);
+        l1VerifiedBlocks[l1Height] = VerifiedBlock(l1Hash, l1SignalRoot);
+        publicInputHash = publicInputHashNew;
+        latestSyncedL1Height = l1Height;
+        parentProposer = block.coinbase;
+
+        // Emit events
+        emit CrossChainSynced(l1Height, l1Hash, l1SignalRoot);
+        emit Anchored(blockhash(block.number - 1), gasExcess, blockReward);
     }
 
     /// @inheritdoc ICrossChainSync
@@ -128,7 +149,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         returns (bytes32)
     {
         uint256 id = blockId == 0 ? latestSyncedL1Height : blockId;
-        return _l1VerifiedBlocks[id].blockHash;
+        return l1VerifiedBlocks[id].blockHash;
     }
 
     /// @inheritdoc ICrossChainSync
@@ -139,49 +160,117 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         returns (bytes32)
     {
         uint256 id = blockId == 0 ? latestSyncedL1Height : blockId;
-        return _l1VerifiedBlocks[id].signalRoot;
+        return l1VerifiedBlocks[id].signalRoot;
     }
 
     /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
     /// the given parameters.
-    /// @param syncedL1Height The synced L1 height in the next Taiko block
+    /// @param l1Height The synced L1 height in the next Taiko block
     /// @param parentGasUsed Gas used in the parent block.
     /// @return basefee The calculated EIP-1559 base fee per gas.
     function getBasefee(
-        uint64 syncedL1Height,
+        uint64 l1Height,
         uint32 parentGasUsed
     )
         public
         view
         returns (uint256 basefee)
     {
-        (basefee,) = _calc1559BaseFee(syncedL1Height, parentGasUsed);
-    }
-
-    /// @notice Returns EIP1559 related configurations
-    function get1559Params()
-        public
-        pure
-        virtual
-        returns (uint64 gasTarget, uint256 adjustmentQuotient)
-    {
-        gasTarget = 15 * 1e6 * 10; // 10x Ethereum gas target
-        adjustmentQuotient = 8;
+        (basefee,) = _calc1559BaseFee(getConfig(), l1Height, parentGasUsed);
     }
 
     /// @notice Retrieves the block hash for the given L2 block number.
     /// @param blockId The L2 block number to retrieve the block hash for.
     /// @return The block hash for the specified L2 block id, or zero if the
     /// block id is greater than or equal to the current block number.
-
     function getBlockHash(uint64 blockId) public view returns (bytes32) {
-        if (blockId >= block.number) {
-            return 0;
-        } else if (blockId < block.number && blockId >= block.number - 256) {
-            return blockhash(blockId);
-        } else {
-            return _l2Hashes[blockId];
+        if (blockId >= block.number) return 0;
+        if (blockId >= block.number - 256) return blockhash(blockId);
+        return l2Hashes[blockId];
+    }
+
+    /// @notice Returns EIP1559 related configurations
+    function getConfig() public pure virtual returns (Config memory config) {
+        config.gasTargetPerL1Block = 15 * 1e6 * 10; // 10x Ethereum gas target
+        config.basefeeAdjustmentQuotient = 8;
+        config.blockRewardPerL1Block = 1e15; // 0.001 Taiko token;
+        config.blockRewardPoolMax = 12e18; // 12 Taiko token
+        config.blockRewardPoolPctg = 40; // 40%
+    }
+
+    // In situations where the network lacks sufficient transactions for the
+    // proposer to profit, they are still obligated to pay the prover the
+    // proving fee, which can be a substantial cost compared to the total L2
+    // transaction fees collected. As a solution, Taiko mints additional Taiko
+    // tokens per second as block rewards.
+    //
+    // The block reward doesn't undergo automatic halving; instead, we depend on
+    // Taiko DAO to make necessary adjustments to the rewards. uint96
+    // rewardBase;
+    //
+    // Reward block proposers with Taiko tokens to encourage chain adoption and
+    // ensure liveness. Rewards are issued only if `blockRewardPerL1Block` and
+    // `blockRewardPoolMax` are set to nonzero values in the configuration.
+    //
+    // Mint additional tokens into the reward pool as L1 block numbers increase,
+    // to incentivize future proposers.
+    function _rewardParentBlock(
+        Config memory config,
+        uint64 l1Height,
+        uint32 parentGasUsed
+    )
+        private
+        returns (uint128 blockReward)
+    {
+        if (
+            config.blockRewardPerL1Block == 0 || config.blockRewardPoolMax == 0
+                || config.blockRewardPoolPctg == 0 || latestSyncedL1Height == 0
+                || accumulatedReward == 0
+        ) return 0;
+
+        if (latestSyncedL1Height < l1Height) {
+            uint256 extraRewardMinted = uint256(l1Height - latestSyncedL1Height)
+                * config.blockRewardPerL1Block;
+
+            // Reward pool is capped to `blockRewardPoolMax`
+            accumulatedReward = uint128(
+                (extraRewardMinted + accumulatedReward).min(
+                    config.blockRewardPoolMax
+                )
+            );
         }
+
+        if (avgGasUsed == 0) {
+            avgGasUsed = parentGasUsed;
+            return 0;
+        }
+
+        avgGasUsed = avgGasUsed / 1024 * 1023 + parentGasUsed / 1024;
+
+        uint128 maxBlockReward =
+            accumulatedReward / 100 * config.blockRewardPoolPctg;
+        accumulatedReward -= maxBlockReward;
+
+        if (
+            parentGasUsed <= ANCHOR_GAS_DEDUCT
+                || avgGasUsed <= ANCHOR_GAS_DEDUCT || parentProposer == address(0)
+        ) {
+            return 0;
+        }
+
+        address tt = resolve("taiko_token", true);
+        if (tt == address(0)) return 0;
+
+        // The ratio is in [0-200]
+        uint128 ratio = uint128(
+            (
+                uint256(parentGasUsed - ANCHOR_GAS_DEDUCT) * 100
+                    / (avgGasUsed - ANCHOR_GAS_DEDUCT)
+            ).min(200)
+        );
+
+        blockReward = maxBlockReward * ratio / 200;
+        TaikoToken(tt).mint(parentProposer, blockReward);
     }
 
     function _calcPublicInputHash(uint256 blockId)
@@ -214,7 +303,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     }
 
     function _calc1559BaseFee(
-        uint64 syncedL1Height,
+        Config memory config,
+        uint64 l1Height,
         uint32 parentGasUsed
     )
         private
@@ -232,17 +322,12 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             // the gas excess will be reduced accordingly.
             // Note that when latestSyncedL1Height is zero, we skip this step.
             uint128 numL1Blocks;
-            if (
-                latestSyncedL1Height > 0
-                    && syncedL1Height > latestSyncedL1Height
-            ) {
-                numL1Blocks = syncedL1Height - latestSyncedL1Height;
+            if (latestSyncedL1Height > 0 && l1Height > latestSyncedL1Height) {
+                numL1Blocks = l1Height - latestSyncedL1Height;
             }
 
-            (uint64 gasTarget, uint256 adjustmentQuotient) = get1559Params();
-
             if (numL1Blocks > 0) {
-                uint128 issuance = numL1Blocks * gasTarget;
+                uint128 issuance = numL1Blocks * config.gasTargetPerL1Block;
                 excess = excess > issuance ? excess - issuance : 1;
             }
 
@@ -252,8 +337,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             // bonding curve, regardless the actual amount of gas used by this
             // block, however, the this block's gas used will affect the next
             // block's base fee.
-            _basefee =
-                Lib1559Math.basefee(_gasExcess, adjustmentQuotient * gasTarget);
+            _basefee = Lib1559Math.basefee(
+                _gasExcess,
+                config.basefeeAdjustmentQuotient * config.gasTargetPerL1Block
+            );
         }
 
         // Always make sure basefee is nonzero, this is required by the node.

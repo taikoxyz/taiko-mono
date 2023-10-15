@@ -1,0 +1,25 @@
+{
+  "$id": "configuredEventIndexer.json",
+  "type": "object",
+  "properties": {
+    "configuredEventIndexer": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "chainIds": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": ["chainIds", "url"]
+      }
+    }
+  },
+  "required": ["configuredEventIndexer"]
+}

@@ -1,7 +1,5 @@
 export { checkMintable } from './checkMintable';
 export { detectContractType } from './detectContractType';
-export { fetchERC1155Images } from './fetch1155Images';
-export { fetchERC721Images } from './fetchErc721Images';
 export { getAddress } from './getAddress';
 export { getBalance } from './getBalance';
 export { isDeployedCrossChain } from './isDeployedCrossChain';

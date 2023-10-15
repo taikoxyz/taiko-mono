@@ -101,7 +101,7 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"SYNC_MODE"},
 	}
-	IndexNFTs = &cli.StringFlag{
+	IndexNFTs = &cli.BoolFlag{
 		Name:     "indexNfts",
 		Usage:    "Whether to index nft transfer events orn ot",
 		Required: false,
