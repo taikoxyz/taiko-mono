@@ -115,6 +115,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
                 evidence.signalRoot,
                 evidence.graffiti,
                 prover,
+                blobHash,
                 txListHash,
                 pointValue
             )
