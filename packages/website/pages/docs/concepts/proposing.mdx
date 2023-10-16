@@ -52,4 +52,4 @@ When the ZKP instance is returned from the `TaikoL1` contract with `getInstance(
 
 The first proposeBlock tx in the enclosing L1 block will earn the TKO reward. The proposer will receive either the maximum reward (specified in the L1 config), or the reward per second (also specified in the L1 config as well) times the block time, whichever is smaller.
 
-> Note: This is a temporary solution which may change soon, as we see an issue that can arise where the proposer will submit empty blocks to earn the reward.
+> Note: This is a temporary solution which may change soon, as we see an issue that can arise where the proposer will submit empty blocks to earn the reward. Check the comments in `LibProposing.sol:proposeBlock` for the latest design.
