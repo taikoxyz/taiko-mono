@@ -21,7 +21,7 @@ export default {
   docsRepositoryBase:
     "https://github.com/taikoxyz/taiko-mono/blob/main/packages/website",
   editLink: {
-    text: "Edit this page ↗",
+    text: "Edit this page 📝",
   },
   // TODO: we should add the feedback link, check if nextra fixed it: https://github.com/shuding/nextra/issues/2067
   feedback: {
@@ -36,7 +36,7 @@ export default {
           if (win) win.opener = null;
         }}
       >
-        Leave feedback ↗
+        Leave feedback 💬
       </button>
     ),
   },
