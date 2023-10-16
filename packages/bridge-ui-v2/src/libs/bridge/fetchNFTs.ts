@@ -3,6 +3,7 @@ import type { Address } from 'viem';
 import type { ChainID } from '$libs/chain';
 import { eventIndexerApiServices } from '$libs/eventIndexer/initEventIndexer';
 import { type NFT, TokenType } from '$libs/token';
+import { checkOwnershipOfNFTs } from '$libs/token/checkOwnership';
 import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
 import { getLogger } from '$libs/util/logger';
 
@@ -62,7 +63,22 @@ export async function fetchNFTs(userAddress: Address, chainID: ChainID): Promise
   // Deduplicate based on address and chainID
   const deduplicatedNfts = deduplicateNFTs(nftArrays);
 
-  log(`found ${deduplicatedNfts.length} unique NFTs from all indexers`, deduplicatedNfts);
+  // Double check the ownership
+  const ownsAllNfts = await checkOwnershipOfNFTs(nftArrays.flat(), userAddress, Number(chainID));
+  log(`user ${userAddress} owns all NFTs:`, ownsAllNfts);
 
-  return { nfts: deduplicatedNfts, error };
+  // filter out the NFTs that the user doesn't own
+  const filteredNfts = deduplicatedNfts.filter((nft) => {
+    const isOwned = ownsAllNfts.successfulOwnershipChecks.find((result) => result.tokenId === nft.tokenId);
+    return isOwned;
+  });
+
+  if (filteredNfts.length !== deduplicatedNfts.length) {
+    //TODO: handle this case differently? maybe show a warning to the user?
+    log(`found ${deduplicatedNfts.length - filteredNfts.length} tokens that the user doesn't own`);
+  }
+
+  log(`found ${filteredNfts.length} unique NFTs from all indexers`, filteredNfts);
+
+  return { nfts: filteredNfts, error };
 }
