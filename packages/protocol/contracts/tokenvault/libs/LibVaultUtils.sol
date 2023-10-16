@@ -16,6 +16,7 @@ library LibVaultUtils {
     uint256 public constant MAX_TOKEN_PER_TXN = 10;
 
     error VAULT_INVALID_FROM();
+    error VAULT_INVALID_IMPL();
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_TO();
     error VAULT_TOKEN_ARRAY_MISMATCH();
@@ -34,7 +35,7 @@ library LibVaultUtils {
         external
         returns (address proxy)
     {
-        assert(implementation != address(0));
+        if (implementation == address(0)) revert VAULT_INVALID_IMPL();
         proxy = address(
             new TransparentUpgradeableProxy(implementation, owner, initializationData)
         );
@@ -52,33 +53,10 @@ library LibVaultUtils {
         returns (IBridge.Context memory ctx)
     {
         ctx = IBridge(msg.sender).context();
-        if (
-            ctx.from
-                != AddressResolver(resolver).resolve(
-                    ctx.srcChainId, validSender, false
-                )
-        ) {
-            revert VAULT_INVALID_FROM();
-        }
-    }
-
-    /// @dev Checks if token is invalid and returns the message hash
-    /// @param message The bridged message struct data
-    /// @param bridgeAddress The bridge contract
-    /// @param tokenAddress The token address to be checked
-    function hashAndCheckToken(
-        IBridge.Message calldata message,
-        address bridgeAddress,
-        address tokenAddress
-    )
-        external
-        pure
-        returns (bytes32 msgHash)
-    {
-        IBridge bridge = IBridge(bridgeAddress);
-        msgHash = bridge.hashMessage(message);
-
-        if (tokenAddress == address(0)) revert VAULT_INVALID_TOKEN();
+        address sender = AddressResolver(resolver).resolve(
+            ctx.srcChainId, validSender, false
+        );
+        if (ctx.from != sender) revert VAULT_INVALID_FROM();
     }
 
     function checkIfValidAddresses(
@@ -89,10 +67,7 @@ library LibVaultUtils {
         external
         pure
     {
-        if (to == address(0) || to == vault) {
-            revert VAULT_INVALID_TO();
-        }
-
+        if (to == address(0) || to == vault) revert VAULT_INVALID_TO();
         if (token == address(0)) revert VAULT_INVALID_TOKEN();
     }
 
@@ -114,15 +89,11 @@ library LibVaultUtils {
 
         if (isERC721) {
             for (uint256 i; i < tokenIds.length; ++i) {
-                if (amounts[i] != 0) {
-                    revert VAULT_INVALID_AMOUNT();
-                }
+                if (amounts[i] != 0) revert VAULT_INVALID_AMOUNT();
             }
         } else {
             for (uint256 i; i < amounts.length; ++i) {
-                if (amounts[i] == 0) {
-                    revert VAULT_INVALID_AMOUNT();
-                }
+                if (amounts[i] == 0) revert VAULT_INVALID_AMOUNT();
             }
         }
     }

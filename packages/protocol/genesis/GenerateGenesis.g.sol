@@ -10,13 +10,11 @@ import { TransparentUpgradeableProxy } from "lib/openzeppelin-contracts/contract
 import { AddressManager } from "../contracts/common/AddressManager.sol";
 import { AddressResolver } from "../contracts/common/AddressResolver.sol";
 import { Bridge } from "../contracts/bridge/Bridge.sol";
-import { BridgeErrors } from "../contracts/bridge/BridgeErrors.sol";
 import { ERC1155Vault } from "../contracts/tokenvault/ERC1155Vault.sol";
 import { ERC20Vault } from "../contracts/tokenvault/ERC20Vault.sol";
 import { ERC721Vault } from "../contracts/tokenvault/ERC721Vault.sol";
 import { EtherVault } from "../contracts/bridge/EtherVault.sol";
 import { IBridge } from "../contracts/bridge/IBridge.sol";
-import { LibBridgeStatus } from "../contracts/bridge/libs/LibBridgeStatus.sol";
 import { RegularERC20 } from "../contracts/test/erc20/RegularERC20.sol";
 import { SignalService } from "../contracts/signal/SignalService.sol";
 import { TaikoL2 } from "../contracts/L2/TaikoL2.sol";
@@ -104,7 +102,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         TaikoL2 taikoL2 = TaikoL2(getPredeployedContractAddress("TaikoL2Proxy"));
 
         vm.startPrank(taikoL2.GOLDEN_TOUCH_ADDRESS());
-        for (uint32 i = 0; i < 300; i++) {
+        for (uint32 i = 0; i < 300; ++i) {
             vm.roll(block.number + 1);
             vm.warp(block.number + 12);
             vm.fee(taikoL2.getBasefee(12, i));
@@ -145,7 +143,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         assertEq(owner, bridge.owner());
 
-        vm.expectRevert(BridgeErrors.B_FORBIDDEN.selector);
+        vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
         bridge.processMessage(
             IBridge.Message({
                 id: 0,

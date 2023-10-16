@@ -3,15 +3,12 @@ pragma solidity ^0.8.20;
 
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { IBridge, Bridge } from "../../contracts/bridge/Bridge.sol";
-import { BridgeErrors } from "../../contracts/bridge/BridgeErrors.sol";
 import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
 import { console2 } from "forge-std/console2.sol";
-import { LibBridgeStatus } from
-    "../../contracts/bridge/libs/LibBridgeStatus.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import {
     TestBase,
-    SkipProofCheckBridge,
+    SkipProofCheckSignal,
     DummyCrossChainSync,
     GoodReceiver,
     BadReceiver
@@ -26,7 +23,7 @@ contract BridgeTest is TestBase {
     EtherVault etherVault;
     SignalService signalService;
     DummyCrossChainSync crossChainSync;
-    SkipProofCheckBridge mockProofBridge;
+    SkipProofCheckSignal mockProofSignalService;
     uint256 destChainId = 19_389;
 
     function setUp() public {
@@ -43,10 +40,10 @@ contract BridgeTest is TestBase {
 
         vm.deal(address(destChainBridge), 100 ether);
 
-        mockProofBridge = new SkipProofCheckBridge();
-        mockProofBridge.init(address(addressManager));
+        mockProofSignalService = new SkipProofCheckSignal();
+        mockProofSignalService.init(address(addressManager));
 
-        vm.deal(address(mockProofBridge), 100 ether);
+        vm.deal(address(mockProofSignalService), 100 ether);
 
         signalService = new SignalService();
         signalService.init(address(addressManager));
@@ -57,7 +54,11 @@ contract BridgeTest is TestBase {
         crossChainSync = new DummyCrossChainSync();
 
         addressManager.setAddress(
-            block.chainid, "signal_service", address(signalService)
+            block.chainid, "signal_service", address(mockProofSignalService)
+        );
+
+        addressManager.setAddress(
+            destChainId, "signal_service", address(mockProofSignalService)
         );
 
         addressManager.setAddress(
@@ -88,16 +89,15 @@ contract BridgeTest is TestBase {
         // coresponding to the message
         bytes memory proof = hex"00";
 
-        bytes32 msgHash = destChainBridge.hashMessage(message);
+        bytes32 msgHash = keccak256(abi.encode(message));
 
         vm.chainId(destChainId);
         vm.prank(Bob, Bob);
-        mockProofBridge.processMessage(message, proof);
+        destChainBridge.processMessage(message, proof);
 
-        LibBridgeStatus.MessageStatus status =
-            mockProofBridge.getMessageStatus(msgHash);
+        Bridge.Status status = destChainBridge.messageStatus(msgHash);
 
-        assertEq(status == LibBridgeStatus.MessageStatus.DONE, true);
+        assertEq(status == Bridge.Status.DONE, true);
         // Alice has 100 ether + 1000 wei balance, because we did not use the
         // 'sendMessage'
         // since we mocking the proof, so therefore the 1000 wei
@@ -128,17 +128,16 @@ contract BridgeTest is TestBase {
         // coresponding to the message
         bytes memory proof = hex"00";
 
-        bytes32 msgHash = destChainBridge.hashMessage(message);
+        bytes32 msgHash = keccak256(abi.encode(message));
 
         vm.chainId(destChainId);
 
         vm.prank(Bob, Bob);
-        mockProofBridge.processMessage(message, proof);
+        destChainBridge.processMessage(message, proof);
 
-        LibBridgeStatus.MessageStatus status =
-            mockProofBridge.getMessageStatus(msgHash);
+        Bridge.Status status = destChainBridge.messageStatus(msgHash);
 
-        assertEq(status == LibBridgeStatus.MessageStatus.DONE, true);
+        assertEq(status == Bridge.Status.DONE, true);
 
         // Bob (relayer) and goodContract has 1000 wei balance
         assertEq(address(goodReceiver).balance, 1000);
@@ -168,17 +167,16 @@ contract BridgeTest is TestBase {
         // coresponding to the message
         bytes memory proof = hex"00";
 
-        bytes32 msgHash = destChainBridge.hashMessage(message);
+        bytes32 msgHash = keccak256(abi.encode(message));
 
         vm.chainId(destChainId);
 
         vm.prank(Bob, Bob);
-        mockProofBridge.processMessage(message, proof);
+        destChainBridge.processMessage(message, proof);
 
-        LibBridgeStatus.MessageStatus status =
-            mockProofBridge.getMessageStatus(msgHash);
+        Bridge.Status status = destChainBridge.messageStatus(msgHash);
 
-        assertEq(status == LibBridgeStatus.MessageStatus.DONE, true);
+        assertEq(status == Bridge.Status.DONE, true);
 
         // Carol and goodContract has 500 wei balance
         assertEq(address(goodReceiver).balance, 500);
@@ -189,7 +187,7 @@ contract BridgeTest is TestBase {
     )
         public
     {
-        //uint256 amount = 1 wei;
+        // uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
             user: Alice,
             to: Alice,
@@ -199,7 +197,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        vm.expectRevert(BridgeErrors.B_INCORRECT_VALUE.selector);
+        vm.expectRevert(Bridge.B_INVALID_VALUE.selector);
         bridge.sendMessage(message);
     }
 
@@ -216,7 +214,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        vm.expectRevert(BridgeErrors.B_USER_IS_NULL.selector);
+        vm.expectRevert(Bridge.B_INVALID_USER.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 
@@ -234,7 +232,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId + 1
         });
 
-        vm.expectRevert(BridgeErrors.B_WRONG_CHAIN_ID.selector);
+        vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 
@@ -252,7 +250,7 @@ contract BridgeTest is TestBase {
             destChain: block.chainid
         });
 
-        vm.expectRevert(BridgeErrors.B_WRONG_CHAIN_ID.selector);
+        vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 
@@ -269,7 +267,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        vm.expectRevert(BridgeErrors.B_WRONG_TO_ADDRESS.selector);
+        vm.expectRevert(Bridge.B_INVALID_TO.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 
@@ -284,10 +282,9 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        bytes32 msgHash = bridge.sendMessage{ value: amount }(message);
-
-        bool isMessageSent = bridge.isMessageSent(msgHash);
-        assertEq(isMessageSent, true);
+        (, IBridge.Message memory _message) =
+            bridge.sendMessage{ value: amount }(message);
+        assertEq(bridge.isMessageSent(_message), true);
     }
 
     function test_Bridge_send_message_ether_with_processing_fee() public {
@@ -302,10 +299,9 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        bytes32 msgHash = bridge.sendMessage{ value: amount + fee }(message);
-
-        bool isMessageSent = bridge.isMessageSent(msgHash);
-        assertEq(isMessageSent, true);
+        (, IBridge.Message memory _message) =
+            bridge.sendMessage{ value: amount + fee }(message);
+        assertEq(bridge.isMessageSent(_message), true);
     }
 
     function test_Bridge_send_message_ether_with_processing_fee_invalid_amount()
@@ -322,7 +318,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        vm.expectRevert(BridgeErrors.B_INCORRECT_VALUE.selector);
+        vm.expectRevert(Bridge.B_INVALID_VALUE.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 
@@ -331,7 +327,7 @@ contract BridgeTest is TestBase {
     // in foundry
     function test_Bridge_process_message() public {
         /* DISCALIMER: From now on we do not need to have real
-        proofs because we cna bypass with overriding shouldCheckProof()
+        proofs because we can bypass with overriding skipProofCheck()
         in a mockBirdge AND proof system already 'battle tested'.*/
         // This predefined successful process message call fails now
         // since we modified the iBridge.Message struct and cut out
@@ -340,14 +336,13 @@ contract BridgeTest is TestBase {
         (IBridge.Message memory message, bytes memory proof) =
             setUpPredefinedSuccessfulProcessMessageCall();
 
-        bytes32 msgHash = destChainBridge.hashMessage(message);
+        bytes32 msgHash = keccak256(abi.encode(message));
 
-        mockProofBridge.processMessage(message, proof);
+        destChainBridge.processMessage(message, proof);
 
-        LibBridgeStatus.MessageStatus status =
-            mockProofBridge.getMessageStatus(msgHash);
+        Bridge.Status status = destChainBridge.messageStatus(msgHash);
 
-        assertEq(status == LibBridgeStatus.MessageStatus.DONE, true);
+        assertEq(status == Bridge.Status.DONE, true);
     }
 
     // test with a known good merkle proof / message since we cant generate
@@ -355,7 +350,7 @@ contract BridgeTest is TestBase {
     // in foundry
     function test_Bridge_retry_message_and_end_up_in_failed_status() public {
         /* DISCALIMER: From now on we do not need to have real
-        proofs because we cna bypass with overriding shouldCheckProof()
+        proofs because we can bypass with overriding skipProofCheck()
         in a mockBirdge AND proof system already 'battle tested'.*/
         vm.startPrank(Alice);
         (IBridge.Message memory message, bytes memory proof) =
@@ -364,24 +359,22 @@ contract BridgeTest is TestBase {
         // etch bad receiver at the to address, so it fails.
         vm.etch(message.to, address(badReceiver).code);
 
-        bytes32 msgHash = destChainBridge.hashMessage(message);
+        bytes32 msgHash = keccak256(abi.encode(message));
 
-        mockProofBridge.processMessage(message, proof);
+        destChainBridge.processMessage(message, proof);
 
-        LibBridgeStatus.MessageStatus status =
-            mockProofBridge.getMessageStatus(msgHash);
+        Bridge.Status status = destChainBridge.messageStatus(msgHash);
 
-        assertEq(status == LibBridgeStatus.MessageStatus.RETRIABLE, true);
+        assertEq(status == Bridge.Status.RETRIABLE, true);
 
         vm.stopPrank();
         vm.prank(message.user);
 
-        mockProofBridge.retryMessage(message, true);
+        destChainBridge.retryMessage(message, true);
 
-        LibBridgeStatus.MessageStatus postRetryStatus =
-            mockProofBridge.getMessageStatus(msgHash);
+        Bridge.Status postRetryStatus = destChainBridge.messageStatus(msgHash);
 
-        assertEq(postRetryStatus == LibBridgeStatus.MessageStatus.FAILED, true);
+        assertEq(postRetryStatus == Bridge.Status.FAILED, true);
     }
 
     function retry_message_reverts_when_status_non_retriable() public {
@@ -394,7 +387,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        vm.expectRevert(BridgeErrors.B_MSG_NON_RETRIABLE.selector);
+        vm.expectRevert(Bridge.B_NON_RETRIABLE.selector);
         destChainBridge.retryMessage(message, true);
     }
 
@@ -411,12 +404,12 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        vm.expectRevert(BridgeErrors.B_DENIED.selector);
+        vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
         destChainBridge.retryMessage(message, true);
     }
 
     /* DISCALIMER: From now on we do not need to have real
-    proofs because we cna bypass with overriding shouldCheckProof()
+    proofs because we can bypass with overriding skipProofCheck()
     in a mockBirdge AND proof system already 'battle tested'.*/
     function setUpPredefinedSuccessfulProcessMessageCall()
         internal
@@ -436,19 +429,16 @@ contract BridgeTest is TestBase {
         addressManager.setAddress(dest, "ether_vault", address(etherVault));
 
         etherVault.authorize(address(destChainBridge), true);
-        etherVault.authorize(address(mockProofBridge), true);
+        etherVault.authorize(address(mockProofSignalService), true);
 
         vm.deal(address(etherVault), 100 ether);
 
         addressManager.setAddress(
-            dest, "signal_service", address(signalService)
+            dest, "signal_service", address(mockProofSignalService)
         );
 
-        crossChainSync.setCrossChainBlockHeader(
-            0xd5f5d8ac6bc37139c97389b00e9cf53e89c153ad8a5fc765ffe9f44ea9f3d31e
-        );
-
-        crossChainSync.setCrossChainSignalRoot(
+        crossChainSync.setSyncedData(
+            0xd5f5d8ac6bc37139c97389b00e9cf53e89c153ad8a5fc765ffe9f44ea9f3d31e,
             0x631b214fb030d82847224f0b3d3b906a6764dded176ad3c7262630204867ba85
         );
 
