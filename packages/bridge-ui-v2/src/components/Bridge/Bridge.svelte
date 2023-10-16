@@ -59,7 +59,7 @@
     bridgeService,
     destNetwork as destinationChain,
     enteredAmount,
-    notApproved,
+    isApprovedStore,
     processingFee,
     recipientAddress,
     selectedToken,
@@ -354,6 +354,7 @@
       getTokenWithInfoFromAddress({ contractAddress: addr, srcChainId: srcChainId, owner: $account?.address })
         .then((token) => {
           if (!token) throw new Error('no token with info');
+          detectedTokenType = token.type;
           addressInputState = AddressInputState.Valid;
           $selectedToken = token;
         })
@@ -403,7 +404,7 @@
   };
 
   function updateApproval(tokenId: number, approval: boolean) {
-    notApproved.update((currentMap) => {
+    isApprovedStore.update((currentMap) => {
       // Clone the current map
       const updatedMap = new Map(currentMap);
       // Update the approval status of the specified tokenId
@@ -431,7 +432,6 @@
       getTokenWithInfoFromAddress({ contractAddress, srcChainId, owner: $account?.address, tokenId })
         .then((token) => {
           if (!token) throw new Error('no token with info');
-
           selectedNFT = [token as NFT];
           $selectedToken = token;
         })
@@ -447,6 +447,7 @@
     //TODO: this needs changing if we do batch transfers in the future:
     // Update either selectedToken store to handle arrays or the actions to access a different store for NFTs
     $selectedToken = selectedNFT[0];
+
     const currentNetwork = $network?.id;
     if (currentNetwork && $destinationChain?.id && $selectedToken) {
       if (selectedNFT[0].type === TokenType.ERC721) {
@@ -458,8 +459,8 @@
             spenderAddress: sourceTokenVault,
             tokenId: BigInt(selectedNFT[0].tokenId),
           })
-          .then((isApproved: boolean) => {
-            if (isApproved) {
+          .then((requiredApproval: boolean) => {
+            if (requiredApproval) {
               updateApproval(selectedNFT[0].tokenId, false);
             } else {
               updateApproval(selectedNFT[0].tokenId, true);
@@ -582,6 +583,7 @@
           <div class="f-between-center gap-4">
             <ChainSelectorWrapper />
           </div>
+          <div class="h-sep" />
 
           <!-- 
             Manual NFT Input 
@@ -602,7 +604,7 @@
                 <FlatAlert type="success" forceColumnFlow message="todo: valid erc1155" />
               {/if}
 
-              <!-- TODO: limit to config -->
+              <!-- TODO: add limit to config -->
               <IdInput
                 bind:this={nftIdInputComponent}
                 bind:enteredIds
@@ -615,16 +617,13 @@
                   <FlatAlert type="error" forceColumnFlow message="todo: must be owner of all token" />
                 {/if}
               </div>
-
-              {#if detectedTokenType === TokenType.ERC1155}
-                <Amount bind:this={amountComponent} />
-              {/if}
+              {detectedTokenType} tokentype
             </div>
           {:else}
             <!-- 
             Automatic NFT Input 
           -->
-            <div class="f-between-center w-full gap-4">
+            <div class="f-col w-full gap-4">
               <Button
                 disabled={!canScan}
                 loading={scanning}
@@ -636,6 +635,13 @@
                 {:else}
                   {$t('bridge.actions.nft_scan_again')}
                 {/if}
+              </Button>
+
+              <Button
+                type="neutral"
+                class="px-[28px] py-[14px] bg-transparent !border border-primary-brand rounded-full hover:border-primary-interactive-hover "
+                on:click={() => (manualNFTInput = !manualNFTInput)}>
+                {$t('bridge.actions.nft_manual')}
               </Button>
             </div>
 
@@ -706,6 +712,9 @@
           <div class="space-y-[16px]">
             <Recipient bind:this={recipientComponent} />
             <ProcessingFee bind:this={processingFeeComponent} />
+            {#if $selectedToken?.type === TokenType.ERC1155}
+              <Amount bind:this={amountComponent} />
+            {/if}
           </div>
 
           <div class="h-sep" />
@@ -752,36 +761,48 @@
             <ChainSelectorWrapper />
           </div>
         {/if}
-        <div class="h-sep" />
         <!-- 
           User Actions
          -->
-        <div class="f-between-center w-full gap-4">
-          {#if activeStep !== NFTSteps.IMPORT}
-            <Button
-              type="neutral"
-              class="px-[28px] py-[14px] rounded-full w-auto flex-1 bg-transparent !border border-primary-brand hover:border-primary-interactive-hover"
-              on:click={previousStep}>
-              <span class="body-bold">{$t('common.edit')}</span></Button>
-          {/if}
-          {#if activeStep === NFTSteps.REVIEW}
+        {#if activeStep !== NFTSteps.IMPORT}
+          <Button
+            type="neutral"
+            class="px-[28px] py-[14px] rounded-full w-auto flex-1 bg-transparent !border border-primary-brand hover:border-primary-interactive-hover"
+            on:click={previousStep}>
+            <span class="body-bold">{$t('common.edit')}</span></Button>
+        {/if}
+        {#if activeStep === NFTSteps.REVIEW}
+          <div class="f-between-center w-full gap-4">
+            <div class="h-sep" />
             <Actions {approve} {bridge} />
-          {:else if activeStep === NFTSteps.IMPORT}
-            {#if manualNFTInput}
+          </div>
+        {:else if activeStep === NFTSteps.IMPORT}
+          {#if manualNFTInput}
+            <div class="f-col w-full">
               <Button
                 disabled={!canProceed}
                 type="primary"
-                class="px-[28px] py-[14px] rounded-full flex-1 text-white"
-                on:click={manualImportAction}><span class="body-bold">{nextStepButtonText} (manual)</span></Button>
-            {:else}
+                class="px-[28px] py-[14px] rounded-full flex-1 w-auto text-white"
+                on:click={manualImportAction}><span class="body-bold">{nextStepButtonText}</span></Button>
+
+              <button on:click={() => (manualNFTInput = !manualNFTInput)} class="flex justify-center py-3 link">
+                {$t('common.back')}
+              </button>
+            </div>
+          {:else if scanned}
+            <div class="f-col w-full">
               <Button
                 disabled={!canProceed}
                 type="primary"
-                class="px-[28px] py-[14px] rounded-full flex-1 text-white"
+                class="px-[28px] py-[14px] rounded-full flex-1 w-auto text-white"
                 on:click={nextStep}><span class="body-bold">{nextStepButtonText}</span></Button>
-            {/if}
+
+              <button on:click={() => (manualNFTInput = !manualNFTInput)} class="flex justify-center py-3 link">
+                {$t('common.back')}
+              </button>
+            </div>
           {/if}
-        </div>
+        {/if}
       </div>
     </Card>
   </div>

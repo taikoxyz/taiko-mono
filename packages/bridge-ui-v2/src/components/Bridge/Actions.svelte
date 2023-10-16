@@ -13,7 +13,7 @@
     errorComputingBalance,
     insufficientAllowance,
     insufficientBalance,
-    notApproved,
+    isApprovedStore,
     recipientAddress,
     selectedToken,
     tokenBalance,
@@ -46,7 +46,15 @@
   $: hasAddress = $recipientAddress || $account?.address;
   $: hasNetworks = $network?.id && $destNetwork?.id;
   $: hasBalance =
-    !$computingBalance && !$errorComputingBalance && $tokenBalance?.value && $tokenBalance?.value > BigInt(0);
+    !$computingBalance &&
+    !$errorComputingBalance &&
+    ($tokenBalance
+      ? typeof $tokenBalance === 'bigint'
+        ? $tokenBalance > BigInt(0) // ERC721/1155
+        : 'value' in $tokenBalance
+        ? $tokenBalance.value > BigInt(0)
+        : false // ERC20
+      : false);
   $: canDoNothing = !hasAddress || !hasNetworks || !hasBalance || !$selectedToken || !$enteredAmount;
 
   // Conditions for approve/bridge steps
@@ -55,14 +63,18 @@
   $: isTokenApproved =
     $selectedToken?.type === TokenType.ERC20
       ? isSelectedERC20 && $enteredAmount && !$insufficientAllowance && !$validatingAmount
-      : $selectedToken?.type === TokenType.ERC721 || $selectedToken?.type === TokenType.ERC1155
+      : $selectedToken?.type === TokenType.ERC721
+      ? allTokensApproved
+      : $selectedToken?.type === TokenType.ERC1155
       ? allTokensApproved
       : false;
 
   // Check if all NFTs are approved
   $: allTokensApproved =
-    $selectedToken?.type === TokenType.ERC721 || $selectedToken?.type === TokenType.ERC1155
-      ? $notApproved.get(($selectedToken as NFT).tokenId)
+    $selectedToken?.type === TokenType.ERC721
+      ? $isApprovedStore.get(($selectedToken as NFT).tokenId)
+      : $selectedToken?.type === TokenType.ERC1155
+      ? $isApprovedStore.get(($selectedToken as NFT).tokenId)
       : false;
 
   // Conditions to disable/enable buttons
@@ -78,7 +90,9 @@
   $: disableBridge =
     $selectedToken?.type === TokenType.ERC20
       ? canDoNothing || $insufficientAllowance || $insufficientBalance || $validatingAmount || bridging
-      : $selectedToken?.type === TokenType.ERC721 || $selectedToken?.type === TokenType.ERC1155
+      : $selectedToken?.type === TokenType.ERC721
+      ? !allTokensApproved
+      : $selectedToken?.type === TokenType.ERC1155
       ? !allTokensApproved
       : bridging || !hasAddress || !hasNetworks || !hasBalance || !$selectedToken || !$enteredAmount;
 </script>
