@@ -6,12 +6,14 @@
 
 pragma solidity ^0.8.20;
 
-import { Create2Upgradeable } from "@ozu/utils/Create2Upgradeable.sol";
-import { ERC20Upgradeable } from "@ozu/token/ERC20/ERC20Upgradeable.sol";
+import { Create2Upgradeable } from
+    "openzeppelin-contracts-upgradeable/contracts/utils/Create2Upgradeable.sol";
+import { ERC20Upgradeable } from
+    "openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import { SafeERC20Upgradeable } from
-    "@ozu/token/ERC20/utils/SafeERC20Upgradeable.sol";
+    "openzeppelin-contracts-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import { IERC165Upgradeable } from
-    "@ozu/utils/introspection/IERC165Upgradeable.sol";
+    "openzeppelin-contracts-upgradeable/contracts/utils/introspection/IERC165Upgradeable.sol";
 
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { IMintableERC20 } from "../common/IMintableERC20.sol";

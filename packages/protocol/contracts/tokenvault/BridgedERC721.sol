@@ -6,8 +6,10 @@
 
 pragma solidity ^0.8.20;
 
-import { ERC721Upgradeable } from "@ozu/token/ERC721/ERC721Upgradeable.sol";
-import { StringsUpgradeable } from "@ozu/utils/StringsUpgradeable.sol";
+import { ERC721Upgradeable } from
+    "openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
+import { StringsUpgradeable } from
+    "openzeppelin-contracts-upgradeable/contracts/utils/StringsUpgradeable.sol";
 
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
