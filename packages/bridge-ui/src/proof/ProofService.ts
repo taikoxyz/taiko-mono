@@ -1,5 +1,4 @@
 import { Contract, ethers } from 'ethers';
-import { RLP } from 'ethers/lib/utils.js';
 
 import { crossChainSyncABI } from '../constants/abi';
 import type { Block } from '../domain/block';
@@ -55,7 +54,7 @@ export class ProofService implements Prover {
     blockHeight: number,
   ) {
     // RLP encode the proof together for LibTrieProof to decode
-    const encodedProof = RLP.encode(proof.storageProof[0].proof);
+    const encodedProof = ethers.utils.RLP.encode(proof.storageProof[0].proof);
 
     // Encode the SignalProof struct:
     // struct SignalProof {
