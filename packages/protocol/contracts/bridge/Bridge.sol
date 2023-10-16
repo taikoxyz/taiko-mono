@@ -119,6 +119,54 @@ contract Bridge is EssentialContract, IBridge {
         emit MessageSent(msgHash, _message);
     }
 
+    /// @notice Recalls a failed message on its source chain, releasing
+    /// associated assets.
+    /// @dev This function checks if the message failed on the source chain and
+    /// releases associated Ether or tokens.
+    /// @param message The message whose associated Ether should be released.
+    /// @param proof The merkle inclusion proof.
+    function recallMessage(
+        Message calldata message,
+        bytes calldata proof
+    )
+        external
+        nonReentrant
+        sameChain(message.srcChainId)
+    {
+        bytes32 msgHash = keccak256(abi.encode(message));
+        if (isMessageRecalled[msgHash]) revert B_RECALLED_ALREADY();
+
+        bool received = _proveSignalReceived(
+            _signalForFailedMessage(msgHash), message.destChainId, proof
+        );
+        if (!received) revert B_NOT_FAILED();
+
+        isMessageRecalled[msgHash] = true;
+
+        // Release necessary Ether from EtherVault if on Taiko, otherwise it's
+        // already available on this Bridge.
+        address ethVault = resolve("ether_vault", true);
+        if (ethVault != address(0)) {
+            EtherVault(payable(ethVault)).releaseEther(
+                address(this), message.value
+            );
+        }
+
+        // Execute the recall logic based on the contract's support for the
+        // IRecallableSender interface
+        bool support =
+            message.from.supportsInterface(type(IRecallableSender).interfaceId);
+        if (support) {
+            IRecallableSender(message.from).onMessageRecalled{
+                value: message.value
+            }(message, msgHash);
+        } else {
+            message.user.sendEther(message.value);
+        }
+
+        emit MessageRecalled(msgHash);
+    }
+
     /// @notice Processes a bridge message on the destination chain. This
     /// function is callable by any address, including the `message.user`.
     /// @dev The process begins by hashing the message and checking the message
@@ -245,54 +293,6 @@ contract Bridge is EssentialContract, IBridge {
             // otherwise funds stay at Bridge anyways.
             ethVault.sendEther(message.value);
         }
-    }
-
-    /// @notice Recalls a failed message on its source chain, releasing
-    /// associated assets.
-    /// @dev This function checks if the message failed on the source chain and
-    /// releases associated Ether or tokens.
-    /// @param message The message whose associated Ether should be released.
-    /// @param proof The merkle inclusion proof.
-    function recallMessage(
-        Message calldata message,
-        bytes calldata proof
-    )
-        external
-        nonReentrant
-        sameChain(message.srcChainId)
-    {
-        bytes32 msgHash = keccak256(abi.encode(message));
-        if (isMessageRecalled[msgHash]) revert B_RECALLED_ALREADY();
-
-        bool received = _proveSignalReceived(
-            _signalForFailedMessage(msgHash), message.destChainId, proof
-        );
-        if (!received) revert B_NOT_FAILED();
-
-        isMessageRecalled[msgHash] = true;
-
-        // Release necessary Ether from EtherVault if on Taiko, otherwise it's
-        // already available on this Bridge.
-        address ethVault = resolve("ether_vault", true);
-        if (ethVault != address(0)) {
-            EtherVault(payable(ethVault)).releaseEther(
-                address(this), message.value
-            );
-        }
-
-        // Execute the recall logic based on the contract's support for the
-        // IRecallableSender interface
-        bool support =
-            message.from.supportsInterface(type(IRecallableSender).interfaceId);
-        if (support) {
-            IRecallableSender(message.from).onMessageRecalled{
-                value: message.value
-            }(message, msgHash);
-        } else {
-            message.user.sendEther(message.value);
-        }
-
-        emit MessageRecalled(msgHash);
     }
 
     /// @notice Checks if the message was sent.
@@ -455,7 +455,7 @@ contract Bridge is EssentialContract, IBridge {
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encodePacked("SIGNAL", Status.FAILED, msgHash));
+        return msgHash ^ bytes32(uint256(Status.FAILED));
     }
 }
 
