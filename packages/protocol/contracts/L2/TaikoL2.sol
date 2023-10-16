@@ -98,8 +98,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     /// message verification.
     /// @param l1BlockHash The latest L1 block hash when this block was
     /// proposed.
-    /// @param l1SignalRoot The latest value of the L1 signal service storage
-    /// root.
+    /// @param l1SignalRoot The latest value of the L1 signal root.
     /// @param l1Height The latest L1 block height when this block was proposed.
     /// @param parentGasUsed The gas used in the parent block.
     function anchor(
