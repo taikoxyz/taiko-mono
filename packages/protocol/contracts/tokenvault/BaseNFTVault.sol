@@ -7,14 +7,11 @@
 pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { IRecallableMessageSender } from "../bridge/IBridge.sol";
+import { IRecallableSender } from "../bridge/IBridge.sol";
 
 /// @title BaseNFTVault
 /// @notice Abstract contract for bridging NFTs across different chains.
-abstract contract BaseNFTVault is
-    EssentialContract,
-    IRecallableMessageSender
-{
+abstract contract BaseNFTVault is EssentialContract, IRecallableSender {
     // Struct representing the canonical NFT on another chain.
     struct CanonicalNFT {
         // Chain ID of the NFT.

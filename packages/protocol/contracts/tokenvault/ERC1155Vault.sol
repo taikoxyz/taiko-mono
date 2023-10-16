@@ -20,7 +20,7 @@ import {
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/ERC1155Upgradeable.sol";
 
 import { Proxied } from "../common/Proxied.sol";
-import { IRecallableMessageSender, IBridge } from "../bridge/IBridge.sol";
+import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
@@ -84,16 +84,16 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         message.memo = opt.memo;
 
         // Send the message and obtain the message hash
-        bytes32 msgHash = IBridge(resolve("bridge", false)).sendMessage{
-            value: msg.value
-        }(message);
+        (bytes32 msgHash, IBridge.Message memory _message) = IBridge(
+            resolve("bridge", false)
+        ).sendMessage{ value: msg.value }(message);
 
         // Emit TokenSent event
         emit TokenSent({
             msgHash: msgHash,
-            from: message.user,
+            from: _message.user,
             to: opt.to,
-            destChainId: message.destChainId,
+            destChainId: _message.destChainId,
             token: _token,
             tokenIds: _tokenIds,
             amounts: _amounts
@@ -163,12 +163,11 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         });
     }
 
-    /// @notice Releases deposited ERC1155 token(s) back to the user on the
-    /// source chain with a proof that the message processing on the destination
-    /// Bridge has failed.
-    /// @param message The message that corresponds to the ERC1155 deposit on
-    /// the source chain.
-    function onMessageRecalled(IBridge.Message calldata message)
+    /// @inheritdoc IRecallableSender
+    function onMessageRecalled(
+        IBridge.Message calldata message,
+        bytes32 msgHash
+    )
         external
         payable
         override
@@ -186,9 +185,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             (CanonicalNFT, address, address, uint256[], uint256[])
         );
 
-        bytes32 msgHash = LibVaultUtils.hashAndCheckToken(
-            message, resolve("bridge", false), nft.addr
-        );
+        if (nft.addr == address(0)) revert VAULT_INVALID_TOKEN();
 
         unchecked {
             if (isBridgedToken[nft.addr]) {
@@ -258,7 +255,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         returns (bool)
     {
         return interfaceId == type(ERC1155ReceiverUpgradeable).interfaceId
-            || interfaceId == type(IRecallableMessageSender).interfaceId
+            || interfaceId == type(IRecallableSender).interfaceId
             || super.supportsInterface(interfaceId);
     }
 
@@ -353,7 +350,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             bytes.concat(
                 ProxiedBridgedERC1155(bridgedToken).init.selector,
                 abi.encode(
-                    address(_addressManager),
+                    addressManager,
                     ctoken.addr,
                     ctoken.chainId,
                     ctoken.symbol,

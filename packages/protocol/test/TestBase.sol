@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import { Test } from "forge-std/Test.sol";
 import { Bridge } from "../contracts/bridge/Bridge.sol";
+import { SignalService } from "../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../contracts/common/ICrossChainSync.sol";
 
 // TODO (dani): remove some code to sub-contracts, this one shall only contain
@@ -88,29 +89,21 @@ contract NonNftContract {
     }
 }
 
-contract SkipProofCheckBridge is Bridge {
-    function shouldCheckProof() internal pure override returns (bool) {
-        return false;
+contract SkipProofCheckSignal is SignalService {
+    function skipProofCheck() public pure override returns (bool) {
+        return true;
     }
 }
 
 contract DummyCrossChainSync is ICrossChainSync {
-    bytes32 private _blockHash;
-    bytes32 private _signalRoot;
+    Snippet private _snippet;
 
-    function setCrossChainBlockHeader(bytes32 blockHash) external {
-        _blockHash = blockHash;
+    function setSyncedData(bytes32 blockHash, bytes32 signalRoot) external {
+        _snippet.blockHash = blockHash;
+        _snippet.signalRoot = signalRoot;
     }
 
-    function setCrossChainSignalRoot(bytes32 signalRoot) external {
-        _signalRoot = signalRoot;
-    }
-
-    function getCrossChainBlockHash(uint64) external view returns (bytes32) {
-        return _blockHash;
-    }
-
-    function getCrossChainSignalRoot(uint64) external view returns (bytes32) {
-        return _signalRoot;
+    function getSyncedSnippet(uint64) external view returns (Snippet memory) {
+        return _snippet;
     }
 }

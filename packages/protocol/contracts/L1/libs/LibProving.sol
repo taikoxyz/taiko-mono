@@ -227,7 +227,7 @@ library LibProving {
                 evidence.proof.length == 32
                     && bytes32(evidence.proof) == keccak256("RETURN_LIVENESS_BOND")
             ) {
-                LibTaikoToken.creditToken(
+                LibTaikoToken.creditTaikoToken(
                     state, resolver, blk.assignedProver, blk.livenessBond, false
                 );
             }
@@ -274,7 +274,7 @@ library LibProving {
             if (tran.contester != address(0)) revert L1_ALREADY_CONTESTED();
 
             // Burn the contest bond from the prover.
-            LibTaikoToken.debitToken(
+            LibTaikoToken.debitTaikoToken(
                 state, resolver, msg.sender, tier.contestBond
             );
 
@@ -353,7 +353,7 @@ library LibProving {
             }
 
             // Burn the validity bond from the prover.
-            LibTaikoToken.debitToken(
+            LibTaikoToken.debitTaikoToken(
                 state, resolver, msg.sender, tier.validityBond
             );
 
@@ -373,7 +373,7 @@ library LibProving {
 
                     // Mint the reward and the validity bond and return it to
                     // the previous prover.
-                    LibTaikoToken.creditToken(
+                    LibTaikoToken.creditTaikoToken(
                         state,
                         resolver,
                         tran.prover,
@@ -390,7 +390,7 @@ library LibProving {
                     // for the tier-0 transition. Consequently, we only grant a
                     // reward to the contester if it is not a zero-address.
                     if (tran.contester != address(0)) {
-                        LibTaikoToken.creditToken(
+                        LibTaikoToken.creditTaikoToken(
                             state,
                             resolver,
                             tran.contester,
@@ -398,9 +398,9 @@ library LibProving {
                             false
                         );
                     } else if (reward != 0) {
-                        //The prover is also the contester, so the reward is
+                        // The prover is also the contester, so the reward is
                         // sent to him.
-                        LibTaikoToken.creditToken(
+                        LibTaikoToken.creditTaikoToken(
                             state, resolver, msg.sender, reward, false
                         );
                     }
@@ -416,7 +416,7 @@ library LibProving {
                 // In theory, the reward can also be zero for certain tiers if
                 // their validity bonds are set to zero.
                 if (reward != 0) {
-                    LibTaikoToken.creditToken(
+                    LibTaikoToken.creditTaikoToken(
                         state, resolver, msg.sender, reward, false
                     );
                 }

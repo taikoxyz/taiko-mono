@@ -4,7 +4,6 @@ pragma solidity ^0.8.20;
 import { TestBase } from "../TestBase.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
-import { BridgeErrors } from "../../contracts/bridge/BridgeErrors.sol";
 
 contract TestEtherVault is TestBase {
     AddressManager addressManager;
@@ -26,12 +25,12 @@ contract TestEtherVault is TestBase {
         etherVault.authorize(Bob, true);
 
         vm.prank(Alice);
-        vm.expectRevert(BridgeErrors.B_EV_PARAM.selector);
+        vm.expectRevert(EtherVault.VAULT_INVALID_PARAMS.selector);
         etherVault.authorize(address(0), true);
 
         vm.startPrank(Alice);
         etherVault.authorize(Bob, true);
-        vm.expectRevert(BridgeErrors.B_EV_PARAM.selector);
+        vm.expectRevert(EtherVault.VAULT_INVALID_PARAMS.selector);
         etherVault.authorize(Bob, true);
         assertTrue(etherVault.isAuthorized(Bob));
     }
@@ -69,7 +68,7 @@ contract TestEtherVault is TestBase {
         etherVault.authorize(Alice, true);
         _seedEtherVault();
 
-        vm.expectRevert(BridgeErrors.B_EV_DO_NOT_BURN.selector);
+        vm.expectRevert(EtherVault.VAULT_INVALID_RECIPIENT.selector);
         etherVault.releaseEther(address(0), 1 ether);
     }
 

@@ -18,7 +18,7 @@ import { IERC165Upgradeable } from
 import { IERC721ReceiverUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/IERC721ReceiverUpgradeable.sol";
 
-import { IBridge, IRecallableMessageSender } from "../bridge/IBridge.sol";
+import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 import { Proxied } from "../common/Proxied.sol";
 
@@ -74,15 +74,15 @@ contract ERC721Vault is
         message.refundTo = opt.refundTo;
         message.memo = opt.memo;
 
-        bytes32 msgHash = IBridge(resolve("bridge", false)).sendMessage{
-            value: msg.value
-        }(message);
+        (bytes32 msgHash, IBridge.Message memory _message) = IBridge(
+            resolve("bridge", false)
+        ).sendMessage{ value: msg.value }(message);
 
         emit TokenSent({
             msgHash: msgHash,
-            from: message.user,
+            from: _message.user,
             to: opt.to,
-            destChainId: message.destChainId,
+            destChainId: _message.destChainId,
             token: _token,
             tokenIds: _tokenIds,
             amounts: _amounts
@@ -140,12 +140,11 @@ contract ERC721Vault is
         });
     }
 
-    /// @notice Release deposited ERC721 token(s) back to the user on the source
-    /// chain with a proof that the message processing on the destination Bridge
-    /// has failed.
-    /// @param message The message that corresponds to the ERC721 deposit on the
-    /// source chain.
-    function onMessageRecalled(IBridge.Message calldata message)
+    /// @inheritdoc IRecallableSender
+    function onMessageRecalled(
+        IBridge.Message calldata message,
+        bytes32 msgHash
+    )
         external
         payable
         override
@@ -166,9 +165,7 @@ contract ERC721Vault is
             message.data[4:], (CanonicalNFT, address, address, uint256[])
         );
 
-        bytes32 msgHash = LibVaultUtils.hashAndCheckToken(
-            message, resolve("bridge", false), nft.addr
-        );
+        if (nft.addr == address(0)) revert VAULT_INVALID_TOKEN();
 
         unchecked {
             if (isBridgedToken[nft.addr]) {
@@ -222,7 +219,7 @@ contract ERC721Vault is
         override
         returns (bool)
     {
-        return interfaceId == type(IRecallableMessageSender).interfaceId;
+        return interfaceId == type(IRecallableSender).interfaceId;
     }
 
     /// @dev Encodes sending bridged or canonical ERC721 tokens to the user.
@@ -300,7 +297,7 @@ contract ERC721Vault is
             bytes.concat(
                 ProxiedBridgedERC721(bridgedToken).init.selector,
                 abi.encode(
-                    address(_addressManager),
+                    addressManager,
                     ctoken.addr,
                     ctoken.chainId,
                     ctoken.symbol,

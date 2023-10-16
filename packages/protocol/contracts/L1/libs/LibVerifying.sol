@@ -175,7 +175,7 @@ library LibVerifying {
                     bondToReturn -= blk.livenessBond / 2;
                 }
 
-                LibTaikoToken.creditToken(
+                LibTaikoToken.creditTaikoToken(
                     state, resolver, tran.prover, bondToReturn, false
                 );
 
@@ -206,16 +206,11 @@ library LibVerifying {
                 state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
                 state.slotB.lastVerifiedAt = uint64(block.timestamp);
 
-                if (config.relaySignalRoot) {
-                    // Forward the L2's signal root to the signal service to
-                    // enable other TaikoL1 deployments, which share the same
-                    // signal service, to relay the signal to their respective
-                    // TaikoL2 contracts. This enables direct L1-to-L3 and
-                    // L2-to-L2 bridging without assets passing an intermediary
-                    // layer.
-                    ISignalService(resolver.resolve("signal_service", false))
-                        .sendSignal(signalRoot);
-                }
+                // Store the L2's signal root as a signal to the local signal
+                // service to allow for multi-hop bridging.
+                ISignalService(resolver.resolve("signal_service", false))
+                    .sendSignal(signalRoot);
+
                 emit CrossChainSynced(
                     lastVerifiedBlockId, blockHash, signalRoot
                 );
@@ -233,7 +228,7 @@ library LibVerifying {
                 || config.blockMaxProposals == 1
                 || config.blockRingBufferSize <= config.blockMaxProposals + 1
                 || config.blockMaxGasLimit == 0 || config.blockMaxTxListBytes == 0
-                || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
+                || config.blockMaxTxListBytes > 128 * 1024 // blob up to 128K
                 || config.livenessBond == 0 || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
                 || config.ethDepositMaxCountPerBlock

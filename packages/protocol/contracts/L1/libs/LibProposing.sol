@@ -164,7 +164,7 @@ library LibProposing {
         // transition is not the initial one or if it was generated and
         // validated by different provers. Instead, a portion of the assignment
         // bond serves as a reward for the actual prover.
-        LibTaikoToken.debitToken(
+        LibTaikoToken.debitTaikoToken(
             state, resolver, blk.assignedProver, config.livenessBond
         );
 
@@ -175,11 +175,8 @@ library LibProposing {
 
         // Validate the prover assignment, then charge Ether or ERC20 as the
         // prover fee based on the block's minTier.
-        uint256 proverFee = _validateAssignment({
-            minTier: blk.minTier,
-            txListHash: txListHash,
-            assignment: assignment
-        });
+        uint256 proverFee =
+            _validateAssignment(blk.minTier, txListHash, assignment);
 
         emit BlockProposed({
             blockId: blk.blockId,
@@ -287,9 +284,7 @@ library LibProposing {
         returns (uint256)
     {
         for (uint256 i; i < tierFees.length; ++i) {
-            if (tierFees[i].tier == tierId) {
-                return tierFees[i].fee;
-            }
+            if (tierFees[i].tier == tierId) return tierFees[i].fee;
         }
         revert L1_TIER_NOT_FOUND();
     }
