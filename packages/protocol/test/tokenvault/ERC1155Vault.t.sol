@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import { console2 } from "forge-std/console2.sol";
 import {
     TestBase,
-    SkipProofCheckBridge,
+    SkipProofCheckSignal,
     DummyCrossChainSync,
     NonNftContract,
     BadReceiver
@@ -100,15 +100,6 @@ contract PrankDestBridge {
     }
 }
 
-// PrankSrcBridge lets us mock Bridge/SignalService to return true when called
-// proveMessageFailed()
-contract PrankSrcBridge is SkipProofCheckBridge {
-    function getPreDeterminedDataBytes() external pure returns (bytes memory) {
-        return
-        hex"20b8155900000000000000000000000000000000000000000000000000000000000000a000000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba4000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000007a69000000000000000000000000a64f94242628683ea967cd7dd6a10b5ed0400662000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002";
-    }
-}
-
 contract UpdatedBridgedERC1155 is BridgedERC1155 {
     function helloWorld() public pure returns (string memory) {
         return "helloworld";
@@ -121,7 +112,7 @@ contract ERC1155VaultTest is TestBase {
     Bridge bridge;
     Bridge destChainBridge;
     PrankDestBridge destChainIdBridge;
-    PrankSrcBridge srcPrankBridge;
+    SkipProofCheckSignal mockProofSignalService;
     ERC1155Vault erc1155Vault;
     ERC1155Vault destChainErc1155Vault;
     TestTokenERC1155 ctoken1155;
@@ -130,9 +121,9 @@ contract ERC1155VaultTest is TestBase {
     DummyCrossChainSync crossChainSync;
     uint256 destChainId = 19_389;
 
-    // TODO(dani): why chaning Amilia's address will fail the test?
     //Need +1 bc. and Amelia is the proxied bridge contracts owner
-    address public Amelia = 0x60081B12838240B1BA02b3177153BCa678A86080;
+    //Change will cause onMessageRecall() test fails, because of getPreDeterminedDataBytes
+    address public Amelia = 0x60081b12838240B1ba02B3177153Bca678a86081;
 
     function setUp() public {
         vm.startPrank(Amelia);
@@ -163,13 +154,17 @@ contract ERC1155VaultTest is TestBase {
         destChainIdBridge = new PrankDestBridge(destChainErc1155Vault);
         vm.deal(address(destChainIdBridge), 100 ether);
 
-        srcPrankBridge = new PrankSrcBridge();
-        srcPrankBridge.init(address(addressManager));
+        mockProofSignalService = new SkipProofCheckSignal();
+        mockProofSignalService.init(address(addressManager));
 
         crossChainSync = new DummyCrossChainSync();
 
         addressManager.setAddress(
-            block.chainid, "signal_service", address(signalService)
+            block.chainid, "signal_service", address(mockProofSignalService)
+        );
+
+        addressManager.setAddress(
+            destChainId, "signal_service", address(mockProofSignalService)
         );
 
         addressManager.setAddress(block.chainid, "bridge", address(bridge));
@@ -190,22 +185,22 @@ contract ERC1155VaultTest is TestBase {
         // LibBridgeRecall.sol's
         // resolve address
         addressManager.setAddress(
-            destChainId, "erc721_vault", address(srcPrankBridge)
+            destChainId, "erc721_vault", address(mockProofSignalService)
         );
         addressManager.setAddress(
-            destChainId, "erc20_vault", address(srcPrankBridge)
+            destChainId, "erc20_vault", address(mockProofSignalService)
         );
         addressManager.setAddress(
-            block.chainid, "erc721_vault", address(srcPrankBridge)
+            block.chainid, "erc721_vault", address(mockProofSignalService)
         );
         addressManager.setAddress(
-            block.chainid, "erc20_vault", address(srcPrankBridge)
+            block.chainid, "erc20_vault", address(mockProofSignalService)
         );
         addressManager.setAddress(
             block.chainid, "ether_vault", address(etherVault)
         );
         // Authorize
-        etherVault.authorize(address(srcPrankBridge), true);
+        etherVault.authorize(address(destChainIdBridge), true);
         etherVault.authorize(address(bridge), true);
 
         vm.deal(address(etherVault), 100 ether);
@@ -217,6 +212,11 @@ contract ERC1155VaultTest is TestBase {
         ctoken1155.mint(2, 10);
 
         vm.stopPrank();
+    }
+
+    function getPreDeterminedDataBytes() internal pure returns (bytes memory) {
+        return
+        hex"20b8155900000000000000000000000000000000000000000000000000000000000000a00000000000000000000000007e5f4552091a69125d5dfcb7b8c2659029395bdf0000000000000000000000007e5f4552091a69125d5dfcb7b8c2659029395bdf000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000007a690000000000000000000000007935de70183a080242a58f64637a8e7f15349b63000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002";
     }
 
     function test_1155Vault_sendToken_1155() public {
@@ -610,13 +610,6 @@ contract ERC1155VaultTest is TestBase {
             ""
         );
 
-        // Let's test that message is failed and we want to release it back to
-        // the owner
-        vm.prank(Amelia, Amelia);
-        addressManager.setAddress(
-            block.chainid, "bridge", address(srcPrankBridge)
-        );
-
         vm.prank(Alice, Alice);
         erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
 
@@ -635,13 +628,13 @@ contract ERC1155VaultTest is TestBase {
         message.user = Alice;
         message.from = address(erc1155Vault);
         message.to = address(destChainErc1155Vault);
-        message.data = srcPrankBridge.getPreDeterminedDataBytes();
+        message.data = getPreDeterminedDataBytes();
         message.gasLimit = 140_000;
         message.fee = 140_000;
         message.refundTo = Alice;
         message.memo = "";
 
-        srcPrankBridge.recallMessage(message, bytes(""));
+        bridge.recallMessage(message, bytes(""));
 
         // Alice got back her NFTs, and vault has 0
         assertEq(ctoken1155.balanceOf(Alice, 1), 10);

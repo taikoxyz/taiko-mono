@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import { Test } from "forge-std/Test.sol";
 import { Bridge } from "../contracts/bridge/Bridge.sol";
+import { SignalService } from "../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../contracts/common/ICrossChainSync.sol";
 
 abstract contract TestBase is Test {
@@ -80,7 +81,7 @@ contract NonNftContract {
     }
 }
 
-contract SkipProofCheckBridge is Bridge {
+contract SkipProofCheckSignal is SignalService {
     function skipProofCheck() public pure override returns (bool) {
         return true;
     }

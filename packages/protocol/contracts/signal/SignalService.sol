@@ -46,6 +46,10 @@ contract SignalService is EssentialContract, ISignalService {
         EssentialContract._init(_addressManager);
     }
 
+    /// @notice Tells if we need to check real proof or it is a test.
+    /// @return Returns true to skip checking inclusion proofs.
+    function skipProofCheck() public pure virtual returns (bool) { }
+
     /// @inheritdoc ISignalService
     function sendSignal(bytes32 signal)
         public
@@ -88,10 +92,11 @@ contract SignalService is EssentialContract, ISignalService {
         view
         returns (bool)
     {
-        if (app == address(0)) return false;
-        if (signal == 0) return false;
-        if (srcChainId == 0) return false;
-        if (srcChainId == block.chainid) return false;
+        if (skipProofCheck()) return true;
+
+        if (app == address(0) || signal == 0 || srcChainId == 0 || srcChainId == block.chainid) {
+            return false;
+        }
 
         Proof memory p = abi.decode(proof, (Proof));
         if (p.storageProof.length == 0) return false;

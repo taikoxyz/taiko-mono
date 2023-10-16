@@ -376,10 +376,6 @@ contract Bridge is EssentialContract, IBridge {
         return _ctx;
     }
 
-    /// @notice Tells if we need to check real proof or it is a test.
-    /// @return Returns true to skip checking inclusion proofs.
-    function skipProofCheck() public pure virtual returns (bool) { }
-
     /// @notice Invokes a call message on the Bridge.
     /// @param message The call message to be invoked.
     /// @param msgHash The hash of the message.
@@ -451,8 +447,6 @@ contract Bridge is EssentialContract, IBridge {
         view
         returns (bool)
     {
-        if (skipProofCheck()) return true;
-
         return ISignalService(resolve("signal_service", false))
             .proveSignalReceived({
             srcChainId: srcChainId,
