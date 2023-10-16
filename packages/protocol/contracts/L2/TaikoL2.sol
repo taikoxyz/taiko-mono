@@ -8,8 +8,8 @@ pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
+import { ISignalService } from "../signal/ISignalService.sol";
 import { Proxied } from "../common/Proxied.sol";
-
 import { LibMath } from "../libs/LibMath.sol";
 import { TaikoToken } from "../L1/TaikoToken.sol";
 
@@ -105,9 +105,14 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     {
         if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
 
+        uint256 parentId;
+        unchecked {
+            parentId = block.number - 1;
+        }
+
         // Verify ancestor hashes
         (bytes32 publicInputHashOld, bytes32 publicInputHashNew) =
-            _calcPublicInputHash(block.number - 1);
+            _calcPublicInputHash(parentId);
         if (publicInputHash != publicInputHashOld) {
             revert L2_PUBLIC_INPUT_HASH_MISMATCH();
         }
@@ -121,20 +126,26 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             revert L2_BASEFEE_MISMATCH();
         }
 
+        // Store the L1's signal root as a signal to the local signal service to
+        // allow for multi-hop bridging.
+        address a = resolve("signal_service", true);
+        if (a != address(0)) {
+            ISignalService(a).sendSignal(l1SignalRoot);
+        }
+        emit CrossChainSynced(l1Height, l1BlockHash, l1SignalRoot);
+
         // Reward block reward in Taiko token to the parent block's proposer
         uint128 blockReward =
             _rewardParentBlock(config, l1Height, parentGasUsed);
 
         // Update state variables
-        l2Hashes[block.number - 1] = blockhash(block.number - 1);
+        l2Hashes[parentId] = blockhash(parentId);
         snippets[l1Height] = ICrossChainSync.Snippet(l1BlockHash, l1SignalRoot);
         publicInputHash = publicInputHashNew;
         latestSyncedL1Height = l1Height;
         parentProposer = block.coinbase;
 
-        // Emit events
-        emit CrossChainSynced(l1Height, l1BlockHash, l1SignalRoot);
-        emit Anchored(blockhash(block.number - 1), gasExcess, blockReward);
+        emit Anchored(blockhash(parentId), gasExcess, blockReward);
     }
 
     /// @inheritdoc ICrossChainSync

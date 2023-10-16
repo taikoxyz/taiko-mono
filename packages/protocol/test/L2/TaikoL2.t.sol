@@ -2,6 +2,8 @@
 pragma solidity ^0.8.20;
 
 import { console2 } from "forge-std/console2.sol";
+import { AddressManager } from "../../contracts/common/AddressManager.sol";
+import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { Strings } from "@oz/utils/Strings.sol";
 import { SafeCastUpgradeable } from "@ozu/utils/math/SafeCastUpgradeable.sol";
 import { TestBase } from "../TestBase.sol";
@@ -13,14 +15,22 @@ contract TestTaikoL2 is TestBase {
     // same as `block_gas_limit` in foundry.toml
     uint32 public constant BLOCK_GAS_LIMIT = 30_000_000;
 
+    AddressManager public addressManager;
+    SignalService public ss;
     TaikoL2 public L2;
     uint256 private logIndex;
 
     function setUp() public {
+        addressManager = new AddressManager();
+        addressManager.init();
+
+        ss = new SignalService();
+        ss.init(address(addressManager));
+        registerAddress("signal_service", address(ss));
+
         L2 = new TaikoL2();
-        address dummyAddressManager = getRandomAddress();
         uint128 gasExcess = 0;
-        L2.init(dummyAddressManager, gasExcess);
+        L2.init(address(addressManager), gasExcess);
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);
@@ -102,5 +112,10 @@ contract TestTaikoL2 is TestBase {
         bytes32 l1Hash = getRandomBytes32();
         bytes32 l1SignalRoot = getRandomBytes32();
         L2.anchor(l1Hash, l1SignalRoot, 12_345, parentGasLimit);
+    }
+
+    function registerAddress(bytes32 nameHash, address addr) internal {
+        addressManager.setAddress(block.chainid, nameHash, addr);
+        console2.log(block.chainid, uint256(nameHash), unicode"→", addr);
     }
 }

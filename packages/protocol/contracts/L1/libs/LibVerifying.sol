@@ -206,12 +206,8 @@ library LibVerifying {
                 state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
                 state.slotB.lastVerifiedAt = uint64(block.timestamp);
 
-                // Forward the L2's signal root to the signal service to
-                // enable other TaikoL1 deployments, which share the same
-                // signal service, to relay the signal to their respective
-                // TaikoL2 contracts. This enables direct L1-to-L3 and
-                // L2-to-L2 bridging without assets passing an intermediary
-                // layer.
+                // Store the L2's signal root as a signal to the local signal
+                // service to allow for multi-hop bridging.
                 ISignalService(resolver.resolve("signal_service", false))
                     .sendSignal(signalRoot);
 

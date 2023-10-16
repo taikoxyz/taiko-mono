@@ -21,11 +21,11 @@ abstract contract EssentialContract is
     AddressResolver
 {
     /// @notice Sets a new address manager.
-    /// @param newAddressManager Address of the new address manager.
-    function setAddressManager(address newAddressManager) external onlyOwner {
-        if (newAddressManager == address(0)) revert RESOLVER_INVALID_ADDR();
-        _addressManager = IAddressManager(newAddressManager);
-        emit AddressManagerChanged(newAddressManager);
+    /// @param _addressManager Address of the new address manager.
+    function setAddressManager(address _addressManager) external onlyOwner {
+        if (_addressManager == address(0)) revert RESOLVER_INVALID_MANAGER();
+        addressManager = _addressManager;
+        emit AddressManagerChanged(_addressManager);
     }
 
     /// @notice Initializes the contract with an address manager.
