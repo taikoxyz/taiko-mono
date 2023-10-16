@@ -128,10 +128,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
         // Store the L1's signal root as a signal to the local signal service to
         // allow for multi-hop bridging.
-        address a = resolve("signal_service", true);
-        if (a != address(0)) {
-            ISignalService(a).sendSignal(l1SignalRoot);
-        }
+        ISignalService(resolve("signal_service", false)).sendSignal(
+            l1SignalRoot
+        );
         emit CrossChainSynced(l1Height, l1BlockHash, l1SignalRoot);
 
         // Reward block reward in Taiko token to the parent block's proposer
