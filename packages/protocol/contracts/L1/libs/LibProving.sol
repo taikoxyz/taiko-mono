@@ -397,7 +397,7 @@ library LibProving {
                             false
                         );
                     } else if (reward != 0) {
-                        //The prover is also the contester, so the reward is
+                        // The prover is also the contester, so the reward is
                         // sent to him.
                         LibTaikoToken.creditTaikoToken(
                             state, resolver, msg.sender, reward, false

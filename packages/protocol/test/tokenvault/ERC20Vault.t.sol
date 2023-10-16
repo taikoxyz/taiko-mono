@@ -91,7 +91,7 @@ contract TestERC20Vault is Test {
 
     address public constant Alice = 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4;
     address public constant Bob = 0x200708D76eB1B69761c23821809d53F65049939e;
-    //Need +1 bc. and Amelia is the proxied bridge contracts owner
+    // Need +1 bc. and Amelia is the proxied bridge contracts owner
     address public constant Amelia = 0x60081B12838240B1BA02b3177153BCa678A86080;
     // Dave has nothing so that we can check if he gets the ether (and other
     // erc20)
@@ -432,7 +432,7 @@ contract TestERC20Vault is Test {
         try UpdatedBridgedERC20(bridgedAddressAfter).helloWorld() {
             fail();
         } catch {
-            //It should not yet support this function call
+            // It should not yet support this function call
         }
 
         // Upgrade the implementation of that contract
@@ -446,7 +446,7 @@ contract TestERC20Vault is Test {
 
         vm.prank(Alice, Alice);
         try UpdatedBridgedERC20(bridgedAddressAfter).helloWorld() {
-            //It should support now this function call
+            // It should support now this function call
         } catch {
             fail();
         }

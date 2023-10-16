@@ -142,8 +142,9 @@ contract ERC721VaultTest is TestBase {
     DummyCrossChainSync crossChainSync;
     uint256 destChainId = 19_389;
 
-    //Need +1 bc. and Amelia is the proxied bridge contracts owner
-    //Change will cause onMessageRecall() test fails, because of getPreDeterminedDataBytes
+    // Need +1 bc. and Amelia is the proxied bridge contracts owner
+    // Change will cause onMessageRecall() test fails, because of
+    // getPreDeterminedDataBytes
     address public constant Amelia = 0x60081B12838240B1BA02b3177153BCa678A86080;
 
     function setUp() public {
@@ -987,7 +988,7 @@ contract ERC721VaultTest is TestBase {
         try UpdatedBridgedERC721(deployedContract).helloWorld() {
             fail();
         } catch {
-            //It should not yet support this function call
+            // It should not yet support this function call
         }
 
         // Upgrade the implementation of that contract
@@ -999,7 +1000,7 @@ contract ERC721VaultTest is TestBase {
         );
 
         try UpdatedBridgedERC721(deployedContract).helloWorld() {
-            //It should support now this function call
+            // It should support now this function call
         } catch {
             fail();
         }

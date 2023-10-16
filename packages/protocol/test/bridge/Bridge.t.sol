@@ -187,7 +187,7 @@ contract BridgeTest is TestBase {
     )
         public
     {
-        //uint256 amount = 1 wei;
+        // uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
             user: Alice,
             to: Alice,

@@ -122,8 +122,9 @@ contract ERC1155VaultTest is TestBase {
     DummyCrossChainSync crossChainSync;
     uint256 destChainId = 19_389;
 
-    //Need +1 bc. and Amelia is the proxied bridge contracts owner
-    //Change will cause onMessageRecall() test fails, because of getPreDeterminedDataBytes
+    // Need +1 bc. and Amelia is the proxied bridge contracts owner
+    // Change will cause onMessageRecall() test fails, because of
+    // getPreDeterminedDataBytes
     address public Amelia = 0x60081b12838240B1ba02B3177153Bca678a86081;
 
     function setUp() public {

@@ -94,7 +94,10 @@ contract SignalService is EssentialContract, ISignalService {
     {
         if (skipProofCheck()) return true;
 
-        if (app == address(0) || signal == 0 || srcChainId == 0 || srcChainId == block.chainid) {
+        if (
+            app == address(0) || signal == 0 || srcChainId == 0
+                || srcChainId == block.chainid
+        ) {
             return false;
         }
 
