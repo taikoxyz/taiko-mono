@@ -110,7 +110,7 @@ func (i *Indexer) eventStatusFromMsgHash(
 
 	defer cancel()
 
-	messageStatus, err := i.destBridge.GetMessageStatus(&bind.CallOpts{
+	messageStatus, err := i.destBridge.MessageStatus(&bind.CallOpts{
 		Context: ctx,
 	}, signal)
 	if err != nil {

@@ -6,7 +6,7 @@
   },
   {
     "inputs": [],
-    "name": "RESOLVER_INVALID_ADDR",
+    "name": "RESOLVER_INVALID_MANAGER",
     "type": "error"
   },
   {
@@ -64,19 +64,6 @@
     "inputs": [],
     "name": "VAULT_MESSAGE_RELEASED_ALREADY",
     "type": "error"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "addressManager",
-        "type": "address"
-      }
-    ],
-    "name": "AddressManagerChanged",
-    "type": "event"
   },
   {
     "anonymous": false,
@@ -446,6 +433,11 @@
         "internalType": "struct IBridge.Message",
         "name": "message",
         "type": "tuple"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "msgHash",
+        "type": "bytes32"
       }
     ],
     "name": "onMessageRecalled",
@@ -634,19 +626,6 @@
     "name": "sendToken",
     "outputs": [],
     "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "newAddressManager",
-        "type": "address"
-      }
-    ],
-    "name": "setAddressManager",
-    "outputs": [],
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
