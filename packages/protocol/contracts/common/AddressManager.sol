@@ -52,7 +52,7 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         address oldAddress
     );
 
-    error EOA_OWNER_NOT_ALLOWED();
+    error INVALID_ADDRESS();
 
     /// @notice Initializes the owner for the upgradable contract.
     function init() external initializer {
@@ -70,7 +70,7 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         onlyOwner
     {
         if (newAddress.code.length == 0 && newAddress == msg.sender) {
-            revert EOA_OWNER_NOT_ALLOWED();
+            revert INVALID_ADDRESS();
         }
 
         address oldAddress = addresses[domain][name];
