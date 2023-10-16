@@ -21,7 +21,7 @@ vi.mock('../../generated/customTokenConfig', () => {
     type: 'ERC20',
   };
   return {
-    customToken: [mockToken], // mockToken is your mocked token object
+    customToken: [mockToken],
   };
 });
 

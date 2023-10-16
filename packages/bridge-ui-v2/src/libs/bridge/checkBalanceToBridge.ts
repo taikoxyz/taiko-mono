@@ -2,13 +2,19 @@ import { fetchBalance, getPublicClient } from '@wagmi/core';
 import { type Address, zeroAddress } from 'viem';
 
 import { routingContractsMap } from '$bridgeConfig';
-import { InsufficientAllowanceError, InsufficientBalanceError, RevertedWithFailedError } from '$libs/error';
+import {
+  InsufficientAllowanceError,
+  InsufficientBalanceError,
+  NotApprovedError,
+  RevertedWithFailedError,
+} from '$libs/error';
 import { getAddress, type Token, TokenType } from '$libs/token';
 import { isDeployedCrossChain } from '$libs/token/isDeployedCrossChain';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 
 import { bridges } from './bridges';
 import { ERC20Bridge } from './ERC20Bridge';
+import { ERC1155Bridge } from './ERC1155Bridge';
 import { estimateCostOfBridging } from './estimateCostOfBridging';
 import type { BridgeArgs, ERC20BridgeArgs, ETHBridgeArgs } from './types';
 
@@ -63,6 +69,60 @@ export async function checkBalanceToBridge({
       }
     }
     if (estimatedCost > balance - amount) {
+      throw new InsufficientBalanceError('you do not have enough balance to bridge');
+    }
+  } else if (token.type === TokenType.ERC1155) {
+    const { erc1155VaultAddress } = routingContractsMap[srcChainId][destChainId];
+    const tokenAddress = await getAddress({ token, srcChainId, destChainId });
+
+    // since we are briding a token, we need the ETH balance of the wallet
+    balance = await getPublicClient().getBalance(wallet.account);
+    const tokenBalance = token.balance;
+
+    if (
+      !tokenAddress ||
+      !tokenBalance ||
+      tokenAddress === zeroAddress ||
+      balance === BigInt(0) ||
+      tokenBalance < amount
+    )
+      throw new InsufficientBalanceError('you do not have enough balance to bridge');
+
+    const bridge = bridges[token.type];
+
+    if (bridge instanceof ERC1155Bridge) {
+      // Let's check if the vault is approved for all ERC1155
+      const isApprovedForAll = await bridge.isApprovedForAll({
+        tokenAddress,
+        owner: wallet.account.address,
+        spenderAddress: erc1155VaultAddress,
+        tokenId: 0n,
+      });
+
+      if (!isApprovedForAll) {
+        throw new NotApprovedError(`Not approved for all for token`);
+      }
+    }
+
+    const isTokenAlreadyDeployed = await isDeployedCrossChain({
+      token,
+      srcChainId,
+      destChainId,
+    });
+
+    try {
+      estimatedCost = await estimateCostOfBridging(bridges.ERC1155, {
+        ...bridgeArgs,
+        token: tokenAddress,
+        tokenVaultAddress: erc1155VaultAddress,
+        isTokenAlreadyDeployed,
+      } as BridgeArgs);
+    } catch (err) {
+      console.error(err);
+      // TODO: catch errors
+    }
+    // no need to deduct the amount we want to bridge from the balance as we pay in ETH
+    if (estimatedCost > balance) {
       throw new InsufficientBalanceError('you do not have enough balance to bridge');
     }
   } else {
