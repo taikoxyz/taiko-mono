@@ -106,7 +106,6 @@ contract SignalService is EssentialContract, ISignalService {
         // verify that chainB's signalRoot has been sent as a signal by chainB's
         // "taiko" contract, then using chainB's signalRoot, we further check
         // the signal is sent by chainC's "bridge" contract.
-
         bytes32 signalRoot = ICrossChainSync(resolve("taiko", false))
             .getSyncedSnippet(p.height).signalRoot;
         if (signalRoot == 0) return false;
