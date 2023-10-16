@@ -27,12 +27,6 @@ contract Bridge is EssentialContract, IBridge {
         FAILED
     }
 
-    struct HopProof {
-        uint256 chainId;
-        bytes32 signalRoot;
-        bytes mkproof;
-    }
-
     bytes32 internal constant MESSAGE_HASH_PLACEHOLDER = bytes32(uint256(1));
     uint256 internal constant CHAINID_PLACEHOLDER = type(uint256).max;
     address internal constant SRC_CHAIN_SENDER_PLACEHOLDER =
