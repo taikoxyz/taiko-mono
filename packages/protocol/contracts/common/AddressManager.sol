@@ -14,17 +14,6 @@ import { Proxied } from "./Proxied.sol";
 /// @notice Specifies methods to manage address mappings for given domain-name
 /// pairs.
 interface IAddressManager {
-    /// @notice Sets the address for a specific domain-name pair.
-    /// @param domain The domain to which the address will be mapped.
-    /// @param name The name to which the address will be mapped.
-    /// @param newAddress The Ethereum address to be mapped.
-    function setAddress(
-        uint256 domain,
-        bytes32 name,
-        address newAddress
-    )
-        external;
-
     /// @notice Gets the address mapped to a specific domain-name pair.
     /// @dev Note that in production, this method shall be a pure function
     /// without any storage access.
@@ -52,14 +41,17 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         address oldAddress
     );
 
-    error INVALID_ADDRESS();
+    error AM_INVALID_ADDRESS();
 
     /// @notice Initializes the owner for the upgradable contract.
     function init() external initializer {
         OwnableUpgradeable.__Ownable_init();
     }
 
-    /// @inheritdoc IAddressManager
+    /// @notice Sets the address for a specific domain-name pair.
+    /// @param domain The domain to which the address will be mapped.
+    /// @param name The name to which the address will be mapped.
+    /// @param newAddress The Ethereum address to be mapped.
     function setAddress(
         uint256 domain,
         bytes32 name,
@@ -70,7 +62,7 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         onlyOwner
     {
         if (newAddress.code.length == 0 && newAddress == msg.sender) {
-            revert INVALID_ADDRESS();
+            revert AM_INVALID_ADDRESS();
         }
 
         address oldAddress = addresses[domain][name];
@@ -83,9 +75,9 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         uint256 domain,
         bytes32 name
     )
-        external
+        public
         view
-        virtual
+        override
         returns (address)
     {
         return addresses[domain][name];
