@@ -1,8 +1,7 @@
-export const extractIPFSCidFromUrl = (url: string): { cid: string | null; remainder: string | null } => {
-  // Regular expression to match a typical IPFS CID v0 or v1
-  // CID v0: QmP6oEEnsDr55gKqr1BQzjJwnsoscxFSksrsQ1YiMvG1Y91
-  // CID v1: bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi
-  const regex = /\/(Qm[a-zA-Z0-9]{44}|b[a-z]{8}[a-zA-Z0-9]{39})([^/]*)/;
+export const extractIPFSCidFromUrl = (url: string): { cid: string | null } => {
+  // Adapting the provided regex to match the URL structure
+  const regex =
+    /\/(Qm[1-9A-HJ-NP-Za-km-z]{44,}|b[A-Za-z2-7]{58,}|B[A-Z2-7]{58,}|z[1-9A-HJ-NP-Za-km-z]{48,}|F[0-9A-F]{50,})(\/(\d|\w|\.)+)*/;
   const match = url.match(regex);
-  return match ? { cid: match[1], remainder: match[2] } : { cid: null, remainder: null };
+  return match ? { cid: match[1] } : { cid: null };
 };
