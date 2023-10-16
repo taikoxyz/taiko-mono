@@ -109,10 +109,9 @@ contract SignalService is EssentialContract, ISignalService {
 
         bytes32 signalRoot = ICrossChainSync(resolve("taiko", false))
             .getSyncedSnippet(p.height).signalRoot;
+        if (signalRoot == 0) return false;
 
         for (uint256 i; i < p.hops.length; ++i) {
-            if (signalRoot == 0) return false;
-
             Hop memory hop = p.hops[i];
             bytes32 slot = getSignalSlot(
                 hop.chainId,
