@@ -295,7 +295,7 @@ contract ERC721Vault is
             bytes.concat(
                 ProxiedBridgedERC721(bridgedToken).init.selector,
                 abi.encode(
-                    address(_addressManager),
+                    addressManager,
                     ctoken.addr,
                     ctoken.chainId,
                     ctoken.symbol,
