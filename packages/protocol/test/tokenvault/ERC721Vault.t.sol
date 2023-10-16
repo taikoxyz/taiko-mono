@@ -21,9 +21,10 @@ import { LibBridgeStatus } from
     "../../contracts/bridge/libs/LibBridgeStatus.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../../contracts/common/ICrossChainSync.sol";
-import { ERC721 } from "@oz/token/ERC721/ERC721.sol";
+import { ERC721 } from
+    "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
 import { TransparentUpgradeableProxy } from
-    "@oz/proxy/transparent/TransparentUpgradeableProxy.sol";
+    "openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract TestTokenERC721 is ERC721 {
     string _baseTokenURI;

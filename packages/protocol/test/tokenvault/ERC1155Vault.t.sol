@@ -22,9 +22,10 @@ import { LibBridgeStatus } from
     "../../contracts/bridge/libs/LibBridgeStatus.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../../contracts/common/ICrossChainSync.sol";
-import { ERC1155 } from "@oz/token/ERC1155/ERC1155.sol";
+import { ERC1155 } from
+    "openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
 import { TransparentUpgradeableProxy } from
-    "@oz/proxy/transparent/TransparentUpgradeableProxy.sol";
+    "openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract TestTokenERC1155 is ERC1155 {
     constructor(string memory baseURI) ERC1155(baseURI) { }

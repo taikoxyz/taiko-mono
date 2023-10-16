@@ -6,7 +6,7 @@ import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
 import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
 import { TransparentUpgradeableProxy } from
-    "@oz/proxy/transparent/TransparentUpgradeableProxy.sol";
+    "openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract TaikoTokenTest is TestBase {
     bytes32 GENESIS_BLOCK_HASH;
