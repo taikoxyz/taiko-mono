@@ -17,6 +17,18 @@ type ethClient interface {
 	ChainID(ctx context.Context) (*big.Int, error)
 }
 
+// @title Taiko Relayer API
+// @version 1.0
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.url https://community.taiko.xyz/
+// @contact.email info@taiko.xyz
+
+// @license.name MIT
+
+// @host relayer.jolnir.taiko.xyz
+// Server represents an relayer http server instance.
 type Server struct {
 	echo          *echo.Echo
 	eventRepo     relayer.EventRepository

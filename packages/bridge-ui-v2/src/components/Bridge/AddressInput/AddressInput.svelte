@@ -21,6 +21,7 @@
   };
 
   export const clearAddress = () => {
+    state = State.Default;
     if (input) input.value = '';
     validateEthereumAddress('');
   };

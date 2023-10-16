@@ -14,23 +14,30 @@ export enum TokenType {
 }
 
 export type Token = {
-  name: string;
-  addresses: Record<string, Address>;
-  symbol: string;
-  decimals: number;
   type: TokenType;
+  name: string;
+  symbol: string;
+  addresses: Record<string, Address>;
+  decimals: number;
   logoURI?: string;
   imported?: boolean;
   mintable?: boolean;
+  balance?: bigint;
 };
 
-export type TokenDetails = {
+export type NFT = Token & {
+  tokenId: number;
+  uri?: string;
+  metadata?: NFTMetadata;
+};
+
+// Based on https://docs.opensea.io/docs/metadata-standards
+export type NFTMetadata = {
+  description: string;
+  external_url: string;
+  image: string;
   name: string;
-  address: Address;
-  symbol: string;
-  balance: bigint;
-  decimals: number;
-  type: TokenType;
+  //todo: more metadata?
 };
 
 export type GetCrossChainAddressArgs = {
