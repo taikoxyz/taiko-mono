@@ -35,7 +35,7 @@
   "author": "Taiko Labs",
   "license": "MIT",
   "devDependencies": {
-    "@defi-wonderland/smock": "^2.3.5",
+    "@defi-wonderland/smock": "^2.3.4",
     "@foundry-rs/hardhat-forge": "^0.1.17",
     "@nomicfoundation/hardhat-foundry": "^1.1.1",
     "@nomicfoundation/hardhat-network-helpers": "^1.0.9",
