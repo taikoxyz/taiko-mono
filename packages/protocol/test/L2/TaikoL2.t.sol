@@ -30,7 +30,8 @@ contract TestTaikoL2 is TestBase {
 
         L2 = new TaikoL2();
         uint128 gasExcess = 0;
-        L2.init(address(addressManager), gasExcess);
+        uint256 l1ChainId = 123;
+        L2.init(address(addressManager), l1ChainId, gasExcess);
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);

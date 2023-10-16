@@ -51,7 +51,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     uint64 public latestSyncedL1Height;
     uint32 public avgGasUsed;
 
-    uint256[145] private __gap;
+    uint64 public l1ChainId; // slot 6
+
+    uint256[144] private __gap;
 
     event Anchored(bytes32 parentHash, uint128 gasExcess, uint128 blockReward);
 
@@ -66,6 +68,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     /// @param _addressManager Address of the {AddressManager} contract.
     function init(
         address _addressManager,
+        uint256 _l1ChainId,
         uint128 _gasExcess
     )
         external
@@ -73,7 +76,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     {
         EssentialContract._init(_addressManager);
 
-        if (block.chainid <= 1 || block.chainid >= type(uint64).max) {
+        if (
+            block.chainid <= 1 || _l1ChainId == block.chainid || _l1ChainId == 0
+                || block.chainid >= type(uint64).max
+        ) {
             revert L2_INVALID_CHAIN_ID();
         }
         if (block.number > 1) revert L2_TOO_LATE();
@@ -83,6 +89,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             l2Hashes[parentHeight] = blockhash(parentHeight);
         }
 
+        l1ChainId = uint64(_l1ChainId);
         gasExcess = _gasExcess;
         (publicInputHash,) = _calcPublicInputHash(block.number);
     }
@@ -129,7 +136,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         // Store the L1's signal root as a signal to the local signal service to
         // allow for multi-hop bridging.
         ISignalService(resolve("signal_service", false)).sendSignal(
-            l1SignalRoot
+            l1SignalRoot ^ bytes32(uint256(l1ChainId))
         );
         emit CrossChainSynced(l1Height, l1BlockHash, l1SignalRoot);
 

@@ -107,22 +107,25 @@ contract SignalService is EssentialContract, ISignalService {
         // "taiko" contract, then using chainB's signalRoot, we further check
         // the signal is sent by chainC's "bridge" contract.
 
+        uint256 chainId = block.chainid;
         bytes32 signalRoot = ICrossChainSync(resolve("taiko", false))
             .getSyncedSnippet(p.height).signalRoot;
+
         if (signalRoot == 0) return false;
 
         for (uint256 i; i < p.hops.length; ++i) {
             Hop memory hop = p.hops[i];
             bytes32 slot = getSignalSlot(
                 hop.chainId,
-                resolve(hop.chainId, "taiko", false),
-                hop.signalRoot
+                resolve(chainId, "taiko", false),
+                hop.signalRoot ^ bytes32(hop.chainId)
             );
             bool verified = LibSecureMerkleTrie.verifyInclusionProof(
                 bytes.concat(slot), hex"01", hop.storageProof, signalRoot
             );
             if (!verified) return false;
 
+            chainId = hop.chainId;
             signalRoot = hop.signalRoot;
         }
 
