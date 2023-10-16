@@ -13,12 +13,14 @@ import { IAddressManager } from "./AddressManager.sol";
 /// It delegates the resolution to the AddressManager. By separating the logic,
 /// we can maintain flexibility in address management without affecting the
 /// resolving process.
+///
+/// Note that the address manager should be changed using upgradability, there
+/// is no setAddressManager() function go guarantee atomicness across all
+/// contracts that are resolvers.
 abstract contract AddressResolver {
     IAddressManager internal _addressManager;
 
     uint256[49] private __gap;
-
-    event AddressManagerChanged(address indexed addressManager);
 
     error RESOLVER_DENIED();
     error RESOLVER_INVALID_ADDR();
