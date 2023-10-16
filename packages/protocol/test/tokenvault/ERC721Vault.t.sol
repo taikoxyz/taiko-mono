@@ -17,9 +17,10 @@ import { BridgedERC721 } from "../../contracts/tokenvault/BridgedERC721.sol";
 import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../../contracts/common/ICrossChainSync.sol";
-import { ERC721 } from "@oz/token/ERC721/ERC721.sol";
+import { ERC721 } from
+    "lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
 import { TransparentUpgradeableProxy } from
-    "@oz/proxy/transparent/TransparentUpgradeableProxy.sol";
+    "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract TestTokenERC721 is ERC721 {
     string _baseTokenURI;
@@ -142,7 +143,8 @@ contract ERC721VaultTest is TestBase {
     uint256 destChainId = 19_389;
 
     //Need +1 bc. and Amelia is the proxied bridge contracts owner
-    //Change will cause onMessageRecall() test fails, because of getPreDeterminedDataBytes
+    //Change will cause onMessageRecall() test fails, because of
+    // getPreDeterminedDataBytes
     address public constant Amelia = 0x60081B12838240B1BA02b3177153BCa678A86080;
 
     function setUp() public {

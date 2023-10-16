@@ -7,18 +7,20 @@
 pragma solidity ^0.8.20;
 
 import { ERC20BurnableUpgradeable } from
-    "@ozu/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
+    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
 import { ERC20PermitUpgradeable } from
-    "@ozu/token/ERC20/extensions/draft-ERC20PermitUpgradeable.sol";
+    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/draft-ERC20PermitUpgradeable.sol";
 import { ERC20SnapshotUpgradeable } from
-    "@ozu/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
+    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
 import {
     ERC20Upgradeable,
     IERC20Upgradeable
-} from "@ozu/token/ERC20/ERC20Upgradeable.sol";
+} from
+    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import { ERC20VotesUpgradeable } from
-    "@ozu/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
-import { PausableUpgradeable } from "@ozu/security/PausableUpgradeable.sol";
+    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
+import { PausableUpgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/security/PausableUpgradeable.sol";
 
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { IMintableERC20 } from "../common/IMintableERC20.sol";

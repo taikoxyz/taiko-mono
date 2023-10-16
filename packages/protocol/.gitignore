@@ -30,3 +30,4 @@ broadcast
 
 #coverage
 lcov.info
+typechain-types
