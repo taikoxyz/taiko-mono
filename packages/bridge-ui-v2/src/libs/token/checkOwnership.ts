@@ -4,7 +4,77 @@ import type { Address } from 'viem';
 import { erc1155ABI } from '$abi';
 
 import { detectContractType } from './detectContractType';
-import { TokenType } from './types';
+import { type NFT, TokenType } from './types';
+
+export const checkOwnershipOfNFTs = async (nfts: NFT[], accountAddress: Address, chainId: number) => {
+  const checkPromises = nfts.map((nft) =>
+    checkOwnership(nft.addresses[chainId], nft.type, nft.tokenId, accountAddress, chainId),
+  );
+
+  const ownershipResults = await Promise.all(checkPromises);
+
+  // Flatten the arrays of results into a single array
+  const flattenedResults = ownershipResults.flat();
+
+  // Separate the results based on the ownership status
+  const failedOwnershipChecks = flattenedResults.filter((result) => !result.isOwner);
+  const successfulOwnershipChecks = flattenedResults.filter((result) => result.isOwner);
+
+  return {
+    allOwned: failedOwnershipChecks.length === 0,
+    failedOwnershipChecks,
+    successfulOwnershipChecks,
+  };
+};
+
+export const checkOwnership = async (
+  tokenAddress: Address,
+  tokenType: TokenType | null,
+  tokenIds: number[] | number,
+  accountAddress: Address,
+  chainId: number,
+): Promise<{ tokenId: number; isOwner: boolean }[]> => {
+  if (!tokenType) tokenType = await detectContractType(tokenAddress);
+  if (
+    !tokenType ||
+    tokenIds === undefined ||
+    tokenIds === null ||
+    (Array.isArray(tokenIds) && tokenIds.length === 0) ||
+    !accountAddress ||
+    !chainId
+  )
+    return [];
+
+  if (Array.isArray(tokenIds)) {
+    const checkPromises = tokenIds.map(async (tokenId) => {
+      const isOwner = await determineOwnership(tokenType!, tokenAddress, tokenId, accountAddress, chainId);
+      return { tokenId, isOwner };
+    });
+
+    return await Promise.all(checkPromises);
+  } else {
+    const checkOwnershipForTokenId = async (tokenId: number) => {
+      const isOwner = await determineOwnership(tokenType!, tokenAddress, tokenId, accountAddress, chainId);
+      return { tokenId, isOwner };
+    };
+    const result = await checkOwnershipForTokenId(tokenIds);
+    return [result];
+  }
+};
+
+const determineOwnership = async (
+  tokenType: TokenType,
+  tokenAddress: Address,
+  tokenId: number,
+  accountAddress: Address,
+  chainId: number,
+) => {
+  return tokenType === TokenType.ERC1155
+    ? isOwnerERC1155(tokenAddress, tokenId, accountAddress, chainId)
+    : tokenType === TokenType.ERC721
+    ? isOwnerERC721(tokenAddress, tokenId, accountAddress, chainId)
+    : Promise.resolve(false);
+};
 
 const isOwnerERC1155 = async (
   tokenAddress: Address,
@@ -41,30 +111,9 @@ const isOwnerERC721 = async (
       chainId,
       args: [BigInt(tokenId)],
     });
+
     return owner === accountAddress;
   } catch (error) {
     return false;
   }
-};
-
-export const checkOwnership = async (
-  tokenAddress: Address,
-  tokenType: TokenType | null,
-  tokenIds: number[],
-  accountAddress: Address,
-  chainId: number,
-): Promise<boolean> => {
-  if (!tokenType) tokenType = await detectContractType(tokenAddress);
-  if (!tokenType || !tokenIds.length || !accountAddress || !chainId) return false;
-
-  const checkPromises = tokenIds.map((tokenId) =>
-    tokenType === TokenType.ERC1155
-      ? isOwnerERC1155(tokenAddress, tokenId, accountAddress, chainId)
-      : tokenType === TokenType.ERC721
-      ? isOwnerERC721(tokenAddress, tokenId, accountAddress, chainId)
-      : Promise.resolve(false),
-  );
-
-  const ownershipResults = await Promise.all(checkPromises);
-  return ownershipResults.every((isOwner) => isOwner);
 };

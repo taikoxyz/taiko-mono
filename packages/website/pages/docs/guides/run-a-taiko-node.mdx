@@ -67,13 +67,11 @@ notepad .env
 **Next**, you will set the L1 archive node endpoints.
 
 <Callout>
-You can get a L1 endpoint from a few places, but it **must point to an archive node** to access the state trie beyond the last 128 blocks.
+You can use any Sepolia L1 endpoint, but it must point to an archive node to access the state trie beyond the last 128 blocks.
 
-**Recommended**:
-Run your own Sepolia archive node, see: [Run a Sepolia node](/docs/guides/run-a-sepolia-node). This is recommended because you will eventually be rate-limited by public RPC providers.
+It's recommended to follow **Local** below, otherwise you **may need to use a paid account for a Sepolia RPC provider**. Alchemy and Infura will work temporarily, but will eventually rate limit the requests for a free account, and your node will stop syncing.
 
-**Alternative**:
-[Alchemy](https://www.alchemy.com/) and [Infura](https://www.infura.io/) are two popular RPC providers. Make sure you select the RPC as Sepolia testnet, and not Ethereum mainnet.
+If you run into rate limit issues, many community members have had success by changing the HTTPS endpoint to `https://rpc.sepolia.org`.
 
 </Callout>
 
@@ -92,9 +90,9 @@ Run your own Sepolia archive node, see: [Run a Sepolia node](/docs/guides/run-a-
 
 Next, configure your app:
 
-- for "name", enter "Taiko A3 Node", or your preferred name.
-- for "chain", select "Ethereum".
-- for "network", select "Ethereum Sepolia".
+- For "name", enter "Taiko Node", or your preferred name.
+- For "chain", select "Ethereum".
+- For "network", select "Ethereum Sepolia".
 
 Then, click the "Create app" button.
 ![create an Alchemy app](/images/guides/alchemy/create-app.png)
@@ -113,8 +111,8 @@ These are your `L1_ENDPOINT_HTTP` and `L1_ENDPOINT_WS` on your `.env`.
 
 Next, go to "API Keys", and click the "create new API key" button:
 
-- for "network", select "Web3 API".
-- for "name", enter "Taiko A3 Node", or your preferred name.
+- For "network", select "Web3 API".
+- For "name", enter "Taiko Node", or your preferred name.
 
 Then, click the "create" button.
 ![create API key](/images/guides/infura/create-key.png)
@@ -153,7 +151,7 @@ docker compose up -d
 
 ### Verify node is running
 
-#### Check with the node dashboard
+#### Option 1: Check with the node dashboard
 
 A node dashboard will be running on `localhost` on the `GRAFANA_PORT` you set in your `.env` file, which defaults to `3001`: [http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview](http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview).
 
@@ -167,7 +165,7 @@ A node dashboard will be running on `localhost` on the `GRAFANA_PORT` you set in
 
 You can verify that your node is syncing by checking that the **chain head** on the dashboard (see above) is increasing. Once the chain head matches what's on the block explorer, you are fully synced.
 
-#### Check with curl commands
+#### Option 2: Check with curl commands
 
 1. Check if the Execution Layer client is connected to Taiko L2:
 
