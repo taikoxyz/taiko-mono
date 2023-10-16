@@ -13,6 +13,7 @@ import { Proxied } from "./Proxied.sol";
 /// @title IAddressManager
 /// @notice Specifies methods to manage address mappings for given domain-name
 /// pairs.
+
 interface IAddressManager {
     /// @notice Sets the address for a specific domain-name pair.
     /// @param domain The domain to which the address will be mapped.
@@ -26,6 +27,8 @@ interface IAddressManager {
         external;
 
     /// @notice Gets the address mapped to a specific domain-name pair.
+    /// Note that in production, this method shall be a pure function without
+    /// any storage access.
     /// @param domain The domain for which the address needs to be fetched.
     /// @param name The name for which the address needs to be fetched.
     /// @return Address associated with the domain-name pair.
@@ -57,7 +60,6 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         OwnableUpgradeable.__Ownable_init();
     }
 
-    /// @inheritdoc IAddressManager
     function setAddress(
         uint256 domain,
         bytes32 name,
