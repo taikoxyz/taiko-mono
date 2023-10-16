@@ -209,7 +209,7 @@ library LibVerifying {
                 // Store the L2's signal root as a signal to the local signal
                 // service to allow for multi-hop bridging.
                 ISignalService(resolver.resolve("signal_service", false))
-                    .sendSignal(signalRoot ^ bytes32(config.chainId));
+                    .sendSignal(signalRoot);
 
                 emit CrossChainSynced(
                     lastVerifiedBlockId, blockHash, signalRoot
