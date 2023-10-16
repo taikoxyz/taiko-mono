@@ -469,7 +469,7 @@ async function generateContractConfigs(
                 addressManager: addressMap.AddressManagerProxy,
                 // EtherVault
                 // Authorize L2 bridge
-                _authorizedAddrs: { [`${addressMap.BridgeProxy}`]: true },
+                isAuthorized: { [`${addressMap.BridgeProxy}`]: true },
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
