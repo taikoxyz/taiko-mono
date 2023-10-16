@@ -109,14 +109,15 @@ contract SignalService is EssentialContract, ISignalService {
 
         bytes32 signalRoot = ICrossChainSync(resolve("taiko", false))
             .getSyncedSnippet(p.height).signalRoot;
-        if (signalRoot == 0) return false;
 
         for (uint256 i; i < p.hops.length; ++i) {
+            if (signalRoot == 0) return false;
+
             Hop memory hop = p.hops[i];
             bytes32 slot = getSignalSlot(
                 hop.chainId,
                 resolve(hop.chainId, "taiko", false),
-                hop.signalRoot
+                hop.signalRoot // as a signal
             );
             bool verified = LibSecureMerkleTrie.verifyInclusionProof(
                 bytes.concat(slot), hex"01", hop.storageProof, signalRoot
@@ -141,7 +142,7 @@ contract SignalService is EssentialContract, ISignalService {
     /// @return The unique storage slot of the signal which is
     /// created by encoding the sender address with the signal (message).
     function getSignalSlot(
-        uint256 chainId, // TODO: add chainId here
+        uint256 chainId,
         address app,
         bytes32 signal
     )
