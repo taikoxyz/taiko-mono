@@ -17,7 +17,7 @@
   export function notify(notificationType: NotificationType) {
     const id = Number(uid());
     const close = () => toast.pop(id);
-    const { title, message = '', type = 'unknown', closeManually = false } = notificationType;
+    const { title, message, type = 'unknown', closeManually = false } = notificationType;
 
     toast.push({
       id,

@@ -108,32 +108,28 @@
 
       const { explorer } = chainConfig[Number(bridgeTx.destChainId)].urls;
 
-      infoToast(
-        {
-          title: $t('transactions.actions.claim.tx.title'),
-          message: $t('transactions.actions.claim.tx.message', {
-            values: {
-              token: bridgeTx.symbol,
-              url: `${explorer}/tx/${txHash}`,
-            },
-          })
-        }
-      );
+      infoToast({
+        title: $t('transactions.actions.claim.tx.title'),
+        message: $t('transactions.actions.claim.tx.message', {
+          values: {
+            token: bridgeTx.symbol,
+            url: `${explorer}/tx/${txHash}`,
+          },
+        })
+      });
 
       await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
 
       //Todo: just because we have a claim tx doesn't mean it was successful
-      successToast(
-        {
-          title: $t('transactions.actions.claim.success.title'),
-          message: $t('transactions.actions.claim.success.message', {
-            values: {
-              token: bridgeTx.symbol,
-              url: `${explorer}/tx/${txHash}`,
-            },
-          })
-        }
-      );
+      successToast({
+        title: $t('transactions.actions.claim.success.title'),
+        message: $t('transactions.actions.claim.success.message', {
+          values: {
+            token: bridgeTx.symbol,
+            url: `${explorer}/tx/${txHash}`,
+          },
+        })
+      });
 
       // We trigger this event to manually to update the UI
       onStatusChange(MessageStatus.DONE);
@@ -205,8 +201,7 @@
             url: `${explorer}/tx/${txHash}`,
           },
         }),
-      }
-      );
+      });
 
       await pendingTransactions.add(txHash, Number(bridgeTx.srcChainId));
 
@@ -217,8 +212,7 @@
             network: $network.name,
           },
         }),
-      }
-      );
+      });
     } catch (err) {
       console.error(err);
 

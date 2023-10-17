@@ -7,7 +7,7 @@
 
   export let type: TypeToast = 'unknown';
   export let title = '';
-  export let message = '';
+  export let message: string | undefined;
   export let close: () => void = noop;
 
   const iconTypeMap: Record<TypeToast, IconType> = {
@@ -69,8 +69,10 @@
     <div class={messageClasses}>
       <!-- eslint-disable-next-line svelte/no-at-html-tags -->
       <div class='callout-bold leading-[24px]'>{@html title}</div>
-      <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-      <div class='callout-regular'>{@html message}</div>
+      {#if message}
+        <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+        <div class='callout-regular'>{@html message}</div>
+      {/if}
     </div>
   </div>
   <button class="ml-6" on:click={close}>

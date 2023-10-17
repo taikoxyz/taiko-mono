@@ -62,22 +62,20 @@
 
       infoToast({
         title: $t('faucet.mint.tx.title'),
-        message: $t('faucet.mint.tx', {
+        message: $t('faucet.mint.tx.message', {
           values: {
             token: selectedToken.symbol,
             url: `${explorer}/tx/${txHash}`,
           },
         }),
-      }
-      );
+      });
 
       await pendingTransactions.add(txHash, $network.id);
 
       successToast({
         title: $t('faucet.mint.success.title'),
         message: $t('faucet.mint.success.message'),
-      }
-      );
+      });
     } catch (err) {
       console.error(err);
 

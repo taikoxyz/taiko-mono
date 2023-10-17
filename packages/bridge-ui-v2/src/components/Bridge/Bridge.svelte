@@ -155,8 +155,7 @@
             url: `${explorer}/tx/${txHash}`,
           },
         }),
-      } 
-      );
+      });
 
       await pendingTransactions.add(txHash, $network.id);
 
@@ -167,8 +166,7 @@
             token: $selectedToken.symbol,
           },
         }),
-      }
-      );
+      });
 
       // Let's run the validation again, which will update UI
       amountComponent.validateAmount();
@@ -273,8 +271,7 @@
             url: `${explorer}/tx/${txHash}`,
           },
         }),
-      }
-      );
+      });
 
       await pendingTransactions.add(txHash, $network.id);
 
@@ -285,8 +282,7 @@
             network: $destinationChain.name,
           },
         }),
-      }
-      );
+      });
 
       // Let's add it to the user's localStorage
       const bridgeTx = {
