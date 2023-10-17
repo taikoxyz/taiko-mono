@@ -8,8 +8,8 @@ pragma solidity ^0.8.20;
 
 import { ITierProvider, LibTiers } from "./ITierProvider.sol";
 
-/// @title TaikoConfigProvider
-contract TaikoConfigProvider is ITierProvider {
+/// @title TaikoA6TierProvider
+contract TaikoA6TierProvider is ITierProvider {
     uint96 private constant UNIT = 10_000e18; // 10000 Taiko token
     uint24 private constant COOLDOWN_BASE = 24 hours;
 

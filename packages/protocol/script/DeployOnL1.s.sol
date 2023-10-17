@@ -17,7 +17,7 @@ import "../contracts/L1/verifiers/PseZkVerifier.sol";
 import "../contracts/L1/verifiers/SgxVerifier.sol";
 import "../contracts/L1/verifiers/GuardianVerifier.sol";
 import "../contracts/L1/tiers/ITierProvider.sol";
-import "../contracts/L1/tiers/TaikoConfigProvider.sol";
+import "../contracts/L1/tiers/TaikoA6TierProvider.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
@@ -58,7 +58,7 @@ contract DeployOnL1 is Script {
     TaikoL1 taikoL1;
     address public addressManagerProxy;
 
-    enum TierConfigProviders { TAIKO_ALPHA6 }
+    enum TierTierProviders { TAIKO_ALPHA6 }
 
     error FAILED_TO_DEPLOY_PLONK_VERIFIER(string contractPath);
 
@@ -174,8 +174,8 @@ contract DeployOnL1 is Script {
 
         // Config provider
         deployProxy(
-            "config_provider",
-            deployConfigProvider(uint256(TierConfigProviders.TAIKO_ALPHA6)),
+            "tier_provider",
+            deployTierProvider(uint256(TierTierProviders.TAIKO_ALPHA6)),
             ""
         );
 
@@ -272,12 +272,12 @@ contract DeployOnL1 is Script {
         return deployedAddress;
     }
 
-    function deployConfigProvider(uint256 tier)
+    function deployTierProvider(uint256 tier)
         private
         returns (address providerAddress)
     {
-        if (tier == uint256(TierConfigProviders.TAIKO_ALPHA6)) {
-            return address(new TaikoConfigProvider());
+        if (tier == uint256(TierTierProviders.TAIKO_ALPHA6)) {
+            return address(new TaikoA6TierProvider());
         }
 
         revert("invalid provider");

@@ -12,8 +12,8 @@ import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
 import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
 import { GuardianVerifier } from
     "../../contracts/L1/verifiers/GuardianVerifier.sol";
-import { TaikoConfigProvider } from
-    "../../contracts/L1/tiers/TaikoConfigProvider.sol";
+import { TaikoA6TierProvider } from
+    "../../contracts/L1/tiers/TaikoA6TierProvider.sol";
 import { PseZkVerifier } from "../../contracts/L1/verifiers/PseZkVerifier.sol";
 import { SgxVerifier } from "../../contracts/L1/verifiers/SgxVerifier.sol";
 import { SgxAndZkVerifier } from
@@ -45,7 +45,7 @@ abstract contract TaikoL1TestBase is TestBase {
     SgxAndZkVerifier public sgxZkVerifier;
     GuardianVerifier public gv;
     GuardianProver public gp;
-    TaikoConfigProvider public cp;
+    TaikoA6TierProvider public cp;
 
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
     uint64 l2GasExcess = 1e18;
@@ -95,7 +95,7 @@ abstract contract TaikoL1TestBase is TestBase {
         initMultiSig[4] = Henry;
         gp.setGuardians(initMultiSig);
 
-        cp = new TaikoConfigProvider();
+        cp = new TaikoA6TierProvider();
 
         registerAddress("tier_pse_zkevm", address(pv));
         registerAddress("tier_sgx", address(sv));
