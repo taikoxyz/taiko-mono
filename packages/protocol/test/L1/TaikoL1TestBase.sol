@@ -87,13 +87,12 @@ abstract contract TaikoL1TestBase is TestBase {
 
         gp = new GuardianProver();
         gp.init(address(addressManager));
-        address[6] memory initMultiSig;
+        address[5] memory initMultiSig;
         initMultiSig[0] = David;
         initMultiSig[1] = Emma;
         initMultiSig[2] = Frank;
         initMultiSig[3] = Grace;
         initMultiSig[4] = Henry;
-        initMultiSig[5] = Isabella;
         gp.setGuardians(initMultiSig);
 
         cp = new TaikoConfigProvider();
