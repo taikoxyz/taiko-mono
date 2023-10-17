@@ -204,12 +204,12 @@ contract DeployOnL1 is Script {
         );
 
         // PseZkVerifier
-        PseZkVerifier proofVerifier = new ProxiedPseZkVerifier();
+        PseZkVerifier pseZkVerifier = new ProxiedPseZkVerifier();
         deployProxy(
             "tier_pse_zkevm",
-            address(proofVerifier),
+            address(pseZkVerifier),
             bytes.concat(
-                proofVerifier.init.selector, abi.encode(addressManagerProxy)
+                pseZkVerifier.init.selector, abi.encode(addressManagerProxy)
             )
         );
 
@@ -230,7 +230,20 @@ contract DeployOnL1 is Script {
             setAddress("signal_service", sharedSignalService);
         }
 
+        // PlonkVerifier
+        deployPlonkVerifiers(pseZkVerifier);
+
         vm.stopBroadcast();
+    }
+
+    function deployPlonkVerifiers(PseZkVerifier pseZkVerifier) private {
+        address[] memory plonkVerifiers = new address[](1);
+        plonkVerifiers[0] =
+            deployYulContract("contracts/L1/verifiers/PlonkVerifier.yulp");
+
+        for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
+            setAddress(pseZkVerifier.getVerifierName(i), plonkVerifiers[i]);
+        }
     }
 
     function validateTierProvider(uint256 provier)

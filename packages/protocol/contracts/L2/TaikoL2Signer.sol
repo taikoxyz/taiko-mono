@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-import { LibUint512Math } from "../libs/LibUint512Math.sol";
+import { LibUint512Math } from "../thirdparty/LibUint512Math.sol";
 
 /// @title TaikoL2Signer
 /// @notice This contract allows for signing operations required on Taiko L2.
