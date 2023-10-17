@@ -233,7 +233,7 @@ func DecodeMessageSentData(event *bridge.BridgeMessageSent) (EventType, Canonica
 
 			erc1155VaultABI, err := erc1155VaultMD.GetAbi()
 			if err != nil {
-				return eventType, nil, big.NewInt(0), errors.Wrap(err, "erc20VaultMD.GetAbi()")
+				return eventType, nil, big.NewInt(0), errors.Wrap(err, "erc1155VaultMD.GetAbi()")
 			}
 
 			method, err := erc1155VaultABI.MethodById(event.Message.Data[:4])
@@ -265,7 +265,7 @@ func DecodeMessageSentData(event *bridge.BridgeMessageSent) (EventType, Canonica
 					Name:    t.Name,
 				}
 
-				amounts := inputsMap["amount"].([]*big.Int)
+				amounts := inputsMap["amounts"].([]*big.Int)
 
 				for _, v := range amounts {
 					amount = amount.Add(amount, v)
