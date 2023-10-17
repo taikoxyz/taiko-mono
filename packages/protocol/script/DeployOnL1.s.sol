@@ -172,8 +172,12 @@ contract DeployOnL1 is Script {
             )
         );
 
-        // TierProvider
-        deployProxy("tier_provider", deployTierProvider(tierProvider), "");
+        // Config provider
+        deployProxy(
+            "config_provider",
+            deployConfigProvider(uint256(TierConfigProviders.TAIKO_ALPHA6)),
+            ""
+        );
 
         // GuardianVerifier
         GuardianVerifier guardianVerifier = new ProxiedGuardianVerifier();
@@ -268,11 +272,11 @@ contract DeployOnL1 is Script {
         return deployedAddress;
     }
 
-    function deployTierProvider(uint256 provider)
+    function deployConfigProvider(uint256 tier)
         private
         returns (address providerAddress)
     {
-        if (provider == uint256(TierConfigProviders.TAIKO_ALPHA6)) {
+        if (tier == uint256(TierConfigProviders.TAIKO_ALPHA6)) {
             return address(new TaikoConfigProvider());
         }
 
