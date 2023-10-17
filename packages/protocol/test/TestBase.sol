@@ -6,11 +6,8 @@ import { Bridge } from "../contracts/bridge/Bridge.sol";
 import { SignalService } from "../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../contracts/common/ICrossChainSync.sol";
 
-// TODO (dani): remove some code to sub-contracts, this one shall only contain
-// shared logics and data.
 abstract contract TestBase is Test {
     uint256 private _seed = 0x12345678;
-    uint256 internal variablePKey = 0x6;
 
     function getRandomAddress() internal returns (address) {
         bytes32 randomHash = keccak256(abi.encodePacked("address", _seed++));
@@ -19,10 +16,6 @@ abstract contract TestBase is Test {
 
     function getRandomBytes32() internal returns (bytes32) {
         return keccak256(abi.encodePacked("bytes32", _seed++));
-    }
-
-    function getRandomUint256() internal returns (uint256) {
-        return uint256(keccak256(abi.encodePacked("uint256", _seed++)));
     }
 
     address internal Alice = vm.addr(0x1);
@@ -55,7 +48,6 @@ abstract contract TestBase is Test {
     address internal SGX_X_1 = vm.addr(0x5);
     address internal SGX_Y = getRandomAddress();
     address internal SGX_Z = getRandomAddress();
-    address internal SGX_VARIANT = vm.addr(variablePKey);
 }
 
 contract BadReceiver {
