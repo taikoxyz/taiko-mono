@@ -5,8 +5,10 @@ import { console2 } from "forge-std/console2.sol";
 import { Strings } from "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 import { SafeCastUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/utils/math/SafeCastUpgradeable.sol";
-import { TestBase } from "../TestBase.sol";
+import { AddressManager } from "../../contracts/common/AddressManager.sol";
+import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { TaikoL2 } from "../../contracts/L2/TaikoL2.sol";
+import { TestBase } from "../TestBase.sol";
 
 contract TestTaikoL2 is TestBase {
     using SafeCastUpgradeable for uint256;
@@ -14,21 +16,29 @@ contract TestTaikoL2 is TestBase {
     // same as `block_gas_limit` in foundry.toml
     uint32 public constant BLOCK_GAS_LIMIT = 30_000_000;
 
+    AddressManager public addressManager;
+    SignalService public ss;
     TaikoL2 public L2;
     uint256 private logIndex;
 
     function setUp() public {
+        addressManager = new AddressManager();
+        addressManager.init();
+
+        ss = new SignalService();
+        ss.init(address(addressManager));
+        registerAddress("signal_service", address(ss));
+
         L2 = new TaikoL2();
-        address dummyAddressManager = getRandomAddress();
         uint128 gasExcess = 0;
-        L2.init(dummyAddressManager, gasExcess);
+        L2.init(address(addressManager), gasExcess);
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);
     }
 
     function test_L2_AnchorTx_with_constant_block_time() external {
-        for (uint256 i = 0; i < 100; i++) {
+        for (uint256 i; i < 100; ++i) {
             vm.fee(1);
 
             vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
@@ -40,7 +50,7 @@ contract TestTaikoL2 is TestBase {
     }
 
     function test_L2_AnchorTx_with_decreasing_block_time() external {
-        for (uint256 i = 0; i < 32; i++) {
+        for (uint256 i; i < 32; ++i) {
             vm.fee(1);
 
             vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
@@ -52,7 +62,7 @@ contract TestTaikoL2 is TestBase {
     }
 
     function test_L2_AnchorTx_with_increasing_block_time() external {
-        for (uint256 i = 0; i < 30; i++) {
+        for (uint256 i; i < 30; ++i) {
             vm.fee(1);
 
             vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
@@ -103,5 +113,10 @@ contract TestTaikoL2 is TestBase {
         bytes32 l1Hash = getRandomBytes32();
         bytes32 l1SignalRoot = getRandomBytes32();
         L2.anchor(l1Hash, l1SignalRoot, 12_345, parentGasLimit);
+    }
+
+    function registerAddress(bytes32 nameHash, address addr) internal {
+        addressManager.setAddress(block.chainid, nameHash, addr);
+        console2.log(block.chainid, uint256(nameHash), unicode"→", addr);
     }
 }

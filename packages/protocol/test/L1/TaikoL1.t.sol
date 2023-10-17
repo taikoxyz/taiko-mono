@@ -78,8 +78,7 @@ contract TaikoL1Test is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 L1.getBlock(meta.id).minTier,
-                "",
-                false
+                ""
             );
             vm.roll(block.number + 15 * 12);
 
@@ -105,7 +104,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
-        for (uint256 blockId = 1; blockId <= 20; blockId++) {
+        for (uint256 blockId = 1; blockId <= 20; ++blockId) {
             printVariables("before propose");
             TaikoData.BlockMetadata memory meta =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);
@@ -122,8 +121,7 @@ contract TaikoL1Test is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 L1.getBlock(meta.id).minTier,
-                "",
-                false
+                ""
             );
             vm.roll(block.number + 15 * 12);
             uint16 minTier = L1.getBlock(meta.id).minTier;
@@ -165,8 +163,7 @@ contract TaikoL1Test is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 L1.getBlock(meta.id).minTier,
-                "",
-                false
+                ""
             );
             parentHash = blockHash;
         }
@@ -243,16 +240,16 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev getCrossChainBlockHash tests
     function test_L1_getCrossChainBlockHash0() external {
-        bytes32 genHash = L1.getCrossChainBlockHash(0);
+        bytes32 genHash = L1.getSyncedSnippet(0).blockHash;
         assertEq(GENESIS_BLOCK_HASH, genHash);
 
         // Reverts if block is not yet verified!
         vm.expectRevert(TaikoErrors.L1_BLOCK_MISMATCH.selector);
-        L1.getCrossChainBlockHash(1);
+        L1.getSyncedSnippet(1);
     }
 
-    /// @dev getCrossChainSignalRoot tests
-    function test_L1_getCrossChainSignalRoot() external {
+    /// @dev getSyncedSnippet tests
+    function test_L1_getSyncedSnippet() external {
         uint64 count = 10;
         // Declare here so that block prop/prove/verif. can be used in 1 place
         TaikoData.BlockMetadata memory meta;
@@ -267,7 +264,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         console2.log("Bob balance:", tko.balanceOf(Bob));
 
         // Propose blocks
-        for (uint64 blockId = 1; blockId < count; blockId++) {
+        for (uint64 blockId = 1; blockId < count; ++blockId) {
             printVariables("before propose");
             meta = proposeBlock(Alice, Bob, 1_000_000, 1024);
             mine(5);
@@ -283,8 +280,7 @@ contract TaikoL1Test is TaikoL1TestBase {
                 blockHash,
                 signalRoot,
                 L1.getBlock(meta.id).minTier,
-                "",
-                false
+                ""
             );
 
             vm.roll(block.number + 15 * 12);
@@ -294,7 +290,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             verifyBlock(Carol, 1);
 
             // Querying written blockhash
-            assertEq(L1.getCrossChainBlockHash(blockId), blockHash);
+            assertEq(L1.getSyncedSnippet(blockId).blockHash, blockHash);
 
             mine(5);
             parentHashes[blockId] = blockHash;
@@ -303,16 +299,16 @@ contract TaikoL1Test is TaikoL1TestBase {
         uint64 queriedBlockId = 1;
         bytes32 expectedSR = bytes32(1e9 + uint256(queriedBlockId));
 
-        assertEq(expectedSR, L1.getCrossChainSignalRoot(queriedBlockId));
+        assertEq(expectedSR, L1.getSyncedSnippet(queriedBlockId).signalRoot);
 
         // 2nd
         queriedBlockId = 2;
         expectedSR = bytes32(1e9 + uint256(queriedBlockId));
-        assertEq(expectedSR, L1.getCrossChainSignalRoot(queriedBlockId));
+        assertEq(expectedSR, L1.getSyncedSnippet(queriedBlockId).signalRoot);
 
         // Not found -> reverts
         vm.expectRevert(TaikoErrors.L1_BLOCK_MISMATCH.selector);
-        L1.getCrossChainSignalRoot((count + 1));
+        L1.getSyncedSnippet((count + 1));
     }
 
     function test_L1_deposit_hash_creation() external {

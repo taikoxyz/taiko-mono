@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import { Test } from "forge-std/Test.sol";
 import { Bridge } from "../contracts/bridge/Bridge.sol";
+import { SignalService } from "../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../contracts/common/ICrossChainSync.sol";
 
 abstract contract TestBase is Test {
@@ -15,10 +16,6 @@ abstract contract TestBase is Test {
 
     function getRandomBytes32() internal returns (bytes32) {
         return keccak256(abi.encodePacked("bytes32", _seed++));
-    }
-
-    function getRandomUint256() internal returns (uint256) {
-        return uint256(keccak256(abi.encodePacked("uint256", _seed++)));
     }
 
     address internal Alice = vm.addr(0x1);
@@ -47,6 +44,10 @@ abstract contract TestBase is Test {
     address internal Xavier = getRandomAddress();
     address internal Yasmine = getRandomAddress();
     address internal Zachary = getRandomAddress();
+    address internal SGX_X_0 = vm.addr(0x4);
+    address internal SGX_X_1 = vm.addr(0x5);
+    address internal SGX_Y = getRandomAddress();
+    address internal SGX_Z = getRandomAddress();
 }
 
 contract BadReceiver {
@@ -80,29 +81,21 @@ contract NonNftContract {
     }
 }
 
-contract SkipProofCheckBridge is Bridge {
-    function shouldCheckProof() internal pure override returns (bool) {
-        return false;
+contract SkipProofCheckSignal is SignalService {
+    function skipProofCheck() public pure override returns (bool) {
+        return true;
     }
 }
 
 contract DummyCrossChainSync is ICrossChainSync {
-    bytes32 private _blockHash;
-    bytes32 private _signalRoot;
+    Snippet private _snippet;
 
-    function setCrossChainBlockHeader(bytes32 blockHash) external {
-        _blockHash = blockHash;
+    function setSyncedData(bytes32 blockHash, bytes32 signalRoot) external {
+        _snippet.blockHash = blockHash;
+        _snippet.signalRoot = signalRoot;
     }
 
-    function setCrossChainSignalRoot(bytes32 signalRoot) external {
-        _signalRoot = signalRoot;
-    }
-
-    function getCrossChainBlockHash(uint64) external view returns (bytes32) {
-        return _blockHash;
-    }
-
-    function getCrossChainSignalRoot(uint64) external view returns (bytes32) {
-        return _signalRoot;
+    function getSyncedSnippet(uint64) external view returns (Snippet memory) {
+        return _snippet;
     }
 }

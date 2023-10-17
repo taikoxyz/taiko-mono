@@ -44,7 +44,7 @@ interface ISignalService {
     /// @param proof Merkle proof that the signal was persisted on the
     /// source chain.
     /// @return True if the signal has been received, otherwise false.
-    function isSignalReceived(
+    function proveSignalReceived(
         uint256 srcChainId,
         address app,
         bytes32 signal,

@@ -21,7 +21,7 @@ library LibTaikoToken {
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_ADDRESS();
 
-    function depositToken(
+    function depositTaikoToken(
         TaikoData.State storage state,
         AddressResolver resolver,
         uint256 amount
@@ -38,7 +38,7 @@ library LibTaikoToken {
         emit TokenDeposited(amount);
     }
 
-    function withdrawToken(
+    function withdrawTaikoToken(
         TaikoData.State storage state,
         AddressResolver resolver,
         uint256 amount
@@ -61,7 +61,7 @@ library LibTaikoToken {
         emit TokenWithdrawn(amount);
     }
 
-    function creditToken(
+    function creditTaikoToken(
         TaikoData.State storage state,
         AddressResolver resolver,
         address to,
@@ -76,11 +76,12 @@ library LibTaikoToken {
                 address(this), amount
             );
         }
+
         state.tokenBalances[to] += amount;
         emit TokenCredited(amount, mint);
     }
 
-    function debitToken(
+    function debitTaikoToken(
         TaikoData.State storage state,
         AddressResolver resolver,
         address from,
@@ -102,7 +103,7 @@ library LibTaikoToken {
         }
     }
 
-    function ownerWithdrawToken(
+    function ownerWithdrawTaikoToken(
         AddressResolver resolver,
         address to,
         uint256 amount

@@ -8,8 +8,8 @@ pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
+import { ISignalService } from "../signal/ISignalService.sol";
 import { Proxied } from "../common/Proxied.sol";
-
 import { LibMath } from "../libs/LibMath.sol";
 import { TaikoToken } from "../L1/TaikoToken.sol";
 
@@ -33,18 +33,13 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         uint8 blockRewardPoolPctg;
     }
 
-    struct VerifiedBlock {
-        bytes32 blockHash;
-        bytes32 signalRoot;
-    }
-
     // TODO(david): figure out this value from internal devnet.
     uint32 public constant ANCHOR_GAS_DEDUCT = 40_000;
 
     // Mapping from L2 block numbers to their block hashes.
     // All L2 block hashes will be saved in this mapping.
     mapping(uint256 blockId => bytes32 blockHash) public l2Hashes;
-    mapping(uint256 blockId => VerifiedBlock) public l1VerifiedBlocks;
+    mapping(uint256 l1height => ICrossChainSync.Snippet) public snippets;
 
     // A hash to check the integrity of public inputs.
     bytes32 public publicInputHash; // slot 3
@@ -94,13 +89,13 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
     /// message verification.
-    /// @param l1Hash The latest L1 block hash when this block was proposed.
-    /// @param l1SignalRoot The latest value of the L1 signal service storage
-    /// root.
+    /// @param l1BlockHash The latest L1 block hash when this block was
+    /// proposed.
+    /// @param l1SignalRoot The latest value of the L1 signal root.
     /// @param l1Height The latest L1 block height when this block was proposed.
     /// @param parentGasUsed The gas used in the parent block.
     function anchor(
-        bytes32 l1Hash,
+        bytes32 l1BlockHash,
         bytes32 l1SignalRoot,
         uint64 l1Height,
         uint32 parentGasUsed
@@ -109,9 +104,14 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     {
         if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
 
+        uint256 parentId;
+        unchecked {
+            parentId = block.number - 1;
+        }
+
         // Verify ancestor hashes
         (bytes32 publicInputHashOld, bytes32 publicInputHashNew) =
-            _calcPublicInputHash(block.number - 1);
+            _calcPublicInputHash(parentId);
         if (publicInputHash != publicInputHashOld) {
             revert L2_PUBLIC_INPUT_HASH_MISMATCH();
         }
@@ -125,42 +125,38 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             revert L2_BASEFEE_MISMATCH();
         }
 
+        // Store the L1's signal root as a signal to the local signal service to
+        // allow for multi-hop bridging.
+        if (l1SignalRoot != 0) {
+            ISignalService(resolve("signal_service", false)).sendSignal(
+                l1SignalRoot
+            );
+        }
+        emit CrossChainSynced(l1Height, l1BlockHash, l1SignalRoot);
+
         // Reward block reward in Taiko token to the parent block's proposer
         uint128 blockReward =
             _rewardParentBlock(config, l1Height, parentGasUsed);
 
         // Update state variables
-        l2Hashes[block.number - 1] = blockhash(block.number - 1);
-        l1VerifiedBlocks[l1Height] = VerifiedBlock(l1Hash, l1SignalRoot);
+        l2Hashes[parentId] = blockhash(parentId);
+        snippets[l1Height] = ICrossChainSync.Snippet(l1BlockHash, l1SignalRoot);
         publicInputHash = publicInputHashNew;
         latestSyncedL1Height = l1Height;
         parentProposer = block.coinbase;
 
-        // Emit events
-        emit CrossChainSynced(l1Height, l1Hash, l1SignalRoot);
-        emit Anchored(blockhash(block.number - 1), gasExcess, blockReward);
+        emit Anchored(blockhash(parentId), gasExcess, blockReward);
     }
 
     /// @inheritdoc ICrossChainSync
-    function getCrossChainBlockHash(uint64 blockId)
+    function getSyncedSnippet(uint64 blockId)
         public
         view
         override
-        returns (bytes32)
+        returns (ICrossChainSync.Snippet memory)
     {
         uint256 id = blockId == 0 ? latestSyncedL1Height : blockId;
-        return l1VerifiedBlocks[id].blockHash;
-    }
-
-    /// @inheritdoc ICrossChainSync
-    function getCrossChainSignalRoot(uint64 blockId)
-        public
-        view
-        override
-        returns (bytes32)
-    {
-        uint256 id = blockId == 0 ? latestSyncedL1Height : blockId;
-        return l1VerifiedBlocks[id].signalRoot;
+        return snippets[id];
     }
 
     /// @notice Gets the basefee and gas excess using EIP-1559 configuration for

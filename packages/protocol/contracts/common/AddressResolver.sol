@@ -18,12 +18,12 @@ import { IAddressManager } from "./AddressManager.sol";
 /// is no setAddressManager() function go guarantee atomicness across all
 /// contracts that are resolvers.
 abstract contract AddressResolver {
-    IAddressManager internal _addressManager;
+    address public addressManager;
 
     uint256[49] private __gap;
 
     error RESOLVER_DENIED();
-    error RESOLVER_INVALID_ADDR();
+    error RESOLVER_INVALID_MANAGER();
     error RESOLVER_ZERO_ADDR(uint256 chainId, bytes32 name);
 
     /// @dev Modifier that ensures the caller is the resolved address of a given
@@ -83,17 +83,11 @@ abstract contract AddressResolver {
         return _resolve(chainId, name, allowZeroAddress);
     }
 
-    /// @notice Fetches the AddressManager's address.
-    /// @return The current address of the AddressManager.
-    function addressManager() public view returns (address) {
-        return address(_addressManager);
-    }
-
     /// @dev Initialization method for setting up AddressManager reference.
-    /// @param addressManager_ Address of the AddressManager.
-    function _init(address addressManager_) internal virtual {
-        if (addressManager_ == address(0)) revert RESOLVER_INVALID_ADDR();
-        _addressManager = IAddressManager(addressManager_);
+    /// @param _addressManager Address of the AddressManager.
+    function _init(address _addressManager) internal virtual {
+        if (_addressManager == address(0)) revert RESOLVER_INVALID_MANAGER();
+        addressManager = _addressManager;
     }
 
     /// @dev Helper method to resolve name-to-address.
@@ -112,7 +106,8 @@ abstract contract AddressResolver {
         view
         returns (address payable addr)
     {
-        addr = payable(_addressManager.getAddress(chainId, name));
+        addr =
+            payable(IAddressManager(addressManager).getAddress(chainId, name));
 
         if (!allowZeroAddress && addr == address(0)) {
             revert RESOLVER_ZERO_ADDR(chainId, name);
