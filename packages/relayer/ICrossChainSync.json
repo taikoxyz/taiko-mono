@@ -32,31 +32,24 @@
         "type": "uint64"
       }
     ],
-    "name": "getCrossChainBlockHash",
+    "name": "getSyncedSnippet",
     "outputs": [
       {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "blockId",
-        "type": "uint64"
-      }
-    ],
-    "name": "getCrossChainSignalRoot",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
+        "components": [
+          {
+            "internalType": "bytes32",
+            "name": "blockHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "signalRoot",
+            "type": "bytes32"
+          }
+        ],
+        "internalType": "struct ICrossChainSync.Snippet",
+        "name": "snippet",
+        "type": "tuple"
       }
     ],
     "stateMutability": "view",
