@@ -6,8 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-import { Initializable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
+import { Initializable } from "@ozu/proxy/utils/Initializable.sol";
 
 /// @title Proxied
 /// @dev This abstract contract extends Initializable from OpenZeppelin's

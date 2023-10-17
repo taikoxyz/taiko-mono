@@ -6,8 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-import { ECDSAUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/cryptography/ECDSAUpgradeable.sol";
+import { ECDSAUpgradeable } from "@ozu/utils/cryptography/ECDSAUpgradeable.sol";
 
 import { EssentialContract } from "../../common/EssentialContract.sol";
 import { Proxied } from "../../common/Proxied.sol";

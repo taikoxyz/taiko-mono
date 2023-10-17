@@ -2,9 +2,8 @@
 pragma solidity ^0.8.20;
 
 import { console2 } from "forge-std/console2.sol";
-import { Strings } from "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
-import { SafeCastUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/math/SafeCastUpgradeable.sol";
+import { Strings } from "@oz/utils/Strings.sol";
+import { SafeCastUpgradeable } from "@ozu/utils/math/SafeCastUpgradeable.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { TaikoL2 } from "../../contracts/L2/TaikoL2.sol";

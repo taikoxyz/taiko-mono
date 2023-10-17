@@ -6,18 +6,15 @@
 
 pragma solidity ^0.8.20;
 
-import { Create2Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/Create2Upgradeable.sol";
+import { Create2Upgradeable } from "@ozu/utils/Create2Upgradeable.sol";
 import {
     ERC1155ReceiverUpgradeable,
     IERC1155ReceiverUpgradeable
-} from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
+} from "@ozu/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
 import {
     ERC1155Upgradeable,
     IERC1155Upgradeable
-} from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/ERC1155Upgradeable.sol";
+} from "@ozu/token/ERC1155/ERC1155Upgradeable.sol";
 
 import { Proxied } from "../common/Proxied.sol";
 import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";

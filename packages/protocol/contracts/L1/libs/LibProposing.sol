@@ -6,8 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-import { ERC20Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import { ERC20Upgradeable } from "@ozu/token/ERC20/ERC20Upgradeable.sol";
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";

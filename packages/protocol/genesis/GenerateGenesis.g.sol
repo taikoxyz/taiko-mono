@@ -5,7 +5,7 @@ import { console2 } from "forge-std/console2.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 import { Test } from "forge-std/Test.sol";
 
-import { TransparentUpgradeableProxy } from "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { TransparentUpgradeableProxy } from "@oz/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import { AddressManager } from "../contracts/common/AddressManager.sol";
 import { AddressResolver } from "../contracts/common/AddressResolver.sol";
