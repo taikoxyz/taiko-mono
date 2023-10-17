@@ -6,11 +6,14 @@
 
 pragma solidity ^0.8.20;
 
-import { AddressUpgradeable } from "ozu/utils/AddressUpgradeable.sol";
-import { ECDSAUpgradeable } from "ozu/utils/cryptography/ECDSAUpgradeable.sol";
+import { AddressUpgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/utils/AddressUpgradeable.sol";
+import { ECDSAUpgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/utils/cryptography/ECDSAUpgradeable.sol";
 import { IERC165Upgradeable } from
-    "ozu/utils/introspection/IERC165Upgradeable.sol";
-import { IERC1271Upgradeable } from "ozu/interfaces/IERC1271Upgradeable.sol";
+    "lib/openzeppelin-contracts-upgradeable/contracts/utils/introspection/IERC165Upgradeable.sol";
+import { IERC1271Upgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/interfaces/IERC1271Upgradeable.sol";
 
 /// @title LibAddress
 /// @dev Provides utilities for address-related operations.

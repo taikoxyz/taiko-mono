@@ -6,7 +6,8 @@
 
 pragma solidity ^0.8.20;
 
-import { OwnableUpgradeable } from "ozu/access/OwnableUpgradeable.sol";
+import { OwnableUpgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 
 import { Proxied } from "./Proxied.sol";
 
