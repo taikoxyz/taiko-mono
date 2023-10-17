@@ -5,7 +5,6 @@
   "scripts": {
     "clean": "rm -rf abis cache && forge clean",
     "compile": "forge build",
-    "compile:hardhat": "pnpm hardhat compile",
     "deploy:foundry": "./script/download_solc.sh && ./script/test_deploy_on_l1.sh",
     "eslint": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts .",
     "eslint:fix": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts . --fix",
