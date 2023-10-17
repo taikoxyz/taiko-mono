@@ -85,7 +85,7 @@
           $insufficientAllowance = true;
           break;
         case err instanceof RevertedWithFailedError:
-          warningToast($t('messages.network.rejected'));
+          warningToast({title: $t('messages.network.rejected')});
           break;
       }
     } finally {
@@ -175,7 +175,7 @@
       validateAmount();
     } catch (err) {
       console.error(err);
-      warningToast($t('amount.errors.failed_max'));
+      warningToast({title: $t('amount.errors.failed_max')});
     } finally {
       computingMaxAmount = false;
     }

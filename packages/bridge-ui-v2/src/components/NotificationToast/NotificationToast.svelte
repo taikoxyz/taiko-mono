@@ -1,16 +1,23 @@
 <script lang="ts" context="module">
   import { toast } from '@zerodevx/svelte-toast';
 
+  import { toastConfig } from '$config';
   import { uid } from '$libs/util/uid';
 
   import ItemToast from './ItemToast.svelte';
   import type { TypeToast } from './types';
 
-  // Public API
+  export type NotificationType = {
+    title: string;
+    message?: string;
+    type?: TypeToast;
+    closeManually?: boolean;
+  };
 
-  export function notify(title: string, message: string = '', type: TypeToast = 'unknown', closeManually = false) {
+  export function notify(notificationType: NotificationType) {
     const id = Number(uid());
     const close = () => toast.pop(id);
+    const { title, message = '', type = 'unknown', closeManually = false } = notificationType;
 
     toast.push({
       id,
@@ -22,20 +29,36 @@
     });
   }
 
-  export function successToast(title: string, message: string = '', closeManually = false) {
-    notify(title, message, 'success', closeManually);
+  export function successToast(notificationType: NotificationType) {
+    notify({
+      ...notificationType,
+      type: 'success',
+      closeManually: false
+    });
   }
 
-  export function errorToast(title: string, message: string = '', closeManually = true) {
-    notify(title, message, 'error', closeManually);
+  export function errorToast(notificationType: NotificationType) {
+    notify({
+      ...notificationType,
+      type: 'error',
+      closeManually: true
+    });
   }
 
-  export function warningToast(title: string, message: string = '', closeManually = false) {
-    notify(title, message, 'warning', closeManually);
+  export function warningToast(notificationType: NotificationType) {
+    notify({
+      ...notificationType,
+      type: 'warning',
+      closeManually: false
+    });
   }
 
-  export function infoToast(title: string, message: string = '', closeManually = false) {
-    notify(title, message, 'info', closeManually);
+  export function infoToast(notificationType: NotificationType) {
+    notify({
+      ...notificationType,
+      type: 'info',
+      closeManually: false
+    });
   }
 </script>
 
@@ -44,7 +67,7 @@
   import type { SvelteToastOptions } from '@zerodevx/svelte-toast/stores';
 
   const options: SvelteToastOptions = {
-    duration: 5000,
+    duration: toastConfig.duration,
     pausable: false,
   };
 </script>

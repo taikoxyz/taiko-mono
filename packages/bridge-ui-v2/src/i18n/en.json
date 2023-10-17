@@ -52,12 +52,11 @@
           "message": "Track the token approval status on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
         },
         "success": {
-          "title": "",
-          "message": "Approved {token} tokens!. You can now proceed to bridge."
+          "title": "Approved {token} tokens",
+          "message": "You can now proceed to bridge."
         },
         "rejected": {
-          "title": "",
-          "message": "Request to approve rejected."
+          "title": "Request to approve rejected"
         }
       },
       "bridge": {
@@ -188,9 +187,17 @@
     },
     "actions": {
       "claim": {
-        "tx": "Transaction sent to claim {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a>.",
-        "success": "Transaction completed! Your funds have been successfully claimed on {network}.",
-        "rejected": "Request to claim rejected.",
+        "tx": {
+          "title": "Transaction sent",
+          "message": "Track the progress on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+        },
+        "success": {
+          "title": "Transaction completed",
+          "message": "Your funds have been successfully claimed on {network}."
+        },
+        "rejected": {
+          "title": "Request to claim rejected."
+        },
         "dialog": {
           "title": "Please wait",
           "description": "Insufficient balance to claim yourself. Please wait for the relayer to claim for you automatically. Refer to our guide for more information.",
@@ -198,9 +205,17 @@
         }
       },
       "release": {
-        "tx": "Transaction sent to release {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a>.",
-        "success": "Transaction completed!. Your funds have been released on {network}",
-        "rejected": "Request to release rejected."
+        "tx": {
+          "title": "Transaction sent",
+          "message": "Track the progress on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+        },
+        "success": {
+          "title": "Transaction completed",
+          "message": "Your funds have been released on {network}"
+        },
+        "rejected": {
+          "title": "Request to release rejected."
+        }
       }
     },
     "errors": {

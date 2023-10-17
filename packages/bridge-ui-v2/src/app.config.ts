@@ -42,3 +42,11 @@ export const transactionConfig = {
   pageSizeMobile: 4,
   blurTransitionTime: 300,
 };
+
+export const toastConfig = {
+  duration: 5000,
+};
+
+export const apiService = {
+  timeout: 5000,
+};

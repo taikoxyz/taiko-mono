@@ -5,6 +5,7 @@ import { Buffer } from 'buffer';
 
 import { bridgeABI } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
+import { apiService } from '$config';
 import type { BridgeTransaction, MessageStatus } from '$libs/bridge';
 import { isSupportedChain } from '$libs/chain';
 import { TokenType } from '$libs/token';
@@ -114,7 +115,7 @@ export class RelayerAPIService {
 
       const response = await axios.get<APIResponse>(requestURL, {
         params,
-        timeout: 5000, // todo: discuss and move to config
+        timeout: apiService.timeout,
       });
 
       if (!response || response.status >= 400) throw response;
