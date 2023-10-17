@@ -96,6 +96,11 @@
   },
   {
     "inputs": [],
+    "name": "L1_INSUFFICIENT_TOKEN",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "L1_INVALID_ADDRESS",
     "type": "error"
   },
@@ -306,7 +311,7 @@
   },
   {
     "inputs": [],
-    "name": "RESOLVER_INVALID_ADDR",
+    "name": "RESOLVER_INVALID_MANAGER",
     "type": "error"
   },
   {
@@ -324,19 +329,6 @@
     ],
     "name": "RESOLVER_ZERO_ADDR",
     "type": "error"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "addressManager",
-        "type": "address"
-      }
-    ],
-    "name": "AddressManagerChanged",
-    "type": "event"
   },
   {
     "anonymous": false,
@@ -363,12 +355,6 @@
         "indexed": false,
         "internalType": "uint256",
         "name": "proverFee",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "reward",
         "type": "uint256"
       },
       {
@@ -481,12 +467,6 @@
         "indexed": false,
         "internalType": "uint256",
         "name": "proverFee",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "reward",
         "type": "uint256"
       },
       {
@@ -1288,11 +1268,6 @@
             "type": "uint256"
           },
           {
-            "internalType": "bool",
-            "name": "relaySignalRoot",
-            "type": "bool"
-          },
-          {
             "internalType": "uint64",
             "name": "blockMaxProposals",
             "type": "uint64"
@@ -1313,24 +1288,9 @@
             "type": "uint32"
           },
           {
-            "internalType": "uint32",
-            "name": "blockFeeBaseGas",
-            "type": "uint32"
-          },
-          {
             "internalType": "uint24",
             "name": "blockMaxTxListBytes",
             "type": "uint24"
-          },
-          {
-            "internalType": "uint256",
-            "name": "proposerRewardPerSecond",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "proposerRewardMax",
-            "type": "uint256"
           },
           {
             "internalType": "uint96",
@@ -1379,44 +1339,6 @@
       }
     ],
     "stateMutability": "pure",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "blockId",
-        "type": "uint64"
-      }
-    ],
-    "name": "getCrossChainBlockHash",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "blockId",
-        "type": "uint64"
-      }
-    ],
-    "name": "getCrossChainSignalRoot",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1486,6 +1408,37 @@
   {
     "inputs": [
       {
+        "internalType": "uint64",
+        "name": "blockId",
+        "type": "uint64"
+      }
+    ],
+    "name": "getSyncedSnippet",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "bytes32",
+            "name": "blockHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "signalRoot",
+            "type": "bytes32"
+          }
+        ],
+        "internalType": "struct ICrossChainSync.Snippet",
+        "name": "data",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "address",
         "name": "user",
         "type": "address"
@@ -1538,6 +1491,11 @@
             "internalType": "uint16",
             "name": "provingWindow",
             "type": "uint16"
+          },
+          {
+            "internalType": "uint8",
+            "name": "maxBlocksToVerify",
+            "type": "uint8"
           }
         ],
         "internalType": "struct ITierProvider.Tier",
@@ -1653,6 +1611,19 @@
     "name": "init",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "isConfigValid",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "pure",
     "type": "function"
   },
   {
@@ -1868,19 +1839,6 @@
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "newAddressManager",
-        "type": "address"
-      }
-    ],
-    "name": "setAddressManager",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "inputs": [],
     "name": "state",
     "outputs": [
@@ -1937,6 +1895,23 @@
         "internalType": "struct TaikoData.SlotB",
         "name": "slotB",
         "type": "tuple"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint128",
+            "name": "accumulatedReward",
+            "type": "uint128"
+          },
+          {
+            "internalType": "uint64",
+            "name": "lastProposedHeight",
+            "type": "uint64"
+          }
+        ],
+        "internalType": "struct TaikoData.SlotC",
+        "name": "slotC",
+        "type": "tuple"
       }
     ],
     "stateMutability": "view",
@@ -1959,7 +1934,7 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "maxBlocks",
+        "name": "maxBlocksToVerify",
         "type": "uint64"
       }
     ],

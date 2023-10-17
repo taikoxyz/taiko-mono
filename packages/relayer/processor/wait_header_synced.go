@@ -27,12 +27,12 @@ func (p *Processor) waitHeaderSynced(ctx context.Context, event *bridge.BridgeMe
 			)
 			// get latest synced header since not every header is synced from L1 => L2,
 			// and later blocks still have the storage trie proof from previous blocks.
-			latestSyncedHeader, err := p.destHeaderSyncer.GetCrossChainBlockHash(&bind.CallOpts{}, 0)
+			latestSyncedSnippet, err := p.destHeaderSyncer.GetSyncedSnippet(&bind.CallOpts{}, 0)
 			if err != nil {
 				return errors.Wrap(err, "p.destHeaderSyncer.GetCrossChainBlockHash")
 			}
 
-			header, err := p.srcEthClient.HeaderByHash(ctx, latestSyncedHeader)
+			header, err := p.srcEthClient.HeaderByHash(ctx, latestSyncedSnippet.BlockHash)
 			if err != nil {
 				return errors.Wrap(err, "p.destHeaderSyncer.GetCrossChainBlockHash")
 			}
