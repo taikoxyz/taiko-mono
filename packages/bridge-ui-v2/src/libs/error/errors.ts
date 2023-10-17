@@ -14,6 +14,10 @@ export class InsufficientAllowanceError extends Error {
   name = 'InsufficientAllowanceError';
 }
 
+export class NotApprovedError extends Error {
+  name = 'NotApprovedError';
+}
+
 export class NoAllowanceRequiredError extends Error {
   name = 'NoAllowanceRequiredError';
 }
@@ -32,6 +36,14 @@ export class SendMessageError extends Error {
 
 export class SendERC20Error extends Error {
   name = 'SendERC20Error';
+}
+
+export class SendERC721Error extends Error {
+  name = 'SendERC721Error';
+}
+
+export class SendERC1155Error extends Error {
+  name = 'SendERC1155Error';
 }
 
 export class ApproveError extends Error {

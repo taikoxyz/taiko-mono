@@ -1,12 +1,13 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
-  import { formatEther } from 'viem';
+  import { formatEther, formatUnits } from 'viem';
 
   import { chainConfig } from '$chainConfig';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { Icon } from '$components/Icon';
   import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
+  import { TokenType } from '$libs/token';
 
   import ChainSymbolName from './ChainSymbolName.svelte';
   import InsufficientFunds from './InsufficientFunds.svelte';
@@ -65,7 +66,15 @@
       <ChainSymbolName chainId={item.destChainId} />
     </div>
     <div class="w-1/5 py-2 flex flex-col justify-center">
-      {formatEther(item.amount ? item.amount : BigInt(0))}
+      {#if item.tokenType === TokenType.ERC20}
+        {formatUnits(item.amount ? item.amount : BigInt(0), item.decimals)}
+      {:else if item.tokenType === TokenType.ERC721}
+        {item.amount}
+      {:else if item.tokenType === TokenType.ERC1155}
+        {item.amount}
+      {:else if item.tokenType === TokenType.ETH}
+        {formatEther(item.amount ? item.amount : BigInt(0))}
+      {/if}
       {item.symbol}
     </div>
   {:else}
