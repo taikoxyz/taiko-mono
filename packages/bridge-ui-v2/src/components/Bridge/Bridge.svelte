@@ -2,7 +2,7 @@
   import type { Hash } from '@wagmi/core';
   import { onDestroy, tick } from 'svelte';
   import { t } from 'svelte-i18n';
-  import { type Address, TransactionExecutionError, UserRejectedRequestError } from 'viem';
+  import type { Address } from 'viem';
 
   import { routingContractsMap } from '$bridgeConfig';
   import { chainConfig } from '$chainConfig';
@@ -15,8 +15,8 @@
   import IconFlipper from '$components/Icon/IconFlipper.svelte';
   import { NFTCard } from '$components/NFTCard';
   import { NFTList } from '$components/NFTList';
-  import { successToast, warningToast } from '$components/NotificationToast';
-  import { errorToast, infoToast } from '$components/NotificationToast/NotificationToast.svelte';
+  import { successToast } from '$components/NotificationToast';
+  import { infoToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { OnAccount } from '$components/OnAccount';
   import { OnNetwork } from '$components/OnNetwork';
   import { Step, Stepper } from '$components/Stepper';
@@ -28,13 +28,7 @@
   import type { ERC1155Bridge } from '$libs/bridge/ERC1155Bridge';
   import { fetchNFTs } from '$libs/bridge/fetchNFTs';
   import { getBridgeArgs } from '$libs/bridge/getBridgeArgs';
-  import {
-    ApproveError,
-    InsufficientAllowanceError,
-    NoAllowanceRequiredError,
-    SendERC20Error,
-    SendMessageError,
-  } from '$libs/error';
+  import { handleBridgeError } from '$libs/bridge/handleBridgeErrors';
   import { bridgeTxService } from '$libs/storage';
   import { ETHToken, type NFT, tokens, TokenType } from '$libs/token';
   import { checkOwnership } from '$libs/token/checkOwnership';
@@ -46,6 +40,7 @@
   import { type Network, network } from '$stores/network';
   import { pendingTransactions } from '$stores/pendingTransactions';
 
+  import { handleApproveError } from '../../libs/bridge/handleApproveError';
   import Actions from './Actions.svelte';
   import AddressInput from './AddressInput/AddressInput.svelte';
   import { AddressInputState } from './AddressInput/state';
@@ -168,28 +163,10 @@
       );
     } catch (err) {
       console.error(err);
-
-      switch (true) {
-        case err instanceof UserRejectedRequestError:
-          warningToast($t('bridge.errors.rejected'));
-          break;
-        case err instanceof NoAllowanceRequiredError:
-          errorToast($t('bridge.errors.no_allowance_required'));
-          break;
-        case err instanceof InsufficientAllowanceError:
-          errorToast($t('bridge.errors.insufficient_allowance'));
-          break;
-        case err instanceof ApproveError:
-          // TODO: see contract for all possible errors
-          errorToast($t('bridge.errors.approve_error'));
-          break;
-        default:
-          errorToast($t('bridge.errors.unknown_error'));
-      }
+      handleApproveError(err as Error);
     }
   }
 
-  //TODO TEST!!
   async function bridge() {
     if (!$bridgeService || !$selectedToken || !$network || !$destinationChain || !$account?.address) return;
 
@@ -257,30 +234,7 @@
       refreshUserBalance();
     } catch (err) {
       console.error(err);
-
-      switch (true) {
-        case err instanceof InsufficientAllowanceError:
-          errorToast($t('bridge.errors.insufficient_allowance'));
-          break;
-        case err instanceof SendMessageError:
-          // TODO: see contract for all possible errors
-          errorToast($t('bridge.errors.send_message_error'));
-          break;
-        case err instanceof SendERC20Error:
-          // TODO: see contract for all possible errors
-          errorToast($t('bridge.errors.send_erc20_error'));
-          break;
-        case err instanceof UserRejectedRequestError:
-          // Todo: viem does not seem to detect UserRejectError
-          warningToast($t('bridge.errors.rejected'));
-          break;
-        case err instanceof TransactionExecutionError && err.shortMessage === 'User rejected the request.':
-          //Todo: so we catch it by string comparison below, suboptimal
-          warningToast($t('bridge.errors.rejected'));
-          break;
-        default:
-          errorToast($t('bridge.errors.unknown_error'));
-      }
+      handleBridgeError(err as Error);
     }
   }
 
@@ -309,7 +263,7 @@
   };
 
   /**
-   *   NFT Bridge
+   *   NFT Bridge specific
    */
   let activeStep: NFTSteps = NFTSteps.IMPORT;
 
@@ -348,9 +302,11 @@
   function onAddressValidation(event: CustomEvent<{ isValidEthereumAddress: boolean; addr: Address }>) {
     const { isValidEthereumAddress, addr } = event.detail;
     addressInputState = AddressInputState.Validating;
+
     if (isValidEthereumAddress && typeof addr === 'string') {
       if (!$network?.id) throw new Error('network not found');
       const srcChainId = $network?.id;
+      // If we have a valid address, we generate a token object for the $selectedToken store
       getTokenWithInfoFromAddress({ contractAddress: addr, srcChainId: srcChainId, owner: $account?.address })
         .then((token) => {
           if (!token) throw new Error('no token with info');
@@ -390,6 +346,7 @@
 
   const searchNFTs = () => {
     // TODO: implement
+    throw new Error('not implemented');
   };
 
   const getStepText = () => {
@@ -413,16 +370,6 @@
     });
   }
 
-  // Whenever the user switches bridge types, we should reset the forms
-  $: $activeBridge && (resetForm(), (activeStep = NFTSteps.IMPORT));
-
-  $: {
-    const stepKey = NFTSteps[activeStep].toLowerCase();
-    nftStepTitle = $t(`bridge.title.nft.${stepKey}`);
-    nftStepDescription = $t(`bridge.description.nft.${stepKey}`);
-    nextStepButtonText = getStepText();
-  }
-
   const manualImportAction = () => {
     if (!$network?.id) throw new Error('network not found');
     const srcChainId = $network?.id;
@@ -443,6 +390,18 @@
     nextStep();
   };
 
+  // Whenever the user switches bridge types, we should reset the forms
+  $: $activeBridge && (resetForm(), (activeStep = NFTSteps.IMPORT));
+
+  // Set the content text based on the current step
+  $: {
+    const stepKey = NFTSteps[activeStep].toLowerCase();
+    nftStepTitle = $t(`bridge.title.nft.${stepKey}`);
+    nftStepDescription = $t(`bridge.description.nft.${stepKey}`);
+    nextStepButtonText = getStepText();
+  }
+
+  // Update the selectedNFT array whenever the user selects a new NFT and pre-fetch the approval status
   $: if (selectedNFT.length > 0) {
     //TODO: this needs changing if we do batch transfers in the future:
     // Update either selectedToken store to handle arrays or the actions to access a different store for NFTs
@@ -450,6 +409,7 @@
 
     const currentNetwork = $network?.id;
     if (currentNetwork && $destinationChain?.id && $selectedToken) {
+      // ERC721
       if (selectedNFT[0].type === TokenType.ERC721) {
         const sourceTokenVault = routingContractsMap[currentNetwork][$destinationChain?.id].erc721VaultAddress;
         const bridge = bridges[selectedNFT[0].type] as ERC721Bridge;
@@ -470,6 +430,8 @@
             console.error(err);
             //TODO: handle error
           });
+
+        // ERC1155
       } else if (selectedNFT[0].type === TokenType.ERC1155) {
         const sourceTokenVault = routingContractsMap[currentNetwork][$destinationChain?.id].erc1155VaultAddress;
         const bridge = bridges[selectedNFT[0].type] as ERC1155Bridge;
@@ -494,6 +456,7 @@
     }
   }
 
+  // When the user changes the contract address, ownership of the NFTs are be checked
   $: {
     (async () => {
       if (addressInputState !== AddressInputState.Valid) return;
@@ -511,6 +474,7 @@
     })();
   }
 
+  // Update ID input state based on the current state of the form
   let idInputState: IDInputState;
   $: {
     if (isOwnerOfAllToken && nftIdArray?.length > 0) {
@@ -522,6 +486,7 @@
     }
   }
 
+  // Handles the next step button status
   $: canProceed = manualNFTInput
     ? addressInputState === AddressInputState.Valid &&
       nftIdArray.length > 0 &&
@@ -647,7 +612,7 @@
 
             <div class="f-col w-full gap-4">
               {#if scanned}
-                <h2>{$t('bridge.nft.step.import.scan_screen.title')}</h2>
+                <h2>{$t('bridge.nft.step.import.scan_screen.title', { values: { number: foundNFTs.length } })}</h2>
                 <!-- Todo: also enable card view here? -->
                 <NFTList bind:nfts={foundNFTs} chainId={$network?.id} bind:selectedNFT />
 
