@@ -230,7 +230,20 @@ contract DeployOnL1 is Script {
             setAddress("signal_service", sharedSignalService);
         }
 
+        // PlonkVerifier
+        deployPlonkVerifiers();
+
         vm.stopBroadcast();
+    }
+
+    function deployPlonkVerifiers() private {
+        address[] memory plonkVerifiers = new address[](1);
+        plonkVerifiers[0] =
+            deployYulContract("contracts/L1/verifiers/PlonkVerifier.yulp");
+
+        for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
+            setAddress(taikoL1.getVerifierName(i), plonkVerifiers[i]);
+        }
     }
 
     function validateTierProvider(uint256 provier)
