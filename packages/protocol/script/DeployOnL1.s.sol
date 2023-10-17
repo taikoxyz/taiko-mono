@@ -58,7 +58,7 @@ contract DeployOnL1 is Script {
     TaikoL1 taikoL1;
     address public addressManagerProxy;
 
-    enum TierConfigProviders { TAIKO }
+    enum TierConfigProviders { TAIKO_ALPHA6 }
 
     error FAILED_TO_DEPLOY_PLONK_VERIFIER(string contractPath);
 
@@ -245,7 +245,7 @@ contract DeployOnL1 is Script {
         pure
         returns (bool)
     {
-        if (provider == uint256(TierConfigProviders.TAIKO)) return true;
+        if (provider == uint256(TierConfigProviders.TAIKO_ALPHA6)) return true;
         return false;
     }
 
@@ -283,7 +283,7 @@ contract DeployOnL1 is Script {
         private
         returns (address providerAddress)
     {
-        if (provider == uint256(TierConfigProviders.TAIKO)) {
+        if (provider == uint256(TierConfigProviders.TAIKO_ALPHA6)) {
             return address(new TaikoConfigProvider());
         }
 
