@@ -204,12 +204,12 @@ contract DeployOnL1 is Script {
         );
 
         // PseZkVerifier
-        PseZkVerifier proofVerifier = new ProxiedPseZkVerifier();
+        PseZkVerifier pseZkVerifier = new ProxiedPseZkVerifier();
         deployProxy(
             "tier_pse_zkevm",
-            address(proofVerifier),
+            address(pseZkVerifier),
             bytes.concat(
-                proofVerifier.init.selector, abi.encode(addressManagerProxy)
+                pseZkVerifier.init.selector, abi.encode(addressManagerProxy)
             )
         );
 
@@ -231,7 +231,7 @@ contract DeployOnL1 is Script {
         }
 
         // PlonkVerifier
-        deployPlonkVerifiers(proofVerifier);
+        deployPlonkVerifiers(pseZkVerifier);
 
         vm.stopBroadcast();
     }
