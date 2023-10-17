@@ -120,9 +120,6 @@ async function generateContractConfigs(
 ): Promise<any> {
     const contractArtifacts: any = {
         // Libraries
-        LibTrieProof: require(
-            path.join(ARTIFACTS_PATH, "./LibTrieProof.sol/LibTrieProof.json"),
-        ),
         LibVaultUtils: require(
             path.join(ARTIFACTS_PATH, "./LibVaultUtils.sol/LibVaultUtils.json"),
         ),
@@ -199,20 +196,12 @@ async function generateContractConfigs(
                 );
                 break;
             case "ProxiedBridge":
-                if (!addressMap.LibTrieProof) {
-                    throw new Error("LibTrieProof not initialized");
-                }
-
                 bytecode = linkContractLibs(
                     contractArtifacts.ProxiedBridge,
                     addressMap,
                 );
                 break;
             case "ProxiedSignalService":
-                if (!addressMap.LibTrieProof) {
-                    throw new Error("LibTrieProof not initialized");
-                }
-
                 bytecode = linkContractLibs(
                     contractArtifacts.ProxiedSignalService,
                     addressMap,
@@ -243,12 +232,6 @@ async function generateContractConfigs(
 
     return {
         // Libraries
-        LibTrieProof: {
-            address: addressMap.LibTrieProof,
-            deployedBytecode:
-                contractArtifacts.LibTrieProof.deployedBytecode.object,
-            variables: {},
-        },
         ProxiedAddressManager: {
             address: addressMap.ProxiedAddressManager,
             deployedBytecode:
