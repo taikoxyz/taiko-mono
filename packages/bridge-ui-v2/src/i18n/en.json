@@ -49,11 +49,11 @@
       "approve": {
         "tx": {
           "title": "Approval sent",
-          "message": "Track the token approval status on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+          "message": "Track {token} token approval status on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
         },
         "success": {
-          "title": "Approved {token} tokens",
-          "message": "You can now proceed to bridge."
+          "title": "Approved token",
+          "message": "You can now proceed to bridge {token}."
         },
         "rejected": {
           "title": "Request to approve rejected"

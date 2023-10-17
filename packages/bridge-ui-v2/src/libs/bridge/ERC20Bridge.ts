@@ -41,7 +41,7 @@ export class ERC20Bridge extends Bridge {
     const refundTo = wallet.account.address;
 
     const gasLimit = !isTokenAlreadyDeployed
-      ? BigInt(bridgeService.noTokenDeployedGasLimit)
+      ? BigInt(bridgeService.noERC20TokenDeployedGasLimit)
       : fee > 0
       ? bridgeService.noOwnerGasLimit
       : BigInt(0);
@@ -152,9 +152,7 @@ export class ERC20Bridge extends Bridge {
     }
 
     const { tokenVaultContract, sendERC20Args } = await ERC20Bridge._prepareTransaction(args);
-    const { fee } = sendERC20Args;
-
-    const value = fee;
+    const { fee: value } = sendERC20Args;
 
     try {
       log('Calling sendERC20 with value', value);
