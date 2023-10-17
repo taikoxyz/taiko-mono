@@ -240,7 +240,7 @@ contract DeployOnL1 is Script {
         }
     }
 
-    function validateTierProvider(uint256 provier)
+    function validateTierProvider(uint256 provider)
         private
         pure
         returns (bool)
