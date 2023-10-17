@@ -75,8 +75,6 @@ contract DeployOnL1 is Script {
                 == taikoTokenPremintAmounts.length,
             "taikoTokenPremintRecipients and taikoTokenPremintAmounts must be same length"
         );
-        require(validateTierProvider(tierProvider), "invalid tier provider");
-
         vm.startBroadcast(deployerPrivateKey);
 
         // AddressManager
@@ -238,15 +236,6 @@ contract DeployOnL1 is Script {
         for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
             setAddress(pseZkVerifier.getVerifierName(i), plonkVerifiers[i]);
         }
-    }
-
-    function validateTierProvider(uint256 provider)
-        private
-        pure
-        returns (bool)
-    {
-        if (provider == uint256(TierConfigProviders.TAIKO_ALPHA6)) return true;
-        return false;
     }
 
     function deployYulContract(string memory contractPath)
