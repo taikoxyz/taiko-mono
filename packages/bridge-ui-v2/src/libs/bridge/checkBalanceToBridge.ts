@@ -16,16 +16,17 @@ import { bridges } from './bridges';
 import { ERC20Bridge } from './ERC20Bridge';
 import { ERC1155Bridge } from './ERC1155Bridge';
 import { estimateCostOfBridging } from './estimateCostOfBridging';
-import type { BridgeArgs, ERC20BridgeArgs, ETHBridgeArgs } from './types';
+import type { BridgeArgs, ERC20BridgeArgs, ERC1155BridgeArgs, ETHBridgeArgs } from './types';
 
 type HasEnoughBalanceToBridgeArgs = {
   to: Address;
   token: Token;
-  amount: bigint;
+  amount: bigint | bigint[];
   balance: bigint;
   srcChainId: number;
   destChainId: number;
   fee?: bigint;
+  tokenIds?: bigint[];
 };
 
 export async function checkBalanceToBridge({
@@ -36,21 +37,24 @@ export async function checkBalanceToBridge({
   srcChainId,
   destChainId,
   fee,
+  tokenIds,
 }: HasEnoughBalanceToBridgeArgs) {
   const wallet = await getConnectedWallet();
   let estimatedCost = BigInt(0);
 
-  const bridgeArgs = {
-    to,
-    amount,
-    wallet,
-    srcChainId,
-    destChainId,
-    fee,
-  } as BridgeArgs;
-
   if (token.type === TokenType.ETH) {
     const { bridgeAddress } = routingContractsMap[srcChainId][destChainId];
+    const bridgeArgs = {
+      to,
+      amount,
+      wallet,
+      srcChainId,
+      destChainId,
+      fee,
+    } as BridgeArgs;
+
+    const _amount = amount as bigint;
+
     try {
       estimatedCost = await estimateCostOfBridging(bridges.ETH, {
         ...bridgeArgs,
@@ -68,23 +72,34 @@ export async function checkBalanceToBridge({
         throw new RevertedWithFailedError('BLL token doing its thing', { cause: err });
       }
     }
-    if (estimatedCost > balance - amount) {
+    if (estimatedCost > balance - _amount) {
       throw new InsufficientBalanceError('you do not have enough balance to bridge');
     }
   } else if (token.type === TokenType.ERC1155) {
+    const bridgeArgs = {
+      to,
+      amounts: [amount],
+      wallet,
+      srcChainId,
+      destChainId,
+      fee,
+      tokenIds,
+    } as ERC1155BridgeArgs;
+
     const { erc1155VaultAddress } = routingContractsMap[srcChainId][destChainId];
     const tokenAddress = await getAddress({ token, srcChainId, destChainId });
 
     // since we are briding a token, we need the ETH balance of the wallet
     balance = await getPublicClient().getBalance(wallet.account);
     const tokenBalance = token.balance;
+    const _amount = amount as bigint[];
 
     if (
       !tokenAddress ||
       !tokenBalance ||
       tokenAddress === zeroAddress ||
       balance === BigInt(0) ||
-      tokenBalance < amount
+      tokenBalance < _amount[0] //TODO: only single token for now
     )
       throw new InsufficientBalanceError('you do not have enough balance to bridge');
 
@@ -97,6 +112,7 @@ export async function checkBalanceToBridge({
         owner: wallet.account.address,
         spenderAddress: erc1155VaultAddress,
         tokenId: 0n,
+        chainId: srcChainId,
       });
 
       if (!isApprovedForAll) {
@@ -128,6 +144,7 @@ export async function checkBalanceToBridge({
   } else {
     const { erc20VaultAddress } = routingContractsMap[srcChainId][destChainId];
     const tokenAddress = await getAddress({ token, srcChainId, destChainId });
+    const _amount = amount as bigint;
 
     // since we are briding a token, we need the ETH balance of the wallet
     balance = await getPublicClient().getBalance(wallet.account);
@@ -138,23 +155,22 @@ export async function checkBalanceToBridge({
       chainId: srcChainId,
     });
 
-    if (!tokenAddress || tokenAddress === zeroAddress || balance === BigInt(0) || tokenBalance.value < amount)
+    if (!tokenAddress || tokenAddress === zeroAddress || balance === BigInt(0) || tokenBalance.value < _amount)
       throw new InsufficientBalanceError('you do not have enough balance to bridge');
 
     const bridge = bridges[token.type];
 
     if (bridge instanceof ERC20Bridge) {
       // Let's check the allowance to actually bridge the ERC20 token
-
       const allowance = await bridge.requireAllowance({
-        amount,
+        amount: _amount,
         tokenAddress,
         ownerAddress: wallet.account.address,
         spenderAddress: erc20VaultAddress,
       });
 
       if (allowance) {
-        throw new InsufficientAllowanceError(`insufficient allowance for the amount ${amount}`);
+        throw new InsufficientAllowanceError(`insufficient allowance for the amount ${_amount}`);
       }
     }
 
@@ -165,6 +181,15 @@ export async function checkBalanceToBridge({
     });
 
     try {
+      const bridgeArgs = {
+        to,
+        amount,
+        wallet,
+        srcChainId,
+        destChainId,
+        fee,
+      } as BridgeArgs;
+
       estimatedCost = await estimateCostOfBridging(bridges.ERC20, {
         ...bridgeArgs,
         token: tokenAddress,

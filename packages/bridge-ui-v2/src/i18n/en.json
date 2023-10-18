@@ -28,7 +28,7 @@
       "nft": {
         "confirm": "Confirm your NFT details.",
         "import": "Transfer your NFTs across chains",
-        "review": "Verify your NFT details."
+        "review": "Review your details and confirm the transaction."
       }
     },
     "errors": {
@@ -51,17 +51,12 @@
       "step": {
         "confirm": "Confirm",
         "import": {
-          "description": "Import your NFT from the source chain.",
           "scan_screen": {
             "description": "Don't see your NFTs? Try adding them manually!",
             "title": "Your NFTs ({number} items)"
-          },
-          "title": "Import NFT"
+          }
         },
         "review": {
-          "description": "Review your NFT details.",
-          "title": "Import NFT",
-          "token_id": "Token ID",
           "your_tokens": "Your tokens on"
         }
       }
@@ -71,7 +66,7 @@
       "nft": {
         "confirm": "Confirm",
         "import": "Import NFT",
-        "review": "Review"
+        "review": "Confirm and bridge"
       }
     }
   },
@@ -90,6 +85,7 @@
     "to_placeholder": "Select Destination Chain"
   },
   "common": {
+    "add": "Add",
     "address": "Address",
     "back": "Go back",
     "balance": "Balance",
@@ -174,6 +170,9 @@
       "required": "Source chain must be selected.",
       "required_dest": "Destination chain must be selected.",
       "switching": "Switching network"
+    },
+    "bridge": {
+      "nft_scanning": "Scanning for NFTs"
     }
   },
   "nav": {

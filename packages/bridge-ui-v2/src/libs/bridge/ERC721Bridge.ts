@@ -57,17 +57,19 @@ export class ERC721Bridge extends Bridge {
   }
 
   async bridge(args: ERC721BridgeArgs) {
-    const { token, tokenVaultAddress, tokenIds } = args;
+    const { token, tokenVaultAddress, tokenIds, wallet } = args;
     const { tokenVaultContract, sendERC721Args } = await ERC721Bridge._prepareTransaction(args);
     const { fee: value } = sendERC721Args;
 
     // const tokenIdsWithoutApproval: bigint[] = [];
     const tokenId = tokenIds[0]; //TODO: handle multiple tokenIds
+
     try {
       const requireApproval = await this.requiresApproval({
         tokenAddress: token,
         spenderAddress: tokenVaultAddress,
         tokenId: tokenId,
+        chainId: wallet.chain.id,
       });
 
       if (requireApproval) {
@@ -139,10 +141,12 @@ export class ERC721Bridge extends Bridge {
     const { tokenAddress, spenderAddress, wallet, tokenIds } = args;
 
     const tokenId = tokenIds[0]; //TODO: handle multiple tokenIds
+
     const requireApproval = await this.requiresApproval({
       tokenAddress,
       spenderAddress,
       tokenId,
+      chainId: wallet.chain.id,
     });
 
     log(`required approval for token ${tokenId}: ${requireApproval}`);
@@ -180,7 +184,6 @@ export class ERC721Bridge extends Bridge {
   private static async _prepareTransaction(args: ERC721BridgeArgs) {
     const {
       to,
-      amount,
       wallet,
       destChainId,
       token,
@@ -210,7 +213,6 @@ export class ERC721Bridge extends Bridge {
       destChainId: BigInt(destChainId),
       to,
       token,
-      amount,
       gasLimit,
       fee,
       refundTo,

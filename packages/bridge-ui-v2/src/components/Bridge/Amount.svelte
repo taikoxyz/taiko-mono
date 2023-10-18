@@ -9,7 +9,7 @@
   import { warningToast } from '$components/NotificationToast';
   import { checkBalanceToBridge, getMaxAmountToBridge } from '$libs/bridge';
   import { InsufficientAllowanceError, InsufficientBalanceError, RevertedWithFailedError } from '$libs/error';
-  import { ETHToken, getBalance as getTokenBalance, TokenType } from '$libs/token';
+  import { ETHToken, getBalance as getTokenBalance, type NFT,TokenType } from '$libs/token';
   import { renderBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
@@ -90,6 +90,10 @@
         balance,
         srcChainId: $network.id,
         destChainId: $destNetwork.id,
+        tokenIds:
+          $selectedToken.type === TokenType.ERC721 || $selectedToken.type === TokenType.ERC1155
+            ? [BigInt((token as NFT).tokenId)]
+            : [],
       });
     } catch (err) {
       switch (true) {

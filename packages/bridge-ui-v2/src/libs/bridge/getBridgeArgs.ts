@@ -5,18 +5,19 @@ import type { BridgeArgs, BridgeArgsMap, ERC20BridgeArgs, ETHBridgeArgs } from '
 
 export const getBridgeArgs = async (
   token: Token | NFT,
+  amount: bigint | bigint[],
   commonArgs: Omit<
     BridgeArgs,
-    'bridgeAddress' | 'token' | 'tokenVaultAddress' | 'isTokenAlreadyDeployed' | 'tokenIds' | 'amounts'
+    'bridgeAddress' | 'token' | 'tokenVaultAddress' | 'isTokenAlreadyDeployed' | 'tokenIds' | 'amount'
   >,
-  selectedNFT: NFT[],
-  nftIdArray: number[],
+  selectedNFT?: NFT[],
+  nftIdArray?: number[],
 ): Promise<BridgeArgsMap[typeof token.type]> => {
   if (!token) throw new Error('No token selected');
   switch (token.type) {
     case TokenType.ETH: {
       const bridgeAddress = routingContractsMap[commonArgs.srcChainId][commonArgs.destChainId].bridgeAddress;
-      return { ...commonArgs, bridgeAddress } as ETHBridgeArgs;
+      return { ...commonArgs, bridgeAddress, amount } as ETHBridgeArgs;
     }
     case TokenType.ERC20: {
       const tokenAddress = await getAddress({
@@ -30,10 +31,17 @@ export const getBridgeArgs = async (
         srcChainId: commonArgs.srcChainId,
         destChainId: commonArgs.destChainId,
       });
-      return { ...commonArgs, token: tokenAddress, tokenVaultAddress, isTokenAlreadyDeployed } as ERC20BridgeArgs;
+      return {
+        ...commonArgs,
+        token: tokenAddress,
+        tokenVaultAddress,
+        isTokenAlreadyDeployed,
+        amount,
+      } as ERC20BridgeArgs;
     }
     case TokenType.ERC721:
     case TokenType.ERC1155: {
+      if (!selectedNFT) throw new Error('No NFT selected');
       const tokenAddress = selectedNFT[0].addresses[commonArgs.srcChainId];
       const tokenVaultAddress =
         routingContractsMap[commonArgs.srcChainId][commonArgs.destChainId][
@@ -53,7 +61,7 @@ export const getBridgeArgs = async (
         tokenVaultAddress,
         isTokenAlreadyDeployed,
         tokenIds,
-        amounts: [token.type === TokenType.ERC721 ? BigInt(0) : BigInt(1)],
+        amounts: [token.type === TokenType.ERC721 ? BigInt(0) : amount],
       };
       return args as BridgeArgsMap[typeof token.type];
     }

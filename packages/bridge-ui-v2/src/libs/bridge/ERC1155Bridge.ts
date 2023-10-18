@@ -30,14 +30,14 @@ export class ERC1155Bridge extends Bridge {
     super(prover);
   }
 
-  async isApprovedForAll({ tokenAddress, spenderAddress, owner }: RequireApprovalArgs) {
+  async isApprovedForAll({ tokenAddress, spenderAddress, owner, chainId }: RequireApprovalArgs) {
     if (!owner) {
       throw new Error('Owner is required for ERC1155 approval check');
     }
-
     const tokenContract = getContract({
       abi: erc1155ABI,
       address: tokenAddress,
+      chainId,
     });
 
     log('Checking approval');
@@ -53,7 +53,8 @@ export class ERC1155Bridge extends Bridge {
 
     log('Estimating gas for sendERC1155 call with value', value);
 
-    const estimatedGas = tokenVaultContract.estimateGas.sendToken([sendERC1155Args], { value });
+    log('Estimating gas for sendERC1155 call with args', sendERC1155Args);
+    const estimatedGas = await tokenVaultContract.estimateGas.sendToken([sendERC1155Args], { value });
 
     log('Gas estimated', estimatedGas);
 
@@ -74,6 +75,7 @@ export class ERC1155Bridge extends Bridge {
       spenderAddress: tokenVaultAddress,
       tokenId: tokenId,
       owner: wallet.account.address,
+      chainId: wallet.chain.id,
     });
 
     if (!isApprovedForAll) {
@@ -148,6 +150,7 @@ export class ERC1155Bridge extends Bridge {
       spenderAddress,
       tokenId: tokenId,
       owner: wallet.account.address,
+      chainId: wallet.chain.id,
     });
 
     log(`Is approved for all: ${isApprovedForAll}`);
@@ -185,7 +188,6 @@ export class ERC1155Bridge extends Bridge {
   private static async _prepareTransaction(args: ERC1155BridgeArgs) {
     const {
       to,
-      amount,
       wallet,
       destChainId,
       token,
@@ -215,7 +217,6 @@ export class ERC1155Bridge extends Bridge {
       destChainId: BigInt(destChainId),
       to,
       token,
-      amount,
       gasLimit,
       fee,
       refundTo,
