@@ -9,7 +9,7 @@
   import { warningToast } from '$components/NotificationToast';
   import { checkBalanceToBridge, getMaxAmountToBridge } from '$libs/bridge';
   import { InsufficientAllowanceError, InsufficientBalanceError, RevertedWithFailedError } from '$libs/error';
-  import { ETHToken, getBalance as getTokenBalance, type NFT,TokenType } from '$libs/token';
+  import { ETHToken, getBalance as getTokenBalance, type NFT, TokenType } from '$libs/token';
   import { renderBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
@@ -104,7 +104,7 @@
           $insufficientAllowance = true;
           break;
         case err instanceof RevertedWithFailedError:
-          warningToast($t('messages.network.rejected'));
+          warningToast({ title: $t('messages.network.rejected') });
           break;
       }
     } finally {
@@ -211,7 +211,7 @@
       validateAmount();
     } catch (err) {
       console.error(err);
-      warningToast($t('inputs.amount.errors.failed_max'));
+      warningToast({ title: $t('amount.errors.failed_max') });
     } finally {
       computingMaxAmount = false;
     }

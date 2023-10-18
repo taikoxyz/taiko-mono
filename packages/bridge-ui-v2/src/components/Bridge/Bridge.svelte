@@ -111,26 +111,30 @@
         const { explorer } = chainConfig[$network.id].urls;
 
         if (txHash)
-          infoToast(
-            $t('bridge.actions.approve.tx', {
+          infoToast({
+            title: $t('bridge.actions.approve.tx.title'),
+            message: $t('bridge.actions.approve.tx.message', {
               values: {
                 token: $selectedToken.symbol,
                 url: `${explorer}/tx/${txHash}`,
               },
             }),
-          );
+          });
 
         await pendingTransactions.add(txHash, $network.id);
 
         actionsComponent.checkTokensApproved();
 
-        successToast(
-          $t('bridge.actions.approve.success', {
+        await pendingTransactions.add(txHash, $network.id);
+
+        successToast({
+          title: $t('bridge.actions.approve.success.title'),
+          message: $t('bridge.actions.approve.success.message', {
             values: {
               token: $selectedToken.symbol,
             },
           }),
-        );
+        });
       }
     } catch (err) {
       console.error(err);
@@ -157,24 +161,26 @@
 
       const explorer = chainConfig[bridgeArgs.srcChainId].urls.explorer;
 
-      infoToast(
-        $t('bridge.actions.bridge.tx', {
+      infoToast({
+        title: $t('bridge.actions.bridge.tx.title'),
+        message: $t('bridge.actions.bridge.tx.message', {
           values: {
             token: $selectedToken.symbol,
             url: `${explorer}/tx/${txHash}`,
           },
         }),
-      );
+      });
 
       await pendingTransactions.add(txHash, $network.id);
 
-      successToast(
-        $t('bridge.actions.bridge.success', {
+      successToast({
+        title: $t('bridge.actions.bridge.success.title'),
+        message: $t('bridge.actions.bridge.success.message', {
           values: {
             network: $destinationChain.name,
           },
         }),
-      );
+      });
 
       // Let's add it to the user's localStorage
       const bridgeTx = {
