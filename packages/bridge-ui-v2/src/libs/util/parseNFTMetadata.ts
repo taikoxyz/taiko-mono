@@ -11,12 +11,16 @@ const log = getLogger('libs:token:parseNFTMetadata');
 export const parseNFTMetadata = async (token: NFT): Promise<NFTMetadata | null> => {
   if (token.type !== TokenType.ERC721 && token.type !== TokenType.ERC1155) throw new Error('Not a NFT');
 
+  log(`fetching metadata for ${token.name} id: ${token.tokenId}`);
+
   if (!token.uri) throw new Error('No token URI found');
+
   if (token.uri.includes('{id}')) {
     token.uri = token.uri.replace('{id}', token.tokenId.toString());
   }
+
   const url = safeParseUrl(token.uri);
-  if (!url) throw new Error('No metadata found');
+  if (!url) throw new Error(`Invalid token URI: ${token.uri}`);
 
   let json;
   try {
@@ -27,7 +31,7 @@ export const parseNFTMetadata = async (token: NFT): Promise<NFTMetadata | null> 
     //todo: handle different error scenarios?
     json = await retry(url, token.tokenId);
   }
-  if (!json || !json.data) throw new Error('No metadata found');
+  if (!json || !json.data) throw new Error(`No metadata found for ${token.name} id: ${token.tokenId}`);
 
   const metadata = {
     description: json.data.description || '',

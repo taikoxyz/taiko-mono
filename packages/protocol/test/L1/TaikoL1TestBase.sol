@@ -12,8 +12,8 @@ import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
 import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
 import { GuardianVerifier } from
     "../../contracts/L1/verifiers/GuardianVerifier.sol";
-import { TaikoConfigProvider } from
-    "../../contracts/L1/tiers/TaikoConfigProvider.sol";
+import { TaikoA6TierProvider } from
+    "../../contracts/L1/tiers/TaikoA6TierProvider.sol";
 import { PseZkVerifier } from "../../contracts/L1/verifiers/PseZkVerifier.sol";
 import { SgxVerifier } from "../../contracts/L1/verifiers/SgxVerifier.sol";
 import { SgxAndZkVerifier } from
@@ -45,13 +45,14 @@ abstract contract TaikoL1TestBase is TestBase {
     SgxAndZkVerifier public sgxZkVerifier;
     GuardianVerifier public gv;
     GuardianProver public gp;
-    TaikoConfigProvider public cp;
+    TaikoA6TierProvider public cp;
 
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
     uint64 l2GasExcess = 1e18;
 
     address public constant L2Treasury =
         0x859d74b52762d9ed07D1b2B8d7F93d26B1EA78Bb;
+
     address public constant L2SS = 0xa008AE5Ba00656a3Cc384de589579e3E52aC030C;
     address public constant TaikoL2 = 0x0082D90249342980d011C58105a03b35cCb4A315;
     address public constant L1EthVault =
@@ -87,15 +88,9 @@ abstract contract TaikoL1TestBase is TestBase {
 
         gp = new GuardianProver();
         gp.init(address(addressManager));
-        address[5] memory initMultiSig;
-        initMultiSig[0] = David;
-        initMultiSig[1] = Emma;
-        initMultiSig[2] = Frank;
-        initMultiSig[3] = Grace;
-        initMultiSig[4] = Henry;
-        gp.setGuardians(initMultiSig);
 
-        cp = new TaikoConfigProvider();
+        setupGuardianProverMultisig();
+        cp = new TaikoA6TierProvider();
 
         registerAddress("tier_pse_zkevm", address(pv));
         registerAddress("tier_sgx", address(sv));
@@ -105,7 +100,6 @@ abstract contract TaikoL1TestBase is TestBase {
         registerAddress("signal_service", address(ss));
         registerAddress("guardian", address(gp));
         registerAddress("ether_vault", address(L1EthVault));
-        registerL2Address("treasury", L2Treasury);
         registerL2Address("taiko", address(TaikoL2));
         registerL2Address("signal_service", address(L2SS));
         registerL2Address("taiko_l2", address(TaikoL2));
@@ -296,6 +290,16 @@ abstract contract TaikoL1TestBase is TestBase {
 
     function verifyBlock(address, uint64 count) internal {
         L1.verifyBlocks(count);
+    }
+
+    function setupGuardianProverMultisig() internal {
+        address[5] memory initMultiSig;
+        initMultiSig[0] = David;
+        initMultiSig[1] = Emma;
+        initMultiSig[2] = Frank;
+        initMultiSig[3] = Grace;
+        initMultiSig[4] = Henry;
+        gp.setGuardians(initMultiSig);
     }
 
     function registerAddress(bytes32 nameHash, address addr) internal {

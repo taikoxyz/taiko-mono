@@ -39,11 +39,11 @@ func (p *Processor) eventStatusFromMsgHash(
 
 	defer cancel()
 
-	messageStatus, err := p.destBridge.GetMessageStatus(&bind.CallOpts{
+	messageStatus, err := p.destBridge.MessageStatus(&bind.CallOpts{
 		Context: ctx,
 	}, signal)
 	if err != nil {
-		return 0, errors.Wrap(err, "svc.destBridge.GetMessageStatus")
+		return 0, errors.Wrap(err, "svc.destBridge.MessageStatus")
 	}
 
 	eventStatus = relayer.EventStatus(messageStatus)
@@ -94,7 +94,7 @@ func (p *Processor) processMessage(
 
 	// get latest synced header since not every header is synced from L1 => L2,
 	// and later blocks still have the storage trie proof from previous blocks.
-	latestSyncedHeader, err := p.destHeaderSyncer.GetCrossChainBlockHash(&bind.CallOpts{}, 0)
+	latestSyncedSnippet, err := p.destHeaderSyncer.GetSyncedSnippet(&bind.CallOpts{}, 0)
 	if err != nil {
 		return errors.Wrap(err, "taiko.GetSyncedHeader")
 	}
@@ -106,7 +106,13 @@ func (p *Processor) processMessage(
 
 	key := hex.EncodeToString(hashed)
 
-	encodedSignalProof, err := p.prover.EncodedSignalProof(ctx, p.rpc, p.srcSignalServiceAddress, key, latestSyncedHeader)
+	encodedSignalProof, err := p.prover.EncodedSignalProof(
+		ctx,
+		p.rpc,
+		p.srcSignalServiceAddress,
+		key,
+		latestSyncedSnippet.BlockHash,
+	)
 	if err != nil {
 		slog.Error("srcChainID: %v, destChainID: %v, txHash: %v: msgHash: %v, from: %v encountered signalProofError %v",
 			msgBody.Event.Message.SrcChainId.String(),
@@ -123,9 +129,9 @@ func (p *Processor) processMessage(
 	// check if message is received first. if not, it will definitely fail,
 	// so we can exit early on this one. there is most likely
 	// an issue with the signal generation.
-	received, err := p.destBridge.IsMessageReceived(&bind.CallOpts{
+	received, err := p.destBridge.ProveMessageReceived(&bind.CallOpts{
 		Context: ctx,
-	}, msgBody.Event.MsgHash, msgBody.Event.Message.SrcChainId, encodedSignalProof)
+	}, msgBody.Event.Message, encodedSignalProof)
 	if err != nil {
 		return errors.Wrap(err, "p.destBridge.IsMessageReceived")
 	}
@@ -181,7 +187,7 @@ func (p *Processor) processMessage(
 
 	slog.Info("Mined tx", "txHash", hex.EncodeToString(tx.Hash().Bytes()))
 
-	messageStatus, err := p.destBridge.GetMessageStatus(&bind.CallOpts{}, msgBody.Event.MsgHash)
+	messageStatus, err := p.destBridge.MessageStatus(&bind.CallOpts{}, msgBody.Event.MsgHash)
 	if err != nil {
 		return errors.Wrap(err, "p.destBridge.GetMessageStatus")
 	}

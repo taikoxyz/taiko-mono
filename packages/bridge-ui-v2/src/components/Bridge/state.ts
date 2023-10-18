@@ -3,7 +3,7 @@ import { derived, writable } from 'svelte/store';
 
 import { bridges } from '$libs/bridge';
 import { chains } from '$libs/chain';
-import type { Token } from '$libs/token';
+import type { NFT, Token } from '$libs/token';
 
 import { type BridgeType, BridgeTypes } from './types';
 
@@ -17,7 +17,7 @@ import { type BridgeType, BridgeTypes } from './types';
 // prevent other components outside the Bridge from accessing this store.
 
 export const activeBridge = writable<BridgeType>(BridgeTypes.FUNGIBLE);
-export const selectedToken = writable<Maybe<Token>>(null);
+export const selectedToken = writable<Maybe<Token | NFT>>(null);
 export const tokenBalance = writable<Maybe<FetchBalanceResult>>(null);
 export const enteredAmount = writable<bigint>(BigInt(0));
 export const destNetwork = writable<Maybe<Chain>>(null);
@@ -42,6 +42,9 @@ export const errorComputingBalance = writable<boolean>(false);
 // is a warning but the user must approve allowance before bridging
 export const insufficientBalance = writable<boolean>(false);
 export const insufficientAllowance = writable<boolean>(false);
+
+// ERC721 needs a tokenID to be approved before bridging
+export const notApproved = writable(new Map<number, boolean>());
 
 // Derived state
 export const bridgeService = derived(selectedToken, (token) => (token ? bridges[token.type] : null));

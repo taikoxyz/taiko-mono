@@ -83,8 +83,6 @@
               <div class="token-ids my-2">
                 {#each nftsGroup as nft}
                   {@const collectionAddress = nft.addresses[chainId]}
-                  <!-- {@const tokenImage = fetchNFTImage(nft)} -->
-
                   {#if collectionAddress === undefined}
                     <div>TODO: Address for {nft.name} is undefined</div>
                   {:else}
@@ -98,14 +96,10 @@
                       {selectNFT} />
                   {/if}
                 {/each}
-                {#if nftsGroup.length > 2}
-                  <div class="h-sep" />
-                {/if}
               </div>
             {/if}
           </div>
-
-          <!-- -->
+          <div class="h-sep" />
         {/each}
       {/if}
     </div>

@@ -15,9 +15,10 @@ import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/verifiers/PseZkVerifier.sol";
 import "../contracts/L1/verifiers/SgxVerifier.sol";
+import "../contracts/L1/verifiers/SgxAndZkVerifier.sol";
 import "../contracts/L1/verifiers/GuardianVerifier.sol";
 import "../contracts/L1/tiers/ITierProvider.sol";
-import "../contracts/L1/tiers/TaikoConfigProvider.sol";
+import "../contracts/L1/tiers/TaikoA6TierProvider.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
@@ -58,7 +59,7 @@ contract DeployOnL1 is Script {
     TaikoL1 taikoL1;
     address public addressManagerProxy;
 
-    enum TierConfigProviders { TAIKO }
+    enum TierProviders { TAIKO_ALPHA6 }
 
     error FAILED_TO_DEPLOY_PLONK_VERIFIER(string contractPath);
 
@@ -75,8 +76,6 @@ contract DeployOnL1 is Script {
                 == taikoTokenPremintAmounts.length,
             "taikoTokenPremintRecipients and taikoTokenPremintAmounts must be same length"
         );
-        require(validateTierProvider(tierProvider), "invalid tier provider");
-
         vm.startBroadcast(deployerPrivateKey);
 
         // AddressManager
@@ -174,8 +173,12 @@ contract DeployOnL1 is Script {
             )
         );
 
-        // TierProvider
-        deployProxy("tier_provider", deployTierProvider(tierProvider), "");
+        // Config provider
+        deployProxy(
+            "tier_provider",
+            deployTierProvider(uint256(TierProviders.TAIKO_ALPHA6)),
+            ""
+        );
 
         // GuardianVerifier
         GuardianVerifier guardianVerifier = new ProxiedGuardianVerifier();
@@ -197,13 +200,23 @@ contract DeployOnL1 is Script {
             )
         );
 
+        // SgxAndZkVerifier
+        SgxAndZkVerifier sgxAndZkVerifier = new ProxiedSgxAndZkVerifier();
+        deployProxy(
+            "tier_sgx_and_pse_zkevm",
+            address(sgxAndZkVerifier),
+            bytes.concat(
+                sgxVerifier.init.selector, abi.encode(addressManagerProxy)
+            )
+        );
+
         // PseZkVerifier
-        PseZkVerifier proofVerifier = new ProxiedPseZkVerifier();
+        PseZkVerifier pseZkVerifier = new ProxiedPseZkVerifier();
         deployProxy(
             "tier_pse_zkevm",
-            address(proofVerifier),
+            address(pseZkVerifier),
             bytes.concat(
-                proofVerifier.init.selector, abi.encode(addressManagerProxy)
+                pseZkVerifier.init.selector, abi.encode(addressManagerProxy)
             )
         );
 
@@ -224,16 +237,20 @@ contract DeployOnL1 is Script {
             setAddress("signal_service", sharedSignalService);
         }
 
+        // PlonkVerifier
+        deployPlonkVerifiers(pseZkVerifier);
+
         vm.stopBroadcast();
     }
 
-    function validateTierProvider(uint256 provider)
-        private
-        pure
-        returns (bool)
-    {
-        if (provider == uint256(TierConfigProviders.TAIKO)) return true;
-        return false;
+    function deployPlonkVerifiers(PseZkVerifier pseZkVerifier) private {
+        address[] memory plonkVerifiers = new address[](1);
+        plonkVerifiers[0] =
+            deployYulContract("contracts/L1/verifiers/PlonkVerifier.yulp");
+
+        for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
+            setAddress(pseZkVerifier.getVerifierName(i), plonkVerifiers[i]);
+        }
     }
 
     function deployYulContract(string memory contractPath)
@@ -266,12 +283,12 @@ contract DeployOnL1 is Script {
         return deployedAddress;
     }
 
-    function deployTierProvider(uint256 provider)
+    function deployTierProvider(uint256 tier)
         private
         returns (address providerAddress)
     {
-        if (provider == uint256(TierConfigProviders.TAIKO)) {
-            return address(new TaikoConfigProvider());
+        if (tier == uint256(TierProviders.TAIKO_ALPHA6)) {
+            return address(new TaikoA6TierProvider());
         }
 
         revert("invalid provider");

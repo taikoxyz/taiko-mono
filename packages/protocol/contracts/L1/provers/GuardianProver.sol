@@ -23,7 +23,8 @@ contract GuardianProver is EssentialContract {
 
     uint256[43] private __gap;
 
-    event GuardiansUpdated(address[NUM_GUARDIANS]);
+    // Cannot use NUM_GUARDIANS directly below otherwise hardhat will fail
+    event GuardiansUpdated(address[5]);
     event Approved(
         uint64 blockId,
         TaikoData.BlockEvidence evidence,

@@ -29,9 +29,15 @@ var (
 	_ = abi.ConvertType
 )
 
+// ICrossChainSyncSnippet is an auto generated low-level Go binding around an user-defined struct.
+type ICrossChainSyncSnippet struct {
+	BlockHash  [32]byte
+	SignalRoot [32]byte
+}
+
 // ICrossChainSyncMetaData contains all meta data concerning the ICrossChainSync contract.
 var ICrossChainSyncMetaData = &bind.MetaData{
-	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint64\",\"name\":\"srcHeight\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"blockHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"signalRoot\",\"type\":\"bytes32\"}],\"name\":\"CrossChainSynced\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"blockId\",\"type\":\"uint64\"}],\"name\":\"getCrossChainBlockHash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"blockId\",\"type\":\"uint64\"}],\"name\":\"getCrossChainSignalRoot\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint64\",\"name\":\"srcHeight\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"blockHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"signalRoot\",\"type\":\"bytes32\"}],\"name\":\"CrossChainSynced\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"blockId\",\"type\":\"uint64\"}],\"name\":\"getSyncedSnippet\",\"outputs\":[{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"blockHash\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"signalRoot\",\"type\":\"bytes32\"}],\"internalType\":\"structICrossChainSync.Snippet\",\"name\":\"snippet\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
 }
 
 // ICrossChainSyncABI is the input ABI used to generate the binding from.
@@ -180,66 +186,35 @@ func (_ICrossChainSync *ICrossChainSyncTransactorRaw) Transact(opts *bind.Transa
 	return _ICrossChainSync.Contract.contract.Transact(opts, method, params...)
 }
 
-// GetCrossChainBlockHash is a free data retrieval call binding the contract method 0xbdd6bc36.
+// GetSyncedSnippet is a free data retrieval call binding the contract method 0x8cfb0459.
 //
-// Solidity: function getCrossChainBlockHash(uint64 blockId) view returns(bytes32)
-func (_ICrossChainSync *ICrossChainSyncCaller) GetCrossChainBlockHash(opts *bind.CallOpts, blockId uint64) ([32]byte, error) {
+// Solidity: function getSyncedSnippet(uint64 blockId) view returns((bytes32,bytes32) snippet)
+func (_ICrossChainSync *ICrossChainSyncCaller) GetSyncedSnippet(opts *bind.CallOpts, blockId uint64) (ICrossChainSyncSnippet, error) {
 	var out []interface{}
-	err := _ICrossChainSync.contract.Call(opts, &out, "getCrossChainBlockHash", blockId)
+	err := _ICrossChainSync.contract.Call(opts, &out, "getSyncedSnippet", blockId)
 
 	if err != nil {
-		return *new([32]byte), err
+		return *new(ICrossChainSyncSnippet), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+	out0 := *abi.ConvertType(out[0], new(ICrossChainSyncSnippet)).(*ICrossChainSyncSnippet)
 
 	return out0, err
 
 }
 
-// GetCrossChainBlockHash is a free data retrieval call binding the contract method 0xbdd6bc36.
+// GetSyncedSnippet is a free data retrieval call binding the contract method 0x8cfb0459.
 //
-// Solidity: function getCrossChainBlockHash(uint64 blockId) view returns(bytes32)
-func (_ICrossChainSync *ICrossChainSyncSession) GetCrossChainBlockHash(blockId uint64) ([32]byte, error) {
-	return _ICrossChainSync.Contract.GetCrossChainBlockHash(&_ICrossChainSync.CallOpts, blockId)
+// Solidity: function getSyncedSnippet(uint64 blockId) view returns((bytes32,bytes32) snippet)
+func (_ICrossChainSync *ICrossChainSyncSession) GetSyncedSnippet(blockId uint64) (ICrossChainSyncSnippet, error) {
+	return _ICrossChainSync.Contract.GetSyncedSnippet(&_ICrossChainSync.CallOpts, blockId)
 }
 
-// GetCrossChainBlockHash is a free data retrieval call binding the contract method 0xbdd6bc36.
+// GetSyncedSnippet is a free data retrieval call binding the contract method 0x8cfb0459.
 //
-// Solidity: function getCrossChainBlockHash(uint64 blockId) view returns(bytes32)
-func (_ICrossChainSync *ICrossChainSyncCallerSession) GetCrossChainBlockHash(blockId uint64) ([32]byte, error) {
-	return _ICrossChainSync.Contract.GetCrossChainBlockHash(&_ICrossChainSync.CallOpts, blockId)
-}
-
-// GetCrossChainSignalRoot is a free data retrieval call binding the contract method 0x0599d294.
-//
-// Solidity: function getCrossChainSignalRoot(uint64 blockId) view returns(bytes32)
-func (_ICrossChainSync *ICrossChainSyncCaller) GetCrossChainSignalRoot(opts *bind.CallOpts, blockId uint64) ([32]byte, error) {
-	var out []interface{}
-	err := _ICrossChainSync.contract.Call(opts, &out, "getCrossChainSignalRoot", blockId)
-
-	if err != nil {
-		return *new([32]byte), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
-
-	return out0, err
-
-}
-
-// GetCrossChainSignalRoot is a free data retrieval call binding the contract method 0x0599d294.
-//
-// Solidity: function getCrossChainSignalRoot(uint64 blockId) view returns(bytes32)
-func (_ICrossChainSync *ICrossChainSyncSession) GetCrossChainSignalRoot(blockId uint64) ([32]byte, error) {
-	return _ICrossChainSync.Contract.GetCrossChainSignalRoot(&_ICrossChainSync.CallOpts, blockId)
-}
-
-// GetCrossChainSignalRoot is a free data retrieval call binding the contract method 0x0599d294.
-//
-// Solidity: function getCrossChainSignalRoot(uint64 blockId) view returns(bytes32)
-func (_ICrossChainSync *ICrossChainSyncCallerSession) GetCrossChainSignalRoot(blockId uint64) ([32]byte, error) {
-	return _ICrossChainSync.Contract.GetCrossChainSignalRoot(&_ICrossChainSync.CallOpts, blockId)
+// Solidity: function getSyncedSnippet(uint64 blockId) view returns((bytes32,bytes32) snippet)
+func (_ICrossChainSync *ICrossChainSyncCallerSession) GetSyncedSnippet(blockId uint64) (ICrossChainSyncSnippet, error) {
+	return _ICrossChainSync.Contract.GetSyncedSnippet(&_ICrossChainSync.CallOpts, blockId)
 }
 
 // ICrossChainSyncCrossChainSyncedIterator is returned from FilterCrossChainSynced and is used to iterate over the raw logs and unpacked data for CrossChainSynced events raised by the ICrossChainSync contract.

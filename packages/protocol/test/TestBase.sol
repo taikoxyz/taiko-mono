@@ -21,10 +21,6 @@ abstract contract TestBase is Test {
         return keccak256(abi.encodePacked("bytes32", _seed++));
     }
 
-    function getRandomUint256() internal returns (uint256) {
-        return uint256(keccak256(abi.encodePacked("uint256", _seed++)));
-    }
-
     address internal Alice = vm.addr(0x1);
     address internal Bob = vm.addr(0x2);
     address internal Carol = vm.addr(0x3);
@@ -55,7 +51,6 @@ abstract contract TestBase is Test {
     address internal SGX_X_1 = vm.addr(0x5);
     address internal SGX_Y = getRandomAddress();
     address internal SGX_Z = getRandomAddress();
-    address internal SGX_VARIANT = vm.addr(variablePKey);
 }
 
 contract BadReceiver {
