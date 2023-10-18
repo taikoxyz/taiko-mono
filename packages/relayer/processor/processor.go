@@ -26,6 +26,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc20vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc721vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/icrosschainsync"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/queue"
@@ -42,6 +43,7 @@ type ethClient interface {
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	BlockNumber(ctx context.Context) (uint64, error)
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
+	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error)
 	HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error)
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
@@ -57,9 +59,12 @@ type Processor struct {
 
 	srcEthClient  ethClient
 	destEthClient ethClient
+	hopEthClient  ethClient
 	rpc           relayer.Caller
 
 	ecdsaKey *ecdsa.PrivateKey
+
+	srcSignalService *signalservice.SignalService
 
 	destBridge       relayer.Bridge
 	destHeaderSyncer relayer.HeaderSyncer
@@ -74,6 +79,7 @@ type Processor struct {
 	destNonce               uint64
 	relayerAddr             common.Address
 	srcSignalServiceAddress common.Address
+	hopSignalServiceAddress common.Address
 	confirmations           uint64
 
 	profitableOnly            bool
@@ -91,6 +97,7 @@ type Processor struct {
 
 	srcChainId  *big.Int
 	destChainId *big.Int
+	hopChainId  *big.Int
 
 	taikoL2 *taikol2.TaikoL2
 }
@@ -131,7 +138,31 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		return err
 	}
 
+	var hopEthClient *ethclient.Client
+
+	var hopChainID *big.Int
+
+	if cfg.HopRPCUrl != "" {
+		hopEthClient, err = ethclient.Dial(cfg.HopRPCUrl)
+		if err != nil {
+			return err
+		}
+
+		hopChainID, err = hopEthClient.ChainID(context.Background())
+		if err != nil {
+			return err
+		}
+	}
+
 	q, err := cfg.OpenQueueFunc()
+	if err != nil {
+		return err
+	}
+
+	srcSignalService, err := signalservice.NewSignalService(
+		cfg.SrcSignalServiceAddress,
+		srcEthClient,
+	)
 	if err != nil {
 		return err
 	}
@@ -186,7 +217,13 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		return err
 	}
 
-	prover, err := proof.New(srcEthClient)
+	var proverEthClient ethClient = srcEthClient
+
+	if hopEthClient != nil {
+		proverEthClient = srcEthClient
+	}
+
+	prover, err := proof.New(proverEthClient)
 	if err != nil {
 		return err
 	}
@@ -215,6 +252,9 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 
 	p.srcEthClient = srcEthClient
 	p.destEthClient = destEthClient
+	p.hopEthClient = hopEthClient
+
+	p.srcSignalService = srcSignalService
 
 	p.destBridge = destBridge
 	p.destERC1155Vault = destERC1155Vault
@@ -231,12 +271,14 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 
 	p.srcChainId = srcChainID
 	p.destChainId = destChainID
+	p.hopChainId = hopChainID
 
 	p.headerSyncIntervalSeconds = int64(cfg.HeaderSyncInterval)
 	p.confTimeoutInSeconds = int64(cfg.ConfirmationsTimeout)
 	p.confirmations = cfg.Confirmations
 
 	p.srcSignalServiceAddress = cfg.SrcSignalServiceAddress
+	p.hopSignalServiceAddress = cfg.HopSignalServiceAddress
 
 	p.msgCh = make(chan queue.Message)
 	p.wg = &sync.WaitGroup{}

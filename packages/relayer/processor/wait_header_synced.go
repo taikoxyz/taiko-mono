@@ -25,16 +25,27 @@ func (p *Processor) waitHeaderSynced(ctx context.Context, event *bridge.BridgeMe
 				"txHash", event.Raw.TxHash.Hex(),
 				"blockNumber", event.Raw.BlockNumber,
 			)
-			// get latest synced header since not every header is synced from L1 => L2,
+			// get latest synced block has via snippet since not every header is synced from L1 => L2,
 			// and later blocks still have the storage trie proof from previous blocks.
 			latestSyncedSnippet, err := p.destHeaderSyncer.GetSyncedSnippet(&bind.CallOpts{}, 0)
 			if err != nil {
-				return errors.Wrap(err, "p.destHeaderSyncer.GetCrossChainBlockHash")
+				return errors.Wrap(err, "p.destHeaderSyncer.GetSyncedSnippet")
 			}
 
-			header, err := p.srcEthClient.HeaderByHash(ctx, latestSyncedSnippet.BlockHash)
+			slog.Info("latestSyncedSnippet",
+				"blockHash", common.Bytes2Hex(latestSyncedSnippet.BlockHash[:]),
+				"signalRoot", common.Bytes2Hex(latestSyncedSnippet.SignalRoot[:]),
+			)
+
+			var ethClient ethClient = p.srcEthClient
+
+			if p.hopChainId != nil {
+				ethClient = p.hopEthClient
+			}
+
+			header, err := ethClient.HeaderByHash(ctx, latestSyncedSnippet.BlockHash)
 			if err != nil {
-				return errors.Wrap(err, "p.destHeaderSyncer.GetCrossChainBlockHash")
+				return errors.Wrap(err, "ethClient.HeaderByHash")
 			}
 
 			// header is caught up and processible

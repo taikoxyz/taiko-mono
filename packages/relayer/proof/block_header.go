@@ -10,10 +10,10 @@ import (
 
 // blockHeader fetches block via rpc, then converts an ethereum block to the BlockHeader type that LibBridgeData
 // uses in our contracts
-func (p *Prover) blockHeader(ctx context.Context, blockHash common.Hash) (encoding.BlockHeader, error) {
-	h, err := p.blocker.BlockByHash(ctx, blockHash)
+func (p *Prover) blockHeader(ctx context.Context, blocker blocker, blockHash common.Hash) (encoding.BlockHeader, error) {
+	h, err := blocker.BlockByHash(ctx, blockHash)
 	if err != nil {
-		return encoding.BlockHeader{}, errors.Wrap(err, "p.ethClient.GetBlockByNumber")
+		return encoding.BlockHeader{}, errors.Wrap(err, "blocker.BlockByHash")
 	}
 
 	return encoding.BlockToBlockHeader(h), nil

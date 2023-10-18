@@ -15,29 +15,65 @@ import (
 	"github.com/pkg/errors"
 )
 
+type HopParams struct {
+	ChainID              *big.Int
+	SignalServiceAddress common.Address
+	Blocker              blocker
+}
+
 // EncodedSignalProof rlp and abi encodes the SignalProof struct expected by LibBridgeSignal
 // in our contracts
 func (p *Prover) EncodedSignalProof(
 	ctx context.Context,
 	caller relayer.Caller,
 	signalServiceAddress common.Address,
+	hopParams []HopParams,
 	key string,
 	blockHash common.Hash,
 ) ([]byte, error) {
-	blockHeader, err := p.blockHeader(ctx, blockHash)
+	blockHeader, err := p.blockHeader(ctx, p.blocker, blockHash)
 	if err != nil {
 		return nil, errors.Wrap(err, "p.blockHeader")
 	}
 
-	encodedStorageProof, err := p.encodedStorageProof(ctx, caller, signalServiceAddress, key, blockHeader.Height.Int64())
+	encodedStorageProof, signalRoot, err := p.encodedStorageProof(ctx, caller, signalServiceAddress, key, blockHeader.Height.Int64())
 	if err != nil {
 		return nil, errors.Wrap(err, "p.getEncodedStorageProof")
+	}
+
+	hops := []encoding.Hop{}
+
+	for _, hopParam := range hopParams {
+		hopBlockHeader, err := p.blockHeader(ctx, hopParam.Blocker, blockHash)
+		if err != nil {
+			return nil, errors.Wrap(err, "hop p.blockHeader")
+		}
+
+		encodedHopStorageProof, signalRoot, err := p.encodedStorageProof(
+			ctx,
+			caller,
+			hopParam.SignalServiceAddress,
+			signalRoot.Hex(),
+			hopBlockHeader.Height.Int64(),
+		)
+
+		if err != nil {
+			return nil, errors.Wrap(err, "hop p.encodedStorageProof")
+		}
+
+		hop := encoding.Hop{
+			ChainID:      hopParam.ChainID,
+			SignalRoot:   signalRoot,
+			StorageProof: encodedHopStorageProof,
+		}
+
+		hops = append(hops, hop)
 	}
 
 	signalProof := encoding.SignalProof{
 		Height:       blockHeader.Height.Uint64(),
 		StorageProof: encodedStorageProof,
-		Hops:         []encoding.Hop{},
+		Hops:         hops,
 	}
 
 	encodedSignalProof, err := encoding.EncodeSignalProof(signalProof)
@@ -48,16 +84,16 @@ func (p *Prover) EncodedSignalProof(
 	return encodedSignalProof, nil
 }
 
-// getEncodedStorageProof rlp and abi encodes a proof for LibBridgeSignal,
-// where `proof` is an rlp and abi encoded (bytes, bytes) consisting of the accountProof and storageProof.Proofs[0]
-// response from `eth_getProof`
+// getEncodedStorageProof rlp and abi encodes a proof for SignalService,
+// where `proof` is an rlp and abi encoded (bytes, bytes) consisting of storageProof.Proofs[0]
+// response from `eth_getProof`, and returns the storageHash to be used as the signalRoot.
 func (p *Prover) encodedStorageProof(
 	ctx context.Context,
 	c relayer.Caller,
 	signalServiceAddress common.Address,
 	key string,
 	blockNumber int64,
-) ([]byte, error) {
+) ([]byte, common.Hash, error) {
 	var ethProof StorageProof
 
 	slog.Info("getting proof",
@@ -74,19 +110,19 @@ func (p *Prover) encodedStorageProof(
 		hexutil.EncodeBig(new(big.Int).SetInt64(blockNumber)),
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "c.CallContext")
+		return nil, common.Hash{}, errors.Wrap(err, "c.CallContext")
 	}
 
 	slog.Info("proof generated", "value", new(big.Int).SetBytes(ethProof.StorageProof[0].Value).Int64())
 
 	if new(big.Int).SetBytes(ethProof.StorageProof[0].Value).Int64() != int64(1) {
-		return nil, errors.New("proof will not be valid, expected storageProof to be 1 but was not")
+		return nil, common.Hash{}, errors.New("proof will not be valid, expected storageProof to be 1 but was not")
 	}
 
 	rlpEncodedStorageProof, err := rlp.EncodeToBytes(ethProof.StorageProof[0].Proof)
 	if err != nil {
-		return nil, errors.Wrap(err, "rlp.EncodeToBytes(proof.StorageProof[0].Proof")
+		return nil, common.Hash{}, errors.Wrap(err, "rlp.EncodeToBytes(proof.StorageProof[0].Proof")
 	}
 
-	return rlpEncodedStorageProof, nil
+	return rlpEncodedStorageProof, ethProof.StorageHash, nil
 }

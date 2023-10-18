@@ -16,11 +16,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/queue"
 )
 
@@ -99,28 +99,52 @@ func (p *Processor) processMessage(
 		return errors.Wrap(err, "taiko.GetSyncedHeader")
 	}
 
-	hashed := crypto.Keccak256(
-		msgBody.Event.Raw.Address.Bytes(),
-		msgBody.Event.MsgHash[:],
+	key, err := p.srcSignalService.GetSignalSlot(&bind.CallOpts{},
+		msgBody.Event.Message.SrcChainId,
+		msgBody.Event.Raw.Address,
+		msgBody.Event.MsgHash,
 	)
 
-	key := hex.EncodeToString(hashed)
+	if err != nil {
+		return errors.Wrap(err, "p.srcSignalService.GetSignalSlot")
+	}
+
+	hops := []proof.HopParams{}
+
+	// if a hop is set, the proof service needs to generate an additional proof
+	// for the signal service intermediary chain in between the source chain
+	// and the destination chain.
+	if p.hopChainId != nil && p.hopSignalServiceAddress != (common.Address{}) {
+		slog.Info(
+			"adding hop",
+			"hopChainId", p.hopChainId.Uint64(),
+			"hopSignalServiceAddress", p.hopSignalServiceAddress.Hex(),
+		)
+
+		hops = append(hops, proof.HopParams{
+			ChainID:              p.hopChainId,
+			SignalServiceAddress: p.hopSignalServiceAddress,
+			Blocker:              p.hopEthClient,
+		})
+	}
 
 	encodedSignalProof, err := p.prover.EncodedSignalProof(
 		ctx,
 		p.rpc,
 		p.srcSignalServiceAddress,
-		key,
+		hops,
+		common.Bytes2Hex(key[:]),
 		latestSyncedSnippet.BlockHash,
 	)
 	if err != nil {
-		slog.Error("srcChainID: %v, destChainID: %v, txHash: %v: msgHash: %v, from: %v encountered signalProofError %v",
-			msgBody.Event.Message.SrcChainId.String(),
-			msgBody.Event.Message.DestChainId.String(),
-			msgBody.Event.Raw.TxHash.Hex(),
-			common.Hash(msgBody.Event.MsgHash).Hex(),
-			msgBody.Event.Message.User.Hex(),
-			err,
+		slog.Error("error encoding signal proof",
+			"srcChainID", msgBody.Event.Message.SrcChainId.String(),
+			" destChainID", msgBody.Event.Message.DestChainId.String(),
+			"txHash", msgBody.Event.Raw.TxHash.Hex(),
+			"msgHash", common.Hash(msgBody.Event.MsgHash).Hex(),
+			"from", msgBody.Event.Message.User.Hex(),
+			"error", err,
+			"hopsLength", len(hops),
 		)
 
 		return errors.Wrap(err, "p.prover.GetEncodedSignalProof")

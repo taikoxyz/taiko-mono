@@ -59,8 +59,6 @@ var hopComponents = []abi.ArgumentMarshaling{
 	},
 }
 
-var hopT, _ = abi.NewType("tuple", "", hopComponents)
-
 var signalProofT, _ = abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 	{
 		Name: "height",

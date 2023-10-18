@@ -19,6 +19,7 @@ import (
 type Config struct {
 	// address configs
 	SrcSignalServiceAddress common.Address
+	HopSignalServiceAddress common.Address
 	DestBridgeAddress       common.Address
 	DestERC721VaultAddress  common.Address
 	DestERC20VaultAddress   common.Address
@@ -56,6 +57,7 @@ type Config struct {
 	// rpc configs
 	SrcRPCUrl        string
 	DestRPCUrl       string
+	HopRPCUrl        string
 	ETHClientTimeout uint64
 	OpenQueueFunc    func() (queue.Queue, error)
 	OpenDBFunc       func() (DB, error)
@@ -73,6 +75,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	return &Config{
 		ProcessorPrivateKey:     processorPrivateKey,
 		SrcSignalServiceAddress: common.HexToAddress(c.String(flags.SrcSignalServiceAddress.Name)),
+		HopSignalServiceAddress: common.HexToAddress(c.String(flags.HopSignalServiceAddress.Name)),
 		DestTaikoAddress:        common.HexToAddress(c.String(flags.DestTaikoAddress.Name)),
 		DestBridgeAddress:       common.HexToAddress(c.String(flags.DestBridgeAddress.Name)),
 		DestERC721VaultAddress:  common.HexToAddress(c.String(flags.DestERC721VaultAddress.Name)),
@@ -92,6 +95,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		QueuePrefetch:           c.Uint64(flags.QueuePrefetchCount.Name),
 		SrcRPCUrl:               c.String(flags.SrcRPCUrl.Name),
 		DestRPCUrl:              c.String(flags.DestRPCUrl.Name),
+		HopRPCUrl:               c.String(flags.HopRPCUrl.Name),
 		HeaderSyncInterval:      c.Uint64(flags.HeaderSyncInterval.Name),
 		Confirmations:           c.Uint64(flags.Confirmations.Name),
 		ConfirmationsTimeout:    c.Uint64(flags.ConfirmationTimeout.Name),
