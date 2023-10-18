@@ -15,6 +15,7 @@ import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/verifiers/PseZkVerifier.sol";
 import "../contracts/L1/verifiers/SgxVerifier.sol";
+import "../contracts/L1/verifiers/SgxAndZkVerifier.sol";
 import "../contracts/L1/verifiers/GuardianVerifier.sol";
 import "../contracts/L1/tiers/ITierProvider.sol";
 import "../contracts/L1/tiers/TaikoA6TierProvider.sol";
@@ -194,6 +195,16 @@ contract DeployOnL1 is Script {
         deployProxy(
             "tier_sgx",
             address(sgxVerifier),
+            bytes.concat(
+                sgxVerifier.init.selector, abi.encode(addressManagerProxy)
+            )
+        );
+
+        // SgxAndZkVerifier
+        SgxAndZkVerifier sgxAndZkVerifier = new ProxiedSgxAndZkVerifier();
+        deployProxy(
+            "tier_sgx_and_pse_zkevm",
+            address(sgxAndZkVerifier),
             bytes.concat(
                 sgxVerifier.init.selector, abi.encode(addressManagerProxy)
             )

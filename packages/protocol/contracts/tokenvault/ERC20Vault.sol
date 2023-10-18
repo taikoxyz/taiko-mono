@@ -242,6 +242,8 @@ contract ERC20Vault is
             }
         }
 
+        message.user.sendEther(message.value);
+
         emit TokenReleased({
             msgHash: msgHash,
             from: message.user,
