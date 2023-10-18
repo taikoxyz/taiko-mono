@@ -76,8 +76,6 @@ abstract contract TaikoL1TestBase is TestBase {
         sv = new SgxVerifier();
         sv.init(address(addressManager));
         address[] memory initSgxInstances = new address[](2);
-        initSgxInstances[0] = SGX_X_0;
-        initSgxInstances[1] = SGX_VARIANT;
         sv.addInstances(initSgxInstances);
 
         sgxZkVerifier = new SgxAndZkVerifier();
