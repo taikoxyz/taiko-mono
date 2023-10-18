@@ -47,13 +47,27 @@
     },
     "actions": {
       "approve": {
-        "tx": "Transaction sent to approve {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
-        "success": "Approved {token} tokens!. You can now proceed to bridge.",
-        "rejected": "Request to approve rejected."
+        "tx": {
+          "title": "Approval sent",
+          "message": "Track {token} token approval status on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+        },
+        "success": {
+          "title": "Approved token",
+          "message": "You can now proceed to bridge {token}."
+        },
+        "rejected": {
+          "title": "Request to approve rejected"
+        }
       },
       "bridge": {
-        "tx": "Transaction sent to bridge {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
-        "success": "Transaction completed!. Your funds are getting ready to be claimed on {network}"
+        "tx": {
+          "title": "Transaction sent",
+          "message": "Track the bridge status of your {token} <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+        },
+        "success": {
+          "title": "Transaction completed",
+          "message": "Your funds are being prepared for claiming on Taiko."
+        }
       },
       "nft_scan": "Scan for NFT",
       "nft_scan_again": "Scan again",
@@ -173,9 +187,17 @@
     },
     "actions": {
       "claim": {
-        "tx": "Transaction sent to claim {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
-        "success": "Transaction completed! Your funds have been successfully claimed on {network}.",
-        "rejected": "Request to claim rejected.",
+        "tx": {
+          "title": "Transaction sent",
+          "message": "Track the progress on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+        },
+        "success": {
+          "title": "Transaction completed",
+          "message": "Your funds have been successfully claimed on {network}."
+        },
+        "rejected": {
+          "title": "Request to claim rejected."
+        },
         "dialog": {
           "title": "Please wait",
           "description": "Insufficient balance to claim yourself. Please wait for the relayer to claim for you automatically. Refer to our guide for more information.",
@@ -183,9 +205,17 @@
         }
       },
       "release": {
-        "tx": "Transaction sent to release {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
-        "success": "Transaction completed!. Your funds have been released on {network}",
-        "rejected": "Request to release rejected."
+        "tx": {
+          "title": "Transaction sent",
+          "message": "Track the progress on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+        },
+        "success": {
+          "title": "Transaction completed",
+          "message": "Your funds have been released on {network}"
+        },
+        "rejected": {
+          "title": "Request to release rejected."
+        }
       }
     },
     "errors": {
@@ -197,9 +227,18 @@
     "title": "Faucet",
     "description": "Mint test tokens.",
     "mint": {
-      "tx": "Transaction sent to mint {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
-      "success": "Minted {token} tokens!. Check out your balance on the Bridge page.",
-      "rejected": "Request to mint rejected."
+      "tx": {
+        "title": "Transaction sent",
+        "message": "Track the progress on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+      },
+      "success": {
+        "title": "Token minted successfully",
+        "message": "Check your updated balance on the Bridge page."
+      },
+      "rejected": {
+        "title": "Error minting token",
+        "message": "An error occurred while attempting to mint the token."
+      }
     },
     "button": {
       "mint": "Mint",
@@ -287,8 +326,8 @@
   "messages": {
     "account": {
       "required": "Please connect your wallet.",
-      "connected": "Account connected",
-      "disconnected": "Account disconnected"
+      "connected": "Wallet connected",
+      "disconnected": "Wallet disconnected"
     },
     "network": {
       "switching": "Switching network",

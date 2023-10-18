@@ -108,25 +108,28 @@
 
       const { explorer } = chainConfig[Number(bridgeTx.destChainId)].urls;
 
-      infoToast(
-        $t('transactions.actions.claim.tx', {
+      infoToast({
+        title: $t('transactions.actions.claim.tx.title'),
+        message: $t('transactions.actions.claim.tx.message', {
           values: {
             token: bridgeTx.symbol,
             url: `${explorer}/tx/${txHash}`,
           },
-        }),
-      );
+        })
+      });
 
       await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
 
       //Todo: just because we have a claim tx doesn't mean it was successful
-      successToast(
-        $t('transactions.actions.claim.success', {
+      successToast({
+        title: $t('transactions.actions.claim.success.title'),
+        message: $t('transactions.actions.claim.success.message', {
           values: {
-            network: $network.name,
+            token: bridgeTx.symbol,
+            url: `${explorer}/tx/${txHash}`,
           },
-        }),
-      );
+        })
+      });
 
       // We trigger this event to manually to update the UI
       onStatusChange(MessageStatus.DONE);
@@ -135,25 +138,25 @@
 
       switch (true) {
         case err instanceof NotConnectedError:
-          warningToast($t('messages.account.required'));
+          warningToast({title: $t('messages.account.required')});
           break;
         case err instanceof UserRejectedRequestError:
-          warningToast($t('transactions.actions.claim.rejected'));
+          warningToast({title: $t('transactions.actions.claim.rejected')});
           break;
         case err instanceof InsufficientBalanceError:
           dispatch('insufficientFunds', { tx: bridgeTx });
           break;
         case err instanceof InvalidProofError:
-          errorToast($t('TODO: InvalidProofError'));
+          errorToast({title: $t('TODO: InvalidProofError')});
           break;
         case err instanceof ProcessMessageError:
-          errorToast($t('TODO: ProcessMessageError'));
+          errorToast({title: $t('TODO: ProcessMessageError')});
           break;
         case err instanceof RetryError:
-          errorToast($t('TODO: RetryError'));
+          errorToast({title: $t('TODO: RetryError')});
           break;
         default:
-          errorToast($t('TODO: UnknownError'));
+          errorToast({title: $t('TODO: UnknownError')});
           break;
       }
     } finally {
@@ -190,42 +193,44 @@
 
       const { explorer } = chainConfig[Number(bridgeTx.srcChainId)].urls;
 
-      infoToast(
-        $t('transactions.actions.release.tx', {
+      infoToast({
+        title: $t('transactions.actions.release.tx.title'),
+        message:  $t('transactions.actions.release.tx.message', {
           values: {
             token: bridgeTx.symbol,
             url: `${explorer}/tx/${txHash}`,
           },
         }),
-      );
+      });
 
       await pendingTransactions.add(txHash, Number(bridgeTx.srcChainId));
 
-      successToast(
-        $t('transactions.actions.release.success', {
+      successToast({
+        title: $t('transactions.actions.release.success.title'),
+        message: $t('transactions.actions.release.success.message', {
           values: {
             network: $network.name,
           },
         }),
-      );
+      });
     } catch (err) {
       console.error(err);
 
       switch (true) {
         case err instanceof NotConnectedError:
-          warningToast($t('messages.account.required'));
+          warningToast({title: $t('messages.account.required')});
           break;
         case err instanceof UserRejectedRequestError:
-          warningToast($t('transactions.actions.release_rejected'));
+          warningToast({title: $t('transactions.actions.release_rejected')});
           break;
         case err instanceof InvalidProofError:
-          errorToast($t('TODO: InvalidProofError'));
+          errorToast({title: $t('TODO: InvalidProofError')});
           break;
         case err instanceof ReleaseError:
-          errorToast($t('TODO: ReleaseError'));
+          errorToast({title: $t('TODO: ReleaseError')});
           break;
         default:
-          errorToast($t('TODO: UnknownError'));
+          errorToast({title: $t('TODO: UnknownError')});
           break;
       }
     } finally {

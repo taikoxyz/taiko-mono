@@ -153,24 +153,26 @@
 
         const { explorer } = chainConfig[$network.id].urls;
 
-        infoToast(
-          $t('bridge.actions.approve.tx', {
+        infoToast({
+          title: $t('bridge.actions.approve.tx.title'),
+          message: $t('bridge.actions.approve.tx.message', {
             values: {
               token: $selectedToken.symbol,
               url: `${explorer}/tx/${txHash}`,
             },
           }),
-        );
+        });
 
         // await pendingTransactions.add(txHash, $network.id);
 
-        successToast(
-          $t('bridge.actions.approve.success', {
+        successToast({
+          title: $t('bridge.actions.approve.success.title'),
+          message: $t('bridge.actions.approve.success.message', {
             values: {
               token: $selectedToken.symbol,
             },
           }),
-        );
+        });
       }
       if ($selectedToken.type === TokenType.ERC1155) {
         const erc1155Bridge = bridges[$selectedToken.type] as ERC1155Bridge;
@@ -197,24 +199,26 @@
 
         const { explorer } = chainConfig[$network.id].urls;
 
-        infoToast(
-          $t('bridge.actions.approve.tx', {
+        infoToast({
+          title: $t('bridge.actions.approve.tx.title'),
+          message: $t('bridge.actions.approve.tx.message', {
             values: {
               token: $selectedToken.symbol,
               url: `${explorer}/tx/${txHash}`,
             },
           }),
-        );
+        });
 
         await pendingTransactions.add(txHash, $network.id);
 
-        successToast(
-          $t('bridge.actions.approve.success', {
+        successToast({
+          title: $t('bridge.actions.approve.success.title'),
+          message: $t('bridge.actions.approve.success.message', {
             values: {
               token: $selectedToken.symbol,
             },
           }),
-        );
+        });
       }
       if ($selectedToken.type === TokenType.ERC20) {
         const erc20Bridge = bridges.ERC20 as ERC20Bridge;
@@ -241,24 +245,26 @@
 
         const { explorer } = chainConfig[$network.id].urls;
 
-        infoToast(
-          $t('bridge.actions.approve.tx', {
+        infoToast({
+          title: $t('bridge.actions.approve.tx.title'),
+          message: $t('bridge.actions.approve.tx.message', {
             values: {
               token: $selectedToken.symbol,
               url: `${explorer}/tx/${txHash}`,
             },
           }),
-        );
+        });
 
         await pendingTransactions.add(txHash, $network.id);
 
-        successToast(
-          $t('bridge.actions.approve.success', {
+        successToast({
+          title: $t('bridge.actions.approve.success.title'),
+          message: $t('bridge.actions.approve.success.message', {
             values: {
               token: $selectedToken.symbol,
             },
           }),
-        );
+        });
 
         // Let's run the validation again, which will update UI
         amountComponent.validateAmount();
@@ -268,20 +274,20 @@
 
       switch (true) {
         case err instanceof UserRejectedRequestError:
-          warningToast($t('bridge.errors.rejected'));
+          warningToast({title: $t('bridge.errors.rejected')});
           break;
         case err instanceof NoAllowanceRequiredError:
-          errorToast($t('bridge.errors.no_allowance_required'));
+          errorToast({title: $t('bridge.errors.no_allowance_required')});
           break;
         case err instanceof InsufficientAllowanceError:
-          errorToast($t('bridge.errors.insufficient_allowance'));
+          errorToast({title: $t('bridge.errors.insufficient_allowance')});
           break;
         case err instanceof ApproveError:
           // TODO: see contract for all possible errors
-          errorToast($t('bridge.errors.approve_error'));
+          errorToast({title: $t('bridge.errors.approve_error')});
           break;
         default:
-          errorToast($t('bridge.errors.unknown_error'));
+          errorToast({title: $t('bridge.errors.unknown_error')});
       }
     }
   }
@@ -404,24 +410,26 @@
 
       const explorer = chainConfig[bridgeArgs.srcChainId].urls.explorer;
 
-      infoToast(
-        $t('bridge.actions.bridge.tx', {
+      infoToast({
+        title: $t('bridge.actions.bridge.tx.title'),
+        message: $t('bridge.actions.bridge.tx.message', {
           values: {
             token: $selectedToken.symbol,
             url: `${explorer}/tx/${txHash}`,
           },
         }),
-      );
+      });
 
       await pendingTransactions.add(txHash, $network.id);
 
-      successToast(
-        $t('bridge.actions.bridge.success', {
+      successToast({
+        title: $t('bridge.actions.bridge.success.title'),
+        message: $t('bridge.actions.bridge.success.message', {
           values: {
             network: $destinationChain.name,
           },
         }),
-      );
+      });
 
       // Let's add it to the user's localStorage
       const bridgeTx = {
@@ -454,26 +462,26 @@
 
       switch (true) {
         case err instanceof InsufficientAllowanceError:
-          errorToast($t('bridge.errors.insufficient_allowance'));
+          errorToast({title: $t('bridge.errors.insufficient_allowance')});
           break;
         case err instanceof SendMessageError:
           // TODO: see contract for all possible errors
-          errorToast($t('bridge.errors.send_message_error'));
+          errorToast({title: $t('bridge.errors.send_message_error')});
           break;
         case err instanceof SendERC20Error:
           // TODO: see contract for all possible errors
-          errorToast($t('bridge.errors.send_erc20_error'));
+          errorToast({title: $t('bridge.errors.send_erc20_error')});
           break;
         case err instanceof UserRejectedRequestError:
           // Todo: viem does not seem to detect UserRejectError
-          warningToast($t('bridge.errors.rejected'));
+          warningToast({title: $t('bridge.errors.rejected')});
           break;
         case err instanceof TransactionExecutionError && err.shortMessage === 'User rejected the request.':
           //Todo: so we catch it by string comparison below, suboptimal
-          warningToast($t('bridge.errors.rejected'));
+          warningToast({title: $t('bridge.errors.rejected')});
           break;
         default:
-          errorToast($t('bridge.errors.unknown_error'));
+          errorToast({title: $t('bridge.errors.unknown_error')});
       }
     }
   }
