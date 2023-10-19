@@ -36,7 +36,7 @@ library LibAddress {
         (bool success,) = payable(to).call{ value: amount }("");
 
         // Ensure the transfer was successful
-        if (!success) {
+if (!success)  revert ETH_TRANSFER_FAILED();
             revert ETH_TRANSFER_FAILED();
         }
     }
