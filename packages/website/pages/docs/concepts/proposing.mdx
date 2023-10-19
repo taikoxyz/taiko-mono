@@ -46,7 +46,7 @@ The anchor transaction is required to be the first transaction in a Taiko block 
 
 When the block is proposed, the TaikoL1 contract will set some L2 block metadata such as `meta.coinbase`, which is the sender of the proposeBlock() tx. When the L2 client builds the L2 block, it will set the `block.coinbase` to this `meta.coinbase` specified for the block on L1. The validity proof (ZKP) for this block must check that the `block.coinbase` is indeed the `meta.coinbase` recorded on L1.
 
-When the ZKP instance is returned from the `TaikoL1` contract with `getInstance()`, the `evidence.metaHash` for the proposed block is included. This is how the ZKP verifier can check that the L2's `block.coinbase` (and other block-level variables as well) are correctly set to what is specified in the metadata on L1.
+When the ZKP instance is returned from the `TaikoL1` contract with `calcInstance()`, the `evidence.metaHash` for the proposed block is included. This is how the ZKP verifier can check that the L2's `block.coinbase` (and other block-level variables as well) are correctly set to what is specified in the metadata on L1.
 
 ## How does the proposer earn TKO
 
