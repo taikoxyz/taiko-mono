@@ -130,7 +130,7 @@ abstract contract TaikoL1TestBase is TestBase {
         address proposer,
         address prover,
         uint32 gasLimit,
-        uint24 txListSize
+        uint24 blobSize
     )
         internal
         returns (TaikoData.BlockMetadata memory meta)
@@ -163,10 +163,11 @@ abstract contract TaikoL1TestBase is TestBase {
             signature: new bytes(0)
         });
 
-        bytes memory txList = new bytes(txListSize);
+        bytes memory blob = new bytes(blobSize);
+        // TODO:
+        bytes32 blobHash; // = ???
 
-        assignment.signature =
-            grantWithSignature(prover, assignment, keccak256(txList));
+        assignment.signature = grantWithSignature(prover, assignment, blobHash);
 
         TaikoData.StateVariables memory variables = L1.getStateVariables();
 
@@ -183,10 +184,7 @@ abstract contract TaikoL1TestBase is TestBase {
 
         vm.prank(proposer, proposer);
         meta = L1.proposeBlock{ value: msgValue }(
-            0x0, // meta.blobHash
-            bytes32(0),
-            abi.encode(assignment),
-            txList
+            bytes32(0), abi.encode(assignment)
         );
     }
 
@@ -312,14 +310,14 @@ abstract contract TaikoL1TestBase is TestBase {
     function grantWithSignature(
         address signer,
         TaikoData.ProverAssignment memory assignment,
-        bytes32 txListHash
+        bytes32 blobHash
     )
         internal
         view
         returns (bytes memory signature)
     {
         bytes32 digest =
-            LibProposing.hashAssignmentForTxList(assignment, txListHash);
+            LibProposing.hashAssignmentForBlobHash(assignment, blobHash);
         uint256 signerPrivateKey;
 
         // In the test suite these are the 3 which acts as provers

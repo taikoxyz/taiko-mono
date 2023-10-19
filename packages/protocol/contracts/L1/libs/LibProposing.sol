@@ -41,10 +41,6 @@ library LibProposing {
     error L1_ASSIGNMENT_INSUFFICIENT_FEE();
     error L1_TIER_NOT_FOUND();
     error L1_TOO_MANY_BLOCKS();
-    error L1_TXLIST_INVALID_RANGE();
-    error L1_TXLIST_MISMATCH();
-    error L1_TXLIST_NOT_FOUND();
-    error L1_TXLIST_TOO_LARGE();
     error L1_UNAUTHORIZED();
 
     /// @dev Proposes a Taiko L2 block.
@@ -52,10 +48,8 @@ library LibProposing {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
-        bytes32 txListHash,
         bytes32 extraData,
-        TaikoData.ProverAssignment memory assignment,
-        bytes calldata txList
+        TaikoData.ProverAssignment memory assignment
     )
         internal
         returns (TaikoData.BlockMetadata memory meta)
@@ -67,17 +61,6 @@ library LibProposing {
         address proposer = resolver.resolve("proposer", true);
         if (proposer != address(0) && msg.sender != proposer) {
             revert L1_UNAUTHORIZED();
-        }
-
-        if (txList.length > config.blockMaxTxListBytes) {
-            revert L1_TXLIST_TOO_LARGE();
-        }
-
-        // It's necessary to verify that the txHash matches the provided hash.
-        // However, when we employ a blob for the txList, the verification
-        // process will differ.
-        if (txListHash != keccak256(txList)) {
-            revert L1_TXLIST_MISMATCH();
         }
 
         // It's essential to ensure that the ring buffer for proposed blocks
@@ -178,7 +161,7 @@ library LibProposing {
         // Validate the prover assignment, then charge Ether or ERC20 as the
         // prover fee based on the block's minTier.
         uint256 proverFee =
-            _validateAssignment(blk.minTier, txListHash, assignment);
+            _validateAssignment(blk.minTier, blk.blobHash, assignment);
 
         emit BlockProposed({
             blockId: blk.blockId,
@@ -210,9 +193,9 @@ library LibProposing {
         }
     }
 
-    function hashAssignmentForTxList(
+    function hashAssignmentForBlobHash(
         TaikoData.ProverAssignment memory assignment,
-        bytes32 txListHash
+        bytes32 blobHash
     )
         internal
         pure
@@ -221,7 +204,7 @@ library LibProposing {
         return keccak256(
             abi.encode(
                 "PROVER_ASSIGNMENT",
-                txListHash,
+                blobHash,
                 assignment.feeToken,
                 assignment.expiry,
                 assignment.tierFees
@@ -231,7 +214,7 @@ library LibProposing {
 
     function _validateAssignment(
         uint16 minTier,
-        bytes32 txListHash,
+        bytes32 blobHash,
         TaikoData.ProverAssignment memory assignment
     )
         private
@@ -242,13 +225,13 @@ library LibProposing {
             revert L1_ASSIGNMENT_EXPIRED();
         }
 
-        if (txListHash == 0 || assignment.prover == address(0)) {
+        if (blobHash == 0 || assignment.prover == address(0)) {
             revert L1_ASSIGNMENT_INVALID_PARAMS();
         }
 
         // Hash the assignment with the txListHash, this hash will be signed by
         // the prover, therefore, we add a string as a prefix.
-        bytes32 hash = hashAssignmentForTxList(assignment, txListHash);
+        bytes32 hash = hashAssignmentForBlobHash(assignment, blobHash);
 
         if (!assignment.prover.isValidSignature(hash, assignment.signature)) {
             revert L1_ASSIGNMENT_INVALID_SIG();
