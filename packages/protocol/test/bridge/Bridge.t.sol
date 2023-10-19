@@ -14,6 +14,21 @@ import {
     BadReceiver
 } from "../TestBase.sol";
 
+// A contract which is not our ErcXXXTokenVault
+// Which in such case, the sent funds are still recoverable, but not via the
+// onMessageRecall() but Bridge will send it back
+contract UntrustedSendMessageRelayer {
+    function sendMessage(
+        address bridge,
+        IBridge.Message memory message,
+        uint256 message_value
+    )
+        public
+    {
+        IBridge(bridge).sendMessage{ value: message_value }(message);
+    }
+}
+
 contract BridgeTest is TestBase {
     AddressManager addressManager;
     BadReceiver badReceiver;
@@ -24,6 +39,7 @@ contract BridgeTest is TestBase {
     SignalService signalService;
     DummyCrossChainSync crossChainSync;
     SkipProofCheckSignal mockProofSignalService;
+    UntrustedSendMessageRelayer untrustedSenderContract;
     uint256 destChainId = 19_389;
 
     function setUp() public {
@@ -52,6 +68,9 @@ contract BridgeTest is TestBase {
         etherVault.init(address(addressManager));
 
         crossChainSync = new DummyCrossChainSync();
+
+        untrustedSenderContract = new UntrustedSendMessageRelayer();
+        vm.deal(address(untrustedSenderContract), 10 ether);
 
         addressManager.setAddress(
             block.chainid, "signal_service", address(mockProofSignalService)
@@ -254,6 +273,24 @@ contract BridgeTest is TestBase {
         bridge.sendMessage{ value: amount }(message);
     }
 
+    function test_Bridge_send_message_ether_reverts_when_to_is_destination_bridge_address(
+    )
+        public
+    {
+        uint256 amount = 1 wei;
+        IBridge.Message memory message = newMessage({
+            user: Alice,
+            to: address(destChainBridge),
+            value: 0,
+            gasLimit: 0,
+            fee: 0,
+            destChain: destChainId
+        });
+
+        vm.expectRevert(Bridge.B_INVALID_TO.selector);
+        bridge.sendMessage{ value: amount }(message);
+    }
+
     function test_Bridge_send_message_ether_reverts_when_to_is_zero_address()
         public
     {
@@ -302,6 +339,65 @@ contract BridgeTest is TestBase {
         (, IBridge.Message memory _message) =
             bridge.sendMessage{ value: amount + fee }(message);
         assertEq(bridge.isMessageSent(_message), true);
+    }
+
+    function test_Bridge_recall_message_ether() public {
+        uint256 amount = 1 ether;
+        uint256 fee = 1 wei;
+        IBridge.Message memory message = newMessage({
+            user: Alice,
+            to: Alice,
+            value: amount,
+            gasLimit: 0,
+            fee: fee,
+            destChain: destChainId
+        });
+
+        uint256 starterBalanceBridge = address(bridge).balance;
+        uint256 starterBalanceAlice = Alice.balance;
+
+        vm.prank(Alice, Alice);
+        (, IBridge.Message memory _message) =
+            bridge.sendMessage{ value: amount + fee }(message);
+        assertEq(bridge.isMessageSent(_message), true);
+
+        assertEq(address(bridge).balance, (starterBalanceBridge + amount + fee));
+        assertEq(Alice.balance, (starterBalanceAlice - (amount + fee)));
+        bridge.recallMessage(message, "");
+
+        assertEq(address(bridge).balance, (starterBalanceBridge + fee));
+        assertEq(Alice.balance, (starterBalanceAlice - fee));
+    }
+
+    function test_Bridge_recall_message_but_not_supports_recall_interface()
+        public
+    {
+        // In this test we expect that the 'message value is still refundable,
+        // just not via
+        // ERCXXTokenVault (message.from) but directly from the Bridge
+
+        uint256 amount = 1 ether;
+        uint256 fee = 1 wei;
+        IBridge.Message memory message = newMessage({
+            user: Alice,
+            to: Alice,
+            value: amount,
+            gasLimit: 0,
+            fee: fee,
+            destChain: destChainId
+        });
+
+        uint256 starterBalanceBridge = address(bridge).balance;
+
+        untrustedSenderContract.sendMessage(
+            address(bridge), message, amount + fee
+        );
+
+        assertEq(address(bridge).balance, (starterBalanceBridge + amount + fee));
+
+        bridge.recallMessage(message, "");
+
+        assertEq(address(bridge).balance, (starterBalanceBridge + fee));
     }
 
     function test_Bridge_send_message_ether_with_processing_fee_invalid_amount()
