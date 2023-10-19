@@ -20,10 +20,21 @@ import { IERC1271Upgradeable } from
 library LibAddress {
     bytes4 private constant EIP1271_MAGICVALUE = 0x1626ba7e;
 
-    /// @dev Wrap this into a new function so the parameter `to` is `address`
-    /// instead of `address payable`.
+    /// @dev Sends Ether to the specified address. It is recommended to avoid
+    /// using `.transfer()` due to potential reentrancy issues.
+    /// Reference:
+    /// https://consensys.net/diligence/blog/2019/09/stop-using-soliditys-transfer-now
+    /// @param to The recipient address.
+    /// @param amount The amount of Ether to send in wei.
     function sendEther(address to, uint256 amount) internal {
-        AddressUpgradeable.sendValue(payable(to), amount);
+        // Check for zero-value or zero-address transactions
+        if (amount == 0 || to == address(0)) return;
+
+        // Attempt to send Ether to the recipient address
+        (bool success,) = payable(to).call{ value: amount }("");
+
+        // Ensure the transfer was successful
+        require(success, "ETH transfer failed");
     }
 
     function supportsInterface(
@@ -34,11 +45,12 @@ library LibAddress {
         view
         returns (bool result)
     {
-        try IERC165Upgradeable(addr).supportsInterface(interfaceId) returns (
-            bool _result
-        ) {
-            result = _result;
-        } catch { }
+        if (AddressUpgradeable.isContract(addr)) {
+            try IERC165Upgradeable(addr).supportsInterface(interfaceId)
+            returns (bool _result) {
+                result = _result;
+            } catch { }
+        }
     }
 
     function isValidSignature(
