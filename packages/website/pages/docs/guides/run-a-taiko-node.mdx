@@ -75,7 +75,7 @@ If you run into rate limit issues, many community members have had success by ch
 
 </Callout>
 
-<Tabs items={["Local", "Alchemy", "Infura"]} defaultIndex="0">
+<Tabs items={["Local", "Alchemy", "Infura", "Chainstack"]} defaultIndex="0">
   <Tab>
   If you are running a local Sepolia node, you cannot reference the L1 endpoints as `http://127.0.0.1:8545` and `ws://127.0.0.1:8546` because that is local to inside the simple-taiko-node Docker image. Depending on your firewall setup, you can do a few things. You can try:
   - Using `host.docker.internal` (see: [stack overflow](https://stackoverflow.com/questions/24319662))
@@ -130,6 +130,46 @@ This is your `L1_ENDPOINT_WS` on your `.env`.
 ![get WSS endpoints](/images/guides/infura/wss-endpoints.png)
 
   </Tab>
+  <Tab>
+  First, sign in to [Chainstack](https://chainstack.com/).
+  ![Chainstack console sign in](/images/guides/chainstack/sign-in.png)
+
+Next, click to "Get started" to create a new project:
+![Chainstack console](/images/guides/chainstack/get-started.png)
+
+Next, configure your project:
+
+- For "Project name", enter "Taiko Node", or your preferred name.
+- For "Type", select "Public chain".
+
+
+Then, click the "Create" button.
+![create a Chainstack project](/images/guides/chainstack/create-project.png)
+
+Now, open the project and click "Get started" to join a new network.
+
+- Choose "Ethereum" under the "Blockchain protocol".
+- Choose "Ethereum Sepolia Testnet" under the "Network".
+
+Then, click "Next".
+![Join a network](/images/guides/chainstack/join-network.png)
+
+Next, configure the node:
+
+- Keep the parameters as default.
+- Choose the location.
+- Name the node "Taiko node", or your preferred name.
+
+Then, click "Next", check the node configuration and click "Join Network".
+![Deploy a node](/images/guides/chainstack/node-summary.png)
+
+The Sepolia node will be deployed to your console. Click on it and scroll down to access the endpoints.
+![Node credentials](/images/guides/chainstack/node-credentials.png)
+
+- The **Execution client HTTPS endpoint** is your `L1_ENDPOINT_HTTP`.
+
+- The **Execution client WSS endpoint** is your `L1_ENDPOINT_WS`.
+</Tab>
 </Tabs>
 
 **Finally**, set the following L1 node endpoints in your `.env` file:
