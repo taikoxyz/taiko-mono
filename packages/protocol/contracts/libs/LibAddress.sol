@@ -20,6 +20,8 @@ import { IERC1271Upgradeable } from
 library LibAddress {
     bytes4 private constant EIP1271_MAGICVALUE = 0x1626ba7e;
 
+    error ETH_TRANSFER_FAILED();
+
     /// @dev Sends Ether to the specified address. It is recommended to avoid
     /// using `.transfer()` due to potential reentrancy issues.
     /// Reference:
@@ -28,13 +30,15 @@ library LibAddress {
     /// @param amount The amount of Ether to send in wei.
     function sendEther(address to, uint256 amount) internal {
         // Check for zero-value or zero-address transactions
-        if (amount == 0 || to == address(0)) return;
+        if (to == address(0)) return;
 
         // Attempt to send Ether to the recipient address
         (bool success,) = payable(to).call{ value: amount }("");
 
         // Ensure the transfer was successful
-        require(success, "ETH transfer failed");
+        if (!success) {
+            revert ETH_TRANSFER_FAILED();
+        }
     }
 
     function supportsInterface(
@@ -45,12 +49,13 @@ library LibAddress {
         view
         returns (bool result)
     {
-        if (AddressUpgradeable.isContract(addr)) {
-            try IERC165Upgradeable(addr).supportsInterface(interfaceId)
-            returns (bool _result) {
-                result = _result;
-            } catch { }
-        }
+        if (!AddressUpgradeable.isContract(addr)) return false;
+
+        try IERC165Upgradeable(addr).supportsInterface(interfaceId) returns (
+            bool _result
+        ) {
+            result = _result;
+        } catch { }
     }
 
     function isValidSignature(
