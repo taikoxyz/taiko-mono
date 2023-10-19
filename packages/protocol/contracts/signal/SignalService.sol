@@ -46,10 +46,6 @@ contract SignalService is EssentialContract, ISignalService {
         EssentialContract._init(_addressManager);
     }
 
-    /// @notice Tells if we need to check real proof or it is a test.
-    /// @return Returns true to skip checking inclusion proofs.
-    function skipProofCheck() public pure virtual returns (bool) { }
-
     /// @inheritdoc ISignalService
     function sendSignal(bytes32 signal)
         public
@@ -61,6 +57,10 @@ contract SignalService is EssentialContract, ISignalService {
             sstore(slot, 1)
         }
     }
+
+    /// @notice Tells if we need to check real proof or it is a test.
+    /// @return Returns true to skip checking inclusion proofs.
+    function skipProofCheck() public pure virtual returns (bool) { }
 
     /// @inheritdoc ISignalService
     function isSignalSent(
