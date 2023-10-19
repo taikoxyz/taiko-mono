@@ -48,10 +48,6 @@ abstract contract TaikoL1TestBase is TestBase {
     TaikoA6TierProvider public cp;
 
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
-    uint64 l2GasExcess = 1e18;
-
-    address public constant L2Treasury =
-        0x859d74b52762d9ed07D1b2B8d7F93d26B1EA78Bb;
 
     address public constant L2SS = 0xa008AE5Ba00656a3Cc384de589579e3E52aC030C;
     address public constant TaikoL2 = 0x0082D90249342980d011C58105a03b35cCb4A315;
@@ -75,7 +71,8 @@ abstract contract TaikoL1TestBase is TestBase {
 
         sv = new SgxVerifier();
         sv.init(address(addressManager));
-        address[] memory initSgxInstances = new address[](2);
+        address[] memory initSgxInstances = new address[](1);
+        initSgxInstances[0] = SGX_X_0;
         sv.addInstances(initSgxInstances);
 
         sgxZkVerifier = new SgxAndZkVerifier();
@@ -86,8 +83,8 @@ abstract contract TaikoL1TestBase is TestBase {
 
         gp = new GuardianProver();
         gp.init(address(addressManager));
-
         setupGuardianProverMultisig();
+
         cp = new TaikoA6TierProvider();
 
         registerAddress("tier_pse_zkevm", address(pv));
