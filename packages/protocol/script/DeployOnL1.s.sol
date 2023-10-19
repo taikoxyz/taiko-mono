@@ -237,6 +237,7 @@ contract DeployOnL1 is Script {
             setAddress("signal_service", sharedSignalService);
         }
 
+        deployBlobHashReader();
         // PlonkVerifier
         deployPlonkVerifiers(pseZkVerifier);
 
@@ -251,6 +252,13 @@ contract DeployOnL1 is Script {
         for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
             setAddress(pseZkVerifier.getVerifierName(i), plonkVerifiers[i]);
         }
+    }
+
+    function deployBlobHashReader() private {
+        setAddress(
+            "blob_hash_reader",
+            deployYulContract("contracts/4844/BlobHashReader.yulp")
+        );
     }
 
     function deployYulContract(string memory contractPath)

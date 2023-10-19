@@ -7,8 +7,8 @@
 pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../../common/EssentialContract.sol";
-import { Lib4844 } from "../../common/Lib4844.sol";
 import { Proxied } from "../../common/Proxied.sol";
+import { Lib4844 } from "../../libs/Lib4844.sol";
 import { LibBytesUtils } from "../../thirdparty/LibBytesUtils.sol";
 
 import { TaikoData } from "../TaikoData.sol";

@@ -10,7 +10,7 @@ import { ERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { Lib4844 } from "../../common/Lib4844.sol";
+import { IBlobHashReader } from "../../4844/IBlobHashReader.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 
 import { ITierProvider } from "../tiers/ITierProvider.sol";
@@ -134,7 +134,9 @@ library LibProposing {
         blk.blockId = b.numBlocks;
 
         // Always use the first blob in this transaction.
-        blk.blobHash = Lib4844.getBlobHash(0);
+        blk.blobHash = IBlobHashReader(
+            resolver.resolve("blob_hash_reader", false)
+        ).getFirstBlobHash();
 
         blk.proposedAt = meta.timestamp;
 

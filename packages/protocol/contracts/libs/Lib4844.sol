@@ -8,6 +8,7 @@ pragma solidity ^0.8.20;
 
 /// @title Lib4844
 /// @notice A library for handling EIP-4844 blobs
+/// `solc contracts/libs/Lib4844.sol --ir > contracts/libs/Lib4844.yul`
 library Lib4844 {
     address public constant POINT_EVALUATION_PRECOMPILE_ADDRESS = address(0x0A);
     uint32 public constant FIELD_ELEMENTS_PERBLOB = 4096;
@@ -34,7 +35,7 @@ library Lib4844 {
         bytes1[48] memory commitment,
         bytes1[48] memory proof
     )
-        internal
+        public
         view
     {
         if (x >= BLS_MODULUS) revert POINT_X_TOO_LARGE();
@@ -44,15 +45,5 @@ library Lib4844 {
             abi.encodePacked(blobHash, x, y, commitment, proof)
         );
         if (!ok) revert EVAL_FAILED();
-    }
-
-    function getBlobHash(uint256 blobIdx)
-        internal
-        view
-        returns (bytes32 blobHash)
-    {
-        // TODO(daniel): implement this function
-
-        if (blobHash == 0) revert TX_HAS_NO_BLOB();
     }
 }
