@@ -6,6 +6,8 @@
 
 pragma solidity ^0.8.20;
 
+/// @dev This interface and its corresponding implementation may deprecate once
+/// solidity supports the new BLOBHASH opcode natively.
 interface IBlobHashReader {
     /// @notice Returns the versioned hash for the first blob in this
     /// transaction.
