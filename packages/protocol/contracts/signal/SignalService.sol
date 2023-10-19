@@ -58,10 +58,6 @@ contract SignalService is EssentialContract, ISignalService {
         }
     }
 
-    /// @notice Tells if we need to check real proof or it is a test.
-    /// @return Returns true to skip checking inclusion proofs.
-    function skipProofCheck() public pure virtual returns (bool) { }
-
     /// @inheritdoc ISignalService
     function isSignalSent(
         address app,
@@ -158,6 +154,10 @@ contract SignalService is EssentialContract, ISignalService {
     {
         return keccak256(abi.encodePacked("SIGNAL", chainId, app, signal));
     }
+
+    /// @notice Tells if we need to check real proof or it is a test.
+    /// @return Returns true to skip checking inclusion proofs.
+    function skipProofCheck() public pure virtual returns (bool) { }
 }
 
 /// @title ProxiedSignalService
