@@ -224,7 +224,7 @@ contract Bridge is EssentialContract, IBridge {
                 status = Status.DONE;
             } else {
                 status = Status.RETRIABLE;
-                ethVault.sendEther(message.value);
+                if (ethVault != address(0)) ethVault.sendEther(message.value);
             }
         }
 
@@ -292,7 +292,7 @@ contract Bridge is EssentialContract, IBridge {
             _updateMessageStatus(msgHash, Status.FAILED);
             // Release Ether back to EtherVault (if on Taiko it is OK)
             // otherwise funds stay at Bridge anyways.
-            ethVault.sendEther(message.value);
+            if (ethVault != address(0)) ethVault.sendEther(message.value);
         }
     }
 
