@@ -8,7 +8,6 @@ import { ICrossChainSync } from "../contracts/common/ICrossChainSync.sol";
 
 abstract contract TestBase is Test {
     uint256 private _seed = 0x12345678;
-    uint256 internal variablePKey = 0x6;
 
     function getRandomAddress() internal returns (address) {
         bytes32 randomHash = keccak256(abi.encodePacked("address", _seed++));
