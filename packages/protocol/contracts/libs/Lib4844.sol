@@ -15,8 +15,6 @@ library Lib4844 {
     uint256 public constant BLS_MODULUS =
         52_435_875_175_126_190_479_447_740_508_185_965_837_690_552_500_527_637_822_603_658_699_938_581_184_513;
 
-    bytes1 public constant BLOBHASH = bytes1(0x49);
-
     error EVAL_FAILED();
     error POINT_X_TOO_LARGE();
     error POINT_Y_TOO_LARGE();
@@ -35,7 +33,7 @@ library Lib4844 {
         bytes1[48] memory commitment,
         bytes1[48] memory proof
     )
-        public
+        internal
         view
     {
         if (x >= BLS_MODULUS) revert POINT_X_TOO_LARGE();

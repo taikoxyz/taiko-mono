@@ -7,5 +7,7 @@
 pragma solidity ^0.8.20;
 
 interface IBlobHashReader {
+    /// @notice Returns the versioned hash for the first blob in this
+    /// transaction.
     function getFirstBlobHash() external view returns (bytes32);
 }

@@ -14,10 +14,10 @@ object "BlobHashReader" {
          // Match against the keccak of the ABI function signature needed.
          switch shr(0xe0,calldataload(0))
             // bytes4(keccak("function getFirstBlobHash()"))
+            // Returns the versioned hash for the first blob in this transaction.
             case 0xfd122ecf {
                 // DATAHASH opcode has hex value 0x49
-                let index := 0
-                let hash := verbatim_1i_1o(hex"49", index)
+                let hash := verbatim_1i_1o(hex"49", 0)
                 mstore(0, hash)
                 return(0, 32)
             }
