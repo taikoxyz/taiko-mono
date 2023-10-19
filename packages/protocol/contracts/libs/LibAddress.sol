@@ -30,7 +30,7 @@ library LibAddress {
     /// @param amount The amount of Ether to send in wei.
     function sendEther(address to, uint256 amount) internal {
         // Check for zero-value or zero-address transactions
-        if (to == address(0)) return;
+        if (to == address(0)) revert ETH_TRANSFER_FAILED();
 
         // Attempt to send Ether to the recipient address
         (bool success,) = payable(to).call{ value: amount }("");
@@ -65,14 +65,11 @@ library LibAddress {
         view
         returns (bool valid)
     {
-        if (
-            AddressUpgradeable.isContract(addr)
-                && IERC1271Upgradeable(addr).isValidSignature(hash, sig)
-                    == EIP1271_MAGICVALUE
-        ) {
-            valid = true;
-        } else if (ECDSAUpgradeable.recover(hash, sig) == addr) {
-            valid = true;
+        if (AddressUpgradeable.isContract(addr)) {
+            return IERC1271Upgradeable(addr).isValidSignature(hash, sig)
+                == EIP1271_MAGICVALUE;
+        } else {
+            return ECDSAUpgradeable.recover(hash, sig) == addr;
         }
     }
 }

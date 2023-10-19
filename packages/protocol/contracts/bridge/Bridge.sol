@@ -104,7 +104,8 @@ contract Bridge is EssentialContract, IBridge {
         // On Taiko, send the expectedAmount to the EtherVault; otherwise, store
         // it on the Bridge.
         address ethVault = resolve("ether_vault", true);
-        ethVault.sendEther(expectedAmount);
+
+        if (ethVault != address(0)) ethVault.sendEther(expectedAmount);
 
         _message = message;
         // Configure message details and send signal to indicate message
