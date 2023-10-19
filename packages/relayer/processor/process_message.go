@@ -57,7 +57,7 @@ func (p *Processor) eventStatusFromMsgHash(
 	return eventStatus, nil
 }
 
-// Process prepares and calls `processMessage` on the bridge.
+// processMessage prepares and calls `processMessage` on the bridge.
 // the proof must be generated from the gethclient's eth_getProof via the Prover,
 // then rlp-encoded and combined as a singular byte slice,
 // then abi encoded into a SignalProof struct as the contract
@@ -88,7 +88,14 @@ func (p *Processor) processMessage(
 		return errors.Wrap(err, "p.waitForConfirmations")
 	}
 
-	if err := p.waitHeaderSynced(ctx, msgBody.Event); err != nil {
+	// wait for srcChain => destChain header to sync if no hops,
+	// or srcChain => hopChain if hop
+	var headerSyncer relayer.HeaderSyncer = p.destHeaderSyncer
+	if p.hopHeaderSyncer != nil {
+		headerSyncer = p.hopHeaderSyncer
+	}
+
+	if err := p.waitHeaderSynced(ctx, headerSyncer, p.srcEthClient, msgBody.Event.Raw.BlockNumber); err != nil {
 		return errors.Wrap(err, "p.waitHeaderSynced")
 	}
 
@@ -111,6 +118,10 @@ func (p *Processor) processMessage(
 
 	hops := []proof.HopParams{}
 
+	var encodedSignalProof []byte
+
+	// var proofBlockNum uint64
+
 	// if a hop is set, the proof service needs to generate an additional proof
 	// for the signal service intermediary chain in between the source chain
 	// and the destination chain.
@@ -122,34 +133,70 @@ func (p *Processor) processMessage(
 			"hopSignalServiceAddress", p.hopSignalServiceAddress.Hex(),
 		)
 
+		// the hop proof is now the Src => Intermediary chain proof, aka, the regular proof from
+		// L2 => L1 or L1 => L22 without any hops.
 		hops = append(hops, proof.HopParams{
-			ChainID:              p.hopChainId,
-			SignalServiceAddress: p.hopSignalServiceAddress,
-			Blocker:              p.hopEthClient,
+			ChainID:              p.srcChainId,
+			SignalServiceAddress: p.srcSignalServiceAddress,
+			Blocker:              p.srcEthClient,
+			LatestSyncedSnippet:  latestSyncedSnippet,
+			Key:                  common.Bytes2Hex(key[:]),
+			Caller:               p.srcCaller,
+			BlockHash:            msgBody.Event.Raw.BlockHash,
 		})
-	}
 
-	encodedSignalProof, err := p.prover.EncodedSignalProof(
-		ctx,
-		p.rpc,
-		p.srcSignalServiceAddress,
-		hops,
-		common.Bytes2Hex(key[:]),
-		latestSyncedSnippet.BlockHash,
-	)
-	if err != nil {
-		slog.Error("error encoding signal proof",
-			"srcChainID", msgBody.Event.Message.SrcChainId.String(),
-			" destChainID", msgBody.Event.Message.DestChainId.String(),
-			"txHash", msgBody.Event.Raw.TxHash.Hex(),
-			"msgHash", common.Hash(msgBody.Event.MsgHash).Hex(),
-			"from", msgBody.Event.Message.User.Hex(),
-			"error", err,
-			"latestSyncedBlockHash", common.Bytes2Hex(latestSyncedSnippet.BlockHash[:]),
-			"hopsLength", len(hops),
+		// main proof differs when needing hops
+		encodedSignalProof, _, err = p.prover.EncodedSignalProofWithHops(
+			ctx,
+			p.hopCaller,
+			p.hopSignalServiceAddress,
+			hops,
+			p.hopSignalService,
+			p.hopTaikoAddress,
+			p.hopChainId,
 		)
+		if err != nil {
+			slog.Error("error encoding signal proof",
+				"srcChainID", msgBody.Event.Message.SrcChainId.String(),
+				"destChainID", msgBody.Event.Message.DestChainId.String(),
+				"txHash", msgBody.Event.Raw.TxHash.Hex(),
+				"msgHash", common.Hash(msgBody.Event.MsgHash).Hex(),
+				"from", msgBody.Event.Message.User.Hex(),
+				"error", err,
+				"latestSyncedBlockHash", common.Bytes2Hex(latestSyncedSnippet.BlockHash[:]),
+				"hopsLength", len(hops),
+			)
 
-		return errors.Wrap(err, "p.prover.GetEncodedSignalProof")
+			return errors.Wrap(err, "p.prover.GetEncodedSignalProof")
+		}
+
+		// then wait for hopChain => destChain, if hop exists
+		// if err := p.waitHeaderSynced(ctx, p.hopHeaderSyncer, p.destEthClient, proofBlockNum); err != nil {
+		// 	return errors.Wrap(err, "p.waitHeaderSynced")
+		// }
+
+	} else {
+		encodedSignalProof, err = p.prover.EncodedSignalProof(
+			ctx,
+			p.srcCaller,
+			p.srcSignalServiceAddress,
+			common.Bytes2Hex(key[:]),
+			latestSyncedSnippet.BlockHash,
+		)
+		if err != nil {
+			slog.Error("error encoding signal proof",
+				"srcChainID", msgBody.Event.Message.SrcChainId.String(),
+				"destChainID", msgBody.Event.Message.DestChainId.String(),
+				"txHash", msgBody.Event.Raw.TxHash.Hex(),
+				"msgHash", common.Hash(msgBody.Event.MsgHash).Hex(),
+				"from", msgBody.Event.Message.User.Hex(),
+				"error", err,
+				"latestSyncedBlockHash", common.Bytes2Hex(latestSyncedSnippet.BlockHash[:]),
+				"hopsLength", len(hops),
+			)
+
+			return errors.Wrap(err, "p.prover.GetEncodedSignalProof")
+		}
 	}
 
 	// check if message is received first. if not, it will definitely fail,

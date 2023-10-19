@@ -20,6 +20,7 @@ type Config struct {
 	// address configs
 	SrcSignalServiceAddress common.Address
 	HopSignalServiceAddress common.Address
+	HopTaikoAddress         common.Address
 	DestBridgeAddress       common.Address
 	DestERC721VaultAddress  common.Address
 	DestERC20VaultAddress   common.Address
@@ -76,6 +77,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ProcessorPrivateKey:     processorPrivateKey,
 		SrcSignalServiceAddress: common.HexToAddress(c.String(flags.SrcSignalServiceAddress.Name)),
 		HopSignalServiceAddress: common.HexToAddress(c.String(flags.HopSignalServiceAddress.Name)),
+		HopTaikoAddress:         common.HexToAddress(c.String(flags.HopTaikoAddress.Name)),
 		DestTaikoAddress:        common.HexToAddress(c.String(flags.DestTaikoAddress.Name)),
 		DestBridgeAddress:       common.HexToAddress(c.String(flags.DestBridgeAddress.Name)),
 		DestERC721VaultAddress:  common.HexToAddress(c.String(flags.DestERC721VaultAddress.Name)),

@@ -19,20 +19,6 @@ var (
 		Category: processorCategory,
 		EnvVars:  []string{"SRC_SIGNAL_SERVICE_ADDRESS"},
 	}
-	HopSignalServiceAddress = &cli.StringFlag{
-		Name:     "hopSignalServiceAddress",
-		Usage:    "SignalService address for the intermediary chain",
-		Required: false,
-		Category: processorCategory,
-		EnvVars:  []string{"HOP_SIGNAL_SERVICE_ADDRESS"},
-	}
-	HopRPCUrl = &cli.StringFlag{
-		Name:     "hopRpcUrl",
-		Usage:    "RPC URL for the intermediary chain",
-		Required: false,
-		Category: processorCategory,
-		EnvVars:  []string{"HOP_RPC_URL"},
-	}
 	DestTaikoAddress = &cli.StringFlag{
 		Name:     "destTaikoAddress",
 		Usage:    "Taiko address for the destination chain",
@@ -119,6 +105,27 @@ var (
 		Category: processorCategory,
 		EnvVars:  []string{"ENABLE_TAIKO_L2"},
 	}
+	HopSignalServiceAddress = &cli.StringFlag{
+		Name:     "hopSignalServiceAddress",
+		Usage:    "SignalService address for the intermediary chain",
+		Required: false,
+		Category: processorCategory,
+		EnvVars:  []string{"HOP_SIGNAL_SERVICE_ADDRESS"},
+	}
+	HopTaikoAddress = &cli.StringFlag{
+		Name:     "hopTaikoAddress",
+		Usage:    "Taiko address for the intermediary chain",
+		Required: false,
+		Category: processorCategory,
+		EnvVars:  []string{"HOP_TAIKO_ADDRESS"},
+	}
+	HopRPCUrl = &cli.StringFlag{
+		Name:     "hopRpcUrl",
+		Usage:    "RPC URL for the intermediary chain",
+		Required: false,
+		Category: processorCategory,
+		EnvVars:  []string{"HOP_RPC_URL"},
+	}
 )
 
 var ProcessorFlags = MergeFlags(CommonFlags, []cli.Flag{
@@ -139,4 +146,5 @@ var ProcessorFlags = MergeFlags(CommonFlags, []cli.Flag{
 	EnableTaikoL2,
 	HopRPCUrl,
 	HopSignalServiceAddress,
+	HopTaikoAddress,
 })

@@ -60,14 +60,17 @@ type Processor struct {
 	srcEthClient  ethClient
 	destEthClient ethClient
 	hopEthClient  ethClient
-	rpc           relayer.Caller
+	srcCaller     relayer.Caller
+	hopCaller     relayer.Caller
 
 	ecdsaKey *ecdsa.PrivateKey
 
 	srcSignalService *signalservice.SignalService
+	hopSignalService *signalservice.SignalService
 
 	destBridge       relayer.Bridge
 	destHeaderSyncer relayer.HeaderSyncer
+	hopHeaderSyncer  relayer.HeaderSyncer
 	destERC20Vault   relayer.TokenVault
 	destERC1155Vault relayer.TokenVault
 	destERC721Vault  relayer.TokenVault
@@ -80,7 +83,9 @@ type Processor struct {
 	relayerAddr             common.Address
 	srcSignalServiceAddress common.Address
 	hopSignalServiceAddress common.Address
-	confirmations           uint64
+	hopTaikoAddress         common.Address
+
+	confirmations uint64
 
 	profitableOnly            bool
 	headerSyncIntervalSeconds int64
@@ -142,6 +147,12 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 
 	var hopChainID *big.Int
 
+	var hopHeaderSyncer *icrosschainsync.ICrossChainSync
+
+	var hopRpcClient *rpc.Client
+
+	var hopSignalService *signalservice.SignalService
+
 	if cfg.HopRPCUrl != "" {
 		hopEthClient, err = ethclient.Dial(cfg.HopRPCUrl)
 		if err != nil {
@@ -149,6 +160,27 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		}
 
 		hopChainID, err = hopEthClient.ChainID(context.Background())
+		if err != nil {
+			return err
+		}
+
+		hopHeaderSyncer, err = icrosschainsync.NewICrossChainSync(
+			cfg.HopTaikoAddress,
+			hopEthClient,
+		)
+		if err != nil {
+			return err
+		}
+
+		hopSignalService, err = signalservice.NewSignalService(
+			cfg.HopSignalServiceAddress,
+			hopEthClient,
+		)
+		if err != nil {
+			return err
+		}
+
+		hopRpcClient, err = rpc.Dial(cfg.HopRPCUrl)
 		if err != nil {
 			return err
 		}
@@ -220,7 +252,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	var proverEthClient ethClient = srcEthClient
 
 	if hopEthClient != nil {
-		proverEthClient = srcEthClient
+		proverEthClient = hopEthClient
 	}
 
 	prover, err := proof.New(proverEthClient)
@@ -255,12 +287,14 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.hopEthClient = hopEthClient
 
 	p.srcSignalService = srcSignalService
+	p.hopSignalService = hopSignalService
 
 	p.destBridge = destBridge
 	p.destERC1155Vault = destERC1155Vault
 	p.destERC20Vault = destERC20Vault
 	p.destERC721Vault = destERC721Vault
 	p.destHeaderSyncer = destHeaderSyncer
+	p.hopHeaderSyncer = hopHeaderSyncer
 
 	p.ecdsaKey = cfg.ProcessorPrivateKey
 	p.relayerAddr = relayerAddr
@@ -279,11 +313,13 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 
 	p.srcSignalServiceAddress = cfg.SrcSignalServiceAddress
 	p.hopSignalServiceAddress = cfg.HopSignalServiceAddress
+	p.hopTaikoAddress = cfg.HopTaikoAddress
 
 	p.msgCh = make(chan queue.Message)
 	p.wg = &sync.WaitGroup{}
 	p.mu = &sync.Mutex{}
-	p.rpc = srcRpcClient
+	p.srcCaller = srcRpcClient
+	p.hopCaller = hopRpcClient
 
 	p.backOffRetryInterval = time.Duration(cfg.BackoffRetryInterval) * time.Second
 	p.backOffMaxRetries = cfg.BackOffMaxRetrys
