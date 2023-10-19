@@ -36,7 +36,13 @@ func (p *Prover) EncodedSignalProof(
 		return nil, errors.Wrap(err, "p.blockHeader")
 	}
 
-	encodedStorageProof, signalRoot, err := p.encodedStorageProof(ctx, caller, signalServiceAddress, key, blockHeader.Height.Int64())
+	encodedStorageProof, signalRoot, err := p.encodedStorageProof(
+		ctx,
+		caller,
+		signalServiceAddress,
+		key,
+		blockHeader.Height.Int64(),
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "p.getEncodedStorageProof")
 	}
@@ -44,7 +50,7 @@ func (p *Prover) EncodedSignalProof(
 	hops := []encoding.Hop{}
 
 	for _, hopParam := range hopParams {
-		hopBlockHeader, err := p.blockHeader(ctx, hopParam.Blocker, blockHash)
+		hopBlockHeader, err := p.blockHeader(ctx, hopParam.Blocker, common.Hash{})
 		if err != nil {
 			return nil, errors.Wrap(err, "hop p.blockHeader")
 		}

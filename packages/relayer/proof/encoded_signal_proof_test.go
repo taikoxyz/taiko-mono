@@ -18,7 +18,14 @@ var (
 func Test_EncodedSignalProof(t *testing.T) {
 	p := newTestProver()
 
-	encoded, err := p.EncodedSignalProof(context.Background(), &mock.Caller{}, common.Address{}, "1", mock.Header.TxHash)
+	encoded, err := p.EncodedSignalProof(
+		context.Background(),
+		&mock.Caller{},
+		common.Address{},
+		nil,
+		"1",
+		mock.Header.TxHash,
+	)
 	assert.Nil(t, err)
 	assert.Equal(t, hexutil.Encode(encoded), wantEncoded)
 }

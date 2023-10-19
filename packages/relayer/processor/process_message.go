@@ -114,6 +114,7 @@ func (p *Processor) processMessage(
 	// if a hop is set, the proof service needs to generate an additional proof
 	// for the signal service intermediary chain in between the source chain
 	// and the destination chain.
+	// TODO: support multiple hops via env vars/configs instead of just one.
 	if p.hopChainId != nil && p.hopSignalServiceAddress != (common.Address{}) {
 		slog.Info(
 			"adding hop",
@@ -144,6 +145,7 @@ func (p *Processor) processMessage(
 			"msgHash", common.Hash(msgBody.Event.MsgHash).Hex(),
 			"from", msgBody.Event.Message.User.Hex(),
 			"error", err,
+			"latestSyncedBlockHash", common.Bytes2Hex(latestSyncedSnippet.BlockHash[:]),
 			"hopsLength", len(hops),
 		)
 

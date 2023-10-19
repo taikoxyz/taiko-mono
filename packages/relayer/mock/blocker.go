@@ -41,3 +41,7 @@ func (b *Blocker) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 
 	return types.NewBlockWithHeader(Header), nil
 }
+
+func (b *Blocker) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
+	return types.NewBlockWithHeader(Header), nil
+}
