@@ -79,7 +79,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        override(ERC20Upgradeable)
+        override
         returns (bool)
     {
         if (to == address(this)) revert TKO_INVALID_ADDR();
@@ -97,7 +97,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        override(ERC20Upgradeable)
+        override
         returns (bool)
     {
         if (to == address(this)) revert TKO_INVALID_ADDR();
