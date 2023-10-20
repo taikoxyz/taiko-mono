@@ -36,10 +36,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     // A hash to check the integrity of public inputs.
     bytes32 public publicInputHash; // slot 3
-
     uint128 public gasExcess; // slot 4
-    uint128 public accumulatedReward;
-
     address public parentProposer; // slot 5
     uint64 public latestSyncedL1Height;
 
@@ -50,7 +47,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     error L2_BASEFEE_MISMATCH();
     error L2_INVALID_CHAIN_ID();
     error L2_INVALID_SENDER();
-    error L2_GAS_EXCESS_TOO_LARGE();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
 
