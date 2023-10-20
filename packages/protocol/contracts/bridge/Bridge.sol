@@ -64,6 +64,10 @@ contract Bridge is EssentialContract, IBridge {
         _;
     }
 
+    /// @dev Vaults will transfer Ether to this Bridge before these Ether are
+    /// sent to users.
+    receive() external payable { }
+
     /// @notice Initializes the contract.
     /// @param _addressManager The address of the {AddressManager} contract.
     function init(address _addressManager) external initializer {
