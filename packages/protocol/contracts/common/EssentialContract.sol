@@ -21,6 +21,7 @@ abstract contract EssentialContract is OwnableUpgradeable, AddressResolver {
 
     uint8 private _reentry; // slot 1
     uint8 private _paused;
+    uint256[49] private __gap;
 
     event Paused(address account);
     event Unpaused(address account);
