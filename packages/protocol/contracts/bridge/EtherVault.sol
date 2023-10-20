@@ -33,11 +33,7 @@ contract EtherVault is EssentialContract {
         _;
     }
 
-    /// @notice Function to receive Ether.
-    /// @dev Only authorized addresses can send Ether to the contract.
-    receive() external payable {
-        if (!isAuthorized[msg.sender]) revert VAULT_PERMISSION_DENIED();
-    }
+    receive() external payable { }
 
     /// @notice Initializes the contract with an {AddressManager}.
     /// @param addressManager The address of the {AddressManager} contract.
