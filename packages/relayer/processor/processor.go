@@ -150,18 +150,18 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 
 	hops := []hop{}
 
-	var hopEthClient *ethclient.Client
+	for _, hopConfig := range cfg.hopConfigs {
+		var hopEthClient *ethclient.Client
 
-	var hopChainID *big.Int
+		var hopChainID *big.Int
 
-	var hopHeaderSyncer *icrosschainsync.ICrossChainSync
+		var hopHeaderSyncer *icrosschainsync.ICrossChainSync
 
-	var hopRpcClient *rpc.Client
+		var hopRpcClient *rpc.Client
 
-	var hopSignalService *signalservice.SignalService
+		var hopSignalService *signalservice.SignalService
 
-	if cfg.HopRPCUrl != "" {
-		hopEthClient, err = ethclient.Dial(cfg.HopRPCUrl)
+		hopEthClient, err = ethclient.Dial(hopConfig.rpcURL)
 		if err != nil {
 			return err
 		}
@@ -172,7 +172,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		}
 
 		hopHeaderSyncer, err = icrosschainsync.NewICrossChainSync(
-			cfg.HopTaikoAddress,
+			hopConfig.taikoAddress,
 			hopEthClient,
 		)
 		if err != nil {
@@ -180,14 +180,14 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		}
 
 		hopSignalService, err = signalservice.NewSignalService(
-			cfg.HopSignalServiceAddress,
+			hopConfig.signalServiceAddress,
 			hopEthClient,
 		)
 		if err != nil {
 			return err
 		}
 
-		hopRpcClient, err = rpc.Dial(cfg.HopRPCUrl)
+		hopRpcClient, err = rpc.Dial(hopConfig.rpcURL)
 		if err != nil {
 			return err
 		}
@@ -196,8 +196,8 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		// to support more.
 		hops = append(hops, hop{
 			caller:               hopRpcClient,
-			signalServiceAddress: cfg.HopSignalServiceAddress,
-			taikoAddress:         cfg.HopTaikoAddress,
+			signalServiceAddress: hopConfig.signalServiceAddress,
+			taikoAddress:         hopConfig.taikoAddress,
 			chainID:              hopChainID,
 			headerSyncer:         hopHeaderSyncer,
 			signalService:        hopSignalService,

@@ -16,11 +16,14 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+type hopConfig struct {
+	signalServiceAddress common.Address
+	taikoAddress         common.Address
+	rpcURL               string
+}
 type Config struct {
 	// address configs
 	SrcSignalServiceAddress common.Address
-	HopSignalServiceAddress common.Address
-	HopTaikoAddress         common.Address
 	DestBridgeAddress       common.Address
 	DestERC721VaultAddress  common.Address
 	DestERC20VaultAddress   common.Address
@@ -58,10 +61,11 @@ type Config struct {
 	// rpc configs
 	SrcRPCUrl        string
 	DestRPCUrl       string
-	HopRPCUrl        string
 	ETHClientTimeout uint64
 	OpenQueueFunc    func() (queue.Queue, error)
 	OpenDBFunc       func() (DB, error)
+
+	hopConfigs []hopConfig
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -73,11 +77,29 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, fmt.Errorf("invalid processorPrivateKey: %w", err)
 	}
 
+	hopSignalServiceAddresses := c.StringSlice(flags.HopSignalServiceAddresses.Name)
+	hopTaikoAddresses := c.StringSlice(flags.HopTaikoAddresses.Name)
+	hopRPCUrls := c.StringSlice(flags.HopRPCUrls.Name)
+
+	if len(hopSignalServiceAddresses) != len(hopTaikoAddresses) ||
+		len(hopSignalServiceAddresses) != len(hopRPCUrls) ||
+		len(hopTaikoAddresses) != len(hopRPCUrls) {
+		return nil, fmt.Errorf("all hop parameters must be of same length")
+	}
+
+	hopConfigs := []hopConfig{}
+	for i, hopSignalServiceAddress := range hopSignalServiceAddresses {
+		hopConfigs = append(hopConfigs, hopConfig{
+			signalServiceAddress: common.HexToAddress(hopSignalServiceAddress),
+			rpcURL:               hopRPCUrls[i],
+			taikoAddress:         common.HexToAddress(hopTaikoAddresses[i]),
+		})
+	}
+
 	return &Config{
+		hopConfigs:              hopConfigs,
 		ProcessorPrivateKey:     processorPrivateKey,
 		SrcSignalServiceAddress: common.HexToAddress(c.String(flags.SrcSignalServiceAddress.Name)),
-		HopSignalServiceAddress: common.HexToAddress(c.String(flags.HopSignalServiceAddress.Name)),
-		HopTaikoAddress:         common.HexToAddress(c.String(flags.HopTaikoAddress.Name)),
 		DestTaikoAddress:        common.HexToAddress(c.String(flags.DestTaikoAddress.Name)),
 		DestBridgeAddress:       common.HexToAddress(c.String(flags.DestBridgeAddress.Name)),
 		DestERC721VaultAddress:  common.HexToAddress(c.String(flags.DestERC721VaultAddress.Name)),
@@ -97,7 +119,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		QueuePrefetch:           c.Uint64(flags.QueuePrefetchCount.Name),
 		SrcRPCUrl:               c.String(flags.SrcRPCUrl.Name),
 		DestRPCUrl:              c.String(flags.DestRPCUrl.Name),
-		HopRPCUrl:               c.String(flags.HopRPCUrl.Name),
 		HeaderSyncInterval:      c.Uint64(flags.HeaderSyncInterval.Name),
 		Confirmations:           c.Uint64(flags.Confirmations.Name),
 		ConfirmationsTimeout:    c.Uint64(flags.ConfirmationTimeout.Name),

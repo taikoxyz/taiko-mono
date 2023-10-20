@@ -89,16 +89,40 @@ func (p *Processor) processMessage(
 		return errors.Wrap(err, "p.waitForConfirmations")
 	}
 
-	// wait for srcChain => destChain header to sync if no hops,
-	// or srcChain => hopChain if hop
-	// TODO: support more than one hop, wait for all headers to sync.
-	var headerSyncer relayer.HeaderSyncer = p.destHeaderSyncer
-	if p.hops != nil {
-		headerSyncer = p.hops[0].headerSyncer
-	}
+	var blockNum uint64 = msgBody.Event.Raw.BlockNumber
 
-	if err := p.waitHeaderSynced(ctx, headerSyncer, p.srcEthClient, msgBody.Event.Raw.BlockNumber); err != nil {
-		return errors.Wrap(err, "p.waitHeaderSynced")
+	// wait for srcChain => destChain header to sync if no hops,
+	// or srcChain => hopChain => hopChain => hopChain => destChain if hops exist.
+	if p.hops != nil {
+		var hopEthClient ethClient = p.srcEthClient
+
+		for _, hop := range p.hops {
+			err := p.waitHeaderSynced(ctx, hop.headerSyncer, hopEthClient, blockNum)
+
+			if err != nil {
+				return errors.Wrap(err, "p.waitHeaderSynced")
+			}
+
+			// todo: instead of latest, need way to find out which block num on the hop chain
+			// the previous blockHash was synced in, and then wait for that header to be synced
+			// on the next hop chain.
+			latestBlock, err := hop.ethClient.BlockByNumber(ctx, nil)
+			if err != nil {
+				return errors.Wrap(err, "hop.ethClient.BlockByNumber(ctx, nil)")
+			}
+
+			blockNum = latestBlock.NumberU64()
+
+			hopEthClient = hop.ethClient
+		}
+
+		if err := p.waitHeaderSynced(ctx, p.destHeaderSyncer, hopEthClient, blockNum); err != nil {
+			return errors.Wrap(err, "p.waitHeaderSynced")
+		}
+	} else {
+		if err := p.waitHeaderSynced(ctx, p.destHeaderSyncer, p.srcEthClient, msgBody.Event.Raw.BlockNumber); err != nil {
+			return errors.Wrap(err, "p.waitHeaderSynced")
+		}
 	}
 
 	key, err := p.srcSignalService.GetSignalSlot(&bind.CallOpts{},
@@ -147,7 +171,7 @@ func (p *Processor) processMessage(
 			hops,
 			common.Bytes2Hex(key[:]),
 			msgBody.Event.Raw.BlockHash,
-			1800,
+			blockNum,
 		)
 	} else {
 		// get latest synced header since not every header is synced from L1 => L2,
