@@ -29,9 +29,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         uint256 basefeeAdjustmentQuotient;
     }
 
-    // TODO(david): figure out this value from internal devnet.
-    uint32 public constant ANCHOR_GAS_DEDUCT = 40_000;
-
     // Mapping from L2 block numbers to their block hashes.
     // All L2 block hashes will be saved in this mapping.
     mapping(uint256 blockId => bytes32 blockHash) public l2Hashes;
