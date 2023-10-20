@@ -16,6 +16,7 @@ import { TaikoData } from "../TaikoData.sol";
 /// @notice A library for handling Ether deposits in the Taiko protocol.
 library LibDepositing {
     using LibAddress for address;
+    using LibAddress for address payable;
     using LibMath for uint256;
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
@@ -37,11 +38,7 @@ library LibDepositing {
             revert L1_INVALID_ETH_DEPOSIT();
         }
 
-        address to = resolver.resolve("ether_vault", true);
-        if (to == address(0)) {
-            to = resolver.resolve("bridge", false);
-        }
-        to.sendEther(msg.value);
+        resolver.resolve("ether_vault", false).sendEther(msg.value);
 
         // Append the deposit to the queue.
         address _recipient = recipient == address(0) ? msg.sender : recipient;
