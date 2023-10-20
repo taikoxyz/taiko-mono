@@ -64,6 +64,8 @@ contract Bridge is EssentialContract, IBridge {
         _;
     }
 
+    /// @dev Vaults will transfer Ether to this Bridge before these Ether are
+    /// sent to users.
     receive() external payable { }
 
     /// @notice Initializes the contract.
