@@ -32,10 +32,13 @@ contract Bridge is EssentialContract, IBridge {
     address internal constant SRC_CHAIN_SENDER_PLACEHOLDER =
         address(uint160(uint256(1)));
 
-    uint256 public nextMessageId;
-    mapping(bytes32 msgHash => bool recalled) public isMessageRecalled;
-    mapping(bytes32 msgHash => Status) public messageStatus;
-    Context private _ctx; // 3 slots
+    uint128 public nextMessageId; // slot 1
+    bool paused;
+
+    mapping(bytes32 msgHash => bool recalled) public isMessageRecalled; // slot
+        // 2
+    mapping(bytes32 msgHash => Status) public messageStatus; // slot 3
+    Context private _ctx; // slot 4-6
     uint256[44] private __gap;
 
     event SignalSent(address indexed sender, bytes32 msgHash);
@@ -43,10 +46,12 @@ contract Bridge is EssentialContract, IBridge {
     event MessageRecalled(bytes32 indexed msgHash);
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
+    event Paused(bool paused);
 
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
     error B_INVALID_GAS_LIMIT();
+    error B_INVALID_PAUSE_STATE();
     error B_INVALID_SIGNAL();
     error B_INVALID_TO();
     error B_INVALID_USER();
@@ -54,12 +59,18 @@ contract Bridge is EssentialContract, IBridge {
     error B_NON_RETRIABLE();
     error B_NOT_FAILED();
     error B_NOT_RECEIVED();
+    error B_PAUSED();
     error B_PERMISSION_DENIED();
     error B_RECALLED_ALREADY();
     error B_STATUS_MISMATCH();
 
     modifier sameChain(uint256 chainId) {
         if (chainId != block.chainid) revert B_INVALID_CHAINID();
+        _;
+    }
+
+    modifier whenNotPaused() {
+        if (paused) revert B_PAUSED();
         _;
     }
 
@@ -79,6 +90,7 @@ contract Bridge is EssentialContract, IBridge {
         payable
         override
         nonReentrant
+        whenNotPaused
         returns (bytes32 msgHash, Message memory _message)
     {
         // Ensure the message user is not null.
@@ -132,6 +144,7 @@ contract Bridge is EssentialContract, IBridge {
     )
         external
         nonReentrant
+        whenNotPaused
         sameChain(message.srcChainId)
     {
         bytes32 msgHash = keccak256(abi.encode(message));
@@ -182,6 +195,7 @@ contract Bridge is EssentialContract, IBridge {
     )
         external
         nonReentrant
+        whenNotPaused
         sameChain(message.destChainId)
     {
         // If the gas limit is set to zero, only the user can process the
@@ -261,6 +275,7 @@ contract Bridge is EssentialContract, IBridge {
     )
         external
         nonReentrant
+        whenNotPaused
         sameChain(message.destChainId)
     {
         // If the gasLimit is set to 0 or isLastAttempt is true, the caller must
@@ -294,6 +309,13 @@ contract Bridge is EssentialContract, IBridge {
             // otherwise funds stay at Bridge anyways.
             if (ethVault != address(0)) ethVault.sendEther(message.value);
         }
+    }
+
+    /// @notice Admin pause the bridge
+    function pause(bool _paused) external onlyOwner {
+        if (paused == _paused) revert B_INVALID_PAUSE_STATE();
+        paused = _paused;
+        emit Paused(_paused);
     }
 
     /// @notice Checks if the message was sent.
