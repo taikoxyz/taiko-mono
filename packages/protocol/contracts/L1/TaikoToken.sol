@@ -19,7 +19,6 @@ import { ERC20VotesUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { Proxied } from "../common/Proxied.sol";
 
 /// @title TaikoToken
@@ -31,8 +30,7 @@ contract TaikoToken is
     ERC20Upgradeable,
     ERC20SnapshotUpgradeable,
     ERC20PermitUpgradeable,
-    ERC20VotesUpgradeable,
-    IMintableERC20
+    ERC20VotesUpgradeable
 {
     error TKO_INVALID_ADDR();
     error TKO_INVALID_PREMINT_PARAMS();
@@ -107,7 +105,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        override(ERC20Upgradeable, IERC20Upgradeable)
+        override
         returns (bool)
     {
         if (to == address(this)) revert TKO_INVALID_ADDR();
@@ -125,7 +123,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        override(ERC20Upgradeable, IERC20Upgradeable)
+        override
         returns (bool)
     {
         if (to == address(this)) revert TKO_INVALID_ADDR();

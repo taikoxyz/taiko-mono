@@ -34,6 +34,7 @@ interface IAddressManager {
 /// @notice Manages a mapping of domain-name pairs to Ethereum addresses.
 contract AddressManager is OwnableUpgradeable, IAddressManager {
     mapping(uint256 => mapping(bytes32 => address)) private addresses;
+    uint256[49] private __gap;
 
     event AddressSet(
         uint256 indexed domain,
