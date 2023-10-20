@@ -13,6 +13,7 @@ import
 import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
+import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/L1/verifiers/PseZkVerifier.sol";
 import "../contracts/L1/verifiers/SgxVerifier.sol";
 import "../contracts/L1/verifiers/SgxAndZkVerifier.sol";
@@ -32,6 +33,9 @@ import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
 /// initializing the rollup.
 contract DeployOnL1 is Script {
+    // NOTE: this value must match the constant define in GuardianProver.sol
+    uint256 public constant NUM_GUARDIANS = 5;
+
     bytes32 public genesisHash = vm.envBytes32("L2_GENESIS_HASH");
 
     uint256 public deployerPrivateKey = vm.envUint("PRIVATE_KEY");
@@ -42,7 +46,7 @@ contract DeployOnL1 is Script {
 
     address public owner = vm.envAddress("OWNER");
 
-    address public guardianProver = vm.envAddress("GUARDIAN_PROVER");
+    address[] public guardianProvers = vm.envAddress("GUARDIAN_PROVERS", ",");
 
     address public proposer = vm.envAddress("PROPOSER");
 
@@ -67,6 +71,10 @@ contract DeployOnL1 is Script {
         require(owner != address(0), "owner is zero");
         require(taikoL2Address != address(0), "taikoL2Address is zero");
         require(l2SignalService != address(0), "l2SignalService is zero");
+        require(
+            guardianProvers.length == NUM_GUARDIANS,
+            "invalid guardian provers number"
+        );
         require(
             taikoTokenPremintRecipients.length != 0,
             "taikoTokenPremintRecipients length is zero"
@@ -93,7 +101,6 @@ contract DeployOnL1 is Script {
 
         setAddress(l2ChainId, "taiko", taikoL2Address);
         setAddress(l2ChainId, "signal_service", l2SignalService);
-        setAddress("guardian", guardianProver);
         if (proposer != address(0)) {
             setAddress("proposer", proposer);
         }
@@ -120,17 +127,12 @@ contract DeployOnL1 is Script {
         address horseToken = address(new FreeMintERC20("Horse Token", "HORSE"));
         console2.log("HorseToken", horseToken);
 
-        uint64 feePerGas = 10;
-        uint64 provingWindow = 60 minutes;
-
         address taikoL1Proxy = deployProxy(
             "taiko",
             address(taikoL1),
             bytes.concat(
                 taikoL1.init.selector,
-                abi.encode(
-                    addressManagerProxy, genesisHash, feePerGas, provingWindow
-                )
+                abi.encode(addressManagerProxy, genesisHash)
             )
         );
         setAddress("taiko", taikoL1Proxy);
@@ -172,6 +174,21 @@ contract DeployOnL1 is Script {
                 erc1155Vault.init.selector, abi.encode(addressManagerProxy)
             )
         );
+
+        // Guardian prover
+        ProxiedGuardianProver guardianProver = new ProxiedGuardianProver();
+        address guardianProverProxy = deployProxy(
+            "guardian",
+            address(guardianProver),
+            bytes.concat(
+                guardianProver.init.selector, abi.encode(addressManagerProxy)
+            )
+        );
+        address[NUM_GUARDIANS] memory guardians;
+        for (uint256 i = 0; i < NUM_GUARDIANS; ++i) {
+            guardians[i] = guardianProvers[i];
+        }
+        ProxiedGuardianProver(guardianProverProxy).setGuardians(guardians);
 
         // Config provider
         deployProxy(
