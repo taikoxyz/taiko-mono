@@ -42,8 +42,6 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         address oldAddress
     );
 
-    error AM_INVALID_ADDRESS();
-
     /// @notice Initializes the owner for the upgradable contract.
     function init() external initializer {
         OwnableUpgradeable.__Ownable_init();
@@ -62,10 +60,6 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         virtual
         onlyOwner
     {
-        if (newAddress.code.length == 0 && newAddress == msg.sender) {
-            revert AM_INVALID_ADDRESS();
-        }
-
         address oldAddress = addresses[domain][name];
         addresses[domain][name] = newAddress;
         emit AddressSet(domain, name, newAddress, oldAddress);
