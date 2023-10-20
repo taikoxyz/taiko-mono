@@ -12,7 +12,7 @@ contract TaikoTokenTest is TestBase {
     bytes32 GENESIS_BLOCK_HASH;
 
     address public tokenOwner;
-    address public taikoL1;
+    address public erc20Vault;
 
     AddressManager public addressManager;
     TransparentUpgradeableProxy public tokenProxy;
@@ -23,11 +23,11 @@ contract TaikoTokenTest is TestBase {
         GENESIS_BLOCK_HASH = getRandomBytes32();
 
         tokenOwner = getRandomAddress();
-        taikoL1 = getRandomAddress();
+        erc20Vault = getRandomAddress();
 
         addressManager = new AddressManager();
         addressManager.init();
-        _registerAddress("taiko", taikoL1);
+        _registerAddress("erc20_vault", erc20Vault);
 
         tko = new TaikoToken();
 
@@ -84,13 +84,13 @@ contract TaikoTokenTest is TestBase {
         assertEq(tko.balanceOf(Emma), 0 ether);
 
         uint256 amountToMint = 1 ether;
-        vm.prank(taikoL1);
+        vm.prank(erc20Vault);
         tko.mint(Emma, amountToMint);
         assertEq(tko.balanceOf(Emma), amountToMint);
     }
 
     function test_TaikoToken_mint_invalid_address() public {
-        vm.prank(taikoL1);
+        vm.prank(erc20Vault);
         vm.expectRevert("ERC20: mint to the zero address");
         tko.mint(address(0), 1 ether);
     }
@@ -102,11 +102,11 @@ contract TaikoTokenTest is TestBase {
 
     function test_TaikoToken_burn() public {
         uint256 amountToMint = 1 ether;
-        vm.prank(taikoL1);
+        vm.prank(erc20Vault);
         tko.mint(Emma, amountToMint);
         assertEq(tko.balanceOf(Emma), amountToMint);
 
-        vm.prank(taikoL1);
+        vm.prank(erc20Vault);
         tko.burn(Emma, amountToMint);
         assertEq(tko.balanceOf(Emma), 0);
     }
@@ -118,14 +118,14 @@ contract TaikoTokenTest is TestBase {
 
     function test_TaikoToken_burn_amount_exceeded() public {
         uint256 amountToMint = 1 ether;
-        vm.prank(taikoL1);
+        vm.prank(erc20Vault);
         tko.mint(Emma, amountToMint);
         assertEq(tko.balanceOf(Emma), amountToMint);
     }
 
     function test_TaikoToken_transfer() public {
         uint256 amountToMint = 1 ether;
-        vm.prank(taikoL1);
+        vm.prank(erc20Vault);
         tko.mint(Emma, amountToMint);
         assertEq(tko.balanceOf(Emma), amountToMint);
 
@@ -138,7 +138,7 @@ contract TaikoTokenTest is TestBase {
 
     function test_TaikoToken_transfer_invalid_address() public {
         uint256 amountToMint = 1 ether;
-        vm.prank(taikoL1);
+        vm.prank(erc20Vault);
         tko.mint(Emma, amountToMint);
         assertEq(tko.balanceOf(Emma), amountToMint);
 
@@ -149,7 +149,7 @@ contract TaikoTokenTest is TestBase {
 
     function test_TaikoToken_transfer_to_contract_address() public {
         uint256 amountToMint = 1 ether;
-        vm.prank(taikoL1);
+        vm.prank(erc20Vault);
         tko.mint(Emma, amountToMint);
         assertEq(tko.balanceOf(Emma), amountToMint);
 
@@ -161,7 +161,7 @@ contract TaikoTokenTest is TestBase {
     function test_TaikoToken_transfer_amount_exceeded() public {
         uint256 amountToMint = 1 ether;
         uint256 amountToTransfer = 2 ether;
-        vm.prank(taikoL1);
+        vm.prank(erc20Vault);
         tko.mint(Emma, amountToMint);
         assertEq(tko.balanceOf(Emma), amountToMint);
 
@@ -173,7 +173,7 @@ contract TaikoTokenTest is TestBase {
 
     function test_TaikoToken_transferFrom() public {
         uint256 amountToMint = 1 ether;
-        vm.prank(taikoL1);
+        vm.prank(erc20Vault);
         tko.mint(Emma, amountToMint);
         assertEq(tko.balanceOf(Emma), amountToMint);
 
@@ -189,7 +189,7 @@ contract TaikoTokenTest is TestBase {
 
     function test_TaikoToken_transferFrom_to_is_invalid() public {
         uint256 amountToMint = 1 ether;
-        vm.prank(taikoL1);
+        vm.prank(erc20Vault);
         tko.mint(Emma, amountToMint);
         assertEq(tko.balanceOf(Emma), amountToMint);
 
@@ -203,7 +203,7 @@ contract TaikoTokenTest is TestBase {
 
     function test_TaikoToken_transferFrom_to_is_the_contract() public {
         uint256 amountToMint = 1 ether;
-        vm.prank(taikoL1);
+        vm.prank(erc20Vault);
         tko.mint(Emma, amountToMint);
         assertEq(tko.balanceOf(Emma), amountToMint);
 
@@ -217,7 +217,7 @@ contract TaikoTokenTest is TestBase {
 
     function test_TaikoToken_transferFrom_from_is_invalid() public {
         uint256 amountToMint = 1 ether;
-        vm.prank(taikoL1);
+        vm.prank(erc20Vault);
         tko.mint(Emma, amountToMint);
         assertEq(tko.balanceOf(Emma), amountToMint);
 
@@ -233,7 +233,7 @@ contract TaikoTokenTest is TestBase {
     function test_TaikoToken_transferFrom_amount_exceeded() public {
         uint256 amountToMint = 1 ether;
         uint256 amountToTransfer = 2 ether;
-        vm.prank(taikoL1);
+        vm.prank(erc20Vault);
         tko.mint(Emma, amountToMint);
         assertEq(tko.balanceOf(Emma), amountToMint);
 
