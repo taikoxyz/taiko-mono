@@ -19,6 +19,7 @@
     "test": "forge test -vvv --gas-report --match-path test/*.t.sol",
     "test:coverage": "mkdir -p coverage && forge coverage --report lcov && lcov --remove ./lcov.info -o ./coverage/lcov.info 'test/' 'script/' 'contracts/thirdparty/' && genhtml coverage/lcov.info --branch-coverage --output-dir coverage --ignore-errors category && open coverage/index.html",
     "test:genesis": "pnpm compile && pnpm compile:hardhat && FOUNDRY_PROFILE=genesis ./genesis/generate_genesis.test.sh",
+    "sim:export": "forge test --match-test 'test_simulation' -vv > simulation/exports/simulation_data_$(date +%s).txt",
     "upgrade": "./script/upgrade_to.sh"
   },
   "keywords": [

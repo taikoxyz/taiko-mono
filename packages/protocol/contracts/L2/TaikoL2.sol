@@ -121,7 +121,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         // Verify the base fee per gas is correct
         uint256 basefee;
         (basefee, gasExcess) = _calc1559BaseFee(config, l1Height, parentGasUsed);
-        if (block.basefee != basefee) {
+        if (!skipFeeCheck() && block.basefee != basefee) {
             revert L2_BASEFEE_MISMATCH();
         }
 
@@ -193,6 +193,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         config.blockRewardPoolMax = 12e18; // 12 Taiko token
         config.blockRewardPoolPctg = 40; // 40%
     }
+
+    /// @notice Tells if we need to validate basefee (for simulation).
+    /// @return Returns true to skip checking basefee mismatch.
+    function skipFeeCheck() public pure virtual returns (bool) { }
 
     // In situations where the network lacks sufficient transactions for the
     // proposer to profit, they are still obligated to pay the prover the
