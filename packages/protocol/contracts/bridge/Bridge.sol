@@ -33,7 +33,7 @@ contract Bridge is EssentialContract, IBridge {
         address(uint160(uint256(1)));
 
     uint128 public nextMessageId; // slot 1
-    bool paused;
+    bool public paused;
 
     mapping(bytes32 msgHash => bool recalled) public isMessageRecalled; // slot
         // 2
