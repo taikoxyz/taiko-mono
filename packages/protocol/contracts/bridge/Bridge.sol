@@ -19,6 +19,7 @@ import { IBridge, IRecallableSender } from "./IBridge.sol";
 /// @dev The code hash for the same address on L1 and L2 may be different.
 contract Bridge is EssentialContract, IBridge {
     using LibAddress for address;
+    using LibAddress for address payable;
 
     enum Status {
         NEW,
@@ -113,11 +114,7 @@ contract Bridge is EssentialContract, IBridge {
         uint256 expectedAmount = message.value + message.fee;
         if (expectedAmount != msg.value) revert B_INVALID_VALUE();
 
-        // On Taiko, send the expectedAmount to the EtherVault; otherwise, store
-        // it on the Bridge.
-        address ethVault = resolve("ether_vault", true);
-
-        if (ethVault != address(0)) ethVault.sendEther(expectedAmount);
+        resolve("ether_vault", false).sendEther(expectedAmount);
 
         _message = message;
         // Configure message details and send signal to indicate message
@@ -157,14 +154,10 @@ contract Bridge is EssentialContract, IBridge {
 
         isMessageRecalled[msgHash] = true;
 
-        // Release necessary Ether from EtherVault if on Taiko, otherwise it's
-        // already available on this Bridge.
-        address ethVault = resolve("ether_vault", true);
-        if (ethVault != address(0)) {
-            EtherVault(payable(ethVault)).releaseEther(
-                address(this), message.value
-            );
-        }
+        // Release necessary Ether from EtherVault.
+        EtherVault(resolve("ether_vault", false)).releaseEther(
+            address(this), message.value
+        );
 
         // Execute the recall logic based on the contract's support for the
         // IRecallableSender interface
@@ -212,12 +205,10 @@ contract Bridge is EssentialContract, IBridge {
 
         // Release necessary Ether from EtherVault if on Taiko, otherwise it's
         // already available on this Bridge.
-        address ethVault = resolve("ether_vault", true);
-        if (ethVault != address(0)) {
-            EtherVault(payable(ethVault)).releaseEther(
-                address(this), message.value + message.fee
-            );
-        }
+        address payable ethVault = resolve("ether_vault", false);
+        EtherVault(ethVault).releaseEther(
+            address(this), message.value + message.fee
+        );
 
         Status status;
         uint256 refundAmount;
@@ -238,7 +229,7 @@ contract Bridge is EssentialContract, IBridge {
                 status = Status.DONE;
             } else {
                 status = Status.RETRIABLE;
-                if (ethVault != address(0)) ethVault.sendEther(message.value);
+                ethVault.sendEther(message.value);
             }
         }
 
@@ -291,12 +282,8 @@ contract Bridge is EssentialContract, IBridge {
 
         // Release necessary Ether from EtherVault if on Taiko, otherwise it's
         // already available on this Bridge.
-        address ethVault = resolve("ether_vault", true);
-        if (ethVault != address(0)) {
-            EtherVault(payable(ethVault)).releaseEther(
-                address(this), message.value
-            );
-        }
+        address payable ethVault = resolve("ether_vault", false);
+        EtherVault(ethVault).releaseEther(address(this), message.value);
 
         // Attempt to invoke the messageCall.
         if (_invokeMessageCall(message, msgHash, gasleft())) {
@@ -307,7 +294,7 @@ contract Bridge is EssentialContract, IBridge {
             _updateMessageStatus(msgHash, Status.FAILED);
             // Release Ether back to EtherVault (if on Taiko it is OK)
             // otherwise funds stay at Bridge anyways.
-            if (ethVault != address(0)) ethVault.sendEther(message.value);
+            ethVault.sendEther(message.value);
         }
     }
 
