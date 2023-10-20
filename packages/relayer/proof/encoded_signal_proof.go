@@ -23,7 +23,6 @@ type HopParams struct {
 	TaikoAddress         common.Address
 	Blocker              blocker
 	Caller               relayer.Caller
-	BlockHash            common.Hash
 }
 
 // EncodedSignalProof rlp and abi encodes the SignalProof struct expected by SignalService

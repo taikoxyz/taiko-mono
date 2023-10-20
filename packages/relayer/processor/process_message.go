@@ -157,7 +157,6 @@ func (p *Processor) processMessage(
 			SignalServiceAddress: hop.signalServiceAddress,
 			Blocker:              hop.ethClient,
 			Caller:               hop.caller,
-			BlockHash:            msgBody.Event.Raw.BlockHash,
 			SignalService:        hop.signalService,
 			TaikoAddress:         hop.taikoAddress,
 		})
