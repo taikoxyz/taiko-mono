@@ -14,13 +14,14 @@ import { AddressResolver } from "./AddressResolver.sol";
 /// @title EssentialContract
 /// @notice This contract serves as the base contract for many core components.
 /// @dev We didn't use OpenZeppelin's PausableUpgradeable and
-/// ReentrancyGuardUpgradeable conract in order to optimize storage reads
+/// ReentrancyGuardUpgradeable contract to optimize storage reads.
 abstract contract EssentialContract is OwnableUpgradeable, AddressResolver {
     uint8 private constant _FALSE = 1;
     uint8 private constant _TRUE = 2;
 
-    uint8 private _reentryStatus; // slot 1
-    uint8 private _pauseStatus;
+    uint8 private _reentry; // slot 1
+    uint8 private _paused;
+    uint256[49] private __gap;
 
     event Paused(address account);
     event Unpaused(address account);
@@ -29,10 +30,10 @@ abstract contract EssentialContract is OwnableUpgradeable, AddressResolver {
     error INVALID_PAUSE_STATUS();
 
     modifier nonReentrant() {
-        if (_reentryStatus == _TRUE) revert REENTRANT_CALL();
-        _reentryStatus = _TRUE;
+        if (_reentry == _TRUE) revert REENTRANT_CALL();
+        _reentry = _TRUE;
         _;
-        _reentryStatus = _FALSE;
+        _reentry = _FALSE;
     }
 
     modifier whenPaused() {
@@ -46,17 +47,17 @@ abstract contract EssentialContract is OwnableUpgradeable, AddressResolver {
     }
 
     function pause() external whenNotPaused onlyOwner {
-        _pauseStatus = _TRUE;
+        _paused = _TRUE;
         emit Paused(msg.sender);
     }
 
     function unpause() external whenPaused onlyOwner {
-        _pauseStatus = _FALSE;
+        _paused = _FALSE;
         emit Unpaused(msg.sender);
     }
 
     function paused() public view returns (bool) {
-        return _pauseStatus == _TRUE;
+        return _paused == _TRUE;
     }
 
     /// @notice Initializes the contract with an address manager.
@@ -65,7 +66,7 @@ abstract contract EssentialContract is OwnableUpgradeable, AddressResolver {
         OwnableUpgradeable.__Ownable_init_unchained();
         AddressResolver._init(_addressManager);
 
-        _reentryStatus = _FALSE;
-        _pauseStatus = _FALSE;
+        _reentry = _FALSE;
+        _paused = _FALSE;
     }
 }

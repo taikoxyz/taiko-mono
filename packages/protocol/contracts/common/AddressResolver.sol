@@ -19,7 +19,6 @@ import { IAddressManager } from "./AddressManager.sol";
 /// contracts that are resolvers.
 abstract contract AddressResolver {
     address public addressManager;
-
     uint256[49] private __gap;
 
     error RESOLVER_DENIED();
