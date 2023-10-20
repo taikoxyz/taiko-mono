@@ -7,6 +7,7 @@ import { Bridge } from "../../contracts/bridge/Bridge.sol";
 import { BridgedERC20 } from "../../contracts/tokenvault/BridgedERC20.sol";
 import { FreeMintERC20 } from "../../contracts/test/erc20/FreeMintERC20.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
+import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
 import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
 import { Test } from "forge-std/Test.sol";
 import { ERC20Vault } from "../../contracts/tokenvault/ERC20Vault.sol";
@@ -82,6 +83,7 @@ contract TestERC20Vault is Test {
     TaikoToken tko;
     AddressManager addressManager;
     Bridge bridge;
+    EtherVault etherVault;
     ERC20Vault erc20Vault;
     ERC20Vault destChainIdERC20Vault;
     PrankDestBridge destChainIdBridge;
@@ -108,6 +110,9 @@ contract TestERC20Vault is Test {
         addressManager = new AddressManager();
         addressManager.init();
         addressManager.setAddress(block.chainid, "taiko_token", address(tko));
+
+        etherVault = new EtherVault();
+        etherVault.init(address(addressManager));
 
         erc20Vault = new ERC20Vault();
         erc20Vault.init(address(addressManager));
@@ -138,12 +143,20 @@ contract TestERC20Vault is Test {
         );
 
         addressManager.setAddress(
+            block.chainid, "ether_vault", address(etherVault)
+        );
+
+        addressManager.setAddress(
             destChainId, "erc20_vault", address(destChainIdERC20Vault)
         );
 
         addressManager.setAddress(
             destChainId, "bridge", address(destChainIdBridge)
         );
+
+        // Authorize
+        etherVault.authorize(address(destChainIdBridge), true);
+        etherVault.authorize(address(bridge), true);
 
         vm.stopPrank();
     }
