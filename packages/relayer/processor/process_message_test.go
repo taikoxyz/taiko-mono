@@ -26,6 +26,7 @@ func Test_sendProcessMessageCall(t *testing.T) {
 		&bridge.BridgeMessageSent{
 			Message: bridge.IBridgeMessage{
 				DestChainId: mock.MockChainID,
+				SrcChainId:  mock.MockChainID,
 				Id:          big.NewInt(1),
 				Fee:         new(big.Int).Add(mock.ProcessMessageTx.Cost(), big.NewInt(1)),
 			},
@@ -48,8 +49,9 @@ func Test_ProcessMessage_messageUnprocessable(t *testing.T) {
 	body := &queue.QueueMessageBody{
 		Event: &bridge.BridgeMessageSent{
 			Message: bridge.IBridgeMessage{
-				GasLimit: big.NewInt(1),
-				Id:       big.NewInt(1),
+				GasLimit:   big.NewInt(1),
+				SrcChainId: mock.MockChainID,
+				Id:         big.NewInt(1),
 			},
 			Raw: types.Log{
 				Address: relayer.ZeroAddress,
@@ -79,8 +81,9 @@ func Test_ProcessMessage_gasLimit0(t *testing.T) {
 	body := queue.QueueMessageBody{
 		Event: &bridge.BridgeMessageSent{
 			Message: bridge.IBridgeMessage{
-				GasLimit: big.NewInt(0),
-				Id:       big.NewInt(1),
+				GasLimit:   big.NewInt(0),
+				SrcChainId: mock.MockChainID,
+				Id:         big.NewInt(1),
 			},
 			Raw: types.Log{
 				Address: relayer.ZeroAddress,
@@ -110,8 +113,9 @@ func Test_ProcessMessage_noChainId(t *testing.T) {
 	body := queue.QueueMessageBody{
 		Event: &bridge.BridgeMessageSent{
 			Message: bridge.IBridgeMessage{
-				GasLimit: big.NewInt(1),
-				Id:       big.NewInt(0),
+				SrcChainId: mock.MockChainID,
+				GasLimit:   big.NewInt(1),
+				Id:         big.NewInt(0),
 			},
 			MsgHash: mock.SuccessMsgHash,
 			Raw: types.Log{

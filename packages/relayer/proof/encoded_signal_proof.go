@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/encoding"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -20,8 +19,9 @@ import (
 type HopParams struct {
 	ChainID              *big.Int
 	SignalServiceAddress common.Address
+	SignalService        relayer.SignalService
+	TaikoAddress         common.Address
 	Blocker              blocker
-	Key                  string
 	Caller               relayer.Caller
 	BlockHash            common.Hash
 }
@@ -73,74 +73,59 @@ func (p *Prover) EncodedSignalProofWithHops(
 	caller relayer.Caller,
 	signalServiceAddress common.Address,
 	hopParams []HopParams,
-	hopSignalService *signalservice.SignalService,
-	hopTaikoAddress common.Address,
-	hopChainID *big.Int,
+	key string,
+	blockHash common.Hash,
 	blockNum uint64,
 ) ([]byte, uint64, error) {
-	hops := []encoding.Hop{}
-
-	var signalRoot common.Hash
-
-	// var hopBlockHeaderHeight uint64
-
-	var blockHeader encoding.BlockHeader
-
-	for _, hopParam := range hopParams {
-		hopBlockHeader, err := p.blockHeader(ctx, hopParam.Blocker, hopParam.BlockHash)
-		if err != nil {
-			return nil, 0, errors.Wrap(err, "hop p.blockHeader")
-		}
-
-		encodedHopStorageProof, hopSignalRoot, err := p.encodedStorageProof(
-			ctx,
-			hopParam.Caller,
-			hopParam.SignalServiceAddress,
-			hopParam.Key,
-			hopBlockHeader.Height.Int64(),
-		)
-
-		if err != nil {
-			return nil, 0, errors.Wrap(err, "hop p.encodedStorageProof")
-		}
-
-		slog.Info("successfully generated hop proof")
-
-		hop := encoding.Hop{
-			ChainID:      hopParam.ChainID,
-			SignalRoot:   hopSignalRoot,
-			StorageProof: encodedHopStorageProof,
-		}
-
-		hops = append(hops, hop)
-
-		signalRoot = hopSignalRoot
-
-		blockHeader = hopBlockHeader
-
-		slog.Info("hop storage proof", "proof", common.Bytes2Hex(encodedHopStorageProof))
-	}
-
-	slog.Info("hop signal root", "root", signalRoot.Hex())
-
-	key, err := hopSignalService.GetSignalSlot(&bind.CallOpts{},
-		hopChainID,
-		hopTaikoAddress,
-		signalRoot,
-	)
+	blockHeader, err := p.blockHeader(ctx, p.blocker, blockHash)
 	if err != nil {
-		return nil, 0, errors.Wrap(err, "hopSignalService.GetSignalSlot")
+		return nil, 0, errors.Wrap(err, "p.blockHeader")
 	}
 
-	encodedStorageProof, _, err := p.encodedStorageProof(
+	encodedStorageProof, signalRoot, err := p.encodedStorageProof(
 		ctx,
 		caller,
 		signalServiceAddress,
-		common.Bytes2Hex(key[:]),
-		int64(blockNum),
+		key,
+		blockHeader.Height.Int64(),
 	)
+
 	if err != nil {
-		return nil, 0, errors.Wrap(err, "p.getEncodedStorageProof")
+		return nil, 0, errors.Wrap(err, "p.encodedStorageProof")
+	}
+
+	slog.Info("successfully generated main storage proof proof")
+
+	hops := []encoding.Hop{}
+
+	for _, hop := range hopParams {
+		hopStorageSlotKey, err := hop.SignalService.GetSignalSlot(&bind.CallOpts{},
+			hop.ChainID,
+			hop.TaikoAddress,
+			signalRoot,
+		)
+		if err != nil {
+			return nil, 0, errors.Wrap(err, "hopSignalService.GetSignalSlot")
+		}
+
+		encodedHopStorageProof, nextSignalRoot, err := p.encodedStorageProof(
+			ctx,
+			hop.Caller,
+			hop.SignalServiceAddress,
+			common.Bytes2Hex(hopStorageSlotKey[:]),
+			int64(blockNum),
+		)
+		if err != nil {
+			return nil, 0, errors.Wrap(err, "hop p.getEncodedStorageProof")
+		}
+
+		hops = append(hops, encoding.Hop{
+			ChainID:      hop.ChainID,
+			SignalRoot:   signalRoot,
+			StorageProof: encodedHopStorageProof,
+		})
+
+		signalRoot = nextSignalRoot
 	}
 
 	signalProof := encoding.SignalProof{
@@ -149,14 +134,10 @@ func (p *Prover) EncodedSignalProofWithHops(
 		Hops:         hops,
 	}
 
-	slog.Info("p", "p", common.Bytes2Hex(encodedStorageProof))
-
 	encodedSignalProof, err := encoding.EncodeSignalProof(signalProof)
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "enoding.EncodeSignalProof")
 	}
-
-	slog.Info("signalProof", "proof", common.Bytes2Hex(encodedSignalProof))
 
 	return encodedSignalProof, blockHeader.Height.Uint64(), nil
 }

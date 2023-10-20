@@ -20,6 +20,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/icrosschainsync"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/queue"
 )
@@ -90,9 +91,10 @@ func (p *Processor) processMessage(
 
 	// wait for srcChain => destChain header to sync if no hops,
 	// or srcChain => hopChain if hop
+	// TODO: support more than one hop, wait for all headers to sync.
 	var headerSyncer relayer.HeaderSyncer = p.destHeaderSyncer
-	if p.hopHeaderSyncer != nil {
-		headerSyncer = p.hopHeaderSyncer
+	if p.hops != nil {
+		headerSyncer = p.hops[0].headerSyncer
 	}
 
 	if err := p.waitHeaderSynced(ctx, headerSyncer, p.srcEthClient, msgBody.Event.Raw.BlockNumber); err != nil {
@@ -113,76 +115,44 @@ func (p *Processor) processMessage(
 
 	var encodedSignalProof []byte
 
-	// var proofBlockNum uint64
+	var latestSyncedSnippet icrosschainsync.ICrossChainSyncSnippet
 
 	// if a hop is set, the proof service needs to generate an additional proof
 	// for the signal service intermediary chain in between the source chain
 	// and the destination chain.
 	// TODO: support multiple hops via env vars/configs instead of just one.
-	if p.hopChainId != nil && p.hopSignalServiceAddress != (common.Address{}) {
+	for _, hop := range p.hops {
 		slog.Info(
 			"adding hop",
-			"hopChainId", p.hopChainId.Uint64(),
-			"hopSignalServiceAddress", p.hopSignalServiceAddress.Hex(),
+			"hopChainId", hop.chainID.Uint64(),
+			"hopSignalServiceAddress", hop.signalServiceAddress.Hex(),
 		)
 
-		// the hop proof is Src => Intermediary chain proof (in the case of)
-		// (L1 - L3 bridge, hop proof would be L1 - L2)
 		hops = append(hops, proof.HopParams{
-			ChainID:              p.hopChainId,
-			SignalServiceAddress: p.srcSignalServiceAddress,
-			Blocker:              p.srcEthClient,
-			Key:                  common.Bytes2Hex(key[:]),
-			Caller:               p.srcCaller,
+			ChainID:              hop.chainID,
+			SignalServiceAddress: hop.signalServiceAddress,
+			Blocker:              hop.ethClient,
+			Caller:               hop.caller,
 			BlockHash:            msgBody.Event.Raw.BlockHash,
+			SignalService:        hop.signalService,
+			TaikoAddress:         hop.taikoAddress,
 		})
+	}
 
-		// // wait for the header on intermediary chain to be synced
-		// // to destination chain now
-		// if err := p.waitHeaderSynced(ctx, p.destHeaderSyncer, p.hopEthClient, msgBody.Event.Raw.BlockNumber); err != nil {
-		// 	return errors.Wrap(err, "p.waitHeaderSynced")
-		// }
-
-		// latestSyncedBlockNum, err := p.destEthClient.BlockByHash(ctx, latestSyncedSnippet.BlockHash)
-		// if err != nil {
-		// 	return err
-		// }
-
-		// main proof differs when needing hops. it is now intermediary chain => destination chain.
-		// in the case of L1-L3 bridge, main proof is now L2 - L3.
+	if hops != nil {
 		encodedSignalProof, _, err = p.prover.EncodedSignalProofWithHops(
 			ctx,
-			p.hopCaller,
-			p.hopSignalServiceAddress,
+			p.srcCaller,
+			p.srcSignalServiceAddress,
 			hops,
-			p.hopSignalService,
-			p.hopTaikoAddress,
-			p.hopChainId,
+			common.Bytes2Hex(key[:]),
+			msgBody.Event.Raw.BlockHash,
 			1800,
 		)
-		if err != nil {
-			slog.Error("error encoding signal proof",
-				"srcChainID", msgBody.Event.Message.SrcChainId.String(),
-				"destChainID", msgBody.Event.Message.DestChainId.String(),
-				"txHash", msgBody.Event.Raw.TxHash.Hex(),
-				"msgHash", common.Hash(msgBody.Event.MsgHash).Hex(),
-				"from", msgBody.Event.Message.User.Hex(),
-				"error", err,
-				"hopsLength", len(hops),
-			)
-
-			return errors.Wrap(err, "p.prover.GetEncodedSignalProof")
-		}
-
-		// then wait for hopChain => destChain, if hop exists
-		// if err := p.waitHeaderSynced(ctx, p.hopHeaderSyncer, p.destEthClient, proofBlockNum); err != nil {
-		// 	return errors.Wrap(err, "p.waitHeaderSynced")
-		// }
-
 	} else {
 		// get latest synced header since not every header is synced from L1 => L2,
 		// and later blocks still have the storage trie proof from previous blocks.
-		latestSyncedSnippet, err := p.destHeaderSyncer.GetSyncedSnippet(&bind.CallOpts{}, 0)
+		latestSyncedSnippet, err = p.destHeaderSyncer.GetSyncedSnippet(&bind.CallOpts{}, 0)
 		if err != nil {
 			return errors.Wrap(err, "taiko.GetSyncedHeader")
 		}
@@ -194,20 +164,20 @@ func (p *Processor) processMessage(
 			common.Bytes2Hex(key[:]),
 			latestSyncedSnippet.BlockHash,
 		)
-		if err != nil {
-			slog.Error("error encoding signal proof",
-				"srcChainID", msgBody.Event.Message.SrcChainId.String(),
-				"destChainID", msgBody.Event.Message.DestChainId.String(),
-				"txHash", msgBody.Event.Raw.TxHash.Hex(),
-				"msgHash", common.Hash(msgBody.Event.MsgHash).Hex(),
-				"from", msgBody.Event.Message.User.Hex(),
-				"error", err,
-				"latestSyncedBlockHash", common.Bytes2Hex(latestSyncedSnippet.BlockHash[:]),
-				"hopsLength", len(hops),
-			)
+	}
 
-			return errors.Wrap(err, "p.prover.GetEncodedSignalProof")
-		}
+	if err != nil {
+		slog.Error("error encoding signal proof",
+			"srcChainID", msgBody.Event.Message.SrcChainId.String(),
+			"destChainID", msgBody.Event.Message.DestChainId.String(),
+			"txHash", msgBody.Event.Raw.TxHash.Hex(),
+			"msgHash", common.Hash(msgBody.Event.MsgHash).Hex(),
+			"from", msgBody.Event.Message.User.Hex(),
+			"error", err,
+			"hopsLength", len(hops),
+		)
+
+		return errors.Wrap(err, "p.prover.GetEncodedSignalProof")
 	}
 
 	// check if message is received first. if not, it will definitely fail,
