@@ -14,7 +14,7 @@ import { AddressResolver } from "./AddressResolver.sol";
 /// @title EssentialContract
 /// @notice This contract serves as the base contract for many core components.
 /// @dev We didn't use OpenZeppelin's PausableUpgradeable and
-/// ReentrancyGuardUpgradeable conract in order to optimize storage reads
+/// ReentrancyGuardUpgradeable contract to optimize storage reads.
 abstract contract EssentialContract is OwnableUpgradeable, AddressResolver {
     uint8 private constant _FALSE = 1;
     uint8 private constant _TRUE = 2;
