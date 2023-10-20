@@ -55,7 +55,6 @@ contract Bridge is EssentialContract, IBridge {
     error B_NON_RETRIABLE();
     error B_NOT_FAILED();
     error B_NOT_RECEIVED();
-    error B_PAUSED();
     error B_PERMISSION_DENIED();
     error B_RECALLED_ALREADY();
     error B_STATUS_MISMATCH();
