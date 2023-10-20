@@ -88,12 +88,11 @@ library LibTaikoToken {
             TaikoToken(resolver.resolve("taiko_token", false)).transferFrom(
                 from, address(this), amount
             );
-            emit TokenDebited(from, amount);
         } else {
             unchecked {
                 state.tokenBalances[from] -= amount;
             }
-            emit TokenDebited(from, amount);
         }
+        emit TokenDebited(from, amount);
     }
 }

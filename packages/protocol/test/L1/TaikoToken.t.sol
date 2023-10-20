@@ -12,7 +12,6 @@ contract TaikoTokenTest is TestBase {
     bytes32 GENESIS_BLOCK_HASH;
 
     address public tokenOwner;
-    address public erc20Vault;
 
     AddressManager public addressManager;
     TransparentUpgradeableProxy public tokenProxy;
