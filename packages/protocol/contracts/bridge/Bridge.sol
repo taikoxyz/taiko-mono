@@ -5,6 +5,9 @@
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 pragma solidity ^0.8.20;
 
+import { PausableUpgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/security/PausableUpgradeable.sol";
+
 import { AddressResolver } from "../common/AddressResolver.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
@@ -17,7 +20,7 @@ import { IBridge, IRecallableSender } from "./IBridge.sol";
 /// @title Bridge
 /// @notice See the documentation for {IBridge}.
 /// @dev The code hash for the same address on L1 and L2 may be different.
-contract Bridge is EssentialContract, IBridge {
+contract Bridge is EssentialContract, PausableUpgradeable, IBridge {
     using LibAddress for address;
 
     enum Status {
@@ -33,10 +36,7 @@ contract Bridge is EssentialContract, IBridge {
         address(uint160(uint256(1)));
 
     uint128 public nextMessageId; // slot 1
-    bool public paused;
-
-    mapping(bytes32 msgHash => bool recalled) public isMessageRecalled; // slot
-        // 2
+    mapping(bytes32 msgHash => bool recalled) public isMessageRecalled;
     mapping(bytes32 msgHash => Status) public messageStatus; // slot 3
     Context private _ctx; // slot 4-6
     uint256[44] private __gap;
@@ -46,7 +46,6 @@ contract Bridge is EssentialContract, IBridge {
     event MessageRecalled(bytes32 indexed msgHash);
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
-    event Paused(bool paused);
 
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
@@ -69,17 +68,13 @@ contract Bridge is EssentialContract, IBridge {
         _;
     }
 
-    modifier whenNotPaused() {
-        if (paused) revert B_PAUSED();
-        _;
-    }
-
     receive() external payable { }
 
     /// @notice Initializes the contract.
     /// @param _addressManager The address of the {AddressManager} contract.
     function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
+        PausableUpgradeable.__Pausable_init_unchained();
     }
 
     /// @notice Sends a message to the destination chain and takes custody
@@ -309,13 +304,6 @@ contract Bridge is EssentialContract, IBridge {
             // otherwise funds stay at Bridge anyways.
             if (ethVault != address(0)) ethVault.sendEther(message.value);
         }
-    }
-
-    /// @notice Admin pause the bridge
-    function pause(bool _paused) external onlyOwner {
-        if (paused == _paused) revert B_INVALID_PAUSE_STATE();
-        paused = _paused;
-        emit Paused(_paused);
     }
 
     /// @notice Checks if the message was sent.

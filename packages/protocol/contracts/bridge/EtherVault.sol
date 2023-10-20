@@ -6,6 +6,9 @@
 
 pragma solidity ^0.8.20;
 
+import { PausableUpgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/security/PausableUpgradeable.sol";
+
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 import { Proxied } from "../common/Proxied.sol";
@@ -14,7 +17,7 @@ import { Proxied } from "../common/Proxied.sol";
 /// @notice This contract is initialized with 2^128 Ether and allows authorized
 /// addresses to release Ether.
 /// @dev Only the contract owner can authorize or deauthorize addresses.
-contract EtherVault is EssentialContract {
+contract EtherVault is EssentialContract, PausableUpgradeable {
     using LibAddress for address;
 
     mapping(address addr => bool authorized) public isAuthorized;
@@ -37,21 +40,25 @@ contract EtherVault is EssentialContract {
     /// @dev Only authorized addresses can send Ether to the contract.
     receive() external payable {
         // EthVault's balance must == 0 OR the sender isAuthorized.
-        if (address(this).balance != 0 && !isAuthorized[msg.sender]) {
-            revert VAULT_PERMISSION_DENIED();
-        }
+        if (!isAuthorized[msg.sender]) revert VAULT_PERMISSION_DENIED();
     }
 
     /// @notice Initializes the contract with an {AddressManager}.
     /// @param addressManager The address of the {AddressManager} contract.
     function init(address addressManager) external initializer {
         EssentialContract._init(addressManager);
+        PausableUpgradeable.__Pausable_init_unchained();
     }
 
     /// @notice Transfers Ether from EtherVault to the sender, checking that the
     /// sender is authorized.
     /// @param amount Amount of Ether to send.
-    function releaseEther(uint256 amount) public onlyAuthorized nonReentrant {
+    function releaseEther(uint256 amount)
+        public
+        onlyAuthorized
+        nonReentrant
+        whenNotPaused
+    {
         msg.sender.sendEther(amount);
         emit EtherReleased(msg.sender, amount);
     }
@@ -66,6 +73,7 @@ contract EtherVault is EssentialContract {
     )
         public
         onlyAuthorized
+        whenNotPaused
         nonReentrant
     {
         if (recipient == address(0)) revert VAULT_INVALID_RECIPIENT();
