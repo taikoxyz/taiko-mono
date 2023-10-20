@@ -33,7 +33,7 @@ import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
 /// initializing the rollup.
 contract DeployOnL1 is Script {
-    // NOTE: this value must match the constant define in GuardianProver.sol
+    // NOTE: this value must match the constant defined in GuardianProver.sol
     uint256 public constant NUM_GUARDIANS = 5;
 
     bytes32 public genesisHash = vm.envBytes32("L2_GENESIS_HASH");
