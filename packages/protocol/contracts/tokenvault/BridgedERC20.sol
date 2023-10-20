@@ -86,7 +86,7 @@ contract BridgedERC20 is
         uint256 amount
     )
         public
-        onlyFromNamed2("erc20_vault")
+        onlyFromNamed("erc20_vault")
     {
         _mint(account, amount);
         emit Transfer(address(0), account, amount);
