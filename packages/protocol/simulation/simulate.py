@@ -55,7 +55,7 @@ def parse_and_plot(filename):
     global PARSER_MODE, AVG_BASEFEE_PER_L2_BLOCK, AVG_GAS_USED_PER_L1_BLOCK, AVERAGE_GAS_USED_PER_L1, AVERAGE_GAS_PRICE_IN_L2
 
     only_stem = Path(filename).stem
-    timestamp = only_stem.split('_')[2]
+    timestamp = only_stem.split('_')[1]
     # First part
     x_ax_block_nr = []
     y_ax_base_fee = []
@@ -70,7 +70,7 @@ def parse_and_plot(filename):
                  # Saving the first plot
                 x_axis = x_ax_block_nr
                 y_axis = y_ax_base_fee
-                filename = "./plots/{}_above_average_traffic.png".format(timestamp)
+                filename = "out/{}_above_average_traffic.png".format(timestamp)
                 title = "Basefee chart per L2 block (if gas used above target)"
                 y_label = "baseFee"
                 x_label = "L2 block count"
@@ -89,7 +89,7 @@ def parse_and_plot(filename):
                  # Saving the first plot
                 x_axis = x_ax_block_nr
                 y_axis = y_ax_base_fee
-                filename = "./plots/{}_below_average_traffic.png".format(timestamp)
+                filename = "out/{}_below_average_traffic.png".format(timestamp)
                 title = "Basefee chart per L2 block (if gas used below target)"
                 y_label = "baseFee"
                 x_label = "L2 block count"
@@ -108,7 +108,7 @@ def parse_and_plot(filename):
                  # Saving the first plot
                 x_axis = x_ax_block_nr
                 y_axis = y_ax_base_fee
-                filename = "./plots/{}_target_traffic.png".format(timestamp)
+                filename = "out/{}_target_traffic.png".format(timestamp)
                 title = "Basefee chart per L2 block (if gas used around target)"
                 y_label = "baseFee"
                 x_label = "L2 block count"

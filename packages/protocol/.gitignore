@@ -31,3 +31,5 @@ broadcast
 
 #coverage
 lcov.info
+
+simulation/out/
