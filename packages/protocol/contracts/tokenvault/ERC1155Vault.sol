@@ -53,6 +53,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     function sendToken(BridgeTransferOp memory opt)
         external
         payable
+        whenNotPaused
         nonReentrant
     {
         // Validate amounts and addresses
@@ -119,6 +120,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         external
         payable
         nonReentrant
+        whenNotPaused
         onlyFromNamed("bridge")
     {
         // Check context validity
@@ -172,6 +174,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         payable
         override
         nonReentrant
+        whenNotPaused
         onlyFromNamed("bridge")
     {
         (

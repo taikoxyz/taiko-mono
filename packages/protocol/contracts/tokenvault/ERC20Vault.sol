@@ -186,6 +186,7 @@ contract ERC20Vault is
         external
         payable
         nonReentrant
+        whenNotPaused
         onlyFromNamed("bridge")
     {
         IBridge.Context memory ctx =
@@ -225,6 +226,7 @@ contract ERC20Vault is
         payable
         override
         nonReentrant
+        whenNotPaused
         onlyFromNamed("bridge")
     {
         (, address token,, uint256 amount) = abi.decode(
