@@ -59,11 +59,6 @@ def parse_and_plot(filename):
     # First part
     x_ax_block_nr = []
     y_ax_base_fee = []
-    # # Second part
-    # x_ax_block_nr_as_ts = []
-    # y_ax_all_current_prop_blks = []
-    # y_ax_all_verified_blocks = []
-    # y_ax_current_basefee = []
     with open(filename) as file:
         for line in file:
             
@@ -86,7 +81,6 @@ def parse_and_plot(filename):
                 PARSER_MODE = 0
                 continue
             
-            
             if LOW_TRAFFIC_STARTS in line:
                 PARSER_MODE = 2
                 continue
@@ -105,8 +99,7 @@ def parse_and_plot(filename):
                 y_ax_base_fee = []
                 PARSER_MODE = 0
                 continue
-            
-            
+
             if TARGET_TRAFFIC_STARTS in line:
                 PARSER_MODE = 3
                 continue
@@ -131,10 +124,12 @@ def parse_and_plot(filename):
                 x_ax_block_nr.append(float(data[1]))
                 y_ax_base_fee.append(float(data[2]) / 1000000000)
                 continue
+
             if AVERAGE_GAS_USED_PER_L1 in line:
                 data = line.rstrip().split(':')
                 AVG_GAS_USED_PER_L1_BLOCK = float(data[1]) / 1000000
                 continue
+
             if AVERAGE_GAS_PRICE_IN_L2 in line:
                 data = line.rstrip().split(':')
                 AVG_BASEFEE_PER_L2_BLOCK = float(data[1]) / 1000000000
