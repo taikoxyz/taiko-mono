@@ -227,7 +227,7 @@ library LibProving {
                     && bytes32(evidence.proof) == keccak256("RETURN_LIVENESS_BOND")
             ) {
                 LibTaikoToken.creditTaikoToken(
-                    state, resolver, blk.assignedProver, blk.livenessBond
+                    state, blk.assignedProver, blk.livenessBond
                 );
             }
 
@@ -373,7 +373,7 @@ library LibProving {
                     // Mint the reward and the validity bond and return it to
                     // the previous prover.
                     LibTaikoToken.creditTaikoToken(
-                        state, resolver, tran.prover, reward + tran.validityBond
+                        state, tran.prover, reward + tran.validityBond
                     );
                 } else {
                     // In the event that the contester is the winner, half of
@@ -386,16 +386,13 @@ library LibProving {
                     // reward to the contester if it is not a zero-address.
                     if (tran.contester != address(0)) {
                         LibTaikoToken.creditTaikoToken(
-                            state,
-                            resolver,
-                            tran.contester,
-                            reward + tran.contestBond
+                            state, tran.contester, reward + tran.contestBond
                         );
                     } else {
                         // The prover is also the contester, so the reward is
                         // sent to him.
                         LibTaikoToken.creditTaikoToken(
-                            state, resolver, msg.sender, reward
+                            state, msg.sender, reward
                         );
                     }
 
@@ -409,9 +406,7 @@ library LibProving {
 
                 // In theory, the reward can also be zero for certain tiers if
                 // their validity bonds are set to zero.
-                LibTaikoToken.creditTaikoToken(
-                    state, resolver, msg.sender, reward
-                );
+                LibTaikoToken.creditTaikoToken(state, msg.sender, reward);
             }
 
             // Regardless of whether the previous prover or the contester

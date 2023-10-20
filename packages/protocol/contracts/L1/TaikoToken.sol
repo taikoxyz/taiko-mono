@@ -12,10 +12,7 @@ import { ERC20PermitUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/draft-ERC20PermitUpgradeable.sol";
 import { ERC20SnapshotUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
-import {
-    ERC20Upgradeable,
-    IERC20Upgradeable
-} from
+import { ERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import { ERC20VotesUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
@@ -23,7 +20,6 @@ import { PausableUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/security/PausableUpgradeable.sol";
 
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { Proxied } from "../common/Proxied.sol";
 
 /// @title TaikoToken
@@ -37,8 +33,7 @@ contract TaikoToken is
     ERC20SnapshotUpgradeable,
     PausableUpgradeable,
     ERC20PermitUpgradeable,
-    ERC20VotesUpgradeable,
-    IMintableERC20
+    ERC20VotesUpgradeable
 {
     error TKO_INVALID_ADDR();
     error TKO_INVALID_PREMINT_PARAMS();
@@ -93,27 +88,8 @@ contract TaikoToken is
     /// @notice Mints new tokens to the specified address.
     /// @param to The address to receive the minted tokens.
     /// @param amount The amount of tokens to mint.
-    function mint(
-        address to,
-        uint256 amount
-    )
-        public
-        onlyFromNamed("erc20_vault")
-    {
+    function mint(address to, uint256 amount) public onlyOwner {
         _mint(to, amount);
-    }
-
-    /// @notice Burns tokens from the specified address.
-    /// @param from The address to burn tokens from.
-    /// @param amount The amount of tokens to burn.
-    function burn(
-        address from,
-        uint256 amount
-    )
-        public
-        onlyFromNamed("erc20_vault")
-    {
-        _burn(from, amount);
     }
 
     /// @notice Transfers tokens to a specified address.
@@ -125,7 +101,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        override(ERC20Upgradeable, IERC20Upgradeable)
+        override(ERC20Upgradeable)
         returns (bool)
     {
         if (to == address(this)) revert TKO_INVALID_ADDR();
@@ -143,7 +119,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        override(ERC20Upgradeable, IERC20Upgradeable)
+        override(ERC20Upgradeable)
         returns (bool)
     {
         if (to == address(this)) revert TKO_INVALID_ADDR();

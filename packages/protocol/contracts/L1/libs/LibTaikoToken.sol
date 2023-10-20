@@ -63,7 +63,6 @@ library LibTaikoToken {
 
     function creditTaikoToken(
         TaikoData.State storage state,
-        AddressResolver resolver,
         address to,
         uint256 amount
     )

@@ -119,9 +119,7 @@ abstract contract TaikoL1TestBase is TestBase {
         );
 
         // Set protocol broker
-        registerAddress("erc20_vault", address(this));
         tko.mint(address(this), 1e9 ether);
-        registerAddress("erc20_vault", address(0));
 
         L1.init(address(addressManager), GENESIS_BLOCK_HASH);
         printVariables("init  ");

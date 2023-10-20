@@ -194,11 +194,7 @@ contract ERC20Vault is
         address token;
         if (ctoken.chainId == block.chainid) {
             token = ctoken.addr;
-            if (token == resolve("taiko_token", true)) {
-                IMintableERC20(token).mint(to, amount);
-            } else {
-                ERC20Upgradeable(token).safeTransfer(to, amount);
-            }
+            ERC20Upgradeable(token).safeTransfer(to, amount);
         } else {
             token = _getOrDeployBridgedToken(ctoken);
             IMintableERC20(token).mint(to, amount);
@@ -234,8 +230,7 @@ contract ERC20Vault is
         if (token == address(0)) revert VAULT_INVALID_TOKEN();
 
         if (amount > 0) {
-            if (isBridgedToken[token] || token == resolve("taiko_token", true))
-            {
+            if (isBridgedToken[token]) {
                 IMintableERC20(token).burn(address(this), amount);
             } else {
                 ERC20Upgradeable(token).safeTransfer(message.user, amount);
@@ -302,18 +297,13 @@ contract ERC20Vault is
                 name: t.name()
             });
 
-            if (token == resolve("taiko_token", true)) {
-                IMintableERC20(token).burn(msg.sender, amount);
-                _balanceChange = amount;
-            } else {
-                uint256 _balance = t.balanceOf(address(this));
-                t.transferFrom({
-                    from: msg.sender,
-                    to: address(this),
-                    amount: amount
-                });
-                _balanceChange = t.balanceOf(address(this)) - _balance;
-            }
+            uint256 _balance = t.balanceOf(address(this));
+            t.transferFrom({
+                from: msg.sender,
+                to: address(this),
+                amount: amount
+            });
+            _balanceChange = t.balanceOf(address(this)) - _balance;
         }
 
         msgData = abi.encodeWithSelector(
