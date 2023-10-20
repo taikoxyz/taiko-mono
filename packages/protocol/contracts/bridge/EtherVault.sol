@@ -36,7 +36,7 @@ contract EtherVault is EssentialContract {
     /// @notice Function to receive Ether.
     /// @dev Only authorized addresses can send Ether to the contract.
     receive() external payable {
-        // EthVault's balance must == 0 OR the sender isAuthorized.
+        if (address(this).balance != 0) revert VAULT_PERMISSION_DENIED();
         if (!isAuthorized[msg.sender]) revert VAULT_PERMISSION_DENIED();
     }
 
