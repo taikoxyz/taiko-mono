@@ -5,9 +5,6 @@
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 pragma solidity ^0.8.20;
 
-import { PausableUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/security/PausableUpgradeable.sol";
-
 import { AddressResolver } from "../common/AddressResolver.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
@@ -20,7 +17,7 @@ import { IBridge, IRecallableSender } from "./IBridge.sol";
 /// @title Bridge
 /// @notice See the documentation for {IBridge}.
 /// @dev The code hash for the same address on L1 and L2 may be different.
-contract Bridge is EssentialContract, PausableUpgradeable, IBridge {
+contract Bridge is EssentialContract, IBridge {
     using LibAddress for address;
 
     enum Status {
@@ -74,7 +71,6 @@ contract Bridge is EssentialContract, PausableUpgradeable, IBridge {
     /// @param _addressManager The address of the {AddressManager} contract.
     function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
-        PausableUpgradeable.__Pausable_init_unchained();
     }
 
     /// @notice Sends a message to the destination chain and takes custody

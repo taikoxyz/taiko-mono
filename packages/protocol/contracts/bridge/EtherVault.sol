@@ -6,9 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-import { PausableUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/security/PausableUpgradeable.sol";
-
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 import { Proxied } from "../common/Proxied.sol";
@@ -17,7 +14,7 @@ import { Proxied } from "../common/Proxied.sol";
 /// @notice This contract is initialized with 2^128 Ether and allows authorized
 /// addresses to release Ether.
 /// @dev Only the contract owner can authorize or deauthorize addresses.
-contract EtherVault is EssentialContract, PausableUpgradeable {
+contract EtherVault is EssentialContract {
     using LibAddress for address;
 
     mapping(address addr => bool authorized) public isAuthorized;
@@ -47,7 +44,6 @@ contract EtherVault is EssentialContract, PausableUpgradeable {
     /// @param addressManager The address of the {AddressManager} contract.
     function init(address addressManager) external initializer {
         EssentialContract._init(addressManager);
-        PausableUpgradeable.__Pausable_init_unchained();
     }
 
     /// @notice Transfers Ether from EtherVault to the sender, checking that the

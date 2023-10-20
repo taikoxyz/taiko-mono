@@ -19,8 +19,6 @@ import {
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import { ERC20VotesUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
-import { PausableUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/security/PausableUpgradeable.sol";
 
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { IMintableERC20 } from "../common/IMintableERC20.sol";
@@ -35,7 +33,6 @@ contract TaikoToken is
     ERC20Upgradeable,
     ERC20BurnableUpgradeable,
     ERC20SnapshotUpgradeable,
-    PausableUpgradeable,
     ERC20PermitUpgradeable,
     ERC20VotesUpgradeable,
     IMintableERC20
@@ -78,16 +75,6 @@ contract TaikoToken is
     /// @notice Creates a new token snapshot.
     function snapshot() public onlyOwner {
         _snapshot();
-    }
-
-    /// @notice Pauses token transfers.
-    function pause() public onlyOwner {
-        _pause();
-    }
-
-    /// @notice Unpauses token transfers.
-    function unpause() public onlyOwner {
-        _unpause();
     }
 
     /// @notice Mints new tokens to the specified address.

@@ -8,6 +8,9 @@ pragma solidity ^0.8.20;
 
 import { OwnableUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import { PausableUpgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/security/PausableUpgradeable.sol";
+
 import { ReentrancyGuardUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
 
@@ -18,13 +21,23 @@ import { AddressResolver } from "./AddressResolver.sol";
 abstract contract EssentialContract is
     ReentrancyGuardUpgradeable,
     OwnableUpgradeable,
+    PausableUpgradeable,
     AddressResolver
 {
     /// @notice Initializes the contract with an address manager.
     /// @param _addressManager The address of the address manager.
     function _init(address _addressManager) internal virtual override {
-        ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
-        OwnableUpgradeable.__Ownable_init();
+        ReentrancyGuardUpgradeable.__ReentrancyGuard_init_unchained();
+        OwnableUpgradeable.__Ownable_init_unchained();
+        PausableUpgradeable.__Pausable_init_unchained();
         AddressResolver._init(_addressManager);
+    }
+
+    function pause() external whenNotPaused onlyOwner {
+        super._pause();
+    }
+
+    function unpause() external whenPaused onlyOwner {
+        super._unpause();
     }
 }
