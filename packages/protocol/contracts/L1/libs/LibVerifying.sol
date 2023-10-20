@@ -176,7 +176,7 @@ library LibVerifying {
                 }
 
                 LibTaikoToken.creditTaikoToken(
-                    state, resolver, tran.prover, bondToReturn, false
+                    state, resolver, tran.prover, bondToReturn
                 );
 
                 // Note: We exclusively address the bonds linked to the

@@ -23,6 +23,7 @@ abstract contract TaikoErrors {
     error L1_BLOCK_MISMATCH();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_ADDRESS();
+    error L1_INVALID_AMOUNT();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_CONFIG();
     error L1_INVALID_ETH_DEPOSIT();
