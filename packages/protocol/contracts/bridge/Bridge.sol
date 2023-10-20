@@ -34,10 +34,7 @@ contract Bridge is EssentialContract, IBridge {
         address(uint160(uint256(1)));
 
     uint128 public nextMessageId; // slot 1
-    bool public paused;
-
-    mapping(bytes32 msgHash => bool recalled) public isMessageRecalled; // slot
-        // 2
+    mapping(bytes32 msgHash => bool recalled) public isMessageRecalled;
     mapping(bytes32 msgHash => Status) public messageStatus; // slot 3
     Context private _ctx; // slot 4-6
     uint256[44] private __gap;
@@ -47,7 +44,6 @@ contract Bridge is EssentialContract, IBridge {
     event MessageRecalled(bytes32 indexed msgHash);
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
-    event Paused(bool paused);
 
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
@@ -60,18 +56,12 @@ contract Bridge is EssentialContract, IBridge {
     error B_NON_RETRIABLE();
     error B_NOT_FAILED();
     error B_NOT_RECEIVED();
-    error B_PAUSED();
     error B_PERMISSION_DENIED();
     error B_RECALLED_ALREADY();
     error B_STATUS_MISMATCH();
 
     modifier sameChain(uint256 chainId) {
         if (chainId != block.chainid) revert B_INVALID_CHAINID();
-        _;
-    }
-
-    modifier whenNotPaused() {
-        if (paused) revert B_PAUSED();
         _;
     }
 
@@ -296,13 +286,6 @@ contract Bridge is EssentialContract, IBridge {
             // otherwise funds stay at Bridge anyways.
             ethVault.sendEther(message.value);
         }
-    }
-
-    /// @notice Admin pause the bridge
-    function pause(bool _paused) external onlyOwner {
-        if (paused == _paused) revert B_INVALID_PAUSE_STATE();
-        paused = _paused;
-        emit Paused(_paused);
     }
 
     /// @notice Checks if the message was sent.
