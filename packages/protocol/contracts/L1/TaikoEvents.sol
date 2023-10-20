@@ -81,12 +81,9 @@ abstract contract TaikoEvents {
 
     /// @dev Emitted when Taiko token are credited to the user's in-protocol
     /// balance.
-    event TokenCredited(uint256 amount, bool minted);
+    event TokenCredited(address to, uint256 amount);
 
     /// @dev Emitted when Taiko token are debited from the user's in-protocol
     /// balance.
-    event TokenDebited(uint256 amount, bool fromLocalBalance);
-
-    /// @dev Emitted when the owner withdrawn Taiko token from this contract.
-    event TokenWithdrawnByOwner(address to, uint256 amount);
+    event TokenDebited(address from, uint256 amount);
 }

@@ -5,6 +5,7 @@
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 pragma solidity ^0.8.20;
 
+import { AddressResolver } from "../common/AddressResolver.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { ISignalService } from "../signal/ISignalService.sol";
@@ -35,7 +36,7 @@ contract Bridge is EssentialContract, IBridge {
     uint128 public nextMessageId; // slot 1
     mapping(bytes32 msgHash => bool recalled) public isMessageRecalled;
     mapping(bytes32 msgHash => Status) public messageStatus; // slot 3
-    Context private _ctx; // slot 4-6
+    Context private _ctx; // // slot 4,5,6pnpm
     uint256[44] private __gap;
 
     event SignalSent(address indexed sender, bytes32 msgHash);

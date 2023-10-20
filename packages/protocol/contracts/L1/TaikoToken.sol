@@ -6,14 +6,9 @@
 
 pragma solidity ^0.8.20;
 
-import { ERC20PermitUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/draft-ERC20PermitUpgradeable.sol";
 import { ERC20SnapshotUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
-import {
-    ERC20Upgradeable,
-    IERC20Upgradeable
-} from
+import { ERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import { ERC20VotesUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
@@ -27,9 +22,7 @@ import { Proxied } from "../common/Proxied.sol";
 /// precision.
 contract TaikoToken is
     EssentialContract,
-    ERC20Upgradeable,
     ERC20SnapshotUpgradeable,
-    ERC20PermitUpgradeable,
     ERC20VotesUpgradeable
 {
     error TKO_INVALID_ADDR();
@@ -57,7 +50,6 @@ contract TaikoToken is
         EssentialContract._init(_addressManager);
         ERC20Upgradeable.__ERC20_init_unchained(_name, _symbol);
         ERC20SnapshotUpgradeable.__ERC20Snapshot_init_unchained();
-        ERC20PermitUpgradeable.__ERC20Permit_init(_name);
         ERC20VotesUpgradeable.__ERC20Votes_init_unchained();
 
         for (uint256 i; i < _premintRecipients.length; ++i) {
@@ -68,32 +60,6 @@ contract TaikoToken is
     /// @notice Creates a new token snapshot.
     function snapshot() public onlyOwner {
         _snapshot();
-    }
-
-    /// @notice Mints new tokens to the specified address.
-    /// @param to The address to receive the minted tokens.
-    /// @param amount The amount of tokens to mint.
-    function mint(
-        address to,
-        uint256 amount
-    )
-        public
-        onlyFromNamed2("erc20_vault", "taiko")
-    {
-        _mint(to, amount);
-    }
-
-    /// @notice Burns tokens from the specified address.
-    /// @param from The address to burn tokens from.
-    /// @param amount The amount of tokens to burn.
-    function burn(
-        address from,
-        uint256 amount
-    )
-        public
-        onlyFromNamed2("erc20_vault", "taiko")
-    {
-        _burn(from, amount);
     }
 
     /// @notice Transfers tokens to a specified address.
@@ -109,7 +75,7 @@ contract TaikoToken is
         returns (bool)
     {
         if (to == address(this)) revert TKO_INVALID_ADDR();
-        return ERC20Upgradeable.transfer(to, amount);
+        return super.transfer(to, amount);
     }
 
     /// @notice Transfers tokens from one address to another.
@@ -127,7 +93,7 @@ contract TaikoToken is
         returns (bool)
     {
         if (to == address(this)) revert TKO_INVALID_ADDR();
-        return ERC20Upgradeable.transferFrom(from, to, amount);
+        return super.transferFrom(from, to, amount);
     }
 
     function _beforeTokenTransfer(
