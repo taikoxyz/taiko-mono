@@ -16,7 +16,7 @@
 
   function connectWallet() {
     if (web3modalOpen) return;
-    web3modal.openModal();
+    web3modal.open();
   }
 
   function onWeb3Modal(state: { open: boolean }) {
@@ -24,7 +24,7 @@
   }
 
   onMount(() => {
-    unsubscribeWeb3Modal = web3modal.subscribeModal(onWeb3Modal);
+    unsubscribeWeb3Modal = web3modal.subscribeState(onWeb3Modal);
   });
 
   onDestroy(unsubscribeWeb3Modal);
