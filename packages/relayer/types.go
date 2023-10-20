@@ -119,60 +119,6 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 	}
 }
 
-type ethClient interface {
-	HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error)
-}
-
-func WaitHeaderSynced(
-	ctx context.Context,
-	headerSyncIntervalSeconds int,
-	ethClient ethClient,
-	blockNum uint64,
-	headerSyncer HeaderSyncer,
-) error {
-	ticker := time.NewTicker(time.Duration(headerSyncIntervalSeconds) * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-ticker.C:
-			slog.Info("waitHeaderSynced checking if header is synced", "blockNum", blockNum)
-
-			latestSyncedSnippet, err := headerSyncer.GetSyncedSnippet(&bind.CallOpts{}, 0)
-			if err != nil {
-				return errors.Wrap(err, "p.destHeaderSyncer.GetSyncedSnippet")
-			}
-
-			slog.Info("latestSyncedSnippet",
-				"blockHash", common.Bytes2Hex(latestSyncedSnippet.BlockHash[:]),
-				"signalRoot", common.Bytes2Hex(latestSyncedSnippet.SignalRoot[:]),
-			)
-
-			header, err := ethClient.HeaderByHash(ctx, latestSyncedSnippet.BlockHash)
-			if err != nil {
-				return errors.Wrap(err, "ethClient.HeaderByHash")
-			}
-
-			// header is caught up and processible
-			if header.Number.Uint64() >= blockNum {
-				slog.Info("waitHeaderSynced processable",
-					"blockNum", blockNum,
-					"latestSyncedBlockNum", header.Number.Uint64(),
-				)
-
-				return nil
-			}
-
-			slog.Info("waitHeaderSynced waiting to be processable",
-				"blockNum", blockNum,
-				"latestSyncedBlockNum", header.Number.Uint64(),
-			)
-		}
-	}
-}
-
 // DecodeMessageSentData tries to tell if it's an ETH, ERC20, ERC721, or ERC1155 bridge,
 // which lets the processor look up whether the contract has already been deployed or not,
 // to help better estimate gas needed for processing the message.
