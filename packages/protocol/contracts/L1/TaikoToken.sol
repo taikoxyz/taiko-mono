@@ -6,18 +6,12 @@
 
 pragma solidity ^0.8.20;
 
-import { ERC20BurnableUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
-import { ERC20PermitUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/draft-ERC20PermitUpgradeable.sol";
 import { ERC20SnapshotUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
 import { ERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import { ERC20VotesUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
-import { PausableUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/security/PausableUpgradeable.sol";
 
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
@@ -28,11 +22,7 @@ import { Proxied } from "../common/Proxied.sol";
 /// precision.
 contract TaikoToken is
     EssentialContract,
-    ERC20Upgradeable,
-    ERC20BurnableUpgradeable,
     ERC20SnapshotUpgradeable,
-    PausableUpgradeable,
-    ERC20PermitUpgradeable,
     ERC20VotesUpgradeable
 {
     error TKO_INVALID_ADDR();
@@ -59,9 +49,7 @@ contract TaikoToken is
     {
         EssentialContract._init(_addressManager);
         __ERC20_init(_name, _symbol);
-        __ERC20Burnable_init();
         __ERC20Snapshot_init();
-        __Pausable_init();
         __ERC20Permit_init(_name);
         __ERC20Votes_init();
 
@@ -73,16 +61,6 @@ contract TaikoToken is
     /// @notice Creates a new token snapshot.
     function snapshot() public onlyOwner {
         _snapshot();
-    }
-
-    /// @notice Pauses token transfers.
-    function pause() public onlyOwner {
-        _pause();
-    }
-
-    /// @notice Unpauses token transfers.
-    function unpause() public onlyOwner {
-        _unpause();
     }
 
     /// @notice Mints new tokens to the specified address.
@@ -105,7 +83,7 @@ contract TaikoToken is
         returns (bool)
     {
         if (to == address(this)) revert TKO_INVALID_ADDR();
-        return ERC20Upgradeable.transfer(to, amount);
+        return super.transfer(to, amount);
     }
 
     /// @notice Transfers tokens from one address to another.
@@ -123,7 +101,7 @@ contract TaikoToken is
         returns (bool)
     {
         if (to == address(this)) revert TKO_INVALID_ADDR();
-        return ERC20Upgradeable.transferFrom(from, to, amount);
+        return super.transferFrom(from, to, amount);
     }
 
     function _beforeTokenTransfer(
@@ -133,7 +111,6 @@ contract TaikoToken is
     )
         internal
         override(ERC20Upgradeable, ERC20SnapshotUpgradeable)
-        whenNotPaused
     {
         super._beforeTokenTransfer(from, to, amount);
     }
