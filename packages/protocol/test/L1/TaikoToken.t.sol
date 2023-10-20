@@ -91,7 +91,8 @@ contract TaikoTokenTest is TestBase {
     }
 
     function test_TaikoToken_mint_not_taiko_l1() public {
-        vm.expectRevert(AddressResolver.RESOLVER_DENIED.selector);
+        vm.expectRevert("Ownable: caller is not the owner");
+        vm.prank(Emma, Emma);
         tko.mint(Emma, 1 ether);
     }
 
