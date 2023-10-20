@@ -9,7 +9,7 @@
   import { warningToast } from '$components/NotificationToast';
   import { checkBalanceToBridge, getMaxAmountToBridge } from '$libs/bridge';
   import { InsufficientAllowanceError, InsufficientBalanceError, RevertedWithFailedError } from '$libs/error';
-  import { ETHToken, getBalance as getTokenBalance, TokenType } from '$libs/token';
+  import { ETHToken, getBalance as getTokenBalance, type NFT, TokenType } from '$libs/token';
   import { renderBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
@@ -37,6 +37,16 @@
   let inputBox: InputBox;
   let computingMaxAmount = false;
 
+  $: balance = $tokenBalance
+    ? typeof $tokenBalance === 'bigint'
+      ? $tokenBalance > BigInt(0)
+        ? $tokenBalance
+        : BigInt(0) // ERC721/1155
+      : 'value' in $tokenBalance && $tokenBalance.value > BigInt(0)
+      ? $tokenBalance.value
+      : BigInt(0) // ERC20
+    : BigInt(0);
+
   onDestroy(() => {
     clearAmount();
   });
@@ -52,6 +62,7 @@
     $insufficientAllowance = false;
     $validatingAmount = true; // During validation, we disable all the actions
 
+    log('Validating amount');
     const to = $recipientAddress || $account?.address;
 
     // We need all these guys to validate
@@ -63,8 +74,12 @@
       !$tokenBalance ||
       !$selectedToken ||
       $enteredAmount === BigInt(0) // no need to check if the amount is 0
-    )
+    ) {
+      log(
+        `Missing data to validate amount: ${to}, ${token}, ${$network}, ${$destNetwork}, ${$tokenBalance}, ${$selectedToken}, ${$enteredAmount}`,
+      );
       return;
+    }
 
     try {
       await checkBalanceToBridge({
@@ -72,9 +87,13 @@
         token,
         amount: $enteredAmount,
         fee,
-        balance: $tokenBalance.value,
+        balance,
         srcChainId: $network.id,
         destChainId: $destNetwork.id,
+        tokenIds:
+          $selectedToken.type === TokenType.ERC721 || $selectedToken.type === TokenType.ERC1155
+            ? [BigInt((token as NFT).tokenId)]
+            : [],
       });
     } catch (err) {
       switch (true) {
@@ -85,7 +104,7 @@
           $insufficientAllowance = true;
           break;
         case err instanceof RevertedWithFailedError:
-          warningToast({title: $t('messages.network.rejected')});
+          warningToast({ title: $t('messages.network.rejected') });
           break;
       }
     } finally {
@@ -105,20 +124,22 @@
     $errorComputingBalance = false;
 
     try {
-      if (token.type !== TokenType.ETH) {
+      if (token.type === TokenType.ERC20) {
         $tokenBalance = await getTokenBalance({
           token,
           srcChainId,
           destChainId,
           userAddress,
         });
-      } else {
+      } else if (token.type === TokenType.ETH) {
         $tokenBalance = await getTokenBalance({
           token: ETHToken,
           srcChainId,
           destChainId,
           userAddress,
         });
+      } else {
+        $tokenBalance = token.balance;
       }
     } catch (err) {
       log('Error updating balance: ', err);
@@ -140,7 +161,15 @@
     if (!$selectedToken) return;
 
     const { value } = event.target as HTMLInputElement;
-    $enteredAmount = parseUnits(value, $selectedToken.decimals);
+    if (
+      $selectedToken.type === TokenType.ERC721 ||
+      $selectedToken.type === TokenType.ERC1155 ||
+      !$selectedToken.decimals
+    ) {
+      $enteredAmount = BigInt(value);
+    } else {
+      $enteredAmount = parseUnits(value, $selectedToken.decimals);
+    }
 
     debouncedValidateAmount();
   }
@@ -153,29 +182,36 @@
     computingMaxAmount = true;
 
     try {
-      const maxAmount = await getMaxAmountToBridge({
-        to: $recipientAddress || $account.address,
-        token: $selectedToken,
-        balance: $tokenBalance.value,
-        fee: $processingFee,
-        srcChainId: $network.id,
-        destChainId: $destNetwork.id,
-        amount: BigInt(1), // whatever amount to estimate the cost
-      });
+      let maxAmount;
 
-      // Update UI
-      // Note: triggering the event manually does not always work, specially
-      // in other browsers (looking at you, Safari!!)
-      inputBox.setValue(formatUnits(maxAmount, $selectedToken.decimals));
+      if ($selectedToken.type === TokenType.ERC721 || $selectedToken.type === TokenType.ERC1155) {
+        $enteredAmount = $tokenBalance as bigint;
+        inputBox.setValue($enteredAmount.toString());
+      } else {
+        maxAmount = await getMaxAmountToBridge({
+          to: $recipientAddress || $account.address,
+          token: $selectedToken,
+          balance,
+          fee: $processingFee,
+          srcChainId: $network.id,
+          destChainId: $destNetwork.id,
+          amount: BigInt(1), // whatever amount to estimate the cost
+        });
 
-      // Update state
-      $enteredAmount = maxAmount;
+        // Update UI
+        // Note: triggering the event manually does not always work, specially
+        // in other browsers (looking at you, Safari!!)
+        inputBox.setValue(formatUnits(maxAmount, $selectedToken.decimals));
+
+        // Update state
+        $enteredAmount = maxAmount;
+      }
 
       // Check validity
       validateAmount();
     } catch (err) {
       console.error(err);
-      warningToast({title: $t('amount.errors.failed_max')});
+      warningToast({ title: $t('amount.errors.failed_max') });
     } finally {
       computingMaxAmount = false;
     }

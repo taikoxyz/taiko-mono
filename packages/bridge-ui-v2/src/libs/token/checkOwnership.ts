@@ -27,6 +27,10 @@ export const checkOwnershipOfNFTs = async (nfts: NFT[], accountAddress: Address,
   };
 };
 
+export const checkOwnershipOfNFT = async (nft: NFT, accountAddress: Address, chainId: number) => {
+  return await checkOwnership(nft.addresses[chainId], nft.type, nft.tokenId, accountAddress, chainId);
+};
+
 export const checkOwnership = async (
   tokenAddress: Address,
   tokenType: TokenType | null,

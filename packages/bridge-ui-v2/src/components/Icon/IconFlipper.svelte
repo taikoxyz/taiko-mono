@@ -18,7 +18,7 @@
 
   $: isDefault = selectedDefault === iconType1;
 
-  $: classes = classNames('swap swap-rotate', $$props.class);
+  $: classes = classNames('swap swap-rotate btn-neutral', $$props.class);
 </script>
 
 <div role="button" tabindex="0" class={classes} on:click={handleLabelClick} on:keypress={handleLabelClick}>

@@ -67,41 +67,40 @@
         </label>
       </div>
     {/if}
-    <div class="max-h-[200px] min-h-[150px] overflow-y-scroll bg-neutral rounded-[20px] p-2">
-      {#if !chainId}
-        Select a chain
-      {:else}
-        {#each Object.entries(groupNFTByCollection(nfts)) as [address, nftsGroup] (address)}
-          <div>
-            {#if nftsGroup.length > 0}
-              <div class="collection-header">
-                <span class="font-bold">
-                  {nftsGroup[0].name}
-                </span>
-                <span class="badge badge-primary badge-outline badge-xs p-2">{nftsGroup[0].type}</span>
-              </div>
-              <div class="token-ids my-2">
-                {#each nftsGroup as nft}
-                  {@const collectionAddress = nft.addresses[chainId]}
-                  {#if collectionAddress === undefined}
-                    <div>TODO: Address for {nft.name} is undefined</div>
-                  {:else}
-                    <NftListItem
-                      {nft}
-                      selectable={!viewOnly}
-                      {multiSelectEnabled}
-                      {checkedAddresses}
-                      {collectionAddress}
-                      {toggleAddressCheckBox}
-                      {selectNFT} />
-                  {/if}
-                {/each}
-              </div>
-            {/if}
-          </div>
-          <div class="h-sep" />
-        {/each}
-      {/if}
-    </div>
+
+    {#if !chainId}
+      Select a chain
+    {:else}
+      {#each Object.entries(groupNFTByCollection(nfts)) as [address, nftsGroup] (address)}
+        <div>
+          {#if nftsGroup.length > 0}
+            <div class="collection-header">
+              <span class="font-bold">
+                {nftsGroup[0].name}
+              </span>
+              <span class="badge badge-primary badge-outline badge-xs p-2">{nftsGroup[0].type}</span>
+            </div>
+            <div class="token-ids my-2">
+              {#each nftsGroup as nft}
+                {@const collectionAddress = nft.addresses[chainId]}
+                {#if collectionAddress === undefined}
+                  <div>TODO: Address for {nft.name} is undefined</div>
+                {:else}
+                  <NftListItem
+                    {nft}
+                    selectable={!viewOnly}
+                    {multiSelectEnabled}
+                    {checkedAddresses}
+                    {collectionAddress}
+                    {toggleAddressCheckBox}
+                    {selectNFT} />
+                {/if}
+              {/each}
+            </div>
+          {/if}
+        </div>
+        <div class="h-sep" />
+      {/each}
+    {/if}
   </div>
 {/if}
