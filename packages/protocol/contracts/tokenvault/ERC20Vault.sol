@@ -135,6 +135,7 @@ contract ERC20Vault is
         external
         payable
         nonReentrant
+        whenNotPaused
         onlyValidAddresses(opt.destChainId, "erc20_vault", opt.to, opt.token)
     {
         if (opt.amount == 0) revert VAULT_INVALID_AMOUNT();
