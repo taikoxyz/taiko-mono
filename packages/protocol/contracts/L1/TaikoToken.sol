@@ -144,7 +144,6 @@ contract TaikoToken is
     )
         internal
         override(ERC20Upgradeable, ERC20SnapshotUpgradeable)
-        whenNotPaused
     {
         super._beforeTokenTransfer(from, to, amount);
     }
