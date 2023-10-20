@@ -13,9 +13,11 @@ import { AddressResolver } from "./AddressResolver.sol";
 
 /// @title EssentialContract
 /// @notice This contract serves as the base contract for many core components.
+/// @dev We didn't use OpenZeppelin's PausableUpgradeable and
+/// ReentrancyGuardUpgradeable conract in order to optimize storage reads
 abstract contract EssentialContract is OwnableUpgradeable, AddressResolver {
-    uint8 private constant _NOPE = 1;
-    uint8 private constant _YEP = 2;
+    uint8 private constant _FALSE = 1;
+    uint8 private constant _TRUE = 2;
 
     uint8 private _reentryStatus; // slot 1
     uint8 private _pauseStatus;
@@ -27,10 +29,10 @@ abstract contract EssentialContract is OwnableUpgradeable, AddressResolver {
     error INVALID_PAUSE_STATUS();
 
     modifier nonReentrant() {
-        if (_reentryStatus == _YEP) revert REENTRANT_CALL();
-        _reentryStatus = _YEP;
+        if (_reentryStatus == _TRUE) revert REENTRANT_CALL();
+        _reentryStatus = _TRUE;
         _;
-        _reentryStatus = _NOPE;
+        _reentryStatus = _FALSE;
     }
 
     modifier whenPaused() {
@@ -44,17 +46,17 @@ abstract contract EssentialContract is OwnableUpgradeable, AddressResolver {
     }
 
     function pause() external whenNotPaused onlyOwner {
-        _pauseStatus = _YEP;
+        _pauseStatus = _TRUE;
         emit Paused(msg.sender);
     }
 
     function unpause() external whenPaused onlyOwner {
-        _pauseStatus = _NOPE;
+        _pauseStatus = _FALSE;
         emit Unpaused(msg.sender);
     }
 
     function paused() public view returns (bool) {
-        return _pauseStatus == _YEP;
+        return _pauseStatus == _TRUE;
     }
 
     /// @notice Initializes the contract with an address manager.
@@ -63,7 +65,7 @@ abstract contract EssentialContract is OwnableUpgradeable, AddressResolver {
         OwnableUpgradeable.__Ownable_init_unchained();
         AddressResolver._init(_addressManager);
 
-        _reentryStatus = _NOPE;
-        _pauseStatus = _NOPE;
+        _reentryStatus = _FALSE;
+        _pauseStatus = _FALSE;
     }
 }
