@@ -99,13 +99,6 @@ func (p *Processor) processMessage(
 		return errors.Wrap(err, "p.waitHeaderSynced")
 	}
 
-	// get latest synced header since not every header is synced from L1 => L2,
-	// and later blocks still have the storage trie proof from previous blocks.
-	latestSyncedSnippet, err := p.destHeaderSyncer.GetSyncedSnippet(&bind.CallOpts{}, 0)
-	if err != nil {
-		return errors.Wrap(err, "taiko.GetSyncedHeader")
-	}
-
 	key, err := p.srcSignalService.GetSignalSlot(&bind.CallOpts{},
 		msgBody.Event.Message.SrcChainId,
 		msgBody.Event.Raw.Address,
@@ -133,19 +126,30 @@ func (p *Processor) processMessage(
 			"hopSignalServiceAddress", p.hopSignalServiceAddress.Hex(),
 		)
 
-		// the hop proof is now the Src => Intermediary chain proof, aka, the regular proof from
-		// L2 => L1 or L1 => L22 without any hops.
+		// the hop proof is Src => Intermediary chain proof (in the case of)
+		// (L1 - L3 bridge, hop proof would be L1 - L2)
 		hops = append(hops, proof.HopParams{
-			ChainID:              p.srcChainId,
+			ChainID:              p.hopChainId,
 			SignalServiceAddress: p.srcSignalServiceAddress,
 			Blocker:              p.srcEthClient,
-			LatestSyncedSnippet:  latestSyncedSnippet,
 			Key:                  common.Bytes2Hex(key[:]),
 			Caller:               p.srcCaller,
 			BlockHash:            msgBody.Event.Raw.BlockHash,
 		})
 
-		// main proof differs when needing hops
+		// // wait for the header on intermediary chain to be synced
+		// // to destination chain now
+		// if err := p.waitHeaderSynced(ctx, p.destHeaderSyncer, p.hopEthClient, msgBody.Event.Raw.BlockNumber); err != nil {
+		// 	return errors.Wrap(err, "p.waitHeaderSynced")
+		// }
+
+		// latestSyncedBlockNum, err := p.destEthClient.BlockByHash(ctx, latestSyncedSnippet.BlockHash)
+		// if err != nil {
+		// 	return err
+		// }
+
+		// main proof differs when needing hops. it is now intermediary chain => destination chain.
+		// in the case of L1-L3 bridge, main proof is now L2 - L3.
 		encodedSignalProof, _, err = p.prover.EncodedSignalProofWithHops(
 			ctx,
 			p.hopCaller,
@@ -154,6 +158,7 @@ func (p *Processor) processMessage(
 			p.hopSignalService,
 			p.hopTaikoAddress,
 			p.hopChainId,
+			1800,
 		)
 		if err != nil {
 			slog.Error("error encoding signal proof",
@@ -163,7 +168,6 @@ func (p *Processor) processMessage(
 				"msgHash", common.Hash(msgBody.Event.MsgHash).Hex(),
 				"from", msgBody.Event.Message.User.Hex(),
 				"error", err,
-				"latestSyncedBlockHash", common.Bytes2Hex(latestSyncedSnippet.BlockHash[:]),
 				"hopsLength", len(hops),
 			)
 
@@ -176,6 +180,13 @@ func (p *Processor) processMessage(
 		// }
 
 	} else {
+		// get latest synced header since not every header is synced from L1 => L2,
+		// and later blocks still have the storage trie proof from previous blocks.
+		latestSyncedSnippet, err := p.destHeaderSyncer.GetSyncedSnippet(&bind.CallOpts{}, 0)
+		if err != nil {
+			return errors.Wrap(err, "taiko.GetSyncedHeader")
+		}
+
 		encodedSignalProof, err = p.prover.EncodedSignalProof(
 			ctx,
 			p.srcCaller,
@@ -206,7 +217,7 @@ func (p *Processor) processMessage(
 		Context: ctx,
 	}, msgBody.Event.Message, encodedSignalProof)
 	if err != nil {
-		return errors.Wrap(err, "p.destBridge.IsMessageReceived")
+		return errors.Wrap(err, "p.destBridge.ProveMessageReceived")
 	}
 
 	// message will fail when we try to process it

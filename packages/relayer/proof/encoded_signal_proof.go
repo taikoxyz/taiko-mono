@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/icrosschainsync"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/encoding"
 
@@ -22,7 +21,6 @@ type HopParams struct {
 	ChainID              *big.Int
 	SignalServiceAddress common.Address
 	Blocker              blocker
-	LatestSyncedSnippet  icrosschainsync.ICrossChainSyncSnippet
 	Key                  string
 	Caller               relayer.Caller
 	BlockHash            common.Hash
@@ -78,6 +76,7 @@ func (p *Prover) EncodedSignalProofWithHops(
 	hopSignalService *signalservice.SignalService,
 	hopTaikoAddress common.Address,
 	hopChainID *big.Int,
+	blockNum uint64,
 ) ([]byte, uint64, error) {
 	hops := []encoding.Hop{}
 
@@ -118,13 +117,11 @@ func (p *Prover) EncodedSignalProofWithHops(
 		signalRoot = hopSignalRoot
 
 		blockHeader = hopBlockHeader
+
+		slog.Info("hop storage proof", "proof", common.Bytes2Hex(encodedHopStorageProof))
 	}
 
 	slog.Info("hop signal root", "root", signalRoot.Hex())
-
-	// if err := waitHeaderSyncFunc(hopBlockHeaderHeight); err != nil {
-	// 	return nil, errors.Wrap(err, "waitHeaderSyncFunc")
-	// }
 
 	key, err := hopSignalService.GetSignalSlot(&bind.CallOpts{},
 		hopChainID,
@@ -140,24 +137,26 @@ func (p *Prover) EncodedSignalProofWithHops(
 		caller,
 		signalServiceAddress,
 		common.Bytes2Hex(key[:]),
-		5064,
+		int64(blockNum),
 	)
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "p.getEncodedStorageProof")
 	}
 
-	slog.Info("blockHeightSignalProof", "height", blockHeader.Height.Uint64())
-
 	signalProof := encoding.SignalProof{
-		Height:       blockHeader.Height.Uint64(),
+		Height:       blockNum,
 		StorageProof: encodedStorageProof,
 		Hops:         hops,
 	}
+
+	slog.Info("p", "p", common.Bytes2Hex(encodedStorageProof))
 
 	encodedSignalProof, err := encoding.EncodeSignalProof(signalProof)
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "enoding.EncodeSignalProof")
 	}
+
+	slog.Info("signalProof", "proof", common.Bytes2Hex(encodedSignalProof))
 
 	return encodedSignalProof, blockHeader.Height.Uint64(), nil
 }

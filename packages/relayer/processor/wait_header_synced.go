@@ -47,9 +47,9 @@ func (p *Processor) waitHeaderSynced(
 				return errors.Wrap(err, "ethClient.HeaderByHash")
 			}
 
-			// header is caught up and processible
+			// header is caught up
 			if header.Number.Uint64() >= blockNum {
-				slog.Info("waitHeaderSynced processable",
+				slog.Info("waitHeaderSynced caughtUp",
 					"blockNum", blockNum,
 					"latestSyncedBlockNum", header.Number.Uint64(),
 				)
@@ -57,7 +57,7 @@ func (p *Processor) waitHeaderSynced(
 				return nil
 			}
 
-			slog.Info("waitHeaderSynced waiting to be processable",
+			slog.Info("waitHeaderSynced waiting to be caughtUp",
 				"blockNum", blockNum,
 				"latestSyncedBlockNum", header.Number.Uint64(),
 			)
