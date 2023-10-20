@@ -49,7 +49,6 @@ library LibVerifying {
         state.slotA.genesisHeight = uint64(block.number);
         state.slotA.genesisTimestamp = uint64(block.timestamp);
         state.slotB.numBlocks = 1;
-        state.slotB.lastVerifiedAt = uint64(block.timestamp);
 
         // Init the genesis block
         TaikoData.Block storage blk = state.blocks[0];
@@ -202,7 +201,6 @@ library LibVerifying {
 
                 // Update protocol level state variables
                 state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
-                state.slotB.lastVerifiedAt = uint64(block.timestamp);
 
                 // Store the L2's signal root as a signal to the local signal
                 // service to allow for multi-hop bridging.
