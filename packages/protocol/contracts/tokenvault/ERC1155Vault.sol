@@ -53,8 +53,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     function sendToken(BridgeTransferOp memory opt)
         external
         payable
-        whenNotPaused
         nonReentrant
+        whenNotPaused
     {
         // Validate amounts and addresses
         LibVaultUtils.checkIfValidAmounts(opt.amounts, opt.tokenIds, false);

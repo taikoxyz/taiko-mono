@@ -69,8 +69,8 @@ contract EtherVault is EssentialContract {
     )
         public
         onlyAuthorized
-        whenNotPaused
         nonReentrant
+        whenNotPaused
     {
         if (recipient == address(0)) revert VAULT_INVALID_RECIPIENT();
 
