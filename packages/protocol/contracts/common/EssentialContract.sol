@@ -33,10 +33,10 @@ abstract contract EssentialContract is
     }
 
     function pause() external whenNotPaused onlyOwner {
-        super._pause();
+        PausableUpgradeable._pause();
     }
 
     function unpause() external whenPaused onlyOwner {
-        super._unpause();
+        PausableUpgradeable._unpause();
     }
 }
