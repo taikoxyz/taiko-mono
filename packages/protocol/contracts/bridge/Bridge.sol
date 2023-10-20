@@ -32,10 +32,10 @@ contract Bridge is EssentialContract, IBridge {
     address internal constant SRC_CHAIN_SENDER_PLACEHOLDER =
         address(uint160(uint256(1)));
 
-    uint256 public nextMessageId;
+    uint128 public nextMessageId; // slot 1
     mapping(bytes32 msgHash => bool recalled) public isMessageRecalled;
-    mapping(bytes32 msgHash => Status) public messageStatus;
-    Context private _ctx; // 3 slots
+    mapping(bytes32 msgHash => Status) public messageStatus; // slot 3
+    Context private _ctx; // // slot 4,5,6pnpm
     uint256[44] private __gap;
 
     event SignalSent(address indexed sender, bytes32 msgHash);
@@ -79,6 +79,7 @@ contract Bridge is EssentialContract, IBridge {
         payable
         override
         nonReentrant
+        whenNotPaused
         returns (bytes32 msgHash, Message memory _message)
     {
         // Ensure the message user is not null.
@@ -132,6 +133,7 @@ contract Bridge is EssentialContract, IBridge {
     )
         external
         nonReentrant
+        whenNotPaused
         sameChain(message.srcChainId)
     {
         bytes32 msgHash = keccak256(abi.encode(message));
@@ -182,6 +184,7 @@ contract Bridge is EssentialContract, IBridge {
     )
         external
         nonReentrant
+        whenNotPaused
         sameChain(message.destChainId)
     {
         // If the gas limit is set to zero, only the user can process the
@@ -261,6 +264,7 @@ contract Bridge is EssentialContract, IBridge {
     )
         external
         nonReentrant
+        whenNotPaused
         sameChain(message.destChainId)
     {
         // If the gasLimit is set to 0 or isLastAttempt is true, the caller must
