@@ -54,6 +54,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         external
         payable
         nonReentrant
+        whenNotPaused
     {
         // Validate amounts and addresses
         LibVaultUtils.checkIfValidAmounts(opt.amounts, opt.tokenIds, false);
@@ -119,6 +120,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         external
         payable
         nonReentrant
+        whenNotPaused
         onlyFromNamed("bridge")
     {
         // Check context validity
@@ -172,6 +174,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         payable
         override
         nonReentrant
+        whenNotPaused
         onlyFromNamed("bridge")
     {
         (

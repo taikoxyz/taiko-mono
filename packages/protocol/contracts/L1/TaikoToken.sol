@@ -6,8 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-import { ERC20BurnableUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
 import { ERC20PermitUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/draft-ERC20PermitUpgradeable.sol";
 import { ERC20SnapshotUpgradeable } from
@@ -31,7 +29,6 @@ import { Proxied } from "../common/Proxied.sol";
 contract TaikoToken is
     EssentialContract,
     ERC20Upgradeable,
-    ERC20BurnableUpgradeable,
     ERC20SnapshotUpgradeable,
     ERC20PermitUpgradeable,
     ERC20VotesUpgradeable,
@@ -60,12 +57,10 @@ contract TaikoToken is
         initializer
     {
         EssentialContract._init(_addressManager);
-        __ERC20_init(_name, _symbol);
-        __ERC20Burnable_init();
-        __ERC20Snapshot_init();
-        __Pausable_init();
-        __ERC20Permit_init(_name);
-        __ERC20Votes_init();
+        ERC20Upgradeable.__ERC20_init_unchained(_name, _symbol);
+        ERC20SnapshotUpgradeable.__ERC20Snapshot_init_unchained();
+        ERC20PermitUpgradeable.__ERC20Permit_init(_name);
+        ERC20VotesUpgradeable.__ERC20Votes_init_unchained();
 
         for (uint256 i; i < _premintRecipients.length; ++i) {
             _mint(_premintRecipients[i], _premintAmounts[i]);
@@ -144,7 +139,6 @@ contract TaikoToken is
     )
         internal
         override(ERC20Upgradeable, ERC20SnapshotUpgradeable)
-        whenNotPaused
     {
         super._beforeTokenTransfer(from, to, amount);
     }
