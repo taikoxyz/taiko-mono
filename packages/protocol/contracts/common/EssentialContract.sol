@@ -8,35 +8,62 @@ pragma solidity ^0.8.20;
 
 import { OwnableUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import { PausableUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/security/PausableUpgradeable.sol";
-import { ReentrancyGuardUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
 
 import { AddressResolver } from "./AddressResolver.sol";
 
 /// @title EssentialContract
 /// @notice This contract serves as the base contract for many core components.
-abstract contract EssentialContract is
-    ReentrancyGuardUpgradeable,
-    OwnableUpgradeable,
-    PausableUpgradeable,
-    AddressResolver
-{
-    /// @notice Initializes the contract with an address manager.
-    /// @param _addressManager The address of the address manager.
-    function _init(address _addressManager) internal virtual override {
-        ReentrancyGuardUpgradeable.__ReentrancyGuard_init_unchained();
-        OwnableUpgradeable.__Ownable_init_unchained();
-        PausableUpgradeable.__Pausable_init_unchained();
-        AddressResolver._init(_addressManager);
+abstract contract EssentialContract is OwnableUpgradeable, AddressResolver {
+    uint8 private constant _NOPE = 1;
+    uint8 private constant _YEP = 2;
+
+    uint8 private _reentryStatus; // slot 1
+    uint8 private _pauseStatus;
+
+    event Paused(address account);
+    event Unpaused(address account);
+
+    error REENTRANT_CALL();
+    error INVALID_PAUSE_STATUS();
+
+    modifier nonReentrant() {
+        if (_reentryStatus == _YEP) revert REENTRANT_CALL();
+        _reentryStatus = _YEP;
+        _;
+        _reentryStatus = _NOPE;
+    }
+
+    modifier whenPaused() {
+        if (!paused()) revert INVALID_PAUSE_STATUS();
+        _;
+    }
+
+    modifier whenNotPaused() {
+        if (paused()) revert INVALID_PAUSE_STATUS();
+        _;
     }
 
     function pause() external whenNotPaused onlyOwner {
-        PausableUpgradeable._pause();
+        _pauseStatus = _YEP;
+        emit Paused(msg.sender);
     }
 
     function unpause() external whenPaused onlyOwner {
-        PausableUpgradeable._unpause();
+        _pauseStatus = _NOPE;
+        emit Unpaused(msg.sender);
+    }
+
+    function paused() public view returns (bool) {
+        return _pauseStatus == _YEP;
+    }
+
+    /// @notice Initializes the contract with an address manager.
+    /// @param _addressManager The address of the address manager.
+    function _init(address _addressManager) internal virtual override {
+        OwnableUpgradeable.__Ownable_init_unchained();
+        AddressResolver._init(_addressManager);
+
+        _reentryStatus = _NOPE;
+        _pauseStatus = _NOPE;
     }
 }
