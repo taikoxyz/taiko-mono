@@ -63,13 +63,6 @@ contract TaikoToken is
         _snapshot();
     }
 
-    /// @notice Mints new tokens to the specified address.
-    /// @param to The address to receive the minted tokens.
-    /// @param amount The amount of tokens to mint.
-    function mint(address to, uint256 amount) public onlyOwner {
-        _mint(to, amount);
-    }
-
     /// @notice Transfers tokens to a specified address.
     /// @param to The address to transfer tokens to.
     /// @param amount The amount of tokens to transfer.

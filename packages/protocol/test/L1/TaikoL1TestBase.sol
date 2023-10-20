@@ -118,9 +118,6 @@ abstract contract TaikoL1TestBase is TestBase {
             premintAmounts
         );
 
-        // Set protocol broker
-        tko.mint(address(this), 1e9 ether);
-
         L1.init(address(addressManager), GENESIS_BLOCK_HASH);
         printVariables("init  ");
     }
