@@ -64,8 +64,6 @@ contract Bridge is EssentialContract, IBridge {
         _;
     }
 
-    receive() external payable { }
-
     /// @notice Initializes the contract.
     /// @param _addressManager The address of the {AddressManager} contract.
     function init(address _addressManager) external initializer {
