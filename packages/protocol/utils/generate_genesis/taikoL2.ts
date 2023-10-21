@@ -8,6 +8,7 @@ const {
     getStorageLayout,
 } = require("@defi-wonderland/smock/dist/src/utils");
 const ARTIFACTS_PATH = path.join(__dirname, "../../out");
+
 const IMPLEMENTATION_SLOT =
     "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc";
 
@@ -285,6 +286,9 @@ async function generateContractConfigs(
                 // TaikoL2
                 // OwnableUpgradeable
                 _owner: contractOwner,
+                // ReentrancyGuardUpgradeable
+                _reentry: 1, // _FALSE
+                _paused: 1, // _FALSE
                 // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
                 publicInputHash: `${ethers.utils.solidityKeccak256(
                     ["bytes32[256]"],

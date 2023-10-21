@@ -37,8 +37,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     // A hash to check the integrity of public inputs.
     bytes32 public publicInputHash; // slot 3
     uint128 public gasExcess; // slot 4
-    address public parentProposer; // slot 5
-    uint64 public latestSyncedL1Height;
+    uint64 public latestSyncedL1Height; // slot 5
 
     uint256[145] private __gap;
 
@@ -127,7 +126,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         snippets[l1Height] = ICrossChainSync.Snippet(l1BlockHash, l1SignalRoot);
         publicInputHash = publicInputHashNew;
         latestSyncedL1Height = l1Height;
-        parentProposer = block.coinbase;
 
         emit Anchored(blockhash(parentId), gasExcess);
     }
