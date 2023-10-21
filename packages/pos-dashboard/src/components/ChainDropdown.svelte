@@ -1,7 +1,7 @@
 <script lang="ts">
   import * as Sentry from '@sentry/svelte';
   import { ChevronDown, ExclamationTriangle } from 'svelte-heros-v2';
-  import { UserRejectedRequestError } from 'wagmi';
+  import { UserRejectedRequestError } from 'viem';
 
   import { mainnetChain } from '../chain/chains';
   import type { Chain } from '../domain/chain';

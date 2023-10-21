@@ -5,7 +5,7 @@
   import { onDestroy, onMount } from 'svelte';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
   import { _ } from 'svelte-i18n';
-  import { UserRejectedRequestError } from 'wagmi';
+  import { UserRejectedRequestError } from 'viem';
 
   import { bridges } from '../../bridge/bridges';
   import { chains } from '../../chain/chains';
