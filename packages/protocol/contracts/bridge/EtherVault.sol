@@ -33,14 +33,7 @@ contract EtherVault is EssentialContract {
         _;
     }
 
-    /// @notice Function to receive Ether.
-    /// @dev Only authorized addresses can send Ether to the contract.
-    receive() external payable {
-        // EthVault's balance must == 0 OR the sender isAuthorized.
-        if (address(this).balance != 0 && !isAuthorized[msg.sender]) {
-            revert VAULT_PERMISSION_DENIED();
-        }
-    }
+    receive() external payable { }
 
     /// @notice Initializes the contract with an {AddressManager}.
     /// @param addressManager The address of the {AddressManager} contract.
@@ -51,7 +44,12 @@ contract EtherVault is EssentialContract {
     /// @notice Transfers Ether from EtherVault to the sender, checking that the
     /// sender is authorized.
     /// @param amount Amount of Ether to send.
-    function releaseEther(uint256 amount) public onlyAuthorized nonReentrant {
+    function releaseEther(uint256 amount)
+        public
+        onlyAuthorized
+        nonReentrant
+        whenNotPaused
+    {
         msg.sender.sendEther(amount);
         emit EtherReleased(msg.sender, amount);
     }
@@ -67,6 +65,7 @@ contract EtherVault is EssentialContract {
         public
         onlyAuthorized
         nonReentrant
+        whenNotPaused
     {
         if (recipient == address(0)) revert VAULT_INVALID_RECIPIENT();
 

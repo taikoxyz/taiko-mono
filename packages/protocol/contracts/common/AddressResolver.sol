@@ -19,7 +19,6 @@ import { IAddressManager } from "./AddressManager.sol";
 /// contracts that are resolvers.
 abstract contract AddressResolver {
     address public addressManager;
-
     uint256[49] private __gap;
 
     error RESOLVER_DENIED();
@@ -31,18 +30,6 @@ abstract contract AddressResolver {
     /// @param name The name to check against.
     modifier onlyFromNamed(bytes32 name) {
         if (msg.sender != resolve(name, true)) revert RESOLVER_DENIED();
-        _;
-    }
-
-    /// @dev Modifier that ensures the caller is the resolved address of two
-    /// given names.
-    /// @param name1 The first name to check against.
-    /// @param name2 The second name to check against.
-    modifier onlyFromNamed2(bytes32 name1, bytes32 name2) {
-        if (
-            msg.sender != resolve(name1, true)
-                && msg.sender != resolve(name2, true)
-        ) revert RESOLVER_DENIED();
         _;
     }
 

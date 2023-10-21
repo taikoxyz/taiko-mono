@@ -43,26 +43,6 @@ contract TestEtherVault is TestBase {
         assertTrue(etherVault.isAuthorized(Bob));
     }
 
-    function test_EtherVault_receive_allows_sending_when_authorized_only()
-        public
-    {
-        assertEq(address(etherVault).balance, 0);
-        assertEq(Alice.balance > 0, true);
-        vm.startPrank(Alice);
-        etherVault.authorize(Alice, true);
-        (bool aliceSent,) = address(etherVault).call{ value: 1 }("");
-        assertTrue(aliceSent);
-        assertEq(address(etherVault).balance, 1);
-
-        vm.stopPrank();
-        assertTrue(Bob.balance > 0);
-        vm.startPrank(Bob);
-
-        (bool bobSent,) = address(etherVault).call{ value: 1 }("");
-        assertFalse(bobSent);
-        vm.stopPrank();
-    }
-
     function test_EtherVault_releaseEther_reverts_when_zero_address() public {
         vm.startPrank(Alice);
         etherVault.authorize(Alice, true);

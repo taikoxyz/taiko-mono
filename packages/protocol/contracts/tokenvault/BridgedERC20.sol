@@ -17,8 +17,9 @@ import { StringsUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/utils/StringsUpgradeable.sol";
 
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { Proxied } from "../common/Proxied.sol";
+
+import { IMintableERC20 } from "./IMintableERC20.sol";
 
 /// @title BridgedERC20
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
