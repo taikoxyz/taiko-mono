@@ -32,7 +32,7 @@ export async function getMaxAmountToBridge({
 }: GetMaxToBridgeArgs) {
   // For ERC20 tokens, we can bridge the whole balance
   let maxAmount = balance;
-
+  log('Max amount to bridge', maxAmount, 'with balance', balance, 'and amount', amount, token);
   if (token.type === TokenType.ETH) {
     // We cannot really compute the cost of bridging ETH without
     if (!to || !srcChainId || !destChainId) {
@@ -59,6 +59,5 @@ export async function getMaxAmountToBridge({
     // We also need to take into account the processing fee if any
     maxAmount = balance - estimatedCost - (fee ?? BigInt(0));
   }
-
   return maxAmount;
 }

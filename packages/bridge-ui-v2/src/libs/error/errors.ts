@@ -22,6 +22,10 @@ export class NoAllowanceRequiredError extends Error {
   name = 'NoAllowanceRequiredError';
 }
 
+export class NoApprovalRequiredError extends Error {
+  name = 'NoApprovalRequiredError';
+}
+
 export class NoTokenAddressError extends Error {
   name = 'NoTokenAddressError';
 }
