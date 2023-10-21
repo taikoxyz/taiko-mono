@@ -444,7 +444,7 @@ const ecosystemData: EcosystemData[] = [
     link: "https://dojonode.xyz",
     description:
       "A user friendly, easy to read, and visually pleasing dashboard for monitoring your Node/Proposer/Prover.",
-    filters: [],
+    filters: ["dashboard"],
     isLive: true,
   },
   {
