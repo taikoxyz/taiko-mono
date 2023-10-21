@@ -161,13 +161,7 @@ library TaikoData {
     struct SlotB {
         uint64 numBlocks;
         uint64 nextEthDepositToProcess;
-        uint64 lastVerifiedAt;
         uint64 lastVerifiedBlockId;
-    }
-
-    struct SlotC {
-        uint128 accumulatedReward;
-        uint64 lastProposedHeight;
     }
 
     /// @dev Struct holding the state variables for the {TaikoL1} contract.
@@ -190,7 +184,6 @@ library TaikoData {
         mapping(address account => uint256 balance) tokenBalances;
         SlotA slotA; // slot 6
         SlotB slotB; // slot 7
-        SlotC slotC; // slot 8
-        uint256[142] __gap;
+        uint256[143] __gap;
     }
 }

@@ -33,6 +33,9 @@ library LibAddress {
         if (to == address(0)) revert ETH_TRANSFER_FAILED();
 
         // Attempt to send Ether to the recipient address
+        // WARNING: call() functions do not have an upper gas cost limit, so
+        // it's important to note that it may not reliably execute as expected
+        // when invoked with untrusted addresses.
         (bool success,) = payable(to).call{ value: amount }("");
 
         // Ensure the transfer was successful
