@@ -194,8 +194,6 @@ contract Bridge is EssentialContract, IBridge {
         bool received = _proveSignalReceived(msgHash, message.srcChainId, proof);
         if (!received) revert B_NOT_RECEIVED();
 
-        // Release necessary Ether from EtherVault if on Taiko, otherwise it's
-        // already available on this Bridge.
         address payable ethVault = resolve("ether_vault", false);
         EtherVault(ethVault).releaseEther(
             address(this), message.value + message.fee
@@ -271,8 +269,6 @@ contract Bridge is EssentialContract, IBridge {
             revert B_NON_RETRIABLE();
         }
 
-        // Release necessary Ether from EtherVault if on Taiko, otherwise it's
-        // already available on this Bridge.
         address payable ethVault = resolve("ether_vault", false);
         EtherVault(ethVault).releaseEther(address(this), message.value);
 
