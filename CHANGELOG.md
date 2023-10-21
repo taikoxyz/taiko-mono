@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.23.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-mono-v0.22.0...taiko-mono-v0.23.0) (2023-10-18)
+
+
+### Features
+
+* **bridge-ui-v2:** dynamic import of NFT data via API ([#14928](https://github.com/taikoxyz/taiko-mono/issues/14928)) ([946c337](https://github.com/taikoxyz/taiko-mono/commit/946c337070eb2f2a9a2aa1f7314d7469ccd1b818))
+* **bridge-ui-v2:** manual NFT import step ([#14842](https://github.com/taikoxyz/taiko-mono/issues/14842)) ([c85e162](https://github.com/taikoxyz/taiko-mono/commit/c85e1629d0b9b544880f65f0e4050456579c87d1))
+* **bridge-ui-v2:** NFT bridging ([#14949](https://github.com/taikoxyz/taiko-mono/issues/14949)) ([36c5ccd](https://github.com/taikoxyz/taiko-mono/commit/36c5ccda09e0d7ef062aff33e98548314486e437))
+* **bridge-ui-v2:** review step ([#14940](https://github.com/taikoxyz/taiko-mono/issues/14940)) ([c079223](https://github.com/taikoxyz/taiko-mono/commit/c0792230bab8c245ad3b779f695a7bdd0f598fc8))
+* **eventindexer:** API documentation, swagger, github pages ([#14948](https://github.com/taikoxyz/taiko-mono/issues/14948)) ([5455267](https://github.com/taikoxyz/taiko-mono/commit/54552674fe8a6b0b4321afe1ef4d90d00d62f0e8))
+* **website:** add covalent to ecosystem ([#14908](https://github.com/taikoxyz/taiko-mono/issues/14908)) ([9cc4db3](https://github.com/taikoxyz/taiko-mono/commit/9cc4db3ec8e59a619e8135f48d9af9a936325e82))
+* **website:** remove swap tokens guide ([#14897](https://github.com/taikoxyz/taiko-mono/issues/14897)) ([7dbf44c](https://github.com/taikoxyz/taiko-mono/commit/7dbf44c8ad1d0d1c67bf424d3f45ec6b2547465c))
+* **website:** update `prover-market-page.mdx` ([#14978](https://github.com/taikoxyz/taiko-mono/issues/14978)) ([ffa2365](https://github.com/taikoxyz/taiko-mono/commit/ffa2365560a49bf39741ca1840731485eff10c1a))
+* **website:** update Rubic on ecosystem page ([#14933](https://github.com/taikoxyz/taiko-mono/issues/14933)) ([d1f6bef](https://github.com/taikoxyz/taiko-mono/commit/d1f6beffe020fe1171279cd5279ef08643a70d84))
+* **webste:** add pixelswap and superscalar to ecosystem ([#14961](https://github.com/taikoxyz/taiko-mono/issues/14961)) ([f47509f](https://github.com/taikoxyz/taiko-mono/commit/f47509f8ca66f1e1fe6af4565472b023cb24e1cf))
+
+
+### Bug Fixes
+
+* **eventindexer:** update config tests ([#14912](https://github.com/taikoxyz/taiko-mono/issues/14912)) ([beab49b](https://github.com/taikoxyz/taiko-mono/commit/beab49bd8f085b1e285fb3a16e9b493f3c5f5932))
+* **eventindexer:** upodate indexnfts flag to bool ([#14905](https://github.com/taikoxyz/taiko-mono/issues/14905)) ([a4a982e](https://github.com/taikoxyz/taiko-mono/commit/a4a982ec15a11f207c5b14c3a0b5fb2caffd2c1b))
+* **protocol:** fix a bug reported by Quillaudit ([#14938](https://github.com/taikoxyz/taiko-mono/issues/14938)) ([99b200b](https://github.com/taikoxyz/taiko-mono/commit/99b200bad93bcee0d0c9441d0393b2aa48636017))
+* **relayer:** ERC1155 bridging, amount =&gt; amounts ([#14959](https://github.com/taikoxyz/taiko-mono/issues/14959)) ([d42c59d](https://github.com/taikoxyz/taiko-mono/commit/d42c59d5150c9c41941458e25fac75121d73da76))
+
 ## [0.22.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-mono-v0.21.0...taiko-mono-v0.22.0) (2023-10-03)
 
 
@@ -121,7 +145,7 @@
 * **pos-dashboard:** Changed font color of error message ([#14543](https://github.com/taikoxyz/taiko-mono/issues/14543)) ([279d4e9](https://github.com/taikoxyz/taiko-mono/commit/279d4e96bf378eb651b91976d7729b0675ea1368))
 * **protocol:** block reward must be minted ([#14595](https://github.com/taikoxyz/taiko-mono/issues/14595)) ([e92b1da](https://github.com/taikoxyz/taiko-mono/commit/e92b1da2ced73c2b28a825fce916acededab0a39))
 * **protocol:** change transition ID from uint16 to uint32 ([#14620](https://github.com/taikoxyz/taiko-mono/issues/14620)) ([c8969b6](https://github.com/taikoxyz/taiko-mono/commit/c8969b64bbaacf9ec6d239608509424fdc02ee97))
-* **protocol:** remove proof from getInstance calculation ([#14623](https://github.com/taikoxyz/taiko-mono/issues/14623)) ([2eedc33](https://github.com/taikoxyz/taiko-mono/commit/2eedc33c213cb5d0abf9daa8bc9bd21b730ae6af))
+* **protocol:** remove proof from calcInstance calculation ([#14623](https://github.com/taikoxyz/taiko-mono/issues/14623)) ([2eedc33](https://github.com/taikoxyz/taiko-mono/commit/2eedc33c213cb5d0abf9daa8bc9bd21b730ae6af))
 * **protocol:** revert impl deployment V2 ([#14621](https://github.com/taikoxyz/taiko-mono/issues/14621)) ([7e59e0b](https://github.com/taikoxyz/taiko-mono/commit/7e59e0b0077e4d81bcd5333bc6f0900e0761d6ea))
 * **relayer:** Eth bridge ([#14609](https://github.com/taikoxyz/taiko-mono/issues/14609)) ([f5207ae](https://github.com/taikoxyz/taiko-mono/commit/f5207ae19c48d9aaa83dab2739cd05d9c2985112))
 

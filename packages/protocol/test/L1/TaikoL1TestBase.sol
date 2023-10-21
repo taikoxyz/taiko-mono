@@ -87,6 +87,7 @@ abstract contract TaikoL1TestBase is TestBase {
 
         cp = new TaikoA6TierProvider();
 
+        registerAddress("taiko", address(L1));
         registerAddress("tier_pse_zkevm", address(pv));
         registerAddress("tier_sgx", address(sv));
         registerAddress("tier_guardian", address(gv));
@@ -98,6 +99,7 @@ abstract contract TaikoL1TestBase is TestBase {
         registerL2Address("taiko", address(TaikoL2));
         registerL2Address("signal_service", address(L2SS));
         registerL2Address("taiko_l2", address(TaikoL2));
+
         registerAddress(pv.getVerifierName(300), address(new MockVerifier()));
 
         tko = new TaikoToken();
@@ -115,12 +117,6 @@ abstract contract TaikoL1TestBase is TestBase {
             premintRecipients,
             premintAmounts
         );
-
-        // Set protocol broker
-        registerAddress("taiko", address(this));
-        tko.mint(address(this), 1e9 ether);
-
-        registerAddress("taiko", address(L1));
 
         L1.init(address(addressManager), GENESIS_BLOCK_HASH);
         printVariables("init  ");
@@ -210,7 +206,7 @@ abstract contract TaikoL1TestBase is TestBase {
             proof: new bytes(102)
         });
 
-        bytes32 instance = pv.getInstance(prover, evidence);
+        bytes32 instance = pv.calcInstance(prover, evidence);
         uint16 verifierId = 300; // 300 as see mock verifier in line 95
 
         evidence.proof = bytes.concat(

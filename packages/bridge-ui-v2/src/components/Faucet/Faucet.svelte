@@ -39,7 +39,7 @@
       console.error(err);
 
       if (err instanceof UserRejectedRequestError) {
-        warningToast($t('messages.network.rejected'));
+        warningToast({title: $t('messages.network.rejected')});
       }
     } finally {
       switchingNetwork = false;
@@ -60,37 +60,35 @@
       const txHash = await mint(selectedToken, $network.id);
       const explorer = chainConfig[$network.id].urls.explorer;
 
-      infoToast(
-        $t('faucet.mint.tx', {
+      infoToast({
+        title: $t('faucet.mint.tx.title'),
+        message: $t('faucet.mint.tx.message', {
           values: {
             token: selectedToken.symbol,
             url: `${explorer}/tx/${txHash}`,
           },
         }),
-      );
+      });
 
       await pendingTransactions.add(txHash, $network.id);
 
-      successToast(
-        $t('faucet.mint.success', {
-          values: {
-            token: selectedToken.symbol,
-          },
-        }),
-      );
+      successToast({
+        title: $t('faucet.mint.success.title'),
+        message: $t('faucet.mint.success.message'),
+      });
     } catch (err) {
       console.error(err);
 
       switch (true) {
         case err instanceof UserRejectedRequestError:
-          warningToast($t('faucet.mint.rejected'));
+          warningToast({title: $t('faucet.mint.rejected')});
           break;
         case err instanceof MintError:
           // TODO: see contract for all possible errors
-          errorToast($t('faucet.mint.error'));
+          errorToast({title: $t('faucet.mint.error')});
           break;
         default:
-          errorToast($t('faucet.mint.unknown_error'));
+          errorToast({title: $t('faucet.mint.unknown_error')});
           break;
       }
     } finally {

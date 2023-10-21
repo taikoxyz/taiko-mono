@@ -19,8 +19,6 @@ import { IVerifier } from "./IVerifier.sol";
 
 /// @title SgxVerifier
 contract SgxVerifier is EssentialContract, IVerifier {
-    using ECDSAUpgradeable for bytes32;
-
     struct Instance {
         address addr;
         uint64 addedAt; // We can calculate if expired
@@ -83,7 +81,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         if (_instances.length == 0) revert SGX_INVALID_INSTANCES();
 
         bytes32 signedHash = keccak256(abi.encode("ADD_INSTANCES", _instances));
-        address oldInstance = signedHash.recover(signature);
+        address oldInstance = ECDSAUpgradeable.recover(signedHash, signature);
         if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
 
         _replaceInstance(id, oldInstance, _instances[0]);
@@ -112,8 +110,9 @@ contract SgxVerifier is EssentialContract, IVerifier {
         address newInstance =
             address(bytes20(LibBytesUtils.slice(evidence.proof, 2, 20)));
         bytes memory signature = LibBytesUtils.slice(evidence.proof, 22);
-        address oldInstance =
-            getSignedHash(evidence, prover, newInstance).recover(signature);
+        address oldInstance = ECDSAUpgradeable.recover(
+            getSignedHash(evidence, prover, newInstance), signature
+        );
 
         if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
         _replaceInstance(id, oldInstance, newInstance);

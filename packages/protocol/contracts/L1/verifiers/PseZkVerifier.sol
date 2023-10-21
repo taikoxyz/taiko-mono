@@ -42,7 +42,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         // Do not run proof verification to contest an existing proof
         if (isContesting) return;
 
-        bytes32 instance = getInstance(prover, evidence);
+        bytes32 instance = calcInstance(prover, evidence);
 
         // Validate the instance using bytes utilities.
         bool verified = LibBytesUtils.equal(
@@ -75,7 +75,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         if (bytes32(ret) != keccak256("taiko")) revert L1_INVALID_PROOF();
     }
 
-    function getInstance(
+    function calcInstance(
         address prover,
         TaikoData.BlockEvidence memory evidence
     )

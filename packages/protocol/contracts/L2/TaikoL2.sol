@@ -11,7 +11,6 @@ import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { ISignalService } from "../signal/ISignalService.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { LibMath } from "../libs/LibMath.sol";
-import { TaikoToken } from "../L1/TaikoToken.sol";
 
 import { Lib1559Math } from "./Lib1559Math.sol";
 import { TaikoL2Signer } from "./TaikoL2Signer.sol";
@@ -28,13 +27,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     struct Config {
         uint64 gasTargetPerL1Block;
         uint256 basefeeAdjustmentQuotient;
-        uint256 blockRewardPerL1Block;
-        uint128 blockRewardPoolMax;
-        uint8 blockRewardPoolPctg;
     }
-
-    // TODO(david): figure out this value from internal devnet.
-    uint32 public constant ANCHOR_GAS_DEDUCT = 40_000;
 
     // Mapping from L2 block numbers to their block hashes.
     // All L2 block hashes will be saved in this mapping.
@@ -43,22 +36,16 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     // A hash to check the integrity of public inputs.
     bytes32 public publicInputHash; // slot 3
-
     uint128 public gasExcess; // slot 4
-    uint128 public accumulatedReward;
-
-    address public parentProposer; // slot 5
-    uint64 public latestSyncedL1Height;
-    uint32 public avgGasUsed;
+    uint64 public latestSyncedL1Height; // slot 5
 
     uint256[145] private __gap;
 
-    event Anchored(bytes32 parentHash, uint128 gasExcess, uint128 blockReward);
+    event Anchored(bytes32 parentHash, uint128 gasExcess);
 
     error L2_BASEFEE_MISMATCH();
     error L2_INVALID_CHAIN_ID();
     error L2_INVALID_SENDER();
-    error L2_GAS_EXCESS_TOO_LARGE();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
 
@@ -121,7 +108,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         // Verify the base fee per gas is correct
         uint256 basefee;
         (basefee, gasExcess) = _calc1559BaseFee(config, l1Height, parentGasUsed);
-        if (block.basefee != basefee) {
+        if (!skipFeeCheck() && block.basefee != basefee) {
             revert L2_BASEFEE_MISMATCH();
         }
 
@@ -134,18 +121,13 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         }
         emit CrossChainSynced(l1Height, l1BlockHash, l1SignalRoot);
 
-        // Reward block reward in Taiko token to the parent block's proposer
-        uint128 blockReward =
-            _rewardParentBlock(config, l1Height, parentGasUsed);
-
         // Update state variables
         l2Hashes[parentId] = blockhash(parentId);
         snippets[l1Height] = ICrossChainSync.Snippet(l1BlockHash, l1SignalRoot);
         publicInputHash = publicInputHashNew;
         latestSyncedL1Height = l1Height;
-        parentProposer = block.coinbase;
 
-        emit Anchored(blockhash(parentId), gasExcess, blockReward);
+        emit Anchored(blockhash(parentId), gasExcess);
     }
 
     /// @inheritdoc ICrossChainSync
@@ -189,85 +171,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     function getConfig() public pure virtual returns (Config memory config) {
         config.gasTargetPerL1Block = 15 * 1e6 * 10; // 10x Ethereum gas target
         config.basefeeAdjustmentQuotient = 8;
-        config.blockRewardPerL1Block = 1e15; // 0.001 Taiko token;
-        config.blockRewardPoolMax = 12e18; // 12 Taiko token
-        config.blockRewardPoolPctg = 40; // 40%
     }
 
-    // In situations where the network lacks sufficient transactions for the
-    // proposer to profit, they are still obligated to pay the prover the
-    // proving fee, which can be a substantial cost compared to the total L2
-    // transaction fees collected. As a solution, Taiko mints additional Taiko
-    // tokens per second as block rewards.
-    //
-    // The block reward doesn't undergo automatic halving; instead, we depend on
-    // Taiko DAO to make necessary adjustments to the rewards. uint96
-    // rewardBase;
-    //
-    // Reward block proposers with Taiko tokens to encourage chain adoption and
-    // ensure liveness. Rewards are issued only if `blockRewardPerL1Block` and
-    // `blockRewardPoolMax` are set to nonzero values in the configuration.
-    //
-    // Mint additional tokens into the reward pool as L1 block numbers increase,
-    // to incentivize future proposers.
-    function _rewardParentBlock(
-        Config memory config,
-        uint64 l1Height,
-        uint32 parentGasUsed
-    )
-        private
-        returns (uint128 blockReward)
-    {
-        if (
-            config.blockRewardPerL1Block == 0 || config.blockRewardPoolMax == 0
-                || config.blockRewardPoolPctg == 0 || latestSyncedL1Height == 0
-                || accumulatedReward == 0
-        ) return 0;
-
-        if (latestSyncedL1Height < l1Height) {
-            uint256 extraRewardMinted = uint256(l1Height - latestSyncedL1Height)
-                * config.blockRewardPerL1Block;
-
-            // Reward pool is capped to `blockRewardPoolMax`
-            accumulatedReward = uint128(
-                (extraRewardMinted + accumulatedReward).min(
-                    config.blockRewardPoolMax
-                )
-            );
-        }
-
-        if (avgGasUsed == 0) {
-            avgGasUsed = parentGasUsed;
-            return 0;
-        }
-
-        avgGasUsed = avgGasUsed / 1024 * 1023 + parentGasUsed / 1024;
-
-        uint128 maxBlockReward =
-            accumulatedReward / 100 * config.blockRewardPoolPctg;
-        accumulatedReward -= maxBlockReward;
-
-        if (
-            parentGasUsed <= ANCHOR_GAS_DEDUCT
-                || avgGasUsed <= ANCHOR_GAS_DEDUCT || parentProposer == address(0)
-        ) {
-            return 0;
-        }
-
-        address tt = resolve("taiko_token", true);
-        if (tt == address(0)) return 0;
-
-        // The ratio is in [0-200]
-        uint128 ratio = uint128(
-            (
-                uint256(parentGasUsed - ANCHOR_GAS_DEDUCT) * 100
-                    / (avgGasUsed - ANCHOR_GAS_DEDUCT)
-            ).min(200)
-        );
-
-        blockReward = maxBlockReward * ratio / 200;
-        TaikoToken(tt).mint(parentProposer, blockReward);
-    }
+    /// @notice Tells if we need to validate basefee (for simulation).
+    /// @return Returns true to skip checking basefee mismatch.
+    function skipFeeCheck() public pure virtual returns (bool) { }
 
     function _calcPublicInputHash(uint256 blockId)
         private

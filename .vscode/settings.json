@@ -6,5 +6,7 @@
   "[solidity]": {
     "editor.defaultFormatter": "NomicFoundation.hardhat-solidity"
   },
-  "solidity.formatter": "forge"
+  "solidity.formatter": "forge",
+  "i18n-ally.localesPaths": ["packages/bridge-ui-v2/src/i18n"],
+  "i18n-ally.keystyle": "nested"
 }

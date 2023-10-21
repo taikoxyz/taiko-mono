@@ -16,9 +16,9 @@
     } catch (err) {
       console.error(err);
       if (err instanceof SwitchChainError) {
-        warningToast($t('messages.network.pending'));
+        warningToast({title: $t('messages.network.pending')});
       } else if (err instanceof UserRejectedRequestError) {
-        warningToast($t('messages.network.rejected'));
+        warningToast({title: $t('messages.network.rejected')});
       }
     }
   }

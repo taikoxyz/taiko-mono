@@ -16,18 +16,18 @@ import { IERC165Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/utils/introspection/IERC165Upgradeable.sol";
 
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 
 import { ProxiedBridgedERC20 } from "./BridgedERC20.sol";
+import { IMintableERC20 } from "./IMintableERC20.sol";
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
+
 /// @title ERC20Vault
 /// @notice This vault holds all ERC20 tokens (excluding Ether) that users have
 /// deposited. It also manages the mapping between canonical ERC20 tokens and
 /// their bridged tokens.
-
 contract ERC20Vault is
     EssentialContract,
     IERC165Upgradeable,
@@ -135,6 +135,7 @@ contract ERC20Vault is
         external
         payable
         nonReentrant
+        whenNotPaused
         onlyValidAddresses(opt.destChainId, "erc20_vault", opt.to, opt.token)
     {
         if (opt.amount == 0) revert VAULT_INVALID_AMOUNT();
@@ -186,6 +187,7 @@ contract ERC20Vault is
         external
         payable
         nonReentrant
+        whenNotPaused
         onlyFromNamed("bridge")
     {
         IBridge.Context memory ctx =
@@ -194,11 +196,7 @@ contract ERC20Vault is
         address token;
         if (ctoken.chainId == block.chainid) {
             token = ctoken.addr;
-            if (token == resolve("taiko_token", true)) {
-                IMintableERC20(token).mint(to, amount);
-            } else {
-                ERC20Upgradeable(token).safeTransfer(to, amount);
-            }
+            ERC20Upgradeable(token).safeTransfer(to, amount);
         } else {
             token = _getOrDeployBridgedToken(ctoken);
             IMintableERC20(token).mint(to, amount);
@@ -225,6 +223,7 @@ contract ERC20Vault is
         payable
         override
         nonReentrant
+        whenNotPaused
         onlyFromNamed("bridge")
     {
         (, address token,, uint256 amount) = abi.decode(
@@ -234,8 +233,7 @@ contract ERC20Vault is
         if (token == address(0)) revert VAULT_INVALID_TOKEN();
 
         if (amount > 0) {
-            if (isBridgedToken[token] || token == resolve("taiko_token", true))
-            {
+            if (isBridgedToken[token]) {
                 IMintableERC20(token).burn(address(this), amount);
             } else {
                 ERC20Upgradeable(token).safeTransfer(message.user, amount);
@@ -302,18 +300,13 @@ contract ERC20Vault is
                 name: t.name()
             });
 
-            if (token == resolve("taiko_token", true)) {
-                IMintableERC20(token).burn(msg.sender, amount);
-                _balanceChange = amount;
-            } else {
-                uint256 _balance = t.balanceOf(address(this));
-                t.transferFrom({
-                    from: msg.sender,
-                    to: address(this),
-                    amount: amount
-                });
-                _balanceChange = t.balanceOf(address(this)) - _balance;
-            }
+            uint256 _balance = t.balanceOf(address(this));
+            t.transferFrom({
+                from: msg.sender,
+                to: address(this),
+                amount: amount
+            });
+            _balanceChange = t.balanceOf(address(this)) - _balance;
         }
 
         msgData = abi.encodeWithSelector(

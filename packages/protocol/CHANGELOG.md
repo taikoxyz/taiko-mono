@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.2](https://github.com/taikoxyz/taiko-mono/compare/protocol-v0.15.1...protocol-v0.15.2) (2023-10-18)
+
+
+### Bug Fixes
+
+* **protocol:** fix a bug reported by Quillaudit ([#14938](https://github.com/taikoxyz/taiko-mono/issues/14938)) ([99b200b](https://github.com/taikoxyz/taiko-mono/commit/99b200bad93bcee0d0c9441d0393b2aa48636017))
+
 ## [0.15.1](https://github.com/taikoxyz/taiko-mono/compare/protocol-v0.15.0...protocol-v0.15.1) (2023-10-03)
 
 
@@ -34,7 +41,7 @@
 
 * **protocol:** block reward must be minted ([#14595](https://github.com/taikoxyz/taiko-mono/issues/14595)) ([e92b1da](https://github.com/taikoxyz/taiko-mono/commit/e92b1da2ced73c2b28a825fce916acededab0a39))
 * **protocol:** change transition ID from uint16 to uint32 ([#14620](https://github.com/taikoxyz/taiko-mono/issues/14620)) ([c8969b6](https://github.com/taikoxyz/taiko-mono/commit/c8969b64bbaacf9ec6d239608509424fdc02ee97))
-* **protocol:** remove proof from getInstance calculation ([#14623](https://github.com/taikoxyz/taiko-mono/issues/14623)) ([2eedc33](https://github.com/taikoxyz/taiko-mono/commit/2eedc33c213cb5d0abf9daa8bc9bd21b730ae6af))
+* **protocol:** remove proof from calcInstance calculation ([#14623](https://github.com/taikoxyz/taiko-mono/issues/14623)) ([2eedc33](https://github.com/taikoxyz/taiko-mono/commit/2eedc33c213cb5d0abf9daa8bc9bd21b730ae6af))
 * **protocol:** revert impl deployment V2 ([#14621](https://github.com/taikoxyz/taiko-mono/issues/14621)) ([7e59e0b](https://github.com/taikoxyz/taiko-mono/commit/7e59e0b0077e4d81bcd5333bc6f0900e0761d6ea))
 
 ## [0.13.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v0.12.0...protocol-v0.13.0) (2023-08-15)

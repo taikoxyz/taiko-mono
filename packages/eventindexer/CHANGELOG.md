@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.13.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.12.0...eventindexer-v0.13.0) (2023-10-18)
+
+
+### Features
+
+* **eventindexer:** API documentation, swagger, github pages ([#14948](https://github.com/taikoxyz/taiko-mono/issues/14948)) ([5455267](https://github.com/taikoxyz/taiko-mono/commit/54552674fe8a6b0b4321afe1ef4d90d00d62f0e8))
+
+
+### Bug Fixes
+
+* **eventindexer:** update config tests ([#14912](https://github.com/taikoxyz/taiko-mono/issues/14912)) ([beab49b](https://github.com/taikoxyz/taiko-mono/commit/beab49bd8f085b1e285fb3a16e9b493f3c5f5932))
+* **eventindexer:** upodate indexnfts flag to bool ([#14905](https://github.com/taikoxyz/taiko-mono/issues/14905)) ([a4a982e](https://github.com/taikoxyz/taiko-mono/commit/a4a982ec15a11f207c5b14c3a0b5fb2caffd2c1b))
+
 ## [0.12.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.11.0...eventindexer-v0.12.0) (2023-09-25)
 
 

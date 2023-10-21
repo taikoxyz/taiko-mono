@@ -78,10 +78,14 @@ If you are not running a local prover, then you can specify a prover from the [p
 
 - `PROVER_ENDPOINTS`
 
-To select multiple prover endpoints at the same time
+To select multiple prover endpoints at the same time:
 ```shell
 PROVER_ENDPOINTS=<PROVER_ENDPOINT_1>,<PROVER_ENDPOINT_2>,<PROVER_ENDPOINT_3>
 ```
+
+<Callout type="warning">
+  Provers from the market will have set their own minimum fees, to make sure your proposals are accepted please set `BLOCK_PROPOSAL_FEE` equal to their listed minimum fee.
+</Callout>
 
 ### Check proposer status logs
 

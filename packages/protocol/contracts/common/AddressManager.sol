@@ -34,6 +34,7 @@ interface IAddressManager {
 /// @notice Manages a mapping of domain-name pairs to Ethereum addresses.
 contract AddressManager is OwnableUpgradeable, IAddressManager {
     mapping(uint256 => mapping(bytes32 => address)) private addresses;
+    uint256[49] private __gap;
 
     event AddressSet(
         uint256 indexed domain,
@@ -41,8 +42,6 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         address newAddress,
         address oldAddress
     );
-
-    error AM_INVALID_ADDRESS();
 
     /// @notice Initializes the owner for the upgradable contract.
     function init() external initializer {
@@ -62,10 +61,6 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         virtual
         onlyOwner
     {
-        if (newAddress.code.length == 0 && newAddress == msg.sender) {
-            revert AM_INVALID_ADDRESS();
-        }
-
         address oldAddress = addresses[domain][name];
         addresses[domain][name] = newAddress;
         emit AddressSet(domain, name, newAddress, oldAddress);

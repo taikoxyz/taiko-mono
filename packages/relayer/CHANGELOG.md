@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.12.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.11.0...relayer-v0.12.0) (2023-10-18)
+
+
+### Features
+
+* **eventindexer:** API documentation, swagger, github pages ([#14948](https://github.com/taikoxyz/taiko-mono/issues/14948)) ([5455267](https://github.com/taikoxyz/taiko-mono/commit/54552674fe8a6b0b4321afe1ef4d90d00d62f0e8))
+
+
+### Bug Fixes
+
+* **eventindexer:** update config tests ([#14912](https://github.com/taikoxyz/taiko-mono/issues/14912)) ([beab49b](https://github.com/taikoxyz/taiko-mono/commit/beab49bd8f085b1e285fb3a16e9b493f3c5f5932))
+* **relayer:** ERC1155 bridging, amount =&gt; amounts ([#14959](https://github.com/taikoxyz/taiko-mono/issues/14959)) ([d42c59d](https://github.com/taikoxyz/taiko-mono/commit/d42c59d5150c9c41941458e25fac75121d73da76))
+
 ## [0.11.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.10.0...relayer-v0.11.0) (2023-09-25)
 
 

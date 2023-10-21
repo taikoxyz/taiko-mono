@@ -13,7 +13,7 @@ pragma solidity ^0.8.20;
 interface IBridge {
     struct Message {
         // Message ID.
-        uint256 id;
+        uint128 id;
         // Message sender address (auto filled).
         address from;
         // Source chain ID (auto filled).

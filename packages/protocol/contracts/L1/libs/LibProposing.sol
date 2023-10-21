@@ -40,9 +40,7 @@ library LibProposing {
     error L1_ASSIGNMENT_INSUFFICIENT_FEE();
     error L1_TIER_NOT_FOUND();
     error L1_TOO_MANY_BLOCKS();
-    error L1_TXLIST_INVALID_RANGE();
     error L1_TXLIST_MISMATCH();
-    error L1_TXLIST_NOT_FOUND();
     error L1_TXLIST_TOO_LARGE();
     error L1_UNAUTHORIZED();
 

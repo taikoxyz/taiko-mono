@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.9.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2-v2.8.0...bridge-ui-v2-v2.9.0) (2023-10-18)
+
+
+### Features
+
+* **bridge-ui-v2:** dynamic import of NFT data via API ([#14928](https://github.com/taikoxyz/taiko-mono/issues/14928)) ([946c337](https://github.com/taikoxyz/taiko-mono/commit/946c337070eb2f2a9a2aa1f7314d7469ccd1b818))
+* **bridge-ui-v2:** manual NFT import step ([#14842](https://github.com/taikoxyz/taiko-mono/issues/14842)) ([c85e162](https://github.com/taikoxyz/taiko-mono/commit/c85e1629d0b9b544880f65f0e4050456579c87d1))
+* **bridge-ui-v2:** NFT bridging ([#14949](https://github.com/taikoxyz/taiko-mono/issues/14949)) ([36c5ccd](https://github.com/taikoxyz/taiko-mono/commit/36c5ccda09e0d7ef062aff33e98548314486e437))
+* **bridge-ui-v2:** review step ([#14940](https://github.com/taikoxyz/taiko-mono/issues/14940)) ([c079223](https://github.com/taikoxyz/taiko-mono/commit/c0792230bab8c245ad3b779f695a7bdd0f598fc8))
+
 ## [2.8.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2-v2.7.0...bridge-ui-v2-v2.8.0) (2023-10-03)
 
 
