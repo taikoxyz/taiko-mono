@@ -49,7 +49,7 @@ export const transactionConfig = {
 };
 
 export const toastConfig = {
-  duration: 5000,
+  duration: 50000,
 };
 
 export const apiService = {
