@@ -4,26 +4,27 @@ import (
 	"context"
 	"math/big"
 
+	"log/slog"
+
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
 // handleNoEventsInBatch is used when an entire batch call has no events in the entire response,
 // and we need to update the latest block processed
-func (svc *Service) handleNoEventsInBatch(
+func (i *Indexer) handleNoEventsInBatch(
 	ctx context.Context,
 	chainID *big.Int,
 	blockNumber int64,
 ) error {
-	header, err := svc.ethClient.HeaderByNumber(ctx, big.NewInt(blockNumber))
+	header, err := i.srcEthClient.HeaderByNumber(ctx, big.NewInt(blockNumber))
 	if err != nil {
-		return errors.Wrap(err, "svc.ethClient.HeaderByNumber")
+		return errors.Wrap(err, "i.srcEthClient.HeaderByNumber")
 	}
 
-	log.Infof("setting last processed block to height: %v, hash: %v", blockNumber, header.Hash().Hex())
+	slog.Info("setting last processed block", "blockNum", blockNumber, "headerHash", header.Hash().Hex())
 
-	if err := svc.blockRepo.Save(relayer.SaveBlockOpts{
+	if err := i.blockRepo.Save(relayer.SaveBlockOpts{
 		Height:    uint64(blockNumber),
 		Hash:      header.Hash(),
 		ChainID:   chainID,
@@ -34,7 +35,7 @@ func (svc *Service) handleNoEventsInBatch(
 
 	relayer.BlocksProcessed.Inc()
 
-	svc.processingBlockHeight = uint64(blockNumber)
+	i.processingBlockHeight = uint64(blockNumber)
 
 	return nil
 }

@@ -3,28 +3,23 @@
 // |_   _|_ _(_) |_____  | |   __ _| |__ ___
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../common/AddressResolver.sol";
-import { EssentialContract } from "../common/EssentialContract.sol";
-import { Proxied } from "../common/Proxied.sol";
-import { IBridge } from "./IBridge.sol";
 import { BridgeErrors } from "./BridgeErrors.sol";
+import { EssentialContract } from "../common/EssentialContract.sol";
+import { IBridge } from "./IBridge.sol";
 import { LibBridgeData } from "./libs/LibBridgeData.sol";
 import { LibBridgeProcess } from "./libs/LibBridgeProcess.sol";
-import { LibBridgeRelease } from "./libs/LibBridgeRelease.sol";
+import { LibBridgeRecall } from "./libs/LibBridgeRecall.sol";
 import { LibBridgeRetry } from "./libs/LibBridgeRetry.sol";
 import { LibBridgeSend } from "./libs/LibBridgeSend.sol";
 import { LibBridgeStatus } from "./libs/LibBridgeStatus.sol";
+import { Proxied } from "../common/Proxied.sol";
 
-/**
- * This contract is a Bridge contract which is deployed on both L1 and L2. Mostly
- * a thin wrapper
- * which calls the library implementations. See _IBridge_ for more details.
- * @dev The code hash for the same address on L1 and L2 may be different.
- * @custom:security-contact hello@taiko.xyz
- */
+/// @title Bridge
+/// @notice See the documentation for {IBridge}.
+/// @dev The code hash for the same address on L1 and L2 may be different.
 contract Bridge is EssentialContract, IBridge, BridgeErrors {
     using LibBridgeData for Message;
 
@@ -38,34 +33,17 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
 
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
 
-    /// Allow Bridge to receive ETH from the TaikoL1, TokenVault or EtherVault.
-    receive() external payable {
-        if (
-            msg.sender != resolve("token_vault", true)
-                && msg.sender != resolve("ether_vault", true)
-                && msg.sender != resolve("taiko", true) && msg.sender != owner()
-        ) {
-            revert B_CANNOT_RECEIVE();
-        }
-    }
+    receive() external payable { }
 
-    /**
-     * Initializer to be called after being deployed behind a proxy.
-     * @dev Initializer function to setup the EssentialContract.
-     * @param _addressManager The address of the AddressManager contract.
-     */
+    /// @notice Initializes the contract.
+    /// @param _addressManager The address of the {AddressManager} contract.
     function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
     }
 
-    /**
-     * Sends a message from the current chain to the destination chain specified
-     * in the message.
-     * @dev Sends a message by calling the LibBridgeSend.sendMessage library
-     * function.
-     * @param message The message to send. (See IBridge)
-     * @return msgHash The hash of the message that was sent.
-     */
+    /// @notice Sends a message from the current chain to the destination chain
+    /// specified in the message.
+    /// @inheritdoc IBridge
     function sendMessage(Message calldata message)
         external
         payable
@@ -79,37 +57,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
-    /**
-     * Releases the Ether locked in the bridge as part of a cross-chain
-     * transfer.
-     * @dev Releases the Ether by calling the LibBridgeRelease.releaseEther
-     * library function.
-     * @param message The message containing the details of the Ether transfer.
-     * (See IBridge)
-     * @param proof The proof of the cross-chain transfer.
-     */
-    function releaseEther(
-        IBridge.Message calldata message,
-        bytes calldata proof
-    )
-        external
-        nonReentrant
-    {
-        return LibBridgeRelease.releaseEther({
-            state: _state,
-            resolver: AddressResolver(this),
-            message: message,
-            proof: proof
-        });
-    }
-
-    /**
-     * Processes a message received from another chain.
-     * @dev Processes the message by calling the LibBridgeProcess.processMessage
-     * library function.
-     * @param message The message to process.
-     * @param proof The proof of the cross-chain transfer.
-     */
+    /// @notice Processes a message received from another chain.
+    /// @inheritdoc IBridge
     function processMessage(
         Message calldata message,
         bytes calldata proof
@@ -121,18 +70,14 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
             state: _state,
             resolver: AddressResolver(this),
             message: message,
-            proof: proof
+            proof: proof,
+            checkProof: shouldCheckProof()
         });
     }
 
-    /**
-     * Retries sending a message that previously failed to send.
-     * @dev Retries the message by calling the LibBridgeRetry.retryMessage
-     * library function.
-     * @param message The message to retry.
-     * @param isLastAttempt Specifies whether this is the last attempt to send
-     * the message.
-     */
+    /// @notice Retries executing a message that previously failed on its
+    /// destination chain.
+    /// @inheritdoc IBridge
     function retryMessage(
         Message calldata message,
         bool isLastAttempt
@@ -148,11 +93,27 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
-    /**
-     * Check if the message with the given hash has been sent.
-     * @param msgHash The hash of the message.
-     * @return Returns true if the message has been sent, false otherwise.
-     */
+    /// @notice Recalls a failed message on its source chain
+    /// @inheritdoc IBridge
+    function recallMessage(
+        IBridge.Message calldata message,
+        bytes calldata proof
+    )
+        external
+        nonReentrant
+    {
+        return LibBridgeRecall.recallMessage({
+            state: _state,
+            resolver: AddressResolver(this),
+            message: message,
+            proof: proof,
+            checkProof: shouldCheckProof()
+        });
+    }
+
+    /// @notice Checks if the message with the given hash has been sent on its
+    /// source chain.
+    /// @inheritdoc IBridge
     function isMessageSent(bytes32 msgHash)
         public
         view
@@ -162,13 +123,9 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         return LibBridgeSend.isMessageSent(AddressResolver(this), msgHash);
     }
 
-    /**
-     * Check if the message with the given hash has been received.
-     * @param msgHash The hash of the message.
-     * @param srcChainId The source chain ID.
-     * @param proof The proof of message receipt.
-     * @return Returns true if the message has been received, false otherwise.
-     */
+    /// @notice Checks if the message with the given hash has been received on
+    /// its destination chain.
+    /// @inheritdoc IBridge
     function isMessageReceived(
         bytes32 msgHash,
         uint256 srcChainId,
@@ -188,13 +145,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
-    /**
-     * Check if the message with the given hash has failed.
-     * @param msgHash The hash of the message.
-     * @param destChainId The destination chain ID.
-     * @param proof The proof of message failure.
-     * @return Returns true if the message has failed, false otherwise.
-     */
+    /// @notice Checks if a msgHash has failed on its destination chain.
+    /// @inheritdoc IBridge
     function isMessageFailed(
         bytes32 msgHash,
         uint256 destChainId,
@@ -214,11 +166,17 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
-    /**
-     * Get the status of the message with the given hash.
-     * @param msgHash The hash of the message.
-     * @return Returns the status of the message.
-     */
+    /// @notice Checks if a failed message has been recalled on its source
+    /// chain.
+    /// @inheritdoc IBridge
+    function isMessageRecalled(bytes32 msgHash) public view returns (bool) {
+        return _state.recalls[msgHash];
+    }
+
+    /// @notice Gets the execution status of the message with the given hash on
+    /// its destination chain.
+    /// @param msgHash The hash of the message.
+    /// @return Returns the status of the message.
     function getMessageStatus(bytes32 msgHash)
         public
         view
@@ -228,31 +186,16 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         return LibBridgeStatus.getMessageStatus(msgHash);
     }
 
-    /**
-     * Get the current context
-     * @return Returns the current context.
-     */
+    /// @notice Gets the current context.
+    /// @inheritdoc IBridge
     function context() public view returns (Context memory) {
         return _state.ctx;
     }
 
-    /**
-     * Check if the Ether associated with the given message hash has been
-     * released.
-     * @param msgHash The hash of the message.
-     * @return Returns true if the Ether has been released, false otherwise.
-     */
-    function isEtherReleased(bytes32 msgHash) public view returns (bool) {
-        return _state.etherReleased[msgHash];
-    }
-
-    /**
-     * Check if the destination chain with the given ID is enabled.
-     * @param _chainId The ID of the chain.
-     * @return enabled Returns true if the destination chain is enabled, false
-     * otherwise.
-     */
-
+    /// @notice Checks if the destination chain with the given ID is enabled.
+    /// @param _chainId The ID of the chain.
+    /// @return enabled Returns true if the destination chain is enabled, false
+    /// otherwise.
     function isDestChainEnabled(uint256 _chainId)
         public
         view
@@ -262,25 +205,19 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
             LibBridgeSend.isDestChainEnabled(AddressResolver(this), _chainId);
     }
 
-    /**
-     * Compute the hash of a given message.
-     * @param message The message to compute the hash for.
-     * @return Returns the hash of the message.
-     */
+    /// @notice Computes the hash of a given message.
+    /// @inheritdoc IBridge
     function hashMessage(Message calldata message)
         public
         pure
-        override
         returns (bytes32)
     {
         return LibBridgeData.hashMessage(message);
     }
 
-    /**
-     * Get the slot associated with a given message hash status.
-     * @param msgHash The hash of the message.
-     * @return Returns the slot associated with the given message hash status.
-     */
+    /// @notice Gets the slot associated with a given message hash status.
+    /// @param msgHash The hash of the message.
+    /// @return Returns the slot associated with the given message hash status.
     function getMessageStatusSlot(bytes32 msgHash)
         public
         pure
@@ -288,6 +225,14 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     {
         return LibBridgeStatus.getMessageStatusSlot(msgHash);
     }
+
+    /// @notice Tells if we need to check real proof or it is a test.
+    /// @return Returns true if this contract, or can be false if mock/test.
+    function shouldCheckProof() internal pure virtual returns (bool) {
+        return true;
+    }
 }
 
+/// @title ProxiedBridge
+/// @notice Proxied version of the parent contract.
 contract ProxiedBridge is Proxied, Bridge { }

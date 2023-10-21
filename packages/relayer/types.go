@@ -6,14 +6,17 @@ import (
 	"math/big"
 	"time"
 
+	"log/slog"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/tokenvault"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc1155vault"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc20vault"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc721vault"
 )
 
 var (
@@ -43,7 +46,7 @@ func WaitReceipt(ctx context.Context, confirmer confirmer, txHash common.Hash) (
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
-	log.Infof("waiting for transaction receipt for txHash %v", txHash.Hex())
+	slog.Info("waiting for transaction receipt", "txHash", txHash.Hex())
 
 	for {
 		select {
@@ -59,7 +62,7 @@ func WaitReceipt(ctx context.Context, confirmer confirmer, txHash common.Hash) (
 				return nil, fmt.Errorf("transaction reverted, hash: %s", txHash)
 			}
 
-			log.Infof("transaction receipt found for txHash %v", txHash.Hex())
+			slog.Info("transaction receipt found", "txHash", txHash.Hex())
 
 			return receipt, nil
 		}
@@ -69,7 +72,7 @@ func WaitReceipt(ctx context.Context, confirmer confirmer, txHash common.Hash) (
 // WaitConfirmations won't return before N blocks confirmations have been seen
 // on destination chain.
 func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations uint64, txHash common.Hash) error {
-	log.Infof("txHash %v beginning waiting for confirmations", txHash.Hex())
+	slog.Info("beginning waiting for confirmations", "txHash", txHash.Hex())
 
 	ticker := time.NewTicker(10 * time.Second)
 
@@ -86,7 +89,7 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 					continue
 				}
 
-				log.Errorf("txHash: %v encountered error getting receipt: %v", txHash.Hex(), err)
+				slog.Error("encountered error getting receipt", "txHash", txHash.Hex(), "error", err)
 
 				return err
 			}
@@ -97,75 +100,194 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 			}
 
 			want := receipt.BlockNumber.Uint64() + confirmations
-			log.Infof(
-				"txHash: %v waiting for %v confirmations which will happen in block number: %v, latestBlockNumber: %v",
-				txHash.Hex(),
-				confirmations,
-				want,
-				latest,
+			slog.Info(
+				"waiting for confirmations",
+				"txHash", txHash.Hex(),
+				"confirmations", confirmations,
+				"blockNumWillbeConfirmed", want,
+				"latestBlockNum", latest,
 			)
 
 			if latest < receipt.BlockNumber.Uint64()+confirmations {
 				continue
 			}
 
-			log.Infof("txHash %v received %v confirmations, done", txHash.Hex(), confirmations)
+			slog.Info("done waiting for confirmations", "txHash", txHash.Hex(), "confirmations", confirmations)
 
 			return nil
 		}
 	}
 }
 
-func DecodeMessageSentData(event *bridge.BridgeMessageSent) (EventType, *CanonicalToken, *big.Int, error) {
+// DecodeMessageSentData tries to tell if it's an ETH, ERC20, ERC721, or ERC1155 bridge,
+// which lets the processor look up whether the contract has already been deployed or not,
+// to help better estimate gas needed for processing the message.
+func DecodeMessageSentData(event *bridge.BridgeMessageSent) (EventType, CanonicalToken, *big.Int, error) {
 	eventType := EventTypeSendETH
 
 	var canonicalToken CanonicalToken
 
-	var amount *big.Int
+	var amount *big.Int = big.NewInt(0)
 
+	erc20ReceiveTokensFunctionSig := "cb03d23c"
+	erc721ReceiveTokensFunctionSig := "a9976baf"
+	erc1155ReceiveTokensFunctionSig := "20b81559"
+
+	// try to see if its an ERC20
 	if event.Message.Data != nil && common.BytesToHash(event.Message.Data) != ZeroHash {
-		tokenVaultMD := bind.MetaData{
-			ABI: tokenvault.TokenVaultABI,
+		functionSig := event.Message.Data[:4]
+
+		if common.Bytes2Hex(functionSig) == erc20ReceiveTokensFunctionSig {
+			erc20VaultMD := bind.MetaData{
+				ABI: erc20vault.ERC20VaultABI,
+			}
+
+			erc20VaultABI, err := erc20VaultMD.GetAbi()
+			if err != nil {
+				return eventType, nil, big.NewInt(0), errors.Wrap(err, "erc20VaultMD.GetAbi()")
+			}
+
+			method, err := erc20VaultABI.MethodById(event.Message.Data[:4])
+			if err != nil {
+				return eventType, nil, big.NewInt(0), errors.Wrap(err, "tokenVaultABI.MethodById")
+			}
+
+			inputsMap := make(map[string]interface{})
+
+			if err := method.Inputs.UnpackIntoMap(inputsMap, event.Message.Data[4:]); err != nil {
+				return eventType, nil, big.NewInt(0), errors.Wrap(err, "method.Inputs.UnpackIntoMap")
+			}
+
+			if method.Name == "receiveToken" {
+				eventType = EventTypeSendERC20
+
+				// have to unpack to anonymous struct first due to abi limitation
+				t := inputsMap["ctoken"].(struct {
+					// nolint
+					ChainId  *big.Int       `json:"chainId"`
+					Addr     common.Address `json:"addr"`
+					Decimals uint8          `json:"decimals"`
+					Symbol   string         `json:"symbol"`
+					Name     string         `json:"name"`
+				})
+
+				canonicalToken = CanonicalERC20{
+					ChainId:  t.ChainId,
+					Addr:     t.Addr,
+					Decimals: t.Decimals,
+					Symbol:   t.Symbol,
+					Name:     t.Name,
+				}
+
+				amount = inputsMap["amount"].(*big.Int)
+			}
 		}
 
-		tokenVaultABI, err := tokenVaultMD.GetAbi()
-		if err != nil {
-			return eventType, nil, big.NewInt(0), errors.Wrap(err, "tokenVaultMD.GetAbi()")
+		if common.Bytes2Hex(functionSig) == erc721ReceiveTokensFunctionSig {
+			erc721VaultMD := bind.MetaData{
+				ABI: erc721vault.ERC721VaultABI,
+			}
+
+			erc721VaultABI, err := erc721VaultMD.GetAbi()
+			if err != nil {
+				return eventType, nil, big.NewInt(0), errors.Wrap(err, "erc20VaultMD.GetAbi()")
+			}
+
+			method, err := erc721VaultABI.MethodById(event.Message.Data[:4])
+			if err != nil {
+				return eventType, nil, big.NewInt(0), errors.Wrap(err, "tokenVaultABI.MethodById")
+			}
+
+			inputsMap := make(map[string]interface{})
+
+			if err := method.Inputs.UnpackIntoMap(inputsMap, event.Message.Data[4:]); err != nil {
+				return eventType, nil, big.NewInt(0), errors.Wrap(err, "method.Inputs.UnpackIntoMap")
+			}
+
+			if method.Name == "receiveToken" {
+				eventType = EventTypeSendERC721
+
+				t := inputsMap["ctoken"].(struct {
+					// nolint
+					ChainId *big.Int       `json:"chainId"`
+					Addr    common.Address `json:"addr"`
+					Symbol  string         `json:"symbol"`
+					Name    string         `json:"name"`
+				})
+
+				canonicalToken = CanonicalNFT{
+					ChainId: t.ChainId,
+					Addr:    t.Addr,
+					Symbol:  t.Symbol,
+					Name:    t.Name,
+				}
+
+				amount = big.NewInt(1)
+			}
 		}
 
-		method, err := tokenVaultABI.MethodById(event.Message.Data[:4])
-		if err != nil {
-			return eventType, nil, big.NewInt(0), errors.Wrap(err, "tokenVaultABI.MethodById")
-		}
+		if common.Bytes2Hex(functionSig) == erc1155ReceiveTokensFunctionSig {
+			erc1155VaultMD := bind.MetaData{
+				ABI: erc1155vault.ERC1155VaultABI,
+			}
 
-		inputsMap := make(map[string]interface{})
+			erc1155VaultABI, err := erc1155VaultMD.GetAbi()
+			if err != nil {
+				return eventType, nil, big.NewInt(0), errors.Wrap(err, "erc1155VaultMD.GetAbi()")
+			}
 
-		if err := method.Inputs.UnpackIntoMap(inputsMap, event.Message.Data[4:]); err != nil {
-			return eventType, nil, big.NewInt(0), errors.Wrap(err, "method.Inputs.UnpackIntoMap")
-		}
+			method, err := erc1155VaultABI.MethodById(event.Message.Data[:4])
+			if err != nil {
+				return eventType, nil, big.NewInt(0), errors.Wrap(err, "tokenVaultABI.MethodById")
+			}
 
-		if method.Name == "receiveERC20" {
-			eventType = EventTypeSendERC20
+			inputsMap := make(map[string]interface{})
 
-			canonicalToken = inputsMap["canonicalToken"].(struct {
-				// nolint
-				ChainId  *big.Int       `json:"chainId"`
-				Addr     common.Address `json:"addr"`
-				Decimals uint8          `json:"decimals"`
-				Symbol   string         `json:"symbol"`
-				Name     string         `json:"name"`
-			})
+			if err := method.Inputs.UnpackIntoMap(inputsMap, event.Message.Data[4:]); err != nil {
+				return eventType, nil, big.NewInt(0), errors.Wrap(err, "method.Inputs.UnpackIntoMap")
+			}
 
-			amount = inputsMap["amount"].(*big.Int)
+			if method.Name == "receiveToken" {
+				eventType = EventTypeSendERC1155
+
+				t := inputsMap["ctoken"].(struct {
+					// nolint
+					ChainId *big.Int       `json:"chainId"`
+					Addr    common.Address `json:"addr"`
+					Symbol  string         `json:"symbol"`
+					Name    string         `json:"name"`
+				})
+
+				canonicalToken = CanonicalNFT{
+					ChainId: t.ChainId,
+					Addr:    t.Addr,
+					Symbol:  t.Symbol,
+					Name:    t.Name,
+				}
+
+				amounts := inputsMap["amounts"].([]*big.Int)
+
+				for _, v := range amounts {
+					amount = amount.Add(amount, v)
+				}
+			}
 		}
 	} else {
-		amount = event.Message.DepositValue
+		amount = event.Message.Value
 	}
 
-	return eventType, &canonicalToken, amount, nil
+	return eventType, canonicalToken, amount, nil
 }
 
-type CanonicalToken struct {
+type CanonicalToken interface {
+	ChainID() *big.Int
+	Address() common.Address
+	ContractName() string
+	TokenDecimals() uint8
+	ContractSymbol() string
+}
+
+type CanonicalERC20 struct {
 	// nolint
 	ChainId  *big.Int       `json:"chainId"`
 	Addr     common.Address `json:"addr"`
@@ -174,7 +296,50 @@ type CanonicalToken struct {
 	Name     string         `json:"name"`
 }
 
-type EthClient interface {
-	BlockNumber(ctx context.Context) (uint64, error)
-	ChainID(ctx context.Context) (*big.Int, error)
+func (c CanonicalERC20) ChainID() *big.Int {
+	return c.ChainId
+}
+
+func (c CanonicalERC20) Address() common.Address {
+	return c.Addr
+}
+
+func (c CanonicalERC20) ContractName() string {
+	return c.Name
+}
+
+func (c CanonicalERC20) ContractSymbol() string {
+	return c.Symbol
+}
+
+func (c CanonicalERC20) TokenDecimals() uint8 {
+	return c.Decimals
+}
+
+type CanonicalNFT struct {
+	// nolint
+	ChainId *big.Int       `json:"chainId"`
+	Addr    common.Address `json:"addr"`
+	Symbol  string         `json:"symbol"`
+	Name    string         `json:"name"`
+}
+
+func (c CanonicalNFT) ChainID() *big.Int {
+	return c.ChainId
+}
+
+func (c CanonicalNFT) Address() common.Address {
+	return c.Addr
+}
+
+func (c CanonicalNFT) ContractName() string {
+	return c.Name
+}
+
+func (c CanonicalNFT) TokenDecimals() uint8 {
+	return 0
+}
+
+func (c CanonicalNFT) ContractSymbol() string {
+	return c.Symbol
 }

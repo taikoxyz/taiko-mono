@@ -5,11 +5,11 @@ import (
 
 	"github.com/pkg/errors"
 
-	log "github.com/sirupsen/logrus"
+	"log/slog"
 )
 
-func (svc *Service) detectAndHandleReorg(ctx context.Context, eventType string, msgHash string) error {
-	e, err := svc.eventRepo.FirstByEventAndMsgHash(ctx, eventType, msgHash)
+func (i *Indexer) detectAndHandleReorg(ctx context.Context, eventType string, msgHash string) error {
+	e, err := i.eventRepo.FirstByEventAndMsgHash(ctx, eventType, msgHash)
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.FirstByMsgHash")
 	}
@@ -19,9 +19,9 @@ func (svc *Service) detectAndHandleReorg(ctx context.Context, eventType string, 
 	}
 
 	// reorg detected
-	log.Infof("reorg detected for msgHash %v and eventType %v", msgHash, eventType)
+	slog.Info("reorg detected", "msgHash", msgHash, "eventType", eventType)
 
-	err = svc.eventRepo.Delete(ctx, e.ID)
+	err = i.eventRepo.Delete(ctx, e.ID)
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.Delete")
 	}

@@ -7,54 +7,66 @@
 pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { Proxied } from "../common/Proxied.sol";
-import { ISignalService } from "./ISignalService.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
+import { ISignalService } from "./ISignalService.sol";
 import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
+import { Proxied } from "../common/Proxied.sol";
 
-/// @custom:security-contact hello@taiko.xyz
+/// @title SignalService
+/// @notice See the documentation in {ISignalService} for more details.
 contract SignalService is ISignalService, EssentialContract {
     struct SignalProof {
-        uint256 height;
-        bytes proof;
+        uint64 height;
+        bytes proof; // A storage proof
     }
 
     error B_ZERO_SIGNAL();
     error B_NULL_APP_ADDR();
     error B_WRONG_CHAIN_ID();
 
+    modifier validApp(address app) {
+        if (app == address(0)) revert B_NULL_APP_ADDR();
+        _;
+    }
+
+    modifier validSignal(bytes32 signal) {
+        if (signal == 0) revert B_ZERO_SIGNAL();
+        _;
+    }
+
+    modifier validChainId(uint256 srcChainId) {
+        if (srcChainId == block.chainid) revert B_WRONG_CHAIN_ID();
+        _;
+    }
+
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
     }
 
-    function sendSignal(bytes32 signal) public returns (bytes32 storageSlot) {
-        if (signal == 0) {
-            revert B_ZERO_SIGNAL();
-        }
-
+    /// @inheritdoc ISignalService
+    function sendSignal(bytes32 signal)
+        public
+        validSignal(signal)
+        returns (bytes32 storageSlot)
+    {
         storageSlot = getSignalSlot(msg.sender, signal);
         assembly {
             sstore(storageSlot, 1)
         }
     }
 
+    /// @inheritdoc ISignalService
     function isSignalSent(
         address app,
         bytes32 signal
     )
         public
         view
+        validApp(app)
+        validSignal(signal)
         returns (bool)
     {
-        if (app == address(0)) {
-            revert B_NULL_APP_ADDR();
-        }
-
-        if (signal == 0) {
-            revert B_ZERO_SIGNAL();
-        }
-
         bytes32 slot = getSignalSlot(app, signal);
         uint256 value;
         assembly {
@@ -63,6 +75,7 @@ contract SignalService is ISignalService, EssentialContract {
         return value == 1;
     }
 
+    /// @inheritdoc ISignalService
     function isSignalReceived(
         uint256 srcChainId,
         address app,
@@ -71,31 +84,28 @@ contract SignalService is ISignalService, EssentialContract {
     )
         public
         view
+        validChainId(srcChainId)
+        validApp(app)
+        validSignal(signal)
         returns (bool)
     {
-        if (srcChainId == block.chainid) revert B_WRONG_CHAIN_ID();
-        if (app == address(0)) revert B_NULL_APP_ADDR();
-        if (signal == 0) revert B_ZERO_SIGNAL();
-
-        SignalProof memory sp = abi.decode(proof, (SignalProof));
-
-        // Resolve the TaikoL1 or TaikoL2 contract if on Ethereum or Taiko.
+        SignalProof memory signalProof = abi.decode(proof, (SignalProof));
         bytes32 syncedSignalRoot = ICrossChainSync(resolve("taiko", false))
-            .getCrossChainSignalRoot(sp.height);
+            .getCrossChainSignalRoot(signalProof.height);
 
         return LibSecureMerkleTrie.verifyInclusionProof(
             bytes.concat(getSignalSlot(app, signal)),
             hex"01",
-            sp.proof,
+            signalProof.proof,
             syncedSignalRoot
         );
     }
 
-    /**
-     * @param app The srcAddress of the app (eg. the Bridge).
-     * @param signal The signal to store.
-     * @return signalSlot The storage key for the signal on the signal service.
-     */
+    /// @notice Get the storage slot of the signal.
+    /// @param app The address that initiated the signal.
+    /// @param signal The signal to get the storage slot of.
+    /// @return signalSlot The unique storage slot of the signal which is
+    /// created by encoding the sender address with the signal (message).
     function getSignalSlot(
         address app,
         bytes32 signal
@@ -104,24 +114,22 @@ contract SignalService is ISignalService, EssentialContract {
         pure
         returns (bytes32 signalSlot)
     {
-        // Equivilance to `keccak256(abi.encodePacked(app, signal))`
+        // Equivalent to `keccak256(abi.encodePacked(app, signal))`
         assembly {
-            // Load the free memory pointer and allocate memory for the
-            // concatenated arguments
+            // Load the free memory pointer
             let ptr := mload(0x40)
-
             // Store the app address and signal bytes32 value in the allocated
             // memory
             mstore(ptr, app)
             mstore(add(ptr, 32), signal)
-
             // Calculate the hash of the concatenated arguments using keccak256
             signalSlot := keccak256(add(ptr, 12), 52)
-
             // Update free memory pointer
             mstore(0x40, add(ptr, 64))
         }
     }
 }
 
+/// @title ProxiedSignalService
+/// @notice Proxied version of the parent contract.
 contract ProxiedSignalService is Proxied, SignalService { }

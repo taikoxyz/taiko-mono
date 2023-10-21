@@ -1,8 +1,9 @@
 <script lang="ts">
   import * as Sentry from '@sentry/svelte';
-  import { type Address, fetchFeeData } from '@wagmi/core';
   import { BigNumber, Contract, ethers, type Signer } from 'ethers';
   import { _ } from 'svelte-i18n';
+  import type { Address } from 'wagmi';
+  import { fetchFeeData } from 'wagmi/actions';
 
   import { chains } from '../../chain/chains';
   import { erc20ABI } from '../../constants/abi';
@@ -498,10 +499,10 @@
         const requiredGas = gasEstimate.mul(feeData.gasPrice);
         const userBalance = await $signer.getBalance('latest');
 
-        // Let's start with substracting the estimated required gas to bridge
+        // Let's start with subtracting the estimated required gas to bridge
         let balanceAvailableForTx = userBalance.sub(requiredGas);
 
-        // Following we substract the currently selected processing fee
+        // Following we subtract the currently selected processing fee
         const processingFee = getProcessingFee();
         if (processingFee) {
           balanceAvailableForTx = balanceAvailableForTx.sub(processingFee);

@@ -1,11 +1,20 @@
 {
-  "contract-documentation": {
-    "title": "Contract documentation"
-  },
   "contract-addresses": {
     "title": "Contract addresses"
   },
   "rpc-configuration": {
     "title": "RPC configuration"
+  },
+  "contract-documentation": {
+    "title": "Contract documentation"
+  },
+  "prover-market-page": {
+    "title": "Prover market page"
+  },
+  "node-troubleshooting": {
+    "title": "Node troubleshooting"
+  },
+  "faq": {
+    "title": "FAQ"
   }
 }

@@ -30,34 +30,21 @@ pragma solidity ^0.8.20;
 /* Library Imports */
 import { LibBytesUtils } from "./LibBytesUtils.sol";
 import { LibRLPReader } from "./LibRLPReader.sol";
-import { LibRLPWriter } from "./LibRLPWriter.sol";
 
 /**
  * @title LibMerkleTrie
  */
 library LibMerkleTrie {
-    /*//////////////////////////////////////////////////////////////
-                                 ENUMS
-    //////////////////////////////////////////////////////////////*/
-
     enum NodeType {
         BranchNode,
         ExtensionNode,
         LeafNode
     }
 
-    /*//////////////////////////////////////////////////////////////
-                                STRUCTS
-    //////////////////////////////////////////////////////////////*/
-
     struct TrieNode {
         LibRLPReader.RLPItem[] decoded;
         bytes encoded;
     }
-
-    /*//////////////////////////////////////////////////////////////
-                               CONSTANTS
-    //////////////////////////////////////////////////////////////*/
 
     // TREE_RADIX determines the number of elements per branch node.
     uint8 private constant TREE_RADIX = 16;
@@ -79,10 +66,6 @@ library LibMerkleTrie {
 
     // Just a utility constant. RLP represents `NULL` as 0x80.
     bytes1 private constant RLP_NULL = bytes1(0x80);
-
-    /*//////////////////////////////////////////////////////////////
-                           INTERNAL FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
 
     /**
      * @notice Verifies a proof that a given key/value pair is present in the
@@ -142,10 +125,6 @@ library LibMerkleTrie {
 
         return (exists, value);
     }
-
-    /*//////////////////////////////////////////////////////////////
-                           PRIVATE FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
 
     /**
      * @notice Walks through a proof using a provided key.

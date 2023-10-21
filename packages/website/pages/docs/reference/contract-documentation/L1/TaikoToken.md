@@ -1,32 +1,12 @@
 ---
-title: LibTaikoTokenConfig
+title: TaikoToken
 ---
-
-## LibTaikoTokenConfig
-
-### DECIMALS
-
-```solidity
-uint8 DECIMALS
-```
-
----
-
-## title: TaikoToken
 
 ## TaikoToken
 
-### Mint
-
-```solidity
-event Mint(address account, uint256 amount)
-```
-
-### Burn
-
-```solidity
-event Burn(address account, uint256 amount)
-```
+The TaikoToken (TKO), in the protocol is used for prover collateral
+in the form of bonds. It is an ERC20 token with 18 decimal places of
+precision.
 
 ### TKO_INVALID_ADDR
 
@@ -40,17 +20,24 @@ error TKO_INVALID_ADDR()
 error TKO_INVALID_PREMINT_PARAMS()
 ```
 
-### TKO_MINT_DISALLOWED
-
-```solidity
-error TKO_MINT_DISALLOWED()
-```
-
 ### init
 
 ```solidity
 function init(address _addressManager, string _name, string _symbol, address[] _premintRecipients, uint256[] _premintAmounts) public
 ```
+
+Initializes the TaikoToken contract and mints initial tokens to
+specified recipients.
+
+#### Parameters
+
+| Name                | Type      | Description                                                         |
+| ------------------- | --------- | ------------------------------------------------------------------- |
+| \_addressManager    | address   | The {AddressManager} address.                                       |
+| \_name              | string    | The name of the token.                                              |
+| \_symbol            | string    | The symbol of the token.                                            |
+| \_premintRecipients | address[] | An array of addresses to receive initial token minting.             |
+| \_premintAmounts    | uint256[] | An array of token amounts to mint for each corresponding recipient. |
 
 ### snapshot
 
@@ -58,11 +45,15 @@ function init(address _addressManager, string _name, string _symbol, address[] _
 function snapshot() public
 ```
 
+Creates a new token snapshot.
+
 ### pause
 
 ```solidity
 function pause() public
 ```
+
+Pauses token transfers.
 
 ### unpause
 
@@ -70,11 +61,22 @@ function pause() public
 function unpause() public
 ```
 
+Unpauses token transfers.
+
 ### mint
 
 ```solidity
 function mint(address to, uint256 amount) public
 ```
+
+Mints new tokens to the specified address.
+
+#### Parameters
+
+| Name   | Type    | Description                               |
+| ------ | ------- | ----------------------------------------- |
+| to     | address | The address to receive the minted tokens. |
+| amount | uint256 | The amount of tokens to mint.             |
 
 ### burn
 
@@ -82,18 +84,35 @@ function mint(address to, uint256 amount) public
 function burn(address from, uint256 amount) public
 ```
 
+Burns tokens from the specified address.
+
+#### Parameters
+
+| Name   | Type    | Description                      |
+| ------ | ------- | -------------------------------- |
+| from   | address | The address to burn tokens from. |
+| amount | uint256 | The amount of tokens to burn.    |
+
 ### transfer
 
 ```solidity
 function transfer(address to, uint256 amount) public returns (bool)
 ```
 
-\_See {IERC20-transfer}.
+Transfers tokens to a specified address.
 
-Requirements:
+#### Parameters
 
-- `to` cannot be the zero address.
-- the caller must have a balance of at least `amount`.\_
+| Name   | Type    | Description                        |
+| ------ | ------- | ---------------------------------- |
+| to     | address | The address to transfer tokens to. |
+| amount | uint256 | The amount of tokens to transfer.  |
+
+#### Return Values
+
+| Name | Type | Description                                                      |
+| ---- | ---- | ---------------------------------------------------------------- |
+| [0]  | bool | A boolean indicating whether the transfer was successful or not. |
 
 ### transferFrom
 
@@ -101,38 +120,21 @@ Requirements:
 function transferFrom(address from, address to, uint256 amount) public returns (bool)
 ```
 
-\_See {IERC20-transferFrom}.
+Transfers tokens from one address to another.
 
-Emits an {Approval} event indicating the updated allowance. This is not
-required by the EIP. See the note at the beginning of {ERC20}.
+#### Parameters
 
-NOTE: Does not update the allowance if the current allowance
-is the maximum `uint256`.
+| Name   | Type    | Description                          |
+| ------ | ------- | ------------------------------------ |
+| from   | address | The address to transfer tokens from. |
+| to     | address | The address to transfer tokens to.   |
+| amount | uint256 | The amount of tokens to transfer.    |
 
-Requirements:
+#### Return Values
 
-- `from` and `to` cannot be the zero address.
-- `from` must have a balance of at least `amount`.
-- the caller must have allowance for `from`'s tokens of at least
-  `amount`.\_
-
-### decimals
-
-```solidity
-function decimals() public pure returns (uint8)
-```
-
-\_Returns the number of decimals used to get its user representation.
-For example, if `decimals` equals `2`, a balance of `505` tokens should
-be displayed to a user as `5.05` (`505 / 10 ** 2`).
-
-Tokens usually opt for a value of 18, imitating the relationship between
-Ether and Wei. This is the value {ERC20} uses, unless this function is
-overridden;
-
-NOTE: This information is only used for _display_ purposes: it in
-no way affects any of the arithmetic of the contract, including
-{IERC20-balanceOf} and {IERC20-transfer}.\_
+| Name | Type | Description                                                      |
+| ---- | ---- | ---------------------------------------------------------------- |
+| [0]  | bool | A boolean indicating whether the transfer was successful or not. |
 
 ### \_beforeTokenTransfer
 
@@ -163,3 +165,5 @@ function _burn(address from, uint256 amount) internal
 ## title: ProxiedTaikoToken
 
 ## ProxiedTaikoToken
+
+Proxied version of the TaikoToken contract.

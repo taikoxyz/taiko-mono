@@ -10,32 +10,27 @@ import { LibRLPReader } from "../thirdparty/LibRLPReader.sol";
 import { LibRLPWriter } from "../thirdparty/LibRLPWriter.sol";
 import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
 
-/**
- * @title LibTrieProof
- */
+/// @title LibTrieProof
+/// @dev This library is used for verifying the proof of values within the
+/// storage trie of an Ethereum account.
 library LibTrieProof {
-    /*//////////////////////////////////////////////////////////////
-                               CONSTANTS
-    //////////////////////////////////////////////////////////////*/
-
-    // The consensus format representing account is RLP encoded in the
-    // following order: nonce, balance, storageHash, codeHash.
+    // Constant defining the index for the storage hash in the RLP-encoded
+    // account structure.
+    // It follows the order: nonce, balance, storageHash, codeHash.
     uint256 private constant ACCOUNT_FIELD_INDEX_STORAGE_HASH = 2;
 
-    /*//////////////////////////////////////////////////////////////
-                         USER-FACING FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
+    error INVALID_ACCOUNT_PROOF();
 
-    /**
-     * Verifies that the value of a slot in the storage of an account is value.
-     *
-     * @param stateRoot The merkle root of state tree..
-     * @param slot The slot in the contract.
-     * @param value The value to be verified.
-     * @param mkproof The proof obtained by encoding storage proof.
-     * @return verified The verification result.
-     */
-    function verifyWithAccountProof(
+    /// @dev Verifies that the value of a specific slot in the storage of an
+    /// account equals the given value.
+    /// @param stateRoot The merkle root of the state tree.
+    /// @param addr The address of the account.
+    /// @param slot The specific slot within the storage of the contract.
+    /// @param value The value to be verified against the proof.
+    /// @param mkproof The concatenated proof containing both account and
+    /// storage proofs.
+    /// @return verified Boolean result indicating if the proof is valid.
+    function verifyWithFullMerkleProof(
         bytes32 stateRoot,
         address addr,
         bytes32 slot,
@@ -44,24 +39,29 @@ library LibTrieProof {
     )
         public
         pure
-        returns (bool verified)
+        returns (bool)
     {
+        // Decoding the proof into account and storage proofs
         (bytes memory accountProof, bytes memory storageProof) =
             abi.decode(mkproof, (bytes, bytes));
 
+        // Retrieving the RLP-encoded account and verifying existence
         (bool exists, bytes memory rlpAccount) = LibSecureMerkleTrie.get(
             abi.encodePacked(addr), accountProof, stateRoot
         );
 
-        require(exists, "LTP:invalid account proof");
+        if (!exists) revert INVALID_ACCOUNT_PROOF();
 
+        // Reading the RLP-encoded account into a structured list
         LibRLPReader.RLPItem[] memory accountState =
             LibRLPReader.readList(rlpAccount);
+        // Extracting the storage root from the RLP-encoded account
         bytes32 storageRoot = LibRLPReader.readBytes32(
             accountState[ACCOUNT_FIELD_INDEX_STORAGE_HASH]
         );
 
-        verified = LibSecureMerkleTrie.verifyInclusionProof(
+        // Verifying the inclusion proof for the value within the storage root
+        return LibSecureMerkleTrie.verifyInclusionProof(
             abi.encodePacked(slot),
             LibRLPWriter.writeBytes32(value),
             storageProof,

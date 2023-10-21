@@ -1,63 +1,109 @@
-<script context="module">
-  export const drawerToogleId = 'side-drawer-toggle';
+<script lang="ts" context="module">
+  export const drawerToggleId = 'side-drawer-toggle';
 </script>
 
 <script lang="ts">
-  import { PUBLIC_GUIDE_URL, PUBLIC_L2_EXPLORER_URL } from '$env/static/public';
-  import { t } from '$libs/i18n';
+  import { t } from 'svelte-i18n';
 
-  import Icon from '../Icon';
-  import LinkButton from '../LinkButton';
-  import { LogoWithText } from '../Logo';
+  import { page } from '$app/stores';
+  import { chainConfig } from '$chainConfig';
+  import { Icon } from '$components/Icon';
+  import { LinkButton } from '$components/LinkButton';
+  import { LogoWithText } from '$components/Logo';
+  import { PUBLIC_DEFAULT_EXPLORER, PUBLIC_GUIDE_URL } from '$env/static/public';
+  import { network } from '$stores/network';
+
+  let drawerToggleElem: HTMLInputElement;
+
+  function closeDrawer() {
+    drawerToggleElem.checked = false;
+  }
+
+  function onMenuKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape' || event.key === 'Enter') {
+      closeDrawer();
+    }
+  }
+
+  function getIconFillClass(active: boolean) {
+    return active ? 'fill-white' : 'fill-primary-icon';
+  }
+
+  $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
+  $: isFaucetPage = $page.route.id === '/faucet';
+  $: isTransactionPage = $page.route.id === '/transactions';
 </script>
 
 <div class="drawer md:drawer-open">
-  <input id={drawerToogleId} type="checkbox" class="drawer-toggle" />
+  <input id={drawerToggleId} type="checkbox" class="drawer-toggle" bind:this={drawerToggleElem} />
 
-  <div class="drawer-content">
+  <div class="drawer-content relative">
     <slot />
   </div>
 
-  <div class="drawer-side z-1 bg-primary-background">
-    <label for={drawerToogleId} class="drawer-overlay bg-overlay-background" />
+  <!-- Side drawer's z-index (20) must be greater than content's header (10)-->
+  <div class="drawer-side z-20">
+    <label for={drawerToggleId} class="drawer-overlay" />
 
-    <aside class="w-[226px] p-2 md:px-4 md:py-8 md:border-r md:border-r-grey-600 h-full">
-      <a href="/" class="hidden md:inline-block">
-        <LogoWithText />
-      </a>
+    <!--
+      Slow transitions can be pretty annoying after a while.
+      Let's reduce it to 100ms for a better experience.
+    -->
+    <div class="w-h-full !duration-100">
+      <header class="flex justify-end py-[20px] px-4 md:hidden">
+        <button on:click={closeDrawer} class="h-9">
+          <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
+        </button>
+      </header>
 
-      <ul class="menu md:pt-10 space-y-2">
-        <li>
-          <LinkButton active>
-            <Icon type="bridge" fillClass="fill-white" />
-            <span>{$t('nav.bridge')}</span>
-          </LinkButton>
-        </li>
-        <li>
-          <LinkButton href="/faucet">
-            <Icon type="faucet" />
-            <span>{$t('nav.faucet')}</span>
-          </LinkButton>
-        </li>
-        <li>
-          <LinkButton href="/activities">
-            <Icon type="activities" />
-            <span>{$t('nav.activities')}</span>
-          </LinkButton>
-        </li>
-        <li>
-          <LinkButton href={PUBLIC_L2_EXPLORER_URL} external>
-            <Icon type="explorer" />
-            <span>{$t('nav.explorer')}</span>
-          </LinkButton>
-        </li>
-        <li>
-          <LinkButton href={PUBLIC_GUIDE_URL} external>
-            <Icon type="guide" />
-            <span>{$t('nav.guide')}</span>
-          </LinkButton>
-        </li>
-      </ul>
-    </aside>
+      <aside
+        class="
+        h-full
+        px-[20px]
+        md:mt-0
+        md:px-4
+        md:py-8
+        md:w-[226px]
+      ">
+        <a href="/" class="hidden md:inline-block">
+          <LogoWithText textFillClass="fill-primary-content" />
+        </a>
+
+        <div role="button" tabindex="0" on:click={closeDrawer} on:keydown={onMenuKeydown}>
+          <ul class="menu p-0 md:pt-10 space-y-2">
+            <li>
+              <LinkButton active={isBridgePage}>
+                <Icon type="bridge" fillClass={getIconFillClass(isBridgePage)} />
+                <span>{$t('nav.bridge')}</span>
+              </LinkButton>
+            </li>
+            <li>
+              <LinkButton href="/faucet" active={isFaucetPage}>
+                <Icon type="faucet" fillClass={getIconFillClass(isFaucetPage)} />
+                <span>{$t('nav.faucet')}</span>
+              </LinkButton>
+            </li>
+            <li>
+              <LinkButton href="/transactions" active={isTransactionPage}>
+                <Icon type="transactions" fillClass={getIconFillClass(isTransactionPage)} />
+                <span>{$t('nav.transactions')}</span>
+              </LinkButton>
+            </li>
+            <li class="border-t border-t-divider-border pt-2">
+              <LinkButton href={$network ? chainConfig[$network.id].urls.explorer : PUBLIC_DEFAULT_EXPLORER} external>
+                <Icon type="explorer" />
+                <span>{$t('nav.explorer')}</span>
+              </LinkButton>
+            </li>
+            <li>
+              <LinkButton href={PUBLIC_GUIDE_URL} external>
+                <Icon type="guide" />
+                <span>{$t('nav.guide')}</span>
+              </LinkButton>
+            </li>
+          </ul>
+        </div>
+      </aside>
+    </div>
   </div>
 </div>

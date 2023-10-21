@@ -1,5 +1,4 @@
-import type { Address } from '@wagmi/core';
-import type { ComponentType } from 'svelte';
+import type { Address } from 'wagmi';
 
 export type ChainID = number;
 
@@ -8,7 +7,7 @@ export type Chain = {
   name: string;
   rpc: string;
   enabled?: boolean;
-  icon?: ComponentType;
+  iconUrl?: string;
   bridgeAddress: Address;
   crossChainSyncAddress: Address;
   explorerUrl: string;

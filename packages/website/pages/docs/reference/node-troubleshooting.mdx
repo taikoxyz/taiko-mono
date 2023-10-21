@@ -1,0 +1,189 @@
+import { Callout, Steps, Tab, Tabs } from "nextra-theme-docs";
+
+### Node warning logs
+
+You can ignore any WARN logs.
+
+### Node error logs
+
+#### `error: "Process new L1 blocks error"`
+
+You can ignore it, it will disappear when the node is fully synced.
+
+#### `error: "failed to check token balance: proposer does not have enough tko balance to propose"`
+
+You have not deposited enough TKO to pay the block fee. Deposit enough TKO from TKO token contracts. See [enable a proposer](/docs/guides/enable-a-proposer) for more info.
+
+#### `error: "failed to insert new head to L2 execution engine: missing trie node"`
+
+Make sure that your RPC is pointing to an Sepolia archive node, and not a full node.
+
+#### `error: "initialize rpc clients error"`
+
+The RPC in your config is incorrect. You have to set the ENDPOINT correctly. Please refer to the following page to set the correct RPC: https://taiko.xyz/docs/guides/run-a-taiko-node.
+
+#### `error: "daily request count exceeded, request rate limited"`
+
+Your RPC provider has a limit on the number of requests. You can try using an RPC provider with higher limits or [run your own Sepolia node](/docs/guides/run-a-sepolia-node) which has no limit.
+
+#### `error: L1_BLOCK_ID`
+
+The block that you want to prove has already been verified, you can ignore this.
+
+#### `error: L1_ALREADY_PROVEN`
+
+This block has been proven by someone else, but it's not verified yet, you can ignore it.
+
+#### `error: "failed to propose transactions: unable to find prover"`
+
+The proposer is not able to connect with a prover. By default, the prover endpoint is local so check your local prover first.
+If you are not running a local prover, select another prover from the [prover market](/docs/reference/prover-market-page). 
+You can connect to multiple provers at the same time in case a selected prover hits its max capacity.
+Note: you may need to switch provers if your selected prover hits its max capacity. 
+
+#### `Fatal: Failed to register the Ethereum service: database contains incompatible genesis`
+
+Try to remove the node with `docker compose down -v` and then try again.
+
+#### `Unhandled trie error: missing trie node`
+
+You can ignore this error, it doesn't affect you and goes away after a while.
+
+#### `Block batch iterator callback error; error="failed to fetch L2 parent block: not found`
+
+You can ignore this error.
+
+#### `Error starting ...: listen tcp4 0.0.0.0:{port} bind: address already in use`
+
+The port is already in use by another service. You can either shut down the other program or change the port in the .env file.
+
+#### `error parsing HTTP 403 response body: invalid character '<' looking for beginning of value`
+
+Your IP address is being geo-blocked due to sanctions lists. If you're affected, try changing hosting locations or utilize a VPN to change your IP address.
+
+#### `ERROR: The Compose file './docker-compose.yml' is invalid because: Unsupported config option for some_service 'pull_policy'`
+
+Your docker installation is out of date. You need to update your docker compose installation: https://docs.docker.com/compose/install/.
+
+#### `daemon docker is not running` <br></br> `Cannot connect to the Docker daemon`
+
+Need to start the Docker before running the commands.
+
+#### `database contains incompatible genesis`
+
+If you ran an alpha-1 testnet node make sure to first run a docker compose down -v to remove the old volumes.
+
+#### `Bind for 0.0.0.0:port` failed: port already allocated
+
+This error just means that the port taiko-node is trying to allocate is already being used by either some other node you're running
+or by a left-over container of taiko node if you did not close down the node correctly, you can try running `docker compose down` in the simple-taiko-node folder and start it again using `docker compose up -d`
+or edit the `.env` and replace the problematic port with a different one.
+
+#### `Failed to fetch L1Origin from L2 execution engine <br></br> err="not found"`
+
+This seems to be a common issue if you're using Alchemy endpoints, switching to Infura should fix this issue.
+
+#### `no configuration file provided: not found`
+
+This command is searching for the docker-compose.yml file. You are in the wrong directory, `cd simple-taiko-node` and run the command again.
+
+#### `Couldn't find env file`
+
+This command is searching for the .env file. You are in the wrong directory, `cd simple-taiko-node` and run the command again.
+
+#### `unknown shorthand flag: 'd' in -d`
+
+You are using v1 of docker-compose, use the command: `docker-compose up -d` instead of `docker compose up -d`, I highly recommend that you upgrade to the v2 of docker compose plugin [Installation Guide](https://docs.docker.com/compose/install/linux/)
+
+#### `docker: 'compose' is not a docker command`
+
+You are missing the docker compose plugin [Installation Guide](https://docs.docker.com/compose/install/linux/)
+
+#### `taiko_client_prover_relayer not printing any logs`
+
+There could be several reasons, you can check the logs `docker compose logs -f` to make sure there are no errors but one of the most common cause for this is a typo in the `.env` file
+`ENABLE_PROVER=True/TRUE` when setting this to true `true` has to be in all lowercase or the script to start relayer won't run.
+
+#### `no contract code at given address`
+
+When running a L3 node, users may run into this issue if their underlying L2 is still syncing. Please wait until your L2 is fully synced before starting your L3 node.
+
+#### `Failed to start Taiko client with error code 1 | project ID does not have access to archive state`
+
+The L1 node that the user is pointing to is not an archive node. Please change your RPC endpoint to point to an archive node.
+
+#### `simple-taiko-node-taiko_client_prover_relayer-1  | /bin/sh: /script/start-prover-relayer.sh: not found`
+
+This issue occurs on windows because of the Control Characters in this case the Line Endings, a quick fix would be to delete the node folder, run this `git config --global core.autocrlf false` in the shell, then clone the repo again.
+
+If you do not want to delete the node folder, please follow one of these steps below.
+
+<Tabs items={["Command line", "Notepad"]} defaultIndex="0">
+  <Tab>
+
+```sh
+  docker compose -f ./docker-compose.l3.yml --env-file .env.l3 down -v
+  docker compose down -v
+  cd script/l2
+  dos2unix start-zkevm-chain-rpcd.sh
+  dos2unix start-prover-relayer.sh
+  dos2unix start-proposer.sh
+  dos2unix start-driver.sh
+  cd ../l3
+  dos2unix start-zkevm-chain-rpcd.sh
+  dos2unix start-prover-relayer.sh
+  dos2unix start-proposer.sh
+  dos2unix start-driver.sh
+  cd ../..
+  docker compose up -d
+  docker compose -f ./docker-compose.l3.yml --env-file .env.l3 up -d
+
+```
+
+  </Tab>
+  <Tab>
+
+1. Open Notepad++
+2. Go to: File -> Open -> Locate `start-prover-relayer.sh` file and open it
+3. Go to: Edit -> EOL Conversion -> Unix
+4. Go to: File -> Save
+5. Close the file
+6. Do the same for `start-zkevm-chain-rpcd.sh`
+7. Do the same for `start-proposer.sh`
+8. Do the same for `start-driver.sh`
+9. The same goes for files in the l3 folder
+10. Then go back to command line and do:
+
+```sh
+docker compose -f ./docker-compose.l3.yml --env-file .env.l3 down -v
+docker compose down -v
+docker compose up -d
+docker compose -f ./docker-compose.l3.yml --env-file .env.l3 up -d
+```
+
+  </Tab>
+</Tabs>
+
+#### `dial tcp: connect: connection refused`
+
+This means that you are not able to connect to the RPC endpoint. Check if you have a firewall up and that you are allowing those ports. For Ubuntu, this would be checked with `sudo ufw status`.
+
+#### `WARNING: Found orphan containers`
+
+You should not have orphan containers as the L2 and L3 image container names are different in each docker compose file. Check the [node runner manual](/docs/manuals/node-runner-manual) for a command to remove orphan containers.
+
+#### `WARN Snapshot extension registration failed err="peer connected on snap without compatible eth support"`
+
+You can safely ignore this "warn" level message, it simply means you just ignored a peer which is not a Taiko node.
+
+#### `PROPOSE_BLOCK_TX_GAS_TIP_CAP: parameter not set`
+
+A flag might not be set in your .env file.
+Copy the default .env file, then reset your RPC node and proposer with the updated flag values.
+
+#### `info: Skip an invalid proposed transaction reason="nonce too low"`
+
+Scenario when the mempool is small and proposers are trying to propose the same transactions within an L1 block.
+The first proposer included on chain will successfully propose these transactions. 
+However, all others proposer included transactions will end up with status `propose empty blocks`, 
+since the proposed transactions will be filtered by nodes.

@@ -4,7 +4,8 @@ title: IAddressManager
 
 ## IAddressManager
 
-Interface to set and get an address for a name.
+Specifies methods to manage address mappings for given domain-name
+pairs.
 
 ### setAddress
 
@@ -12,15 +13,15 @@ Interface to set and get an address for a name.
 function setAddress(uint256 domain, bytes32 name, address newAddress) external
 ```
 
-Changes the address associated with a particular name.
+Sets the address for a specific domain-name pair.
 
 #### Parameters
 
-| Name       | Type    | Description                                  |
-| ---------- | ------- | -------------------------------------------- |
-| domain     | uint256 | Uint256 domain to assiciate an address with. |
-| name       | bytes32 | Name to associate an address with.           |
-| newAddress | address | Address to associate with the name.          |
+| Name       | Type    | Description                                     |
+| ---------- | ------- | ----------------------------------------------- |
+| domain     | uint256 | The domain to which the address will be mapped. |
+| name       | bytes32 | The name to which the address will be mapped.   |
+| newAddress | address | The Ethereum address to be mapped.              |
 
 ### getAddress
 
@@ -28,20 +29,20 @@ Changes the address associated with a particular name.
 function getAddress(uint256 domain, bytes32 name) external view returns (address)
 ```
 
-Retrieves the address associated with a given name.
+Gets the address mapped to a specific domain-name pair.
 
 #### Parameters
 
-| Name   | Type    | Description                       |
-| ------ | ------- | --------------------------------- |
-| domain | uint256 | Class to retrieve an address for. |
-| name   | bytes32 | Name to retrieve an address for.  |
+| Name   | Type    | Description                                           |
+| ------ | ------- | ----------------------------------------------------- |
+| domain | uint256 | The domain for which the address needs to be fetched. |
+| name   | bytes32 | The name for which the address needs to be fetched.   |
 
 #### Return Values
 
-| Name | Type    | Description                             |
-| ---- | ------- | --------------------------------------- |
-| [0]  | address | Address associated with the given name. |
+| Name | Type    | Description                                   |
+| ---- | ------- | --------------------------------------------- |
+| [0]  | address | Address associated with the domain-name pair. |
 
 ---
 
@@ -49,16 +50,18 @@ Retrieves the address associated with a given name.
 
 ## AddressManager
 
+Manages a mapping of domain-name pairs to Ethereum addresses.
+
 ### AddressSet
 
 ```solidity
-event AddressSet(uint256 _domain, bytes32 _name, address _newAddress, address _oldAddress)
+event AddressSet(uint256 domain, bytes32 name, address newAddress, address oldAddress)
 ```
 
-### EOAOwnerAddressNotAllowed
+### EOA_OWNER_NOT_ALLOWED
 
 ```solidity
-error EOAOwnerAddressNotAllowed()
+error EOA_OWNER_NOT_ALLOWED()
 ```
 
 ### init
@@ -67,7 +70,7 @@ error EOAOwnerAddressNotAllowed()
 function init() external
 ```
 
-_Initializer to be called after being deployed behind a proxy._
+Initializes the owner for the upgradable contract.
 
 ### setAddress
 
@@ -75,39 +78,41 @@ _Initializer to be called after being deployed behind a proxy._
 function setAddress(uint256 domain, bytes32 name, address newAddress) external virtual
 ```
 
-Changes the address associated with a particular name.
+Sets the address for a specific domain-name pair.
 
 #### Parameters
 
-| Name       | Type    | Description                                  |
-| ---------- | ------- | -------------------------------------------- |
-| domain     | uint256 | Uint256 domain to assiciate an address with. |
-| name       | bytes32 | Name to associate an address with.           |
-| newAddress | address | Address to associate with the name.          |
+| Name       | Type    | Description                                     |
+| ---------- | ------- | ----------------------------------------------- |
+| domain     | uint256 | The domain to which the address will be mapped. |
+| name       | bytes32 | The name to which the address will be mapped.   |
+| newAddress | address | The Ethereum address to be mapped.              |
 
 ### getAddress
 
 ```solidity
-function getAddress(uint256 domain, bytes32 name) external view virtual returns (address addr)
+function getAddress(uint256 domain, bytes32 name) external view virtual returns (address)
 ```
 
-Retrieves the address associated with a given name.
+Gets the address mapped to a specific domain-name pair.
 
 #### Parameters
 
-| Name   | Type    | Description                       |
-| ------ | ------- | --------------------------------- |
-| domain | uint256 | Class to retrieve an address for. |
-| name   | bytes32 | Name to retrieve an address for.  |
+| Name   | Type    | Description                                           |
+| ------ | ------- | ----------------------------------------------------- |
+| domain | uint256 | The domain for which the address needs to be fetched. |
+| name   | bytes32 | The name for which the address needs to be fetched.   |
 
 #### Return Values
 
-| Name | Type    | Description                             |
-| ---- | ------- | --------------------------------------- |
-| addr | address | Address associated with the given name. |
+| Name | Type    | Description                                   |
+| ---- | ------- | --------------------------------------------- |
+| [0]  | address | Address associated with the domain-name pair. |
 
 ---
 
 ## title: ProxiedAddressManager
 
 ## ProxiedAddressManager
+
+Proxied version of the parent contract.

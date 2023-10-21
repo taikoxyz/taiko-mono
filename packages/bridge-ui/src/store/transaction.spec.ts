@@ -1,4 +1,4 @@
-import type { ethers,Signer, Transaction } from 'ethers';
+import type { ethers, Signer, Transaction } from 'ethers';
 import { get } from 'svelte/store';
 
 import type { TransactionReceipt } from '../domain/transaction';

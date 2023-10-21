@@ -1,5 +1,5 @@
-import { switchNetwork as wagmiSwitchNetwork } from '@wagmi/core';
 import { get } from 'svelte/store';
+import { switchNetwork as wagmiSwitchNetwork } from 'wagmi/actions';
 
 import { srcChain } from '../store/chain';
 import { Deferred } from './Deferred';

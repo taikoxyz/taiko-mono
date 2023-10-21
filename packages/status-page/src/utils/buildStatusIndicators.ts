@@ -414,7 +414,7 @@ export async function buildStatusIndicators(
     indicators.push({
       provider: config.l1Provider,
       contractAddress: config.l1TaikoAddress,
-      header: "Latest System Proof",
+      header: "Latest Oracle Proof",
       intervalInMs: 0,
       status: "0",
       watchStatusFunc: async (
@@ -449,7 +449,7 @@ export async function buildStatusIndicators(
       colorFunc: function (status: Status) {
         return "green"; // todo: whats green, yellow, red?
       },
-      tooltip: "The timestamp of the latest system proof",
+      tooltip: "The timestamp of the latest oracle proof",
     });
 
     indicators.push({

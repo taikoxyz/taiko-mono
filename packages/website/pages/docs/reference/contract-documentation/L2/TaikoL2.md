@@ -4,6 +4,12 @@ title: TaikoL2
 
 ## TaikoL2
 
+Taiko L2 is a smart contract that handles cross-layer message
+verification and manages EIP-1559 gas pricing for Layer 2 (L2) operations.
+It is used to anchor the latest L1 block details to L2 for cross-layer
+communication, manage EIP-1559 parameters for gas pricing, and store
+verified L1 block information.
+
 ### VerifiedBlock
 
 ```solidity
@@ -18,7 +24,7 @@ struct VerifiedBlock {
 ```solidity
 struct EIP1559Params {
   uint64 basefee;
-  uint64 gasIssuedPerSecond;
+  uint32 gasIssuedPerSecond;
   uint64 gasExcessMax;
   uint64 gasTarget;
   uint64 ratio2x1x;
@@ -31,7 +37,7 @@ struct EIP1559Params {
 struct EIP1559Config {
   uint128 yscale;
   uint64 xscale;
-  uint64 gasIssuedPerSecond;
+  uint32 gasIssuedPerSecond;
 }
 ```
 
@@ -39,6 +45,12 @@ struct EIP1559Config {
 
 ```solidity
 bytes32 publicInputHash
+```
+
+### eip1559Config
+
+```solidity
+struct TaikoL2.EIP1559Config eip1559Config
 ```
 
 ### parentTimestamp
@@ -62,13 +74,19 @@ uint64 gasExcess
 ### Anchored
 
 ```solidity
-event Anchored(uint64 number, uint64 basefee, uint64 gaslimit, uint64 timestamp, bytes32 parentHash, uint256 prevrandao, address coinbase, uint32 chainid)
+event Anchored(uint64 number, uint64 basefee, uint32 gaslimit, uint64 timestamp, bytes32 parentHash, uint256 prevrandao, address coinbase, uint64 chainid)
+```
+
+### EIP1559ConfigUpdated
+
+```solidity
+event EIP1559ConfigUpdated(struct TaikoL2.EIP1559Config config, uint64 gasExcess)
 ```
 
 ### L2_BASEFEE_MISMATCH
 
 ```solidity
-error L2_BASEFEE_MISMATCH(uint64 expected, uint64 actual)
+error L2_BASEFEE_MISMATCH()
 ```
 
 ### L2_INVALID_1559_PARAMS
@@ -92,7 +110,7 @@ error L2_INVALID_SENDER()
 ### L2_PUBLIC_INPUT_HASH_MISMATCH
 
 ```solidity
-error L2_PUBLIC_INPUT_HASH_MISMATCH(bytes32 expected, bytes32 actual)
+error L2_PUBLIC_INPUT_HASH_MISMATCH()
 ```
 
 ### L2_TOO_LATE
@@ -101,104 +119,135 @@ error L2_PUBLIC_INPUT_HASH_MISMATCH(bytes32 expected, bytes32 actual)
 error L2_TOO_LATE()
 ```
 
-### M1559_UNEXPECTED_CHANGE
-
-```solidity
-error M1559_UNEXPECTED_CHANGE(uint64 expected, uint64 actual)
-```
-
-### M1559_OUT_OF_STOCK
-
-```solidity
-error M1559_OUT_OF_STOCK()
-```
-
 ### init
 
 ```solidity
 function init(address _addressManager, struct TaikoL2.EIP1559Params _param1559) external
 ```
 
-### anchor
-
-```solidity
-function anchor(bytes32 l1Hash, bytes32 l1SignalRoot, uint64 l1Height, uint64 parentGasUsed) external
-```
-
-Persist the latest L1 block height and hash to L2 for cross-layer
-message verification (eg. bridging). This function will also check
-certain block-level global variables because they are not part of the
-Trie structure.
-
-A circuit will verify the integrity among:
-
-- l1Hash, l1SignalRoot, and l1SignalServiceAddress
-- (l1Hash and l1SignalServiceAddress) are both hashed into of the
-  ZKP's instance.
-
-This transaction shall be the first transaction in every L2 block.
+Initializes the TaikoL2 contract.
 
 #### Parameters
 
-| Name          | Type    | Description                                               |
-| ------------- | ------- | --------------------------------------------------------- |
-| l1Hash        | bytes32 | The latest L1 block hash when this block was proposed.    |
-| l1SignalRoot  | bytes32 | The latest value of the L1 "signal service storage root". |
-| l1Height      | uint64  | The latest L1 block height when this block was proposed.  |
-| parentGasUsed | uint64  | the gas used in the parent block.                         |
+| Name             | Type                         | Description                                          |
+| ---------------- | ---------------------------- | ---------------------------------------------------- |
+| \_addressManager | address                      | Address of the {AddressManager} contract.            |
+| \_param1559      | struct TaikoL2.EIP1559Params | EIP-1559 parameters to set up the gas pricing model. |
+
+### anchor
+
+```solidity
+function anchor(bytes32 l1Hash, bytes32 l1SignalRoot, uint64 l1Height, uint32 parentGasUsed) external
+```
+
+Anchors the latest L1 block details to L2 for cross-layer
+message verification.
+
+#### Parameters
+
+| Name          | Type    | Description                                              |
+| ------------- | ------- | -------------------------------------------------------- |
+| l1Hash        | bytes32 | The latest L1 block hash when this block was proposed.   |
+| l1SignalRoot  | bytes32 | The latest value of the L1 signal service storage root.  |
+| l1Height      | uint64  | The latest L1 block height when this block was proposed. |
+| parentGasUsed | uint32  | The gas used in the parent block.                        |
+
+### updateEIP1559Config
+
+```solidity
+function updateEIP1559Config(struct TaikoL2.EIP1559Params _param1559) public
+```
+
+Updates EIP-1559 configurations.
+
+#### Parameters
+
+| Name        | Type                         | Description                                          |
+| ----------- | ---------------------------- | ---------------------------------------------------- |
+| \_param1559 | struct TaikoL2.EIP1559Params | EIP-1559 parameters to set up the gas pricing model. |
 
 ### getBasefee
 
 ```solidity
-function getBasefee(uint32 timeSinceParent, uint64 gasLimit, uint64 parentGasUsed) public view returns (uint256 _basefee)
+function getBasefee(uint64 timeSinceParent, uint32 parentGasUsed) public view returns (uint256 _basefee)
 ```
+
+Gets the basefee and gas excess using EIP-1559 configuration for
+the given parameters.
+
+#### Parameters
+
+| Name            | Type   | Description                                      |
+| --------------- | ------ | ------------------------------------------------ |
+| timeSinceParent | uint64 | Time elapsed since the parent block's timestamp. |
+| parentGasUsed   | uint32 | Gas used in the parent block.                    |
+
+#### Return Values
+
+| Name      | Type    | Description                      |
+| --------- | ------- | -------------------------------- |
+| \_basefee | uint256 | The calculated EIP-1559 basefee. |
 
 ### getCrossChainBlockHash
 
 ```solidity
-function getCrossChainBlockHash(uint256 number) public view returns (bytes32)
+function getCrossChainBlockHash(uint64 blockId) public view returns (bytes32)
 ```
 
-Returns the cross-chain block hash at the given block number.
+Fetches the hash of a block from the opposite chain.
 
 #### Parameters
 
-| Name   | Type    | Description                                   |
-| ------ | ------- | --------------------------------------------- |
-| number | uint256 | The block number. Use 0 for the latest block. |
+| Name    | Type   | Description                                                               |
+| ------- | ------ | ------------------------------------------------------------------------- |
+| blockId | uint64 | The target block id. Specifying 0 retrieves the hash of the latest block. |
 
 #### Return Values
 
-| Name | Type    | Description                 |
-| ---- | ------- | --------------------------- |
-| [0]  | bytes32 | The cross-chain block hash. |
+| Name | Type    | Description                                         |
+| ---- | ------- | --------------------------------------------------- |
+| [0]  | bytes32 | The hash of the desired block from the other chain. |
 
 ### getCrossChainSignalRoot
 
 ```solidity
-function getCrossChainSignalRoot(uint256 number) public view returns (bytes32)
+function getCrossChainSignalRoot(uint64 blockId) public view returns (bytes32)
 ```
 
-Returns the cross-chain signal service storage root at the given
-block number.
+Retrieves the root hash of the signal service storage for a
+given block from the opposite chain.
 
 #### Parameters
 
-| Name   | Type    | Description                                   |
-| ------ | ------- | --------------------------------------------- |
-| number | uint256 | The block number. Use 0 for the latest block. |
+| Name    | Type   | Description                                                               |
+| ------- | ------ | ------------------------------------------------------------------------- |
+| blockId | uint64 | The target block id. Specifying 0 retrieves the root of the latest block. |
 
 #### Return Values
 
-| Name | Type    | Description                                  |
-| ---- | ------- | -------------------------------------------- |
-| [0]  | bytes32 | The cross-chain signal service storage root. |
+| Name | Type    | Description                                             |
+| ---- | ------- | ------------------------------------------------------- |
+| [0]  | bytes32 | The root hash for the specified block's signal service. |
 
 ### getBlockHash
 
 ```solidity
-function getBlockHash(uint256 number) public view returns (bytes32)
+function getBlockHash(uint64 blockId) public view returns (bytes32)
 ```
+
+Retrieves the block hash for the given L2 block number.
+
+#### Parameters
+
+| Name    | Type   | Description                                         |
+| ------- | ------ | --------------------------------------------------- |
+| blockId | uint64 | The L2 block number to retrieve the block hash for. |
+
+#### Return Values
+
+| Name | Type    | Description                                                                                                                 |
+| ---- | ------- | --------------------------------------------------------------------------------------------------------------------------- |
+| [0]  | bytes32 | The block hash for the specified L2 block id, or zero if the block id is greater than or equal to the current block number. |
 
 ### getEIP1559Config
 
@@ -206,10 +255,18 @@ function getBlockHash(uint256 number) public view returns (bytes32)
 function getEIP1559Config() public view virtual returns (struct TaikoL2.EIP1559Config)
 ```
 
-_Overide this funciton to return a constant EIP1559Config object_
+Retrieves the current EIP-1559 configuration details.
+
+#### Return Values
+
+| Name | Type                         | Description                                                                                                  |
+| ---- | ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| [0]  | struct TaikoL2.EIP1559Config | The current EIP-1559 configuration details, including the yscale, xscale, and gasIssuedPerSecond parameters. |
 
 ---
 
 ## title: ProxiedTaikoL2
 
 ## ProxiedTaikoL2
+
+Proxied version of the TaikoL2 contract.

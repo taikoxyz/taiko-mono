@@ -14,12 +14,13 @@
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/taikoxyz?style=social)](https://twitter.com/taikoxyz)
 [![Discord](https://img.shields.io/discord/984015101017346058?color=%235865F2&label=Discord&logo=discord&logoColor=%23fff)](https://discord.gg/taikoxyz)
+[![YouTube](https://img.shields.io/youtube/channel/subscribers/UCxd_ARE9LtAEdnRQA6g1TaQ)](https://www.youtube.com/@taikoxyz)
 [![GitPOAP Badge](https://public-api.gitpoap.io/v1/repo/taikoxyz/taiko-mono/badge)](https://www.gitpoap.io/gh/taikoxyz/taiko-mono)
 [![License](https://img.shields.io/github/license/taikoxyz/taiko-mono)](https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md)
 
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/taikoxyz/taiko-mono/protocol.yml?branch=main&label=Protocol&logo=github)](https://github.com/taikoxyz/taiko-mono/actions/workflows/protocol.yml)
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/taikoxyz/taiko-mono/relayer.yml?branch=main&label=Relayer&logo=github)](https://github.com/taikoxyz/taiko-mono/actions/workflows/relayer.yml)
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/taikoxyz/taiko-mono/bridge-ui.yml?branch=main&label=Bridge%20UI&logo=github)](https://github.com/taikoxyz/taiko-mono/actions/workflows/bridge-ui.yml)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/taikoxyz/taiko-mono/bridge-ui-v2.yml?branch=main&label=Bridge%20UI&logo=github)](https://github.com/taikoxyz/taiko-mono/actions/workflows/bridge-ui.yml)
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/taikoxyz/taiko-mono/website.yml?branch=main&label=Website&logo=github)](https://github.com/taikoxyz/taiko-mono/actions/workflows/website.yml)
 
 </div>
@@ -38,17 +39,17 @@ taiko-mono/
 ├── <a href="./README.md">README.md</a>
 ├── <a href="./packages">packages</a>
 │   ├── <a href="./packages/branding">branding</a>: Taiko branding materials.
-│   ├── <a href="./packages/bridge-ui">bridge-ui</a>: Taiko bridge frontend UI.
-│   ├── <a href="./packages/bridge-ui-v2">bridge-ui-v2</a>: Taiko bridge frontend UI v2 (🚧 under construction 🚧).
+│   ├── <a href="./packages/bridge-ui-v2">bridge-ui-v2</a>: Taiko bridge frontend UI v2.
 │   ├── <a href="./packages/eventindexer">eventindexer</a>: Event indexer.
-│   ├── <a href="./packages/fork-diff">fork-diff</a>: Fork diff page (currently, for geth).
+│   ├── <a href="./packages/fork-diff">fork-diff</a>: Fork <a href="https://geth.taiko.xyz">diff page</a> (currently, for Geth).
 │   ├── <a href="./packages/protocol">protocol</a>: Taiko protocol and bridge smart contracts.
 │   ├── <a href="./packages/relayer">relayer</a>: Bridge backend relayer in Go.
 │   ├── <a href="./packages/starter-dapp">starter-dapp</a>: Template for Taiko dapps.
 │   ├── <a href="./packages/status-page">status-page</a>: Taiko protocol status page.
-│   ├── <a href="./packages/tokenomics">tokenomics</a>: Taiko tokenomics simulations.
-│   ├── <a href="./packages/website">website</a>: Main documentation website at https://taiko.xyz.
-│   └── <a href="./packages/whitepaper">whitepaper</a>: Whitepaper source files with automated publishing.
+│   ├── <a href="./packages/website">website</a>: Main documentation website at <a href="https://taiko.xyz">https://taiko.xyz</a>.
+│   ├── <a href="./packages/bridge-ui">bridge-ui</a>: Taiko bridge frontend UI v1 (🪦 deprecated 🪦).
+│   ├── <a href="./packages/pos-dashboard">pos-dashboard</a>: TTKOe staking dashboard (🪦 deprecated 🪦).
+│   └── <a href="./packages/whitepaper">whitepaper</a>: Whitepaper source files (🪦 deprecated 🪦).
 ...
 </pre>
 

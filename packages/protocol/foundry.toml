@@ -23,6 +23,7 @@ fs_permissions = [
   { access = "read", path = "./out" },
   { access = "read-write", path = "./deployments" },
   { access = "read", path = "./test" },
+  { access = "read", path = "./genesis" },
 ]
 
 fuzz = { runs = 256 }
@@ -33,3 +34,6 @@ line_length = 80
 multiline_func_header = 'all'
 number_underscore = 'thousands'
 wrap_comments = true
+
+[profile.genesis]
+test = 'genesis'

@@ -12,38 +12,33 @@
     "type": "page"
   },
   "bridge": {
-    "title": "Bridge",
+    "title": "Bridge ↗",
     "type": "page",
-    "href": "https://bridge.test.taiko.xyz",
+    "href": "https://bridge.jolnir.taiko.xyz",
     "newWindow": true
   },
   "swap": {
     "title": "Swap",
-    "type": "page",
-    "display": "hidden",
-    "href": "https://swap.test.taiko.xyz",
-    "newWindow": true
-  },
-  "explorers": {
-    "title": "Explorers",
     "type": "menu",
     "items": {
-      "status": {
-        "title": "Protocol Status",
-        "href": "https://status.test.taiko.xyz",
+      "swap-v2": {
+        "title": "Swap V2 ↗",
+        "href": "https://swap.jolnir.taiko.xyz",
         "newWindow": true
       },
-      "l1-block-explorer": {
-        "title": "L1 Block Explorer",
-        "href": "https://sepolia.etherscan.io",
-        "newWindow": true
-      },
-      "l2-block-explorer": {
-        "title": "L2 Block Explorer",
-        "href": "https://explorer.test.taiko.xyz",
+      "swap-v3": {
+        "title": "Swap V3 ↗",
+        "href": "https://swap-v3.jolnir.taiko.xyz",
         "newWindow": true
       }
-    }
+    },
+    "display": "hidden"
+  },
+  "block-explorer": {
+    "title": "Explorer ↗",
+    "type": "page",
+    "href": "https://explorer.jolnir.taiko.xyz",
+    "newWindow": true
   },
   "ecosystem": {
     "title": "Ecosystem",
@@ -53,21 +48,15 @@
     }
   },
   "blog": {
-    "title": "Blog",
+    "title": "Blog ↗",
     "type": "page",
     "href": "https://mirror.xyz/labs.taiko.eth",
     "newWindow": true
   },
   "forum": {
-    "title": "Forum",
+    "title": "Forum ↗",
     "type": "page",
     "href": "https://community.taiko.xyz/",
-    "newWindow": true
-  },
-  "feedback": {
-    "title": "Feedback",
-    "type": "page",
-    "href": "https://forms.gle/9JWjWtjbWytZZcNRA",
     "newWindow": true
   }
 }

@@ -5,31 +5,45 @@ import (
 	"encoding/json"
 	"math/big"
 
+	"log/slog"
+
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/queue"
 )
 
 // handleEvent handles an individual MessageSent event
-func (svc *Service) handleEvent(
+func (i *Indexer) handleEvent(
 	ctx context.Context,
 	chainID *big.Int,
 	event *bridge.BridgeMessageSent,
 ) error {
-	log.Infof("event found for msgHash: %v, txHash: %v", common.Hash(event.MsgHash).Hex(), event.Raw.TxHash.Hex())
+	slog.Info("event found for msgHash", "msgHash", common.Hash(event.MsgHash).Hex(), "txHash", event.Raw.TxHash.Hex())
 
-	if err := svc.detectAndHandleReorg(ctx, relayer.EventNameMessageSent, common.Hash(event.MsgHash).Hex()); err != nil {
+	if event.Message.DestChainId.Cmp(i.destChainId) != 0 {
+		slog.Info("skipping event, wrong chainID",
+			"messageDestChainID",
+			event.Message.DestChainId.Uint64(),
+			"indexerDestChainID",
+			i.destChainId.Uint64(),
+		)
+
+		return nil
+	}
+
+	if err := i.detectAndHandleReorg(ctx, relayer.EventNameMessageSent, common.Hash(event.MsgHash).Hex()); err != nil {
 		return errors.Wrap(err, "svc.detectAndHandleReorg")
 	}
 
 	if event.MsgHash == relayer.ZeroHash {
-		log.Warn("Zero msgHash found. This is unexpected. Returning early")
+		slog.Warn("Zero msgHash found. This is unexpected. Returning early")
 		return nil
 	}
 
-	eventStatus, err := svc.eventStatusFromMsgHash(ctx, event.Message.GasLimit, event.MsgHash)
+	eventStatus, err := i.eventStatusFromMsgHash(ctx, event.Message.GasLimit, event.MsgHash)
 	if err != nil {
 		return errors.Wrap(err, "svc.eventStatusFromMsgHash")
 	}
@@ -44,69 +58,61 @@ func (svc *Service) handleEvent(
 		return errors.Wrap(err, "eventTypeAmountAndCanonicalTokenFromEvent(event)")
 	}
 
-	e, err := svc.eventRepo.Save(ctx, relayer.SaveEventOpts{
-		Name:                   relayer.EventNameMessageSent,
-		Data:                   string(marshaled),
-		ChainID:                chainID,
-		Status:                 eventStatus,
-		EventType:              eventType,
-		CanonicalTokenAddress:  canonicalToken.Addr.Hex(),
-		CanonicalTokenSymbol:   canonicalToken.Symbol,
-		CanonicalTokenName:     canonicalToken.Name,
-		CanonicalTokenDecimals: canonicalToken.Decimals,
-		Amount:                 amount.String(),
-		MsgHash:                common.Hash(event.MsgHash).Hex(),
-		MessageOwner:           event.Message.Owner.Hex(),
-		Event:                  relayer.EventNameMessageSent,
-	})
+	opts := relayer.SaveEventOpts{
+		Name:         relayer.EventNameMessageSent,
+		Data:         string(marshaled),
+		ChainID:      chainID,
+		Status:       eventStatus,
+		EventType:    eventType,
+		Amount:       amount.String(),
+		MsgHash:      common.Hash(event.MsgHash).Hex(),
+		MessageOwner: event.Message.User.Hex(),
+		Event:        relayer.EventNameMessageSent,
+	}
+
+	if canonicalToken != nil {
+		opts.CanonicalTokenAddress = canonicalToken.Address().Hex()
+		opts.CanonicalTokenSymbol = canonicalToken.ContractSymbol()
+		opts.CanonicalTokenName = canonicalToken.ContractName()
+		opts.CanonicalTokenDecimals = canonicalToken.TokenDecimals()
+	}
+
+	e, err := i.eventRepo.Save(ctx, opts)
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.Save")
 	}
 
-	if !canProcessMessage(ctx, eventStatus, event.Message.Owner, svc.relayerAddr) {
-		log.Warnf("cant process msgHash: %v, eventStatus: %v", common.Hash(event.MsgHash).Hex(), eventStatus)
-		return nil
+	msg := queue.QueueMessageBody{
+		ID:    e.ID,
+		Event: event,
 	}
 
-	// process the message
-	if err := svc.processor.ProcessMessage(ctx, event, e); err != nil {
-		return errors.Wrap(err, "svc.processMessage")
+	marshalledMsg, err := json.Marshal(msg)
+	if err != nil {
+		return errors.Wrap(err, "json.Marshal")
+	}
+
+	if err := i.queue.Publish(ctx, marshalledMsg); err != nil {
+		return errors.Wrap(err, "i.queue.Publish")
 	}
 
 	return nil
 }
 
-func canProcessMessage(
-	ctx context.Context,
-	eventStatus relayer.EventStatus,
-	messageOwner common.Address,
-	relayerAddress common.Address,
-) bool {
-	// we can not process, exit early
-	if eventStatus == relayer.EventStatusNewOnlyOwner {
-		if messageOwner != relayerAddress {
-			log.Infof("gasLimit == 0 and owner is not the current relayer key, can not process. continuing loop")
-			return false
-		}
-
-		return true
-	}
-
-	if eventStatus == relayer.EventStatusNew {
-		return true
-	}
-
-	return false
-}
-
-func (svc *Service) eventStatusFromMsgHash(
+func (i *Indexer) eventStatusFromMsgHash(
 	ctx context.Context,
 	gasLimit *big.Int,
 	signal [32]byte,
 ) (relayer.EventStatus, error) {
 	var eventStatus relayer.EventStatus
 
-	messageStatus, err := svc.destBridge.GetMessageStatus(nil, signal)
+	ctx, cancel := context.WithTimeout(ctx, i.ethClientTimeout)
+
+	defer cancel()
+
+	messageStatus, err := i.destBridge.GetMessageStatus(&bind.CallOpts{
+		Context: ctx,
+	}, signal)
 	if err != nil {
 		return 0, errors.Wrap(err, "svc.destBridge.GetMessageStatus")
 	}

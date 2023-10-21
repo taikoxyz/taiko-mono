@@ -1,26 +1,46 @@
 <script lang="ts">
-  import { web3modal } from '$libs/connect';
-  import { t } from '$libs/i18n';
+  import { page } from '$app/stores';
+  import BridgeTabs from '$components/Bridge/BridgeTabs.svelte';
+  import { ConnectButton } from '$components/ConnectButton';
+  import { Icon } from '$components/Icon';
+  import { LogoWithText } from '$components/Logo';
+  import { drawerToggleId } from '$components/SideNavigation';
+  import { ThemeButton } from '$components/ThemeButton';
+  import { account } from '$stores/account';
 
-  import Button from '../Button';
-  import Icon from '../Icon';
-  import { LogoWithText } from '../Logo';
-  import { drawerToogleId } from '../SideNavigation';
+  $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
 </script>
 
-<header class="sticky p-2 md:px-10 md:py-7 flex justify-between md:justify-end items-center">
-  <div class="flex space-x-2 items-center md:hidden">
-    <label for={drawerToogleId} class="btn btn-sm md:btn-md btn-ghost drawer-button">
-      <Icon type="bars-menu" />
-    </label>
-    <LogoWithText class="w-[88px] h-[24px]" />
+<header
+  class="
+    sticky-top
+    f-between-center
+    justify-between
+    z-10
+    px-4
+    py-[20px]
+    border-b
+    border-b-divider-border
+    glassy-background
+    bg-grey-5/10
+    dark:bg-grey-900/10
+    md:border-b-0
+    md:px-10
+    md:py-7
+ ">
+  <LogoWithText width={77} height={21} class="md:hidden" textFillClass={'fill-primary-content'} />
+
+  <div class="flex justify-end w-full">
+    {#if isBridgePage}
+      <BridgeTabs class="hidden md:flex md:flex-1" />
+    {/if}
+
+    <ConnectButton connected={$account?.isConnected} />
+    <div class="v-sep my-auto mx-[8px] h-[24px]" />
+    <ThemeButton />
   </div>
 
-  <!-- <Button on:click={() => web3modal.openModal()} class="rounded-full" type="neutral">
-    <Icon type="user-circle" />
-    <span>{$t('wallet.connect')}</span>
-  </Button> -->
-
-  <!-- TODO: think about the possibility of actually using w3m-core-button component -->
-  <w3m-core-button balance="show" icon="hide" />
+  <label for={drawerToggleId} class="ml-[10px] md:hidden">
+    <Icon type="bars-menu" />
+  </label>
 </header>

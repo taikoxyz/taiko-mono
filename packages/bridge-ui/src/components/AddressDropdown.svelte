@@ -1,12 +1,13 @@
 <script lang="ts">
   import * as Sentry from '@sentry/svelte';
-  import { disconnect as wagmiDisconnect, RpcError } from '@wagmi/core';
   import { ethers, type Signer } from 'ethers';
   import { onMount } from 'svelte';
   import { slide } from 'svelte/transition';
   import { ClipboardDocument, Power } from 'svelte-heros-v2';
   import { ChevronDown } from 'svelte-heros-v2';
   import { _ } from 'svelte-i18n';
+  import { RpcError } from 'wagmi';
+  import { disconnect as wagmiDisconnect } from 'wagmi/actions';
 
   import { srcChain } from '../store/chain';
   import { signer } from '../store/signer';
@@ -111,7 +112,7 @@
       class="dropdown-content rounded-box menu shadow bg-dark-2 w-48 mt-2 pb-2 text-sm">
       <div class="p-5 pb-0 flex flex-col items-center" transition:slide>
         {#if $srcChain && $signer}
-          <svelte:component this={$srcChain.icon} />
+          <img src={$srcChain.iconUrl} alt={$srcChain.name} />
           <div class="text-lg mt-2">
             {tokenBalance.length > 10
               ? `${truncateString(tokenBalance)}…`

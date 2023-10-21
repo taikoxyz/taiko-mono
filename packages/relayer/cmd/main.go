@@ -1,62 +1,59 @@
 package main
 
 import (
-	"flag"
+	"fmt"
 	"log"
+	"os"
 
-	"github.com/taikoxyz/taiko-mono/packages/relayer"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/cli"
+	"github.com/joho/godotenv"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/flags"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/utils"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/indexer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/processor"
+	"github.com/urfave/cli/v2"
 )
 
 func main() {
-	modePtr := flag.String("mode", string(relayer.SyncMode), `mode to run in. 
-	options:
-	  sync: continue syncing from previous block
-	  resync: restart syncing from block 0
-	  fromBlock: restart syncing from specified block number
-	`)
+	app := cli.NewApp()
 
-	layersPtr := flag.String("layers", string(relayer.Both), `layers to watch and process. 
-	options:
-	  l1: only watch l1 => l2 bridge messages
-	  l2: only watch l2 => l1 bridge messages
-	  both: watch l1 => l2 and l2 => l1 bridge messages
-	`)
+	log.SetOutput(os.Stdout)
+	// attempt to load a .env file to overwrite CLI flags, but allow it to not
+	// exist.
 
-	watchModePtr := flag.String("watch-mode", string(relayer.FilterAndSubscribeWatchMode), `watch mode to run in. 
-	options:
-	  filter: only filter previous messages
-	  subscribe: only subscribe to new messages
-	  filter-and-subscribe: catch up on all previous messages, then subscribe to new messages
-	`)
-
-	httpOnlyPtr := flag.Bool("http-only", false, `only run an http server and don't index blocks. 
-	options:
-	  true: only run an http server, dont index blocks
-	  false: run an http server and index blocks
-	`)
-
-	profitableOnlyPtr := flag.Bool("profitable-only", false, `only process profitable transactions. 
-	options:
-	  true:
-	  false:
-	`)
-
-	flag.Parse()
-
-	if !relayer.IsInSlice(relayer.Mode(*modePtr), relayer.Modes) {
-		log.Fatal("mode not valid")
+	envFile := os.Getenv("RELAYER_ENV_FILE")
+	if envFile == "" {
+		envFile = ".env"
 	}
 
-	if !relayer.IsInSlice(relayer.Layer(*layersPtr), relayer.Layers) {
-		log.Fatal("mode not valid")
+	_ = godotenv.Load(envFile)
+
+	app.Name = "Taiko Relayer"
+	app.Usage = "The taiko relayer softwares command line interface"
+	app.Copyright = "Copyright 2021-2023 Taiko Labs"
+	app.Description = "Bridge relayer implementation in Golang for Taiko protocol"
+	app.Authors = []*cli.Author{{Name: "Taiko Labs", Email: "info@taiko.xyz"}}
+	app.EnableBashCompletion = true
+
+	// All supported sub commands.
+	app.Commands = []*cli.Command{
+		{
+			Name:        "indexer",
+			Flags:       flags.IndexerFlags,
+			Usage:       "Starts the indexer software",
+			Description: "Taiko relayer indexer software",
+			Action:      utils.SubcommandAction(new(indexer.Indexer)),
+		},
+		{
+			Name:        "processor",
+			Flags:       flags.ProcessorFlags,
+			Usage:       "Starts the processor software",
+			Description: "Taiko relayer processor software",
+			Action:      utils.SubcommandAction(new(processor.Processor)),
+		},
 	}
 
-	cli.Run(
-		relayer.Mode(*modePtr),
-		relayer.WatchMode(*watchModePtr),
-		relayer.Layer(*layersPtr),
-		relayer.HTTPOnly(*httpOnlyPtr),
-		relayer.ProfitableOnly(*profitableOnlyPtr),
-	)
+	if err := app.Run(os.Args); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }

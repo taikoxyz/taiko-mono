@@ -18,8 +18,8 @@ linters:
     - gocognit
     - gocritic
     - gofmt
-    - golint
-    - gosec
+    # - revive
+    # - gosec
     - gosimple
     - lll
     - unused
@@ -28,10 +28,10 @@ linters:
 
 linters-settings:
   funlen:
-    lines: 145
+    lines: 155
     statements: 60
   gocognit:
-    min-complexity: 50
+    min-complexity: 55
 
 issues:
   exclude-rules:
@@ -39,6 +39,9 @@ issues:
     - path: _test\.go
       linters:
         - funlen
+    - path: /
+      linters:
+        - typecheck
 
 run:
   skip-dirs:

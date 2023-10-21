@@ -24,6 +24,7 @@ jobs:
             deps
             eventindexer
             fork-diff
+            pos-dashboard
             protocol
             relayer
             starter-dapp
@@ -31,4 +32,5 @@ jobs:
             tokenomics
             website
             whitepaper
+            deps-dev
           requireScope: true

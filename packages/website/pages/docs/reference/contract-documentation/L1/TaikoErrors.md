@@ -4,28 +4,44 @@ title: TaikoErrors
 
 ## TaikoErrors
 
+This abstract contract provides custom error declartions used in
+the Taiko protocol. Each error corresponds to specific situations where
+exceptions might be thrown.
+
 ### L1_ALREADY_PROVEN
 
 ```solidity
 error L1_ALREADY_PROVEN()
 ```
 
-### L1_BLOCK_ID
+### L1_BLOCK_ID_MISMATCH
 
 ```solidity
-error L1_BLOCK_ID()
+error L1_BLOCK_ID_MISMATCH()
 ```
 
 ### L1_EVIDENCE_MISMATCH
 
 ```solidity
-error L1_EVIDENCE_MISMATCH(bytes32 expected, bytes32 actual)
+error L1_EVIDENCE_MISMATCH()
 ```
 
-### L1_FORK_CHOICE_NOT_FOUND
+### L1_INSUFFICIENT_TOKEN
 
 ```solidity
-error L1_FORK_CHOICE_NOT_FOUND()
+error L1_INSUFFICIENT_TOKEN()
+```
+
+### L1_INVALID_ASSIGNMENT
+
+```solidity
+error L1_INVALID_ASSIGNMENT()
+```
+
+### L1_INVALID_BLOCK_ID
+
+```solidity
+error L1_INVALID_BLOCK_ID()
 ```
 
 ### L1_INVALID_CONFIG
@@ -52,6 +68,12 @@ error L1_INVALID_EVIDENCE()
 error L1_INVALID_METADATA()
 ```
 
+### L1_INVALID_ORACLE_PROVER
+
+```solidity
+error L1_INVALID_ORACLE_PROVER()
+```
+
 ### L1_INVALID_PARAM
 
 ```solidity
@@ -64,22 +86,28 @@ error L1_INVALID_PARAM()
 error L1_INVALID_PROOF()
 ```
 
-### L1_INVALID_PROOF_OVERWRITE
+### L1_INVALID_PROPOSER
 
 ```solidity
-error L1_INVALID_PROOF_OVERWRITE()
+error L1_INVALID_PROPOSER()
 ```
 
-### L1_NOT_SPECIAL_PROVER
+### L1_INVALID_PROVER
 
 ```solidity
-error L1_NOT_SPECIAL_PROVER()
+error L1_INVALID_PROVER()
 ```
 
-### L1_ORACLE_PROVER_DISABLED
+### L1_INVALID_PROVER_SIG
 
 ```solidity
-error L1_ORACLE_PROVER_DISABLED()
+error L1_INVALID_PROVER_SIG()
+```
+
+### L1_NOT_PROVEABLE
+
+```solidity
+error L1_NOT_PROVEABLE()
 ```
 
 ### L1_SAME_PROOF
@@ -88,22 +116,16 @@ error L1_ORACLE_PROVER_DISABLED()
 error L1_SAME_PROOF()
 ```
 
-### L1_SYSTEM_PROVER_DISABLED
-
-```solidity
-error L1_SYSTEM_PROVER_DISABLED()
-```
-
-### L1_SYSTEM_PROVER_PROHIBITED
-
-```solidity
-error L1_SYSTEM_PROVER_PROHIBITED()
-```
-
 ### L1_TOO_MANY_BLOCKS
 
 ```solidity
 error L1_TOO_MANY_BLOCKS()
+```
+
+### L1_TRANSITION_NOT_FOUND
+
+```solidity
+error L1_TRANSITION_NOT_FOUND()
 ```
 
 ### L1_TX_LIST_NOT_EXIST
@@ -128,4 +150,10 @@ error L1_TX_LIST_RANGE()
 
 ```solidity
 error L1_TX_LIST()
+```
+
+### L1_UNEXPECTED_TRANSITION_ID
+
+```solidity
+error L1_UNEXPECTED_TRANSITION_ID()
 ```

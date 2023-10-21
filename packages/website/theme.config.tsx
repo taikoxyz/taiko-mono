@@ -1,28 +1,43 @@
-import Footer from "./components/Footer";
-import ThemedImage from "./components/ThemedImage";
+import { Footer } from "./components/Home";
+import { ThemedImage } from "./components/ThemedImage";
 import { useConfig } from "nextra-theme-docs";
 import { useRouter } from "next/router";
+import { ThemeToggle } from "./components/ThemeToggle";
+import { TAIKO_CONFIG } from "./domain/chain";
 
 export default {
   banner: {
     key: "banner",
     text: (
       <a href="/docs/guides" target="_blank">
-        📌 Alpha-3 is here! Get started →
+        📌 {TAIKO_CONFIG.names.shortName} is here! Get started →
       </a>
     ),
   },
   chat: {
     link: "https://discord.gg/taikoxyz",
   },
-  darkMode: true,
+  darkMode: false,
   docsRepositoryBase:
     "https://github.com/taikoxyz/taiko-mono/blob/main/packages/website",
   editLink: {
-    text: "Edit this page ↗",
+    text: "Edit this page 📝",
   },
   feedback: {
-    content: null,
+    content: (
+      <button
+        onClick={() => {
+          const win = window.open(
+            "https://forms.gle/TAnV1xLmFwH13ryj7",
+            "_blank",
+            "noopener,noreferrer"
+          );
+          if (win) win.opener = null;
+        }}
+      >
+        Leave feedback 💬
+      </button>
+    ),
   },
   footer: {
     component: Footer,
@@ -50,6 +65,13 @@ export default {
     );
   },
   logo: <ThemedImage />,
+  navbar: {
+    extraContent: (
+      <>
+        <ThemeToggle />
+      </>
+    ),
+  },
   nextThemes: {
     defaultTheme: "light",
   },
@@ -61,5 +83,8 @@ export default {
     return {
       titleTemplate: "%s – Taiko",
     };
+  },
+  sidebar: {
+    autoCollapse: true,
   },
 };

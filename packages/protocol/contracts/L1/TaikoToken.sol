@@ -6,27 +6,28 @@
 
 pragma solidity ^0.8.20;
 
-import { ERC20Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { ERC20BurnableUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
-import { ERC20SnapshotUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
-import { PausableUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-
 import { ERC20PermitUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/draft-ERC20PermitUpgradeable.sol";
+import { ERC20SnapshotUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
+import {
+    ERC20Upgradeable,
+    IERC20Upgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { ERC20VotesUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
+import { IMintableERC20 } from "../common/IMintableERC20.sol";
+import { PausableUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import { Proxied } from "../common/Proxied.sol";
 
-library LibTaikoTokenConfig {
-    uint8 public constant DECIMALS = uint8(8);
-}
-
-/// @custom:security-contact hello@taiko.xyz
+/// @title TaikoToken
+/// @notice The TaikoToken (TKO), in the protocol is used for prover collateral
+/// in the form of bonds. It is an ERC20 token with 18 decimal places of
+/// precision.
 contract TaikoToken is
     EssentialContract,
     ERC20Upgradeable,
@@ -34,19 +35,21 @@ contract TaikoToken is
     ERC20SnapshotUpgradeable,
     PausableUpgradeable,
     ERC20PermitUpgradeable,
-    ERC20VotesUpgradeable
+    ERC20VotesUpgradeable,
+    IMintableERC20
 {
-    event Mint(address account, uint256 amount);
-    event Burn(address account, uint256 amount);
-
     error TKO_INVALID_ADDR();
     error TKO_INVALID_PREMINT_PARAMS();
-    error TKO_MINT_DISALLOWED();
 
-    /*//////////////////////////////////////////////////////////////
-                         USER-FACING FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-
+    /// @notice Initializes the TaikoToken contract and mints initial tokens to
+    /// specified recipients.
+    /// @param _addressManager The {AddressManager} address.
+    /// @param _name The name of the token.
+    /// @param _symbol The symbol of the token.
+    /// @param _premintRecipients An array of addresses to receive initial token
+    /// minting.
+    /// @param _premintAmounts An array of token amounts to mint for each
+    /// corresponding recipient.
     function init(
         address _addressManager,
         string calldata _name,
@@ -70,70 +73,80 @@ contract TaikoToken is
         }
     }
 
+    /// @notice Creates a new token snapshot.
     function snapshot() public onlyOwner {
         _snapshot();
     }
 
+    /// @notice Pauses token transfers.
     function pause() public onlyOwner {
         _pause();
     }
 
+    /// @notice Unpauses token transfers.
     function unpause() public onlyOwner {
         _unpause();
     }
 
+    /// @notice Mints new tokens to the specified address.
+    /// @param to The address to receive the minted tokens.
+    /// @param amount The amount of tokens to mint.
     function mint(
         address to,
         uint256 amount
     )
         public
-        onlyFromNamed("proto_broker")
+        onlyFromNamed2("erc20_vault", "taiko")
     {
         _mint(to, amount);
     }
 
+    /// @notice Burns tokens from the specified address.
+    /// @param from The address to burn tokens from.
+    /// @param amount The amount of tokens to burn.
     function burn(
         address from,
         uint256 amount
     )
         public
-        onlyFromNamed("proto_broker")
+        onlyFromNamed2("erc20_vault", "taiko")
     {
         _burn(from, amount);
     }
 
+    /// @notice Transfers tokens to a specified address.
+    /// @param to The address to transfer tokens to.
+    /// @param amount The amount of tokens to transfer.
+    /// @return A boolean indicating whether the transfer was successful or not.
     function transfer(
         address to,
         uint256 amount
     )
         public
-        override
+        override(ERC20Upgradeable, IERC20Upgradeable)
         returns (bool)
     {
         if (to == address(this)) revert TKO_INVALID_ADDR();
         return ERC20Upgradeable.transfer(to, amount);
     }
 
+    /// @notice Transfers tokens from one address to another.
+    /// @param from The address to transfer tokens from.
+    /// @param to The address to transfer tokens to.
+    /// @param amount The amount of tokens to transfer.
+    /// @return A boolean indicating whether the transfer was successful or not.
     function transferFrom(
         address from,
         address to,
         uint256 amount
     )
         public
-        override
+        override(ERC20Upgradeable, IERC20Upgradeable)
         returns (bool)
     {
         if (to == address(this)) revert TKO_INVALID_ADDR();
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
-
-    function decimals() public pure override returns (uint8) {
-        return LibTaikoTokenConfig.DECIMALS;
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                           INTERNAL FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
 
     function _beforeTokenTransfer(
         address from,
@@ -147,7 +160,6 @@ contract TaikoToken is
         super._beforeTokenTransfer(from, to, amount);
     }
 
-    // The following functions are overrides required by Solidity.
     function _afterTokenTransfer(
         address from,
         address to,
@@ -167,10 +179,6 @@ contract TaikoToken is
         override(ERC20Upgradeable, ERC20VotesUpgradeable)
     {
         super._mint(to, amount);
-
-        // TODO: do we need the following check at all?
-        if (totalSupply() > type(uint64).max) revert TKO_MINT_DISALLOWED();
-        emit Mint(to, amount);
     }
 
     function _burn(
@@ -181,8 +189,9 @@ contract TaikoToken is
         override(ERC20Upgradeable, ERC20VotesUpgradeable)
     {
         super._burn(from, amount);
-        emit Burn(from, amount);
     }
 }
 
+/// @title ProxiedTaikoToken
+/// @notice Proxied version of the TaikoToken contract.
 contract ProxiedTaikoToken is Proxied, TaikoToken { }

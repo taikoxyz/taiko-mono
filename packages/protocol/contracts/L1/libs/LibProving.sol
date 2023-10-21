@@ -7,263 +7,177 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
+import { IProofVerifier } from "../IProofVerifier.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
 
 library LibProving {
     using LibMath for uint256;
-    using LibUtils for TaikoData.State;
 
     event BlockProven(
-        uint256 indexed id,
+        uint256 indexed blockId,
         bytes32 parentHash,
         bytes32 blockHash,
         bytes32 signalRoot,
-        address prover,
-        uint32 parentGasUsed
+        address prover
     );
 
     error L1_ALREADY_PROVEN();
-    error L1_BLOCK_ID();
-    error L1_EVIDENCE_MISMATCH(bytes32 expected, bytes32 actual);
-    error L1_FORK_CHOICE_NOT_FOUND();
+    error L1_BLOCK_ID_MISMATCH();
+    error L1_EVIDENCE_MISMATCH();
+    error L1_TRANSITION_NOT_FOUND();
+    error L1_INVALID_BLOCK_ID();
     error L1_INVALID_EVIDENCE();
+    error L1_INVALID_ORACLE_PROVER();
     error L1_INVALID_PROOF();
-    error L1_INVALID_PROOF_OVERWRITE();
-    error L1_NOT_SPECIAL_PROVER();
-    error L1_ORACLE_PROVER_DISABLED();
+    error L1_NOT_PROVEABLE();
     error L1_SAME_PROOF();
-    error L1_SYSTEM_PROVER_DISABLED();
-    error L1_SYSTEM_PROVER_PROHIBITED();
 
     function proveBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
-        uint256 blockId,
+        uint64 blockId,
         TaikoData.BlockEvidence memory evidence
     )
         internal
     {
         if (
-            evidence.parentHash == 0
-            //
-            || evidence.blockHash == 0
-            //
-            || evidence.blockHash == evidence.parentHash
-            //
-            || evidence.signalRoot == 0
-            //
-            || evidence.gasUsed == 0
+            evidence.prover == address(0) || evidence.parentHash == 0
+                || evidence.blockHash == 0 || evidence.signalRoot == 0
         ) revert L1_INVALID_EVIDENCE();
 
-        if (blockId <= state.lastVerifiedBlockId || blockId >= state.numBlocks)
-        {
-            revert L1_BLOCK_ID();
+        TaikoData.SlotB memory b = state.slotB;
+        if (blockId <= b.lastVerifiedBlockId || blockId >= b.numBlocks) {
+            revert L1_INVALID_BLOCK_ID();
         }
 
-        TaikoData.Block storage blk =
-            state.blocks[blockId % config.ringBufferSize];
+        uint64 slot = blockId % config.blockRingBufferSize;
+        TaikoData.Block storage blk = state.blocks[slot];
+
+        if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
 
         // Check the metadata hash matches the proposed block's. This is
         // necessary to handle chain reorgs.
         if (blk.metaHash != evidence.metaHash) {
-            revert L1_EVIDENCE_MISMATCH(blk.metaHash, evidence.metaHash);
+            revert L1_EVIDENCE_MISMATCH();
         }
 
-        // Separate between oracle proof (which needs to be overwritten)
-        // and non-oracle but system proofs
-        address specialProver;
-        if (evidence.prover == address(0)) {
-            specialProver = resolver.resolve("oracle_prover", true);
-            if (specialProver == address(0)) {
-                revert L1_ORACLE_PROVER_DISABLED();
+        if (evidence.prover == LibUtils.ORACLE_PROVER) {
+            // Oracle prover
+            if (msg.sender != resolver.resolve("oracle_prover", false)) {
+                revert L1_INVALID_ORACLE_PROVER();
             }
-        } else if (evidence.prover == address(1)) {
-            specialProver = resolver.resolve("system_prover", true);
-            if (specialProver == address(0)) {
-                revert L1_SYSTEM_PROVER_DISABLED();
-            }
-
+        } else {
+            // A block can be proven by a regular prover in the following cases:
+            // 1. The actual prover is the assigned prover
+            // 2. The block has at least one state transition (which must be
+            // from the assigned prover)
+            // 3. The block has become open
             if (
-                config.realProofSkipSize <= 1
-                    || blockId % config.realProofSkipSize == 0
-            ) {
-                revert L1_SYSTEM_PROVER_PROHIBITED();
-            }
+                evidence.prover != blk.prover && blk.nextTransitionId == 1
+                    && block.timestamp <= blk.proposedAt + config.proofWindow
+            ) revert L1_NOT_PROVEABLE();
         }
 
-        if (specialProver != address(0) && msg.sender != specialProver) {
-            if (evidence.proof.length != 64) {
-                revert L1_NOT_SPECIAL_PROVER();
-            } else {
-                uint8 v = uint8(evidence.verifierId);
-                bytes32 r;
-                bytes32 s;
-                bytes memory data = evidence.proof;
-                assembly {
-                    r := mload(add(data, 32))
-                    s := mload(add(data, 64))
-                }
+        TaikoData.Transition storage tran;
 
-                // clear the proof before hashing evidence
-                evidence.verifierId = 0;
-                evidence.proof = new bytes(0);
+        uint32 tid =
+            LibUtils.getTransitionId(state, blk, slot, evidence.parentHash);
 
-                if (
-                    specialProver
-                        != ecrecover(keccak256(abi.encode(evidence)), v, r, s)
-                ) {
-                    revert L1_NOT_SPECIAL_PROVER();
-                }
-            }
-        }
+        if (tid == 0) {
+            tid = blk.nextTransitionId;
 
-        TaikoData.ForkChoice storage fc;
-
-        uint256 fcId = LibUtils.getForkChoiceId(
-            state, blk, evidence.parentHash, evidence.parentGasUsed
-        );
-
-        if (fcId == 0) {
-            fcId = blk.nextForkChoiceId;
-
+            // Unchecked is safe:
+            // - Not realistic 2**32 different fork choice per block will be
+            // proven and none of them is valid
             unchecked {
-                ++blk.nextForkChoiceId;
+                ++blk.nextTransitionId;
             }
 
-            fc = blk.forkChoices[fcId];
+            tran = state.transitions[slot][tid];
 
-            if (fcId == 1) {
-                // We only write the key when fcId is 1.
-                fc.key = LibUtils.keyForForkChoice(
-                    evidence.parentHash, evidence.parentGasUsed
-                );
+            if (tid == 1) {
+                // We only write the key when tid is 1.
+                tran.key = evidence.parentHash;
             } else {
-                state.forkChoiceIds[blk.blockId][evidence.parentHash][evidence
-                    .parentGasUsed] = fcId;
+                state.transitionIds[blk.blockId][evidence.parentHash] = tid;
             }
-        } else if (evidence.prover == address(0)) {
+        } else if (evidence.prover == LibUtils.ORACLE_PROVER) {
             // This is the branch the oracle prover is trying to overwrite
-            fc = blk.forkChoices[fcId];
+            // We need to check the previous proof is not the same as the
+            // new proof
+            tran = state.transitions[slot][tid];
             if (
-                fc.blockHash == evidence.blockHash
-                    && fc.signalRoot == evidence.signalRoot
-                    && fc.gasUsed == evidence.gasUsed
+                tran.blockHash == evidence.blockHash
+                    && tran.signalRoot == evidence.signalRoot
             ) revert L1_SAME_PROOF();
         } else {
-            // This is the branch provers trying to overwrite
-            fc = blk.forkChoices[fcId];
-            if (fc.prover != address(0) && fc.prover != address(1)) {
-                revert L1_ALREADY_PROVEN();
-            }
-
-            if (
-                fc.blockHash != evidence.blockHash
-                    || fc.signalRoot != evidence.signalRoot
-                    || fc.gasUsed != evidence.gasUsed
-            ) revert L1_INVALID_PROOF_OVERWRITE();
+            revert L1_ALREADY_PROVEN();
         }
 
-        fc.blockHash = evidence.blockHash;
-        fc.signalRoot = evidence.signalRoot;
-        fc.gasUsed = evidence.gasUsed;
-        fc.prover = evidence.prover;
-        fc.provenAt = uint64(block.timestamp);
+        tran.blockHash = evidence.blockHash;
+        tran.signalRoot = evidence.signalRoot;
+        tran.prover = evidence.prover;
+        tran.provenAt = uint64(block.timestamp);
 
-        if (evidence.prover != address(0) && evidence.prover != address(1)) {
-            uint256[10] memory inputs;
-
-            inputs[0] = uint256(
-                uint160(address(resolver.resolve("signal_service", false)))
-            );
-            inputs[1] = uint256(
-                uint160(
-                    address(
-                        resolver.resolve(
-                            config.chainId, "signal_service", false
-                        )
-                    )
-                )
-            );
-            inputs[2] = uint256(
-                uint160(
-                    address(resolver.resolve(config.chainId, "taiko", false))
-                )
-            );
-
-            inputs[3] = uint256(evidence.metaHash);
-            inputs[4] = uint256(evidence.parentHash);
-            inputs[5] = uint256(evidence.blockHash);
-            inputs[6] = uint256(evidence.signalRoot);
-            inputs[7] = uint256(evidence.graffiti);
-            inputs[8] = (uint256(uint160(evidence.prover)) << 96)
-                | (uint256(evidence.parentGasUsed) << 64)
-                | (uint256(evidence.gasUsed) << 32);
-
-            // Also hash configs that will be used by circuits
-            inputs[9] = uint256(config.blockMaxGasLimit) << 192
-                | uint256(config.maxTransactionsPerBlock) << 128
-                | uint256(config.maxBytesPerTxList) << 64;
-
-            bytes32 instance;
-            assembly {
-                instance := keccak256(inputs, mul(32, 10))
-            }
-
-            (bool verified, bytes memory ret) = resolver.resolve(
-                LibUtils.getVerifierName(evidence.verifierId), false
-            ).staticcall(
-                bytes.concat(
-                    bytes16(0),
-                    bytes16(instance), // left 16 bytes of the given instance
-                    bytes16(0),
-                    bytes16(uint128(uint256(instance))), // right 16 bytes of
-                        // the given instance
-                    evidence.proof
-                )
-            );
-
-            if (
-                !verified
-                //
-                || ret.length != 32
-                //
-                || bytes32(ret) != keccak256("taiko")
-            ) {
-                revert L1_INVALID_PROOF();
-            }
-        }
+        IProofVerifier(resolver.resolve("proof_verifier", false)).verifyProofs(
+            blockId, evidence.proofs, getInstance(evidence)
+        );
 
         emit BlockProven({
-            id: blk.blockId,
+            blockId: blockId,
             parentHash: evidence.parentHash,
             blockHash: evidence.blockHash,
             signalRoot: evidence.signalRoot,
-            prover: evidence.prover,
-            parentGasUsed: evidence.parentGasUsed
+            prover: evidence.prover
         });
     }
 
-    function getForkChoice(
+    function getTransition(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        uint256 blockId,
-        bytes32 parentHash,
-        uint32 parentGasUsed
+        uint64 blockId,
+        bytes32 parentHash
     )
         internal
         view
-        returns (TaikoData.ForkChoice storage fc)
+        returns (TaikoData.Transition storage tran)
     {
-        TaikoData.Block storage blk =
-            state.blocks[blockId % config.ringBufferSize];
-        if (blk.blockId != blockId) revert L1_BLOCK_ID();
+        TaikoData.SlotB memory b = state.slotB;
+        if (blockId < b.lastVerifiedBlockId || blockId >= b.numBlocks) {
+            revert L1_INVALID_BLOCK_ID();
+        }
 
-        uint256 fcId =
-            LibUtils.getForkChoiceId(state, blk, parentHash, parentGasUsed);
-        if (fcId == 0) revert L1_FORK_CHOICE_NOT_FOUND();
-        fc = blk.forkChoices[fcId];
+        uint64 slot = blockId % config.blockRingBufferSize;
+        TaikoData.Block storage blk = state.blocks[slot];
+        if (blk.blockId != blockId) revert L1_BLOCK_ID_MISMATCH();
+
+        uint32 tid = LibUtils.getTransitionId(state, blk, slot, parentHash);
+        if (tid == 0) revert L1_TRANSITION_NOT_FOUND();
+
+        tran = state.transitions[slot][tid];
+    }
+
+    function getInstance(TaikoData.BlockEvidence memory evidence)
+        internal
+        pure
+        returns (bytes32 instance)
+    {
+        if (evidence.prover == LibUtils.ORACLE_PROVER) {
+            return 0;
+        } else {
+            return keccak256(
+                abi.encode(
+                    evidence.metaHash,
+                    evidence.parentHash,
+                    evidence.blockHash,
+                    evidence.signalRoot,
+                    evidence.graffiti,
+                    evidence.prover
+                )
+            );
+        }
     }
 }

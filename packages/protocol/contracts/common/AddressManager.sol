@@ -10,16 +10,14 @@ import { OwnableUpgradeable } from
     "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Proxied } from "./Proxied.sol";
 
-/**
- * @notice Interface to set and get an address for a name.
- */
+/// @title IAddressManager
+/// @notice Specifies methods to manage address mappings for given domain-name
+/// pairs.
 interface IAddressManager {
-    /**
-     * Changes the address associated with a particular name.
-     * @param domain Uint256 domain to assiciate an address with.
-     * @param name Name to associate an address with.
-     * @param newAddress Address to associate with the name.
-     */
+    /// @notice Sets the address for a specific domain-name pair.
+    /// @param domain The domain to which the address will be mapped.
+    /// @param name The name to which the address will be mapped.
+    /// @param newAddress The Ethereum address to be mapped.
     function setAddress(
         uint256 domain,
         bytes32 name,
@@ -27,12 +25,10 @@ interface IAddressManager {
     )
         external;
 
-    /**
-     * Retrieves the address associated with a given name.
-     * @param domain Class to retrieve an address for.
-     * @param name Name to retrieve an address for.
-     * @return Address associated with the given name.
-     */
+    /// @notice Gets the address mapped to a specific domain-name pair.
+    /// @param domain The domain for which the address needs to be fetched.
+    /// @param name The name for which the address needs to be fetched.
+    /// @return Address associated with the domain-name pair.
     function getAddress(
         uint256 domain,
         bytes32 name
@@ -42,25 +38,26 @@ interface IAddressManager {
         returns (address);
 }
 
-/// @custom:security-contact hello@taiko.xyz
+/// @title AddressManager
+/// @notice Manages a mapping of domain-name pairs to Ethereum addresses.
 contract AddressManager is OwnableUpgradeable, IAddressManager {
-    mapping(uint256 domain => mapping(bytes32 name => address addr)) private
-        addresses;
+    mapping(uint256 => mapping(bytes32 => address)) private addresses;
 
     event AddressSet(
-        uint256 indexed _domain,
-        bytes32 indexed _name,
-        address _newAddress,
-        address _oldAddress
+        uint256 indexed domain,
+        bytes32 indexed name,
+        address newAddress,
+        address oldAddress
     );
 
-    error EOAOwnerAddressNotAllowed();
+    error EOA_OWNER_NOT_ALLOWED();
 
-    /// @dev Initializer to be called after being deployed behind a proxy.
+    /// @notice Initializes the owner for the upgradable contract.
     function init() external initializer {
         OwnableUpgradeable.__Ownable_init();
     }
 
+    /// @inheritdoc IAddressManager
     function setAddress(
         uint256 domain,
         bytes32 name,
@@ -70,9 +67,8 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         virtual
         onlyOwner
     {
-        // This is to prevent using the owner as named address
         if (newAddress.code.length == 0 && newAddress == msg.sender) {
-            revert EOAOwnerAddressNotAllowed();
+            revert EOA_OWNER_NOT_ALLOWED();
         }
 
         address oldAddress = addresses[domain][name];
@@ -80,6 +76,7 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         emit AddressSet(domain, name, newAddress, oldAddress);
     }
 
+    /// @inheritdoc IAddressManager
     function getAddress(
         uint256 domain,
         bytes32 name
@@ -87,10 +84,12 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         external
         view
         virtual
-        returns (address addr)
+        returns (address)
     {
-        addr = addresses[domain][name];
+        return addresses[domain][name];
     }
 }
 
+/// @title ProxiedAddressManager
+/// @notice Proxied version of the parent contract.
 contract ProxiedAddressManager is Proxied, AddressManager { }

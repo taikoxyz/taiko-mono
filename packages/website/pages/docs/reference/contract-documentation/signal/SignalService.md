@@ -4,11 +4,13 @@ title: SignalService
 
 ## SignalService
 
+See the documentation in {ISignalService} for more details.
+
 ### SignalProof
 
 ```solidity
 struct SignalProof {
-  uint256 height;
+  uint64 height;
   bytes proof;
 }
 ```
@@ -31,6 +33,24 @@ error B_NULL_APP_ADDR()
 error B_WRONG_CHAIN_ID()
 ```
 
+### validApp
+
+```solidity
+modifier validApp(address app)
+```
+
+### validSignal
+
+```solidity
+modifier validSignal(bytes32 signal)
+```
+
+### validChainId
+
+```solidity
+modifier validChainId(uint256 srcChainId)
+```
+
 ### init
 
 ```solidity
@@ -45,19 +65,20 @@ _Initializer to be called after being deployed behind a proxy._
 function sendSignal(bytes32 signal) public returns (bytes32 storageSlot)
 ```
 
-Send a signal by storing the key with a value of 1.
+Send a signal (message) by setting the storage slot to a value
+of 1.
 
 #### Parameters
 
-| Name   | Type    | Description         |
-| ------ | ------- | ------------------- |
-| signal | bytes32 | The signal to send. |
+| Name   | Type    | Description                   |
+| ------ | ------- | ----------------------------- |
+| signal | bytes32 | The signal (message) to send. |
 
 #### Return Values
 
-| Name        | Type    | Description                                        |
-| ----------- | ------- | -------------------------------------------------- |
-| storageSlot | bytes32 | The slot in storage that this signal is persisted. |
+| Name        | Type    | Description                                          |
+| ----------- | ------- | ---------------------------------------------------- |
+| storageSlot | bytes32 | The location in storage where this signal is stored. |
 
 ### isSignalSent
 
@@ -65,14 +86,20 @@ Send a signal by storing the key with a value of 1.
 function isSignalSent(address app, bytes32 signal) public view returns (bool)
 ```
 
-Check if a signal has been sent (key stored with a value of 1).
+Verifies if a particular signal has already been sent.
 
 #### Parameters
 
-| Name   | Type    | Description                         |
-| ------ | ------- | ----------------------------------- |
-| app    | address | The address that sent this message. |
-| signal | bytes32 | The signal to check.                |
+| Name   | Type    | Description                            |
+| ------ | ------- | -------------------------------------- |
+| app    | address | The address that initiated the signal. |
+| signal | bytes32 | The signal (message) to send.          |
+
+#### Return Values
+
+| Name | Type | Description                                        |
+| ---- | ---- | -------------------------------------------------- |
+| [0]  | bool | True if the signal has been sent, otherwise false. |
 
 ### isSignalReceived
 
@@ -80,16 +107,22 @@ Check if a signal has been sent (key stored with a value of 1).
 function isSignalReceived(uint256 srcChainId, address app, bytes32 signal, bytes proof) public view returns (bool)
 ```
 
-Check if signal has been received on the destination chain (current).
+Verifies if a signal has been received on the target chain.
 
 #### Parameters
 
-| Name       | Type    | Description                                             |
-| ---------- | ------- | ------------------------------------------------------- |
-| srcChainId | uint256 | The source chain ID.                                    |
-| app        | address | The address that sent this message.                     |
-| signal     | bytes32 | The signal to check.                                    |
-| proof      | bytes   | The proof of the signal being sent on the source chain. |
+| Name       | Type    | Description                                                           |
+| ---------- | ------- | --------------------------------------------------------------------- |
+| srcChainId | uint256 | The identifier for the source chain from which the signal originated. |
+| app        | address | The address that initiated the signal.                                |
+| signal     | bytes32 | The signal (message) to send.                                         |
+| proof      | bytes   | Merkle proof that the signal was persisted on the source chain.       |
+
+#### Return Values
+
+| Name | Type | Description                                            |
+| ---- | ---- | ------------------------------------------------------ |
+| [0]  | bool | True if the signal has been received, otherwise false. |
 
 ### getSignalSlot
 
@@ -97,21 +130,25 @@ Check if signal has been received on the destination chain (current).
 function getSignalSlot(address app, bytes32 signal) public pure returns (bytes32 signalSlot)
 ```
 
+Get the storage slot of the signal.
+
 #### Parameters
 
-| Name   | Type    | Description                                 |
-| ------ | ------- | ------------------------------------------- |
-| app    | address | The srcAddress of the app (eg. the Bridge). |
-| signal | bytes32 | The signal to store.                        |
+| Name   | Type    | Description                            |
+| ------ | ------- | -------------------------------------- |
+| app    | address | The address that initiated the signal. |
+| signal | bytes32 | The signal to get the storage slot of. |
 
 #### Return Values
 
-| Name       | Type    | Description                                           |
-| ---------- | ------- | ----------------------------------------------------- |
-| signalSlot | bytes32 | The storage key for the signal on the signal service. |
+| Name       | Type    | Description                                                                                                      |
+| ---------- | ------- | ---------------------------------------------------------------------------------------------------------------- |
+| signalSlot | bytes32 | The unique storage slot of the signal which is created by encoding the sender address with the signal (message). |
 
 ---
 
 ## title: ProxiedSignalService
 
 ## ProxiedSignalService
+
+Proxied version of the parent contract.

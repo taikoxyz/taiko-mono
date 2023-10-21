@@ -2,28 +2,47 @@ package http
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"os"
+	"time"
 
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/patrickmn/go-cache"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 
-	echoprom "github.com/labstack/echo-contrib/prometheus"
 	echo "github.com/labstack/echo/v4"
 )
 
+// @title Taiko Eventindexer API
+// @version 1.0
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.url https://community.taiko.xyz/
+// @contact.email info@taiko.xyz
+
+// @license.name MIT
+
+// @host eventindexer.jolnir.taiko.xyz
+// Server represents an eventindexer http server instance.
 type Server struct {
-	echo      *echo.Echo
-	eventRepo eventindexer.EventRepository
-	statRepo  eventindexer.StatRepository
+	echo           *echo.Echo
+	eventRepo      eventindexer.EventRepository
+	statRepo       eventindexer.StatRepository
+	nftBalanceRepo eventindexer.NFTBalanceRepository
+	chartRepo      eventindexer.ChartRepository
+	cache          *cache.Cache
 }
 
 type NewServerOpts struct {
-	Echo        *echo.Echo
-	EventRepo   eventindexer.EventRepository
-	StatRepo    eventindexer.StatRepository
-	CorsOrigins []string
+	Echo           *echo.Echo
+	EventRepo      eventindexer.EventRepository
+	StatRepo       eventindexer.StatRepository
+	NFTBalanceRepo eventindexer.NFTBalanceRepository
+	ChartRepo      eventindexer.ChartRepository
+	EthClient      *ethclient.Client
+	CorsOrigins    []string
 }
 
 func (opts NewServerOpts) Validate() error {
@@ -43,6 +62,10 @@ func (opts NewServerOpts) Validate() error {
 		return eventindexer.ErrNoCORSOrigins
 	}
 
+	if opts.NFTBalanceRepo == nil {
+		return eventindexer.ErrNoNFTBalanceRepository
+	}
+
 	return nil
 }
 
@@ -51,10 +74,15 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 		return nil, err
 	}
 
+	cache := cache.New(5*time.Minute, 10*time.Minute)
+
 	srv := &Server{
-		echo:      opts.Echo,
-		eventRepo: opts.EventRepo,
-		statRepo:  opts.StatRepo,
+		echo:           opts.Echo,
+		eventRepo:      opts.EventRepo,
+		statRepo:       opts.StatRepo,
+		nftBalanceRepo: opts.NFTBalanceRepo,
+		chartRepo:      opts.ChartRepo,
+		cache:          cache,
 	}
 
 	corsOrigins := opts.CorsOrigins
@@ -116,18 +144,4 @@ func (srv *Server) configureMiddleware(corsOrigins []string) {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
 		AllowMethods: []string{http.MethodGet, http.MethodHead},
 	}))
-
-	srv.configureAndStartPrometheus()
-}
-
-func (srv *Server) configureAndStartPrometheus() {
-	// Enable metrics middleware
-	p := echoprom.NewPrometheus("echo", nil)
-	p.Use(srv.echo)
-	e := echo.New()
-	p.SetMetricsPath(e)
-
-	go func() {
-		_ = e.Start(fmt.Sprintf(":%v", os.Getenv("PROMETHEUS_HTTP_PORT")))
-	}()
 }

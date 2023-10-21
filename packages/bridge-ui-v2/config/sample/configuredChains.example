@@ -1,0 +1,37 @@
+{
+  "configuredChains": [
+    {
+      "123456": {
+        "name": "",
+        "type": "L1",
+        "icon": "path/or/url/to/icon",
+        "urls": {
+          "rpc": "",
+          "explorer": ""
+        }
+      }
+    },
+    {
+      "78910": {
+        "name": "",
+        "type": "L2",
+        "icon": "path/or/url/to/icon",
+        "urls": {
+          "rpc": "",
+          "explorer": ""
+        }
+      }
+    },
+    {
+      "98765": {
+        "name": "",
+        "type": "L3",
+        "icon": "path/or/url/to/icon",
+        "urls": {
+          "rpc": "",
+          "explorer": ""
+        }
+      }
+    }
+  ]
+}

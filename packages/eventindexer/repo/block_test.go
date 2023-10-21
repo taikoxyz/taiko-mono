@@ -1,13 +1,15 @@
 package repo
 
 import (
+	"context"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/db"
-	"gopkg.in/go-playground/assert.v1"
 )
 
 func Test_NewBlockRepo(t *testing.T) {
@@ -36,7 +38,7 @@ func Test_NewBlockRepo(t *testing.T) {
 	}
 }
 
-func TestIntegration_Block_Save(t *testing.T) {
+func TestIntegration_RawBlock_Save(t *testing.T) {
 	db, close, err := testMysql(t)
 	assert.Equal(t, nil, err)
 
@@ -44,55 +46,56 @@ func TestIntegration_Block_Save(t *testing.T) {
 
 	blockRepo, err := NewBlockRepository(db)
 	assert.Equal(t, nil, err)
+
+	header := &types.Header{
+		ParentHash:  common.HexToHash("0x3a537c89809712367218bb171b3b1c46aa95df3dee7200ae9dc78f4052024068"),
+		UncleHash:   common.HexToHash("0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"),
+		Coinbase:    common.HexToAddress("0x0000000000000000000000000000000000000000"),
+		Root:        common.HexToHash("0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"),
+		TxHash:      common.HexToHash("0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"),
+		ReceiptHash: common.HexToHash("0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"),
+		Bloom:       types.Bloom{},
+		Difficulty:  new(big.Int).SetInt64(2),
+		Number:      new(big.Int).SetInt64(1),
+		GasLimit:    100000,
+		GasUsed:     2000,
+		Time:        1234,
+		Extra:       []byte{0x7f},
+		MixDigest:   common.HexToHash("0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"),
+		Nonce:       types.BlockNonce{0x13},
+		BaseFee:     big.NewInt(10),
+	}
+	b := types.NewBlockWithHeader(header)
+
+	genesisHeader := &types.Header{
+		Time: 0,
+	}
+
+	b2 := types.NewBlockWithHeader(genesisHeader)
+
 	tests := []struct {
 		name    string
-		opts    eventindexer.SaveBlockOpts
+		block   *types.Block
+		chainID *big.Int
 		wantErr error
 	}{
 		{
 			"success",
-			eventindexer.SaveBlockOpts{
-				ChainID: big.NewInt(1),
-				Height:  100,
-				Hash:    common.HexToHash("0x1234"),
-			},
+			b,
+			big.NewInt(0),
 			nil,
 		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err = blockRepo.Save(tt.opts)
-			assert.Equal(t, tt.wantErr, err)
-		})
-	}
-}
-
-func TestIntegration_Block_GetLatestBlockProcessedForEvent(t *testing.T) {
-	db, close, err := testMysql(t)
-	assert.Equal(t, nil, err)
-
-	defer close()
-
-	blockRepo, err := NewBlockRepository(db)
-	assert.Equal(t, nil, err)
-	tests := []struct {
-		name      string
-		eventName string
-		chainID   *big.Int
-		wantErr   error
-	}{
 		{
-			"success",
-			eventindexer.EventNameBlockProposed,
-			big.NewInt(1),
+			"genesis",
+			b2,
+			big.NewInt(0),
 			nil,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := blockRepo.GetLatestBlockProcessed(tt.chainID)
+			err := blockRepo.Save(context.Background(), tt.block, tt.chainID)
 			assert.Equal(t, tt.wantErr, err)
 		})
 	}

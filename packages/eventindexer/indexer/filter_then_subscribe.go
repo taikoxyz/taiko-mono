@@ -2,131 +2,114 @@ package indexer
 
 import (
 	"context"
+	"fmt"
 	"math/big"
+
+	"log/slog"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 )
 
-func (svc *Service) FilterThenSubscribe(
+func (indxr *Indexer) filterThenSubscribe(
 	ctx context.Context,
-	mode eventindexer.Mode,
-	watchMode eventindexer.WatchMode,
+	filter FilterFunc,
 ) error {
-	chainID, err := svc.ethClient.ChainID(ctx)
+	chainID, err := indxr.ethClient.ChainID(ctx)
 	if err != nil {
-		return errors.Wrap(err, "svc.ethClient.ChainID()")
+		return errors.Wrap(err, "indxr.ethClient.ChainID()")
 	}
 
-	if watchMode == eventindexer.SubscribeWatchMode {
-		return svc.subscribe(ctx, chainID)
+	if indxr.watchMode == Subscribe {
+		return indxr.subscribe(ctx, chainID)
 	}
 
-	if err := svc.setInitialProcessingBlockByMode(ctx, mode, chainID); err != nil {
-		return errors.Wrap(err, "svc.setInitialProcessingBlockByMode")
+	if err := indxr.setInitialProcessingBlockByMode(ctx, indxr.syncMode, chainID); err != nil {
+		return errors.Wrap(err, "indxr.setInitialProcessingBlockByMode")
 	}
 
-	header, err := svc.ethClient.HeaderByNumber(ctx, nil)
+	header, err := indxr.ethClient.HeaderByNumber(ctx, nil)
 	if err != nil {
-		return errors.Wrap(err, "svc.ethClient.HeaderByNumber")
+		return errors.Wrap(err, "indxr.ethClient.HeaderByNumber")
 	}
 
-	if svc.processingBlockHeight == header.Number.Uint64() {
-		log.Infof("chain ID %v caught up, subscribing to new incoming events", chainID.Uint64())
-		return svc.subscribe(ctx, chainID)
+	if indxr.processingBlockHeight == header.Number.Uint64() {
+		slog.Info("indexing caught up subscribing to new incoming events", "chainID", chainID.Uint64())
+		return indxr.subscribe(ctx, chainID)
 	}
 
-	log.Infof("chain ID %v getting events between %v and %v in batches of %v",
-		chainID.Uint64(),
-		svc.processingBlockHeight,
-		header.Number.Int64(),
-		svc.blockBatchSize,
+	slog.Info("getting batch of events",
+		"chainID", chainID.Uint64(),
+		"startBlock", indxr.processingBlockHeight,
+		"endBlock", header.Number.Int64(),
+		"batchSize", indxr.blockBatchSize,
 	)
 
-	for i := svc.processingBlockHeight; i < header.Number.Uint64(); i += svc.blockBatchSize {
-		end := svc.processingBlockHeight + svc.blockBatchSize
+	for i := indxr.processingBlockHeight; i < header.Number.Uint64(); i += indxr.blockBatchSize {
+		end := indxr.processingBlockHeight + indxr.blockBatchSize
 		// if the end of the batch is greater than the latest block number, set end
 		// to the latest block number
 		if end > header.Number.Uint64() {
 			end = header.Number.Uint64()
 		}
 
+		// filter exclusive of the end block.
+		// we use "end" as the next starting point of the batch, and
+		// process up to end - 1 for this batch.
+		filterEnd := end - 1
+
+		fmt.Printf("block batch from %v to %v", i, filterEnd)
+		fmt.Println()
+
 		filterOpts := &bind.FilterOpts{
-			Start:   svc.processingBlockHeight,
-			End:     &end,
+			Start:   indxr.processingBlockHeight,
+			End:     &filterEnd,
 			Context: ctx,
 		}
 
-		blockProvenEvents, err := svc.taikol1.FilterBlockProven(filterOpts, nil)
-		if err != nil {
-			return errors.Wrap(err, "svc.taikol1.FilterBlockProven")
+		if err := filter(ctx, chainID, indxr, filterOpts); err != nil {
+			return errors.Wrap(err, "filter")
 		}
 
-		err = svc.saveBlockProvenEvents(ctx, chainID, blockProvenEvents)
+		header, err := indxr.ethClient.HeaderByNumber(ctx, big.NewInt(int64(end)))
 		if err != nil {
-			return errors.Wrap(err, "svc.saveBlockProvenEvents")
+			return errors.Wrap(err, "indxr.ethClient.HeaderByNumber")
 		}
 
-		blockProposedEvents, err := svc.taikol1.FilterBlockProposed(filterOpts, nil)
-		if err != nil {
-			return errors.Wrap(err, "svc.taikol1.FilterBlockProposed")
-		}
+		slog.Info("setting last processed block", "height", end, "hash", header.Hash().Hex())
 
-		err = svc.saveBlockProposedEvents(ctx, chainID, blockProposedEvents)
-		if err != nil {
-			return errors.Wrap(err, "svc.saveBlockProposedEvents")
-		}
-
-		blockVerifiedEvents, err := svc.taikol1.FilterBlockVerified(filterOpts, nil)
-		if err != nil {
-			return errors.Wrap(err, "svc.taikol1.FilterBlockVerified")
-		}
-
-		err = svc.saveBlockVerifiedEvents(ctx, chainID, blockVerifiedEvents)
-		if err != nil {
-			return errors.Wrap(err, "svc.saveBlockVerifiedEvents")
-		}
-
-		header, err := svc.ethClient.HeaderByNumber(ctx, big.NewInt(int64(end)))
-		if err != nil {
-			return errors.Wrap(err, "svc.ethClient.HeaderByNumber")
-		}
-
-		log.Infof("setting last processed block to height: %v, hash: %v", end, header.Hash().Hex())
-
-		if err := svc.blockRepo.Save(eventindexer.SaveBlockOpts{
+		if err := indxr.processedBlockRepo.Save(eventindexer.SaveProcessedBlockOpts{
 			Height:  uint64(end),
 			Hash:    header.Hash(),
 			ChainID: chainID,
 		}); err != nil {
-			return errors.Wrap(err, "svc.blockRepo.Save")
+			return errors.Wrap(err, "indxr.blockRepo.Save")
 		}
 
 		eventindexer.BlocksProcessed.Inc()
 
-		svc.processingBlockHeight = uint64(end)
+		indxr.processingBlockHeight = uint64(end)
 	}
 
-	log.Infof(
-		"chain id %v indexer fully caught up, checking latest block number to see if it's advanced",
-		chainID.Uint64(),
+	slog.Info(
+		"fully caught up, checking blockNumber to see if advanced",
+		"chainID", chainID.Uint64(),
 	)
 
-	latestBlock, err := svc.ethClient.HeaderByNumber(ctx, nil)
+	latestBlock, err := indxr.ethClient.HeaderByNumber(ctx, nil)
 	if err != nil {
-		return errors.Wrap(err, "svc.ethclient.HeaderByNumber")
+		return errors.Wrap(err, "indxr.ethclient.HeaderByNumber")
 	}
 
-	if svc.processingBlockHeight < latestBlock.Number.Uint64() {
-		return svc.FilterThenSubscribe(ctx, eventindexer.SyncMode, watchMode)
+	if indxr.processingBlockHeight < latestBlock.Number.Uint64() {
+		return indxr.filterThenSubscribe(ctx, filter)
 	}
 
 	// we are caught up and specified not to subscribe, we can return now
-	if watchMode == eventindexer.FilterWatchMode {
+	if indxr.watchMode == Filter {
 		return nil
 	}
 
-	return svc.subscribe(ctx, chainID)
+	return indxr.subscribe(ctx, chainID)
 }

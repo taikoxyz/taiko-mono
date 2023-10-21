@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 )
 
 var (
@@ -60,7 +60,8 @@ func (b *Bridge) WatchMessageSent(
 
 		sink <- &bridge.BridgeMessageSent{
 			Message: bridge.IBridgeMessage{
-				SrcChainId: big.NewInt(1),
+				SrcChainId:  big.NewInt(1),
+				DestChainId: MockChainID,
 			},
 		}
 		b.MessagesSent++

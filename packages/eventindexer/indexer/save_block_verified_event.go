@@ -4,36 +4,36 @@ import (
 	"context"
 	"encoding/json"
 	"math/big"
+	"time"
+
+	"log/slog"
 
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
 )
 
-func (svc *Service) saveBlockVerifiedEvents(
+func (indxr *Indexer) saveBlockVerifiedEvents(
 	ctx context.Context,
 	chainID *big.Int,
 	events *taikol1.TaikoL1BlockVerifiedIterator,
 ) error {
 	if !events.Next() || events.Event == nil {
-		log.Infof("no BlockVerified events")
+		slog.Info("no BlockVerified events")
 		return nil
 	}
 
 	for {
 		event := events.Event
 
-		log.Infof("new blockVerified event, blockId: %v", event.Id)
-
-		if err := svc.detectAndHandleReorg(ctx, eventindexer.EventNameBlockVerified, event.Id.Int64()); err != nil {
-			return errors.Wrap(err, "svc.detectAndHandleReorg")
+		if err := indxr.detectAndHandleReorg(ctx, eventindexer.EventNameBlockVerified, event.BlockId.Int64()); err != nil {
+			return errors.Wrap(err, "indxr.detectAndHandleReorg")
 		}
 
-		if err := svc.saveBlockVerifiedEvent(ctx, chainID, event); err != nil {
+		if err := indxr.saveBlockVerifiedEvent(ctx, chainID, event); err != nil {
 			eventindexer.BlockVerifiedEventsProcessedError.Inc()
 
-			return errors.Wrap(err, "svc.saveBlockVerifiedEvent")
+			return errors.Wrap(err, "indxr.saveBlockVerifiedEvent")
 		}
 
 		if !events.Next() {
@@ -42,70 +42,39 @@ func (svc *Service) saveBlockVerifiedEvents(
 	}
 }
 
-func (svc *Service) saveBlockVerifiedEvent(
+func (indxr *Indexer) saveBlockVerifiedEvent(
 	ctx context.Context,
 	chainID *big.Int,
 	event *taikol1.TaikoL1BlockVerified,
 ) error {
+	slog.Info("new blockVerified event", "blockID", event.BlockId.Int64())
+
 	marshaled, err := json.Marshal(event)
 	if err != nil {
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
-	blockID := event.Id.Int64()
+	blockID := event.BlockId.Int64()
 
-	_, err = svc.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
-		Name:    eventindexer.EventNameBlockVerified,
-		Data:    string(marshaled),
-		ChainID: chainID,
-		Event:   eventindexer.EventNameBlockVerified,
-		Address: "",
-		BlockID: &blockID,
+	block, err := indxr.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
+	if err != nil {
+		return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
+	}
+
+	_, err = indxr.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
+		Name:         eventindexer.EventNameBlockVerified,
+		Data:         string(marshaled),
+		ChainID:      chainID,
+		Event:        eventindexer.EventNameBlockVerified,
+		Address:      "",
+		BlockID:      &blockID,
+		TransactedAt: time.Unix(int64(block.Time()), 0),
 	})
 	if err != nil {
-		return errors.Wrap(err, "svc.eventRepo.Save")
+		return errors.Wrap(err, "indxr.eventRepo.Save")
 	}
 
 	eventindexer.BlockVerifiedEventsProcessed.Inc()
-
-	if err := svc.updateAverageBlockReward(ctx, event); err != nil {
-		return errors.Wrap(err, "svc.updateAverageBlockReward")
-	}
-
-	return nil
-}
-
-func (svc *Service) updateAverageBlockReward(ctx context.Context, event *taikol1.TaikoL1BlockVerified) error {
-	reward := event.Reward
-
-	stat, err := svc.statRepo.Find(ctx)
-	if err != nil {
-		return errors.Wrap(err, "svc.statRepo.Find")
-	}
-
-	avg, ok := new(big.Int).SetString(stat.AverageProofReward, 10)
-	if !ok {
-		return errors.New("unable to convert average proof reward to string")
-	}
-
-	newAverageProofReward := calcNewAverage(
-		avg,
-		new(big.Int).SetUint64(stat.NumVerifiedBlocks),
-		new(big.Int).SetUint64(reward),
-	)
-	log.Infof("blockVerified reward update. id: %v, newAvg: %v, oldAvg: %v, reward: %v",
-		event.Id.String(),
-		newAverageProofReward.String(),
-		avg.String(),
-		reward,
-	)
-
-	_, err = svc.statRepo.Save(ctx, eventindexer.SaveStatOpts{
-		ProofReward: newAverageProofReward,
-	})
-	if err != nil {
-		return errors.Wrap(err, "svc.statRepo.Save")
-	}
 
 	return nil
 }

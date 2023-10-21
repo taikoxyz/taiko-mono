@@ -2,7 +2,7 @@ import daisyuiPlugin from 'daisyui';
 
 /** @type {import('tailwindcss').Config} */
 export default {
-  darkMode: ['class', '[data-theme]'],
+  darkMode: ['class', '[data-theme="dark"]'],
   content: ['./src/**/*.{html,js,svelte,ts}'],
   theme: {
     extend: {
@@ -115,6 +115,15 @@ export default {
             hover: 'var(--primary-interactive-accent)',
             accent: 'var(--primary-interactive-accent)',
           },
+          border: {
+            DEFAULT: 'var(--primary-border)',
+            hover: 'var(--primary-border-hover)',
+            accent: 'var(--primary-border-accent)',
+          },
+          base: {
+            content: 'var(--primary-base-content)',
+            background: 'var(--primary-base-background)',
+          },
         },
 
         secondary: {
@@ -131,16 +140,30 @@ export default {
           content: 'var(--tertiary-content)',
           interactive: {
             hover: 'var(--tertiary-interactive-hover)',
+            accent: 'var(--tertiary-interactive-accent)',
           },
         },
 
-        'positive-sentiment': 'var(--positive-sentiment)',
-        'negative-sentiment': 'var(--negative-sentiment)',
-        'warning-sentiment': 'var(--warning-sentiment)',
+        positive: {
+          sentiment: 'var(--positive-sentiment)',
+          background: 'var(--positive-background)',
+        },
+
+        negative: {
+          sentiment: 'var(--negative-sentiment)',
+          background: 'var(--negative-background)',
+        },
+
+        warning: {
+          sentiment: 'var(--warning-sentiment)',
+          background: 'var(--warning-background)',
+        },
 
         'elevated-background': 'var(--elevated-background)',
         'neutral-background': 'var(--neutral-background)',
         'overlay-background': 'var(--overlay-background)',
+
+        'divider-border': 'var(--divider-border)',
       },
     },
   },
@@ -161,6 +184,7 @@ export default {
         dark: {
           'color-scheme': 'dark',
           '--btn-text-case': 'capitalize',
+          // '--rounded-box': '0.625rem', // 10px
 
           '--primary-brand': '#C8047D', // pink-500
           '--primary-content': '#F3F3F3', // grey-10
@@ -170,10 +194,15 @@ export default {
           '--primary-background': '#0B101B', // grey-900
           '--primary-interactive': '#C8047D', // pink-500
           '--primary-interactive-accent': '#E81899', // pink-400
+          '--primary-border': '#5D636F', // grey-500
+          '--primary-border-hover': '#FF6FC8', // pink-200
+          '--primary-border-accent': '#E81899', // pink-400
+          '--primary-base-background': '#FFFFFF', // grey-0
+          '--primary-base-content': '#191E28', // grey-800
 
           '--secondary-brand': '#E81899', // pink-400
           '--secondary-content': '#ADB1B8', // grey-200
-          '--secondary-icon': '#444A55', // grey-600
+          '--secondary-icon': '#2B303B', // grey-700
           '--secondary-interactive-hover': '#2B303B', // grey-700
 
           '--tertiary-content': '#5D636F', // grey-500
@@ -181,12 +210,19 @@ export default {
           '--tertiary-interactive-accent': '#5D636F', // grey-500
 
           '--positive-sentiment': '#47E0A0', // green-300
+          '--positive-background': '#00321D', // green-800
+
           '--negative-sentiment': '#F15C5D', // red-300
+          '--negative-background': '#440000', // red-800
+
           '--warning-sentiment': '#EBB222', // yellow-400
+          '--warning-background': '#382800', // yellow-800
 
           '--elevated-background': '#191E28', // grey-800
           '--neutral-background': '#2B303B', // grey-700
           '--overlay-background': 'rgba(12, 17, 28, 0.5)', // grey-900|50%
+          '--overlay-dialog': 'rgba(12, 17, 28, 0.90)', // grey-900|90%
+          '--divider-border': '#444A55', // grey-600
 
           // ================================ //
 
@@ -194,35 +230,100 @@ export default {
           'primary-focus': '#E81899', // pink-400
           'primary-content': '#F3F3F3', // grey-10
 
+          secondary: '#E81899', // pink-400
+          // 'secondary-focus': '',
+          'secondary-content': '#ADB1B8', // grey-200
+
           neutral: '#2B303B', // grey-700
           'neutral-focus': '#444A55', // grey-600
           'neutral-content': '#F3F3F3', // grey-10
 
           'base-100': '#0B101B', // grey-900
+          // 'base-200': '',
+          // 'base-300': '',
           'base-content': '#F3F3F3', // grey-10
 
           success: '#00321D', // green-800
+          'success-content': '#47E0A0', // green-300
           error: '#440000', // red-800
+          'error-content': '#F15C5D', // red-300
           warning: '#382800', // yellow-800
+          'warning-content': '#EBB222', // yellow-400
         },
 
         light: {
-          // TODO: add light theme
-
           'color-scheme': 'light',
           '--btn-text-case': 'capitalize',
+          // '--rounded-box': '0.625rem', // 10px
 
+          '--primary-brand': '#C8047D', // pink-500
           '--primary-content': '#191E28', // grey-800
+          '--primary-link': '#C8047D', // pink-500
+          '--primary-link-hover': '#E81899', // pink-400
+          '--primary-icon': '#5D636F', // grey-500
           '--primary-background': '#FAFAFA', // grey-5
+          '--primary-interactive': '#C8047D', // pink-500
+          '--primary-interactive-accent': '#E81899', // pink-400
+          '--primary-border': '#91969F', // grey-300
+          '--primary-border-hover': '#FF6FC8', // pink-200
+          '--primary-border-accent': '#E81899', // pink-400
+
+          // TODO: these two are yet to be decided
+          '--primary-base-background': '#FFFFFF', // grey-0
+          '--primary-base-content': '#191E28', // grey-800
+
+          '--secondary-brand': '#E81899', // pink-400
+          '--secondary-content': '#444A55', // grey-600
+          '--secondary-icon': '#2B303B', // grey-700
+          '--secondary-interactive-hover': '#F3F3F3', // grey-10
+
+          '--tertiary-content': '#91969F', // grey-300
+
+          // TODO: these two are missing. Remain the same as dark theme
+          '--tertiary-interactive-hover': '#444A55', // grey-600
+          '--tertiary-interactive-accent': '#5D636F', // grey-500
+
+          '--positive-sentiment': '#005E36', // green-700
+          '--positive-background': '#BFFFE4', // green-50
+
+          '--negative-sentiment': '#BB1A1B', // red-600
+          '--negative-background': '#FFE7E7', // red-10
+
+          '--warning-sentiment': '#775602', // yellow-700
+          '--warning-background': '#FFF6DE', // yellow-10
+
+          '--elevated-background': '#FAFAFA', // grey-5
+          '--neutral-background': '#E7E7E7', // grey-50
+          '--overlay-background': 'rgba(12, 17, 28, 0.2)', // grey-900|20%
+          '--overlay-dialog': 'rgba(12, 17, 28, 0.9)', // grey-900|20%
+
+          '--divider-border': '#CACBCE', // grey-100
 
           // ================================ //
 
+          primary: '#C8047D', // pink-500,
+          'primary-focus': '#E81899', // pink-400
+          'primary-content': '#191E28', // grey-800
+
+          secondary: '#E81899', // pink-400
+          // 'secondary-focus': '',
+          'secondary-content': '#444A55', // grey-600
+
+          neutral: '#E7E7E7', // grey-50
+          'neutral-focus': '#CACBCE', // grey-100
+          'neutral-content': '#191E28', // grey-800
+
           'base-100': '#FAFAFA', // grey-5
+          // 'base-200': '',
+          // 'base-300': '',
           'base-content': '#191E28', // grey-800
 
-          success: '#E4FFF4', // green-10
+          success: '#BFFFE4', // green-50
+          'success-content': '#005E36', // green-700
           error: '#FFE7E7', // red-10
+          'error-content': '#BB1A1B', // red-600
           warning: '#FFF6DE', // yellow-10
+          'warning-content': '#775602', // yellow-700
         },
       },
     ],

@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"math/big"
+	"time"
+
+	"log/slog"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
 )
@@ -17,29 +19,27 @@ var (
 	oracleProver = common.HexToAddress("0x0000000000000000000000000000000000000000")
 )
 
-func (svc *Service) saveBlockProvenEvents(
+func (indxr *Indexer) saveBlockProvenEvents(
 	ctx context.Context,
 	chainID *big.Int,
 	events *taikol1.TaikoL1BlockProvenIterator,
 ) error {
 	if !events.Next() || events.Event == nil {
-		log.Infof("no blockProven events")
+		slog.Info("no blockProven events")
 		return nil
 	}
 
 	for {
 		event := events.Event
 
-		if err := svc.detectAndHandleReorg(ctx, eventindexer.EventNameBlockProven, event.Id.Int64()); err != nil {
-			return errors.Wrap(err, "svc.detectAndHandleReorg")
+		if err := indxr.detectAndHandleReorg(ctx, eventindexer.EventNameBlockProven, event.BlockId.Int64()); err != nil {
+			return errors.Wrap(err, "indxr.detectAndHandleReorg")
 		}
 
-		log.Infof("blockProven by: %v", event.Prover.Hex())
-
-		if err := svc.saveBlockProvenEvent(ctx, chainID, event); err != nil {
+		if err := indxr.saveBlockProvenEvent(ctx, chainID, event); err != nil {
 			eventindexer.BlockProvenEventsProcessedError.Inc()
 
-			return errors.Wrap(err, "svc.saveBlockProvenEvent")
+			return errors.Wrap(err, "indxr.saveBlockProvenEvent")
 		}
 
 		if !events.Next() {
@@ -48,57 +48,69 @@ func (svc *Service) saveBlockProvenEvents(
 	}
 }
 
-func (svc *Service) saveBlockProvenEvent(
+func (indxr *Indexer) saveBlockProvenEvent(
 	ctx context.Context,
 	chainID *big.Int,
 	event *taikol1.TaikoL1BlockProven,
 ) error {
-	log.Infof("blockProven event found, id: %v", event.Id.Int64())
+	slog.Info("blockProven event found",
+		"blockID", event.BlockId.Int64(),
+		"prover", event.Prover.Hex())
 
 	marshaled, err := json.Marshal(event)
 	if err != nil {
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
-	blockID := event.Id.Int64()
+	blockID := event.BlockId.Int64()
 
-	_, err = svc.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
-		Name:    eventindexer.EventNameBlockProven,
-		Data:    string(marshaled),
-		ChainID: chainID,
-		Event:   eventindexer.EventNameBlockProven,
-		Address: event.Prover.Hex(),
-		BlockID: &blockID,
+	block, err := indxr.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
+	if err != nil {
+		return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
+	}
+
+	_, err = indxr.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
+		Name:         eventindexer.EventNameBlockProven,
+		Data:         string(marshaled),
+		ChainID:      chainID,
+		Event:        eventindexer.EventNameBlockProven,
+		Address:      event.Prover.Hex(),
+		BlockID:      &blockID,
+		TransactedAt: time.Unix(int64(block.Time()), 0),
 	})
 	if err != nil {
-		return errors.Wrap(err, "svc.eventRepo.Save")
+		return errors.Wrap(err, "indxr.eventRepo.Save")
 	}
 
 	eventindexer.BlockProvenEventsProcessed.Inc()
 
 	if event.Prover.Hex() != systemProver.Hex() && event.Prover.Hex() != oracleProver.Hex() {
-		if err := svc.updateAverageProofTime(ctx, event); err != nil {
-			return errors.Wrap(err, "svc.updateAverageProofTime")
+		if err := indxr.updateAverageProofTime(ctx, event); err != nil {
+			return errors.Wrap(err, "indxr.updateAverageProofTime")
 		}
 	}
 
 	return nil
 }
 
-func (svc *Service) updateAverageProofTime(ctx context.Context, event *taikol1.TaikoL1BlockProven) error {
-	block, err := svc.taikol1.GetBlock(nil, event.Id)
+func (indxr *Indexer) updateAverageProofTime(ctx context.Context, event *taikol1.TaikoL1BlockProven) error {
+	block, err := indxr.taikol1.GetBlock(nil, event.BlockId.Uint64())
+	// will be unable to GetBlock for older blocks, just return nil, we dont
+	// care about averageProofTime that much to be honest for older blocks
 	if err != nil {
-		return errors.Wrap(err, "svc.taikoL1.GetBlock")
+		slog.Error("getBlock error", "err", err.Error())
+
+		return nil
 	}
 
-	eventBlock, err := svc.ethClient.BlockByHash(ctx, event.Raw.BlockHash)
+	eventBlock, err := indxr.ethClient.BlockByHash(ctx, event.Raw.BlockHash)
 	if err != nil {
-		return errors.Wrap(err, "svc.ethClient.BlockByHash")
+		return errors.Wrap(err, "indxr.ethClient.BlockByHash")
 	}
 
-	stat, err := svc.statRepo.Find(ctx)
+	stat, err := indxr.statRepo.Find(ctx)
 	if err != nil {
-		return errors.Wrap(err, "svc.statRepo.Find")
+		return errors.Wrap(err, "indxr.statRepo.Find")
 	}
 
 	proposedAt := block.ProposedAt
@@ -118,21 +130,28 @@ func (svc *Service) updateAverageProofTime(ctx context.Context, event *taikol1.T
 		new(big.Int).SetUint64(proofTime),
 	)
 
-	log.Infof("avgProofTime update: id: %v, prover: %v, proposedAt: %v, provenAt: %v, proofTIme: %v, avg: %v, newAvg: %v",
-		event.Id.Int64(),
+	slog.Info("avgProofWindow update",
+		"id",
+		event.BlockId.Int64(),
+		"prover",
 		event.Prover.Hex(),
+		"proposedAt",
 		proposedAt,
+		"provenAt",
 		provenAt,
+		"proofTime",
 		proofTime,
+		"avg",
 		avg.String(),
+		"newAvg",
 		newAverageProofTime.String(),
 	)
 
-	_, err = svc.statRepo.Save(ctx, eventindexer.SaveStatOpts{
+	_, err = indxr.statRepo.Save(ctx, eventindexer.SaveStatOpts{
 		ProofTime: newAverageProofTime,
 	})
 	if err != nil {
-		return errors.Wrap(err, "svc.statRepo.Save")
+		return errors.Wrap(err, "indxr.statRepo.Save")
 	}
 
 	return nil

@@ -4,8 +4,8 @@ title: EtherVault
 
 ## EtherVault
 
-This contract is initialized with 2^128 Ether and allows authorized addresses
-to release Ether.
+This contract is initialized with 2^128 Ether and allows authorized
+addresses to release Ether.
 
 _Only the contract owner can authorize or deauthorize addresses._
 
@@ -33,9 +33,9 @@ modifier onlyAuthorized()
 receive() external payable
 ```
 
-Function to receive Ether
+Function to receive Ether.
 
-_Only authorized addresses can send Ether to the contract_
+_Only authorized addresses can send Ether to the contract._
 
 ### init
 
@@ -43,13 +43,13 @@ _Only authorized addresses can send Ether to the contract_
 function init(address addressManager) external
 ```
 
-Initialize the contract with an address manager
+Initializes the contract with an {AddressManager}.
 
 #### Parameters
 
-| Name           | Type    | Description                        |
-| -------------- | ------- | ---------------------------------- |
-| addressManager | address | The address of the address manager |
+| Name           | Type    | Description                                   |
+| -------------- | ------- | --------------------------------------------- |
+| addressManager | address | The address of the {AddressManager} contract. |
 
 ### releaseEther
 
@@ -57,8 +57,8 @@ Initialize the contract with an address manager
 function releaseEther(uint256 amount) public
 ```
 
-Transfer Ether from EtherVault to the sender, checking that the sender
-is authorized.
+Transfers Ether from EtherVault to the sender, checking that the
+sender is authorized.
 
 #### Parameters
 
@@ -72,8 +72,8 @@ is authorized.
 function releaseEther(address recipient, uint256 amount) public
 ```
 
-Transfer Ether from EtherVault to a designated address, checking that the
-sender is authorized.
+Transfers Ether from EtherVault to a designated address,
+checking that the sender is authorized.
 
 #### Parameters
 
@@ -88,7 +88,8 @@ sender is authorized.
 function authorize(address addr, bool authorized) public
 ```
 
-Set the authorized status of an address, only the owner can call this.
+Sets the authorized status of an address, only the owner can
+call this function.
 
 #### Parameters
 
@@ -103,7 +104,7 @@ Set the authorized status of an address, only the owner can call this.
 function isAuthorized(address addr) public view returns (bool)
 ```
 
-Get the authorized status of an address.
+Gets the authorized status of an address.
 
 #### Parameters
 
@@ -116,3 +117,5 @@ Get the authorized status of an address.
 ## title: ProxiedEtherVault
 
 ## ProxiedEtherVault
+
+Proxied version of the parent contract.

@@ -4,30 +4,31 @@ import (
 	"context"
 	"math/big"
 
+	"log/slog"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 )
 
 // subscribe subscribes to latest events
-func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
-	log.Info("subscribing to new events")
+func (i *Indexer) subscribe(ctx context.Context, chainID *big.Int) error {
+	slog.Info("subscribing to new events")
 
 	errChan := make(chan error)
 
-	go svc.subscribeMessageSent(ctx, chainID, errChan)
+	go i.subscribeMessageSent(ctx, chainID, errChan)
 
-	go svc.subscribeMessageStatusChanged(ctx, chainID, errChan)
+	go i.subscribeMessageStatusChanged(ctx, chainID, errChan)
 
 	// nolint: gosimple
 	for {
 		select {
 		case <-ctx.Done():
-			log.Info("context finished")
+			slog.Info("context finished")
 			return nil
 		case err := <-errChan:
 			relayer.ErrorsEncounteredDuringSubscription.Inc()
@@ -37,17 +38,17 @@ func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 	}
 }
 
-func (svc *Service) subscribeMessageSent(ctx context.Context, chainID *big.Int, errChan chan error) {
+func (i *Indexer) subscribeMessageSent(ctx context.Context, chainID *big.Int, errChan chan error) {
 	sink := make(chan *bridge.BridgeMessageSent)
 
-	sub := event.ResubscribeErr(svc.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
+	sub := event.ResubscribeErr(i.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
 		if err != nil {
-			log.Errorf("svc.bridge.WatchMessageSent: %v", err)
+			slog.Error("i.bridge.WatchMessageSent", "error", err)
 		}
 
-		log.Info("resubscribing to WatchMessageSent events")
+		slog.Info("resubscribing to WatchMessageSent events")
 
-		return svc.bridge.WatchMessageSent(&bind.WatchOpts{
+		return i.bridge.WatchMessageSent(&bind.WatchOpts{
 			Context: ctx,
 		}, sink, nil)
 	})
@@ -57,35 +58,35 @@ func (svc *Service) subscribeMessageSent(ctx context.Context, chainID *big.Int, 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Info("context finished")
+			slog.Info("context finished")
 			return
 		case err := <-sub.Err():
 			errChan <- errors.Wrap(err, "sub.Err()")
 		case event := <-sink:
 			go func() {
-				log.Infof("new message sent event %v from chainID %v", common.Hash(event.MsgHash).Hex(), chainID.String())
-				err := svc.handleEvent(ctx, chainID, event)
+				slog.Info("new message sent event", "msgHash", common.Hash(event.MsgHash).Hex(), "chainID", chainID.String())
+				err := i.handleEvent(ctx, chainID, event)
 
 				if err != nil {
-					log.Errorf("svc.subscribe, svc.handleEvent: %v", err)
+					slog.Error("i.subscribe, i.handleEvent", "error", err)
 					return
 				}
 
-				block, err := svc.blockRepo.GetLatestBlockProcessedForEvent(relayer.EventNameMessageSent, chainID)
+				block, err := i.blockRepo.GetLatestBlockProcessedForEvent(relayer.EventNameMessageSent, chainID)
 				if err != nil {
-					log.Errorf("svc.subscribe, blockRepo.GetLatestBlockProcessedForEvent: %v", err)
+					slog.Error("i.subscribe, blockRepo.GetLatestBlockProcessedForEvent", "error", err)
 					return
 				}
 
 				if block.Height < event.Raw.BlockNumber {
-					err = svc.blockRepo.Save(relayer.SaveBlockOpts{
+					err = i.blockRepo.Save(relayer.SaveBlockOpts{
 						Height:    event.Raw.BlockNumber,
 						Hash:      event.Raw.BlockHash,
 						ChainID:   chainID,
 						EventName: relayer.EventNameMessageSent,
 					})
 					if err != nil {
-						log.Errorf("svc.subscribe, svc.blockRepo.Save: %v", err)
+						slog.Error("i.subscribe, i.blockRepo.Save", "error", err)
 						return
 					}
 
@@ -96,16 +97,16 @@ func (svc *Service) subscribeMessageSent(ctx context.Context, chainID *big.Int, 
 	}
 }
 
-func (svc *Service) subscribeMessageStatusChanged(ctx context.Context, chainID *big.Int, errChan chan error) {
+func (i *Indexer) subscribeMessageStatusChanged(ctx context.Context, chainID *big.Int, errChan chan error) {
 	sink := make(chan *bridge.BridgeMessageStatusChanged)
 
-	sub := event.ResubscribeErr(svc.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
+	sub := event.ResubscribeErr(i.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
 		if err != nil {
-			log.Errorf("svc.bridge.WatchMessageStatusChanged: %v", err)
+			slog.Error("i.bridge.WatchMessageStatusChanged", "error", err)
 		}
-		log.Info("resubscribing to WatchMessageStatusChanged events")
+		slog.Info("resubscribing to WatchMessageStatusChanged events")
 
-		return svc.bridge.WatchMessageStatusChanged(&bind.WatchOpts{
+		return i.bridge.WatchMessageStatusChanged(&bind.WatchOpts{
 			Context: ctx,
 		}, sink, nil)
 	})
@@ -115,15 +116,18 @@ func (svc *Service) subscribeMessageStatusChanged(ctx context.Context, chainID *
 	for {
 		select {
 		case <-ctx.Done():
-			log.Info("context finished")
+			slog.Info("context finished")
 			return
 		case err := <-sub.Err():
 			errChan <- errors.Wrap(err, "sub.Err()")
 		case event := <-sink:
-			log.Infof("new message status changed event %v from chainID %v", common.Hash(event.MsgHash).Hex(), chainID.String())
+			slog.Info("new message status changed event",
+				"msgHash", common.Hash(event.MsgHash).Hex(),
+				"chainID", chainID.String(),
+			)
 
-			if err := svc.saveMessageStatusChangedEvent(ctx, chainID, event); err != nil {
-				log.Errorf("svc.subscribe, svc.saveMessageStatusChangedEvent: %v", err)
+			if err := i.saveMessageStatusChangedEvent(ctx, chainID, event); err != nil {
+				slog.Error("i.subscribe, i.saveMessageStatusChangedEvent", "error", err)
 			}
 		}
 	}

@@ -1,0 +1,217 @@
+import { Callout, Steps, Tab, Tabs } from "nextra-theme-docs";
+import Image from "next/image";
+
+# Run a Taiko node
+
+This guide will help you start up a Taiko RPC node using [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node).
+
+## Prerequisites
+
+- [Docker](https://docs.docker.com/engine/install/) is installed and **running**.
+- [Git](https://github.com/git-guides/install-git/) is installed.
+- If using Windows, you should install [Git BASH](https://gitforwindows.org/) or [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) to use as your terminal.
+- Meet the [Geth minimum hardware requirements](https://github.com/ethereum/go-ethereum#hardware-requirements) except for the storage requirement because Taiko nodes will require less storage. As of `2023-09-18` a node uses less than **10 GB**. **100 GB** should be future proof enough if you intend to run your node for a while.
+
+## Steps
+
+<Steps>
+### Clone simple-taiko-node
+
+<Tabs items={["Mac/Linux", "Windows"]} defaultIndex="0">
+  <Tab>
+
+```sh
+git clone https://github.com/taikoxyz/simple-taiko-node.git
+cd simple-taiko-node
+```
+
+  </Tab>
+  <Tab>
+
+```sh
+git clone https://github.com/taikoxyz/simple-taiko-node.git
+cd simple-taiko-node
+git config core.autocrlf false
+```
+
+  </Tab>
+</Tabs>
+
+### Copy the sample .env files
+
+```sh
+cp .env.sample .env
+```
+
+### Set the required values in the .env file
+
+**First**, open the `.env` in your preferred text editor:
+
+<Tabs items={["Mac/Linux", "Windows"]} defaultIndex="0">
+  <Tab>
+
+```sh
+nano .env
+```
+
+  </Tab>
+  <Tab>
+
+```sh
+notepad .env
+```
+
+  </Tab>
+</Tabs>
+
+**Next**, you will set the L1 archive node endpoints.
+
+<Callout>
+You can use any Sepolia L1 endpoint, but it must point to an archive node to access the state trie beyond the last 128 blocks.
+
+It's recommended to follow **Local** below, otherwise you **may need to use a paid account for a Sepolia RPC provider**. Alchemy and Infura will work temporarily, but will eventually rate limit the requests for a free account, and your node will stop syncing.
+
+If you run into rate limit issues, many community members have had success by changing the HTTPS endpoint to `https://rpc.sepolia.org`.
+
+</Callout>
+
+<Tabs items={["Local", "Alchemy", "Infura"]} defaultIndex="0">
+  <Tab>
+  If you are running a local Sepolia node, you cannot reference the L1 endpoints as `http://127.0.0.1:8545` and `ws://127.0.0.1:8546` because that is local to inside the simple-taiko-node Docker image. Depending on your firewall setup, you can do a few things. You can try:
+  - Using `host.docker.internal` (see: [stack overflow](https://stackoverflow.com/questions/24319662))
+  - Using the private ip address of your machine (use something like `ip addr show` to get this ip address)
+  </Tab>
+  <Tab>
+  First, sign in to [Alchemy's dashboard](https://www.alchemy.com/).
+  ![Alchemy dashboard sign in](/images/guides/alchemy/sign-in.png)
+  
+  Then, go to "Create App".
+  ![dashboard click create app](/images/guides/alchemy/dashboard.png)
+
+Next, configure your app:
+
+- For "name", enter "Taiko Node", or your preferred name.
+- For "chain", select "Ethereum".
+- For "network", select "Ethereum Sepolia".
+
+Then, click the "Create app" button.
+![create an Alchemy app](/images/guides/alchemy/create-app.png)
+
+After, go to "Dashboard", and click "view key".
+
+You should see `https://eth-sepolia...` and `wss://eth-sepolia...`. Copy both endpoints.
+
+These are your `L1_ENDPOINT_HTTP` and `L1_ENDPOINT_WS` on your `.env`.
+![view Alchemy app key](/images/guides/alchemy/view-key.png)
+
+  </Tab>
+  <Tab>
+  First, sign in to [Infura's dashboard](https://www.infura.io/).
+  ![Infura dashboard sign in](/images/guides/infura/sign-in.png)
+
+Next, go to "API Keys", and click the "create new API key" button:
+
+- For "network", select "Web3 API".
+- For "name", enter "Taiko Node", or your preferred name.
+
+Then, click the "create" button.
+![create API key](/images/guides/infura/create-key.png)
+
+You should be redirected to your app's page.
+
+Then go to "Endpoints", and select "Sepolia". Copy the `https://sepolia.infura...` endpoint.
+
+This is your `L1_ENDPOINT_HTTP` on your `.env`.
+![get HTTPS endpoints](/images/guides/infura/https-endpoints.png)
+
+Next, go to "WebSockets", and copy the `wss://sepolia.infura...` endpoint.
+
+This is your `L1_ENDPOINT_WS` on your `.env`.
+![get WSS endpoints](/images/guides/infura/wss-endpoints.png)
+
+  </Tab>
+</Tabs>
+
+**Finally**, set the following L1 node endpoints in your `.env` file:
+
+- `L1_ENDPOINT_HTTP`
+- `L1_ENDPOINT_WS`
+
+Take a look at the comments above these values in the `.env.sample` to see how to set them up.
+
+### Start a node
+
+Make sure Docker is running and then run the following command to start the node:
+
+```sh
+docker compose up -d
+```
+
+> Note: You may need to use `sudo docker compose up -d` if you are not in the `docker` group.
+
+### Verify node is running
+
+#### Option 1: Check with the node dashboard
+
+A node dashboard will be running on `localhost` on the `GRAFANA_PORT` you set in your `.env` file, which defaults to `3001`: [http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview](http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview).
+
+<br />
+<Image
+  src="/images/guides/node-dashboard.png"
+  alt="taiko node dashboard"
+  width={2539}
+  height={1106}
+/>
+
+You can verify that your node is syncing by checking that the **chain head** on the dashboard (see above) is increasing. Once the chain head matches what's on the block explorer, you are fully synced.
+
+#### Option 2: Check with curl commands
+
+1. Check if the Execution Layer client is connected to Taiko L2:
+
+```bash
+curl http://localhost:8547 \
+  -X POST \
+  -H "Content-Type: application/json" \
+  --data '{"method":"eth_chainId","params":[],"id":1,"jsonrpc":"2.0"}'
+```
+
+which should return the chainId as `0x28c5f` (167007):
+
+```json
+{ "jsonrpc": "2.0", "id": 1, "result": "0x28c5f" }
+```
+
+2. Check if the Execution Layer client is synced by requesting the latest Taiko L2 / L3 block from the Execution Layer client:
+
+```bash
+curl http://localhost:8547 \
+  -X POST \
+  -H "Content-Type: application/json" \
+  --data '{"method":"eth_blockNumber","params":[],"id":1,"jsonrpc":"2.0"}'
+```
+
+3. If the blockNumber response value is `0` or not growing, check the Taiko L2 logs here:
+
+```bash
+docker compose logs -f
+```
+
+> Note: You may need to use `sudo docker compose logs -f` if you are not in the `docker` group.
+
+### Operate the node
+
+You can find all node operations (eg. stop node, update node, remove node, view logs) in the [Node runner manual](/docs/manuals/node-runner-manual).
+
+</Steps>
+
+## Videos
+
+{/* TODO(docs): add new video for L2 node running below */}
+
+- [Run a Taiko L2 node (YouTube)](https://www.youtube.com/watch?v=l_tVvDcuK5o) (deprecated, but still useful)
+
+## Troubleshooting
+
+- View the [Node troubleshooting reference](/docs/reference/node-troubleshooting) for help on any common error codes / issues.
+- View the logs of the node (see all log commands in the [Node runner manual](/docs/manuals/node-runner-manual)).

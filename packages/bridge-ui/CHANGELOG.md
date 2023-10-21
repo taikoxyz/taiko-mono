@@ -1,5 +1,51 @@
 # Changelog
 
+## [0.10.1](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.10.0...bridge-ui-v0.10.1) (2023-09-25)
+
+
+### Bug Fixes
+
+* **repo:** fix vercel build for bridge-ui ([#14655](https://github.com/taikoxyz/taiko-mono/issues/14655)) ([09c11bb](https://github.com/taikoxyz/taiko-mono/commit/09c11bb378c23ef021b947455eb2c7f59fb4e9eb))
+
+## [0.10.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.9.1...bridge-ui-v0.10.0) (2023-08-15)
+
+
+### Features
+
+* **protocol:** alpha-4 with staking-based tokenomics ([#14065](https://github.com/taikoxyz/taiko-mono/issues/14065)) ([1eeba9d](https://github.com/taikoxyz/taiko-mono/commit/1eeba9d97ed8e6e4a8d07a8b0af163a16fbc9ccf))
+
+
+### Bug Fixes
+
+* **bridge-ui:** ignoring minters for BLL error ([#14457](https://github.com/taikoxyz/taiko-mono/issues/14457)) ([1257568](https://github.com/taikoxyz/taiko-mono/commit/1257568bc815d1aac8420d3c28166e62ed6ab94f))
+* **bridge-ui:** return true if the token address is found on dest chain to send correct gas limit ([#14446](https://github.com/taikoxyz/taiko-mono/issues/14446)) ([116b902](https://github.com/taikoxyz/taiko-mono/commit/116b902acb4c5619f39cdc673b0a855085523c34))
+* **bridge-ui:** set to null when chainID is not one of the two supported, so prevchain can be checked ([#14468](https://github.com/taikoxyz/taiko-mono/issues/14468)) ([c47d5e1](https://github.com/taikoxyz/taiko-mono/commit/c47d5e1552ba9fa3708553a10296495df76ebbe0))
+* **pos-dashboard:** Staking dashboard bug fixes ([#14447](https://github.com/taikoxyz/taiko-mono/issues/14447)) ([fd54f13](https://github.com/taikoxyz/taiko-mono/commit/fd54f13c19e59d9fbbab84fc85d8519eab51f623))
+
+## [0.9.1](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.9.0...bridge-ui-v0.9.1) (2023-07-10)
+
+
+### Bug Fixes
+
+* **bridge-ui:** fix svelte-check failures ([#14137](https://github.com/taikoxyz/taiko-mono/issues/14137)) ([a35eac2](https://github.com/taikoxyz/taiko-mono/commit/a35eac28fcef02591faa0538ecbcb0fff1db5ce2))
+* **bridge-ui:** handle scientific notation ([#14105](https://github.com/taikoxyz/taiko-mono/issues/14105)) ([fcc154e](https://github.com/taikoxyz/taiko-mono/commit/fcc154e058a28cd42ad3e9239a3943668d370fad))
+* **bridge-ui:** migrate to wallet connect 2.0 ([#14094](https://github.com/taikoxyz/taiko-mono/issues/14094)) ([eda0333](https://github.com/taikoxyz/taiko-mono/commit/eda0333e34098684b19bc37305b90772e2bf8787))
+
+## [0.9.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.8.0...bridge-ui-v0.9.0) (2023-06-26)
+
+
+### Features
+
+* **bridge-ui:** sentry integration ([#13943](https://github.com/taikoxyz/taiko-mono/issues/13943)) ([05baee8](https://github.com/taikoxyz/taiko-mono/commit/05baee8ca113b607f89c3cc25354768c8d368b46))
+
+
+### Bug Fixes
+
+* **bridge-ui:** add extra info to sentry ([#13972](https://github.com/taikoxyz/taiko-mono/issues/13972)) ([50a1034](https://github.com/taikoxyz/taiko-mono/commit/50a1034812ded4ed890f9859fc603bfc801dcdc3))
+* **bridge-ui:** filtering out BLL token failure when bridging ([#13969](https://github.com/taikoxyz/taiko-mono/issues/13969)) ([300be15](https://github.com/taikoxyz/taiko-mono/commit/300be15d3fdcdc9297a7b28427cfcdc905991306))
+* **bridge-ui:** fix issue in beforeSend ([#13971](https://github.com/taikoxyz/taiko-mono/issues/13971)) ([08baec0](https://github.com/taikoxyz/taiko-mono/commit/08baec00cfdc235c0baf3d139a8a62df6e34e914))
+* **bridge-ui:** reduce sample rate ([#14051](https://github.com/taikoxyz/taiko-mono/issues/14051)) ([e836d7d](https://github.com/taikoxyz/taiko-mono/commit/e836d7da3fdd11e443618af15318b1d93bca117e))
+
 ## [0.8.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.7.1...bridge-ui-v0.8.0) (2023-06-12)
 
 
