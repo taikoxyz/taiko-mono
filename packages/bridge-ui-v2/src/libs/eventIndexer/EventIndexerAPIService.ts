@@ -1,6 +1,7 @@
 import axios from 'axios';
 import type { Address } from 'viem';
 
+import { apiService } from '$config';
 import type { ChainID } from '$libs/chain';
 import { getLogger } from '$libs/util/logger';
 
@@ -25,7 +26,7 @@ export class EventIndexerAPIService implements EventIndexerAPI {
 
       const response = await axios.get<EventIndexerAPIResponse>(requestURL, {
         params,
-        timeout: 5000, // todo: discuss and move to config
+        timeout: apiService.timeout,
       });
 
       if (!response || response.status >= 400) throw response;

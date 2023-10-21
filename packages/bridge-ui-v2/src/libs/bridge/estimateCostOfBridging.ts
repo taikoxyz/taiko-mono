@@ -1,9 +1,12 @@
 import { getPublicClient } from '@wagmi/core';
 
 import type { Bridge } from './Bridge';
-import type { BridgeArgs } from './types';
+import type { BridgeArgs, ERC20BridgeArgs, ERC721BridgeArgs, ERC1155BridgeArgs } from './types';
 
-export async function estimateCostOfBridging(bridge: Bridge, bridgeArgs: BridgeArgs) {
+export async function estimateCostOfBridging(
+  bridge: Bridge,
+  bridgeArgs: BridgeArgs | ERC1155BridgeArgs | ERC20BridgeArgs | ERC721BridgeArgs,
+) {
   const publicClient = getPublicClient();
 
   // Calculate the estimated cost of bridging

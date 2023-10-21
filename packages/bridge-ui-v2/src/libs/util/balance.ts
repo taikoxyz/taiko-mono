@@ -4,9 +4,9 @@ import { formatEther } from 'viem';
 import { truncateString } from '$libs/util/truncateString';
 import { ethBalance } from '$stores/balance';
 
-export function renderBalance(balance: Maybe<FetchBalanceResult>) {
+export function renderBalance(balance: Maybe<FetchBalanceResult | bigint>) {
   if (!balance) return '0.00';
-
+  if (typeof balance === 'bigint') return balance.toString();
   const maxlength = Number(balance.formatted) < 0.000001 ? balance.decimals : 6;
   return `${truncateString(balance.formatted, maxlength, '')} ${balance.symbol}`;
 }

@@ -66,7 +66,7 @@
     // We want to inform the user that they need to connect
     // their wallet if they want to change the network
     if (!$account.isConnected) {
-      warningToast($t('messages.account.required'));
+      warningToast({title: $t('messages.account.required')});
       return;
     }
     addEscKeyListener();
@@ -89,10 +89,10 @@
       } catch (err) {
         console.error(err);
         if (err instanceof SwitchChainError) {
-          warningToast($t('messages.network.pending'));
+          warningToast({title: $t('messages.network.pending')});
         }
         if (err instanceof UserRejectedRequestError) {
-          warningToast($t('messages.network.rejected'));
+          warningToast({title: $t('messages.network.rejected')});
         }
       } finally {
         switchingNetwork = false;
