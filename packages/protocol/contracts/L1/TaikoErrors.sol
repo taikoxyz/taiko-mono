@@ -28,12 +28,8 @@ abstract contract TaikoErrors {
     error L1_INVALID_CONFIG();
     error L1_INVALID_ETH_DEPOSIT();
     error L1_INVALID_EVIDENCE();
-    error L1_INVALID_METADATA();
     error L1_INVALID_PARAM();
     error L1_INVALID_PROOF();
-    error L1_INVALID_PROPOSER();
-    error L1_INVALID_PROVER();
-    error L1_INVALID_PROVER_SIG();
     error L1_INVALID_TIER();
     error L1_NOT_ASSIGNED_PROVER();
     error L1_TIER_NOT_FOUND();
