@@ -23,6 +23,7 @@ type HopParams struct {
 	TaikoAddress         common.Address
 	Blocker              blocker
 	Caller               relayer.Caller
+	BlockNumber          uint64
 }
 
 // EncodedSignalProof rlp and abi encodes the SignalProof struct expected by SignalService
@@ -112,7 +113,7 @@ func (p *Prover) EncodedSignalProofWithHops(
 			hop.Caller,
 			hop.SignalServiceAddress,
 			common.Bytes2Hex(hopStorageSlotKey[:]),
-			int64(blockNum),
+			int64(hop.BlockNumber),
 		)
 		if err != nil {
 			return nil, 0, errors.Wrap(err, "hop p.getEncodedStorageProof")

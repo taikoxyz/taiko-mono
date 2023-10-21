@@ -97,6 +97,8 @@ func (p *Processor) processMessage(
 		var hopEthClient ethClient = p.srcEthClient
 
 		for _, hop := range p.hops {
+			hop.blockNum = blockNum
+
 			err := p.waitHeaderSynced(ctx, hop.headerSyncer, hopEthClient, blockNum)
 
 			if err != nil {
@@ -159,6 +161,7 @@ func (p *Processor) processMessage(
 			Caller:               hop.caller,
 			SignalService:        hop.signalService,
 			TaikoAddress:         hop.taikoAddress,
+			BlockNumber:          blockNum,
 		})
 	}
 
