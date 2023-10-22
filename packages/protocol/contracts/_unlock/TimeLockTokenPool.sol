@@ -15,6 +15,7 @@ import { SafeERC20Upgradeable } from
 import { Proxied } from "../common/Proxied.sol";
 
 /// @title TimeLockTokenPool
+// BUGGY BUGGY BUGGY BUGGY BUGGY BUGGY BUGGY BUGGY BUGGY
 contract TimeLockTokenPool is OwnableUpgradeable {
     using SafeERC20Upgradeable for ERC20Upgradeable;
 
