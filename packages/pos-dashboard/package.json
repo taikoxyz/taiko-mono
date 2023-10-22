@@ -22,14 +22,14 @@
     "@babel/preset-env": "^7.16.0",
     "@sentry/vite-plugin": "^2.2.1",
     "@sveltejs/vite-plugin-svelte": "^1.0.1",
-    "@tsconfig/svelte": "^5.0.2",
+    "@tsconfig/svelte": "^3.0.0",
     "@types/debug": "^4.1.7",
     "@types/eslint": "^8.2.1",
     "@types/estree": "^0.0.50",
     "@types/jest": "^27.0.2",
     "@types/mixpanel": "^2.14.3",
     "@types/sanitize-html": "^2.6.2",
-    "@typescript-eslint/eslint-plugin": "^6.6.0",
+    "@typescript-eslint/eslint-plugin": "^5.16.0",
     "@typescript-eslint/parser": "^5.16.0",
     "@wagmi/cli": "^1.0.1",
     "@zerodevx/svelte-toast": "^0.6.3",
@@ -52,8 +52,8 @@
     "prettier-plugin-svelte": "^2.9.0",
     "rollup-plugin-node-builtins": "^2.0.0",
     "rollup-plugin-polyfill-node": "^0.10.2",
-    "svelte": "^3.53.1",
-    "svelte-check": "^2.8.0",
+    "svelte": "^4.1.0",
+    "svelte-check": "^3.4.6",
     "svelte-heros-v2": "^0.3.10",
     "svelte-jester": "^2.1.5",
     "svelte-loader": "^3.1.2",
@@ -65,7 +65,7 @@
     "ts-loader": "^9.2.6",
     "tslib": "^2.4.0",
     "typescript": "^4.6.4",
-    "vite": "^3.2.7"
+    "vite": "^4.4.9"
   },
   "dependencies": {
     "@coinbase/wallet-sdk": "^3.6.3",
@@ -80,6 +80,7 @@
     "identicon.js": "^2.3.3",
     "svelte-i18n": "^3.5.1",
     "svelte-spa-router": "^3.2.0",
-    "wagmi": "^0.12.16"
+    "viem": "^1.16.6",
+    "wagmi": "^1.4.4"
   }
 }

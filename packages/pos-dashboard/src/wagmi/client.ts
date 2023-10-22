@@ -1,4 +1,4 @@
-import { type Chain, configureChains, createClient } from 'wagmi';
+import { type Chain, configureChains, createConfig } from 'wagmi';
 import { CoinbaseWalletConnector } from 'wagmi/connectors/coinbaseWallet';
 import { MetaMaskConnector } from 'wagmi/connectors/metaMask';
 import { WalletConnectConnector } from 'wagmi/connectors/walletConnect';
@@ -31,7 +31,7 @@ export const mainnetWagmiChain: Chain = {
   },
 };
 
-const { chains, provider } = configureChains(
+const { chains, publicClient } = configureChains(
   [mainnetWagmiChain],
   [
     publicProvider(),
@@ -43,9 +43,9 @@ const { chains, provider } = configureChains(
   ],
 );
 
-export const client = createClient({
+export const client = createConfig({
   autoConnect: true,
-  provider,
+  publicClient,
   connectors: [
     !isMobileDevice() ? new MetaMaskConnector({ chains }) : null,
     new WalletConnectConnector({

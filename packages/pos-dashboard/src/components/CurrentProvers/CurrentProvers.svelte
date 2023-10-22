@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { EVENT_INDEXER_API_URL } from '../../constants/envVars';
-  import getCurrentProvers from '../../utils/getCurrentProvers';
-  import { onMount } from 'svelte';
-  import type { Prover } from '../../domain/prover';
   import { ethers } from 'ethers';
+  import { onMount } from 'svelte';
+  
+  import { EVENT_INDEXER_API_URL } from '../../constants/envVars';
+  import type { Prover } from '../../domain/prover';
+  import getCurrentProvers from '../../utils/getCurrentProvers';
   import { truncateString } from '../../utils/truncateString';
   let provers: Prover[] = [];
 

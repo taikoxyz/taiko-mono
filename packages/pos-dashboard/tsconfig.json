@@ -5,6 +5,8 @@
     "useDefineForClassFields": true,
     "module": "es2022",
     "resolveJsonModule": true,
+    "preserveValueImports": false,
+    "ignoreDeprecations": "5.0",
     "baseUrl": ".",
     /**
      * Typecheck JS in `.svelte` and `.js` files by default.
