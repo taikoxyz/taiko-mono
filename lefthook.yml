@@ -8,6 +8,9 @@ pre-commit:
     bridge-ui-v2:
       glob: "packages/bridge-ui-v2/**.{js,ts,css,svelte}"
       run: pnpm -F bridge-ui-v2 svelte:check && pnpm -F bridge-ui-v2 lint:fix && git add {staged_files}
+    pos-dashboard:
+      glob: "packages/pos-dashboard/**.{js,ts,css,svelte}"
+      run: pnpm -F pos-dashboard svelte:check && pnpm -F pos-dashboard lint:fix && git add {staged_files}
     protocol_sol:
       glob: "packages/protocol/**.{sol}"
       run: pnpm -F protocol lint:sol && git add {staged_files}
