@@ -15,15 +15,10 @@ import { SafeERC20Upgradeable } from
 import { Proxied } from "../common/Proxied.sol";
 
 /// @title TimeLockTokenPool
-// BUGGY BUGGY BUGGY BUGGY BUGGY BUGGY BUGGY BUGGY BUGGY
 contract TimeLockTokenPool is OwnableUpgradeable {
     using SafeERC20Upgradeable for ERC20Upgradeable;
 
     struct Grant {
-        // If `grantStart` or `grantPeriod` is 0, `amount` indicates the total
-        // tokens already owned by the recipient.
-        // Otherwise, `amount` represents the total grant amount, governed by
-        // the schedule set by `grantStart` and `grantPeriod`.
         uint256 amount;
         // If non-zero, indicates the start time for the recipient to receive
         // tokens, subject to an unlocking schedule.
@@ -69,7 +64,9 @@ contract TimeLockTokenPool is OwnableUpgradeable {
     function grant(address recipient, Grant memory g) external onlyOwner {
         if (recipient == address(0)) revert INVALID_PARAM();
         if (g.amount == 0) revert INVALID_PARAM();
+
         recipients[recipient].grants.push(g);
+        emit Granted(recipient, g);
     }
 
     /// @notice Puts a stop to all grants given to an address and settles
@@ -78,9 +75,11 @@ contract TimeLockTokenPool is OwnableUpgradeable {
     /// unlocks.
     function settle(address recipient) external onlyOwner {
         Recipient storage r = recipients[recipient];
+        uint256 totalSettled;
         for (uint256 i; i < r.grants.length; ++i) {
-            _settleGrant(r.grants[i]);
+            totalSettled += _settleGrant(r.grants[i]);
         }
+        if (totalSettled == 0) revert NOTHING_TO_SETTLE();
         emit Settled(recipient);
     }
 
@@ -97,6 +96,7 @@ contract TimeLockTokenPool is OwnableUpgradeable {
         if (amount == 0) revert NOTHING_TO_WITHDRAW();
 
         r.amountWithdrawn += amount;
+        totalAmountWithdrawn += amount;
         ERC20Upgradeable(taikoToken).transfer(msg.sender, amount);
 
         emit Withdrawn(msg.sender, amount);
@@ -130,8 +130,9 @@ contract TimeLockTokenPool is OwnableUpgradeable {
         return recipients[recipient].grants;
     }
 
-    function _settleGrant(Grant storage g) private {
-        g.amount = _getAmountOwned(g);
+    function _settleGrant(Grant storage g) private returns (uint256 amount) {
+        amount = _getAmountOwned(g);
+        g.amount = amount;
         g.grantStart = 0;
         g.grantPeriod = 0;
     }
