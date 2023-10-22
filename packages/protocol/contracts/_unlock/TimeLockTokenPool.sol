@@ -20,9 +20,11 @@ contract TimeLockTokenPool is OwnableUpgradeable {
     using SafeERC20Upgradeable for ERC20Upgradeable;
 
     struct Grant {
-        uint64 effectiveAt;
-        uint64 unlockWindow;
         uint128 amount;
+        uint64 grantStart;
+        uint64 grantWindow;
+        uint64 unlockStart;
+        uint64 unlockWindow;
     }
 
     struct Recipient {
@@ -53,29 +55,21 @@ contract TimeLockTokenPool is OwnableUpgradeable {
 
     /// @notice Gives a new grant to a address with its own unlock schedule.
     /// This transaction should happen on a regular basis, e.g., quarterly.
-    function grant(
-        address recipient,
-        uint64 effectiveAt,
-        uint64 unlockWindow,
-        uint128 amount
-    )
-        external
-        onlyOwner
-    {
-        if (recipient == address(0)) revert INVALID_PARAM();
-        if (effectiveAt < block.timestamp - 30 days) revert INVALID_PARAM();
-        if (amount == 0) revert INVALID_PARAM();
+    function grant(address recipient, Grant calldata g) external onlyOwner {
+        // if (g.recipient == address(0)) revert INVALID_PARAM();
+        // if (g.grantStart < block.timestamp - 30 days) revert INVALID_PARAM();
+        // if (g.amount == 0) revert INVALID_PARAM();
 
-        uint64 _unlockWindow;
-        if (unlockWindow != 0) {
-            if (unlockWindow < 365 days) revert INVALID_PARAM();
-            if (unlockWindow > 4 * 365 days) revert INVALID_PARAM();
-            _unlockWindow = unlockWindow;
-        } else {
-            _unlockWindow = 4 * 365 days;
-        }
+        // uint64 _unlockWindow;
+        // if (unlockWindow != 0) {
+        //     if (unlockWindow < 365 days) revert INVALID_PARAM();
+        //     if (unlockWindow > 4 * 365 days) revert INVALID_PARAM();
+        //     _unlockWindow = unlockWindow;
+        // } else {
+        //     _unlockWindow = 4 * 365 days;
+        // }
 
-        Grant memory g = Grant(effectiveAt, _unlockWindow, amount);
+        // Grant memory g = Grant(grantStart, _unlockWindow, amount);
         recipients[recipient].grants.push(g);
         emit Granted(recipient, g);
     }
@@ -134,12 +128,25 @@ contract TimeLockTokenPool is OwnableUpgradeable {
 
     /// @notice Returns the amount of tokens ever unlocked from a single grant.
     function _getGrantUnlocked(Grant memory g) private view returns (uint128) {
-        if (g.effectiveAt == 0 || g.unlockWindow == 0) return 0;
-        if (block.timestamp <= g.effectiveAt) return 0;
-        if (block.timestamp >= g.effectiveAt + g.unlockWindow) return g.amount;
+        // if (g.amount == 0) return 0;
 
-        return
-            g.amount / g.unlockWindow * uint64(block.timestamp - g.effectiveAt);
+        // uint128 grantedAmount;
+
+        // if (g.grantStart == 0 || g.unlockWindow == 0) {
+        //     grantedAmount = g.amount;
+        // } else {
+        //     if (block.timestamp <= g.grantStart) grantedAmount = 0;
+        //     if (block.timestamp >= g.grantStart + g.grantWindow) return
+        // g.amount;
+        // }
+
+        // if (block.timestamp <= g.grantStart) return 0;
+        // if (block.timestamp >= g.grantStart + g.unlockWindow) return
+        // g.amount;
+
+        // return
+        //     g.amount / g.unlockWindow * uint64(block.timestamp -
+        // g.grantStart);
     }
 }
 
