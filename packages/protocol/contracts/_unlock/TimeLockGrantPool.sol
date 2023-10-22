@@ -14,8 +14,8 @@ import { SafeERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import { Proxied } from "../common/Proxied.sol";
 
-/// @title GrantPool
-contract GrantPool is OwnableUpgradeable {
+/// @title TimeLockGrantPool
+contract TimeLockGrantPool is OwnableUpgradeable {
     using SafeERC20Upgradeable for ERC20Upgradeable;
 
     struct Grant {
@@ -141,4 +141,4 @@ contract GrantPool is OwnableUpgradeable {
 
 /// @title ProxiedGrantPool
 /// @notice Proxied version of the parent contract.
-contract ProxiedGrantPool is Proxied, GrantPool { }
+contract ProxiedTimeLockGrantPool is Proxied, TimeLockGrantPool { }
