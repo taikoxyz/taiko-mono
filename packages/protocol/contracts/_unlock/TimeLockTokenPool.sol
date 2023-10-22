@@ -49,9 +49,9 @@ contract TimeLockTokenPool is OwnableUpgradeable {
     mapping(address recipient => Recipient) public recipients;
     uint256[47] private __gap;
 
-    event Granted(address indexed user, Grant grant);
-    event Settled(address indexed user, uint256 newlySettled);
-    event Withdrawn(address indexed user, uint256 amount);
+    event Granted(address indexed recipient, Grant grant);
+    event Settled(address indexed recipient);
+    event Withdrawn(address indexed recipient, uint256 amount);
 
     error INVALID_PARAM();
     error NOTHING_TO_SETTLE();
@@ -66,18 +66,43 @@ contract TimeLockTokenPool is OwnableUpgradeable {
 
     /// @notice Gives a new grant to a address with its own unlock schedule.
     /// This transaction should happen on a regular basis, e.g., quarterly.
-    function grant(address recipient, Grant calldata g) external onlyOwner { }
+    function grant(address recipient, Grant memory g) external onlyOwner {
+        if (recipient == address(0)) revert INVALID_PARAM();
+        if (g.amount == 0) revert INVALID_PARAM();
+        recipients[recipient].grants.push(g);
+    }
 
     /// @notice Puts a stop to all grants given to an address and settles
     /// withdrawal tokens. The recipient will still be able to get what he/she
     /// deserves to receive. This transaction simply invalidates all future
     /// unlocks.
-    function settle(address recipient) external onlyOwner { }
+    function settle(address recipient) external onlyOwner {
+        Recipient storage r = recipients[recipient];
+        for (uint256 i; i < r.grants.length; ++i) {
+            _settleGrant(r.grants[i]);
+        }
+        emit Settled(recipient);
+    }
 
     /// @notice Withdraws all withdrawal tokens.
-    function withdraw() external { }
+    function withdraw() external {
+        Recipient storage r = recipients[msg.sender];
+        uint256 amount;
 
-    function getGrantStatus(address recipient)
+        for (uint256 i; i < r.grants.length; ++i) {
+            amount += _getAmountUnlocked(r.grants[i]);
+        }
+
+        amount -= r.amountWithdrawn;
+        if (amount == 0) revert NOTHING_TO_WITHDRAW();
+
+        r.amountWithdrawn += amount;
+        ERC20Upgradeable(taikoToken).transfer(msg.sender, amount);
+
+        emit Withdrawn(msg.sender, amount);
+    }
+
+    function getMyGrantSummary(address recipient)
         public
         view
         returns (
@@ -87,13 +112,17 @@ contract TimeLockTokenPool is OwnableUpgradeable {
             uint256 amountWithdrawable
         )
     {
-        amountOwned = _getAmountOwned(recipient);
-        amountUnlocked = _getAmountUnlocked(recipient);
-        amountWithdrawn = recipients[recipient].amountWithdrawn;
+        Recipient storage r = recipients[recipient];
+        for (uint256 i; i < r.grants.length; ++i) {
+            amountOwned += _getAmountOwned(r.grants[i]);
+            amountUnlocked += _getAmountUnlocked(r.grants[i]);
+        }
+
+        amountWithdrawn = r.amountWithdrawn;
         amountWithdrawable = amountUnlocked - amountWithdrawn;
     }
 
-    function getGrants(address recipient)
+    function getMyGrants(address recipient)
         public
         view
         returns (Grant[] memory)
@@ -101,35 +130,14 @@ contract TimeLockTokenPool is OwnableUpgradeable {
         return recipients[recipient].grants;
     }
 
-    function _getAmountOwned(address recipient)
-        private
-        view
-        returns (uint256 amount)
-    {
-        Recipient storage r = recipients[recipient];
-        for (uint256 i; i < r.grants.length; ++i) {
-            amount += _getAmountOwned(r.grants[i]);
-        }
-    }
-
-    function _getAmountUnlocked(address recipient)
-        private
-        view
-        returns (uint256 amount)
-    {
-        Recipient storage r = recipients[recipient];
-        for (uint256 i; i < r.grants.length; ++i) {
-            amount += _getAmountUnlocked(r.grants[i]);
-        }
+    function _settleGrant(Grant storage g) private {
+        g.amount = _getAmountOwned(g);
+        g.grantStart = 0;
+        g.grantPeriod = 0;
     }
 
     function _getAmountOwned(Grant memory g) private view returns (uint256) {
-        if (g.amount == 0) return 0;
-        if (g.grantStart == 0 || g.grantPeriod == 0) return g.amount;
-        if (block.timestamp <= g.grantStart) return 0;
-        if (block.timestamp >= g.grantStart + g.grantPeriod) return g.amount;
-
-        return g.amount * uint64(block.timestamp - g.grantStart) / g.grantPeriod;
+        return _calcAmount(g.amount, g.grantStart, g.grantPeriod);
     }
 
     function _getAmountUnlocked(Grant memory g)
@@ -137,13 +145,26 @@ contract TimeLockTokenPool is OwnableUpgradeable {
         view
         returns (uint256)
     {
-        uint256 amount = _getAmountOwned(g);
-        if (amount == 0) return 0;
-        if (g.unlockStart == 0 || g.unlockPeriod == 0) return amount;
-        if (block.timestamp <= g.unlockStart) return 0;
-        if (block.timestamp >= g.unlockStart + g.unlockPeriod) return amount;
+        return _calcAmount(_getAmountOwned(g), g.unlockStart, g.unlockPeriod);
+    }
 
-        return amount * uint64(block.timestamp - g.unlockStart) / g.unlockPeriod;
+    function _calcAmount(
+        uint256 amount,
+        uint64 start,
+        uint64 period
+    )
+        private
+        view
+        returns (uint256)
+    {
+        if (amount == 0) return 0;
+        if (start == 0) return amount;
+        if (block.timestamp <= start) return 0;
+
+        if (period == 0) return amount;
+        if (block.timestamp >= start + period) return amount;
+
+        return amount * uint64(block.timestamp - start) / period;
     }
 }
 
