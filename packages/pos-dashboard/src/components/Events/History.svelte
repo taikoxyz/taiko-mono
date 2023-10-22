@@ -1,16 +1,17 @@
 <script lang="ts">
-  import { signer } from '../../store/signer';
-  import Loading from '../Loading.svelte';
-  import Paginator from '../Paginator.svelte';
-  import { getSlashedTokensEvents } from '../../utils/getSlashedTokensEvents';
+  import { ethers } from 'ethers';
+  
   import { EVENT_INDEXER_API_URL } from '../../constants/envVars';
   import type { APIResponseEvent } from '../../domain/api';
-  import { ethers } from 'ethers';
+  import { signer } from '../../store/signer';
+  import { getAssignedBlocks } from '../../utils/getAssignedBlocks';
   import { getBlockProvenEvents } from '../../utils/getBlocksProven';
+  import { getExitedEvents } from '../../utils/getExitedEvents';
+  import { getSlashedTokensEvents } from '../../utils/getSlashedTokensEvents';
   import { getStakedEvents } from '../../utils/getStakedEvents';
   import { getWithdrawnEvents } from '../../utils/getWithdrawnEvents';
-  import { getExitedEvents } from '../../utils/getExitedEvents';
-  import { getAssignedBlocks } from '../../utils/getAssignedBlocks';
+  import Loading from '../Loading.svelte';
+  import Paginator from '../Paginator.svelte';
 
   let pageSize = 10;
   let currentPage = 1;

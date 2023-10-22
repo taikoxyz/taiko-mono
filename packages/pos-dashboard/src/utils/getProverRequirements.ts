@@ -1,4 +1,5 @@
 import { BigNumber, Contract, ethers } from 'ethers';
+
 import ProverPool from '../constants/abi/ProverPool';
 
 export const getProverRequirements = async (

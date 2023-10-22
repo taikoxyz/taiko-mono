@@ -1,12 +1,12 @@
 <script lang="ts">
   import { location } from 'svelte-spa-router';
 
-  import { Tab, TabList, TabPanel, Tabs } from '../../components/Tabs';
-  import History from '../../components/Events/History.svelte';
-  import CurrentProvers from '../../components/CurrentProvers/CurrentProvers.svelte';
-  import ProverInfo from '../../components/ProverInfo/ProverInfo.svelte';
   import StakeForm from '../..//components/StakeForm.svelte/StakeForm.svelte';
+  import CurrentProvers from '../../components/CurrentProvers/CurrentProvers.svelte';
+  import History from '../../components/Events/History.svelte';
+  import ProverInfo from '../../components/ProverInfo/ProverInfo.svelte';
   import Rewards from '../../components/Rewards/Rewards.svelte';
+  import { Tab, TabList, TabPanel, Tabs } from '../../components/Tabs';
 
   const tabsRoute = [
     { name: 'stake', href: '/' },

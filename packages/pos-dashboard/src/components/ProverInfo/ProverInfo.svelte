@@ -1,10 +1,11 @@
 <script lang="ts">
+  import { ethers } from 'ethers';
+  
   import { PROVER_POOL_ADDRESS } from '../../constants/envVars';
   import type { Prover } from '../../domain/prover';
-  import { ethers } from 'ethers';
-  import { getProverInfo } from '../../utils/getProverInfo';
   import type { Staker } from '../../domain/staker';
   import { signer } from '../../store/signer';
+  import { getProverInfo } from '../../utils/getProverInfo';
   let proverInfo: { prover: Prover; staker: Staker; address: string };
 
   async function fetchProverInfo(signer: ethers.Signer) {

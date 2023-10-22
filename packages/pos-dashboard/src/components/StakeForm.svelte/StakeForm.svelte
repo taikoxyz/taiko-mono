@@ -1,16 +1,17 @@
 <script lang="ts">
   import { BigNumber, ethers } from 'ethers';
-  import { signer } from '../../store/signer';
-  import { getTTKOBalance } from '../../utils/getTTKOBalance';
+  import { mainnet } from 'wagmi';
+  
+  import { mainnetChain } from '../../chain/chains';
   import { PROVER_POOL_ADDRESS, TTKO_ADDRESS } from '../../constants/envVars';
-  import { stake } from '../../utils/stake';
-  import { successToast } from '../NotificationToast.svelte';
+  import { srcChain } from '../../store/chain';
+  import { signer } from '../../store/signer';
   import { pendingTransactions } from '../../store/transaction';
   import { getProverRequirements } from '../../utils/getProverRequirements';
+  import { getTTKOBalance } from '../../utils/getTTKOBalance';
+  import { stake } from '../../utils/stake';
   import { switchNetwork } from '../../utils/switchNetwork';
-  import { mainnetChain } from '../../chain/chains';
-  import { srcChain } from '../../store/chain';
-  import { mainnet } from 'wagmi';
+  import { successToast } from '../NotificationToast.svelte';
   let ttkoBalanceInWei: BigNumber = BigNumber.from(0);
   let amount: string = '0';
   let rewardPerGas: number = 0;

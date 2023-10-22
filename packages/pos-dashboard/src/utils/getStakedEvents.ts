@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { ethers } from 'ethers';
+
 import type { APIResponse, APIResponseEvent } from '../domain/api';
 
 export const getStakedEvents = async (

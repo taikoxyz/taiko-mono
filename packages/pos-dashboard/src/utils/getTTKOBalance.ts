@@ -1,4 +1,5 @@
 import { BigNumber, Contract, ethers } from 'ethers';
+
 import ERC20 from '../constants/abi/ERC20';
 
 export const getTTKOBalance = async (

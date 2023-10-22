@@ -1,16 +1,17 @@
 <script lang="ts">
-  import { TAIKO_L1_ADDRESS, TTKO_ADDRESS } from '../../constants/envVars';
   import { BigNumber, ethers } from 'ethers';
+  
+  import { mainnetChain } from '../../chain/chains';
+  import { TAIKO_L1_ADDRESS, TTKO_ADDRESS } from '../../constants/envVars';
+  import { srcChain } from '../../store/chain';
   import { signer } from '../../store/signer';
-  import { getTaikoL1Balance } from '../../utils/getTaikoL1Balance';
-  import { withdrawTaikoToken } from '../../utils/withdrawTaikoToken';
-  import { depositTaikoToken } from '../../utils/depositTaikoToken';
-  import { successToast } from '../NotificationToast.svelte';
   import { pendingTransactions } from '../../store/transaction';
+  import { depositTaikoToken } from '../../utils/depositTaikoToken';
+  import { getTaikoL1Balance } from '../../utils/getTaikoL1Balance';
   import { getTTKOBalance } from '../../utils/getTTKOBalance';
   import { switchNetwork } from '../../utils/switchNetwork';
-  import { mainnetChain } from '../../chain/chains';
-  import { srcChain } from '../../store/chain';
+  import { withdrawTaikoToken } from '../../utils/withdrawTaikoToken';
+  import { successToast } from '../NotificationToast.svelte';
 
   let balance: BigNumber = BigNumber.from(0);
   let ttkoBalanceInWei: BigNumber = BigNumber.from(0);
