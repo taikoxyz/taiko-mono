@@ -19,37 +19,44 @@ contract TimeLockTokenPool is OwnableUpgradeable {
     using SafeERC20Upgradeable for ERC20Upgradeable;
 
     struct Grant {
-        uint256 amount;
+        uint128 amount;
         // If non-zero, indicates the start time for the recipient to receive
         // tokens, subject to an unlocking schedule.
         uint64 grantStart;
+        // If non-zero, indicates the time after which the token to be received
+        // will be actually non-zero
+        uint64 grantCliff;
         // If non-zero, specifies the total seconds required for the recipient
         // to fully own all granted tokens.
-        uint64 grantPeriod;
+        uint32 grantPeriod;
         // If non-zero, indicates the start time for the recipient to unlock
         // tokens.
         uint64 unlockStart;
+        // If non-zero, indicates the time after which the unlock will be
+        // actually non-zero
+        uint64 unlockCliff;
         // If non-zero, specifies the total seconds required for the recipient
         // to fully unlock all owned tokens.
-        uint64 unlockPeriod;
+        uint32 unlockPeriod;
     }
 
     struct Recipient {
-        uint256 amountWithdrawn;
+        uint128 amountWithdrawn;
         Grant[] grants;
     }
 
     address public taikoToken;
-    uint256 public totalAmountGranted;
-    uint256 public totalAmountVoided;
-    uint256 public totalAmountWithdrawn;
+    uint128 public totalAmountGranted;
+    uint128 public totalAmountVoided;
+    uint128 public totalAmountWithdrawn;
     mapping(address recipient => Recipient) public recipients;
-    uint256[47] private __gap;
+    uint128[47] private __gap;
 
     event Granted(address indexed recipient, Grant grant);
-    event Voided(address indexed recipient, uint256 amount);
-    event Withdrawn(address indexed recipient, uint256 amount);
+    event Voided(address indexed recipient, uint128 amount);
+    event Withdrawn(address indexed recipient, uint128 amount);
 
+    error INVALID_GRANT();
     error INVALID_PARAM();
     error NOTHING_TO_VOID();
     error NOTHING_TO_WITHDRAW();
@@ -65,7 +72,7 @@ contract TimeLockTokenPool is OwnableUpgradeable {
     /// This transaction should happen on a regular basis, e.g., quarterly.
     function grant(address recipient, Grant memory g) external onlyOwner {
         if (recipient == address(0)) revert INVALID_PARAM();
-        if (g.amount == 0) revert INVALID_PARAM();
+        _validateGrant(g);
 
         totalAmountGranted += g.amount;
         recipients[recipient].grants.push(g);
@@ -78,8 +85,8 @@ contract TimeLockTokenPool is OwnableUpgradeable {
     /// unlocks.
     function void(address recipient) external onlyOwner {
         Recipient storage r = recipients[recipient];
-        uint256 amountVoided;
-        for (uint256 i; i < r.grants.length; ++i) {
+        uint128 amountVoided;
+        for (uint128 i; i < r.grants.length; ++i) {
             amountVoided += _voidGrant(r.grants[i]);
         }
         if (amountVoided == 0) revert NOTHING_TO_VOID();
@@ -91,9 +98,9 @@ contract TimeLockTokenPool is OwnableUpgradeable {
     /// @notice Withdraws all withdrawal tokens.
     function withdraw() external {
         Recipient storage r = recipients[msg.sender];
-        uint256 amount;
+        uint128 amount;
 
-        for (uint256 i; i < r.grants.length; ++i) {
+        for (uint128 i; i < r.grants.length; ++i) {
             amount += _getAmountUnlocked(r.grants[i]);
         }
 
@@ -111,14 +118,14 @@ contract TimeLockTokenPool is OwnableUpgradeable {
         public
         view
         returns (
-            uint256 amountOwned,
-            uint256 amountUnlocked,
-            uint256 amountWithdrawn,
-            uint256 amountWithdrawable
+            uint128 amountOwned,
+            uint128 amountUnlocked,
+            uint128 amountWithdrawn,
+            uint128 amountWithdrawable
         )
     {
         Recipient storage r = recipients[recipient];
-        for (uint256 i; i < r.grants.length; ++i) {
+        for (uint128 i; i < r.grants.length; ++i) {
             amountOwned += _getAmountOwned(r.grants[i]);
             amountUnlocked += _getAmountUnlocked(r.grants[i]);
         }
@@ -137,9 +144,9 @@ contract TimeLockTokenPool is OwnableUpgradeable {
 
     function _voidGrant(Grant storage g)
         private
-        returns (uint256 amountVoided)
+        returns (uint128 amountVoided)
     {
-        uint256 amount = _getAmountOwned(g);
+        uint128 amount = _getAmountOwned(g);
 
         amountVoided = g.amount - amount;
         g.amount = amount;
@@ -148,26 +155,29 @@ contract TimeLockTokenPool is OwnableUpgradeable {
         g.grantPeriod = 0;
     }
 
-    function _getAmountOwned(Grant memory g) private view returns (uint256) {
-        return _calcAmount(g.amount, g.grantStart, g.grantPeriod);
+    function _getAmountOwned(Grant memory g) private view returns (uint128) {
+        return _calcAmount(g.amount, g.grantStart, g.grantCliff, g.grantPeriod);
     }
 
     function _getAmountUnlocked(Grant memory g)
         private
         view
-        returns (uint256)
+        returns (uint128)
     {
-        return _calcAmount(_getAmountOwned(g), g.unlockStart, g.unlockPeriod);
+        return _calcAmount(
+            _getAmountOwned(g), g.unlockStart, g.unlockCliff, g.unlockPeriod
+        );
     }
 
     function _calcAmount(
-        uint256 amount,
+        uint128 amount,
         uint64 start,
+        uint64 cliff,
         uint64 period
     )
         private
         view
-        returns (uint256)
+        returns (uint128)
     {
         if (amount == 0) return 0;
         if (start == 0) return amount;
@@ -176,7 +186,31 @@ contract TimeLockTokenPool is OwnableUpgradeable {
         if (period == 0) return amount;
         if (block.timestamp >= start + period) return amount;
 
+        if (block.timestamp <= cliff) return 0;
+
         return amount * uint64(block.timestamp - start) / period;
+    }
+
+    function _validateGrant(Grant memory g) private pure {
+        if (g.amount == 0) revert INVALID_GRANT();
+        _validateCliff(g.grantStart, g.grantCliff, g.grantPeriod);
+        _validateCliff(g.unlockStart, g.unlockCliff, g.unlockPeriod);
+    }
+
+    function _validateCliff(
+        uint64 start,
+        uint64 cliff,
+        uint32 period
+    )
+        private
+        pure
+    {
+        if (start == 0 || period == 0) {
+            if (cliff > 0) revert INVALID_GRANT();
+        } else {
+            if (cliff <= start) revert INVALID_GRANT();
+            if (cliff >= start + period) revert INVALID_GRANT();
+        }
     }
 }
 
