@@ -40,7 +40,8 @@ contract TimeLockTokenPool is OwnableUpgradeable {
     }
 
     address public taikoToken;
-    uint256 public totalGranted;
+    uint256 public totalAmountGranted;
+    uint256 public totalAmountVoided;
     uint256 public totalAmountWithdrawn;
     mapping(address recipient => Recipient) public recipients;
     uint256[47] private __gap;
@@ -66,7 +67,7 @@ contract TimeLockTokenPool is OwnableUpgradeable {
         if (recipient == address(0)) revert INVALID_PARAM();
         if (g.amount == 0) revert INVALID_PARAM();
 
-        totalGranted += g.amount;
+        totalAmountGranted += g.amount;
         recipients[recipient].grants.push(g);
         emit Granted(recipient, g);
     }
@@ -77,12 +78,14 @@ contract TimeLockTokenPool is OwnableUpgradeable {
     /// unlocks.
     function settle(address recipient) external onlyOwner {
         Recipient storage r = recipients[recipient];
-        uint256 amountReturned;
+        uint256 amountVoided;
         for (uint256 i; i < r.grants.length; ++i) {
-            amountReturned += _settleGrant(r.grants[i]);
+            amountVoided += _settleGrant(r.grants[i]);
         }
-        if (amountReturned == 0) revert NOTHING_TO_SETTLE();
-        emit Settled(recipient, amountReturned);
+        if (amountVoided == 0) revert NOTHING_TO_SETTLE();
+
+        totalAmountVoided += amountVoided;
+        emit Settled(recipient, amountVoided);
     }
 
     /// @notice Withdraws all withdrawal tokens.
@@ -134,11 +137,11 @@ contract TimeLockTokenPool is OwnableUpgradeable {
 
     function _settleGrant(Grant storage g)
         private
-        returns (uint256 amountReturned)
+        returns (uint256 amountVoided)
     {
         uint256 amount = _getAmountOwned(g);
 
-        amountReturned = g.amount - amount;
+        amountVoided = g.amount - amount;
         g.amount = amount;
 
         g.grantStart = 0;
