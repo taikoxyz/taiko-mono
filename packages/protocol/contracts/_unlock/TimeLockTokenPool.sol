@@ -45,7 +45,7 @@ contract TimeLockTokenPool is OwnableUpgradeable {
     uint256[47] private __gap;
 
     event Granted(address indexed recipient, Grant grant);
-    event Settled(address indexed recipient);
+    event Settled(address indexed recipient, uint256 amount);
     event Withdrawn(address indexed recipient, uint256 amount);
 
     error INVALID_PARAM();
@@ -80,7 +80,7 @@ contract TimeLockTokenPool is OwnableUpgradeable {
             totalSettled += _settleGrant(r.grants[i]);
         }
         if (totalSettled == 0) revert NOTHING_TO_SETTLE();
-        emit Settled(recipient);
+        emit Settled(recipient, totalSettled);
     }
 
     /// @notice Withdraws all withdrawal tokens.
