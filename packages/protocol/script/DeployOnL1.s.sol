@@ -55,11 +55,8 @@ contract DeployOnL1 is Script {
 
     uint256 public tierProvider = vm.envUint("TIER_PROVIDER");
 
-    address[] public taikoTokenPremintRecipients =
-        vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENTS", ",");
-
-    uint256[] public taikoTokenPremintAmounts =
-        vm.envUint("TAIKO_TOKEN_PREMINT_AMOUNTS", ",");
+    address public taikoTokenPremintRecipient =
+        vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
 
     TaikoL1 taikoL1;
     address public addressManagerProxy;
@@ -75,15 +72,6 @@ contract DeployOnL1 is Script {
         require(
             guardianProvers.length == NUM_GUARDIANS,
             "invalid guardian provers number"
-        );
-        require(
-            taikoTokenPremintRecipients.length != 0,
-            "taikoTokenPremintRecipients length is zero"
-        );
-        require(
-            taikoTokenPremintRecipients.length
-                == taikoTokenPremintAmounts.length,
-            "taikoTokenPremintRecipients and taikoTokenPremintAmounts must be same length"
         );
         vm.startBroadcast(deployerPrivateKey);
 
@@ -118,8 +106,7 @@ contract DeployOnL1 is Script {
                     addressManagerProxy,
                     "Taiko Token Eldfell",
                     "TTKOe",
-                    taikoTokenPremintRecipients,
-                    taikoTokenPremintAmounts
+                    taikoTokenPremintRecipient
                 )
             )
         );
