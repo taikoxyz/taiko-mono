@@ -14,8 +14,8 @@ import { SafeERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import { Proxied } from "../common/Proxied.sol";
 
-/// @title TimeLockGrantPool
-contract TimeLockGrantPool is OwnableUpgradeable {
+/// @title TimeLockTokenPool
+contract TimeLockTokenPool is OwnableUpgradeable {
     using SafeERC20Upgradeable for ERC20Upgradeable;
 
     struct Grant {
@@ -24,7 +24,7 @@ contract TimeLockGrantPool is OwnableUpgradeable {
         uint128 amount;
     }
 
-    struct Grantee {
+    struct Recipient {
         uint128 unlockedAmount;
         uint128 totalWithdrawn;
         Grant[] grants;
@@ -32,7 +32,7 @@ contract TimeLockGrantPool is OwnableUpgradeable {
 
     address public taikoToken;
     uint256 public totalWithdrawn;
-    mapping(address grantee => Grantee) public grantees;
+    mapping(address recipient => Recipient) public recipients;
     uint256[47] private __gap;
 
     event Granted(address indexed user, Grant grant);
@@ -52,7 +52,7 @@ contract TimeLockGrantPool is OwnableUpgradeable {
 
     /// @notice Gives a new grant to a address with its own unlock schedule.
     function grant(
-        address grantee,
+        address recipient,
         uint64 effectiveAt,
         uint64 unlockWindow,
         uint128 amount
@@ -60,7 +60,7 @@ contract TimeLockGrantPool is OwnableUpgradeable {
         external
         onlyOwner
     {
-        if (grantee == address(0)) revert INVALID_PARAM();
+        if (recipient == address(0)) revert INVALID_PARAM();
         if (effectiveAt < block.timestamp - 30 days) revert INVALID_PARAM();
         if (amount == 0) revert INVALID_PARAM();
 
@@ -74,16 +74,16 @@ contract TimeLockGrantPool is OwnableUpgradeable {
         }
 
         Grant memory g = Grant(effectiveAt, _unlockWindow, amount);
-        grantees[grantee].grants.push(g);
-        emit Granted(grantee, g);
+        recipients[recipient].grants.push(g);
+        emit Granted(recipient, g);
     }
 
     /// @notice Puts a stop to all grants given to an address and settles
-    /// withdrawal tokens. The grantee will still be able to get what he/she
+    /// withdrawal tokens. The recipient will still be able to get what he/she
     /// deserves to receive. This transaction simply invalidates all future
     /// unlocks.
-    function settle(address grantee) external onlyOwner {
-        Grantee storage r = grantees[grantee];
+    function settle(address recipient) external onlyOwner {
+        Recipient storage r = recipients[recipient];
         if (r.grants.length == 0) revert NOTHING_TO_SETTLE();
 
         uint128 newlySettled;
@@ -94,7 +94,7 @@ contract TimeLockGrantPool is OwnableUpgradeable {
         r.unlockedAmount += newlySettled;
         delete r.grants;
 
-        emit Settled(grantee, newlySettled);
+        emit Settled(recipient, newlySettled);
     }
 
     /// @notice Withdraws all withdrawal tokens.
@@ -102,25 +102,27 @@ contract TimeLockGrantPool is OwnableUpgradeable {
         uint128 amount = getWithdrawable(msg.sender);
         if (amount == 0) revert NOTHING_TO_WITHDRAW();
 
-        grantees[msg.sender].totalWithdrawn += amount;
+        recipients[msg.sender].totalWithdrawn += amount;
         totalWithdrawn += totalWithdrawn;
         ERC20Upgradeable(taikoToken).transfer(msg.sender, amount);
 
         emit Withdrawn(msg.sender, amount);
     }
 
-    /// @notice Returns the amount of withdrawable tokens for a given grantee.
-    function getWithdrawable(address grantee) public view returns (uint128) {
-        return getTotalUnlocked(grantee) - grantees[grantee].totalWithdrawn;
+    /// @notice Returns the amount of withdrawable tokens for a given recipient.
+    function getWithdrawable(address recipient) public view returns (uint128) {
+        return
+            getTotalUnlocked(recipient) - recipients[recipient].totalWithdrawn;
     }
 
-    /// @notice Returns the amount of tokens ever unlocked for a given grantee.
-    function getTotalUnlocked(address grantee)
+    /// @notice Returns the amount of tokens ever unlocked for a given
+    /// recipient.
+    function getTotalUnlocked(address recipient)
         public
         view
         returns (uint128 totalUnlocked)
     {
-        Grantee storage r = grantees[grantee];
+        Recipient storage r = recipients[recipient];
         totalUnlocked = r.unlockedAmount;
 
         for (uint256 i; i < r.grants.length; ++i) {
@@ -141,4 +143,4 @@ contract TimeLockGrantPool is OwnableUpgradeable {
 
 /// @title ProxiedGrantPool
 /// @notice Proxied version of the parent contract.
-contract ProxiedTimeLockGrantPool is Proxied, TimeLockGrantPool { }
+contract ProxiedTimeLockTokenPool is Proxied, TimeLockTokenPool { }
