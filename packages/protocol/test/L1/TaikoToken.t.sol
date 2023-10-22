@@ -27,35 +27,19 @@ contract TaikoTokenTest is TestBase {
         addressManager.init();
         tko = new TaikoToken();
 
-        address[] memory premintRecipients = new address[](2);
-        premintRecipients[0] = Yasmine;
-        premintRecipients[1] = Zachary;
-
-        uint256[] memory premintAmounts = new uint256[](2);
-        premintAmounts[0] = 5 ether;
-        premintAmounts[1] = 5 ether;
-
         tokenProxy = _deployViaProxy(
             address(tko),
             bytes.concat(
                 tko.init.selector,
                 abi.encode(
-                    address(addressManager),
-                    "Taiko Token",
-                    "TKO",
-                    premintRecipients,
-                    premintAmounts
+                    address(addressManager), "Taiko Token", "TKO", address(this)
                 )
             )
         );
 
         tko = TaikoToken(address(tokenProxy));
-    }
-
-    function test_TaikoToken_proper_premint() public {
-        assertEq(tko.balanceOf(Yasmine), 5 ether);
-
-        assertEq(tko.balanceOf(Zachary), 5 ether);
+        tko.transfer(Yasmine, 5 ether);
+        tko.transfer(Zachary, 5 ether);
     }
 
     function test_TaikoToken_upgrade() public {

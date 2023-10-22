@@ -28,21 +28,16 @@ contract TaikoToken is
     error TKO_INVALID_ADDR();
     error TKO_INVALID_PREMINT_PARAMS();
 
-    /// @notice Initializes the TaikoToken contract and mints initial tokens to
-    /// specified recipients.
+    /// @notice Initializes the TaikoToken contract and mints initial tokens.
     /// @param _addressManager The {AddressManager} address.
     /// @param _name The name of the token.
     /// @param _symbol The symbol of the token.
-    /// @param _premintRecipients An array of addresses to receive initial token
-    /// minting.
-    /// @param _premintAmounts An array of token amounts to mint for each
-    /// corresponding recipient.
+    /// @param _recipient The address to receive initial token minting.
     function init(
         address _addressManager,
         string calldata _name,
         string calldata _symbol,
-        address[] calldata _premintRecipients,
-        uint256[] calldata _premintAmounts
+        address _recipient
     )
         public
         initializer
@@ -52,9 +47,8 @@ contract TaikoToken is
         ERC20SnapshotUpgradeable.__ERC20Snapshot_init_unchained();
         ERC20VotesUpgradeable.__ERC20Votes_init_unchained();
 
-        for (uint256 i; i < _premintRecipients.length; ++i) {
-            _mint(_premintRecipients[i], _premintAmounts[i]);
-        }
+        //mint  2 billion tokens
+        _mint(_recipient, 2_000_000_000 ether);
     }
 
     /// @notice Creates a new token snapshot.
