@@ -51,6 +51,7 @@ contract TimeLockTokenPool is OwnableUpgradeable {
     }
 
     /// @notice Gives a new grant to a address with its own unlock schedule.
+    /// This transaction should happen on a regular basis, e.g., quarterly.
     function grant(
         address recipient,
         uint64 effectiveAt,
