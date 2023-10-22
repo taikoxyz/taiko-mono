@@ -47,11 +47,11 @@ contract TimeLockTokenPool is OwnableUpgradeable {
     uint256[47] private __gap;
 
     event Granted(address indexed recipient, Grant grant);
-    event Settled(address indexed recipient, uint256 amount);
+    event Voided(address indexed recipient, uint256 amount);
     event Withdrawn(address indexed recipient, uint256 amount);
 
     error INVALID_PARAM();
-    error NOTHING_TO_SETTLE();
+    error NOTHING_TO_VOID();
     error NOTHING_TO_WITHDRAW();
 
     function init(address _taikoToken) external initializer {
@@ -76,16 +76,16 @@ contract TimeLockTokenPool is OwnableUpgradeable {
     /// withdrawal tokens. The recipient will still be able to get what he/she
     /// deserves to receive. This transaction simply invalidates all future
     /// unlocks.
-    function settle(address recipient) external onlyOwner {
+    function void(address recipient) external onlyOwner {
         Recipient storage r = recipients[recipient];
         uint256 amountVoided;
         for (uint256 i; i < r.grants.length; ++i) {
-            amountVoided += _settleGrant(r.grants[i]);
+            amountVoided += _voidGrant(r.grants[i]);
         }
-        if (amountVoided == 0) revert NOTHING_TO_SETTLE();
+        if (amountVoided == 0) revert NOTHING_TO_VOID();
 
         totalAmountVoided += amountVoided;
-        emit Settled(recipient, amountVoided);
+        emit Voided(recipient, amountVoided);
     }
 
     /// @notice Withdraws all withdrawal tokens.
@@ -135,7 +135,7 @@ contract TimeLockTokenPool is OwnableUpgradeable {
         return recipients[recipient].grants;
     }
 
-    function _settleGrant(Grant storage g)
+    function _voidGrant(Grant storage g)
         private
         returns (uint256 amountVoided)
     {
