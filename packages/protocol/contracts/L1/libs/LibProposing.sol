@@ -67,16 +67,6 @@ library LibProposing {
             }
         }
 
-        if (txList.length != 0) {
-            if (txList.length > config.blockMaxTxListBytes) {
-                revert L1_TXLIST_TOO_LARGE();
-            }
-
-            bytes32 txListHash = keccak256(txList);
-        } else {
-            // TODO: use blob;
-        }
-
         // It's essential to ensure that the ring buffer for proposed blocks
         // still has space for at least one more block.
         TaikoData.SlotB memory b = state.slotB;
@@ -130,13 +120,18 @@ library LibProposing {
         blk.livenessBond = config.livenessBond;
         blk.blockId = b.numBlocks;
 
-        // Always use the first blob in this transaction.
         if (txList.length == 0) {
             blk.useBlob = true;
+
+            // Always use the first blob in this transaction.
             blk.blobHash = IBlobHashReader(
                 resolver.resolve("blob_hash_reader", false)
             ).getFirstBlobHash();
         } else {
+            if (txList.length > config.blockMaxTxListBytes) {
+                revert L1_TXLIST_TOO_LARGE();
+            }
+
             blk.useBlob = false;
             blk.blobHash = keccak256(txList);
         }
