@@ -16,11 +16,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/icrosschainsync"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/queue"
 )
 
@@ -57,7 +58,7 @@ func (p *Processor) eventStatusFromMsgHash(
 	return eventStatus, nil
 }
 
-// Process prepares and calls `processMessage` on the bridge.
+// processMessage prepares and calls `processMessage` on the bridge.
 // the proof must be generated from the gethclient's eth_getProof via the Prover,
 // then rlp-encoded and combined as a singular byte slice,
 // then abi encoded into a SignalProof struct as the contract
@@ -88,39 +89,118 @@ func (p *Processor) processMessage(
 		return errors.Wrap(err, "p.waitForConfirmations")
 	}
 
-	if err := p.waitHeaderSynced(ctx, msgBody.Event); err != nil {
-		return errors.Wrap(err, "p.waitHeaderSynced")
+	var blockNum uint64 = msgBody.Event.Raw.BlockNumber
+
+	// wait for srcChain => destChain header to sync if no hops,
+	// or srcChain => hopChain => hopChain => hopChain => destChain if hops exist.
+	if p.hops != nil {
+		var hopEthClient ethClient = p.srcEthClient
+
+		for _, hop := range p.hops {
+			hop.blockNum = blockNum
+
+			err := p.waitHeaderSynced(ctx, hop.headerSyncer, hopEthClient, blockNum)
+
+			if err != nil {
+				return errors.Wrap(err, "p.waitHeaderSynced")
+			}
+
+			// todo: instead of latest, need way to find out which block num on the hop chain
+			// the previous blockHash was synced in, and then wait for that header to be synced
+			// on the next hop chain.
+			latestBlock, err := hop.ethClient.BlockByNumber(ctx, nil)
+			if err != nil {
+				return errors.Wrap(err, "hop.ethClient.BlockByNumber(ctx, nil)")
+			}
+
+			blockNum = latestBlock.NumberU64()
+
+			hopEthClient = hop.ethClient
+		}
+
+		if err := p.waitHeaderSynced(ctx, p.destHeaderSyncer, hopEthClient, blockNum); err != nil {
+			return errors.Wrap(err, "p.waitHeaderSynced")
+		}
+	} else {
+		if err := p.waitHeaderSynced(ctx, p.destHeaderSyncer, p.srcEthClient, msgBody.Event.Raw.BlockNumber); err != nil {
+			return errors.Wrap(err, "p.waitHeaderSynced")
+		}
 	}
 
-	// get latest synced header since not every header is synced from L1 => L2,
-	// and later blocks still have the storage trie proof from previous blocks.
-	latestSyncedSnippet, err := p.destHeaderSyncer.GetSyncedSnippet(&bind.CallOpts{}, 0)
+	key, err := p.srcSignalService.GetSignalSlot(&bind.CallOpts{},
+		msgBody.Event.Message.SrcChainId,
+		msgBody.Event.Raw.Address,
+		msgBody.Event.MsgHash,
+	)
+
 	if err != nil {
-		return errors.Wrap(err, "taiko.GetSyncedHeader")
+		return errors.Wrap(err, "p.srcSignalService.GetSignalSlot")
 	}
 
-	hashed := crypto.Keccak256(
-		msgBody.Event.Raw.Address.Bytes(),
-		msgBody.Event.MsgHash[:],
-	)
+	hops := []proof.HopParams{}
 
-	key := hex.EncodeToString(hashed)
+	var encodedSignalProof []byte
 
-	encodedSignalProof, err := p.prover.EncodedSignalProof(
-		ctx,
-		p.rpc,
-		p.srcSignalServiceAddress,
-		key,
-		latestSyncedSnippet.BlockHash,
-	)
+	var latestSyncedSnippet icrosschainsync.ICrossChainSyncSnippet
+
+	// if a hop is set, the proof service needs to generate an additional proof
+	// for the signal service intermediary chain in between the source chain
+	// and the destination chain.
+	// TODO: support multiple hops via env vars/configs instead of just one.
+	for _, hop := range p.hops {
+		slog.Info(
+			"adding hop",
+			"hopChainId", hop.chainID.Uint64(),
+			"hopSignalServiceAddress", hop.signalServiceAddress.Hex(),
+		)
+
+		hops = append(hops, proof.HopParams{
+			ChainID:              hop.chainID,
+			SignalServiceAddress: hop.signalServiceAddress,
+			Blocker:              hop.ethClient,
+			Caller:               hop.caller,
+			SignalService:        hop.signalService,
+			TaikoAddress:         hop.taikoAddress,
+			BlockNumber:          blockNum,
+		})
+	}
+
+	if hops != nil {
+		encodedSignalProof, _, err = p.prover.EncodedSignalProofWithHops(
+			ctx,
+			p.srcCaller,
+			p.srcSignalServiceAddress,
+			hops,
+			common.Bytes2Hex(key[:]),
+			msgBody.Event.Raw.BlockHash,
+			blockNum,
+		)
+	} else {
+		// get latest synced header since not every header is synced from L1 => L2,
+		// and later blocks still have the storage trie proof from previous blocks.
+		latestSyncedSnippet, err = p.destHeaderSyncer.GetSyncedSnippet(&bind.CallOpts{}, 0)
+		if err != nil {
+			return errors.Wrap(err, "taiko.GetSyncedSnippet")
+		}
+
+		encodedSignalProof, err = p.prover.EncodedSignalProof(
+			ctx,
+			p.srcCaller,
+			p.srcSignalServiceAddress,
+			common.Bytes2Hex(key[:]),
+			latestSyncedSnippet.BlockHash,
+		)
+	}
+
 	if err != nil {
-		slog.Error("srcChainID: %v, destChainID: %v, txHash: %v: msgHash: %v, from: %v encountered signalProofError %v",
-			msgBody.Event.Message.SrcChainId.String(),
-			msgBody.Event.Message.DestChainId.String(),
-			msgBody.Event.Raw.TxHash.Hex(),
-			common.Hash(msgBody.Event.MsgHash).Hex(),
-			msgBody.Event.Message.User.Hex(),
-			err,
+		slog.Error("error encoding signal proof",
+			"srcChainID", msgBody.Event.Message.SrcChainId.String(),
+			"destChainID", msgBody.Event.Message.DestChainId.String(),
+			"txHash", msgBody.Event.Raw.TxHash.Hex(),
+			"msgHash", common.Hash(msgBody.Event.MsgHash).Hex(),
+			"from", msgBody.Event.Message.User.Hex(),
+			"error", err,
+			"hopsLength", len(hops),
 		)
 
 		return errors.Wrap(err, "p.prover.GetEncodedSignalProof")
@@ -133,7 +213,7 @@ func (p *Processor) processMessage(
 		Context: ctx,
 	}, msgBody.Event.Message, encodedSignalProof)
 	if err != nil {
-		return errors.Wrap(err, "p.destBridge.IsMessageReceived")
+		return errors.Wrap(err, "p.destBridge.ProveMessageReceived")
 	}
 
 	// message will fail when we try to process it
