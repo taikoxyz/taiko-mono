@@ -12,9 +12,21 @@ import { ERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import { SafeERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import { Proxied } from "../common/Proxied.sol";
+import { ECDSAUpgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/utils/cryptography/ECDSAUpgradeable.sol";
 
+import { Proxied } from "../common/Proxied.sol";
 /// @title TimeLockTokenPool
+/// Contract for managing Taiko tokens allocated to different roles and
+/// individuals.
+///
+/// Manages Taiko tokens through a three-state lifecycle: "allocated" to
+/// "granted, owned, and locked," and finally to "granted, owned, and unlocked."
+/// Allocation doesn't transfer ownership unless specified by grant settings.
+/// Conditional allocated tokens can be canceled by invoking `void()`, making
+/// them available for other uses. Once granted and owned, tokens are
+/// irreversible and their unlock schedules are immutable.
+
 contract TimeLockTokenPool is OwnableUpgradeable {
     using SafeERC20Upgradeable for ERC20Upgradeable;
 
@@ -54,7 +66,7 @@ contract TimeLockTokenPool is OwnableUpgradeable {
 
     event Granted(address indexed recipient, Grant grant);
     event Voided(address indexed recipient, uint128 amount);
-    event Withdrawn(address indexed recipient, uint128 amount);
+    event Withdrawn(address indexed recipient, address to, uint128 amount);
 
     error INVALID_GRANT();
     error INVALID_PARAM();
@@ -70,6 +82,9 @@ contract TimeLockTokenPool is OwnableUpgradeable {
 
     /// @notice Gives a new grant to a address with its own unlock schedule.
     /// This transaction should happen on a regular basis, e.g., quarterly.
+    /// @dev It is strongly recommended to add one Grant per receipient address
+    /// so that such a grant can be voided without voiding other grants for the
+    /// same recipient.
     function grant(address recipient, Grant memory g) external onlyOwner {
         if (recipient == address(0)) revert INVALID_PARAM();
         _validateGrant(g);
@@ -95,23 +110,19 @@ contract TimeLockTokenPool is OwnableUpgradeable {
         emit Voided(recipient, amountVoided);
     }
 
-    /// @notice Withdraws all withdrawal tokens.
+    /// @notice Withdraws all withdrawable tokens.
     function withdraw() external {
-        Recipient storage r = recipients[msg.sender];
-        uint128 amount;
+        _withdraw(msg.sender, msg.sender);
+    }
 
-        for (uint128 i; i < r.grants.length; ++i) {
-            amount += _getAmountUnlocked(r.grants[i]);
-        }
-
-        amount -= r.amountWithdrawn;
-        if (amount == 0) revert NOTHING_TO_WITHDRAW();
-
-        r.amountWithdrawn += amount;
-        totalAmountWithdrawn += amount;
-        ERC20Upgradeable(taikoToken).transfer(msg.sender, amount);
-
-        emit Withdrawn(msg.sender, amount);
+    /// @notice Withdraws all withdrawable tokens.
+    function withdraw(address to, bytes memory sig) external {
+        if (to == address(0)) revert INVALID_PARAM();
+        bytes32 hash = keccak256(
+            abi.encodePacked("Withdraw unlocked Taiko token to: ", to)
+        );
+        address recipient = ECDSAUpgradeable.recover(hash, sig);
+        _withdraw(recipient, to);
     }
 
     function getMyGrantSummary(address recipient)
@@ -140,6 +151,24 @@ contract TimeLockTokenPool is OwnableUpgradeable {
         returns (Grant[] memory)
     {
         return recipients[recipient].grants;
+    }
+
+    function _withdraw(address recipient, address to) private {
+        Recipient storage r = recipients[recipient];
+        uint128 amount;
+
+        for (uint128 i; i < r.grants.length; ++i) {
+            amount += _getAmountUnlocked(r.grants[i]);
+        }
+
+        amount -= r.amountWithdrawn;
+        if (amount == 0) revert NOTHING_TO_WITHDRAW();
+
+        r.amountWithdrawn += amount;
+        totalAmountWithdrawn += amount;
+        ERC20Upgradeable(taikoToken).transfer(to, amount);
+
+        emit Withdrawn(recipient, to, amount);
     }
 
     function _voidGrant(Grant storage g)
