@@ -63,14 +63,16 @@ contract PseZkVerifier is EssentialContract, IVerifier {
             evidence: evidence
         });
 
-        // Verify blob
-        Lib4844.evaluatePoint({
-            blobHash: blobHash,
-            x: uint256(instance) % Lib4844.BLS_MODULUS,
-            y: p.pointValue,
-            commitment: p.pointCommitment,
-            proof: p.pointProof
-        });
+        if (usingBlob) {
+            // Verify blob
+            Lib4844.evaluatePoint({
+                blobHash: blobHash,
+                x: uint256(instance) % Lib4844.BLS_MODULUS,
+                y: p.pointValue,
+                commitment: p.pointCommitment,
+                proof: p.pointProof
+            });
+        }
 
         // Validate the instance using bytes utilities.
         bool verified = LibBytesUtils.equal(
