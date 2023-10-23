@@ -180,7 +180,7 @@ func (p *Processor) processMessage(
 		// and later blocks still have the storage trie proof from previous blocks.
 		latestSyncedSnippet, err = p.destHeaderSyncer.GetSyncedSnippet(&bind.CallOpts{}, 0)
 		if err != nil {
-			return errors.Wrap(err, "taiko.GetSyncedHeader")
+			return errors.Wrap(err, "taiko.GetSyncedSnippet")
 		}
 
 		encodedSignalProof, err = p.prover.EncodedSignalProof(
