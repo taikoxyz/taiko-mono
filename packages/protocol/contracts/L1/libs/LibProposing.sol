@@ -31,7 +31,8 @@ library LibProposing {
         uint96 livenessBond,
         uint256 proverFee,
         uint16 minTier,
-        TaikoData.BlockMetadata meta
+        TaikoData.BlockMetadata meta,
+        bool usingBlob
     );
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
@@ -179,7 +180,8 @@ library LibProposing {
             livenessBond: config.livenessBond,
             proverFee: proverFee,
             minTier: blk.minTier,
-            meta: meta
+            meta: meta,
+            usingBlob: blk.usingBlob
         });
     }
 

@@ -33,7 +33,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
     struct PseZkEvmProof {
         uint16 verifierId;
         bytes zkp;
-        bytes[] pointProof;
+        bytes pointProof;
     }
 
     /// @notice Initializes the contract with the provided address manager.
