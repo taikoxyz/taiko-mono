@@ -20,8 +20,6 @@ Gets the configuration of the TaikoL1 contract.
 
 ---
 
-## title: ProxiedTaikoL1
-
 ## ProxiedTaikoL1
 
 Proxied version of the parent contract.

@@ -4,7 +4,7 @@ title: ProofVerifier
 
 ## ProofVerifier
 
-See the documentation in {IProofVerifier}.
+See the documentation in [IProofVerifier](https://taiko.xyz/docs/reference/contract-documentation/L1/IProofVerifier).
 
 ### L1_INVALID_PROOF
 
@@ -44,8 +44,6 @@ should revert if the verification fails.
 | instance    | bytes32 | Hashed evidence & config data. If set to zero, proof is assumed to be from oracle prover. |
 
 ---
-
-## title: ProxiedProofVerifier
 
 ## ProxiedProofVerifier
 

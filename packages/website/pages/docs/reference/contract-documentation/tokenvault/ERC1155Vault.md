@@ -23,8 +23,6 @@ function symbol() external view returns (string)
 
 ---
 
-## title: ERC1155Vault
-
 ## ERC1155Vault
 
 This vault holds all ERC1155 tokens that users have deposited.
@@ -104,8 +102,6 @@ function supportsInterface(bytes4 interfaceId) public view virtual returns (bool
 _See {IERC165-supportsInterface}._
 
 ---
-
-## title: ProxiedERC1155Vault
 
 ## ProxiedERC1155Vault
 

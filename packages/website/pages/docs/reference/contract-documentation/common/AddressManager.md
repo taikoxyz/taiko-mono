@@ -46,8 +46,6 @@ Gets the address mapped to a specific domain-name pair.
 
 ---
 
-## title: AddressManager
-
 ## AddressManager
 
 Manages a mapping of domain-name pairs to Ethereum addresses.
@@ -110,8 +108,6 @@ Gets the address mapped to a specific domain-name pair.
 | [0]  | address | Address associated with the domain-name pair. |
 
 ---
-
-## title: ProxiedAddressManager
 
 ## ProxiedAddressManager
 

@@ -14,11 +14,9 @@ function onMessageRecalled(struct IBridge.Message message) external payable
 
 ---
 
-## title: IBridge
-
 ## IBridge
 
-The bridge used in conjunction with the {ISignalService}.
+The bridge used in conjunction with the [ISignalService](https://taiko.xyz/docs/reference/contract-documentation/signal/ISignalService#isignalservice).
 
 _Ether is held by Bridges on L1 and by the EtherVault on L2,
 not by token vaults._

@@ -265,8 +265,6 @@ Retrieves the current EIP-1559 configuration details.
 
 ---
 
-## title: ProxiedTaikoL2
-
 ## ProxiedTaikoL2
 
 Proxied version of the TaikoL2 contract.
