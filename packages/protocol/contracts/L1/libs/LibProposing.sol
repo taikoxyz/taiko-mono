@@ -60,11 +60,9 @@ library LibProposing {
         // However, if the "proposer" address is set to a non-zero value, we
         // ensure that only that specific address has the authority to propose
         // blocks.
-        {
-            address proposer = resolver.resolve("proposer", true);
-            if (proposer != address(0) && msg.sender != proposer) {
-                revert L1_UNAUTHORIZED();
-            }
+        address proposer = resolver.resolve("proposer", true);
+        if (proposer != address(0) && msg.sender != proposer) {
+            revert L1_UNAUTHORIZED();
         }
 
         // It's essential to ensure that the ring buffer for proposed blocks
