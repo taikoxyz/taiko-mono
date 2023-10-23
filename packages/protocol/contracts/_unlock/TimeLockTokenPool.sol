@@ -26,6 +26,11 @@ import { Proxied } from "../common/Proxied.sol";
 /// Conditional allocated tokens can be canceled by invoking `void()`, making
 /// them available for other uses. Once granted and owned, tokens are
 /// irreversible and their unlock schedules are immutable.
+///
+/// We should deploy multiple instances of this contract for different roles:
+/// - investors
+/// - team members, advisors, etc.
+/// - grant program grantees
 
 contract TimeLockTokenPool is OwnableUpgradeable {
     using SafeERC20Upgradeable for ERC20Upgradeable;
@@ -58,7 +63,7 @@ contract TimeLockTokenPool is OwnableUpgradeable {
     }
 
     address public taikoToken;
-    address public vault;
+    address public sharedVault;
     uint128 public totalAmountGranted;
     uint128 public totalAmountVoided;
     uint128 public totalAmountWithdrawn;
@@ -74,14 +79,20 @@ contract TimeLockTokenPool is OwnableUpgradeable {
     error NOTHING_TO_VOID();
     error NOTHING_TO_WITHDRAW();
 
-    function init(address _taikoToken, address _vault) external initializer {
+    function init(
+        address _taikoToken,
+        address _shardVault
+    )
+        external
+        initializer
+    {
         OwnableUpgradeable.__Ownable_init_unchained();
 
         if (_taikoToken == address(0)) revert INVALID_PARAM();
         taikoToken = _taikoToken;
 
-        if (_vault == address(0)) revert INVALID_PARAM();
-        vault = _vault;
+        if (_shardVault == address(0)) revert INVALID_PARAM();
+        sharedVault = _shardVault;
     }
 
     /// @notice Gives a new grant to a address with its own unlock schedule.
@@ -170,7 +181,7 @@ contract TimeLockTokenPool is OwnableUpgradeable {
 
         r.amountWithdrawn += amount;
         totalAmountWithdrawn += amount;
-        ERC20Upgradeable(taikoToken).transferFrom(vault, to, amount);
+        ERC20Upgradeable(taikoToken).transferFrom(sharedVault, to, amount);
 
         emit Withdrawn(recipient, to, amount);
     }
