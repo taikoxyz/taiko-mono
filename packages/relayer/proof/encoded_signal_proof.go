@@ -94,7 +94,7 @@ func (p *Prover) EncodedSignalProofWithHops(
 		return nil, 0, errors.Wrap(err, "p.encodedStorageProof")
 	}
 
-	slog.Info("successfully generated main storage proof proof")
+	slog.Info("successfully generated main storage proof")
 
 	hops := []encoding.Hop{}
 
