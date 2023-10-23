@@ -6,6 +6,7 @@
   import { ClipboardDocument, Power } from 'svelte-heros-v2';
   import { ChevronDown } from 'svelte-heros-v2';
   import { _ } from 'svelte-i18n';
+  import { RpcError } from 'wagmi';
   import { disconnect as wagmiDisconnect } from 'wagmi/actions';
 
   import { srcChain } from '../store/chain';
@@ -57,11 +58,17 @@
   $: setUserBalance($signer).catch((error) => {
     console.error(error);
 
-    Sentry.captureException(error, {
-      extra: { srcChain: $srcChain?.id },
-    });
+    if (error instanceof RpcError) {
+      errorToast(
+        'Cannot communicate with the network. Please try again later or contact support.',
+      );
+    } else {
+      Sentry.captureException(error, {
+        extra: { srcChain: $srcChain?.id },
+      });
 
-    errorToast('There was an error getting your balance.');
+      errorToast('There was an error getting your balance.');
+    }
   });
 
   $: setAddress($signer).catch((e) => console.error(e));
