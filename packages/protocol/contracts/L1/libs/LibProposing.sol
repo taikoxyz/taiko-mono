@@ -10,6 +10,7 @@ import { ERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
+import { IBlobHashReader } from "../../4844/IBlobHashReader.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 
 import { ITierProvider } from "../tiers/ITierProvider.sol";
@@ -40,7 +41,6 @@ library LibProposing {
     error L1_ASSIGNMENT_INSUFFICIENT_FEE();
     error L1_TIER_NOT_FOUND();
     error L1_TOO_MANY_BLOCKS();
-    error L1_TXLIST_MISMATCH();
     error L1_TXLIST_TOO_LARGE();
     error L1_UNAUTHORIZED();
 
@@ -49,7 +49,6 @@ library LibProposing {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
-        bytes32 blobHash,
         bytes32 extraData,
         TaikoData.ProverAssignment memory assignment,
         bytes calldata txList
@@ -61,20 +60,21 @@ library LibProposing {
         // However, if the "proposer" address is set to a non-zero value, we
         // ensure that only that specific address has the authority to propose
         // blocks.
-        address proposer = resolver.resolve("proposer", true);
-        if (proposer != address(0) && msg.sender != proposer) {
-            revert L1_UNAUTHORIZED();
+        {
+            address proposer = resolver.resolve("proposer", true);
+            if (proposer != address(0) && msg.sender != proposer) {
+                revert L1_UNAUTHORIZED();
+            }
         }
 
-        if (txList.length > config.blockMaxTxListBytes) {
-            revert L1_TXLIST_TOO_LARGE();
-        }
+        if (txList.length != 0) {
+            if (txList.length > config.blockMaxTxListBytes) {
+                revert L1_TXLIST_TOO_LARGE();
+            }
 
-        // It's necessary to verify that the txHash matches the provided hash.
-        // However, when we employ a blob for the txList, the verification
-        // process will differ.
-        if (blobHash != keccak256(txList)) {
-            revert L1_TXLIST_MISMATCH();
+            bytes32 txListHash = keccak256(txList);
+        } else {
+            // TODO: use blob;
         }
 
         // It's essential to ensure that the ring buffer for proposed blocks
@@ -98,7 +98,6 @@ library LibProposing {
                 // Ethereum block, we must introduce a salt to this random
                 // number as the L2 mixHash.
                 difficulty: bytes32(block.prevrandao * b.numBlocks),
-                blobHash: blobHash,
                 extraData: extraData,
                 id: b.numBlocks,
                 timestamp: uint64(block.timestamp),
@@ -130,6 +129,12 @@ library LibProposing {
         // block's proposal but before it has been proven or verified.
         blk.livenessBond = config.livenessBond;
         blk.blockId = b.numBlocks;
+
+        // Always use the first blob in this transaction.
+        blk.blobHash = IBlobHashReader(
+            resolver.resolve("blob_hash_reader", false)
+        ).getFirstBlobHash();
+
         blk.proposedAt = meta.timestamp;
 
         // For a new block, the next transition ID is always 1, not 0.
@@ -170,7 +175,7 @@ library LibProposing {
         // Validate the prover assignment, then charge Ether or ERC20 as the
         // prover fee based on the block's minTier.
         uint256 proverFee =
-            _validateAssignment(blk.minTier, blobHash, assignment);
+            _validateAssignment(blk.minTier, blk.blobHash, assignment);
 
         emit BlockProposed({
             blockId: blk.blockId,
@@ -188,22 +193,21 @@ library LibProposing {
         pure
         returns (bytes32 hash)
     {
-        uint256[7] memory inputs;
+        uint256[6] memory inputs;
         inputs[0] = uint256(meta.l1Hash);
         inputs[1] = uint256(meta.difficulty);
-        inputs[2] = uint256(meta.blobHash);
-        inputs[3] = uint256(meta.extraData);
-        inputs[4] = (uint256(meta.id)) | (uint256(meta.timestamp) << 64)
+        inputs[2] = uint256(meta.extraData);
+        inputs[3] = (uint256(meta.id)) | (uint256(meta.timestamp) << 64)
             | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 192);
-        inputs[5] = uint256(uint160(meta.coinbase));
-        inputs[6] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
+        inputs[4] = uint256(uint160(meta.coinbase));
+        inputs[5] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
 
         assembly {
-            hash := keccak256(inputs, 224 /*mul(7, 32)*/ )
+            hash := keccak256(inputs, 192 /*mul(6, 32)*/ )
         }
     }
 
-    function hashAssignmentForTxList(
+    function hashAssignmentForTxs(
         TaikoData.ProverAssignment memory assignment,
         bytes32 blobHash
     )
@@ -241,7 +245,7 @@ library LibProposing {
 
         // Hash the assignment with the blobHash, this hash will be signed by
         // the prover, therefore, we add a string as a prefix.
-        bytes32 hash = hashAssignmentForTxList(assignment, blobHash);
+        bytes32 hash = hashAssignmentForTxs(assignment, blobHash);
 
         if (!assignment.prover.isValidSignature(hash, assignment.signature)) {
             revert L1_ASSIGNMENT_INVALID_SIG();

@@ -88,7 +88,6 @@ library TaikoData {
     struct BlockMetadata {
         bytes32 l1Hash;
         bytes32 difficulty;
-        bytes32 blobHash;
         bytes32 extraData;
         uint64 id;
         uint64 timestamp;
@@ -128,14 +127,15 @@ library TaikoData {
     /// 10 slots reserved for upgradability, 3 slots used.
     struct Block {
         bytes32 metaHash; // slot 1
-        address assignedProver; // slot 2
+        bytes32 blobHash; // slot 2
+        address assignedProver; // slot 3
         uint96 livenessBond;
-        uint64 blockId; // slot 3
+        uint64 blockId; // slot 4
         uint64 proposedAt;
         uint32 nextTransitionId;
         uint32 verifiedTransitionId;
         uint16 minTier;
-        bytes32[7] __reserved;
+        bytes32[6] __reserved;
     }
 
     /// @dev Struct representing an Ethereum deposit.

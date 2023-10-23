@@ -60,7 +60,6 @@ contract TaikoL1 is
     }
 
     /// @notice Proposes a Taiko L2 block.
-    /// @param blobHash The hash of the block's txList
     /// @param assignment Data to assign a prover.
     /// @param txList A list of transactions in this block, encoded with RLP.
     /// Note, in the corresponding L2 block an "anchor transaction" will be the
@@ -68,7 +67,6 @@ contract TaikoL1 is
     /// `txList`, then there will be up to `n + 1` transactions in the L2 block.
     /// @return meta The metadata of the proposed L2 block.
     function proposeBlock(
-        bytes32 blobHash,
         bytes32 extraData,
         bytes calldata assignment,
         bytes calldata txList
@@ -83,7 +81,6 @@ contract TaikoL1 is
             state,
             config,
             AddressResolver(this),
-            blobHash,
             extraData,
             abi.decode(assignment, (TaikoData.ProverAssignment)),
             txList

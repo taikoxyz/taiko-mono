@@ -164,12 +164,11 @@ abstract contract TaikoL1TestBase is TestBase {
         meta.l1Height = uint64(block.number - 1);
         meta.l1Hash = blockhash(block.number - 1);
         meta.difficulty = bytes32(_difficulty);
-        meta.blobHash = keccak256(txList);
         meta.gasLimit = gasLimit;
 
         vm.prank(proposer, proposer);
         meta = L1.proposeBlock{ value: msgValue }(
-            meta.blobHash, bytes32(0), abi.encode(assignment), txList
+            bytes32(0), abi.encode(assignment), txList
         );
     }
 
@@ -301,8 +300,7 @@ abstract contract TaikoL1TestBase is TestBase {
         view
         returns (bytes memory signature)
     {
-        bytes32 digest =
-            LibProposing.hashAssignmentForTxList(assignment, blobHash);
+        bytes32 digest = LibProposing.hashAssignmentForTxs(assignment, blobHash);
         uint256 signerPrivateKey;
 
         // In the test suite these are the 3 which acts as provers
