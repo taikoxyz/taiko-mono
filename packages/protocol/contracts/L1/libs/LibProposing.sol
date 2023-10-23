@@ -204,7 +204,7 @@ library LibProposing {
         );
     }
 
-    function hashAssignmentForTxs(
+    function hashAssignmentWithTxsHash(
         TaikoData.ProverAssignment memory assignment,
         bytes32 txsHash
     )
@@ -242,7 +242,7 @@ library LibProposing {
 
         // Hash the assignment with the txsHash, this hash will be signed by
         // the prover, therefore, we add a string as a prefix.
-        bytes32 hash = hashAssignmentForTxs(assignment, txsHash);
+        bytes32 hash = hashAssignmentWithTxsHash(assignment, txsHash);
 
         if (!assignment.prover.isValidSignature(hash, assignment.signature)) {
             revert L1_ASSIGNMENT_INVALID_SIG();

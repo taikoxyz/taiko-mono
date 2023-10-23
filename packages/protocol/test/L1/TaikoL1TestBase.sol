@@ -300,7 +300,8 @@ abstract contract TaikoL1TestBase is TestBase {
         view
         returns (bytes memory signature)
     {
-        bytes32 digest = LibProposing.hashAssignmentForTxs(assignment, txsHash);
+        bytes32 digest =
+            LibProposing.hashAssignmentWithTxsHash(assignment, txsHash);
         uint256 signerPrivateKey;
 
         // In the test suite these are the 3 which acts as provers
