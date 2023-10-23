@@ -43,6 +43,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         uint64, /*blockId*/
         address prover,
         bool isContesting,
+        bool usingBlob,
         bytes32 blobHash,
         TaikoData.BlockEvidence calldata evidence
     )
@@ -53,13 +54,25 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         if (isContesting) return;
 
         PseZkEvmProof memory p = abi.decode(evidence.proof, (PseZkEvmProof));
-        bytes32 instance = calcInstance({
-            prover: prover,
-            blobHash: blobHash,
-            txListHash: p.txListHash,
-            pointValue: p.pointValue,
-            evidence: evidence
-        });
+
+        bytes32 instance;
+        if (usingBlob) {
+            instance = calcInstance({
+                prover: prover,
+                blobHash: blobHash,
+                txListHash: p.txListHash,
+                pointValue: p.pointValue,
+                evidence: evidence
+            });
+        } else {
+            instance = calcInstance({
+                prover: prover,
+                blobHash: blobHash,
+                txListHash: blobHash,
+                pointValue: 0,
+                evidence: evidence
+            });
+        }
 
         // Verify blob
         Lib4844.evaluatePoint({
