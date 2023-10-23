@@ -135,6 +135,7 @@ library TaikoData {
         uint32 nextTransitionId;
         uint32 verifiedTransitionId;
         uint16 minTier;
+        bool useBlob;
         bytes32[6] __reserved;
     }
 

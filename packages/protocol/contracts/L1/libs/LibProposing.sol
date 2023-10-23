@@ -131,9 +131,15 @@ library LibProposing {
         blk.blockId = b.numBlocks;
 
         // Always use the first blob in this transaction.
-        blk.blobHash = IBlobHashReader(
-            resolver.resolve("blob_hash_reader", false)
-        ).getFirstBlobHash();
+        if (txList.length == 0) {
+            blk.useBlob = true;
+            blk.blobHash = IBlobHashReader(
+                resolver.resolve("blob_hash_reader", false)
+            ).getFirstBlobHash();
+        } else {
+            blk.useBlob = false;
+            blk.blobHash = keccak256(txList);
+        }
 
         blk.proposedAt = meta.timestamp;
 
