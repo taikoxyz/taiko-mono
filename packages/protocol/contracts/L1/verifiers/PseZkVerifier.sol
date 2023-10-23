@@ -55,24 +55,13 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
         PseZkEvmProof memory p = abi.decode(evidence.proof, (PseZkEvmProof));
 
-        bytes32 instance;
-        if (usingBlob) {
-            instance = calcInstance({
-                prover: prover,
-                blobHash: blobHash,
-                txListHash: p.txListHash,
-                pointValue: p.pointValue,
-                evidence: evidence
-            });
-        } else {
-            instance = calcInstance({
-                prover: prover,
-                blobHash: blobHash,
-                txListHash: blobHash,
-                pointValue: 0,
-                evidence: evidence
-            });
-        }
+        bytes32 instance = calcInstance({
+            prover: prover,
+            blobHash: blobHash,
+            txListHash: usingBlob ? p.txListHash : blobHash,
+            pointValue: usingBlob ? p.pointValue : 0,
+            evidence: evidence
+        });
 
         // Verify blob
         Lib4844.evaluatePoint({
