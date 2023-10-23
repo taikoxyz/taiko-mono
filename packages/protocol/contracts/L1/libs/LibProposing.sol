@@ -49,9 +49,9 @@ library LibProposing {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
-        bytes32 extraData,
+        bytes calldata txList,
         TaikoData.ProverAssignment memory assignment,
-        bytes calldata txList
+        bytes32 extraData
     )
         internal
         returns (TaikoData.BlockMetadata memory meta)
