@@ -294,13 +294,13 @@ abstract contract TaikoL1TestBase is TestBase {
     function grantWithSignature(
         address signer,
         TaikoData.ProverAssignment memory assignment,
-        bytes32 blobHash
+        bytes32 txsHash
     )
         internal
         view
         returns (bytes memory signature)
     {
-        bytes32 digest = LibProposing.hashAssignmentForTxs(assignment, blobHash);
+        bytes32 digest = LibProposing.hashAssignmentForTxs(assignment, txsHash);
         uint256 signerPrivateKey;
 
         // In the test suite these are the 3 which acts as provers

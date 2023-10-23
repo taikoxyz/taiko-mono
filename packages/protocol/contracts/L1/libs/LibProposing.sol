@@ -119,10 +119,10 @@ library LibProposing {
         blk.blockId = b.numBlocks;
 
         if (txList.length == 0) {
-            blk.useBlob = true;
+            blk.usingBlob = true;
 
             // Always use the first blob in this transaction.
-            blk.blobHash = IBlobHashReader(
+            blk.txsHash = IBlobHashReader(
                 resolver.resolve("blob_hash_reader", false)
             ).getFirstBlobHash();
         } else {
@@ -130,8 +130,8 @@ library LibProposing {
                 revert L1_TXLIST_TOO_LARGE();
             }
 
-            blk.useBlob = false;
-            blk.blobHash = keccak256(txList);
+            blk.usingBlob = false;
+            blk.txsHash = keccak256(txList);
         }
 
         blk.proposedAt = meta.timestamp;
@@ -174,7 +174,7 @@ library LibProposing {
         // Validate the prover assignment, then charge Ether or ERC20 as the
         // prover fee based on the block's minTier.
         uint256 proverFee =
-            _validateAssignment(blk.minTier, blk.blobHash, assignment);
+            _validateAssignment(blk.minTier, blk.txsHash, assignment);
 
         emit BlockProposed({
             blockId: blk.blockId,
@@ -209,7 +209,7 @@ library LibProposing {
 
     function hashAssignmentForTxs(
         TaikoData.ProverAssignment memory assignment,
-        bytes32 blobHash
+        bytes32 txsHash
     )
         internal
         pure
@@ -218,7 +218,7 @@ library LibProposing {
         return keccak256(
             abi.encode(
                 "PROVER_ASSIGNMENT",
-                blobHash,
+                txsHash,
                 assignment.feeToken,
                 assignment.expiry,
                 assignment.tierFees
@@ -228,7 +228,7 @@ library LibProposing {
 
     function _validateAssignment(
         uint16 minTier,
-        bytes32 blobHash,
+        bytes32 txsHash,
         TaikoData.ProverAssignment memory assignment
     )
         private
@@ -239,13 +239,13 @@ library LibProposing {
             revert L1_ASSIGNMENT_EXPIRED();
         }
 
-        if (blobHash == 0 || assignment.prover == address(0)) {
+        if (txsHash == 0 || assignment.prover == address(0)) {
             revert L1_ASSIGNMENT_INVALID_PARAMS();
         }
 
-        // Hash the assignment with the blobHash, this hash will be signed by
+        // Hash the assignment with the txsHash, this hash will be signed by
         // the prover, therefore, we add a string as a prefix.
-        bytes32 hash = hashAssignmentForTxs(assignment, blobHash);
+        bytes32 hash = hashAssignmentForTxs(assignment, txsHash);
 
         if (!assignment.prover.isValidSignature(hash, assignment.signature)) {
             revert L1_ASSIGNMENT_INVALID_SIG();

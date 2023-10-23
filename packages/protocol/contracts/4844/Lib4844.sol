@@ -21,13 +21,13 @@ library Lib4844 {
     error TX_HAS_NO_BLOB();
 
     /// @notice Evaluates the 4844 point using the precompile.
-    /// @param txListHash The versioned hash
+    /// @param txsHash The versioned hash
     /// @param x The evaluation point
     /// @param y The expected output
     /// @param commitment The input kzg point
     /// @param proof The quotient kzg
     function evaluatePoint(
-        bytes32 txListHash,
+        bytes32 txsHash,
         uint256 x,
         uint256 y,
         bytes1[48] memory commitment,
@@ -40,7 +40,7 @@ library Lib4844 {
         if (y >= BLS_MODULUS) revert POINT_Y_TOO_LARGE();
 
         (bool ok,) = POINT_EVALUATION_PRECOMPILE_ADDRESS.staticcall(
-            abi.encodePacked(txListHash, x, y, commitment, proof)
+            abi.encodePacked(txsHash, x, y, commitment, proof)
         );
         if (!ok) revert EVAL_FAILED();
     }

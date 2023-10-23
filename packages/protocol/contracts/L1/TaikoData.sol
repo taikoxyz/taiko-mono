@@ -127,7 +127,7 @@ library TaikoData {
     /// 10 slots reserved for upgradability, 3 slots used.
     struct Block {
         bytes32 metaHash; // slot 1
-        bytes32 blobHash; // slot 2
+        bytes32 txsHash; // slot 2
         address assignedProver; // slot 3
         uint96 livenessBond;
         uint64 blockId; // slot 4
@@ -135,7 +135,7 @@ library TaikoData {
         uint32 nextTransitionId;
         uint32 verifiedTransitionId;
         uint16 minTier;
-        bool useBlob;
+        bool usingBlob;
         bytes32[6] __reserved;
     }
 
