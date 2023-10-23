@@ -17,7 +17,6 @@
   import { hasBridge } from '$libs/bridge/bridges';
   import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
   import { getBridgeArgs } from '$libs/bridge/getBridgeArgs';
-  import { handleApproveError } from '$libs/bridge/handleApproveError';
   import { handleBridgeError } from '$libs/bridge/handleBridgeErrors';
   import { bridgeTxService } from '$libs/storage';
   import { ETHToken, tokens, TokenType } from '$libs/token';
@@ -138,7 +137,7 @@
       }
     } catch (err) {
       console.error(err);
-      handleApproveError(err as Error);
+      handleBridgeError(err as Error);
     }
   }
 
