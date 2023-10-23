@@ -23,13 +23,17 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
     error L1_INVALID_PROOF();
 
-    struct PseZkEvmProof {
+    struct PointProof {
         bytes32 txListHash;
         uint256 pointValue;
         bytes1[48] pointCommitment;
         bytes1[48] pointProof;
+    }
+
+    struct PseZkEvmProof {
         uint16 verifierId;
         bytes zkp;
+        bytes[] pointProof;
     }
 
     /// @notice Initializes the contract with the provided address manager.
@@ -53,46 +57,58 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         // Do not run proof verification to contest an existing proof
         if (isContesting) return;
 
-        PseZkEvmProof memory p = abi.decode(evidence.proof, (PseZkEvmProof));
+        PseZkEvmProof memory proof = abi.decode(evidence.proof, (PseZkEvmProof));
 
-        bytes32 instance = calcInstance({
-            prover: prover,
-            blobHash: blobHash,
-            txListHash: usingBlob ? p.txListHash : blobHash,
-            evidence: evidence
-        });
+        bytes32 instance;
 
         if (usingBlob) {
-            // Verify blob
+            PointProof memory pf = abi.decode(proof.pointProof, (PointProof));
+
+            instance = calcInstance({
+                prover: prover,
+                blobHash: blobHash,
+                txListHash: pf.txListHash,
+                evidence: evidence
+            });
+
             Lib4844.evaluatePoint({
                 blobHash: blobHash,
                 x: uint256(instance) % Lib4844.BLS_MODULUS,
-                y: p.pointValue,
-                commitment: p.pointCommitment,
-                proof: p.pointProof
+                y: pf.pointValue,
+                commitment: pf.pointCommitment,
+                proof: pf.pointProof
+            });
+        } else {
+            assert(proof.pointProof.length == 0);
+            instance = calcInstance({
+                prover: prover,
+                blobHash: blobHash,
+                txListHash: blobHash, // blobHash == txListHash
+                evidence: evidence
             });
         }
 
         // Validate the instance using bytes utilities.
         bool verified = LibBytesUtils.equal(
-            LibBytesUtils.slice(p.zkp, 0, 32),
+            LibBytesUtils.slice(proof.zkp, 0, 32),
             bytes.concat(bytes16(0), bytes16(instance))
         );
         if (!verified) revert L1_INVALID_PROOF();
 
         verified = LibBytesUtils.equal(
-            LibBytesUtils.slice(p.zkp, 32, 32),
+            LibBytesUtils.slice(proof.zkp, 32, 32),
             bytes.concat(bytes16(0), bytes16(uint128(uint256(instance))))
         );
         if (!verified) revert L1_INVALID_PROOF();
 
         // Delegate to the ZKP verifier library to validate the proof.
         // Resolve the verifier's name and obtain its address.
-        address verifierAddress = resolve(getVerifierName(p.verifierId), false);
+        address verifierAddress =
+            resolve(getVerifierName(proof.verifierId), false);
 
         // Call the verifier contract with the provided proof.
         bytes memory ret;
-        (verified, ret) = verifierAddress.staticcall(bytes.concat(p.zkp));
+        (verified, ret) = verifierAddress.staticcall(bytes.concat(proof.zkp));
 
         // Check if the proof is valid.
         if (!verified) revert L1_INVALID_PROOF();
