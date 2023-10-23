@@ -107,7 +107,7 @@ var (
 	}
 	HopSignalServiceAddresses = &cli.StringSliceFlag{
 		Name:     "hopSignalServiceAddresses",
-		Usage:    "SignalService address esfor the intermediary chains",
+		Usage:    "SignalService addresses for the intermediary chains",
 		Required: false,
 		Category: processorCategory,
 		EnvVars:  []string{"HOP_SIGNAL_SERVICE_ADDRESSES"},
