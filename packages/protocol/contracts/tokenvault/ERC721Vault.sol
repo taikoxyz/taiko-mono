@@ -47,6 +47,7 @@ contract ERC721Vault is
         external
         payable
         nonReentrant
+        whenNotPaused
     {
         LibVaultUtils.checkIfValidAmounts(opt.amounts, opt.tokenIds, true);
         LibVaultUtils.checkIfValidAddresses(
@@ -103,6 +104,7 @@ contract ERC721Vault is
         external
         payable
         nonReentrant
+        whenNotPaused
         onlyFromNamed("bridge")
     {
         IBridge.Context memory ctx =
@@ -149,6 +151,7 @@ contract ERC721Vault is
         payable
         override
         nonReentrant
+        whenNotPaused
         onlyFromNamed("bridge")
     {
         if (message.user == address(0)) revert VAULT_INVALID_USER();

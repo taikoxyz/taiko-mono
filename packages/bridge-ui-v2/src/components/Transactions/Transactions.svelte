@@ -71,7 +71,7 @@
     }
     if (error) {
       // Todo: handle different error scenarios
-      warningToast($t('transactions.errors.relayer_offline'));
+      warningToast({title: $t('transactions.errors.relayer_offline')});
     }
   };
 

@@ -9,6 +9,7 @@ import { TransparentUpgradeableProxy } from "lib/openzeppelin-contracts/contract
 
 import { AddressManager } from "../contracts/common/AddressManager.sol";
 import { AddressResolver } from "../contracts/common/AddressResolver.sol";
+import { EssentialContract } from "../contracts/common/EssentialContract.sol";
 import { Bridge } from "../contracts/bridge/Bridge.sol";
 import { ERC1155Vault } from "../contracts/tokenvault/ERC1155Vault.sol";
 import { ERC20Vault } from "../contracts/tokenvault/ERC20Vault.sol";
@@ -161,6 +162,35 @@ contract TestGenerateGenesis is Test, AddressResolver {
             }),
             ""
         );
+
+        assertEq(bridge.paused(), false);
+
+        vm.startPrank(owner);
+        bridge.pause();
+        assertEq(bridge.paused(), true);
+
+        vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
+        bridge.processMessage(
+            IBridge.Message({
+                id: 0,
+                from: address(0),
+                srcChainId: 1,
+                destChainId: 167,
+                user: address(0),
+                to: address(0),
+                refundTo: address(0),
+                value: 0,
+                fee: 0,
+                gasLimit: 0,
+                data: "",
+                memo: ""
+            }),
+            ""
+        );
+
+        bridge.unpause();
+        assertEq(bridge.paused(), false);
+        vm.stopPrank();
 
         vm.startPrank(admin);
 

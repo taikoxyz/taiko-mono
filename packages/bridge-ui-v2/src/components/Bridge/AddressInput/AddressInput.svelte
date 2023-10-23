@@ -1,6 +1,6 @@
 <script lang="ts">
   import { isAddress } from 'ethereum-address';
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
@@ -59,6 +59,10 @@
 
     dispatch('addressvalidation', { isValidEthereumAddress: state === State.Valid, addr });
   };
+
+  onMount(() => {
+    ethereumAddress = '';
+  });
 
   $: validateEthereumAddress(ethereumAddress);
 </script>

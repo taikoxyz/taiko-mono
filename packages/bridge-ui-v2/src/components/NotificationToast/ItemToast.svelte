@@ -6,7 +6,8 @@
   import type { TypeToast } from './types';
 
   export let type: TypeToast = 'unknown';
-  export let message = '';
+  export let title = '';
+  export let message: string | undefined;
   export let close: () => void = noop;
 
   const iconTypeMap: Record<TypeToast, IconType> = {
@@ -59,14 +60,20 @@
     alertClassMap[type],
   );
 
-  const messageClasses = classNames('callout-regular', messageClassMap[type]);
+  const messageClasses = classNames(messageClassMap[type]);
 </script>
 
 <div role="alert" class={alertClasses}>
   <div class="grid grid-cols-[24px_auto] items-center space-x-2">
     <Icon type={iconTypeMap[type]} size={24} fillClass={alertIconClassMap[type]} />
-    <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-    <div class={messageClasses}>{@html message}</div>
+    <div class={messageClasses}>
+      <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+      <div class='callout-bold leading-[24px]'>{@html title}</div>
+      {#if message}
+        <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+        <div class='callout-regular'>{@html message}</div>
+      {/if}
+    </div>
   </div>
   <button class="ml-6" on:click={close}>
     <Icon type="x-close" size={24} fillClass={iconCloseClassMap[type]} />
