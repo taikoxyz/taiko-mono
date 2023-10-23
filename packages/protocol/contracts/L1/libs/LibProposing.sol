@@ -57,6 +57,7 @@ library LibProposing {
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
+        if (extraData.length == 0) revert L1_BLOB_DA_NOT_SUPPORTED_YET();
         // Taiko, as a Based Rollup, enables permissionless block proposals.
         // However, if the "proposer" address is set to a non-zero value, we
         // ensure that only that specific address has the authority to propose
