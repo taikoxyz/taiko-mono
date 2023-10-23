@@ -8,10 +8,15 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
-func (p *Processor) waitHeaderSynced(ctx context.Context, event *bridge.BridgeMessageSent) error {
+func (p *Processor) waitHeaderSynced(
+	ctx context.Context,
+	headerSyncer relayer.HeaderSyncer,
+	ethClient ethClient,
+	blockNum uint64,
+) error {
 	ticker := time.NewTicker(time.Duration(p.headerSyncIntervalSeconds) * time.Second)
 	defer ticker.Stop()
 
@@ -21,38 +26,39 @@ func (p *Processor) waitHeaderSynced(ctx context.Context, event *bridge.BridgeMe
 			return ctx.Err()
 		case <-ticker.C:
 			slog.Info("waitHeaderSynced checking if tx is processable",
-				"msgHash", common.Hash(event.MsgHash).Hex(),
-				"txHash", event.Raw.TxHash.Hex(),
-				"blockNumber", event.Raw.BlockNumber,
+				"blockNumber", blockNum,
 			)
-			// get latest synced header since not every header is synced from L1 => L2,
+			// get latest synced block has via snippet since not every header is synced from L1 => L2,
 			// and later blocks still have the storage trie proof from previous blocks.
-			latestSyncedSnippet, err := p.destHeaderSyncer.GetSyncedSnippet(&bind.CallOpts{}, 0)
+			latestSyncedSnippet, err := headerSyncer.GetSyncedSnippet(&bind.CallOpts{
+				Context: ctx,
+			}, 0)
 			if err != nil {
-				return errors.Wrap(err, "p.destHeaderSyncer.GetCrossChainBlockHash")
+				return errors.Wrap(err, "p.destHeaderSyncer.GetSyncedSnippet")
 			}
 
-			header, err := p.srcEthClient.HeaderByHash(ctx, latestSyncedSnippet.BlockHash)
+			slog.Info("latestSyncedSnippet",
+				"blockHash", common.Bytes2Hex(latestSyncedSnippet.BlockHash[:]),
+				"signalRoot", common.Bytes2Hex(latestSyncedSnippet.SignalRoot[:]),
+			)
+
+			header, err := ethClient.HeaderByHash(ctx, latestSyncedSnippet.BlockHash)
 			if err != nil {
-				return errors.Wrap(err, "p.destHeaderSyncer.GetCrossChainBlockHash")
+				return errors.Wrap(err, "ethClient.HeaderByHash")
 			}
 
-			// header is caught up and processible
-			if header.Number.Uint64() >= event.Raw.BlockNumber {
-				slog.Info("waitHeaderSynced processable",
-					"msgHash", common.Hash(event.MsgHash).Hex(),
-					"txHash", event.Raw.TxHash.Hex(),
-					"eventBlockNum", event.Raw.BlockNumber,
+			// header is caught up
+			if header.Number.Uint64() >= blockNum {
+				slog.Info("waitHeaderSynced caughtUp",
+					"blockNum", blockNum,
 					"latestSyncedBlockNum", header.Number.Uint64(),
 				)
 
 				return nil
 			}
 
-			slog.Info("waitHeaderSynced waiting to be processable",
-				"msgHash", common.Hash(event.MsgHash).Hex(),
-				"txHash", event.Raw.TxHash.Hex(),
-				"eventBlockNum", event.Raw.BlockNumber,
+			slog.Info("waitHeaderSynced waiting to be caughtUp",
+				"blockNum", blockNum,
 				"latestSyncedBlockNum", header.Number.Uint64(),
 			)
 		}
