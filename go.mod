@@ -25,6 +25,7 @@ require (
 	github.com/rabbitmq/amqp091-go v1.8.1
 	github.com/shopspring/decimal v1.3.1
 	github.com/stretchr/testify v1.8.4
+	github.com/swaggo/swag v1.16.2
 	github.com/testcontainers/testcontainers-go v0.21.0
 	github.com/urfave/cli/v2 v2.25.7
 	golang.org/x/exp v0.0.0-20230810033253-352e893a4cad
@@ -133,7 +134,6 @@ require (
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/skeema/knownhosts v1.1.1 // indirect
-	github.com/swaggo/swag v1.16.2 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect

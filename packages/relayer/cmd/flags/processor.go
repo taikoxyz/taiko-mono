@@ -105,6 +105,27 @@ var (
 		Category: processorCategory,
 		EnvVars:  []string{"ENABLE_TAIKO_L2"},
 	}
+	HopSignalServiceAddresses = &cli.StringSliceFlag{
+		Name:     "hopSignalServiceAddresses",
+		Usage:    "SignalService addresses for the intermediary chains",
+		Required: false,
+		Category: processorCategory,
+		EnvVars:  []string{"HOP_SIGNAL_SERVICE_ADDRESSES"},
+	}
+	HopTaikoAddresses = &cli.StringSliceFlag{
+		Name:     "hopTaikoAddresses",
+		Usage:    "Taiko addresses for the intermediary chains",
+		Required: false,
+		Category: processorCategory,
+		EnvVars:  []string{"HOP_TAIKO_ADDRESSES"},
+	}
+	HopRPCUrls = &cli.StringSliceFlag{
+		Name:     "hopRpcUrls",
+		Usage:    "RPC URL for the intermediary chains",
+		Required: false,
+		Category: processorCategory,
+		EnvVars:  []string{"HOP_RPC_URLS"},
+	}
 )
 
 var ProcessorFlags = MergeFlags(CommonFlags, []cli.Flag{
@@ -123,4 +144,7 @@ var ProcessorFlags = MergeFlags(CommonFlags, []cli.Flag{
 	BackOffMaxRetrys,
 	QueuePrefetchCount,
 	EnableTaikoL2,
+	HopRPCUrls,
+	HopSignalServiceAddresses,
+	HopTaikoAddresses,
 })

@@ -2,6 +2,7 @@ package proof
 
 import (
 	"context"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -10,6 +11,7 @@ import (
 
 type blocker interface {
 	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error)
+	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 }
 type Prover struct {
 	blocker blocker

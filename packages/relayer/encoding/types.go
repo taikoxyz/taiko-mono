@@ -33,17 +33,44 @@ type BlockHeader struct {
 }
 
 type SignalProof struct {
-	Height *big.Int `abi:"height"`
-	Proof  []byte   `abi:"proof"`
+	Height       uint64 `abi:"height"`
+	StorageProof []byte `abi:"storageProof"`
+	Hops         []Hop  `abi:"hops"`
+}
+
+type Hop struct {
+	ChainID      *big.Int `abi:"chainId"`
+	SignalRoot   [32]byte `abi:"signalRoot"`
+	StorageProof []byte   `abi:"storageProof"`
+}
+
+var hopComponents = []abi.ArgumentMarshaling{
+	{
+		Name: "chainId",
+		Type: "uint256",
+	},
+	{
+		Name: "signalRoot",
+		Type: "bytes32",
+	},
+	{
+		Name: "storageProof",
+		Type: "bytes",
+	},
 }
 
 var signalProofT, _ = abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 	{
 		Name: "height",
-		Type: "uint256",
+		Type: "uint64",
 	},
 	{
-		Name: "proof",
+		Name: "storageProof",
 		Type: "bytes",
+	},
+	{
+		Name:       "hops",
+		Type:       "tuple[]",
+		Components: hopComponents,
 	},
 })
