@@ -151,7 +151,7 @@ abstract contract TaikoL1TestBase is TestBase {
         bytes memory txList = new bytes(txListSize);
 
         assignment.signature =
-            grantWithSignature(prover, assignment, keccak256(txList));
+            _signAssignment(prover, assignment, keccak256(txList));
 
         TaikoData.StateVariables memory variables = L1.getStateVariables();
 
@@ -291,7 +291,7 @@ abstract contract TaikoL1TestBase is TestBase {
         );
     }
 
-    function grantWithSignature(
+    function _signAssignment(
         address signer,
         TaikoData.ProverAssignment memory assignment,
         bytes32 blobHash
