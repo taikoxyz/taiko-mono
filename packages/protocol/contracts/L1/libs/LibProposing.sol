@@ -118,9 +118,8 @@ library LibProposing {
         blk.livenessBond = config.livenessBond;
         blk.blockId = b.numBlocks;
 
-        if (txList.length == 0) {
-            blk.usingBlob = true;
-
+        blk.usingBlob = txList.length == 0;
+        if (blk.usingBlob) {
             // Always use the first blob in this transaction.
             blk.txsHash = IBlobHashReader(
                 resolver.resolve("blob_hash_reader", false)
@@ -129,8 +128,6 @@ library LibProposing {
             if (txList.length > config.blockMaxTxListBytes) {
                 revert L1_TXLIST_TOO_LARGE();
             }
-
-            blk.usingBlob = false;
             blk.txsHash = keccak256(txList);
         }
 
