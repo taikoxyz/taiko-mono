@@ -58,6 +58,7 @@ contract TimeLockTokenPool is OwnableUpgradeable {
     }
 
     address public taikoToken;
+    address public vault;
     uint128 public totalAmountGranted;
     uint128 public totalAmountVoided;
     uint128 public totalAmountWithdrawn;
@@ -73,11 +74,14 @@ contract TimeLockTokenPool is OwnableUpgradeable {
     error NOTHING_TO_VOID();
     error NOTHING_TO_WITHDRAW();
 
-    function init(address _taikoToken) external initializer {
+    function init(address _taikoToken, address _vault) external initializer {
         OwnableUpgradeable.__Ownable_init_unchained();
 
         if (_taikoToken == address(0)) revert INVALID_PARAM();
         taikoToken = _taikoToken;
+
+        if (_vault == address(0)) revert INVALID_PARAM();
+        vault = _vault;
     }
 
     /// @notice Gives a new grant to a address with its own unlock schedule.
@@ -166,7 +170,7 @@ contract TimeLockTokenPool is OwnableUpgradeable {
 
         r.amountWithdrawn += amount;
         totalAmountWithdrawn += amount;
-        ERC20Upgradeable(taikoToken).transfer(to, amount);
+        ERC20Upgradeable(taikoToken).transferFrom(vault, to, amount);
 
         emit Withdrawn(recipient, to, amount);
     }
