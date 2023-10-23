@@ -81,12 +81,14 @@ library TaikoData {
     /// @dev Struct containing data only required for proving a block
     /// Warning: changing this struct requires changing
     /// {LibProposing.hashMetadata} accordingly.
+    ///
+    /// Note: On L2, `block.difficulty` is the pseudo name of
+    /// `block.prevrandao`, which returns a random number provided by the layer
+    /// 1 chain.
     struct BlockMetadata {
         bytes32 l1Hash;
-        // On L2, `block.difficulty` is the pseudo name of `block.prevrandao`,
-        // which returns a random number provided by the layer 1 chain.
         bytes32 difficulty;
-        bytes32 txListHash;
+        bytes32 blobHash;
         bytes32 extraData;
         uint64 id;
         uint64 timestamp;
