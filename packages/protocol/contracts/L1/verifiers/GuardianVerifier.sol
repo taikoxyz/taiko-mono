@@ -27,10 +27,11 @@ contract GuardianVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        uint64,
+        uint64, /*blockId*/
         address prover,
-        bool,
-        TaikoData.BlockEvidence calldata
+        bool, /*isContesting*/
+        bytes32, /*blobHash*/
+        TaikoData.BlockEvidence calldata /*evidence*/
     )
         external
         view

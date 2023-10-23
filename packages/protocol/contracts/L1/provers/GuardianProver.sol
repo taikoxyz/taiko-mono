@@ -17,13 +17,13 @@ contract GuardianProver is EssentialContract {
     uint256 public constant NUM_GUARDIANS = 5;
     uint256 public constant REQUIRED_GUARDIANS = 3;
 
-    address[NUM_GUARDIANS] public guardians; //  slots 1 - 5
-    mapping(address guardian => uint256 id) public guardianIds; // slot 6
-    mapping(bytes32 => uint256 approvalBits) public approvals; // slot 7
+    mapping(address guardian => uint256 id) public guardianIds; // slot 1
+    mapping(bytes32 => uint256 approvalBits) public approvals; // slot 2
+    address[NUM_GUARDIANS] public guardians; //  slots 3,4,5,6,7
+    uint256[43] private __gap2;
 
-    uint256[43] private __gap;
-    // Cannot use NUM_GUARDIANS directly below otherwise hardhat will fail
-
+    // Cannot use NUM_GUARDIANS below in event directly otherwise hardhat will
+    // fail
     event GuardiansUpdated(address[5]);
     event Approved(
         uint64 blockId,

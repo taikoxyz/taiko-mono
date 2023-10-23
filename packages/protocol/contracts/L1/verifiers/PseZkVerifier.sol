@@ -7,6 +7,8 @@
 pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../../common/EssentialContract.sol";
+import { Lib4844 } from "../../4844/Lib4844.sol";
+import { Proxied } from "../../common/Proxied.sol";
 import { Proxied } from "../../common/Proxied.sol";
 import { LibBytesUtils } from "../../thirdparty/LibBytesUtils.sol";
 
@@ -21,6 +23,15 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
     error L1_INVALID_PROOF();
 
+    struct PseZkEvmProof {
+        bytes32 txListHash;
+        uint256 pointValue;
+        bytes1[48] pointCommitment;
+        bytes1[48] pointProof;
+        uint16 verifierId;
+        bytes zkp;
+    }
+
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
     function init(address _addressManager) external initializer {
@@ -29,11 +40,10 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        // blockId is unused now, but can be used later when supporting
-        // different types of proofs.
-        uint64,
+        uint64, /*blockId*/
         address prover,
         bool isContesting,
+        bytes32 blobHash,
         TaikoData.BlockEvidence calldata evidence
     )
         external
@@ -42,32 +52,44 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         // Do not run proof verification to contest an existing proof
         if (isContesting) return;
 
-        bytes32 instance = calcInstance(prover, evidence);
+        PseZkEvmProof memory p = abi.decode(evidence.proof, (PseZkEvmProof));
+        bytes32 instance = calcInstance({
+            prover: prover,
+            blobHash: blobHash,
+            txListHash: p.txListHash,
+            pointValue: p.pointValue,
+            evidence: evidence
+        });
+
+        // Verify blob
+        Lib4844.evaluatePoint({
+            blobHash: blobHash,
+            x: uint256(instance) % Lib4844.BLS_MODULUS,
+            y: p.pointValue,
+            commitment: p.pointCommitment,
+            proof: p.pointProof
+        });
 
         // Validate the instance using bytes utilities.
         bool verified = LibBytesUtils.equal(
-            LibBytesUtils.slice(evidence.proof, 2, 32),
+            LibBytesUtils.slice(p.zkp, 0, 32),
             bytes.concat(bytes16(0), bytes16(instance))
         );
         if (!verified) revert L1_INVALID_PROOF();
 
         verified = LibBytesUtils.equal(
-            LibBytesUtils.slice(evidence.proof, 34, 32),
+            LibBytesUtils.slice(p.zkp, 32, 32),
             bytes.concat(bytes16(0), bytes16(uint128(uint256(instance))))
         );
         if (!verified) revert L1_INVALID_PROOF();
 
-        // Extract verifier ID from the proof.
-        uint16 verifierId = uint16(bytes2(evidence.proof[0:2]));
-
         // Delegate to the ZKP verifier library to validate the proof.
         // Resolve the verifier's name and obtain its address.
-        address verifierAddress = resolve(getVerifierName(verifierId), false);
+        address verifierAddress = resolve(getVerifierName(p.verifierId), false);
 
         // Call the verifier contract with the provided proof.
         bytes memory ret;
-        (verified, ret) =
-            verifierAddress.staticcall(bytes.concat(evidence.proof[2:]));
+        (verified, ret) = verifierAddress.staticcall(bytes.concat(p.zkp));
 
         // Check if the proof is valid.
         if (!verified) revert L1_INVALID_PROOF();
@@ -77,6 +99,9 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
     function calcInstance(
         address prover,
+        bytes32 blobHash,
+        bytes32 txListHash,
+        uint256 pointValue,
         TaikoData.BlockEvidence memory evidence
     )
         public
@@ -90,7 +115,10 @@ contract PseZkVerifier is EssentialContract, IVerifier {
                 evidence.blockHash,
                 evidence.signalRoot,
                 evidence.graffiti,
-                prover
+                prover,
+                blobHash,
+                txListHash,
+                pointValue
             )
         );
     }

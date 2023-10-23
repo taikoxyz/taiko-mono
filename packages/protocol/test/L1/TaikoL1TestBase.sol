@@ -194,7 +194,7 @@ abstract contract TaikoL1TestBase is TestBase {
             proof: new bytes(102)
         });
 
-        bytes32 instance = pv.calcInstance(prover, evidence);
+        bytes32 instance = pv.calcInstance(prover, 0x0, 0x0, 0, evidence);
         uint16 verifierId = 300; // 300 as see mock verifier in line 95
 
         evidence.proof = bytes.concat(
@@ -294,14 +294,14 @@ abstract contract TaikoL1TestBase is TestBase {
     function grantWithSignature(
         address signer,
         TaikoData.ProverAssignment memory assignment,
-        bytes32 txsHash
+        bytes32 blobHash
     )
         internal
         view
         returns (bytes memory signature)
     {
         bytes32 digest =
-            LibProposing.hashAssignmentWithTxsHash(assignment, txsHash);
+            LibProposing.hashAssignmentWithTxsHash(assignment, blobHash);
         uint256 signerPrivateKey;
 
         // In the test suite these are the 3 which acts as provers

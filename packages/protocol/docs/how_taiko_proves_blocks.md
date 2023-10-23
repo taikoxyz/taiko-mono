@@ -32,7 +32,7 @@ A valid transaction (defined in the Ethereum Yellow Paper):
 
 #### Slicing and Consistency
 
-Note that the data of `txList` cannot be assumed to be directly accessible to L1 contracts, and so the ZKP shall further prove that the chosen `txList` is a slice of the given blob data. The `txsHash` opcode will be available when EIP-4844 is merged into Ethereum.
+Note that the data of `txList` cannot be assumed to be directly accessible to L1 contracts, and so the ZKP shall further prove that the chosen `txList` is a slice of the given blob data. The `blobHash` opcode will be available when EIP-4844 is merged into Ethereum.
 
 ### Anchor Transactions
 
@@ -81,7 +81,7 @@ struct BlockMetadata {
  uint64 l1Height;
  bytes32 l1Hash;
  bytes32 mixHash;
- bytes32 txsHash;
+ bytes32 blobHash;
  uint24 txListByteStart;
  uint24 txListByteEnd;
  uint32 gasLimit;
@@ -96,7 +96,7 @@ struct BlockMetadata {
 - `l1Height`: The actual block height in L1.
 - `l1Hash`: The actual block hash in L1.
 - `mixHash`: Salted random number to accommodate multiple L2 blocks fitting into one L1 block.
-- `txsHash`: Hash of the transaction list in L2.
+- `blobHash`: Hash of the transaction list in L2.
 - `txListByteStart`: Byte start of the transaction list in L2.
 - `txListByteEnd`: Byte end of the transaction list in L2.
 - `gasLimit`: Gas limit for the L2 block.
@@ -257,7 +257,7 @@ m_timestamp(timestamp)
 m_h1_height(h1Height)
 m_h1_hash(h1Hash)
 m_mix_hash(mixHash)
-m_txlist_hash(txsHash)
+m_txlist_hash(blobHash)
 m_txlist_first(txListByteStart)
 m_txlist_last(txListByteEnd)
 m_treasury(treasury)
