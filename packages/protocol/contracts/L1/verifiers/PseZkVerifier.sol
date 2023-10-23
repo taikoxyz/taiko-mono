@@ -59,7 +59,6 @@ contract PseZkVerifier is EssentialContract, IVerifier {
             prover: prover,
             blobHash: blobHash,
             txListHash: usingBlob ? p.txListHash : blobHash,
-            pointValue: usingBlob ? p.pointValue : 0,
             evidence: evidence
         });
 
@@ -105,7 +104,6 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         address prover,
         bytes32 blobHash,
         bytes32 txListHash,
-        uint256 pointValue,
         TaikoData.BlockEvidence memory evidence
     )
         public
@@ -113,8 +111,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         returns (bytes32 instance)
     {
         return keccak256(
-            // TODO(daniel): packed?
-            abi.encode(
+            abi.encodePacked(
                 evidence.metaHash,
                 evidence.parentHash,
                 evidence.blockHash,
@@ -122,8 +119,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
                 evidence.graffiti,
                 prover,
                 blobHash,
-                txListHash,
-                pointValue
+                txListHash
             )
         );
     }
