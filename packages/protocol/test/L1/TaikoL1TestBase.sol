@@ -104,19 +104,8 @@ abstract contract TaikoL1TestBase is TestBase {
 
         tko = new TaikoToken();
         registerAddress("taiko_token", address(tko));
-        address[] memory premintRecipients = new address[](1);
-        premintRecipients[0] = address(this);
 
-        uint256[] memory premintAmounts = new uint256[](1);
-        premintAmounts[0] = 1e9 ether;
-
-        tko.init(
-            address(addressManager),
-            "TaikoToken",
-            "TKO",
-            premintRecipients,
-            premintAmounts
-        );
+        tko.init(address(addressManager), "TaikoToken", "TKO", address(this));
 
         L1.init(address(addressManager), GENESIS_BLOCK_HASH);
         printVariables("init  ");
