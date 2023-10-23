@@ -4,8 +4,8 @@
   import {
     Connector,
     ConnectorNotFoundError,
+    UserRejectedRequestError,
   } from 'wagmi';
-  import { UserRejectedRequestError } from 'viem';
   import { connect as wagmiConnect } from 'wagmi/actions';
 
   import { getLogger } from '../utils/logger';
