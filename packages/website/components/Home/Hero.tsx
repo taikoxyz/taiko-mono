@@ -43,10 +43,10 @@ export function Hero() {
           <div className="relative z-10 w-3/4 pt-16 pb-20 text-left lg:py-48">
             <div className="pl-[max(env(safe-area-inset-left),1.5rem)]">
               <h1 className="font-grotesk text-4xl md:text-5xl tracking-tight text-neutral-900 dark:text-neutral-100">
-                A <span className="text-[#e81899]">based</span> rollup
+                <span className="text-[#e81899]">Frictionless</span> and <span className="text-[#e81899]">Secure</span> Ethereum Scaling
               </h1>
               <p className="font-groteskmedium mt-3 text-lg text-neutral-600 sm:text-xl md:mt-5 dark:text-neutral-100">
-                Decentralized, Ethereum-equivalent (Type 1) ZK-EVM.
+                Taiko is a type-1 zkEVM, a Based rollup with multi-proofs.
               </p>
               <div className="mt-10 flex flex-col sm:flex-row md:justify-left">
                 <div className="inline-flex mb-4 sm:mb-0 sm:mr-4">
