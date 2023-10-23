@@ -8,25 +8,41 @@ import { InsufficientAllowanceError, SendERC20Error, SendMessageError } from '$l
 export const handleBridgeError = (error: Error) => {
   switch (true) {
     case error instanceof InsufficientAllowanceError:
-      errorToast(get(t)('bridge.errors.insufficient_allowance'));
+      errorToast({
+        title: get(t)('bridge.errors.insufficient_allowance.title'),
+        message: get(t)('bridge.errors.insufficient_allowance.message'),
+      });
       break;
     case error instanceof SendMessageError:
       // TODO: see contract for all possible errors
-      errorToast(get(t)('bridge.errors.send_message_error'));
+      errorToast({
+        title: get(t)('bridge.errors.send_message_error.title'),
+        message: get(t)('bridge.errors.send_message_error.message'),
+      });
       break;
     case error instanceof SendERC20Error:
       // TODO: see contract for all possible errors
-      errorToast(get(t)('bridge.errors.send_erc20_error'));
+      errorToast({
+        title: get(t)('bridge.errors.send_erc20_error.title'),
+        message: get(t)('bridge.errors.send_erc20_error.message'),
+      });
       break;
     case error instanceof UserRejectedRequestError:
       // Todo: viem does not seem to detect UserRejectError
-      warningToast(get(t)('bridge.errors.approve_rejected'));
+      warningToast({
+        title: get(t)('bridge.errors.approve_rejected.title'),
+      });
       break;
     case error instanceof TransactionExecutionError && error.shortMessage === 'User rejected the request.':
       //Todo: so we catch it by string comparison below, suboptimal
-      warningToast(get(t)('bridge.errors.approve_rejected'));
+      warningToast({
+        title: get(t)('bridge.errors.approve_rejected.title'),
+      });
       break;
     default:
-      errorToast(get(t)('bridge.errors.unknown_error'));
+      errorToast({
+        title: get(t)('bridge.errors.unknown_error.title'),
+        message: get(t)('bridge.errors.unknown_error.message'),
+      });
   }
 };
