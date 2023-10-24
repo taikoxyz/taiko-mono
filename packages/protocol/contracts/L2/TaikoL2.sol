@@ -172,9 +172,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     /// @notice Returns EIP1559 related configurations
     function getConfig() public pure virtual returns (Config memory config) {
         // 4x Ethereum gas target, if we assume most of the time, L2 block time
-        // is 3s, and each
-        // block is full (gasUsed is 15_000_000), then its ~60_000_000, if the
-        // network is congester than that, the base fee will increase.
+        // is 3s, and each block is full (gasUsed is 15_000_000), then its
+        // ~60_000_000, if the  network is congester than that, the base fee
+        // will increase.
         config.gasTargetPerL1Block = 15 * 1e6 * 4;
         config.basefeeAdjustmentQuotient = 8;
     }
