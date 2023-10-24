@@ -10,7 +10,7 @@ import { ITierProvider, LibTiers } from "./ITierProvider.sol";
 
 /// @title TaikoA6TierProvider
 contract TaikoA6TierProvider is ITierProvider {
-    uint96 private constant UNIT = 10_240e18; // 10_240 Taiko token (equal to
+    uint96 private constant UNIT = 10_000e18; // 10_000 Taiko token (equal to
         // livenessBond)
     // QUESTION(david): This value makes sense to me, but the L2 => L1 bridging
     // will take much longer time
