@@ -285,7 +285,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         // uint96 minAmount = conf.ethDepositMinAmount;
         uint96 maxAmount = conf.ethDepositMaxAmount;
 
-        // We need 8 depostis otherwise we are not processing them !
+        // We need 8 deposits otherwise we are not processing them !
         giveEthAndTko(Alice, 1e6 ether, maxAmount + 1 ether);
         giveEthAndTko(Bob, 0, maxAmount + 1 ether);
         giveEthAndTko(Carol, 0, maxAmount + 1 ether);
