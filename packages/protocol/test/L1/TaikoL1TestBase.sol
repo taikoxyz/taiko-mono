@@ -328,7 +328,7 @@ abstract contract TaikoL1TestBase is TestBase {
         returns (bytes memory signature)
     {
         bytes32 digest = keccak256(
-            abi.encode(
+            abi.encodePacked(
                 evidence.metaHash,
                 evidence.parentHash,
                 evidence.blockHash,

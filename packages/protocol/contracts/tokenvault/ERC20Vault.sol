@@ -348,7 +348,7 @@ contract ERC20Vault is
             owner(),
             bytes.concat(
                 ProxiedBridgedERC20(bridgedToken).init.selector,
-                abi.encode(
+                abi.encodePacked(
                     addressManager,
                     ctoken.addr,
                     ctoken.chainId,

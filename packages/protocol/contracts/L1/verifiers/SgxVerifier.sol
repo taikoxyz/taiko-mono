@@ -130,7 +130,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         returns (bytes32 signedHash)
     {
         return keccak256(
-            abi.encode(
+            abi.encodePacked(
                 evidence.metaHash,
                 evidence.parentHash,
                 evidence.blockHash,
