@@ -270,8 +270,7 @@ contract TaikoL1 is
         return TaikoData.Config({
             chainId: 167_008,
             // Assume the block time is 3s, the protocol will allow ~1 month of
-            // new blocks
-            // without any verification.
+            // new blocks without any verification.
             blockMaxProposals: 864_000,
             blockRingBufferSize: 864_010,
             // Can be overridden by the tier config.
