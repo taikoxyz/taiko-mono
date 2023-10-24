@@ -128,6 +128,9 @@ library LibProposing {
         blk.usingBlob = txList.length == 0;
         if (blk.usingBlob) {
             // Always use the first blob in this transaction.
+            // If the proposeBlock functions are called more than once in the
+            // same L1 transaction, these 2 L2 blocks will use the same blob as
+            // DA.
             blk.blobHash = IBlobHashReader(
                 resolver.resolve("blob_hash_reader", false)
             ).getFirstBlobHash();
