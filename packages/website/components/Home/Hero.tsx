@@ -46,7 +46,7 @@ export function Hero() {
                 <span className="text-[#e81899]">Frictionless</span> and <span className="text-[#e81899]">Secure</span> Ethereum Scaling
               </h1>
               <p className="font-groteskmedium mt-3 text-lg text-neutral-600 sm:text-xl md:mt-5 dark:text-neutral-100">
-                Taiko is the first type 1 zkEVM rollup with multi-proofs.
+                Taiko is the first based rollup and type 1 zkEVM with multi-proofs.
               </p>
               <div className="mt-10 flex flex-col sm:flex-row md:justify-left">
                 <div className="inline-flex mb-4 sm:mb-0 sm:mr-4">
