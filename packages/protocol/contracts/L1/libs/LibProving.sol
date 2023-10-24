@@ -196,8 +196,6 @@ library LibProving {
                     prover: msg.sender,
                     isContesting: evidence.tier == tran.tier
                         && tier.contestBond != 0,
-                    usingBlob: blk.usingBlob,
-                    blobHash: blk.blobHash,
                     evidence: evidence
                 });
             }

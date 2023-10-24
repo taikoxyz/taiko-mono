@@ -32,6 +32,7 @@ library LibProposing {
         uint256 proverFee,
         uint16 minTier,
         TaikoData.BlockMetadata meta,
+        bytes32 blobHash,
         bool usingBlob
     );
 
@@ -80,6 +81,24 @@ library LibProposing {
             revert L1_TOO_MANY_BLOCKS();
         }
 
+        bytes32 blobOrTxListHash;
+        bool blobUsed = txList.length == 0;
+        if (blobUsed) {
+            // Always use the first blob in this transaction.
+            // If the proposeBlock functions are called more than once in the
+            // same L1 transaction, these 2 L2 blocks will use the same blob as
+            // DA.
+            blobOrTxListHash = IBlobHashReader(
+                resolver.resolve("blob_hash_reader", false)
+            ).getFirstBlobHash();
+
+            if (blobOrTxListHash == 0) revert L1_NO_BLOB_FOUND();
+        } else {
+            if (txList.length > config.blockMaxTxListBytes) {
+                revert L1_TXLIST_TOO_LARGE();
+            }
+            blobOrTxListHash = keccak256(txList);
+        }
         // Initialize metadata to compute a metaHash, which forms a part of
         // the block data to be stored on-chain for future integrity checks.
         // If we choose to persist all data fields in the metadata, it will
@@ -93,6 +112,7 @@ library LibProposing {
                 // Ethereum block, we must introduce a salt to this random
                 // number as the L2 mixHash.
                 difficulty: bytes32(block.prevrandao * b.numBlocks),
+                blobHash: blobOrTxListHash,
                 extraData: extraData,
                 id: b.numBlocks,
                 timestamp: uint64(block.timestamp),
@@ -124,24 +144,6 @@ library LibProposing {
         // block's proposal but before it has been proven or verified.
         blk.livenessBond = config.livenessBond;
         blk.blockId = b.numBlocks;
-
-        blk.usingBlob = txList.length == 0;
-        if (blk.usingBlob) {
-            // Always use the first blob in this transaction.
-            // If the proposeBlock functions are called more than once in the
-            // same L1 transaction, these 2 L2 blocks will use the same blob as
-            // DA.
-            blk.blobHash = IBlobHashReader(
-                resolver.resolve("blob_hash_reader", false)
-            ).getFirstBlobHash();
-
-            if (blk.blobHash == 0) revert L1_NO_BLOB_FOUND();
-        } else {
-            if (txList.length > config.blockMaxTxListBytes) {
-                revert L1_TXLIST_TOO_LARGE();
-            }
-            blk.blobHash = keccak256(txList);
-        }
 
         blk.proposedAt = meta.timestamp;
 
@@ -183,7 +185,7 @@ library LibProposing {
         // Validate the prover assignment, then charge Ether or ERC20 as the
         // prover fee based on the block's minTier.
         uint256 proverFee =
-            _validateAssignment(blk.minTier, blk.blobHash, assignment);
+            _validateAssignment(blk.minTier, blobOrTxListHash, assignment);
 
         emit BlockProposed({
             blockId: blk.blockId,
@@ -192,7 +194,8 @@ library LibProposing {
             proverFee: proverFee,
             minTier: blk.minTier,
             meta: meta,
-            usingBlob: blk.usingBlob
+            blobHash: blobOrTxListHash,
+            usingBlob: blobUsed
         });
     }
 
@@ -202,18 +205,18 @@ library LibProposing {
         pure
         returns (bytes32 hash)
     {
-        uint256[6] memory inputs;
+        uint256[7] memory inputs;
         inputs[0] = uint256(meta.l1Hash);
         inputs[1] = uint256(meta.difficulty);
-
-        inputs[2] = uint256(meta.extraData);
-        inputs[3] = (uint256(meta.id)) | (uint256(meta.timestamp) << 64)
+        inputs[2] = uint256(meta.blobHash);
+        inputs[3] = uint256(meta.extraData);
+        inputs[4] = (uint256(meta.id)) | (uint256(meta.timestamp) << 64)
             | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 192);
-        inputs[4] = uint256(uint160(meta.coinbase));
-        inputs[5] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
+        inputs[5] = uint256(uint160(meta.coinbase));
+        inputs[6] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
 
         assembly {
-            hash := keccak256(inputs, 192 /*mul(6, 32)*/ )
+            hash := keccak256(inputs, 224 /*mul(7, 32)*/ )
         }
     }
 

@@ -90,6 +90,7 @@ library TaikoData {
     struct BlockMetadata {
         bytes32 l1Hash;
         bytes32 difficulty;
+        bytes32 blobHash; //or txListHash (if Blob not yet supported)
         bytes32 extraData;
         uint64 id;
         uint64 timestamp;
@@ -104,9 +105,11 @@ library TaikoData {
         bytes32 metaHash;
         bytes32 parentHash;
         bytes32 blockHash;
+        bytes32 blobHash; //Or TxListHash until no blobHash support
         bytes32 signalRoot;
         bytes32 graffiti;
         uint16 tier;
+        bool usingBlob;
         bytes proof;
     }
 
@@ -129,19 +132,14 @@ library TaikoData {
     /// 10 slots reserved for upgradability, 3 slots used.
     struct Block {
         bytes32 metaHash; // slot 1
-        // blobHash represents the EIP-4844 versioned hash of the blob that
-        // carries the transaction list, or the keccack hash of the RPP-encoded
-        // txList when calldata is used for DA.
-        bytes32 blobHash; // slot 2
-        address assignedProver; // slot 3
+        address assignedProver; // slot 2
         uint96 livenessBond;
-        uint64 blockId; // slot 4
+        uint64 blockId; // slot 3
         uint64 proposedAt;
         uint32 nextTransitionId;
         uint32 verifiedTransitionId;
         uint16 minTier;
-        bool usingBlob;
-        bytes32[6] __reserved;
+        bytes32[7] __reserved;
     }
 
     /// @dev Struct representing an Ethereum deposit.

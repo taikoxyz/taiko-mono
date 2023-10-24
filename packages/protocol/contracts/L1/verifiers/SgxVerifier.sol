@@ -95,8 +95,6 @@ contract SgxVerifier is EssentialContract, IVerifier {
         uint64, /*blockId*/
         address prover,
         bool isContesting,
-        bool, /*usingBlob*/
-        bytes32, /*blobHash*/
         TaikoData.BlockEvidence calldata evidence
     )
         external

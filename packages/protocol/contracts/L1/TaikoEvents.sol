@@ -31,6 +31,7 @@ abstract contract TaikoEvents {
         uint256 proverFee,
         uint16 minTier,
         TaikoData.BlockMetadata meta,
+        bytes32 blobHash,
         bool usingBlob
     );
 

@@ -980,9 +980,12 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     metaHash: LibProposing.hashMetadata(meta),
                     parentHash: parentHash,
                     blockHash: blockHash,
+                    blobHash: bytes32(uint256(123)), // Equals to TxListHash
+                        // hash if no blob support yet
                     signalRoot: signalRoot,
                     graffiti: 0x0,
                     tier: LibTiers.TIER_GUARDIAN,
+                    usingBlob: false,
                     proof: new bytes(102)
                 });
 
