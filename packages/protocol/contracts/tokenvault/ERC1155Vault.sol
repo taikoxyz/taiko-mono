@@ -352,7 +352,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             owner(),
             bytes.concat(
                 ProxiedBridgedERC1155(bridgedToken).init.selector,
-                abi.encodePacked(
+                abi.encode(
                     addressManager,
                     ctoken.addr,
                     ctoken.chainId,
