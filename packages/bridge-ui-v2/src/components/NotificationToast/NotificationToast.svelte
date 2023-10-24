@@ -14,10 +14,23 @@
     closeManually?: boolean;
   };
 
+  const closeManuallyDefaults: Record<TypeToast, boolean> = {
+    // Defaults when no value was provided for closeManually
+    success: false,
+    error: true,
+    warning: false,
+    info: false,
+    unknown: false,
+  };
+
+  function getDefaultCloseBehaviour(type: TypeToast): boolean {
+    return closeManuallyDefaults[type];
+  }
+
   export function notify(notificationType: NotificationType) {
     const id = Number(uid());
     const close = () => toast.pop(id);
-    const { title, message, type = 'unknown', closeManually = false } = notificationType;
+    const { title, message, type = 'unknown', closeManually = getDefaultCloseBehaviour(type) } = notificationType;
 
     toast.push({
       id,
@@ -33,7 +46,6 @@
     notify({
       ...notificationType,
       type: 'success',
-      closeManually: false
     });
   }
 
@@ -41,7 +53,6 @@
     notify({
       ...notificationType,
       type: 'error',
-      closeManually: true
     });
   }
 
@@ -49,7 +60,6 @@
     notify({
       ...notificationType,
       type: 'warning',
-      closeManually: false
     });
   }
 
@@ -57,7 +67,6 @@
     notify({
       ...notificationType,
       type: 'info',
-      closeManually: false
     });
   }
 </script>
@@ -68,7 +77,6 @@
 
   const options: SvelteToastOptions = {
     duration: toastConfig.duration,
-    pausable: false,
   };
 </script>
 
@@ -93,7 +101,7 @@
     --toastPadding: 0;
     --toastMsgPadding: 0;
     --toastBarWidth: 0;
-    --toastBarHeight: 0;
+    --toastBarHeight: 1;
     --toastBtnWidth: 0;
     --toastBtnHeight: 0;
     --toastBtnContent: '';
