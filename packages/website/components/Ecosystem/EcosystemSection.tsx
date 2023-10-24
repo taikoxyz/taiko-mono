@@ -155,6 +155,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/hotpot.png",
+    name: "Hotpot",
+    link: "https://market.hotpot.gg/",
+    description:
+      "Hotpot Protocol offers a toolkit for creating gamified Dapps, enabling builders to engage users with provably fair jackpots, airdrop raffle tickets, and build decentralized prediction markets on EVMs.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/izar.png",
     name: "IZAR",
     link: "https://izar.xyz/",
