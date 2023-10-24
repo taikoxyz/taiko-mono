@@ -231,10 +231,8 @@ contract TimeLockTokenPool is OwnableUpgradeable {
         returns (uint128)
     {
         if (amount == 0) return 0;
-        if (start == 0) return amount;
+        if (start == 0 || period == 0) return amount;
         if (block.timestamp <= start) return 0;
-
-        if (period == 0) return amount;
         if (block.timestamp >= start + period) return amount;
 
         if (block.timestamp <= cliff) return 0;
