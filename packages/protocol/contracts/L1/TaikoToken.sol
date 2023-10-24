@@ -47,8 +47,8 @@ contract TaikoToken is
         ERC20SnapshotUpgradeable.__ERC20Snapshot_init_unchained();
         ERC20VotesUpgradeable.__ERC20Votes_init_unchained();
 
-        // Mint 1 billion tokens
-        _mint(_recipient, 1_000_000_000 ether);
+        // Mint max Uint128 for testnet.
+        _mint(_recipient, type(uint128).max);
     }
 
     /// @notice Creates a new token snapshot.

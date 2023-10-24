@@ -262,14 +262,28 @@ contract TaikoL1 is
         virtual
         returns (TaikoData.Config memory)
     {
+        // All hard-coded configurations:
+        // - treasury: 0xdf09A0afD09a63fb04ab3573922437e1e637dE8b
+        // - blockMaxTxs: 80 (limited by the PSE zkEVM circuits)
+        // - anchorGasLimit: 250_000 (based on internal devnet, its ~220_000
+        // after 256 L2 blocks)
         return TaikoData.Config({
-            chainId: 167_007,
-            blockMaxProposals: 403_200,
-            blockRingBufferSize: 403_210,
+            chainId: 167_008,
+            // Assume the block time is 3s, the protocol will allow ~1 month of
+            // new blocks
+            // without any verification.
+            blockMaxProposals: 864_000,
+            blockRingBufferSize: 864_000,
+            // Can be override by the tier config.
             maxBlocksToVerifyPerProposal: 10,
+            // Limited by the PSE zkEVM circuits.
             blockMaxGasLimit: 8_000_000,
+            // Each go-ethereum transaction has a size limit of 128KB,
+            // and right now txList is still saved in calldata, so we set it
+            // to 120KB.
             blockMaxTxListBytes: 120_000,
-            livenessBond: 10_240e18,
+            livenessBond: 10_240e18, // 10_240 Taiko token
+            // ETH deposit related.
             ethDepositRingBufferSize: 1024,
             ethDepositMinCountPerBlock: 8,
             ethDepositMaxCountPerBlock: 32,

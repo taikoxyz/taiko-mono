@@ -10,7 +10,11 @@ import { ITierProvider, LibTiers } from "./ITierProvider.sol";
 
 /// @title TaikoA6TierProvider
 contract TaikoA6TierProvider is ITierProvider {
-    uint96 private constant UNIT = 10_000e18; // 10000 Taiko token
+    uint96 private constant UNIT = 10_240e18; // 10_240 Taiko token (equal to
+        // livenessBond)
+    // QUESTION(david): This value makes sense to me, but the L2 => L1 bridging
+    // will take much longer time
+    // than ever before, shall we notify users about this in bridge UI?
     uint24 private constant COOLDOWN_BASE = 24 hours;
 
     error TIER_NOT_FOUND();
@@ -49,7 +53,8 @@ contract TaikoA6TierProvider is ITierProvider {
                 validityBond: 5 * UNIT,
                 contestBond: 5 * UNIT,
                 cooldownWindow: 2 hours + COOLDOWN_BASE,
-                provingWindow: 4 hours,
+                provingWindow: 4 hours, // TODO(david): tune this value based on
+                    // the A6 circuits benchmark
                 maxBlocksToVerify: 6
             });
         }
@@ -82,8 +87,14 @@ contract TaikoA6TierProvider is ITierProvider {
     }
 
     function getMinTier(uint256 rand) public pure override returns (uint16) {
-        if (rand % 1000 == 0) return LibTiers.TIER_SGX_AND_PSE_ZKEVM;
-        else if (rand % 100 == 0) return LibTiers.TIER_SGX;
+        // If we assume the block time is 3 seconds, and the proof generation
+        // time is ~90 mins
+        // and half of the blocks are unprovable: 90 * 60 / 3 / 2  = 900.
+        // TODO(david): tune this value based on the A6 circuits benchmark.
+        if (rand % 900 == 0) return LibTiers.TIER_SGX_AND_PSE_ZKEVM;
+        else if (rand % 100 == 0) return LibTiers.TIER_SGX; // 1% of the blocks
+            // will be slected to require a SGX proof.
+
         else return LibTiers.TIER_OPTIMISTIC;
     }
 }

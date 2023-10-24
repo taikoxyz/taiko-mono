@@ -36,6 +36,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     // A hash to check the integrity of public inputs.
     bytes32 public publicInputHash; // slot 3
+    // Will init it with value 1 in genesis generation script to simply enable
+    // the L2 1559.
     uint128 public gasExcess; // slot 4
     uint64 public latestSyncedL1Height; // slot 5
 
@@ -169,7 +171,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     /// @notice Returns EIP1559 related configurations
     function getConfig() public pure virtual returns (Config memory config) {
-        config.gasTargetPerL1Block = 15 * 1e6 * 10; // 10x Ethereum gas target
+        // 2x Ethereum gas target, if we assume most of the time, L2 block time
+        // is 3s, and each
+        // block is full (gasUsed is 8_000_000), then its ~32_000_000.
+        config.gasTargetPerL1Block = 15 * 1e6 * 2;
         config.basefeeAdjustmentQuotient = 8;
     }
 
