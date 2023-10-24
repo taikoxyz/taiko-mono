@@ -195,8 +195,10 @@ abstract contract TaikoL1TestBase is TestBase {
         });
 
         bytes32 txListHash = bytes32(uint256(123));
-        bytes32 instance =
-            pv.calcInstance(prover, txListHash, txListHash, evidence);
+        uint256 pointValue = 456;
+        bytes32 instance = pv.calcInstance(
+            prover, txListHash, txListHash, pointValue, evidence
+        );
         uint16 verifierId = 300; // 300 as see mock verifier in line 95
 
         evidence.proof = bytes.concat(

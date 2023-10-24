@@ -63,14 +63,6 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
         if (usingBlob) {
             PointProof memory pf = abi.decode(proof.pointProof, (PointProof));
-
-            instance = calcInstance({
-                prover: prover,
-                blobHash: blobHash,
-                txListHash: pf.txListHash,
-                evidence: evidence
-            });
-
             bytes32 x = keccak256(abi.encodePacked(blobHash, pf.txListHash));
             Lib4844.evaluatePoint({
                 blobHash: blobHash,
@@ -79,12 +71,21 @@ contract PseZkVerifier is EssentialContract, IVerifier {
                 commitment: pf.pointCommitment,
                 proof: pf.pointProof
             });
+
+            instance = calcInstance({
+                prover: prover,
+                blobHash: blobHash,
+                txListHash: pf.txListHash,
+                pointValue: pf.pointValue,
+                evidence: evidence
+            });
         } else {
             assert(proof.pointProof.length == 0);
             instance = calcInstance({
                 prover: prover,
                 blobHash: 0,
                 txListHash: blobHash, // blobHash == txListHash
+                pointValue: 0,
                 evidence: evidence
             });
         }
@@ -121,6 +122,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         address prover,
         bytes32 blobHash,
         bytes32 txListHash,
+        uint256 pointValue,
         TaikoData.BlockEvidence memory evidence
     )
         public
@@ -136,7 +138,8 @@ contract PseZkVerifier is EssentialContract, IVerifier {
                 evidence.graffiti,
                 prover,
                 blobHash,
-                txListHash
+                txListHash,
+                pointValue
             )
         );
     }
