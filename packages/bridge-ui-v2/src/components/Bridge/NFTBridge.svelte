@@ -366,7 +366,6 @@
         <ImportStep
           bind:importMethod
           bind:canProceed
-          bind:selectedNFT
           bind:nftIdArray
           bind:contractAddress
           {foundNFTs}
@@ -374,7 +373,7 @@
           bind:validating={validatingImport} />
         <!-- REVIEW STEP -->
       {:else if activeStep === NFTSteps.REVIEW}
-        <ReviewStep bind:selectedNFT />
+        <ReviewStep />
         <!-- CONFIRM STEP -->
       {:else if activeStep === NFTSteps.CONFIRM}
         <div class="f-between-center gap-4">

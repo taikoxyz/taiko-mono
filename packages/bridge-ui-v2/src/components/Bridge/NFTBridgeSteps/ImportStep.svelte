@@ -11,7 +11,12 @@
   import Amount from '$components/Bridge/Amount.svelte';
   import IdInput from '$components/Bridge/IDInput/IDInput.svelte';
   import { IDInputState } from '$components/Bridge/IDInput/state';
-  import { destNetwork as destinationChain, enteredAmount, selectedToken } from '$components/Bridge/state';
+  import {
+    destNetwork as destinationChain,
+    enteredAmount,
+    selectedNFTs,
+    selectedToken,
+  } from '$components/Bridge/state';
   import { Button } from '$components/Button';
   import { ChainSelectorWrapper } from '$components/ChainSelector';
   import { IconFlipper } from '$components/Icon';
@@ -26,7 +31,6 @@
   import { account } from '$stores/account';
   import { network } from '$stores/network';
 
-  export let selectedNFT: NFT[];
   export let nftIdArray: number[] = [];
   export let canProceed: boolean = false;
   export let scanned: boolean;
@@ -76,6 +80,7 @@
 
   const scanForNFTs = async () => {
     scanning = true;
+    $selectedNFTs = [];
     const accountAddress = $account?.address;
     const srcChainId = $network?.id;
     if (!accountAddress || !srcChainId) return;
@@ -90,7 +95,7 @@
 
     importMethod = importMethod === 'manual' ? 'scan' : 'manual';
     scanned = false;
-    selectedNFT = [];
+    $selectedNFTs = [];
     $selectedToken = null;
   };
 
@@ -198,7 +203,7 @@
     } else {
       canProceed = false;
     }
-  } else if (importMethod === 'scan' && selectedNFT.length > 0 && $destinationChain && scanned) {
+  } else if (importMethod === 'scan' && $selectedNFTs && $selectedNFTs.length > 0 && $destinationChain && scanned) {
     canProceed = true;
   } else {
     canProceed = false;
@@ -313,7 +318,7 @@ Automatic NFT Input
               {#if scanning}
                 <LoadingMask spinnerClass="border-white" text={$t('messages.bridge.nft_scanning')} />
               {:else if nftView === NFTView.LIST}
-                <NFTList bind:nfts={foundNFTs} chainId={$network?.id} bind:selectedNFT />
+                <NFTList bind:nfts={foundNFTs} chainId={$network?.id} />
               {:else if nftView === NFTView.CARDS}
                 <NFTCardGrid bind:nfts={foundNFTs} />
               {/if}

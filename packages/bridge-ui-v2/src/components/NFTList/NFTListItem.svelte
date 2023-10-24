@@ -2,6 +2,7 @@
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
+  import { selectedNFTs } from '$components/Bridge/state';
   import { Icon } from '$components/Icon';
   import { type NFT, TokenType } from '$libs/token';
   import { noop } from '$libs/util/noop';
@@ -33,6 +34,10 @@
 
   function handleImageLoad() {
     imageLoaded = true;
+  }
+
+  $: {
+    selected = $selectedNFTs ? $selectedNFTs.some((selected) => selected.tokenId === nft.tokenId) : false;
   }
 </script>
 

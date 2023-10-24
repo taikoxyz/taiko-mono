@@ -8,11 +8,13 @@
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { uid } from '$libs/util/uid';
   import { network } from '$stores/network';
+
   const dialogId = `dialog-${uid()}`;
 
   const placeholderUrl = 'https://placehold.co/600x600.png';
 
   export let modalOpen = false;
+  export let viewOnly = false;
 
   export let nft: NFT;
 
@@ -58,17 +60,27 @@
         </div>
       </div>
       <div class="f-col">
-        <Button
-          type="primary"
-          hasBorder={true}
-          class="px-[28px] py-[14px] rounded-full flex-1 w-full"
-          on:click={() => selectNFT()}>
-          {$t('bridge.nft.step.import.nft_card.select')}
-        </Button>
+        {#if viewOnly}
+          <Button
+            type="primary"
+            hasBorder={true}
+            class="px-[28px] py-[14px] rounded-full flex-1 w-full"
+            on:click={closeModal}>
+            {$t('common.ok')}
+          </Button>
+        {:else}
+          <Button
+            type="primary"
+            hasBorder={true}
+            class="px-[28px] py-[14px] rounded-full flex-1 w-full"
+            on:click={() => selectNFT()}>
+            {$t('bridge.nft.step.import.nft_card.select')}
+          </Button>
 
-        <button on:click={closeModal} class="flex mt-[16px] mb-0 justify-center link">
-          {$t('common.cancel')}
-        </button>
+          <button on:click={closeModal} class="flex mt-[16px] mb-0 justify-center link">
+            {$t('common.cancel')}
+          </button>
+        {/if}
       </div>
     </div>
   </div>

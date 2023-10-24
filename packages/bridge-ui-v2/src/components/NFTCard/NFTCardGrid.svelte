@@ -1,6 +1,7 @@
 <script lang="ts">
   import { get } from 'svelte/store';
 
+  import { selectedNFTs } from '$components/Bridge/state';
   import type { NFT } from '$libs/token';
   import { groupNFTByCollection } from '$libs/util/groupNFTByCollection';
   import { network } from '$stores/network';
@@ -8,15 +9,20 @@
   import { NFTCard } from '.';
 
   export let nfts: NFT[] = [];
-  export let selectedNFT: NFT[] | null = [];
+  // export let selectedNFT: NFT[] | null = [];
 
   const selectNFT = (nft: NFT) => {
     const currentChainId = get(network)?.id;
 
-    if (!selectedNFT || !currentChainId || !nft) return;
+    if (!currentChainId || !nft) return;
     const address = nft.addresses[currentChainId];
     const foundNFT = nfts.find((n) => n.addresses[currentChainId] === address && nft.tokenId === n.tokenId);
-    selectedNFT = foundNFT ? [foundNFT] : null;
+
+    if ($selectedNFTs && foundNFT && $selectedNFTs.includes(foundNFT)) {
+      $selectedNFTs = $selectedNFTs.filter((selected) => selected.tokenId !== nft.tokenId); // Deselect
+    } else {
+      $selectedNFTs = foundNFT ? [foundNFT] : null; // Select
+    }
   };
 </script>
 
@@ -38,7 +44,7 @@
             {#if collectionAddress === undefined}
               <div>TODO: Address for {nft.name} is undefined</div>
             {:else}
-              <NFTCard {nft} {selectNFT} {selectedNFT} />
+              <NFTCard {nft} {selectNFT} />
             {/if}
           {/each}
         </div>

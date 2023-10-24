@@ -4,19 +4,19 @@
   import { chainConfig } from '$chainConfig';
   import { ProcessingFee } from '$components/Bridge/ProcessingFee';
   import Recipient from '$components/Bridge/Recipient.svelte';
-  import { destNetwork as destinationChain } from '$components/Bridge/state';
+  import { destNetwork as destinationChain, selectedNFTs } from '$components/Bridge/state';
   import { ChainSelector } from '$components/ChainSelector';
   import { Icon, IconFlipper } from '$components/Icon';
   import { NFTCard } from '$components/NFTCard';
   import { NFTList } from '$components/NFTList';
-  import type { NFT } from '$libs/token';
+  import { noop } from '$libs/util/noop';
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { network } from '$stores/network';
 
-  export let selectedNFT: NFT[];
-
   let recipientComponent: Recipient;
   let processingFeeComponent: ProcessingFee;
+
+  $: nftsToDisplay = $selectedNFTs ? $selectedNFTs : [];
 
   enum NFTView {
     CARDS,
@@ -42,7 +42,7 @@
     <div class="font-bold">{$t('common.contract_address')}</div>
     <div class="text-secondary-content">
       <ul>
-        {#each selectedNFT as nft}
+        {#each nftsToDisplay as nft}
           {@const currentChain = $network?.id}
           {#if currentChain && $destinationChain?.id}
             <li>
@@ -64,7 +64,7 @@
     <div class="font-bold">{$t('inputs.token_id_input.label')}</div>
     <div class="break-words text-right text-secondary-content">
       <ul>
-        {#each selectedNFT as nft}
+        {#each nftsToDisplay as nft}
           <li>{nft.tokenId}</li>
         {/each}
       </ul>
@@ -102,11 +102,11 @@ NFT List or Card View
     </div>
   </div>
   {#if nftView === NFTView.LIST}
-    <NFTList bind:nfts={selectedNFT} chainId={$network?.id} viewOnly />
+    <NFTList bind:nfts={nftsToDisplay} chainId={$network?.id} viewOnly />
   {:else if nftView === NFTView.CARDS}
     <div class="rounded-[20px] bg-neutral min-h-[200px] w-full p-2 f-center">
-      {#each selectedNFT as nft}
-        <NFTCard {nft} />
+      {#each nftsToDisplay as nft}
+        <NFTCard {nft} selectNFT={noop} viewOnly />
       {/each}
     </div>
   {/if}

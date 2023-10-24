@@ -1,11 +1,12 @@
 <script lang="ts">
+  import { selectedNFTs } from '$components/Bridge/state';
   import { Icon } from '$components/Icon';
   import NftInfoDialog from '$components/NFTList/NFTInfoDialog.svelte';
   import type { NFT } from '$libs/token';
 
   export let nft: NFT;
   export let selectNFT: (nft: NFT) => void;
-  export let selectedNFT: NFT[] | null;
+  export let viewOnly = false;
 
   const placeholderUrl = 'https://placehold.co/400x400.png';
 
@@ -25,25 +26,32 @@
   };
 
   $: {
-    isChecked = selectedNFT ? selectedNFT.some((selected) => selected.tokenId === nft.tokenId) : false;
+    isChecked = $selectedNFTs ? $selectedNFTs.some((selected) => selected.tokenId === nft.tokenId) : false;
   }
 </script>
 
 <div class="rounded-[10px] w-[120px] bg-white max-h-[161px] min-h-[161px] relative">
   <input type="radio" class="hidden" name="nft-radio" checked={isChecked} on:change={() => selectNFT(nft)} />
-  {#if isChecked}
-    <div class="selected-overlay">
-      <Icon type="check-circle" class="f-center " fillClass="fill-primary-brand" width={40} height={40} />
+  {#if !viewOnly}
+    {#if isChecked}
+      <div
+        class="selected-overlay rounded-[10px]"
+        role="button"
+        tabindex="0"
+        on:click={handleImageClick}
+        on:keydown={handleImageClick}>
+        <Icon type="check-circle" class="f-center " fillClass="fill-primary-brand" width={40} height={40} />
+      </div>
+    {/if}
+
+    <div role="button" tabindex="0" class="h-[125px]" on:click={handleImageClick} on:keydown={handleImageClick}>
+      <img alt={nft.name} src={imageUrl} class="rounded-t-[10px]" />
+    </div>
+  {:else}
+    <div class="h-[125px] border-0 p-0">
+      <img alt={nft.name} src={imageUrl} />
     </div>
   {/if}
-  <div
-    role="button"
-    tabindex="0"
-    class="h-[125px] border-0 p-0"
-    on:click={handleImageClick}
-    on:keydown={handleImageClick}>
-    <img alt={nft.name} src={imageUrl} />
-  </div>
   <div class="f-between-center p-[8px]">
     <span class="font-bold text-black">{nft.tokenId} </span>
     <button class="mr-[10px]" on:click={() => (modalOpen = true)}
@@ -51,7 +59,7 @@
   </div>
 </div>
 
-<NftInfoDialog {nft} bind:modalOpen on:selected={() => handleDialogSelection()} />
+<NftInfoDialog {nft} bind:modalOpen on:selected={() => handleDialogSelection()} viewOnly />
 
 <style>
   /* Add styles for the overlay and checkmark icon */
