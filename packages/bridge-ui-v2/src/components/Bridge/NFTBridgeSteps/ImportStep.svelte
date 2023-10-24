@@ -295,7 +295,7 @@ Automatic NFT Input
                 (async () => {
                   await scanForNFTs();
                 })()}>
-              <RotatingIcon loading={scanning} type="refresh" size={28} viewBox={'-6 -5 24 24'} />
+              <RotatingIcon loading={scanning} type="refresh" size={13} />
             </Button>
 
             <IconFlipper
@@ -303,6 +303,7 @@ Automatic NFT Input
               iconType2="cards"
               selectedDefault="cards"
               class="bg-neutral w-[28px] h-[28px] rounded-full"
+              size={20}
               on:labelclick={changeNFTView} />
           </div>
         </div>
