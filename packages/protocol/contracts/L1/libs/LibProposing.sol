@@ -128,6 +128,9 @@ library LibProposing {
         blk.usingBlob = txList.length == 0;
         if (blk.usingBlob) {
             // Always use the first blob in this transaction.
+            // If the proposeBlock functions are called more than once in the
+            // same L1 transaction, these 2 L2 blocks will use the same blob as
+            // DA.
             blk.blobHash = IBlobHashReader(
                 resolver.resolve("blob_hash_reader", false)
             ).getFirstBlobHash();
@@ -197,21 +200,21 @@ library LibProposing {
     function hashMetadata(TaikoData.BlockMetadata memory meta)
         internal
         pure
-        returns (bytes32)
+        returns (bytes32 hash)
     {
-        return keccak256(
-            abi.encodePacked(
-                meta.l1Hash,
-                meta.difficulty,
-                meta.extraData,
-                meta.id,
-                meta.timestamp,
-                meta.l1Height,
-                meta.gasLimit,
-                meta.coinbase,
-                keccak256(abi.encode(meta.depositsProcessed))
-            )
-        );
+        uint256[6] memory inputs;
+        inputs[0] = uint256(meta.l1Hash);
+        inputs[1] = uint256(meta.difficulty);
+
+        inputs[2] = uint256(meta.extraData);
+        inputs[3] = (uint256(meta.id)) | (uint256(meta.timestamp) << 64)
+            | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 192);
+        inputs[4] = uint256(uint160(meta.coinbase));
+        inputs[5] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
+
+        assembly {
+            hash := keccak256(inputs, 192 /*mul(6, 32)*/ )
+        }
     }
 
     function hashAssignment(
