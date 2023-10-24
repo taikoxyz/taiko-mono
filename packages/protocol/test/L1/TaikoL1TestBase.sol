@@ -327,17 +327,7 @@ abstract contract TaikoL1TestBase is TestBase {
         view
         returns (bytes memory signature)
     {
-        bytes32 digest = keccak256(
-            abi.encode(
-                evidence.metaHash,
-                evidence.parentHash,
-                evidence.blockHash,
-                evidence.signalRoot,
-                evidence.graffiti,
-                prover,
-                newPubKey
-            )
-        );
+        bytes32 digest = sv.getSignedHash(evidence, prover, newPubKey);
 
         uint256 signerPrivateKey;
 
