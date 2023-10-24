@@ -377,6 +377,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/rhinofi.png",
+    name: "rhino.fi",
+    link: "https://app.rhino.fi/",
+    description:
+      "The lightning-fast secure bridge for seamless cross-chain transactions",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/rubic.png",
     name: "Rubic",
     link: "https://rubic.exchange/",
