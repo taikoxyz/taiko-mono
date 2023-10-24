@@ -31,7 +31,7 @@ contract TaikoTokenTest is TestBase {
             address(tko),
             bytes.concat(
                 tko.init.selector,
-                abi.encodePacked(
+                abi.encode(
                     address(addressManager), "Taiko Token", "TKO", address(this)
                 )
             )
