@@ -127,6 +127,9 @@ library TaikoData {
     /// 10 slots reserved for upgradability, 3 slots used.
     struct Block {
         bytes32 metaHash; // slot 1
+        // blobHash represents the EIP-4844 versioned hash of the blob that
+        // carries the transaction list, or the keccack hash of the RPP-encoded
+        // txList when calldata is used for DA.
         bytes32 blobHash; // slot 2
         address assignedProver; // slot 3
         uint96 livenessBond;

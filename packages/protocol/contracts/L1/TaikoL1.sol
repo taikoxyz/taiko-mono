@@ -61,7 +61,10 @@ contract TaikoL1 is
 
     /// @notice Proposes a Taiko L2 block.
     /// @param txList A list of transactions in this block, encoded with RLP.
-    /// Note, in the corresponding L2 block an "anchor transaction" will be the
+    /// Note:
+    /// 1) if txList is empty, Taiko will use the first blob in the transaction
+    /// for DA; other wise, it will use calldata for DA.
+    /// 2) in the corresponding L2 block an "anchor transaction" will be the
     /// first transaction in the block. If there are `n` transactions in the
     /// `txList`, then there will be up to `n + 1` transactions in the L2 block.
     /// @param assignment Data to assign a prover.

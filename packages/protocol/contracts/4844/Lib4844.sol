@@ -18,7 +18,6 @@ library Lib4844 {
     error EVAL_FAILED();
     error POINT_X_TOO_LARGE();
     error POINT_Y_TOO_LARGE();
-    error TX_HAS_NO_BLOB();
 
     /// @notice Evaluates the 4844 point using the precompile.
     /// @param blobHash The versioned hash

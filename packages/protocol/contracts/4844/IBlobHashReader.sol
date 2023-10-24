@@ -10,6 +10,6 @@ pragma solidity ^0.8.20;
 /// solidity supports the new BLOBHASH opcode natively.
 interface IBlobHashReader {
     /// @notice Returns the versioned hash for the first blob in this
-    /// transaction.
+    /// transaction. If there is no blob found, 0x0 is returned.
     function getFirstBlobHash() external view returns (bytes32);
 }

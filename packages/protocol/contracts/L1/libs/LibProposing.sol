@@ -40,6 +40,7 @@ library LibProposing {
     error L1_ASSIGNMENT_INVALID_SIG();
     error L1_ASSIGNMENT_INVALID_PARAMS();
     error L1_ASSIGNMENT_INSUFFICIENT_FEE();
+    error L1_NO_BLOB_FOUND();
     error L1_TIER_NOT_FOUND();
     error L1_TOO_MANY_BLOCKS();
     error L1_TXLIST_TOO_LARGE();
@@ -129,6 +130,8 @@ library LibProposing {
             blk.blobHash = IBlobHashReader(
                 resolver.resolve("blob_hash_reader", false)
             ).getFirstBlobHash();
+
+            if (blk.blobHash == 0) revert L1_NO_BLOB_FOUND();
         } else {
             if (txList.length > config.blockMaxTxListBytes) {
                 revert L1_TXLIST_TOO_LARGE();
