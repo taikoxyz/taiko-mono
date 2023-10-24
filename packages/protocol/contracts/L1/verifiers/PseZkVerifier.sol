@@ -82,7 +82,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
             assert(proof.pointProof.length == 0);
             instance = calcInstance({
                 prover: prover,
-                blobHash: blobHash,
+                blobHash: 0,
                 txListHash: blobHash, // blobHash == txListHash
                 evidence: evidence
             });
