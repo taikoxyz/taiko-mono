@@ -68,7 +68,7 @@ contract TaikoL1 is
     /// first transaction in the block. If there are `n` transactions in the
     /// `txList`, then there will be up to `n + 1` transactions in the L2 block.
     /// @param assignment Data to assign a prover.
-    /// @param extraData The extraData in the L1 block's header.
+    /// @param extraData The extraData in the L2 block's header.
     /// @return meta The metadata of the proposed L2 block.
     function proposeBlock(
         bytes calldata txList,
