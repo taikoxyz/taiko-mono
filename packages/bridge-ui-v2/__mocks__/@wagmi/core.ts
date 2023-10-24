@@ -18,6 +18,6 @@ export const configureChains = vi.fn(() => {
   return { publicClient: 'mockPublicClient' };
 });
 
-export const createConfig = vi.fn(() => {
+export const defaultWagmiConfig = vi.fn(() => {
   return 'mockWagmiConfig';
 });
