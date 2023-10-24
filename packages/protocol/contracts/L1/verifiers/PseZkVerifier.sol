@@ -71,9 +71,10 @@ contract PseZkVerifier is EssentialContract, IVerifier {
                 evidence: evidence
             });
 
+            bytes32 x = keccak256(abi.encodePacked(blobHash, pf.txListHash));
             Lib4844.evaluatePoint({
                 blobHash: blobHash,
-                x: uint256(instance) % Lib4844.BLS_MODULUS,
+                x: uint256(x) % Lib4844.BLS_MODULUS,
                 y: pf.pointValue,
                 commitment: pf.pointCommitment,
                 proof: pf.pointProof
