@@ -273,8 +273,8 @@ contract TaikoL1 is
             // new blocks
             // without any verification.
             blockMaxProposals: 864_000,
-            blockRingBufferSize: 864_000,
-            // Can be override by the tier config.
+            blockRingBufferSize: 864_010,
+            // Can be overridden by the tier config.
             maxBlocksToVerifyPerProposal: 10,
             // Limited by the PSE zkEVM circuits.
             blockMaxGasLimit: 8_000_000,
