@@ -12,8 +12,6 @@ import { ITierProvider, LibTiers } from "./ITierProvider.sol";
 contract TaikoA6TierProvider is ITierProvider {
     uint96 private constant UNIT = 10_000e18;
 
-    uint24 private constant COOLDOWN_BASE = 24 hours;
-
     error TIER_NOT_FOUND();
 
     function getTier(uint16 tierId)
@@ -27,8 +25,8 @@ contract TaikoA6TierProvider is ITierProvider {
                 verifierName: "tier_optimistic",
                 validityBond: 20 * UNIT,
                 contestBond: 20 * UNIT,
-                cooldownWindow: 4 hours + COOLDOWN_BASE,
-                provingWindow: 1 hours,
+                cooldownWindow: 24 hours,
+                provingWindow: 2 hours,
                 maxBlocksToVerify: 10
             });
         }
@@ -38,8 +36,8 @@ contract TaikoA6TierProvider is ITierProvider {
                 verifierName: "tier_sgx",
                 validityBond: 10 * UNIT,
                 contestBond: 10 * UNIT,
-                cooldownWindow: 3 hours + COOLDOWN_BASE,
-                provingWindow: 2 hours,
+                cooldownWindow: 24 hours,
+                provingWindow: 4 hours,
                 maxBlocksToVerify: 8
             });
         }
@@ -49,9 +47,8 @@ contract TaikoA6TierProvider is ITierProvider {
                 verifierName: "tier_sgx_and_pse_zkevm",
                 validityBond: 5 * UNIT,
                 contestBond: 5 * UNIT,
-                cooldownWindow: 2 hours + COOLDOWN_BASE,
-                provingWindow: 4 hours, // TODO(david): tune this value based on
-                    // the A6 circuits benchmark
+                cooldownWindow: 24 hours,
+                provingWindow: 6 hours,
                 maxBlocksToVerify: 6
             });
         }
@@ -61,8 +58,8 @@ contract TaikoA6TierProvider is ITierProvider {
                 verifierName: "tier_guardian",
                 validityBond: 0,
                 contestBond: 0, // not contestable
-                cooldownWindow: 1 hours + COOLDOWN_BASE,
-                provingWindow: 4 hours,
+                cooldownWindow: 24 hours,
+                provingWindow: 8 hours,
                 maxBlocksToVerify: 4
             });
         }
