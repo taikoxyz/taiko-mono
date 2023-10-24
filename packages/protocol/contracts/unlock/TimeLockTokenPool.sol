@@ -116,10 +116,9 @@ contract TimeLockTokenPool is OwnableUpgradeable {
         emit Granted(recipient, g);
     }
 
-    /// @notice Puts a stop to all grants given to an address and settles
-    /// withdrawal tokens. The recipient will still be able to get what he/she
-    /// deserves to receive. This transaction simply invalidates all future
-    /// unlocks.
+    /// @notice Puts a stop to all grants for a given recipient.Tokens already
+    /// granted to the recipient will NOT be voided but are subject to the
+    /// original unlock schedule.
     function void(address recipient) external onlyOwner {
         Recipient storage r = recipients[recipient];
         uint128 amountVoided;
@@ -197,10 +196,10 @@ contract TimeLockTokenPool is OwnableUpgradeable {
         private
         returns (uint128 amountVoided)
     {
-        uint128 amount = _getAmountOwned(g);
+        uint128 amountOwned = _getAmountOwned(g);
 
-        amountVoided = g.amount - amount;
-        g.amount = amount;
+        amountVoided = g.amount - amountOwned;
+        g.amount = amountOwned;
 
         g.grantStart = 0;
         g.grantPeriod = 0;
