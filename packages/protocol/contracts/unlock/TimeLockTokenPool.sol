@@ -62,6 +62,8 @@ contract TimeLockTokenPool is OwnableUpgradeable {
         Grant[] grants;
     }
 
+    uint256 public constant MAX_GRANTS_PER_ADDRESS = 10;
+
     address public taikoToken;
     address public sharedVault;
     uint128 public totalAmountGranted;
@@ -78,10 +80,11 @@ contract TimeLockTokenPool is OwnableUpgradeable {
     error INVALID_PARAM();
     error NOTHING_TO_VOID();
     error NOTHING_TO_WITHDRAW();
+    error TOO_MANY();
 
     function init(
         address _taikoToken,
-        address _shardVault
+        address _sharedVault
     )
         external
         initializer
@@ -91,8 +94,8 @@ contract TimeLockTokenPool is OwnableUpgradeable {
         if (_taikoToken == address(0)) revert INVALID_PARAM();
         taikoToken = _taikoToken;
 
-        if (_shardVault == address(0)) revert INVALID_PARAM();
-        sharedVault = _shardVault;
+        if (_sharedVault == address(0)) revert INVALID_PARAM();
+        sharedVault = _sharedVault;
     }
 
     /// @notice Gives a new grant to a address with its own unlock schedule.
@@ -102,6 +105,10 @@ contract TimeLockTokenPool is OwnableUpgradeable {
     /// same recipient.
     function grant(address recipient, Grant memory g) external onlyOwner {
         if (recipient == address(0)) revert INVALID_PARAM();
+        if (recipients[recipient].grants.length >= MAX_GRANTS_PER_ADDRESS) {
+            revert TOO_MANY();
+        }
+
         _validateGrant(g);
 
         totalAmountGranted += g.amount;
