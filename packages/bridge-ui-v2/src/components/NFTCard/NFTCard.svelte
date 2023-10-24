@@ -4,26 +4,23 @@
   import type { Address } from 'viem';
 
   import type { NFT } from '$libs/token';
-  import { fetchNFTImageUrl } from '$libs/token/fetchNFTImageUrl';
   import { truncateString } from '$libs/util/truncateString';
   import { network } from '$stores/network';
 
   export let nft: NFT;
 
-  let imageUrl: string | null = null;
+  const placeholderUrl = 'https://placehold.co/400x400.png';
+
+  let imageUrl: string = nft.metadata?.image || placeholderUrl;
+
   let chainId: number | undefined;
   let address: Address;
 
   $: if (nft) {
     chainId = get(network)?.id;
     if (chainId) {
-      fetchImage(nft);
       address = nft.addresses[chainId];
     }
-  }
-
-  async function fetchImage(nft: NFT) {
-    imageUrl = await fetchNFTImageUrl(nft);
   }
 </script>
 

@@ -4,6 +4,7 @@ import type { ChainID } from '$libs/chain';
 import { eventIndexerApiServices } from '$libs/eventIndexer/initEventIndexer';
 import { type NFT, TokenType } from '$libs/token';
 import { checkOwnershipOfNFTs } from '$libs/token/checkOwnership';
+import { fetchNFTImageUrl } from '$libs/token/fetchNFTImageUrl';
 import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
 import { getLogger } from '$libs/util/logger';
 
@@ -63,19 +64,27 @@ export async function fetchNFTs(userAddress: Address, chainID: ChainID): Promise
   // Deduplicate based on address and chainID
   const deduplicatedNfts = deduplicateNFTs(nftArrays);
 
-  // Double check the ownership
-  const ownsAllNfts = await checkOwnershipOfNFTs(nftArrays.flat(), userAddress, Number(chainID));
-  log(`user ${userAddress} owns all NFTs:`, ownsAllNfts);
+  // Fetch image for each NFT
+  const promises = Promise.all(
+    deduplicatedNfts.map(async (nft) => {
+      const nftWithImage = await fetchNFTImageUrl(nft);
+      return nftWithImage;
+    }),
+  );
+  const nftsWithImage = await promises;
 
+  // Double check the ownership
+  const ownsAllNfts = await checkOwnershipOfNFTs(nftsWithImage, userAddress, Number(chainID));
+  log(`user ${userAddress} owns all NFTs:`, ownsAllNfts);
   // filter out the NFTs that the user doesn't own
-  const filteredNfts = deduplicatedNfts.filter((nft) => {
+  const filteredNfts = nftsWithImage.filter((nft) => {
     const isOwned = ownsAllNfts.successfulOwnershipChecks.find((result) => result.tokenId === nft.tokenId);
     return isOwned;
   });
 
-  if (filteredNfts.length !== deduplicatedNfts.length) {
+  if (filteredNfts.length !== nftsWithImage.length) {
     //TODO: handle this case differently? maybe show a warning to the user?
-    log(`found ${deduplicatedNfts.length - filteredNfts.length} tokens that the user doesn't own`);
+    log(`found ${nftsWithImage.length - filteredNfts.length} tokens that the user doesn't own`);
   }
 
   log(`found ${filteredNfts.length} unique NFTs from all indexers`, filteredNfts);

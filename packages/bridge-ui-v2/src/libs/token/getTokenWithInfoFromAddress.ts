@@ -2,8 +2,8 @@ import { erc721ABI, fetchToken, readContract } from '@wagmi/core';
 import type { Address } from 'viem';
 
 import { erc1155ABI } from '$abi';
+import { fetchNFTMetadata } from '$libs/util/fetchNFTMetadata';
 import { getLogger } from '$libs/util/logger';
-import { parseNFTMetadata } from '$libs/util/parseNFTMetadata';
 import { safeReadContract } from '$libs/util/safeReadContract';
 
 import { detectContractType } from './detectContractType';
@@ -117,7 +117,7 @@ const getERC1155Info = async (
       balance: balance ? balance : 0,
     } as NFT;
     try {
-      const metadata = await parseNFTMetadata(token);
+      const metadata = await fetchNFTMetadata(token);
       if (metadata?.name !== '') name = metadata?.name;
       // todo: more metadata?
       token.metadata = metadata || undefined;
@@ -174,7 +174,7 @@ const getERC721Info = async (
     uri: uri ? uri.toString() : undefined,
   } as NFT;
   try {
-    const metadata = await parseNFTMetadata(token);
+    const metadata = await fetchNFTMetadata(token);
     token.metadata = metadata || undefined;
   } catch {
     return token;

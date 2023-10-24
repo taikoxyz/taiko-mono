@@ -75,12 +75,13 @@
         <div>
           {#if nftsGroup.length > 0}
             <div class="collection-header">
-              <span class="font-bold">
+              <span class="font-bold text-primary-content">
                 {nftsGroup[0].name}
               </span>
-              <span class="badge badge-primary badge-outline badge-xs p-2">{nftsGroup[0].type}</span>
+              <span class="badge badge-primary badge-outline badge-xs px-[10px] h-[24px] ml-[10px]"
+                ><span class="text-xs">{nftsGroup[0].type}</span></span>
             </div>
-            <div class="token-ids my-2">
+            <div class="token-ids my-[16px]">
               {#each nftsGroup as nft}
                 {@const collectionAddress = nft.addresses[chainId]}
                 {#if collectionAddress === undefined}
@@ -99,7 +100,7 @@
             </div>
           {/if}
         </div>
-        <div class="h-sep" />
+        <div class="h-sep my-[30px]" />
       {/each}
     {/if}
   </div>

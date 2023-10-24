@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { get } from 'svelte/store';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
+  import { Icon } from '$components/Icon';
   import { type NFT, TokenType } from '$libs/token';
-  import { fetchNFTImageUrl } from '$libs/token/fetchNFTImageUrl';
   import { noop } from '$libs/util/noop';
-  import { network } from '$stores/network';
+
+  import NftInfoDialog from './NFTInfoDialog.svelte';
 
   export let nft: NFT;
   export let collectionAddress: Address;
@@ -16,60 +16,68 @@
   export let toggleAddressCheckBox: (collectionAddress: string) => void = noop;
   export let selectable = false;
 
-  let imageUrl: string | null = null;
+  let selected: boolean = false;
+
+  let modalOpen = false;
+
+  const placeholderUrl = 'https://placehold.co/400x400.png';
+
+  let imageUrl: string = nft.metadata?.image || placeholderUrl;
   let imageLoaded = false;
-  let chainId: number | undefined;
-  const placeholderUrl = '/chains/taiko.svg';
 
-  $: if (nft) {
-    chainId = get(network)?.id;
-    if (chainId) {
-      fetchImage(nft);
-    }
-  }
-
-  async function fetchImage(nft: NFT) {
-    imageUrl = await fetchNFTImageUrl(nft);
-  }
+  const handleDialogSelection = () => {
+    selectNFT(nft);
+    selected = true;
+    modalOpen = false;
+  };
 
   function handleImageLoad() {
     imageLoaded = true;
   }
 </script>
 
-<div class="form-control flex">
-  <label class="cursor-pointer label">
+<div class="form-control flex h-[60px] my-[16px]">
+  <label class="cursor-pointer label space-x-[16px]">
+    <div>
+      {#if multiSelectEnabled && selectable}
+        <input
+          type="checkbox"
+          class="checkbox checkbox-secondary"
+          checked={checkedAddresses.get(collectionAddress) || false}
+          on:change={() => toggleAddressCheckBox(collectionAddress)} />
+      {:else if selectable}
+        <input
+          type="radio"
+          name="nft-radio"
+          checked={selected}
+          class="flex-none radio radio-secondary"
+          on:change={() => selectNFT(nft)} />
+      {/if}
+    </div>
     <div class="mr-2">
-      <div class="avatar">
-        <div class="w-10 mask mask-hexagon">
+      <div class="avatar h-[56px] w-[56px]">
+        <div class="rounded-[10px]">
           {#if !imageLoaded}
-            <img alt="placeholder" src={placeholderUrl} class="w-[40px] h-[40px] rounded animate-pulse" />
+            <img alt="placeholder" src={placeholderUrl} class="rounded animate-pulse" />
           {/if}
-          <img alt="placeholder nft" src={imageUrl || ''} class="w-[40px] h-[40px] rounded" on:load={handleImageLoad} />
-          <img alt="placeholder nft" src={imageUrl} class="w-[40px] h-[40px] rounded" />
+          <img alt="placeholder nft" src={imageUrl || ''} class=" rounded" on:load={handleImageLoad} />
         </div>
       </div>
     </div>
     <div class="f-col grow">
       {#if nft.metadata?.name}
-        <span class=" text-xs text-neutral-content">{nft.metadata?.name}</span>
+        <span class="text-xs text-neutral-content text-bold">{nft.metadata?.name}</span>
       {/if}
-      <span class=" text-xs text-neutral-content">{$t('common.id')}: {nft.tokenId}</span>
+      <span class=" text-xs text-neutral-content font-bold">{nft.tokenId}</span>
       {#if nft.type === TokenType.ERC1155}
         <span class=" text-xs text-neutral-content">{$t('common.balance')}: {nft.balance}</span>
       {/if}
     </div>
-    {#if multiSelectEnabled && selectable}
-      <input
-        type="checkbox"
-        class="checkbox checkbox-secondary"
-        checked={checkedAddresses.get(collectionAddress) || false}
-        on:change={() => toggleAddressCheckBox(collectionAddress)} />
-    {:else if selectable}
-      <input type="radio" name="nft-radio" class="flex-none radio radio-secondary" on:change={() => selectNFT(nft)} />
-    {/if}
+    <button on:click={() => (modalOpen = true)}><Icon type="option-dots" /></button>
   </label>
 </div>
+
+<NftInfoDialog {nft} bind:modalOpen on:selected={() => handleDialogSelection()} />
 
 <style>
   /* Todo: temporary test, remove or move */

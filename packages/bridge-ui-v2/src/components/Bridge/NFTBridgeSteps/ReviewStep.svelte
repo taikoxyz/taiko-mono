@@ -2,21 +2,19 @@
   import { t } from 'svelte-i18n';
 
   import { chainConfig } from '$chainConfig';
-  import Amount from '$components/Bridge/Amount.svelte';
   import { ProcessingFee } from '$components/Bridge/ProcessingFee';
   import Recipient from '$components/Bridge/Recipient.svelte';
-  import { destNetwork as destinationChain, selectedToken } from '$components/Bridge/state';
+  import { destNetwork as destinationChain } from '$components/Bridge/state';
   import { ChainSelector } from '$components/ChainSelector';
   import { Icon, IconFlipper } from '$components/Icon';
   import { NFTCard } from '$components/NFTCard';
   import { NFTList } from '$components/NFTList';
-  import { type NFT, TokenType } from '$libs/token';
+  import type { NFT } from '$libs/token';
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { network } from '$stores/network';
 
   export let selectedNFT: NFT[];
 
-  let amountComponent: Amount;
   let recipientComponent: Recipient;
   let processingFeeComponent: ProcessingFee;
 
@@ -63,7 +61,7 @@
   </div>
 
   <div class="flex justify-between">
-    <div class="font-bold">{$t('bridge.nft.step.review.token_id')}</div>
+    <div class="font-bold">{$t('inputs.token_id_input.label')}</div>
     <div class="break-words text-right text-secondary-content">
       <ul>
         {#each selectedNFT as nft}
@@ -81,9 +79,6 @@
 <div class="space-y-[16px]">
   <Recipient bind:this={recipientComponent} />
   <ProcessingFee bind:this={processingFeeComponent} />
-  {#if $selectedToken?.type === TokenType.ERC1155}
-    <Amount bind:this={amountComponent} />
-  {/if}
 </div>
 
 <div class="h-sep" />
