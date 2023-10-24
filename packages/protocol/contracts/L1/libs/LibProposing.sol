@@ -63,7 +63,7 @@ library LibProposing {
         // ensure that only that specific address has the authority to propose
         // blocks.
         TaikoData.SlotB memory b = state.slotB;
-        if (!_isProposerValid(b, resolver)) revert L1_UNAUTHORIZED();
+        if (!_isProposerPermitted(b, resolver)) revert L1_UNAUTHORIZED();
 
         if (txList.length > config.blockMaxTxListBytes) {
             revert L1_TXLIST_TOO_LARGE();
@@ -269,7 +269,7 @@ library LibProposing {
         }
     }
 
-    function _isProposerValid(
+    function _isProposerPermitted(
         TaikoData.SlotB memory slotB,
         AddressResolver resolver
     )
