@@ -166,7 +166,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     /// @dev So in case we have regular proving mechanism we shall check if
     /// still a cooldown happens
     /// @dev when proving a block (in a normal way).
-    /// @notice In case oracle_prover is disbaled, there
+    /// @notice In case oracle_prover is disabled, there
     /// is no reason why
     /// @notice cooldowns be above 0 min tho (!).
     function test_L1_if_oracle_is_disabled_cooldown_is_still_as_proofRegularCooldown(
@@ -391,7 +391,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             proveBlock(Carol, Carol, meta, parentHash, blockHash, signalRoot);
 
             /// @notice: Based on the current codebase we still need to wait
-            /// even if the system and oracle proofs are disbaled, which
+            /// even if the system and oracle proofs are disabled, which
             /// @notice: in such case best to set 0 mins (cause noone could
             /// overwrite a valid fk).
             vm.warp(block.timestamp + conf.proofRegularCooldown);
