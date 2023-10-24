@@ -94,7 +94,7 @@
     --toastWidth: 339px;
 
     /*
-      We need to makes the surroundings dissapear in order
+      We need to makes the surroundings disappear in order
       to fully customize the toast with our own component
     */
     --toastBackground: transparent;
