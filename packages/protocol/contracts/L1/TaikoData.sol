@@ -52,6 +52,8 @@ library TaikoData {
         uint256 ethDepositGas;
         // The maximum fee allowed for an ETH deposit.
         uint256 ethDepositMaxFee;
+        // True if EIP-4844 is enabled for DA
+        bool allowUsingBlobForDA;
     }
 
     /// @dev Struct holding state variables.

@@ -20,6 +20,7 @@ abstract contract TaikoErrors {
     error L1_ASSIGNMENT_INVALID_PARAMS();
     error L1_ASSIGNMENT_INSUFFICIENT_FEE();
     error L1_ASSIGNED_PROVER_NOT_ALLOWED();
+    error L1_BLOB_FOR_DA_DISABLED();
     error L1_BLOCK_MISMATCH();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_ADDRESS();
@@ -41,5 +42,4 @@ abstract contract TaikoErrors {
     error L1_UNAUTHORIZED();
     error L1_UNEXPECTED_TRANSITION_ID();
     error L1_UNEXPECTED_TRANSITION_TIER();
-    error L1_UNSUPPORTED_FEATURE();
 }

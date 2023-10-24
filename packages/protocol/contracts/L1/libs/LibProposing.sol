@@ -40,12 +40,12 @@ library LibProposing {
     error L1_ASSIGNMENT_INVALID_SIG();
     error L1_ASSIGNMENT_INVALID_PARAMS();
     error L1_ASSIGNMENT_INSUFFICIENT_FEE();
+    error L1_BLOB_FOR_DA_DISABLED();
     error L1_NO_BLOB_FOUND();
     error L1_TIER_NOT_FOUND();
     error L1_TOO_MANY_BLOCKS();
     error L1_TXLIST_TOO_LARGE();
     error L1_UNAUTHORIZED();
-    error L1_UNSUPPORTED_FEATURE();
 
     /// @dev Proposes a Taiko L2 block.
     function proposeBlock(
@@ -59,8 +59,9 @@ library LibProposing {
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
-        // TODO: remove this check once EIP-4844 is supported
-        if (extraData.length == 0) revert L1_UNSUPPORTED_FEATURE();
+        if (!config.allowUsingBlobForDA && txList.length == 0) {
+            revert L1_BLOB_FOR_DA_DISABLED();
+        }
 
         // Taiko, as a Based Rollup, enables permissionless block proposals.
         // However, if the "proposer" address is set to a non-zero value, we
