@@ -76,6 +76,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/dottaiko.png",
+    name: "DotTaiko",
+    link: "https://dottaiko.me",
+    description:
+      "Web3 identities natively on Taiko blockchain, built by DotNames.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/taiko.svg",
     name: "Bridge",
     link: "https://bridge.jolnir.taiko.xyz",
