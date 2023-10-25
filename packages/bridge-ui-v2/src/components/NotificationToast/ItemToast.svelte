@@ -46,7 +46,7 @@
     success: 'fill-green-600',
     error: 'fill-red-500',
     warning: 'fill-yellow-500',
-    info: 'fill-pink-700',
+    info: 'fill-pink-200',
     unknown: 'fill-grey-5',
   };
 
@@ -68,10 +68,10 @@
     <Icon type={iconTypeMap[type]} size={24} fillClass={alertIconClassMap[type]} />
     <div class={messageClasses}>
       <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-      <div class='callout-bold leading-[24px]'>{@html title}</div>
+      <div class="callout-bold leading-[24px]">{@html title}</div>
       {#if message}
         <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-        <div class='callout-regular'>{@html message}</div>
+        <div class="callout-regular">{@html message}</div>
       {/if}
     </div>
   </div>

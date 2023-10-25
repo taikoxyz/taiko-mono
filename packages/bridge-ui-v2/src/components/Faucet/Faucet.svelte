@@ -39,7 +39,7 @@
       console.error(err);
 
       if (err instanceof UserRejectedRequestError) {
-        warningToast({title: $t('messages.network.rejected')});
+        warningToast({ title: $t('messages.network.rejected.title') });
       }
     } finally {
       switchingNetwork = false;
@@ -81,14 +81,14 @@
 
       switch (true) {
         case err instanceof UserRejectedRequestError:
-          warningToast({title: $t('faucet.mint.rejected')});
+          warningToast({ title: $t('faucet.mint.rejected') });
           break;
         case err instanceof MintError:
           // TODO: see contract for all possible errors
-          errorToast({title: $t('faucet.mint.error')});
+          errorToast({ title: $t('faucet.mint.error') });
           break;
         default:
-          errorToast({title: $t('faucet.mint.unknown_error')});
+          errorToast({ title: $t('faucet.mint.unknown_error') });
           break;
       }
     } finally {
