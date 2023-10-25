@@ -185,7 +185,6 @@ abstract contract TaikoL1TestBase is TestBase {
         internal
     {
         TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
-            metaHash: LibUtils.hashMetadata(meta),
             parentHash: parentHash,
             blockHash: blockHash,
             signalRoot: signalRoot,
@@ -197,7 +196,8 @@ abstract contract TaikoL1TestBase is TestBase {
         bytes32 instance = pv.calcInstance(
             prover,
             evidence,
-            0 // without blob point value is 0
+            0, // without blob point value is 0
+            LibUtils.hashMetadata(meta)
         );
 
         PseZkVerifier.PseZkEvmProof memory zkProof;
@@ -224,16 +224,18 @@ abstract contract TaikoL1TestBase is TestBase {
         }
 
         if (tier == LibTiers.TIER_SGX) {
-            bytes memory signature =
-                createSgxSignatureProof(evidence, newPubKey, prover);
+            bytes memory signature = createSgxSignatureProof(
+                evidence, newPubKey, prover, LibUtils.hashMetadata(meta)
+            );
 
             evidence.proof =
                 bytes.concat(bytes2(0), bytes20(newPubKey), signature);
         }
 
         if (tier == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
-            bytes memory signature =
-                createSgxSignatureProof(evidence, newPubKey, prover);
+            bytes memory signature = createSgxSignatureProof(
+                evidence, newPubKey, prover, LibUtils.hashMetadata(meta)
+            );
 
             bytes memory sgxProof =
                 bytes.concat(bytes2(0), bytes20(newPubKey), signature);
@@ -246,27 +248,27 @@ abstract contract TaikoL1TestBase is TestBase {
 
             // Grant 2 signatures, 3rd might be a revert
             vm.prank(David, David);
-            gp.approveEvidence(evidence, meta);
+            gp.approveEvidence(meta.id, evidence, meta);
             vm.prank(Emma, Emma);
-            gp.approveEvidence(evidence, meta);
+            gp.approveEvidence(meta.id, evidence, meta);
 
             if (revertReason != "") {
                 vm.prank(Frank, Frank);
                 vm.expectRevert(); // Revert reason is 'wrapped' so will not be
                     // identical to the expectedRevert
-                gp.approveEvidence(evidence, meta);
+                gp.approveEvidence(meta.id, evidence, meta);
             } else {
                 vm.prank(Frank, Frank);
-                gp.approveEvidence(evidence, meta);
+                gp.approveEvidence(meta.id, evidence, meta);
             }
         } else {
             if (revertReason != "") {
                 vm.prank(msgSender, msgSender);
                 vm.expectRevert(revertReason);
-                L1.proveBlock(abi.encode(evidence, meta));
+                L1.proveBlock(meta.id, abi.encode(evidence, meta));
             } else {
                 vm.prank(msgSender, msgSender);
-                L1.proveBlock(abi.encode(evidence, meta));
+                L1.proveBlock(meta.id, abi.encode(evidence, meta));
             }
         }
     }
@@ -325,13 +327,14 @@ abstract contract TaikoL1TestBase is TestBase {
     function createSgxSignatureProof(
         TaikoData.BlockEvidence memory evidence,
         address newPubKey,
-        address prover
+        address prover,
+        bytes32 metaHash
     )
         internal
         view
         returns (bytes memory signature)
     {
-        bytes32 digest = sv.getSignedHash(evidence, prover, newPubKey);
+        bytes32 digest = sv.getSignedHash(evidence, prover, newPubKey, metaHash);
 
         uint256 signerPrivateKey;
 

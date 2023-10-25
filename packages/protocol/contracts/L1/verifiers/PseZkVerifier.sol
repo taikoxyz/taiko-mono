@@ -62,7 +62,8 @@ contract PseZkVerifier is EssentialContract, IVerifier {
             instance = calcInstance({
                 prover: input.prover,
                 evidence: evidence,
-                pointValue: pf.pointValue
+                pointValue: pf.pointValue,
+                metaHash: input.metaHash
             });
 
             Lib4844.evaluatePoint({
@@ -79,7 +80,8 @@ contract PseZkVerifier is EssentialContract, IVerifier {
             instance = calcInstance({
                 prover: input.prover,
                 evidence: evidence,
-                pointValue: 0
+                pointValue: 0,
+                metaHash: input.metaHash
             });
         }
 
@@ -115,7 +117,8 @@ contract PseZkVerifier is EssentialContract, IVerifier {
     function calcInstance(
         address prover,
         TaikoData.BlockEvidence memory evidence,
-        uint256 pointValue
+        uint256 pointValue,
+        bytes32 metaHash
     )
         public
         pure
@@ -123,7 +126,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
     {
         return keccak256(
             abi.encodePacked(
-                evidence.metaHash,
+                metaHash,
                 evidence.parentHash,
                 evidence.blockHash,
                 evidence.signalRoot,

@@ -78,7 +78,7 @@ library LibProving {
         // theory, this check may be skipped, but it's included for added
         // caution.
         if (
-            blk.blockId != meta.id || blk.metaHash != evidence.metaHash
+            blk.blockId != meta.id
                 || blk.metaHash != LibUtils.hashMetadata(meta)
         ) {
             revert L1_BLOCK_MISMATCH();
@@ -194,7 +194,8 @@ library LibProving {
                 prover: msg.sender,
                 isContesting: evidence.tier == tran.tier && tier.contestBond != 0,
                 blobUsed: meta.blobUsed,
-                blobHash: meta.blobHash
+                blobHash: meta.blobHash,
+                metaHash: blk.metaHash
             });
 
             address verifier = resolver.resolve(tier.verifierName, true);

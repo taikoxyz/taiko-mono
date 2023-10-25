@@ -977,7 +977,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             if (blockId == 10) {
                 TaikoData.BlockEvidence memory evidence = TaikoData
                     .BlockEvidence({
-                    metaHash: LibUtils.hashMetadata(meta),
                     parentHash: parentHash,
                     blockHash: blockHash,
                     signalRoot: signalRoot,
@@ -989,11 +988,11 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 evidence.proof = bytes.concat(keccak256("RETURN_LIVENESS_BOND"));
 
                 vm.prank(David, David);
-                gp.approveEvidence(evidence, meta);
+                gp.approveEvidence(meta.id, evidence, meta);
                 vm.prank(Emma, Emma);
-                gp.approveEvidence(evidence, meta);
+                gp.approveEvidence(meta.id, evidence, meta);
                 vm.prank(Frank, Frank);
-                gp.approveEvidence(evidence, meta);
+                gp.approveEvidence(meta.id, evidence, meta);
 
                 // // Credited back the bond (not transferred to the user
                 // wallet,

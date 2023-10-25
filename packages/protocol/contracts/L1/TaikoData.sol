@@ -103,7 +103,6 @@ library TaikoData {
 
     /// @dev Struct representing block evidence.
     struct BlockEvidence {
-        bytes32 metaHash;
         bytes32 parentHash;
         bytes32 blockHash;
         bytes32 signalRoot;

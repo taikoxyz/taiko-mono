@@ -17,6 +17,7 @@ interface IVerifier {
         bool isContesting;
         bool blobUsed;
         bytes32 blobHash;
+        bytes32 metaHash;
     }
 
     // Todo: change memory to calldata
