@@ -35,7 +35,7 @@ contract TestTimeLockTokenPool is Test {
         pool.grant(address(0), Pool.Grant(100e18, 0, 0, 0, 0, 0, 0));
     }
 
-    function test_single_grant() public {
+    function test_single_grant_zero_grant_period_zero_unlock_period() public {
         pool.grant(Alice, Pool.Grant(10_000e18, 0, 0, 0, 0, 0, 0));
         vm.prank(Vault);
         tko.approve(address(pool), 10_000e18);
@@ -58,6 +58,138 @@ contract TestTimeLockTokenPool is Test {
         vm.prank(Alice);
         pool.withdraw();
         assertEq(tko.balanceOf(Alice), 10_000e18);
+
+        (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
+            pool.getMyGrantSummary(Alice);
+        assertEq(amountOwned, 10_000e18);
+        assertEq(amountUnlocked, 10_000e18);
+        assertEq(amountWithdrawn, 10_000e18);
+        assertEq(amountWithdrawable, 0);
+    }
+
+    function test_single_grant_zero_grant_period_1year_unlock_period() public {
+        uint64 unlockStart = uint64(block.timestamp);
+        uint32 unlockPeriod = 365 days;
+        uint64 unlockCliff = unlockStart + unlockPeriod / 2;
+
+        pool.grant(
+            Alice,
+            Pool.Grant(
+                10_000e18, 0, 0, 0, unlockStart, unlockCliff, unlockPeriod
+            )
+        );
+        vm.prank(Vault);
+        tko.approve(address(pool), 10_000e18);
+
+        (
+            uint128 amountOwned,
+            uint128 amountUnlocked,
+            uint128 amountWithdrawn,
+            uint128 amountWithdrawable
+        ) = pool.getMyGrantSummary(Alice);
+        assertEq(amountOwned, 10_000e18);
+        assertEq(amountUnlocked, 0);
+        assertEq(amountWithdrawn, 0);
+        assertEq(amountWithdrawable, 0);
+
+        vm.warp(unlockCliff);
+
+        (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
+            pool.getMyGrantSummary(Alice);
+        assertEq(amountOwned, 10_000e18);
+        assertEq(amountUnlocked, 0);
+        assertEq(amountWithdrawn, 0);
+        assertEq(amountWithdrawable, 0);
+
+        vm.warp(unlockCliff + 1);
+
+        (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
+            pool.getMyGrantSummary(Alice);
+        uint256 amount1 = 5_000_000_317_097_919_837_645;
+        assertEq(amountOwned, 10_000e18);
+        assertEq(amountUnlocked, amount1);
+        assertEq(amountWithdrawn, 0);
+        assertEq(amountWithdrawable, amount1);
+
+        vm.prank(Alice);
+        pool.withdraw();
+
+        vm.warp(unlockStart + unlockPeriod + 365 days);
+
+        (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
+            pool.getMyGrantSummary(Alice);
+        assertEq(amountOwned, 10_000e18);
+        assertEq(amountUnlocked, 10_000e18);
+        assertEq(amountWithdrawn, amount1);
+        assertEq(amountWithdrawable, 10_000e18 - amount1);
+
+        vm.prank(Alice);
+        pool.withdraw();
+
+        (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
+            pool.getMyGrantSummary(Alice);
+        assertEq(amountOwned, 10_000e18);
+        assertEq(amountUnlocked, 10_000e18);
+        assertEq(amountWithdrawn, 10_000e18);
+        assertEq(amountWithdrawable, 0);
+    }
+
+    function test_single_grant_1year_grant_period_zero_unlock_period() public {
+        uint64 grantStart = uint64(block.timestamp);
+        uint32 grantPeriod = 365 days;
+        uint64 grantCliff = grantStart + grantPeriod / 2;
+
+        pool.grant(
+            Alice,
+            Pool.Grant(10_000e18, grantStart, grantCliff, grantPeriod, 0, 0, 0)
+        );
+        vm.prank(Vault);
+        tko.approve(address(pool), 10_000e18);
+
+        (
+            uint128 amountOwned,
+            uint128 amountUnlocked,
+            uint128 amountWithdrawn,
+            uint128 amountWithdrawable
+        ) = pool.getMyGrantSummary(Alice);
+        assertEq(amountOwned, 0);
+        assertEq(amountUnlocked, 0);
+        assertEq(amountWithdrawn, 0);
+        assertEq(amountWithdrawable, 0);
+
+        vm.warp(grantCliff);
+
+        (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
+            pool.getMyGrantSummary(Alice);
+        assertEq(amountOwned, 0);
+        assertEq(amountUnlocked, 0);
+        assertEq(amountWithdrawn, 0);
+        assertEq(amountWithdrawable, 0);
+
+        vm.warp(grantCliff + 1);
+
+        (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
+            pool.getMyGrantSummary(Alice);
+        uint256 amount1 = 5_000_000_317_097_919_837_645;
+        assertEq(amountOwned, amount1);
+        assertEq(amountUnlocked, amount1);
+        assertEq(amountWithdrawn, 0);
+        assertEq(amountWithdrawable, amount1);
+
+        vm.prank(Alice);
+        pool.withdraw();
+
+        vm.warp(grantStart + grantPeriod + 365 days);
+
+        (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
+            pool.getMyGrantSummary(Alice);
+        assertEq(amountOwned, 10_000e18);
+        assertEq(amountUnlocked, 10_000e18);
+        assertEq(amountWithdrawn, amount1);
+        assertEq(amountWithdrawable, 10_000e18 - amount1);
+
+        vm.prank(Alice);
+        pool.withdraw();
 
         (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
             pool.getMyGrantSummary(Alice);
