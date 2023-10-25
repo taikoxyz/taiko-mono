@@ -2,14 +2,13 @@
   import { get } from 'svelte/store';
 
   import { selectedNFTs } from '$components/Bridge/state';
+  import { NFTCard } from '$components/NFTs/NFTCards';
   import type { NFT } from '$libs/token';
   import { groupNFTByCollection } from '$libs/util/groupNFTByCollection';
   import { network } from '$stores/network';
 
-  import { NFTCard } from '.';
-
   export let nfts: NFT[] = [];
-  // export let selectedNFT: NFT[] | null = [];
+  export let viewOnly = false;
 
   const selectNFT = (nft: NFT) => {
     const currentChainId = get(network)?.id;
@@ -44,7 +43,7 @@
             {#if collectionAddress === undefined}
               <div>TODO: Address for {nft.name} is undefined</div>
             {:else}
-              <NFTCard {nft} {selectNFT} />
+              <NFTCard {nft} {selectNFT} {viewOnly} />
             {/if}
           {/each}
         </div>

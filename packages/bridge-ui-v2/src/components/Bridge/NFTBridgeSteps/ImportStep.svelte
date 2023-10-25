@@ -21,13 +21,13 @@
   import { ChainSelectorWrapper } from '$components/ChainSelector';
   import { IconFlipper } from '$components/Icon';
   import RotatingIcon from '$components/Icon/RotatingIcon.svelte';
-  import { LoadingMask } from '$components/LoadingMask';
-  import { NFTCardGrid } from '$components/NFTCard';
-  import { NFTList } from '$components/NFTList';
+  import { NFTDisplay } from '$components/NFTs';
+  import { NFTView } from '$components/NFTs/types';
   import { fetchNFTs } from '$libs/bridge/fetchNFTs';
   import { detectContractType, type NFT, TokenType } from '$libs/token';
   import { checkOwnership } from '$libs/token/checkOwnership';
   import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
+  import { noop } from '$libs/util/noop';
   import { account } from '$stores/account';
   import { network } from '$stores/network';
 
@@ -38,6 +38,8 @@
   export let foundNFTs: NFT[] = [];
   export let validating: boolean = false;
   export let contractAddress: Address | string = '';
+
+  export const prefetchImage = () => noop();
 
   let enteredIds: string = '';
   let scanning: boolean;
@@ -56,6 +58,8 @@
   let nftIdInputComponent: IdInput;
   let amountComponent: Amount;
 
+  let nftView: NFTView = NFTView.LIST;
+
   const reset = () => {
     nftView = NFTView.LIST;
     enteredIds = '';
@@ -63,12 +67,6 @@
     isOwnerOfAllToken = false;
     detectedTokenType = null;
   };
-
-  enum NFTView {
-    CARDS,
-    LIST,
-  }
-  let nftView: NFTView = NFTView.LIST;
 
   const changeNFTView = () => {
     if (nftView === NFTView.CARDS) {
@@ -158,7 +156,8 @@
                 detectedTokenType = token.type;
                 idInputState = IDInputState.VALID;
                 $selectedToken = token;
-                // await prefetchImage();
+                $selectedNFTs = [token as NFT];
+                await prefetchImage();
               })
               .catch((err) => {
                 console.error(err);
@@ -313,17 +312,7 @@ Automatic NFT Input
           </div>
         </div>
         <div>
-          <div class="relative max-h-[350px] min-h-[350px] bg-neutral rounded-[20px] overflow-hidden">
-            <div class="max-h-[350px] min-h-[350px] overflow-y-auto py-2 px-[20px]">
-              {#if scanning}
-                <LoadingMask spinnerClass="border-white" text={$t('messages.bridge.nft_scanning')} />
-              {:else if nftView === NFTView.LIST}
-                <NFTList bind:nfts={foundNFTs} chainId={$network?.id} />
-              {:else if nftView === NFTView.CARDS}
-                <NFTCardGrid bind:nfts={foundNFTs} />
-              {/if}
-            </div>
-          </div>
+          <NFTDisplay loading={scanning} nfts={foundNFTs} {nftView} />
         </div>
       </section>
 

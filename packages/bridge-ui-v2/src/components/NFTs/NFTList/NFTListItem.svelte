@@ -4,10 +4,9 @@
 
   import { selectedNFTs } from '$components/Bridge/state';
   import { Icon } from '$components/Icon';
+  import NftInfoDialog from '$components/NFTs/NFTInfoDialog.svelte';
   import { type NFT, TokenType } from '$libs/token';
   import { noop } from '$libs/util/noop';
-
-  import NftInfoDialog from './NFTInfoDialog.svelte';
 
   export let nft: NFT;
   export let collectionAddress: Address;

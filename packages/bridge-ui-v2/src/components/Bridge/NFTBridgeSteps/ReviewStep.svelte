@@ -7,9 +7,7 @@
   import { destNetwork as destinationChain, selectedNFTs } from '$components/Bridge/state';
   import { ChainSelector } from '$components/ChainSelector';
   import { Icon, IconFlipper } from '$components/Icon';
-  import { NFTCard } from '$components/NFTCard';
-  import { NFTList } from '$components/NFTList';
-  import { noop } from '$libs/util/noop';
+  import { NFTDisplay } from '$components/NFTs';
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { network } from '$stores/network';
 
@@ -101,13 +99,5 @@ NFT List or Card View
       <!-- <Icon type="list" fillClass="fill-primary-icon" size={24} vWidth={24} vHeight={24} /> -->
     </div>
   </div>
-  {#if nftView === NFTView.LIST}
-    <NFTList bind:nfts={nftsToDisplay} chainId={$network?.id} viewOnly />
-  {:else if nftView === NFTView.CARDS}
-    <div class="rounded-[20px] bg-neutral min-h-[200px] w-full p-2 f-center">
-      {#each nftsToDisplay as nft}
-        <NFTCard {nft} selectNFT={noop} viewOnly />
-      {/each}
-    </div>
-  {/if}
+  <NFTDisplay loading={false} nfts={$selectedNFTs} {nftView} viewOnly />
 </section>

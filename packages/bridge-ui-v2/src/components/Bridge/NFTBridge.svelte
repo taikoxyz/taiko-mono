@@ -325,6 +325,7 @@
           // idInputState = IDInputState.VALID;
           $selectedToken = token;
           await prefetchImage();
+          nextStep();
         })
         .catch((err) => {
           console.error(err);
@@ -332,7 +333,6 @@
           // idInputState = IDInputState.INVALID;
           // invalidToken = true;
         });
-    nextStep();
   };
 
   // Whenever the user switches bridge types, we should reset the forms
