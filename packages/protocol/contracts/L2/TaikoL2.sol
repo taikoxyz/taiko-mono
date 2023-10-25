@@ -45,8 +45,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     error L2_BASEFEE_MISMATCH();
     error L2_INVALID_CHAIN_ID();
-    error L2_INVALID_SENDER();
     error L2_INVALID_PARAM();
+    error L2_INVALID_SENDER();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
 
