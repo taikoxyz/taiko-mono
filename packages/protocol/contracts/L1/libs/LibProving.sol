@@ -155,13 +155,15 @@ library LibProving {
         } else {
             // A transition with the provided parentHash has been located.
             tran = state.transitions[slot][tid];
-            if (tran.tier < blk.minTier) revert L1_UNEXPECTED_TRANSITION_TIER();
+            if (tran.tier < meta.minTier) {
+                revert L1_UNEXPECTED_TRANSITION_TIER();
+            }
         }
 
         // The new proof must meet or exceed the minimum tier required by the
         // block or the previous proof; it cannot be on a lower tier.
         if (
-            evidence.tier == 0 || evidence.tier < blk.minTier
+            evidence.tier == 0 || evidence.tier < meta.minTier
                 || evidence.tier < tran.tier
         ) {
             revert L1_INVALID_TIER();
@@ -197,15 +199,14 @@ library LibProving {
                 blobHash: meta.blobHash,
                 metaHash: blk.metaHash
             });
-
             address verifier = resolver.resolve(tier.verifierName, true);
             // The verifier can be address-zero, signifying that there are no
             // proof checks for the tier. In practice, this only applies to
             // optimistic proofs.
             if (verifier != address(0)) {
                 IVerifier(verifier).verifyProof({
-                    input: verifierInput,
-                    evidence: evidence
+                    evidence: evidence,
+                    input: verifierInput
                 });
             }
         }
@@ -243,6 +244,16 @@ library LibProving {
             tran.blockHash = evidence.blockHash;
             tran.signalRoot = evidence.signalRoot;
             tran.prover = msg.sender;
+            if (tran.contester != address(0)) {
+                // At this point we know that the contester was right
+                LibTaikoToken.creditTaikoToken(
+                    state,
+                    tran.contester,
+                    tran.validityBond / 4 + tran.contestBond
+                );
+                tran.contester = address(0);
+            }
+
             tran.timestamp = uint64(block.timestamp);
             tran.tier = evidence.tier;
 

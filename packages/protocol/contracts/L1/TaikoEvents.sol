@@ -27,7 +27,6 @@ abstract contract TaikoEvents {
         address indexed assignedProver,
         uint96 livenessBond,
         uint256 proverFee,
-        uint16 minTier,
         TaikoData.BlockMetadata meta
     );
 

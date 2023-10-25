@@ -96,7 +96,8 @@ library TaikoData {
         uint64 timestamp;
         uint64 l1Height;
         uint32 gasLimit;
-        address coinbase; // L2 coinbase
+        address coinbase; // L2 coinbaseß
+        uint16 minTier;
         bool blobUsed;
         TaikoData.EthDeposit[] depositsProcessed;
     }
@@ -136,7 +137,6 @@ library TaikoData {
         uint64 proposedAt;
         uint32 nextTransitionId;
         uint32 verifiedTransitionId;
-        uint16 minTier;
         bytes32[7] __reserved;
     }
 

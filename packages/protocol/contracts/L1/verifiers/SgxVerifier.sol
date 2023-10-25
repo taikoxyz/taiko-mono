@@ -100,8 +100,8 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        VerifierInput calldata input,
-        TaikoData.BlockEvidence calldata evidence
+        TaikoData.BlockEvidence calldata evidence,
+        VerifierInput calldata input
     )
         external
     {

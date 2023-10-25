@@ -135,7 +135,8 @@ library LibUtils {
         inputs[3] = uint256(meta.extraData);
         inputs[4] = (uint256(meta.id)) | (uint256(meta.timestamp) << 64)
             | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 192)
-            | (uint256(meta.blobUsed ? 1 : 0) << 224);
+            | (uint256(meta.blobUsed ? 1 : 0) << 224)
+            | (uint256(meta.minTier) << 232);
         inputs[5] = uint256(uint160(meta.coinbase));
         inputs[6] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
 

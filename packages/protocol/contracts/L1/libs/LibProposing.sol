@@ -31,7 +31,6 @@ library LibProposing {
         address indexed assignedProver,
         uint96 livenessBond,
         uint256 proverFee,
-        uint16 minTier,
         TaikoData.BlockMetadata meta
     );
 
@@ -117,6 +116,8 @@ library LibProposing {
                 l1Height: uint64(block.number - 1),
                 gasLimit: config.blockMaxGasLimit,
                 coinbase: msg.sender,
+                minTier: uint16(block.prevrandao * b.numBlocks), // dummy for
+                    // now to be able to calculate minTier
                 blobUsed: blobUsed,
                 // Each transaction must handle a specific quantity of L1-to-L2
                 // Ether deposits.
@@ -126,6 +127,9 @@ library LibProposing {
             });
         }
 
+        // Calculate tier from metaHash
+        meta.minTier = ITierProvider(resolver.resolve("tier_provider", false))
+            .getMinTier(uint256(LibUtils.hashMetadata(meta)));
         // Now, it's essential to initialize the block that will be stored
         // on L1. We should aim to utilize as few storage slots as possible,
         // alghouth using a ring buffer can minimize storage writes once
@@ -152,13 +156,6 @@ library LibProposing {
         // For unverified block, its verifiedTransitionId is always 0.
         blk.verifiedTransitionId = 0;
 
-        // The LibTiers play a crucial role in determining the minimum tier
-        // required for the block's validity proof. It's imperative to
-        // maintain a certain percentage of blocks for each tier to ensure
-        // that provers are consistently available when needed.
-        blk.minTier = ITierProvider(resolver.resolve("tier_provider", false))
-            .getMinTier(uint256(blk.metaHash));
-
         // Verify assignment authorization; if prover's address is an IProver
         // contract, transfer Ether and call "validateAssignment" for
         // verification.
@@ -184,14 +181,13 @@ library LibProposing {
         // Validate the prover assignment, then charge Ether or ERC20 as the
         // prover fee based on the block's minTier.
         uint256 proverFee =
-            _validateAssignment(blk.minTier, blobHash, assignment);
+            _validateAssignment(meta.minTier, blobHash, assignment);
 
         emit BlockProposed({
             blockId: blk.blockId,
             assignedProver: blk.assignedProver,
             livenessBond: config.livenessBond,
             proverFee: proverFee,
-            minTier: blk.minTier,
             meta: meta
         });
     }

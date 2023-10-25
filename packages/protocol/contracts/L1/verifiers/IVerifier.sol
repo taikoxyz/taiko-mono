@@ -20,10 +20,9 @@ interface IVerifier {
         bytes32 metaHash;
     }
 
-    // Todo: change memory to calldata
     function verifyProof(
-        VerifierInput calldata input,
-        TaikoData.BlockEvidence calldata evidence
+        TaikoData.BlockEvidence calldata evidence,
+        VerifierInput calldata input
     )
         external;
 }
