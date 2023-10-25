@@ -10,7 +10,7 @@ import { ITierProvider, LibTiers } from "./ITierProvider.sol";
 
 /// @title TaikoA6TierProvider
 contract TaikoA6TierProvider is ITierProvider {
-    uint96 private constant UNIT = 10_000e18;
+    uint96 private constant UNIT = 250e18; // FYI: livenessBond = 250TKO
 
     error TIER_NOT_FOUND();
 
@@ -23,8 +23,8 @@ contract TaikoA6TierProvider is ITierProvider {
         if (tierId == LibTiers.TIER_OPTIMISTIC) {
             return ITierProvider.Tier({
                 verifierName: "tier_optimistic",
-                validityBond: 20 * UNIT,
-                contestBond: 20 * UNIT,
+                validityBond: 4 * UNIT,
+                contestBond: 4 * UNIT,
                 cooldownWindow: 24 hours,
                 provingWindow: 2 hours,
                 maxBlocksToVerify: 10
@@ -34,8 +34,8 @@ contract TaikoA6TierProvider is ITierProvider {
         if (tierId == LibTiers.TIER_SGX) {
             return ITierProvider.Tier({
                 verifierName: "tier_sgx",
-                validityBond: 10 * UNIT,
-                contestBond: 10 * UNIT,
+                validityBond: 2 * UNIT,
+                contestBond: 2 * UNIT,
                 cooldownWindow: 24 hours,
                 provingWindow: 4 hours,
                 maxBlocksToVerify: 8
@@ -45,8 +45,8 @@ contract TaikoA6TierProvider is ITierProvider {
         if (tierId == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
             return ITierProvider.Tier({
                 verifierName: "tier_sgx_and_pse_zkevm",
-                validityBond: 5 * UNIT,
-                contestBond: 5 * UNIT,
+                validityBond: 1 * UNIT,
+                contestBond: 1 * UNIT,
                 cooldownWindow: 24 hours,
                 provingWindow: 6 hours,
                 maxBlocksToVerify: 6
