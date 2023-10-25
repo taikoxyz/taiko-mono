@@ -70,7 +70,7 @@ contract TimeLockTokenPool is OwnableUpgradeable {
     uint128 public totalAmountVoided;
     uint128 public totalAmountWithdrawn;
     mapping(address recipient => Recipient) public recipients;
-    uint128[47] private __gap;
+    uint128[44] private __gap;
 
     event Granted(address indexed recipient, Grant grant);
     event Voided(address indexed recipient, uint128 amount);
