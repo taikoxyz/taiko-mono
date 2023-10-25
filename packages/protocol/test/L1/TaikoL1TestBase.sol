@@ -185,7 +185,7 @@ abstract contract TaikoL1TestBase is TestBase {
         internal
     {
         TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
-            metaHash: LibProposing.hashMetadata(meta),
+            metaHash: LibUtils.hashMetadata(meta),
             parentHash: parentHash,
             blockHash: blockHash,
             blobHash: bytes32(uint256(123)), // Equals to TxListHash hash if no
@@ -203,14 +203,17 @@ abstract contract TaikoL1TestBase is TestBase {
             0 // without blob point value is 0
         );
 
-        evidence.proof = bytes.concat(
-            bytes2(uint16(300)), // verifierId
+        PseZkVerifier.PseZkEvmProof memory zkProof;
+        zkProof.verifierId = 300;
+        zkProof.zkp = bytes.concat(
             bytes16(0),
             bytes16(instance),
             bytes16(0),
             bytes16(uint128(uint256(instance))),
             new bytes(100)
         );
+
+        evidence.proof = abi.encode(zkProof);
 
         address newPubKey;
         // Keep changing the pub key associated with an instance to avoid
@@ -246,27 +249,27 @@ abstract contract TaikoL1TestBase is TestBase {
 
             // Grant 2 signatures, 3rd might be a revert
             vm.prank(David, David);
-            gp.approveEvidence(meta.id, evidence);
+            gp.approveEvidence(meta.id, evidence, meta);
             vm.prank(Emma, Emma);
-            gp.approveEvidence(meta.id, evidence);
+            gp.approveEvidence(meta.id, evidence, meta);
 
             if (revertReason != "") {
                 vm.prank(Frank, Frank);
                 vm.expectRevert(); // Revert reason is 'wrapped' so will not be
                     // identical to the expectedRevert
-                gp.approveEvidence(meta.id, evidence);
+                gp.approveEvidence(meta.id, evidence, meta);
             } else {
                 vm.prank(Frank, Frank);
-                gp.approveEvidence(meta.id, evidence);
+                gp.approveEvidence(meta.id, evidence, meta);
             }
         } else {
             if (revertReason != "") {
                 vm.prank(msgSender, msgSender);
                 vm.expectRevert(revertReason);
-                L1.proveBlock(meta.id, abi.encode(evidence));
+                L1.proveBlock(meta.id, abi.encode(evidence, meta));
             } else {
                 vm.prank(msgSender, msgSender);
-                L1.proveBlock(meta.id, abi.encode(evidence));
+                L1.proveBlock(meta.id, abi.encode(evidence, meta));
             }
         }
     }

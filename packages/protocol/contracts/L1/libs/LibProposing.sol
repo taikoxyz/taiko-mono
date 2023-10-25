@@ -18,6 +18,7 @@ import { TaikoData } from "../TaikoData.sol";
 
 import { LibDepositing } from "./LibDepositing.sol";
 import { LibTaikoToken } from "./LibTaikoToken.sol";
+import { LibUtils } from "./LibUtils.sol";
 
 /// @title LibProposing
 /// @notice A library for handling block proposals in the Taiko protocol.
@@ -119,6 +120,7 @@ library LibProposing {
                 l1Height: uint64(block.number - 1),
                 gasLimit: config.blockMaxGasLimit,
                 coinbase: msg.sender,
+                usingBlob: blobUsed,
                 // Each transaction must handle a specific quantity of L1-to-L2
                 // Ether deposits.
                 depositsProcessed: LibDepositing.processDeposits(
@@ -137,7 +139,7 @@ library LibProposing {
         // Please note that all fields must be re-initialized since we are
         // utilizing an existing ring buffer slot, not creating a new storage
         // slot.
-        blk.metaHash = hashMetadata(meta);
+        blk.metaHash = LibUtils.hashMetadata(meta);
 
         // Safeguard the liveness bond to ensure its preservation,
         // particularly in scenarios where it might be altered after the
@@ -197,27 +199,6 @@ library LibProposing {
             blobHash: blobOrTxListHash,
             usingBlob: blobUsed
         });
-    }
-
-    /// @dev Hashing the block metadata.
-    function hashMetadata(TaikoData.BlockMetadata memory meta)
-        internal
-        pure
-        returns (bytes32 hash)
-    {
-        uint256[7] memory inputs;
-        inputs[0] = uint256(meta.l1Hash);
-        inputs[1] = uint256(meta.difficulty);
-        inputs[2] = uint256(meta.blobHash);
-        inputs[3] = uint256(meta.extraData);
-        inputs[4] = (uint256(meta.id)) | (uint256(meta.timestamp) << 64)
-            | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 192);
-        inputs[5] = uint256(uint160(meta.coinbase));
-        inputs[6] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
-
-        assembly {
-            hash := keccak256(inputs, 224 /*mul(7, 32)*/ )
-        }
     }
 
     function hashAssignment(
