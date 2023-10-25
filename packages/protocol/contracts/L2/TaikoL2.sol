@@ -90,12 +90,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     )
         external
     {
-        if (block.number != 0) {
-            if (
-                l1BlockHash == 0 || l1SignalRoot == 0 || l1Height == 0
-                    || parentGasUsed == 0
-            ) revert L2_INVALID_PARAM();
-        }
+        if (
+            l1BlockHash == 0 || l1SignalRoot == 0 || l1Height == 0
+                || (block.number != 1 && parentGasUsed == 0)
+        ) revert L2_INVALID_PARAM();
 
         if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
 
