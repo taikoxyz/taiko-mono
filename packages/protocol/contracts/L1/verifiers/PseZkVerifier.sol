@@ -44,7 +44,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        VerifierInput memory input,
+        VerifierInput calldata input,
         TaikoData.BlockEvidence calldata evidence
     )
         external
@@ -67,7 +67,9 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
             Lib4844.evaluatePoint({
                 blobHash: input.blobHash,
-                x: uint256(instance) % Lib4844.BLS_MODULUS,
+                x: uint256(
+                    keccak256(abi.encodePacked(input.blobHash, pf.txListHash))
+                    ) % Lib4844.BLS_MODULUS,
                 y: pf.pointValue,
                 commitment: pf.pointCommitment,
                 proof: pf.pointProof

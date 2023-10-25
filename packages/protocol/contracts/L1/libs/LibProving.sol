@@ -56,7 +56,6 @@ library LibProving {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
-        uint64 blockId,
         TaikoData.BlockEvidence memory evidence,
         TaikoData.BlockMetadata memory meta
     )
@@ -68,18 +67,18 @@ library LibProving {
 
         // Check that the block has been proposed but has not yet been verified.
         TaikoData.SlotB memory b = state.slotB;
-        if (blockId <= b.lastVerifiedBlockId || blockId >= b.numBlocks) {
+        if (meta.id <= b.lastVerifiedBlockId || meta.id >= b.numBlocks) {
             revert L1_INVALID_BLOCK_ID();
         }
 
-        uint64 slot = blockId % config.blockRingBufferSize;
+        uint64 slot = meta.id % config.blockRingBufferSize;
         TaikoData.Block storage blk = state.blocks[slot];
 
         // Check the integrity of the block data. It's worth noting that in
         // theory, this check may be skipped, but it's included for added
         // caution.
         if (
-            blk.blockId != blockId || blk.metaHash != evidence.metaHash
+            blk.blockId != meta.id || blk.metaHash != evidence.metaHash
                 || blk.metaHash != LibUtils.hashMetadata(meta)
         ) {
             revert L1_BLOCK_MISMATCH();
@@ -189,13 +188,14 @@ library LibProving {
         // It's obvious that proof verification is entirely decoupled from
         // Taiko's core protocol.
         {
-            IVerifier.VerifierInput memory verifierInput;
-            verifierInput.blockId = blk.blockId;
-            verifierInput.prover = msg.sender;
-            verifierInput.isContesting =
-                evidence.tier == tran.tier && tier.contestBond != 0;
-            verifierInput.blobUsed = meta.blobUsed;
-            verifierInput.blobHash = meta.blobHash;
+            IVerifier.VerifierInput memory verifierInput = IVerifier
+                .VerifierInput({
+                blockId: blk.blockId,
+                prover: msg.sender,
+                isContesting: evidence.tier == tran.tier && tier.contestBond != 0,
+                blobUsed: meta.blobUsed,
+                blobHash: meta.blobHash
+            });
 
             address verifier = resolver.resolve(tier.verifierName, true);
             // The verifier can be address-zero, signifying that there are no

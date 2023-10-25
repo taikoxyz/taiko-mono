@@ -194,8 +194,6 @@ abstract contract TaikoL1TestBase is TestBase {
             proof: new bytes(102)
         });
 
-        bytes memory txList = new bytes(1024);
-
         bytes32 instance = pv.calcInstance(
             prover,
             evidence,
@@ -248,27 +246,27 @@ abstract contract TaikoL1TestBase is TestBase {
 
             // Grant 2 signatures, 3rd might be a revert
             vm.prank(David, David);
-            gp.approveEvidence(meta.id, evidence, meta);
+            gp.approveEvidence(evidence, meta);
             vm.prank(Emma, Emma);
-            gp.approveEvidence(meta.id, evidence, meta);
+            gp.approveEvidence(evidence, meta);
 
             if (revertReason != "") {
                 vm.prank(Frank, Frank);
                 vm.expectRevert(); // Revert reason is 'wrapped' so will not be
                     // identical to the expectedRevert
-                gp.approveEvidence(meta.id, evidence, meta);
+                gp.approveEvidence(evidence, meta);
             } else {
                 vm.prank(Frank, Frank);
-                gp.approveEvidence(meta.id, evidence, meta);
+                gp.approveEvidence(evidence, meta);
             }
         } else {
             if (revertReason != "") {
                 vm.prank(msgSender, msgSender);
                 vm.expectRevert(revertReason);
-                L1.proveBlock(meta.id, abi.encode(evidence, meta));
+                L1.proveBlock(abi.encode(evidence, meta));
             } else {
                 vm.prank(msgSender, msgSender);
-                L1.proveBlock(meta.id, abi.encode(evidence, meta));
+                L1.proveBlock(abi.encode(evidence, meta));
             }
         }
     }

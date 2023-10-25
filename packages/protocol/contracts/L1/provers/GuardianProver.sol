@@ -11,7 +11,6 @@ import { Proxied } from "../../common/Proxied.sol";
 
 import { LibTiers } from "../tiers/ITierProvider.sol";
 import { TaikoData } from "../TaikoData.sol";
-import { TaikoL1 } from "../TaikoL1.sol";
 
 /// @title GuardianProver
 contract GuardianProver is EssentialContract {
@@ -75,7 +74,6 @@ contract GuardianProver is EssentialContract {
 
     /// @dev Called by guardians to approve a guardian proof
     function approveEvidence(
-        uint64 blockId,
         TaikoData.BlockEvidence memory evidence,
         TaikoData.BlockMetadata memory meta
     )
@@ -87,14 +85,14 @@ contract GuardianProver is EssentialContract {
 
         if (evidence.tier != LibTiers.TIER_GUARDIAN) revert INVALID_PROOF();
 
-        bytes32 hash = keccak256(abi.encode(blockId, evidence));
+        bytes32 hash = keccak256(abi.encode(meta.id, evidence));
         uint256 approvalBits = approvals[hash];
 
         approvalBits |= 1 << id;
 
         if (_isApproved(approvalBits)) {
             bytes memory data = abi.encodeWithSignature(
-                "proveBlock(uint64,bytes)", blockId, abi.encode(evidence, meta)
+                "proveBlock(bytes)", abi.encode(evidence, meta)
             );
 
             (bool success,) = resolve("taiko", false).call(data);
@@ -102,10 +100,10 @@ contract GuardianProver is EssentialContract {
             if (!success) revert PROVING_FAILED();
             delete approvals[hash];
 
-            emit Approved(blockId, evidence, approvalBits, true);
+            emit Approved(meta.id, evidence, approvalBits, true);
         } else {
             approvals[hash] = approvalBits;
-            emit Approved(blockId, evidence, approvalBits, false);
+            emit Approved(meta.id, evidence, approvalBits, false);
         }
     }
 

@@ -21,8 +21,8 @@ interface IVerifier {
 
     // Todo: change memory to calldata
     function verifyProof(
-        VerifierInput memory input,
-        TaikoData.BlockEvidence memory evidence
+        VerifierInput calldata input,
+        TaikoData.BlockEvidence calldata evidence
     )
         external;
 }
