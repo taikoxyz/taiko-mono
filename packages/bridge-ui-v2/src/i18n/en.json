@@ -42,7 +42,7 @@
       "nft": {
         "confirm": "Confirm your NFT details.",
         "import": "Transfer your NFTs across chains",
-        "review": "Review your details and confirm the transaction."
+        "review": "Verify your transaction details"
       }
     },
     "errors": {
@@ -97,6 +97,8 @@
           }
         },
         "review": {
+          "recipient_details": "Recipient details",
+          "transfer_details": "Transfer details",
           "your_tokens": "Your tokens on"
         }
       }
@@ -106,7 +108,7 @@
       "nft": {
         "confirm": "Confirm",
         "import": "Import NFT",
-        "review": "Confirm and bridge"
+        "review": "Review"
       }
     }
   },
@@ -137,10 +139,12 @@
     "contract_address": "Contract address",
     "destination": "Destination",
     "edit": "Edit",
+    "from": "From",
     "id": "ID",
     "loading": "Loading",
     "name": "Name",
     "ok": "Ok",
+    "to": "To",
     "token_id": "Token ID",
     "token_standard": "Token standard"
   },
@@ -205,7 +209,7 @@
       "errors": {
         "invalid": "Not a valid numeric value"
       },
-      "label": "Token ID(s)",
+      "label": "Token ID",
       "placeholder": "1 or 5,14,733"
     }
   },
