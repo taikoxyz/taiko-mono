@@ -19,10 +19,6 @@ import { IVerifier } from "./IVerifier.sol";
 /// @title PseZkVerifier
 /// @notice See the documentation in {IVerifier}.
 contract PseZkVerifier is EssentialContract, IVerifier {
-    uint256[50] private __gap;
-
-    error L1_INVALID_PROOF();
-
     struct PointProof {
         bytes32 txListHash;
         uint256 pointValue;
@@ -35,6 +31,10 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         bytes zkp;
         bytes pointProof;
     }
+
+    uint256[50] private __gap;
+
+    error L1_INVALID_PROOF();
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.

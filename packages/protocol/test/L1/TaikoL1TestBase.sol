@@ -194,22 +194,27 @@ abstract contract TaikoL1TestBase is TestBase {
             proof: new bytes(102)
         });
 
+        bytes memory txList = new bytes(1024);
+
         bytes32 instance = pv.calcInstance(
             prover,
-            bytes32(uint256(123)), // bloblHash
-            bytes32(uint256(123)), //txListHash
-            456, //pointValue
+            bytes32(uint256(0)), // bloblHash
+            keccak256(txList), //txListHash
+            0, //pointValue
             evidence
         );
 
-        evidence.proof = bytes.concat(
-            bytes2(uint16(300)), // verifierId
+        PseZkVerifier.PseZkEvmProof memory zkProof;
+        zkProof.verifierId = 300;
+        zkProof.zkp = bytes.concat(
             bytes16(0),
             bytes16(instance),
             bytes16(0),
             bytes16(uint128(uint256(instance))),
             new bytes(100)
         );
+
+        evidence.proof = abi.encode(zkProof);
 
         address newPubKey;
         // Keep changing the pub key associated with an instance to avoid
