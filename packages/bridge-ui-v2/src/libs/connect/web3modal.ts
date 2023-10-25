@@ -14,7 +14,7 @@ export const web3modal = createWeb3Modal({
   chainImages,
   themeVariables: {
     '--w3m-font-family': '"Public Sans", sans-serif',
-    '--w3m-accent': 'var(--neutral-background)',
+    '--w3m-accent': 'var(--primary-brand)',
 
     // Body small regular
     // @ts-ignore
