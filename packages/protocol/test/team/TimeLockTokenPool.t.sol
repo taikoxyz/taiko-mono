@@ -299,4 +299,99 @@ contract TestTimeLockTokenPool is Test {
         assertEq(amountWithdrawn, 0);
         assertEq(amountWithdrawable, 10_000e18);
     }
+
+    function test_multiple_grants() public {
+        pool.grant(Alice, Pool.Grant(10_000e18, 0, 0, 0, 0, 0, 0));
+        pool.grant(Alice, Pool.Grant(20_000e18, 0, 0, 0, 0, 0, 0));
+
+        vm.prank(Vault);
+        tko.approve(address(pool), 30_000e18);
+
+        (
+            uint128 amountOwned,
+            uint128 amountUnlocked,
+            uint128 amountWithdrawn,
+            uint128 amountWithdrawable
+        ) = pool.getMyGrantSummary(Alice);
+        assertEq(amountOwned, 30_000e18);
+        assertEq(amountUnlocked, 30_000e18);
+        assertEq(amountWithdrawn, 0);
+        assertEq(amountWithdrawable, 30_000e18);
+    }
+
+    function test_void_multiple_grants_before_granted() public {
+        uint64 grantStart = uint64(block.timestamp) + 30 days;
+        pool.grant(Alice, Pool.Grant(10_000e18, grantStart, 0, 0, 0, 0, 0));
+        pool.grant(Alice, Pool.Grant(20_000e18, grantStart, 0, 0, 0, 0, 0));
+
+        vm.prank(Vault);
+        tko.approve(address(pool), 30_000e18);
+
+        (
+            uint128 amountOwned,
+            uint128 amountUnlocked,
+            uint128 amountWithdrawn,
+            uint128 amountWithdrawable
+        ) = pool.getMyGrantSummary(Alice);
+        assertEq(amountOwned, 0);
+        assertEq(amountUnlocked, 0);
+        assertEq(amountWithdrawn, 0);
+        assertEq(amountWithdrawable, 0);
+
+        // Try to void the grant
+        pool.void(Alice);
+
+        Pool.Grant[] memory grants = pool.getMyGrants(Alice);
+        for (uint256 i; i < grants.length; ++i) {
+            assertEq(grants[i].grantStart, 0);
+            assertEq(grants[i].grantPeriod, 0);
+            assertEq(grants[i].grantCliff, 0);
+
+            assertEq(grants[i].unlockStart, 0);
+            assertEq(grants[i].unlockPeriod, 0);
+            assertEq(grants[i].unlockCliff, 0);
+
+            assertEq(grants[i].amount, 0);
+        }
+    }
+
+    function test_void_multiple_grants_after_granted() public {
+        uint64 grantStart = uint64(block.timestamp) + 30 days;
+        pool.grant(Alice, Pool.Grant(10_000e18, grantStart, 0, 0, 0, 0, 0));
+        pool.grant(Alice, Pool.Grant(20_000e18, grantStart, 0, 0, 0, 0, 0));
+
+        vm.prank(Vault);
+        tko.approve(address(pool), 30_000e18);
+
+        (
+            uint128 amountOwned,
+            uint128 amountUnlocked,
+            uint128 amountWithdrawn,
+            uint128 amountWithdrawable
+        ) = pool.getMyGrantSummary(Alice);
+
+        assertEq(amountOwned, 0);
+        assertEq(amountUnlocked, 0);
+        assertEq(amountWithdrawn, 0);
+        assertEq(amountWithdrawable, 0);
+
+        vm.warp(grantStart + 1);
+
+        // Try to void the grant
+        pool.void(Alice);
+
+        Pool.Grant[] memory grants = pool.getMyGrants(Alice);
+        for (uint256 i; i < grants.length; ++i) {
+            assertEq(grants[i].grantStart, 0);
+            assertEq(grants[i].grantPeriod, 0);
+            assertEq(grants[i].grantCliff, 0);
+
+            assertEq(grants[i].unlockStart, 0);
+            assertEq(grants[i].unlockPeriod, 0);
+            assertEq(grants[i].unlockCliff, 0);
+        }
+
+        assertEq(grants[0].amount, 10_000e18);
+        assertEq(grants[1].amount, 20_000e18);
+    }
 }
