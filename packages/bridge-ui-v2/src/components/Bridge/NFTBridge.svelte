@@ -20,7 +20,6 @@
   import type { ERC1155Bridge } from '$libs/bridge/ERC1155Bridge';
   import { fetchNFTs } from '$libs/bridge/fetchNFTs';
   import { getBridgeArgs } from '$libs/bridge/getBridgeArgs';
-  import { handleApproveError } from '$libs/bridge/handleApproveError';
   import { handleBridgeError } from '$libs/bridge/handleBridgeErrors';
   import { bridgeTxService } from '$libs/storage';
   import { ETHToken, type NFT, TokenType } from '$libs/token';
@@ -137,29 +136,31 @@
       const { explorer } = chainConfig[$network.id].urls;
 
       if (txHash)
-        infoToast(
-          $t('bridge.actions.approve.tx', {
+        infoToast({
+          title: $t('bridge.actions.approve.tx.title'),
+          message: $t('bridge.actions.approve.tx.message', {
             values: {
               token: $selectedToken.symbol,
               url: `${explorer}/tx/${txHash}`,
             },
           }),
-        );
+        });
 
       await pendingTransactions.add(txHash, $network.id);
 
       actionsComponent.checkTokensApproved();
 
-      successToast(
-        $t('bridge.actions.approve.success', {
+      successToast({
+        title: $t('bridge.actions.approve.success.title'),
+        message: $t('bridge.actions.approve.success.message', {
           values: {
             token: $selectedToken.symbol,
           },
         }),
-      );
+      });
     } catch (err) {
       console.error(err);
-      handleApproveError(err as Error);
+      handleBridgeError(err as Error);
     }
   }
 
@@ -187,25 +188,23 @@
 
       const explorer = chainConfig[bridgeArgs.srcChainId].urls.explorer;
 
-      infoToast(
-        $t('bridge.actions.bridge.tx', {
+      infoToast({
+        title: $t('bridge.actions.bridge.tx.title'),
+        message: $t('bridge.actions.bridge.tx.message', {
           values: {
             token: $selectedToken.symbol,
             url: `${explorer}/tx/${txHash}`,
           },
         }),
-      );
+      });
 
       //TODO: everything below should be handled differently for the stepper design. Still tbd
       await pendingTransactions.add(txHash, $network.id);
 
-      successToast(
-        $t('bridge.actions.bridge.success', {
-          values: {
-            network: $destinationChain.name,
-          },
-        }),
-      );
+      successToast({
+        title: $t('bridge.actions.bridge.success.title'),
+        message: $t('bridge.actions.bridge.success.message'),
+      });
 
       // Let's add it to the user's localStorage
       const bridgeTx = {
@@ -339,7 +338,6 @@
     nftStepDescription = $t(`bridge.description.nft.${stepKey}`);
     nextStepButtonText = getStepText();
   }
-
   onDestroy(() => {
     resetForm();
   });

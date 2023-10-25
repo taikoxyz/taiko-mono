@@ -194,6 +194,8 @@ abstract contract TaikoL1TestBase is TestBase {
             proof: new bytes(102)
         });
 
+        bytes memory txList = new bytes(1024);
+
         bytes32 instance = pv.calcInstance(
             prover,
             evidence,

@@ -50,6 +50,7 @@ library LibProposing {
     error L1_UNAUTHORIZED();
 
     /// @dev Proposes a Taiko L2 block.
+
     function proposeBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -69,14 +70,12 @@ library LibProposing {
         // However, if the "proposer" address is set to a non-zero value, we
         // ensure that only that specific address has the authority to propose
         // blocks.
-        address proposer = resolver.resolve("proposer", true);
-        if (proposer != address(0) && msg.sender != proposer) {
-            revert L1_UNAUTHORIZED();
-        }
+        TaikoData.SlotB memory b = state.slotB;
+        if (!_isProposerPermitted(b, resolver)) revert L1_UNAUTHORIZED();
 
         // It's essential to ensure that the ring buffer for proposed blocks
         // still has space for at least one more block.
-        TaikoData.SlotB memory b = state.slotB;
+
         if (b.numBlocks >= b.lastVerifiedBlockId + config.blockMaxProposals + 1)
         {
             revert L1_TOO_MANY_BLOCKS();
@@ -266,6 +265,26 @@ library LibProposing {
                 msg.sender, assignment.prover, proverFee
             );
         }
+    }
+
+    function _isProposerPermitted(
+        TaikoData.SlotB memory slotB,
+        AddressResolver resolver
+    )
+        private
+        view
+        returns (bool)
+    {
+        if (slotB.numBlocks == 1) {
+            // Only proposer_one can propose the first block after genesis
+            address proposerOne = resolver.resolve("proposer_one", true);
+            if (proposerOne != address(0) && msg.sender != proposerOne) {
+                return false;
+            }
+        }
+
+        address proposer = resolver.resolve("proposer", true);
+        return proposer == address(0) || msg.sender == proposer;
     }
 
     function _getProverFee(
