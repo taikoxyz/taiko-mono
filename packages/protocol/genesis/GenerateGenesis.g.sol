@@ -111,7 +111,10 @@ contract TestGenerateGenesis is Test, AddressResolver {
             uint256 gasLeftBefore = gasleft();
 
             taikoL2.anchor(
-                bytes32(block.prevrandao), bytes32(block.prevrandao), i, i
+                keccak256(abi.encodePacked(block.timestamp, i)),
+                keccak256(abi.encodePacked(block.timestamp, i)),
+                i + 1,
+                i + 1
             );
 
             if (i == 299) {
