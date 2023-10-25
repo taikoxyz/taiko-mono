@@ -40,7 +40,7 @@
   }
 </script>
 
-<div class="form-control flex h-[60px] my-[16px]">
+<div class="form-control flex">
   <label class="cursor-pointer label space-x-[16px]">
     <div>
       {#if multiSelectEnabled && selectable}
@@ -70,9 +70,9 @@
     </div>
     <div class="f-col grow">
       {#if nft.metadata?.name}
-        <span class="text-xs text-neutral-content text-bold">{nft.metadata?.name}</span>
+        <span class="text-xs text-neutral-content font-bold">{nft.metadata?.name}</span>
       {/if}
-      <span class=" text-xs text-neutral-content font-bold">{nft.tokenId}</span>
+      <span class=" text-xs text-neutral-content">{$t('common.id')}: {nft.tokenId}</span>
       {#if nft.type === TokenType.ERC1155}
         <span class=" text-xs text-neutral-content">{$t('common.balance')}: {nft.balance}</span>
       {/if}
