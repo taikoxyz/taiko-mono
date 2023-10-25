@@ -264,6 +264,6 @@ contract TimeLockTokenPool is OwnableUpgradeable {
     }
 }
 
-/// @title ProxiedGrantPool
+/// @title ProxiedTimeLockTokenPool
 /// @notice Proxied version of the parent contract.
 contract ProxiedTimeLockTokenPool is Proxied, TimeLockTokenPool { }
