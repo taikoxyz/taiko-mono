@@ -258,7 +258,7 @@ contract TimeLockTokenPool is OwnableUpgradeable {
         if (start == 0 || period == 0) {
             if (cliff > 0) revert INVALID_GRANT();
         } else {
-            if (cliff <= start) revert INVALID_GRANT();
+            if (cliff > 0 && cliff <= start) revert INVALID_GRANT();
             if (cliff >= start + period) revert INVALID_GRANT();
         }
     }
