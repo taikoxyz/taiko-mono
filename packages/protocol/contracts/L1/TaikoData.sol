@@ -97,6 +97,7 @@ library TaikoData {
         uint64 l1Height;
         uint32 gasLimit;
         address coinbase; // L2 coinbase
+        bool usingBlob;
         TaikoData.EthDeposit[] depositsProcessed;
     }
 
@@ -105,11 +106,11 @@ library TaikoData {
         bytes32 metaHash;
         bytes32 parentHash;
         bytes32 blockHash;
-        bytes32 blobHash; //Or TxListHash until no blobHash support
+        bytes32 blobHash;
         bytes32 signalRoot;
         bytes32 graffiti;
         uint16 tier;
-        bool usingBlob;
+        bool usingBlob; // Auto filled in LibProving
         bytes proof;
     }
 

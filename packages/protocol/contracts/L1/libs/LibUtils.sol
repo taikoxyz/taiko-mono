@@ -121,4 +121,34 @@ library LibUtils {
             lastVerifiedBlockId: b.lastVerifiedBlockId
         });
     }
+
+    /// @dev Hashing the block metadata.
+    function hashMetadata(TaikoData.BlockMetadata memory meta)
+        internal
+        pure
+        returns (bytes32 hash)
+    {
+        // Workaround for bool to uin8 so that encodable below because that is
+        // not supported in solidity (without assembly).
+        uint8 uUsingBlob;
+        bool usingBlob = meta.usingBlob;
+        assembly {
+            uUsingBlob := usingBlob
+        }
+
+        uint256[7] memory inputs;
+        inputs[0] = uint256(meta.l1Hash);
+        inputs[1] = uint256(meta.difficulty);
+        inputs[2] = uint256(meta.blobHash);
+        inputs[3] = uint256(meta.extraData);
+        inputs[4] = (uint256(meta.id)) | (uint256(meta.timestamp) << 64)
+            | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 192);
+        inputs[5] =
+            uint256(uint160(meta.coinbase)) | (uint256(uUsingBlob) << 160);
+        inputs[6] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
+
+        assembly {
+            hash := keccak256(inputs, 224 /*mul(7, 32)*/ )
+        }
+    }
 }

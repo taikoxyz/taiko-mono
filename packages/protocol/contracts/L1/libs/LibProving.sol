@@ -57,7 +57,8 @@ library LibProving {
         TaikoData.Config memory config,
         AddressResolver resolver,
         uint64 blockId,
-        TaikoData.BlockEvidence memory evidence
+        TaikoData.BlockEvidence memory evidence,
+        TaikoData.BlockMetadata memory meta
     )
         internal
         returns (uint8 maxBlocksToVerify)
@@ -77,7 +78,10 @@ library LibProving {
         // Check the integrity of the block data. It's worth noting that in
         // theory, this check may be skipped, but it's included for added
         // caution.
-        if (blk.blockId != blockId || blk.metaHash != evidence.metaHash) {
+        if (
+            blk.blockId != blockId || blk.metaHash != evidence.metaHash
+                || blk.metaHash != LibUtils.hashMetadata(meta)
+        ) {
             revert L1_BLOCK_MISMATCH();
         }
 
@@ -187,6 +191,9 @@ library LibProving {
         {
             address verifier = resolver.resolve(tier.verifierName, true);
 
+            // Auto-filled from meta value, so that no interface changes (no
+            // need to modify verifyProof)
+            evidence.usingBlob = meta.usingBlob;
             // The verifier can be address-zero, signifying that there are no
             // proof checks for the tier. In practice, this only applies to
             // optimistic proofs.

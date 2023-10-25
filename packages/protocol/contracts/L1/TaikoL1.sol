@@ -110,13 +110,15 @@ contract TaikoL1 is
         external
         nonReentrant
     {
+        (
+            TaikoData.BlockEvidence memory evidence,
+            TaikoData.BlockMetadata memory metaData
+        ) = abi.decode(
+            input, (TaikoData.BlockEvidence, TaikoData.BlockMetadata)
+        );
         TaikoData.Config memory config = getConfig();
         uint8 maxBlocksToVerify = LibProving.proveBlock(
-            state,
-            config,
-            AddressResolver(this),
-            blockId,
-            abi.decode(input, (TaikoData.BlockEvidence))
+            state, config, AddressResolver(this), blockId, evidence, metaData
         );
         if (maxBlocksToVerify > 0) {
             LibVerifying.verifyBlocks(

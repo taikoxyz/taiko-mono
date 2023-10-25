@@ -58,7 +58,6 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         PseZkEvmProof memory proof = abi.decode(evidence.proof, (PseZkEvmProof));
 
         bytes32 instance;
-
         if (evidence.usingBlob) {
             PointProof memory pf = abi.decode(proof.pointProof, (PointProof));
 
@@ -89,6 +88,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
             LibBytesUtils.slice(proof.zkp, 0, 32),
             bytes.concat(bytes16(0), bytes16(instance))
         );
+
         if (!verified) revert L1_INVALID_PROOF();
 
         verified = LibBytesUtils.equal(
