@@ -151,14 +151,11 @@ If you do not want to delete the node folder, please follow one of these steps b
 6. Do the same for `start-zkevm-chain-rpcd.sh`
 7. Do the same for `start-proposer.sh`
 8. Do the same for `start-driver.sh`
-9. The same goes for files in the l3 folder
-10. Then go back to command line and do:
+9. Then go back to command line and do:
 
 ```sh
-docker compose -f ./docker-compose.l3.yml --env-file .env.l3 down -v
 docker compose down -v
 docker compose up -d
-docker compose -f ./docker-compose.l3.yml --env-file .env.l3 up -d
 ```
 
   </Tab>

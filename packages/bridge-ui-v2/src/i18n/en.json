@@ -4,7 +4,7 @@
       "approve": {
         "tx": {
           "title": "Approval sent",
-          "message": "Track {token} token approval status on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+          "message": "Track the {token} token approval status on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
         },
         "success": {
           "title": "Approved token",
@@ -46,20 +46,42 @@
       }
     },
     "errors": {
-      "approve_error": "Failed to approve token",
-      "approve_rejected": "Request to approve rejected by user",
-      "bll_token": "BLL has a deliberate ~50% failure rate. Refer to our guide",
+      "approve_error": {
+        "title": "Approval failed",
+        "message": "We encountered an issue while trying to approve this token."
+      },
+      "approve_rejected": {
+        "title": "Request to approve rejected by user"
+      },
       "cannot_fetch_balance": "Error fetching balance. Wrong chain?",
       "custom_token": {
         "description": "Are you on the right network?",
         "not_found": "Token not found!"
       },
-      "insufficient_allowance": "You need to increase your allowance in order to be able to bridge.",
-      "insufficient_balance": "Not enough balance in your wallet for this token.",
-      "no_allowance_required": "You already have enough allowance.",
-      "send_erc20_error": "Failed to send ERC20 token",
-      "send_message_error": "Failed to send message",
-      "unknown_error": "An error occured"
+      "insufficient_allowance": {
+        "message": "Please increase your allowance to proceed with bridging.",
+        "title": "Insufficient allowance"
+      },
+      "insufficient_balance": {
+        "message": "Sorry, your wallet balance is too low to cover this token.",
+        "title": "Insufficient wallet balance"
+      },
+      "no_allowance_required": {
+        "message": "You already have sufficient allowance for this request.",
+        "title": "Allowance already set"
+      },
+      "send_erc20_error": {
+        "title": "Failed to send",
+        "message": "There was an issue attempting to send ERC20 token."
+      },
+      "send_message_error": {
+        "title": "Failed to send",
+        "message": "Please try again"
+      },
+      "unknown_error": {
+        "message": "An unexpected error has occurred. Please try again.",
+        "title": "Unknown error"
+      }
     },
     "nft": {
       "step": {
@@ -138,19 +160,19 @@
       "rejected": {
         "title": "Error minting token",
         "message": "An error occurred while attempting to mint the token."
-      },
-      "title": "Faucet",
-      "warning": {
-        "insufficient_balance": "You don't have enough ETH to complete the transaction. Please add some ETH to your wallet.",
-        "no_connected": "Please connect your wallet to mint tokens.",
-        "not_mintable": "This token is not mintable on this network",
-        "token_minted": "You have already minted this token.",
-        "unknown": "Something did not work"
-      },
-      "wrong_chain": {
-        "button": "Switch to {network}",
-        "message": "It appears you are on the wrong network. Switch to {network} to mint tokens."
       }
+    },
+    "title": "Faucet",
+    "warning": {
+      "insufficient_balance": "You don't have enough ETH to complete the transaction. Please add some ETH to your wallet.",
+      "no_connected": "Please connect your wallet to mint tokens.",
+      "not_mintable": "This token is not mintable on this network",
+      "token_minted": "You have already minted this token.",
+      "unknown": "Something did not work"
+    },
+    "wrong_chain": {
+      "button": "Switch to {network}",
+      "message": "It appears you are on the wrong network. Switch to {network} to mint tokens."
     }
   },
   "inputs": {
@@ -188,8 +210,14 @@
       "required": "Please connect your wallet."
     },
     "network": {
-      "pending": "A network switch is still pending, open your wallet to check the status.",
-      "rejected": "Request to switch chain rejected.",
+      "pending": {
+        "message": "Please open your wallet to check the current status.",
+        "title": "Network switch pending"
+      },
+      "rejected": {
+        "message": "Request to switch network has failed.",
+        "title": "Network switch error"
+      },
       "required": "Source chain must be selected.",
       "required_dest": "Destination chain must be selected.",
       "switching": "Switching network"
