@@ -378,20 +378,52 @@ contract TestTimeLockTokenPool is Test {
         vm.warp(grantStart + 1);
 
         // Try to void the grant
+        // Try to void the grant
+        vm.expectRevert(Pool.NOTHING_TO_VOID.selector);
+        pool.void(Alice);
+    }
+
+    function test_void_multiple_grants_in_the_middle() public {
+        uint64 grantStart = uint64(block.timestamp);
+        uint32 grantPeriod = 100 days;
+        pool.grant(
+            Alice, Pool.Grant(10_000e18, grantStart, 0, grantPeriod, 0, 0, 0)
+        );
+        pool.grant(
+            Alice, Pool.Grant(20_000e18, grantStart, 0, grantPeriod, 0, 0, 0)
+        );
+
+        vm.prank(Vault);
+        tko.approve(address(pool), 30_000e18);
+
+        vm.warp(grantStart + 50 days);
+        (
+            uint128 amountOwned,
+            uint128 amountUnlocked,
+            uint128 amountWithdrawn,
+            uint128 amountWithdrawable
+        ) = pool.getMyGrantSummary(Alice);
+
+        assertEq(amountOwned, 15_000e18);
+        assertEq(amountUnlocked, 15_000e18);
+        assertEq(amountWithdrawn, 0);
+        assertEq(amountWithdrawable, 15_000e18);
+
         pool.void(Alice);
 
-        Pool.Grant[] memory grants = pool.getMyGrants(Alice);
-        for (uint256 i; i < grants.length; ++i) {
-            assertEq(grants[i].grantStart, 0);
-            assertEq(grants[i].grantPeriod, 0);
-            assertEq(grants[i].grantCliff, 0);
+        (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
+            pool.getMyGrantSummary(Alice);
+        assertEq(amountOwned, 15_000e18);
+        assertEq(amountUnlocked, 15_000e18);
+        assertEq(amountWithdrawn, 0);
+        assertEq(amountWithdrawable, 15_000e18);
 
-            assertEq(grants[i].unlockStart, 0);
-            assertEq(grants[i].unlockPeriod, 0);
-            assertEq(grants[i].unlockCliff, 0);
-        }
-
-        assertEq(grants[0].amount, 10_000e18);
-        assertEq(grants[1].amount, 20_000e18);
+        vm.warp(grantStart + 100 days);
+        (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
+            pool.getMyGrantSummary(Alice);
+        assertEq(amountOwned, 15_000e18);
+        assertEq(amountUnlocked, 15_000e18);
+        assertEq(amountWithdrawn, 0);
+        assertEq(amountWithdrawable, 15_000e18);
     }
 }
