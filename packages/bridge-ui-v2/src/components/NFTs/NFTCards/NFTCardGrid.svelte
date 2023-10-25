@@ -1,7 +1,7 @@
 <script lang="ts">
   import { get } from 'svelte/store';
 
-  import { selectedNFTs } from '$components/Bridge/state';
+  import { selectedNFTs, selectedToken } from '$components/Bridge/state';
   import { NFTCard } from '$components/NFTs/NFTCards';
   import type { NFT } from '$libs/token';
   import { groupNFTByCollection } from '$libs/util/groupNFTByCollection';
@@ -19,8 +19,10 @@
 
     if ($selectedNFTs && foundNFT && $selectedNFTs.includes(foundNFT)) {
       $selectedNFTs = $selectedNFTs.filter((selected) => selected.tokenId !== nft.tokenId); // Deselect
+      $selectedToken = null;
     } else {
       $selectedNFTs = foundNFT ? [foundNFT] : null; // Select
+      if ($selectedNFTs) $selectedToken = $selectedNFTs[0];
     }
   };
 </script>

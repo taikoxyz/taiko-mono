@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
 
-  import { selectedNFTs } from '$components/Bridge/state';
+  import { selectedNFTs, selectedToken } from '$components/Bridge/state';
   import { PUBLIC_NFT_BATCH_TRANSFERS_ENABLED } from '$env/static/public';
   import type { NFT } from '$libs/token';
   import { groupNFTByCollection } from '$libs/util/groupNFTByCollection';
@@ -43,6 +43,8 @@
     const address = nft.addresses[currentChainId];
     const foundNFT = nfts.find((n) => n.addresses[currentChainId] === address && nft.tokenId === n.tokenId);
     $selectedNFTs = foundNFT ? [foundNFT] : null;
+
+    if ($selectedNFTs) $selectedToken = $selectedNFTs[0];
   };
 
   const checkAllCheckboxes = () => {

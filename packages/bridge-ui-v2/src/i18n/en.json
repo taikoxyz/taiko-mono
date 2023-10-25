@@ -129,6 +129,7 @@
   "common": {
     "add": "Add",
     "address": "Address",
+    "amount": "Amount",
     "back": "Go back",
     "balance": "Balance",
     "cancel": "Cancel",

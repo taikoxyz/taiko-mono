@@ -21,7 +21,7 @@
   const dispatch = createEventDispatcher();
 
   const selectNFT = () => {
-    dispatch('selected');
+    dispatch('selected', nft);
     closeModal();
   };
 

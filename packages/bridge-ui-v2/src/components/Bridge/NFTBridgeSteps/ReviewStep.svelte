@@ -4,9 +4,9 @@
   import { chainConfig } from '$chainConfig';
   import { ProcessingFee } from '$components/Bridge/ProcessingFee';
   import Recipient from '$components/Bridge/Recipient.svelte';
-  import { destNetwork as destinationChain, selectedNFTs } from '$components/Bridge/state';
+  import { destNetwork as destinationChain, enteredAmount, selectedNFTs } from '$components/Bridge/state';
   import { ChainSelector } from '$components/ChainSelector';
-  import { Icon, IconFlipper } from '$components/Icon';
+  import { IconFlipper } from '$components/Icon';
   import { NFTDisplay } from '$components/NFTs';
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { network } from '$stores/network';
@@ -34,7 +34,6 @@
 <div class="container mx-auto inline-block align-middle space-y-[25px]">
   <div class="flex justify-between mb-2 items-center">
     <div class="font-bold text-primary-content">{$t('bridge.nft.step.review.transfer_details')}</div>
-    <button class="flex justify-start link"> Edit </button>
   </div>
   <div>
     <div class="flex justify-between items-center">
@@ -59,7 +58,7 @@
                   href={`${chainConfig[$destinationChain?.id].urls.explorer}`}
                   target="_blank">
                   {shortenAddress(nft.addresses[currentChain], 8, 12)}
-                  <Icon type="arrow-top-right" fillClass="fill-primary-link" />
+                  <!-- <Icon type="arrow-top-right" fillClass="fill-primary-link" /> -->
                 </a>
               </li>
             {/if}
@@ -77,6 +76,11 @@
           {/each}
         </ul>
       </div>
+    </div>
+
+    <div class="flex justify-between">
+      <div class="text-secondary-content">{$t('common.amount')}</div>
+      {$enteredAmount}
     </div>
   </div>
 </div>

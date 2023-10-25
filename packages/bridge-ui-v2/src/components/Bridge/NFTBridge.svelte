@@ -368,7 +368,7 @@
           bind:canProceed
           bind:nftIdArray
           bind:contractAddress
-          {foundNFTs}
+          bind:foundNFTs
           bind:scanned
           bind:validating={validatingImport} />
         <!-- REVIEW STEP -->
@@ -383,17 +383,12 @@
       <!-- 
         User Actions
       -->
-      {#if activeStep !== NFTSteps.IMPORT}
-        <Button
-          type="neutral"
-          class="px-[28px] py-[14px] rounded-full w-auto flex-1 bg-transparent !border border-primary-brand hover:border-primary-interactive-hover"
-          on:click={previousStep}>
-          <span class="body-bold">{$t('common.edit')}</span></Button>
-      {/if}
       {#if activeStep === NFTSteps.REVIEW}
-        <div class="f-between-center w-full gap-4">
-          <div class="h-sep" />
+        <div class="f-col w-full gap-4">
           <Actions {approve} {bridge} />
+          <button on:click={previousStep} class="flex justify-center py-3 link">
+            {$t('common.back')}
+          </button>
         </div>
       {:else if activeStep === NFTSteps.IMPORT}
         {#if importMethod === 'manual'}
