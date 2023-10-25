@@ -86,7 +86,7 @@ contract TaikoA6TierProvider is ITierProvider {
         // and half of the blocks are unprovable: 90 * 60 / 3 / 2  = 900.
         // TODO(david): tune this value based on the A6 circuits benchmark.
         if (rand % 900 == 0) return LibTiers.TIER_SGX_AND_PSE_ZKEVM;
-        else if (rand % 100 == 0) return LibTiers.TIER_SGX; // 1% of the blocks
+        else if (rand % 10 == 0) return LibTiers.TIER_SGX; // 10% of the blocks
             // will be slected to require a SGX proof.
 
         else return LibTiers.TIER_OPTIMISTIC;
