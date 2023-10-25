@@ -92,15 +92,13 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        uint64, /*blockId*/
-        address prover,
-        bool isContesting,
+        VerifierInput memory input,
         TaikoData.BlockEvidence calldata evidence
     )
         external
     {
         // Do not run proof verification to contest an existing proof
-        if (isContesting) return;
+        if (input.isContesting) return;
 
         // Size is: 87 bytes
         // 2 bytes + 20 bytes + 65 bytes (signature) = 87
@@ -111,7 +109,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
             address(bytes20(LibBytesUtils.slice(evidence.proof, 2, 20)));
         bytes memory signature = LibBytesUtils.slice(evidence.proof, 22);
         address oldInstance = ECDSAUpgradeable.recover(
-            getSignedHash(evidence, prover, newInstance), signature
+            getSignedHash(evidence, input.prover, newInstance), signature
         );
 
         if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();

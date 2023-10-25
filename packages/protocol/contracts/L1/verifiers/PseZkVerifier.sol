@@ -44,31 +44,29 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        uint64, /*blockId*/
-        address prover,
-        bool isContesting,
+        VerifierInput memory input,
         TaikoData.BlockEvidence calldata evidence
     )
         external
         view
     {
         // Do not run proof verification to contest an existing proof
-        if (isContesting) return;
+        if (input.isContesting) return;
 
         PseZkEvmProof memory proof = abi.decode(evidence.proof, (PseZkEvmProof));
 
         bytes32 instance;
-        if (evidence.usingBlob) {
+        if (input.blobUsed) {
             PointProof memory pf = abi.decode(proof.pointProof, (PointProof));
 
             instance = calcInstance({
-                prover: prover,
+                prover: input.prover,
                 evidence: evidence,
                 pointValue: pf.pointValue
             });
 
             Lib4844.evaluatePoint({
-                blobHash: evidence.blobHash,
+                blobHash: input.blobHash,
                 x: uint256(instance) % Lib4844.BLS_MODULUS,
                 y: pf.pointValue,
                 commitment: pf.pointCommitment,
@@ -77,7 +75,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         } else {
             assert(proof.pointProof.length == 0);
             instance = calcInstance({
-                prover: prover,
+                prover: input.prover,
                 evidence: evidence,
                 pointValue: 0
             });

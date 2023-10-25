@@ -189,20 +189,21 @@ library LibProving {
         // It's obvious that proof verification is entirely decoupled from
         // Taiko's core protocol.
         {
-            address verifier = resolver.resolve(tier.verifierName, true);
+            IVerifier.VerifierInput memory verifierInput;
+            verifierInput.blockId = blk.blockId;
+            verifierInput.prover = msg.sender;
+            verifierInput.isContesting =
+                evidence.tier == tran.tier && tier.contestBond != 0;
+            verifierInput.blobUsed = meta.blobUsed;
+            verifierInput.blobHash = meta.blobHash;
 
-            // Auto-filled from meta value, so that no interface changes (no
-            // need to modify verifyProof)
-            evidence.usingBlob = meta.usingBlob;
+            address verifier = resolver.resolve(tier.verifierName, true);
             // The verifier can be address-zero, signifying that there are no
             // proof checks for the tier. In practice, this only applies to
             // optimistic proofs.
             if (verifier != address(0)) {
                 IVerifier(verifier).verifyProof({
-                    blockId: blk.blockId,
-                    prover: msg.sender,
-                    isContesting: evidence.tier == tran.tier
-                        && tier.contestBond != 0,
+                    input: verifierInput,
                     evidence: evidence
                 });
             }

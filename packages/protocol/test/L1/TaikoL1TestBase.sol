@@ -188,12 +188,9 @@ abstract contract TaikoL1TestBase is TestBase {
             metaHash: LibUtils.hashMetadata(meta),
             parentHash: parentHash,
             blockHash: blockHash,
-            blobHash: bytes32(uint256(123)), // Equals to TxListHash hash if no
-                // blob support yet
             signalRoot: signalRoot,
             graffiti: 0x0,
             tier: tier,
-            usingBlob: false,
             proof: new bytes(102)
         });
 

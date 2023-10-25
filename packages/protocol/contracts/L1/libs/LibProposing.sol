@@ -34,7 +34,7 @@ library LibProposing {
         uint16 minTier,
         TaikoData.BlockMetadata meta,
         bytes32 blobHash,
-        bool usingBlob
+        bool blobUsed
     );
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
@@ -82,23 +82,23 @@ library LibProposing {
             revert L1_TOO_MANY_BLOCKS();
         }
 
-        bytes32 blobOrTxListHash;
+        bytes32 blobHash; //or txListHash (if Blob not yet supported)
         bool blobUsed = txList.length == 0;
         if (blobUsed) {
             // Always use the first blob in this transaction.
             // If the proposeBlock functions are called more than once in the
             // same L1 transaction, these 2 L2 blocks will use the same blob as
             // DA.
-            blobOrTxListHash = IBlobHashReader(
+            blobHash = IBlobHashReader(
                 resolver.resolve("blob_hash_reader", false)
             ).getFirstBlobHash();
 
-            if (blobOrTxListHash == 0) revert L1_NO_BLOB_FOUND();
+            if (blobHash == 0) revert L1_NO_BLOB_FOUND();
         } else {
             if (txList.length > config.blockMaxTxListBytes) {
                 revert L1_TXLIST_TOO_LARGE();
             }
-            blobOrTxListHash = keccak256(txList);
+            blobHash = keccak256(txList);
         }
         // Initialize metadata to compute a metaHash, which forms a part of
         // the block data to be stored on-chain for future integrity checks.
@@ -113,14 +113,14 @@ library LibProposing {
                 // Ethereum block, we must introduce a salt to this random
                 // number as the L2 mixHash.
                 difficulty: bytes32(block.prevrandao * b.numBlocks),
-                blobHash: blobOrTxListHash,
+                blobHash: blobHash,
                 extraData: extraData,
                 id: b.numBlocks,
                 timestamp: uint64(block.timestamp),
                 l1Height: uint64(block.number - 1),
                 gasLimit: config.blockMaxGasLimit,
                 coinbase: msg.sender,
-                usingBlob: blobUsed,
+                blobUsed: blobUsed,
                 // Each transaction must handle a specific quantity of L1-to-L2
                 // Ether deposits.
                 depositsProcessed: LibDepositing.processDeposits(
@@ -187,7 +187,7 @@ library LibProposing {
         // Validate the prover assignment, then charge Ether or ERC20 as the
         // prover fee based on the block's minTier.
         uint256 proverFee =
-            _validateAssignment(blk.minTier, blobOrTxListHash, assignment);
+            _validateAssignment(blk.minTier, blobHash, assignment);
 
         emit BlockProposed({
             blockId: blk.blockId,
@@ -196,8 +196,8 @@ library LibProposing {
             proverFee: proverFee,
             minTier: blk.minTier,
             meta: meta,
-            blobHash: blobOrTxListHash,
-            usingBlob: blobUsed
+            blobHash: blobHash,
+            blobUsed: blobUsed
         });
     }
 
