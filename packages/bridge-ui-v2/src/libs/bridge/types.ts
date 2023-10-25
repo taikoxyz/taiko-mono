@@ -88,7 +88,14 @@ export type BridgeTransferOp = {
   memo: string;
 };
 
-export type NFTBridgeTransferOp = BridgeTransferOp & {
+export type NFTBridgeTransferOp = {
+  destChainId: bigint;
+  to: Address;
+  token: Address;
+  gasLimit: bigint;
+  fee: bigint;
+  refundTo: Address;
+  memo: string;
   tokenIds: bigint[];
   amounts: bigint[];
 };
@@ -101,6 +108,7 @@ export type ApproveArgs = {
 };
 
 export type NFTApproveArgs = {
+  amount?: bigint;
   tokenAddress: Address;
   spenderAddress: Address;
   wallet: WalletClient;
@@ -112,16 +120,17 @@ export type BridgeArgs = {
   wallet: WalletClient;
   srcChainId: number;
   destChainId: number;
-  amount: bigint;
   fee: bigint;
   memo?: string;
 };
 
 export type ETHBridgeArgs = BridgeArgs & {
+  amount: bigint;
   bridgeAddress: Address;
 };
 
 export type ERC20BridgeArgs = BridgeArgs & {
+  amount: bigint;
   token: Address;
   tokenVaultAddress: Address;
   isTokenAlreadyDeployed?: boolean;
@@ -137,6 +146,13 @@ export type ERC721BridgeArgs = BridgeArgs & {
 
 export type ERC1155BridgeArgs = ERC721BridgeArgs;
 
+export type BridgeArgsMap = {
+  [TokenType.ETH]: ETHBridgeArgs;
+  [TokenType.ERC20]: ERC20BridgeArgs;
+  [TokenType.ERC721]: ERC721BridgeArgs;
+  [TokenType.ERC1155]: ERC1155BridgeArgs;
+};
+
 export type RequireAllowanceArgs = {
   tokenAddress: Address;
   ownerAddress: Address;
@@ -148,6 +164,7 @@ export type RequireApprovalArgs = {
   tokenAddress: Address;
   spenderAddress: Address;
   tokenId: bigint;
+  chainId: number;
   owner?: Address;
 };
 
