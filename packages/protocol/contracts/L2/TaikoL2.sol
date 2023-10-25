@@ -120,7 +120,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
         // Store the L1's signal root as a signal to the local signal service to
         // allow for multi-hop bridging.
-
         ISignalService(resolve("signal_service", false)).sendSignal(
             l1SignalRoot
         );
