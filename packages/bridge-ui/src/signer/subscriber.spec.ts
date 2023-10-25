@@ -82,7 +82,7 @@ describe('subscribeToSigner', () => {
     // Next we test functions are called with the right arguments:
     expect(tokenService.getTokens).toHaveBeenCalledWith(address);
 
-    // We pass what's returned from the previos tokenService.getTokens
+    // We pass what's returned from the previous tokenService.getTokens
     // and that is the tokens array
     expect(userTokens.set).toHaveBeenCalledWith(tokens);
 

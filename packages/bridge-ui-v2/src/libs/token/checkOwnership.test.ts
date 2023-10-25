@@ -187,7 +187,7 @@ describe('checkOwnership', () => {
   });
 
   describe('General tests', () => {
-    it('should return an emtpy array if tokenType is null', async () => {
+    it('should return an empty array if tokenType is null', async () => {
       // When
       const result = await checkOwnership(TOKEN_ADDRESS, null, TOKEN_IDS, OWNER, CHAIN_ID);
 
@@ -195,7 +195,7 @@ describe('checkOwnership', () => {
       expect(result).toEqual([]);
     });
 
-    it('should return an emtpy array if tokenIds array is empty', async () => {
+    it('should return an empty array if tokenIds array is empty', async () => {
       // When
       const result = await checkOwnership(TOKEN_ADDRESS, TokenType.ERC721, [], OWNER, CHAIN_ID);
 

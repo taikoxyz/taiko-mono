@@ -439,12 +439,12 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
-    icon: "/images/ecosystem/taiko-dashboard.png",
-    name: "Taiko Node Dashboard",
-    link: "https://github.com/wolfderechter/taiko-node-dashboard-docker",
+    icon: "/images/ecosystem/dojonode.png",
+    name: "dojo node",
+    link: "https://dojonode.xyz",
     description:
-      "A user friendly, easy to read, and visually pleasing dashboard for those running a Node/Proposer/Prover.",
-    filters: [],
+      "A user friendly, easy to read, and visually pleasing dashboard for monitoring your Node/Proposer/Prover.",
+    filters: ["dashboard"],
     isLive: true,
   },
   {
