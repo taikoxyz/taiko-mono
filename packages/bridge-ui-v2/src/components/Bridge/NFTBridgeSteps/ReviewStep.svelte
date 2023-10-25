@@ -33,53 +33,54 @@
 
 <div class="container mx-auto inline-block align-middle space-y-[25px]">
   <div class="flex justify-between mb-2 items-center">
-    <div class="font-bold">{$t('common.destination')}</div>
-    <div><ChainSelector small value={$destinationChain} readOnly /></div>
+    <div class="font-bold text-primary-content">{$t('bridge.nft.step.review.transfer_details')}</div>
+    <button class="flex justify-start link"> Edit </button>
   </div>
-  <div class="flex justify-between mb-2">
-    <div class="font-bold">{$t('common.contract_address')}</div>
-    <div class="text-secondary-content">
-      <ul>
-        {#each nftsToDisplay as nft}
-          {@const currentChain = $network?.id}
-          {#if currentChain && $destinationChain?.id}
-            <li>
-              <a
-                class="flex justify-start link"
-                href={`${chainConfig[$destinationChain?.id].urls.explorer}`}
-                target="_blank">
-                {shortenAddress(nft.addresses[currentChain], 8, 12)}
-                <Icon type="arrow-top-right" fillClass="fill-primary-link" />
-              </a>
-            </li>
-          {/if}
-        {/each}
-      </ul>
+  <div>
+    <div class="flex justify-between items-center">
+      <div class="text-secondary-content">{$t('common.from')}</div>
+      <div class="">{$network?.name}</div>
     </div>
-  </div>
+    <div class="flex justify-between items-center">
+      <div class="text-secondary-content">{$t('common.to')}</div>
+      <div class="">{$destinationChain?.name}</div>
+    </div>
 
-  <div class="flex justify-between">
-    <div class="font-bold">{$t('inputs.token_id_input.label')}</div>
-    <div class="break-words text-right text-secondary-content">
-      <ul>
-        {#each nftsToDisplay as nft}
-          <li>{nft.tokenId}</li>
-        {/each}
-      </ul>
+    <div class="flex justify-between">
+      <div class="text-secondary-content">{$t('common.contract_address')}</div>
+      <div class="">
+        <ul>
+          {#each nftsToDisplay as nft}
+            {@const currentChain = $network?.id}
+            {#if currentChain && $destinationChain?.id}
+              <li>
+                <a
+                  class="flex justify-start link"
+                  href={`${chainConfig[$destinationChain?.id].urls.explorer}`}
+                  target="_blank">
+                  {shortenAddress(nft.addresses[currentChain], 8, 12)}
+                  <Icon type="arrow-top-right" fillClass="fill-primary-link" />
+                </a>
+              </li>
+            {/if}
+          {/each}
+        </ul>
+      </div>
+    </div>
+
+    <div class="flex justify-between">
+      <div class="text-secondary-content">{$t('inputs.token_id_input.label')}</div>
+      <div class="break-words text-right">
+        <ul>
+          {#each nftsToDisplay as nft}
+            <li>{nft.tokenId}</li>
+          {/each}
+        </ul>
+      </div>
     </div>
   </div>
 </div>
 
-<div class="h-sep" />
-<!-- 
-  Recipient & Processing Fee
-  -->
-<div class="space-y-[16px]">
-  <Recipient bind:this={recipientComponent} />
-  <ProcessingFee bind:this={processingFeeComponent} />
-</div>
-
-<div class="h-sep" />
 <!-- 
 NFT List or Card View
 -->
@@ -101,3 +102,18 @@ NFT List or Card View
   </div>
   <NFTDisplay loading={false} nfts={$selectedNFTs} {nftView} viewOnly />
 </section>
+
+<div class="h-sep" />
+<!-- 
+  Recipient & Processing Fee
+  -->
+<div class="f-col">
+  <div class="f-between-center mb-[10px]">
+    <div class="font-bold text-primary-content">{$t('bridge.nft.step.review.recipient_details')}</div>
+    <button class="flex justify-start link"> Edit </button>
+  </div>
+  <Recipient bind:this={recipientComponent} small />
+  <ProcessingFee bind:this={processingFeeComponent} small />
+</div>
+
+<div class="h-sep" />
