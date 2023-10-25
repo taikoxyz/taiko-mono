@@ -47,8 +47,10 @@
             {/if}
           {/each}
         </div>
+        {#if nfts.length > 1}
+          <div class="h-sep my-[30px]" />
+        {/if}
       {/if}
     </div>
-    <div class="h-sep my-[30px]" />
   {/each}
 </div>
