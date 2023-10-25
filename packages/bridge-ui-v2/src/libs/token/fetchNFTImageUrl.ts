@@ -1,4 +1,3 @@
-// import { parseNFTMetadata } from '$libs/util/fetchNFTMetadata';
 import axios, { AxiosError, type AxiosResponse } from 'axios';
 
 import { checkForAdblocker } from '$libs/util/checkForAdblock';
