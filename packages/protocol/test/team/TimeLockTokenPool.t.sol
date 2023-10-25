@@ -11,7 +11,6 @@ import { console2 } from "forge-std/console2.sol";
 contract MyERC20 is ERC20 {
     constructor(address owner) ERC20("Taiko Token", "TKO") {
         _mint(owner, 1_000_000_000e18);
-        this;
     }
 }
 
