@@ -46,6 +46,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     error L2_BASEFEE_MISMATCH();
     error L2_INVALID_CHAIN_ID();
     error L2_INVALID_SENDER();
+    error L2_INVALID_L1_BLOCK_HASH();
+    error L2_INVALID_L1_SIGNAL_ROOT();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
 
@@ -89,6 +91,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     )
         external
     {
+        if (l1BlockHash == 0) revert L2_INVALID_L1_BLOCK_HASH();
+        if (l1SignalRoot == 0) revert L2_INVALID_L1_SIGNAL_ROOT();
+
         if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
 
         uint256 parentId;
@@ -114,11 +119,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
         // Store the L1's signal root as a signal to the local signal service to
         // allow for multi-hop bridging.
-        if (l1SignalRoot != 0) {
-            ISignalService(resolve("signal_service", false)).sendSignal(
-                l1SignalRoot
-            );
-        }
+
+        ISignalService(resolve("signal_service", false)).sendSignal(
+            l1SignalRoot
+        );
         emit CrossChainSynced(l1Height, l1BlockHash, l1SignalRoot);
 
         // Update state variables
