@@ -1,7 +1,7 @@
 export enum AddressInputState {
-  Default,
-  Valid,
-  Invalid,
-  TooShort,
-  Validating,
+  DEFAULT,
+  VALID,
+  INVALID,
+  TOO_SHORT,
+  VALIDATING,
 }

@@ -2,7 +2,7 @@
   import type { Hash } from '@wagmi/core';
   import { onDestroy, tick } from 'svelte';
   import { t } from 'svelte-i18n';
-  import { type Address, getAddress } from 'viem';
+  import { type Address, getAddress, isAddress } from 'viem';
 
   import { routingContractsMap } from '$bridgeConfig';
   import { chainConfig } from '$chainConfig';
@@ -18,11 +18,11 @@
   import { hasBridge } from '$libs/bridge/bridges';
   import type { ERC721Bridge } from '$libs/bridge/ERC721Bridge';
   import type { ERC1155Bridge } from '$libs/bridge/ERC1155Bridge';
-  import { fetchNFTs } from '$libs/bridge/fetchNFTs';
   import { getBridgeArgs } from '$libs/bridge/getBridgeArgs';
   import { handleBridgeError } from '$libs/bridge/handleBridgeErrors';
   import { bridgeTxService } from '$libs/storage';
   import { ETHToken, type NFT, TokenType } from '$libs/token';
+  import { fetchNFTImageUrl } from '$libs/token/fetchNFTImageUrl';
   import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
   import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
@@ -55,6 +55,7 @@
   let actionsComponent: Actions;
   let importMethod: 'scan' | 'manual' = 'scan';
   let nftIdArray: number[] = [];
+  let contractAddress: Address | string = '';
 
   function onNetworkChange(newNetwork: Network, oldNetwork: Network) {
     updateForm();
@@ -250,7 +251,6 @@
     if (nftIdInputComponent) nftIdInputComponent.clearIds();
 
     $selectedToken = ETHToken;
-    contractAddress = '';
     importMethod === 'scan';
     scanned = false;
     canProceed = false;
@@ -269,28 +269,15 @@
   let nftStepDescription: string;
   let nextStepButtonText: string;
 
-  let contractAddress: Address | '';
-
   let addressInputComponent: AddressInput;
   let nftIdInputComponent: IdInput;
 
-  let scanning: boolean = false;
+  let validatingImport: boolean = false;
   let scanned: boolean = false;
 
   let selectedNFT: NFT[];
-  let canProceed: boolean;
+  let canProceed: boolean = false;
   let foundNFTs: NFT[] = [];
-
-  const scanForNFTs = async () => {
-    scanning = true;
-    const accountAddress = $account?.address;
-    const srcChainId = $network?.id;
-    if (!accountAddress || !srcChainId) return;
-    const nftsFromAPIs = await fetchNFTs(accountAddress, BigInt(srcChainId));
-    foundNFTs = nftsFromAPIs.nfts;
-    scanning = false;
-    scanned = true;
-  };
 
   const getStepText = () => {
     if (activeStep === NFTSteps.REVIEW) {
@@ -308,24 +295,44 @@
     resetForm();
   };
 
+  const prefetchImage = async () => {
+    await Promise.all(
+      nftIdArray.map(async (id) => {
+        const token = $selectedToken as NFT;
+        if (token) {
+          token.tokenId = id;
+          fetchNFTImageUrl(token).then((nftWithUrl) => {
+            $selectedToken = nftWithUrl;
+            selectedNFT = [nftWithUrl];
+          });
+        } else {
+          throw new Error('no token');
+        }
+      }),
+    );
+  };
+
   const manualImportAction = () => {
     if (!$network?.id) throw new Error('network not found');
     const srcChainId = $network?.id;
     const tokenId = nftIdArray[0];
 
-    if (contractAddress && srcChainId)
-      getTokenWithInfoFromAddress({ contractAddress, srcChainId, owner: $account?.address, tokenId })
-        .then((token) => {
+    if (isAddress(contractAddress) && srcChainId)
+      getTokenWithInfoFromAddress({ contractAddress, srcChainId: srcChainId, tokenId, owner: $account?.address })
+        .then(async (token) => {
           if (!token) throw new Error('no token with info');
-          selectedNFT = [token as NFT];
+          // detectedTokenType = token.type;
+          // idInputState = IDInputState.VALID;
           $selectedToken = token;
+          await prefetchImage();
+          nextStep();
         })
         .catch((err) => {
           console.error(err);
-          //   detectedTokenType = null;
-          //   addressInputState = AddressInputState.Invalid;
+          // detectedTokenType = null;
+          // idInputState = IDInputState.INVALID;
+          // invalidToken = true;
         });
-    nextStep();
   };
 
   // Whenever the user switches bridge types, we should reset the forms
@@ -352,7 +359,6 @@
     <Step stepIndex={NFTSteps.CONFIRM} currentStepIndex={activeStep} isActive={activeStep === NFTSteps.CONFIRM}
       >{$t('bridge.title.nft.confirm')}</Step>
   </Stepper>
-
   <Card class="mt-[32px] w-full md:w-[524px]" title={nftStepTitle} text={nftStepDescription}>
     <div class="space-y-[30px]">
       <!-- IMPORT STEP -->
@@ -360,16 +366,14 @@
         <ImportStep
           bind:importMethod
           bind:canProceed
-          bind:selectedNFT
-          {scanForNFTs}
-          {nftIdArray}
-          {contractAddress}
+          bind:nftIdArray
+          bind:contractAddress
           {foundNFTs}
           bind:scanned
-          bind:scanning />
+          bind:validating={validatingImport} />
         <!-- REVIEW STEP -->
       {:else if activeStep === NFTSteps.REVIEW}
-        <ReviewStep bind:selectedNFT />
+        <ReviewStep />
         <!-- CONFIRM STEP -->
       {:else if activeStep === NFTSteps.CONFIRM}
         <div class="f-between-center gap-4">
@@ -393,9 +397,12 @@
         </div>
       {:else if activeStep === NFTSteps.IMPORT}
         {#if importMethod === 'manual'}
+          <div class="h-sep" />
+
           <div class="f-col w-full">
             <Button
               disabled={!canProceed}
+              loading={validatingImport}
               type="primary"
               class="px-[28px] py-[14px] rounded-full flex-1 w-auto text-white"
               on:click={manualImportAction}><span class="body-bold">{nextStepButtonText}</span></Button>
@@ -406,6 +413,8 @@
           </div>
         {:else if scanned}
           <div class="f-col w-full">
+            <div class="h-sep" />
+
             <Button
               disabled={!canProceed}
               type="primary"

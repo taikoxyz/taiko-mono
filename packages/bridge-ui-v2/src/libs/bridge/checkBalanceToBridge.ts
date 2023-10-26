@@ -1,5 +1,5 @@
 import { fetchBalance, getPublicClient } from '@wagmi/core';
-import { type Address, zeroAddress } from 'viem';
+import { type Address, ContractFunctionExecutionError, zeroAddress } from 'viem';
 
 import { routingContractsMap } from '$bridgeConfig';
 import {
@@ -135,7 +135,10 @@ export async function checkBalanceToBridge({
       } as BridgeArgs);
     } catch (err) {
       console.error(err);
-      // TODO: catch errors
+      if (err instanceof ContractFunctionExecutionError) {
+        throw err;
+      }
+      // TODO: catch/rethrow other errors
     }
     // no need to deduct the amount we want to bridge from the balance as we pay in ETH
     if (estimatedCost > balance) {

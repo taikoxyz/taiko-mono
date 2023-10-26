@@ -2,26 +2,26 @@
   "bridge": {
     "actions": {
       "approve": {
-        "tx": {
-          "title": "Approval sent",
-          "message": "Track the {token} token approval status on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
-        },
-        "success": {
-          "title": "Approved token",
-          "message": "You can now proceed to bridge {token}."
-        },
         "rejected": {
           "title": "Request to approve rejected"
+        },
+        "success": {
+          "message": "You can now proceed to bridge {token}.",
+          "title": "Approved token"
+        },
+        "tx": {
+          "message": "Track the {token} token approval status on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>.",
+          "title": "Approval sent"
         }
       },
       "bridge": {
-        "tx": {
-          "title": "Transaction sent",
-          "message": "Track the bridge status of your {token} <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
-        },
         "success": {
-          "title": "Transaction completed",
-          "message": "Your funds are being prepared for claiming on Taiko."
+          "message": "Your funds are being prepared for claiming on Taiko.",
+          "title": "Transaction completed"
+        },
+        "tx": {
+          "message": "Track the bridge status of your {token} <a href=\"{url}\" target=\"_blank\"><b>here</b></a>.",
+          "title": "Transaction sent"
         }
       },
       "nft_manual": "Add manually",
@@ -47,8 +47,8 @@
     },
     "errors": {
       "approve_error": {
-        "title": "Approval failed",
-        "message": "We encountered an issue while trying to approve this token."
+        "message": "We encountered an issue while trying to approve this token.",
+        "title": "Approval failed"
       },
       "approve_rejected": {
         "title": "Request to approve rejected by user"
@@ -71,12 +71,12 @@
         "title": "Allowance already set"
       },
       "send_erc20_error": {
-        "title": "Failed to send",
-        "message": "There was an issue attempting to send ERC20 token."
+        "message": "There was an issue attempting to send ERC20 token.",
+        "title": "Failed to send"
       },
       "send_message_error": {
-        "title": "Failed to send",
-        "message": "Please try again"
+        "message": "Please try again",
+        "title": "Failed to send"
       },
       "unknown_error": {
         "message": "An unexpected error has occurred. Please try again.",
@@ -87,6 +87,10 @@
       "step": {
         "confirm": "Confirm",
         "import": {
+          "nft_card": {
+            "select": "Select NFT",
+            "title": "NFT details"
+          },
           "scan_screen": {
             "description": "Don't see your NFTs? Try adding them manually!",
             "title": "Your NFTs ({number} items)"
@@ -136,7 +140,9 @@
     "id": "ID",
     "loading": "Loading",
     "name": "Name",
-    "ok": "Ok"
+    "ok": "Ok",
+    "token_id": "Token ID",
+    "token_standard": "Token standard"
   },
   "custom_recipient": {
     "placeholder": "Add custom recipient"
@@ -149,17 +155,17 @@
     },
     "description": "Mint test tokens.",
     "mint": {
-      "tx": {
-        "title": "Transaction sent",
-        "message": "Track the progress on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+      "rejected": {
+        "message": "An error occurred while attempting to mint the token.",
+        "title": "Error minting token"
       },
       "success": {
-        "title": "Token minted successfully",
-        "message": "Check your updated balance on the Bridge page."
+        "message": "Check your updated balance on the Bridge page.",
+        "title": "Token minted successfully"
       },
-      "rejected": {
-        "title": "Error minting token",
-        "message": "An error occurred while attempting to mint the token."
+      "tx": {
+        "message": "Track the progress on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>.",
+        "title": "Transaction sent"
       }
     },
     "title": "Faucet",
@@ -209,6 +215,9 @@
       "disconnected": "Account disconnected",
       "required": "Please connect your wallet."
     },
+    "bridge": {
+      "nft_scanning": "Scanning for NFTs"
+    },
     "network": {
       "pending": {
         "message": "Please open your wallet to check the current status.",
@@ -221,9 +230,6 @@
       "required": "Source chain must be selected.",
       "required_dest": "Destination chain must be selected.",
       "switching": "Switching network"
-    },
-    "bridge": {
-      "nft_scanning": "Scanning for NFTs"
     }
   },
   "nav": {
@@ -285,34 +291,34 @@
   "transactions": {
     "actions": {
       "claim": {
-        "tx": {
-          "title": "Transaction sent",
-          "message": "Track the progress on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
-        },
-        "success": {
-          "title": "Transaction completed",
-          "message": "Your funds have been successfully claimed on {network}."
-        },
-        "rejected": {
-          "title": "Request to claim rejected."
-        },
         "dialog": {
           "description": "Insufficient balance to claim yourself. Please wait for the relayer to claim for you automatically. Refer to our guide for more information.",
           "link": "Go to guide",
           "title": "Please wait"
+        },
+        "rejected": {
+          "title": "Request to claim rejected."
+        },
+        "success": {
+          "message": "Your funds have been successfully claimed on {network}.",
+          "title": "Transaction completed"
+        },
+        "tx": {
+          "message": "Track the progress on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>.",
+          "title": "Transaction sent"
         }
       },
       "release": {
-        "tx": {
-          "title": "Transaction sent",
-          "message": "Track the progress on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
-        },
-        "success": {
-          "title": "Transaction completed",
-          "message": "Your funds have been released on {network}"
-        },
         "rejected": {
           "title": "Request to release rejected."
+        },
+        "success": {
+          "message": "Your funds have been released on {network}",
+          "title": "Transaction completed"
+        },
+        "tx": {
+          "message": "Track the progress on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>.",
+          "title": "Transaction sent"
         }
       }
     },
