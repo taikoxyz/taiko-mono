@@ -107,7 +107,7 @@ library TaikoData {
         TaikoData.EthDeposit[] depositsProcessed; // slot 7
     }
 
-    /// @dev Struct representing block claim.
+    /// @dev Struct representing transition to be proven.
     struct TransitionClaim {
         bytes32 parentHash;
         bytes32 blockHash;
