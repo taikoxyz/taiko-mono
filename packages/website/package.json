@@ -12,6 +12,7 @@
     "next-themes": "^0.2.1",
     "nextra": "^2.13.2",
     "nextra-theme-docs": "^2.13.2",
+    "pocketbase": "^0.19.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "remark-mdx-disable-explicit-jsx": "^0.1.0",

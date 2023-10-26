@@ -13,8 +13,6 @@ export async function getProverEndpoints() {
     }
 
     const provers = await response.json(); // Parse the response as JSON
-
-    console.log(provers);
     return provers as proverEndpoint[];
   } catch (error) {
     console.error(error);

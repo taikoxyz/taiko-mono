@@ -20101,6 +20101,10 @@ packages:
     resolution: {integrity: sha512-40QW5YalBNfQo5yRYmiw7Yz6TKKVr3h6970B2YE+3fQpsWcrbj1PzJgxeJ19DRQjhMbKPIuMY8rFaXc8moolVw==}
     engines: {node: '>=10.13.0'}
 
+  /pocketbase@0.19.0:
+    resolution: {integrity: sha512-bUVZfVdD17K8GnwbeDMZPEdREVg2YE0F8uHPDC0zer4VtwXUqoPCCeudTy3fhUE7pfuKnfpuPxeBSYsBY3AGIQ==}
+    dev: false
+
   /posix-character-classes@0.1.1:
     resolution: {integrity: sha512-xTgYBc3fuo7Yt7JbiuFxSYGToMoz8fLoE6TC9Wx1P/u+LfeThMOAqmuyECnlBaaJb+u1m9hHiXUEtwW4OzfUJg==}
     engines: {node: '>=0.10.0'}
