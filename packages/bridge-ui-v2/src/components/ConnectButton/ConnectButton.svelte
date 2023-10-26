@@ -16,7 +16,7 @@
 
   function connectWallet() {
     if (web3modalOpen) return;
-    web3modal.openModal();
+    web3modal.open();
   }
 
   function onWeb3Modal(state: { open: boolean }) {
@@ -24,16 +24,16 @@
   }
 
   onMount(() => {
-    unsubscribeWeb3Modal = web3modal.subscribeModal(onWeb3Modal);
+    unsubscribeWeb3Modal = web3modal.subscribeState(onWeb3Modal);
   });
 
   onDestroy(unsubscribeWeb3Modal);
 </script>
 
 {#if connected}
-  <Button class="hidden sm:flex  pl-[10px] pr-[15px] h-[40px] mr-[8px] rounded-full" type="neutral" on:click={connectWallet}>
+  <Button class="hidden sm:flex  pl-[14px] pr-[20px] h-[38px] mr-[8px] rounded-full" type="neutral" on:click={connectWallet}>
     <span class="body-regular f-items-center">
-      <svelte:component this={EthIcon} size={24} />
+      <svelte:component this={EthIcon} size={20} />
       {#if $ethBalance >= 0}
         <span class="ml-[6px]">{renderEthBalance($ethBalance)}</span>
       {:else}
@@ -41,7 +41,7 @@
       {/if}
     </span>
   </Button>
-  <w3m-core-button class="h-[40px]" balance="hide" />
+  <w3m-button class="h-[38px]" balance="hide" />
 {:else}
   <Button class="px-[20px] py-2 rounded-full w-[215px]" type="neutral" loading={web3modalOpen} on:click={connectWallet}>
     <span class="body-regular f-items-center space-x-2">
