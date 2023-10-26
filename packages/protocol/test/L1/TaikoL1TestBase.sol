@@ -246,18 +246,18 @@ abstract contract TaikoL1TestBase is TestBase {
 
             // Grant 2 signatures, 3rd might be a revert
             vm.prank(David, David);
-            gp.approveEvidence(meta.id, meta, claim, tproof);
+            gp.approve(meta, claim, tproof);
             vm.prank(Emma, Emma);
-            gp.approveEvidence(meta.id, meta, claim, tproof);
+            gp.approve(meta, claim, tproof);
 
             if (revertReason != "") {
                 vm.prank(Frank, Frank);
                 vm.expectRevert(); // Revert reason is 'wrapped' so will not be
                     // identical to the expectedRevert
-                gp.approveEvidence(meta.id, meta, claim, tproof);
+                gp.approve(meta, claim, tproof);
             } else {
                 vm.prank(Frank, Frank);
-                gp.approveEvidence(meta.id, meta, claim, tproof);
+                gp.approve(meta, claim, tproof);
             }
         } else {
             if (revertReason != "") {

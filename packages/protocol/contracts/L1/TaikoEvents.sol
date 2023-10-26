@@ -48,9 +48,7 @@ abstract contract TaikoEvents {
     /// @dev Emitted when a block transition is proved or re-proved.
     event TransitionProved(
         uint256 indexed blockId,
-        bytes32 parentHash,
-        bytes32 blockHash,
-        bytes32 signalRoot,
+        TaikoData.TransitionClaim claim,
         address prover,
         uint96 validityBond,
         uint16 tier
@@ -59,9 +57,7 @@ abstract contract TaikoEvents {
     /// @dev Emitted when a block transition is contested.
     event TransitionContested(
         uint256 indexed blockId,
-        bytes32 parentHash,
-        bytes32 blockHash,
-        bytes32 signalRoot,
+        TaikoData.TransitionClaim claim,
         address contester,
         uint96 contestBond,
         uint16 tier

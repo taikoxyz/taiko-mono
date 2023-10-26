@@ -25,9 +25,7 @@ library LibProving {
 
     event TransitionProved(
         uint256 indexed blockId,
-        bytes32 parentHash,
-        bytes32 blockHash,
-        bytes32 signalRoot,
+        TaikoData.TransitionClaim claim,
         address prover,
         uint96 validityBond,
         uint16 tier
@@ -35,9 +33,7 @@ library LibProving {
 
     event TransitionContested(
         uint256 indexed blockId,
-        bytes32 parentHash,
-        bytes32 blockHash,
-        bytes32 signalRoot,
+        TaikoData.TransitionClaim claim,
         address contester,
         uint96 contestBond,
         uint16 tier
@@ -267,9 +263,7 @@ library LibProving {
 
             emit TransitionProved({
                 blockId: blk.blockId,
-                parentHash: claim.parentHash,
-                blockHash: claim.blockHash,
-                signalRoot: claim.signalRoot,
+                claim: claim,
                 prover: msg.sender,
                 validityBond: 0,
                 tier: tproof.tier
@@ -317,9 +311,7 @@ library LibProving {
 
             emit TransitionContested({
                 blockId: blk.blockId,
-                parentHash: claim.parentHash,
-                blockHash: tran.blockHash,
-                signalRoot: tran.signalRoot,
+                claim: claim,
                 contester: msg.sender,
                 contestBond: tier.contestBond,
                 tier: tproof.tier
@@ -452,9 +444,7 @@ library LibProving {
 
             emit TransitionProved({
                 blockId: blk.blockId,
-                parentHash: claim.parentHash,
-                blockHash: claim.blockHash,
-                signalRoot: claim.signalRoot,
+                claim: claim,
                 prover: msg.sender,
                 validityBond: tier.validityBond,
                 tier: tproof.tier

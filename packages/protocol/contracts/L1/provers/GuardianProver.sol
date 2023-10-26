@@ -75,8 +75,7 @@ contract GuardianProver is EssentialContract {
     }
 
     /// @dev Called by guardians to approve a guardian proof
-    function approveEvidence(
-        uint64 blockId,
+    function approve(
         TaikoData.BlockMetadata calldata meta,
         TaikoData.TransitionClaim calldata claim,
         TaikoData.TierProof calldata tproof
