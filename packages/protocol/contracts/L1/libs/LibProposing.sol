@@ -102,8 +102,8 @@ library LibProposing {
         // require additional storage slots.
 
         unchecked {
-            uint256 rand = block.prevrandao * uint256(blobHash) * b.numBlocks
-                * block.number;
+            uint256 rand = uint256(blobHash)
+                ^ (block.prevrandao * b.numBlocks * block.number);
             meta = TaikoData.BlockMetadata({
                 l1Hash: blockhash(block.number - 1),
                 // Following the Merge, the L1 mixHash incorporates the
