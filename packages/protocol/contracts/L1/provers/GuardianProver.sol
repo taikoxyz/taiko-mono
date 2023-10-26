@@ -26,12 +26,7 @@ contract GuardianProver is EssentialContract {
     // fail
     event GuardiansUpdated(address[5]);
     event Approved(
-        uint64 indexed blockId,
-        TaikoData.BlockMetadata meta,
-        TaikoData.TransitionClaim claim,
-        TaikoData.TierProof tproof,
-        uint256 approvalBits,
-        bool proofSubmitted
+        uint64 indexed blockId, uint256 approvalBits, bool proofSubmitted
     );
 
     error INVALID_GUARDIAN();
@@ -105,10 +100,10 @@ contract GuardianProver is EssentialContract {
             if (!success) revert PROVING_FAILED();
             delete approvals[hash];
 
-            emit Approved(meta.id, meta, claim, tproof, approvalBits, true);
+            emit Approved(meta.id, approvalBits, true);
         } else {
             approvals[hash] = approvalBits;
-            emit Approved(meta.id, meta, claim, tproof, approvalBits, false);
+            emit Approved(meta.id, approvalBits, false);
         }
     }
 
