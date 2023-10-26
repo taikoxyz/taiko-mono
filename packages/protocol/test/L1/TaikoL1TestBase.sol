@@ -194,10 +194,7 @@ abstract contract TaikoL1TestBase is TestBase {
         });
 
         bytes32 instance = pv.calcInstance(
-            prover,
-            evidence,
-            0, // without blob point value is 0
-            LibUtils.hashMetadata(meta)
+            evidence, prover, LibUtils.hashMetadata(meta), meta.blobHash, 0
         );
 
         PseZkVerifier.PseZkEvmProof memory zkProof;
