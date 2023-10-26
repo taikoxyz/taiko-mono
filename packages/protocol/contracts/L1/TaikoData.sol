@@ -88,20 +88,22 @@ library TaikoData {
     /// `block.prevrandao`, which returns a random number provided by the layer
     /// 1 chain.
     struct BlockMetadata {
-        bytes32 l1Hash;
-        bytes32 difficulty;
-        bytes32 extraData;
+        bytes32 l1Hash; // slot 1
+        bytes32 difficulty; // slot 2
+        bytes32 blobHash; //or txListHash (if Blob not yet supported), // slot 3
+        bytes32 extraData; // slot 4
+        address coinbase; // L2 coinbase, // slot 5
         uint64 id;
-        uint64 timestamp;
-        uint64 l1Height;
         uint32 gasLimit;
-        address coinbase; // L2 coinbase
-        TaikoData.EthDeposit[] depositsProcessed;
+        uint64 timestamp; // slot 6
+        uint64 l1Height;
+        uint16 minTier;
+        bool blobUsed;
+        TaikoData.EthDeposit[] depositsProcessed; // slot 7
     }
 
     /// @dev Struct representing block evidence.
     struct BlockEvidence {
-        bytes32 metaHash;
         bytes32 parentHash;
         bytes32 blockHash;
         bytes32 signalRoot;
@@ -129,19 +131,13 @@ library TaikoData {
     /// 10 slots reserved for upgradability, 3 slots used.
     struct Block {
         bytes32 metaHash; // slot 1
-        // blobHash represents the EIP-4844 versioned hash of the blob that
-        // carries the transaction list, or the keccack hash of the RLP-encoded
-        // txList when calldata is used for DA.
-        bytes32 blobHash; // slot 2
-        address assignedProver; // slot 3
+        address assignedProver; // slot 2
         uint96 livenessBond;
-        uint64 blockId; // slot 4
+        uint64 blockId; // slot 3
         uint64 proposedAt;
         uint32 nextTransitionId;
         uint32 verifiedTransitionId;
-        uint16 minTier;
-        bool usingBlob;
-        bytes32[6] __reserved;
+        bytes32[7] __reserved;
     }
 
     /// @dev Struct representing an Ethereum deposit.

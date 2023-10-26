@@ -19,7 +19,10 @@ import { LibUtils } from "./LibUtils.sol";
 /// @notice A library for handling block contestation and proving in the Taiko
 /// protocol.
 library LibProving {
+    bytes32 public constant RETURN_LIVENESS_BOND =
+        keccak256("RETURN_LIVENESS_BOND");
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
+
     event TransitionProved(
         uint256 indexed blockId,
         bytes32 parentHash,
@@ -56,8 +59,8 @@ library LibProving {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
-        uint64 blockId,
-        TaikoData.BlockEvidence memory evidence
+        TaikoData.BlockEvidence memory evidence,
+        TaikoData.BlockMetadata memory meta
     )
         internal
         returns (uint8 maxBlocksToVerify)
@@ -67,17 +70,20 @@ library LibProving {
 
         // Check that the block has been proposed but has not yet been verified.
         TaikoData.SlotB memory b = state.slotB;
-        if (blockId <= b.lastVerifiedBlockId || blockId >= b.numBlocks) {
+        if (meta.id <= b.lastVerifiedBlockId || meta.id >= b.numBlocks) {
             revert L1_INVALID_BLOCK_ID();
         }
 
-        uint64 slot = blockId % config.blockRingBufferSize;
+        uint64 slot = meta.id % config.blockRingBufferSize;
         TaikoData.Block storage blk = state.blocks[slot];
 
         // Check the integrity of the block data. It's worth noting that in
         // theory, this check may be skipped, but it's included for added
         // caution.
-        if (blk.blockId != blockId || blk.metaHash != evidence.metaHash) {
+        if (
+            blk.blockId != meta.id
+                || blk.metaHash != LibUtils.hashMetadata(meta)
+        ) {
             revert L1_BLOCK_MISMATCH();
         }
 
@@ -152,13 +158,15 @@ library LibProving {
         } else {
             // A transition with the provided parentHash has been located.
             tran = state.transitions[slot][tid];
-            if (tran.tier < blk.minTier) revert L1_UNEXPECTED_TRANSITION_TIER();
+            if (tran.tier < meta.minTier) {
+                revert L1_UNEXPECTED_TRANSITION_TIER();
+            }
         }
 
         // The new proof must meet or exceed the minimum tier required by the
         // block or the previous proof; it cannot be on a lower tier.
         if (
-            evidence.tier == 0 || evidence.tier < blk.minTier
+            evidence.tier == 0 || evidence.tier < meta.minTier
                 || evidence.tier < tran.tier
         ) {
             revert L1_INVALID_TIER();
@@ -170,72 +178,89 @@ library LibProving {
             resolver.resolve("tier_provider", false)
         ).getTier(evidence.tier);
 
+        maxBlocksToVerify = tier.maxBlocksToVerify;
+
         // We must verify the proof, and any failure in proof verification will
-        // result in a revert of the following code.
+        // result in a revert.
         //
         // It's crucial to emphasize that the proof can be assessed in two
         // potential modes: "proving mode" and "contesting mode." However, the
-        // precise verification logic is defined within each
-        // tier'IVerifier contract implementation. We simply specify to
-        // the verifier contract which mode it should utilize - if the new tier
-        // is higher than the previous tier, we employ the proving mode;
-        // otherwise, we employ the contesting mode (the new tier cannot be
-        // lower than the previous tier, this has been checked above).
+        // precise verification logic is defined within each tier'IVerifier
+        // contract implementation. We simply specify to the verifier contract
+        // which mode it should utilize - if the new tier is higher than the
+        // previous tier, we employ the proving mode; otherwise, we employ the
+        // contesting mode (the new tier cannot be lower than the previous tier,
+        // this has been checked above).
         //
         // It's obvious that proof verification is entirely decoupled from
         // Taiko's core protocol.
         {
             address verifier = resolver.resolve(tier.verifierName, true);
-
             // The verifier can be address-zero, signifying that there are no
             // proof checks for the tier. In practice, this only applies to
             // optimistic proofs.
             if (verifier != address(0)) {
-                IVerifier(verifier).verifyProof({
-                    blockId: blk.blockId,
+                bool isContesting =
+                    evidence.tier == tran.tier && tier.contestBond != 0;
+
+                IVerifier.Input memory input = IVerifier.Input({
+                    metaHash: blk.metaHash,
+                    blobHash: meta.blobHash,
                     prover: msg.sender,
-                    isContesting: evidence.tier == tran.tier
-                        && tier.contestBond != 0,
-                    usingBlob: blk.usingBlob,
-                    blobHash: blk.blobHash,
-                    evidence: evidence
+                    blockId: blk.blockId,
+                    isContesting: isContesting,
+                    blobUsed: meta.blobUsed
                 });
+
+                IVerifier(verifier).verifyProof(evidence, input);
             }
         }
 
-        maxBlocksToVerify = tier.maxBlocksToVerify;
-
         if (tier.contestBond == 0) {
+            assert(tier.validityBond == 0);
             // When contestBond is zero for the current tier, it signifies
             // it's the top tier. In this case, it can overwrite existing
             // transitions without contestation.
-
-            // We should outright prohibit the use of zero values for both
-            // blockHash and signalRoot since, when we initialize a new
-            // transition, we set both blockHash and signalRoot to 0.
             if (
                 evidence.blockHash == tran.blockHash
                     && evidence.signalRoot == tran.signalRoot
             ) {
                 revert L1_ALREADY_PROVED();
             }
-
+            // We should outright prohibit the use of zero values for both
+            // blockHash and signalRoot since, when we initialize a new
+            // transition, we set both blockHash and signalRoot to 0.
             if (evidence.blockHash == 0 || evidence.signalRoot == 0) {
                 revert L1_INVALID_EVIDENCE();
             }
 
+            // A special return value from the top tier prover can signal this
+            // contract to return all liveness bond.
             if (
-                evidence.proof.length == 32
-                    && bytes32(evidence.proof) == keccak256("RETURN_LIVENESS_BOND")
+                blk.livenessBond > 0 && evidence.proof.length == 32
+                    && bytes32(evidence.proof) == RETURN_LIVENESS_BOND
             ) {
                 LibTaikoToken.creditTaikoToken(
                     state, blk.assignedProver, blk.livenessBond
                 );
+                blk.livenessBond = 0;
             }
 
             tran.blockHash = evidence.blockHash;
             tran.signalRoot = evidence.signalRoot;
             tran.prover = msg.sender;
+
+            if (tran.contester != address(0)) {
+                // At this point we know that the contester was right
+                LibTaikoToken.creditTaikoToken(
+                    state,
+                    tran.contester,
+                    tran.validityBond / 4 + tran.contestBond
+                );
+                tran.contester = address(0);
+                tran.validityBond = 0;
+            }
+
             tran.timestamp = uint64(block.timestamp);
             tran.tier = evidence.tier;
 
@@ -299,9 +324,10 @@ library LibProving {
                 tier: evidence.tier
             });
         } else {
-            // The new tier is higher than the previous tier, we  are in the
+            assert(evidence.tier > tran.tier);
+            // The new tier is higher than the previous tier, we are in the
             // proving mode. This works even if this transition's contester is
-            // address zero.
+            // address zero, see more info below.
 
             // zero values are not allowed
             if (evidence.blockHash == 0 || evidence.signalRoot == 0) {
@@ -353,23 +379,19 @@ library LibProving {
                 revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
             }
 
-            // Burn the validity bond from the prover.
-            LibTaikoToken.debitTaikoToken(
-                state, resolver, msg.sender, tier.validityBond
-            );
-
             unchecked {
                 // This is the amount of Taiko tokens to send to the new prover
-                // and the winner of the contest.
+                // and the winner of the contest (same amount to both parties).
                 uint256 reward;
                 if (
                     tran.blockHash == evidence.blockHash
                         && tran.signalRoot == evidence.signalRoot
                 ) {
+                    assert(tran.contester != address(0));
                     // In the event that the previous prover emerges as the
                     // winner, half of the contest bond is designated as the
                     // reward, to be divided equally between the new prover and
-                    // the previous prover.
+                    // the previous prover -- 1/4 each
                     reward = tran.contestBond / 4;
 
                     // Mint the reward and the validity bond and return it to
@@ -406,10 +428,16 @@ library LibProving {
                     tran.signalRoot = evidence.signalRoot;
                 }
 
+                // Reward this prover.
                 // In theory, the reward can also be zero for certain tiers if
                 // their validity bonds are set to zero.
                 LibTaikoToken.creditTaikoToken(state, msg.sender, reward);
             }
+
+            // Burn the validity bond from the prover.
+            LibTaikoToken.debitTaikoToken(
+                state, resolver, msg.sender, tier.validityBond
+            );
 
             // Regardless of whether the previous prover or the contester
             // emerges as the winner, we consistently erase the contest history
@@ -417,7 +445,7 @@ library LibProving {
             tran.prover = msg.sender;
             tran.validityBond = tier.validityBond;
             tran.contester = address(0);
-            tran.contestBond = 1;
+            tran.contestBond = 1; // to save gas
             tran.timestamp = uint64(block.timestamp);
             tran.tier = evidence.tier;
 

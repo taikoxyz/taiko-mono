@@ -75,7 +75,8 @@ contract GuardianProver is EssentialContract {
     /// @dev Called by guardians to approve a guardian proof
     function approveEvidence(
         uint64 blockId,
-        TaikoData.BlockEvidence memory evidence
+        TaikoData.BlockEvidence memory evidence,
+        TaikoData.BlockMetadata memory meta
     )
         external
         nonReentrant
@@ -92,7 +93,7 @@ contract GuardianProver is EssentialContract {
 
         if (_isApproved(approvalBits)) {
             bytes memory data = abi.encodeWithSignature(
-                "proveBlock(uint64,bytes)", blockId, abi.encode(evidence)
+                "proveBlock(uint64,bytes)", blockId, abi.encode(evidence, meta)
             );
 
             (bool success,) = resolve("taiko", false).call(data);

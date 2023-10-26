@@ -22,16 +22,12 @@ abstract contract TaikoEvents {
     /// @param proverFee The fee paid to the assigned prover.
     /// @param meta The block metadata containing information about the proposed
     /// block.
-    /// @param usingBlob This block proposal uses Blob to carry the L2
-    /// transactions.
     event BlockProposed(
         uint256 indexed blockId,
         address indexed assignedProver,
         uint96 livenessBond,
         uint256 proverFee,
-        uint16 minTier,
-        TaikoData.BlockMetadata meta,
-        bool usingBlob
+        TaikoData.BlockMetadata meta
     );
 
     /// @dev Emitted when a block is verified.

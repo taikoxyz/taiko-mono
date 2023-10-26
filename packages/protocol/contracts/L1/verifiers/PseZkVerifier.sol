@@ -44,49 +44,42 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        uint64, /*blockId*/
-        address prover,
-        bool isContesting,
-        bool usingBlob,
-        bytes32 blobHash,
-        TaikoData.BlockEvidence calldata evidence
+        TaikoData.BlockEvidence calldata evidence,
+        Input calldata input
     )
         external
         view
     {
         // Do not run proof verification to contest an existing proof
-        if (isContesting) return;
+        if (input.isContesting) return;
 
         PseZkEvmProof memory proof = abi.decode(evidence.proof, (PseZkEvmProof));
 
         bytes32 instance;
-
-        if (usingBlob) {
+        if (input.blobUsed) {
             PointProof memory pf = abi.decode(proof.pointProof, (PointProof));
-            bytes32 x = keccak256(abi.encodePacked(blobHash, pf.txListHash));
+
+            instance = calcInstance({
+                prover: input.prover,
+                evidence: evidence,
+                pointValue: pf.pointValue,
+                metaHash: input.metaHash
+            });
+
             Lib4844.evaluatePoint({
-                blobHash: blobHash,
-                x: uint256(x) % Lib4844.BLS_MODULUS,
+                blobHash: input.blobHash,
+                x: calc4844PointEvalX(input.blobHash, pf.txListHash),
                 y: pf.pointValue,
                 commitment: pf.pointCommitment,
                 proof: pf.pointProof
             });
-
-            instance = calcInstance({
-                prover: prover,
-                blobHash: blobHash,
-                txListHash: pf.txListHash,
-                pointValue: pf.pointValue,
-                evidence: evidence
-            });
         } else {
             assert(proof.pointProof.length == 0);
             instance = calcInstance({
-                prover: prover,
-                blobHash: 0,
-                txListHash: blobHash, // blobHash == txListHash
+                prover: input.prover,
+                evidence: evidence,
                 pointValue: 0,
-                evidence: evidence
+                metaHash: input.metaHash
             });
         }
 
@@ -95,6 +88,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
             LibBytesUtils.slice(proof.zkp, 0, 32),
             bytes.concat(bytes16(0), bytes16(instance))
         );
+
         if (!verified) revert L1_INVALID_PROOF();
 
         verified = LibBytesUtils.equal(
@@ -118,12 +112,24 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         if (bytes32(ret) != keccak256("taiko")) revert L1_INVALID_PROOF();
     }
 
+    function calc4844PointEvalX(
+        bytes32 blobHash,
+        bytes32 txListHash
+    )
+        public
+        pure
+        returns (uint256)
+    {
+        return uint256(blobHash ^ txListHash) % Lib4844.BLS_MODULUS;
+        // return uint256(keccak256(abi.encodePacked(blobHash, txListHash)))
+        //     % Lib4844.BLS_MODULUS;
+    }
+
     function calcInstance(
         address prover,
-        bytes32 blobHash,
-        bytes32 txListHash,
+        TaikoData.BlockEvidence memory evidence,
         uint256 pointValue,
-        TaikoData.BlockEvidence memory evidence
+        bytes32 metaHash
     )
         public
         pure
@@ -131,14 +137,12 @@ contract PseZkVerifier is EssentialContract, IVerifier {
     {
         return keccak256(
             abi.encodePacked(
-                evidence.metaHash,
+                metaHash,
                 evidence.parentHash,
                 evidence.blockHash,
                 evidence.signalRoot,
                 evidence.graffiti,
                 prover,
-                blobHash,
-                txListHash,
                 pointValue
             )
         );

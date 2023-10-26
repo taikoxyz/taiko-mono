@@ -18,6 +18,7 @@ import { TaikoData } from "../TaikoData.sol";
 
 import { LibDepositing } from "./LibDepositing.sol";
 import { LibTaikoToken } from "./LibTaikoToken.sol";
+import { LibUtils } from "./LibUtils.sol";
 
 /// @title LibProposing
 /// @notice A library for handling block proposals in the Taiko protocol.
@@ -30,9 +31,7 @@ library LibProposing {
         address indexed assignedProver,
         uint96 livenessBond,
         uint256 proverFee,
-        uint16 minTier,
-        TaikoData.BlockMetadata meta,
-        bool usingBlob
+        TaikoData.BlockMetadata meta
     );
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
@@ -79,11 +78,32 @@ library LibProposing {
             revert L1_TOO_MANY_BLOCKS();
         }
 
+        bytes32 blobHash; //or txListHash (if Blob not yet supported)
+        bool blobUsed = txList.length == 0;
+        if (blobUsed) {
+            // Always use the first blob in this transaction.
+            // If the proposeBlock functions are called more than once in the
+            // same L1 transaction, these 2 L2 blocks will use the same blob as
+            // DA.
+            blobHash = IBlobHashReader(
+                resolver.resolve("blob_hash_reader", false)
+            ).getFirstBlobHash();
+
+            if (blobHash == 0) revert L1_NO_BLOB_FOUND();
+        } else {
+            if (txList.length > config.blockMaxTxListBytes) {
+                revert L1_TXLIST_TOO_LARGE();
+            }
+            blobHash = keccak256(txList);
+        }
         // Initialize metadata to compute a metaHash, which forms a part of
         // the block data to be stored on-chain for future integrity checks.
         // If we choose to persist all data fields in the metadata, it will
         // require additional storage slots.
+
         unchecked {
+            uint256 rand = uint256(blobHash)
+                ^ (block.prevrandao * b.numBlocks * block.number);
             meta = TaikoData.BlockMetadata({
                 l1Hash: blockhash(block.number - 1),
                 // Following the Merge, the L1 mixHash incorporates the
@@ -91,13 +111,17 @@ library LibProposing {
                 // of multiple Taiko blocks being proposed within a single
                 // Ethereum block, we must introduce a salt to this random
                 // number as the L2 mixHash.
-                difficulty: bytes32(block.prevrandao * b.numBlocks),
+                difficulty: bytes32(rand),
+                blobHash: blobHash,
                 extraData: extraData,
+                coinbase: msg.sender,
                 id: b.numBlocks,
+                gasLimit: config.blockMaxGasLimit,
                 timestamp: uint64(block.timestamp),
                 l1Height: uint64(block.number - 1),
-                gasLimit: config.blockMaxGasLimit,
-                coinbase: msg.sender,
+                minTier: ITierProvider(resolver.resolve("tier_provider", false))
+                    .getMinTier(rand),
+                blobUsed: blobUsed,
                 // Each transaction must handle a specific quantity of L1-to-L2
                 // Ether deposits.
                 depositsProcessed: LibDepositing.processDeposits(
@@ -105,7 +129,6 @@ library LibProposing {
                     )
             });
         }
-
         // Now, it's essential to initialize the block that will be stored
         // on L1. We should aim to utilize as few storage slots as possible,
         // alghouth using a ring buffer can minimize storage writes once
@@ -116,31 +139,13 @@ library LibProposing {
         // Please note that all fields must be re-initialized since we are
         // utilizing an existing ring buffer slot, not creating a new storage
         // slot.
-        blk.metaHash = hashMetadata(meta);
+        blk.metaHash = LibUtils.hashMetadata(meta);
 
         // Safeguard the liveness bond to ensure its preservation,
         // particularly in scenarios where it might be altered after the
         // block's proposal but before it has been proven or verified.
         blk.livenessBond = config.livenessBond;
         blk.blockId = b.numBlocks;
-
-        blk.usingBlob = txList.length == 0;
-        if (blk.usingBlob) {
-            // Always use the first blob in this transaction.
-            // If the proposeBlock functions are called more than once in the
-            // same L1 transaction, these 2 L2 blocks will use the same blob as
-            // DA.
-            blk.blobHash = IBlobHashReader(
-                resolver.resolve("blob_hash_reader", false)
-            ).getFirstBlobHash();
-
-            if (blk.blobHash == 0) revert L1_NO_BLOB_FOUND();
-        } else {
-            if (txList.length > config.blockMaxTxListBytes) {
-                revert L1_TXLIST_TOO_LARGE();
-            }
-            blk.blobHash = keccak256(txList);
-        }
 
         blk.proposedAt = meta.timestamp;
 
@@ -149,13 +154,6 @@ library LibProposing {
 
         // For unverified block, its verifiedTransitionId is always 0.
         blk.verifiedTransitionId = 0;
-
-        // The LibTiers play a crucial role in determining the minimum tier
-        // required for the block's validity proof. It's imperative to
-        // maintain a certain percentage of blocks for each tier to ensure
-        // that provers are consistently available when needed.
-        blk.minTier = ITierProvider(resolver.resolve("tier_provider", false))
-            .getMinTier(uint256(blk.metaHash));
 
         // Verify assignment authorization; if prover's address is an IProver
         // contract, transfer Ether and call "validateAssignment" for
@@ -182,38 +180,15 @@ library LibProposing {
         // Validate the prover assignment, then charge Ether or ERC20 as the
         // prover fee based on the block's minTier.
         uint256 proverFee =
-            _validateAssignment(blk.minTier, blk.blobHash, assignment);
+            _validateAssignment(meta.minTier, blobHash, assignment);
 
         emit BlockProposed({
             blockId: blk.blockId,
             assignedProver: blk.assignedProver,
             livenessBond: config.livenessBond,
             proverFee: proverFee,
-            minTier: blk.minTier,
-            meta: meta,
-            usingBlob: blk.usingBlob
+            meta: meta
         });
-    }
-
-    /// @dev Hashing the block metadata.
-    function hashMetadata(TaikoData.BlockMetadata memory meta)
-        internal
-        pure
-        returns (bytes32 hash)
-    {
-        uint256[6] memory inputs;
-        inputs[0] = uint256(meta.l1Hash);
-        inputs[1] = uint256(meta.difficulty);
-
-        inputs[2] = uint256(meta.extraData);
-        inputs[3] = (uint256(meta.id)) | (uint256(meta.timestamp) << 64)
-            | (uint256(meta.l1Height) << 128) | (uint256(meta.gasLimit) << 192);
-        inputs[4] = uint256(uint160(meta.coinbase));
-        inputs[5] = uint256(keccak256(abi.encode(meta.depositsProcessed)));
-
-        assembly {
-            hash := keccak256(inputs, 192 /*mul(6, 32)*/ )
-        }
     }
 
     function hashAssignment(
