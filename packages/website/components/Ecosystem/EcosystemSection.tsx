@@ -76,6 +76,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/dottaiko.png",
+    name: "DotTaiko",
+    link: "https://dottaiko.me",
+    description:
+      "Web3 identities natively on Taiko blockchain, built by DotNames.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/taiko.svg",
     name: "Bridge",
     link: "https://bridge.jolnir.taiko.xyz",
@@ -151,6 +160,15 @@ const ecosystemData: EcosystemData[] = [
     link: "https://gourds.studio",
     description:
       "Gourds aims to achieve crypto market efficiency by introducing novel trading instruments for mass adoption.",
+    filters: [],
+    isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/hotpot.png",
+    name: "Hotpot",
+    link: "https://market.hotpot.gg/",
+    description:
+      "Hotpot Protocol offers a toolkit for creating gamified Dapps, enabling builders to engage users with provably fair jackpots, airdrop raffle tickets, and build decentralized prediction markets on EVMs.",
     filters: [],
     isLive: true,
   },
@@ -366,6 +384,15 @@ const ecosystemData: EcosystemData[] = [
       "User can easily compare and swap multiple chains on top of the Taiko blockchain. A service that links multiple swaps and organizes multiple tokens.",
     filters: [],
     isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/rhinofi.svg",
+    name: "rhino.fi",
+    link: "https://app.rhino.fi/",
+    description:
+      "The lightning-fast secure bridge for seamless cross-chain transactions",
+    filters: [],
+    isLive: false,
   },
   {
     icon: "/images/ecosystem/rubic.png",
