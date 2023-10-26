@@ -12,12 +12,12 @@ import { TaikoData } from "../TaikoData.sol";
 /// @notice Defines the function that handles proof verification.
 interface IVerifier {
     struct Input {
-        uint64 blockId;
+        bytes32 metaHash;
+        bytes32 blobHash;
         address prover;
+        uint64 blockId;
         bool isContesting;
         bool blobUsed;
-        bytes32 blobHash;
-        bytes32 metaHash;
     }
 
     function verifyProof(

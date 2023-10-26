@@ -199,12 +199,12 @@ library LibProving {
                     evidence.tier == tran.tier && tier.contestBond != 0;
 
                 IVerifier.Input memory input = IVerifier.Input({
-                    blockId: blk.blockId,
-                    prover: msg.sender,
-                    isContesting: isContesting,
-                    blobUsed: meta.blobUsed,
+                    metaHash: blk.metaHash,
                     blobHash: meta.blobHash,
-                    metaHash: blk.metaHash
+                    prover: msg.sender,
+                    blockId: blk.blockId,
+                    isContesting: isContesting,
+                    blobUsed: meta.blobUsed
                 });
 
                 IVerifier(verifier).verifyProof(evidence, input);
