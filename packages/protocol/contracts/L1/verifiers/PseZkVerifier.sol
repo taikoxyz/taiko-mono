@@ -139,16 +139,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         returns (bytes32 instance)
     {
         return keccak256(
-            abi.encodePacked(
-                claim.parentHash,
-                claim.blockHash,
-                claim.signalRoot,
-                claim.graffiti,
-                prover,
-                metaHash,
-                txListHash,
-                pointValue
-            )
+            abi.encode(claim, prover, metaHash, txListHash, pointValue)
         );
     }
 
