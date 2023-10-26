@@ -69,7 +69,7 @@ library TaikoData {
     /// @dev Struct representing prover assignment
     struct TierFee {
         uint16 tier;
-        uint256 fee;
+        uint128 fee;
     }
 
     struct TierProof {
