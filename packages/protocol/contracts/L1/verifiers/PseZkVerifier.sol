@@ -45,7 +45,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
     /// @inheritdoc IVerifier
     function verifyProof(
         TaikoData.BlockEvidence calldata evidence,
-        VerifierInput calldata input
+        Input calldata input
     )
         external
         view
@@ -68,9 +68,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
             Lib4844.evaluatePoint({
                 blobHash: input.blobHash,
-                x: uint256(
-                    keccak256(abi.encodePacked(input.blobHash, pf.txListHash))
-                    ) % Lib4844.BLS_MODULUS,
+                x: calc4844PointEvalX(input.blobHash, pf.txListHash),
                 y: pf.pointValue,
                 commitment: pf.pointCommitment,
                 proof: pf.pointProof
@@ -112,6 +110,19 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         if (!verified) revert L1_INVALID_PROOF();
         if (ret.length != 32) revert L1_INVALID_PROOF();
         if (bytes32(ret) != keccak256("taiko")) revert L1_INVALID_PROOF();
+    }
+
+    function calc4844PointEvalX(
+        bytes32 blobHash,
+        bytes32 txListHash
+    )
+        public
+        pure
+        returns (uint256)
+    {
+        return uint256(blobHash ^ txListHash) % Lib4844.BLS_MODULUS;
+        // return uint256(keccak256(abi.encodePacked(blobHash, txListHash)))
+        //     % Lib4844.BLS_MODULUS;
     }
 
     function calcInstance(

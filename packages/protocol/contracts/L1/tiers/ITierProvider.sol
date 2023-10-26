@@ -28,6 +28,7 @@ interface ITierProvider {
     function getMinTier(uint256 rand) external view returns (uint16);
 }
 
+/// @dev Tier ID cannot be zero!
 library LibTiers {
     uint16 public constant TIER_OPTIMISTIC = 100;
     uint16 public constant TIER_SGX = 200;
