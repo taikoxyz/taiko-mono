@@ -120,9 +120,8 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         pure
         returns (uint256)
     {
-        return uint256(blobHash ^ txListHash) % Lib4844.BLS_MODULUS;
-        // return uint256(keccak256(abi.encodePacked(blobHash, txListHash)))
-        //     % Lib4844.BLS_MODULUS;
+        return uint256(keccak256(abi.encodePacked(blobHash, txListHash)))
+            % Lib4844.BLS_MODULUS;
     }
 
     function calcInstance(
