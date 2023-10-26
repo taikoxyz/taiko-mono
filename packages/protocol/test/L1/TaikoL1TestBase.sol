@@ -211,32 +211,33 @@ abstract contract TaikoL1TestBase is TestBase {
             tproof.data = abi.encode(zkProof);
         }
 
-        address newPubKey;
+        address newInstance;
         // Keep changing the pub key associated with an instance to avoid
         // attacks,
         // obviously just a mock due to 2 addresses changing all the time.
-        (newPubKey,) = sv.instances(0);
-        if (newPubKey == SGX_X_0) {
-            newPubKey = SGX_X_1;
+        (newInstance,) = sv.instances(0);
+        if (newInstance == SGX_X_0) {
+            newInstance = SGX_X_1;
         } else {
-            newPubKey = SGX_X_0;
+            newInstance = SGX_X_0;
         }
 
         if (tier == LibTiers.TIER_SGX) {
             bytes memory signature = createSgxSignatureProof(
-                claim, newPubKey, prover, LibUtils.hashMetadata(meta)
+                claim, newInstance, prover, LibUtils.hashMetadata(meta)
             );
 
-            tproof.data = bytes.concat(bytes2(0), bytes20(newPubKey), signature);
+            tproof.data =
+                bytes.concat(bytes2(0), bytes20(newInstance), signature);
         }
 
         if (tier == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
             bytes memory signature = createSgxSignatureProof(
-                claim, newPubKey, prover, LibUtils.hashMetadata(meta)
+                claim, newInstance, prover, LibUtils.hashMetadata(meta)
             );
 
             bytes memory sgxProof =
-                bytes.concat(bytes2(0), bytes20(newPubKey), signature);
+                bytes.concat(bytes2(0), bytes20(newInstance), signature);
             // Concatenate SGX and ZK (in this order)
             tproof.data = bytes.concat(sgxProof, tproof.data);
         }
@@ -324,7 +325,7 @@ abstract contract TaikoL1TestBase is TestBase {
 
     function createSgxSignatureProof(
         TaikoData.TransitionClaim memory claim,
-        address newPubKey,
+        address newInstance,
         address prover,
         bytes32 metaHash
     )
@@ -332,14 +333,14 @@ abstract contract TaikoL1TestBase is TestBase {
         view
         returns (bytes memory signature)
     {
-        bytes32 digest = sv.getSignedHash(claim, prover, newPubKey, metaHash);
+        bytes32 digest = sv.getSignedHash(claim, newInstance, prover, metaHash);
 
         uint256 signerPrivateKey;
 
         // In the test suite these are the 3 which acts as provers
-        if (SGX_X_0 == newPubKey) {
+        if (SGX_X_0 == newInstance) {
             signerPrivateKey = 0x5;
-        } else if (SGX_X_1 == newPubKey) {
+        } else if (SGX_X_1 == newInstance) {
             signerPrivateKey = 0x4;
         }
 
