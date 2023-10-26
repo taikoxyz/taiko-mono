@@ -9,9 +9,8 @@ pragma solidity ^0.8.20;
 import { ITierProvider, LibTiers } from "./ITierProvider.sol";
 
 /// @title TaikoA6TierProvider
+/// @dev Assuming liveness bound is 250TKO.
 contract TaikoA6TierProvider is ITierProvider {
-    uint96 private constant UNIT = 250e18; // FYI: livenessBond = 250TKO
-
     error TIER_NOT_FOUND();
 
     function getTier(uint16 tierId)
@@ -23,8 +22,8 @@ contract TaikoA6TierProvider is ITierProvider {
         if (tierId == LibTiers.TIER_OPTIMISTIC) {
             return ITierProvider.Tier({
                 verifierName: "tier_optimistic",
-                validityBond: 4 * UNIT,
-                contestBond: 4 * UNIT,
+                validityBond: 1000 ether, // TKO
+                contestBond: 1000 ether, // TKO
                 cooldownWindow: 24 hours,
                 provingWindow: 2 hours,
                 maxBlocksToVerify: 10
@@ -34,8 +33,8 @@ contract TaikoA6TierProvider is ITierProvider {
         if (tierId == LibTiers.TIER_SGX) {
             return ITierProvider.Tier({
                 verifierName: "tier_sgx",
-                validityBond: 2 * UNIT,
-                contestBond: 2 * UNIT,
+                validityBond: 500 ether, // TKO
+                contestBond: 500 ether, // TKO
                 cooldownWindow: 24 hours,
                 provingWindow: 4 hours,
                 maxBlocksToVerify: 8
@@ -45,8 +44,8 @@ contract TaikoA6TierProvider is ITierProvider {
         if (tierId == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
             return ITierProvider.Tier({
                 verifierName: "tier_sgx_and_pse_zkevm",
-                validityBond: 1 * UNIT,
-                contestBond: 1 * UNIT,
+                validityBond: 250 ether, // TKO
+                contestBond: 250 ether, // TKO
                 cooldownWindow: 24 hours,
                 provingWindow: 6 hours,
                 maxBlocksToVerify: 6
@@ -82,8 +81,8 @@ contract TaikoA6TierProvider is ITierProvider {
 
     function getMinTier(uint256 rand) public pure override returns (uint16) {
         // If we assume the block time is 3 seconds, and the proof generation
-        // time is ~90 mins
-        // and half of the blocks are unprovable: 90 * 60 / 3 / 2  = 900.
+        // time is ~90 mins and half of the blocks are unprovable: 90 * 60 / 3 /
+        // 2  = 900.
         // TODO(david): tune this value based on the A6 circuits benchmark.
         if (rand % 900 == 0) return LibTiers.TIER_SGX_AND_PSE_ZKEVM;
         else if (rand % 10 == 0) return LibTiers.TIER_SGX; // 10% of the blocks
