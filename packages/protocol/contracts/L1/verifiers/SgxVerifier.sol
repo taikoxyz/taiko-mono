@@ -100,8 +100,9 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
+        Input calldata input,
         TaikoData.TransitionClaim calldata claim,
-        Input calldata input
+        TaikoData.TierProof calldata tproof
     )
         external
     {
@@ -110,12 +111,12 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
         // Size is: 87 bytes
         // 2 bytes + 20 bytes + 65 bytes (signature) = 87
-        if (claim.proof.length != 87) revert SGX_INVALID_PROOF();
+        if (tproof.data.length != 87) revert SGX_INVALID_PROOF();
 
-        uint16 id = uint16(bytes2(LibBytesUtils.slice(claim.proof, 0, 2)));
+        uint16 id = uint16(bytes2(LibBytesUtils.slice(tproof.data, 0, 2)));
         address newInstance =
-            address(bytes20(LibBytesUtils.slice(claim.proof, 2, 20)));
-        bytes memory signature = LibBytesUtils.slice(claim.proof, 22);
+            address(bytes20(LibBytesUtils.slice(tproof.data, 2, 20)));
+        bytes memory signature = LibBytesUtils.slice(tproof.data, 22);
         address oldInstance = ECDSAUpgradeable.recover(
             getSignedHash(claim, input.prover, newInstance, input.metaHash),
             signature

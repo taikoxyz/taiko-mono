@@ -74,7 +74,7 @@ library TaikoData {
 
     struct TierProof {
         uint16 tier;
-        bytes proof;
+        bytes data;
     }
 
     struct ProverAssignment {
@@ -113,8 +113,6 @@ library TaikoData {
         bytes32 blockHash;
         bytes32 signalRoot;
         bytes32 graffiti;
-        uint16 tier;
-        bytes proof;
     }
 
     /// @dev Struct representing state transition data.

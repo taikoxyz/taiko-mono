@@ -188,26 +188,28 @@ abstract contract TaikoL1TestBase is TestBase {
             parentHash: parentHash,
             blockHash: blockHash,
             signalRoot: signalRoot,
-            graffiti: 0x0,
-            tier: tier,
-            proof: new bytes(102)
+            graffiti: 0x0
         });
 
         bytes32 instance = pv.calcInstance(
             claim, prover, LibUtils.hashMetadata(meta), meta.blobHash, 0
         );
 
-        PseZkVerifier.PseZkEvmProof memory zkProof;
-        zkProof.verifierId = 300;
-        zkProof.zkp = bytes.concat(
-            bytes16(0),
-            bytes16(instance),
-            bytes16(0),
-            bytes16(uint128(uint256(instance))),
-            new bytes(100)
-        );
+        TaikoData.TierProof memory tproof;
+        tproof.tier = tier;
+        {
+            PseZkVerifier.PseZkEvmProof memory zkProof;
+            zkProof.verifierId = 300;
+            zkProof.zkp = bytes.concat(
+                bytes16(0),
+                bytes16(instance),
+                bytes16(0),
+                bytes16(uint128(uint256(instance))),
+                new bytes(100)
+            );
 
-        claim.proof = abi.encode(zkProof);
+            tproof.data = abi.encode(zkProof);
+        }
 
         address newPubKey;
         // Keep changing the pub key associated with an instance to avoid
@@ -225,7 +227,7 @@ abstract contract TaikoL1TestBase is TestBase {
                 claim, newPubKey, prover, LibUtils.hashMetadata(meta)
             );
 
-            claim.proof = bytes.concat(bytes2(0), bytes20(newPubKey), signature);
+            tproof.data = bytes.concat(bytes2(0), bytes20(newPubKey), signature);
         }
 
         if (tier == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
@@ -236,35 +238,35 @@ abstract contract TaikoL1TestBase is TestBase {
             bytes memory sgxProof =
                 bytes.concat(bytes2(0), bytes20(newPubKey), signature);
             // Concatenate SGX and ZK (in this order)
-            claim.proof = bytes.concat(sgxProof, claim.proof);
+            tproof.data = bytes.concat(sgxProof, tproof.data);
         }
 
         if (tier == LibTiers.TIER_GUARDIAN) {
-            claim.proof = "";
+            tproof.data = "";
 
             // Grant 2 signatures, 3rd might be a revert
             vm.prank(David, David);
-            gp.approveEvidence(meta.id, claim, meta);
+            gp.approveEvidence(meta.id, meta, claim, tproof);
             vm.prank(Emma, Emma);
-            gp.approveEvidence(meta.id, claim, meta);
+            gp.approveEvidence(meta.id, meta, claim, tproof);
 
             if (revertReason != "") {
                 vm.prank(Frank, Frank);
                 vm.expectRevert(); // Revert reason is 'wrapped' so will not be
                     // identical to the expectedRevert
-                gp.approveEvidence(meta.id, claim, meta);
+                gp.approveEvidence(meta.id, meta, claim, tproof);
             } else {
                 vm.prank(Frank, Frank);
-                gp.approveEvidence(meta.id, claim, meta);
+                gp.approveEvidence(meta.id, meta, claim, tproof);
             }
         } else {
             if (revertReason != "") {
                 vm.prank(msgSender, msgSender);
                 vm.expectRevert(revertReason);
-                L1.proveBlock(meta.id, abi.encode(claim, meta));
+                L1.proveBlock(meta.id, abi.encode(meta, claim, tproof));
             } else {
                 vm.prank(msgSender, msgSender);
-                L1.proveBlock(meta.id, abi.encode(claim, meta));
+                L1.proveBlock(meta.id, abi.encode(meta, claim, tproof));
             }
         }
     }

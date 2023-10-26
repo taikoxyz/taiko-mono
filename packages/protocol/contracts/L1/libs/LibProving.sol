@@ -59,8 +59,9 @@ library LibProving {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
+        TaikoData.BlockMetadata memory meta,
         TaikoData.TransitionClaim memory claim,
-        TaikoData.BlockMetadata memory meta
+        TaikoData.TierProof memory tproof
     )
         internal
         returns (uint8 maxBlocksToVerify)
@@ -166,8 +167,8 @@ library LibProving {
         // The new proof must meet or exceed the minimum tier required by the
         // block or the previous proof; it cannot be on a lower tier.
         if (
-            claim.tier == 0 || claim.tier < meta.minTier
-                || claim.tier < tran.tier
+            tproof.tier == 0 || tproof.tier < meta.minTier
+                || tproof.tier < tran.tier
         ) {
             revert L1_INVALID_TIER();
         }
@@ -176,7 +177,7 @@ library LibProving {
         // subsequent action will result in a revert.
         ITierProvider.Tier memory tier = ITierProvider(
             resolver.resolve("tier_provider", false)
-        ).getTier(claim.tier);
+        ).getTier(tproof.tier);
 
         maxBlocksToVerify = tier.maxBlocksToVerify;
 
@@ -201,7 +202,7 @@ library LibProving {
             // optimistic proofs.
             if (verifier != address(0)) {
                 bool isContesting =
-                    claim.tier == tran.tier && tier.contestBond != 0;
+                    tproof.tier == tran.tier && tier.contestBond != 0;
 
                 IVerifier.Input memory input = IVerifier.Input({
                     metaHash: blk.metaHash,
@@ -212,7 +213,7 @@ library LibProving {
                     blobUsed: meta.blobUsed
                 });
 
-                IVerifier(verifier).verifyProof(claim, input);
+                IVerifier(verifier).verifyProof(input, claim, tproof);
             }
         }
 
@@ -237,8 +238,8 @@ library LibProving {
             // A special return value from the top tier prover can signal this
             // contract to return all liveness bond.
             if (
-                blk.livenessBond > 0 && claim.proof.length == 32
-                    && bytes32(claim.proof) == RETURN_LIVENESS_BOND
+                blk.livenessBond > 0 && tproof.data.length == 32
+                    && bytes32(tproof.data) == RETURN_LIVENESS_BOND
             ) {
                 LibTaikoToken.creditTaikoToken(
                     state, blk.assignedProver, blk.livenessBond
@@ -262,7 +263,7 @@ library LibProving {
             }
 
             tran.timestamp = uint64(block.timestamp);
-            tran.tier = claim.tier;
+            tran.tier = tproof.tier;
 
             emit TransitionProved({
                 blockId: blk.blockId,
@@ -271,9 +272,9 @@ library LibProving {
                 signalRoot: claim.signalRoot,
                 prover: msg.sender,
                 validityBond: 0,
-                tier: claim.tier
+                tier: tproof.tier
             });
-        } else if (claim.tier == tran.tier) {
+        } else if (tproof.tier == tran.tier) {
             // Contesting an existing transition requires either the blockHash
             // or signalRoot to be different. This precaution is necessary
             // because this `proveBlock` transaction might aim to prove a
@@ -321,10 +322,10 @@ library LibProving {
                 signalRoot: tran.signalRoot,
                 contester: msg.sender,
                 contestBond: tier.contestBond,
-                tier: claim.tier
+                tier: tproof.tier
             });
         } else {
-            assert(claim.tier > tran.tier);
+            assert(tproof.tier > tran.tier);
             // The new tier is higher than the previous tier, we are in the
             // proving mode. This works even if this transition's contester is
             // address zero, see more info below.
@@ -447,7 +448,7 @@ library LibProving {
             tran.contester = address(0);
             tran.contestBond = 1; // to save gas
             tran.timestamp = uint64(block.timestamp);
-            tran.tier = claim.tier;
+            tran.tier = tproof.tier;
 
             emit TransitionProved({
                 blockId: blk.blockId,
@@ -456,7 +457,7 @@ library LibProving {
                 signalRoot: claim.signalRoot,
                 prover: msg.sender,
                 validityBond: tier.validityBond,
-                tier: claim.tier
+                tier: tproof.tier
             });
         }
     }

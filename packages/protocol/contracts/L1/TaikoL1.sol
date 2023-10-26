@@ -111,17 +111,23 @@ contract TaikoL1 is
         nonReentrant
     {
         (
+            TaikoData.BlockMetadata memory meta,
             TaikoData.TransitionClaim memory claim,
-            TaikoData.BlockMetadata memory meta
+            TaikoData.TierProof memory tproof
         ) = abi.decode(
-            input, (TaikoData.TransitionClaim, TaikoData.BlockMetadata)
+            input,
+            (
+                TaikoData.BlockMetadata,
+                TaikoData.TransitionClaim,
+                TaikoData.TierProof
+            )
         );
 
         if (blockId != meta.id) revert L1_INVALID_BLOCK_ID();
 
         TaikoData.Config memory config = getConfig();
         uint8 maxBlocksToVerify = LibProving.proveBlock(
-            state, config, AddressResolver(this), claim, meta
+            state, config, AddressResolver(this), meta, claim, tproof
         );
         if (maxBlocksToVerify > 0) {
             LibVerifying.verifyBlocks(

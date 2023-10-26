@@ -21,8 +21,9 @@ interface IVerifier {
     }
 
     function verifyProof(
+        Input calldata input,
         TaikoData.TransitionClaim calldata claim,
-        Input calldata input
+        TaikoData.TierProof calldata tproof
     )
         external;
 }

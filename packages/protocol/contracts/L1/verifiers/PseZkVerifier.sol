@@ -44,8 +44,9 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
+        Input calldata input,
         TaikoData.TransitionClaim calldata claim,
-        Input calldata input
+        TaikoData.TierProof calldata tproof
     )
         external
         view
@@ -53,7 +54,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         // Do not run proof verification to contest an existing proof
         if (input.isContesting) return;
 
-        PseZkEvmProof memory proof = abi.decode(claim.proof, (PseZkEvmProof));
+        PseZkEvmProof memory proof = abi.decode(tproof.data, (PseZkEvmProof));
 
         bytes32 instance;
         if (input.blobUsed) {

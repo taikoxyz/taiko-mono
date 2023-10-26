@@ -26,8 +26,10 @@ contract GuardianProver is EssentialContract {
     // fail
     event GuardiansUpdated(address[5]);
     event Approved(
-        uint64 blockId,
+        uint64 indexed blockId,
+        TaikoData.BlockMetadata meta,
         TaikoData.TransitionClaim claim,
+        TaikoData.TierProof tproof,
         uint256 approvalBits,
         bool proofSubmitted
     );
@@ -75,8 +77,9 @@ contract GuardianProver is EssentialContract {
     /// @dev Called by guardians to approve a guardian proof
     function approveEvidence(
         uint64 blockId,
-        TaikoData.TransitionClaim memory claim,
-        TaikoData.BlockMetadata memory meta
+        TaikoData.BlockMetadata calldata meta,
+        TaikoData.TransitionClaim calldata claim,
+        TaikoData.TierProof calldata tproof
     )
         external
         nonReentrant
@@ -84,16 +87,18 @@ contract GuardianProver is EssentialContract {
         uint256 id = guardianIds[msg.sender];
         if (id == 0) revert INVALID_GUARDIAN();
 
-        if (claim.tier != LibTiers.TIER_GUARDIAN) revert INVALID_PROOF();
+        if (tproof.tier != LibTiers.TIER_GUARDIAN) revert INVALID_PROOF();
 
-        bytes32 hash = keccak256(abi.encode(blockId, claim));
+        bytes32 hash = keccak256(abi.encode(meta, claim));
         uint256 approvalBits = approvals[hash];
 
         approvalBits |= 1 << id;
 
         if (_isApproved(approvalBits)) {
             bytes memory data = abi.encodeWithSignature(
-                "proveBlock(uint64,bytes)", blockId, abi.encode(claim, meta)
+                "proveBlock(uint64,bytes)",
+                meta.id,
+                abi.encode(meta, claim, tproof)
             );
 
             (bool success,) = resolve("taiko", false).call(data);
@@ -101,10 +106,10 @@ contract GuardianProver is EssentialContract {
             if (!success) revert PROVING_FAILED();
             delete approvals[hash];
 
-            emit Approved(blockId, claim, approvalBits, true);
+            emit Approved(meta.id, meta, claim, tproof, approvalBits, true);
         } else {
             approvals[hash] = approvalBits;
-            emit Approved(blockId, claim, approvalBits, false);
+            emit Approved(meta.id, meta, claim, tproof, approvalBits, false);
         }
     }
 

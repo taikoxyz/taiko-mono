@@ -981,19 +981,19 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     parentHash: parentHash,
                     blockHash: blockHash,
                     signalRoot: signalRoot,
-                    graffiti: 0x0,
-                    tier: LibTiers.TIER_GUARDIAN,
-                    proof: new bytes(102)
+                    graffiti: 0x0
                 });
 
-                claim.proof = bytes.concat(keccak256("RETURN_LIVENESS_BOND"));
+                TaikoData.TierProof memory tproof;
+                tproof.tier = LibTiers.TIER_GUARDIAN;
+                tproof.data = bytes.concat(keccak256("RETURN_LIVENESS_BOND"));
 
                 vm.prank(David, David);
-                gp.approveEvidence(meta.id, claim, meta);
+                gp.approveEvidence(meta.id, meta, claim, tproof);
                 vm.prank(Emma, Emma);
-                gp.approveEvidence(meta.id, claim, meta);
+                gp.approveEvidence(meta.id, meta, claim, tproof);
                 vm.prank(Frank, Frank);
-                gp.approveEvidence(meta.id, claim, meta);
+                gp.approveEvidence(meta.id, meta, claim, tproof);
 
                 // // Credited back the bond (not transferred to the user
                 // wallet,
