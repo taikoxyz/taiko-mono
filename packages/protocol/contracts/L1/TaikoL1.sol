@@ -263,7 +263,7 @@ contract TaikoL1 is
         returns (TaikoData.Config memory)
     {
         return TaikoData.Config({
-            chainId: 167_007,
+            chainId: 167_008,
             blockMaxProposals: 403_200,
             blockRingBufferSize: 403_210,
             maxBlocksToVerifyPerProposal: 10,
