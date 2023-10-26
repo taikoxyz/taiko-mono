@@ -102,7 +102,8 @@ contract TaikoL1 is
     /// @notice Proves or contests a block transition.
     /// @param blockId The index of the block to prove. This is also used to
     /// select the right implementation version.
-    /// @param input An abi-encoded {TaikoData.TransitionClaim} object.
+    /// @param input An abi-encoded (BlockMetadata, TransitionClaim, TierProof)
+    /// tuple.
     function proveBlock(
         uint64 blockId,
         bytes calldata input
