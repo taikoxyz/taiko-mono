@@ -5,7 +5,7 @@ import PocketBase from "pocketbase";
 
 export function ProverEndpointsTable() {
   const [provers, setProvers] = useState([]);
-  const [sortOrder, setSortOrder] = useState(null);
+  const [sortOrder, setSortOrder] = useState("asc");
   const [sortColumn, setSortColumn] = useState("currentCapacity");
   const [newProverEndpoint, setNewProverEndpoint] = useState("");
 
