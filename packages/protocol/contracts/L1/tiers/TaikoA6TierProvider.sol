@@ -81,8 +81,8 @@ contract TaikoA6TierProvider is ITierProvider {
 
     function getMinTier(uint256 rand) public pure override returns (uint16) {
         // If we assume the block time is 3 seconds, and the proof generation
-        // time is ~90 mins and half of the blocks are unprovable: 90 * 60 / 3 /
-        // 2  = 900.
+        // time is ~90 mins and half of the blocks are unprovable:
+        // 90 * 60 / 3 / 2 = 900.
         // TODO(david): tune this value based on the A6 circuits benchmark.
         if (rand % 900 == 0) return LibTiers.TIER_SGX_AND_PSE_ZKEVM;
         else if (rand % 10 == 0) return LibTiers.TIER_SGX; // 10% of the blocks
