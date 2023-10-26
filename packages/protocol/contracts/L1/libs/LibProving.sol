@@ -190,25 +190,24 @@ library LibProving {
         // It's obvious that proof verification is entirely decoupled from
         // Taiko's core protocol.
         {
-            bool isContesting =
-                evidence.tier == tran.tier && tier.contestBond != 0;
-            IVerifier.Input memory input = IVerifier.Input({
-                blockId: blk.blockId,
-                prover: msg.sender,
-                isContesting: isContesting,
-                blobUsed: meta.blobUsed,
-                blobHash: meta.blobHash,
-                metaHash: blk.metaHash
-            });
             address verifier = resolver.resolve(tier.verifierName, true);
             // The verifier can be address-zero, signifying that there are no
             // proof checks for the tier. In practice, this only applies to
             // optimistic proofs.
             if (verifier != address(0)) {
-                IVerifier(verifier).verifyProof({
-                    evidence: evidence,
-                    input: input
+                bool isContesting =
+                    evidence.tier == tran.tier && tier.contestBond != 0;
+
+                IVerifier.Input memory input = IVerifier.Input({
+                    blockId: blk.blockId,
+                    prover: msg.sender,
+                    isContesting: isContesting,
+                    blobUsed: meta.blobUsed,
+                    blobHash: meta.blobHash,
+                    metaHash: blk.metaHash
                 });
+
+                IVerifier(verifier).verifyProof(evidence, input);
             }
         }
 
@@ -386,7 +385,7 @@ library LibProving {
                         && tran.signalRoot == evidence.signalRoot
                 ) {
                     // In the event that the previous prover emerges as the
-                    // winner, half of the contest bond is designated as the
+                    // winner, 1/4 of the contest bond is designated as the
                     // reward, to be divided equally between the new prover and
                     // the previous prover.
                     reward = tran.contestBond / 4;
@@ -397,7 +396,7 @@ library LibProving {
                         state, tran.prover, reward + tran.validityBond
                     );
                 } else {
-                    // In the event that the contester is the winner, half of
+                    // In the event that the contester is the winner, 1/4 of
                     // the validity bond is designated as the reward, to be
                     // divided equally between the new prover and the contester.
                     reward = tran.validityBond / 4;
