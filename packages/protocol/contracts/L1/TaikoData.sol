@@ -88,18 +88,18 @@ library TaikoData {
     /// `block.prevrandao`, which returns a random number provided by the layer
     /// 1 chain.
     struct BlockMetadata {
-        bytes32 l1Hash;
-        bytes32 difficulty;
-        bytes32 blobHash; //or txListHash (if Blob not yet supported)
-        bytes32 extraData;
+        bytes32 l1Hash; // slot 1
+        bytes32 difficulty; // slot 2
+        bytes32 blobHash; //or txListHash (if Blob not yet supported), // slot 3
+        bytes32 extraData; // slot 4
+        address coinbase; // L2 coinbase, // slot 5
         uint64 id;
-        uint64 timestamp;
-        uint64 l1Height;
         uint32 gasLimit;
-        address coinbase; // L2 coinbaseß
+        uint64 timestamp; // slot 6
+        uint64 l1Height;
         uint16 minTier;
         bool blobUsed;
-        TaikoData.EthDeposit[] depositsProcessed;
+        TaikoData.EthDeposit[] depositsProcessed; // slot 7
     }
 
     /// @dev Struct representing block evidence.

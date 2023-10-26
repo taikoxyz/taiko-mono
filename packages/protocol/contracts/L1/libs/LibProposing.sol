@@ -100,7 +100,9 @@ library LibProposing {
         // the block data to be stored on-chain for future integrity checks.
         // If we choose to persist all data fields in the metadata, it will
         // require additional storage slots.
+
         unchecked {
+            uint256 rand = block.prevrandao * uint256(blobHash);
             meta = TaikoData.BlockMetadata({
                 l1Hash: blockhash(block.number - 1),
                 // Following the Merge, the L1 mixHash incorporates the
@@ -108,16 +110,16 @@ library LibProposing {
                 // of multiple Taiko blocks being proposed within a single
                 // Ethereum block, we must introduce a salt to this random
                 // number as the L2 mixHash.
-                difficulty: bytes32(block.prevrandao * b.numBlocks),
+                difficulty: bytes32(rand),
                 blobHash: blobHash,
                 extraData: extraData,
+                coinbase: msg.sender,
                 id: b.numBlocks,
+                gasLimit: config.blockMaxGasLimit,
                 timestamp: uint64(block.timestamp),
                 l1Height: uint64(block.number - 1),
-                gasLimit: config.blockMaxGasLimit,
-                coinbase: msg.sender,
-                minTier: uint16(block.prevrandao * b.numBlocks), // dummy for
-                    // now to be able to calculate minTier
+                minTier: ITierProvider(resolver.resolve("tier_provider", false))
+                    .getMinTier(rand),
                 blobUsed: blobUsed,
                 // Each transaction must handle a specific quantity of L1-to-L2
                 // Ether deposits.
@@ -126,10 +128,6 @@ library LibProposing {
                     )
             });
         }
-
-        // Calculate tier from metaHash
-        meta.minTier = ITierProvider(resolver.resolve("tier_provider", false))
-            .getMinTier(uint256(LibUtils.hashMetadata(meta)));
         // Now, it's essential to initialize the block that will be stored
         // on L1. We should aim to utilize as few storage slots as possible,
         // alghouth using a ring buffer can minimize storage writes once
