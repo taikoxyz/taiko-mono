@@ -45,7 +45,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
     /// @inheritdoc IVerifier
     function verifyProof(
         TaikoData.BlockEvidence calldata evidence,
-        VerifierInput calldata input
+        Input calldata input
     )
         external
         view

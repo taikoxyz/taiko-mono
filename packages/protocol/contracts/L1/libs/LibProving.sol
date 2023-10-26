@@ -190,11 +190,12 @@ library LibProving {
         // It's obvious that proof verification is entirely decoupled from
         // Taiko's core protocol.
         {
-            IVerifier.VerifierInput memory verifierInput = IVerifier
-                .VerifierInput({
+            bool isContesting =
+                evidence.tier == tran.tier && tier.contestBond != 0;
+            IVerifier.Input memory input = IVerifier.Input({
                 blockId: blk.blockId,
                 prover: msg.sender,
-                isContesting: evidence.tier == tran.tier && tier.contestBond != 0,
+                isContesting: isContesting,
                 blobUsed: meta.blobUsed,
                 blobHash: meta.blobHash,
                 metaHash: blk.metaHash
@@ -206,7 +207,7 @@ library LibProving {
             if (verifier != address(0)) {
                 IVerifier(verifier).verifyProof({
                     evidence: evidence,
-                    input: verifierInput
+                    input: input
                 });
             }
         }

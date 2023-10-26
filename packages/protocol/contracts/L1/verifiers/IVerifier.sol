@@ -11,7 +11,7 @@ import { TaikoData } from "../TaikoData.sol";
 /// @title IVerifier Interface
 /// @notice Defines the function that handles proof verification.
 interface IVerifier {
-    struct VerifierInput {
+    struct Input {
         uint64 blockId;
         address prover;
         bool isContesting;
@@ -22,7 +22,7 @@ interface IVerifier {
 
     function verifyProof(
         TaikoData.BlockEvidence calldata evidence,
-        VerifierInput calldata input
+        Input calldata input
     )
         external;
 }
