@@ -44,7 +44,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        Input calldata input,
+        Context calldata ctx,
         TaikoData.TransitionClaim calldata claim,
         TaikoData.TierProof calldata tproof
     )
@@ -52,25 +52,25 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         view
     {
         // Do not run proof verification to contest an existing proof
-        if (input.isContesting) return;
+        if (ctx.isContesting) return;
 
         PseZkEvmProof memory proof = abi.decode(tproof.data, (PseZkEvmProof));
 
         bytes32 instance;
-        if (input.blobUsed) {
+        if (ctx.blobUsed) {
             PointProof memory pf = abi.decode(proof.pointProof, (PointProof));
 
             instance = calcInstance({
                 claim: claim,
-                prover: input.prover,
-                metaHash: input.metaHash,
+                prover: ctx.prover,
+                metaHash: ctx.metaHash,
                 txListHash: pf.txListHash,
                 pointValue: pf.pointValue
             });
 
             Lib4844.evaluatePoint({
-                blobHash: input.blobHash,
-                x: calc4844PointEvalX(input.blobHash, pf.txListHash),
+                blobHash: ctx.blobHash,
+                x: calc4844PointEvalX(ctx.blobHash, pf.txListHash),
                 y: pf.pointValue,
                 commitment: pf.pointCommitment,
                 proof: pf.pointProof
@@ -79,9 +79,9 @@ contract PseZkVerifier is EssentialContract, IVerifier {
             assert(proof.pointProof.length == 0);
             instance = calcInstance({
                 claim: claim,
-                prover: input.prover,
-                metaHash: input.metaHash,
-                txListHash: input.blobHash,
+                prover: ctx.prover,
+                metaHash: ctx.metaHash,
+                txListHash: ctx.blobHash,
                 pointValue: 0
             });
         }

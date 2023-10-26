@@ -200,7 +200,7 @@ library LibProving {
                 bool isContesting =
                     tproof.tier == tran.tier && tier.contestBond != 0;
 
-                IVerifier.Input memory input = IVerifier.Input({
+                IVerifier.Context memory ctx = IVerifier.Context({
                     metaHash: blk.metaHash,
                     blobHash: meta.blobHash,
                     prover: msg.sender,
@@ -209,7 +209,7 @@ library LibProving {
                     blobUsed: meta.blobUsed
                 });
 
-                IVerifier(verifier).verifyProof(input, claim, tproof);
+                IVerifier(verifier).verifyProof(ctx, claim, tproof);
             }
         }
 
