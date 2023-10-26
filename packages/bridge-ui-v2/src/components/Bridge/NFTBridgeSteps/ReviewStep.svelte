@@ -55,7 +55,7 @@
               <li>
                 <a
                   class="flex justify-start link"
-                  href={`${chainConfig[$destinationChain?.id].urls.explorer}`}
+                  href={`${chainConfig[currentChain].urls.explorer}/token/${nft.addresses[currentChain]}`}
                   target="_blank">
                   {shortenAddress(nft.addresses[currentChain], 8, 12)}
                   <!-- <Icon type="arrow-top-right" fillClass="fill-primary-link" /> -->
@@ -88,7 +88,7 @@
 <!-- 
 NFT List or Card View
 -->
-<section class="space-y-2">
+<section class="space-y-[16px]">
   <div class="flex justify-between items-center w-full">
     <div class="flex items-center gap-2">
       <span>{$t('bridge.nft.step.review.your_tokens')}</span>

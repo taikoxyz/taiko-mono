@@ -25,34 +25,34 @@
       if ($selectedNFTs) $selectedToken = $selectedNFTs[0];
     }
   };
+
+  $: collections = groupNFTByCollection(nfts);
 </script>
 
-<div class="">
-  {#each Object.entries(groupNFTByCollection(nfts)) as [address, nftsGroup] (address)}
-    {@const chainId = $network?.id}
-    <div class="">
-      {#if nftsGroup.length > 0 && chainId}
-        <div class="collection-header">
-          <span class="font-bold text-primary-content">
-            {nftsGroup[0].name}
-          </span>
-          <span class="badge badge-primary badge-outline badge-xs px-[10px] h-[24px] ml-[10px]"
-            ><span class="text-xs">{nftsGroup[0].type}</span></span>
-        </div>
-        <div class="token-ids my-[16px] grid grid-cols-3 gap-4">
-          {#each nftsGroup as nft}
-            {@const collectionAddress = nft.addresses[chainId]}
-            {#if collectionAddress === undefined}
-              <div>TODO: Address for {nft.name} is undefined</div>
-            {:else}
-              <NFTCard {nft} {selectNFT} {viewOnly} />
-            {/if}
-          {/each}
-        </div>
-        {#if nfts.length > 1}
-          <div class="h-sep my-[30px]" />
-        {/if}
+{#each Object.entries(collections) as [address, nftsGroup] (address)}
+  {@const chainId = $network?.id}
+  <div class="">
+    {#if nftsGroup.length > 0 && chainId}
+      <div class="collection-header">
+        <span class="font-bold text-primary-content">
+          {nftsGroup[0].name}
+        </span>
+        <span class="badge badge-primary badge-outline badge-xs px-[10px] h-[24px] ml-[10px]"
+          ><span class="text-xs">{nftsGroup[0].type}</span></span>
+      </div>
+      <div class="token-ids mt-[16px] grid gap-4 grid-3">
+        {#each nftsGroup as nft}
+          {@const collectionAddress = nft.addresses[chainId]}
+          {#if collectionAddress === undefined}
+            <div>TODO: Address for {nft.name} is undefined</div>
+          {:else}
+            <NFTCard {nft} {selectNFT} {viewOnly} />
+          {/if}
+        {/each}
+      </div>
+      {#if Object.keys(collections).length > 1 || nfts.length > 3}
+        <div class="h-sep my-[30px]" />
       {/if}
-    </div>
-  {/each}
-</div>
+    {/if}
+  </div>
+{/each}

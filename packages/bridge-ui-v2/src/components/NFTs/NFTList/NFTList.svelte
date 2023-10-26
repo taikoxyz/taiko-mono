@@ -54,6 +54,8 @@
       return collectionAddress && checkedAddresses.get(collectionAddress);
     });
   };
+
+  $: collections = groupNFTByCollection(nfts);
 </script>
 
 {#if nfts.length > 0}
@@ -74,7 +76,7 @@
     {#if !chainId}
       Select a chain
     {:else}
-      {#each Object.entries(groupNFTByCollection(nfts)) as [address, nftsGroup] (address)}
+      {#each Object.entries(collections) as [address, nftsGroup] (address)}
         <div>
           {#if nftsGroup.length > 0}
             <div class="collection-header">
@@ -101,7 +103,7 @@
                 {/if}
               {/each}
             </div>
-            {#if nfts.length > 1}
+            {#if Object.keys(collections).length > 1 || nfts.length > 3}
               <div class="h-sep my-[30px]" />
             {/if}
           {/if}
