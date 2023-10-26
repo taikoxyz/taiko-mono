@@ -44,7 +44,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        TaikoData.BlockEvidence calldata evidence,
+        TaikoData.TransitionClaim calldata claim,
         Input calldata input
     )
         external
@@ -53,14 +53,14 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         // Do not run proof verification to contest an existing proof
         if (input.isContesting) return;
 
-        PseZkEvmProof memory proof = abi.decode(evidence.proof, (PseZkEvmProof));
+        PseZkEvmProof memory proof = abi.decode(claim.proof, (PseZkEvmProof));
 
         bytes32 instance;
         if (input.blobUsed) {
             PointProof memory pf = abi.decode(proof.pointProof, (PointProof));
 
             instance = calcInstance({
-                evidence: evidence,
+                claim: claim,
                 prover: input.prover,
                 metaHash: input.metaHash,
                 txListHash: pf.txListHash,
@@ -77,7 +77,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         } else {
             assert(proof.pointProof.length == 0);
             instance = calcInstance({
-                evidence: evidence,
+                claim: claim,
                 prover: input.prover,
                 metaHash: input.metaHash,
                 txListHash: input.blobHash,
@@ -127,7 +127,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
     }
 
     function calcInstance(
-        TaikoData.BlockEvidence memory evidence,
+        TaikoData.TransitionClaim memory claim,
         address prover,
         bytes32 metaHash,
         bytes32 txListHash,
@@ -139,10 +139,10 @@ contract PseZkVerifier is EssentialContract, IVerifier {
     {
         return keccak256(
             abi.encodePacked(
-                evidence.parentHash,
-                evidence.blockHash,
-                evidence.signalRoot,
-                evidence.graffiti,
+                claim.parentHash,
+                claim.blockHash,
+                claim.signalRoot,
+                claim.graffiti,
                 prover,
                 metaHash,
                 txListHash,

@@ -72,6 +72,11 @@ library TaikoData {
         uint256 fee;
     }
 
+    struct TierProof {
+        uint16 tier;
+        bytes proof;
+    }
+
     struct ProverAssignment {
         address prover;
         address feeToken;
@@ -102,8 +107,8 @@ library TaikoData {
         TaikoData.EthDeposit[] depositsProcessed; // slot 7
     }
 
-    /// @dev Struct representing block evidence.
-    struct BlockEvidence {
+    /// @dev Struct representing block claim.
+    struct TransitionClaim {
         bytes32 parentHash;
         bytes32 blockHash;
         bytes32 signalRoot;

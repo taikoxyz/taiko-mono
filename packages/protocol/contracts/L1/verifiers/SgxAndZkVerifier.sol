@@ -28,26 +28,22 @@ contract SgxAndZkVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        TaikoData.BlockEvidence calldata evidence,
+        TaikoData.TransitionClaim calldata claim,
         Input calldata input
     )
         external
     {
-        TaikoData.BlockEvidence memory _evidence = evidence;
+        TaikoData.TransitionClaim memory _claim = claim;
 
         // Verify the SGX part
-        _evidence.proof = LibBytesUtils.slice(evidence.proof, 0, SGX_PROOF_SIZE);
-        IVerifier(resolve("tier_sgx", false)).verifyProof(_evidence, input);
+        _claim.proof = LibBytesUtils.slice(claim.proof, 0, SGX_PROOF_SIZE);
+        IVerifier(resolve("tier_sgx", false)).verifyProof(_claim, input);
 
         // Verify the ZK part
-        _evidence.proof = LibBytesUtils.slice(
-            evidence.proof,
-            SGX_PROOF_SIZE,
-            (evidence.proof.length - SGX_PROOF_SIZE)
+        _claim.proof = LibBytesUtils.slice(
+            claim.proof, SGX_PROOF_SIZE, (claim.proof.length - SGX_PROOF_SIZE)
         );
-        IVerifier(resolve("tier_pse_zkevm", false)).verifyProof(
-            _evidence, input
-        );
+        IVerifier(resolve("tier_pse_zkevm", false)).verifyProof(_claim, input);
     }
 }
 

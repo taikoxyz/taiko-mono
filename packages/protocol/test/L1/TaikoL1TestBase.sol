@@ -184,7 +184,7 @@ abstract contract TaikoL1TestBase is TestBase {
     )
         internal
     {
-        TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
+        TaikoData.TransitionClaim memory claim = TaikoData.TransitionClaim({
             parentHash: parentHash,
             blockHash: blockHash,
             signalRoot: signalRoot,
@@ -194,7 +194,7 @@ abstract contract TaikoL1TestBase is TestBase {
         });
 
         bytes32 instance = pv.calcInstance(
-            evidence, prover, LibUtils.hashMetadata(meta), meta.blobHash, 0
+            claim, prover, LibUtils.hashMetadata(meta), meta.blobHash, 0
         );
 
         PseZkVerifier.PseZkEvmProof memory zkProof;
@@ -207,7 +207,7 @@ abstract contract TaikoL1TestBase is TestBase {
             new bytes(100)
         );
 
-        evidence.proof = abi.encode(zkProof);
+        claim.proof = abi.encode(zkProof);
 
         address newPubKey;
         // Keep changing the pub key associated with an instance to avoid
@@ -222,50 +222,49 @@ abstract contract TaikoL1TestBase is TestBase {
 
         if (tier == LibTiers.TIER_SGX) {
             bytes memory signature = createSgxSignatureProof(
-                evidence, newPubKey, prover, LibUtils.hashMetadata(meta)
+                claim, newPubKey, prover, LibUtils.hashMetadata(meta)
             );
 
-            evidence.proof =
-                bytes.concat(bytes2(0), bytes20(newPubKey), signature);
+            claim.proof = bytes.concat(bytes2(0), bytes20(newPubKey), signature);
         }
 
         if (tier == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
             bytes memory signature = createSgxSignatureProof(
-                evidence, newPubKey, prover, LibUtils.hashMetadata(meta)
+                claim, newPubKey, prover, LibUtils.hashMetadata(meta)
             );
 
             bytes memory sgxProof =
                 bytes.concat(bytes2(0), bytes20(newPubKey), signature);
             // Concatenate SGX and ZK (in this order)
-            evidence.proof = bytes.concat(sgxProof, evidence.proof);
+            claim.proof = bytes.concat(sgxProof, claim.proof);
         }
 
         if (tier == LibTiers.TIER_GUARDIAN) {
-            evidence.proof = "";
+            claim.proof = "";
 
             // Grant 2 signatures, 3rd might be a revert
             vm.prank(David, David);
-            gp.approveEvidence(meta.id, evidence, meta);
+            gp.approveEvidence(meta.id, claim, meta);
             vm.prank(Emma, Emma);
-            gp.approveEvidence(meta.id, evidence, meta);
+            gp.approveEvidence(meta.id, claim, meta);
 
             if (revertReason != "") {
                 vm.prank(Frank, Frank);
                 vm.expectRevert(); // Revert reason is 'wrapped' so will not be
                     // identical to the expectedRevert
-                gp.approveEvidence(meta.id, evidence, meta);
+                gp.approveEvidence(meta.id, claim, meta);
             } else {
                 vm.prank(Frank, Frank);
-                gp.approveEvidence(meta.id, evidence, meta);
+                gp.approveEvidence(meta.id, claim, meta);
             }
         } else {
             if (revertReason != "") {
                 vm.prank(msgSender, msgSender);
                 vm.expectRevert(revertReason);
-                L1.proveBlock(meta.id, abi.encode(evidence, meta));
+                L1.proveBlock(meta.id, abi.encode(claim, meta));
             } else {
                 vm.prank(msgSender, msgSender);
-                L1.proveBlock(meta.id, abi.encode(evidence, meta));
+                L1.proveBlock(meta.id, abi.encode(claim, meta));
             }
         }
     }
@@ -322,7 +321,7 @@ abstract contract TaikoL1TestBase is TestBase {
     }
 
     function createSgxSignatureProof(
-        TaikoData.BlockEvidence memory evidence,
+        TaikoData.TransitionClaim memory claim,
         address newPubKey,
         address prover,
         bytes32 metaHash
@@ -331,7 +330,7 @@ abstract contract TaikoL1TestBase is TestBase {
         view
         returns (bytes memory signature)
     {
-        bytes32 digest = sv.getSignedHash(evidence, prover, newPubKey, metaHash);
+        bytes32 digest = sv.getSignedHash(claim, prover, newPubKey, metaHash);
 
         uint256 signerPrivateKey;
 

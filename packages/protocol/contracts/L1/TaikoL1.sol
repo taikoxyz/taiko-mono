@@ -102,7 +102,7 @@ contract TaikoL1 is
     /// @notice Proves or contests a block transition.
     /// @param blockId The index of the block to prove. This is also used to
     /// select the right implementation version.
-    /// @param input An abi-encoded {TaikoData.BlockEvidence} object.
+    /// @param input An abi-encoded {TaikoData.TransitionClaim} object.
     function proveBlock(
         uint64 blockId,
         bytes calldata input
@@ -111,17 +111,17 @@ contract TaikoL1 is
         nonReentrant
     {
         (
-            TaikoData.BlockEvidence memory evidence,
+            TaikoData.TransitionClaim memory claim,
             TaikoData.BlockMetadata memory meta
         ) = abi.decode(
-            input, (TaikoData.BlockEvidence, TaikoData.BlockMetadata)
+            input, (TaikoData.TransitionClaim, TaikoData.BlockMetadata)
         );
 
         if (blockId != meta.id) revert L1_INVALID_BLOCK_ID();
 
         TaikoData.Config memory config = getConfig();
         uint8 maxBlocksToVerify = LibProving.proveBlock(
-            state, config, AddressResolver(this), evidence, meta
+            state, config, AddressResolver(this), claim, meta
         );
         if (maxBlocksToVerify > 0) {
             LibVerifying.verifyBlocks(

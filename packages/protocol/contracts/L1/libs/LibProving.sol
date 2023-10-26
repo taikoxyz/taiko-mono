@@ -59,14 +59,14 @@ library LibProving {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
-        TaikoData.BlockEvidence memory evidence,
+        TaikoData.TransitionClaim memory claim,
         TaikoData.BlockMetadata memory meta
     )
         internal
         returns (uint8 maxBlocksToVerify)
     {
         // Make sure parentHash is not zero
-        if (evidence.parentHash == 0) revert L1_INVALID_EVIDENCE();
+        if (claim.parentHash == 0) revert L1_INVALID_EVIDENCE();
 
         // Check that the block has been proposed but has not yet been verified.
         TaikoData.SlotB memory b = state.slotB;
@@ -92,7 +92,7 @@ library LibProving {
         // become available. In cases where a transition with the specified
         // parentHash does not exist, the transition ID (tid) will be set to 0.
         uint32 tid =
-            LibUtils.getTransitionId(state, blk, slot, evidence.parentHash);
+            LibUtils.getTransitionId(state, blk, slot, claim.parentHash);
         TaikoData.Transition storage tran;
 
         if (tid == 0) {
@@ -129,7 +129,7 @@ library LibProving {
                 // be the correct one. Writing to `tran` is more economical
                 // since it resides in the ring buffer, whereas writing to
                 // `transitionIds` is not as cost-effective.
-                tran.key = evidence.parentHash;
+                tran.key = claim.parentHash;
 
                 // In the case of this first transition, the block's assigned
                 // prover has the privilege to re-prove it, but only when the
@@ -153,7 +153,7 @@ library LibProving {
                 // reusable. However, given that the majority of blocks will
                 // only possess one transition — the correct one — we don't need
                 // to be concerned about the cost in this case.
-                state.transitionIds[blk.blockId][evidence.parentHash] = tid;
+                state.transitionIds[blk.blockId][claim.parentHash] = tid;
             }
         } else {
             // A transition with the provided parentHash has been located.
@@ -166,8 +166,8 @@ library LibProving {
         // The new proof must meet or exceed the minimum tier required by the
         // block or the previous proof; it cannot be on a lower tier.
         if (
-            evidence.tier == 0 || evidence.tier < meta.minTier
-                || evidence.tier < tran.tier
+            claim.tier == 0 || claim.tier < meta.minTier
+                || claim.tier < tran.tier
         ) {
             revert L1_INVALID_TIER();
         }
@@ -176,7 +176,7 @@ library LibProving {
         // subsequent action will result in a revert.
         ITierProvider.Tier memory tier = ITierProvider(
             resolver.resolve("tier_provider", false)
-        ).getTier(evidence.tier);
+        ).getTier(claim.tier);
 
         maxBlocksToVerify = tier.maxBlocksToVerify;
 
@@ -201,7 +201,7 @@ library LibProving {
             // optimistic proofs.
             if (verifier != address(0)) {
                 bool isContesting =
-                    evidence.tier == tran.tier && tier.contestBond != 0;
+                    claim.tier == tran.tier && tier.contestBond != 0;
 
                 IVerifier.Input memory input = IVerifier.Input({
                     metaHash: blk.metaHash,
@@ -212,7 +212,7 @@ library LibProving {
                     blobUsed: meta.blobUsed
                 });
 
-                IVerifier(verifier).verifyProof(evidence, input);
+                IVerifier(verifier).verifyProof(claim, input);
             }
         }
 
@@ -222,23 +222,23 @@ library LibProving {
             // it's the top tier. In this case, it can overwrite existing
             // transitions without contestation.
             if (
-                evidence.blockHash == tran.blockHash
-                    && evidence.signalRoot == tran.signalRoot
+                claim.blockHash == tran.blockHash
+                    && claim.signalRoot == tran.signalRoot
             ) {
                 revert L1_ALREADY_PROVED();
             }
             // We should outright prohibit the use of zero values for both
             // blockHash and signalRoot since, when we initialize a new
             // transition, we set both blockHash and signalRoot to 0.
-            if (evidence.blockHash == 0 || evidence.signalRoot == 0) {
+            if (claim.blockHash == 0 || claim.signalRoot == 0) {
                 revert L1_INVALID_EVIDENCE();
             }
 
             // A special return value from the top tier prover can signal this
             // contract to return all liveness bond.
             if (
-                blk.livenessBond > 0 && evidence.proof.length == 32
-                    && bytes32(evidence.proof) == RETURN_LIVENESS_BOND
+                blk.livenessBond > 0 && claim.proof.length == 32
+                    && bytes32(claim.proof) == RETURN_LIVENESS_BOND
             ) {
                 LibTaikoToken.creditTaikoToken(
                     state, blk.assignedProver, blk.livenessBond
@@ -246,8 +246,8 @@ library LibProving {
                 blk.livenessBond = 0;
             }
 
-            tran.blockHash = evidence.blockHash;
-            tran.signalRoot = evidence.signalRoot;
+            tran.blockHash = claim.blockHash;
+            tran.signalRoot = claim.signalRoot;
             tran.prover = msg.sender;
 
             if (tran.contester != address(0)) {
@@ -262,26 +262,26 @@ library LibProving {
             }
 
             tran.timestamp = uint64(block.timestamp);
-            tran.tier = evidence.tier;
+            tran.tier = claim.tier;
 
             emit TransitionProved({
                 blockId: blk.blockId,
-                parentHash: evidence.parentHash,
-                blockHash: evidence.blockHash,
-                signalRoot: evidence.signalRoot,
+                parentHash: claim.parentHash,
+                blockHash: claim.blockHash,
+                signalRoot: claim.signalRoot,
                 prover: msg.sender,
                 validityBond: 0,
-                tier: evidence.tier
+                tier: claim.tier
             });
-        } else if (evidence.tier == tran.tier) {
+        } else if (claim.tier == tran.tier) {
             // Contesting an existing transition requires either the blockHash
             // or signalRoot to be different. This precaution is necessary
             // because this `proveBlock` transaction might aim to prove a
             // transition but could potentially be front-run by another prover
             // attempting to prove the same transition.
             if (
-                evidence.blockHash == tran.blockHash
-                    && evidence.signalRoot == tran.signalRoot
+                claim.blockHash == tran.blockHash
+                    && claim.signalRoot == tran.signalRoot
             ) {
                 revert L1_ALREADY_PROVED();
             }
@@ -289,8 +289,8 @@ library LibProving {
             // The new tier is the same as the previous tier, we are in the
             // contesting mode.
             //
-            // It's important to note that evidence.blockHash and
-            // evidence.signalRoot are not permanently stored, so their
+            // It's important to note that claim.blockHash and
+            // claim.signalRoot are not permanently stored, so their
             // specific values are inconsequential. They only need to differ
             // from the existing values to signify a contest. Therefore, a
             // contester can conveniently utilize the value 1 for these two
@@ -316,21 +316,21 @@ library LibProving {
 
             emit TransitionContested({
                 blockId: blk.blockId,
-                parentHash: evidence.parentHash,
+                parentHash: claim.parentHash,
                 blockHash: tran.blockHash,
                 signalRoot: tran.signalRoot,
                 contester: msg.sender,
                 contestBond: tier.contestBond,
-                tier: evidence.tier
+                tier: claim.tier
             });
         } else {
-            assert(evidence.tier > tran.tier);
+            assert(claim.tier > tran.tier);
             // The new tier is higher than the previous tier, we are in the
             // proving mode. This works even if this transition's contester is
             // address zero, see more info below.
 
             // zero values are not allowed
-            if (evidence.blockHash == 0 || evidence.signalRoot == 0) {
+            if (claim.blockHash == 0 || claim.signalRoot == 0) {
                 revert L1_INVALID_EVIDENCE();
             }
 
@@ -348,8 +348,8 @@ library LibProving {
             // updates.
             if (
                 tran.contester == address(0)
-                    && tran.blockHash == evidence.blockHash
-                    && tran.signalRoot == evidence.signalRoot
+                    && tran.blockHash == claim.blockHash
+                    && tran.signalRoot == claim.signalRoot
             ) {
                 // Alternatively, it can be understood that a transition cannot
                 // be re-approved by higher-tier proofs without undergoing
@@ -384,8 +384,8 @@ library LibProving {
                 // and the winner of the contest (same amount to both parties).
                 uint256 reward;
                 if (
-                    tran.blockHash == evidence.blockHash
-                        && tran.signalRoot == evidence.signalRoot
+                    tran.blockHash == claim.blockHash
+                        && tran.signalRoot == claim.signalRoot
                 ) {
                     assert(tran.contester != address(0));
                     // In the event that the previous prover emerges as the
@@ -424,8 +424,8 @@ library LibProving {
                     // previous blockHash and signalRoot are considered
                     // incorrect, and we must replace them with the correct
                     // values.
-                    tran.blockHash = evidence.blockHash;
-                    tran.signalRoot = evidence.signalRoot;
+                    tran.blockHash = claim.blockHash;
+                    tran.signalRoot = claim.signalRoot;
                 }
 
                 // Reward this prover.
@@ -447,16 +447,16 @@ library LibProving {
             tran.contester = address(0);
             tran.contestBond = 1; // to save gas
             tran.timestamp = uint64(block.timestamp);
-            tran.tier = evidence.tier;
+            tran.tier = claim.tier;
 
             emit TransitionProved({
                 blockId: blk.blockId,
-                parentHash: evidence.parentHash,
-                blockHash: evidence.blockHash,
-                signalRoot: evidence.signalRoot,
+                parentHash: claim.parentHash,
+                blockHash: claim.blockHash,
+                signalRoot: claim.signalRoot,
                 prover: msg.sender,
                 validityBond: tier.validityBond,
-                tier: evidence.tier
+                tier: claim.tier
             });
         }
     }

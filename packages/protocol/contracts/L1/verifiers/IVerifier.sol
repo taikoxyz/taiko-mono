@@ -21,7 +21,7 @@ interface IVerifier {
     }
 
     function verifyProof(
-        TaikoData.BlockEvidence calldata evidence,
+        TaikoData.TransitionClaim calldata claim,
         Input calldata input
     )
         external;

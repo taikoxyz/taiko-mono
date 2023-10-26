@@ -100,7 +100,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        TaikoData.BlockEvidence calldata evidence,
+        TaikoData.TransitionClaim calldata claim,
         Input calldata input
     )
         external
@@ -110,14 +110,14 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
         // Size is: 87 bytes
         // 2 bytes + 20 bytes + 65 bytes (signature) = 87
-        if (evidence.proof.length != 87) revert SGX_INVALID_PROOF();
+        if (claim.proof.length != 87) revert SGX_INVALID_PROOF();
 
-        uint16 id = uint16(bytes2(LibBytesUtils.slice(evidence.proof, 0, 2)));
+        uint16 id = uint16(bytes2(LibBytesUtils.slice(claim.proof, 0, 2)));
         address newInstance =
-            address(bytes20(LibBytesUtils.slice(evidence.proof, 2, 20)));
-        bytes memory signature = LibBytesUtils.slice(evidence.proof, 22);
+            address(bytes20(LibBytesUtils.slice(claim.proof, 2, 20)));
+        bytes memory signature = LibBytesUtils.slice(claim.proof, 22);
         address oldInstance = ECDSAUpgradeable.recover(
-            getSignedHash(evidence, input.prover, newInstance, input.metaHash),
+            getSignedHash(claim, input.prover, newInstance, input.metaHash),
             signature
         );
 
@@ -126,7 +126,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     }
 
     function getSignedHash(
-        TaikoData.BlockEvidence memory evidence,
+        TaikoData.TransitionClaim memory claim,
         address prover,
         address newAddress,
         bytes32 metaHash
@@ -138,10 +138,10 @@ contract SgxVerifier is EssentialContract, IVerifier {
         return keccak256(
             abi.encodePacked(
                 metaHash,
-                evidence.parentHash,
-                evidence.blockHash,
-                evidence.signalRoot,
-                evidence.graffiti,
+                claim.parentHash,
+                claim.blockHash,
+                claim.signalRoot,
+                claim.graffiti,
                 prover,
                 newAddress
             )

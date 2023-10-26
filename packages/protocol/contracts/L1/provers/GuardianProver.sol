@@ -27,7 +27,7 @@ contract GuardianProver is EssentialContract {
     event GuardiansUpdated(address[5]);
     event Approved(
         uint64 blockId,
-        TaikoData.BlockEvidence evidence,
+        TaikoData.TransitionClaim claim,
         uint256 approvalBits,
         bool proofSubmitted
     );
@@ -75,7 +75,7 @@ contract GuardianProver is EssentialContract {
     /// @dev Called by guardians to approve a guardian proof
     function approveEvidence(
         uint64 blockId,
-        TaikoData.BlockEvidence memory evidence,
+        TaikoData.TransitionClaim memory claim,
         TaikoData.BlockMetadata memory meta
     )
         external
@@ -84,16 +84,16 @@ contract GuardianProver is EssentialContract {
         uint256 id = guardianIds[msg.sender];
         if (id == 0) revert INVALID_GUARDIAN();
 
-        if (evidence.tier != LibTiers.TIER_GUARDIAN) revert INVALID_PROOF();
+        if (claim.tier != LibTiers.TIER_GUARDIAN) revert INVALID_PROOF();
 
-        bytes32 hash = keccak256(abi.encode(blockId, evidence));
+        bytes32 hash = keccak256(abi.encode(blockId, claim));
         uint256 approvalBits = approvals[hash];
 
         approvalBits |= 1 << id;
 
         if (_isApproved(approvalBits)) {
             bytes memory data = abi.encodeWithSignature(
-                "proveBlock(uint64,bytes)", blockId, abi.encode(evidence, meta)
+                "proveBlock(uint64,bytes)", blockId, abi.encode(claim, meta)
             );
 
             (bool success,) = resolve("taiko", false).call(data);
@@ -101,10 +101,10 @@ contract GuardianProver is EssentialContract {
             if (!success) revert PROVING_FAILED();
             delete approvals[hash];
 
-            emit Approved(blockId, evidence, approvalBits, true);
+            emit Approved(blockId, claim, approvalBits, true);
         } else {
             approvals[hash] = approvalBits;
-            emit Approved(blockId, evidence, approvalBits, false);
+            emit Approved(blockId, claim, approvalBits, false);
         }
     }
 
