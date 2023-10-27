@@ -10,10 +10,11 @@ import { ITierProvider, LibTiers } from "./ITierProvider.sol";
 
 /// @title TaikoA6TierProvider
 /// @dev Assuming liveness bound is 250TKO.
-// Taiko token's total supply is 1 billion. Assuming block time is 2 second, and the cool down period is 2 days. In 2
-// days, we can have (2*86400/2)=86400 blocks. Assuming 10% tokens are used in bonds, then each block may use up to
-// these many tokens:
-// 1,000,000,000 * 10% / 86400=1157 TOK per block, which is about 722 USD.
+// Taiko token's total supply is 1 billion. Assuming block time is 2 second, and
+// the cool down period is 2 days. In 2 days, we can have (2*86400/2)=86400
+// blocks. Assuming 10% tokens are used in bonds, then each block may use up to
+// these many tokens: 1,000,000,000 * 10% / 86400=1157 TOK per block, which is
+// about 722 USD.
 contract TaikoA6TierProvider is ITierProvider {
     error TIER_NOT_FOUND();
 
@@ -84,11 +85,11 @@ contract TaikoA6TierProvider is ITierProvider {
     }
 
     function getMinTier(uint256 rand) public pure override returns (uint16) {
-        if (rand % 500 == 0) return LibTiers.TIER_SGX_AND_PSE_ZKEVM; // 0.2% of the blocks
-            // will be selected to require a PSE zkEVM proof + SGX proof.
-        else if (rand % 10 == 0) return LibTiers.TIER_SGX; // 10% of the blocks
-            // will be selected to require a SGX proof.
-
-        else return LibTiers.TIER_OPTIMISTIC;
+        // 0.2% will be selected to require PSE zkEVM + SGX proofs.
+        if (rand % 500 == 0) return LibTiers.TIER_SGX_AND_PSE_ZKEVM;
+        // 10% will be selected to require SGX proofs.
+        if (rand % 10 == 0) return LibTiers.TIER_SGX;
+        // Other blocks are optimisitc, without validity proofs.
+        return LibTiers.TIER_OPTIMISTIC;
     }
 }
