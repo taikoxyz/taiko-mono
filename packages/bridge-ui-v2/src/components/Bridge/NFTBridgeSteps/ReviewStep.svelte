@@ -16,9 +16,9 @@
   let processingFeeComponent: ProcessingFee;
   let hasEnoughEth: boolean;
 
-  $: nftsToDisplay = $selectedNFTs ? $selectedNFTs : [];
-
   const dispatch = createEventDispatcher();
+
+  $: nftsToDisplay = $selectedNFTs ? $selectedNFTs : [];
 
   enum NFTView {
     CARDS,
