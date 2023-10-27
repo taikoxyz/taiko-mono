@@ -39,9 +39,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     bytes32 public publicInputHash; // slot 3
     uint64 public latestSyncedL1Height; // slot 4
     /// @dev These 3 below always need to be aligned!
-    uint64 gasExcess;
-    uint32 gasTargetPerL1Block;
-    uint8 basefeeAdjustmentQuotient;
+    uint64 public gasExcess;
+    uint32 public gasTargetPerL1Block;
+    uint8 public basefeeAdjustmentQuotient;
 
     uint256[146] private __gap;
 
