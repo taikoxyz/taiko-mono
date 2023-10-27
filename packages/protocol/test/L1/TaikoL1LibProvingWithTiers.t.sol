@@ -96,7 +96,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++
         ) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
+            (TaikoData.BlockMetadata memory meta,) =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
@@ -158,7 +158,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++
         ) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
+            (TaikoData.BlockMetadata memory meta,) =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
@@ -227,7 +227,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++
         ) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
+            (TaikoData.BlockMetadata memory meta,) =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
@@ -295,7 +295,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++
         ) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
+            (TaikoData.BlockMetadata memory meta,) =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
@@ -373,7 +373,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
+            (TaikoData.BlockMetadata memory meta,) =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
@@ -453,7 +453,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             //printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
+            (TaikoData.BlockMetadata memory meta,) =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
@@ -497,7 +497,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             //printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
+            (TaikoData.BlockMetadata memory meta,) =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
@@ -545,7 +545,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++
         ) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
+            (TaikoData.BlockMetadata memory meta,) =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
@@ -607,7 +607,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++
         ) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
+            (TaikoData.BlockMetadata memory meta,) =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
@@ -669,7 +669,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++
         ) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
+            (TaikoData.BlockMetadata memory meta,) =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
@@ -731,7 +731,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
+            (TaikoData.BlockMetadata memory meta,) =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
@@ -793,7 +793,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
+            (TaikoData.BlockMetadata memory meta,) =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
@@ -836,7 +836,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
+            (TaikoData.BlockMetadata memory meta,) =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
@@ -880,7 +880,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++
         ) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
+            (TaikoData.BlockMetadata memory meta,) =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
@@ -954,7 +954,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++
         ) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
+            (TaikoData.BlockMetadata memory meta,) =
                 proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);

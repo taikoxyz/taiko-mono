@@ -118,7 +118,10 @@ abstract contract TaikoL1TestBase is TestBase {
         uint24 txListSize
     )
         internal
-        returns (TaikoData.BlockMetadata memory meta)
+        returns (
+            TaikoData.BlockMetadata memory meta,
+            TaikoData.EthDeposit[] memory depositsProcessed
+        )
     {
         TaikoData.TierFee[] memory tierFees = new TaikoData.TierFee[](5);
         // Register the tier fees
@@ -167,8 +170,8 @@ abstract contract TaikoL1TestBase is TestBase {
         meta.gasLimit = gasLimit;
 
         vm.prank(proposer, proposer);
-        meta = L1.proposeBlock{ value: msgValue }(
-            txList, abi.encode(assignment), bytes32(0)
+        (meta, depositsProcessed) = L1.proposeBlock{ value: msgValue }(
+            abi.encode(TaikoData.BlockParams(assignment, bytes32(0))), txList
         );
     }
 
@@ -192,7 +195,7 @@ abstract contract TaikoL1TestBase is TestBase {
         });
 
         bytes32 instance = pv.calcInstance(
-            tran, prover, LibUtils.hashMetadata(meta), meta.blobHash, 0
+            tran, prover, keccak256(abi.encode(meta)), meta.blobHash, 0
         );
 
         TaikoData.TierProof memory proof;
@@ -224,7 +227,7 @@ abstract contract TaikoL1TestBase is TestBase {
 
         if (tier == LibTiers.TIER_SGX) {
             bytes memory signature = createSgxSignatureProof(
-                tran, newInstance, prover, LibUtils.hashMetadata(meta)
+                tran, newInstance, prover, keccak256(abi.encode(meta))
             );
 
             proof.data =
@@ -233,7 +236,7 @@ abstract contract TaikoL1TestBase is TestBase {
 
         if (tier == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
             bytes memory signature = createSgxSignatureProof(
-                tran, newInstance, prover, LibUtils.hashMetadata(meta)
+                tran, newInstance, prover, keccak256(abi.encode(meta))
             );
 
             bytes memory sgxProof =
