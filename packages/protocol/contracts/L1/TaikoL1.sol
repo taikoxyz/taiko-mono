@@ -60,7 +60,7 @@ contract TaikoL1 is
     }
 
     /// @notice Proposes a Taiko L2 block.
-    /// @param params Data to assign a prover.
+    /// @param params Block parameters, currently an encoded BlockParams object.
     /// @param txList txList data if calldata is used for DA.
     /// @return meta The metadata of the proposed L2 block.
     /// @return depositsProcessed The Ether deposits processed.
