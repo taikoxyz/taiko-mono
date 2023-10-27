@@ -85,6 +85,11 @@ library TaikoData {
         bytes signature;
     }
 
+    struct BlockParams {
+        ProverAssignment assignment;
+        bytes32 extraData;
+    }
+
     /// @dev Struct containing data only required for proving a block
     /// Warning: changing this struct requires changing
     /// {LibProposing.hashMetadata} accordingly.

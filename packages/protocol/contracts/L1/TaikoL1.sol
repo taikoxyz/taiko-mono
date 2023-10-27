@@ -60,20 +60,13 @@ contract TaikoL1 is
     }
 
     /// @notice Proposes a Taiko L2 block.
-    /// @param txList A list of transactions in this block, encoded with RLP.
-    /// Note:
-    /// 1) if txList is empty, Taiko will use the first blob in the transaction
-    /// for DA; other wise, it will use calldata for DA.
-    /// 2) in the corresponding L2 block an "anchor transaction" will be the
-    /// first transaction in the block. If there are `n` transactions in the
-    /// `txList`, then there will be up to `n + 1` transactions in the L2 block.
-    /// @param assignment Data to assign a prover.
-    /// @param extraData The extraData in the L2 block's header.
+    /// @param params Data to assign a prover.
+    /// @param txList txList data if calldata is used for DA.
     /// @return meta The metadata of the proposed L2 block.
+    /// @return depositsProcessed The Ether deposits processed.
     function proposeBlock(
-        bytes calldata txList,
-        bytes calldata assignment,
-        bytes32 extraData
+        bytes calldata params,
+        bytes calldata txList
     )
         external
         payable
@@ -85,12 +78,7 @@ contract TaikoL1 is
     {
         TaikoData.Config memory config = getConfig();
         (meta, depositsProcessed) = LibProposing.proposeBlock(
-            state,
-            config,
-            AddressResolver(this),
-            txList,
-            abi.decode(assignment, (TaikoData.ProverAssignment)),
-            extraData
+            state, config, AddressResolver(this), params, txList
         );
         if (config.maxBlocksToVerifyPerProposal > 0) {
             LibVerifying.verifyBlocks(

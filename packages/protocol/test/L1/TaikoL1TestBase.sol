@@ -171,7 +171,7 @@ abstract contract TaikoL1TestBase is TestBase {
 
         vm.prank(proposer, proposer);
         (meta, depositsProcessed) = L1.proposeBlock{ value: msgValue }(
-            txList, abi.encode(assignment), bytes32(0)
+            abi.encode(TaikoData.BlockParams(assignment, bytes32(0))), txList
         );
     }
 

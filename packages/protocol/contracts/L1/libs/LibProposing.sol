@@ -47,14 +47,12 @@ library LibProposing {
     error L1_UNAUTHORIZED();
 
     /// @dev Proposes a Taiko L2 block.
-
     function proposeBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
-        bytes calldata txList,
-        TaikoData.ProverAssignment memory assignment,
-        bytes32 extraData
+        bytes calldata data,
+        bytes calldata txList
     )
         internal
         returns (
@@ -62,6 +60,9 @@ library LibProposing {
             TaikoData.EthDeposit[] memory depositsProcessed
         )
     {
+        TaikoData.BlockParams memory params =
+            abi.decode(data, (TaikoData.BlockParams));
+
         if (!config.allowUsingBlobForDA && txList.length == 0) {
             revert L1_BLOB_FOR_DA_DISABLED();
         }
@@ -82,8 +83,7 @@ library LibProposing {
         }
 
         bytes32 blobHash; //or txListHash (if Blob not yet supported)
-        bool blobUsed = txList.length == 0;
-        if (blobUsed) {
+        if (txList.length == 0) {
             // Always use the first blob in this transaction.
             // If the proposeBlock functions are called more than once in the
             // same L1 transaction, these 2 L2 blocks will use the same blob as
@@ -112,6 +112,7 @@ library LibProposing {
         unchecked {
             uint256 rand = uint256(blobHash)
                 ^ (block.prevrandao * b.numBlocks * block.number);
+
             meta = TaikoData.BlockMetadata({
                 l1Hash: blockhash(block.number - 1),
                 // Following the Merge, the L1 mixHash incorporates the
@@ -121,7 +122,7 @@ library LibProposing {
                 // number as the L2 mixHash.
                 difficulty: bytes32(rand),
                 blobHash: blobHash,
-                extraData: extraData,
+                extraData: params.extraData,
                 depositsHash: keccak256(abi.encode(depositsProcessed)),
                 coinbase: msg.sender,
                 id: b.numBlocks,
@@ -130,7 +131,7 @@ library LibProposing {
                 l1Height: uint64(block.number - 1),
                 minTier: ITierProvider(resolver.resolve("tier_provider", false))
                     .getMinTier(rand),
-                blobUsed: blobUsed
+                blobUsed: txList.length == 0
             });
         }
         // Now, it's essential to initialize the block that will be stored
@@ -164,7 +165,7 @@ library LibProposing {
         // verification.
         // Prover can charge ERC20/NFT as fees; msg.value can be zero. Taiko
         // doesn't mandate Ether as the only proofing fee.
-        blk.assignedProver = assignment.prover;
+        blk.assignedProver = params.assignment.prover;
 
         // The assigned prover burns Taiko tokens, referred to as the
         // "liveness bond." This bond remains non-refundable to the
@@ -184,7 +185,7 @@ library LibProposing {
         // Validate the prover assignment, then charge Ether or ERC20 as the
         // prover fee based on the block's minTier.
         uint256 proverFee =
-            _validateAssignment(meta.minTier, blobHash, assignment);
+            _validateAssignment(meta.minTier, blobHash, params.assignment);
 
         emit BlockProposed({
             blockId: blk.blockId,
