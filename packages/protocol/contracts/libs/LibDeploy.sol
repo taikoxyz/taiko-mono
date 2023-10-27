@@ -21,7 +21,7 @@ library LibDeploy {
         address owner,
         bytes memory initializationData
     )
-        public
+        external
         returns (address proxy)
     {
         if (implementation == address(0)) revert DEPLOY_INVALID_IMPL();
