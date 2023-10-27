@@ -76,7 +76,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         message.destChainId = op.destChainId;
         message.data = _encodeDestinationCall(msg.sender, op);
         message.user = msg.sender;
-        message.to = resolve(message.destChainId, "erc1155_vault", false);
+        message.to = resolve(message.destChainId, name(), false);
         message.gasLimit = op.gasLimit;
         message.value = msg.value - op.fee;
         message.fee = op.fee;
@@ -261,7 +261,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             || super.supportsInterface(interfaceId);
     }
 
-    function myname() public pure override returns (bytes32) {
+    function name() public pure override returns (bytes32) {
         return "erc1155_vault";
     }
     /// @dev Encodes sending bridged or canonical ERC1155 tokens to the user.

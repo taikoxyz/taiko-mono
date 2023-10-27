@@ -122,7 +122,7 @@ abstract contract BaseNFTVault is BridgableApp {
 
         if (
             op.to == address(0)
-                || op.to == resolve(op.destChainId, myname(), false)
+                || op.to == resolve(op.destChainId, name(), false)
         ) revert VAULT_INVALID_TO();
         if (op.token == address(0)) revert VAULT_INVALID_TOKEN();
 

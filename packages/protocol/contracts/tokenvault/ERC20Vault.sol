@@ -106,7 +106,7 @@ contract ERC20Vault is BridgableApp {
     modifier whenOperationValid(BridgeTransferOp calldata op) {
         if (
             op.to == address(0)
-                || op.to == resolve(op.destChainId, myname(), false)
+                || op.to == resolve(op.destChainId, name(), false)
         ) {
             revert VAULT_INVALID_TO();
         }
@@ -145,7 +145,7 @@ contract ERC20Vault is BridgableApp {
 
         message.destChainId = op.destChainId;
         message.user = msg.sender;
-        message.to = resolve(op.destChainId, myname(), false);
+        message.to = resolve(op.destChainId, name(), false);
         message.gasLimit = op.gasLimit;
         message.value = msg.value - op.fee;
         message.fee = op.fee;
@@ -241,7 +241,7 @@ contract ERC20Vault is BridgableApp {
         });
     }
 
-    function myname() public pure override returns (bytes32 name) {
+    function name() public pure override returns (bytes32) {
         return "erc20_vault";
     }
     /// @dev Encodes sending bridged or canonical ERC20 tokens to the user.

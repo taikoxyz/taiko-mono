@@ -29,7 +29,7 @@ abstract contract BridgableApp is
         }
 
         ctx = IBridge(msg.sender).context();
-        address sender = resolve(ctx.srcChainId, myname(), false);
+        address sender = resolve(ctx.srcChainId, name(), false);
         if (ctx.from != sender) revert VAULT_PERMISSION_DENIED();
     }
 
@@ -59,5 +59,5 @@ abstract contract BridgableApp is
         return interfaceId == type(IRecallableSender).interfaceId;
     }
 
-    function myname() public pure virtual returns (bytes32 name);
+    function name() public pure virtual returns (bytes32);
 }

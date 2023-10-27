@@ -64,7 +64,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         message.destChainId = op.destChainId;
         message.data = _encodeDestinationCall(msg.sender, op);
         message.user = msg.sender;
-        message.to = resolve(message.destChainId, "erc721_vault", false);
+        message.to = resolve(message.destChainId, name(), false);
         message.gasLimit = op.gasLimit;
         message.value = msg.value - op.fee;
         message.fee = op.fee;
@@ -208,7 +208,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         return IERC721ReceiverUpgradeable.onERC721Received.selector;
     }
 
-    function myname() public pure override returns (bytes32) {
+    function name() public pure override returns (bytes32) {
         return "erc721_vault";
     }
 
