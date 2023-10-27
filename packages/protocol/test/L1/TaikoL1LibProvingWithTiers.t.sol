@@ -418,7 +418,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     0,
                     signalRoot,
                     LibTiers.TIER_SGX_AND_PSE_ZKEVM,
-                    TaikoErrors.L1_INVALID_EVIDENCE.selector
+                    TaikoErrors.L1_INVALID_TRANSITION.selector
                 );
             }
 
@@ -636,7 +636,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 0,
                 signalRoot,
                 LibTiers.TIER_GUARDIAN,
-                TaikoErrors.L1_INVALID_EVIDENCE.selector
+                TaikoErrors.L1_INVALID_TRANSITION.selector
             );
 
             vm.roll(block.number + 15 * 12);

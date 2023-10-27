@@ -45,8 +45,8 @@ library LibProving {
     error L1_ASSIGNED_PROVER_NOT_ALLOWED();
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_BLOCK_ID();
-    error L1_INVALID_EVIDENCE();
     error L1_INVALID_TIER();
+    error L1_INVALID_TRANSITION();
     error L1_NOT_ASSIGNED_PROVER();
     error L1_UNEXPECTED_TRANSITION_TIER();
 
@@ -63,7 +63,7 @@ library LibProving {
         returns (uint8 maxBlocksToVerify)
     {
         // Make sure parentHash is not zero
-        if (tran.parentHash == 0) revert L1_INVALID_EVIDENCE();
+        if (tran.parentHash == 0) revert L1_INVALID_TRANSITION();
 
         // Check that the block has been proposed but has not yet been verified.
         TaikoData.SlotB memory b = state.slotB;
@@ -227,7 +227,7 @@ library LibProving {
             // blockHash and signalRoot since, when we initialize a new
             // transition, we set both blockHash and signalRoot to 0.
             if (tran.blockHash == 0 || tran.signalRoot == 0) {
-                revert L1_INVALID_EVIDENCE();
+                revert L1_INVALID_TRANSITION();
             }
 
             // A special return value from the top tier prover can signal this
@@ -321,7 +321,7 @@ library LibProving {
 
             // zero values are not allowed
             if (tran.blockHash == 0 || tran.signalRoot == 0) {
-                revert L1_INVALID_EVIDENCE();
+                revert L1_INVALID_TRANSITION();
             }
 
             // The ability to prove a transition is granted under the following
