@@ -182,7 +182,7 @@ contract ERC20Vault is BridgableApp {
         nonReentrant
         whenNotPaused
     {
-        IBridge.Context memory ctx = getProcessMessageContext();
+        IBridge.Context memory ctx = checkProcessMessageContext();
 
         address token;
         if (ctoken.chainId == block.chainid) {
@@ -215,7 +215,7 @@ contract ERC20Vault is BridgableApp {
         nonReentrant
         whenNotPaused
     {
-        getRecallMessageContext();
+        checkRecallMessageContext();
 
         (, address token,, uint256 amount) = abi.decode(
             message.data[4:], (CanonicalERC20, address, address, uint256)

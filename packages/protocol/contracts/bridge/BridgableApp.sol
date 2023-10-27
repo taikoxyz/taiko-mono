@@ -34,7 +34,7 @@ abstract contract BridgableApp is
 
     function name() public pure virtual returns (bytes32);
 
-    function getProcessMessageContext()
+    function checkProcessMessageContext()
         internal
         view
         returns (IBridge.Context memory ctx)
@@ -48,7 +48,7 @@ abstract contract BridgableApp is
         if (ctx.from != sender) revert VAULT_PERMISSION_DENIED();
     }
 
-    function getRecallMessageContext()
+    function checkRecallMessageContext()
         internal
         view
         returns (IBridge.Context memory ctx)

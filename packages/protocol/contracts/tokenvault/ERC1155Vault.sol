@@ -122,7 +122,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         whenNotPaused
     {
         // Check context validity
-        IBridge.Context memory ctx = getProcessMessageContext();
+        IBridge.Context memory ctx = checkProcessMessageContext();
 
         address token;
 
@@ -174,7 +174,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         nonReentrant
         whenNotPaused
     {
-        getRecallMessageContext();
+        checkRecallMessageContext();
 
         (
             CanonicalNFT memory nft,

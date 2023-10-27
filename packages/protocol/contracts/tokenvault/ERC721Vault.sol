@@ -100,7 +100,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         nonReentrant
         whenNotPaused
     {
-        IBridge.Context memory ctx = getProcessMessageContext();
+        IBridge.Context memory ctx = checkProcessMessageContext();
 
         address token;
         unchecked {
@@ -144,7 +144,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         nonReentrant
         whenNotPaused
     {
-        getRecallMessageContext();
+        checkRecallMessageContext();
 
         if (message.user == address(0)) revert VAULT_INVALID_USER();
         if (message.srcChainId != block.chainid) {
