@@ -6,8 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-import { EssentialContract } from "../common/EssentialContract.sol";
-
 import { BaseVault } from "./BaseVault.sol";
 
 /// @title BaseNFTVault

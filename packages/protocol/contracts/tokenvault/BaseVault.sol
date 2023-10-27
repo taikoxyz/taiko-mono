@@ -10,10 +10,7 @@ import { IERC165Upgradeable } from
 
 import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
 import { AddressResolver } from "../common/AddressResolver.sol";
-import {
-    AuthorizableContract,
-    EssentialContract
-} from "../common/AuthorizableContract.sol";
+import { AuthorizableContract } from "../common/AuthorizableContract.sol";
 
 abstract contract BaseVault is
     AuthorizableContract,
