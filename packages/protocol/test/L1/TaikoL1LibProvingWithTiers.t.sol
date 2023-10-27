@@ -983,16 +983,16 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     graffiti: 0x0
                 });
 
-                TaikoData.TierProof memory tproof;
-                tproof.tier = LibTiers.TIER_GUARDIAN;
-                tproof.data = bytes.concat(keccak256("RETURN_LIVENESS_BOND"));
+                TaikoData.TierProof memory proof;
+                proof.tier = LibTiers.TIER_GUARDIAN;
+                proof.data = bytes.concat(keccak256("RETURN_LIVENESS_BOND"));
 
                 vm.prank(David, David);
-                gp.approve(meta, tran, tproof);
+                gp.approve(meta, tran, proof);
                 vm.prank(Emma, Emma);
-                gp.approve(meta, tran, tproof);
+                gp.approve(meta, tran, proof);
                 vm.prank(Frank, Frank);
-                gp.approve(meta, tran, tproof);
+                gp.approve(meta, tran, proof);
 
                 // // Credited back the bond (not transferred to the user
                 // wallet,

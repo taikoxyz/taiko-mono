@@ -23,7 +23,7 @@ interface IVerifier {
     function verifyProof(
         Context calldata ctx,
         TaikoData.Transition calldata tran,
-        TaikoData.TierProof calldata tproof
+        TaikoData.TierProof calldata proof
     )
         external;
 }

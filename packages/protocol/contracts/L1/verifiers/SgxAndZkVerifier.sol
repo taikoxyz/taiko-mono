@@ -30,23 +30,23 @@ contract SgxAndZkVerifier is EssentialContract, IVerifier {
     function verifyProof(
         Context calldata ctx,
         TaikoData.Transition calldata tran,
-        TaikoData.TierProof calldata tproof
+        TaikoData.TierProof calldata proof
     )
         external
     {
-        TaikoData.TierProof memory _tproof;
-        _tproof.tier = tproof.tier;
+        TaikoData.TierProof memory _proof;
+        _proof.tier = proof.tier;
 
         // Verify the SGX part
-        _tproof.data = LibBytesUtils.slice(tproof.data, 0, SGX_PROOF_SIZE);
-        IVerifier(resolve("tier_sgx", false)).verifyProof(ctx, tran, _tproof);
+        _proof.data = LibBytesUtils.slice(proof.data, 0, SGX_PROOF_SIZE);
+        IVerifier(resolve("tier_sgx", false)).verifyProof(ctx, tran, _proof);
 
         // Verify the ZK part
-        _tproof.data = LibBytesUtils.slice(
-            tproof.data, SGX_PROOF_SIZE, (tproof.data.length - SGX_PROOF_SIZE)
+        _proof.data = LibBytesUtils.slice(
+            proof.data, SGX_PROOF_SIZE, (proof.data.length - SGX_PROOF_SIZE)
         );
         IVerifier(resolve("tier_pse_zkevm", false)).verifyProof(
-            ctx, tran, _tproof
+            ctx, tran, _proof
         );
     }
 }

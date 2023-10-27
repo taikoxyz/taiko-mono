@@ -26,7 +26,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         bytes1[48] pointProof;
     }
 
-    struct PseZkEvmProof {
+    struct ZkEvmProof {
         uint16 verifierId;
         bytes zkp;
         bytes pointProof;
@@ -46,7 +46,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
     function verifyProof(
         Context calldata ctx,
         TaikoData.Transition calldata tran,
-        TaikoData.TierProof calldata tproof
+        TaikoData.TierProof calldata proof
     )
         external
         view
@@ -54,11 +54,11 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         // Do not run proof verification to contest an existing proof
         if (ctx.isContesting) return;
 
-        PseZkEvmProof memory proof = abi.decode(tproof.data, (PseZkEvmProof));
+        ZkEvmProof memory zkProof = abi.decode(proof.data, (ZkEvmProof));
 
         bytes32 instance;
         if (ctx.blobUsed) {
-            PointProof memory pf = abi.decode(proof.pointProof, (PointProof));
+            PointProof memory pf = abi.decode(zkProof.pointProof, (PointProof));
 
             instance = calcInstance({
                 tran: tran,
@@ -73,10 +73,10 @@ contract PseZkVerifier is EssentialContract, IVerifier {
                 x: calc4844PointEvalX(ctx.blobHash, pf.txListHash),
                 y: pf.pointValue,
                 commitment: pf.pointCommitment,
-                proof: pf.pointProof
+                pointProof: pf.pointProof
             });
         } else {
-            assert(proof.pointProof.length == 0);
+            assert(zkProof.pointProof.length == 0);
             instance = calcInstance({
                 tran: tran,
                 prover: ctx.prover,
@@ -88,14 +88,14 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
         // Validate the instance using bytes utilities.
         bool verified = LibBytesUtils.equal(
-            LibBytesUtils.slice(proof.zkp, 0, 32),
+            LibBytesUtils.slice(zkProof.zkp, 0, 32),
             bytes.concat(bytes16(0), bytes16(instance))
         );
 
         if (!verified) revert L1_INVALID_PROOF();
 
         verified = LibBytesUtils.equal(
-            LibBytesUtils.slice(proof.zkp, 32, 32),
+            LibBytesUtils.slice(zkProof.zkp, 32, 32),
             bytes.concat(bytes16(0), bytes16(uint128(uint256(instance))))
         );
         if (!verified) revert L1_INVALID_PROOF();
@@ -103,11 +103,11 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         // Delegate to the ZKP verifier library to validate the proof.
         // Resolve the verifier's name and obtain its address.
         address verifierAddress =
-            resolve(getVerifierName(proof.verifierId), false);
+            resolve(getVerifierName(zkProof.verifierId), false);
 
         // Call the verifier contract with the provided proof.
         bytes memory ret;
-        (verified, ret) = verifierAddress.staticcall(bytes.concat(proof.zkp));
+        (verified, ret) = verifierAddress.staticcall(bytes.concat(zkProof.zkp));
 
         // Check if the proof is valid.
         if (!verified) revert L1_INVALID_PROOF();

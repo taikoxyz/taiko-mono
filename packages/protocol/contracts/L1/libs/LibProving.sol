@@ -57,7 +57,7 @@ library LibProving {
         AddressResolver resolver,
         TaikoData.BlockMetadata memory meta,
         TaikoData.Transition memory tran,
-        TaikoData.TierProof memory tproof
+        TaikoData.TierProof memory proof
     )
         internal
         returns (uint8 maxBlocksToVerify)
@@ -162,8 +162,7 @@ library LibProving {
         // The new proof must meet or exceed the minimum tier required by the
         // block or the previous proof; it cannot be on a lower tier.
         if (
-            tproof.tier == 0 || tproof.tier < meta.minTier
-                || tproof.tier < ts.tier
+            proof.tier == 0 || proof.tier < meta.minTier || proof.tier < ts.tier
         ) {
             revert L1_INVALID_TIER();
         }
@@ -172,7 +171,7 @@ library LibProving {
         // subsequent action will result in a revert.
         ITierProvider.Tier memory tier = ITierProvider(
             resolver.resolve("tier_provider", false)
-        ).getTier(tproof.tier);
+        ).getTier(proof.tier);
 
         maxBlocksToVerify = tier.maxBlocksToVerify;
 
@@ -197,7 +196,7 @@ library LibProving {
             // optimistic proofs.
             if (verifier != address(0)) {
                 bool isContesting =
-                    tproof.tier == ts.tier && tier.contestBond != 0;
+                    proof.tier == ts.tier && tier.contestBond != 0;
 
                 IVerifier.Context memory ctx = IVerifier.Context({
                     metaHash: blk.metaHash,
@@ -208,7 +207,7 @@ library LibProving {
                     blobUsed: meta.blobUsed
                 });
 
-                IVerifier(verifier).verifyProof(ctx, tran, tproof);
+                IVerifier(verifier).verifyProof(ctx, tran, proof);
             }
         }
 
@@ -233,8 +232,8 @@ library LibProving {
             // A special return value from the top tier prover can signal this
             // contract to return all liveness bond.
             if (
-                blk.livenessBond > 0 && tproof.data.length == 32
-                    && bytes32(tproof.data) == RETURN_LIVENESS_BOND
+                blk.livenessBond > 0 && proof.data.length == 32
+                    && bytes32(proof.data) == RETURN_LIVENESS_BOND
             ) {
                 LibTaikoToken.creditTaikoToken(
                     state, blk.assignedProver, blk.livenessBond
@@ -256,16 +255,16 @@ library LibProving {
             }
 
             ts.timestamp = uint64(block.timestamp);
-            ts.tier = tproof.tier;
+            ts.tier = proof.tier;
 
             emit TransitionProved({
                 blockId: blk.blockId,
                 tran: tran,
                 prover: msg.sender,
                 validityBond: 0,
-                tier: tproof.tier
+                tier: proof.tier
             });
-        } else if (tproof.tier == ts.tier) {
+        } else if (proof.tier == ts.tier) {
             // Contesting an existing transition requires either the blockHash
             // or signalRoot to be different. This precaution is necessary
             // because this `proveBlock` transaction might aim to prove a
@@ -311,10 +310,10 @@ library LibProving {
                 tran: tran,
                 contester: msg.sender,
                 contestBond: tier.contestBond,
-                tier: tproof.tier
+                tier: proof.tier
             });
         } else {
-            assert(tproof.tier > ts.tier);
+            assert(proof.tier > ts.tier);
             // The new tier is higher than the previous tier, we are in the
             // proving mode. This works even if this transition's contester is
             // address zero, see more info below.
@@ -436,14 +435,14 @@ library LibProving {
             ts.contester = address(0);
             ts.contestBond = 1; // to save gas
             ts.timestamp = uint64(block.timestamp);
-            ts.tier = tproof.tier;
+            ts.tier = proof.tier;
 
             emit TransitionProved({
                 blockId: blk.blockId,
                 tran: tran,
                 prover: msg.sender,
                 validityBond: tier.validityBond,
-                tier: tproof.tier
+                tier: proof.tier
             });
         }
     }

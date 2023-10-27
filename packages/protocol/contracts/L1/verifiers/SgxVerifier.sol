@@ -102,7 +102,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     function verifyProof(
         Context calldata ctx,
         TaikoData.Transition calldata tran,
-        TaikoData.TierProof calldata tproof
+        TaikoData.TierProof calldata proof
     )
         external
     {
@@ -111,12 +111,12 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
         // Size is: 87 bytes
         // 2 bytes + 20 bytes + 65 bytes (signature) = 87
-        if (tproof.data.length != 87) revert SGX_INVALID_PROOF();
+        if (proof.data.length != 87) revert SGX_INVALID_PROOF();
 
-        uint16 id = uint16(bytes2(LibBytesUtils.slice(tproof.data, 0, 2)));
+        uint16 id = uint16(bytes2(LibBytesUtils.slice(proof.data, 0, 2)));
         address newInstance =
-            address(bytes20(LibBytesUtils.slice(tproof.data, 2, 20)));
-        bytes memory signature = LibBytesUtils.slice(tproof.data, 22);
+            address(bytes20(LibBytesUtils.slice(proof.data, 2, 20)));
+        bytes memory signature = LibBytesUtils.slice(proof.data, 22);
         address oldInstance = ECDSAUpgradeable.recover(
             getSignedHash(tran, newInstance, ctx.prover, ctx.metaHash),
             signature

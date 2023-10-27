@@ -114,7 +114,7 @@ contract TaikoL1 is
         (
             TaikoData.BlockMetadata memory meta,
             TaikoData.Transition memory tran,
-            TaikoData.TierProof memory tproof
+            TaikoData.TierProof memory proof
         ) = abi.decode(
             input,
             (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof)
@@ -124,7 +124,7 @@ contract TaikoL1 is
 
         TaikoData.Config memory config = getConfig();
         uint8 maxBlocksToVerify = LibProving.proveBlock(
-            state, config, AddressResolver(this), meta, tran, tproof
+            state, config, AddressResolver(this), meta, tran, proof
         );
         if (maxBlocksToVerify > 0) {
             LibVerifying.verifyBlocks(

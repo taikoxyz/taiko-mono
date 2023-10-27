@@ -195,10 +195,10 @@ abstract contract TaikoL1TestBase is TestBase {
             tran, prover, LibUtils.hashMetadata(meta), meta.blobHash, 0
         );
 
-        TaikoData.TierProof memory tproof;
-        tproof.tier = tier;
+        TaikoData.TierProof memory proof;
+        proof.tier = tier;
         {
-            PseZkVerifier.PseZkEvmProof memory zkProof;
+            PseZkVerifier.ZkEvmProof memory zkProof;
             zkProof.verifierId = 300;
             zkProof.zkp = bytes.concat(
                 bytes16(0),
@@ -208,7 +208,7 @@ abstract contract TaikoL1TestBase is TestBase {
                 new bytes(100)
             );
 
-            tproof.data = abi.encode(zkProof);
+            proof.data = abi.encode(zkProof);
         }
 
         address newInstance;
@@ -227,7 +227,7 @@ abstract contract TaikoL1TestBase is TestBase {
                 tran, newInstance, prover, LibUtils.hashMetadata(meta)
             );
 
-            tproof.data =
+            proof.data =
                 bytes.concat(bytes2(0), bytes20(newInstance), signature);
         }
 
@@ -239,35 +239,35 @@ abstract contract TaikoL1TestBase is TestBase {
             bytes memory sgxProof =
                 bytes.concat(bytes2(0), bytes20(newInstance), signature);
             // Concatenate SGX and ZK (in this order)
-            tproof.data = bytes.concat(sgxProof, tproof.data);
+            proof.data = bytes.concat(sgxProof, proof.data);
         }
 
         if (tier == LibTiers.TIER_GUARDIAN) {
-            tproof.data = "";
+            proof.data = "";
 
             // Grant 2 signatures, 3rd might be a revert
             vm.prank(David, David);
-            gp.approve(meta, tran, tproof);
+            gp.approve(meta, tran, proof);
             vm.prank(Emma, Emma);
-            gp.approve(meta, tran, tproof);
+            gp.approve(meta, tran, proof);
 
             if (revertReason != "") {
                 vm.prank(Frank, Frank);
                 vm.expectRevert(); // Revert reason is 'wrapped' so will not be
                     // identical to the expectedRevert
-                gp.approve(meta, tran, tproof);
+                gp.approve(meta, tran, proof);
             } else {
                 vm.prank(Frank, Frank);
-                gp.approve(meta, tran, tproof);
+                gp.approve(meta, tran, proof);
             }
         } else {
             if (revertReason != "") {
                 vm.prank(msgSender, msgSender);
                 vm.expectRevert(revertReason);
-                L1.proveBlock(meta.id, abi.encode(meta, tran, tproof));
+                L1.proveBlock(meta.id, abi.encode(meta, tran, proof));
             } else {
                 vm.prank(msgSender, msgSender);
-                L1.proveBlock(meta.id, abi.encode(meta, tran, tproof));
+                L1.proveBlock(meta.id, abi.encode(meta, tran, proof));
             }
         }
     }
