@@ -151,7 +151,7 @@ contract Bridge is EssentialContract, IBridge {
         if (support) {
             _ctx = Context({
                 msgHash: msgHash,
-                from: address(0),
+                from: address(this),
                 srcChainId: message.srcChainId
             });
 

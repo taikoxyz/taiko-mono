@@ -108,7 +108,7 @@ contract ERC721Vault is
         onlyFromNamed("bridge")
     {
         IBridge.Context memory ctx =
-            LibVaultUtils.checkValidContext("erc721_vault", address(this));
+            LibVaultUtils.checkValidContext("erc721_vault");
         address token;
 
         unchecked {
@@ -154,7 +154,7 @@ contract ERC721Vault is
         whenNotPaused
         onlyFromNamed("bridge")
     {
-        LibVaultUtils.checkRecallContext();
+        LibVaultUtils.checkValidContext("bridge");
 
         if (message.user == address(0)) revert VAULT_INVALID_USER();
         if (message.srcChainId != block.chainid) {

@@ -191,7 +191,7 @@ contract ERC20Vault is
         onlyFromNamed("bridge")
     {
         IBridge.Context memory ctx =
-            LibVaultUtils.checkValidContext("erc20_vault", address(this));
+            LibVaultUtils.checkValidContext("erc20_vault");
 
         address token;
         if (ctoken.chainId == block.chainid) {
@@ -226,7 +226,7 @@ contract ERC20Vault is
         whenNotPaused
         onlyFromNamed("bridge")
     {
-        LibVaultUtils.checkRecallContext();
+        LibVaultUtils.checkValidContext("bridge");
 
         (, address token,, uint256 amount) = abi.decode(
             message.data[4:], (CanonicalERC20, address, address, uint256)

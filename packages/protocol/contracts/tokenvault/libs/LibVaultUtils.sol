@@ -43,29 +43,16 @@ library LibVaultUtils {
 
     /// @dev Checks if context is valid
     /// @param senderName The valid sender to be allowed
-    /// @param resolver The address of the resolver
-    function checkValidContext(
-        bytes32 senderName,
-        address resolver
-    )
+    function checkValidContext(bytes32 senderName)
         internal
         view
         returns (IBridge.Context memory ctx)
     {
         ctx = IBridge(msg.sender).context();
-        address sender =
-            AddressResolver(resolver).resolve(ctx.srcChainId, senderName, false);
+        address sender = AddressResolver(address(this)).resolve(
+            ctx.srcChainId, senderName, false
+        );
         if (ctx.from != sender) revert VAULT_INVALID_FROM();
-    }
-
-    /// @dev Checks if context is valid
-    function checkRecallContext()
-        internal
-        view
-        returns (IBridge.Context memory ctx)
-    {
-        ctx = IBridge(msg.sender).context();
-        if (ctx.from != address(0)) revert VAULT_INVALID_FROM();
     }
 
     function checkIfValidAddresses(
