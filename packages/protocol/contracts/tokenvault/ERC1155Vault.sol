@@ -257,7 +257,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         returns (bool)
     {
         return interfaceId == type(ERC1155ReceiverUpgradeable).interfaceId
-            || super.supportsInterface(interfaceId);
+            || BridgableApp.supportsInterface(interfaceId);
     }
 
     function name() public pure override returns (bytes32) {
