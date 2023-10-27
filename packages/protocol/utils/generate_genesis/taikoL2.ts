@@ -303,7 +303,6 @@ async function generateContractConfigs(
                             ]),
                     ]
                 )}`,
-                gasExcess: ethers.BigNumber.from(param1559.gasExcess),
                 // AddressResolver
                 addressManager: addressMap.AddressManagerProxy,
             },
