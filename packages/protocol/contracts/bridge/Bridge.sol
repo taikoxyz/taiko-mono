@@ -97,9 +97,11 @@ contract Bridge is EssentialContract, IBridge {
             revert B_INVALID_CHAINID();
         }
 
-        if (message.to == address(0)) revert B_INVALID_TO();
-        if (message.to == destBridge) revert B_INVALID_TO();
-        if (message.to == resolve(message.destChainId, "ether_vault", true)) {
+        if (
+            message.to == address(0) || message.to == destBridge
+                || message.to == resolve(message.destChainId, "taiko", true)
+                || message.to == resolve(message.destChainId, "ether_vault", true)
+        ) {
             revert B_INVALID_TO();
         }
 
@@ -207,7 +209,7 @@ contract Bridge is EssentialContract, IBridge {
         // Process message differently based on the target address
         if (
             message.to == address(this) || message.to == address(0)
-                || message.to == ethVault
+                || message.to == ethVault || message.to == resolve("taiko", true)
         ) {
             // Handle special addresses that don't require actual invocation but
             // mark message as DONE
