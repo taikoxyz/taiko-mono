@@ -9,7 +9,6 @@ pragma solidity ^0.8.20;
 import { TransparentUpgradeableProxy } from
     "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-// TODO: move this to ../../libs?
 library LibDeploy {
     error DEPLOY_INVALID_IMPL();
 
