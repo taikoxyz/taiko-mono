@@ -70,6 +70,7 @@ contract EtherVault is EssentialContract {
         onlyAuthorized
         nonReentrant
         whenNotPaused
+        // onlyFromNamed("bridge")
         onlyWhenNamed("ether_vault")
     {
         if (recipient == address(0)) revert VAULT_INVALID_RECIPIENT();
