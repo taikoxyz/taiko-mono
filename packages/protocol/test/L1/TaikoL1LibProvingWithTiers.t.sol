@@ -21,7 +21,7 @@ import { LibTiers } from "../../contracts/L1/tiers/ITierProvider.sol";
 contract TaikoL1Tiers is TaikoL1 {
     function getConfig()
         public
-        pure
+        view
         override
         returns (TaikoData.Config memory config)
     {
