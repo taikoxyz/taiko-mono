@@ -44,7 +44,6 @@
     destNetwork as destinationChain,
     enteredAmount,
     processingFee,
-    processingFeeMethod,
     recipientAddress,
     selectedToken,
   } from './state';
@@ -365,8 +364,6 @@
     <Step stepIndex={NFTSteps.CONFIRM} currentStepIndex={activeStep} isActive={activeStep === NFTSteps.CONFIRM}
       >{$t('bridge.nft.step.confirm.title')}</Step>
   </Stepper>
-
-  {$processingFeeMethod}
 
   <Card class="mt-[32px] w-full md:w-[524px]" title={nftStepTitle} text={nftStepDescription}>
     <div class="space-y-[30px]">
