@@ -12,12 +12,11 @@ import { ERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import { SafeERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import { IERC165Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/introspection/IERC165Upgradeable.sol";
 
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
-import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
+import { IBridge } from "../bridge/IBridge.sol";
+import { BridgableApp } from "../bridge/BridgableApp.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 
 import { ProxiedBridgedERC20 } from "./BridgedERC20.sol";
@@ -28,11 +27,7 @@ import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 /// @notice This vault holds all ERC20 tokens (excluding Ether) that users have
 /// deposited. It also manages the mapping between canonical ERC20 tokens and
 /// their bridged tokens.
-contract ERC20Vault is
-    EssentialContract,
-    IERC165Upgradeable,
-    IRecallableSender
-{
+contract ERC20Vault is BridgableApp {
     using LibAddress for address;
     using SafeERC20Upgradeable for ERC20Upgradeable;
 
@@ -108,16 +103,14 @@ contract ERC20Vault is
     error VAULT_MESSAGE_NOT_FAILED();
     error VAULT_MESSAGE_RELEASED_ALREADY();
 
-    modifier onlyValidAddresses(
-        uint256 chainId,
-        bytes32 name,
-        address to,
-        address token
-    ) {
-        if (to == address(0) || to == resolve(chainId, name, false)) {
+    modifier onlyValidOp(BridgeTransferOp calldata op) {
+        if (
+            op.to == address(0)
+                || op.to == resolve(op.destChainId, myname(), false)
+        ) {
             revert VAULT_INVALID_TO();
         }
-        if (token == address(0)) revert VAULT_INVALID_TOKEN();
+        if (op.token == address(0)) revert VAULT_INVALID_TOKEN();
         _;
     }
 
@@ -130,34 +123,34 @@ contract ERC20Vault is
     /// @notice Transfers ERC20 tokens to this vault and sends a message to the
     /// destination chain so the user can receive the same amount of tokens by
     /// invoking the message call.
-    /// @param opt Option for sending ERC20 tokens.
-    function sendToken(BridgeTransferOp calldata opt)
+    /// @param op Option for sending ERC20 tokens.
+    function sendToken(BridgeTransferOp calldata op)
         external
         payable
         nonReentrant
         whenNotPaused
-        onlyValidAddresses(opt.destChainId, "erc20_vault", opt.to, opt.token)
+        onlyValidOp(op)
     {
-        if (opt.amount == 0) revert VAULT_INVALID_AMOUNT();
+        if (op.amount == 0) revert VAULT_INVALID_AMOUNT();
 
         uint256 _amount;
         IBridge.Message memory message;
 
         (message.data, _amount) = _encodeDestinationCall({
             user: msg.sender,
-            token: opt.token,
-            amount: opt.amount,
-            to: opt.to
+            token: op.token,
+            amount: op.amount,
+            to: op.to
         });
 
-        message.destChainId = opt.destChainId;
+        message.destChainId = op.destChainId;
         message.user = msg.sender;
-        message.to = resolve(opt.destChainId, "erc20_vault", false);
-        message.gasLimit = opt.gasLimit;
-        message.value = msg.value - opt.fee;
-        message.fee = opt.fee;
-        message.refundTo = opt.refundTo;
-        message.memo = opt.memo;
+        message.to = resolve(op.destChainId, myname(), false);
+        message.gasLimit = op.gasLimit;
+        message.value = msg.value - op.fee;
+        message.fee = op.fee;
+        message.refundTo = op.refundTo;
+        message.memo = op.memo;
 
         (bytes32 msgHash, IBridge.Message memory _message) = IBridge(
             resolve("bridge", false)
@@ -166,9 +159,9 @@ contract ERC20Vault is
         emit TokenSent({
             msgHash: msgHash,
             from: _message.user,
-            to: opt.to,
-            destChainId: opt.destChainId,
-            token: opt.token,
+            to: op.to,
+            destChainId: op.destChainId,
+            token: op.token,
             amount: _amount
         });
     }
@@ -188,10 +181,8 @@ contract ERC20Vault is
         payable
         nonReentrant
         whenNotPaused
-        onlyFromNamed("bridge")
     {
-        IBridge.Context memory ctx =
-            LibVaultUtils.checkValidContext("erc20_vault");
+        IBridge.Context memory ctx = getProcessMessageContext();
 
         address token;
         if (ctoken.chainId == block.chainid) {
@@ -214,7 +205,6 @@ contract ERC20Vault is
         });
     }
 
-    /// @inheritdoc IRecallableSender
     function onMessageRecalled(
         IBridge.Message calldata message,
         bytes32 msgHash
@@ -224,9 +214,8 @@ contract ERC20Vault is
         override
         nonReentrant
         whenNotPaused
-        onlyFromNamed("bridge")
     {
-        LibVaultUtils.checkValidContext("bridge");
+        getRecallMessageContext();
 
         (, address token,, uint256 amount) = abi.decode(
             message.data[4:], (CanonicalERC20, address, address, uint256)
@@ -252,19 +241,9 @@ contract ERC20Vault is
         });
     }
 
-    /// @notice Checks if the contract supports the given interface.
-    /// @param interfaceId The interface identifier.
-    /// @return true if the contract supports the interface, false otherwise.
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        virtual
-        override
-        returns (bool)
-    {
-        return interfaceId == type(IRecallableSender).interfaceId;
+    function myname() public pure override returns (bytes32 name) {
+        return "erc20_vault";
     }
-
     /// @dev Encodes sending bridged or canonical ERC20 tokens to the user.
     /// @param user The user's address.
     /// @param token The token address.
@@ -274,6 +253,7 @@ contract ERC20Vault is
     /// @return _balanceChange User token balance actual change after the token
     /// transfer. This value is calculated so we do not assume token balance
     /// change is the amount of token transfered away.
+
     function _encodeDestinationCall(
         address user,
         address token,
