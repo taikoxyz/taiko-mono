@@ -208,7 +208,7 @@ contract Bridge is EssentialContract, IBridge {
 
         // Process message differently based on the target address
         if (
-            message.to == address(this) || message.to == address(0)
+            message.to == address(0) || message.to == address(this)
                 || message.to == ethVault || message.to == resolve("taiko", true)
         ) {
             // Handle special addresses that don't require actual invocation but
