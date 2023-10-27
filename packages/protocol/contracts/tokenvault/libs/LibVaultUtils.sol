@@ -16,30 +16,11 @@ library LibVaultUtils {
     uint256 public constant MAX_TOKEN_PER_TXN = 10;
 
     error VAULT_INVALID_FROM();
-    error VAULT_INVALID_IMPL();
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_TO();
     error VAULT_TOKEN_ARRAY_MISMATCH();
     error VAULT_MAX_TOKEN_PER_TXN_EXCEEDED();
     error VAULT_INVALID_AMOUNT();
-
-    /// @dev Deploys a contract (via proxy)
-    /// @param implementation The new implementation address
-    /// @param owner The owner of the proxy admin contract
-    /// @param initializationData Data for the initialization
-    function deployProxy(
-        address implementation,
-        address owner,
-        bytes memory initializationData
-    )
-        external
-        returns (address proxy)
-    {
-        if (implementation == address(0)) revert VAULT_INVALID_IMPL();
-        proxy = address(
-            new TransparentUpgradeableProxy(implementation, owner, initializationData)
-        );
-    }
 
     /// @dev Checks if context is valid
     /// @param senderName The valid sender to be allowed

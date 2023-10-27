@@ -26,6 +26,7 @@ import { LibAddress } from "../libs/LibAddress.sol";
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 import { BaseNFTVault } from "./BaseNFTVault.sol";
 import { ProxiedBridgedERC1155 } from "./BridgedERC1155.sol";
+import { LibDeploy } from "./libs/LibDeploy.sol";
 
 /// @title ERC1155NameAndSymbol
 /// @notice Interface for ERC1155 contracts that provide name() and symbol()
@@ -349,7 +350,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             bytecode: type(ProxiedBridgedERC1155).creationCode
         });
 
-        btoken = LibVaultUtils.deployProxy(
+        btoken = LibDeploy.deployProxy(
             address(bridgedToken),
             owner(),
             bytes.concat(

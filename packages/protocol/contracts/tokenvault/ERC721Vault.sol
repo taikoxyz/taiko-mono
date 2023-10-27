@@ -25,6 +25,7 @@ import { Proxied } from "../common/Proxied.sol";
 import { BaseNFTVault } from "./BaseNFTVault.sol";
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 import { ProxiedBridgedERC721 } from "./BridgedERC721.sol";
+import { LibDeploy } from "./libs/LibDeploy.sol";
 
 /// @title ERC721Vault
 /// @notice This vault holds all ERC721 tokens that users have deposited.
@@ -296,7 +297,7 @@ contract ERC721Vault is
             bytecode: type(ProxiedBridgedERC721).creationCode
         });
 
-        btoken = LibVaultUtils.deployProxy(
+        btoken = LibDeploy.deployProxy(
             address(bridgedToken),
             owner(),
             bytes.concat(

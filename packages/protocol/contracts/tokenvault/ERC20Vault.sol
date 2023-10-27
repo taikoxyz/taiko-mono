@@ -21,7 +21,7 @@ import { LibAddress } from "../libs/LibAddress.sol";
 
 import { ProxiedBridgedERC20 } from "./BridgedERC20.sol";
 import { IMintableERC20 } from "./IMintableERC20.sol";
-import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
+import { LibDeploy } from "./libs/LibDeploy.sol";
 
 /// @title ERC20Vault
 /// @notice This vault holds all ERC20 tokens (excluding Ether) that users have
@@ -325,7 +325,7 @@ contract ERC20Vault is BridgableApp {
             bytecode: type(ProxiedBridgedERC20).creationCode
         });
 
-        btoken = LibVaultUtils.deployProxy(
+        btoken = LibDeploy.deployProxy(
             address(bridgedToken),
             owner(),
             bytes.concat(
