@@ -16,18 +16,18 @@ import { SafeERC20Upgradeable } from
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { IBridge } from "../bridge/IBridge.sol";
-import { BridgableApp } from "../bridge/BridgableApp.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 import { LibDeploy } from "../libs/LibDeploy.sol";
 
 import { ProxiedBridgedERC20 } from "./BridgedERC20.sol";
 import { IMintableERC20 } from "./IMintableERC20.sol";
+import { BaseVault } from "./BaseVault.sol";
 
 /// @title ERC20Vault
 /// @notice This vault holds all ERC20 tokens (excluding Ether) that users have
 /// deposited. It also manages the mapping between canonical ERC20 tokens and
 /// their bridged tokens.
-contract ERC20Vault is BridgableApp {
+contract ERC20Vault is BaseVault {
     using LibAddress for address;
     using SafeERC20Upgradeable for ERC20Upgradeable;
 
@@ -112,12 +112,6 @@ contract ERC20Vault is BridgableApp {
         }
         if (op.token == address(0)) revert VAULT_INVALID_TOKEN();
         _;
-    }
-
-    /// @notice Initializes the contract with the address manager.
-    /// @param addressManager Address manager contract address.
-    function init(address addressManager) external initializer {
-        EssentialContract._init(addressManager);
     }
 
     /// @notice Transfers ERC20 tokens to this vault and sends a message to the

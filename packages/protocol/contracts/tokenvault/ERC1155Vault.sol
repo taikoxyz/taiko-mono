@@ -21,11 +21,10 @@ import {
 
 import { Proxied } from "../common/Proxied.sol";
 import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
-import { BridgableApp } from "../bridge/BridgableApp.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 import { LibDeploy } from "../libs/LibDeploy.sol";
 
-import { BaseNFTVault } from "./BaseNFTVault.sol";
+import { BaseVault, BaseNFTVault } from "./BaseNFTVault.sol";
 import { ProxiedBridgedERC1155 } from "./BridgedERC1155.sol";
 
 /// @title ERC1155NameAndSymbol
@@ -253,11 +252,11 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         public
         view
         virtual
-        override(BridgableApp, ERC1155ReceiverUpgradeable)
+        override(BaseVault, ERC1155ReceiverUpgradeable)
         returns (bool)
     {
         return interfaceId == type(ERC1155ReceiverUpgradeable).interfaceId
-            || BridgableApp.supportsInterface(interfaceId);
+            || BaseVault.supportsInterface(interfaceId);
     }
 
     function name() public pure override returns (bytes32) {

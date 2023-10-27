@@ -7,11 +7,12 @@
 pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { BridgableApp } from "../bridge/BridgableApp.sol";
+
+import { BaseVault } from "./BaseVault.sol";
 
 /// @title BaseNFTVault
 /// @notice Abstract contract for bridging NFTs across different chains.
-abstract contract BaseNFTVault is BridgableApp {
+abstract contract BaseNFTVault is BaseVault {
     // Struct representing the canonical NFT on another chain.
     struct CanonicalNFT {
         // Chain ID of the NFT.
@@ -127,11 +128,5 @@ abstract contract BaseNFTVault is BridgableApp {
         if (op.token == address(0)) revert VAULT_INVALID_TOKEN();
 
         _;
-    }
-
-    /// @notice Initializes the contract with an address manager.
-    /// @param addressManager The address of the address manager.
-    function init(address addressManager) external initializer {
-        EssentialContract._init(addressManager);
     }
 }

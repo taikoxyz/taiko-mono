@@ -6,7 +6,10 @@
 
 pragma solidity ^0.8.20;
 
-import { EssentialContract } from "../common/EssentialContract.sol";
+import {
+    AuthorizableContract,
+    EssentialContract
+} from "../common/AuthorizableContract.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 import { Proxied } from "../common/Proxied.sol";
 
@@ -14,7 +17,7 @@ import { Proxied } from "../common/Proxied.sol";
 /// @notice This contract is initialized with 2^128 Ether and allows authorized
 /// addresses to release Ether.
 /// @dev Only the contract owner can authorize or deauthorize addresses.
-contract EtherVault is EssentialContract {
+contract EtherVault is AuthorizableContract {
     using LibAddress for address;
 
     mapping(address addr => bool authorized) public isAuthorized;
@@ -35,6 +38,8 @@ contract EtherVault is EssentialContract {
 
     receive() external payable { }
 
+    // TODO(daniel): remove addressManager as param and make sure _init use
+    // address(0);
     /// @notice Initializes the contract with an {AddressManager}.
     /// @param addressManager The address of the {AddressManager} contract.
     function init(address addressManager) external initializer {

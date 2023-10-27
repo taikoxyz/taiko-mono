@@ -8,16 +8,27 @@ pragma solidity ^0.8.20;
 import { IERC165Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/utils/introspection/IERC165Upgradeable.sol";
 
-import { EssentialContract } from "../common/EssentialContract.sol";
+import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
+import { AddressResolver } from "../common/AddressResolver.sol";
+import {
+    AuthorizableContract,
+    EssentialContract
+} from "../common/AuthorizableContract.sol";
 
-import { IBridge, IRecallableSender } from "./IBridge.sol";
-
-abstract contract BridgableApp is
-    EssentialContract,
+abstract contract BaseVault is
+    AuthorizableContract,
     IRecallableSender,
     IERC165Upgradeable
 {
     error VAULT_PERMISSION_DENIED();
+
+    // TODO(daniel): remove addressManager as param and make sure _init use
+    // address(0);
+    /// @notice Initializes the contract with the address manager.
+    /// @param addressManager Address manager contract address.
+    function init(address addressManager) external initializer {
+        AuthorizableContract._init(addressManager);
+    }
 
     /// @notice Checks if the contract supports the given interface.
     /// @param interfaceId The interface identifier.
@@ -34,6 +45,7 @@ abstract contract BridgableApp is
 
     function name() public pure virtual returns (bytes32);
 
+    // TODO(dani): remove usage of "resolve", use "isAuthorzed[]"
     function checkProcessMessageContext()
         internal
         view
@@ -44,10 +56,13 @@ abstract contract BridgableApp is
         }
 
         ctx = IBridge(msg.sender).context();
+        // address sender = AddressResolver(msg.sender).resolve(ctx.srcChainId,
+        // name(), false);
         address sender = resolve(ctx.srcChainId, name(), false);
         if (ctx.from != sender) revert VAULT_PERMISSION_DENIED();
     }
 
+    // TODO(dani): remove usage of "resolve", use "isAuthorzed[]"
     function checkRecallMessageContext()
         internal
         view
