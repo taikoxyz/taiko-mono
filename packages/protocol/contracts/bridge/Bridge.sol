@@ -387,7 +387,7 @@ contract Bridge is EssentialContract, IBridge {
         returns (bool success)
     {
         if (gasLimit == 0) revert B_INVALID_GAS_LIMIT();
-        assert(message.from != address(0));
+        assert(message.from != address(this));
 
         _ctx = Context({
             msgHash: msgHash,
