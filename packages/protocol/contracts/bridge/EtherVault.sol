@@ -58,27 +58,6 @@ contract EtherVault is EssentialContract {
         emit EtherReleased(msg.sender, amount);
     }
 
-    /// @notice Transfers Ether from EtherVault to a designated address,
-    /// checking that the sender is authorized.
-    /// @param recipient Address to receive Ether.
-    /// @param amount Amount of ether to send.
-    function releaseEther(
-        address recipient,
-        uint256 amount
-    )
-        public
-        onlyAuthorized
-        nonReentrant
-        whenNotPaused
-        // onlyFromNamed("bridge")
-        onlyWhenNamed("ether_vault")
-    {
-        if (recipient == address(0)) revert VAULT_INVALID_RECIPIENT();
-
-        recipient.sendEther(amount);
-        emit EtherReleased(recipient, amount);
-    }
-
     /// @notice Sets the authorized status of an address, only the owner can
     /// call this function.
     /// @param addr Address to set the authorized status of.

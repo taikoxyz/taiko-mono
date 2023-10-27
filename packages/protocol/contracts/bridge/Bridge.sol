@@ -148,9 +148,7 @@ contract Bridge is EssentialContract, IBridge {
         isMessageRecalled[msgHash] = true;
 
         // Release necessary Ether from EtherVault.
-        EtherVault(resolve("ether_vault", false)).releaseEther(
-            address(this), message.value
-        );
+        EtherVault(resolve("ether_vault", false)).releaseEther(message.value);
 
         // Execute the recall logic based on the contract's support for the
         // IRecallableSender interface
@@ -197,9 +195,7 @@ contract Bridge is EssentialContract, IBridge {
         if (!received) revert B_NOT_RECEIVED();
 
         address payable ethVault = resolve("ether_vault", false);
-        EtherVault(ethVault).releaseEther(
-            address(this), message.value + message.fee
-        );
+        EtherVault(ethVault).releaseEther(message.value + message.fee);
 
         Status status;
         uint256 refundAmount;
@@ -272,7 +268,7 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         address payable ethVault = resolve("ether_vault", false);
-        EtherVault(ethVault).releaseEther(address(this), message.value);
+        EtherVault(ethVault).releaseEther(message.value);
 
         // Attempt to invoke the messageCall.
         if (_invokeMessageCall(message, msgHash, gasleft())) {
