@@ -27,6 +27,8 @@ contract EtherVault is EssentialContract {
     error VAULT_INVALID_RECIPIENT();
     error VAULT_INVALID_PARAMS();
 
+    // TODO(dani): please remove authorization related code and use
+    // `onlyFromNamed`
     modifier onlyAuthorized() {
         // Ensure the caller is authorized to perform the action
         if (!isAuthorized[msg.sender]) revert VAULT_PERMISSION_DENIED();
@@ -49,6 +51,7 @@ contract EtherVault is EssentialContract {
         onlyAuthorized
         nonReentrant
         whenNotPaused
+        // onlyFromNamed("bridge")
         onlyWhenNamed("ether_vault")
     {
         msg.sender.sendEther(amount);
