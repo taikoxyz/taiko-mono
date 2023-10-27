@@ -229,13 +229,13 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             // after each L1 block time, config.gasTarget more gas is issued,
             // the gas excess will be reduced accordingly.
             // Note that when latestSyncedL1Height is zero, we skip this step.
-            uint64 numL1Blocks;
+            uint256 numL1Blocks;
             if (latestSyncedL1Height > 0 && l1Height > latestSyncedL1Height) {
                 numL1Blocks = l1Height - latestSyncedL1Height;
             }
 
             if (numL1Blocks > 0) {
-                uint64 issuance = numL1Blocks * config.gasTargetPerL1Block;
+                uint256 issuance = numL1Blocks * config.gasTargetPerL1Block;
                 excess = excess > issuance ? excess - issuance : 1;
             }
 
