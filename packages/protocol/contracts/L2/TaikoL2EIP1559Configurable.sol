@@ -10,7 +10,7 @@ import { TaikoL2 } from "./TaikoL2.sol";
 import { Proxied } from "../common/Proxied.sol";
 
 /// @title TaikoL2EIP1559Configurable
-/// @notice Taiko L2 extended with parameter setting
+/// @notice Taiko L2 with a setter to change EIP-1559 configurations and states.
 contract TaikoL2EIP1559Configurable is TaikoL2 {
     Config private _config;
     uint256[49] private __gap;
