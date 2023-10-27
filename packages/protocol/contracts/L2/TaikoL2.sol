@@ -25,7 +25,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     using LibMath for uint256;
 
     struct Config {
-        uint64 gasExcess;
         uint32 gasTargetPerL1Block;
         uint8 basefeeAdjustmentQuotient;
     }
@@ -37,43 +36,28 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     // A hash to check the integrity of public inputs.
     bytes32 public publicInputHash; // slot 3
-    uint64 public latestSyncedL1Height; // slot 4
-    /// @dev These 3 below always need to be aligned!
-    uint64 public gasExcess;
-    uint32 public gasTargetPerL1Block;
-    uint8 public basefeeAdjustmentQuotient;
+    uint64 public gasExcess; // slot 4
+    uint64 public latestSyncedL1Height;
 
     uint256[146] private __gap;
 
-    event Anchored(bytes32 parentHash, uint128 gasExcess);
+    event Anchored(bytes32 parentHash, uint64 gasExcess);
 
     error L2_BASEFEE_MISMATCH();
     error L2_INVALID_CHAIN_ID();
-    error L2_INVALID_CONFIG();
     error L2_INVALID_PARAM();
     error L2_INVALID_SENDER();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
 
-    modifier validConfig(Config memory config) {
-        if (
-            config.gasTargetPerL1Block == 0
-                || config.basefeeAdjustmentQuotient == 0
-        ) {
-            revert L2_INVALID_CONFIG();
-        }
-        _;
-    }
-
     /// @notice Initializes the TaikoL2 contract.
     /// @param _addressManager Address of the {AddressManager} contract.
     function init(
         address _addressManager,
-        Config memory _config
+        uint64 _gasExcess
     )
         external
         initializer
-        validConfig(_config)
     {
         EssentialContract._init(_addressManager);
 
@@ -87,10 +71,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             l2Hashes[parentHeight] = blockhash(parentHeight);
         }
 
-        gasExcess = _config.gasExcess;
-        gasTargetPerL1Block = _config.gasTargetPerL1Block;
-        basefeeAdjustmentQuotient = _config.basefeeAdjustmentQuotient;
-
+        gasExcess = _gasExcess;
         (publicInputHash,) = _calcPublicInputHash(block.number);
     }
 
@@ -128,9 +109,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             revert L2_PUBLIC_INPUT_HASH_MISMATCH();
         }
 
+        Config memory config = getConfig();
+
         // Verify the base fee per gas is correct
         uint256 basefee;
-        (basefee, gasExcess) = _calc1559BaseFee(l1Height, parentGasUsed);
+        (basefee, gasExcess) = _calc1559BaseFee(config, l1Height, parentGasUsed);
         if (!skipFeeCheck() && block.basefee != basefee) {
             revert L2_BASEFEE_MISMATCH();
         }
@@ -175,7 +158,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         view
         returns (uint256 basefee)
     {
-        (basefee,) = _calc1559BaseFee(l1Height, parentGasUsed);
+        (basefee,) = _calc1559BaseFee(getConfig(), l1Height, parentGasUsed);
     }
 
     /// @notice Retrieves the block hash for the given L2 block number.
@@ -189,17 +172,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     }
 
     /// @notice Returns EIP1559 related configurations
-    function getBasefeeConfig()
-        public
-        view
-        virtual
-        returns (Config memory config)
-    {
-        // 4x Ethereum gas target, if we assume most of the time, L2 block time
-        // is 3s, and each block is full (gasUsed is 15_000_000), then its
-        // ~60_000_000, if the  network is congester than that, the base fee
-        // will increase.
-        return Config(gasExcess, gasTargetPerL1Block, basefeeAdjustmentQuotient);
+    function getConfig() public view virtual returns (Config memory config) {
+        config.gasTargetPerL1Block = 15 * 1e6 * 10; // 10x Ethereum gas target
+        config.basefeeAdjustmentQuotient = 8;
     }
 
     /// @notice Tells if we need to validate basefee (for simulation).
@@ -236,6 +211,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     }
 
     function _calc1559BaseFee(
+        Config memory config,
         uint64 l1Height,
         uint32 parentGasUsed
     )
@@ -250,16 +226,16 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             uint256 excess = uint256(gasExcess) + parentGasUsed;
 
             // Calculate how much more gas to issue to offset gas excess.
-            // after each L1 block time, gasTarget more gas is issued,
+            // after each L1 block time, config.gasTarget more gas is issued,
             // the gas excess will be reduced accordingly.
             // Note that when latestSyncedL1Height is zero, we skip this step.
-            uint128 numL1Blocks;
+            uint256 numL1Blocks;
             if (latestSyncedL1Height > 0 && l1Height > latestSyncedL1Height) {
                 numL1Blocks = l1Height - latestSyncedL1Height;
             }
 
             if (numL1Blocks > 0) {
-                uint128 issuance = numL1Blocks * gasTargetPerL1Block;
+                uint256 issuance = numL1Blocks * config.gasTargetPerL1Block;
                 excess = excess > issuance ? excess - issuance : 1;
             }
 
@@ -270,7 +246,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             // block, however, the this block's gas used will affect the next
             // block's base fee.
             _basefee = Lib1559Math.basefee(
-                _gasExcess, basefeeAdjustmentQuotient * gasTargetPerL1Block
+                _gasExcess,
+                uint256(config.basefeeAdjustmentQuotient)
+                    * config.gasTargetPerL1Block
             );
         }
 

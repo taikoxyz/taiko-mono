@@ -258,7 +258,7 @@ contract TaikoL1 is
     /// @return Config struct containing configuration parameters.
     function getConfig()
         public
-        pure
+        view
         virtual
         returns (TaikoData.Config memory)
     {
@@ -293,7 +293,7 @@ contract TaikoL1 is
         });
     }
 
-    function isConfigValid() public pure returns (bool) {
+    function isConfigValid() public view returns (bool) {
         return LibVerifying.isConfigValid(getConfig());
     }
 }

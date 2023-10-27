@@ -12,21 +12,34 @@ import { Proxied } from "../common/Proxied.sol";
 /// @title TaikoL2EIP1559Configurable
 /// @notice Taiko L2 extended with parameter setting
 contract TaikoL2EIP1559Configurable is TaikoL2 {
-    event ConfigChanged(Config config);
+    Config private _config;
+    uint256[49] private __gap;
+
+    event ConfigAndExcessChanged(Config config, uint64 gasExcess);
+
+    error L2_INVALID_CONFIG();
 
     /// @notice Sets EIP1559 related configurations
-    /// @param _baseFeeConfig The new config settings.
-    function setConfig(Config memory _baseFeeConfig)
-        public
+    /// @param config The new config settings.
+    function setConfigAndExcess(
+        Config memory config,
+        uint64 newGasExcess
+    )
+        external
         virtual
         onlyOwner
-        validConfig(_baseFeeConfig)
     {
-        gasExcess = _baseFeeConfig.gasExcess;
-        gasTargetPerL1Block = _baseFeeConfig.gasTargetPerL1Block;
-        basefeeAdjustmentQuotient = _baseFeeConfig.basefeeAdjustmentQuotient;
+        if (config.gasTargetPerL1Block == 0) revert L2_INVALID_CONFIG();
+        if (config.basefeeAdjustmentQuotient == 0) revert L2_INVALID_CONFIG();
 
-        emit ConfigChanged(_baseFeeConfig);
+        _config = config;
+        gasExcess = newGasExcess;
+
+        emit ConfigAndExcessChanged(config, newGasExcess);
+    }
+
+    function getConfig() public view override returns (Config memory) {
+        return _config;
     }
 }
 
