@@ -27,6 +27,6 @@
 
 <label class="swap swap-rotate">
   <input type="checkbox" class="border-none" bind:checked={isDarkTheme} on:change={switchTheme} />
-  <Icon type="sun" class="fill-primary-icon swap-on" width={25} height={25} vHeight={25} vWidth={25} />
-  <Icon type="moon" class="fill-primary-icon swap-off" width={25} height={25} vHeight={25} vWidth={25} />
+  <Icon type="sun" class="fill-primary-icon swap-on " size={25} />
+  <Icon type="moon" class="fill-primary-icon swap-off" size={25} />
 </label>

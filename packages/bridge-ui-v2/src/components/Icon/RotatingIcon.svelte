@@ -3,11 +3,10 @@
   export let loading: boolean;
   export let type: IconType;
   export let size: number = 20;
-  export let viewBox: string;
 </script>
 
 <div class={loading ? 'rotating' : ''}>
-  <Icon {type} {size} {viewBox} />
+  <Icon {type} {size} />
 </div>
 
 <style>

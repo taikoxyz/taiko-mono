@@ -122,21 +122,16 @@ If you do not want to delete the node folder, please follow one of these steps b
   <Tab>
 
 ```sh
-  docker compose -f ./docker-compose.l3.yml --env-file .env.l3 down -v
   docker compose down -v
-  cd script/l2
+  cd script
   dos2unix start-zkevm-chain-rpcd.sh
   dos2unix start-prover-relayer.sh
   dos2unix start-proposer.sh
   dos2unix start-driver.sh
-  cd ../l3
-  dos2unix start-zkevm-chain-rpcd.sh
-  dos2unix start-prover-relayer.sh
-  dos2unix start-proposer.sh
-  dos2unix start-driver.sh
+  cd util
+  dos2unix update-env.sh
   cd ../..
   docker compose up -d
-  docker compose -f ./docker-compose.l3.yml --env-file .env.l3 up -d
 
 ```
 
