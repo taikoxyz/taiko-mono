@@ -19,7 +19,6 @@ import {
 } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/ERC1155Upgradeable.sol";
 
-import { AuthorizationBase } from "../common/AuthorizationBase.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
@@ -42,7 +41,7 @@ interface ERC1155NameAndSymbol {
 /// @notice This vault holds all ERC1155 tokens that users have deposited.
 /// It also manages the mapping between canonical tokens and their bridged
 /// tokens.
-contract ERC1155Vault is AuthorizationBase, BaseNFTVault, ERC1155ReceiverUpgradeable {
+contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     using LibAddress for address;
 
     uint256[50] private __gap;
@@ -372,14 +371,6 @@ contract ERC1155Vault is AuthorizationBase, BaseNFTVault, ERC1155ReceiverUpgrade
             ctokenSymbol: ctoken.symbol,
             ctokenName: ctoken.name
         });
-    }
-
-    /// @notice Sets the authorized status of an address, only the owner can
-    /// call this function.
-    /// @param addr Address to set the authorized status of.
-    /// @param authorized Authorized status to set.
-    function authorize(address addr, bool authorized) public onlyOwner {
-        _authorize(addr, authorized);
     }
 }
 

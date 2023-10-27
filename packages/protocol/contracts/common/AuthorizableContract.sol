@@ -8,9 +8,9 @@ pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../common/EssentialContract.sol";
 
-/// @title AuthorizationBase
+/// @title AuthorizableContract
 /// @notice Every contract which needs to have authorization (EtherVault, ERCXXVault)
-abstract contract AuthorizationBase {
+contract AuthorizableContract is EssentialContract {
     // Authorized addresses
     mapping(address addr => bool authorized) public isAuthorized;
 
@@ -26,8 +26,13 @@ abstract contract AuthorizationBase {
         if (!isAuthorized[msg.sender]) revert VAULT_PERMISSION_DENIED();
         _;
     }
+    /// @notice Initializes the contract with an address manager.
+    /// @param addressManager The address of the address manager.
+    function init(address addressManager) external initializer {
+        EssentialContract._init(addressManager);
+    }
 
-    function _authorize(address addr, bool authorized) internal {
+    function authorize(address addr, bool authorized) public onlyOwner {
         if (addr == address(0)) revert VAULT_INVALID_PARAMS();
         if (isAuthorized[addr] == authorized) revert VAULT_INVALID_PARAMS();
 

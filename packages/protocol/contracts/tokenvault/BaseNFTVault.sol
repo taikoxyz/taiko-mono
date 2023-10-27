@@ -6,12 +6,12 @@
 
 pragma solidity ^0.8.20;
 
-import { EssentialContract } from "../common/EssentialContract.sol";
+import { AuthorizableContract } from "../common/AuthorizableContract.sol";
 import { IRecallableSender } from "../bridge/IBridge.sol";
 
 /// @title BaseNFTVault
 /// @notice Abstract contract for bridging NFTs across different chains.
-abstract contract BaseNFTVault is EssentialContract, IRecallableSender {
+abstract contract BaseNFTVault is AuthorizableContract, IRecallableSender {
     // Struct representing the canonical NFT on another chain.
     struct CanonicalNFT {
         // Chain ID of the NFT.
@@ -108,10 +108,4 @@ abstract contract BaseNFTVault is EssentialContract, IRecallableSender {
     error VAULT_MESSAGE_RELEASED_ALREADY();
     error VAULT_TOKEN_ARRAY_MISMATCH();
     error VAULT_MAX_TOKEN_PER_TXN_EXCEEDED();
-
-    /// @notice Initializes the contract with an address manager.
-    /// @param addressManager The address of the address manager.
-    function init(address addressManager) external initializer {
-        EssentialContract._init(addressManager);
-    }
 }
