@@ -53,8 +53,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
 
-    modifier validConfig(uint64 gasTargetPerL1, uint8 adjustmentQuotient) {
-        if (gasTargetPerL1 == 0 || adjustmentQuotient == 0) {
+    modifier validConfig(Config memory config) {
+        if (
+            config.gasTargetPerL1Block == 0
+                || config.basefeeAdjustmentQuotient == 0
+        ) {
             revert L2_INVALID_CONFIG();
         }
         _;
@@ -68,10 +71,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     )
         external
         initializer
-        validConfig(
-            _baseFeeConfig.gasTargetPerL1Block,
-            _baseFeeConfig.basefeeAdjustmentQuotient
-        )
+        validConfig(_baseFeeConfig)
     {
         EssentialContract._init(_addressManager);
 
@@ -124,12 +124,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             revert L2_PUBLIC_INPUT_HASH_MISMATCH();
         }
 
-        Config memory config = getConfig();
-
         // Verify the base fee per gas is correct
         uint256 basefee;
-        (basefee, config.gasExcess) =
-            _calc1559BaseFee(config, l1Height, parentGasUsed);
+        (basefee, baseFeeConfig.gasExcess) =
+            _calc1559BaseFee(baseFeeConfig, l1Height, parentGasUsed);
         if (!skipFeeCheck() && block.basefee != basefee) {
             revert L2_BASEFEE_MISMATCH();
         }
@@ -147,7 +145,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         publicInputHash = publicInputHashNew;
         latestSyncedL1Height = l1Height;
 
-        emit Anchored(blockhash(parentId), config.gasExcess);
+        emit Anchored(blockhash(parentId), baseFeeConfig.gasExcess);
     }
 
     /// @notice Sets EIP1559 related configurations
@@ -156,10 +154,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         public
         virtual
         onlyOwner
-        validConfig(
-            _baseFeeConfig.gasTargetPerL1Block,
-            _baseFeeConfig.basefeeAdjustmentQuotient
-        )
+        validConfig(_baseFeeConfig)
     {
         baseFeeConfig = _baseFeeConfig;
 
