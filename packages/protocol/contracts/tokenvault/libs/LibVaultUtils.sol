@@ -32,7 +32,7 @@ library LibVaultUtils {
         address owner,
         bytes memory initializationData
     )
-        internal
+        external
         returns (address proxy)
     {
         if (implementation == address(0)) revert VAULT_INVALID_IMPL();
