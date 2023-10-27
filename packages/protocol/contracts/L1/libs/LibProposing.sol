@@ -83,7 +83,21 @@ library LibProposing {
         }
 
         bytes32 blobHash; //or txListHash (if Blob not yet supported)
-        if (txList.length == 0) {
+        if (txList.length != 0) {
+            if (txList.length > config.blockMaxTxListBytes) {
+                revert L1_TXLIST_TOO_LARGE();
+            }
+            if (params.blobOffset != 0 || params.blobSize != txList.length) {
+                revert("abc");
+            }
+
+            blobHash = keccak256(txList);
+        } else if (params.blobHash != 0) {
+            if (
+                params.blobSize == 0
+                    || params.blobSize > config.blockMaxTxListBytes
+            ) revert("abc");
+        } else {
             // Always use the first blob in this transaction.
             // If the proposeBlock functions are called more than once in the
             // same L1 transaction, these 2 L2 blocks will use the same blob as
@@ -93,11 +107,6 @@ library LibProposing {
             ).getFirstBlobHash();
 
             if (blobHash == 0) revert L1_NO_BLOB_FOUND();
-        } else {
-            if (txList.length > config.blockMaxTxListBytes) {
-                revert L1_TXLIST_TOO_LARGE();
-            }
-            blobHash = keccak256(txList);
         }
 
         // Each transaction must handle a specific quantity of L1-to-L2
@@ -131,6 +140,8 @@ library LibProposing {
                 l1Height: uint64(block.number - 1),
                 minTier: ITierProvider(resolver.resolve("tier_provider", false))
                     .getMinTier(rand),
+                blobOffset: params.blobOffset,
+                blobSize: params.blobSize,
                 blobUsed: txList.length == 0
             });
         }

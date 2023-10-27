@@ -88,6 +88,9 @@ library TaikoData {
     struct BlockParams {
         ProverAssignment assignment;
         bytes32 extraData;
+        bytes32 blobHash;
+        uint16 blobOffset;
+        uint16 blobSize;
     }
 
     /// @dev Struct containing data only required for proving a block
@@ -106,6 +109,8 @@ library TaikoData {
         uint64 timestamp; // slot 7
         uint64 l1Height;
         uint16 minTier;
+        uint16 blobOffset;
+        uint16 blobSize;
         bool blobUsed;
     }
 
