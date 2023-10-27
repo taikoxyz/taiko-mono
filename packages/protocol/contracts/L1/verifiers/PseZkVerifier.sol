@@ -45,7 +45,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
     /// @inheritdoc IVerifier
     function verifyProof(
         Context calldata ctx,
-        TaikoData.TransitionClaim calldata claim,
+        TaikoData.Transition calldata tran,
         TaikoData.TierProof calldata tproof
     )
         external
@@ -61,7 +61,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
             PointProof memory pf = abi.decode(proof.pointProof, (PointProof));
 
             instance = calcInstance({
-                claim: claim,
+                tran: tran,
                 prover: ctx.prover,
                 metaHash: ctx.metaHash,
                 txListHash: pf.txListHash,
@@ -78,7 +78,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         } else {
             assert(proof.pointProof.length == 0);
             instance = calcInstance({
-                claim: claim,
+                tran: tran,
                 prover: ctx.prover,
                 metaHash: ctx.metaHash,
                 txListHash: ctx.blobHash,
@@ -128,7 +128,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
     }
 
     function calcInstance(
-        TaikoData.TransitionClaim memory claim,
+        TaikoData.Transition memory tran,
         address prover,
         bytes32 metaHash,
         bytes32 txListHash,
@@ -139,7 +139,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         returns (bytes32 instance)
     {
         return keccak256(
-            abi.encode(claim, prover, metaHash, txListHash, pointValue)
+            abi.encode(tran, prover, metaHash, txListHash, pointValue)
         );
     }
 

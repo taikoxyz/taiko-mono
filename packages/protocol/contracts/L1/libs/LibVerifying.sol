@@ -57,10 +57,10 @@ library LibVerifying {
         blk.verifiedTransitionId = 1;
 
         // Init the first state transition
-        TaikoData.Transition storage tran = state.transitions[0][1];
-        tran.blockHash = genesisBlockHash;
-        tran.prover = address(0);
-        tran.timestamp = uint64(block.timestamp);
+        TaikoData.TransitionState storage ts = state.transitions[0][1];
+        ts.blockHash = genesisBlockHash;
+        ts.prover = address(0);
+        ts.timestamp = uint64(block.timestamp);
 
         emit BlockVerified({
             blockId: 0,
@@ -123,12 +123,13 @@ library LibVerifying {
                 if (tid == 0) break;
 
                 // A transition with the correct `parentHash` has been located.
-                TaikoData.Transition storage tran = state.transitions[slot][tid];
+                TaikoData.TransitionState storage ts =
+                    state.transitions[slot][tid];
 
                 // It's not possible to verify this block if either the
                 // transition is contested and awaiting higher-tier proof or if
                 // the transition is still within its cooldown period.
-                if (tran.contester != address(0)) {
+                if (ts.contester != address(0)) {
                     break;
                 } else {
                     if (tierProvider == address(0)) {
@@ -136,9 +137,9 @@ library LibVerifying {
                     }
                     if (
                         uint256(
-                            ITierProvider(tierProvider).getTier(tran.tier)
+                            ITierProvider(tierProvider).getTier(ts.tier)
                                 .cooldownWindow
-                        ) + tran.timestamp > block.timestamp
+                        ) + ts.timestamp > block.timestamp
                     ) {
                         // If cooldownWindow is 0, the block can theoretically
                         // be proved and verified within the same L1 block.
@@ -150,8 +151,8 @@ library LibVerifying {
                 blk.verifiedTransitionId = tid;
 
                 // Update variables
-                blockHash = tran.blockHash;
-                signalRoot = tran.signalRoot;
+                blockHash = ts.blockHash;
+                signalRoot = ts.signalRoot;
 
                 // We consistently return the liveness bond and the validity
                 // bond to the actual prover of the transition utilized for
@@ -164,17 +165,17 @@ library LibVerifying {
                 // forfeits his liveness bond due to failure to fulfill their
                 // commitment.
                 uint256 bondToReturn =
-                    uint256(tran.validityBond) + blk.livenessBond;
+                    uint256(ts.validityBond) + blk.livenessBond;
 
                 // Nevertheless, it's possible for the actual prover to be the
                 // same individual or entity as the block's assigned prover.
                 // Consequently, we have chosen to grant the actual prover only
                 // half of the liveness bond as a reward.
-                if (tran.prover != blk.assignedProver) {
+                if (ts.prover != blk.assignedProver) {
                     bondToReturn -= blk.livenessBond / 2;
                 }
 
-                LibTaikoToken.creditTaikoToken(state, tran.prover, bondToReturn);
+                LibTaikoToken.creditTaikoToken(state, ts.prover, bondToReturn);
 
                 // Note: We exclusively address the bonds linked to the
                 // transition used for verification. While there may exist
@@ -187,9 +188,9 @@ library LibVerifying {
                 emit BlockVerified({
                     blockId: blockId,
                     assignedProver: blk.assignedProver,
-                    prover: tran.prover,
-                    blockHash: tran.blockHash,
-                    signalRoot: tran.signalRoot
+                    prover: ts.prover,
+                    blockHash: ts.blockHash,
+                    signalRoot: ts.signalRoot
                 });
 
                 ++blockId;

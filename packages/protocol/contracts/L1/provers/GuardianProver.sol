@@ -72,7 +72,7 @@ contract GuardianProver is EssentialContract {
     /// @dev Called by guardians to approve a guardian proof
     function approve(
         TaikoData.BlockMetadata calldata meta,
-        TaikoData.TransitionClaim calldata claim,
+        TaikoData.Transition calldata tran,
         TaikoData.TierProof calldata tproof
     )
         external
@@ -83,7 +83,7 @@ contract GuardianProver is EssentialContract {
 
         if (tproof.tier != LibTiers.TIER_GUARDIAN) revert INVALID_PROOF();
 
-        bytes32 hash = keccak256(abi.encode(meta, claim));
+        bytes32 hash = keccak256(abi.encode(meta, tran));
         uint256 approvalBits = approvals[hash];
 
         approvalBits |= 1 << id;
@@ -92,7 +92,7 @@ contract GuardianProver is EssentialContract {
             bytes memory data = abi.encodeWithSignature(
                 "proveBlock(uint64,bytes)",
                 meta.id,
-                abi.encode(meta, claim, tproof)
+                abi.encode(meta, tran, tproof)
             );
 
             (bool success,) = resolve("taiko", false).call(data);

@@ -29,7 +29,7 @@ contract SgxAndZkVerifier is EssentialContract, IVerifier {
     /// @inheritdoc IVerifier
     function verifyProof(
         Context calldata ctx,
-        TaikoData.TransitionClaim calldata claim,
+        TaikoData.Transition calldata tran,
         TaikoData.TierProof calldata tproof
     )
         external
@@ -39,14 +39,14 @@ contract SgxAndZkVerifier is EssentialContract, IVerifier {
 
         // Verify the SGX part
         _tproof.data = LibBytesUtils.slice(tproof.data, 0, SGX_PROOF_SIZE);
-        IVerifier(resolve("tier_sgx", false)).verifyProof(ctx, claim, _tproof);
+        IVerifier(resolve("tier_sgx", false)).verifyProof(ctx, tran, _tproof);
 
         // Verify the ZK part
         _tproof.data = LibBytesUtils.slice(
             tproof.data, SGX_PROOF_SIZE, (tproof.data.length - SGX_PROOF_SIZE)
         );
         IVerifier(resolve("tier_pse_zkevm", false)).verifyProof(
-            ctx, claim, _tproof
+            ctx, tran, _tproof
         );
     }
 }

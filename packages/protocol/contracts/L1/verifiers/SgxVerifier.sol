@@ -101,7 +101,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// @inheritdoc IVerifier
     function verifyProof(
         Context calldata ctx,
-        TaikoData.TransitionClaim calldata claim,
+        TaikoData.Transition calldata tran,
         TaikoData.TierProof calldata tproof
     )
         external
@@ -118,7 +118,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
             address(bytes20(LibBytesUtils.slice(tproof.data, 2, 20)));
         bytes memory signature = LibBytesUtils.slice(tproof.data, 22);
         address oldInstance = ECDSAUpgradeable.recover(
-            getSignedHash(claim, newInstance, ctx.prover, ctx.metaHash),
+            getSignedHash(tran, newInstance, ctx.prover, ctx.metaHash),
             signature
         );
 
@@ -127,7 +127,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     }
 
     function getSignedHash(
-        TaikoData.TransitionClaim memory claim,
+        TaikoData.Transition memory tran,
         address newInstance,
         address prover,
         bytes32 metaHash
@@ -136,7 +136,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         pure
         returns (bytes32 signedHash)
     {
-        return keccak256(abi.encode(claim, newInstance, prover, metaHash));
+        return keccak256(abi.encode(tran, newInstance, prover, metaHash));
     }
 
     function _addInstance(address instance) private {

@@ -108,7 +108,7 @@ library TaikoData {
     }
 
     /// @dev Struct representing transition to be proven.
-    struct TransitionClaim {
+    struct Transition {
         bytes32 parentHash;
         bytes32 blockHash;
         bytes32 signalRoot;
@@ -117,7 +117,7 @@ library TaikoData {
 
     /// @dev Struct representing state transition data.
     /// 10 slots reserved for upgradability, 6 slots used.
-    struct Transition {
+    struct TransitionState {
         bytes32 key; // slot 1, only written/read for the 1st state transition.
         bytes32 blockHash; // slot 2
         bytes32 signalRoot; // slot 3
@@ -180,7 +180,7 @@ library TaikoData {
         // Ring buffer for transitions
         mapping(
             uint64 blockId_mod_blockRingBufferSize
-                => mapping(uint32 transitionId => Transition)
+                => mapping(uint32 transitionId => TransitionState)
             ) transitions;
         // Ring buffer for Ether deposits
         mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256)

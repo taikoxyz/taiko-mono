@@ -184,7 +184,7 @@ abstract contract TaikoL1TestBase is TestBase {
     )
         internal
     {
-        TaikoData.TransitionClaim memory claim = TaikoData.TransitionClaim({
+        TaikoData.Transition memory tran = TaikoData.Transition({
             parentHash: parentHash,
             blockHash: blockHash,
             signalRoot: signalRoot,
@@ -192,7 +192,7 @@ abstract contract TaikoL1TestBase is TestBase {
         });
 
         bytes32 instance = pv.calcInstance(
-            claim, prover, LibUtils.hashMetadata(meta), meta.blobHash, 0
+            tran, prover, LibUtils.hashMetadata(meta), meta.blobHash, 0
         );
 
         TaikoData.TierProof memory tproof;
@@ -224,7 +224,7 @@ abstract contract TaikoL1TestBase is TestBase {
 
         if (tier == LibTiers.TIER_SGX) {
             bytes memory signature = createSgxSignatureProof(
-                claim, newInstance, prover, LibUtils.hashMetadata(meta)
+                tran, newInstance, prover, LibUtils.hashMetadata(meta)
             );
 
             tproof.data =
@@ -233,7 +233,7 @@ abstract contract TaikoL1TestBase is TestBase {
 
         if (tier == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
             bytes memory signature = createSgxSignatureProof(
-                claim, newInstance, prover, LibUtils.hashMetadata(meta)
+                tran, newInstance, prover, LibUtils.hashMetadata(meta)
             );
 
             bytes memory sgxProof =
@@ -247,27 +247,27 @@ abstract contract TaikoL1TestBase is TestBase {
 
             // Grant 2 signatures, 3rd might be a revert
             vm.prank(David, David);
-            gp.approve(meta, claim, tproof);
+            gp.approve(meta, tran, tproof);
             vm.prank(Emma, Emma);
-            gp.approve(meta, claim, tproof);
+            gp.approve(meta, tran, tproof);
 
             if (revertReason != "") {
                 vm.prank(Frank, Frank);
                 vm.expectRevert(); // Revert reason is 'wrapped' so will not be
                     // identical to the expectedRevert
-                gp.approve(meta, claim, tproof);
+                gp.approve(meta, tran, tproof);
             } else {
                 vm.prank(Frank, Frank);
-                gp.approve(meta, claim, tproof);
+                gp.approve(meta, tran, tproof);
             }
         } else {
             if (revertReason != "") {
                 vm.prank(msgSender, msgSender);
                 vm.expectRevert(revertReason);
-                L1.proveBlock(meta.id, abi.encode(meta, claim, tproof));
+                L1.proveBlock(meta.id, abi.encode(meta, tran, tproof));
             } else {
                 vm.prank(msgSender, msgSender);
-                L1.proveBlock(meta.id, abi.encode(meta, claim, tproof));
+                L1.proveBlock(meta.id, abi.encode(meta, tran, tproof));
             }
         }
     }
@@ -324,7 +324,7 @@ abstract contract TaikoL1TestBase is TestBase {
     }
 
     function createSgxSignatureProof(
-        TaikoData.TransitionClaim memory claim,
+        TaikoData.Transition memory tran,
         address newInstance,
         address prover,
         bytes32 metaHash
@@ -333,7 +333,7 @@ abstract contract TaikoL1TestBase is TestBase {
         view
         returns (bytes memory signature)
     {
-        bytes32 digest = sv.getSignedHash(claim, newInstance, prover, metaHash);
+        bytes32 digest = sv.getSignedHash(tran, newInstance, prover, metaHash);
 
         uint256 signerPrivateKey;
 

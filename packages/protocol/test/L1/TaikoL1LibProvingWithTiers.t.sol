@@ -976,8 +976,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
             // Let's say the 10th block is unprovable so prove accordingly
             if (blockId == 10) {
-                TaikoData.TransitionClaim memory claim = TaikoData
-                    .TransitionClaim({
+                TaikoData.Transition memory tran = TaikoData.Transition({
                     parentHash: parentHash,
                     blockHash: blockHash,
                     signalRoot: signalRoot,
@@ -989,11 +988,11 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 tproof.data = bytes.concat(keccak256("RETURN_LIVENESS_BOND"));
 
                 vm.prank(David, David);
-                gp.approve(meta, claim, tproof);
+                gp.approve(meta, tran, tproof);
                 vm.prank(Emma, Emma);
-                gp.approve(meta, claim, tproof);
+                gp.approve(meta, tran, tproof);
                 vm.prank(Frank, Frank);
-                gp.approve(meta, claim, tproof);
+                gp.approve(meta, tran, tproof);
 
                 // // Credited back the bond (not transferred to the user
                 // wallet,

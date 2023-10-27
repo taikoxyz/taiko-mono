@@ -28,7 +28,7 @@ contract GuardianVerifier is EssentialContract, IVerifier {
     /// @inheritdoc IVerifier
     function verifyProof(
         Context calldata ctx,
-        TaikoData.TransitionClaim calldata,
+        TaikoData.Transition calldata,
         TaikoData.TierProof calldata
     )
         external

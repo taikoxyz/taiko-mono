@@ -102,7 +102,7 @@ contract TaikoL1 is
     /// @notice Proves or contests a block transition.
     /// @param blockId The index of the block to prove. This is also used to
     /// select the right implementation version.
-    /// @param input An abi-encoded (BlockMetadata, TransitionClaim, TierProof)
+    /// @param input An abi-encoded (BlockMetadata, Transition, TierProof)
     /// tuple.
     function proveBlock(
         uint64 blockId,
@@ -113,22 +113,18 @@ contract TaikoL1 is
     {
         (
             TaikoData.BlockMetadata memory meta,
-            TaikoData.TransitionClaim memory claim,
+            TaikoData.Transition memory tran,
             TaikoData.TierProof memory tproof
         ) = abi.decode(
             input,
-            (
-                TaikoData.BlockMetadata,
-                TaikoData.TransitionClaim,
-                TaikoData.TierProof
-            )
+            (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof)
         );
 
         if (blockId != meta.id) revert L1_INVALID_BLOCK_ID();
 
         TaikoData.Config memory config = getConfig();
         uint8 maxBlocksToVerify = LibProving.proveBlock(
-            state, config, AddressResolver(this), meta, claim, tproof
+            state, config, AddressResolver(this), meta, tran, tproof
         );
         if (maxBlocksToVerify > 0) {
             LibVerifying.verifyBlocks(
@@ -195,7 +191,7 @@ contract TaikoL1 is
     )
         public
         view
-        returns (TaikoData.Transition memory)
+        returns (TaikoData.TransitionState memory)
     {
         return LibUtils.getTransition(state, getConfig(), blockId, parentHash);
     }
@@ -207,7 +203,7 @@ contract TaikoL1 is
         override
         returns (ICrossChainSync.Snippet memory data)
     {
-        TaikoData.Transition storage transition =
+        TaikoData.TransitionState storage transition =
             LibUtils.getVerifyingTransition(state, getConfig(), blockId);
 
         data.blockHash = transition.blockHash;
