@@ -42,12 +42,16 @@ contract TestTaikoL2 is TestBase {
         uint128 gasExcess = 0;
         uint8 quotient = 8;
         uint64 gasTarget = 60_000_000;
-        L2.init(address(addressManager), gasExcess, gasTarget, quotient);
+        L2.init(
+            address(addressManager),
+            TaikoL2.Config(gasExcess, gasTarget, quotient)
+        );
 
         L2FeeSimulation = new SkipBasefeeCheckL2();
         gasExcess = 195_420_300_100;
         L2FeeSimulation.init(
-            address(addressManager), gasExcess, gasTarget, quotient
+            address(addressManager),
+            TaikoL2.Config(gasExcess, gasTarget, quotient)
         );
 
         vm.roll(block.number + 1);

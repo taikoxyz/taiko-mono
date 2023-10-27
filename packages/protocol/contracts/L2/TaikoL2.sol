@@ -46,21 +46,31 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     error L2_BASEFEE_MISMATCH();
     error L2_INVALID_CHAIN_ID();
+    error L2_INVALID_CONFIG();
     error L2_INVALID_PARAM();
     error L2_INVALID_SENDER();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
 
+    modifier validConfig(uint64 gasTargetPerL1, uint8 adjustmentQuotient) {
+        if (gasTargetPerL1 == 0 || adjustmentQuotient == 0) {
+            revert L2_INVALID_CONFIG();
+        }
+        _;
+    }
+
     /// @notice Initializes the TaikoL2 contract.
     /// @param _addressManager Address of the {AddressManager} contract.
     function init(
         address _addressManager,
-        uint128 _gasExcess,
-        uint64 _gasTargetPerL1Block,
-        uint8 _basefeeAdjustmentQuotient
+        Config memory _baseFeeConfig
     )
         external
         initializer
+        validConfig(
+            _baseFeeConfig.gasTargetPerL1Block,
+            _baseFeeConfig.basefeeAdjustmentQuotient
+        )
     {
         EssentialContract._init(_addressManager);
 
@@ -74,9 +84,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             l2Hashes[parentHeight] = blockhash(parentHeight);
         }
 
-        baseFeeConfig.gasExcess = _gasExcess;
-        baseFeeConfig.gasTargetPerL1Block = _gasTargetPerL1Block;
-        baseFeeConfig.basefeeAdjustmentQuotient = _basefeeAdjustmentQuotient;
+        baseFeeConfig = _baseFeeConfig;
 
         (publicInputHash,) = _calcPublicInputHash(block.number);
     }
@@ -142,9 +150,17 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     }
 
     /// @notice Sets EIP1559 related configurations
-    /// @param config The new config settings.
-    function setConfig(Config memory config) public virtual onlyOwner {
-        baseFeeConfig = config;
+    /// @param _baseFeeConfig The new config settings.
+    function setConfig(Config memory _baseFeeConfig)
+        public
+        virtual
+        onlyOwner
+        validConfig(
+            _baseFeeConfig.gasTargetPerL1Block,
+            _baseFeeConfig.basefeeAdjustmentQuotient
+        )
+    {
+        baseFeeConfig = _baseFeeConfig;
     }
 
     /// @inheritdoc ICrossChainSync
@@ -186,11 +202,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     /// @notice Returns EIP1559 related configurations
     function getConfig() public view virtual returns (Config memory config) {
-        // // 4x Ethereum gas target, if we assume most of the time, L2 block
-        // time
-        // // is 3s, and each block is full (gasUsed is 15_000_000), then its
-        // // ~60_000_000, if the  network is congester than that, the base fee
-        // // will increase.
+        // 4x Ethereum gas target, if we assume most of the time, L2 block time
+        // is 3s, and each block is full (gasUsed is 15_000_000), then its
+        // ~60_000_000, if the  network is congester than that, the base fee
+        // will increase.
         return baseFeeConfig;
     }
 
