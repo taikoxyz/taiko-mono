@@ -15,12 +15,12 @@ import { TaikoL1TestBase } from "./TaikoL1TestBase.sol";
 contract TaikoL1_NoCooldown is TaikoL1 {
     function getConfig()
         public
-        pure
+        view
         override
         returns (TaikoData.Config memory config)
     {
         config = TaikoL1.getConfig();
-
+        // over-write the following
         config.maxBlocksToVerifyPerProposal = 0;
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 12;
