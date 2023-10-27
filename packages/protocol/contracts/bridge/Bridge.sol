@@ -97,16 +97,15 @@ contract Bridge is EssentialContract, IBridge {
             revert B_INVALID_CHAINID();
         }
 
+        // Ensure the sent value matches the expected amount.
+        uint256 expectedAmount = message.value + message.fee;
+        if (expectedAmount != msg.value) revert B_INVALID_VALUE();
+
         if (message.to == address(0)) revert B_INVALID_TO();
         if (message.to == destBridge) revert B_INVALID_TO();
 
         address etherValut = resolve("ether_vault", false);
         if (message.to == etherValut) revert B_INVALID_TO();
-
-        // Ensure the sent value matches the expected amount.
-        uint256 expectedAmount = message.value + message.fee;
-        if (expectedAmount != msg.value) revert B_INVALID_VALUE();
-
         etherValut.sendEther(expectedAmount);
 
         _message = message;
