@@ -9,10 +9,13 @@ pragma solidity ^0.8.20;
 import { ITierProvider, LibTiers } from "./ITierProvider.sol";
 
 /// @title TaikoA6TierProvider
+/// @dev Assuming liveness bound is 250TKO.
+// Taiko token's total supply is 1 billion. Assuming block time is 2 second, and
+// the cool down period is 2 days. In 2 days, we can have (2*86400/2)=86400
+// blocks. Assuming 10% tokens are used in bonds, then each block may use up to
+// these many tokens: 1,000,000,000 * 10% / 86400=1157 TOK per block, which is
+// about 722 USD.
 contract TaikoA6TierProvider is ITierProvider {
-    uint96 private constant UNIT = 10_000e18; // 10000 Taiko token
-    uint24 private constant COOLDOWN_BASE = 24 hours;
-
     error TIER_NOT_FOUND();
 
     function getTier(uint16 tierId)
@@ -24,10 +27,10 @@ contract TaikoA6TierProvider is ITierProvider {
         if (tierId == LibTiers.TIER_OPTIMISTIC) {
             return ITierProvider.Tier({
                 verifierName: "tier_optimistic",
-                validityBond: 20 * UNIT,
-                contestBond: 20 * UNIT,
-                cooldownWindow: 4 hours + COOLDOWN_BASE,
-                provingWindow: 1 hours,
+                validityBond: 1000 ether, // TKO
+                contestBond: 1000 ether, // TKO
+                cooldownWindow: 24 hours,
+                provingWindow: 2 hours,
                 maxBlocksToVerify: 10
             });
         }
@@ -35,10 +38,10 @@ contract TaikoA6TierProvider is ITierProvider {
         if (tierId == LibTiers.TIER_SGX) {
             return ITierProvider.Tier({
                 verifierName: "tier_sgx",
-                validityBond: 10 * UNIT,
-                contestBond: 10 * UNIT,
-                cooldownWindow: 3 hours + COOLDOWN_BASE,
-                provingWindow: 2 hours,
+                validityBond: 500 ether, // TKO
+                contestBond: 500 ether, // TKO
+                cooldownWindow: 24 hours,
+                provingWindow: 4 hours,
                 maxBlocksToVerify: 8
             });
         }
@@ -46,10 +49,10 @@ contract TaikoA6TierProvider is ITierProvider {
         if (tierId == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
             return ITierProvider.Tier({
                 verifierName: "tier_sgx_and_pse_zkevm",
-                validityBond: 5 * UNIT,
-                contestBond: 5 * UNIT,
-                cooldownWindow: 2 hours + COOLDOWN_BASE,
-                provingWindow: 4 hours,
+                validityBond: 250 ether, // TKO
+                contestBond: 250 ether, // TKO
+                cooldownWindow: 24 hours,
+                provingWindow: 6 hours,
                 maxBlocksToVerify: 6
             });
         }
@@ -59,8 +62,8 @@ contract TaikoA6TierProvider is ITierProvider {
                 verifierName: "tier_guardian",
                 validityBond: 0,
                 contestBond: 0, // not contestable
-                cooldownWindow: 1 hours + COOLDOWN_BASE,
-                provingWindow: 4 hours,
+                cooldownWindow: 24 hours,
+                provingWindow: 8 hours,
                 maxBlocksToVerify: 4
             });
         }
@@ -82,8 +85,11 @@ contract TaikoA6TierProvider is ITierProvider {
     }
 
     function getMinTier(uint256 rand) public pure override returns (uint16) {
-        if (rand % 1000 == 0) return LibTiers.TIER_SGX_AND_PSE_ZKEVM;
-        else if (rand % 100 == 0) return LibTiers.TIER_SGX;
-        else return LibTiers.TIER_OPTIMISTIC;
+        // 0.2% will be selected to require PSE zkEVM + SGX proofs.
+        if (rand % 500 == 0) return LibTiers.TIER_SGX_AND_PSE_ZKEVM;
+        // 10% will be selected to require SGX proofs.
+        if (rand % 10 == 0) return LibTiers.TIER_SGX;
+        // Other blocks are optimisitc, without validity proofs.
+        return LibTiers.TIER_OPTIMISTIC;
     }
 }

@@ -225,7 +225,7 @@ library LibVerifying {
                 || config.blockMaxProposals == 1
                 || config.blockRingBufferSize <= config.blockMaxProposals + 1
                 || config.blockMaxGasLimit == 0 || config.blockMaxTxListBytes == 0
-                || config.blockMaxTxListBytes > 128 * 1024 // blob up to 128K
+                || config.blockMaxTxListBytes > 128 * 1024 // calldata up to 128K
                 || config.livenessBond == 0 || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
                 || config.ethDepositMaxCountPerBlock
