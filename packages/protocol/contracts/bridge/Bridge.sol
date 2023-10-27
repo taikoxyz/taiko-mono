@@ -155,7 +155,7 @@ contract Bridge is EssentialContract, IBridge {
                 srcChainId: message.srcChainId
             });
 
-            // Perform the message call and capture the success value
+            // Perform recall
             IRecallableSender(message.from).onMessageRecalled{
                 value: message.value
             }(message, msgHash);
