@@ -11,6 +11,6 @@ import (
 func Test_waitHeaderSynced(t *testing.T) {
 	p := newTestProcessor(true)
 
-	err := p.waitHeaderSynced(context.TODO(), &mock.HeaderSyncer{}, &mock.EthClient{}, 1)
+	_, err := p.waitHeaderSynced(context.TODO(), &mock.HeaderSyncer{}, &mock.EthClient{}, 1)
 	assert.Nil(t, err)
 }
