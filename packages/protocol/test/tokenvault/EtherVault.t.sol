@@ -43,14 +43,15 @@ contract TestEtherVault is TestBase {
         assertTrue(etherVault.isAuthorized(Bob));
     }
 
-    function test_EtherVault_releaseEther_reverts_when_zero_address() public {
-        vm.startPrank(Alice);
-        etherVault.authorize(Alice, true);
-        _seedEtherVault();
+    // function test_EtherVault_releaseEther_reverts_when_zero_address() public
+    // {
+    //     vm.startPrank(Alice);
+    //     etherVault.authorize(Alice, true);
+    //     _seedEtherVault();
 
-        vm.expectRevert(EtherVault.VAULT_INVALID_RECIPIENT.selector);
-        etherVault.releaseEther(1 ether);
-    }
+    //     vm.expectRevert(EtherVault.VAULT_INVALID_RECIPIENT.selector);
+    //     etherVault.releaseEther(1 ether);
+    // }
 
     // function test_EtherVault_releaseEther_releases_to_authorized_sender()
     //     public

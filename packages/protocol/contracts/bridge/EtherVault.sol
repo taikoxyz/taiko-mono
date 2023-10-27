@@ -24,7 +24,6 @@ contract EtherVault is EssentialContract {
     event EtherReleased(address indexed to, uint256 amount);
 
     error VAULT_PERMISSION_DENIED();
-    error VAULT_INVALID_RECIPIENT();
     error VAULT_INVALID_PARAMS();
 
     // TODO(dani): please remove authorization related code and use
