@@ -7,10 +7,12 @@ import { SafeCastUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/utils/math/SafeCastUpgradeable.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
+import { TaikoL2EIP1559Configurable } from
+    "../../contracts/L2/TaikoL2EIP1559Configurable.sol";
 import { TaikoL2 } from "../../contracts/L2/TaikoL2.sol";
 import { TestBase } from "../TestBase.sol";
 
-contract SkipBasefeeCheckL2 is TaikoL2 {
+contract SkipBasefeeCheckL2 is TaikoL2EIP1559Configurable {
     function skipFeeCheck() public pure override returns (bool) {
         return true;
     }
@@ -26,7 +28,7 @@ contract TestTaikoL2 is TestBase {
 
     AddressManager public addressManager;
     SignalService public ss;
-    TaikoL2 public L2;
+    TaikoL2EIP1559Configurable public L2;
     SkipBasefeeCheckL2 public L2FeeSimulation;
     uint256 private logIndex;
 
@@ -38,10 +40,10 @@ contract TestTaikoL2 is TestBase {
         ss.init(address(addressManager));
         registerAddress("signal_service", address(ss));
 
-        L2 = new TaikoL2();
-        uint128 gasExcess = 0;
+        L2 = new TaikoL2EIP1559Configurable();
+        uint64 gasExcess = 0;
         uint8 quotient = 8;
-        uint64 gasTarget = 60_000_000;
+        uint32 gasTarget = 60_000_000;
         L2.init(
             address(addressManager),
             TaikoL2.Config(gasExcess, gasTarget, quotient)

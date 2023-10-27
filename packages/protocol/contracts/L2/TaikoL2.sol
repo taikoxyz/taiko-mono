@@ -25,8 +25,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     using LibMath for uint256;
 
     struct Config {
-        uint128 gasExcess;
-        uint64 gasTargetPerL1Block;
+        uint64 gasExcess;
+        uint32 gasTargetPerL1Block;
         uint8 basefeeAdjustmentQuotient;
     }
 
@@ -38,12 +38,14 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     // A hash to check the integrity of public inputs.
     bytes32 public publicInputHash; // slot 3
     uint64 public latestSyncedL1Height; // slot 4
-    Config public baseFeeConfig; // slot 5
+    /// @dev These 3 below always need to be aligned!
+    uint64 gasExcess;
+    uint32 gasTargetPerL1Block;
+    uint8 basefeeAdjustmentQuotient;
 
-    uint256[145] private __gap;
+    uint256[146] private __gap;
 
     event Anchored(bytes32 parentHash, uint128 gasExcess);
-    event ConfigChanged(Config);
 
     error L2_BASEFEE_MISMATCH();
     error L2_INVALID_CHAIN_ID();
@@ -67,11 +69,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     /// @param _addressManager Address of the {AddressManager} contract.
     function init(
         address _addressManager,
-        Config memory _baseFeeConfig
+        Config memory _config
     )
         external
         initializer
-        validConfig(_baseFeeConfig)
+        validConfig(_config)
     {
         EssentialContract._init(_addressManager);
 
@@ -85,7 +87,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             l2Hashes[parentHeight] = blockhash(parentHeight);
         }
 
-        baseFeeConfig = _baseFeeConfig;
+        gasExcess = _config.gasExcess;
+        gasTargetPerL1Block = _config.gasTargetPerL1Block;
+        basefeeAdjustmentQuotient = _config.basefeeAdjustmentQuotient;
 
         (publicInputHash,) = _calcPublicInputHash(block.number);
     }
@@ -126,8 +130,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
         // Verify the base fee per gas is correct
         uint256 basefee;
-        (basefee, baseFeeConfig.gasExcess) =
-            _calc1559BaseFee(baseFeeConfig, l1Height, parentGasUsed);
+        (basefee, gasExcess) = _calc1559BaseFee(l1Height, parentGasUsed);
         if (!skipFeeCheck() && block.basefee != basefee) {
             revert L2_BASEFEE_MISMATCH();
         }
@@ -145,20 +148,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         publicInputHash = publicInputHashNew;
         latestSyncedL1Height = l1Height;
 
-        emit Anchored(blockhash(parentId), baseFeeConfig.gasExcess);
-    }
-
-    /// @notice Sets EIP1559 related configurations
-    /// @param _baseFeeConfig The new config settings.
-    function setConfig(Config memory _baseFeeConfig)
-        public
-        virtual
-        onlyOwner
-        validConfig(_baseFeeConfig)
-    {
-        baseFeeConfig = _baseFeeConfig;
-
-        emit ConfigChanged(_baseFeeConfig);
+        emit Anchored(blockhash(parentId), gasExcess);
     }
 
     /// @inheritdoc ICrossChainSync
@@ -185,7 +175,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         view
         returns (uint256 basefee)
     {
-        (basefee,) = _calc1559BaseFee(getConfig(), l1Height, parentGasUsed);
+        (basefee,) = _calc1559BaseFee(l1Height, parentGasUsed);
     }
 
     /// @notice Retrieves the block hash for the given L2 block number.
@@ -199,12 +189,17 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     }
 
     /// @notice Returns EIP1559 related configurations
-    function getConfig() public view virtual returns (Config memory config) {
+    function getBasefeeConfig()
+        public
+        view
+        virtual
+        returns (Config memory config)
+    {
         // 4x Ethereum gas target, if we assume most of the time, L2 block time
         // is 3s, and each block is full (gasUsed is 15_000_000), then its
         // ~60_000_000, if the  network is congester than that, the base fee
         // will increase.
-        return baseFeeConfig;
+        return Config(gasExcess, gasTargetPerL1Block, basefeeAdjustmentQuotient);
     }
 
     /// @notice Tells if we need to validate basefee (for simulation).
@@ -241,22 +236,21 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     }
 
     function _calc1559BaseFee(
-        Config memory config,
         uint64 l1Height,
         uint32 parentGasUsed
     )
         private
         view
-        returns (uint256 _basefee, uint128 _gasExcess)
+        returns (uint256 _basefee, uint64 _gasExcess)
     {
         // gasExcess being 0 indicate the dynamic 1559 base fee is disabled.
-        if (config.gasExcess > 0) {
+        if (gasExcess > 0) {
             // We always add the gas used by parent block to the gas excess
             // value as this has already happend
-            uint256 excess = uint256(config.gasExcess) + parentGasUsed;
+            uint256 excess = uint256(gasExcess) + parentGasUsed;
 
             // Calculate how much more gas to issue to offset gas excess.
-            // after each L1 block time, config.gasTarget more gas is issued,
+            // after each L1 block time, gasTarget more gas is issued,
             // the gas excess will be reduced accordingly.
             // Note that when latestSyncedL1Height is zero, we skip this step.
             uint128 numL1Blocks;
@@ -265,19 +259,18 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             }
 
             if (numL1Blocks > 0) {
-                uint128 issuance = numL1Blocks * config.gasTargetPerL1Block;
+                uint128 issuance = numL1Blocks * gasTargetPerL1Block;
                 excess = excess > issuance ? excess - issuance : 1;
             }
 
-            _gasExcess = uint128(excess.min(type(uint128).max));
+            _gasExcess = uint64(excess.min(type(uint64).max));
 
             // The base fee per gas used by this block is the spot price at the
             // bonding curve, regardless the actual amount of gas used by this
             // block, however, the this block's gas used will affect the next
             // block's base fee.
             _basefee = Lib1559Math.basefee(
-                _gasExcess,
-                config.basefeeAdjustmentQuotient * config.gasTargetPerL1Block
+                _gasExcess, basefeeAdjustmentQuotient * gasTargetPerL1Block
             );
         }
 
