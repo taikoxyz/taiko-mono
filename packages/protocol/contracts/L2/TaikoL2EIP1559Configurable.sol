@@ -19,8 +19,9 @@ contract TaikoL2EIP1559Configurable is TaikoL2 {
 
     error L2_INVALID_CONFIG();
 
-    /// @notice Sets EIP1559 related configurations
-    /// @param config The new config settings.
+    /// @notice Sets EIP1559 configuration and gas excess.
+    /// @param config The new EIP1559 config.
+    /// @param newGasExcess The new gas excess
     function setConfigAndExcess(
         Config memory config,
         uint64 newGasExcess
