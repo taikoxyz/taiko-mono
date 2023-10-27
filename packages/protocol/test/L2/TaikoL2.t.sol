@@ -40,11 +40,15 @@ contract TestTaikoL2 is TestBase {
 
         L2 = new TaikoL2();
         uint128 gasExcess = 0;
-        L2.init(address(addressManager), gasExcess);
+        uint8 quotient = 8;
+        uint64 gasTarget = 60_000_000;
+        L2.init(address(addressManager), gasExcess, gasTarget, quotient);
 
         L2FeeSimulation = new SkipBasefeeCheckL2();
-        gasExcess = 49_954_623_777;
-        L2FeeSimulation.init(address(addressManager), gasExcess);
+        gasExcess = 195_420_300_100;
+        L2FeeSimulation.init(
+            address(addressManager), gasExcess, gasTarget, quotient
+        );
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);
@@ -89,7 +93,7 @@ contract TestTaikoL2 is TestBase {
 
     function test_simulation_lower_traffic() external {
         console2.log("LOW TRAFFIC STARTS"); // For parser
-        _simulation(100_000, 60_000_000, 1, 8);
+        _simulation(100_000, 10_000_000, 1, 8);
         console2.log("LOW TRAFFIC ENDS");
     }
 
@@ -101,7 +105,7 @@ contract TestTaikoL2 is TestBase {
 
     function test_simulation_target_traffic() external {
         console2.log("TARGET TRAFFIC STARTS"); // For parser
-        _simulation(150_000_000, 0, 12, 0);
+        _simulation(60_000_000, 0, 12, 0);
         console2.log("TARGET TRAFFIC ENDS");
     }
 

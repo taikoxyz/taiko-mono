@@ -25,8 +25,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     using LibMath for uint256;
 
     struct Config {
+        uint128 gasExcess;
         uint64 gasTargetPerL1Block;
-        uint256 basefeeAdjustmentQuotient;
+        uint8 basefeeAdjustmentQuotient;
     }
 
     // Mapping from L2 block numbers to their block hashes.
@@ -36,10 +37,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     // A hash to check the integrity of public inputs.
     bytes32 public publicInputHash; // slot 3
-    // Will init it with value 1 in genesis generation script to simply enable
-    // the L2 1559.
-    uint128 public gasExcess; // slot 4
-    uint64 public latestSyncedL1Height; // slot 5
+    uint64 public latestSyncedL1Height; // slot 4
+    Config public baseFeeConfig; // slot 5
 
     uint256[145] private __gap;
 
@@ -56,7 +55,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     /// @param _addressManager Address of the {AddressManager} contract.
     function init(
         address _addressManager,
-        uint128 _gasExcess
+        uint128 _gasExcess,
+        uint64 _gasTargetPerL1Block,
+        uint8 _basefeeAdjustmentQuotient
     )
         external
         initializer
@@ -73,7 +74,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             l2Hashes[parentHeight] = blockhash(parentHeight);
         }
 
-        gasExcess = _gasExcess;
+        baseFeeConfig.gasExcess = _gasExcess;
+        baseFeeConfig.gasTargetPerL1Block = _gasTargetPerL1Block;
+        baseFeeConfig.basefeeAdjustmentQuotient = _basefeeAdjustmentQuotient;
+
         (publicInputHash,) = _calcPublicInputHash(block.number);
     }
 
@@ -115,7 +119,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
         // Verify the base fee per gas is correct
         uint256 basefee;
-        (basefee, gasExcess) = _calc1559BaseFee(config, l1Height, parentGasUsed);
+        (basefee, config.gasExcess) =
+            _calc1559BaseFee(config, l1Height, parentGasUsed);
         if (!skipFeeCheck() && block.basefee != basefee) {
             revert L2_BASEFEE_MISMATCH();
         }
@@ -133,7 +138,13 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         publicInputHash = publicInputHashNew;
         latestSyncedL1Height = l1Height;
 
-        emit Anchored(blockhash(parentId), gasExcess);
+        emit Anchored(blockhash(parentId), config.gasExcess);
+    }
+
+    /// @notice Sets EIP1559 related configurations
+    /// @param config The new config settings.
+    function setConfig(Config memory config) public virtual onlyOwner {
+        baseFeeConfig = config;
     }
 
     /// @inheritdoc ICrossChainSync
@@ -174,13 +185,13 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     }
 
     /// @notice Returns EIP1559 related configurations
-    function getConfig() public pure virtual returns (Config memory config) {
-        // 4x Ethereum gas target, if we assume most of the time, L2 block time
-        // is 3s, and each block is full (gasUsed is 15_000_000), then its
-        // ~60_000_000, if the  network is congester than that, the base fee
-        // will increase.
-        config.gasTargetPerL1Block = 15 * 1e6 * 4;
-        config.basefeeAdjustmentQuotient = 8;
+    function getConfig() public view virtual returns (Config memory config) {
+        // // 4x Ethereum gas target, if we assume most of the time, L2 block
+        // time
+        // // is 3s, and each block is full (gasUsed is 15_000_000), then its
+        // // ~60_000_000, if the  network is congester than that, the base fee
+        // // will increase.
+        return baseFeeConfig;
     }
 
     /// @notice Tells if we need to validate basefee (for simulation).
@@ -226,10 +237,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         returns (uint256 _basefee, uint128 _gasExcess)
     {
         // gasExcess being 0 indicate the dynamic 1559 base fee is disabled.
-        if (gasExcess > 0) {
+        if (config.gasExcess > 0) {
             // We always add the gas used by parent block to the gas excess
             // value as this has already happend
-            uint256 excess = uint256(gasExcess) + parentGasUsed;
+            uint256 excess = uint256(config.gasExcess) + parentGasUsed;
 
             // Calculate how much more gas to issue to offset gas excess.
             // after each L1 block time, config.gasTarget more gas is issued,
