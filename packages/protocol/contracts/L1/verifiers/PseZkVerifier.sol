@@ -60,10 +60,11 @@ contract PseZkVerifier is EssentialContract, IVerifier {
             PointProof memory pf = abi.decode(proof.pointProof, (PointProof));
 
             instance = calcInstance({
-                prover: input.prover,
                 evidence: evidence,
-                pointValue: pf.pointValue,
-                metaHash: input.metaHash
+                prover: input.prover,
+                metaHash: input.metaHash,
+                txListHash: pf.txListHash,
+                pointValue: pf.pointValue
             });
 
             Lib4844.evaluatePoint({
@@ -76,10 +77,11 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         } else {
             assert(proof.pointProof.length == 0);
             instance = calcInstance({
-                prover: input.prover,
                 evidence: evidence,
-                pointValue: 0,
-                metaHash: input.metaHash
+                prover: input.prover,
+                metaHash: input.metaHash,
+                txListHash: input.blobHash,
+                pointValue: 0
             });
         }
 
@@ -120,16 +122,16 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         pure
         returns (uint256)
     {
-        return uint256(blobHash ^ txListHash) % Lib4844.BLS_MODULUS;
-        // return uint256(keccak256(abi.encodePacked(blobHash, txListHash)))
-        //     % Lib4844.BLS_MODULUS;
+        return uint256(keccak256(abi.encodePacked(blobHash, txListHash)))
+            % Lib4844.BLS_MODULUS;
     }
 
     function calcInstance(
-        address prover,
         TaikoData.BlockEvidence memory evidence,
-        uint256 pointValue,
-        bytes32 metaHash
+        address prover,
+        bytes32 metaHash,
+        bytes32 txListHash,
+        uint256 pointValue
     )
         public
         pure
@@ -137,12 +139,13 @@ contract PseZkVerifier is EssentialContract, IVerifier {
     {
         return keccak256(
             abi.encodePacked(
-                metaHash,
                 evidence.parentHash,
                 evidence.blockHash,
                 evidence.signalRoot,
                 evidence.graffiti,
                 prover,
+                metaHash,
+                txListHash,
                 pointValue
             )
         );
