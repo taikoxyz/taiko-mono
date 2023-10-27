@@ -125,7 +125,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     {
         // Check context validity
         IBridge.Context memory ctx =
-            LibVaultUtils.checkValidContext("erc1155_vault", address(this));
+            LibVaultUtils.checkValidContext("erc1155_vault");
         address token;
 
         unchecked {
@@ -177,6 +177,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         whenNotPaused
         onlyFromNamed("bridge")
     {
+        LibVaultUtils.checkValidContext("bridge");
+
         (
             CanonicalNFT memory nft,
             ,
