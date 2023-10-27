@@ -12,8 +12,6 @@ import { BridgableApp } from "../bridge/BridgableApp.sol";
 /// @title BaseNFTVault
 /// @notice Abstract contract for bridging NFTs across different chains.
 abstract contract BaseNFTVault is BridgableApp {
-    uint256 public constant MAX_TOKEN_PER_TXN = 10;
-
     // Struct representing the canonical NFT on another chain.
     struct CanonicalNFT {
         // Chain ID of the NFT.
@@ -51,6 +49,7 @@ abstract contract BaseNFTVault is BridgableApp {
     // Constants for interface IDs.
     bytes4 public constant ERC1155_INTERFACE_ID = 0xd9b67a26;
     bytes4 public constant ERC721_INTERFACE_ID = 0x80ac58cd;
+    uint256 public constant MAX_TOKEN_PER_TXN = 10;
 
     // Mapping to track bridged tokens.
     mapping(address => bool) public isBridgedToken;
@@ -124,6 +123,7 @@ abstract contract BaseNFTVault is BridgableApp {
             op.to == address(0)
                 || op.to == resolve(op.destChainId, name(), false)
         ) revert VAULT_INVALID_TO();
+
         if (op.token == address(0)) revert VAULT_INVALID_TOKEN();
 
         _;

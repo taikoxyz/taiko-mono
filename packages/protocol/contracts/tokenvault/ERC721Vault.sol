@@ -13,8 +13,6 @@ import {
     IERC721Upgradeable
 } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
-import { IERC165Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/introspection/IERC165Upgradeable.sol";
 import { IERC721ReceiverUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/IERC721ReceiverUpgradeable.sol";
 
@@ -23,7 +21,7 @@ import { LibAddress } from "../libs/LibAddress.sol";
 import { LibDeploy } from "../libs/LibDeploy.sol";
 import { Proxied } from "../common/Proxied.sol";
 
-import { BaseNFTVault, BridgableApp } from "./BaseNFTVault.sol";
+import { BaseNFTVault } from "./BaseNFTVault.sol";
 import { ProxiedBridgedERC721 } from "./BridgedERC721.sol";
 
 /// @title ERC721Vault

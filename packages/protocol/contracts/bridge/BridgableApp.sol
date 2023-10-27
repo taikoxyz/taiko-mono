@@ -19,6 +19,21 @@ abstract contract BridgableApp is
 {
     error VAULT_PERMISSION_DENIED();
 
+    /// @notice Checks if the contract supports the given interface.
+    /// @param interfaceId The interface identifier.
+    /// @return true if the contract supports the interface, false otherwise.
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        virtual
+        override
+        returns (bool)
+    {
+        return interfaceId == type(IRecallableSender).interfaceId;
+    }
+
+    function name() public pure virtual returns (bytes32);
+
     function getProcessMessageContext()
         internal
         view
@@ -45,19 +60,4 @@ abstract contract BridgableApp is
         ctx = IBridge(msg.sender).context();
         if (ctx.from != msg.sender) revert VAULT_PERMISSION_DENIED();
     }
-
-    /// @notice Checks if the contract supports the given interface.
-    /// @param interfaceId The interface identifier.
-    /// @return true if the contract supports the interface, false otherwise.
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        virtual
-        override
-        returns (bool)
-    {
-        return interfaceId == type(IRecallableSender).interfaceId;
-    }
-
-    function name() public pure virtual returns (bytes32);
 }
