@@ -91,6 +91,8 @@ contract BridgeTest is TestBase {
             destChainId, "ether_vault", address(etherVault)
         );
 
+        addressManager.setAddress(destChainId, "taiko", address(uint160(123)));
+
         addressManager.setAddress(block.chainid, "bridge", address(bridge));
 
         vm.stopPrank();
