@@ -103,7 +103,7 @@ contract ERC20Vault is BridgableApp {
     error VAULT_MESSAGE_NOT_FAILED();
     error VAULT_MESSAGE_RELEASED_ALREADY();
 
-    modifier onlyValidOp(BridgeTransferOp calldata op) {
+    modifier whenOperationValid(BridgeTransferOp calldata op) {
         if (
             op.to == address(0)
                 || op.to == resolve(op.destChainId, myname(), false)
@@ -129,7 +129,7 @@ contract ERC20Vault is BridgableApp {
         payable
         nonReentrant
         whenNotPaused
-        onlyValidOp(op)
+        whenOperationValid(op)
     {
         if (op.amount == 0) revert VAULT_INVALID_AMOUNT();
 
