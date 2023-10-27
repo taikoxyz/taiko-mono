@@ -2,7 +2,8 @@
 pragma solidity ^0.8.20;
 
 import { TestBase } from "../TestBase.sol";
-import { AuthorizableContract } from "../../contracts/common/AuthorizableContract.sol";
+import { AuthorizableContract } from
+    "../../contracts/common/AuthorizableContract.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
 
