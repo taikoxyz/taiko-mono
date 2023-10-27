@@ -99,8 +99,8 @@ contract Bridge is EssentialContract, IBridge {
 
         if (
             message.to == address(0) || message.to == destBridge
-                || message.to == resolve(message.destChainId, "taiko", true)
                 || message.to == resolve(message.destChainId, "ether_vault", true)
+                || message.to == resolve(message.destChainId, "taiko", true)
         ) {
             revert B_INVALID_TO();
         }
