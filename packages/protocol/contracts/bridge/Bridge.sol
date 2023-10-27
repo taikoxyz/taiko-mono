@@ -149,9 +149,23 @@ contract Bridge is EssentialContract, IBridge {
         bool support =
             message.from.supportsInterface(type(IRecallableSender).interfaceId);
         if (support) {
+            _ctx = Context({
+                msgHash: msgHash,
+                from: address(0),
+                srcChainId: message.srcChainId
+            });
+
+            // Perform the message call and capture the success value
             IRecallableSender(message.from).onMessageRecalled{
                 value: message.value
             }(message, msgHash);
+
+            // Reset the context after the message call
+            _ctx = Context({
+                msgHash: MESSAGE_HASH_PLACEHOLDER,
+                from: SRC_CHAIN_SENDER_PLACEHOLDER,
+                srcChainId: CHAINID_PLACEHOLDER
+            });
         } else {
             message.user.sendEther(message.value);
         }
@@ -373,10 +387,8 @@ contract Bridge is EssentialContract, IBridge {
         returns (bool success)
     {
         if (gasLimit == 0) revert B_INVALID_GAS_LIMIT();
+        assert(message.from != address(0));
 
-        // Update the context for the message call
-        // Should we simply provide the message itself rather than
-        // a context object?
         _ctx = Context({
             msgHash: msgHash,
             from: message.from,

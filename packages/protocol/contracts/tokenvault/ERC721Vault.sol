@@ -154,6 +154,8 @@ contract ERC721Vault is
         whenNotPaused
         onlyFromNamed("bridge")
     {
+        LibVaultUtils.checkRecallContext();
+
         if (message.user == address(0)) revert VAULT_INVALID_USER();
         if (message.srcChainId != block.chainid) {
             revert VAULT_INVALID_SRC_CHAIN_ID();

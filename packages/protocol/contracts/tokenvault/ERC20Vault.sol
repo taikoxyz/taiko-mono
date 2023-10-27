@@ -226,6 +226,8 @@ contract ERC20Vault is
         whenNotPaused
         onlyFromNamed("bridge")
     {
+        LibVaultUtils.checkRecallContext();
+
         (, address token,, uint256 amount) = abi.decode(
             message.data[4:], (CanonicalERC20, address, address, uint256)
         );

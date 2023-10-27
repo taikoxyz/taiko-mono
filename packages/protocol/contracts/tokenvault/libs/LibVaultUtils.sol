@@ -32,7 +32,7 @@ library LibVaultUtils {
         address owner,
         bytes memory initializationData
     )
-        external
+        internal
         returns (address proxy)
     {
         if (implementation == address(0)) revert VAULT_INVALID_IMPL();
@@ -42,21 +42,30 @@ library LibVaultUtils {
     }
 
     /// @dev Checks if context is valid
-    /// @param validSender The valid sender to be allowed
+    /// @param senderName The valid sender to be allowed
     /// @param resolver The address of the resolver
     function checkValidContext(
-        bytes32 validSender,
+        bytes32 senderName,
         address resolver
     )
-        external
+        internal
         view
         returns (IBridge.Context memory ctx)
     {
         ctx = IBridge(msg.sender).context();
-        address sender = AddressResolver(resolver).resolve(
-            ctx.srcChainId, validSender, false
-        );
+        address sender =
+            AddressResolver(resolver).resolve(ctx.srcChainId, senderName, false);
         if (ctx.from != sender) revert VAULT_INVALID_FROM();
+    }
+
+    /// @dev Checks if context is valid
+    function checkRecallContext()
+        internal
+        view
+        returns (IBridge.Context memory ctx)
+    {
+        ctx = IBridge(msg.sender).context();
+        if (ctx.from != address(0)) revert VAULT_INVALID_FROM();
     }
 
     function checkIfValidAddresses(
@@ -64,7 +73,7 @@ library LibVaultUtils {
         address to,
         address token
     )
-        external
+        internal
         pure
     {
         if (to == address(0) || to == vault) revert VAULT_INVALID_TO();
@@ -76,7 +85,7 @@ library LibVaultUtils {
         uint256[] memory tokenIds,
         bool isERC721
     )
-        external
+        internal
         pure
     {
         if (tokenIds.length != amounts.length) {

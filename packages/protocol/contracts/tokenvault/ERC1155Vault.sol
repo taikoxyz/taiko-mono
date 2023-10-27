@@ -177,6 +177,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         whenNotPaused
         onlyFromNamed("bridge")
     {
+        LibVaultUtils.checkRecallContext();
+
         (
             CanonicalNFT memory nft,
             ,
