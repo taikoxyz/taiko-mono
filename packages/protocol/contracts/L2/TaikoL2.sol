@@ -37,9 +37,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     // A hash to check the integrity of public inputs.
     bytes32 public publicInputHash; // slot 3
     uint64 public gasExcess; // slot 4
-    uint64 public latestSyncedL1Height; // slot 5
+    uint64 public latestSyncedL1Height;
 
-    uint256[145] private __gap;
+    uint256[146] private __gap;
 
     event Anchored(bytes32 parentHash, uint64 gasExcess);
 
