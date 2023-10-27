@@ -41,38 +41,37 @@ contract EtherVault is EssentialContract {
         EssentialContract._init(addressManager);
     }
 
-    // /// @notice Transfers Ether from EtherVault to the sender, checking that
-    // the
-    // /// sender is authorized.
-    // /// @param amount Amount of Ether to send.
-    // function releaseEther(uint256 amount)
-    //     public
-    //     onlyAuthorized
-    //     nonReentrant
-    //     whenNotPaused
-    // {
-    //     msg.sender.sendEther(amount);
-    //     emit EtherReleased(msg.sender, amount);
-    // }
+    /// @notice Transfers Ether from EtherVault to the sender, checking that the
+    /// sender is authorized.
+    /// @param amount Amount of Ether to send.
+    function releaseEther(uint256 amount)
+        public
+        onlyAuthorized
+        nonReentrant
+        whenNotPaused
+    {
+        msg.sender.sendEther(amount);
+        emit EtherReleased(msg.sender, amount);
+    }
 
-    // /// @notice Transfers Ether from EtherVault to a designated address,
-    // /// checking that the sender is authorized.
-    // /// @param recipient Address to receive Ether.
-    // /// @param amount Amount of ether to send.
-    // function releaseEther(
-    //     address recipient,
-    //     uint256 amount
-    // )
-    //     public
-    //     onlyAuthorized
-    //     nonReentrant
-    //     whenNotPaused
-    // {
-    //     if (recipient == address(0)) revert VAULT_INVALID_RECIPIENT();
+    /// @notice Transfers Ether from EtherVault to a designated address,
+    /// checking that the sender is authorized.
+    /// @param recipient Address to receive Ether.
+    /// @param amount Amount of ether to send.
+    function releaseEther(
+        address recipient,
+        uint256 amount
+    )
+        public
+        onlyAuthorized
+        nonReentrant
+        whenNotPaused
+    {
+        if (recipient == address(0)) revert VAULT_INVALID_RECIPIENT();
 
-    //     recipient.sendEther(amount);
-    //     emit EtherReleased(recipient, amount);
-    // }
+        recipient.sendEther(amount);
+        emit EtherReleased(recipient, amount);
+    }
 
     /// @notice Sets the authorized status of an address, only the owner can
     /// call this function.
