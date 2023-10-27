@@ -263,11 +263,11 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     function name() public pure override returns (bytes32) {
         return "erc1155_vault";
     }
+
     /// @dev Encodes sending bridged or canonical ERC1155 tokens to the user.
     /// @param user The user's address.
     /// @param op BridgeTransferOp data.
     /// @return msgData Encoded message data.
-
     function _encodeDestinationCall(
         address user,
         BridgeTransferOp memory op

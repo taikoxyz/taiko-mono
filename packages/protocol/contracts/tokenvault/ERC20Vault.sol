@@ -244,6 +244,7 @@ contract ERC20Vault is BridgableApp {
     function name() public pure override returns (bytes32) {
         return "erc20_vault";
     }
+
     /// @dev Encodes sending bridged or canonical ERC20 tokens to the user.
     /// @param user The user's address.
     /// @param token The token address.
@@ -253,7 +254,6 @@ contract ERC20Vault is BridgableApp {
     /// @return _balanceChange User token balance actual change after the token
     /// transfer. This value is calculated so we do not assume token balance
     /// change is the amount of token transfered away.
-
     function _encodeDestinationCall(
         address user,
         address token,
