@@ -43,6 +43,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     uint256[145] private __gap;
 
     event Anchored(bytes32 parentHash, uint128 gasExcess);
+    event ConfigChanged(Config);
 
     error L2_BASEFEE_MISMATCH();
     error L2_INVALID_CHAIN_ID();
@@ -161,6 +162,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         )
     {
         baseFeeConfig = _baseFeeConfig;
+
+        emit ConfigChanged(_baseFeeConfig);
     }
 
     /// @inheritdoc ICrossChainSync
