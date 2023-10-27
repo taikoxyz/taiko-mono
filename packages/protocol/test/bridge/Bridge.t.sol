@@ -280,41 +280,6 @@ contract BridgeTest is TestBase {
         bridge.sendMessage{ value: amount }(message);
     }
 
-    function test_Bridge_send_message_ether_reverts_when_to_is_destination_bridge_address(
-    )
-        public
-    {
-        uint256 amount = 1 wei;
-        IBridge.Message memory message = newMessage({
-            user: Alice,
-            to: address(destChainBridge),
-            value: 0,
-            gasLimit: 0,
-            fee: 0,
-            destChain: destChainId
-        });
-
-        vm.expectRevert(Bridge.B_INVALID_TO.selector);
-        bridge.sendMessage{ value: amount }(message);
-    }
-
-    function test_Bridge_send_message_ether_reverts_when_to_is_zero_address()
-        public
-    {
-        uint256 amount = 1 wei;
-        IBridge.Message memory message = newMessage({
-            user: Alice,
-            to: address(0),
-            value: 0,
-            gasLimit: 0,
-            fee: 0,
-            destChain: destChainId
-        });
-
-        vm.expectRevert(Bridge.B_INVALID_TO.selector);
-        bridge.sendMessage{ value: amount }(message);
-    }
-
     function test_Bridge_send_message_ether_with_no_processing_fee() public {
         uint256 amount = 0 wei;
         IBridge.Message memory message = newMessage({

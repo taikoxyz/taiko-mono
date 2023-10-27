@@ -48,7 +48,6 @@ contract Bridge is EssentialContract, IBridge {
     error B_INVALID_CONTEXT();
     error B_INVALID_GAS_LIMIT();
     error B_INVALID_SIGNAL();
-    error B_INVALID_TO();
     error B_INVALID_USER();
     error B_INVALID_VALUE();
     error B_NON_RETRIABLE();
@@ -88,21 +87,12 @@ contract Bridge is EssentialContract, IBridge {
         if (message.user == address(0)) revert B_INVALID_USER();
 
         // Check if the destination chain is enabled.
-        (bool destChainEnabled, address destBridge) =
-            isDestChainEnabled(message.destChainId);
+        (bool destChainEnabled,) = isDestChainEnabled(message.destChainId);
 
         // Verify destination chain and to address.
         if (!destChainEnabled) revert B_INVALID_CHAINID();
         if (message.destChainId == block.chainid) {
             revert B_INVALID_CHAINID();
-        }
-
-        if (
-            message.to == address(0) || message.to == destBridge
-                || message.to == resolve(message.destChainId, "ether_vault", true)
-                || message.to == resolve(message.destChainId, "taiko", true)
-        ) {
-            revert B_INVALID_TO();
         }
 
         // Ensure the sent value matches the expected amount.
@@ -238,8 +228,7 @@ contract Bridge is EssentialContract, IBridge {
 
         // Refund the processing fee
         if (msg.sender == refundTo) {
-            uint256 amount = message.fee + refundAmount;
-            refundTo.sendEther(amount);
+            refundTo.sendEther(message.fee + refundAmount);
         } else {
             // If sender is another address, reward it and refund the rest
             msg.sender.sendEther(message.fee);
