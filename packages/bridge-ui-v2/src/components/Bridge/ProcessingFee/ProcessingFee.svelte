@@ -13,21 +13,20 @@
   import { parseToWei } from '$libs/util/parseToWei';
   import { uid } from '$libs/util/uid';
 
-  import { processingFee } from '../state';
+  import { processingFee, processingFeeMethod } from '../state';
   import NoneOption from './NoneOption.svelte';
   import RecommendedFee from './RecommendedFee.svelte';
 
   export let small = false;
+  export let hasEnoughEth = false;
 
   let dialogId = `dialog-${uid()}`;
-  let selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
   let prevOptionSelected = ProcessingFeeMethod.RECOMMENDED;
 
   let recommendedAmount = BigInt(0);
   let calculatingRecommendedAmount = false;
   let errorCalculatingRecommendedAmount = false;
 
-  let hasEnoughEth = false;
   let calculatingEnoughEth = false;
   let errorCalculatingEnoughEth = false;
 
@@ -37,14 +36,14 @@
   // Public API
   export function resetProcessingFee() {
     inputBox?.clear();
-    selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
+    $processingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
   }
 
   function closeModal() {
     // Let's check if we are closing with CUSTOM method selected and zero amount entered
-    if (selectedFeeMethod === ProcessingFeeMethod.CUSTOM && $processingFee === BigInt(0)) {
+    if ($processingFeeMethod === ProcessingFeeMethod.CUSTOM && $processingFee === BigInt(0)) {
       // If so, let's switch to RECOMMENDED method
-      selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
+      $processingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
     }
     removeEscKeyListener();
     modalOpen = false;
@@ -53,14 +52,14 @@
   function openModal() {
     // Keep track of the selected method before opening the modal
     // so if we cancel we can go back to the previous method
-    prevOptionSelected = selectedFeeMethod;
+    prevOptionSelected = $processingFeeMethod;
     addEscKeyListener();
     modalOpen = true;
   }
 
   function cancelModal() {
     inputBox?.clear();
-    selectedFeeMethod = prevOptionSelected;
+    $processingFeeMethod = prevOptionSelected;
     closeModal();
   }
 
@@ -69,7 +68,7 @@
   }
 
   function inputProcessFee(event: Event) {
-    if (selectedFeeMethod !== ProcessingFeeMethod.CUSTOM) return;
+    if ($processingFeeMethod !== ProcessingFeeMethod.CUSTOM) return;
 
     const { value } = event.target as HTMLInputElement;
     $processingFee = parseToWei(value);
@@ -119,20 +118,21 @@
 
   function unselectNoneIfNotEnoughETH(method: ProcessingFeeMethod, enoughEth: boolean) {
     if (method === ProcessingFeeMethod.NONE && !enoughEth) {
-      selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
+      $processingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
 
       // We need to manually trigger this update because we are already in an update
       // cicle, meaning the change above will not start a new one. This is how Svelte
       // works, batching all the changes and kicking off an update cicle. This could
       // also prevent infinite loops. It's safe though to call this function because
       // we're not changing state that could potentially end up in such situation.
-      updateProcessingFee(selectedFeeMethod, recommendedAmount);
+      updateProcessingFee($processingFeeMethod, recommendedAmount);
     }
   }
 
-  $: updateProcessingFee(selectedFeeMethod, recommendedAmount);
-
-  $: unselectNoneIfNotEnoughETH(selectedFeeMethod, hasEnoughEth);
+  $: {
+    updateProcessingFee($processingFeeMethod, recommendedAmount);
+  }
+  $: unselectNoneIfNotEnoughETH($processingFeeMethod, hasEnoughEth);
 </script>
 
 {#if small}
@@ -145,7 +145,9 @@
         {:else if errorCalculatingRecommendedAmount}
           {$t('processing_fee.recommended.error')}
         {:else}
-          {formatEther($processingFee ?? BigInt(0))} ETH
+          {formatEther($processingFee ?? BigInt(0))} ETH {#if $processingFee !== recommendedAmount}
+            <span class="text-primary-link">| Customized</span>
+          {/if}
         {/if}
       </span>
     </div>
@@ -169,7 +171,9 @@
       {:else if errorCalculatingRecommendedAmount}
         {$t('processing_fee.recommended.error')}
       {:else}
-        {formatEther($processingFee ?? BigInt(0))} ETH
+        {formatEther($processingFee ?? BigInt(0))} ETH {#if $processingFee !== recommendedAmount}
+          <span class="text-primary-link">| Customized</span>
+        {/if}
       {/if}
     </span>
 
@@ -206,7 +210,7 @@
                 type="radio"
                 value={ProcessingFeeMethod.RECOMMENDED}
                 name="processingFeeMethod"
-                bind:group={selectedFeeMethod} />
+                bind:group={$processingFeeMethod} />
             </li>
 
             <!-- NONE -->
@@ -227,7 +231,7 @@
                   disabled={!hasEnoughEth}
                   value={ProcessingFeeMethod.NONE}
                   name="processingFeeMethod"
-                  bind:group={selectedFeeMethod} />
+                  bind:group={$processingFeeMethod} />
               </div>
 
               {#if !hasEnoughEth}
@@ -251,16 +255,16 @@
                 type="radio"
                 value={ProcessingFeeMethod.CUSTOM}
                 name="processingFeeMethod"
-                bind:group={selectedFeeMethod} />
+                bind:group={$processingFeeMethod} />
             </li>
           </ul>
           <div class="relative f-items-center my-[20px]">
-            {#if selectedFeeMethod === ProcessingFeeMethod.CUSTOM}
+            {#if $processingFeeMethod === ProcessingFeeMethod.CUSTOM}
               <InputBox
                 type="number"
                 min="0"
                 placeholder="0.01"
-                disabled={selectedFeeMethod !== ProcessingFeeMethod.CUSTOM}
+                disabled={$processingFeeMethod !== ProcessingFeeMethod.CUSTOM}
                 class="w-full input-box p-6 pr-16 title-subsection-bold placeholder:text-tertiary-content"
                 on:input={inputProcessFee}
                 bind:this={inputBox} />

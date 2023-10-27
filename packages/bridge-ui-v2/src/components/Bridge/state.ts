@@ -3,6 +3,7 @@ import { derived, writable } from 'svelte/store';
 
 import { bridges } from '$libs/bridge';
 import { chains } from '$libs/chain';
+import { ProcessingFeeMethod } from '$libs/fee';
 import type { NFT, Token } from '$libs/token';
 
 import { type BridgeType, BridgeTypes } from './types';
@@ -24,6 +25,7 @@ export const enteredAmount = writable<bigint>(BigInt(0));
 export const destNetwork = writable<Maybe<Chain>>(null);
 export const destOptions = writable<Chain[]>(chains);
 export const processingFee = writable<bigint>(BigInt(0));
+export const processingFeeMethod = writable<ProcessingFeeMethod>(ProcessingFeeMethod.RECOMMENDED);
 export const recipientAddress = writable<Maybe<Address>>(null);
 
 // Loading state

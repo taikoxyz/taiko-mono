@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
@@ -15,7 +14,7 @@
 
   // Public API
   export const clearRecipient = () => {
-    addressInput.clearAddress(); // update UI
+    if (addressInput) addressInput.clearAddress(); // update UI
     $recipientAddress = null; // update state
   };
 
@@ -77,10 +76,6 @@
     window.removeEventListener('keydown', escKeyListener);
   };
 
-  onDestroy(() => {
-    removeEscKeyListener();
-  });
-
   $: modalOpenChange(modalOpen);
 
   $: ethereumAddressBinding = $recipientAddress || undefined;
@@ -95,7 +90,7 @@
       {#if displayedRecipient}
         {shortenAddress(displayedRecipient, 8, 10)}
         {#if displayedRecipient !== $account?.address}
-          <span class="text-primary-content">| Customized</span>
+          <span class="text-primary-link">| Customized</span>
         {/if}
       {:else}
         {$t('recipient.placeholder')}
@@ -116,7 +111,9 @@
     <span class="body-small-regular text-secondary-content mt-[4px]">
       {#if displayedRecipient}
         {shortenAddress(displayedRecipient, 15, 13)}
-        <span class="text-secondary">{displayedRecipient !== $account?.address ? '' : '| Customized'}</span>
+        {#if displayedRecipient !== $account?.address}
+          <span class="text-primary-link">| {$t('common.customized')}</span>
+        {/if}
       {:else}
         {$t('recipient.placeholder')}
       {/if}

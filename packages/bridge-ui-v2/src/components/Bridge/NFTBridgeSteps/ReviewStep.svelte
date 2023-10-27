@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import { chainConfig } from '$chainConfig';
@@ -13,8 +14,11 @@
 
   let recipientComponent: Recipient;
   let processingFeeComponent: ProcessingFee;
+  let hasEnoughEth: boolean;
 
   $: nftsToDisplay = $selectedNFTs ? $selectedNFTs : [];
+
+  const dispatch = createEventDispatcher();
 
   enum NFTView {
     CARDS,
@@ -28,6 +32,10 @@
     } else {
       nftView = NFTView.CARDS;
     }
+  };
+
+  const editTransactionDetails = () => {
+    dispatch('editTransactionDetails');
   };
 </script>
 
@@ -111,13 +119,14 @@ NFT List or Card View
 <!-- 
   Recipient & Processing Fee
   -->
+
 <div class="f-col">
   <div class="f-between-center mb-[10px]">
     <div class="font-bold text-primary-content">{$t('bridge.nft.step.review.recipient_details')}</div>
-    <button class="flex justify-start link"> Edit </button>
+    <button class="flex justify-start link" on:click={editTransactionDetails}> Edit </button>
   </div>
   <Recipient bind:this={recipientComponent} small />
-  <ProcessingFee bind:this={processingFeeComponent} small />
+  <ProcessingFee bind:this={processingFeeComponent} small bind:hasEnoughEth />
 </div>
 
 <div class="h-sep" />
