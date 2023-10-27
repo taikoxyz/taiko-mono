@@ -8,30 +8,21 @@ pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
+import { AuthorizationBase } from "../common/AuthorizationBase.sol";
 import { Proxied } from "../common/Proxied.sol";
 
 /// @title EtherVault
 /// @notice This contract is initialized with 2^128 Ether and allows authorized
 /// addresses to release Ether.
 /// @dev Only the contract owner can authorize or deauthorize addresses.
-contract EtherVault is EssentialContract {
+contract EtherVault is AuthorizationBase, EssentialContract {
     using LibAddress for address;
 
-    mapping(address addr => bool authorized) public isAuthorized;
-    uint256[49] private __gap;
+    uint256[50] private __gap;
 
-    event Authorized(address indexed addr, bool authorized);
     event EtherReleased(address indexed to, uint256 amount);
 
-    error VAULT_PERMISSION_DENIED();
     error VAULT_INVALID_RECIPIENT();
-    error VAULT_INVALID_PARAMS();
-
-    modifier onlyAuthorized() {
-        // Ensure the caller is authorized to perform the action
-        if (!isAuthorized[msg.sender]) revert VAULT_PERMISSION_DENIED();
-        _;
-    }
 
     receive() external payable { }
 
@@ -78,11 +69,7 @@ contract EtherVault is EssentialContract {
     /// @param addr Address to set the authorized status of.
     /// @param authorized Authorized status to set.
     function authorize(address addr, bool authorized) public onlyOwner {
-        if (addr == address(0)) revert VAULT_INVALID_PARAMS();
-        if (isAuthorized[addr] == authorized) revert VAULT_INVALID_PARAMS();
-
-        isAuthorized[addr] = authorized;
-        emit Authorized(addr, authorized);
+        _authorize(addr, authorized);
     }
 }
 

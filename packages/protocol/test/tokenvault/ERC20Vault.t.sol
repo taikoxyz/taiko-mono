@@ -155,8 +155,10 @@ contract TestERC20Vault is Test {
         );
 
         // Authorize
-        etherVault.authorize(address(destChainIdBridge), true);
+        destChainIdERC20Vault.authorize(address(destChainIdBridge), true);
         etherVault.authorize(address(bridge), true);
+        erc20Vault.authorize(address(bridge), true);
+        erc20Vault.authorize(address(destChainIdBridge), true);
 
         vm.stopPrank();
     }

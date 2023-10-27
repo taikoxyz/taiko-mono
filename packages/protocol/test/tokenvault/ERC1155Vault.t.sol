@@ -202,8 +202,10 @@ contract ERC1155VaultTest is TestBase {
             block.chainid, "ether_vault", address(etherVault)
         );
         // Authorize
-        etherVault.authorize(address(destChainIdBridge), true);
+        destChainErc1155Vault.authorize(address(destChainIdBridge), true);
         etherVault.authorize(address(bridge), true);
+        erc1155Vault.authorize(address(bridge), true);
+        erc1155Vault.authorize(address(destChainIdBridge), true);
 
         vm.deal(address(etherVault), 100 ether);
 

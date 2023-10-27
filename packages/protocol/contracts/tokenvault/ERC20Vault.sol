@@ -16,6 +16,7 @@ import { IERC165Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/utils/introspection/IERC165Upgradeable.sol";
 
 import { EssentialContract } from "../common/EssentialContract.sol";
+import { AuthorizationBase } from "../common/AuthorizationBase.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
@@ -29,6 +30,7 @@ import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 /// deposited. It also manages the mapping between canonical ERC20 tokens and
 /// their bridged tokens.
 contract ERC20Vault is
+    AuthorizationBase,
     EssentialContract,
     IERC165Upgradeable,
     IRecallableSender
@@ -188,7 +190,7 @@ contract ERC20Vault is
         payable
         nonReentrant
         whenNotPaused
-        onlyFromNamed("bridge")
+        onlyAuthorized
     {
         IBridge.Context memory ctx =
             LibVaultUtils.checkValidContext("erc20_vault", address(this));
@@ -224,7 +226,7 @@ contract ERC20Vault is
         override
         nonReentrant
         whenNotPaused
-        onlyFromNamed("bridge")
+        onlyAuthorized
     {
         (, address token,, uint256 amount) = abi.decode(
             message.data[4:], (CanonicalERC20, address, address, uint256)
@@ -371,6 +373,14 @@ contract ERC20Vault is
             ctokenName: ctoken.name,
             ctokenDecimal: ctoken.decimals
         });
+    }
+
+    /// @notice Sets the authorized status of an address, only the owner can
+    /// call this function.
+    /// @param addr Address to set the authorized status of.
+    /// @param authorized Authorized status to set.
+    function authorize(address addr, bool authorized) public onlyOwner {
+        _authorize(addr, authorized);
     }
 }
 

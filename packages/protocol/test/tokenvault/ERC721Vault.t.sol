@@ -221,8 +221,10 @@ contract ERC721VaultTest is TestBase {
             block.chainid, "ether_vault", address(etherVault)
         );
         // Authorize
-        etherVault.authorize(address(destChainBridge), true);
+        destChainErc721Vault.authorize(address(destChainIdBridge), true);
         etherVault.authorize(address(bridge), true);
+        erc721Vault.authorize(address(bridge), true);
+        erc721Vault.authorize(address(destChainIdBridge), true);
 
         vm.stopPrank();
 

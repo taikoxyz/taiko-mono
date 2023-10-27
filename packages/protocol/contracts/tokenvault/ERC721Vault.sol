@@ -20,6 +20,7 @@ import { IERC721ReceiverUpgradeable } from
 
 import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
+import { AuthorizationBase } from "../common/AuthorizationBase.sol";
 import { Proxied } from "../common/Proxied.sol";
 
 import { BaseNFTVault } from "./BaseNFTVault.sol";
@@ -31,6 +32,7 @@ import { ProxiedBridgedERC721 } from "./BridgedERC721.sol";
 /// It also manages the mapping between canonical tokens and their bridged
 /// tokens.
 contract ERC721Vault is
+    AuthorizationBase,
     BaseNFTVault,
     IERC721ReceiverUpgradeable,
     IERC165Upgradeable
@@ -105,7 +107,7 @@ contract ERC721Vault is
         payable
         nonReentrant
         whenNotPaused
-        onlyFromNamed("bridge")
+        onlyAuthorized
     {
         IBridge.Context memory ctx =
             LibVaultUtils.checkValidContext("erc721_vault", address(this));
@@ -152,7 +154,7 @@ contract ERC721Vault is
         override
         nonReentrant
         whenNotPaused
-        onlyFromNamed("bridge")
+        onlyAuthorized
     {
         if (message.user == address(0)) revert VAULT_INVALID_USER();
         if (message.srcChainId != block.chainid) {
@@ -320,6 +322,14 @@ contract ERC721Vault is
             ctokenSymbol: ctoken.symbol,
             ctokenName: ctoken.name
         });
+    }
+
+    /// @notice Sets the authorized status of an address, only the owner can
+    /// call this function.
+    /// @param addr Address to set the authorized status of.
+    /// @param authorized Authorized status to set.
+    function authorize(address addr, bool authorized) public onlyOwner {
+        _authorize(addr, authorized);
     }
 }
 

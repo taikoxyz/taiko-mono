@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import { TestBase } from "../TestBase.sol";
+import { AuthorizationBase } from "../../contracts/common/AuthorizationBase.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
 
@@ -25,12 +26,12 @@ contract TestEtherVault is TestBase {
         etherVault.authorize(Bob, true);
 
         vm.prank(Alice);
-        vm.expectRevert(EtherVault.VAULT_INVALID_PARAMS.selector);
+        vm.expectRevert(AuthorizationBase.VAULT_INVALID_PARAMS.selector);
         etherVault.authorize(address(0), true);
 
         vm.startPrank(Alice);
         etherVault.authorize(Bob, true);
-        vm.expectRevert(EtherVault.VAULT_INVALID_PARAMS.selector);
+        vm.expectRevert(AuthorizationBase.VAULT_INVALID_PARAMS.selector);
         etherVault.authorize(Bob, true);
         assertTrue(etherVault.isAuthorized(Bob));
     }
