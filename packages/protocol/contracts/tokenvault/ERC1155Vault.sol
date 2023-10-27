@@ -122,6 +122,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         nonReentrant
         whenNotPaused
         onlyFromNamed("bridge")
+        onlyWhenNamed("erc1155_vault")
     {
         // Check context validity
         IBridge.Context memory ctx =
@@ -176,6 +177,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         nonReentrant
         whenNotPaused
         onlyFromNamed("bridge")
+        onlyWhenNamed("erc1155_vault")
     {
         (
             CanonicalNFT memory nft,

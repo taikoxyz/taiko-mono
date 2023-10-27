@@ -189,6 +189,7 @@ contract ERC20Vault is
         nonReentrant
         whenNotPaused
         onlyFromNamed("bridge")
+        onlyWhenNamed("erc20_vault")
     {
         IBridge.Context memory ctx =
             LibVaultUtils.checkValidContext("erc20_vault", address(this));
@@ -225,6 +226,7 @@ contract ERC20Vault is
         nonReentrant
         whenNotPaused
         onlyFromNamed("bridge")
+        onlyWhenNamed("erc20_vault")
     {
         (, address token,, uint256 amount) = abi.decode(
             message.data[4:], (CanonicalERC20, address, address, uint256)

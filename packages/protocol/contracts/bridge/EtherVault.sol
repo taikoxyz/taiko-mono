@@ -49,6 +49,7 @@ contract EtherVault is EssentialContract {
         onlyAuthorized
         nonReentrant
         whenNotPaused
+        onlyWhenNamed("ether_vault")
     {
         msg.sender.sendEther(amount);
         emit EtherReleased(msg.sender, amount);
@@ -66,6 +67,7 @@ contract EtherVault is EssentialContract {
         onlyAuthorized
         nonReentrant
         whenNotPaused
+        onlyWhenNamed("ether_vault")
     {
         if (recipient == address(0)) revert VAULT_INVALID_RECIPIENT();
 

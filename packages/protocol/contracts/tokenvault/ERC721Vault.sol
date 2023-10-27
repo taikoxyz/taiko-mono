@@ -106,6 +106,7 @@ contract ERC721Vault is
         nonReentrant
         whenNotPaused
         onlyFromNamed("bridge")
+        onlyWhenNamed("erc721_vault")
     {
         IBridge.Context memory ctx =
             LibVaultUtils.checkValidContext("erc721_vault", address(this));
@@ -153,6 +154,7 @@ contract ERC721Vault is
         nonReentrant
         whenNotPaused
         onlyFromNamed("bridge")
+        onlyWhenNamed("erc721_vault")
     {
         if (message.user == address(0)) revert VAULT_INVALID_USER();
         if (message.srcChainId != block.chainid) {

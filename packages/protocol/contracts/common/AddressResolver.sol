@@ -24,12 +24,22 @@ abstract contract AddressResolver {
     error RESOLVER_DENIED();
     error RESOLVER_INVALID_MANAGER();
     error RESOLVER_ZERO_ADDR(uint256 chainId, bytes32 name);
+    error RESOLVER_INVALID_SELF_NAME();
 
     /// @dev Modifier that ensures the caller is the resolved address of a given
     /// name.
     /// @param name The name to check against.
     modifier onlyFromNamed(bytes32 name) {
         if (msg.sender != resolve(name, true)) revert RESOLVER_DENIED();
+        _;
+    }
+
+    /// @dev Modifier that ensures this contract is resolved to the given name.
+    /// @param name The name to check against.
+    modifier onlyWhenNamed(bytes32 name) {
+        if (address(this) != resolve(name, false)) {
+            revert RESOLVER_INVALID_SELF_NAME();
+        }
         _;
     }
 
