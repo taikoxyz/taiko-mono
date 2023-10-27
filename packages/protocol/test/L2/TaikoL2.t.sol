@@ -39,7 +39,7 @@ contract TestTaikoL2 is TestBase {
         registerAddress("signal_service", address(ss));
 
         L2 = new TaikoL2();
-        uint128 gasExcess = 0;
+        uint64 gasExcess = 0;
         L2.init(address(addressManager), gasExcess);
 
         L2FeeSimulation = new SkipBasefeeCheckL2();
