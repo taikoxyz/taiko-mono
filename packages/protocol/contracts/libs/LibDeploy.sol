@@ -12,11 +12,11 @@ import { TransparentUpgradeableProxy } from
 // TODO: move this to ../../libs?
 library LibDeploy {
     error DEPLOY_INVALID_IMPL();
+
     /// @dev Deploys a contract (via proxy)
     /// @param implementation The new implementation address
     /// @param owner The owner of the proxy admin contract
     /// @param initializationData Data for the initialization
-
     function deployProxy(
         address implementation,
         address owner,

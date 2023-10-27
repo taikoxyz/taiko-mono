@@ -22,11 +22,11 @@ import {
 import { Proxied } from "../common/Proxied.sol";
 import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
+import { LibDeploy } from "../libs/LibDeploy.sol";
 
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 import { BaseNFTVault } from "./BaseNFTVault.sol";
 import { ProxiedBridgedERC1155 } from "./BridgedERC1155.sol";
-import { LibDeploy } from "./libs/LibDeploy.sol";
 
 /// @title ERC1155NameAndSymbol
 /// @notice Interface for ERC1155 contracts that provide name() and symbol()

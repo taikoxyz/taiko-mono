@@ -18,10 +18,10 @@ import { Proxied } from "../common/Proxied.sol";
 import { IBridge } from "../bridge/IBridge.sol";
 import { BridgableApp } from "../bridge/BridgableApp.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
+import { LibDeploy } from "../libs/LibDeploy.sol";
 
 import { ProxiedBridgedERC20 } from "./BridgedERC20.sol";
 import { IMintableERC20 } from "./IMintableERC20.sol";
-import { LibDeploy } from "./libs/LibDeploy.sol";
 
 /// @title ERC20Vault
 /// @notice This vault holds all ERC20 tokens (excluding Ether) that users have

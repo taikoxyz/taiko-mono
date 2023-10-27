@@ -20,12 +20,12 @@ import { IERC721ReceiverUpgradeable } from
 
 import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
+import { LibDeploy } from "../libs/LibDeploy.sol";
 import { Proxied } from "../common/Proxied.sol";
 
 import { BaseNFTVault } from "./BaseNFTVault.sol";
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 import { ProxiedBridgedERC721 } from "./BridgedERC721.sol";
-import { LibDeploy } from "./libs/LibDeploy.sol";
 
 /// @title ERC721Vault
 /// @notice This vault holds all ERC721 tokens that users have deposited.
