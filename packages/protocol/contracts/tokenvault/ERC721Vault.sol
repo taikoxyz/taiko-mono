@@ -151,12 +151,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
             revert VAULT_INVALID_SRC_CHAIN_ID();
         }
 
-        (
-            CanonicalNFT memory nft, //
-            ,
-            ,
-            uint256[] memory tokenIds
-        ) = abi.decode(
+        (CanonicalNFT memory nft,,, uint256[] memory tokenIds) = abi.decode(
             message.data[4:], (CanonicalNFT, address, address, uint256[])
         );
 
