@@ -79,7 +79,7 @@ library LibProving {
         // caution.
         if (
             blk.blockId != meta.id
-                || blk.metaHash != LibUtils.hashMetadata(meta)
+                || blk.metaHash != keccak256(abi.encode(meta))
         ) {
             revert L1_BLOCK_MISMATCH();
         }

@@ -18,7 +18,6 @@ import { TaikoData } from "../TaikoData.sol";
 
 import { LibDepositing } from "./LibDepositing.sol";
 import { LibTaikoToken } from "./LibTaikoToken.sol";
-import { LibUtils } from "./LibUtils.sol";
 
 /// @title LibProposing
 /// @notice A library for handling block proposals in the Taiko protocol.
@@ -31,7 +30,8 @@ library LibProposing {
         address indexed assignedProver,
         uint96 livenessBond,
         uint256 proverFee,
-        TaikoData.BlockMetadata meta
+        TaikoData.BlockMetadata meta,
+        TaikoData.EthDeposit[] depositsProcessed
     );
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
@@ -57,7 +57,10 @@ library LibProposing {
         bytes32 extraData
     )
         internal
-        returns (TaikoData.BlockMetadata memory meta)
+        returns (
+            TaikoData.BlockMetadata memory meta,
+            TaikoData.EthDeposit[] memory depositsProcessed
+        )
     {
         if (!config.allowUsingBlobForDA && txList.length == 0) {
             revert L1_BLOB_FOR_DA_DISABLED();
@@ -96,11 +99,16 @@ library LibProposing {
             }
             blobHash = keccak256(txList);
         }
+
+        // Each transaction must handle a specific quantity of L1-to-L2
+        // Ether deposits.
+        depositsProcessed =
+            LibDepositing.processDeposits(state, config, msg.sender);
+
         // Initialize metadata to compute a metaHash, which forms a part of
         // the block data to be stored on-chain for future integrity checks.
         // If we choose to persist all data fields in the metadata, it will
         // require additional storage slots.
-
         unchecked {
             uint256 rand = uint256(blobHash)
                 ^ (block.prevrandao * b.numBlocks * block.number);
@@ -114,6 +122,7 @@ library LibProposing {
                 difficulty: bytes32(rand),
                 blobHash: blobHash,
                 extraData: extraData,
+                depositsHash: keccak256(abi.encode(depositsProcessed)),
                 coinbase: msg.sender,
                 id: b.numBlocks,
                 gasLimit: config.blockMaxGasLimit,
@@ -121,12 +130,7 @@ library LibProposing {
                 l1Height: uint64(block.number - 1),
                 minTier: ITierProvider(resolver.resolve("tier_provider", false))
                     .getMinTier(rand),
-                blobUsed: blobUsed,
-                // Each transaction must handle a specific quantity of L1-to-L2
-                // Ether deposits.
-                depositsProcessed: LibDepositing.processDeposits(
-                    state, config, msg.sender
-                    )
+                blobUsed: blobUsed
             });
         }
         // Now, it's essential to initialize the block that will be stored
@@ -139,7 +143,7 @@ library LibProposing {
         // Please note that all fields must be re-initialized since we are
         // utilizing an existing ring buffer slot, not creating a new storage
         // slot.
-        blk.metaHash = LibUtils.hashMetadata(meta);
+        blk.metaHash = keccak256(abi.encode(meta));
 
         // Safeguard the liveness bond to ensure its preservation,
         // particularly in scenarios where it might be altered after the
@@ -187,7 +191,8 @@ library LibProposing {
             assignedProver: blk.assignedProver,
             livenessBond: config.livenessBond,
             proverFee: proverFee,
-            meta: meta
+            meta: meta,
+            depositsProcessed: depositsProcessed
         });
     }
 

@@ -78,10 +78,13 @@ contract TaikoL1 is
         external
         payable
         nonReentrant
-        returns (TaikoData.BlockMetadata memory meta)
+        returns (
+            TaikoData.BlockMetadata memory meta,
+            TaikoData.EthDeposit[] memory depositsProcessed
+        )
     {
         TaikoData.Config memory config = getConfig();
-        meta = LibProposing.proposeBlock(
+        (meta, depositsProcessed) = LibProposing.proposeBlock(
             state,
             config,
             AddressResolver(this),

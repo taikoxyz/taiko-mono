@@ -97,14 +97,14 @@ library TaikoData {
         bytes32 difficulty; // slot 2
         bytes32 blobHash; //or txListHash (if Blob not yet supported), // slot 3
         bytes32 extraData; // slot 4
-        address coinbase; // L2 coinbase, // slot 5
+        bytes32 depositsHash; // slot 5
+        address coinbase; // L2 coinbase, // slot 6
         uint64 id;
         uint32 gasLimit;
-        uint64 timestamp; // slot 6
+        uint64 timestamp; // slot 7
         uint64 l1Height;
         uint16 minTier;
         bool blobUsed;
-        TaikoData.EthDeposit[] depositsProcessed; // slot 7
     }
 
     /// @dev Struct representing transition to be proven.
