@@ -18,6 +18,12 @@ abstract contract AuthorizableContract is EssentialContract {
         _;
     }
 
+    modifier onlyAuthorizedAs(bytes32 label) {
+        // Ensure the caller is authorized to perform the action
+        if (!isAuthorizedAs(msg.sender, label)) revert ADDRESS_NOT_AUTHORIZED();
+        _;
+    }
+
     function authorize(address addr, bytes32 label) external onlyOwner {
         if (addr == address(0)) revert ADDRESS_INVALID();
 

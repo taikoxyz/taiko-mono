@@ -33,19 +33,6 @@ contract EtherVault is AuthorizableContract {
         AuthorizableContract._init(address(0));
     }
 
-    /// @notice Transfers Ether from EtherVault to the sender, checking that the
-    /// sender is authorized.
-    /// @param amount Amount of Ether to send.
-    function releaseEther(uint256 amount)
-        public
-        onlyAuthorized
-        nonReentrant
-        whenNotPaused
-    {
-        msg.sender.sendEther(amount);
-        emit EtherReleased(msg.sender, amount);
-    }
-
     /// @notice Transfers Ether from EtherVault to a designated address,
     /// checking that the sender is authorized.
     /// @param recipient Address to receive Ether.
@@ -55,7 +42,7 @@ contract EtherVault is AuthorizableContract {
         uint256 amount
     )
         public
-        onlyAuthorized
+        onlyAuthorized // "bridge" or "taiko"
         nonReentrant
         whenNotPaused
     {
