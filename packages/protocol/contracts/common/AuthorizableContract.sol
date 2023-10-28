@@ -2,8 +2,6 @@ pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../common/EssentialContract.sol";
 
-import { console2 } from "forge-std/console2.sol";
-
 /// @title AuthorizableContract
 abstract contract AuthorizableContract is EssentialContract {
     mapping(address => bytes32 label) public authorizedAddresses;
@@ -26,8 +24,6 @@ abstract contract AuthorizableContract is EssentialContract {
         bytes32 oldLabel = authorizedAddresses[addr];
         authorizedAddresses[addr] = label;
 
-        console2.log("auth: ", addr, uint256(label));
-
         emit Authorized(addr, oldLabel, label);
     }
 
@@ -43,7 +39,6 @@ abstract contract AuthorizableContract is EssentialContract {
         view
         returns (bool)
     {
-        console2.log("is authorized: ", addr);
         return addr != address(0) && label != 0
             && authorizedAddresses[addr] == label;
     }
