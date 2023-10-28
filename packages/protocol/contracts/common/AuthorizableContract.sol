@@ -18,11 +18,6 @@ abstract contract AuthorizableContract is EssentialContract {
         _;
     }
 
-    modifier onlyAuthorizedAs(bytes32 label) {
-        if (!isAuthorizedAs(msg.sender, label)) revert ADDRESS_UNAUTHORIZED();
-        _;
-    }
-
     function authorize(address addr, bytes32 label) external onlyOwner {
         if (addr == address(0)) revert INVALID_ADDRESS();
 
@@ -35,18 +30,6 @@ abstract contract AuthorizableContract is EssentialContract {
 
     function isAuthorized(address addr) public view returns (bool) {
         return addr != address(0) && authorizedAddresses[addr] != 0;
-    }
-
-    function isAuthorizedAs(
-        address addr,
-        bytes32 label
-    )
-        public
-        view
-        returns (bool)
-    {
-        return addr != address(0) && label != 0
-            && authorizedAddresses[addr] == label;
     }
 
     /// @dev Initialization method for setting up AddressManager reference.

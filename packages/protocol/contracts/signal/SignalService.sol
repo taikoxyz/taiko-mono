@@ -114,7 +114,7 @@ contract SignalService is AuthorizableContract, ISignalService {
         // "taiko" contract, then using chainB's signalRoot, we further check
         // the signal is sent by chainC's "bridge" contract.
 
-        if (!isAuthorizedAs(p.taiko, "taiko")) revert ADDRESS_UNAUTHORIZED();
+        if (!isAuthorized(p.taiko)) revert ADDRESS_UNAUTHORIZED();
 
         bytes32 signalRoot =
             ICrossChainSync(p.taiko).getSyncedSnippet(p.height).signalRoot;
