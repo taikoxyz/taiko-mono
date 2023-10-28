@@ -45,12 +45,12 @@
           <Icon type="check-circle" class="f-center " fillClass="fill-primary-brand" width={40} height={40} />
         </div>
       {/if}
-      <div role="button" tabindex="0" class="h-[125px]" on:click={handleImageClick} on:keydown={handleImageClick}>
-        <img alt={nft.name} src={imageUrl} class="rounded-t-[10px] h-[124px]" />
+      <div role="button" tabindex="0" class="h-[124px]" on:click={handleImageClick} on:keydown={handleImageClick}>
+        <img alt={nft.name} src={imageUrl} class="rounded-t-[10px] h-[125px]" />
       </div>
     </label>
   {:else}
-    <img alt={nft.name} src={imageUrl} class="rounded-t-[10px] h-[124px]" />
+    <img alt={nft.name} src={imageUrl} class="rounded-t-[10px] h-[125px]" />
   {/if}
 
   <button

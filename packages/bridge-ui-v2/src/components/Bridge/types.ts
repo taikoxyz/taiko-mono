@@ -6,6 +6,7 @@ export enum BridgeTypes {
 export enum NFTSteps {
   IMPORT,
   REVIEW,
+  RECIPIENT,
   CONFIRM,
 }
 

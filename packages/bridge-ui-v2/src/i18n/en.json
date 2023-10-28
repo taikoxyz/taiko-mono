@@ -42,7 +42,8 @@
       "nft": {
         "confirm": "Confirm your NFT details.",
         "import": "Transfer your NFTs across chains",
-        "review": "Review your details and confirm the transaction."
+        "recipient": "Set up information on the recipient blockchain.",
+        "review": "Verify your transaction details"
       }
     },
     "errors": {
@@ -85,7 +86,9 @@
     },
     "nft": {
       "step": {
-        "confirm": "Confirm",
+        "confirm": {
+          "title": "Confirm"
+        },
         "import": {
           "nft_card": {
             "select": "Select NFT",
@@ -94,9 +97,13 @@
           "scan_screen": {
             "description": "Don't see your NFTs? Try adding them manually!",
             "title": "Your NFTs ({number} items)"
-          }
+          },
+          "title": "Import"
         },
         "review": {
+          "recipient_details": "Recipient details",
+          "title": "Review",
+          "transfer_details": "Transfer details",
           "your_tokens": "Your tokens on"
         }
       }
@@ -106,7 +113,8 @@
       "nft": {
         "confirm": "Confirm",
         "import": "Import NFT",
-        "review": "Confirm and bridge"
+        "recipient": "Recipient",
+        "review": "Review"
       }
     }
   },
@@ -127,6 +135,7 @@
   "common": {
     "add": "Add",
     "address": "Address",
+    "amount": "Amount",
     "back": "Go back",
     "balance": "Balance",
     "cancel": "Cancel",
@@ -135,12 +144,15 @@
     "confirm": "Confirm",
     "continue": "Continue",
     "contract_address": "Contract address",
+    "customized": "Customized",
     "destination": "Destination",
     "edit": "Edit",
+    "from": "From",
     "id": "ID",
     "loading": "Loading",
     "name": "Name",
     "ok": "Ok",
+    "to": "To",
     "token_id": "Token ID",
     "token_standard": "Token standard"
   },
@@ -205,7 +217,7 @@
       "errors": {
         "invalid": "Not a valid numeric value"
       },
-      "label": "Token ID(s)",
+      "label": "Token ID",
       "placeholder": "1 or 5,14,733"
     }
   },

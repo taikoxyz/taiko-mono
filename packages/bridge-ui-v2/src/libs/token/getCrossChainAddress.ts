@@ -1,7 +1,7 @@
 import { type Address, getContract } from '@wagmi/core';
 import { type Abi, zeroAddress } from 'viem';
 
-import { erc20VaultABI, erc721VaultABI } from '$abi';
+import { erc20VaultABI, erc721VaultABI, erc1155VaultABI } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { chains } from '$libs/chain';
 import { getLogger } from '$libs/util/logger';
@@ -32,8 +32,19 @@ export async function getCrossChainAddress({
     return token.addresses[destChainId];
   }
 
-  const vaultABI = token.type === TokenType.ERC721 ? erc721VaultABI : erc20VaultABI;
-  const vaultAddressKey = token.type === TokenType.ERC721 ? 'erc721VaultAddress' : 'erc20VaultAddress';
+  const vaultABI =
+    token.type === TokenType.ERC721
+      ? erc721VaultABI
+      : token.type === TokenType.ERC1155
+      ? erc1155VaultABI
+      : erc20VaultABI;
+
+  const vaultAddressKey =
+    token.type === TokenType.ERC721
+      ? 'erc721VaultAddress'
+      : token.type === TokenType.ERC1155
+      ? 'erc1155VaultAddress'
+      : 'erc20VaultAddress';
 
   // it could be that we don't have the token address on the current chain, but we might it on another chain
   if (!existsOnSourceChain) {

@@ -42,30 +42,26 @@
 
 <div class="form-control flex">
   <label class="cursor-pointer label space-x-[16px]">
-    <div>
-      {#if multiSelectEnabled && selectable}
-        <input
-          type="checkbox"
-          class="checkbox checkbox-secondary"
-          checked={checkedAddresses.get(collectionAddress) || false}
-          on:change={() => toggleAddressCheckBox(collectionAddress)} />
-      {:else if selectable}
-        <input
-          type="radio"
-          name="nft-radio"
-          checked={selected}
-          class="flex-none radio radio-secondary"
-          on:change={() => selectNFT(nft)} />
-      {/if}
-    </div>
-    <div class="mr-2">
-      <div class="avatar h-[56px] w-[56px]">
-        <div class="rounded-[10px]">
-          {#if !imageLoaded}
-            <img alt="placeholder" src={placeholderUrl} class="rounded animate-pulse" />
-          {/if}
-          <img alt="placeholder nft" src={imageUrl || ''} class=" rounded" on:load={handleImageLoad} />
-        </div>
+    {#if multiSelectEnabled && selectable}
+      <input
+        type="checkbox"
+        class="checkbox checkbox-secondary"
+        checked={checkedAddresses.get(collectionAddress) || false}
+        on:change={() => toggleAddressCheckBox(collectionAddress)} />
+    {:else if selectable}
+      <input
+        type="radio"
+        name="nft-radio"
+        checked={selected}
+        class="flex-none radio radio-secondary"
+        on:change={() => selectNFT(nft)} />
+    {/if}
+    <div class="avatar h-[56px] w-[56px]">
+      <div class="rounded-[10px] bg-primary-background">
+        {#if !imageLoaded}
+          <img alt="placeholder" src={placeholderUrl} class="rounded animate-pulse" />
+        {/if}
+        <img alt="placeholder nft" src={imageUrl || ''} class=" rounded" on:load={handleImageLoad} />
       </div>
     </div>
     <div class="f-col grow">

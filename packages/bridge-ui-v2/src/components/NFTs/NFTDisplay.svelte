@@ -16,10 +16,15 @@
   export let nfts: NFT[] | null = [];
 
   export let nftView: NFTView = NFTView.LIST;
+
+  $: size = nfts?.length && nfts?.length > 3 ? 'max-h-[350px] min-h-[350px]' : 'max-h-[249px] min-h-[249px]';
+
+  $: outerClasses = 'relative m bg-neutral rounded-[20px] overflow-hidden ' + size;
+  $: innerClasses = 'overflow-y-auto p-[24px] ' + size;
 </script>
 
-<div class="relative max-h-[350px] min-h-[350px] bg-neutral rounded-[20px] overflow-hidden">
-  <div class="max-h-[350px] min-h-[350px] overflow-y-auto py-2 px-[20px]">
+<div class={outerClasses}>
+  <div class={innerClasses}>
     {#if loading}
       <LoadingMask spinnerClass="border-white" text={$t('messages.bridge.nft_scanning')} />
     {:else if nftView === NFTView.LIST && nfts}
