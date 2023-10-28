@@ -6,10 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-import {
-    AuthorizableContract,
-    EssentialContract
-} from "../common/AuthorizableContract.sol";
+import { AuthorizableContract } from "../common/AuthorizableContract.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 import { Proxied } from "../common/Proxied.sol";
 
@@ -43,7 +40,7 @@ contract EtherVault is AuthorizableContract {
     /// @notice Initializes the contract with an {AddressManager}.
     /// @param addressManager The address of the {AddressManager} contract.
     function init(address addressManager) external initializer {
-        EssentialContract._init(addressManager);
+        AuthorizableContract._init(addressManager);
     }
 
     /// @notice Transfers Ether from EtherVault to the sender, checking that the

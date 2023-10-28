@@ -73,7 +73,6 @@ abstract contract AddressResolver {
     /// @dev Initialization method for setting up AddressManager reference.
     /// @param _addressManager Address of the AddressManager.
     function _init(address _addressManager) internal virtual {
-        if (_addressManager == address(0)) revert RESOLVER_INVALID_MANAGER();
         addressManager = _addressManager;
     }
 
@@ -93,6 +92,8 @@ abstract contract AddressResolver {
         view
         returns (address payable addr)
     {
+        if (addressManager == address(0)) revert RESOLVER_INVALID_MANAGER();
+
         addr =
             payable(IAddressManager(addressManager).getAddress(chainId, name));
 
