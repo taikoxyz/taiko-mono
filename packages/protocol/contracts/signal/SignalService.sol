@@ -15,6 +15,7 @@ import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
 import { ISignalService } from "./ISignalService.sol";
 
 /// @title SignalService
+/// @dev Labeled in AddressResolver as "signal_service"
 /// @notice See the documentation in {ISignalService} for more details.
 contract SignalService is AuthorizableContract, ISignalService {
     struct Hop {

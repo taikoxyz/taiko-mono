@@ -25,6 +25,7 @@ import { BaseNFTVault } from "./BaseNFTVault.sol";
 import { ProxiedBridgedERC721 } from "./BridgedERC721.sol";
 
 /// @title ERC721Vault
+/// @dev Labeled in AddressResolver as "erc721_vault"
 /// @notice This vault holds all ERC721 tokens that users have deposited.
 /// It also manages the mapping between canonical tokens and their bridged
 /// tokens.

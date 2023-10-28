@@ -13,6 +13,7 @@ import { LibTiers } from "../tiers/ITierProvider.sol";
 import { TaikoData } from "../TaikoData.sol";
 
 /// @title GuardianProver
+/// @dev Labeled in AddressResolver as "guardian_prover"
 contract GuardianProver is EssentialContract {
     uint256 public constant NUM_GUARDIANS = 5;
     uint256 public constant REQUIRED_GUARDIANS = 3;

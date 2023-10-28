@@ -24,6 +24,7 @@ import { TaikoEvents } from "./TaikoEvents.sol";
 import { ITierProvider } from "./tiers/ITierProvider.sol";
 
 /// @title TaikoL1
+/// @dev Labeled in AddressResolver as "taiko"
 /// @notice This contract serves as the "base layer contract" of the Taiko
 /// protocol, providing functionalities for proposing, proving, and verifying
 /// blocks. The term "base layer contract" means that although this is usually

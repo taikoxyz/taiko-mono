@@ -14,6 +14,7 @@ import { EtherVault } from "./EtherVault.sol";
 import { IBridge, IRecallableSender } from "./IBridge.sol";
 
 /// @title Bridge
+/// @dev Labeled in AddressResolver as "bridge"
 /// @notice See the documentation for {IBridge}.
 /// @dev The code hash for the same address on L1 and L2 may be different.
 contract Bridge is EssentialContract, IBridge {
@@ -213,8 +214,9 @@ contract Bridge is EssentialContract, IBridge {
         // Process message differently based on the target address
         if (
             message.to == address(0) || message.to == address(this)
-                || message.to == ethVault || message.to == resolve("taiko", false)
+                || message.to == ethVault
         ) {
+            // || message.to == resolve("taiko", false)
             // Handle special addresses that don't require actual invocation but
             // mark message as DONE
             status = Status.DONE;

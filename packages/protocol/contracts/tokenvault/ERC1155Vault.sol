@@ -38,6 +38,7 @@ interface ERC1155NameAndSymbol {
 }
 
 /// @title ERC1155Vault
+/// @dev Labeled in AddressResolver as "erc1155_vault"
 /// @notice This vault holds all ERC1155 tokens that users have deposited.
 /// It also manages the mapping between canonical tokens and their bridged
 /// tokens.
