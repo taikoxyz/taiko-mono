@@ -45,6 +45,7 @@
     enteredAmount,
     processingFee,
     recipientAddress,
+    selectedNFTs,
     selectedToken,
   } from './state';
   import { NFTSteps } from './types';
@@ -59,7 +60,7 @@
 
   function onNetworkChange(newNetwork: Network, oldNetwork: Network) {
     updateForm();
-
+    activeStep = NFTSteps.CONFIRM;
     if (newNetwork) {
       const destChainId = $destinationChain?.id;
       if (!$destinationChain?.id) return;
@@ -122,7 +123,9 @@
         throw new Error('token address not found');
       }
       const tokenIds =
-        nftIdArray.length > 0 ? nftIdArray.map((num) => BigInt(num)) : selectedNFT.map((nft) => BigInt(nft.tokenId));
+        nftIdArray.length > 0
+          ? nftIdArray.map((num) => BigInt(num))
+          : $selectedNFTs && $selectedNFTs.map((nft) => BigInt(nft.tokenId));
 
       let txHash: Hash;
 
@@ -179,7 +182,9 @@
       };
 
       const tokenIds =
-        nftIdArray.length > 0 ? nftIdArray.map((num) => BigInt(num)) : selectedNFT.map((nft) => BigInt(nft.tokenId));
+        nftIdArray.length > 0
+          ? nftIdArray.map((num) => BigInt(num))
+          : $selectedNFTs && $selectedNFTs.map((nft) => BigInt(nft.tokenId));
 
       const bridgeArgs = await getBridgeArgs($selectedToken, $enteredAmount, commonArgs, nftIdArray);
 
@@ -254,7 +259,7 @@
     importMethod === 'scan';
     scanned = false;
     canProceed = false;
-    selectedNFT = [];
+    $selectedNFTs = [];
   };
 
   /**
@@ -275,7 +280,6 @@
   let validatingImport: boolean = false;
   let scanned: boolean = false;
 
-  let selectedNFT: NFT[];
   let canProceed: boolean = false;
   let foundNFTs: NFT[] = [];
 
@@ -303,7 +307,7 @@
           token.tokenId = id;
           fetchNFTImageUrl(token).then((nftWithUrl) => {
             $selectedToken = nftWithUrl;
-            selectedNFT = [nftWithUrl];
+            $selectedNFTs = [nftWithUrl];
           });
         } else {
           throw new Error('no token');

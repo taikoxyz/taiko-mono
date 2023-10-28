@@ -37,6 +37,9 @@
   const editTransactionDetails = () => {
     dispatch('editTransactionDetails');
   };
+
+  // check if any of the selected NFTs are ERC1155 tokens
+  $: isERC1155 = $selectedNFTs ? $selectedNFTs.some((nft) => nft.type === 'ERC1155') : false;
 </script>
 
 <div class="container mx-auto inline-block align-middle space-y-[25px]">
@@ -85,11 +88,12 @@
         </ul>
       </div>
     </div>
-
-    <div class="flex justify-between">
-      <div class="text-secondary-content">{$t('common.amount')}</div>
-      {$enteredAmount}
-    </div>
+    {#if isERC1155}
+      <div class="flex justify-between">
+        <div class="text-secondary-content">{$t('common.amount')}</div>
+        {$enteredAmount}
+      </div>
+    {/if}
   </div>
 </div>
 

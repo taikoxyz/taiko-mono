@@ -71,6 +71,7 @@
         "message": "You already have sufficient allowance for this request.",
         "title": "Allowance already set"
       },
+      "no_decimals_allowed": "Decimals are not supported for this token",
       "send_erc20_error": {
         "message": "There was an issue attempting to send ERC20 token.",
         "title": "Failed to send"
@@ -209,7 +210,9 @@
     },
     "amount": {
       "balance": "Balance",
-      "button.max": "Max",
+      "button": {
+        "max": "Max"
+      },
       "errors.failed_max": "Could not estimate max amount to bridge.",
       "label": "Amount"
     },
