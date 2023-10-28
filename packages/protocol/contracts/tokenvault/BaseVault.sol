@@ -10,10 +10,10 @@ import { IERC165Upgradeable } from
 
 import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
 import { AddressResolver } from "../common/AddressResolver.sol";
-import { AuthorizableContract } from "../common/AuthorizableContract.sol";
+import { EssentialContract } from "../common/EssentialContract.sol";
 
 abstract contract BaseVault is
-    AuthorizableContract,
+    EssentialContract,
     IRecallableSender,
     IERC165Upgradeable
 {
@@ -22,7 +22,7 @@ abstract contract BaseVault is
     /// @notice Initializes the contract with the address manager.
     /// @param addressManager Address manager contract address.
     function init(address addressManager) external initializer {
-        AuthorizableContract._init(addressManager);
+        EssentialContract._init(addressManager);
     }
 
     /// @notice Checks if the contract supports the given interface.
