@@ -1,0 +1,45 @@
+digraph G {
+  graph [rankdir=LR];
+  node [shape=box, fontname="Roboto" fontsize=10]; 
+  edge [arrowsize=0.5, color=gray50]; // Set the arrowhead type for all edges
+
+  label="Sharing contracts among multiple L2s"; // Set the label for the entire graph
+  labelloc="t"; // Place the label at the top
+
+
+  taiko_a [label="TaikoL1 A\n(taiko)", style=filled, fillcolor=burlywood1]
+  tier_provider_a [style=filled, fillcolor=burlywood1]
+
+  taiko_b [label="TaikoL1 B\n(taiko)", style=filled, fillcolor=cyan]
+  TierProvider_b [style=filled, fillcolor=cyan]
+
+  // taiko_l2 [label="TaikoL2\n(n/a)"]
+  erc1559_vault [label="ERC1559Vault\n(erc1559_vault)" style=filled, fillcolor=lightgreen]
+  erc20_vault [label="ERC20Vault\n(erc20_vault)" style=filled, fillcolor=lightgreen]
+  erc721_vault [label="ERC721Vault\n(erc721_vault)" style=filled, fillcolor=lightgreen]
+  signal_service [label="SignalService\n(signal_service)" style=filled, fillcolor=lightgreen]
+  taiko_token [label="TaikoToken\n(taiko_token)" style=filled, fillcolor=lightgreen]
+  ether_vault [label="EtherVault\n(ether_vault)" style=filled, fillcolor=lightgreen]
+  bridge [label="Bridge\n(bridge)" style=filled, fillcolor=lightgreen]
+
+  erc1559_vault -> bridge;
+  erc20_vault -> bridge;
+  erc721_vault -> bridge;
+  bridge -> ether_vault;
+  bridge -> signal_service;
+
+  taiko_a -> tier_provider_a [color=burlywood3];
+  taiko_a -> signal_service [color=burlywood3];
+  taiko_a -> taiko_token [color=burlywood3];
+  taiko_a -> ether_vault [color=burlywood3];
+
+  taiko_b -> TierProvider_b [color=cyan3];
+  taiko_b -> signal_service [color=cyan3];
+  taiko_b -> taiko_token [color=cyan3];
+  taiko_b -> ether_vault [color=cyan3];
+
+  signal_service -> taiko_a [color=darkorchid];
+  signal_service -> taiko_b [color=darkorchid];
+}
+
+// dot -Tpdf contract_graph.dot -o contract_graph.pdf
