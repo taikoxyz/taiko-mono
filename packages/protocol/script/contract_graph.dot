@@ -1,22 +1,20 @@
 digraph G {
+  taiko [label="TaikoL1"]
+  taiko_l2 [label="TaikoL2"]
+  erc1559_vault [style=filled, fillcolor=lightgreen]
+  erc20_vault [style=filled, fillcolor=lightgreen]
+  erc721_vault [style=filled, fillcolor=lightgreen]
+  signal_service [style=filled, fillcolor=lightgreen]
+  blob_hash_reader [style=filled, fillcolor=lightgreen]
+  taiko_token [style=filled, fillcolor=lightgreen]
+  ether_vault [style=filled, fillcolor=lightgreen]
+  bridge [style=filled, fillcolor=lightgreen]
 
 
-taiko [label="TaikoL1"]
-taiko_l2 [label="TaikoL2"]
-erc1559_vault [style=filled, fillcolor=lightgreen]
-erc20_vault [style=filled, fillcolor=lightgreen]
-erc721_vault [style=filled, fillcolor=lightgreen]
-signal_service [style=filled, fillcolor=lightgreen]
-blob_hash_reader [style=filled, fillcolor=lightgreen]
-taiko_token [style=filled, fillcolor=lightgreen]
-ether_vault [style=filled, fillcolor=lightgreen]
-bridge [style=filled, fillcolor=lightgreen]
-
-
-SgxAndZkVerifier [style=filled, fillcolor=lightyellow]
-GuardianVerifier [style=filled, fillcolor=lightyellow]
-tier_sgx [style=filled, fillcolor=lightyellow]
-tier_pse_zkevm [style=filled, fillcolor=lightyellow]
+  SgxAndZkVerifier [style=filled, fillcolor=lightyellow]
+  GuardianVerifier [style=filled, fillcolor=lightyellow]
+  tier_sgx [style=filled, fillcolor=lightyellow]
+  tier_pse_zkevm [style=filled, fillcolor=lightyellow]
 
 
   rankdir=TB;
@@ -40,3 +38,5 @@ tier_pse_zkevm [style=filled, fillcolor=lightyellow]
   SgxAndZkVerifier -> tier_pse_zkevm;
   GuardianVerifier -> guardian_prover;
 }
+
+// dot -Tpdf contract_graph.dot -o contract_graph.pdf
