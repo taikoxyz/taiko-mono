@@ -53,6 +53,7 @@ abstract contract BaseVault is
         }
 
         ctx = IBridge(msg.sender).context();
+        // TODO: use this
         // address sender = AddressResolver(msg.sender).resolve(ctx.srcChainId,
         // name(), false);
         address sender = resolve(ctx.srcChainId, name(), false);

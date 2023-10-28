@@ -6,7 +6,9 @@
 
 pragma solidity ^0.8.20;
 
-import { EssentialContract } from "../common/EssentialContract.sol";
+import {
+    AddressResolver, EssentialContract
+} from "../common/EssentialContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
@@ -110,14 +112,21 @@ contract SignalService is EssentialContract, ISignalService {
         // verify that chainB's signalRoot has been sent as a signal by chainB's
         // "taiko" contract, then using chainB's signalRoot, we further check
         // the signal is sent by chainC's "bridge" contract.
-        bytes32 signalRoot = ICrossChainSync(resolve("taiko", false))
-            .getSyncedSnippet(p.height).signalRoot;
+
+        // TODO(daniel): remove ussage of "resolve" and use "isAuthorized"
+        address taiko = resolve("taiko", false);
+
+        bytes32 signalRoot =
+            ICrossChainSync(taiko).getSyncedSnippet(p.height).signalRoot;
+
         if (signalRoot == 0) return false;
 
         for (uint256 i; i < p.hops.length; ++i) {
             Hop memory hop = p.hops[i];
             bytes32 slot = getSignalSlot(
                 hop.chainId,
+                // TODO: use the following
+                // AddressResolver(taiko).resolve(hop.chainId, "taiko", false),
                 resolve(hop.chainId, "taiko", false),
                 hop.signalRoot // as a signal
             );
