@@ -268,35 +268,6 @@ contract ERC721VaultTest is TestBase {
         assertEq(ERC721(canonicalToken721).ownerOf(1), address(erc721Vault));
     }
 
-    function test_721Vault_sendToken_with_invalid_to_address_721() public {
-        vm.prank(Alice, Alice);
-        canonicalToken721.approve(address(erc721Vault), 1);
-
-        assertEq(canonicalToken721.ownerOf(1), Alice);
-
-        uint256[] memory tokenIds = new uint256[](1);
-        tokenIds[0] = 1;
-
-        uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 0;
-
-        BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
-            .BridgeTransferOp(
-            destChainId,
-            address(0),
-            address(canonicalToken721),
-            tokenIds,
-            amounts,
-            140_000,
-            140_000,
-            Alice,
-            ""
-        );
-        vm.prank(Alice, Alice);
-        vm.expectRevert(BaseNFTVault.VAULT_INVALID_TO.selector);
-        erc721Vault.sendToken{ value: 140_000 }(sendOpts);
-    }
-
     function test_721Vault_sendToken_with_invalid_token_address() public {
         vm.prank(Alice, Alice);
         canonicalToken721.approve(address(erc721Vault), 1);

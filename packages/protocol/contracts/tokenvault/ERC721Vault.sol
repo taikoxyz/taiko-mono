@@ -102,26 +102,28 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
     {
         IBridge.Context memory ctx = checkProcessMessageContext();
 
+        address _to = to == address(0) || to == address(this) ? from : to;
         address token;
+
         unchecked {
             if (ctoken.chainId == block.chainid) {
                 token = ctoken.addr;
                 for (uint256 i; i < tokenIds.length; ++i) {
                     ERC721Upgradeable(token).transferFrom({
                         from: address(this),
-                        to: to,
+                        to: _to,
                         tokenId: tokenIds[i]
                     });
                 }
             } else {
                 token = _getOrDeployBridgedToken(ctoken);
                 for (uint256 i; i < tokenIds.length; ++i) {
-                    ProxiedBridgedERC721(token).mint(to, tokenIds[i]);
+                    ProxiedBridgedERC721(token).mint(_to, tokenIds[i]);
                 }
             }
         }
 
-        to.sendEther(msg.value);
+        _to.sendEther(msg.value);
 
         emit TokenReceived({
             msgHash: ctx.msgHash,

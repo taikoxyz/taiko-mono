@@ -273,26 +273,6 @@ contract TestERC20Vault is Test {
         );
     }
 
-    function test_20Vault_send_erc20_reverts_invalid_to() public {
-        vm.startPrank(Alice);
-
-        uint256 amount = 1;
-
-        vm.expectRevert(ERC20Vault.VAULT_INVALID_TO.selector);
-        erc20Vault.sendToken(
-            ERC20Vault.BridgeTransferOp(
-                destChainId,
-                address(0),
-                address(erc20),
-                amount,
-                1_000_000,
-                0,
-                Bob,
-                ""
-            )
-        );
-    }
-
     function test_20Vault_receive_erc20_canonical_to_dest_chain_transfers_from_canonical_token(
     )
         public

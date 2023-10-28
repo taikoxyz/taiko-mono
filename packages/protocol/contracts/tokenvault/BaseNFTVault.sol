@@ -97,7 +97,6 @@ abstract contract BaseNFTVault is BaseVault {
         uint256[] amounts
     );
 
-    error VAULT_INVALID_TO();
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_AMOUNT();
     error VAULT_INVALID_USER();
@@ -117,11 +116,6 @@ abstract contract BaseNFTVault is BaseVault {
         if (op.tokenIds.length > MAX_TOKEN_PER_TXN) {
             revert VAULT_MAX_TOKEN_PER_TXN_EXCEEDED();
         }
-
-        if (
-            op.to == address(0)
-                || op.to == resolve(op.destChainId, name(), false)
-        ) revert VAULT_INVALID_TO();
 
         if (op.token == address(0)) revert VAULT_INVALID_TOKEN();
 
