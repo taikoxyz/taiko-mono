@@ -118,7 +118,6 @@ abstract contract BaseNFTVault is BaseVault {
         }
 
         if (op.token == address(0)) revert VAULT_INVALID_TOKEN();
-
         _;
     }
 }
