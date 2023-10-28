@@ -6,9 +6,8 @@
 
 pragma solidity ^0.8.20;
 
-import {
-    AddressResolver, EssentialContract
-} from "../common/EssentialContract.sol";
+import { AddressResolver } from "../common/AddressResolver.sol";
+import { AuthorizableContract } from "../common/AuthorizableContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
@@ -17,7 +16,7 @@ import { ISignalService } from "./ISignalService.sol";
 
 /// @title SignalService
 /// @notice See the documentation in {ISignalService} for more details.
-contract SignalService is EssentialContract, ISignalService {
+contract SignalService is AuthorizableContract, ISignalService {
     struct Hop {
         uint256 chainId;
         bytes32 signalRoot;
@@ -46,7 +45,7 @@ contract SignalService is EssentialContract, ISignalService {
     // TODO(daniel): _addressManager must be address(0)
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init(address _addressManager) external initializer {
-        EssentialContract._init(_addressManager);
+        AuthorizableContract._init(_addressManager);
     }
 
     /// @inheritdoc ISignalService
