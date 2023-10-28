@@ -28,10 +28,12 @@
   export let approve: () => Promise<void>;
   export let bridge: () => Promise<void>;
 
-  let approving = false;
-  let bridging = false;
+  export let oldStyle = true; //TODO: remove this
 
-  let allTokensApproved = false;
+  export let approving = false;
+  export let bridging = false;
+
+  export let allTokensApproved = false;
 
   function onApproveClick() {
     approving = true;
@@ -180,7 +182,7 @@
     : commonConditions;
 </script>
 
-bridging {bridging}<br />
+<!-- bridging {bridging}<br />
 balance {hasBalance}<br />
 validating {$validatingAmount}<br />
 insufficientAllowance {$insufficientAllowance}<br /><br />
@@ -191,38 +193,77 @@ commonConditions {commonConditions}
 enteredAmount {$enteredAmount}<br />
 tokenBalance {$tokenBalance}<br />
 enteredAmount {#if $enteredAmount}test
-{/if}<br />
-<div class="f-between-center w-full gap-4">
-  {#if $selectedToken && $selectedToken.type !== TokenType.ETH}
+{/if}<br /> -->
+
+{#if oldStyle}
+  <!-- TODO: temporary enable two styles, remove for UI v2.1 -->
+
+  <div class="f-between-center w-full gap-4">
+    {#if $selectedToken && $selectedToken.type !== TokenType.ETH}
+      <Button
+        type="primary"
+        class="px-[28px] py-[14px] rounded-full flex-1"
+        disabled={disableApprove}
+        loading={approving}
+        on:click={onApproveClick}>
+        {#if approving}
+          <span class="body-bold">{$t('bridge.button.approving')}</span>
+        {:else if isTokenApproved}
+          <div class="f-items-center">
+            <Icon type="check" />
+            <span class="body-bold">{$t('bridge.button.approved')}</span>
+          </div>
+        {:else}
+          <span class="body-bold">{$t('bridge.button.approve')}</span>
+        {/if}
+      </Button>
+      <Icon type="arrow-right" />
+    {/if}
     <Button
       type="primary"
-      class="px-[28px] py-[14px] rounded-full flex-1"
-      disabled={disableApprove}
-      loading={approving}
-      on:click={onApproveClick}>
-      {#if approving}
-        <span class="body-bold">{$t('bridge.button.approving')}</span>
-      {:else if isTokenApproved}
-        <div class="f-items-center">
-          <Icon type="check" />
-          <span class="body-bold">{$t('bridge.button.approved')}</span>
-        </div>
+      class="px-[28px] py-[14px] rounded-full flex-1 text-white"
+      disabled={disableBridge}
+      loading={bridging}
+      on:click={onBridgeClick}>
+      {#if bridging}
+        <span class="body-bold">{$t('bridge.button.bridging')}</span>
       {:else}
-        <span class="body-bold">{$t('bridge.button.approve')}</span>
+        <span class="body-bold">{$t('bridge.button.bridge')}</span>
       {/if}
     </Button>
-    <Icon type="arrow-right" />
-  {/if}
-  <Button
-    type="primary"
-    class="px-[28px] py-[14px] rounded-full flex-1 text-white"
-    disabled={disableBridge}
-    loading={bridging}
-    on:click={onBridgeClick}>
-    {#if bridging}
-      <span class="body-bold">{$t('bridge.button.bridging')}</span>
-    {:else}
-      <span class="body-bold">{$t('bridge.button.bridge')}</span>
+  </div>
+{:else}
+  <div class="f-col w-full gap-4">
+    {#if $selectedToken && $selectedToken.type !== TokenType.ETH}
+      <Button
+        type="primary"
+        class="px-[28px] py-[14px] rounded-full flex-1"
+        disabled={disableApprove}
+        loading={approving}
+        on:click={onApproveClick}>
+        {#if approving}
+          <span class="body-bold">{$t('bridge.button.approving')}</span>
+        {:else if isTokenApproved}
+          <div class="f-items-center">
+            <Icon type="check" />
+            <span class="body-bold">{$t('bridge.button.approved')}</span>
+          </div>
+        {:else}
+          <span class="body-bold">{$t('bridge.button.approve')}</span>
+        {/if}
+      </Button>
     {/if}
-  </Button>
-</div>
+    <Button
+      type="primary"
+      class="px-[28px] py-[14px] rounded-full flex-1 text-white"
+      disabled={disableBridge}
+      loading={bridging}
+      on:click={onBridgeClick}>
+      {#if bridging}
+        <span class="body-bold">{$t('bridge.button.bridging')}</span>
+      {:else}
+        <span class="body-bold">{$t('bridge.button.bridge')}</span>
+      {/if}
+    </Button>
+  </div>
+{/if}

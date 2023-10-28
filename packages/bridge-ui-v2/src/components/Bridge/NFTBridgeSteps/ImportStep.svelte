@@ -220,126 +220,128 @@
   $: isDisabled = idInputState !== IDInputState.VALID || addressInputState !== AddressInputState.VALID;
 </script>
 
-<div class="f-between-center gap-4">
-  <ChainSelectorWrapper />
-</div>
-<!-- 
-Manual NFT Input 
--->
-
-{#if importMethod === 'manual'}
-  <div id="manualImport">
-    <AddressInput
-      bind:this={addressInputComponent}
-      bind:ethereumAddress={contractAddress}
-      bind:state={addressInputState}
-      class="bg-neutral-background border-0 h-[56px]"
-      on:addressvalidation={onAddressValidation}
-      labelText={$t('inputs.address_input.label.contract')}
-      quiet />
-    {#if addressInputState === AddressInputState.INVALID && invalidToken}
-      <FlatAlert type="error" forceColumnFlow message="todo: invalid token" />
-    {/if}
-
-    {#if !interfaceSupported}
-      <Alert type="error">TODO: token interface is not supported (link to docs?)</Alert>
-    {/if}
-    <div class="min-h-[20px] !mt-3">
-      <!-- TODO: add limit to config -->
-      <IdInput
-        isDisabled={addressInputState !== AddressInputState.VALID}
-        bind:this={nftIdInputComponent}
-        bind:enteredIds
-        bind:validIdNumbers={nftIdArray}
-        bind:state={idInputState}
-        on:inputValidation={onIdInput}
-        limit={1}
-        class="bg-neutral-background border-0 h-[56px]" />
-      <div class="min-h-[20px] !mt-3">
-        {#if !isOwnerOfAllToken && nftIdArray?.length > 0 && !validating}
-          <FlatAlert type="error" forceColumnFlow message="todo: must be owner of all token" />
-        {/if}
-      </div>
-    </div>
-    {#if detectedTokenType === TokenType.ERC1155 && interfaceSupported}
-      <Amount bind:this={amountComponent} class="bg-neutral-background border-0 h-[56px]" disabled={isDisabled} />
-    {/if}
+<div class="mt-[30px]">
+  <div class="f-between-center gap-4">
+    <ChainSelectorWrapper />
   </div>
-{:else}
+  <div class="h-sep my-[30px]" />
   <!-- 
-Automatic NFT Input 
--->
-  {#if !scanned}
-    <div class="f-col w-full gap-4">
-      <Button
-        disabled={!canImport}
-        loading={scanning}
-        type={scanned ? 'neutral' : 'primary'}
-        class="px-[28px] py-[14px] rounded-full flex-1 text-white"
-        on:click={() =>
-          (async () => {
-            await scanForNFTs();
-          })()}>
-        {$t('bridge.actions.nft_scan')}
-      </Button>
-
-      <Button
-        disabled={!canImport}
-        type="neutral"
-        class="px-[28px] py-[14px] bg-transparent border-primary-brand rounded-full "
-        on:click={() => changeImportMethod()}>
-        {$t('bridge.actions.nft_manual')}
-      </Button>
-    </div>
-  {/if}
-
-  <div class="f-col w-full gap-4">
-    {#if scanned}
-      <section class="space-y-2">
-        <div class="flex justify-between items-center w-full">
-          <p class="text-primary-content font-bold">
-            {$t('bridge.nft.step.import.scan_screen.title', { values: { number: foundNFTs.length } })}
-          </p>
-          <div class="flex gap-2">
-            <Button
-              type="neutral"
-              shape="circle"
-              class="bg-neutral rounded-full w-[28px] h-[28px] border-none"
-              on:click={() =>
-                (async () => {
-                  await scanForNFTs();
-                })()}>
-              <RotatingIcon loading={scanning} type="refresh" size={13} />
-            </Button>
-
-            <IconFlipper
-              iconType1="list"
-              iconType2="cards"
-              selectedDefault="cards"
-              class="bg-neutral w-[28px] h-[28px] rounded-full"
-              size={20}
-              on:labelclick={changeNFTView} />
-          </div>
-        </div>
-        <div>
-          <NFTDisplay loading={scanning} nfts={foundNFTs} {nftView} />
-        </div>
-      </section>
-      {#if $selectedNFTs && $selectedNFTs[0]?.type === TokenType.ERC1155}
-        <section>
-          <Amount bind:this={amountComponent} />
-        </section>
+  Manual NFT Input 
+  -->
+  {#if importMethod === 'manual'}
+    <div id="manualImport">
+      <AddressInput
+        bind:this={addressInputComponent}
+        bind:ethereumAddress={contractAddress}
+        bind:state={addressInputState}
+        class="bg-neutral-background border-0 h-[56px]"
+        on:addressvalidation={onAddressValidation}
+        labelText={$t('inputs.address_input.label.contract')}
+        quiet />
+      {#if addressInputState === AddressInputState.INVALID && invalidToken}
+        <FlatAlert type="error" forceColumnFlow message="todo: invalid token" />
       {/if}
 
-      <div class="flex items-center justify-between space-x-2">
-        <p class="text-secondary-content">{$t('bridge.nft.step.import.scan_screen.description')}</p>
+      {#if !interfaceSupported}
+        <Alert type="error">TODO: token interface is not supported (link to docs?)</Alert>
+      {/if}
+      <div class="min-h-[20px] !mt-3">
+        <!-- TODO: add limit to config -->
+        <IdInput
+          isDisabled={addressInputState !== AddressInputState.VALID}
+          bind:this={nftIdInputComponent}
+          bind:enteredIds
+          bind:validIdNumbers={nftIdArray}
+          bind:state={idInputState}
+          on:inputValidation={onIdInput}
+          limit={1}
+          class="bg-neutral-background border-0 h-[56px]" />
+        <div class="min-h-[20px] !mt-3">
+          {#if !isOwnerOfAllToken && nftIdArray?.length > 0 && !validating}
+            <FlatAlert type="error" forceColumnFlow message="todo: must be owner of all token" />
+          {/if}
+        </div>
+      </div>
+      {#if detectedTokenType === TokenType.ERC1155 && interfaceSupported}
+        <Amount bind:this={amountComponent} class="bg-neutral-background border-0 h-[56px]" disabled={isDisabled} />
+      {/if}
+    </div>
+  {:else}
+    <!-- 
+    Automatic NFT Input 
+    -->
+    {#if !scanned}
+      <div class="f-col w-full gap-4">
         <Button
+          disabled={!canImport}
+          loading={scanning}
+          type={scanned ? 'neutral' : 'primary'}
+          class="px-[28px] py-[14px] rounded-full flex-1 text-white"
+          on:click={() =>
+            (async () => {
+              await scanForNFTs();
+            })()}>
+          {$t('bridge.actions.nft_scan')}
+        </Button>
+
+        <Button
+          disabled={!canImport}
           type="neutral"
-          class="rounded-full py-[8px] px-[20px] bg-transparent !border border-primary-brand hover:border-primary-interactive-hover "
+          class="px-[28px] py-[14px] bg-transparent border-primary-brand rounded-full "
           on:click={() => changeImportMethod()}>
-          {$t('common.add')}
+          {$t('bridge.actions.nft_manual')}
         </Button>
       </div>
     {/if}
-  </div>
-{/if}
+
+    <div class="f-col w-full gap-4">
+      {#if scanned}
+        <section class="space-y-2">
+          <div class="flex justify-between items-center w-full">
+            <p class="text-primary-content font-bold">
+              {$t('bridge.nft.step.import.scan_screen.title', { values: { number: foundNFTs.length } })}
+            </p>
+            <div class="flex gap-2">
+              <Button
+                type="neutral"
+                shape="circle"
+                class="bg-neutral rounded-full w-[28px] h-[28px] border-none"
+                on:click={() =>
+                  (async () => {
+                    await scanForNFTs();
+                  })()}>
+                <RotatingIcon loading={scanning} type="refresh" size={13} />
+              </Button>
+
+              <IconFlipper
+                iconType1="list"
+                iconType2="cards"
+                selectedDefault="cards"
+                class="bg-neutral w-[28px] h-[28px] rounded-full"
+                size={20}
+                on:labelclick={changeNFTView} />
+            </div>
+          </div>
+          <div>
+            <NFTDisplay loading={scanning} nfts={foundNFTs} {nftView} />
+          </div>
+        </section>
+        {#if $selectedNFTs && $selectedNFTs[0]?.type === TokenType.ERC1155}
+          <section>
+            <Amount bind:this={amountComponent} />
+          </section>
+        {/if}
+
+        <div class="flex items-center justify-between space-x-2">
+          <p class="text-secondary-content">{$t('bridge.nft.step.import.scan_screen.description')}</p>
+          <Button
+            type="neutral"
+            class="rounded-full py-[8px] px-[20px] bg-transparent !border border-primary-brand hover:border-primary-interactive-hover "
+            on:click={() => changeImportMethod()}>
+            {$t('common.add')}
+          </Button>
+        </div>
+      {/if}
+    </div>
+  {/if}
+</div>
