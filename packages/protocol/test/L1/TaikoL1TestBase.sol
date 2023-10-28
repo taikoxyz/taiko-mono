@@ -94,7 +94,7 @@ abstract contract TaikoL1TestBase is TestBase {
         registerAddress("tier_sgx_and_pse_zkevm", address(sgxZkVerifier));
         registerAddress("tier_provider", address(cp));
         registerAddress("signal_service", address(ss));
-        registerAddress("guardian", address(gp));
+        registerAddress("guardian_prover", address(gp));
         registerAddress("ether_vault", address(L1EthVault));
         registerL2Address("taiko", address(TaikoL2));
         registerL2Address("signal_service", address(L2SS));

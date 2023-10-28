@@ -714,7 +714,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_IfGuardianRoleIsNotGrantedToProver() external {
-        registerAddress("guardian", Alice);
+        registerAddress("guardian_prover", Alice);
 
         giveEthAndTko(Alice, 1e8 ether, 1000 ether);
         giveEthAndTko(Carol, 1e8 ether, 1000 ether);
@@ -776,7 +776,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_ProveWithInvalidBlockId() external {
-        registerAddress("guardian", Alice);
+        registerAddress("guardian_prover", Alice);
 
         giveEthAndTko(Alice, 1e8 ether, 1000 ether);
         giveEthAndTko(Carol, 1e8 ether, 1000 ether);
@@ -819,7 +819,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_ProveWithInvalidMetahash() external {
-        registerAddress("guardian", Alice);
+        registerAddress("guardian_prover", Alice);
 
         giveEthAndTko(Alice, 1e8 ether, 1000 ether);
         giveEthAndTko(Carol, 1e8 ether, 1000 ether);

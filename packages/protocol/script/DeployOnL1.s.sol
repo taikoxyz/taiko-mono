@@ -177,7 +177,7 @@ contract DeployOnL1 is Script {
         // Guardian prover
         ProxiedGuardianProver guardianProver = new ProxiedGuardianProver();
         address guardianProverProxy = deployProxy(
-            "guardian",
+            "guardian_prover",
             address(guardianProver),
             bytes.concat(
                 guardianProver.init.selector, abi.encode(addressManagerProxy)
