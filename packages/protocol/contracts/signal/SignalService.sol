@@ -25,6 +25,7 @@ contract SignalService is AuthorizableContract, ISignalService {
     }
 
     struct Proof {
+        address taiko;
         uint64 height;
         bytes storageProof;
         Hop[] hops;
@@ -43,10 +44,9 @@ contract SignalService is AuthorizableContract, ISignalService {
         _;
     }
 
-    // TODO(daniel): _addressManager must be address(0)
     /// @dev Initializer to be called after being deployed behind a proxy.
-    function init(address _addressManager) external initializer {
-        AuthorizableContract._init(_addressManager);
+    function init() external initializer {
+        AuthorizableContract._init(address(0));
     }
 
     /// @inheritdoc ISignalService
@@ -101,7 +101,7 @@ contract SignalService is AuthorizableContract, ISignalService {
         }
 
         Proof memory p = abi.decode(proof, (Proof));
-        if (p.storageProof.length == 0) return false;
+        if (p.taiko == address(0) || p.storageProof.length == 0) return false;
 
         for (uint256 i; i < p.hops.length; ++i) {
             if (p.hops[i].signalRoot == 0) return false;
@@ -114,11 +114,10 @@ contract SignalService is AuthorizableContract, ISignalService {
         // "taiko" contract, then using chainB's signalRoot, we further check
         // the signal is sent by chainC's "bridge" contract.
 
-        // TODO(daniel): remove ussage of "resolve" and use "isAuthorized"
-        address taiko = resolve("taiko", false);
+        if (!isAuthorizedAs(p.taiko, "taiko")) revert ADDRESS_NOT_AUTHORIZED();
 
         bytes32 signalRoot =
-            ICrossChainSync(taiko).getSyncedSnippet(p.height).signalRoot;
+            ICrossChainSync(p.taiko).getSyncedSnippet(p.height).signalRoot;
 
         if (signalRoot == 0) return false;
 
@@ -126,9 +125,7 @@ contract SignalService is AuthorizableContract, ISignalService {
             Hop memory hop = p.hops[i];
             bytes32 slot = getSignalSlot(
                 hop.chainId,
-                // TODO: use the following
-                // AddressResolver(taiko).resolve(hop.chainId, "taiko", false),
-                resolve(hop.chainId, "taiko", false),
+                AddressResolver(p.taiko).resolve(hop.chainId, "taiko", false),
                 hop.signalRoot // as a signal
             );
             bool verified = LibSecureMerkleTrie.verifyInclusionProof(

@@ -27,12 +27,13 @@ contract TestSignalService is TestBase {
         addressManager.init();
 
         signalService = new SignalService();
-        signalService.init(address(addressManager));
+        signalService.init();
 
         destSignalService = new SignalService();
-        destSignalService.init(address(addressManager));
+        destSignalService.init();
 
         crossChainSync = new DummyCrossChainSync();
+        crossChainSync.init(address(addressManager));
 
         addressManager.setAddress(
             block.chainid, "signal_service", address(signalService)
@@ -95,14 +96,13 @@ contract TestSignalService is TestBase {
             // result's storage hash
 
         vm.startPrank(Alice);
-        addressManager.setAddress(
-            block.chainid, "taiko", address(crossChainSync)
-        );
+        signalService.authorize(address(crossChainSync), "taiko");
 
         crossChainSync.setSyncedData("", signalRoot);
 
         SignalService.Proof memory p;
         SignalService.Hop[] memory h;
+        p.taiko = address(crossChainSync);
         p.height = 10;
         p.storageProof = inclusionProof;
         p.hops = h;
@@ -143,11 +143,15 @@ contract TestSignalService is TestBase {
         );
 
         vm.startPrank(Alice);
+        signalService.authorize(address(crossChainSync), "taiko");
+
+        vm.startPrank(Alice);
         addressManager.setAddress(chainId, "taiko", app);
 
         crossChainSync.setSyncedData("", l1_common_signalService_root);
 
         SignalService.Proof memory p;
+        p.taiko = address(crossChainSync);
         p.height = 10;
         p.storageProof = inclusionProof_of_L2A_msgHash;
 

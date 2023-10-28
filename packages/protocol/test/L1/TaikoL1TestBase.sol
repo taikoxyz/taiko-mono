@@ -64,7 +64,7 @@ abstract contract TaikoL1TestBase is TestBase {
         addressManager.init();
 
         ss = new SignalService();
-        ss.init(address(addressManager));
+        ss.init();
 
         pv = new PseZkVerifier();
         pv.init(address(addressManager));

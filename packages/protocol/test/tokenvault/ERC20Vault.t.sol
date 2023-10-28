@@ -130,7 +130,7 @@ contract TestERC20Vault is Test {
         vm.deal(address(destChainIdBridge), 100 ether);
 
         signalService = new SignalService();
-        signalService.init(address(addressManager));
+        signalService.init();
 
         addressManager.setAddress(block.chainid, "bridge", address(bridge));
 

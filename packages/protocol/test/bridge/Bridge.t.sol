@@ -55,10 +55,10 @@ contract BridgeTest is TestBase {
         destChainBridge.init(address(addressManager));
 
         mockProofSignalService = new SkipProofCheckSignal();
-        mockProofSignalService.init(address(addressManager));
+        mockProofSignalService.init();
 
         signalService = new SignalService();
-        signalService.init(address(addressManager));
+        signalService.init();
 
         etherVault = new EtherVault();
         etherVault.init();

@@ -162,7 +162,7 @@ contract ERC721VaultTest is TestBase {
         destChainBridge.init(address(addressManager));
 
         signalService = new SignalService();
-        signalService.init(address(addressManager));
+        signalService.init();
 
         etherVault = new EtherVault();
         etherVault.init();
@@ -177,7 +177,7 @@ contract ERC721VaultTest is TestBase {
         vm.deal(address(destChainIdBridge), 100 ether);
 
         mockProofSignalService = new SkipProofCheckSignal();
-        mockProofSignalService.init(address(addressManager));
+        mockProofSignalService.init();
 
         crossChainSync = new DummyCrossChainSync();
 

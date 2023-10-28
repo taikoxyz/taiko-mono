@@ -37,7 +37,7 @@ contract TestTaikoL2 is TestBase {
         addressManager.init();
 
         ss = new SignalService();
-        ss.init(address(addressManager));
+        ss.init();
         registerAddress("signal_service", address(ss));
 
         L2 = new TaikoL2EIP1559Configurable();
