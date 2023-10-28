@@ -19,8 +19,6 @@ abstract contract BaseVault is
 {
     error VAULT_PERMISSION_DENIED();
 
-    // TODO(daniel): remove addressManager as param and make sure _init use
-    // address(0);
     /// @notice Initializes the contract with the address manager.
     /// @param addressManager Address manager contract address.
     function init(address addressManager) external initializer {
@@ -42,7 +40,6 @@ abstract contract BaseVault is
 
     function name() public pure virtual returns (bytes32);
 
-    // TODO(dani): remove usage of "resolve", use "isAuthorzed[]"
     function checkProcessMessageContext()
         internal
         view
@@ -53,14 +50,10 @@ abstract contract BaseVault is
         }
 
         ctx = IBridge(msg.sender).context();
-        // TODO: use this
-        // address sender = AddressResolver(msg.sender).resolve(ctx.srcChainId,
-        // name(), false);
         address sender = resolve(ctx.srcChainId, name(), false);
         if (ctx.from != sender) revert VAULT_PERMISSION_DENIED();
     }
 
-    // TODO(dani): remove usage of "resolve", use "isAuthorzed[]"
     function checkRecallMessageContext()
         internal
         view
