@@ -226,6 +226,7 @@
 <!-- 
 Manual NFT Input 
 -->
+
 {#if importMethod === 'manual'}
   <div id="manualImport">
     <AddressInput
