@@ -26,7 +26,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         bytes1[48] pointProof;
     }
 
-    struct PseZkEvmProof {
+    struct ZkEvmProof {
         uint16 verifierId;
         bytes zkp;
         bytes pointProof;
@@ -44,57 +44,58 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        TaikoData.BlockEvidence calldata evidence,
-        Input calldata input
+        Context calldata ctx,
+        TaikoData.Transition calldata tran,
+        TaikoData.TierProof calldata proof
     )
         external
         view
     {
         // Do not run proof verification to contest an existing proof
-        if (input.isContesting) return;
+        if (ctx.isContesting) return;
 
-        PseZkEvmProof memory proof = abi.decode(evidence.proof, (PseZkEvmProof));
+        ZkEvmProof memory zkProof = abi.decode(proof.data, (ZkEvmProof));
 
         bytes32 instance;
-        if (input.blobUsed) {
-            PointProof memory pf = abi.decode(proof.pointProof, (PointProof));
+        if (ctx.blobUsed) {
+            PointProof memory pf = abi.decode(zkProof.pointProof, (PointProof));
 
             instance = calcInstance({
-                evidence: evidence,
-                prover: input.prover,
-                metaHash: input.metaHash,
+                tran: tran,
+                prover: ctx.prover,
+                metaHash: ctx.metaHash,
                 txListHash: pf.txListHash,
                 pointValue: pf.pointValue
             });
 
             Lib4844.evaluatePoint({
-                blobHash: input.blobHash,
-                x: calc4844PointEvalX(input.blobHash, pf.txListHash),
+                blobHash: ctx.blobHash,
+                x: calc4844PointEvalX(ctx.blobHash, pf.txListHash),
                 y: pf.pointValue,
                 commitment: pf.pointCommitment,
-                proof: pf.pointProof
+                pointProof: pf.pointProof
             });
         } else {
-            assert(proof.pointProof.length == 0);
+            assert(zkProof.pointProof.length == 0);
             instance = calcInstance({
-                evidence: evidence,
-                prover: input.prover,
-                metaHash: input.metaHash,
-                txListHash: input.blobHash,
+                tran: tran,
+                prover: ctx.prover,
+                metaHash: ctx.metaHash,
+                txListHash: ctx.blobHash,
                 pointValue: 0
             });
         }
 
         // Validate the instance using bytes utilities.
         bool verified = LibBytesUtils.equal(
-            LibBytesUtils.slice(proof.zkp, 0, 32),
+            LibBytesUtils.slice(zkProof.zkp, 0, 32),
             bytes.concat(bytes16(0), bytes16(instance))
         );
 
         if (!verified) revert L1_INVALID_PROOF();
 
         verified = LibBytesUtils.equal(
-            LibBytesUtils.slice(proof.zkp, 32, 32),
+            LibBytesUtils.slice(zkProof.zkp, 32, 32),
             bytes.concat(bytes16(0), bytes16(uint128(uint256(instance))))
         );
         if (!verified) revert L1_INVALID_PROOF();
@@ -102,11 +103,11 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         // Delegate to the ZKP verifier library to validate the proof.
         // Resolve the verifier's name and obtain its address.
         address verifierAddress =
-            resolve(getVerifierName(proof.verifierId), false);
+            resolve(getVerifierName(zkProof.verifierId), false);
 
         // Call the verifier contract with the provided proof.
         bytes memory ret;
-        (verified, ret) = verifierAddress.staticcall(bytes.concat(proof.zkp));
+        (verified, ret) = verifierAddress.staticcall(bytes.concat(zkProof.zkp));
 
         // Check if the proof is valid.
         if (!verified) revert L1_INVALID_PROOF();
@@ -127,7 +128,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
     }
 
     function calcInstance(
-        TaikoData.BlockEvidence memory evidence,
+        TaikoData.Transition memory tran,
         address prover,
         bytes32 metaHash,
         bytes32 txListHash,
@@ -138,16 +139,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         returns (bytes32 instance)
     {
         return keccak256(
-            abi.encodePacked(
-                evidence.parentHash,
-                evidence.blockHash,
-                evidence.signalRoot,
-                evidence.graffiti,
-                prover,
-                metaHash,
-                txListHash,
-                pointValue
-            )
+            abi.encode(tran, prover, metaHash, txListHash, pointValue)
         );
     }
 

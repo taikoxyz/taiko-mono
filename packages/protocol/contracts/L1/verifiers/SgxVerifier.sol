@@ -100,24 +100,25 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        TaikoData.BlockEvidence calldata evidence,
-        Input calldata input
+        Context calldata ctx,
+        TaikoData.Transition calldata tran,
+        TaikoData.TierProof calldata proof
     )
         external
     {
         // Do not run proof verification to contest an existing proof
-        if (input.isContesting) return;
+        if (ctx.isContesting) return;
 
         // Size is: 87 bytes
         // 2 bytes + 20 bytes + 65 bytes (signature) = 87
-        if (evidence.proof.length != 87) revert SGX_INVALID_PROOF();
+        if (proof.data.length != 87) revert SGX_INVALID_PROOF();
 
-        uint16 id = uint16(bytes2(LibBytesUtils.slice(evidence.proof, 0, 2)));
+        uint16 id = uint16(bytes2(LibBytesUtils.slice(proof.data, 0, 2)));
         address newInstance =
-            address(bytes20(LibBytesUtils.slice(evidence.proof, 2, 20)));
-        bytes memory signature = LibBytesUtils.slice(evidence.proof, 22);
+            address(bytes20(LibBytesUtils.slice(proof.data, 2, 20)));
+        bytes memory signature = LibBytesUtils.slice(proof.data, 22);
         address oldInstance = ECDSAUpgradeable.recover(
-            getSignedHash(evidence, input.prover, newInstance, input.metaHash),
+            getSignedHash(tran, newInstance, ctx.prover, ctx.metaHash),
             signature
         );
 
@@ -126,26 +127,16 @@ contract SgxVerifier is EssentialContract, IVerifier {
     }
 
     function getSignedHash(
-        TaikoData.BlockEvidence memory evidence,
+        TaikoData.Transition memory tran,
+        address newInstance,
         address prover,
-        address newAddress,
         bytes32 metaHash
     )
         public
         pure
         returns (bytes32 signedHash)
     {
-        return keccak256(
-            abi.encodePacked(
-                metaHash,
-                evidence.parentHash,
-                evidence.blockHash,
-                evidence.signalRoot,
-                evidence.graffiti,
-                prover,
-                newAddress
-            )
-        );
+        return keccak256(abi.encode(tran, newInstance, prover, metaHash));
     }
 
     function _addInstance(address instance) private {

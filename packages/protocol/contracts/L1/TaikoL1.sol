@@ -61,34 +61,25 @@ contract TaikoL1 is
     }
 
     /// @notice Proposes a Taiko L2 block.
-    /// @param txList A list of transactions in this block, encoded with RLP.
-    /// Note:
-    /// 1) if txList is empty, Taiko will use the first blob in the transaction
-    /// for DA; other wise, it will use calldata for DA.
-    /// 2) in the corresponding L2 block an "anchor transaction" will be the
-    /// first transaction in the block. If there are `n` transactions in the
-    /// `txList`, then there will be up to `n + 1` transactions in the L2 block.
-    /// @param assignment Data to assign a prover.
-    /// @param extraData The extraData in the L2 block's header.
+    /// @param params Block parameters, currently an encoded BlockParams object.
+    /// @param txList txList data if calldata is used for DA.
     /// @return meta The metadata of the proposed L2 block.
+    /// @return depositsProcessed The Ether deposits processed.
     function proposeBlock(
-        bytes calldata txList,
-        bytes calldata assignment,
-        bytes32 extraData
+        bytes calldata params,
+        bytes calldata txList
     )
         external
         payable
         nonReentrant
-        returns (TaikoData.BlockMetadata memory meta)
+        returns (
+            TaikoData.BlockMetadata memory meta,
+            TaikoData.EthDeposit[] memory depositsProcessed
+        )
     {
         TaikoData.Config memory config = getConfig();
-        meta = LibProposing.proposeBlock(
-            state,
-            config,
-            AddressResolver(this),
-            txList,
-            abi.decode(assignment, (TaikoData.ProverAssignment)),
-            extraData
+        (meta, depositsProcessed) = LibProposing.proposeBlock(
+            state, config, AddressResolver(this), params, txList
         );
         if (config.maxBlocksToVerifyPerProposal > 0) {
             LibVerifying.verifyBlocks(
@@ -103,7 +94,8 @@ contract TaikoL1 is
     /// @notice Proves or contests a block transition.
     /// @param blockId The index of the block to prove. This is also used to
     /// select the right implementation version.
-    /// @param input An abi-encoded {TaikoData.BlockEvidence} object.
+    /// @param input An abi-encoded (BlockMetadata, Transition, TierProof)
+    /// tuple.
     function proveBlock(
         uint64 blockId,
         bytes calldata input
@@ -112,17 +104,19 @@ contract TaikoL1 is
         nonReentrant
     {
         (
-            TaikoData.BlockEvidence memory evidence,
-            TaikoData.BlockMetadata memory meta
+            TaikoData.BlockMetadata memory meta,
+            TaikoData.Transition memory tran,
+            TaikoData.TierProof memory proof
         ) = abi.decode(
-            input, (TaikoData.BlockEvidence, TaikoData.BlockMetadata)
+            input,
+            (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof)
         );
 
         if (blockId != meta.id) revert L1_INVALID_BLOCK_ID();
 
         TaikoData.Config memory config = getConfig();
         uint8 maxBlocksToVerify = LibProving.proveBlock(
-            state, config, AddressResolver(this), evidence, meta
+            state, config, AddressResolver(this), meta, tran, proof
         );
         if (maxBlocksToVerify > 0) {
             LibVerifying.verifyBlocks(
@@ -189,7 +183,7 @@ contract TaikoL1 is
     )
         public
         view
-        returns (TaikoData.Transition memory)
+        returns (TaikoData.TransitionState memory)
     {
         return LibUtils.getTransition(state, getConfig(), blockId, parentHash);
     }
@@ -201,7 +195,7 @@ contract TaikoL1 is
         override
         returns (ICrossChainSync.Snippet memory data)
     {
-        TaikoData.Transition storage transition =
+        TaikoData.TransitionState storage transition =
             LibUtils.getVerifyingTransition(state, getConfig(), blockId);
 
         data.blockHash = transition.blockHash;

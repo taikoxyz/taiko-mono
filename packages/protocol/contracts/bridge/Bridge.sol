@@ -28,10 +28,7 @@ contract Bridge is EssentialContract, IBridge {
         FAILED
     }
 
-    bytes32 internal constant MESSAGE_HASH_PLACEHOLDER = bytes32(uint256(1));
-    uint256 internal constant CHAINID_PLACEHOLDER = type(uint256).max;
-    address internal constant SRC_CHAIN_SENDER_PLACEHOLDER =
-        address(uint160(uint256(1)));
+    uint256 internal constant PLACEHOLDER = type(uint256).max;
 
     uint128 public nextMessageId; // slot 1
     mapping(bytes32 msgHash => bool recalled) public isMessageRecalled;
@@ -71,6 +68,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @param _addressManager The address of the {AddressManager} contract.
     function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
+        _ctx.msgHash == bytes32(PLACEHOLDER);
     }
 
     /// @notice Sends a message to the destination chain and takes custody
@@ -163,9 +161,9 @@ contract Bridge is EssentialContract, IBridge {
 
             // Reset the context after the message call
             _ctx = Context({
-                msgHash: MESSAGE_HASH_PLACEHOLDER,
-                from: SRC_CHAIN_SENDER_PLACEHOLDER,
-                srcChainId: CHAINID_PLACEHOLDER
+                msgHash: bytes32(PLACEHOLDER),
+                from: address(uint160(PLACEHOLDER)),
+                srcChainId: PLACEHOLDER
             });
         } else {
             message.user.sendEther(message.value);
@@ -366,7 +364,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Gets the current context.
     /// @inheritdoc IBridge
     function context() public view returns (Context memory) {
-        if (_ctx.msgHash == 0 || _ctx.msgHash == MESSAGE_HASH_PLACEHOLDER) {
+        if (_ctx.msgHash == bytes32(PLACEHOLDER) || _ctx.msgHash == 0) {
             revert B_INVALID_CONTEXT();
         }
         return _ctx;
@@ -403,9 +401,9 @@ contract Bridge is EssentialContract, IBridge {
 
         // Reset the context after the message call
         _ctx = Context({
-            msgHash: MESSAGE_HASH_PLACEHOLDER,
-            from: SRC_CHAIN_SENDER_PLACEHOLDER,
-            srcChainId: CHAINID_PLACEHOLDER
+            msgHash: bytes32(PLACEHOLDER),
+            from: address(uint160(PLACEHOLDER)),
+            srcChainId: PLACEHOLDER
         });
     }
 

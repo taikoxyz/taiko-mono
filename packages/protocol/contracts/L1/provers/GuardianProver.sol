@@ -27,10 +27,7 @@ contract GuardianProver is EssentialContract {
     // fail
     event GuardiansUpdated(address[5]);
     event Approved(
-        uint64 blockId,
-        TaikoData.BlockEvidence evidence,
-        uint256 approvalBits,
-        bool proofSubmitted
+        uint64 indexed blockId, uint256 approvalBits, bool proofSubmitted
     );
 
     error INVALID_GUARDIAN();
@@ -74,10 +71,10 @@ contract GuardianProver is EssentialContract {
     }
 
     /// @dev Called by guardians to approve a guardian proof
-    function approveEvidence(
-        uint64 blockId,
-        TaikoData.BlockEvidence memory evidence,
-        TaikoData.BlockMetadata memory meta
+    function approve(
+        TaikoData.BlockMetadata calldata meta,
+        TaikoData.Transition calldata tran,
+        TaikoData.TierProof calldata proof
     )
         external
         nonReentrant
@@ -85,16 +82,18 @@ contract GuardianProver is EssentialContract {
         uint256 id = guardianIds[msg.sender];
         if (id == 0) revert INVALID_GUARDIAN();
 
-        if (evidence.tier != LibTiers.TIER_GUARDIAN) revert INVALID_PROOF();
+        if (proof.tier != LibTiers.TIER_GUARDIAN) revert INVALID_PROOF();
 
-        bytes32 hash = keccak256(abi.encode(blockId, evidence));
+        bytes32 hash = keccak256(abi.encode(meta, tran));
         uint256 approvalBits = approvals[hash];
 
         approvalBits |= 1 << id;
 
         if (_isApproved(approvalBits)) {
             bytes memory data = abi.encodeWithSignature(
-                "proveBlock(uint64,bytes)", blockId, abi.encode(evidence, meta)
+                "proveBlock(uint64,bytes)",
+                meta.id,
+                abi.encode(meta, tran, proof)
             );
 
             (bool success,) = resolve("taiko", false).call(data);
@@ -102,10 +101,10 @@ contract GuardianProver is EssentialContract {
             if (!success) revert PROVING_FAILED();
             delete approvals[hash];
 
-            emit Approved(blockId, evidence, approvalBits, true);
+            emit Approved(meta.id, approvalBits, true);
         } else {
             approvals[hash] = approvalBits;
-            emit Approved(blockId, evidence, approvalBits, false);
+            emit Approved(meta.id, approvalBits, false);
         }
     }
 
