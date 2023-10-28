@@ -6,6 +6,8 @@
 
 pragma solidity ^0.8.20;
 
+/// @title IBlobHashReader
+/// @dev Labeled in AddressResolver as "blob_hash_reader"
 /// @dev This interface and its corresponding implementation may deprecate once
 /// solidity supports the new BLOBHASH opcode natively.
 interface IBlobHashReader {

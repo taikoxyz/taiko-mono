@@ -38,6 +38,7 @@ interface ERC1155NameAndSymbol {
 }
 
 /// @title ERC1155Vault
+/// @dev Labeled in AddressResolver as "erc1155_vault"
 /// @notice This vault holds all ERC1155 tokens that users have deposited.
 /// It also manages the mapping between canonical tokens and their bridged
 /// tokens.
@@ -123,6 +124,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         // Check context validity
         IBridge.Context memory ctx = checkProcessMessageContext();
 
+        address _to = to == address(0) || to == address(this) ? from : to;
         address token;
 
         unchecked {
@@ -132,7 +134,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                 for (uint256 i; i < tokenIds.length; ++i) {
                     ERC1155Upgradeable(token).safeTransferFrom({
                         from: address(this),
-                        to: to,
+                        to: _to,
                         id: tokenIds[i],
                         amount: amounts[i],
                         data: ""
@@ -143,13 +145,13 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                 token = _getOrDeployBridgedToken(ctoken);
                 for (uint256 i; i < tokenIds.length; ++i) {
                     ProxiedBridgedERC1155(token).mint(
-                        to, tokenIds[i], amounts[i]
+                        _to, tokenIds[i], amounts[i]
                     );
                 }
             }
         }
 
-        to.sendEther(msg.value);
+        _to.sendEther(msg.value);
 
         emit TokenReceived({
             msgHash: ctx.msgHash,

@@ -11,6 +11,7 @@ import { LibAddress } from "../libs/LibAddress.sol";
 import { Proxied } from "../common/Proxied.sol";
 
 /// @title EtherVault
+/// @dev Labeled in AddressResolver as "ether_vault"
 /// @notice This contract is initialized with 2^128 Ether and allows authorized
 /// addresses to release Ether.
 /// @dev Only the contract owner can authorize or deauthorize addresses.

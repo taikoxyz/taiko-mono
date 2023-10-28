@@ -253,36 +253,6 @@ contract ERC1155VaultTest is TestBase {
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 2);
     }
 
-    function test_1155Vault_sendToken_with_invalid_to_address_1155() public {
-        vm.prank(Alice, Alice);
-        ctoken1155.setApprovalForAll(address(erc1155Vault), true);
-
-        assertEq(ctoken1155.balanceOf(Alice, 1), 10);
-        assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 0);
-
-        uint256[] memory tokenIds = new uint256[](1);
-        tokenIds[0] = 1;
-
-        uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 2;
-
-        BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
-            .BridgeTransferOp(
-            destChainId,
-            address(0),
-            address(ctoken1155),
-            tokenIds,
-            amounts,
-            140_000,
-            140_000,
-            Alice,
-            ""
-        );
-        vm.prank(Alice, Alice);
-        vm.expectRevert(BaseNFTVault.VAULT_INVALID_TO.selector);
-        erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
-    }
-
     function test_1155Vault_sendToken_with_invalid_token_address_1155()
         public
     {

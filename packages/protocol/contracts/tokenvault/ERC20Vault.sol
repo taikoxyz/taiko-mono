@@ -23,6 +23,7 @@ import { IMintableERC20 } from "./IMintableERC20.sol";
 import { BaseVault } from "./BaseVault.sol";
 
 /// @title ERC20Vault
+/// @dev Labeled in AddressResolver as "erc20_vault"
 /// @notice This vault holds all ERC20 tokens (excluding Ether) that users have
 /// deposited. It also manages the mapping between canonical ERC20 tokens and
 /// their bridged tokens.
@@ -93,7 +94,6 @@ contract ERC20Vault is BaseVault {
         uint256 amount
     );
 
-    error VAULT_INVALID_TO();
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_AMOUNT();
     error VAULT_INVALID_USER();
@@ -101,17 +101,6 @@ contract ERC20Vault is BaseVault {
     error VAULT_INVALID_SRC_CHAIN_ID();
     error VAULT_MESSAGE_NOT_FAILED();
     error VAULT_MESSAGE_RELEASED_ALREADY();
-
-    modifier whenOperationValid(BridgeTransferOp calldata op) {
-        if (
-            op.to == address(0)
-                || op.to == resolve(op.destChainId, name(), false)
-        ) {
-            revert VAULT_INVALID_TO();
-        }
-        if (op.token == address(0)) revert VAULT_INVALID_TOKEN();
-        _;
-    }
 
     /// @notice Transfers ERC20 tokens to this vault and sends a message to the
     /// destination chain so the user can receive the same amount of tokens by
@@ -122,9 +111,9 @@ contract ERC20Vault is BaseVault {
         payable
         nonReentrant
         whenNotPaused
-        whenOperationValid(op)
     {
         if (op.amount == 0) revert VAULT_INVALID_AMOUNT();
+        if (op.token == address(0)) revert VAULT_INVALID_TOKEN();
 
         uint256 _amount;
         IBridge.Message memory message;
@@ -177,16 +166,17 @@ contract ERC20Vault is BaseVault {
     {
         IBridge.Context memory ctx = checkProcessMessageContext();
 
+        address _to = to == address(0) || to == address(this) ? from : to;
         address token;
         if (ctoken.chainId == block.chainid) {
             token = ctoken.addr;
-            ERC20Upgradeable(token).safeTransfer(to, amount);
+            ERC20Upgradeable(token).safeTransfer(_to, amount);
         } else {
             token = _getOrDeployBridgedToken(ctoken);
-            IMintableERC20(token).mint(to, amount);
+            IMintableERC20(token).mint(_to, amount);
         }
 
-        to.sendEther(msg.value);
+        _to.sendEther(msg.value);
 
         emit TokenReceived({
             msgHash: ctx.msgHash,
