@@ -9,7 +9,6 @@ import { IERC165Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/utils/introspection/IERC165Upgradeable.sol";
 
 import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
-import { AddressResolver } from "../common/AddressResolver.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 
 abstract contract BaseVault is

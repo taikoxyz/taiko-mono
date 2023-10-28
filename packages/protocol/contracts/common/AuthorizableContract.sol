@@ -9,25 +9,25 @@ abstract contract AuthorizableContract is EssentialContract {
 
     event Authorized(address indexed addr, bytes32 oldLabel, bytes32 newLabel);
 
-    error ADDRESS_NOT_AUTHORIZED();
-    error ADDRESS_INVALID();
+    error ADDRESS_UNAUTHORIZED();
+    error INVALID_ADDRESS();
+    error INVALID_LABEL();
 
     modifier onlyAuthorized() {
-        // Ensure the caller is authorized to perform the action
-        if (!isAuthorized(msg.sender)) revert ADDRESS_NOT_AUTHORIZED();
+        if (!isAuthorized(msg.sender)) revert ADDRESS_UNAUTHORIZED();
         _;
     }
 
     modifier onlyAuthorizedAs(bytes32 label) {
-        // Ensure the caller is authorized to perform the action
-        if (!isAuthorizedAs(msg.sender, label)) revert ADDRESS_NOT_AUTHORIZED();
+        if (!isAuthorizedAs(msg.sender, label)) revert ADDRESS_UNAUTHORIZED();
         _;
     }
 
     function authorize(address addr, bytes32 label) external onlyOwner {
-        if (addr == address(0)) revert ADDRESS_INVALID();
+        if (addr == address(0)) revert INVALID_ADDRESS();
 
         bytes32 oldLabel = authorizedAddresses[addr];
+        if (oldLabel == label) revert INVALID_LABEL();
         authorizedAddresses[addr] = label;
 
         emit Authorized(addr, oldLabel, label);
