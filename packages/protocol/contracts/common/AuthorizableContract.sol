@@ -48,7 +48,6 @@ abstract contract AuthorizableContract is EssentialContract {
             && authorizedAddresses[addr] == label;
     }
 
-    // TODO(daniel): force addressManager to be zero
     /// @dev Initialization method for setting up AddressManager reference.
     /// @param _addressManager Address of the AddressManager.
     function _init(address _addressManager) internal virtual override {
