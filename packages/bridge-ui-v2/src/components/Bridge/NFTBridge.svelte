@@ -35,9 +35,9 @@
   import type Amount from './Amount.svelte';
   import type IdInput from './IDInput/IDInput.svelte';
   import ImportStep from './NFTBridgeSteps/ImportStep.svelte';
+  import RecipientStep from './NFTBridgeSteps/RecipientStep.svelte';
   import ReviewStep from './NFTBridgeSteps/ReviewStep.svelte';
   import type { ProcessingFee } from './ProcessingFee';
-  import type Recipient from './Recipient.svelte';
   import {
     activeBridge,
     bridgeService,
@@ -50,7 +50,7 @@
   import { NFTSteps } from './types';
 
   let amountComponent: Amount;
-  let recipientComponent: Recipient;
+  let recipientStepComponent: RecipientStep;
   let processingFeeComponent: ProcessingFee;
   let actionsComponent: Actions;
   let importMethod: 'scan' | 'manual' = 'scan';
@@ -181,7 +181,7 @@
       const tokenIds =
         nftIdArray.length > 0 ? nftIdArray.map((num) => BigInt(num)) : selectedNFT.map((nft) => BigInt(nft.tokenId));
 
-      const bridgeArgs = await getBridgeArgs($selectedToken, $enteredAmount, commonArgs, selectedNFT, nftIdArray);
+      const bridgeArgs = await getBridgeArgs($selectedToken, $enteredAmount, commonArgs, nftIdArray);
 
       const args = { ...bridgeArgs, tokenIds };
 
@@ -242,9 +242,9 @@
   const resetForm = () => {
     //we check if these are still mounted, as the user might have left the page
     if (amountComponent) amountComponent.clearAmount();
-    if (recipientComponent) recipientComponent.clearRecipient();
     if (processingFeeComponent) processingFeeComponent.resetProcessingFee();
     if (addressInputComponent) addressInputComponent.clearAddress();
+    if (recipientStepComponent) recipientStepComponent.reset();
 
     // Update balance after bridging
     if (amountComponent) amountComponent.updateBalance();
@@ -335,6 +335,10 @@
         });
   };
 
+  const handleTransactionDetailsClick = () => {
+    activeStep = NFTSteps.RECIPIENT;
+  };
+
   // Whenever the user switches bridge types, we should reset the forms
   $: $activeBridge && (resetForm(), (activeStep = NFTSteps.IMPORT));
 
@@ -345,6 +349,7 @@
     nftStepDescription = $t(`bridge.description.nft.${stepKey}`);
     nextStepButtonText = getStepText();
   }
+
   onDestroy(() => {
     resetForm();
   });
@@ -353,12 +358,13 @@
 <div class="f-col">
   <Stepper {activeStep}>
     <Step stepIndex={NFTSteps.IMPORT} currentStepIndex={activeStep} isActive={activeStep === NFTSteps.IMPORT}
-      >{$t('bridge.title.nft.import')}</Step>
+      >{$t('bridge.nft.step.import.title')}</Step>
     <Step stepIndex={NFTSteps.REVIEW} currentStepIndex={activeStep} isActive={activeStep === NFTSteps.REVIEW}
-      >{$t('bridge.title.nft.review')}</Step>
+      >{$t('bridge.nft.step.review.title')}</Step>
     <Step stepIndex={NFTSteps.CONFIRM} currentStepIndex={activeStep} isActive={activeStep === NFTSteps.CONFIRM}
-      >{$t('bridge.title.nft.confirm')}</Step>
+      >{$t('bridge.nft.step.confirm.title')}</Step>
   </Stepper>
+
   <Card class="mt-[32px] w-full md:w-[524px]" title={nftStepTitle} text={nftStepDescription}>
     <div class="space-y-[30px]">
       <!-- IMPORT STEP -->
@@ -368,32 +374,29 @@
           bind:canProceed
           bind:nftIdArray
           bind:contractAddress
-          {foundNFTs}
+          bind:foundNFTs
           bind:scanned
           bind:validating={validatingImport} />
         <!-- REVIEW STEP -->
       {:else if activeStep === NFTSteps.REVIEW}
-        <ReviewStep />
+        <ReviewStep on:editTransactionDetails={handleTransactionDetailsClick} />
         <!-- CONFIRM STEP -->
       {:else if activeStep === NFTSteps.CONFIRM}
         <div class="f-between-center gap-4">
           <ChainSelectorWrapper />
         </div>
+      {:else if activeStep === NFTSteps.RECIPIENT}
+        <RecipientStep bind:this={recipientStepComponent} />
       {/if}
       <!-- 
         User Actions
       -->
-      {#if activeStep !== NFTSteps.IMPORT}
-        <Button
-          type="neutral"
-          class="px-[28px] py-[14px] rounded-full w-auto flex-1 bg-transparent !border border-primary-brand hover:border-primary-interactive-hover"
-          on:click={previousStep}>
-          <span class="body-bold">{$t('common.edit')}</span></Button>
-      {/if}
       {#if activeStep === NFTSteps.REVIEW}
-        <div class="f-between-center w-full gap-4">
-          <div class="h-sep" />
+        <div class="f-col w-full gap-4">
           <Actions {approve} {bridge} />
+          <button on:click={previousStep} class="flex justify-center py-3 link">
+            {$t('common.back')}
+          </button>
         </div>
       {:else if activeStep === NFTSteps.IMPORT}
         {#if importMethod === 'manual'}
@@ -426,6 +429,18 @@
             </button>
           </div>
         {/if}
+      {:else if activeStep === NFTSteps.RECIPIENT}
+        <div class="f-col w-full">
+          <Button
+            disabled={!canProceed}
+            type="primary"
+            class="px-[28px] py-[14px] rounded-full flex-1 w-auto text-white"
+            on:click={() => (activeStep = NFTSteps.REVIEW)}><span class="body-bold">{nextStepButtonText}</span></Button>
+
+          <button on:click={previousStep} class="flex justify-center py-3 link">
+            {$t('common.back')}
+          </button>
+        </div>
       {/if}
     </div>
   </Card>
