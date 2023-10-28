@@ -43,6 +43,7 @@ contract SignalService is EssentialContract, ISignalService {
         _;
     }
 
+    // TODO(daniel): _addressManager must be address(0)
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
