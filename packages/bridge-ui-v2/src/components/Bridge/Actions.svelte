@@ -4,7 +4,7 @@
   import { routingContractsMap } from '$bridgeConfig';
   import { Button } from '$components/Button';
   import { Icon } from '$components/Icon';
-  import { bridges } from '$libs/bridge';
+  import { bridges, type RequireApprovalArgs } from '$libs/bridge';
   import type { ERC721Bridge } from '$libs/bridge/ERC721Bridge';
   import type { ERC1155Bridge } from '$libs/bridge/ERC1155Bridge';
   import { type NFT, TokenType } from '$libs/token';
@@ -49,6 +49,7 @@
 
   //TODO: this should probably be checked somewhere else?
   export async function checkTokensApproved() {
+    $validatingAmount = true;
     if ($selectedToken?.type === TokenType.ERC721 || $selectedToken?.type === TokenType.ERC1155) {
       if ($account?.address && $network?.id && $destNetwork?.id) {
         const currentChainId = $network?.id;
@@ -85,13 +86,16 @@
 
           // Let's check if the vault is approved for all ERC721
           try {
-            const requiresApproval = await bridge.requiresApproval({
+            const args: RequireApprovalArgs = {
               tokenAddress: token.addresses[currentChainId],
               owner: wallet.account.address,
               spenderAddress: erc721VaultAddress,
               tokenId: BigInt(token.tokenId),
               chainId: currentChainId,
-            });
+            };
+
+            const requiresApproval = await bridge.requiresApproval(args);
+
             allTokensApproved = !requiresApproval;
           } catch (error) {
             console.error('isApprovedForAll error');
@@ -99,6 +103,7 @@
         }
       }
     }
+    $validatingAmount = false;
   }
   // TODO: feels like we need a state machine here
 
@@ -106,6 +111,7 @@
   $: hasAddress = $recipientAddress || $account?.address;
   $: hasNetworks = $network?.id && $destNetwork?.id;
   $: hasBalance =
+    !$insufficientBalance &&
     !$computingBalance &&
     !$errorComputingBalance &&
     ($tokenBalance
@@ -115,7 +121,7 @@
         ? $tokenBalance.value > BigInt(0)
         : false // ERC20
       : false);
-  $: canDoNothing = !hasAddress || !hasNetworks || !hasBalance || !$selectedToken || !$enteredAmount;
+  $: canDoNothing = !hasAddress || !hasNetworks || !hasBalance || !$selectedToken;
 
   // Conditions for approve/bridge steps
   $: isSelectedERC20 = $selectedToken && $selectedToken.type === TokenType.ERC20;
@@ -136,23 +142,56 @@
   // Conditions to disable/enable buttons
   $: disableApprove =
     $selectedToken?.type === TokenType.ERC20
-      ? canDoNothing || $insufficientBalance || $validatingAmount || approving || isTokenApproved
+      ? canDoNothing || $insufficientBalance || $validatingAmount || approving || isTokenApproved || !$enteredAmount
       : $selectedToken?.type === TokenType.ERC721
       ? allTokensApproved || approving
       : $selectedToken?.type === TokenType.ERC1155
       ? allTokensApproved || approving
       : approving;
 
-  $: disableBridge =
-    $selectedToken?.type === TokenType.ERC20
-      ? canDoNothing || $insufficientAllowance || $insufficientBalance || $validatingAmount || bridging
-      : $selectedToken?.type === TokenType.ERC721
-      ? !allTokensApproved
-      : $selectedToken?.type === TokenType.ERC1155
-      ? !allTokensApproved
-      : bridging || !hasAddress || !hasNetworks || !hasBalance || !$selectedToken || !$enteredAmount;
+  $: isERC20 = $selectedToken?.type === TokenType.ERC20;
+  $: isERC721 = $selectedToken?.type === TokenType.ERC721;
+  $: isERC1155 = $selectedToken?.type === TokenType.ERC1155;
+  $: isETH = $selectedToken?.type === TokenType.ETH;
+
+  $: commonConditions =
+    !bridging &&
+    hasAddress &&
+    hasNetworks &&
+    hasBalance &&
+    $selectedToken &&
+    !$validatingAmount &&
+    !$insufficientBalance;
+
+  $: erc20ConditionsSatisfied =
+    !canDoNothing && !$insufficientAllowance && commonConditions && $tokenBalance && $enteredAmount;
+  $: erc721ConditionsSatisfied = allTokensApproved && commonConditions;
+  $: erc1155ConditionsSatisfied = allTokensApproved && $enteredAmount && $enteredAmount > 0 && commonConditions;
+  $: ethConditionsSatisfied = commonConditions && $enteredAmount && $enteredAmount > 0;
+
+  $: disableBridge = isERC20
+    ? !erc20ConditionsSatisfied
+    : isERC721
+    ? !erc721ConditionsSatisfied
+    : isERC1155
+    ? !erc1155ConditionsSatisfied
+    : isETH
+    ? !ethConditionsSatisfied
+    : commonConditions;
 </script>
 
+bridging {bridging}<br />
+balance {hasBalance}<br />
+validating {$validatingAmount}<br />
+insufficientAllowance {$insufficientAllowance}<br /><br />
+
+canDoNothing {canDoNothing} <br />
+$insufficientAllowance {insufficientAllowance} <br />
+commonConditions {commonConditions}
+enteredAmount {$enteredAmount}<br />
+tokenBalance {$tokenBalance}<br />
+enteredAmount {#if $enteredAmount}test
+{/if}<br />
 <div class="f-between-center w-full gap-4">
   {#if $selectedToken && $selectedToken.type !== TokenType.ETH}
     <Button

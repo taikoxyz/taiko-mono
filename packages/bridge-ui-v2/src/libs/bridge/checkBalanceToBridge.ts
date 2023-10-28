@@ -1,5 +1,5 @@
 import { fetchBalance, getPublicClient } from '@wagmi/core';
-import { type Address, ContractFunctionExecutionError, zeroAddress } from 'viem';
+import { type Address, zeroAddress } from 'viem';
 
 import { routingContractsMap } from '$bridgeConfig';
 import {
@@ -92,7 +92,7 @@ export async function checkBalanceToBridge({
     // since we are briding a token, we need the ETH balance of the wallet
     balance = await getPublicClient().getBalance(wallet.account);
     const tokenBalance = token.balance;
-    const _amount = amount as bigint[];
+    const _amount = [amount] as bigint[];
 
     if (
       !tokenAddress ||
@@ -135,9 +135,9 @@ export async function checkBalanceToBridge({
       } as BridgeArgs);
     } catch (err) {
       console.error(err);
-      if (err instanceof ContractFunctionExecutionError) {
-        throw err;
-      }
+      // if (err instanceof ContractFunctionExecutionError) {
+      //   throw err;
+      // }
       // TODO: catch/rethrow other errors
     }
     // no need to deduct the amount we want to bridge from the balance as we pay in ETH

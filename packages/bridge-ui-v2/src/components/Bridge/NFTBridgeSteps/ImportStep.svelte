@@ -66,6 +66,7 @@
     invalidToken = true;
     isOwnerOfAllToken = false;
     detectedTokenType = null;
+    amountComponent?.clearAmount();
   };
 
   const changeNFTView = () => {
@@ -203,7 +204,15 @@
       canProceed = false;
     }
   } else if (importMethod === 'scan' && $selectedNFTs && $selectedNFTs.length > 0 && $destinationChain && scanned) {
-    canProceed = true;
+    if ($selectedNFTs && $selectedNFTs[0].type === TokenType.ERC1155) {
+      if ($enteredAmount > BigInt(0)) {
+        canProceed = true;
+      } else {
+        canProceed = false;
+      }
+    } else if ($selectedNFTs && $selectedNFTs[0].type === TokenType.ERC721) {
+      canProceed = true;
+    }
   } else {
     canProceed = false;
   }
@@ -316,6 +325,11 @@ Automatic NFT Input
           <NFTDisplay loading={scanning} nfts={foundNFTs} {nftView} />
         </div>
       </section>
+      {#if $selectedNFTs && $selectedNFTs[0]?.type === TokenType.ERC1155}
+        <section>
+          <Amount bind:this={amountComponent} />
+        </section>
+      {/if}
 
       <div class="flex items-center justify-between space-x-2">
         <p class="text-secondary-content">{$t('bridge.nft.step.import.scan_screen.description')}</p>
