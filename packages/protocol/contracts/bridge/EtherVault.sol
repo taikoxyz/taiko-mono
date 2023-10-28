@@ -18,30 +18,19 @@ import { Proxied } from "../common/Proxied.sol";
 contract EtherVault is AuthorizableContract {
     using LibAddress for address;
 
-    mapping(address addr => bool authorized) public isAuthorized;
-    uint256[49] private __gap;
+    uint256[50] private __gap;
 
     event Authorized(address indexed addr, bool authorized);
     event EtherReleased(address indexed to, uint256 amount);
 
-    error VAULT_PERMISSION_DENIED();
     error VAULT_INVALID_RECIPIENT();
     error VAULT_INVALID_PARAMS();
 
-    modifier onlyAuthorized() {
-        // Ensure the caller is authorized to perform the action
-        if (!isAuthorized[msg.sender]) revert VAULT_PERMISSION_DENIED();
-        _;
-    }
-
     receive() external payable { }
 
-    // TODO(daniel): remove addressManager as param and make sure _init use
-    // address(0);
     /// @notice Initializes the contract with an {AddressManager}.
-    /// @param addressManager The address of the {AddressManager} contract.
-    function init(address addressManager) external initializer {
-        AuthorizableContract._init(addressManager);
+    function init() external initializer {
+        AuthorizableContract._init(address(0));
     }
 
     /// @notice Transfers Ether from EtherVault to the sender, checking that the
@@ -74,18 +63,6 @@ contract EtherVault is AuthorizableContract {
 
         recipient.sendEther(amount);
         emit EtherReleased(recipient, amount);
-    }
-
-    /// @notice Sets the authorized status of an address, only the owner can
-    /// call this function.
-    /// @param addr Address to set the authorized status of.
-    /// @param authorized Authorized status to set.
-    function authorize(address addr, bool authorized) public onlyOwner {
-        if (addr == address(0)) revert VAULT_INVALID_PARAMS();
-        if (isAuthorized[addr] == authorized) revert VAULT_INVALID_PARAMS();
-
-        isAuthorized[addr] = authorized;
-        emit Authorized(addr, authorized);
     }
 }
 

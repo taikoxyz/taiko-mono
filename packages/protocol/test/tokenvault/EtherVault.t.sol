@@ -16,36 +16,12 @@ contract TestEtherVault is TestBase {
         addressManager.init();
         etherVault = new EtherVault();
         vm.prank(Alice);
-        etherVault.init(address(addressManager));
-    }
-
-    function test_EtherVault_authorize_revert() public {
-        vm.prank(Bob);
-        vm.expectRevert("Ownable: caller is not the owner");
-        etherVault.authorize(Bob, true);
-
-        vm.prank(Alice);
-        vm.expectRevert(EtherVault.VAULT_INVALID_PARAMS.selector);
-        etherVault.authorize(address(0), true);
-
-        vm.startPrank(Alice);
-        etherVault.authorize(Bob, true);
-        vm.expectRevert(EtherVault.VAULT_INVALID_PARAMS.selector);
-        etherVault.authorize(Bob, true);
-        assertTrue(etherVault.isAuthorized(Bob));
-    }
-
-    function test_EtherVault_authorize_authorizes_when_owner_authorizing()
-        public
-    {
-        vm.prank(Alice);
-        etherVault.authorize(Bob, true);
-        assertTrue(etherVault.isAuthorized(Bob));
+        etherVault.init();
     }
 
     function test_EtherVault_releaseEther_reverts_when_zero_address() public {
         vm.startPrank(Alice);
-        etherVault.authorize(Alice, true);
+        etherVault.authorize(Alice, "alice");
         _seedEtherVault();
 
         vm.expectRevert(EtherVault.VAULT_INVALID_RECIPIENT.selector);
@@ -56,7 +32,7 @@ contract TestEtherVault is TestBase {
         public
     {
         vm.startPrank(Alice);
-        etherVault.authorize(Alice, true);
+        etherVault.authorize(Alice, "alice");
         _seedEtherVault();
 
         uint256 aliceBalanceBefore = Alice.balance;
@@ -71,7 +47,7 @@ contract TestEtherVault is TestBase {
         public
     {
         vm.startPrank(Alice);
-        etherVault.authorize(Alice, true);
+        etherVault.authorize(Alice, "alice");
         _seedEtherVault();
 
         uint256 bobBalanceBefore = Bob.balance;

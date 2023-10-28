@@ -165,7 +165,7 @@ contract ERC721VaultTest is TestBase {
         signalService.init(address(addressManager));
 
         etherVault = new EtherVault();
-        etherVault.init(address(addressManager));
+        etherVault.init();
 
         erc721Vault = new ERC721Vault();
         erc721Vault.init(address(addressManager));
@@ -221,8 +221,8 @@ contract ERC721VaultTest is TestBase {
             block.chainid, "ether_vault", address(etherVault)
         );
         // Authorize
-        etherVault.authorize(address(destChainBridge), true);
-        etherVault.authorize(address(bridge), true);
+        etherVault.authorize(address(destChainBridge), "dest_bridge");
+        etherVault.authorize(address(bridge), "bridge");
 
         vm.stopPrank();
 

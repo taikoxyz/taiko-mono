@@ -33,7 +33,7 @@ abstract contract AddressResolver {
         _;
     }
 
-    /// @notice Resolves a name to its address on the current chain.
+    /// @notice Resolves a name to its address deployed on this chain.
     /// @param name Name whose address is to be resolved.
     /// @param allowZeroAddress If set to true, does not throw if the resolved
     /// address is `address(0)`.
@@ -50,7 +50,7 @@ abstract contract AddressResolver {
         return _resolve(block.chainid, name, allowZeroAddress);
     }
 
-    /// @notice Resolves a name to its address on a specified chain.
+    /// @notice Resolves a name to its address deployed on a specified chain.
     /// @param chainId The chainId of interest.
     /// @param name Name whose address is to be resolved.
     /// @param allowZeroAddress If set to true, does not throw if the resolved

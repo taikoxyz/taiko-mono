@@ -112,7 +112,7 @@ contract TestERC20Vault is Test {
         addressManager.setAddress(block.chainid, "taiko_token", address(tko));
 
         etherVault = new EtherVault();
-        etherVault.init(address(addressManager));
+        etherVault.init();
 
         erc20Vault = new ERC20Vault();
         erc20Vault.init(address(addressManager));
@@ -155,8 +155,8 @@ contract TestERC20Vault is Test {
         );
 
         // Authorize
-        etherVault.authorize(address(destChainIdBridge), true);
-        etherVault.authorize(address(bridge), true);
+        etherVault.authorize(address(destChainIdBridge), "dest_bridge");
+        etherVault.authorize(address(bridge), "bridge");
 
         vm.stopPrank();
     }
