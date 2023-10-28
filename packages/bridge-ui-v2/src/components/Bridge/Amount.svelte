@@ -247,7 +247,6 @@
   // $: showInsiffucientAllowanceAlert = $insufficientAllowance && !$errorComputingBalance && !$computingBalance;
 </script>
 
-{$enteredAmount}
 <div class="Amount f-col space-y-2">
   <div class="f-between-center text-secondary-content">
     <label class="body-regular" for={inputId}>{$t('inputs.amount.label')}</label>

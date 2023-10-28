@@ -397,7 +397,7 @@
       -->
       {#if activeStep === NFTSteps.REVIEW}
         <div class="f-col w-full gap-4">
-          <Actions {approve} {bridge} />
+          <Actions bind:this={actionsComponent} {approve} {bridge} />
           <button on:click={previousStep} class="flex justify-center py-3 link">
             {$t('common.back')}
           </button>
