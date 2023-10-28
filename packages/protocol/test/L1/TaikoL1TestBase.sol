@@ -118,7 +118,10 @@ abstract contract TaikoL1TestBase is TestBase {
         uint24 txListSize
     )
         internal
-        returns (TaikoData.BlockMetadata memory meta)
+        returns (
+            TaikoData.BlockMetadata memory meta,
+            TaikoData.EthDeposit[] memory depositsProcessed
+        )
     {
         TaikoData.TierFee[] memory tierFees = new TaikoData.TierFee[](5);
         // Register the tier fees
@@ -167,8 +170,8 @@ abstract contract TaikoL1TestBase is TestBase {
         meta.gasLimit = gasLimit;
 
         vm.prank(proposer, proposer);
-        meta = L1.proposeBlock{ value: msgValue }(
-            txList, abi.encode(assignment), bytes32(0)
+        (meta, depositsProcessed) = L1.proposeBlock{ value: msgValue }(
+            abi.encode(TaikoData.BlockParams(assignment, bytes32(0))), txList
         );
     }
 
@@ -184,88 +187,90 @@ abstract contract TaikoL1TestBase is TestBase {
     )
         internal
     {
-        TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
+        TaikoData.Transition memory tran = TaikoData.Transition({
             parentHash: parentHash,
             blockHash: blockHash,
             signalRoot: signalRoot,
-            graffiti: 0x0,
-            tier: tier,
-            proof: new bytes(102)
+            graffiti: 0x0
         });
 
         bytes32 instance = pv.calcInstance(
-            evidence, prover, LibUtils.hashMetadata(meta), meta.blobHash, 0
+            tran, prover, keccak256(abi.encode(meta)), meta.blobHash, 0
         );
 
-        PseZkVerifier.PseZkEvmProof memory zkProof;
-        zkProof.verifierId = 300;
-        zkProof.zkp = bytes.concat(
-            bytes16(0),
-            bytes16(instance),
-            bytes16(0),
-            bytes16(uint128(uint256(instance))),
-            new bytes(100)
-        );
+        TaikoData.TierProof memory proof;
+        proof.tier = tier;
+        {
+            PseZkVerifier.ZkEvmProof memory zkProof;
+            zkProof.verifierId = 300;
+            zkProof.zkp = bytes.concat(
+                bytes16(0),
+                bytes16(instance),
+                bytes16(0),
+                bytes16(uint128(uint256(instance))),
+                new bytes(100)
+            );
 
-        evidence.proof = abi.encode(zkProof);
+            proof.data = abi.encode(zkProof);
+        }
 
-        address newPubKey;
+        address newInstance;
         // Keep changing the pub key associated with an instance to avoid
         // attacks,
         // obviously just a mock due to 2 addresses changing all the time.
-        (newPubKey,) = sv.instances(0);
-        if (newPubKey == SGX_X_0) {
-            newPubKey = SGX_X_1;
+        (newInstance,) = sv.instances(0);
+        if (newInstance == SGX_X_0) {
+            newInstance = SGX_X_1;
         } else {
-            newPubKey = SGX_X_0;
+            newInstance = SGX_X_0;
         }
 
         if (tier == LibTiers.TIER_SGX) {
             bytes memory signature = createSgxSignatureProof(
-                evidence, newPubKey, prover, LibUtils.hashMetadata(meta)
+                tran, newInstance, prover, keccak256(abi.encode(meta))
             );
 
-            evidence.proof =
-                bytes.concat(bytes2(0), bytes20(newPubKey), signature);
+            proof.data =
+                bytes.concat(bytes2(0), bytes20(newInstance), signature);
         }
 
         if (tier == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
             bytes memory signature = createSgxSignatureProof(
-                evidence, newPubKey, prover, LibUtils.hashMetadata(meta)
+                tran, newInstance, prover, keccak256(abi.encode(meta))
             );
 
             bytes memory sgxProof =
-                bytes.concat(bytes2(0), bytes20(newPubKey), signature);
+                bytes.concat(bytes2(0), bytes20(newInstance), signature);
             // Concatenate SGX and ZK (in this order)
-            evidence.proof = bytes.concat(sgxProof, evidence.proof);
+            proof.data = bytes.concat(sgxProof, proof.data);
         }
 
         if (tier == LibTiers.TIER_GUARDIAN) {
-            evidence.proof = "";
+            proof.data = "";
 
             // Grant 2 signatures, 3rd might be a revert
             vm.prank(David, David);
-            gp.approveEvidence(meta.id, evidence, meta);
+            gp.approve(meta, tran, proof);
             vm.prank(Emma, Emma);
-            gp.approveEvidence(meta.id, evidence, meta);
+            gp.approve(meta, tran, proof);
 
             if (revertReason != "") {
                 vm.prank(Frank, Frank);
                 vm.expectRevert(); // Revert reason is 'wrapped' so will not be
                     // identical to the expectedRevert
-                gp.approveEvidence(meta.id, evidence, meta);
+                gp.approve(meta, tran, proof);
             } else {
                 vm.prank(Frank, Frank);
-                gp.approveEvidence(meta.id, evidence, meta);
+                gp.approve(meta, tran, proof);
             }
         } else {
             if (revertReason != "") {
                 vm.prank(msgSender, msgSender);
                 vm.expectRevert(revertReason);
-                L1.proveBlock(meta.id, abi.encode(evidence, meta));
+                L1.proveBlock(meta.id, abi.encode(meta, tran, proof));
             } else {
                 vm.prank(msgSender, msgSender);
-                L1.proveBlock(meta.id, abi.encode(evidence, meta));
+                L1.proveBlock(meta.id, abi.encode(meta, tran, proof));
             }
         }
     }
@@ -322,8 +327,8 @@ abstract contract TaikoL1TestBase is TestBase {
     }
 
     function createSgxSignatureProof(
-        TaikoData.BlockEvidence memory evidence,
-        address newPubKey,
+        TaikoData.Transition memory tran,
+        address newInstance,
         address prover,
         bytes32 metaHash
     )
@@ -331,14 +336,14 @@ abstract contract TaikoL1TestBase is TestBase {
         view
         returns (bytes memory signature)
     {
-        bytes32 digest = sv.getSignedHash(evidence, prover, newPubKey, metaHash);
+        bytes32 digest = sv.getSignedHash(tran, newInstance, prover, metaHash);
 
         uint256 signerPrivateKey;
 
         // In the test suite these are the 3 which acts as provers
-        if (SGX_X_0 == newPubKey) {
+        if (SGX_X_0 == newInstance) {
             signerPrivateKey = 0x5;
-        } else if (SGX_X_1 == newPubKey) {
+        } else if (SGX_X_1 == newInstance) {
             signerPrivateKey = 0x4;
         }
 

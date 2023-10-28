@@ -27,13 +27,14 @@ contract GuardianVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        TaikoData.BlockEvidence calldata, /*evidence*/
-        Input calldata input
+        Context calldata ctx,
+        TaikoData.Transition calldata,
+        TaikoData.TierProof calldata
     )
         external
         view
     {
-        if (input.prover != resolve("guardian", false)) {
+        if (ctx.prover != resolve("guardian", false)) {
             revert PERMISSION_DENIED();
         }
     }

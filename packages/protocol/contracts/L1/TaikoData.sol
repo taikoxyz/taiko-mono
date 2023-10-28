@@ -69,7 +69,12 @@ library TaikoData {
     /// @dev Struct representing prover assignment
     struct TierFee {
         uint16 tier;
-        uint256 fee;
+        uint128 fee;
+    }
+
+    struct TierProof {
+        uint16 tier;
+        bytes data;
     }
 
     struct ProverAssignment {
@@ -80,10 +85,12 @@ library TaikoData {
         bytes signature;
     }
 
+    struct BlockParams {
+        ProverAssignment assignment;
+        bytes32 extraData;
+    }
+
     /// @dev Struct containing data only required for proving a block
-    /// Warning: changing this struct requires changing
-    /// {LibProposing.hashMetadata} accordingly.
-    ///
     /// Note: On L2, `block.difficulty` is the pseudo name of
     /// `block.prevrandao`, which returns a random number provided by the layer
     /// 1 chain.
@@ -92,29 +99,27 @@ library TaikoData {
         bytes32 difficulty; // slot 2
         bytes32 blobHash; //or txListHash (if Blob not yet supported), // slot 3
         bytes32 extraData; // slot 4
-        address coinbase; // L2 coinbase, // slot 5
+        bytes32 depositsHash; // slot 5
+        address coinbase; // L2 coinbase, // slot 6
         uint64 id;
         uint32 gasLimit;
-        uint64 timestamp; // slot 6
+        uint64 timestamp; // slot 7
         uint64 l1Height;
         uint16 minTier;
         bool blobUsed;
-        TaikoData.EthDeposit[] depositsProcessed; // slot 7
     }
 
-    /// @dev Struct representing block evidence.
-    struct BlockEvidence {
+    /// @dev Struct representing transition to be proven.
+    struct Transition {
         bytes32 parentHash;
         bytes32 blockHash;
         bytes32 signalRoot;
         bytes32 graffiti;
-        uint16 tier;
-        bytes proof;
     }
 
     /// @dev Struct representing state transition data.
     /// 10 slots reserved for upgradability, 6 slots used.
-    struct Transition {
+    struct TransitionState {
         bytes32 key; // slot 1, only written/read for the 1st state transition.
         bytes32 blockHash; // slot 2
         bytes32 signalRoot; // slot 3
@@ -177,7 +182,7 @@ library TaikoData {
         // Ring buffer for transitions
         mapping(
             uint64 blockId_mod_blockRingBufferSize
-                => mapping(uint32 transitionId => Transition)
+                => mapping(uint32 transitionId => TransitionState)
             ) transitions;
         // Ring buffer for Ether deposits
         mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256)
