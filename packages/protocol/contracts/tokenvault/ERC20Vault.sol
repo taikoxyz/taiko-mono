@@ -165,9 +165,9 @@ contract ERC20Vault is BaseVault {
         whenNotPaused
     {
         IBridge.Context memory ctx = checkProcessMessageContext();
-
         address _to = to == address(0) || to == address(this) ? from : to;
         address token;
+
         if (ctoken.chainId == block.chainid) {
             token = ctoken.addr;
             ERC20Upgradeable(token).safeTransfer(_to, amount);
