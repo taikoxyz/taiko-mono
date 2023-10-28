@@ -138,11 +138,6 @@ contract TestSignalService is TestBase {
             // result's storage hash
 
         vm.startPrank(Alice);
-        addressManager.setAddress(
-            block.chainid, "taiko", address(crossChainSync)
-        );
-
-        vm.startPrank(Alice);
         signalService.authorize(address(crossChainSync), "taiko");
 
         vm.startPrank(Alice);
