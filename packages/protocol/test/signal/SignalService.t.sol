@@ -10,8 +10,6 @@ import { FreeMintERC20 } from "../../contracts/test/erc20/FreeMintERC20.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { TestBase, DummyCrossChainSync } from "../TestBase.sol";
 
-import { console2 } from "forge-std/console2.sol";
-
 contract TestSignalService is TestBase {
     AddressManager addressManager;
 
@@ -104,7 +102,7 @@ contract TestSignalService is TestBase {
 
         SignalService.Proof memory p;
         SignalService.Hop[] memory h;
-        p.crossChainSync = address(crossChainSync);
+        p.taiko = address(crossChainSync);
         p.height = 10;
         p.storageProof = inclusionProof;
         p.hops = h;
@@ -140,7 +138,7 @@ contract TestSignalService is TestBase {
             // result's storage hash
 
         vm.startPrank(Alice);
-        signalService.authorize(address(crossChainSync), bytes32(block.chainid));
+        signalService.authorize(address(crossChainSync), "taiko");
 
         vm.startPrank(Alice);
         addressManager.setAddress(chainId, "taiko", app);
@@ -148,7 +146,7 @@ contract TestSignalService is TestBase {
         crossChainSync.setSyncedData("", l1_common_signalService_root);
 
         SignalService.Proof memory p;
-        p.crossChainSync = address(crossChainSync);
+        p.taiko = address(crossChainSync);
         p.height = 10;
         p.storageProof = inclusionProof_of_L2A_msgHash;
 
@@ -159,8 +157,7 @@ contract TestSignalService is TestBase {
         // hop.signalRoot is the one which belongs to L2A, and the proof is
         // accordingly.
         SignalService.Hop[] memory h = new SignalService.Hop[](1);
-        // TODO
-        // h[0].app = chainId;
+        h[0].chainId = chainId;
         h[0].signalRoot = signalRoot_of_L2;
         h[0].storageProof = hop_inclusionProof_from_L1_SignalService;
 

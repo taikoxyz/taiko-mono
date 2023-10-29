@@ -16,12 +16,12 @@ contract TestEtherVault is TestBase {
         addressManager.init();
         etherVault = new EtherVault();
         vm.prank(Alice);
-        etherVault.init(address(addressManager));
-        addressManager.setAddress(block.chainid, "bridge", Alice);
+        etherVault.init();
     }
 
     function test_EtherVault_releaseEther_reverts_when_zero_address() public {
         vm.startPrank(Alice);
+        etherVault.authorize(Alice, "alice");
         _seedEtherVault();
 
         vm.expectRevert(EtherVault.VAULT_INVALID_RECIPIENT.selector);
@@ -32,6 +32,7 @@ contract TestEtherVault is TestBase {
         public
     {
         vm.startPrank(Alice);
+        etherVault.authorize(Alice, "alice");
         _seedEtherVault();
 
         uint256 aliceBalanceBefore = Alice.balance;
@@ -46,6 +47,7 @@ contract TestEtherVault is TestBase {
         public
     {
         vm.startPrank(Alice);
+        etherVault.authorize(Alice, "alice");
         _seedEtherVault();
 
         uint256 bobBalanceBefore = Bob.balance;
