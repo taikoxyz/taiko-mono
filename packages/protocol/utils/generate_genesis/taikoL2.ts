@@ -297,8 +297,7 @@ async function generateContractConfigs(
                 // OwnableUpgradeable
                 _owner: contractOwner,
                 // ReentrancyGuardUpgradeable
-                _reentry: 1, // _FALSE
-                _paused: 1, // _FALSE
+                signalService: addressMap.SignalServiceProxy,
                 // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
                 publicInputHash: `${ethers.utils.solidityKeccak256(
                     ["bytes32[256]"],
@@ -313,8 +312,6 @@ async function generateContractConfigs(
                             ]),
                     ],
                 )}`,
-                // AddressResolver
-                addressManager: addressMap.AddressManagerProxy,
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
@@ -460,7 +457,10 @@ async function generateContractConfigs(
                 addressManager: addressMap.AddressManagerProxy,
                 // EtherVault
                 // Authorize L2 bridge
-                isAuthorized: { [`${addressMap.BridgeProxy}`]: true },
+                authorizedAddresses: { [`${addressMap.BridgeProxy}`]: ethers.utils.hexZeroPad(
+                    ethers.utils.toUtf8Bytes("bridge"),
+                    32,
+                ) },
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
@@ -488,8 +488,6 @@ async function generateContractConfigs(
                 _paused: 1, // _FALSE
                 // OwnableUpgradeable
                 _owner: contractOwner,
-                // AddressResolver
-                addressManager: addressMap.AddressManagerProxy,
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
