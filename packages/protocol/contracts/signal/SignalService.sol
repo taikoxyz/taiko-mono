@@ -19,6 +19,13 @@ import { console2 } from "forge-std/console2.sol";
 /// @title SignalService
 /// @dev Labeled in AddressResolver as "signal_service"
 /// @notice See the documentation in {ISignalService} for more details.
+///
+/// @dev Authorization Guide for Multi-Hop Bridging:
+/// For facilitating multi-hop bridging, authorize all deployed TaikoL1 and
+/// TaikoL2 contracts involved in the bridging path.
+/// Use the respective chain IDs as labels for authorization.
+/// Note: SignalService should not authorize Bridges or other Bridgable
+/// applications.
 contract SignalService is AuthorizableContract, ISignalService {
     struct Hop {
         address signalRootRelay;
