@@ -3,7 +3,6 @@ pragma solidity ^0.8.20;
 
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { IBridge, Bridge } from "../../contracts/bridge/Bridge.sol";
-import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
 import { console2 } from "forge-std/console2.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import {
@@ -35,7 +34,6 @@ contract BridgeTest is TestBase {
     GoodReceiver goodReceiver;
     Bridge bridge;
     Bridge destChainBridge;
-    EtherVault etherVault;
     SignalService signalService;
     DummyCrossChainSync crossChainSync;
     SkipProofCheckSignal mockProofSignalService;
@@ -60,11 +58,7 @@ contract BridgeTest is TestBase {
         signalService = new SignalService();
         signalService.init();
 
-        etherVault = new EtherVault();
-        etherVault.init();
-        vm.deal(address(etherVault), 100 ether);
-        etherVault.authorize(address(bridge), "bridge");
-        etherVault.authorize(address(destChainBridge), "dest_bridge");
+        vm.deal(address(bridge), 100 ether);
 
         crossChainSync = new DummyCrossChainSync();
 
@@ -81,14 +75,6 @@ contract BridgeTest is TestBase {
 
         addressManager.setAddress(
             destChainId, "bridge", address(destChainBridge)
-        );
-
-        addressManager.setAddress(
-            block.chainid, "ether_vault", address(etherVault)
-        );
-
-        addressManager.setAddress(
-            destChainId, "ether_vault", address(etherVault)
         );
 
         addressManager.setAddress(destChainId, "taiko", address(uint160(123)));
@@ -327,7 +313,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        uint256 starterBalanceVault = address(etherVault).balance;
+        uint256 starterBalanceVault = address(bridge).balance;
         uint256 starterBalanceAlice = Alice.balance;
 
         vm.prank(Alice, Alice);
@@ -335,13 +321,11 @@ contract BridgeTest is TestBase {
             bridge.sendMessage{ value: amount + fee }(message);
         assertEq(bridge.isMessageSent(_message), true);
 
-        assertEq(
-            address(etherVault).balance, (starterBalanceVault + amount + fee)
-        );
+        assertEq(address(bridge).balance, (starterBalanceVault + amount + fee));
         assertEq(Alice.balance, (starterBalanceAlice - (amount + fee)));
         bridge.recallMessage(message, "");
 
-        assertEq(address(etherVault).balance, (starterBalanceVault + fee));
+        assertEq(address(bridge).balance, (starterBalanceVault + fee));
         assertEq(Alice.balance, (starterBalanceAlice - fee));
     }
 
@@ -363,19 +347,17 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        uint256 starterBalanceVault = address(etherVault).balance;
+        uint256 starterBalanceVault = address(bridge).balance;
 
         untrustedSenderContract.sendMessage(
             address(bridge), message, amount + fee
         );
 
-        assertEq(
-            address(etherVault).balance, (starterBalanceVault + amount + fee)
-        );
+        assertEq(address(bridge).balance, (starterBalanceVault + amount + fee));
 
         bridge.recallMessage(message, "");
 
-        assertEq(address(etherVault).balance, (starterBalanceVault + fee));
+        assertEq(address(bridge).balance, (starterBalanceVault + fee));
     }
 
     function test_Bridge_send_message_ether_with_processing_fee_invalid_amount()
@@ -500,9 +482,7 @@ contract BridgeTest is TestBase {
 
         addressManager.setAddress(dest, "bridge", address(destChainBridge));
 
-        addressManager.setAddress(dest, "ether_vault", address(etherVault));
-
-        vm.deal(address(etherVault), 100 ether);
+        vm.deal(address(bridge), 100 ether);
 
         addressManager.setAddress(
             dest, "signal_service", address(mockProofSignalService)

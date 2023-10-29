@@ -15,7 +15,6 @@ import { IBridge, Bridge } from "../../contracts/bridge/Bridge.sol";
 import { BaseNFTVault } from "../../contracts/tokenvault/BaseNFTVault.sol";
 import { ERC1155Vault } from "../../contracts/tokenvault/ERC1155Vault.sol";
 import { BridgedERC1155 } from "../../contracts/tokenvault/BridgedERC1155.sol";
-import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../../contracts/common/ICrossChainSync.sol";
 import { ERC1155 } from
@@ -117,7 +116,6 @@ contract ERC1155VaultTest is TestBase {
     ERC1155Vault erc1155Vault;
     ERC1155Vault destChainErc1155Vault;
     TestTokenERC1155 ctoken1155;
-    EtherVault etherVault;
     SignalService signalService;
     DummyCrossChainSync crossChainSync;
     uint256 destChainId = 19_389;
@@ -143,9 +141,6 @@ contract ERC1155VaultTest is TestBase {
 
         signalService = new SignalService();
         signalService.init();
-
-        etherVault = new EtherVault();
-        etherVault.init();
 
         erc1155Vault = new ERC1155Vault();
         erc1155Vault.init(address(addressManager));
@@ -198,14 +193,8 @@ contract ERC1155VaultTest is TestBase {
         addressManager.setAddress(
             block.chainid, "erc20_vault", address(mockProofSignalService)
         );
-        addressManager.setAddress(
-            block.chainid, "ether_vault", address(etherVault)
-        );
-        // Authorize
-        etherVault.authorize(address(destChainIdBridge), "dest_bridge");
-        etherVault.authorize(address(bridge), "bridge");
 
-        vm.deal(address(etherVault), 100 ether);
+        vm.deal(address(bridge), 100 ether);
 
         ctoken1155 = new TestTokenERC1155("http://example.host.com/");
         vm.stopPrank();

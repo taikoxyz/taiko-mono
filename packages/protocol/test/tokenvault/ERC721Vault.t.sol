@@ -14,7 +14,6 @@ import { IBridge, Bridge } from "../../contracts/bridge/Bridge.sol";
 import { BaseNFTVault } from "../../contracts/tokenvault/BaseNFTVault.sol";
 import { ERC721Vault } from "../../contracts/tokenvault/ERC721Vault.sol";
 import { BridgedERC721 } from "../../contracts/tokenvault/BridgedERC721.sol";
-import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../../contracts/common/ICrossChainSync.sol";
 import { ERC721 } from
@@ -137,7 +136,6 @@ contract ERC721VaultTest is TestBase {
     ERC721Vault erc721Vault;
     ERC721Vault destChainErc721Vault;
     TestTokenERC721 canonicalToken721;
-    EtherVault etherVault;
     SignalService signalService;
     DummyCrossChainSync crossChainSync;
     uint256 destChainId = 19_389;
@@ -163,9 +161,6 @@ contract ERC721VaultTest is TestBase {
 
         signalService = new SignalService();
         signalService.init();
-
-        etherVault = new EtherVault();
-        etherVault.init();
 
         erc721Vault = new ERC721Vault();
         erc721Vault.init(address(addressManager));
@@ -217,12 +212,6 @@ contract ERC721VaultTest is TestBase {
         addressManager.setAddress(
             block.chainid, "erc20_vault", address(erc721Vault)
         );
-        addressManager.setAddress(
-            block.chainid, "ether_vault", address(etherVault)
-        );
-        // Authorize
-        etherVault.authorize(address(destChainBridge), "dest_bridge");
-        etherVault.authorize(address(bridge), "bridge");
 
         vm.stopPrank();
 

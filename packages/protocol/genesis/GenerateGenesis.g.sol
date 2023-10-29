@@ -14,7 +14,6 @@ import { Bridge } from "../contracts/bridge/Bridge.sol";
 import { ERC1155Vault } from "../contracts/tokenvault/ERC1155Vault.sol";
 import { ERC20Vault } from "../contracts/tokenvault/ERC20Vault.sol";
 import { ERC721Vault } from "../contracts/tokenvault/ERC721Vault.sol";
-import { EtherVault } from "../contracts/bridge/EtherVault.sol";
 import { IBridge } from "../contracts/bridge/IBridge.sol";
 import { RegularERC20 } from "../contracts/test/erc20/RegularERC20.sol";
 import { SignalService } from "../contracts/signal/SignalService.sol";
@@ -42,7 +41,6 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkDeployedCode("ProxiedERC20Vault");
         checkDeployedCode("ProxiedERC721Vault");
         checkDeployedCode("ProxiedERC1155Vault");
-        checkDeployedCode("ProxiedEtherVault");
         checkDeployedCode("ProxiedBridge");
         checkDeployedCode("RegularERC20");
         checkDeployedCode("ProxiedAddressManager");
@@ -53,7 +51,6 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkProxyImplementation("ERC20VaultProxy", "ProxiedERC20Vault");
         checkProxyImplementation("ERC721VaultProxy", "ProxiedERC721Vault");
         checkProxyImplementation("ERC1155VaultProxy", "ProxiedERC1155Vault");
-        checkProxyImplementation("EtherVaultProxy", "ProxiedEtherVault");
         checkProxyImplementation("BridgeProxy", "ProxiedBridge");
         checkProxyImplementation("AddressManagerProxy", "ProxiedAddressManager");
         checkProxyImplementation("SignalServiceProxy", "ProxiedSignalService");
@@ -63,7 +60,6 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkDeployedCode("ERC20VaultProxy");
         checkDeployedCode("ERC721VaultProxy");
         checkDeployedCode("ERC1155VaultProxy");
-        checkDeployedCode("EtherVaultProxy");
         checkDeployedCode("BridgeProxy");
         checkDeployedCode("AddressManagerProxy");
         checkDeployedCode("SignalServiceProxy");
@@ -79,7 +75,6 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkSavedAddress(addressManager, "ERC20VaultProxy", "erc20_vault");
         checkSavedAddress(addressManager, "ERC721VaultProxy", "erc721_vault");
         checkSavedAddress(addressManager, "ERC1155VaultProxy", "erc1155_vault");
-        checkSavedAddress(addressManager, "EtherVaultProxy", "ether_vault");
         checkSavedAddress(addressManager, "TaikoL2Proxy", "taiko");
         checkSavedAddress(
             addressManager, "SignalServiceProxy", "signal_service"
@@ -209,34 +204,6 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.stopPrank();
     }
 
-    function testEtherVault() public {
-        address payable etherVaultAddress =
-            payable(getPredeployedContractAddress("EtherVaultProxy"));
-        EtherVault etherVault = EtherVault(etherVaultAddress);
-
-        assertEq(owner, etherVault.owner());
-
-        assertEq(
-            etherVault.isAuthorized(
-                getPredeployedContractAddress("BridgeProxy")
-            ),
-            true
-        );
-        assertEq(etherVault.isAuthorized(etherVault.owner()), false);
-
-        vm.startPrank(admin);
-
-        TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
-            payable(getPredeployedContractAddress("EtherVaultProxy"))
-        );
-
-        EtherVault newEtherVault = new EtherVault();
-
-        proxy.upgradeTo(address(newEtherVault));
-
-        assertEq(proxy.implementation(), address(newEtherVault));
-        vm.stopPrank();
-    }
 
     function testERC20Vault() public {
         address erc20VaultAddress =

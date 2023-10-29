@@ -10,7 +10,6 @@ import { Proxied } from "../common/Proxied.sol";
 import { ISignalService } from "../signal/ISignalService.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 
-import { EtherVault } from "./EtherVault.sol";
 import { IBridge, IRecallableSender } from "./IBridge.sol";
 
 /// @title Bridge
@@ -98,8 +97,6 @@ contract Bridge is EssentialContract, IBridge {
         uint256 expectedAmount = message.value + message.fee;
         if (expectedAmount != msg.value) revert B_INVALID_VALUE();
 
-        resolve("ether_vault", false).sendEther(expectedAmount);
-
         _message = message;
         // Configure message details and send signal to indicate message
         // sending.
@@ -138,11 +135,6 @@ contract Bridge is EssentialContract, IBridge {
 
         isMessageRecalled[msgHash] = true;
 
-        // Release necessary Ether from EtherVault.
-        EtherVault(resolve("ether_vault", false)).releaseEther(
-            address(this), message.value
-        );
-
         // Execute the recall logic based on the contract's support for the
         // IRecallableSender interface
         bool support =
@@ -175,9 +167,9 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Processes a bridge message on the destination chain. This
     /// function is callable by any address, including the `message.user`.
     /// @dev The process begins by hashing the message and checking the message
-    /// status in the bridge  If the status is "NEW", custody of Ether is
-    /// taken from the EtherVault, and the message is invoked. The status is
-    /// updated accordingly, and processing fees are refunded as needed.
+    /// status in the bridge  If the status is "NEW", the message is invoked. The
+    /// status is updated accordingly, and processing fees are refunded as
+    /// needed.
     /// @param message The message to be processed.
     /// @param proof The merkle inclusion proof.
     function processMessage(
@@ -201,19 +193,11 @@ contract Bridge is EssentialContract, IBridge {
         bool received = _proveSignalReceived(msgHash, message.srcChainId, proof);
         if (!received) revert B_NOT_RECEIVED();
 
-        address payable ethVault = resolve("ether_vault", false);
-        EtherVault(ethVault).releaseEther(
-            address(this), message.value + message.fee
-        );
-
         Status status;
         uint256 refundAmount;
 
         // Process message differently based on the target address
-        if (
-            message.to == address(0) || message.to == address(this)
-                || message.to == ethVault
-        ) {
+        if (message.to == address(0) || message.to == address(this)) {
             // Handle special addresses that don't require actual invocation but
             // mark message as DONE
             status = Status.DONE;
@@ -228,7 +212,6 @@ contract Bridge is EssentialContract, IBridge {
                 status = Status.DONE;
             } else {
                 status = Status.RETRIABLE;
-                ethVault.sendEther(message.value);
             }
         }
 
@@ -278,9 +261,6 @@ contract Bridge is EssentialContract, IBridge {
             revert B_NON_RETRIABLE();
         }
 
-        address payable ethVault = resolve("ether_vault", false);
-        EtherVault(ethVault).releaseEther(address(this), message.value);
-
         // Attempt to invoke the messageCall.
         if (_invokeMessageCall(message, msgHash, gasleft())) {
             // Update the message status to "DONE" on successful invocation.
@@ -288,9 +268,6 @@ contract Bridge is EssentialContract, IBridge {
         } else {
             // Update the message status to "FAILED"
             _updateMessageStatus(msgHash, Status.FAILED);
-            // Release Ether back to EtherVault (if on Taiko it is OK)
-            // otherwise funds stay at Bridge anyways.
-            ethVault.sendEther(message.value);
         }
     }
 
