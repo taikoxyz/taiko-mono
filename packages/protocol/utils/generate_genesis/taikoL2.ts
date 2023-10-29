@@ -297,8 +297,7 @@ async function generateContractConfigs(
                 // OwnableUpgradeable
                 _owner: contractOwner,
                 // ReentrancyGuardUpgradeable
-                _reentry: 1, // _FALSE
-                _paused: 1, // _FALSE
+                signalService: addressMap.SignalServiceProxy,
                 // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
                 publicInputHash: `${ethers.utils.solidityKeccak256(
                     ["bytes32[256]"],
