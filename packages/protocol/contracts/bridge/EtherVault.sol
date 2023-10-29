@@ -14,11 +14,6 @@ import { Proxied } from "../common/Proxied.sol";
 /// @dev Labeled in AddressResolver as "ether_vault"
 /// @notice This contract is initialized with 2^128 Ether and allows authorized
 /// addresses to release Ether.
-///
-/// @dev Authorization Guide:
-/// For facilitating multi-hop bridging, authorize all deployed TaikoL1 and
-/// Bridge
-/// contracts involved in the bridging path..
 contract EtherVault is EssentialContract {
     using LibAddress for address;
 
