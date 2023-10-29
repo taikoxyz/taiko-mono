@@ -458,7 +458,7 @@ async function generateContractConfigs(
                 // EtherVault
                 // Authorize L2 bridge
                 authorizedAddresses: { [`${addressMap.BridgeProxy}`]: ethers.utils.hexZeroPad(
-                    ethers.utils.hexlify("bridge"),
+                    ethers.utils.toUtf8Bytes("bridge"),
                     32,
                 ) },
             },
