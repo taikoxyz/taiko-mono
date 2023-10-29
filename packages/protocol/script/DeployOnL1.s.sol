@@ -142,9 +142,7 @@ contract DeployOnL1 is Script {
                 etherVault.init.selector, abi.encode(addressManagerProxy)
             )
         );
-        ProxiedEtherVault(payable(etherVaultProxy)).authorize(
-            bridgeProxy, "bridge"
-        );
+        setAddress("bridge", etherVaultProxy);
 
         // ERC20Vault
         ERC20Vault erc20Vault = new ProxiedERC20Vault();

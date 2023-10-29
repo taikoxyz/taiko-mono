@@ -61,10 +61,12 @@ contract BridgeTest is TestBase {
         signalService.init();
 
         etherVault = new EtherVault();
-        etherVault.init();
+        etherVault.init(address(addressManager));
         vm.deal(address(etherVault), 100 ether);
-        etherVault.authorize(address(bridge), "bridge");
-        etherVault.authorize(address(destChainBridge), "dest_bridge");
+        addressManager.setAddress(block.chainid, "bridge", address(bridge));
+        addressManager.setAddress(
+            destChainId, "bridge", address(destChainBridge)
+        );
 
         crossChainSync = new DummyCrossChainSync();
 

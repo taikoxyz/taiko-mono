@@ -145,7 +145,7 @@ contract ERC1155VaultTest is TestBase {
         signalService.init();
 
         etherVault = new EtherVault();
-        etherVault.init();
+        etherVault.init(address(addressManager));
 
         erc1155Vault = new ERC1155Vault();
         erc1155Vault.init(address(addressManager));
@@ -202,8 +202,10 @@ contract ERC1155VaultTest is TestBase {
             block.chainid, "ether_vault", address(etherVault)
         );
         // Authorize
-        etherVault.authorize(address(destChainIdBridge), "dest_bridge");
-        etherVault.authorize(address(bridge), "bridge");
+        addressManager.setAddress(block.chainid, "bridge", address(bridge));
+        addressManager.setAddress(
+            destChainId, "bridge", address(destChainIdBridge)
+        );
 
         vm.deal(address(etherVault), 100 ether);
 
