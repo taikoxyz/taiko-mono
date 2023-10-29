@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-import { AuthorizableContract } from "../common/AuthorizableContract.sol";
+import { EssentialContract } from "../common/EssentialContract.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 import { Proxied } from "../common/Proxied.sol";
 
@@ -14,13 +14,16 @@ import { Proxied } from "../common/Proxied.sol";
 /// @dev Labeled in AddressResolver as "ether_vault"
 /// @notice This contract is initialized with 2^128 Ether and allows authorized
 /// addresses to release Ether.
-/// @dev Only the contract owner can authorize or deauthorize addresses.
-contract EtherVault is AuthorizableContract {
+///
+/// @dev Authorization Guide:
+/// For facilitating multi-hop bridging, authorize all deployed TaikoL1 and
+/// Bridge
+/// contracts involved in the bridging path..
+contract EtherVault is EssentialContract {
     using LibAddress for address;
 
     uint256[50] private __gap;
 
-    event Authorized(address indexed addr, bool authorized);
     event EtherReleased(address indexed to, uint256 amount);
 
     error VAULT_INVALID_RECIPIENT();
@@ -29,8 +32,8 @@ contract EtherVault is AuthorizableContract {
     receive() external payable { }
 
     /// @notice Initializes the contract with an {AddressManager}.
-    function init() external initializer {
-        AuthorizableContract._init(address(0));
+    function init(address _addressManager) external initializer {
+        EssentialContract._init(_addressManager);
     }
 
     /// @notice Transfers Ether from EtherVault to a designated address,
@@ -42,7 +45,7 @@ contract EtherVault is AuthorizableContract {
         uint256 amount
     )
         public
-        onlyAuthorized // "bridge" or "taiko"
+        onlyFromNamed("bridge")
         nonReentrant
         whenNotPaused
     {
