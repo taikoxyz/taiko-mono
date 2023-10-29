@@ -10,6 +10,8 @@ import { AuthorizableContract } from "../common/AuthorizableContract.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 import { Proxied } from "../common/Proxied.sol";
 
+// TODO: delete EtherVault and use Bridge to hold Ether.
+
 /// @title EtherVault
 /// @dev Labeled in AddressResolver as "ether_vault"
 /// @notice This contract is initialized with 2^128 Ether and allows authorized
@@ -42,7 +44,7 @@ contract EtherVault is AuthorizableContract {
         uint256 amount
     )
         public
-        onlyAuthorized // "bridge" or "taiko"
+        onlyFromAuthorized // "bridge"
         nonReentrant
         whenNotPaused
     {
