@@ -121,8 +121,8 @@ NFT List or Card View
 
 <div class="h-sep" />
 <!-- 
-  Recipient & Processing Fee
-  -->
+Recipient & Processing Fee
+-->
 
 <div class="f-col">
   <div class="f-between-center mb-[10px]">

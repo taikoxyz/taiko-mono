@@ -44,9 +44,7 @@
 
   function onBridgeClick() {
     bridging = true;
-    bridge().finally(() => {
-      bridging = false;
-    });
+    bridge();
   }
 
   //TODO: this should probably be checked somewhere else?

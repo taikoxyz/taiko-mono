@@ -79,103 +79,6 @@
     });
   }
 
-  // async function approve() {
-  //   try {
-  //     if (!$selectedToken || !$network || !$destinationChain) return;
-  //     const type: TokenType = $selectedToken.type;
-  //     const walletClient = await getConnectedWallet($network.id);
-  //     let tokenAddress = await getAddress($selectedToken.addresses[$network.id]);
-
-  //     if (!tokenAddress) {
-  //       const crossChainAddress = await getCrossChainAddress({
-  //         token: $selectedToken,
-  //         srcChainId: $network.id,
-  //         destChainId: $destinationChain.id,
-  //       });
-  //       if (!crossChainAddress) throw new Error('cross chain address not found');
-  //       tokenAddress = crossChainAddress;
-  //     }
-  //     if (!tokenAddress) {
-  //       throw new Error('token address not found');
-  //     }
-  //     const tokenIds =
-  //       nftIdArray.length > 0
-  //         ? nftIdArray.map((num) => BigInt(num))
-  //         : $selectedNFTs && $selectedNFTs.map((nft) => BigInt(nft.tokenId));
-
-  //     let txHash: Hash;
-
-  //     const spenderAddress =
-  //       type === TokenType.ERC1155
-  //         ? routingContractsMap[$network.id][$destinationChain.id].erc1155VaultAddress
-  //         : routingContractsMap[$network.id][$destinationChain.id].erc721VaultAddress;
-
-  //     const args: NFTApproveArgs = { tokenIds: tokenIds!, tokenAddress, spenderAddress, wallet: walletClient };
-  //     txHash = await (bridges[type] as ERC721Bridge | ERC1155Bridge).approve(args);
-
-  //     const { explorer } = chainConfig[$network.id].urls;
-
-  //     if (txHash)
-  //       infoToast({
-  //         title: $t('bridge.actions.approve.tx.title'),
-  //         message: $t('bridge.actions.approve.tx.message', {
-  //           values: {
-  //             token: $selectedToken.symbol,
-  //             url: `${explorer}/tx/${txHash}`,
-  //           },
-  //         }),
-  //       });
-
-  //     await pendingTransactions.add(txHash, $network.id);
-
-  //     actionsComponent.checkTokensApproved();
-
-  //     successToast({
-  //       title: $t('bridge.actions.approve.success.title'),
-  //       message: $t('bridge.actions.approve.success.message', {
-  //         values: {
-  //           token: $selectedToken.symbol,
-  //         },
-  //       }),
-  //     });
-  //   } catch (err) {
-  //     console.error(err);
-  //     handleBridgeError(err as Error);
-  //   }
-  // }
-
-  // async function bridge() {
-  //   if (!$bridgeService || !$selectedToken || !$network || !$destinationChain || !$account?.address) return;
-
-  //   try {
-  //     const walletClient = await getConnectedWallet($network.id);
-  //     const commonArgs = {
-  //       to: $recipientAddress || $account.address,
-  //       wallet: walletClient,
-  //       srcChainId: $network.id,
-  //       destChainId: $destinationChain.id,
-  //       fee: $processingFee,
-  //     };
-
-  //     const tokenIds =
-  //       nftIdArray.length > 0
-  //         ? nftIdArray.map((num) => BigInt(num))
-  //         : $selectedNFTs && $selectedNFTs.map((nft) => BigInt(nft.tokenId));
-
-  //     const bridgeArgs = await getBridgeArgs($selectedToken, $enteredAmount, commonArgs, nftIdArray);
-
-  //     const args = { ...bridgeArgs, tokenIds };
-
-  //     bridgeTxHash = await $bridgeService.bridge(args);
-  //     activeStep = NFTSteps.CONFIRM;
-
-  //     //TODO: everything below should be handled differently for the stepper design. Still tbd
-  //   } catch (err) {
-  //     console.error(err);
-  //     handleBridgeError(err as Error);
-  //   }
-  // }
-
   $: if ($selectedToken && amountComponent) {
     amountComponent.validateAmount();
   }
@@ -305,9 +208,7 @@
     <Step stepIndex={NFTSteps.CONFIRM} currentStepIndex={activeStep} isActive={activeStep === NFTSteps.CONFIRM}
       >{$t('bridge.nft.step.confirm.title')}</Step>
   </Stepper>
-  <button on:click={() => (activeStep = NFTSteps.CONFIRM)} class="flex justify-center py-3 link">
-    {$t('bridge.nft.step.confirm.button.back')}
-  </button>
+
   <Card class="mt-[32px] w-full md:w-[524px]" title={nftStepTitle} text={nftStepDescription}>
     <div class="space-y-[30px]">
       <!-- IMPORT STEP -->

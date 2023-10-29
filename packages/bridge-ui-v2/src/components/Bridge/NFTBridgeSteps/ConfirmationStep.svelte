@@ -75,6 +75,7 @@
         status: MessageStatus.NEW,
         timestamp: Date.now(),
       } as BridgeTransaction;
+      bridging = false;
 
       bridgeTxService.addTxByAddress(userAccount, bridgeTx);
     });
@@ -144,7 +145,7 @@
 
   async function bridge() {
     if (!$bridgeService || !$selectedToken || !$network || !$destNetwork?.id || !$account?.address) return;
-
+    bridging = true;
     try {
       const walletClient = await getConnectedWallet($network.id);
       const commonArgs = {
@@ -168,6 +169,7 @@
         handleBridgeTxHash(bridgeTxHash);
       }
     } catch (err) {
+      bridging = false;
       console.error(err);
       handleBridgeError(err as Error);
     }
