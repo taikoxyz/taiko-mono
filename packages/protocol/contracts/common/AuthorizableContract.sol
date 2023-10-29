@@ -13,13 +13,8 @@ abstract contract AuthorizableContract is EssentialContract {
     error INVALID_ADDRESS();
     error INVALID_LABEL();
 
-    modifier onlyAuthorized() {
+    modifier onlyFromAuthorized() {
         if (!isAuthorized(msg.sender)) revert ADDRESS_UNAUTHORIZED();
-        _;
-    }
-
-    modifier onlyAuthorizedAs(bytes32 label) {
-        if (!isAuthorizedAs(msg.sender, label)) revert ADDRESS_UNAUTHORIZED();
         _;
     }
 

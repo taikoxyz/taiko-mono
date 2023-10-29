@@ -14,8 +14,6 @@ import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
 
 import { ISignalService } from "./ISignalService.sol";
 
-import { console2 } from "forge-std/console2.sol";
-
 /// @title SignalService
 /// @dev Labeled in AddressResolver as "signal_service"
 /// @notice See the documentation in {ISignalService} for more details.
@@ -114,11 +112,6 @@ contract SignalService is AuthorizableContract, ISignalService {
         // "taiko" contract, then using chainB's signalRoot, we further check
         // the signal is sent by chainC's "bridge" contract.
 
-        console2.log("addr", p.crossChainSync);
-        console2.log(
-            "authorizedAddresses:",
-            uint256(authorizedAddresses[p.crossChainSync])
-        );
         if (!isAuthorizedAs(p.crossChainSync, bytes32(block.chainid))) {
             revert SS_INVALID_CROSSCHAIN_SYNC();
         }
@@ -131,8 +124,6 @@ contract SignalService is AuthorizableContract, ISignalService {
 
         for (uint256 i; i < p.hops.length; ++i) {
             Hop memory hop = p.hops[i];
-
-            console2.log(" hop.signalRootRelay", hop.signalRootRelay);
 
             bytes32 label = authorizedAddresses[hop.signalRootRelay];
             if (label == 0) revert SS_INVALID_RELAY();

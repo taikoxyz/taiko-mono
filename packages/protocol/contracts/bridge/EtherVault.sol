@@ -16,8 +16,9 @@ import { Proxied } from "../common/Proxied.sol";
 /// addresses to release Ether.
 ///
 /// @dev Authorization Guide:
-/// For facilitating multi-hop bridging, authorize all deployed TaikoL1
-/// contracts involved in the bridging path, using "taiko" as their labels.
+/// For facilitating multi-hop bridging, authorize all deployed TaikoL1 and
+/// Bridge
+/// contracts involved in the bridging path..
 contract EtherVault is AuthorizableContract {
     using LibAddress for address;
 
@@ -45,7 +46,7 @@ contract EtherVault is AuthorizableContract {
         uint256 amount
     )
         public
-        onlyAuthorizedAs("taiko")
+        onlyFromAuthorized
         nonReentrant
         whenNotPaused
     {
