@@ -313,8 +313,6 @@ async function generateContractConfigs(
                             ]),
                     ],
                 )}`,
-                // AddressResolver
-                addressManager: addressMap.AddressManagerProxy,
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
@@ -488,8 +486,6 @@ async function generateContractConfigs(
                 _paused: 1, // _FALSE
                 // OwnableUpgradeable
                 _owner: contractOwner,
-                // AddressResolver
-                addressManager: addressMap.AddressManagerProxy,
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
