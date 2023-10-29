@@ -73,9 +73,26 @@ addressManager.setAddress(remoteChainId1, "erc20_vault", remoteERC20Vault1);
 addressManager.setAddress(remoteChainId2, "erc20_vault", remoteERC20Vault2);
 ...
 
+```
+
 ### Dedicated AddressManager
+
 A dedicated AddressManager should be deployed on each chain to support only these shared contracts. This AddressManager shall not be used by the TaikoL1 deployments.
 
-## Per Rollup Contracts
+## Bridging
 
-```
+### L1 to L2
+
+![L1_to_L2](./multihop/L1_to_L2.png "L1 to L2")
+
+### L2 to L1
+
+![L2_to_L1](./multihop/L2_to_L1.png "L2 to L1")
+
+### L2 to L2
+
+![L2_to_L2](./multihop/L2_to_L2.png "L2 to L2")
+
+### L2 to L3 on another L2
+
+![L2A_to_L3](./multihop/L2A_to_L3.png "L2A to L3")
