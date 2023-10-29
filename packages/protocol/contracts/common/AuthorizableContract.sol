@@ -32,9 +32,12 @@ abstract contract AuthorizableContract is EssentialContract {
         return addr != address(0) && authorizedAddresses[addr] != 0;
     }
 
-    /// @dev Initialization method for setting up AddressManager reference.
-    /// @param _addressManager Address of the AddressManager.
     function _init(address _addressManager) internal virtual override {
+        if (_addressManager == address(0)) revert INVALID_ADDRESS();
         EssentialContract._init(_addressManager);
+    }
+
+    function _init() internal virtual {
+        EssentialContract._init(address(0));
     }
 }

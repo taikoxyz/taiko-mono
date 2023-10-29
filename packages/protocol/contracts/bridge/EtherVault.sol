@@ -30,7 +30,7 @@ contract EtherVault is AuthorizableContract {
 
     /// @notice Initializes the contract with an {AddressManager}.
     function init() external initializer {
-        AuthorizableContract._init(address(0));
+        AuthorizableContract._init();
     }
 
     /// @notice Transfers Ether from EtherVault to a designated address,
