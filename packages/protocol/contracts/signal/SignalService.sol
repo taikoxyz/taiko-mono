@@ -14,35 +14,29 @@ import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
 
 import { ISignalService } from "./ISignalService.sol";
 
+import { console2 } from "forge-std/console2.sol";
+
 /// @title SignalService
 /// @dev Labeled in AddressResolver as "signal_service"
 /// @notice See the documentation in {ISignalService} for more details.
 contract SignalService is AuthorizableContract, ISignalService {
     struct Hop {
-        uint256 chainId;
+        address signalRootRelay;
         bytes32 signalRoot;
         bytes storageProof;
     }
 
     struct Proof {
-        address taiko;
+        address crossChainSync;
         uint64 height;
         bytes storageProof;
         Hop[] hops;
     }
 
     error SS_INVALID_APP();
+    error SS_INVALID_RELAY();
+    error SS_INVALID_CROSSCHAIN_SYNC();
     error SS_INVALID_SIGNAL();
-
-    modifier validApp(address app) {
-        if (app == address(0)) revert SS_INVALID_APP();
-        _;
-    }
-
-    modifier validSignal(bytes32 signal) {
-        if (signal == 0) revert SS_INVALID_SIGNAL();
-        _;
-    }
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init() external initializer {
@@ -50,11 +44,8 @@ contract SignalService is AuthorizableContract, ISignalService {
     }
 
     /// @inheritdoc ISignalService
-    function sendSignal(bytes32 signal)
-        public
-        validSignal(signal)
-        returns (bytes32 slot)
-    {
+    function sendSignal(bytes32 signal) public returns (bytes32 slot) {
+        if (signal == 0) revert SS_INVALID_SIGNAL();
         slot = getSignalSlot(block.chainid, msg.sender, signal);
         assembly {
             sstore(slot, 1)
@@ -68,10 +59,10 @@ contract SignalService is AuthorizableContract, ISignalService {
     )
         public
         view
-        validApp(app)
-        validSignal(signal)
         returns (bool)
     {
+        if (signal == 0) revert SS_INVALID_SIGNAL();
+        if (app == address(0)) revert SS_INVALID_APP();
         bytes32 slot = getSignalSlot(block.chainid, app, signal);
         uint256 value;
         assembly {
@@ -101,7 +92,9 @@ contract SignalService is AuthorizableContract, ISignalService {
         }
 
         Proof memory p = abi.decode(proof, (Proof));
-        if (p.taiko == address(0) || p.storageProof.length == 0) return false;
+        if (p.crossChainSync == address(0) || p.storageProof.length == 0) {
+            return false;
+        }
 
         for (uint256 i; i < p.hops.length; ++i) {
             if (p.hops[i].signalRoot == 0) return false;
@@ -114,18 +107,32 @@ contract SignalService is AuthorizableContract, ISignalService {
         // "taiko" contract, then using chainB's signalRoot, we further check
         // the signal is sent by chainC's "bridge" contract.
 
-        if (!isAuthorized(p.taiko)) revert ADDRESS_UNAUTHORIZED();
+        console2.log("addr", p.crossChainSync);
+        console2.log(
+            "authorizedAddresses:",
+            uint256(authorizedAddresses[p.crossChainSync])
+        );
+        if (!isAuthorizedAs(p.crossChainSync, bytes32(block.chainid))) {
+            revert SS_INVALID_CROSSCHAIN_SYNC();
+        }
 
-        bytes32 signalRoot =
-            ICrossChainSync(p.taiko).getSyncedSnippet(p.height).signalRoot;
+        bytes32 signalRoot = ICrossChainSync(p.crossChainSync).getSyncedSnippet(
+            p.height
+        ).signalRoot;
 
         if (signalRoot == 0) return false;
 
         for (uint256 i; i < p.hops.length; ++i) {
             Hop memory hop = p.hops[i];
+
+            console2.log(" hop.signalRootRelay", hop.signalRootRelay);
+
+            bytes32 label = authorizedAddresses[hop.signalRootRelay];
+            if (label == 0) revert SS_INVALID_RELAY();
+
             bytes32 slot = getSignalSlot(
-                hop.chainId,
-                AddressResolver(p.taiko).resolve(hop.chainId, "taiko", false),
+                uint256(label), // use label as chainId
+                hop.signalRootRelay,
                 hop.signalRoot // as a signal
             );
             bool verified = LibSecureMerkleTrie.verifyInclusionProof(
