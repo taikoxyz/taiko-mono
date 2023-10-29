@@ -457,7 +457,10 @@ async function generateContractConfigs(
                 addressManager: addressMap.AddressManagerProxy,
                 // EtherVault
                 // Authorize L2 bridge
-                isAuthorized: { [`${addressMap.BridgeProxy}`]: true },
+                authorizedAddresses: { [`${addressMap.BridgeProxy}`]: ethers.utils.hexZeroPad(
+                    ethers.utils.hexlify("bridge"),
+                    32,
+                ) },
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
