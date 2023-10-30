@@ -24,7 +24,7 @@ export async function deployTaikoL2(
 
     const alloc: any = {};
 
-    let etherVaultBalance = ethers.BigNumber.from("2").pow(128).sub(1); // MaxUint128
+    let bridgeInitialEtherBalance = ethers.BigNumber.from("2").pow(128).sub(1); // MaxUint128
 
     for (const seedAccount of seedAccounts) {
         const accountAddress = Object.keys(seedAccount)[0];
@@ -37,10 +37,10 @@ export async function deployTaikoL2(
 
         alloc[accountAddress] = { balance: balance.toHexString() };
 
-        etherVaultBalance = etherVaultBalance.sub(balance);
+        bridgeInitialEtherBalance = bridgeInitialEtherBalance.sub(balance);
     }
 
-    console.log({ etherVaultBalance });
+    console.log({ bridgeInitialEtherBalance });
     console.log("\n");
 
     const contractConfigs: any = await generateContractConfigs(
@@ -64,10 +64,10 @@ export async function deployTaikoL2(
             code: contractConfig.deployedBytecode,
         };
 
-        // pre-mint ETHs for EtherVault contract
+        // pre-mint ETHs for Bridge contract
         alloc[contractConfig.address].balance =
-            contractName === "EtherVaultProxy"
-                ? etherVaultBalance.toHexString()
+            contractName === "BridgeProxy"
+                ? bridgeInitialEtherBalance.toHexString()
                 : "0x0";
 
         // since we enable storageLayout compiler output in hardhat.config.ts,
@@ -155,12 +155,6 @@ async function generateContractConfigs(
                 "./ERC1155Vault.sol/ProxiedERC1155Vault.json",
             ),
         ),
-        ProxiedEtherVault: require(
-            path.join(
-                ARTIFACTS_PATH,
-                "./EtherVault.sol/ProxiedEtherVault.json",
-            ),
-        ),
         ProxiedSignalService: require(
             path.join(
                 ARTIFACTS_PATH,
@@ -180,7 +174,6 @@ async function generateContractConfigs(
     contractArtifacts.ERC20VaultProxy = proxy;
     contractArtifacts.ERC721VaultProxy = proxy;
     contractArtifacts.ERC1155VaultProxy = proxy;
-    contractArtifacts.EtherVaultProxy = proxy;
     contractArtifacts.SignalServiceProxy = proxy;
     contractArtifacts.AddressManagerProxy = proxy;
 
@@ -266,9 +259,6 @@ async function generateContractConfigs(
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("erc1155_vault"),
                         )]: addressMap.ERC1155VaultProxy,
-                        [ethers.utils.hexlify(
-                            ethers.utils.toUtf8Bytes("ether_vault"),
-                        )]: addressMap.EtherVaultProxy,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("signal_service"),
                         )]: addressMap.SignalServiceProxy,
@@ -432,39 +422,6 @@ async function generateContractConfigs(
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedERC1155Vault,
-            },
-            isProxy: true,
-        },
-        ProxiedEtherVault: {
-            address: addressMap.ProxiedEtherVault,
-            deployedBytecode:
-                contractArtifacts.ProxiedEtherVault.deployedBytecode.object,
-        },
-        EtherVaultProxy: {
-            address: addressMap.EtherVaultProxy,
-            deployedBytecode:
-                contractArtifacts.EtherVaultProxy.deployedBytecode.object,
-            variables: {
-                // initializer
-                _initialized: 1,
-                _initializing: false,
-                // ReentrancyGuardUpgradeable
-                _reentry: 1, // _FALSE
-                _paused: 1, // _FALSE
-                // OwnableUpgradeable
-                _owner: contractOwner,
-                // AddressResolver
-                addressManager: addressMap.AddressManagerProxy,
-                // EtherVault
-                // Authorize L2 bridge
-                authorizedAddresses: { [`${addressMap.BridgeProxy}`]: ethers.utils.hexZeroPad(
-                    ethers.utils.toUtf8Bytes("bridge"),
-                    32,
-                ) },
-            },
-            slots: {
-                [ADMIN_SLOT]: contractAdmin,
-                [IMPLEMENTATION_SLOT]: addressMap.ProxiedEtherVault,
             },
             isProxy: true,
         },

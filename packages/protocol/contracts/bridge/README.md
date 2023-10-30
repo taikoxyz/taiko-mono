@@ -15,8 +15,7 @@ Let's go deeper into the steps that occur when bridging ETH from srcChain to des
 
 ### Send message / Send token
 
-The bridge distinguishes 4 different token types: `Ether`, `Erc20`, `Erc1155`, `Erc721`.
-Each type has it's own vault contract both deployed to the source and destination chain. (Except `EtherVault`, which is only deployed on L1 and Bridge itself holds the funds on L2.)
+The bridge distinguishes 4 different token types: `Ether`, `ERC20`, `ERC1155`, `ERC721`. Ether is kept in the Bridge contract, and token vaults for ERC20, ERC1155, and ERC721 tokens must be deployed to the source and destination chain,
 
 #### Bridging Ether
 
@@ -54,11 +53,11 @@ If user wants to bridge ether, he/she will initiate a bridge transaction with `s
 - `value` and `fee` must sum to `msg.value`.
 - The destination chain's ID (must be enabled via setting `addressResolver` for `${chainID}.bridge`).
 
-Inside the `sendMessage` call, the `msg.value` amount of Ether is sent to the srcChain `EtherVault` contract. Next, a `signal` is created from the message, and a `key` is stored on the srcChain bridge contract address. The `key` is a hash of the `signal` and the srcChain bridge contract address. The `key` is stored on the `Bridge` contract with a value of `1`, and a `MessageSent` event is emitted for the relayer to pick up.
+Inside the `sendMessage` call, the `msg.value` amount of Ether is kept in the Bridge contract, then a `signal` is created from the message, and a `key` is stored on the srcChain bridge contract address. The `key` is a hash of the `signal` and the srcChain bridge contract address. The `key` is stored on the `Bridge` contract with a value of `1`, and a `MessageSent` event is emitted for the relayer to pick up.
 
 #### Bridging other tokens
 
-If user wants to bridge other tokens (`Erc20`, `Erc1155` or `Erc721`.) he/she will just indirectly initiate a bridge transaction (`sendMessage`) by interacting with the corresponding token vault contracts.
+If user wants to bridge other tokens (`ERC20`, `ERC1155` or `ERC721`.) he/she will just indirectly initiate a bridge transaction (`sendMessage`) by interacting with the corresponding token vault contracts.
 
 In case of ERC20 the transaction can be initiated by initializing a struct (below) and calling `sendToken`:
 
@@ -75,7 +74,7 @@ In case of ERC20 the transaction can be initiated by initializing a struct (belo
     }
 ```
 
-In case of `Erc1155` or `Erc721`, the mechanism is the same but struct looks like this:
+In case of `ERC1155` or `ERC721`, the mechanism is the same but struct looks like this:
 
 ```
 struct BridgeTransferOp {
