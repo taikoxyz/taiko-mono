@@ -241,7 +241,7 @@ async function generateContractConfigs(
                 _initializing: false,
                 // Ownable2StepUpgradeable
                 _owner: contractOwner,
-                _pendingOwner: "0x0",
+                _pendingOwner: ethers.constants.AddressZero,
                 // AddressManager
                 addresses: {
                     [chainId]: {
@@ -287,8 +287,7 @@ async function generateContractConfigs(
                 // TaikoL2
                 // Ownable2StepUpgradeable
                 _owner: contractOwner,
-                _pendingOwner: "0x0",
-                // ReentrancyGuardUpgradeable
+                _pendingOwner: ethers.constants.AddressZero,
                 signalService: addressMap.SignalServiceProxy,
                 // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
                 publicInputHash: `${ethers.utils.solidityKeccak256(
@@ -331,7 +330,7 @@ async function generateContractConfigs(
                 _paused: 1, // _FALSE
                 // Ownable2StepUpgradeable
                 _owner: contractOwner,
-                _pendingOwner: "0x0",
+                _pendingOwner: ethers.constants.AddressZero,
                 // AddressResolver
                 addressManager: addressMap.AddressManagerProxy,
             },
@@ -361,7 +360,7 @@ async function generateContractConfigs(
                 _paused: 1, // _FALSE
                 // Ownable2StepUpgradeable
                 _owner: contractOwner,
-                _pendingOwner: "0x0",
+                _pendingOwner: ethers.constants.AddressZero,
                 // AddressResolver
                 addressManager: addressMap.AddressManagerProxy,
             },
@@ -391,7 +390,7 @@ async function generateContractConfigs(
                 _paused: 1, // _FALSE
                 // Ownable2StepUpgradeable
                 _owner: contractOwner,
-                _pendingOwner: "0x0",
+                _pendingOwner: ethers.constants.AddressZero,
                 // AddressResolver
                 addressManager: addressMap.AddressManagerProxy,
             },
@@ -421,7 +420,7 @@ async function generateContractConfigs(
                 _paused: 1, // _FALSE
                 // Ownable2StepUpgradeable
                 _owner: contractOwner,
-                _pendingOwner: "0x0",
+                _pendingOwner: ethers.constants.AddressZero,
                 // AddressResolver
                 addressManager: addressMap.AddressManagerProxy,
             },
@@ -451,7 +450,7 @@ async function generateContractConfigs(
                 _paused: 1, // _FALSE
                 // Ownable2StepUpgradeable
                 _owner: contractOwner,
-                _pendingOwner: "0x0",
+                _pendingOwner: ethers.constants.AddressZero,
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
