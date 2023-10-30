@@ -578,27 +578,10 @@ contract ERC721VaultTest is TestBase {
         );
 
         vm.prank(Alice, Alice);
-        erc721Vault.sendToken{ value: 140_000 }(sendOpts);
+        IBridge.Message memory message =
+            erc721Vault.sendToken{ value: 140_000 }(sendOpts);
 
         assertEq(canonicalToken721.ownerOf(1), address(erc721Vault));
-
-        // Reconstruct the message.
-        // Actually the only 2 things absolute necessary to fill are the owner
-        // and
-        // srcChain, because we mock the bridge functions, but good to have data
-        // here so that it could have been hashed back to the exact same bytes32
-        // value - if we were not mocking.
-        IBridge.Message memory message;
-        message.srcChainId = 31_337;
-        message.destChainId = destChainId;
-        message.user = Alice;
-        message.from = address(erc721Vault);
-        message.to = address(destChainErc721Vault);
-        message.data = getPreDeterminedDataBytes();
-        message.gasLimit = 140_000;
-        message.fee = 140_000;
-        message.refundTo = Alice;
-        message.memo = "";
 
         bridge.recallMessage(message, bytes(""));
 
