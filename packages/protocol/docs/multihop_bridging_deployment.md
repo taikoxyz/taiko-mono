@@ -8,7 +8,6 @@ First of all, we need to ensures some contracts are shared by multiple Taiko dep
 
 On L2 or any laer, then following contracts shall be deployed as sigletonsshared by multiple TaikoL1 deployments.
 
-- EtherVault (to be deleted)
 - SignalService
 - Bridge
 - and all token vaults e.g., ERC20Vault
