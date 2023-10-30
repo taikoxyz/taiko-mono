@@ -3,6 +3,7 @@
   import { t } from 'svelte-i18n';
   import { type Address, isAddress } from 'viem';
 
+  import { ImportMethod } from '$components/Bridge/types';
   import { Button } from '$components/Button';
   import { Card } from '$components/Card';
   import { OnAccount } from '$components/OnAccount';
@@ -29,7 +30,7 @@
   let amountComponent: Amount;
   let recipientStepComponent: RecipientStep;
   let processingFeeComponent: ProcessingFee;
-  let importMethod: 'scan' | 'manual' = 'scan';
+  let importMethod: ImportMethod;
   let nftIdArray: number[] = [];
   let contractAddress: Address | string = '';
   let bridgingStatus: 'pending' | 'done' = 'pending';
@@ -70,7 +71,7 @@
 
   function updateForm() {
     tick().then(() => {
-      if (importMethod === 'manual') {
+      if (importMethod === ImportMethod.MANUAL) {
         // run validations again if we are in manual mode
         runValidations();
       } else {
@@ -135,7 +136,7 @@
   };
 
   const changeImportMethod = () => {
-    importMethod = importMethod === 'manual' ? 'scan' : 'manual';
+    importMethod = importMethod === ImportMethod.MANUAL ? ImportMethod.SCAN : ImportMethod.MANUAL;
     resetForm();
   };
 
@@ -224,9 +225,10 @@
         <!-- REVIEW STEP -->
       {:else if activeStep === NFTSteps.REVIEW}
         <ReviewStep on:editTransactionDetails={handleTransactionDetailsClick} />
-        <!-- CONFIRM STEP -->
+        <!-- RECIPIENT STEP -->
       {:else if activeStep === NFTSteps.RECIPIENT}
         <RecipientStep bind:this={recipientStepComponent} />
+        <!-- CONFIRM STEP -->
       {:else if activeStep === NFTSteps.CONFIRM}
         <ConfirmationStep bind:bridgingStatus />
       {/if}
@@ -241,13 +243,12 @@
             class="px-[28px] py-[14px] rounded-full flex-1 w-auto text-white"
             on:click={() => (activeStep = NFTSteps.CONFIRM)}
             ><span class="body-bold">{nextStepButtonText}</span></Button>
-
           <button on:click={previousStep} class="flex justify-center py-3 link">
             {$t('common.back')}
           </button>
         </div>
       {:else if activeStep === NFTSteps.IMPORT}
-        {#if importMethod === 'manual'}
+        {#if importMethod === ImportMethod.MANUAL}
           <div class="h-sep" />
 
           <div class="f-col w-full">

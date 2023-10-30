@@ -1,12 +1,12 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
 
-  import { routingContractsMap } from '$bridgeConfig';
   import { Button } from '$components/Button';
   import { Icon } from '$components/Icon';
-  import { bridges, type RequireApprovalArgs } from '$libs/bridge';
+  import { bridges, ContractType, type RequireApprovalArgs } from '$libs/bridge';
   import type { ERC721Bridge } from '$libs/bridge/ERC721Bridge';
   import type { ERC1155Bridge } from '$libs/bridge/ERC1155Bridge';
+  import { getContractAddressByType } from '$libs/bridge/getContractAddressByType';
   import { type NFT, TokenType } from '$libs/token';
   import { checkOwnershipOfNFT } from '$libs/token/checkOwnership';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
@@ -63,20 +63,32 @@
         }
 
         const wallet = await getConnectedWallet();
-        const { erc1155VaultAddress, erc721VaultAddress } = routingContractsMap[currentChainId][destinationChainId];
+
+        const spenderAddress = getContractAddressByType({
+          srcChainId: currentChainId,
+          destChainId: destinationChainId,
+          tokenType: token.type,
+          contractType: ContractType.VAULT,
+        });
+
+        if (!spenderAddress) {
+          throw new Error('No spender address found');
+        }
+
+        const args: RequireApprovalArgs = {
+          tokenAddress: token.addresses[currentChainId],
+          owner: wallet.account.address,
+          spenderAddress,
+          tokenId: BigInt(token.tokenId),
+          chainId: currentChainId,
+        };
 
         if (token.type === TokenType.ERC1155) {
           try {
             const bridge = bridges[token.type] as ERC1155Bridge;
 
             // Let's check if the vault is approved for all ERC1155
-            const result = await bridge.isApprovedForAll({
-              tokenAddress: token.addresses[currentChainId],
-              owner: wallet.account.address,
-              spenderAddress: erc1155VaultAddress,
-              tokenId: BigInt(token.tokenId),
-              chainId: currentChainId,
-            });
+            const result = await bridge.isApprovedForAll(args);
             allTokensApproved = result;
           } catch (error) {
             console.error('isApprovedForAll error');
@@ -86,16 +98,7 @@
 
           // Let's check if the vault is approved for all ERC721
           try {
-            const args: RequireApprovalArgs = {
-              tokenAddress: token.addresses[currentChainId],
-              owner: wallet.account.address,
-              spenderAddress: erc721VaultAddress,
-              tokenId: BigInt(token.tokenId),
-              chainId: currentChainId,
-            };
-
             const requiresApproval = await bridge.requiresApproval(args);
-
             allTokensApproved = !requiresApproval;
           } catch (error) {
             console.error('isApprovedForAll error');
@@ -105,6 +108,7 @@
     }
     $validatingAmount = false;
   }
+
   // TODO: feels like we need a state machine here
 
   // Basic conditions so we can even start the bridging process
