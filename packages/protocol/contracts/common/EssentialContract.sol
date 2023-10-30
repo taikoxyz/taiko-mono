@@ -29,7 +29,6 @@ abstract contract EssentialContract is
     event Paused(address account);
     event Unpaused(address account);
 
-    error UNEXPECTED_CHAINID();
     error REENTRANT_CALL();
     error INVALID_PAUSE_STATUS();
 
@@ -67,8 +66,6 @@ abstract contract EssentialContract is
     /// @notice Initializes the contract with an address manager.
     /// @param _addressManager The address of the address manager.
     function _init(address _addressManager) internal virtual override {
-        if (block.chainid >= type(uint64).max) revert UNEXPECTED_CHAINID();
-
         Ownable2StepUpgradeable.__Ownable2Step_init();
         AddressResolver._init(_addressManager);
 

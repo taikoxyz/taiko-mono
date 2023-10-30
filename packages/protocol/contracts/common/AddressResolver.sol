@@ -23,6 +23,7 @@ abstract contract AddressResolver {
 
     error RESOLVER_DENIED();
     error RESOLVER_INVALID_MANAGER();
+    error RESOLVER_UNEXPECTED_CHAINID();
     error RESOLVER_ZERO_ADDR(uint64 chainId, bytes32 name);
 
     /// @dev Modifier that ensures the caller is the resolved address of a given
@@ -73,6 +74,9 @@ abstract contract AddressResolver {
     /// @dev Initialization method for setting up AddressManager reference.
     /// @param _addressManager Address of the AddressManager.
     function _init(address _addressManager) internal virtual {
+        if (block.chainid >= type(uint64).max) {
+            revert RESOLVER_UNEXPECTED_CHAINID();
+        }
         addressManager = _addressManager;
     }
 
