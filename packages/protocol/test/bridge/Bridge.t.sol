@@ -58,7 +58,7 @@ contract BridgeTest is TestBase {
         signalService = new SignalService();
         signalService.init();
 
-        vm.deal(address(bridge), 100 ether);
+        vm.deal(address(destChainBridge), 100 ether);
 
         crossChainSync = new DummyCrossChainSync();
 
