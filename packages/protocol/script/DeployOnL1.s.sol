@@ -21,7 +21,6 @@ import "../contracts/L1/verifiers/GuardianVerifier.sol";
 import "../contracts/L1/tiers/ITierProvider.sol";
 import "../contracts/L1/tiers/TaikoA6TierProvider.sol";
 import "../contracts/bridge/Bridge.sol";
-import "../contracts/bridge/EtherVault.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
 import "../contracts/tokenvault/ERC721Vault.sol";
@@ -127,23 +126,10 @@ contract DeployOnL1 is Script {
 
         // Bridge
         Bridge bridge = new ProxiedBridge();
-        address bridgeProxy = deployProxy(
+        deployProxy(
             "bridge",
             address(bridge),
             bytes.concat(bridge.init.selector, abi.encode(addressManagerProxy))
-        );
-
-        // EtherVault
-        EtherVault etherVault = new ProxiedEtherVault();
-        address etherVaultProxy = deployProxy(
-            "ether_vault",
-            address(etherVault),
-            bytes.concat(
-                etherVault.init.selector, abi.encode(addressManagerProxy)
-            )
-        );
-        ProxiedEtherVault(payable(etherVaultProxy)).authorize(
-            bridgeProxy, "bridge"
         );
 
         // ERC20Vault

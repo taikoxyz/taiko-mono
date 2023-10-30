@@ -44,6 +44,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         nonReentrant
         whenNotPaused
         whenOperationValid(op)
+        returns (IBridge.Message memory _message)
     {
         for (uint256 i; i < op.tokenIds.length; ++i) {
             if (op.amounts[i] != 0) revert VAULT_INVALID_AMOUNT();
@@ -70,9 +71,10 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         message.refundTo = op.refundTo;
         message.memo = op.memo;
 
-        (bytes32 msgHash, IBridge.Message memory _message) = IBridge(
-            resolve("bridge", false)
-        ).sendMessage{ value: msg.value }(message);
+        bytes32 msgHash;
+        (msgHash, _message) = IBridge(resolve("bridge", false)).sendMessage{
+            value: msg.value
+        }(message);
 
         emit TokenSent({
             msgHash: msgHash,

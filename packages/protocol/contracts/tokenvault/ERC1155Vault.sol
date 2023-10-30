@@ -57,6 +57,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         nonReentrant
         whenNotPaused
         whenOperationValid(op)
+        returns (IBridge.Message memory _message)
     {
         for (uint256 i; i < op.amounts.length; ++i) {
             if (op.amounts[i] == 0) revert VAULT_INVALID_AMOUNT();
@@ -84,9 +85,10 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         message.memo = op.memo;
 
         // Send the message and obtain the message hash
-        (bytes32 msgHash, IBridge.Message memory _message) = IBridge(
-            resolve("bridge", false)
-        ).sendMessage{ value: msg.value }(message);
+        bytes32 msgHash;
+        (msgHash, _message) = IBridge(resolve("bridge", false)).sendMessage{
+            value: msg.value
+        }(message);
 
         // Emit TokenSent event
         emit TokenSent({

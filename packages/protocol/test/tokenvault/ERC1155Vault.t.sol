@@ -15,7 +15,6 @@ import { IBridge, Bridge } from "../../contracts/bridge/Bridge.sol";
 import { BaseNFTVault } from "../../contracts/tokenvault/BaseNFTVault.sol";
 import { ERC1155Vault } from "../../contracts/tokenvault/ERC1155Vault.sol";
 import { BridgedERC1155 } from "../../contracts/tokenvault/BridgedERC1155.sol";
-import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../../contracts/common/ICrossChainSync.sol";
 import { ERC1155 } from
@@ -117,7 +116,6 @@ contract ERC1155VaultTest is TestBase {
     ERC1155Vault erc1155Vault;
     ERC1155Vault destChainErc1155Vault;
     TestTokenERC1155 ctoken1155;
-    EtherVault etherVault;
     SignalService signalService;
     DummyCrossChainSync crossChainSync;
     uint256 destChainId = 19_389;
@@ -143,9 +141,6 @@ contract ERC1155VaultTest is TestBase {
 
         signalService = new SignalService();
         signalService.init();
-
-        etherVault = new EtherVault();
-        etherVault.init();
 
         erc1155Vault = new ERC1155Vault();
         erc1155Vault.init(address(addressManager));
@@ -198,14 +193,8 @@ contract ERC1155VaultTest is TestBase {
         addressManager.setAddress(
             block.chainid, "erc20_vault", address(mockProofSignalService)
         );
-        addressManager.setAddress(
-            block.chainid, "ether_vault", address(etherVault)
-        );
-        // Authorize
-        etherVault.authorize(address(destChainIdBridge), "dest_bridge");
-        etherVault.authorize(address(bridge), "bridge");
 
-        vm.deal(address(etherVault), 100 ether);
+        vm.deal(address(bridge), 100 ether);
 
         ctoken1155 = new TestTokenERC1155("http://example.host.com/");
         vm.stopPrank();
@@ -583,28 +572,11 @@ contract ERC1155VaultTest is TestBase {
         );
 
         vm.prank(Alice, Alice);
-        erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
+        IBridge.Message memory message =
+            erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
 
         assertEq(ctoken1155.balanceOf(Alice, 1), 8);
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 2);
-
-        // Reconstruct the message.
-        // Actually the only 2 things absolute necessary to fill are the owner
-        // and
-        // srcChain, because we mock the bridge functions, but good to have data
-        // here so that it could have been hashed back to the exact same bytes32
-        // value - if we were not mocking.
-        IBridge.Message memory message;
-        message.srcChainId = 31_337;
-        message.destChainId = destChainId;
-        message.user = Alice;
-        message.from = address(erc1155Vault);
-        message.to = address(destChainErc1155Vault);
-        message.data = getPreDeterminedDataBytes();
-        message.gasLimit = 140_000;
-        message.fee = 140_000;
-        message.refundTo = Alice;
-        message.memo = "";
 
         bridge.recallMessage(message, bytes(""));
 

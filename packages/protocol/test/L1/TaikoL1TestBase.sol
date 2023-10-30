@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import { TestBase } from "../TestBase.sol";
 import { console2 } from "forge-std/console2.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
+import { Bridge } from "../../contracts/bridge/Bridge.sol";
 import { LibProving } from "../../contracts/L1/libs/LibProving.sol";
 import { LibProposing } from "../../contracts/L1/libs/LibProposing.sol";
 import { LibUtils } from "../../contracts/L1/libs/LibUtils.sol";
@@ -46,13 +47,12 @@ abstract contract TaikoL1TestBase is TestBase {
     GuardianVerifier public gv;
     GuardianProver public gp;
     TaikoA6TierProvider public cp;
+    Bridge public bridge;
 
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
 
     address public constant L2SS = 0xa008AE5Ba00656a3Cc384de589579e3E52aC030C;
     address public constant TaikoL2 = 0x0082D90249342980d011C58105a03b35cCb4A315;
-    address public constant L1EthVault =
-        0xDAFEA492D9c6733ae3d56b7Ed1ADB60692c98Bc5;
 
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 
@@ -87,6 +87,9 @@ abstract contract TaikoL1TestBase is TestBase {
 
         cp = new TaikoA6TierProvider();
 
+        bridge = new Bridge();
+        bridge.init(address(addressManager));
+
         registerAddress("taiko", address(L1));
         registerAddress("tier_pse_zkevm", address(pv));
         registerAddress("tier_sgx", address(sv));
@@ -95,7 +98,7 @@ abstract contract TaikoL1TestBase is TestBase {
         registerAddress("tier_provider", address(cp));
         registerAddress("signal_service", address(ss));
         registerAddress("guardian_prover", address(gp));
-        registerAddress("ether_vault", address(L1EthVault));
+        registerAddress("bridge", address(bridge));
         registerL2Address("taiko", address(TaikoL2));
         registerL2Address("signal_service", address(L2SS));
         registerL2Address("taiko_l2", address(TaikoL2));

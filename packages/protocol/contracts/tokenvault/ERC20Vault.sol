@@ -111,6 +111,7 @@ contract ERC20Vault is BaseVault {
         payable
         nonReentrant
         whenNotPaused
+        returns (IBridge.Message memory _message)
     {
         if (op.amount == 0) revert VAULT_INVALID_AMOUNT();
         if (op.token == address(0)) revert VAULT_INVALID_TOKEN();
@@ -134,9 +135,10 @@ contract ERC20Vault is BaseVault {
         message.refundTo = op.refundTo;
         message.memo = op.memo;
 
-        (bytes32 msgHash, IBridge.Message memory _message) = IBridge(
-            resolve("bridge", false)
-        ).sendMessage{ value: msg.value }(message);
+        bytes32 msgHash;
+        (msgHash, _message) = IBridge(resolve("bridge", false)).sendMessage{
+            value: msg.value
+        }(message);
 
         emit TokenSent({
             msgHash: msgHash,
