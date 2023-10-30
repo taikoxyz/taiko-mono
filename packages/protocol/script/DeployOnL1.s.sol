@@ -84,7 +84,7 @@ contract DeployOnL1 is Script {
 
         // TaikoL1
         taikoL1 = new ProxiedTaikoL1();
-        uint256 l2ChainId = taikoL1.getConfig().chainId;
+        uint64 l2ChainId = taikoL1.getConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
         setAddress(l2ChainId, "taiko", taikoL2Address);
@@ -314,7 +314,7 @@ contract DeployOnL1 is Script {
         console2.log(name, "(proxy) ->", proxy);
 
         if (addressManagerProxy != address(0)) {
-            setAddress(block.chainid, bytes32(bytes(name)), proxy);
+            setAddress(bytes32(bytes(name)), proxy);
         }
 
         vm.writeJson(
@@ -324,10 +324,10 @@ contract DeployOnL1 is Script {
     }
 
     function setAddress(bytes32 name, address addr) private {
-        setAddress(block.chainid, name, addr);
+        setAddress(uint64(block.chainid), name, addr);
     }
 
-    function setAddress(uint256 chainId, bytes32 name, address addr) private {
+    function setAddress(uint64 chainId, bytes32 name, address addr) private {
         console2.log(chainId, uint256(name), "--->", addr);
         if (addr != address(0)) {
             AddressManager(addressManagerProxy).setAddress(chainId, name, addr);

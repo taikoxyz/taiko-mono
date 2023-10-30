@@ -22,7 +22,7 @@ interface IAddressManager {
     /// @param name The name for which the address needs to be fetched.
     /// @return Address associated with the chainId-name pair.
     function getAddress(
-        uint256 chainId,
+        uint64 chainId,
         bytes32 name
     )
         external
@@ -37,7 +37,7 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
     uint256[49] private __gap;
 
     event AddressSet(
-        uint256 indexed chainId,
+        uint64 indexed chainId,
         bytes32 indexed name,
         address newAddress,
         address oldAddress
@@ -53,7 +53,7 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
     /// @param name The name to which the address will be mapped.
     /// @param newAddress The Ethereum address to be mapped.
     function setAddress(
-        uint256 chainId,
+        uint64 chainId,
         bytes32 name,
         address newAddress
     )
@@ -68,7 +68,7 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
 
     /// @inheritdoc IAddressManager
     function getAddress(
-        uint256 chainId,
+        uint64 chainId,
         bytes32 name
     )
         public

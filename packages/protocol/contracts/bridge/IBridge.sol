@@ -16,9 +16,9 @@ interface IBridge {
         // Message sender address (auto filled).
         address from;
         // Source chain ID (auto filled).
-        uint256 srcChainId;
+        uint64 srcChainId;
         // Destination chain ID where the `to` address lives (auto filled).
-        uint256 destChainId;
+        uint64 destChainId;
         // User address of the bridged asset.
         address user;
         // Destination address.
@@ -41,7 +41,7 @@ interface IBridge {
     struct Context {
         bytes32 msgHash; // Message hash.
         address from; // Sender's address.
-        uint256 srcChainId; // Source chain ID.
+        uint64 srcChainId; // Source chain ID.
     }
 
     /// @notice Sends a message to the destination chain and takes custody

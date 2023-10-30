@@ -14,7 +14,7 @@ abstract contract BaseNFTVault is BaseVault {
     // Struct representing the canonical NFT on another chain.
     struct CanonicalNFT {
         // Chain ID of the NFT.
-        uint256 chainId;
+        uint64 chainId;
         // Address of the NFT contract.
         address addr;
         // Symbol of the NFT.
@@ -26,7 +26,7 @@ abstract contract BaseNFTVault is BaseVault {
     // Struct representing the details of a bridged token transfer operation.
     struct BridgeTransferOp {
         // Destination chain ID.
-        uint256 destChainId;
+        uint64 destChainId;
         // Recipient address.
         address to;
         // Address of the token.
@@ -62,7 +62,7 @@ abstract contract BaseNFTVault is BaseVault {
     uint256[47] private __gap;
 
     event BridgedTokenDeployed(
-        uint256 indexed chainId,
+        uint64 indexed chainId,
         address indexed ctoken,
         address indexed btoken,
         string ctokenSymbol,
@@ -73,7 +73,7 @@ abstract contract BaseNFTVault is BaseVault {
         bytes32 indexed msgHash,
         address indexed from,
         address indexed to,
-        uint256 destChainId,
+        uint64 destChainId,
         address token,
         uint256[] tokenIds,
         uint256[] amounts
@@ -91,7 +91,7 @@ abstract contract BaseNFTVault is BaseVault {
         bytes32 indexed msgHash,
         address indexed from,
         address indexed to,
-        uint256 srcChainId,
+        uint64 srcChainId,
         address token,
         uint256[] tokenIds,
         uint256[] amounts

@@ -23,7 +23,7 @@ abstract contract AddressResolver {
 
     error RESOLVER_DENIED();
     error RESOLVER_INVALID_MANAGER();
-    error RESOLVER_ZERO_ADDR(uint256 chainId, bytes32 name);
+    error RESOLVER_ZERO_ADDR(uint64 chainId, bytes32 name);
 
     /// @dev Modifier that ensures the caller is the resolved address of a given
     /// name.
@@ -47,7 +47,7 @@ abstract contract AddressResolver {
         virtual
         returns (address payable addr)
     {
-        return _resolve(block.chainid, name, allowZeroAddress);
+        return _resolve(uint64(block.chainid), name, allowZeroAddress);
     }
 
     /// @notice Resolves a name to its address deployed on a specified chain.
@@ -58,7 +58,7 @@ abstract contract AddressResolver {
     /// @return addr Address associated with the given name on the specified
     /// chain.
     function resolve(
-        uint256 chainId,
+        uint64 chainId,
         bytes32 name,
         bool allowZeroAddress
     )
@@ -84,7 +84,7 @@ abstract contract AddressResolver {
     /// @return addr Address associated with the given name on the specified
     /// chain.
     function _resolve(
-        uint256 chainId,
+        uint64 chainId,
         bytes32 name,
         bool allowZeroAddress
     )

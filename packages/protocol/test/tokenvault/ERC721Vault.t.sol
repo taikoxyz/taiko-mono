@@ -60,7 +60,7 @@ contract PrankDestBridge {
     struct BridgeContext {
         bytes32 msgHash;
         address sender;
-        uint256 chainId;
+        uint64 chainId;
     }
 
     BridgeContext ctx;
@@ -93,7 +93,7 @@ contract PrankDestBridge {
         uint256[] memory tokenIds,
         bytes32 msgHash,
         address srcChainerc721Vault,
-        uint256 chainId,
+        uint64 chainId,
         uint256 mockLibInvokeMsgValue
     )
         public
@@ -138,7 +138,7 @@ contract ERC721VaultTest is TestBase {
     TestTokenERC721 canonicalToken721;
     SignalService signalService;
     DummyCrossChainSync crossChainSync;
-    uint256 destChainId = 19_389;
+    uint64 destChainId = 19_389;
 
     // Need +1 bc. and Amelia is the proxied bridge contracts owner
     // Change will cause onMessageRecall() test fails, because of
@@ -177,21 +177,25 @@ contract ERC721VaultTest is TestBase {
         crossChainSync = new DummyCrossChainSync();
 
         addressManager.setAddress(
-            block.chainid, "signal_service", address(mockProofSignalService)
+            uint64(block.chainid),
+            "signal_service",
+            address(mockProofSignalService)
         );
 
         addressManager.setAddress(
             destChainId, "signal_service", address(mockProofSignalService)
         );
 
-        addressManager.setAddress(block.chainid, "bridge", address(bridge));
+        addressManager.setAddress(
+            uint64(block.chainid), "bridge", address(bridge)
+        );
 
         addressManager.setAddress(
             destChainId, "bridge", address(destChainIdBridge)
         );
 
         addressManager.setAddress(
-            block.chainid, "erc721_vault", address(erc721Vault)
+            uint64(block.chainid), "erc721_vault", address(erc721Vault)
         );
 
         addressManager.setAddress(
@@ -207,10 +211,10 @@ contract ERC721VaultTest is TestBase {
             destChainId, "erc20_vault", address(erc721Vault)
         );
         addressManager.setAddress(
-            block.chainid, "erc1155_vault", address(erc721Vault)
+            uint64(block.chainid), "erc1155_vault", address(erc721Vault)
         );
         addressManager.setAddress(
-            block.chainid, "erc20_vault", address(erc721Vault)
+            uint64(block.chainid), "erc20_vault", address(erc721Vault)
         );
 
         vm.stopPrank();
@@ -356,7 +360,7 @@ contract ERC721VaultTest is TestBase {
             name: "TT"
         });
 
-        uint256 chainId = block.chainid;
+        uint64 chainId = uint64(block.chainid);
         vm.chainId(destChainId);
 
         destChainIdBridge.sendReceiveERC721ToERC721Vault(
@@ -424,7 +428,7 @@ contract ERC721VaultTest is TestBase {
             name: "TT"
         });
 
-        uint256 chainId = block.chainid;
+        uint64 chainId = uint64(block.chainid);
         vm.chainId(destChainId);
 
         destChainIdBridge.sendReceiveERC721ToERC721Vault(
@@ -528,7 +532,7 @@ contract ERC721VaultTest is TestBase {
             name: "TT"
         });
 
-        uint256 chainId = block.chainid;
+        uint64 chainId = uint64(block.chainid);
         vm.chainId(destChainId);
 
         destChainIdBridge.sendReceiveERC721ToERC721Vault(
@@ -632,7 +636,7 @@ contract ERC721VaultTest is TestBase {
             name: "TT"
         });
 
-        uint256 srcChainId = block.chainid;
+        uint64 srcChainId = uint64(block.chainid);
         vm.chainId(destChainId);
 
         destChainIdBridge.sendReceiveERC721ToERC721Vault(
@@ -700,7 +704,7 @@ contract ERC721VaultTest is TestBase {
             name: "TT"
         });
 
-        uint256 chainId = block.chainid;
+        uint64 chainId = uint64(block.chainid);
         vm.chainId(destChainId);
 
         destChainIdBridge.sendReceiveERC721ToERC721Vault(
@@ -755,7 +759,7 @@ contract ERC721VaultTest is TestBase {
 
         vm.prank(Amelia, Amelia);
         addressManager.setAddress(
-            block.chainid, "bridge", address(destChainIdBridge)
+            uint64(block.chainid), "bridge", address(destChainIdBridge)
         );
 
         destChainIdBridge.sendReceiveERC721ToERC721Vault(
@@ -817,7 +821,7 @@ contract ERC721VaultTest is TestBase {
             name: "TT"
         });
 
-        uint256 chainId = block.chainid;
+        uint64 chainId = uint64(block.chainid);
         vm.chainId(destChainId);
 
         destChainIdBridge.sendReceiveERC721ToERC721Vault(
@@ -909,7 +913,7 @@ contract ERC721VaultTest is TestBase {
             name: "TT"
         });
 
-        uint256 chainId = block.chainid;
+        uint64 chainId = uint64(block.chainid);
         vm.chainId(destChainId);
 
         destChainIdBridge.sendReceiveERC721ToERC721Vault(
