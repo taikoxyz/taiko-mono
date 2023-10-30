@@ -6,8 +6,8 @@
 
 pragma solidity ^0.8.20;
 
-import { OwnableUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import { Ownable2StepUpgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
 import { ERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import { SafeERC20Upgradeable } from
@@ -32,7 +32,7 @@ import { Proxied } from "../common/Proxied.sol";
 /// - team members, advisors, etc.
 /// - grant program grantees
 
-contract TimeLockTokenPool is OwnableUpgradeable {
+contract TimeLockTokenPool is Ownable2StepUpgradeable {
     using SafeERC20Upgradeable for ERC20Upgradeable;
 
     struct Grant {
@@ -89,7 +89,7 @@ contract TimeLockTokenPool is OwnableUpgradeable {
         external
         initializer
     {
-        OwnableUpgradeable.__Ownable_init_unchained();
+        Ownable2StepUpgradeable.__Ownable2Step_init();
 
         if (_taikoToken == address(0)) revert INVALID_PARAM();
         taikoToken = _taikoToken;
