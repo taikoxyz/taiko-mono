@@ -29,7 +29,7 @@ abstract contract AuthorizableContract is EssentialContract {
     }
 
     function isAuthorized(address addr) public view returns (bool) {
-        return addr != address(0) && authorizedAddresses[addr] != 0;
+        return authorizedAddresses[addr] != 0;
     }
 
     function isAuthorizedAs(
@@ -40,13 +40,10 @@ abstract contract AuthorizableContract is EssentialContract {
         view
         returns (bool)
     {
-        return addr != address(0) && label != 0
-            && authorizedAddresses[addr] == label;
+        return label != 0 && authorizedAddresses[addr] == label;
     }
 
     function _init(address _addressManager) internal virtual override {
-        // TODO
-        // if (_addressManager == address(0)) revert INVALID_ADDRESS();
         EssentialContract._init(_addressManager);
     }
 
