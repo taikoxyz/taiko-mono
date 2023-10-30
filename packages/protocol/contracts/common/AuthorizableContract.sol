@@ -45,8 +45,6 @@ abstract contract AuthorizableContract is EssentialContract {
     }
 
     function _init(address _addressManager) internal virtual override {
-        // TODO
-        // if (_addressManager == address(0)) revert INVALID_ADDRESS();
         EssentialContract._init(_addressManager);
     }
 
