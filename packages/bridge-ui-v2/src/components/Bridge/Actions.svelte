@@ -3,10 +3,10 @@
 
   import { Button } from '$components/Button';
   import { Icon } from '$components/Icon';
-  import { bridges, ContractType,type RequireApprovalArgs } from '$libs/bridge';
+  import { bridges, ContractType, type RequireApprovalArgs } from '$libs/bridge';
   import type { ERC721Bridge } from '$libs/bridge/ERC721Bridge';
   import type { ERC1155Bridge } from '$libs/bridge/ERC1155Bridge';
-  import { getContractAddressBasedOnType } from '$libs/bridge/getContractAddressBasedOnType';
+  import { getContractAddressByType } from '$libs/bridge/getContractAddressByType';
   import { type NFT, TokenType } from '$libs/token';
   import { checkOwnershipOfNFT } from '$libs/token/checkOwnership';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
@@ -63,7 +63,7 @@
 
         const wallet = await getConnectedWallet();
 
-        const spenderAddress = getContractAddressBasedOnType({
+        const spenderAddress = getContractAddressByType({
           srcChainId: currentChainId,
           destChainId: destinationChainId,
           tokenType: token.type,

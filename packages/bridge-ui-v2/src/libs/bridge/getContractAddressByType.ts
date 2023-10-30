@@ -14,6 +14,7 @@ const getVaultAddress = (args: GetContractAddressType): Address => {
     [TokenType.ETH]: (config) => config.etherVaultAddress || zeroAddress,
   };
 
+  if (!args.tokenType) throw new Error('Token type is required');
   const getAddress = addressGetters[args.tokenType];
 
   if (!getAddress) {
@@ -23,7 +24,7 @@ const getVaultAddress = (args: GetContractAddressType): Address => {
   return getAddress(addressConfig);
 };
 
-export const getContractAddressBasedOnType = (args: GetContractAddressType): Address => {
+export const getContractAddressByType = (args: GetContractAddressType): Address => {
   const addressConfig = routingContractsMap[args.srcChainId][args.destChainId];
 
   switch (args.contractType) {
