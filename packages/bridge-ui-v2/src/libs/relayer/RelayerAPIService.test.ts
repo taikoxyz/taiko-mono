@@ -6,7 +6,6 @@ import { RelayerAPIService } from './RelayerAPIService';
 vi.mock('axios');
 
 vi.mock('@wagmi/core');
-vi.mock('@web3modal/wagmi');
 
 vi.mock('$libs/chain', () => {
   return {
