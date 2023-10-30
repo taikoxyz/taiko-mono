@@ -39,8 +39,6 @@ contract SignalService is AuthorizableContract, ISignalService {
     }
 
     error SS_INVALID_APP();
-    error SS_INVALID_RELAY();
-    error SS_INVALID_CROSSCHAIN_SYNC();
     error SS_INVALID_SIGNAL();
 
     /// @dev Initializer to be called after being deployed behind a proxy.
@@ -113,7 +111,7 @@ contract SignalService is AuthorizableContract, ISignalService {
         // the signal is sent by chainC's "bridge" contract.
 
         if (!isAuthorizedAs(p.crossChainSync, bytes32(block.chainid))) {
-            revert SS_INVALID_CROSSCHAIN_SYNC();
+            return false;
         }
 
         bytes32 signalRoot = ICrossChainSync(p.crossChainSync).getSyncedSnippet(
@@ -126,7 +124,7 @@ contract SignalService is AuthorizableContract, ISignalService {
             Hop memory hop = p.hops[i];
 
             bytes32 label = authorizedAddresses[hop.signalRootRelay];
-            if (label == 0) revert SS_INVALID_RELAY();
+            if (label == 0) return false;
 
             bytes32 slot = getSignalSlot(
                 uint256(label), // use label as chainId
