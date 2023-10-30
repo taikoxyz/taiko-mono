@@ -165,7 +165,7 @@
 
     if ($selectedToken.type === TokenType.ERC1155) {
       // For ERC1155, no decimals are allowed
-      if (value.includes('.') || value.includes(',')) {
+      if (/[.,]/.test(value)) {
         invalidInput = true;
         return;
       }

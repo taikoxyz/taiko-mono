@@ -14,9 +14,12 @@
   import {
     destNetwork as destinationChain,
     enteredAmount,
+    insufficientBalance,
     selectedNFTs,
     selectedToken,
+    tokenBalance,
   } from '$components/Bridge/state';
+  import { ImportMethod } from '$components/Bridge/types';
   import { Button } from '$components/Button';
   import { ChainSelectorWrapper } from '$components/ChainSelector';
   import { IconFlipper } from '$components/Icon';
@@ -34,7 +37,7 @@
   export let nftIdArray: number[] = [];
   export let canProceed: boolean = false;
   export let scanned: boolean;
-  export let importMethod: 'scan' | 'manual';
+  export let importMethod: ImportMethod = ImportMethod.SCAN;
   export let foundNFTs: NFT[] = [];
   export let validating: boolean = false;
   export let contractAddress: Address | string = '';
@@ -92,7 +95,7 @@
   const changeImportMethod = () => {
     if (addressInputComponent) addressInputComponent.clearAddress();
 
-    importMethod = importMethod === 'manual' ? 'scan' : 'manual';
+    importMethod = importMethod === ImportMethod.MANUAL ? ImportMethod.SCAN : ImportMethod.MANUAL;
     scanned = false;
     $selectedNFTs = [];
     $selectedToken = null;
@@ -184,37 +187,43 @@
   $: canImport = $account?.isConnected && $network?.id && $destinationChain && !scanning;
 
   // Handles the next step button status
-  $: if (importMethod === 'manual') {
-    if (
+  $: {
+    const hasSelectedNFTs = $selectedNFTs !== null && $selectedNFTs !== undefined && $selectedNFTs.length > 0;
+    if (!hasSelectedNFTs) canProceed = false;
+
+    const isValidManualERC721 =
       detectedTokenType === TokenType.ERC721 &&
       addressInputState === AddressInputState.VALID &&
       idInputState === IDInputState.VALID &&
-      isOwnerOfAllToken
-    ) {
-      canProceed = true;
-    } else if (
+      isOwnerOfAllToken;
+
+    const isValidManualERC1155 =
       detectedTokenType === TokenType.ERC1155 &&
       addressInputState === AddressInputState.VALID &&
       idInputState === IDInputState.VALID &&
       $enteredAmount > BigInt(0) &&
-      isOwnerOfAllToken
-    ) {
-      canProceed = true;
-    } else {
-      canProceed = false;
-    }
-  } else if (importMethod === 'scan' && $selectedNFTs && $selectedNFTs.length > 0 && $destinationChain && scanned) {
-    if ($selectedNFTs && $selectedNFTs[0].type === TokenType.ERC1155) {
-      if ($enteredAmount > BigInt(0)) {
-        canProceed = true;
-      } else {
-        canProceed = false;
-      }
-    } else if ($selectedNFTs && $selectedNFTs[0].type === TokenType.ERC721) {
-      canProceed = true;
-    }
-  } else {
-    canProceed = false;
+      isOwnerOfAllToken;
+
+    const isManualImportValid = importMethod === ImportMethod.MANUAL && (isValidManualERC721 || isValidManualERC1155);
+
+    const isValidScanERC1155 =
+      hasSelectedNFTs &&
+      $selectedNFTs![0].type === TokenType.ERC1155 &&
+      $enteredAmount > BigInt(0) &&
+      typeof $tokenBalance === 'bigint' &&
+      $enteredAmount <= $tokenBalance &&
+      !$insufficientBalance;
+
+    const isValidScanERC721 = hasSelectedNFTs && $selectedNFTs![0].type === TokenType.ERC721;
+
+    const isScanImportValid =
+      importMethod === ImportMethod.SCAN &&
+      hasSelectedNFTs &&
+      $destinationChain !== undefined && // Assuming undefined is invalid
+      scanned &&
+      (isValidScanERC1155 || isValidScanERC721);
+
+    canProceed = isManualImportValid || isScanImportValid;
   }
 
   $: isDisabled = idInputState !== IDInputState.VALID || addressInputState !== AddressInputState.VALID;
@@ -223,11 +232,11 @@
 <div class="f-between-center gap-4">
   <ChainSelectorWrapper />
 </div>
+
 <!-- 
 Manual NFT Input 
 -->
-
-{#if importMethod === 'manual'}
+{#if importMethod === ImportMethod.MANUAL}
   <div id="manualImport">
     <AddressInput
       bind:this={addressInputComponent}

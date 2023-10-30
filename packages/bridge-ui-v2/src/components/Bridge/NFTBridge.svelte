@@ -6,6 +6,7 @@
 
   import { routingContractsMap } from '$bridgeConfig';
   import { chainConfig } from '$chainConfig';
+  import { ImportMethod } from '$components/Bridge/types';
   import { Button } from '$components/Button';
   import { Card } from '$components/Card';
   import { ChainSelectorWrapper } from '$components/ChainSelector';
@@ -54,7 +55,7 @@
   let recipientStepComponent: RecipientStep;
   let processingFeeComponent: ProcessingFee;
   let actionsComponent: Actions;
-  let importMethod: 'scan' | 'manual' = 'scan';
+  let importMethod: ImportMethod;
   let nftIdArray: number[] = [];
   let contractAddress: Address | string = '';
 
@@ -94,7 +95,7 @@
 
   function updateForm() {
     tick().then(() => {
-      if (importMethod === 'manual') {
+      if (importMethod === ImportMethod.MANUAL) {
         // run validations again if we are in manual mode
         runValidations();
       } else {
@@ -256,7 +257,7 @@
     if (nftIdInputComponent) nftIdInputComponent.clearIds();
 
     $selectedToken = ETHToken;
-    importMethod === 'scan';
+    importMethod === ImportMethod.SCAN;
     scanned = false;
     canProceed = false;
     $selectedNFTs = [];
@@ -295,7 +296,7 @@
   };
 
   const changeImportMethod = () => {
-    importMethod = importMethod === 'manual' ? 'scan' : 'manual';
+    importMethod = importMethod === ImportMethod.MANUAL ? ImportMethod.SCAN : ImportMethod.MANUAL;
     resetForm();
   };
 
@@ -403,7 +404,7 @@
           </button>
         </div>
       {:else if activeStep === NFTSteps.IMPORT}
-        {#if importMethod === 'manual'}
+        {#if importMethod === ImportMethod.MANUAL}
           <div class="h-sep" />
 
           <div class="f-col w-full">
