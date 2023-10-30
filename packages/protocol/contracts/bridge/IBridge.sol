@@ -8,8 +8,7 @@ pragma solidity ^0.8.20;
 
 /// @title IBridge
 /// @notice The bridge used in conjunction with the {ISignalService}.
-/// @dev Ether is held by Bridges on L1 and by the EtherVault on L2,
-/// not by token vaults.
+/// @dev Ether is held by Bridges on L1 and L2s.
 interface IBridge {
     struct Message {
         // Message ID.
