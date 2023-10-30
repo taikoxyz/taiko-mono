@@ -239,8 +239,9 @@ async function generateContractConfigs(
                 // initializer
                 _initialized: 1,
                 _initializing: false,
-                // OwnableUpgradeable
+                // Ownable2StepUpgradeable
                 _owner: contractOwner,
+                _pendingOwner: "0x0",
                 // AddressManager
                 addresses: {
                     [chainId]: {
@@ -284,8 +285,9 @@ async function generateContractConfigs(
                 contractArtifacts.TaikoL2Proxy.deployedBytecode.object,
             variables: {
                 // TaikoL2
-                // OwnableUpgradeable
+                // Ownable2StepUpgradeable
                 _owner: contractOwner,
+                _pendingOwner: "0x0",
                 // ReentrancyGuardUpgradeable
                 signalService: addressMap.SignalServiceProxy,
                 // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
@@ -327,8 +329,9 @@ async function generateContractConfigs(
                 // ReentrancyGuardUpgradeable
                 _reentry: 1, // _FALSE
                 _paused: 1, // _FALSE
-                // OwnableUpgradeable
+                // Ownable2StepUpgradeable
                 _owner: contractOwner,
+                _pendingOwner: "0x0",
                 // AddressResolver
                 addressManager: addressMap.AddressManagerProxy,
             },
@@ -356,8 +359,9 @@ async function generateContractConfigs(
                 // ReentrancyGuardUpgradeable
                 _reentry: 1, // _FALSE
                 _paused: 1, // _FALSE
-                // OwnableUpgradeable
+                // Ownable2StepUpgradeable
                 _owner: contractOwner,
+                _pendingOwner: "0x0",
                 // AddressResolver
                 addressManager: addressMap.AddressManagerProxy,
             },
@@ -385,8 +389,9 @@ async function generateContractConfigs(
                 // ReentrancyGuardUpgradeable
                 _reentry: 1, // _FALSE
                 _paused: 1, // _FALSE
-                // OwnableUpgradeable
+                // Ownable2StepUpgradeable
                 _owner: contractOwner,
+                _pendingOwner: "0x0",
                 // AddressResolver
                 addressManager: addressMap.AddressManagerProxy,
             },
@@ -414,8 +419,9 @@ async function generateContractConfigs(
                 // ReentrancyGuardUpgradeable
                 _reentry: 1, // _FALSE
                 _paused: 1, // _FALSE
-                // OwnableUpgradeable
+                // Ownable2StepUpgradeable
                 _owner: contractOwner,
+                _pendingOwner: "0x0",
                 // AddressResolver
                 addressManager: addressMap.AddressManagerProxy,
             },
@@ -443,8 +449,9 @@ async function generateContractConfigs(
                 // ReentrancyGuardUpgradeable
                 _reentry: 1, // _FALSE
                 _paused: 1, // _FALSE
-                // OwnableUpgradeable
+                // Ownable2StepUpgradeable
                 _owner: contractOwner,
+                _pendingOwner: "0x0",
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
