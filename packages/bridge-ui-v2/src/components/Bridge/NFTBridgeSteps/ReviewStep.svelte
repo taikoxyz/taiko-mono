@@ -37,9 +37,12 @@
   const editTransactionDetails = () => {
     dispatch('editTransactionDetails');
   };
+
+  // check if any of the selected NFTs are ERC1155 tokens
+  $: isERC1155 = $selectedNFTs ? $selectedNFTs.some((nft) => nft.type === 'ERC1155') : false;
 </script>
 
-<div class="container mx-auto inline-block align-middle space-y-[25px]">
+<div class="container mx-auto inline-block align-middle space-y-[25px] mt-[30px]">
   <div class="flex justify-between mb-2 items-center">
     <div class="font-bold text-primary-content">{$t('bridge.nft.step.review.transfer_details')}</div>
   </div>
@@ -85,11 +88,12 @@
         </ul>
       </div>
     </div>
-
-    <div class="flex justify-between">
-      <div class="text-secondary-content">{$t('common.amount')}</div>
-      {$enteredAmount}
-    </div>
+    {#if isERC1155}
+      <div class="flex justify-between">
+        <div class="text-secondary-content">{$t('common.amount')}</div>
+        {$enteredAmount}
+      </div>
+    {/if}
   </div>
 </div>
 
@@ -117,8 +121,8 @@ NFT List or Card View
 
 <div class="h-sep" />
 <!-- 
-  Recipient & Processing Fee
-  -->
+Recipient & Processing Fee
+-->
 
 <div class="f-col">
   <div class="f-between-center mb-[10px]">

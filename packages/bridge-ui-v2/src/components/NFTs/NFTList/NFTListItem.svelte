@@ -41,7 +41,8 @@
 </script>
 
 <div class="form-control flex">
-  <label class="cursor-pointer label space-x-[16px]">
+
+  <label class="cursor-pointer label my-[8px] space-x-[16px]">
     {#if multiSelectEnabled && selectable}
       <input
         type="checkbox"

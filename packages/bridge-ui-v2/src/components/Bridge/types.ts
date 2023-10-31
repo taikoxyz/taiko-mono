@@ -10,4 +10,9 @@ export enum NFTSteps {
   CONFIRM,
 }
 
+export enum ImportMethod {
+  MANUAL,
+  SCAN,
+}
+
 export type BridgeType = BridgeTypes;

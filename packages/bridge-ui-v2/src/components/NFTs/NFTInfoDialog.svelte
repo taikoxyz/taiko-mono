@@ -41,7 +41,10 @@
     <div class="f-col w-full space-y-[30px]">
       <h3 class="title-body-bold">{$t('bridge.nft.step.import.nft_card.title')}</h3>
 
-      <img alt="placeholder nft" src={nft.metadata?.image || placeholderUrl} class="rounded-[20px] self-center" />
+      <img
+        alt="placeholder nft"
+        src={nft.metadata?.image || placeholderUrl}
+        class="rounded-[20px] self-center bg-white" />
       <div id="metadata">
         <div class="f-between-center">
           <div class="text-secondary-content">{$t('common.collection')}</div>
@@ -76,7 +79,7 @@
           <Button
             type="primary"
             hasBorder={true}
-            class="px-[28px] py-[14px] rounded-full flex-1 w-full"
+            class="px-[28px] py-[14px] rounded-full flex-1 w-full text-white"
             on:click={closeModal}>
             {$t('common.ok')}
           </Button>
@@ -84,7 +87,7 @@
           <Button
             type="primary"
             hasBorder={true}
-            class="px-[28px] py-[14px] rounded-full flex-1 w-full"
+            class="px-[28px] py-[14px] rounded-full flex-1 w-full text-white"
             on:click={() => selectNFT()}>
             {$t('bridge.nft.step.import.nft_card.select')}
           </Button>

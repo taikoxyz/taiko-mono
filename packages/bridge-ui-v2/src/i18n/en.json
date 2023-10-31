@@ -20,7 +20,7 @@
           "title": "Transaction completed"
         },
         "tx": {
-          "message": "Track the bridge status of your {token} <a href=\"{url}\" target=\"_blank\"><b>here</b></a>.",
+          "message": "Your bridge transaction was confirmed. The transaction can take a few minutes to complete, track it <a href=\"{url}\" class=\"link\" target=\"_blank\"><b>here</b></a>.",
           "title": "Transaction sent"
         }
       },
@@ -40,7 +40,7 @@
     "description": {
       "default": "Send your assets across chains.",
       "nft": {
-        "confirm": "Confirm your NFT details.",
+        "confirm": "Bridge your NFTs",
         "import": "Transfer your NFTs across chains",
         "recipient": "Set up information on the recipient blockchain.",
         "review": "Verify your transaction details"
@@ -71,6 +71,7 @@
         "message": "You already have sufficient allowance for this request.",
         "title": "Allowance already set"
       },
+      "no_decimals_allowed": "Decimals are not supported for this token",
       "send_erc20_error": {
         "message": "There was an issue attempting to send ERC20 token.",
         "title": "Failed to send"
@@ -87,6 +88,9 @@
     "nft": {
       "step": {
         "confirm": {
+          "button": {
+            "back": "Back to bridge"
+          },
           "title": "Confirm"
         },
         "import": {
@@ -209,7 +213,9 @@
     },
     "amount": {
       "balance": "Balance",
-      "button.max": "Max",
+      "button": {
+        "max": "Max"
+      },
       "errors.failed_max": "Could not estimate max amount to bridge.",
       "label": "Amount"
     },

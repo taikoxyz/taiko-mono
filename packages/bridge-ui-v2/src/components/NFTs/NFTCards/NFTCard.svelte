@@ -6,7 +6,7 @@
 
   export let nft: NFT;
   export let selectNFT: (nft: NFT) => void;
-  export let viewOnly = false;
+  export let viewOnly: boolean;
 
   const placeholderUrl = 'https://placehold.co/400x400.png';
 
