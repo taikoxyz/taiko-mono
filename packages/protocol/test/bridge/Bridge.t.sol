@@ -38,7 +38,7 @@ contract BridgeTest is TestBase {
     DummyCrossChainSync crossChainSync;
     SkipProofCheckSignal mockProofSignalService;
     UntrustedSendMessageRelayer untrustedSenderContract;
-    uint256 destChainId = 19_389;
+    uint64 destChainId = 19_389;
 
     function setUp() public {
         vm.startPrank(Alice);
@@ -66,7 +66,9 @@ contract BridgeTest is TestBase {
         vm.deal(address(untrustedSenderContract), 10 ether);
 
         addressManager.setAddress(
-            block.chainid, "signal_service", address(mockProofSignalService)
+            uint64(block.chainid),
+            "signal_service",
+            address(mockProofSignalService)
         );
 
         addressManager.setAddress(
@@ -79,7 +81,9 @@ contract BridgeTest is TestBase {
 
         addressManager.setAddress(destChainId, "taiko", address(uint160(123)));
 
-        addressManager.setAddress(block.chainid, "bridge", address(bridge));
+        addressManager.setAddress(
+            uint64(block.chainid), "bridge", address(bridge)
+        );
 
         vm.stopPrank();
     }
@@ -88,7 +92,7 @@ contract BridgeTest is TestBase {
         IBridge.Message memory message = IBridge.Message({
             id: 0,
             from: address(bridge),
-            srcChainId: block.chainid,
+            srcChainId: uint64(block.chainid),
             destChainId: destChainId,
             user: Alice,
             to: Alice,
@@ -127,7 +131,7 @@ contract BridgeTest is TestBase {
         IBridge.Message memory message = IBridge.Message({
             id: 0,
             from: address(bridge),
-            srcChainId: block.chainid,
+            srcChainId: uint64(block.chainid),
             destChainId: destChainId,
             user: Alice,
             to: address(goodReceiver),
@@ -166,7 +170,7 @@ contract BridgeTest is TestBase {
         IBridge.Message memory message = IBridge.Message({
             id: 0,
             from: address(bridge),
-            srcChainId: block.chainid,
+            srcChainId: uint64(block.chainid),
             destChainId: destChainId,
             user: Alice,
             to: address(goodReceiver),
@@ -261,7 +265,7 @@ contract BridgeTest is TestBase {
             value: 0,
             gasLimit: 0,
             fee: 0,
-            destChain: block.chainid
+            destChain: uint64(block.chainid)
         });
 
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
@@ -473,7 +477,7 @@ contract BridgeTest is TestBase {
     {
         badReceiver = new BadReceiver();
 
-        uint256 dest = 1337;
+        uint64 dest = 1337;
         addressManager.setAddress(dest, "taiko", address(crossChainSync));
 
         addressManager.setAddress(
@@ -525,7 +529,7 @@ contract BridgeTest is TestBase {
         uint256 value,
         uint256 gasLimit,
         uint256 fee,
-        uint256 destChain
+        uint64 destChain
     )
         internal
         view
@@ -539,7 +543,7 @@ contract BridgeTest is TestBase {
             fee: fee,
             id: 0, // placeholder, will be overwritten
             from: user, // placeholder, will be overwritten
-            srcChainId: block.chainid, // will be overwritten
+            srcChainId: uint64(block.chainid), // will be overwritten
             refundTo: user,
             gasLimit: gasLimit,
             data: "",

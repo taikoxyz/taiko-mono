@@ -372,7 +372,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
     {
         assertEq(
             getPredeployedContractAddress(contractName),
-            addressManager.getAddress(block.chainid, name)
+            addressManager.getAddress(uint64(block.chainid), name)
         );
     }
 }

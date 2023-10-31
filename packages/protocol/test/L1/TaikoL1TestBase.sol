@@ -293,7 +293,7 @@ abstract contract TaikoL1TestBase is TestBase {
     }
 
     function registerAddress(bytes32 nameHash, address addr) internal {
-        addressManager.setAddress(block.chainid, nameHash, addr);
+        addressManager.setAddress(uint64(block.chainid), nameHash, addr);
         console2.log(block.chainid, uint256(nameHash), unicode"→", addr);
     }
 

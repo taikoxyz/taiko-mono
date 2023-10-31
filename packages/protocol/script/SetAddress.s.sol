@@ -19,7 +19,7 @@ contract SetAddress is Script {
 
     address public proxyAddress = vm.envAddress("PROXY_ADDRESS");
 
-    uint256 public domain = vm.envUint("DOMAIN");
+    uint64 public domain = uint64(vm.envUint("DOMAIN"));
 
     bytes32 public name = vm.envBytes32("NAME");
 
