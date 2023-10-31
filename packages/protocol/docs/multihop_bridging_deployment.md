@@ -41,6 +41,8 @@ SignalService(ss).authorize(address(TaikoL2B, 10002);
 
 The label **must be** the id of the chain where the smart contract has been deployed to.
 
+To guarantee this design works, each pre-deployed contract must have a unique address on L2 and L3 chains, incorporating the chain ID into the address (as a prefix).
+
 ### Bridge
 
 Bridge depends on a local SignalService .Therefore, we need to registered the service as:
