@@ -38,7 +38,7 @@ contract Bridge is EssentialContract, IBridge {
     event SignalSent(address indexed sender, bytes32 msgHash);
     event MessageSent(bytes32 indexed msgHash, Message message);
     event MessageRecalled(bytes32 indexed msgHash);
-    event DestChainEnabled(uint256 indexed chainId, bool enabled);
+    event DestChainEnabled(uint64 indexed chainId, bool enabled);
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
 
     error B_INVALID_CHAINID();
@@ -54,7 +54,7 @@ contract Bridge is EssentialContract, IBridge {
     error B_RECALLED_ALREADY();
     error B_STATUS_MISMATCH();
 
-    modifier sameChain(uint256 chainId) {
+    modifier sameChain(uint64 chainId) {
         if (chainId != block.chainid) revert B_INVALID_CHAINID();
         _;
     }
@@ -100,7 +100,7 @@ contract Bridge is EssentialContract, IBridge {
         // sending.
         _message.id = nextMessageId++;
         _message.from = msg.sender;
-        _message.srcChainId = block.chainid;
+        _message.srcChainId = uint64(block.chainid);
 
         msgHash = keccak256(abi.encode(_message));
 
@@ -153,7 +153,7 @@ contract Bridge is EssentialContract, IBridge {
             _ctx = Context({
                 msgHash: bytes32(PLACEHOLDER),
                 from: address(uint160(PLACEHOLDER)),
-                srcChainId: PLACEHOLDER
+                srcChainId: uint64(PLACEHOLDER)
             });
         } else {
             message.user.sendEther(message.value);
@@ -326,7 +326,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @param chainId The destination chain ID.
     /// @return enabled True if the destination chain is enabled.
     /// @return destBridge The bridge of the destination chain.
-    function isDestChainEnabled(uint256 chainId)
+    function isDestChainEnabled(uint64 chainId)
         public
         view
         returns (bool enabled, address destBridge)
@@ -377,7 +377,7 @@ contract Bridge is EssentialContract, IBridge {
         _ctx = Context({
             msgHash: bytes32(PLACEHOLDER),
             from: address(uint160(PLACEHOLDER)),
-            srcChainId: PLACEHOLDER
+            srcChainId: uint64(PLACEHOLDER)
         });
     }
 
@@ -406,7 +406,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @return True if the message was received.
     function _proveSignalReceived(
         bytes32 signal,
-        uint256 srcChainId,
+        uint64 srcChainId,
         bytes calldata proof
     )
         private

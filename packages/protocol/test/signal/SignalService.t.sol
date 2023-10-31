@@ -18,7 +18,7 @@ contract TestSignalService is TestBase {
     SignalService signalService;
     SignalService destSignalService;
     DummyCrossChainSync crossChainSync;
-    uint256 destChainId = 7;
+    uint64 destChainId = 7;
 
     function setUp() public {
         vm.startPrank(Alice);
@@ -38,7 +38,7 @@ contract TestSignalService is TestBase {
         crossChainSync.init(address(addressManager));
 
         addressManager.setAddress(
-            block.chainid, "signal_service", address(signalService)
+            uint64(block.chainid), "signal_service", address(signalService)
         );
 
         addressManager.setAddress(
@@ -84,7 +84,7 @@ contract TestSignalService is TestBase {
     }
 
     // function test_SignalService_proveSignalReceived_L1_L2() public {
-    //     uint256 chainId = 11_155_111; // Created the proofs on a deployed
+    //     uint64 chainId = 11_155_111; // Created the proofs on a deployed
     //         // Sepolia contract, this is why this chainId.
     //     address app = 0x927a146e18294efb36edCacC99D9aCEA6aB16b95; // Mock
     // app,
@@ -119,7 +119,7 @@ contract TestSignalService is TestBase {
     // }
 
     // function test_SignalService_proveSignalReceived_L2_L2() public {
-    //     uint256 chainId = 11_155_111; // Created the proofs on a deployed
+    //     uint64 chainId = 11_155_111; // Created the proofs on a deployed
     //         // Sepolia contract, this is why this chainId. This works as a
     //         // static 'chainId' becuase i imitated 2 contracts (L2A and L1
     //         // Signal Service contracts) on Sepolia.

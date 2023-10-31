@@ -6,6 +6,9 @@
 
 pragma solidity ^0.8.20;
 
+import { SafeCastUpgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/utils/math/SafeCastUpgradeable.sol";
+
 import { AddressResolver } from "../common/AddressResolver.sol";
 import { AuthorizableContract } from "../common/AuthorizableContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
@@ -25,6 +28,8 @@ import { ISignalService } from "./ISignalService.sol";
 /// Note: SignalService should not authorize Bridges or other Bridgable
 /// applications.
 contract SignalService is AuthorizableContract, ISignalService {
+    using SafeCastUpgradeable for uint256;
+
     // storageProof represents ABI-encoded tuple of (key, value, and proof)
     // returned from the eth_getProof() API.
     struct Hop {
@@ -51,7 +56,7 @@ contract SignalService is AuthorizableContract, ISignalService {
     /// @inheritdoc ISignalService
     function sendSignal(bytes32 signal) public returns (bytes32 slot) {
         if (signal == 0) revert SS_INVALID_SIGNAL();
-        slot = getSignalSlot(block.chainid, msg.sender, signal);
+        slot = getSignalSlot(uint64(block.chainid), msg.sender, signal);
         assembly {
             sstore(slot, 1)
         }
@@ -68,7 +73,7 @@ contract SignalService is AuthorizableContract, ISignalService {
     {
         if (signal == 0) revert SS_INVALID_SIGNAL();
         if (app == address(0)) revert SS_INVALID_APP();
-        bytes32 slot = getSignalSlot(block.chainid, app, signal);
+        bytes32 slot = getSignalSlot(uint64(block.chainid), app, signal);
         uint256 value;
         assembly {
             value := sload(slot)
@@ -78,7 +83,7 @@ contract SignalService is AuthorizableContract, ISignalService {
 
     /// @inheritdoc ISignalService
     function proveSignalReceived(
-        uint256 srcChainId,
+        uint64 srcChainId,
         address app,
         bytes32 signal,
         bytes calldata proof
@@ -127,9 +132,10 @@ contract SignalService is AuthorizableContract, ISignalService {
 
             bytes32 label = authorizedAddresses[hop.signalRootRelay];
             if (label == 0) return false;
+            uint64 chainId = uint256(label).toUint64();
 
             bytes32 slot = getSignalSlot(
-                uint256(label), // use label as chainId
+                chainId, // use label as chainId
                 hop.signalRootRelay,
                 hop.signalRoot // as a signal
             );
@@ -156,7 +162,7 @@ contract SignalService is AuthorizableContract, ISignalService {
     /// @return The unique storage slot of the signal which is
     /// created by encoding the sender address with the signal (message).
     function getSignalSlot(
-        uint256 chainId,
+        uint64 chainId,
         address app,
         bytes32 signal
     )

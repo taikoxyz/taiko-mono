@@ -61,7 +61,7 @@ contract TaikoTokenTest is TestBase {
     }
 
     function _registerAddress(bytes32 nameHash, address addr) private {
-        addressManager.setAddress(block.chainid, nameHash, addr);
+        addressManager.setAddress(uint64(block.chainid), nameHash, addr);
     }
 
     function _deployViaProxy(

@@ -33,7 +33,7 @@ contract ERC20Vault is BaseVault {
 
     // Structs for canonical ERC20 tokens and transfer operations
     struct CanonicalERC20 {
-        uint256 chainId;
+        uint64 chainId;
         address addr;
         uint8 decimals;
         string symbol;
@@ -41,7 +41,7 @@ contract ERC20Vault is BaseVault {
     }
 
     struct BridgeTransferOp {
-        uint256 destChainId;
+        uint64 destChainId;
         address to;
         address token;
         uint256 amount;
@@ -75,7 +75,7 @@ contract ERC20Vault is BaseVault {
         bytes32 indexed msgHash,
         address indexed from,
         address indexed to,
-        uint256 destChainId,
+        uint64 destChainId,
         address token,
         uint256 amount
     );
@@ -89,7 +89,7 @@ contract ERC20Vault is BaseVault {
         bytes32 indexed msgHash,
         address indexed from,
         address indexed to,
-        uint256 srcChainId,
+        uint64 srcChainId,
         address token,
         uint256 amount
     );
@@ -260,7 +260,7 @@ contract ERC20Vault is BaseVault {
             // If it's a canonical token
             ERC20Upgradeable t = ERC20Upgradeable(token);
             ctoken = CanonicalERC20({
-                chainId: block.chainid,
+                chainId: uint64(block.chainid),
                 addr: token,
                 decimals: t.decimals(),
                 symbol: t.symbol(),
