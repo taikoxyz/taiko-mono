@@ -95,14 +95,15 @@ library LibProposing {
 
             if (blobHash == 0) revert L1_NO_BLOB_FOUND();
         } else {
-            if (txList.length > config.blockMaxTxListBytes) {
-                revert L1_TXLIST_TOO_LARGE();
-            }
-
             // The proposer must be an Externally Owned Account (EOA) for
             // calldata usage. This ensures that the transaction is not an
             // internal one, making calldata retrieval more straightforward.
             if (msg.sender != tx.origin) revert L1_PROPOSER_NOT_EOA();
+
+            if (txList.length > config.blockMaxTxListBytes) {
+                revert L1_TXLIST_TOO_LARGE();
+            }
+
             blobHash = keccak256(txList);
         }
 
