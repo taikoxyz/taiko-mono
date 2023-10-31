@@ -13,7 +13,7 @@ import "../contracts/common/AddressManager.sol";
 import
     "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-contract SetRemoteBridges is Script {
+contract SetRemoteBridgeSuites is Script {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
     address public bridgeSuiteAddressManager =
         vm.envAddress("BRIDGE_SUITE_ADDRESS_MANAGER");
