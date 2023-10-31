@@ -110,14 +110,14 @@ contract SgxVerifier is EssentialContract, IVerifier {
         // Do not run proof verification to contest an existing proof
         if (isContesting) return;
 
-        // Size is: 87 bytes
-        // 2 bytes + 20 bytes + 65 bytes (signature) = 87
-        if (evidence.proof.length != 87) revert SGX_INVALID_PROOF();
+        // Size is: 89 bytes
+        // 4 bytes + 20 bytes + 65 bytes (signature) = 89
+        if (evidence.proof.length != 89) revert SGX_INVALID_PROOF();
 
-        uint16 id = uint16(bytes2(LibBytesUtils.slice(evidence.proof, 0, 2)));
+        uint32 id = uint32(bytes4(LibBytesUtils.slice(evidence.proof, 0, 4)));
         address newInstance =
-            address(bytes20(LibBytesUtils.slice(evidence.proof, 2, 20)));
-        bytes memory signature = LibBytesUtils.slice(evidence.proof, 22);
+            address(bytes20(LibBytesUtils.slice(evidence.proof, 4, 20)));
+        bytes memory signature = LibBytesUtils.slice(evidence.proof, 24);
         address oldInstance = ECDSAUpgradeable.recover(
             getSignedHash(evidence, prover, newInstance), signature
         );
