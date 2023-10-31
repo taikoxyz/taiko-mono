@@ -170,6 +170,7 @@ func (p *Processor) processMessage(
 			ctx,
 			p.srcCaller,
 			p.srcSignalServiceAddress,
+			p.destHeaderSyncAddress,
 			hops,
 			common.Bytes2Hex(key[:]),
 			msgBody.Event.Raw.BlockHash,
@@ -187,6 +188,7 @@ func (p *Processor) processMessage(
 			ctx,
 			p.srcCaller,
 			p.srcSignalServiceAddress,
+			p.destHeaderSyncAddress,
 			common.Bytes2Hex(key[:]),
 			latestSyncedSnippet.BlockHash,
 		)

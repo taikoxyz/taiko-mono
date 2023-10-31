@@ -91,6 +91,7 @@ type Processor struct {
 	destNonce               uint64
 	relayerAddr             common.Address
 	srcSignalServiceAddress common.Address
+	destHeaderSyncAddress   common.Address
 
 	confirmations uint64
 
@@ -323,6 +324,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.confirmations = cfg.Confirmations
 
 	p.srcSignalServiceAddress = cfg.SrcSignalServiceAddress
+	p.destHeaderSyncAddress = cfg.DestTaikoAddress
 
 	p.msgCh = make(chan queue.Message)
 	p.wg = &sync.WaitGroup{}

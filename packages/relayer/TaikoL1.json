@@ -1,6 +1,16 @@
 [
   {
     "inputs": [],
+    "name": "ETH_TRANSFER_FAILED",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "INVALID_PAUSE_STATUS",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "L1_ALREADY_CONTESTED",
     "type": "error"
   },
@@ -106,7 +116,12 @@
   },
   {
     "inputs": [],
-    "name": "L1_INVALID_ADDRESS",
+    "name": "L1_INVALID_AMOUNT",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "L1_INVALID_AMOUNT",
     "type": "error"
   },
   {
@@ -152,11 +167,6 @@
   {
     "inputs": [],
     "name": "L1_INVALID_EVIDENCE",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_INVALID_METADATA",
     "type": "error"
   },
   {
@@ -171,21 +181,6 @@
   },
   {
     "inputs": [],
-    "name": "L1_INVALID_PROPOSER",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_INVALID_PROVER",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_INVALID_PROVER_SIG",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "L1_INVALID_TIER",
     "type": "error"
   },
@@ -246,22 +241,12 @@
   },
   {
     "inputs": [],
-    "name": "L1_TXLIST_INVALID_RANGE",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "L1_TXLIST_MISMATCH",
     "type": "error"
   },
   {
     "inputs": [],
     "name": "L1_TXLIST_MISMATCH",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_TXLIST_NOT_FOUND",
     "type": "error"
   },
   {
@@ -302,6 +287,11 @@
   {
     "inputs": [],
     "name": "L1_UNEXPECTED_TRANSITION_TIER",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "REENTRANT_CALL",
     "type": "error"
   },
   {
@@ -775,15 +765,28 @@
     "inputs": [
       {
         "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "Paused",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
       },
       {
         "indexed": false,
-        "internalType": "bool",
-        "name": "minted",
-        "type": "bool"
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
       }
     ],
     "name": "TokenCredited",
@@ -794,15 +797,15 @@
     "inputs": [
       {
         "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
       },
       {
         "indexed": false,
-        "internalType": "bool",
-        "name": "minted",
-        "type": "bool"
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
       }
     ],
     "name": "TokenCredited",
@@ -813,15 +816,15 @@
     "inputs": [
       {
         "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
+        "internalType": "address",
+        "name": "from",
+        "type": "address"
       },
       {
         "indexed": false,
-        "internalType": "bool",
-        "name": "fromLocalBalance",
-        "type": "bool"
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
       }
     ],
     "name": "TokenDebited",
@@ -832,15 +835,15 @@
     "inputs": [
       {
         "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
+        "internalType": "address",
+        "name": "from",
+        "type": "address"
       },
       {
         "indexed": false,
-        "internalType": "bool",
-        "name": "fromLocalBalance",
-        "type": "bool"
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
       }
     ],
     "name": "TokenDebited",
@@ -896,44 +899,6 @@
       }
     ],
     "name": "TokenWithdrawn",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "TokenWithdrawnByOwner",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "TokenWithdrawnByOwner",
     "type": "event"
   },
   {
@@ -1130,6 +1095,19 @@
       }
     ],
     "name": "TransitionProved",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "Unpaused",
     "type": "event"
   },
   {
@@ -1338,7 +1316,7 @@
         "type": "tuple"
       }
     ],
-    "stateMutability": "pure",
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1623,7 +1601,7 @@
         "type": "bool"
       }
     ],
-    "stateMutability": "pure",
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1640,21 +1618,23 @@
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "ownerWithdrawTaikoToken",
+    "inputs": [],
+    "name": "pause",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "paused",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1883,34 +1863,12 @@
           },
           {
             "internalType": "uint64",
-            "name": "lastVerifiedAt",
-            "type": "uint64"
-          },
-          {
-            "internalType": "uint64",
             "name": "lastVerifiedBlockId",
             "type": "uint64"
           }
         ],
         "internalType": "struct TaikoData.SlotB",
         "name": "slotB",
-        "type": "tuple"
-      },
-      {
-        "components": [
-          {
-            "internalType": "uint128",
-            "name": "accumulatedReward",
-            "type": "uint128"
-          },
-          {
-            "internalType": "uint64",
-            "name": "lastProposedHeight",
-            "type": "uint64"
-          }
-        ],
-        "internalType": "struct TaikoData.SlotC",
-        "name": "slotC",
         "type": "tuple"
       }
     ],
@@ -1926,6 +1884,13 @@
       }
     ],
     "name": "transferOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "unpause",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

@@ -22,6 +22,7 @@ func Test_EncodedSignalProof(t *testing.T) {
 		context.Background(),
 		&mock.Caller{},
 		common.Address{},
+		common.Address{},
 		"1",
 		mock.Header.TxHash,
 	)
