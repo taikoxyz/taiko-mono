@@ -77,9 +77,15 @@ contract DeployOnL1 is Script {
             "invalid guardian provers number"
         );
         if (sharedBridge == address(0)) {
-            require(sharedSignalService == address(0), "non-empty shared signal service address");
+            require(
+                sharedSignalService == address(0),
+                "non-empty shared signal service address"
+            );
         } else {
-            require(sharedSignalService != address(0), "empty shared signal service address");
+            require(
+                sharedSignalService != address(0),
+                "empty shared signal service address"
+            );
         }
         vm.startBroadcast(deployerPrivateKey);
 
@@ -136,7 +142,8 @@ contract DeployOnL1 is Script {
         );
         setAddress("taiko", taikoL1Proxy);
 
-        // All bridging related contracts should be deployed as a singleton on each chain.
+        // All bridging related contracts should be deployed as a singleton on
+        // each chain.
         if (sharedBridge == address(0)) {
             deployBridgeSuiteSingleton();
         }
@@ -146,7 +153,9 @@ contract DeployOnL1 is Script {
         setAddress("signal_service", sharedSignalService);
 
         // Authorize the new TaikoL1 contract for shared signal service.
-        ProxiedSignalService(sharedSignalService).authorize(taikoL1Proxy, bytes32(block.chainid));
+        ProxiedSignalService(sharedSignalService).authorize(
+            taikoL1Proxy, bytes32(block.chainid)
+        );
 
         // Guardian prover
         ProxiedGuardianProver guardianProver = new ProxiedGuardianProver();
@@ -358,7 +367,9 @@ contract DeployOnL1 is Script {
         console2.log(name, "(impl) ->", implementation);
         console2.log(name, "(proxy) ->", proxy);
 
-        setAddress(addressManager, uint64(block.chainid), bytes32(bytes(name)), proxy);
+        setAddress(
+            addressManager, uint64(block.chainid), bytes32(bytes(name)), proxy
+        );
 
         vm.writeJson(
             vm.serializeAddress("deployment", name, proxy),
@@ -374,7 +385,14 @@ contract DeployOnL1 is Script {
         setAddress(addressManagerProxy, uint64(chainId), name, addr);
     }
 
-    function setAddress(address addressManager, uint64 chainId, bytes32 name, address addr) private {
+    function setAddress(
+        address addressManager,
+        uint64 chainId,
+        bytes32 name,
+        address addr
+    )
+        private
+    {
         if (addressManager != address(0) && addr != address(0)) {
             console2.log(chainId, uint256(name), "--->", addr);
             AddressManager(addressManager).setAddress(chainId, name, addr);
