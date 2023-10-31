@@ -23,7 +23,7 @@ contract PrankDestBridge {
     struct Context {
         bytes32 msgHash; // messageHash
         address sender;
-        uint256 srcChainId;
+        uint64 srcChainId;
     }
 
     constructor(ERC20Vault _erc20Vault) {
@@ -45,7 +45,7 @@ contract PrankDestBridge {
         uint256 amount,
         bytes32 msgHash,
         address srcChainERC20Vault,
-        uint256 srcChainId,
+        uint64 srcChainId,
         uint256 mockLibInvokeMsgValue
     )
         public
@@ -87,7 +87,7 @@ contract TestERC20Vault is Test {
     PrankDestBridge destChainIdBridge;
     FreeMintERC20 erc20;
     SignalService signalService;
-    uint256 destChainId = 7;
+    uint64 destChainId = 7;
 
     address public constant Alice = 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4;
     address public constant Bob = 0x200708D76eB1B69761c23821809d53F65049939e;
@@ -107,7 +107,9 @@ contract TestERC20Vault is Test {
 
         addressManager = new AddressManager();
         addressManager.init();
-        addressManager.setAddress(block.chainid, "taiko_token", address(tko));
+        addressManager.setAddress(
+            uint64(block.chainid), "taiko_token", address(tko)
+        );
 
         erc20Vault = new ERC20Vault();
         erc20Vault.init(address(addressManager));
@@ -127,14 +129,16 @@ contract TestERC20Vault is Test {
         signalService = new SignalService();
         signalService.init();
 
-        addressManager.setAddress(block.chainid, "bridge", address(bridge));
-
         addressManager.setAddress(
-            block.chainid, "signal_service", address(signalService)
+            uint64(block.chainid), "bridge", address(bridge)
         );
 
         addressManager.setAddress(
-            block.chainid, "erc20_vault", address(erc20Vault)
+            uint64(block.chainid), "signal_service", address(signalService)
+        );
+
+        addressManager.setAddress(
+            uint64(block.chainid), "erc20_vault", address(erc20Vault)
         );
 
         addressManager.setAddress(
@@ -266,7 +270,7 @@ contract TestERC20Vault is Test {
     {
         vm.startPrank(Alice);
 
-        uint256 srcChainId = block.chainid;
+        uint64 srcChainId = uint64(block.chainid);
         vm.chainId(destChainId);
 
         erc20.mint(address(erc20Vault));
@@ -298,7 +302,7 @@ contract TestERC20Vault is Test {
     function test_20Vault_receiveTokens_erc20_with_ether_to_dave() public {
         vm.startPrank(Alice);
 
-        uint256 srcChainId = block.chainid;
+        uint64 srcChainId = uint64(block.chainid);
         vm.chainId(destChainId);
 
         erc20.mint(address(erc20Vault));
@@ -335,7 +339,7 @@ contract TestERC20Vault is Test {
     {
         vm.startPrank(Alice);
 
-        uint256 srcChainId = block.chainid;
+        uint64 srcChainId = uint64(block.chainid);
         vm.chainId(destChainId);
 
         uint256 amount = 1;
@@ -366,7 +370,7 @@ contract TestERC20Vault is Test {
         assertEq(bridgedERC20.balanceOf(Bob), amount);
     }
 
-    function erc20ToCanonicalERC20(uint256 chainId)
+    function erc20ToCanonicalERC20(uint64 chainId)
         internal
         view
         returns (ERC20Vault.CanonicalERC20 memory)
@@ -383,7 +387,7 @@ contract TestERC20Vault is Test {
     function test_20Vault_upgrade_bridged_tokens_20() public {
         vm.startPrank(Alice);
 
-        uint256 srcChainId = block.chainid;
+        uint64 srcChainId = uint64(block.chainid);
         vm.chainId(destChainId);
 
         uint256 amount = 1;

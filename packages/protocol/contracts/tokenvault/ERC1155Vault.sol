@@ -291,7 +291,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             } else {
                 // is a ctoken token, meaning, it lives on this chain
                 nft = CanonicalNFT({
-                    chainId: block.chainid,
+                    chainId: uint64(block.chainid),
                     addr: op.token,
                     symbol: "",
                     name: ""
