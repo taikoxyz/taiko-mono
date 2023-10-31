@@ -223,7 +223,7 @@ abstract contract TaikoL1TestBase is TestBase {
                 createSgxSignatureProof(evidence, newPubKey, prover);
 
             evidence.proof =
-                bytes.concat(bytes2(0), bytes20(newPubKey), signature);
+                bytes.concat(bytes4(0), bytes20(newPubKey), signature);
         }
 
         if (tier == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
@@ -231,7 +231,7 @@ abstract contract TaikoL1TestBase is TestBase {
                 createSgxSignatureProof(evidence, newPubKey, prover);
 
             bytes memory sgxProof =
-                bytes.concat(bytes2(0), bytes20(newPubKey), signature);
+                bytes.concat(bytes4(0), bytes20(newPubKey), signature);
             // Concatenate SGX and ZK (in this order)
             evidence.proof = bytes.concat(sgxProof, evidence.proof);
         }
