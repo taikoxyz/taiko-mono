@@ -79,6 +79,7 @@ export async function deployTaikoL2(
             storageLayoutName = contractName.replace("Proxy", "");
             storageLayoutName = `Proxied${storageLayoutName}`;
         }
+        storageLayoutName = contractName.includes("AddressManager") ? "ProxiedAddressManager" : storageLayoutName
 
         storageLayouts[contractName] =
             await getStorageLayout(storageLayoutName);
@@ -132,6 +133,12 @@ async function generateContractConfigs(
                 "./AddressManager.sol/ProxiedAddressManager.json",
             ),
         ),
+        ProxiedBridgeSuiteAddressManager: require(
+            path.join(
+                ARTIFACTS_PATH,
+                "./AddressManager.sol/ProxiedAddressManager.json",
+            ),
+        ),
         ProxiedTaikoL2: require(
             path.join(ARTIFACTS_PATH, "./TaikoL2.sol/ProxiedTaikoL2.json"),
         ),
@@ -177,6 +184,7 @@ async function generateContractConfigs(
     contractArtifacts.ERC1155VaultProxy = proxy;
     contractArtifacts.SignalServiceProxy = proxy;
     contractArtifacts.AddressManagerProxy = proxy;
+    contractArtifacts.BridgeSuiteAddressManagerProxy = proxy;
 
     const addressMap: any = {};
 
@@ -250,6 +258,37 @@ async function generateContractConfigs(
                             ethers.utils.toUtf8Bytes("taiko"),
                         )]: addressMap.TaikoL2Proxy,
                         [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("signal_service"),
+                        )]: addressMap.SignalServiceProxy,
+                    },
+                },
+            },
+            slots: {
+                [ADMIN_SLOT]: contractAdmin,
+                [IMPLEMENTATION_SLOT]: addressMap.ProxiedAddressManager,
+            },
+            isProxy: true,
+        },
+        ProxiedBridgeSuiteAddressManager: {
+            address: addressMap.ProxiedBridgeSuiteAddressManager,
+            deployedBytecode:
+                contractArtifacts.ProxiedBridgeSuiteAddressManager.deployedBytecode.object,
+        },
+        BridgeSuiteAddressManagerProxy: {
+            address: addressMap.BridgeSuiteAddressManagerProxy,
+            deployedBytecode:
+                contractArtifacts.BridgeSuiteAddressManagerProxy.deployedBytecode.object,
+            variables: {
+                // initializer
+                _initialized: 1,
+                _initializing: false,
+                // Ownable2StepUpgradeable
+                _owner: contractOwner,
+                _pendingOwner: ethers.constants.AddressZero,
+                // AddressManager
+                addresses: {
+                    [chainId]: {
+                        [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("bridge"),
                         )]: addressMap.BridgeProxy,
                         [ethers.utils.hexlify(
@@ -269,7 +308,7 @@ async function generateContractConfigs(
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
-                [IMPLEMENTATION_SLOT]: addressMap.ProxiedAddressManager,
+                [IMPLEMENTATION_SLOT]: addressMap.ProxiedBridgeSuiteAddressManager,
             },
             isProxy: true,
         },

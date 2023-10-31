@@ -42,7 +42,8 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkDeployedCode("ProxiedBridge");
         checkDeployedCode("RegularERC20");
         checkDeployedCode("ProxiedAddressManager");
-        checkDeployedCode("ProxiedSignalService");
+        checkDeployedCode("ProxiedAddressManager");
+        checkDeployedCode("ProxiedBridgeSuiteAddressManager");
 
         // check proxy implementations
         checkProxyImplementation("TaikoL2Proxy", "ProxiedTaikoL2");
@@ -51,6 +52,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkProxyImplementation("ERC1155VaultProxy", "ProxiedERC1155Vault");
         checkProxyImplementation("BridgeProxy", "ProxiedBridge");
         checkProxyImplementation("AddressManagerProxy", "ProxiedAddressManager");
+        checkProxyImplementation("BridgeSuiteAddressManagerProxy", "ProxiedBridgeSuiteAddressManager");
         checkProxyImplementation("SignalServiceProxy", "ProxiedSignalService");
 
         // check proxies
@@ -60,6 +62,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkDeployedCode("ERC1155VaultProxy");
         checkDeployedCode("BridgeProxy");
         checkDeployedCode("AddressManagerProxy");
+        checkDeployedCode("BridgeSuiteAddressManagerProxy");
         checkDeployedCode("SignalServiceProxy");
     }
 
@@ -69,10 +72,6 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         assertEq(owner, addressManager.owner());
 
-        checkSavedAddress(addressManager, "BridgeProxy", "bridge");
-        checkSavedAddress(addressManager, "ERC20VaultProxy", "erc20_vault");
-        checkSavedAddress(addressManager, "ERC721VaultProxy", "erc721_vault");
-        checkSavedAddress(addressManager, "ERC1155VaultProxy", "erc1155_vault");
         checkSavedAddress(addressManager, "TaikoL2Proxy", "taiko");
         checkSavedAddress(
             addressManager, "SignalServiceProxy", "signal_service"
@@ -80,6 +79,34 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
             payable(getPredeployedContractAddress("AddressManagerProxy"))
+        );
+
+        AddressManager newAddressManager = new AddressManager();
+
+        vm.startPrank(admin);
+
+        proxy.upgradeTo(address(newAddressManager));
+
+        assertEq(proxy.implementation(), address(newAddressManager));
+        vm.stopPrank();
+    }
+
+    function testBridgeSuiteAddressManager() public {
+        AddressManager addressManager =
+            AddressManager(getPredeployedContractAddress("BridgeSuiteAddressManagerProxy"));
+
+        assertEq(owner, addressManager.owner());
+
+        checkSavedAddress(addressManager, "BridgeProxy", "bridge");
+        checkSavedAddress(addressManager, "ERC20VaultProxy", "erc20_vault");
+        checkSavedAddress(addressManager, "ERC721VaultProxy", "erc721_vault");
+        checkSavedAddress(addressManager, "ERC1155VaultProxy", "erc1155_vault");
+        checkSavedAddress(
+            addressManager, "SignalServiceProxy", "signal_service"
+        );
+
+        TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
+            payable(getPredeployedContractAddress("BridgeSuiteAddressManagerProxy"))
         );
 
         AddressManager newAddressManager = new AddressManager();

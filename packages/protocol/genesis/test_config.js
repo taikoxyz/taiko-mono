@@ -88,6 +88,7 @@ module.exports = {
       ProxiedERC1155Vault: getConstantAddress(`0${this.chainId}`, 5),
       ProxiedSignalService: getConstantAddress(`0${this.chainId}`, 6),
       ProxiedAddressManager: getConstantAddress(`0${this.chainId}`, 7),
+      ProxiedBridgeSuiteAddressManager: getConstantAddress(`0${this.chainId}`, 8),
       RegularERC20: getConstantAddress(`0${this.chainId}`, 99),
       TaikoL2Proxy: getConstantAddress(this.chainId, 1),
       BridgeProxy: getConstantAddress(this.chainId, 2),
@@ -96,6 +97,7 @@ module.exports = {
       ERC1155VaultProxy: getConstantAddress(this.chainId, 5),
       SignalServiceProxy: getConstantAddress(this.chainId, 6),
       AddressManagerProxy: getConstantAddress(this.chainId, 7),
+      BridgeSuiteAddressManagerProxy: getConstantAddress(this.chainId, 8),
     }
   },
   param1559: {
@@ -105,5 +107,5 @@ module.exports = {
 }
 
 function getConstantAddress(prefix, suffix) {
-  return `0x${prefix}${"0".repeat(ADDRESS_LENGTH - String(prefix).length - String(suffix).length)}${suffix}`
+  return `0x${prefix}${'0'.repeat(ADDRESS_LENGTH - String(prefix).length - String(suffix).length)}${suffix}`
 }
