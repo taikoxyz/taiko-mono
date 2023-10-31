@@ -25,6 +25,8 @@ import { ISignalService } from "./ISignalService.sol";
 /// Note: SignalService should not authorize Bridges or other Bridgable
 /// applications.
 contract SignalService is AuthorizableContract, ISignalService {
+    // storageProof represents ABI-encoded tuple of (key, value, and proof)
+    // returned from the eth_getProof() API.
     struct Hop {
         address signalRootRelay;
         bytes32 signalRoot;
