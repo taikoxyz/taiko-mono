@@ -3,6 +3,16 @@ import { getProverEndpoints } from "../utils/proverEndpoints";
 import { StyledLink } from "../components/StyledLink";
 import PocketBase from "pocketbase";
 
+function copyToClipboard(text) {
+  const el = document.createElement('textarea');
+  el.value = text;
+  document.body.appendChild(el);
+  el.select();
+  document.execCommand('copy');
+  document.body.removeChild(el);
+}
+
+
 export function ProverEndpointsTable() {
   const [provers, setProvers] = useState([]);
   const [sortOrder, setSortOrder] = useState("asc");
@@ -116,15 +126,21 @@ export function ProverEndpointsTable() {
         </thead>
         <tbody>
           {provers.map((prover, index) => (
-            <tr key={index}>
-              <td>
-                <StyledLink href={prover.url} text={prover.url} />
-              </td>
-              <td>{prover.minimumGas}</td>
-              <td>{prover.currentCapacity}</td>
-            </tr>
-          ))}
-        </tbody>
+          <tr key={index}>
+          <td>
+          <StyledLink href={prover.url} text={prover.url} />
+          <button 
+           onClick={() => copyToClipboard(`PROVER_ENDPOINTS=${prover.url}`)}
+           style={{ marginLeft: '10px' }}>
+           Copier
+        </button>
+      </td>
+      <td>{prover.minimumGas}</td>
+      <td>{prover.currentCapacity}</td>
+    </tr>
+  ))}
+</tbody>
+
       </table>
     </div>
   );
