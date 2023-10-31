@@ -24,7 +24,8 @@ export async function deployTaikoL2(
 
     const alloc: any = {};
 
-    let bridgeInitialEtherBalance = ethers.BigNumber.from("2").pow(128).sub(1); // MaxUint128
+    // Premint 1 billion premint ethers in bridge, current Ethereum's supply is ~120.27M.
+    let bridgeInitialEtherBalance = ethers.utils.parseEther(`${1_000_000_000}`);
 
     for (const seedAccount of seedAccounts) {
         const accountAddress = Object.keys(seedAccount)[0];
@@ -289,6 +290,7 @@ async function generateContractConfigs(
                 _owner: contractOwner,
                 _pendingOwner: ethers.constants.AddressZero,
                 signalService: addressMap.SignalServiceProxy,
+                gasExcess: param1559.gasExcess,
                 // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
                 publicInputHash: `${ethers.utils.solidityKeccak256(
                     ["bytes32[256]"],

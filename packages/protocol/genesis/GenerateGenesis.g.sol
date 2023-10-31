@@ -24,15 +24,13 @@ contract TestGenerateGenesis is Test, AddressResolver {
     using stdJson for string;
 
     string private configJSON = vm.readFile(
-        string.concat(vm.projectRoot(), "/genesis/test_config.json")
+        string.concat(vm.projectRoot(), "/deployments/genesis_config.json")
     );
     string private genesisAllocJSON = vm.readFile(
         string.concat(vm.projectRoot(), "/deployments/genesis_alloc.json")
     );
     address private owner = configJSON.readAddress(".contractOwner");
     address private admin = configJSON.readAddress(".contractAdmin");
-
-    // uint32 public constant BLOCK_GAS_LIMIT = 30_000_000;
 
     function testContractDeployment() public {
         assertEq(block.chainid, 167);
