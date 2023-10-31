@@ -12,7 +12,8 @@
   };
 </script>
 
-<Recipient bind:this={recipientComponent} />
-<ProcessingFee bind:this={processingFeeComponent} bind:hasEnoughEth />
-
-<div class="h-sep" />
+<div class="mt-[30px] space-y-[16px]">
+  <Recipient bind:this={recipientComponent} />
+  <ProcessingFee bind:this={processingFeeComponent} bind:hasEnoughEth />
+</div>
+<div class="h-sep my-[30px]" />

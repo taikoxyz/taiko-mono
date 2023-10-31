@@ -229,10 +229,10 @@
   $: isDisabled = idInputState !== IDInputState.VALID || addressInputState !== AddressInputState.VALID;
 </script>
 
-<div class="f-between-center gap-4">
+<div class="f-between-center gap-4 mt-[30px]">
   <ChainSelectorWrapper />
 </div>
-
+<div class="h-sep my-[30px]" />
 <!-- 
 Manual NFT Input 
 -->
