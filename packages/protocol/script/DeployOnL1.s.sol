@@ -145,6 +145,9 @@ contract DeployOnL1 is Script {
         setAddress("bridge", sharedBridge);
         setAddress("signal_service", sharedSignalService);
 
+        // Authorize the new TaikoL1 contract for shared signal service.
+        ProxiedSignalService(sharedSignalService).authorize(taikoL1Proxy, bytes32(block.chainid));
+
         // Guardian prover
         ProxiedGuardianProver guardianProver = new ProxiedGuardianProver();
         address guardianProverProxy = deployProxy(

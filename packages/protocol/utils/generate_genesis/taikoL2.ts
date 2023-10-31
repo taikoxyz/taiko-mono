@@ -492,6 +492,11 @@ async function generateContractConfigs(
                 // Ownable2StepUpgradeable
                 _owner: contractOwner,
                 _pendingOwner: ethers.constants.AddressZero,
+                authorizedAddresses: {
+                [addressMap.TaikoL2Proxy]: ethers.utils.hexZeroPad(
+                    ethers.utils.hexlify(chainId),
+                    32,
+                ) }
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,

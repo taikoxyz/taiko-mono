@@ -328,6 +328,8 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         signalService.sendSignal(keccak256(abi.encodePacked(block.prevrandao)));
 
+        assertEq(true, signalService.isAuthorizedAs(getPredeployedContractAddress("TaikoL2Proxy"), bytes32((block.chainid))));
+
         vm.startPrank(admin);
 
         TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
