@@ -48,10 +48,30 @@ contract SetRemoteBridgeSuites is Script {
         vm.startBroadcast(privateKey);
 
         for (uint256 i; i < remoteChainIDs.length; ++i) {
-            setAddress(addressManagerAddress, uint64(remoteChainIDs[i]), "bridge", remoteBridges[i]);
-            setAddress(addressManagerAddress, uint64(remoteChainIDs[i]), "erc20_vault", remoteERC20Vaults[i]);
-            setAddress(addressManagerAddress, uint64(remoteChainIDs[i]), "erc721_vault", remoteERC721Vaults[i]);
-            setAddress(addressManagerAddress, uint64(remoteChainIDs[i]), "erc1155_vault", remoteERC1155Vaults[i]);
+            setAddress(
+                addressManagerAddress,
+                uint64(remoteChainIDs[i]),
+                "bridge",
+                remoteBridges[i]
+            );
+            setAddress(
+                addressManagerAddress,
+                uint64(remoteChainIDs[i]),
+                "erc20_vault",
+                remoteERC20Vaults[i]
+            );
+            setAddress(
+                addressManagerAddress,
+                uint64(remoteChainIDs[i]),
+                "erc721_vault",
+                remoteERC721Vaults[i]
+            );
+            setAddress(
+                addressManagerAddress,
+                uint64(remoteChainIDs[i]),
+                "erc1155_vault",
+                remoteERC1155Vaults[i]
+            );
         }
 
         vm.stopBroadcast();
