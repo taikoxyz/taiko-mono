@@ -13,10 +13,7 @@ import {
     IERC1155ReceiverUpgradeable
 } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
-import {
-    ERC1155Upgradeable,
-    IERC1155Upgradeable
-} from
+import { ERC1155Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/ERC1155Upgradeable.sol";
 
 import { Proxied } from "../common/Proxied.sol";
@@ -201,7 +198,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                 }
             } else {
                 for (uint256 i; i < tokenIds.length; ++i) {
-                    IERC1155Upgradeable(nft.addr).safeTransferFrom({
+                    ERC1155Upgradeable(nft.addr).safeTransferFrom({
                         from: address(this),
                         to: message.user,
                         id: tokenIds[i],
