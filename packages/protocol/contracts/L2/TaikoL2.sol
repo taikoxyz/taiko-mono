@@ -267,6 +267,6 @@ contract TaikoL2 is Ownable2StepUpgradeable, TaikoL2Signer, ICrossChainSync {
     }
 }
 
-/// @title ProxiedTaikoL2
+/// @title ProxiedSingletonTaikoL2
 /// @notice Proxied version of the TaikoL2 contract.
-contract ProxiedTaikoL2 is Proxied, TaikoL2 { }
+contract ProxiedSingletonTaikoL2 is Proxied, TaikoL2 { }

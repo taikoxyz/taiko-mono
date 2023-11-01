@@ -50,7 +50,12 @@ contract DeployOnL1 is Script {
 
     address public proposer = vm.envAddress("PROPOSER");
 
-    address public sharedSignalService = vm.envAddress("SHARED_SIGNAL_SERVICE");
+    address public proposerOne = vm.envAddress("PROPOSER_ONE");
+
+    address public singletonBridge = vm.envAddress("SINGLETON_BRIDGE");
+
+    address public singletonSignalService =
+        vm.envAddress("SINGLETON_SIGNAL_SERVICE");
 
     uint256 public tierProvider = vm.envUint("TIER_PROVIDER");
 
@@ -72,6 +77,17 @@ contract DeployOnL1 is Script {
             guardianProvers.length == NUM_GUARDIANS,
             "invalid guardian provers number"
         );
+        if (singletonBridge == address(0)) {
+            require(
+                singletonSignalService == address(0),
+                "non-empty singleton signal service address"
+            );
+        } else {
+            require(
+                singletonSignalService != address(0),
+                "empty singleton signal service address"
+            );
+        }
         vm.startBroadcast(deployerPrivateKey);
 
         // AddressManager
@@ -91,6 +107,9 @@ contract DeployOnL1 is Script {
         setAddress(l2ChainId, "signal_service", l2SignalService);
         if (proposer != address(0)) {
             setAddress("proposer", proposer);
+        }
+        if (proposerOne != address(0)) {
+            setAddress("proposer_one", proposer);
         }
 
         // TaikoToken
@@ -124,42 +143,19 @@ contract DeployOnL1 is Script {
         );
         setAddress("taiko", taikoL1Proxy);
 
-        // Bridge
-        Bridge bridge = new ProxiedBridge();
-        deployProxy(
-            "bridge",
-            address(bridge),
-            bytes.concat(bridge.init.selector, abi.encode(addressManagerProxy))
-        );
+        // All bridging related contracts should be deployed as a singleton on
+        // each chain.
+        if (singletonBridge == address(0)) {
+            deployBridgeSuiteSingletons();
+        }
 
-        // ERC20Vault
-        ERC20Vault erc20Vault = new ProxiedERC20Vault();
-        deployProxy(
-            "erc20_vault",
-            address(erc20Vault),
-            bytes.concat(
-                erc20Vault.init.selector, abi.encode(addressManagerProxy)
-            )
-        );
+        // Bridge and SignalService addresses will be used by TaikoL1.
+        setAddress("bridge", singletonBridge);
+        setAddress("signal_service", singletonSignalService);
 
-        // ERC721Vault
-        ERC721Vault erc721Vault = new ProxiedERC721Vault();
-        deployProxy(
-            "erc721_vault",
-            address(erc721Vault),
-            bytes.concat(
-                erc721Vault.init.selector, abi.encode(addressManagerProxy)
-            )
-        );
-
-        // ERC1155Vault
-        ERC1155Vault erc1155Vault = new ProxiedERC1155Vault();
-        deployProxy(
-            "erc1155_vault",
-            address(erc1155Vault),
-            bytes.concat(
-                erc1155Vault.init.selector, abi.encode(addressManagerProxy)
-            )
+        // Authorize the new TaikoL1 contract for shared signal service.
+        ProxiedSingletonSignalService(singletonSignalService).authorize(
+            taikoL1Proxy, bytes32(block.chainid)
         );
 
         // Guardian prover
@@ -224,23 +220,6 @@ contract DeployOnL1 is Script {
             )
         );
 
-        // SignalService
-        if (sharedSignalService == address(0)) {
-            SignalService signalService = new ProxiedSignalService();
-            deployProxy(
-                "signal_service",
-                address(signalService),
-                bytes.concat(
-                    signalService.init.selector, abi.encode(addressManagerProxy)
-                )
-            );
-        } else {
-            console2.log(
-                "Warining: using shared signal service: ", sharedSignalService
-            );
-            setAddress("signal_service", sharedSignalService);
-        }
-
         // PlonkVerifier
         deployPlonkVerifiers(pseZkVerifier);
 
@@ -298,7 +277,83 @@ contract DeployOnL1 is Script {
         revert("invalid provider");
     }
 
+    function deployBridgeSuiteSingletons() private {
+        // AddressManager
+        AddressManager addressManagerForSingletons = new ProxiedAddressManager();
+        address addressManagerForSingletonsProxy = deployProxy(
+            address(0),
+            "address_manager_for_singletons",
+            address(addressManagerForSingletons),
+            bytes.concat(addressManagerForSingletons.init.selector)
+        );
+
+        // Bridge
+        Bridge bridge = new ProxiedSingletonBridge();
+        singletonBridge = deployProxy(
+            addressManagerForSingletonsProxy,
+            "bridge",
+            address(bridge),
+            bytes.concat(bridge.init.selector, abi.encode(addressManagerProxy))
+        );
+
+        // ERC20Vault
+        ERC20Vault erc20Vault = new ProxiedSingletonERC20Vault();
+        deployProxy(
+            addressManagerForSingletonsProxy,
+            "erc20_vault",
+            address(erc20Vault),
+            bytes.concat(
+                erc20Vault.init.selector, abi.encode(addressManagerProxy)
+            )
+        );
+
+        // ERC721Vault
+        ERC721Vault erc721Vault = new ProxiedSingletonERC721Vault();
+        deployProxy(
+            addressManagerForSingletonsProxy,
+            "erc721_vault",
+            address(erc721Vault),
+            bytes.concat(
+                erc721Vault.init.selector, abi.encode(addressManagerProxy)
+            )
+        );
+
+        // ERC1155Vault
+        ERC1155Vault erc1155Vault = new ProxiedSingletonERC1155Vault();
+        deployProxy(
+            addressManagerForSingletonsProxy,
+            "erc1155_vault",
+            address(erc1155Vault),
+            bytes.concat(
+                erc1155Vault.init.selector, abi.encode(addressManagerProxy)
+            )
+        );
+
+        // SignalService
+        SignalService signalService = new ProxiedSingletonSignalService();
+        singletonSignalService = deployProxy(
+            addressManagerForSingletonsProxy,
+            "signal_service",
+            address(signalService),
+            bytes.concat(
+                signalService.init.selector, abi.encode(addressManagerProxy)
+            )
+        );
+    }
+
     function deployProxy(
+        string memory name,
+        address implementation,
+        bytes memory data
+    )
+        private
+        returns (address proxy)
+    {
+        return deployProxy(addressManagerProxy, name, implementation, data);
+    }
+
+    function deployProxy(
+        address addressManager,
         string memory name,
         address implementation,
         bytes memory data
@@ -313,9 +368,9 @@ contract DeployOnL1 is Script {
         console2.log(name, "(impl) ->", implementation);
         console2.log(name, "(proxy) ->", proxy);
 
-        if (addressManagerProxy != address(0)) {
-            setAddress(bytes32(bytes(name)), proxy);
-        }
+        setAddress(
+            addressManager, uint64(block.chainid), bytes32(bytes(name)), proxy
+        );
 
         vm.writeJson(
             vm.serializeAddress("deployment", name, proxy),
@@ -324,13 +379,24 @@ contract DeployOnL1 is Script {
     }
 
     function setAddress(bytes32 name, address addr) private {
-        setAddress(uint64(block.chainid), name, addr);
+        setAddress(addressManagerProxy, uint64(block.chainid), name, addr);
     }
 
-    function setAddress(uint64 chainId, bytes32 name, address addr) private {
-        console2.log(chainId, uint256(name), "--->", addr);
-        if (addr != address(0)) {
-            AddressManager(addressManagerProxy).setAddress(chainId, name, addr);
+    function setAddress(uint256 chainId, bytes32 name, address addr) private {
+        setAddress(addressManagerProxy, uint64(chainId), name, addr);
+    }
+
+    function setAddress(
+        address addressManager,
+        uint64 chainId,
+        bytes32 name,
+        address addr
+    )
+        private
+    {
+        if (addressManager != address(0) && addr != address(0)) {
+            console2.log(chainId, uint256(name), "--->", addr);
+            AddressManager(addressManager).setAddress(chainId, name, addr);
         }
     }
 }

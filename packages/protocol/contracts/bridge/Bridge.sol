@@ -431,6 +431,6 @@ contract Bridge is EssentialContract, IBridge {
     }
 }
 
-/// @title ProxiedBridge
+/// @title ProxiedSingletonBridge
 /// @notice Proxied version of the parent contract.
-contract ProxiedBridge is Proxied, Bridge { }
+contract ProxiedSingletonBridge is Proxied, Bridge { }
