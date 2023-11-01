@@ -67,7 +67,7 @@ export async function deployTaikoL2(
 
         // pre-mint ETHs for Bridge contract
         alloc[contractConfig.address].balance =
-            contractName === "BridgeProxy"
+            contractName === "SingletonBridgeProxy"
                 ? bridgeInitialEtherBalance.toHexString()
                 : "0x0";
 
@@ -183,11 +183,11 @@ async function generateContractConfigs(
         ),
     );
     contractArtifacts.TaikoL2Proxy = proxy;
-    contractArtifacts.BridgeProxy = proxy;
-    contractArtifacts.ERC20VaultProxy = proxy;
-    contractArtifacts.ERC721VaultProxy = proxy;
-    contractArtifacts.ERC1155VaultProxy = proxy;
-    contractArtifacts.SignalServiceProxy = proxy;
+    contractArtifacts.SingletonBridgeProxy = proxy;
+    contractArtifacts.SingletonERC20VaultProxy = proxy;
+    contractArtifacts.SingletonERC721VaultProxy = proxy;
+    contractArtifacts.SingletonERC1155VaultProxy = proxy;
+    contractArtifacts.SingletonSignalServiceProxy = proxy;
     contractArtifacts.AddressManagerProxy = proxy;
     contractArtifacts.AddressManagerForSingletonsProxy = proxy;
 
@@ -264,7 +264,7 @@ async function generateContractConfigs(
                         )]: addressMap.TaikoL2Proxy,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("signal_service"),
-                        )]: addressMap.SignalServiceProxy,
+                        )]: addressMap.SingletonSignalServiceProxy,
                     },
                 },
             },
@@ -297,19 +297,19 @@ async function generateContractConfigs(
                     [chainId]: {
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("bridge"),
-                        )]: addressMap.BridgeProxy,
+                        )]: addressMap.SingletonBridgeProxy,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("erc20_vault"),
-                        )]: addressMap.ERC20VaultProxy,
+                        )]: addressMap.SingletonERC20VaultProxy,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("erc721_vault"),
-                        )]: addressMap.ERC721VaultProxy,
+                        )]: addressMap.SingletonERC721VaultProxy,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("erc1155_vault"),
-                        )]: addressMap.ERC1155VaultProxy,
+                        )]: addressMap.SingletonERC1155VaultProxy,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("signal_service"),
-                        )]: addressMap.SignalServiceProxy,
+                        )]: addressMap.SingletonSignalServiceProxy,
                     },
                 },
             },
@@ -336,7 +336,7 @@ async function generateContractConfigs(
                 // Ownable2StepUpgradeable
                 _owner: contractOwner,
                 _pendingOwner: ethers.constants.AddressZero,
-                signalService: addressMap.SignalServiceProxy,
+                signalService: addressMap.SingletonSignalServiceProxy,
                 gasExcess: param1559.gasExcess,
                 // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
                 publicInputHash: `${ethers.utils.solidityKeccak256(
@@ -366,10 +366,10 @@ async function generateContractConfigs(
                 addressMap,
             ),
         },
-        BridgeProxy: {
-            address: addressMap.BridgeProxy,
+        SingletonBridgeProxy: {
+            address: addressMap.SingletonBridgeProxy,
             deployedBytecode:
-                contractArtifacts.BridgeProxy.deployedBytecode.object,
+                contractArtifacts.SingletonBridgeProxy.deployedBytecode.object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -396,10 +396,11 @@ async function generateContractConfigs(
                 addressMap,
             ),
         },
-        ERC20VaultProxy: {
-            address: addressMap.ERC20VaultProxy,
+        SingletonERC20VaultProxy: {
+            address: addressMap.SingletonERC20VaultProxy,
             deployedBytecode:
-                contractArtifacts.ERC20VaultProxy.deployedBytecode.object,
+                contractArtifacts.SingletonERC20VaultProxy.deployedBytecode
+                    .object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -426,10 +427,11 @@ async function generateContractConfigs(
                 addressMap,
             ),
         },
-        ERC721VaultProxy: {
-            address: addressMap.ERC721VaultProxy,
+        SingletonERC721VaultProxy: {
+            address: addressMap.SingletonERC721VaultProxy,
             deployedBytecode:
-                contractArtifacts.ERC721VaultProxy.deployedBytecode.object,
+                contractArtifacts.SingletonERC721VaultProxy.deployedBytecode
+                    .object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -456,10 +458,11 @@ async function generateContractConfigs(
                 addressMap,
             ),
         },
-        ERC1155VaultProxy: {
-            address: addressMap.ERC1155VaultProxy,
+        SingletonERC1155VaultProxy: {
+            address: addressMap.SingletonERC1155VaultProxy,
             deployedBytecode:
-                contractArtifacts.ERC1155VaultProxy.deployedBytecode.object,
+                contractArtifacts.SingletonERC1155VaultProxy.deployedBytecode
+                    .object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -486,10 +489,11 @@ async function generateContractConfigs(
                 addressMap,
             ),
         },
-        SignalServiceProxy: {
-            address: addressMap.SignalServiceProxy,
+        SingletonSignalServiceProxy: {
+            address: addressMap.SingletonSignalServiceProxy,
             deployedBytecode:
-                contractArtifacts.SignalServiceProxy.deployedBytecode.object,
+                contractArtifacts.SingletonSignalServiceProxy.deployedBytecode
+                    .object,
             variables: {
                 // initializer
                 _initialized: 1,
