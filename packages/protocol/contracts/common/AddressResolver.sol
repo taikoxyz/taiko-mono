@@ -6,6 +6,8 @@
 
 pragma solidity ^0.8.20;
 
+import { StringsUpgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/utils/StringsUpgradeable.sol";
 import { IAddressManager } from "./AddressManager.sol";
 
 /// @title AddressResolver
@@ -18,13 +20,15 @@ import { IAddressManager } from "./AddressManager.sol";
 /// is no setAddressManager() function go guarantee atomicness across all
 /// contracts that are resolvers.
 abstract contract AddressResolver {
+    using StringsUpgradeable for uint256;
+
     address public addressManager;
     uint256[49] private __gap;
 
     error RESOLVER_DENIED();
     error RESOLVER_INVALID_MANAGER();
     error RESOLVER_UNEXPECTED_CHAINID();
-    error RESOLVER_ZERO_ADDR(uint64 chainId, bytes32 name);
+    error RESOLVER_ZERO_ADDR(uint64 chainId, string name);
 
     /// @dev Modifier that ensures the caller is the resolved address of a given
     /// name.
@@ -102,7 +106,7 @@ abstract contract AddressResolver {
             payable(IAddressManager(addressManager).getAddress(chainId, name));
 
         if (!allowZeroAddress && addr == address(0)) {
-            revert RESOLVER_ZERO_ADDR(chainId, name);
+            revert RESOLVER_ZERO_ADDR(chainId, uint256(name).toString());
         }
     }
 }
