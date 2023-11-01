@@ -31,7 +31,6 @@ abstract contract EssentialContract is
 
     error REENTRANT_CALL();
     error INVALID_PAUSE_STATUS();
-    error CALLER_NOT_EOA();
 
     modifier nonReentrant() {
         if (_reentry == _TRUE) revert REENTRANT_CALL();
@@ -47,17 +46,6 @@ abstract contract EssentialContract is
 
     modifier whenNotPaused() {
         if (paused()) revert INVALID_PAUSE_STATUS();
-        _;
-    }
-
-    modifier onlyFromEOA() {
-        if (msg.sender != tx.origin) revert CALLER_NOT_EOA();
-        uint256 size;
-        address sender = msg.sender;
-        assembly {
-            size := extcodesize(sender)
-        }
-        if (size != 0) revert CALLER_NOT_EOA();
         _;
     }
 

@@ -41,6 +41,7 @@ library LibProposing {
     error L1_ASSIGNMENT_INSUFFICIENT_FEE();
     error L1_BLOB_FOR_DA_DISABLED();
     error L1_NO_BLOB_FOUND();
+    error L1_PROPOSER_NOT_EOA();
     error L1_TIER_NOT_FOUND();
     error L1_TOO_MANY_BLOCKS();
     error L1_TXLIST_TOO_LARGE();
@@ -94,6 +95,11 @@ library LibProposing {
 
             if (blobHash == 0) revert L1_NO_BLOB_FOUND();
         } else {
+            // The proposer must be an Externally Owned Account (EOA) for
+            // calldata usage. This ensures that the transaction is not an
+            // internal one, making calldata retrieval more straightforward.
+            if (!msg.sender.isEOA()) revert L1_PROPOSER_NOT_EOA();
+
             if (txList.length > config.blockMaxTxListBytes) {
                 revert L1_TXLIST_TOO_LARGE();
             }

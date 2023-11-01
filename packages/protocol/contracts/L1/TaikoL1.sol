@@ -61,9 +61,6 @@ contract TaikoL1 is
     }
 
     /// @notice Proposes a Taiko L2 block.
-    /// @dev The proposer must be an Externally Owned Account (EOA) for calldata
-    /// usage. This ensures that the transaction is not an internal one, making
-    /// calldata retrieval more straightforward.
     /// @param params Block parameters, currently an encoded BlockParams object.
     /// @param txList txList data if calldata is used for DA.
     /// @return meta The metadata of the proposed L2 block.
@@ -75,7 +72,6 @@ contract TaikoL1 is
         external
         payable
         nonReentrant
-        onlyFromEOA
         returns (
             TaikoData.BlockMetadata memory meta,
             TaikoData.EthDeposit[] memory depositsProcessed
