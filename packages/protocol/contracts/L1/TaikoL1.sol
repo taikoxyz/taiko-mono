@@ -140,6 +140,7 @@ contract TaikoL1 is
     }
 
     /// @notice Pause block proving.
+    /// @param pause True if paused.
     function pauseProving(bool pause) external onlyOwner {
         LibProving.pauseProving(state, pause);
     }
