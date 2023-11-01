@@ -8,10 +8,7 @@ pragma solidity ^0.8.20;
 
 import { Create2Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/utils/Create2Upgradeable.sol";
-import {
-    ERC721Upgradeable,
-    IERC721Upgradeable
-} from
+import { ERC721Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
 import { IERC721ReceiverUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/IERC721ReceiverUpgradeable.sol";
@@ -171,7 +168,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
                 }
             } else {
                 for (uint256 i; i < tokenIds.length; ++i) {
-                    IERC721Upgradeable(nft.addr).safeTransferFrom({
+                    ERC721Upgradeable(nft.addr).safeTransferFrom({
                         from: address(this),
                         to: message.user,
                         tokenId: tokenIds[i]

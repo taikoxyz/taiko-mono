@@ -76,11 +76,7 @@ library LibAddress {
         }
     }
 
-    function isEOA(address account) internal view returns (bool) {
-        uint256 size;
-        assembly {
-            size := extcodesize(account)
-        }
-        return size == 0;
+    function isSenderEOA() internal view returns (bool) {
+        return msg.sender == tx.origin;
     }
 }
