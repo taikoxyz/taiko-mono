@@ -6,6 +6,9 @@
 
 pragma solidity ^0.8.20;
 
+import { TransparentUpgradeableProxy } from
+    "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+
 import {
     ERC1155ReceiverUpgradeable,
     IERC1155ReceiverUpgradeable
@@ -20,7 +23,7 @@ import { LibAddress } from "../libs/LibAddress.sol";
 import { LibDeploy } from "../libs/LibDeploy.sol";
 
 import { BaseVault, BaseNFTVault } from "./BaseNFTVault.sol";
-import { ProxiedBridgedERC1155, BridgedERC1155 } from "./BridgedERC1155.sol";
+import { BridgedERC1155 } from "./BridgedERC1155.sol";
 
 /// @title ERC1155NameAndSymbol
 /// @notice Interface for ERC1155 contracts that provide name() and symbol()
@@ -141,9 +144,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                 // Token does not live on this chain
                 token = _getOrDeployBridgedToken(ctoken);
                 for (uint256 i; i < tokenIds.length; ++i) {
-                    ProxiedBridgedERC1155(token).mint(
-                        _to, tokenIds[i], amounts[i]
-                    );
+                    BridgedERC1155(token).mint(_to, tokenIds[i], amounts[i]);
                 }
             }
         }
@@ -190,7 +191,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         unchecked {
             if (isBridgedToken[nft.addr]) {
                 for (uint256 i; i < tokenIds.length; ++i) {
-                    ProxiedBridgedERC1155(nft.addr).mint(
+                    BridgedERC1155(nft.addr).mint(
                         message.user, tokenIds[i], amounts[i]
                     );
                 }
@@ -279,7 +280,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             if (isBridgedToken[op.token]) {
                 nft = bridgedToCanonical[op.token];
                 for (uint256 i; i < op.tokenIds.length; ++i) {
-                    ProxiedBridgedERC1155(op.token).burn(
+                    BridgedERC1155(op.token).burn(
                         user, op.tokenIds[i], op.amounts[i]
                     );
                 }
@@ -341,21 +342,23 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         private
         returns (address btoken)
     {
-        btoken = LibDeploy.deployTransparentUpgradeableProxyFor({
-            owner: owner(),
-            salt: keccak256(abi.encode(ctoken)),
-            bytecode: type(ProxiedBridgedERC1155).creationCode,
-            initialization: bytes.concat(
-                BridgedERC1155.init.selector,
-                abi.encode(
-                    addressManager,
-                    ctoken.addr,
-                    ctoken.chainId,
-                    ctoken.symbol,
-                    ctoken.name
-                )
-                )
-        });
+        bytes memory data = bytes.concat(
+            BridgedERC1155.init.selector,
+            abi.encode(
+                addressManager,
+                ctoken.addr,
+                ctoken.chainId,
+                ctoken.symbol,
+                ctoken.name
+            )
+        );
+        btoken = address(
+            new TransparentUpgradeableProxy(
+                resolve("bridged_erc1155", false),
+                owner(),
+                data
+            )
+        );
 
         isBridgedToken[btoken] = true;
         bridgedToCanonical[btoken] = ctoken;
