@@ -52,10 +52,10 @@ contract DeployOnL1 is Script {
 
     address public proposerOne = vm.envAddress("PROPOSER_ONE");
 
-    address public bridgeSingleton = vm.envAddress("SHARED_BRIDGE");
+    address public bridgeSingleton = vm.envAddress("SINGLETON_SHARED_BRIDGE");
 
     address public signalServiceSingleton =
-        vm.envAddress("SHARED_SIGNAL_SERVICE");
+        vm.envAddress("SINGLETON_SIGNAL_SERVICE");
 
     uint256 public tierProvider = vm.envUint("TIER_PROVIDER");
 
