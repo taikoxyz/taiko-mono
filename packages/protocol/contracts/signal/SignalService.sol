@@ -9,7 +9,6 @@ pragma solidity ^0.8.20;
 import { SafeCastUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/utils/math/SafeCastUpgradeable.sol";
 
-import { AddressResolver } from "../common/AddressResolver.sol";
 import { AuthorizableContract } from "../common/AuthorizableContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { Proxied } from "../common/Proxied.sol";

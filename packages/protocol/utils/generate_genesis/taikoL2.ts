@@ -124,26 +124,12 @@ async function generateContractConfigs(
     param1559: any,
 ): Promise<any> {
     const contractArtifacts: any = {
-        // Libraries
+        // ============ Libraries ============
         LibDeploy: require(
             path.join(ARTIFACTS_PATH, "./LibDeploy.sol/LibDeploy.json"),
         ),
-        // Contracts
-        ProxiedAddressManager: require(
-            path.join(
-                ARTIFACTS_PATH,
-                "./AddressManager.sol/ProxiedAddressManager.json",
-            ),
-        ),
-        ProxiedSingletonAddressManagerForSingletons: require(
-            path.join(
-                ARTIFACTS_PATH,
-                "./AddressManager.sol/ProxiedAddressManager.json",
-            ),
-        ),
-        ProxiedTaikoL2: require(
-            path.join(ARTIFACTS_PATH, "./TaikoL2.sol/ProxiedTaikoL2.json"),
-        ),
+        // ============ Contracts ============
+        // Singletons
         ProxiedSingletonBridge: require(
             path.join(
                 ARTIFACTS_PATH,
@@ -174,6 +160,22 @@ async function generateContractConfigs(
                 "./SignalService.sol/ProxiedSingletonSignalService.json",
             ),
         ),
+        ProxiedSingletonAddressManagerForSingletons: require(
+            path.join(
+                ARTIFACTS_PATH,
+                "./AddressManager.sol/ProxiedAddressManager.json",
+            ),
+        ),
+        // Non-singletons
+        ProxiedTaikoL2: require(
+            path.join(ARTIFACTS_PATH, "./TaikoL2.sol/ProxiedTaikoL2.json"),
+        ),
+        ProxiedAddressManager: require(
+            path.join(
+                ARTIFACTS_PATH,
+                "./AddressManager.sol/ProxiedAddressManager.json",
+            ),
+        ),
     };
 
     const proxy = require(
@@ -182,14 +184,17 @@ async function generateContractConfigs(
             "./TransparentUpgradeableProxy.sol/TransparentUpgradeableProxy.json",
         ),
     );
-    contractArtifacts.TaikoL2Proxy = proxy;
+
+    // Singletons
     contractArtifacts.SingletonBridgeProxy = proxy;
     contractArtifacts.SingletonERC20VaultProxy = proxy;
     contractArtifacts.SingletonERC721VaultProxy = proxy;
     contractArtifacts.SingletonERC1155VaultProxy = proxy;
     contractArtifacts.SingletonSignalServiceProxy = proxy;
+    contractArtifacts.SingletonAddressManagerForSingletonsProxy = proxy;
+    // Non-singletons
+    contractArtifacts.TaikoL2Proxy = proxy;
     contractArtifacts.AddressManagerProxy = proxy;
-    contractArtifacts.AddressManagerForSingletonsProxy = proxy;
 
     const addressMap: any = {};
 
@@ -239,51 +244,17 @@ async function generateContractConfigs(
     console.log(addressMap);
 
     return {
-        // Libraries
-        ProxiedAddressManager: {
-            address: addressMap.ProxiedAddressManager,
-            deployedBytecode:
-                contractArtifacts.ProxiedAddressManager.deployedBytecode.object,
-        },
-        AddressManagerProxy: {
-            address: addressMap.AddressManagerProxy,
-            deployedBytecode:
-                contractArtifacts.AddressManagerProxy.deployedBytecode.object,
-            variables: {
-                // initializer
-                _initialized: 1,
-                _initializing: false,
-                // Ownable2StepUpgradeable
-                _owner: contractOwner,
-                _pendingOwner: ethers.constants.AddressZero,
-                // AddressManager
-                addresses: {
-                    [chainId]: {
-                        [ethers.utils.hexlify(
-                            ethers.utils.toUtf8Bytes("taiko"),
-                        )]: addressMap.TaikoL2Proxy,
-                        [ethers.utils.hexlify(
-                            ethers.utils.toUtf8Bytes("signal_service"),
-                        )]: addressMap.SingletonSignalServiceProxy,
-                    },
-                },
-            },
-            slots: {
-                [ADMIN_SLOT]: contractAdmin,
-                [IMPLEMENTATION_SLOT]: addressMap.ProxiedAddressManager,
-            },
-            isProxy: true,
-        },
+        // Singletons
         ProxiedSingletonAddressManagerForSingletons: {
             address: addressMap.ProxiedSingletonAddressManagerForSingletons,
             deployedBytecode:
                 contractArtifacts.ProxiedSingletonAddressManagerForSingletons
                     .deployedBytecode.object,
         },
-        AddressManagerForSingletonsProxy: {
-            address: addressMap.AddressManagerForSingletonsProxy,
+        SingletonAddressManagerForSingletonsProxy: {
+            address: addressMap.SingletonAddressManagerForSingletonsProxy,
             deployedBytecode:
-                contractArtifacts.AddressManagerForSingletonsProxy
+                contractArtifacts.SingletonAddressManagerForSingletonsProxy
                     .deployedBytecode.object,
             variables: {
                 // initializer
@@ -317,45 +288,6 @@ async function generateContractConfigs(
                 [ADMIN_SLOT]: contractAdmin,
                 [IMPLEMENTATION_SLOT]:
                     addressMap.ProxiedSingletonAddressManagerForSingletons,
-            },
-            isProxy: true,
-        },
-        ProxiedTaikoL2: {
-            address: addressMap.ProxiedTaikoL2,
-            deployedBytecode: linkContractLibs(
-                contractArtifacts.ProxiedTaikoL2,
-                addressMap,
-            ),
-        },
-        TaikoL2Proxy: {
-            address: addressMap.TaikoL2Proxy,
-            deployedBytecode:
-                contractArtifacts.TaikoL2Proxy.deployedBytecode.object,
-            variables: {
-                // TaikoL2
-                // Ownable2StepUpgradeable
-                _owner: contractOwner,
-                _pendingOwner: ethers.constants.AddressZero,
-                signalService: addressMap.SingletonSignalServiceProxy,
-                gasExcess: param1559.gasExcess,
-                // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
-                publicInputHash: `${ethers.utils.solidityKeccak256(
-                    ["bytes32[256]"],
-                    [
-                        new Array(255)
-                            .fill(ethers.constants.HashZero)
-                            .concat([
-                                ethers.utils.hexZeroPad(
-                                    ethers.utils.hexlify(chainId),
-                                    32,
-                                ),
-                            ]),
-                    ],
-                )}`,
-            },
-            slots: {
-                [ADMIN_SLOT]: contractAdmin,
-                [IMPLEMENTATION_SLOT]: addressMap.ProxiedTaikoL2,
             },
             isProxy: true,
         },
@@ -399,8 +331,7 @@ async function generateContractConfigs(
         SingletonERC20VaultProxy: {
             address: addressMap.SingletonERC20VaultProxy,
             deployedBytecode:
-                contractArtifacts.SingletonERC20VaultProxy.deployedBytecode
-                    .object,
+                contractArtifacts.SingletonERC20VaultProxy.deployedBytecode.object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -430,8 +361,7 @@ async function generateContractConfigs(
         SingletonERC721VaultProxy: {
             address: addressMap.SingletonERC721VaultProxy,
             deployedBytecode:
-                contractArtifacts.SingletonERC721VaultProxy.deployedBytecode
-                    .object,
+                contractArtifacts.SingletonERC721VaultProxy.deployedBytecode.object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -461,8 +391,7 @@ async function generateContractConfigs(
         SingletonERC1155VaultProxy: {
             address: addressMap.SingletonERC1155VaultProxy,
             deployedBytecode:
-                contractArtifacts.SingletonERC1155VaultProxy.deployedBytecode
-                    .object,
+                contractArtifacts.SingletonERC1155VaultProxy.deployedBytecode.object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -492,8 +421,7 @@ async function generateContractConfigs(
         SingletonSignalServiceProxy: {
             address: addressMap.SingletonSignalServiceProxy,
             deployedBytecode:
-                contractArtifacts.SingletonSignalServiceProxy.deployedBytecode
-                    .object,
+                contractArtifacts.SingletonSignalServiceProxy.deployedBytecode.object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -514,6 +442,80 @@ async function generateContractConfigs(
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedSingletonSignalService,
+            },
+            isProxy: true,
+        },
+        ProxiedAddressManager: {
+            address: addressMap.ProxiedAddressManager,
+            deployedBytecode:
+                contractArtifacts.ProxiedAddressManager.deployedBytecode.object,
+        },
+        // Non-singletons
+        ProxiedTaikoL2: {
+            address: addressMap.ProxiedTaikoL2,
+            deployedBytecode: linkContractLibs(
+                contractArtifacts.ProxiedTaikoL2,
+                addressMap,
+            ),
+        },
+        TaikoL2Proxy: {
+            address: addressMap.TaikoL2Proxy,
+            deployedBytecode:
+                contractArtifacts.TaikoL2Proxy.deployedBytecode.object,
+            variables: {
+                // TaikoL2
+                // Ownable2StepUpgradeable
+                _owner: contractOwner,
+                _pendingOwner: ethers.constants.AddressZero,
+                signalService: addressMap.SingletonSignalServiceProxy,
+                gasExcess: param1559.gasExcess,
+                // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
+                publicInputHash: `${ethers.utils.solidityKeccak256(
+                    ["bytes32[256]"],
+                    [
+                        new Array(255)
+                            .fill(ethers.constants.HashZero)
+                            .concat([
+                                ethers.utils.hexZeroPad(
+                                    ethers.utils.hexlify(chainId),
+                                    32,
+                                ),
+                            ]),
+                    ],
+                )}`,
+            },
+            slots: {
+                [ADMIN_SLOT]: contractAdmin,
+                [IMPLEMENTATION_SLOT]: addressMap.ProxiedTaikoL2,
+            },
+            isProxy: true,
+        },
+        AddressManagerProxy: {
+            address: addressMap.AddressManagerProxy,
+            deployedBytecode:
+                contractArtifacts.AddressManagerProxy.deployedBytecode.object,
+            variables: {
+                // initializer
+                _initialized: 1,
+                _initializing: false,
+                // Ownable2StepUpgradeable
+                _owner: contractOwner,
+                _pendingOwner: ethers.constants.AddressZero,
+                // AddressManager
+                addresses: {
+                    [chainId]: {
+                        [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("taiko"),
+                        )]: addressMap.TaikoL2Proxy,
+                        [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("signal_service"),
+                        )]: addressMap.SingletonSignalServiceProxy,
+                    },
+                },
+            },
+            slots: {
+                [ADMIN_SLOT]: contractAdmin,
+                [IMPLEMENTATION_SLOT]: addressMap.ProxiedAddressManager,
             },
             isProxy: true,
         },
