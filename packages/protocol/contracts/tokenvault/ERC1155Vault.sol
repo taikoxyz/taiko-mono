@@ -362,6 +362,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         isBridgedToken[btoken] = true;
         bridgedToCanonical[btoken] = ctoken;
         canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
+
         emit BridgedTokenDeployed({
             chainId: ctoken.chainId,
             ctoken: ctoken.addr,
