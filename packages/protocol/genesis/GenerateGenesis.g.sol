@@ -40,8 +40,8 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkDeployedCode("ProxiedSingletonERC721Vault");
         checkDeployedCode("ProxiedSingletonERC1155Vault");
         checkDeployedCode("ProxiedSingletonBridge");
-        checkDeployedCode("ProxiedSingletonAddressManagerForSingletons");
         checkDeployedCode("ProxiedSingletonSignalService");
+        checkDeployedCode("ProxiedSingletonAddressManagerForSingletons");
 
         // check proxy implementations
         checkProxyImplementation("SingletonERC20VaultProxy", "ProxiedSingletonERC20Vault");
@@ -58,8 +58,8 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkDeployedCode("SingletonERC721VaultProxy");
         checkDeployedCode("SingletonERC1155VaultProxy");
         checkDeployedCode("SingletonBridgeProxy");
-        checkDeployedCode("SingletonAddressManagerForSingletonsProxy");
         checkDeployedCode("SingletonSignalServiceProxy");
+        checkDeployedCode("SingletonAddressManagerForSingletonsProxy");
     }
 
     function testNonSingletonContractDeployment() public {
