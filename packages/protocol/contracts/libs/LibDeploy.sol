@@ -12,7 +12,7 @@ import { TransparentUpgradeableProxy } from
     "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 library LibDeploy {
-    error DEPLOY_INVALID_IMPL();
+    error DEPLOY_INVALID_PARAM();
 
     /// @dev Deploys a contract (via proxy)
     function deployTransparentUpgradeableProxyFor(
@@ -24,6 +24,13 @@ library LibDeploy {
         external
         returns (address)
     {
+        if (
+            owner == address(0) || salt == 0 || bytecode.length == 0
+                || initialization.length == 0
+        ) {
+            revert DEPLOY_INVALID_PARAM();
+        }
+
         address logic = Create2Upgradeable.deploy({
             amount: 0,
             salt: salt,
