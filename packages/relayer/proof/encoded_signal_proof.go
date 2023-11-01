@@ -139,6 +139,8 @@ func (p *Prover) EncodedSignalProofWithHops(
 		return nil, 0, errors.Wrap(err, "enoding.EncodeSignalProof")
 	}
 
+	slog.Info("blockNum", "blockNUm", blockNum)
+
 	return encodedSignalProof, blockHeader.Height.Uint64(), nil
 }
 

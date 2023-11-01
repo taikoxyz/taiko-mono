@@ -17,7 +17,7 @@ import { IVerifier } from "./IVerifier.sol";
 /// @title SgxAndZkVerifier
 /// @notice See the documentation in {IVerifier}.
 contract SgxAndZkVerifier is EssentialContract, IVerifier {
-    uint8 public constant SGX_PROOF_SIZE = 87;
+    uint8 public constant SGX_PROOF_SIZE = 89;
     uint256[50] private __gap;
 
     /// @notice Initializes the contract with the provided address manager.
