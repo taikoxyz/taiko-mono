@@ -233,8 +233,8 @@ abstract contract TaikoL1TestBase is TestBase {
                 tran, newInstance, prover, keccak256(abi.encode(meta))
             );
 
-            proof.data =
-                bytes.concat(bytes2(0), bytes20(newInstance), signature);
+            evidence.proof =
+                bytes.concat(bytes4(0), bytes20(newPubKey), signature);
         }
 
         if (tier == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
@@ -243,7 +243,7 @@ abstract contract TaikoL1TestBase is TestBase {
             );
 
             bytes memory sgxProof =
-                bytes.concat(bytes2(0), bytes20(newInstance), signature);
+                bytes.concat(bytes4(0), bytes20(newPubKey), signature);
             // Concatenate SGX and ZK (in this order)
             proof.data = bytes.concat(sgxProof, proof.data);
         }

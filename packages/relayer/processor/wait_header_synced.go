@@ -16,14 +16,14 @@ func (p *Processor) waitHeaderSynced(
 	headerSyncer relayer.HeaderSyncer,
 	ethClient ethClient,
 	blockNum uint64,
-) error {
+) (uint64, error) {
 	ticker := time.NewTicker(time.Duration(p.headerSyncIntervalSeconds) * time.Second)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return 0, ctx.Err()
 		case <-ticker.C:
 			slog.Info("waitHeaderSynced checking if tx is processable",
 				"blockNumber", blockNum,
@@ -34,7 +34,7 @@ func (p *Processor) waitHeaderSynced(
 				Context: ctx,
 			}, 0)
 			if err != nil {
-				return errors.Wrap(err, "p.destHeaderSyncer.GetSyncedSnippet")
+				return 0, errors.Wrap(err, "p.destHeaderSyncer.GetSyncedSnippet")
 			}
 
 			slog.Info("latestSyncedSnippet",
@@ -44,7 +44,7 @@ func (p *Processor) waitHeaderSynced(
 
 			header, err := ethClient.HeaderByHash(ctx, latestSyncedSnippet.BlockHash)
 			if err != nil {
-				return errors.Wrap(err, "ethClient.HeaderByHash")
+				return 0, errors.Wrap(err, "ethClient.HeaderByHash")
 			}
 
 			// header is caught up
@@ -54,7 +54,7 @@ func (p *Processor) waitHeaderSynced(
 					"latestSyncedBlockNum", header.Number.Uint64(),
 				)
 
-				return nil
+				return header.Number.Uint64(), nil
 			}
 
 			slog.Info("waitHeaderSynced waiting to be caughtUp",

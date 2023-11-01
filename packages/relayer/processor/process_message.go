@@ -99,7 +99,7 @@ func (p *Processor) processMessage(
 		for _, hop := range p.hops {
 			hop.blockNum = blockNum
 
-			err := p.waitHeaderSynced(ctx, hop.headerSyncer, hopEthClient, blockNum)
+			_, err := p.waitHeaderSynced(ctx, hop.headerSyncer, hopEthClient, blockNum)
 
 			if err != nil {
 				return errors.Wrap(err, "p.waitHeaderSynced")
@@ -118,11 +118,12 @@ func (p *Processor) processMessage(
 			hopEthClient = hop.ethClient
 		}
 
-		if err := p.waitHeaderSynced(ctx, p.destHeaderSyncer, hopEthClient, blockNum); err != nil {
+		blockNum, err = p.waitHeaderSynced(ctx, p.destHeaderSyncer, hopEthClient, blockNum)
+		if err != nil {
 			return errors.Wrap(err, "p.waitHeaderSynced")
 		}
 	} else {
-		if err := p.waitHeaderSynced(ctx, p.destHeaderSyncer, p.srcEthClient, msgBody.Event.Raw.BlockNumber); err != nil {
+		if _, err := p.waitHeaderSynced(ctx, p.destHeaderSyncer, p.srcEthClient, msgBody.Event.Raw.BlockNumber); err != nil {
 			return errors.Wrap(err, "p.waitHeaderSynced")
 		}
 	}
@@ -146,7 +147,6 @@ func (p *Processor) processMessage(
 	// if a hop is set, the proof service needs to generate an additional proof
 	// for the signal service intermediary chain in between the source chain
 	// and the destination chain.
-	// TODO: support multiple hops via env vars/configs instead of just one.
 	for _, hop := range p.hops {
 		slog.Info(
 			"adding hop",
