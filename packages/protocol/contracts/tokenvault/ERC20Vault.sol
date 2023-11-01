@@ -341,6 +341,6 @@ contract ERC20Vault is BaseVault {
     }
 }
 
-/// @title ProxiedERC20Vault
+/// @title ProxiedSingletonERC20Vault
 /// @notice Proxied version of the parent contract.
-contract ProxiedERC20Vault is Proxied, ERC20Vault { }
+contract ProxiedSingletonERC20Vault is Proxied, ERC20Vault { }

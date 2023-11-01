@@ -379,6 +379,6 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     }
 }
 
-/// @title ProxiedERC1155Vault
+/// @title ProxiedSingletonERC1155Vault
 /// @notice Proxied version of the parent contract.
-contract ProxiedERC1155Vault is Proxied, ERC1155Vault { }
+contract ProxiedSingletonERC1155Vault is Proxied, ERC1155Vault { }
