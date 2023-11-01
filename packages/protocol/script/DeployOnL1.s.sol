@@ -52,9 +52,9 @@ contract DeployOnL1 is Script {
 
     address public proposerOne = vm.envAddress("PROPOSER_ONE");
 
-    address public bridgeSingleton = vm.envAddress("SINGLETON_SHARED_BRIDGE");
+    address public singletonBridge = vm.envAddress("SINGLETON_BRIDGE");
 
-    address public signalServiceSingleton =
+    address public singletonSignalService =
         vm.envAddress("SINGLETON_SIGNAL_SERVICE");
 
     uint256 public tierProvider = vm.envUint("TIER_PROVIDER");
@@ -77,15 +77,15 @@ contract DeployOnL1 is Script {
             guardianProvers.length == NUM_GUARDIANS,
             "invalid guardian provers number"
         );
-        if (bridgeSingleton == address(0)) {
+        if (singletonBridge == address(0)) {
             require(
-                signalServiceSingleton == address(0),
-                "non-empty shared signal service address"
+                singletonSignalService == address(0),
+                "non-empty singleton signal service address"
             );
         } else {
             require(
-                signalServiceSingleton != address(0),
-                "empty shared signal service address"
+                singletonSignalService != address(0),
+                "empty singleton signal service address"
             );
         }
         vm.startBroadcast(deployerPrivateKey);
@@ -145,16 +145,16 @@ contract DeployOnL1 is Script {
 
         // All bridging related contracts should be deployed as a singleton on
         // each chain.
-        if (bridgeSingleton == address(0)) {
+        if (singletonBridge == address(0)) {
             deployBridgeSuiteSingleton();
         }
 
         // Bridge and SignalService addresses will be used by TaikoL1.
-        setAddress("bridge", bridgeSingleton);
-        setAddress("signal_service", signalServiceSingleton);
+        setAddress("bridge", singletonBridge);
+        setAddress("signal_service", singletonSignalService);
 
         // Authorize the new TaikoL1 contract for shared signal service.
-        ProxiedSingletonSignalService(signalServiceSingleton).authorize(
+        ProxiedSingletonSignalService(singletonSignalService).authorize(
             taikoL1Proxy, bytes32(block.chainid)
         );
 
@@ -279,18 +279,18 @@ contract DeployOnL1 is Script {
 
     function deployBridgeSuiteSingleton() private {
         // AddressManager
-        AddressManager bridgeSuiteAddressManager = new ProxiedAddressManager();
-        address bridgeSuiteAddressManagerProxy = deployProxy(
+        AddressManager addressManagerForSingletons = new ProxiedAddressManager();
+        address addressManagerForSingletonsProxy = deployProxy(
             address(0),
-            "bridge_suite_address_manager",
-            address(bridgeSuiteAddressManager),
-            bytes.concat(bridgeSuiteAddressManager.init.selector)
+            "address_manager_for_singletons",
+            address(addressManagerForSingletons),
+            bytes.concat(addressManagerForSingletons.init.selector)
         );
 
         // Bridge
         Bridge bridge = new ProxiedSingletonBridge();
-        bridgeSingleton = deployProxy(
-            bridgeSuiteAddressManagerProxy,
+        singletonBridge = deployProxy(
+            addressManagerForSingletonsProxy,
             "bridge",
             address(bridge),
             bytes.concat(bridge.init.selector, abi.encode(addressManagerProxy))
@@ -299,7 +299,7 @@ contract DeployOnL1 is Script {
         // ERC20Vault
         ERC20Vault erc20Vault = new ProxiedSingletonERC20Vault();
         deployProxy(
-            bridgeSuiteAddressManagerProxy,
+            addressManagerForSingletonsProxy,
             "erc20_vault",
             address(erc20Vault),
             bytes.concat(
@@ -310,7 +310,7 @@ contract DeployOnL1 is Script {
         // ERC721Vault
         ERC721Vault erc721Vault = new ProxiedSingletonERC721Vault();
         deployProxy(
-            bridgeSuiteAddressManagerProxy,
+            addressManagerForSingletonsProxy,
             "erc721_vault",
             address(erc721Vault),
             bytes.concat(
@@ -321,7 +321,7 @@ contract DeployOnL1 is Script {
         // ERC1155Vault
         ERC1155Vault erc1155Vault = new ProxiedSingletonERC1155Vault();
         deployProxy(
-            bridgeSuiteAddressManagerProxy,
+            addressManagerForSingletonsProxy,
             "erc1155_vault",
             address(erc1155Vault),
             bytes.concat(
@@ -331,8 +331,8 @@ contract DeployOnL1 is Script {
 
         // SignalService
         SignalService signalService = new ProxiedSingletonSignalService();
-        signalServiceSingleton = deployProxy(
-            bridgeSuiteAddressManagerProxy,
+        singletonSignalService = deployProxy(
+            addressManagerForSingletonsProxy,
             "signal_service",
             address(signalService),
             bytes.concat(
