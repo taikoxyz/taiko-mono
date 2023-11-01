@@ -39,15 +39,19 @@ library LibProving {
         uint16 tier
     );
 
+    event ProvingPaused(bool paused);
+
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_ALREADY_CONTESTED();
     error L1_ALREADY_PROVED();
     error L1_ASSIGNED_PROVER_NOT_ALLOWED();
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_BLOCK_ID();
+    error L1_INVALID_PAUSE_STATUS();
     error L1_INVALID_TIER();
     error L1_INVALID_TRANSITION();
     error L1_NOT_ASSIGNED_PROVER();
+    error L1_PROVING_PAUSED();
     error L1_UNEXPECTED_TRANSITION_TIER();
 
     /// @dev Proves or contests a block transition.
@@ -67,6 +71,8 @@ library LibProving {
 
         // Check that the block has been proposed but has not yet been verified.
         TaikoData.SlotB memory b = state.slotB;
+        if (b.provingPaused) revert L1_PROVING_PAUSED();
+
         if (meta.id <= b.lastVerifiedBlockId || meta.id >= b.numBlocks) {
             revert L1_INVALID_BLOCK_ID();
         }
@@ -445,5 +451,13 @@ library LibProving {
                 tier: proof.tier
             });
         }
+    }
+
+    function pauseProving(TaikoData.State storage state, bool pause) internal {
+        if (state.slotB.provingPaused == pause) {
+            revert L1_INVALID_PAUSE_STATUS();
+        }
+        state.slotB.provingPaused = pause;
+        emit ProvingPaused(pause);
     }
 }

@@ -134,6 +134,11 @@ contract TaikoL1 is
         );
     }
 
+    /// @notice Pause block proving.
+    function pauseProving(bool pause) external onlyOwner {
+        LibProving.pauseProving(state, pause);
+    }
+
     /// @notice Deposit Taiko token to this contract
     /// @param amount Amount of Taiko token to deposit.
     function depositTaikoToken(uint256 amount) public {
