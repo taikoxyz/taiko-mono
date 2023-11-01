@@ -6,8 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-import { Create2Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/Create2Upgradeable.sol";
 import { ERC721Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
 import { IERC721ReceiverUpgradeable } from
@@ -19,7 +17,7 @@ import { LibDeploy } from "../libs/LibDeploy.sol";
 import { Proxied } from "../common/Proxied.sol";
 
 import { BaseNFTVault } from "./BaseNFTVault.sol";
-import { ProxiedBridgedERC721 } from "./BridgedERC721.sol";
+import { ProxiedBridgedERC721, BridgedERC721 } from "./BridgedERC721.sol";
 
 /// @title ERC721Vault
 /// @dev Labeled in AddressResolver as "erc721_vault"
@@ -270,17 +268,12 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         private
         returns (address btoken)
     {
-        address bridgedToken = Create2Upgradeable.deploy({
-            amount: 0, // amount of Ether to send
+        btoken = LibDeploy.deployTransparentUpgradeableProxyFor({
+            owner: owner(),
             salt: keccak256(abi.encode(ctoken)),
-            bytecode: type(ProxiedBridgedERC721).creationCode
-        });
-
-        btoken = LibDeploy.deployProxy(
-            address(bridgedToken),
-            owner(),
-            bytes.concat(
-                ProxiedBridgedERC721(bridgedToken).init.selector,
+            bytecode: type(ProxiedBridgedERC721).creationCode,
+            initialization: bytes.concat(
+                BridgedERC721.init.selector,
                 abi.encode(
                     addressManager,
                     ctoken.addr,
@@ -288,8 +281,8 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
                     ctoken.symbol,
                     ctoken.name
                 )
-            )
-        );
+                )
+        });
 
         isBridgedToken[btoken] = true;
         bridgedToCanonical[btoken] = ctoken;
