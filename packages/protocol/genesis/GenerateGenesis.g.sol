@@ -35,25 +35,25 @@ contract TestGenerateGenesis is Test, AddressResolver {
     function testContractDeployment() public {
         assertEq(block.chainid, 167);
 
+        checkDeployedCode("ProxiedSingletonERC20Vault");
+        checkDeployedCode("ProxiedSingletonERC721Vault");
+        checkDeployedCode("ProxiedSingletonERC1155Vault");
+        checkDeployedCode("ProxiedSingletonBridge");
         checkDeployedCode("ProxiedTaikoL2");
-        checkDeployedCode("ProxiedERC20Vault");
-        checkDeployedCode("ProxiedERC721Vault");
-        checkDeployedCode("ProxiedERC1155Vault");
-        checkDeployedCode("ProxiedBridge");
         checkDeployedCode("RegularERC20");
         checkDeployedCode("ProxiedAddressManager");
         checkDeployedCode("ProxiedAddressManager");
-        checkDeployedCode("ProxiedBridgeSuiteAddressManager");
+        checkDeployedCode("ProxiedSingletonAddressManagerForSingletons");
 
         // check proxy implementations
         checkProxyImplementation("TaikoL2Proxy", "ProxiedTaikoL2");
-        checkProxyImplementation("ERC20VaultProxy", "ProxiedERC20Vault");
-        checkProxyImplementation("ERC721VaultProxy", "ProxiedERC721Vault");
-        checkProxyImplementation("ERC1155VaultProxy", "ProxiedERC1155Vault");
-        checkProxyImplementation("BridgeProxy", "ProxiedBridge");
+        checkProxyImplementation("ERC20VaultProxy", "ProxiedSingletonERC20Vault");
+        checkProxyImplementation("ERC721VaultProxy", "ProxiedSingletonERC721Vault");
+        checkProxyImplementation("ERC1155VaultProxy", "ProxiedSingletonERC1155Vault");
+        checkProxyImplementation("BridgeProxy", "ProxiedSingletonBridge");
         checkProxyImplementation("AddressManagerProxy", "ProxiedAddressManager");
-        checkProxyImplementation("BridgeSuiteAddressManagerProxy", "ProxiedBridgeSuiteAddressManager");
-        checkProxyImplementation("SignalServiceProxy", "ProxiedSignalService");
+        checkProxyImplementation("AddressManagerForSingletonsProxy", "ProxiedSingletonAddressManagerForSingletons");
+        checkProxyImplementation("SignalServiceProxy", "ProxiedSingletonSignalService");
 
         // check proxies
         checkDeployedCode("TaikoL2Proxy");
@@ -62,7 +62,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkDeployedCode("ERC1155VaultProxy");
         checkDeployedCode("BridgeProxy");
         checkDeployedCode("AddressManagerProxy");
-        checkDeployedCode("BridgeSuiteAddressManagerProxy");
+        checkDeployedCode("AddressManagerForSingletonsProxy");
         checkDeployedCode("SignalServiceProxy");
     }
 
@@ -91,9 +91,9 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.stopPrank();
     }
 
-    function testBridgeSuiteAddressManager() public {
+    function testAddressManagerForSingletons() public {
         AddressManager addressManager =
-            AddressManager(getPredeployedContractAddress("BridgeSuiteAddressManagerProxy"));
+            AddressManager(getPredeployedContractAddress("AddressManagerForSingletonsProxy"));
 
         assertEq(owner, addressManager.owner());
 
@@ -106,7 +106,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         );
 
         TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
-            payable(getPredeployedContractAddress("BridgeSuiteAddressManagerProxy"))
+            payable(getPredeployedContractAddress("AddressManagerForSingletonsProxy"))
         );
 
         AddressManager newAddressManager = new AddressManager();

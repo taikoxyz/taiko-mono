@@ -178,6 +178,6 @@ contract SignalService is AuthorizableContract, ISignalService {
     function skipProofCheck() public pure virtual returns (bool) { }
 }
 
-/// @title ProxiedSignalService
+/// @title ProxiedSingletonSignalService
 /// @notice Proxied version of the parent contract.
-contract ProxiedSignalService is Proxied, SignalService { }
+contract ProxiedSingletonSignalService is Proxied, SignalService { }

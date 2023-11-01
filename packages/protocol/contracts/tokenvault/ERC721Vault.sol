@@ -308,6 +308,6 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
     }
 }
 
-/// @title ProxiedERC721Vault
+/// @title ProxiedSingletonERC721Vault
 /// @notice Proxied version of the parent contract.
-contract ProxiedERC721Vault is Proxied, ERC721Vault { }
+contract ProxiedSingletonERC721Vault is Proxied, ERC721Vault { }

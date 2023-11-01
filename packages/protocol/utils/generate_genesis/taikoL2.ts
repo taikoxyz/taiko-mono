@@ -79,7 +79,9 @@ export async function deployTaikoL2(
             storageLayoutName = contractName.replace("Proxy", "");
             storageLayoutName = `Proxied${storageLayoutName}`;
         }
-        storageLayoutName = contractName.includes("AddressManager") ? "ProxiedAddressManager" : storageLayoutName
+        storageLayoutName = contractName.includes("AddressManager")
+            ? "ProxiedAddressManager"
+            : storageLayoutName;
 
         storageLayouts[contractName] =
             await getStorageLayout(storageLayoutName);
@@ -133,7 +135,7 @@ async function generateContractConfigs(
                 "./AddressManager.sol/ProxiedAddressManager.json",
             ),
         ),
-        ProxiedBridgeSuiteAddressManager: require(
+        ProxiedSingletonAddressManagerForSingletons: require(
             path.join(
                 ARTIFACTS_PATH,
                 "./AddressManager.sol/ProxiedAddressManager.json",
@@ -142,31 +144,34 @@ async function generateContractConfigs(
         ProxiedTaikoL2: require(
             path.join(ARTIFACTS_PATH, "./TaikoL2.sol/ProxiedTaikoL2.json"),
         ),
-        ProxiedBridge: require(
-            path.join(ARTIFACTS_PATH, "./Bridge.sol/ProxiedBridge.json"),
-        ),
-        ProxiedERC20Vault: require(
+        ProxiedSingletonBridge: require(
             path.join(
                 ARTIFACTS_PATH,
-                "./ERC20Vault.sol/ProxiedERC20Vault.json",
+                "./Bridge.sol/ProxiedSingletonBridge.json",
             ),
         ),
-        ProxiedERC721Vault: require(
+        ProxiedSingletonERC20Vault: require(
             path.join(
                 ARTIFACTS_PATH,
-                "./ERC721Vault.sol/ProxiedERC721Vault.json",
+                "./ERC20Vault.sol/ProxiedSingletonERC20Vault.json",
             ),
         ),
-        ProxiedERC1155Vault: require(
+        ProxiedSingletonERC721Vault: require(
             path.join(
                 ARTIFACTS_PATH,
-                "./ERC1155Vault.sol/ProxiedERC1155Vault.json",
+                "./ERC721Vault.sol/ProxiedSingletonERC721Vault.json",
             ),
         ),
-        ProxiedSignalService: require(
+        ProxiedSingletonERC1155Vault: require(
             path.join(
                 ARTIFACTS_PATH,
-                "./SignalService.sol/ProxiedSignalService.json",
+                "./ERC1155Vault.sol/ProxiedSingletonERC1155Vault.json",
+            ),
+        ),
+        ProxiedSingletonSignalService: require(
+            path.join(
+                ARTIFACTS_PATH,
+                "./SignalService.sol/ProxiedSingletonSignalService.json",
             ),
         ),
     };
@@ -184,7 +189,7 @@ async function generateContractConfigs(
     contractArtifacts.ERC1155VaultProxy = proxy;
     contractArtifacts.SignalServiceProxy = proxy;
     contractArtifacts.AddressManagerProxy = proxy;
-    contractArtifacts.BridgeSuiteAddressManagerProxy = proxy;
+    contractArtifacts.AddressManagerForSingletonsProxy = proxy;
 
     const addressMap: any = {};
 
@@ -198,15 +203,15 @@ async function generateContractConfigs(
                     addressMap,
                 );
                 break;
-            case "ProxiedBridge":
+            case "ProxiedSingletonBridge":
                 bytecode = linkContractLibs(
-                    contractArtifacts.ProxiedBridge,
+                    contractArtifacts.ProxiedSingletonBridge,
                     addressMap,
                 );
                 break;
-            case "ProxiedSignalService":
+            case "ProxiedSingletonSignalService":
                 bytecode = linkContractLibs(
-                    contractArtifacts.ProxiedSignalService,
+                    contractArtifacts.ProxiedSingletonSignalService,
                     addressMap,
                 );
                 break;
@@ -269,15 +274,17 @@ async function generateContractConfigs(
             },
             isProxy: true,
         },
-        ProxiedBridgeSuiteAddressManager: {
-            address: addressMap.ProxiedBridgeSuiteAddressManager,
+        ProxiedSingletonAddressManagerForSingletons: {
+            address: addressMap.ProxiedSingletonAddressManagerForSingletons,
             deployedBytecode:
-                contractArtifacts.ProxiedBridgeSuiteAddressManager.deployedBytecode.object,
+                contractArtifacts.ProxiedSingletonAddressManagerForSingletons
+                    .deployedBytecode.object,
         },
-        BridgeSuiteAddressManagerProxy: {
-            address: addressMap.BridgeSuiteAddressManagerProxy,
+        AddressManagerForSingletonsProxy: {
+            address: addressMap.AddressManagerForSingletonsProxy,
             deployedBytecode:
-                contractArtifacts.BridgeSuiteAddressManagerProxy.deployedBytecode.object,
+                contractArtifacts.AddressManagerForSingletonsProxy
+                    .deployedBytecode.object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -308,7 +315,8 @@ async function generateContractConfigs(
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
-                [IMPLEMENTATION_SLOT]: addressMap.ProxiedBridgeSuiteAddressManager,
+                [IMPLEMENTATION_SLOT]:
+                    addressMap.ProxiedSingletonAddressManagerForSingletons,
             },
             isProxy: true,
         },
@@ -351,10 +359,10 @@ async function generateContractConfigs(
             },
             isProxy: true,
         },
-        ProxiedBridge: {
-            address: addressMap.ProxiedBridge,
+        ProxiedSingletonBridge: {
+            address: addressMap.ProxiedSingletonBridge,
             deployedBytecode: linkContractLibs(
-                contractArtifacts.ProxiedBridge,
+                contractArtifacts.ProxiedSingletonBridge,
                 addressMap,
             ),
         },
@@ -377,14 +385,14 @@ async function generateContractConfigs(
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
-                [IMPLEMENTATION_SLOT]: addressMap.ProxiedBridge,
+                [IMPLEMENTATION_SLOT]: addressMap.ProxiedSingletonBridge,
             },
             isProxy: true,
         },
-        ProxiedERC20Vault: {
-            address: addressMap.ProxiedERC20Vault,
+        ProxiedSingletonERC20Vault: {
+            address: addressMap.ProxiedSingletonERC20Vault,
             deployedBytecode: linkContractLibs(
-                contractArtifacts.ProxiedERC20Vault,
+                contractArtifacts.ProxiedSingletonERC20Vault,
                 addressMap,
             ),
         },
@@ -407,14 +415,14 @@ async function generateContractConfigs(
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
-                [IMPLEMENTATION_SLOT]: addressMap.ProxiedERC20Vault,
+                [IMPLEMENTATION_SLOT]: addressMap.ProxiedSingletonERC20Vault,
             },
             isProxy: true,
         },
-        ProxiedERC721Vault: {
-            address: addressMap.ProxiedERC721Vault,
+        ProxiedSingletonERC721Vault: {
+            address: addressMap.ProxiedSingletonERC721Vault,
             deployedBytecode: linkContractLibs(
-                contractArtifacts.ProxiedERC721Vault,
+                contractArtifacts.ProxiedSingletonERC721Vault,
                 addressMap,
             ),
         },
@@ -437,14 +445,14 @@ async function generateContractConfigs(
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
-                [IMPLEMENTATION_SLOT]: addressMap.ProxiedERC721Vault,
+                [IMPLEMENTATION_SLOT]: addressMap.ProxiedSingletonERC721Vault,
             },
             isProxy: true,
         },
-        ProxiedERC1155Vault: {
-            address: addressMap.ProxiedERC1155Vault,
+        ProxiedSingletonERC1155Vault: {
+            address: addressMap.ProxiedSingletonERC1155Vault,
             deployedBytecode: linkContractLibs(
-                contractArtifacts.ProxiedERC1155Vault,
+                contractArtifacts.ProxiedSingletonERC1155Vault,
                 addressMap,
             ),
         },
@@ -467,14 +475,14 @@ async function generateContractConfigs(
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
-                [IMPLEMENTATION_SLOT]: addressMap.ProxiedERC1155Vault,
+                [IMPLEMENTATION_SLOT]: addressMap.ProxiedSingletonERC1155Vault,
             },
             isProxy: true,
         },
-        ProxiedSignalService: {
-            address: addressMap.ProxiedSignalService,
+        ProxiedSingletonSignalService: {
+            address: addressMap.ProxiedSingletonSignalService,
             deployedBytecode: linkContractLibs(
-                contractArtifacts.ProxiedSignalService,
+                contractArtifacts.ProxiedSingletonSignalService,
                 addressMap,
             ),
         },
@@ -496,12 +504,12 @@ async function generateContractConfigs(
                     [addressMap.TaikoL2Proxy]: ethers.utils.hexZeroPad(
                         ethers.utils.hexlify(chainId),
                         32,
-                    )
-                }
+                    ),
+                },
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
-                [IMPLEMENTATION_SLOT]: addressMap.ProxiedSignalService,
+                [IMPLEMENTATION_SLOT]: addressMap.ProxiedSingletonSignalService,
             },
             isProxy: true,
         },

@@ -81,15 +81,15 @@ module.exports = {
   ],
   get contractAddresses() {
     return {
-      ProxiedTaikoL2: getConstantAddress(`0${this.chainId}`, 1),
-      ProxiedBridge: getConstantAddress(`0${this.chainId}`, 2),
-      ProxiedERC20Vault: getConstantAddress(`0${this.chainId}`, 3),
-      ProxiedERC721Vault: getConstantAddress(`0${this.chainId}`, 4),
-      ProxiedERC1155Vault: getConstantAddress(`0${this.chainId}`, 5),
-      ProxiedSignalService: getConstantAddress(`0${this.chainId}`, 6),
+      ProxiedSingletonBridgeSingleton: getConstantAddress(`0${this.chainId}`, 2),
+      ProxiedSingletonERC20VaultSingleton: getConstantAddress(`0${this.chainId}`, 3),
+      ProxiedSingletonERC721VaultSingleton: getConstantAddress(`0${this.chainId}`, 4),
+      ProxiedSingletonERC1155Vault: getConstantAddress(`0${this.chainId}`, 5),
+      ProxiedSingletonSignalServiceSingleton: getConstantAddress(`0${this.chainId}`, 6),
+      ProxiedAddressManagerForSingletons: getConstantAddress(`0${this.chainId}`, 8),
       ProxiedAddressManager: getConstantAddress(`0${this.chainId}`, 7),
-      ProxiedBridgeSuiteAddressManager: getConstantAddress(`0${this.chainId}`, 8),
       RegularERC20: getConstantAddress(`0${this.chainId}`, 99),
+      ProxiedTaikoL2: getConstantAddress(`0${this.chainId}`, 1),
       TaikoL2Proxy: getConstantAddress(this.chainId, 1),
       BridgeProxy: getConstantAddress(this.chainId, 2),
       ERC20VaultProxy: getConstantAddress(this.chainId, 3),
@@ -97,7 +97,7 @@ module.exports = {
       ERC1155VaultProxy: getConstantAddress(this.chainId, 5),
       SignalServiceProxy: getConstantAddress(this.chainId, 6),
       AddressManagerProxy: getConstantAddress(this.chainId, 7),
-      BridgeSuiteAddressManagerProxy: getConstantAddress(this.chainId, 8),
+      AddressManagerForSingletonsProxy: getConstantAddress(this.chainId, 8),
     }
   },
   param1559: {

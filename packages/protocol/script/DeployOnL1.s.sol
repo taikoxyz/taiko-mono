@@ -153,7 +153,7 @@ contract DeployOnL1 is Script {
         setAddress("signal_service", sharedSignalService);
 
         // Authorize the new TaikoL1 contract for shared signal service.
-        ProxiedSignalService(sharedSignalService).authorize(
+        ProxiedSingletonSignalService(sharedSignalService).authorize(
             taikoL1Proxy, bytes32(block.chainid)
         );
 
@@ -287,7 +287,7 @@ contract DeployOnL1 is Script {
         );
 
         // Bridge
-        Bridge bridge = new ProxiedBridge();
+        Bridge bridge = new ProxiedSingletonBridge();
         sharedBridge = deployProxy(
             bridgeSuiteAddressManagerProxy,
             "bridge",
@@ -296,7 +296,7 @@ contract DeployOnL1 is Script {
         );
 
         // ERC20Vault
-        ERC20Vault erc20Vault = new ProxiedERC20Vault();
+        ERC20Vault erc20Vault = new ProxiedSingletonERC20Vault();
         deployProxy(
             bridgeSuiteAddressManagerProxy,
             "erc20_vault",
@@ -307,7 +307,7 @@ contract DeployOnL1 is Script {
         );
 
         // ERC721Vault
-        ERC721Vault erc721Vault = new ProxiedERC721Vault();
+        ERC721Vault erc721Vault = new ProxiedSingletonERC721Vault();
         deployProxy(
             bridgeSuiteAddressManagerProxy,
             "erc721_vault",
@@ -318,7 +318,7 @@ contract DeployOnL1 is Script {
         );
 
         // ERC1155Vault
-        ERC1155Vault erc1155Vault = new ProxiedERC1155Vault();
+        ERC1155Vault erc1155Vault = new ProxiedSingletonERC1155Vault();
         deployProxy(
             bridgeSuiteAddressManagerProxy,
             "erc1155_vault",
@@ -329,7 +329,7 @@ contract DeployOnL1 is Script {
         );
 
         // SignalService
-        SignalService signalService = new ProxiedSignalService();
+        SignalService signalService = new ProxiedSingletonSignalService();
         sharedSignalService = deployProxy(
             bridgeSuiteAddressManagerProxy,
             "signal_service",
