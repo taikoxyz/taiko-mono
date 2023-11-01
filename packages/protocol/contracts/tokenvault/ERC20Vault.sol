@@ -6,8 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-import { Create2Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/Create2Upgradeable.sol";
 import { ERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import { SafeERC20Upgradeable } from
@@ -304,13 +302,13 @@ contract ERC20Vault is BaseVault {
         private
         returns (address btoken)
     {
-        address bridgedToken = Create2Upgradeable.deploy({
+        address bridgedToken = LibDeploy.deployCreate2Upgradeable({
             amount: 0, // amount of Ether to send
             salt: keccak256(abi.encode(ctoken)),
             bytecode: type(ProxiedBridgedERC20).creationCode
         });
 
-        btoken = LibDeploy.deployProxy(
+        btoken = LibDeploy.deployTransparentUpgradeableProxy(
             address(bridgedToken),
             owner(),
             bytes.concat(
