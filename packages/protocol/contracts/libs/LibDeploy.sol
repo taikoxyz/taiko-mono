@@ -24,10 +24,7 @@ library LibDeploy {
         external
         returns (address)
     {
-        if (
-            owner == address(0) || salt == 0 || bytecode.length == 0
-                || initialization.length == 0
-        ) {
+        if (owner == address(0) || bytecode.length == 0) {
             revert DEPLOY_INVALID_PARAM();
         }
 
