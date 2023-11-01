@@ -77,13 +77,6 @@ library LibAddress {
     }
 
     function isSenderEOA() internal view returns (bool) {
-        if (msg.sender != tx.origin) return false;
-
-        address sender = msg.sender;
-        uint256 size;
-        assembly {
-            size := extcodesize(sender)
-        }
-        return size == 0;
+        return msg.sender == tx.origin;
     }
 }
