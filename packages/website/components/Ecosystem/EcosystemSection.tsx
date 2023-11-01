@@ -37,7 +37,7 @@ const ecosystemData: EcosystemData[] = [
     name: "Alphamint",
     link: "https://www.alphamint.online/",
     description:
-      "Apus Network is to democratize compute by building a decentralized ZKP marketplace, transforming global compute resources into accessible and affordable ZKP capabilities.",
+      "Multichain NFT marketplace to create, sell and buy ERC-721 tokens.",
     filters: [],
     isLive: true,
   },
@@ -46,7 +46,7 @@ const ecosystemData: EcosystemData[] = [
     name: "Apus Network",
     link: "https://www.apus.network/",
     description:
-      "Multichain NFT marketplace to create, sell and buy ERC-721 tokens.",
+      "Apus Network is to democratize compute by building a decentralized ZKP marketplace, transforming global compute resources into accessible and affordable ZKP capabilities.",
     filters: [],
     isLive: true,
   },
