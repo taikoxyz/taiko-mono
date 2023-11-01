@@ -76,12 +76,13 @@ library LibAddress {
         }
     }
 
-    function isEOA(address account) internal view returns (bool) {
-        if (account != tx.origin) return false;
+    function isSenderEOA() internal view returns (bool) {
+        if (msg.sender != tx.origin) return false;
 
+        address sender = msg.sender;
         uint256 size;
         assembly {
-            size := extcodesize(account)
+            size := extcodesize(sender)
         }
         return size == 0;
     }
