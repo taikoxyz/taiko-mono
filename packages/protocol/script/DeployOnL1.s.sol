@@ -146,7 +146,7 @@ contract DeployOnL1 is Script {
         // All bridging related contracts should be deployed as a singleton on
         // each chain.
         if (singletonBridge == address(0)) {
-            deployBridgeSuiteSingletons();
+            deploySharedSingletons();
         }
 
         // Bridge and SignalService addresses will be used by TaikoL1.
@@ -277,7 +277,7 @@ contract DeployOnL1 is Script {
         revert("invalid provider");
     }
 
-    function deployBridgeSuiteSingletons() private {
+    function deploySharedSingletons() private {
         // AddressManager
         AddressManager addressManagerForSingletons = new ProxiedAddressManager();
         address addressManagerForSingletonsProxy = deployProxy(
