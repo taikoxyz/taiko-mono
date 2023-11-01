@@ -52,9 +52,10 @@ contract DeployOnL1 is Script {
 
     address public proposerOne = vm.envAddress("PROPOSER_ONE");
 
-    address public sharedBridge = vm.envAddress("SHARED_BRIDGE");
+    address public bridgeSingleton = vm.envAddress("SHARED_BRIDGE");
 
-    address public sharedSignalService = vm.envAddress("SHARED_SIGNAL_SERVICE");
+    address public signalServiceSingleton =
+        vm.envAddress("SHARED_SIGNAL_SERVICE");
 
     uint256 public tierProvider = vm.envUint("TIER_PROVIDER");
 
@@ -76,14 +77,14 @@ contract DeployOnL1 is Script {
             guardianProvers.length == NUM_GUARDIANS,
             "invalid guardian provers number"
         );
-        if (sharedBridge == address(0)) {
+        if (bridgeSingleton == address(0)) {
             require(
-                sharedSignalService == address(0),
+                signalServiceSingleton == address(0),
                 "non-empty shared signal service address"
             );
         } else {
             require(
-                sharedSignalService != address(0),
+                signalServiceSingleton != address(0),
                 "empty shared signal service address"
             );
         }
@@ -144,16 +145,16 @@ contract DeployOnL1 is Script {
 
         // All bridging related contracts should be deployed as a singleton on
         // each chain.
-        if (sharedBridge == address(0)) {
+        if (bridgeSingleton == address(0)) {
             deployBridgeSuiteSingleton();
         }
 
         // Bridge and SignalService addresses will be used by TaikoL1.
-        setAddress("bridge", sharedBridge);
-        setAddress("signal_service", sharedSignalService);
+        setAddress("bridge", bridgeSingleton);
+        setAddress("signal_service", signalServiceSingleton);
 
         // Authorize the new TaikoL1 contract for shared signal service.
-        ProxiedSingletonSignalService(sharedSignalService).authorize(
+        ProxiedSingletonSignalService(signalServiceSingleton).authorize(
             taikoL1Proxy, bytes32(block.chainid)
         );
 
@@ -288,7 +289,7 @@ contract DeployOnL1 is Script {
 
         // Bridge
         Bridge bridge = new ProxiedSingletonBridge();
-        sharedBridge = deployProxy(
+        bridgeSingleton = deployProxy(
             bridgeSuiteAddressManagerProxy,
             "bridge",
             address(bridge),
@@ -330,7 +331,7 @@ contract DeployOnL1 is Script {
 
         // SignalService
         SignalService signalService = new ProxiedSingletonSignalService();
-        sharedSignalService = deployProxy(
+        signalServiceSingleton = deployProxy(
             bridgeSuiteAddressManagerProxy,
             "signal_service",
             address(signalService),

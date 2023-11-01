@@ -19,7 +19,8 @@ contract AuthorizeRemoteTaikoProtocols is Script {
     address public signalServiceAddress =
         vm.envAddress("SIGNAL_SERVICE_ADDRESS");
     uint256[] public remoteChainIDs = vm.envUint("REMOTE_CHAIN_IDS", ",");
-    address[] public remoteTaikoProtocols = vm.envAddress("REMOTE_TAIKO_PROTOCOLS", ",");
+    address[] public remoteTaikoProtocols =
+        vm.envAddress("REMOTE_TAIKO_PROTOCOLS", ",");
 
     function run() external {
         require(
@@ -29,11 +30,13 @@ contract AuthorizeRemoteTaikoProtocols is Script {
 
         vm.startBroadcast(privateKey);
 
-        ProxiedSignalService signalService =
-            ProxiedSignalService(payable(signalServiceAddress));
+        ProxiedSingletonSignalService signalService =
+            ProxiedSingletonSignalService(payable(signalServiceAddress));
         for (uint256 i; i < remoteChainIDs.length; ++i) {
             console2.log(remoteTaikoProtocols[i], "--->", remoteChainIDs[i]);
-            signalService.authorize(remoteTaikoProtocols[i], bytes32(remoteChainIDs[i]));
+            signalService.authorize(
+                remoteTaikoProtocols[i], bytes32(remoteChainIDs[i])
+            );
         }
 
         vm.stopBroadcast();
