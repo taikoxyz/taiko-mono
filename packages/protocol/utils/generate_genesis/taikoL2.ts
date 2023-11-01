@@ -331,7 +331,8 @@ async function generateContractConfigs(
         SingletonERC20VaultProxy: {
             address: addressMap.SingletonERC20VaultProxy,
             deployedBytecode:
-                contractArtifacts.SingletonERC20VaultProxy.deployedBytecode.object,
+                contractArtifacts.SingletonERC20VaultProxy.deployedBytecode
+                    .object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -361,7 +362,8 @@ async function generateContractConfigs(
         SingletonERC721VaultProxy: {
             address: addressMap.SingletonERC721VaultProxy,
             deployedBytecode:
-                contractArtifacts.SingletonERC721VaultProxy.deployedBytecode.object,
+                contractArtifacts.SingletonERC721VaultProxy.deployedBytecode
+                    .object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -391,7 +393,8 @@ async function generateContractConfigs(
         SingletonERC1155VaultProxy: {
             address: addressMap.SingletonERC1155VaultProxy,
             deployedBytecode:
-                contractArtifacts.SingletonERC1155VaultProxy.deployedBytecode.object,
+                contractArtifacts.SingletonERC1155VaultProxy.deployedBytecode
+                    .object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -421,7 +424,8 @@ async function generateContractConfigs(
         SingletonSignalServiceProxy: {
             address: addressMap.SingletonSignalServiceProxy,
             deployedBytecode:
-                contractArtifacts.SingletonSignalServiceProxy.deployedBytecode.object,
+                contractArtifacts.SingletonSignalServiceProxy.deployedBytecode
+                    .object,
             variables: {
                 // initializer
                 _initialized: 1,
