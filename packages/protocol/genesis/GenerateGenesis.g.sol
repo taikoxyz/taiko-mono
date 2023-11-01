@@ -32,18 +32,16 @@ contract TestGenerateGenesis is Test, AddressResolver {
     address private owner = configJSON.readAddress(".contractOwner");
     address private admin = configJSON.readAddress(".contractAdmin");
 
-    function testContractDeployment() public {
+    function testSingletonContractDeployment() public {
         assertEq(block.chainid, 167);
 
+        // check bytecode
         checkDeployedCode("ProxiedSingletonERC20Vault");
         checkDeployedCode("ProxiedSingletonERC721Vault");
         checkDeployedCode("ProxiedSingletonERC1155Vault");
         checkDeployedCode("ProxiedSingletonBridge");
         checkDeployedCode("ProxiedSingletonAddressManagerForSingletons");
         checkDeployedCode("ProxiedSingletonSignalService");
-        checkDeployedCode("RegularERC20");
-        checkDeployedCode("ProxiedTaikoL2");
-        checkDeployedCode("ProxiedAddressManager");
 
         // check proxy implementations
         checkProxyImplementation("SingletonERC20VaultProxy", "ProxiedSingletonERC20Vault");
@@ -51,9 +49,9 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkProxyImplementation("SingletonERC1155VaultProxy", "ProxiedSingletonERC1155Vault");
         checkProxyImplementation("SingletonBridgeProxy", "ProxiedSingletonBridge");
         checkProxyImplementation("SingletonSignalServiceProxy", "ProxiedSingletonSignalService");
-        checkProxyImplementation("SingletonAddressManagerForSingletonsProxy", "ProxiedSingletonAddressManagerForSingletons");
-        checkProxyImplementation("TaikoL2Proxy", "ProxiedTaikoL2");
-        checkProxyImplementation("AddressManagerProxy", "ProxiedAddressManager");
+        checkProxyImplementation(
+            "SingletonAddressManagerForSingletonsProxy", "ProxiedSingletonAddressManagerForSingletons"
+        );
 
         // check proxies
         checkDeployedCode("SingletonERC20VaultProxy");
@@ -62,6 +60,18 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkDeployedCode("SingletonBridgeProxy");
         checkDeployedCode("SingletonAddressManagerForSingletonsProxy");
         checkDeployedCode("SingletonSignalServiceProxy");
+    }
+
+    function testNonSingletonContractDeployment() public {
+        // check bytecode
+        checkDeployedCode("ProxiedTaikoL2");
+        checkDeployedCode("ProxiedAddressManager");
+
+        // check proxy implementations
+        checkProxyImplementation("TaikoL2Proxy", "ProxiedTaikoL2");
+        checkProxyImplementation("AddressManagerProxy", "ProxiedAddressManager");
+
+        // check proxies
         checkDeployedCode("TaikoL2Proxy");
         checkDeployedCode("AddressManagerProxy");
     }
