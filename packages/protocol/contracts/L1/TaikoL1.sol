@@ -81,7 +81,10 @@ contract TaikoL1 is
         (meta, depositsProcessed) = LibProposing.proposeBlock(
             state, config, AddressResolver(this), params, txList
         );
-        if (config.maxBlocksToVerifyPerProposal > 0) {
+        if (
+            !state.slotB.provingPaused
+                && config.maxBlocksToVerifyPerProposal > 0
+        ) {
             LibVerifying.verifyBlocks(
                 state,
                 config,
@@ -129,9 +132,17 @@ contract TaikoL1 is
     /// @param maxBlocksToVerify Max number of blocks to verify.
     function verifyBlocks(uint64 maxBlocksToVerify) external nonReentrant {
         if (maxBlocksToVerify == 0) revert L1_INVALID_PARAM();
+        if (state.slotB.provingPaused) revert L1_PROVING_PAUSED();
+
         LibVerifying.verifyBlocks(
             state, getConfig(), AddressResolver(this), maxBlocksToVerify
         );
+    }
+
+    /// @notice Pause block proving.
+    /// @param pause True if paused.
+    function pauseProving(bool pause) external onlyOwner {
+        LibProving.pauseProving(state, pause);
     }
 
     /// @notice Deposit Taiko token to this contract
