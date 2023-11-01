@@ -2,9 +2,6 @@
 pre-commit:
   parallel: true
   commands:
-    # bridge-ui:
-    #   glob: "packages/bridge-ui/**.{js,svelte,ts}"
-    #   run: pnpm -F bridge-ui lint:fix && git add {staged_files}
     bridge-ui-v2:
       glob: "packages/bridge-ui-v2/**.{js,ts,css,svelte}"
       run: pnpm -F bridge-ui-v2 svelte:check && pnpm -F bridge-ui-v2 lint:fix && git add {staged_files}
