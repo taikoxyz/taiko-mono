@@ -101,7 +101,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.stopPrank();
     }
 
-    function testAddressManagerForSingletons() public {
+    function testSingletonAddressManagerForSingletons() public {
         AddressManager addressManager =
             AddressManager(getPredeployedContractAddress("SingletonAddressManagerForSingletonsProxy"));
 
@@ -170,7 +170,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.stopPrank();
     }
 
-    function testBridge() public {
+    function testSingletonBridge() public {
         address payable bridgeAddress =
             payable(getPredeployedContractAddress("SingletonBridgeProxy"));
         Bridge bridge = Bridge(bridgeAddress);
@@ -240,7 +240,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
     }
 
 
-    function testERC20Vault() public {
+    function testSingletonERC20Vault() public {
         address erc20VaultAddress =
             getPredeployedContractAddress("SingletonERC20VaultProxy");
         address bridgeAddress = getPredeployedContractAddress("SingletonBridgeProxy");
@@ -270,7 +270,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.stopPrank();
     }
 
-    function testERC721Vault() public {
+    function testSingletonERC721Vault() public {
         address erc721VaultAddress =
             getPredeployedContractAddress("SingletonERC721VaultProxy");
         address bridgeAddress = getPredeployedContractAddress("SingletonBridgeProxy");
@@ -300,7 +300,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.stopPrank();
     }
 
-    function testERC1155Vault() public {
+    function testSingletonERC1155Vault() public {
         address erc1155VaultAddress =
             getPredeployedContractAddress("SingletonERC1155VaultProxy");
         address bridgeAddress = getPredeployedContractAddress("SingletonBridgeProxy");
@@ -330,7 +330,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.stopPrank();
     }
 
-    function testSignalService() public {
+    function testSingletonSignalService() public {
         SignalService signalService =
             SignalService(getPredeployedContractAddress("SingletonSignalServiceProxy"));
 
