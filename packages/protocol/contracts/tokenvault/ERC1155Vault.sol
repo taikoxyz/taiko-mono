@@ -20,7 +20,6 @@ import { ERC1155Upgradeable } from
 import { Proxied } from "../common/Proxied.sol";
 import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
-import { LibDeploy } from "../libs/LibDeploy.sol";
 
 import { BaseVault, BaseNFTVault } from "./BaseNFTVault.sol";
 import { BridgedERC1155 } from "./BridgedERC1155.sol";
