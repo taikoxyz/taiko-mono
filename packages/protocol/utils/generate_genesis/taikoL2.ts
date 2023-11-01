@@ -24,7 +24,7 @@ export async function deployTaikoL2(
 
     const alloc: any = {};
 
-    // Premint 1 billion premint ethers in bridge, current Ethereum's supply is ~120.27M.
+    // Premint 1 billion ethers to the bridge, current Ethereum's supply is ~120.27M.
     let bridgeInitialEtherBalance = ethers.utils.parseEther(`${1_000_000_000}`);
 
     for (const seedAccount of seedAccounts) {
