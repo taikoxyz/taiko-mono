@@ -75,14 +75,4 @@ library LibAddress {
             return ECDSAUpgradeable.recover(hash, sig) == addr;
         }
     }
-
-    function isEOA(address account) internal view returns (bool) {
-        if (account != tx.origin) return false;
-
-        uint256 size;
-        assembly {
-            size := extcodesize(account)
-        }
-        return size == 0;
-    }
 }
