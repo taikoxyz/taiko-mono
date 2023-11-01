@@ -6,8 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-import { Create2Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/Create2Upgradeable.sol";
 import { TransparentUpgradeableProxy } from
     "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
@@ -18,7 +16,7 @@ library LibDeploy {
     /// @param implementation The new implementation address
     /// @param owner The owner of the proxy admin contract
     /// @param initializationData Data for the initialization
-    function deployTransparentUpgradeableProxy(
+    function deployProxy(
         address implementation,
         address owner,
         bytes memory initializationData
@@ -30,16 +28,5 @@ library LibDeploy {
         proxy = address(
             new TransparentUpgradeableProxy(implementation, owner, initializationData)
         );
-    }
-
-    function deployCreate2Upgradeable(
-        uint256 amount,
-        bytes32 salt,
-        bytes memory bytecode
-    )
-        external
-        returns (address)
-    {
-        return Create2Upgradeable.deploy(amount, salt, bytecode);
     }
 }

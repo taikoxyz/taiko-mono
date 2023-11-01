@@ -6,6 +6,8 @@
 
 pragma solidity ^0.8.20;
 
+import { Create2Upgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/utils/Create2Upgradeable.sol";
 import { ERC721Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
 import { IERC721ReceiverUpgradeable } from
@@ -268,13 +270,13 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         private
         returns (address btoken)
     {
-        address bridgedToken = LibDeploy.deployCreate2Upgradeable({
+        address bridgedToken = Create2Upgradeable.deploy({
             amount: 0, // amount of Ether to send
             salt: keccak256(abi.encode(ctoken)),
             bytecode: type(ProxiedBridgedERC721).creationCode
         });
 
-        btoken = LibDeploy.deployTransparentUpgradeableProxy(
+        btoken = LibDeploy.deployProxy(
             address(bridgedToken),
             owner(),
             bytes.concat(
