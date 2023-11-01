@@ -64,15 +64,15 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
     function testNonSingletonContractDeployment() public {
         // check bytecode
-        checkDeployedCode("ProxiedTaikoL2");
+        checkDeployedCode("ProxiedSingletonTaikoL2");
         checkDeployedCode("ProxiedAddressManager");
 
         // check proxy implementations
-        checkProxyImplementation("TaikoL2Proxy", "ProxiedTaikoL2");
+        checkProxyImplementation("SingletonTaikoL2Proxy", "ProxiedSingletonTaikoL2");
         checkProxyImplementation("AddressManagerProxy", "ProxiedAddressManager");
 
         // check proxies
-        checkDeployedCode("TaikoL2Proxy");
+        checkDeployedCode("SingletonTaikoL2Proxy");
         checkDeployedCode("AddressManagerProxy");
     }
 
@@ -82,7 +82,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         assertEq(owner, addressManager.owner());
 
-        checkSavedAddress(addressManager, "TaikoL2Proxy", "taiko");
+        checkSavedAddress(addressManager, "SingletonTaikoL2Proxy", "taiko");
         checkSavedAddress(
             addressManager, "SingletonSignalServiceProxy", "signal_service"
         );
@@ -130,7 +130,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
     }
 
     function testTaikoL2() public {
-        TaikoL2 taikoL2 = TaikoL2(getPredeployedContractAddress("TaikoL2Proxy"));
+        TaikoL2 taikoL2 = TaikoL2(getPredeployedContractAddress("SingletonTaikoL2Proxy"));
 
         vm.startPrank(taikoL2.GOLDEN_TOUCH_ADDRESS());
         for (uint32 i = 0; i < 300; ++i) {
@@ -159,7 +159,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.startPrank(admin);
 
         TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
-            payable(getPredeployedContractAddress("TaikoL2Proxy"))
+            payable(getPredeployedContractAddress("SingletonTaikoL2Proxy"))
         );
 
         TaikoL2 newTaikoL2 = new TaikoL2();
@@ -338,7 +338,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         signalService.sendSignal(keccak256(abi.encodePacked(block.prevrandao)));
 
-        assertEq(true, signalService.isAuthorizedAs(getPredeployedContractAddress("TaikoL2Proxy"), bytes32((block.chainid))));
+        assertEq(true, signalService.isAuthorizedAs(getPredeployedContractAddress("SingletonTaikoL2Proxy"), bytes32((block.chainid))));
 
         vm.startPrank(admin);
 

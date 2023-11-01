@@ -167,8 +167,11 @@ async function generateContractConfigs(
             ),
         ),
         // Non-singletons
-        ProxiedTaikoL2: require(
-            path.join(ARTIFACTS_PATH, "./TaikoL2.sol/ProxiedTaikoL2.json"),
+        ProxiedSingletonTaikoL2: require(
+            path.join(
+                ARTIFACTS_PATH,
+                "./TaikoL2.sol/ProxiedSingletonTaikoL2.json",
+            ),
         ),
         ProxiedAddressManager: require(
             path.join(
@@ -193,7 +196,7 @@ async function generateContractConfigs(
     contractArtifacts.SingletonSignalServiceProxy = proxy;
     contractArtifacts.SingletonAddressManagerForSingletonsProxy = proxy;
     // Non-singletons
-    contractArtifacts.TaikoL2Proxy = proxy;
+    contractArtifacts.SingletonTaikoL2Proxy = proxy;
     contractArtifacts.AddressManagerProxy = proxy;
 
     const addressMap: any = {};
@@ -202,9 +205,9 @@ async function generateContractConfigs(
         let bytecode = (artifact as any).bytecode;
 
         switch (contractName) {
-            case "ProxiedTaikoL2":
+            case "ProxiedSingletonTaikoL2":
                 bytecode = linkContractLibs(
-                    contractArtifacts.ProxiedTaikoL2,
+                    contractArtifacts.ProxiedSingletonTaikoL2,
                     addressMap,
                 );
                 break;
@@ -437,7 +440,7 @@ async function generateContractConfigs(
                 _owner: contractOwner,
                 _pendingOwner: ethers.constants.AddressZero,
                 authorizedAddresses: {
-                    [addressMap.TaikoL2Proxy]: ethers.utils.hexZeroPad(
+                    [addressMap.SingletonTaikoL2Proxy]: ethers.utils.hexZeroPad(
                         ethers.utils.hexlify(chainId),
                         32,
                     ),
@@ -455,17 +458,17 @@ async function generateContractConfigs(
                 contractArtifacts.ProxiedAddressManager.deployedBytecode.object,
         },
         // Non-singletons
-        ProxiedTaikoL2: {
-            address: addressMap.ProxiedTaikoL2,
+        ProxiedSingletonTaikoL2: {
+            address: addressMap.ProxiedSingletonTaikoL2,
             deployedBytecode: linkContractLibs(
-                contractArtifacts.ProxiedTaikoL2,
+                contractArtifacts.ProxiedSingletonTaikoL2,
                 addressMap,
             ),
         },
-        TaikoL2Proxy: {
-            address: addressMap.TaikoL2Proxy,
+        SingletonTaikoL2Proxy: {
+            address: addressMap.SingletonTaikoL2Proxy,
             deployedBytecode:
-                contractArtifacts.TaikoL2Proxy.deployedBytecode.object,
+                contractArtifacts.SingletonTaikoL2Proxy.deployedBytecode.object,
             variables: {
                 // TaikoL2
                 // Ownable2StepUpgradeable
@@ -490,7 +493,7 @@ async function generateContractConfigs(
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
-                [IMPLEMENTATION_SLOT]: addressMap.ProxiedTaikoL2,
+                [IMPLEMENTATION_SLOT]: addressMap.ProxiedSingletonTaikoL2,
             },
             isProxy: true,
         },
@@ -510,7 +513,7 @@ async function generateContractConfigs(
                     [chainId]: {
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("taiko"),
-                        )]: addressMap.TaikoL2Proxy,
+                        )]: addressMap.SingletonTaikoL2Proxy,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("signal_service"),
                         )]: addressMap.SingletonSignalServiceProxy,

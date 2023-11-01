@@ -93,7 +93,7 @@ module.exports = {
         6,
       ),
       // Non-singletons
-      ProxiedTaikoL2: getConstantAddress(`0${this.chainId}`, 10001),
+      ProxiedSingletonTaikoL2: getConstantAddress(`0${this.chainId}`, 10001),
       ProxiedAddressManager: getConstantAddress(`0${this.chainId}`, 10002),
       RegularERC20: getConstantAddress(`0${this.chainId}`, 10099),
       // ============ Proxies ============
@@ -108,7 +108,7 @@ module.exports = {
         6,
       ),
       // Non-singletons
-      TaikoL2Proxy: getConstantAddress(this.chainId, 10001),
+      SingletonTaikoL2Proxy: getConstantAddress(this.chainId, 10001),
       AddressManagerProxy: getConstantAddress(this.chainId, 10002),
     };
   },

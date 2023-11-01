@@ -47,7 +47,7 @@ async function main() {
 
     console.log("config: %o", config);
 
-    console.log("start deploy ProxiedTaikoL2 contract");
+    console.log("start deploy ProxiedSingletonTaikoL2 contract");
 
     let result = await deployTaikoL2(config, {
         alloc: {},
