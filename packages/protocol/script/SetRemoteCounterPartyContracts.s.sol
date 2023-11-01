@@ -14,7 +14,7 @@ import "../contracts/common/AddressManager.sol";
 import
     "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-contract SetRemoteBridgeSuites is Script {
+contract SetRemoteCounterPartyContracts is Script {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
     address public addressManagerAddress =
         vm.envAddress("ADDRESS_MANAGER_ADDRESS");
