@@ -208,6 +208,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         }
         // Send back Ether
         message.user.sendEther(message.value);
+
         // Emit TokenReleased event
         emit TokenReleased({
             msgHash: msgHash,
@@ -310,7 +311,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             }
         }
         msgData = abi.encodeWithSelector(
-            ERC1155Vault.receiveToken.selector,
+            this.receiveToken.selector,
             nft,
             user,
             op.to,
