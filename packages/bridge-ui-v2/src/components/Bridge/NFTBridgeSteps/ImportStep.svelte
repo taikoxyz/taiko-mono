@@ -322,6 +322,7 @@ Automatic NFT Input
             </Button>
 
             <IconFlipper
+              type="swap-rotate"
               iconType1="list"
               iconType2="cards"
               selectedDefault="cards"

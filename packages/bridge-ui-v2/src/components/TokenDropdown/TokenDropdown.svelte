@@ -69,7 +69,7 @@
     // In order to select a token, we only need the source chain to be selected,
     // unless it's an imported token...
     if (!chain) {
-      warningToast({title: $t('messages.network.required')});
+      warningToast({ title: $t('messages.network.required') });
       return;
     }
 
@@ -78,7 +78,7 @@
     if (token.imported) {
       // ... in the case of imported tokens, we also require the destination chain to be selected.    if (!destChain) {
       if (!destChain) {
-        warningToast({title: $t('messages.network.required_dest')});
+        warningToast({ title: $t('messages.network.required_dest') });
         return;
       }
 
