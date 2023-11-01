@@ -15,31 +15,23 @@ library LibDeploy {
     error DEPLOY_INVALID_IMPL();
 
     /// @dev Deploys a contract (via proxy)
-    /// @param implementation The new implementation address
-    /// @param owner The owner of the proxy admin contract
-    /// @param initializationData Data for the initialization
-    function deployTransparentUpgradeableProxy(
-        address implementation,
+    function deployTransparentUpgradeableProxyFor(
         address owner,
-        bytes memory initializationData
-    )
-        external
-        returns (address proxy)
-    {
-        if (implementation == address(0)) revert DEPLOY_INVALID_IMPL();
-        proxy = address(
-            new TransparentUpgradeableProxy(implementation, owner, initializationData)
-        );
-    }
-
-    function deployCreate2Upgradeable(
-        uint256 amount,
         bytes32 salt,
-        bytes memory bytecode
+        bytes memory bytecode,
+        bytes memory initialization
     )
         external
         returns (address)
     {
-        return Create2Upgradeable.deploy(amount, salt, bytecode);
+        address logic = Create2Upgradeable.deploy({
+            amount: 0,
+            salt: salt,
+            bytecode: bytecode
+        });
+
+        return address(
+            new TransparentUpgradeableProxy(logic, owner, initialization)
+        );
     }
 }

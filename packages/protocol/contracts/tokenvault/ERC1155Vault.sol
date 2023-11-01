@@ -20,7 +20,7 @@ import { LibAddress } from "../libs/LibAddress.sol";
 import { LibDeploy } from "../libs/LibDeploy.sol";
 
 import { BaseVault, BaseNFTVault } from "./BaseNFTVault.sol";
-import { ProxiedBridgedERC1155 } from "./BridgedERC1155.sol";
+import { ProxiedBridgedERC1155, BridgedERC1155 } from "./BridgedERC1155.sol";
 
 /// @title ERC1155NameAndSymbol
 /// @notice Interface for ERC1155 contracts that provide name() and symbol()
@@ -341,17 +341,12 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         private
         returns (address btoken)
     {
-        address bridgedToken = LibDeploy.deployCreate2Upgradeable({
-            amount: 0, // amount of Ether to send
+        btoken = LibDeploy.deployTransparentUpgradeableProxyFor({
+            owner: owner(),
             salt: keccak256(abi.encode(ctoken)),
-            bytecode: type(ProxiedBridgedERC1155).creationCode
-        });
-
-        btoken = LibDeploy.deployTransparentUpgradeableProxy(
-            address(bridgedToken),
-            owner(),
-            bytes.concat(
-                ProxiedBridgedERC1155(bridgedToken).init.selector,
+            bytecode: type(ProxiedBridgedERC1155).creationCode,
+            initialization: bytes.concat(
+                BridgedERC1155.init.selector,
                 abi.encode(
                     addressManager,
                     ctoken.addr,
@@ -359,8 +354,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                     ctoken.symbol,
                     ctoken.name
                 )
-            )
-        );
+                )
+        });
+
         isBridgedToken[btoken] = true;
         bridgedToCanonical[btoken] = ctoken;
         canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;

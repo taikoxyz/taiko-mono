@@ -16,7 +16,7 @@ import { IBridge } from "../bridge/IBridge.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 import { LibDeploy } from "../libs/LibDeploy.sol";
 
-import { ProxiedBridgedERC20 } from "./BridgedERC20.sol";
+import { ProxiedBridgedERC20, BridgedERC20 } from "./BridgedERC20.sol";
 import { IMintableERC20 } from "./IMintableERC20.sol";
 import { BaseVault } from "./BaseVault.sol";
 
@@ -302,17 +302,12 @@ contract ERC20Vault is BaseVault {
         private
         returns (address btoken)
     {
-        address bridgedToken = LibDeploy.deployCreate2Upgradeable({
-            amount: 0, // amount of Ether to send
+        btoken = LibDeploy.deployTransparentUpgradeableProxyFor({
+            owner: owner(),
             salt: keccak256(abi.encode(ctoken)),
-            bytecode: type(ProxiedBridgedERC20).creationCode
-        });
-
-        btoken = LibDeploy.deployTransparentUpgradeableProxy(
-            address(bridgedToken),
-            owner(),
-            bytes.concat(
-                ProxiedBridgedERC20(bridgedToken).init.selector,
+            bytecode: type(ProxiedBridgedERC20).creationCode,
+            initialization: bytes.concat(
+                BridgedERC20.init.selector,
                 abi.encode(
                     addressManager,
                     ctoken.addr,
@@ -321,8 +316,8 @@ contract ERC20Vault is BaseVault {
                     ctoken.symbol,
                     ctoken.name
                 )
-            )
-        );
+                )
+        });
 
         isBridgedToken[btoken] = true;
         bridgedToCanonical[btoken] = ctoken;
