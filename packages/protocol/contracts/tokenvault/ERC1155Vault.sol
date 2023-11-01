@@ -354,7 +354,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         );
         btoken = address(
             new TransparentUpgradeableProxy(
-                resolve("bridged_erc1155", false),
+                resolve("proxied_bridged_erc1155", false),
                 owner(),
                 data
             )
