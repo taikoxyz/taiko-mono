@@ -54,7 +54,7 @@ type IBridgeMessage struct {
 
 // BridgeMetaData contains all meta data concerning the Bridge contract.
 var BridgeMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"name\":\"B_DENIED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_DENIED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_ERC20_CANNOT_RECEIVE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_EV_DO_NOT_BURN\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_EV_NOT_AUTHORIZED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_EV_PARAM\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_FAILED_TRANSFER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_FORBIDDEN\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_FORBIDDEN\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_GAS_LIMIT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_GAS_LIMIT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_INCORRECT_VALUE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_INCORRECT_VALUE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_INIT_PARAM_ERROR\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_MSG_HASH_NULL\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_MSG_HASH_NULL\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_MSG_NON_RETRIABLE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_MSG_NON_RETRIABLE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_MSG_NOT_FAILED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_MSG_NOT_FAILED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_MSG_RECALLED_ALREADY\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_MSG_RECALLED_ALREADY\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_NULL_APP_ADDR\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_SIGNAL_NOT_RECEIVED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_SIGNAL_NOT_RECEIVED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_STATUS_MISMATCH\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_STATUS_MISMATCH\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_USER_IS_NULL\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_USER_IS_NULL\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_WRONG_CHAIN_ID\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_WRONG_CHAIN_ID\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_WRONG_CHAIN_ID\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_WRONG_CHAIN_ID\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_WRONG_TO_ADDRESS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_WRONG_TO_ADDRESS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_ZERO_SIGNAL\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RESOLVER_DENIED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RESOLVER_INVALID_ADDR\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"}],\"name\":\"RESOLVER_ZERO_ADDR\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"addressManager\",\"type\":\"address\"}],\"name\":\"AddressManagerChanged\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"enabled\",\"type\":\"bool\"}],\"name\":\"DestChainEnabled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"}],\"name\":\"MessageRecalled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"}],\"name\":\"MessageRecalled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"user\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"refundTo\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"indexed\":false,\"internalType\":\"structIBridge.Message\",\"name\":\"message\",\"type\":\"tuple\"}],\"name\":\"MessageSent\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"user\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"refundTo\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"indexed\":false,\"internalType\":\"structIBridge.Message\",\"name\":\"message\",\"type\":\"tuple\"}],\"name\":\"MessageSent\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"enumLibBridgeStatus.MessageStatus\",\"name\":\"status\",\"type\":\"uint8\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"transactor\",\"type\":\"address\"}],\"name\":\"MessageStatusChanged\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"enumLibBridgeStatus.MessageStatus\",\"name\":\"status\",\"type\":\"uint8\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"transactor\",\"type\":\"address\"}],\"name\":\"MessageStatusChanged\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"}],\"name\":\"SignalSent\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"addressManager\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"context\",\"outputs\":[{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"}],\"internalType\":\"structIBridge.Context\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"}],\"name\":\"getMessageStatus\",\"outputs\":[{\"internalType\":\"enumLibBridgeStatus.MessageStatus\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"}],\"name\":\"getMessageStatusSlot\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"user\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"refundTo\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"internalType\":\"structIBridge.Message\",\"name\":\"message\",\"type\":\"tuple\"}],\"name\":\"hashMessage\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_addressManager\",\"type\":\"address\"}],\"name\":\"init\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_chainId\",\"type\":\"uint256\"}],\"name\":\"isDestChainEnabled\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"enabled\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"proof\",\"type\":\"bytes\"}],\"name\":\"isMessageFailed\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"}],\"name\":\"isMessageRecalled\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"proof\",\"type\":\"bytes\"}],\"name\":\"isMessageReceived\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"}],\"name\":\"isMessageSent\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"user\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"refundTo\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"internalType\":\"structIBridge.Message\",\"name\":\"message\",\"type\":\"tuple\"},{\"internalType\":\"bytes\",\"name\":\"proof\",\"type\":\"bytes\"}],\"name\":\"processMessage\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"user\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"refundTo\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"internalType\":\"structIBridge.Message\",\"name\":\"message\",\"type\":\"tuple\"},{\"internalType\":\"bytes\",\"name\":\"proof\",\"type\":\"bytes\"}],\"name\":\"recallMessage\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"addr\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"addr\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"user\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"refundTo\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"internalType\":\"structIBridge.Message\",\"name\":\"message\",\"type\":\"tuple\"},{\"internalType\":\"bool\",\"name\":\"isLastAttempt\",\"type\":\"bool\"}],\"name\":\"retryMessage\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"user\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"refundTo\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"internalType\":\"structIBridge.Message\",\"name\":\"message\",\"type\":\"tuple\"}],\"name\":\"sendMessage\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newAddressManager\",\"type\":\"address\"}],\"name\":\"setAddressManager\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}]",
+	ABI: "[{\"inputs\":[],\"name\":\"B_INVALID_CHAINID\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_INVALID_CONTEXT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_INVALID_GAS_LIMIT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_INVALID_SIGNAL\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_INVALID_TO\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_INVALID_USER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_INVALID_VALUE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_NON_RETRIABLE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_NOT_FAILED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_NOT_RECEIVED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_PERMISSION_DENIED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_RECALLED_ALREADY\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"B_STATUS_MISMATCH\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ETH_TRANSFER_FAILED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INVALID_PAUSE_STATUS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"REENTRANT_CALL\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RESOLVER_DENIED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RESOLVER_INVALID_MANAGER\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"}],\"name\":\"RESOLVER_ZERO_ADDR\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"enabled\",\"type\":\"bool\"}],\"name\":\"DestChainEnabled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"}],\"name\":\"MessageRecalled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"uint128\",\"name\":\"id\",\"type\":\"uint128\"},{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"user\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"refundTo\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"indexed\":false,\"internalType\":\"structIBridge.Message\",\"name\":\"message\",\"type\":\"tuple\"}],\"name\":\"MessageSent\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"enumBridge.Status\",\"name\":\"status\",\"type\":\"uint8\"}],\"name\":\"MessageStatusChanged\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"Paused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"}],\"name\":\"SignalSent\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"Unpaused\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"addressManager\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"context\",\"outputs\":[{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"}],\"internalType\":\"structIBridge.Context\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_addressManager\",\"type\":\"address\"}],\"name\":\"init\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"}],\"name\":\"isDestChainEnabled\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"enabled\",\"type\":\"bool\"},{\"internalType\":\"address\",\"name\":\"destBridge\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"}],\"name\":\"isMessageRecalled\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"recalled\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint128\",\"name\":\"id\",\"type\":\"uint128\"},{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"user\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"refundTo\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"internalType\":\"structIBridge.Message\",\"name\":\"message\",\"type\":\"tuple\"}],\"name\":\"isMessageSent\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"}],\"name\":\"messageStatus\",\"outputs\":[{\"internalType\":\"enumBridge.Status\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"nextMessageId\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"pause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"paused\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint128\",\"name\":\"id\",\"type\":\"uint128\"},{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"user\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"refundTo\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"internalType\":\"structIBridge.Message\",\"name\":\"message\",\"type\":\"tuple\"},{\"internalType\":\"bytes\",\"name\":\"proof\",\"type\":\"bytes\"}],\"name\":\"processMessage\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint128\",\"name\":\"id\",\"type\":\"uint128\"},{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"user\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"refundTo\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"internalType\":\"structIBridge.Message\",\"name\":\"message\",\"type\":\"tuple\"},{\"internalType\":\"bytes\",\"name\":\"proof\",\"type\":\"bytes\"}],\"name\":\"proveMessageFailed\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint128\",\"name\":\"id\",\"type\":\"uint128\"},{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"user\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"refundTo\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"internalType\":\"structIBridge.Message\",\"name\":\"message\",\"type\":\"tuple\"},{\"internalType\":\"bytes\",\"name\":\"proof\",\"type\":\"bytes\"}],\"name\":\"proveMessageReceived\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint128\",\"name\":\"id\",\"type\":\"uint128\"},{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"user\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"refundTo\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"internalType\":\"structIBridge.Message\",\"name\":\"message\",\"type\":\"tuple\"},{\"internalType\":\"bytes\",\"name\":\"proof\",\"type\":\"bytes\"}],\"name\":\"recallMessage\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"addr\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"addr\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint128\",\"name\":\"id\",\"type\":\"uint128\"},{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"user\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"refundTo\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"internalType\":\"structIBridge.Message\",\"name\":\"message\",\"type\":\"tuple\"},{\"internalType\":\"bool\",\"name\":\"isLastAttempt\",\"type\":\"bool\"}],\"name\":\"retryMessage\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint128\",\"name\":\"id\",\"type\":\"uint128\"},{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"user\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"refundTo\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"internalType\":\"structIBridge.Message\",\"name\":\"message\",\"type\":\"tuple\"}],\"name\":\"sendMessage\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"uint128\",\"name\":\"id\",\"type\":\"uint128\"},{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"user\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"refundTo\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"internalType\":\"structIBridge.Message\",\"name\":\"_message\",\"type\":\"tuple\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"unpause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}]",
 }
 
 // BridgeABI is the input ABI used to generate the binding from.
@@ -265,164 +265,54 @@ func (_Bridge *BridgeCallerSession) Context() (IBridgeContext, error) {
 	return _Bridge.Contract.Context(&_Bridge.CallOpts)
 }
 
-// GetMessageStatus is a free data retrieval call binding the contract method 0x5075a9d4.
-//
-// Solidity: function getMessageStatus(bytes32 msgHash) view returns(uint8)
-func (_Bridge *BridgeCaller) GetMessageStatus(opts *bind.CallOpts, msgHash [32]byte) (uint8, error) {
-	var out []interface{}
-	err := _Bridge.contract.Call(opts, &out, "getMessageStatus", msgHash)
-
-	if err != nil {
-		return *new(uint8), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(uint8)).(*uint8)
-
-	return out0, err
-
-}
-
-// GetMessageStatus is a free data retrieval call binding the contract method 0x5075a9d4.
-//
-// Solidity: function getMessageStatus(bytes32 msgHash) view returns(uint8)
-func (_Bridge *BridgeSession) GetMessageStatus(msgHash [32]byte) (uint8, error) {
-	return _Bridge.Contract.GetMessageStatus(&_Bridge.CallOpts, msgHash)
-}
-
-// GetMessageStatus is a free data retrieval call binding the contract method 0x5075a9d4.
-//
-// Solidity: function getMessageStatus(bytes32 msgHash) view returns(uint8)
-func (_Bridge *BridgeCallerSession) GetMessageStatus(msgHash [32]byte) (uint8, error) {
-	return _Bridge.Contract.GetMessageStatus(&_Bridge.CallOpts, msgHash)
-}
-
-// GetMessageStatusSlot is a free data retrieval call binding the contract method 0x606b5b74.
-//
-// Solidity: function getMessageStatusSlot(bytes32 msgHash) pure returns(bytes32)
-func (_Bridge *BridgeCaller) GetMessageStatusSlot(opts *bind.CallOpts, msgHash [32]byte) ([32]byte, error) {
-	var out []interface{}
-	err := _Bridge.contract.Call(opts, &out, "getMessageStatusSlot", msgHash)
-
-	if err != nil {
-		return *new([32]byte), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
-
-	return out0, err
-
-}
-
-// GetMessageStatusSlot is a free data retrieval call binding the contract method 0x606b5b74.
-//
-// Solidity: function getMessageStatusSlot(bytes32 msgHash) pure returns(bytes32)
-func (_Bridge *BridgeSession) GetMessageStatusSlot(msgHash [32]byte) ([32]byte, error) {
-	return _Bridge.Contract.GetMessageStatusSlot(&_Bridge.CallOpts, msgHash)
-}
-
-// GetMessageStatusSlot is a free data retrieval call binding the contract method 0x606b5b74.
-//
-// Solidity: function getMessageStatusSlot(bytes32 msgHash) pure returns(bytes32)
-func (_Bridge *BridgeCallerSession) GetMessageStatusSlot(msgHash [32]byte) ([32]byte, error) {
-	return _Bridge.Contract.GetMessageStatusSlot(&_Bridge.CallOpts, msgHash)
-}
-
-// HashMessage is a free data retrieval call binding the contract method 0x263463c8.
-//
-// Solidity: function hashMessage((uint256,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message) pure returns(bytes32)
-func (_Bridge *BridgeCaller) HashMessage(opts *bind.CallOpts, message IBridgeMessage) ([32]byte, error) {
-	var out []interface{}
-	err := _Bridge.contract.Call(opts, &out, "hashMessage", message)
-
-	if err != nil {
-		return *new([32]byte), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
-
-	return out0, err
-
-}
-
-// HashMessage is a free data retrieval call binding the contract method 0x263463c8.
-//
-// Solidity: function hashMessage((uint256,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message) pure returns(bytes32)
-func (_Bridge *BridgeSession) HashMessage(message IBridgeMessage) ([32]byte, error) {
-	return _Bridge.Contract.HashMessage(&_Bridge.CallOpts, message)
-}
-
-// HashMessage is a free data retrieval call binding the contract method 0x263463c8.
-//
-// Solidity: function hashMessage((uint256,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message) pure returns(bytes32)
-func (_Bridge *BridgeCallerSession) HashMessage(message IBridgeMessage) ([32]byte, error) {
-	return _Bridge.Contract.HashMessage(&_Bridge.CallOpts, message)
-}
-
 // IsDestChainEnabled is a free data retrieval call binding the contract method 0x5d0bd986.
 //
-// Solidity: function isDestChainEnabled(uint256 _chainId) view returns(bool enabled)
-func (_Bridge *BridgeCaller) IsDestChainEnabled(opts *bind.CallOpts, _chainId *big.Int) (bool, error) {
+// Solidity: function isDestChainEnabled(uint256 chainId) view returns(bool enabled, address destBridge)
+func (_Bridge *BridgeCaller) IsDestChainEnabled(opts *bind.CallOpts, chainId *big.Int) (struct {
+	Enabled    bool
+	DestBridge common.Address
+}, error) {
 	var out []interface{}
-	err := _Bridge.contract.Call(opts, &out, "isDestChainEnabled", _chainId)
+	err := _Bridge.contract.Call(opts, &out, "isDestChainEnabled", chainId)
 
+	outstruct := new(struct {
+		Enabled    bool
+		DestBridge common.Address
+	})
 	if err != nil {
-		return *new(bool), err
+		return *outstruct, err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	outstruct.Enabled = *abi.ConvertType(out[0], new(bool)).(*bool)
+	outstruct.DestBridge = *abi.ConvertType(out[1], new(common.Address)).(*common.Address)
 
-	return out0, err
+	return *outstruct, err
 
 }
 
 // IsDestChainEnabled is a free data retrieval call binding the contract method 0x5d0bd986.
 //
-// Solidity: function isDestChainEnabled(uint256 _chainId) view returns(bool enabled)
-func (_Bridge *BridgeSession) IsDestChainEnabled(_chainId *big.Int) (bool, error) {
-	return _Bridge.Contract.IsDestChainEnabled(&_Bridge.CallOpts, _chainId)
+// Solidity: function isDestChainEnabled(uint256 chainId) view returns(bool enabled, address destBridge)
+func (_Bridge *BridgeSession) IsDestChainEnabled(chainId *big.Int) (struct {
+	Enabled    bool
+	DestBridge common.Address
+}, error) {
+	return _Bridge.Contract.IsDestChainEnabled(&_Bridge.CallOpts, chainId)
 }
 
 // IsDestChainEnabled is a free data retrieval call binding the contract method 0x5d0bd986.
 //
-// Solidity: function isDestChainEnabled(uint256 _chainId) view returns(bool enabled)
-func (_Bridge *BridgeCallerSession) IsDestChainEnabled(_chainId *big.Int) (bool, error) {
-	return _Bridge.Contract.IsDestChainEnabled(&_Bridge.CallOpts, _chainId)
-}
-
-// IsMessageFailed is a free data retrieval call binding the contract method 0xce70f39b.
-//
-// Solidity: function isMessageFailed(bytes32 msgHash, uint256 destChainId, bytes proof) view returns(bool)
-func (_Bridge *BridgeCaller) IsMessageFailed(opts *bind.CallOpts, msgHash [32]byte, destChainId *big.Int, proof []byte) (bool, error) {
-	var out []interface{}
-	err := _Bridge.contract.Call(opts, &out, "isMessageFailed", msgHash, destChainId, proof)
-
-	if err != nil {
-		return *new(bool), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
-
-	return out0, err
-
-}
-
-// IsMessageFailed is a free data retrieval call binding the contract method 0xce70f39b.
-//
-// Solidity: function isMessageFailed(bytes32 msgHash, uint256 destChainId, bytes proof) view returns(bool)
-func (_Bridge *BridgeSession) IsMessageFailed(msgHash [32]byte, destChainId *big.Int, proof []byte) (bool, error) {
-	return _Bridge.Contract.IsMessageFailed(&_Bridge.CallOpts, msgHash, destChainId, proof)
-}
-
-// IsMessageFailed is a free data retrieval call binding the contract method 0xce70f39b.
-//
-// Solidity: function isMessageFailed(bytes32 msgHash, uint256 destChainId, bytes proof) view returns(bool)
-func (_Bridge *BridgeCallerSession) IsMessageFailed(msgHash [32]byte, destChainId *big.Int, proof []byte) (bool, error) {
-	return _Bridge.Contract.IsMessageFailed(&_Bridge.CallOpts, msgHash, destChainId, proof)
+// Solidity: function isDestChainEnabled(uint256 chainId) view returns(bool enabled, address destBridge)
+func (_Bridge *BridgeCallerSession) IsDestChainEnabled(chainId *big.Int) (struct {
+	Enabled    bool
+	DestBridge common.Address
+}, error) {
+	return _Bridge.Contract.IsDestChainEnabled(&_Bridge.CallOpts, chainId)
 }
 
 // IsMessageRecalled is a free data retrieval call binding the contract method 0x4f5f9772.
 //
-// Solidity: function isMessageRecalled(bytes32 msgHash) view returns(bool)
+// Solidity: function isMessageRecalled(bytes32 msgHash) view returns(bool recalled)
 func (_Bridge *BridgeCaller) IsMessageRecalled(opts *bind.CallOpts, msgHash [32]byte) (bool, error) {
 	var out []interface{}
 	err := _Bridge.contract.Call(opts, &out, "isMessageRecalled", msgHash)
@@ -439,24 +329,24 @@ func (_Bridge *BridgeCaller) IsMessageRecalled(opts *bind.CallOpts, msgHash [32]
 
 // IsMessageRecalled is a free data retrieval call binding the contract method 0x4f5f9772.
 //
-// Solidity: function isMessageRecalled(bytes32 msgHash) view returns(bool)
+// Solidity: function isMessageRecalled(bytes32 msgHash) view returns(bool recalled)
 func (_Bridge *BridgeSession) IsMessageRecalled(msgHash [32]byte) (bool, error) {
 	return _Bridge.Contract.IsMessageRecalled(&_Bridge.CallOpts, msgHash)
 }
 
 // IsMessageRecalled is a free data retrieval call binding the contract method 0x4f5f9772.
 //
-// Solidity: function isMessageRecalled(bytes32 msgHash) view returns(bool)
+// Solidity: function isMessageRecalled(bytes32 msgHash) view returns(bool recalled)
 func (_Bridge *BridgeCallerSession) IsMessageRecalled(msgHash [32]byte) (bool, error) {
 	return _Bridge.Contract.IsMessageRecalled(&_Bridge.CallOpts, msgHash)
 }
 
-// IsMessageReceived is a free data retrieval call binding the contract method 0xa4444efd.
+// IsMessageSent is a free data retrieval call binding the contract method 0xaedf6cd3.
 //
-// Solidity: function isMessageReceived(bytes32 msgHash, uint256 srcChainId, bytes proof) view returns(bool)
-func (_Bridge *BridgeCaller) IsMessageReceived(opts *bind.CallOpts, msgHash [32]byte, srcChainId *big.Int, proof []byte) (bool, error) {
+// Solidity: function isMessageSent((uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message) view returns(bool)
+func (_Bridge *BridgeCaller) IsMessageSent(opts *bind.CallOpts, message IBridgeMessage) (bool, error) {
 	var out []interface{}
-	err := _Bridge.contract.Call(opts, &out, "isMessageReceived", msgHash, srcChainId, proof)
+	err := _Bridge.contract.Call(opts, &out, "isMessageSent", message)
 
 	if err != nil {
 		return *new(bool), err
@@ -468,49 +358,80 @@ func (_Bridge *BridgeCaller) IsMessageReceived(opts *bind.CallOpts, msgHash [32]
 
 }
 
-// IsMessageReceived is a free data retrieval call binding the contract method 0xa4444efd.
+// IsMessageSent is a free data retrieval call binding the contract method 0xaedf6cd3.
 //
-// Solidity: function isMessageReceived(bytes32 msgHash, uint256 srcChainId, bytes proof) view returns(bool)
-func (_Bridge *BridgeSession) IsMessageReceived(msgHash [32]byte, srcChainId *big.Int, proof []byte) (bool, error) {
-	return _Bridge.Contract.IsMessageReceived(&_Bridge.CallOpts, msgHash, srcChainId, proof)
+// Solidity: function isMessageSent((uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message) view returns(bool)
+func (_Bridge *BridgeSession) IsMessageSent(message IBridgeMessage) (bool, error) {
+	return _Bridge.Contract.IsMessageSent(&_Bridge.CallOpts, message)
 }
 
-// IsMessageReceived is a free data retrieval call binding the contract method 0xa4444efd.
+// IsMessageSent is a free data retrieval call binding the contract method 0xaedf6cd3.
 //
-// Solidity: function isMessageReceived(bytes32 msgHash, uint256 srcChainId, bytes proof) view returns(bool)
-func (_Bridge *BridgeCallerSession) IsMessageReceived(msgHash [32]byte, srcChainId *big.Int, proof []byte) (bool, error) {
-	return _Bridge.Contract.IsMessageReceived(&_Bridge.CallOpts, msgHash, srcChainId, proof)
+// Solidity: function isMessageSent((uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message) view returns(bool)
+func (_Bridge *BridgeCallerSession) IsMessageSent(message IBridgeMessage) (bool, error) {
+	return _Bridge.Contract.IsMessageSent(&_Bridge.CallOpts, message)
 }
 
-// IsMessageSent is a free data retrieval call binding the contract method 0x540be6a3.
+// MessageStatus is a free data retrieval call binding the contract method 0x3c6cf473.
 //
-// Solidity: function isMessageSent(bytes32 msgHash) view returns(bool)
-func (_Bridge *BridgeCaller) IsMessageSent(opts *bind.CallOpts, msgHash [32]byte) (bool, error) {
+// Solidity: function messageStatus(bytes32 msgHash) view returns(uint8)
+func (_Bridge *BridgeCaller) MessageStatus(opts *bind.CallOpts, msgHash [32]byte) (uint8, error) {
 	var out []interface{}
-	err := _Bridge.contract.Call(opts, &out, "isMessageSent", msgHash)
+	err := _Bridge.contract.Call(opts, &out, "messageStatus", msgHash)
 
 	if err != nil {
-		return *new(bool), err
+		return *new(uint8), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	out0 := *abi.ConvertType(out[0], new(uint8)).(*uint8)
 
 	return out0, err
 
 }
 
-// IsMessageSent is a free data retrieval call binding the contract method 0x540be6a3.
+// MessageStatus is a free data retrieval call binding the contract method 0x3c6cf473.
 //
-// Solidity: function isMessageSent(bytes32 msgHash) view returns(bool)
-func (_Bridge *BridgeSession) IsMessageSent(msgHash [32]byte) (bool, error) {
-	return _Bridge.Contract.IsMessageSent(&_Bridge.CallOpts, msgHash)
+// Solidity: function messageStatus(bytes32 msgHash) view returns(uint8)
+func (_Bridge *BridgeSession) MessageStatus(msgHash [32]byte) (uint8, error) {
+	return _Bridge.Contract.MessageStatus(&_Bridge.CallOpts, msgHash)
 }
 
-// IsMessageSent is a free data retrieval call binding the contract method 0x540be6a3.
+// MessageStatus is a free data retrieval call binding the contract method 0x3c6cf473.
 //
-// Solidity: function isMessageSent(bytes32 msgHash) view returns(bool)
-func (_Bridge *BridgeCallerSession) IsMessageSent(msgHash [32]byte) (bool, error) {
-	return _Bridge.Contract.IsMessageSent(&_Bridge.CallOpts, msgHash)
+// Solidity: function messageStatus(bytes32 msgHash) view returns(uint8)
+func (_Bridge *BridgeCallerSession) MessageStatus(msgHash [32]byte) (uint8, error) {
+	return _Bridge.Contract.MessageStatus(&_Bridge.CallOpts, msgHash)
+}
+
+// NextMessageId is a free data retrieval call binding the contract method 0xeefbf17e.
+//
+// Solidity: function nextMessageId() view returns(uint128)
+func (_Bridge *BridgeCaller) NextMessageId(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _Bridge.contract.Call(opts, &out, "nextMessageId")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// NextMessageId is a free data retrieval call binding the contract method 0xeefbf17e.
+//
+// Solidity: function nextMessageId() view returns(uint128)
+func (_Bridge *BridgeSession) NextMessageId() (*big.Int, error) {
+	return _Bridge.Contract.NextMessageId(&_Bridge.CallOpts)
+}
+
+// NextMessageId is a free data retrieval call binding the contract method 0xeefbf17e.
+//
+// Solidity: function nextMessageId() view returns(uint128)
+func (_Bridge *BridgeCallerSession) NextMessageId() (*big.Int, error) {
+	return _Bridge.Contract.NextMessageId(&_Bridge.CallOpts)
 }
 
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
@@ -542,6 +463,99 @@ func (_Bridge *BridgeSession) Owner() (common.Address, error) {
 // Solidity: function owner() view returns(address)
 func (_Bridge *BridgeCallerSession) Owner() (common.Address, error) {
 	return _Bridge.Contract.Owner(&_Bridge.CallOpts)
+}
+
+// Paused is a free data retrieval call binding the contract method 0x5c975abb.
+//
+// Solidity: function paused() view returns(bool)
+func (_Bridge *BridgeCaller) Paused(opts *bind.CallOpts) (bool, error) {
+	var out []interface{}
+	err := _Bridge.contract.Call(opts, &out, "paused")
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// Paused is a free data retrieval call binding the contract method 0x5c975abb.
+//
+// Solidity: function paused() view returns(bool)
+func (_Bridge *BridgeSession) Paused() (bool, error) {
+	return _Bridge.Contract.Paused(&_Bridge.CallOpts)
+}
+
+// Paused is a free data retrieval call binding the contract method 0x5c975abb.
+//
+// Solidity: function paused() view returns(bool)
+func (_Bridge *BridgeCallerSession) Paused() (bool, error) {
+	return _Bridge.Contract.Paused(&_Bridge.CallOpts)
+}
+
+// ProveMessageFailed is a free data retrieval call binding the contract method 0x1b5fd0ab.
+//
+// Solidity: function proveMessageFailed((uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message, bytes proof) view returns(bool)
+func (_Bridge *BridgeCaller) ProveMessageFailed(opts *bind.CallOpts, message IBridgeMessage, proof []byte) (bool, error) {
+	var out []interface{}
+	err := _Bridge.contract.Call(opts, &out, "proveMessageFailed", message, proof)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// ProveMessageFailed is a free data retrieval call binding the contract method 0x1b5fd0ab.
+//
+// Solidity: function proveMessageFailed((uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message, bytes proof) view returns(bool)
+func (_Bridge *BridgeSession) ProveMessageFailed(message IBridgeMessage, proof []byte) (bool, error) {
+	return _Bridge.Contract.ProveMessageFailed(&_Bridge.CallOpts, message, proof)
+}
+
+// ProveMessageFailed is a free data retrieval call binding the contract method 0x1b5fd0ab.
+//
+// Solidity: function proveMessageFailed((uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message, bytes proof) view returns(bool)
+func (_Bridge *BridgeCallerSession) ProveMessageFailed(message IBridgeMessage, proof []byte) (bool, error) {
+	return _Bridge.Contract.ProveMessageFailed(&_Bridge.CallOpts, message, proof)
+}
+
+// ProveMessageReceived is a free data retrieval call binding the contract method 0xa665077e.
+//
+// Solidity: function proveMessageReceived((uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message, bytes proof) view returns(bool)
+func (_Bridge *BridgeCaller) ProveMessageReceived(opts *bind.CallOpts, message IBridgeMessage, proof []byte) (bool, error) {
+	var out []interface{}
+	err := _Bridge.contract.Call(opts, &out, "proveMessageReceived", message, proof)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// ProveMessageReceived is a free data retrieval call binding the contract method 0xa665077e.
+//
+// Solidity: function proveMessageReceived((uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message, bytes proof) view returns(bool)
+func (_Bridge *BridgeSession) ProveMessageReceived(message IBridgeMessage, proof []byte) (bool, error) {
+	return _Bridge.Contract.ProveMessageReceived(&_Bridge.CallOpts, message, proof)
+}
+
+// ProveMessageReceived is a free data retrieval call binding the contract method 0xa665077e.
+//
+// Solidity: function proveMessageReceived((uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message, bytes proof) view returns(bool)
+func (_Bridge *BridgeCallerSession) ProveMessageReceived(message IBridgeMessage, proof []byte) (bool, error) {
+	return _Bridge.Contract.ProveMessageReceived(&_Bridge.CallOpts, message, proof)
 }
 
 // Resolve is a free data retrieval call binding the contract method 0x6c6563f6.
@@ -627,44 +641,65 @@ func (_Bridge *BridgeTransactorSession) Init(_addressManager common.Address) (*t
 	return _Bridge.Contract.Init(&_Bridge.TransactOpts, _addressManager)
 }
 
-// ProcessMessage is a paid mutator transaction binding the contract method 0xec9b3121.
+// Pause is a paid mutator transaction binding the contract method 0x8456cb59.
 //
-// Solidity: function processMessage((uint256,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message, bytes proof) returns()
+// Solidity: function pause() returns()
+func (_Bridge *BridgeTransactor) Pause(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _Bridge.contract.Transact(opts, "pause")
+}
+
+// Pause is a paid mutator transaction binding the contract method 0x8456cb59.
+//
+// Solidity: function pause() returns()
+func (_Bridge *BridgeSession) Pause() (*types.Transaction, error) {
+	return _Bridge.Contract.Pause(&_Bridge.TransactOpts)
+}
+
+// Pause is a paid mutator transaction binding the contract method 0x8456cb59.
+//
+// Solidity: function pause() returns()
+func (_Bridge *BridgeTransactorSession) Pause() (*types.Transaction, error) {
+	return _Bridge.Contract.Pause(&_Bridge.TransactOpts)
+}
+
+// ProcessMessage is a paid mutator transaction binding the contract method 0x1136c050.
+//
+// Solidity: function processMessage((uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message, bytes proof) returns()
 func (_Bridge *BridgeTransactor) ProcessMessage(opts *bind.TransactOpts, message IBridgeMessage, proof []byte) (*types.Transaction, error) {
 	return _Bridge.contract.Transact(opts, "processMessage", message, proof)
 }
 
-// ProcessMessage is a paid mutator transaction binding the contract method 0xec9b3121.
+// ProcessMessage is a paid mutator transaction binding the contract method 0x1136c050.
 //
-// Solidity: function processMessage((uint256,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message, bytes proof) returns()
+// Solidity: function processMessage((uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message, bytes proof) returns()
 func (_Bridge *BridgeSession) ProcessMessage(message IBridgeMessage, proof []byte) (*types.Transaction, error) {
 	return _Bridge.Contract.ProcessMessage(&_Bridge.TransactOpts, message, proof)
 }
 
-// ProcessMessage is a paid mutator transaction binding the contract method 0xec9b3121.
+// ProcessMessage is a paid mutator transaction binding the contract method 0x1136c050.
 //
-// Solidity: function processMessage((uint256,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message, bytes proof) returns()
+// Solidity: function processMessage((uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message, bytes proof) returns()
 func (_Bridge *BridgeTransactorSession) ProcessMessage(message IBridgeMessage, proof []byte) (*types.Transaction, error) {
 	return _Bridge.Contract.ProcessMessage(&_Bridge.TransactOpts, message, proof)
 }
 
-// RecallMessage is a paid mutator transaction binding the contract method 0x620c23fb.
+// RecallMessage is a paid mutator transaction binding the contract method 0x40d0ff96.
 //
-// Solidity: function recallMessage((uint256,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message, bytes proof) returns()
+// Solidity: function recallMessage((uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message, bytes proof) returns()
 func (_Bridge *BridgeTransactor) RecallMessage(opts *bind.TransactOpts, message IBridgeMessage, proof []byte) (*types.Transaction, error) {
 	return _Bridge.contract.Transact(opts, "recallMessage", message, proof)
 }
 
-// RecallMessage is a paid mutator transaction binding the contract method 0x620c23fb.
+// RecallMessage is a paid mutator transaction binding the contract method 0x40d0ff96.
 //
-// Solidity: function recallMessage((uint256,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message, bytes proof) returns()
+// Solidity: function recallMessage((uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message, bytes proof) returns()
 func (_Bridge *BridgeSession) RecallMessage(message IBridgeMessage, proof []byte) (*types.Transaction, error) {
 	return _Bridge.Contract.RecallMessage(&_Bridge.TransactOpts, message, proof)
 }
 
-// RecallMessage is a paid mutator transaction binding the contract method 0x620c23fb.
+// RecallMessage is a paid mutator transaction binding the contract method 0x40d0ff96.
 //
-// Solidity: function recallMessage((uint256,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message, bytes proof) returns()
+// Solidity: function recallMessage((uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message, bytes proof) returns()
 func (_Bridge *BridgeTransactorSession) RecallMessage(message IBridgeMessage, proof []byte) (*types.Transaction, error) {
 	return _Bridge.Contract.RecallMessage(&_Bridge.TransactOpts, message, proof)
 }
@@ -690,67 +725,46 @@ func (_Bridge *BridgeTransactorSession) RenounceOwnership() (*types.Transaction,
 	return _Bridge.Contract.RenounceOwnership(&_Bridge.TransactOpts)
 }
 
-// RetryMessage is a paid mutator transaction binding the contract method 0xf21be36f.
+// RetryMessage is a paid mutator transaction binding the contract method 0x0be0b938.
 //
-// Solidity: function retryMessage((uint256,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message, bool isLastAttempt) returns()
+// Solidity: function retryMessage((uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message, bool isLastAttempt) returns()
 func (_Bridge *BridgeTransactor) RetryMessage(opts *bind.TransactOpts, message IBridgeMessage, isLastAttempt bool) (*types.Transaction, error) {
 	return _Bridge.contract.Transact(opts, "retryMessage", message, isLastAttempt)
 }
 
-// RetryMessage is a paid mutator transaction binding the contract method 0xf21be36f.
+// RetryMessage is a paid mutator transaction binding the contract method 0x0be0b938.
 //
-// Solidity: function retryMessage((uint256,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message, bool isLastAttempt) returns()
+// Solidity: function retryMessage((uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message, bool isLastAttempt) returns()
 func (_Bridge *BridgeSession) RetryMessage(message IBridgeMessage, isLastAttempt bool) (*types.Transaction, error) {
 	return _Bridge.Contract.RetryMessage(&_Bridge.TransactOpts, message, isLastAttempt)
 }
 
-// RetryMessage is a paid mutator transaction binding the contract method 0xf21be36f.
+// RetryMessage is a paid mutator transaction binding the contract method 0x0be0b938.
 //
-// Solidity: function retryMessage((uint256,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message, bool isLastAttempt) returns()
+// Solidity: function retryMessage((uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message, bool isLastAttempt) returns()
 func (_Bridge *BridgeTransactorSession) RetryMessage(message IBridgeMessage, isLastAttempt bool) (*types.Transaction, error) {
 	return _Bridge.Contract.RetryMessage(&_Bridge.TransactOpts, message, isLastAttempt)
 }
 
-// SendMessage is a paid mutator transaction binding the contract method 0x4c1888bc.
+// SendMessage is a paid mutator transaction binding the contract method 0x5fc34de7.
 //
-// Solidity: function sendMessage((uint256,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message) payable returns(bytes32 msgHash)
+// Solidity: function sendMessage((uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message) payable returns(bytes32 msgHash, (uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) _message)
 func (_Bridge *BridgeTransactor) SendMessage(opts *bind.TransactOpts, message IBridgeMessage) (*types.Transaction, error) {
 	return _Bridge.contract.Transact(opts, "sendMessage", message)
 }
 
-// SendMessage is a paid mutator transaction binding the contract method 0x4c1888bc.
+// SendMessage is a paid mutator transaction binding the contract method 0x5fc34de7.
 //
-// Solidity: function sendMessage((uint256,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message) payable returns(bytes32 msgHash)
+// Solidity: function sendMessage((uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message) payable returns(bytes32 msgHash, (uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) _message)
 func (_Bridge *BridgeSession) SendMessage(message IBridgeMessage) (*types.Transaction, error) {
 	return _Bridge.Contract.SendMessage(&_Bridge.TransactOpts, message)
 }
 
-// SendMessage is a paid mutator transaction binding the contract method 0x4c1888bc.
+// SendMessage is a paid mutator transaction binding the contract method 0x5fc34de7.
 //
-// Solidity: function sendMessage((uint256,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message) payable returns(bytes32 msgHash)
+// Solidity: function sendMessage((uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message) payable returns(bytes32 msgHash, (uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) _message)
 func (_Bridge *BridgeTransactorSession) SendMessage(message IBridgeMessage) (*types.Transaction, error) {
 	return _Bridge.Contract.SendMessage(&_Bridge.TransactOpts, message)
-}
-
-// SetAddressManager is a paid mutator transaction binding the contract method 0x0652b57a.
-//
-// Solidity: function setAddressManager(address newAddressManager) returns()
-func (_Bridge *BridgeTransactor) SetAddressManager(opts *bind.TransactOpts, newAddressManager common.Address) (*types.Transaction, error) {
-	return _Bridge.contract.Transact(opts, "setAddressManager", newAddressManager)
-}
-
-// SetAddressManager is a paid mutator transaction binding the contract method 0x0652b57a.
-//
-// Solidity: function setAddressManager(address newAddressManager) returns()
-func (_Bridge *BridgeSession) SetAddressManager(newAddressManager common.Address) (*types.Transaction, error) {
-	return _Bridge.Contract.SetAddressManager(&_Bridge.TransactOpts, newAddressManager)
-}
-
-// SetAddressManager is a paid mutator transaction binding the contract method 0x0652b57a.
-//
-// Solidity: function setAddressManager(address newAddressManager) returns()
-func (_Bridge *BridgeTransactorSession) SetAddressManager(newAddressManager common.Address) (*types.Transaction, error) {
-	return _Bridge.Contract.SetAddressManager(&_Bridge.TransactOpts, newAddressManager)
 }
 
 // TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
@@ -774,6 +788,27 @@ func (_Bridge *BridgeTransactorSession) TransferOwnership(newOwner common.Addres
 	return _Bridge.Contract.TransferOwnership(&_Bridge.TransactOpts, newOwner)
 }
 
+// Unpause is a paid mutator transaction binding the contract method 0x3f4ba83a.
+//
+// Solidity: function unpause() returns()
+func (_Bridge *BridgeTransactor) Unpause(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _Bridge.contract.Transact(opts, "unpause")
+}
+
+// Unpause is a paid mutator transaction binding the contract method 0x3f4ba83a.
+//
+// Solidity: function unpause() returns()
+func (_Bridge *BridgeSession) Unpause() (*types.Transaction, error) {
+	return _Bridge.Contract.Unpause(&_Bridge.TransactOpts)
+}
+
+// Unpause is a paid mutator transaction binding the contract method 0x3f4ba83a.
+//
+// Solidity: function unpause() returns()
+func (_Bridge *BridgeTransactorSession) Unpause() (*types.Transaction, error) {
+	return _Bridge.Contract.Unpause(&_Bridge.TransactOpts)
+}
+
 // Receive is a paid mutator transaction binding the contract receive function.
 //
 // Solidity: receive() payable returns()
@@ -793,150 +828,6 @@ func (_Bridge *BridgeSession) Receive() (*types.Transaction, error) {
 // Solidity: receive() payable returns()
 func (_Bridge *BridgeTransactorSession) Receive() (*types.Transaction, error) {
 	return _Bridge.Contract.Receive(&_Bridge.TransactOpts)
-}
-
-// BridgeAddressManagerChangedIterator is returned from FilterAddressManagerChanged and is used to iterate over the raw logs and unpacked data for AddressManagerChanged events raised by the Bridge contract.
-type BridgeAddressManagerChangedIterator struct {
-	Event *BridgeAddressManagerChanged // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *BridgeAddressManagerChangedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(BridgeAddressManagerChanged)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(BridgeAddressManagerChanged)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *BridgeAddressManagerChangedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *BridgeAddressManagerChangedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// BridgeAddressManagerChanged represents a AddressManagerChanged event raised by the Bridge contract.
-type BridgeAddressManagerChanged struct {
-	AddressManager common.Address
-	Raw            types.Log // Blockchain specific contextual infos
-}
-
-// FilterAddressManagerChanged is a free log retrieval operation binding the contract event 0x399ded90cb5ed8d89ef7e76ff4af65c373f06d3bf5d7eef55f4228e7b702a18b.
-//
-// Solidity: event AddressManagerChanged(address indexed addressManager)
-func (_Bridge *BridgeFilterer) FilterAddressManagerChanged(opts *bind.FilterOpts, addressManager []common.Address) (*BridgeAddressManagerChangedIterator, error) {
-
-	var addressManagerRule []interface{}
-	for _, addressManagerItem := range addressManager {
-		addressManagerRule = append(addressManagerRule, addressManagerItem)
-	}
-
-	logs, sub, err := _Bridge.contract.FilterLogs(opts, "AddressManagerChanged", addressManagerRule)
-	if err != nil {
-		return nil, err
-	}
-	return &BridgeAddressManagerChangedIterator{contract: _Bridge.contract, event: "AddressManagerChanged", logs: logs, sub: sub}, nil
-}
-
-// WatchAddressManagerChanged is a free log subscription operation binding the contract event 0x399ded90cb5ed8d89ef7e76ff4af65c373f06d3bf5d7eef55f4228e7b702a18b.
-//
-// Solidity: event AddressManagerChanged(address indexed addressManager)
-func (_Bridge *BridgeFilterer) WatchAddressManagerChanged(opts *bind.WatchOpts, sink chan<- *BridgeAddressManagerChanged, addressManager []common.Address) (event.Subscription, error) {
-
-	var addressManagerRule []interface{}
-	for _, addressManagerItem := range addressManager {
-		addressManagerRule = append(addressManagerRule, addressManagerItem)
-	}
-
-	logs, sub, err := _Bridge.contract.WatchLogs(opts, "AddressManagerChanged", addressManagerRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(BridgeAddressManagerChanged)
-				if err := _Bridge.contract.UnpackLog(event, "AddressManagerChanged", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseAddressManagerChanged is a log parse operation binding the contract event 0x399ded90cb5ed8d89ef7e76ff4af65c373f06d3bf5d7eef55f4228e7b702a18b.
-//
-// Solidity: event AddressManagerChanged(address indexed addressManager)
-func (_Bridge *BridgeFilterer) ParseAddressManagerChanged(log types.Log) (*BridgeAddressManagerChanged, error) {
-	event := new(BridgeAddressManagerChanged)
-	if err := _Bridge.contract.UnpackLog(event, "AddressManagerChanged", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
 }
 
 // BridgeDestChainEnabledIterator is returned from FilterDestChainEnabled and is used to iterate over the raw logs and unpacked data for DestChainEnabled events raised by the Bridge contract.
@@ -1362,150 +1253,6 @@ func (_Bridge *BridgeFilterer) ParseMessageRecalled(log types.Log) (*BridgeMessa
 	return event, nil
 }
 
-// BridgeMessageRecalled0Iterator is returned from FilterMessageRecalled0 and is used to iterate over the raw logs and unpacked data for MessageRecalled0 events raised by the Bridge contract.
-type BridgeMessageRecalled0Iterator struct {
-	Event *BridgeMessageRecalled0 // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *BridgeMessageRecalled0Iterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(BridgeMessageRecalled0)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(BridgeMessageRecalled0)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *BridgeMessageRecalled0Iterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *BridgeMessageRecalled0Iterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// BridgeMessageRecalled0 represents a MessageRecalled0 event raised by the Bridge contract.
-type BridgeMessageRecalled0 struct {
-	MsgHash [32]byte
-	Raw     types.Log // Blockchain specific contextual infos
-}
-
-// FilterMessageRecalled0 is a free log retrieval operation binding the contract event 0xc6fbc1fa0145a394c9c414b2ae7bd634eb50dd888938bcd75692ae427b680fa2.
-//
-// Solidity: event MessageRecalled(bytes32 indexed msgHash)
-func (_Bridge *BridgeFilterer) FilterMessageRecalled0(opts *bind.FilterOpts, msgHash [][32]byte) (*BridgeMessageRecalled0Iterator, error) {
-
-	var msgHashRule []interface{}
-	for _, msgHashItem := range msgHash {
-		msgHashRule = append(msgHashRule, msgHashItem)
-	}
-
-	logs, sub, err := _Bridge.contract.FilterLogs(opts, "MessageRecalled0", msgHashRule)
-	if err != nil {
-		return nil, err
-	}
-	return &BridgeMessageRecalled0Iterator{contract: _Bridge.contract, event: "MessageRecalled0", logs: logs, sub: sub}, nil
-}
-
-// WatchMessageRecalled0 is a free log subscription operation binding the contract event 0xc6fbc1fa0145a394c9c414b2ae7bd634eb50dd888938bcd75692ae427b680fa2.
-//
-// Solidity: event MessageRecalled(bytes32 indexed msgHash)
-func (_Bridge *BridgeFilterer) WatchMessageRecalled0(opts *bind.WatchOpts, sink chan<- *BridgeMessageRecalled0, msgHash [][32]byte) (event.Subscription, error) {
-
-	var msgHashRule []interface{}
-	for _, msgHashItem := range msgHash {
-		msgHashRule = append(msgHashRule, msgHashItem)
-	}
-
-	logs, sub, err := _Bridge.contract.WatchLogs(opts, "MessageRecalled0", msgHashRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(BridgeMessageRecalled0)
-				if err := _Bridge.contract.UnpackLog(event, "MessageRecalled0", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseMessageRecalled0 is a log parse operation binding the contract event 0xc6fbc1fa0145a394c9c414b2ae7bd634eb50dd888938bcd75692ae427b680fa2.
-//
-// Solidity: event MessageRecalled(bytes32 indexed msgHash)
-func (_Bridge *BridgeFilterer) ParseMessageRecalled0(log types.Log) (*BridgeMessageRecalled0, error) {
-	event := new(BridgeMessageRecalled0)
-	if err := _Bridge.contract.UnpackLog(event, "MessageRecalled0", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
 // BridgeMessageSentIterator is returned from FilterMessageSent and is used to iterate over the raw logs and unpacked data for MessageSent events raised by the Bridge contract.
 type BridgeMessageSentIterator struct {
 	Event *BridgeMessageSent // Event containing the contract specifics and raw log
@@ -1580,9 +1327,9 @@ type BridgeMessageSent struct {
 	Raw     types.Log // Blockchain specific contextual infos
 }
 
-// FilterMessageSent is a free log retrieval operation binding the contract event 0x238646a410b383b664b8d2fe57d2895c1ecd3464a3159cae73a93a9f21a43355.
+// FilterMessageSent is a free log retrieval operation binding the contract event 0x769685e0f49529ee2429cb28b4b48bd962ff754c08a2849804458ad716d75dcf.
 //
-// Solidity: event MessageSent(bytes32 indexed msgHash, (uint256,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message)
+// Solidity: event MessageSent(bytes32 indexed msgHash, (uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message)
 func (_Bridge *BridgeFilterer) FilterMessageSent(opts *bind.FilterOpts, msgHash [][32]byte) (*BridgeMessageSentIterator, error) {
 
 	var msgHashRule []interface{}
@@ -1597,9 +1344,9 @@ func (_Bridge *BridgeFilterer) FilterMessageSent(opts *bind.FilterOpts, msgHash 
 	return &BridgeMessageSentIterator{contract: _Bridge.contract, event: "MessageSent", logs: logs, sub: sub}, nil
 }
 
-// WatchMessageSent is a free log subscription operation binding the contract event 0x238646a410b383b664b8d2fe57d2895c1ecd3464a3159cae73a93a9f21a43355.
+// WatchMessageSent is a free log subscription operation binding the contract event 0x769685e0f49529ee2429cb28b4b48bd962ff754c08a2849804458ad716d75dcf.
 //
-// Solidity: event MessageSent(bytes32 indexed msgHash, (uint256,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message)
+// Solidity: event MessageSent(bytes32 indexed msgHash, (uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message)
 func (_Bridge *BridgeFilterer) WatchMessageSent(opts *bind.WatchOpts, sink chan<- *BridgeMessageSent, msgHash [][32]byte) (event.Subscription, error) {
 
 	var msgHashRule []interface{}
@@ -1639,157 +1386,12 @@ func (_Bridge *BridgeFilterer) WatchMessageSent(opts *bind.WatchOpts, sink chan<
 	}), nil
 }
 
-// ParseMessageSent is a log parse operation binding the contract event 0x238646a410b383b664b8d2fe57d2895c1ecd3464a3159cae73a93a9f21a43355.
+// ParseMessageSent is a log parse operation binding the contract event 0x769685e0f49529ee2429cb28b4b48bd962ff754c08a2849804458ad716d75dcf.
 //
-// Solidity: event MessageSent(bytes32 indexed msgHash, (uint256,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message)
+// Solidity: event MessageSent(bytes32 indexed msgHash, (uint128,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message)
 func (_Bridge *BridgeFilterer) ParseMessageSent(log types.Log) (*BridgeMessageSent, error) {
 	event := new(BridgeMessageSent)
 	if err := _Bridge.contract.UnpackLog(event, "MessageSent", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// BridgeMessageSent0Iterator is returned from FilterMessageSent0 and is used to iterate over the raw logs and unpacked data for MessageSent0 events raised by the Bridge contract.
-type BridgeMessageSent0Iterator struct {
-	Event *BridgeMessageSent0 // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *BridgeMessageSent0Iterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(BridgeMessageSent0)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(BridgeMessageSent0)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *BridgeMessageSent0Iterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *BridgeMessageSent0Iterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// BridgeMessageSent0 represents a MessageSent0 event raised by the Bridge contract.
-type BridgeMessageSent0 struct {
-	MsgHash [32]byte
-	Message IBridgeMessage
-	Raw     types.Log // Blockchain specific contextual infos
-}
-
-// FilterMessageSent0 is a free log retrieval operation binding the contract event 0x238646a410b383b664b8d2fe57d2895c1ecd3464a3159cae73a93a9f21a43355.
-//
-// Solidity: event MessageSent(bytes32 indexed msgHash, (uint256,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message)
-func (_Bridge *BridgeFilterer) FilterMessageSent0(opts *bind.FilterOpts, msgHash [][32]byte) (*BridgeMessageSent0Iterator, error) {
-
-	var msgHashRule []interface{}
-	for _, msgHashItem := range msgHash {
-		msgHashRule = append(msgHashRule, msgHashItem)
-	}
-
-	logs, sub, err := _Bridge.contract.FilterLogs(opts, "MessageSent0", msgHashRule)
-	if err != nil {
-		return nil, err
-	}
-	return &BridgeMessageSent0Iterator{contract: _Bridge.contract, event: "MessageSent0", logs: logs, sub: sub}, nil
-}
-
-// WatchMessageSent0 is a free log subscription operation binding the contract event 0x238646a410b383b664b8d2fe57d2895c1ecd3464a3159cae73a93a9f21a43355.
-//
-// Solidity: event MessageSent(bytes32 indexed msgHash, (uint256,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message)
-func (_Bridge *BridgeFilterer) WatchMessageSent0(opts *bind.WatchOpts, sink chan<- *BridgeMessageSent0, msgHash [][32]byte) (event.Subscription, error) {
-
-	var msgHashRule []interface{}
-	for _, msgHashItem := range msgHash {
-		msgHashRule = append(msgHashRule, msgHashItem)
-	}
-
-	logs, sub, err := _Bridge.contract.WatchLogs(opts, "MessageSent0", msgHashRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(BridgeMessageSent0)
-				if err := _Bridge.contract.UnpackLog(event, "MessageSent0", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseMessageSent0 is a log parse operation binding the contract event 0x238646a410b383b664b8d2fe57d2895c1ecd3464a3159cae73a93a9f21a43355.
-//
-// Solidity: event MessageSent(bytes32 indexed msgHash, (uint256,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message)
-func (_Bridge *BridgeFilterer) ParseMessageSent0(log types.Log) (*BridgeMessageSent0, error) {
-	event := new(BridgeMessageSent0)
-	if err := _Bridge.contract.UnpackLog(event, "MessageSent0", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -1865,15 +1467,14 @@ func (it *BridgeMessageStatusChangedIterator) Close() error {
 
 // BridgeMessageStatusChanged represents a MessageStatusChanged event raised by the Bridge contract.
 type BridgeMessageStatusChanged struct {
-	MsgHash    [32]byte
-	Status     uint8
-	Transactor common.Address
-	Raw        types.Log // Blockchain specific contextual infos
+	MsgHash [32]byte
+	Status  uint8
+	Raw     types.Log // Blockchain specific contextual infos
 }
 
-// FilterMessageStatusChanged is a free log retrieval operation binding the contract event 0x0af4d5247f6a4028d6699afb62871a76b398da1d1a626c8a9b90e0bd5f54c73c.
+// FilterMessageStatusChanged is a free log retrieval operation binding the contract event 0x6c51882bc2ed67617f77a1e9b9a25d2caad8448647ecb093b357a603b2575634.
 //
-// Solidity: event MessageStatusChanged(bytes32 indexed msgHash, uint8 status, address transactor)
+// Solidity: event MessageStatusChanged(bytes32 indexed msgHash, uint8 status)
 func (_Bridge *BridgeFilterer) FilterMessageStatusChanged(opts *bind.FilterOpts, msgHash [][32]byte) (*BridgeMessageStatusChangedIterator, error) {
 
 	var msgHashRule []interface{}
@@ -1888,9 +1489,9 @@ func (_Bridge *BridgeFilterer) FilterMessageStatusChanged(opts *bind.FilterOpts,
 	return &BridgeMessageStatusChangedIterator{contract: _Bridge.contract, event: "MessageStatusChanged", logs: logs, sub: sub}, nil
 }
 
-// WatchMessageStatusChanged is a free log subscription operation binding the contract event 0x0af4d5247f6a4028d6699afb62871a76b398da1d1a626c8a9b90e0bd5f54c73c.
+// WatchMessageStatusChanged is a free log subscription operation binding the contract event 0x6c51882bc2ed67617f77a1e9b9a25d2caad8448647ecb093b357a603b2575634.
 //
-// Solidity: event MessageStatusChanged(bytes32 indexed msgHash, uint8 status, address transactor)
+// Solidity: event MessageStatusChanged(bytes32 indexed msgHash, uint8 status)
 func (_Bridge *BridgeFilterer) WatchMessageStatusChanged(opts *bind.WatchOpts, sink chan<- *BridgeMessageStatusChanged, msgHash [][32]byte) (event.Subscription, error) {
 
 	var msgHashRule []interface{}
@@ -1930,158 +1531,12 @@ func (_Bridge *BridgeFilterer) WatchMessageStatusChanged(opts *bind.WatchOpts, s
 	}), nil
 }
 
-// ParseMessageStatusChanged is a log parse operation binding the contract event 0x0af4d5247f6a4028d6699afb62871a76b398da1d1a626c8a9b90e0bd5f54c73c.
+// ParseMessageStatusChanged is a log parse operation binding the contract event 0x6c51882bc2ed67617f77a1e9b9a25d2caad8448647ecb093b357a603b2575634.
 //
-// Solidity: event MessageStatusChanged(bytes32 indexed msgHash, uint8 status, address transactor)
+// Solidity: event MessageStatusChanged(bytes32 indexed msgHash, uint8 status)
 func (_Bridge *BridgeFilterer) ParseMessageStatusChanged(log types.Log) (*BridgeMessageStatusChanged, error) {
 	event := new(BridgeMessageStatusChanged)
 	if err := _Bridge.contract.UnpackLog(event, "MessageStatusChanged", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// BridgeMessageStatusChanged0Iterator is returned from FilterMessageStatusChanged0 and is used to iterate over the raw logs and unpacked data for MessageStatusChanged0 events raised by the Bridge contract.
-type BridgeMessageStatusChanged0Iterator struct {
-	Event *BridgeMessageStatusChanged0 // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *BridgeMessageStatusChanged0Iterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(BridgeMessageStatusChanged0)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(BridgeMessageStatusChanged0)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *BridgeMessageStatusChanged0Iterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *BridgeMessageStatusChanged0Iterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// BridgeMessageStatusChanged0 represents a MessageStatusChanged0 event raised by the Bridge contract.
-type BridgeMessageStatusChanged0 struct {
-	MsgHash    [32]byte
-	Status     uint8
-	Transactor common.Address
-	Raw        types.Log // Blockchain specific contextual infos
-}
-
-// FilterMessageStatusChanged0 is a free log retrieval operation binding the contract event 0x0af4d5247f6a4028d6699afb62871a76b398da1d1a626c8a9b90e0bd5f54c73c.
-//
-// Solidity: event MessageStatusChanged(bytes32 indexed msgHash, uint8 status, address transactor)
-func (_Bridge *BridgeFilterer) FilterMessageStatusChanged0(opts *bind.FilterOpts, msgHash [][32]byte) (*BridgeMessageStatusChanged0Iterator, error) {
-
-	var msgHashRule []interface{}
-	for _, msgHashItem := range msgHash {
-		msgHashRule = append(msgHashRule, msgHashItem)
-	}
-
-	logs, sub, err := _Bridge.contract.FilterLogs(opts, "MessageStatusChanged0", msgHashRule)
-	if err != nil {
-		return nil, err
-	}
-	return &BridgeMessageStatusChanged0Iterator{contract: _Bridge.contract, event: "MessageStatusChanged0", logs: logs, sub: sub}, nil
-}
-
-// WatchMessageStatusChanged0 is a free log subscription operation binding the contract event 0x0af4d5247f6a4028d6699afb62871a76b398da1d1a626c8a9b90e0bd5f54c73c.
-//
-// Solidity: event MessageStatusChanged(bytes32 indexed msgHash, uint8 status, address transactor)
-func (_Bridge *BridgeFilterer) WatchMessageStatusChanged0(opts *bind.WatchOpts, sink chan<- *BridgeMessageStatusChanged0, msgHash [][32]byte) (event.Subscription, error) {
-
-	var msgHashRule []interface{}
-	for _, msgHashItem := range msgHash {
-		msgHashRule = append(msgHashRule, msgHashItem)
-	}
-
-	logs, sub, err := _Bridge.contract.WatchLogs(opts, "MessageStatusChanged0", msgHashRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(BridgeMessageStatusChanged0)
-				if err := _Bridge.contract.UnpackLog(event, "MessageStatusChanged0", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseMessageStatusChanged0 is a log parse operation binding the contract event 0x0af4d5247f6a4028d6699afb62871a76b398da1d1a626c8a9b90e0bd5f54c73c.
-//
-// Solidity: event MessageStatusChanged(bytes32 indexed msgHash, uint8 status, address transactor)
-func (_Bridge *BridgeFilterer) ParseMessageStatusChanged0(log types.Log) (*BridgeMessageStatusChanged0, error) {
-	event := new(BridgeMessageStatusChanged0)
-	if err := _Bridge.contract.UnpackLog(event, "MessageStatusChanged0", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -2241,6 +1696,140 @@ func (_Bridge *BridgeFilterer) ParseOwnershipTransferred(log types.Log) (*Bridge
 	return event, nil
 }
 
+// BridgePausedIterator is returned from FilterPaused and is used to iterate over the raw logs and unpacked data for Paused events raised by the Bridge contract.
+type BridgePausedIterator struct {
+	Event *BridgePaused // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *BridgePausedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(BridgePaused)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(BridgePaused)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *BridgePausedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *BridgePausedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// BridgePaused represents a Paused event raised by the Bridge contract.
+type BridgePaused struct {
+	Account common.Address
+	Raw     types.Log // Blockchain specific contextual infos
+}
+
+// FilterPaused is a free log retrieval operation binding the contract event 0x62e78cea01bee320cd4e420270b5ea74000d11b0c9f74754ebdbfc544b05a258.
+//
+// Solidity: event Paused(address account)
+func (_Bridge *BridgeFilterer) FilterPaused(opts *bind.FilterOpts) (*BridgePausedIterator, error) {
+
+	logs, sub, err := _Bridge.contract.FilterLogs(opts, "Paused")
+	if err != nil {
+		return nil, err
+	}
+	return &BridgePausedIterator{contract: _Bridge.contract, event: "Paused", logs: logs, sub: sub}, nil
+}
+
+// WatchPaused is a free log subscription operation binding the contract event 0x62e78cea01bee320cd4e420270b5ea74000d11b0c9f74754ebdbfc544b05a258.
+//
+// Solidity: event Paused(address account)
+func (_Bridge *BridgeFilterer) WatchPaused(opts *bind.WatchOpts, sink chan<- *BridgePaused) (event.Subscription, error) {
+
+	logs, sub, err := _Bridge.contract.WatchLogs(opts, "Paused")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(BridgePaused)
+				if err := _Bridge.contract.UnpackLog(event, "Paused", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParsePaused is a log parse operation binding the contract event 0x62e78cea01bee320cd4e420270b5ea74000d11b0c9f74754ebdbfc544b05a258.
+//
+// Solidity: event Paused(address account)
+func (_Bridge *BridgeFilterer) ParsePaused(log types.Log) (*BridgePaused, error) {
+	event := new(BridgePaused)
+	if err := _Bridge.contract.UnpackLog(event, "Paused", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 // BridgeSignalSentIterator is returned from FilterSignalSent and is used to iterate over the raw logs and unpacked data for SignalSent events raised by the Bridge contract.
 type BridgeSignalSentIterator struct {
 	Event *BridgeSignalSent // Event containing the contract specifics and raw log
@@ -2380,6 +1969,140 @@ func (_Bridge *BridgeFilterer) WatchSignalSent(opts *bind.WatchOpts, sink chan<-
 func (_Bridge *BridgeFilterer) ParseSignalSent(log types.Log) (*BridgeSignalSent, error) {
 	event := new(BridgeSignalSent)
 	if err := _Bridge.contract.UnpackLog(event, "SignalSent", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// BridgeUnpausedIterator is returned from FilterUnpaused and is used to iterate over the raw logs and unpacked data for Unpaused events raised by the Bridge contract.
+type BridgeUnpausedIterator struct {
+	Event *BridgeUnpaused // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *BridgeUnpausedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(BridgeUnpaused)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(BridgeUnpaused)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *BridgeUnpausedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *BridgeUnpausedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// BridgeUnpaused represents a Unpaused event raised by the Bridge contract.
+type BridgeUnpaused struct {
+	Account common.Address
+	Raw     types.Log // Blockchain specific contextual infos
+}
+
+// FilterUnpaused is a free log retrieval operation binding the contract event 0x5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa.
+//
+// Solidity: event Unpaused(address account)
+func (_Bridge *BridgeFilterer) FilterUnpaused(opts *bind.FilterOpts) (*BridgeUnpausedIterator, error) {
+
+	logs, sub, err := _Bridge.contract.FilterLogs(opts, "Unpaused")
+	if err != nil {
+		return nil, err
+	}
+	return &BridgeUnpausedIterator{contract: _Bridge.contract, event: "Unpaused", logs: logs, sub: sub}, nil
+}
+
+// WatchUnpaused is a free log subscription operation binding the contract event 0x5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa.
+//
+// Solidity: event Unpaused(address account)
+func (_Bridge *BridgeFilterer) WatchUnpaused(opts *bind.WatchOpts, sink chan<- *BridgeUnpaused) (event.Subscription, error) {
+
+	logs, sub, err := _Bridge.contract.WatchLogs(opts, "Unpaused")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(BridgeUnpaused)
+				if err := _Bridge.contract.UnpackLog(event, "Unpaused", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseUnpaused is a log parse operation binding the contract event 0x5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa.
+//
+// Solidity: event Unpaused(address account)
+func (_Bridge *BridgeFilterer) ParseUnpaused(log types.Log) (*BridgeUnpaused, error) {
+	event := new(BridgeUnpaused)
+	if err := _Bridge.contract.UnpackLog(event, "Unpaused", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

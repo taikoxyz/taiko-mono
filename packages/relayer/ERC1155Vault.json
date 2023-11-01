@@ -1,6 +1,21 @@
 [
   {
     "inputs": [],
+    "name": "ETH_TRANSFER_FAILED",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "INVALID_PAUSE_STATUS",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "REENTRANT_CALL",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "RESOLVER_DENIED",
     "type": "error"
   },
@@ -153,6 +168,19 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": false,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "Paused",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
         "indexed": true,
         "internalType": "bytes32",
         "name": "msgHash",
@@ -282,6 +310,19 @@
       }
     ],
     "name": "TokenSent",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "Unpaused",
     "type": "event"
   },
   {
@@ -496,9 +537,9 @@
       {
         "components": [
           {
-            "internalType": "uint256",
+            "internalType": "uint128",
             "name": "id",
-            "type": "uint256"
+            "type": "uint128"
           },
           {
             "internalType": "address",
@@ -579,6 +620,26 @@
         "internalType": "address",
         "name": "",
         "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "pause",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "paused",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
       }
     ],
     "stateMutability": "view",
@@ -787,6 +848,13 @@
       }
     ],
     "name": "transferOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "unpause",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
