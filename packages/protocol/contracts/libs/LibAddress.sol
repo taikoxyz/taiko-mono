@@ -76,7 +76,7 @@ library LibAddress {
         }
     }
 
-    function isEOA(address account) public view returns (bool) {
+    function isEOA(address account) internal view returns (bool) {
         uint256 size;
         assembly {
             size := extcodesize(account)
