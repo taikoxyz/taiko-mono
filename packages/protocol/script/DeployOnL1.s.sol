@@ -8,6 +8,8 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
+import { Create2Upgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/utils/Create2Upgradeable.sol";
 import
     "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
@@ -21,6 +23,9 @@ import "../contracts/L1/verifiers/GuardianVerifier.sol";
 import "../contracts/L1/tiers/ITierProvider.sol";
 import "../contracts/L1/tiers/TaikoA6TierProvider.sol";
 import "../contracts/bridge/Bridge.sol";
+import "../contracts/tokenvault/BridgedERC20.sol";
+import "../contracts/tokenvault/BridgedERC721.sol";
+import "../contracts/tokenvault/BridgedERC1155.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
 import "../contracts/tokenvault/ERC721Vault.sol";
@@ -157,6 +162,27 @@ contract DeployOnL1 is Script {
         ProxiedSingletonSignalService(singletonSignalService).authorize(
             taikoL1Proxy, bytes32(block.chainid)
         );
+
+        // Deploy ProxiedBridged token contracts (!!! also on L2 !!)
+        address bridged_erc20_logic = Create2Upgradeable.deploy({
+            amount: 0,
+            salt: keccak256(abi.encodePacked("bytes32", uint256(20))),
+            bytecode: type(ProxiedBridgedERC20).creationCode
+        });
+        address bridged_erc721_logic = Create2Upgradeable.deploy({
+            amount: 0,
+            salt: keccak256(abi.encodePacked("bytes32", uint256(721))),
+            bytecode: type(ProxiedBridgedERC721).creationCode
+        });
+        address bridged_erc1155_logic = Create2Upgradeable.deploy({
+            amount: 0,
+            salt: keccak256(abi.encodePacked("bytes32", uint256(1155))),
+            bytecode: type(ProxiedBridgedERC1155).creationCode
+        });
+
+        setAddress("proxied_bridged_erc20", bridged_erc20_logic);
+        setAddress("proxied_bridged_erc721", bridged_erc721_logic);
+        setAddress("proxied_bridged_erc1155", bridged_erc1155_logic);
 
         // Guardian prover
         ProxiedGuardianProver guardianProver = new ProxiedGuardianProver();
