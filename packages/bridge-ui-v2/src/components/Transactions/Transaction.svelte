@@ -67,14 +67,16 @@
     // Retrieve transaction data
     const transactionData = await fetchTransaction({ hash, chainId: Number(item.srcChainId) });
 
-    const abi =
-      TokenType.ERC721 === item.tokenType
-        ? erc721VaultABI
-        : TokenType.ERC1155 === item.tokenType
-        ? erc1155VaultABI
-        : null;
-
-    if (!abi) throw new Error('Invalid token type');
+    const abi = (() => {
+      switch (item.tokenType) {
+        case TokenType.ERC721:
+          return erc721VaultABI;
+        case TokenType.ERC1155:
+          return erc1155VaultABI;
+        default:
+          throw new Error('Invalid token type');
+      }
+    })();
 
     const { functionName, args: decodedInputData } = await decodeFunctionData({
       abi,
