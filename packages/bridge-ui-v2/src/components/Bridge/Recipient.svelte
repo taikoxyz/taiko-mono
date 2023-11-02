@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
@@ -15,9 +14,11 @@
 
   // Public API
   export const clearRecipient = () => {
-    addressInput.clearAddress(); // update UI
+    if (addressInput) addressInput.clearAddress(); // update UI
     $recipientAddress = null; // update state
   };
+
+  export let small = false;
 
   let dialogId = `dialog-${uid()}`;
   let addressInput: AddressInput;
@@ -75,10 +76,6 @@
     window.removeEventListener('keydown', escKeyListener);
   };
 
-  onDestroy(() => {
-    removeEscKeyListener();
-  });
-
   $: modalOpenChange(modalOpen);
 
   $: ethereumAddressBinding = $recipientAddress || undefined;
@@ -87,59 +84,75 @@
 </script>
 
 <div class="Recipient f-col">
-  <div class="f-between-center">
-    <div class="flex space-x-2">
-      <span class="body-small-bold text-primary-content">{$t('recipient.title')}</span>
-      <Tooltip>
-        <h2>{$t('recipient.tooltip_title')}</h2>
-        {$t('recipient.tooltip')}
-      </Tooltip>
+  {#if small}
+    <div class="f-between-center">
+      <span class="text-secondary-content">{$t('recipient.title')}</span>
+      {#if displayedRecipient}
+        {shortenAddress(displayedRecipient, 8, 10)}
+        {#if displayedRecipient !== $account?.address}
+          <span class="text-primary-link">| Customized</span>
+        {/if}
+      {:else}
+        {$t('recipient.placeholder')}
+      {/if}
     </div>
-    <button class="link" on:click={openModal} on:focus={openModal}>{$t('common.edit')}</button>
-  </div>
+  {:else}
+    <div class="f-between-center">
+      <div class="flex space-x-2">
+        <span class="body-small-bold text-primary-content">{$t('recipient.title')}</span>
+        <Tooltip>
+          <h2>{$t('recipient.tooltip_title')}</h2>
+          {$t('recipient.tooltip')}
+        </Tooltip>
+      </div>
+      <button class="link" on:click={openModal} on:focus={openModal}>{$t('common.edit')}</button>
+    </div>
 
-  <span class="body-small-regular text-secondary-content mt-[4px]">
-    {#if displayedRecipient}
-      {shortenAddress(displayedRecipient, 15, 13)}
-      <span class="text-secondary">{$recipientAddress !== $account?.address ? '' : '| Customized'}</span>
-    {:else}
-      {$t('recipient.placeholder')}
-    {/if}
-  </span>
+    <span class="body-small-regular text-secondary-content mt-[4px]">
+      {#if displayedRecipient}
+        {shortenAddress(displayedRecipient, 15, 13)}
+        {#if displayedRecipient !== $account?.address}
+          <span class="text-primary-link">| {$t('common.customized')}</span>
+        {/if}
+      {:else}
+        {$t('recipient.placeholder')}
+      {/if}
+    </span>
 
-  <dialog id={dialogId} class="modal" class:modal-open={modalOpen}>
-    <div class="modal-box relative px-6 md:rounded-[20px] bg-neutral-background">
-      <CloseButton onClick={closeModal} />
+    <dialog id={dialogId} class="modal" class:modal-open={modalOpen}>
+      <div class="modal-box relative px-6 md:rounded-[20px] bg-neutral-background">
+        <CloseButton onClick={closeModal} />
 
-      <div class="w-full">
-        <h3 class="title-body-bold mb-7">{$t('recipient.title')}</h3>
+        <div class="w-full">
+          <h3 class="title-body-bold mb-7">{$t('recipient.title')}</h3>
 
-        <p class="body-regular text-secondary-content mb-3">{$t('recipient.description')}</p>
+          <p class="body-regular text-secondary-content mb-3">{$t('recipient.description')}</p>
 
-        <div class="relative my-[20px]">
-          <AddressInput
-            bind:this={addressInput}
-            bind:ethereumAddress={ethereumAddressBinding}
-            on:addressvalidation={onAddressValidation} />
-        </div>
+          <div class="relative my-[20px]">
+            <AddressInput
+              bind:this={addressInput}
+              bind:ethereumAddress={ethereumAddressBinding}
+              on:addressvalidation={onAddressValidation} />
+          </div>
 
-        <div class="grid grid-cols-2 gap-[20px]">
-          <Button
-            on:click={cancelModal}
-            type="neutral"
-            class="px-[28px] py-[10px] rounded-full w-auto bg-transparent !border border-primary-brand hover:border-primary-interactive-hover">
-            <span class="body-bold">{$t('common.cancel')}</span>
-          </Button>
-          <Button
-            type="primary"
-            disabled={invalidAddress || !ethereumAddressBinding}
-            class="px-[28px] py-[10px] rounded-full w-auto"
-            on:click={closeModal}
-            hasBorder={true}>
-            <span class="body-bold">{$t('common.confirm')}</span>
-          </Button>
+          <div class="grid grid-cols-2 gap-[20px]">
+            <Button
+              on:click={cancelModal}
+              type="neutral"
+              class="px-[28px] py-[10px] rounded-full w-auto bg-transparent !border border-primary-brand hover:border-primary-interactive-hover">
+              <span class="body-bold">{$t('common.cancel')}</span>
+            </Button>
+            <Button
+              type="primary"
+              disabled={invalidAddress || !ethereumAddressBinding}
+              class="px-[28px] py-[10px] rounded-full w-auto"
+              on:click={closeModal}
+              hasBorder={true}>
+              <span class="body-bold">{$t('common.confirm')}</span>
+            </Button>
+          </div>
         </div>
       </div>
-    </div>
-  </dialog>
+    </dialog>
+  {/if}
 </div>

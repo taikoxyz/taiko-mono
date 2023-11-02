@@ -11,7 +11,9 @@
   );
 
   // Public API
-  export const getValue = () => input.value;
+  export const getValue = () => {
+    return input.value;
+  };
   export const setValue = (value: string) => (input.value = value);
   export const clear = () => setValue('');
   export const focus = () => input.focus();
