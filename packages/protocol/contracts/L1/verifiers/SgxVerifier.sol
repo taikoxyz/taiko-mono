@@ -73,6 +73,8 @@ contract SgxVerifier is EssentialContract, IVerifier {
         onlyOwner
         returns (uint256[] memory ids)
     {
+        if (_instances.length == 0) revert SGX_INVALID_INSTANCES();
+
         ids = _addInstances(_instances);
     }
 
@@ -90,8 +92,6 @@ contract SgxVerifier is EssentialContract, IVerifier {
         returns (uint256[] memory ids)
     {
         if (_instances.length == 0) revert SGX_INVALID_INSTANCES();
-
-        ids = new uint256[](_instances.length);
 
         bytes32 signedHash = keccak256(abi.encode("ADD_INSTANCES", _instances));
         address oldInstance = ECDSAUpgradeable.recover(signedHash, signature);
@@ -148,8 +148,6 @@ contract SgxVerifier is EssentialContract, IVerifier {
         private
         returns (uint256[] memory ids)
     {
-        if (_instances.length == 0) revert SGX_INVALID_INSTANCES();
-
         ids = new uint256[](_instances.length);
 
         uint256 id;
