@@ -7,14 +7,18 @@ import {
     SkipProofCheckSignal,
     DummyCrossChainSync,
     NonNftContract,
-    BadReceiver
+    BadReceiver,
+    LibBridgedTokenDeployer
 } from "../TestBase.sol";
 import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { IBridge, Bridge } from "../../contracts/bridge/Bridge.sol";
 import { BaseNFTVault } from "../../contracts/tokenvault/BaseNFTVault.sol";
 import { ERC1155Vault } from "../../contracts/tokenvault/ERC1155Vault.sol";
-import { BridgedERC1155 } from "../../contracts/tokenvault/BridgedERC1155.sol";
+import {
+    ProxiedBridgedERC1155,
+    BridgedERC1155
+} from "../../contracts/tokenvault/BridgedERC1155.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../../contracts/common/ICrossChainSync.sol";
 import { ERC1155 } from
@@ -203,6 +207,20 @@ contract ERC1155VaultTest is TestBase {
         );
 
         vm.deal(address(bridge), 100 ether);
+
+        address erc1155_common_logic = LibBridgedTokenDeployer
+            .deployLogicContract(
+            getRandomBytes32(), type(ProxiedBridgedERC1155).creationCode
+        );
+
+        addressManager.setAddress(
+            destChainId, "proxied_bridged_erc1155", erc1155_common_logic
+        );
+        addressManager.setAddress(
+            uint64(block.chainid),
+            "proxied_bridged_erc1155",
+            erc1155_common_logic
+        );
 
         ctoken1155 = new TestTokenERC1155("http://example.host.com/");
         vm.stopPrank();

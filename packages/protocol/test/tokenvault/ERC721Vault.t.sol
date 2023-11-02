@@ -7,13 +7,17 @@ import {
     SkipProofCheckSignal,
     DummyCrossChainSync,
     NonNftContract,
-    BadReceiver
+    BadReceiver,
+    LibBridgedTokenDeployer
 } from "../TestBase.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { IBridge, Bridge } from "../../contracts/bridge/Bridge.sol";
 import { BaseNFTVault } from "../../contracts/tokenvault/BaseNFTVault.sol";
 import { ERC721Vault } from "../../contracts/tokenvault/ERC721Vault.sol";
-import { BridgedERC721 } from "../../contracts/tokenvault/BridgedERC721.sol";
+import {
+    ProxiedBridgedERC721,
+    BridgedERC721
+} from "../../contracts/tokenvault/BridgedERC721.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../../contracts/common/ICrossChainSync.sol";
 import { ERC721 } from
@@ -215,6 +219,18 @@ contract ERC721VaultTest is TestBase {
         );
         addressManager.setAddress(
             uint64(block.chainid), "erc20_vault", address(erc721Vault)
+        );
+
+        address erc721_common_logic = LibBridgedTokenDeployer
+            .deployLogicContract(
+            getRandomBytes32(), type(ProxiedBridgedERC721).creationCode
+        );
+
+        addressManager.setAddress(
+            destChainId, "proxied_bridged_erc721", erc721_common_logic
+        );
+        addressManager.setAddress(
+            uint64(block.chainid), "proxied_bridged_erc721", erc721_common_logic
         );
 
         vm.stopPrank();

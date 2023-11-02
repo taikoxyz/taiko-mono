@@ -4,12 +4,18 @@ pragma solidity ^0.8.20;
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
 import { Bridge } from "../../contracts/bridge/Bridge.sol";
-import { BridgedERC20 } from "../../contracts/tokenvault/BridgedERC20.sol";
+import {
+    ProxiedBridgedERC20,
+    BridgedERC20
+} from "../../contracts/tokenvault/BridgedERC20.sol";
 import { FreeMintERC20 } from "../../contracts/test/erc20/FreeMintERC20.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
 import { Test } from "forge-std/Test.sol";
+import { LibBridgedTokenDeployer } from "../TestBase.sol";
 import { ERC20Vault } from "../../contracts/tokenvault/ERC20Vault.sol";
+import { Create2Upgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/utils/Create2Upgradeable.sol";
 import { TransparentUpgradeableProxy } from
     "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
@@ -147,6 +153,19 @@ contract TestERC20Vault is Test {
 
         addressManager.setAddress(
             destChainId, "bridge", address(destChainIdBridge)
+        );
+
+        address erc20_common_logic = LibBridgedTokenDeployer.deployLogicContract(
+            keccak256(abi.encode(destChainIdBridge)),
+            type(ProxiedBridgedERC20).creationCode
+        );
+
+        addressManager.setAddress(
+            destChainId, "proxied_bridged_erc20", erc20_common_logic
+        );
+
+        addressManager.setAddress(
+            uint64(block.chainid), "proxied_bridged_erc20", erc20_common_logic
         );
 
         vm.stopPrank();
