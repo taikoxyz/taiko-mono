@@ -75,7 +75,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     {
         if (_instances.length == 0) revert SGX_INVALID_INSTANCES();
 
-        ids = _addInstances(_instances);
+        ids = _addInstances(_instances, false);
     }
 
     /// @notice Adds SGX instances to the registry by another SGX instance.
@@ -99,7 +99,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
         _replaceInstance(id, oldInstance, _instances[0]);
 
-        ids = _addInstances(_instances);
+        ids = _addInstances(_instances, true);
     }
 
     /// @inheritdoc IVerifier
@@ -144,20 +144,32 @@ contract SgxVerifier is EssentialContract, IVerifier {
         return keccak256(abi.encode(tran, newInstance, prover, metaHash));
     }
 
-    function _addInstances(address[] calldata _instances)
+    function _addInstances(
+        address[] calldata _instances,
+        bool isSgxAddition
+    )
         private
         returns (uint256[] memory ids)
     {
-        ids = new uint256[](_instances.length);
+        uint256 startIdxInputParams;
+
+        if (isSgxAddition) {
+            // Idx 0 will be the new one for the already trusted SGX node, so
+            // that does not count here.
+            ids = new uint256[](_instances.length-1);
+            startIdxInputParams = 1;
+        } else {
+            ids = new uint256[](_instances.length);
+        }
 
         uint256 id;
 
-        for (uint256 i; i < _instances.length; ++i) {
+        for (uint256 i = startIdxInputParams; i < _instances.length; ++i) {
             if (_instances[i] == address(0)) revert SGX_INVALID_INSTANCE();
 
             id = nextInstanceId++;
             instances[id] = Instance(_instances[i], uint64(block.timestamp));
-            ids[i] = id;
+            ids[i - startIdxInputParams] = id;
             emit InstanceAdded(id, _instances[i], address(0), block.timestamp);
         }
     }
