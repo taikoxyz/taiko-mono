@@ -6,6 +6,8 @@
 
 pragma solidity ^0.8.20;
 
+import { SafeCastUpgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/utils/math/SafeCastUpgradeable.sol";
 import { ERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 
@@ -23,6 +25,7 @@ import { LibTaikoToken } from "./LibTaikoToken.sol";
 /// @notice A library for handling block proposals in the Taiko protocol.
 library LibProposing {
     using LibAddress for address;
+    using SafeCastUpgradeable for uint256;
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     event BlockProposed(
@@ -44,6 +47,7 @@ library LibProposing {
     error L1_PROPOSER_NOT_EOA();
     error L1_TIER_NOT_FOUND();
     error L1_TOO_MANY_BLOCKS();
+    error L1_TXLIST_OFFSET_SIZE();
     error L1_TXLIST_TOO_LARGE();
     error L1_UNAUTHORIZED();
 
@@ -83,30 +87,6 @@ library LibProposing {
             revert L1_TOO_MANY_BLOCKS();
         }
 
-        bytes32 blobHash; //or txListHash (if Blob not yet supported)
-        if (txList.length == 0) {
-            // Always use the first blob in this transaction.
-            // If the proposeBlock functions are called more than once in the
-            // same L1 transaction, these 2 L2 blocks will use the same blob as
-            // DA.
-            blobHash = IBlobHashReader(
-                resolver.resolve("blob_hash_reader", false)
-            ).getFirstBlobHash();
-
-            if (blobHash == 0) revert L1_NO_BLOB_FOUND();
-        } else {
-            // The proposer must be an Externally Owned Account (EOA) for
-            // calldata usage. This ensures that the transaction is not an
-            // internal one, making calldata retrieval more straightforward.
-            if (!LibAddress.isSenderEOA()) revert L1_PROPOSER_NOT_EOA();
-
-            if (txList.length > config.blockMaxTxListBytes) {
-                revert L1_TXLIST_TOO_LARGE();
-            }
-
-            blobHash = keccak256(txList);
-        }
-
         // Each transaction must handle a specific quantity of L1-to-L2
         // Ether deposits.
         depositsProcessed =
@@ -117,18 +97,10 @@ library LibProposing {
         // If we choose to persist all data fields in the metadata, it will
         // require additional storage slots.
         unchecked {
-            uint256 rand = uint256(blobHash)
-                ^ (block.prevrandao * b.numBlocks * block.number);
-
             meta = TaikoData.BlockMetadata({
                 l1Hash: blockhash(block.number - 1),
-                // Following the Merge, the L1 mixHash incorporates the
-                // prevrandao value from the beacon chain. Given the possibility
-                // of multiple Taiko blocks being proposed within a single
-                // Ethereum block, we must introduce a salt to this random
-                // number as the L2 mixHash.
-                difficulty: bytes32(rand),
-                blobHash: blobHash,
+                difficulty: 0, // to be initialized below
+                blobHash: 0, // to be initialized below
                 extraData: params.extraData,
                 depositsHash: keccak256(abi.encode(depositsProcessed)),
                 coinbase: msg.sender,
@@ -136,11 +108,61 @@ library LibProposing {
                 gasLimit: config.blockMaxGasLimit,
                 timestamp: uint64(block.timestamp),
                 l1Height: uint64(block.number - 1),
-                minTier: ITierProvider(resolver.resolve("tier_provider", false))
-                    .getMinTier(rand),
+                txListByteOffset: 0, // to be initialized below
+                txListByteSize: 0, // to be initialized below
+                minTier: 0, // to be initialized below
                 blobUsed: txList.length == 0
             });
         }
+
+        // Update certain meta fields
+
+        if (txList.length == 0) {
+            // Always use the first blob in this transaction.
+            // If the proposeBlock functions are called more than once in the
+            // same L1 transaction, these 2 L2 blocks will use the same blob as
+            // DA.
+            meta.blobHash = IBlobHashReader(
+                resolver.resolve("blob_hash_reader", false)
+            ).getFirstBlobHash();
+
+            if (meta.blobHash == 0) revert L1_NO_BLOB_FOUND();
+            meta.txListByteOffset = params.txListByteOffset;
+            meta.txListByteSize = params.txListByteSize;
+        } else {
+            // The proposer must be an Externally Owned Account (EOA) for
+            // calldata usage. This ensures that the transaction is not an
+            // internal one, making calldata retrieval more straightforward.
+            if (!LibAddress.isSenderEOA()) revert L1_PROPOSER_NOT_EOA();
+
+            // blockMaxTxListBytes is a uint24
+            if (txList.length > config.blockMaxTxListBytes) {
+                revert L1_TXLIST_TOO_LARGE();
+            }
+
+            if (params.txListByteOffset != 0 || params.txListByteSize != 0) {
+                revert L1_TXLIST_OFFSET_SIZE();
+            }
+
+            meta.blobHash = keccak256(txList);
+
+            meta.txListByteOffset = 0;
+            meta.txListByteSize = uint24(txList.length);
+        }
+
+        // Following the Merge, the L1 mixHash incorporates the
+        // prevrandao value from the beacon chain. Given the possibility
+        // of multiple Taiko blocks being proposed within a single
+        // Ethereum block, we must introduce a salt to this random
+        // number as the L2 mixHash.
+        meta.difficulty = bytes32(
+            uint256(meta.blobHash)
+                ^ (block.prevrandao * b.numBlocks * block.number)
+        );
+
+        meta.minTier = ITierProvider(resolver.resolve("tier_provider", false))
+            .getMinTier(uint256(meta.difficulty));
+
         // Now, it's essential to initialize the block that will be stored
         // on L1. We should aim to utilize as few storage slots as possible,
         // alghouth using a ring buffer can minimize storage writes once
@@ -192,7 +214,7 @@ library LibProposing {
         // Validate the prover assignment, then charge Ether or ERC20 as the
         // prover fee based on the block's minTier.
         uint256 proverFee =
-            _validateAssignment(meta.minTier, blobHash, params.assignment);
+            _validateAssignment(meta.minTier, meta.blobHash, params.assignment);
 
         emit BlockProposed({
             blockId: blk.blockId,
