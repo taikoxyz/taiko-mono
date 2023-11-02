@@ -8,8 +8,6 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
-import { Create2Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/Create2Upgradeable.sol";
 import
     "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
@@ -164,25 +162,13 @@ contract DeployOnL1 is Script {
         );
 
         // Deploy ProxiedBridged token contracts (!!! also on L2 !!)
-        address bridged_erc20_logic = Create2Upgradeable.deploy({
-            amount: 0,
-            salt: keccak256(abi.encodePacked("bytes32", uint256(20))),
-            bytecode: type(ProxiedBridgedERC20).creationCode
-        });
-        address bridged_erc721_logic = Create2Upgradeable.deploy({
-            amount: 0,
-            salt: keccak256(abi.encodePacked("bytes32", uint256(721))),
-            bytecode: type(ProxiedBridgedERC721).creationCode
-        });
-        address bridged_erc1155_logic = Create2Upgradeable.deploy({
-            amount: 0,
-            salt: keccak256(abi.encodePacked("bytes32", uint256(1155))),
-            bytecode: type(ProxiedBridgedERC1155).creationCode
-        });
+        address proxiedBridgedERC20 = address(new ProxiedBridgedERC20());
+        address proxiedBridgedERC721 = address(new ProxiedBridgedERC721());
+        address proxiedBridgedERC1155 = address(new ProxiedBridgedERC1155());
 
-        setAddress("proxied_bridged_erc20", bridged_erc20_logic);
-        setAddress("proxied_bridged_erc721", bridged_erc721_logic);
-        setAddress("proxied_bridged_erc1155", bridged_erc1155_logic);
+        setAddress("proxied_bridged_erc20", proxiedBridgedERC20);
+        setAddress("proxied_bridged_erc721", proxiedBridgedERC721);
+        setAddress("proxied_bridged_erc1155", proxiedBridgedERC1155);
 
         // Guardian prover
         ProxiedGuardianProver guardianProver = new ProxiedGuardianProver();

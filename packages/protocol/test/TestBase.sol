@@ -7,9 +7,6 @@ import { SignalService } from "../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../contracts/common/ICrossChainSync.sol";
 import { EssentialContract } from "../contracts/common/EssentialContract.sol";
 
-import { Create2Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/Create2Upgradeable.sol";
-
 abstract contract TestBase is Test {
     uint256 private _seed = 0x12345678;
 
@@ -52,22 +49,6 @@ abstract contract TestBase is Test {
     address internal SGX_X_1 = vm.addr(0x5);
     address internal SGX_Y = getRandomAddress();
     address internal SGX_Z = getRandomAddress();
-}
-
-library LibBridgedTokenDeployer {
-    function deployLogicContract(
-        bytes32 salt,
-        bytes memory bytecode
-    )
-        internal
-        returns (address logic)
-    {
-        logic = Create2Upgradeable.deploy({
-            amount: 0,
-            salt: salt,
-            bytecode: bytecode
-        });
-    }
 }
 
 contract BadReceiver {
