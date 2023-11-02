@@ -18,7 +18,7 @@ const ADMIN_SLOT =
 // deployTaikoL2 generates a L2 genesis alloc of the TaikoL2 contract.
 export async function deployTaikoL2(
     config: Config,
-    result: Result,
+    result: Result
 ): Promise<Result> {
     const { contractOwner, chainId, seedAccounts, contractAdmin } = config;
 
@@ -30,7 +30,7 @@ export async function deployTaikoL2(
     for (const seedAccount of seedAccounts) {
         const accountAddress = Object.keys(seedAccount)[0];
         const balance = ethers.utils.parseEther(
-            `${Object.values(seedAccount)[0]}`,
+            `${Object.values(seedAccount)[0]}`
         );
 
         console.log(`seedAccountAddress: ${accountAddress}`);
@@ -49,7 +49,7 @@ export async function deployTaikoL2(
         contractAdmin,
         chainId,
         config.contractAddresses,
-        config.param1559,
+        config.param1559
     );
 
     const storageLayouts: any = {};
@@ -83,13 +83,14 @@ export async function deployTaikoL2(
             ? "ProxiedAddressManager"
             : storageLayoutName;
 
-        storageLayouts[contractName] =
-            await getStorageLayout(storageLayoutName);
+        storageLayouts[contractName] = await getStorageLayout(
+            storageLayoutName
+        );
         // initialize contract variables, we only care about the variables
         // that need to be initialized with non-zero value.
         const slots = computeStorageSlots(
             storageLayouts[contractName],
-            contractConfigs[contractName].variables,
+            contractConfigs[contractName].variables
         );
 
         for (const slot of slots) {
@@ -98,7 +99,7 @@ export async function deployTaikoL2(
 
         if (contractConfigs[contractName].slots) {
             for (const [slot, val] of Object.entries(
-                contractConfigs[contractName].slots,
+                contractConfigs[contractName].slots
             )) {
                 alloc[contractConfig.address].storage[slot] = val;
             }
@@ -108,7 +109,7 @@ export async function deployTaikoL2(
     result.alloc = Object.assign(result.alloc, alloc);
     result.storageLayouts = Object.assign(
         result.storageLayouts,
-        storageLayouts,
+        storageLayouts
     );
 
     return result;
@@ -121,72 +122,50 @@ async function generateContractConfigs(
     contractAdmin: string,
     chainId: number,
     hardCodedAddresses: any,
-    param1559: any,
+    param1559: any
 ): Promise<any> {
     const contractArtifacts: any = {
-        // ============ Libraries ============
-        LibDeploy: require(
-            path.join(ARTIFACTS_PATH, "./LibDeploy.sol/LibDeploy.json"),
-        ),
         // ============ Contracts ============
         // Singletons
-        ProxiedSingletonBridge: require(
-            path.join(
-                ARTIFACTS_PATH,
-                "./Bridge.sol/ProxiedSingletonBridge.json",
-            ),
-        ),
-        ProxiedSingletonERC20Vault: require(
-            path.join(
-                ARTIFACTS_PATH,
-                "./ERC20Vault.sol/ProxiedSingletonERC20Vault.json",
-            ),
-        ),
-        ProxiedSingletonERC721Vault: require(
-            path.join(
-                ARTIFACTS_PATH,
-                "./ERC721Vault.sol/ProxiedSingletonERC721Vault.json",
-            ),
-        ),
-        ProxiedSingletonERC1155Vault: require(
-            path.join(
-                ARTIFACTS_PATH,
-                "./ERC1155Vault.sol/ProxiedSingletonERC1155Vault.json",
-            ),
-        ),
-        ProxiedSingletonSignalService: require(
-            path.join(
-                ARTIFACTS_PATH,
-                "./SignalService.sol/ProxiedSingletonSignalService.json",
-            ),
-        ),
-        ProxiedSingletonAddressManagerForSingletons: require(
-            path.join(
-                ARTIFACTS_PATH,
-                "./AddressManager.sol/ProxiedAddressManager.json",
-            ),
-        ),
+        ProxiedSingletonBridge: require(path.join(
+            ARTIFACTS_PATH,
+            "./Bridge.sol/ProxiedSingletonBridge.json"
+        )),
+        ProxiedSingletonERC20Vault: require(path.join(
+            ARTIFACTS_PATH,
+            "./ERC20Vault.sol/ProxiedSingletonERC20Vault.json"
+        )),
+        ProxiedSingletonERC721Vault: require(path.join(
+            ARTIFACTS_PATH,
+            "./ERC721Vault.sol/ProxiedSingletonERC721Vault.json"
+        )),
+        ProxiedSingletonERC1155Vault: require(path.join(
+            ARTIFACTS_PATH,
+            "./ERC1155Vault.sol/ProxiedSingletonERC1155Vault.json"
+        )),
+        ProxiedSingletonSignalService: require(path.join(
+            ARTIFACTS_PATH,
+            "./SignalService.sol/ProxiedSingletonSignalService.json"
+        )),
+        ProxiedSingletonAddressManagerForSingletons: require(path.join(
+            ARTIFACTS_PATH,
+            "./AddressManager.sol/ProxiedAddressManager.json"
+        )),
         // Non-singletons
-        ProxiedSingletonTaikoL2: require(
-            path.join(
-                ARTIFACTS_PATH,
-                "./TaikoL2.sol/ProxiedSingletonTaikoL2.json",
-            ),
-        ),
-        ProxiedAddressManager: require(
-            path.join(
-                ARTIFACTS_PATH,
-                "./AddressManager.sol/ProxiedAddressManager.json",
-            ),
-        ),
+        ProxiedSingletonTaikoL2: require(path.join(
+            ARTIFACTS_PATH,
+            "./TaikoL2.sol/ProxiedSingletonTaikoL2.json"
+        )),
+        ProxiedAddressManager: require(path.join(
+            ARTIFACTS_PATH,
+            "./AddressManager.sol/ProxiedAddressManager.json"
+        )),
     };
 
-    const proxy = require(
-        path.join(
-            ARTIFACTS_PATH,
-            "./TransparentUpgradeableProxy.sol/TransparentUpgradeableProxy.json",
-        ),
-    );
+    const proxy = require(path.join(
+        ARTIFACTS_PATH,
+        "./TransparentUpgradeableProxy.sol/TransparentUpgradeableProxy.json"
+    ));
 
     // Singletons
     contractArtifacts.SingletonBridgeProxy = proxy;
@@ -208,19 +187,19 @@ async function generateContractConfigs(
             case "ProxiedSingletonTaikoL2":
                 bytecode = linkContractLibs(
                     contractArtifacts.ProxiedSingletonTaikoL2,
-                    addressMap,
+                    addressMap
                 );
                 break;
             case "ProxiedSingletonBridge":
                 bytecode = linkContractLibs(
                     contractArtifacts.ProxiedSingletonBridge,
-                    addressMap,
+                    addressMap
                 );
                 break;
             case "ProxiedSingletonSignalService":
                 bytecode = linkContractLibs(
                     contractArtifacts.ProxiedSingletonSignalService,
-                    addressMap,
+                    addressMap
                 );
                 break;
             default:
@@ -236,9 +215,9 @@ async function generateContractConfigs(
             addressMap[contractName] = ethers.utils.getCreate2Address(
                 contractOwner,
                 ethers.utils.keccak256(
-                    ethers.utils.toUtf8Bytes(`${chainId}${contractName}`),
+                    ethers.utils.toUtf8Bytes(`${chainId}${contractName}`)
                 ),
-                ethers.utils.keccak256(ethers.utils.toUtf8Bytes(bytecode)),
+                ethers.utils.keccak256(ethers.utils.toUtf8Bytes(bytecode))
             );
         }
     }
@@ -270,19 +249,19 @@ async function generateContractConfigs(
                 addresses: {
                     [chainId]: {
                         [ethers.utils.hexlify(
-                            ethers.utils.toUtf8Bytes("bridge"),
+                            ethers.utils.toUtf8Bytes("bridge")
                         )]: addressMap.SingletonBridgeProxy,
                         [ethers.utils.hexlify(
-                            ethers.utils.toUtf8Bytes("erc20_vault"),
+                            ethers.utils.toUtf8Bytes("erc20_vault")
                         )]: addressMap.SingletonERC20VaultProxy,
                         [ethers.utils.hexlify(
-                            ethers.utils.toUtf8Bytes("erc721_vault"),
+                            ethers.utils.toUtf8Bytes("erc721_vault")
                         )]: addressMap.SingletonERC721VaultProxy,
                         [ethers.utils.hexlify(
-                            ethers.utils.toUtf8Bytes("erc1155_vault"),
+                            ethers.utils.toUtf8Bytes("erc1155_vault")
                         )]: addressMap.SingletonERC1155VaultProxy,
                         [ethers.utils.hexlify(
-                            ethers.utils.toUtf8Bytes("signal_service"),
+                            ethers.utils.toUtf8Bytes("signal_service")
                         )]: addressMap.SingletonSignalServiceProxy,
                     },
                 },
@@ -298,7 +277,7 @@ async function generateContractConfigs(
             address: addressMap.ProxiedSingletonBridge,
             deployedBytecode: linkContractLibs(
                 contractArtifacts.ProxiedSingletonBridge,
-                addressMap,
+                addressMap
             ),
         },
         SingletonBridgeProxy: {
@@ -328,7 +307,7 @@ async function generateContractConfigs(
             address: addressMap.ProxiedSingletonERC20Vault,
             deployedBytecode: linkContractLibs(
                 contractArtifacts.ProxiedSingletonERC20Vault,
-                addressMap,
+                addressMap
             ),
         },
         SingletonERC20VaultProxy: {
@@ -359,7 +338,7 @@ async function generateContractConfigs(
             address: addressMap.ProxiedSingletonERC721Vault,
             deployedBytecode: linkContractLibs(
                 contractArtifacts.ProxiedSingletonERC721Vault,
-                addressMap,
+                addressMap
             ),
         },
         SingletonERC721VaultProxy: {
@@ -390,7 +369,7 @@ async function generateContractConfigs(
             address: addressMap.ProxiedSingletonERC1155Vault,
             deployedBytecode: linkContractLibs(
                 contractArtifacts.ProxiedSingletonERC1155Vault,
-                addressMap,
+                addressMap
             ),
         },
         SingletonERC1155VaultProxy: {
@@ -421,7 +400,7 @@ async function generateContractConfigs(
             address: addressMap.ProxiedSingletonSignalService,
             deployedBytecode: linkContractLibs(
                 contractArtifacts.ProxiedSingletonSignalService,
-                addressMap,
+                addressMap
             ),
         },
         SingletonSignalServiceProxy: {
@@ -442,7 +421,7 @@ async function generateContractConfigs(
                 authorizedAddresses: {
                     [addressMap.SingletonTaikoL2Proxy]: ethers.utils.hexZeroPad(
                         ethers.utils.hexlify(chainId),
-                        32,
+                        32
                     ),
                 },
             },
@@ -462,7 +441,7 @@ async function generateContractConfigs(
             address: addressMap.ProxiedSingletonTaikoL2,
             deployedBytecode: linkContractLibs(
                 contractArtifacts.ProxiedSingletonTaikoL2,
-                addressMap,
+                addressMap
             ),
         },
         SingletonTaikoL2Proxy: {
@@ -485,10 +464,10 @@ async function generateContractConfigs(
                             .concat([
                                 ethers.utils.hexZeroPad(
                                     ethers.utils.hexlify(chainId),
-                                    32,
+                                    32
                                 ),
                             ]),
-                    ],
+                    ]
                 )}`,
             },
             slots: {
@@ -512,10 +491,10 @@ async function generateContractConfigs(
                 addresses: {
                     [chainId]: {
                         [ethers.utils.hexlify(
-                            ethers.utils.toUtf8Bytes("taiko"),
+                            ethers.utils.toUtf8Bytes("taiko")
                         )]: addressMap.SingletonTaikoL2Proxy,
                         [ethers.utils.hexlify(
-                            ethers.utils.toUtf8Bytes("signal_service"),
+                            ethers.utils.toUtf8Bytes("signal_service")
                         )]: addressMap.SingletonSignalServiceProxy,
                     },
                 },
@@ -537,8 +516,8 @@ function linkContractLibs(artifact: any, addressMap: any) {
         getLinkLibs(
             artifact,
             linker.findLinkReferences(artifact.deployedBytecode.object),
-            addressMap,
-        ),
+            addressMap
+        )
     );
 
     if (ethers.utils.toUtf8Bytes(linkedBytecode).includes("$__")) {
@@ -559,11 +538,11 @@ function getLinkLibs(artifact: any, linkRefs: any, addressMap: any) {
             const linkRefKey: any = Object.keys(linkRefs).find(
                 (key) =>
                     linkRefs[key][0].start ===
-                    linkReference[contractName][0].start + 1,
+                    linkReference[contractName][0].start + 1
             );
 
             result[linkRefKey] = addressMap[contractName];
-        },
+        }
     );
 
     return result;
