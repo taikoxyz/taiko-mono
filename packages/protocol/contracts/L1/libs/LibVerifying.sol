@@ -41,7 +41,7 @@ library LibVerifying {
         TaikoData.Config memory config,
         bytes32 genesisBlockHash
     )
-        internal
+        external
     {
         if (!isConfigValid(config)) revert L1_INVALID_CONFIG();
 
@@ -218,7 +218,7 @@ library LibVerifying {
     }
 
     function isConfigValid(TaikoData.Config memory config)
-        internal
+        public
         pure
         returns (bool isValid)
     {
