@@ -67,24 +67,20 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @notice Adds trusted SGX instances to the registry.
     /// @param _instances The address array of trusted SGX instances.
+    /// @return ids The respective instanceId array per addresses.
     function addInstances(address[] calldata _instances)
         external
         onlyOwner
         returns (uint256[] memory ids)
     {
-        if (_instances.length == 0) revert SGX_INVALID_INSTANCES();
-
-        ids = new uint256[](_instances.length);
-
-        for (uint256 i; i < _instances.length; ++i) {
-            ids[i] = _addInstance(_instances[i]);
-        }
+        ids = _addInstances(_instances);
     }
 
     /// @notice Adds SGX instances to the registry by another SGX instance.
     /// @param id The id of the SGX instance who is adding new members.
     /// @param _instances The address array of SGX instances.
     /// @param signature The signature proving authenticity.
+    /// @return ids The respective instanceId array per addresses.
     function addInstances(
         uint256 id,
         address[] calldata _instances,
@@ -102,9 +98,8 @@ contract SgxVerifier is EssentialContract, IVerifier {
         if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
 
         _replaceInstance(id, oldInstance, _instances[0]);
-        for (uint256 i; i < _instances.length; ++i) {
-            ids[i] = _addInstance(_instances[i]);
-        }
+
+        ids = _addInstances(_instances);
     }
 
     /// @inheritdoc IVerifier
@@ -149,12 +144,24 @@ contract SgxVerifier is EssentialContract, IVerifier {
         return keccak256(abi.encode(tran, newInstance, prover, metaHash));
     }
 
-    function _addInstance(address instance) private returns (uint256 id) {
-        if (instance == address(0)) revert SGX_INVALID_INSTANCE();
+    function _addInstances(address[] calldata _instances)
+        private
+        returns (uint256[] memory ids)
+    {
+        if (_instances.length == 0) revert SGX_INVALID_INSTANCES();
 
-        id = nextInstanceId++;
-        instances[id] = Instance(instance, uint64(block.timestamp));
-        emit InstanceAdded(id, instance, address(0), block.timestamp);
+        ids = new uint256[](_instances.length);
+
+        uint256 id;
+
+        for (uint256 i; i < _instances.length; ++i) {
+            if (_instances[i] == address(0)) revert SGX_INVALID_INSTANCE();
+
+            id = nextInstanceId++;
+            instances[id] = Instance(_instances[i], uint64(block.timestamp));
+            ids[i] = id;
+            emit InstanceAdded(id, _instances[i], address(0), block.timestamp);
+        }
     }
 
     function _replaceInstance(
