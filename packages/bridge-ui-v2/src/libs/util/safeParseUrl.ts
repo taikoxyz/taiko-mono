@@ -6,6 +6,6 @@ export const safeParseUrl = (uri: string) => {
     const ipfsPath = uri.replace(IPFS_PREFIX, '');
     return `https://ipfs.io/ipfs/${ipfsPath}`;
   }
-  
+
   return uri;
 };
