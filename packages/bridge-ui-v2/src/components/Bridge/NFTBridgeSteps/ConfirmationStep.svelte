@@ -143,8 +143,21 @@
     }
   }
 
+  const _notAllowBridge = ()  => {
+    const conditions = [
+      !$bridgeService,
+      !$selectedToken,
+      !$network,
+      !$destNetwork?.id,
+      !$account?.address,
+    ]
+
+    return conditions.some(Boolean)
+  }
+
   async function bridge() {
-    if (!$bridgeService || !$selectedToken || !$network || !$destNetwork?.id || !$account?.address) return;
+    if (_notAllowBridge()) return;
+
     bridging = true;
     try {
       const walletClient = await getConnectedWallet($network.id);
