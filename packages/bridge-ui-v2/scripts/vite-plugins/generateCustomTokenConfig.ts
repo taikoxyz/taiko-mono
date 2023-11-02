@@ -27,7 +27,9 @@ export function generateCustomTokenConfig() {
       logger.info('Plugin initialized.');
       let configuredTokenConfigFile;
 
-      if (!skip) {
+      if (skip) {
+        configuredTokenConfigFile = '';
+      } else {
         if (!process.env.CONFIGURED_CUSTOM_TOKEN) {
           throw new Error(
             'CONFIGURED_CUSTOM_TOKEN is not defined in environment. Make sure to run the export step in the documentation.',
@@ -43,8 +45,6 @@ export function generateCustomTokenConfig() {
         if (!isValid) {
           throw new Error('encoded configuredBridges.json is not valid.');
         }
-      } else {
-        configuredTokenConfigFile = '';
       }
       const tsFilePath = path.resolve(outputPath);
 

@@ -1,7 +1,11 @@
 export const safeParseUrl = (uri: string) => {
-  if (uri && uri.startsWith('ipfs://')) {
+  const IPFS_PREFIX = 'ipfs://';
+
+  if (uri && uri.startsWith(IPFS_PREFIX)) {
     // todo: multiple configurable ipfs gateways as fallback
-    return `https://ipfs.io/ipfs/${uri.slice(7)}`;
+    const ipfsPath = uri.replace(IPFS_PREFIX, '');
+    return `https://ipfs.io/ipfs/${ipfsPath}`;
   }
+
   return uri;
 };
