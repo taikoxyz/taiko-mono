@@ -247,6 +247,12 @@ async function generateContractConfigs(
     console.log(addressMap);
 
     return {
+        // Libraries
+        LibDeploy: {
+            address: addressMap.LibDeploy,
+            deployedBytecode:
+                contractArtifacts.LibDeploy.deployedBytecode.object,
+        },
         // Singletons
         ProxiedSingletonAddressManagerForSingletons: {
             address: addressMap.ProxiedSingletonAddressManagerForSingletons,
