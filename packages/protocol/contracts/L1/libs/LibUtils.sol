@@ -103,22 +103,4 @@ library LibUtils {
 
         return state.transitions[slot][blk.verifiedTransitionId];
     }
-
-    function getStateVariables(TaikoData.State storage state)
-        internal
-        view
-        returns (TaikoData.StateVariables memory)
-    {
-        TaikoData.SlotA memory a = state.slotA;
-        TaikoData.SlotB memory b = state.slotB;
-
-        return TaikoData.StateVariables({
-            genesisHeight: a.genesisHeight,
-            genesisTimestamp: a.genesisTimestamp,
-            nextEthDepositToProcess: a.nextEthDepositToProcess,
-            numEthDeposits: a.numEthDeposits - a.nextEthDepositToProcess,
-            numBlocks: b.numBlocks,
-            lastVerifiedBlockId: b.lastVerifiedBlockId
-        });
-    }
 }
