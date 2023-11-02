@@ -3,14 +3,14 @@ import { type Address, zeroAddress } from 'viem';
 
 import { customToken } from '$customToken';
 import { UnknownTokenTypeError } from '$libs/error';
-import { parseNFTMetadata } from '$libs/util/parseNFTMetadata';
+import { fetchNFTMetadata } from '$libs/util/fetchNFTMetadata';
 
 import { detectContractType } from './detectContractType';
 import { getTokenWithInfoFromAddress } from './getTokenWithInfoFromAddress';
 import { TokenType } from './types';
 
 vi.mock('@wagmi/core');
-vi.mock('../util/parseNFTMetadata');
+vi.mock('../util/fetchNFTMetadata');
 
 vi.mock('../../generated/customTokenConfig', () => {
   const mockToken = {
@@ -115,7 +115,7 @@ describe('getTokenWithInfoFromAddress', () => {
         .mockResolvedValueOnce('Mock1155')
         .mockResolvedValueOnce('some/uri/123')
         .mockResolvedValueOnce(1337n);
-      vi.mocked(parseNFTMetadata).mockResolvedValue(mockedMetadata);
+      vi.mocked(fetchNFTMetadata).mockResolvedValue(mockedMetadata);
       // When
       const result = await getTokenWithInfoFromAddress({
         contractAddress: address,
@@ -144,7 +144,7 @@ describe('getTokenWithInfoFromAddress', () => {
       vi.mocked(detectContractType).mockResolvedValue(TokenType.ERC1155);
       vi.mocked(readContract).mockResolvedValueOnce('Mock1155').mockResolvedValueOnce('some/uri/123');
 
-      vi.mocked(parseNFTMetadata).mockResolvedValue(mockedMetadata);
+      vi.mocked(fetchNFTMetadata).mockResolvedValue(mockedMetadata);
 
       // When
       const result = await getTokenWithInfoFromAddress({ contractAddress: address, srcChainId: 1, tokenId: 123 });
@@ -172,7 +172,7 @@ describe('getTokenWithInfoFromAddress', () => {
         .mockResolvedValueOnce(null) // first uri call
         .mockResolvedValueOnce('some/uri/123');
 
-      vi.mocked(parseNFTMetadata).mockResolvedValue(mockedMetadata);
+      vi.mocked(fetchNFTMetadata).mockResolvedValue(mockedMetadata);
 
       // When
       const result = await getTokenWithInfoFromAddress({ contractAddress: address, srcChainId: 1, tokenId: 123 });

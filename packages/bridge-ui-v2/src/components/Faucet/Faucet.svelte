@@ -34,7 +34,7 @@
     switchingNetwork = true;
 
     try {
-      await switchNetwork({ chainId: Number(chains[0]) });
+      await switchNetwork({ chainId: Number(chains[0].id) });
     } catch (err) {
       console.error(err);
 

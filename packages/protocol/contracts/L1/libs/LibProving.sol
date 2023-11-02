@@ -71,8 +71,6 @@ library LibProving {
 
         // Check that the block has been proposed but has not yet been verified.
         TaikoData.SlotB memory b = state.slotB;
-        if (b.provingPaused) revert L1_PROVING_PAUSED();
-
         if (meta.id <= b.lastVerifiedBlockId || meta.id >= b.numBlocks) {
             revert L1_INVALID_BLOCK_ID();
         }
