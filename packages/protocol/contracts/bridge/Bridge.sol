@@ -48,7 +48,6 @@ contract Bridge is EssentialContract, IBridge {
     error B_INVALID_CONTEXT();
     error B_INVALID_GAS_LIMIT();
     error B_INVALID_SIGNAL();
-    error B_INVALID_TO();
     error B_INVALID_USER();
     error B_INVALID_VALUE();
     error B_NON_RETRIABLE();
@@ -88,17 +87,13 @@ contract Bridge is EssentialContract, IBridge {
         if (message.user == address(0)) revert B_INVALID_USER();
 
         // Check if the destination chain is enabled.
-        (bool destChainEnabled, address destBridge) =
-            isDestChainEnabled(message.destChainId);
+        (bool destChainEnabled,) = isDestChainEnabled(message.destChainId);
 
         // Verify destination chain and to address.
         if (!destChainEnabled) revert B_INVALID_CHAINID();
         if (message.destChainId == block.chainid) {
             revert B_INVALID_CHAINID();
         }
-
-        if (message.to == address(0)) revert B_INVALID_TO();
-        if (message.to == destBridge) revert B_INVALID_TO();
 
         // Ensure the sent value matches the expected amount.
         uint256 expectedAmount = message.value + message.fee;
@@ -154,9 +149,23 @@ contract Bridge is EssentialContract, IBridge {
         bool support =
             message.from.supportsInterface(type(IRecallableSender).interfaceId);
         if (support) {
+            _ctx = Context({
+                msgHash: msgHash,
+                from: address(this),
+                srcChainId: message.srcChainId
+            });
+
+            // Perform recall
             IRecallableSender(message.from).onMessageRecalled{
                 value: message.value
             }(message, msgHash);
+
+            // Reset the context after the message call
+            _ctx = Context({
+                msgHash: MESSAGE_HASH_PLACEHOLDER,
+                from: SRC_CHAIN_SENDER_PLACEHOLDER,
+                srcChainId: CHAINID_PLACEHOLDER
+            });
         } else {
             message.user.sendEther(message.value);
         }
@@ -202,7 +211,10 @@ contract Bridge is EssentialContract, IBridge {
         uint256 refundAmount;
 
         // Process message differently based on the target address
-        if (message.to == address(this) || message.to == address(0)) {
+        if (
+            message.to == address(0) || message.to == address(this)
+                || message.to == ethVault || message.to == resolve("taiko", false)
+        ) {
             // Handle special addresses that don't require actual invocation but
             // mark message as DONE
             status = Status.DONE;
@@ -230,8 +242,7 @@ contract Bridge is EssentialContract, IBridge {
 
         // Refund the processing fee
         if (msg.sender == refundTo) {
-            uint256 amount = message.fee + refundAmount;
-            refundTo.sendEther(amount);
+            refundTo.sendEther(message.fee + refundAmount);
         } else {
             // If sender is another address, reward it and refund the rest
             msg.sender.sendEther(message.fee);
@@ -376,10 +387,8 @@ contract Bridge is EssentialContract, IBridge {
         returns (bool success)
     {
         if (gasLimit == 0) revert B_INVALID_GAS_LIMIT();
+        assert(message.from != address(this));
 
-        // Update the context for the message call
-        // Should we simply provide the message itself rather than
-        // a context object?
         _ctx = Context({
             msgHash: msgHash,
             from: message.from,

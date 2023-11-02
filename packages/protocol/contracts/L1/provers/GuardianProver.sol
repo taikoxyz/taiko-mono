@@ -17,19 +17,16 @@ contract GuardianProver is EssentialContract {
     uint256 public constant NUM_GUARDIANS = 5;
     uint256 public constant REQUIRED_GUARDIANS = 3;
 
-    address[NUM_GUARDIANS] public guardians; //  slots 1 - 5
-    mapping(address guardian => uint256 id) public guardianIds; // slot 6
-    mapping(bytes32 => uint256 approvalBits) public approvals; // slot 7
+    mapping(address guardian => uint256 id) public guardianIds; // slot 1
+    mapping(bytes32 => uint256 approvalBits) public approvals; // slot 2
+    address[NUM_GUARDIANS] public guardians; //  slots 3,4,5,6,7
+    uint256[43] private __gap2;
 
-    uint256[43] private __gap;
-    // Cannot use NUM_GUARDIANS directly below otherwise hardhat will fail
-
+    // Cannot use NUM_GUARDIANS below in event directly otherwise hardhat will
+    // fail
     event GuardiansUpdated(address[5]);
     event Approved(
-        uint64 blockId,
-        TaikoData.BlockEvidence evidence,
-        uint256 approvalBits,
-        bool proofSubmitted
+        uint64 indexed blockId, uint256 approvalBits, bool proofSubmitted
     );
 
     error INVALID_GUARDIAN();
@@ -73,9 +70,10 @@ contract GuardianProver is EssentialContract {
     }
 
     /// @dev Called by guardians to approve a guardian proof
-    function approveEvidence(
-        uint64 blockId,
-        TaikoData.BlockEvidence memory evidence
+    function approve(
+        TaikoData.BlockMetadata calldata meta,
+        TaikoData.Transition calldata tran,
+        TaikoData.TierProof calldata proof
     )
         external
         nonReentrant
@@ -83,16 +81,18 @@ contract GuardianProver is EssentialContract {
         uint256 id = guardianIds[msg.sender];
         if (id == 0) revert INVALID_GUARDIAN();
 
-        if (evidence.tier != LibTiers.TIER_GUARDIAN) revert INVALID_PROOF();
+        if (proof.tier != LibTiers.TIER_GUARDIAN) revert INVALID_PROOF();
 
-        bytes32 hash = keccak256(abi.encode(blockId, evidence));
+        bytes32 hash = keccak256(abi.encode(meta, tran));
         uint256 approvalBits = approvals[hash];
 
         approvalBits |= 1 << id;
 
         if (_isApproved(approvalBits)) {
             bytes memory data = abi.encodeWithSignature(
-                "proveBlock(uint64,bytes)", blockId, abi.encode(evidence)
+                "proveBlock(uint64,bytes)",
+                meta.id,
+                abi.encode(meta, tran, proof)
             );
 
             (bool success,) = resolve("taiko", false).call(data);
@@ -100,10 +100,10 @@ contract GuardianProver is EssentialContract {
             if (!success) revert PROVING_FAILED();
             delete approvals[hash];
 
-            emit Approved(blockId, evidence, approvalBits, true);
+            emit Approved(meta.id, approvalBits, true);
         } else {
             approvals[hash] = approvalBits;
-            emit Approved(blockId, evidence, approvalBits, false);
+            emit Approved(meta.id, approvalBits, false);
         }
     }
 

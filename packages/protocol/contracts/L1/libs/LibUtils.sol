@@ -64,7 +64,7 @@ library LibUtils {
     )
         internal
         view
-        returns (TaikoData.Transition storage tran)
+        returns (TaikoData.TransitionState storage ts)
     {
         TaikoData.SlotB memory b = state.slotB;
         if (blockId < b.lastVerifiedBlockId || blockId >= b.numBlocks) {
@@ -78,7 +78,7 @@ library LibUtils {
         uint32 tid = getTransitionId(state, blk, slot, parentHash);
         if (tid == 0) revert L1_TRANSITION_NOT_FOUND();
 
-        tran = state.transitions[slot][tid];
+        ts = state.transitions[slot][tid];
     }
 
     /// @dev Retrieves the transition that is used to verify the given block.
@@ -90,7 +90,7 @@ library LibUtils {
     )
         internal
         view
-        returns (TaikoData.Transition storage)
+        returns (TaikoData.TransitionState storage)
     {
         uint64 _blockId =
             blockId == 0 ? state.slotB.lastVerifiedBlockId : blockId;
