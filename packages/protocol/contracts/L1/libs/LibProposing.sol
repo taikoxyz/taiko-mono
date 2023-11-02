@@ -6,8 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-import { SafeCastUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/math/SafeCastUpgradeable.sol";
 import { ERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 
@@ -25,7 +23,6 @@ import { LibTaikoToken } from "./LibTaikoToken.sol";
 /// @notice A library for handling block proposals in the Taiko protocol.
 library LibProposing {
     using LibAddress for address;
-    using SafeCastUpgradeable for uint256;
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     event BlockProposed(
