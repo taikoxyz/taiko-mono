@@ -91,6 +91,8 @@ contract BridgeTest is TestBase {
             destChainId, "ether_vault", address(etherVault)
         );
 
+        addressManager.setAddress(destChainId, "taiko", address(uint160(123)));
+
         addressManager.setAddress(block.chainid, "bridge", address(bridge));
 
         vm.stopPrank();
@@ -277,41 +279,6 @@ contract BridgeTest is TestBase {
         });
 
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
-        bridge.sendMessage{ value: amount }(message);
-    }
-
-    function test_Bridge_send_message_ether_reverts_when_to_is_destination_bridge_address(
-    )
-        public
-    {
-        uint256 amount = 1 wei;
-        IBridge.Message memory message = newMessage({
-            user: Alice,
-            to: address(destChainBridge),
-            value: 0,
-            gasLimit: 0,
-            fee: 0,
-            destChain: destChainId
-        });
-
-        vm.expectRevert(Bridge.B_INVALID_TO.selector);
-        bridge.sendMessage{ value: amount }(message);
-    }
-
-    function test_Bridge_send_message_ether_reverts_when_to_is_zero_address()
-        public
-    {
-        uint256 amount = 1 wei;
-        IBridge.Message memory message = newMessage({
-            user: Alice,
-            to: address(0),
-            value: 0,
-            gasLimit: 0,
-            fee: 0,
-            destChain: destChainId
-        });
-
-        vm.expectRevert(Bridge.B_INVALID_TO.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 

@@ -22,15 +22,15 @@ abstract contract TaikoEvents {
     /// @param proverFee The fee paid to the assigned prover.
     /// @param meta The block metadata containing information about the proposed
     /// block.
+    /// @param depositsProcessed Ether deposits processed.
     event BlockProposed(
         uint256 indexed blockId,
         address indexed assignedProver,
         uint96 livenessBond,
         uint256 proverFee,
-        uint16 minTier,
-        TaikoData.BlockMetadata meta
+        TaikoData.BlockMetadata meta,
+        TaikoData.EthDeposit[] depositsProcessed
     );
-
     /// @dev Emitted when a block is verified.
     /// @param blockId The ID of the verified block.
     /// @param assignedProver The block's assigned prover.
@@ -49,9 +49,7 @@ abstract contract TaikoEvents {
     /// @dev Emitted when a block transition is proved or re-proved.
     event TransitionProved(
         uint256 indexed blockId,
-        bytes32 parentHash,
-        bytes32 blockHash,
-        bytes32 signalRoot,
+        TaikoData.Transition tran,
         address prover,
         uint96 validityBond,
         uint16 tier
@@ -60,9 +58,7 @@ abstract contract TaikoEvents {
     /// @dev Emitted when a block transition is contested.
     event TransitionContested(
         uint256 indexed blockId,
-        bytes32 parentHash,
-        bytes32 blockHash,
-        bytes32 signalRoot,
+        TaikoData.Transition tran,
         address contester,
         uint96 contestBond,
         uint16 tier
