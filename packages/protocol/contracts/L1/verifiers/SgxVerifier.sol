@@ -75,16 +75,18 @@ contract SgxVerifier is EssentialContract, IVerifier {
     {
         if (_instances.length == 0) revert SGX_INVALID_INSTANCES();
 
-        ids = _addInstances(_instances, false);
+        ids = _addInstances(_instances);
     }
 
     /// @notice Adds SGX instances to the registry by another SGX instance.
     /// @param id The id of the SGX instance who is adding new members.
+    /// @param newAddress The new address of this instance.
     /// @param _instances The address array of SGX instances.
     /// @param signature The signature proving authenticity.
     /// @return ids The respective instanceId array per addresses.
     function addInstances(
         uint256 id,
+        address newAddress,
         address[] calldata _instances,
         bytes calldata signature
     )
@@ -97,9 +99,9 @@ contract SgxVerifier is EssentialContract, IVerifier {
         address oldInstance = ECDSAUpgradeable.recover(signedHash, signature);
         if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
 
-        _replaceInstance(id, oldInstance, _instances[0]);
+        _replaceInstance(id, oldInstance, newAddress);
 
-        ids = _addInstances(_instances, true);
+        ids = _addInstances(_instances);
     }
 
     /// @inheritdoc IVerifier
@@ -144,33 +146,20 @@ contract SgxVerifier is EssentialContract, IVerifier {
         return keccak256(abi.encode(tran, newInstance, prover, metaHash));
     }
 
-    function _addInstances(
-        address[] calldata _instances,
-        bool isSgxAddition
-    )
+    function _addInstances(address[] calldata _instances)
         private
         returns (uint256[] memory ids)
     {
-        uint256 startIdxInputParams;
-
-        if (isSgxAddition) {
-            // Idx 0 will be the new one for the already trusted SGX node, so
-            // that does not count here.
-            ids = new uint256[](_instances.length-1);
-            startIdxInputParams = 1;
-        } else {
-            ids = new uint256[](_instances.length);
-        }
-
+        ids = new uint256[](_instances.length);
         uint256 id = nextInstanceId;
 
-        for (uint256 i = startIdxInputParams; i < _instances.length; ++i) {
+        for (uint256 i; i < _instances.length; ++i) {
             if (_instances[i] == address(0)) revert SGX_INVALID_INSTANCE();
 
-            id = id++;
             instances[id] = Instance(_instances[i], uint64(block.timestamp));
-            ids[i - startIdxInputParams] = id;
+            ids[i] = id;
             emit InstanceAdded(id, _instances[i], address(0), block.timestamp);
+            id = id++;
         }
 
         nextInstanceId = id;
