@@ -41,7 +41,7 @@ library LibVerifying {
         TaikoData.Config memory config,
         bytes32 genesisBlockHash
     )
-        internal
+        external
     {
         if (!isConfigValid(config)) revert L1_INVALID_CONFIG();
 
@@ -69,6 +69,33 @@ library LibVerifying {
             blockHash: genesisBlockHash,
             signalRoot: 0
         });
+    }
+
+    function isConfigValid(TaikoData.Config memory config)
+        public
+        pure
+        returns (bool isValid)
+    {
+        if (
+            config.chainId <= 1 //
+                || config.blockMaxProposals == 1
+                || config.blockRingBufferSize <= config.blockMaxProposals + 1
+                || config.blockMaxGasLimit == 0 || config.blockMaxTxListBytes == 0
+                || config.blockMaxTxListBytes > 128 * 1024 // calldata up to 128K
+                || config.livenessBond == 0 || config.ethDepositRingBufferSize <= 1
+                || config.ethDepositMinCountPerBlock == 0
+                || config.ethDepositMaxCountPerBlock
+                    < config.ethDepositMinCountPerBlock
+                || config.ethDepositMinAmount == 0
+                || config.ethDepositMaxAmount <= config.ethDepositMinAmount
+                || config.ethDepositMaxAmount >= type(uint96).max
+                || config.ethDepositGas == 0 || config.ethDepositMaxFee == 0
+                || config.ethDepositMaxFee >= type(uint96).max
+                || config.ethDepositMaxFee
+                    >= type(uint96).max / config.ethDepositMaxCountPerBlock
+        ) return false;
+
+        return true;
     }
 
     /// @dev Verifies up to N blocks.
@@ -215,32 +242,5 @@ library LibVerifying {
                 );
             }
         }
-    }
-
-    function isConfigValid(TaikoData.Config memory config)
-        internal
-        pure
-        returns (bool isValid)
-    {
-        if (
-            config.chainId <= 1 //
-                || config.blockMaxProposals == 1
-                || config.blockRingBufferSize <= config.blockMaxProposals + 1
-                || config.blockMaxGasLimit == 0 || config.blockMaxTxListBytes == 0
-                || config.blockMaxTxListBytes > 128 * 1024 // calldata up to 128K
-                || config.livenessBond == 0 || config.ethDepositRingBufferSize <= 1
-                || config.ethDepositMinCountPerBlock == 0
-                || config.ethDepositMaxCountPerBlock
-                    < config.ethDepositMinCountPerBlock
-                || config.ethDepositMinAmount == 0
-                || config.ethDepositMaxAmount <= config.ethDepositMinAmount
-                || config.ethDepositMaxAmount >= type(uint96).max
-                || config.ethDepositGas == 0 || config.ethDepositMaxFee == 0
-                || config.ethDepositMaxFee >= type(uint96).max
-                || config.ethDepositMaxFee
-                    >= type(uint96).max / config.ethDepositMaxCountPerBlock
-        ) return false;
-
-        return true;
     }
 }
