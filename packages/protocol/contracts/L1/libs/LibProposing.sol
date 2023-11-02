@@ -116,8 +116,10 @@ library LibProposing {
         // of multiple Taiko blocks being proposed within a single
         // Ethereum block, we must introduce a salt to this random
         // number as the L2 mixHash.
-        meta.difficulty = meta.blobHash
-            ^ bytes32(block.prevrandao * b.numBlocks * block.number);
+        unchecked {
+            meta.difficulty = meta.blobHash
+                ^ bytes32(block.prevrandao * b.numBlocks * block.number);
+        }
 
         // Use the difficulty as a random number
         meta.minTier = ITierProvider(resolver.resolve("tier_provider", false))
