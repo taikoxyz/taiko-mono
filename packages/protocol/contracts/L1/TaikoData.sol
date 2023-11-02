@@ -30,6 +30,8 @@ library TaikoData {
         uint32 blockMaxGasLimit;
         // The maximum allowed bytes for the proposed transaction list calldata.
         uint24 blockMaxTxListBytes;
+        // The max period in seconds that a blob can be reused for DA.
+        uint24 blobExpiry;
         // ---------------------------------------------------------------------
         // Group 3: Proof related configs
         // ---------------------------------------------------------------------
@@ -87,9 +89,11 @@ library TaikoData {
 
     struct BlockParams {
         ProverAssignment assignment;
+        bytes32 extraData;
+        bytes32 blobHash;
         uint24 txListByteOffset;
         uint24 txListByteSize;
-        bytes32 extraData;
+        bool cacheBlobForReuse;
     }
 
     /// @dev Struct containing data only required for proving a block
@@ -194,8 +198,10 @@ library TaikoData {
             ethDeposits;
         // In-protocol Taiko token balances
         mapping(address account => uint256 balance) tokenBalances;
-        SlotA slotA; // slot 6
-        SlotB slotB; // slot 7
-        uint256[143] __gap;
+        // Reuseable blobs
+        mapping(bytes32 blobHash => uint256 since) reuseableBlobs;
+        SlotA slotA; // slot 7
+        SlotB slotB; // slot 8
+        uint256[142] __gap;
     }
 }
