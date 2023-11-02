@@ -93,8 +93,6 @@ contract SgxVerifier is EssentialContract, IVerifier {
         external
         returns (uint256[] memory ids)
     {
-        if (_instances.length == 0) revert SGX_INVALID_INSTANCES();
-
         bytes32 signedHash = keccak256(abi.encode("ADD_INSTANCES", _instances));
         address oldInstance = ECDSAUpgradeable.recover(signedHash, signature);
         if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
@@ -151,18 +149,20 @@ contract SgxVerifier is EssentialContract, IVerifier {
         returns (uint256[] memory ids)
     {
         ids = new uint256[](_instances.length);
-        uint256 id = nextInstanceId;
 
         for (uint256 i; i < _instances.length; ++i) {
             if (_instances[i] == address(0)) revert SGX_INVALID_INSTANCE();
 
-            instances[id] = Instance(_instances[i], uint64(block.timestamp));
-            ids[i] = id;
-            emit InstanceAdded(id, _instances[i], address(0), block.timestamp);
-            id = id++;
-        }
+            instances[nextInstanceId] =
+                Instance(_instances[i], uint64(block.timestamp));
+            ids[i] = nextInstanceId;
 
-        nextInstanceId = id;
+            emit InstanceAdded(
+                nextInstanceId, _instances[i], address(0), block.timestamp
+            );
+
+            nextInstanceId++;
+        }
     }
 
     function _replaceInstance(
