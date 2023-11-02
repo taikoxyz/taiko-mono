@@ -174,7 +174,7 @@ library LibProposing {
 
             if (params.txListByteSize == 0) revert L1_TXLIST_OFFSET_SIZE();
             if (
-                params.txListByteOffset + params.txListByteSize
+                uint256(params.txListByteOffset) + params.txListByteSize
                     > config.blockMaxTxListBytes
             ) {
                 revert L1_TXLIST_TOO_LARGE();
