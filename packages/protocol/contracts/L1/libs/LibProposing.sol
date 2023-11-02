@@ -165,7 +165,7 @@ library LibProposing {
                 if (meta.blobHash == 0) revert L1_NO_BLOB_FOUND();
 
                 if (params.cacheBlobForReuse) {
-                    state.reuseableBlobs[meta.blobHash] = block.timestamp;
+                    state.reusableBlobs[meta.blobHash] = block.timestamp;
                     emit BlobCached(meta.blobHash);
                 }
             }
@@ -255,7 +255,7 @@ library LibProposing {
         returns (bool)
     {
         return
-            state.reuseableBlobs[blobHash] + config.blobExpiry > block.timestamp;
+            state.reusableBlobs[blobHash] + config.blobExpiry > block.timestamp;
     }
 
     function hashAssignment(

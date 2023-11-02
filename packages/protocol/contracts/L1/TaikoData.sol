@@ -198,8 +198,8 @@ library TaikoData {
             ethDeposits;
         // In-protocol Taiko token balances
         mapping(address account => uint256 balance) tokenBalances;
-        // Reuseable blobs
-        mapping(bytes32 blobHash => uint256 since) reuseableBlobs;
+        // Reusable blobs
+        mapping(bytes32 blobHash => uint256 since) reusableBlobs;
         SlotA slotA; // slot 7
         SlotB slotB; // slot 8
         uint256[142] __gap;
