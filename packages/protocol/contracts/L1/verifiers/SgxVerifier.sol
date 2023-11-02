@@ -67,11 +67,17 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @notice Adds trusted SGX instances to the registry.
     /// @param _instances The address array of trusted SGX instances.
-    function addInstances(address[] calldata _instances) external onlyOwner {
+    function addInstances(address[] calldata _instances)
+        external
+        onlyOwner
+        returns (uint256[] memory ids)
+    {
         if (_instances.length == 0) revert SGX_INVALID_INSTANCES();
 
+        ids = new uint256[](_instances.length);
+
         for (uint256 i; i < _instances.length; ++i) {
-            _addInstance(_instances[i]);
+            ids[i] = _addInstance(_instances[i]);
         }
     }
 
@@ -85,16 +91,19 @@ contract SgxVerifier is EssentialContract, IVerifier {
         bytes calldata signature
     )
         external
+        returns (uint256[] memory ids)
     {
         if (_instances.length == 0) revert SGX_INVALID_INSTANCES();
+
+        ids = new uint256[](_instances.length);
 
         bytes32 signedHash = keccak256(abi.encode("ADD_INSTANCES", _instances));
         address oldInstance = ECDSAUpgradeable.recover(signedHash, signature);
         if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
 
         _replaceInstance(id, oldInstance, _instances[0]);
-        for (uint256 i = 1; i < _instances.length; ++i) {
-            _addInstance(_instances[i]);
+        for (uint256 i; i < _instances.length; ++i) {
+            ids[i] = _addInstance(_instances[i]);
         }
     }
 
@@ -140,10 +149,10 @@ contract SgxVerifier is EssentialContract, IVerifier {
         return keccak256(abi.encode(tran, newInstance, prover, metaHash));
     }
 
-    function _addInstance(address instance) private {
+    function _addInstance(address instance) private returns (uint256 id) {
         if (instance == address(0)) revert SGX_INVALID_INSTANCE();
 
-        uint256 id = nextInstanceId++;
+        id = nextInstanceId++;
         instances[id] = Instance(instance, uint64(block.timestamp));
         emit InstanceAdded(id, instance, address(0), block.timestamp);
     }
