@@ -6,17 +6,15 @@
 
 pragma solidity ^0.8.20;
 
-import { TransparentUpgradeableProxy } from
-    "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-
 import { ERC721Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
 import { IERC721ReceiverUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/IERC721ReceiverUpgradeable.sol";
 
+import { Proxied } from "../common/Proxied.sol";
 import { IBridge } from "../bridge/IBridge.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
-import { Proxied } from "../common/Proxied.sol";
+import { LibDeploy } from "../libs/LibDeploy.sol";
 
 import { BaseNFTVault } from "./BaseNFTVault.sol";
 import { BridgedERC721 } from "./BridgedERC721.sol";
@@ -278,13 +276,13 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
                 ctoken.name
             )
         );
-        btoken = address(
-            new TransparentUpgradeableProxy(
-                resolve("proxied_bridged_erc721", false),
-                owner(),
-                data
-            )
-        );
+
+        btoken = LibDeploy.deployDetermisticUpgradableProxy({
+            owner: owner(),
+            logic: resolve("proxied_bridged_erc721", false),
+            salt: keccak256(abi.encode(ctoken)),
+            data: data
+        });
 
         isBridgedToken[btoken] = true;
         bridgedToCanonical[btoken] = ctoken;

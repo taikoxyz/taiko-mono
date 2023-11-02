@@ -6,9 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-import { TransparentUpgradeableProxy } from
-    "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-
 import { ERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import { SafeERC20Upgradeable } from
@@ -17,6 +14,7 @@ import { SafeERC20Upgradeable } from
 import { Proxied } from "../common/Proxied.sol";
 import { IBridge } from "../bridge/IBridge.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
+import { LibDeploy } from "../libs/LibDeploy.sol";
 
 import { BridgedERC20 } from "./BridgedERC20.sol";
 import { IMintableERC20 } from "./IMintableERC20.sol";
@@ -315,13 +313,13 @@ contract ERC20Vault is BaseVault {
                 ctoken.name
             )
         );
-        btoken = address(
-            new TransparentUpgradeableProxy(
-                resolve("proxied_bridged_erc20", false),
-                owner(),
-                data
-            )
-        );
+
+        btoken = LibDeploy.deployDetermisticUpgradableProxy({
+            owner: owner(),
+            logic: resolve("proxied_bridged_erc20", false),
+            salt: keccak256(abi.encode(ctoken)),
+            data: data
+        });
 
         isBridgedToken[btoken] = true;
         bridgedToCanonical[btoken] = ctoken;
