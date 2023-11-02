@@ -23,10 +23,10 @@ func (i *Indexer) handleEvent(
 ) error {
 	slog.Info("event found for msgHash", "msgHash", common.Hash(event.MsgHash).Hex(), "txHash", event.Raw.TxHash.Hex())
 
-	if event.Message.DestChainId.Cmp(i.destChainId) != 0 {
+	if new(big.Int).SetUint64(event.Message.DestChainId).Cmp(i.destChainId) != 0 {
 		slog.Info("skipping event, wrong chainID",
 			"messageDestChainID",
-			event.Message.DestChainId.Uint64(),
+			event.Message.DestChainId,
 			"indexerDestChainID",
 			i.destChainId.Uint64(),
 		)

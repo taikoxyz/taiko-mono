@@ -103,7 +103,7 @@ func (p *Prover) EncodedSignalProofWithHops(
 
 	for _, hop := range hopParams {
 		hopStorageSlotKey, err := hop.SignalService.GetSignalSlot(&bind.CallOpts{},
-			hop.ChainID,
+			hop.ChainID.Uint64(),
 			hop.TaikoAddress,
 			signalRoot,
 		)

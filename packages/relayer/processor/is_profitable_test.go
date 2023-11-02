@@ -40,7 +40,7 @@ func Test_isProfitable(t *testing.T) {
 			"lowProcessingFeeHighCost",
 			bridge.IBridgeMessage{
 				Fee:         new(big.Int).Sub(mock.ProcessMessageTx.Cost(), big.NewInt(1)),
-				DestChainId: big.NewInt(167001),
+				DestChainId: 167001,
 			},
 			big.NewInt(1000000),
 			false,
@@ -50,7 +50,7 @@ func Test_isProfitable(t *testing.T) {
 			"profitableProcessingFee",
 			bridge.IBridgeMessage{
 				Fee:         new(big.Int).Add(mock.ProcessMessageTx.Cost(), big.NewInt(1)),
-				DestChainId: big.NewInt(167001),
+				DestChainId: 167001,
 			},
 			big.NewInt(1),
 			true,

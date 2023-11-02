@@ -1,6 +1,21 @@
 [
   {
     "inputs": [],
+    "name": "ADDRESS_UNAUTHORIZED",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "INVALID_ADDRESS",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "INVALID_LABEL",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "INVALID_PAUSE_STATUS",
     "type": "error"
   },
@@ -20,16 +35,21 @@
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "RESOLVER_UNEXPECTED_CHAINID",
+    "type": "error"
+  },
+  {
     "inputs": [
       {
-        "internalType": "uint256",
+        "internalType": "uint64",
         "name": "chainId",
-        "type": "uint256"
+        "type": "uint64"
       },
       {
-        "internalType": "bytes32",
+        "internalType": "string",
         "name": "name",
-        "type": "bytes32"
+        "type": "string"
       }
     ],
     "name": "RESOLVER_ZERO_ADDR",
@@ -49,6 +69,31 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": true,
+        "internalType": "address",
+        "name": "addr",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "oldLabel",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "newLabel",
+        "type": "bytes32"
+      }
+    ],
+    "name": "Authorized",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
         "indexed": false,
         "internalType": "uint8",
         "name": "version",
@@ -56,6 +101,25 @@
       }
     ],
     "name": "Initialized",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "previousOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "OwnershipTransferStarted",
     "type": "event"
   },
   {
@@ -105,6 +169,13 @@
   },
   {
     "inputs": [],
+    "name": "acceptOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "addressManager",
     "outputs": [
       {
@@ -119,9 +190,46 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
+        "internalType": "address",
+        "name": "addr",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "label",
+        "type": "bytes32"
+      }
+    ],
+    "name": "authorize",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "authorizedAddresses",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "label",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
         "name": "chainId",
-        "type": "uint256"
+        "type": "uint64"
       },
       {
         "internalType": "address",
@@ -146,16 +254,53 @@
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_addressManager",
-        "type": "address"
-      }
-    ],
+    "inputs": [],
     "name": "init",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "addr",
+        "type": "address"
+      }
+    ],
+    "name": "isAuthorized",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "addr",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "label",
+        "type": "bytes32"
+      }
+    ],
+    "name": "isAuthorizedAs",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -216,11 +361,24 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "pendingOwner",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
-        "internalType": "uint256",
+        "internalType": "uint64",
         "name": "srcChainId",
-        "type": "uint256"
+        "type": "uint64"
       },
       {
         "internalType": "address",
@@ -259,9 +417,9 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
+        "internalType": "uint64",
         "name": "chainId",
-        "type": "uint256"
+        "type": "uint64"
       },
       {
         "internalType": "bytes32",
