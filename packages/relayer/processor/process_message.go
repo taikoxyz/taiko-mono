@@ -392,7 +392,7 @@ func (p *Processor) needsContractDeployment(
 
 	var err error
 
-	chainID := canonicalToken.ChainID()
+	chainID := new(big.Int).SetUint64(canonicalToken.ChainID())
 	addr := canonicalToken.Address()
 
 	ctx, cancel := context.WithTimeout(ctx, p.ethClientTimeout)
@@ -450,7 +450,7 @@ func (p *Processor) hardcodeGasLimit(
 		// determine whether the canonical token is bridged or not on this chain
 		bridgedAddress, err = p.destERC20Vault.CanonicalToBridged(
 			nil,
-			canonicalToken.ChainID(),
+			new(big.Int).SetUint64(canonicalToken.ChainID()),
 			canonicalToken.Address(),
 		)
 		if err != nil {
@@ -460,7 +460,7 @@ func (p *Processor) hardcodeGasLimit(
 		// determine whether the canonical token is bridged or not on this chain
 		bridgedAddress, err = p.destERC721Vault.CanonicalToBridged(
 			nil,
-			canonicalToken.ChainID(),
+			new(big.Int).SetUint64(canonicalToken.ChainID()),
 			canonicalToken.Address(),
 		)
 		if err != nil {
@@ -470,7 +470,7 @@ func (p *Processor) hardcodeGasLimit(
 		// determine whether the canonical token is bridged or not on this chain
 		bridgedAddress, err = p.destERC1155Vault.CanonicalToBridged(
 			nil,
-			canonicalToken.ChainID(),
+			new(big.Int).SetUint64(canonicalToken.ChainID()),
 			canonicalToken.Address(),
 		)
 		if err != nil {
