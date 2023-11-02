@@ -2,7 +2,6 @@
   "packages": {
     ".": {},
     "packages/branding": {},
-    "packages/bridge-ui": {},
     "packages/bridge-ui-v2": {},
     "packages/eventindexer": {},
     "packages/fork-diff": {},
