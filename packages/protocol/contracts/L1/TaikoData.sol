@@ -56,16 +56,6 @@ library TaikoData {
         bool allowUsingBlobForDA;
     }
 
-    /// @dev Struct holding state variables.
-    struct StateVariables {
-        uint64 genesisHeight;
-        uint64 genesisTimestamp;
-        uint64 nextEthDepositToProcess;
-        uint64 numEthDeposits;
-        uint64 numBlocks;
-        uint64 lastVerifiedBlockId;
-    }
-
     /// @dev Struct representing prover assignment
     struct TierFee {
         uint16 tier;
@@ -167,7 +157,6 @@ library TaikoData {
 
     struct SlotB {
         uint64 numBlocks;
-        uint64 nextEthDepositToProcess;
         uint64 lastVerifiedBlockId;
         bool provingPaused;
     }

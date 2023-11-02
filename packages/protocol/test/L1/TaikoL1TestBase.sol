@@ -159,11 +159,11 @@ abstract contract TaikoL1TestBase is TestBase {
         assignment.signature =
             _signAssignment(prover, assignment, keccak256(txList));
 
-        TaikoData.StateVariables memory variables = L1.getStateVariables();
+        (, TaikoData.SlotB memory b) = L1.getStateVariables();
 
         uint256 _difficulty;
         unchecked {
-            _difficulty = block.prevrandao * variables.numBlocks;
+            _difficulty = block.prevrandao * b.numBlocks;
         }
 
         meta.timestamp = uint64(block.timestamp);
@@ -374,23 +374,24 @@ abstract contract TaikoL1TestBase is TestBase {
     }
 
     function printVariables(string memory comment) internal {
-        TaikoData.StateVariables memory vars = L1.getStateVariables();
+        (TaikoData.SlotA memory a, TaikoData.SlotB memory b) =
+            L1.getStateVariables();
 
         string memory str = string.concat(
             Strings.toString(logCount++),
             ":[",
-            Strings.toString(vars.lastVerifiedBlockId),
+            Strings.toString(b.lastVerifiedBlockId),
             unicode"→",
-            Strings.toString(vars.numBlocks),
+            Strings.toString(b.numBlocks),
             "]"
         );
 
         str = string.concat(
             str,
             " nextEthDepositToProcess:",
-            Strings.toString(vars.nextEthDepositToProcess),
+            Strings.toString(a.nextEthDepositToProcess),
             " numEthDeposits:",
-            Strings.toString(vars.numEthDeposits),
+            Strings.toString(a.numEthDeposits),
             " // ",
             comment
         );
