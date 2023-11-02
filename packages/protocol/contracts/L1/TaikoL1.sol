@@ -173,7 +173,7 @@ contract TaikoL1 is
         return LibDepositing.canDepositEthToL2(state, getConfig(), amount);
     }
 
-    function isBlobReusable(bytes32 blobHash) internal view returns (bool) {
+    function isBlobReusable(bytes32 blobHash) public view returns (bool) {
         return LibProposing.isBlobReusable(state, getConfig(), blobHash);
     }
 
