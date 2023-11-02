@@ -116,7 +116,6 @@ library LibProposing {
         }
 
         // Update certain meta fields
-
         if (txList.length == 0) {
             // Always use the first blob in this transaction.
             // If the proposeBlock functions are called more than once in the
@@ -127,6 +126,14 @@ library LibProposing {
             ).getFirstBlobHash();
 
             if (meta.blobHash == 0) revert L1_NO_BLOB_FOUND();
+            if (params.txListByteSize == 0) revert L1_TXLIST_OFFSET_SIZE();
+            if (
+                params.txListByteOffset + params.txListByteSize
+                    > config.blockMaxTxListBytes
+            ) {
+                revert L1_TXLIST_TOO_LARGE();
+            }
+
             meta.txListByteOffset = params.txListByteOffset;
             meta.txListByteSize = params.txListByteSize;
         } else {
@@ -135,17 +142,16 @@ library LibProposing {
             // internal one, making calldata retrieval more straightforward.
             if (!LibAddress.isSenderEOA()) revert L1_PROPOSER_NOT_EOA();
 
+            if (params.txListByteOffset != 0 || params.txListByteSize != 0) {
+                revert L1_TXLIST_OFFSET_SIZE();
+            }
+
             // blockMaxTxListBytes is a uint24
             if (txList.length > config.blockMaxTxListBytes) {
                 revert L1_TXLIST_TOO_LARGE();
             }
 
-            if (params.txListByteOffset != 0 || params.txListByteSize != 0) {
-                revert L1_TXLIST_OFFSET_SIZE();
-            }
-
             meta.blobHash = keccak256(txList);
-
             meta.txListByteOffset = 0;
             meta.txListByteSize = uint24(txList.length);
         }
@@ -155,11 +161,10 @@ library LibProposing {
         // of multiple Taiko blocks being proposed within a single
         // Ethereum block, we must introduce a salt to this random
         // number as the L2 mixHash.
-        meta.difficulty = bytes32(
-            uint256(meta.blobHash)
-                ^ (block.prevrandao * b.numBlocks * block.number)
-        );
+        meta.difficulty = meta.blobHash
+            ^ bytes32(block.prevrandao * b.numBlocks * block.number);
 
+        // Use the difficulty as a random number
         meta.minTier = ITierProvider(resolver.resolve("tier_provider", false))
             .getMinTier(uint256(meta.difficulty));
 
