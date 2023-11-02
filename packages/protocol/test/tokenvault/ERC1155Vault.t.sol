@@ -7,8 +7,7 @@ import {
     SkipProofCheckSignal,
     DummyCrossChainSync,
     NonNftContract,
-    BadReceiver,
-    LibBridgedTokenDeployer
+    BadReceiver
 } from "../TestBase.sol";
 import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
@@ -208,18 +207,15 @@ contract ERC1155VaultTest is TestBase {
 
         vm.deal(address(bridge), 100 ether);
 
-        address erc1155_common_logic = LibBridgedTokenDeployer
-            .deployLogicContract(
-            getRandomBytes32(), type(ProxiedBridgedERC1155).creationCode
-        );
+        address proxiedBridgedERC1155 = address(new ProxiedBridgedERC1155());
 
         addressManager.setAddress(
-            destChainId, "proxied_bridged_erc1155", erc1155_common_logic
+            destChainId, "proxied_bridged_erc1155", proxiedBridgedERC1155
         );
         addressManager.setAddress(
             uint64(block.chainid),
             "proxied_bridged_erc1155",
-            erc1155_common_logic
+            proxiedBridgedERC1155
         );
 
         ctoken1155 = new TestTokenERC1155("http://example.host.com/");

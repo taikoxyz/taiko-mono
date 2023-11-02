@@ -12,10 +12,7 @@ import { FreeMintERC20 } from "../../contracts/test/erc20/FreeMintERC20.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
 import { Test } from "forge-std/Test.sol";
-import { LibBridgedTokenDeployer } from "../TestBase.sol";
 import { ERC20Vault } from "../../contracts/tokenvault/ERC20Vault.sol";
-import { Create2Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/Create2Upgradeable.sol";
 import { TransparentUpgradeableProxy } from
     "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
@@ -155,17 +152,14 @@ contract TestERC20Vault is Test {
             destChainId, "bridge", address(destChainIdBridge)
         );
 
-        address erc20_common_logic = LibBridgedTokenDeployer.deployLogicContract(
-            keccak256(abi.encode(destChainIdBridge)),
-            type(ProxiedBridgedERC20).creationCode
+        address proxiedBridgedERC20 = address(new ProxiedBridgedERC20());
+
+        addressManager.setAddress(
+            destChainId, "proxied_bridged_erc20", proxiedBridgedERC20
         );
 
         addressManager.setAddress(
-            destChainId, "proxied_bridged_erc20", erc20_common_logic
-        );
-
-        addressManager.setAddress(
-            uint64(block.chainid), "proxied_bridged_erc20", erc20_common_logic
+            uint64(block.chainid), "proxied_bridged_erc20", proxiedBridgedERC20
         );
 
         vm.stopPrank();

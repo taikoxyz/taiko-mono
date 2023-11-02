@@ -7,8 +7,7 @@ import {
     SkipProofCheckSignal,
     DummyCrossChainSync,
     NonNftContract,
-    BadReceiver,
-    LibBridgedTokenDeployer
+    BadReceiver
 } from "../TestBase.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { IBridge, Bridge } from "../../contracts/bridge/Bridge.sol";
@@ -221,16 +220,15 @@ contract ERC721VaultTest is TestBase {
             uint64(block.chainid), "erc20_vault", address(erc721Vault)
         );
 
-        address erc721_common_logic = LibBridgedTokenDeployer
-            .deployLogicContract(
-            getRandomBytes32(), type(ProxiedBridgedERC721).creationCode
-        );
+        address proxiedBridgedERC721 = address(new ProxiedBridgedERC721());
 
         addressManager.setAddress(
-            destChainId, "proxied_bridged_erc721", erc721_common_logic
+            destChainId, "proxied_bridged_erc721", proxiedBridgedERC721
         );
         addressManager.setAddress(
-            uint64(block.chainid), "proxied_bridged_erc721", erc721_common_logic
+            uint64(block.chainid),
+            "proxied_bridged_erc721",
+            proxiedBridgedERC721
         );
 
         vm.stopPrank();
