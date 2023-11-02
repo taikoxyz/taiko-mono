@@ -7,7 +7,7 @@
 
   import { IDInputState as State } from './state';
 
-  export let numbersArray: number[] = [];
+  export let validIdNumbers: number[] = [];
   export let isDisabled = false;
   export let enteredIds: string = '';
   export let limit = 1;
@@ -15,33 +15,33 @@
 
   export const clearIds = () => {
     enteredIds = '';
-    numbersArray = [];
-    dispatch('input', { enteredIds, numbersArray });
+    validIdNumbers = [];
+    dispatch('inputValidation');
   };
 
   const dispatch = createEventDispatcher();
 
   let inputId = `input-${uid()}`;
 
-  function validateInput(e: Event) {
-    const target = e.target as HTMLInputElement;
-    let newValue = target.value.replace(/\s+/g, '');
-    const inputArray = newValue.split(',');
-    if (inputArray.length > limit) {
-      newValue = inputArray.slice(0, limit).join(',');
-    }
-    enteredIds = newValue;
-    dispatch('input', { enteredIds, numbersArray });
-  }
-
-  $: {
-    if (enteredIds === '' || enteredIds.endsWith(',')) {
-      numbersArray = [];
+  function validateInput(idInput: EventTarget | string | null = null) {
+    state = State.VALIDATING;
+    if (!idInput) return;
+    let ids;
+    if (idInput && idInput instanceof EventTarget) {
+      ids = (idInput as HTMLInputElement).value.replace(/\s+/g, '');
     } else {
-      const inputArray = enteredIds.split(',');
-      const isValid = inputArray.every((item) => /^[0-9]+$/.test(item));
-      numbersArray = isValid ? inputArray.map((num) => parseInt(num)).filter(Boolean) : [];
+      ids = idInput as string;
     }
+
+    const inputArray = ids.split(',');
+    if (inputArray.length > limit) {
+      ids = inputArray.slice(0, limit).join(',');
+    }
+    enteredIds = ids;
+    const isValid = inputArray.every((item) => /^[0-9]+$/.test(item));
+    validIdNumbers = isValid ? inputArray.map((num) => parseInt(num)).filter(Boolean) : [];
+    state = State.VALID;
+    dispatch('inputValidation');
   }
 </script>
 
@@ -56,7 +56,7 @@
       type="text"
       placeholder={$t('inputs.token_id_input.placeholder')}
       bind:value={enteredIds}
-      on:input={validateInput}
+      on:input={(e) => validateInput(e.target)}
       class="w-full input-box withValdiation py-6 pr-16 px-[26px] title-subsection-bold placeholder:text-tertiary-content {$$props.class}
       {state === State.VALID ? 'success' : state === State.DEFAULT ? '' : 'error'}" />
     <!-- /*state === State.Valid ? 'success' : state === State.Invalid ? 'error' : ''  -->

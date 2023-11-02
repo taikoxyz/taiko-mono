@@ -2,7 +2,6 @@
   import { onMount } from 'svelte';
 
   import { Icon } from '$components/Icon';
-  import { web3modal } from '$libs/connect';
 
   let theme: 'dark' | 'light' = (localStorage.getItem('theme') as 'dark' | 'light') || 'dark';
   $: isDarkTheme = theme === 'dark';
@@ -12,7 +11,6 @@
     theme = currentTheme === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
-    web3modal.setThemeMode(theme);
   }
 
   onMount(() => {
@@ -27,6 +25,6 @@
 
 <label class="swap swap-rotate">
   <input type="checkbox" class="border-none" bind:checked={isDarkTheme} on:change={switchTheme} />
-  <Icon type="sun" class="fill-primary-icon swap-on" width={25} height={25} vHeight={25} vWidth={25} />
-  <Icon type="moon" class="fill-primary-icon swap-off" width={25} height={25} vHeight={25} vWidth={25} />
+  <Icon type="sun" class="fill-primary-icon swap-on " size={25} />
+  <Icon type="moon" class="fill-primary-icon swap-off" size={25} />
 </label>

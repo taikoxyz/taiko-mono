@@ -10,7 +10,7 @@
     dark:md:glassy-gradient-card
     dark:md:glass-background-gradient`;
 
-  export let title: string;
+  export let title: string = '';
   export let text = '';
 
   $: classes = classNames(styles, $$props.class);
@@ -24,7 +24,7 @@
     {#if text}
       <p>{text}</p>
     {/if}
-    <div class="f-col mt-[30px]">
+    <div class="f-col">
       <slot />
     </div>
   </div>

@@ -14,14 +14,14 @@
   export let labelText = $t('inputs.address_input.label.default');
   export let isDisabled = false;
   export let quiet = false;
-  export let state: State = State.Default;
+  export let state: State = State.DEFAULT;
 
   export const validateAddress = () => {
     validateEthereumAddress(ethereumAddress);
   };
 
   export const clearAddress = () => {
-    state = State.Default;
+    state = State.DEFAULT;
     if (input) input.value = '';
     validateEthereumAddress('');
   };
@@ -43,21 +43,21 @@
       addr = address as string;
     }
     if (addr.length >= 2 && !addr.startsWith('0x')) {
-      state = State.Invalid;
+      state = State.INVALID;
       return;
     }
     if (addr.length < 42) {
-      state = State.TooShort;
+      state = State.TOO_SHORT;
     } else {
       if (isAddress(addr)) {
-        state = State.Valid;
+        state = State.VALID;
       } else {
-        state = State.Invalid;
+        state = State.INVALID;
       }
       dispatch('input', addr);
     }
 
-    dispatch('addressvalidation', { isValidEthereumAddress: state === State.Valid, addr });
+    dispatch('addressvalidation', { isValidEthereumAddress: state === State.VALID, addr });
   };
 
   onMount(() => {
@@ -80,7 +80,7 @@
       bind:value={ethereumAddress}
       on:input={(e) => validateEthereumAddress(e.target)}
       class="w-full input-box withValdiation py-6 pr-16 px-[26px] title-subsection-bold placeholder:text-tertiary-content {$$props.class}
-      {state === State.Valid ? 'success' : ethereumAddress && state !== State.Validating ? 'error' : ''}
+      {state === State.VALID ? 'success' : ethereumAddress && state !== State.VALIDATING ? 'error' : ''}
       " />
     <button class="absolute right-6 uppercase body-bold text-secondary-content" on:click={clearAddress}>
       <Icon type="x-close-circle" fillClass="fill-primary-icon" size={24} />
@@ -90,11 +90,11 @@
 
 {#if !quiet}
   <div class="min-h-[20px] !mt-3">
-    {#if state === State.Invalid && ethereumAddress}
+    {#if state === State.INVALID && ethereumAddress}
       <FlatAlert type="error" forceColumnFlow message={$t('inputs.address_input.errors.invalid')} />
-    {:else if state === State.TooShort && ethereumAddress}
+    {:else if state === State.TOO_SHORT && ethereumAddress}
       <FlatAlert type="warning" forceColumnFlow message={$t('inputs.address_input.errors.too_short')} />
-    {:else if state === State.Valid}
+    {:else if state === State.VALID}
       <FlatAlert type="success" forceColumnFlow message={$t('inputs.address_input.success')} />
     {/if}
   </div>
