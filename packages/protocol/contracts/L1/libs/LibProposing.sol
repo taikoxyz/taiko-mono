@@ -34,6 +34,8 @@ library LibProposing {
         TaikoData.EthDeposit[] depositsProcessed
     );
 
+    event BlobCached(bytes32 blobHash);
+
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_ASSIGNMENT_EXPIRED();
     error L1_ASSIGNMENT_INVALID_SIG();
@@ -65,10 +67,6 @@ library LibProposing {
     {
         TaikoData.BlockParams memory params =
             abi.decode(data, (TaikoData.BlockParams));
-
-        if (!config.allowUsingBlobForDA && txList.length == 0) {
-            revert L1_BLOB_FOR_DA_DISABLED();
-        }
 
         // Taiko, as a Based Rollup, enables permissionless block proposals.
         // However, if the "proposer" address is set to a non-zero value, we
@@ -113,6 +111,18 @@ library LibProposing {
             });
         }
 
+        // Following the Merge, the L1 mixHash incorporates the
+        // prevrandao value from the beacon chain. Given the possibility
+        // of multiple Taiko blocks being proposed within a single
+        // Ethereum block, we must introduce a salt to this random
+        // number as the L2 mixHash.
+        meta.difficulty = meta.blobHash
+            ^ bytes32(block.prevrandao * b.numBlocks * block.number);
+
+        // Use the difficulty as a random number
+        meta.minTier = ITierProvider(resolver.resolve("tier_provider", false))
+            .getMinTier(uint256(meta.difficulty));
+
         // Update certain meta fields
         if (txList.length > 0) {
             // The proposer must be an Externally Owned Account (EOA) for
@@ -133,6 +143,10 @@ library LibProposing {
             meta.txListByteOffset = 0;
             meta.txListByteSize = uint24(txList.length);
         } else {
+            if (!config.blobAllowedForDA) {
+                revert L1_BLOB_FOR_DA_DISABLED();
+            }
+
             if (params.blobHash != 0) {
                 // We try to reuse an old blob
                 if (isBlobReusable(state, config, params.blobHash)) {
@@ -140,19 +154,19 @@ library LibProposing {
                 }
                 meta.blobHash = params.blobHash;
             } else {
-                // Always use the first blob in this transaction.
-                // If the proposeBlock functions are called more than once in
-                // the
-                // same L1 transaction, these 2 L2 blocks will use the same blob
-                // as
+                // Always use the first blob in this transaction. If the
+                // proposeBlock functions are called more than once in the same
+                // L1 transaction, these 2 L2 blocks will use the same blob as
                 // DA.
                 meta.blobHash = IBlobHashReader(
                     resolver.resolve("blob_hash_reader", false)
                 ).getFirstBlobHash();
+
                 if (meta.blobHash == 0) revert L1_NO_BLOB_FOUND();
 
                 if (params.cacheBlobForReuse) {
                     state.reuseableBlobs[meta.blobHash] = block.timestamp;
+                    emit BlobCached(meta.blobHash);
                 }
             }
 
@@ -167,17 +181,6 @@ library LibProposing {
             meta.txListByteOffset = params.txListByteOffset;
             meta.txListByteSize = params.txListByteSize;
         }
-        // Following the Merge, the L1 mixHash incorporates the
-        // prevrandao value from the beacon chain. Given the possibility
-        // of multiple Taiko blocks being proposed within a single
-        // Ethereum block, we must introduce a salt to this random
-        // number as the L2 mixHash.
-        meta.difficulty = meta.blobHash
-            ^ bytes32(block.prevrandao * b.numBlocks * block.number);
-
-        // Use the difficulty as a random number
-        meta.minTier = ITierProvider(resolver.resolve("tier_provider", false))
-            .getMinTier(uint256(meta.difficulty));
 
         // Now, it's essential to initialize the block that will be stored
         // on L1. We should aim to utilize as few storage slots as possible,

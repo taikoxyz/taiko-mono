@@ -32,6 +32,8 @@ library TaikoData {
         uint24 blockMaxTxListBytes;
         // The max period in seconds that a blob can be reused for DA.
         uint24 blobExpiry;
+        // True if EIP-4844 is enabled for DA
+        bool blobAllowedForDA;
         // ---------------------------------------------------------------------
         // Group 3: Proof related configs
         // ---------------------------------------------------------------------
@@ -54,8 +56,6 @@ library TaikoData {
         uint256 ethDepositGas;
         // The maximum fee allowed for an ETH deposit.
         uint256 ethDepositMaxFee;
-        // True if EIP-4844 is enabled for DA
-        bool allowUsingBlobForDA;
     }
 
     /// @dev Struct holding state variables.
