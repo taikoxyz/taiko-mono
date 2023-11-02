@@ -1,4 +1,7 @@
+import { get } from 'svelte/store';
+
 import { routingContractsMap } from '$bridgeConfig';
+import { selectedNFTs } from '$components/Bridge/state';
 import { getAddress, isDeployedCrossChain, type NFT, type Token, TokenType } from '$libs/token';
 
 import type { BridgeArgs, BridgeArgsMap, ERC20BridgeArgs, ETHBridgeArgs } from './types';
@@ -10,7 +13,6 @@ export const getBridgeArgs = async (
     BridgeArgs,
     'bridgeAddress' | 'token' | 'tokenVaultAddress' | 'isTokenAlreadyDeployed' | 'tokenIds' | 'amount'
   >,
-  selectedNFT?: NFT[],
   nftIdArray?: number[],
 ): Promise<BridgeArgsMap[typeof token.type]> => {
   if (!token) throw new Error('No token selected');
@@ -41,15 +43,15 @@ export const getBridgeArgs = async (
     }
     case TokenType.ERC721:
     case TokenType.ERC1155: {
-      if (!selectedNFT) throw new Error('No NFT selected');
-      const tokenAddress = selectedNFT[0].addresses[commonArgs.srcChainId];
+      const nfts = get(selectedNFTs);
+
+      if (!nfts) throw new Error('No NFT selected');
+      const tokenAddress = nfts[0].addresses[commonArgs.srcChainId];
       const tokenVaultAddress =
         routingContractsMap[commonArgs.srcChainId][commonArgs.destChainId][
           token.type === TokenType.ERC721 ? 'erc721VaultAddress' : 'erc1155VaultAddress'
         ];
-      const tokenIds = nftIdArray
-        ? nftIdArray.map((num) => BigInt(num))
-        : selectedNFT.map((nft) => BigInt(nft.tokenId));
+      const tokenIds = nftIdArray ? nftIdArray.map((num) => BigInt(num)) : nfts.map((nft) => BigInt(nft.tokenId));
       const isTokenAlreadyDeployed = await isDeployedCrossChain({
         token,
         srcChainId: commonArgs.srcChainId,

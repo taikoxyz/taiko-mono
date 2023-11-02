@@ -190,6 +190,8 @@ export type BridgeConfig = {
   addresses: AddressConfig;
 };
 
+export type RoutingMap = Record<string, Record<string, AddressConfig>>;
+
 export type AddressConfig = {
   bridgeAddress: Address;
   erc20VaultAddress: Address;
@@ -200,4 +202,16 @@ export type AddressConfig = {
   signalServiceAddress: Address;
 };
 
-export type RoutingMap = Record<string, Record<string, AddressConfig>>;
+export enum ContractType {
+  BRIDGE,
+  VAULT,
+  SIGNALSERVICE,
+  CROSSCHAINSYNC,
+}
+
+export type GetContractAddressType = {
+  srcChainId: number;
+  destChainId: number;
+  tokenType?: TokenType;
+  contractType: ContractType;
+};
