@@ -158,14 +158,17 @@ library LibProposing {
             } else {
                 // Always use the first blob in this transaction. If the
                 // proposeBlock functions are called more than once in the same
-                // L1 transaction, these 2 L2 blocks will use the same blob as
-                // DA.
+                // L1 transaction, these multiple L2 blocks will share the same
+                // blob.
                 meta.blobHash = IBlobHashReader(
                     resolver.resolve("blob_hash_reader", false)
                 ).getFirstBlobHash();
 
                 if (meta.blobHash == 0) revert L1_NO_BLOB_FOUND();
 
+                // Depends on the blob data price, it may not make sense to
+                // cache the blob which costs 20,000 (sstore) + 631 (event)
+                // extra gas.
                 if (params.cacheBlobForReuse) {
                     state.reusableBlobs[meta.blobHash] = block.timestamp;
                     emit BlobCached(meta.blobHash);
