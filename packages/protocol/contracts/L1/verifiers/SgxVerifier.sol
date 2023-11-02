@@ -162,16 +162,18 @@ contract SgxVerifier is EssentialContract, IVerifier {
             ids = new uint256[](_instances.length);
         }
 
-        uint256 id;
+        uint256 id = nextInstanceId;
 
         for (uint256 i = startIdxInputParams; i < _instances.length; ++i) {
             if (_instances[i] == address(0)) revert SGX_INVALID_INSTANCE();
 
-            id = nextInstanceId++;
+            id = id++;
             instances[id] = Instance(_instances[i], uint64(block.timestamp));
             ids[i - startIdxInputParams] = id;
             emit InstanceAdded(id, _instances[i], address(0), block.timestamp);
         }
+
+        nextInstanceId = id;
     }
 
     function _replaceInstance(
