@@ -12,7 +12,8 @@ import { TransparentUpgradeableProxy } from
     "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 library LibDeploy {
-    /// @dev Deploys a contract (via proxy)
+    /// @dev Deploys a TransparentUpgradeableProxy proxy with deterministic
+    /// address before a given implementation.
     function deployDetermisticUpgradableProxy(
         address owner,
         address logic,
@@ -22,6 +23,7 @@ library LibDeploy {
         external
         returns (address)
     {
+        // TODO: check owner, logic
         return Create2Upgradeable.deploy(
             0,
             salt,
