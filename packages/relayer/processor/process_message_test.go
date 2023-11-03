@@ -25,8 +25,8 @@ func Test_sendProcessMessageCall(t *testing.T) {
 		context.Background(),
 		&bridge.BridgeMessageSent{
 			Message: bridge.IBridgeMessage{
-				DestChainId: mock.MockChainID,
-				SrcChainId:  mock.MockChainID,
+				DestChainId: mock.MockChainID.Uint64(),
+				SrcChainId:  mock.MockChainID.Uint64(),
 				Id:          big.NewInt(1),
 				Fee:         new(big.Int).Add(mock.ProcessMessageTx.Cost(), big.NewInt(1)),
 			},
@@ -50,7 +50,7 @@ func Test_ProcessMessage_messageUnprocessable(t *testing.T) {
 		Event: &bridge.BridgeMessageSent{
 			Message: bridge.IBridgeMessage{
 				GasLimit:   big.NewInt(1),
-				SrcChainId: mock.MockChainID,
+				SrcChainId: mock.MockChainID.Uint64(),
 				Id:         big.NewInt(1),
 			},
 			Raw: types.Log{
@@ -82,7 +82,7 @@ func Test_ProcessMessage_gasLimit0(t *testing.T) {
 		Event: &bridge.BridgeMessageSent{
 			Message: bridge.IBridgeMessage{
 				GasLimit:   big.NewInt(0),
-				SrcChainId: mock.MockChainID,
+				SrcChainId: mock.MockChainID.Uint64(),
 				Id:         big.NewInt(1),
 			},
 			Raw: types.Log{
@@ -113,7 +113,7 @@ func Test_ProcessMessage_noChainId(t *testing.T) {
 	body := queue.QueueMessageBody{
 		Event: &bridge.BridgeMessageSent{
 			Message: bridge.IBridgeMessage{
-				SrcChainId: mock.MockChainID,
+				SrcChainId: mock.MockChainID.Uint64(),
 				GasLimit:   big.NewInt(1),
 				Id:         big.NewInt(0),
 			},
@@ -147,9 +147,9 @@ func Test_ProcessMessage(t *testing.T) {
 		Event: &bridge.BridgeMessageSent{
 			Message: bridge.IBridgeMessage{
 				GasLimit:    big.NewInt(1),
-				DestChainId: mock.MockChainID,
+				DestChainId: mock.MockChainID.Uint64(),
 				Fee:         big.NewInt(1000000000),
-				SrcChainId:  mock.MockChainID,
+				SrcChainId:  mock.MockChainID.Uint64(),
 				Id:          big.NewInt(1),
 			},
 			MsgHash: mock.SuccessMsgHash,
@@ -185,7 +185,7 @@ func Test_ProcessMessage(t *testing.T) {
 // 	err := p.ProcessMessage(context.Background(), &bridge.BridgeMessageSent{
 // 		Message: bridge.IBridgeMessage{
 // 			GasLimit:    big.NewInt(1),
-// 			DestChainId: mock.MockChainID,
+// 			DestChainId: mock.MockChainID.Uint64(),
 // 		},
 // 		Signal: mock.SuccessMsgHash,
 // 	}, &relayer.Event{})
