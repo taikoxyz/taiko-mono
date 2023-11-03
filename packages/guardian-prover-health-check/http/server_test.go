@@ -9,13 +9,15 @@ import (
 	"github.com/joho/godotenv"
 	echo "github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
+	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/mock"
 )
 
 func newTestServer(url string) *Server {
 	_ = godotenv.Load("../.test.env")
 
 	srv := &Server{
-		echo: echo.New(),
+		echo:            echo.New(),
+		healthCheckRepo: mock.NewHealthCheckRepository(),
 	}
 
 	srv.configureMiddleware([]string{"*"})

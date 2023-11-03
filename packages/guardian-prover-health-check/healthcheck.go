@@ -8,12 +8,12 @@ import (
 )
 
 type HealthCheck struct {
-	ID               int
-	GuardianProverID uint64
-	Alive            bool
-	ExpectedAddress  string
-	RecoveredAddress string
-	SignedResponse   string
+	ID               int    `json:"id"`
+	GuardianProverID uint64 `json:"guardianProverId"`
+	Alive            bool   `json:"alive"`
+	ExpectedAddress  string `json:"expectedAddress"`
+	RecoveredAddress string `json:"recoveredAddress"`
+	SignedResponse   string `json:"signedResponse"`
 }
 
 type SaveHealthCheckOpts struct {
