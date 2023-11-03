@@ -129,12 +129,18 @@ contract TaikoL2 is Ownable2StepUpgradeable, TaikoL2Signer, ICrossChainSync {
         // Store the L1's signal root as a signal to the local signal service to
         // allow for multi-hop bridging.
         ISignalService(signalService).sendSignal(l1SignalRoot);
-        emit CrossChainSynced(l1Height, l1BlockHash, l1SignalRoot);
+        emit CrossChainSynced(
+            l1Height, uint64(block.number), l1BlockHash, l1SignalRoot
+        );
 
         // Update state variables
         l2Hashes[parentId] = blockhash(parentId);
-        snippets[l1Height] =
-            ICrossChainSync.Snippet(l1Height, l1BlockHash, l1SignalRoot);
+        snippets[l1Height] = ICrossChainSync.Snippet({
+            remoteBlockId: l1Height,
+            syncedInBlock: uint64(block.number),
+            blockHash: l1BlockHash,
+            signalRoot: l1SignalRoot
+        });
         publicInputHash = publicInputHashNew;
         latestSyncedL1Height = l1Height;
 

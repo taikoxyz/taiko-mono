@@ -14,17 +14,24 @@ pragma solidity ^0.8.20;
 /// both chains remain consistent and can be cross-referenced with integrity.
 interface ICrossChainSync {
     struct Snippet {
-        uint64 srcHeight;
+        uint64 remoteBlockId;
+        uint64 syncedInBlock;
         bytes32 blockHash;
         bytes32 signalRoot;
     }
 
     /// @dev Emitted when a block has been synced across chains.
-    /// @param srcHeight The height (block id_ that was synced.
+    /// @param remoteBlockId The ID of the remote block whose block hash and
+    /// signal root are synced.
+    /// @param syncedInBlock The ID of this chain's block where the sync
+    /// happened.
     /// @param blockHash The hash of the synced block.
     /// @param signalRoot The root hash representing cross-chain signals.
     event CrossChainSynced(
-        uint64 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
+        uint64 indexed remoteBlockId,
+        uint64 syncedInBlock,
+        bytes32 blockHash,
+        bytes32 signalRoot
     );
 
     /// @notice Fetches the hash of a block from the opposite chain.

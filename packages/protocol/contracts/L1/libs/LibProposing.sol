@@ -160,6 +160,7 @@ library LibProposing {
         blk.blockId = b.numBlocks;
 
         blk.proposedAt = meta.timestamp;
+        blk.proposedIn = uint64(block.number);
 
         // For a new block, the next transition ID is always 1, not 0.
         blk.nextTransitionId = 1;

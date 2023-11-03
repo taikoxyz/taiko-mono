@@ -208,14 +208,7 @@ contract TaikoL1 is
         override
         returns (ICrossChainSync.Snippet memory)
     {
-        TaikoData.TransitionState storage transition =
-            LibUtils.getVerifyingTransition(state, getConfig(), blockId);
-
-        return ICrossChainSync.Snippet({
-            srcHeight: blockId,
-            blockHash: transition.blockHash,
-            signalRoot: transition.signalRoot
-        });
+        return LibUtils.getSyncedSnippet(state, getConfig(), blockId);
     }
 
     /// @notice Gets the state variables of the TaikoL1 contract.
