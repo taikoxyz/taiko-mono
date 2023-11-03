@@ -24,7 +24,9 @@ library LibVerifying {
         address indexed assignedProver,
         address indexed prover,
         bytes32 blockHash,
-        bytes32 signalRoot
+        bytes32 signalRoot,
+        uint16 tier,
+        uint8 contestations
     );
 
     event CrossChainSynced(
@@ -67,7 +69,9 @@ library LibVerifying {
             assignedProver: address(0),
             prover: address(0),
             blockHash: genesisBlockHash,
-            signalRoot: 0
+            signalRoot: 0,
+            tier: 0,
+            contestations: 0
         });
     }
 
@@ -192,7 +196,9 @@ library LibVerifying {
                     assignedProver: blk.assignedProver,
                     prover: ts.prover,
                     blockHash: ts.blockHash,
-                    signalRoot: ts.signalRoot
+                    signalRoot: ts.signalRoot,
+                    tier: ts.tier,
+                    contestations: ts.contestations
                 });
 
                 ++blockId;
