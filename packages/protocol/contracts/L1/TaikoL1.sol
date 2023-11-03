@@ -162,11 +162,7 @@ contract TaikoL1 is
     /// @notice Deposits Ether to Layer 2.
     /// @param recipient Address of the recipient for the deposited Ether on
     /// Layer 2.
-    function depositEtherToL2(address recipient)
-        external
-        payable
-        whenNotPaused
-    {
+    function depositEtherToL2(address recipient) public payable whenNotPaused {
         LibDepositing.depositEtherToL2(
             state, getConfig(), AddressResolver(this), recipient
         );
