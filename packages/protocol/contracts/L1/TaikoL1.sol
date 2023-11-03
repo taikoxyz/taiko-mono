@@ -177,6 +177,10 @@ contract TaikoL1 is
         return LibDepositing.canDepositEthToL2(state, getConfig(), amount);
     }
 
+    function isBlobReusable(bytes32 blobHash) public view returns (bool) {
+        return LibProposing.isBlobReusable(state, getConfig(), blobHash);
+    }
+
     /// @notice Gets the details of a block.
     /// @param blockId Index of the block.
     /// @return blk The block.
@@ -298,6 +302,8 @@ contract TaikoL1 is
             // and right now txList is still saved in calldata, so we set it
             // to 120KB.
             blockMaxTxListBytes: 120_000,
+            blobExpiry: 24 hours,
+            blobAllowedForDA: false,
             livenessBond: 250e18, // 250 Taiko token
             // ETH deposit related.
             ethDepositRingBufferSize: 1024,
@@ -306,8 +312,7 @@ contract TaikoL1 is
             ethDepositMinAmount: 1 ether,
             ethDepositMaxAmount: 10_000 ether,
             ethDepositGas: 21_000,
-            ethDepositMaxFee: 1 ether / 10,
-            allowUsingBlobForDA: false
+            ethDepositMaxFee: 1 ether / 10
         });
     }
 
