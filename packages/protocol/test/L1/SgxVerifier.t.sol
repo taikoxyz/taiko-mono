@@ -36,15 +36,14 @@ contract TestSgxVerifier is TaikoL1TestBase {
     }
 
     function test_addInstancesBySgxInstance() external {
-        address[] memory _instances = new address[](3);
-        _instances[0] = SGX_X_1;
-        _instances[1] = SGX_Y;
-        _instances[2] = SGX_Z;
+        address[] memory _instances = new address[](2);
+        _instances[0] = SGX_Y;
+        _instances[1] = SGX_Z;
 
         bytes memory signature = _getSignature(_instances, 0x4);
 
         vm.prank(Bob, Bob);
-        sv.addInstances(0, _instances, signature);
+        sv.addInstances(0, SGX_X_1, _instances, signature);
     }
 
     function _getSignature(
