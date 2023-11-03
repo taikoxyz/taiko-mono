@@ -53,8 +53,8 @@ library LibProposing {
     error L1_PROPOSER_NOT_EOA();
     error L1_TIER_NOT_FOUND();
     error L1_TOO_MANY_BLOCKS();
-    error L1_TXLIST_OFFSET_SIZE();
-    error L1_TXLIST_TOO_LARGE();
+    error L1_TXLIST_SIZE();
+    error L1_TXLIST_OFFSET();
     error L1_UNAUTHORIZED();
 
     /// @dev Proposes a Taiko L2 block.
@@ -139,12 +139,12 @@ library LibProposing {
             if (!LibAddress.isSenderEOA()) revert L1_PROPOSER_NOT_EOA();
 
             if (params.txListByteOffset != 0 || params.txListByteSize != 0) {
-                revert L1_TXLIST_OFFSET_SIZE();
+                revert L1_TXLIST_SIZE();
             }
 
             // blockMaxTxListBytes is a uint24
             if (txList.length > config.blockMaxTxListBytes) {
-                revert L1_TXLIST_TOO_LARGE();
+                revert L1_TXLIST_OFFSET();
             }
 
             meta.blobHash = keccak256(txList);
@@ -181,12 +181,16 @@ library LibProposing {
                 }
             }
 
-            if (params.txListByteSize == 0) revert L1_TXLIST_OFFSET_SIZE();
+            if (
+                params.txListByteSize == 0
+                    || params.txListByteSize > config.blockMaxTxListBytes
+            ) revert L1_TXLIST_SIZE();
+
             if (
                 uint256(params.txListByteOffset) + params.txListByteSize
-                    > MAX_BYTES_PER_BLOB.min(config.blockMaxTxListBytes)
+                    > MAX_BYTES_PER_BLOB
             ) {
-                revert L1_TXLIST_TOO_LARGE();
+                revert L1_TXLIST_OFFSET();
             }
 
             meta.txListByteOffset = params.txListByteOffset;
