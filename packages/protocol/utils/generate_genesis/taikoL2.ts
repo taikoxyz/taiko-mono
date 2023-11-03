@@ -162,6 +162,24 @@ async function generateContractConfigs(
                 "./AddressManager.sol/ProxiedAddressManager.json",
             ),
         ),
+        ProxiedBridgedERC20: require(
+            path.join(
+                ARTIFACTS_PATH,
+                "./BridgedERC20.sol/ProxiedBridgedERC20.json",
+            ),
+        ),
+        ProxiedBridgedERC721: require(
+            path.join(
+                ARTIFACTS_PATH,
+                "./BridgedERC721.sol/ProxiedBridgedERC721.json",
+            ),
+        ),
+        ProxiedBridgedERC1155: require(
+            path.join(
+                ARTIFACTS_PATH,
+                "./BridgedERC1155.sol/ProxiedBridgedERC1155.json",
+            ),
+        ),
         // Non-singletons
         ProxiedSingletonTaikoL2: require(
             path.join(
@@ -280,6 +298,15 @@ async function generateContractConfigs(
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("signal_service"),
                         )]: addressMap.SingletonSignalServiceProxy,
+                        [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("proxied_bridged_erc20"),
+                        )]: addressMap.ProxiedBridgedERC20,
+                        [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("proxied_bridged_erc721"),
+                        )]: addressMap.ProxiedBridgedERC721,
+                        [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("proxied_bridged_erc1155"),
+                        )]: addressMap.ProxiedBridgedERC1155,
                     },
                 },
             },
@@ -423,6 +450,21 @@ async function generateContractConfigs(
                 contractArtifacts.ProxiedSingletonSignalService,
                 addressMap,
             ),
+        },
+        ProxiedBridgedERC20: {
+            address: addressMap.ProxiedBridgedERC20,
+            deployedBytecode:
+                contractArtifacts.ProxiedBridgedERC20.deployedBytecode.object,
+        },
+        ProxiedBridgedERC721: {
+            address: addressMap.ProxiedBridgedERC721,
+            deployedBytecode:
+                contractArtifacts.ProxiedBridgedERC721.deployedBytecode.object,
+        },
+        ProxiedBridgedERC1155: {
+            address: addressMap.ProxiedBridgedERC1155,
+            deployedBytecode:
+                contractArtifacts.ProxiedBridgedERC1155.deployedBytecode.object,
         },
         SingletonSignalServiceProxy: {
             address: addressMap.SingletonSignalServiceProxy,

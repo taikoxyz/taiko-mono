@@ -42,6 +42,9 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkDeployedCode("ProxiedSingletonBridge");
         checkDeployedCode("ProxiedSingletonSignalService");
         checkDeployedCode("ProxiedSingletonAddressManagerForSingletons");
+        checkDeployedCode("ProxiedBridgedERC20");
+        checkDeployedCode("ProxiedBridgedERC721");
+        checkDeployedCode("ProxiedBridgedERC1155");
 
         // check proxy implementations
         checkProxyImplementation("SingletonERC20VaultProxy", "ProxiedSingletonERC20Vault");
