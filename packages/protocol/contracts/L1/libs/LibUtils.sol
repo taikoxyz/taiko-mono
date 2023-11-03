@@ -70,10 +70,10 @@ library LibUtils {
     function getStateVariables(TaikoData.State storage state)
         external
         view
-        returns (TaikoData.SlotA memory a, TaikoData.SlotB memory b)
+        returns (TaikoData.SlotA memory slotA, TaikoData.SlotB memory slotB)
     {
-        a = state.slotA;
-        b = state.slotB;
+        slotA = state.slotA;
+        slotB = state.slotB;
     }
 
     /// @dev Retrieves a block based on its ID.
