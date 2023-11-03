@@ -298,6 +298,15 @@ async function generateContractConfigs(
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("signal_service"),
                         )]: addressMap.SingletonSignalServiceProxy,
+                        [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("proxied_bridged_erc20"),
+                        )]: addressMap.ProxiedBridgedERC20,
+                        [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("proxied_bridged_erc721"),
+                        )]: addressMap.ProxiedBridgedERC721,
+                        [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("proxied_bridged_erc1155"),
+                        )]: addressMap.ProxiedBridgedERC1155,
                     },
                 },
             },
