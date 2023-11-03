@@ -157,7 +157,7 @@ abstract contract TaikoL1TestBase is TestBase {
         bytes memory txList = new bytes(txListSize);
 
         assignment.signature =
-            _signAssignment(prover, assignment, keccak256(txList));
+            _signAssignment(prover, assignment, address(L1), keccak256(txList));
 
         (, TaikoData.SlotB memory b) = L1.getStateVariables();
 
@@ -307,13 +307,15 @@ abstract contract TaikoL1TestBase is TestBase {
     function _signAssignment(
         address signer,
         TaikoData.ProverAssignment memory assignment,
+        address taikoAddr,
         bytes32 blobHash
     )
         internal
         view
         returns (bytes memory signature)
     {
-        bytes32 digest = LibProposing.hashAssignment(assignment, blobHash);
+        bytes32 digest =
+            LibProposing.hashAssignment(assignment, taikoAddr, blobHash);
         uint256 signerPrivateKey;
 
         // In the test suite these are the 3 which acts as provers
