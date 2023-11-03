@@ -7,8 +7,6 @@
 pragma solidity ^0.8.20;
 
 import { BaseAirdrop } from "./BaseAirdrop.sol";
-
-import { console2 } from "forge-std/console2.sol";
 import { Proxied } from "../../common/Proxied.sol";
 
 /// @dev This shall be implemented by the vaults helping with the airdrop.

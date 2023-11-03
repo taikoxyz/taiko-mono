@@ -6,7 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-import { console2 } from "forge-std/console2.sol";
 import { OwnableUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import { MerkleProofUpgradeable } from
