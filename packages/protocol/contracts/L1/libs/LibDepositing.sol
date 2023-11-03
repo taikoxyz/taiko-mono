@@ -32,7 +32,7 @@ library LibDepositing {
         AddressResolver resolver,
         address recipient
     )
-        internal
+        external
     {
         if (!canDepositEthToL2(state, config, msg.value)) {
             revert L1_INVALID_ETH_DEPOSIT();

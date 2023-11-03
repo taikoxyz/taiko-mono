@@ -212,13 +212,9 @@ contract TaikoL1 is
         public
         view
         override
-        returns (ICrossChainSync.Snippet memory data)
+        returns (ICrossChainSync.Snippet memory)
     {
-        TaikoData.TransitionState storage transition =
-            LibUtils.getVerifyingTransition(state, getConfig(), blockId);
-
-        data.blockHash = transition.blockHash;
-        data.signalRoot = transition.signalRoot;
+        return LibUtils.getSyncedSnippet(state, getConfig(), blockId);
     }
 
     /// @notice Gets the state variables of the TaikoL1 contract.
