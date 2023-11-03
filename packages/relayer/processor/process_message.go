@@ -165,7 +165,7 @@ func (p *Processor) processMessage(
 		})
 	}
 
-	if hops != nil {
+	if len(hops) != 0 {
 		encodedSignalProof, _, err = p.prover.EncodedSignalProofWithHops(
 			ctx,
 			p.srcCaller,
