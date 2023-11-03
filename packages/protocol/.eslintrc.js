@@ -24,6 +24,6 @@ module.exports = {
     "node/no-unpublished-import": "off",
     "node/no-missing-import": "off",
     "node/no-missing-require": "off",
-    "no-unused-expressions": "off"
+    "no-unused-expressions": "off",
   },
 };
