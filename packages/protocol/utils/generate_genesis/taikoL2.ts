@@ -124,10 +124,6 @@ async function generateContractConfigs(
     param1559: any,
 ): Promise<any> {
     const contractArtifacts: any = {
-        // ============ Libraries ============
-        LibDeploy: require(
-            path.join(ARTIFACTS_PATH, "./LibDeploy.sol/LibDeploy.json"),
-        ),
         // ============ Contracts ============
         // Singletons
         ProxiedSingletonBridge: require(
@@ -247,12 +243,6 @@ async function generateContractConfigs(
     console.log(addressMap);
 
     return {
-        // Libraries
-        LibDeploy: {
-            address: addressMap.LibDeploy,
-            deployedBytecode:
-                contractArtifacts.LibDeploy.deployedBytecode.object,
-        },
         // Singletons
         ProxiedSingletonAddressManagerForSingletons: {
             address: addressMap.ProxiedSingletonAddressManagerForSingletons,
