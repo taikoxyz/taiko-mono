@@ -6,6 +6,9 @@
 
 pragma solidity ^0.8.20;
 
+import { TransparentUpgradeableProxy } from
+    "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+
 import { ERC721Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
 import { IERC721ReceiverUpgradeable } from
@@ -13,11 +16,10 @@ import { IERC721ReceiverUpgradeable } from
 
 import { IBridge } from "../bridge/IBridge.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
-import { LibDeploy } from "../libs/LibDeploy.sol";
 import { Proxied } from "../common/Proxied.sol";
 
 import { BaseNFTVault } from "./BaseNFTVault.sol";
-import { ProxiedBridgedERC721, BridgedERC721 } from "./BridgedERC721.sol";
+import { BridgedERC721 } from "./BridgedERC721.sol";
 
 /// @title ERC721Vault
 /// @dev Labeled in AddressResolver as "erc721_vault"
@@ -116,7 +118,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
             } else {
                 token = _getOrDeployBridgedToken(ctoken);
                 for (uint256 i; i < tokenIds.length; ++i) {
-                    ProxiedBridgedERC721(token).mint(_to, tokenIds[i]);
+                    BridgedERC721(token).mint(_to, tokenIds[i]);
                 }
             }
         }
@@ -160,9 +162,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         unchecked {
             if (isBridgedToken[nft.addr]) {
                 for (uint256 i; i < tokenIds.length; ++i) {
-                    ProxiedBridgedERC721(nft.addr).mint(
-                        message.user, tokenIds[i]
-                    );
+                    BridgedERC721(nft.addr).mint(message.user, tokenIds[i]);
                 }
             } else {
                 for (uint256 i; i < tokenIds.length; ++i) {
@@ -222,7 +222,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
             if (isBridgedToken[op.token]) {
                 nft = bridgedToCanonical[op.token];
                 for (uint256 i; i < op.tokenIds.length; ++i) {
-                    ProxiedBridgedERC721(op.token).burn(user, op.tokenIds[i]);
+                    BridgedERC721(op.token).burn(user, op.tokenIds[i]);
                 }
             } else {
                 ERC721Upgradeable t = ERC721Upgradeable(op.token);
@@ -241,7 +241,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         }
 
         msgData = abi.encodeWithSelector(
-            ERC721Vault.receiveToken.selector, nft, user, op.to, op.tokenIds
+            this.receiveToken.selector, nft, user, op.to, op.tokenIds
         );
     }
 
@@ -268,21 +268,23 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         private
         returns (address btoken)
     {
-        btoken = LibDeploy.deployTransparentUpgradeableProxyFor({
-            owner: owner(),
-            salt: keccak256(abi.encode(ctoken)),
-            bytecode: type(ProxiedBridgedERC721).creationCode,
-            initialization: bytes.concat(
-                BridgedERC721.init.selector,
-                abi.encode(
-                    addressManager,
-                    ctoken.addr,
-                    ctoken.chainId,
-                    ctoken.symbol,
-                    ctoken.name
-                )
-                )
-        });
+        bytes memory data = bytes.concat(
+            BridgedERC721.init.selector,
+            abi.encode(
+                addressManager,
+                ctoken.addr,
+                ctoken.chainId,
+                ctoken.symbol,
+                ctoken.name
+            )
+        );
+        btoken = address(
+            new TransparentUpgradeableProxy(
+                resolve("proxied_bridged_erc721", false),
+                owner(),
+                data
+            )
+        );
 
         isBridgedToken[btoken] = true;
         bridgedToCanonical[btoken] = ctoken;
