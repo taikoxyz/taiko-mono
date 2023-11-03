@@ -41,6 +41,8 @@ contract TaikoL1 is
     TaikoData.State public state;
     uint256[100] private __gap;
 
+    error L1_TOO_MANY_TIERS();
+
     /// @dev Fallback function to receive Ether and deposit to Layer 2.
     receive() external payable {
         depositEtherToL2(address(0));
@@ -250,9 +252,10 @@ contract TaikoL1 is
         view
         virtual
         override
-        returns (uint16[] memory)
+        returns (uint16[] memory ids)
     {
-        return ITierProvider(resolve("tier_provider", false)).getTierIds();
+        ids = ITierProvider(resolve("tier_provider", false)).getTierIds();
+        if (ids.length >= type(uint8).max) revert L1_TOO_MANY_TIERS();
     }
 
     /// @notice Determines the minimal tier for a block based on a random input.

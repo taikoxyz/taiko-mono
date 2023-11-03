@@ -122,7 +122,7 @@ library LibProving {
             ts.contestBond = 1; // see below (the value does't matter)
             ts.timestamp = blk.proposedAt;
             ts.tier = 0;
-            ts.everContested = false;
+            ts.contestations = 0;
 
             if (tid == 1) {
                 // This approach serves as a cost-saving technique for the
@@ -309,7 +309,7 @@ library LibProving {
             ts.contestBond = tier.contestBond;
             ts.contester = msg.sender;
             ts.timestamp = uint64(block.timestamp);
-            ts.everContested = true;
+            ts.contestations += 1;
 
             emit TransitionContested({
                 blockId: blk.blockId,

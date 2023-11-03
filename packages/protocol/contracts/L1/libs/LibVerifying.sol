@@ -26,7 +26,7 @@ library LibVerifying {
         bytes32 blockHash,
         bytes32 signalRoot,
         uint16 tier,
-        bool everContested
+        uint8 contestations
     );
 
     event CrossChainSynced(
@@ -71,7 +71,7 @@ library LibVerifying {
             blockHash: genesisBlockHash,
             signalRoot: 0,
             tier: 0,
-            everContested: ts.everContested
+            contestations: 0
         });
     }
 
@@ -198,7 +198,7 @@ library LibVerifying {
                     blockHash: ts.blockHash,
                     signalRoot: ts.signalRoot,
                     tier: ts.tier,
-                    everContested: ts.everContested
+                    contestations: ts.contestations
                 });
 
                 ++blockId;

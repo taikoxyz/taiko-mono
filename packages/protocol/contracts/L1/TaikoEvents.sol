@@ -38,8 +38,8 @@ abstract contract TaikoEvents {
     /// block.
     /// @param blockHash The hash of the verified block.
     /// @param signalRoot The latest value of the signal service storage.
-    /// @param everContested True if this transition was contested.
     /// @param tier The tier ID of the proof.
+    /// @param contestations Number of total contestations.
     event BlockVerified(
         uint256 indexed blockId,
         address indexed assignedProver,
@@ -47,7 +47,7 @@ abstract contract TaikoEvents {
         bytes32 blockHash,
         bytes32 signalRoot,
         uint16 tier,
-        bool everContested
+        uint8 contestations
     );
 
     /// @dev Emitted when a block transition is proved or re-proved.
