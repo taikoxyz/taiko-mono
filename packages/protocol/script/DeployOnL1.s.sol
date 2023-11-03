@@ -161,15 +161,6 @@ contract DeployOnL1 is Script {
             taikoL1Proxy, bytes32(block.chainid)
         );
 
-        // Deploy ProxiedBridged token contracts (!!! also on L2 !!)
-        address proxiedBridgedERC20 = address(new ProxiedBridgedERC20());
-        address proxiedBridgedERC721 = address(new ProxiedBridgedERC721());
-        address proxiedBridgedERC1155 = address(new ProxiedBridgedERC1155());
-
-        setAddress("proxied_bridged_erc20", proxiedBridgedERC20);
-        setAddress("proxied_bridged_erc721", proxiedBridgedERC721);
-        setAddress("proxied_bridged_erc1155", proxiedBridgedERC1155);
-
         // Guardian prover
         ProxiedGuardianProver guardianProver = new ProxiedGuardianProver();
         address guardianProverProxy = deployProxy(
@@ -357,6 +348,26 @@ contract DeployOnL1 is Script {
                 signalService.init.selector,
                 abi.encode(addressManagerForSingletonsProxy)
             )
+        );
+
+        // Deploy ProxiedBridged token contracts
+        setAddress(
+            addressManagerForSingletonsProxy,
+            uint64(block.chainid),
+            "proxied_bridged_erc20",
+            address(new ProxiedBridgedERC20())
+        );
+        setAddress(
+            addressManagerForSingletonsProxy,
+            uint64(block.chainid),
+            "proxied_bridged_erc721",
+            address(new ProxiedBridgedERC721())
+        );
+        setAddress(
+            addressManagerForSingletonsProxy,
+            uint64(block.chainid),
+            "proxied_bridged_erc1155",
+            address(new ProxiedBridgedERC1155())
         );
     }
 
