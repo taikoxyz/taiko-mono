@@ -149,7 +149,7 @@ contract TaikoL1 is
 
     /// @notice Deposit Taiko token to this contract
     /// @param amount Amount of Taiko token to deposit.
-    function depositTaikoToken(uint256 amount) public whenNotPaused {
+    function depositTaikoToken(uint256 amount) external whenNotPaused {
         LibTaikoToken.depositTaikoToken(state, AddressResolver(this), amount);
     }
 
