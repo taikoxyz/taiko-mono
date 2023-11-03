@@ -198,7 +198,7 @@ library LibVerifying {
                     blockHash: ts.blockHash,
                     signalRoot: ts.signalRoot,
                     tier: ts.tier,
-                    everContested: false
+                    everContested: ts.everContested
                 });
 
                 ++blockId;
