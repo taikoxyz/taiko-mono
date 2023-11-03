@@ -1,5 +1,12 @@
 package guardianproverhealthcheck
 
+import (
+	"context"
+	"net/http"
+
+	"github.com/morkid/paginate"
+)
+
 type HealthCheck struct {
 	ID               int
 	GuardianProverID uint64
@@ -18,5 +25,14 @@ type SaveHealthCheckOpts struct {
 }
 
 type HealthCheckRepository interface {
+	Get(
+		ctx context.Context,
+		req *http.Request,
+	) (paginate.Page, error)
+	GetByGuardianProverID(
+		ctx context.Context,
+		req *http.Request,
+		id int,
+	) (paginate.Page, error)
 	Save(opts SaveHealthCheckOpts) error
 }

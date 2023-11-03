@@ -1,6 +1,10 @@
 package repo
 
 import (
+	"context"
+	"net/http"
+
+	"github.com/morkid/paginate"
 	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
 	"gorm.io/gorm"
 )
@@ -23,9 +27,39 @@ func (r *HealthCheckRepository) startQuery() *gorm.DB {
 	return r.db.GormDB().Table("health_checks")
 }
 
+func (r *HealthCheckRepository) Get(
+	ctx context.Context,
+	req *http.Request,
+) (paginate.Page, error) {
+	pg := paginate.New(&paginate.Config{
+		DefaultSize: 100,
+	})
+
+	reqCtx := pg.With(r.startQuery())
+
+	page := reqCtx.Request(req).Response(&[]guardianproverhealthcheck.HealthCheck{})
+
+	return page, nil
+}
+
+func (r *HealthCheckRepository) GetByGuardianProverID(
+	ctx context.Context,
+	req *http.Request,
+	id int,
+) (paginate.Page, error) {
+	pg := paginate.New(&paginate.Config{
+		DefaultSize: 100,
+	})
+
+	reqCtx := pg.With(r.startQuery().Where("guardian_prover_id = ?", id))
+
+	page := reqCtx.Request(req).Response(&[]guardianproverhealthcheck.HealthCheck{})
+
+	return page, nil
+}
+
 func (r *HealthCheckRepository) Save(opts guardianproverhealthcheck.SaveHealthCheckOpts) error {
 	b := &guardianproverhealthcheck.HealthCheck{
-		GuardianProverID: opts.GuardianProverID,
 		Alive:            opts.Alive,
 		ExpectedAddress:  opts.ExpectedAddress,
 		RecoveredAddress: opts.RecoveredAddress,

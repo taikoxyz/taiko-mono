@@ -1,6 +1,8 @@
 package repo
 
 import (
+	"context"
+	"net/http"
 	"testing"
 
 	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
@@ -64,6 +66,13 @@ func TestIntegration_HealthCheck_Save(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err = healthCheckRepo.Save(tt.opts)
 			assert.Equal(t, tt.wantErr, err)
+
+			req, err := http.NewRequest(http.MethodGet, "/healtcheck", nil)
+			assert.Equal(t, nil, err)
+
+			page, err := healthCheckRepo.Get(context.Background(), req)
+			assert.Equal(t, nil, err)
+			assert.Equal(t, page.Size, 1)
 		})
 	}
 }
