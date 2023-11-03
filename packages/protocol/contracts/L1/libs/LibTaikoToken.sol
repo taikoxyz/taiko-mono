@@ -26,7 +26,7 @@ library LibTaikoToken {
         AddressResolver resolver,
         uint256 amount
     )
-        internal
+        external
     {
         if (amount == 0) revert L1_INVALID_AMOUNT();
         TaikoToken(resolver.resolve("taiko_token", false)).transferFrom(
@@ -43,7 +43,7 @@ library LibTaikoToken {
         AddressResolver resolver,
         uint256 amount
     )
-        internal
+        external
     {
         if (amount == 0) revert L1_INVALID_AMOUNT();
         if (state.tokenBalances[msg.sender] < amount) {
