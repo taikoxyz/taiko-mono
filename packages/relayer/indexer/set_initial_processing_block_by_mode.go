@@ -21,7 +21,7 @@ func (i *Indexer) setInitialProcessingBlockByMode(
 			return errors.Wrap(err, "svc.taikoL1.GetStateVariables")
 		}
 
-		startingBlock = stateVars.GenesisHeight
+		startingBlock = stateVars.A.GenesisHeight
 	}
 
 	switch mode {

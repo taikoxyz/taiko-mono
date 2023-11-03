@@ -293,7 +293,10 @@ contract DeployOnL1 is Script {
             addressManagerForSingletonsProxy,
             "bridge",
             address(bridge),
-            bytes.concat(bridge.init.selector, abi.encode(addressManagerProxy))
+            bytes.concat(
+                bridge.init.selector,
+                abi.encode(addressManagerForSingletonsProxy)
+            )
         );
 
         // ERC20Vault
@@ -303,7 +306,8 @@ contract DeployOnL1 is Script {
             "erc20_vault",
             address(erc20Vault),
             bytes.concat(
-                erc20Vault.init.selector, abi.encode(addressManagerProxy)
+                erc20Vault.init.selector,
+                abi.encode(addressManagerForSingletonsProxy)
             )
         );
 
@@ -314,7 +318,8 @@ contract DeployOnL1 is Script {
             "erc721_vault",
             address(erc721Vault),
             bytes.concat(
-                erc721Vault.init.selector, abi.encode(addressManagerProxy)
+                erc721Vault.init.selector,
+                abi.encode(addressManagerForSingletonsProxy)
             )
         );
 
@@ -325,7 +330,8 @@ contract DeployOnL1 is Script {
             "erc1155_vault",
             address(erc1155Vault),
             bytes.concat(
-                erc1155Vault.init.selector, abi.encode(addressManagerProxy)
+                erc1155Vault.init.selector,
+                abi.encode(addressManagerForSingletonsProxy)
             )
         );
 
@@ -336,7 +342,8 @@ contract DeployOnL1 is Script {
             "signal_service",
             address(signalService),
             bytes.concat(
-                signalService.init.selector, abi.encode(addressManagerProxy)
+                signalService.init.selector,
+                abi.encode(addressManagerForSingletonsProxy)
             )
         );
     }

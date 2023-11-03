@@ -218,13 +218,13 @@ contract TaikoL1 is
     }
 
     /// @notice Gets the state variables of the TaikoL1 contract.
-    /// @return StateVariables struct containing state variables.
     function getStateVariables()
         public
         view
-        returns (TaikoData.StateVariables memory)
+        returns (TaikoData.SlotA memory a, TaikoData.SlotB memory b)
     {
-        return LibUtils.getStateVariables(state);
+        a = state.slotA;
+        b = state.slotB;
     }
 
     /// @notice Gets the in-protocol Taiko token balance for a user

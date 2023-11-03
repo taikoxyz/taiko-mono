@@ -247,6 +247,12 @@ async function generateContractConfigs(
     console.log(addressMap);
 
     return {
+        // Libraries
+        LibDeploy: {
+            address: addressMap.LibDeploy,
+            deployedBytecode:
+                contractArtifacts.LibDeploy.deployedBytecode.object,
+        },
         // Singletons
         ProxiedSingletonAddressManagerForSingletons: {
             address: addressMap.ProxiedSingletonAddressManagerForSingletons,
@@ -316,7 +322,8 @@ async function generateContractConfigs(
                 _owner: contractOwner,
                 _pendingOwner: ethers.constants.AddressZero,
                 // AddressResolver
-                addressManager: addressMap.AddressManagerProxy,
+                addressManager:
+                    addressMap.SingletonAddressManagerForSingletonsProxy,
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
@@ -347,7 +354,8 @@ async function generateContractConfigs(
                 _owner: contractOwner,
                 _pendingOwner: ethers.constants.AddressZero,
                 // AddressResolver
-                addressManager: addressMap.AddressManagerProxy,
+                addressManager:
+                    addressMap.SingletonAddressManagerForSingletonsProxy,
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
@@ -378,7 +386,8 @@ async function generateContractConfigs(
                 _owner: contractOwner,
                 _pendingOwner: ethers.constants.AddressZero,
                 // AddressResolver
-                addressManager: addressMap.AddressManagerProxy,
+                addressManager:
+                    addressMap.SingletonAddressManagerForSingletonsProxy,
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
@@ -409,7 +418,8 @@ async function generateContractConfigs(
                 _owner: contractOwner,
                 _pendingOwner: ethers.constants.AddressZero,
                 // AddressResolver
-                addressManager: addressMap.AddressManagerProxy,
+                addressManager:
+                    addressMap.SingletonAddressManagerForSingletonsProxy,
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,

@@ -25,16 +25,21 @@
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "RESOLVER_UNEXPECTED_CHAINID",
+    "type": "error"
+  },
+  {
     "inputs": [
       {
-        "internalType": "uint256",
+        "internalType": "uint64",
         "name": "chainId",
-        "type": "uint256"
+        "type": "uint64"
       },
       {
-        "internalType": "bytes32",
+        "internalType": "string",
         "name": "name",
-        "type": "bytes32"
+        "type": "string"
       }
     ],
     "name": "RESOLVER_ZERO_ADDR",
@@ -57,11 +62,6 @@
   },
   {
     "inputs": [],
-    "name": "VAULT_INVALID_TO",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "VAULT_INVALID_TOKEN",
     "type": "error"
   },
@@ -78,6 +78,11 @@
   {
     "inputs": [],
     "name": "VAULT_MESSAGE_RELEASED_ALREADY",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "VAULT_PERMISSION_DENIED",
     "type": "error"
   },
   {
@@ -152,6 +157,25 @@
         "type": "address"
       }
     ],
+    "name": "OwnershipTransferStarted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "previousOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
     "name": "OwnershipTransferred",
     "type": "event"
   },
@@ -191,9 +215,9 @@
       },
       {
         "indexed": false,
-        "internalType": "uint256",
+        "internalType": "uint64",
         "name": "srcChainId",
-        "type": "uint256"
+        "type": "uint64"
       },
       {
         "indexed": false,
@@ -265,9 +289,9 @@
       },
       {
         "indexed": false,
-        "internalType": "uint256",
+        "internalType": "uint64",
         "name": "destChainId",
-        "type": "uint256"
+        "type": "uint64"
       },
       {
         "indexed": false,
@@ -300,6 +324,13 @@
   },
   {
     "inputs": [],
+    "name": "acceptOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "addressManager",
     "outputs": [
       {
@@ -322,9 +353,9 @@
     "name": "bridgedToCanonical",
     "outputs": [
       {
-        "internalType": "uint256",
+        "internalType": "uint64",
         "name": "chainId",
-        "type": "uint256"
+        "type": "uint64"
       },
       {
         "internalType": "address",
@@ -407,6 +438,19 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "name",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "components": [
@@ -421,14 +465,14 @@
             "type": "address"
           },
           {
-            "internalType": "uint256",
+            "internalType": "uint64",
             "name": "srcChainId",
-            "type": "uint256"
+            "type": "uint64"
           },
           {
-            "internalType": "uint256",
+            "internalType": "uint64",
             "name": "destChainId",
-            "type": "uint256"
+            "type": "uint64"
           },
           {
             "internalType": "address",
@@ -520,13 +564,26 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "pendingOwner",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "components": [
           {
-            "internalType": "uint256",
+            "internalType": "uint64",
             "name": "chainId",
-            "type": "uint256"
+            "type": "uint64"
           },
           {
             "internalType": "address",
@@ -584,9 +641,9 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
+        "internalType": "uint64",
         "name": "chainId",
-        "type": "uint256"
+        "type": "uint64"
       },
       {
         "internalType": "bytes32",
@@ -639,9 +696,9 @@
       {
         "components": [
           {
-            "internalType": "uint256",
+            "internalType": "uint64",
             "name": "destChainId",
-            "type": "uint256"
+            "type": "uint64"
           },
           {
             "internalType": "address",
@@ -680,12 +737,80 @@
           }
         ],
         "internalType": "struct ERC20Vault.BridgeTransferOp",
-        "name": "opt",
+        "name": "op",
         "type": "tuple"
       }
     ],
     "name": "sendToken",
-    "outputs": [],
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint128",
+            "name": "id",
+            "type": "uint128"
+          },
+          {
+            "internalType": "address",
+            "name": "from",
+            "type": "address"
+          },
+          {
+            "internalType": "uint64",
+            "name": "srcChainId",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "destChainId",
+            "type": "uint64"
+          },
+          {
+            "internalType": "address",
+            "name": "user",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "to",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "refundTo",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "value",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "fee",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "gasLimit",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes",
+            "name": "data",
+            "type": "bytes"
+          },
+          {
+            "internalType": "string",
+            "name": "memo",
+            "type": "string"
+          }
+        ],
+        "internalType": "struct IBridge.Message",
+        "name": "_message",
+        "type": "tuple"
+      }
+    ],
     "stateMutability": "payable",
     "type": "function"
   },
