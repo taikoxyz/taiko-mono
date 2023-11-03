@@ -15,7 +15,7 @@ import { MerkleProofUpgradeable } from
 import { SafeERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
-import { Proxied } from "../common/Proxied.sol";
+import { Proxied } from "../../common/Proxied.sol";
 
 /// @title ClaimAirdrop
 /// Contract for managing Taiko token airdrop for eligible users
