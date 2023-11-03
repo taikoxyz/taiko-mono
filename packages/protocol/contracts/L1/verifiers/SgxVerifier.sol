@@ -74,32 +74,32 @@ contract SgxVerifier is EssentialContract, IVerifier {
         returns (uint256[] memory ids)
     {
         if (_instances.length == 0) revert SGX_INVALID_INSTANCES();
-
         ids = _addInstances(_instances);
     }
 
     /// @notice Adds SGX instances to the registry by another SGX instance.
     /// @param id The id of the SGX instance who is adding new members.
-    /// @param newAddress The new address of this instance.
-    /// @param _instances The address array of SGX instances.
+    /// @param newInstance The new address of this instance.
+    /// @param extraInstances The address array of SGX instances.
     /// @param signature The signature proving authenticity.
     /// @return ids The respective instanceId array per addresses.
     function addInstances(
         uint256 id,
-        address newAddress,
-        address[] calldata _instances,
+        address newInstance,
+        address[] calldata extraInstances,
         bytes calldata signature
     )
         external
         returns (uint256[] memory ids)
     {
-        bytes32 signedHash = keccak256(abi.encode("ADD_INSTANCES", _instances));
+        bytes32 signedHash =
+            keccak256(abi.encode("ADD_INSTANCES", extraInstances));
         address oldInstance = ECDSAUpgradeable.recover(signedHash, signature);
         if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
 
-        _replaceInstance(id, oldInstance, newAddress);
+        _replaceInstance(id, oldInstance, newInstance);
 
-        ids = _addInstances(_instances);
+        ids = _addInstances(extraInstances);
     }
 
     /// @inheritdoc IVerifier
