@@ -301,7 +301,8 @@ async function generateContractConfigs(
                 _owner: contractOwner,
                 _pendingOwner: ethers.constants.AddressZero,
                 // AddressResolver
-                addressManager: addressMap.AddressManagerProxy,
+                addressManager:
+                    addressMap.SingletonAddressManagerForSingletonsProxy,
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
@@ -332,7 +333,8 @@ async function generateContractConfigs(
                 _owner: contractOwner,
                 _pendingOwner: ethers.constants.AddressZero,
                 // AddressResolver
-                addressManager: addressMap.AddressManagerProxy,
+                addressManager:
+                    addressMap.SingletonAddressManagerForSingletonsProxy,
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
@@ -363,7 +365,8 @@ async function generateContractConfigs(
                 _owner: contractOwner,
                 _pendingOwner: ethers.constants.AddressZero,
                 // AddressResolver
-                addressManager: addressMap.AddressManagerProxy,
+                addressManager:
+                    addressMap.SingletonAddressManagerForSingletonsProxy,
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
@@ -394,7 +397,8 @@ async function generateContractConfigs(
                 _owner: contractOwner,
                 _pendingOwner: ethers.constants.AddressZero,
                 // AddressResolver
-                addressManager: addressMap.AddressManagerProxy,
+                addressManager:
+                    addressMap.SingletonAddressManagerForSingletonsProxy,
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
