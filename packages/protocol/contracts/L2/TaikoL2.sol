@@ -133,7 +133,8 @@ contract TaikoL2 is Ownable2StepUpgradeable, TaikoL2Signer, ICrossChainSync {
 
         // Update state variables
         l2Hashes[parentId] = blockhash(parentId);
-        snippets[l1Height] = ICrossChainSync.Snippet(l1BlockHash, l1SignalRoot);
+        snippets[l1Height] =
+            ICrossChainSync.Snippet(l1Height, l1BlockHash, l1SignalRoot);
         publicInputHash = publicInputHashNew;
         latestSyncedL1Height = l1Height;
 

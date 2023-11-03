@@ -14,6 +14,7 @@ pragma solidity ^0.8.20;
 /// both chains remain consistent and can be cross-referenced with integrity.
 interface ICrossChainSync {
     struct Snippet {
+        uint64 srcHeight;
         bytes32 blockHash;
         bytes32 signalRoot;
     }
