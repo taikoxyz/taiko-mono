@@ -70,19 +70,10 @@ library LibUtils {
     function getStateVariables(TaikoData.State storage state)
         external
         view
-        returns (TaikoData.StateVariables memory)
+        returns (TaikoData.SlotA memory a, TaikoData.SlotB memory b)
     {
-        TaikoData.SlotA memory a = state.slotA;
-        TaikoData.SlotB memory b = state.slotB;
-
-        return TaikoData.StateVariables({
-            genesisHeight: a.genesisHeight,
-            genesisTimestamp: a.genesisTimestamp,
-            nextEthDepositToProcess: a.nextEthDepositToProcess,
-            numEthDeposits: a.numEthDeposits - a.nextEthDepositToProcess,
-            numBlocks: b.numBlocks,
-            lastVerifiedBlockId: b.lastVerifiedBlockId
-        });
+        a = state.slotA;
+        b = state.slotB;
     }
 
     /// @dev Retrieves a block based on its ID.
