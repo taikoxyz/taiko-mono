@@ -11,6 +11,7 @@
     "ordering": "warn",
     "payable-fallback": "off",
     "no-console": "off",
+    "avoid-tx-origin": "off",
     "one-contract-per-file": "off"
   }
 }

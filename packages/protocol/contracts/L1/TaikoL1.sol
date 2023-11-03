@@ -41,6 +41,8 @@ contract TaikoL1 is
     TaikoData.State public state;
     uint256[100] private __gap;
 
+    error L1_TOO_MANY_TIERS();
+
     /// @dev Fallback function to receive Ether and deposit to Layer 2.
     receive() external payable {
         depositEtherToL2(address(0));
@@ -149,7 +151,7 @@ contract TaikoL1 is
 
     /// @notice Deposit Taiko token to this contract
     /// @param amount Amount of Taiko token to deposit.
-    function depositTaikoToken(uint256 amount) public whenNotPaused {
+    function depositTaikoToken(uint256 amount) external whenNotPaused {
         LibTaikoToken.depositTaikoToken(state, AddressResolver(this), amount);
     }
 
@@ -173,6 +175,10 @@ contract TaikoL1 is
     /// @return true if Ether deposit is allowed, false otherwise.
     function canDepositEthToL2(uint256 amount) public view returns (bool) {
         return LibDepositing.canDepositEthToL2(state, getConfig(), amount);
+    }
+
+    function isBlobReusable(bytes32 blobHash) public view returns (bool) {
+        return LibProposing.isBlobReusable(state, getConfig(), blobHash);
     }
 
     /// @notice Gets the details of a block.
@@ -248,9 +254,10 @@ contract TaikoL1 is
         view
         virtual
         override
-        returns (uint16[] memory)
+        returns (uint16[] memory ids)
     {
-        return ITierProvider(resolve("tier_provider", false)).getTierIds();
+        ids = ITierProvider(resolve("tier_provider", false)).getTierIds();
+        if (ids.length >= type(uint8).max) revert L1_TOO_MANY_TIERS();
     }
 
     /// @notice Determines the minimal tier for a block based on a random input.
@@ -291,6 +298,8 @@ contract TaikoL1 is
             // and right now txList is still saved in calldata, so we set it
             // to 120KB.
             blockMaxTxListBytes: 120_000,
+            blobExpiry: 24 hours,
+            blobAllowedForDA: false,
             livenessBond: 250e18, // 250 Taiko token
             // ETH deposit related.
             ethDepositRingBufferSize: 1024,
@@ -299,8 +308,7 @@ contract TaikoL1 is
             ethDepositMinAmount: 1 ether,
             ethDepositMaxAmount: 10_000 ether,
             ethDepositGas: 21_000,
-            ethDepositMaxFee: 1 ether / 10,
-            allowUsingBlobForDA: false
+            ethDepositMaxFee: 1 ether / 10
         });
     }
 

@@ -38,12 +38,16 @@ abstract contract TaikoEvents {
     /// block.
     /// @param blockHash The hash of the verified block.
     /// @param signalRoot The latest value of the signal service storage.
+    /// @param tier The tier ID of the proof.
+    /// @param contestations Number of total contestations.
     event BlockVerified(
         uint256 indexed blockId,
         address indexed assignedProver,
         address indexed prover,
         bytes32 blockHash,
-        bytes32 signalRoot
+        bytes32 signalRoot,
+        uint16 tier,
+        uint8 contestations
     );
 
     /// @dev Emitted when a block transition is proved or re-proved.
@@ -63,6 +67,9 @@ abstract contract TaikoEvents {
         uint96 contestBond,
         uint16 tier
     );
+
+    /// @dev Emitted when a blob is cached for reuse.
+    event BlobCached(bytes32 blobHash);
 
     /// @dev Emitted when proving has been paused
     event ProvingPaused(bool paused);
