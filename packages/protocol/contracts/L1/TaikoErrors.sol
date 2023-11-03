@@ -21,6 +21,7 @@ abstract contract TaikoErrors {
     error L1_ASSIGNMENT_INSUFFICIENT_FEE();
     error L1_ASSIGNED_PROVER_NOT_ALLOWED();
     error L1_BLOB_FOR_DA_DISABLED();
+    error L1_BLOB_NOT_FOUND();
     error L1_BLOB_NOT_REUSEABLE();
     error L1_BLOCK_MISMATCH();
     error L1_INSUFFICIENT_TOKEN();
@@ -35,7 +36,6 @@ abstract contract TaikoErrors {
     error L1_INVALID_TIER();
     error L1_INVALID_TRANSITION();
     error L1_NOT_ASSIGNED_PROVER();
-    error L1_NO_BLOB_FOUND();
     error L1_PROPOSER_NOT_EOA();
     error L1_PROVING_PAUSED();
     error L1_TIER_NOT_FOUND();

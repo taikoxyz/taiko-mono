@@ -12,7 +12,6 @@ import { ERC20Upgradeable } from
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { IBlobHashReader } from "../../4844/IBlobHashReader.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
-import { LibMath } from "../../libs/LibMath.sol";
 
 import { ITierProvider } from "../tiers/ITierProvider.sol";
 import { TaikoData } from "../TaikoData.sol";
@@ -24,7 +23,6 @@ import { LibTaikoToken } from "./LibTaikoToken.sol";
 /// @notice A library for handling block proposals in the Taiko protocol.
 library LibProposing {
     using LibAddress for address;
-    using LibMath for uint256;
 
     // According to EIP4844, each blob has up to 4096 field elements, and each
     // field element has 32 bytes.
@@ -48,13 +46,13 @@ library LibProposing {
     error L1_ASSIGNMENT_INVALID_PARAMS();
     error L1_ASSIGNMENT_INSUFFICIENT_FEE();
     error L1_BLOB_FOR_DA_DISABLED();
+    error L1_BLOB_NOT_FOUND();
     error L1_BLOB_NOT_REUSEABLE();
-    error L1_NO_BLOB_FOUND();
     error L1_PROPOSER_NOT_EOA();
     error L1_TIER_NOT_FOUND();
     error L1_TOO_MANY_BLOCKS();
-    error L1_TXLIST_SIZE();
     error L1_TXLIST_OFFSET();
+    error L1_TXLIST_SIZE();
     error L1_UNAUTHORIZED();
 
     /// @dev Proposes a Taiko L2 block.
@@ -139,12 +137,12 @@ library LibProposing {
             if (!LibAddress.isSenderEOA()) revert L1_PROPOSER_NOT_EOA();
 
             if (params.txListByteOffset != 0 || params.txListByteSize != 0) {
-                revert L1_TXLIST_SIZE();
+                revert L1_INVALID_PARAM();
             }
 
             // blockMaxTxListBytes is a uint24
             if (txList.length > config.blockMaxTxListBytes) {
-                revert L1_TXLIST_OFFSET();
+                revert L1_TXLIST_SIZE();
             }
 
             meta.blobHash = keccak256(txList);
@@ -170,7 +168,7 @@ library LibProposing {
                     resolver.resolve("blob_hash_reader", false)
                 ).getFirstBlobHash();
 
-                if (meta.blobHash == 0) revert L1_NO_BLOB_FOUND();
+                if (meta.blobHash == 0) revert L1_BLOB_NOT_FOUND();
 
                 // Depends on the blob data price, it may not make sense to
                 // cache the blob which costs 20,000 (sstore) + 631 (event)
@@ -182,16 +180,16 @@ library LibProposing {
             }
 
             if (
-                params.txListByteSize == 0
-                    || params.txListByteSize > config.blockMaxTxListBytes
-            ) revert L1_TXLIST_SIZE();
-
-            if (
                 uint256(params.txListByteOffset) + params.txListByteSize
                     > MAX_BYTES_PER_BLOB
             ) {
                 revert L1_TXLIST_OFFSET();
             }
+
+            if (
+                params.txListByteSize == 0
+                    || params.txListByteSize > config.blockMaxTxListBytes
+            ) revert L1_TXLIST_SIZE();
 
             meta.txListByteOffset = params.txListByteOffset;
             meta.txListByteSize = params.txListByteSize;
