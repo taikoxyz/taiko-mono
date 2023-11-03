@@ -21,6 +21,9 @@ import "../contracts/L1/verifiers/GuardianVerifier.sol";
 import "../contracts/L1/tiers/ITierProvider.sol";
 import "../contracts/L1/tiers/TaikoA6TierProvider.sol";
 import "../contracts/bridge/Bridge.sol";
+import "../contracts/tokenvault/BridgedERC20.sol";
+import "../contracts/tokenvault/BridgedERC721.sol";
+import "../contracts/tokenvault/BridgedERC1155.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
 import "../contracts/tokenvault/ERC721Vault.sol";
@@ -157,6 +160,15 @@ contract DeployOnL1 is Script {
         ProxiedSingletonSignalService(singletonSignalService).authorize(
             taikoL1Proxy, bytes32(block.chainid)
         );
+
+        // Deploy ProxiedBridged token contracts (!!! also on L2 !!)
+        address proxiedBridgedERC20 = address(new ProxiedBridgedERC20());
+        address proxiedBridgedERC721 = address(new ProxiedBridgedERC721());
+        address proxiedBridgedERC1155 = address(new ProxiedBridgedERC1155());
+
+        setAddress("proxied_bridged_erc20", proxiedBridgedERC20);
+        setAddress("proxied_bridged_erc721", proxiedBridgedERC721);
+        setAddress("proxied_bridged_erc1155", proxiedBridgedERC1155);
 
         // Guardian prover
         ProxiedGuardianProver guardianProver = new ProxiedGuardianProver();

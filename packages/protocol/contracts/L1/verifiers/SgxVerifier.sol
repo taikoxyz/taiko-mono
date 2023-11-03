@@ -67,35 +67,39 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @notice Adds trusted SGX instances to the registry.
     /// @param _instances The address array of trusted SGX instances.
-    function addInstances(address[] calldata _instances) external onlyOwner {
+    /// @return ids The respective instanceId array per addresses.
+    function addInstances(address[] calldata _instances)
+        external
+        onlyOwner
+        returns (uint256[] memory ids)
+    {
         if (_instances.length == 0) revert SGX_INVALID_INSTANCES();
-
-        for (uint256 i; i < _instances.length; ++i) {
-            _addInstance(_instances[i]);
-        }
+        ids = _addInstances(_instances);
     }
 
     /// @notice Adds SGX instances to the registry by another SGX instance.
     /// @param id The id of the SGX instance who is adding new members.
-    /// @param _instances The address array of SGX instances.
+    /// @param newInstance The new address of this instance.
+    /// @param extraInstances The address array of SGX instances.
     /// @param signature The signature proving authenticity.
+    /// @return ids The respective instanceId array per addresses.
     function addInstances(
         uint256 id,
-        address[] calldata _instances,
+        address newInstance,
+        address[] calldata extraInstances,
         bytes calldata signature
     )
         external
+        returns (uint256[] memory ids)
     {
-        if (_instances.length == 0) revert SGX_INVALID_INSTANCES();
-
-        bytes32 signedHash = keccak256(abi.encode("ADD_INSTANCES", _instances));
+        bytes32 signedHash =
+            keccak256(abi.encode("ADD_INSTANCES", extraInstances));
         address oldInstance = ECDSAUpgradeable.recover(signedHash, signature);
         if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
 
-        _replaceInstance(id, oldInstance, _instances[0]);
-        for (uint256 i = 1; i < _instances.length; ++i) {
-            _addInstance(_instances[i]);
-        }
+        _replaceInstance(id, oldInstance, newInstance);
+
+        ids = _addInstances(extraInstances);
     }
 
     /// @inheritdoc IVerifier
@@ -140,12 +144,25 @@ contract SgxVerifier is EssentialContract, IVerifier {
         return keccak256(abi.encode(tran, newInstance, prover, metaHash));
     }
 
-    function _addInstance(address instance) private {
-        if (instance == address(0)) revert SGX_INVALID_INSTANCE();
+    function _addInstances(address[] calldata _instances)
+        private
+        returns (uint256[] memory ids)
+    {
+        ids = new uint256[](_instances.length);
 
-        uint256 id = nextInstanceId++;
-        instances[id] = Instance(instance, uint64(block.timestamp));
-        emit InstanceAdded(id, instance, address(0), block.timestamp);
+        for (uint256 i; i < _instances.length; ++i) {
+            if (_instances[i] == address(0)) revert SGX_INVALID_INSTANCE();
+
+            instances[nextInstanceId] =
+                Instance(_instances[i], uint64(block.timestamp));
+            ids[i] = nextInstanceId;
+
+            emit InstanceAdded(
+                nextInstanceId, _instances[i], address(0), block.timestamp
+            );
+
+            nextInstanceId++;
+        }
     }
 
     function _replaceInstance(

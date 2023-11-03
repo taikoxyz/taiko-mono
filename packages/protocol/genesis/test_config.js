@@ -95,7 +95,6 @@ module.exports = {
       // Non-singletons
       ProxiedSingletonTaikoL2: getConstantAddress(`0${this.chainId}`, 10001),
       ProxiedAddressManager: getConstantAddress(`0${this.chainId}`, 10002),
-      LibDeploy: getConstantAddress(`0${this.chainId}`, 10098),
       RegularERC20: getConstantAddress(`0${this.chainId}`, 10099),
       // ============ Proxies ============
       // Singletons
