@@ -191,8 +191,9 @@ library LibProposing {
 
         // Validate the prover assignment, then charge Ether or ERC20 as the
         // prover fee based on the block's minTier.
-        uint256 proverFee =
-            _validateAssignment(meta.minTier, blobHash, params.assignment);
+        uint256 proverFee = _validateAssignment(
+            meta.minTier, config.chainId, blobHash, params.assignment
+        );
 
         emit BlockProposed({
             blockId: blk.blockId,
@@ -206,6 +207,7 @@ library LibProposing {
 
     function hashAssignment(
         TaikoData.ProverAssignment memory assignment,
+        uint64 chainId,
         bytes32 blobHash
     )
         internal
@@ -215,6 +217,7 @@ library LibProposing {
         return keccak256(
             abi.encode(
                 "PROVER_ASSIGNMENT",
+                chainId,
                 blobHash,
                 assignment.feeToken,
                 assignment.expiry,
@@ -225,6 +228,7 @@ library LibProposing {
 
     function _validateAssignment(
         uint16 minTier,
+        uint64 chainId,
         bytes32 blobHash,
         TaikoData.ProverAssignment memory assignment
     )
@@ -242,7 +246,7 @@ library LibProposing {
 
         // Hash the assignment with the blobHash, this hash will be signed by
         // the prover, therefore, we add a string as a prefix.
-        bytes32 hash = hashAssignment(assignment, blobHash);
+        bytes32 hash = hashAssignment(assignment, chainId, blobHash);
 
         if (!assignment.prover.isValidSignature(hash, assignment.signature)) {
             revert L1_ASSIGNMENT_INVALID_SIG();
