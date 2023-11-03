@@ -12,6 +12,7 @@ import { ERC20Upgradeable } from
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { IBlobHashReader } from "../../4844/IBlobHashReader.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
+import { LibMath } from "../../libs/LibMath.sol";
 
 import { ITierProvider } from "../tiers/ITierProvider.sol";
 import { TaikoData } from "../TaikoData.sol";
@@ -23,6 +24,11 @@ import { LibTaikoToken } from "./LibTaikoToken.sol";
 /// @notice A library for handling block proposals in the Taiko protocol.
 library LibProposing {
     using LibAddress for address;
+    using LibMath for uint256;
+
+    // According to EIP4844, each blob has up to 4096 field elements, and each
+    // field element has 32 bytes.
+    uint256 public constant MAX_BYTES_PER_BLOB = 4096 * 32;
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     event BlockProposed(
@@ -178,7 +184,7 @@ library LibProposing {
             if (params.txListByteSize == 0) revert L1_TXLIST_OFFSET_SIZE();
             if (
                 uint256(params.txListByteOffset) + params.txListByteSize
-                    > config.blockMaxTxListBytes
+                    > MAX_BYTES_PER_BLOB.min(config.blockMaxTxListBytes)
             ) {
                 revert L1_TXLIST_TOO_LARGE();
             }
