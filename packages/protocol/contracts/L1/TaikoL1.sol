@@ -72,6 +72,7 @@ contract TaikoL1 is
         external
         payable
         nonReentrant
+        whenNotPaused
         returns (
             TaikoData.BlockMetadata memory meta,
             TaikoData.EthDeposit[] memory depositsProcessed
@@ -105,6 +106,7 @@ contract TaikoL1 is
     )
         external
         nonReentrant
+        whenNotPaused
     {
         (
             TaikoData.BlockMetadata memory meta,
@@ -147,20 +149,24 @@ contract TaikoL1 is
 
     /// @notice Deposit Taiko token to this contract
     /// @param amount Amount of Taiko token to deposit.
-    function depositTaikoToken(uint256 amount) public {
+    function depositTaikoToken(uint256 amount) public whenNotPaused {
         LibTaikoToken.depositTaikoToken(state, AddressResolver(this), amount);
     }
 
     /// @notice Withdraw Taiko token from this contract
     /// @param amount Amount of Taiko token to withdraw.
-    function withdrawTaikoToken(uint256 amount) public {
+    function withdrawTaikoToken(uint256 amount) external whenNotPaused {
         LibTaikoToken.withdrawTaikoToken(state, AddressResolver(this), amount);
     }
 
     /// @notice Deposits Ether to Layer 2.
     /// @param recipient Address of the recipient for the deposited Ether on
     /// Layer 2.
-    function depositEtherToL2(address recipient) public payable {
+    function depositEtherToL2(address recipient)
+        external
+        payable
+        whenNotPaused
+    {
         LibDepositing.depositEtherToL2(
             state, getConfig(), AddressResolver(this), recipient
         );
