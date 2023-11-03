@@ -137,7 +137,7 @@ contract TestTaikoL2 is TestBase {
         uint256 accumulated_parent_gas_per_l1_block = 0;
         uint64 l1Height = uint64(block.number);
         uint64 l1BlockCounter = 0;
-        uint64 maxL2BlockCount = 200;
+        uint64 maxL2BlockCount = 180;
         uint256 allBaseFee = 0;
         uint256 allGasUsed = 0;
         uint256 newRandomWithoutSalt;
