@@ -45,7 +45,7 @@ func main() {
 		},
 		{
 			Name:        "generator",
-			Flags:       flags.CommonFlags,
+			Flags:       flags.GeneratorFlags,
 			Usage:       "Starts the health check software",
 			Description: "Taiko guardian-prover-health-check uptime availability generator software",
 			Action:      utils.SubcommandAction(new(generator.Generator)),

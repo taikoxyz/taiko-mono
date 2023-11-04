@@ -2,6 +2,7 @@ package generator
 
 import (
 	"database/sql"
+	"time"
 
 	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/db"
@@ -26,11 +27,18 @@ type Config struct {
 	DatabaseMaxOpenConns    uint64
 	DatabaseMaxConnLifetime uint64
 	MetricsHTTPPort         uint64
+	GenesisDate             time.Time
+	Regenerate              bool
 	OpenDBFunc              func() (DB, error)
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
 func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
+	date, err := time.Parse("2006-01-02", c.String(flags.GenesisDate.Name))
+	if err != nil {
+		return nil, err
+	}
+
 	return &Config{
 		DatabaseUsername:        c.String(flags.DatabaseUsername.Name),
 		DatabasePassword:        c.String(flags.DatabasePassword.Name),
@@ -39,6 +47,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		DatabaseMaxIdleConns:    c.Uint64(flags.DatabaseMaxIdleConns.Name),
 		DatabaseMaxOpenConns:    c.Uint64(flags.DatabaseMaxOpenConns.Name),
 		DatabaseMaxConnLifetime: c.Uint64(flags.DatabaseConnMaxLifetime.Name),
+		GenesisDate:             date,
+		Regenerate:              c.Bool(flags.Regenerate.Name),
 		MetricsHTTPPort:         c.Uint64(flags.MetricsHTTPPort.Name),
 		OpenDBFunc: func() (DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
