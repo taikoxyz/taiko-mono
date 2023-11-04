@@ -6,16 +6,15 @@
 
 pragma solidity ^0.8.20;
 
-import { IERC20Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import { IERC721Upgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
 
 import { Proxied } from "../../common/Proxied.sol";
 
 import { BaseAirdrop } from "./BaseAirdrop.sol";
 
-/// @title ERC20Airdrop
-/// Contract for managing Taiko token airdrop for eligible users
-contract ERC20Airdrop is BaseAirdrop {
+/// @title ERC721Airdrop
+contract ERC721Airdrop is BaseAirdrop {
     address public token;
     address public vault;
 
@@ -33,11 +32,15 @@ contract ERC20Airdrop is BaseAirdrop {
     }
 
     function claimWithData(bytes calldata data) internal override {
-        (address user, uint256 amount) = abi.decode(data, (address, uint256));
-        IERC20Upgradeable(token).transferFrom(vault, user, amount);
+        (address user, uint256[] memory tokenIds) =
+            abi.decode(data, (address, uint256[]));
+
+        for (uint256 i; i < tokenIds.length; ++i) {
+            IERC721Upgradeable(token).safeTransferFrom(vault, user, tokenIds[i]);
+        }
     }
 }
 
-/// @title ProxiedERC20Airdrop
+/// @title ProxiedERC721Airdrop
 /// @notice Proxied version of the parent contract.
-contract ProxiedERC20Airdrop is Proxied, ERC20Airdrop { }
+contract ProxiedERC721Airdrop is Proxied, ERC721Airdrop { }
