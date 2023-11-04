@@ -59,6 +59,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/blockpi.png",
+    name: "BlockPI",
+    link: "https://blockpi.io/",
+    description:
+      "BlockPI is a multi-chain globally distributed RPC Network, offers topnotch RPC services with low cost, high performance, low latency for all web3 projects. Additionally, BlockPI is paving its way on building a unified platform with a suite of tools designed for Account Abstraction.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/blockscout.svg",
     name: "Blockscout",
     link: "https://blockscout.com",
