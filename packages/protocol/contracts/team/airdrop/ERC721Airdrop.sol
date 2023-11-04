@@ -11,10 +11,10 @@ import { IERC721Upgradeable } from
 
 import { Proxied } from "../../common/Proxied.sol";
 
-import { BaseAirdrop } from "./BaseAirdrop.sol";
+import { MerkleClaimable } from "./MerkleClaimable.sol";
 
 /// @title ERC721Airdrop
-contract ERC721Airdrop is BaseAirdrop {
+contract ERC721Airdrop is MerkleClaimable {
     address public token;
     address public vault;
 
@@ -26,7 +26,7 @@ contract ERC721Airdrop is BaseAirdrop {
         external
         initializer
     {
-        BaseAirdrop._init(_merkleRoot);
+        MerkleClaimable._init(_merkleRoot);
         token = _token;
         vault = _vault;
     }

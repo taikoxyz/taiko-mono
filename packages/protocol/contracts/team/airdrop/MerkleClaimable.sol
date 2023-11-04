@@ -13,9 +13,9 @@ import { MerkleProofUpgradeable } from
 
 import { Proxied } from "../../common/Proxied.sol";
 
-/// @title BaseAirdrop
+/// @title MerkleClaimable
 /// Contract for managing Taiko token airdrop for eligible users
-abstract contract BaseAirdrop is OwnableUpgradeable {
+abstract contract MerkleClaimable is OwnableUpgradeable {
     mapping(bytes32 => bool) public isClaimed;
     bytes32 public merkleRoot;
 

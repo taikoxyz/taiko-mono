@@ -18,6 +18,8 @@ contract MyERC20 is ERC20 {
         _mint(owner, 1_000_000_000e18);
     }
 }
+// TODO(dani): only unit-test MerkleClaimable, with an empty `claimWithData`
+// function.
 
 contract TestERC20Airdrop is Test {
     address internal Alice = vm.addr(0x1);
