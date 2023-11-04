@@ -209,6 +209,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/meson.png",
+    name: "Meson",
+    link: "https://testnet.meson.fi",
+    description:
+      "Meson is a leading unified cross-chain bridging protocol that enables the seamless cross-chain experience for tokens like ETH, USDC, USDT, and BUSD across more than 30 high-performance public chains and layer-2 solutions.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/mesprotocol.png",
     name: "MES Protocol",
     link: "https://www.mesprotocol.com/",
