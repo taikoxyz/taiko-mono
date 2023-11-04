@@ -76,7 +76,7 @@ This guide will help get your contract verified on Taiko!
 
     Deploy to Taiko and verify at the same time on Blockscout (with EIP-1559 gas [transaction type 1]):
     ```sh
-    forge create --rpc-url https://rpc.jolnir.taiko.xyz --private-key $devTestnetPrivateKey src/Contract.sol:SimpleStorage --verify --verifier blockscout --verifier-url https://blockscoutapi.jolnir.taiko.xyz/api\?
+    forge create --rpc-url https://rpc.jolnir.taiko.xyz --private-key $devTestnetPrivateKey --verify --verifier blockscout --verifier-url https://blockscoutapi.jolnir.taiko.xyz/api src/Contract.sol:SimpleStorage
     ```
     <Callout type="info">
         To use Legacy gas for [transaction type 0], add the
@@ -85,7 +85,7 @@ This guide will help get your contract verified on Taiko!
         ```
         flag with forge create. Example:
         ```
-        forge create --legacy --rpc-url https://rpc.jolnir.taiko.xyz --private-key $devTestnetPrivateKey src/Contract.sol:SimpleStorage --verify --verifier blockscout --verifier-url https://blockscoutapi.jolnir.taiko.xyz/api\?
+        forge create --legacy --rpc-url https://rpc.jolnir.taiko.xyz --private-key $devTestnetPrivateKey --verify --verifier blockscout --verifier-url https://blockscoutapi.jolnir.taiko.xyz/api src/Contract.sol:SimpleStorage
         ```
     </Callout>
 
