@@ -29,7 +29,7 @@ abstract contract MerkleClaimable is OwnableUpgradeable {
     error INVALID_PROOF();
 
     function claim(bytes calldata data, bytes32[] calldata proof) external {
-        bytes32 hash = keccak256(abi.encode("CLAIM)TAIKO_AIRDROP", data));
+        bytes32 hash = keccak256(abi.encode("CLAIM_TAIKO_AIRDROP", data));
         if (isClaimed[hash]) revert CLAIMED_ALREADY();
 
         if (!MerkleProofUpgradeable.verify(proof, merkleRoot, hash)) {
