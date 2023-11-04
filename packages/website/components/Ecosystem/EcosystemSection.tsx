@@ -413,6 +413,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/rollupcodes.svg",
+    name: "Rollup.codes",
+    link: "https://www.rollup.codes/",
+    description:
+      "A reference tool for rollups info, including opcodes, precompiles and more.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/rhinofi.svg",
     name: "rhino.fi",
     link: "https://app.rhino.fi/",
