@@ -18,7 +18,7 @@ contract MyERC20 is ERC20 {
         _mint(owner, 1_000_000_000e18);
     }
 }
-// TODO(dani): only unit-test MerkleClaimable, with an empty `claimWithData`
+// TODO(dani): only unit-test MerkleClaimable, with an empty `_claimWithData`
 // function.
 
 contract TestERC20Airdrop is Test {

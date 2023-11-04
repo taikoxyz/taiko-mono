@@ -28,19 +28,6 @@ abstract contract MerkleClaimable is OwnableUpgradeable {
     error CLAIMED_ALREADY();
     error INVALID_PROOF();
 
-    function _init(bytes32 _merkleRoot) internal {
-        OwnableUpgradeable.__Ownable_init();
-        merkleRoot = _merkleRoot;
-    }
-
-    /// @dev Must revert in case of errors.
-    function claimWithData(bytes calldata data) internal virtual;
-
-    function isClaimable(bytes calldata data) public view returns (bool) {
-        bytes32 hash = keccak256(abi.encode("CLAIM)TAIKO_AIRDROP", data));
-        return isClaimed[hash] == false;
-    }
-
     function claim(bytes calldata data, bytes32[] calldata proof) external {
         bytes32 hash = keccak256(abi.encode("CLAIM)TAIKO_AIRDROP", data));
         if (isClaimed[hash]) revert CLAIMED_ALREADY();
@@ -50,7 +37,15 @@ abstract contract MerkleClaimable is OwnableUpgradeable {
         }
 
         isClaimed[hash] = true;
-        claimWithData(data);
+        _claimWithData(data);
         emit Claimed(hash);
     }
+
+    function _init(bytes32 _merkleRoot) internal {
+        OwnableUpgradeable.__Ownable_init();
+        merkleRoot = _merkleRoot;
+    }
+
+    /// @dev Must revert in case of errors.
+    function _claimWithData(bytes calldata data) internal virtual;
 }
