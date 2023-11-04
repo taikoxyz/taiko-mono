@@ -537,6 +537,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/wizardbridgeevm.png",
+    name: "Wizard Bridge EVM",
+    link: "https://testnet-wizardbridgeevm.web.app",
+    description:
+      "Wizard Bridge EVM | Fact Protocol Interface: (Proof of Message) 🧙 Better Solutions For Bridge all EVM (Cross-chain) 👩‍💻",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/x7finance.png",
     name: "X7R",
     link: "https://x7.finance/",
