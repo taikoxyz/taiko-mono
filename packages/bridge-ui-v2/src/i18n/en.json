@@ -350,15 +350,25 @@
       "insufficient_balance": "Insufficient balance to claim yourself. Please wait for the relayer to claim for you automatically. Refer to our guide for more information.",
       "relayer_offline": "Relayer did not respond. Your transactions may only be loaded partially."
     },
+    "filter": {
+      "all": "All transactions",
+      "claimed": "Claimed",
+      "failed": "Failed",
+      "processing": "Processing",
+      "retry": "Retriable"
+    },
     "header": {
       "amount": "Amount",
-      "explorer": "Explorer",
+      "explorer": "Explorer link",
       "from": "From",
       "status": "Status",
       "to": "To"
     },
-    "link.explorer": "View details",
-    "no_transactions": "No transactions yet",
+    "link": {
+      "explorer": "View details",
+      "explorer_short": "View"
+    },
+    "no_transactions": "No transactions found",
     "status": {
       "claim": {
         "description": "Your asset is now ready for claiming on the destination chain and requires a transaction. If you have set a processing fee, the relayer will automatically handle the claiming process on your behalf.",
