@@ -42,6 +42,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/apusnetwork.png",
+    name: "Apus Network",
+    link: "https://www.apus.network/",
+    description:
+      "Apus Network is to democratize compute by building a decentralized ZKP marketplace, transforming global compute resources into accessible and affordable ZKP capabilities.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/bitget.png",
     name: "Bitget Wallet",
     link: "https://web3.bitget.com/",

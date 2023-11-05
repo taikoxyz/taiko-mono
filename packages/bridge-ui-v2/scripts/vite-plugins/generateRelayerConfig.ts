@@ -29,7 +29,9 @@ export function generateRelayerConfig() {
       logger.info('Plugin initialized.');
       let configuredRelayerConfigFile;
 
-      if (!skip) {
+      if (skip) {
+        configuredRelayerConfigFile = '';
+      } else {
         if (!process.env.CONFIGURED_RELAYER) {
           throw new Error(
             'CONFIGURED_RELAYER is not defined in environment. Make sure to run the export step in the documentation.',
@@ -44,8 +46,6 @@ export function generateRelayerConfig() {
         if (!isValid) {
           throw new Error('encoded configuredBridges.json is not valid.');
         }
-      } else {
-        configuredRelayerConfigFile = '';
       }
       // Path to where you want to save the generated Typ eScript file
       const tsFilePath = path.resolve(outputPath);

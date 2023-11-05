@@ -29,7 +29,9 @@ export function generateEventIndexerConfig() {
       logger.info('Plugin initialized.');
       let configuredEventIndexerConfigFile;
 
-      if (!skip) {
+      if (skip) {
+        configuredEventIndexerConfigFile = '';
+      } else {
         if (!process.env.CONFIGURED_EVENT_INDEXER) {
           throw new Error(
             'CONFIGURED_EVENT_INDEXER is not defined in environment. Make sure to run the export step in the documentation.',
@@ -44,8 +46,6 @@ export function generateEventIndexerConfig() {
         if (!isValid) {
           throw new Error('encoded configuredBridges.json is not valid.');
         }
-      } else {
-        configuredEventIndexerConfigFile = '';
       }
       // Path to where you want to save the generated Typ eScript file
       const tsFilePath = path.resolve(outputPath);

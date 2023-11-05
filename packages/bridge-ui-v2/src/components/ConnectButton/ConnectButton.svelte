@@ -16,7 +16,7 @@
 
   function connectWallet() {
     if (web3modalOpen) return;
-    web3modal.open();
+    web3modal.openModal(); 
   }
 
   function onWeb3Modal(state: { open: boolean }) {
@@ -24,7 +24,7 @@
   }
 
   onMount(() => {
-    unsubscribeWeb3Modal = web3modal.subscribeState(onWeb3Modal);
+    unsubscribeWeb3Modal = web3modal.subscribeModal(onWeb3Modal);
   });
 
   onDestroy(unsubscribeWeb3Modal);
@@ -41,7 +41,7 @@
       {/if}
     </span>
   </Button>
-  <w3m-button class="h-[38px]" balance="hide" />
+  <w3m-core-button class="h-[38px]" balance="hide" />
 {:else}
   <Button class="px-[20px] py-2 rounded-full w-[215px]" type="neutral" loading={web3modalOpen} on:click={connectWallet}>
     <span class="body-regular f-items-center space-x-2">

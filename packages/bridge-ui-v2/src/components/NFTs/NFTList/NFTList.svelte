@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
 
-  import { selectedNFTs } from '$components/Bridge/state';
+  import { selectedNFTs, selectedToken } from '$components/Bridge/state';
   import { PUBLIC_NFT_BATCH_TRANSFERS_ENABLED } from '$env/static/public';
   import type { NFT } from '$libs/token';
   import { groupNFTByCollection } from '$libs/util/groupNFTByCollection';
@@ -43,6 +43,8 @@
     const address = nft.addresses[currentChainId];
     const foundNFT = nfts.find((n) => n.addresses[currentChainId] === address && nft.tokenId === n.tokenId);
     $selectedNFTs = foundNFT ? [foundNFT] : null;
+
+    if ($selectedNFTs) $selectedToken = $selectedNFTs[0];
   };
 
   const checkAllCheckboxes = () => {
@@ -52,6 +54,8 @@
       return collectionAddress && checkedAddresses.get(collectionAddress);
     });
   };
+
+  $: collections = groupNFTByCollection(nfts);
 </script>
 
 {#if nfts.length > 0}
@@ -72,7 +76,7 @@
     {#if !chainId}
       Select a chain
     {:else}
-      {#each Object.entries(groupNFTByCollection(nfts)) as [address, nftsGroup] (address)}
+      {#each Object.entries(collections) as [address, nftsGroup] (address)}
         <div>
           {#if nftsGroup.length > 0}
             <div class="collection-header">
@@ -99,9 +103,11 @@
                 {/if}
               {/each}
             </div>
+            {#if Object.keys(collections).length > 1 || nfts.length > 3}
+              <div class="h-sep my-[30px]" />
+            {/if}
           {/if}
         </div>
-        <div class="h-sep my-[30px]" />
       {/each}
     {/if}
   </div>

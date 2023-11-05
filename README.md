@@ -47,7 +47,6 @@ taiko-mono/
 │   ├── <a href="./packages/starter-dapp">starter-dapp</a>: Template for Taiko dapps.
 │   ├── <a href="./packages/status-page">status-page</a>: Taiko protocol status page.
 │   ├── <a href="./packages/website">website</a>: Main documentation website at <a href="https://taiko.xyz">https://taiko.xyz</a>.
-│   ├── <a href="./packages/bridge-ui">bridge-ui</a>: Taiko bridge frontend UI v1 (🪦 deprecated 🪦).
 │   └── <a href="./packages/whitepaper">whitepaper</a>: Whitepaper source files (🪦 deprecated 🪦).
 ...
 </pre>

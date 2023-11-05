@@ -2,8 +2,10 @@
   import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
 
+  import { chainConfig } from '$chainConfig';
   import { Button } from '$components/Button';
   import { CloseButton } from '$components/CloseButton';
+  import { Icon } from '$components/Icon';
   import type { NFT } from '$libs/token';
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { uid } from '$libs/util/uid';
@@ -21,13 +23,17 @@
   const dispatch = createEventDispatcher();
 
   const selectNFT = () => {
-    dispatch('selected');
+    dispatch('selected', nft);
     closeModal();
   };
 
   const closeModal = () => {
     modalOpen = false;
   };
+
+  $: currentChain = $network?.id;
+
+  $: imgUrl = nft.metadata?.image || placeholderUrl;
 </script>
 
 <dialog id={dialogId} class="modal modal-bottom md:modal-middle" class:modal-open={modalOpen}>
@@ -37,7 +43,7 @@
     <div class="f-col w-full space-y-[30px]">
       <h3 class="title-body-bold">{$t('bridge.nft.step.import.nft_card.title')}</h3>
 
-      <img alt="placeholder nft" src={nft.metadata?.image || placeholderUrl} class="rounded-[20px] self-center" />
+      <img alt="nft" src={imgUrl} class="rounded-[20px] self-center bg-white" />
       <div id="metadata">
         <div class="f-between-center">
           <div class="text-secondary-content">{$t('common.collection')}</div>
@@ -46,7 +52,15 @@
         <div class="f-between-center">
           <div class="text-secondary-content">{$t('common.contract_address')}</div>
           <div class="text-primary-content">
-            {$network?.id ? shortenAddress(nft.addresses[$network?.id], 10, 13) : ''}
+            {#if currentChain}
+              <a
+                class="flex justify-start link"
+                href={`${chainConfig[currentChain].urls.explorer}/token/${nft.addresses[currentChain]}`}
+                target="_blank">
+                {shortenAddress(nft.addresses[currentChain], 10, 13)}
+                <Icon type="arrow-top-right" fillClass="fill-primary-link" />
+              </a>
+            {/if}
           </div>
         </div>
 
@@ -64,7 +78,7 @@
           <Button
             type="primary"
             hasBorder={true}
-            class="px-[28px] py-[14px] rounded-full flex-1 w-full"
+            class="px-[28px] py-[14px] rounded-full flex-1 w-full text-white"
             on:click={closeModal}>
             {$t('common.ok')}
           </Button>
@@ -72,7 +86,7 @@
           <Button
             type="primary"
             hasBorder={true}
-            class="px-[28px] py-[14px] rounded-full flex-1 w-full"
+            class="px-[28px] py-[14px] rounded-full flex-1 w-full text-white"
             on:click={() => selectNFT()}>
             {$t('bridge.nft.step.import.nft_card.select')}
           </Button>
