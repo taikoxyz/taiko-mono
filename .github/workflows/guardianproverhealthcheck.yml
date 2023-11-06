@@ -2,7 +2,7 @@ name: guardianproverhealthcheck
 
 on:
   push:
-    branches: [main]
+    branches: [main, bridgable_app]
     paths:
       - "packages/guardianproverhealthcheck/**"
   pull_request:
