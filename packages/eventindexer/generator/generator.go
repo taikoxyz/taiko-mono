@@ -77,7 +77,7 @@ func (g *Generator) Close(ctx context.Context) {
 	}
 
 	if err := sqlDB.Close(); err != nil {
-		slog.Error("error closing sqlbd connecting", "err", err.Error())
+		slog.Error("error closing sqlbd connection", "err", err.Error())
 	}
 }
 

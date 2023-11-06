@@ -1,0 +1,48 @@
+# See: https://golangci-lint.run/usage/configuration/
+#
+# Note: for VSCode, you must have the following settings to use this configuration:
+#
+# "go.lintTool": "golangci-lint",
+# "go.lintFlags": [
+#   "--fast",
+#   "--config=${workspaceFolder}/.golangci.yml"
+# ],
+
+output:
+  format: colored-line-number
+
+linters:
+  enable:
+    - errcheck
+    - funlen
+    - gocognit
+    - gocritic
+    - gofmt
+    # - revive
+    # - gosec
+    - gosimple
+    - lll
+    - unused
+    - whitespace
+    - wsl
+
+linters-settings:
+  funlen:
+    lines: 250
+    statements: 80
+  gocognit:
+    min-complexity: 55
+
+issues:
+  exclude-rules:
+    # Exclude some linters from running on tests files.
+    - path: _test\.go
+      linters:
+        - funlen
+    - path: /
+      linters:
+        - typecheck
+
+run:
+  skip-dirs:
+    - contracts/*
