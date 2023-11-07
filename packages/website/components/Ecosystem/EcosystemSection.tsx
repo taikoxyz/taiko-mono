@@ -59,6 +59,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/blockpi.png",
+    name: "BlockPI",
+    link: "https://blockpi.io/",
+    description:
+      "BlockPI is a multi-chain globally distributed RPC Network, offers topnotch RPC services with low cost, high performance, low latency for all web3 projects. Additionally, BlockPI is paving its way on building a unified platform with a suite of tools designed for Account Abstraction.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/blockscout.svg",
     name: "Blockscout",
     link: "https://blockscout.com",
@@ -193,9 +202,18 @@ const ecosystemData: EcosystemData[] = [
   {
     icon: "/images/ecosystem/metamerge.png",
     name: "Meta Merge",
-    link: "https://taiko-match3.metamerge.xyz/",
+    link: "https://www.metamerge.xyz/",
     description:
       "Meta Merge (@MetaMerge_xyz) is a distinctive GameFi metaverse nurtured by Ultiverse (@UltiverseDAO), delivers ground-breaking gameplay and charming pets, thereby enriching the Web3 gaming ecosystem.",
+    filters: [],
+    isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/meson.png",
+    name: "Meson",
+    link: "https://testnet.meson.fi",
+    description:
+      "Meson is a leading unified cross-chain bridging protocol that enables the seamless cross-chain experience for tokens like ETH, USDC, USDT, and BUSD across more than 30 high-performance public chains and layer-2 solutions.",
     filters: [],
     isLive: true,
   },
@@ -395,6 +413,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/rollupcodes.svg",
+    name: "Rollup.codes",
+    link: "https://www.rollup.codes/",
+    description:
+      "A reference tool for rollups info, including opcodes, precompiles and more.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/rhinofi.svg",
     name: "rhino.fi",
     link: "https://app.rhino.fi/",
@@ -506,6 +533,15 @@ const ecosystemData: EcosystemData[] = [
     link: "https://vooi.io/",
     description:
       "vooi is a stableswap AMM DEX built for L2 chains on top of Unbounded pool technology.",
+    filters: [],
+    isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/wizardbridgeevm.png",
+    name: "Wizard Bridge EVM",
+    link: "https://testnet-wizardbridgeevm.web.app",
+    description:
+      "Wizard Bridge EVM | Fact Protocol Interface: (Proof of Message) 🧙 Better Solutions For Bridge all EVM (Cross-chain) 👩‍💻",
     filters: [],
     isLive: true,
   },
