@@ -108,6 +108,7 @@ NFT List or Card View
     </div>
     <div class="flex gap-2">
       <IconFlipper
+        type="swap-rotate"
         iconType1="list"
         iconType2="cards"
         selectedDefault="list"
