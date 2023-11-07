@@ -202,7 +202,7 @@ const ecosystemData: EcosystemData[] = [
   {
     icon: "/images/ecosystem/metamerge.png",
     name: "Meta Merge",
-    link: "https://taiko-match3.metamerge.xyz/",
+    link: "https://www.metamerge.xyz/",
     description:
       "Meta Merge (@MetaMerge_xyz) is a distinctive GameFi metaverse nurtured by Ultiverse (@UltiverseDAO), delivers ground-breaking gameplay and charming pets, thereby enriching the Web3 gaming ecosystem.",
     filters: [],
