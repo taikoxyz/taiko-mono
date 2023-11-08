@@ -108,12 +108,23 @@ func (p *Processor) processMessage(
 			// todo: instead of latest, need way to find out which block num on the hop chain
 			// the previous blockHash was synced in, and then wait for that header to be synced
 			// on the next hop chain.
-			latestBlock, err := hop.ethClient.BlockByNumber(ctx, nil)
+			snippet, err := hop.headerSyncer.GetSyncedSnippet(&bind.CallOpts{
+				Context: ctx,
+			},
+				hop.blockNum,
+			)
+
+			slog.Info("hop synced snippet",
+				"syncedInBlock", snippet.SyncedInBlock,
+				"blockNum", hop.blockNum,
+				"blockHash", common.Bytes2Hex(snippet.BlockHash[:]),
+			)
+
 			if err != nil {
-				return errors.Wrap(err, "hop.ethClient.BlockByNumber(ctx, nil)")
+				return errors.Wrap(err, "hop.headerSyncer.GetSyncedSnippet")
 			}
 
-			blockNum = latestBlock.NumberU64()
+			blockNum = snippet.SyncedInBlock
 
 			hopEthClient = hop.ethClient
 		}
