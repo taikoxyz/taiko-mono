@@ -21,7 +21,7 @@ func Test_GetStats(t *testing.T) {
 			"success",
 			http.StatusOK,
 			// nolint: lll
-			[]string{`[]`},
+			[]string{``},
 		},
 	}
 

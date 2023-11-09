@@ -18,6 +18,7 @@ func newTestServer(url string) *Server {
 	srv := &Server{
 		echo:            echo.New(),
 		healthCheckRepo: mock.NewHealthCheckRepository(),
+		statRepo:        mock.NewStatRepository(),
 	}
 
 	srv.configureMiddleware([]string{"*"})
