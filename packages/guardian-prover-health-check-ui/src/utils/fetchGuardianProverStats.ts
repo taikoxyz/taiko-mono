@@ -46,8 +46,6 @@ export async function fetchGuardianProverRequests(
     url = `${baseURL}/${healthCheckRoute}`;
   }
 
-  console.log(url);
-
   const resp = await axios.get<PageResponse<HealthCheck>>(url, {
     params: {
       page: page,
@@ -96,8 +94,6 @@ export async function fetchStats(
   } else {
     url = `${baseURL}/${statsRoute}`;
   }
-
-  console.log(url);
 
   const resp = await axios.get<PageResponse<Stat>>(url, {
     params: {
