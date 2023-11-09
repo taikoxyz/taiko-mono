@@ -22,14 +22,36 @@ import { Proxied } from "../../common/Proxied.sol";
 abstract contract MerkleClaimable is OwnableUpgradeable {
     mapping(bytes32 => bool) public isClaimed;
     bytes32 public merkleRoot;
+    uint128 claimStart;
+    uint128 claimEnd;
 
     event Claimed(bytes32 hash);
 
+    error CLAIM_NOT_ONGOING();
     error CLAIMED_ALREADY();
     error INVALID_PROOF();
+    error INVALID_MERKLE_ROOT();
 
-    function claim(bytes calldata data, bytes32[] calldata proof) external {
-        bytes32 hash = keccak256(abi.encode("CLAIM_TAIKO_AIRDROP", data));
+    modifier ongoingClaim() {
+        if (
+            merkleRoot == 0x0 || claimStart == 0 || claimEnd == 0
+                || claimStart > block.timestamp || claimEnd < block.timestamp
+        ) revert CLAIM_NOT_ONGOING();
+        _;
+    }
+
+    function claim(
+        bytes calldata data,
+        bytes32[] calldata proof
+    )
+        external
+        ongoingClaim
+    {
+        (address user, uint256 amount) = abi.decode(data, (address, uint256));
+
+        bytes32 hash =
+            keccak256(abi.encode("CLAIM_TAIKO_AIRDROP", user, amount));
+
         if (isClaimed[hash]) revert CLAIMED_ALREADY();
 
         if (!MerkleProofUpgradeable.verify(proof, merkleRoot, hash)) {
@@ -41,8 +63,26 @@ abstract contract MerkleClaimable is OwnableUpgradeable {
         emit Claimed(hash);
     }
 
+    /// @notice Set time window for claiming
+    /// @param _claimStart Unix timestamp for claim start
+    /// @param _claimEnd Unix timestamp for claim end
+    function setClaimWindow(
+        uint128 _claimStart,
+        uint128 _claimEnd
+    )
+        external
+        onlyOwner
+    {
+        claimStart = _claimStart;
+        claimEnd = _claimEnd;
+    }
+
     function _init(bytes32 _merkleRoot) internal {
         OwnableUpgradeable.__Ownable_init();
+
+        if (_merkleRoot == 0x0) {
+            revert INVALID_MERKLE_ROOT();
+        }
         merkleRoot = _merkleRoot;
     }
 

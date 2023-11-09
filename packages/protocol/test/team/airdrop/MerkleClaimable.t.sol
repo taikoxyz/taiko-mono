@@ -3,7 +3,8 @@ pragma solidity ^0.8.20;
 
 import { ERC20Airdrop as Airdrop } from
     "../../../contracts/team/airdrop/ERC20Airdrop.sol";
-import { BaseAirdrop } from "../../../contracts/team/airdrop/BaseAirdrop.sol";
+import { MerkleClaimable } from
+    "../../../contracts/team/airdrop/MerkleClaimable.sol";
 import { Test } from "forge-std/Test.sol";
 import { ERC20 } from
     "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
@@ -30,111 +31,110 @@ contract TestERC20Airdrop is Test {
     address internal ERC20VaultDAO = vm.addr(0x6);
 
     bytes32 merkleRoot =
-        0x78b9f3cb2305b16d69474fab69ae4563cd8ebb2c1e1f8c94f430f1607ef47aef;
+        0xd972651f7cddff54ed23e3dc825d53a5ef4ab530d30b3a97c32cc27925c72895;
 
     Airdrop airdrop = new Airdrop();
 
     ERC20 tko = new MyERC20(address(ERC20VaultDAO));
 
     function setUp() public {
-        airdrop.init(ERC20VaultDAO, address(tko), 0x0);
+        airdrop.init(merkleRoot, address(tko), ERC20VaultDAO);
+
+        airdrop.setClaimWindow(
+            uint128(block.timestamp + 10), uint128(block.timestamp + 10_000)
+        );
+
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 12);
 
         vm.prank(ERC20VaultDAO, ERC20VaultDAO);
         MyERC20(address(tko)).approve(address(airdrop), 1_000_000_000e18);
     }
 
-    function test_claim_but_merkleRoot_not_set() public {
+    function test_claim_but_claim_not_ongoing_yet() public {
+        vm.warp(1);
         bytes32[] memory merkleProof = new bytes32[](3);
         merkleProof[0] =
-            0x4a842e47f31b02491e870bfd75e4a135e52a2477ce8ea569c1b91c16654da9d5;
+            0xef4153c249460bb47403871d041064c48a48571d40174883a9858eca6ed5b499;
         merkleProof[1] =
-            0xdc1cd6f194f9454fa91bf28dd2a5c8c389d55b395ad344279846d7d76493e6c1;
+            0xabb52c574a28d8b9ac22f1e8d1fc1a1f09afd02155db6c3927c189af671f665f;
         merkleProof[2] =
-            0x0f680f2e6f5f3eb7a715a018fc509585176e90c0539dd45783e64b8e4256bdd5;
+            0x169af611859d371d65b73fed2987f6a781fd99490e88193aef256aa0012f1396;
 
-        Airdrop.ERC20InputParams memory input;
-        input.merkleProof = merkleProof;
-        input.allowance = 100;
-
-        vm.expectRevert(BaseAirdrop.CLAIM_NOT_STARTED.selector);
+        vm.expectRevert(MerkleClaimable.CLAIM_NOT_ONGOING.selector);
         vm.prank(Alice, Alice);
-        airdrop.claim(abi.encode(input));
+        airdrop.claim(abi.encode(Alice, 100), merkleProof);
+    }
+
+    function test_claim_but_claim_not_ongoing_anymore() public {
+        vm.warp(uint128(block.timestamp + 11_000));
+
+        bytes32[] memory merkleProof = new bytes32[](3);
+        merkleProof[0] =
+            0xef4153c249460bb47403871d041064c48a48571d40174883a9858eca6ed5b499;
+        merkleProof[1] =
+            0xabb52c574a28d8b9ac22f1e8d1fc1a1f09afd02155db6c3927c189af671f665f;
+        merkleProof[2] =
+            0x169af611859d371d65b73fed2987f6a781fd99490e88193aef256aa0012f1396;
+
+        vm.expectRevert(MerkleClaimable.CLAIM_NOT_ONGOING.selector);
+        vm.prank(Alice, Alice);
+        airdrop.claim(abi.encode(Alice, 100), merkleProof);
     }
 
     function test_claim_but_with_invalid_allowance() public {
-        airdrop.setMerkleRoot(merkleRoot);
-
+        vm.warp(uint128(block.timestamp + 11));
         // These proofs are coming from 'pnpm run buildMerkle'
         bytes32[] memory merkleProof = new bytes32[](3);
         merkleProof[0] =
-            0x4a842e47f31b02491e870bfd75e4a135e52a2477ce8ea569c1b91c16654da9d5;
+            0xef4153c249460bb47403871d041064c48a48571d40174883a9858eca6ed5b499;
         merkleProof[1] =
-            0xdc1cd6f194f9454fa91bf28dd2a5c8c389d55b395ad344279846d7d76493e6c1;
+            0xabb52c574a28d8b9ac22f1e8d1fc1a1f09afd02155db6c3927c189af671f665f;
         merkleProof[2] =
-            0x0f680f2e6f5f3eb7a715a018fc509585176e90c0539dd45783e64b8e4256bdd5;
+            0x169af611859d371d65b73fed2987f6a781fd99490e88193aef256aa0012f1396;
 
-        Airdrop.ERC20InputParams memory input;
-        input.merkleProof = merkleProof;
-        input.allowance = 200;
-
-        vm.expectRevert(BaseAirdrop.INCORRECT_PROOF.selector);
+        vm.expectRevert(MerkleClaimable.INVALID_PROOF.selector);
         vm.prank(Alice, Alice);
-        airdrop.claim(abi.encode(input));
+        airdrop.claim(abi.encode(Alice, 200), merkleProof);
     }
 
-    function test_claimx() public {
-        airdrop.setMerkleRoot(merkleRoot);
-
+    function test_claim() public {
+        vm.warp(uint128(block.timestamp + 11));
         // These proofs are coming from 'pnpm run buildMerkle'
         bytes32[] memory merkleProof = new bytes32[](3);
         merkleProof[0] =
-            0x4a842e47f31b02491e870bfd75e4a135e52a2477ce8ea569c1b91c16654da9d5;
+            0xef4153c249460bb47403871d041064c48a48571d40174883a9858eca6ed5b499;
         merkleProof[1] =
-            0xdc1cd6f194f9454fa91bf28dd2a5c8c389d55b395ad344279846d7d76493e6c1;
+            0xabb52c574a28d8b9ac22f1e8d1fc1a1f09afd02155db6c3927c189af671f665f;
         merkleProof[2] =
-            0x0f680f2e6f5f3eb7a715a018fc509585176e90c0539dd45783e64b8e4256bdd5;
-
-        Airdrop.ERC20InputParams memory input;
-        input.merkleProof = merkleProof;
-        input.allowance = 100;
+            0x169af611859d371d65b73fed2987f6a781fd99490e88193aef256aa0012f1396;
 
         vm.prank(Alice, Alice);
-        airdrop.claim(abi.encode(input));
+        airdrop.claim(abi.encode(Alice, 100), merkleProof);
 
         // Check Alice balance
         assertEq(tko.balanceOf(Alice), 100);
     }
 
     function test_claim_with_same_proofs_twice() public {
-        airdrop.setMerkleRoot(merkleRoot);
-
+        vm.warp(uint128(block.timestamp + 11));
         // These proofs are coming from 'pnpm run buildMerkle'
         bytes32[] memory merkleProof = new bytes32[](3);
         merkleProof[0] =
-            0x4a842e47f31b02491e870bfd75e4a135e52a2477ce8ea569c1b91c16654da9d5;
+            0xef4153c249460bb47403871d041064c48a48571d40174883a9858eca6ed5b499;
         merkleProof[1] =
-            0xdc1cd6f194f9454fa91bf28dd2a5c8c389d55b395ad344279846d7d76493e6c1;
+            0xabb52c574a28d8b9ac22f1e8d1fc1a1f09afd02155db6c3927c189af671f665f;
         merkleProof[2] =
-            0x0f680f2e6f5f3eb7a715a018fc509585176e90c0539dd45783e64b8e4256bdd5;
-
-        Airdrop.ERC20InputParams memory input;
-        input.merkleProof = merkleProof;
-        input.allowance = 100;
+            0x169af611859d371d65b73fed2987f6a781fd99490e88193aef256aa0012f1396;
 
         vm.prank(Alice, Alice);
-        airdrop.claim(abi.encode(input));
+        airdrop.claim(abi.encode(Alice, 100), merkleProof);
 
         // Check Alice balance
         assertEq(tko.balanceOf(Alice), 100);
 
-        vm.expectRevert(BaseAirdrop.CLAIMED_ALREADY.selector);
+        vm.expectRevert(MerkleClaimable.CLAIMED_ALREADY.selector);
         vm.prank(Alice, Alice);
-        airdrop.claim(abi.encode(input));
-    }
-
-    function test_cannot_set_merkleRoot_if_not_owner() public {
-        vm.prank(Bob, Bob);
-        vm.expectRevert();
-        airdrop.setMerkleRoot(merkleRoot);
+        airdrop.claim(abi.encode(Alice, 100), merkleProof);
     }
 }

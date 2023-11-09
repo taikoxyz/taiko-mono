@@ -37,9 +37,15 @@ async function buildMerkleTree(
 function buildLeaf(data: IClaimListData) {
     return Buffer.from(
         ethers.utils
-            .solidityKeccak256(
-                ["address", "uint256"],
-                [data.address, data.amount],
+            .keccak256(
+                ethers.utils.defaultAbiCoder.encode(
+                    ["bytes", "address", "uint256"],
+                    [
+                        ethers.utils.toUtf8Bytes("CLAIM_TAIKO_AIRDROP"),
+                        data.address,
+                        data.amount,
+                    ],
+                ),
             )
             .slice(2),
         "hex",
