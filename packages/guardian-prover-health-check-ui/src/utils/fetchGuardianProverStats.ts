@@ -11,6 +11,7 @@ export type HealthCheck = {
   expectedAddress: string;
   recoveredAddress: string;
   signedResponse: string;
+  createdAt: string;
 };
 
 export type Stat = {
@@ -37,7 +38,8 @@ export type PageResponse<T> = {
 export async function fetchGuardianProverRequests(
   baseURL: string,
   page: number,
-  guardianProverId?: string
+  size: number,
+  guardianProverId?: number
 ): Promise<PageResponse<HealthCheck>> {
   let url;
   if (guardianProverId) {
@@ -49,6 +51,7 @@ export async function fetchGuardianProverRequests(
   const resp = await axios.get<PageResponse<HealthCheck>>(url, {
     params: {
       page: page,
+      size: size,
     },
   });
 
@@ -57,9 +60,14 @@ export async function fetchGuardianProverRequests(
 
 export async function fetchAllGuardianProverRequests(
   baseURL: string,
-  guardianProverId?: string
+  guardianProverId?: number
 ): Promise<HealthCheck[]> {
-  const page = await fetchGuardianProverRequests(baseURL, 0, guardianProverId);
+  const page = await fetchGuardianProverRequests(
+    baseURL,
+    0,
+    100,
+    guardianProverId
+  );
   const totalPages = page.total_pages;
   if (totalPages === 1) {
     return page.items;
@@ -73,6 +81,7 @@ export async function fetchAllGuardianProverRequests(
       const page = await fetchGuardianProverRequests(
         baseURL,
         i,
+        100,
         guardianProverId
       );
 
@@ -86,7 +95,8 @@ export async function fetchAllGuardianProverRequests(
 export async function fetchStats(
   baseURL: string,
   page: number,
-  guardianProverId?: string
+  size: number,
+  guardianProverId?: number
 ): Promise<PageResponse<Stat>> {
   let url;
   if (guardianProverId) {
@@ -98,6 +108,7 @@ export async function fetchStats(
   const resp = await axios.get<PageResponse<Stat>>(url, {
     params: {
       page: page,
+      size: size,
     },
   });
 
@@ -106,9 +117,9 @@ export async function fetchStats(
 
 export async function fetchAllStats(
   baseURL: string,
-  guardianProverId?: string
+  guardianProverId?: number
 ): Promise<Stat[]> {
-  const page = await fetchStats(baseURL, 0, guardianProverId);
+  const page = await fetchStats(baseURL, 0, 100, guardianProverId);
   const totalPages = page.total_pages;
   if (totalPages === 1) {
     return page.items;
@@ -119,7 +130,7 @@ export async function fetchAllStats(
 
   await Promise.all(
     [...Array(totalPages)].map(async (x, i) => {
-      const page = await fetchStats(baseURL, i, guardianProverId);
+      const page = await fetchStats(baseURL, i, 100, guardianProverId);
 
       stats.concat(page.items);
     })

@@ -8,43 +8,203 @@
   import {
     fetchAllGuardianProverRequests,
     fetchAllStats,
+    fetchGuardianProverRequests,
     fetchStats,
     type HealthCheck,
     type Stat,
   } from "../utils/fetchGuardianProverStats";
-  import guardianProver from "../abi/guardianProver";
+
+  let defaultSize: number = 10;
   let guardianProvers: Guardian[] = [];
   let stats: Stat[] = [];
   let healthChecks: HealthCheck[] = [];
+  let activeId: number = 0;
+  let nextHealthCheckPage: number = 0;
+  let healthCheckPageTotal: number = 0;
+  let statsPageTotal: number = 0;
+  let nextStatsPage: number = 0;
+  let activeSubTab: string = "healthchecks";
 
   onMount(async () => {
-    const getGuardianProvers = async () => {
-      guardianProvers = await fetchGuardianProversFromContract(
-        import.meta.env.VITE_GUARDIAN_PROVER_CONTRACT_ADDRESS,
-        new ethers.providers.JsonRpcProvider(import.meta.env.VITE_RPC_URL)
-      );
-    };
-
-    const getHealthChecks = async () => {
-      healthChecks = await fetchAllGuardianProverRequests(
-        import.meta.env.VITE_GUARDIAN_PROVER_API_URL
-      );
-    };
-
-    const getStats = async () => {
-      stats = await fetchAllStats(import.meta.env.VITE_GUARDIAN_PROVER_API_URL);
-    };
-
-    await Promise.all([getGuardianProvers, getHealthChecks, getStats]);
+    guardianProvers = await fetchGuardianProversFromContract(
+      import.meta.env.VITE_GUARDIAN_PROVER_CONTRACT_ADDRESS,
+      new ethers.providers.JsonRpcProvider(import.meta.env.VITE_RPC_URL)
+    );
   });
+
+  async function fetchPrevHealthCheckPage(guardianProverId: number) {
+    nextHealthCheckPage--;
+
+    const page = await fetchGuardianProverRequests(
+      import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
+      nextHealthCheckPage,
+      defaultSize,
+      guardianProverId
+    );
+
+    healthCheckPageTotal = page.total_pages;
+    healthChecks = page.items;
+  }
+
+  async function fetchNextHealthCheckPage(guardianProverId: number) {
+    const page = await fetchGuardianProverRequests(
+      import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
+      nextHealthCheckPage,
+      defaultSize,
+      guardianProverId
+    );
+
+    healthCheckPageTotal = page.total_pages;
+    healthChecks = page.items;
+
+    nextHealthCheckPage++;
+  }
+
+  async function fetchPrevStatsPage(guardianProverId: number) {
+    nextStatsPage--;
+
+    const page = await fetchStats(
+      import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
+      nextStatsPage,
+      defaultSize,
+      guardianProverId
+    );
+
+    statsPageTotal = page.total_pages;
+    stats = page.items;
+  }
+
+  async function fetchNextStatsPage(guardianProverId: number) {
+    const page = await fetchStats(
+      import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
+      nextStatsPage,
+      defaultSize,
+      guardianProverId
+    );
+
+    statsPageTotal = page.total_pages;
+    stats = page.items;
+
+    nextStatsPage++;
+  }
+
+  async function toggleTab(guardianProverId: number) {
+    nextHealthCheckPage = 0;
+    healthCheckPageTotal = 0;
+    statsPageTotal = 0;
+    nextStatsPage = 0;
+
+    activeId = guardianProverId;
+    await fetchNextHealthCheckPage(guardianProverId);
+    await fetchNextStatsPage(guardianProverId);
+  }
+
+  async function toggleSubTab(tab: string) {
+    activeSubTab = tab;
+  }
 </script>
 
-{#if guardianProver.length && stats.length && healthChecks.length}
+{#if guardianProvers && stats && healthChecks}
+  <h2>Guardian Provers</h2>
+  <div class="tabs">
+    {#each guardianProvers as guardian}
+      <a
+        class="tab {activeId === guardian.id ? 'tab-active' : ''}"
+        on:click={async () => await toggleTab(guardian.id)}>{guardian.id}</a
+      >
+    {/each}
+  </div>
+
   {#each guardianProvers as guardian}
-    <h2>Guardian Provers</h2>
-    <div>
-      {guardian.address}: {guardian.id}
-    </div>
+    {#if guardian.id === activeId}
+      <div class="tabs">
+        <a
+          class="tab {activeSubTab === 'healthchecks' ? 'tab-active' : ''}"
+          on:click={() => toggleSubTab("healthchecks")}>Health Checks</a
+        >
+        <a
+          class="tab {activeSubTab === 'stats' ? 'tab-active' : ''}"
+          on:click={() => toggleSubTab("stats")}>Stats</a
+        >
+      </div>
+      {#if activeSubTab === "healthchecks"}
+        <div class="overflow-x-auto">
+          <table class="table">
+            <!-- head -->
+            <thead>
+              <tr>
+                <th>Alive</th>
+                <th>Expected Address</th>
+                <th>Recovered Address</th>
+                <th>CreatedAt</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each healthChecks as healthCheck}
+                <tr>
+                  <th>{healthCheck.alive}</th>
+                  <td>{healthCheck.expectedAddress}</td>
+                  <td>{healthCheck.recoveredAddress}</td>
+                  <td>{healthCheck.createdAt}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+          {#if nextHealthCheckPage - 1 !== 0}
+            <button
+              class="btn"
+              on:click={async () => await fetchPrevHealthCheckPage(guardian.id)}
+              >Prev</button
+            >
+          {/if}
+          {#if nextHealthCheckPage !== healthCheckPageTotal}
+            <button
+              class="btn"
+              on:click={async () => await fetchNextHealthCheckPage(guardian.id)}
+              >Next</button
+            >
+          {/if}
+        </div>
+      {:else}
+        <div class="overflow-x-auto">
+          <table class="table">
+            <!-- head -->
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Reqs</th>
+                <th>Successful Reqs</th>
+                <th>Uptime</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each stats as stat}
+                <tr>
+                  <th>{stat.date}</th>
+                  <td>{stat.requests}</td>
+                  <td>{stat.successfulRequests}</td>
+                  <td>{stat.uptime}%</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+          {#if nextStatsPage - 1 !== 0}
+            <button
+              class="btn"
+              on:click={async () => await fetchPrevStatsPage(guardian.id)}
+              >Prev</button
+            >
+          {/if}
+          {#if nextStatsPage !== statsPageTotal}
+            <button
+              class="btn"
+              on:click={async () => await fetchNextStatsPage(guardian.id)}
+              >Next</button
+            >
+          {/if}
+        </div>
+      {/if}
+    {/if}
   {/each}
 {:else}
   Loading

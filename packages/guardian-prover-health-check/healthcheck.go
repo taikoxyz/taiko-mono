@@ -3,17 +3,19 @@ package guardianproverhealthcheck
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/morkid/paginate"
 )
 
 type HealthCheck struct {
-	ID               int    `json:"id"`
-	GuardianProverID uint64 `json:"guardianProverId"`
-	Alive            bool   `json:"alive"`
-	ExpectedAddress  string `json:"expectedAddress"`
-	RecoveredAddress string `json:"recoveredAddress"`
-	SignedResponse   string `json:"signedResponse"`
+	ID               int       `json:"id"`
+	GuardianProverID uint64    `json:"guardianProverId"`
+	Alive            bool      `json:"alive"`
+	ExpectedAddress  string    `json:"expectedAddress"`
+	RecoveredAddress string    `json:"recoveredAddress"`
+	SignedResponse   string    `json:"signedResponse"`
+	CreatedAt        time.Time `json:"createdAt"`
 }
 
 type SaveHealthCheckOpts struct {

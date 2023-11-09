@@ -51,7 +51,8 @@ func (r *HealthCheckRepository) GetByGuardianProverID(
 		DefaultSize: 100,
 	})
 
-	reqCtx := pg.With(r.startQuery().Where("guardian_prover_id = ?", id))
+	reqCtx := pg.With(r.startQuery().Order("created_at desc").
+		Where("guardian_prover_id = ?", id))
 
 	page := reqCtx.Request(req).Response(&[]guardianproverhealthcheck.HealthCheck{})
 
