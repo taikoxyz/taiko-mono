@@ -40,7 +40,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         payable
         nonReentrant
         whenNotPaused
-        whenOperationValid(op)
+        withValidOperation(op)
         returns (IBridge.Message memory _message)
     {
         for (uint256 i; i < op.tokenIds.length; ++i) {

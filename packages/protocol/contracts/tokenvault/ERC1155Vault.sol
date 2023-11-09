@@ -53,7 +53,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         payable
         nonReentrant
         whenNotPaused
-        whenOperationValid(op)
+        withValidOperation(op)
         returns (IBridge.Message memory _message)
     {
         for (uint256 i; i < op.amounts.length; ++i) {

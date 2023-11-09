@@ -108,7 +108,7 @@ abstract contract BaseNFTVault is BaseVault {
     error VAULT_TOKEN_ARRAY_MISMATCH();
     error VAULT_MAX_TOKEN_PER_TXN_EXCEEDED();
 
-    modifier whenOperationValid(BridgeTransferOp calldata op) {
+    modifier withValidOperation(BridgeTransferOp calldata op) {
         if (op.tokenIds.length != op.amounts.length) {
             revert VAULT_TOKEN_ARRAY_MISMATCH();
         }
