@@ -157,11 +157,8 @@ enum LayerType {
 const _formatObjectToTsLiteral = (obj: ChainConfigMap): string => {
   const formatValue = (value: ChainConfig): string => {
     if (typeof value === 'string') {
-      if (typeof value === 'string') {
-        if (Object.values(LayerType).includes(value as LayerType)) {
-          return `LayerType.${value}`; // This line is using LayerType as an enum, but it is now a type
-        }
-        return `"${value}"`;
+      if (Object.values(LayerType).includes(value as LayerType)) {
+        return `LayerType.${value}`; // This line is using LayerType as an enum, but it is now a type
       }
       return `"${value}"`;
     }

@@ -11,16 +11,22 @@
 
   export let selectedDefault: IconType = iconType1;
 
+  export let flipped: boolean = false;
+
+  export let type: 'swap-rotate' | 'swap-flip' | '' = '';
+
   const dispatch = createEventDispatcher();
 
   function handleLabelClick() {
     selectedDefault = selectedDefault === iconType1 ? iconType2 : iconType1;
+    flipped = !flipped;
     dispatch('labelclick');
   }
 
-  $: isDefault = selectedDefault === iconType1;
+  // $: isDefault = selectedDefault === iconType1;
+  $: isDefault = !flipped;
 
-  $: classes = classNames('swap swap-rotate btn-neutral', $$props.class);
+  $: classes = classNames('swap  btn-neutral', type, $$props.class);
 </script>
 
 <div role="button" tabindex="0" class={classes} on:click={handleLabelClick} on:keypress={handleLabelClick}>

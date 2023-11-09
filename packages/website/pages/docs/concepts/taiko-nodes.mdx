@@ -83,7 +83,7 @@ To propose a block, the `proposer`:
 
 1. Fetches the pending transactions from the L2 execution engine through the `txpool_content` RPC method.
 2. If there are too many pending transactions in the L2 execution engine, splits them into several smaller `txLists`. This is because the Taiko protocol restricts the max size of each proposed `txList`.
-3. Proposes all splitted `txLists` by sending `TaikoL1.proposeBlock` transactions.
+3. Proposes all split `txLists` by sending `TaikoL1.proposeBlock` transactions.
 
 ## Process of proving a block
 

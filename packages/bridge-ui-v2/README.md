@@ -41,14 +41,14 @@ source .env
 
 **Detailed process**
 
-These are are the additional configuration files that have to be filled in:
+These are the additional configuration files that have to be filled in:
 
 | Name                                    | Description                                                                              |
 | --------------------------------------- | ---------------------------------------------------------------------------------------- |
 | **/config/configuredBridges.json**      | Defines the chains that are connected via taiko bridges and lists the contract addresses |
 | **/config/configuredChains.json**       | Defines some metadata for the chains, such as name, icons, explorer URL, etc.            |
 | **/config/configuredRelayer.json**      | If chains have a relayer, the URL and the chain IDs it covers are entered here           |
-| **/config/configuredCustomTokens.json** | Defines a list of tokens that should be availabe in the token dropdowns                  |
+| **/config/configuredCustomTokens.json** | Defines a list of tokens that should be available in the token dropdowns                  |
 
 ---
 
@@ -73,7 +73,7 @@ To get started, open your terminal in `/packages/bridge-ui-v2/`
 
    This command exports the json as base64 string to your .env file
 
-4. Now whenver a build is triggered it will generate the config files based on the .env file in `src/generated/`
+4. Now whenever a build is triggered it will generate the config files based on the .env file in `src/generated/`
    <br>**Note: In the** `config/schemas` **folder are schemas that will validate the correct json format and report any errors in your initial json configurations, so check the log output for any errors!**
    <br>
 
