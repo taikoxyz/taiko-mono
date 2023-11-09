@@ -134,7 +134,11 @@ contract TaikoL1 is
 
     /// @notice Verifies up to N blocks.
     /// @param maxBlocksToVerify Max number of blocks to verify.
-    function verifyBlocks(uint64 maxBlocksToVerify) external nonReentrant {
+    function verifyBlocks(uint64 maxBlocksToVerify)
+        external
+        nonReentrant
+        whenNotPaused
+    {
         if (maxBlocksToVerify == 0) revert L1_INVALID_PARAM();
         if (state.slotB.provingPaused) revert L1_PROVING_PAUSED();
 
