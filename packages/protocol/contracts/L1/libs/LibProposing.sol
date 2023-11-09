@@ -116,20 +116,6 @@ library LibProposing {
             });
         }
 
-        // Following the Merge, the L1 mixHash incorporates the
-        // prevrandao value from the beacon chain. Given the possibility
-        // of multiple Taiko blocks being proposed within a single
-        // Ethereum block, we must introduce a salt to this random
-        // number as the L2 mixHash.
-        unchecked {
-            meta.difficulty = meta.blobHash
-                ^ bytes32(block.prevrandao * b.numBlocks * block.number);
-        }
-
-        // Use the difficulty as a random number
-        meta.minTier = ITierProvider(resolver.resolve("tier_provider", false))
-            .getMinTier(uint256(meta.difficulty));
-
         // Update certain meta fields
         if (meta.blobUsed) {
             if (!config.blobAllowedForDA) revert L1_BLOB_FOR_DA_DISABLED();
@@ -194,6 +180,20 @@ library LibProposing {
             meta.txListByteOffset = 0;
             meta.txListByteSize = uint24(txList.length);
         }
+
+        // Following the Merge, the L1 mixHash incorporates the
+        // prevrandao value from the beacon chain. Given the possibility
+        // of multiple Taiko blocks being proposed within a single
+        // Ethereum block, we must introduce a salt to this random
+        // number as the L2 mixHash.
+        unchecked {
+            meta.difficulty = meta.blobHash
+                ^ bytes32(block.prevrandao * b.numBlocks * block.number);
+        }
+
+        // Use the difficulty as a random number
+        meta.minTier = ITierProvider(resolver.resolve("tier_provider", false))
+            .getMinTier(uint256(meta.difficulty));
 
         // Now, it's essential to initialize the block that will be stored
         // on L1. We should aim to utilize as few storage slots as possible,
