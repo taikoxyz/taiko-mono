@@ -41,10 +41,7 @@ abstract contract MerkleClaimable is OwnableUpgradeable {
         external
         ongoingClaim
     {
-        (address user, uint256 amount) = abi.decode(data, (address, uint256));
-
-        bytes32 hash =
-            keccak256(abi.encode("CLAIM_TAIKO_AIRDROP", user, amount));
+        bytes32 hash = keccak256(abi.encode("CLAIM_TAIKO_AIRDROP", data));
 
         if (isClaimed[hash]) revert CLAIMED_ALREADY();
 
@@ -57,26 +54,45 @@ abstract contract MerkleClaimable is OwnableUpgradeable {
         emit Claimed(hash);
     }
 
-    /// @notice Set time window for claiming
+    /// @notice Set config parameters
     /// @param _claimStart Unix timestamp for claim start
     /// @param _claimEnd Unix timestamp for claim end
-    function setClaimWindow(
+    /// @param _merkleRoot Merkle root of the tree
+    function setConfig(
         uint128 _claimStart,
-        uint128 _claimEnd
+        uint128 _claimEnd,
+        bytes32 _merkleRoot
     )
         external
         onlyOwner
     {
-        claimStart = _claimStart;
-        claimEnd = _claimEnd;
+        _setConfig(_claimStart, _claimEnd, _merkleRoot);
     }
 
-    function _init(bytes32 _merkleRoot) internal {
+    function _init(
+        uint128 _claimStart,
+        uint128 _claimEnd,
+        bytes32 _merkleRoot
+    )
+        internal
+    {
         OwnableUpgradeable.__Ownable_init();
 
         if (_merkleRoot == 0x0) {
             revert INVALID_MERKLE_ROOT();
         }
+        _setConfig(_claimStart, _claimEnd, _merkleRoot);
+    }
+
+    function _setConfig(
+        uint128 _claimStart,
+        uint128 _claimEnd,
+        bytes32 _merkleRoot
+    )
+        internal
+    {
+        claimStart = _claimStart;
+        claimEnd = _claimEnd;
         merkleRoot = _merkleRoot;
     }
 

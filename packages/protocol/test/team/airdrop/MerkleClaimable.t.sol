@@ -31,17 +31,19 @@ contract TestERC20Airdrop is Test {
     address internal ERC20VaultDAO = vm.addr(0x6);
 
     bytes32 merkleRoot =
-        0xd972651f7cddff54ed23e3dc825d53a5ef4ab530d30b3a97c32cc27925c72895;
+        0x73a7330a8657ad864b954215a8f636bb3709d2edea60bcd4fcb8a448dbc6d70f;
 
     Airdrop airdrop = new Airdrop();
 
     ERC20 tko = new MyERC20(address(ERC20VaultDAO));
 
     function setUp() public {
-        airdrop.init(merkleRoot, address(tko), ERC20VaultDAO);
+        airdrop.init(0, 0, merkleRoot, address(tko), ERC20VaultDAO);
 
-        airdrop.setClaimWindow(
-            uint128(block.timestamp + 10), uint128(block.timestamp + 10_000)
+        airdrop.setConfig(
+            uint128(block.timestamp + 10),
+            uint128(block.timestamp + 10_000),
+            merkleRoot
         );
 
         vm.roll(block.number + 1);
@@ -55,11 +57,11 @@ contract TestERC20Airdrop is Test {
         vm.warp(1);
         bytes32[] memory merkleProof = new bytes32[](3);
         merkleProof[0] =
-            0xef4153c249460bb47403871d041064c48a48571d40174883a9858eca6ed5b499;
+            0x4014b456db813d18e801fe3b30bbe14542c9c84caa9a92b643f7f46849283077;
         merkleProof[1] =
-            0xabb52c574a28d8b9ac22f1e8d1fc1a1f09afd02155db6c3927c189af671f665f;
+            0xfc2f09b34fb9437f9bde16049237a2ab3caa6d772bd794da57a8c314aea22b3f;
         merkleProof[2] =
-            0x169af611859d371d65b73fed2987f6a781fd99490e88193aef256aa0012f1396;
+            0xc13844b93533d8aec9c7c86a3d9399efb4e834f4069b9fd8a88e7290be612d05;
 
         vm.expectRevert(MerkleClaimable.CLAIM_NOT_ONGOING.selector);
         vm.prank(Alice, Alice);
@@ -71,11 +73,11 @@ contract TestERC20Airdrop is Test {
 
         bytes32[] memory merkleProof = new bytes32[](3);
         merkleProof[0] =
-            0xef4153c249460bb47403871d041064c48a48571d40174883a9858eca6ed5b499;
+            0x4014b456db813d18e801fe3b30bbe14542c9c84caa9a92b643f7f46849283077;
         merkleProof[1] =
-            0xabb52c574a28d8b9ac22f1e8d1fc1a1f09afd02155db6c3927c189af671f665f;
+            0xfc2f09b34fb9437f9bde16049237a2ab3caa6d772bd794da57a8c314aea22b3f;
         merkleProof[2] =
-            0x169af611859d371d65b73fed2987f6a781fd99490e88193aef256aa0012f1396;
+            0xc13844b93533d8aec9c7c86a3d9399efb4e834f4069b9fd8a88e7290be612d05;
 
         vm.expectRevert(MerkleClaimable.CLAIM_NOT_ONGOING.selector);
         vm.prank(Alice, Alice);
@@ -87,11 +89,11 @@ contract TestERC20Airdrop is Test {
         // These proofs are coming from 'pnpm run buildMerkle'
         bytes32[] memory merkleProof = new bytes32[](3);
         merkleProof[0] =
-            0xef4153c249460bb47403871d041064c48a48571d40174883a9858eca6ed5b499;
+            0x4014b456db813d18e801fe3b30bbe14542c9c84caa9a92b643f7f46849283077;
         merkleProof[1] =
-            0xabb52c574a28d8b9ac22f1e8d1fc1a1f09afd02155db6c3927c189af671f665f;
+            0xfc2f09b34fb9437f9bde16049237a2ab3caa6d772bd794da57a8c314aea22b3f;
         merkleProof[2] =
-            0x169af611859d371d65b73fed2987f6a781fd99490e88193aef256aa0012f1396;
+            0xc13844b93533d8aec9c7c86a3d9399efb4e834f4069b9fd8a88e7290be612d05;
 
         vm.expectRevert(MerkleClaimable.INVALID_PROOF.selector);
         vm.prank(Alice, Alice);
@@ -103,11 +105,11 @@ contract TestERC20Airdrop is Test {
         // These proofs are coming from 'pnpm run buildMerkle'
         bytes32[] memory merkleProof = new bytes32[](3);
         merkleProof[0] =
-            0xef4153c249460bb47403871d041064c48a48571d40174883a9858eca6ed5b499;
+            0x4014b456db813d18e801fe3b30bbe14542c9c84caa9a92b643f7f46849283077;
         merkleProof[1] =
-            0xabb52c574a28d8b9ac22f1e8d1fc1a1f09afd02155db6c3927c189af671f665f;
+            0xfc2f09b34fb9437f9bde16049237a2ab3caa6d772bd794da57a8c314aea22b3f;
         merkleProof[2] =
-            0x169af611859d371d65b73fed2987f6a781fd99490e88193aef256aa0012f1396;
+            0xc13844b93533d8aec9c7c86a3d9399efb4e834f4069b9fd8a88e7290be612d05;
 
         vm.prank(Alice, Alice);
         airdrop.claim(abi.encode(Alice, 100), merkleProof);
@@ -121,11 +123,11 @@ contract TestERC20Airdrop is Test {
         // These proofs are coming from 'pnpm run buildMerkle'
         bytes32[] memory merkleProof = new bytes32[](3);
         merkleProof[0] =
-            0xef4153c249460bb47403871d041064c48a48571d40174883a9858eca6ed5b499;
+            0x4014b456db813d18e801fe3b30bbe14542c9c84caa9a92b643f7f46849283077;
         merkleProof[1] =
-            0xabb52c574a28d8b9ac22f1e8d1fc1a1f09afd02155db6c3927c189af671f665f;
+            0xfc2f09b34fb9437f9bde16049237a2ab3caa6d772bd794da57a8c314aea22b3f;
         merkleProof[2] =
-            0x169af611859d371d65b73fed2987f6a781fd99490e88193aef256aa0012f1396;
+            0xc13844b93533d8aec9c7c86a3d9399efb4e834f4069b9fd8a88e7290be612d05;
 
         vm.prank(Alice, Alice);
         airdrop.claim(abi.encode(Alice, 100), merkleProof);
