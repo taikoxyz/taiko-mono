@@ -131,28 +131,8 @@ library LibProposing {
             .getMinTier(uint256(meta.difficulty));
 
         // Update certain meta fields
-        if (!meta.blobUsed) {
-            // The proposer must be an Externally Owned Account (EOA) for
-            // calldata usage. This ensures that the transaction is not an
-            // internal one, making calldata retrieval more straightforward.
-            if (!LibAddress.isSenderEOA()) revert L1_PROPOSER_NOT_EOA();
-
-            if (params.txListByteOffset != 0 || params.txListByteSize != 0) {
-                revert L1_INVALID_PARAM();
-            }
-
-            // blockMaxTxListBytes is a uint24
-            if (txList.length > config.blockMaxTxListBytes) {
-                revert L1_TXLIST_SIZE();
-            }
-
-            meta.blobHash = keccak256(txList);
-            meta.txListByteOffset = 0;
-            meta.txListByteSize = uint24(txList.length);
-        } else {
-            if (!config.blobAllowedForDA) {
-                revert L1_BLOB_FOR_DA_DISABLED();
-            }
+        if (meta.blobUsed) {
+            if (!config.blobAllowedForDA) revert L1_BLOB_FOR_DA_DISABLED();
 
             if (params.blobHash != 0) {
                 // We try to reuse an old blob
@@ -194,6 +174,25 @@ library LibProposing {
 
             meta.txListByteOffset = params.txListByteOffset;
             meta.txListByteSize = params.txListByteSize;
+        } else {
+            // The proposer must be an Externally Owned Account (EOA) for
+            // calldata usage. This ensures that the transaction is not an
+            // internal one, making calldata retrieval more straightforward for
+            // Taiko node software.
+            if (!LibAddress.isSenderEOA()) revert L1_PROPOSER_NOT_EOA();
+
+            if (params.txListByteOffset != 0 || params.txListByteSize != 0) {
+                revert L1_INVALID_PARAM();
+            }
+
+            // blockMaxTxListBytes is a uint24
+            if (txList.length > config.blockMaxTxListBytes) {
+                revert L1_TXLIST_SIZE();
+            }
+
+            meta.blobHash = keccak256(txList);
+            meta.txListByteOffset = 0;
+            meta.txListByteSize = uint24(txList.length);
         }
 
         // Now, it's essential to initialize the block that will be stored
