@@ -8,18 +8,18 @@ import (
 	echo "github.com/labstack/echo/v4"
 )
 
-// GetHealthChecks
+// GetStats
 //
-//	 returns the health checks.
+//	 returns the stats
 //
-//			@Summary		Get health checks by guardian prover id
-//			@ID			   	get-health-checks-by-guardian-prover-id
+//			@Summary		Get stats by guardian prover id
+//			@ID			   	get-stats-by-guardian-prover-id
 //			@Accept			json
 //			@Produce		json
 //			@Success		200	{object} paginate.Page
-//			@Router			/healthchecks [get]
+//			@Router			/stats/:id [get]
 
-func (srv *Server) GetHealthChecksByGuardianProverID(c echo.Context) error {
+func (srv *Server) GetStatsByGuardianProverID(c echo.Context) error {
 	idParam := c.Param("id")
 	if idParam == "" {
 		return c.JSON(http.StatusBadRequest, errors.New("no id provided"))
@@ -30,7 +30,7 @@ func (srv *Server) GetHealthChecksByGuardianProverID(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
-	page, err := srv.healthCheckRepo.GetByGuardianProverID(c.Request().Context(), c.Request(), id)
+	page, err := srv.statRepo.GetByGuardianProverID(c.Request().Context(), c.Request(), id)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, err)
 	}

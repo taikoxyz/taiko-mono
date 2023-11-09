@@ -84,6 +84,11 @@ func InitFromConfig(ctx context.Context, h *HealthChecker, cfg *Config) (err err
 		return err
 	}
 
+	statRepo, err := repo.NewStatRepository(db)
+	if err != nil {
+		return err
+	}
+
 	endpoints := make([]*url.URL, 0)
 
 	for _, v := range cfg.GuardianProverEndpoints {
@@ -141,6 +146,7 @@ func InitFromConfig(ctx context.Context, h *HealthChecker, cfg *Config) (err err
 	h.httpSrv, err = hchttp.NewServer(hchttp.NewServerOpts{
 		Echo:            echo.New(),
 		HealthCheckRepo: healthCheckRepo,
+		StatRepo:        statRepo,
 	})
 
 	if err != nil {
