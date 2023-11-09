@@ -246,8 +246,9 @@ library LibProposing {
 
         // Validate the prover assignment, then charge Ether or ERC20 as the
         // prover fee based on the block's minTier.
-        uint256 proverFee =
-            _validateAssignment(meta.minTier, meta.blobHash, params.assignment);
+        uint256 proverFee = _validateAssignment(
+            meta.minTier, meta.blobHash, blk.blockId, params.assignment
+        );
 
         emit BlockProposed({
             blockId: blk.blockId,
@@ -288,6 +289,7 @@ library LibProposing {
                 blobHash,
                 assignment.feeToken,
                 assignment.expiry,
+                assignment.maxBlockId,
                 assignment.tierFees
             )
         );
@@ -296,13 +298,17 @@ library LibProposing {
     function _validateAssignment(
         uint16 minTier,
         bytes32 blobHash,
+        uint64 blockId,
         TaikoData.ProverAssignment memory assignment
     )
         private
         returns (uint256 proverFee)
     {
         // Check assignment not expired
-        if (block.timestamp >= assignment.expiry) {
+        if (
+            block.timestamp >= assignment.expiry
+                || blockId > assignment.maxBlockId
+        ) {
             revert L1_ASSIGNMENT_EXPIRED();
         }
 
