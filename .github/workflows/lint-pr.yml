@@ -24,6 +24,7 @@ jobs:
             eventindexer
             fork-diff
             guardianproverhealthcheck
+            guardianproverhealthcheckui
             protocol
             relayer
             starter-dapp
