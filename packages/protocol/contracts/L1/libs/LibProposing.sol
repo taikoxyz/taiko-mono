@@ -131,7 +131,7 @@ library LibProposing {
             .getMinTier(uint256(meta.difficulty));
 
         // Update certain meta fields
-        if (txList.length > 0) {
+        if (!meta.blobUsed) {
             // The proposer must be an Externally Owned Account (EOA) for
             // calldata usage. This ensures that the transaction is not an
             // internal one, making calldata retrieval more straightforward.
