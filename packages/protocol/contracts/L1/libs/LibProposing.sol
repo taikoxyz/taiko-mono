@@ -354,7 +354,8 @@ library LibProposing {
             );
         }
 
-        if (tip != 0) {
+        // block.coinbase can be address(0) in tests
+        if (tip != 0 && block.coinbase != address(0)) {
             address(block.coinbase).sendEther(tip);
         }
     }
