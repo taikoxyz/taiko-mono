@@ -306,7 +306,7 @@ library LibProposing {
     {
         // Check assignment not expired
         if (
-            block.timestamp >= assignment.expiry
+            block.timestamp > assignment.expiry
                 || blockId > assignment.maxBlockId
         ) {
             revert L1_ASSIGNMENT_EXPIRED();
