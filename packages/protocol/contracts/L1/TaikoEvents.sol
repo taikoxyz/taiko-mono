@@ -23,13 +23,15 @@ abstract contract TaikoEvents {
     /// @param meta The block metadata containing information about the proposed
     /// block.
     /// @param depositsProcessed Ether deposits processed.
+    /// @param tip The Ether sent to block coinbase as a tip.
     event BlockProposed(
         uint256 indexed blockId,
         address indexed assignedProver,
         uint96 livenessBond,
         uint256 proverFee,
         TaikoData.BlockMetadata meta,
-        TaikoData.EthDeposit[] depositsProcessed
+        TaikoData.EthDeposit[] depositsProcessed,
+        uint256 tip
     );
     /// @dev Emitted when a block is verified.
     /// @param blockId The ID of the verified block.
