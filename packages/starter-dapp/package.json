@@ -64,7 +64,7 @@
     "@sveltestack/svelte-query": "^1.6.0",
     "@wagmi/connectors": "^0.1.1",
     "@wagmi/core": "^0.8.0",
-    "axios": "^1.2.0",
+    "axios": "^1.6.0",
     "buffer": "^6.0.3",
     "ethers": "^5.7.1",
     "identicon.js": "^2.3.3",

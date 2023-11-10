@@ -62,7 +62,7 @@
     "@web3modal/ethereum": "^2.6.2",
     "@web3modal/html": "^2.6.2",
     "@zerodevx/svelte-toast": "^0.9.5",
-    "axios": "^1.4.0",
+    "axios": "^1.6.0",
     "buffer": "^6.0.3",
     "debug": "^4.3.4",
     "events": "^3.3.0",
