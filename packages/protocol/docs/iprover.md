@@ -57,4 +57,4 @@ The proposer and prover interact off-chain to agree on the price and perform the
 
 3. Proposer creates the `ProverAssignment` struct data (obviously together with the `input` and `txList`) and submits the `proposeBlock()` with the necessary parameters.
 
-During `proposeBlock()` transaction, the `onBlockAssigned()` hook which will evaluate the validity of the prover signature, and if that one is correct then executest he transfer of `10 DAI`.
+During `proposeBlock()` transaction, the `onBlockAssigned()` hook which will evaluate the validity of the prover signature, and if that one is correct then execute he transfer of `10 DAI`.
