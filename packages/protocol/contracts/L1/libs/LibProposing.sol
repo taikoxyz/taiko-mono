@@ -35,8 +35,7 @@ library LibProposing {
         uint96 livenessBond,
         uint256 proverFee,
         TaikoData.BlockMetadata meta,
-        TaikoData.EthDeposit[] depositsProcessed,
-        uint256 tip
+        TaikoData.EthDeposit[] depositsProcessed
     );
 
     event BlobCached(bytes32 blobHash);
@@ -260,20 +259,16 @@ library LibProposing {
 
         // Validate the prover assignment, then charge Ether or ERC20 as the
         // prover fee based on the block's minTier.
-        (uint256 proverFee, uint256 tip) =
-            _validateAssignment(meta.minTier, meta.blobHash, params.assignment);
+        uint256 proverFee =
+            _payProverFeeAndTip(meta.minTier, meta.blobHash, params.assignment);
 
-        if (tip != 0) {
-            address(block.coinbase).sendEther(tip);
-        }
         emit BlockProposed({
             blockId: blk.blockId,
             assignedProver: blk.assignedProver,
             livenessBond: config.livenessBond,
             proverFee: proverFee,
             meta: meta,
-            depositsProcessed: depositsProcessed,
-            tip: tip
+            depositsProcessed: depositsProcessed
         });
     }
 
@@ -311,13 +306,13 @@ library LibProposing {
         );
     }
 
-    function _validateAssignment(
+    function _payProverFeeAndTip(
         uint16 minTier,
         bytes32 blobHash,
         TaikoData.ProverAssignment memory assignment
     )
         private
-        returns (uint256 proverFee, uint256 tip)
+        returns (uint256 proverFee)
     {
         // Check assignment not expired
         if (block.timestamp >= assignment.expiry) {
@@ -341,6 +336,7 @@ library LibProposing {
 
         // The proposer irrevocably pays a fee to the assigned prover, either in
         // Ether or ERC20 tokens.
+        uint256 tip;
         if (assignment.feeToken == address(0)) {
             // Paying Ether
             if (msg.value < proverFee) revert L1_ASSIGNMENT_INSUFFICIENT_FEE();
@@ -359,6 +355,10 @@ library LibProposing {
             ERC20Upgradeable(assignment.feeToken).transferFrom(
                 msg.sender, assignment.prover, proverFee
             );
+        }
+
+        if (tip != 0) {
+            address(block.coinbase).sendEther(tip);
         }
     }
 
