@@ -105,6 +105,7 @@ library TaikoData {
         uint24 txListByteSize;
         uint16 minTier;
         bool blobUsed;
+        bytes32 parentMetaHash; // slot 8
     }
 
     /// @dev Struct representing transition to be proven.
