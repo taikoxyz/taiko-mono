@@ -340,7 +340,7 @@ library LibProposing {
         if (assignment.feeToken == address(0)) {
             if (msg.value < proverFee) revert L1_ASSIGNMENT_INSUFFICIENT_FEE();
             unchecked {
-                tip = proverFee - msg.value;
+                tip = msg.value - proverFee;
             }
 
             // Paying Ether
