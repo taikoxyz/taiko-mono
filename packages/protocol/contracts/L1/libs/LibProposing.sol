@@ -338,16 +338,11 @@ library LibProposing {
         // Ether or ERC20 tokens.
         uint256 tip;
         if (assignment.feeToken == address(0)) {
-            // Paying Ether
             if (msg.value < proverFee) revert L1_ASSIGNMENT_INSUFFICIENT_FEE();
             tip = proverFee - msg.value;
 
+            // Paying Ether
             assignment.prover.sendEther(proverFee);
-            unchecked {
-                // Return the extra Ether to the proposer
-                uint256 refund = msg.value - proverFee;
-                if (refund != 0) msg.sender.sendEther(refund);
-            }
         } else {
             tip = msg.value;
 
