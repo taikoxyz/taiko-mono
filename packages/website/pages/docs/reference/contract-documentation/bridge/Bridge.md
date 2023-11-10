@@ -301,7 +301,7 @@ Tells if we need to check real proof or it is a test.
 
 | Name | Type | Description                                                  |
 | ---- | ---- | ------------------------------------------------------------ |
-| [0]  | bool | Returns true if this contract, or can be false if mock/test. |
+| [0]  | bool | Returns true if real proof checking is required, otherwise false if it is a mock/test environment. |
 
 ---
 
