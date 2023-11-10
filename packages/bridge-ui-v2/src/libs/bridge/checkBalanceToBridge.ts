@@ -42,8 +42,13 @@ export async function checkBalanceToBridge({
   const wallet = await getConnectedWallet();
   let estimatedCost = BigInt(0);
 
+  console.log("checkBalanceToBridge to", to);
+
   if (token.type === TokenType.ETH) {
     const { bridgeAddress } = routingContractsMap[srcChainId][destChainId];
+
+    console.log("bridgeAddress", bridgeAddress);
+
     const bridgeArgs = {
       to,
       amount,

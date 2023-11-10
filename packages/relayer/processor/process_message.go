@@ -58,6 +58,8 @@ func (p *Processor) eventStatusFromMsgHash(
 	return eventStatus, nil
 }
 
+
+
 // processMessage prepares and calls `processMessage` on the bridge.
 // the proof must be generated from the gethclient's eth_getProof via the Prover,
 // then rlp-encoded and combined as a singular byte slice,
@@ -91,6 +93,7 @@ func (p *Processor) processMessage(
 
 	var blockNum uint64 = msgBody.Event.Raw.BlockNumber
 
+
 	// wait for srcChain => destChain header to sync if no hops,
 	// or srcChain => hopChain => hopChain => hopChain => destChain if hops exist.
 	if p.hops != nil {
@@ -122,9 +125,11 @@ func (p *Processor) processMessage(
 			return errors.Wrap(err, "p.waitHeaderSynced")
 		}
 	} else {
+	
 		if err := p.waitHeaderSynced(ctx, p.destHeaderSyncer, p.srcEthClient, msgBody.Event.Raw.BlockNumber); err != nil {
 			return errors.Wrap(err, "p.waitHeaderSynced")
 		}
+
 	}
 
 	key, err := p.srcSignalService.GetSignalSlot(&bind.CallOpts{},
@@ -142,6 +147,7 @@ func (p *Processor) processMessage(
 	var encodedSignalProof []byte
 
 	var latestSyncedSnippet icrosschainsync.ICrossChainSyncSnippet
+
 
 	// if a hop is set, the proof service needs to generate an additional proof
 	// for the signal service intermediary chain in between the source chain
@@ -165,6 +171,7 @@ func (p *Processor) processMessage(
 		})
 	}
 
+	// If hops is there
 	if hops != nil {
 		encodedSignalProof, _, err = p.prover.EncodedSignalProofWithHops(
 			ctx,
@@ -194,6 +201,8 @@ func (p *Processor) processMessage(
 		)
 	}
 
+	// After getting encodedSignalProof
+	// Following code is the same for hops and not hops
 	if err != nil {
 		slog.Error("error encoding signal proof",
 			"srcChainID", msgBody.Event.Message.SrcChainId.String(),
@@ -294,6 +303,9 @@ func (p *Processor) processMessage(
 
 	return nil
 }
+
+
+
 
 func (p *Processor) sendProcessMessageCall(
 	ctx context.Context,

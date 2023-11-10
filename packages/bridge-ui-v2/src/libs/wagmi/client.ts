@@ -7,6 +7,8 @@ import { chains } from '$libs/chain';
 
 const projectId = PUBLIC_WALLETCONNECT_PROJECT_ID;
 
+console.log("chains", chains);
+
 export const { publicClient } = configureChains(chains, [walletConnectProvider({ projectId }), publicProvider()]);
 
 export const wagmiConfig = defaultWagmiConfig({ chains, projectId });

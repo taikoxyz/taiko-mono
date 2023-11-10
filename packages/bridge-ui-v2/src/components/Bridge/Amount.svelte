@@ -82,6 +82,7 @@
     }
 
     try {
+      console.log("checkBalanceToBridge sending");
       await checkBalanceToBridge({
         to,
         token,
@@ -96,6 +97,9 @@
             : [],
       });
     } catch (err) {
+
+      console.log("checkBalanceToBridge but error");
+
       switch (true) {
         case err instanceof InsufficientBalanceError:
           $insufficientBalance = true;

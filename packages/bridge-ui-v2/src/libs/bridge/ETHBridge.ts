@@ -17,11 +17,15 @@ export class ETHBridge extends Bridge {
   private static async _prepareTransaction(args: ETHBridgeArgs) {
     const { to, amount, wallet, srcChainId, destChainId, bridgeAddress, fee: processingFee, memo = '' } = args;
 
+    console.log("Bridge ABI", bridgeABI);
+
     const bridgeContract = getContract({
       walletClient: wallet,
       abi: bridgeABI,
       address: bridgeAddress,
     });
+
+    console.log("bridgeContract", bridgeContract);
 
     const owner = wallet.account.address;
 
@@ -34,24 +38,21 @@ export class ETHBridge extends Bridge {
     const gasLimit = processingFee > 0 ? bridgeService.noOwnerGasLimit : BigInt(0);
 
     const message: Message = {
-      to,
-      user: owner,
+      id: BigInt(0), // will be set in contract
       from: owner,
-      refundTo: owner,
-
       srcChainId: BigInt(srcChainId),
       destChainId: BigInt(destChainId),
-
-      gasLimit,
+      user: owner,
+      to,
+      refundTo: owner,
       value,
       fee: processingFee,
-
-      memo,
+      gasLimit,
       data: '0x',
-      id: BigInt(0), // will be set in contract
+      memo,
     };
 
-    log('Preparing transaction with message', message);
+    console.log('Preparing transaction with message', message);
 
     return { bridgeContract, message };
   }
@@ -61,21 +62,30 @@ export class ETHBridge extends Bridge {
   }
 
   async estimateGas(args: ETHBridgeArgs) {
+
+    console.log("estimateGas");
+
     const { bridgeContract, message } = await ETHBridge._prepareTransaction(args);
+
+    console.log("bridgeContract", bridgeContract);
+
     const { value: callValue, fee: processingFee } = message;
 
     const value = callValue + processingFee;
 
-    log('Estimating gas for sendMessage call with value', value);
+    console.log('Estimating gas for sendMessage call with value', value);
 
     const estimatedGas = await bridgeContract.estimateGas.sendMessage([message], { value });
 
-    log('Gas estimated', estimatedGas);
+    console.log('Gas estimated', estimatedGas);
 
     return estimatedGas;
   }
 
   async bridge(args: ETHBridgeArgs) {
+
+    console.log("bridge");
+
     const { bridgeContract, message } = await ETHBridge._prepareTransaction(args);
     const { value: callValue, fee: processingFee } = message;
 

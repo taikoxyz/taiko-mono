@@ -17,9 +17,18 @@ export class BridgeProver extends Prover {
     const encodedProof = toRlp(proof.storageProof[0].proof);
 
     // Encode the SignalProof struct:
+    // 
+    // struct Hop {
+    //   address signalRootRelay;
+    //   bytes32 signalRoot;
+    //   bytes storageProof;
+    // }
+    //
     // struct SignalProof {
+    //   address crossChainSync;
     //   uint256 height;
-    //   bytes proof;
+    //   bytes storageProof;
+    //   Hop[] hops;
     // }
     const signalProof = encodeAbiParameters(
       // ['tuple(uint256 height, bytes proof)'],

@@ -70,6 +70,8 @@ func (p *Prover) EncodedSignalProof(
 	return encodedSignalProof, nil
 }
 
+
+// We need to implement this in Bridge UI
 func (p *Prover) EncodedSignalProofWithHops(
 	ctx context.Context,
 	caller relayer.Caller,
