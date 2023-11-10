@@ -98,11 +98,7 @@ library LibProposing {
         // If we choose to persist all data fields in the metadata, it will
         // require additional storage slots.
         unchecked {
-            TaikoData.Block storage parentBlk =
-                state.blocks[(b.numBlocks - 1) % config.blockRingBufferSize];
-
             meta = TaikoData.BlockMetadata({
-                parentMetaHash: parentBlk.metaHash,
                 l1Hash: blockhash(block.number - 1),
                 difficulty: 0, // to be initialized below
                 blobHash: 0, // to be initialized below
@@ -116,7 +112,9 @@ library LibProposing {
                 txListByteOffset: 0, // to be initialized below
                 txListByteSize: 0, // to be initialized below
                 minTier: 0, // to be initialized below
-                blobUsed: txList.length == 0
+                blobUsed: txList.length == 0,
+                parentMetaHash: state.blocks[(b.numBlocks - 1)
+                    % config.blockRingBufferSize].metaHash
             });
         }
 
