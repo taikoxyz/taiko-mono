@@ -112,7 +112,9 @@ library LibProposing {
                 txListByteOffset: 0, // to be initialized below
                 txListByteSize: 0, // to be initialized below
                 minTier: 0, // to be initialized below
-                blobUsed: txList.length == 0
+                blobUsed: txList.length == 0,
+                parentMetaHash: state.blocks[(b.numBlocks - 1)
+                    % config.blockRingBufferSize].metaHash
             });
         }
 
