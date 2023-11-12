@@ -107,7 +107,7 @@ contract BridgeTest is TestBase {
         // coresponding to the message
         bytes memory proof = hex"00";
 
-        bytes32 msgHash = keccak256(abi.encode(message));
+        bytes32 msgHash = destChainBridge.hashMessage(message);
 
         vm.chainId(destChainId);
         vm.prank(Bob, Bob);
@@ -146,7 +146,7 @@ contract BridgeTest is TestBase {
         // coresponding to the message
         bytes memory proof = hex"00";
 
-        bytes32 msgHash = keccak256(abi.encode(message));
+        bytes32 msgHash = destChainBridge.hashMessage(message);
 
         vm.chainId(destChainId);
 
@@ -185,7 +185,7 @@ contract BridgeTest is TestBase {
         // coresponding to the message
         bytes memory proof = hex"00";
 
-        bytes32 msgHash = keccak256(abi.encode(message));
+        bytes32 msgHash = destChainBridge.hashMessage(message);
 
         vm.chainId(destChainId);
 
@@ -396,7 +396,7 @@ contract BridgeTest is TestBase {
         (IBridge.Message memory message, bytes memory proof) =
             setUpPredefinedSuccessfulProcessMessageCall();
 
-        bytes32 msgHash = keccak256(abi.encode(message));
+        bytes32 msgHash = destChainBridge.hashMessage(message);
 
         destChainBridge.processMessage(message, proof);
 
@@ -419,7 +419,7 @@ contract BridgeTest is TestBase {
         // etch bad receiver at the to address, so it fails.
         vm.etch(message.to, address(badReceiver).code);
 
-        bytes32 msgHash = keccak256(abi.encode(message));
+        bytes32 msgHash = destChainBridge.hashMessage(message);
 
         destChainBridge.processMessage(message, proof);
 

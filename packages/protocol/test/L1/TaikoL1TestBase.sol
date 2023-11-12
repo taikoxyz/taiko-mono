@@ -151,6 +151,7 @@ abstract contract TaikoL1TestBase is TestBase {
             feeToken: address(0),
             tierFees: tierFees,
             expiry: uint64(block.timestamp + 60 minutes),
+            maxBlockId: 1_000_000,
             signature: new bytes(0)
         });
 

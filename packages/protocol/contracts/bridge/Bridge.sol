@@ -102,7 +102,7 @@ contract Bridge is EssentialContract, IBridge {
         _message.from = msg.sender;
         _message.srcChainId = uint64(block.chainid);
 
-        msgHash = keccak256(abi.encode(_message));
+        msgHash = hashMessage(_message);
 
         ISignalService(resolve("signal_service", false)).sendSignal(msgHash);
         emit MessageSent(msgHash, _message);
@@ -123,7 +123,7 @@ contract Bridge is EssentialContract, IBridge {
         whenNotPaused
         sameChain(message.srcChainId)
     {
-        bytes32 msgHash = keccak256(abi.encode(message));
+        bytes32 msgHash = hashMessage(message);
         if (isMessageRecalled[msgHash]) revert B_RECALLED_ALREADY();
 
         bool received = _proveSignalReceived(
@@ -185,7 +185,8 @@ contract Bridge is EssentialContract, IBridge {
             revert B_PERMISSION_DENIED();
         }
 
-        bytes32 msgHash = keccak256(abi.encode(message));
+        bytes32 msgHash = hashMessage(message);
+
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
         bool received = _proveSignalReceived(msgHash, message.srcChainId, proof);
@@ -254,7 +255,7 @@ contract Bridge is EssentialContract, IBridge {
             if (msg.sender != message.user) revert B_PERMISSION_DENIED();
         }
 
-        bytes32 msgHash = keccak256(abi.encode(message));
+        bytes32 msgHash = hashMessage(message);
         if (messageStatus[msgHash] != Status.RETRIABLE) {
             revert B_NON_RETRIABLE();
         }
@@ -280,7 +281,7 @@ contract Bridge is EssentialContract, IBridge {
         if (message.srcChainId != block.chainid) return false;
         return ISignalService(resolve("signal_service", false)).isSignalSent({
             app: address(this),
-            signal: keccak256(abi.encode(message))
+            signal: hashMessage(message)
         });
     }
 
@@ -298,7 +299,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         if (message.srcChainId != block.chainid) return false;
         return _proveSignalReceived(
-            _signalForFailedMessage(keccak256(abi.encode(message))),
+            _signalForFailedMessage(hashMessage(message)),
             message.destChainId,
             proof
         );
@@ -318,7 +319,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         if (message.destChainId != block.chainid) return false;
         return _proveSignalReceived(
-            keccak256(abi.encode(message)), message.srcChainId, proof
+            hashMessage(message), message.srcChainId, proof
         );
     }
 
@@ -342,6 +343,15 @@ contract Bridge is EssentialContract, IBridge {
             revert B_INVALID_CONTEXT();
         }
         return _ctx;
+    }
+
+    /// @notice Hash the message
+    function hashMessage(Message memory message)
+        public
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encode("TAIKO_MESSAGE", message));
     }
 
     /// @notice Invokes a call message on the Bridge.
