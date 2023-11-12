@@ -29,7 +29,9 @@ contract ERC20Airdrop is MerkleClaimable {
         external
         initializer
     {
-        MerkleClaimable._init(_claimStarts, _claimEnds, _merkleRoot);
+        MerkleClaimable._init();
+        _setConfig(_claimStarts, _claimEnds, _merkleRoot);
+
         token = _token;
         vault = _vault;
     }

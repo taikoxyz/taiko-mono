@@ -8,12 +8,18 @@ pragma solidity ^0.8.20;
 
 import { OwnableUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import { ReentrancyGuardUpgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
+
 import { MerkleProofUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/utils/cryptography/MerkleProofUpgradeable.sol";
 
 /// @title MerkleClaimable
 /// Contract for managing Taiko token airdrop for eligible users
-abstract contract MerkleClaimable is OwnableUpgradeable {
+abstract contract MerkleClaimable is
+    ReentrancyGuardUpgradeable,
+    OwnableUpgradeable
+{
     mapping(bytes32 => bool) public isClaimed;
     bytes32 public merkleRoot;
     uint128 public claimStart;
@@ -24,7 +30,6 @@ abstract contract MerkleClaimable is OwnableUpgradeable {
     error CLAIM_NOT_ONGOING();
     error CLAIMED_ALREADY();
     error INVALID_PROOF();
-    error INVALID_MERKLE_ROOT();
 
     modifier ongoingClaim() {
         if (
@@ -39,6 +44,7 @@ abstract contract MerkleClaimable is OwnableUpgradeable {
         bytes32[] calldata proof
     )
         external
+        nonReentrant
         ongoingClaim
     {
         bytes32 hash = keccak256(abi.encode("CLAIM_TAIKO_AIRDROP", data));
@@ -69,19 +75,9 @@ abstract contract MerkleClaimable is OwnableUpgradeable {
         _setConfig(_claimStart, _claimEnd, _merkleRoot);
     }
 
-    function _init(
-        uint128 _claimStart,
-        uint128 _claimEnd,
-        bytes32 _merkleRoot
-    )
-        internal
-    {
-        OwnableUpgradeable.__Ownable_init();
-
-        if (_merkleRoot == 0x0) {
-            revert INVALID_MERKLE_ROOT();
-        }
-        _setConfig(_claimStart, _claimEnd, _merkleRoot);
+    function _init() internal {
+        OwnableUpgradeable.__Ownable_init_unchained();
+        ReentrancyGuardUpgradeable.__ReentrancyGuard_init_unchained();
     }
 
     function _setConfig(
