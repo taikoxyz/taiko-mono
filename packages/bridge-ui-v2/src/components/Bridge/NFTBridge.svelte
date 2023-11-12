@@ -24,7 +24,13 @@
   import RecipientStep from './NFTBridgeSteps/RecipientStep.svelte';
   import ReviewStep from './NFTBridgeSteps/ReviewStep.svelte';
   import type { ProcessingFee } from './ProcessingFee';
-  import { activeBridge, destNetwork as destinationChain, selectedNFTs, selectedToken } from './state';
+  import {
+    activeBridge,
+    destNetwork as destinationChain,
+    recipientAddress,
+    selectedNFTs,
+    selectedToken,
+  } from './state';
   import { NFTSteps } from './types';
 
   let amountComponent: Amount;
@@ -34,6 +40,8 @@
   let nftIdArray: number[] = [];
   let contractAddress: Address | string = '';
   let bridgingStatus: 'pending' | 'done' = 'pending';
+
+  let hasEnoughEth: boolean = false;
 
   function onNetworkChange(newNetwork: Network, oldNetwork: Network) {
     updateForm();
@@ -89,12 +97,13 @@
     if (amountComponent) amountComponent.clearAmount();
     if (processingFeeComponent) processingFeeComponent.resetProcessingFee();
     if (addressInputComponent) addressInputComponent.clearAddress();
-    if (recipientStepComponent) recipientStepComponent.reset();
 
     // Update balance after bridging
     if (amountComponent) amountComponent.updateBalance();
     if (nftIdInputComponent) nftIdInputComponent.clearIds();
 
+    $recipientAddress = $account?.address || null;
+    // $processingFee = 0n;
     $selectedToken = ETHToken;
     importMethod === null;
     scanned = false;
@@ -198,6 +207,8 @@
   onDestroy(() => {
     resetForm();
   });
+
+  $: activeStep === NFTSteps.IMPORT && resetForm();
 </script>
 
 <div class="f-col">
@@ -224,10 +235,10 @@
           bind:validating={validatingImport} />
         <!-- REVIEW STEP -->
       {:else if activeStep === NFTSteps.REVIEW}
-        <ReviewStep on:editTransactionDetails={handleTransactionDetailsClick} />
+        <ReviewStep on:editTransactionDetails={handleTransactionDetailsClick} bind:hasEnoughEth />
         <!-- RECIPIENT STEP -->
       {:else if activeStep === NFTSteps.RECIPIENT}
-        <RecipientStep bind:this={recipientStepComponent} />
+        <RecipientStep bind:this={recipientStepComponent} bind:hasEnoughEth />
         <!-- CONFIRM STEP -->
       {:else if activeStep === NFTSteps.CONFIRM}
         <ConfirmationStep bind:bridgingStatus />
