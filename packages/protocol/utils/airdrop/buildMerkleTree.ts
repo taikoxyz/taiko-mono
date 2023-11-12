@@ -1,8 +1,7 @@
 import { MerkleTree } from "merkletreejs/dist/MerkleTree";
-import { claimList } from "./airdrop_db/claimList";
 const { ethers } = require("ethers");
-
 const keccak256 = require("keccak256");
+const fs = require("fs");
 
 interface IClaimListData {
     address: string;
@@ -56,28 +55,43 @@ function buildLeaf(data: IClaimListData) {
     );
 }
 
-async function getMerkleProof(address: string, amount: number) {
+async function getMerkleProof(
+    address: string,
+    amount: number,
+    claimList: IClaimListData[],
+) {
     const merkleData = await buildMerkleTree(claimList);
     const leaf = buildLeaf({ address, amount });
 
     return merkleData.merkleTree.getHexProof(leaf);
 }
 
-// Using typescript because it can be used for production BE (with DB too - while solidity libraries lacking that.
 async function main() {
+    const filePath = process.argv[2];
+
+    if (!filePath) {
+        console.error(
+            "Please provide a path to the JSON file as a command-line argument.",
+        );
+        return;
+    }
+
+    const jsonData = fs.readFileSync(filePath, "utf-8");
+    const claimList: IClaimListData[] = JSON.parse(jsonData);
     const merkleData = await buildMerkleTree(claimList);
-    // This one is same as merkleData.rootHash: console.log(merkleData.merkleTree.getHexRoot());
+
     console.log("Merkle root:", merkleData.rootHash);
     console.log("Nr of leaves (entries):", claimList.length);
+
     const exampleProof = await getMerkleProof(
         "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf",
         100,
+        claimList,
     );
+
     console.log("Example proof for Alice (foundry) is: ", exampleProof);
 }
 
-main()
-    .then(() => {})
-    .catch((error) => {
-        console.error(error);
-    });
+main().catch((error) => {
+    console.error(error);
+});
