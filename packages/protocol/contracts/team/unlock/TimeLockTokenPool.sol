@@ -15,7 +15,7 @@ import { SafeERC20Upgradeable } from
 import { ECDSAUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/utils/cryptography/ECDSAUpgradeable.sol";
 
-import { Proxied } from "../common/Proxied.sol";
+import { Proxied } from "../../common/Proxied.sol";
 /// @title TimeLockTokenPool
 /// Contract for managing Taiko tokens allocated to different roles and
 /// individuals.

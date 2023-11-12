@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import { TimeLockTokenPool as Pool } from
-    "../../contracts/team/TimeLockTokenPool.sol";
+    "../../contracts/team/unlock/TimeLockTokenPool.sol";
 import { Test } from "forge-std/Test.sol";
 import { ERC20 } from
     "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
