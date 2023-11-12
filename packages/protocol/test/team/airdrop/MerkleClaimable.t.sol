@@ -41,8 +41,8 @@ contract TestERC20Airdrop is Test {
         airdrop.init(0, 0, merkleRoot, address(tko), ERC20VaultDAO);
 
         airdrop.setConfig(
-            uint128(block.timestamp + 10),
-            uint128(block.timestamp + 10_000),
+            uint64(block.timestamp + 10),
+            uint64(block.timestamp + 10_000),
             merkleRoot
         );
 
@@ -69,7 +69,7 @@ contract TestERC20Airdrop is Test {
     }
 
     function test_claim_but_claim_not_ongoing_anymore() public {
-        vm.warp(uint128(block.timestamp + 11_000));
+        vm.warp(uint64(block.timestamp + 11_000));
 
         bytes32[] memory merkleProof = new bytes32[](3);
         merkleProof[0] =
@@ -85,7 +85,7 @@ contract TestERC20Airdrop is Test {
     }
 
     function test_claim_but_with_invalid_allowance() public {
-        vm.warp(uint128(block.timestamp + 11));
+        vm.warp(uint64(block.timestamp + 11));
         // These proofs are coming from 'pnpm run buildMerkle'
         bytes32[] memory merkleProof = new bytes32[](3);
         merkleProof[0] =
@@ -101,7 +101,7 @@ contract TestERC20Airdrop is Test {
     }
 
     function test_claim() public {
-        vm.warp(uint128(block.timestamp + 11));
+        vm.warp(uint64(block.timestamp + 11));
         // These proofs are coming from 'pnpm run buildMerkle'
         bytes32[] memory merkleProof = new bytes32[](3);
         merkleProof[0] =
@@ -119,7 +119,7 @@ contract TestERC20Airdrop is Test {
     }
 
     function test_claim_with_same_proofs_twice() public {
-        vm.warp(uint128(block.timestamp + 11));
+        vm.warp(uint64(block.timestamp + 11));
         // These proofs are coming from 'pnpm run buildMerkle'
         bytes32[] memory merkleProof = new bytes32[](3);
         merkleProof[0] =

@@ -18,10 +18,11 @@ import { MerkleClaimable } from "./MerkleClaimable.sol";
 contract ERC20Airdrop is MerkleClaimable {
     address public token;
     address public vault;
+    uint256[48] private __gap;
 
     function init(
-        uint128 _claimStarts,
-        uint128 _claimEnds,
+        uint64 _claimStarts,
+        uint64 _claimEnds,
         bytes32 _merkleRoot,
         address _token,
         address _vault

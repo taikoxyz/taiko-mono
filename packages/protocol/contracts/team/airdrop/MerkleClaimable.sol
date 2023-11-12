@@ -22,8 +22,10 @@ abstract contract MerkleClaimable is
 {
     mapping(bytes32 => bool) public isClaimed;
     bytes32 public merkleRoot;
-    uint128 public claimStart;
-    uint128 public claimEnd;
+    uint64 public claimStart;
+    uint64 public claimEnd;
+
+    uint256[47] private __gap;
 
     event Claimed(bytes32 hash);
 
@@ -65,8 +67,8 @@ abstract contract MerkleClaimable is
     /// @param _claimEnd Unix timestamp for claim end
     /// @param _merkleRoot Merkle root of the tree
     function setConfig(
-        uint128 _claimStart,
-        uint128 _claimEnd,
+        uint64 _claimStart,
+        uint64 _claimEnd,
         bytes32 _merkleRoot
     )
         external
@@ -81,8 +83,8 @@ abstract contract MerkleClaimable is
     }
 
     function _setConfig(
-        uint128 _claimStart,
-        uint128 _claimEnd,
+        uint64 _claimStart,
+        uint64 _claimEnd,
         bytes32 _merkleRoot
     )
         internal
