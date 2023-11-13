@@ -8,6 +8,8 @@ func (srv *Server) configureRoutes() {
 
 	srv.echo.GET("/healthchecks/:id", srv.GetHealthChecksByGuardianProverID)
 
+	srv.echo.GET("/liveness/:id", srv.GetMostRecentHealthCheckByGuardianProverID)
+
 	srv.echo.GET("/stats", srv.GetStats)
 
 	srv.echo.GET("/stats/:id", srv.GetStatsByGuardianProverID)

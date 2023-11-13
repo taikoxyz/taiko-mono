@@ -4,6 +4,8 @@ const healthCheckRoute = "healthchecks";
 
 const statsRoute = "stats";
 
+const livenessRoute = "liveness";
+
 export type HealthCheck = {
   id: number;
   guardianProverId: number;
@@ -34,6 +36,17 @@ export type PageResponse<T> = {
   first: boolean;
   visible: number;
 };
+
+export async function fetchLatestGuardianProverRequest(
+  baseURL: string,
+  guardianProverId: number
+): Promise<HealthCheck> {
+  let url = `${baseURL}/${livenessRoute}/${guardianProverId}`;
+
+  const resp = await axios.get<HealthCheck>(url);
+
+  return resp.data;
+}
 
 export async function fetchGuardianProverRequests(
   baseURL: string,

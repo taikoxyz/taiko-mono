@@ -1,9 +1,12 @@
 import { ethers } from "ethers";
 import guardianProverAbi from "../abi/guardianProver";
+import type { HealthCheck } from "./fetchGuardianProverStats";
 
 export type Guardian = {
   address: string;
   id: number;
+  latestHealthCheck: HealthCheck;
+  alive: boolean;
 };
 
 export async function fetchGuardianProversFromContract(
@@ -23,9 +26,12 @@ export async function fetchGuardianProversFromContract(
   for (let i = 0; i < numGuardians; i++) {
     const guardianAddress = await contract.guardians(i);
     const guardianId = await contract.guardianIds(guardianAddress);
+
     guardians.push({
       address: guardianAddress,
       id: guardianId,
+      latestHealthCheck: null,
+      alive: true,
     });
   }
 
