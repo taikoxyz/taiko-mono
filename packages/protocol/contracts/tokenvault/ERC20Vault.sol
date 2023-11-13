@@ -51,9 +51,6 @@ contract ERC20Vault is BaseVault {
         string memo;
     }
 
-    // Tracks if a token on the current chain is a canonical or btoken.
-    mapping(address => bool) public isBridgedToken;
-
     // Mappings from btokens to their canonical tokens.
     mapping(address => CanonicalERC20) public bridgedToCanonical;
 
@@ -61,7 +58,7 @@ contract ERC20Vault is BaseVault {
     // tokens across other chains aside from Ethereum.
     mapping(uint256 => mapping(address => address)) public canonicalToBridged;
 
-    uint256[47] private __gap;
+    uint256[48] private __gap;
 
     event BridgedTokenDeployed(
         uint256 indexed srcChainId,
@@ -209,7 +206,7 @@ contract ERC20Vault is BaseVault {
         if (token == address(0)) revert VAULT_INVALID_TOKEN();
 
         if (amount > 0) {
-            if (isBridgedToken[token]) {
+            if (bridgedToCanonical[token].addr != address(0)) {
                 IMintableERC20(token).burn(address(this), amount);
             } else {
                 ERC20Upgradeable(token).safeTransfer(message.owner, amount);
@@ -252,9 +249,8 @@ contract ERC20Vault is BaseVault {
         CanonicalERC20 memory ctoken;
 
         // If it's a bridged token
-        if (isBridgedToken[token]) {
+        if (bridgedToCanonical[token].addr != address(0)) {
             ctoken = bridgedToCanonical[token];
-            assert(ctoken.addr != address(0));
             IMintableERC20(token).burn(msg.sender, amount);
             _balanceChange = amount;
         } else {
@@ -328,7 +324,6 @@ contract ERC20Vault is BaseVault {
             )
         );
 
-        isBridgedToken[btoken] = true;
         bridgedToCanonical[btoken] = ctoken;
         canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
 

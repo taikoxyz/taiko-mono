@@ -188,7 +188,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         if (nft.addr == address(0)) revert VAULT_INVALID_TOKEN();
 
         unchecked {
-            if (isBridgedToken[nft.addr]) {
+            if (bridgedToCanonical[nft.addr].addr != address(0)) {
                 for (uint256 i; i < tokenIds.length; ++i) {
                     BridgedERC1155(nft.addr).mint(
                         message.owner, tokenIds[i], amounts[i]
@@ -278,7 +278,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         CanonicalNFT memory nft;
         unchecked {
             // is a btoken, meaning, it does not live on this chain
-            if (isBridgedToken[op.token]) {
+            if (bridgedToCanonical[op.token].addr != address(0)) {
                 nft = bridgedToCanonical[op.token];
                 for (uint256 i; i < op.tokenIds.length; ++i) {
                     BridgedERC1155(op.token).burn(
@@ -361,7 +361,6 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             )
         );
 
-        isBridgedToken[btoken] = true;
         bridgedToCanonical[btoken] = ctoken;
         canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
 
