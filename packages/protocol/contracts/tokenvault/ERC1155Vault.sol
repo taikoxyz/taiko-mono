@@ -73,7 +73,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         IBridge.Message memory message;
         message.destChainId = op.destChainId;
         message.data = _encodeDestinationCall(msg.sender, op);
-        message.user = msg.sender;
+        message.owner = msg.sender;
         message.to = resolve(message.destChainId, name(), false);
         message.gasLimit = op.gasLimit;
         message.value = msg.value - op.fee;
@@ -90,7 +90,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         // Emit TokenSent event
         emit TokenSent({
             msgHash: msgHash,
-            from: _message.user,
+            from: _message.owner,
             to: op.to,
             destChainId: _message.destChainId,
             token: _token,
@@ -191,14 +191,14 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             if (isBridgedToken[nft.addr]) {
                 for (uint256 i; i < tokenIds.length; ++i) {
                     BridgedERC1155(nft.addr).mint(
-                        message.user, tokenIds[i], amounts[i]
+                        message.owner, tokenIds[i], amounts[i]
                     );
                 }
             } else {
                 for (uint256 i; i < tokenIds.length; ++i) {
                     ERC1155Upgradeable(nft.addr).safeTransferFrom({
                         from: address(this),
-                        to: message.user,
+                        to: message.owner,
                         id: tokenIds[i],
                         amount: amounts[i],
                         data: ""
@@ -207,12 +207,12 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             }
         }
         // Send back Ether
-        message.user.sendEther(message.value);
+        message.owner.sendEther(message.value);
 
         // Emit TokenReleased event
         emit TokenReleased({
             msgHash: msgHash,
-            from: message.user,
+            from: message.owner,
             token: nft.addr,
             tokenIds: tokenIds,
             amounts: amounts

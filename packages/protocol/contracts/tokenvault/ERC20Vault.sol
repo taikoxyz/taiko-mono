@@ -127,7 +127,7 @@ contract ERC20Vault is BaseVault {
         });
 
         message.destChainId = op.destChainId;
-        message.user = msg.sender;
+        message.owner = msg.sender;
         message.to = resolve(op.destChainId, name(), false);
         message.gasLimit = op.gasLimit;
         message.value = msg.value - op.fee;
@@ -142,7 +142,7 @@ contract ERC20Vault is BaseVault {
 
         emit TokenSent({
             msgHash: msgHash,
-            from: _message.user,
+            from: _message.owner,
             to: op.to,
             destChainId: op.destChainId,
             token: op.token,
@@ -212,15 +212,15 @@ contract ERC20Vault is BaseVault {
             if (isBridgedToken[token]) {
                 IMintableERC20(token).burn(address(this), amount);
             } else {
-                ERC20Upgradeable(token).safeTransfer(message.user, amount);
+                ERC20Upgradeable(token).safeTransfer(message.owner, amount);
             }
         }
 
-        message.user.sendEther(message.value);
+        message.owner.sendEther(message.value);
 
         emit TokenReleased({
             msgHash: msgHash,
-            from: message.user,
+            from: message.owner,
             token: token,
             amount: amount
         });

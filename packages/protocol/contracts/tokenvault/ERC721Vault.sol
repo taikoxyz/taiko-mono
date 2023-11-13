@@ -60,7 +60,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         IBridge.Message memory message;
         message.destChainId = op.destChainId;
         message.data = _encodeDestinationCall(msg.sender, op);
-        message.user = msg.sender;
+        message.owner = msg.sender;
         message.to = resolve(message.destChainId, name(), false);
         message.gasLimit = op.gasLimit;
         message.value = msg.value - op.fee;
@@ -75,7 +75,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
 
         emit TokenSent({
             msgHash: msgHash,
-            from: _message.user,
+            from: _message.owner,
             to: op.to,
             destChainId: _message.destChainId,
             token: _token,
@@ -148,7 +148,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
     {
         checkRecallMessageContext();
 
-        if (message.user == address(0)) revert VAULT_INVALID_USER();
+        if (message.owner == address(0)) revert VAULT_INVALID_USER();
         if (message.srcChainId != block.chainid) {
             revert VAULT_INVALID_SRC_CHAIN_ID();
         }
@@ -162,13 +162,13 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         unchecked {
             if (isBridgedToken[nft.addr]) {
                 for (uint256 i; i < tokenIds.length; ++i) {
-                    BridgedERC721(nft.addr).mint(message.user, tokenIds[i]);
+                    BridgedERC721(nft.addr).mint(message.owner, tokenIds[i]);
                 }
             } else {
                 for (uint256 i; i < tokenIds.length; ++i) {
                     ERC721Upgradeable(nft.addr).safeTransferFrom({
                         from: address(this),
-                        to: message.user,
+                        to: message.owner,
                         tokenId: tokenIds[i]
                     });
                 }
@@ -176,11 +176,11 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         }
 
         // send back Ether
-        message.user.sendEther(message.value);
+        message.owner.sendEther(message.value);
 
         emit TokenReleased({
             msgHash: msgHash,
-            from: message.user,
+            from: message.owner,
             token: nft.addr,
             tokenIds: tokenIds,
             amounts: new uint256[](0)

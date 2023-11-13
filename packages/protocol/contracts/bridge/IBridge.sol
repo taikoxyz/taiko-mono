@@ -19,15 +19,15 @@ interface IBridge {
         uint64 srcChainId;
         // Destination chain ID where the `to` address lives.
         uint64 destChainId;
-        // The msg.sender address on the source chain.
-        address user;
-        // Address on the destation chain.
+        // The owner of the message.
+        address owner;
+        // The destination address on the destination chain.
         address to;
-        // Alternate address to send any refund. If blank, defaults to user.
+        // Alternate address to send any refund. If blank, defaults to owner.
         address refundTo;
         // value to invoke on the destination chain.
         uint256 value;
-        // Processing fee for the relayer. Zero if user will process themself.
+        // Processing fee for the relayer. Zero if owner will process themself.
         uint256 fee;
         // gasLimit to invoke on the destination chain.
         uint256 gasLimit;
