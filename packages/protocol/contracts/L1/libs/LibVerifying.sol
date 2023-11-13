@@ -30,7 +30,10 @@ library LibVerifying {
     );
 
     event CrossChainSynced(
-        uint64 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
+        uint64 indexed syncedInBlock,
+        uint64 indexed blockId,
+        bytes32 blockHash,
+        bytes32 signalRoot
     );
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
@@ -222,8 +225,8 @@ library LibVerifying {
                     blockId: blockId,
                     assignedProver: blk.assignedProver,
                     prover: ts.prover,
-                    blockHash: ts.blockHash,
-                    signalRoot: ts.signalRoot,
+                    blockHash: blockHash,
+                    signalRoot: signalRoot,
                     tier: ts.tier,
                     contestations: ts.contestations
                 });
@@ -244,7 +247,10 @@ library LibVerifying {
                     .sendSignal(signalRoot);
 
                 emit CrossChainSynced(
-                    lastVerifiedBlockId, blockHash, signalRoot
+                    uint64(block.number),
+                    lastVerifiedBlockId,
+                    blockHash,
+                    signalRoot
                 );
             }
         }
