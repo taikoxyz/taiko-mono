@@ -268,6 +268,10 @@ contract ERC20Vault is BaseVault {
                 name: t.name()
             });
 
+            // Query the balance then query it again to get the actual amount of
+            // token transferred into this address, this is more accurate than
+            // simply using `amount` -- some contract may deduct a fee from the
+            // transferred amount.
             uint256 _balance = t.balanceOf(address(this));
             t.transferFrom({
                 from: msg.sender,
