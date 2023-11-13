@@ -55,6 +55,7 @@ library LibProposing {
     error L1_TXLIST_OFFSET();
     error L1_TXLIST_SIZE();
     error L1_UNAUTHORIZED();
+    error L1_UNEXPECTED_PARENT();
 
     /// @dev Proposes a Taiko L2 block.
     function proposeBlock(
@@ -88,6 +89,17 @@ library LibProposing {
             revert L1_TOO_MANY_BLOCKS();
         }
 
+        TaikoData.Block storage parent =
+            state.blocks[(b.numBlocks - 1) % config.blockRingBufferSize];
+
+        // Check if parent block has the right meta hash
+        if (
+            params.parentMetaHash != 0
+                && parent.metaHash != params.parentMetaHash
+        ) {
+            revert L1_UNEXPECTED_PARENT();
+        }
+
         // Each transaction must handle a specific quantity of L1-to-L2
         // Ether deposits.
         depositsProcessed =
@@ -113,8 +125,7 @@ library LibProposing {
                 txListByteSize: 0, // to be initialized below
                 minTier: 0, // to be initialized below
                 blobUsed: txList.length == 0,
-                parentMetaHash: state.blocks[(b.numBlocks - 1)
-                    % config.blockRingBufferSize].metaHash
+                parentMetaHash: parent.metaHash
             });
         }
 
@@ -248,12 +259,9 @@ library LibProposing {
 
         // Validate the prover assignment, then charge Ether or ERC20 as the
         // prover fee based on the block's minTier.
-        uint256 proverFee = _validateAssignment(
-            meta.minTier,
-            meta.blobHash,
-            blk.blockId,
-            blk.metaHash,
-            params.assignment
+        uint256 proverFee =
+            _payProverFeeAndTip(
+            meta.minTier, meta.blobHash, blk.blockId,  blk.metaHash, params.assignment
         );
 
         emit BlockProposed({
@@ -302,7 +310,7 @@ library LibProposing {
         );
     }
 
-    function _validateAssignment(
+    function _payProverFeeAndTip(
         uint16 minTier,
         bytes32 blobHash,
         uint64 blockId,
@@ -340,21 +348,27 @@ library LibProposing {
 
         // The proposer irrevocably pays a fee to the assigned prover, either in
         // Ether or ERC20 tokens.
+        uint256 tip;
         if (assignment.feeToken == address(0)) {
-            // Paying Ether
             if (msg.value < proverFee) revert L1_ASSIGNMENT_INSUFFICIENT_FEE();
-            assignment.prover.sendEther(proverFee);
             unchecked {
-                // Return the extra Ether to the proposer
-                uint256 refund = msg.value - proverFee;
-                if (refund != 0) msg.sender.sendEther(refund);
+                tip = msg.value - proverFee;
             }
+
+            // Paying Ether
+            assignment.prover.sendEther(proverFee);
         } else {
+            tip = msg.value;
+
             // Paying ERC20 tokens
-            if (msg.value != 0) msg.sender.sendEther(msg.value);
             ERC20Upgradeable(assignment.feeToken).transferFrom(
                 msg.sender, assignment.prover, proverFee
             );
+        }
+
+        // block.coinbase can be address(0) in tests
+        if (tip != 0 && block.coinbase != address(0)) {
+            address(block.coinbase).sendEther(tip);
         }
     }
 

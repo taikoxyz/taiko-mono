@@ -94,7 +94,7 @@ contract BridgeTest is TestBase {
             from: address(bridge),
             srcChainId: uint64(block.chainid),
             destChainId: destChainId,
-            user: Alice,
+            owner: Alice,
             to: Alice,
             refundTo: Alice,
             value: 1000,
@@ -133,7 +133,7 @@ contract BridgeTest is TestBase {
             from: address(bridge),
             srcChainId: uint64(block.chainid),
             destChainId: destChainId,
-            user: Alice,
+            owner: Alice,
             to: address(goodReceiver),
             refundTo: Alice,
             value: 1000,
@@ -172,7 +172,7 @@ contract BridgeTest is TestBase {
             from: address(bridge),
             srcChainId: uint64(block.chainid),
             destChainId: destChainId,
-            user: Alice,
+            owner: Alice,
             to: address(goodReceiver),
             refundTo: Alice,
             value: 1000,
@@ -207,7 +207,7 @@ contract BridgeTest is TestBase {
     {
         // uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
-            user: Alice,
+            owner: Alice,
             to: Alice,
             value: 0,
             gasLimit: 0,
@@ -224,7 +224,7 @@ contract BridgeTest is TestBase {
     {
         uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
-            user: address(0),
+            owner: address(0),
             to: Alice,
             value: 0,
             gasLimit: 0,
@@ -242,7 +242,7 @@ contract BridgeTest is TestBase {
     {
         uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
-            user: Alice,
+            owner: Alice,
             to: Alice,
             value: 0,
             gasLimit: 0,
@@ -260,7 +260,7 @@ contract BridgeTest is TestBase {
     {
         uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
-            user: Alice,
+            owner: Alice,
             to: Alice,
             value: 0,
             gasLimit: 0,
@@ -275,7 +275,7 @@ contract BridgeTest is TestBase {
     function test_Bridge_send_message_ether_with_no_processing_fee() public {
         uint256 amount = 0 wei;
         IBridge.Message memory message = newMessage({
-            user: Alice,
+            owner: Alice,
             to: Alice,
             value: 0,
             gasLimit: 0,
@@ -292,7 +292,7 @@ contract BridgeTest is TestBase {
         uint256 amount = 0 wei;
         uint256 fee = 1 wei;
         IBridge.Message memory message = newMessage({
-            user: Alice,
+            owner: Alice,
             to: Alice,
             value: 0,
             gasLimit: 0,
@@ -309,7 +309,7 @@ contract BridgeTest is TestBase {
         uint256 amount = 1 ether;
         uint256 fee = 1 wei;
         IBridge.Message memory message = newMessage({
-            user: Alice,
+            owner: Alice,
             to: Alice,
             value: amount,
             gasLimit: 0,
@@ -343,7 +343,7 @@ contract BridgeTest is TestBase {
         uint256 amount = 1 ether;
         uint256 fee = 1 wei;
         IBridge.Message memory message = newMessage({
-            user: Alice,
+            owner: Alice,
             to: Alice,
             value: amount,
             gasLimit: 0,
@@ -370,7 +370,7 @@ contract BridgeTest is TestBase {
         uint256 amount = 0 wei;
         uint256 fee = 1 wei;
         IBridge.Message memory message = newMessage({
-            user: Alice,
+            owner: Alice,
             to: Alice,
             value: 0,
             gasLimit: 0,
@@ -428,7 +428,7 @@ contract BridgeTest is TestBase {
         assertEq(status == Bridge.Status.RETRIABLE, true);
 
         vm.stopPrank();
-        vm.prank(message.user);
+        vm.prank(message.owner);
 
         destChainBridge.retryMessage(message, true);
 
@@ -439,7 +439,7 @@ contract BridgeTest is TestBase {
 
     function retry_message_reverts_when_status_non_retriable() public {
         IBridge.Message memory message = newMessage({
-            user: Alice,
+            owner: Alice,
             to: Alice,
             value: 0,
             gasLimit: 10_000,
@@ -456,7 +456,7 @@ contract BridgeTest is TestBase {
     {
         vm.startPrank(Alice);
         IBridge.Message memory message = newMessage({
-            user: Bob,
+            owner: Bob,
             to: Alice,
             value: 0,
             gasLimit: 10_000,
@@ -507,7 +507,7 @@ contract BridgeTest is TestBase {
             from: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
             srcChainId: 1336,
             destChainId: dest,
-            user: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
+            owner: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
             to: 0x200708D76eB1B69761c23821809d53F65049939e,
             refundTo: 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4,
             value: 1000,
@@ -524,7 +524,7 @@ contract BridgeTest is TestBase {
     }
 
     function newMessage(
-        address user,
+        address owner,
         address to,
         uint256 value,
         uint256 gasLimit,
@@ -536,15 +536,15 @@ contract BridgeTest is TestBase {
         returns (IBridge.Message memory)
     {
         return IBridge.Message({
-            user: user,
+            owner: owner,
             destChainId: destChain,
             to: to,
             value: value,
             fee: fee,
             id: 0, // placeholder, will be overwritten
-            from: user, // placeholder, will be overwritten
+            from: owner, // placeholder, will be overwritten
             srcChainId: uint64(block.chainid), // will be overwritten
-            refundTo: user,
+            refundTo: owner,
             gasLimit: gasLimit,
             data: "",
             memo: ""

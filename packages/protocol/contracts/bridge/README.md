@@ -25,25 +25,25 @@ If user wants to bridge ether, he/she will initiate a bridge transaction with `s
     struct Message {
         // Message ID.
         uint256 id;
-        // Message sender address (auto filled).
+        // Message sender address.
         address from;
-        // Source chain ID (auto filled).
-        uint256 srcChainId;
-        // Destination chain ID where the `to` address lives (auto filled).
-        uint256 destChainId;
+        // Source chain ID.
+        uint64 srcChainId;
+        // Destination chain ID where the `to` address lives.
+        uint64 destChainId;
         // User address of the bridged asset.
         address user;
         // Destination user address.
         address to;
         // Alternate address to send any refund. If blank, defaults to user.
         address refundAddress;
-        // value to invoke on the destination chain, for ERC20 transfers.
+        // value to invoke on the destination chain.
         uint256 value;
         // Processing fee for the relayer. Zero if user will process themself.
         uint256 fee;
-        // gasLimit to invoke on the destination chain, for ERC20 transfers.
+        // gasLimit to invoke on the destination chain.
         uint256 gasLimit;
-        // callData to invoke on the destination chain, for ERC20 transfers.
+        // callData to invoke on the destination chain.
         bytes data;
         // Optional memo.
         string memo;
