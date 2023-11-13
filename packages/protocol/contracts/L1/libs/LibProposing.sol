@@ -264,8 +264,7 @@ library LibProposing {
 
         // Validate the prover assignment, then charge Ether or ERC20 as the
         // prover fee based on the block's minTier.
-        uint256 proverFee =
-            _payProverFeeAndTip(
+        uint256 proverFee = _payProverFeeAndTip(
             meta.minTier, meta.blobHash, blk.blockId, params.assignment
         );
 
