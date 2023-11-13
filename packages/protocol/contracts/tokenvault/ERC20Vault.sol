@@ -119,7 +119,7 @@ contract ERC20Vault is BaseVault {
         uint256 _amount;
         IBridge.Message memory message;
 
-        (message.data, _amount) = _encodeDestinationCall({
+        (message.data, _amount) = _handleMessage({
             user: msg.sender,
             token: op.token,
             amount: op.amount,
@@ -230,7 +230,8 @@ contract ERC20Vault is BaseVault {
         return "erc20_vault";
     }
 
-    /// @dev Encodes sending bridged or canonical ERC20 tokens to the user.
+    /// @dev Handles the message on the source chain and returns the encoded
+    /// call on the destination call.
     /// @param user The user's address.
     /// @param token The token address.
     /// @param to To address.
@@ -239,7 +240,7 @@ contract ERC20Vault is BaseVault {
     /// @return _balanceChange User token balance actual change after the token
     /// transfer. This value is calculated so we do not assume token balance
     /// change is the amount of token transfered away.
-    function _encodeDestinationCall(
+    function _handleMessage(
         address user,
         address token,
         address to,

@@ -59,7 +59,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
 
         IBridge.Message memory message;
         message.destChainId = op.destChainId;
-        message.data = _encodeDestinationCall(msg.sender, op);
+        message.data = _handleMessage(msg.sender, op);
         message.owner = msg.sender;
         message.to = resolve(message.destChainId, name(), false);
         message.gasLimit = op.gasLimit;
@@ -205,11 +205,12 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         return "erc721_vault";
     }
 
-    /// @dev Encodes sending bridged or canonical ERC721 tokens to the user.
+    /// @dev Handles the message on the source chain and returns the encoded
+    /// call on the destination call.
     /// @param user The user's address.
     /// @param op BridgeTransferOp data.
     /// @return msgData Encoded message data.
-    function _encodeDestinationCall(
+    function _handleMessage(
         address user,
         BridgeTransferOp calldata op
     )

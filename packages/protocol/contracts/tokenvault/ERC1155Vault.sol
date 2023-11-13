@@ -72,7 +72,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         // Create a message to send to the destination chain
         IBridge.Message memory message;
         message.destChainId = op.destChainId;
-        message.data = _encodeDestinationCall(msg.sender, op);
+        message.data = _handleMessage(msg.sender, op);
         message.owner = msg.sender;
         message.to = resolve(message.destChainId, name(), false);
         message.gasLimit = op.gasLimit;
@@ -263,11 +263,12 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         return "erc1155_vault";
     }
 
-    /// @dev Encodes sending bridged or canonical ERC1155 tokens to the user.
+    /// @dev Handles the message on the source chain and returns the encoded
+    /// call on the destination call.
     /// @param user The user's address.
     /// @param op BridgeTransferOp data.
     /// @return msgData Encoded message data.
-    function _encodeDestinationCall(
+    function _handleMessage(
         address user,
         BridgeTransferOp memory op
     )
