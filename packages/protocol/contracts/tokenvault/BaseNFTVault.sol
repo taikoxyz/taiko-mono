@@ -50,16 +50,13 @@ abstract contract BaseNFTVault is BaseVault {
     bytes4 public constant ERC721_INTERFACE_ID = 0x80ac58cd;
     uint256 public constant MAX_TOKEN_PER_TXN = 10;
 
-    // Mapping to track bridged tokens.
-    mapping(address => bool) public isBridgedToken;
-
     // Mapping to store bridged NFTs and their canonical counterparts.
     mapping(address => CanonicalNFT) public bridgedToCanonical;
 
     // Mapping to store canonical NFTs and their bridged counterparts.
     mapping(uint256 => mapping(address => address)) public canonicalToBridged;
 
-    uint256[47] private __gap;
+    uint256[48] private __gap;
 
     event BridgedTokenDeployed(
         uint64 indexed chainId,

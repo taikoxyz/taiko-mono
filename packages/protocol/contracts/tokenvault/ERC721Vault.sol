@@ -160,7 +160,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         if (nft.addr == address(0)) revert VAULT_INVALID_TOKEN();
 
         unchecked {
-            if (isBridgedToken[nft.addr]) {
+            if (bridgedToCanonical[nft.addr].addr != address(0)) {
                 for (uint256 i; i < tokenIds.length; ++i) {
                     BridgedERC721(nft.addr).mint(message.owner, tokenIds[i]);
                 }
@@ -220,7 +220,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         CanonicalNFT memory nft;
 
         unchecked {
-            if (isBridgedToken[op.token]) {
+            if (bridgedToCanonical[op.token].addr != address(0)) {
                 nft = bridgedToCanonical[op.token];
                 for (uint256 i; i < op.tokenIds.length; ++i) {
                     BridgedERC721(op.token).burn(user, op.tokenIds[i]);
@@ -287,7 +287,6 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
             )
         );
 
-        isBridgedToken[btoken] = true;
         bridgedToCanonical[btoken] = ctoken;
         canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
 
