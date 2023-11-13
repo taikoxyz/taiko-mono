@@ -25,7 +25,8 @@ library LibAddress {
     /// @dev Sends Ether to the specified address.
     /// @param to The recipient address.
     /// @param amount The amount of Ether to send in wei.
-    function sendEther(address to, uint256 amount) internal {
+    /// @param gasLimit The max amount gas to pay for this transaction.
+    function sendEther(address to, uint256 amount, uint256 gasLimit) internal {
         // Check for zero-value or zero-address transactions
         if (to == address(0)) revert ETH_TRANSFER_FAILED();
 
@@ -33,7 +34,7 @@ library LibAddress {
         // WARNING: call() functions do not have an upper gas cost limit, so
         // it's important to note that it may not reliably execute as expected
         // when invoked with untrusted addresses.
-        (bool success,) = payable(to).call{ value: amount }("");
+        (bool success,) = payable(to).call{ value: amount, gas: gasLimit }("");
 
         // Ensure the transfer was successful
         if (!success) revert ETH_TRANSFER_FAILED();
@@ -42,11 +43,8 @@ library LibAddress {
     /// @dev Sends Ether to the specified address.
     /// @param to The recipient address.
     /// @param amount The amount of Ether to send in wei.
-    /// @param gasLimit The max amount gas to pay for this transaction.
-    function sendEther(address to, uint256 amount, uint256 gasLimit) internal {
-        if (to == address(0)) revert ETH_TRANSFER_FAILED();
-        (bool success,) = payable(to).call{ value: amount, gas: gasLimit }("");
-        if (!success) revert ETH_TRANSFER_FAILED();
+    function sendEther(address to, uint256 amount) internal {
+        sendEther(to, amount, gasleft());
     }
 
     function supportsInterface(
