@@ -75,6 +75,7 @@ library TaikoData {
         TierFee[] tierFees;
         uint64 expiry;
         uint64 maxBlockId;
+        uint64 maxProposedIn;
         bytes signature;
     }
 

@@ -292,6 +292,7 @@ library LibProposing {
                 assignment.feeToken,
                 assignment.expiry,
                 assignment.maxBlockId,
+                assignment.maxProposedIn,
                 assignment.tierFees
             )
         );
@@ -307,9 +308,17 @@ library LibProposing {
         returns (uint256 proverFee)
     {
         // Check assignment not expired
+        if (block.timestamp > assignment.expiry) revert L1_ASSIGNMENT_EXPIRED();
+
+        // Check against maxBlockId
+        if (assignment.maxBlockId != 0 && blockId > assignment.maxBlockId) {
+            revert L1_ASSIGNMENT_EXPIRED();
+        }
+
+        // Check against maxProposedIn
         if (
-            block.timestamp > assignment.expiry
-                || blockId > assignment.maxBlockId
+            assignment.maxProposedIn != 0
+                && block.number > assignment.maxProposedIn
         ) {
             revert L1_ASSIGNMENT_EXPIRED();
         }
