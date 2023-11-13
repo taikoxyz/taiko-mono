@@ -13,15 +13,15 @@ interface IBridge {
     struct Message {
         // Message ID.
         uint128 id;
-        // Message sender address.
+        // The address, EOA or contract, that interacts with this bridge.
         address from;
         // Source chain ID.
         uint64 srcChainId;
         // Destination chain ID where the `to` address lives.
         uint64 destChainId;
-        // User address of the bridged asset.
+        // The msg.sender address on the source chain.
         address user;
-        // Destination address.
+        // Address on the destation chain.
         address to;
         // Alternate address to send any refund. If blank, defaults to user.
         address refundTo;
