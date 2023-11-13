@@ -28,6 +28,11 @@ library LibProposing {
     // field element has 32 bytes.
     uint256 public constant MAX_BYTES_PER_BLOB = 4096 * 32;
 
+    // Max gas paying the prover. This should be large enough to prevent the
+    // worst cases, usually block proposer shall be aware the risks and only
+    // choose provers that cannot consume too much gas when receiving Ether.
+    uint256 public constant MAX_GAS_PAYING_PROVER = 200_000;
+
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     event BlockProposed(
         uint256 indexed blockId,
@@ -334,7 +339,7 @@ library LibProposing {
         if (assignment.feeToken == address(0)) {
             // Paying Ether
             if (msg.value < proverFee) revert L1_ASSIGNMENT_INSUFFICIENT_FEE();
-            assignment.prover.sendEther(proverFee);
+            assignment.prover.sendEther(proverFee, MAX_GAS_PAYING_PROVER);
             unchecked {
                 // Return the extra Ether to the proposer
                 uint256 refund = msg.value - proverFee;
