@@ -72,11 +72,15 @@ contract TaikoL2 is Ownable2StepUpgradeable, TaikoL2Signer, ICrossChainSync {
         if (block.chainid <= 1 || block.chainid >= type(uint64).max) {
             revert L2_INVALID_CHAIN_ID();
         }
-        if (block.number > 1) revert L2_TOO_LATE();
 
-        if (block.number > 0) {
+        if (block.number == 0) {
+            // This is the case in real L2 genesis
+        } else if (block.number == 1) {
+            // This is the case in tests
             uint256 parentHeight = block.number - 1;
             l2Hashes[parentHeight] = blockhash(parentHeight);
+        } else {
+            revert L2_TOO_LATE();
         }
 
         gasExcess = _gasExcess;
