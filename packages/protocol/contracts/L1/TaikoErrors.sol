@@ -45,6 +45,7 @@ abstract contract TaikoErrors {
     error L1_TXLIST_OFFSET_SIZE();
     error L1_TXLIST_TOO_LARGE();
     error L1_UNAUTHORIZED();
+    error L1_UNEXPECTED_PARENT();
     error L1_UNEXPECTED_TRANSITION_ID();
     error L1_UNEXPECTED_TRANSITION_TIER();
 }
