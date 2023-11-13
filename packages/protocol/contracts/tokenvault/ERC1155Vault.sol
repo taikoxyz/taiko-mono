@@ -72,7 +72,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         // Create a message to send to the destination chain
         IBridge.Message memory message;
         message.destChainId = op.destChainId;
-        message.data = _encodeDestinationCall(msg.sender, op);
+        message.data = _handleMessage(msg.sender, op);
         message.owner = msg.sender;
         message.to = resolve(message.destChainId, name(), false);
         message.gasLimit = op.gasLimit;
@@ -188,7 +188,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         if (nft.addr == address(0)) revert VAULT_INVALID_TOKEN();
 
         unchecked {
-            if (isBridgedToken[nft.addr]) {
+            if (bridgedToCanonical[nft.addr].addr != address(0)) {
                 for (uint256 i; i < tokenIds.length; ++i) {
                     BridgedERC1155(nft.addr).mint(
                         message.owner, tokenIds[i], amounts[i]
@@ -263,11 +263,12 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         return "erc1155_vault";
     }
 
-    /// @dev Encodes sending bridged or canonical ERC1155 tokens to the user.
+    /// @dev Handles the message on the source chain and returns the encoded
+    /// call on the destination call.
     /// @param user The user's address.
     /// @param op BridgeTransferOp data.
     /// @return msgData Encoded message data.
-    function _encodeDestinationCall(
+    function _handleMessage(
         address user,
         BridgeTransferOp memory op
     )
@@ -277,7 +278,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         CanonicalNFT memory nft;
         unchecked {
             // is a btoken, meaning, it does not live on this chain
-            if (isBridgedToken[op.token]) {
+            if (bridgedToCanonical[op.token].addr != address(0)) {
                 nft = bridgedToCanonical[op.token];
                 for (uint256 i; i < op.tokenIds.length; ++i) {
                     BridgedERC1155(op.token).burn(
@@ -360,7 +361,6 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             )
         );
 
-        isBridgedToken[btoken] = true;
         bridgedToCanonical[btoken] = ctoken;
         canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
 

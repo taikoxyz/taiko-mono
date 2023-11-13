@@ -18,8 +18,15 @@ abstract contract BaseVault is
 {
     error VAULT_PERMISSION_DENIED();
 
+    modifier onlyFromBridge() {
+        if (msg.sender != resolve("bridge", false)) {
+            revert VAULT_PERMISSION_DENIED();
+        }
+        _;
+    }
     /// @notice Initializes the contract with the address manager.
     /// @param addressManager Address manager contract address.
+
     function init(address addressManager) external initializer {
         EssentialContract._init(addressManager);
     }
@@ -42,12 +49,9 @@ abstract contract BaseVault is
     function checkProcessMessageContext()
         internal
         view
+        onlyFromBridge
         returns (IBridge.Context memory ctx)
     {
-        if (msg.sender != resolve("bridge", false)) {
-            revert VAULT_PERMISSION_DENIED();
-        }
-
         ctx = IBridge(msg.sender).context();
         address sender = resolve(ctx.srcChainId, name(), false);
         if (ctx.from != sender) revert VAULT_PERMISSION_DENIED();
@@ -56,12 +60,9 @@ abstract contract BaseVault is
     function checkRecallMessageContext()
         internal
         view
+        onlyFromBridge
         returns (IBridge.Context memory ctx)
     {
-        if (msg.sender != resolve("bridge", false)) {
-            revert VAULT_PERMISSION_DENIED();
-        }
-
         ctx = IBridge(msg.sender).context();
         if (ctx.from != msg.sender) revert VAULT_PERMISSION_DENIED();
     }

@@ -51,9 +51,6 @@ contract ERC20Vault is BaseVault {
         string memo;
     }
 
-    // Tracks if a token on the current chain is a canonical or btoken.
-    mapping(address => bool) public isBridgedToken;
-
     // Mappings from btokens to their canonical tokens.
     mapping(address => CanonicalERC20) public bridgedToCanonical;
 
@@ -61,7 +58,7 @@ contract ERC20Vault is BaseVault {
     // tokens across other chains aside from Ethereum.
     mapping(uint256 => mapping(address => address)) public canonicalToBridged;
 
-    uint256[47] private __gap;
+    uint256[48] private __gap;
 
     event BridgedTokenDeployed(
         uint256 indexed srcChainId,
@@ -119,7 +116,7 @@ contract ERC20Vault is BaseVault {
         uint256 _amount;
         IBridge.Message memory message;
 
-        (message.data, _amount) = _encodeDestinationCall({
+        (message.data, _amount) = _handleMessage({
             user: msg.sender,
             token: op.token,
             amount: op.amount,
@@ -209,7 +206,7 @@ contract ERC20Vault is BaseVault {
         if (token == address(0)) revert VAULT_INVALID_TOKEN();
 
         if (amount > 0) {
-            if (isBridgedToken[token]) {
+            if (bridgedToCanonical[token].addr != address(0)) {
                 IMintableERC20(token).burn(address(this), amount);
             } else {
                 ERC20Upgradeable(token).safeTransfer(message.owner, amount);
@@ -230,7 +227,8 @@ contract ERC20Vault is BaseVault {
         return "erc20_vault";
     }
 
-    /// @dev Encodes sending bridged or canonical ERC20 tokens to the user.
+    /// @dev Handles the message on the source chain and returns the encoded
+    /// call on the destination call.
     /// @param user The user's address.
     /// @param token The token address.
     /// @param to To address.
@@ -239,7 +237,7 @@ contract ERC20Vault is BaseVault {
     /// @return _balanceChange User token balance actual change after the token
     /// transfer. This value is calculated so we do not assume token balance
     /// change is the amount of token transfered away.
-    function _encodeDestinationCall(
+    function _handleMessage(
         address user,
         address token,
         address to,
@@ -251,9 +249,8 @@ contract ERC20Vault is BaseVault {
         CanonicalERC20 memory ctoken;
 
         // If it's a bridged token
-        if (isBridgedToken[token]) {
+        if (bridgedToCanonical[token].addr != address(0)) {
             ctoken = bridgedToCanonical[token];
-            assert(ctoken.addr != address(0));
             IMintableERC20(token).burn(msg.sender, amount);
             _balanceChange = amount;
         } else {
@@ -267,6 +264,10 @@ contract ERC20Vault is BaseVault {
                 name: t.name()
             });
 
+            // Query the balance then query it again to get the actual amount of
+            // token transferred into this address, this is more accurate than
+            // simply using `amount` -- some contract may deduct a fee from the
+            // transferred amount.
             uint256 _balance = t.balanceOf(address(this));
             t.transferFrom({
                 from: msg.sender,
@@ -323,7 +324,6 @@ contract ERC20Vault is BaseVault {
             )
         );
 
-        isBridgedToken[btoken] = true;
         bridgedToCanonical[btoken] = ctoken;
         canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
 
