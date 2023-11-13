@@ -21,10 +21,10 @@ interface ICrossChainSync {
     }
 
     /// @dev Emitted when a block has been synced across chains.
-    /// @param blockId The ID of the remote block whose block hash and
-    /// signal root are synced.
     /// @param syncedInBlock The ID of this chain's block where the sync
     /// happened.
+    /// @param blockId The ID of the remote block whose block hash and
+    /// signal root are synced.
     /// @param blockHash The hash of the synced block.
     /// @param signalRoot The root hash representing cross-chain signals.
     event CrossChainSynced(
