@@ -14,7 +14,7 @@ pragma solidity ^0.8.20;
 /// both chains remain consistent and can be cross-referenced with integrity.
 interface ICrossChainSync {
     /// @dev Emitted when a block has been synced across chains.
-    /// @param srcHeight The height (block id_ that was synced.
+    /// @param srcHeight The height (block id) that was synced.
     /// @param blockHash The hash of the synced block.
     /// @param signalRoot The root hash representing cross-chain signals.
     event CrossChainSynced(
