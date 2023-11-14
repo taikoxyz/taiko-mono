@@ -283,8 +283,8 @@ library LibProposing {
         //      params.assignment
         //  );
 
-        for (uint256 i; i < params.calls.length; ++i) {
-            params.calls[i].hook.sendEther(0, gasleft(), params.calls[i].data);
+        if (params.hook != address(0)) {
+            params.hook.sendEther(msg.value, gasleft(), params.hookData);
         }
     }
 

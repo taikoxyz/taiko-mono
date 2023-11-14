@@ -93,7 +93,8 @@ library TaikoData {
         uint24 txListByteSize;
         bool cacheBlobForReuse;
         bytes32 parentMetaHash;
-        HookCall[] calls;
+        address hook;
+        bytes hookData;
     }
 
     /// @dev Struct containing data only required for proving a block
