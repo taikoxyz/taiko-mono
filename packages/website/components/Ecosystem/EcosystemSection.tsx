@@ -28,7 +28,7 @@ const ecosystemData: EcosystemData[] = [
     name: "AIT Protocol",
     link: "https://ait.tech/",
     description:
-      "AIT Protocol is the first’s Web3 data infrastructure focusing on AI data annotations, leverages blockchain technology to deliver a trustless and cross-border labor market being strategically incentivized by crypto economics and having instant cross-nation payment settlements.",
+      "AIT Protocol is the first Web3 data infrastructure focusing on AI data annotations, leverages blockchain technology to deliver a trustless and cross-border labor market being strategically incentivized by crypto economics and having instant cross-nation payment settlements.",
     filters: [],
     isLive: true,
   },
