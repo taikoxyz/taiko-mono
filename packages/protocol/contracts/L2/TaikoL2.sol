@@ -134,7 +134,7 @@ contract TaikoL2 is Ownable2StepUpgradeable, TaikoL2Signer, ICrossChainSync {
         // allow for multi-hop bridging.
         ISignalService(signalService).sendSignal(l1SignalRoot);
         emit CrossChainSynced(
-            l1Height, uint64(block.number), l1BlockHash, l1SignalRoot
+            uint64(block.number), l1Height, l1BlockHash, l1SignalRoot
         );
 
         // Update state variables
