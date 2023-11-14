@@ -79,6 +79,11 @@ library TaikoData {
         bytes signature;
     }
 
+    struct HookCall {
+        address hook;
+        bytes data;
+    }
+
     struct BlockParams {
         ProverAssignment assignment;
         address assignedProver;
@@ -88,6 +93,7 @@ library TaikoData {
         uint24 txListByteSize;
         bool cacheBlobForReuse;
         bytes32 parentMetaHash;
+        HookCall[] calls;
     }
 
     /// @dev Struct containing data only required for proving a block

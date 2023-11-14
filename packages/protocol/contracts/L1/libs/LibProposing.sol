@@ -265,6 +265,14 @@ library LibProposing {
             ++state.slotB.numBlocks;
         }
 
+        emit BlockProposed({
+            blockId: blk.blockId,
+            assignedProver: blk.assignedProver,
+            livenessBond: config.livenessBond,
+            meta: meta,
+            depositsProcessed: depositsProcessed
+        });
+
         // Validate the prover assignment, then charge Ether or ERC20 as the
         // prover fee based on the block's minTier.
         // _payProverFeeAndTip(
@@ -275,13 +283,9 @@ library LibProposing {
         //      params.assignment
         //  );
 
-        emit BlockProposed({
-            blockId: blk.blockId,
-            assignedProver: blk.assignedProver,
-            livenessBond: config.livenessBond,
-            meta: meta,
-            depositsProcessed: depositsProcessed
-        });
+        for (uint256 i; i < params.calls.length; ++i) {
+            params.calls[i].hook.sendEther(0, gasleft(), params.calls[i].data);
+        }
     }
 
     function isBlobReusable(
@@ -364,7 +368,7 @@ library LibProposing {
             }
 
             // Paying Ether
-            assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER);
+            assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER, "");
         } else {
             tip = msg.value;
 

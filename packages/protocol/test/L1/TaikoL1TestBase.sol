@@ -174,13 +174,17 @@ abstract contract TaikoL1TestBase is TestBase {
         meta.difficulty = bytes32(_difficulty);
         meta.gasLimit = gasLimit;
 
+        TaikoData.HookCall[] memory hookcalls;
+
         vm.prank(proposer, proposer);
-        (meta, depositsProcessed) = L1.proposeBlock{ value: msgValue }(
-            abi.encode(
-                TaikoData.BlockParams(assignment, prover, 0, 0, 0, 0, false, 0)
-            ),
-            txList
-        );
+        // TODO(daniel)
+        // (meta, depositsProcessed) = L1.proposeBlock{ value: msgValue }(
+        //     abi.encode(
+        //         TaikoData.BlockParams(assignment, prover, 0, 0, 0, 0, false,
+        // 0, hookcalls)
+        //     ),
+        //     txList
+        // );
     }
 
     function proveBlock(
