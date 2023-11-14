@@ -53,6 +53,7 @@ contract AssignmentHook is EssentialContract, IHook {
         external
         payable
         nonReentrant
+        onlyFromNamed("taiko")
     {
         _payProverFeeAndTip(
             blk.assignedProver,
