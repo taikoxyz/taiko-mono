@@ -47,12 +47,12 @@ library LibProposing {
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_ASSIGNMENT_EXPIRED();
     error L1_ASSIGNMENT_INVALID_SIG();
-    error L1_ASSIGNMENT_INVALID_PARAMS();
     error L1_ASSIGNMENT_INSUFFICIENT_FEE();
     error L1_BLOB_FOR_DA_DISABLED();
     error L1_BLOB_NOT_FOUND();
     error L1_BLOB_NOT_REUSEABLE();
     error L1_INVALID_PARAM();
+    error L1_INVALID_PROVER();
     error L1_PROPOSER_NOT_EOA();
     error L1_TIER_NOT_FOUND();
     error L1_TOO_MANY_BLOCKS();
@@ -78,8 +78,8 @@ library LibProposing {
         TaikoData.BlockParams memory params =
             abi.decode(data, (TaikoData.BlockParams));
 
-        if (params.blobHash == 0 || params.assignedProver == address(0)) {
-            revert L1_ASSIGNMENT_INVALID_PARAMS();
+        if (params.assignedProver == address(0)) {
+            revert L1_INVALID_PROVER();
         }
 
         // Taiko, as a Based Rollup, enables permissionless block proposals.
