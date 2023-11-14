@@ -9,7 +9,7 @@ This document specifies how the Taiko protocol, client, and circuits work togeth
 The transaction list, `txList`, of a Layer 2 (L2) block will eventually be part of a blob in the Layer 1 (L1) Consensus Layer (CL) -- right now it is within the calldata.
 It is meant to be a list of RLP-encoded L2 transactions, with only its length and commitment available to the L1 Execution Layer (EL). The length is checked when a block is proposed, but we need to prove whether the `txList` is valid or not using a ZKP.
 
-A valid `txList` (until [issue #13724](https://github.com/taikoxyz/taiko-mono/issues/13724) is enabled and implemented):
+A valid `txList` (until [issue #13724](https://github.com/taikoxyz/taiko-mono/issues/13724) is implmented and enabled):
 
 - Has a byte-size smaller than the protocol constant _`blockMaxTxListBytes`_ (also enforced in contracts);
 - Can be RLP-decoded into a list of transactions without trailing space;
@@ -38,7 +38,7 @@ Note that the data of `txList` cannot be assumed to be directly accessible to L1
 
 Every L2 block has exactly one anchor function call as its first transaction.
 
-The ZKP must prove that _TaikoL2.anchor(...)_ is the first transaction in the block, with the correct input parameters and gas limit, signed by the so called golden-touch address, and that the transaction executed successfully.
+The ZKP must prove that _TaikoL2.anchor(...)_ is the first transaction in the block, with the correct input parameters and gas limit, signed by the so-called golden-touch address, and that the transaction executed successfully.
 
 - The anchor transaction's `to` address must be the registered `taiko_l2` address, which is hashed into the ZKP `instance`. And the `tx.origin` must be the golden touch address.
 - The anchor transaction's ABI must be:
@@ -58,7 +58,7 @@ function anchor(
 - `l1SignalRoot` is part of the evidence and is also used to calculate the ZKP instance.
 - The transaction's status code is 1 (success).
 - The transaction's `tx.origin` and `msg.sender` must be _`LibAnchorSignature.K_GOLDEN_TOUCH_ADDRESS`_.
-- The transaction's signature must be the same as `LibAnchorSignature.signTransaction(...)`.
+- The transaction's signature must be identical to `LibAnchorSignature.signTransaction(...)`.
 - The transaction fee must be 0.
 
 Note that the anchor transaction emits an `Anchored` event that may help ZKP to verify block variables. See below.
@@ -178,23 +178,23 @@ Note that some of the header field checks above are duplicates of checks done in
 
 ### Signal Storage
 
-The ZKP also needs to prove that the cross chain signal service’s storage roots have the correct values.
+The ZKP also needs to prove that the cross-chain signal service’s storage roots have the correct values.
 
-- **For L2 Signal Service**: the L1 storage root of the signal service is the second parameter in the anchor transaction. The ZKP shall verify that the storage root of the L1 Signal Service address has the given value by using an MPT proof against the state root stored in `meta.l1Hash` for the `l1SignalServiceAddress` account. This MPT proof must be queried by the L2 client from an L1 node.
+- **For L2 Signal Service**: the L1 storage root of the signal service is the second parameter in the anchor transaction. The ZKP should verify that the storage root of the L1 Signal Service address matches the provided value by using an MPT proof against the state root stored in `meta.l1Hash` for the `l1SignalServiceAddress` account. This MPT proof must be requested by the L2 client from an L1 node.
 
-- **For L1 Signal Service**: the L2 storage root verification will be done in the circuits by using an MPT proof against the post block state root for the `l2SignalServiceAddress` account.
+- **For L1 Signal Service**: the L2 storage root verification will be conducted within the circuits by leveraging an MPT proof against the post-block state root for the `l2SignalServiceAddress` account.
 
 ### EIP-1559
 
-In the Taiko L2 protocol, instead of being burned, the basefee is transferred to a designated `treasury` address. To ensure the integrity of this process, the ZKP needs to verify that the treasury address specified by the Taiko L1 contract is indeed the intended recipient.
+In the Taiko L2 protocol, rather than being burned, the basefee is transferred to a designated `treasury` address. In order to maintain the integrity of this procedure, the ZKP has to validate that the treasury address specified by the Taiko L1 contract is indeed the intended recipient.
 
 ### LibProving Verification
 
-The actual value of the public input parameters must be consistent with the values used to hash the ZKP instance (see [**LibProving**](https://github.com/taikoxyz/taiko-mono/blob/945dabc09a668678aca1296e91d567b45ad37922/packages/protocol/contracts/L1/libs/LibProving.sol#L182)).
+The actual values of the public input parameters must align with the values used to hash the ZKP instance (refer to [**LibProving**](https://github.com/taikoxyz/taiko-mono/blob/945dabc09a668678aca1296e91d567b45ad37922/packages/protocol/contracts/L1/libs/LibProving.sol#L182)).
 
 ## Data Cross-Verification in Circuits
 
-To help people to visualize all the above elements. Here is a diagram:
+Here is a diagram to assist in visualizing all the above components:
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '13px'}}}%%

@@ -1,6 +1,6 @@
 # Implementing arbitrary token payments with IProver interface
 
-In this guide, we will outline the steps to implement a solution that enables prover pools to accept arbitrary ERC-20 tokens as payments for providing with proofs. This solution allows proposers to interact with pools (implementing `IProver`), agree on a price for proving a block, and make payments using ERC-20 tokens.
+In this guide, we will outline the steps to implement a solution that enables prover pools to accept arbitrary ERC-20 tokens as payments for providing proofs. This solution allows proposers to interact with pools (implementing `IProver`), agree on a price for proving a block, and make payments using ERC-20 tokens.
 
 NOTE: This works also with NFTs (ERC-721/ERC-1155) as well (applying the proper `approval`/`approvalForAll`), just because it might be less likely those will be used as payment methods, we highlighted the ERC-20.
 
@@ -57,4 +57,4 @@ The proposer and prover interact off-chain to agree on the price and perform the
 
 3. Proposer creates the `ProverAssignment` struct data (obviously together with the `input` and `txList`) and submits the `proposeBlock()` with the necessary parameters.
 
-During `proposeBlock()` transaction, the `onBlockAssigned()` hook which will evaluate the validity of the prover signature, and if that one is correct then execute he transfer of `10 DAI`.
+During `proposeBlock()` transaction, the `onBlockAssigned()` hook will evaluate the validity of the prover signature, and if that one is correct then execute the transfer of `10 DAI`.
