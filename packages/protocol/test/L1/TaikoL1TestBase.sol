@@ -147,7 +147,6 @@ abstract contract TaikoL1TestBase is TestBase {
 
         TaikoData.ProverAssignment memory assignment = TaikoData
             .ProverAssignment({
-            prover: prover,
             feeToken: address(0),
             tierFees: tierFees,
             expiry: uint64(block.timestamp + 60 minutes),
@@ -177,7 +176,9 @@ abstract contract TaikoL1TestBase is TestBase {
 
         vm.prank(proposer, proposer);
         (meta, depositsProcessed) = L1.proposeBlock{ value: msgValue }(
-            abi.encode(TaikoData.BlockParams(assignment, 0, 0, 0, 0, false, 0)),
+            abi.encode(
+                TaikoData.BlockParams(assignment, prover, 0, 0, 0, 0, false, 0)
+            ),
             txList
         );
     }

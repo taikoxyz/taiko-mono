@@ -38,7 +38,6 @@ library LibProposing {
         uint256 indexed blockId,
         address indexed assignedProver,
         uint96 livenessBond,
-        uint256 proverFee,
         TaikoData.BlockMetadata meta,
         TaikoData.EthDeposit[] depositsProcessed
     );
@@ -78,6 +77,10 @@ library LibProposing {
     {
         TaikoData.BlockParams memory params =
             abi.decode(data, (TaikoData.BlockParams));
+
+        if (params.blobHash == 0 || params.assignedProver == address(0)) {
+            revert L1_ASSIGNMENT_INVALID_PARAMS();
+        }
 
         // Taiko, as a Based Rollup, enables permissionless block proposals.
         // However, if the "proposer" address is set to a non-zero value, we
@@ -245,7 +248,7 @@ library LibProposing {
         // verification.
         // Prover can charge ERC20/NFT as fees; msg.value can be zero. Taiko
         // doesn't mandate Ether as the only proofing fee.
-        blk.assignedProver = params.assignment.prover;
+        blk.assignedProver = params.assignedProver;
 
         // The assigned prover burns Taiko tokens, referred to as the
         // "liveness bond." This bond remains non-refundable to the
@@ -264,19 +267,18 @@ library LibProposing {
 
         // Validate the prover assignment, then charge Ether or ERC20 as the
         // prover fee based on the block's minTier.
-        uint256 proverFee = _payProverFeeAndTip(
-            meta.minTier,
-            meta.blobHash,
-            blk.blockId,
-            blk.metaHash,
-            params.assignment
-        );
+        // _payProverFeeAndTip(
+        //      meta.minTier,
+        //      meta.blobHash,
+        //      blk.blockId,
+        //      blk.metaHash,
+        //      params.assignment
+        //  );
 
         emit BlockProposed({
             blockId: blk.blockId,
             assignedProver: blk.assignedProver,
             livenessBond: config.livenessBond,
-            proverFee: proverFee,
             meta: meta,
             depositsProcessed: depositsProcessed
         });
@@ -319,6 +321,7 @@ library LibProposing {
     }
 
     function _payProverFeeAndTip(
+        address assignedProver,
         uint16 minTier,
         bytes32 blobHash,
         uint64 blockId,
@@ -328,10 +331,6 @@ library LibProposing {
         private
         returns (uint256 proverFee)
     {
-        if (blobHash == 0 || assignment.prover == address(0)) {
-            revert L1_ASSIGNMENT_INVALID_PARAMS();
-        }
-
         // Check assignment validity
         if (
             block.timestamp > assignment.expiry
@@ -347,7 +346,7 @@ library LibProposing {
         // the prover, therefore, we add a string as a prefix.
         bytes32 hash = hashAssignment(assignment, address(this), blobHash);
 
-        if (!assignment.prover.isValidSignature(hash, assignment.signature)) {
+        if (!assignedProver.isValidSignature(hash, assignment.signature)) {
             revert L1_ASSIGNMENT_INVALID_SIG();
         }
 
@@ -365,13 +364,13 @@ library LibProposing {
             }
 
             // Paying Ether
-            assignment.prover.sendEther(proverFee, MAX_GAS_PAYING_PROVER);
+            assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER);
         } else {
             tip = msg.value;
 
             // Paying ERC20 tokens
             ERC20Upgradeable(assignment.feeToken).transferFrom(
-                msg.sender, assignment.prover, proverFee
+                msg.sender, assignedProver, proverFee
             );
         }
 

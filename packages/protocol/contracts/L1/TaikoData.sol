@@ -70,7 +70,6 @@ library TaikoData {
     }
 
     struct ProverAssignment {
-        address prover;
         address feeToken;
         TierFee[] tierFees;
         uint64 expiry;
@@ -82,6 +81,7 @@ library TaikoData {
 
     struct BlockParams {
         ProverAssignment assignment;
+        address assignedProver;
         bytes32 extraData;
         bytes32 blobHash;
         uint24 txListByteOffset;
