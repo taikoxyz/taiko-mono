@@ -480,25 +480,6 @@
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "name": "isBridgedToken",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "inputs": [],
     "name": "name",
     "outputs": [
@@ -571,7 +552,7 @@
           },
           {
             "internalType": "address",
-            "name": "user",
+            "name": "owner",
             "type": "address"
           },
           {
@@ -862,7 +843,7 @@
           },
           {
             "internalType": "address",
-            "name": "user",
+            "name": "owner",
             "type": "address"
           },
           {

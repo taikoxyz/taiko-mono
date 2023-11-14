@@ -311,6 +311,16 @@
   },
   {
     "inputs": [],
+    "name": "L1_UNEXPECTED_PARENT",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "L1_UNEXPECTED_PARENT",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "L1_UNEXPECTED_TRANSITION_ID",
     "type": "error"
   },
@@ -489,6 +499,11 @@
             "internalType": "bool",
             "name": "blobUsed",
             "type": "bool"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "parentMetaHash",
+            "type": "bytes32"
           }
         ],
         "indexed": false,
@@ -621,6 +636,11 @@
             "internalType": "bool",
             "name": "blobUsed",
             "type": "bool"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "parentMetaHash",
+            "type": "bytes32"
           }
         ],
         "indexed": false,
@@ -1982,6 +2002,11 @@
             "internalType": "bool",
             "name": "blobUsed",
             "type": "bool"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "parentMetaHash",
+            "type": "bytes32"
           }
         ],
         "internalType": "struct TaikoData.BlockMetadata",

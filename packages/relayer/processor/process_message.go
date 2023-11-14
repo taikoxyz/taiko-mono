@@ -81,7 +81,7 @@ func (p *Processor) processMessage(
 		return errors.Wrap(err, "p.eventStatusFromMsgHash")
 	}
 
-	if !canProcessMessage(ctx, eventStatus, msgBody.Event.Message.User, p.relayerAddr) {
+	if !canProcessMessage(ctx, eventStatus, msgBody.Event.Message.Owner, p.relayerAddr) {
 		return errUnprocessable
 	}
 
@@ -211,7 +211,8 @@ func (p *Processor) processMessage(
 			"destChainID", msgBody.Event.Message.DestChainId,
 			"txHash", msgBody.Event.Raw.TxHash.Hex(),
 			"msgHash", common.Hash(msgBody.Event.MsgHash).Hex(),
-			"from", msgBody.Event.Message.User.Hex(),
+			"from", msgBody.Event.Message.From.Hex(),
+			"owner", msgBody.Event.Message.Owner.Hex(),
 			"error", err,
 			"hopsLength", len(hops),
 		)
@@ -542,7 +543,7 @@ func (p *Processor) saveMessageStatusChangedEvent(
 			ChainID:      new(big.Int).SetUint64(event.Message.DestChainId),
 			Status:       relayer.EventStatus(m["status"].(uint8)),
 			MsgHash:      common.Hash(event.MsgHash).Hex(),
-			MessageOwner: event.Message.User.Hex(),
+			MessageOwner: event.Message.Owner.Hex(),
 			Event:        relayer.EventNameMessageStatusChanged,
 		})
 		if err != nil {
