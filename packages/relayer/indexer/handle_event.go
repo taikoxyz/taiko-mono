@@ -66,7 +66,7 @@ func (i *Indexer) handleEvent(
 		EventType:    eventType,
 		Amount:       amount.String(),
 		MsgHash:      common.Hash(event.MsgHash).Hex(),
-		MessageOwner: event.Message.User.Hex(),
+		MessageOwner: event.Message.Owner.Hex(),
 		Event:        relayer.EventNameMessageSent,
 	}
 
