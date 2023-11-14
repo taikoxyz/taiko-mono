@@ -80,7 +80,7 @@ contract Bridge is EssentialContract, IBridge {
         returns (bytes32 msgHash, Message memory _message)
     {
         // Ensure the message user is not null.
-        if (message.user == address(0)) revert B_INVALID_USER();
+        if (message.owner == address(0)) revert B_INVALID_USER();
 
         // Check if the destination chain is enabled.
         (bool destChainEnabled,) = isDestChainEnabled(message.destChainId);
@@ -102,7 +102,7 @@ contract Bridge is EssentialContract, IBridge {
         _message.from = msg.sender;
         _message.srcChainId = uint64(block.chainid);
 
-        msgHash = keccak256(abi.encode(_message));
+        msgHash = hashMessage(_message);
 
         ISignalService(resolve("signal_service", false)).sendSignal(msgHash);
         emit MessageSent(msgHash, _message);
@@ -123,7 +123,7 @@ contract Bridge is EssentialContract, IBridge {
         whenNotPaused
         sameChain(message.srcChainId)
     {
-        bytes32 msgHash = keccak256(abi.encode(message));
+        bytes32 msgHash = hashMessage(message);
         if (isMessageRecalled[msgHash]) revert B_RECALLED_ALREADY();
 
         bool received = _proveSignalReceived(
@@ -156,14 +156,14 @@ contract Bridge is EssentialContract, IBridge {
                 srcChainId: uint64(PLACEHOLDER)
             });
         } else {
-            message.user.sendEther(message.value);
+            message.owner.sendEther(message.value);
         }
 
         emit MessageRecalled(msgHash);
     }
 
     /// @notice Processes a bridge message on the destination chain. This
-    /// function is callable by any address, including the `message.user`.
+    /// function is callable by any address, including the `message.owner`.
     /// @dev The process begins by hashing the message and checking the message
     /// status in the bridge  If the status is "NEW", the message is invoked. The
     /// status is updated accordingly, and processing fees are refunded as
@@ -179,13 +179,14 @@ contract Bridge is EssentialContract, IBridge {
         whenNotPaused
         sameChain(message.destChainId)
     {
-        // If the gas limit is set to zero, only the user can process the
+        // If the gas limit is set to zero, only the owner can process the
         // message.
-        if (message.gasLimit == 0 && msg.sender != message.user) {
+        if (message.gasLimit == 0 && msg.sender != message.owner) {
             revert B_PERMISSION_DENIED();
         }
 
-        bytes32 msgHash = keccak256(abi.encode(message));
+        bytes32 msgHash = hashMessage(message);
+
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
         bool received = _proveSignalReceived(msgHash, message.srcChainId, proof);
@@ -201,10 +202,10 @@ contract Bridge is EssentialContract, IBridge {
             status = Status.DONE;
             refundAmount = message.value;
         } else {
-            // Use the specified message gas limit if called by the user, else
+            // Use the specified message gas limit if called by the owner, else
             // use remaining gas
             uint256 gasLimit =
-                msg.sender == message.user ? gasleft() : message.gasLimit;
+                msg.sender == message.owner ? gasleft() : message.gasLimit;
 
             if (_invokeMessageCall(message, msgHash, gasLimit)) {
                 status = Status.DONE;
@@ -218,7 +219,7 @@ contract Bridge is EssentialContract, IBridge {
 
         // Determine the refund recipient
         address refundTo =
-            message.refundTo == address(0) ? message.user : message.refundTo;
+            message.refundTo == address(0) ? message.owner : message.refundTo;
 
         // Refund the processing fee
         if (msg.sender == refundTo) {
@@ -233,7 +234,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Retries to invoke the messageCall after releasing associated
     /// Ether and tokens.
     /// @dev This function can be called by any address, including the
-    /// `message.user`.
+    /// `message.owner`.
     /// It attempts to invoke the messageCall and updates the message status
     /// accordingly.
     /// @param message The message to retry.
@@ -249,12 +250,12 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(message.destChainId)
     {
         // If the gasLimit is set to 0 or isLastAttempt is true, the caller must
-        // be the message.user.
+        // be the message.owner.
         if (message.gasLimit == 0 || isLastAttempt) {
-            if (msg.sender != message.user) revert B_PERMISSION_DENIED();
+            if (msg.sender != message.owner) revert B_PERMISSION_DENIED();
         }
 
-        bytes32 msgHash = keccak256(abi.encode(message));
+        bytes32 msgHash = hashMessage(message);
         if (messageStatus[msgHash] != Status.RETRIABLE) {
             revert B_NON_RETRIABLE();
         }
@@ -280,7 +281,7 @@ contract Bridge is EssentialContract, IBridge {
         if (message.srcChainId != block.chainid) return false;
         return ISignalService(resolve("signal_service", false)).isSignalSent({
             app: address(this),
-            signal: keccak256(abi.encode(message))
+            signal: hashMessage(message)
         });
     }
 
@@ -298,7 +299,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         if (message.srcChainId != block.chainid) return false;
         return _proveSignalReceived(
-            _signalForFailedMessage(keccak256(abi.encode(message))),
+            _signalForFailedMessage(hashMessage(message)),
             message.destChainId,
             proof
         );
@@ -318,7 +319,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         if (message.destChainId != block.chainid) return false;
         return _proveSignalReceived(
-            keccak256(abi.encode(message)), message.srcChainId, proof
+            hashMessage(message), message.srcChainId, proof
         );
     }
 
@@ -342,6 +343,15 @@ contract Bridge is EssentialContract, IBridge {
             revert B_INVALID_CONTEXT();
         }
         return _ctx;
+    }
+
+    /// @notice Hash the message
+    function hashMessage(Message memory message)
+        public
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encode("TAIKO_MESSAGE", message));
     }
 
     /// @notice Invokes a call message on the Bridge.

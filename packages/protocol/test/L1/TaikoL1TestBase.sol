@@ -151,6 +151,9 @@ abstract contract TaikoL1TestBase is TestBase {
             feeToken: address(0),
             tierFees: tierFees,
             expiry: uint64(block.timestamp + 60 minutes),
+            maxBlockId: 0,
+            maxProposedIn: 0,
+            metaHash: 0,
             signature: new bytes(0)
         });
 
@@ -174,7 +177,7 @@ abstract contract TaikoL1TestBase is TestBase {
 
         vm.prank(proposer, proposer);
         (meta, depositsProcessed) = L1.proposeBlock{ value: msgValue }(
-            abi.encode(TaikoData.BlockParams(assignment, 0, 0, 0, 0, false)),
+            abi.encode(TaikoData.BlockParams(assignment, 0, 0, 0, 0, false, 0)),
             txList
         );
     }

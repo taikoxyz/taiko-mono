@@ -28,6 +28,11 @@ library LibProposing {
     // field element has 32 bytes.
     uint256 public constant MAX_BYTES_PER_BLOB = 4096 * 32;
 
+    // Max gas paying the prover. This should be large enough to prevent the
+    // worst cases, usually block proposer shall be aware the risks and only
+    // choose provers that cannot consume too much gas when receiving Ether.
+    uint256 public constant MAX_GAS_PAYING_PROVER = 200_000;
+
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     event BlockProposed(
         uint256 indexed blockId,
@@ -55,6 +60,7 @@ library LibProposing {
     error L1_TXLIST_OFFSET();
     error L1_TXLIST_SIZE();
     error L1_UNAUTHORIZED();
+    error L1_UNEXPECTED_PARENT();
 
     /// @dev Proposes a Taiko L2 block.
     function proposeBlock(
@@ -88,6 +94,17 @@ library LibProposing {
             revert L1_TOO_MANY_BLOCKS();
         }
 
+        TaikoData.Block storage parent =
+            state.blocks[(b.numBlocks - 1) % config.blockRingBufferSize];
+
+        // Check if parent block has the right meta hash
+        if (
+            params.parentMetaHash != 0
+                && parent.metaHash != params.parentMetaHash
+        ) {
+            revert L1_UNEXPECTED_PARENT();
+        }
+
         // Each transaction must handle a specific quantity of L1-to-L2
         // Ether deposits.
         depositsProcessed =
@@ -112,23 +129,10 @@ library LibProposing {
                 txListByteOffset: 0, // to be initialized below
                 txListByteSize: 0, // to be initialized below
                 minTier: 0, // to be initialized below
-                blobUsed: txList.length == 0
+                blobUsed: txList.length == 0,
+                parentMetaHash: parent.metaHash
             });
         }
-
-        // Following the Merge, the L1 mixHash incorporates the
-        // prevrandao value from the beacon chain. Given the possibility
-        // of multiple Taiko blocks being proposed within a single
-        // Ethereum block, we must introduce a salt to this random
-        // number as the L2 mixHash.
-        unchecked {
-            meta.difficulty = meta.blobHash
-                ^ bytes32(block.prevrandao * b.numBlocks * block.number);
-        }
-
-        // Use the difficulty as a random number
-        meta.minTier = ITierProvider(resolver.resolve("tier_provider", false))
-            .getMinTier(uint256(meta.difficulty));
 
         // Update certain meta fields
         if (meta.blobUsed) {
@@ -195,6 +199,20 @@ library LibProposing {
             meta.txListByteSize = uint24(txList.length);
         }
 
+        // Following the Merge, the L1 mixHash incorporates the
+        // prevrandao value from the beacon chain. Given the possibility
+        // of multiple Taiko blocks being proposed within a single
+        // Ethereum block, we must introduce a salt to this random
+        // number as the L2 mixHash.
+        unchecked {
+            meta.difficulty = meta.blobHash
+                ^ bytes32(block.prevrandao * b.numBlocks * block.number);
+        }
+
+        // Use the difficulty as a random number
+        meta.minTier = ITierProvider(resolver.resolve("tier_provider", false))
+            .getMinTier(uint256(meta.difficulty));
+
         // Now, it's essential to initialize the block that will be stored
         // on L1. We should aim to utilize as few storage slots as possible,
         // alghouth using a ring buffer can minimize storage writes once
@@ -246,8 +264,13 @@ library LibProposing {
 
         // Validate the prover assignment, then charge Ether or ERC20 as the
         // prover fee based on the block's minTier.
-        uint256 proverFee =
-            _validateAssignment(meta.minTier, meta.blobHash, params.assignment);
+        uint256 proverFee = _payProverFeeAndTip(
+            meta.minTier,
+            meta.blobHash,
+            blk.blockId,
+            blk.metaHash,
+            params.assignment
+        );
 
         emit BlockProposed({
             blockId: blk.blockId,
@@ -288,26 +311,36 @@ library LibProposing {
                 blobHash,
                 assignment.feeToken,
                 assignment.expiry,
+                assignment.maxBlockId,
+                assignment.maxProposedIn,
                 assignment.tierFees
             )
         );
     }
 
-    function _validateAssignment(
+    function _payProverFeeAndTip(
         uint16 minTier,
         bytes32 blobHash,
+        uint64 blockId,
+        bytes32 metaHash,
         TaikoData.ProverAssignment memory assignment
     )
         private
         returns (uint256 proverFee)
     {
-        // Check assignment not expired
-        if (block.timestamp >= assignment.expiry) {
-            revert L1_ASSIGNMENT_EXPIRED();
-        }
-
         if (blobHash == 0 || assignment.prover == address(0)) {
             revert L1_ASSIGNMENT_INVALID_PARAMS();
+        }
+
+        // Check assignment validity
+        if (
+            block.timestamp > assignment.expiry
+                || assignment.metaHash != 0 && metaHash != assignment.metaHash
+                || assignment.maxBlockId != 0 && blockId > assignment.maxBlockId
+                || assignment.maxProposedIn != 0
+                    && block.number > assignment.maxProposedIn
+        ) {
+            revert L1_ASSIGNMENT_EXPIRED();
         }
 
         // Hash the assignment with the blobHash, this hash will be signed by
@@ -323,21 +356,28 @@ library LibProposing {
 
         // The proposer irrevocably pays a fee to the assigned prover, either in
         // Ether or ERC20 tokens.
+        uint256 tip;
         if (assignment.feeToken == address(0)) {
-            // Paying Ether
             if (msg.value < proverFee) revert L1_ASSIGNMENT_INSUFFICIENT_FEE();
-            assignment.prover.sendEther(proverFee);
+
             unchecked {
-                // Return the extra Ether to the proposer
-                uint256 refund = msg.value - proverFee;
-                if (refund != 0) msg.sender.sendEther(refund);
+                tip = msg.value - proverFee;
             }
+
+            // Paying Ether
+            assignment.prover.sendEther(proverFee, MAX_GAS_PAYING_PROVER);
         } else {
+            tip = msg.value;
+
             // Paying ERC20 tokens
-            if (msg.value != 0) msg.sender.sendEther(msg.value);
             ERC20Upgradeable(assignment.feeToken).transferFrom(
                 msg.sender, assignment.prover, proverFee
             );
+        }
+
+        // block.coinbase can be address(0) in tests
+        if (tip != 0 && block.coinbase != address(0)) {
+            address(block.coinbase).sendEther(tip);
         }
     }
 

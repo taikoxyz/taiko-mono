@@ -46,38 +46,6 @@ library LibUtils {
         ts = state.transitions[slot][tid];
     }
 
-    /// @dev Retrieves the transition that is used to verify the given block.
-    /// This function will revert if the block is not verified.
-    function getVerifyingTransition(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        uint64 blockId
-    )
-        external
-        view
-        returns (TaikoData.TransitionState storage)
-    {
-        uint64 _blockId =
-            blockId == 0 ? state.slotB.lastVerifiedBlockId : blockId;
-        uint64 slot = _blockId % config.blockRingBufferSize;
-
-        TaikoData.Block storage blk = state.blocks[slot];
-
-        if (blk.blockId != _blockId) revert L1_BLOCK_MISMATCH();
-        if (blk.verifiedTransitionId == 0) revert L1_TRANSITION_NOT_FOUND();
-
-        return state.transitions[slot][blk.verifiedTransitionId];
-    }
-
-    function getStateVariables(TaikoData.State storage state)
-        external
-        view
-        returns (TaikoData.SlotA memory slotA, TaikoData.SlotB memory slotB)
-    {
-        slotA = state.slotA;
-        slotB = state.slotB;
-    }
-
     function getSyncedSnippet(
         TaikoData.State storage state,
         TaikoData.Config memory config,

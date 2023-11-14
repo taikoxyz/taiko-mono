@@ -74,6 +74,9 @@ library TaikoData {
         address feeToken;
         TierFee[] tierFees;
         uint64 expiry;
+        uint64 maxBlockId;
+        uint64 maxProposedIn;
+        bytes32 metaHash;
         bytes signature;
     }
 
@@ -84,6 +87,7 @@ library TaikoData {
         uint24 txListByteOffset;
         uint24 txListByteSize;
         bool cacheBlobForReuse;
+        bytes32 parentMetaHash;
     }
 
     /// @dev Struct containing data only required for proving a block
@@ -105,6 +109,7 @@ library TaikoData {
         uint24 txListByteSize;
         uint16 minTier;
         bool blobUsed;
+        bytes32 parentMetaHash; // slot 8
     }
 
     /// @dev Struct representing transition to be proven.
