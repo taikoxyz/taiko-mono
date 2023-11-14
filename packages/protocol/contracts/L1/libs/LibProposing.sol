@@ -6,15 +6,13 @@
 
 pragma solidity ^0.8.20;
 
-import { ERC20Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { IBlobHashReader } from "../../4844/IBlobHashReader.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 
 import { ITierProvider } from "../tiers/ITierProvider.sol";
 import { TaikoData } from "../TaikoData.sol";
+import { IHook } from "../hooks/IHook.sol";
 
 import { LibDepositing } from "./LibDepositing.sol";
 import { LibTaikoToken } from "./LibTaikoToken.sol";
@@ -28,11 +26,6 @@ library LibProposing {
     // field element has 32 bytes.
     uint256 public constant MAX_BYTES_PER_BLOB = 4096 * 32;
 
-    // Max gas paying the prover. This should be large enough to prevent the
-    // worst cases, usually block proposer shall be aware the risks and only
-    // choose provers that cannot consume too much gas when receiving Ether.
-    uint256 public constant MAX_GAS_PAYING_PROVER = 200_000;
-
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     event BlockProposed(
         uint256 indexed blockId,
@@ -45,16 +38,12 @@ library LibProposing {
     event BlobCached(bytes32 blobHash);
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
-    error L1_ASSIGNMENT_EXPIRED();
-    error L1_ASSIGNMENT_INVALID_SIG();
-    error L1_ASSIGNMENT_INSUFFICIENT_FEE();
     error L1_BLOB_FOR_DA_DISABLED();
     error L1_BLOB_NOT_FOUND();
     error L1_BLOB_NOT_REUSEABLE();
     error L1_INVALID_PARAM();
     error L1_INVALID_PROVER();
     error L1_PROPOSER_NOT_EOA();
-    error L1_TIER_NOT_FOUND();
     error L1_TOO_MANY_BLOCKS();
     error L1_TXLIST_OFFSET();
     error L1_TXLIST_SIZE();
@@ -273,18 +262,11 @@ library LibProposing {
             depositsProcessed: depositsProcessed
         });
 
-        // Validate the prover assignment, then charge Ether or ERC20 as the
-        // prover fee based on the block's minTier.
-        // _payProverFeeAndTip(
-        //      meta.minTier,
-        //      meta.blobHash,
-        //      blk.blockId,
-        //      blk.metaHash,
-        //      params.assignment
-        //  );
-
+        // Run post hook
         if (params.hook != address(0)) {
-            params.hook.sendEther(msg.value, gasleft(), params.hookData);
+            IHook(params.hook).postBlockProposed{ value: msg.value }(
+                blk, meta, params.hookData
+            );
         }
     }
 
@@ -299,89 +281,6 @@ library LibProposing {
     {
         return
             state.reusableBlobs[blobHash] + config.blobExpiry > block.timestamp;
-    }
-
-    function hashAssignment(
-        TaikoData.ProverAssignment memory assignment,
-        address taikoAddress,
-        bytes32 blobHash
-    )
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(
-            abi.encode(
-                "PROVER_ASSIGNMENT",
-                taikoAddress,
-                blobHash,
-                assignment.feeToken,
-                assignment.expiry,
-                assignment.maxBlockId,
-                assignment.maxProposedIn,
-                assignment.tierFees
-            )
-        );
-    }
-
-    function _payProverFeeAndTip(
-        address assignedProver,
-        uint16 minTier,
-        bytes32 blobHash,
-        uint64 blockId,
-        bytes32 metaHash,
-        TaikoData.ProverAssignment memory assignment
-    )
-        private
-        returns (uint256 proverFee)
-    {
-        // Check assignment validity
-        if (
-            block.timestamp > assignment.expiry
-                || assignment.metaHash != 0 && metaHash != assignment.metaHash
-                || assignment.maxBlockId != 0 && blockId > assignment.maxBlockId
-                || assignment.maxProposedIn != 0
-                    && block.number > assignment.maxProposedIn
-        ) {
-            revert L1_ASSIGNMENT_EXPIRED();
-        }
-
-        // Hash the assignment with the blobHash, this hash will be signed by
-        // the prover, therefore, we add a string as a prefix.
-        bytes32 hash = hashAssignment(assignment, address(this), blobHash);
-
-        if (!assignedProver.isValidSignature(hash, assignment.signature)) {
-            revert L1_ASSIGNMENT_INVALID_SIG();
-        }
-
-        // Find the prover fee using the minimal tier
-        proverFee = _getProverFee(assignment.tierFees, minTier);
-
-        // The proposer irrevocably pays a fee to the assigned prover, either in
-        // Ether or ERC20 tokens.
-        uint256 tip;
-        if (assignment.feeToken == address(0)) {
-            if (msg.value < proverFee) revert L1_ASSIGNMENT_INSUFFICIENT_FEE();
-
-            unchecked {
-                tip = msg.value - proverFee;
-            }
-
-            // Paying Ether
-            assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER, "");
-        } else {
-            tip = msg.value;
-
-            // Paying ERC20 tokens
-            ERC20Upgradeable(assignment.feeToken).transferFrom(
-                msg.sender, assignedProver, proverFee
-            );
-        }
-
-        // block.coinbase can be address(0) in tests
-        if (tip != 0 && block.coinbase != address(0)) {
-            address(block.coinbase).sendEther(tip);
-        }
     }
 
     function _isProposerPermitted(
@@ -402,19 +301,5 @@ library LibProposing {
 
         address proposer = resolver.resolve("proposer", true);
         return proposer == address(0) || msg.sender == proposer;
-    }
-
-    function _getProverFee(
-        TaikoData.TierFee[] memory tierFees,
-        uint16 tierId
-    )
-        private
-        pure
-        returns (uint256)
-    {
-        for (uint256 i; i < tierFees.length; ++i) {
-            if (tierFees[i].tier == tierId) return tierFees[i].fee;
-        }
-        revert L1_TIER_NOT_FOUND();
     }
 }

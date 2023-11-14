@@ -25,6 +25,7 @@ import { StringsUpgradeable as Strings } from
     "lib/openzeppelin-contracts-upgradeable/contracts/utils/StringsUpgradeable.sol";
 import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
 import { LibTiers } from "../../contracts/L1/tiers/ITierProvider.sol";
+import { AssignmentHook } from "../../contracts/L1/hooks/AssignmentHook.sol";
 
 contract MockVerifier {
     fallback(bytes calldata) external returns (bytes memory) {
@@ -145,7 +146,7 @@ abstract contract TaikoL1TestBase is TestBase {
         // anyways
         uint256 msgValue = 2 ether;
 
-        TaikoData.ProverAssignment memory assignment = TaikoData
+        AssignmentHook.ProverAssignment memory assignment = AssignmentHook
             .ProverAssignment({
             feeToken: address(0),
             tierFees: tierFees,
@@ -315,7 +316,7 @@ abstract contract TaikoL1TestBase is TestBase {
 
     function _signAssignment(
         address signer,
-        TaikoData.ProverAssignment memory assignment,
+        AssignmentHook.ProverAssignment memory assignment,
         address taikoAddr,
         bytes32 blobHash
     )
@@ -323,8 +324,9 @@ abstract contract TaikoL1TestBase is TestBase {
         view
         returns (bytes memory signature)
     {
-        bytes32 digest =
-            LibProposing.hashAssignment(assignment, taikoAddr, blobHash);
+        bytes32 digest = 0;
+        // TODO
+        // AssignmentHook.hashAssignment(assignment, taikoAddr, blobHash);
         uint256 signerPrivateKey;
 
         // In the test suite these are the 3 which acts as provers

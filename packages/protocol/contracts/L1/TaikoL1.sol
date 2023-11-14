@@ -186,6 +186,16 @@ contract TaikoL1 is
     }
 
     /// @notice Gets the details of a block.
+    /// @return blk The block.
+    function getLatestBlock()
+        public
+        view
+        returns (TaikoData.Block memory blk)
+    {
+        return LibUtils.getBlock(state, getConfig(), state.slotB.numBlocks - 1);
+    }
+
+    /// @notice Gets the details of a block.
     /// @param blockId Index of the block.
     /// @return blk The block.
     function getBlock(uint64 blockId)
