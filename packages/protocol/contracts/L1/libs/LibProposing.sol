@@ -10,10 +10,10 @@ import { AddressResolver } from "../../common/AddressResolver.sol";
 import { IBlobHashReader } from "../../4844/IBlobHashReader.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 
+import { IHook } from "../hooks/IHook.sol";
 import { ITierProvider } from "../tiers/ITierProvider.sol";
 import { TaikoData } from "../TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
-import { IHook } from "../hooks/IHook.sol";
 
 import { LibDepositing } from "./LibDepositing.sol";
 
