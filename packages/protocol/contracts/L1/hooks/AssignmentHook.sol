@@ -105,7 +105,7 @@ contract AssignmentHook is EssentialContract, IHook {
             }
 
             // Paying Ether
-            blk.assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER, "");
+            blk.assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER);
         } else {
             if (msg.value < input.tip) {
                 revert HOOK_ASSIGNMENT_INSUFFICIENT_FEE();
