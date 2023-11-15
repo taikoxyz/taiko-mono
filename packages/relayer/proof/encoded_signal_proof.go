@@ -35,6 +35,7 @@ func (p *Prover) EncodedSignalProof(
 	ctx context.Context,
 	caller relayer.Caller,
 	signalServiceAddress common.Address,
+	crossChainSyncAddress common.Address,
 	key string,
 	blockHash common.Hash,
 ) ([]byte, error) {
@@ -55,9 +56,10 @@ func (p *Prover) EncodedSignalProof(
 	}
 
 	signalProof := encoding.SignalProof{
-		Height:       blockHeader.Height.Uint64(),
-		StorageProof: encodedStorageProof,
-		Hops:         []encoding.Hop{},
+		CrossChainSync: crossChainSyncAddress,
+		Height:         blockHeader.Height.Uint64(),
+		StorageProof:   encodedStorageProof,
+		Hops:           []encoding.Hop{},
 	}
 
 	encodedSignalProof, err := encoding.EncodeSignalProof(signalProof)
@@ -72,6 +74,7 @@ func (p *Prover) EncodedSignalProofWithHops(
 	ctx context.Context,
 	caller relayer.Caller,
 	signalServiceAddress common.Address,
+	crossChainSyncAddress common.Address,
 	hopParams []HopParams,
 	key string,
 	blockHash common.Hash,
@@ -100,7 +103,7 @@ func (p *Prover) EncodedSignalProofWithHops(
 
 	for _, hop := range hopParams {
 		hopStorageSlotKey, err := hop.SignalService.GetSignalSlot(&bind.CallOpts{},
-			hop.ChainID,
+			hop.ChainID.Uint64(),
 			hop.TaikoAddress,
 			signalRoot,
 		)
@@ -120,18 +123,19 @@ func (p *Prover) EncodedSignalProofWithHops(
 		}
 
 		hops = append(hops, encoding.Hop{
-			ChainID:      hop.ChainID,
-			SignalRoot:   signalRoot,
-			StorageProof: encodedHopStorageProof,
+			SignalRootRelay: hop.TaikoAddress,
+			SignalRoot:      signalRoot,
+			StorageProof:    encodedHopStorageProof,
 		})
 
 		signalRoot = nextSignalRoot
 	}
 
 	signalProof := encoding.SignalProof{
-		Height:       blockNum,
-		StorageProof: encodedStorageProof,
-		Hops:         hops,
+		CrossChainSync: crossChainSyncAddress,
+		Height:         blockNum,
+		StorageProof:   encodedStorageProof,
+		Hops:           hops,
 	}
 
 	encodedSignalProof, err := encoding.EncodeSignalProof(signalProof)

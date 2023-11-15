@@ -6,6 +6,8 @@
 
 pragma solidity ^0.8.20;
 
+import { StringsUpgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/utils/StringsUpgradeable.sol";
 import { IAddressManager } from "./AddressManager.sol";
 
 /// @title AddressResolver
@@ -18,12 +20,15 @@ import { IAddressManager } from "./AddressManager.sol";
 /// is no setAddressManager() function go guarantee atomicness across all
 /// contracts that are resolvers.
 abstract contract AddressResolver {
+    using StringsUpgradeable for uint256;
+
     address public addressManager;
     uint256[49] private __gap;
 
     error RESOLVER_DENIED();
     error RESOLVER_INVALID_MANAGER();
-    error RESOLVER_ZERO_ADDR(uint256 chainId, bytes32 name);
+    error RESOLVER_UNEXPECTED_CHAINID();
+    error RESOLVER_ZERO_ADDR(uint64 chainId, string name);
 
     /// @dev Modifier that ensures the caller is the resolved address of a given
     /// name.
@@ -33,7 +38,7 @@ abstract contract AddressResolver {
         _;
     }
 
-    /// @notice Resolves a name to its address on the current chain.
+    /// @notice Resolves a name to its address deployed on this chain.
     /// @param name Name whose address is to be resolved.
     /// @param allowZeroAddress If set to true, does not throw if the resolved
     /// address is `address(0)`.
@@ -47,10 +52,10 @@ abstract contract AddressResolver {
         virtual
         returns (address payable addr)
     {
-        return _resolve(block.chainid, name, allowZeroAddress);
+        return _resolve(uint64(block.chainid), name, allowZeroAddress);
     }
 
-    /// @notice Resolves a name to its address on a specified chain.
+    /// @notice Resolves a name to its address deployed on a specified chain.
     /// @param chainId The chainId of interest.
     /// @param name Name whose address is to be resolved.
     /// @param allowZeroAddress If set to true, does not throw if the resolved
@@ -58,7 +63,7 @@ abstract contract AddressResolver {
     /// @return addr Address associated with the given name on the specified
     /// chain.
     function resolve(
-        uint256 chainId,
+        uint64 chainId,
         bytes32 name,
         bool allowZeroAddress
     )
@@ -73,7 +78,9 @@ abstract contract AddressResolver {
     /// @dev Initialization method for setting up AddressManager reference.
     /// @param _addressManager Address of the AddressManager.
     function _init(address _addressManager) internal virtual {
-        if (_addressManager == address(0)) revert RESOLVER_INVALID_MANAGER();
+        if (block.chainid >= type(uint64).max) {
+            revert RESOLVER_UNEXPECTED_CHAINID();
+        }
         addressManager = _addressManager;
     }
 
@@ -85,7 +92,7 @@ abstract contract AddressResolver {
     /// @return addr Address associated with the given name on the specified
     /// chain.
     function _resolve(
-        uint256 chainId,
+        uint64 chainId,
         bytes32 name,
         bool allowZeroAddress
     )
@@ -93,11 +100,13 @@ abstract contract AddressResolver {
         view
         returns (address payable addr)
     {
+        if (addressManager == address(0)) revert RESOLVER_INVALID_MANAGER();
+
         addr =
             payable(IAddressManager(addressManager).getAddress(chainId, name));
 
         if (!allowZeroAddress && addr == address(0)) {
-            revert RESOLVER_ZERO_ADDR(chainId, name);
+            revert RESOLVER_ZERO_ADDR(chainId, uint256(name).toString());
         }
     }
 }

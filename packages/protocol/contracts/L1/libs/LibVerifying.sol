@@ -24,11 +24,16 @@ library LibVerifying {
         address indexed assignedProver,
         address indexed prover,
         bytes32 blockHash,
-        bytes32 signalRoot
+        bytes32 signalRoot,
+        uint16 tier,
+        uint8 contestations
     );
 
     event CrossChainSynced(
-        uint64 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
+        uint64 indexed syncedInBlock,
+        uint64 indexed blockId,
+        bytes32 blockHash,
+        bytes32 signalRoot
     );
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
@@ -41,7 +46,7 @@ library LibVerifying {
         TaikoData.Config memory config,
         bytes32 genesisBlockHash
     )
-        internal
+        external
     {
         if (!isConfigValid(config)) revert L1_INVALID_CONFIG();
 
@@ -67,8 +72,37 @@ library LibVerifying {
             assignedProver: address(0),
             prover: address(0),
             blockHash: genesisBlockHash,
-            signalRoot: 0
+            signalRoot: 0,
+            tier: 0,
+            contestations: 0
         });
+    }
+
+    function isConfigValid(TaikoData.Config memory config)
+        public
+        pure
+        returns (bool isValid)
+    {
+        if (
+            config.chainId <= 1 //
+                || config.blockMaxProposals == 1
+                || config.blockRingBufferSize <= config.blockMaxProposals + 1
+                || config.blockMaxGasLimit == 0 || config.blockMaxTxListBytes == 0
+                || config.blockMaxTxListBytes > 128 * 1024 // calldata up to 128K
+                || config.livenessBond == 0 || config.ethDepositRingBufferSize <= 1
+                || config.ethDepositMinCountPerBlock == 0
+                || config.ethDepositMaxCountPerBlock
+                    < config.ethDepositMinCountPerBlock
+                || config.ethDepositMinAmount == 0
+                || config.ethDepositMaxAmount <= config.ethDepositMinAmount
+                || config.ethDepositMaxAmount >= type(uint96).max
+                || config.ethDepositGas == 0 || config.ethDepositMaxFee == 0
+                || config.ethDepositMaxFee >= type(uint96).max
+                || config.ethDepositMaxFee
+                    >= type(uint96).max / config.ethDepositMaxCountPerBlock
+        ) return false;
+
+        return true;
     }
 
     /// @dev Verifies up to N blocks.
@@ -83,6 +117,8 @@ library LibVerifying {
         // Retrieve the latest verified block and the associated transition used
         // for its verification.
         TaikoData.SlotB memory b = state.slotB;
+        if (b.provingPaused) return;
+
         uint64 blockId = b.lastVerifiedBlockId;
 
         uint64 slot = blockId % config.blockRingBufferSize;
@@ -189,8 +225,10 @@ library LibVerifying {
                     blockId: blockId,
                     assignedProver: blk.assignedProver,
                     prover: ts.prover,
-                    blockHash: ts.blockHash,
-                    signalRoot: ts.signalRoot
+                    blockHash: blockHash,
+                    signalRoot: signalRoot,
+                    tier: ts.tier,
+                    contestations: ts.contestations
                 });
 
                 ++blockId;
@@ -209,36 +247,12 @@ library LibVerifying {
                     .sendSignal(signalRoot);
 
                 emit CrossChainSynced(
-                    lastVerifiedBlockId, blockHash, signalRoot
+                    uint64(block.number),
+                    lastVerifiedBlockId,
+                    blockHash,
+                    signalRoot
                 );
             }
         }
-    }
-
-    function isConfigValid(TaikoData.Config memory config)
-        internal
-        pure
-        returns (bool isValid)
-    {
-        if (
-            config.chainId <= 1 //
-                || config.blockMaxProposals == 1
-                || config.blockRingBufferSize <= config.blockMaxProposals + 1
-                || config.blockMaxGasLimit == 0 || config.blockMaxTxListBytes == 0
-                || config.blockMaxTxListBytes > 128 * 1024 // calldata up to 128K
-                || config.livenessBond == 0 || config.ethDepositRingBufferSize <= 1
-                || config.ethDepositMinCountPerBlock == 0
-                || config.ethDepositMaxCountPerBlock
-                    < config.ethDepositMinCountPerBlock
-                || config.ethDepositMinAmount == 0
-                || config.ethDepositMaxAmount <= config.ethDepositMinAmount
-                || config.ethDepositMaxAmount >= type(uint96).max
-                || config.ethDepositGas == 0 || config.ethDepositMaxFee == 0
-                || config.ethDepositMaxFee >= type(uint96).max
-                || config.ethDepositMaxFee
-                    >= type(uint96).max / config.ethDepositMaxCountPerBlock
-        ) return false;
-
-        return true;
     }
 }

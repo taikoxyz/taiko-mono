@@ -37,12 +37,11 @@ Beside the `onlyFromNamed` or `onlyFromNamed2` modifiers, we have others such as
 ### 2.1 onlyOwner
 
 - **Description**: Only owner can be granted access.
-- **Associated contracts**: TaikoToken, AddressManager, EtherVault
+- **Associated contracts**: TaikoToken, AddressManager
 
 ### 2.2 onlyAuthorized
 
 - **Description**: Only authorized (by owner) can be granted access - the address shall be a smart contract. (`Bridge` in our case)
-- **Associated Actors**: EtherVault
 
 ## 3. Upgradeable Procedures
 

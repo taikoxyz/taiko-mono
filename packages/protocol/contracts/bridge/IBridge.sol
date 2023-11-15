@@ -8,31 +8,30 @@ pragma solidity ^0.8.20;
 
 /// @title IBridge
 /// @notice The bridge used in conjunction with the {ISignalService}.
-/// @dev Ether is held by Bridges on L1 and by the EtherVault on L2,
-/// not by token vaults.
+/// @dev Ether is held by Bridges on L1 and L2s.
 interface IBridge {
     struct Message {
         // Message ID.
         uint128 id;
-        // Message sender address (auto filled).
+        // The address, EOA or contract, that interacts with this bridge.
         address from;
-        // Source chain ID (auto filled).
-        uint256 srcChainId;
-        // Destination chain ID where the `to` address lives (auto filled).
-        uint256 destChainId;
-        // User address of the bridged asset.
-        address user;
-        // Destination address.
+        // Source chain ID.
+        uint64 srcChainId;
+        // Destination chain ID where the `to` address lives.
+        uint64 destChainId;
+        // The owner of the message.
+        address owner;
+        // The destination address on the destination chain.
         address to;
-        // Alternate address to send any refund. If blank, defaults to user.
+        // Alternate address to send any refund. If blank, defaults to owner.
         address refundTo;
-        // value to invoke on the destination chain, for ERC20 transfers.
+        // value to invoke on the destination chain.
         uint256 value;
-        // Processing fee for the relayer. Zero if user will process themself.
+        // Processing fee for the relayer. Zero if owner will process themself.
         uint256 fee;
-        // gasLimit to invoke on the destination chain, for ERC20 transfers.
+        // gasLimit to invoke on the destination chain.
         uint256 gasLimit;
-        // callData to invoke on the destination chain, for ERC20 transfers.
+        // callData to invoke on the destination chain.
         bytes data;
         // Optional memo.
         string memo;
@@ -42,7 +41,7 @@ interface IBridge {
     struct Context {
         bytes32 msgHash; // Message hash.
         address from; // Sender's address.
-        uint256 srcChainId; // Source chain ID.
+        uint64 srcChainId; // Source chain ID.
     }
 
     /// @notice Sends a message to the destination chain and takes custody

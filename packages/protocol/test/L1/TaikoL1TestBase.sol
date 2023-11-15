@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import { TestBase } from "../TestBase.sol";
 import { console2 } from "forge-std/console2.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
+import { Bridge } from "../../contracts/bridge/Bridge.sol";
 import { LibProving } from "../../contracts/L1/libs/LibProving.sol";
 import { LibProposing } from "../../contracts/L1/libs/LibProposing.sol";
 import { LibUtils } from "../../contracts/L1/libs/LibUtils.sol";
@@ -46,13 +47,12 @@ abstract contract TaikoL1TestBase is TestBase {
     GuardianVerifier public gv;
     GuardianProver public gp;
     TaikoA6TierProvider public cp;
+    Bridge public bridge;
 
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
 
     address public constant L2SS = 0xa008AE5Ba00656a3Cc384de589579e3E52aC030C;
     address public constant TaikoL2 = 0x0082D90249342980d011C58105a03b35cCb4A315;
-    address public constant L1EthVault =
-        0xDAFEA492D9c6733ae3d56b7Ed1ADB60692c98Bc5;
 
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 
@@ -64,7 +64,7 @@ abstract contract TaikoL1TestBase is TestBase {
         addressManager.init();
 
         ss = new SignalService();
-        ss.init(address(addressManager));
+        ss.init();
 
         pv = new PseZkVerifier();
         pv.init(address(addressManager));
@@ -87,6 +87,9 @@ abstract contract TaikoL1TestBase is TestBase {
 
         cp = new TaikoA6TierProvider();
 
+        bridge = new Bridge();
+        bridge.init(address(addressManager));
+
         registerAddress("taiko", address(L1));
         registerAddress("tier_pse_zkevm", address(pv));
         registerAddress("tier_sgx", address(sv));
@@ -94,8 +97,8 @@ abstract contract TaikoL1TestBase is TestBase {
         registerAddress("tier_sgx_and_pse_zkevm", address(sgxZkVerifier));
         registerAddress("tier_provider", address(cp));
         registerAddress("signal_service", address(ss));
-        registerAddress("guardian", address(gp));
-        registerAddress("ether_vault", address(L1EthVault));
+        registerAddress("guardian_prover", address(gp));
+        registerAddress("bridge", address(bridge));
         registerL2Address("taiko", address(TaikoL2));
         registerL2Address("signal_service", address(L2SS));
         registerL2Address("taiko_l2", address(TaikoL2));
@@ -148,19 +151,22 @@ abstract contract TaikoL1TestBase is TestBase {
             feeToken: address(0),
             tierFees: tierFees,
             expiry: uint64(block.timestamp + 60 minutes),
+            maxBlockId: 0,
+            maxProposedIn: 0,
+            metaHash: 0,
             signature: new bytes(0)
         });
 
         bytes memory txList = new bytes(txListSize);
 
         assignment.signature =
-            _signAssignment(prover, assignment, keccak256(txList));
+            _signAssignment(prover, assignment, address(L1), keccak256(txList));
 
-        TaikoData.StateVariables memory variables = L1.getStateVariables();
+        (, TaikoData.SlotB memory b) = L1.getStateVariables();
 
         uint256 _difficulty;
         unchecked {
-            _difficulty = block.prevrandao * variables.numBlocks;
+            _difficulty = block.prevrandao * b.numBlocks;
         }
 
         meta.timestamp = uint64(block.timestamp);
@@ -171,7 +177,8 @@ abstract contract TaikoL1TestBase is TestBase {
 
         vm.prank(proposer, proposer);
         (meta, depositsProcessed) = L1.proposeBlock{ value: msgValue }(
-            abi.encode(TaikoData.BlockParams(assignment, bytes32(0))), txList
+            abi.encode(TaikoData.BlockParams(assignment, 0, 0, 0, 0, false, 0)),
+            txList
         );
     }
 
@@ -290,7 +297,7 @@ abstract contract TaikoL1TestBase is TestBase {
     }
 
     function registerAddress(bytes32 nameHash, address addr) internal {
-        addressManager.setAddress(block.chainid, nameHash, addr);
+        addressManager.setAddress(uint64(block.chainid), nameHash, addr);
         console2.log(block.chainid, uint256(nameHash), unicode"→", addr);
     }
 
@@ -304,13 +311,15 @@ abstract contract TaikoL1TestBase is TestBase {
     function _signAssignment(
         address signer,
         TaikoData.ProverAssignment memory assignment,
+        address taikoAddr,
         bytes32 blobHash
     )
         internal
         view
         returns (bytes memory signature)
     {
-        bytes32 digest = LibProposing.hashAssignment(assignment, blobHash);
+        bytes32 digest =
+            LibProposing.hashAssignment(assignment, taikoAddr, blobHash);
         uint256 signerPrivateKey;
 
         // In the test suite these are the 3 which acts as provers
@@ -371,23 +380,24 @@ abstract contract TaikoL1TestBase is TestBase {
     }
 
     function printVariables(string memory comment) internal {
-        TaikoData.StateVariables memory vars = L1.getStateVariables();
+        (TaikoData.SlotA memory a, TaikoData.SlotB memory b) =
+            L1.getStateVariables();
 
         string memory str = string.concat(
             Strings.toString(logCount++),
             ":[",
-            Strings.toString(vars.lastVerifiedBlockId),
+            Strings.toString(b.lastVerifiedBlockId),
             unicode"→",
-            Strings.toString(vars.numBlocks),
+            Strings.toString(b.numBlocks),
             "]"
         );
 
         str = string.concat(
             str,
             " nextEthDepositToProcess:",
-            Strings.toString(vars.nextEthDepositToProcess),
+            Strings.toString(a.nextEthDepositToProcess),
             " numEthDeposits:",
-            Strings.toString(vars.numEthDeposits),
+            Strings.toString(a.numEthDeposits),
             " // ",
             comment
         );

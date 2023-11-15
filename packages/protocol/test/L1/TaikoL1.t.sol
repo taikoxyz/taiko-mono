@@ -188,8 +188,10 @@ contract TaikoL1Test is TaikoL1TestBase {
         vm.expectRevert();
         L1.depositEtherToL2{ value: maxAmount + 1 }(address(0));
 
-        assertEq(L1.getStateVariables().nextEthDepositToProcess, 0);
-        assertEq(L1.getStateVariables().numEthDeposits, 0);
+        (TaikoData.SlotA memory a,) = L1.getStateVariables();
+
+        assertEq(a.nextEthDepositToProcess, 0);
+        assertEq(a.numEthDeposits, 0);
     }
 
     function test_L1_EthDepositsToL2Gas() external {
@@ -346,10 +348,12 @@ contract TaikoL1Test is TaikoL1TestBase {
         vm.prank(Henry, Henry);
         L1.depositEtherToL2{ value: 8 ether }(address(0));
 
-        assertEq(L1.getStateVariables().numEthDeposits, 8); // The number of
-            // deposits
-        assertEq(L1.getStateVariables().nextEthDepositToProcess, 0); // The
-            // index / cursos of the next deposit
+        (TaikoData.SlotA memory a,) = L1.getStateVariables();
+
+        // The number of deposits
+        assertEq(a.numEthDeposits, 8);
+        // The index / cursos of the next deposit
+        assertEq(a.nextEthDepositToProcess, 0);
 
         // We shall invoke proposeBlock() because this is what will call the
         // processDeposits()

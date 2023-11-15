@@ -16,7 +16,7 @@ library TaikoData {
         // Group 1: General configs
         // ---------------------------------------------------------------------
         // The chain ID of the network where Taiko contracts are deployed.
-        uint256 chainId;
+        uint64 chainId;
         // ---------------------------------------------------------------------
         // Group 2: Block level configs
         // ---------------------------------------------------------------------
@@ -30,6 +30,10 @@ library TaikoData {
         uint32 blockMaxGasLimit;
         // The maximum allowed bytes for the proposed transaction list calldata.
         uint24 blockMaxTxListBytes;
+        // The max period in seconds that a blob can be reused for DA.
+        uint24 blobExpiry;
+        // True if EIP-4844 is enabled for DA
+        bool blobAllowedForDA;
         // ---------------------------------------------------------------------
         // Group 3: Proof related configs
         // ---------------------------------------------------------------------
@@ -52,18 +56,6 @@ library TaikoData {
         uint256 ethDepositGas;
         // The maximum fee allowed for an ETH deposit.
         uint256 ethDepositMaxFee;
-        // True if EIP-4844 is enabled for DA
-        bool allowUsingBlobForDA;
-    }
-
-    /// @dev Struct holding state variables.
-    struct StateVariables {
-        uint64 genesisHeight;
-        uint64 genesisTimestamp;
-        uint64 nextEthDepositToProcess;
-        uint64 numEthDeposits;
-        uint64 numBlocks;
-        uint64 lastVerifiedBlockId;
     }
 
     /// @dev Struct representing prover assignment
@@ -82,12 +74,20 @@ library TaikoData {
         address feeToken;
         TierFee[] tierFees;
         uint64 expiry;
+        uint64 maxBlockId;
+        uint64 maxProposedIn;
+        bytes32 metaHash;
         bytes signature;
     }
 
     struct BlockParams {
         ProverAssignment assignment;
         bytes32 extraData;
+        bytes32 blobHash;
+        uint24 txListByteOffset;
+        uint24 txListByteSize;
+        bool cacheBlobForReuse;
+        bytes32 parentMetaHash;
     }
 
     /// @dev Struct containing data only required for proving a block
@@ -105,8 +105,11 @@ library TaikoData {
         uint32 gasLimit;
         uint64 timestamp; // slot 7
         uint64 l1Height;
+        uint24 txListByteOffset;
+        uint24 txListByteSize;
         uint16 minTier;
         bool blobUsed;
+        bytes32 parentMetaHash; // slot 8
     }
 
     /// @dev Struct representing transition to be proven.
@@ -127,8 +130,9 @@ library TaikoData {
         uint96 validityBond;
         address contester; // slot 5
         uint96 contestBond;
-        uint64 timestamp; // slot 6 (82 bits)
+        uint64 timestamp; // slot 6 (90 bits)
         uint16 tier;
+        uint8 contestations;
         bytes32[4] __reserved;
     }
 
@@ -139,7 +143,8 @@ library TaikoData {
         address assignedProver; // slot 2
         uint96 livenessBond;
         uint64 blockId; // slot 3
-        uint64 proposedAt;
+        uint64 proposedAt; // timestamp
+        uint64 proposedIn; // L1 block number
         uint32 nextTransitionId;
         uint32 verifiedTransitionId;
         bytes32[7] __reserved;
@@ -167,8 +172,8 @@ library TaikoData {
 
     struct SlotB {
         uint64 numBlocks;
-        uint64 nextEthDepositToProcess;
         uint64 lastVerifiedBlockId;
+        bool provingPaused;
     }
 
     /// @dev Struct holding the state variables for the {TaikoL1} contract.
@@ -189,8 +194,10 @@ library TaikoData {
             ethDeposits;
         // In-protocol Taiko token balances
         mapping(address account => uint256 balance) tokenBalances;
-        SlotA slotA; // slot 6
-        SlotB slotB; // slot 7
-        uint256[143] __gap;
+        // Reusable blobs
+        mapping(bytes32 blobHash => uint256 since) reusableBlobs;
+        SlotA slotA; // slot 7
+        SlotB slotB; // slot 8
+        uint256[142] __gap;
     }
 }

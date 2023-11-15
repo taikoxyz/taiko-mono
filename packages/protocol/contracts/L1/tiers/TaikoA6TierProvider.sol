@@ -9,6 +9,7 @@ pragma solidity ^0.8.20;
 import { ITierProvider, LibTiers } from "./ITierProvider.sol";
 
 /// @title TaikoA6TierProvider
+/// @dev Labeled in AddressResolver as "tier_provider"
 /// @dev Assuming liveness bound is 250TKO.
 // Taiko token's total supply is 1 billion. Assuming block time is 2 second, and
 // the cool down period is 2 days. In 2 days, we can have (2*86400/2)=86400

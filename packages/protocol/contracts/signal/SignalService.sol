@@ -6,7 +6,10 @@
 
 pragma solidity ^0.8.20;
 
-import { EssentialContract } from "../common/EssentialContract.sol";
+import { SafeCastUpgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/utils/math/SafeCastUpgradeable.sol";
+
+import { AuthorizableContract } from "../common/AuthorizableContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
@@ -14,15 +17,28 @@ import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
 import { ISignalService } from "./ISignalService.sol";
 
 /// @title SignalService
+/// @dev Labeled in AddressResolver as "signal_service"
 /// @notice See the documentation in {ISignalService} for more details.
-contract SignalService is EssentialContract, ISignalService {
+///
+/// @dev Authorization Guide for Multi-Hop Bridging:
+/// For facilitating multi-hop bridging, authorize all deployed TaikoL1 and
+/// TaikoL2 contracts involved in the bridging path.
+/// Use the respective chain IDs as labels for authorization.
+/// Note: SignalService should not authorize Bridges or other Bridgable
+/// applications.
+contract SignalService is AuthorizableContract, ISignalService {
+    using SafeCastUpgradeable for uint256;
+
+    // storageProof represents ABI-encoded tuple of (key, value, and proof)
+    // returned from the eth_getProof() API.
     struct Hop {
-        uint256 chainId;
+        address signalRootRelay;
         bytes32 signalRoot;
         bytes storageProof;
     }
 
     struct Proof {
+        address crossChainSync;
         uint64 height;
         bytes storageProof;
         Hop[] hops;
@@ -31,28 +47,15 @@ contract SignalService is EssentialContract, ISignalService {
     error SS_INVALID_APP();
     error SS_INVALID_SIGNAL();
 
-    modifier validApp(address app) {
-        if (app == address(0)) revert SS_INVALID_APP();
-        _;
-    }
-
-    modifier validSignal(bytes32 signal) {
-        if (signal == 0) revert SS_INVALID_SIGNAL();
-        _;
-    }
-
     /// @dev Initializer to be called after being deployed behind a proxy.
-    function init(address _addressManager) external initializer {
-        EssentialContract._init(_addressManager);
+    function init() external initializer {
+        AuthorizableContract._init();
     }
 
     /// @inheritdoc ISignalService
-    function sendSignal(bytes32 signal)
-        public
-        validSignal(signal)
-        returns (bytes32 slot)
-    {
-        slot = getSignalSlot(block.chainid, msg.sender, signal);
+    function sendSignal(bytes32 signal) public returns (bytes32 slot) {
+        if (signal == 0) revert SS_INVALID_SIGNAL();
+        slot = getSignalSlot(uint64(block.chainid), msg.sender, signal);
         assembly {
             sstore(slot, 1)
         }
@@ -65,11 +68,11 @@ contract SignalService is EssentialContract, ISignalService {
     )
         public
         view
-        validApp(app)
-        validSignal(signal)
         returns (bool)
     {
-        bytes32 slot = getSignalSlot(block.chainid, app, signal);
+        if (signal == 0) revert SS_INVALID_SIGNAL();
+        if (app == address(0)) revert SS_INVALID_APP();
+        bytes32 slot = getSignalSlot(uint64(block.chainid), app, signal);
         uint256 value;
         assembly {
             value := sload(slot)
@@ -79,7 +82,7 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @inheritdoc ISignalService
     function proveSignalReceived(
-        uint256 srcChainId,
+        uint64 srcChainId,
         address app,
         bytes32 signal,
         bytes calldata proof
@@ -98,7 +101,9 @@ contract SignalService is EssentialContract, ISignalService {
         }
 
         Proof memory p = abi.decode(proof, (Proof));
-        if (p.storageProof.length == 0) return false;
+        if (p.crossChainSync == address(0) || p.storageProof.length == 0) {
+            return false;
+        }
 
         for (uint256 i; i < p.hops.length; ++i) {
             if (p.hops[i].signalRoot == 0) return false;
@@ -110,15 +115,27 @@ contract SignalService is EssentialContract, ISignalService {
         // verify that chainB's signalRoot has been sent as a signal by chainB's
         // "taiko" contract, then using chainB's signalRoot, we further check
         // the signal is sent by chainC's "bridge" contract.
-        bytes32 signalRoot = ICrossChainSync(resolve("taiko", false))
-            .getSyncedSnippet(p.height).signalRoot;
+
+        if (!isAuthorizedAs(p.crossChainSync, bytes32(block.chainid))) {
+            return false;
+        }
+
+        bytes32 signalRoot = ICrossChainSync(p.crossChainSync).getSyncedSnippet(
+            p.height
+        ).signalRoot;
+
         if (signalRoot == 0) return false;
 
         for (uint256 i; i < p.hops.length; ++i) {
             Hop memory hop = p.hops[i];
+
+            bytes32 label = authorizedAddresses[hop.signalRootRelay];
+            if (label == 0) return false;
+            uint64 chainId = uint256(label).toUint64();
+
             bytes32 slot = getSignalSlot(
-                hop.chainId,
-                resolve(hop.chainId, "taiko", false),
+                chainId, // use label as chainId
+                hop.signalRootRelay,
                 hop.signalRoot // as a signal
             );
             bool verified = LibSecureMerkleTrie.verifyInclusionProof(
@@ -144,7 +161,7 @@ contract SignalService is EssentialContract, ISignalService {
     /// @return The unique storage slot of the signal which is
     /// created by encoding the sender address with the signal (message).
     function getSignalSlot(
-        uint256 chainId,
+        uint64 chainId,
         address app,
         bytes32 signal
     )
@@ -160,6 +177,10 @@ contract SignalService is EssentialContract, ISignalService {
     function skipProofCheck() public pure virtual returns (bool) { }
 }
 
-/// @title ProxiedSignalService
+/// @title ProxiedSingletonSignalService
 /// @notice Proxied version of the parent contract.
-contract ProxiedSignalService is Proxied, SignalService { }
+/// @dev Deploy this contract as a singleton per chain for use by multiple L2s
+/// or L3s. No singleton check is performed within the code; it's the deployer's
+/// responsibility to ensure this. Singleton deployment is essential for
+/// enabling multi-hop bridging across all Taiko L2/L3s.
+contract ProxiedSingletonSignalService is Proxied, SignalService { }

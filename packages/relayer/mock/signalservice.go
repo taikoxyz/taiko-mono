@@ -1,8 +1,6 @@
 package mock
 
 import (
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -12,7 +10,7 @@ type SignalService struct {
 
 func (s *SignalService) GetSignalSlot(
 	opts *bind.CallOpts,
-	chainId *big.Int,
+	chainId uint64,
 	app common.Address,
 	signal [32]byte,
 ) ([32]byte, error) {

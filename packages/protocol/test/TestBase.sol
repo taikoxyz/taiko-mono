@@ -5,6 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { Bridge } from "../contracts/bridge/Bridge.sol";
 import { SignalService } from "../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../contracts/common/ICrossChainSync.sol";
+import { EssentialContract } from "../contracts/common/EssentialContract.sol";
 
 abstract contract TestBase is Test {
     uint256 private _seed = 0x12345678;
@@ -87,8 +88,12 @@ contract SkipProofCheckSignal is SignalService {
     }
 }
 
-contract DummyCrossChainSync is ICrossChainSync {
+contract DummyCrossChainSync is ICrossChainSync, EssentialContract {
     Snippet private _snippet;
+
+    function init(address _addressManager) external initializer {
+        EssentialContract._init(_addressManager);
+    }
 
     function setSyncedData(bytes32 blockHash, bytes32 signalRoot) external {
         _snippet.blockHash = blockHash;

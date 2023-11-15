@@ -37,20 +37,20 @@ contract TestTaikoL2 is TestBase {
         addressManager.init();
 
         ss = new SignalService();
-        ss.init(address(addressManager));
+        ss.init();
         registerAddress("signal_service", address(ss));
 
         L2 = new TaikoL2EIP1559Configurable();
         uint64 gasExcess = 0;
         uint8 quotient = 8;
         uint32 gasTarget = 60_000_000;
-        L2.init(address(addressManager), gasExcess);
+        L2.init(address(ss), gasExcess);
         L2.setConfigAndExcess(TaikoL2.Config(gasTarget, quotient), gasExcess);
 
         L2FeeSimulation = new SkipBasefeeCheckL2();
         gasExcess = 195_420_300_100;
 
-        L2FeeSimulation.init(address(addressManager), gasExcess);
+        L2FeeSimulation.init(address(ss), gasExcess);
         L2FeeSimulation.setConfigAndExcess(
             TaikoL2.Config(gasTarget, quotient), gasExcess
         );
@@ -137,7 +137,7 @@ contract TestTaikoL2 is TestBase {
         uint256 accumulated_parent_gas_per_l1_block = 0;
         uint64 l1Height = uint64(block.number);
         uint64 l1BlockCounter = 0;
-        uint64 maxL2BlockCount = 200;
+        uint64 maxL2BlockCount = 180;
         uint256 allBaseFee = 0;
         uint256 allGasUsed = 0;
         uint256 newRandomWithoutSalt;
@@ -269,7 +269,7 @@ contract TestTaikoL2 is TestBase {
     }
 
     function registerAddress(bytes32 nameHash, address addr) internal {
-        addressManager.setAddress(block.chainid, nameHash, addr);
+        addressManager.setAddress(uint64(block.chainid), nameHash, addr);
         console2.log(block.chainid, uint256(nameHash), unicode"→", addr);
     }
 

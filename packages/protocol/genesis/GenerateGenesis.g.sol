@@ -14,7 +14,6 @@ import { Bridge } from "../contracts/bridge/Bridge.sol";
 import { ERC1155Vault } from "../contracts/tokenvault/ERC1155Vault.sol";
 import { ERC20Vault } from "../contracts/tokenvault/ERC20Vault.sol";
 import { ERC721Vault } from "../contracts/tokenvault/ERC721Vault.sol";
-import { EtherVault } from "../contracts/bridge/EtherVault.sol";
 import { IBridge } from "../contracts/bridge/IBridge.sol";
 import { RegularERC20 } from "../contracts/test/erc20/RegularERC20.sol";
 import { SignalService } from "../contracts/signal/SignalService.sol";
@@ -25,7 +24,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
     using stdJson for string;
 
     string private configJSON = vm.readFile(
-        string.concat(vm.projectRoot(), "/genesis/test_config.json")
+        string.concat(vm.projectRoot(), "/deployments/genesis_config.json")
     );
     string private genesisAllocJSON = vm.readFile(
         string.concat(vm.projectRoot(), "/deployments/genesis_alloc.json")
@@ -33,40 +32,51 @@ contract TestGenerateGenesis is Test, AddressResolver {
     address private owner = configJSON.readAddress(".contractOwner");
     address private admin = configJSON.readAddress(".contractAdmin");
 
-    // uint32 public constant BLOCK_GAS_LIMIT = 30_000_000;
-
-    function testContractDeployment() public {
+    function testSingletonContractDeployment() public {
         assertEq(block.chainid, 167);
 
-        checkDeployedCode("ProxiedTaikoL2");
-        checkDeployedCode("ProxiedERC20Vault");
-        checkDeployedCode("ProxiedERC721Vault");
-        checkDeployedCode("ProxiedERC1155Vault");
-        checkDeployedCode("ProxiedEtherVault");
-        checkDeployedCode("ProxiedBridge");
-        checkDeployedCode("RegularERC20");
-        checkDeployedCode("ProxiedAddressManager");
-        checkDeployedCode("ProxiedSignalService");
+        // check bytecode
+        checkDeployedCode("ProxiedSingletonERC20Vault");
+        checkDeployedCode("ProxiedSingletonERC721Vault");
+        checkDeployedCode("ProxiedSingletonERC1155Vault");
+        checkDeployedCode("ProxiedSingletonBridge");
+        checkDeployedCode("ProxiedSingletonSignalService");
+        checkDeployedCode("ProxiedSingletonAddressManagerForSingletons");
+        checkDeployedCode("ProxiedBridgedERC20");
+        checkDeployedCode("ProxiedBridgedERC721");
+        checkDeployedCode("ProxiedBridgedERC1155");
 
         // check proxy implementations
-        checkProxyImplementation("TaikoL2Proxy", "ProxiedTaikoL2");
-        checkProxyImplementation("ERC20VaultProxy", "ProxiedERC20Vault");
-        checkProxyImplementation("ERC721VaultProxy", "ProxiedERC721Vault");
-        checkProxyImplementation("ERC1155VaultProxy", "ProxiedERC1155Vault");
-        checkProxyImplementation("EtherVaultProxy", "ProxiedEtherVault");
-        checkProxyImplementation("BridgeProxy", "ProxiedBridge");
-        checkProxyImplementation("AddressManagerProxy", "ProxiedAddressManager");
-        checkProxyImplementation("SignalServiceProxy", "ProxiedSignalService");
+        checkProxyImplementation("SingletonERC20VaultProxy", "ProxiedSingletonERC20Vault");
+        checkProxyImplementation("SingletonERC721VaultProxy", "ProxiedSingletonERC721Vault");
+        checkProxyImplementation("SingletonERC1155VaultProxy", "ProxiedSingletonERC1155Vault");
+        checkProxyImplementation("SingletonBridgeProxy", "ProxiedSingletonBridge");
+        checkProxyImplementation("SingletonSignalServiceProxy", "ProxiedSingletonSignalService");
+        checkProxyImplementation(
+            "SingletonAddressManagerForSingletonsProxy", "ProxiedSingletonAddressManagerForSingletons"
+        );
 
         // check proxies
-        checkDeployedCode("TaikoL2Proxy");
-        checkDeployedCode("ERC20VaultProxy");
-        checkDeployedCode("ERC721VaultProxy");
-        checkDeployedCode("ERC1155VaultProxy");
-        checkDeployedCode("EtherVaultProxy");
-        checkDeployedCode("BridgeProxy");
+        checkDeployedCode("SingletonERC20VaultProxy");
+        checkDeployedCode("SingletonERC721VaultProxy");
+        checkDeployedCode("SingletonERC1155VaultProxy");
+        checkDeployedCode("SingletonBridgeProxy");
+        checkDeployedCode("SingletonSignalServiceProxy");
+        checkDeployedCode("SingletonAddressManagerForSingletonsProxy");
+    }
+
+    function testNonSingletonContractDeployment() public {
+        // check bytecode
+        checkDeployedCode("ProxiedSingletonTaikoL2");
+        checkDeployedCode("ProxiedAddressManager");
+
+        // check proxy implementations
+        checkProxyImplementation("SingletonTaikoL2Proxy", "ProxiedSingletonTaikoL2");
+        checkProxyImplementation("AddressManagerProxy", "ProxiedAddressManager");
+
+        // check proxies
+        checkDeployedCode("SingletonTaikoL2Proxy");
         checkDeployedCode("AddressManagerProxy");
-        checkDeployedCode("SignalServiceProxy");
     }
 
     function testAddressManager() public {
@@ -75,14 +85,9 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         assertEq(owner, addressManager.owner());
 
-        checkSavedAddress(addressManager, "BridgeProxy", "bridge");
-        checkSavedAddress(addressManager, "ERC20VaultProxy", "erc20_vault");
-        checkSavedAddress(addressManager, "ERC721VaultProxy", "erc721_vault");
-        checkSavedAddress(addressManager, "ERC1155VaultProxy", "erc1155_vault");
-        checkSavedAddress(addressManager, "EtherVaultProxy", "ether_vault");
-        checkSavedAddress(addressManager, "TaikoL2Proxy", "taiko");
+        checkSavedAddress(addressManager, "SingletonTaikoL2Proxy", "taiko");
         checkSavedAddress(
-            addressManager, "SignalServiceProxy", "signal_service"
+            addressManager, "SingletonSignalServiceProxy", "signal_service"
         );
 
         TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
@@ -99,8 +104,36 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.stopPrank();
     }
 
+    function testSingletonAddressManagerForSingletons() public {
+        AddressManager addressManager =
+            AddressManager(getPredeployedContractAddress("SingletonAddressManagerForSingletonsProxy"));
+
+        assertEq(owner, addressManager.owner());
+
+        checkSavedAddress(addressManager, "SingletonBridgeProxy", "bridge");
+        checkSavedAddress(addressManager, "SingletonERC20VaultProxy", "erc20_vault");
+        checkSavedAddress(addressManager, "SingletonERC721VaultProxy", "erc721_vault");
+        checkSavedAddress(addressManager, "SingletonERC1155VaultProxy", "erc1155_vault");
+        checkSavedAddress(
+            addressManager, "SingletonSignalServiceProxy", "signal_service"
+        );
+
+        TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
+            payable(getPredeployedContractAddress("SingletonAddressManagerForSingletonsProxy"))
+        );
+
+        AddressManager newAddressManager = new AddressManager();
+
+        vm.startPrank(admin);
+
+        proxy.upgradeTo(address(newAddressManager));
+
+        assertEq(proxy.implementation(), address(newAddressManager));
+        vm.stopPrank();
+    }
+
     function testTaikoL2() public {
-        TaikoL2 taikoL2 = TaikoL2(getPredeployedContractAddress("TaikoL2Proxy"));
+        TaikoL2 taikoL2 = TaikoL2(getPredeployedContractAddress("SingletonTaikoL2Proxy"));
 
         vm.startPrank(taikoL2.GOLDEN_TOUCH_ADDRESS());
         for (uint32 i = 0; i < 300; ++i) {
@@ -129,7 +162,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.startPrank(admin);
 
         TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
-            payable(getPredeployedContractAddress("TaikoL2Proxy"))
+            payable(getPredeployedContractAddress("SingletonTaikoL2Proxy"))
         );
 
         TaikoL2 newTaikoL2 = new TaikoL2();
@@ -140,9 +173,9 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.stopPrank();
     }
 
-    function testBridge() public {
+    function testSingletonBridge() public {
         address payable bridgeAddress =
-            payable(getPredeployedContractAddress("BridgeProxy"));
+            payable(getPredeployedContractAddress("SingletonBridgeProxy"));
         Bridge bridge = Bridge(bridgeAddress);
 
         assertEq(owner, bridge.owner());
@@ -154,7 +187,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
                 from: address(0),
                 srcChainId: 1,
                 destChainId: 167,
-                user: address(0),
+                owner: address(0),
                 to: address(0),
                 refundTo: address(0),
                 value: 0,
@@ -179,7 +212,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
                 from: address(0),
                 srcChainId: 1,
                 destChainId: 167,
-                user: address(0),
+                owner: address(0),
                 to: address(0),
                 refundTo: address(0),
                 value: 0,
@@ -198,7 +231,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.startPrank(admin);
 
         TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
-            payable(getPredeployedContractAddress("BridgeProxy"))
+            payable(getPredeployedContractAddress("SingletonBridgeProxy"))
         );
 
         Bridge newBridge = new Bridge();
@@ -209,43 +242,15 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.stopPrank();
     }
 
-    function testEtherVault() public {
-        address payable etherVaultAddress =
-            payable(getPredeployedContractAddress("EtherVaultProxy"));
-        EtherVault etherVault = EtherVault(etherVaultAddress);
 
-        assertEq(owner, etherVault.owner());
-
-        assertEq(
-            etherVault.isAuthorized(
-                getPredeployedContractAddress("BridgeProxy")
-            ),
-            true
-        );
-        assertEq(etherVault.isAuthorized(etherVault.owner()), false);
-
-        vm.startPrank(admin);
-
-        TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
-            payable(getPredeployedContractAddress("EtherVaultProxy"))
-        );
-
-        EtherVault newEtherVault = new EtherVault();
-
-        proxy.upgradeTo(address(newEtherVault));
-
-        assertEq(proxy.implementation(), address(newEtherVault));
-        vm.stopPrank();
-    }
-
-    function testERC20Vault() public {
+    function testSingletonERC20Vault() public {
         address erc20VaultAddress =
-            getPredeployedContractAddress("ERC20VaultProxy");
-        address bridgeAddress = getPredeployedContractAddress("BridgeProxy");
+            getPredeployedContractAddress("SingletonERC20VaultProxy");
+        address bridgeAddress = getPredeployedContractAddress("SingletonBridgeProxy");
 
         ERC20Vault erc20Vault = ERC20Vault(erc20VaultAddress);
         AddressManager addressManager =
-            AddressManager(getPredeployedContractAddress("AddressManagerProxy"));
+            AddressManager(getPredeployedContractAddress("SingletonAddressManagerForSingletonsProxy"));
 
         assertEq(owner, erc20Vault.owner());
 
@@ -257,7 +262,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.startPrank(admin);
 
         TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
-            payable(getPredeployedContractAddress("ERC20VaultProxy"))
+            payable(getPredeployedContractAddress("SingletonERC20VaultProxy"))
         );
 
         ERC20Vault newERC20Vault = new ERC20Vault();
@@ -268,14 +273,14 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.stopPrank();
     }
 
-    function testERC721Vault() public {
+    function testSingletonERC721Vault() public {
         address erc721VaultAddress =
-            getPredeployedContractAddress("ERC721VaultProxy");
-        address bridgeAddress = getPredeployedContractAddress("BridgeProxy");
+            getPredeployedContractAddress("SingletonERC721VaultProxy");
+        address bridgeAddress = getPredeployedContractAddress("SingletonBridgeProxy");
 
         ERC721Vault erc721Vault = ERC721Vault(erc721VaultAddress);
         AddressManager addressManager =
-            AddressManager(getPredeployedContractAddress("AddressManagerProxy"));
+            AddressManager(getPredeployedContractAddress("SingletonAddressManagerForSingletonsProxy"));
 
         assertEq(owner, erc721Vault.owner());
 
@@ -287,7 +292,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.startPrank(admin);
 
         TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
-            payable(getPredeployedContractAddress("ERC721VaultProxy"))
+            payable(getPredeployedContractAddress("SingletonERC721VaultProxy"))
         );
 
         ERC721Vault newERC721Vault = new ERC721Vault();
@@ -298,14 +303,14 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.stopPrank();
     }
 
-    function testERC1155Vault() public {
+    function testSingletonERC1155Vault() public {
         address erc1155VaultAddress =
-            getPredeployedContractAddress("ERC1155VaultProxy");
-        address bridgeAddress = getPredeployedContractAddress("BridgeProxy");
+            getPredeployedContractAddress("SingletonERC1155VaultProxy");
+        address bridgeAddress = getPredeployedContractAddress("SingletonBridgeProxy");
 
         ERC1155Vault erc1155Vault = ERC1155Vault(erc1155VaultAddress);
         AddressManager addressManager =
-            AddressManager(getPredeployedContractAddress("AddressManagerProxy"));
+            AddressManager(getPredeployedContractAddress("SingletonAddressManagerForSingletonsProxy"));
 
         assertEq(owner, erc1155Vault.owner());
 
@@ -317,7 +322,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.startPrank(admin);
 
         TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
-            payable(getPredeployedContractAddress("ERC1155VaultProxy"))
+            payable(getPredeployedContractAddress("SingletonERC1155VaultProxy"))
         );
 
         ERC1155Vault newERC1155Vault = new ERC1155Vault();
@@ -328,18 +333,20 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.stopPrank();
     }
 
-    function testSignalService() public {
+    function testSingletonSignalService() public {
         SignalService signalService =
-            SignalService(getPredeployedContractAddress("SignalServiceProxy"));
+            SignalService(getPredeployedContractAddress("SingletonSignalServiceProxy"));
 
         assertEq(owner, signalService.owner());
 
         signalService.sendSignal(keccak256(abi.encodePacked(block.prevrandao)));
 
+        assertEq(true, signalService.isAuthorizedAs(getPredeployedContractAddress("SingletonTaikoL2Proxy"), bytes32((block.chainid))));
+
         vm.startPrank(admin);
 
         TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
-            payable(getPredeployedContractAddress("SignalServiceProxy"))
+            payable(getPredeployedContractAddress("SingletonSignalServiceProxy"))
         );
 
         SignalService newSignalService = new SignalService();
@@ -405,7 +412,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
     {
         assertEq(
             getPredeployedContractAddress(contractName),
-            addressManager.getAddress(block.chainid, name)
+            addressManager.getAddress(uint64(block.chainid), name)
         );
     }
 }

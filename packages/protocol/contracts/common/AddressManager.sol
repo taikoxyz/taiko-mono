@@ -6,23 +6,23 @@
 
 pragma solidity ^0.8.20;
 
-import { OwnableUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import { Ownable2StepUpgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
 
 import { Proxied } from "./Proxied.sol";
 
 /// @title IAddressManager
-/// @notice Specifies methods to manage address mappings for given domain-name
+/// @notice Specifies methods to manage address mappings for given chainId-name
 /// pairs.
 interface IAddressManager {
-    /// @notice Gets the address mapped to a specific domain-name pair.
+    /// @notice Gets the address mapped to a specific chainId-name pair.
     /// @dev Note that in production, this method shall be a pure function
     /// without any storage access.
-    /// @param domain The domain for which the address needs to be fetched.
+    /// @param chainId The chainId for which the address needs to be fetched.
     /// @param name The name for which the address needs to be fetched.
-    /// @return Address associated with the domain-name pair.
+    /// @return Address associated with the chainId-name pair.
     function getAddress(
-        uint256 domain,
+        uint64 chainId,
         bytes32 name
     )
         external
@@ -31,13 +31,13 @@ interface IAddressManager {
 }
 
 /// @title AddressManager
-/// @notice Manages a mapping of domain-name pairs to Ethereum addresses.
-contract AddressManager is OwnableUpgradeable, IAddressManager {
+/// @notice Manages a mapping of chainId-name pairs to Ethereum addresses.
+contract AddressManager is Ownable2StepUpgradeable, IAddressManager {
     mapping(uint256 => mapping(bytes32 => address)) private addresses;
     uint256[49] private __gap;
 
     event AddressSet(
-        uint256 indexed domain,
+        uint64 indexed chainId,
         bytes32 indexed name,
         address newAddress,
         address oldAddress
@@ -45,15 +45,15 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
 
     /// @notice Initializes the owner for the upgradable contract.
     function init() external initializer {
-        OwnableUpgradeable.__Ownable_init();
+        Ownable2StepUpgradeable.__Ownable2Step_init();
     }
 
-    /// @notice Sets the address for a specific domain-name pair.
-    /// @param domain The domain to which the address will be mapped.
+    /// @notice Sets the address for a specific chainId-name pair.
+    /// @param chainId The chainId to which the address will be mapped.
     /// @param name The name to which the address will be mapped.
     /// @param newAddress The Ethereum address to be mapped.
     function setAddress(
-        uint256 domain,
+        uint64 chainId,
         bytes32 name,
         address newAddress
     )
@@ -61,14 +61,14 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         virtual
         onlyOwner
     {
-        address oldAddress = addresses[domain][name];
-        addresses[domain][name] = newAddress;
-        emit AddressSet(domain, name, newAddress, oldAddress);
+        address oldAddress = addresses[chainId][name];
+        addresses[chainId][name] = newAddress;
+        emit AddressSet(chainId, name, newAddress, oldAddress);
     }
 
     /// @inheritdoc IAddressManager
     function getAddress(
-        uint256 domain,
+        uint64 chainId,
         bytes32 name
     )
         public
@@ -76,7 +76,7 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         override
         returns (address)
     {
-        return addresses[domain][name];
+        return addresses[chainId][name];
     }
 }
 

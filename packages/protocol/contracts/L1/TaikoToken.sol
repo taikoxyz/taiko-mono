@@ -17,6 +17,7 @@ import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
 
 /// @title TaikoToken
+/// @dev Labeled in AddressResolver as "taiko_token"
 /// @notice The TaikoToken (TKO), in the protocol is used for prover collateral
 /// in the form of bonds. It is an ERC20 token with 18 decimal places of
 /// precision.
@@ -49,6 +50,20 @@ contract TaikoToken is
 
         // Mint 1 billion tokens
         _mint(_recipient, 1_000_000_000 ether);
+    }
+
+    /// @notice Mints new tokens to the specified address.
+    /// @param to The address to receive the minted tokens.
+    /// @param amount The amount of tokens to mint.
+    function mint(address to, uint256 amount) public onlyOwner {
+        _mint(to, amount);
+    }
+
+    /// @notice Burns tokens from the specified address.
+    /// @param from The address to burn tokens from.
+    /// @param amount The amount of tokens to burn.
+    function burn(address from, uint256 amount) public onlyOwner {
+        _burn(from, amount);
     }
 
     /// @notice Creates a new token snapshot.

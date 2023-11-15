@@ -6,7 +6,9 @@
 
 pragma solidity ^0.8.20;
 
-import { EssentialContract } from "../common/EssentialContract.sol";
+import { Ownable2StepUpgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
+
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { ISignalService } from "../signal/ISignalService.sol";
 import { Proxied } from "../common/Proxied.sol";
@@ -21,7 +23,7 @@ import { TaikoL2Signer } from "./TaikoL2Signer.sol";
 /// It is used to anchor the latest L1 block details to L2 for cross-layer
 /// communication, manage EIP-1559 parameters for gas pricing, and store
 /// verified L1 block information.
-contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
+contract TaikoL2 is Ownable2StepUpgradeable, TaikoL2Signer, ICrossChainSync {
     using LibMath for uint256;
 
     struct Config {
@@ -35,11 +37,13 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     mapping(uint256 l1height => ICrossChainSync.Snippet) public snippets;
 
     // A hash to check the integrity of public inputs.
-    bytes32 public publicInputHash; // slot 3
-    uint64 public gasExcess; // slot 4
+    address public signalService; // slot 3
+    bytes32 public publicInputHash; // slot 4
+
+    uint64 public gasExcess; // slot 5
     uint64 public latestSyncedL1Height;
 
-    uint256[146] private __gap;
+    uint256[145] private __gap;
 
     event Anchored(bytes32 parentHash, uint64 gasExcess);
 
@@ -51,24 +55,32 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     error L2_TOO_LATE();
 
     /// @notice Initializes the TaikoL2 contract.
-    /// @param _addressManager Address of the {AddressManager} contract.
+    /// @param _signalService Address of the {ISignalService} contract.
+    /// @param _gasExcess The initial gasExcess.
     function init(
-        address _addressManager,
+        address _signalService,
         uint64 _gasExcess
     )
         external
         initializer
     {
-        EssentialContract._init(_addressManager);
+        Ownable2StepUpgradeable.__Ownable2Step_init();
+
+        if (_signalService == address(0)) revert L2_INVALID_PARAM();
+        signalService = _signalService;
 
         if (block.chainid <= 1 || block.chainid >= type(uint64).max) {
             revert L2_INVALID_CHAIN_ID();
         }
-        if (block.number > 1) revert L2_TOO_LATE();
 
-        if (block.number > 0) {
+        if (block.number == 0) {
+            // This is the case in real L2 genesis
+        } else if (block.number == 1) {
+            // This is the case in tests
             uint256 parentHeight = block.number - 1;
             l2Hashes[parentHeight] = blockhash(parentHeight);
+        } else {
+            revert L2_TOO_LATE();
         }
 
         gasExcess = _gasExcess;
@@ -120,14 +132,19 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
         // Store the L1's signal root as a signal to the local signal service to
         // allow for multi-hop bridging.
-        ISignalService(resolve("signal_service", false)).sendSignal(
-            l1SignalRoot
+        ISignalService(signalService).sendSignal(l1SignalRoot);
+        emit CrossChainSynced(
+            uint64(block.number), l1Height, l1BlockHash, l1SignalRoot
         );
-        emit CrossChainSynced(l1Height, l1BlockHash, l1SignalRoot);
 
         // Update state variables
         l2Hashes[parentId] = blockhash(parentId);
-        snippets[l1Height] = ICrossChainSync.Snippet(l1BlockHash, l1SignalRoot);
+        snippets[l1Height] = ICrossChainSync.Snippet({
+            remoteBlockId: l1Height,
+            syncedInBlock: uint64(block.number),
+            blockHash: l1BlockHash,
+            signalRoot: l1SignalRoot
+        });
         publicInputHash = publicInputHashNew;
         latestSyncedL1Height = l1Height;
 
@@ -261,6 +278,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     }
 }
 
-/// @title ProxiedTaikoL2
+/// @title ProxiedSingletonTaikoL2
 /// @notice Proxied version of the TaikoL2 contract.
-contract ProxiedTaikoL2 is Proxied, TaikoL2 { }
+/// @dev Deploy this contract as a singleton per chain for use by multiple L2s
+/// or L3s. No singleton check is performed within the code; it's the deployer's
+/// responsibility to ensure this. Singleton deployment is essential for
+/// enabling multi-hop bridging across all Taiko L2/L3s.
+contract ProxiedSingletonTaikoL2 is Proxied, TaikoL2 { }

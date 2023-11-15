@@ -6,8 +6,8 @@
 
 pragma solidity ^0.8.20;
 
-import { OwnableUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import { Ownable2StepUpgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
 
 import { AddressResolver } from "./AddressResolver.sol";
 
@@ -15,7 +15,10 @@ import { AddressResolver } from "./AddressResolver.sol";
 /// @notice This contract serves as the base contract for many core components.
 /// @dev We didn't use OpenZeppelin's PausableUpgradeable and
 /// ReentrancyGuardUpgradeable contract to optimize storage reads.
-abstract contract EssentialContract is OwnableUpgradeable, AddressResolver {
+abstract contract EssentialContract is
+    Ownable2StepUpgradeable,
+    AddressResolver
+{
     uint8 private constant _FALSE = 1;
     uint8 private constant _TRUE = 2;
 
@@ -63,7 +66,7 @@ abstract contract EssentialContract is OwnableUpgradeable, AddressResolver {
     /// @notice Initializes the contract with an address manager.
     /// @param _addressManager The address of the address manager.
     function _init(address _addressManager) internal virtual override {
-        OwnableUpgradeable.__Ownable_init_unchained();
+        Ownable2StepUpgradeable.__Ownable2Step_init();
         AddressResolver._init(_addressManager);
 
         _reentry = _FALSE;

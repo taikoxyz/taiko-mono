@@ -24,6 +24,7 @@ import { TaikoEvents } from "./TaikoEvents.sol";
 import { ITierProvider } from "./tiers/ITierProvider.sol";
 
 /// @title TaikoL1
+/// @dev Labeled in AddressResolver as "taiko"
 /// @notice This contract serves as the "base layer contract" of the Taiko
 /// protocol, providing functionalities for proposing, proving, and verifying
 /// blocks. The term "base layer contract" means that although this is usually
@@ -39,6 +40,8 @@ contract TaikoL1 is
 {
     TaikoData.State public state;
     uint256[100] private __gap;
+
+    error L1_TOO_MANY_TIERS();
 
     /// @dev Fallback function to receive Ether and deposit to Layer 2.
     receive() external payable {
@@ -71,6 +74,7 @@ contract TaikoL1 is
         external
         payable
         nonReentrant
+        whenNotPaused
         returns (
             TaikoData.BlockMetadata memory meta,
             TaikoData.EthDeposit[] memory depositsProcessed
@@ -80,7 +84,10 @@ contract TaikoL1 is
         (meta, depositsProcessed) = LibProposing.proposeBlock(
             state, config, AddressResolver(this), params, txList
         );
-        if (config.maxBlocksToVerifyPerProposal > 0) {
+        if (
+            !state.slotB.provingPaused
+                && config.maxBlocksToVerifyPerProposal > 0
+        ) {
             LibVerifying.verifyBlocks(
                 state,
                 config,
@@ -101,6 +108,7 @@ contract TaikoL1 is
     )
         external
         nonReentrant
+        whenNotPaused
     {
         (
             TaikoData.BlockMetadata memory meta,
@@ -126,29 +134,41 @@ contract TaikoL1 is
 
     /// @notice Verifies up to N blocks.
     /// @param maxBlocksToVerify Max number of blocks to verify.
-    function verifyBlocks(uint64 maxBlocksToVerify) external nonReentrant {
+    function verifyBlocks(uint64 maxBlocksToVerify)
+        external
+        nonReentrant
+        whenNotPaused
+    {
         if (maxBlocksToVerify == 0) revert L1_INVALID_PARAM();
+        if (state.slotB.provingPaused) revert L1_PROVING_PAUSED();
+
         LibVerifying.verifyBlocks(
             state, getConfig(), AddressResolver(this), maxBlocksToVerify
         );
     }
 
+    /// @notice Pause block proving.
+    /// @param pause True if paused.
+    function pauseProving(bool pause) external onlyOwner {
+        LibProving.pauseProving(state, pause);
+    }
+
     /// @notice Deposit Taiko token to this contract
     /// @param amount Amount of Taiko token to deposit.
-    function depositTaikoToken(uint256 amount) public {
+    function depositTaikoToken(uint256 amount) external whenNotPaused {
         LibTaikoToken.depositTaikoToken(state, AddressResolver(this), amount);
     }
 
     /// @notice Withdraw Taiko token from this contract
     /// @param amount Amount of Taiko token to withdraw.
-    function withdrawTaikoToken(uint256 amount) public {
+    function withdrawTaikoToken(uint256 amount) external whenNotPaused {
         LibTaikoToken.withdrawTaikoToken(state, AddressResolver(this), amount);
     }
 
     /// @notice Deposits Ether to Layer 2.
     /// @param recipient Address of the recipient for the deposited Ether on
     /// Layer 2.
-    function depositEtherToL2(address recipient) public payable {
+    function depositEtherToL2(address recipient) public payable whenNotPaused {
         LibDepositing.depositEtherToL2(
             state, getConfig(), AddressResolver(this), recipient
         );
@@ -159,6 +179,10 @@ contract TaikoL1 is
     /// @return true if Ether deposit is allowed, false otherwise.
     function canDepositEthToL2(uint256 amount) public view returns (bool) {
         return LibDepositing.canDepositEthToL2(state, getConfig(), amount);
+    }
+
+    function isBlobReusable(bytes32 blobHash) public view returns (bool) {
+        return LibProposing.isBlobReusable(state, getConfig(), blobHash);
     }
 
     /// @notice Gets the details of a block.
@@ -192,23 +216,19 @@ contract TaikoL1 is
         public
         view
         override
-        returns (ICrossChainSync.Snippet memory data)
+        returns (ICrossChainSync.Snippet memory)
     {
-        TaikoData.TransitionState storage transition =
-            LibUtils.getVerifyingTransition(state, getConfig(), blockId);
-
-        data.blockHash = transition.blockHash;
-        data.signalRoot = transition.signalRoot;
+        return LibUtils.getSyncedSnippet(state, getConfig(), blockId);
     }
 
     /// @notice Gets the state variables of the TaikoL1 contract.
-    /// @return StateVariables struct containing state variables.
     function getStateVariables()
         public
         view
-        returns (TaikoData.StateVariables memory)
+        returns (TaikoData.SlotA memory a, TaikoData.SlotB memory b)
     {
-        return LibUtils.getStateVariables(state);
+        a = state.slotA;
+        b = state.slotB;
     }
 
     /// @notice Gets the in-protocol Taiko token balance for a user
@@ -238,9 +258,10 @@ contract TaikoL1 is
         view
         virtual
         override
-        returns (uint16[] memory)
+        returns (uint16[] memory ids)
     {
-        return ITierProvider(resolve("tier_provider", false)).getTierIds();
+        ids = ITierProvider(resolve("tier_provider", false)).getTierIds();
+        if (ids.length >= type(uint8).max) revert L1_TOO_MANY_TIERS();
     }
 
     /// @notice Determines the minimal tier for a block based on a random input.
@@ -281,6 +302,8 @@ contract TaikoL1 is
             // and right now txList is still saved in calldata, so we set it
             // to 120KB.
             blockMaxTxListBytes: 120_000,
+            blobExpiry: 24 hours,
+            blobAllowedForDA: false,
             livenessBond: 250e18, // 250 Taiko token
             // ETH deposit related.
             ethDepositRingBufferSize: 1024,
@@ -289,8 +312,7 @@ contract TaikoL1 is
             ethDepositMinAmount: 1 ether,
             ethDepositMaxAmount: 10_000 ether,
             ethDepositGas: 21_000,
-            ethDepositMaxFee: 1 ether / 10,
-            allowUsingBlobForDA: false
+            ethDepositMaxFee: 1 ether / 10
         });
     }
 

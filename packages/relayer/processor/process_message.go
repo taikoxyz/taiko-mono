@@ -81,7 +81,7 @@ func (p *Processor) processMessage(
 		return errors.Wrap(err, "p.eventStatusFromMsgHash")
 	}
 
-	if !canProcessMessage(ctx, eventStatus, msgBody.Event.Message.User, p.relayerAddr) {
+	if !canProcessMessage(ctx, eventStatus, msgBody.Event.Message.Owner, p.relayerAddr) {
 		return errUnprocessable
 	}
 
@@ -108,12 +108,23 @@ func (p *Processor) processMessage(
 			// todo: instead of latest, need way to find out which block num on the hop chain
 			// the previous blockHash was synced in, and then wait for that header to be synced
 			// on the next hop chain.
-			latestBlock, err := hop.ethClient.BlockByNumber(ctx, nil)
+			snippet, err := hop.headerSyncer.GetSyncedSnippet(&bind.CallOpts{
+				Context: ctx,
+			},
+				hop.blockNum,
+			)
+
+			slog.Info("hop synced snippet",
+				"syncedInBlock", snippet.SyncedInBlock,
+				"blockNum", hop.blockNum,
+				"blockHash", common.Bytes2Hex(snippet.BlockHash[:]),
+			)
+
 			if err != nil {
-				return errors.Wrap(err, "hop.ethClient.BlockByNumber(ctx, nil)")
+				return errors.Wrap(err, "hop.headerSyncer.GetSyncedSnippet")
 			}
 
-			blockNum = latestBlock.NumberU64()
+			blockNum = snippet.SyncedInBlock
 
 			hopEthClient = hop.ethClient
 		}
@@ -165,11 +176,12 @@ func (p *Processor) processMessage(
 		})
 	}
 
-	if hops != nil {
+	if len(hops) != 0 {
 		encodedSignalProof, _, err = p.prover.EncodedSignalProofWithHops(
 			ctx,
 			p.srcCaller,
 			p.srcSignalServiceAddress,
+			p.destHeaderSyncAddress,
 			hops,
 			common.Bytes2Hex(key[:]),
 			msgBody.Event.Raw.BlockHash,
@@ -187,6 +199,7 @@ func (p *Processor) processMessage(
 			ctx,
 			p.srcCaller,
 			p.srcSignalServiceAddress,
+			p.destHeaderSyncAddress,
 			common.Bytes2Hex(key[:]),
 			latestSyncedSnippet.BlockHash,
 		)
@@ -194,11 +207,12 @@ func (p *Processor) processMessage(
 
 	if err != nil {
 		slog.Error("error encoding signal proof",
-			"srcChainID", msgBody.Event.Message.SrcChainId.String(),
-			"destChainID", msgBody.Event.Message.DestChainId.String(),
+			"srcChainID", msgBody.Event.Message.SrcChainId,
+			"destChainID", msgBody.Event.Message.DestChainId,
 			"txHash", msgBody.Event.Raw.TxHash.Hex(),
 			"msgHash", common.Hash(msgBody.Event.MsgHash).Hex(),
-			"from", msgBody.Event.Message.User.Hex(),
+			"from", msgBody.Event.Message.From.Hex(),
+			"owner", msgBody.Event.Message.Owner.Hex(),
 			"error", err,
 			"hopsLength", len(hops),
 		)
@@ -220,7 +234,7 @@ func (p *Processor) processMessage(
 	if !received {
 		slog.Warn("Message not received on dest chain",
 			"msgHash", common.Hash(msgBody.Event.MsgHash).Hex(),
-			"srcChainId", msgBody.Event.Message.SrcChainId.String(),
+			"srcChainId", msgBody.Event.Message.SrcChainId,
 		)
 
 		relayer.MessagesNotReceivedOnDestChain.Inc()
@@ -298,7 +312,7 @@ func (p *Processor) sendProcessMessageCall(
 	event *bridge.BridgeMessageSent,
 	proof []byte,
 ) (*types.Transaction, error) {
-	auth, err := bind.NewKeyedTransactorWithChainID(p.ecdsaKey, event.Message.DestChainId)
+	auth, err := bind.NewKeyedTransactorWithChainID(p.ecdsaKey, new(big.Int).SetUint64(event.Message.DestChainId))
 	if err != nil {
 		return nil, errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
 	}
@@ -390,7 +404,7 @@ func (p *Processor) needsContractDeployment(
 
 	var err error
 
-	chainID := canonicalToken.ChainID()
+	chainID := new(big.Int).SetUint64(canonicalToken.ChainID())
 	addr := canonicalToken.Address()
 
 	ctx, cancel := context.WithTimeout(ctx, p.ethClientTimeout)
@@ -400,17 +414,18 @@ func (p *Processor) needsContractDeployment(
 		Context: ctx,
 	}
 
-	if eventType == relayer.EventTypeSendERC20 && event.Message.DestChainId.Cmp(chainID) != 0 {
+	destChainID := new(big.Int).SetUint64(event.Message.DestChainId)
+	if eventType == relayer.EventTypeSendERC20 && destChainID.Cmp(chainID) != 0 {
 		// determine whether the canonical token is bridged or not on this chain
 		bridgedAddress, err = p.destERC20Vault.CanonicalToBridged(opts, chainID, addr)
 	}
 
-	if eventType == relayer.EventTypeSendERC721 && event.Message.DestChainId.Cmp(chainID) != 0 {
+	if eventType == relayer.EventTypeSendERC721 && destChainID.Cmp(chainID) != 0 {
 		// determine whether the canonical token is bridged or not on this chain
 		bridgedAddress, err = p.destERC721Vault.CanonicalToBridged(opts, chainID, addr)
 	}
 
-	if eventType == relayer.EventTypeSendERC1155 && event.Message.DestChainId.Cmp(chainID) != 0 {
+	if eventType == relayer.EventTypeSendERC1155 && destChainID.Cmp(chainID) != 0 {
 		// determine whether the canonical token is bridged or not on this chain
 		bridgedAddress, err = p.destERC1155Vault.CanonicalToBridged(opts, chainID, addr)
 	}
@@ -447,7 +462,7 @@ func (p *Processor) hardcodeGasLimit(
 		// determine whether the canonical token is bridged or not on this chain
 		bridgedAddress, err = p.destERC20Vault.CanonicalToBridged(
 			nil,
-			canonicalToken.ChainID(),
+			new(big.Int).SetUint64(canonicalToken.ChainID()),
 			canonicalToken.Address(),
 		)
 		if err != nil {
@@ -457,7 +472,7 @@ func (p *Processor) hardcodeGasLimit(
 		// determine whether the canonical token is bridged or not on this chain
 		bridgedAddress, err = p.destERC721Vault.CanonicalToBridged(
 			nil,
-			canonicalToken.ChainID(),
+			new(big.Int).SetUint64(canonicalToken.ChainID()),
 			canonicalToken.Address(),
 		)
 		if err != nil {
@@ -467,7 +482,7 @@ func (p *Processor) hardcodeGasLimit(
 		// determine whether the canonical token is bridged or not on this chain
 		bridgedAddress, err = p.destERC1155Vault.CanonicalToBridged(
 			nil,
-			canonicalToken.ChainID(),
+			new(big.Int).SetUint64(canonicalToken.ChainID()),
 			canonicalToken.Address(),
 		)
 		if err != nil {
@@ -525,10 +540,10 @@ func (p *Processor) saveMessageStatusChangedEvent(
 		_, err = p.eventRepo.Save(ctx, relayer.SaveEventOpts{
 			Name:         relayer.EventNameMessageStatusChanged,
 			Data:         data,
-			ChainID:      event.Message.DestChainId,
+			ChainID:      new(big.Int).SetUint64(event.Message.DestChainId),
 			Status:       relayer.EventStatus(m["status"].(uint8)),
 			MsgHash:      common.Hash(event.MsgHash).Hex(),
-			MessageOwner: event.Message.User.Hex(),
+			MessageOwner: event.Message.Owner.Hex(),
 			Event:        relayer.EventNameMessageStatusChanged,
 		})
 		if err != nil {

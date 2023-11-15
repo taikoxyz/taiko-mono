@@ -77,7 +77,7 @@ func (g *Generator) Close(ctx context.Context) {
 	}
 
 	if err := sqlDB.Close(); err != nil {
-		slog.Error("error closing sqlbd connecting", "err", err.Error())
+		slog.Error("error closing sqlbd connection", "err", err.Error())
 	}
 }
 
@@ -201,27 +201,6 @@ func (g *Generator) queryByTask(task string, date time.Time) (decimal.Decimal, e
 	var err error
 
 	switch task {
-	case tasks.ProposerRewardsPerDay:
-		query := "SELECT COALESCE(SUM(proposer_reward), 0) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
-		err = g.db.GormDB().
-			Raw(query, eventindexer.EventNameBlockProposed, dateString).
-			Scan(&result).Error
-
-	case tasks.TotalProposerRewards:
-		var dailyProposerRewards decimal.NullDecimal
-
-		query := "SELECT COALESCE(SUM(proposer_reward), 0) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
-		err = g.db.GormDB().
-			Raw(query, eventindexer.EventNameBlockProposed, dateString).
-			Scan(&dailyProposerRewards).Error
-
-		tsdResult, err := g.previousDayTsdResultByTask(task, date)
-		if err != nil {
-			return result, err
-		}
-
-		result = tsdResult.Decimal.Add(dailyProposerRewards.Decimal)
-
 	case tasks.TotalProofRewards:
 		var dailyProofRewards decimal.NullDecimal
 

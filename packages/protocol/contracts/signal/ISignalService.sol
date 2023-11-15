@@ -45,7 +45,7 @@ interface ISignalService {
     /// source chain.
     /// @return True if the signal has been received, otherwise false.
     function proveSignalReceived(
-        uint256 srcChainId,
+        uint64 srcChainId,
         address app,
         bytes32 signal,
         bytes calldata proof
