@@ -13,7 +13,7 @@ import { Proxied } from "../../common/Proxied.sol";
 
 import { MerkleClaimable } from "./MerkleClaimable.sol";
 
-/// @title ERC20Airdrop
+/// @title ERC20Airdrop2
 /// Contract for managing Taiko token airdrop for eligible users but the
 /// withdrawal is not immediate and is subject to a withdrawal window.
 contract ERC20Airdrop2 is MerkleClaimable {
