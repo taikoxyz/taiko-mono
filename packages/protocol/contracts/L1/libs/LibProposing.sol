@@ -258,8 +258,8 @@ library LibProposing {
             uint256 tkoBalance = tko.balanceOf(address(this));
 
             // Run all hooks.
-            // Note that address(this).balance is updated before the all with
-            // msg.value added.
+            // Note that address(this).balance has been updated with msg.value,
+            // prior to any code in this function has been executed.
             uint256 ethBalance = address(this).balance - msg.value;
 
             // Run hooks
@@ -272,8 +272,8 @@ library LibProposing {
                 }(blk, meta, params.hookCalls[i].data);
             }
 
-            // We check  that Taiko Token balance increased by at least
-            // config.livenessBond
+            // Check that after hooks, the Taiko Token balance of this contract
+            // have increased by at least config.livenessBond
             if (tko.balanceOf(address(this)) < tkoBalance + config.livenessBond)
             {
                 revert L1_LIVENESS_BOND_NOT_RECEIVED();
