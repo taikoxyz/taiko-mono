@@ -41,6 +41,7 @@
             "required": [
               "bridgeAddress",
               "erc20VaultAddress",
+              "etherVaultAddress",
               "erc721VaultAddress",
               "erc1155VaultAddress",
               "crossChainSyncAddress",
