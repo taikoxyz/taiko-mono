@@ -15,6 +15,7 @@ import { Proxied } from "../../common/Proxied.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 
 import { TaikoData } from "../TaikoData.sol";
+import { TaikoToken } from "../TaikoToken.sol";
 
 import { IHook } from "./IHook.sol";
 
@@ -80,6 +81,12 @@ contract AssignmentHook is EssentialContract, IHook {
         if (!blk.assignedProver.isValidSignature(hash, assignment.signature)) {
             revert HOOK_ASSIGNMENT_INVALID_SIG();
         }
+
+        // Send the liveness bond to the Taiko contract
+        TaikoToken tko = TaikoToken(resolve("taiko_token", false));
+        tko.transferFrom(
+            blk.assignedProver, resolve("taiko", false), blk.livenessBond
+        );
 
         // Find the prover fee using the minimal tier
         uint256 proverFee = _getProverFee(assignment.tierFees, meta.minTier);
