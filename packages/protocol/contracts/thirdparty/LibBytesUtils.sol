@@ -90,18 +90,17 @@ library LibBytesUtils {
 
                 mstore(tempBytes, _length)
 
-                //update free-memory pointer
-                //allocating the array padded to 32 bytes like the compiler does
-                // now
+                // update free-memory pointer allocating the array padded to 32
+                // bytes like the compiler does now
                 mstore(0x40, and(add(mc, 31), not(31)))
             }
-            //if we want a zero-length slice let's just return a zero-length
+            // if we want a zero-length slice let's just return a zero-length
             // array
             default {
                 tempBytes := mload(0x40)
 
-                //zero out the 32 bytes slice we are about to return
-                //we need to do it because Solidity does not garbage collect
+                // zero out the 32 bytes slice we are about to return
+                // we need to do it because Solidity does not garbage collect
                 mstore(tempBytes, 0)
 
                 mstore(0x40, add(tempBytes, 0x20))

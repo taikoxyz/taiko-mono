@@ -7,66 +7,92 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { LibFixedPointMath as Math } from
-    "../../thirdparty/LibFixedPointMath.sol";
-import { LibMath } from "../../libs/LibMath.sol";
+
 import { TaikoData } from "../TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
 
 library LibTaikoToken {
+    event TokenDeposited(uint256 amount);
+    event TokenWithdrawn(uint256 amount);
+    event TokenCredited(address to, uint256 amount);
+    event TokenDebited(address from, uint256 amount);
+
     error L1_INSUFFICIENT_TOKEN();
-
-    function withdrawTaikoToken(
-        TaikoData.State storage state,
-        AddressResolver resolver,
-        uint256 amount
-    )
-        internal
-    {
-        uint256 balance = state.taikoTokenBalances[msg.sender];
-        if (balance < amount) revert L1_INSUFFICIENT_TOKEN();
-        // Unchecked is safe per above check
-        unchecked {
-            state.taikoTokenBalances[msg.sender] -= amount;
-        }
-
-        TaikoToken(resolver.resolve("taiko_token", false)).transfer(
-            msg.sender, amount
-        );
-    }
+    error L1_INVALID_ADDRESS();
+    error L1_INVALID_AMOUNT();
 
     function depositTaikoToken(
         TaikoData.State storage state,
         AddressResolver resolver,
         uint256 amount
     )
-        internal
+        external
     {
-        if (amount > 0) {
-            TaikoToken(resolver.resolve("taiko_token", false)).transferFrom(
-                msg.sender, address(this), amount
-            );
-            state.taikoTokenBalances[msg.sender] += amount;
+        if (amount == 0) revert L1_INVALID_AMOUNT();
+        TaikoToken(resolver.resolve("taiko_token", false)).transferFrom(
+            msg.sender, address(this), amount
+        );
+        unchecked {
+            state.tokenBalances[msg.sender] += amount;
         }
+        emit TokenDeposited(amount);
     }
 
-    function receiveTaikoToken(
+    function withdrawTaikoToken(
+        TaikoData.State storage state,
+        AddressResolver resolver,
+        uint256 amount
+    )
+        external
+    {
+        if (amount == 0) revert L1_INVALID_AMOUNT();
+        if (state.tokenBalances[msg.sender] < amount) {
+            revert L1_INSUFFICIENT_TOKEN();
+        }
+        // Unchecked is safe per above check
+        unchecked {
+            state.tokenBalances[msg.sender] -= amount;
+        }
+
+        TaikoToken(resolver.resolve("taiko_token", false)).transfer(
+            msg.sender, amount
+        );
+
+        emit TokenWithdrawn(amount);
+    }
+
+    function creditTaikoToken(
+        TaikoData.State storage state,
+        address to,
+        uint256 amount
+    )
+        internal
+    {
+        if (amount == 0 || to == address(0)) return;
+        unchecked {
+            state.tokenBalances[to] += amount;
+        }
+        emit TokenCredited(to, amount);
+    }
+
+    function debitTaikoToken(
         TaikoData.State storage state,
         AddressResolver resolver,
         address from,
         uint256 amount
     )
         internal
-        returns (TaikoToken tt)
     {
-        tt = TaikoToken(resolver.resolve("taiko_token", false));
-        if (state.taikoTokenBalances[from] >= amount) {
-            // Safe, see the above constraint
-            unchecked {
-                state.taikoTokenBalances[from] -= amount;
-            }
+        if (amount == 0) return;
+        if (state.tokenBalances[from] < amount) {
+            TaikoToken(resolver.resolve("taiko_token", false)).transferFrom(
+                from, address(this), amount
+            );
         } else {
-            tt.transferFrom(from, address(this), amount);
+            unchecked {
+                state.tokenBalances[from] -= amount;
+            }
         }
+        emit TokenDebited(from, amount);
     }
 }

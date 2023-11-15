@@ -7,14 +7,16 @@
 pragma solidity ^0.8.20;
 
 import { ERC1155Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
-import { EssentialContract } from "../common/EssentialContract.sol";
+    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/ERC1155Upgradeable.sol";
 import { IERC1155MetadataURIUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/IERC1155MetadataURIUpgradeable.sol";
+    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/extensions/IERC1155MetadataURIUpgradeable.sol";
 import { IERC1155Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
+    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/IERC1155Upgradeable.sol";
+import { StringsUpgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/utils/StringsUpgradeable.sol";
+
+import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 /// @title BridgedERC1155
 /// @notice Contract for bridging ERC1155 tokens across different chains.
@@ -132,7 +134,9 @@ contract BridgedERC1155 is
     /// @notice Gets the concatenated name of the bridged token.
     /// @return The concatenated name.
     function name() public view returns (string memory) {
-        return string.concat(name_, unicode" ⭀", Strings.toString(srcChainId));
+        return string.concat(
+            name_, unicode" ⭀", StringsUpgradeable.toString(srcChainId)
+        );
     }
 }
 

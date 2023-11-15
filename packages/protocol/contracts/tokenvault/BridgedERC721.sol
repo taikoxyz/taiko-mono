@@ -6,11 +6,13 @@
 
 pragma solidity ^0.8.20;
 
-import { EssentialContract } from "../common/EssentialContract.sol";
 import { ERC721Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
+import { StringsUpgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/utils/StringsUpgradeable.sol";
+
+import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 /// @title BridgedERC721
 /// @notice Contract for bridging ERC721 tokens across different chains.
@@ -113,7 +115,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         returns (string memory)
     {
         return string.concat(
-            super.name(), unicode" ⭀", Strings.toString(srcChainId)
+            super.name(), unicode" ⭀", StringsUpgradeable.toString(srcChainId)
         );
     }
 
@@ -124,9 +126,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     }
 
     /// @notice Returns an empty token URI.
-    /// @param tokenId ID of the token.
-    /// @return An empty string.
-    function tokenURI(uint256 tokenId)
+    function tokenURI(uint256)
         public
         pure
         virtual

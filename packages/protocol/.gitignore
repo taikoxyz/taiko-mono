@@ -13,6 +13,7 @@ yarn-debug.log*
 yarn-error.log*
 package-lock.json
 npm-debug.log*
+typechain-types
 
 # Hardhat files
 cache
@@ -30,3 +31,5 @@ broadcast
 
 #coverage
 lcov.info
+
+simulation/out/

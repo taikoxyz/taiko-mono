@@ -6,112 +6,69 @@
 
 pragma solidity ^0.8.20;
 
-import { ERC20BurnableUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
-import { ERC20PermitUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/draft-ERC20PermitUpgradeable.sol";
 import { ERC20SnapshotUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
-import {
-    ERC20Upgradeable,
-    IERC20Upgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
+import { ERC20Upgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import { ERC20VotesUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
+    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
+
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { IMintableERC20 } from "../common/IMintableERC20.sol";
-import { PausableUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import { Proxied } from "../common/Proxied.sol";
 
 /// @title TaikoToken
+/// @dev Labeled in AddressResolver as "taiko_token"
 /// @notice The TaikoToken (TKO), in the protocol is used for prover collateral
 /// in the form of bonds. It is an ERC20 token with 18 decimal places of
 /// precision.
 contract TaikoToken is
     EssentialContract,
-    ERC20Upgradeable,
-    ERC20BurnableUpgradeable,
     ERC20SnapshotUpgradeable,
-    PausableUpgradeable,
-    ERC20PermitUpgradeable,
-    ERC20VotesUpgradeable,
-    IMintableERC20
+    ERC20VotesUpgradeable
 {
     error TKO_INVALID_ADDR();
     error TKO_INVALID_PREMINT_PARAMS();
 
-    /// @notice Initializes the TaikoToken contract and mints initial tokens to
-    /// specified recipients.
+    /// @notice Initializes the TaikoToken contract and mints initial tokens.
     /// @param _addressManager The {AddressManager} address.
     /// @param _name The name of the token.
     /// @param _symbol The symbol of the token.
-    /// @param _premintRecipients An array of addresses to receive initial token
-    /// minting.
-    /// @param _premintAmounts An array of token amounts to mint for each
-    /// corresponding recipient.
+    /// @param _recipient The address to receive initial token minting.
     function init(
         address _addressManager,
         string calldata _name,
         string calldata _symbol,
-        address[] calldata _premintRecipients,
-        uint256[] calldata _premintAmounts
+        address _recipient
     )
         public
         initializer
     {
         EssentialContract._init(_addressManager);
-        __ERC20_init(_name, _symbol);
-        __ERC20Burnable_init();
-        __ERC20Snapshot_init();
-        __Pausable_init();
-        __ERC20Permit_init(_name);
-        __ERC20Votes_init();
+        ERC20Upgradeable.__ERC20_init_unchained(_name, _symbol);
+        ERC20SnapshotUpgradeable.__ERC20Snapshot_init_unchained();
+        ERC20VotesUpgradeable.__ERC20Votes_init_unchained();
 
-        for (uint256 i = 0; i < _premintRecipients.length; ++i) {
-            _mint(_premintRecipients[i], _premintAmounts[i]);
-        }
-    }
-
-    /// @notice Creates a new token snapshot.
-    function snapshot() public onlyOwner {
-        _snapshot();
-    }
-
-    /// @notice Pauses token transfers.
-    function pause() public onlyOwner {
-        _pause();
-    }
-
-    /// @notice Unpauses token transfers.
-    function unpause() public onlyOwner {
-        _unpause();
+        // Mint 1 billion tokens
+        _mint(_recipient, 1_000_000_000 ether);
     }
 
     /// @notice Mints new tokens to the specified address.
     /// @param to The address to receive the minted tokens.
     /// @param amount The amount of tokens to mint.
-    function mint(
-        address to,
-        uint256 amount
-    )
-        public
-        onlyFromNamed2("erc20_vault", "taiko")
-    {
+    function mint(address to, uint256 amount) public onlyOwner {
         _mint(to, amount);
     }
 
     /// @notice Burns tokens from the specified address.
     /// @param from The address to burn tokens from.
     /// @param amount The amount of tokens to burn.
-    function burn(
-        address from,
-        uint256 amount
-    )
-        public
-        onlyFromNamed2("erc20_vault", "taiko")
-    {
+    function burn(address from, uint256 amount) public onlyOwner {
         _burn(from, amount);
+    }
+
+    /// @notice Creates a new token snapshot.
+    function snapshot() public onlyOwner {
+        _snapshot();
     }
 
     /// @notice Transfers tokens to a specified address.
@@ -123,11 +80,11 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        override(ERC20Upgradeable, IERC20Upgradeable)
+        override
         returns (bool)
     {
         if (to == address(this)) revert TKO_INVALID_ADDR();
-        return ERC20Upgradeable.transfer(to, amount);
+        return super.transfer(to, amount);
     }
 
     /// @notice Transfers tokens from one address to another.
@@ -141,11 +98,11 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        override(ERC20Upgradeable, IERC20Upgradeable)
+        override
         returns (bool)
     {
         if (to == address(this)) revert TKO_INVALID_ADDR();
-        return ERC20Upgradeable.transferFrom(from, to, amount);
+        return super.transferFrom(from, to, amount);
     }
 
     function _beforeTokenTransfer(
@@ -155,7 +112,6 @@ contract TaikoToken is
     )
         internal
         override(ERC20Upgradeable, ERC20SnapshotUpgradeable)
-        whenNotPaused
     {
         super._beforeTokenTransfer(from, to, amount);
     }

@@ -4,15 +4,17 @@ pragma solidity ^0.8.20;
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
 import { Bridge } from "../../contracts/bridge/Bridge.sol";
-import { BridgedERC20 } from "../../contracts/tokenvault/BridgedERC20.sol";
-import { BridgeErrors } from "../../contracts/bridge/BridgeErrors.sol";
+import {
+    ProxiedBridgedERC20,
+    BridgedERC20
+} from "../../contracts/tokenvault/BridgedERC20.sol";
 import { FreeMintERC20 } from "../../contracts/test/erc20/FreeMintERC20.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
 import { Test } from "forge-std/Test.sol";
 import { ERC20Vault } from "../../contracts/tokenvault/ERC20Vault.sol";
-import
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { TransparentUpgradeableProxy } from
+    "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 // PrankDestBridge lets us simulate a transaction to the ERC20Vault
 // from a named Bridge, without having to test/run through the real Bridge code,
@@ -24,7 +26,7 @@ contract PrankDestBridge {
     struct Context {
         bytes32 msgHash; // messageHash
         address sender;
-        uint256 srcChainId;
+        uint64 srcChainId;
     }
 
     constructor(ERC20Vault _erc20Vault) {
@@ -46,7 +48,7 @@ contract PrankDestBridge {
         uint256 amount,
         bytes32 msgHash,
         address srcChainERC20Vault,
-        uint256 srcChainId,
+        uint64 srcChainId,
         uint256 mockLibInvokeMsgValue
     )
         public
@@ -88,11 +90,11 @@ contract TestERC20Vault is Test {
     PrankDestBridge destChainIdBridge;
     FreeMintERC20 erc20;
     SignalService signalService;
-    uint256 destChainId = 7;
+    uint64 destChainId = 7;
 
     address public constant Alice = 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4;
     address public constant Bob = 0x200708D76eB1B69761c23821809d53F65049939e;
-    //Need +1 bc. and Amelia is the proxied bridge contracts owner
+    // Need +1 bc. and Amelia is the proxied bridge contracts owner
     address public constant Amelia = 0x60081B12838240B1BA02b3177153BCa678A86080;
     // Dave has nothing so that we can check if he gets the ether (and other
     // erc20)
@@ -108,7 +110,9 @@ contract TestERC20Vault is Test {
 
         addressManager = new AddressManager();
         addressManager.init();
-        addressManager.setAddress(block.chainid, "taiko_token", address(tko));
+        addressManager.setAddress(
+            uint64(block.chainid), "taiko_token", address(tko)
+        );
 
         erc20Vault = new ERC20Vault();
         erc20Vault.init(address(addressManager));
@@ -126,16 +130,18 @@ contract TestERC20Vault is Test {
         vm.deal(address(destChainIdBridge), 100 ether);
 
         signalService = new SignalService();
-        signalService.init(address(addressManager));
-
-        addressManager.setAddress(block.chainid, "bridge", address(bridge));
+        signalService.init();
 
         addressManager.setAddress(
-            block.chainid, "signal_service", address(signalService)
+            uint64(block.chainid), "bridge", address(bridge)
         );
 
         addressManager.setAddress(
-            block.chainid, "erc20_vault", address(erc20Vault)
+            uint64(block.chainid), "signal_service", address(signalService)
+        );
+
+        addressManager.setAddress(
+            uint64(block.chainid), "erc20_vault", address(erc20Vault)
         );
 
         addressManager.setAddress(
@@ -144,6 +150,16 @@ contract TestERC20Vault is Test {
 
         addressManager.setAddress(
             destChainId, "bridge", address(destChainIdBridge)
+        );
+
+        address proxiedBridgedERC20 = address(new ProxiedBridgedERC20());
+
+        addressManager.setAddress(
+            destChainId, "proxied_bridged_erc20", proxiedBridgedERC20
+        );
+
+        addressManager.setAddress(
+            uint64(block.chainid), "proxied_bridged_erc20", proxiedBridgedERC20
         );
 
         vm.stopPrank();
@@ -261,33 +277,13 @@ contract TestERC20Vault is Test {
         );
     }
 
-    function test_20Vault_send_erc20_reverts_invalid_to() public {
-        vm.startPrank(Alice);
-
-        uint256 amount = 1;
-
-        vm.expectRevert(ERC20Vault.VAULT_INVALID_TO.selector);
-        erc20Vault.sendToken(
-            ERC20Vault.BridgeTransferOp(
-                destChainId,
-                address(0),
-                address(erc20),
-                amount,
-                1_000_000,
-                0,
-                Bob,
-                ""
-            )
-        );
-    }
-
     function test_20Vault_receive_erc20_canonical_to_dest_chain_transfers_from_canonical_token(
     )
         public
     {
         vm.startPrank(Alice);
 
-        uint256 srcChainId = block.chainid;
+        uint64 srcChainId = uint64(block.chainid);
         vm.chainId(destChainId);
 
         erc20.mint(address(erc20Vault));
@@ -319,7 +315,7 @@ contract TestERC20Vault is Test {
     function test_20Vault_receiveTokens_erc20_with_ether_to_dave() public {
         vm.startPrank(Alice);
 
-        uint256 srcChainId = block.chainid;
+        uint64 srcChainId = uint64(block.chainid);
         vm.chainId(destChainId);
 
         erc20.mint(address(erc20Vault));
@@ -356,7 +352,7 @@ contract TestERC20Vault is Test {
     {
         vm.startPrank(Alice);
 
-        uint256 srcChainId = block.chainid;
+        uint64 srcChainId = uint64(block.chainid);
         vm.chainId(destChainId);
 
         uint256 amount = 1;
@@ -387,7 +383,7 @@ contract TestERC20Vault is Test {
         assertEq(bridgedERC20.balanceOf(Bob), amount);
     }
 
-    function erc20ToCanonicalERC20(uint256 chainId)
+    function erc20ToCanonicalERC20(uint64 chainId)
         internal
         view
         returns (ERC20Vault.CanonicalERC20 memory)
@@ -404,7 +400,7 @@ contract TestERC20Vault is Test {
     function test_20Vault_upgrade_bridged_tokens_20() public {
         vm.startPrank(Alice);
 
-        uint256 srcChainId = block.chainid;
+        uint64 srcChainId = uint64(block.chainid);
         vm.chainId(destChainId);
 
         uint256 amount = 1;
@@ -433,7 +429,7 @@ contract TestERC20Vault is Test {
         try UpdatedBridgedERC20(bridgedAddressAfter).helloWorld() {
             fail();
         } catch {
-            //It should not yet support this function call
+            // It should not yet support this function call
         }
 
         // Upgrade the implementation of that contract
@@ -447,7 +443,7 @@ contract TestERC20Vault is Test {
 
         vm.prank(Alice, Alice);
         try UpdatedBridgedERC20(bridgedAddressAfter).helloWorld() {
-            //It should support now this function call
+            // It should support now this function call
         } catch {
             fail();
         }

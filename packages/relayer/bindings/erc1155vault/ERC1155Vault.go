@@ -31,7 +31,7 @@ var (
 
 // BaseNFTVaultBridgeTransferOp is an auto generated low-level Go binding around an user-defined struct.
 type BaseNFTVaultBridgeTransferOp struct {
-	DestChainId *big.Int
+	DestChainId uint64
 	To          common.Address
 	Token       common.Address
 	TokenIds    []*big.Int
@@ -44,7 +44,7 @@ type BaseNFTVaultBridgeTransferOp struct {
 
 // BaseNFTVaultCanonicalNFT is an auto generated low-level Go binding around an user-defined struct.
 type BaseNFTVaultCanonicalNFT struct {
-	ChainId *big.Int
+	ChainId uint64
 	Addr    common.Address
 	Symbol  string
 	Name    string
@@ -54,9 +54,9 @@ type BaseNFTVaultCanonicalNFT struct {
 type IBridgeMessage struct {
 	Id          *big.Int
 	From        common.Address
-	SrcChainId  *big.Int
-	DestChainId *big.Int
-	User        common.Address
+	SrcChainId  uint64
+	DestChainId uint64
+	Owner       common.Address
 	To          common.Address
 	RefundTo    common.Address
 	Value       *big.Int
@@ -68,7 +68,7 @@ type IBridgeMessage struct {
 
 // ERC1155VaultMetaData contains all meta data concerning the ERC1155Vault contract.
 var ERC1155VaultMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"name\":\"RESOLVER_DENIED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RESOLVER_INVALID_ADDR\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"}],\"name\":\"RESOLVER_ZERO_ADDR\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VAULT_INTERFACE_NOT_SUPPORTED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VAULT_INVALID_AMOUNT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VAULT_INVALID_FROM\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VAULT_INVALID_SRC_CHAIN_ID\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VAULT_INVALID_TO\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VAULT_INVALID_TOKEN\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VAULT_INVALID_USER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VAULT_MAX_TOKEN_PER_TXN_EXCEEDED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VAULT_MESSAGE_NOT_FAILED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VAULT_MESSAGE_RELEASED_ALREADY\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VAULT_TOKEN_ARRAY_MISMATCH\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"addressManager\",\"type\":\"address\"}],\"name\":\"AddressManagerChanged\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"ctoken\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"btoken\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"ctokenSymbol\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"ctokenName\",\"type\":\"string\"}],\"name\":\"BridgedTokenDeployed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256[]\",\"name\":\"tokenIds\",\"type\":\"uint256[]\"},{\"indexed\":false,\"internalType\":\"uint256[]\",\"name\":\"amounts\",\"type\":\"uint256[]\"}],\"name\":\"TokenReceived\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256[]\",\"name\":\"tokenIds\",\"type\":\"uint256[]\"},{\"indexed\":false,\"internalType\":\"uint256[]\",\"name\":\"amounts\",\"type\":\"uint256[]\"}],\"name\":\"TokenReleased\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256[]\",\"name\":\"tokenIds\",\"type\":\"uint256[]\"},{\"indexed\":false,\"internalType\":\"uint256[]\",\"name\":\"amounts\",\"type\":\"uint256[]\"}],\"name\":\"TokenSent\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"ERC1155_INTERFACE_ID\",\"outputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"ERC721_INTERFACE_ID\",\"outputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"addressManager\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"bridgedToCanonical\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"canonicalToBridged\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addressManager\",\"type\":\"address\"}],\"name\":\"init\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"isBridgedToken\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"},{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"onERC1155BatchReceived\",\"outputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"onERC1155Received\",\"outputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"user\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"refundTo\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"internalType\":\"structIBridge.Message\",\"name\":\"message\",\"type\":\"tuple\"}],\"name\":\"onMessageRecalled\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"}],\"internalType\":\"structBaseNFTVault.CanonicalNFT\",\"name\":\"ctoken\",\"type\":\"tuple\"},{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256[]\",\"name\":\"tokenIds\",\"type\":\"uint256[]\"},{\"internalType\":\"uint256[]\",\"name\":\"amounts\",\"type\":\"uint256[]\"}],\"name\":\"receiveToken\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"addr\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"addr\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256[]\",\"name\":\"tokenIds\",\"type\":\"uint256[]\"},{\"internalType\":\"uint256[]\",\"name\":\"amounts\",\"type\":\"uint256[]\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"refundTo\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"internalType\":\"structBaseNFTVault.BridgeTransferOp\",\"name\":\"opt\",\"type\":\"tuple\"}],\"name\":\"sendToken\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newAddressManager\",\"type\":\"address\"}],\"name\":\"setAddressManager\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"interfaceId\",\"type\":\"bytes4\"}],\"name\":\"supportsInterface\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[],\"name\":\"ETH_TRANSFER_FAILED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INVALID_PAUSE_STATUS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"REENTRANT_CALL\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RESOLVER_DENIED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RESOLVER_INVALID_MANAGER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RESOLVER_UNEXPECTED_CHAINID\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"chainId\",\"type\":\"uint64\"},{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"}],\"name\":\"RESOLVER_ZERO_ADDR\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VAULT_INTERFACE_NOT_SUPPORTED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VAULT_INVALID_AMOUNT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VAULT_INVALID_FROM\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VAULT_INVALID_SRC_CHAIN_ID\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VAULT_INVALID_TOKEN\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VAULT_INVALID_USER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VAULT_MAX_TOKEN_PER_TXN_EXCEEDED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VAULT_MESSAGE_NOT_FAILED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VAULT_MESSAGE_RELEASED_ALREADY\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VAULT_PERMISSION_DENIED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VAULT_TOKEN_ARRAY_MISMATCH\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint64\",\"name\":\"chainId\",\"type\":\"uint64\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"ctoken\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"btoken\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"ctokenSymbol\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"ctokenName\",\"type\":\"string\"}],\"name\":\"BridgedTokenDeployed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferStarted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"Paused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"srcChainId\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256[]\",\"name\":\"tokenIds\",\"type\":\"uint256[]\"},{\"indexed\":false,\"internalType\":\"uint256[]\",\"name\":\"amounts\",\"type\":\"uint256[]\"}],\"name\":\"TokenReceived\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256[]\",\"name\":\"tokenIds\",\"type\":\"uint256[]\"},{\"indexed\":false,\"internalType\":\"uint256[]\",\"name\":\"amounts\",\"type\":\"uint256[]\"}],\"name\":\"TokenReleased\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"destChainId\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256[]\",\"name\":\"tokenIds\",\"type\":\"uint256[]\"},{\"indexed\":false,\"internalType\":\"uint256[]\",\"name\":\"amounts\",\"type\":\"uint256[]\"}],\"name\":\"TokenSent\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"Unpaused\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"ERC1155_INTERFACE_ID\",\"outputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"ERC721_INTERFACE_ID\",\"outputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"MAX_TOKEN_PER_TXN\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"addressManager\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"bridgedToCanonical\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"chainId\",\"type\":\"uint64\"},{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"canonicalToBridged\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addressManager\",\"type\":\"address\"}],\"name\":\"init\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"name\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"},{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"onERC1155BatchReceived\",\"outputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"onERC1155Received\",\"outputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint128\",\"name\":\"id\",\"type\":\"uint128\"},{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"srcChainId\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"destChainId\",\"type\":\"uint64\"},{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"refundTo\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"internalType\":\"structIBridge.Message\",\"name\":\"message\",\"type\":\"tuple\"},{\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"}],\"name\":\"onMessageRecalled\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"pause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"paused\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"pendingOwner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint64\",\"name\":\"chainId\",\"type\":\"uint64\"},{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"}],\"internalType\":\"structBaseNFTVault.CanonicalNFT\",\"name\":\"ctoken\",\"type\":\"tuple\"},{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256[]\",\"name\":\"tokenIds\",\"type\":\"uint256[]\"},{\"internalType\":\"uint256[]\",\"name\":\"amounts\",\"type\":\"uint256[]\"}],\"name\":\"receiveToken\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"chainId\",\"type\":\"uint64\"},{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"addr\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"addr\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint64\",\"name\":\"destChainId\",\"type\":\"uint64\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256[]\",\"name\":\"tokenIds\",\"type\":\"uint256[]\"},{\"internalType\":\"uint256[]\",\"name\":\"amounts\",\"type\":\"uint256[]\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"refundTo\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"internalType\":\"structBaseNFTVault.BridgeTransferOp\",\"name\":\"op\",\"type\":\"tuple\"}],\"name\":\"sendToken\",\"outputs\":[{\"components\":[{\"internalType\":\"uint128\",\"name\":\"id\",\"type\":\"uint128\"},{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"srcChainId\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"destChainId\",\"type\":\"uint64\"},{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"refundTo\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"internalType\":\"structIBridge.Message\",\"name\":\"_message\",\"type\":\"tuple\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"interfaceId\",\"type\":\"bytes4\"}],\"name\":\"supportsInterface\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"unpause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 }
 
 // ERC1155VaultABI is the input ABI used to generate the binding from.
@@ -279,6 +279,37 @@ func (_ERC1155Vault *ERC1155VaultCallerSession) ERC721INTERFACEID() ([4]byte, er
 	return _ERC1155Vault.Contract.ERC721INTERFACEID(&_ERC1155Vault.CallOpts)
 }
 
+// MAXTOKENPERTXN is a free data retrieval call binding the contract method 0x634da63a.
+//
+// Solidity: function MAX_TOKEN_PER_TXN() view returns(uint256)
+func (_ERC1155Vault *ERC1155VaultCaller) MAXTOKENPERTXN(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _ERC1155Vault.contract.Call(opts, &out, "MAX_TOKEN_PER_TXN")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// MAXTOKENPERTXN is a free data retrieval call binding the contract method 0x634da63a.
+//
+// Solidity: function MAX_TOKEN_PER_TXN() view returns(uint256)
+func (_ERC1155Vault *ERC1155VaultSession) MAXTOKENPERTXN() (*big.Int, error) {
+	return _ERC1155Vault.Contract.MAXTOKENPERTXN(&_ERC1155Vault.CallOpts)
+}
+
+// MAXTOKENPERTXN is a free data retrieval call binding the contract method 0x634da63a.
+//
+// Solidity: function MAX_TOKEN_PER_TXN() view returns(uint256)
+func (_ERC1155Vault *ERC1155VaultCallerSession) MAXTOKENPERTXN() (*big.Int, error) {
+	return _ERC1155Vault.Contract.MAXTOKENPERTXN(&_ERC1155Vault.CallOpts)
+}
+
 // AddressManager is a free data retrieval call binding the contract method 0x3ab76e9f.
 //
 // Solidity: function addressManager() view returns(address)
@@ -312,9 +343,9 @@ func (_ERC1155Vault *ERC1155VaultCallerSession) AddressManager() (common.Address
 
 // BridgedToCanonical is a free data retrieval call binding the contract method 0x9aa8605c.
 //
-// Solidity: function bridgedToCanonical(address ) view returns(uint256 chainId, address addr, string symbol, string name)
+// Solidity: function bridgedToCanonical(address ) view returns(uint64 chainId, address addr, string symbol, string name)
 func (_ERC1155Vault *ERC1155VaultCaller) BridgedToCanonical(opts *bind.CallOpts, arg0 common.Address) (struct {
-	ChainId *big.Int
+	ChainId uint64
 	Addr    common.Address
 	Symbol  string
 	Name    string
@@ -323,7 +354,7 @@ func (_ERC1155Vault *ERC1155VaultCaller) BridgedToCanonical(opts *bind.CallOpts,
 	err := _ERC1155Vault.contract.Call(opts, &out, "bridgedToCanonical", arg0)
 
 	outstruct := new(struct {
-		ChainId *big.Int
+		ChainId uint64
 		Addr    common.Address
 		Symbol  string
 		Name    string
@@ -332,7 +363,7 @@ func (_ERC1155Vault *ERC1155VaultCaller) BridgedToCanonical(opts *bind.CallOpts,
 		return *outstruct, err
 	}
 
-	outstruct.ChainId = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.ChainId = *abi.ConvertType(out[0], new(uint64)).(*uint64)
 	outstruct.Addr = *abi.ConvertType(out[1], new(common.Address)).(*common.Address)
 	outstruct.Symbol = *abi.ConvertType(out[2], new(string)).(*string)
 	outstruct.Name = *abi.ConvertType(out[3], new(string)).(*string)
@@ -343,9 +374,9 @@ func (_ERC1155Vault *ERC1155VaultCaller) BridgedToCanonical(opts *bind.CallOpts,
 
 // BridgedToCanonical is a free data retrieval call binding the contract method 0x9aa8605c.
 //
-// Solidity: function bridgedToCanonical(address ) view returns(uint256 chainId, address addr, string symbol, string name)
+// Solidity: function bridgedToCanonical(address ) view returns(uint64 chainId, address addr, string symbol, string name)
 func (_ERC1155Vault *ERC1155VaultSession) BridgedToCanonical(arg0 common.Address) (struct {
-	ChainId *big.Int
+	ChainId uint64
 	Addr    common.Address
 	Symbol  string
 	Name    string
@@ -355,9 +386,9 @@ func (_ERC1155Vault *ERC1155VaultSession) BridgedToCanonical(arg0 common.Address
 
 // BridgedToCanonical is a free data retrieval call binding the contract method 0x9aa8605c.
 //
-// Solidity: function bridgedToCanonical(address ) view returns(uint256 chainId, address addr, string symbol, string name)
+// Solidity: function bridgedToCanonical(address ) view returns(uint64 chainId, address addr, string symbol, string name)
 func (_ERC1155Vault *ERC1155VaultCallerSession) BridgedToCanonical(arg0 common.Address) (struct {
-	ChainId *big.Int
+	ChainId uint64
 	Addr    common.Address
 	Symbol  string
 	Name    string
@@ -396,35 +427,35 @@ func (_ERC1155Vault *ERC1155VaultCallerSession) CanonicalToBridged(arg0 *big.Int
 	return _ERC1155Vault.Contract.CanonicalToBridged(&_ERC1155Vault.CallOpts, arg0, arg1)
 }
 
-// IsBridgedToken is a free data retrieval call binding the contract method 0xc287e578.
+// Name is a free data retrieval call binding the contract method 0x06fdde03.
 //
-// Solidity: function isBridgedToken(address ) view returns(bool)
-func (_ERC1155Vault *ERC1155VaultCaller) IsBridgedToken(opts *bind.CallOpts, arg0 common.Address) (bool, error) {
+// Solidity: function name() pure returns(bytes32)
+func (_ERC1155Vault *ERC1155VaultCaller) Name(opts *bind.CallOpts) ([32]byte, error) {
 	var out []interface{}
-	err := _ERC1155Vault.contract.Call(opts, &out, "isBridgedToken", arg0)
+	err := _ERC1155Vault.contract.Call(opts, &out, "name")
 
 	if err != nil {
-		return *new(bool), err
+		return *new([32]byte), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
 
 	return out0, err
 
 }
 
-// IsBridgedToken is a free data retrieval call binding the contract method 0xc287e578.
+// Name is a free data retrieval call binding the contract method 0x06fdde03.
 //
-// Solidity: function isBridgedToken(address ) view returns(bool)
-func (_ERC1155Vault *ERC1155VaultSession) IsBridgedToken(arg0 common.Address) (bool, error) {
-	return _ERC1155Vault.Contract.IsBridgedToken(&_ERC1155Vault.CallOpts, arg0)
+// Solidity: function name() pure returns(bytes32)
+func (_ERC1155Vault *ERC1155VaultSession) Name() ([32]byte, error) {
+	return _ERC1155Vault.Contract.Name(&_ERC1155Vault.CallOpts)
 }
 
-// IsBridgedToken is a free data retrieval call binding the contract method 0xc287e578.
+// Name is a free data retrieval call binding the contract method 0x06fdde03.
 //
-// Solidity: function isBridgedToken(address ) view returns(bool)
-func (_ERC1155Vault *ERC1155VaultCallerSession) IsBridgedToken(arg0 common.Address) (bool, error) {
-	return _ERC1155Vault.Contract.IsBridgedToken(&_ERC1155Vault.CallOpts, arg0)
+// Solidity: function name() pure returns(bytes32)
+func (_ERC1155Vault *ERC1155VaultCallerSession) Name() ([32]byte, error) {
+	return _ERC1155Vault.Contract.Name(&_ERC1155Vault.CallOpts)
 }
 
 // OnERC1155BatchReceived is a free data retrieval call binding the contract method 0xbc197c81.
@@ -520,10 +551,72 @@ func (_ERC1155Vault *ERC1155VaultCallerSession) Owner() (common.Address, error) 
 	return _ERC1155Vault.Contract.Owner(&_ERC1155Vault.CallOpts)
 }
 
-// Resolve is a free data retrieval call binding the contract method 0x6c6563f6.
+// Paused is a free data retrieval call binding the contract method 0x5c975abb.
 //
-// Solidity: function resolve(uint256 chainId, bytes32 name, bool allowZeroAddress) view returns(address addr)
-func (_ERC1155Vault *ERC1155VaultCaller) Resolve(opts *bind.CallOpts, chainId *big.Int, name [32]byte, allowZeroAddress bool) (common.Address, error) {
+// Solidity: function paused() view returns(bool)
+func (_ERC1155Vault *ERC1155VaultCaller) Paused(opts *bind.CallOpts) (bool, error) {
+	var out []interface{}
+	err := _ERC1155Vault.contract.Call(opts, &out, "paused")
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// Paused is a free data retrieval call binding the contract method 0x5c975abb.
+//
+// Solidity: function paused() view returns(bool)
+func (_ERC1155Vault *ERC1155VaultSession) Paused() (bool, error) {
+	return _ERC1155Vault.Contract.Paused(&_ERC1155Vault.CallOpts)
+}
+
+// Paused is a free data retrieval call binding the contract method 0x5c975abb.
+//
+// Solidity: function paused() view returns(bool)
+func (_ERC1155Vault *ERC1155VaultCallerSession) Paused() (bool, error) {
+	return _ERC1155Vault.Contract.Paused(&_ERC1155Vault.CallOpts)
+}
+
+// PendingOwner is a free data retrieval call binding the contract method 0xe30c3978.
+//
+// Solidity: function pendingOwner() view returns(address)
+func (_ERC1155Vault *ERC1155VaultCaller) PendingOwner(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _ERC1155Vault.contract.Call(opts, &out, "pendingOwner")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// PendingOwner is a free data retrieval call binding the contract method 0xe30c3978.
+//
+// Solidity: function pendingOwner() view returns(address)
+func (_ERC1155Vault *ERC1155VaultSession) PendingOwner() (common.Address, error) {
+	return _ERC1155Vault.Contract.PendingOwner(&_ERC1155Vault.CallOpts)
+}
+
+// PendingOwner is a free data retrieval call binding the contract method 0xe30c3978.
+//
+// Solidity: function pendingOwner() view returns(address)
+func (_ERC1155Vault *ERC1155VaultCallerSession) PendingOwner() (common.Address, error) {
+	return _ERC1155Vault.Contract.PendingOwner(&_ERC1155Vault.CallOpts)
+}
+
+// Resolve is a free data retrieval call binding the contract method 0x3eb6b8cf.
+//
+// Solidity: function resolve(uint64 chainId, bytes32 name, bool allowZeroAddress) view returns(address addr)
+func (_ERC1155Vault *ERC1155VaultCaller) Resolve(opts *bind.CallOpts, chainId uint64, name [32]byte, allowZeroAddress bool) (common.Address, error) {
 	var out []interface{}
 	err := _ERC1155Vault.contract.Call(opts, &out, "resolve", chainId, name, allowZeroAddress)
 
@@ -537,17 +630,17 @@ func (_ERC1155Vault *ERC1155VaultCaller) Resolve(opts *bind.CallOpts, chainId *b
 
 }
 
-// Resolve is a free data retrieval call binding the contract method 0x6c6563f6.
+// Resolve is a free data retrieval call binding the contract method 0x3eb6b8cf.
 //
-// Solidity: function resolve(uint256 chainId, bytes32 name, bool allowZeroAddress) view returns(address addr)
-func (_ERC1155Vault *ERC1155VaultSession) Resolve(chainId *big.Int, name [32]byte, allowZeroAddress bool) (common.Address, error) {
+// Solidity: function resolve(uint64 chainId, bytes32 name, bool allowZeroAddress) view returns(address addr)
+func (_ERC1155Vault *ERC1155VaultSession) Resolve(chainId uint64, name [32]byte, allowZeroAddress bool) (common.Address, error) {
 	return _ERC1155Vault.Contract.Resolve(&_ERC1155Vault.CallOpts, chainId, name, allowZeroAddress)
 }
 
-// Resolve is a free data retrieval call binding the contract method 0x6c6563f6.
+// Resolve is a free data retrieval call binding the contract method 0x3eb6b8cf.
 //
-// Solidity: function resolve(uint256 chainId, bytes32 name, bool allowZeroAddress) view returns(address addr)
-func (_ERC1155Vault *ERC1155VaultCallerSession) Resolve(chainId *big.Int, name [32]byte, allowZeroAddress bool) (common.Address, error) {
+// Solidity: function resolve(uint64 chainId, bytes32 name, bool allowZeroAddress) view returns(address addr)
+func (_ERC1155Vault *ERC1155VaultCallerSession) Resolve(chainId uint64, name [32]byte, allowZeroAddress bool) (common.Address, error) {
 	return _ERC1155Vault.Contract.Resolve(&_ERC1155Vault.CallOpts, chainId, name, allowZeroAddress)
 }
 
@@ -613,6 +706,27 @@ func (_ERC1155Vault *ERC1155VaultCallerSession) SupportsInterface(interfaceId [4
 	return _ERC1155Vault.Contract.SupportsInterface(&_ERC1155Vault.CallOpts, interfaceId)
 }
 
+// AcceptOwnership is a paid mutator transaction binding the contract method 0x79ba5097.
+//
+// Solidity: function acceptOwnership() returns()
+func (_ERC1155Vault *ERC1155VaultTransactor) AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _ERC1155Vault.contract.Transact(opts, "acceptOwnership")
+}
+
+// AcceptOwnership is a paid mutator transaction binding the contract method 0x79ba5097.
+//
+// Solidity: function acceptOwnership() returns()
+func (_ERC1155Vault *ERC1155VaultSession) AcceptOwnership() (*types.Transaction, error) {
+	return _ERC1155Vault.Contract.AcceptOwnership(&_ERC1155Vault.TransactOpts)
+}
+
+// AcceptOwnership is a paid mutator transaction binding the contract method 0x79ba5097.
+//
+// Solidity: function acceptOwnership() returns()
+func (_ERC1155Vault *ERC1155VaultTransactorSession) AcceptOwnership() (*types.Transaction, error) {
+	return _ERC1155Vault.Contract.AcceptOwnership(&_ERC1155Vault.TransactOpts)
+}
+
 // Init is a paid mutator transaction binding the contract method 0x19ab453c.
 //
 // Solidity: function init(address addressManager) returns()
@@ -634,44 +748,65 @@ func (_ERC1155Vault *ERC1155VaultTransactorSession) Init(addressManager common.A
 	return _ERC1155Vault.Contract.Init(&_ERC1155Vault.TransactOpts, addressManager)
 }
 
-// OnMessageRecalled is a paid mutator transaction binding the contract method 0x32a642ca.
+// OnMessageRecalled is a paid mutator transaction binding the contract method 0xc389a180.
 //
-// Solidity: function onMessageRecalled((uint256,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message) payable returns()
-func (_ERC1155Vault *ERC1155VaultTransactor) OnMessageRecalled(opts *bind.TransactOpts, message IBridgeMessage) (*types.Transaction, error) {
-	return _ERC1155Vault.contract.Transact(opts, "onMessageRecalled", message)
+// Solidity: function onMessageRecalled((uint128,address,uint64,uint64,address,address,address,uint256,uint256,uint256,bytes,string) message, bytes32 msgHash) payable returns()
+func (_ERC1155Vault *ERC1155VaultTransactor) OnMessageRecalled(opts *bind.TransactOpts, message IBridgeMessage, msgHash [32]byte) (*types.Transaction, error) {
+	return _ERC1155Vault.contract.Transact(opts, "onMessageRecalled", message, msgHash)
 }
 
-// OnMessageRecalled is a paid mutator transaction binding the contract method 0x32a642ca.
+// OnMessageRecalled is a paid mutator transaction binding the contract method 0xc389a180.
 //
-// Solidity: function onMessageRecalled((uint256,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message) payable returns()
-func (_ERC1155Vault *ERC1155VaultSession) OnMessageRecalled(message IBridgeMessage) (*types.Transaction, error) {
-	return _ERC1155Vault.Contract.OnMessageRecalled(&_ERC1155Vault.TransactOpts, message)
+// Solidity: function onMessageRecalled((uint128,address,uint64,uint64,address,address,address,uint256,uint256,uint256,bytes,string) message, bytes32 msgHash) payable returns()
+func (_ERC1155Vault *ERC1155VaultSession) OnMessageRecalled(message IBridgeMessage, msgHash [32]byte) (*types.Transaction, error) {
+	return _ERC1155Vault.Contract.OnMessageRecalled(&_ERC1155Vault.TransactOpts, message, msgHash)
 }
 
-// OnMessageRecalled is a paid mutator transaction binding the contract method 0x32a642ca.
+// OnMessageRecalled is a paid mutator transaction binding the contract method 0xc389a180.
 //
-// Solidity: function onMessageRecalled((uint256,address,uint256,uint256,address,address,address,uint256,uint256,uint256,bytes,string) message) payable returns()
-func (_ERC1155Vault *ERC1155VaultTransactorSession) OnMessageRecalled(message IBridgeMessage) (*types.Transaction, error) {
-	return _ERC1155Vault.Contract.OnMessageRecalled(&_ERC1155Vault.TransactOpts, message)
+// Solidity: function onMessageRecalled((uint128,address,uint64,uint64,address,address,address,uint256,uint256,uint256,bytes,string) message, bytes32 msgHash) payable returns()
+func (_ERC1155Vault *ERC1155VaultTransactorSession) OnMessageRecalled(message IBridgeMessage, msgHash [32]byte) (*types.Transaction, error) {
+	return _ERC1155Vault.Contract.OnMessageRecalled(&_ERC1155Vault.TransactOpts, message, msgHash)
 }
 
-// ReceiveToken is a paid mutator transaction binding the contract method 0x20b81559.
+// Pause is a paid mutator transaction binding the contract method 0x8456cb59.
 //
-// Solidity: function receiveToken((uint256,address,string,string) ctoken, address from, address to, uint256[] tokenIds, uint256[] amounts) payable returns()
+// Solidity: function pause() returns()
+func (_ERC1155Vault *ERC1155VaultTransactor) Pause(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _ERC1155Vault.contract.Transact(opts, "pause")
+}
+
+// Pause is a paid mutator transaction binding the contract method 0x8456cb59.
+//
+// Solidity: function pause() returns()
+func (_ERC1155Vault *ERC1155VaultSession) Pause() (*types.Transaction, error) {
+	return _ERC1155Vault.Contract.Pause(&_ERC1155Vault.TransactOpts)
+}
+
+// Pause is a paid mutator transaction binding the contract method 0x8456cb59.
+//
+// Solidity: function pause() returns()
+func (_ERC1155Vault *ERC1155VaultTransactorSession) Pause() (*types.Transaction, error) {
+	return _ERC1155Vault.Contract.Pause(&_ERC1155Vault.TransactOpts)
+}
+
+// ReceiveToken is a paid mutator transaction binding the contract method 0x079312bf.
+//
+// Solidity: function receiveToken((uint64,address,string,string) ctoken, address from, address to, uint256[] tokenIds, uint256[] amounts) payable returns()
 func (_ERC1155Vault *ERC1155VaultTransactor) ReceiveToken(opts *bind.TransactOpts, ctoken BaseNFTVaultCanonicalNFT, from common.Address, to common.Address, tokenIds []*big.Int, amounts []*big.Int) (*types.Transaction, error) {
 	return _ERC1155Vault.contract.Transact(opts, "receiveToken", ctoken, from, to, tokenIds, amounts)
 }
 
-// ReceiveToken is a paid mutator transaction binding the contract method 0x20b81559.
+// ReceiveToken is a paid mutator transaction binding the contract method 0x079312bf.
 //
-// Solidity: function receiveToken((uint256,address,string,string) ctoken, address from, address to, uint256[] tokenIds, uint256[] amounts) payable returns()
+// Solidity: function receiveToken((uint64,address,string,string) ctoken, address from, address to, uint256[] tokenIds, uint256[] amounts) payable returns()
 func (_ERC1155Vault *ERC1155VaultSession) ReceiveToken(ctoken BaseNFTVaultCanonicalNFT, from common.Address, to common.Address, tokenIds []*big.Int, amounts []*big.Int) (*types.Transaction, error) {
 	return _ERC1155Vault.Contract.ReceiveToken(&_ERC1155Vault.TransactOpts, ctoken, from, to, tokenIds, amounts)
 }
 
-// ReceiveToken is a paid mutator transaction binding the contract method 0x20b81559.
+// ReceiveToken is a paid mutator transaction binding the contract method 0x079312bf.
 //
-// Solidity: function receiveToken((uint256,address,string,string) ctoken, address from, address to, uint256[] tokenIds, uint256[] amounts) payable returns()
+// Solidity: function receiveToken((uint64,address,string,string) ctoken, address from, address to, uint256[] tokenIds, uint256[] amounts) payable returns()
 func (_ERC1155Vault *ERC1155VaultTransactorSession) ReceiveToken(ctoken BaseNFTVaultCanonicalNFT, from common.Address, to common.Address, tokenIds []*big.Int, amounts []*big.Int) (*types.Transaction, error) {
 	return _ERC1155Vault.Contract.ReceiveToken(&_ERC1155Vault.TransactOpts, ctoken, from, to, tokenIds, amounts)
 }
@@ -697,46 +832,25 @@ func (_ERC1155Vault *ERC1155VaultTransactorSession) RenounceOwnership() (*types.
 	return _ERC1155Vault.Contract.RenounceOwnership(&_ERC1155Vault.TransactOpts)
 }
 
-// SendToken is a paid mutator transaction binding the contract method 0x73339643.
+// SendToken is a paid mutator transaction binding the contract method 0x48b2772e.
 //
-// Solidity: function sendToken((uint256,address,address,uint256[],uint256[],uint256,uint256,address,string) opt) payable returns()
-func (_ERC1155Vault *ERC1155VaultTransactor) SendToken(opts *bind.TransactOpts, opt BaseNFTVaultBridgeTransferOp) (*types.Transaction, error) {
-	return _ERC1155Vault.contract.Transact(opts, "sendToken", opt)
+// Solidity: function sendToken((uint64,address,address,uint256[],uint256[],uint256,uint256,address,string) op) payable returns((uint128,address,uint64,uint64,address,address,address,uint256,uint256,uint256,bytes,string) _message)
+func (_ERC1155Vault *ERC1155VaultTransactor) SendToken(opts *bind.TransactOpts, op BaseNFTVaultBridgeTransferOp) (*types.Transaction, error) {
+	return _ERC1155Vault.contract.Transact(opts, "sendToken", op)
 }
 
-// SendToken is a paid mutator transaction binding the contract method 0x73339643.
+// SendToken is a paid mutator transaction binding the contract method 0x48b2772e.
 //
-// Solidity: function sendToken((uint256,address,address,uint256[],uint256[],uint256,uint256,address,string) opt) payable returns()
-func (_ERC1155Vault *ERC1155VaultSession) SendToken(opt BaseNFTVaultBridgeTransferOp) (*types.Transaction, error) {
-	return _ERC1155Vault.Contract.SendToken(&_ERC1155Vault.TransactOpts, opt)
+// Solidity: function sendToken((uint64,address,address,uint256[],uint256[],uint256,uint256,address,string) op) payable returns((uint128,address,uint64,uint64,address,address,address,uint256,uint256,uint256,bytes,string) _message)
+func (_ERC1155Vault *ERC1155VaultSession) SendToken(op BaseNFTVaultBridgeTransferOp) (*types.Transaction, error) {
+	return _ERC1155Vault.Contract.SendToken(&_ERC1155Vault.TransactOpts, op)
 }
 
-// SendToken is a paid mutator transaction binding the contract method 0x73339643.
+// SendToken is a paid mutator transaction binding the contract method 0x48b2772e.
 //
-// Solidity: function sendToken((uint256,address,address,uint256[],uint256[],uint256,uint256,address,string) opt) payable returns()
-func (_ERC1155Vault *ERC1155VaultTransactorSession) SendToken(opt BaseNFTVaultBridgeTransferOp) (*types.Transaction, error) {
-	return _ERC1155Vault.Contract.SendToken(&_ERC1155Vault.TransactOpts, opt)
-}
-
-// SetAddressManager is a paid mutator transaction binding the contract method 0x0652b57a.
-//
-// Solidity: function setAddressManager(address newAddressManager) returns()
-func (_ERC1155Vault *ERC1155VaultTransactor) SetAddressManager(opts *bind.TransactOpts, newAddressManager common.Address) (*types.Transaction, error) {
-	return _ERC1155Vault.contract.Transact(opts, "setAddressManager", newAddressManager)
-}
-
-// SetAddressManager is a paid mutator transaction binding the contract method 0x0652b57a.
-//
-// Solidity: function setAddressManager(address newAddressManager) returns()
-func (_ERC1155Vault *ERC1155VaultSession) SetAddressManager(newAddressManager common.Address) (*types.Transaction, error) {
-	return _ERC1155Vault.Contract.SetAddressManager(&_ERC1155Vault.TransactOpts, newAddressManager)
-}
-
-// SetAddressManager is a paid mutator transaction binding the contract method 0x0652b57a.
-//
-// Solidity: function setAddressManager(address newAddressManager) returns()
-func (_ERC1155Vault *ERC1155VaultTransactorSession) SetAddressManager(newAddressManager common.Address) (*types.Transaction, error) {
-	return _ERC1155Vault.Contract.SetAddressManager(&_ERC1155Vault.TransactOpts, newAddressManager)
+// Solidity: function sendToken((uint64,address,address,uint256[],uint256[],uint256,uint256,address,string) op) payable returns((uint128,address,uint64,uint64,address,address,address,uint256,uint256,uint256,bytes,string) _message)
+func (_ERC1155Vault *ERC1155VaultTransactorSession) SendToken(op BaseNFTVaultBridgeTransferOp) (*types.Transaction, error) {
+	return _ERC1155Vault.Contract.SendToken(&_ERC1155Vault.TransactOpts, op)
 }
 
 // TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
@@ -760,148 +874,25 @@ func (_ERC1155Vault *ERC1155VaultTransactorSession) TransferOwnership(newOwner c
 	return _ERC1155Vault.Contract.TransferOwnership(&_ERC1155Vault.TransactOpts, newOwner)
 }
 
-// ERC1155VaultAddressManagerChangedIterator is returned from FilterAddressManagerChanged and is used to iterate over the raw logs and unpacked data for AddressManagerChanged events raised by the ERC1155Vault contract.
-type ERC1155VaultAddressManagerChangedIterator struct {
-	Event *ERC1155VaultAddressManagerChanged // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *ERC1155VaultAddressManagerChangedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(ERC1155VaultAddressManagerChanged)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(ERC1155VaultAddressManagerChanged)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *ERC1155VaultAddressManagerChangedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *ERC1155VaultAddressManagerChangedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// ERC1155VaultAddressManagerChanged represents a AddressManagerChanged event raised by the ERC1155Vault contract.
-type ERC1155VaultAddressManagerChanged struct {
-	AddressManager common.Address
-	Raw            types.Log // Blockchain specific contextual infos
-}
-
-// FilterAddressManagerChanged is a free log retrieval operation binding the contract event 0x399ded90cb5ed8d89ef7e76ff4af65c373f06d3bf5d7eef55f4228e7b702a18b.
+// Unpause is a paid mutator transaction binding the contract method 0x3f4ba83a.
 //
-// Solidity: event AddressManagerChanged(address indexed addressManager)
-func (_ERC1155Vault *ERC1155VaultFilterer) FilterAddressManagerChanged(opts *bind.FilterOpts, addressManager []common.Address) (*ERC1155VaultAddressManagerChangedIterator, error) {
-
-	var addressManagerRule []interface{}
-	for _, addressManagerItem := range addressManager {
-		addressManagerRule = append(addressManagerRule, addressManagerItem)
-	}
-
-	logs, sub, err := _ERC1155Vault.contract.FilterLogs(opts, "AddressManagerChanged", addressManagerRule)
-	if err != nil {
-		return nil, err
-	}
-	return &ERC1155VaultAddressManagerChangedIterator{contract: _ERC1155Vault.contract, event: "AddressManagerChanged", logs: logs, sub: sub}, nil
+// Solidity: function unpause() returns()
+func (_ERC1155Vault *ERC1155VaultTransactor) Unpause(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _ERC1155Vault.contract.Transact(opts, "unpause")
 }
 
-// WatchAddressManagerChanged is a free log subscription operation binding the contract event 0x399ded90cb5ed8d89ef7e76ff4af65c373f06d3bf5d7eef55f4228e7b702a18b.
+// Unpause is a paid mutator transaction binding the contract method 0x3f4ba83a.
 //
-// Solidity: event AddressManagerChanged(address indexed addressManager)
-func (_ERC1155Vault *ERC1155VaultFilterer) WatchAddressManagerChanged(opts *bind.WatchOpts, sink chan<- *ERC1155VaultAddressManagerChanged, addressManager []common.Address) (event.Subscription, error) {
-
-	var addressManagerRule []interface{}
-	for _, addressManagerItem := range addressManager {
-		addressManagerRule = append(addressManagerRule, addressManagerItem)
-	}
-
-	logs, sub, err := _ERC1155Vault.contract.WatchLogs(opts, "AddressManagerChanged", addressManagerRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(ERC1155VaultAddressManagerChanged)
-				if err := _ERC1155Vault.contract.UnpackLog(event, "AddressManagerChanged", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
+// Solidity: function unpause() returns()
+func (_ERC1155Vault *ERC1155VaultSession) Unpause() (*types.Transaction, error) {
+	return _ERC1155Vault.Contract.Unpause(&_ERC1155Vault.TransactOpts)
 }
 
-// ParseAddressManagerChanged is a log parse operation binding the contract event 0x399ded90cb5ed8d89ef7e76ff4af65c373f06d3bf5d7eef55f4228e7b702a18b.
+// Unpause is a paid mutator transaction binding the contract method 0x3f4ba83a.
 //
-// Solidity: event AddressManagerChanged(address indexed addressManager)
-func (_ERC1155Vault *ERC1155VaultFilterer) ParseAddressManagerChanged(log types.Log) (*ERC1155VaultAddressManagerChanged, error) {
-	event := new(ERC1155VaultAddressManagerChanged)
-	if err := _ERC1155Vault.contract.UnpackLog(event, "AddressManagerChanged", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
+// Solidity: function unpause() returns()
+func (_ERC1155Vault *ERC1155VaultTransactorSession) Unpause() (*types.Transaction, error) {
+	return _ERC1155Vault.Contract.Unpause(&_ERC1155Vault.TransactOpts)
 }
 
 // ERC1155VaultBridgedTokenDeployedIterator is returned from FilterBridgedTokenDeployed and is used to iterate over the raw logs and unpacked data for BridgedTokenDeployed events raised by the ERC1155Vault contract.
@@ -973,7 +964,7 @@ func (it *ERC1155VaultBridgedTokenDeployedIterator) Close() error {
 
 // ERC1155VaultBridgedTokenDeployed represents a BridgedTokenDeployed event raised by the ERC1155Vault contract.
 type ERC1155VaultBridgedTokenDeployed struct {
-	ChainId      *big.Int
+	ChainId      uint64
 	Ctoken       common.Address
 	Btoken       common.Address
 	CtokenSymbol string
@@ -981,10 +972,10 @@ type ERC1155VaultBridgedTokenDeployed struct {
 	Raw          types.Log // Blockchain specific contextual infos
 }
 
-// FilterBridgedTokenDeployed is a free log retrieval operation binding the contract event 0x2da3c4d305298f6df3653c23d98b4c055f72f7e6f981b2c477ccbec92b1ee579.
+// FilterBridgedTokenDeployed is a free log retrieval operation binding the contract event 0x44977f2d30fe1e3aee2c1476f2f95aaacaf34e44b9359c403da01fcc93fd751b.
 //
-// Solidity: event BridgedTokenDeployed(uint256 indexed chainId, address indexed ctoken, address indexed btoken, string ctokenSymbol, string ctokenName)
-func (_ERC1155Vault *ERC1155VaultFilterer) FilterBridgedTokenDeployed(opts *bind.FilterOpts, chainId []*big.Int, ctoken []common.Address, btoken []common.Address) (*ERC1155VaultBridgedTokenDeployedIterator, error) {
+// Solidity: event BridgedTokenDeployed(uint64 indexed chainId, address indexed ctoken, address indexed btoken, string ctokenSymbol, string ctokenName)
+func (_ERC1155Vault *ERC1155VaultFilterer) FilterBridgedTokenDeployed(opts *bind.FilterOpts, chainId []uint64, ctoken []common.Address, btoken []common.Address) (*ERC1155VaultBridgedTokenDeployedIterator, error) {
 
 	var chainIdRule []interface{}
 	for _, chainIdItem := range chainId {
@@ -1006,10 +997,10 @@ func (_ERC1155Vault *ERC1155VaultFilterer) FilterBridgedTokenDeployed(opts *bind
 	return &ERC1155VaultBridgedTokenDeployedIterator{contract: _ERC1155Vault.contract, event: "BridgedTokenDeployed", logs: logs, sub: sub}, nil
 }
 
-// WatchBridgedTokenDeployed is a free log subscription operation binding the contract event 0x2da3c4d305298f6df3653c23d98b4c055f72f7e6f981b2c477ccbec92b1ee579.
+// WatchBridgedTokenDeployed is a free log subscription operation binding the contract event 0x44977f2d30fe1e3aee2c1476f2f95aaacaf34e44b9359c403da01fcc93fd751b.
 //
-// Solidity: event BridgedTokenDeployed(uint256 indexed chainId, address indexed ctoken, address indexed btoken, string ctokenSymbol, string ctokenName)
-func (_ERC1155Vault *ERC1155VaultFilterer) WatchBridgedTokenDeployed(opts *bind.WatchOpts, sink chan<- *ERC1155VaultBridgedTokenDeployed, chainId []*big.Int, ctoken []common.Address, btoken []common.Address) (event.Subscription, error) {
+// Solidity: event BridgedTokenDeployed(uint64 indexed chainId, address indexed ctoken, address indexed btoken, string ctokenSymbol, string ctokenName)
+func (_ERC1155Vault *ERC1155VaultFilterer) WatchBridgedTokenDeployed(opts *bind.WatchOpts, sink chan<- *ERC1155VaultBridgedTokenDeployed, chainId []uint64, ctoken []common.Address, btoken []common.Address) (event.Subscription, error) {
 
 	var chainIdRule []interface{}
 	for _, chainIdItem := range chainId {
@@ -1056,9 +1047,9 @@ func (_ERC1155Vault *ERC1155VaultFilterer) WatchBridgedTokenDeployed(opts *bind.
 	}), nil
 }
 
-// ParseBridgedTokenDeployed is a log parse operation binding the contract event 0x2da3c4d305298f6df3653c23d98b4c055f72f7e6f981b2c477ccbec92b1ee579.
+// ParseBridgedTokenDeployed is a log parse operation binding the contract event 0x44977f2d30fe1e3aee2c1476f2f95aaacaf34e44b9359c403da01fcc93fd751b.
 //
-// Solidity: event BridgedTokenDeployed(uint256 indexed chainId, address indexed ctoken, address indexed btoken, string ctokenSymbol, string ctokenName)
+// Solidity: event BridgedTokenDeployed(uint64 indexed chainId, address indexed ctoken, address indexed btoken, string ctokenSymbol, string ctokenName)
 func (_ERC1155Vault *ERC1155VaultFilterer) ParseBridgedTokenDeployed(log types.Log) (*ERC1155VaultBridgedTokenDeployed, error) {
 	event := new(ERC1155VaultBridgedTokenDeployed)
 	if err := _ERC1155Vault.contract.UnpackLog(event, "BridgedTokenDeployed", log); err != nil {
@@ -1196,6 +1187,159 @@ func (_ERC1155Vault *ERC1155VaultFilterer) WatchInitialized(opts *bind.WatchOpts
 func (_ERC1155Vault *ERC1155VaultFilterer) ParseInitialized(log types.Log) (*ERC1155VaultInitialized, error) {
 	event := new(ERC1155VaultInitialized)
 	if err := _ERC1155Vault.contract.UnpackLog(event, "Initialized", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// ERC1155VaultOwnershipTransferStartedIterator is returned from FilterOwnershipTransferStarted and is used to iterate over the raw logs and unpacked data for OwnershipTransferStarted events raised by the ERC1155Vault contract.
+type ERC1155VaultOwnershipTransferStartedIterator struct {
+	Event *ERC1155VaultOwnershipTransferStarted // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ERC1155VaultOwnershipTransferStartedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ERC1155VaultOwnershipTransferStarted)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ERC1155VaultOwnershipTransferStarted)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ERC1155VaultOwnershipTransferStartedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ERC1155VaultOwnershipTransferStartedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// ERC1155VaultOwnershipTransferStarted represents a OwnershipTransferStarted event raised by the ERC1155Vault contract.
+type ERC1155VaultOwnershipTransferStarted struct {
+	PreviousOwner common.Address
+	NewOwner      common.Address
+	Raw           types.Log // Blockchain specific contextual infos
+}
+
+// FilterOwnershipTransferStarted is a free log retrieval operation binding the contract event 0x38d16b8cac22d99fc7c124b9cd0de2d3fa1faef420bfe791d8c362d765e22700.
+//
+// Solidity: event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner)
+func (_ERC1155Vault *ERC1155VaultFilterer) FilterOwnershipTransferStarted(opts *bind.FilterOpts, previousOwner []common.Address, newOwner []common.Address) (*ERC1155VaultOwnershipTransferStartedIterator, error) {
+
+	var previousOwnerRule []interface{}
+	for _, previousOwnerItem := range previousOwner {
+		previousOwnerRule = append(previousOwnerRule, previousOwnerItem)
+	}
+	var newOwnerRule []interface{}
+	for _, newOwnerItem := range newOwner {
+		newOwnerRule = append(newOwnerRule, newOwnerItem)
+	}
+
+	logs, sub, err := _ERC1155Vault.contract.FilterLogs(opts, "OwnershipTransferStarted", previousOwnerRule, newOwnerRule)
+	if err != nil {
+		return nil, err
+	}
+	return &ERC1155VaultOwnershipTransferStartedIterator{contract: _ERC1155Vault.contract, event: "OwnershipTransferStarted", logs: logs, sub: sub}, nil
+}
+
+// WatchOwnershipTransferStarted is a free log subscription operation binding the contract event 0x38d16b8cac22d99fc7c124b9cd0de2d3fa1faef420bfe791d8c362d765e22700.
+//
+// Solidity: event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner)
+func (_ERC1155Vault *ERC1155VaultFilterer) WatchOwnershipTransferStarted(opts *bind.WatchOpts, sink chan<- *ERC1155VaultOwnershipTransferStarted, previousOwner []common.Address, newOwner []common.Address) (event.Subscription, error) {
+
+	var previousOwnerRule []interface{}
+	for _, previousOwnerItem := range previousOwner {
+		previousOwnerRule = append(previousOwnerRule, previousOwnerItem)
+	}
+	var newOwnerRule []interface{}
+	for _, newOwnerItem := range newOwner {
+		newOwnerRule = append(newOwnerRule, newOwnerItem)
+	}
+
+	logs, sub, err := _ERC1155Vault.contract.WatchLogs(opts, "OwnershipTransferStarted", previousOwnerRule, newOwnerRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(ERC1155VaultOwnershipTransferStarted)
+				if err := _ERC1155Vault.contract.UnpackLog(event, "OwnershipTransferStarted", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseOwnershipTransferStarted is a log parse operation binding the contract event 0x38d16b8cac22d99fc7c124b9cd0de2d3fa1faef420bfe791d8c362d765e22700.
+//
+// Solidity: event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner)
+func (_ERC1155Vault *ERC1155VaultFilterer) ParseOwnershipTransferStarted(log types.Log) (*ERC1155VaultOwnershipTransferStarted, error) {
+	event := new(ERC1155VaultOwnershipTransferStarted)
+	if err := _ERC1155Vault.contract.UnpackLog(event, "OwnershipTransferStarted", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -1355,6 +1499,140 @@ func (_ERC1155Vault *ERC1155VaultFilterer) ParseOwnershipTransferred(log types.L
 	return event, nil
 }
 
+// ERC1155VaultPausedIterator is returned from FilterPaused and is used to iterate over the raw logs and unpacked data for Paused events raised by the ERC1155Vault contract.
+type ERC1155VaultPausedIterator struct {
+	Event *ERC1155VaultPaused // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ERC1155VaultPausedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ERC1155VaultPaused)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ERC1155VaultPaused)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ERC1155VaultPausedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ERC1155VaultPausedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// ERC1155VaultPaused represents a Paused event raised by the ERC1155Vault contract.
+type ERC1155VaultPaused struct {
+	Account common.Address
+	Raw     types.Log // Blockchain specific contextual infos
+}
+
+// FilterPaused is a free log retrieval operation binding the contract event 0x62e78cea01bee320cd4e420270b5ea74000d11b0c9f74754ebdbfc544b05a258.
+//
+// Solidity: event Paused(address account)
+func (_ERC1155Vault *ERC1155VaultFilterer) FilterPaused(opts *bind.FilterOpts) (*ERC1155VaultPausedIterator, error) {
+
+	logs, sub, err := _ERC1155Vault.contract.FilterLogs(opts, "Paused")
+	if err != nil {
+		return nil, err
+	}
+	return &ERC1155VaultPausedIterator{contract: _ERC1155Vault.contract, event: "Paused", logs: logs, sub: sub}, nil
+}
+
+// WatchPaused is a free log subscription operation binding the contract event 0x62e78cea01bee320cd4e420270b5ea74000d11b0c9f74754ebdbfc544b05a258.
+//
+// Solidity: event Paused(address account)
+func (_ERC1155Vault *ERC1155VaultFilterer) WatchPaused(opts *bind.WatchOpts, sink chan<- *ERC1155VaultPaused) (event.Subscription, error) {
+
+	logs, sub, err := _ERC1155Vault.contract.WatchLogs(opts, "Paused")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(ERC1155VaultPaused)
+				if err := _ERC1155Vault.contract.UnpackLog(event, "Paused", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParsePaused is a log parse operation binding the contract event 0x62e78cea01bee320cd4e420270b5ea74000d11b0c9f74754ebdbfc544b05a258.
+//
+// Solidity: event Paused(address account)
+func (_ERC1155Vault *ERC1155VaultFilterer) ParsePaused(log types.Log) (*ERC1155VaultPaused, error) {
+	event := new(ERC1155VaultPaused)
+	if err := _ERC1155Vault.contract.UnpackLog(event, "Paused", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 // ERC1155VaultTokenReceivedIterator is returned from FilterTokenReceived and is used to iterate over the raw logs and unpacked data for TokenReceived events raised by the ERC1155Vault contract.
 type ERC1155VaultTokenReceivedIterator struct {
 	Event *ERC1155VaultTokenReceived // Event containing the contract specifics and raw log
@@ -1427,16 +1705,16 @@ type ERC1155VaultTokenReceived struct {
 	MsgHash    [32]byte
 	From       common.Address
 	To         common.Address
-	SrcChainId *big.Int
+	SrcChainId uint64
 	Token      common.Address
 	TokenIds   []*big.Int
 	Amounts    []*big.Int
 	Raw        types.Log // Blockchain specific contextual infos
 }
 
-// FilterTokenReceived is a free log retrieval operation binding the contract event 0x0f60c37489e435ed8490c30b01c1fa57e62510e88b351b75796ad3d95babe6b1.
+// FilterTokenReceived is a free log retrieval operation binding the contract event 0x8a4d138c7a19e12f6cdedfca02085820b0b1f5a9655c7a8b784f1d534347f247.
 //
-// Solidity: event TokenReceived(bytes32 indexed msgHash, address indexed from, address indexed to, uint256 srcChainId, address token, uint256[] tokenIds, uint256[] amounts)
+// Solidity: event TokenReceived(bytes32 indexed msgHash, address indexed from, address indexed to, uint64 srcChainId, address token, uint256[] tokenIds, uint256[] amounts)
 func (_ERC1155Vault *ERC1155VaultFilterer) FilterTokenReceived(opts *bind.FilterOpts, msgHash [][32]byte, from []common.Address, to []common.Address) (*ERC1155VaultTokenReceivedIterator, error) {
 
 	var msgHashRule []interface{}
@@ -1459,9 +1737,9 @@ func (_ERC1155Vault *ERC1155VaultFilterer) FilterTokenReceived(opts *bind.Filter
 	return &ERC1155VaultTokenReceivedIterator{contract: _ERC1155Vault.contract, event: "TokenReceived", logs: logs, sub: sub}, nil
 }
 
-// WatchTokenReceived is a free log subscription operation binding the contract event 0x0f60c37489e435ed8490c30b01c1fa57e62510e88b351b75796ad3d95babe6b1.
+// WatchTokenReceived is a free log subscription operation binding the contract event 0x8a4d138c7a19e12f6cdedfca02085820b0b1f5a9655c7a8b784f1d534347f247.
 //
-// Solidity: event TokenReceived(bytes32 indexed msgHash, address indexed from, address indexed to, uint256 srcChainId, address token, uint256[] tokenIds, uint256[] amounts)
+// Solidity: event TokenReceived(bytes32 indexed msgHash, address indexed from, address indexed to, uint64 srcChainId, address token, uint256[] tokenIds, uint256[] amounts)
 func (_ERC1155Vault *ERC1155VaultFilterer) WatchTokenReceived(opts *bind.WatchOpts, sink chan<- *ERC1155VaultTokenReceived, msgHash [][32]byte, from []common.Address, to []common.Address) (event.Subscription, error) {
 
 	var msgHashRule []interface{}
@@ -1509,9 +1787,9 @@ func (_ERC1155Vault *ERC1155VaultFilterer) WatchTokenReceived(opts *bind.WatchOp
 	}), nil
 }
 
-// ParseTokenReceived is a log parse operation binding the contract event 0x0f60c37489e435ed8490c30b01c1fa57e62510e88b351b75796ad3d95babe6b1.
+// ParseTokenReceived is a log parse operation binding the contract event 0x8a4d138c7a19e12f6cdedfca02085820b0b1f5a9655c7a8b784f1d534347f247.
 //
-// Solidity: event TokenReceived(bytes32 indexed msgHash, address indexed from, address indexed to, uint256 srcChainId, address token, uint256[] tokenIds, uint256[] amounts)
+// Solidity: event TokenReceived(bytes32 indexed msgHash, address indexed from, address indexed to, uint64 srcChainId, address token, uint256[] tokenIds, uint256[] amounts)
 func (_ERC1155Vault *ERC1155VaultFilterer) ParseTokenReceived(log types.Log) (*ERC1155VaultTokenReceived, error) {
 	event := new(ERC1155VaultTokenReceived)
 	if err := _ERC1155Vault.contract.UnpackLog(event, "TokenReceived", log); err != nil {
@@ -1749,16 +2027,16 @@ type ERC1155VaultTokenSent struct {
 	MsgHash     [32]byte
 	From        common.Address
 	To          common.Address
-	DestChainId *big.Int
+	DestChainId uint64
 	Token       common.Address
 	TokenIds    []*big.Int
 	Amounts     []*big.Int
 	Raw         types.Log // Blockchain specific contextual infos
 }
 
-// FilterTokenSent is a free log retrieval operation binding the contract event 0x5e54276405062454e6226625b28a6fea0a838d6b054e38955667234afb3345a3.
+// FilterTokenSent is a free log retrieval operation binding the contract event 0x329b657c35d4e2dfede6ef5132869accb1f8542912a40f9a854b4a917ffae2e9.
 //
-// Solidity: event TokenSent(bytes32 indexed msgHash, address indexed from, address indexed to, uint256 destChainId, address token, uint256[] tokenIds, uint256[] amounts)
+// Solidity: event TokenSent(bytes32 indexed msgHash, address indexed from, address indexed to, uint64 destChainId, address token, uint256[] tokenIds, uint256[] amounts)
 func (_ERC1155Vault *ERC1155VaultFilterer) FilterTokenSent(opts *bind.FilterOpts, msgHash [][32]byte, from []common.Address, to []common.Address) (*ERC1155VaultTokenSentIterator, error) {
 
 	var msgHashRule []interface{}
@@ -1781,9 +2059,9 @@ func (_ERC1155Vault *ERC1155VaultFilterer) FilterTokenSent(opts *bind.FilterOpts
 	return &ERC1155VaultTokenSentIterator{contract: _ERC1155Vault.contract, event: "TokenSent", logs: logs, sub: sub}, nil
 }
 
-// WatchTokenSent is a free log subscription operation binding the contract event 0x5e54276405062454e6226625b28a6fea0a838d6b054e38955667234afb3345a3.
+// WatchTokenSent is a free log subscription operation binding the contract event 0x329b657c35d4e2dfede6ef5132869accb1f8542912a40f9a854b4a917ffae2e9.
 //
-// Solidity: event TokenSent(bytes32 indexed msgHash, address indexed from, address indexed to, uint256 destChainId, address token, uint256[] tokenIds, uint256[] amounts)
+// Solidity: event TokenSent(bytes32 indexed msgHash, address indexed from, address indexed to, uint64 destChainId, address token, uint256[] tokenIds, uint256[] amounts)
 func (_ERC1155Vault *ERC1155VaultFilterer) WatchTokenSent(opts *bind.WatchOpts, sink chan<- *ERC1155VaultTokenSent, msgHash [][32]byte, from []common.Address, to []common.Address) (event.Subscription, error) {
 
 	var msgHashRule []interface{}
@@ -1831,12 +2109,146 @@ func (_ERC1155Vault *ERC1155VaultFilterer) WatchTokenSent(opts *bind.WatchOpts, 
 	}), nil
 }
 
-// ParseTokenSent is a log parse operation binding the contract event 0x5e54276405062454e6226625b28a6fea0a838d6b054e38955667234afb3345a3.
+// ParseTokenSent is a log parse operation binding the contract event 0x329b657c35d4e2dfede6ef5132869accb1f8542912a40f9a854b4a917ffae2e9.
 //
-// Solidity: event TokenSent(bytes32 indexed msgHash, address indexed from, address indexed to, uint256 destChainId, address token, uint256[] tokenIds, uint256[] amounts)
+// Solidity: event TokenSent(bytes32 indexed msgHash, address indexed from, address indexed to, uint64 destChainId, address token, uint256[] tokenIds, uint256[] amounts)
 func (_ERC1155Vault *ERC1155VaultFilterer) ParseTokenSent(log types.Log) (*ERC1155VaultTokenSent, error) {
 	event := new(ERC1155VaultTokenSent)
 	if err := _ERC1155Vault.contract.UnpackLog(event, "TokenSent", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// ERC1155VaultUnpausedIterator is returned from FilterUnpaused and is used to iterate over the raw logs and unpacked data for Unpaused events raised by the ERC1155Vault contract.
+type ERC1155VaultUnpausedIterator struct {
+	Event *ERC1155VaultUnpaused // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ERC1155VaultUnpausedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ERC1155VaultUnpaused)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ERC1155VaultUnpaused)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ERC1155VaultUnpausedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ERC1155VaultUnpausedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// ERC1155VaultUnpaused represents a Unpaused event raised by the ERC1155Vault contract.
+type ERC1155VaultUnpaused struct {
+	Account common.Address
+	Raw     types.Log // Blockchain specific contextual infos
+}
+
+// FilterUnpaused is a free log retrieval operation binding the contract event 0x5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa.
+//
+// Solidity: event Unpaused(address account)
+func (_ERC1155Vault *ERC1155VaultFilterer) FilterUnpaused(opts *bind.FilterOpts) (*ERC1155VaultUnpausedIterator, error) {
+
+	logs, sub, err := _ERC1155Vault.contract.FilterLogs(opts, "Unpaused")
+	if err != nil {
+		return nil, err
+	}
+	return &ERC1155VaultUnpausedIterator{contract: _ERC1155Vault.contract, event: "Unpaused", logs: logs, sub: sub}, nil
+}
+
+// WatchUnpaused is a free log subscription operation binding the contract event 0x5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa.
+//
+// Solidity: event Unpaused(address account)
+func (_ERC1155Vault *ERC1155VaultFilterer) WatchUnpaused(opts *bind.WatchOpts, sink chan<- *ERC1155VaultUnpaused) (event.Subscription, error) {
+
+	logs, sub, err := _ERC1155Vault.contract.WatchLogs(opts, "Unpaused")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(ERC1155VaultUnpaused)
+				if err := _ERC1155Vault.contract.UnpackLog(event, "Unpaused", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseUnpaused is a log parse operation binding the contract event 0x5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa.
+//
+// Solidity: event Unpaused(address account)
+func (_ERC1155Vault *ERC1155VaultFilterer) ParseUnpaused(log types.Log) (*ERC1155VaultUnpaused, error) {
+	event := new(ERC1155VaultUnpaused)
+	if err := _ERC1155Vault.contract.UnpackLog(event, "Unpaused", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

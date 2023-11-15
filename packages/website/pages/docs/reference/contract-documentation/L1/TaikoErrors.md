@@ -8,34 +8,58 @@ This abstract contract provides custom error declartions used in
 the Taiko protocol. Each error corresponds to specific situations where
 exceptions might be thrown.
 
-### L1_ALREADY_PROVEN
+### L1_ALREADY_CONTESTED
 
 ```solidity
-error L1_ALREADY_PROVEN()
+error L1_ALREADY_CONTESTED()
 ```
 
-### L1_BLOCK_ID_MISMATCH
+### L1_ALREADY_PROVED
 
 ```solidity
-error L1_BLOCK_ID_MISMATCH()
+error L1_ALREADY_PROVED()
 ```
 
-### L1_EVIDENCE_MISMATCH
+### L1_ASSIGNMENT_EXPIRED
 
 ```solidity
-error L1_EVIDENCE_MISMATCH()
+error L1_ASSIGNMENT_EXPIRED()
 ```
 
-### L1_INSUFFICIENT_TOKEN
+### L1_ASSIGNMENT_INVALID_SIG
 
 ```solidity
-error L1_INSUFFICIENT_TOKEN()
+error L1_ASSIGNMENT_INVALID_SIG()
 ```
 
-### L1_INVALID_ASSIGNMENT
+### L1_ASSIGNMENT_INVALID_PARAMS
 
 ```solidity
-error L1_INVALID_ASSIGNMENT()
+error L1_ASSIGNMENT_INVALID_PARAMS()
+```
+
+### L1_ASSIGNMENT_INSUFFICIENT_FEE
+
+```solidity
+error L1_ASSIGNMENT_INSUFFICIENT_FEE()
+```
+
+### L1_ASSIGNED_PROVER_NOT_ALLOWED
+
+```solidity
+error L1_ASSIGNED_PROVER_NOT_ALLOWED()
+```
+
+### L1_BLOCK_MISMATCH
+
+```solidity
+error L1_BLOCK_MISMATCH()
+```
+
+### L1_INVALID_ADDRESS
+
+```solidity
+error L1_INVALID_ADDRESS()
 ```
 
 ### L1_INVALID_BLOCK_ID
@@ -68,12 +92,6 @@ error L1_INVALID_EVIDENCE()
 error L1_INVALID_METADATA()
 ```
 
-### L1_INVALID_ORACLE_PROVER
-
-```solidity
-error L1_INVALID_ORACLE_PROVER()
-```
-
 ### L1_INVALID_PARAM
 
 ```solidity
@@ -104,16 +122,22 @@ error L1_INVALID_PROVER()
 error L1_INVALID_PROVER_SIG()
 ```
 
-### L1_NOT_PROVEABLE
+### L1_INVALID_TIER
 
 ```solidity
-error L1_NOT_PROVEABLE()
+error L1_INVALID_TIER()
 ```
 
-### L1_SAME_PROOF
+### L1_NOT_ASSIGNED_PROVER
 
 ```solidity
-error L1_SAME_PROOF()
+error L1_NOT_ASSIGNED_PROVER()
+```
+
+### L1_TIER_NOT_FOUND
+
+```solidity
+error L1_TIER_NOT_FOUND()
 ```
 
 ### L1_TOO_MANY_BLOCKS
@@ -122,38 +146,56 @@ error L1_SAME_PROOF()
 error L1_TOO_MANY_BLOCKS()
 ```
 
+### L1_TRANSITION_ID_ZERO
+
+```solidity
+error L1_TRANSITION_ID_ZERO()
+```
+
 ### L1_TRANSITION_NOT_FOUND
 
 ```solidity
 error L1_TRANSITION_NOT_FOUND()
 ```
 
-### L1_TX_LIST_NOT_EXIST
+### L1_TXLIST_INVALID_RANGE
 
 ```solidity
-error L1_TX_LIST_NOT_EXIST()
+error L1_TXLIST_INVALID_RANGE()
 ```
 
-### L1_TX_LIST_HASH
+### L1_TXLIST_MISMATCH
 
 ```solidity
-error L1_TX_LIST_HASH()
+error L1_TXLIST_MISMATCH()
 ```
 
-### L1_TX_LIST_RANGE
+### L1_TXLIST_NOT_FOUND
 
 ```solidity
-error L1_TX_LIST_RANGE()
+error L1_TXLIST_NOT_FOUND()
 ```
 
-### L1_TX_LIST
+### L1_TXLIST_TOO_LARGE
 
 ```solidity
-error L1_TX_LIST()
+error L1_TXLIST_TOO_LARGE()
+```
+
+### L1_UNAUTHORIZED
+
+```solidity
+error L1_UNAUTHORIZED()
 ```
 
 ### L1_UNEXPECTED_TRANSITION_ID
 
 ```solidity
 error L1_UNEXPECTED_TRANSITION_ID()
+```
+
+### L1_UNEXPECTED_TRANSITION_TIER
+
+```solidity
+error L1_UNEXPECTED_TRANSITION_TIER()
 ```
