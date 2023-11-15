@@ -22,7 +22,7 @@ _Emitted when a block has been synced across chains._
 
 | Name       | Type    | Description                                     |
 | ---------- | ------- | ----------------------------------------------- |
-| srcHeight  | uint64  | The height (block id\_ that was synced.         |
+| srcHeight  | uint64  | The height (block id) that was synced.          |
 | blockHash  | bytes32 | The hash of the synced block.                   |
 | signalRoot | bytes32 | The root hash representing cross-chain signals. |
 
