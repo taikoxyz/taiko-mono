@@ -254,36 +254,23 @@ library LibProposing {
             ++state.slotB.numBlocks;
         }
 
-        emit BlockProposed({
-            blockId: blk.blockId,
-            assignedProver: blk.assignedProver,
-            livenessBond: config.livenessBond,
-            meta: meta,
-            depositsProcessed: depositsProcessed
-        });
+        // address(this).balance is updated before the all with msg.value added.
+        uint256 initBalance = address(this).balance - msg.value;
 
-        // Run post hook
-        if (params.hook != address(0)) {
-            IHook(params.hook).postBlockProposed{ value: msg.value }(
-                blk, meta, params.hookData
+        // Run hooks
+        for (uint256 i; i < params.hookCalls.length; ++i) {
+            // hook may send ether back to this contract
+            uint256 msgValue = address(this).balance - initBalance;
+
+            IHook(params.hookCalls[i].hook).onBlockProposed{ value: msgValue }(
+                blk, meta, params.hookCalls[i].data
             );
         }
 
-        // Validate the prover assignment, then charge Ether or ERC20 as the
-        // prover fee based on the block's minTier.
-        uint256 proverFee = _payProverFeeAndTip(
-            meta.minTier,
-            meta.blobHash,
-            blk.blockId,
-            blk.metaHash,
-            params.assignment
-        );
-
         emit BlockProposed({
             blockId: blk.blockId,
             assignedProver: blk.assignedProver,
             livenessBond: config.livenessBond,
-            proverFee: proverFee,
             meta: meta,
             depositsProcessed: depositsProcessed
         });

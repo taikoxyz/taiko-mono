@@ -10,7 +10,7 @@ import { TaikoData } from "../TaikoData.sol";
 
 /// @title IHook Interface
 interface IHook {
-    function postBlockProposed(
+    function onBlockProposed(
         TaikoData.Block memory blk,
         TaikoData.BlockMetadata memory meta,
         bytes memory data

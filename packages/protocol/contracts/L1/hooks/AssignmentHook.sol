@@ -18,6 +18,8 @@ import { TaikoData } from "../TaikoData.sol";
 
 import { IHook } from "./IHook.sol";
 
+/// @title AssignmentHook
+/// A hook that handles prover assignment varification and fee processing.
 contract AssignmentHook is EssentialContract, IHook {
     using LibAddress for address;
     // Max gas paying the prover. This should be large enough to prevent the
@@ -45,7 +47,7 @@ contract AssignmentHook is EssentialContract, IHook {
         EssentialContract._init(_addressManager);
     }
 
-    function postBlockProposed(
+    function onBlockProposed(
         TaikoData.Block memory blk,
         TaikoData.BlockMetadata memory meta,
         bytes memory data
@@ -55,14 +57,58 @@ contract AssignmentHook is EssentialContract, IHook {
         nonReentrant
         onlyFromNamed("taiko")
     {
-        _payProverFeeAndTip(
-            blk.assignedProver,
-            meta.minTier,
-            meta.blobHash,
-            meta.id,
-            blk.metaHash,
-            abi.decode(data, (ProverAssignment))
-        );
+        ProverAssignment memory assignment =
+            abi.decode(data, (ProverAssignment));
+
+        // Check assignment validity
+        if (
+            block.timestamp > assignment.expiry
+                || assignment.metaHash != 0 && blk.metaHash != assignment.metaHash
+                || assignment.maxBlockId != 0 && meta.id > assignment.maxBlockId
+                || assignment.maxProposedIn != 0
+                    && block.number > assignment.maxProposedIn
+        ) {
+            revert HOOK_ASSIGNMENT_EXPIRED();
+        }
+
+        // Hash the assignment with the blobHash, this hash will be signed by
+        // the prover, therefore, we add a string as a prefix.
+        bytes32 hash = hashAssignment(assignment, address(this), meta.blobHash);
+
+        if (!blk.assignedProver.isValidSignature(hash, assignment.signature)) {
+            revert HOOK_ASSIGNMENT_INVALID_SIG();
+        }
+
+        // Find the prover fee using the minimal tier
+        uint256 proverFee = _getProverFee(assignment.tierFees, meta.minTier);
+
+        // The proposer irrevocably pays a fee to the assigned prover, either in
+        // Ether or ERC20 tokens.
+        uint256 tip;
+        if (assignment.feeToken == address(0)) {
+            if (msg.value < proverFee) {
+                revert HOOK_ASSIGNMENT_INSUFFICIENT_FEE();
+            }
+
+            unchecked {
+                tip = msg.value - proverFee;
+            }
+
+            // Paying Ether
+            blk.assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER, "");
+        } else {
+            tip = msg.value;
+
+            // Paying ERC20 tokens
+            ERC20Upgradeable(assignment.feeToken).transferFrom(
+                msg.sender, blk.assignedProver, proverFee
+            );
+        }
+
+        // block.coinbase can be address(0) in tests
+        if (tip != 0 && block.coinbase != address(0)) {
+            address(block.coinbase).sendEther(tip);
+        }
     }
 
     function hashAssignment(
@@ -86,68 +132,6 @@ contract AssignmentHook is EssentialContract, IHook {
                 assignment.tierFees
             )
         );
-    }
-
-    function _payProverFeeAndTip(
-        address assignedProver,
-        uint16 minTier,
-        bytes32 blobHash,
-        uint64 blockId,
-        bytes32 metaHash,
-        ProverAssignment memory assignment
-    )
-        private
-        returns (uint256 proverFee)
-    {
-        // Check assignment validity
-        if (
-            block.timestamp > assignment.expiry
-                || assignment.metaHash != 0 && metaHash != assignment.metaHash
-                || assignment.maxBlockId != 0 && blockId > assignment.maxBlockId
-                || assignment.maxProposedIn != 0
-                    && block.number > assignment.maxProposedIn
-        ) {
-            revert HOOK_ASSIGNMENT_EXPIRED();
-        }
-
-        // Hash the assignment with the blobHash, this hash will be signed by
-        // the prover, therefore, we add a string as a prefix.
-        bytes32 hash = hashAssignment(assignment, address(this), blobHash);
-
-        if (!assignedProver.isValidSignature(hash, assignment.signature)) {
-            revert HOOK_ASSIGNMENT_INVALID_SIG();
-        }
-
-        // Find the prover fee using the minimal tier
-        proverFee = _getProverFee(assignment.tierFees, minTier);
-
-        // The proposer irrevocably pays a fee to the assigned prover, either in
-        // Ether or ERC20 tokens.
-        uint256 tip;
-        if (assignment.feeToken == address(0)) {
-            if (msg.value < proverFee) {
-                revert HOOK_ASSIGNMENT_INSUFFICIENT_FEE();
-            }
-
-            unchecked {
-                tip = msg.value - proverFee;
-            }
-
-            // Paying Ether
-            assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER, "");
-        } else {
-            tip = msg.value;
-
-            // Paying ERC20 tokens
-            ERC20Upgradeable(assignment.feeToken).transferFrom(
-                msg.sender, assignedProver, proverFee
-            );
-        }
-
-        // block.coinbase can be address(0) in tests
-        if (tip != 0 && block.coinbase != address(0)) {
-            address(block.coinbase).sendEther(tip);
-        }
     }
 
     function _getProverFee(
