@@ -39,7 +39,7 @@ If user wants to bridge ether, he/she will initiate a bridge transaction with `s
         address refundAddress;
         // value to invoke on the destination chain.
         uint256 value;
-        // Processing fee for the relayer. Zero if user will process themself.
+        // Processing fee for the relayer. Zero if user will process themselves.
         uint256 fee;
         // gasLimit to invoke on the destination chain.
         uint256 gasLimit;
