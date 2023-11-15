@@ -47,7 +47,7 @@ contract TaikoL1 is
         if (inNonReentrant()) {
             // this must be called from a hook
         } else {
-            depositEtherToL2(address(0));
+            depositEtherToL2(msg.sender);
         }
     }
 
