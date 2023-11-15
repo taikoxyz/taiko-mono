@@ -23,19 +23,19 @@ import { IHook } from "./IHook.sol";
 /// A hook that handles prover assignment varification and fee processing.
 contract AssignmentHook is EssentialContract, IHook {
     using LibAddress for address;
+
     // Max gas paying the prover. This should be large enough to prevent the
     // worst cases, usually block proposer shall be aware the risks and only
     // choose provers that cannot consume too much gas when receiving Ether.
-
     uint256 public constant MAX_GAS_PAYING_PROVER = 200_000;
 
     struct ProverAssignment {
         address feeToken;
-        TaikoData.TierFee[] tierFees;
         uint64 expiry;
         uint64 maxBlockId;
         uint64 maxProposedIn;
         bytes32 metaHash;
+        TaikoData.TierFee[] tierFees;
         bytes signature;
     }
 
