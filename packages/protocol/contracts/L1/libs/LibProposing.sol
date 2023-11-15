@@ -12,10 +12,10 @@ import { LibAddress } from "../../libs/LibAddress.sol";
 
 import { ITierProvider } from "../tiers/ITierProvider.sol";
 import { TaikoData } from "../TaikoData.sol";
+import { TaikoToken } from "../TaikoToken.sol";
 import { IHook } from "../hooks/IHook.sol";
 
 import { LibDepositing } from "./LibDepositing.sol";
-import { LibTaikoToken } from "./LibTaikoToken.sol";
 
 /// @title LibProposing
 /// @notice A library for handling block proposals in the Taiko protocol.
@@ -43,6 +43,7 @@ library LibProposing {
     error L1_BLOB_NOT_REUSEABLE();
     error L1_INVALID_PARAM();
     error L1_INVALID_PROVER();
+    error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_PROPOSER_NOT_EOA();
     error L1_TOO_MANY_BLOCKS();
     error L1_TXLIST_OFFSET();
@@ -239,32 +240,9 @@ library LibProposing {
         // doesn't mandate Ether as the only proofing fee.
         blk.assignedProver = params.assignedProver;
 
-        // The assigned prover burns Taiko tokens, referred to as the
-        // "liveness bond." This bond remains non-refundable to the
-        // assigned prover under two conditions: if the block's verification
-        // transition is not the initial one or if it was generated and
-        // validated by different provers. Instead, a portion of the assignment
-        // bond serves as a reward for the actual prover.
-        LibTaikoToken.debitTaikoToken(
-            state, resolver, blk.assignedProver, config.livenessBond
-        );
-
         // Increment the counter (cursor) by 1.
         unchecked {
             ++state.slotB.numBlocks;
-        }
-
-        // address(this).balance is updated before the all with msg.value added.
-        uint256 initBalance = address(this).balance - msg.value;
-
-        // Run hooks
-        for (uint256 i; i < params.hookCalls.length; ++i) {
-            // hook may send ether back to this contract
-            uint256 msgValue = address(this).balance - initBalance;
-
-            IHook(params.hookCalls[i].hook).onBlockProposed{ value: msgValue }(
-                blk, meta, params.hookCalls[i].data
-            );
         }
 
         emit BlockProposed({
@@ -274,6 +252,33 @@ library LibProposing {
             meta: meta,
             depositsProcessed: depositsProcessed
         });
+
+        {
+            TaikoToken tko = TaikoToken(resolver.resolve("taiko_token", false));
+            uint256 tkoBalance = tko.balanceOf(address(this));
+
+            // Run all hooks.
+            // Note that address(this).balance is updated before the all with
+            // msg.value added.
+            uint256 ethBalance = address(this).balance - msg.value;
+
+            // Run hooks
+            for (uint256 i; i < params.hookCalls.length; ++i) {
+                // hook may send ether back to this contract
+                uint256 msgValue = address(this).balance - ethBalance;
+
+                IHook(params.hookCalls[i].hook).onBlockProposed{
+                    value: msgValue
+                }(blk, meta, params.hookCalls[i].data);
+            }
+
+            // We check  that Taiko Token balance increased by at least
+            // config.livenessBond
+            if (tko.balanceOf(address(this)) < tkoBalance + config.livenessBond)
+            {
+                revert L1_LIVENESS_BOND_NOT_RECEIVED();
+            }
+        }
     }
 
     function isBlobReusable(

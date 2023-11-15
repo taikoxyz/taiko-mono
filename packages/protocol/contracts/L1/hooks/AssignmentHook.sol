@@ -20,6 +20,8 @@ import { IHook } from "./IHook.sol";
 
 /// @title AssignmentHook
 /// A hook that handles prover assignment varification and fee processing.
+/// Note that this hook must be the last hook to run as it consumes all the
+/// msg.value without sending them back to the Taiko contract.
 contract AssignmentHook is EssentialContract, IHook {
     using LibAddress for address;
     // Max gas paying the prover. This should be large enough to prevent the

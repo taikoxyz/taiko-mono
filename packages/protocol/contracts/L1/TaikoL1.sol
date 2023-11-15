@@ -14,7 +14,6 @@ import { Proxied } from "../common/Proxied.sol";
 import { LibDepositing } from "./libs/LibDepositing.sol";
 import { LibProposing } from "./libs/LibProposing.sol";
 import { LibProving } from "./libs/LibProving.sol";
-import { LibTaikoToken } from "./libs/LibTaikoToken.sol";
 import { LibUtils } from "./libs/LibUtils.sol";
 import { LibVerifying } from "./libs/LibVerifying.sol";
 
@@ -151,18 +150,6 @@ contract TaikoL1 is
     /// @param pause True if paused.
     function pauseProving(bool pause) external onlyOwner {
         LibProving.pauseProving(state, pause);
-    }
-
-    /// @notice Deposit Taiko token to this contract
-    /// @param amount Amount of Taiko token to deposit.
-    function depositTaikoToken(uint256 amount) external whenNotPaused {
-        LibTaikoToken.depositTaikoToken(state, AddressResolver(this), amount);
-    }
-
-    /// @notice Withdraw Taiko token from this contract
-    /// @param amount Amount of Taiko token to withdraw.
-    function withdrawTaikoToken(uint256 amount) external whenNotPaused {
-        LibTaikoToken.withdrawTaikoToken(state, AddressResolver(this), amount);
     }
 
     /// @notice Deposits Ether to Layer 2.

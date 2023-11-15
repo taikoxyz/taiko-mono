@@ -11,8 +11,8 @@ import { ISignalService } from "../../signal/ISignalService.sol";
 
 import { ITierProvider } from "../tiers/ITierProvider.sol";
 import { TaikoData } from "../TaikoData.sol";
+import { TaikoToken } from "../TaikoToken.sol";
 
-import { LibTaikoToken } from "./LibTaikoToken.sol";
 import { LibUtils } from "./LibUtils.sol";
 
 /// @title LibVerifying
@@ -211,7 +211,9 @@ library LibVerifying {
                     bondToReturn -= blk.livenessBond / 2;
                 }
 
-                LibTaikoToken.creditTaikoToken(state, ts.prover, bondToReturn);
+                TaikoToken tko =
+                    TaikoToken(resolver.resolve("taiko_token", false));
+                tko.transfer(ts.prover, bondToReturn);
 
                 // Note: We exclusively address the bonds linked to the
                 // transition used for verification. While there may exist
