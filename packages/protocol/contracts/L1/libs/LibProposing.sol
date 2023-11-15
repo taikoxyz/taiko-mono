@@ -268,6 +268,25 @@ library LibProposing {
                 blk, meta, params.hookData
             );
         }
+
+        // Validate the prover assignment, then charge Ether or ERC20 as the
+        // prover fee based on the block's minTier.
+        uint256 proverFee = _payProverFeeAndTip(
+            meta.minTier,
+            meta.blobHash,
+            blk.blockId,
+            blk.metaHash,
+            params.assignment
+        );
+
+        emit BlockProposed({
+            blockId: blk.blockId,
+            assignedProver: blk.assignedProver,
+            livenessBond: config.livenessBond,
+            proverFee: proverFee,
+            meta: meta,
+            depositsProcessed: depositsProcessed
+        });
     }
 
     function isBlobReusable(
