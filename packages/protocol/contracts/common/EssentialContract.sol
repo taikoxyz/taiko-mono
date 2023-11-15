@@ -63,7 +63,7 @@ abstract contract EssentialContract is
         return _paused == _TRUE;
     }
 
-    function inNonReentrant() internal view returns (bool) {
+    function _inNonReentrant() internal view returns (bool) {
         return _reentry == _TRUE;
     }
 
