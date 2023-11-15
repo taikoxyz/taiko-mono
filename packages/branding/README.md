@@ -14,4 +14,4 @@ Look inside of this package for some common files you can use. Otherwise, please
 
 ## Colors
 
-Our primary hex color is `#E81899`. For the full color palette and further details, please resort to the [Figma](<https://www.figma.com/file/qVALIk5srW9nvOJwl6NF6F/Taiko-Brand-Guidelines-(External)>).
+Our primary hex color is `#E81899`, which corresponds to `RGB (232, 24, 153)`. For the full color palette and further details, please resort to the [Figma](<https://www.figma.com/file/qVALIk5srW9nvOJwl6NF6F/Taiko-Brand-Guidelines-(External)>).
