@@ -19,11 +19,12 @@ abstract contract EssentialContract is
     Ownable2StepUpgradeable,
     AddressResolver
 {
-    uint8 private constant _FALSE = 1;
-    uint8 private constant _TRUE = 2;
+    uint8 internal constant _FALSE = 1;
+    uint8 internal constant _TRUE = 2;
 
-    uint8 private _reentry; // slot 1
-    uint8 private _paused;
+    uint8 internal _reentry; // slot 1
+    uint8 internal _paused;
+
     uint256[49] private __gap;
 
     event Paused(address account);

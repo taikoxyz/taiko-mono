@@ -21,8 +21,6 @@ import { IHook } from "./IHook.sol";
 
 /// @title AssignmentHook
 /// A hook that handles prover assignment varification and fee processing.
-/// Note that this hook must be the last hook to run as it consumes all the
-/// msg.value without sending them back to the Taiko contract.
 contract AssignmentHook is EssentialContract, IHook {
     using LibAddress for address;
     // Max gas paying the prover. This should be large enough to prevent the
@@ -39,6 +37,11 @@ contract AssignmentHook is EssentialContract, IHook {
         uint64 maxProposedIn;
         bytes32 metaHash;
         bytes signature;
+    }
+
+    struct Input {
+        ProverAssignment assignment;
+        uint256 tip;
     }
 
     error HOOK_ASSIGNMENT_EXPIRED();
@@ -60,8 +63,8 @@ contract AssignmentHook is EssentialContract, IHook {
         nonReentrant
         onlyFromNamed("taiko")
     {
-        ProverAssignment memory assignment =
-            abi.decode(data, (ProverAssignment));
+        Input memory input = abi.decode(data, (Input));
+        ProverAssignment memory assignment = input.assignment;
 
         // Check assignment validity
         if (
@@ -84,30 +87,32 @@ contract AssignmentHook is EssentialContract, IHook {
 
         // Send the liveness bond to the Taiko contract
         TaikoToken tko = TaikoToken(resolve("taiko_token", false));
-        tko.transferFrom(
-            blk.assignedProver, resolve("taiko", false), blk.livenessBond
-        );
+        tko.transferFrom(blk.assignedProver, msg.sender, blk.livenessBond);
 
         // Find the prover fee using the minimal tier
         uint256 proverFee = _getProverFee(assignment.tierFees, meta.minTier);
 
         // The proposer irrevocably pays a fee to the assigned prover, either in
         // Ether or ERC20 tokens.
-        uint256 tip;
+        uint256 refund;
         if (assignment.feeToken == address(0)) {
-            if (msg.value < proverFee) {
+            if (msg.value < proverFee + input.tip) {
                 revert HOOK_ASSIGNMENT_INSUFFICIENT_FEE();
             }
 
             unchecked {
-                tip = msg.value - proverFee;
+                refund = msg.value - proverFee - input.tip;
             }
 
             // Paying Ether
             blk.assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER, "");
         } else {
-            tip = msg.value;
-
+            if (msg.value < input.tip) {
+                revert HOOK_ASSIGNMENT_INSUFFICIENT_FEE();
+            }
+            unchecked {
+                refund = msg.value - input.tip;
+            }
             // Paying ERC20 tokens
             ERC20Upgradeable(assignment.feeToken).transferFrom(
                 msg.sender, blk.assignedProver, proverFee
@@ -115,8 +120,12 @@ contract AssignmentHook is EssentialContract, IHook {
         }
 
         // block.coinbase can be address(0) in tests
-        if (tip != 0 && block.coinbase != address(0)) {
-            address(block.coinbase).sendEther(tip);
+        if (input.tip != 0 && block.coinbase != address(0)) {
+            address(block.coinbase).sendEther(input.tip);
+        }
+
+        if (refund != 0) {
+            msg.sender.sendEther(refund);
         }
     }
 

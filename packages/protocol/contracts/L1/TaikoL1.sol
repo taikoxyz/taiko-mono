@@ -44,7 +44,12 @@ contract TaikoL1 is
 
     /// @dev Fallback function to receive Ether and deposit to Layer 2.
     receive() external payable {
-        depositEtherToL2(address(0));
+        if (_reentry == _FALSE) {
+            depositEtherToL2(address(0));
+        } else {
+            // called inside proposeBlock, proveBlock, ...
+            // Do nothing
+        }
     }
 
     /// @notice Initializes the rollup.
