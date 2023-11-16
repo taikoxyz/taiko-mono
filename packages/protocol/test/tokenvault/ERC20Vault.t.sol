@@ -109,7 +109,7 @@ contract TestERC20Vault is Test {
         tko = new TaikoToken();
 
         addressManager = new AddressManager();
-        addressManager.init();
+        addressManager.init(msg.sender);
         addressManager.setAddress(
             uint64(block.chainid), "taiko_token", address(tko)
         );

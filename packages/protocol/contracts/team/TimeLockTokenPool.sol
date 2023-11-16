@@ -15,6 +15,8 @@ import { ERC20Upgradeable } from
 import { Ownable2StepUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
 
+import { EssentialContract } from "../common/EssentialContract.sol";
+
 /// @title TimeLockTokenPool
 /// Contract for managing Taiko tokens allocated to different roles and
 /// individuals.

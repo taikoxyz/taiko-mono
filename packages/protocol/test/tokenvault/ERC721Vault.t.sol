@@ -154,7 +154,7 @@ contract ERC721VaultTest is TestBase {
         vm.deal(Amelia, 100 ether);
         vm.deal(Bob, 100 ether);
         addressManager = new AddressManager();
-        addressManager.init();
+        addressManager.init(msg.sender);
 
         bridge = new Bridge();
         bridge.init(msg.sender, address(addressManager));

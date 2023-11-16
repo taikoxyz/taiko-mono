@@ -34,7 +34,7 @@ contract TestTaikoL2 is TestBase {
 
     function setUp() public {
         addressManager = new AddressManager();
-        addressManager.init();
+        addressManager.init(msg.sender);
 
         ss = new SignalService();
         ss.init(msg.sender);

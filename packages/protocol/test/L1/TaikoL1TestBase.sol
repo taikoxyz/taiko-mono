@@ -60,7 +60,7 @@ abstract contract TaikoL1TestBase is TestBase {
         conf = L1.getConfig();
 
         addressManager = new AddressManager();
-        addressManager.init();
+        addressManager.init(msg.sender);
 
         ss = new SignalService();
         ss.init(msg.sender);

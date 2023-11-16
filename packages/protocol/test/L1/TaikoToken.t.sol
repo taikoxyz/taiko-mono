@@ -24,7 +24,7 @@ contract TaikoTokenTest is TestBase {
         tokenOwner = getRandomAddress();
 
         addressManager = new AddressManager();
-        addressManager.init();
+        addressManager.init(msg.sender);
         tko = new TaikoToken();
 
         tokenProxy = _deployViaProxy(

@@ -23,7 +23,7 @@ contract TestTimeLockTokenPool is Test {
     Pool pool = new Pool();
 
     function setUp() public {
-        pool.init(address(tko), Vault);
+        pool.init(msg.sender, address(tko), Vault);
     }
 
     function test_invalid_granting() public {

@@ -44,7 +44,7 @@ contract BridgeTest is TestBase {
         vm.startPrank(Alice);
         vm.deal(Alice, 100 ether);
         addressManager = new AddressManager();
-        addressManager.init();
+        addressManager.init(msg.sender);
 
         bridge = new Bridge();
         bridge.init(msg.sender, address(addressManager));

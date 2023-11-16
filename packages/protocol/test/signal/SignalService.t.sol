@@ -26,7 +26,7 @@ contract TestSignalService is TestBase {
         vm.deal(Bob, 1 ether);
 
         addressManager = new AddressManager();
-        addressManager.init();
+        addressManager.init(msg.sender);
 
         signalService = new SignalService();
         signalService.init(msg.sender);
