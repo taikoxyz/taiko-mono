@@ -37,20 +37,20 @@ contract TestTaikoL2 is TestBase {
         addressManager.init();
 
         ss = new SignalService();
-        ss.init();
+        ss.init(msg.sender);
         registerAddress("signal_service", address(ss));
 
         L2 = new TaikoL2EIP1559Configurable();
         uint64 gasExcess = 0;
         uint8 quotient = 8;
         uint32 gasTarget = 60_000_000;
-        L2.init(address(ss), gasExcess);
+        L2.init(msg.sender, address(ss), gasExcess);
         L2.setConfigAndExcess(TaikoL2.Config(gasTarget, quotient), gasExcess);
 
         L2FeeSimulation = new SkipBasefeeCheckL2();
         gasExcess = 195_420_300_100;
 
-        L2FeeSimulation.init(address(ss), gasExcess);
+        L2FeeSimulation.init(msg.sender, address(ss), gasExcess);
         L2FeeSimulation.setConfigAndExcess(
             TaikoL2.Config(gasTarget, quotient), gasExcess
         );

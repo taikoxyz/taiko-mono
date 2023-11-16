@@ -62,9 +62,16 @@ contract Bridge is EssentialContract, IBridge {
     receive() external payable { }
 
     /// @notice Initializes the contract.
+    /// @param _owner The initial owner
     /// @param _addressManager The address of the {AddressManager} contract.
-    function init(address _addressManager) external initializer {
-        EssentialContract._init(_addressManager);
+    function init(
+        address _owner,
+        address _addressManager
+    )
+        external
+        initializer
+    {
+        EssentialContract._init(_owner, _addressManager);
         _ctx.msgHash == bytes32(PLACEHOLDER);
     }
 

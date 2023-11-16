@@ -137,25 +137,25 @@ contract ERC1155VaultTest is TestBase {
         addressManager.init();
 
         bridge = new Bridge();
-        bridge.init(address(addressManager));
+        bridge.init(msg.sender, address(addressManager));
 
         destChainBridge = new Bridge();
-        destChainBridge.init(address(addressManager));
+        destChainBridge.init(msg.sender, address(addressManager));
 
         signalService = new SignalService();
-        signalService.init();
+        signalService.init(msg.sender);
 
         erc1155Vault = new ERC1155Vault();
-        erc1155Vault.init(address(addressManager));
+        erc1155Vault.init(msg.sender, address(addressManager));
 
         destChainErc1155Vault = new ERC1155Vault();
-        destChainErc1155Vault.init(address(addressManager));
+        destChainErc1155Vault.init(msg.sender, address(addressManager));
 
         destChainIdBridge = new PrankDestBridge(destChainErc1155Vault);
         vm.deal(address(destChainIdBridge), 100 ether);
 
         mockProofSignalService = new SkipProofCheckSignal();
-        mockProofSignalService.init();
+        mockProofSignalService.init(msg.sender);
 
         crossChainSync = new DummyCrossChainSync();
 

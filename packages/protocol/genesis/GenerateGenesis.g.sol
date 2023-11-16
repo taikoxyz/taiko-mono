@@ -68,11 +68,11 @@ contract TestGenerateGenesis is Test, AddressResolver {
     function testNonSingletonContractDeployment() public {
         // check bytecode
         checkDeployedCode("ProxiedSingletonTaikoL2");
-        checkDeployedCode("ProxiedAddressManager");
+        checkDeployedCode("AddressManager");
 
         // check proxy implementations
         checkProxyImplementation("SingletonTaikoL2Proxy", "ProxiedSingletonTaikoL2");
-        checkProxyImplementation("AddressManagerProxy", "ProxiedAddressManager");
+        checkProxyImplementation("AddressManagerProxy", "AddressManager");
 
         // check proxies
         checkDeployedCode("SingletonTaikoL2Proxy");

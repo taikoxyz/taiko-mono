@@ -29,13 +29,13 @@ contract TestSignalService is TestBase {
         addressManager.init();
 
         signalService = new SignalService();
-        signalService.init();
+        signalService.init(msg.sender);
 
         destSignalService = new SignalService();
-        destSignalService.init();
+        destSignalService.init(msg.sender);
 
         crossChainSync = new DummyCrossChainSync();
-        crossChainSync.init(address(addressManager));
+        crossChainSync.init(msg.sender, address(addressManager));
 
         addressManager.setAddress(
             uint64(block.chainid), "signal_service", address(signalService)

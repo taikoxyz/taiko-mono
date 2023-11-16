@@ -115,22 +115,22 @@ contract TestERC20Vault is Test {
         );
 
         erc20Vault = new ERC20Vault();
-        erc20Vault.init(address(addressManager));
+        erc20Vault.init(msg.sender, address(addressManager));
 
         destChainIdERC20Vault = new ERC20Vault();
-        destChainIdERC20Vault.init(address(addressManager));
+        destChainIdERC20Vault.init(msg.sender, address(addressManager));
 
         erc20 = new FreeMintERC20("ERC20", "ERC20");
         erc20.mint(Alice);
 
         bridge = new Bridge();
-        bridge.init(address(addressManager));
+        bridge.init(msg.sender, address(addressManager));
 
         destChainIdBridge = new PrankDestBridge(erc20Vault);
         vm.deal(address(destChainIdBridge), 100 ether);
 
         signalService = new SignalService();
-        signalService.init();
+        signalService.init(msg.sender);
 
         addressManager.setAddress(
             uint64(block.chainid), "bridge", address(bridge)

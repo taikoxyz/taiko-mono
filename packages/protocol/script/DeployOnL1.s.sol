@@ -8,8 +8,7 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
-import
-    "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
@@ -94,11 +93,11 @@ contract DeployOnL1 is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // AddressManager
-        AddressManager addressManager = new ProxiedAddressManager();
+        AddressManager addressManager = new AddressManager();
         addressManagerProxy = deployProxy(
             "address_manager",
             address(addressManager),
-            bytes.concat(addressManager.init.selector)
+            bytes.concat(addressManager.init.selector, abi.encode(owner))
         );
 
         // TaikoL1
@@ -124,6 +123,7 @@ contract DeployOnL1 is Script {
             bytes.concat(
                 taikoToken.init.selector,
                 abi.encode(
+                    owner,
                     addressManagerProxy,
                     "Taiko Token Katla",
                     "TTKOk",
@@ -141,7 +141,7 @@ contract DeployOnL1 is Script {
             address(taikoL1),
             bytes.concat(
                 taikoL1.init.selector,
-                abi.encode(addressManagerProxy, genesisHash)
+                abi.encode(owner, addressManagerProxy, genesisHash)
             )
         );
         setAddress("taiko", taikoL1Proxy);
@@ -167,7 +167,8 @@ contract DeployOnL1 is Script {
             "guardian_prover",
             address(guardianProver),
             bytes.concat(
-                guardianProver.init.selector, abi.encode(addressManagerProxy)
+                guardianProver.init.selector,
+                abi.encode(owner, addressManagerProxy)
             )
         );
         address[NUM_GUARDIANS] memory guardians;
@@ -189,7 +190,8 @@ contract DeployOnL1 is Script {
             "tier_guardian",
             address(guardianVerifier),
             bytes.concat(
-                guardianVerifier.init.selector, abi.encode(addressManagerProxy)
+                guardianVerifier.init.selector,
+                abi.encode(owner, addressManagerProxy)
             )
         );
 
@@ -199,7 +201,8 @@ contract DeployOnL1 is Script {
             "tier_sgx",
             address(sgxVerifier),
             bytes.concat(
-                sgxVerifier.init.selector, abi.encode(addressManagerProxy)
+                sgxVerifier.init.selector,
+                abi.encode(owner, addressManagerProxy)
             )
         );
 
@@ -209,7 +212,8 @@ contract DeployOnL1 is Script {
             "tier_sgx_and_pse_zkevm",
             address(sgxAndZkVerifier),
             bytes.concat(
-                sgxVerifier.init.selector, abi.encode(addressManagerProxy)
+                sgxVerifier.init.selector,
+                abi.encode(owner, addressManagerProxy)
             )
         );
 
@@ -219,7 +223,8 @@ contract DeployOnL1 is Script {
             "tier_pse_zkevm",
             address(pseZkVerifier),
             bytes.concat(
-                pseZkVerifier.init.selector, abi.encode(addressManagerProxy)
+                pseZkVerifier.init.selector,
+                abi.encode(owner, addressManagerProxy)
             )
         );
 
@@ -282,12 +287,14 @@ contract DeployOnL1 is Script {
 
     function deployBridgeSuiteSingletons() private {
         // AddressManager
-        AddressManager addressManagerForSingletons = new ProxiedAddressManager();
+        AddressManager addressManagerForSingletons = new AddressManager();
         address addressManagerForSingletonsProxy = deployProxy(
             address(0),
             "address_manager_for_singletons",
             address(addressManagerForSingletons),
-            bytes.concat(addressManagerForSingletons.init.selector)
+            bytes.concat(
+                addressManagerForSingletons.init.selector, abi.encode(owner)
+            )
         );
 
         // Bridge
@@ -298,7 +305,7 @@ contract DeployOnL1 is Script {
             address(bridge),
             bytes.concat(
                 bridge.init.selector,
-                abi.encode(addressManagerForSingletonsProxy)
+                abi.encode(owner, addressManagerForSingletonsProxy)
             )
         );
 
@@ -310,7 +317,7 @@ contract DeployOnL1 is Script {
             address(erc20Vault),
             bytes.concat(
                 erc20Vault.init.selector,
-                abi.encode(addressManagerForSingletonsProxy)
+                abi.encode(owner, addressManagerForSingletonsProxy)
             )
         );
 
@@ -322,7 +329,7 @@ contract DeployOnL1 is Script {
             address(erc721Vault),
             bytes.concat(
                 erc721Vault.init.selector,
-                abi.encode(addressManagerForSingletonsProxy)
+                abi.encode(owner, addressManagerForSingletonsProxy)
             )
         );
 
@@ -334,7 +341,7 @@ contract DeployOnL1 is Script {
             address(erc1155Vault),
             bytes.concat(
                 erc1155Vault.init.selector,
-                abi.encode(addressManagerForSingletonsProxy)
+                abi.encode(owner, addressManagerForSingletonsProxy)
             )
         );
 
@@ -346,7 +353,7 @@ contract DeployOnL1 is Script {
             address(signalService),
             bytes.concat(
                 signalService.init.selector,
-                abi.encode(addressManagerForSingletonsProxy)
+                abi.encode(owner, addressManagerForSingletonsProxy)
             )
         );
 
@@ -391,9 +398,7 @@ contract DeployOnL1 is Script {
         private
         returns (address proxy)
     {
-        proxy = address(
-            new TransparentUpgradeableProxy(implementation, owner, data)
-        );
+        proxy = address(new ERC1967Proxy(implementation, data));
 
         console2.log(name, "(impl) ->", implementation);
         console2.log(name, "(proxy) ->", proxy);

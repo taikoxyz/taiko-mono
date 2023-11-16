@@ -80,7 +80,7 @@ export async function deployTaikoL2(
             storageLayoutName = `Proxied${storageLayoutName}`;
         }
         storageLayoutName = contractName.includes("AddressManager")
-            ? "ProxiedAddressManager"
+            ? "AddressManager"
             : storageLayoutName;
 
         storageLayouts[contractName] =
@@ -159,7 +159,7 @@ async function generateContractConfigs(
         ProxiedSingletonAddressManagerForSingletons: require(
             path.join(
                 ARTIFACTS_PATH,
-                "./AddressManager.sol/ProxiedAddressManager.json",
+                "./AddressManager.sol/AddressManager.json",
             ),
         ),
         ProxiedBridgedERC20: require(
@@ -187,10 +187,10 @@ async function generateContractConfigs(
                 "./TaikoL2.sol/ProxiedSingletonTaikoL2.json",
             ),
         ),
-        ProxiedAddressManager: require(
+        AddressManager: require(
             path.join(
                 ARTIFACTS_PATH,
-                "./AddressManager.sol/ProxiedAddressManager.json",
+                "./AddressManager.sol/AddressManager.json",
             ),
         ),
     };
@@ -494,10 +494,10 @@ async function generateContractConfigs(
             },
             isProxy: true,
         },
-        ProxiedAddressManager: {
-            address: addressMap.ProxiedAddressManager,
+        AddressManager: {
+            address: addressMap.AddressManager,
             deployedBytecode:
-                contractArtifacts.ProxiedAddressManager.deployedBytecode.object,
+                contractArtifacts.AddressManager.deployedBytecode.object,
         },
         // Non-singletons
         ProxiedSingletonTaikoL2: {
@@ -564,7 +564,7 @@ async function generateContractConfigs(
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
-                [IMPLEMENTATION_SLOT]: addressMap.ProxiedAddressManager,
+                [IMPLEMENTATION_SLOT]: addressMap.AddressManager,
             },
             isProxy: true,
         },

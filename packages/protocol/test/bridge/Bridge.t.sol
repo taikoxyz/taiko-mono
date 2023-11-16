@@ -47,16 +47,16 @@ contract BridgeTest is TestBase {
         addressManager.init();
 
         bridge = new Bridge();
-        bridge.init(address(addressManager));
+        bridge.init(msg.sender, address(addressManager));
 
         destChainBridge = new Bridge();
-        destChainBridge.init(address(addressManager));
+        destChainBridge.init(msg.sender, address(addressManager));
 
         mockProofSignalService = new SkipProofCheckSignal();
-        mockProofSignalService.init();
+        mockProofSignalService.init(msg.sender);
 
         signalService = new SignalService();
-        signalService.init();
+        signalService.init(msg.sender);
 
         vm.deal(address(destChainBridge), 100 ether);
 

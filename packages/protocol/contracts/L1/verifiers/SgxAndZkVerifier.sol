@@ -21,9 +21,16 @@ contract SgxAndZkVerifier is EssentialContract, IVerifier {
     uint256[50] private __gap;
 
     /// @notice Initializes the contract with the provided address manager.
+    /// @param _owner The initial owner
     /// @param _addressManager The address of the address manager contract.
-    function init(address _addressManager) external initializer {
-        EssentialContract._init(_addressManager);
+    function init(
+        address _owner,
+        address _addressManager
+    )
+        external
+        initializer
+    {
+        EssentialContract._init(_owner, _addressManager);
     }
 
     /// @inheritdoc IVerifier

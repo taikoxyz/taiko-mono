@@ -37,9 +37,16 @@ contract PseZkVerifier is EssentialContract, IVerifier {
     error L1_INVALID_PROOF();
 
     /// @notice Initializes the contract with the provided address manager.
+    /// @param _owner The initial owner
     /// @param _addressManager The address of the address manager contract.
-    function init(address _addressManager) external initializer {
-        EssentialContract._init(_addressManager);
+    function init(
+        address _owner,
+        address _addressManager
+    )
+        external
+        initializer
+    {
+        EssentialContract._init(_owner, _addressManager);
     }
 
     /// @inheritdoc IVerifier

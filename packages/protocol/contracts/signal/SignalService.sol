@@ -48,8 +48,8 @@ contract SignalService is AuthorizableContract, ISignalService {
     error SS_INVALID_SIGNAL();
 
     /// @dev Initializer to be called after being deployed behind a proxy.
-    function init() external initializer {
-        _init();
+    function init(address _owner) external initializer {
+        _init(_owner, address(0));
     }
 
     /// @inheritdoc ISignalService

@@ -10,7 +10,6 @@ import { IERC1155Receiver } from
     "lib/openzeppelin-contracts/contracts/interfaces/IERC1155Receiver.sol";
 import { IERC165 } from
     "lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
-
 import { ERC1967Proxy } from
     "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 

@@ -63,31 +63,31 @@ abstract contract TaikoL1TestBase is TestBase {
         addressManager.init();
 
         ss = new SignalService();
-        ss.init();
+        ss.init(msg.sender);
 
         pv = new PseZkVerifier();
-        pv.init(address(addressManager));
+        pv.init(msg.sender, address(addressManager));
 
         sv = new SgxVerifier();
-        sv.init(address(addressManager));
+        sv.init(msg.sender, address(addressManager));
         address[] memory initSgxInstances = new address[](1);
         initSgxInstances[0] = SGX_X_0;
         sv.addInstances(initSgxInstances);
 
         sgxZkVerifier = new SgxAndZkVerifier();
-        sgxZkVerifier.init(address(addressManager));
+        sgxZkVerifier.init(msg.sender, address(addressManager));
 
         gv = new GuardianVerifier();
-        gv.init(address(addressManager));
+        gv.init(msg.sender, address(addressManager));
 
         gp = new GuardianProver();
-        gp.init(address(addressManager));
+        gp.init(msg.sender, address(addressManager));
         setupGuardianProverMultisig();
 
         cp = new TaikoA6TierProvider();
 
         bridge = new Bridge();
-        bridge.init(address(addressManager));
+        bridge.init(msg.sender, address(addressManager));
 
         registerAddress("taiko", address(L1));
         registerAddress("tier_pse_zkevm", address(pv));
@@ -107,9 +107,15 @@ abstract contract TaikoL1TestBase is TestBase {
         tko = new TaikoToken();
         registerAddress("taiko_token", address(tko));
 
-        tko.init(address(addressManager), "TaikoToken", "TKO", address(this));
+        tko.init(
+            msg.sender,
+            address(addressManager),
+            "TaikoToken",
+            "TKO",
+            address(this)
+        );
 
-        L1.init(address(addressManager), GENESIS_BLOCK_HASH);
+        L1.init(msg.sender, address(addressManager), GENESIS_BLOCK_HASH);
         printVariables("init  ");
     }
 

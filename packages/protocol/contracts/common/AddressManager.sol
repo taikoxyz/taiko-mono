@@ -9,8 +9,6 @@ pragma solidity ^0.8.20;
 import { Ownable2StepUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
 
-import { Proxied } from "./Proxied.sol";
-
 /// @title IAddressManager
 /// @notice Specifies methods to manage address mappings for given chainId-name
 /// pairs.
@@ -80,7 +78,3 @@ contract AddressManager is Ownable2StepUpgradeable, IAddressManager {
         return addresses[chainId][name];
     }
 }
-
-/// @title ProxiedAddressManager
-/// @notice Proxied version of the parent contract.
-contract ProxiedAddressManager is Proxied, AddressManager { }

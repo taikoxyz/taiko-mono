@@ -9,8 +9,8 @@ pragma solidity ^0.8.20;
 import { UUPSUpgradeable } from
     "lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol";
 
-import { Ownable2StepUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
+import { OwnableUpgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 
 import { AddressResolver } from "./AddressResolver.sol";
 
@@ -20,7 +20,7 @@ import { AddressResolver } from "./AddressResolver.sol";
 /// ReentrancyGuardUpgradeable contract to optimize storage reads.
 abstract contract EssentialContract is
     UUPSUpgradeable,
-    Ownable2StepUpgradeable,
+    OwnableUpgradeable,
     AddressResolver
 {
     uint8 private constant _FALSE = 1;
@@ -53,6 +53,11 @@ abstract contract EssentialContract is
         _;
     }
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     function pause() external whenNotPaused onlyOwner {
         _paused = _TRUE;
         emit Paused(msg.sender);
@@ -68,21 +73,10 @@ abstract contract EssentialContract is
     }
 
     /// @notice Initializes the contract with an address manager.
-    function _init() internal virtual {
-        _init(address(0), msg.sender);
-    }
-
-    /// @notice Initializes the contract with an address manager.
-    /// @param _addressManager The address of the address manager.
-    function _init(address _addressManager) internal virtual override {
-        _init(_addressManager, msg.sender);
-    }
-
-    /// @notice Initializes the contract with an address manager.
     /// @param _addressManager The address of the address manager.
     /// @param _owner The initial owner.
-    function _init(address _addressManager, address _owner) internal virtual {
-        __Ownable_init(_owner);
+    function _init(address _owner, address _addressManager) internal virtual {
+        OwnableUpgradeable.__Ownable_init(_owner);
         AddressResolver._init(_addressManager);
         _reentry = _FALSE;
         _paused = _FALSE;
