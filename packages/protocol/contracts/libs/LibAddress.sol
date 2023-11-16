@@ -71,12 +71,11 @@ library LibAddress {
         view
         returns (bool)
     {
-        if (isContract(addr)) {
-            return
-                IERC1271(addr).isValidSignature(hash, sig) == EIP1271_MAGICVALUE;
-        } else {
+        if (!isContract(addr)) {
             return ECDSA.recover(hash, sig) == addr;
         }
+
+        return IERC1271(addr).isValidSignature(hash, sig) == EIP1271_MAGICVALUE;
     }
 
     function isSenderEOA() internal view returns (bool) {
