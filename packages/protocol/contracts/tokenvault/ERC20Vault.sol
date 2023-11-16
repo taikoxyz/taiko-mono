@@ -6,13 +6,13 @@
 
 pragma solidity ^0.8.20;
 
+import { SafeERC20 } from
+    "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import { TransparentUpgradeableProxy } from
     "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import { ERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import { SafeERC20 } from
-    "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { Proxied } from "../common/Proxied.sol";
 import { IBridge } from "../bridge/IBridge.sol";

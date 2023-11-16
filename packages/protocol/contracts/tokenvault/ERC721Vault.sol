@@ -6,14 +6,13 @@
 
 pragma solidity ^0.8.20;
 
+import { IERC721Receiver } from
+    "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
 import { TransparentUpgradeableProxy } from
     "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import { ERC721Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
-
-import { IERC721Receiver } from
-    "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
 
 import { IBridge } from "../bridge/IBridge.sol";
 import { LibAddress } from "../libs/LibAddress.sol";

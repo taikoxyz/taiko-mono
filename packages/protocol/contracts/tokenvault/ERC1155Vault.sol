@@ -6,12 +6,13 @@
 
 pragma solidity ^0.8.20;
 
-import { TransparentUpgradeableProxy } from
-    "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import { IERC1155Receiver } from
     "lib/openzeppelin-contracts/contracts/interfaces/IERC1155Receiver.sol";
 import { IERC165 } from
     "lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
+import { TransparentUpgradeableProxy } from
+    "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+
 import { ERC1155Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/ERC1155Upgradeable.sol";
 
