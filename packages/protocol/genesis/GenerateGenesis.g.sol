@@ -7,6 +7,8 @@ import { Test } from "forge-std/Test.sol";
 
 //TODO
 import { TransparentUpgradeableProxy } from "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { ERC1967Proxy } from "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
 
 import { AddressManager } from "../contracts/common/AddressManager.sol";
 import { AddressResolver } from "../contracts/common/AddressResolver.sol";
@@ -20,7 +22,7 @@ import { RegularERC20 } from "../contracts/test/erc20/RegularERC20.sol";
 import { SignalService } from "../contracts/signal/SignalService.sol";
 import { TaikoL2 } from "../contracts/L2/TaikoL2.sol";
 
-
+// TODO(davidC)
 contract TestGenerateGenesis is Test, AddressResolver {
     using stdJson for string;
 
