@@ -314,7 +314,7 @@ contract ERC20Vault is BaseVault {
         );
         btoken = address(
             new ERC1967Proxy(
-                resolve("proxied_bridged_erc20", false),
+                resolve("bridged_erc20", false),
                 data
             )
         );

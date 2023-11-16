@@ -223,12 +223,10 @@ contract ERC721VaultTest is TestBase {
         address proxiedBridgedERC721 = address(new BridgedERC721());
 
         addressManager.setAddress(
-            destChainId, "proxied_bridged_erc721", proxiedBridgedERC721
+            destChainId, "bridged_erc721", proxiedBridgedERC721
         );
         addressManager.setAddress(
-            uint64(block.chainid),
-            "proxied_bridged_erc721",
-            proxiedBridgedERC721
+            uint64(block.chainid), "bridged_erc721", proxiedBridgedERC721
         );
 
         vm.stopPrank();

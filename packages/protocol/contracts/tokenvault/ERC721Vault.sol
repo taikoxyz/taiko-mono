@@ -281,7 +281,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         );
         btoken = address(
             new ERC1967Proxy(
-                resolve("proxied_bridged_erc721", false),
+                resolve("bridged_erc721", false),
                 
                 data
             )

@@ -361,19 +361,19 @@ contract DeployOnL1 is Script {
         setAddress(
             addressManagerForSingletonsProxy,
             uint64(block.chainid),
-            "proxied_bridged_erc20",
+            "bridged_erc20",
             address(new BridgedERC20())
         );
         setAddress(
             addressManagerForSingletonsProxy,
             uint64(block.chainid),
-            "proxied_bridged_erc721",
+            "bridged_erc721",
             address(new BridgedERC721())
         );
         setAddress(
             addressManagerForSingletonsProxy,
             uint64(block.chainid),
-            "proxied_bridged_erc1155",
+            "bridged_erc1155",
             address(new BridgedERC1155())
         );
     }

@@ -354,7 +354,7 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
         );
         btoken = address(
             new ERC1967Proxy(
-                resolve("proxied_bridged_erc1155", false),
+                resolve("bridged_erc1155", false),
                 data
             )
         );
