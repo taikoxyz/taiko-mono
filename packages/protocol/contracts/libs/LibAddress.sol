@@ -39,7 +39,6 @@ library LibAddress {
         if (!success) revert ETH_TRANSFER_FAILED();
     }
 
-    // TODO: use Address.sendValue()?
     /// @dev Sends Ether to the specified address.
     /// @param to The recipient address.
     /// @param amount The amount of Ether to send in wei.
@@ -70,7 +69,7 @@ library LibAddress {
     )
         internal
         view
-        returns (bool valid)
+        returns (bool)
     {
         if (isContract(addr)) {
             return
@@ -84,7 +83,11 @@ library LibAddress {
         return msg.sender == tx.origin;
     }
 
-    function isContract(address addr) public view returns (bool) {
-        // TODO
+    function isContract(address addr) internal view returns (bool) {
+        uint256 size;
+        assembly {
+            size := extcodesize(addr)
+        }
+        return size != 0;
     }
 }
