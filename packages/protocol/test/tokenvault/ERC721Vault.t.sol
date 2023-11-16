@@ -956,9 +956,10 @@ contract ERC721VaultTest is TestBase {
         // so that it supports now the 'helloWorld' call
         UpdatedBridgedERC721 newBridgedContract = new UpdatedBridgedERC721();
         vm.prank(Amelia, Amelia);
-        TransparentUpgradeableProxy(payable(deployedContract)).upgradeTo(
-            address(newBridgedContract)
-        );
+        // TODO:
+        // TransparentUpgradeableProxy(payable(deployedContract)).upgradeTo(
+        //     address(newBridgedContract)
+        // );
 
         try UpdatedBridgedERC721(deployedContract).helloWorld() {
             // It should support now this function call

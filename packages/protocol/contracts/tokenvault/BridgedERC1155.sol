@@ -121,7 +121,7 @@ contract BridgedERC1155 is
         bytes memory data
     )
         public
-        override
+        override(ERC1155Upgradeable, IERC1155)
     {
         if (to == address(this)) {
             revert BRIDGED_TOKEN_CANNOT_RECEIVE();

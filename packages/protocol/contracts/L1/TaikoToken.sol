@@ -20,11 +20,9 @@ import { Proxied } from "../common/Proxied.sol";
 /// @notice The TaikoToken (TKO), in the protocol is used for prover collateral
 /// in the form of bonds. It is an ERC20 token with 18 decimal places of
 /// precision.
-contract TaikoToken is
-    EssentialContract,
-    ERC20VotesUpgradeable,
-    ERC20PermitUpgradeable
-{
+contract TaikoToken is EssentialContract, ERC20VotesUpgradeable {
+    // ERC20PermitUpgradeable
+
     error TKO_INVALID_ADDR();
     error TKO_INVALID_PREMINT_PARAMS();
 
@@ -96,26 +94,6 @@ contract TaikoToken is
     {
         if (to == address(this)) revert TKO_INVALID_ADDR();
         return super.transferFrom(from, to, amount);
-    }
-
-    function _mint(
-        address to,
-        uint256 amount
-    )
-        internal
-        override(ERC20Upgradeable, ERC20VotesUpgradeable)
-    {
-        super._mint(to, amount);
-    }
-
-    function _burn(
-        address from,
-        uint256 amount
-    )
-        internal
-        override(ERC20Upgradeable, ERC20VotesUpgradeable)
-    {
-        super._burn(from, amount);
     }
 }
 

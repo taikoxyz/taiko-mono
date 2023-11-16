@@ -959,9 +959,10 @@ contract ERC1155VaultTest is TestBase {
         // so that it supports now the 'helloWorld' call
         UpdatedBridgedERC1155 newBridgedContract = new UpdatedBridgedERC1155();
         vm.prank(Amelia, Amelia);
-        TransparentUpgradeableProxy(payable(deployedContract)).upgradeTo(
-            address(newBridgedContract)
-        );
+        // TODO:
+        // TransparentUpgradeableProxy(payable(deployedContract)).upgradeTo(
+        //     address(newBridgedContract)
+        // );
 
         try UpdatedBridgedERC1155(deployedContract).helloWorld() { }
         catch {

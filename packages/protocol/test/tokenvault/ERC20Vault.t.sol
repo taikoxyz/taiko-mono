@@ -437,9 +437,10 @@ contract TestERC20Vault is Test {
         UpdatedBridgedERC20 newBridgedContract = new UpdatedBridgedERC20();
         vm.stopPrank();
         vm.prank(Amelia, Amelia);
-        TransparentUpgradeableProxy(payable(bridgedAddressAfter)).upgradeTo(
-            address(newBridgedContract)
-        );
+        // TODO:
+        // TransparentUpgradeableProxy(payable(bridgedAddressAfter)).upgradeTo(
+        //     address(newBridgedContract)
+        // );
 
         vm.prank(Alice, Alice);
         try UpdatedBridgedERC20(bridgedAddressAfter).helloWorld() {

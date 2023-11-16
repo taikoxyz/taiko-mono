@@ -6,6 +6,9 @@
 
 pragma solidity ^0.8.20;
 
+import { IERC20 } from
+    "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+
 import { ERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import { IERC20Metadata } from
@@ -114,7 +117,7 @@ contract BridgedERC20 is
         uint256 amount
     )
         public
-        override
+        override(ERC20Upgradeable, IERC20)
         returns (bool)
     {
         if (to == address(this)) {
@@ -135,7 +138,7 @@ contract BridgedERC20 is
         uint256 amount
     )
         public
-        override
+        override(ERC20Upgradeable, IERC20)
         returns (bool)
     {
         if (to == address(this)) {
@@ -146,7 +149,12 @@ contract BridgedERC20 is
 
     /// @notice Gets the name of the token.
     /// @return The name of the token with the source chain ID appended.
-    function name() public view override returns (string memory) {
+    function name()
+        public
+        view
+        override(ERC20Upgradeable, IERC20Metadata)
+        returns (string memory)
+    {
         return string.concat(
             super.name(), unicode" ⭀", Strings.toString(srcChainId)
         );
@@ -154,7 +162,12 @@ contract BridgedERC20 is
 
     /// @notice Gets the number of decimal places of the token.
     /// @return The number of decimal places of the token.
-    function decimals() public view override returns (uint8) {
+    function decimals()
+        public
+        view
+        override(ERC20Upgradeable, IERC20Metadata)
+        returns (uint8)
+    {
         return srcDecimals;
     }
 

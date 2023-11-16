@@ -14,7 +14,8 @@ import "./UpgradeScript.s.sol";
 contract UpgradeTaikoL1 is UpgradeScript {
     function run() external setUp {
         TaikoL1 newTaikoL1 = new ProxiedTaikoL1();
-        proxy.upgradeTo(address(newTaikoL1));
+        // TODO:
+        // proxy.upgradeTo(address(newTaikoL1));
         console2.log(
             "proxy upgraded taiko L1 implementation to", address(newTaikoL1)
         );

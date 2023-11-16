@@ -10,7 +10,8 @@ import { TransparentUpgradeableProxy } from
     "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import { IERC1155Receiver } from
     "lib/openzeppelin-contracts/contracts/interfaces/IERC1155Receiver.sol";
-
+import { IERC165 } from
+    "lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
 import { ERC1155Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/ERC1155Upgradeable.sol";
 
@@ -132,7 +133,7 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
                         from: address(this),
                         to: _to,
                         id: tokenIds[i],
-                        amount: amounts[i],
+                        value: amounts[i],
                         data: ""
                     });
                 }
@@ -197,7 +198,7 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
                         from: address(this),
                         to: message.owner,
                         id: tokenIds[i],
-                        amount: amounts[i],
+                        value: amounts[i],
                         data: ""
                     });
                 }
@@ -302,7 +303,7 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
                         from: msg.sender,
                         to: address(this),
                         id: op.tokenIds[i],
-                        amount: op.amounts[i],
+                        value: op.amounts[i],
                         data: ""
                     });
                 }
