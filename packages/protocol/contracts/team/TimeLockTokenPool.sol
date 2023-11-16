@@ -30,7 +30,7 @@ import { Ownable2StepUpgradeable } from
 /// - investors
 /// - team members, advisors, etc.
 /// - grant program grantees
-contract TimeLockTokenPool is Ownable2StepUpgradeable {
+contract TimeLockTokenPool is EssentialContract {
     using SafeERC20 for ERC20Upgradeable;
 
     struct Grant {
@@ -81,13 +81,14 @@ contract TimeLockTokenPool is Ownable2StepUpgradeable {
     error TOO_MANY();
 
     function init(
+        address _owner,
         address _taikoToken,
         address _sharedVault
     )
         external
         initializer
     {
-        __Ownable_init(msg.sender);
+        EssentialContract._init(_owner, address(0));
 
         if (_taikoToken == address(0)) revert INVALID_PARAM();
         taikoToken = _taikoToken;

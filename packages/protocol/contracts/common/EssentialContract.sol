@@ -35,6 +35,7 @@ abstract contract EssentialContract is
 
     error REENTRANT_CALL();
     error INVALID_PAUSE_STATUS();
+    error INVALID_OWNER();
 
     modifier nonReentrant() {
         if (_reentry == _TRUE) revert REENTRANT_CALL();
@@ -76,6 +77,7 @@ abstract contract EssentialContract is
     /// @param _addressManager The address of the address manager.
     /// @param _owner The initial owner.
     function _init(address _owner, address _addressManager) internal virtual {
+        if (_owner == address(0)) revert INVALID_OWNER();
         OwnableUpgradeable.__Ownable_init(_owner);
         AddressResolver._init(_addressManager);
         _reentry = _FALSE;
