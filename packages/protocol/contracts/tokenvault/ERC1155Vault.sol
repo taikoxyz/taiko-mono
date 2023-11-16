@@ -10,8 +10,9 @@ import { IERC1155Receiver } from
     "lib/openzeppelin-contracts/contracts/interfaces/IERC1155Receiver.sol";
 import { IERC165 } from
     "lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
-import { TransparentUpgradeableProxy } from
-    "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+
+import { ERC1967Proxy } from
+    "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import { ERC1155Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/ERC1155Upgradeable.sol";
@@ -345,6 +346,7 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
         bytes memory data = bytes.concat(
             BridgedERC1155.init.selector,
             abi.encode(
+                owner(),
                 addressManager,
                 ctoken.addr,
                 ctoken.chainId,
@@ -353,9 +355,8 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
             )
         );
         btoken = address(
-            new TransparentUpgradeableProxy(
+            new ERC1967Proxy(
                 resolve("proxied_bridged_erc1155", false),
-                owner(),
                 data
             )
         );

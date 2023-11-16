@@ -51,6 +51,7 @@ contract BridgedERC1155 is
     /// @param _symbol Symbol of the bridged token.
     /// @param _name Name of the bridged token.
     function init(
+        address _owner,
         address _addressManager,
         address _srcToken,
         uint256 _srcChainId,
@@ -66,7 +67,7 @@ contract BridgedERC1155 is
         ) {
             revert BRIDGED_TOKEN_INVALID_PARAMS();
         }
-        EssentialContract._init(_addressManager);
+        EssentialContract._init(_addressManager, _owner);
         ERC1155Upgradeable.__ERC1155_init({ uri_: "" });
         srcToken = _srcToken;
         srcChainId = _srcChainId;

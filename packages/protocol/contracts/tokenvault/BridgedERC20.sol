@@ -41,6 +41,7 @@ contract BridgedERC20 is
     /// @notice Initializes the contract.
     /// @dev Different BridgedERC20 Contract is deployed per unique _srcToken
     /// (e.g., one for USDC, one for USDT, etc.).
+    /// @param _owner The initial owner.
     /// @param _addressManager The address manager.
     /// @param _srcToken The source token address.
     /// @param _srcChainId The source chain ID.
@@ -48,6 +49,7 @@ contract BridgedERC20 is
     /// @param _symbol The symbol of the token.
     /// @param _name The name of the token.
     function init(
+        address _owner,
         address _addressManager,
         address _srcToken,
         uint256 _srcChainId,
@@ -68,7 +70,7 @@ contract BridgedERC20 is
         }
 
         // Initialize EssentialContract and ERC20Upgradeable
-        EssentialContract._init(_addressManager);
+        EssentialContract._init(_addressManager, _owner);
         ERC20Upgradeable.__ERC20_init({ name_: _name, symbol_: _symbol });
 
         // Set contract properties

@@ -8,8 +8,8 @@ pragma solidity ^0.8.20;
 
 import { IERC721Receiver } from
     "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
-import { TransparentUpgradeableProxy } from
-    "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { ERC1967Proxy } from
+    "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import { ERC721Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
@@ -272,6 +272,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         bytes memory data = bytes.concat(
             BridgedERC721.init.selector,
             abi.encode(
+                owner(),
                 addressManager,
                 ctoken.addr,
                 ctoken.chainId,
@@ -280,9 +281,9 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             )
         );
         btoken = address(
-            new TransparentUpgradeableProxy(
+            new ERC1967Proxy(
                 resolve("proxied_bridged_erc721", false),
-                owner(),
+                
                 data
             )
         );

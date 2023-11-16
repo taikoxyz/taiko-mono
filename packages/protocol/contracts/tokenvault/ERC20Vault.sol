@@ -8,8 +8,8 @@ pragma solidity ^0.8.20;
 
 import { SafeERC20 } from
     "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import { TransparentUpgradeableProxy } from
-    "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { ERC1967Proxy } from
+    "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import { ERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
@@ -304,6 +304,7 @@ contract ERC20Vault is BaseVault {
         bytes memory data = bytes.concat(
             BridgedERC20.init.selector,
             abi.encode(
+                owner(),
                 addressManager,
                 ctoken.addr,
                 ctoken.chainId,
@@ -313,9 +314,8 @@ contract ERC20Vault is BaseVault {
             )
         );
         btoken = address(
-            new TransparentUpgradeableProxy(
+            new ERC1967Proxy(
                 resolve("proxied_bridged_erc20", false),
-                owner(),
                 data
             )
         );

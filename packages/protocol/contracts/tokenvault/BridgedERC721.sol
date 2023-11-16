@@ -27,12 +27,14 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     error BRIDGED_TOKEN_INVALID_BURN();
 
     /// @dev Initializer function to be called after deployment.
+    /// @param _owner The initial owner.
     /// @param _addressManager The address of the address manager.
     /// @param _srcToken Address of the source token.
     /// @param _srcChainId Source chain ID.
     /// @param _symbol Symbol of the bridged token.
     /// @param _name Name of the bridged token.
     function init(
+        address _owner,
         address _addressManager,
         address _srcToken,
         uint256 _srcChainId,
@@ -49,7 +51,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         ) {
             revert BRIDGED_TOKEN_INVALID_PARAMS();
         }
-        EssentialContract._init(_addressManager);
+        EssentialContract._init(_addressManager, _owner);
         ERC721Upgradeable.__ERC721_init(_name, _symbol);
         srcToken = _srcToken;
         srcChainId = _srcChainId;
