@@ -943,7 +943,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         // This is a very weird test (code?) issue here.
         // If this line is uncommented,
         // Alice/Bob has no balance.. (Causing reverts !!!)
-        // Current investigations are onsgoing with foundry team
+        // Current investigations are ongoing with foundry team
         giveEthAndTko(Bob, 1e7 ether, 100 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
@@ -987,6 +987,8 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 proof.tier = LibTiers.TIER_GUARDIAN;
                 proof.data = bytes.concat(keccak256("RETURN_LIVENESS_BOND"));
 
+                uint256 balanceBeforeReimbursement = tko.balanceOf(Bob);
+
                 vm.prank(David, David);
                 gp.approve(meta, tran, proof);
                 vm.prank(Emma, Emma);
@@ -997,7 +999,9 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 // // Credited back the bond (not transferred to the user
                 // wallet,
                 // // but in-contract account credited only.)
-                assertEq(L1.getTaikoTokenBalance(Bob), 1 ether);
+                assertEq(
+                    tko.balanceOf(Bob) - balanceBeforeReimbursement, 1 ether
+                );
             } else {
                 // Prove as guardian
                 proveBlock(
