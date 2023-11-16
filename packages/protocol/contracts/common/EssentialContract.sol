@@ -6,6 +6,9 @@
 
 pragma solidity ^0.8.20;
 
+import { UUPSUpgradeable } from
+    "lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol";
+
 import { Ownable2StepUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
 
@@ -16,6 +19,7 @@ import { AddressResolver } from "./AddressResolver.sol";
 /// @dev We didn't use OpenZeppelin's PausableUpgradeable and
 /// ReentrancyGuardUpgradeable contract to optimize storage reads.
 abstract contract EssentialContract is
+    UUPSUpgradeable,
     Ownable2StepUpgradeable,
     AddressResolver
 {
@@ -72,4 +76,12 @@ abstract contract EssentialContract is
         _reentry = _FALSE;
         _paused = _FALSE;
     }
+
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        view
+        virtual
+        override
+        onlyOwner
+    { }
 }
