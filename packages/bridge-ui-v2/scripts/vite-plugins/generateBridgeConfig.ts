@@ -25,20 +25,17 @@ export function generateBridgeConfig() {
     name: pluginName,
     async buildStart() {
       logger.info('Plugin initialized.');
-      let configuredBridgesConfigFile;
-      if (skip) {
-        configuredBridgesConfigFile = '';
-      } else {
+
+      let configuredBridgesConfigFile = process.env.CONFIGURED_BRIDGES ? decodeBase64ToJson(process.env.CONFIGURED_BRIDGES) : '';
+
+      if (!skip) {
         if (!process.env.CONFIGURED_BRIDGES) {
           throw new Error(
             'CONFIGURED_BRIDGES is not defined in environment. Make sure to run the export step in the documentation.',
           );
         }
 
-        // Decode base64 encoded JSON string
-        configuredBridgesConfigFile = decodeBase64ToJson(process.env.CONFIGURED_BRIDGES || '');
-
-        // Valide JSON against schema
+        // Validate JSON against schema
         const isValid = validateJsonAgainstSchema(configuredBridgesConfigFile, configuredBridgesSchema);
 
         if (!isValid) {
@@ -103,6 +100,7 @@ async function buildBridgeConfig(sourceFile: SourceFile, configuredBridgesConfig
       routingContractsMap[item.source][item.destination] = item.addresses;
     });
   }
+
   if (skip) {
     // Add empty routingContractsMap variable
     sourceFile.addVariableStatement({
