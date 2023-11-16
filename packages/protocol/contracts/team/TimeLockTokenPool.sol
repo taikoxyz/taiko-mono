@@ -6,16 +6,17 @@
 
 pragma solidity ^0.8.20;
 
-import { Ownable2StepUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
-import { ERC20Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import { SafeERC20 } from
-    "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ECDSA } from
     "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import { SafeERC20 } from
+    "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import { ERC20Upgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import { Ownable2StepUpgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
 
 import { Proxied } from "../common/Proxied.sol";
+
 /// @title TimeLockTokenPool
 /// Contract for managing Taiko tokens allocated to different roles and
 /// individuals.
@@ -31,7 +32,6 @@ import { Proxied } from "../common/Proxied.sol";
 /// - investors
 /// - team members, advisors, etc.
 /// - grant program grantees
-
 contract TimeLockTokenPool is Ownable2StepUpgradeable {
     using SafeERC20 for ERC20Upgradeable;
 
