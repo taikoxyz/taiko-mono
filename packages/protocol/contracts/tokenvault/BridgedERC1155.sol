@@ -6,13 +6,14 @@
 
 pragma solidity ^0.8.20;
 
-import { ERC1155Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/ERC1155Upgradeable.sol";
-import { IERC1155MetadataURI } from
-    "lib/openzeppelin-contracts/contracts/token/ERC1155/extensions/IERC1155MetadataURI.sol";
 import { IERC1155 } from
     "lib/openzeppelin-contracts/contracts/token/ERC1155/IERC1155.sol";
+import { IERC1155MetadataURI } from
+    "lib/openzeppelin-contracts/contracts/token/ERC1155/extensions/IERC1155MetadataURI.sol";
 import { Strings } from "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
+
+import { ERC1155Upgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/ERC1155Upgradeable.sol";
 
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
@@ -66,7 +67,7 @@ contract BridgedERC1155 is
             revert BRIDGED_TOKEN_INVALID_PARAMS();
         }
         EssentialContract._init(_addressManager);
-        __ERC1155_init("");
+        ERC1155Upgradeable.__ERC1155_init({ uri_: "" });
         srcToken = _srcToken;
         srcChainId = _srcChainId;
         // Note: name and symbol can intentionally be empty ("") as it's not
