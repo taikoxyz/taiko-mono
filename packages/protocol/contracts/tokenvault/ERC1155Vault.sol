@@ -16,7 +16,6 @@ import { ERC1967Proxy } from
 import { ERC1155Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/ERC1155Upgradeable.sol";
 
-import { Proxied } from "../common/Proxied.sol";
 import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 
@@ -372,11 +371,3 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
         });
     }
 }
-
-/// @title ProxiedSingletonERC1155Vault
-/// @notice Proxied version of the parent contract.
-/// @dev Deploy this contract as a singleton per chain for use by multiple L2s
-/// or L3s. No singleton check is performed within the code; it's the deployer's
-/// responsibility to ensure this. Singleton deployment is essential for
-/// enabling multi-hop bridging across all Taiko L2/L3s.
-contract ProxiedSingletonERC1155Vault is Proxied, ERC1155Vault { }

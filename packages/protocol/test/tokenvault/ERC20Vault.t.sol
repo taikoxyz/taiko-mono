@@ -5,7 +5,7 @@ import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
 import { Bridge } from "../../contracts/bridge/Bridge.sol";
 import {
-    ProxiedBridgedERC20,
+    BridgedERC20,
     BridgedERC20
 } from "../../contracts/tokenvault/BridgedERC20.sol";
 import { FreeMintERC20 } from "../../contracts/test/erc20/FreeMintERC20.sol";
@@ -152,7 +152,7 @@ contract TestERC20Vault is Test {
             destChainId, "bridge", address(destChainIdBridge)
         );
 
-        address proxiedBridgedERC20 = address(new ProxiedBridgedERC20());
+        address proxiedBridgedERC20 = address(new BridgedERC20());
 
         addressManager.setAddress(
             destChainId, "proxied_bridged_erc20", proxiedBridgedERC20

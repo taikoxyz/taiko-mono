@@ -16,7 +16,6 @@ import { ERC1155Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/ERC1155Upgradeable.sol";
 
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { Proxied } from "../common/Proxied.sol";
 
 /// @title BridgedERC1155
 /// @notice Contract for bridging ERC1155 tokens across different chains.
@@ -138,7 +137,3 @@ contract BridgedERC1155 is
         return string.concat(name_, unicode" ⭀", Strings.toString(srcChainId));
     }
 }
-
-/// @title ProxiedBridgedERC1155
-/// @notice Proxied version of the parent contract.
-contract ProxiedBridgedERC1155 is Proxied, BridgedERC1155 { }

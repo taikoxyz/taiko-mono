@@ -6,7 +6,6 @@
 pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { Proxied } from "../common/Proxied.sol";
 import { ISignalService } from "../signal/ISignalService.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 
@@ -447,11 +446,3 @@ contract Bridge is EssentialContract, IBridge {
         return msgHash ^ bytes32(uint256(Status.FAILED));
     }
 }
-
-/// @title ProxiedSingletonBridge
-/// @notice Proxied version of the parent contract.
-/// @dev Deploy this contract as a singleton per chain for use by multiple L2s
-/// or L3s. No singleton check is performed within the code; it's the deployer's
-/// responsibility to ensure this. Singleton deployment is essential for
-/// enabling multi-hop bridging across all Taiko L2/L3s.
-contract ProxiedSingletonBridge is Proxied, Bridge { }

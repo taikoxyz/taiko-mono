@@ -9,7 +9,6 @@ pragma solidity ^0.8.20;
 import { AddressResolver } from "../common/AddressResolver.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
-import { Proxied } from "../common/Proxied.sol";
 
 import { LibDepositing } from "./libs/LibDepositing.sol";
 import { LibProposing } from "./libs/LibProposing.sol";
@@ -322,7 +321,3 @@ contract TaikoL1 is
         return LibVerifying.isConfigValid(getConfig());
     }
 }
-
-/// @title ProxiedTaikoL1
-/// @notice Proxied version of the parent contract.
-contract ProxiedTaikoL1 is Proxied, TaikoL1 { }

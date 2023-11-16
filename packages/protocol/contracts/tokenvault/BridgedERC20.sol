@@ -16,7 +16,6 @@ import { ERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { Proxied } from "../common/Proxied.sol";
 
 import { IMintableERC20 } from "./IMintableERC20.sol";
 
@@ -179,7 +178,3 @@ contract BridgedERC20 is
         return (srcToken, srcChainId);
     }
 }
-
-/// @title ProxiedBridgedERC20
-/// @notice Proxied version of the parent contract.
-contract ProxiedBridgedERC20 is Proxied, BridgedERC20 { }

@@ -10,7 +10,7 @@ import { ECDSA } from
     "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
 import { EssentialContract } from "../../common/EssentialContract.sol";
-import { Proxied } from "../../common/Proxied.sol";
+
 import { LibBytesUtils } from "../../thirdparty/LibBytesUtils.sol";
 
 import { TaikoData } from "../TaikoData.sol";
@@ -196,7 +196,3 @@ contract SgxVerifier is EssentialContract, IVerifier {
         return instances[id].addedAt + INSTANCE_EXPIRY > block.timestamp;
     }
 }
-
-/// @title ProxiedSgxVerifier
-/// @notice Proxied version of the parent contract.
-contract ProxiedSgxVerifier is Proxied, SgxVerifier { }

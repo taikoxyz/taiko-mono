@@ -16,7 +16,6 @@ import { ERC20PermitUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { Proxied } from "../common/Proxied.sol";
 
 /// @title TaikoToken
 /// @dev Labeled in AddressResolver as "taiko_token"
@@ -125,7 +124,3 @@ contract TaikoToken is
         super._update(from, to, amount);
     }
 }
-
-/// @title ProxiedTaikoToken
-/// @notice Proxied version of the TaikoToken contract.
-contract ProxiedTaikoToken is Proxied, TaikoToken { }

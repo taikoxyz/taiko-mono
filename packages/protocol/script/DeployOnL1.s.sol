@@ -101,7 +101,7 @@ contract DeployOnL1 is Script {
         );
 
         // TaikoL1
-        taikoL1 = new ProxiedTaikoL1();
+        taikoL1 = new TaikoL1();
         uint64 l2ChainId = taikoL1.getConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
@@ -115,7 +115,7 @@ contract DeployOnL1 is Script {
         }
 
         // TaikoToken
-        TaikoToken taikoToken = new ProxiedTaikoToken();
+        TaikoToken taikoToken = new TaikoToken();
 
         deployProxy(
             "taiko_token",
@@ -157,12 +157,12 @@ contract DeployOnL1 is Script {
         setAddress("signal_service", singletonSignalService);
 
         // Authorize the new TaikoL1 contract for shared signal service.
-        ProxiedSingletonSignalService(singletonSignalService).authorize(
+        SignalService(singletonSignalService).authorize(
             taikoL1Proxy, bytes32(block.chainid)
         );
 
         // Guardian prover
-        ProxiedGuardianProver guardianProver = new ProxiedGuardianProver();
+        GuardianProver guardianProver = new GuardianProver();
         address guardianProverProxy = deployProxy(
             "guardian_prover",
             address(guardianProver),
@@ -175,7 +175,7 @@ contract DeployOnL1 is Script {
         for (uint256 i = 0; i < NUM_GUARDIANS; ++i) {
             guardians[i] = guardianProvers[i];
         }
-        ProxiedGuardianProver(guardianProverProxy).setGuardians(guardians);
+        GuardianProver(guardianProverProxy).setGuardians(guardians);
 
         // Config provider
         deployProxy(
@@ -185,7 +185,7 @@ contract DeployOnL1 is Script {
         );
 
         // GuardianVerifier
-        GuardianVerifier guardianVerifier = new ProxiedGuardianVerifier();
+        GuardianVerifier guardianVerifier = new GuardianVerifier();
         deployProxy(
             "tier_guardian",
             address(guardianVerifier),
@@ -196,7 +196,7 @@ contract DeployOnL1 is Script {
         );
 
         // SgxVerifier
-        SgxVerifier sgxVerifier = new ProxiedSgxVerifier();
+        SgxVerifier sgxVerifier = new SgxVerifier();
         deployProxy(
             "tier_sgx",
             address(sgxVerifier),
@@ -207,7 +207,7 @@ contract DeployOnL1 is Script {
         );
 
         // SgxAndZkVerifier
-        SgxAndZkVerifier sgxAndZkVerifier = new ProxiedSgxAndZkVerifier();
+        SgxAndZkVerifier sgxAndZkVerifier = new SgxAndZkVerifier();
         deployProxy(
             "tier_sgx_and_pse_zkevm",
             address(sgxAndZkVerifier),
@@ -218,7 +218,7 @@ contract DeployOnL1 is Script {
         );
 
         // PseZkVerifier
-        PseZkVerifier pseZkVerifier = new ProxiedPseZkVerifier();
+        PseZkVerifier pseZkVerifier = new PseZkVerifier();
         deployProxy(
             "tier_pse_zkevm",
             address(pseZkVerifier),
@@ -298,7 +298,7 @@ contract DeployOnL1 is Script {
         );
 
         // Bridge
-        Bridge bridge = new ProxiedSingletonBridge();
+        Bridge bridge = new Bridge();
         singletonBridge = deployProxy(
             addressManagerForSingletonsProxy,
             "bridge",
@@ -310,7 +310,7 @@ contract DeployOnL1 is Script {
         );
 
         // ERC20Vault
-        ERC20Vault erc20Vault = new ProxiedSingletonERC20Vault();
+        ERC20Vault erc20Vault = new ERC20Vault();
         deployProxy(
             addressManagerForSingletonsProxy,
             "erc20_vault",
@@ -322,7 +322,7 @@ contract DeployOnL1 is Script {
         );
 
         // ERC721Vault
-        ERC721Vault erc721Vault = new ProxiedSingletonERC721Vault();
+        ERC721Vault erc721Vault = new ERC721Vault();
         deployProxy(
             addressManagerForSingletonsProxy,
             "erc721_vault",
@@ -334,7 +334,7 @@ contract DeployOnL1 is Script {
         );
 
         // ERC1155Vault
-        ERC1155Vault erc1155Vault = new ProxiedSingletonERC1155Vault();
+        ERC1155Vault erc1155Vault = new ERC1155Vault();
         deployProxy(
             addressManagerForSingletonsProxy,
             "erc1155_vault",
@@ -346,7 +346,7 @@ contract DeployOnL1 is Script {
         );
 
         // SignalService
-        SignalService signalService = new ProxiedSingletonSignalService();
+        SignalService signalService = new SignalService();
         singletonSignalService = deployProxy(
             addressManagerForSingletonsProxy,
             "signal_service",
@@ -362,19 +362,19 @@ contract DeployOnL1 is Script {
             addressManagerForSingletonsProxy,
             uint64(block.chainid),
             "proxied_bridged_erc20",
-            address(new ProxiedBridgedERC20())
+            address(new BridgedERC20())
         );
         setAddress(
             addressManagerForSingletonsProxy,
             uint64(block.chainid),
             "proxied_bridged_erc721",
-            address(new ProxiedBridgedERC721())
+            address(new BridgedERC721())
         );
         setAddress(
             addressManagerForSingletonsProxy,
             uint64(block.chainid),
             "proxied_bridged_erc1155",
-            address(new ProxiedBridgedERC1155())
+            address(new BridgedERC1155())
         );
     }
 

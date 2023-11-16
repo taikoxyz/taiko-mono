@@ -7,7 +7,6 @@
 pragma solidity ^0.8.20;
 
 import { TaikoL2 } from "./TaikoL2.sol";
-import { Proxied } from "../common/Proxied.sol";
 
 /// @title TaikoL2EIP1559Configurable
 /// @notice Taiko L2 with a setter to change EIP-1559 configurations and states.
@@ -43,10 +42,3 @@ contract TaikoL2EIP1559Configurable is TaikoL2 {
         return _config;
     }
 }
-
-/// @title ProxiedTaikoL2EIP1559Configurable
-/// @notice Proxied version of the TaikoL2EIP1559Configurable contract.
-contract ProxiedTaikoL2EIP1559Configurable is
-    Proxied,
-    TaikoL2EIP1559Configurable
-{ }

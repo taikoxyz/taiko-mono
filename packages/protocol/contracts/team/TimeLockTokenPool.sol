@@ -15,8 +15,6 @@ import { ERC20Upgradeable } from
 import { Ownable2StepUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
 
-import { Proxied } from "../common/Proxied.sol";
-
 /// @title TimeLockTokenPool
 /// Contract for managing Taiko tokens allocated to different roles and
 /// individuals.
@@ -263,7 +261,3 @@ contract TimeLockTokenPool is Ownable2StepUpgradeable {
         }
     }
 }
-
-/// @title ProxiedTimeLockTokenPool
-/// @notice Proxied version of the parent contract.
-contract ProxiedTimeLockTokenPool is Proxied, TimeLockTokenPool { }

@@ -14,7 +14,7 @@ import { IBridge, Bridge } from "../../contracts/bridge/Bridge.sol";
 import { BaseNFTVault } from "../../contracts/tokenvault/BaseNFTVault.sol";
 import { ERC721Vault } from "../../contracts/tokenvault/ERC721Vault.sol";
 import {
-    ProxiedBridgedERC721,
+    BridgedERC721,
     BridgedERC721
 } from "../../contracts/tokenvault/BridgedERC721.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
@@ -220,7 +220,7 @@ contract ERC721VaultTest is TestBase {
             uint64(block.chainid), "erc20_vault", address(erc721Vault)
         );
 
-        address proxiedBridgedERC721 = address(new ProxiedBridgedERC721());
+        address proxiedBridgedERC721 = address(new BridgedERC721());
 
         addressManager.setAddress(
             destChainId, "proxied_bridged_erc721", proxiedBridgedERC721

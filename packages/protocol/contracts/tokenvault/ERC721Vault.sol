@@ -16,7 +16,6 @@ import { ERC721Upgradeable } from
 
 import { IBridge } from "../bridge/IBridge.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
-import { Proxied } from "../common/Proxied.sol";
 
 import { BaseNFTVault } from "./BaseNFTVault.sol";
 import { BridgedERC721 } from "./BridgedERC721.sol";
@@ -300,11 +299,3 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         });
     }
 }
-
-/// @title ProxiedSingletonERC721Vault
-/// @notice Proxied version of the parent contract.
-/// @dev Deploy this contract as a singleton per chain for use by multiple L2s
-/// or L3s. No singleton check is performed within the code; it's the deployer's
-/// responsibility to ensure this. Singleton deployment is essential for
-/// enabling multi-hop bridging across all Taiko L2/L3s.
-contract ProxiedSingletonERC721Vault is Proxied, ERC721Vault { }

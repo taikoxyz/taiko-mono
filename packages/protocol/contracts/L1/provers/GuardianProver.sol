@@ -7,7 +7,6 @@
 pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../../common/EssentialContract.sol";
-import { Proxied } from "../../common/Proxied.sol";
 
 import { LibTiers } from "../tiers/ITierProvider.sol";
 import { TaikoData } from "../TaikoData.sol";
@@ -126,7 +125,3 @@ contract GuardianProver is EssentialContract {
         return false;
     }
 }
-
-/// @title ProxiedGuardianProver
-/// @notice Proxied version of the parent contract.
-contract ProxiedGuardianProver is Proxied, GuardianProver { }

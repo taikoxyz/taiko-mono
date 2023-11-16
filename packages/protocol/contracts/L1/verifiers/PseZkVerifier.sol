@@ -8,8 +8,7 @@ pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../../common/EssentialContract.sol";
 import { Lib4844 } from "../../4844/Lib4844.sol";
-import { Proxied } from "../../common/Proxied.sol";
-import { Proxied } from "../../common/Proxied.sol";
+
 import { LibBytesUtils } from "../../thirdparty/LibBytesUtils.sol";
 
 import { TaikoData } from "../TaikoData.sol";
@@ -154,7 +153,3 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         return bytes32(uint256(0x1000000) + id);
     }
 }
-
-/// @title ProxiedProofVerifier
-/// @notice Proxied version of the parent contract.
-contract ProxiedPseZkVerifier is Proxied, PseZkVerifier { }

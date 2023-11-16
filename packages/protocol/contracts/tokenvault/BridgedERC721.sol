@@ -12,7 +12,6 @@ import { ERC721Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
 
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { Proxied } from "../common/Proxied.sol";
 
 /// @title BridgedERC721
 /// @notice Contract for bridging ERC721 tokens across different chains.
@@ -138,7 +137,3 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         return "";
     }
 }
-
-/// @title ProxiedBridgedERC721
-/// @notice Proxied version of the parent contract.
-contract ProxiedBridgedERC721 is Proxied, BridgedERC721 { }

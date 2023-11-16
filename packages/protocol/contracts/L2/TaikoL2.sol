@@ -9,7 +9,7 @@ pragma solidity ^0.8.20;
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { ISignalService } from "../signal/ISignalService.sol";
-import { Proxied } from "../common/Proxied.sol";
+
 import { LibMath } from "../libs/LibMath.sol";
 
 import { Lib1559Math } from "./Lib1559Math.sol";
@@ -277,11 +277,3 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         if (_basefee == 0) _basefee = 1;
     }
 }
-
-/// @title ProxiedSingletonTaikoL2
-/// @notice Proxied version of the TaikoL2 contract.
-/// @dev Deploy this contract as a singleton per chain for use by multiple L2s
-/// or L3s. No singleton check is performed within the code; it's the deployer's
-/// responsibility to ensure this. Singleton deployment is essential for
-/// enabling multi-hop bridging across all Taiko L2/L3s.
-contract ProxiedSingletonTaikoL2 is Proxied, TaikoL2 { }

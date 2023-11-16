@@ -15,7 +15,7 @@ import { IBridge, Bridge } from "../../contracts/bridge/Bridge.sol";
 import { BaseNFTVault } from "../../contracts/tokenvault/BaseNFTVault.sol";
 import { ERC1155Vault } from "../../contracts/tokenvault/ERC1155Vault.sol";
 import {
-    ProxiedBridgedERC1155,
+    BridgedERC1155,
     BridgedERC1155
 } from "../../contracts/tokenvault/BridgedERC1155.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
@@ -207,7 +207,7 @@ contract ERC1155VaultTest is TestBase {
 
         vm.deal(address(bridge), 100 ether);
 
-        address proxiedBridgedERC1155 = address(new ProxiedBridgedERC1155());
+        address proxiedBridgedERC1155 = address(new BridgedERC1155());
 
         addressManager.setAddress(
             destChainId, "proxied_bridged_erc1155", proxiedBridgedERC1155

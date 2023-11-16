@@ -7,7 +7,6 @@
 pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../../common/EssentialContract.sol";
-import { Proxied } from "../../common/Proxied.sol";
 
 import { TaikoData } from "../TaikoData.sol";
 
@@ -46,7 +45,3 @@ contract GuardianVerifier is EssentialContract, IVerifier {
         }
     }
 }
-
-/// @title ProxiedGuardianVerifier
-/// @notice Proxied version of the parent contract.
-contract ProxiedGuardianVerifier is Proxied, GuardianVerifier { }

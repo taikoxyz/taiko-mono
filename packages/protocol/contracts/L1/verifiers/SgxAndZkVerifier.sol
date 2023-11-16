@@ -8,7 +8,6 @@ pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../../common/EssentialContract.sol";
 import { LibBytesUtils } from "../../thirdparty/LibBytesUtils.sol";
-import { Proxied } from "../../common/Proxied.sol";
 
 import { TaikoData } from "../TaikoData.sol";
 
@@ -57,7 +56,3 @@ contract SgxAndZkVerifier is EssentialContract, IVerifier {
         );
     }
 }
-
-/// @title ProxiedProofVerifier
-/// @notice Proxied version of the parent contract.
-contract ProxiedSgxAndZkVerifier is Proxied, SgxAndZkVerifier { }
