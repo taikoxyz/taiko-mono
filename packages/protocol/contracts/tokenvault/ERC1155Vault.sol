@@ -8,12 +8,9 @@ pragma solidity ^0.8.20;
 
 import { TransparentUpgradeableProxy } from
     "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { IERC1155Receiver } from
+    "lib/openzeppelin-contracts/contracts/interfaces/IERC1155Receiver.sol";
 
-import {
-    ERC1155ReceiverUpgradeable,
-    IERC1155ReceiverUpgradeable
-} from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
 import { ERC1155Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/ERC1155Upgradeable.sol";
 
@@ -39,7 +36,7 @@ interface ERC1155NameAndSymbol {
 /// @notice This vault holds all ERC1155 tokens that users have deposited.
 /// It also manages the mapping between canonical tokens and their bridged
 /// tokens.
-contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
+contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
     using LibAddress for address;
 
     uint256[50] private __gap;
@@ -230,7 +227,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         pure
         returns (bytes4)
     {
-        return IERC1155ReceiverUpgradeable.onERC1155BatchReceived.selector;
+        return IERC1155Receiver.onERC1155BatchReceived.selector;
     }
 
     function onERC1155Received(
@@ -244,7 +241,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         pure
         returns (bytes4)
     {
-        return IERC1155ReceiverUpgradeable.onERC1155Received.selector;
+        return IERC1155Receiver.onERC1155Received.selector;
     }
 
     /// @dev See {IERC165-supportsInterface}.
@@ -252,10 +249,10 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         public
         view
         virtual
-        override(BaseVault, ERC1155ReceiverUpgradeable)
+        override(BaseVault, IERC165)
         returns (bool)
     {
-        return interfaceId == type(ERC1155ReceiverUpgradeable).interfaceId
+        return interfaceId == type(IERC1155Receiver).interfaceId
             || BaseVault.supportsInterface(interfaceId);
     }
 

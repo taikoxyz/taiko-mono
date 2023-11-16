@@ -8,8 +8,7 @@ pragma solidity ^0.8.20;
 
 import { ERC721Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
-import { StringsUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/StringsUpgradeable.sol";
+import { Strings } from "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
@@ -115,7 +114,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         returns (string memory)
     {
         return string.concat(
-            super.name(), unicode" ⭀", StringsUpgradeable.toString(srcChainId)
+            super.name(), unicode" ⭀", Strings.toString(srcChainId)
         );
     }
 

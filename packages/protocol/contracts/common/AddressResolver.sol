@@ -6,8 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-import { StringsUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/StringsUpgradeable.sol";
+import { Strings } from "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 import { IAddressManager } from "./AddressManager.sol";
 
 /// @title AddressResolver
@@ -20,7 +19,7 @@ import { IAddressManager } from "./AddressManager.sol";
 /// is no setAddressManager() function go guarantee atomicness across all
 /// contracts that are resolvers.
 abstract contract AddressResolver {
-    using StringsUpgradeable for uint256;
+    using Strings for uint256;
 
     address public addressManager;
     uint256[49] private __gap;

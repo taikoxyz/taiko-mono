@@ -6,8 +6,8 @@
 
 pragma solidity ^0.8.20;
 
-import { ECDSAUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/cryptography/ECDSAUpgradeable.sol";
+import { ECDSA } from
+    "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
 import { EssentialContract } from "../../common/EssentialContract.sol";
 import { Proxied } from "../../common/Proxied.sol";
@@ -94,7 +94,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     {
         bytes32 signedHash =
             keccak256(abi.encode("ADD_INSTANCES", extraInstances));
-        address oldInstance = ECDSAUpgradeable.recover(signedHash, signature);
+        address oldInstance = ECDSA.recover(signedHash, signature);
         if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
 
         _replaceInstance(id, oldInstance, newInstance);
@@ -122,7 +122,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
             address(bytes20(LibBytesUtils.slice(proof.data, 4, 20)));
         bytes memory signature = LibBytesUtils.slice(proof.data, 24);
 
-        address oldInstance = ECDSAUpgradeable.recover(
+        address oldInstance = ECDSA.recover(
             getSignedHash(tran, newInstance, ctx.prover, ctx.metaHash),
             signature
         );

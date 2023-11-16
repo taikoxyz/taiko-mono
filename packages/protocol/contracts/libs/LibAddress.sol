@@ -6,14 +6,13 @@
 
 pragma solidity ^0.8.20;
 
-import { AddressUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/AddressUpgradeable.sol";
-import { ECDSAUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/cryptography/ECDSAUpgradeable.sol";
-import { IERC165Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/introspection/IERC165Upgradeable.sol";
-import { IERC1271Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/interfaces/IERC1271Upgradeable.sol";
+import { Address } from "lib/openzeppelin-contracts/contracts/utils/Address.sol";
+import { ECDSA } from
+    "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import { IERC165 } from
+    "lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
+import { IERC1271 } from
+    "lib/openzeppelin-contracts/contracts/interfaces/IERC1271.sol";
 
 /// @title LibAddress
 /// @dev Provides utilities for address-related operations.
@@ -40,6 +39,7 @@ library LibAddress {
         if (!success) revert ETH_TRANSFER_FAILED();
     }
 
+    // TODO: use Address.sendValue()?
     /// @dev Sends Ether to the specified address.
     /// @param to The recipient address.
     /// @param amount The amount of Ether to send in wei.
@@ -55,11 +55,10 @@ library LibAddress {
         view
         returns (bool result)
     {
-        if (!AddressUpgradeable.isContract(addr)) return false;
+        if (!isContract(addr)) return false;
 
-        try IERC165Upgradeable(addr).supportsInterface(interfaceId) returns (
-            bool _result
-        ) {
+        try IERC165(addr).supportsInterface(interfaceId) returns (bool _result)
+        {
             result = _result;
         } catch { }
     }
@@ -73,15 +72,19 @@ library LibAddress {
         view
         returns (bool valid)
     {
-        if (AddressUpgradeable.isContract(addr)) {
-            return IERC1271Upgradeable(addr).isValidSignature(hash, sig)
-                == EIP1271_MAGICVALUE;
+        if (isContract(addr)) {
+            return
+                IERC1271(addr).isValidSignature(hash, sig) == EIP1271_MAGICVALUE;
         } else {
-            return ECDSAUpgradeable.recover(hash, sig) == addr;
+            return ECDSA.recover(hash, sig) == addr;
         }
     }
 
     function isSenderEOA() internal view returns (bool) {
         return msg.sender == tx.origin;
+    }
+
+    function isContract(address addr) public view returns (bool) {
+        // TODO
     }
 }

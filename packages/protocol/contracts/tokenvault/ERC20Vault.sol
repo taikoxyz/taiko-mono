@@ -11,8 +11,8 @@ import { TransparentUpgradeableProxy } from
 
 import { ERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import { SafeERC20Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import { SafeERC20 } from
+    "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { Proxied } from "../common/Proxied.sol";
 import { IBridge } from "../bridge/IBridge.sol";
@@ -29,7 +29,7 @@ import { BaseVault } from "./BaseVault.sol";
 /// their bridged tokens.
 contract ERC20Vault is BaseVault {
     using LibAddress for address;
-    using SafeERC20Upgradeable for ERC20Upgradeable;
+    using SafeERC20 for ERC20Upgradeable;
 
     // Structs for canonical ERC20 tokens and transfer operations
     struct CanonicalERC20 {

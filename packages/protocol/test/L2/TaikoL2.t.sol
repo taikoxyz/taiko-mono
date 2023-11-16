@@ -3,8 +3,8 @@ pragma solidity ^0.8.20;
 
 import { console2 } from "forge-std/console2.sol";
 import { Strings } from "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
-import { SafeCastUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/math/SafeCastUpgradeable.sol";
+import { SafeCast } from
+    "lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { TaikoL2EIP1559Configurable } from
@@ -19,7 +19,7 @@ contract SkipBasefeeCheckL2 is TaikoL2EIP1559Configurable {
 }
 
 contract TestTaikoL2 is TestBase {
-    using SafeCastUpgradeable for uint256;
+    using SafeCast for uint256;
 
     // Initial salt for semi-random generation
     uint256 salt = 2_195_684_615_435_261_315_311;

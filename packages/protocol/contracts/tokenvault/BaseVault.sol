@@ -5,17 +5,13 @@
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 pragma solidity ^0.8.20;
 
-import { IERC165Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/introspection/IERC165Upgradeable.sol";
+import { IERC165 } from
+    "lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
 
 import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 
-abstract contract BaseVault is
-    EssentialContract,
-    IRecallableSender,
-    IERC165Upgradeable
-{
+abstract contract BaseVault is EssentialContract, IRecallableSender, IERC165 {
     error VAULT_PERMISSION_DENIED();
 
     modifier onlyFromBridge() {

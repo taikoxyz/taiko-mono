@@ -21,8 +21,7 @@ import { SgxAndZkVerifier } from
     "../../contracts/L1/verifiers/SgxAndZkVerifier.sol";
 import { GuardianProver } from "../../contracts/L1/provers/GuardianProver.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
-import { StringsUpgradeable as Strings } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/StringsUpgradeable.sol";
+import { Strings } from "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
 import { LibTiers } from "../../contracts/L1/tiers/ITierProvider.sol";
 

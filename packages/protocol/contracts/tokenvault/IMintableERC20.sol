@@ -6,12 +6,12 @@
 
 pragma solidity ^0.8.20;
 
-import { IERC20Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/IERC20Upgradeable.sol";
+import { IERC20 } from
+    "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
 /// @title IMintableERC20
 /// @notice Interface for ERC20 tokens with mint and burn functionality.
-interface IMintableERC20 is IERC20Upgradeable {
+interface IMintableERC20 is IERC20 {
     /// @notice Mints `amount` tokens and assigns them to the `account` address.
     /// @param account The account to receive the minted tokens.
     /// @param amount The amount of tokens to mint.

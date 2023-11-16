@@ -6,15 +6,11 @@
 
 pragma solidity ^0.8.20;
 
-import {
-    ERC20Upgradeable,
-    IERC20Upgradeable
-} from
+import { ERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import { IERC20MetadataUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
-import { StringsUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/StringsUpgradeable.sol";
+import { IERC20Metadata } from
+    "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { Strings } from "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
@@ -27,7 +23,7 @@ import { IMintableERC20 } from "./IMintableERC20.sol";
 contract BridgedERC20 is
     EssentialContract,
     IMintableERC20,
-    IERC20MetadataUpgradeable,
+    IERC20Metadata,
     ERC20Upgradeable
 {
     address public srcToken;
@@ -118,7 +114,7 @@ contract BridgedERC20 is
         uint256 amount
     )
         public
-        override(ERC20Upgradeable, IERC20Upgradeable)
+        override
         returns (bool)
     {
         if (to == address(this)) {
@@ -139,7 +135,7 @@ contract BridgedERC20 is
         uint256 amount
     )
         public
-        override(ERC20Upgradeable, IERC20Upgradeable)
+        override
         returns (bool)
     {
         if (to == address(this)) {
@@ -150,25 +146,15 @@ contract BridgedERC20 is
 
     /// @notice Gets the name of the token.
     /// @return The name of the token with the source chain ID appended.
-    function name()
-        public
-        view
-        override(ERC20Upgradeable, IERC20MetadataUpgradeable)
-        returns (string memory)
-    {
+    function name() public view override returns (string memory) {
         return string.concat(
-            super.name(), unicode" ⭀", StringsUpgradeable.toString(srcChainId)
+            super.name(), unicode" ⭀", Strings.toString(srcChainId)
         );
     }
 
     /// @notice Gets the number of decimal places of the token.
     /// @return The number of decimal places of the token.
-    function decimals()
-        public
-        view
-        override(ERC20Upgradeable, IERC20MetadataUpgradeable)
-        returns (uint8)
-    {
+    function decimals() public view override returns (uint8) {
         return srcDecimals;
     }
 

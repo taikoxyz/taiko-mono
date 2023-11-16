@@ -10,10 +10,10 @@ import { Ownable2StepUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
 import { ERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import { SafeERC20Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import { ECDSAUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/cryptography/ECDSAUpgradeable.sol";
+import { SafeERC20 } from
+    "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import { ECDSA } from
+    "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
 import { Proxied } from "../common/Proxied.sol";
 /// @title TimeLockTokenPool
@@ -33,7 +33,7 @@ import { Proxied } from "../common/Proxied.sol";
 /// - grant program grantees
 
 contract TimeLockTokenPool is Ownable2StepUpgradeable {
-    using SafeERC20Upgradeable for ERC20Upgradeable;
+    using SafeERC20 for ERC20Upgradeable;
 
     struct Grant {
         uint128 amount;
@@ -142,7 +142,7 @@ contract TimeLockTokenPool is Ownable2StepUpgradeable {
         bytes32 hash = keccak256(
             abi.encodePacked("Withdraw unlocked Taiko token to: ", to)
         );
-        address recipient = ECDSAUpgradeable.recover(hash, sig);
+        address recipient = ECDSA.recover(hash, sig);
         _withdraw(recipient, to);
     }
 
