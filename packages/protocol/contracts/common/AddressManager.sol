@@ -46,6 +46,7 @@ contract AddressManager is Ownable2StepUpgradeable, IAddressManager {
     /// @notice Initializes the owner for the upgradable contract.
     function init() external initializer {
         Ownable2StepUpgradeable.__Ownable2Step_init();
+        __Ownable_init(msg.sender);
     }
 
     /// @notice Sets the address for a specific chainId-name pair.

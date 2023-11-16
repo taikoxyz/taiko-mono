@@ -89,7 +89,7 @@ contract TimeLockTokenPool is Ownable2StepUpgradeable {
         external
         initializer
     {
-        Ownable2StepUpgradeable.__Ownable2Step_init();
+        __Ownable_init(msg.sender);
 
         if (_taikoToken == address(0)) revert INVALID_PARAM();
         taikoToken = _taikoToken;

@@ -68,6 +68,11 @@ abstract contract EssentialContract is
     }
 
     /// @notice Initializes the contract with an address manager.
+    function _init() internal virtual {
+        _init(address(0), msg.sender);
+    }
+
+    /// @notice Initializes the contract with an address manager.
     /// @param _addressManager The address of the address manager.
     function _init(address _addressManager) internal virtual override {
         _init(_addressManager, msg.sender);
@@ -76,10 +81,8 @@ abstract contract EssentialContract is
     /// @notice Initializes the contract with an address manager.
     /// @param _addressManager The address of the address manager.
     /// @param _owner The initial owner.
-    function _init(address _addressManager, address _owner) internal {
-        Ownable2StepUpgradeable.__Ownable2Step_init();
-        Ownable2StepUpgradeable._transferOwnership(_owner);
-
+    function _init(address _addressManager, address _owner) internal virtual {
+        __Ownable_init(_owner);
         AddressResolver._init(_addressManager);
         _reentry = _FALSE;
         _paused = _FALSE;

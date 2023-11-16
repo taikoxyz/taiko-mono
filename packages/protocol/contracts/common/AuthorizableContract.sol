@@ -48,12 +48,4 @@ abstract contract AuthorizableContract is EssentialContract {
     {
         return label != 0 && authorizedAddresses[addr] == label;
     }
-
-    function _init(address _addressManager) internal virtual override {
-        EssentialContract._init(_addressManager);
-    }
-
-    function _init() internal virtual {
-        EssentialContract._init(address(0));
-    }
 }
