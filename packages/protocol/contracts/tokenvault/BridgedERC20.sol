@@ -8,12 +8,12 @@ pragma solidity ^0.8.20;
 
 import { IERC20 } from
     "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-
-import { ERC20Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import { IERC20Metadata } from
     "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { Strings } from "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
+
+import { ERC20Upgradeable } from
+    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";

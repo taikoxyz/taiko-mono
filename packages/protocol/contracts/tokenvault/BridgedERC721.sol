@@ -6,9 +6,10 @@
 
 pragma solidity ^0.8.20;
 
+import { Strings } from "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
+
 import { ERC721Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
-import { Strings } from "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
@@ -49,7 +50,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
             revert BRIDGED_TOKEN_INVALID_PARAMS();
         }
         EssentialContract._init(_addressManager);
-        __ERC721_init(_name, _symbol);
+        ERC721Upgradeable.__ERC721_init(_name, _symbol);
         srcToken = _srcToken;
         srcChainId = _srcChainId;
     }
