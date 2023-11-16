@@ -79,7 +79,7 @@ contract AssignmentHook is EssentialContract, IHook {
 
         // Hash the assignment with the blobHash, this hash will be signed by
         // the prover, therefore, we add a string as a prefix.
-        bytes32 hash = hashAssignment(assignment, address(this), meta.blobHash);
+        bytes32 hash = hashAssignment(assignment, msg.sender, meta.blobHash);
 
         if (!blk.assignedProver.isValidSignature(hash, assignment.signature)) {
             revert HOOK_ASSIGNMENT_INVALID_SIG();
