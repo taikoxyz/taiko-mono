@@ -26,16 +26,16 @@ contract TestSignalService is TestBase {
         vm.deal(Bob, 1 ether);
 
         addressManager = new AddressManager();
-        addressManager.init(msg.sender);
+        addressManager.init(Alice);
 
         signalService = new SignalService();
-        signalService.init(msg.sender);
+        signalService.init(Alice);
 
         destSignalService = new SignalService();
-        destSignalService.init(msg.sender);
+        destSignalService.init(Alice);
 
         crossChainSync = new DummyCrossChainSync();
-        crossChainSync.init(msg.sender, address(addressManager));
+        crossChainSync.init(Alice, address(addressManager));
 
         addressManager.setAddress(
             uint64(block.chainid), "signal_service", address(signalService)
