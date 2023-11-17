@@ -55,9 +55,10 @@ abstract contract EssentialContract is
     }
 
     /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
+    // TODO
+    // constructor() {
+    //     _disableInitializers();
+    // }
 
     function pause() external whenNotPaused onlyOwner {
         _paused = _TRUE;

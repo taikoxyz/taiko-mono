@@ -32,13 +32,11 @@ contract TaikoToken is
 
     /// @notice Initializes the TaikoToken contract and mints initial tokens.
     /// @param _owner The initial owner.
-    /// @param _addressManager The {AddressManager} address.
     /// @param _name The name of the token.
     /// @param _symbol The symbol of the token.
     /// @param _recipient The address to receive initial token minting.
     function init(
         address _owner,
-        address _addressManager,
         string calldata _name,
         string calldata _symbol,
         address _recipient
@@ -46,7 +44,7 @@ contract TaikoToken is
         public
         initializer
     {
-        EssentialContract._init(_owner, _addressManager);
+        EssentialContract._init(_owner, address(0));
         ERC20Upgradeable.__ERC20_init(_name, _symbol);
         ERC20VotesUpgradeable.__ERC20Votes_init();
         ERC20PermitUpgradeable.__ERC20Permit_init(_name);

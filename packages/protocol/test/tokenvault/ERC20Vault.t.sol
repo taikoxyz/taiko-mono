@@ -4,10 +4,7 @@ pragma solidity ^0.8.20;
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
 import { Bridge } from "../../contracts/bridge/Bridge.sol";
-import {
-    BridgedERC20,
-    BridgedERC20
-} from "../../contracts/tokenvault/BridgedERC20.sol";
+import { BridgedERC20 } from "../../contracts/tokenvault/BridgedERC20.sol";
 import { FreeMintERC20 } from "../../contracts/test/erc20/FreeMintERC20.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
@@ -437,7 +434,7 @@ contract TestERC20Vault is Test {
         UpdatedBridgedERC20 newBridgedContract = new UpdatedBridgedERC20();
         vm.stopPrank();
         vm.prank(Amelia, Amelia);
-        UUPSUpgradeable(payable(bridgedAddressAfter)).upgradeToAndCall(
+        UUPSUpgradeable(bridgedAddressAfter).upgradeToAndCall(
             address(newBridgedContract), ""
         );
 

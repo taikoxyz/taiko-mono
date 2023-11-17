@@ -21,8 +21,8 @@ import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../../contracts/common/ICrossChainSync.sol";
 import { ERC721 } from
     "lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
-import { TransparentUpgradeableProxy } from
-    "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { UUPSUpgradeable } from
+    "lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 contract TestTokenERC721 is ERC721 {
     string _baseTokenURI;
@@ -954,10 +954,9 @@ contract ERC721VaultTest is TestBase {
         // so that it supports now the 'helloWorld' call
         UpdatedBridgedERC721 newBridgedContract = new UpdatedBridgedERC721();
         vm.prank(Amelia, Amelia);
-        // TODO:
-        // TransparentUpgradeableProxy(payable(deployedContract)).upgradeTo(
-        //     address(newBridgedContract)
-        // );
+        UUPSUpgradeable(deployedContract).upgradeToAndCall(
+            address(newBridgedContract), ""
+        );
 
         try UpdatedBridgedERC721(deployedContract).helloWorld() {
             // It should support now this function call

@@ -954,7 +954,6 @@ contract ERC1155VaultTest is TestBase {
         // so that it supports now the 'helloWorld' call
         UpdatedBridgedERC1155 newBridgedContract = new UpdatedBridgedERC1155();
         vm.prank(Amelia, Amelia);
-        // TODO:
         UUPSUpgradeable(deployedContract).upgradeToAndCall(
             address(newBridgedContract), ""
         );
