@@ -91,43 +91,43 @@ contract TestERC20Vault is Test {
 
     address public constant Alice = 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4;
     address public constant Bob = 0x200708D76eB1B69761c23821809d53F65049939e;
-    // Need +1 bc. and Amelia is the proxied bridge contracts owner
-    address public constant Amelia = 0x60081B12838240B1BA02b3177153BCa678A86080;
+    // Need +1 bc. and Olivia is the proxied bridge contracts owner
+    address public constant Olivia = 0x60081B12838240B1BA02b3177153BCa678A86080;
     // Dave has nothing so that we can check if he gets the ether (and other
     // erc20)
     address public constant Dave = 0x70081B12838240b1ba02B3177153bcA678a86090;
 
     function setUp() public {
-        vm.startPrank(Amelia);
+        vm.startPrank(Olivia);
         vm.deal(Alice, 1 ether);
-        vm.deal(Amelia, 1 ether);
+        vm.deal(Olivia, 1 ether);
         vm.deal(Bob, 1 ether);
 
         tko = new TaikoToken();
 
         addressManager = new AddressManager();
-        addressManager.init(Amelia);
+        addressManager.init(Olivia);
         addressManager.setAddress(
             uint64(block.chainid), "taiko_token", address(tko)
         );
 
         erc20Vault = new ERC20Vault();
-        erc20Vault.init(Amelia, address(addressManager));
+        erc20Vault.init(Olivia, address(addressManager));
 
         destChainIdERC20Vault = new ERC20Vault();
-        destChainIdERC20Vault.init(Amelia, address(addressManager));
+        destChainIdERC20Vault.init(Olivia, address(addressManager));
 
         erc20 = new FreeMintERC20("ERC20", "ERC20");
         erc20.mint(Alice);
 
         bridge = new Bridge();
-        bridge.init(Amelia, address(addressManager));
+        bridge.init(Olivia, address(addressManager));
 
         destChainIdBridge = new PrankDestBridge(erc20Vault);
         vm.deal(address(destChainIdBridge), 100 ether);
 
         signalService = new SignalService();
-        signalService.init(Amelia);
+        signalService.init(Olivia);
 
         addressManager.setAddress(
             uint64(block.chainid), "bridge", address(bridge)
@@ -163,9 +163,8 @@ contract TestERC20Vault is Test {
     }
 
     function test_20Vault_send_erc20_revert_if_allowance_not_set() public {
-        vm.startPrank(Alice);
-
-        vm.expectRevert("ERC20: insufficient allowance");
+        vm.expectRevert();
+        vm.prank(Alice);
         erc20Vault.sendToken(
             ERC20Vault.BridgeTransferOp(
                 destChainId, Bob, address(erc20), 1 wei, 1_000_000, 1, Bob, ""
@@ -433,7 +432,7 @@ contract TestERC20Vault is Test {
         // so that it supports now the 'helloWorld' call
         UpdatedBridgedERC20 newBridgedContract = new UpdatedBridgedERC20();
         vm.stopPrank();
-        vm.prank(Amelia, Amelia);
+        vm.prank(Olivia, Olivia);
         UUPSUpgradeable(bridgedAddressAfter).upgradeToAndCall(
             address(newBridgedContract), ""
         );

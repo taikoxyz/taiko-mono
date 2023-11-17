@@ -157,6 +157,8 @@ importers:
 
   packages/fork-diff: {}
 
+  packages/guardian-prover-health-check: {}
+
   packages/protocol:
     devDependencies:
       '@defi-wonderland/smock':

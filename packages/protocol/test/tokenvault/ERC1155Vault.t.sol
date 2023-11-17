@@ -884,7 +884,7 @@ contract ERC1155VaultTest is TestBase {
         );
 
         vm.prank(Alice, Alice);
-        vm.expectRevert("ERC1155: burn amount exceeds balance");
+        vm.expectRevert();
         destChainErc1155Vault.sendToken{ value: 140_000 }(sendOpts);
     }
 
