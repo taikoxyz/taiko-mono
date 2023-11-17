@@ -9,7 +9,6 @@ pragma solidity ^0.8.20;
 import { ERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 
-import { AddressResolver } from "../../common/AddressResolver.sol";
 import { EssentialContract } from "../../common/EssentialContract.sol";
 import { Proxied } from "../../common/Proxied.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
@@ -23,11 +22,6 @@ import { IHook } from "./IHook.sol";
 /// A hook that handles prover assignment varification and fee processing.
 contract AssignmentHook is EssentialContract, IHook {
     using LibAddress for address;
-
-    // Max gas paying the prover. This should be large enough to prevent the
-    // worst cases, usually block proposer shall be aware the risks and only
-    // choose provers that cannot consume too much gas when receiving Ether.
-    uint256 public constant MAX_GAS_PAYING_PROVER = 200_000;
 
     struct ProverAssignment {
         address feeToken;
@@ -43,6 +37,17 @@ contract AssignmentHook is EssentialContract, IHook {
         ProverAssignment assignment;
         uint256 tip;
     }
+
+    // Max gas paying the prover. This should be large enough to prevent the
+    // worst cases, usually block proposer shall be aware the risks and only
+    // choose provers that cannot consume too much gas when receiving Ether.
+    uint256 public constant MAX_GAS_PAYING_PROVER = 200_000;
+
+    event BlockAssigned(
+        address indexed assignedProver,
+        TaikoData.BlockMetadata meta,
+        ProverAssignment assignment
+    );
 
     error HOOK_ASSIGNMENT_EXPIRED();
     error HOOK_ASSIGNMENT_INVALID_SIG();
@@ -127,6 +132,8 @@ contract AssignmentHook is EssentialContract, IHook {
         if (refund != 0) {
             msg.sender.sendEther(refund);
         }
+
+        emit BlockAssigned(blk.assignedProver, meta, assignment);
     }
 
     function hashAssignment(

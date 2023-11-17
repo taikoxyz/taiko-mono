@@ -63,10 +63,6 @@ abstract contract EssentialContract is
         return _paused == _TRUE;
     }
 
-    function _inNonReentrant() internal view returns (bool) {
-        return _reentry == _TRUE;
-    }
-
     /// @notice Initializes the contract with an address manager.
     /// @param _addressManager The address of the address manager.
     function _init(address _addressManager) internal virtual override {
@@ -75,5 +71,9 @@ abstract contract EssentialContract is
 
         _reentry = _FALSE;
         _paused = _FALSE;
+    }
+
+    function _inNonReentrant() internal view returns (bool) {
+        return _reentry == _TRUE;
     }
 }
