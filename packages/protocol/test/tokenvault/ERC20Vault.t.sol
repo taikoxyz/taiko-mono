@@ -13,12 +13,12 @@ import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
 import { Test } from "forge-std/Test.sol";
 import { ERC20Vault } from "../../contracts/tokenvault/ERC20Vault.sol";
-import { TransparentUpgradeableProxy } from
-    "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-
+import { UUPSUpgradeable } from
+    "lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol";
 // PrankDestBridge lets us simulate a transaction to the ERC20Vault
 // from a named Bridge, without having to test/run through the real Bridge code,
 // outside the scope of the unit tests in the ERC20Vault.
+
 contract PrankDestBridge {
     ERC20Vault destERC20Vault;
     Context ctx;
@@ -109,28 +109,28 @@ contract TestERC20Vault is Test {
         tko = new TaikoToken();
 
         addressManager = new AddressManager();
-        addressManager.init(msg.sender);
+        addressManager.init(Amelia);
         addressManager.setAddress(
             uint64(block.chainid), "taiko_token", address(tko)
         );
 
         erc20Vault = new ERC20Vault();
-        erc20Vault.init(msg.sender, address(addressManager));
+        erc20Vault.init(Amelia, address(addressManager));
 
         destChainIdERC20Vault = new ERC20Vault();
-        destChainIdERC20Vault.init(msg.sender, address(addressManager));
+        destChainIdERC20Vault.init(Amelia, address(addressManager));
 
         erc20 = new FreeMintERC20("ERC20", "ERC20");
         erc20.mint(Alice);
 
         bridge = new Bridge();
-        bridge.init(msg.sender, address(addressManager));
+        bridge.init(Amelia, address(addressManager));
 
         destChainIdBridge = new PrankDestBridge(erc20Vault);
         vm.deal(address(destChainIdBridge), 100 ether);
 
         signalService = new SignalService();
-        signalService.init(msg.sender);
+        signalService.init(Amelia);
 
         addressManager.setAddress(
             uint64(block.chainid), "bridge", address(bridge)
@@ -437,10 +437,9 @@ contract TestERC20Vault is Test {
         UpdatedBridgedERC20 newBridgedContract = new UpdatedBridgedERC20();
         vm.stopPrank();
         vm.prank(Amelia, Amelia);
-        // TODO:
-        // TransparentUpgradeableProxy(payable(bridgedAddressAfter)).upgradeTo(
-        //     address(newBridgedContract)
-        // );
+        UUPSUpgradeable(payable(bridgedAddressAfter)).upgradeToAndCall(
+            address(newBridgedContract), ""
+        );
 
         vm.prank(Alice, Alice);
         try UpdatedBridgedERC20(bridgedAddressAfter).helloWorld() {

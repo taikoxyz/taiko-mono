@@ -21,8 +21,6 @@ import { ERC1155 } from
     "lib/openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
 import { UUPSUpgradeable } from
     "lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol";
-import { ERC1967Proxy } from
-    "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract TestTokenERC1155 is ERC1155 {
     constructor(string memory baseURI) ERC1155(baseURI) { }
@@ -133,28 +131,28 @@ contract ERC1155VaultTest is TestBase {
         vm.deal(Amelia, 100 ether);
         vm.deal(Bob, 100 ether);
         addressManager = new AddressManager();
-        addressManager.init(msg.sender);
+        addressManager.init(Amelia);
 
         bridge = new Bridge();
-        bridge.init(msg.sender, address(addressManager));
+        bridge.init(Amelia, address(addressManager));
 
         destChainBridge = new Bridge();
-        destChainBridge.init(msg.sender, address(addressManager));
+        destChainBridge.init(Amelia, address(addressManager));
 
         signalService = new SignalService();
-        signalService.init(msg.sender);
+        signalService.init(Amelia);
 
         erc1155Vault = new ERC1155Vault();
-        erc1155Vault.init(msg.sender, address(addressManager));
+        erc1155Vault.init(Amelia, address(addressManager));
 
         destChainErc1155Vault = new ERC1155Vault();
-        destChainErc1155Vault.init(msg.sender, address(addressManager));
+        destChainErc1155Vault.init(Amelia, address(addressManager));
 
         destChainIdBridge = new PrankDestBridge(destChainErc1155Vault);
         vm.deal(address(destChainIdBridge), 100 ether);
 
         mockProofSignalService = new SkipProofCheckSignal();
-        mockProofSignalService.init(msg.sender);
+        mockProofSignalService.init(Amelia);
 
         crossChainSync = new DummyCrossChainSync();
 

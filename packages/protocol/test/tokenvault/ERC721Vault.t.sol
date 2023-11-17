@@ -154,28 +154,28 @@ contract ERC721VaultTest is TestBase {
         vm.deal(Amelia, 100 ether);
         vm.deal(Bob, 100 ether);
         addressManager = new AddressManager();
-        addressManager.init(msg.sender);
+        addressManager.init(Amelia);
 
         bridge = new Bridge();
-        bridge.init(msg.sender, address(addressManager));
+        bridge.init(Amelia, address(addressManager));
 
         destChainBridge = new Bridge();
-        destChainBridge.init(msg.sender, address(addressManager));
+        destChainBridge.init(Amelia, address(addressManager));
 
         signalService = new SignalService();
-        signalService.init(msg.sender);
+        signalService.init(Amelia);
 
         erc721Vault = new ERC721Vault();
-        erc721Vault.init(msg.sender, address(addressManager));
+        erc721Vault.init(Amelia, address(addressManager));
 
         destChainErc721Vault = new ERC721Vault();
-        destChainErc721Vault.init(msg.sender, address(addressManager));
+        destChainErc721Vault.init(Amelia, address(addressManager));
 
         destChainIdBridge = new PrankDestBridge(destChainErc721Vault);
         vm.deal(address(destChainIdBridge), 100 ether);
 
         mockProofSignalService = new SkipProofCheckSignal();
-        mockProofSignalService.init(msg.sender);
+        mockProofSignalService.init(Amelia);
 
         crossChainSync = new DummyCrossChainSync();
 
