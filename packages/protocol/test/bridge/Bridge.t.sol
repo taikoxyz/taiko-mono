@@ -44,19 +44,19 @@ contract BridgeTest is TestBase {
         vm.startPrank(Alice);
         vm.deal(Alice, 100 ether);
         addressManager = new AddressManager();
-        addressManager.init(msg.sender);
+        addressManager.init(Alice);
 
         bridge = new Bridge();
-        bridge.init(msg.sender, address(addressManager));
+        bridge.init(Alice, address(addressManager));
 
         destChainBridge = new Bridge();
-        destChainBridge.init(msg.sender, address(addressManager));
+        destChainBridge.init(Alice, address(addressManager));
 
         mockProofSignalService = new SkipProofCheckSignal();
-        mockProofSignalService.init(msg.sender);
+        mockProofSignalService.init(Alice);
 
         signalService = new SignalService();
-        signalService.init(msg.sender);
+        signalService.init(Alice);
 
         vm.deal(address(destChainBridge), 100 ether);
 
