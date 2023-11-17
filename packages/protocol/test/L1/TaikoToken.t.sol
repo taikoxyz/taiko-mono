@@ -16,7 +16,7 @@ contract TaikoTokenTest is TestBase {
     address public tokenOwner;
 
     AddressManager public addressManager;
-    ERC1967Proxy public tokenProxy;
+    address public tokenProxy;
     TaikoToken public tko;
     TaikoToken public tkoUpgradedImpl;
 
@@ -29,7 +29,8 @@ contract TaikoTokenTest is TestBase {
         addressManager.init(msg.sender);
         tko = new TaikoToken();
 
-        tokenProxy = new ERC1967Proxy(
+        tokenProxy = address(
+            new ERC1967Proxy(
             address(tko),
             bytes.concat(
                 tko.init.selector,
@@ -38,9 +39,10 @@ contract TaikoTokenTest is TestBase {
                     address(addressManager), "Taiko Token", "TKO", address(this)
                 )
             )
+            )
         );
 
-        tko = TaikoToken(address(tokenProxy));
+        tko = TaikoToken(tokenProxy);
         tko.transfer(Yasmine, 5 ether);
         tko.transfer(Zachary, 5 ether);
     }
@@ -49,7 +51,7 @@ contract TaikoTokenTest is TestBase {
         tkoUpgradedImpl = new TaikoToken();
 
         vm.prank(tokenOwner);
-        UUPSUpgradeable(address(tokenProxy)).upgradeToAndCall(
+        UUPSUpgradeable(tokenProxy).upgradeToAndCall(
             address(tkoUpgradedImpl), ""
         );
 
@@ -62,7 +64,7 @@ contract TaikoTokenTest is TestBase {
         tkoUpgradedImpl = new TaikoToken();
 
         vm.expectRevert();
-        UUPSUpgradeable(address(tokenProxy)).upgradeToAndCall(
+        UUPSUpgradeable(tokenProxy).upgradeToAndCall(
             address(tkoUpgradedImpl), ""
         );
     }
