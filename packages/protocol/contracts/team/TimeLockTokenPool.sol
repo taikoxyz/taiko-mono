@@ -147,7 +147,7 @@ contract TimeLockTokenPool is EssentialContract {
         _withdraw(recipient, to);
     }
 
-    function getMyGrantSummary(address recipient)
+    function getGrantSummary(address recipient)
         public
         view
         returns (

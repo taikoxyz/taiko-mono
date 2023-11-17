@@ -18,24 +18,29 @@ contract TestTimeLockTokenPool is Test {
     address internal Vault = vm.addr(0x1);
     address internal Alice = vm.addr(0x2);
     address internal Bob = vm.addr(0x3);
+    address internal Owen = vm.addr(0x4);
 
     ERC20 tko = new MyERC20(Vault);
     Pool pool = new Pool();
 
     function setUp() public {
-        pool.init(msg.sender, address(tko), Vault);
+        pool.init(Owen, address(tko), Vault);
     }
 
     function test_invalid_granting() public {
         vm.expectRevert(Pool.INVALID_GRANT.selector);
+        vm.prank(Owen);
         pool.grant(Alice, Pool.Grant(0, 0, 0, 0, 0, 0, 0));
 
         vm.expectRevert(Pool.INVALID_PARAM.selector);
+        vm.prank(Owen);
         pool.grant(address(0), Pool.Grant(100e18, 0, 0, 0, 0, 0, 0));
     }
 
     function test_single_grant_zero_grant_period_zero_unlock_period() public {
+        vm.prank(Owen);
         pool.grant(Alice, Pool.Grant(10_000e18, 0, 0, 0, 0, 0, 0));
+
         vm.prank(Vault);
         tko.approve(address(pool), 10_000e18);
 
@@ -44,7 +49,7 @@ contract TestTimeLockTokenPool is Test {
             uint128 amountUnlocked,
             uint128 amountWithdrawn,
             uint128 amountWithdrawable
-        ) = pool.getMyGrantSummary(Alice);
+        ) = pool.getGrantSummary(Alice);
         assertEq(amountOwned, 10_000e18);
         assertEq(amountUnlocked, 10_000e18);
         assertEq(amountWithdrawn, 0);
@@ -52,6 +57,8 @@ contract TestTimeLockTokenPool is Test {
 
         // Try to void the grant
         vm.expectRevert(Pool.NOTHING_TO_VOID.selector);
+
+        vm.prank(Owen);
         pool.void(Alice);
 
         vm.prank(Alice);
@@ -59,7 +66,7 @@ contract TestTimeLockTokenPool is Test {
         assertEq(tko.balanceOf(Alice), 10_000e18);
 
         (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
-            pool.getMyGrantSummary(Alice);
+            pool.getGrantSummary(Alice);
         assertEq(amountOwned, 10_000e18);
         assertEq(amountUnlocked, 10_000e18);
         assertEq(amountWithdrawn, 10_000e18);
@@ -71,6 +78,7 @@ contract TestTimeLockTokenPool is Test {
         uint32 unlockPeriod = 365 days;
         uint64 unlockCliff = unlockStart + unlockPeriod / 2;
 
+        vm.prank(Owen);
         pool.grant(
             Alice,
             Pool.Grant(
@@ -85,7 +93,7 @@ contract TestTimeLockTokenPool is Test {
             uint128 amountUnlocked,
             uint128 amountWithdrawn,
             uint128 amountWithdrawable
-        ) = pool.getMyGrantSummary(Alice);
+        ) = pool.getGrantSummary(Alice);
         assertEq(amountOwned, 10_000e18);
         assertEq(amountUnlocked, 0);
         assertEq(amountWithdrawn, 0);
@@ -94,7 +102,7 @@ contract TestTimeLockTokenPool is Test {
         vm.warp(unlockCliff);
 
         (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
-            pool.getMyGrantSummary(Alice);
+            pool.getGrantSummary(Alice);
         assertEq(amountOwned, 10_000e18);
         assertEq(amountUnlocked, 0);
         assertEq(amountWithdrawn, 0);
@@ -103,7 +111,7 @@ contract TestTimeLockTokenPool is Test {
         vm.warp(unlockCliff + 1);
 
         (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
-            pool.getMyGrantSummary(Alice);
+            pool.getGrantSummary(Alice);
         uint256 amount1 = 5_000_000_317_097_919_837_645;
         assertEq(amountOwned, 10_000e18);
         assertEq(amountUnlocked, amount1);
@@ -116,7 +124,7 @@ contract TestTimeLockTokenPool is Test {
         vm.warp(unlockStart + unlockPeriod + 365 days);
 
         (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
-            pool.getMyGrantSummary(Alice);
+            pool.getGrantSummary(Alice);
         assertEq(amountOwned, 10_000e18);
         assertEq(amountUnlocked, 10_000e18);
         assertEq(amountWithdrawn, amount1);
@@ -126,7 +134,7 @@ contract TestTimeLockTokenPool is Test {
         pool.withdraw();
 
         (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
-            pool.getMyGrantSummary(Alice);
+            pool.getGrantSummary(Alice);
         assertEq(amountOwned, 10_000e18);
         assertEq(amountUnlocked, 10_000e18);
         assertEq(amountWithdrawn, 10_000e18);
@@ -138,10 +146,12 @@ contract TestTimeLockTokenPool is Test {
         uint32 grantPeriod = 365 days;
         uint64 grantCliff = grantStart + grantPeriod / 2;
 
+        vm.prank(Owen);
         pool.grant(
             Alice,
             Pool.Grant(10_000e18, grantStart, grantCliff, grantPeriod, 0, 0, 0)
         );
+
         vm.prank(Vault);
         tko.approve(address(pool), 10_000e18);
 
@@ -150,7 +160,7 @@ contract TestTimeLockTokenPool is Test {
             uint128 amountUnlocked,
             uint128 amountWithdrawn,
             uint128 amountWithdrawable
-        ) = pool.getMyGrantSummary(Alice);
+        ) = pool.getGrantSummary(Alice);
         assertEq(amountOwned, 0);
         assertEq(amountUnlocked, 0);
         assertEq(amountWithdrawn, 0);
@@ -159,7 +169,7 @@ contract TestTimeLockTokenPool is Test {
         vm.warp(grantCliff);
 
         (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
-            pool.getMyGrantSummary(Alice);
+            pool.getGrantSummary(Alice);
         assertEq(amountOwned, 0);
         assertEq(amountUnlocked, 0);
         assertEq(amountWithdrawn, 0);
@@ -168,7 +178,7 @@ contract TestTimeLockTokenPool is Test {
         vm.warp(grantCliff + 1);
 
         (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
-            pool.getMyGrantSummary(Alice);
+            pool.getGrantSummary(Alice);
         uint256 amount1 = 5_000_000_317_097_919_837_645;
         assertEq(amountOwned, amount1);
         assertEq(amountUnlocked, amount1);
@@ -181,7 +191,7 @@ contract TestTimeLockTokenPool is Test {
         vm.warp(grantStart + grantPeriod + 365 days);
 
         (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
-            pool.getMyGrantSummary(Alice);
+            pool.getGrantSummary(Alice);
         assertEq(amountOwned, 10_000e18);
         assertEq(amountUnlocked, 10_000e18);
         assertEq(amountWithdrawn, amount1);
@@ -191,7 +201,7 @@ contract TestTimeLockTokenPool is Test {
         pool.withdraw();
 
         (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
-            pool.getMyGrantSummary(Alice);
+            pool.getGrantSummary(Alice);
         assertEq(amountOwned, 10_000e18);
         assertEq(amountUnlocked, 10_000e18);
         assertEq(amountWithdrawn, 10_000e18);
@@ -209,6 +219,7 @@ contract TestTimeLockTokenPool is Test {
         uint32 unlockPeriod = 4 * 365 days;
         uint64 unlockCliff = unlockStart + 365 days;
 
+        vm.prank(Owen);
         pool.grant(
             Alice,
             Pool.Grant(
@@ -221,6 +232,7 @@ contract TestTimeLockTokenPool is Test {
                 unlockPeriod
             )
         );
+
         vm.prank(Vault);
         tko.approve(address(pool), 10_000e18);
 
@@ -229,7 +241,7 @@ contract TestTimeLockTokenPool is Test {
             uint128 amountUnlocked,
             uint128 amountWithdrawn,
             uint128 amountWithdrawable
-        ) = pool.getMyGrantSummary(Alice);
+        ) = pool.getGrantSummary(Alice);
         assertEq(amountOwned, 0);
         assertEq(amountUnlocked, 0);
         assertEq(amountWithdrawn, 0);
@@ -238,7 +250,7 @@ contract TestTimeLockTokenPool is Test {
         // 90 days later
         vm.warp(grantStart + 90 days);
         (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
-            pool.getMyGrantSummary(Alice);
+            pool.getGrantSummary(Alice);
         assertEq(amountOwned, 0);
         assertEq(amountUnlocked, 0);
         assertEq(amountWithdrawn, 0);
@@ -247,7 +259,7 @@ contract TestTimeLockTokenPool is Test {
         // 1 year later
         vm.warp(grantStart + 365 days);
         (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
-            pool.getMyGrantSummary(Alice);
+            pool.getGrantSummary(Alice);
         assertEq(amountOwned, 2500e18);
         assertEq(amountUnlocked, 0);
         assertEq(amountWithdrawn, 0);
@@ -256,7 +268,7 @@ contract TestTimeLockTokenPool is Test {
         // 2 year later
         vm.warp(grantStart + 2 * 365 days);
         (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
-            pool.getMyGrantSummary(Alice);
+            pool.getGrantSummary(Alice);
         assertEq(amountOwned, 5000e18);
         assertEq(amountUnlocked, 0);
         assertEq(amountWithdrawn, 0);
@@ -265,7 +277,7 @@ contract TestTimeLockTokenPool is Test {
         // 3 year later
         vm.warp(grantStart + 3 * 365 days);
         (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
-            pool.getMyGrantSummary(Alice);
+            pool.getGrantSummary(Alice);
         assertEq(amountOwned, 7500e18);
         assertEq(amountUnlocked, 3750e18);
         assertEq(amountWithdrawn, 0);
@@ -274,7 +286,7 @@ contract TestTimeLockTokenPool is Test {
         // 4 year later
         vm.warp(grantStart + 4 * 365 days);
         (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
-            pool.getMyGrantSummary(Alice);
+            pool.getGrantSummary(Alice);
         assertEq(amountOwned, 10_000e18);
         assertEq(amountUnlocked, 7500e18);
         assertEq(amountWithdrawn, 0);
@@ -283,7 +295,7 @@ contract TestTimeLockTokenPool is Test {
         // 5 year later
         vm.warp(grantStart + 5 * 365 days);
         (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
-            pool.getMyGrantSummary(Alice);
+            pool.getGrantSummary(Alice);
         assertEq(amountOwned, 10_000e18);
         assertEq(amountUnlocked, 10_000e18);
         assertEq(amountWithdrawn, 0);
@@ -292,7 +304,7 @@ contract TestTimeLockTokenPool is Test {
         // 6 year later
         vm.warp(grantStart + 6 * 365 days);
         (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
-            pool.getMyGrantSummary(Alice);
+            pool.getGrantSummary(Alice);
         assertEq(amountOwned, 10_000e18);
         assertEq(amountUnlocked, 10_000e18);
         assertEq(amountWithdrawn, 0);
@@ -300,7 +312,10 @@ contract TestTimeLockTokenPool is Test {
     }
 
     function test_multiple_grants() public {
+        vm.prank(Owen);
         pool.grant(Alice, Pool.Grant(10_000e18, 0, 0, 0, 0, 0, 0));
+
+        vm.prank(Owen);
         pool.grant(Alice, Pool.Grant(20_000e18, 0, 0, 0, 0, 0, 0));
 
         vm.prank(Vault);
@@ -311,7 +326,7 @@ contract TestTimeLockTokenPool is Test {
             uint128 amountUnlocked,
             uint128 amountWithdrawn,
             uint128 amountWithdrawable
-        ) = pool.getMyGrantSummary(Alice);
+        ) = pool.getGrantSummary(Alice);
         assertEq(amountOwned, 30_000e18);
         assertEq(amountUnlocked, 30_000e18);
         assertEq(amountWithdrawn, 0);
@@ -320,7 +335,11 @@ contract TestTimeLockTokenPool is Test {
 
     function test_void_multiple_grants_before_granted() public {
         uint64 grantStart = uint64(block.timestamp) + 30 days;
+
+        vm.prank(Owen);
         pool.grant(Alice, Pool.Grant(10_000e18, grantStart, 0, 0, 0, 0, 0));
+
+        vm.prank(Owen);
         pool.grant(Alice, Pool.Grant(20_000e18, grantStart, 0, 0, 0, 0, 0));
 
         vm.prank(Vault);
@@ -331,13 +350,14 @@ contract TestTimeLockTokenPool is Test {
             uint128 amountUnlocked,
             uint128 amountWithdrawn,
             uint128 amountWithdrawable
-        ) = pool.getMyGrantSummary(Alice);
+        ) = pool.getGrantSummary(Alice);
         assertEq(amountOwned, 0);
         assertEq(amountUnlocked, 0);
         assertEq(amountWithdrawn, 0);
         assertEq(amountWithdrawable, 0);
 
         // Try to void the grant
+        vm.prank(Owen);
         pool.void(Alice);
 
         Pool.Grant[] memory grants = pool.getMyGrants(Alice);
@@ -356,7 +376,11 @@ contract TestTimeLockTokenPool is Test {
 
     function test_void_multiple_grants_after_granted() public {
         uint64 grantStart = uint64(block.timestamp) + 30 days;
+
+        vm.prank(Owen);
         pool.grant(Alice, Pool.Grant(10_000e18, grantStart, 0, 0, 0, 0, 0));
+
+        vm.prank(Owen);
         pool.grant(Alice, Pool.Grant(20_000e18, grantStart, 0, 0, 0, 0, 0));
 
         vm.prank(Vault);
@@ -367,7 +391,7 @@ contract TestTimeLockTokenPool is Test {
             uint128 amountUnlocked,
             uint128 amountWithdrawn,
             uint128 amountWithdrawable
-        ) = pool.getMyGrantSummary(Alice);
+        ) = pool.getGrantSummary(Alice);
 
         assertEq(amountOwned, 0);
         assertEq(amountUnlocked, 0);
@@ -379,15 +403,20 @@ contract TestTimeLockTokenPool is Test {
         // Try to void the grant
         // Try to void the grant
         vm.expectRevert(Pool.NOTHING_TO_VOID.selector);
+        vm.prank(Owen);
         pool.void(Alice);
     }
 
     function test_void_multiple_grants_in_the_middle() public {
         uint64 grantStart = uint64(block.timestamp);
         uint32 grantPeriod = 100 days;
+
+        vm.prank(Owen);
         pool.grant(
             Alice, Pool.Grant(10_000e18, grantStart, 0, grantPeriod, 0, 0, 0)
         );
+
+        vm.prank(Owen);
         pool.grant(
             Alice, Pool.Grant(20_000e18, grantStart, 0, grantPeriod, 0, 0, 0)
         );
@@ -401,17 +430,18 @@ contract TestTimeLockTokenPool is Test {
             uint128 amountUnlocked,
             uint128 amountWithdrawn,
             uint128 amountWithdrawable
-        ) = pool.getMyGrantSummary(Alice);
+        ) = pool.getGrantSummary(Alice);
 
         assertEq(amountOwned, 15_000e18);
         assertEq(amountUnlocked, 15_000e18);
         assertEq(amountWithdrawn, 0);
         assertEq(amountWithdrawable, 15_000e18);
 
+        vm.prank(Owen);
         pool.void(Alice);
 
         (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
-            pool.getMyGrantSummary(Alice);
+            pool.getGrantSummary(Alice);
         assertEq(amountOwned, 15_000e18);
         assertEq(amountUnlocked, 15_000e18);
         assertEq(amountWithdrawn, 0);
@@ -419,7 +449,7 @@ contract TestTimeLockTokenPool is Test {
 
         vm.warp(grantStart + 100 days);
         (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
-            pool.getMyGrantSummary(Alice);
+            pool.getGrantSummary(Alice);
         assertEq(amountOwned, 15_000e18);
         assertEq(amountUnlocked, 15_000e18);
         assertEq(amountWithdrawn, 0);
