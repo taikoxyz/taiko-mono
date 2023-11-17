@@ -14,16 +14,15 @@ import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { IBridge, Bridge } from "../../contracts/bridge/Bridge.sol";
 import { BaseNFTVault } from "../../contracts/tokenvault/BaseNFTVault.sol";
 import { ERC1155Vault } from "../../contracts/tokenvault/ERC1155Vault.sol";
-import {
-    BridgedERC1155,
-    BridgedERC1155
-} from "../../contracts/tokenvault/BridgedERC1155.sol";
+import { BridgedERC1155 } from "../../contracts/tokenvault/BridgedERC1155.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../../contracts/common/ICrossChainSync.sol";
 import { ERC1155 } from
     "lib/openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
-import { TransparentUpgradeableProxy } from
-    "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { UUPSUpgradeable } from
+    "lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol";
+import { ERC1967Proxy } from
+    "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract TestTokenERC1155 is ERC1155 {
     constructor(string memory baseURI) ERC1155(baseURI) { }
@@ -958,9 +957,9 @@ contract ERC1155VaultTest is TestBase {
         UpdatedBridgedERC1155 newBridgedContract = new UpdatedBridgedERC1155();
         vm.prank(Amelia, Amelia);
         // TODO:
-        // TransparentUpgradeableProxy(payable(deployedContract)).upgradeTo(
-        //     address(newBridgedContract)
-        // );
+        UUPSUpgradeable(deployedContract).upgradeToAndCall(
+            address(newBridgedContract), ""
+        );
 
         try UpdatedBridgedERC1155(deployedContract).helloWorld() { }
         catch {

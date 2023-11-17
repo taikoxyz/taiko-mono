@@ -36,7 +36,10 @@ contract TaikoTokenTest is TestBase {
                 tko.init.selector,
                 abi.encode(
                     tokenOwner,
-                    address(addressManager), "Taiko Token", "TKO", address(this)
+                    address(addressManager),
+                    "Taiko Token",
+                    "TKO",
+                    address(this)
                 )
             )
             )
