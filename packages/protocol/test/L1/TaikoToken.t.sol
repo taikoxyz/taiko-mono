@@ -5,8 +5,10 @@ import { TestBase } from "../TestBase.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
 import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
-import { TransparentUpgradeableProxy } from
-    "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import { UUPSUpgradeable } from
+    "lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol";
+import { ERC1967Proxy } from
+    "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract TaikoTokenTest is TestBase {
     bytes32 GENESIS_BLOCK_HASH;
@@ -14,7 +16,7 @@ contract TaikoTokenTest is TestBase {
     address public tokenOwner;
 
     AddressManager public addressManager;
-    TransparentUpgradeableProxy public tokenProxy;
+    ERC1967Proxy public tokenProxy;
     TaikoToken public tko;
     TaikoToken public tkoUpgradedImpl;
 
@@ -27,11 +29,12 @@ contract TaikoTokenTest is TestBase {
         addressManager.init(msg.sender);
         tko = new TaikoToken();
 
-        tokenProxy = _deployViaProxy(
+        tokenProxy = new ERC1967Proxy(
             address(tko),
             bytes.concat(
                 tko.init.selector,
                 abi.encode(
+                    tokenOwner,
                     address(addressManager), "Taiko Token", "TKO", address(this)
                 )
             )
@@ -46,8 +49,9 @@ contract TaikoTokenTest is TestBase {
         tkoUpgradedImpl = new TaikoToken();
 
         vm.prank(tokenOwner);
-        // TODO:
-        // tokenProxy.upgradeTo(address(tkoUpgradedImpl));
+        UUPSUpgradeable(address(tokenProxy)).upgradeToAndCall(
+            address(tkoUpgradedImpl), ""
+        );
 
         // Check if balance is still same
         assertEq(tko.balanceOf(Yasmine), 5 ether);
@@ -58,25 +62,12 @@ contract TaikoTokenTest is TestBase {
         tkoUpgradedImpl = new TaikoToken();
 
         vm.expectRevert();
-        // TODO:
-        // tokenProxy.upgradeTo(address(tkoUpgradedImpl));
+        UUPSUpgradeable(address(tokenProxy)).upgradeToAndCall(
+            address(tkoUpgradedImpl), ""
+        );
     }
 
     function _registerAddress(bytes32 nameHash, address addr) private {
         addressManager.setAddress(uint64(block.chainid), nameHash, addr);
-    }
-
-    function _deployViaProxy(
-        address implementation,
-        bytes memory data
-    )
-        private
-        returns (TransparentUpgradeableProxy)
-    {
-        return new TransparentUpgradeableProxy(
-            implementation,
-            tokenOwner,
-            data
-        );
     }
 }
