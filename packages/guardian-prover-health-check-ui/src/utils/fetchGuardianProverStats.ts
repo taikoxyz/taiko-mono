@@ -6,6 +6,16 @@ const statsRoute = "stats";
 
 const livenessRoute = "liveness";
 
+const signedBlocksRoute = "signedBlocks";
+
+export type SignedBlock = {
+  blockHash: string;
+  signature: string;
+  guardianProverID: number;
+};
+
+export type SignedBlocks = { [key: string]: SignedBlock[] };
+
 export type HealthCheck = {
   id: number;
   guardianProverId: number;
@@ -36,6 +46,16 @@ export type PageResponse<T> = {
   first: boolean;
   visible: number;
 };
+
+export async function fetchSignedBlocks(
+  baseURL: string
+): Promise<SignedBlocks> {
+  let url = `${baseURL}/${signedBlocksRoute}`;
+
+  const resp = await axios.get<SignedBlocks>(url);
+
+  return resp.data;
+}
 
 export async function fetchLatestGuardianProverRequest(
   baseURL: string,

@@ -27,7 +27,7 @@ func (h *HealthCheckRepo) GetByGuardianProverID(
 	}, nil
 }
 
-func (r *HealthCheckRepository) GetMostRecentByGuardianProverID(
+func (r *HealthCheckRepo) GetMostRecentByGuardianProverID(
 	ctx context.Context,
 	req *http.Request,
 	id int,
