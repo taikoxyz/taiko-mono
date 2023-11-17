@@ -54,38 +54,40 @@ abstract contract TaikoL1TestBase is TestBase {
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 
     function setUp() public virtual {
+        vm.startPrank(Olivia);
+
         L1 = deployTaikoL1();
         conf = L1.getConfig();
 
         addressManager = new AddressManager();
-        addressManager.init(msg.sender);
+        addressManager.init(Olivia);
 
         ss = new SignalService();
-        ss.init(msg.sender);
+        ss.init(Olivia);
 
         pv = new PseZkVerifier();
-        pv.init(msg.sender, address(addressManager));
+        pv.init(Olivia, address(addressManager));
 
         sv = new SgxVerifier();
-        sv.init(msg.sender, address(addressManager));
+        sv.init(Olivia, address(addressManager));
         address[] memory initSgxInstances = new address[](1);
         initSgxInstances[0] = SGX_X_0;
         sv.addInstances(initSgxInstances);
 
         sgxZkVerifier = new SgxAndZkVerifier();
-        sgxZkVerifier.init(msg.sender, address(addressManager));
+        sgxZkVerifier.init(Olivia, address(addressManager));
 
         gv = new GuardianVerifier();
-        gv.init(msg.sender, address(addressManager));
+        gv.init(Olivia, address(addressManager));
 
         gp = new GuardianProver();
-        gp.init(msg.sender, address(addressManager));
+        gp.init(Olivia, address(addressManager));
         setupGuardianProverMultisig();
 
         cp = new TaikoA6TierProvider();
 
         bridge = new Bridge();
-        bridge.init(msg.sender, address(addressManager));
+        bridge.init(Olivia, address(addressManager));
 
         registerAddress("taiko", address(L1));
         registerAddress("tier_pse_zkevm", address(pv));
@@ -105,10 +107,12 @@ abstract contract TaikoL1TestBase is TestBase {
         tko = new TaikoToken();
         registerAddress("taiko_token", address(tko));
 
-        tko.init(msg.sender, "TaikoToken", "TKO", address(this));
+        tko.init(Olivia, "TaikoToken", "TKO", address(this));
 
-        L1.init(msg.sender, address(addressManager), GENESIS_BLOCK_HASH);
+        L1.init(Olivia, address(addressManager), GENESIS_BLOCK_HASH);
         printVariables("init  ");
+
+        vm.stopPrank();
     }
 
     function proposeBlock(
