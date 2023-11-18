@@ -27,7 +27,7 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, ITierProvider, TaikoEven
     TaikoData.State public state;
     uint256[100] private __gap;
 
-    /// @dev Fallback function to receive Ether and deposit to Layer 2.
+    /// @dev Fallback function to receive Ether from Hooks
     receive() external payable {
         if (!_inNonReentrant()) revert L1_RECEIVE_DISABLED();
     }
