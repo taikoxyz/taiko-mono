@@ -105,8 +105,6 @@ library LibVerifying {
         // Retrieve the latest verified block and the associated transition used
         // for its verification.
         TaikoData.SlotB memory b = state.slotB;
-        if (b.provingPaused) return;
-
         uint64 blockId = b.lastVerifiedBlockId;
 
         uint64 slot = blockId % config.blockRingBufferSize;

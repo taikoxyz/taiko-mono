@@ -59,8 +59,10 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, ITierProvider, TaikoEven
         )
     {
         TaikoData.Config memory config = getConfig();
+
         (meta, depositsProcessed) =
             LibProposing.proposeBlock(state, config, AddressResolver(this), params, txList);
+
         if (!state.slotB.provingPaused && config.maxBlocksToVerifyPerProposal > 0) {
             LibVerifying.verifyBlocks(
                 state, config, AddressResolver(this), config.maxBlocksToVerifyPerProposal
@@ -74,6 +76,8 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, ITierProvider, TaikoEven
     /// @param input An abi-encoded (BlockMetadata, Transition, TierProof)
     /// tuple.
     function proveBlock(uint64 blockId, bytes calldata input) external nonReentrant whenNotPaused {
+        if (state.slotB.provingPaused) revert L1_PROVING_PAUSED();
+
         (
             TaikoData.BlockMetadata memory meta,
             TaikoData.Transition memory tran,
@@ -83,8 +87,10 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, ITierProvider, TaikoEven
         if (blockId != meta.id) revert L1_INVALID_BLOCK_ID();
 
         TaikoData.Config memory config = getConfig();
+
         uint8 maxBlocksToVerify =
             LibProving.proveBlock(state, config, AddressResolver(this), meta, tran, proof);
+
         if (maxBlocksToVerify > 0) {
             LibVerifying.verifyBlocks(state, config, AddressResolver(this), maxBlocksToVerify);
         }

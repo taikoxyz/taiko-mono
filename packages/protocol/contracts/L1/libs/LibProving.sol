@@ -423,9 +423,8 @@ library LibProving {
     }
 
     function pauseProving(TaikoData.State storage state, bool pause) internal {
-        if (state.slotB.provingPaused == pause) {
-            revert L1_INVALID_PAUSE_STATUS();
-        }
+        if (state.slotB.provingPaused == pause) revert L1_INVALID_PAUSE_STATUS();
+
         state.slotB.provingPaused = pause;
         emit ProvingPaused(pause);
     }
