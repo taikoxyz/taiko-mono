@@ -6,19 +6,13 @@
 
 pragma solidity ^0.8.20;
 
-import "../common/AddressResolver.sol";
 import "../common/EssentialContract.sol";
-import "../common/ICrossChainSync.sol";
-import "../common/Proxied.sol";
 import "./libs/LibDepositing.sol";
 import "./libs/LibProposing.sol";
 import "./libs/LibProving.sol";
-import "./libs/LibUtils.sol";
 import "./libs/LibVerifying.sol";
-import "./TaikoData.sol";
 import "./TaikoErrors.sol";
 import "./TaikoEvents.sol";
-import "./tiers/ITierProvider.sol";
 
 /// @title TaikoL1
 /// @dev Labeled in AddressResolver as "taiko"

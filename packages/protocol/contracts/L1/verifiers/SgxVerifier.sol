@@ -8,7 +8,6 @@ pragma solidity ^0.8.20;
 
 import "lib/openzeppelin-contracts-upgradeable/contracts/utils/cryptography/ECDSAUpgradeable.sol";
 import "../../common/EssentialContract.sol";
-import "../../common/Proxied.sol";
 import "../../thirdparty/LibBytesUtils.sol";
 import "../TaikoData.sol";
 import "./IVerifier.sol";

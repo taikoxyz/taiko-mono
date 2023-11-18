@@ -10,6 +10,7 @@ import "../../common/AddressResolver.sol";
 import "../../libs/LibAddress.sol";
 import "../../libs/LibMath.sol";
 import "../TaikoData.sol";
+import "../TaikoToken.sol";
 
 /// @title LibDepositing
 /// @notice A library for handling Ether deposits in the Taiko protocol.

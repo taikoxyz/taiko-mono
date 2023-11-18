@@ -7,8 +7,8 @@
 pragma solidity ^0.8.20;
 
 import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import "../../common/AddressResolver.sol";
 import "../../4844/IBlobHashReader.sol";
+import "../../common/AddressResolver.sol";
 import "../../libs/LibAddress.sol";
 import "../hooks/IHook.sol";
 import "../tiers/ITierProvider.sol";

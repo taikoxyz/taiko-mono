@@ -7,7 +7,6 @@
 pragma solidity ^0.8.20;
 
 import "../../common/EssentialContract.sol";
-import "../../common/Proxied.sol";
 import "../tiers/ITierProvider.sol";
 import "../TaikoData.sol";
 

@@ -10,6 +10,7 @@ import "../../common/AddressResolver.sol";
 import "../../signal/ISignalService.sol";
 import "../tiers/ITierProvider.sol";
 import "../TaikoData.sol";
+import "../TaikoToken.sol";
 import "./LibUtils.sol";
 
 /// @title LibVerifying

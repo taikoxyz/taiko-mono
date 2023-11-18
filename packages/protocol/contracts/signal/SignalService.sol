@@ -6,13 +6,10 @@
 
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts-upgradeable/contracts/utils/math/SafeCastUpgradeable.sol";
-
+import "lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
 import "../common/AuthorizableContract.sol";
 import "../common/ICrossChainSync.sol";
-import "../common/Proxied.sol";
 import "../thirdparty/LibSecureMerkleTrie.sol";
-
 import "./ISignalService.sol";
 
 /// @title SignalService
@@ -26,7 +23,7 @@ import "./ISignalService.sol";
 /// Note: SignalService should not authorize Bridges or other Bridgable
 /// applications.
 contract SignalService is AuthorizableContract, ISignalService {
-    using SafeCastUpgradeable for uint256;
+    using SafeCast for uint256;
 
     // storageProof represents ABI-encoded tuple of (key, value, and proof)
     // returned from the eth_getProof() API.

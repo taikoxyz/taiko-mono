@@ -6,17 +6,12 @@
 
 pragma solidity ^0.8.20;
 
-import { ERC20Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-
-import { EssentialContract } from "../../common/EssentialContract.sol";
-import { Proxied } from "../../common/Proxied.sol";
-import { LibAddress } from "../../libs/LibAddress.sol";
-
-import { TaikoData } from "../TaikoData.sol";
-import { TaikoToken } from "../TaikoToken.sol";
-
-import { IHook } from "./IHook.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import "../../common/EssentialContract.sol";
+import "../../libs/LibAddress.sol";
+import "../TaikoData.sol";
+import "../TaikoToken.sol";
+import "./IHook.sol";
 
 /// @title AssignmentHook
 /// A hook that handles prover assignment varification and fee processing.

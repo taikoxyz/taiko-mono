@@ -3,7 +3,6 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "forge-std/console2.sol";
-
 import "../../contracts/common/AddressManager.sol";
 import "../../contracts/L1/libs/LibUtils.sol";
 import "../../contracts/L1/libs/LibProposing.sol";

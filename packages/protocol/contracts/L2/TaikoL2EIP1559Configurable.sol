@@ -7,7 +7,6 @@
 pragma solidity ^0.8.20;
 
 import "./TaikoL2.sol";
-import "../common/Proxied.sol";
 
 /// @title TaikoL2EIP1559Configurable
 /// @notice Taiko L2 with a setter to change EIP-1559 configurations and states.

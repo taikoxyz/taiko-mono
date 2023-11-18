@@ -8,6 +8,7 @@ pragma solidity ^0.8.20;
 import "lib/openzeppelin-contracts-upgradeable/contracts/utils/introspection/IERC165Upgradeable.sol";
 import "../bridge/IBridge.sol";
 import "../common/EssentialContract.sol";
+import "../libs/LibAddress.sol";
 
 abstract contract BaseVault is EssentialContract, IRecallableSender, IERC165Upgradeable {
     error VAULT_PERMISSION_DENIED();

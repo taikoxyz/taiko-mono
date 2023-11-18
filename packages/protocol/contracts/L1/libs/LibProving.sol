@@ -10,6 +10,7 @@ import "../../common/AddressResolver.sol";
 import "../tiers/ITierProvider.sol";
 import "../verifiers/IVerifier.sol";
 import "../TaikoData.sol";
+import "../TaikoToken.sol";
 import "./LibUtils.sol";
 
 /// @title LibProving
