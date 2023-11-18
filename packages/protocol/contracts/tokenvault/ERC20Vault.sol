@@ -6,21 +6,16 @@
 
 pragma solidity ^0.8.20;
 
-import { TransparentUpgradeableProxy } from
-    "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-import { ERC20Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import { SafeERC20Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
-
-import { Proxied } from "../common/Proxied.sol";
-import { IBridge } from "../bridge/IBridge.sol";
-import { LibAddress } from "../libs/LibAddress.sol";
-
-import { BridgedERC20 } from "./BridgedERC20.sol";
-import { IMintableERC20 } from "./IMintableERC20.sol";
-import { BaseVault } from "./BaseVault.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import "../common/Proxied.sol";
+import "../bridge/IBridge.sol";
+import "../libs/LibAddress.sol";
+import "./BridgedERC20.sol";
+import "./IMintableERC20.sol";
+import "./BaseVault.sol";
 
 /// @title ERC20Vault
 /// @dev Labeled in AddressResolver as "erc20_vault"
@@ -77,10 +72,7 @@ contract ERC20Vault is BaseVault {
         uint256 amount
     );
     event TokenReleased(
-        bytes32 indexed msgHash,
-        address indexed from,
-        address token,
-        uint256 amount
+        bytes32 indexed msgHash, address indexed from, address token, uint256 amount
     );
     event TokenReceived(
         bytes32 indexed msgHash,
@@ -116,12 +108,8 @@ contract ERC20Vault is BaseVault {
         uint256 _amount;
         IBridge.Message memory message;
 
-        (message.data, _amount) = _handleMessage({
-            user: msg.sender,
-            token: op.token,
-            amount: op.amount,
-            to: op.to
-        });
+        (message.data, _amount) =
+            _handleMessage({ user: msg.sender, token: op.token, amount: op.amount, to: op.to });
 
         message.destChainId = op.destChainId;
         message.owner = msg.sender;
@@ -133,9 +121,8 @@ contract ERC20Vault is BaseVault {
         message.memo = op.memo;
 
         bytes32 msgHash;
-        (msgHash, _message) = IBridge(resolve("bridge", false)).sendMessage{
-            value: msg.value
-        }(message);
+        (msgHash, _message) =
+            IBridge(resolve("bridge", false)).sendMessage{ value: msg.value }(message);
 
         emit TokenSent({
             msgHash: msgHash,
@@ -199,9 +186,8 @@ contract ERC20Vault is BaseVault {
     {
         checkRecallMessageContext();
 
-        (, address token,, uint256 amount) = abi.decode(
-            message.data[4:], (CanonicalERC20, address, address, uint256)
-        );
+        (, address token,, uint256 amount) =
+            abi.decode(message.data[4:], (CanonicalERC20, address, address, uint256));
 
         if (token == address(0)) revert VAULT_INVALID_TOKEN();
 
@@ -215,12 +201,7 @@ contract ERC20Vault is BaseVault {
 
         message.owner.sendEther(message.value);
 
-        emit TokenReleased({
-            msgHash: msgHash,
-            from: message.owner,
-            token: token,
-            amount: amount
-        });
+        emit TokenReleased({ msgHash: msgHash, from: message.owner, token: token, amount: amount });
     }
 
     function name() public pure override returns (bytes32) {
@@ -269,17 +250,12 @@ contract ERC20Vault is BaseVault {
             // simply using `amount` -- some contract may deduct a fee from the
             // transferred amount.
             uint256 _balance = t.balanceOf(address(this));
-            t.transferFrom({
-                from: msg.sender,
-                to: address(this),
-                amount: amount
-            });
+            t.transferFrom({ from: msg.sender, to: address(this), amount: amount });
             _balanceChange = t.balanceOf(address(this)) - _balance;
         }
 
-        msgData = abi.encodeWithSelector(
-            this.receiveToken.selector, ctoken, user, to, _balanceChange
-        );
+        msgData =
+            abi.encodeWithSelector(this.receiveToken.selector, ctoken, user, to, _balanceChange);
     }
 
     /// @dev Retrieve or deploy a bridged ERC20 token contract.
@@ -301,10 +277,7 @@ contract ERC20Vault is BaseVault {
     /// this chain.
     /// @param ctoken CanonicalERC20 data.
     /// @return btoken Address of the deployed bridged token contract.
-    function _deployBridgedToken(CanonicalERC20 calldata ctoken)
-        private
-        returns (address btoken)
-    {
+    function _deployBridgedToken(CanonicalERC20 calldata ctoken) private returns (address btoken) {
         bytes memory data = bytes.concat(
             BridgedERC20.init.selector,
             abi.encode(

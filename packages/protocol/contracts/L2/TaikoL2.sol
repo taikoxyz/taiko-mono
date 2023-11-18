@@ -6,16 +6,13 @@
 
 pragma solidity ^0.8.20;
 
-import { Ownable2StepUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
-
-import { ICrossChainSync } from "../common/ICrossChainSync.sol";
-import { ISignalService } from "../signal/ISignalService.sol";
-import { Proxied } from "../common/Proxied.sol";
-import { LibMath } from "../libs/LibMath.sol";
-
-import { Lib1559Math } from "./Lib1559Math.sol";
-import { TaikoL2Signer } from "./TaikoL2Signer.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
+import "../common/ICrossChainSync.sol";
+import "../signal/ISignalService.sol";
+import "../common/Proxied.sol";
+import "../libs/LibMath.sol";
+import "./Lib1559Math.sol";
+import "./TaikoL2Signer.sol";
 
 /// @title TaikoL2
 /// @notice Taiko L2 is a smart contract that handles cross-layer message
@@ -57,13 +54,7 @@ contract TaikoL2 is Ownable2StepUpgradeable, TaikoL2Signer, ICrossChainSync {
     /// @notice Initializes the TaikoL2 contract.
     /// @param _signalService Address of the {ISignalService} contract.
     /// @param _gasExcess The initial gasExcess.
-    function init(
-        address _signalService,
-        uint64 _gasExcess
-    )
-        external
-        initializer
-    {
+    function init(address _signalService, uint64 _gasExcess) external initializer {
         Ownable2StepUpgradeable.__Ownable2Step_init();
 
         if (_signalService == address(0)) revert L2_INVALID_PARAM();
@@ -115,8 +106,7 @@ contract TaikoL2 is Ownable2StepUpgradeable, TaikoL2Signer, ICrossChainSync {
         }
 
         // Verify ancestor hashes
-        (bytes32 publicInputHashOld, bytes32 publicInputHashNew) =
-            _calcPublicInputHash(parentId);
+        (bytes32 publicInputHashOld, bytes32 publicInputHashNew) = _calcPublicInputHash(parentId);
         if (publicInputHash != publicInputHashOld) {
             revert L2_PUBLIC_INPUT_HASH_MISMATCH();
         }
@@ -133,9 +123,7 @@ contract TaikoL2 is Ownable2StepUpgradeable, TaikoL2Signer, ICrossChainSync {
         // Store the L1's signal root as a signal to the local signal service to
         // allow for multi-hop bridging.
         ISignalService(signalService).sendSignal(l1SignalRoot);
-        emit CrossChainSynced(
-            uint64(block.number), l1Height, l1BlockHash, l1SignalRoot
-        );
+        emit CrossChainSynced(uint64(block.number), l1Height, l1BlockHash, l1SignalRoot);
 
         // Update state variables
         l2Hashes[parentId] = blockhash(parentId);
@@ -267,9 +255,7 @@ contract TaikoL2 is Ownable2StepUpgradeable, TaikoL2Signer, ICrossChainSync {
             // block, however, the this block's gas used will affect the next
             // block's base fee.
             _basefee = Lib1559Math.basefee(
-                _gasExcess,
-                uint256(config.basefeeAdjustmentQuotient)
-                    * config.gasTargetPerL1Block
+                _gasExcess, uint256(config.basefeeAdjustmentQuotient) * config.gasTargetPerL1Block
             );
         }
 

@@ -6,16 +6,15 @@
 
 pragma solidity ^0.8.20;
 
-import { AddressResolver } from "../../common/AddressResolver.sol";
-import { IBlobHashReader } from "../../4844/IBlobHashReader.sol";
-import { LibAddress } from "../../libs/LibAddress.sol";
-
-import { IHook } from "../hooks/IHook.sol";
-import { ITierProvider } from "../tiers/ITierProvider.sol";
-import { TaikoData } from "../TaikoData.sol";
-import { TaikoToken } from "../TaikoToken.sol";
-
-import { LibDepositing } from "./LibDepositing.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import "../../common/AddressResolver.sol";
+import "../../4844/IBlobHashReader.sol";
+import "../../libs/LibAddress.sol";
+import "../hooks/IHook.sol";
+import "../tiers/ITierProvider.sol";
+import "../TaikoData.sol";
+import "./LibDepositing.sol";
+import "./LibTaikoToken.sol";
 
 /// @title LibProposing
 /// @notice A library for handling block proposals in the Taiko protocol.
@@ -65,8 +64,7 @@ library LibProposing {
             TaikoData.EthDeposit[] memory depositsProcessed
         )
     {
-        TaikoData.BlockParams memory params =
-            abi.decode(data, (TaikoData.BlockParams));
+        TaikoData.BlockParams memory params = abi.decode(data, (TaikoData.BlockParams));
 
         if (params.assignedProver == address(0)) {
             revert L1_INVALID_PROVER();
@@ -82,8 +80,7 @@ library LibProposing {
         // It's essential to ensure that the ring buffer for proposed blocks
         // still has space for at least one more block.
 
-        if (b.numBlocks >= b.lastVerifiedBlockId + config.blockMaxProposals + 1)
-        {
+        if (b.numBlocks >= b.lastVerifiedBlockId + config.blockMaxProposals + 1) {
             revert L1_TOO_MANY_BLOCKS();
         }
 
@@ -91,17 +88,13 @@ library LibProposing {
             state.blocks[(b.numBlocks - 1) % config.blockRingBufferSize];
 
         // Check if parent block has the right meta hash
-        if (
-            params.parentMetaHash != 0
-                && parent.metaHash != params.parentMetaHash
-        ) {
+        if (params.parentMetaHash != 0 && parent.metaHash != params.parentMetaHash) {
             revert L1_UNEXPECTED_PARENT();
         }
 
         // Each transaction must handle a specific quantity of L1-to-L2
         // Ether deposits.
-        depositsProcessed =
-            LibDepositing.processDeposits(state, config, msg.sender);
+        depositsProcessed = LibDepositing.processDeposits(state, config, msg.sender);
 
         // Initialize metadata to compute a metaHash, which forms a part of
         // the block data to be stored on-chain for future integrity checks.
@@ -142,9 +135,8 @@ library LibProposing {
                 // proposeBlock functions are called more than once in the same
                 // L1 transaction, these multiple L2 blocks will share the same
                 // blob.
-                meta.blobHash = IBlobHashReader(
-                    resolver.resolve("blob_hash_reader", false)
-                ).getFirstBlobHash();
+                meta.blobHash =
+                    IBlobHashReader(resolver.resolve("blob_hash_reader", false)).getFirstBlobHash();
 
                 if (meta.blobHash == 0) revert L1_BLOB_NOT_FOUND();
 
@@ -157,17 +149,13 @@ library LibProposing {
                 }
             }
 
-            if (
-                uint256(params.txListByteOffset) + params.txListByteSize
-                    > MAX_BYTES_PER_BLOB
-            ) {
+            if (uint256(params.txListByteOffset) + params.txListByteSize > MAX_BYTES_PER_BLOB) {
                 revert L1_TXLIST_OFFSET();
             }
 
-            if (
-                params.txListByteSize == 0
-                    || params.txListByteSize > config.blockMaxTxListBytes
-            ) revert L1_TXLIST_SIZE();
+            if (params.txListByteSize == 0 || params.txListByteSize > config.blockMaxTxListBytes) {
+                revert L1_TXLIST_SIZE();
+            }
 
             meta.txListByteOffset = params.txListByteOffset;
             meta.txListByteSize = params.txListByteSize;
@@ -198,20 +186,19 @@ library LibProposing {
         // Ethereum block, we must introduce a salt to this random
         // number as the L2 mixHash.
         unchecked {
-            meta.difficulty = meta.blobHash
-                ^ bytes32(block.prevrandao * b.numBlocks * block.number);
+            meta.difficulty = meta.blobHash ^ bytes32(block.prevrandao * b.numBlocks * block.number);
         }
 
         // Use the difficulty as a random number
-        meta.minTier = ITierProvider(resolver.resolve("tier_provider", false))
-            .getMinTier(uint256(meta.difficulty));
+        meta.minTier = ITierProvider(resolver.resolve("tier_provider", false)).getMinTier(
+            uint256(meta.difficulty)
+        );
 
         // Now, it's essential to initialize the block that will be stored
         // on L1. We should aim to utilize as few storage slots as possible,
         // alghouth using a ring buffer can minimize storage writes once
         // the buffer reaches its capacity.
-        TaikoData.Block storage blk =
-            state.blocks[b.numBlocks % config.blockRingBufferSize];
+        TaikoData.Block storage blk = state.blocks[b.numBlocks % config.blockRingBufferSize];
 
         // Please note that all fields must be re-initialized since we are
         // utilizing an existing ring buffer slot, not creating a new storage
@@ -267,15 +254,14 @@ library LibProposing {
                 // hook may send ether back to this contract
                 uint256 msgValue = address(this).balance - ethBalance;
 
-                IHook(params.hookCalls[i].hook).onBlockProposed{
-                    value: msgValue
-                }(blk, meta, params.hookCalls[i].data);
+                IHook(params.hookCalls[i].hook).onBlockProposed{ value: msgValue }(
+                    blk, meta, params.hookCalls[i].data
+                );
             }
 
             // Check that after hooks, the Taiko Token balance of this contract
             // have increased by at least config.livenessBond
-            if (tko.balanceOf(address(this)) < tkoBalance + config.livenessBond)
-            {
+            if (tko.balanceOf(address(this)) < tkoBalance + config.livenessBond) {
                 revert L1_LIVENESS_BOND_NOT_RECEIVED();
             }
         }
@@ -290,8 +276,7 @@ library LibProposing {
         view
         returns (bool)
     {
-        return
-            state.reusableBlobs[blobHash] + config.blobExpiry > block.timestamp;
+        return state.reusableBlobs[blobHash] + config.blobExpiry > block.timestamp;
     }
 
     function _isProposerPermitted(

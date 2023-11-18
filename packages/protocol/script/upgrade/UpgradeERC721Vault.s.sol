@@ -15,9 +15,6 @@ contract UpgradeERC721Vault is UpgradeScript {
     function run() external setUp {
         ERC721Vault newERC721Vault = new ProxiedSingletonERC721Vault();
         proxy.upgradeTo(address(newERC721Vault));
-        console2.log(
-            "proxy upgraded ERC721Vault implementation to",
-            address(newERC721Vault)
-        );
+        console2.log("proxy upgraded ERC721Vault implementation to", address(newERC721Vault));
     }
 }

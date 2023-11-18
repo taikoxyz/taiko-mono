@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { console2 } from "forge-std/console2.sol";
+import "forge-std/console2.sol";
 
-import { Lib1559Math } from "../../contracts/L2/Lib1559Math.sol";
-import { LibFixedPointMath } from
-    "../../contracts/thirdparty/LibFixedPointMath.sol";
-import { LibMath } from "../../contracts/libs/LibMath.sol";
+import "../../contracts/L2/Lib1559Math.sol";
+import "../../contracts/thirdparty/LibFixedPointMath.sol";
+import "../../contracts/libs/LibMath.sol";
 
-import { TestBase } from "../TestBase.sol";
+import "../TestBase.sol";
 
-contract TestLib1559Math is TestBase {
+contract TestLib1559Math is TaikoTest {
     using LibMath for uint256;
 
     function test_eip1559_math() external {
@@ -20,10 +19,7 @@ contract TestLib1559Math is TestBase {
         // The expected values are calculated in eip1559_util.py
         _assertAmostEq(
             999_999_916,
-            Lib1559Math.basefee({
-                gasExcess: 49_954_623_777,
-                adjustmentFactor: adjustmentFactor
-            })
+            Lib1559Math.basefee({ gasExcess: 49_954_623_777, adjustmentFactor: adjustmentFactor })
         );
 
         _assertAmostEq(

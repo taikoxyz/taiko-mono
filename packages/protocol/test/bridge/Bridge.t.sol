@@ -1,17 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { AddressManager } from "../../contracts/common/AddressManager.sol";
-import { IBridge, Bridge } from "../../contracts/bridge/Bridge.sol";
-import { console2 } from "forge-std/console2.sol";
-import { SignalService } from "../../contracts/signal/SignalService.sol";
-import {
-    TestBase,
-    SkipProofCheckSignal,
-    DummyCrossChainSync,
-    GoodReceiver,
-    BadReceiver
-} from "../TestBase.sol";
+import "forge-std/console2.sol";
+import "../../contracts/common/AddressManager.sol";
+import "../../contracts/bridge/Bridge.sol";
+import "../../contracts/signal/SignalService.sol";
+import "../TestBase.sol";
 
 // A contract which is not our ErcXXXTokenVault
 // Which in such case, the sent funds are still recoverable, but not via the
@@ -28,7 +22,7 @@ contract UntrustedSendMessageRelayer {
     }
 }
 
-contract BridgeTest is TestBase {
+contract BridgeTest is TaikoTest {
     AddressManager addressManager;
     BadReceiver badReceiver;
     GoodReceiver goodReceiver;
@@ -66,24 +60,16 @@ contract BridgeTest is TestBase {
         vm.deal(address(untrustedSenderContract), 10 ether);
 
         addressManager.setAddress(
-            uint64(block.chainid),
-            "signal_service",
-            address(mockProofSignalService)
+            uint64(block.chainid), "signal_service", address(mockProofSignalService)
         );
 
-        addressManager.setAddress(
-            destChainId, "signal_service", address(mockProofSignalService)
-        );
+        addressManager.setAddress(destChainId, "signal_service", address(mockProofSignalService));
 
-        addressManager.setAddress(
-            destChainId, "bridge", address(destChainBridge)
-        );
+        addressManager.setAddress(destChainId, "bridge", address(destChainBridge));
 
         addressManager.setAddress(destChainId, "taiko", address(uint160(123)));
 
-        addressManager.setAddress(
-            uint64(block.chainid), "bridge", address(bridge)
-        );
+        addressManager.setAddress(uint64(block.chainid), "bridge", address(bridge));
 
         vm.stopPrank();
     }
@@ -162,9 +148,7 @@ contract BridgeTest is TestBase {
         assertEq(Bob.balance, 1000);
     }
 
-    function test_Bridge_send_ether_to_contract_with_value_and_message_data()
-        public
-    {
+    function test_Bridge_send_ether_to_contract_with_value_and_message_data() public {
         goodReceiver = new GoodReceiver();
 
         IBridge.Message memory message = IBridge.Message({
@@ -201,10 +185,7 @@ contract BridgeTest is TestBase {
         assertEq(Carol.balance, 500);
     }
 
-    function test_Bridge_send_message_ether_reverts_if_value_doesnt_match_expected(
-    )
-        public
-    {
+    function test_Bridge_send_message_ether_reverts_if_value_doesnt_match_expected() public {
         // uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
             owner: Alice,
@@ -219,9 +200,7 @@ contract BridgeTest is TestBase {
         bridge.sendMessage(message);
     }
 
-    function test_Bridge_send_message_ether_reverts_when_owner_is_zero_address()
-        public
-    {
+    function test_Bridge_send_message_ether_reverts_when_owner_is_zero_address() public {
         uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
             owner: address(0),
@@ -236,10 +215,7 @@ contract BridgeTest is TestBase {
         bridge.sendMessage{ value: amount }(message);
     }
 
-    function test_Bridge_send_message_ether_reverts_when_dest_chain_is_not_enabled(
-    )
-        public
-    {
+    function test_Bridge_send_message_ether_reverts_when_dest_chain_is_not_enabled() public {
         uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
             owner: Alice,
@@ -254,8 +230,7 @@ contract BridgeTest is TestBase {
         bridge.sendMessage{ value: amount }(message);
     }
 
-    function test_Bridge_send_message_ether_reverts_when_dest_chain_same_as_block_chainid(
-    )
+    function test_Bridge_send_message_ether_reverts_when_dest_chain_same_as_block_chainid()
         public
     {
         uint256 amount = 1 wei;
@@ -283,8 +258,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        (, IBridge.Message memory _message) =
-            bridge.sendMessage{ value: amount }(message);
+        (, IBridge.Message memory _message) = bridge.sendMessage{ value: amount }(message);
         assertEq(bridge.isMessageSent(_message), true);
     }
 
@@ -300,8 +274,7 @@ contract BridgeTest is TestBase {
             destChain: destChainId
         });
 
-        (, IBridge.Message memory _message) =
-            bridge.sendMessage{ value: amount + fee }(message);
+        (, IBridge.Message memory _message) = bridge.sendMessage{ value: amount + fee }(message);
         assertEq(bridge.isMessageSent(_message), true);
     }
 
@@ -321,8 +294,7 @@ contract BridgeTest is TestBase {
         uint256 starterBalanceAlice = Alice.balance;
 
         vm.prank(Alice, Alice);
-        (, IBridge.Message memory _message) =
-            bridge.sendMessage{ value: amount + fee }(message);
+        (, IBridge.Message memory _message) = bridge.sendMessage{ value: amount + fee }(message);
         assertEq(bridge.isMessageSent(_message), true);
 
         assertEq(address(bridge).balance, (starterBalanceVault + amount + fee));
@@ -333,9 +305,7 @@ contract BridgeTest is TestBase {
         assertEq(Alice.balance, (starterBalanceAlice - fee));
     }
 
-    function test_Bridge_recall_message_but_not_supports_recall_interface()
-        public
-    {
+    function test_Bridge_recall_message_but_not_supports_recall_interface() public {
         // In this test we expect that the 'message value is still refundable,
         // just not via
         // ERCXXTokenVault (message.from) but directly from the Bridge
@@ -353,9 +323,7 @@ contract BridgeTest is TestBase {
 
         uint256 starterBalanceVault = address(bridge).balance;
 
-        untrustedSenderContract.sendMessage(
-            address(bridge), message, amount + fee
-        );
+        untrustedSenderContract.sendMessage(address(bridge), message, amount + fee);
 
         assertEq(address(bridge).balance, (starterBalanceVault + amount + fee));
 
@@ -364,9 +332,7 @@ contract BridgeTest is TestBase {
         assertEq(address(bridge).balance, (starterBalanceVault + fee));
     }
 
-    function test_Bridge_send_message_ether_with_processing_fee_invalid_amount()
-        public
-    {
+    function test_Bridge_send_message_ether_with_processing_fee_invalid_amount() public {
         uint256 amount = 0 wei;
         uint256 fee = 1 wei;
         IBridge.Message memory message = newMessage({
@@ -451,9 +417,7 @@ contract BridgeTest is TestBase {
         destChainBridge.retryMessage(message, true);
     }
 
-    function retry_message_reverts_when_last_attempt_and_message_is_not_owner()
-        public
-    {
+    function retry_message_reverts_when_last_attempt_and_message_is_not_owner() public {
         vm.startPrank(Alice);
         IBridge.Message memory message = newMessage({
             owner: Bob,
@@ -480,17 +444,13 @@ contract BridgeTest is TestBase {
         uint64 dest = 1337;
         addressManager.setAddress(dest, "taiko", address(crossChainSync));
 
-        addressManager.setAddress(
-            1336, "bridge", 0x564540a26Fb667306b3aBdCB4ead35BEb88698ab
-        );
+        addressManager.setAddress(1336, "bridge", 0x564540a26Fb667306b3aBdCB4ead35BEb88698ab);
 
         addressManager.setAddress(dest, "bridge", address(destChainBridge));
 
         vm.deal(address(bridge), 100 ether);
 
-        addressManager.setAddress(
-            dest, "signal_service", address(mockProofSignalService)
-        );
+        addressManager.setAddress(dest, "signal_service", address(mockProofSignalService));
 
         crossChainSync.setSyncedData(
             0xd5f5d8ac6bc37139c97389b00e9cf53e89c153ad8a5fc765ffe9f44ea9f3d31e,

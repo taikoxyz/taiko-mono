@@ -6,11 +6,12 @@
 
 pragma solidity ^0.8.20;
 
+import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
+import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
-import
-    "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
+
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
@@ -57,13 +58,11 @@ contract DeployOnL1 is Script {
 
     address public singletonBridge = vm.envAddress("SINGLETON_BRIDGE");
 
-    address public singletonSignalService =
-        vm.envAddress("SINGLETON_SIGNAL_SERVICE");
+    address public singletonSignalService = vm.envAddress("SINGLETON_SIGNAL_SERVICE");
 
     uint256 public tierProvider = vm.envUint("TIER_PROVIDER");
 
-    address public taikoTokenPremintRecipient =
-        vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
+    address public taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
 
     TaikoL1 taikoL1;
     address public addressManagerProxy;
@@ -76,29 +75,20 @@ contract DeployOnL1 is Script {
         require(owner != address(0), "owner is zero");
         require(taikoL2Address != address(0), "taikoL2Address is zero");
         require(l2SignalService != address(0), "l2SignalService is zero");
-        require(
-            guardianProvers.length == NUM_GUARDIANS,
-            "invalid guardian provers number"
-        );
+        require(guardianProvers.length == NUM_GUARDIANS, "invalid guardian provers number");
         if (singletonBridge == address(0)) {
             require(
-                singletonSignalService == address(0),
-                "non-empty singleton signal service address"
+                singletonSignalService == address(0), "non-empty singleton signal service address"
             );
         } else {
-            require(
-                singletonSignalService != address(0),
-                "empty singleton signal service address"
-            );
+            require(singletonSignalService != address(0), "empty singleton signal service address");
         }
         vm.startBroadcast(deployerPrivateKey);
 
         // AddressManager
         AddressManager addressManager = new ProxiedAddressManager();
         addressManagerProxy = deployProxy(
-            "address_manager",
-            address(addressManager),
-            bytes.concat(addressManager.init.selector)
+            "address_manager", address(addressManager), bytes.concat(addressManager.init.selector)
         );
 
         // TaikoL1
@@ -124,10 +114,7 @@ contract DeployOnL1 is Script {
             bytes.concat(
                 taikoToken.init.selector,
                 abi.encode(
-                    addressManagerProxy,
-                    "Taiko Token Katla",
-                    "TTKOk",
-                    taikoTokenPremintRecipient
+                    addressManagerProxy, "Taiko Token Katla", "TTKOk", taikoTokenPremintRecipient
                 )
             )
         );
@@ -139,10 +126,7 @@ contract DeployOnL1 is Script {
         address taikoL1Proxy = deployProxy(
             "taiko",
             address(taikoL1),
-            bytes.concat(
-                taikoL1.init.selector,
-                abi.encode(addressManagerProxy, genesisHash)
-            )
+            bytes.concat(taikoL1.init.selector, abi.encode(addressManagerProxy, genesisHash))
         );
         setAddress("taiko", taikoL1Proxy);
 
@@ -166,9 +150,7 @@ contract DeployOnL1 is Script {
         address guardianProverProxy = deployProxy(
             "guardian_prover",
             address(guardianProver),
-            bytes.concat(
-                guardianProver.init.selector, abi.encode(addressManagerProxy)
-            )
+            bytes.concat(guardianProver.init.selector, abi.encode(addressManagerProxy))
         );
         address[NUM_GUARDIANS] memory guardians;
         for (uint256 i = 0; i < NUM_GUARDIANS; ++i) {
@@ -177,20 +159,14 @@ contract DeployOnL1 is Script {
         ProxiedGuardianProver(guardianProverProxy).setGuardians(guardians);
 
         // Config provider
-        deployProxy(
-            "tier_provider",
-            deployTierProvider(uint256(TierProviders.TAIKO_ALPHA6)),
-            ""
-        );
+        deployProxy("tier_provider", deployTierProvider(uint256(TierProviders.TAIKO_ALPHA6)), "");
 
         // GuardianVerifier
         GuardianVerifier guardianVerifier = new ProxiedGuardianVerifier();
         deployProxy(
             "tier_guardian",
             address(guardianVerifier),
-            bytes.concat(
-                guardianVerifier.init.selector, abi.encode(addressManagerProxy)
-            )
+            bytes.concat(guardianVerifier.init.selector, abi.encode(addressManagerProxy))
         );
 
         // SgxVerifier
@@ -198,9 +174,7 @@ contract DeployOnL1 is Script {
         deployProxy(
             "tier_sgx",
             address(sgxVerifier),
-            bytes.concat(
-                sgxVerifier.init.selector, abi.encode(addressManagerProxy)
-            )
+            bytes.concat(sgxVerifier.init.selector, abi.encode(addressManagerProxy))
         );
 
         // SgxAndZkVerifier
@@ -208,9 +182,7 @@ contract DeployOnL1 is Script {
         deployProxy(
             "tier_sgx_and_pse_zkevm",
             address(sgxAndZkVerifier),
-            bytes.concat(
-                sgxVerifier.init.selector, abi.encode(addressManagerProxy)
-            )
+            bytes.concat(sgxVerifier.init.selector, abi.encode(addressManagerProxy))
         );
 
         // PseZkVerifier
@@ -218,9 +190,7 @@ contract DeployOnL1 is Script {
         deployProxy(
             "tier_pse_zkevm",
             address(pseZkVerifier),
-            bytes.concat(
-                pseZkVerifier.init.selector, abi.encode(addressManagerProxy)
-            )
+            bytes.concat(pseZkVerifier.init.selector, abi.encode(addressManagerProxy))
         );
 
         // PlonkVerifier
@@ -231,18 +201,14 @@ contract DeployOnL1 is Script {
 
     function deployPlonkVerifiers(PseZkVerifier pseZkVerifier) private {
         address[] memory plonkVerifiers = new address[](1);
-        plonkVerifiers[0] =
-            deployYulContract("contracts/L1/verifiers/PlonkVerifier.yulp");
+        plonkVerifiers[0] = deployYulContract("contracts/L1/verifiers/PlonkVerifier.yulp");
 
         for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
             setAddress(pseZkVerifier.getVerifierName(i), plonkVerifiers[i]);
         }
     }
 
-    function deployYulContract(string memory contractPath)
-        private
-        returns (address)
-    {
+    function deployYulContract(string memory contractPath) private returns (address) {
         string[] memory cmds = new string[](3);
         cmds[0] = "bash";
         cmds[1] = "-c";
@@ -269,10 +235,7 @@ contract DeployOnL1 is Script {
         return deployedAddress;
     }
 
-    function deployTierProvider(uint256 tier)
-        private
-        returns (address providerAddress)
-    {
+    function deployTierProvider(uint256 tier) private returns (address providerAddress) {
         if (tier == uint256(TierProviders.TAIKO_ALPHA6)) {
             return address(new TaikoA6TierProvider());
         }
@@ -296,10 +259,7 @@ contract DeployOnL1 is Script {
             addressManagerForSingletonsProxy,
             "bridge",
             address(bridge),
-            bytes.concat(
-                bridge.init.selector,
-                abi.encode(addressManagerForSingletonsProxy)
-            )
+            bytes.concat(bridge.init.selector, abi.encode(addressManagerForSingletonsProxy))
         );
 
         // ERC20Vault
@@ -308,10 +268,7 @@ contract DeployOnL1 is Script {
             addressManagerForSingletonsProxy,
             "erc20_vault",
             address(erc20Vault),
-            bytes.concat(
-                erc20Vault.init.selector,
-                abi.encode(addressManagerForSingletonsProxy)
-            )
+            bytes.concat(erc20Vault.init.selector, abi.encode(addressManagerForSingletonsProxy))
         );
 
         // ERC721Vault
@@ -320,10 +277,7 @@ contract DeployOnL1 is Script {
             addressManagerForSingletonsProxy,
             "erc721_vault",
             address(erc721Vault),
-            bytes.concat(
-                erc721Vault.init.selector,
-                abi.encode(addressManagerForSingletonsProxy)
-            )
+            bytes.concat(erc721Vault.init.selector, abi.encode(addressManagerForSingletonsProxy))
         );
 
         // ERC1155Vault
@@ -332,10 +286,7 @@ contract DeployOnL1 is Script {
             addressManagerForSingletonsProxy,
             "erc1155_vault",
             address(erc1155Vault),
-            bytes.concat(
-                erc1155Vault.init.selector,
-                abi.encode(addressManagerForSingletonsProxy)
-            )
+            bytes.concat(erc1155Vault.init.selector, abi.encode(addressManagerForSingletonsProxy))
         );
 
         // SignalService
@@ -344,10 +295,7 @@ contract DeployOnL1 is Script {
             addressManagerForSingletonsProxy,
             "signal_service",
             address(signalService),
-            bytes.concat(
-                signalService.init.selector,
-                abi.encode(addressManagerForSingletonsProxy)
-            )
+            bytes.concat(signalService.init.selector, abi.encode(addressManagerForSingletonsProxy))
         );
 
         // Deploy ProxiedBridged token contracts
@@ -391,16 +339,12 @@ contract DeployOnL1 is Script {
         private
         returns (address proxy)
     {
-        proxy = address(
-            new TransparentUpgradeableProxy(implementation, owner, data)
-        );
+        proxy = address(new TransparentUpgradeableProxy(implementation, owner, data));
 
         console2.log(name, "(impl) ->", implementation);
         console2.log(name, "(proxy) ->", proxy);
 
-        setAddress(
-            addressManager, uint64(block.chainid), bytes32(bytes(name)), proxy
-        );
+        setAddress(addressManager, uint64(block.chainid), bytes32(bytes(name)), proxy);
 
         vm.writeJson(
             vm.serializeAddress("deployment", name, proxy),

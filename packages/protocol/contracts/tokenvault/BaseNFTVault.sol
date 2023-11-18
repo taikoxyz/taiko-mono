@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-import { BaseVault } from "./BaseVault.sol";
+import "./BaseVault.sol";
 
 /// @title BaseNFTVault
 /// @notice Abstract contract for bridging NFTs across different chains.

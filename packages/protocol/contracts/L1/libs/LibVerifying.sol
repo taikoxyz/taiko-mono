@@ -6,14 +6,12 @@
 
 pragma solidity ^0.8.20;
 
-import { AddressResolver } from "../../common/AddressResolver.sol";
-import { ISignalService } from "../../signal/ISignalService.sol";
-
-import { ITierProvider } from "../tiers/ITierProvider.sol";
-import { TaikoData } from "../TaikoData.sol";
-import { TaikoToken } from "../TaikoToken.sol";
-
-import { LibUtils } from "./LibUtils.sol";
+import "../../common/AddressResolver.sol";
+import "../../signal/ISignalService.sol";
+import "../tiers/ITierProvider.sol";
+import "../TaikoData.sol";
+import "./LibTaikoToken.sol";
+import "./LibUtils.sol";
 
 /// @title LibVerifying
 /// @notice A library for handling block verification in the Taiko protocol.
@@ -30,10 +28,7 @@ library LibVerifying {
     );
 
     event CrossChainSynced(
-        uint64 indexed syncedInBlock,
-        uint64 indexed blockId,
-        bytes32 blockHash,
-        bytes32 signalRoot
+        uint64 indexed syncedInBlock, uint64 indexed blockId, bytes32 blockHash, bytes32 signalRoot
     );
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
@@ -78,11 +73,7 @@ library LibVerifying {
         });
     }
 
-    function isConfigValid(TaikoData.Config memory config)
-        public
-        pure
-        returns (bool isValid)
-    {
+    function isConfigValid(TaikoData.Config memory config) public pure returns (bool isValid) {
         if (
             config.chainId <= 1 //
                 || config.blockMaxProposals == 1
@@ -91,15 +82,12 @@ library LibVerifying {
                 || config.blockMaxTxListBytes > 128 * 1024 // calldata up to 128K
                 || config.livenessBond == 0 || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
-                || config.ethDepositMaxCountPerBlock
-                    < config.ethDepositMinCountPerBlock
+                || config.ethDepositMaxCountPerBlock < config.ethDepositMinCountPerBlock
                 || config.ethDepositMinAmount == 0
                 || config.ethDepositMaxAmount <= config.ethDepositMinAmount
-                || config.ethDepositMaxAmount >= type(uint96).max
-                || config.ethDepositGas == 0 || config.ethDepositMaxFee == 0
-                || config.ethDepositMaxFee >= type(uint96).max
-                || config.ethDepositMaxFee
-                    >= type(uint96).max / config.ethDepositMaxCountPerBlock
+                || config.ethDepositMaxAmount >= type(uint96).max || config.ethDepositGas == 0
+                || config.ethDepositMaxFee == 0 || config.ethDepositMaxFee >= type(uint96).max
+                || config.ethDepositMaxFee >= type(uint96).max / config.ethDepositMaxCountPerBlock
         ) return false;
 
         return true;
@@ -159,8 +147,7 @@ library LibVerifying {
                 if (tid == 0) break;
 
                 // A transition with the correct `parentHash` has been located.
-                TaikoData.TransitionState storage ts =
-                    state.transitions[slot][tid];
+                TaikoData.TransitionState storage ts = state.transitions[slot][tid];
 
                 // It's not possible to verify this block if either the
                 // transition is contested and awaiting higher-tier proof or if
@@ -172,10 +159,8 @@ library LibVerifying {
                         tierProvider = resolver.resolve("tier_provider", false);
                     }
                     if (
-                        uint256(
-                            ITierProvider(tierProvider).getTier(ts.tier)
-                                .cooldownWindow
-                        ) + ts.timestamp > block.timestamp
+                        uint256(ITierProvider(tierProvider).getTier(ts.tier).cooldownWindow)
+                            + ts.timestamp > block.timestamp
                     ) {
                         // If cooldownWindow is 0, the block can theoretically
                         // be proved and verified within the same L1 block.
@@ -200,8 +185,7 @@ library LibVerifying {
                 // reward to the actual prover, while the assigned prover
                 // forfeits his liveness bond due to failure to fulfill their
                 // commitment.
-                uint256 bondToReturn =
-                    uint256(ts.validityBond) + blk.livenessBond;
+                uint256 bondToReturn = uint256(ts.validityBond) + blk.livenessBond;
 
                 // Nevertheless, it's possible for the actual prover to be the
                 // same individual or entity as the block's assigned prover.
@@ -211,8 +195,7 @@ library LibVerifying {
                     bondToReturn -= blk.livenessBond / 2;
                 }
 
-                TaikoToken tko =
-                    TaikoToken(resolver.resolve("taiko_token", false));
+                TaikoToken tko = TaikoToken(resolver.resolve("taiko_token", false));
                 tko.transfer(ts.prover, bondToReturn);
 
                 // Note: We exclusively address the bonds linked to the
@@ -245,14 +228,10 @@ library LibVerifying {
 
                 // Store the L2's signal root as a signal to the local signal
                 // service to allow for multi-hop bridging.
-                ISignalService(resolver.resolve("signal_service", false))
-                    .sendSignal(signalRoot);
+                ISignalService(resolver.resolve("signal_service", false)).sendSignal(signalRoot);
 
                 emit CrossChainSynced(
-                    uint64(block.number),
-                    lastVerifiedBlockId,
-                    blockHash,
-                    signalRoot
+                    uint64(block.number), lastVerifiedBlockId, blockHash, signalRoot
                 );
             }
         }

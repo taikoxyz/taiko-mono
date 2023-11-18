@@ -6,8 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-import { ERC20 } from
-    "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
 // An ERC20 Token with a mint function anyone can call, for free, to receive
 // 5 tokens.

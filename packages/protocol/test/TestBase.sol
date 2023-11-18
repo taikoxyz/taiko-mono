@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { Test } from "forge-std/Test.sol";
-import { Bridge } from "../contracts/bridge/Bridge.sol";
-import { SignalService } from "../contracts/signal/SignalService.sol";
-import { ICrossChainSync } from "../contracts/common/ICrossChainSync.sol";
-import { EssentialContract } from "../contracts/common/EssentialContract.sol";
+import "forge-std/Test.sol";
+import "../contracts/bridge/Bridge.sol";
+import "../contracts/signal/SignalService.sol";
+import "../contracts/common/ICrossChainSync.sol";
+import "../contracts/common/EssentialContract.sol";
 
-abstract contract TestBase is Test {
+abstract contract TaikoTest is Test {
     uint256 private _seed = 0x12345678;
 
     function getRandomAddress() internal returns (address) {

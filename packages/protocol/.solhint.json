@@ -12,6 +12,7 @@
     "payable-fallback": "off",
     "no-console": "off",
     "avoid-tx-origin": "off",
-    "one-contract-per-file": "off"
+    "one-contract-per-file": "off",
+    "no-global-import": "off"
   }
 }

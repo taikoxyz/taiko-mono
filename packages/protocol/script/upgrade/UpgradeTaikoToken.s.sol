@@ -15,9 +15,6 @@ contract UpgradeTaikoToken is UpgradeScript {
     function run() external setUp {
         TaikoToken newTaikoToken = new ProxiedTaikoToken();
         proxy.upgradeTo(address(newTaikoToken));
-        console2.log(
-            "proxy upgraded TaikoToken implementation to",
-            address(newTaikoToken)
-        );
+        console2.log("proxy upgraded TaikoToken implementation to", address(newTaikoToken));
     }
 }

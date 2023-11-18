@@ -15,9 +15,6 @@ contract UpgradeAddressManager is UpgradeScript {
     function run() external setUp {
         AddressManager newAddressManager = new ProxiedAddressManager();
         proxy.upgradeTo(address(newAddressManager));
-        console2.log(
-            "proxy upgraded AddressManager implementation to",
-            address(newAddressManager)
-        );
+        console2.log("proxy upgraded AddressManager implementation to", address(newAddressManager));
     }
 }

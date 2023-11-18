@@ -6,15 +6,13 @@
 
 pragma solidity ^0.8.20;
 
-import { EssentialContract } from "../../common/EssentialContract.sol";
-import { Lib4844 } from "../../4844/Lib4844.sol";
-import { Proxied } from "../../common/Proxied.sol";
-import { Proxied } from "../../common/Proxied.sol";
-import { LibBytesUtils } from "../../thirdparty/LibBytesUtils.sol";
-
-import { TaikoData } from "../TaikoData.sol";
-
-import { IVerifier } from "./IVerifier.sol";
+import "../../common/EssentialContract.sol";
+import "../../4844/Lib4844.sol";
+import "../../common/Proxied.sol";
+import "../../common/Proxied.sol";
+import "../../thirdparty/LibBytesUtils.sol";
+import "../TaikoData.sol";
+import "./IVerifier.sol";
 
 /// @title PseZkVerifier
 /// @notice See the documentation in {IVerifier}.
@@ -88,8 +86,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
         // Validate the instance using bytes utilities.
         bool verified = LibBytesUtils.equal(
-            LibBytesUtils.slice(zkProof.zkp, 0, 32),
-            bytes.concat(bytes16(0), bytes16(instance))
+            LibBytesUtils.slice(zkProof.zkp, 0, 32), bytes.concat(bytes16(0), bytes16(instance))
         );
 
         if (!verified) revert L1_INVALID_PROOF();
@@ -102,8 +99,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
         // Delegate to the ZKP verifier library to validate the proof.
         // Resolve the verifier's name and obtain its address.
-        address verifierAddress =
-            resolve(getVerifierName(zkProof.verifierId), false);
+        address verifierAddress = resolve(getVerifierName(zkProof.verifierId), false);
 
         // Call the verifier contract with the provided proof.
         bytes memory ret;
@@ -123,8 +119,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         pure
         returns (uint256)
     {
-        return uint256(keccak256(abi.encodePacked(blobHash, txListHash)))
-            % Lib4844.BLS_MODULUS;
+        return uint256(keccak256(abi.encodePacked(blobHash, txListHash))) % Lib4844.BLS_MODULUS;
     }
 
     function calcInstance(
@@ -138,9 +133,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         pure
         returns (bytes32 instance)
     {
-        return keccak256(
-            abi.encode(tran, prover, metaHash, txListHash, pointValue)
-        );
+        return keccak256(abi.encode(tran, prover, metaHash, txListHash, pointValue));
     }
 
     function getVerifierName(uint16 id) public pure returns (bytes32) {

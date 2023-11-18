@@ -1,24 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { console2 } from "forge-std/console2.sol";
-import { stdJson } from "forge-std/StdJson.sol";
-import { Test } from "forge-std/Test.sol";
+import  "forge-std/console2.sol";
+import  "forge-std/StdJson.sol";
+import  "forge-std/Test.sol";
 
-import { TransparentUpgradeableProxy } from "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import  "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-import { AddressManager } from "../contracts/common/AddressManager.sol";
-import { AddressResolver } from "../contracts/common/AddressResolver.sol";
-import { EssentialContract } from "../contracts/common/EssentialContract.sol";
-import { Bridge } from "../contracts/bridge/Bridge.sol";
-import { ERC1155Vault } from "../contracts/tokenvault/ERC1155Vault.sol";
-import { ERC20Vault } from "../contracts/tokenvault/ERC20Vault.sol";
-import { ERC721Vault } from "../contracts/tokenvault/ERC721Vault.sol";
-import { IBridge } from "../contracts/bridge/IBridge.sol";
-import { RegularERC20 } from "../contracts/test/erc20/RegularERC20.sol";
-import { SignalService } from "../contracts/signal/SignalService.sol";
-import { TaikoL2 } from "../contracts/L2/TaikoL2.sol";
-
+import  "../contracts/common/AddressManager.sol";
+import  "../contracts/common/AddressResolver.sol";
+import  "../contracts/common/EssentialContract.sol";
+import  "../contracts/bridge/Bridge.sol";
+import  "../contracts/tokenvault/ERC1155Vault.sol";
+import  "../contracts/tokenvault/ERC20Vault.sol";
+import  "../contracts/tokenvault/ERC721Vault.sol";
+import  "../contracts/bridge/IBridge.sol";
+import  "../contracts/test/erc20/RegularERC20.sol";
+import  "../contracts/signal/SignalService.sol";
+import  "../contracts/L2/TaikoL2.sol";
 
 contract TestGenerateGenesis is Test, AddressResolver {
     using stdJson for string;

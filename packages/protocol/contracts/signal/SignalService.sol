@@ -6,15 +6,14 @@
 
 pragma solidity ^0.8.20;
 
-import { SafeCastUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/math/SafeCastUpgradeable.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/utils/math/SafeCastUpgradeable.sol";
 
-import { AuthorizableContract } from "../common/AuthorizableContract.sol";
-import { ICrossChainSync } from "../common/ICrossChainSync.sol";
-import { Proxied } from "../common/Proxied.sol";
-import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
+import "../common/AuthorizableContract.sol";
+import "../common/ICrossChainSync.sol";
+import "../common/Proxied.sol";
+import "../thirdparty/LibSecureMerkleTrie.sol";
 
-import { ISignalService } from "./ISignalService.sol";
+import "./ISignalService.sol";
 
 /// @title SignalService
 /// @dev Labeled in AddressResolver as "signal_service"
@@ -62,14 +61,7 @@ contract SignalService is AuthorizableContract, ISignalService {
     }
 
     /// @inheritdoc ISignalService
-    function isSignalSent(
-        address app,
-        bytes32 signal
-    )
-        public
-        view
-        returns (bool)
-    {
+    function isSignalSent(address app, bytes32 signal) public view returns (bool) {
         if (signal == 0) revert SS_INVALID_SIGNAL();
         if (app == address(0)) revert SS_INVALID_APP();
         bytes32 slot = getSignalSlot(uint64(block.chainid), app, signal);
@@ -93,10 +85,7 @@ contract SignalService is AuthorizableContract, ISignalService {
     {
         if (skipProofCheck()) return true;
 
-        if (
-            app == address(0) || signal == 0 || srcChainId == 0
-                || srcChainId == block.chainid
-        ) {
+        if (app == address(0) || signal == 0 || srcChainId == 0 || srcChainId == block.chainid) {
             return false;
         }
 
@@ -120,9 +109,7 @@ contract SignalService is AuthorizableContract, ISignalService {
             return false;
         }
 
-        bytes32 signalRoot = ICrossChainSync(p.crossChainSync).getSyncedSnippet(
-            p.height
-        ).signalRoot;
+        bytes32 signalRoot = ICrossChainSync(p.crossChainSync).getSyncedSnippet(p.height).signalRoot;
 
         if (signalRoot == 0) return false;
 

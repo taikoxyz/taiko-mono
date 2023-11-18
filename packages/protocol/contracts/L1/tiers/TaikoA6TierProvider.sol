@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-import { ITierProvider, LibTiers } from "./ITierProvider.sol";
+import "./ITierProvider.sol";
 
 /// @title TaikoA6TierProvider
 /// @dev Labeled in AddressResolver as "tier_provider"
@@ -19,12 +19,7 @@ import { ITierProvider, LibTiers } from "./ITierProvider.sol";
 contract TaikoA6TierProvider is ITierProvider {
     error TIER_NOT_FOUND();
 
-    function getTier(uint16 tierId)
-        public
-        pure
-        override
-        returns (ITierProvider.Tier memory)
-    {
+    function getTier(uint16 tierId) public pure override returns (ITierProvider.Tier memory) {
         if (tierId == LibTiers.TIER_OPTIMISTIC) {
             return ITierProvider.Tier({
                 verifierName: "tier_optimistic",
@@ -72,12 +67,7 @@ contract TaikoA6TierProvider is ITierProvider {
         revert TIER_NOT_FOUND();
     }
 
-    function getTierIds()
-        public
-        pure
-        override
-        returns (uint16[] memory tiers)
-    {
+    function getTierIds() public pure override returns (uint16[] memory tiers) {
         tiers = new uint16[](4);
         tiers[0] = LibTiers.TIER_OPTIMISTIC;
         tiers[1] = LibTiers.TIER_SGX;

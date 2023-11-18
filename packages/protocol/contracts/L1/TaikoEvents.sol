@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-import { TaikoData } from "./TaikoData.sol";
+import "./TaikoData.sol";
 
 /// @title TaikoEvents
 /// @notice This abstract contract provides event declarations for the Taiko

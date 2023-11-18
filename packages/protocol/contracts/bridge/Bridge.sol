@@ -5,12 +5,11 @@
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 pragma solidity ^0.8.20;
 
-import { EssentialContract } from "../common/EssentialContract.sol";
-import { Proxied } from "../common/Proxied.sol";
-import { ISignalService } from "../signal/ISignalService.sol";
-import { LibAddress } from "../libs/LibAddress.sol";
-
-import { IBridge, IRecallableSender } from "./IBridge.sol";
+import "../common/EssentialContract.sol";
+import "../common/Proxied.sol";
+import "../signal/ISignalService.sol";
+import "../libs/LibAddress.sol";
+import "./IBridge.sol";
 
 /// @title Bridge
 /// @dev Labeled in AddressResolver as "bridge"
@@ -126,28 +125,23 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 msgHash = hashMessage(message);
         if (isMessageRecalled[msgHash]) revert B_RECALLED_ALREADY();
 
-        bool received = _proveSignalReceived(
-            _signalForFailedMessage(msgHash), message.destChainId, proof
-        );
+        bool received =
+            _proveSignalReceived(_signalForFailedMessage(msgHash), message.destChainId, proof);
         if (!received) revert B_NOT_FAILED();
 
         isMessageRecalled[msgHash] = true;
 
         // Execute the recall logic based on the contract's support for the
         // IRecallableSender interface
-        bool support =
-            message.from.supportsInterface(type(IRecallableSender).interfaceId);
+        bool support = message.from.supportsInterface(type(IRecallableSender).interfaceId);
         if (support) {
-            _ctx = Context({
-                msgHash: msgHash,
-                from: address(this),
-                srcChainId: message.srcChainId
-            });
+            _ctx =
+                Context({ msgHash: msgHash, from: address(this), srcChainId: message.srcChainId });
 
             // Perform recall
-            IRecallableSender(message.from).onMessageRecalled{
-                value: message.value
-            }(message, msgHash);
+            IRecallableSender(message.from).onMessageRecalled{ value: message.value }(
+                message, msgHash
+            );
 
             // Reset the context after the message call
             _ctx = Context({
@@ -204,8 +198,7 @@ contract Bridge is EssentialContract, IBridge {
         } else {
             // Use the specified message gas limit if called by the owner, else
             // use remaining gas
-            uint256 gasLimit =
-                msg.sender == message.owner ? gasleft() : message.gasLimit;
+            uint256 gasLimit = msg.sender == message.owner ? gasleft() : message.gasLimit;
 
             if (_invokeMessageCall(message, msgHash, gasLimit)) {
                 status = Status.DONE;
@@ -218,8 +211,7 @@ contract Bridge is EssentialContract, IBridge {
         _updateMessageStatus(msgHash, status);
 
         // Determine the refund recipient
-        address refundTo =
-            message.refundTo == address(0) ? message.owner : message.refundTo;
+        address refundTo = message.refundTo == address(0) ? message.owner : message.refundTo;
 
         // Refund the processing fee
         if (msg.sender == refundTo) {
@@ -273,11 +265,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Checks if the message was sent.
     /// @param message The message.
     /// @return True if the message was sent.
-    function isMessageSent(Message calldata message)
-        public
-        view
-        returns (bool)
-    {
+    function isMessageSent(Message calldata message) public view returns (bool) {
         if (message.srcChainId != block.chainid) return false;
         return ISignalService(resolve("signal_service", false)).isSignalSent({
             app: address(this),
@@ -299,9 +287,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         if (message.srcChainId != block.chainid) return false;
         return _proveSignalReceived(
-            _signalForFailedMessage(hashMessage(message)),
-            message.destChainId,
-            proof
+            _signalForFailedMessage(hashMessage(message)), message.destChainId, proof
         );
     }
 
@@ -318,9 +304,7 @@ contract Bridge is EssentialContract, IBridge {
         returns (bool)
     {
         if (message.destChainId != block.chainid) return false;
-        return _proveSignalReceived(
-            hashMessage(message), message.srcChainId, proof
-        );
+        return _proveSignalReceived(hashMessage(message), message.srcChainId, proof);
     }
 
     /// @notice Checks if the destination chain is enabled.
@@ -346,11 +330,7 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @notice Hash the message
-    function hashMessage(Message memory message)
-        public
-        pure
-        returns (bytes32)
-    {
+    function hashMessage(Message memory message) public pure returns (bytes32) {
         return keccak256(abi.encode("TAIKO_MESSAGE", message));
     }
 
@@ -373,15 +353,10 @@ contract Bridge is EssentialContract, IBridge {
         if (gasLimit == 0) revert B_INVALID_GAS_LIMIT();
         assert(message.from != address(this));
 
-        _ctx = Context({
-            msgHash: msgHash,
-            from: message.from,
-            srcChainId: message.srcChainId
-        });
+        _ctx = Context({ msgHash: msgHash, from: message.from, srcChainId: message.srcChainId });
 
         // Perform the message call and capture the success value
-        (success,) =
-            message.to.call{ value: message.value, gas: gasLimit }(message.data);
+        (success,) = message.to.call{ value: message.value, gas: gasLimit }(message.data);
 
         // Reset the context after the message call
         _ctx = Context({
@@ -423,8 +398,7 @@ contract Bridge is EssentialContract, IBridge {
         view
         returns (bool)
     {
-        return ISignalService(resolve("signal_service", false))
-            .proveSignalReceived({
+        return ISignalService(resolve("signal_service", false)).proveSignalReceived({
             srcChainId: srcChainId,
             app: resolve(srcChainId, "bridge", false),
             signal: signal,
@@ -432,11 +406,7 @@ contract Bridge is EssentialContract, IBridge {
         });
     }
 
-    function _signalForFailedMessage(bytes32 msgHash)
-        private
-        pure
-        returns (bytes32)
-    {
+    function _signalForFailedMessage(bytes32 msgHash) private pure returns (bytes32) {
         return msgHash ^ bytes32(uint256(Status.FAILED));
     }
 }
