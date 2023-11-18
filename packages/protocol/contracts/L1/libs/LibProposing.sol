@@ -231,14 +231,6 @@ library LibProposing {
             ++state.slotB.numBlocks;
         }
 
-        emit BlockProposed({
-            blockId: blk.blockId,
-            assignedProver: blk.assignedProver,
-            livenessBond: config.livenessBond,
-            meta: meta,
-            depositsProcessed: depositsProcessed
-        });
-
         {
             TaikoToken tko = TaikoToken(resolver.resolve("taiko_token", false));
             uint256 tkoBalance = tko.balanceOf(address(this));
@@ -264,6 +256,14 @@ library LibProposing {
                 revert L1_LIVENESS_BOND_NOT_RECEIVED();
             }
         }
+
+        emit BlockProposed({
+            blockId: blk.blockId,
+            assignedProver: blk.assignedProver,
+            livenessBond: config.livenessBond,
+            meta: meta,
+            depositsProcessed: depositsProcessed
+        });
     }
 
     function isBlobReusable(
