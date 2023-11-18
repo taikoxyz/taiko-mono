@@ -22,6 +22,7 @@ import "./TaikoEvents.sol";
 /// deployed on L1, it can also be deployed on L2s to create L3s ("inception
 /// layers"). The contract also handles the deposit and withdrawal of Taiko
 /// tokens and Ether.
+/// This contract doesn't hold any Ether. Ether deposited to L2 are held by the Bridge contract.
 contract TaikoL1 is EssentialContract, ICrossChainSync, ITierProvider, TaikoEvents, TaikoErrors {
     TaikoData.State public state;
     uint256[100] private __gap;

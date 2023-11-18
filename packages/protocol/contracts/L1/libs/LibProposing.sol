@@ -246,14 +246,14 @@ library LibProposing {
             // Run all hooks.
             // Note that address(this).balance has been updated with msg.value,
             // prior to any code in this function has been executed.
-            uint256 ethBalance = address(this).balance - msg.value;
 
             // Run hooks
             for (uint256 i; i < params.hookCalls.length; ++i) {
-                // hook may send ether back to this contract
-                uint256 msgValue = address(this).balance - ethBalance;
-
-                IHook(params.hookCalls[i].hook).onBlockProposed{ value: msgValue }(
+                // When a hook is called, all ether in this contract will be send to the hook.
+                // If the ether sent to the hook is not used entirely, the hook shall send the Ether
+                // back to this contract for the next hook to use.
+                // Proposers shall choose use extra hooks wisely.
+                IHook(params.hookCalls[i].hook).onBlockProposed{ value: address(this).balance }(
                     blk, meta, params.hookCalls[i].data
                 );
             }
