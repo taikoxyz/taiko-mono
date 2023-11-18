@@ -44,9 +44,7 @@ contract AssignmentHook is EssentialContract, IHook {
     uint256 public constant MAX_GAS_PAYING_PROVER = 200_000;
 
     event BlockAssigned(
-        address indexed assignedProver,
-        TaikoData.BlockMetadata meta,
-        ProverAssignment assignment
+        address indexed assignedProver, TaikoData.BlockMetadata meta, ProverAssignment assignment
     );
 
     error HOOK_ASSIGNMENT_EXPIRED();
@@ -76,8 +74,7 @@ contract AssignmentHook is EssentialContract, IHook {
             block.timestamp > assignment.expiry
                 || assignment.metaHash != 0 && blk.metaHash != assignment.metaHash
                 || assignment.maxBlockId != 0 && meta.id > assignment.maxBlockId
-                || assignment.maxProposedIn != 0
-                    && block.number > assignment.maxProposedIn
+                || assignment.maxProposedIn != 0 && block.number > assignment.maxProposedIn
         ) {
             revert HOOK_ASSIGNMENT_EXPIRED();
         }
