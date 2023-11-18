@@ -15,8 +15,6 @@ contract UpgradeBridge is UpgradeScript {
     function run() external setUp {
         Bridge newBridge = new ProxiedSingletonBridge();
         proxy.upgradeTo(address(newBridge));
-        console2.log(
-            "proxy upgraded Bridge implementation to", address(newBridge)
-        );
+        console2.log("proxy upgraded Bridge implementation to", address(newBridge));
     }
 }

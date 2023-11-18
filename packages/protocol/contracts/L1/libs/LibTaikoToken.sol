@@ -6,10 +6,9 @@
 
 pragma solidity ^0.8.20;
 
-import { AddressResolver } from "../../common/AddressResolver.sol";
-
-import { TaikoData } from "../TaikoData.sol";
-import { TaikoToken } from "../TaikoToken.sol";
+import "../../common/AddressResolver.sol";
+import "../TaikoData.sol";
+import "../TaikoToken.sol";
 
 library LibTaikoToken {
     event TokenDeposited(uint256 amount);
@@ -54,20 +53,12 @@ library LibTaikoToken {
             state.tokenBalances[msg.sender] -= amount;
         }
 
-        TaikoToken(resolver.resolve("taiko_token", false)).transfer(
-            msg.sender, amount
-        );
+        TaikoToken(resolver.resolve("taiko_token", false)).transfer(msg.sender, amount);
 
         emit TokenWithdrawn(amount);
     }
 
-    function creditTaikoToken(
-        TaikoData.State storage state,
-        address to,
-        uint256 amount
-    )
-        internal
-    {
+    function creditTaikoToken(TaikoData.State storage state, address to, uint256 amount) internal {
         if (amount == 0 || to == address(0)) return;
         unchecked {
             state.tokenBalances[to] += amount;

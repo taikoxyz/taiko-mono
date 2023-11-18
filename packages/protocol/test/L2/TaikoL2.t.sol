@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { console2 } from "forge-std/console2.sol";
-import { Strings } from "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
-import { SafeCastUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/math/SafeCastUpgradeable.sol";
-import { AddressManager } from "../../contracts/common/AddressManager.sol";
-import { SignalService } from "../../contracts/signal/SignalService.sol";
-import { TaikoL2EIP1559Configurable } from
-    "../../contracts/L2/TaikoL2EIP1559Configurable.sol";
-import { TaikoL2 } from "../../contracts/L2/TaikoL2.sol";
-import { TestBase } from "../TestBase.sol";
+import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/utils/math/SafeCastUpgradeable.sol";
+import "forge-std/console2.sol";
+import "../../contracts/common/AddressManager.sol";
+import "../../contracts/signal/SignalService.sol";
+import "../../contracts/L2/TaikoL2EIP1559Configurable.sol";
+import "../../contracts/L2/TaikoL2.sol";
+import "../TestBase.sol";
 
 contract SkipBasefeeCheckL2 is TaikoL2EIP1559Configurable {
     function skipFeeCheck() public pure override returns (bool) {
@@ -18,7 +16,7 @@ contract SkipBasefeeCheckL2 is TaikoL2EIP1559Configurable {
     }
 }
 
-contract TestTaikoL2 is TestBase {
+contract TestTaikoL2 is TaikoTest {
     using SafeCastUpgradeable for uint256;
 
     // Initial salt for semi-random generation
@@ -51,9 +49,7 @@ contract TestTaikoL2 is TestBase {
         gasExcess = 195_420_300_100;
 
         L2FeeSimulation.init(address(ss), gasExcess);
-        L2FeeSimulation.setConfigAndExcess(
-            TaikoL2.Config(gasTarget, quotient), gasExcess
-        );
+        L2FeeSimulation.setConfigAndExcess(TaikoL2.Config(gasTarget, quotient), gasExcess);
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);
@@ -146,12 +142,7 @@ contract TestTaikoL2 is TestBase {
             newRandomWithoutSalt = uint256(
                 keccak256(
                     abi.encodePacked(
-                        block.prevrandao,
-                        msg.sender,
-                        block.timestamp,
-                        i,
-                        newRandomWithoutSalt,
-                        salt
+                        block.prevrandao, msg.sender, block.timestamp, i, newRandomWithoutSalt, salt
                     )
                 )
             );
@@ -160,11 +151,8 @@ contract TestTaikoL2 is TestBase {
             if (maxDiffToMinGas == 0) {
                 currentGasUsed = uint32(minGas);
             } else {
-                currentGasUsed = uint32(
-                    pickRandomNumber(
-                        newRandomWithoutSalt, minGas, maxDiffToMinGas
-                    )
-                );
+                currentGasUsed =
+                    uint32(pickRandomNumber(newRandomWithoutSalt, minGas, maxDiffToMinGas));
             }
             salt = uint256(keccak256(abi.encodePacked(currentGasUsed, salt)));
             accumulated_parent_gas_per_l1_block += currentGasUsed;
@@ -174,20 +162,14 @@ contract TestTaikoL2 is TestBase {
             if (maxDiffToQuickest == 0) {
                 currentTimeAhead = uint8(quickest);
             } else {
-                currentTimeAhead = uint8(
-                    pickRandomNumber(
-                        newRandomWithoutSalt, quickest, maxDiffToQuickest
-                    )
-                );
+                currentTimeAhead =
+                    uint8(pickRandomNumber(newRandomWithoutSalt, quickest, maxDiffToQuickest));
             }
             accumulated_seconds += currentTimeAhead;
 
             if (accumulated_seconds >= 12) {
                 console2.log(
-                    "Gas used per L1 block:",
-                    l1Height,
-                    ":",
-                    accumulated_parent_gas_per_l1_block
+                    "Gas used per L1 block:", l1Height, ":", accumulated_parent_gas_per_l1_block
                 );
                 l1Height++;
                 l1BlockCounter++;
@@ -197,8 +179,7 @@ contract TestTaikoL2 is TestBase {
 
             vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
             _anchorSimulation(currentGasUsed, l1Height);
-            uint256 currentBaseFee =
-                L2FeeSimulation.getBasefee(l1Height, currentGasUsed);
+            uint256 currentBaseFee = L2FeeSimulation.getBasefee(l1Height, currentGasUsed);
             allBaseFee += currentBaseFee;
             console2.log("Actual gas in L2 block is:", currentGasUsed);
             console2.log("L2block to baseFee is:", i, ":", currentBaseFee);
@@ -207,13 +188,8 @@ contract TestTaikoL2 is TestBase {
             vm.warp(block.timestamp + currentTimeAhead);
         }
 
-        console2.log(
-            "Average wei gas price per L2 block is:",
-            (allBaseFee / maxL2BlockCount)
-        );
-        console2.log(
-            "Average gasUsed per L1 block:", (allGasUsed / l1BlockCounter)
-        );
+        console2.log("Average wei gas price per L2 block is:", (allBaseFee / maxL2BlockCount));
+        console2.log("Average gasUsed per L1 block:", (allGasUsed / l1BlockCounter));
     }
 
     // calling anchor in the same block more than once should fail
@@ -257,12 +233,7 @@ contract TestTaikoL2 is TestBase {
         L2.anchor(l1Hash, l1SignalRoot, 12_345, parentGasLimit);
     }
 
-    function _anchorSimulation(
-        uint32 parentGasLimit,
-        uint64 l1Height
-    )
-        private
-    {
+    function _anchorSimulation(uint32 parentGasLimit, uint64 l1Height) private {
         bytes32 l1Hash = getRandomBytes32();
         bytes32 l1SignalRoot = getRandomBytes32();
         L2FeeSimulation.anchor(l1Hash, l1SignalRoot, l1Height, parentGasLimit);

@@ -6,10 +6,8 @@
 
 pragma solidity ^0.8.20;
 
-import { Ownable2StepUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
-
-import { Proxied } from "./Proxied.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
+import "./Proxied.sol";
 
 /// @title IAddressManager
 /// @notice Specifies methods to manage address mappings for given chainId-name
@@ -21,13 +19,7 @@ interface IAddressManager {
     /// @param chainId The chainId for which the address needs to be fetched.
     /// @param name The name for which the address needs to be fetched.
     /// @return Address associated with the chainId-name pair.
-    function getAddress(
-        uint64 chainId,
-        bytes32 name
-    )
-        external
-        view
-        returns (address);
+    function getAddress(uint64 chainId, bytes32 name) external view returns (address);
 }
 
 /// @title AddressManager
@@ -37,10 +29,7 @@ contract AddressManager is Ownable2StepUpgradeable, IAddressManager {
     uint256[49] private __gap;
 
     event AddressSet(
-        uint64 indexed chainId,
-        bytes32 indexed name,
-        address newAddress,
-        address oldAddress
+        uint64 indexed chainId, bytes32 indexed name, address newAddress, address oldAddress
     );
 
     /// @notice Initializes the owner for the upgradable contract.
@@ -67,15 +56,7 @@ contract AddressManager is Ownable2StepUpgradeable, IAddressManager {
     }
 
     /// @inheritdoc IAddressManager
-    function getAddress(
-        uint64 chainId,
-        bytes32 name
-    )
-        public
-        view
-        override
-        returns (address)
-    {
+    function getAddress(uint64 chainId, bytes32 name) public view override returns (address) {
         return addresses[chainId][name];
     }
 }

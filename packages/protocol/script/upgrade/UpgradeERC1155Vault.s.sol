@@ -15,9 +15,6 @@ contract UpgradeERC1155Vault is UpgradeScript {
     function run() external setUp {
         ERC1155Vault newERC1155Vault = new ProxiedSingletonERC1155Vault();
         proxy.upgradeTo(address(newERC1155Vault));
-        console2.log(
-            "proxy upgraded ERC1155Vault implementation to",
-            address(newERC1155Vault)
-        );
+        console2.log("proxy upgraded ERC1155Vault implementation to", address(newERC1155Vault));
     }
 }

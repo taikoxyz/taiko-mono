@@ -6,21 +6,16 @@
 
 pragma solidity ^0.8.20;
 
+import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
-
 import "../contracts/signal/SignalService.sol";
-
-import
-    "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract AuthorizeRemoteTaikoProtocols is Script {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
-    address public signalServiceAddress =
-        vm.envAddress("SIGNAL_SERVICE_ADDRESS");
+    address public signalServiceAddress = vm.envAddress("SIGNAL_SERVICE_ADDRESS");
     uint256[] public remoteChainIDs = vm.envUint("REMOTE_CHAIN_IDS", ",");
-    address[] public remoteTaikoProtocols =
-        vm.envAddress("REMOTE_TAIKO_PROTOCOLS", ",");
+    address[] public remoteTaikoProtocols = vm.envAddress("REMOTE_TAIKO_PROTOCOLS", ",");
 
     function run() external {
         require(
@@ -34,9 +29,7 @@ contract AuthorizeRemoteTaikoProtocols is Script {
             ProxiedSingletonSignalService(payable(signalServiceAddress));
         for (uint256 i; i < remoteChainIDs.length; ++i) {
             console2.log(remoteTaikoProtocols[i], "--->", remoteChainIDs[i]);
-            signalService.authorize(
-                remoteTaikoProtocols[i], bytes32(remoteChainIDs[i])
-            );
+            signalService.authorize(remoteTaikoProtocols[i], bytes32(remoteChainIDs[i]));
         }
 
         vm.stopBroadcast();

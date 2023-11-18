@@ -27,18 +27,8 @@ interface IOwnable {
 /// forge script TransferOwnership --sig "run(address,address)"  <address>
 /// <address>
 contract TransferOwnership is UpgradeScript {
-    function run(
-        address contractAddr,
-        address timeLockContract
-    )
-        external
-        setUp
-    {
+    function run(address contractAddr, address timeLockContract) external setUp {
         IOwnable(contractAddr).transferOwnership(timeLockContract);
-        console2.log(
-            contractAddr,
-            " contract has a new owner:",
-            address(timeLockContract)
-        );
+        console2.log(contractAddr, " contract has a new owner:", address(timeLockContract));
     }
 }

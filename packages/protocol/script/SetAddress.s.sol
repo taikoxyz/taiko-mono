@@ -11,8 +11,7 @@ import "forge-std/console2.sol";
 
 import "../contracts/common/AddressManager.sol";
 
-import
-    "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract SetAddress is Script {
     uint256 public adminPrivateKey = vm.envUint("PRIVATE_KEY");

@@ -1,24 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { Test } from "forge-std/Test.sol";
-import { console2 } from "forge-std/console2.sol";
-import { AddressManager } from "../../contracts/common/AddressManager.sol";
-import { LibUtils } from "../../contracts/L1/libs/LibUtils.sol";
-import { TaikoData } from "../../contracts/L1/TaikoData.sol";
-import { TaikoErrors } from "../../contracts/L1/TaikoErrors.sol";
-import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
-import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
-import { SignalService } from "../../contracts/signal/SignalService.sol";
-import { TaikoL1TestBase } from "./TaikoL1TestBase.sol";
+import "forge-std/Test.sol";
+import "forge-std/console2.sol";
+import "../../contracts/common/AddressManager.sol";
+import "../../contracts/L1/libs/LibUtils.sol";
+import "../../contracts/L1/TaikoData.sol";
+import "../../contracts/L1/TaikoErrors.sol";
+import "../../contracts/L1/TaikoL1.sol";
+import "../../contracts/L1/TaikoToken.sol";
+import "../../contracts/signal/SignalService.sol";
+import "./TaikoL1TestBase.sol";
 
 contract TaikoL1_NoCooldown is TaikoL1 {
-    function getConfig()
-        public
-        view
-        override
-        returns (TaikoData.Config memory config)
-    {
+    function getConfig() public view override returns (TaikoData.Config memory config) {
         config = TaikoL1.getConfig();
         // over-write the following
         config.maxBlocksToVerifyPerProposal = 0;
@@ -59,27 +54,15 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
-        for (
-            uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++
-        ) {
+        for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             //printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) =
-                proposeBlock(Alice, Bob, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
-            proveBlock(
-                Bob,
-                Bob,
-                meta,
-                parentHash,
-                blockHash,
-                signalRoot,
-                meta.minTier,
-                ""
-            );
+            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot, meta.minTier, "");
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = meta.minTier;
@@ -106,23 +89,13 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId <= 20; ++blockId) {
             printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) =
-                proposeBlock(Alice, Bob, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
 
-            proveBlock(
-                Bob,
-                Bob,
-                meta,
-                parentHash,
-                blockHash,
-                signalRoot,
-                meta.minTier,
-                ""
-            );
+            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot, meta.minTier, "");
             vm.roll(block.number + 15 * 12);
             uint16 minTier = meta.minTier;
             vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow + 1);
@@ -145,26 +118,15 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
-        for (uint256 blockId = 1; blockId <= conf.blockMaxProposals; blockId++)
-        {
+        for (uint256 blockId = 1; blockId <= conf.blockMaxProposals; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) =
-                proposeBlock(Alice, Bob, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
 
-            proveBlock(
-                Bob,
-                Bob,
-                meta,
-                parentHash,
-                blockHash,
-                signalRoot,
-                meta.minTier,
-                ""
-            );
+            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot, meta.minTier, "");
             parentHash = blockHash;
         }
 
@@ -223,9 +185,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         console2.log("gas used with eth deposits:", gasUsedWithDeposits);
 
         printVariables("after processing send-ethers");
-        assertTrue(
-            keccak256(abi.encode(depositsProcessed)) != emptyDepositsRoot
-        );
+        assertTrue(keccak256(abi.encode(depositsProcessed)) != emptyDepositsRoot);
         assertEq(depositsProcessed.length, count);
 
         gas = gasleft();
@@ -234,8 +194,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         console2.log("gas used without eth deposits:", gasUsedWithoutDeposits);
 
-        uint256 gasPerEthDeposit =
-            (gasUsedWithDeposits - gasUsedWithoutDeposits) / count;
+        uint256 gasPerEthDeposit = (gasUsedWithDeposits - gasUsedWithoutDeposits) / count;
 
         console2.log("gas per eth deposit:", gasPerEthDeposit);
         console2.log("ethDepositMaxCountPerBlock:", count);
@@ -276,14 +235,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             signalRoot = bytes32(1e9 + uint256(blockId));
 
             proveBlock(
-                Bob,
-                Bob,
-                meta,
-                parentHashes[blockId - 1],
-                blockHash,
-                signalRoot,
-                meta.minTier,
-                ""
+                Bob, Bob, meta, parentHashes[blockId - 1], blockHash, signalRoot, meta.minTier, ""
             );
 
             vm.roll(block.number + 15 * 12);

@@ -1,18 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { AddressManager } from "../../contracts/common/AddressManager.sol";
-import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
-import { Bridge } from "../../contracts/bridge/Bridge.sol";
-import { BridgedERC20 } from "../../contracts/tokenvault/BridgedERC20.sol";
-import { console } from "forge-std/console.sol";
-import { FreeMintERC20 } from "../../contracts/test/erc20/FreeMintERC20.sol";
-import { SignalService } from "../../contracts/signal/SignalService.sol";
-import { TestBase, DummyCrossChainSync } from "../TestBase.sol";
+import "forge-std/console.sol";
+import "forge-std/console2.sol";
+import "../../contracts/common/AddressManager.sol";
+import "../../contracts/common/AddressResolver.sol";
+import "../../contracts/bridge/Bridge.sol";
+import "../../contracts/tokenvault/BridgedERC20.sol";
+import "../../contracts/test/erc20/FreeMintERC20.sol";
+import "../../contracts/signal/SignalService.sol";
+import "../TestBase.sol";
 
-import { console2 } from "forge-std/console2.sol";
-
-contract TestSignalService is TestBase {
+contract TestSignalService is TaikoTest {
     AddressManager addressManager;
 
     SignalService signalService;
@@ -37,13 +36,9 @@ contract TestSignalService is TestBase {
         crossChainSync = new DummyCrossChainSync();
         crossChainSync.init(address(addressManager));
 
-        addressManager.setAddress(
-            uint64(block.chainid), "signal_service", address(signalService)
-        );
+        addressManager.setAddress(uint64(block.chainid), "signal_service", address(signalService));
 
-        addressManager.setAddress(
-            destChainId, "signal_service", address(destSignalService)
-        );
+        addressManager.setAddress(destChainId, "signal_service", address(destSignalService));
 
         addressManager.setAddress(destChainId, "taiko", address(crossChainSync));
 
@@ -88,19 +83,15 @@ contract TestSignalService is TestBase {
             // contract, this is why this chainId.
         address app = 0x927a146e18294efb36edCacC99D9aCEA6aB16b95; // Mock app,
             // actually it is an EOA, but it is ok for tests!
-        bytes32 signal =
-            0x21761f7cd1af3972774272b39a0f4602dbcd418325cddb14e156b4bb073d52a8;
+        bytes32 signal = 0x21761f7cd1af3972774272b39a0f4602dbcd418325cddb14e156b4bb073d52a8;
         bytes memory inclusionProof =
             hex"e5a4e3a1209749684f52b5c0717a7ca78127fb56043d637d81763c04e9d30ba4d4746d56e901"; //eth_getProof's
             // result RLP encoded storage proof
-        bytes32 signalRoot =
-            0xf7916f389ccda56e3831e115238b7389b30750886785a3c21265601572698f0f; //eth_getProof
+        bytes32 signalRoot = 0xf7916f389ccda56e3831e115238b7389b30750886785a3c21265601572698f0f; //eth_getProof
             // result's storage hash
 
         vm.startPrank(Alice);
-        signalService.authorize(
-            address(crossChainSync), bytes32(uint256(block.chainid))
-        );
+        signalService.authorize(address(crossChainSync), bytes32(uint256(block.chainid)));
 
         crossChainSync.setSyncedData("", signalRoot);
 
@@ -111,9 +102,8 @@ contract TestSignalService is TestBase {
         p.storageProof = inclusionProof;
         p.hops = h;
 
-        bool isSignalReceived = signalService.proveSignalReceived(
-            chainId, app, signal, abi.encode(p)
-        );
+        bool isSignalReceived =
+            signalService.proveSignalReceived(chainId, app, signal, abi.encode(p));
         assertEq(isSignalReceived, true);
     }
 
@@ -171,9 +161,8 @@ contract TestSignalService is TestBase {
 
         p.hops = h;
 
-        bool isSignalReceived = signalService.proveSignalReceived(
-            chainId, app, signal_of_L2A_msgHash, abi.encode(p)
-        );
+        bool isSignalReceived =
+            signalService.proveSignalReceived(chainId, app, signal_of_L2A_msgHash, abi.encode(p));
         assertEq(isSignalReceived, true);
     }
 }

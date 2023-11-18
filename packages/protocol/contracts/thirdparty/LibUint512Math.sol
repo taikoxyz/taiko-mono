@@ -33,14 +33,7 @@ library LibUint512Math {
     /// @param b The second uint256 operand.
     /// @return r0 The lower 256 bits of the result.
     /// @return r1 The higher 256 bits of the result.
-    function mul(
-        uint256 a,
-        uint256 b
-    )
-        internal
-        pure
-        returns (uint256 r0, uint256 r1)
-    {
+    function mul(uint256 a, uint256 b) internal pure returns (uint256 r0, uint256 r1) {
         assembly {
             // Calculate modulo of the multiplication by the largest 256-bit
             // number.

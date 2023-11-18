@@ -6,18 +6,14 @@
 
 pragma solidity ^0.8.20;
 
-import { ERC20Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-
-import { AddressResolver } from "../../common/AddressResolver.sol";
-import { IBlobHashReader } from "../../4844/IBlobHashReader.sol";
-import { LibAddress } from "../../libs/LibAddress.sol";
-
-import { ITierProvider } from "../tiers/ITierProvider.sol";
-import { TaikoData } from "../TaikoData.sol";
-
-import { LibDepositing } from "./LibDepositing.sol";
-import { LibTaikoToken } from "./LibTaikoToken.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import "../../common/AddressResolver.sol";
+import "../../4844/IBlobHashReader.sol";
+import "../../libs/LibAddress.sol";
+import "../tiers/ITierProvider.sol";
+import "../TaikoData.sol";
+import "./LibDepositing.sol";
+import "./LibTaikoToken.sol";
 
 /// @title LibProposing
 /// @notice A library for handling block proposals in the Taiko protocol.
@@ -76,8 +72,7 @@ library LibProposing {
             TaikoData.EthDeposit[] memory depositsProcessed
         )
     {
-        TaikoData.BlockParams memory params =
-            abi.decode(data, (TaikoData.BlockParams));
+        TaikoData.BlockParams memory params = abi.decode(data, (TaikoData.BlockParams));
 
         // Taiko, as a Based Rollup, enables permissionless block proposals.
         // However, if the "proposer" address is set to a non-zero value, we
@@ -89,8 +84,7 @@ library LibProposing {
         // It's essential to ensure that the ring buffer for proposed blocks
         // still has space for at least one more block.
 
-        if (b.numBlocks >= b.lastVerifiedBlockId + config.blockMaxProposals + 1)
-        {
+        if (b.numBlocks >= b.lastVerifiedBlockId + config.blockMaxProposals + 1) {
             revert L1_TOO_MANY_BLOCKS();
         }
 
@@ -98,17 +92,13 @@ library LibProposing {
             state.blocks[(b.numBlocks - 1) % config.blockRingBufferSize];
 
         // Check if parent block has the right meta hash
-        if (
-            params.parentMetaHash != 0
-                && parent.metaHash != params.parentMetaHash
-        ) {
+        if (params.parentMetaHash != 0 && parent.metaHash != params.parentMetaHash) {
             revert L1_UNEXPECTED_PARENT();
         }
 
         // Each transaction must handle a specific quantity of L1-to-L2
         // Ether deposits.
-        depositsProcessed =
-            LibDepositing.processDeposits(state, config, msg.sender);
+        depositsProcessed = LibDepositing.processDeposits(state, config, msg.sender);
 
         // Initialize metadata to compute a metaHash, which forms a part of
         // the block data to be stored on-chain for future integrity checks.
@@ -149,9 +139,8 @@ library LibProposing {
                 // proposeBlock functions are called more than once in the same
                 // L1 transaction, these multiple L2 blocks will share the same
                 // blob.
-                meta.blobHash = IBlobHashReader(
-                    resolver.resolve("blob_hash_reader", false)
-                ).getFirstBlobHash();
+                meta.blobHash =
+                    IBlobHashReader(resolver.resolve("blob_hash_reader", false)).getFirstBlobHash();
 
                 if (meta.blobHash == 0) revert L1_BLOB_NOT_FOUND();
 
@@ -164,17 +153,13 @@ library LibProposing {
                 }
             }
 
-            if (
-                uint256(params.txListByteOffset) + params.txListByteSize
-                    > MAX_BYTES_PER_BLOB
-            ) {
+            if (uint256(params.txListByteOffset) + params.txListByteSize > MAX_BYTES_PER_BLOB) {
                 revert L1_TXLIST_OFFSET();
             }
 
-            if (
-                params.txListByteSize == 0
-                    || params.txListByteSize > config.blockMaxTxListBytes
-            ) revert L1_TXLIST_SIZE();
+            if (params.txListByteSize == 0 || params.txListByteSize > config.blockMaxTxListBytes) {
+                revert L1_TXLIST_SIZE();
+            }
 
             meta.txListByteOffset = params.txListByteOffset;
             meta.txListByteSize = params.txListByteSize;
@@ -205,20 +190,19 @@ library LibProposing {
         // Ethereum block, we must introduce a salt to this random
         // number as the L2 mixHash.
         unchecked {
-            meta.difficulty = meta.blobHash
-                ^ bytes32(block.prevrandao * b.numBlocks * block.number);
+            meta.difficulty = meta.blobHash ^ bytes32(block.prevrandao * b.numBlocks * block.number);
         }
 
         // Use the difficulty as a random number
-        meta.minTier = ITierProvider(resolver.resolve("tier_provider", false))
-            .getMinTier(uint256(meta.difficulty));
+        meta.minTier = ITierProvider(resolver.resolve("tier_provider", false)).getMinTier(
+            uint256(meta.difficulty)
+        );
 
         // Now, it's essential to initialize the block that will be stored
         // on L1. We should aim to utilize as few storage slots as possible,
         // alghouth using a ring buffer can minimize storage writes once
         // the buffer reaches its capacity.
-        TaikoData.Block storage blk =
-            state.blocks[b.numBlocks % config.blockRingBufferSize];
+        TaikoData.Block storage blk = state.blocks[b.numBlocks % config.blockRingBufferSize];
 
         // Please note that all fields must be re-initialized since we are
         // utilizing an existing ring buffer slot, not creating a new storage
@@ -253,9 +237,7 @@ library LibProposing {
         // transition is not the initial one or if it was generated and
         // validated by different provers. Instead, a portion of the assignment
         // bond serves as a reward for the actual prover.
-        LibTaikoToken.debitTaikoToken(
-            state, resolver, blk.assignedProver, config.livenessBond
-        );
+        LibTaikoToken.debitTaikoToken(state, resolver, blk.assignedProver, config.livenessBond);
 
         // Increment the counter (cursor) by 1.
         unchecked {
@@ -265,11 +247,7 @@ library LibProposing {
         // Validate the prover assignment, then charge Ether or ERC20 as the
         // prover fee based on the block's minTier.
         uint256 proverFee = _payProverFeeAndTip(
-            meta.minTier,
-            meta.blobHash,
-            blk.blockId,
-            blk.metaHash,
-            params.assignment
+            meta.minTier, meta.blobHash, blk.blockId, blk.metaHash, params.assignment
         );
 
         emit BlockProposed({
@@ -291,8 +269,7 @@ library LibProposing {
         view
         returns (bool)
     {
-        return
-            state.reusableBlobs[blobHash] + config.blobExpiry > block.timestamp;
+        return state.reusableBlobs[blobHash] + config.blobExpiry > block.timestamp;
     }
 
     function hashAssignment(
@@ -337,8 +314,7 @@ library LibProposing {
             block.timestamp > assignment.expiry
                 || assignment.metaHash != 0 && metaHash != assignment.metaHash
                 || assignment.maxBlockId != 0 && blockId > assignment.maxBlockId
-                || assignment.maxProposedIn != 0
-                    && block.number > assignment.maxProposedIn
+                || assignment.maxProposedIn != 0 && block.number > assignment.maxProposedIn
         ) {
             revert L1_ASSIGNMENT_EXPIRED();
         }

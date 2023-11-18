@@ -6,11 +6,10 @@
 
 pragma solidity ^0.8.20;
 
-import { EssentialContract } from "../../common/EssentialContract.sol";
-import { Proxied } from "../../common/Proxied.sol";
-
-import { LibTiers } from "../tiers/ITierProvider.sol";
-import { TaikoData } from "../TaikoData.sol";
+import "../../common/EssentialContract.sol";
+import "../../common/Proxied.sol";
+import "../tiers/ITierProvider.sol";
+import "../TaikoData.sol";
 
 /// @title GuardianProver
 /// @dev Labeled in AddressResolver as "guardian_prover"
@@ -26,9 +25,7 @@ contract GuardianProver is EssentialContract {
     // Cannot use NUM_GUARDIANS below in event directly otherwise hardhat will
     // fail
     event GuardiansUpdated(address[5]);
-    event Approved(
-        uint64 indexed blockId, uint256 approvalBits, bool proofSubmitted
-    );
+    event Approved(uint64 indexed blockId, uint256 approvalBits, bool proofSubmitted);
 
     error INVALID_GUARDIAN();
     error INVALID_GUARDIAN_SET();
@@ -91,9 +88,7 @@ contract GuardianProver is EssentialContract {
 
         if (_isApproved(approvalBits)) {
             bytes memory data = abi.encodeWithSignature(
-                "proveBlock(uint64,bytes)",
-                meta.id,
-                abi.encode(meta, tran, proof)
+                "proveBlock(uint64,bytes)", meta.id, abi.encode(meta, tran, proof)
             );
 
             (bool success,) = resolve("taiko", false).call(data);

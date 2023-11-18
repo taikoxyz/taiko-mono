@@ -6,16 +6,12 @@
 
 pragma solidity ^0.8.20;
 
-import { Ownable2StepUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
-import { ERC20Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import { SafeERC20Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import { ECDSAUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/cryptography/ECDSAUpgradeable.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/utils/cryptography/ECDSAUpgradeable.sol";
+import "../common/Proxied.sol";
 
-import { Proxied } from "../common/Proxied.sol";
 /// @title TimeLockTokenPool
 /// Contract for managing Taiko tokens allocated to different roles and
 /// individuals.
@@ -31,7 +27,6 @@ import { Proxied } from "../common/Proxied.sol";
 /// - investors
 /// - team members, advisors, etc.
 /// - grant program grantees
-
 contract TimeLockTokenPool is Ownable2StepUpgradeable {
     using SafeERC20Upgradeable for ERC20Upgradeable;
 
@@ -82,13 +77,7 @@ contract TimeLockTokenPool is Ownable2StepUpgradeable {
     error NOTHING_TO_WITHDRAW();
     error TOO_MANY();
 
-    function init(
-        address _taikoToken,
-        address _sharedVault
-    )
-        external
-        initializer
-    {
+    function init(address _taikoToken, address _sharedVault) external initializer {
         Ownable2StepUpgradeable.__Ownable2Step_init();
 
         if (_taikoToken == address(0)) revert INVALID_PARAM();
@@ -139,9 +128,7 @@ contract TimeLockTokenPool is Ownable2StepUpgradeable {
     /// @notice Withdraws all withdrawable tokens.
     function withdraw(address to, bytes memory sig) external {
         if (to == address(0)) revert INVALID_PARAM();
-        bytes32 hash = keccak256(
-            abi.encodePacked("Withdraw unlocked Taiko token to: ", to)
-        );
+        bytes32 hash = keccak256(abi.encodePacked("Withdraw unlocked Taiko token to: ", to));
         address recipient = ECDSAUpgradeable.recover(hash, sig);
         _withdraw(recipient, to);
     }
@@ -166,11 +153,7 @@ contract TimeLockTokenPool is Ownable2StepUpgradeable {
         amountWithdrawable = amountUnlocked - amountWithdrawn;
     }
 
-    function getMyGrants(address recipient)
-        public
-        view
-        returns (Grant[] memory)
-    {
+    function getMyGrants(address recipient) public view returns (Grant[] memory) {
         return recipients[recipient].grants;
     }
 
@@ -192,10 +175,7 @@ contract TimeLockTokenPool is Ownable2StepUpgradeable {
         emit Withdrawn(recipient, to, amount);
     }
 
-    function _voidGrant(Grant storage g)
-        private
-        returns (uint128 amountVoided)
-    {
+    function _voidGrant(Grant storage g) private returns (uint128 amountVoided) {
         uint128 amountOwned = _getAmountOwned(g);
 
         amountVoided = g.amount - amountOwned;
@@ -209,14 +189,8 @@ contract TimeLockTokenPool is Ownable2StepUpgradeable {
         return _calcAmount(g.amount, g.grantStart, g.grantCliff, g.grantPeriod);
     }
 
-    function _getAmountUnlocked(Grant memory g)
-        private
-        view
-        returns (uint128)
-    {
-        return _calcAmount(
-            _getAmountOwned(g), g.unlockStart, g.unlockCliff, g.unlockPeriod
-        );
+    function _getAmountUnlocked(Grant memory g) private view returns (uint128) {
+        return _calcAmount(_getAmountOwned(g), g.unlockStart, g.unlockCliff, g.unlockPeriod);
     }
 
     function _calcAmount(
@@ -247,14 +221,7 @@ contract TimeLockTokenPool is Ownable2StepUpgradeable {
         _validateCliff(g.unlockStart, g.unlockCliff, g.unlockPeriod);
     }
 
-    function _validateCliff(
-        uint64 start,
-        uint64 cliff,
-        uint32 period
-    )
-        private
-        pure
-    {
+    function _validateCliff(uint64 start, uint64 cliff, uint32 period) private pure {
         if (start == 0 || period == 0) {
             if (cliff > 0) revert INVALID_GRANT();
         } else {

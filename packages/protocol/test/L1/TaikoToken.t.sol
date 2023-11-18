@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { TestBase } from "../TestBase.sol";
-import { AddressManager } from "../../contracts/common/AddressManager.sol";
-import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
-import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
-import { TransparentUpgradeableProxy } from
-    "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "../TestBase.sol";
+import "../../contracts/common/AddressManager.sol";
+import "../../contracts/common/AddressResolver.sol";
+import "../../contracts/L1/TaikoToken.sol";
 
-contract TaikoTokenTest is TestBase {
+contract TaikoTokenTest is TaikoTest {
     bytes32 GENESIS_BLOCK_HASH;
 
     address public tokenOwner;
@@ -31,9 +30,7 @@ contract TaikoTokenTest is TestBase {
             address(tko),
             bytes.concat(
                 tko.init.selector,
-                abi.encode(
-                    address(addressManager), "Taiko Token", "TKO", address(this)
-                )
+                abi.encode(address(addressManager), "Taiko Token", "TKO", address(this))
             )
         );
 

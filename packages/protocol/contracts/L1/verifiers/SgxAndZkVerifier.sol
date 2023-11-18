@@ -6,13 +6,11 @@
 
 pragma solidity ^0.8.20;
 
-import { EssentialContract } from "../../common/EssentialContract.sol";
-import { LibBytesUtils } from "../../thirdparty/LibBytesUtils.sol";
-import { Proxied } from "../../common/Proxied.sol";
-
-import { TaikoData } from "../TaikoData.sol";
-
-import { IVerifier } from "./IVerifier.sol";
+import "../../common/EssentialContract.sol";
+import "../../thirdparty/LibBytesUtils.sol";
+import "../../common/Proxied.sol";
+import "../TaikoData.sol";
+import "./IVerifier.sol";
 
 /// @title SgxAndZkVerifier
 /// @notice See the documentation in {IVerifier}.
@@ -42,12 +40,9 @@ contract SgxAndZkVerifier is EssentialContract, IVerifier {
         IVerifier(resolve("tier_sgx", false)).verifyProof(ctx, tran, _proof);
 
         // Verify the ZK part
-        _proof.data = LibBytesUtils.slice(
-            proof.data, SGX_PROOF_SIZE, (proof.data.length - SGX_PROOF_SIZE)
-        );
-        IVerifier(resolve("tier_pse_zkevm", false)).verifyProof(
-            ctx, tran, _proof
-        );
+        _proof.data =
+            LibBytesUtils.slice(proof.data, SGX_PROOF_SIZE, (proof.data.length - SGX_PROOF_SIZE));
+        IVerifier(resolve("tier_pse_zkevm", false)).verifyProof(ctx, tran, _proof);
     }
 }
 

@@ -6,16 +6,12 @@
 
 pragma solidity ^0.8.20;
 
-import { ECDSAUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/cryptography/ECDSAUpgradeable.sol";
-
-import { EssentialContract } from "../../common/EssentialContract.sol";
-import { Proxied } from "../../common/Proxied.sol";
-import { LibBytesUtils } from "../../thirdparty/LibBytesUtils.sol";
-
-import { TaikoData } from "../TaikoData.sol";
-
-import { IVerifier } from "./IVerifier.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/utils/cryptography/ECDSAUpgradeable.sol";
+import "../../common/EssentialContract.sol";
+import "../../common/Proxied.sol";
+import "../../thirdparty/LibBytesUtils.sol";
+import "../TaikoData.sol";
+import "./IVerifier.sol";
 
 /// @title SgxVerifier
 /// @notice This contract is the implementation of verifying SGX signature
@@ -49,10 +45,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     uint256[48] private __gap;
 
     event InstanceAdded(
-        uint256 indexed id,
-        address indexed instance,
-        address replaced,
-        uint256 timstamp
+        uint256 indexed id, address indexed instance, address replaced, uint256 timstamp
     );
 
     error SGX_INVALID_INSTANCE();
@@ -92,8 +85,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         external
         returns (uint256[] memory ids)
     {
-        bytes32 signedHash =
-            keccak256(abi.encode("ADD_INSTANCES", extraInstances));
+        bytes32 signedHash = keccak256(abi.encode("ADD_INSTANCES", extraInstances));
         address oldInstance = ECDSAUpgradeable.recover(signedHash, signature);
         if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
 
@@ -118,13 +110,11 @@ contract SgxVerifier is EssentialContract, IVerifier {
         if (proof.data.length != 89) revert SGX_INVALID_PROOF();
 
         uint32 id = uint32(bytes4(LibBytesUtils.slice(proof.data, 0, 4)));
-        address newInstance =
-            address(bytes20(LibBytesUtils.slice(proof.data, 4, 20)));
+        address newInstance = address(bytes20(LibBytesUtils.slice(proof.data, 4, 20)));
         bytes memory signature = LibBytesUtils.slice(proof.data, 24);
 
         address oldInstance = ECDSAUpgradeable.recover(
-            getSignedHash(tran, newInstance, ctx.prover, ctx.metaHash),
-            signature
+            getSignedHash(tran, newInstance, ctx.prover, ctx.metaHash), signature
         );
 
         if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
@@ -144,46 +134,27 @@ contract SgxVerifier is EssentialContract, IVerifier {
         return keccak256(abi.encode(tran, newInstance, prover, metaHash));
     }
 
-    function _addInstances(address[] calldata _instances)
-        private
-        returns (uint256[] memory ids)
-    {
+    function _addInstances(address[] calldata _instances) private returns (uint256[] memory ids) {
         ids = new uint256[](_instances.length);
 
         for (uint256 i; i < _instances.length; ++i) {
             if (_instances[i] == address(0)) revert SGX_INVALID_INSTANCE();
 
-            instances[nextInstanceId] =
-                Instance(_instances[i], uint64(block.timestamp));
+            instances[nextInstanceId] = Instance(_instances[i], uint64(block.timestamp));
             ids[i] = nextInstanceId;
 
-            emit InstanceAdded(
-                nextInstanceId, _instances[i], address(0), block.timestamp
-            );
+            emit InstanceAdded(nextInstanceId, _instances[i], address(0), block.timestamp);
 
             nextInstanceId++;
         }
     }
 
-    function _replaceInstance(
-        uint256 id,
-        address oldInstance,
-        address newInstance
-    )
-        private
-    {
+    function _replaceInstance(uint256 id, address oldInstance, address newInstance) private {
         instances[id] = Instance(newInstance, uint64(block.timestamp));
         emit InstanceAdded(id, newInstance, oldInstance, block.timestamp);
     }
 
-    function _isInstanceValid(
-        uint256 id,
-        address instance
-    )
-        private
-        view
-        returns (bool)
-    {
+    function _isInstanceValid(uint256 id, address instance) private view returns (bool) {
         if (instance == address(0)) return false;
         if (instance != instances[id].addr) return false;
         return instances[id].addedAt + INSTANCE_EXPIRY > block.timestamp;

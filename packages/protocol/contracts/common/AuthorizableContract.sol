@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-import { EssentialContract } from "../common/EssentialContract.sol";
+import "../common/EssentialContract.sol";
 
 /// @title AuthorizableContract
 abstract contract AuthorizableContract is EssentialContract {
@@ -38,14 +38,7 @@ abstract contract AuthorizableContract is EssentialContract {
         return authorizedAddresses[addr] != 0;
     }
 
-    function isAuthorizedAs(
-        address addr,
-        bytes32 label
-    )
-        public
-        view
-        returns (bool)
-    {
+    function isAuthorizedAs(address addr, bytes32 label) public view returns (bool) {
         return label != 0 && authorizedAddresses[addr] == label;
     }
 

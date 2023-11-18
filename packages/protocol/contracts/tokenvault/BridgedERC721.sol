@@ -6,13 +6,10 @@
 
 pragma solidity ^0.8.20;
 
-import { ERC721Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
-import { StringsUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/StringsUpgradeable.sol";
-
-import { EssentialContract } from "../common/EssentialContract.sol";
-import { Proxied } from "../common/Proxied.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
+import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
+import "../common/EssentialContract.sol";
+import "../common/Proxied.sol";
 
 /// @title BridgedERC721
 /// @notice Contract for bridging ERC721 tokens across different chains.
@@ -43,9 +40,8 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         initializer
     {
         if (
-            _srcToken == address(0) || _srcChainId == 0
-                || _srcChainId == block.chainid || bytes(_symbol).length == 0
-                || bytes(_name).length == 0
+            _srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid
+                || bytes(_symbol).length == 0 || bytes(_name).length == 0
         ) {
             revert BRIDGED_TOKEN_INVALID_PARAMS();
         }
@@ -58,13 +54,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     /// @dev Mints tokens.
     /// @param account Address to receive the minted token.
     /// @param tokenId ID of the token to mint.
-    function mint(
-        address account,
-        uint256 tokenId
-    )
-        public
-        onlyFromNamed("erc721_vault")
-    {
+    function mint(address account, uint256 tokenId) public onlyFromNamed("erc721_vault") {
         _mint(account, tokenId);
         emit Transfer(address(0), account, tokenId);
     }
@@ -72,13 +62,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     /// @dev Burns tokens.
     /// @param account Address from which the token is burned.
     /// @param tokenId ID of the token to burn.
-    function burn(
-        address account,
-        uint256 tokenId
-    )
-        public
-        onlyFromNamed("erc721_vault")
-    {
+    function burn(address account, uint256 tokenId) public onlyFromNamed("erc721_vault") {
         // Check if the caller is the owner of the token.
         if (ownerOf(tokenId) != account) {
             revert BRIDGED_TOKEN_INVALID_BURN();
@@ -108,15 +92,8 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
 
     /// @notice Gets the concatenated name of the bridged token.
     /// @return The concatenated name.
-    function name()
-        public
-        view
-        override(ERC721Upgradeable)
-        returns (string memory)
-    {
-        return string.concat(
-            super.name(), unicode" ⭀", StringsUpgradeable.toString(srcChainId)
-        );
+    function name() public view override(ERC721Upgradeable) returns (string memory) {
+        return string.concat(super.name(), unicode" ⭀", Strings.toString(srcChainId));
     }
 
     /// @notice Gets the source token and source chain ID being bridged.
@@ -126,13 +103,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     }
 
     /// @notice Returns an empty token URI.
-    function tokenURI(uint256)
-        public
-        pure
-        virtual
-        override
-        returns (string memory)
-    {
+    function tokenURI(uint256) public pure virtual override returns (string memory) {
         return "";
     }
 }

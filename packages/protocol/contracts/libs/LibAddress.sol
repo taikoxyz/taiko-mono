@@ -6,14 +6,10 @@
 
 pragma solidity ^0.8.20;
 
-import { AddressUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/AddressUpgradeable.sol";
-import { ECDSAUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/cryptography/ECDSAUpgradeable.sol";
-import { IERC165Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/introspection/IERC165Upgradeable.sol";
-import { IERC1271Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/interfaces/IERC1271Upgradeable.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/utils/AddressUpgradeable.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/utils/cryptography/ECDSAUpgradeable.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/utils/introspection/IERC165Upgradeable.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/interfaces/IERC1271Upgradeable.sol";
 
 /// @title LibAddress
 /// @dev Provides utilities for address-related operations.
@@ -57,9 +53,7 @@ library LibAddress {
     {
         if (!AddressUpgradeable.isContract(addr)) return false;
 
-        try IERC165Upgradeable(addr).supportsInterface(interfaceId) returns (
-            bool _result
-        ) {
+        try IERC165Upgradeable(addr).supportsInterface(interfaceId) returns (bool _result) {
             result = _result;
         } catch { }
     }
@@ -74,8 +68,7 @@ library LibAddress {
         returns (bool valid)
     {
         if (AddressUpgradeable.isContract(addr)) {
-            return IERC1271Upgradeable(addr).isValidSignature(hash, sig)
-                == EIP1271_MAGICVALUE;
+            return IERC1271Upgradeable(addr).isValidSignature(hash, sig) == EIP1271_MAGICVALUE;
         } else {
             return ECDSAUpgradeable.recover(hash, sig) == addr;
         }

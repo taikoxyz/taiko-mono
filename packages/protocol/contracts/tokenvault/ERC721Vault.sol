@@ -6,20 +6,16 @@
 
 pragma solidity ^0.8.20;
 
-import { TransparentUpgradeableProxy } from
-    "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-import { ERC721Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
-import { IERC721ReceiverUpgradeable } from
+import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
+import
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/IERC721ReceiverUpgradeable.sol";
-
-import { IBridge } from "../bridge/IBridge.sol";
-import { LibAddress } from "../libs/LibAddress.sol";
-import { Proxied } from "../common/Proxied.sol";
-
-import { BaseNFTVault } from "./BaseNFTVault.sol";
-import { BridgedERC721 } from "./BridgedERC721.sol";
+import "../bridge/IBridge.sol";
+import "../libs/LibAddress.sol";
+import "../common/Proxied.sol";
+import "./BaseNFTVault.sol";
+import "./BridgedERC721.sol";
 
 /// @title ERC721Vault
 /// @dev Labeled in AddressResolver as "erc721_vault"
@@ -69,9 +65,8 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         message.memo = op.memo;
 
         bytes32 msgHash;
-        (msgHash, _message) = IBridge(resolve("bridge", false)).sendMessage{
-            value: msg.value
-        }(message);
+        (msgHash, _message) =
+            IBridge(resolve("bridge", false)).sendMessage{ value: msg.value }(message);
 
         emit TokenSent({
             msgHash: msgHash,
@@ -153,9 +148,8 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
             revert VAULT_INVALID_SRC_CHAIN_ID();
         }
 
-        (CanonicalNFT memory nft,,, uint256[] memory tokenIds) = abi.decode(
-            message.data[4:], (CanonicalNFT, address, address, uint256[])
-        );
+        (CanonicalNFT memory nft,,, uint256[] memory tokenIds) =
+            abi.decode(message.data[4:], (CanonicalNFT, address, address, uint256[]));
 
         if (nft.addr == address(0)) revert VAULT_INVALID_TOKEN();
 
@@ -241,9 +235,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
             }
         }
 
-        msgData = abi.encodeWithSelector(
-            this.receiveToken.selector, nft, user, op.to, op.tokenIds
-        );
+        msgData = abi.encodeWithSelector(this.receiveToken.selector, nft, user, op.to, op.tokenIds);
     }
 
     /// @dev Retrieve or deploy a bridged ERC721 token contract.
@@ -265,19 +257,10 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
     /// this chain.
     /// @param ctoken CanonicalNFT data.
     /// @return btoken Address of the deployed bridged token contract.
-    function _deployBridgedToken(CanonicalNFT memory ctoken)
-        private
-        returns (address btoken)
-    {
+    function _deployBridgedToken(CanonicalNFT memory ctoken) private returns (address btoken) {
         bytes memory data = bytes.concat(
             BridgedERC721.init.selector,
-            abi.encode(
-                addressManager,
-                ctoken.addr,
-                ctoken.chainId,
-                ctoken.symbol,
-                ctoken.name
-            )
+            abi.encode(addressManager, ctoken.addr, ctoken.chainId, ctoken.symbol, ctoken.name)
         );
         btoken = address(
             new TransparentUpgradeableProxy(

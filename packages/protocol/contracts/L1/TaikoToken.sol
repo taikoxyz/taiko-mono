@@ -6,26 +6,20 @@
 
 pragma solidity ^0.8.20;
 
-import { ERC20SnapshotUpgradeable } from
+import
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
-import { ERC20Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import { ERC20VotesUpgradeable } from
+import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
-
-import { EssentialContract } from "../common/EssentialContract.sol";
-import { Proxied } from "../common/Proxied.sol";
+import "../common/EssentialContract.sol";
+import "../common/Proxied.sol";
 
 /// @title TaikoToken
 /// @dev Labeled in AddressResolver as "taiko_token"
 /// @notice The TaikoToken (TKO), in the protocol is used for prover collateral
 /// in the form of bonds. It is an ERC20 token with 18 decimal places of
 /// precision.
-contract TaikoToken is
-    EssentialContract,
-    ERC20SnapshotUpgradeable,
-    ERC20VotesUpgradeable
-{
+contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUpgradeable {
     error TKO_INVALID_ADDR();
     error TKO_INVALID_PREMINT_PARAMS();
 
@@ -75,14 +69,7 @@ contract TaikoToken is
     /// @param to The address to transfer tokens to.
     /// @param amount The amount of tokens to transfer.
     /// @return A boolean indicating whether the transfer was successful or not.
-    function transfer(
-        address to,
-        uint256 amount
-    )
-        public
-        override
-        returns (bool)
-    {
+    function transfer(address to, uint256 amount) public override returns (bool) {
         if (to == address(this)) revert TKO_INVALID_ADDR();
         return super.transfer(to, amount);
     }

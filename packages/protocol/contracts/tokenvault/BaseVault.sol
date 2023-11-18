@@ -5,17 +5,11 @@
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 pragma solidity ^0.8.20;
 
-import { IERC165Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/introspection/IERC165Upgradeable.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/utils/introspection/IERC165Upgradeable.sol";
+import "../bridge/IBridge.sol";
+import "../common/EssentialContract.sol";
 
-import { IBridge, IRecallableSender } from "../bridge/IBridge.sol";
-import { EssentialContract } from "../common/EssentialContract.sol";
-
-abstract contract BaseVault is
-    EssentialContract,
-    IRecallableSender,
-    IERC165Upgradeable
-{
+abstract contract BaseVault is EssentialContract, IRecallableSender, IERC165Upgradeable {
     error VAULT_PERMISSION_DENIED();
 
     modifier onlyFromBridge() {
@@ -34,13 +28,7 @@ abstract contract BaseVault is
     /// @notice Checks if the contract supports the given interface.
     /// @param interfaceId The interface identifier.
     /// @return true if the contract supports the interface, false otherwise.
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        virtual
-        override
-        returns (bool)
-    {
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
         return interfaceId == type(IRecallableSender).interfaceId;
     }
 

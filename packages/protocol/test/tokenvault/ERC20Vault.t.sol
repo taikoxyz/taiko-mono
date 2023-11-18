@@ -1,29 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { AddressManager } from "../../contracts/common/AddressManager.sol";
-import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
-import { Bridge } from "../../contracts/bridge/Bridge.sol";
-import {
-    ProxiedBridgedERC20,
-    BridgedERC20
-} from "../../contracts/tokenvault/BridgedERC20.sol";
-import { FreeMintERC20 } from "../../contracts/test/erc20/FreeMintERC20.sol";
-import { SignalService } from "../../contracts/signal/SignalService.sol";
-import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
-import { Test } from "forge-std/Test.sol";
-import { ERC20Vault } from "../../contracts/tokenvault/ERC20Vault.sol";
-import { TransparentUpgradeableProxy } from
-    "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "forge-std/Test.sol";
+import "../../contracts/common/AddressManager.sol";
+import "../../contracts/common/AddressResolver.sol";
+import "../../contracts/bridge/Bridge.sol";
+import "../../contracts/tokenvault/BridgedERC20.sol";
+import "../../contracts/test/erc20/FreeMintERC20.sol";
+import "../../contracts/signal/SignalService.sol";
+import "../../contracts/L1/TaikoToken.sol";
+import "../../contracts/tokenvault/ERC20Vault.sol";
 
 // PrankDestBridge lets us simulate a transaction to the ERC20Vault
 // from a named Bridge, without having to test/run through the real Bridge code,
 // outside the scope of the unit tests in the ERC20Vault.
 contract PrankDestBridge {
     ERC20Vault destERC20Vault;
-    Context ctx;
+    TContext ctx;
 
-    struct Context {
+    struct TContext {
         bytes32 msgHash; // messageHash
         address sender;
         uint64 srcChainId;
@@ -37,7 +33,7 @@ contract PrankDestBridge {
         destERC20Vault = ERC20Vault(addr);
     }
 
-    function context() public view returns (Context memory) {
+    function context() public view returns (TContext memory) {
         return ctx;
     }
 
@@ -110,9 +106,7 @@ contract TestERC20Vault is Test {
 
         addressManager = new AddressManager();
         addressManager.init();
-        addressManager.setAddress(
-            uint64(block.chainid), "taiko_token", address(tko)
-        );
+        addressManager.setAddress(uint64(block.chainid), "taiko_token", address(tko));
 
         erc20Vault = new ERC20Vault();
         erc20Vault.init(address(addressManager));
@@ -132,31 +126,19 @@ contract TestERC20Vault is Test {
         signalService = new SignalService();
         signalService.init();
 
-        addressManager.setAddress(
-            uint64(block.chainid), "bridge", address(bridge)
-        );
+        addressManager.setAddress(uint64(block.chainid), "bridge", address(bridge));
 
-        addressManager.setAddress(
-            uint64(block.chainid), "signal_service", address(signalService)
-        );
+        addressManager.setAddress(uint64(block.chainid), "signal_service", address(signalService));
 
-        addressManager.setAddress(
-            uint64(block.chainid), "erc20_vault", address(erc20Vault)
-        );
+        addressManager.setAddress(uint64(block.chainid), "erc20_vault", address(erc20Vault));
 
-        addressManager.setAddress(
-            destChainId, "erc20_vault", address(destChainIdERC20Vault)
-        );
+        addressManager.setAddress(destChainId, "erc20_vault", address(destChainIdERC20Vault));
 
-        addressManager.setAddress(
-            destChainId, "bridge", address(destChainIdBridge)
-        );
+        addressManager.setAddress(destChainId, "bridge", address(destChainIdBridge));
 
         address proxiedBridgedERC20 = address(new ProxiedBridgedERC20());
 
-        addressManager.setAddress(
-            destChainId, "proxied_bridged_erc20", proxiedBridgedERC20
-        );
+        addressManager.setAddress(destChainId, "proxied_bridged_erc20", proxiedBridgedERC20);
 
         addressManager.setAddress(
             uint64(block.chainid), "proxied_bridged_erc20", proxiedBridgedERC20
@@ -198,10 +180,7 @@ contract TestERC20Vault is Test {
         assertEq(erc20VaultBalanceAfter - erc20VaultBalanceBefore, amount);
     }
 
-    function test_20Vault_send_erc20_processing_fee_reverts_if_msg_value_too_low(
-    )
-        public
-    {
+    function test_20Vault_send_erc20_processing_fee_reverts_if_msg_value_too_low() public {
         vm.startPrank(Alice);
 
         uint256 amount = 2 wei;
@@ -210,14 +189,7 @@ contract TestERC20Vault is Test {
         vm.expectRevert();
         erc20Vault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                destChainId,
-                Bob,
-                address(erc20),
-                amount,
-                1_000_000,
-                amount - 1,
-                Bob,
-                ""
+                destChainId, Bob, address(erc20), amount, 1_000_000, amount - 1, Bob, ""
             )
         );
     }
@@ -271,14 +243,11 @@ contract TestERC20Vault is Test {
 
         vm.expectRevert(ERC20Vault.VAULT_INVALID_TOKEN.selector);
         erc20Vault.sendToken(
-            ERC20Vault.BridgeTransferOp(
-                destChainId, Bob, address(0), amount, 1_000_000, 0, Bob, ""
-            )
+            ERC20Vault.BridgeTransferOp(destChainId, Bob, address(0), amount, 1_000_000, 0, Bob, "")
         );
     }
 
-    function test_20Vault_receive_erc20_canonical_to_dest_chain_transfers_from_canonical_token(
-    )
+    function test_20Vault_receive_erc20_canonical_to_dest_chain_transfers_from_canonical_token()
         public
     {
         vm.startPrank(Alice);

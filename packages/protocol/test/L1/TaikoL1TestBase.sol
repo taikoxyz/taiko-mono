@@ -1,30 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { TestBase } from "../TestBase.sol";
-import { console2 } from "forge-std/console2.sol";
-import { AddressManager } from "../../contracts/common/AddressManager.sol";
-import { Bridge } from "../../contracts/bridge/Bridge.sol";
-import { LibProving } from "../../contracts/L1/libs/LibProving.sol";
-import { LibProposing } from "../../contracts/L1/libs/LibProposing.sol";
-import { LibUtils } from "../../contracts/L1/libs/LibUtils.sol";
-import { TaikoData } from "../../contracts/L1/TaikoData.sol";
-import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
-import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
-import { GuardianVerifier } from
-    "../../contracts/L1/verifiers/GuardianVerifier.sol";
-import { TaikoA6TierProvider } from
-    "../../contracts/L1/tiers/TaikoA6TierProvider.sol";
-import { PseZkVerifier } from "../../contracts/L1/verifiers/PseZkVerifier.sol";
-import { SgxVerifier } from "../../contracts/L1/verifiers/SgxVerifier.sol";
-import { SgxAndZkVerifier } from
-    "../../contracts/L1/verifiers/SgxAndZkVerifier.sol";
-import { GuardianProver } from "../../contracts/L1/provers/GuardianProver.sol";
-import { SignalService } from "../../contracts/signal/SignalService.sol";
-import { StringsUpgradeable as Strings } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/utils/StringsUpgradeable.sol";
-import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
-import { LibTiers } from "../../contracts/L1/tiers/ITierProvider.sol";
+import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
+import "forge-std/console2.sol";
+import "../TestBase.sol";
+import "../../contracts/common/AddressManager.sol";
+import "../../contracts/bridge/Bridge.sol";
+import "../../contracts/L1/libs/LibProving.sol";
+import "../../contracts/L1/libs/LibProposing.sol";
+import "../../contracts/L1/libs/LibUtils.sol";
+import "../../contracts/L1/TaikoData.sol";
+import "../../contracts/L1/TaikoL1.sol";
+import "../../contracts/L1/TaikoToken.sol";
+import "../../contracts/L1/verifiers/GuardianVerifier.sol";
+import "../../contracts/L1/tiers/TaikoA6TierProvider.sol";
+import "../../contracts/L1/verifiers/PseZkVerifier.sol";
+import "../../contracts/L1/verifiers/SgxVerifier.sol";
+import "../../contracts/L1/verifiers/SgxAndZkVerifier.sol";
+import "../../contracts/L1/provers/GuardianProver.sol";
+import "../../contracts/signal/SignalService.sol";
+import "../../contracts/common/AddressResolver.sol";
+import "../../contracts/L1/tiers/ITierProvider.sol";
 
 contract MockVerifier {
     fallback(bytes calldata) external returns (bytes memory) {
@@ -34,7 +30,7 @@ contract MockVerifier {
 
 // TODO (dani): remove some code to sub-contracts, this one shall only contain
 // shared logics and data.
-abstract contract TaikoL1TestBase is TestBase {
+abstract contract TaikoL1TestBase is TaikoTest {
     AddressManager public addressManager;
     TaikoToken public tko;
     SignalService public ss;
@@ -137,16 +133,14 @@ abstract contract TaikoL1TestBase is TestBase {
         tierFees[0] = TaikoData.TierFee(LibTiers.TIER_OPTIMISTIC, 1 ether);
         tierFees[1] = TaikoData.TierFee(LibTiers.TIER_SGX, 1 ether);
         tierFees[2] = TaikoData.TierFee(LibTiers.TIER_PSE_ZKEVM, 2 ether);
-        tierFees[3] =
-            TaikoData.TierFee(LibTiers.TIER_SGX_AND_PSE_ZKEVM, 2 ether);
+        tierFees[3] = TaikoData.TierFee(LibTiers.TIER_SGX_AND_PSE_ZKEVM, 2 ether);
         tierFees[4] = TaikoData.TierFee(LibTiers.TIER_GUARDIAN, 0 ether);
         // For the test not to fail, set the message.value to the highest, the
         // rest will be returned
         // anyways
         uint256 msgValue = 2 ether;
 
-        TaikoData.ProverAssignment memory assignment = TaikoData
-            .ProverAssignment({
+        TaikoData.ProverAssignment memory assignment = TaikoData.ProverAssignment({
             prover: prover,
             feeToken: address(0),
             tierFees: tierFees,
@@ -159,8 +153,7 @@ abstract contract TaikoL1TestBase is TestBase {
 
         bytes memory txList = new bytes(txListSize);
 
-        assignment.signature =
-            _signAssignment(prover, assignment, address(L1), keccak256(txList));
+        assignment.signature = _signAssignment(prover, assignment, address(L1), keccak256(txList));
 
         (, TaikoData.SlotB memory b) = L1.getStateVariables();
 
@@ -177,8 +170,7 @@ abstract contract TaikoL1TestBase is TestBase {
 
         vm.prank(proposer, proposer);
         (meta, depositsProcessed) = L1.proposeBlock{ value: msgValue }(
-            abi.encode(TaikoData.BlockParams(assignment, 0, 0, 0, 0, false, 0)),
-            txList
+            abi.encode(TaikoData.BlockParams(assignment, 0, 0, 0, 0, false, 0)), txList
         );
     }
 
@@ -201,9 +193,8 @@ abstract contract TaikoL1TestBase is TestBase {
             graffiti: 0x0
         });
 
-        bytes32 instance = pv.calcInstance(
-            tran, prover, keccak256(abi.encode(meta)), meta.blobHash, 0
-        );
+        bytes32 instance =
+            pv.calcInstance(tran, prover, keccak256(abi.encode(meta)), meta.blobHash, 0);
 
         TaikoData.TierProof memory proof;
         proof.tier = tier;
@@ -233,21 +224,17 @@ abstract contract TaikoL1TestBase is TestBase {
         }
 
         if (tier == LibTiers.TIER_SGX) {
-            bytes memory signature = createSgxSignatureProof(
-                tran, newInstance, prover, keccak256(abi.encode(meta))
-            );
+            bytes memory signature =
+                createSgxSignatureProof(tran, newInstance, prover, keccak256(abi.encode(meta)));
 
-            proof.data =
-                bytes.concat(bytes4(0), bytes20(newInstance), signature);
+            proof.data = bytes.concat(bytes4(0), bytes20(newInstance), signature);
         }
 
         if (tier == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
-            bytes memory signature = createSgxSignatureProof(
-                tran, newInstance, prover, keccak256(abi.encode(meta))
-            );
+            bytes memory signature =
+                createSgxSignatureProof(tran, newInstance, prover, keccak256(abi.encode(meta)));
 
-            bytes memory sgxProof =
-                bytes.concat(bytes4(0), bytes20(newInstance), signature);
+            bytes memory sgxProof = bytes.concat(bytes4(0), bytes20(newInstance), signature);
             // Concatenate SGX and ZK (in this order)
             proof.data = bytes.concat(sgxProof, proof.data);
         }
@@ -303,9 +290,7 @@ abstract contract TaikoL1TestBase is TestBase {
 
     function registerL2Address(bytes32 nameHash, address addr) internal {
         addressManager.setAddress(conf.chainId, nameHash, addr);
-        console2.log(
-            conf.chainId, string(abi.encodePacked(nameHash)), unicode"→", addr
-        );
+        console2.log(conf.chainId, string(abi.encodePacked(nameHash)), unicode"→", addr);
     }
 
     function _signAssignment(
@@ -318,8 +303,7 @@ abstract contract TaikoL1TestBase is TestBase {
         view
         returns (bytes memory signature)
     {
-        bytes32 digest =
-            LibProposing.hashAssignment(assignment, taikoAddr, blobHash);
+        bytes32 digest = LibProposing.hashAssignment(assignment, taikoAddr, blobHash);
         uint256 signerPrivateKey;
 
         // In the test suite these are the 3 which acts as provers
@@ -360,13 +344,7 @@ abstract contract TaikoL1TestBase is TestBase {
         signature = abi.encodePacked(r, s, v);
     }
 
-    function giveEthAndTko(
-        address to,
-        uint256 amountTko,
-        uint256 amountEth
-    )
-        internal
-    {
+    function giveEthAndTko(address to, uint256 amountTko, uint256 amountEth) internal {
         vm.deal(to, amountEth);
         console2.log("TKO balance this:", tko.balanceOf(address(this)));
         console2.log(amountTko);
@@ -380,8 +358,7 @@ abstract contract TaikoL1TestBase is TestBase {
     }
 
     function printVariables(string memory comment) internal {
-        (TaikoData.SlotA memory a, TaikoData.SlotB memory b) =
-            L1.getStateVariables();
+        (TaikoData.SlotA memory a, TaikoData.SlotB memory b) = L1.getStateVariables();
 
         string memory str = string.concat(
             Strings.toString(logCount++),

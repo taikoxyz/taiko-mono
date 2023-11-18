@@ -6,12 +6,10 @@
 
 pragma solidity ^0.8.20;
 
-import { EssentialContract } from "../../common/EssentialContract.sol";
-import { Proxied } from "../../common/Proxied.sol";
-
-import { TaikoData } from "../TaikoData.sol";
-
-import { IVerifier } from "./IVerifier.sol";
+import "../../common/EssentialContract.sol";
+import "../../common/Proxied.sol";
+import "../TaikoData.sol";
+import "./IVerifier.sol";
 
 /// @title GuardianVerifier
 contract GuardianVerifier is EssentialContract, IVerifier {

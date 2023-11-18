@@ -6,9 +6,8 @@
 
 pragma solidity ^0.8.20;
 
-import { ICrossChainSync } from "../../common/ICrossChainSync.sol";
-
-import { TaikoData } from "../TaikoData.sol";
+import "../../common/ICrossChainSync.sol";
+import "../TaikoData.sol";
 
 /// @title LibUtils
 /// @notice A library that offers helper functions.
@@ -55,8 +54,7 @@ library LibUtils {
         view
         returns (ICrossChainSync.Snippet memory)
     {
-        uint64 _blockId =
-            blockId == 0 ? state.slotB.lastVerifiedBlockId : blockId;
+        uint64 _blockId = blockId == 0 ? state.slotB.lastVerifiedBlockId : blockId;
         uint64 slot = _blockId % config.blockRingBufferSize;
 
         TaikoData.Block storage blk = state.blocks[slot];
