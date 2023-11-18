@@ -13,7 +13,6 @@ import "../common/Proxied.sol";
 import "./libs/LibDepositing.sol";
 import "./libs/LibProposing.sol";
 import "./libs/LibProving.sol";
-import "./libs/LibTaikoToken.sol";
 import "./libs/LibUtils.sol";
 import "./libs/LibVerifying.sol";
 import "./TaikoData.sol";

@@ -14,7 +14,6 @@ import "../hooks/IHook.sol";
 import "../tiers/ITierProvider.sol";
 import "../TaikoData.sol";
 import "./LibDepositing.sol";
-import "./LibTaikoToken.sol";
 
 /// @title LibProposing
 /// @notice A library for handling block proposals in the Taiko protocol.
