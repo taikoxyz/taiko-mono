@@ -6,20 +6,13 @@
 
 pragma solidity ^0.8.20;
 
-import "../common/AddressResolver.sol";
 import "../common/EssentialContract.sol";
-import "../common/ICrossChainSync.sol";
-import "../common/Proxied.sol";
 import "./libs/LibDepositing.sol";
 import "./libs/LibProposing.sol";
 import "./libs/LibProving.sol";
-import "./libs/LibTaikoToken.sol";
-import "./libs/LibUtils.sol";
 import "./libs/LibVerifying.sol";
-import "./TaikoData.sol";
 import "./TaikoErrors.sol";
 import "./TaikoEvents.sol";
-import "./tiers/ITierProvider.sol";
 
 /// @title TaikoL1
 /// @dev Labeled in AddressResolver as "taiko"
@@ -29,15 +22,14 @@ import "./tiers/ITierProvider.sol";
 /// deployed on L1, it can also be deployed on L2s to create L3s ("inception
 /// layers"). The contract also handles the deposit and withdrawal of Taiko
 /// tokens and Ether.
+/// This contract doesn't hold any Ether. Ether deposited to L2 are held by the Bridge contract.
 contract TaikoL1 is EssentialContract, ICrossChainSync, ITierProvider, TaikoEvents, TaikoErrors {
     TaikoData.State public state;
     uint256[100] private __gap;
 
-    error L1_TOO_MANY_TIERS();
-
-    /// @dev Fallback function to receive Ether and deposit to Layer 2.
+    /// @dev Fallback function to receive Ether from Hooks
     receive() external payable {
-        depositEtherToL2(address(0));
+        if (!_inNonReentrant()) revert L1_RECEIVE_DISABLED();
     }
 
     /// @notice Initializes the rollup.
@@ -67,8 +59,10 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, ITierProvider, TaikoEven
         )
     {
         TaikoData.Config memory config = getConfig();
+
         (meta, depositsProcessed) =
             LibProposing.proposeBlock(state, config, AddressResolver(this), params, txList);
+
         if (!state.slotB.provingPaused && config.maxBlocksToVerifyPerProposal > 0) {
             LibVerifying.verifyBlocks(
                 state, config, AddressResolver(this), config.maxBlocksToVerifyPerProposal
@@ -82,6 +76,8 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, ITierProvider, TaikoEven
     /// @param input An abi-encoded (BlockMetadata, Transition, TierProof)
     /// tuple.
     function proveBlock(uint64 blockId, bytes calldata input) external nonReentrant whenNotPaused {
+        if (state.slotB.provingPaused) revert L1_PROVING_PAUSED();
+
         (
             TaikoData.BlockMetadata memory meta,
             TaikoData.Transition memory tran,
@@ -91,8 +87,10 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, ITierProvider, TaikoEven
         if (blockId != meta.id) revert L1_INVALID_BLOCK_ID();
 
         TaikoData.Config memory config = getConfig();
+
         uint8 maxBlocksToVerify =
             LibProving.proveBlock(state, config, AddressResolver(this), meta, tran, proof);
+
         if (maxBlocksToVerify > 0) {
             LibVerifying.verifyBlocks(state, config, AddressResolver(this), maxBlocksToVerify);
         }
@@ -113,22 +111,10 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, ITierProvider, TaikoEven
         LibProving.pauseProving(state, pause);
     }
 
-    /// @notice Deposit Taiko token to this contract
-    /// @param amount Amount of Taiko token to deposit.
-    function depositTaikoToken(uint256 amount) external whenNotPaused {
-        LibTaikoToken.depositTaikoToken(state, AddressResolver(this), amount);
-    }
-
-    /// @notice Withdraw Taiko token from this contract
-    /// @param amount Amount of Taiko token to withdraw.
-    function withdrawTaikoToken(uint256 amount) external whenNotPaused {
-        LibTaikoToken.withdrawTaikoToken(state, AddressResolver(this), amount);
-    }
-
     /// @notice Deposits Ether to Layer 2.
     /// @param recipient Address of the recipient for the deposited Ether on
     /// Layer 2.
-    function depositEtherToL2(address recipient) public payable whenNotPaused {
+    function depositEtherToL2(address recipient) external payable whenNotPaused {
         LibDepositing.depositEtherToL2(state, getConfig(), AddressResolver(this), recipient);
     }
 

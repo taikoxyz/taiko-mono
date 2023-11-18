@@ -6,9 +6,8 @@
 pragma solidity ^0.8.20;
 
 import "../common/EssentialContract.sol";
-import "../common/Proxied.sol";
-import "../signal/ISignalService.sol";
 import "../libs/LibAddress.sol";
+import "../signal/ISignalService.sol";
 import "./IBridge.sol";
 
 /// @title Bridge

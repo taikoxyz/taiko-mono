@@ -69,25 +69,20 @@ library TaikoData {
         bytes data;
     }
 
-    struct ProverAssignment {
-        address prover;
-        address feeToken;
-        TierFee[] tierFees;
-        uint64 expiry;
-        uint64 maxBlockId;
-        uint64 maxProposedIn;
-        bytes32 metaHash;
-        bytes signature;
+    struct HookCall {
+        address hook;
+        bytes data;
     }
 
     struct BlockParams {
-        ProverAssignment assignment;
+        address assignedProver;
         bytes32 extraData;
         bytes32 blobHash;
         uint24 txListByteOffset;
         uint24 txListByteSize;
         bool cacheBlobForReuse;
         bytes32 parentMetaHash;
+        HookCall[] hookCalls;
     }
 
     /// @dev Struct containing data only required for proving a block

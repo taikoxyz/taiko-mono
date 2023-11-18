@@ -19,7 +19,6 @@ abstract contract TaikoEvents {
     /// @param blockId The ID of the proposed block.
     /// @param assignedProver The block's assigned prover.
     /// @param livenessBond The bond in Taiko token from the assigned prover.
-    /// @param proverFee The fee paid to the assigned prover.
     /// @param meta The block metadata containing information about the proposed
     /// block.
     /// @param depositsProcessed Ether deposits processed.
@@ -27,7 +26,6 @@ abstract contract TaikoEvents {
         uint256 indexed blockId,
         address indexed assignedProver,
         uint96 livenessBond,
-        uint256 proverFee,
         TaikoData.BlockMetadata meta,
         TaikoData.EthDeposit[] depositsProcessed
     );

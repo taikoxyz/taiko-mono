@@ -9,7 +9,6 @@ pragma solidity ^0.8.20;
 import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
 import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 import "../common/EssentialContract.sol";
-import "../common/Proxied.sol";
 
 /// @title BridgedERC721
 /// @notice Contract for bridging ERC721 tokens across different chains.

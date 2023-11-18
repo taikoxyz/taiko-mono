@@ -6,6 +6,7 @@
 
 pragma solidity ^0.8.20;
 
+import "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
 import "./AddressResolver.sol";
 
@@ -66,5 +67,23 @@ abstract contract EssentialContract is Ownable2StepUpgradeable, AddressResolver 
 
         _reentry = _FALSE;
         _paused = _FALSE;
+    }
+
+    function _inNonReentrant() internal view returns (bool) {
+        return _reentry == _TRUE;
+    }
+}
+
+/// @title Proxied
+/// @dev Extends OpenZeppelin's Initializable for upgradeable contracts.
+/// Intended as the base class for contracts used with
+/// TransparentUpgradeableProxy.
+///
+/// @dev For each chain, deploy Proxied contracts with unique deployers to
+/// ensure distinct contract addresses.
+abstract contract Proxied is Initializable {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
     }
 }

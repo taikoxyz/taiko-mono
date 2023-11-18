@@ -2,11 +2,9 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/console2.sol";
-
 import "../../contracts/L2/Lib1559Math.sol";
 import "../../contracts/thirdparty/LibFixedPointMath.sol";
 import "../../contracts/libs/LibMath.sol";
-
 import "../TestBase.sol";
 
 contract TestLib1559Math is TaikoTest {

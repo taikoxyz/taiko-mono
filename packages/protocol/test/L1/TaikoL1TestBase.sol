@@ -21,6 +21,7 @@ import "../../contracts/L1/provers/GuardianProver.sol";
 import "../../contracts/signal/SignalService.sol";
 import "../../contracts/common/AddressResolver.sol";
 import "../../contracts/L1/tiers/ITierProvider.sol";
+import "../../contracts/L1/hooks/AssignmentHook.sol";
 
 contract MockVerifier {
     fallback(bytes calldata) external returns (bytes memory) {
@@ -32,6 +33,7 @@ contract MockVerifier {
 // shared logics and data.
 abstract contract TaikoL1TestBase is TaikoTest {
     AddressManager public addressManager;
+    AssignmentHook public assignmentHook;
     TaikoToken public tko;
     SignalService public ss;
     TaikoL1 public L1;
@@ -85,6 +87,9 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
         bridge = new Bridge();
         bridge.init(address(addressManager));
+
+        assignmentHook = new AssignmentHook();
+        assignmentHook.init(address(addressManager));
 
         registerAddress("taiko", address(L1));
         registerAddress("tier_pse_zkevm", address(pv));
@@ -140,8 +145,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         // anyways
         uint256 msgValue = 2 ether;
 
-        TaikoData.ProverAssignment memory assignment = TaikoData.ProverAssignment({
-            prover: prover,
+        AssignmentHook.ProverAssignment memory assignment = AssignmentHook.ProverAssignment({
             feeToken: address(0),
             tierFees: tierFees,
             expiry: uint64(block.timestamp + 60 minutes),
@@ -151,9 +155,8 @@ abstract contract TaikoL1TestBase is TaikoTest {
             signature: new bytes(0)
         });
 
-        bytes memory txList = new bytes(txListSize);
-
-        assignment.signature = _signAssignment(prover, assignment, address(L1), keccak256(txList));
+        assignment.signature =
+            _signAssignment(prover, assignment, address(L1), keccak256(new bytes(txListSize)));
 
         (, TaikoData.SlotB memory b) = L1.getStateVariables();
 
@@ -168,9 +171,14 @@ abstract contract TaikoL1TestBase is TaikoTest {
         meta.difficulty = bytes32(_difficulty);
         meta.gasLimit = gasLimit;
 
+        TaikoData.HookCall[] memory hookcalls = new TaikoData.HookCall[](1);
+
+        hookcalls[0] = TaikoData.HookCall(address(assignmentHook), abi.encode(assignment));
+
         vm.prank(proposer, proposer);
         (meta, depositsProcessed) = L1.proposeBlock{ value: msgValue }(
-            abi.encode(TaikoData.BlockParams(assignment, 0, 0, 0, 0, false, 0)), txList
+            abi.encode(TaikoData.BlockParams(prover, 0, 0, 0, 0, false, 0, hookcalls)),
+            new bytes(txListSize)
         );
     }
 
@@ -295,7 +303,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
     function _signAssignment(
         address signer,
-        TaikoData.ProverAssignment memory assignment,
+        AssignmentHook.ProverAssignment memory assignment,
         address taikoAddr,
         bytes32 blobHash
     )
@@ -303,7 +311,6 @@ abstract contract TaikoL1TestBase is TaikoTest {
         view
         returns (bytes memory signature)
     {
-        bytes32 digest = LibProposing.hashAssignment(assignment, taikoAddr, blobHash);
         uint256 signerPrivateKey;
 
         // In the test suite these are the 3 which acts as provers
@@ -315,7 +322,9 @@ abstract contract TaikoL1TestBase is TaikoTest {
             signerPrivateKey = 0x3;
         }
 
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, digest);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+            signerPrivateKey, assignmentHook.hashAssignment(assignment, taikoAddr, blobHash)
+        );
         signature = abi.encodePacked(r, s, v);
     }
 
@@ -346,12 +355,12 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
     function giveEthAndTko(address to, uint256 amountTko, uint256 amountEth) internal {
         vm.deal(to, amountEth);
-        console2.log("TKO balance this:", tko.balanceOf(address(this)));
-        console2.log(amountTko);
         tko.transfer(to, amountTko);
 
         vm.prank(to, to);
         tko.approve(address(L1), amountTko);
+        vm.prank(to, to);
+        tko.approve(address(assignmentHook), amountTko);
 
         console2.log("TKO balance:", to, tko.balanceOf(to));
         console2.log("ETH balance:", to, to.balance);

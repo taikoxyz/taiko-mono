@@ -10,7 +10,7 @@ import "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgr
 import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/utils/cryptography/ECDSAUpgradeable.sol";
-import "../common/Proxied.sol";
+import "../common/EssentialContract.sol";
 
 /// @title TimeLockTokenPool
 /// Contract for managing Taiko tokens allocated to different roles and
@@ -27,7 +27,7 @@ import "../common/Proxied.sol";
 /// - investors
 /// - team members, advisors, etc.
 /// - grant program grantees
-contract TimeLockTokenPool is Ownable2StepUpgradeable {
+contract TimeLockTokenPool is EssentialContract {
     using SafeERC20Upgradeable for ERC20Upgradeable;
 
     struct Grant {
@@ -78,7 +78,7 @@ contract TimeLockTokenPool is Ownable2StepUpgradeable {
     error TOO_MANY();
 
     function init(address _taikoToken, address _sharedVault) external initializer {
-        Ownable2StepUpgradeable.__Ownable2Step_init();
+        EssentialContract._init(address(0));
 
         if (_taikoToken == address(0)) revert INVALID_PARAM();
         taikoToken = _taikoToken;

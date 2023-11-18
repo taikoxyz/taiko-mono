@@ -10,7 +10,7 @@ import "../../common/AddressResolver.sol";
 import "../../signal/ISignalService.sol";
 import "../tiers/ITierProvider.sol";
 import "../TaikoData.sol";
-import "./LibTaikoToken.sol";
+import "../TaikoToken.sol";
 import "./LibUtils.sol";
 
 /// @title LibVerifying
@@ -105,8 +105,6 @@ library LibVerifying {
         // Retrieve the latest verified block and the associated transition used
         // for its verification.
         TaikoData.SlotB memory b = state.slotB;
-        if (b.provingPaused) return;
-
         uint64 blockId = b.lastVerifiedBlockId;
 
         uint64 slot = blockId % config.blockRingBufferSize;
@@ -195,7 +193,8 @@ library LibVerifying {
                     bondToReturn -= blk.livenessBond / 2;
                 }
 
-                LibTaikoToken.creditTaikoToken(state, ts.prover, bondToReturn);
+                TaikoToken tko = TaikoToken(resolver.resolve("taiko_token", false));
+                tko.transfer(ts.prover, bondToReturn);
 
                 // Note: We exclusively address the bonds linked to the
                 // transition used for verification. While there may exist

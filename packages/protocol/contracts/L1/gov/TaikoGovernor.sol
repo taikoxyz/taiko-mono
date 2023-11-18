@@ -19,7 +19,7 @@ contract TaikoGovernor is
         IVotes _token,
         TimelockController _timelock
     )
-        Governor("MyGovernor")
+        Governor("TaikoGovernor")
         GovernorVotes(_token)
         GovernorVotesQuorumFraction(4)
         GovernorTimelockControl(_timelock)

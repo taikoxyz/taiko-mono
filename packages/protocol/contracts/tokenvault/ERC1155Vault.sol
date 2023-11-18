@@ -7,15 +7,11 @@
 pragma solidity ^0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-
 import
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/ERC1155Upgradeable.sol";
-
-import "../common/Proxied.sol";
 import "../bridge/IBridge.sol";
 import "../libs/LibAddress.sol";
-
 import "./BaseNFTVault.sol";
 import "./BridgedERC1155.sol";
 

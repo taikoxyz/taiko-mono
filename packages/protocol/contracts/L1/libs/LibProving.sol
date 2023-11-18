@@ -10,7 +10,7 @@ import "../../common/AddressResolver.sol";
 import "../tiers/ITierProvider.sol";
 import "../verifiers/IVerifier.sol";
 import "../TaikoData.sol";
-import "./LibTaikoToken.sol";
+import "../TaikoToken.sol";
 import "./LibUtils.sol";
 
 /// @title LibProving
@@ -206,6 +206,8 @@ library LibProving {
             }
         }
 
+        TaikoToken tko = TaikoToken(resolver.resolve("taiko_token", false));
+
         if (tier.contestBond == 0) {
             assert(tier.validityBond == 0);
             // When contestBond is zero for the current tier, it signifies
@@ -227,7 +229,7 @@ library LibProving {
                 blk.livenessBond > 0 && proof.data.length == 32
                     && bytes32(proof.data) == RETURN_LIVENESS_BOND
             ) {
-                LibTaikoToken.creditTaikoToken(state, blk.assignedProver, blk.livenessBond);
+                tko.transfer(blk.assignedProver, blk.livenessBond);
                 blk.livenessBond = 0;
             }
 
@@ -237,9 +239,7 @@ library LibProving {
 
             if (ts.contester != address(0)) {
                 // At this point we know that the contester was right
-                LibTaikoToken.creditTaikoToken(
-                    state, ts.contester, ts.validityBond / 4 + ts.contestBond
-                );
+                tko.transfer(ts.contester, ts.validityBond / 4 + ts.contestBond);
                 ts.contester = address(0);
                 ts.validityBond = 0;
             }
@@ -278,7 +278,7 @@ library LibProving {
             if (ts.contester != address(0)) revert L1_ALREADY_CONTESTED();
 
             // Burn the contest bond from the prover.
-            LibTaikoToken.debitTaikoToken(state, resolver, msg.sender, tier.contestBond);
+            tko.transferFrom(msg.sender, address(this), tier.contestBond);
 
             // We retain the contest bond within the transition, just in
             // case this configuration is altered to a different value
@@ -367,7 +367,7 @@ library LibProving {
 
                     // Mint the reward and the validity bond and return it to
                     // the previous prover.
-                    LibTaikoToken.creditTaikoToken(state, ts.prover, reward + ts.validityBond);
+                    tko.transfer(ts.prover, reward + ts.validityBond);
                 } else {
                     // In the event that the contester is the winner, half of
                     // the validity bond is designated as the reward, to be
@@ -378,11 +378,11 @@ library LibProving {
                     // for the tier-0 transition. Consequently, we only grant a
                     // reward to the contester if it is not a zero-address.
                     if (ts.contester != address(0)) {
-                        LibTaikoToken.creditTaikoToken(state, ts.contester, reward + ts.contestBond);
+                        tko.transfer(ts.contester, reward + ts.contestBond);
                     } else {
                         // The prover is also the contester, so the reward is
                         // sent to him.
-                        LibTaikoToken.creditTaikoToken(state, msg.sender, reward);
+                        tko.transfer(msg.sender, reward);
                     }
 
                     // Given that the contester emerges as the winner, the
@@ -396,11 +396,11 @@ library LibProving {
                 // Reward this prover.
                 // In theory, the reward can also be zero for certain tiers if
                 // their validity bonds are set to zero.
-                LibTaikoToken.creditTaikoToken(state, msg.sender, reward);
+                tko.transfer(msg.sender, reward);
             }
 
             // Burn the validity bond from the prover.
-            LibTaikoToken.debitTaikoToken(state, resolver, msg.sender, tier.validityBond);
+            tko.transferFrom(msg.sender, address(this), tier.validityBond);
 
             // Regardless of whether the previous prover or the contester
             // emerges as the winner, we consistently erase the contest history
@@ -423,9 +423,8 @@ library LibProving {
     }
 
     function pauseProving(TaikoData.State storage state, bool pause) internal {
-        if (state.slotB.provingPaused == pause) {
-            revert L1_INVALID_PAUSE_STATUS();
-        }
+        if (state.slotB.provingPaused == pause) revert L1_INVALID_PAUSE_STATUS();
+
         state.slotB.provingPaused = pause;
         emit ProvingPaused(pause);
     }
