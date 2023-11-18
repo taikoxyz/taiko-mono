@@ -27,15 +27,9 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, ITierProvider, TaikoEven
     TaikoData.State public state;
     uint256[100] private __gap;
 
-    error L1_TOO_MANY_TIERS();
-
     /// @dev Fallback function to receive Ether and deposit to Layer 2.
     receive() external payable {
-        if (_inNonReentrant()) {
-            // this must be called from a hook
-        } else {
-            depositEtherToL2(msg.sender);
-        }
+        if (!_inNonReentrant()) revert L1_RECEIVE_DISABLED();
     }
 
     /// @notice Initializes the rollup.
@@ -114,7 +108,7 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, ITierProvider, TaikoEven
     /// @notice Deposits Ether to Layer 2.
     /// @param recipient Address of the recipient for the deposited Ether on
     /// Layer 2.
-    function depositEtherToL2(address recipient) public payable whenNotPaused {
+    function depositEtherToL2(address recipient) external payable whenNotPaused {
         LibDepositing.depositEtherToL2(state, getConfig(), AddressResolver(this), recipient);
     }
 
