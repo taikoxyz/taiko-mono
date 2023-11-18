@@ -238,8 +238,6 @@ library LibProposing {
             // Run all hooks.
             // Note that address(this).balance has been updated with msg.value,
             // prior to any code in this function has been executed.
-
-            // Run hooks
             for (uint256 i; i < params.hookCalls.length; ++i) {
                 // When a hook is called, all ether in this contract will be send to the hook.
                 // If the ether sent to the hook is not used entirely, the hook shall send the Ether
@@ -248,6 +246,10 @@ library LibProposing {
                 IHook(params.hookCalls[i].hook).onBlockProposed{ value: address(this).balance }(
                     blk, meta, params.hookCalls[i].data
                 );
+            }
+            // Refund Ether
+            if (address(this).balance != 0) {
+                msg.sender.sendEther(address(this).balance);
             }
 
             // Check that after hooks, the Taiko Token balance of this contract
