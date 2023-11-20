@@ -87,7 +87,8 @@ func TestIntegration_Stat_Find(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := statRepo.Find(context.Background(), tt.statType, &tt.feeTokenAddress)
+			f := tt.feeTokenAddress
+			resp, err := statRepo.Find(context.Background(), tt.statType, &f)
 
 			assert.Equal(t, tt.wantErr, err)
 			assert.Equal(t, *tt.wantResp, *resp)
