@@ -3,6 +3,7 @@
   "version": "0.15.2",
   "private": true,
   "scripts": {
+    "buildMerkle": "ts-node ./utils/airdrop/buildMerkleTree.ts ./utils/airdrop/airdrop_db/example_claimList.json",
     "clean": "rm -rf abis cache && forge clean",
     "compile": "forge build",
     "compile:hardhat": "pnpm hardhat compile",
@@ -79,5 +80,8 @@
     "ts-node": "^10.9.1",
     "typechain": "^8.3.2",
     "typescript": "^5.2.2"
+  },
+  "dependencies": {
+    "merkletreejs": "^0.3.11"
   }
 }
