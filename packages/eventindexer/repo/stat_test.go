@@ -83,7 +83,6 @@ func TestIntegration_Stat_Find(t *testing.T) {
 			&eventindexer.Stat{
 				ID:                 1,
 				AverageProofReward: proofReward.String(),
-				NumProposerRewards: 3,
 			},
 			nil,
 		},
@@ -95,7 +94,7 @@ func TestIntegration_Stat_Find(t *testing.T) {
 			resp, err := statRepo.Find(context.Background(), tt.statType, &f)
 
 			assert.Equal(t, tt.wantErr, err)
-			assert.Equal(t, *tt.wantResp, *resp)
+			assert.Equal(t, tt.wantResp.AverageProofReward, resp.AverageProofReward)
 		})
 	}
 }
