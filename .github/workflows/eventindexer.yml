@@ -26,7 +26,7 @@ jobs:
 
           # Optional: working directory, useful for monorepos
           working-directory: ./packages/eventindexer
-          args: --config=.golangci.yml --timeout=4m
+          args: --config=.golangci.yml --timeout=4m --out-format=colored-line-number
 
   test:
     runs-on: ubuntu-latest
