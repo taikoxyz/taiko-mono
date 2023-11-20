@@ -20,6 +20,8 @@ func TestIntegration_Stat_Save(t *testing.T) {
 
 	var proofReward = big.NewInt(4)
 
+	feeTokenAddress := "0x01"
+
 	tests := []struct {
 		name    string
 		opts    eventindexer.SaveStatOpts
@@ -28,7 +30,9 @@ func TestIntegration_Stat_Save(t *testing.T) {
 		{
 			"successProofReward",
 			eventindexer.SaveStatOpts{
-				ProofReward: proofReward,
+				ProofReward:     proofReward,
+				StatType:        eventindexer.StatTypeProofReward,
+				FeeTokenAddress: &feeTokenAddress,
 			},
 			nil,
 		},

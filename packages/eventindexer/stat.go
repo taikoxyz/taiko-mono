@@ -17,7 +17,6 @@ type Stat struct {
 	ID                 int    `json:"id"`
 	AverageProofTime   string `json:"averageProofTime"`
 	AverageProofReward string `json:"averageProofReward"`
-	NumProposerRewards uint64 `json:"numProposerRewards"`
 	NumProofs          uint64 `json:"numProofs"`
 	NumBlocksAssigned  uint64 `json:"numBlocksAssigned"`
 	FeeTokenAddress    string `json:"feeTokenAddress"`
