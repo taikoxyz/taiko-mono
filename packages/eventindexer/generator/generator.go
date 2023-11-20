@@ -203,15 +203,21 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 		}
 
 		for _, feeTokenAddress := range feeTokenAddresses {
+			f := feeTokenAddress
+
 			var dailyProofRewards decimal.NullDecimal
 
 			// nolint: lll
 			query := "SELECT COALESCE(SUM(proof_reward), 0) FROM events WHERE event = ? AND DATE(transacted_at) = ? AND fee_token_address = ?"
 			err = g.db.GormDB().
-				Raw(query, eventindexer.EventNameBlockAssigned, dateString, feeTokenAddress).
+				Raw(query, eventindexer.EventNameBlockAssigned, dateString, f).
 				Scan(&dailyProofRewards).Error
 
-			tsdResult, err := g.previousDayTsdResultByTask(task, date, &feeTokenAddress)
+			if err != nil {
+				return err
+			}
+
+			tsdResult, err := g.previousDayTsdResultByTask(task, date, &f)
 			if err != nil {
 				return err
 			}
@@ -234,10 +240,10 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 				slog.Info("Insert failed", "task", task, "date", dateString, "error", err.Error())
 				return err
 			}
-
-			// return early for array processing data
-			return nil
 		}
+
+		// return early for array processing data
+		return nil
 	case tasks.ProofRewardsPerDay:
 		var feeTokenAddresses []string = make([]string, 0)
 		// get unique fee token addresses
@@ -251,12 +257,14 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 		}
 
 		for _, feeTokenAddress := range feeTokenAddresses {
+			f := feeTokenAddress
+
 			var result decimal.Decimal
 
 			// nolint: lll
 			query := `SELECT COALESCE(SUM(proof_reward), 0) FROM events WHERE event = ? AND DATE(transacted_at) = ? AND fee_token_address = ?`
 			err = g.db.GormDB().
-				Raw(query, eventindexer.EventNameBlockAssigned, dateString, feeTokenAddress).
+				Raw(query, eventindexer.EventNameBlockAssigned, dateString, f).
 				Scan(&result).Error
 
 			if err != nil {
@@ -279,10 +287,11 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 				slog.Info("Insert failed", "task", task, "date", dateString, "error", err.Error())
 				return err
 			}
-
-			// return early for array processing data
-			return nil
 		}
+
+		// return early for array processing data
+		return nil
+
 	case tasks.BridgeMessagesSentPerDay:
 		err = g.eventCount(task, date, eventindexer.EventNameMessageSent, &result)
 	case tasks.TotalBridgeMessagesSent:
