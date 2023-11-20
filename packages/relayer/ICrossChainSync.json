@@ -5,13 +5,13 @@
       {
         "indexed": true,
         "internalType": "uint64",
-        "name": "remoteBlockId",
+        "name": "syncedInBlock",
         "type": "uint64"
       },
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "uint64",
-        "name": "syncedInBlock",
+        "name": "blockId",
         "type": "uint64"
       },
       {
