@@ -228,14 +228,14 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 				"task", task,
 				"date", dateString,
 				"result", result.String(),
-				"feeTokenAddress", feeTokenAddress,
+				"feeTokenAddress", f,
 			)
 
 			insertStmt := `
 		INSERT INTO time_series_data(task, value, date, fee_token_address)
 		VALUES (?, ?, ?, ?)`
 
-			err = g.db.GormDB().Exec(insertStmt, task, result, dateString, feeTokenAddress).Error
+			err = g.db.GormDB().Exec(insertStmt, task, result, dateString, f).Error
 			if err != nil {
 				slog.Info("Insert failed", "task", task, "date", dateString, "error", err.Error())
 				return err
@@ -275,14 +275,14 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 				"task", task,
 				"date", dateString,
 				"result", result.String(),
-				"feeTokenAddress", feeTokenAddress,
+				"feeTokenAddress", f,
 			)
 
 			insertStmt := `
 			INSERT INTO time_series_data(task, value, date, fee_token_address)
 			VALUES (?, ?, ?, ?)`
 
-			err = g.db.GormDB().Exec(insertStmt, task, result, dateString, feeTokenAddress).Error
+			err = g.db.GormDB().Exec(insertStmt, task, result, dateString, f).Error
 			if err != nil {
 				slog.Info("Insert failed", "task", task, "date", dateString, "error", err.Error())
 				return err
