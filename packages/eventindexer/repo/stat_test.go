@@ -53,32 +53,33 @@ func TestIntegration_Stat_Find(t *testing.T) {
 
 	var proofReward = big.NewInt(4)
 
-	var proposerReward = big.NewInt(7)
+	feeTokenAddress := "0x01"
 
 	for i := 0; i < 3; i++ {
 		_, err = statRepo.Save(context.Background(), eventindexer.SaveStatOpts{
-			ProofReward:    proofReward,
-			ProposerReward: proposerReward,
+			StatType:        eventindexer.StatTypeProofReward,
+			ProofReward:     proofReward,
+			FeeTokenAddress: &feeTokenAddress,
 		})
 	}
 
 	assert.Equal(t, nil, err)
 
 	tests := []struct {
-		name     string
-		wantResp *eventindexer.Stat
-		wantErr  error
+		name            string
+		statType        string
+		feeTokenAddress string
+		wantResp        *eventindexer.Stat
+		wantErr         error
 	}{
 		{
-			"success",
+			"successStatTypeProofReward",
+			eventindexer.StatTypeProofReward,
+			"0x01",
 			&eventindexer.Stat{
-				ID:                    1,
-				AverageProofReward:    proofReward.String(),
-				AverageProofTime:      "0",
-				AverageProposerReward: proposerReward.String(),
-				NumProposerRewards:    3,
-				NumProofs:             0,
-				NumVerifiedBlocks:     3,
+				ID:                 1,
+				AverageProofReward: proofReward.String(),
+				NumProposerRewards: 3,
 			},
 			nil,
 		},
@@ -86,7 +87,7 @@ func TestIntegration_Stat_Find(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := statRepo.Find(context.Background())
+			resp, err := statRepo.Find(context.Background(), tt.statType, &tt.feeTokenAddress)
 
 			assert.Equal(t, tt.wantErr, err)
 			assert.Equal(t, *tt.wantResp, *resp)

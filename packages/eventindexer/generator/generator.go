@@ -206,7 +206,7 @@ func (g *Generator) queryByTask(task string, date time.Time) (decimal.Decimal, e
 
 		query := "SELECT COALESCE(SUM(proof_reward), 0) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
 		err = g.db.GormDB().
-			Raw(query, eventindexer.EventNameBlockProposed, dateString).
+			Raw(query, eventindexer.EventNameBlockAssigned, dateString).
 			Scan(&dailyProofRewards).Error
 
 		tsdResult, err := g.previousDayTsdResultByTask(task, date)
@@ -218,7 +218,7 @@ func (g *Generator) queryByTask(task string, date time.Time) (decimal.Decimal, e
 	case tasks.ProofRewardsPerDay:
 		query := "SELECT COALESCE(SUM(proof_reward), 0) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
 		err = g.db.GormDB().
-			Raw(query, eventindexer.EventNameBlockProposed, dateString).
+			Raw(query, eventindexer.EventNameBlockAssigned, dateString).
 			Scan(&result).Error
 	case tasks.BridgeMessagesSentPerDay:
 		err = g.eventCount(task, date, eventindexer.EventNameMessageSent, &result)
