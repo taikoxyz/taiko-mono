@@ -19,10 +19,26 @@ import { MerkleClaimable } from "./MerkleClaimable.sol";
 contract ERC20Airdrop2 is MerkleClaimable {
     address public token;
     address public vault;
+    // Represents the token amount for which the user is (by default) eligible
     mapping(address => uint256) public claimedAmount;
+    // Represents the already withdrawn amount
     mapping(address => uint256) public withdrawnAmount;
+    // Length of the withdrawal window
     uint64 public withdrawalWindow;
-    uint256[48] private __gap;
+
+    uint256[45] private __gap;
+
+    event Withdrawn(address user, uint256 amount);
+
+    error WITHDRAWALS_NOT_ONGOING();
+
+    modifier ongoingWithdrawals() {
+        if (
+            claimEnd > block.timestamp
+                || claimEnd + withdrawalWindow < block.timestamp
+        ) revert WITHDRAWALS_NOT_ONGOING();
+        _;
+    }
 
     function init(
         uint64 _claimStarts,
@@ -43,18 +59,35 @@ contract ERC20Airdrop2 is MerkleClaimable {
         withdrawalWindow = _withdrawalWindow;
     }
 
-    function withdraw(address user) external {
+    /// @notice External withdraw function
+    /// @param user User address
+    function withdraw(address user) external ongoingWithdrawals {
         (, uint256 amount) = getBalance(user);
         withdrawnAmount[user] += amount;
         IERC20Upgradeable(token).transferFrom(vault, user, amount);
+
+        emit Withdrawn(user, amount);
     }
 
+    /// @notice Getter for the balance and withdrawal amount per given user
+    /// The 2nd airdrop is subject to an unlock period. User has to claim his
+    /// tokens (within claimStart and claimEnd), but not immediately
+    /// withdrawable. With a time of X (withdrawalWindow) it becomes fully
+    /// withdrawable - and unlocks linearly.
+    /// @param user User address
+    /// @return balance The balance the user successfully claimed
+    /// @return withdrawableAmount The amount available to withdraw
     function getBalance(address user)
         public
         view
         returns (uint256 balance, uint256 withdrawableAmount)
     {
-        // TODO(dani):
+        balance = claimedAmount[user];
+        if (balance == 0) return (0, 0);
+        uint256 timeBasedAllowance =
+            balance * uint64(block.timestamp - claimEnd) / withdrawalWindow;
+
+        withdrawableAmount = timeBasedAllowance - withdrawnAmount[user];
     }
 
     function _claimWithData(bytes calldata data) internal override {
