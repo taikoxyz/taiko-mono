@@ -14,6 +14,7 @@ import "forge-std/console2.sol";
 
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
+import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/L1/verifiers/PseZkVerifier.sol";
 import "../contracts/L1/verifiers/SgxVerifier.sol";
@@ -32,10 +33,10 @@ import "../contracts/signal/SignalService.sol";
 import "../contracts/common/AddressManager.sol";
 import "../contracts/test/erc20/FreeMintERC20.sol";
 import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
-
 /// @title DeployOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
 /// initializing the rollup.
+
 contract DeployOnL1 is Script {
     // NOTE: this value must match the constant defined in GuardianProver.sol
     uint256 public constant NUM_GUARDIANS = 5;
@@ -195,6 +196,15 @@ contract DeployOnL1 is Script {
 
         // PlonkVerifier
         deployPlonkVerifiers(pseZkVerifier);
+
+        // Assignment Hook
+        AssignmentHook assignmentHook = new ProxiedAssignmentHook();
+
+        deployProxy(
+            "assignment_hook",
+            address(assignmentHook),
+            bytes.concat(assignmentHook.init.selector, abi.encode(addressManagerProxy))
+        );
 
         vm.stopBroadcast();
     }
