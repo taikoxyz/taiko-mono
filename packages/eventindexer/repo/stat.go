@@ -39,11 +39,14 @@ func (r *StatRepository) Save(ctx context.Context, opts eventindexer.SaveStatOpt
 
 	if opts.StatType == eventindexer.StatTypeProofReward && opts.ProofReward != nil {
 		s.NumBlocksAssigned++
+		s.FeeTokenAddress = *opts.FeeTokenAddress
+		s.StatType = opts.StatType
 		s.AverageProofReward = opts.ProofReward.String()
 	}
 
 	if opts.StatType == eventindexer.StatTypeProofTime && opts.ProofTime != nil {
 		s.NumProofs++
+		s.StatType = opts.StatType
 		s.AverageProofTime = opts.ProofTime.String()
 	}
 
