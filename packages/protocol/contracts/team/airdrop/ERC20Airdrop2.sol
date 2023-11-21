@@ -49,6 +49,7 @@ contract ERC20Airdrop2 is MerkleClaimable {
         initializer
     {
         MerkleClaimable._init();
+        // Unix timestamp=_claimEnds+1 marks the first timestamp the users are able to withdraw.
         _setConfig(_claimStarts, _claimEnds, _merkleRoot);
 
         token = _token;
@@ -80,8 +81,15 @@ contract ERC20Airdrop2 is MerkleClaimable {
         returns (uint256 balance, uint256 withdrawableAmount)
     {
         balance = claimedAmount[user];
-        if (balance == 0) return (0, 0);
-        uint256 timeBasedAllowance = balance * uint64(block.timestamp - claimEnd) / withdrawalWindow;
+        // If balance is 0, or if the timestamp is above the (withdrawWindow + claimEnd) then there
+        // is no more balance and withdrawable amount
+        if (balance == 0 || uint64(block.timestamp) > (claimEnd + withdrawalWindow)) return (0, 0);
+        // Balance might be positive before end of claiming (claimEnd - if claimed already) but
+        // withdrawable is 0.
+        if (uint64(block.timestamp) < (claimEnd)) return (balance, 0);
+
+        uint256 timeBasedAllowance =
+            balance * (uint64(block.timestamp) - claimEnd) / withdrawalWindow;
 
         withdrawableAmount = timeBasedAllowance - withdrawnAmount[user];
     }
