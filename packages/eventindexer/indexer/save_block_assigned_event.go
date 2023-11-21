@@ -135,7 +135,9 @@ func (indxr *Indexer) updateAverageProverReward(
 	)
 
 	_, err = indxr.statRepo.Save(ctx, eventindexer.SaveStatOpts{
-		ProofReward: newAverageProofReward,
+		ProofReward:     newAverageProofReward,
+		StatType:        eventindexer.StatTypeProofReward,
+		FeeTokenAddress: &feeToken,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "indxr.statRepo.Save")

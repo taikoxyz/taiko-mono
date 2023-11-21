@@ -57,15 +57,22 @@ func TestIntegration_Stat_Find(t *testing.T) {
 
 	var proofReward = big.NewInt(4)
 
+	var proofTime = big.NewInt(7)
+
 	feeTokenAddress := "0x01"
 
-	for i := 0; i < 3; i++ {
-		_, err = statRepo.Save(context.Background(), eventindexer.SaveStatOpts{
-			StatType:        eventindexer.StatTypeProofReward,
-			ProofReward:     proofReward,
-			FeeTokenAddress: &feeTokenAddress,
-		})
-	}
+	_, err = statRepo.Save(context.Background(), eventindexer.SaveStatOpts{
+		StatType:        eventindexer.StatTypeProofReward,
+		ProofReward:     proofReward,
+		FeeTokenAddress: &feeTokenAddress,
+	})
+
+	assert.Equal(t, nil, err)
+
+	_, err = statRepo.Save(context.Background(), eventindexer.SaveStatOpts{
+		StatType:  eventindexer.StatTypeProofTime,
+		ProofTime: proofTime,
+	})
 
 	assert.Equal(t, nil, err)
 
@@ -83,6 +90,16 @@ func TestIntegration_Stat_Find(t *testing.T) {
 			&eventindexer.Stat{
 				ID:                 1,
 				AverageProofReward: proofReward.String(),
+			},
+			nil,
+		},
+		{
+			"successStatTypeProofTime",
+			eventindexer.StatTypeProofTime,
+			"",
+			&eventindexer.Stat{
+				ID:               1,
+				AverageProofTime: proofTime.String(),
 			},
 			nil,
 		},
