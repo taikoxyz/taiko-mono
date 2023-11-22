@@ -35,7 +35,7 @@ It is essential to maintain various internal metrics to effectively score bids  
 
 3. **Average bid per gas for all blocks**: This optional metric calculates the average bid per unit of gas for all blocks, including those that are currently undergoing the auction process. By considering all blocks, this metric offers a comprehensive view of the average bidding behavior and expenditure on gas across the entire system.
 
-4. **Per bidder proof submission success rate**: This optional metric measures the success rate of proof submissions by individual bidders. Specifically, it evaluates the ratio of proofs submitted by a bidder that were subsequently used for block verification compared to the total number of blocks won through auctions. Proofs submitted to other blocks that the bidder did not win are excluded from this calculation. This metric allows for the assessment of bidder reliability and the effectiveness of their proof submission process.
+4. **Per bidder proof submission success rate**: This optional metric measures the success rate of proof submissions by individual bidders. Specifically, it evaluates the ratio of proofs submitted by a bidder that were subsequently used for block verification compared to the total number of blocks won through auctions. Proofs submissions to other blocks that the bidder did not win are excluded from this calculation. This metric allows for the assessment of bidder reliability and the effectiveness of their proof submission process.
 
 
 ### Bid Period, Proofing Window, and Managing Multiple Auctions
@@ -49,7 +49,7 @@ Auctions are conducted in increasing order of block batches, and the next batch'
 The winning bidder is required to submit the proof for the block within the proof window, typically `proof_window` seconds after either the block proposal or the end of the auction, whichever occurs last. Other participants can only submit proofs after the proof window expires.
 
 ### Reward and Penalty Mechanisms
-If the chosen fork for the verified block originates from the auction winner's proof, the winner's deposit are refunded and reward are minted. If the selected fork comes from another prover's proof, the latter receives half the deposit, with the remaining half being burnt. This mechanism ensures fair competition and discourages manipulation, such as winners submitting correct proofs via different addresses.
+If the chosen fork for the verified block originates from the auction winner's proof, the winner's deposit is refunded, and reward is minted. If the selected fork comes from another prover's proof, the latter receives half the deposit, with the remaining half being burnt. This mechanism ensures fair competition and discourages manipulation, such as winners submitting correct proofs via different addresses.
 
 ### Absence of Fallback Mode
 There is no secondary fee/reward model for blocks that aren't auctioned. This simplifies the auction design and eliminates the need for dual tokenomics systems, namely, an auction-based primary system and an alternate fallback system.
