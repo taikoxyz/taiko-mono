@@ -30,6 +30,7 @@ import "../contracts/tokenvault/ERC1155Vault.sol";
 import "../contracts/tokenvault/ERC721Vault.sol";
 import "../contracts/signal/SignalService.sol";
 import "../contracts/common/AddressManager.sol";
+import "../contracts/libs/LibDeploy.sol";
 import "../contracts/test/erc20/FreeMintERC20.sol";
 import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
 
@@ -339,7 +340,7 @@ contract DeployOnL1 is Script {
         private
         returns (address proxy)
     {
-        proxy = address(new TransparentUpgradeableProxy(implementation, owner, data));
+        proxy = LibDeploy.deployTransparentUpgradeableProxyForOwnable(implementation, owner, data);
 
         console2.log(name, "(impl) ->", implementation);
         console2.log(name, "(proxy) ->", proxy);
