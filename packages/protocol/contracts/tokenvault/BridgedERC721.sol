@@ -106,7 +106,3 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         return "";
     }
 }
-
-/// @title ProxiedBridgedERC721
-/// @notice Proxied version of the parent contract.
-contract ProxiedBridgedERC721 is Proxied, BridgedERC721 { }

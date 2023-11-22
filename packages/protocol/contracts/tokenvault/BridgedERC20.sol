@@ -155,7 +155,3 @@ contract BridgedERC20 is
         return (srcToken, srcChainId);
     }
 }
-
-/// @title ProxiedBridgedERC20
-/// @notice Proxied version of the parent contract.
-contract ProxiedBridgedERC20 is Proxied, BridgedERC20 { }

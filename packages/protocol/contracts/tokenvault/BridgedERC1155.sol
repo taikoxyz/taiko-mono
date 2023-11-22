@@ -123,7 +123,3 @@ contract BridgedERC1155 is
         return string.concat(name_, unicode" ⭀", Strings.toString(srcChainId));
     }
 }
-
-/// @title ProxiedBridgedERC1155
-/// @notice Proxied version of the parent contract.
-contract ProxiedBridgedERC1155 is Proxied, BridgedERC1155 { }
