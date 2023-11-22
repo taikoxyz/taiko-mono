@@ -34,6 +34,131 @@ import "../contracts/libs/LibDeploy.sol";
 import "../contracts/test/erc20/FreeMintERC20.sol";
 import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
 
+abstract contract Deployer is Script {
+    struct Ctx {
+        address addressManager;
+        address owner;
+        uint64 chainId;
+    }
+
+    Ctx internal ctx;
+
+    function deploy(
+        bytes32 name,
+        address implementation,
+        bytes memory data
+    )
+        private
+        returns (address proxy)
+    {
+        require(ctx.owner != address(0), "null owner");
+        proxy =
+            LibDeploy.deployTransparentUpgradeableProxyForOwnable(implementation, ctx.owner, data);
+
+        if (ctx.addressManager != address(0)) {
+            AddressManager(ctx.addressManager).setAddress(ctx.chainId, name, proxy);
+            // console2.log(strings.concat(name, ": ", proxy, " =>", implementation));
+        } else {
+            // console2.log(name, ": ", proxy, " ->", implementation);
+        }
+
+        // vm.writeJson(
+        //     vm.serializeAddress("deployment", name, proxy),
+        //     string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
+        // );
+    }
+
+    function register(bytes32 name, address addr) private {
+        require(ctx.addressManager != address(0), "null address manager");
+        AddressManager(ctx.addressManager).setAddress(ctx.chainId, name, addr);
+        // console2.log(strings.concat(name, ": ", proxy, " =>", implementation));
+    }
+
+    function deployBridgeSuite() internal returns (address bridgeAddressManager) {
+        ctx = Ctx({ addressManager: address(0), owner: address(1), chainId: uint64(block.chainid) });
+
+        bridgeAddressManager = deploy(
+            "address_manager_for_bridge",
+            address(new ProxiedAddressManager()),
+            bytes.concat(AddressManager.init.selector)
+        );
+
+        ctx.addressManager = bridgeAddressManager;
+
+        deploy(
+            "signal_service",
+            address(new ProxiedSingletonSignalService()),
+            bytes.concat(SignalService.init.selector, abi.encode(ctx.addressManager))
+        );
+
+        deploy(
+            "bridge",
+            address(new ProxiedSingletonBridge()),
+            bytes.concat(Bridge.init.selector, abi.encode(ctx.addressManager))
+        );
+
+        register("proxied_bridged_erc20", address(new ProxiedBridgedERC20()));
+        deploy(
+            "erc20_vault",
+            address(new ProxiedSingletonERC20Vault()),
+            bytes.concat(BaseVault.init.selector, abi.encode(ctx.addressManager))
+        );
+
+        register("proxied_bridged_erc721", address(new ProxiedBridgedERC721()));
+        deploy(
+            "erc721_vault",
+            address(new ProxiedSingletonERC721Vault()),
+            bytes.concat(BaseVault.init.selector, abi.encode(ctx.addressManager))
+        );
+
+        register("proxied_bridged_erc1155", address(new ProxiedBridgedERC1155()));
+        deploy(
+            "erc1155_vault",
+            address(new ProxiedSingletonERC1155Vault()),
+            bytes.concat(BaseVault.init.selector, abi.encode(ctx.addressManager))
+        );
+    }
+
+    function deployTaikoL1Suite() internal returns (address rollupAddressManager) {
+        ctx = Ctx({ addressManager: address(0), owner: address(2), chainId: uint64(block.chainid) });
+
+        rollupAddressManager = deploy(
+            "address_manager_for_rollup",
+            address(new ProxiedAddressManager()),
+            bytes.concat(AddressManager.init.selector)
+        );
+
+        ctx.addressManager = rollupAddressManager;
+
+        deploy(
+            "taiko_token",
+            address(new ProxiedTaikoToken()),
+            bytes.concat(
+                TaikoToken.init.selector,
+                abi.encode(
+                    ctx.addressManager,
+                    "Taiko Token Katla",
+                    "TTKOk",
+                    vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT")
+                )
+            )
+        );
+
+        deploy(
+            "taiko",
+            address(new ProxiedTaikoL1()),
+            bytes.concat(
+                TaikoL1.init.selector,
+                abi.encode(ctx.addressManager, vm.envBytes32("L2_GENESIS_HASH"))
+            )
+        );
+
+        deploy("tier_provider", address(new TaikoA6TierProvider()), "");
+    }
+
+    function run() external { }
+}
+
 /// @title DeployOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
 /// initializing the rollup.
@@ -114,7 +239,10 @@ contract DeployOnL1 is Script {
             bytes.concat(
                 taikoToken.init.selector,
                 abi.encode(
-                    rollupAddressManager, "Taiko Token Katla", "TTKOk", taikoTokenPremintRecipient
+                    rollupAddressManager,
+                    "Taiko Token Katla",
+                    "TTKOk",
+                    vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT")
                 )
             )
         );
