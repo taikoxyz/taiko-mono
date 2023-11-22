@@ -162,8 +162,6 @@ function _burn(address from, uint256 amount) internal
 
 ---
 
-## title: ProxiedTaikoToken
-
 ## ProxiedTaikoToken
 
 Proxied version of the TaikoToken contract.
