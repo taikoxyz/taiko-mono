@@ -136,13 +136,11 @@ contract TestERC20Vault is Test {
 
         addressManager.setAddress(destChainId, "bridge", address(destChainIdBridge));
 
-        address proxiedBridgedERC20 = address(new ProxiedBridgedERC20());
+        address bridgedERC20 = address(new BridgedERC20());
 
-        addressManager.setAddress(destChainId, "proxied_bridged_erc20", proxiedBridgedERC20);
+        addressManager.setAddress(destChainId, "bridged_erc20", bridgedERC20);
 
-        addressManager.setAddress(
-            uint64(block.chainid), "proxied_bridged_erc20", proxiedBridgedERC20
-        );
+        addressManager.setAddress(uint64(block.chainid), "bridged_erc20", bridgedERC20);
 
         vm.stopPrank();
     }

@@ -158,21 +158,21 @@ contract DeployOnL1 is Deployer {
             bytes.concat(Bridge.init.selector, abi.encode(_ctx.addressManager))
         );
 
-        _register("proxied_bridged_erc20", address(new BridgedERC20()));
+        _register("bridged_erc20", address(new BridgedERC20()));
         _deploy(
             "erc20_vault",
             address(new ERC20Vault()),
             bytes.concat(BaseVault.init.selector, abi.encode(_ctx.addressManager))
         );
 
-        _register("proxied_bridged_erc721", address(new BridgedERC721()));
+        _register("bridged_erc721", address(new BridgedERC721()));
         _deploy(
             "erc721_vault",
             address(new ERC721Vault()),
             bytes.concat(BaseVault.init.selector, abi.encode(_ctx.addressManager))
         );
 
-        _register("proxied_bridged_erc1155", address(new BridgedERC1155()));
+        _register("bridged_erc1155", address(new BridgedERC1155()));
         _deploy(
             "erc1155_vault",
             address(new ERC1155Vault()),

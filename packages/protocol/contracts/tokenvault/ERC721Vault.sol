@@ -260,7 +260,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         );
 
         btoken = LibDeploy.deployTransparentUpgradeableProxyForOwnable(
-            resolve("proxied_bridged_erc721", false), owner(), data
+            resolve("bridged_erc721", false), owner(), data
         );
 
         bridgedToCanonical[btoken] = ctoken;

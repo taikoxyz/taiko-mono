@@ -176,12 +176,10 @@ contract ERC1155VaultTest is TaikoTest {
 
         vm.deal(address(bridge), 100 ether);
 
-        address proxiedBridgedERC1155 = address(new ProxiedBridgedERC1155());
+        address bridgedERC1155 = address(new BridgedERC1155());
 
-        addressManager.setAddress(destChainId, "proxied_bridged_erc1155", proxiedBridgedERC1155);
-        addressManager.setAddress(
-            uint64(block.chainid), "proxied_bridged_erc1155", proxiedBridgedERC1155
-        );
+        addressManager.setAddress(destChainId, "bridged_erc1155", bridgedERC1155);
+        addressManager.setAddress(uint64(block.chainid), "bridged_erc1155", bridgedERC1155);
 
         ctoken1155 = new TestTokenERC1155("http://example.host.com/");
         vm.stopPrank();
