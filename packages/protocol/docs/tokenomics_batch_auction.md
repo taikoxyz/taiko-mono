@@ -49,7 +49,7 @@ Auctions are conducted in increasing order of block batches, and the next batch'
 The winning bidder is required to submit the proof for the block within the proof window, typically `proof_window` seconds after either the block proposal or the end of the auction, whichever occurs last. Other participants can only submit proofs after the proof window expires.
 
 ### Reward and Penalty Mechanisms
-If the chosen fork for the verified block originates from the auction winner's proof, the winner's deposit is refunded, and reward is minted. If the selected fork comes from another prover's proof, the latter receives half the deposit, with the remaining half being burnt. This mechanism ensures fair competition and discourages manipulation, such as winners submitting correct proofs via different addresses.
+If the chosen fork for the verified block originates from the auction winner's proof, the winner's deposit is refunded, and the reward is minted. If the selected fork comes from another prover's proof, the latter receives half the deposit, with the remaining half being burnt. This mechanism ensures fair competition and discourages manipulation, such as winners submitting correct proofs via different addresses.
 
 ### Absence of Fallback Mode
 There is no secondary fee/reward model for blocks that aren't auctioned. This simplifies the auction design and eliminates the need for dual tokenomics systems, namely, an auction-based primary system and an alternate fallback system.
