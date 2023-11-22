@@ -279,7 +279,6 @@ async function generateContractConfigs(
                 _initializing: false,
                 // Ownable2StepUpgradeable
                 _owner: contractOwner,
-                _pendingOwner: ethers.constants.AddressZero,
                 // AddressManager
                 addresses: {
                     [chainId]: {
@@ -337,7 +336,6 @@ async function generateContractConfigs(
                 _paused: 1, // _FALSE
                 // Ownable2StepUpgradeable
                 _owner: contractOwner,
-                _pendingOwner: ethers.constants.AddressZero,
                 // AddressResolver
                 addressManager:
                     addressMap.SingletonAddressManagerForSingletonsProxy,
@@ -369,7 +367,6 @@ async function generateContractConfigs(
                 _paused: 1, // _FALSE
                 // Ownable2StepUpgradeable
                 _owner: contractOwner,
-                _pendingOwner: ethers.constants.AddressZero,
                 // AddressResolver
                 addressManager:
                     addressMap.SingletonAddressManagerForSingletonsProxy,
@@ -401,7 +398,6 @@ async function generateContractConfigs(
                 _paused: 1, // _FALSE
                 // Ownable2StepUpgradeable
                 _owner: contractOwner,
-                _pendingOwner: ethers.constants.AddressZero,
                 // AddressResolver
                 addressManager:
                     addressMap.SingletonAddressManagerForSingletonsProxy,
@@ -433,7 +429,6 @@ async function generateContractConfigs(
                 _paused: 1, // _FALSE
                 // Ownable2StepUpgradeable
                 _owner: contractOwner,
-                _pendingOwner: ethers.constants.AddressZero,
                 // AddressResolver
                 addressManager:
                     addressMap.SingletonAddressManagerForSingletonsProxy,
@@ -480,7 +475,6 @@ async function generateContractConfigs(
                 _paused: 1, // _FALSE
                 // Ownable2StepUpgradeable
                 _owner: contractOwner,
-                _pendingOwner: ethers.constants.AddressZero,
                 authorizedAddresses: {
                     [addressMap.SingletonTaikoL2Proxy]: ethers.utils.hexZeroPad(
                         ethers.utils.hexlify(chainId),
@@ -515,7 +509,6 @@ async function generateContractConfigs(
                 // TaikoL2
                 // Ownable2StepUpgradeable
                 _owner: contractOwner,
-                _pendingOwner: ethers.constants.AddressZero,
                 signalService: addressMap.SingletonSignalServiceProxy,
                 gasExcess: param1559.gasExcess,
                 // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
@@ -549,7 +542,6 @@ async function generateContractConfigs(
                 _initializing: false,
                 // Ownable2StepUpgradeable
                 _owner: contractOwner,
-                _pendingOwner: ethers.constants.AddressZero,
                 // AddressManager
                 addresses: {
                     [chainId]: {
