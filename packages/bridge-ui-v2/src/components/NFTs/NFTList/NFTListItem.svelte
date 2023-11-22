@@ -20,7 +20,7 @@
 
   let modalOpen = false;
 
-  const placeholderUrl = 'https://placehold.co/400x400.png';
+  const placeholderUrl = '/placeholder.svg';
 
   let imageUrl: string = nft.metadata?.image || placeholderUrl;
   let imageLoaded = false;
@@ -41,7 +41,6 @@
 </script>
 
 <div class="form-control flex">
-
   <label class="cursor-pointer label my-[8px] space-x-[16px]">
     {#if multiSelectEnabled && selectable}
       <input

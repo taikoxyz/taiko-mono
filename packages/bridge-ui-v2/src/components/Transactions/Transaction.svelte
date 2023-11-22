@@ -104,7 +104,7 @@
 
   let attrs = isDesktopOrLarger ? {} : { role: 'button' };
 
-  const placeholderUrl = 'https://placehold.co/400x400.png';
+  const placeholderUrl = '/placeholder.svg';
 
   $: imgUrl = token?.metadata?.image || placeholderUrl;
 

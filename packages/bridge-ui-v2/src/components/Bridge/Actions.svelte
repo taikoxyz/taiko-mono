@@ -184,19 +184,6 @@
     : commonConditions;
 </script>
 
-<!-- bridging {bridging}<br />
-balance {hasBalance}<br />
-validating {$validatingAmount}<br />
-insufficientAllowance {$insufficientAllowance}<br /><br />
-
-canDoNothing {canDoNothing} <br />
-$insufficientAllowance {insufficientAllowance} <br />
-commonConditions {commonConditions}
-enteredAmount {$enteredAmount}<br />
-tokenBalance {$tokenBalance}<br />
-enteredAmount {#if $enteredAmount}test
-{/if}<br /> -->
-
 {#if oldStyle}
   <!-- TODO: temporary enable two styles, remove for UI v2.1 -->
 
