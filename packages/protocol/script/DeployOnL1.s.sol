@@ -59,7 +59,7 @@ contract DeployOnL1 is Script {
 
     address public singletonBridge = vm.envAddress("SINGLETON_BRIDGE");
 
-    address public singletonSignalService = vm.envAddress("SINGLETON_SIGNAL_SERVICE");
+    address public signalService = vm.envAddress("SIGNAL_SERVICE");
 
     uint256 public tierProvider = vm.envUint("TIER_PROVIDER");
 
@@ -78,11 +78,9 @@ contract DeployOnL1 is Script {
         require(l2SignalService != address(0), "l2SignalService is zero");
         require(guardianProvers.length == NUM_GUARDIANS, "invalid guardian provers number");
         if (singletonBridge == address(0)) {
-            require(
-                singletonSignalService == address(0), "non-empty singleton signal service address"
-            );
+            require(signalService == address(0), "non-empty singleton signal service address");
         } else {
-            require(singletonSignalService != address(0), "empty singleton signal service address");
+            require(signalService != address(0), "empty singleton signal service address");
         }
         vm.startBroadcast(deployerPrivateKey);
 
@@ -139,12 +137,10 @@ contract DeployOnL1 is Script {
 
         // Bridge and SignalService addresses will be used by TaikoL1.
         setAddress("bridge", singletonBridge);
-        setAddress("signal_service", singletonSignalService);
+        setAddress("signal_service", signalService);
 
         // Authorize the new TaikoL1 contract for shared signal service.
-        ProxiedSingletonSignalService(singletonSignalService).authorize(
-            taikoL1Proxy, bytes32(block.chainid)
-        );
+        ProxiedSingletonSignalService(signalService).authorize(taikoL1Proxy, bytes32(block.chainid));
 
         // Guardian prover
         ProxiedGuardianProver guardianProver = new ProxiedGuardianProver();
@@ -291,12 +287,11 @@ contract DeployOnL1 is Script {
         );
 
         // SignalService
-        SignalService signalService = new ProxiedSingletonSignalService();
-        singletonSignalService = deployProxy(
+        signalService = deployProxy(
             addressManagerForSingletonsProxy,
             "signal_service",
-            address(signalService),
-            bytes.concat(signalService.init.selector, abi.encode(addressManagerForSingletonsProxy))
+            address(new ProxiedSingletonSignalService()),
+            bytes.concat(SignalService.init.selector, abi.encode(addressManagerForSingletonsProxy))
         );
 
         // Deploy ProxiedBridged token contracts
