@@ -135,13 +135,8 @@ contract BridgedERC20 is
         override(ERC20Upgradeable, IERC20MetadataUpgradeable)
         returns (string memory)
     {
-        return string.concat(
-            "Bridged ",
-            super.name(),
-            unicode" (⭀",
-            Strings.toString(srcChainId),
-            ")"
-        );
+        return
+            string.concat("Bridged ", super.name(), unicode" (⭀", Strings.toString(srcChainId), ")");
     }
 
     /// @notice Gets the symbol of the bridged token.

@@ -118,9 +118,7 @@ contract BridgedERC1155 is
     /// @notice Gets the name of the bridged token.
     /// @return The name.
     function name() public view returns (string memory) {
-        return string.concat(
-            "Bridged ", name_, unicode" (⭀", Strings.toString(srcChainId), ")"
-        );
+        return string.concat("Bridged ", name_, unicode" (⭀", Strings.toString(srcChainId), ")");
     }
 
     /// @notice Gets the symbol of the bridged token.
