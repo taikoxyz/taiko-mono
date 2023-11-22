@@ -66,7 +66,7 @@ contract DeployOnL1 is Script {
     address public taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
 
     TaikoL1 taikoL1;
-    address public addressManagerProxy;
+    address public rollupAddressManager;
 
     enum TierProviders { TAIKO_ALPHA6 }
 
@@ -84,10 +84,11 @@ contract DeployOnL1 is Script {
         }
         vm.startBroadcast(deployerPrivateKey);
 
-        // AddressManager
-        AddressManager addressManager = new ProxiedAddressManager();
-        addressManagerProxy = deployProxy(
-            "address_manager", address(addressManager), bytes.concat(AddressManager.init.selector)
+        // AddressManager for TaikoL1
+        rollupAddressManager = deployProxy(
+            "address_manager",
+            address(new ProxiedAddressManager()),
+            bytes.concat(AddressManager.init.selector)
         );
 
         // TaikoL1
@@ -113,7 +114,7 @@ contract DeployOnL1 is Script {
             bytes.concat(
                 taikoToken.init.selector,
                 abi.encode(
-                    addressManagerProxy, "Taiko Token Katla", "TTKOk", taikoTokenPremintRecipient
+                    rollupAddressManager, "Taiko Token Katla", "TTKOk", taikoTokenPremintRecipient
                 )
             )
         );
@@ -125,7 +126,7 @@ contract DeployOnL1 is Script {
         address taikoL1Proxy = deployProxy(
             "taiko",
             address(taikoL1),
-            bytes.concat(taikoL1.init.selector, abi.encode(addressManagerProxy, genesisHash))
+            bytes.concat(taikoL1.init.selector, abi.encode(rollupAddressManager, genesisHash))
         );
         setAddress("taiko", taikoL1Proxy);
 
@@ -147,7 +148,7 @@ contract DeployOnL1 is Script {
         address guardianProverProxy = deployProxy(
             "guardian_prover",
             address(guardianProver),
-            bytes.concat(guardianProver.init.selector, abi.encode(addressManagerProxy))
+            bytes.concat(guardianProver.init.selector, abi.encode(rollupAddressManager))
         );
         address[NUM_GUARDIANS] memory guardians;
         for (uint256 i = 0; i < NUM_GUARDIANS; ++i) {
@@ -163,7 +164,7 @@ contract DeployOnL1 is Script {
         deployProxy(
             "tier_guardian",
             address(guardianVerifier),
-            bytes.concat(guardianVerifier.init.selector, abi.encode(addressManagerProxy))
+            bytes.concat(guardianVerifier.init.selector, abi.encode(rollupAddressManager))
         );
 
         // SgxVerifier
@@ -171,7 +172,7 @@ contract DeployOnL1 is Script {
         deployProxy(
             "tier_sgx",
             address(sgxVerifier),
-            bytes.concat(sgxVerifier.init.selector, abi.encode(addressManagerProxy))
+            bytes.concat(sgxVerifier.init.selector, abi.encode(rollupAddressManager))
         );
 
         // SgxAndZkVerifier
@@ -179,7 +180,7 @@ contract DeployOnL1 is Script {
         deployProxy(
             "tier_sgx_and_pse_zkevm",
             address(sgxAndZkVerifier),
-            bytes.concat(sgxVerifier.init.selector, abi.encode(addressManagerProxy))
+            bytes.concat(sgxVerifier.init.selector, abi.encode(rollupAddressManager))
         );
 
         // PseZkVerifier
@@ -187,7 +188,7 @@ contract DeployOnL1 is Script {
         deployProxy(
             "tier_pse_zkevm",
             address(pseZkVerifier),
-            bytes.concat(pseZkVerifier.init.selector, abi.encode(addressManagerProxy))
+            bytes.concat(pseZkVerifier.init.selector, abi.encode(rollupAddressManager))
         );
 
         // PlonkVerifier
@@ -323,7 +324,7 @@ contract DeployOnL1 is Script {
         private
         returns (address proxy)
     {
-        return deployProxy(addressManagerProxy, name, implementation, data);
+        return deployProxy(rollupAddressManager, name, implementation, data);
     }
 
     function deployProxy(
@@ -349,11 +350,11 @@ contract DeployOnL1 is Script {
     }
 
     function setAddress(bytes32 name, address addr) private {
-        setAddress(addressManagerProxy, uint64(block.chainid), name, addr);
+        setAddress(rollupAddressManager, uint64(block.chainid), name, addr);
     }
 
     function setAddress(uint256 chainId, bytes32 name, address addr) private {
-        setAddress(addressManagerProxy, uint64(chainId), name, addr);
+        setAddress(rollupAddressManager, uint64(chainId), name, addr);
     }
 
     function setAddress(
