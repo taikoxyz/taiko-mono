@@ -243,73 +243,72 @@ contract DeployOnL1 is Script {
 
     function deployBridgeSuiteSingletons() private {
         // AddressManager
-        AddressManager addressManagerForSingletons = new ProxiedAddressManager();
-        address addressManager = deployProxy(
+        address bridgeAddressManager = deployProxy(
             address(0),
             "address_manager_for_singletons",
-            address(addressManagerForSingletons),
-            bytes.concat(addressManagerForSingletons.init.selector)
+            address(new ProxiedAddressManager()),
+            bytes.concat(AddressManager.init.selector)
         );
 
         // Bridge
         Bridge bridge = new ProxiedSingletonBridge();
         singletonBridge = deployProxy(
-            addressManager,
+            bridgeAddressManager,
             "bridge",
             address(bridge),
-            bytes.concat(bridge.init.selector, abi.encode(addressManager))
+            bytes.concat(bridge.init.selector, abi.encode(bridgeAddressManager))
         );
 
         // ERC20Vault
         ERC20Vault erc20Vault = new ProxiedSingletonERC20Vault();
         deployProxy(
-            addressManager,
+            bridgeAddressManager,
             "erc20_vault",
             address(erc20Vault),
-            bytes.concat(erc20Vault.init.selector, abi.encode(addressManager))
+            bytes.concat(erc20Vault.init.selector, abi.encode(bridgeAddressManager))
         );
 
         // ERC721Vault
         ERC721Vault erc721Vault = new ProxiedSingletonERC721Vault();
         deployProxy(
-            addressManager,
+            bridgeAddressManager,
             "erc721_vault",
             address(erc721Vault),
-            bytes.concat(erc721Vault.init.selector, abi.encode(addressManager))
+            bytes.concat(erc721Vault.init.selector, abi.encode(bridgeAddressManager))
         );
 
         // ERC1155Vault
         ERC1155Vault erc1155Vault = new ProxiedSingletonERC1155Vault();
         deployProxy(
-            addressManager,
+            bridgeAddressManager,
             "erc1155_vault",
             address(erc1155Vault),
-            bytes.concat(erc1155Vault.init.selector, abi.encode(addressManager))
+            bytes.concat(erc1155Vault.init.selector, abi.encode(bridgeAddressManager))
         );
 
         // SignalService
         signalService = deployProxy(
-            addressManager,
+            bridgeAddressManager,
             "signal_service",
             address(new ProxiedSingletonSignalService()),
-            bytes.concat(SignalService.init.selector, abi.encode(addressManager))
+            bytes.concat(SignalService.init.selector, abi.encode(bridgeAddressManager))
         );
 
         // Deploy ProxiedBridged token contracts
         setAddress(
-            addressManager,
+            bridgeAddressManager,
             uint64(block.chainid),
             "proxied_bridged_erc20",
             address(new ProxiedBridgedERC20())
         );
         setAddress(
-            addressManager,
+            bridgeAddressManager,
             uint64(block.chainid),
             "proxied_bridged_erc721",
             address(new ProxiedBridgedERC721())
         );
         setAddress(
-            addressManager,
+            bridgeAddressManager,
             uint64(block.chainid),
             "proxied_bridged_erc1155",
             address(new ProxiedBridgedERC1155())
@@ -328,7 +327,7 @@ contract DeployOnL1 is Script {
     }
 
     function deployProxy(
-        address addressManager,
+        address bridgeAddressManager,
         string memory name,
         address implementation,
         bytes memory data
@@ -341,7 +340,7 @@ contract DeployOnL1 is Script {
         console2.log(name, "(impl) ->", implementation);
         console2.log(name, "(proxy) ->", proxy);
 
-        setAddress(addressManager, uint64(block.chainid), bytes32(bytes(name)), proxy);
+        setAddress(bridgeAddressManager, uint64(block.chainid), bytes32(bytes(name)), proxy);
 
         vm.writeJson(
             vm.serializeAddress("deployment", name, proxy),
@@ -358,16 +357,16 @@ contract DeployOnL1 is Script {
     }
 
     function setAddress(
-        address addressManager,
+        address bridgeAddressManager,
         uint64 chainId,
         bytes32 name,
         address addr
     )
         private
     {
-        if (addressManager != address(0) && addr != address(0)) {
+        if (bridgeAddressManager != address(0) && addr != address(0)) {
             console2.log(chainId, uint256(name), "--->", addr);
-            AddressManager(addressManager).setAddress(chainId, name, addr);
+            AddressManager(bridgeAddressManager).setAddress(chainId, name, addr);
         }
     }
 }
