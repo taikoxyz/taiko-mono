@@ -169,8 +169,6 @@ Gets the canonical token's address and chain ID.
 
 ---
 
-## title: ProxiedBridgedERC20
-
 ## ProxiedBridgedERC20
 
 Proxied version of the parent contract.

@@ -4,7 +4,7 @@ title: SignalService
 
 ## SignalService
 
-See the documentation in {ISignalService} for more details.
+See the documentation in [ISignalService](https://taiko.xyz/docs/reference/contract-documentation/signal/ISignalService#isignalservice) for more details.
 
 ### SignalProof
 
@@ -146,8 +146,6 @@ Get the storage slot of the signal.
 | signalSlot | bytes32 | The unique storage slot of the signal which is created by encoding the sender address with the signal (message). |
 
 ---
-
-## title: ProxiedSignalService
 
 ## ProxiedSignalService
 
