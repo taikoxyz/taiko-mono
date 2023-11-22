@@ -31,7 +31,6 @@ import "../contracts/test/erc20/FreeMintERC20.sol";
 /// @title DeployOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
 /// initializing the rollup.
-
 abstract contract Deployer is Script {
     struct Ctx {
         address addressManager;
