@@ -114,8 +114,6 @@ Gets the authorized status of an address.
 
 ---
 
-## title: ProxiedEtherVault
-
 ## ProxiedEtherVault
 
 Proxied version of the parent contract.
