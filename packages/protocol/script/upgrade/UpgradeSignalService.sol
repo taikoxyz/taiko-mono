@@ -13,11 +13,8 @@ import "./UpgradeScript.s.sol";
 
 contract UpgradeSignalService is UpgradeScript {
     function run() external setUp {
-        SignalService newSignalService = new ProxiedSignalService();
+        SignalService newSignalService = new ProxiedSingletonSignalService();
         proxy.upgradeTo(address(newSignalService));
-        console2.log(
-            "proxy upgraded SignalService implementation to",
-            address(newSignalService)
-        );
+        console2.log("proxy upgraded SignalService implementation to", address(newSignalService));
     }
 }

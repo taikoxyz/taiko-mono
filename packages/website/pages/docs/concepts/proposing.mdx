@@ -3,8 +3,8 @@
 On Taiko, the next L2 state is known immediately and deterministically at the time a block is proposed to the TaikoL1 contract. After a block is proposed, a series of checks are done to compute this post-L2 state:
 
 1. Block is proposed by any proposer (permissionlessly).
-2. Block level properties' validity is checked by the TaikoL1 contract with the ([proposed block intrinsic validity function](./proposing#proposed-block-intrinsic-validity-function)).
-3. Proposed block is downloaded by a Taiko node, and the transaction list is parsed over and checked for validity ([transaction list intrinsic validity function](./proposing#transaction-list-intrinsic-validity-function)).
+2. Block level properties' validity is checked by the TaikoL1 contract with the proposed block intrinsic validity function.
+3. Proposed block is downloaded by a Taiko node, and the transaction list is parsed over and checked for validity transaction list intrinsic validity function.
    - IF every transaction in the list is valid, an ordered subset of the list is created by skipping over transactions which have an invalid nonce or the sender has too little Ether balance to pay for the transaction. This ordered subset is used along with the [anchor transaction](./proposing#anchor-transaction) to create a Taiko L2 block.
    - IF any transaction in the list is invalid, an empty block (with only the anchor tx) is created on L2.
 
@@ -46,7 +46,7 @@ The anchor transaction is required to be the first transaction in a Taiko block 
 
 When the block is proposed, the TaikoL1 contract will set some L2 block metadata such as `meta.coinbase`, which is the sender of the proposeBlock() tx. When the L2 client builds the L2 block, it will set the `block.coinbase` to this `meta.coinbase` specified for the block on L1. The validity proof (ZKP) for this block must check that the `block.coinbase` is indeed the `meta.coinbase` recorded on L1.
 
-When the ZKP instance is returned from the `TaikoL1` contract with `getInstance()`, the `evidence.metaHash` for the proposed block is included. This is how the ZKP verifier can check that the L2's `block.coinbase` (and other block-level variables as well) are correctly set to what is specified in the metadata on L1.
+When the ZKP instance is returned from the `TaikoL1` contract with `calcInstance()`, the `evidence.metaHash` for the proposed block is included. This is how the ZKP verifier can check that the L2's `block.coinbase` (and other block-level variables as well) are correctly set to what is specified in the metadata on L1.
 
 ## How does the proposer earn TKO
 

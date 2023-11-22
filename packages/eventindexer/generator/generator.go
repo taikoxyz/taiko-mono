@@ -77,7 +77,7 @@ func (g *Generator) Close(ctx context.Context) {
 	}
 
 	if err := sqlDB.Close(); err != nil {
-		slog.Error("error closing sqlbd connecting", "err", err.Error())
+		slog.Error("error closing sqlbd connection", "err", err.Error())
 	}
 }
 
@@ -201,27 +201,6 @@ func (g *Generator) queryByTask(task string, date time.Time) (decimal.Decimal, e
 	var err error
 
 	switch task {
-	case tasks.ProposerRewardsPerDay:
-		query := "SELECT COALESCE(SUM(proposer_reward), 0) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
-		err = g.db.GormDB().
-			Raw(query, eventindexer.EventNameBlockProposed, dateString).
-			Scan(&result).Error
-
-	case tasks.TotalProposerRewards:
-		var dailyProposerRewards decimal.NullDecimal
-
-		query := "SELECT COALESCE(SUM(proposer_reward), 0) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
-		err = g.db.GormDB().
-			Raw(query, eventindexer.EventNameBlockProposed, dateString).
-			Scan(&dailyProposerRewards).Error
-
-		tsdResult, err := g.previousDayTsdResultByTask(task, date)
-		if err != nil {
-			return result, err
-		}
-
-		result = tsdResult.Decimal.Add(dailyProposerRewards.Decimal)
-
 	case tasks.TotalProofRewards:
 		var dailyProofRewards decimal.NullDecimal
 
@@ -291,29 +270,33 @@ func (g *Generator) queryByTask(task string, date time.Time) (decimal.Decimal, e
 	case tasks.UniqueProversPerDay:
 		query := "SELECT COUNT(DISTINCT address) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
 		err = g.db.GormDB().
-			Raw(query, eventindexer.EventNameBlockProven, dateString).
+			Raw(query, eventindexer.EventNameTransitionProved, dateString).
 			Scan(&result).Error
 	case tasks.TotalUniqueProvers:
 		query := `SELECT COUNT(DISTINCT address) FROM events WHERE event = ?`
 
 		err = g.db.GormDB().Raw(
 			query,
-			eventindexer.EventNameBlockProven,
+			eventindexer.EventNameTransitionProved,
 		).Scan(&result).Error
 		if err != nil {
 			return result, err
 		}
-	case tasks.ProveBlockTxPerDay:
+	case tasks.TransitionProvedTxPerDay:
 		query := "SELECT COUNT(*) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
 		err = g.db.GormDB().
-			Raw(query, eventindexer.EventNameBlockProven, dateString).
+			Raw(query, eventindexer.EventNameTransitionProved, dateString).
 			Scan(&result).Error
-	case tasks.TotalProveBlockTx:
-		var dailyProveBlockCount decimal.NullDecimal
+	case tasks.TotalTransitionProvedTx:
+		var dailyTransitionProvedCount decimal.NullDecimal
 
 		query := `SELECT COUNT(*) FROM events WHERE event = ? AND DATE(transacted_at) = ?`
 
-		err = g.db.GormDB().Raw(query, eventindexer.EventNameBlockProven, dateString).Scan(&dailyProveBlockCount).Error
+		err = g.db.GormDB().Raw(
+			query,
+			eventindexer.EventNameTransitionProved,
+			dateString,
+		).Scan(&dailyTransitionProvedCount).Error
 		if err != nil {
 			return result, err
 		}
@@ -323,7 +306,32 @@ func (g *Generator) queryByTask(task string, date time.Time) (decimal.Decimal, e
 			return result, err
 		}
 
-		result = tsdResult.Decimal.Add(dailyProveBlockCount.Decimal)
+		result = tsdResult.Decimal.Add(dailyTransitionProvedCount.Decimal)
+	case tasks.TransitionContestedTxPerDay:
+		query := "SELECT COUNT(*) FROM events WHERE event = ? AND DATE(transacted_at) = ?"
+		err = g.db.GormDB().
+			Raw(query, eventindexer.EventNameTransitionContested, dateString).
+			Scan(&result).Error
+	case tasks.TotalTransitionContestedTx:
+		var dailyTransitionContestedCount decimal.NullDecimal
+
+		query := `SELECT COUNT(*) FROM events WHERE event = ? AND DATE(transacted_at) = ?`
+
+		err = g.db.GormDB().Raw(
+			query,
+			eventindexer.EventNameTransitionContested,
+			dateString,
+		).Scan(&dailyTransitionContestedCount).Error
+		if err != nil {
+			return result, err
+		}
+
+		tsdResult, err := g.previousDayTsdResultByTask(task, date)
+		if err != nil {
+			return result, err
+		}
+
+		result = tsdResult.Decimal.Add(dailyTransitionContestedCount.Decimal)
 	case tasks.AccountsPerDay:
 		query := `SELECT COUNT(*) FROM accounts WHERE DATE(transacted_at) = ?`
 		err = g.db.GormDB().Raw(query, dateString).Scan(&result).Error

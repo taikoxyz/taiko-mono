@@ -47,6 +47,10 @@ func (c *EthClient) HeaderByNumber(ctx context.Context, number *big.Int) (*types
 	}, nil
 }
 
+func (c *EthClient) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+	return &types.Block{}, nil
+}
+
 func (c *EthClient) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
 	if number == nil {
 		number = LatestBlockNumber

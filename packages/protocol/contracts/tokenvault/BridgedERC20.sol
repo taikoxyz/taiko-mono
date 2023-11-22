@@ -6,16 +6,12 @@
 
 pragma solidity ^0.8.20;
 
-import {
-    ERC20Upgradeable,
-    IERC20Upgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import { IERC20MetadataUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
-import { EssentialContract } from "../common/EssentialContract.sol";
-import { IMintableERC20 } from "../common/IMintableERC20.sol";
-import { Proxied } from "../common/Proxied.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import
+    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
+import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
+import "../common/EssentialContract.sol";
+import "./IMintableERC20.sol";
 
 /// @title BridgedERC20
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
@@ -57,9 +53,8 @@ contract BridgedERC20 is
     {
         // Check if provided parameters are valid
         if (
-            _srcToken == address(0) || _srcChainId == 0
-                || _srcChainId == block.chainid || bytes(_symbol).length == 0
-                || bytes(_name).length == 0
+            _srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid
+                || bytes(_symbol).length == 0 || bytes(_name).length == 0
         ) {
             revert BRIDGED_TOKEN_INVALID_PARAMS();
         }
@@ -78,13 +73,7 @@ contract BridgedERC20 is
     /// @dev Only an ERC20Vault can call this function.
     /// @param account The account to mint tokens to.
     /// @param amount The amount of tokens to mint.
-    function mint(
-        address account,
-        uint256 amount
-    )
-        public
-        onlyFromNamed2("erc20_vault", "taiko")
-    {
+    function mint(address account, uint256 amount) public onlyFromNamed("erc20_vault") {
         _mint(account, amount);
         emit Transfer(address(0), account, amount);
     }
@@ -93,13 +82,7 @@ contract BridgedERC20 is
     /// @dev Only an ERC20Vault can call this function.
     /// @param account The account to burn tokens from.
     /// @param amount The amount of tokens to burn.
-    function burn(
-        address account,
-        uint256 amount
-    )
-        public
-        onlyFromNamed("erc20_vault")
-    {
+    function burn(address account, uint256 amount) public onlyFromNamed("erc20_vault") {
         _burn(account, amount);
         emit Transfer(account, address(0), amount);
     }

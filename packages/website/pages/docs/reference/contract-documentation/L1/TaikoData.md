@@ -17,18 +17,14 @@ struct Config {
   bool relaySignalRoot;
   uint64 blockMaxProposals;
   uint64 blockRingBufferSize;
-  uint64 blockMaxVerificationsPerTx;
+  uint64 maxBlocksToVerifyPerProposal;
   uint32 blockMaxGasLimit;
   uint32 blockFeeBaseGas;
   uint24 blockMaxTxListBytes;
   uint256 blockTxListExpiry;
   uint256 proposerRewardPerSecond;
   uint256 proposerRewardMax;
-  uint256 proofRegularCooldown;
-  uint256 proofOracleCooldown;
-  uint16 proofWindow;
-  uint96 proofBond;
-  bool skipProverAssignmentVerificaiton;
+  uint96 livenessBond;
   uint256 ethDepositRingBufferSize;
   uint64 ethDepositMinCountPerBlock;
   uint64 ethDepositMaxCountPerBlock;
@@ -47,36 +43,29 @@ _Struct holding state variables._
 struct StateVariables {
   uint64 genesisHeight;
   uint64 genesisTimestamp;
-  uint64 numBlocks;
-  uint64 lastVerifiedBlockId;
   uint64 nextEthDepositToProcess;
   uint64 numEthDeposits;
+  uint64 numBlocks;
+  uint64 lastVerifiedBlockId;
 }
 ```
 
-### BlockMetadataInput
+### ProverAssignment and TierFee
 
-_Struct representing input data for block metadata._
+_Struct representing prover assignment and associated tiers_
 
 ```solidity
-struct BlockMetadataInput {
-  bytes32 txListHash;
-  address proposer;
-  uint24 txListByteStart;
-  uint24 txListByteEnd;
-  bool cacheTxListInfo;
+struct TierFee {
+    uint16 tier;
+    uint256 fee;
 }
-```
 
-### ProverAssignment
-
-_Struct representing prover assignment_
-
-```solidity
 struct ProverAssignment {
-  address prover;
-  uint64 expiry;
-  bytes data;
+    address prover;
+    address feeToken;
+    TierFee[] tierFees;
+    uint64 expiry;
+    bytes signature;
 }
 ```
 
@@ -88,17 +77,15 @@ accordingly._
 
 ```solidity
 struct BlockMetadata {
-  uint64 id;
-  uint64 timestamp;
-  uint64 l1Height;
   bytes32 l1Hash;
   bytes32 mixHash;
   bytes32 txListHash;
-  uint24 txListByteStart;
-  uint24 txListByteEnd;
+  uint64 id;
+  uint64 timestamp;
+  uint64 l1Height;
   uint32 gasLimit;
-  address proposer;
-  struct TaikoData.EthDeposit[] depositsProcessed;
+  address coinbase;
+  TaikoData.EthDeposit[] depositsProcessed;
 }
 ```
 
@@ -113,15 +100,15 @@ struct BlockEvidence {
   bytes32 blockHash;
   bytes32 signalRoot;
   bytes32 graffiti;
-  address prover;
-  bytes proofs;
+  uint16 tier;
+  bytes proof;
 }
 ```
 
 ### Transition
 
 _Struct representing state transition data.
-10 slots reserved for upgradability, 4 slots used._
+10 slots reserved for upgradability, 6 slots used._
 
 ```solidity
 struct Transition {
@@ -129,8 +116,12 @@ struct Transition {
   bytes32 blockHash;
   bytes32 signalRoot;
   address prover;
-  uint64 provenAt;
-  bytes32[6] __reserved;
+  uint96 validityBond;
+  address contester;
+  uint96 contestBond;
+  uint64 timestamp;
+  uint16 tier;
+  bytes32[4] __reserved;
 }
 ```
 
@@ -142,25 +133,14 @@ _Struct containing data required for verifying a block.
 ```solidity
 struct Block {
   bytes32 metaHash;
-  address prover;
-  uint96 proofBond;
+  address assignedProver;
+  uint96 livenessBond;
   uint64 blockId;
   uint64 proposedAt;
   uint32 nextTransitionId;
   uint32 verifiedTransitionId;
+  uint16 minTier;
   bytes32[7] __reserved;
-}
-```
-
-### TxListInfo
-
-_Struct representing information about a transaction list.
-1 slot used._
-
-```solidity
-struct TxListInfo {
-  uint64 validSince;
-  uint24 size;
 }
 ```
 
@@ -212,13 +192,12 @@ _Struct holding the state variables for the {TaikoL1} contract._
 ```solidity
 struct State {
   mapping(uint64 => struct TaikoData.Block) blocks;
-  mapping(uint64 => mapping(bytes32 => uint32)) transitionIds;
   mapping(uint64 => mapping(uint32 => struct TaikoData.Transition)) transitions;
-  mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
+  mapping(uint64 => mapping(bytes32 => uint32)) transitionIds;
   mapping(uint256 => uint256) ethDeposits;
-  mapping(address => uint256) taikoTokenBalances;
+  mapping(address => uint256) tokenBalances;
   struct TaikoData.SlotA slotA;
   struct TaikoData.SlotB slotB;
-  uint256[142] __gap;
+  uint256[143] __gap;
 }
 ```

@@ -6,15 +6,12 @@
 
 pragma solidity ^0.8.20;
 
-import { ERC1155Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
-import { EssentialContract } from "../common/EssentialContract.sol";
-import { IERC1155MetadataURIUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/IERC1155MetadataURIUpgradeable.sol";
-import { IERC1155Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
-import { Proxied } from "../common/Proxied.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/ERC1155Upgradeable.sol";
+import
+    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/extensions/IERC1155MetadataURIUpgradeable.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/IERC1155Upgradeable.sol";
+import "../common/EssentialContract.sol";
 
 /// @title BridgedERC1155
 /// @notice Contract for bridging ERC1155 tokens across different chains.
@@ -32,12 +29,7 @@ contract BridgedERC1155 is
     uint256[46] private __gap;
 
     // Event triggered upon token transfer.
-    event Transfer(
-        address indexed from,
-        address indexed to,
-        uint256 tokenId,
-        uint256 amount
-    );
+    event Transfer(address indexed from, address indexed to, uint256 tokenId, uint256 amount);
 
     error BRIDGED_TOKEN_CANNOT_RECEIVE();
     error BRIDGED_TOKEN_INVALID_PARAMS();
@@ -58,10 +50,7 @@ contract BridgedERC1155 is
         external
         initializer
     {
-        if (
-            _srcToken == address(0) || _srcChainId == 0
-                || _srcChainId == block.chainid
-        ) {
+        if (_srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid) {
             revert BRIDGED_TOKEN_INVALID_PARAMS();
         }
         EssentialContract._init(_addressManager);
@@ -123,8 +112,7 @@ contract BridgedERC1155 is
         if (to == address(this)) {
             revert BRIDGED_TOKEN_CANNOT_RECEIVE();
         }
-        return
-            ERC1155Upgradeable.safeTransferFrom(from, to, tokenId, amount, data);
+        return ERC1155Upgradeable.safeTransferFrom(from, to, tokenId, amount, data);
     }
 
     /// @notice Gets the name of the bridged token.

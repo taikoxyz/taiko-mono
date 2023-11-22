@@ -2,8 +2,8 @@
 -- +goose StatementBegin
 CREATE TABLE IF NOT EXISTS events (
     id int NOT NULL PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(15) NOT NULL,
-    event VARCHAR(15) NOT NULL DEFAULT "",
+    name VARCHAR(24) NOT NULL,
+    event VARCHAR(24) NOT NULL DEFAULT "",
     chain_id int NOT NULL,
     data JSON NOT NULL,
     address VARCHAR(42) NOT NULL DEFAULT "",

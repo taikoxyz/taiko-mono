@@ -152,20 +152,6 @@ message verification.
 | l1Height      | uint64  | The latest L1 block height when this block was proposed. |
 | parentGasUsed | uint32  | The gas used in the parent block.                        |
 
-### updateEIP1559Config
-
-```solidity
-function updateEIP1559Config(struct TaikoL2.EIP1559Params _param1559) public
-```
-
-Updates EIP-1559 configurations.
-
-#### Parameters
-
-| Name        | Type                         | Description                                          |
-| ----------- | ---------------------------- | ---------------------------------------------------- |
-| \_param1559 | struct TaikoL2.EIP1559Params | EIP-1559 parameters to set up the gas pricing model. |
-
 ### getBasefee
 
 ```solidity
@@ -265,8 +251,8 @@ Retrieves the current EIP-1559 configuration details.
 
 ---
 
-## title: ProxiedTaikoL2
+## title: ProxiedSingletonTaikoL2
 
-## ProxiedTaikoL2
+## ProxiedSingletonTaikoL2
 
 Proxied version of the TaikoL2 contract.

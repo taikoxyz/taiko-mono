@@ -68,21 +68,14 @@ library LibBytesUtils {
                 // because when slicing multiples of 32 bytes (lengthmod == 0)
                 // the following copy loop was copying the origin's length
                 // and then ending prematurely not copying everything it should.
-                let mc :=
-                    add(add(tempBytes, lengthmod), mul(0x20, iszero(lengthmod)))
+                let mc := add(add(tempBytes, lengthmod), mul(0x20, iszero(lengthmod)))
                 let end := add(mc, _length)
 
                 for {
                     // The multiplication in the next line has the same exact
                     // purpose
                     // as the one above.
-                    let cc :=
-                        add(
-                            add(
-                                add(_bytes, lengthmod), mul(0x20, iszero(lengthmod))
-                            ),
-                            _start
-                        )
+                    let cc := add(add(add(_bytes, lengthmod), mul(0x20, iszero(lengthmod))), _start)
                 } lt(mc, end) {
                     mc := add(mc, 0x20)
                     cc := add(cc, 0x20)
@@ -90,18 +83,17 @@ library LibBytesUtils {
 
                 mstore(tempBytes, _length)
 
-                //update free-memory pointer
-                //allocating the array padded to 32 bytes like the compiler does
-                // now
+                // update free-memory pointer allocating the array padded to 32
+                // bytes like the compiler does now
                 mstore(0x40, and(add(mc, 31), not(31)))
             }
-            //if we want a zero-length slice let's just return a zero-length
+            // if we want a zero-length slice let's just return a zero-length
             // array
             default {
                 tempBytes := mload(0x40)
 
-                //zero out the 32 bytes slice we are about to return
-                //we need to do it because Solidity does not garbage collect
+                // zero out the 32 bytes slice we are about to return
+                // we need to do it because Solidity does not garbage collect
                 mstore(tempBytes, 0)
 
                 mstore(0x40, add(tempBytes, 0x20))
@@ -111,14 +103,7 @@ library LibBytesUtils {
         return tempBytes;
     }
 
-    function slice(
-        bytes memory _bytes,
-        uint256 _start
-    )
-        internal
-        pure
-        returns (bytes memory)
-    {
+    function slice(bytes memory _bytes, uint256 _start) internal pure returns (bytes memory) {
         if (_start >= _bytes.length) {
             return bytes("");
         }
@@ -139,11 +124,7 @@ library LibBytesUtils {
             // 32 bytes
     }
 
-    function toNibbles(bytes memory _bytes)
-        internal
-        pure
-        returns (bytes memory)
-    {
+    function toNibbles(bytes memory _bytes) internal pure returns (bytes memory) {
         bytes memory nibbles = new bytes(_bytes.length * 2);
 
         for (uint256 i; i < _bytes.length; ++i) {
@@ -154,14 +135,7 @@ library LibBytesUtils {
         return nibbles;
     }
 
-    function equal(
-        bytes memory _bytes,
-        bytes memory _other
-    )
-        internal
-        pure
-        returns (bool)
-    {
+    function equal(bytes memory _bytes, bytes memory _other) internal pure returns (bool) {
         return keccak256(_bytes) == keccak256(_other);
     }
 }

@@ -105,8 +105,8 @@ _See {IERC165-supportsInterface}._
 
 ---
 
-## title: ProxiedERC1155Vault
+## title: ProxiedSingletonERC1155Vault
 
-## ProxiedERC1155Vault
+## ProxiedSingletonERC1155Vault
 
 Proxied version of the parent contract.

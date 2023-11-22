@@ -5,7 +5,7 @@ pragma solidity ^0.8.20;
 
 library LibFixedPointMath {
     uint128 public constant MAX_EXP_INPUT = 135_305_999_368_893_231_588;
-    uint256 public constant SCALING_FACTOR_1E18 = 1e18; // For fixed point
+    uint256 public constant SCALING_FACTOR = 1e18; // For fixed point
         // representation factor
 
     error Overflow();
@@ -37,9 +37,7 @@ library LibFixedPointMath {
             // powers of two
             // such that exp(x) = exp(x') * 2**k, where k is an integer.
             // Solving this gives k = round(x / log(2)) and x' = x - k * log(2).
-            int256 k = (
-                (x << 96) / 54_916_777_467_707_473_351_141_471_128 + 2 ** 95
-            ) >> 96;
+            int256 k = ((x << 96) / 54_916_777_467_707_473_351_141_471_128 + 2 ** 95) >> 96;
             x = x - k * 54_916_777_467_707_473_351_141_471_128;
             // k is in the range [-61, 195].
 
@@ -77,11 +75,8 @@ library LibFixedPointMath {
             // basis
             // so the final right shift is always by a positive amount.
             r = int256(
-                (
-                    uint256(r)
-                        *
-                        3_822_833_074_963_236_453_042_738_258_902_158_003_155_416_615_667
-                ) >> uint256(195 - k)
+                (uint256(r) * 3_822_833_074_963_236_453_042_738_258_902_158_003_155_416_615_667)
+                    >> uint256(195 - k)
             );
         }
     }

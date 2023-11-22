@@ -13,11 +13,8 @@ import "./UpgradeScript.s.sol";
 
 contract UpgradeERC20Vault is UpgradeScript {
     function run() external setUp {
-        ERC20Vault newERC20Vault = new ProxiedERC20Vault();
+        ERC20Vault newERC20Vault = new ProxiedSingletonERC20Vault();
         proxy.upgradeTo(address(newERC20Vault));
-        console2.log(
-            "proxy upgraded ERC20Vault implementation to",
-            address(newERC20Vault)
-        );
+        console2.log("proxy upgraded ERC20Vault implementation to", address(newERC20Vault));
     }
 }

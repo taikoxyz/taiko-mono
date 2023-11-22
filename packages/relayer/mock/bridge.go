@@ -15,6 +15,7 @@ import (
 
 var (
 	SuccessMsgHash = [32]byte{0x1}
+	SuccessId      = big.NewInt(1)
 	FailSignal     = [32]byte{0x2}
 )
 
@@ -60,8 +61,8 @@ func (b *Bridge) WatchMessageSent(
 
 		sink <- &bridge.BridgeMessageSent{
 			Message: bridge.IBridgeMessage{
-				SrcChainId:  big.NewInt(1),
-				DestChainId: MockChainID,
+				SrcChainId:  1,
+				DestChainId: MockChainID.Uint64(),
 			},
 		}
 		b.MessagesSent++
@@ -121,7 +122,7 @@ func (b *Bridge) FilterMessageStatusChanged(
 	return &bridge.BridgeMessageStatusChangedIterator{}, nil
 }
 
-func (b *Bridge) GetMessageStatus(opts *bind.CallOpts, msgHash [32]byte) (uint8, error) {
+func (b *Bridge) MessageStatus(opts *bind.CallOpts, msgHash [32]byte) (uint8, error) {
 	if msgHash == SuccessMsgHash {
 		return uint8(relayer.EventStatusNew), nil
 	}
@@ -141,8 +142,8 @@ func (b *Bridge) ProcessMessage(
 	return ProcessMessageTx, nil
 }
 
-func (b *Bridge) IsMessageReceived(opts *bind.CallOpts, signal [32]byte, srcChainId *big.Int, proof []byte) (bool, error) { // nolint
-	if signal == SuccessMsgHash {
+func (b *Bridge) ProveMessageReceived(opts *bind.CallOpts, message bridge.IBridgeMessage, proof []byte) (bool, error) {
+	if message.Id.Uint64() == SuccessId.Uint64() {
 		return true, nil
 	}
 

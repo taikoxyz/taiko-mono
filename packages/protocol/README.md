@@ -36,35 +36,32 @@ pnpm test:integration
 
 ## Generate L2 genesis JSON's `alloc` field
 
-Start by creating a `config.json`, for example:
+Start by creating a `config.js`, for example:
 
-```json
-{
+```javascript
+module.exports = {
   // Owner address of the pre-deployed L2 contracts.
-  "contractOwner": "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
+  contractOwner: "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
   // Chain ID of the Taiko L2 network.
-  "chainId": 167,
+  chainId: 167,
   // Account address and pre-mint ETH amount as key-value pairs.
-  "seedAccounts": [
+  seedAccounts: [
     { "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39": 1024 },
     { "0x79fcdef22feed20eddacbb2587640e45491b757f": 1024 }
   ],
   // L2 EIP-1559 baseFee calculation related fields.
-  "param1559": {
-    "yscale": "358298803609133338137582400989",
-    "xscale": "1488514844",
-    "gasIssuedPerSecond": "12500000",
-    "gasExcess": "45450000000"
+  param1559: {
+    "gasExcess": 1
   },
   // Option to pre-deploy an ERC-20 token.
-  "predeployERC20": true
+  predeployERC20: true
 }
 ```
 
 Next, run the generation script:
 
 ```sh
-pnpm compile && pnpm generate:genesis config.json
+pnpm compile && pnpm generate:genesis config.js
 ```
 
 The script will output two JSON files under `./deployments`:

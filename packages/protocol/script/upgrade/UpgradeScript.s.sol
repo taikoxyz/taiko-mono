@@ -8,8 +8,7 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
-import
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract UpgradeScript is Script {
     uint256 public deployerPrivateKey = vm.envUint("PRIVATE_KEY");

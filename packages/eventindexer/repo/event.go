@@ -141,7 +141,7 @@ func (r *EventRepository) FindUniqueProvers(
 
 	if err := r.db.GormDB().
 		Raw("SELECT address, count(*) AS count FROM events WHERE event = ? GROUP BY address",
-			eventindexer.EventNameBlockProven).
+			eventindexer.EventNameTransitionProved).
 		FirstOrInit(&addrs).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.FirstOrInit")
 	}

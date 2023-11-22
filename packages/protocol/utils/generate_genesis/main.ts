@@ -12,9 +12,11 @@ async function main() {
         throw new Error("missing config json");
     }
 
-    const config: Config = require(path.isAbsolute(process.argv[2])
-        ? process.argv[2]
-        : path.join(process.cwd(), process.argv[2]));
+    const config: Config = require(
+        path.isAbsolute(process.argv[2])
+            ? process.argv[2]
+            : path.join(process.cwd(), process.argv[2]),
+    );
 
     const contractOwner = config.contractOwner;
     const chainId = config.chainId;
@@ -39,13 +41,13 @@ async function main() {
                 contractOwner,
                 chainId,
                 seedAccounts,
-            })}`
+            })}`,
         );
     }
 
     console.log("config: %o", config);
 
-    console.log("start deploy ProxiedTaikoL2 contract");
+    console.log("start deploy ProxiedSingletonTaikoL2 contract");
 
     let result = await deployTaikoL2(config, {
         alloc: {},
@@ -60,24 +62,31 @@ async function main() {
 
     const allocSavedPath = path.join(
         __dirname,
-        "../../deployments/genesis_alloc.json"
+        "../../deployments/genesis_alloc.json",
     );
 
     fs.writeFileSync(allocSavedPath, JSON.stringify(result.alloc, null, 2));
 
     const layoutSavedPath = path.join(
         __dirname,
-        "../../deployments/genesis_storage_layout.json"
+        "../../deployments/genesis_storage_layout.json",
     );
 
     fs.writeFileSync(
         layoutSavedPath,
-        JSON.stringify(result.storageLayouts, null, 2)
+        JSON.stringify(result.storageLayouts, null, 2),
     );
+
+    const configJsonSavedPath = path.join(
+        __dirname,
+        "../../deployments/genesis_config.json",
+    );
+    fs.writeFileSync(configJsonSavedPath, JSON.stringify(config));
 
     console.log("done");
     console.log(`alloc JSON saved to ${allocSavedPath}`);
     console.log(`layout JSON saved to ${layoutSavedPath}`);
+    console.log(`config JSON saved to ${configJsonSavedPath}`);
 }
 
 main().catch(console.error);

@@ -16,9 +16,7 @@ library TaikoData {
         // Group 1: General configs
         // ---------------------------------------------------------------------
         // The chain ID of the network where Taiko contracts are deployed.
-        uint256 chainId;
-        // Flag indicating whether the relay signal root is enabled or not.
-        bool relaySignalRoot;
+        uint64 chainId;
         // ---------------------------------------------------------------------
         // Group 2: Block level configs
         // ---------------------------------------------------------------------
@@ -26,34 +24,21 @@ library TaikoData {
         uint64 blockMaxProposals;
         // Size of the block ring buffer, allowing extra space for proposals.
         uint64 blockRingBufferSize;
-        // The maximum number of verifications allowed per transaction in a
-        // block.
-        uint64 blockMaxVerificationsPerTx;
+        // The maximum number of verifications allowed when a block is proposed.
+        uint64 maxBlocksToVerifyPerProposal;
         // The maximum gas limit allowed for a block.
         uint32 blockMaxGasLimit;
-        // The base gas for processing a block.
-        uint32 blockFeeBaseGas;
         // The maximum allowed bytes for the proposed transaction list calldata.
         uint24 blockMaxTxListBytes;
-        // The expiration time for the block transaction list.
-        uint256 blockTxListExpiry;
-        // Amount of token to reward to the first block propsoed in each L1
-        // block.
-        uint256 proposerRewardPerSecond;
-        uint256 proposerRewardMax;
+        // The max period in seconds that a blob can be reused for DA.
+        uint24 blobExpiry;
+        // True if EIP-4844 is enabled for DA
+        bool blobAllowedForDA;
         // ---------------------------------------------------------------------
         // Group 3: Proof related configs
         // ---------------------------------------------------------------------
-        // The cooldown period for regular proofs (in minutes).
-        uint256 proofRegularCooldown;
-        // The cooldown period for oracle proofs (in minutes).
-        uint256 proofOracleCooldown;
-        // The maximum time window allowed for a proof submission (in minutes).
-        uint16 proofWindow;
-        // The amount of Taiko token as a bond
-        uint96 proofBond;
-        // True to skip proof verification
-        bool skipProverAssignmentVerificaiton;
+        // The amount of Taiko token as a prover liveness bond
+        uint96 livenessBond;
         // ---------------------------------------------------------------------
         // Group 4: ETH deposit related configs
         // ---------------------------------------------------------------------
@@ -73,89 +58,91 @@ library TaikoData {
         uint256 ethDepositMaxFee;
     }
 
-    /// @dev Struct holding state variables.
-    struct StateVariables {
-        uint64 genesisHeight;
-        uint64 genesisTimestamp;
-        uint64 numBlocks;
-        uint64 lastVerifiedBlockId;
-        uint64 nextEthDepositToProcess;
-        uint64 numEthDeposits;
-    }
-
-    /// @dev Struct representing input data for block metadata.
-    struct BlockMetadataInput {
-        bytes32 txListHash;
-        address proposer;
-        uint24 txListByteStart; // byte-wise start index (inclusive)
-        uint24 txListByteEnd; // byte-wise end index (exclusive)
-        bool cacheTxListInfo;
-    }
-
     /// @dev Struct representing prover assignment
-    struct ProverAssignment {
-        address prover;
-        uint64 expiry;
+    struct TierFee {
+        uint16 tier;
+        uint128 fee;
+    }
+
+    struct TierProof {
+        uint16 tier;
         bytes data;
     }
 
-    /// @dev Struct containing data only required for proving a block
-    /// Warning: changing this struct requires changing {LibUtils.hashMetadata}
-    /// accordingly.
-    struct BlockMetadata {
-        uint64 id;
-        uint64 timestamp;
-        uint64 l1Height;
-        bytes32 l1Hash;
-        bytes32 mixHash;
-        bytes32 txListHash;
-        uint24 txListByteStart;
-        uint24 txListByteEnd;
-        uint32 gasLimit;
-        address proposer;
-        TaikoData.EthDeposit[] depositsProcessed;
+    struct HookCall {
+        address hook;
+        bytes data;
     }
 
-    /// @dev Struct representing block evidence.
-    struct BlockEvidence {
-        bytes32 metaHash;
+    struct BlockParams {
+        address assignedProver;
+        bytes32 extraData;
+        bytes32 blobHash;
+        uint24 txListByteOffset;
+        uint24 txListByteSize;
+        bool cacheBlobForReuse;
+        bytes32 parentMetaHash;
+        HookCall[] hookCalls;
+    }
+
+    /// @dev Struct containing data only required for proving a block
+    /// Note: On L2, `block.difficulty` is the pseudo name of
+    /// `block.prevrandao`, which returns a random number provided by the layer
+    /// 1 chain.
+    struct BlockMetadata {
+        bytes32 l1Hash; // slot 1
+        bytes32 difficulty; // slot 2
+        bytes32 blobHash; //or txListHash (if Blob not yet supported), // slot 3
+        bytes32 extraData; // slot 4
+        bytes32 depositsHash; // slot 5
+        address coinbase; // L2 coinbase, // slot 6
+        uint64 id;
+        uint32 gasLimit;
+        uint64 timestamp; // slot 7
+        uint64 l1Height;
+        uint24 txListByteOffset;
+        uint24 txListByteSize;
+        uint16 minTier;
+        bool blobUsed;
+        bytes32 parentMetaHash; // slot 8
+    }
+
+    /// @dev Struct representing transition to be proven.
+    struct Transition {
         bytes32 parentHash;
         bytes32 blockHash;
         bytes32 signalRoot;
         bytes32 graffiti;
-        address prover;
-        bytes proofs;
     }
 
     /// @dev Struct representing state transition data.
-    /// 10 slots reserved for upgradability, 4 slots used.
-    struct Transition {
-        bytes32 key; //only written/read for the 1st state transition.
-        bytes32 blockHash;
-        bytes32 signalRoot;
-        address prover;
-        uint64 provenAt;
-        bytes32[6] __reserved;
+    /// 10 slots reserved for upgradability, 6 slots used.
+    struct TransitionState {
+        bytes32 key; // slot 1, only written/read for the 1st state transition.
+        bytes32 blockHash; // slot 2
+        bytes32 signalRoot; // slot 3
+        address prover; // slot 4
+        uint96 validityBond;
+        address contester; // slot 5
+        uint96 contestBond;
+        uint64 timestamp; // slot 6 (90 bits)
+        uint16 tier;
+        uint8 contestations;
+        bytes32[4] __reserved;
     }
 
     /// @dev Struct containing data required for verifying a block.
     /// 10 slots reserved for upgradability, 3 slots used.
     struct Block {
         bytes32 metaHash; // slot 1
-        address prover; // slot 2
-        uint96 proofBond;
+        address assignedProver; // slot 2
+        uint96 livenessBond;
         uint64 blockId; // slot 3
-        uint64 proposedAt;
+        uint64 proposedAt; // timestamp
+        uint64 proposedIn; // L1 block number
         uint32 nextTransitionId;
         uint32 verifiedTransitionId;
         bytes32[7] __reserved;
-    }
-
-    /// @dev Struct representing information about a transaction list.
-    /// 1 slot used.
-    struct TxListInfo {
-        uint64 validSince;
-        uint24 size;
     }
 
     /// @dev Struct representing an Ethereum deposit.
@@ -180,9 +167,8 @@ library TaikoData {
 
     struct SlotB {
         uint64 numBlocks;
-        uint64 nextEthDepositToProcess;
-        uint64 lastVerifiedAt;
         uint64 lastVerifiedBlockId;
+        bool provingPaused;
     }
 
     /// @dev Struct holding the state variables for the {TaikoL1} contract.
@@ -190,21 +176,18 @@ library TaikoData {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint64 blockId_mod_blockRingBufferSize => Block) blocks;
         // Indexing to transition ids (ring buffer not possible)
-        mapping(
-            uint64 blockId => mapping(bytes32 parentHash => uint32 transitionId)
-            ) transitionIds;
+        mapping(uint64 blockId => mapping(bytes32 parentHash => uint32 transitionId)) transitionIds;
         // Ring buffer for transitions
         mapping(
             uint64 blockId_mod_blockRingBufferSize
-                => mapping(uint32 transitionId => Transition)
+                => mapping(uint32 transitionId => TransitionState)
             ) transitions;
-        // txList cached info
-        mapping(bytes32 txListHash => TxListInfo) txListInfo;
         // Ring buffer for Ether deposits
-        mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256)
-            ethDeposits;
+        mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256) ethDeposits;
         // In-protocol Taiko token balances
-        mapping(address account => uint256 balance) taikoTokenBalances;
+        mapping(address account => uint256 balance) tokenBalances;
+        // Reusable blobs
+        mapping(bytes32 blobHash => uint256 since) reusableBlobs;
         SlotA slotA; // slot 7
         SlotB slotB; // slot 8
         uint256[142] __gap;

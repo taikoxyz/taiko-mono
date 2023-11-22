@@ -86,8 +86,8 @@ This function call must use less than 30 000 gas.\_
 
 ---
 
-## title: ProxiedERC721Vault
+## title: ProxiedSingletonERC721Vault
 
-## ProxiedERC721Vault
+## ProxiedSingletonERC721Vault
 
 Proxied version of the parent contract.

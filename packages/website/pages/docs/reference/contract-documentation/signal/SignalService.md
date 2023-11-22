@@ -147,8 +147,8 @@ Get the storage slot of the signal.
 
 ---
 
-## title: ProxiedSignalService
+## title: ProxiedSingletonSignalService
 
-## ProxiedSignalService
+## ProxiedSingletonSignalService
 
 Proxied version of the parent contract.
