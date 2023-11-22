@@ -286,7 +286,7 @@ contract ERC20Vault is BaseVault {
             )
         );
 
-        btoken = LibAddress.deployTransparentUpgradeableProxyForOwnable(
+        btoken = LibDeploy.deployTransparentUpgradeableProxyForOwnable(
             resolve("proxied_bridged_erc20", false), owner(), data
         );
 

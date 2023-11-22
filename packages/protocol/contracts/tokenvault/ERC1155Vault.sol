@@ -10,7 +10,6 @@ import
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/ERC1155Upgradeable.sol";
 import "../bridge/IBridge.sol";
-import "../libs/LibAddress.sol";
 import "./BaseNFTVault.sol";
 import "./BridgedERC1155.sol";
 
@@ -316,7 +315,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             BridgedERC1155.init.selector,
             abi.encode(addressManager, ctoken.addr, ctoken.chainId, ctoken.symbol, ctoken.name)
         );
-        btoken = LibAddress.deployTransparentUpgradeableProxyForOwnable(
+        btoken = LibDeploy.deployTransparentUpgradeableProxyForOwnable(
             resolve("proxied_bridged_erc1155", false), owner(), data
         );
 

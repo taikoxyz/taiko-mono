@@ -9,6 +9,7 @@ import "lib/openzeppelin-contracts-upgradeable/contracts/utils/introspection/IER
 import "../bridge/IBridge.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibAddress.sol";
+import "../libs/LibDeploy.sol";
 
 abstract contract BaseVault is EssentialContract, IRecallableSender, IERC165Upgradeable {
     error VAULT_PERMISSION_DENIED();

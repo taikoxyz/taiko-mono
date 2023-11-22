@@ -259,7 +259,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
             abi.encode(addressManager, ctoken.addr, ctoken.chainId, ctoken.symbol, ctoken.name)
         );
 
-        btoken = LibAddress.deployTransparentUpgradeableProxyForOwnable(
+        btoken = LibDeploy.deployTransparentUpgradeableProxyForOwnable(
             resolve("proxied_bridged_erc721", false), owner(), data
         );
 
