@@ -6,7 +6,9 @@
 
 pragma solidity ^0.8.20;
 
+import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "lib/openzeppelin-contracts/contracts/utils/Address.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/utils/cryptography/ECDSAUpgradeable.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/utils/introspection/IERC165Upgradeable.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/interfaces/IERC1271Upgradeable.sol";
@@ -17,6 +19,7 @@ library LibAddress {
     bytes4 private constant EIP1271_MAGICVALUE = 0x1626ba7e;
 
     error ETH_TRANSFER_FAILED();
+    error INVALID_PARAM();
 
     /// @dev Sends Ether to the specified address.
     /// @param to The recipient address.
@@ -41,6 +44,22 @@ library LibAddress {
     /// @param amount The amount of Ether to send in wei.
     function sendEther(address to, uint256 amount) internal {
         sendEther(to, amount, gasleft());
+    }
+
+    function deployTransparentUpgradeableProxyForOwnable(
+        address impl,
+        address owner,
+        bytes memory data
+    )
+        internal
+        returns (address proxy)
+    {
+        if (impl == address(0) || owner == address(0)) revert INVALID_PARAM();
+        // The owner will become the `admin` of the proxy
+        proxy = address(new TransparentUpgradeableProxy(impl, owner, data ));
+
+        // Transfer ownership from this contract to the owner.
+        OwnableUpgradeable(proxy).transferOwnership(owner);
     }
 
     function supportsInterface(

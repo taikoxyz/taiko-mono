@@ -6,16 +6,15 @@
 
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
-import "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import "./AddressResolver.sol";
 
 /// @title EssentialContract
 /// @notice This contract serves as the base contract for many core components.
 /// @dev We didn't use OpenZeppelin's PausableUpgradeable and
 /// ReentrancyGuardUpgradeable contract to optimize storage reads.
-abstract contract EssentialContract is Ownable2StepUpgradeable, AddressResolver, UUPSUpgradeable {
+abstract contract EssentialContract is OwnableUpgradeable, AddressResolver {
     uint8 private constant _FALSE = 1;
     uint8 private constant _TRUE = 2;
 
@@ -63,7 +62,7 @@ abstract contract EssentialContract is Ownable2StepUpgradeable, AddressResolver,
     /// @notice Initializes the contract with an address manager.
     /// @param _addressManager The address of the address manager.
     function _init(address _addressManager) internal virtual override {
-        Ownable2StepUpgradeable.__Ownable2Step_init();
+        OwnableUpgradeable.__Ownable_init();
         AddressResolver._init(_addressManager);
 
         _reentry = _FALSE;
@@ -73,8 +72,6 @@ abstract contract EssentialContract is Ownable2StepUpgradeable, AddressResolver,
     function _inNonReentrant() internal view returns (bool) {
         return _reentry == _TRUE;
     }
-
-    function _authorizeUpgrade(address) internal virtual override onlyOwner { }
 }
 
 /// @title Proxied

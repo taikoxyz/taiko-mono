@@ -6,7 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
 import
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/IERC721ReceiverUpgradeable.sol";
@@ -259,12 +258,9 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
             BridgedERC721.init.selector,
             abi.encode(addressManager, ctoken.addr, ctoken.chainId, ctoken.symbol, ctoken.name)
         );
-        btoken = address(
-            new TransparentUpgradeableProxy(
-                resolve("proxied_bridged_erc721", false),
-                owner(),
-                data
-            )
+
+        btoken = LibAddress.deployTransparentUpgradeableProxyForOwnable(
+            resolve("proxied_bridged_erc721", false), owner(), data
         );
 
         bridgedToCanonical[btoken] = ctoken;

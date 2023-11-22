@@ -6,7 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/ERC1155Upgradeable.sol";
@@ -317,12 +316,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             BridgedERC1155.init.selector,
             abi.encode(addressManager, ctoken.addr, ctoken.chainId, ctoken.symbol, ctoken.name)
         );
-        btoken = address(
-            new TransparentUpgradeableProxy(
-                resolve("proxied_bridged_erc1155", false),
-                owner(),
-                data
-            )
+        btoken = LibAddress.deployTransparentUpgradeableProxyForOwnable(
+            resolve("proxied_bridged_erc1155", false), owner(), data
         );
 
         bridgedToCanonical[btoken] = ctoken;
