@@ -63,7 +63,7 @@ export function generateBridgeConfig() {
       logger.info(`Generated config file`);
 
       await sourceFile.saveSync();
-      
+
       const formatted = await formatSourceFile(tsFilePath);
 
       // Write the formatted code back to the file
