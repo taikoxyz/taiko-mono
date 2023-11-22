@@ -12,6 +12,7 @@ import
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/extensions/IERC1155MetadataURIUpgradeable.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/IERC1155Upgradeable.sol";
 import "../common/EssentialContract.sol";
+import "./LibBridgedToken.sol";
 
 /// @title BridgedERC1155
 /// @notice Contract for bridging ERC1155 tokens across different chains.
@@ -118,13 +119,13 @@ contract BridgedERC1155 is
     /// @notice Gets the name of the bridged token.
     /// @return The name.
     function name() public view returns (string memory) {
-        return string.concat("Bridged ", name_, unicode" (⭀", Strings.toString(srcChainId), ")");
+        return LibBridgedToken.buildName(name_, srcChainId);
     }
 
     /// @notice Gets the symbol of the bridged token.
     /// @return The symbol.
     function symbol() public view returns (string memory) {
-        return string.concat(symbol_, ".t");
+        return LibBridgedToken.buildSymbol(symbol_);
     }
 }
 
