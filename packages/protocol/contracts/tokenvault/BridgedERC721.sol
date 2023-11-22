@@ -104,8 +104,8 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         return ERC721Upgradeable.transferFrom(from, to, tokenId);
     }
 
-    /// @notice Gets the concatenated name of the bridged token.
-    /// @return The concatenated name.
+    /// @notice Gets the name of the token.
+    /// @return The name of the token with the source chain ID appended.
     function name()
         public
         view
@@ -113,8 +113,23 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         returns (string memory)
     {
         return string.concat(
-            super.name(), unicode" ⭀", Strings.toString(srcChainId)
+            "Bridged ",
+            super.name(),
+            unicode" (⭀",
+            Strings.toString(srcChainId),
+            ")"
         );
+    }
+
+    /// @notice Gets the symbol of the bridged token.
+    /// @return The symbol.
+    function symbol()
+        public
+        view
+        override(ERC721Upgradeable)
+        returns (string memory)
+    {
+        return string.concat(super.symbol(), ".t");
     }
 
     /// @notice Gets the source token and source chain ID being bridged.

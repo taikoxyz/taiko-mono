@@ -383,7 +383,8 @@ contract TestERC20Vault is Test {
         assertEq(bridgedAddressAfter != address(0), true);
         BridgedERC20 bridgedERC20 = BridgedERC20(bridgedAddressAfter);
 
-        assertEq(bridgedERC20.name(), unicode"ERC20 ⭀31337");
+        assertEq(bridgedERC20.name(), unicode"Bridged ERC20 (⭀31337)");
+        assertEq(bridgedERC20.symbol(), unicode"ERC20.t");
         assertEq(bridgedERC20.balanceOf(Bob), amount);
     }
 

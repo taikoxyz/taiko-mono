@@ -26,7 +26,7 @@ contract BridgedERC1155 is
 {
     address public srcToken; // Address of the source token contract.
     uint256 public srcChainId; // Source chain ID where the token originates.
-    string public symbol; // Symbol of the bridged token.
+    string private symbol_; // Symbol of the bridged token.
     string private name_; // Name of the bridged token.
 
     uint256[46] private __gap;
@@ -68,9 +68,7 @@ contract BridgedERC1155 is
         __ERC1155_init("");
         srcToken = _srcToken;
         srcChainId = _srcChainId;
-        // Note: name and symbol can intentionally be empty ("") as it's not
-        // part of the ERC1155 standard.
-        symbol = _symbol;
+        symbol_ = _symbol;
         name_ = _name;
     }
 
@@ -129,10 +127,18 @@ contract BridgedERC1155 is
             ERC1155Upgradeable.safeTransferFrom(from, to, tokenId, amount, data);
     }
 
-    /// @notice Gets the concatenated name of the bridged token.
-    /// @return The concatenated name.
+    /// @notice Gets the name of the bridged token.
+    /// @return The name.
     function name() public view returns (string memory) {
-        return string.concat(name_, unicode" ⭀", Strings.toString(srcChainId));
+        return string.concat(
+            "Bridged ", name_, unicode" (⭀", Strings.toString(srcChainId), ")"
+        );
+    }
+
+    /// @notice Gets the symbol of the bridged token.
+    /// @return The symbol.
+    function symbol() public view returns (string memory) {
+        return string.concat(symbol_, ".t");
     }
 }
 

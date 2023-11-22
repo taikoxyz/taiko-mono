@@ -153,8 +153,23 @@ contract BridgedERC20 is
         returns (string memory)
     {
         return string.concat(
-            super.name(), unicode" ⭀", Strings.toString(srcChainId)
+            "Bridged ",
+            super.name(),
+            unicode" (⭀",
+            Strings.toString(srcChainId),
+            ")"
         );
+    }
+
+    /// @notice Gets the symbol of the bridged token.
+    /// @return The symbol.
+    function symbol()
+        public
+        view
+        override(ERC20Upgradeable, IERC20MetadataUpgradeable)
+        returns (string memory)
+    {
+        return string.concat(super.symbol(), ".t");
     }
 
     /// @notice Gets the number of decimal places of the token.
