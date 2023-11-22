@@ -151,8 +151,6 @@ Returns an empty token URI.
 
 ---
 
-## title: ProxiedBridgedERC721
-
 ## ProxiedBridgedERC721
 
 Proxied version of the parent contract.
