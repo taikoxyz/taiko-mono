@@ -87,7 +87,7 @@ contract DeployOnL1 is Script {
         // AddressManager
         AddressManager addressManager = new ProxiedAddressManager();
         addressManagerProxy = deployProxy(
-            "address_manager", address(addressManager), bytes.concat(addressManager.init.selector)
+            "address_manager", address(addressManager), bytes.concat(AddressManager.init.selector)
         );
 
         // TaikoL1
@@ -243,7 +243,7 @@ contract DeployOnL1 is Script {
     function deployBridgeSuiteSingletons() private {
         // AddressManager
         AddressManager addressManagerForSingletons = new ProxiedAddressManager();
-        address addressManagerForSingletonsProxy = deployProxy(
+        address addressManager = deployProxy(
             address(0),
             "address_manager_for_singletons",
             address(addressManagerForSingletons),
@@ -253,62 +253,62 @@ contract DeployOnL1 is Script {
         // Bridge
         Bridge bridge = new ProxiedSingletonBridge();
         singletonBridge = deployProxy(
-            addressManagerForSingletonsProxy,
+            addressManager,
             "bridge",
             address(bridge),
-            bytes.concat(bridge.init.selector, abi.encode(addressManagerForSingletonsProxy))
+            bytes.concat(bridge.init.selector, abi.encode(addressManager))
         );
 
         // ERC20Vault
         ERC20Vault erc20Vault = new ProxiedSingletonERC20Vault();
         deployProxy(
-            addressManagerForSingletonsProxy,
+            addressManager,
             "erc20_vault",
             address(erc20Vault),
-            bytes.concat(erc20Vault.init.selector, abi.encode(addressManagerForSingletonsProxy))
+            bytes.concat(erc20Vault.init.selector, abi.encode(addressManager))
         );
 
         // ERC721Vault
         ERC721Vault erc721Vault = new ProxiedSingletonERC721Vault();
         deployProxy(
-            addressManagerForSingletonsProxy,
+            addressManager,
             "erc721_vault",
             address(erc721Vault),
-            bytes.concat(erc721Vault.init.selector, abi.encode(addressManagerForSingletonsProxy))
+            bytes.concat(erc721Vault.init.selector, abi.encode(addressManager))
         );
 
         // ERC1155Vault
         ERC1155Vault erc1155Vault = new ProxiedSingletonERC1155Vault();
         deployProxy(
-            addressManagerForSingletonsProxy,
+            addressManager,
             "erc1155_vault",
             address(erc1155Vault),
-            bytes.concat(erc1155Vault.init.selector, abi.encode(addressManagerForSingletonsProxy))
+            bytes.concat(erc1155Vault.init.selector, abi.encode(addressManager))
         );
 
         // SignalService
         signalService = deployProxy(
-            addressManagerForSingletonsProxy,
+            addressManager,
             "signal_service",
             address(new ProxiedSingletonSignalService()),
-            bytes.concat(SignalService.init.selector, abi.encode(addressManagerForSingletonsProxy))
+            bytes.concat(SignalService.init.selector, abi.encode(addressManager))
         );
 
         // Deploy ProxiedBridged token contracts
         setAddress(
-            addressManagerForSingletonsProxy,
+            addressManager,
             uint64(block.chainid),
             "proxied_bridged_erc20",
             address(new ProxiedBridgedERC20())
         );
         setAddress(
-            addressManagerForSingletonsProxy,
+            addressManager,
             uint64(block.chainid),
             "proxied_bridged_erc721",
             address(new ProxiedBridgedERC721())
         );
         setAddress(
-            addressManagerForSingletonsProxy,
+            addressManager,
             uint64(block.chainid),
             "proxied_bridged_erc1155",
             address(new ProxiedBridgedERC1155())
