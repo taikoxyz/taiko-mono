@@ -91,7 +91,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     }
 
     /// @notice Gets the name of the token.
-    /// @return The name of the token with the source chain ID appended.
+    /// @return The name.
     function name() public view override(ERC721Upgradeable) returns (string memory) {
         return LibBridgedToken.buildName(super.name(), srcChainId);
     }

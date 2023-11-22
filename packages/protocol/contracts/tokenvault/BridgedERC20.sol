@@ -129,7 +129,7 @@ contract BridgedERC20 is
     }
 
     /// @notice Gets the name of the token.
-    /// @return The name of the token with the source chain ID appended.
+    /// @return The name.
     function name()
         public
         view
