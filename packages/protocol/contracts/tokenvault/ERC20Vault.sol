@@ -12,6 +12,7 @@ import "../bridge/IBridge.sol";
 import "./BridgedERC20.sol";
 import "./IMintableERC20.sol";
 import "./BaseVault.sol";
+import "./hooks/erc20/IERC20Hook.sol";
 
 /// @title ERC20Vault
 /// @dev Labeled in AddressResolver as "erc20_vault"
@@ -21,6 +22,12 @@ import "./BaseVault.sol";
 contract ERC20Vault is BaseVault {
     using LibAddress for address;
     using SafeERC20Upgradeable for ERC20Upgradeable;
+
+    // Enum for keeping track how to handle specific/native tokens
+    enum BurnSignature {
+        None,
+        USDC
+    }
 
     // Structs for canonical ERC20 tokens and transfer operations
     struct CanonicalERC20 {
@@ -155,6 +162,7 @@ contract ERC20Vault is BaseVault {
             ERC20Upgradeable(token).safeTransfer(_to, amount);
         } else {
             token = _getOrDeployBridgedToken(ctoken);
+            // USDC has the exact same mint() function signature, so this can stay as is.
             IMintableERC20(token).mint(_to, amount);
         }
 
@@ -227,8 +235,34 @@ contract ERC20Vault is BaseVault {
 
         // If it's a bridged token
         if (bridgedToCanonical[token].addr != address(0)) {
+            // Determine the burn type
+            address erc20Hook = resolve("erc20_hook", true);
+            // Check if it's a native/custom token
+            if (erc20Hook != address(0)) {
+                (, uint8 burnFuncSig) = IERC20Hook(erc20Hook).getCanonicalAndBurnSignature(token);
+                if (BurnSignature(burnFuncSig) == BurnSignature.USDC) {
+                    // It means trying to bridge back USDC
+                    // In that case, we need to  first "own" the tokens to be able to burn them so:
+                    // 1. transferFrom()
+                    // 2. burn()
+                    // Using ERC20Upgradeable is fine here, because we only interested in the
+                    // transferFrom()
+                    ERC20Upgradeable(token).transferFrom({
+                        from: msg.sender,
+                        to: address(this),
+                        amount: amount
+                    });
+                    IERC20Hook(token).burn(amount);
+                    _balanceChange = amount;
+                } else {
+                    // Burn the default way
+                    IMintableERC20(token).burn(msg.sender, amount);
+                }
+            } else {
+                // Still burn the default way
+                IMintableERC20(token).burn(msg.sender, amount);
+            }
             ctoken = bridgedToCanonical[token];
-            IMintableERC20(token).burn(msg.sender, amount);
             _balanceChange = amount;
         } else {
             // If it's a canonical token
@@ -261,6 +295,22 @@ contract ERC20Vault is BaseVault {
         private
         returns (address btoken)
     {
+        address erc20Hook = resolve("erc20_hook", true);
+
+        if (erc20Hook != address(0)) {
+            btoken = IERC20Hook(erc20Hook).getCustomCounterPart(ctoken.addr);
+
+            if (
+                btoken != address(0)
+                    && canonicalToBridged[ctoken.chainId][ctoken.addr] == address(0)
+            ) {
+                // Save it
+                bridgedToCanonical[btoken] = ctoken;
+                canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
+                return btoken;
+            }
+        }
+
         btoken = canonicalToBridged[ctoken.chainId][ctoken.addr];
 
         if (btoken == address(0)) {
