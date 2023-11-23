@@ -10,7 +10,7 @@
 
   const placeholderUrl = '/placeholder.svg';
 
-  let imageUrl: string = nft.metadata?.image || placeholderUrl;
+  $: imageUrl = nft.metadata?.image || placeholderUrl;
 
   let isChecked = false;
 

@@ -95,8 +95,8 @@
       tokenId: Number(tokenIds[0]),
       type: item.tokenType,
     })) as NFT;
+    token = await fetchNFTImageUrl(token, Number(item.srcChainId), Number(item.destChainId));
 
-    token = await fetchNFTImageUrl(token);
     loading = false;
   }
 
@@ -109,69 +109,11 @@
   $: imgUrl = token?.metadata?.image || placeholderUrl;
 
   $: itemAmountDisplay = item.tokenType === TokenType.ERC721 ? '---' : item.amount;
+
+  $: isNFT = [TokenType.ERC1155, TokenType.ERC721].includes(item.tokenType);
 </script>
 
-{#if [TokenType.ETH, TokenType.ERC20].includes(item.tokenType)}
-  <!-- We disable these warnings as we dynamically add the role -->
-  <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
-  <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div
-    {...attrs}
-    tabindex="0"
-    on:click={handleClick}
-    on:keydown={handlePress}
-    class="flex text-primary-content md:h-[80px] h-[45px] w-full">
-    {#if isDesktopOrLarger}
-      <div class="w-1/5 py-2 flex flex-row">
-        <ChainSymbolName chainId={item.srcChainId} />
-      </div>
-      <div class="w-1/5 py-2 flex flex-row">
-        <ChainSymbolName chainId={item.destChainId} />
-      </div>
-      <div class="w-1/5 py-2 flex flex-col justify-center">
-        {#if item.tokenType === TokenType.ERC20}
-          {formatUnits(item.amount ? item.amount : BigInt(0), item.decimals)}
-        {:else if item.tokenType === TokenType.ETH}
-          {formatEther(item.amount ? item.amount : BigInt(0))}
-        {/if}
-        {item.symbol}
-      </div>
-    {:else}
-      <div class="flex text-primary-content h-[80px] w-full">
-        <div class="flex-col">
-          <div class="flex">
-            <ChainSymbolName chainId={item.srcChainId} />
-            <i role="img" aria-label="arrow to" class="mx-auto px-2">
-              <Icon type="arrow-right" />
-            </i>
-            <ChainSymbolName chainId={item.destChainId} />
-          </div>
-          <div class="py-2 flex flex-col justify-center">
-            {formatEther(item.amount ? item.amount : BigInt(0))}
-            {item.symbol}
-          </div>
-        </div>
-      </div>
-    {/if}
-
-    <div class="sm:w-1/4 md:w-1/5 py-2 flex flex-col justify-center">
-      <Status
-        on:click={isDesktopOrLarger ? undefined : openDetails}
-        bridgeTx={item}
-        on:insufficientFunds={handleInsufficientFunds} />
-      <!-- <div class="btn btn-primary" on:click={isDesktopOrLarger ? undefined : openDetails}></div> -->
-    </div>
-    <div class="hidden md:flex w-1/5 py-2 flex flex-col justify-center">
-      <a
-        class="flex justify-start py-3 link"
-        href={`${chainConfig[Number(item.srcChainId)].urls.explorer}/tx/${item.hash}`}
-        target="_blank">
-        {$t('transactions.link.explorer')}
-        <Icon type="arrow-top-right" fillClass="fill-primary-link" />
-      </a>
-    </div>
-  </div>
-{:else if [TokenType.ERC1155, TokenType.ERC721].includes(item.tokenType)}
+{#if isNFT}
   <!-- We disable these warnings as we dynamically add the role -->
   <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
@@ -233,6 +175,66 @@
       </a>
     </div>
   </div>
+{:else if !isNFT}
+  <!-- We disable these warnings as we dynamically add the role -->
+  <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <div
+    {...attrs}
+    tabindex="0"
+    on:click={handleClick}
+    on:keydown={handlePress}
+    class="flex text-primary-content md:h-[80px] h-[45px] w-full">
+    {#if isDesktopOrLarger}
+      <div class="w-1/5 py-2 flex flex-row">
+        <ChainSymbolName chainId={item.srcChainId} />
+      </div>
+      <div class="w-1/5 py-2 flex flex-row">
+        <ChainSymbolName chainId={item.destChainId} />
+      </div>
+      <div class="w-1/5 py-2 flex flex-col justify-center">
+        {#if item.tokenType === TokenType.ERC20}
+          {formatUnits(item.amount ? item.amount : BigInt(0), item.decimals)}
+        {:else if item.tokenType === TokenType.ETH}
+          {formatEther(item.amount ? item.amount : BigInt(0))}
+        {/if}
+        {item.symbol}
+      </div>
+    {:else}
+      <div class="flex text-primary-content h-[80px] w-full">
+        <div class="flex-col">
+          <div class="flex">
+            <ChainSymbolName chainId={item.srcChainId} />
+            <i role="img" aria-label="arrow to" class="mx-auto px-2">
+              <Icon type="arrow-right" />
+            </i>
+            <ChainSymbolName chainId={item.destChainId} />
+          </div>
+          <div class="py-2 flex flex-col justify-center">
+            {formatEther(item.amount ? item.amount : BigInt(0))}
+            {item.symbol}
+          </div>
+        </div>
+      </div>
+    {/if}
+
+    <div class="sm:w-1/4 md:w-1/5 py-2 flex flex-col justify-center">
+      <Status
+        on:click={isDesktopOrLarger ? undefined : openDetails}
+        bridgeTx={item}
+        on:insufficientFunds={handleInsufficientFunds} />
+      <!-- <div class="btn btn-primary" on:click={isDesktopOrLarger ? undefined : openDetails}></div> -->
+    </div>
+    <div class="hidden md:flex w-1/5 py-2 flex flex-col justify-center">
+      <a
+        class="flex justify-start py-3 link"
+        href={`${chainConfig[Number(item.srcChainId)].urls.explorer}/tx/${item.hash}`}
+        target="_blank">
+        {$t('transactions.link.explorer')}
+        <Icon type="arrow-top-right" fillClass="fill-primary-link" />
+      </a>
+    </div>
+  </div>
 {/if}
 
 <DesktopOrLarger bind:is={isDesktopOrLarger} />
@@ -240,7 +242,7 @@
 <MobileDetailsDialog {closeDetails} {detailsOpen} selectedItem={item} on:insufficientFunds={handleInsufficientFunds} />
 
 {#if token}
-  <NftInfoDialog bind:modalOpen={nftInfoOpen} nft={token} viewOnly />
+  <NftInfoDialog bind:modalOpen={nftInfoOpen} nft={token} srcChainId={Number(item.srcChainId)} viewOnly />
 {/if}
 
 <InsufficientFunds bind:modalOpen={insufficientModal} />

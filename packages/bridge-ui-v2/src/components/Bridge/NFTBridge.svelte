@@ -151,12 +151,15 @@
   };
 
   const prefetchImage = async () => {
+    const srcChainId = $network?.id;
+    const destChainId = $destinationChain?.id;
+    if (!srcChainId || !destChainId) throw new Error('both src and dest chain id must be defined');
     await Promise.all(
       nftIdArray.map(async (id) => {
         const token = $selectedToken as NFT;
         if (token) {
           token.tokenId = id;
-          fetchNFTImageUrl(token).then((nftWithUrl) => {
+          fetchNFTImageUrl(token, srcChainId, destChainId).then((nftWithUrl) => {
             $selectedToken = nftWithUrl;
             $selectedNFTs = [nftWithUrl];
           });
@@ -178,6 +181,7 @@
           if (!token) throw new Error('no token with info');
           $selectedToken = token;
           await prefetchImage();
+
           nextStep();
         })
         .catch((err) => {
