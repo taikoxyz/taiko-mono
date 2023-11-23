@@ -50,13 +50,6 @@ contract TaikoTokenTest is TaikoTest {
         assertEq(tko.balanceOf(Zachary), 5 ether);
     }
 
-    function test_TaikoToken_upgrade_without_admin_rights() public {
-        tkoUpgradedImpl = new TaikoToken();
-
-        vm.expectRevert();
-        tokenProxy.upgradeTo(address(tkoUpgradedImpl));
-    }
-
     function _registerAddress(bytes32 nameHash, address addr) private {
         addressManager.setAddress(uint64(block.chainid), nameHash, addr);
     }

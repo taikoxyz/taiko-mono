@@ -6,6 +6,7 @@
 
 pragma solidity ^0.8.20;
 
+import "lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import "./AddressResolver.sol";
@@ -14,7 +15,7 @@ import "./AddressResolver.sol";
 /// @notice This contract serves as the base contract for many core components.
 /// @dev We didn't use OpenZeppelin's PausableUpgradeable and
 /// ReentrancyGuardUpgradeable contract to optimize storage reads.
-abstract contract EssentialContract is OwnableUpgradeable, AddressResolver {
+abstract contract EssentialContract is UUPSUpgradeable, OwnableUpgradeable, AddressResolver {
     uint8 private constant _FALSE = 1;
     uint8 private constant _TRUE = 2;
 
@@ -72,12 +73,14 @@ abstract contract EssentialContract is OwnableUpgradeable, AddressResolver {
     function _inNonReentrant() internal view returns (bool) {
         return _reentry == _TRUE;
     }
+
+    function _authorizeUpgrade(address) internal override onlyOwner { }
 }
 
 /// @title Proxied
 /// @dev Extends OpenZeppelin's Initializable for upgradeable contracts.
 /// Intended as the base class for contracts used with
-/// TransparentUpgradeableProxy.
+/// ERC1967Proxy.
 ///
 /// @dev For each chain, deploy Proxied contracts with unique deployers to
 /// ensure distinct contract addresses.
