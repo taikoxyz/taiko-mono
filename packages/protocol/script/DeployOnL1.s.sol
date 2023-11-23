@@ -43,6 +43,11 @@ contract DeployOnL1 is Script {
     }
 
     function run() external broadcast {
+        addressNotNull(vm.envAddress("OWNER"), "OWNER");
+        addressNotNull(vm.envAddress("TAIKO_L2_ADDRESS"), "TAIKO_L2_ADDRESS");
+        addressNotNull(vm.envAddress("L2_SIGNAL_SERVICE"), "L2_SIGNAL_SERVICE");
+        require(vm.envBytes32("L2_GENESIS_HASH") != 0, "L2_GENESIS_HASH");
+
         address sharedAddressManager = deploySharedContracts();
         address rollupAddressManager = deployRollupContracts(sharedAddressManager);
 
@@ -253,7 +258,7 @@ contract DeployOnL1 is Script {
         });
 
         address[] memory guardianProvers = vm.envAddress("GUARDIAN_PROVERS", ",");
-        assert(guardianProvers.length == NUM_GUARDIANS);
+        require(guardianProvers.length == NUM_GUARDIANS, "NUM_GUARDIANS");
 
         address[NUM_GUARDIANS] memory guardians;
         for (uint256 i = 0; i < NUM_GUARDIANS; ++i) {
@@ -312,11 +317,10 @@ contract DeployOnL1 is Script {
         console2.log("\t impl  : ", impl);
         console2.log("\t owner : ", OwnableUpgradeable(proxy).owner());
 
-        // TODO
-        // vm.writeJson(
-        //     vm.serializeAddress("deployment", name, proxy),
-        //     string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
-        // );
+        vm.writeJson(
+            vm.serializeAddress("deployment", Strings.toString(uint256(name)), proxy),
+            string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
+        );
     }
 
     function register(address addressManager, bytes32 name, address addr) private {
