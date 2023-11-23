@@ -52,8 +52,6 @@ abstract contract Deployer is Script {
 contract DeployOnL1 is Deployer {
     uint256 public constant NUM_GUARDIANS = 5;
 
-    error FAILED_TO_DEPLOY_PLONK_VERIFIER(string contractPath);
-
     function run() external broadcast {
         address sharedAddressManager = _deploySharedContracts();
         address rollupAddressManager = _deployRollupContracts(sharedAddressManager);
@@ -70,6 +68,7 @@ contract DeployOnL1 is Deployer {
 
         if (signalService.owner() == msg.sender) {
             signalService.authorize(taikoL1Addr, bytes32(block.chainid));
+            signalService.transferOwnership(vm.envAddress("OWNER"));
         } else {
             // TODO
             // print warning for manually authorize the chain.
@@ -193,12 +192,6 @@ contract DeployOnL1 is Deployer {
         );
 
         _deploy(
-            "signal_service",
-            address(new SignalService()),
-            bytes.concat(SignalService.init.selector, abi.encode(_ctx.addressManager))
-        );
-
-        _deploy(
             "bridge",
             address(new Bridge()),
             bytes.concat(Bridge.init.selector, abi.encode(_ctx.addressManager))
@@ -224,6 +217,14 @@ contract DeployOnL1 is Deployer {
             "erc1155_vault",
             address(new ERC1155Vault()),
             bytes.concat(BaseVault.init.selector, abi.encode(_ctx.addressManager))
+        );
+
+        _ctx =
+            Ctx({ addressManager: address(0), chainId: uint64(block.chainid), owner: address(0) });
+        _deploy(
+            "signal_service",
+            address(new SignalService()),
+            bytes.concat(SignalService.init.selector, abi.encode(_ctx.addressManager))
         );
     }
 
