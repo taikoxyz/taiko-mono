@@ -80,7 +80,7 @@ export async function deployTaikoL2(
             storageLayoutName = `Proxied${storageLayoutName}`;
         }
         storageLayoutName = contractName.includes("AddressManager")
-            ? "ProxiedAddressManager"
+            ? "AddressManager"
             : storageLayoutName;
 
         storageLayouts[contractName] =
@@ -126,12 +126,7 @@ async function generateContractConfigs(
     const contractArtifacts: any = {
         // ============ Contracts ============
         // Singletons
-        ProxiedSingletonBridge: require(
-            path.join(
-                ARTIFACTS_PATH,
-                "./Bridge.sol/ProxiedSingletonBridge.json",
-            ),
-        ),
+        Bridge: require(path.join(ARTIFACTS_PATH, "./Bridge.sol/Bridge.json")),
         ProxiedSingletonERC20Vault: require(
             path.join(
                 ARTIFACTS_PATH,
@@ -159,7 +154,7 @@ async function generateContractConfigs(
         ProxiedSingletonAddressManagerForSingletons: require(
             path.join(
                 ARTIFACTS_PATH,
-                "./AddressManager.sol/ProxiedAddressManager.json",
+                "./AddressManager.sol/AddressManager.json",
             ),
         ),
         ProxiedBridgedERC20: require(
@@ -187,10 +182,10 @@ async function generateContractConfigs(
                 "./TaikoL2.sol/ProxiedSingletonTaikoL2.json",
             ),
         ),
-        ProxiedAddressManager: require(
+        AddressManager: require(
             path.join(
                 ARTIFACTS_PATH,
-                "./AddressManager.sol/ProxiedAddressManager.json",
+                "./AddressManager.sol/AddressManager.json",
             ),
         ),
     };
@@ -225,9 +220,9 @@ async function generateContractConfigs(
                     addressMap,
                 );
                 break;
-            case "ProxiedSingletonBridge":
+            case "Bridge":
                 bytecode = linkContractLibs(
-                    contractArtifacts.ProxiedSingletonBridge,
+                    contractArtifacts.Bridge,
                     addressMap,
                 );
                 break;
@@ -316,10 +311,10 @@ async function generateContractConfigs(
             },
             isProxy: true,
         },
-        ProxiedSingletonBridge: {
-            address: addressMap.ProxiedSingletonBridge,
+        Bridge: {
+            address: addressMap.Bridge,
             deployedBytecode: linkContractLibs(
-                contractArtifacts.ProxiedSingletonBridge,
+                contractArtifacts.Bridge,
                 addressMap,
             ),
         },
@@ -342,7 +337,7 @@ async function generateContractConfigs(
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
-                [IMPLEMENTATION_SLOT]: addressMap.ProxiedSingletonBridge,
+                [IMPLEMENTATION_SLOT]: addressMap.Bridge,
             },
             isProxy: true,
         },
@@ -488,10 +483,10 @@ async function generateContractConfigs(
             },
             isProxy: true,
         },
-        ProxiedAddressManager: {
-            address: addressMap.ProxiedAddressManager,
+        AddressManager: {
+            address: addressMap.AddressManager,
             deployedBytecode:
-                contractArtifacts.ProxiedAddressManager.deployedBytecode.object,
+                contractArtifacts.AddressManager.deployedBytecode.object,
         },
         // Non-singletons
         ProxiedSingletonTaikoL2: {
@@ -556,7 +551,7 @@ async function generateContractConfigs(
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
-                [IMPLEMENTATION_SLOT]: addressMap.ProxiedAddressManager,
+                [IMPLEMENTATION_SLOT]: addressMap.AddressManager,
             },
             isProxy: true,
         },

@@ -83,7 +83,7 @@ module.exports = {
     // ============ Implementations ============
     // Singletons
     return {
-      ProxiedSingletonBridge: getConstantAddress(`0${this.chainId}`, 1),
+      Bridge: getConstantAddress(`0${this.chainId}`, 1),
       ProxiedSingletonERC20Vault: getConstantAddress(`0${this.chainId}`, 2),
       ProxiedSingletonERC721Vault: getConstantAddress(`0${this.chainId}`, 3),
       ProxiedSingletonERC1155Vault: getConstantAddress(`0${this.chainId}`, 4),
@@ -94,7 +94,7 @@ module.exports = {
       ),
       // Non-singletons
       ProxiedSingletonTaikoL2: getConstantAddress(`0${this.chainId}`, 10001),
-      ProxiedAddressManager: getConstantAddress(`0${this.chainId}`, 10002),
+      AddressManager: getConstantAddress(`0${this.chainId}`, 10002),
       ProxiedBridgedERC20: getConstantAddress(`0${this.chainId}`, 10096),
       ProxiedBridgedERC721: getConstantAddress(`0${this.chainId}`, 10097),
       ProxiedBridgedERC1155: getConstantAddress(`0${this.chainId}`, 10098),

@@ -22,8 +22,16 @@ contract TaikoTokenTest is TaikoTest {
 
         tokenOwner = getRandomAddress();
 
-        addressManager = new AddressManager();
-        addressManager.init();
+        addressManager = AddressManager(
+            LibDeployHelper.deployProxy({
+                name: "address_manager",
+                impl: address(new AddressManager()),
+                data: bytes.concat(AddressManager.init.selector),
+                addressManager: address(0),
+                owner: msg.sender
+            })
+        );
+
         tko = new TaikoToken();
 
         tokenProxy = _deployViaProxy(

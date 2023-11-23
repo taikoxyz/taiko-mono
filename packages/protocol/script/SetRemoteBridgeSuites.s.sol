@@ -75,6 +75,6 @@ contract SetRemoteBridgeSuites is Script {
         private
     {
         console2.log(chainId, uint256(name), "--->", addr);
-        ProxiedAddressManager(addressManager).setAddress(chainId, name, addr);
+        AddressManager(addressManager).setAddress(chainId, name, addr);
     }
 }

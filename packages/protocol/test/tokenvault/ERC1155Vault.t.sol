@@ -5,6 +5,7 @@ import "lib/openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
 import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "forge-std/console2.sol";
 import "../TestBase.sol";
+import "../../contracts/libs/LibDeployHelper.sol";
 import "../../contracts/common/AddressResolver.sol";
 import "../../contracts/common/AddressManager.sol";
 import "../../contracts/bridge/Bridge.sol";
@@ -122,14 +123,39 @@ contract ERC1155VaultTest is TaikoTest {
         vm.deal(Alice, 100 ether);
         vm.deal(Amelia, 100 ether);
         vm.deal(Bob, 100 ether);
-        addressManager = new AddressManager();
-        addressManager.init();
+        addressManager = AddressManager(
+            LibDeployHelper.deployProxy({
+                name: "address_manager",
+                impl: address(new AddressManager()),
+                data: bytes.concat(AddressManager.init.selector),
+                addressManager: address(0),
+                owner: msg.sender
+            })
+        );
 
-        bridge = new Bridge();
-        bridge.init(address(addressManager));
+        bridge = Bridge(
+            payable(
+                LibDeployHelper.deployProxy({
+                    name: "bridge",
+                    impl: address(new Bridge()),
+                    data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
+                    addressManager: address(addressManager),
+                    owner: msg.sender
+                })
+            )
+        );
 
-        destChainBridge = new Bridge();
-        destChainBridge.init(address(addressManager));
+        destChainBridge = Bridge(
+            payable(
+                LibDeployHelper.deployProxy({
+                    name: "bridge",
+                    impl: address(new Bridge()),
+                    data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
+                    addressManager: address(addressManager),
+                    owner: msg.sender
+                })
+            )
+        );
 
         signalService = new SignalService();
         signalService.init();

@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "forge-std/Test.sol";
+import "../../contracts/libs/LibDeployHelper.sol";
 import "../../contracts/common/AddressManager.sol";
 import "../../contracts/common/AddressResolver.sol";
 import "../../contracts/bridge/Bridge.sol";
@@ -104,8 +105,16 @@ contract TestERC20Vault is Test {
 
         tko = new TaikoToken();
 
-        addressManager = new AddressManager();
-        addressManager.init();
+        addressManager = AddressManager(
+            LibDeployHelper.deployProxy({
+                name: "address_manager",
+                impl: address(new AddressManager()),
+                data: bytes.concat(AddressManager.init.selector),
+                addressManager: address(0),
+                owner: msg.sender
+            })
+        );
+
         addressManager.setAddress(uint64(block.chainid), "taiko_token", address(tko));
 
         erc20Vault = new ERC20Vault();
@@ -117,8 +126,17 @@ contract TestERC20Vault is Test {
         erc20 = new FreeMintERC20("ERC20", "ERC20");
         erc20.mint(Alice);
 
-        bridge = new Bridge();
-        bridge.init(address(addressManager));
+        bridge = Bridge(
+            payable(
+                LibDeployHelper.deployProxy({
+                    name: "bridge",
+                    impl: address(new Bridge()),
+                    data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
+                    addressManager: address(addressManager),
+                    owner: msg.sender
+                })
+            )
+        );
 
         destChainIdBridge = new PrankDestBridge(erc20Vault);
         vm.deal(address(destChainIdBridge), 100 ether);

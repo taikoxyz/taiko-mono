@@ -59,11 +59,3 @@ contract AddressManager is Ownable2StepUpgradeable, IAddressManager {
         return addresses[chainId][name];
     }
 }
-
-/// @title ProxiedAddressManager
-/// @notice Proxied version of the parent contract.
-contract ProxiedAddressManager is AddressManager {
-    constructor() {
-        _disableInitializers();
-    }
-}

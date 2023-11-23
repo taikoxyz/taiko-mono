@@ -36,7 +36,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkDeployedCode("ProxiedSingletonERC20Vault");
         checkDeployedCode("ProxiedSingletonERC721Vault");
         checkDeployedCode("ProxiedSingletonERC1155Vault");
-        checkDeployedCode("ProxiedSingletonBridge");
+        checkDeployedCode("Bridge");
         checkDeployedCode("ProxiedSingletonSignalService");
         checkDeployedCode("ProxiedSingletonAddressManagerForSingletons");
         checkDeployedCode("ProxiedBridgedERC20");
@@ -47,7 +47,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkProxyImplementation("SingletonERC20VaultProxy", "ProxiedSingletonERC20Vault");
         checkProxyImplementation("SingletonERC721VaultProxy", "ProxiedSingletonERC721Vault");
         checkProxyImplementation("SingletonERC1155VaultProxy", "ProxiedSingletonERC1155Vault");
-        checkProxyImplementation("SingletonBridgeProxy", "ProxiedSingletonBridge");
+        checkProxyImplementation("SingletonBridgeProxy", "Bridge");
         checkProxyImplementation("SingletonSignalServiceProxy", "ProxiedSingletonSignalService");
         checkProxyImplementation(
             "SingletonAddressManagerForSingletonsProxy", "ProxiedSingletonAddressManagerForSingletons"
@@ -65,11 +65,11 @@ contract TestGenerateGenesis is Test, AddressResolver {
     function testNonSingletonContractDeployment() public {
         // check bytecode
         checkDeployedCode("ProxiedSingletonTaikoL2");
-        checkDeployedCode("ProxiedAddressManager");
+        checkDeployedCode("AddressManager");
 
         // check proxy implementations
         checkProxyImplementation("SingletonTaikoL2Proxy", "ProxiedSingletonTaikoL2");
-        checkProxyImplementation("AddressManagerProxy", "ProxiedAddressManager");
+        checkProxyImplementation("AddressManagerProxy", "AddressManager");
 
         // check proxies
         checkDeployedCode("SingletonTaikoL2Proxy");

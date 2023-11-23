@@ -37,11 +37,28 @@ contract BridgeTest is TaikoTest {
     function setUp() public {
         vm.startPrank(Alice);
         vm.deal(Alice, 100 ether);
-        addressManager = new AddressManager();
-        addressManager.init();
 
-        bridge = new Bridge();
-        bridge.init(address(addressManager));
+        addressManager = AddressManager(
+            LibDeployHelper.deployProxy({
+                name: "address_manager",
+                impl: address(new AddressManager()),
+                data: bytes.concat(AddressManager.init.selector),
+                addressManager: address(0),
+                owner: msg.sender
+            })
+        );
+
+        bridge = bridge = Bridge(
+            payable(
+                LibDeployHelper.deployProxy({
+                    name: "bridge",
+                    impl: address(new Bridge()),
+                    data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
+                    addressManager: address(addressManager),
+                    owner: msg.sender
+                })
+            )
+        );
 
         destChainBridge = new Bridge();
         destChainBridge.init(address(addressManager));

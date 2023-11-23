@@ -58,8 +58,15 @@ abstract contract TaikoL1TestBase is TaikoTest {
         L1 = deployTaikoL1();
         conf = L1.getConfig();
 
-        addressManager = new AddressManager();
-        addressManager.init();
+        addressManager = AddressManager(
+            LibDeployHelper.deployProxy({
+                name: "address_manager",
+                impl: address(new AddressManager()),
+                data: bytes.concat(AddressManager.init.selector),
+                addressManager: address(0),
+                owner: msg.sender
+            })
+        );
 
         ss = new SignalService();
         ss.init();
@@ -85,8 +92,17 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
         cp = new TaikoA6TierProvider();
 
-        bridge = new Bridge();
-        bridge.init(address(addressManager));
+        bridge = Bridge(
+            payable(
+                LibDeployHelper.deployProxy({
+                    name: "bridge",
+                    impl: address(new Bridge()),
+                    data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
+                    addressManager: address(addressManager),
+                    owner: msg.sender
+                })
+            )
+        );
 
         assignmentHook = new AssignmentHook();
         assignmentHook.init(address(addressManager));

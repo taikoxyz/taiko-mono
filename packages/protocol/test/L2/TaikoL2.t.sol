@@ -31,8 +31,15 @@ contract TestTaikoL2 is TaikoTest {
     uint256 private logIndex;
 
     function setUp() public {
-        addressManager = new AddressManager();
-        addressManager.init();
+        addressManager = AddressManager(
+            LibDeployHelper.deployProxy({
+                name: "address_manager",
+                impl: address(new AddressManager()),
+                data: bytes.concat(AddressManager.init.selector),
+                addressManager: address(0),
+                owner: msg.sender
+            })
+        );
 
         ss = new SignalService();
         ss.init();

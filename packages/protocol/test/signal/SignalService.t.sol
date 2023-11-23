@@ -24,8 +24,15 @@ contract TestSignalService is TaikoTest {
         vm.deal(Alice, 1 ether);
         vm.deal(Bob, 1 ether);
 
-        addressManager = new AddressManager();
-        addressManager.init();
+        addressManager = AddressManager(
+            LibDeployHelper.deployProxy({
+                name: "address_manager",
+                impl: address(new AddressManager()),
+                data: bytes.concat(AddressManager.init.selector),
+                addressManager: address(0),
+                owner: msg.sender
+            })
+        );
 
         signalService = new SignalService();
         signalService.init();
