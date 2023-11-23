@@ -109,7 +109,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         tko = new TaikoToken();
         registerAddress("taiko_token", address(tko));
 
-        tko.init(address(addressManager), "TaikoToken", "TKO", address(this));
+        tko.init("TaikoToken", "TKO", address(this));
 
         L1.init(address(addressManager), GENESIS_BLOCK_HASH);
         printVariables("init  ");

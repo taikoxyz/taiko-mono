@@ -55,13 +55,33 @@ contract DeployOnL1 is Deployer {
     error FAILED_TO_DEPLOY_PLONK_VERIFIER(string contractPath);
 
     function run() external broadcast {
-        address bridgeAddressManager = _deployBridgeSuite();
-        address rollupAddressManager = _deployTaikoL1Suite(bridgeAddressManager);
+        address sharedAddressManager = _deploySharedContracts();
+        address rollupAddressManager = _deployRollupContracts(sharedAddressManager);
 
-        // Authorize the new TaikoL1 contract for shared signal service.
-        // TODO
-        // SignalService(signalService).authorize(taikoL1Proxy,
-        // bytes32(block.chainid));
+        address signalServiceAddr =
+            AddressManager(sharedAddressManager).getAddress(uint64(block.chainid), "signal_service");
+        require(signalServiceAddr != address(0), "invalid signal service");
+        SignalService signalService = SignalService(signalServiceAddr);
+
+        address taikoL1Addr =
+            AddressManager(rollupAddressManager).getAddress(uint64(block.chainid), "taiko");
+        require(taikoL1Addr != address(0), "invalid taikoL1Addr");
+        TaikoL1 taikoL1 = TaikoL1(payable(taikoL1Addr));
+
+        if (signalService.owner() == msg.sender) {
+            signalService.authorize(taikoL1Addr, "taiko");
+        }
+
+        // Register bridge and signal singlton
+        _ctx = Ctx({
+            addressManager: rollupAddressManager,
+            chainId: uint64(block.chainid),
+            owner: vm.envAddress("OWNER")
+        });
+
+        _registerFrom("taiko_token", sharedAddressManager);
+        _registerFrom("signal_service", sharedAddressManager);
+        _registerFrom("bridge", sharedAddressManager);
 
         _ctx.addressManager = rollupAddressManager;
 
@@ -75,10 +95,6 @@ contract DeployOnL1 is Deployer {
             _register("proposer_one", proposerOne);
         }
 
-        TaikoL1 taikoL1 = TaikoL1(
-            payable(AddressManager(rollupAddressManager).getAddress(uint64(block.chainid), "taiko"))
-        );
-
         uint64 l2ChainId = taikoL1.getConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
@@ -86,6 +102,7 @@ contract DeployOnL1 is Deployer {
         _register("taiko", vm.envAddress("TAIKO_L2_ADDRESS"));
         _register("signal_service", vm.envAddress("L2_SIGNAL_SERVICE"));
 
+        // Extra contracts
         address horseToken = address(new FreeMintERC20("Horse Token", "HORSE"));
         console2.log("HorseToken", horseToken);
     }
@@ -123,7 +140,9 @@ contract DeployOnL1 is Deployer {
         require(_ctx.addressManager != address(0), "null manager");
         require(addr != address(0), "null address");
         AddressManager(_ctx.addressManager).setAddress(_ctx.chainId, name, addr);
-        // console2.log(strings.concat(name, ": ", proxy, " =>", implementation));
+        console2.log("----------------------------");
+        console2.log(Strings.toString(uint256(name)), "@", _ctx.addressManager);
+        console2.log("\t addr : ", addr);
     }
 
     function _registerFrom(bytes32 name, address srcAddressManager) private {
@@ -131,24 +150,37 @@ contract DeployOnL1 is Deployer {
         _register(name, AddressManager(srcAddressManager).getAddress(_ctx.chainId, name));
     }
 
-    function _deployBridgeSuite() internal returns (address bridgeAddressManager) {
-        address _bridgeAddressManager = vm.envAddress("BRIDGE_ADDRESS_MANAGER");
-        if (_bridgeAddressManager != address(0)) {
-            return _bridgeAddressManager;
+    function _deploySharedContracts() internal returns (address sharedAddressManager) {
+        address _sharedAddressManager = vm.envAddress("BRIDGE_ADDRESS_MANAGER");
+        if (_sharedAddressManager != address(0)) {
+            return _sharedAddressManager;
         }
 
-        _ctx.addressManager = address(0);
-        _ctx.chainId = uint64(block.chainid);
-        _ctx.owner = vm.envAddress("OWNER");
+        _ctx = Ctx({
+            addressManager: address(0),
+            chainId: uint64(block.chainid),
+            owner: vm.envAddress("OWNER")
+        });
+
         require(_ctx.owner != address(0), "invalid owner");
 
-        bridgeAddressManager = _deploy(
+        sharedAddressManager = _deploy(
             "address_manager_for_bridge",
             address(new AddressManager()),
             bytes.concat(AddressManager.init.selector)
         );
 
-        _ctx.addressManager = bridgeAddressManager;
+        _ctx.addressManager = sharedAddressManager;
+        _deploy(
+            "taiko_token",
+            address(new TaikoToken()),
+            bytes.concat(
+                TaikoToken.init.selector,
+                abi.encode(
+                    "Taiko Token Katla", "TTKOk", vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT")
+                )
+            )
+        );
 
         _deploy(
             "signal_service",
@@ -162,21 +194,22 @@ contract DeployOnL1 is Deployer {
             bytes.concat(Bridge.init.selector, abi.encode(_ctx.addressManager))
         );
 
+        // Deploy Bridged tokens
         _register("bridged_erc20", address(new BridgedERC20()));
+        _register("bridged_erc721", address(new BridgedERC721()));
+        _register("bridged_erc1155", address(new BridgedERC1155()));
+
+        // Deploy Vaults
         _deploy(
             "erc20_vault",
             address(new ERC20Vault()),
             bytes.concat(BaseVault.init.selector, abi.encode(_ctx.addressManager))
         );
-
-        _register("bridged_erc721", address(new BridgedERC721()));
         _deploy(
             "erc721_vault",
             address(new ERC721Vault()),
             bytes.concat(BaseVault.init.selector, abi.encode(_ctx.addressManager))
         );
-
-        _register("bridged_erc1155", address(new BridgedERC1155()));
         _deploy(
             "erc1155_vault",
             address(new ERC1155Vault()),
@@ -184,13 +217,17 @@ contract DeployOnL1 is Deployer {
         );
     }
 
-    function _deployTaikoL1Suite(address _bridgeAddressManager)
+    function _deployRollupContracts(address _sharedAddressManager)
         internal
         returns (address rollupAddressManager)
     {
-        _ctx.addressManager = address(0);
-        _ctx.chainId = uint64(block.chainid);
-        _ctx.owner = vm.envAddress("OWNER");
+        require(_sharedAddressManager != address(0), "null bridge address manager");
+
+        _ctx = Ctx({
+            addressManager: address(0),
+            chainId: uint64(block.chainid),
+            owner: vm.envAddress("OWNER")
+        });
         require(_ctx.owner != address(0), "invalid owner");
 
         rollupAddressManager = _deploy(
@@ -200,23 +237,6 @@ contract DeployOnL1 is Deployer {
         );
 
         _ctx.addressManager = rollupAddressManager;
-
-        _registerFrom("bridge", _bridgeAddressManager);
-        _registerFrom("signal_service", _bridgeAddressManager);
-
-        _deploy(
-            "taiko_token",
-            address(new TaikoToken()),
-            bytes.concat(
-                TaikoToken.init.selector,
-                abi.encode(
-                    _ctx.addressManager,
-                    "Taiko Token Katla",
-                    "TTKOk",
-                    vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT")
-                )
-            )
-        );
 
         _deploy(
             "taiko",
@@ -233,28 +253,28 @@ contract DeployOnL1 is Deployer {
         _deploy(
             "tier_guardian",
             address(new GuardianVerifier()),
-            bytes.concat(GuardianVerifier.init.selector, abi.encode(rollupAddressManager))
+            bytes.concat(GuardianVerifier.init.selector, abi.encode(_ctx.addressManager))
         );
 
         // SgxVerifier
         _deploy(
             "tier_sgx",
             address(new SgxVerifier()),
-            bytes.concat(SgxVerifier.init.selector, abi.encode(rollupAddressManager))
+            bytes.concat(SgxVerifier.init.selector, abi.encode(_ctx.addressManager))
         );
 
         // SgxAndZkVerifier
         _deploy(
             "tier_sgx_and_pse_zkevm",
             address(new SgxAndZkVerifier()),
-            bytes.concat(SgxAndZkVerifier.init.selector, abi.encode(rollupAddressManager))
+            bytes.concat(SgxAndZkVerifier.init.selector, abi.encode(_ctx.addressManager))
         );
 
         // PseZkVerifier
         address pseZkVerifier = _deploy(
             "tier_pse_zkevm",
             address(new PseZkVerifier()),
-            bytes.concat(PseZkVerifier.init.selector, abi.encode(rollupAddressManager))
+            bytes.concat(PseZkVerifier.init.selector, abi.encode(_ctx.addressManager))
         );
 
         address[] memory plonkVerifiers = new address[](1);
