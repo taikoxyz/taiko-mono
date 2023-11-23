@@ -54,7 +54,7 @@ export abstract class Bridge {
       walletClient: wallet,
     });
 
-    const messageStatus: MessageStatus = await destBridgeContract.read.getMessageStatus([msgHash]);
+    const messageStatus: MessageStatus = await destBridgeContract.read.messageStatus([msgHash]);
 
     log(`Claiming message with status ${messageStatus}`);
 
@@ -102,7 +102,7 @@ export abstract class Bridge {
       chainId: destChainId,
     });
 
-    const messageStatus: MessageStatus = await destBridgeContract.read.getMessageStatus([msgHash]);
+    const messageStatus: MessageStatus = await destBridgeContract.read.messageStatus([msgHash]);
 
     log(`Releasing message with status ${messageStatus}`);
 

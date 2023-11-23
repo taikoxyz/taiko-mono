@@ -12,21 +12,26 @@ import type { ClientWithEthGetProofRequest, GenerateProofArgs } from './types';
 const log = getLogger('proof:Prover');
 
 export class Prover {
-  protected async _getKey(contractAddress: Address, msgHash: Hex) {
-    return keccak256(encodePacked(['address', 'bytes32'], [contractAddress, msgHash]));
+  protected async _getKey(chainId: number, contractAddress: Address, msgHash: Hex) {
+    console.log("getting key", chainId);
+    return keccak256(encodePacked(['string', 'uint64', 'address', 'bytes32'], ['SIGNAL', BigInt(chainId), contractAddress, msgHash]));
   }
 
   protected async _getLatestBlock(
     client: PublicClient,
     crossChainSyncContract: GetContractResult<typeof crossChainSyncABI>,
   ) {
-    const latestBlockHash = await crossChainSyncContract.read.getCrossChainBlockHash([BigInt(0)]);
+    const syncedSnippet = await crossChainSyncContract.read.getSyncedSnippet([BigInt(0)]);
+    const latestBlockHash = syncedSnippet["blockHash"];
     return client.getBlock({ blockHash: latestBlockHash });
   }
 
   async generateProof(args: GenerateProofArgs) {
+    console.log("Prover.ts generateProof");
+
     const { msgHash, clientChainId, contractAddress, crossChainSyncChainId, proofForAccountAddress } = args;
 
+    console.log("Prover.ts generateProof proofForAccountAddress", proofForAccountAddress);
     const crossChainSyncAddress = routingContractsMap[crossChainSyncChainId][clientChainId].crossChainSyncAddress;
 
     // Get the block from chain A based on the latest block hash
@@ -44,7 +49,8 @@ export class Prover {
       throw new PendingBlockError('block is pending');
     }
 
-    const key = await this._getKey(contractAddress, msgHash);
+    const key = await this._getKey(clientChainId, contractAddress, msgHash);
+    console.log("eth_getProof key", key);
 
     // Unfortunately, since this method is stagnant, it hasn't been included into Viem lib
     // as supported methods. Still stupported  by Alchmey, Infura and others.
@@ -66,7 +72,7 @@ export class Prover {
       ],
     });
 
-    log('Proof from eth_getProof', proof);
+   console.log('Proof from eth_getProof', proof);
 
     return { proof, block };
   }

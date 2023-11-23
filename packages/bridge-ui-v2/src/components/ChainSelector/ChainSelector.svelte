@@ -22,6 +22,8 @@
   export let small = false;
   export let validOptions: Maybe<Chain[]> = chains;
 
+  console.log("chains", chains);
+
   let escKeyListener: (event: KeyboardEvent) => void;
 
   const addEscKeyListener = () => {

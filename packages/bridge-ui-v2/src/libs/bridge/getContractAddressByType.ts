@@ -11,7 +11,7 @@ const getVaultAddress = (args: GetContractAddressType): Address => {
     [TokenType.ERC1155]: (config) => config.erc1155VaultAddress,
     [TokenType.ERC721]: (config) => config.erc721VaultAddress,
     [TokenType.ERC20]: (config) => config.erc20VaultAddress,
-    [TokenType.ETH]: (config) => config.etherVaultAddress || zeroAddress,
+    [TokenType.ETH]: (config) => zeroAddress,
   };
 
   if (!args.tokenType) throw new Error('Token type is required');

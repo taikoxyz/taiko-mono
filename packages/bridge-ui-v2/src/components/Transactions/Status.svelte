@@ -242,8 +242,12 @@
     if (bridgeTx) {
       bridgeTxStatus = bridgeTx.status; // get the current status
 
+      console.log("bridgeTxStatus", bridgeTx);
+
       // Can we start claiming/retrying/releasing?
       processable = await isTransactionProcessable(bridgeTx);
+
+      console.log("processable", processable);
 
       try {
         polling = startPolling(bridgeTx);

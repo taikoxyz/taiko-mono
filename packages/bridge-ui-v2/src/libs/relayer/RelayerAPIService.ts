@@ -99,7 +99,7 @@ export class RelayerAPIService {
       address: bridgeAddress,
       abi: bridgeABI,
       chainId: Number(destChainId),
-      functionName: 'getMessageStatus',
+      functionName: 'messageStatus',
       args: [msgHash],
     });
     return result as MessageStatus;

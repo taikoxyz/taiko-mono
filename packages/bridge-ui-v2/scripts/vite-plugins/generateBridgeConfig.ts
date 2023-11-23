@@ -62,6 +62,8 @@ export function generateBridgeConfig() {
       await sourceFile.saveSync();
       logger.info(`Generated config file`);
 
+
+
       await sourceFile.saveSync();
 
       const formatted = await formatSourceFile(tsFilePath);
@@ -92,6 +94,8 @@ async function buildBridgeConfig(sourceFile: SourceFile, configuredBridgesConfig
   const routingContractsMap: RoutingMap = {};
 
   const bridges: ConfiguredBridgesType = configuredBridgesConfigFile;
+
+  console.log("bridges", bridges);
 
   if (!skip) {
     if (!bridges.configuredBridges || !Array.isArray(bridges.configuredBridges)) {

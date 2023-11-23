@@ -22,9 +22,6 @@
               "erc20VaultAddress": {
                 "type": "string"
               },
-              "etherVaultAddress": {
-                "type": "string"
-              },
               "erc721VaultAddress": {
                 "type": "string"
               },

@@ -195,7 +195,6 @@ export type RoutingMap = Record<string, Record<string, AddressConfig>>;
 export type AddressConfig = {
   bridgeAddress: Address;
   erc20VaultAddress: Address;
-  etherVaultAddress?: Address;
   erc721VaultAddress: Address;
   erc1155VaultAddress: Address;
   crossChainSyncAddress: Address;

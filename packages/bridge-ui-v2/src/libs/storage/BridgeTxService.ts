@@ -69,7 +69,11 @@ export class BridgeTxService {
 
   private static _getBridgeMessageStatus({ msgHash, srcChainId, destChainId }: BridgeMessageParams) {
     // Gets the status of the message from the destination bridge contract
+    console.log("srcChainId", srcChainId);
+    console.log("destChainId", destChainId);
+    console.log("msgHash", msgHash);
     const bridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
+    console.log("bridgeAddress", bridgeAddress);
 
     const bridgeContract = getContract({
       chainId: destChainId,
@@ -77,7 +81,9 @@ export class BridgeTxService {
       address: bridgeAddress,
     });
 
-    return bridgeContract.read.getMessageStatus([msgHash]) as Promise<MessageStatus>;
+    console.log("bridgeContract", bridgeAddress, bridgeContract);
+
+    return bridgeContract.read.messageStatus([msgHash]) as Promise<MessageStatus>;
   }
 
   constructor(storage: Storage) {
@@ -142,13 +148,20 @@ export class BridgeTxService {
     bridgeTx.msgHash = msgHash;
     bridgeTx.message = message;
 
-    const status = await BridgeTxService._getBridgeMessageStatus({
-      msgHash: msgHash,
-      srcChainId: Number(srcChainId),
-      destChainId: Number(destChainId),
-    });
+    try {
+      const status = await BridgeTxService._getBridgeMessageStatus({
+        msgHash: msgHash,
+        srcChainId: Number(srcChainId),
+        destChainId: Number(destChainId),
+      });
+  
+      console.log("succeeded to _getBridgeMessageStatus", msgHash, status);
 
-    bridgeTx.status = status;
+      bridgeTx.status = status;
+    } catch (error) {
+      console.log("failed to _getBridgeMessageStatus", error);
+    }
+
     return bridgeTx;
   }
 

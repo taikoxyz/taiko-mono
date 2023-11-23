@@ -17,6 +17,8 @@ export class ETHBridge extends Bridge {
   private static async _prepareTransaction(args: ETHBridgeArgs) {
     const { to, amount, wallet, srcChainId, destChainId, bridgeAddress, fee: processingFee, memo = '' } = args;
 
+    console.log("bridgeAddress", bridgeAddress);
+
     const bridgeContract = getContract({
       walletClient: wallet,
       abi: bridgeABI,
@@ -51,7 +53,7 @@ export class ETHBridge extends Bridge {
       id: BigInt(0), // will be set in contract
     };
 
-    log('Preparing transaction with message', message);
+    console.log('Preparing transaction with message', message);
 
     return { bridgeContract, message };
   }
@@ -62,7 +64,10 @@ export class ETHBridge extends Bridge {
 
   async estimateGas(args: ETHBridgeArgs) {
     const { bridgeContract, message } = await ETHBridge._prepareTransaction(args);
-    const { value: callValue, fee: processingFee } = message;
+    const { value: callValue, fee: processingFee, destChainId } = message;
+
+    const isDestChainEnabled = await bridgeContract.read.isDestChainEnabled([destChainId], {});
+    console.log("isDestChainEnabled", isDestChainEnabled);
 
     const value = callValue + processingFee;
 
@@ -77,7 +82,10 @@ export class ETHBridge extends Bridge {
 
   async bridge(args: ETHBridgeArgs) {
     const { bridgeContract, message } = await ETHBridge._prepareTransaction(args);
-    const { value: callValue, fee: processingFee } = message;
+    const { value: callValue, fee: processingFee, destChainId } = message;
+
+    const isDestChainEnabled = await bridgeContract.read.isDestChainEnabled([destChainId], {});
+    console.log("isDestChainEnabled", isDestChainEnabled);
 
     const value = callValue + processingFee;
 
@@ -101,6 +109,8 @@ export class ETHBridge extends Bridge {
   }
 
   async claim(args: ClaimArgs) {
+    console.log("async claim");
+
     const { messageStatus, destBridgeContract } = await super.beforeClaiming(args);
 
     let txHash: Hash;
@@ -112,11 +122,15 @@ export class ETHBridge extends Bridge {
       const proof = await this._prover.generateProofToProcessMessage(msgHash, srcChainId, destChainId);
 
       try {
+        console.log("processMessage...", message);
+
+        await destBridgeContract.estimateGas.processMessage([message, proof]);
+
         txHash = await destBridgeContract.write.processMessage([message, proof]);
 
-        log('Transaction hash for processMessage call', txHash);
+        console.log('Transaction hash for processMessage call', txHash);
       } catch (err) {
-        console.error(err);
+        console.error("processMessage...", err);
 
         // TODO: possibly same logic as ERC20Bridge
 
