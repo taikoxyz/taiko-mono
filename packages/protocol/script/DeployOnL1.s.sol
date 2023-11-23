@@ -26,7 +26,7 @@ import "../contracts/tokenvault/ERC721Vault.sol";
 import "../contracts/signal/SignalService.sol";
 import "../contracts/libs/LibDeploy.sol";
 import "../contracts/test/erc20/FreeMintERC20.sol";
-// import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
+import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
 
 /// @title DeployOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
@@ -98,13 +98,20 @@ contract DeployOnL1 is Deployer {
         uint64 l2ChainId = taikoL1.getConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
-        _ctx.chainId = l2ChainId;
+        _ctx = Ctx({ addressManager: rollupAddressManager, chainId: l2ChainId, owner: address(0) });
         _register("taiko", vm.envAddress("TAIKO_L2_ADDRESS"));
         _register("signal_service", vm.envAddress("L2_SIGNAL_SERVICE"));
 
+        _deployAuxContracts();
+    }
+
+    function _deployAuxContracts() private {
         // Extra contracts
         address horseToken = address(new FreeMintERC20("Horse Token", "HORSE"));
         console2.log("HorseToken", horseToken);
+
+        address bullToken = address(new  MayFailFreeMintERC20("Bull Token", "BULL"));
+        console2.log("BullToken", bullToken);
     }
 
     function _deploy(
@@ -249,28 +256,24 @@ contract DeployOnL1 is Deployer {
 
         _deploy("tier_provider", address(new TaikoA6TierProvider()), "");
 
-        // GuardianVerifier
         _deploy(
             "tier_guardian",
             address(new GuardianVerifier()),
             bytes.concat(GuardianVerifier.init.selector, abi.encode(_ctx.addressManager))
         );
 
-        // SgxVerifier
         _deploy(
             "tier_sgx",
             address(new SgxVerifier()),
             bytes.concat(SgxVerifier.init.selector, abi.encode(_ctx.addressManager))
         );
 
-        // SgxAndZkVerifier
         _deploy(
             "tier_sgx_and_pse_zkevm",
             address(new SgxAndZkVerifier()),
             bytes.concat(SgxAndZkVerifier.init.selector, abi.encode(_ctx.addressManager))
         );
 
-        // PseZkVerifier
         address pseZkVerifier = _deploy(
             "tier_pse_zkevm",
             address(new PseZkVerifier()),
@@ -285,6 +288,12 @@ contract DeployOnL1 is Deployer {
         }
 
         // Guardian prover
+        _ctx = Ctx({
+            addressManager: address(0),
+            chainId: uint64(block.chainid),
+            owner: address(0) // owner will be msg.sender
+         });
+
         address guardianProver = _deploy(
             "guardian_prover",
             address(new GuardianProver()),
@@ -299,9 +308,10 @@ contract DeployOnL1 is Deployer {
             guardians[i] = guardianProvers[i];
         }
         GuardianProver(guardianProver).setGuardians(guardians);
+        GuardianProver(guardianProver).transferOwnership(vm.envAddress("OWNER"));
     }
 
-    function _deployYulContract(string memory contractPath) private returns (address) {
+    function _deployYulContract(string memory contractPath) private returns (address addr) {
         string[] memory cmds = new string[](3);
         cmds[0] = "bash";
         cmds[1] = "-c";
@@ -313,18 +323,11 @@ contract DeployOnL1 is Deployer {
         );
 
         bytes memory bytecode = vm.ffi(cmds);
-
-        address deployedAddress;
         assembly {
-            deployedAddress := create(0, add(bytecode, 0x20), mload(bytecode))
+            addr := create(0, add(bytecode, 0x20), mload(bytecode))
         }
 
-        if (deployedAddress == address(0)) {
-            revert FAILED_TO_DEPLOY_PLONK_VERIFIER(contractPath);
-        }
-
-        console2.log(contractPath, deployedAddress);
-
-        return deployedAddress;
+        require(addr != address(0), "failed yu deployment");
+        console2.log(contractPath, addr);
     }
 }
