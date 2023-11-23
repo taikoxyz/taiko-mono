@@ -28,10 +28,7 @@ contract TaikoTokenTest is TaikoTest {
 
         tokenProxy = _deployViaProxy(
             address(tko),
-            bytes.concat(
-                tko.init.selector,
-                abi.encode(address(addressManager), "Taiko Token", "TKO", address(this))
-            )
+            bytes.concat(TaikoToken.init.selector, abi.encode("Taiko Token", "TKO", address(this)))
         );
 
         tko = TaikoToken(address(tokenProxy));
