@@ -316,8 +316,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             abi.encode(addressManager, ctoken.addr, ctoken.chainId, ctoken.symbol, ctoken.name)
         );
 
-        btoken =
-            LibDeploy.deployERC1967Proxy(resolve("bridged_erc1155", false), owner(), data);
+        btoken = LibDeploy.deployERC1967Proxy(resolve("bridged_erc1155", false), owner(), data);
 
         bridgedToCanonical[btoken] = ctoken;
         canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;

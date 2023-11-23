@@ -99,16 +99,20 @@ contract DeployOnL1 is Deployer {
         returns (address proxy)
     {
         require(_ctx.owner != address(0), "null owner");
-        proxy =
-            LibDeploy.deployTransparentUpgradeableProxyForOwnable(implementation, _ctx.owner, data);
+        proxy = LibDeploy.deployERC1967Proxy(implementation, _ctx.owner, data);
 
+        console2.log("----------------------------");
         if (_ctx.addressManager != address(0)) {
             AddressManager(_ctx.addressManager).setAddress(_ctx.chainId, name, proxy);
-            // console2.log(strings.concat(name, ": ", proxy, " =>", implementation));
+            console2.log(Strings.toString(uint256(name)), "@", _ctx.addressManager);
         } else {
-            // console2.log(name, ": ", proxy, " ->", implementation);
+            console2.log(Strings.toString(uint256(name)));
         }
 
+        console2.log("\t proxy : ", proxy);
+        console2.log("\t impl  : ", implementation);
+
+        // TODO
         // vm.writeJson(
         //     vm.serializeAddress("deployment", name, proxy),
         //     string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
