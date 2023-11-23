@@ -45,7 +45,7 @@
 
   function onNetworkChange(newNetwork: Network, oldNetwork: Network) {
     updateForm();
-    activeStep = NFTSteps.CONFIRM;
+    activeStep = NFTSteps.IMPORT;
     if (newNetwork) {
       const destChainId = $destinationChain?.id;
       if (!$destinationChain?.id) return;

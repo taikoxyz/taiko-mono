@@ -189,7 +189,7 @@
           <span class="">{@html statusDescription}</span>
         </div>
       {:else if !allTokensApproved && !approving}
-        <Icon type="approve" size={160} fillClass="fill-primary-brand" />
+        <Icon type="approve-step" size={160} fillClass="fill-primary-brand" />
         <div id="text" class="f-col my-[30px] text-center">
           <h1 class="mb-[16px]">{$t('bridge.nft.step.confirm.approve.title')}</h1>
           <span>{$t('bridge.nft.step.confirm.approve.description')}</span>
@@ -200,7 +200,7 @@
           <span>{$t('bridge.nft.step.confirm.approve.pending')}</span>
         </div>
       {:else if allTokensApproved && !approving && !bridging}
-        <Icon type="approve" size={160} fillClass="fill-primary-brand" />
+        <Icon type="bridge-step" size={160} fillClass="secondary-content" />
         <div id="text" class="f-col my-[30px] text-center">
           <h1 class="mb-[16px]">{$t('bridge.nft.step.confirm.approved.title')}</h1>
           <span>{$t('bridge.nft.step.confirm.approved.description')}</span>

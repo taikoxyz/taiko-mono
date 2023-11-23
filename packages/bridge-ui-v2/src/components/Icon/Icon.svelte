@@ -33,7 +33,8 @@
     | 'cards'
     | 'refresh'
     | 'option-dots'
-    | 'approve';
+    | 'approve-step'
+    | 'bridge-step';
 </script>
 
 <script lang="ts">
@@ -333,7 +334,7 @@
       transform="translate(17,2)"
       d="M3.5 12.5C3.5 11.6716 2.82843 11 2 11C1.17157 11 0.5 11.6716 0.5 12.5C0.5 13.3284 1.17157 14 2 14C2.82843 14 3.5 13.3284 3.5 12.5Z"
       fill="none" />
-  {:else if type === 'approve'}
+  {:else if type === 'approve-step'}
     <rect class={fillClass} fill-rule="evenodd" clip-rule="evenodd" x="10.39" y="15.71" width="6.74" height="2.59" />
     <path
       class={fillClass}
@@ -343,5 +344,33 @@
     <path
       d="m13.2,6.36c0-.62-.5-1.12-1.12-1.12s-1.12.5-1.12,1.12v6.21s-1.56-1.56-1.56-1.56c-.44-.44-1.15-.44-1.59,0-.44.44-.44,1.15,0,1.59l3.1,3.1h6.22v-3.67c0-1.4-1.14-2.54-2.54-2.54h-1.39v-3.15Z"
       style="fill:#f3f3f4; stroke-width:0px;" />
+  {:else if type === 'bridge-step'}
+    <defs
+      ><clipPath id="b"
+        ><rect x="1.39" y="1.39" width="17.23" height="17.23" style="fill:none; stroke-width:0px;" /></clipPath
+      ><linearGradient
+        id="c"
+        x1="-1098.67"
+        y1="687.97"
+        x2="-1115.28"
+        y2="687.97"
+        gradientTransform="translate(1116 697.97) scale(1 -1)"
+        gradientUnits="userSpaceOnUse"
+        ><stop offset="0" stop-color="#e22b91" /><stop
+          offset="1"
+          stop-color="#e22b91"
+          stop-opacity="0" /></linearGradient
+      ></defs
+    ><g style="clip-path:url(#b);"
+      ><path
+        class={fillClass}
+        fill-rule="evenodd"
+        clip-rule="evenodd"
+        d="m8.17,8.73c-.34.34-.52.79-.52,1.27s.19.93.52,1.27l3.66,3.66c.34.34.79.52,1.27.52s.93-.19,1.27-.52l3.66-3.66c.34-.34.52-.79.52-1.27s-.19-.93-.52-1.27l-3.66-3.66c-.34-.34-.79-.52-1.27-.52s-.93.19-1.27.52l-3.66,3.66Z"
+        style="fill:#e22b91; stroke-width:0px;" /><path
+        d="m1.46,10c0,.47.19.93.52,1.27l3.66,3.66c.34.34.79.52,1.27.52h6.19c.47,0,.93-.19,1.27-.52l3.66-3.66c.34-.34.52-.79.52-1.27s-.19-.93-.52-1.27l-3.66-3.66c-.34-.34-.79-.52-1.27-.52h-6.19c-.47,0-.93.19-1.27.52l-3.66,3.66c-.34.34-.52.79-.52,1.27Z"
+        style="fill:url(#c); stroke-width:0px;" /><path
+        d="m1.98,11.27c-.34-.34-.52-.79-.52-1.27s.19-.93.52-1.27l3.66-3.66c.34-.34.79-.52,1.27-.52.47,0,.93.19,1.27.52l.7.7-2.11,2.11c-.56.56-.87,1.32-.87,2.11s.31,1.55.87,2.11l2.11,2.11-.7.7c-.34.34-.79.52-1.27.52s-.93-.19-1.27-.52l-3.66-3.66Z"
+        style="fill:{fillClass}; stroke-width:0px;" /></g>
   {/if}
 </svg>
