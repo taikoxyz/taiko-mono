@@ -12,7 +12,7 @@ import "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeab
 /// @title LibDeploy
 /// @dev Provides utilities for deploying contracts
 library LibDeploy {
-    error INVALID_PARAM();
+    error NULL_IMPL_ADDR();
 
     function deployERC1967Proxy(
         address impl,
@@ -22,7 +22,7 @@ library LibDeploy {
         internal
         returns (address proxy)
     {
-        if (impl == address(0)) revert INVALID_PARAM();
+        if (impl == address(0)) revert NULL_IMPL_ADDR();
         proxy = address(new ERC1967Proxy(impl, data));
 
         if (owner != address(0) && owner != msg.sender) {
