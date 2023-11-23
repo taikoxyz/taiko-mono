@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 
 /// @title LibDeploy
@@ -14,7 +14,7 @@ import "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeab
 library LibDeploy {
     error INVALID_PARAM();
 
-    function deployTransparentUpgradeableProxyForOwnable(
+    function deployERC1967Proxy(
         address impl,
         address owner,
         bytes memory data
@@ -23,10 +23,7 @@ library LibDeploy {
         returns (address proxy)
     {
         if (impl == address(0) || owner == address(0)) revert INVALID_PARAM();
-        // The owner will become the `admin` of the proxy
-        proxy = address(new TransparentUpgradeableProxy(impl, owner, data ));
-
-        // Transfer ownership from this contract to the owner.
+        proxy = address(new ERC1967Proxy(impl, data));
         OwnableUpgradeable(proxy).transferOwnership(owner);
     }
 }

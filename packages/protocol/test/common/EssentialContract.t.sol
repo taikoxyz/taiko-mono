@@ -58,15 +58,14 @@ contract EssentialContractTest is Test {
         target.adjust();
 
         address v2 = address(new Target2());
-
         data = bytes.concat(Target2.update.selector);
+
         vm.prank(Bob);
         vm.expectRevert();
         target.upgradeToAndCall(v2, data);
 
         vm.prank(Alice);
         target.upgradeToAndCall(v2, data);
-
         assertEq(target.count(), 111);
 
         vm.prank(Alice);

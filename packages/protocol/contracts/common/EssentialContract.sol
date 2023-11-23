@@ -80,7 +80,7 @@ abstract contract EssentialContract is UUPSUpgradeable, OwnableUpgradeable, Addr
 /// @title Proxied
 /// @dev Extends OpenZeppelin's Initializable for upgradeable contracts.
 /// Intended as the base class for contracts used with
-/// TransparentUpgradeableProxy.
+/// ERC1967Proxy.
 ///
 /// @dev For each chain, deploy Proxied contracts with unique deployers to
 /// ensure distinct contract addresses.

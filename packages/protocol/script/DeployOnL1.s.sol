@@ -340,7 +340,7 @@ contract DeployOnL1 is Script {
         private
         returns (address proxy)
     {
-        proxy = LibDeploy.deployTransparentUpgradeableProxyForOwnable(implementation, owner, data);
+        proxy = LibDeploy.deployERC1967Proxy(implementation, owner, data);
 
         console2.log(name, "(impl) ->", implementation);
         console2.log(name, "(proxy) ->", proxy);
