@@ -69,7 +69,10 @@ contract DeployOnL1 is Deployer {
         TaikoL1 taikoL1 = TaikoL1(payable(taikoL1Addr));
 
         if (signalService.owner() == msg.sender) {
-            signalService.authorize(taikoL1Addr, "taiko");
+            signalService.authorize(taikoL1Addr, bytes32(block.chainid));
+        } else {
+            // TODO
+            // print warning for manually authorize the chain.
         }
 
         // Register bridge and signal singlton

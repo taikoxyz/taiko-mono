@@ -101,7 +101,6 @@ contract SignalService is AuthorizableContract, ISignalService {
         // verify that chainB's signalRoot has been sent as a signal by chainB's
         // "taiko" contract, then using chainB's signalRoot, we further check
         // the signal is sent by chainC's "bridge" contract.
-
         if (!isAuthorizedAs(p.crossChainSync, bytes32(block.chainid))) {
             return false;
         }
