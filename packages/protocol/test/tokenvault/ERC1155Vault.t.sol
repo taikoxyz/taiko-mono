@@ -157,8 +157,15 @@ contract ERC1155VaultTest is TaikoTest {
             )
         );
 
-        signalService = new SignalService();
-        signalService.init();
+        signalService = SignalService(
+            LibDeployHelper.deployProxy({
+                name: "signal_service",
+                impl: address(new SignalService()),
+                data: bytes.concat(SignalService.init.selector),
+                addressManager: address(0),
+                owner: msg.sender
+            })
+        );
 
         erc1155Vault = new ERC1155Vault();
         erc1155Vault.init(address(addressManager));

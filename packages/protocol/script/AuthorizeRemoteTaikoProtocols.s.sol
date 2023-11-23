@@ -25,8 +25,7 @@ contract AuthorizeRemoteTaikoProtocols is Script {
 
         vm.startBroadcast(privateKey);
 
-        ProxiedSingletonSignalService signalService =
-            ProxiedSingletonSignalService(payable(signalServiceAddress));
+        SignalService signalService = SignalService(payable(signalServiceAddress));
         for (uint256 i; i < remoteChainIDs.length; ++i) {
             console2.log(remoteTaikoProtocols[i], "--->", remoteChainIDs[i]);
             signalService.authorize(remoteTaikoProtocols[i], bytes32(remoteChainIDs[i]));

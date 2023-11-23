@@ -159,11 +159,3 @@ contract SignalService is AuthorizableContract, ISignalService {
     /// @return Returns true to skip checking inclusion proofs.
     function skipProofCheck() public pure virtual returns (bool) { }
 }
-
-/// @title ProxiedSingletonSignalService
-/// @notice Proxied version of the parent contract.
-/// @dev Deploy this contract as a singleton per chain for use by multiple L2s
-/// or L3s. No singleton check is performed within the code; it's the deployer's
-/// responsibility to ensure this. Singleton deployment is essential for
-/// enabling multi-hop bridging across all Taiko L2/L3s.
-contract ProxiedSingletonSignalService is Proxied, SignalService { }

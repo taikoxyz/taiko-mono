@@ -41,9 +41,15 @@ contract TestTaikoL2 is TaikoTest {
             })
         );
 
-        ss = new SignalService();
-        ss.init();
-        registerAddress("signal_service", address(ss));
+        ss = SignalService(
+            LibDeployHelper.deployProxy({
+                name: "signal_service",
+                impl: address(new SignalService()),
+                data: bytes.concat(SignalService.init.selector),
+                addressManager: address(addressManager),
+                owner: msg.sender
+            })
+        );
 
         L2 = new TaikoL2EIP1559Configurable();
         uint64 gasExcess = 0;

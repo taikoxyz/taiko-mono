@@ -34,11 +34,25 @@ contract TestSignalService is TaikoTest {
             })
         );
 
-        signalService = new SignalService();
-        signalService.init();
+        signalService = SignalService(
+            LibDeployHelper.deployProxy({
+                name: "signal_service",
+                impl: address(new SignalService()),
+                data: bytes.concat(SignalService.init.selector),
+                addressManager: address(0),
+                owner: msg.sender
+            })
+        );
 
-        destSignalService = new SignalService();
-        destSignalService.init();
+        destSignalService = SignalService(
+            LibDeployHelper.deployProxy({
+                name: "signal_service",
+                impl: address(new SignalService()),
+                data: bytes.concat(SignalService.init.selector),
+                addressManager: address(0),
+                owner: msg.sender
+            })
+        );
 
         crossChainSync = new DummyCrossChainSync();
         crossChainSync.init(address(addressManager));

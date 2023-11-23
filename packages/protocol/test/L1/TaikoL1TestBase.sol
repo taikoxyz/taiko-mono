@@ -68,8 +68,15 @@ abstract contract TaikoL1TestBase is TaikoTest {
             })
         );
 
-        ss = new SignalService();
-        ss.init();
+        ss = SignalService(
+            LibDeployHelper.deployProxy({
+                name: "signal_service",
+                impl: address(new SignalService()),
+                data: bytes.concat(SignalService.init.selector),
+                addressManager: address(0),
+                owner: msg.sender
+            })
+        );
 
         pv = new PseZkVerifier();
         pv.init(address(addressManager));

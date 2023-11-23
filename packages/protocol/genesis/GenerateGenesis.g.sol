@@ -37,7 +37,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkDeployedCode("ProxiedSingletonERC721Vault");
         checkDeployedCode("ProxiedSingletonERC1155Vault");
         checkDeployedCode("Bridge");
-        checkDeployedCode("ProxiedSingletonSignalService");
+        checkDeployedCode("SignalService");
         checkDeployedCode("ProxiedSingletonAddressManagerForSingletons");
         checkDeployedCode("ProxiedBridgedERC20");
         checkDeployedCode("ProxiedBridgedERC721");
@@ -48,7 +48,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkProxyImplementation("SingletonERC721VaultProxy", "ProxiedSingletonERC721Vault");
         checkProxyImplementation("SingletonERC1155VaultProxy", "ProxiedSingletonERC1155Vault");
         checkProxyImplementation("SingletonBridgeProxy", "Bridge");
-        checkProxyImplementation("SingletonSignalServiceProxy", "ProxiedSingletonSignalService");
+        checkProxyImplementation("SingletonSignalServiceProxy", "SignalService");
         checkProxyImplementation(
             "SingletonAddressManagerForSingletonsProxy", "ProxiedSingletonAddressManagerForSingletons"
         );

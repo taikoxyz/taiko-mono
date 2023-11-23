@@ -131,7 +131,7 @@ contract DeployOnL1 is Script {
         LibDeployHelper.deployProxy({
             name: "signal_service",
             impl: address(new SignalService()),
-            data: bytes.concat(SignalService.init.selector, abi.encode(sharedAddressManager)),
+            data: bytes.concat(SignalService.init.selector),
             addressManager: sharedAddressManager,
             owner: msg.sender // We set msg.sender as the owner and will change it later.
          });

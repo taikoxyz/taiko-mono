@@ -145,11 +145,8 @@ async function generateContractConfigs(
                 "./ERC1155Vault.sol/ProxiedSingletonERC1155Vault.json",
             ),
         ),
-        ProxiedSingletonSignalService: require(
-            path.join(
-                ARTIFACTS_PATH,
-                "./SignalService.sol/ProxiedSingletonSignalService.json",
-            ),
+        SignalService: require(
+            path.join(ARTIFACTS_PATH, "./SignalService.sol/SignalService.json"),
         ),
         ProxiedSingletonAddressManagerForSingletons: require(
             path.join(
@@ -226,9 +223,9 @@ async function generateContractConfigs(
                     addressMap,
                 );
                 break;
-            case "ProxiedSingletonSignalService":
+            case "SignalService":
                 bytecode = linkContractLibs(
-                    contractArtifacts.ProxiedSingletonSignalService,
+                    contractArtifacts.SignalService,
                     addressMap,
                 );
                 break;
@@ -434,10 +431,10 @@ async function generateContractConfigs(
             },
             isProxy: true,
         },
-        ProxiedSingletonSignalService: {
-            address: addressMap.ProxiedSingletonSignalService,
+        SignalService: {
+            address: addressMap.SignalService,
             deployedBytecode: linkContractLibs(
-                contractArtifacts.ProxiedSingletonSignalService,
+                contractArtifacts.SignalService,
                 addressMap,
             ),
         },
@@ -479,7 +476,7 @@ async function generateContractConfigs(
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
-                [IMPLEMENTATION_SLOT]: addressMap.ProxiedSingletonSignalService,
+                [IMPLEMENTATION_SLOT]: addressMap.SignalService,
             },
             isProxy: true,
         },

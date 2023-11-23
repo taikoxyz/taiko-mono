@@ -87,7 +87,7 @@ module.exports = {
       ProxiedSingletonERC20Vault: getConstantAddress(`0${this.chainId}`, 2),
       ProxiedSingletonERC721Vault: getConstantAddress(`0${this.chainId}`, 3),
       ProxiedSingletonERC1155Vault: getConstantAddress(`0${this.chainId}`, 4),
-      ProxiedSingletonSignalService: getConstantAddress(`0${this.chainId}`, 5),
+      SignalService: getConstantAddress(`0${this.chainId}`, 5),
       ProxiedSingletonAddressManagerForSingletons: getConstantAddress(
         `0${this.chainId}`,
         6,

@@ -48,7 +48,7 @@ contract BridgeTest is TaikoTest {
             })
         );
 
-        bridge = bridge = Bridge(
+        bridge = Bridge(
             payable(
                 LibDeployHelper.deployProxy({
                     name: "bridge",
@@ -60,14 +60,37 @@ contract BridgeTest is TaikoTest {
             )
         );
 
-        destChainBridge = new Bridge();
-        destChainBridge.init(address(addressManager));
+        destChainBridge = Bridge(
+            payable(
+                LibDeployHelper.deployProxy({
+                    name: "bridge",
+                    impl: address(new Bridge()),
+                    data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
+                    addressManager: address(0),
+                    owner: msg.sender
+                })
+            )
+        );
 
-        mockProofSignalService = new SkipProofCheckSignal();
-        mockProofSignalService.init();
+        mockProofSignalService = SkipProofCheckSignal(
+            LibDeployHelper.deployProxy({
+                name: "signal_service",
+                impl: address(new SkipProofCheckSignal()),
+                data: bytes.concat(SignalService.init.selector),
+                addressManager: address(0),
+                owner: msg.sender
+            })
+        );
 
-        signalService = new SignalService();
-        signalService.init();
+        signalService = SignalService(
+            LibDeployHelper.deployProxy({
+                name: "signal_service",
+                impl: address(new SignalService()),
+                data: bytes.concat(SignalService.init.selector),
+                addressManager: address(0),
+                owner: msg.sender
+            })
+        );
 
         vm.deal(address(destChainBridge), 100 ether);
 

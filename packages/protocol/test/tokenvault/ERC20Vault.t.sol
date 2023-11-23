@@ -141,8 +141,15 @@ contract TestERC20Vault is Test {
         destChainIdBridge = new PrankDestBridge(erc20Vault);
         vm.deal(address(destChainIdBridge), 100 ether);
 
-        signalService = new SignalService();
-        signalService.init();
+        signalService = SignalService(
+            LibDeployHelper.deployProxy({
+                name: "signal_service",
+                impl: address(new SignalService()),
+                data: bytes.concat(SignalService.init.selector),
+                addressManager: address(0),
+                owner: msg.sender
+            })
+        );
 
         addressManager.setAddress(uint64(block.chainid), "bridge", address(bridge));
 

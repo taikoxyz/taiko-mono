@@ -171,8 +171,15 @@ contract ERC721VaultTest is TaikoTest {
             )
         );
 
-        signalService = new SignalService();
-        signalService.init();
+        signalService = SignalService(
+            LibDeployHelper.deployProxy({
+                name: "signal_service",
+                impl: address(new SignalService()),
+                data: bytes.concat(SignalService.init.selector),
+                addressManager: address(0),
+                owner: msg.sender
+            })
+        );
 
         erc721Vault = new ERC721Vault();
         erc721Vault.init(address(addressManager));
