@@ -170,13 +170,19 @@ contract DeployOnL1 is Script {
         });
 
         // Deploy Bridged tokens
-        LibDeployHelper.register(sharedAddressManager, "bridged_erc20", address(new BridgedERC20()));
-        LibDeployHelper.register(
-            sharedAddressManager, "bridged_erc721", address(new BridgedERC721())
-        );
-        LibDeployHelper.register(
-            sharedAddressManager, "bridged_erc1155", address(new BridgedERC1155())
-        );
+        OwnableUpgradeable cont;
+
+        cont = new BridgedERC20();
+        cont.renounceOwnership();
+        LibDeployHelper.register(sharedAddressManager, "bridged_erc20", address(cont));
+
+        cont = new BridgedERC721();
+        cont.renounceOwnership();
+        LibDeployHelper.register(sharedAddressManager, "bridged_erc721", address(cont));
+
+        cont = new BridgedERC1155();
+        cont.renounceOwnership();
+        LibDeployHelper.register(sharedAddressManager, "bridged_erc1155", address(cont));
     }
 
     function deployRollupContracts(address _sharedAddressManager)
