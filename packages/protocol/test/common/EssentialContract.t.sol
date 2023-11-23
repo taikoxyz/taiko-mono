@@ -31,7 +31,7 @@ contract Target2 is Target1 {
     }
 }
 
-contract EssentialContractTest is Test {
+contract TestEssentialContract is Test {
     address Alice = vm.addr(1);
     address Bob = vm.addr(2);
     address Cindy = vm.addr(3);
