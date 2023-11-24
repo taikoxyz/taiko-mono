@@ -30,7 +30,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
 
     address public constant L2SS = 0xa008AE5Ba00656a3Cc384de589579e3E52aC030C;
-    address public constant TaikoL2 = 0x0082D90249342980d011C58105a03b35cCb4A315;
+    address public constant L2 = 0x0082D90249342980d011C58105a03b35cCb4A315;
 
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 
@@ -137,9 +137,9 @@ abstract contract TaikoL1TestBase is TaikoTest {
         registerAddress("signal_service", address(ss));
         registerAddress("guardian_prover", address(gp));
         registerAddress("bridge", address(bridge));
-        registerL2Address("taiko", address(TaikoL2));
+        registerL2Address("taiko", address(L2));
         registerL2Address("signal_service", address(L2SS));
-        registerL2Address("taiko_l2", address(TaikoL2));
+        registerL2Address("taiko_l2", address(L2));
 
         registerAddress(pv.getVerifierName(300), address(new MockVerifier()));
 
