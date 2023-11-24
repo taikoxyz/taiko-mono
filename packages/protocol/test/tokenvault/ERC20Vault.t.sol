@@ -161,7 +161,9 @@ contract TestERC20Vault is Test {
 
         addressManager.setAddress(destChainId, "bridge", address(destChainIdBridge));
 
-        address bridgedERC20 = address(new BridgedERC20());
+        BridgedERC20 impl = new BridgedERC20();
+        impl.initDead();
+        address bridgedERC20 = address(impl);
 
         addressManager.setAddress(destChainId, "bridged_erc20", bridgedERC20);
 

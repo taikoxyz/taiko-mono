@@ -182,7 +182,7 @@ contract DeployOnL1 is Script {
         }
         {
             EssentialContract impl = new BridgedERC1155();
-            impl.init(address(0), address(0), 0, "", "");
+            impl.initDead();
             LibDeployHelper.register(sharedAddressManager, "bridged_erc1155", address(impl));
         }
     }
