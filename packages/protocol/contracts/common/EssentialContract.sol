@@ -7,7 +7,6 @@
 pragma solidity ^0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol";
-import "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import "./AddressResolver.sol";
 
@@ -47,9 +46,10 @@ abstract contract EssentialContract is UUPSUpgradeable, OwnableUpgradeable, Addr
     }
 
     /// @notice Init the contract and transfer owner to 0x0.
-    function initDead() external initializer {
+    function initDead() external initializer returns (address) {
         _init(address(0));
         renounceOwnership();
+        return address(this);
     }
 
     function pause() external whenNotPaused onlyOwner {

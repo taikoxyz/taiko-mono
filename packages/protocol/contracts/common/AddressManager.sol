@@ -6,7 +6,8 @@
 
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
+import "lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 
 /// @title IAddressManager
 /// @notice Specifies methods to manage address mappings for given chainId-name
@@ -23,7 +24,7 @@ interface IAddressManager {
 
 /// @title AddressManager
 /// @notice Manages a mapping of chainId-name pairs to Ethereum addresses.
-contract AddressManager is Ownable2StepUpgradeable, IAddressManager {
+contract AddressManager is OwnableUpgradeable, UUPSUpgradeable, IAddressManager {
     mapping(uint256 => mapping(bytes32 => address)) private addresses;
     uint256[49] private __gap;
 
@@ -33,7 +34,12 @@ contract AddressManager is Ownable2StepUpgradeable, IAddressManager {
 
     /// @notice Initializes the owner for the upgradable contract.
     function init() external initializer {
-        Ownable2StepUpgradeable.__Ownable2Step_init();
+        OwnableUpgradeable.__Ownable_init();
+    }
+
+    /// @notice Init the contract and transfer owner to 0x0.
+    function initDead() external initializer returns (address) {
+        return address(this);
     }
 
     /// @notice Sets the address for a specific chainId-name pair.
@@ -58,4 +64,6 @@ contract AddressManager is Ownable2StepUpgradeable, IAddressManager {
     function getAddress(uint64 chainId, bytes32 name) public view override returns (address) {
         return addresses[chainId][name];
     }
+
+    function _authorizeUpgrade(address) internal override onlyOwner { }
 }
