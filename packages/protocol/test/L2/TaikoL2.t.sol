@@ -1,13 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
-import "lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
-import "forge-std/console2.sol";
-import "../../contracts/common/AddressManager.sol";
-import "../../contracts/signal/SignalService.sol";
-import "../../contracts/L2/TaikoL2EIP1559Configurable.sol";
-import "../../contracts/L2/TaikoL2.sol";
 import "../TaikoTest.sol";
 
 contract SkipBasefeeCheckL2 is TaikoL2EIP1559Configurable {

@@ -117,15 +117,10 @@ contract ERC721VaultTest is TaikoTest {
     DummyCrossChainSync crossChainSync;
     uint64 destChainId = 19_389;
 
-    // Need +1 bc. and Amelia is the proxied bridge contracts owner
-    // Change will cause onMessageRecall() test fails, because of
-    // getPreDeterminedDataBytes
-    address public constant Amelia = 0x60081B12838240B1BA02b3177153BCa678A86080;
-
     function setUp() public {
-        vm.startPrank(Amelia);
+        vm.startPrank(Carol);
         vm.deal(Alice, 100 ether);
-        vm.deal(Amelia, 100 ether);
+        vm.deal(Carol, 100 ether);
         vm.deal(Bob, 100 ether);
 
         addressManager = AddressManager(
@@ -683,7 +678,7 @@ contract ERC721VaultTest is TaikoTest {
 
         destChainIdBridge.setERC721Vault(address(erc721Vault));
 
-        vm.prank(Amelia, Amelia);
+        vm.prank(Carol, Carol);
         addressManager.setAddress(uint64(block.chainid), "bridge", address(destChainIdBridge));
 
         destChainIdBridge.sendReceiveERC721ToERC721Vault(
@@ -829,7 +824,7 @@ contract ERC721VaultTest is TaikoTest {
         // Upgrade the implementation of that contract
         // so that it supports now the 'helloWorld' call
         UpdatedBridgedERC721 newBridgedContract = new UpdatedBridgedERC721();
-        vm.prank(Amelia, Amelia);
+        vm.prank(Carol, Carol);
         BridgedERC721(payable(deployedContract)).upgradeTo(address(newBridgedContract));
 
         try UpdatedBridgedERC721(deployedContract).helloWorld() {

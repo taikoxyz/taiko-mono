@@ -4,8 +4,6 @@ pragma solidity ^0.8.20;
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/signal/SignalService.sol";
 import "../contracts/common/ICrossChainSync.sol";
-import "../contracts/common/EssentialContract.sol";
-import "../contracts/libs/LibDeployHelper.sol";
 
 contract BadReceiver {
     receive() external payable {

@@ -249,7 +249,7 @@ async function generateContractConfigs(
                 // initializer
                 _initialized: 1,
                 _initializing: false,
-                // Ownable2StepUpgradeable
+                // Ownable2Upgradeable
                 _owner: contractOwner,
                 // AddressManager
                 addresses: {
@@ -305,7 +305,7 @@ async function generateContractConfigs(
                 // ReentrancyGuardUpgradeable
                 _reentry: 1, // _FALSE
                 _paused: 1, // _FALSE
-                // Ownable2StepUpgradeable
+                // Ownable2Upgradeable
                 _owner: contractOwner,
                 // AddressResolver
                 addressManager:
@@ -336,7 +336,7 @@ async function generateContractConfigs(
                 // ReentrancyGuardUpgradeable
                 _reentry: 1, // _FALSE
                 _paused: 1, // _FALSE
-                // Ownable2StepUpgradeable
+                // Ownable2Upgradeable
                 _owner: contractOwner,
                 // AddressResolver
                 addressManager:
@@ -367,7 +367,7 @@ async function generateContractConfigs(
                 // ReentrancyGuardUpgradeable
                 _reentry: 1, // _FALSE
                 _paused: 1, // _FALSE
-                // Ownable2StepUpgradeable
+                // Ownable2Upgradeable
                 _owner: contractOwner,
                 // AddressResolver
                 addressManager:
@@ -398,7 +398,7 @@ async function generateContractConfigs(
                 // ReentrancyGuardUpgradeable
                 _reentry: 1, // _FALSE
                 _paused: 1, // _FALSE
-                // Ownable2StepUpgradeable
+                // Ownable2Upgradeable
                 _owner: contractOwner,
                 // AddressResolver
                 addressManager:
@@ -444,7 +444,7 @@ async function generateContractConfigs(
                 // ReentrancyGuardUpgradeable
                 _reentry: 1, // _FALSE
                 _paused: 1, // _FALSE
-                // Ownable2StepUpgradeable
+                // Ownable2Upgradeable
                 _owner: contractOwner,
                 authorizedAddresses: {
                     [addressMap.SingletonTaikoL2Proxy]: ethers.utils.hexZeroPad(
@@ -478,7 +478,7 @@ async function generateContractConfigs(
                 contractArtifacts.SingletonTaikoL2Proxy.deployedBytecode.object,
             variables: {
                 // TaikoL2
-                // Ownable2StepUpgradeable
+                // Ownable2Upgradeable
                 _owner: contractOwner,
                 signalService: addressMap.SingletonSignalServiceProxy,
                 gasExcess: param1559.gasExcess,
@@ -511,7 +511,7 @@ async function generateContractConfigs(
                 // initializer
                 _initialized: 1,
                 _initializing: false,
-                // Ownable2StepUpgradeable
+                // Ownable2Upgradeable
                 _owner: contractOwner,
                 // AddressManager
                 addresses: {

@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "forge-std/console2.sol";
-import "../../contracts/L1/TaikoL1.sol";
-import "../../contracts/L1/verifiers/SgxVerifier.sol";
 import "./TaikoL1TestBase.sol";
 
 contract TestSgxVerifier is TaikoL1TestBase {

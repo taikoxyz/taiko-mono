@@ -1,15 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "forge-std/console2.sol";
-import "../../contracts/common/AddressManager.sol";
-import "../../contracts/L1/libs/LibUtils.sol";
-import "../../contracts/L1/TaikoData.sol";
-import "../../contracts/L1/TaikoErrors.sol";
-import "../../contracts/L1/TaikoL1.sol";
-import "../../contracts/L1/TaikoToken.sol";
-import "../../contracts/signal/SignalService.sol";
 import "./TaikoL1TestBase.sol";
 
 contract TaikoL1_NoCooldown is TaikoL1 {

@@ -1,19 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "forge-std/console.sol";
-import "forge-std/console2.sol";
-import "../../contracts/common/AddressManager.sol";
-import "../../contracts/common/AddressResolver.sol";
-import "../../contracts/bridge/Bridge.sol";
-import "../../contracts/tokenvault/BridgedERC20.sol";
-import "../../contracts/test/erc20/FreeMintERC20.sol";
-import "../../contracts/signal/SignalService.sol";
 import "../TaikoTest.sol";
 
 contract TestSignalService is TaikoTest {
     AddressManager addressManager;
-
     SignalService signalService;
     SignalService destSignalService;
     DummyCrossChainSync crossChainSync;

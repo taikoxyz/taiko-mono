@@ -1,27 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
-import "forge-std/console2.sol";
 import "../TaikoTest.sol";
-import "../../contracts/common/AddressManager.sol";
-import "../../contracts/bridge/Bridge.sol";
-import "../../contracts/L1/libs/LibProving.sol";
-import "../../contracts/L1/libs/LibProposing.sol";
-import "../../contracts/L1/libs/LibUtils.sol";
-import "../../contracts/L1/TaikoData.sol";
-import "../../contracts/L1/TaikoL1.sol";
-import "../../contracts/L1/TaikoToken.sol";
-import "../../contracts/L1/verifiers/GuardianVerifier.sol";
-import "../../contracts/L1/tiers/TaikoA6TierProvider.sol";
-import "../../contracts/L1/verifiers/PseZkVerifier.sol";
-import "../../contracts/L1/verifiers/SgxVerifier.sol";
-import "../../contracts/L1/verifiers/SgxAndZkVerifier.sol";
-import "../../contracts/L1/provers/GuardianProver.sol";
-import "../../contracts/signal/SignalService.sol";
-import "../../contracts/common/AddressResolver.sol";
-import "../../contracts/L1/tiers/ITierProvider.sol";
-import "../../contracts/L1/hooks/AssignmentHook.sol";
 
 contract MockVerifier {
     fallback(bytes calldata) external returns (bytes memory) {

@@ -3,11 +3,9 @@
 // https://github.com/recmo/experiment-solexp/blob/main/src/test/FixedPointMathLib.t.sol
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "forge-std/console2.sol";
-import "../../contracts/thirdparty/LibFixedPointMath.sol";
+import "../TaikoTest.sol";
 
-contract LibFixedPointMathTest is Test {
+contract LibFixedPointMathTest is TaikoTest {
     function testExp1() public {
         assertEq(LibFixedPointMath.exp(-1e18), 367_879_441_171_442_321);
     }

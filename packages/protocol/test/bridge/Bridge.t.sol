@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "forge-std/console2.sol";
-import "../../contracts/common/AddressManager.sol";
-import "../../contracts/bridge/Bridge.sol";
-import "../../contracts/signal/SignalService.sol";
 import "../TaikoTest.sol";
 
 // A contract which is not our ErcXXXTokenVault

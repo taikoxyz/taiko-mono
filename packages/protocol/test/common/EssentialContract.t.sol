@@ -1,12 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
-
-import "forge-std/Test.sol";
-import "../../contracts/common/EssentialContract.sol";
+import "../TaikoTest.sol";
 
 contract Target1 is EssentialContract {
     uint256 public count;
@@ -31,11 +26,7 @@ contract Target2 is Target1 {
     }
 }
 
-contract TestEssentialContract is Test {
-    address Alice = vm.addr(1);
-    address Bob = vm.addr(2);
-    address Cindy = vm.addr(3);
-
+contract TestEssentialContract is TaikoTest {
     function test_essential_behind_1967_proxy() external {
         bytes memory data = bytes.concat(Target1.init.selector);
         vm.startPrank(Alice);
@@ -44,7 +35,7 @@ contract TestEssentialContract is Test {
         vm.stopPrank();
 
         // Owner is Alice
-        vm.prank(Cindy);
+        vm.prank(Carol);
         assertEq(target.owner(), Alice);
 
         // Alice can adjust();
@@ -86,7 +77,7 @@ contract TestEssentialContract is Test {
         // Owner is Alice
         // Admin is Bob
 
-        vm.prank(Cindy);
+        vm.prank(Carol);
         assertEq(target.owner(), Alice);
 
         // Only Bob can call admin()
@@ -98,7 +89,7 @@ contract TestEssentialContract is Test {
         vm.expectRevert();
         proxy.admin();
 
-        vm.prank(Cindy);
+        vm.prank(Carol);
         vm.expectRevert();
         proxy.admin();
 
@@ -116,7 +107,7 @@ contract TestEssentialContract is Test {
         vm.prank(Alice);
         target.transferOwnership(Bob);
 
-        vm.prank(Cindy);
+        vm.prank(Carol);
         assertEq(target.owner(), Bob);
 
         // Now Bob cannot call adjust()
