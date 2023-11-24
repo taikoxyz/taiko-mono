@@ -171,21 +171,18 @@ contract DeployOnL1 is Script {
 
         // Deploy Bridged tokens
         {
-            BridgedERC20 impl = new BridgedERC20();
-            impl.init(address(0), address(0), 0, 0, "", "");
-            impl.renounceOwnership();
+            EssentialContract impl = new BridgedERC20();
+            impl.initDead();
             LibDeployHelper.register(sharedAddressManager, "bridged_erc20", address(impl));
         }
         {
-            BridgedERC721 impl = new BridgedERC721();
-            impl.init(address(0), address(0), 0, "", "");
-            impl.renounceOwnership();
+            EssentialContract impl = new BridgedERC721();
+            impl.initDead();
             LibDeployHelper.register(sharedAddressManager, "bridged_erc721", address(impl));
         }
         {
-            BridgedERC1155 impl = new BridgedERC1155();
+            EssentialContract impl = new BridgedERC1155();
             impl.init(address(0), address(0), 0, "", "");
-            impl.renounceOwnership();
             LibDeployHelper.register(sharedAddressManager, "bridged_erc1155", address(impl));
         }
     }

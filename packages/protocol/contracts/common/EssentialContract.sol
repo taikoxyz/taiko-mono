@@ -46,6 +46,12 @@ abstract contract EssentialContract is UUPSUpgradeable, OwnableUpgradeable, Addr
         _;
     }
 
+    /// @notice Init the contract and transfer owner to 0x0.
+    function initDead() external initializer {
+        _init(address(0));
+        renounceOwnership();
+    }
+
     function pause() external whenNotPaused onlyOwner {
         _paused = _TRUE;
         emit Paused(msg.sender);
