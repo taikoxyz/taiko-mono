@@ -71,8 +71,9 @@ contract ERC20NativeRegistry is EssentialContract, IERC20NativeRegistry {
             delete canonicalToPredeployed[l1Address];
             delete predeployedToCanonical[deployedCounterpart];
 
-            // Need to erase the mappint in ERC20Vault too - in order to continue the support for
-            // bridging from L1 to L2
+            // Need to erase the mapping in ERC20Vault too - in order to continue the support for
+            // bridging from L1 to L2 - when for example Circle revokes minter role from our
+            // translator.
             IRemoveMapping(resolve(uint64(block.chainid), "erc20_vault", false))
                 .resetCanonicalToBridged(chainId, l1Address);
 
