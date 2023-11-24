@@ -2,18 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
-import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "forge-std/console2.sol";
 import "../TaikoTest.sol";
-import "../../contracts/libs/LibDeployHelper.sol";
-import "../../contracts/common/AddressResolver.sol";
-import "../../contracts/common/AddressManager.sol";
-import "../../contracts/bridge/Bridge.sol";
-import "../../contracts/tokenvault/BaseNFTVault.sol";
-import "../../contracts/tokenvault/ERC1155Vault.sol";
-import "../../contracts/tokenvault/BridgedERC1155.sol";
-import "../../contracts/signal/SignalService.sol";
-import "../../contracts/common/ICrossChainSync.sol";
 
 contract TestTokenERC1155 is ERC1155 {
     constructor(string memory baseURI) ERC1155(baseURI) { }
@@ -113,15 +102,10 @@ contract ERC1155VaultTest is TaikoTest {
     DummyCrossChainSync crossChainSync;
     uint64 destChainId = 19_389;
 
-    // Need +1 bc. and Amelia is the proxied bridge contracts owner
-    // Change will cause onMessageRecall() test fails, because of
-    // getPreDeterminedDataBytes
-    address public Amelia = 0x60081b12838240B1ba02B3177153Bca678a86081;
-
     function setUp() public {
-        vm.startPrank(Amelia);
+        vm.startPrank(Carol);
         vm.deal(Alice, 100 ether);
-        vm.deal(Amelia, 100 ether);
+        vm.deal(Carol, 100 ether);
         vm.deal(Bob, 100 ether);
         addressManager = AddressManager(
             LibDeployHelper.deployProxy({
@@ -672,7 +656,7 @@ contract ERC1155VaultTest is TaikoTest {
 
         destChainIdBridge.setERC1155Vault(address(erc1155Vault));
 
-        vm.prank(Amelia, Amelia);
+        vm.prank(Carol, Carol);
         addressManager.setAddress(uint64(block.chainid), "bridge", address(destChainIdBridge));
 
         destChainIdBridge.sendReceiveERC1155ToERC1155Vault(
@@ -819,10 +803,8 @@ contract ERC1155VaultTest is TaikoTest {
         // Upgrade the implementation of that contract
         // so that it supports now the 'helloWorld' call
         UpdatedBridgedERC1155 newBridgedContract = new UpdatedBridgedERC1155();
-        vm.prank(Amelia, Amelia);
-        TransparentUpgradeableProxy(payable(deployedContract)).upgradeTo(
-            address(newBridgedContract)
-        );
+        vm.prank(Carol, Carol);
+        BridgedERC1155(payable(deployedContract)).upgradeTo(address(newBridgedContract));
 
         try UpdatedBridgedERC1155(deployedContract).helloWorld() { }
         catch {

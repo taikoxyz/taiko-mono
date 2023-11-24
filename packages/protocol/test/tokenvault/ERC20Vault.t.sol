@@ -1,17 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "forge-std/Test.sol";
-import "../../contracts/libs/LibDeployHelper.sol";
-import "../../contracts/common/AddressManager.sol";
-import "../../contracts/common/AddressResolver.sol";
-import "../../contracts/bridge/Bridge.sol";
-import "../../contracts/tokenvault/BridgedERC20.sol";
-import "../../contracts/test/erc20/FreeMintERC20.sol";
-import "../../contracts/signal/SignalService.sol";
-import "../../contracts/L1/TaikoToken.sol";
-import "../../contracts/tokenvault/ERC20Vault.sol";
+import "../TaikoTest.sol";
 
 // PrankDestBridge lets us simulate a transaction to the ERC20Vault
 // from a named Bridge, without having to test/run through the real Bridge code,
@@ -78,7 +68,7 @@ contract UpdatedBridgedERC20 is BridgedERC20 {
     }
 }
 
-contract TestERC20Vault is Test {
+contract TestERC20Vault is TaikoTest {
     TaikoToken tko;
     AddressManager addressManager;
     Bridge bridge;
@@ -89,18 +79,10 @@ contract TestERC20Vault is Test {
     SignalService signalService;
     uint64 destChainId = 7;
 
-    address public constant Alice = 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4;
-    address public constant Bob = 0x200708D76eB1B69761c23821809d53F65049939e;
-    // Need +1 bc. and Amelia is the proxied bridge contracts owner
-    address public constant Amelia = 0x60081B12838240B1BA02b3177153BCa678A86080;
-    // Dave has nothing so that we can check if he gets the ether (and other
-    // erc20)
-    address public constant Dave = 0x70081B12838240b1ba02B3177153bcA678a86090;
-
     function setUp() public {
-        vm.startPrank(Amelia);
+        vm.startPrank(Carol);
         vm.deal(Alice, 1 ether);
-        vm.deal(Amelia, 1 ether);
+        vm.deal(Carol, 1 ether);
         vm.deal(Bob, 1 ether);
 
         tko = TaikoToken(
@@ -335,7 +317,7 @@ contract TestERC20Vault is Test {
 
         uint256 amount = 1;
         uint256 etherAmount = 0.1 ether;
-        address to = Dave;
+        address to = David;
 
         uint256 erc20VaultBalanceBefore = erc20.balanceOf(address(erc20Vault));
         uint256 toBalanceBefore = erc20.balanceOf(to);
@@ -356,7 +338,7 @@ contract TestERC20Vault is Test {
 
         uint256 toBalanceAfter = erc20.balanceOf(to);
         assertEq(toBalanceAfter - toBalanceBefore, amount);
-        assertEq(Dave.balance, etherAmount);
+        assertEq(David.balance, etherAmount);
     }
 
     function test_20Vault_receive_erc20_non_canonical_to_dest_chain_deploys_new_bridged_token_and_mints(
@@ -449,10 +431,8 @@ contract TestERC20Vault is Test {
         // so that it supports now the 'helloWorld' call
         UpdatedBridgedERC20 newBridgedContract = new UpdatedBridgedERC20();
         vm.stopPrank();
-        vm.prank(Amelia, Amelia);
-        TransparentUpgradeableProxy(payable(bridgedAddressAfter)).upgradeTo(
-            address(newBridgedContract)
-        );
+        vm.prank(Carol, Carol);
+        BridgedERC20(payable(bridgedAddressAfter)).upgradeTo(address(newBridgedContract));
 
         vm.prank(Alice, Alice);
         try UpdatedBridgedERC20(bridgedAddressAfter).helloWorld() {

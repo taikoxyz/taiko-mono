@@ -169,11 +169,9 @@ async function generateContractConfigs(
         ),
     };
 
+    // TODO(david): use ERC1967Proxy please
     const proxy = require(
-        path.join(
-            ARTIFACTS_PATH,
-            "./TransparentUpgradeableProxy.sol/TransparentUpgradeableProxy.json",
-        ),
+        path.join(ARTIFACTS_PATH, "./ERC1967Proxy.sol/ERC1967Proxy.json"),
     );
 
     // Singletons

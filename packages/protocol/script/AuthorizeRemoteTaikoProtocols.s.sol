@@ -6,7 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
 import "../contracts/signal/SignalService.sol";

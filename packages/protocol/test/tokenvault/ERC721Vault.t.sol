@@ -2,16 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
-import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "forge-std/console2.sol";
 import "../TaikoTest.sol";
-import "../../contracts/common/AddressManager.sol";
-import "../../contracts/bridge/Bridge.sol";
-import "../../contracts/tokenvault/BaseNFTVault.sol";
-import "../../contracts/tokenvault/ERC721Vault.sol";
-import "../../contracts/tokenvault/BridgedERC721.sol";
-import "../../contracts/signal/SignalService.sol";
-import "../../contracts/common/ICrossChainSync.sol";
 
 contract TestTokenERC721 is ERC721 {
     string _baseTokenURI;
@@ -839,9 +830,7 @@ contract ERC721VaultTest is TaikoTest {
         // so that it supports now the 'helloWorld' call
         UpdatedBridgedERC721 newBridgedContract = new UpdatedBridgedERC721();
         vm.prank(Amelia, Amelia);
-        TransparentUpgradeableProxy(payable(deployedContract)).upgradeTo(
-            address(newBridgedContract)
-        );
+        BridgedERC721(payable(deployedContract)).upgradeTo(address(newBridgedContract));
 
         try UpdatedBridgedERC721(deployedContract).helloWorld() {
             // It should support now this function call
