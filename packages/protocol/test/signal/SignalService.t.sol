@@ -9,7 +9,7 @@ import "../../contracts/bridge/Bridge.sol";
 import "../../contracts/tokenvault/BridgedERC20.sol";
 import "../../contracts/test/erc20/FreeMintERC20.sol";
 import "../../contracts/signal/SignalService.sol";
-import "../TestBase.sol";
+import "../TaikoTest.sol";
 
 contract TestSignalService is TaikoTest {
     AddressManager addressManager;

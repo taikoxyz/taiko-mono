@@ -5,7 +5,7 @@ import "forge-std/console2.sol";
 import "../../contracts/L2/Lib1559Math.sol";
 import "../../contracts/thirdparty/LibFixedPointMath.sol";
 import "../../contracts/libs/LibMath.sol";
-import "../TestBase.sol";
+import "../TaikoTest.sol";
 
 contract TestLib1559Math is TaikoTest {
     using LibMath for uint256;

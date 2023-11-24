@@ -5,7 +5,7 @@ import "forge-std/console2.sol";
 import "../../contracts/common/AddressManager.sol";
 import "../../contracts/bridge/Bridge.sol";
 import "../../contracts/signal/SignalService.sol";
-import "../TestBase.sol";
+import "../TaikoTest.sol";
 
 // A contract which is not our ErcXXXTokenVault
 // Which in such case, the sent funds are still recoverable, but not via the

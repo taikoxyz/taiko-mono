@@ -8,7 +8,7 @@ import "../../contracts/common/AddressManager.sol";
 import "../../contracts/signal/SignalService.sol";
 import "../../contracts/L2/TaikoL2EIP1559Configurable.sol";
 import "../../contracts/L2/TaikoL2.sol";
-import "../TestBase.sol";
+import "../TaikoTest.sol";
 
 contract SkipBasefeeCheckL2 is TaikoL2EIP1559Configurable {
     function skipFeeCheck() public pure override returns (bool) {

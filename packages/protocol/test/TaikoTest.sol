@@ -10,16 +10,6 @@ import "../contracts/libs/LibDeployHelper.sol";
 
 abstract contract TaikoTest is Test {
     uint256 private _seed = 0x12345678;
-
-    function randAddress() internal returns (address) {
-        bytes32 randomHash = keccak256(abi.encodePacked("address", _seed++));
-        return address(bytes20(randomHash));
-    }
-
-    function randBytes32() internal returns (bytes32) {
-        return keccak256(abi.encodePacked("bytes32", _seed++));
-    }
-
     address internal Alice = vm.addr(0x1);
     address internal Bob = vm.addr(0x2);
     address internal Carol = vm.addr(0x3);
@@ -50,6 +40,15 @@ abstract contract TaikoTest is Test {
     address internal SGX_X_1 = vm.addr(0x5);
     address internal SGX_Y = randAddress();
     address internal SGX_Z = randAddress();
+
+    function randAddress() internal returns (address) {
+        bytes32 randomHash = keccak256(abi.encodePacked("address", _seed++));
+        return address(bytes20(randomHash));
+    }
+
+    function randBytes32() internal returns (bytes32) {
+        return keccak256(abi.encodePacked("bytes32", _seed++));
+    }
 }
 
 contract BadReceiver {

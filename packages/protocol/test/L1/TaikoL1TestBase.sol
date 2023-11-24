@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 import "forge-std/console2.sol";
-import "../TestBase.sol";
+import "../TaikoTest.sol";
 import "../../contracts/common/AddressManager.sol";
 import "../../contracts/bridge/Bridge.sol";
 import "../../contracts/L1/libs/LibProving.sol";

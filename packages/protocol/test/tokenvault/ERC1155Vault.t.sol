@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import "lib/openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
 import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "forge-std/console2.sol";
-import "../TestBase.sol";
+import "../TaikoTest.sol";
 import "../../contracts/libs/LibDeployHelper.sol";
 import "../../contracts/common/AddressResolver.sol";
 import "../../contracts/common/AddressManager.sol";

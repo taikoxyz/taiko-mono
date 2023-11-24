@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import "lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
 import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "forge-std/console2.sol";
-import "../TestBase.sol";
+import "../TaikoTest.sol";
 import "../../contracts/common/AddressManager.sol";
 import "../../contracts/bridge/Bridge.sol";
 import "../../contracts/tokenvault/BaseNFTVault.sol";
