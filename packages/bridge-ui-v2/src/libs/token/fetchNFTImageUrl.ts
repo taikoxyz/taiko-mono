@@ -70,12 +70,14 @@ export const fetchNFTImageUrl = async (token: NFT, srcChainId: number, destChain
     if (!url) throw new Error(`Invalid image URL: ${tokenWithMetadata.metadata.image}`);
 
     const imageUrl = await fetchImageUrl(url, token.tokenId);
-    tokenWithMetadata.metadata = {
+
+    token.name = tokenWithMetadata.name; // TODO: discuss if we want to overwrite the name with the canonical one
+    token.metadata = {
       ...tokenWithMetadata.metadata,
       image: imageUrl,
     };
 
-    return tokenWithMetadata;
+    return token;
   } catch (error) {
     log(`Error fetching image for ${token.name} id: ${token.tokenId}`, error);
     return token;
