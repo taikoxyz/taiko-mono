@@ -27,10 +27,10 @@ abstract contract TaikoL1TestBase is TaikoTest {
     TaikoA6TierProvider public cp;
     Bridge public bridge;
 
-    bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
+    bytes32 public GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
 
-    address public constant L2SS = 0xa008AE5Ba00656a3Cc384de589579e3E52aC030C;
-    address public constant L2 = 0x0082D90249342980d011C58105a03b35cCb4A315;
+    address public L2SS = randAddress();
+    address public L2 = randAddress();
 
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 
