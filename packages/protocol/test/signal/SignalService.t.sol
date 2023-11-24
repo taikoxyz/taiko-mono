@@ -28,7 +28,9 @@ contract TestSignalService is TaikoTest {
             LibDeployHelper.deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
-                data: bytes.concat(AddressManager.init.selector)
+                data: bytes.concat(AddressManager.init.selector),
+                registerTo: address(addressManager),
+                owner: address(0)
             })
         );
 
@@ -48,10 +50,13 @@ contract TestSignalService is TaikoTest {
             })
         );
 
-        crossChainSync = new DummyCrossChainSync();
-        crossChainSync.init(address(addressManager));
-
-        addressManager.setAddress(uint64(block.chainid), "signal_service", address(signalService));
+        crossChainSync = DummyCrossChainSync(
+            LibDeployHelper.deployProxy({
+                name: "dummy_cross_chain_sync",
+                impl: address(new DummyCrossChainSync()),
+                data: bytes.concat(SignalService.init.selector, abi.encode(address(addressManager)))
+            })
+        );
 
         addressManager.setAddress(destChainId, "signal_service", address(destSignalService));
 

@@ -89,7 +89,7 @@ contract SkipProofCheckSignal is SignalService {
     }
 }
 
-contract DummyCrossChainSync is ICrossChainSync, EssentialContract {
+contract DummyCrossChainSync is EssentialContract, ICrossChainSync {
     Snippet private _snippet;
 
     function init(address _addressManager) external initializer {

@@ -46,9 +46,9 @@ abstract contract EssentialContract is UUPSUpgradeable, OwnableUpgradeable, Addr
     }
 
     /// @custom:oz-upgrades-unsafe-allow constructor
-    // constructor() {
-    //     _disableInitializers();
-    // }
+    constructor() {
+        _disableInitializers();
+    }
 
     function pause() external whenNotPaused onlyOwner {
         _paused = _TRUE;
