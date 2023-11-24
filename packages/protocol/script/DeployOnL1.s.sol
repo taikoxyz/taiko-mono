@@ -170,19 +170,24 @@ contract DeployOnL1 is Script {
         });
 
         // Deploy Bridged tokens
-        OwnableUpgradeable cont;
-
-        cont = new BridgedERC20();
-        cont.renounceOwnership();
-        LibDeployHelper.register(sharedAddressManager, "bridged_erc20", address(cont));
-
-        cont = new BridgedERC721();
-        cont.renounceOwnership();
-        LibDeployHelper.register(sharedAddressManager, "bridged_erc721", address(cont));
-
-        cont = new BridgedERC1155();
-        cont.renounceOwnership();
-        LibDeployHelper.register(sharedAddressManager, "bridged_erc1155", address(cont));
+        {
+            BridgedERC20 impl = new BridgedERC20();
+            impl.init(address(0), address(0), 0, 0, "", "");
+            impl.renounceOwnership();
+            LibDeployHelper.register(sharedAddressManager, "bridged_erc20", address(impl));
+        }
+        {
+            BridgedERC721 impl = new BridgedERC721();
+            impl.init(address(0), address(0), 0, "", "");
+            impl.renounceOwnership();
+            LibDeployHelper.register(sharedAddressManager, "bridged_erc721", address(impl));
+        }
+        {
+            BridgedERC1155 impl = new BridgedERC1155();
+            impl.init(address(0), address(0), 0, "", "");
+            impl.renounceOwnership();
+            LibDeployHelper.register(sharedAddressManager, "bridged_erc1155", address(impl));
+        }
     }
 
     function deployRollupContracts(address _sharedAddressManager)

@@ -6,7 +6,7 @@ import "../contracts/bridge/Bridge.sol";
 import "../contracts/signal/SignalService.sol";
 import "../contracts/common/ICrossChainSync.sol";
 import "../contracts/common/EssentialContract.sol";
-import "../../contracts/libs/LibDeployHelper.sol";
+import "../contracts/libs/LibDeployHelper.sol";
 
 abstract contract TaikoTest is Test {
     uint256 private _seed = 0x12345678;
