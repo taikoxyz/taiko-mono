@@ -84,20 +84,20 @@ module.exports = {
     // Singletons
     return {
       Bridge: getConstantAddress(`0${this.chainId}`, 1),
-      ProxiedSingletonERC20Vault: getConstantAddress(`0${this.chainId}`, 2),
-      ProxiedSingletonERC721Vault: getConstantAddress(`0${this.chainId}`, 3),
-      ProxiedSingletonERC1155Vault: getConstantAddress(`0${this.chainId}`, 4),
+      ERC20Vault: getConstantAddress(`0${this.chainId}`, 2),
+      ERC721Vault: getConstantAddress(`0${this.chainId}`, 3),
+      ERC1155Vault: getConstantAddress(`0${this.chainId}`, 4),
       SignalService: getConstantAddress(`0${this.chainId}`, 5),
-      ProxiedSingletonAddressManagerForSingletons: getConstantAddress(
+      AddressManagerForSingletons: getConstantAddress(
         `0${this.chainId}`,
         6,
       ),
       // Non-singletons
-      ProxiedSingletonTaikoL2: getConstantAddress(`0${this.chainId}`, 10001),
+      TaikoL2: getConstantAddress(`0${this.chainId}`, 10001),
       AddressManager: getConstantAddress(`0${this.chainId}`, 10002),
-      ProxiedBridgedERC20: getConstantAddress(`0${this.chainId}`, 10096),
-      ProxiedBridgedERC721: getConstantAddress(`0${this.chainId}`, 10097),
-      ProxiedBridgedERC1155: getConstantAddress(`0${this.chainId}`, 10098),
+      BridgedERC20: getConstantAddress(`0${this.chainId}`, 10096),
+      BridgedERC721: getConstantAddress(`0${this.chainId}`, 10097),
+      BridgedERC1155: getConstantAddress(`0${this.chainId}`, 10098),
       RegularERC20: getConstantAddress(`0${this.chainId}`, 10099),
       // ============ Proxies ============
       // Singletons
