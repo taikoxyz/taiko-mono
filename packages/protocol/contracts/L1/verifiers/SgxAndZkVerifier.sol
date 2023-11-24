@@ -44,7 +44,3 @@ contract SgxAndZkVerifier is EssentialContract, IVerifier {
         IVerifier(resolve("tier_pse_zkevm", false)).verifyProof(ctx, tran, _proof);
     }
 }
-
-/// @title ProxiedProofVerifier
-/// @notice Proxied version of the parent contract.
-contract ProxiedSgxAndZkVerifier is Proxied, SgxAndZkVerifier { }

@@ -78,20 +78,49 @@ abstract contract TaikoL1TestBase is TaikoTest {
             })
         );
 
-        pv = new PseZkVerifier();
-        pv.init(address(addressManager));
+        pv = PseZkVerifier(
+            LibDeployHelper.deployProxy({
+                name: "tier_pse_zkevm",
+                impl: address(new PseZkVerifier()),
+                data: bytes.concat(PseZkVerifier.init.selector, abi.encode(address(addressManager))),
+                registerTo: address(0),
+                owner: msg.sender
+            })
+        );
 
-        sv = new SgxVerifier();
-        sv.init(address(addressManager));
+        sv = SgxVerifier(
+            LibDeployHelper.deployProxy({
+                name: "tier_sgx",
+                impl: address(new SgxVerifier()),
+                data: bytes.concat(SgxVerifier.init.selector, abi.encode(address(addressManager))),
+                registerTo: address(0),
+                owner: msg.sender
+            })
+        );
+
         address[] memory initSgxInstances = new address[](1);
         initSgxInstances[0] = SGX_X_0;
         sv.addInstances(initSgxInstances);
 
-        sgxZkVerifier = new SgxAndZkVerifier();
-        sgxZkVerifier.init(address(addressManager));
+        sgxZkVerifier = SgxAndZkVerifier(
+            LibDeployHelper.deployProxy({
+                name: "tier_sgx_and_pse_zkevm",
+                impl: address(new SgxAndZkVerifier()),
+                data: bytes.concat(SgxAndZkVerifier.init.selector, abi.encode(address(addressManager))),
+                registerTo: address(0),
+                owner: msg.sender
+            })
+        );
 
-        gv = new GuardianVerifier();
-        gv.init(address(addressManager));
+        gv = GuardianVerifier(
+            LibDeployHelper.deployProxy({
+                name: "guardian_verifier",
+                impl: address(new GuardianVerifier()),
+                data: bytes.concat(GuardianVerifier.init.selector, abi.encode(address(addressManager))),
+                registerTo: address(0),
+                owner: msg.sender
+            })
+        );
 
         gp = GuardianProver(
             LibDeployHelper.deployProxy({

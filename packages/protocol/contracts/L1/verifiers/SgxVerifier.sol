@@ -159,7 +159,3 @@ contract SgxVerifier is EssentialContract, IVerifier {
         return instances[id].addedAt + INSTANCE_EXPIRY > block.timestamp;
     }
 }
-
-/// @title ProxiedSgxVerifier
-/// @notice Proxied version of the parent contract.
-contract ProxiedSgxVerifier is Proxied, SgxVerifier { }

@@ -138,7 +138,3 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         return bytes32(uint256(0x1000000) + id);
     }
 }
-
-/// @title ProxiedProofVerifier
-/// @notice Proxied version of the parent contract.
-contract ProxiedPseZkVerifier is Proxied, PseZkVerifier { }

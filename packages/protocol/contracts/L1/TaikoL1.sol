@@ -243,7 +243,3 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, ITierProvider, TaikoEven
         return LibVerifying.isConfigValid(getConfig());
     }
 }
-
-/// @title ProxiedTaikoL1
-/// @notice Proxied version of the parent contract.
-contract ProxiedTaikoL1 is Proxied, TaikoL1 { }

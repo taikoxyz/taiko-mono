@@ -31,7 +31,17 @@ contract Verifier {
 
 contract TaikoL1Test is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1 taikoL1) {
-        taikoL1 = new TaikoL1_NoCooldown();
+        taikoL1 = TaikoL1(
+            payable(
+                LibDeployHelper.deployProxy({
+                    name: "taiko",
+                    impl: address(new TaikoL1_NoCooldown()),
+                    data: "",
+                    registerTo: address(0),
+                    owner: msg.sender
+                })
+            )
+        );
     }
 
     function setUp() public override {

@@ -113,7 +113,3 @@ contract GuardianProver is EssentialContract {
         return false;
     }
 }
-
-/// @title ProxiedGuardianProver
-/// @notice Proxied version of the parent contract.
-contract ProxiedGuardianProver is Proxied, GuardianProver { }

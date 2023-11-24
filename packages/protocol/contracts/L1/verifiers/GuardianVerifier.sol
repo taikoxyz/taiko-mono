@@ -36,7 +36,3 @@ contract GuardianVerifier is EssentialContract, IVerifier {
         }
     }
 }
-
-/// @title ProxiedGuardianVerifier
-/// @notice Proxied version of the parent contract.
-contract ProxiedGuardianVerifier is Proxied, GuardianVerifier { }

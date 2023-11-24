@@ -34,7 +34,17 @@ contract Verifier {
 
 contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1 taikoL1) {
-        taikoL1 = new TaikoL1Tiers();
+        taikoL1 = TaikoL1(
+            payable(
+                LibDeployHelper.deployProxy({
+                    name: "taiko",
+                    impl: address(new TaikoL1Tiers()),
+                    data: "",
+                    registerTo: address(0),
+                    owner: msg.sender
+                })
+            )
+        );
     }
 
     function setUp() public override {
