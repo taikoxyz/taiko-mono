@@ -11,45 +11,45 @@ import "../contracts/libs/LibDeployHelper.sol";
 abstract contract TaikoTest is Test {
     uint256 private _seed = 0x12345678;
 
-    function getRandomAddress() internal returns (address) {
+    function randAddress() internal returns (address) {
         bytes32 randomHash = keccak256(abi.encodePacked("address", _seed++));
         return address(bytes20(randomHash));
     }
 
-    function getRandomBytes32() internal returns (bytes32) {
+    function randBytes32() internal returns (bytes32) {
         return keccak256(abi.encodePacked("bytes32", _seed++));
     }
 
     address internal Alice = vm.addr(0x1);
     address internal Bob = vm.addr(0x2);
     address internal Carol = vm.addr(0x3);
-    address internal David = getRandomAddress();
-    address internal Emma = getRandomAddress();
-    address internal Frank = getRandomAddress();
-    address internal Grace = getRandomAddress();
-    address internal Henry = getRandomAddress();
-    address internal Isabella = getRandomAddress();
-    address internal James = getRandomAddress();
-    address internal Katherine = getRandomAddress();
-    address internal Liam = getRandomAddress();
-    address internal Mia = getRandomAddress();
-    address internal Noah = getRandomAddress();
-    address internal Olivia = getRandomAddress();
-    address internal Patrick = getRandomAddress();
-    address internal Quinn = getRandomAddress();
-    address internal Rachel = getRandomAddress();
-    address internal Samuel = getRandomAddress();
-    address internal Taylor = getRandomAddress();
-    address internal Ulysses = getRandomAddress();
-    address internal Victoria = getRandomAddress();
-    address internal William = getRandomAddress();
-    address internal Xavier = getRandomAddress();
-    address internal Yasmine = getRandomAddress();
-    address internal Zachary = getRandomAddress();
+    address internal David = randAddress();
+    address internal Emma = randAddress();
+    address internal Frank = randAddress();
+    address internal Grace = randAddress();
+    address internal Henry = randAddress();
+    address internal Isabella = randAddress();
+    address internal James = randAddress();
+    address internal Katherine = randAddress();
+    address internal Liam = randAddress();
+    address internal Mia = randAddress();
+    address internal Noah = randAddress();
+    address internal Olivia = randAddress();
+    address internal Patrick = randAddress();
+    address internal Quinn = randAddress();
+    address internal Rachel = randAddress();
+    address internal Samuel = randAddress();
+    address internal Taylor = randAddress();
+    address internal Ulysses = randAddress();
+    address internal Victoria = randAddress();
+    address internal William = randAddress();
+    address internal Xavier = randAddress();
+    address internal Yasmine = randAddress();
+    address internal Zachary = randAddress();
     address internal SGX_X_0 = vm.addr(0x4);
     address internal SGX_X_1 = vm.addr(0x5);
-    address internal SGX_Y = getRandomAddress();
-    address internal SGX_Z = getRandomAddress();
+    address internal SGX_Y = randAddress();
+    address internal SGX_Z = randAddress();
 }
 
 contract BadReceiver {

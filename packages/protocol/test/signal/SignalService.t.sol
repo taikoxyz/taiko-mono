@@ -17,7 +17,7 @@ contract TestSignalService is TaikoTest {
     SignalService signalService;
     SignalService destSignalService;
     DummyCrossChainSync crossChainSync;
-    uint64 destChainId = 7;
+    uint64 public destChainId = 7;
 
     function setUp() public {
         vm.startPrank(Alice);
@@ -58,9 +58,13 @@ contract TestSignalService is TaikoTest {
             })
         );
 
-        addressManager.setAddress(destChainId, "signal_service", address(destSignalService));
+        LibDeployHelper.register(
+            address(addressManager), "signal_service", address(destSignalService), destChainId
+        );
 
-        addressManager.setAddress(destChainId, "taiko", address(crossChainSync));
+        LibDeployHelper.register(
+            address(addressManager), "taiko", address(crossChainSync), destChainId
+        );
 
         vm.stopPrank();
     }
