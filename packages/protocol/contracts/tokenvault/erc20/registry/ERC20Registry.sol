@@ -41,6 +41,10 @@ contract ERC20Registry is EssentialContract, IERC20Registry {
         EssentialContract._init(_addressManager);
     }
 
+    // Just define here the different burn functions we be supporting !
+    // USDC's:
+    function burn(uint256 amuont) external { }
+
     /// @notice Adds a custom, pre-deployed contract mapping to it's L1 (parent chain) counterpart
     /// @param l1Address The address of the token on L1 (or parent chain)
     /// @param deployedCounterpart The address on L2 - it can be address(0) in which case we delete
@@ -95,10 +99,6 @@ contract ERC20Registry is EssentialContract, IERC20Registry {
             predeployedToCanonical[l2Address].burnFunctionSignature
         );
     }
-
-    // Just define here the different burn functions we be supporting !
-    // USDC's:
-    function burn(uint256 amuont) external { }
 }
 
 /// @title ProxiedERC20Registry

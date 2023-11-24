@@ -236,11 +236,11 @@ contract ERC20Vault is BaseVault {
         // If it's a bridged token
         if (bridgedToCanonical[token].addr != address(0)) {
             // Determine the burn type
-            address ERC20Registry = resolve("erc20_hook", true);
+            address erc20Registry = resolve("erc20_hook", true);
             // Check if it's a native/custom token
-            if (ERC20Registry != address(0)) {
+            if (erc20Registry != address(0)) {
                 (, uint8 burnFuncSig) =
-                    IERC20Registry(ERC20Registry).getCanonicalAndBurnSignature(token);
+                    IERC20Registry(erc20Registry).getCanonicalAndBurnSignature(token);
                 if (BurnSignature(burnFuncSig) == BurnSignature.USDC) {
                     // It means trying to bridge back USDC
                     // In that case, we need to  first "own" the tokens to be able to burn them so:
@@ -296,10 +296,10 @@ contract ERC20Vault is BaseVault {
         private
         returns (address btoken)
     {
-        address ERC20Registry = resolve("erc20_hook", true);
+        address erc20Registry = resolve("erc20_hook", true);
 
-        if (ERC20Registry != address(0)) {
-            btoken = IERC20Registry(ERC20Registry).getCustomCounterPart(ctoken.addr);
+        if (erc20Registry != address(0)) {
+            btoken = IERC20Registry(erc20Registry).getCustomCounterPart(ctoken.addr);
 
             if (
                 btoken != address(0)
