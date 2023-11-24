@@ -72,7 +72,9 @@ contract BridgeTest is TaikoTest {
             LibDeployHelper.deployProxy({
                 name: "signal_service",
                 impl: address(new SkipProofCheckSignal()),
-                data: bytes.concat(SignalService.init.selector)
+                data: bytes.concat(SignalService.init.selector),
+                registerTo: address(addressManager),
+                owner: address(0)
             })
         );
 
@@ -91,18 +93,17 @@ contract BridgeTest is TaikoTest {
         untrustedSenderContract = new UntrustedSendMessageRelayer();
         vm.deal(address(untrustedSenderContract), 10 ether);
 
-        addressManager.setAddress(
-            uint64(block.chainid), "signal_service", address(mockProofSignalService)
+        LibDeployHelper.register(
+            address(addressManager), "signal_service", address(mockProofSignalService), destChainId
         );
 
-        addressManager.setAddress(destChainId, "signal_service", address(mockProofSignalService));
+        LibDeployHelper.register(
+            address(addressManager), "bridge", address(destChainBridge), destChainId
+        );
 
-        addressManager.setAddress(destChainId, "bridge", address(destChainBridge));
-
-        addressManager.setAddress(destChainId, "taiko", address(uint160(123)));
-
-        addressManager.setAddress(uint64(block.chainid), "bridge", address(bridge));
-
+        LibDeployHelper.register(
+            address(addressManager), "taiko", address(uint160(123)), destChainId
+        );
         vm.stopPrank();
     }
 
