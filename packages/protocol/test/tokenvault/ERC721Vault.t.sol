@@ -216,7 +216,7 @@ contract ERC721VaultTest is TaikoTest {
         addressManager.setAddress(uint64(block.chainid), "erc1155_vault", address(erc721Vault));
         addressManager.setAddress(uint64(block.chainid), "erc20_vault", address(erc721Vault));
 
-        address bridgedERC721 = new BridgedERC721().initDead();
+        address bridgedERC721 = address(new BridgedERC721());
 
         addressManager.setAddress(destChainId, "bridged_erc721", bridgedERC721);
         addressManager.setAddress(uint64(block.chainid), "bridged_erc721", bridgedERC721);

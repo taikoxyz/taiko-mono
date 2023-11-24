@@ -37,11 +37,6 @@ contract AddressManager is OwnableUpgradeable, UUPSUpgradeable, IAddressManager 
         OwnableUpgradeable.__Ownable_init();
     }
 
-    /// @notice Init the contract and transfer owner to 0x0.
-    function initDead() external initializer returns (address) {
-        return address(this);
-    }
-
     /// @notice Sets the address for a specific chainId-name pair.
     /// @param chainId The chainId to which the address will be mapped.
     /// @param name The name to which the address will be mapped.

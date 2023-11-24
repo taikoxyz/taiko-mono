@@ -107,7 +107,7 @@ contract DeployOnL1 is Script {
 
         sharedAddressManager = LibDeployHelper.deployProxy({
             name: "address_manager_for_bridge",
-            impl: new AddressManager().initDead(),
+            impl: address(new AddressManager()),
             data: bytes.concat(AddressManager.init.selector),
             addressManager: address(0),
             owner: vm.envAddress("OWNER")
@@ -115,7 +115,7 @@ contract DeployOnL1 is Script {
 
         LibDeployHelper.deployProxy({
             name: "taiko_token",
-            impl: new TaikoToken().initDead(),
+            impl: address(new TaikoToken()),
             data: bytes.concat(
                 TaikoToken.init.selector,
                 abi.encode(
@@ -130,7 +130,7 @@ contract DeployOnL1 is Script {
 
         LibDeployHelper.deployProxy({
             name: "signal_service",
-            impl: new SignalService().initDead(),
+            impl: address(new SignalService()),
             data: bytes.concat(SignalService.init.selector),
             addressManager: sharedAddressManager,
             owner: msg.sender // We set msg.sender as the owner and will change it later.
@@ -138,7 +138,7 @@ contract DeployOnL1 is Script {
 
         LibDeployHelper.deployProxy({
             name: "bridge",
-            impl: new Bridge().initDead(),
+            impl: address(new Bridge()),
             data: bytes.concat(Bridge.init.selector, abi.encode(sharedAddressManager)),
             addressManager: sharedAddressManager,
             owner: vm.envAddress("OWNER")
@@ -147,7 +147,7 @@ contract DeployOnL1 is Script {
         // Deploy Vaults
         LibDeployHelper.deployProxy({
             name: "erc20_vault",
-            impl: new ERC20Vault().initDead(),
+            impl: address(new ERC20Vault()),
             data: bytes.concat(BaseVault.init.selector, abi.encode(sharedAddressManager)),
             addressManager: sharedAddressManager,
             owner: vm.envAddress("OWNER")
@@ -155,7 +155,7 @@ contract DeployOnL1 is Script {
 
         LibDeployHelper.deployProxy({
             name: "erc721_vault",
-            impl: new ERC721Vault().initDead(),
+            impl: address(new ERC721Vault()),
             data: bytes.concat(BaseVault.init.selector, abi.encode(sharedAddressManager)),
             addressManager: sharedAddressManager,
             owner: vm.envAddress("OWNER")
@@ -163,21 +163,19 @@ contract DeployOnL1 is Script {
 
         LibDeployHelper.deployProxy({
             name: "erc1155_vault",
-            impl: new ERC1155Vault().initDead(),
+            impl: address(new ERC1155Vault()),
             data: bytes.concat(BaseVault.init.selector, abi.encode(sharedAddressManager)),
             addressManager: sharedAddressManager,
             owner: vm.envAddress("OWNER")
         });
 
         // Deploy Bridged tokens
+        LibDeployHelper.register(sharedAddressManager, "bridged_erc20", address(new BridgedERC20()));
         LibDeployHelper.register(
-            sharedAddressManager, "bridged_erc20", new BridgedERC20().initDead()
+            sharedAddressManager, "bridged_erc721", address(new BridgedERC721())
         );
         LibDeployHelper.register(
-            sharedAddressManager, "bridged_erc721", new BridgedERC721().initDead()
-        );
-        LibDeployHelper.register(
-            sharedAddressManager, "bridged_erc1155", new BridgedERC1155().initDead()
+            sharedAddressManager, "bridged_erc1155", address(new BridgedERC1155())
         );
     }
 
@@ -189,7 +187,7 @@ contract DeployOnL1 is Script {
 
         rollupAddressManager = LibDeployHelper.deployProxy({
             name: "address_manager_for_rollup",
-            impl: new AddressManager().initDead(),
+            impl: address(new AddressManager()),
             data: bytes.concat(AddressManager.init.selector),
             addressManager: address(0),
             owner: vm.envAddress("OWNER")
@@ -197,7 +195,7 @@ contract DeployOnL1 is Script {
 
         LibDeployHelper.deployProxy({
             name: "taiko",
-            impl: new TaikoL1().initDead(),
+            impl: address(new TaikoL1()),
             data: bytes.concat(
                 TaikoL1.init.selector,
                 abi.encode(rollupAddressManager, vm.envBytes32("L2_GENESIS_HASH"))
@@ -216,7 +214,7 @@ contract DeployOnL1 is Script {
 
         LibDeployHelper.deployProxy({
             name: "tier_guardian",
-            impl: new GuardianVerifier().initDead(),
+            impl: address(new GuardianVerifier()),
             data: bytes.concat(GuardianVerifier.init.selector, abi.encode(rollupAddressManager)),
             addressManager: rollupAddressManager,
             owner: vm.envAddress("OWNER")
@@ -224,7 +222,7 @@ contract DeployOnL1 is Script {
 
         LibDeployHelper.deployProxy({
             name: "tier_sgx",
-            impl: new SgxVerifier().initDead(),
+            impl: address(new SgxVerifier()),
             data: bytes.concat(SgxVerifier.init.selector, abi.encode(rollupAddressManager)),
             addressManager: rollupAddressManager,
             owner: vm.envAddress("OWNER")
@@ -232,7 +230,7 @@ contract DeployOnL1 is Script {
 
         LibDeployHelper.deployProxy({
             name: "tier_sgx_and_pse_zkevm",
-            impl: new SgxAndZkVerifier().initDead(),
+            impl: address(new SgxAndZkVerifier()),
             data: bytes.concat(SgxAndZkVerifier.init.selector, abi.encode(rollupAddressManager)),
             addressManager: rollupAddressManager,
             owner: vm.envAddress("OWNER")
@@ -240,7 +238,7 @@ contract DeployOnL1 is Script {
 
         address pseZkVerifier = LibDeployHelper.deployProxy({
             name: "tier_pse_zkevm",
-            impl: new PseZkVerifier().initDead(),
+            impl: address(new PseZkVerifier()),
             data: bytes.concat(PseZkVerifier.init.selector, abi.encode(rollupAddressManager)),
             addressManager: rollupAddressManager,
             owner: vm.envAddress("OWNER")
@@ -259,7 +257,7 @@ contract DeployOnL1 is Script {
 
         address guardianProver = LibDeployHelper.deployProxy({
             name: "guardian_prover",
-            impl: new GuardianProver().initDead(),
+            impl: address(new GuardianProver()),
             data: bytes.concat(GuardianProver.init.selector, abi.encode(rollupAddressManager)),
             addressManager: rollupAddressManager,
             owner: msg.sender
