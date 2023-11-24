@@ -54,7 +54,9 @@ contract TestSignalService is TaikoTest {
             LibDeployHelper.deployProxy({
                 name: "dummy_cross_chain_sync",
                 impl: address(new DummyCrossChainSync()),
-                data: bytes.concat(SignalService.init.selector, abi.encode(address(addressManager)))
+                data: bytes.concat(
+                    DummyCrossChainSync.init.selector, abi.encode(address(addressManager))
+                    )
             })
         );
 
