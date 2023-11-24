@@ -13,7 +13,6 @@ import "./BridgedERC20.sol";
 import "./IMintableERC20.sol";
 import "./BaseVault.sol";
 import "./erc20/registry/IERC20NativeRegistry.sol";
-import "./erc20/translators/BaseTranslator.sol";
 
 /// @title ERC20Vault
 /// @dev Labeled in AddressResolver as "erc20_vault"
@@ -23,12 +22,6 @@ import "./erc20/translators/BaseTranslator.sol";
 contract ERC20Vault is BaseVault {
     using LibAddress for address;
     using SafeERC20Upgradeable for ERC20Upgradeable;
-
-    // Enum for keeping track how to handle specific/native tokens
-    enum BurnSignature {
-        None,
-        USDC
-    }
 
     // Structs for canonical ERC20 tokens and transfer operations
     struct CanonicalERC20 {
