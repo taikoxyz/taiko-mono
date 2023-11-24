@@ -92,10 +92,6 @@ contract SkipProofCheckSignal is SignalService {
 contract DummyCrossChainSync is EssentialContract, ICrossChainSync {
     Snippet private _snippet;
 
-    function init(address _addressManager) external initializer {
-        EssentialContract._init(_addressManager);
-    }
-
     function setSyncedData(bytes32 blockHash, bytes32 signalRoot) external {
         _snippet.blockHash = blockHash;
         _snippet.signalRoot = signalRoot;

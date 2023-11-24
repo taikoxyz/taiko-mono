@@ -120,7 +120,13 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
         setupGuardianProverMultisig();
 
-        cp = new TaikoA6TierProvider();
+        cp = TaikoA6TierProvider(
+            LibDeployHelper.deployProxy({
+                name: "tier_provider",
+                impl: address(new TaikoA6TierProvider()),
+                data: bytes.concat(TaikoA6TierProvider.init.selector)
+            })
+        );
 
         bridge = Bridge(
             payable(

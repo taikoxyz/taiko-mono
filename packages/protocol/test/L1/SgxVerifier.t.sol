@@ -8,16 +8,12 @@ import "../../contracts/L1/verifiers/SgxVerifier.sol";
 import "./TaikoL1TestBase.sol";
 
 contract TestSgxVerifier is TaikoL1TestBase {
-    function deployTaikoL1() internal override returns (TaikoL1 taikoL1) {
-        taikoL1 = TaikoL1(
+    function deployTaikoL1() internal override returns (TaikoL1) {
+        return TaikoL1(
             payable(
                 LibDeployHelper.deployProxy({ name: "taiko", impl: address(new TaikoL1()), data: "" })
             )
         );
-    }
-
-    function setUp() public override {
-        TaikoL1TestBase.setUp();
     }
 
     function test_addInstancesByOwner() external {

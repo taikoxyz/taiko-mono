@@ -207,7 +207,7 @@ contract DeployOnL1 is Script {
         LibDeployHelper.deployProxy({
             name: "tier_provider",
             impl: address(new TaikoA6TierProvider()),
-            data: bytes.concat(TaikoA6TierProvider.init.selector, abi.encode(rollupAddressManager)),
+            data: bytes.concat(TaikoA6TierProvider.init.selector),
             registerTo: rollupAddressManager,
             owner: vm.envAddress("OWNER")
         });

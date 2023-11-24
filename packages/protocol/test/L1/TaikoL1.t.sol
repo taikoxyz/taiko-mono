@@ -30,8 +30,8 @@ contract Verifier {
 }
 
 contract TaikoL1Test is TaikoL1TestBase {
-    function deployTaikoL1() internal override returns (TaikoL1 taikoL1) {
-        taikoL1 = TaikoL1(
+    function deployTaikoL1() internal override returns (TaikoL1) {
+        return TaikoL1(
             payable(
                 LibDeployHelper.deployProxy({
                     name: "taiko",
@@ -40,10 +40,6 @@ contract TaikoL1Test is TaikoL1TestBase {
                 })
             )
         );
-    }
-
-    function setUp() public override {
-        TaikoL1TestBase.setUp();
     }
 
     /// @dev Test we can propose, prove, then verify more blocks than

@@ -45,10 +45,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         );
     }
 
-    function setUp() public override {
-        TaikoL1TestBase.setUp();
-    }
-
     function proveHigherTierProof(
         TaikoData.BlockMetadata memory meta,
         bytes32 parentHash,

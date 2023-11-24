@@ -27,8 +27,7 @@ contract TestTaikoL2 is TaikoTest {
     AddressManager public addressManager;
     SignalService public ss;
     TaikoL2EIP1559Configurable public L2;
-    SkipBasefeeCheckL2 public L2FeeSimulation;
-    uint256 private logIndex;
+    SkipBasefeeCheckL2 public L2skip;
 
     function setUp() public {
         addressManager = AddressManager(
@@ -64,7 +63,7 @@ contract TestTaikoL2 is TaikoTest {
         L2.setConfigAndExcess(TaikoL2.Config(gasTarget, quotient), gasExcess);
 
         gasExcess = 195_420_300_100;
-        L2FeeSimulation = SkipBasefeeCheckL2(
+        L2skip = SkipBasefeeCheckL2(
             LibDeployHelper.deployProxy({
                 name: "taiko_l2",
                 impl: address(new SkipBasefeeCheckL2()),
@@ -72,7 +71,7 @@ contract TestTaikoL2 is TaikoTest {
             })
         );
 
-        L2FeeSimulation.setConfigAndExcess(TaikoL2.Config(gasTarget, quotient), gasExcess);
+        L2skip.setConfigAndExcess(TaikoL2.Config(gasTarget, quotient), gasExcess);
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);
@@ -202,7 +201,7 @@ contract TestTaikoL2 is TaikoTest {
 
             vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
             _anchorSimulation(currentGasUsed, l1Height);
-            uint256 currentBaseFee = L2FeeSimulation.getBasefee(l1Height, currentGasUsed);
+            uint256 currentBaseFee = L2skip.getBasefee(l1Height, currentGasUsed);
             allBaseFee += currentBaseFee;
             console2.log("Actual gas in L2 block is:", currentGasUsed);
             console2.log("L2block to baseFee is:", i, ":", currentBaseFee);
@@ -259,7 +258,7 @@ contract TestTaikoL2 is TaikoTest {
     function _anchorSimulation(uint32 parentGasLimit, uint64 l1Height) private {
         bytes32 l1Hash = getRandomBytes32();
         bytes32 l1SignalRoot = getRandomBytes32();
-        L2FeeSimulation.anchor(l1Hash, l1SignalRoot, l1Height, parentGasLimit);
+        L2skip.anchor(l1Hash, l1SignalRoot, l1Height, parentGasLimit);
     }
 
     function registerAddress(bytes32 nameHash, address addr) internal {

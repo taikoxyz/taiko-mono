@@ -12,6 +12,7 @@ import "forge-std/Script.sol";
 import "forge-std/console2.sol";
 
 import "../contracts/common/AddressManager.sol";
+import "../contracts/libs/LibDeployHelper.sol";
 
 contract SetRemoteBridgeSuites is Script {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
@@ -42,39 +43,23 @@ contract SetRemoteBridgeSuites is Script {
         vm.startBroadcast(privateKey);
 
         for (uint256 i; i < remoteChainIDs.length; ++i) {
-            setAddress(addressManagerAddress, uint64(remoteChainIDs[i]), "bridge", remoteBridges[i]);
-            setAddress(
-                addressManagerAddress,
-                uint64(remoteChainIDs[i]),
-                "erc20_vault",
-                remoteERC20Vaults[i]
+            uint64 chainid = uint64(remoteChainIDs[i]);
+
+            LibDeployHelper.register(addressManagerAddress, "bridge", remoteBridges[i], chainid);
+
+            LibDeployHelper.register(
+                addressManagerAddress, "erc20_vault", remoteERC20Vaults[i], chainid
             );
-            setAddress(
-                addressManagerAddress,
-                uint64(remoteChainIDs[i]),
-                "erc721_vault",
-                remoteERC721Vaults[i]
+
+            LibDeployHelper.register(
+                addressManagerAddress, "erc721_vault", remoteERC721Vaults[i], chainid
             );
-            setAddress(
-                addressManagerAddress,
-                uint64(remoteChainIDs[i]),
-                "erc1155_vault",
-                remoteERC1155Vaults[i]
+
+            LibDeployHelper.register(
+                addressManagerAddress, "erc1155_vault", remoteERC1155Vaults[i], chainid
             );
         }
 
         vm.stopBroadcast();
-    }
-
-    function setAddress(
-        address addressManager,
-        uint64 chainId,
-        bytes32 name,
-        address addr
-    )
-        private
-    {
-        console2.log(chainId, uint256(name), "--->", addr);
-        AddressManager(addressManager).setAddress(chainId, name, addr);
     }
 }
