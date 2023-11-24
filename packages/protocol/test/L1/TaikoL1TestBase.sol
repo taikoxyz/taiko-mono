@@ -63,7 +63,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
                 name: "address_manager",
                 impl: address(new AddressManager()),
                 data: bytes.concat(AddressManager.init.selector),
-                addressManager: address(0),
+                registerTo: address(0),
                 owner: msg.sender
             })
         );
@@ -73,7 +73,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
                 name: "signal_service",
                 impl: address(new SignalService()),
                 data: bytes.concat(SignalService.init.selector),
-                addressManager: address(0),
+                registerTo: address(0),
                 owner: msg.sender
             })
         );
@@ -93,8 +93,16 @@ abstract contract TaikoL1TestBase is TaikoTest {
         gv = new GuardianVerifier();
         gv.init(address(addressManager));
 
-        gp = new GuardianProver();
-        gp.init(address(addressManager));
+        gp = GuardianProver(
+            LibDeployHelper.deployProxy({
+                name: "guardian_prover",
+                impl: address(new GuardianProver()),
+                data: bytes.concat(GuardianProver.init.selector, abi.encode(address(addressManager))),
+                registerTo: address(0),
+                owner: msg.sender
+            })
+        );
+
         setupGuardianProverMultisig();
 
         cp = new TaikoA6TierProvider();
@@ -105,14 +113,21 @@ abstract contract TaikoL1TestBase is TaikoTest {
                     name: "bridge",
                     impl: address(new Bridge()),
                     data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
-                    addressManager: address(addressManager),
+                    registerTo: address(addressManager),
                     owner: msg.sender
                 })
             )
         );
 
-        assignmentHook = new AssignmentHook();
-        assignmentHook.init(address(addressManager));
+        assignmentHook = AssignmentHook(
+            LibDeployHelper.deployProxy({
+                name: "assignment_hook",
+                impl: address(new AssignmentHook()),
+                data: bytes.concat(AssignmentHook.init.selector, abi.encode(address(addressManager))),
+                registerTo: address(0),
+                owner: msg.sender
+            })
+        );
 
         registerAddress("taiko", address(L1));
         registerAddress("tier_pse_zkevm", address(pv));

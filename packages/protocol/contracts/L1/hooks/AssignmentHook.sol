@@ -165,7 +165,3 @@ contract AssignmentHook is EssentialContract, IHook {
         revert HOOK_TIER_NOT_FOUND();
     }
 }
-
-/// @title ProxiedAssignmentHook
-/// @notice Proxied version of the parent contract.
-contract ProxiedAssignmentHook is Proxied, AssignmentHook { }

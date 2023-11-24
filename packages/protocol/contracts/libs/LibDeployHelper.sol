@@ -24,7 +24,7 @@ library LibDeployHelper {
         bytes32 name,
         address impl,
         bytes memory data,
-        address addressManager,
+        address registerTo,
         address owner
     )
         internal
@@ -32,47 +32,34 @@ library LibDeployHelper {
     {
         proxy = LibDeploy.deployERC1967Proxy(impl, owner, data);
 
-        if (addressManager != address(0)) {
-            AddressManager(addressManager).setAddress(uint64(block.chainid), name, proxy);
+        if (registerTo != address(0)) {
+            AddressManager(registerTo).setAddress(uint64(block.chainid), name, proxy);
         }
-        console2.log("> ", Strings.toString(uint256(name)), "@", addressManager);
+        console2.log("> ", Strings.toString(uint256(name)), "@", registerTo);
         console2.log("\t proxy : ", proxy);
         console2.log("\t impl  : ", impl);
         console2.log("\t owner : ", OwnableUpgradeable(proxy).owner());
     }
 
-    function register(address addressManager, bytes32 name, address addr) internal {
-        register(addressManager, name, addr, uint64(block.chainid));
+    function register(address registerTo, bytes32 name, address addr) internal {
+        register(registerTo, name, addr, uint64(block.chainid));
     }
 
-    function register(
-        address addressManager,
-        bytes32 name,
-        address addr,
-        uint64 chainId
-    )
-        internal
-    {
-        if (addressManager == address(0)) revert ADDRESS_NULL();
+    function register(address registerTo, bytes32 name, address addr, uint64 chainId) internal {
+        if (registerTo == address(0)) revert ADDRESS_NULL();
         if (addr == address(0)) revert ADDRESS_NULL();
-        AddressManager(addressManager).setAddress(chainId, name, addr);
-        console2.log("> ", Strings.toString(uint256(name)), "@", addressManager);
+        AddressManager(registerTo).setAddress(chainId, name, addr);
+        console2.log("> ", Strings.toString(uint256(name)), "@", registerTo);
         console2.log("\t addr : ", addr);
     }
 
-    function copyRigister(
-        address toAddressManager,
-        address fromAddressManager,
-        bytes32 name
-    )
-        internal
-    {
-        require(toAddressManager != address(0));
-        require(fromAddressManager != address(0));
+    function copyRigister(address registerTo, address readFrom, bytes32 name) internal {
+        require(registerTo != address(0));
+        require(readFrom != address(0));
         register({
-            addressManager: toAddressManager,
+            registerTo: registerTo,
             name: name,
-            addr: AddressManager(fromAddressManager).getAddress(uint64(block.chainid), name),
+            addr: AddressManager(readFrom).getAddress(uint64(block.chainid), name),
             chainId: uint64(block.chainid)
         });
     }

@@ -32,6 +32,11 @@ contract AddressManager is OwnableUpgradeable, UUPSUpgradeable, IAddressManager 
         uint64 indexed chainId, bytes32 indexed name, address newAddress, address oldAddress
     );
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     /// @notice Initializes the owner for the upgradable contract.
     function init() external initializer {
         OwnableUpgradeable.__Ownable_init();

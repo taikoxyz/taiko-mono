@@ -109,7 +109,7 @@ contract DeployOnL1 is Script {
             name: "address_manager_for_bridge",
             impl: address(new AddressManager()),
             data: bytes.concat(AddressManager.init.selector),
-            addressManager: address(0),
+            registerTo: address(0),
             owner: vm.envAddress("OWNER")
         });
 
@@ -124,7 +124,7 @@ contract DeployOnL1 is Script {
                     vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT")
                 )
                 ),
-            addressManager: sharedAddressManager,
+            registerTo: sharedAddressManager,
             owner: vm.envAddress("OWNER")
         });
 
@@ -132,7 +132,7 @@ contract DeployOnL1 is Script {
             name: "signal_service",
             impl: address(new SignalService()),
             data: bytes.concat(SignalService.init.selector),
-            addressManager: sharedAddressManager,
+            registerTo: sharedAddressManager,
             owner: msg.sender // We set msg.sender as the owner and will change it later.
          });
 
@@ -140,7 +140,7 @@ contract DeployOnL1 is Script {
             name: "bridge",
             impl: address(new Bridge()),
             data: bytes.concat(Bridge.init.selector, abi.encode(sharedAddressManager)),
-            addressManager: sharedAddressManager,
+            registerTo: sharedAddressManager,
             owner: vm.envAddress("OWNER")
         });
 
@@ -149,7 +149,7 @@ contract DeployOnL1 is Script {
             name: "erc20_vault",
             impl: address(new ERC20Vault()),
             data: bytes.concat(BaseVault.init.selector, abi.encode(sharedAddressManager)),
-            addressManager: sharedAddressManager,
+            registerTo: sharedAddressManager,
             owner: vm.envAddress("OWNER")
         });
 
@@ -157,7 +157,7 @@ contract DeployOnL1 is Script {
             name: "erc721_vault",
             impl: address(new ERC721Vault()),
             data: bytes.concat(BaseVault.init.selector, abi.encode(sharedAddressManager)),
-            addressManager: sharedAddressManager,
+            registerTo: sharedAddressManager,
             owner: vm.envAddress("OWNER")
         });
 
@@ -165,7 +165,7 @@ contract DeployOnL1 is Script {
             name: "erc1155_vault",
             impl: address(new ERC1155Vault()),
             data: bytes.concat(BaseVault.init.selector, abi.encode(sharedAddressManager)),
-            addressManager: sharedAddressManager,
+            registerTo: sharedAddressManager,
             owner: vm.envAddress("OWNER")
         });
 
@@ -189,7 +189,7 @@ contract DeployOnL1 is Script {
             name: "address_manager_for_rollup",
             impl: address(new AddressManager()),
             data: bytes.concat(AddressManager.init.selector),
-            addressManager: address(0),
+            registerTo: address(0),
             owner: vm.envAddress("OWNER")
         });
 
@@ -200,15 +200,15 @@ contract DeployOnL1 is Script {
                 TaikoL1.init.selector,
                 abi.encode(rollupAddressManager, vm.envBytes32("L2_GENESIS_HASH"))
                 ),
-            addressManager: rollupAddressManager,
+            registerTo: rollupAddressManager,
             owner: vm.envAddress("OWNER")
         });
 
         LibDeployHelper.deployProxy({
             name: "tier_provider",
             impl: address(new TaikoA6TierProvider()),
-            data: "",
-            addressManager: rollupAddressManager,
+            data: bytes.concat(TaikoA6TierProvider.init.selector, abi.encode(rollupAddressManager)),
+            registerTo: rollupAddressManager,
             owner: vm.envAddress("OWNER")
         });
 
@@ -216,7 +216,7 @@ contract DeployOnL1 is Script {
             name: "tier_guardian",
             impl: address(new GuardianVerifier()),
             data: bytes.concat(GuardianVerifier.init.selector, abi.encode(rollupAddressManager)),
-            addressManager: rollupAddressManager,
+            registerTo: rollupAddressManager,
             owner: vm.envAddress("OWNER")
         });
 
@@ -224,7 +224,7 @@ contract DeployOnL1 is Script {
             name: "tier_sgx",
             impl: address(new SgxVerifier()),
             data: bytes.concat(SgxVerifier.init.selector, abi.encode(rollupAddressManager)),
-            addressManager: rollupAddressManager,
+            registerTo: rollupAddressManager,
             owner: vm.envAddress("OWNER")
         });
 
@@ -232,7 +232,7 @@ contract DeployOnL1 is Script {
             name: "tier_sgx_and_pse_zkevm",
             impl: address(new SgxAndZkVerifier()),
             data: bytes.concat(SgxAndZkVerifier.init.selector, abi.encode(rollupAddressManager)),
-            addressManager: rollupAddressManager,
+            registerTo: rollupAddressManager,
             owner: vm.envAddress("OWNER")
         });
 
@@ -240,7 +240,7 @@ contract DeployOnL1 is Script {
             name: "tier_pse_zkevm",
             impl: address(new PseZkVerifier()),
             data: bytes.concat(PseZkVerifier.init.selector, abi.encode(rollupAddressManager)),
-            addressManager: rollupAddressManager,
+            registerTo: rollupAddressManager,
             owner: vm.envAddress("OWNER")
         });
 
@@ -259,7 +259,7 @@ contract DeployOnL1 is Script {
             name: "guardian_prover",
             impl: address(new GuardianProver()),
             data: bytes.concat(GuardianProver.init.selector, abi.encode(rollupAddressManager)),
-            addressManager: rollupAddressManager,
+            registerTo: rollupAddressManager,
             owner: msg.sender
         });
 

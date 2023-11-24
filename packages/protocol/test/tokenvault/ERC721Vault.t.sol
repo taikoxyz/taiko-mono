@@ -142,7 +142,7 @@ contract ERC721VaultTest is TaikoTest {
                 name: "address_manager",
                 impl: address(new AddressManager()),
                 data: bytes.concat(AddressManager.init.selector),
-                addressManager: address(0),
+                registerTo: address(0),
                 owner: msg.sender
             })
         );
@@ -153,7 +153,7 @@ contract ERC721VaultTest is TaikoTest {
                     name: "bridge",
                     impl: address(new Bridge()),
                     data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
-                    addressManager: address(addressManager),
+                    registerTo: address(addressManager),
                     owner: msg.sender
                 })
             )
@@ -165,7 +165,7 @@ contract ERC721VaultTest is TaikoTest {
                     name: "bridge",
                     impl: address(new Bridge()),
                     data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
-                    addressManager: address(addressManager),
+                    registerTo: address(addressManager),
                     owner: msg.sender
                 })
             )
@@ -176,7 +176,7 @@ contract ERC721VaultTest is TaikoTest {
                 name: "signal_service",
                 impl: address(new SignalService()),
                 data: bytes.concat(SignalService.init.selector),
-                addressManager: address(0),
+                registerTo: address(0),
                 owner: msg.sender
             })
         );
