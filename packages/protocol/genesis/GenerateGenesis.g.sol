@@ -202,7 +202,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         bridge.pause();
         assertEq(bridge.paused(), true);
 
-        vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
+        vm.expectRevert(OwnerUUPSUpgradable.INVALID_PAUSE_STATUS.selector);
         bridge.processMessage(
             IBridge.Message({
                 id: 0,

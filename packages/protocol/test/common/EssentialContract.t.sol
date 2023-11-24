@@ -3,11 +3,11 @@ pragma solidity ^0.8.20;
 
 import "../TaikoTest.sol";
 
-contract Target1 is EssentialContract {
+contract Target1 is OwnerUUPSUpgradable {
     uint256 public count;
 
     function init() external initializer {
-        EssentialContract._init(address(0));
+        _init();
         count = 100;
     }
 
@@ -26,7 +26,7 @@ contract Target2 is Target1 {
     }
 }
 
-contract TestEssentialContract is TaikoTest {
+contract TestOwnerUUPSUpgradable is TaikoTest {
     function test_essential_behind_1967_proxy() external {
         bytes memory data = bytes.concat(Target1.init.selector);
         vm.startPrank(Alice);

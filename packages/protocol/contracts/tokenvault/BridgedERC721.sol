@@ -44,7 +44,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         ) {
             revert BRIDGED_TOKEN_INVALID_PARAMS();
         }
-        EssentialContract._init(_addressManager);
+        _init(_addressManager);
         __ERC721_init(_name, _symbol);
         srcToken = _srcToken;
         srcChainId = _srcChainId;

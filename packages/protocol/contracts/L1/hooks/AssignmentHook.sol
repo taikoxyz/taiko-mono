@@ -48,7 +48,7 @@ contract AssignmentHook is EssentialContract, IHook {
     error HOOK_TIER_NOT_FOUND();
 
     function init(address _addressManager) external initializer {
-        EssentialContract._init(_addressManager);
+        _init(_addressManager);
     }
 
     function onBlockProposed(

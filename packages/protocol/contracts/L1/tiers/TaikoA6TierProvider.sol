@@ -22,7 +22,7 @@ contract TaikoA6TierProvider is EssentialContract, ITierProvider {
 
     /// @notice Initializes the contract with the provided address manager.
     function init() external initializer {
-        EssentialContract._init(address(0));
+        _init();
     }
 
     function getTier(uint16 tierId) public pure override returns (ITierProvider.Tier memory) {

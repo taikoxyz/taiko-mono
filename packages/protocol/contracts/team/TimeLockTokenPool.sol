@@ -78,7 +78,7 @@ contract TimeLockTokenPool is EssentialContract {
     error TOO_MANY();
 
     function init(address _taikoToken, address _sharedVault) external initializer {
-        EssentialContract._init(address(0));
+        _init();
 
         if (_taikoToken == address(0)) revert INVALID_PARAM();
         taikoToken = _taikoToken;
