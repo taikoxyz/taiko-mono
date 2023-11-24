@@ -17,7 +17,10 @@ import { FiatTokenProxy } from
     "../helper/usdc/FiatTokenProxy/centre-tokens/contracts/v1/FiatTokenProxy.sol";
 import { FiatTokenV2_1 } from
     "../helper/usdc/FiatTokenV2_1/centre-tokens/contracts/v2/FiatTokenV2_1.sol";
-import { ERC20Registry } from "../../contracts/tokenvault/erc20/registry/ERC20Registry.sol";
+import { ERC20NativeRegistry } from
+    "../../contracts/tokenvault/erc20/registry/ERC20NativeRegistry.sol";
+import { ProxiedUsdcTranslator } from
+    "../../contracts/tokenvault/erc20/translators/UsdcTranslator.sol";
 
 // PrankDestBridge lets us simulate a transaction to the ERC20Vault
 // from a named Bridge, without having to test/run through the real Bridge code,
@@ -110,8 +113,10 @@ contract TestERC20Vault is Test {
     FiatTokenV2_1 fiatTokenV2_2_L2;
     address proxyOwner; // aka proxy admin too !
     address minterRoleConfigurator; // The one who configures who can mint
+    address minterTranslatorIs; // The deployed translator contract which given minter role
 
-    ERC20Registry ERC20RegistryL2; //Only need to deploy this on L2, since on L1, it is 'native'
+    ERC20NativeRegistry erc20NativeRegistryL2; //Only need to deploy this on L2, since on L1, it is
+        // 'native'
         // anyways
 
     // Dummy for implementation storage setting
@@ -140,8 +145,8 @@ contract TestERC20Vault is Test {
         destChainIdERC20Vault = new ERC20Vault();
         destChainIdERC20Vault.init(address(addressManager));
 
-        ERC20RegistryL2 = new ERC20Registry();
-        ERC20RegistryL2.init(address(addressManager));
+        erc20NativeRegistryL2 = new ERC20NativeRegistry();
+        erc20NativeRegistryL2.init(address(addressManager));
 
         erc20 = new FreeMintERC20("ERC20", "ERC20");
         erc20.mint(Alice);
@@ -163,7 +168,9 @@ contract TestERC20Vault is Test {
 
         addressManager.setAddress(destChainId, "erc20_vault", address(destChainIdERC20Vault));
 
-        addressManager.setAddress(destChainId, "erc20_hook", address(ERC20RegistryL2));
+        addressManager.setAddress(
+            destChainId, "erc20_native_registry", address(erc20NativeRegistryL2)
+        );
 
         addressManager.setAddress(destChainId, "bridge", address(destChainIdBridge));
 
@@ -174,6 +181,12 @@ contract TestERC20Vault is Test {
         addressManager.setAddress(
             uint64(block.chainid), "proxied_bridged_erc20", proxiedBridgedERC20
         );
+
+        address proxiedUsdcTranslator = address(new ProxiedUsdcTranslator());
+
+        addressManager.setAddress(destChainId, "usdc_translator", proxiedUsdcTranslator);
+
+        addressManager.setAddress(uint64(block.chainid), "usdc_translator", proxiedUsdcTranslator);
 
         proxyOwner = vm.addr(0x12);
         minterRoleConfigurator = vm.addr(0x13);
@@ -229,26 +242,29 @@ contract TestERC20Vault is Test {
         FiatTokenV2_1(address(proxyContract_L2)).initializeV2_1(THROWAWAY_ADDRESS);
 
         vm.stopPrank();
+        // Set the registry
+        vm.prank(Amelia, Amelia);
+        minterTranslatorIs = erc20NativeRegistryL2.changeCustomToken(
+            address(proxyContract_L1),
+            address(proxyContract_L2),
+            "usdc_translator",
+            uint64(block.chainid),
+            false
+        );
 
         vm.prank(minterRoleConfigurator, minterRoleConfigurator);
         FiatTokenV2_1(address(proxyContract_L1)).configureMinter(
-            address(erc20Vault), type(uint256).max
+            minterTranslatorIs, type(uint256).max
         );
 
         vm.prank(minterRoleConfigurator, minterRoleConfigurator);
         FiatTokenV2_1(address(proxyContract_L2)).configureMinter(
-            address(destChainIdERC20Vault), type(uint256).max
+            minterTranslatorIs, type(uint256).max
         );
 
         // Mint 10 tokens to Alice
-        vm.prank(address(erc20Vault), address(erc20Vault));
+        vm.prank(minterTranslatorIs, minterTranslatorIs);
         FiatTokenV2_1(address(proxyContract_L1)).mint(Alice, 10);
-
-        // Set the hook
-        vm.prank(Amelia, Amelia);
-        ERC20RegistryL2.changeCustomToken(
-            address(proxyContract_L1), address(proxyContract_L2), 1, false
-        );
     }
 
     function test_20Vault_send_erc20_revert_if_allowance_not_set() public {
@@ -603,10 +619,6 @@ contract TestERC20Vault is Test {
         assertEq(bridgedERC20.name(), unicode"USD Coin");
         assertEq(bridgedERC20.balanceOf(Bob), amount);
 
-        // Ok, so now, Bob wants to bridge back his 1 token
-        // bridgedERC20 in our case is the USDC on L2 bc of line 612.
-        bridgedERC20.approve(address(destChainIdERC20Vault), amount);
-
         uint256 bobBalanceBefore = bridgedERC20.balanceOf(Bob);
         uint256 erc20VaultBalanceBefore = bridgedERC20.balanceOf(address(destChainIdERC20Vault));
 
@@ -623,8 +635,10 @@ contract TestERC20Vault is Test {
 
         // Bob now tries to bridge back his "native" USDC and it needs to be burnt on this chain -
         // so supply is 0 after
+        (, address translatorContract) =
+            erc20NativeRegistryL2.getCanonicalAndTranslator(address(bridgedERC20));
         vm.prank(Bob, Bob);
-        bridgedERC20.approve(address(destChainIdERC20Vault), amount);
+        bridgedERC20.approve(address(translatorContract), amount);
 
         // Supply is 1
         assertEq(bridgedERC20.totalSupply(), 1);
@@ -643,5 +657,75 @@ contract TestERC20Vault is Test {
         assertEq(erc20VaultBalanceAfter, 0);
         // Supply is 0
         assertEq(bridgedERC20.totalSupply(), 0);
+    }
+
+    // This tests a scenario, when for example - for whatever reason - circle gets the ownership of
+    // the native token but revokes the minterRole from us.
+    function test_20Vault_bridge_native_usdc_to_l2_but_after_circle_revoked_minter_role() public {
+        vm.startPrank(Alice);
+
+        uint64 srcChainId = uint64(block.chainid);
+        vm.chainId(destChainId);
+
+        uint256 amount = 1;
+
+        destChainIdBridge.setERC20Vault(address(destChainIdERC20Vault));
+
+        address bridgedAddressBefore =
+            destChainIdERC20Vault.canonicalToBridged(srcChainId, address(erc20));
+        assertEq(bridgedAddressBefore == address(0), true);
+
+        destChainIdBridge.sendReceiveERC20ToERC20Vault(
+            usdcCanonicalToken(srcChainId),
+            Alice,
+            Bob,
+            amount,
+            bytes32(0),
+            address(erc20Vault),
+            srcChainId,
+            0
+        );
+
+        address bridgedAddressAfter =
+            destChainIdERC20Vault.canonicalToBridged(srcChainId, address(proxyContract_L1));
+
+        BridgedERC20 bridgedERC20 = BridgedERC20(bridgedAddressAfter);
+
+        assertEq(bridgedERC20.name(), unicode"USD Coin");
+        assertEq(bridgedERC20.balanceOf(Bob), amount);
+
+        vm.stopPrank();
+
+        // Imitating circle revoke minter role.
+        vm.prank(minterRoleConfigurator, minterRoleConfigurator);
+        FiatTokenV2_1(address(proxyContract_L1)).removeMinter(minterTranslatorIs);
+
+        // Circle revoked minter role, we cannot bridge now USDC from L1 to L2, but we can
+        // mint our bridged "USDC ⭀31337" style, tho it cannot be considered native
+        vm.prank(Amelia, Amelia);
+        minterTranslatorIs = erc20NativeRegistryL2.changeCustomToken(
+            address(proxyContract_L1),
+            address(proxyContract_L2),
+            "usdc_translator",
+            srcChainId,
+            true
+        );
+
+        vm.startPrank(Alice, Alice);
+        destChainIdBridge.sendReceiveERC20ToERC20Vault(
+            usdcCanonicalToken(srcChainId),
+            Alice,
+            Bob,
+            amount,
+            bytes32(0),
+            address(erc20Vault),
+            srcChainId,
+            0
+        );
+
+        address bridgedAddressAfterRevokedMinterRole =
+            destChainIdERC20Vault.canonicalToBridged(srcChainId, address(proxyContract_L1));
+
+        assertEq((bridgedAddressAfter != bridgedAddressAfterRevokedMinterRole), true);
     }
 }

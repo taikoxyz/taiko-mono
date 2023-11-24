@@ -12,7 +12,8 @@ import "../bridge/IBridge.sol";
 import "./BridgedERC20.sol";
 import "./IMintableERC20.sol";
 import "./BaseVault.sol";
-import "./erc20/registry/IERC20Registry.sol";
+import "./erc20/registry/IERC20NativeRegistry.sol";
+import "./erc20/translators/BaseTranslator.sol";
 
 /// @title ERC20Vault
 /// @dev Labeled in AddressResolver as "erc20_vault"
@@ -94,6 +95,21 @@ contract ERC20Vault is BaseVault {
     error VAULT_MESSAGE_NOT_FAILED();
     error VAULT_MESSAGE_RELEASED_ALREADY();
 
+    /// @dev If a native token issuer (e.g.: Circle/Lido) revokes minter role from our contracts
+    /// (once they get the ownership), we won't be able to mint / burn the tokens. But we still want
+    /// to mint these tokens like "USDC ⭀31337" style, but then we need to reset the old mapping.
+    /// @param chainId ChainId the canonical lives.
+    /// @param canonicalAddrToReset Canonical address.
+    function resetCanonicalToBridged(
+        uint256 chainId,
+        address canonicalAddrToReset
+    )
+        external
+        onlyFromNamed("erc20_native_registry")
+    {
+        canonicalToBridged[chainId][canonicalAddrToReset] = address(0);
+    }
+
     /// @notice Transfers ERC20 tokens to this vault and sends a message to the
     /// destination chain so the user can receive the same amount of tokens by
     /// invoking the message call.
@@ -162,7 +178,6 @@ contract ERC20Vault is BaseVault {
             ERC20Upgradeable(token).safeTransfer(_to, amount);
         } else {
             token = _getOrDeployBridgedToken(ctoken);
-            // USDC has the exact same mint() function signature, so this can stay as is.
             IMintableERC20(token).mint(_to, amount);
         }
 
@@ -235,34 +250,17 @@ contract ERC20Vault is BaseVault {
 
         // If it's a bridged token
         if (bridgedToCanonical[token].addr != address(0)) {
-            // Determine the burn type
-            address erc20Registry = resolve("erc20_hook", true);
-            // Check if it's a native/custom token
-            if (erc20Registry != address(0)) {
-                (, uint8 burnFuncSig) =
-                    IERC20Registry(erc20Registry).getCanonicalAndBurnSignature(token);
-                if (BurnSignature(burnFuncSig) == BurnSignature.USDC) {
-                    // It means trying to bridge back USDC
-                    // In that case, we need to  first "own" the tokens to be able to burn them so:
-                    // 1. transferFrom()
-                    // 2. burn()
-                    // Using ERC20Upgradeable is fine here, because we only interested in the
-                    // transferFrom()
-                    ERC20Upgradeable(token).transferFrom({
-                        from: msg.sender,
-                        to: address(this),
-                        amount: amount
-                    });
-                    IERC20Registry(token).burn(amount);
-                    _balanceChange = amount;
-                } else {
-                    // Burn the default way
-                    IMintableERC20(token).burn(msg.sender, amount);
-                }
-            } else {
-                // Still burn the default way
-                IMintableERC20(token).burn(msg.sender, amount);
+            // erc20NativeRegistry shall be address(0) on L1 and CAN be address(0) on L2 too, if
+            // there is no native support
+            address erc20NativeRegistry = resolve("erc20_native_registry", true);
+            address translator;
+            if (erc20NativeRegistry != address(0)) {
+                // Check if it's a native/custom token support
+                (, translator) =
+                    IERC20NativeRegistry(erc20NativeRegistry).getCanonicalAndTranslator(token);
             }
+            // If translator is non-zero, then it is a native token so burn via translator
+            IMintableERC20(translator == address(0) ? token : translator).burn(msg.sender, amount);
             ctoken = bridgedToCanonical[token];
             _balanceChange = amount;
         } else {
@@ -296,19 +294,24 @@ contract ERC20Vault is BaseVault {
         private
         returns (address btoken)
     {
-        address erc20Registry = resolve("erc20_hook", true);
+        address erc20NativeRegistry = resolve("erc20_native_registry", true);
 
-        if (erc20Registry != address(0)) {
-            btoken = IERC20Registry(erc20Registry).getCustomCounterPart(ctoken.addr);
-
+        if (erc20NativeRegistry != address(0)) {
+            // preDeployedCounterpart will always result in address(0) if we do not support native
+            // tokens on L2. (First will be USDC)
+            (address preDeployedCounterpart, address translator) =
+                IERC20NativeRegistry(erc20NativeRegistry).getPredeployedAndTranslator(ctoken.addr);
             if (
-                btoken != address(0)
+                preDeployedCounterpart != address(0)
                     && canonicalToBridged[ctoken.chainId][ctoken.addr] == address(0)
             ) {
-                // Save it
-                bridgedToCanonical[btoken] = ctoken;
-                canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
-                return btoken;
+                // Save it - but in this case we are saving the wrapper
+                bridgedToCanonical[preDeployedCounterpart] = ctoken;
+                canonicalToBridged[ctoken.chainId][ctoken.addr] = preDeployedCounterpart;
+
+                // We need to use translator as btoken, since this one shall have the minter role as
+                // minting/burning goes through these translator contracts.
+                return translator;
             }
         }
 
