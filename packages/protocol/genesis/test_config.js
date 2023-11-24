@@ -88,10 +88,7 @@ module.exports = {
       ERC721Vault: getConstantAddress(`0${this.chainId}`, 3),
       ERC1155Vault: getConstantAddress(`0${this.chainId}`, 4),
       SignalService: getConstantAddress(`0${this.chainId}`, 5),
-      AddressManagerForSingletons: getConstantAddress(
-        `0${this.chainId}`,
-        6,
-      ),
+      AddressManagerForSingletons: getConstantAddress(`0${this.chainId}`, 6),
       // Non-singletons
       TaikoL2: getConstantAddress(`0${this.chainId}`, 10001),
       AddressManager: getConstantAddress(`0${this.chainId}`, 10002),
