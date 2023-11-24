@@ -196,8 +196,13 @@ contract ERC721VaultTest is TaikoTest {
         destChainIdBridge = new PrankDestBridge(destChainErc721Vault);
         vm.deal(address(destChainIdBridge), 100 ether);
 
-        mockProofSignalService = new SkipProofCheckSignal();
-        mockProofSignalService.init();
+        mockProofSignalService = SkipProofCheckSignal(
+            LibDeployHelper.deployProxy({
+                name: "signal_service",
+                impl: address(new SkipProofCheckSignal()),
+                data: bytes.concat(SignalService.init.selector)
+            })
+        );
 
         crossChainSync = new DummyCrossChainSync();
 
