@@ -31,8 +31,8 @@ contract ERC20Registry is EssentialContract, IERC20Registry {
 
     uint256[49] private __gap;
 
-    event ERC20_CUSTOM_ADDED(address l1Address, address l2Counterpart);
-    event ERC20_CUSTOM_DELETED(address l1Address, address l2Counterpart);
+    event Erc20CustomAdded(address l1Address, address l2Counterpart);
+    event Erc20CustomDeleted(address l1Address, address l2Counterpart);
 
     error ERC20_HOOK_INVALID_ADDRESS();
     error ERC20_HOOK_INVALID_BURN_SIGNATURE_ID();
@@ -69,7 +69,7 @@ contract ERC20Registry is EssentialContract, IERC20Registry {
             delete canonicalToPredeployed[l1Address];
             delete predeployedToCanonical[deployedCounterpart];
 
-            emit ERC20_CUSTOM_DELETED(l1Address, deployedCounterpart);
+            emit Erc20CustomDeleted(l1Address, deployedCounterpart);
         } else {
             // Do not allow to have a 0 burn funciton signature, this way we can signal, that the
             // token is a 'custom token'.
@@ -79,7 +79,7 @@ contract ERC20Registry is EssentialContract, IERC20Registry {
             predeployedToCanonical[deployedCounterpart] =
                 DeployedToCanoincalData(l1Address, burnfunctionSigId);
 
-            emit ERC20_CUSTOM_ADDED(l1Address, deployedCounterpart);
+            emit Erc20CustomAdded(l1Address, deployedCounterpart);
         }
     }
 
