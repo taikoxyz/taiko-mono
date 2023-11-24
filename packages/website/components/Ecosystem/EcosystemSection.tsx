@@ -51,6 +51,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/automatanetwork.png",
+    name: "Automata Network",
+    link: "https://www.l2faucet.com/taiko",
+    description:
+      "Automata Network is a modular attestation layer that extends machine-level trust to Ethereum by leveraging optimistic rollups and zero-knowledge proofs in its Proof of Machinehood approach. The application-specific rollup allows on-chain verification for out-of-protocol computation, which creates an unbroken chain of trust that extends upwards through the entire Web3 stack.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/bitget.png",
     name: "Bitget Wallet",
     link: "https://web3.bitget.com/",
