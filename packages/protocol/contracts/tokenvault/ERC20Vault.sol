@@ -12,7 +12,7 @@ import "../bridge/IBridge.sol";
 import "./BridgedERC20.sol";
 import "./IMintableERC20.sol";
 import "./BaseVault.sol";
-import "./hooks/erc20/IERC20Hook.sol";
+import "./erc20/registry/IERC20Registry.sol";
 
 /// @title ERC20Vault
 /// @dev Labeled in AddressResolver as "erc20_vault"
@@ -236,10 +236,11 @@ contract ERC20Vault is BaseVault {
         // If it's a bridged token
         if (bridgedToCanonical[token].addr != address(0)) {
             // Determine the burn type
-            address erc20Hook = resolve("erc20_hook", true);
+            address ERC20Registry = resolve("erc20_hook", true);
             // Check if it's a native/custom token
-            if (erc20Hook != address(0)) {
-                (, uint8 burnFuncSig) = IERC20Hook(erc20Hook).getCanonicalAndBurnSignature(token);
+            if (ERC20Registry != address(0)) {
+                (, uint8 burnFuncSig) =
+                    IERC20Registry(ERC20Registry).getCanonicalAndBurnSignature(token);
                 if (BurnSignature(burnFuncSig) == BurnSignature.USDC) {
                     // It means trying to bridge back USDC
                     // In that case, we need to  first "own" the tokens to be able to burn them so:
@@ -252,7 +253,7 @@ contract ERC20Vault is BaseVault {
                         to: address(this),
                         amount: amount
                     });
-                    IERC20Hook(token).burn(amount);
+                    IERC20Registry(token).burn(amount);
                     _balanceChange = amount;
                 } else {
                     // Burn the default way
@@ -295,10 +296,10 @@ contract ERC20Vault is BaseVault {
         private
         returns (address btoken)
     {
-        address erc20Hook = resolve("erc20_hook", true);
+        address ERC20Registry = resolve("erc20_hook", true);
 
-        if (erc20Hook != address(0)) {
-            btoken = IERC20Hook(erc20Hook).getCustomCounterPart(ctoken.addr);
+        if (ERC20Registry != address(0)) {
+            btoken = IERC20Registry(ERC20Registry).getCustomCounterPart(ctoken.addr);
 
             if (
                 btoken != address(0)

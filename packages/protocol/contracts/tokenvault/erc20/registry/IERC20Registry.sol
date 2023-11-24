@@ -6,8 +6,8 @@
 
 pragma solidity ^0.8.20;
 
-/// @title IERC20Hook
-interface IERC20Hook {
+/// @title IERC20Registry
+interface IERC20Registry {
     function getCustomCounterPart(address l1Address) external view returns (address);
 
     function getCanonicalAndBurnSignature(address l2Address)

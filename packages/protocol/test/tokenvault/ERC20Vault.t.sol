@@ -17,7 +17,7 @@ import { FiatTokenProxy } from
     "../helper/usdc/FiatTokenProxy/centre-tokens/contracts/v1/FiatTokenProxy.sol";
 import { FiatTokenV2_1 } from
     "../helper/usdc/FiatTokenV2_1/centre-tokens/contracts/v2/FiatTokenV2_1.sol";
-import { ERC20Hook } from "../../contracts/tokenvault/hooks/erc20/ERC20Hook.sol";
+import { ERC20Registry } from "../../contracts/tokenvault/erc20/registry/ERC20Registry.sol";
 
 // PrankDestBridge lets us simulate a transaction to the ERC20Vault
 // from a named Bridge, without having to test/run through the real Bridge code,
@@ -111,7 +111,8 @@ contract TestERC20Vault is Test {
     address proxyOwner; // aka proxy admin too !
     address minterRoleConfigurator; // The one who configures who can mint
 
-    ERC20Hook erc20HookL2; //Only need to deploy this on L2, since on L1, it is 'native' anyways
+    ERC20Registry ERC20RegistryL2; //Only need to deploy this on L2, since on L1, it is 'native'
+        // anyways
 
     // Dummy for implementation storage setting
     address THROWAWAY_ADDRESS = 0x0000000000000000000000000000000000000001;
@@ -139,8 +140,8 @@ contract TestERC20Vault is Test {
         destChainIdERC20Vault = new ERC20Vault();
         destChainIdERC20Vault.init(address(addressManager));
 
-        erc20HookL2 = new ERC20Hook();
-        erc20HookL2.init(address(addressManager));
+        ERC20RegistryL2 = new ERC20Registry();
+        ERC20RegistryL2.init(address(addressManager));
 
         erc20 = new FreeMintERC20("ERC20", "ERC20");
         erc20.mint(Alice);
@@ -162,7 +163,7 @@ contract TestERC20Vault is Test {
 
         addressManager.setAddress(destChainId, "erc20_vault", address(destChainIdERC20Vault));
 
-        addressManager.setAddress(destChainId, "erc20_hook", address(erc20HookL2));
+        addressManager.setAddress(destChainId, "erc20_hook", address(ERC20RegistryL2));
 
         addressManager.setAddress(destChainId, "bridge", address(destChainIdBridge));
 
@@ -245,7 +246,7 @@ contract TestERC20Vault is Test {
 
         // Set the hook
         vm.prank(Amelia, Amelia);
-        erc20HookL2.changeCustomToken(
+        ERC20RegistryL2.changeCustomToken(
             address(proxyContract_L1), address(proxyContract_L2), 1, false
         );
     }

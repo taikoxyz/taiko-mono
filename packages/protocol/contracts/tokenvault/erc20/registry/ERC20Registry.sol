@@ -7,11 +7,12 @@
 pragma solidity ^0.8.20;
 
 import "../../../common/EssentialContract.sol";
-import "./IERC20Hook.sol";
+import "./IERC20Registry.sol";
 
-/// @title ERC20Hook
-/// A hook that helps with custom erc20 bridging based on some standards (e.g.: circle's USDC).
-contract ERC20Hook is EssentialContract, IERC20Hook {
+/// @title ERC20Registry
+/// A registry that helps with custom erc20 bridging based on some standards (e.g.: circle's USDC).
+/// It keeps track of mapping between native and counterpart contracts.
+contract ERC20Registry is EssentialContract, IERC20Registry {
     struct DeployedToCanoincalData {
         address canonicalAddress;
         uint8 burnFunctionSignature;
@@ -24,7 +25,7 @@ contract ERC20Hook is EssentialContract, IERC20Hook {
     // the USDC)
     // In case burnFunctionSignature is NOT 0 -> It means it is a bridged, but native token.
     // If we need to add support for USDT and they have a different burn function signature, the
-    // only thing needed is to update the IERC20Hook interface and adding a new if-else into the
+    // only thing needed is to update the IERC20Registry interface and adding a new if-else into the
     // ERC20Vault's _handleMessage()-
     mapping(address l2Address => DeployedToCanoincalData) public predeployedToCanonical;
 
@@ -100,6 +101,6 @@ contract ERC20Hook is EssentialContract, IERC20Hook {
     function burn(uint256 amuont) external { }
 }
 
-/// @title ProxiedERC20Hook
+/// @title ProxiedERC20Registry
 /// @notice Proxied version of the parent contract.
-contract ProxiedERC20Hook is Proxied, ERC20Hook { }
+contract ProxiedERC20Registry is Proxied, ERC20Registry { }
