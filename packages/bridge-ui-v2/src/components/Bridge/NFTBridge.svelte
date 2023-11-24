@@ -103,7 +103,6 @@
     if (nftIdInputComponent) nftIdInputComponent.clearIds();
 
     $recipientAddress = $account?.address || null;
-    // $processingFee = 0n;
     $selectedToken = ETHToken;
     importMethod === null;
     scanned = false;
@@ -247,7 +246,7 @@
         User Actions
       -->
       {#if activeStep === NFTSteps.REVIEW}
-        <div class="f-col w-full gap-4">
+        <div class="f-col w-full gap-[16px]">
           <Button
             disabled={!canProceed}
             type="primary"
@@ -274,7 +273,7 @@
               {$t('common.back')}
             </button>
           </div>
-        {:else if scanned}
+        {:else if scanned && foundNFTs.length > 0}
           <div class="f-col w-full">
             <div class="h-sep" />
 
