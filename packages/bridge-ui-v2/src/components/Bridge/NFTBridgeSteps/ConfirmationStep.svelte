@@ -5,7 +5,7 @@
 
   import { routingContractsMap } from '$bridgeConfig';
   import { chainConfig } from '$chainConfig';
-  import { Icon } from '$components/Icon';
+  import { Icon, type IconType } from '$components/Icon';
   import { successToast } from '$components/NotificationToast';
   import { infoToast } from '$components/NotificationToast/NotificationToast.svelte';
   import Spinner from '$components/Spinner/Spinner.svelte';
@@ -21,6 +21,7 @@
   import { account } from '$stores/account';
   import { network } from '$stores/network';
   import { pendingTransactions } from '$stores/pendingTransactions';
+  import { theme } from '$stores/theme';
 
   import Actions from '../Actions.svelte';
   import {
@@ -175,13 +176,16 @@
       handleBridgeError(err as Error);
     }
   }
+  $: approveIcon = `approve-${$theme}` as IconType;
+  $: bridgeIcon = `bridge-${$theme}` as IconType;
+  $: successIcon = `success-${$theme}` as IconType;
 </script>
 
 <div class="mt-[30px]">
   <section id="txStatus">
     <div class="flex flex-col justify-content-center items-center">
       {#if bridgingStatus === 'done'}
-        <Icon type="check-circle" size={160} fillClass="fill-positive-sentiment" />
+        <Icon type={successIcon} size={160} />
         <div id="text" class="f-col my-[30px] text-center">
           <!-- eslint-disable-next-line svelte/no-at-html-tags -->
           <h1>{@html statusTitle}</h1>
@@ -189,7 +193,7 @@
           <span class="">{@html statusDescription}</span>
         </div>
       {:else if !allTokensApproved && !approving}
-        <Icon type="approve-step" size={160} fillClass="fill-primary-brand" />
+        <Icon type={approveIcon} size={160} />
         <div id="text" class="f-col my-[30px] text-center">
           <h1 class="mb-[16px]">{$t('bridge.nft.step.confirm.approve.title')}</h1>
           <span>{$t('bridge.nft.step.confirm.approve.description')}</span>
@@ -200,25 +204,11 @@
           <span>{$t('bridge.nft.step.confirm.approve.pending')}</span>
         </div>
       {:else if allTokensApproved && !approving && !bridging}
-        <Icon type="bridge-step" size={160} fillClass="secondary-content" />
+        <Icon type={bridgeIcon} size={160} />
         <div id="text" class="f-col my-[30px] text-center">
           <h1 class="mb-[16px]">{$t('bridge.nft.step.confirm.approved.title')}</h1>
           <span>{$t('bridge.nft.step.confirm.approved.description')}</span>
         </div>
-        <!-- {:else}
-        {@const currentChain = $network?.id}
-        {#if currentChain}
-          {@const explorer = chainConfig[currentChain].urls.explorer}
-          <Icon type="approve" size={160} fillClass="fill-primary-brand" />
-          <div id="text" class="f-col my-[30px] text-center">
-            <h1 class="mb-[16px]">{$t('common.success')}</h1>
-            <span
-              >{($t('bridge.nft.step.confirm.bridge.success.message'),
-              {
-                values: { url: `${explorer}/tx/${bridgeTxHash}` },
-              })}</span>
-          </div>
-        {/if} -->
       {/if}
     </div>
   </section>

@@ -226,7 +226,7 @@
     {#if $selectedToken && $selectedToken.type !== TokenType.ETH}
       <Button
         type="primary"
-        class="px-[28px] py-[14px] rounded-full flex-1"
+        class="px-[28px] py-[14px] rounded-full flex-1 text-white"
         disabled={disableApprove}
         loading={approving}
         on:click={onApproveClick}>
