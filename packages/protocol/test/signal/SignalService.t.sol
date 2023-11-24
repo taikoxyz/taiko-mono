@@ -28,9 +28,7 @@ contract TestSignalService is TaikoTest {
             LibDeployHelper.deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
-                data: bytes.concat(AddressManager.init.selector),
-                registerTo: address(0),
-                owner: msg.sender
+                data: bytes.concat(AddressManager.init.selector)
             })
         );
 
@@ -38,9 +36,7 @@ contract TestSignalService is TaikoTest {
             LibDeployHelper.deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
-                data: bytes.concat(SignalService.init.selector),
-                registerTo: address(0),
-                owner: msg.sender
+                data: bytes.concat(SignalService.init.selector)
             })
         );
 
@@ -48,9 +44,7 @@ contract TestSignalService is TaikoTest {
             LibDeployHelper.deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
-                data: bytes.concat(SignalService.init.selector),
-                registerTo: address(0),
-                owner: msg.sender
+                data: bytes.concat(SignalService.init.selector)
             })
         );
 

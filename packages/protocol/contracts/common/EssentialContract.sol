@@ -45,6 +45,11 @@ abstract contract EssentialContract is UUPSUpgradeable, OwnableUpgradeable, Addr
         _;
     }
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    // constructor() {
+    //     _disableInitializers();
+    // }
+
     function pause() external whenNotPaused onlyOwner {
         _paused = _TRUE;
         emit Paused(msg.sender);
@@ -74,18 +79,4 @@ abstract contract EssentialContract is UUPSUpgradeable, OwnableUpgradeable, Addr
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner { }
-}
-
-/// @title Proxied
-/// @dev Extends OpenZeppelin's Initializable for upgradeable contracts.
-/// Intended as the base class for contracts used with
-/// ERC1967Proxy.
-///
-/// @dev For each chain, deploy Proxied contracts with unique deployers to
-/// ensure distinct contract addresses.
-abstract contract Proxied is Initializable {
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
 }

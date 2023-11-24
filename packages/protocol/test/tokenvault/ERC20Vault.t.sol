@@ -103,25 +103,46 @@ contract TestERC20Vault is Test {
         vm.deal(Amelia, 1 ether);
         vm.deal(Bob, 1 ether);
 
-        tko = new TaikoToken();
+        tko = TaikoToken(
+            LibDeployHelper.deployProxy({
+                name: "taiko_token",
+                impl: address(new TaikoToken()),
+                data: bytes.concat(
+                    TaikoToken.init.selector,
+                    abi.encode(
+                        "Taiko Token", //
+                        "TTKOk",
+                        address(this)
+                    )
+                    )
+            })
+        );
 
         addressManager = AddressManager(
             LibDeployHelper.deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
-                data: bytes.concat(AddressManager.init.selector),
-                registerTo: address(0),
-                owner: msg.sender
+                data: bytes.concat(AddressManager.init.selector)
             })
         );
 
         addressManager.setAddress(uint64(block.chainid), "taiko_token", address(tko));
 
-        erc20Vault = new ERC20Vault();
-        erc20Vault.init(address(addressManager));
+        erc20Vault = ERC20Vault(
+            LibDeployHelper.deployProxy({
+                name: "erc20_vault",
+                impl: address(new ERC20Vault()),
+                data: bytes.concat(BaseVault.init.selector, abi.encode(address(addressManager)))
+            })
+        );
 
-        destChainIdERC20Vault = new ERC20Vault();
-        destChainIdERC20Vault.init(address(addressManager));
+        destChainIdERC20Vault = ERC20Vault(
+            LibDeployHelper.deployProxy({
+                name: "erc20_vault",
+                impl: address(new ERC20Vault()),
+                data: bytes.concat(BaseVault.init.selector, abi.encode(address(addressManager)))
+            })
+        );
 
         erc20 = new FreeMintERC20("ERC20", "ERC20");
         erc20.mint(Alice);
@@ -133,7 +154,7 @@ contract TestERC20Vault is Test {
                     impl: address(new Bridge()),
                     data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
                     registerTo: address(addressManager),
-                    owner: msg.sender
+                    owner: address(0)
                 })
             )
         );
@@ -147,7 +168,7 @@ contract TestERC20Vault is Test {
                 impl: address(new SignalService()),
                 data: bytes.concat(SignalService.init.selector),
                 registerTo: address(0),
-                owner: msg.sender
+                owner: address(0)
             })
         );
 

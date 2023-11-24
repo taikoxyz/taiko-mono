@@ -230,7 +230,3 @@ contract TimeLockTokenPool is EssentialContract {
         }
     }
 }
-
-/// @title ProxiedTimeLockTokenPool
-/// @notice Proxied version of the parent contract.
-contract ProxiedTimeLockTokenPool is Proxied, TimeLockTokenPool { }

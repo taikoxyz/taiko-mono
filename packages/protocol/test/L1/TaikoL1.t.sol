@@ -36,9 +36,7 @@ contract TaikoL1Test is TaikoL1TestBase {
                 LibDeployHelper.deployProxy({
                     name: "taiko",
                     impl: address(new TaikoL1_NoCooldown()),
-                    data: "",
-                    registerTo: address(0),
-                    owner: msg.sender
+                    data: ""
                 })
             )
         );

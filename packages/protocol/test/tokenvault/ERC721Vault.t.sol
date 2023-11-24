@@ -141,9 +141,7 @@ contract ERC721VaultTest is TaikoTest {
             LibDeployHelper.deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
-                data: bytes.concat(AddressManager.init.selector),
-                registerTo: address(0),
-                owner: msg.sender
+                data: bytes.concat(AddressManager.init.selector)
             })
         );
 
@@ -154,7 +152,7 @@ contract ERC721VaultTest is TaikoTest {
                     impl: address(new Bridge()),
                     data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
                     registerTo: address(addressManager),
-                    owner: msg.sender
+                    owner: address(0)
                 })
             )
         );
@@ -166,7 +164,7 @@ contract ERC721VaultTest is TaikoTest {
                     impl: address(new Bridge()),
                     data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
                     registerTo: address(addressManager),
-                    owner: msg.sender
+                    owner: address(0)
                 })
             )
         );
@@ -175,17 +173,25 @@ contract ERC721VaultTest is TaikoTest {
             LibDeployHelper.deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
-                data: bytes.concat(SignalService.init.selector),
-                registerTo: address(0),
-                owner: msg.sender
+                data: bytes.concat(SignalService.init.selector)
             })
         );
 
-        erc721Vault = new ERC721Vault();
-        erc721Vault.init(address(addressManager));
+        erc721Vault = ERC721Vault(
+            LibDeployHelper.deployProxy({
+                name: "erc721_vault",
+                impl: address(new ERC721Vault()),
+                data: bytes.concat(BaseVault.init.selector, abi.encode(address(addressManager)))
+            })
+        );
 
-        destChainErc721Vault = new ERC721Vault();
-        destChainErc721Vault.init(address(addressManager));
+        destChainErc721Vault = ERC721Vault(
+            LibDeployHelper.deployProxy({
+                name: "erc721_vault",
+                impl: address(new ERC721Vault()),
+                data: bytes.concat(BaseVault.init.selector, abi.encode(address(addressManager)))
+            })
+        );
 
         destChainIdBridge = new PrankDestBridge(destChainErc721Vault);
         vm.deal(address(destChainIdBridge), 100 ether);

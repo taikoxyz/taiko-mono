@@ -62,9 +62,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             LibDeployHelper.deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
-                data: bytes.concat(AddressManager.init.selector),
-                registerTo: address(0),
-                owner: msg.sender
+                data: bytes.concat(AddressManager.init.selector)
             })
         );
 
@@ -72,9 +70,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             LibDeployHelper.deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
-                data: bytes.concat(SignalService.init.selector),
-                registerTo: address(0),
-                owner: msg.sender
+                data: bytes.concat(SignalService.init.selector)
             })
         );
 
@@ -82,9 +78,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             LibDeployHelper.deployProxy({
                 name: "tier_pse_zkevm",
                 impl: address(new PseZkVerifier()),
-                data: bytes.concat(PseZkVerifier.init.selector, abi.encode(address(addressManager))),
-                registerTo: address(0),
-                owner: msg.sender
+                data: bytes.concat(PseZkVerifier.init.selector, abi.encode(address(addressManager)))
             })
         );
 
@@ -92,9 +86,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             LibDeployHelper.deployProxy({
                 name: "tier_sgx",
                 impl: address(new SgxVerifier()),
-                data: bytes.concat(SgxVerifier.init.selector, abi.encode(address(addressManager))),
-                registerTo: address(0),
-                owner: msg.sender
+                data: bytes.concat(SgxVerifier.init.selector, abi.encode(address(addressManager)))
             })
         );
 
@@ -106,9 +98,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             LibDeployHelper.deployProxy({
                 name: "tier_sgx_and_pse_zkevm",
                 impl: address(new SgxAndZkVerifier()),
-                data: bytes.concat(SgxAndZkVerifier.init.selector, abi.encode(address(addressManager))),
-                registerTo: address(0),
-                owner: msg.sender
+                data: bytes.concat(SgxAndZkVerifier.init.selector, abi.encode(address(addressManager)))
             })
         );
 
@@ -116,9 +106,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             LibDeployHelper.deployProxy({
                 name: "guardian_verifier",
                 impl: address(new GuardianVerifier()),
-                data: bytes.concat(GuardianVerifier.init.selector, abi.encode(address(addressManager))),
-                registerTo: address(0),
-                owner: msg.sender
+                data: bytes.concat(GuardianVerifier.init.selector, abi.encode(address(addressManager)))
             })
         );
 
@@ -126,9 +114,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             LibDeployHelper.deployProxy({
                 name: "guardian_prover",
                 impl: address(new GuardianProver()),
-                data: bytes.concat(GuardianProver.init.selector, abi.encode(address(addressManager))),
-                registerTo: address(0),
-                owner: msg.sender
+                data: bytes.concat(GuardianProver.init.selector, abi.encode(address(addressManager)))
             })
         );
 
@@ -143,7 +129,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
                     impl: address(new Bridge()),
                     data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
                     registerTo: address(addressManager),
-                    owner: msg.sender
+                    owner: address(0)
                 })
             )
         );
@@ -152,9 +138,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             LibDeployHelper.deployProxy({
                 name: "assignment_hook",
                 impl: address(new AssignmentHook()),
-                data: bytes.concat(AssignmentHook.init.selector, abi.encode(address(addressManager))),
-                registerTo: address(0),
-                owner: msg.sender
+                data: bytes.concat(AssignmentHook.init.selector, abi.encode(address(addressManager)))
             })
         );
 
@@ -173,10 +157,22 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
         registerAddress(pv.getVerifierName(300), address(new MockVerifier()));
 
-        tko = new TaikoToken();
-        registerAddress("taiko_token", address(tko));
-
-        tko.init("TaikoToken", "TKO", address(this));
+        tko = TaikoToken(
+            LibDeployHelper.deployProxy({
+                name: "taiko_token",
+                impl: address(new TaikoToken()),
+                data: bytes.concat(
+                    TaikoToken.init.selector,
+                    abi.encode(
+                        "Taiko Token", //
+                        "TTKOk",
+                        address(this)
+                    )
+                    ),
+                registerTo: address(addressManager),
+                owner: address(0)
+            })
+        );
 
         L1.init(address(addressManager), GENESIS_BLOCK_HASH);
         printVariables("init  ");

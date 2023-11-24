@@ -131,7 +131,3 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
         super._burn(from, amount);
     }
 }
-
-/// @title ProxiedTaikoToken
-/// @notice Proxied version of the TaikoToken contract.
-contract ProxiedTaikoToken is Proxied, TaikoToken { }

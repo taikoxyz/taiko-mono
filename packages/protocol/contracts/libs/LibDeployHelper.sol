@@ -41,6 +41,17 @@ library LibDeployHelper {
         console2.log("\t owner : ", OwnableUpgradeable(proxy).owner());
     }
 
+    function deployProxy(
+        bytes32 name,
+        address impl,
+        bytes memory data
+    )
+        internal
+        returns (address proxy)
+    {
+        return deployProxy(name, impl, data, address(0), address(0));
+    }
+
     function register(address registerTo, bytes32 name, address addr) internal {
         register(registerTo, name, addr, uint64(block.chainid));
     }

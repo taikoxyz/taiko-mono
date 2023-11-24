@@ -260,7 +260,7 @@ contract DeployOnL1 is Script {
             impl: address(new GuardianProver()),
             data: bytes.concat(GuardianProver.init.selector, abi.encode(rollupAddressManager)),
             registerTo: rollupAddressManager,
-            owner: msg.sender
+            owner: address(0)
         });
 
         address[] memory guardianProvers = vm.envAddress("GUARDIAN_PROVERS", ",");

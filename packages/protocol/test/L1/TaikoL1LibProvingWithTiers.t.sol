@@ -39,9 +39,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 LibDeployHelper.deployProxy({
                     name: "taiko",
                     impl: address(new TaikoL1Tiers()),
-                    data: "",
-                    registerTo: address(0),
-                    owner: msg.sender
+                    data: ""
                 })
             )
         );

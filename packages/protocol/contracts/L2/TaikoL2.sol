@@ -263,11 +263,3 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         if (_basefee == 0) _basefee = 1;
     }
 }
-
-/// @title ProxiedSingletonTaikoL2
-/// @notice Proxied version of the TaikoL2 contract.
-/// @dev Deploy this contract as a singleton per chain for use by multiple L2s
-/// or L3s. No singleton check is performed within the code; it's the deployer's
-/// responsibility to ensure this. Singleton deployment is essential for
-/// enabling multi-hop bridging across all Taiko L2/L3s.
-contract ProxiedSingletonTaikoL2 is Proxied, TaikoL2 { }
