@@ -81,9 +81,8 @@ contract ERC20NativeRegistry is EssentialContract, IERC20NativeRegistry {
         } else {
             canonicalToPredeployed[l1Address] = deployedCounterpart;
             // We need to deploy the wrapper/translator contract and use it in the ERC20Vault.
-            bytes memory data = bytes.concat(
-                BaseTranslator.init.selector, abi.encode(addressManager, deployedCounterpart)
-            );
+            bytes memory data =
+                bytes.concat(BaseTranslator.init.selector, abi.encode(addressManager));
 
             translator = LibDeploy.deployTransparentUpgradeableProxyForOwnable(
                 resolve(translatorName, false), owner(), data
