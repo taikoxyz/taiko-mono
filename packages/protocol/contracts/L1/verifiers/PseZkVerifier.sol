@@ -35,7 +35,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
     function init(address _addressManager) external initializer {
-        EssentialContract._init(_addressManager);
+        _Essential_init(_addressManager);
     }
 
     /// @inheritdoc IVerifier
@@ -138,7 +138,3 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         return bytes32(uint256(0x1000000) + id);
     }
 }
-
-/// @title ProxiedProofVerifier
-/// @notice Proxied version of the parent contract.
-contract ProxiedPseZkVerifier is Proxied, PseZkVerifier { }

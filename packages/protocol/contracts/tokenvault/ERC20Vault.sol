@@ -286,8 +286,7 @@ contract ERC20Vault is BaseVault {
             )
         );
 
-        btoken =
-            LibDeploy.deployERC1967Proxy(resolve("proxied_bridged_erc20", false), owner(), data);
+        btoken = LibDeploy.deployERC1967Proxy(resolve("bridged_erc20", false), owner(), data);
 
         bridgedToCanonical[btoken] = ctoken;
         canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
@@ -302,11 +301,3 @@ contract ERC20Vault is BaseVault {
         });
     }
 }
-
-/// @title ProxiedSingletonERC20Vault
-/// @notice Proxied version of the parent contract.
-/// @dev Deploy this contract as a singleton per chain for use by multiple L2s
-/// or L3s. No singleton check is performed within the code; it's the deployer's
-/// responsibility to ensure this. Singleton deployment is essential for
-/// enabling multi-hop bridging across all Taiko L2/L3s.
-contract ProxiedSingletonERC20Vault is Proxied, ERC20Vault { }

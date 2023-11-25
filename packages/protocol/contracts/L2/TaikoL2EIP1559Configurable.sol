@@ -42,7 +42,3 @@ contract TaikoL2EIP1559Configurable is TaikoL2 {
         return _config;
     }
 }
-
-/// @title ProxiedTaikoL2EIP1559Configurable
-/// @notice Proxied version of the TaikoL2EIP1559Configurable contract.
-contract ProxiedTaikoL2EIP1559Configurable is Proxied, TaikoL2EIP1559Configurable { }

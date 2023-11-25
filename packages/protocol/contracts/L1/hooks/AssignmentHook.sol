@@ -48,7 +48,7 @@ contract AssignmentHook is EssentialContract, IHook {
     error HOOK_TIER_NOT_FOUND();
 
     function init(address _addressManager) external initializer {
-        EssentialContract._init(_addressManager);
+        _Essential_init(_addressManager);
     }
 
     function onBlockProposed(
@@ -165,7 +165,3 @@ contract AssignmentHook is EssentialContract, IHook {
         revert HOOK_TIER_NOT_FOUND();
     }
 }
-
-/// @title ProxiedAssignmentHook
-/// @notice Proxied version of the parent contract.
-contract ProxiedAssignmentHook is Proxied, AssignmentHook { }

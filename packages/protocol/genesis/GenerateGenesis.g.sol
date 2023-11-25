@@ -33,24 +33,24 @@ contract TestGenerateGenesis is Test, AddressResolver {
         assertEq(block.chainid, 167);
 
         // check bytecode
-        checkDeployedCode("ProxiedSingletonERC20Vault");
-        checkDeployedCode("ProxiedSingletonERC721Vault");
-        checkDeployedCode("ProxiedSingletonERC1155Vault");
-        checkDeployedCode("ProxiedSingletonBridge");
-        checkDeployedCode("ProxiedSingletonSignalService");
-        checkDeployedCode("ProxiedSingletonAddressManagerForSingletons");
-        checkDeployedCode("ProxiedBridgedERC20");
-        checkDeployedCode("ProxiedBridgedERC721");
-        checkDeployedCode("ProxiedBridgedERC1155");
+        checkDeployedCode("ERC20Vault");
+        checkDeployedCode("ERC721Vault");
+        checkDeployedCode("ERC1155Vault");
+        checkDeployedCode("Bridge");
+        checkDeployedCode("SignalService");
+        checkDeployedCode("AddressManagerForSingletons");
+        checkDeployedCode("BridgedERC20");
+        checkDeployedCode("BridgedERC721");
+        checkDeployedCode("BridgedERC1155");
 
         // check proxy implementations
-        checkProxyImplementation("SingletonERC20VaultProxy", "ProxiedSingletonERC20Vault");
-        checkProxyImplementation("SingletonERC721VaultProxy", "ProxiedSingletonERC721Vault");
-        checkProxyImplementation("SingletonERC1155VaultProxy", "ProxiedSingletonERC1155Vault");
-        checkProxyImplementation("SingletonBridgeProxy", "ProxiedSingletonBridge");
-        checkProxyImplementation("SingletonSignalServiceProxy", "ProxiedSingletonSignalService");
+        checkProxyImplementation("SingletonERC20VaultProxy", "ERC20Vault");
+        checkProxyImplementation("SingletonERC721VaultProxy", "ERC721Vault");
+        checkProxyImplementation("SingletonERC1155VaultProxy", "ERC1155Vault");
+        checkProxyImplementation("SingletonBridgeProxy", "Bridge");
+        checkProxyImplementation("SingletonSignalServiceProxy", "SignalService");
         checkProxyImplementation(
-            "SingletonAddressManagerForSingletonsProxy", "ProxiedSingletonAddressManagerForSingletons"
+            "SingletonAddressManagerForSingletonsProxy", "AddressManagerForSingletons"
         );
 
         // check proxies
@@ -64,12 +64,12 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
     function testNonSingletonContractDeployment() public {
         // check bytecode
-        checkDeployedCode("ProxiedSingletonTaikoL2");
-        checkDeployedCode("ProxiedAddressManager");
+        checkDeployedCode("TaikoL2");
+        checkDeployedCode("AddressManager");
 
         // check proxy implementations
-        checkProxyImplementation("SingletonTaikoL2Proxy", "ProxiedSingletonTaikoL2");
-        checkProxyImplementation("AddressManagerProxy", "ProxiedAddressManager");
+        checkProxyImplementation("SingletonTaikoL2Proxy", "TaikoL2");
+        checkProxyImplementation("AddressManagerProxy", "AddressManager");
 
         // check proxies
         checkDeployedCode("SingletonTaikoL2Proxy");
@@ -202,7 +202,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         bridge.pause();
         assertEq(bridge.paused(), true);
 
-        vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
+        vm.expectRevert(OwnerUUPSUpgradable.INVALID_PAUSE_STATUS.selector);
         bridge.processMessage(
             IBridge.Message({
                 id: 0,

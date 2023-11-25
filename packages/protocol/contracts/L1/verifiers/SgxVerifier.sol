@@ -54,7 +54,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
     function init(address _addressManager) external initializer {
-        EssentialContract._init(_addressManager);
+        _Essential_init(_addressManager);
     }
 
     /// @notice Adds trusted SGX instances to the registry.
@@ -159,7 +159,3 @@ contract SgxVerifier is EssentialContract, IVerifier {
         return instances[id].addedAt + INSTANCE_EXPIRY > block.timestamp;
     }
 }
-
-/// @title ProxiedSgxVerifier
-/// @notice Proxied version of the parent contract.
-contract ProxiedSgxVerifier is Proxied, SgxVerifier { }

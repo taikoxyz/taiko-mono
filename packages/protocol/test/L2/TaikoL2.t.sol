@@ -1,14 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
-import "lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
-import "forge-std/console2.sol";
-import "../../contracts/common/AddressManager.sol";
-import "../../contracts/signal/SignalService.sol";
-import "../../contracts/L2/TaikoL2EIP1559Configurable.sol";
-import "../../contracts/L2/TaikoL2.sol";
-import "../TestBase.sol";
+import "../TaikoTest.sol";
 
 contract SkipBasefeeCheckL2 is TaikoL2EIP1559Configurable {
     function skipFeeCheck() public pure override returns (bool) {
@@ -27,29 +20,51 @@ contract TestTaikoL2 is TaikoTest {
     AddressManager public addressManager;
     SignalService public ss;
     TaikoL2EIP1559Configurable public L2;
-    SkipBasefeeCheckL2 public L2FeeSimulation;
-    uint256 private logIndex;
+    SkipBasefeeCheckL2 public L2skip;
 
     function setUp() public {
-        addressManager = new AddressManager();
-        addressManager.init();
+        addressManager = AddressManager(
+            LibDeployHelper.deployProxy({
+                name: "address_manager",
+                impl: address(new AddressManager()),
+                data: bytes.concat(AddressManager.init.selector)
+            })
+        );
 
-        ss = new SignalService();
-        ss.init();
-        registerAddress("signal_service", address(ss));
+        ss = SignalService(
+            LibDeployHelper.deployProxy({
+                name: "signal_service",
+                impl: address(new SignalService()),
+                data: bytes.concat(SignalService.init.selector),
+                registerTo: address(addressManager),
+                owner: address(0)
+            })
+        );
 
-        L2 = new TaikoL2EIP1559Configurable();
         uint64 gasExcess = 0;
         uint8 quotient = 8;
         uint32 gasTarget = 60_000_000;
-        L2.init(address(ss), gasExcess);
+
+        L2 = TaikoL2EIP1559Configurable(
+            LibDeployHelper.deployProxy({
+                name: "taiko_l2",
+                impl: address(new TaikoL2EIP1559Configurable()),
+                data: bytes.concat(TaikoL2.init.selector, abi.encode(address(ss), gasExcess))
+            })
+        );
+
         L2.setConfigAndExcess(TaikoL2.Config(gasTarget, quotient), gasExcess);
 
-        L2FeeSimulation = new SkipBasefeeCheckL2();
         gasExcess = 195_420_300_100;
+        L2skip = SkipBasefeeCheckL2(
+            LibDeployHelper.deployProxy({
+                name: "taiko_l2",
+                impl: address(new SkipBasefeeCheckL2()),
+                data: bytes.concat(TaikoL2.init.selector, abi.encode(address(ss), gasExcess))
+            })
+        );
 
-        L2FeeSimulation.init(address(ss), gasExcess);
-        L2FeeSimulation.setConfigAndExcess(TaikoL2.Config(gasTarget, quotient), gasExcess);
+        L2skip.setConfigAndExcess(TaikoL2.Config(gasTarget, quotient), gasExcess);
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);
@@ -179,7 +194,7 @@ contract TestTaikoL2 is TaikoTest {
 
             vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
             _anchorSimulation(currentGasUsed, l1Height);
-            uint256 currentBaseFee = L2FeeSimulation.getBasefee(l1Height, currentGasUsed);
+            uint256 currentBaseFee = L2skip.getBasefee(l1Height, currentGasUsed);
             allBaseFee += currentBaseFee;
             console2.log("Actual gas in L2 block is:", currentGasUsed);
             console2.log("L2block to baseFee is:", i, ":", currentBaseFee);
@@ -228,15 +243,15 @@ contract TestTaikoL2 is TaikoTest {
     }
 
     function _anchor(uint32 parentGasLimit) private {
-        bytes32 l1Hash = getRandomBytes32();
-        bytes32 l1SignalRoot = getRandomBytes32();
+        bytes32 l1Hash = randBytes32();
+        bytes32 l1SignalRoot = randBytes32();
         L2.anchor(l1Hash, l1SignalRoot, 12_345, parentGasLimit);
     }
 
     function _anchorSimulation(uint32 parentGasLimit, uint64 l1Height) private {
-        bytes32 l1Hash = getRandomBytes32();
-        bytes32 l1SignalRoot = getRandomBytes32();
-        L2FeeSimulation.anchor(l1Hash, l1SignalRoot, l1Height, parentGasLimit);
+        bytes32 l1Hash = randBytes32();
+        bytes32 l1SignalRoot = randBytes32();
+        L2skip.anchor(l1Hash, l1SignalRoot, l1Height, parentGasLimit);
     }
 
     function registerAddress(bytes32 nameHash, address addr) internal {

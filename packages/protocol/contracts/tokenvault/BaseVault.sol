@@ -24,7 +24,7 @@ abstract contract BaseVault is EssentialContract, IRecallableSender, IERC165Upgr
     /// @param addressManager Address manager contract address.
 
     function init(address addressManager) external initializer {
-        EssentialContract._init(addressManager);
+        _Essential_init(addressManager);
     }
 
     /// @notice Checks if the contract supports the given interface.
