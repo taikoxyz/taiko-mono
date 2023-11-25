@@ -65,8 +65,9 @@ library LibDeployHelper {
     }
 
     function copyRigister(address registerTo, address readFrom, bytes32 name) internal {
-        require(registerTo != address(0));
-        require(readFrom != address(0));
+        if (registerTo == address(0)) revert ADDRESS_NULL();
+        if (readFrom == address(0)) revert ADDRESS_NULL();
+
         register({
             registerTo: registerTo,
             name: name,

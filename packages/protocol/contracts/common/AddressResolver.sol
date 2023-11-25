@@ -76,6 +76,7 @@ abstract contract AddressResolver {
 
     /// @dev Initialization method for setting up AddressManager reference.
     /// @param _addressManager Address of the AddressManager.
+    // solhint-disable-next-line func-name-mixedcase
     function _AddressResolver_init(address _addressManager) internal virtual {
         if (block.chainid >= type(uint64).max) {
             revert RESOLVER_UNEXPECTED_CHAINID();

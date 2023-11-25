@@ -36,6 +36,11 @@ import "../contracts/libs/LibDeployHelper.sol";
 contract DeployOnL1 is Script {
     uint256 public constant NUM_GUARDIANS = 5;
 
+    address public constant MAINNET_SECURITY_COUNCIL = 0x7C50d60743D3FCe5a39FdbF687AFbAe5acFF49Fd;
+
+    address securityCouncil =
+        block.chainid == 1 ? MAINNET_SECURITY_COUNCIL : vm.envAddress("SECURITY_COUNCIL");
+
     modifier broadcast() {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
         require(privateKey != 0, "invalid priv key");
@@ -125,9 +130,6 @@ contract DeployOnL1 is Script {
             return (sharedAddressManager, vm.envAddress("TIMELOCK_CONTROLLER"));
         }
 
-        // Make sure security council is not empty
-        addressNotNull(vm.envAddress("SECURITY_COUNCIL"), "SECURITY_COUNCIL");
-
         // Deploy the timelock
         TimelockController _timelock = new TimelockController({
                 minDelay: 7 days,
@@ -169,7 +171,7 @@ contract DeployOnL1 is Script {
         _timelock.grantRole(_timelock.EXECUTOR_ROLE(), governor);
         _timelock.grantRole(_timelock.CANCELLER_ROLE(), address(governor));
 
-        _timelock.grantRole(_timelock.TIMELOCK_ADMIN_ROLE(), vm.envAddress("SECURITY_COUNCIL"));
+        _timelock.grantRole(_timelock.TIMELOCK_ADMIN_ROLE(), securityCouncil);
         _timelock.renounceRole(_timelock.TIMELOCK_ADMIN_ROLE(), address(this));
 
         // Deploy Bridging contracts

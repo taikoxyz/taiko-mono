@@ -7,7 +7,7 @@
 pragma solidity ^0.8.20;
 
 import "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
-import "../common/OwnerUUPSUpgradable.sol";
+import "../common/EssentialContract.sol";
 import "../common/ICrossChainSync.sol";
 import "../libs/LibMath.sol";
 import "../signal/ISignalService.sol";
@@ -20,7 +20,7 @@ import "./TaikoL2Signer.sol";
 /// It is used to anchor the latest L1 block details to L2 for cross-layer
 /// communication, manage EIP-1559 parameters for gas pricing, and store
 /// verified L1 block information.
-contract TaikoL2 is OwnerUUPSUpgradable, TaikoL2Signer, ICrossChainSync {
+contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     using LibMath for uint256;
 
     struct Config {
@@ -55,7 +55,7 @@ contract TaikoL2 is OwnerUUPSUpgradable, TaikoL2Signer, ICrossChainSync {
     /// @param _signalService Address of the {ISignalService} contract.
     /// @param _gasExcess The initial gasExcess.
     function init(address _signalService, uint64 _gasExcess) external initializer {
-        _OwnerUUPSUpgradable_init();
+        _Essential_init();
 
         if (_signalService == address(0)) revert L2_INVALID_PARAM();
         signalService = _signalService;

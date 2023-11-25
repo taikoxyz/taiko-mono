@@ -3,11 +3,11 @@ pragma solidity ^0.8.20;
 
 import "../TaikoTest.sol";
 
-contract Target1 is OwnerUUPSUpgradable {
+contract Target1 is EssentialContract {
     uint256 public count;
 
     function init() external initializer {
-        _OwnerUUPSUpgradable_init();
+        _Essential_init();
         count = 100;
     }
 

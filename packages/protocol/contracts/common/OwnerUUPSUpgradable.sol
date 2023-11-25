@@ -63,7 +63,10 @@ abstract contract OwnerUUPSUpgradable is UUPSUpgradeable, OwnableUpgradeable {
         return _paused == _TRUE;
     }
 
+    function _authorizeUpgrade(address) internal override onlyOwner { }
+
     /// @notice Initializes the contract with an address manager.
+    // solhint-disable-next-line func-name-mixedcase
     function _OwnerUUPSUpgradable_init() internal virtual {
         __Ownable_init();
         _reentry = _FALSE;
@@ -73,6 +76,4 @@ abstract contract OwnerUUPSUpgradable is UUPSUpgradeable, OwnableUpgradeable {
     function _inNonReentrant() internal view returns (bool) {
         return _reentry == _TRUE;
     }
-
-    function _authorizeUpgrade(address) internal override onlyOwner { }
 }
