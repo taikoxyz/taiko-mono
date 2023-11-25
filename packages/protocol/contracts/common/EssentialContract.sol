@@ -12,8 +12,8 @@ import "./OwnerUUPSUpgradable.sol";
 abstract contract EssentialContract is OwnerUUPSUpgradable, AddressResolver {
     /// @notice Initializes the contract with an address manager.
     /// @param _addressManager The address of the address manager.
-    function _init(address _addressManager) internal virtual override {
-        _init();
-        AddressResolver._init(_addressManager);
+    function _Essential_init(address _addressManager) internal virtual {
+        _OwnerUUPSUpgradable_init();
+        _AddressResolver_init(_addressManager);
     }
 }

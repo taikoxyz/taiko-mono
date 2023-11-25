@@ -53,7 +53,7 @@ contract BridgedERC1155 is
         if (_srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid) {
             revert BRIDGED_TOKEN_INVALID_PARAMS();
         }
-        _init(_addressManager);
+        _Essential_init(_addressManager);
         __ERC1155_init("");
         srcToken = _srcToken;
         srcChainId = _srcChainId;

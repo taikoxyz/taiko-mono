@@ -35,7 +35,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
     function init(address _addressManager) external initializer {
-        _init(_addressManager);
+        _Essential_init(_addressManager);
     }
 
     /// @inheritdoc IVerifier

@@ -45,7 +45,7 @@ contract SignalService is AuthorizableContract, ISignalService {
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init() external initializer {
-        _init();
+        _OwnerUUPSUpgradable_init();
     }
 
     /// @inheritdoc ISignalService

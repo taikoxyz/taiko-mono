@@ -64,7 +64,7 @@ abstract contract OwnerUUPSUpgradable is UUPSUpgradeable, OwnableUpgradeable {
     }
 
     /// @notice Initializes the contract with an address manager.
-    function _init() internal virtual {
+    function _OwnerUUPSUpgradable_init() internal virtual {
         __Ownable_init();
         _reentry = _FALSE;
         _paused = _FALSE;

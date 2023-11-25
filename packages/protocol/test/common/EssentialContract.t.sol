@@ -7,7 +7,7 @@ contract Target1 is OwnerUUPSUpgradable {
     uint256 public count;
 
     function init() external initializer {
-        _init();
+        _OwnerUUPSUpgradable_init();
         count = 100;
     }
 

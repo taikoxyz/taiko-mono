@@ -60,7 +60,7 @@ contract BridgedERC20 is
         }
 
         // Initialize OwnerUUPSUpgradable and ERC20Upgradeable
-        _init(_addressManager);
+        _Essential_init(_addressManager);
         __ERC20_init({ name_: _name, symbol_: _symbol });
 
         // Set contract properties
