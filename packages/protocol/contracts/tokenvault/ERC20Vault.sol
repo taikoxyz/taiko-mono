@@ -6,6 +6,7 @@
 
 pragma solidity ^0.8.20;
 
+import "forge-std/console2.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "../bridge/IBridge.sol";
@@ -13,6 +14,7 @@ import "./BridgedERC20.sol";
 import "./IMintableERC20.sol";
 import "./BaseVault.sol";
 import "./erc20/registry/IERC20NativeRegistry.sol";
+import { IERC20TokenVaultRelayer } from "./erc20/translators/BaseTranslator.sol";
 
 /// @title ERC20Vault
 /// @dev Labeled in AddressResolver as "erc20_vault"
@@ -87,6 +89,8 @@ contract ERC20Vault is BaseVault {
     error VAULT_INVALID_SRC_CHAIN_ID();
     error VAULT_MESSAGE_NOT_FAILED();
     error VAULT_MESSAGE_RELEASED_ALREADY();
+    error VAULT_ERROR_NATIVE_BURN();
+    error VAULT_ERROR_NATIVE_MINT();
 
     /// @dev If a native token issuer (e.g.: Circle/Lido) revokes minter role from our contracts
     /// (once they get the ownership), we won't be able to mint / burn the tokens. But we still want
@@ -170,8 +174,32 @@ contract ERC20Vault is BaseVault {
             token = ctoken.addr;
             ERC20Upgradeable(token).safeTransfer(_to, amount);
         } else {
-            token = _getOrDeployBridgedToken(ctoken);
-            IMintableERC20(token).mint(_to, amount);
+            bool isNative;
+            (token, isNative) = _getOrDeployBridgedToken(ctoken);
+            if (isNative) {
+                console2.log("Haho!!");
+                console2.log("Token is (should be translator):", token);
+                console2.log(
+                    "TokenProxy shall be:", canonicalToBridged[ctoken.chainId][ctoken.addr]
+                );
+                console2.log("To shall be Bob:", to);
+                console2.log("amount shall be 1:", amount);
+                console2.log("address(this) is:", address(this));
+
+                (bool success,) = token.delegatecall(
+                    abi.encodeWithSignature(
+                        "mint(address, address, uint256)",
+                        canonicalToBridged[ctoken.chainId][ctoken.addr],
+                        to,
+                        amount
+                    )
+                );
+                if (!success) {
+                    revert VAULT_ERROR_NATIVE_MINT();
+                }
+            } else {
+                IMintableERC20(token).mint(_to, amount);
+            }
         }
 
         _to.sendEther(msg.value);
@@ -253,7 +281,20 @@ contract ERC20Vault is BaseVault {
                     IERC20NativeRegistry(erc20NativeRegistry).getCanonicalAndTranslator(token);
             }
             // If translator is non-zero, then it is a native token so burn via translator
-            IMintableERC20(translator == address(0) ? token : translator).burn(msg.sender, amount);
+            if (translator != address(0)) {
+                //IERC20TokenVaultRelayer(translator).burn(token, msg.sender, amount);
+                (bool success,) = translator.delegatecall(
+                    abi.encodeWithSignature(
+                        "burn(address, address, uint256)", token, msg.sender, amount
+                    )
+                );
+                if (!success) {
+                    revert VAULT_ERROR_NATIVE_BURN();
+                }
+            } else {
+                IMintableERC20(token).burn(msg.sender, amount);
+            }
+
             ctoken = bridgedToCanonical[token];
             _balanceChange = amount;
         } else {
@@ -285,7 +326,7 @@ contract ERC20Vault is BaseVault {
     /// @return btoken Address of the bridged token contract.
     function _getOrDeployBridgedToken(CanonicalERC20 calldata ctoken)
         private
-        returns (address btoken)
+        returns (address btoken, bool isNative)
     {
         address erc20NativeRegistry = resolve("erc20_native_registry", true);
 
@@ -304,7 +345,7 @@ contract ERC20Vault is BaseVault {
 
                 // We need to use translator as btoken, since this one shall have the minter role as
                 // minting/burning goes through these translator contracts.
-                return translator;
+                return (translator, true);
             }
         }
 
