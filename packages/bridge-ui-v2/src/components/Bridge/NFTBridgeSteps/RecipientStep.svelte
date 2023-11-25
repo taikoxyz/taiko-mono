@@ -7,8 +7,8 @@
   export let hasEnoughEth: boolean = false;
 
   export const reset = () => {
-    recipientComponent.clearRecipient();
-    processingFeeComponent.resetProcessingFee();
+    recipientComponent?.clearRecipient();
+    processingFeeComponent?.resetProcessingFee();
   };
 </script>
 

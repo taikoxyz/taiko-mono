@@ -4,7 +4,7 @@ title: Bridge
 
 ## Bridge
 
-See the documentation for {IBridge}.
+See the documentation for [IBridge](https://taiko.xyz/docs/reference/contract-documentation/bridge/IBridge#ibridge).
 
 _The code hash for the same address on L1 and L2 may be different._
 
@@ -301,11 +301,9 @@ Tells if we need to check real proof or it is a test.
 
 | Name | Type | Description                                                  |
 | ---- | ---- | ------------------------------------------------------------ |
-| [0]  | bool | Returns true if this contract, or can be false if mock/test. |
+| [0]  | bool | Returns true if real proof checking is required, otherwise false if it is a mock/test environment. |
 
 ---
-
-## title: ProxiedBridge
 
 ## ProxiedBridge
 

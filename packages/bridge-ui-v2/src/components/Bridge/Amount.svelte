@@ -59,6 +59,7 @@
   }
 
   export async function validateAmount(token = $selectedToken, fee = $processingFee) {
+    if (!$network?.id) return;
     $validatingAmount = true; // During validation, we disable all the actions
     $insufficientBalance = false;
     $insufficientAllowance = false;

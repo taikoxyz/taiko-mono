@@ -4,7 +4,7 @@ title: IProver
 
 ## IProver
 
-Defines the function that handle prover assignment.
+Defines the function that handles prover assignment.
 
 ### onBlockAssigned
 

@@ -18,7 +18,7 @@ The Ethereum yellow paper has well-defined rules to compute the state transition
 
    2.1 Asserts that the length of the transaction list does not exceed a predefined maximum (MAX_TX_LIST_BYTES), ensuring that the list is within the limits.
 
-   2.2 The transaction list is (RLP) decoded into a list of transactions (txList). If the bytes are not decodeable it will result in an empty block.
+   2.2 The transaction list is (RLP) decoded into a list of transactions (txList). If the bytes are not decodable it will result in an empty block.
 
    2.3 The amount of gas required to include transactions is available. (If a transaction cannot fit into a block, it is simply excluded from it, but the block is still valid with other transactions.)
 
