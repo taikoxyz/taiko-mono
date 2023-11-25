@@ -9,7 +9,7 @@ This document specifies how the Taiko protocol, client, and circuits work togeth
 The transaction list, `txList`, of a Layer 2 (L2) block will eventually be part of a blob in the Layer 1 (L1) Consensus Layer (CL) -- right now it is within the calldata.
 It is meant to be a list of RLP-encoded L2 transactions, with only its length and commitment available to the L1 Execution Layer (EL). The length is checked when a block is proposed, but we need to prove whether the `txList` is valid or not using a ZKP.
 
-A valid `txList` (until [issue #13724](https://github.com/taikoxyz/taiko-mono/issues/13724) is implmented and enabled):
+A valid `txList` (until [issue #13724](https://github.com/taikoxyz/taiko-mono/issues/13724) is implemented and enabled):
 
 - Has a byte-size smaller than the protocol constant _`blockMaxTxListBytes`_ (also enforced in contracts);
 - Can be RLP-decoded into a list of transactions without trailing space;
