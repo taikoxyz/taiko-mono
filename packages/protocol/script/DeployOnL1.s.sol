@@ -18,6 +18,7 @@ import "../contracts/L1/verifiers/SgxVerifier.sol";
 import "../contracts/L1/verifiers/SgxAndZkVerifier.sol";
 import "../contracts/L1/verifiers/GuardianVerifier.sol";
 import "../contracts/L1/tiers/TaikoA6TierProvider.sol";
+import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
@@ -205,6 +206,14 @@ contract DeployOnL1 is Script {
         });
 
         LibDeployHelper.deployProxy({
+            name: "tier_pse_zkevm",
+            impl: address(new AssignmentHook()),
+            data: bytes.concat(AssignmentHook.init.selector, abi.encode(rollupAddressManager)),
+            registerTo: address(0),
+            owner: vm.envAddress("OWNER")
+        });
+
+        LibDeployHelper.deployProxy({
             name: "tier_provider",
             impl: address(new TaikoA6TierProvider()),
             data: bytes.concat(TaikoA6TierProvider.init.selector),
@@ -275,7 +284,6 @@ contract DeployOnL1 is Script {
     }
 
     function deployAuxContracts() private {
-        // Extra contracts
         address horseToken = address(new FreeMintERC20("Horse Token", "HORSE"));
         console2.log("HorseToken", horseToken);
 
