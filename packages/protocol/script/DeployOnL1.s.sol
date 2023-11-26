@@ -7,7 +7,6 @@
 pragma solidity ^0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
-import "lib/openzeppelin-contracts/contracts/governance/TimelockController.sol";
 
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
@@ -21,6 +20,7 @@ import "../contracts/L1/verifiers/SgxAndZkVerifier.sol";
 import "../contracts/L1/verifiers/GuardianVerifier.sol";
 import "../contracts/L1/tiers/TaikoA6TierProvider.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
+import "../contracts/L1/gov/TaikoTimelockController.sol";
 import "../contracts/L1/gov/TaikoGovernor.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
@@ -133,14 +133,13 @@ contract DeployOnL1 is Script {
         }
 
         // Deploy the timelock
-        TimelockController _timelock = new TimelockController({
-                minDelay: 7 days,
-                proposers: new address[](0),
-                executors: new address[](0),
-                admin: address(this)});
-
-        timelock = address(_timelock);
-        console2.log("timelock: ", timelock);
+        timelock = LibDeployHelper.deployProxy({
+            name: "timelock_controller",
+            impl: address(new TaikoTimelockController()),
+            data: bytes.concat(TaikoTimelockController.init.selector, abi.encode(7 days)),
+            registerTo: address(0),
+            owner: address(0)
+        });
 
         sharedAddressManager = LibDeployHelper.deployProxy({
             name: "address_manager_for_bridge",
@@ -165,16 +164,25 @@ contract DeployOnL1 is Script {
             owner: timelock
         });
 
-        address governor = address(new TaikoGovernor(IVotes(taikoToken), _timelock));
-        console2.log("governor: ", governor);
+        address governor = LibDeployHelper.deployProxy({
+            name: "taiko_governor",
+            impl: address(new TaikoGovernor()),
+            data: bytes.concat(AddressManager.init.selector, abi.encode(taikoToken, timelock)),
+            registerTo: address(0),
+            owner: timelock
+        });
 
         // Setup time lock roles
+        TaikoTimelockController _timelock = TaikoTimelockController(payable(timelock));
         _timelock.grantRole(_timelock.PROPOSER_ROLE(), governor);
         _timelock.grantRole(_timelock.EXECUTOR_ROLE(), governor);
         _timelock.grantRole(_timelock.CANCELLER_ROLE(), address(governor));
 
         _timelock.grantRole(_timelock.TIMELOCK_ADMIN_ROLE(), securityCouncil);
         _timelock.renounceRole(_timelock.TIMELOCK_ADMIN_ROLE(), address(this));
+
+        // TODO(David): we need to verify the timelock being its own owner works
+        _timelock.transferOwnership(timelock);
 
         // Deploy Bridging contracts
         LibDeployHelper.deployProxy({
