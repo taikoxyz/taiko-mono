@@ -12,6 +12,7 @@ import
 import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 import "../common/EssentialContract.sol";
 import "./IMintableERC20.sol";
+import "./LibBridgedToken.sol";
 
 /// @title BridgedERC20
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
@@ -128,14 +129,25 @@ contract BridgedERC20 is
     }
 
     /// @notice Gets the name of the token.
-    /// @return The name of the token with the source chain ID appended.
+    /// @return The name.
     function name()
         public
         view
         override(ERC20Upgradeable, IERC20MetadataUpgradeable)
         returns (string memory)
     {
-        return string.concat(super.name(), unicode" ⭀", Strings.toString(srcChainId));
+        return LibBridgedToken.buildName(super.name(), srcChainId);
+    }
+
+    /// @notice Gets the symbol of the bridged token.
+    /// @return The symbol.
+    function symbol()
+        public
+        view
+        override(ERC20Upgradeable, IERC20MetadataUpgradeable)
+        returns (string memory)
+    {
+        return LibBridgedToken.buildSymbol(super.symbol());
     }
 
     /// @notice Gets the number of decimal places of the token.

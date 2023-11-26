@@ -9,6 +9,17 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 )
 
+type proofRewardStatResponse struct {
+	AverageProofReward string `json:"averageProofReward"`
+	FeeTokenAddress    string `json:"feeTokenAddress"`
+	NumBlocksAssigned  uint64 `json:"numBlocksAssigned"`
+}
+type statsResponse struct {
+	AverageProofTime    string                    `json:"averageProofTime"`
+	NumProofs           uint64                    `json:"numProofs"`
+	AverageProofRewards []proofRewardStatResponse `json:"averageProofRewards"`
+}
+
 // GetStats returns the current computed stats for the deployed network.
 //
 //	@Summary		Get stats
@@ -20,22 +31,37 @@ import (
 func (srv *Server) GetStats(c echo.Context) error {
 	cached, found := srv.cache.Get(CacheKeyStats)
 
-	var stats *eventindexer.Stat
-
-	var err error
+	var statsResp *statsResponse = &statsResponse{
+		AverageProofRewards: make([]proofRewardStatResponse, 0),
+	}
 
 	if found {
-		stats = cached.(*eventindexer.Stat)
+		statsResp = cached.(*statsResponse)
 	} else {
-		stats, err = srv.statRepo.Find(
+		stats, err := srv.statRepo.FindAll(
 			c.Request().Context(),
 		)
 		if err != nil {
 			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 		}
 
-		srv.cache.Set(CacheKeyStats, stats, 1*time.Minute)
+		for _, s := range stats {
+			if s.StatType == eventindexer.StatTypeProofTime {
+				statsResp.AverageProofTime = s.AverageProofTime
+				statsResp.NumProofs = s.NumProofs
+			}
+
+			if s.StatType == eventindexer.StatTypeProofReward {
+				statsResp.AverageProofRewards = append(statsResp.AverageProofRewards, proofRewardStatResponse{
+					AverageProofReward: s.AverageProofReward,
+					FeeTokenAddress:    s.FeeTokenAddress,
+					NumBlocksAssigned:  s.NumBlocksAssigned,
+				})
+			}
+		}
+
+		srv.cache.Set(CacheKeyStats, statsResp, 1*time.Minute)
 	}
 
-	return c.JSON(http.StatusOK, stats)
+	return c.JSON(http.StatusOK, statsResp)
 }

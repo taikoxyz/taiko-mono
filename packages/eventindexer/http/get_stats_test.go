@@ -16,13 +16,23 @@ import (
 func Test_GetStats(t *testing.T) {
 	srv := newTestServer("")
 
-	var proofTime = big.NewInt(5)
-
 	var proofReward = big.NewInt(7)
 
+	var proofTime = big.NewInt(1)
+
+	feeTokenAddress := "0x01"
+
 	_, err := srv.statRepo.Save(context.Background(), eventindexer.SaveStatOpts{
-		ProofTime:   proofTime,
-		ProofReward: proofReward,
+		ProofReward:     proofReward,
+		StatType:        eventindexer.StatTypeProofReward,
+		FeeTokenAddress: &feeTokenAddress,
+	})
+
+	assert.Equal(t, nil, err)
+
+	_, err = srv.statRepo.Save(context.Background(), eventindexer.SaveStatOpts{
+		ProofTime: proofTime,
+		StatType:  eventindexer.StatTypeProofTime,
 	})
 
 	assert.Equal(t, nil, err)
@@ -38,7 +48,7 @@ func Test_GetStats(t *testing.T) {
 			"0x123",
 			http.StatusOK,
 			// nolint: lll
-			[]string{`{"id":1,"averageProofTime":"5","averageProofReward":"7","averageProposerReward":"","numProposerRewards":0,"numProofs":1,"numVerifiedBlocks":1}`},
+			[]string{`{"averageProofTime":"1","numProofs":1,"averageProofRewards":\[{"averageProofReward":"7","feeTokenAddress":"0x01","numBlocksAssigned":1}\]}`},
 		},
 	}
 

@@ -75,11 +75,6 @@ func (indxr *Indexer) saveBlockProposedEvent(
 		return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
 	}
 
-	proverReward, err := indxr.updateAverageProverReward(ctx, event)
-	if err != nil {
-		return errors.Wrap(err, "indxr.updateAverageProposerReward")
-	}
-
 	_, err = indxr.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
 		Name:           eventindexer.EventNameBlockProposed,
 		Data:           string(marshaled),
@@ -89,8 +84,6 @@ func (indxr *Indexer) saveBlockProposedEvent(
 		BlockID:        &blockID,
 		AssignedProver: &assignedProver,
 		TransactedAt:   time.Unix(int64(block.Time()), 0).UTC(),
-		Amount:         event.ProverFee,
-		ProofReward:    proverReward,
 	})
 	if err != nil {
 		return errors.Wrap(err, "indxr.eventRepo.Save")
@@ -99,45 +92,4 @@ func (indxr *Indexer) saveBlockProposedEvent(
 	eventindexer.BlockProposedEventsProcessed.Inc()
 
 	return nil
-}
-
-func (indxr *Indexer) updateAverageProverReward(
-	ctx context.Context,
-	event *taikol1.TaikoL1BlockProposed,
-) (*big.Int, error) {
-	stat, err := indxr.statRepo.Find(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "indxr.statRepo.Find")
-	}
-
-	avg, ok := new(big.Int).SetString(stat.AverageProofReward, 10)
-	if !ok {
-		return nil, errors.New("unable to convert average proof time to string")
-	}
-
-	newAverageProofReward := calcNewAverage(
-		avg,
-		new(big.Int).SetUint64(stat.NumProofs),
-		event.ProverFee,
-	)
-
-	slog.Info("newAverageProofReward update",
-		"id",
-		event.BlockId.Int64(),
-		"prover",
-		event.AssignedProver.Hex(),
-		"avg",
-		avg.String(),
-		"newAvg",
-		newAverageProofReward.String(),
-	)
-
-	_, err = indxr.statRepo.Save(ctx, eventindexer.SaveStatOpts{
-		ProofReward: newAverageProofReward,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "indxr.statRepo.Save")
-	}
-
-	return event.ProverFee, nil
 }

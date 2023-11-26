@@ -13,6 +13,7 @@ import "forge-std/Script.sol";
 import "forge-std/console2.sol";
 
 import "../contracts/L1/TaikoL1.sol";
+import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/L1/verifiers/PseZkVerifier.sol";
 import "../contracts/L1/verifiers/SgxVerifier.sol";
@@ -33,6 +34,7 @@ import "../contracts/libs/LibDeployHelper.sol";
 /// @title DeployOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
 /// initializing the rollup.
+
 contract DeployOnL1 is Script {
     uint256 public constant NUM_GUARDIANS = 5;
 
