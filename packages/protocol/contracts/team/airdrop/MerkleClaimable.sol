@@ -6,17 +6,14 @@
 
 pragma solidity ^0.8.20;
 
-import { OwnableUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import { ReentrancyGuardUpgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
+import "../../common/EssentialContract.sol";
 
 import { MerkleProofUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/utils/cryptography/MerkleProofUpgradeable.sol";
 
 /// @title MerkleClaimable
 /// Contract for managing Taiko token airdrop for eligible users
-abstract contract MerkleClaimable is ReentrancyGuardUpgradeable, OwnableUpgradeable {
+abstract contract MerkleClaimable is EssentialContract {
     mapping(bytes32 => bool) public isClaimed;
     bytes32 public merkleRoot;
     uint64 public claimStart;
@@ -74,9 +71,10 @@ abstract contract MerkleClaimable is ReentrancyGuardUpgradeable, OwnableUpgradea
         _setConfig(_claimStart, _claimEnd, _merkleRoot);
     }
 
-    function _init() internal {
-        OwnableUpgradeable.__Ownable_init_unchained();
-        ReentrancyGuardUpgradeable.__ReentrancyGuard_init_unchained();
+    /// @notice Initializes the contract.
+    /// @param _addressManager The address of the {AddressManager} contract.
+    function _MerkleClaimable_init(address _addressManager) internal {
+        EssentialContract._init(_addressManager);
     }
 
     function _setConfig(uint64 _claimStart, uint64 _claimEnd, bytes32 _merkleRoot) internal {

@@ -38,6 +38,7 @@ contract ERC20Airdrop2 is MerkleClaimable {
     }
 
     function init(
+        address _addressManager,
         uint64 _claimStarts,
         uint64 _claimEnds,
         bytes32 _merkleRoot,
@@ -48,7 +49,7 @@ contract ERC20Airdrop2 is MerkleClaimable {
         external
         initializer
     {
-        MerkleClaimable._init();
+        MerkleClaimable._MerkleClaimable_init(_addressManager);
         // Unix timestamp=_claimEnds+1 marks the first timestamp the users are able to withdraw.
         _setConfig(_claimStarts, _claimEnds, _merkleRoot);
 
@@ -81,15 +82,17 @@ contract ERC20Airdrop2 is MerkleClaimable {
         returns (uint256 balance, uint256 withdrawableAmount)
     {
         balance = claimedAmount[user];
-        // If balance is 0, or if the timestamp is above the (withdrawWindow + claimEnd) then there
-        // is no more balance and withdrawable amount
-        if (balance == 0 || uint64(block.timestamp) > (claimEnd + withdrawalWindow)) return (0, 0);
+        // If balance is 0 then there is no balance and withdrawable amount
+        if (balance == 0) return (0, 0);
         // Balance might be positive before end of claiming (claimEnd - if claimed already) but
         // withdrawable is 0.
-        if (uint64(block.timestamp) < (claimEnd)) return (balance, 0);
+        if (block.timestamp < claimEnd) return (balance, 0);
 
-        uint256 timeBasedAllowance =
-            balance * (uint64(block.timestamp) - claimEnd) / withdrawalWindow;
+        // Hard cap timestamp - so range cannot go over - to get more allocation over time.
+        uint256 maxTsCalc = block.timestamp > (claimEnd + withdrawalWindow)
+            ? (claimEnd + withdrawalWindow)
+            : block.timestamp;
+        uint256 timeBasedAllowance = balance * (maxTsCalc - claimEnd) / withdrawalWindow;
 
         withdrawableAmount = timeBasedAllowance - withdrawnAmount[user];
     }
