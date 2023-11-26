@@ -73,7 +73,7 @@ abstract contract MerkleClaimable is EssentialContract {
 
     /// @notice Initializes the contract.
     /// @param _addressManager The address of the {AddressManager} contract.
-    function _MerkleClaimable_init(address _addressManager) internal {
+    function __MerkleClaimable_init(address _addressManager) internal {
         EssentialContract._init(_addressManager);
     }
 
