@@ -10,6 +10,8 @@ import "./AddressResolver.sol";
 import "./OwnerUUPSUpgradable.sol";
 
 abstract contract EssentialContract is OwnerUUPSUpgradable, AddressResolver {
+    uint256[50] private __gap;
+
     /// @notice Initializes the contract with an address manager.
     /// @param _addressManager The address of the address manager.
     // solhint-disable-next-line func-name-mixedcase
