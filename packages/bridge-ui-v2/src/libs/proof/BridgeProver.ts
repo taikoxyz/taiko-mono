@@ -14,8 +14,8 @@ export class BridgeProver extends Prover {
 
   // Reference: EncodedSignalProof in relayer/proof/encoded_signal_proof.go
   // protocol/contracts/signal/SignalService.sol
-  private _getSignalProof(crossChainSyncAddress: Address, proof: EthGetProofResponse, blockHeight: bigint) {
-    console.log("_getSignalProof");
+  private _encodedSignalProof(crossChainSyncAddress: Address, proof: EthGetProofResponse, blockHeight: bigint) {
+    console.log("_encodedSignalProof");
 
     // RLP encode the proof together for LibTrieProof to decode
     const encodedProof = toRlp(proof.storageProof[0].proof);
@@ -66,7 +66,7 @@ export class BridgeProver extends Prover {
           ],
         },
       ],
-      [{ crossChainSync: crossChainSyncAddress, height: blockHeight, storageProof: encodedProof , hops: []}],
+      [{ crossChainSync: crossChainSyncAddress, height: blockHeight, storageProof: encodedProof , hops: hops}],
     );
 
     console.log("BridgeProver signalProof", signalProof);
@@ -129,7 +129,7 @@ export class BridgeProver extends Prover {
       throw new InvalidProofError('storage proof value is not 1');
     }
 
-    return this._getSignalProof(destCrossChainSyncAddress, proof, block.number as bigint);
+    return this._encodedSignalProof(destCrossChainSyncAddress, proof, block.number as bigint);
   }
 
   async generateProofToRelease(msgHash: Hash, srcChainId: number, destChainId: number) {
@@ -152,6 +152,6 @@ export class BridgeProver extends Prover {
       throw new InvalidProofError('storage proof value is not FAILED');
     }
 
-    return this._getSignalProof(srcCrossChainSyncAddress, proof, block.number as bigint);
+    return this._encodedSignalProof(srcCrossChainSyncAddress, proof, block.number as bigint);
   }
 }

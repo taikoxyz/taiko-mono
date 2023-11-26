@@ -17,7 +17,7 @@ export class ETHBridge extends Bridge {
   private static async _prepareTransaction(args: ETHBridgeArgs) {
     const { to, amount, wallet, srcChainId, destChainId, bridgeAddress, fee: processingFee, memo = '' } = args;
 
-    console.log("bridgeAddress", bridgeAddress);
+    console.log("_prepareTransaction bridgeAddress", bridgeAddress, srcChainId, destChainId);
 
     const bridgeContract = getContract({
       walletClient: wallet,
@@ -66,16 +66,18 @@ export class ETHBridge extends Bridge {
     const { bridgeContract, message } = await ETHBridge._prepareTransaction(args);
     const { value: callValue, fee: processingFee, destChainId } = message;
 
+    console.log("In estimateGas bridgeContract", bridgeContract);
+
     const isDestChainEnabled = await bridgeContract.read.isDestChainEnabled([destChainId], {});
-    console.log("isDestChainEnabled", isDestChainEnabled);
+    console.log("isDestChainEnabled", destChainId, isDestChainEnabled);
 
     const value = callValue + processingFee;
 
-    log('Estimating gas for sendMessage call with value', value);
+    console.log('Estimating gas for sendMessage call with value', value);
 
     const estimatedGas = await bridgeContract.estimateGas.sendMessage([message], { value });
 
-    log('Gas estimated', estimatedGas);
+    console.log('Gas estimated', estimatedGas);
 
     return estimatedGas;
   }
@@ -85,16 +87,16 @@ export class ETHBridge extends Bridge {
     const { value: callValue, fee: processingFee, destChainId } = message;
 
     const isDestChainEnabled = await bridgeContract.read.isDestChainEnabled([destChainId], {});
-    console.log("isDestChainEnabled", isDestChainEnabled);
+    console.log("isDestChainEnabled", destChainId, isDestChainEnabled);
 
     const value = callValue + processingFee;
 
     try {
-      log('Calling sendMessage with value', value);
+      console.log('Calling sendMessage with value', value);
 
       const txHash = await bridgeContract.write.sendMessage([message], { value });
 
-      log('Transaction hash for sendMessage call', txHash);
+      console.log('Transaction hash for sendMessage call', txHash);
 
       return txHash;
     } catch (err) {
@@ -107,6 +109,7 @@ export class ETHBridge extends Bridge {
       throw new SendMessageError('failed to bridge ETH', { cause: err });
     }
   }
+
 
   async claim(args: ClaimArgs) {
     console.log("async claim");

@@ -6,6 +6,7 @@ import { publicClient } from '$libs/wagmi';
 
 import { type BridgeTransaction, MessageStatus } from './types';
 
+// How does getSyncedSnippet work behind the scene? 
 export async function isTransactionProcessable(bridgeTx: BridgeTransaction) {
   const { receipt, message, srcChainId, destChainId, status } = bridgeTx;
 
@@ -33,16 +34,21 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction) {
     console.log("isTransactionProcessable destCrossChainSyncAddress", destCrossChainSyncAddress);
     console.log("isTransactionProcessable destCrossChainSyncContract", destCrossChainSyncContract);
 
+    console.log("isTransactionProcessable receipt", receipt);
+
     const syncedSnippet = await destCrossChainSyncContract.read.getSyncedSnippet([BigInt(0)]);
     const blockHash = syncedSnippet["blockHash"];
-    console.log("isTransactionProcessable", syncedSnippet, syncedSnippet["blockHash"]);
+    console.log("isTransactionProcessable syncedSnippet", srcChainId, destChainId, syncedSnippet, syncedSnippet["blockHash"]);
 
     const srcBlock = await publicClient({ chainId: Number(srcChainId) }).getBlock({
       blockHash,
     });
 
+    console.log("isTransactionProcessable srcBlock", srcBlock)
+
     return srcBlock.number !== null && receipt.blockNumber <= srcBlock.number;
   } catch (error) {
+    console.log("isTransactionProcessable error", srcChainId, destChainId, error);
     return false;
   }
 }
