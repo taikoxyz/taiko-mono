@@ -41,46 +41,6 @@
   },
   {
     "inputs": [],
-    "name": "L1_ASSIGNMENT_EXPIRED",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_ASSIGNMENT_EXPIRED",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_ASSIGNMENT_INSUFFICIENT_FEE",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_ASSIGNMENT_INSUFFICIENT_FEE",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_ASSIGNMENT_INVALID_PARAMS",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_ASSIGNMENT_INVALID_PARAMS",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_ASSIGNMENT_INVALID_SIG",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_ASSIGNMENT_INVALID_SIG",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "L1_BLOB_FOR_DA_DISABLED",
     "type": "error"
   },
@@ -196,6 +156,16 @@
   },
   {
     "inputs": [],
+    "name": "L1_INVALID_PROVER",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "L1_INVALID_PROVER",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "L1_INVALID_TIER",
     "type": "error"
   },
@@ -212,6 +182,16 @@
   {
     "inputs": [],
     "name": "L1_INVALID_TRANSITION",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "L1_LIVENESS_BOND_NOT_RECEIVED",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "L1_LIVENESS_BOND_NOT_RECEIVED",
     "type": "error"
   },
   {
@@ -241,12 +221,7 @@
   },
   {
     "inputs": [],
-    "name": "L1_TIER_NOT_FOUND",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_TIER_NOT_FOUND",
+    "name": "L1_RECEIVE_DISABLED",
     "type": "error"
   },
   {
@@ -423,12 +398,6 @@
         "type": "uint96"
       },
       {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "proverFee",
-        "type": "uint256"
-      },
-      {
         "components": [
           {
             "internalType": "bytes32",
@@ -560,12 +529,6 @@
         "type": "uint96"
       },
       {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "proverFee",
-        "type": "uint256"
-      },
-      {
         "components": [
           {
             "internalType": "bytes32",
@@ -779,7 +742,13 @@
       {
         "indexed": true,
         "internalType": "uint64",
-        "name": "srcHeight",
+        "name": "syncedInBlock",
+        "type": "uint64"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint64",
+        "name": "blockId",
         "type": "uint64"
       },
       {
@@ -804,13 +773,13 @@
       {
         "indexed": true,
         "internalType": "uint64",
-        "name": "remoteBlockId",
+        "name": "syncedInBlock",
         "type": "uint64"
       },
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "uint64",
-        "name": "syncedInBlock",
+        "name": "blockId",
         "type": "uint64"
       },
       {
@@ -966,44 +935,6 @@
       }
     ],
     "name": "TokenCredited",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "TokenCredited",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "from",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "TokenDebited",
     "type": "event"
   },
   {
@@ -1350,19 +1281,6 @@
     "name": "depositEtherToL2",
     "outputs": [],
     "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "depositTaikoToken",
-    "outputs": [],
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -2203,19 +2121,6 @@
       }
     ],
     "name": "verifyBlocks",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "withdrawTaikoToken",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

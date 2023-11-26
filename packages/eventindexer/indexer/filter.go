@@ -101,6 +101,22 @@ func filterFunc(
 		})
 	}
 
+	if indxr.assignmentHook != nil {
+		wg.Go(func() error {
+			blocksAssigned, err := indxr.assignmentHook.FilterBlockAssigned(filterOpts, nil)
+			if err != nil {
+				return errors.Wrap(err, "indxr.assignmentHook.FilterBlockAssigned")
+			}
+
+			err = indxr.saveBlockAssignedEvents(ctx, chainID, blocksAssigned)
+			if err != nil {
+				return errors.Wrap(err, "indxr.saveBlockAssignedEvents")
+			}
+
+			return nil
+		})
+	}
+
 	if indxr.swaps != nil {
 		for _, s := range indxr.swaps {
 			swap := s

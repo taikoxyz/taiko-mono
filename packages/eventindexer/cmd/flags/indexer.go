@@ -60,6 +60,13 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"SWAP_ADDRESSES"},
 	}
+	AssignmentHookAddress = &cli.StringFlag{
+		Name:     "assignmentHookAddress",
+		Usage:    "Address of the AssignmentHook contract",
+		Required: false,
+		Category: indexerCategory,
+		EnvVars:  []string{"ASSIGNMENT_HOOK_ADDRESS"},
+	}
 	CORSOrigins = &cli.StringFlag{
 		Name:     "http.corsOrigins",
 		Usage:    "Comma-delinated list of cors origins",
@@ -127,6 +134,7 @@ var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	MetricsHTTPPort,
 	BridgeAddress,
 	SwapAddresses,
+	AssignmentHookAddress,
 	CORSOrigins,
 	BlockBatchSize,
 	SubscriptionBackoff,
