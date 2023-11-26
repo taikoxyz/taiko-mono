@@ -14,13 +14,10 @@ export class BridgeProver extends Prover {
 
   // Reference: EncodedSignalProof in relayer/proof/encoded_signal_proof.go
   // protocol/contracts/signal/SignalService.sol
-  private _encodedSignalProof(crossChainSyncAddress: Address, proof: EthGetProofResponse, blockHeight: bigint) {
+  private _encodedSignalProof(crossChainSyncAddress: Address, rlpEncodedStorageProof: Hex, blockHeight: bigint) {
     console.log("_encodedSignalProof");
 
-    // RLP encode the proof together for LibTrieProof to decode
-    const encodedProof = toRlp(proof.storageProof[0].proof);
-
-    console.log("EthGetProofResponse", encodedProof);
+    console.log("rlpEncodedStorageProof", rlpEncodedStorageProof);
 
     // Update
 
@@ -66,11 +63,19 @@ export class BridgeProver extends Prover {
           ],
         },
       ],
-      [{ crossChainSync: crossChainSyncAddress, height: blockHeight, storageProof: encodedProof , hops: hops}],
+      [
+        {
+          crossChainSync: crossChainSyncAddress,
+          height: blockHeight,
+          storageProof: rlpEncodedStorageProof,
+          hops: hops
+        }
+      ],
     );
 
     console.log("BridgeProver signalProof", signalProof);
 
+    /*
     const testProof = encodeAbiParameters(
       [
         {
@@ -100,22 +105,30 @@ export class BridgeProver extends Prover {
           ],
         },
       ],
-      [{ crossChainSync: "0x0000000000000000000000000000000000000000", height: BigInt(1), storageProof: "0xc0", hops: []}],
+      [
+        {
+          crossChainSync: "0x0000000000000000000000000000000000000000",
+          height: BigInt(1),
+          storageProof: "0xc0",
+          hops: []
+        }
+      ],
     );
     let testProofVerified = testProof == "0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000001c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
     console.log("test encodeAbiParameters", testProof, testProofVerified);
+    */
 
     return signalProof;
   }
 
-  async generateProofToProcessMessage(msgHash: Hash, srcChainId: number, destChainId: number) {
-    console.log("generateProofToProcessMessage");
+  async encodedSignalProof(msgHash: Hash, srcChainId: number, destChainId: number) {
+    console.log("encodedSignalProof...");
     
     const srcBridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
     const srcSignalServiceAddress = routingContractsMap[srcChainId][destChainId].signalServiceAddress;
     const destCrossChainSyncAddress = routingContractsMap[destChainId][srcChainId].crossChainSyncAddress;
 
-    const { proof, block } = await this.generateProof({
+    const { proof, rlpEncodedStorageProof, block } = await this.encodedStorageProof({
       msgHash,
       clientChainId: srcChainId,
       contractAddress: srcBridgeAddress,
@@ -123,13 +136,23 @@ export class BridgeProver extends Prover {
       proofForAccountAddress: srcSignalServiceAddress,
     });
 
-    // relayer/proof/encoded_signal_proof.go
-    // Value must be 0x1 => isSignalSent
-    if (proof.storageProof[0].value !== toHex(true)) {
-      throw new InvalidProofError('storage proof value is not 1');
-    }
+    return this._encodedSignalProof(destCrossChainSyncAddress, rlpEncodedStorageProof, block.number as bigint);
+  }
 
-    return this._encodedSignalProof(destCrossChainSyncAddress, proof, block.number as bigint);
+  async encodedSignalProofWithHops(msgHash: Hash, srcChainId: number, destChainId: number) {
+    const srcBridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
+    const srcSignalServiceAddress = routingContractsMap[srcChainId][destChainId].signalServiceAddress;
+    const destCrossChainSyncAddress = routingContractsMap[destChainId][srcChainId].crossChainSyncAddress;
+
+    const { proof, rlpEncodedStorageProof, block } = await this.encodedStorageProof({
+      msgHash,
+      clientChainId: srcChainId,
+      contractAddress: srcBridgeAddress,
+      crossChainSyncChainId: destChainId,
+      proofForAccountAddress: srcSignalServiceAddress,
+    });
+
+    // TODO:
   }
 
   async generateProofToRelease(msgHash: Hash, srcChainId: number, destChainId: number) {
@@ -139,7 +162,7 @@ export class BridgeProver extends Prover {
     const destBridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
     const srcCrossChainSyncAddress = routingContractsMap[srcChainId][destChainId].crossChainSyncAddress;
 
-    const { proof, block } = await this.generateProof({
+    const { proof, rlpEncodedStorageProof, block } = await this.encodedStorageProof({
       msgHash,
       clientChainId: destChainId,
       contractAddress: srcBridgeAddress,
@@ -152,6 +175,6 @@ export class BridgeProver extends Prover {
       throw new InvalidProofError('storage proof value is not FAILED');
     }
 
-    return this._encodedSignalProof(srcCrossChainSyncAddress, proof, block.number as bigint);
+    return this._encodedSignalProof(srcCrossChainSyncAddress, rlpEncodedStorageProof, block.number as bigint);
   }
 }

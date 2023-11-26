@@ -122,7 +122,7 @@ export class ETHBridge extends Bridge {
     const destChainId = Number(message.destChainId);
 
     if (messageStatus === MessageStatus.NEW) {
-      const proof = await this._prover.generateProofToProcessMessage(msgHash, srcChainId, destChainId);
+      const proof = await this._prover.encodedSignalProof(msgHash, srcChainId, destChainId);
 
       try {
         console.log("processMessage...", message);
