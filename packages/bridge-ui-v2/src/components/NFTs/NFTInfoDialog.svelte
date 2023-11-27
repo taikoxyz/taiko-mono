@@ -20,6 +20,8 @@
 
   export let nft: NFT;
 
+  export let srcChainId = $network?.id;
+
   const dispatch = createEventDispatcher();
 
   const selectNFT = () => {
@@ -31,7 +33,7 @@
     modalOpen = false;
   };
 
-  $: currentChain = $network?.id;
+  $: currentChain = Number(srcChainId) || $network?.id;
 
   $: imgUrl = nft.metadata?.image || placeholderUrl;
 </script>
