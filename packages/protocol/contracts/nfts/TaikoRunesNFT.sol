@@ -36,8 +36,8 @@ contract TaikoRunesNFT is EssentialContract, ERC721Upgradeable {
     uint256 public constant MAX_PROPERTIES = 64;
     uint256 public constant MAX_PROPERTY_VALUES = 32;
     uint256 public constant MIN_UPDATE_DELAY = 90 days;
-    uint256 public constant FIRST_BATCH_SIZE = 10_000;
     uint256 public constant MAX_REWARDS = 100;
+    uint256 public constant MIN_REWARDS = 10;
 
     uint64 public lastUpdated; // slot 1
     uint64 public version;
@@ -58,10 +58,14 @@ contract TaikoRunesNFT is EssentialContract, ERC721Upgradeable {
     error PROPERTY_NOT_FOUND();
     error TOO_EARLY();
 
-    function init() external initializer {
+    function init(uint256 _numTokens) external initializer {
         _Essential_init();
         __ERC721_init("Taiko Runes NFT", "TRUNE");
         lastUpdated = uint64(block.timestamp);
+
+        for (uint256 i; i < _numTokens; ++i) {
+            _mint(msg.sender);
+        }
     }
 
     function updateMetadata(
@@ -77,20 +81,21 @@ contract TaikoRunesNFT is EssentialContract, ERC721Upgradeable {
         if (mintTo == address(0)) revert INVALID_ADDRESS();
         if (bytes(newBaseURI).length != 46) revert INVALID_URI();
         if (keccak256(bytes(newBaseURI)) == keccak256(bytes(baseURI))) revert INVALID_URI();
-
-        if (newProperty.id == 0) return;
-        if (newProperty.id != properties.length) revert INVALID_PROPERTY();
-        if (newProperty.valueLabels.length == 0) revert INVALID_PROPERTY();
-        if (newProperty.valueLabels.length > MAX_PROPERTY_VALUES) revert INVALID_PROPERTY();
-
         if (block.timestamp <= lastUpdated + MIN_UPDATE_DELAY) revert TOO_EARLY();
+
+        if (newProperty.id != 0) {
+            if (properties.length >= MAX_PROPERTIES) revert INVALID_PROPERTY();
+            if (newProperty.id != properties.length) revert INVALID_PROPERTY();
+            if (newProperty.valueLabels.length == 0) revert INVALID_PROPERTY();
+            if (newProperty.valueLabels.length > MAX_PROPERTY_VALUES) revert INVALID_PROPERTY();
+            properties.push(newProperty);
+        }
 
         lastUpdated = uint64(block.timestamp);
         version += 1;
         baseURI = newBaseURI;
-        properties.push(newProperty);
 
-        uint256 mints = numTokens == 0 ? FIRST_BATCH_SIZE : MAX_REWARDS.max(numTokens / 100);
+        uint256 mints = uint256(numTokens / 100).min(MAX_REWARDS).max(MIN_REWARDS);
         for (uint256 i; i < mints; ++i) {
             _mint(mintTo);
         }
