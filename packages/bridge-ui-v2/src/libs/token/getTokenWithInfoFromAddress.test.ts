@@ -7,21 +7,37 @@ import { fetchNFTMetadata } from '$libs/util/fetchNFTMetadata';
 
 import { detectContractType } from './detectContractType';
 import { getTokenWithInfoFromAddress } from './getTokenWithInfoFromAddress';
-import { TokenType } from './types';
+import { type NFT, TokenType } from './types';
 
 vi.mock('@wagmi/core');
 vi.mock('../util/fetchNFTMetadata');
 
 vi.mock('../../generated/customTokenConfig', () => {
-  const mockToken = {
-    name: 'Mock Token',
+  const mockERC20 = {
+    name: 'MockERC20',
     addresses: { '1': zeroAddress },
     symbol: 'MTF',
     decimals: 18,
     type: 'ERC20',
   };
+  const mockERC1155 = {
+    name: 'MockERC1155',
+    addresses: { '1': zeroAddress },
+    symbol: 'MNFT',
+    balance: 1337n,
+    tokenId: 123,
+    uri: 'some/uri/123',
+    type: 'ERC1155',
+  };
+  const mockERC721 = {
+    name: 'MockERC721',
+    addresses: { '1': zeroAddress },
+    symbol: 'MNFT',
+    decimals: 18,
+    type: 'ERC721',
+  };
   return {
-    customToken: [mockToken],
+    customToken: [mockERC20, mockERC1155, mockERC721],
   };
 });
 
@@ -106,16 +122,20 @@ describe('getTokenWithInfoFromAddress', () => {
       name: 'Mock Meta Name',
     };
 
+    const mockToken = customToken[1] as NFT;
+    mockToken.metadata = mockedMetadata;
+
     it('should return correct token details for ERC1155 tokens', async () => {
       // Given
 
       const address: Address = zeroAddress;
       vi.mocked(detectContractType).mockResolvedValue(TokenType.ERC1155);
       vi.mocked(readContract)
-        .mockResolvedValueOnce('Mock1155')
-        .mockResolvedValueOnce('some/uri/123')
-        .mockResolvedValueOnce(1337n);
-      vi.mocked(fetchNFTMetadata).mockResolvedValue(mockedMetadata);
+        .mockResolvedValueOnce(mockToken.name)
+        .mockResolvedValueOnce(mockToken.uri)
+        .mockResolvedValueOnce(mockToken.balance);
+      vi.mocked(fetchNFTMetadata).mockResolvedValue(mockToken);
+
       // When
       const result = await getTokenWithInfoFromAddress({
         contractAddress: address,
@@ -129,10 +149,11 @@ describe('getTokenWithInfoFromAddress', () => {
         addresses: {
           1: address,
         },
-        uri: 'some/uri/123',
-        tokenId: 123,
-        name: 'Mock1155',
-        balance: 1337n,
+        uri: mockToken.uri,
+        tokenId: mockToken.tokenId,
+        name: mockToken.name,
+        symbol: mockToken.symbol,
+        balance: mockToken.balance,
         type: TokenType.ERC1155,
         metadata: mockedMetadata,
       });
@@ -142,9 +163,8 @@ describe('getTokenWithInfoFromAddress', () => {
       // Given
       const address: Address = zeroAddress;
       vi.mocked(detectContractType).mockResolvedValue(TokenType.ERC1155);
-      vi.mocked(readContract).mockResolvedValueOnce('Mock1155').mockResolvedValueOnce('some/uri/123');
-
-      vi.mocked(fetchNFTMetadata).mockResolvedValue(mockedMetadata);
+      vi.mocked(readContract).mockResolvedValueOnce(mockToken.name).mockResolvedValueOnce(mockToken.uri);
+      vi.mocked(fetchNFTMetadata).mockResolvedValue(mockToken);
 
       // When
       const result = await getTokenWithInfoFromAddress({ contractAddress: address, srcChainId: 1, tokenId: 123 });
@@ -154,10 +174,11 @@ describe('getTokenWithInfoFromAddress', () => {
         addresses: {
           1: address,
         },
-        uri: 'some/uri/123',
-        tokenId: 123,
-        name: 'Mock1155',
-        balance: 0,
+        uri: mockToken.uri,
+        tokenId: mockToken.tokenId,
+        name: mockToken.name,
+        symbol: mockToken.symbol,
+        balance: mockToken.balance,
         type: TokenType.ERC1155,
         metadata: mockedMetadata,
       });
@@ -168,11 +189,11 @@ describe('getTokenWithInfoFromAddress', () => {
       const address: Address = zeroAddress;
       vi.mocked(detectContractType).mockResolvedValue(TokenType.ERC1155);
       vi.mocked(readContract)
-        .mockResolvedValueOnce('Mock1155')
+        .mockResolvedValueOnce(mockToken.name)
         .mockResolvedValueOnce(null) // first uri call
-        .mockResolvedValueOnce('some/uri/123');
+        .mockResolvedValueOnce(mockToken.uri);
 
-      vi.mocked(fetchNFTMetadata).mockResolvedValue(mockedMetadata);
+      vi.mocked(fetchNFTMetadata).mockResolvedValue(mockToken);
 
       // When
       const result = await getTokenWithInfoFromAddress({ contractAddress: address, srcChainId: 1, tokenId: 123 });
@@ -182,10 +203,11 @@ describe('getTokenWithInfoFromAddress', () => {
         addresses: {
           1: address,
         },
-        uri: 'some/uri/123',
-        tokenId: 123,
-        name: 'Mock1155',
-        balance: 0,
+        uri: mockToken.uri,
+        tokenId: mockToken.tokenId,
+        name: mockToken.name,
+        symbol: mockToken.symbol,
+        balance: mockToken.balance,
         type: TokenType.ERC1155,
         metadata: mockedMetadata,
       });

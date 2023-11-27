@@ -212,6 +212,6 @@ export enum ContractType {
 export type GetContractAddressType = {
   srcChainId: number;
   destChainId: number;
-  tokenType?: TokenType;
+  tokenType: TokenType;
   contractType: ContractType;
 };

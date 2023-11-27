@@ -94,12 +94,12 @@
                 {:else}
                   <NftListItem
                     {nft}
-                    selectable={!viewOnly}
                     {multiSelectEnabled}
                     {checkedAddresses}
                     {collectionAddress}
                     {toggleAddressCheckBox}
-                    {selectNFT} />
+                    {selectNFT}
+                    bind:viewOnly />
                 {/if}
               {/each}
             </div>
