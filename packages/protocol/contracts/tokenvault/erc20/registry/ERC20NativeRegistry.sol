@@ -8,7 +8,7 @@ pragma solidity ^0.8.20;
 
 import "../../../common/EssentialContract.sol";
 import "./IERC20NativeRegistry.sol";
-import "../translators/BaseTranslator.sol";
+import "../adapters/BaseAdapter.sol";
 import "../../../libs/LibDeploy.sol";
 
 interface IRemoveMapping {
@@ -21,7 +21,7 @@ interface IRemoveMapping {
 contract ERC20NativeRegistry is EssentialContract, IERC20NativeRegistry {
     struct PredeployedToCanonicalData {
         address canonicalERC20;
-        address translatorAddress;
+        address adapterAddress;
     }
 
     // This is needed for bridging native to CHAIN_X (_getOrDeployBridgedToken() on L2 if this is
@@ -47,21 +47,19 @@ contract ERC20NativeRegistry is EssentialContract, IERC20NativeRegistry {
     /// @param l1Address The address of the token on L1 (or parent chain)
     /// @param deployedCounterpart The address on L2 - it can be address(0) in which case we delete
     /// the mappping (see explanation below).
-    /// @param translatorName The name based on which the translator is queriable via the
+    /// @param adapterName The name based on which the adapter is queriable via the
     /// AddressManager
     /// @param deleteCustom Indicates deleting both of the mappings
     /// @param chainId ChainId the canonical originates from
-    /// @return translator Translator needs to be granted (in case of USDC at least) the minter role
     function changeCustomToken(
         address l1Address,
         address deployedCounterpart,
-        bytes32 translatorName,
+        bytes32 adapterName,
         uint64 chainId,
         bool deleteCustom
     )
         external
         onlyOwner
-        returns (address translator)
     {
         if (l1Address == address(0) || deployedCounterpart == address(0)) {
             revert ERC20_HOOK_INVALID_ADDRESS();
@@ -73,50 +71,34 @@ contract ERC20NativeRegistry is EssentialContract, IERC20NativeRegistry {
 
             // Need to erase the mapping in ERC20Vault too - in order to continue the support for
             // bridging from L1 to L2 - when for example Circle revokes minter role from our
-            // translator.
+            // adapter.
             IRemoveMapping(resolve(uint64(block.chainid), "erc20_vault", false))
                 .resetCanonicalToBridged(chainId, l1Address);
 
             emit Erc20CustomDeleted(l1Address, deployedCounterpart);
         } else {
             canonicalToPredeployed[l1Address] = deployedCounterpart;
-            // We need to deploy the wrapper/translator contract and use it in the ERC20Vault.
-            bytes memory data = bytes.concat(
-                BaseTranslator.init.selector, abi.encode(addressManager, deployedCounterpart)
-            );
-
-            translator = LibDeploy.deployTransparentUpgradeableProxyForOwnable(
-                resolve(translatorName, false), owner(), data
-            );
 
             predeployedToCanonical[deployedCounterpart] =
-                PredeployedToCanonicalData(l1Address, translator);
+                PredeployedToCanonicalData(l1Address, resolve(adapterName, false));
 
             emit Erc20CustomAdded(l1Address, deployedCounterpart);
         }
     }
 
-    /// @notice Queries the custom, predeployed token and it's translator (if any).
+    /// @notice Queries the custom, predeployed token and it's adapter (if any).
     /// @param l1Address The address of the token on L1
-    function getPredeployedAndTranslator(address l1Address)
-        external
-        view
-        returns (address, address)
-    {
+    function getPredeployedAndAdapter(address l1Address) external view returns (address, address) {
         address preDeployed = canonicalToPredeployed[l1Address];
-        return (preDeployed, predeployedToCanonical[preDeployed].translatorAddress);
+        return (preDeployed, predeployedToCanonical[preDeployed].adapterAddress);
     }
 
-    /// @notice Gets the canonical token and the L2 translator based on the given L2 address
+    /// @notice Gets the canonical token and the L2 adapter based on the given L2 address
     /// @param l2Address The address of the token on L1
-    function getCanonicalAndTranslator(address l2Address)
-        external
-        view
-        returns (address, address)
-    {
+    function getCanonicalAndAdapter(address l2Address) external view returns (address, address) {
         return (
             predeployedToCanonical[l2Address].canonicalERC20,
-            predeployedToCanonical[l2Address].translatorAddress
+            predeployedToCanonical[l2Address].adapterAddress
         );
     }
 }
