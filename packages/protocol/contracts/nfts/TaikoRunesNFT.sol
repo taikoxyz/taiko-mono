@@ -44,10 +44,9 @@ contract TaikoRunesNFT is EssentialContract, ERC721Upgradeable {
     uint64 public numTokens;
 
     string private baseURI; // slot 2
-    string private prevBaseURI; // slot 3
-    Property[] public properties; // slot 4
+    Property[] public properties; // slot 3
 
-    uint256[46] private __gap;
+    uint256[47] private __gap;
 
     event MetadataUpdated(
         uint256 indexed version, uint256 numTokens, string newBaseURI, Property newProperty
@@ -63,7 +62,6 @@ contract TaikoRunesNFT is EssentialContract, ERC721Upgradeable {
         _Essential_init();
         __ERC721_init("Taiko Runes NFT", "TRUNE");
         lastUpdated = uint64(block.timestamp);
-        prevBaseURI = "";
     }
 
     function updateMetadata(
@@ -89,7 +87,6 @@ contract TaikoRunesNFT is EssentialContract, ERC721Upgradeable {
 
         lastUpdated = uint64(block.timestamp);
         version += 1;
-        prevBaseURI = baseURI;
         baseURI = newBaseURI;
         properties.push(newProperty);
 
@@ -136,12 +133,12 @@ contract TaikoRunesNFT is EssentialContract, ERC721Upgradeable {
         }
     }
 
-    function tokenURI(uint256 tokenId) public view override returns (string memory) {
-        return _tokenURI(_baseURI(), tokenId);
+    function designerURI() public view returns (string memory) {
+        return _buildURI(_baseURI(), "designer");
     }
 
-    function previousTokenURI(uint256 tokenId) public view returns (string memory) {
-        return _tokenURI(prevBaseURI, tokenId);
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        return _buildURI(_baseURI(), tokenId.toString());
     }
 
     function _mint(address to) internal {
@@ -161,13 +158,18 @@ contract TaikoRunesNFT is EssentialContract, ERC721Upgradeable {
         return uint256(keccak256(abi.encode("TAIKO RUNES NFT", nftId, pid)));
     }
 
-    function _mint(address, uint256) internal pure override {
-        assert(false); // disabled
+    function _buildURI(
+        string memory uri,
+        string memory file
+    )
+        internal
+        pure
+        returns (string memory)
+    {
+        return string.concat("ipfs://", uri, "/", file);
     }
 
-    function _tokenURI(string memory uri, uint256 tokenId) private view returns (string memory) {
-        return bytes(baseURI).length > 0
-            ? string(abi.encodePacked("ipfs://", uri, "/", tokenId.toString()))
-            : "";
+    function _mint(address, uint256) internal pure override {
+        assert(false); // disabled
     }
 }
