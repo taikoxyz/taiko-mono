@@ -91,7 +91,7 @@ export async function getCrossChainAddress({
 
     // first we need to figure out the canonical address of the token
     const canonicalTokenInfo = (await srcTokenVaultContract.read.bridgedToCanonical([srcChainTokenAddress])) as Address;
-    const canonicalTokenAddress = canonicalTokenInfo[1]; // this will break if the contracts ever change the order of the return values
+    const canonicalTokenAddress = canonicalTokenInfo[1] as Address; // this will break if the contracts ever change the order of the return values
 
     // if the canonical address is 0x0, then the token is canonical
     if (canonicalTokenAddress === zeroAddress) {
@@ -104,10 +104,16 @@ export async function getCrossChainAddress({
     } else {
       // if we have found a canonical, we can check for the bridged address on the source token vault
       // e.g. bridging L2 -> L1 with native L1 token
-      return (await srcTokenVaultContract.read.canonicalToBridged([
+      const bridgedCanonical = (await srcTokenVaultContract.read.canonicalToBridged([
         BigInt(destChainId),
         canonicalTokenAddress,
       ])) as Address;
+
+      if (bridgedCanonical === srcChainTokenAddress) {
+        return canonicalTokenAddress;
+      } else {
+        return bridgedCanonical;
+      }
     }
   }
 }

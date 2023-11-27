@@ -1,6 +1,5 @@
 import type { Address } from 'viem';
 
-import type { ChainID } from '$libs/chain';
 import { eventIndexerApiServices } from '$libs/eventIndexer/initEventIndexer';
 import { type NFT, TokenType } from '$libs/token';
 import { checkOwnershipOfNFTs } from '$libs/token/checkOwnership';
@@ -24,12 +23,16 @@ function deduplicateNFTs(nftArrays: NFT[][]): NFT[] {
   return Array.from(nftMap.values());
 }
 
-export async function fetchNFTs(userAddress: Address, chainID: ChainID): Promise<{ nfts: NFT[]; error: Error | null }> {
+export async function fetchNFTs(
+  userAddress: Address,
+  srcChainId: number,
+  destChainId: number,
+): Promise<{ nfts: NFT[]; error: Error | null }> {
   let error: Error | null = null;
 
   // Fetch from all indexers
   const indexerPromises: Promise<NFT[]>[] = eventIndexerApiServices.map(async (eventIndexerApiService) => {
-    const { items: result } = await eventIndexerApiService.getAllNftsByAddressFromAPI(userAddress, chainID, {
+    const { items: result } = await eventIndexerApiService.getAllNftsByAddressFromAPI(userAddress, BigInt(srcChainId), {
       page: 0,
       size: 100,
     });
@@ -38,7 +41,7 @@ export async function fetchNFTs(userAddress: Address, chainID: ChainID): Promise
       const type: TokenType = TokenType[nft.contractType as keyof typeof TokenType];
       return getTokenWithInfoFromAddress({
         contractAddress: nft.contractAddress,
-        srcChainId: Number(chainID),
+        srcChainId,
         owner: userAddress,
         tokenId: Number(nft.tokenID),
         type,
@@ -67,14 +70,14 @@ export async function fetchNFTs(userAddress: Address, chainID: ChainID): Promise
   // Fetch image for each NFT
   const promises = Promise.all(
     deduplicatedNfts.map(async (nft) => {
-      const nftWithImage = await fetchNFTImageUrl(nft);
+      const nftWithImage = await fetchNFTImageUrl(nft, srcChainId, destChainId);
       return nftWithImage;
     }),
   );
   const nftsWithImage = await promises;
 
   // Double check the ownership
-  const ownsAllNfts = await checkOwnershipOfNFTs(nftsWithImage, userAddress, Number(chainID));
+  const ownsAllNfts = await checkOwnershipOfNFTs(nftsWithImage, userAddress, srcChainId);
   log(`user ${userAddress} owns all NFTs:`, ownsAllNfts);
   // filter out the NFTs that the user doesn't own
   const filteredNfts = nftsWithImage.filter((nft) => {

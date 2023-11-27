@@ -117,10 +117,11 @@ const getERC1155Info = async (
       balance: balance ? balance : 0,
     } as NFT;
     try {
-      const metadata = await fetchNFTMetadata(token);
-      if (metadata?.name !== '') name = metadata?.name;
-      // todo: more metadata?
-      token.metadata = metadata || undefined;
+      const tokenWithMetadata = await fetchNFTMetadata(token);
+      if (tokenWithMetadata?.metadata?.name !== '') name = tokenWithMetadata?.metadata?.name;
+
+      if (!tokenWithMetadata) return token;
+      return tokenWithMetadata;
     } catch {
       return token;
     }
@@ -174,10 +175,10 @@ const getERC721Info = async (
     uri: uri ? uri.toString() : undefined,
   } as NFT;
   try {
-    const metadata = await fetchNFTMetadata(token);
-    token.metadata = metadata || undefined;
+    const tokenWithMetadata = await fetchNFTMetadata(token);
+    if (!tokenWithMetadata) return token;
+    return tokenWithMetadata;
   } catch {
     return token;
   }
-  return token;
 };
