@@ -76,7 +76,9 @@ export async function deployTaikoL2(
         // reading it using smock package.
         let storageLayoutName = contractName;
         if (contractConfig.isProxy) {
-            storageLayoutName = contractName.replace("Proxy", "");
+            storageLayoutName = contractName
+                .replace("Proxy", "")
+                .replace("Singleton", "");
             storageLayoutName = `${storageLayoutName}`;
         }
         storageLayoutName = contractName.includes("AddressManager")
@@ -239,6 +241,9 @@ async function generateContractConfigs(
             deployedBytecode:
                 contractArtifacts.AddressManagerForSingletons.deployedBytecode
                     .object,
+            variables: {
+                _owner: contractOwner,
+            },
         },
         SingletonAddressManagerForSingletonsProxy: {
             address: addressMap.SingletonAddressManagerForSingletonsProxy,
@@ -293,6 +298,9 @@ async function generateContractConfigs(
                 contractArtifacts.Bridge,
                 addressMap,
             ),
+            variables: {
+                _owner: contractOwner,
+            },
         },
         SingletonBridgeProxy: {
             address: addressMap.SingletonBridgeProxy,
@@ -323,6 +331,9 @@ async function generateContractConfigs(
                 contractArtifacts.ERC20Vault,
                 addressMap,
             ),
+            variables: {
+                _owner: contractOwner,
+            },
         },
         SingletonERC20VaultProxy: {
             address: addressMap.SingletonERC20VaultProxy,
@@ -354,6 +365,9 @@ async function generateContractConfigs(
                 contractArtifacts.ERC721Vault,
                 addressMap,
             ),
+            variables: {
+                _owner: contractOwner,
+            },
         },
         SingletonERC721VaultProxy: {
             address: addressMap.SingletonERC721VaultProxy,
@@ -385,6 +399,9 @@ async function generateContractConfigs(
                 contractArtifacts.ERC1155Vault,
                 addressMap,
             ),
+            variables: {
+                _owner: contractOwner,
+            },
         },
         SingletonERC1155VaultProxy: {
             address: addressMap.SingletonERC1155VaultProxy,
@@ -416,6 +433,9 @@ async function generateContractConfigs(
                 contractArtifacts.SignalService,
                 addressMap,
             ),
+            variables: {
+                _owner: contractOwner,
+            },
         },
         BridgedERC20: {
             address: addressMap.BridgedERC20,
@@ -463,6 +483,9 @@ async function generateContractConfigs(
             address: addressMap.AddressManager,
             deployedBytecode:
                 contractArtifacts.AddressManager.deployedBytecode.object,
+            variables: {
+                _owner: contractOwner,
+            },
         },
         // Non-singletons
         TaikoL2: {
@@ -471,6 +494,9 @@ async function generateContractConfigs(
                 contractArtifacts.TaikoL2,
                 addressMap,
             ),
+            variables: {
+                _owner: contractOwner,
+            },
         },
         SingletonTaikoL2Proxy: {
             address: addressMap.SingletonTaikoL2Proxy,

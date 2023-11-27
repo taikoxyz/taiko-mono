@@ -64,7 +64,7 @@ library LibDeployHelper {
         console2.log("\t addr : ", addr);
     }
 
-    function copyRigister(address registerTo, address readFrom, bytes32 name) internal {
+    function copyRegister(address registerTo, address readFrom, bytes32 name) internal {
         if (registerTo == address(0)) revert ADDRESS_NULL();
         if (readFrom == address(0)) revert ADDRESS_NULL();
 

@@ -66,7 +66,7 @@ contract DeployOnL1 is Script {
         address rollupAddressManager = deployRollupContracts(sharedAddressManager, timelock);
 
         // ---------------------------------------------------------------
-        // Signal service need to auhthorize the new rollup
+        // Signal service need to authorize the new rollup
         address signalServiceAddr =
             AddressManager(sharedAddressManager).getAddress(uint64(block.chainid), "signal_service");
         addressNotNull(signalServiceAddr, "signalServiceAddr");
@@ -86,18 +86,20 @@ contract DeployOnL1 is Script {
             signalService.transferOwnership(timelock);
         } else {
             console2.log("------------------------------------------");
-            console2.log("Warining - you need to transact manually:");
+            console2.log("Warning - you need to transact manually:");
             console2.log("signalService.authorize(taikoL1Addr, bytes32(block.chainid))");
             console2.log("- signalService : ", signalServiceAddr);
             console2.log("- taikoL1Addr   : ", taikoL1Addr);
             console2.log("- chainId       : ", block.chainid);
         }
 
+        console2.log("---------------------__AYOAYOAYOAYOAYOAYOAYOAYOAYOAYOAYO");
+
         // ---------------------------------------------------------------
         // Register shared contracts in the new rollup
-        LibDeployHelper.copyRigister(rollupAddressManager, sharedAddressManager, "taiko_token");
-        LibDeployHelper.copyRigister(rollupAddressManager, sharedAddressManager, "signal_service");
-        LibDeployHelper.copyRigister(rollupAddressManager, sharedAddressManager, "bridge");
+        LibDeployHelper.copyRegister(rollupAddressManager, sharedAddressManager, "taiko_token");
+        LibDeployHelper.copyRegister(rollupAddressManager, sharedAddressManager, "signal_service");
+        LibDeployHelper.copyRegister(rollupAddressManager, sharedAddressManager, "bridge");
 
         address proposer = vm.envAddress("PROPOSER");
         if (proposer != address(0)) {
@@ -121,6 +123,13 @@ contract DeployOnL1 is Script {
         // ---------------------------------------------------------------
         // Deploy other contracts
         deployAuxContracts();
+
+        if (AddressManager(sharedAddressManager).owner() == msg.sender) {
+            AddressManager(sharedAddressManager).transferOwnership(timelock);
+        }
+        if (AddressManager(rollupAddressManager).owner() == msg.sender) {
+            AddressManager(rollupAddressManager).transferOwnership(timelock);
+        }
     }
 
     function deploySharedContracts()
@@ -137,7 +146,7 @@ contract DeployOnL1 is Script {
                 minDelay: 7 days,
                 proposers: new address[](0),
                 executors: new address[](0),
-                admin: address(this)});
+                admin: msg.sender});
 
         timelock = address(_timelock);
         console2.log("timelock: ", timelock);
@@ -147,8 +156,8 @@ contract DeployOnL1 is Script {
             impl: address(new AddressManager()),
             data: bytes.concat(AddressManager.init.selector),
             registerTo: address(0),
-            owner: timelock
-        });
+            owner: msg.sender // set to this contract, transfer ownership to timelock after
+         });
 
         address taikoToken = LibDeployHelper.deployProxy({
             name: "taiko_token",
@@ -174,7 +183,7 @@ contract DeployOnL1 is Script {
         _timelock.grantRole(_timelock.CANCELLER_ROLE(), address(governor));
 
         _timelock.grantRole(_timelock.TIMELOCK_ADMIN_ROLE(), securityCouncil);
-        _timelock.renounceRole(_timelock.TIMELOCK_ADMIN_ROLE(), address(this));
+        _timelock.renounceRole(_timelock.TIMELOCK_ADMIN_ROLE(), msg.sender);
 
         // Deploy Bridging contracts
         LibDeployHelper.deployProxy({
@@ -195,7 +204,7 @@ contract DeployOnL1 is Script {
 
         console2.log("------------------------------------------");
         console2.log(
-            "Warining - you need to register *all* counterparty bridges to enable multi-hop bridging:"
+            "Warning - you need to register *all* counterparty bridges to enable multi-hop bridging:"
         );
         console2.log(
             "sharedAddressManager.setAddress(remoteChainId, \"bridge\", address(remoteBridge))"
@@ -229,7 +238,7 @@ contract DeployOnL1 is Script {
 
         console2.log("------------------------------------------");
         console2.log(
-            "Warining - you need to register *all* counterparty vaults to enable multi-hop bridging:"
+            "Warning - you need to register *all* counterparty vaults to enable multi-hop bridging:"
         );
         console2.log(
             "sharedAddressManager.setAddress(remoteChainId, \"erc20_vault\", address(remoteERC20Vault))"
@@ -267,8 +276,8 @@ contract DeployOnL1 is Script {
             impl: address(new AddressManager()),
             data: bytes.concat(AddressManager.init.selector),
             registerTo: address(0),
-            owner: timelock
-        });
+            owner: msg.sender // set to msg.sender, change to timelock after
+         });
 
         LibDeployHelper.deployProxy({
             name: "taiko",
@@ -345,7 +354,7 @@ contract DeployOnL1 is Script {
             impl: address(new GuardianProver()),
             data: bytes.concat(GuardianProver.init.selector, abi.encode(rollupAddressManager)),
             registerTo: rollupAddressManager,
-            owner: address(this)
+            owner: msg.sender
         });
 
         address[] memory guardianProvers = vm.envAddress("GUARDIAN_PROVERS", ",");
@@ -363,7 +372,7 @@ contract DeployOnL1 is Script {
         address horseToken = address(new FreeMintERC20("Horse Token", "HORSE"));
         console2.log("HorseToken", horseToken);
 
-        address bullToken = address(new  MayFailFreeMintERC20("Bull Token", "BULL"));
+        address bullToken = address(new MayFailFreeMintERC20("Bull Token", "BULL"));
         console2.log("BullToken", bullToken);
     }
 
@@ -383,7 +392,7 @@ contract DeployOnL1 is Script {
             addr := create(0, add(bytecode, 0x20), mload(bytecode))
         }
 
-        addressNotNull(addr, "failed yu deployment");
+        addressNotNull(addr, "failed yul deployment");
         console2.log(contractPath, addr);
     }
 
