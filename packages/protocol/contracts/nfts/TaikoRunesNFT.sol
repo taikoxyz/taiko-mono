@@ -44,7 +44,7 @@ contract TaikoRunesNFT is EssentialContract, ERC721Upgradeable {
     uint64 public numTokens;
 
     string private baseURI; // slot 2
-    string private previousBaseURL; // slot 3
+    string private prevBaseURI; // slot 3
     Property[] public properties; // slot 4
 
     uint256[46] private __gap;
@@ -63,7 +63,7 @@ contract TaikoRunesNFT is EssentialContract, ERC721Upgradeable {
         _Essential_init();
         __ERC721_init("Taiko Runes NFT", "TRUNE");
         lastUpdated = uint64(block.timestamp);
-        previousBaseURL = "";
+        prevBaseURI = "";
     }
 
     function updateMetadata(
@@ -77,7 +77,7 @@ contract TaikoRunesNFT is EssentialContract, ERC721Upgradeable {
         onlyOwner
     {
         if (mintTo == address(0)) revert INVALID_ADDRESS();
-        if (bytes(newBaseURI).length == 0) revert INVALID_URI();
+        if (bytes(newBaseURI).length != 46) revert INVALID_URI();
         if (keccak256(bytes(newBaseURI)) == keccak256(bytes(baseURI))) revert INVALID_URI();
 
         if (newProperty.id == 0) return;
@@ -89,7 +89,7 @@ contract TaikoRunesNFT is EssentialContract, ERC721Upgradeable {
 
         lastUpdated = uint64(block.timestamp);
         version += 1;
-        previousBaseURL = baseURI;
+        prevBaseURI = baseURI;
         baseURI = newBaseURI;
         properties.push(newProperty);
 
@@ -136,11 +136,12 @@ contract TaikoRunesNFT is EssentialContract, ERC721Upgradeable {
         }
     }
 
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        return _tokenURI(_baseURI(), tokenId);
+    }
+
     function previousTokenURI(uint256 tokenId) public view returns (string memory) {
-        _requireMinted(tokenId);
-        return bytes(previousBaseURL).length > 0
-            ? string(abi.encodePacked(previousBaseURL, tokenId.toString()))
-            : "";
+        return _tokenURI(prevBaseURI, tokenId);
     }
 
     function _mint(address to) internal {
@@ -162,5 +163,11 @@ contract TaikoRunesNFT is EssentialContract, ERC721Upgradeable {
 
     function _mint(address, uint256) internal pure override {
         assert(false); // disabled
+    }
+
+    function _tokenURI(string memory uri, uint256 tokenId) private view returns (string memory) {
+        return bytes(baseURI).length > 0
+            ? string(abi.encodePacked("ipfs://", uri, "/", tokenId.toString()))
+            : "";
     }
 }
