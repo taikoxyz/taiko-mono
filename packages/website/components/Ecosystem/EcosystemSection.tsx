@@ -68,6 +68,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/blazepay.png",
+    name: "Blazepay",
+    link: "https://blazpay.com",
+    description:
+      "Blazpay, is ONE-STOP crypto Financial Solution, aspires to amalgamate the entirety of financial solutions within a cohesive platform, thereby facilitating the streamlined management of crypto assets for users and Business Owners.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/blockpi.png",
     name: "BlockPI",
     link: "https://blockpi.io/",
