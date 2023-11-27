@@ -28,7 +28,7 @@ const ecosystemData: EcosystemData[] = [
     name: "AIT Protocol",
     link: "https://ait.tech/",
     description:
-      "AIT Protocol is the first’s Web3 data infrastructure focusing on AI data annotations, leverages blockchain technology to deliver a trustless and cross-border labor market being strategically incentivized by crypto economics and having instant cross-nation payment settlements.",
+      "AIT Protocol is the first Web3 data infrastructure focusing on AI data annotations, leverages blockchain technology to deliver a trustless and cross-border labor market being strategically incentivized by crypto economics and having instant cross-nation payment settlements.",
     filters: [],
     isLive: true,
   },
@@ -47,6 +47,15 @@ const ecosystemData: EcosystemData[] = [
     link: "https://www.apus.network/",
     description:
       "Apus Network is to democratize compute by building a decentralized ZKP marketplace, transforming global compute resources into accessible and affordable ZKP capabilities.",
+    filters: [],
+    isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/automatanetwork.png",
+    name: "Automata Network",
+    link: "https://www.l2faucet.com/taiko",
+    description:
+      "Automata Network is a modular attestation layer that extends machine-level trust to Ethereum by leveraging optimistic rollups and zero-knowledge proofs in its Proof of Machinehood approach. The application-specific rollup allows on-chain verification for out-of-protocol computation, which creates an unbroken chain of trust that extends upwards through the entire Web3 stack.",
     filters: [],
     isLive: true,
   },
