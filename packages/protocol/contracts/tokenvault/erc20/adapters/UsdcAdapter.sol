@@ -8,7 +8,7 @@ pragma solidity ^0.8.20;
 
 import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 
-import "./BaseTranslator.sol";
+import "./BaseAdapter.sol";
 
 interface IUsdc {
     /// @notice Burns `amount` tokens from address(this)
@@ -20,13 +20,13 @@ interface IUsdc {
     function mint(address to, uint256 amount) external;
 }
 
-/// @title UsdcTranslator
+/// @title UsdcAdapter
 /// @notice It serves as a wrapper between the deployed USDC and the ERC20Vault - an extra layer for
 /// flexibility. It is not an ERC20 contract, but we need to implement the interfaces the ERC20Vault
 /// calls and relay over to the USDC contract. The reason this contract needs to be 'custom' is the
 /// different mechanisms how each native tokens handling some functions. In this case the
 /// 'troublemaker' is the burn function which behaves differently (in USDC) than usual.
-contract UsdcTranslator is BaseTranslator {
+contract UsdcAdapter is BaseAdapter {
     /// @notice Mints tokens to an account.
     /// @dev Only an ERC20Vault can call this function.
     /// @param account The account to mint tokens to.
@@ -45,7 +45,7 @@ contract UsdcTranslator is BaseTranslator {
         // 2. burn() it the way USDC burns
         ERC20Upgradeable(token).transferFrom({
             from: account,
-            to: address(this), //ERC20Vault
+            to: address(this), //ERC20Vault - via delegatecall()
             amount: amount
         });
         IUsdc(token).burn(amount);
@@ -78,6 +78,6 @@ contract UsdcTranslator is BaseTranslator {
     }
 }
 
-/// @title ProxiedUsdcTranslator
+/// @title ProxiedUsdcAdapter
 /// @notice Proxied version of the parent contract.
-contract ProxiedUsdcTranslator is Proxied, UsdcTranslator { }
+contract ProxiedUsdcAdapter is Proxied, UsdcAdapter { }
