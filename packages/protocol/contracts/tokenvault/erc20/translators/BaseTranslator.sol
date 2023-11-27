@@ -49,7 +49,17 @@ interface IERC20TokenVaultRelayer {
 /// flexibility. It is not an ERC20 contract, but we need to implement the interfaces the ERC20Vault
 /// calls and relay over to other (native) contracts.
 abstract contract BaseTranslator is EssentialContract, IERC20TokenVaultRelayer {
-    uint256[50] private __gap;
+    struct CanonicalERC20 {
+        uint64 chainId;
+        address addr;
+        uint8 decimals;
+        string symbol;
+        string name;
+    }
+
+    mapping(address => CanonicalERC20) compatibilty1;
+    mapping(uint256 => mapping(address => address)) compatibilty2;
+    uint256[48] private __gap;
 
     /// @notice Initializes the contract.
     /// @param _addressManager The address manager
