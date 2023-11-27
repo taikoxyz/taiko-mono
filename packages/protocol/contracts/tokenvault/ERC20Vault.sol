@@ -13,7 +13,6 @@ import "./BridgedERC20.sol";
 import "./IMintableERC20.sol";
 import "./BaseVault.sol";
 import "./erc20/registry/IERC20NativeRegistry.sol";
-import { IERC20TokenVaultRelayer } from "./erc20/adapters/BaseAdapter.sol";
 
 /// @title ERC20Vault
 /// @dev Labeled in AddressResolver as "erc20_vault"
