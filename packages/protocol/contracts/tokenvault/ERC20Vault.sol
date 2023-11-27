@@ -188,7 +188,7 @@ contract ERC20Vault is BaseVault {
 
                 (bool success,) = token.delegatecall(
                     abi.encodeWithSignature(
-                        "mint(address, address, uint256)",
+                        "mint(address,address,uint256)",
                         canonicalToBridged[ctoken.chainId][ctoken.addr],
                         to,
                         amount
@@ -285,7 +285,7 @@ contract ERC20Vault is BaseVault {
                 //IERC20TokenVaultRelayer(translator).burn(token, msg.sender, amount);
                 (bool success,) = translator.delegatecall(
                     abi.encodeWithSignature(
-                        "burn(address, address, uint256)", token, msg.sender, amount
+                        "burn(address,address,uint256)", token, msg.sender, amount
                     )
                 );
                 if (!success) {

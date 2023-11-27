@@ -252,19 +252,17 @@ contract TestERC20Vault is Test {
             false
         );
 
-        vm.prank(minterRoleConfigurator, minterRoleConfigurator);
-        FiatTokenV2_1(address(proxyContract_L1)).configureMinter(
-            minterTranslatorIs, type(uint256).max
-        );
+        console2.log("Translator is:", minterTranslatorIs);
 
-        vm.prank(minterRoleConfigurator, minterRoleConfigurator);
-        FiatTokenV2_1(address(proxyContract_L2)).configureMinter(
-            minterTranslatorIs, type(uint256).max
-        );
+        // vm.prank(minterRoleConfigurator, minterRoleConfigurator);
+        // FiatTokenV2_1(address(proxyContract_L1)).configureMinter(
+        //     minterTranslatorIs, type(uint256).max
+        // );
 
-        // Mint 10 tokens to Alice
-        vm.prank(minterTranslatorIs, minterTranslatorIs);
-        FiatTokenV2_1(address(proxyContract_L1)).mint(Alice, 10);
+        // vm.prank(minterRoleConfigurator, minterRoleConfigurator);
+        // FiatTokenV2_1(address(proxyContract_L2)).configureMinter(
+        //     minterTranslatorIs, type(uint256).max
+        // );
 
         vm.prank(minterRoleConfigurator, minterRoleConfigurator);
         FiatTokenV2_1(address(proxyContract_L1)).configureMinter(
@@ -276,11 +274,15 @@ contract TestERC20Vault is Test {
             address(destChainIdERC20Vault), type(uint256).max
         );
 
-        // This address is coming from the test test_20Vault_bridge_native_usdc_back_to_l1
-        vm.prank(minterRoleConfigurator, minterRoleConfigurator);
-        FiatTokenV2_1(address(proxyContract_L2)).configureMinter(
-            0xa1cF07169fDd20c8D2c11b9F5Ce00f2365F916d6, type(uint256).max
-        );
+        // Mint 10 tokens to Alice
+        vm.prank(address(erc20Vault), address(erc20Vault));
+        FiatTokenV2_1(address(proxyContract_L1)).mint(Alice, 10);
+
+        // // This address is coming from the test test_20Vault_bridge_native_usdc_back_to_l1
+        // vm.prank(minterRoleConfigurator, minterRoleConfigurator);
+        // FiatTokenV2_1(address(proxyContract_L2)).configureMinter(
+        //     0xa1cF07169fDd20c8D2c11b9F5Ce00f2365F916d6, type(uint256).max
+        // );
     }
 
     function test_20Vault_send_erc20_revert_if_allowance_not_set() public {

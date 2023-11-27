@@ -31,14 +31,7 @@ contract UsdcTranslator is BaseTranslator {
     /// @dev Only an ERC20Vault can call this function.
     /// @param account The account to mint tokens to.
     /// @param amount The amount of tokens to mint.
-    function mint(
-        address token,
-        address account,
-        uint256 amount
-    )
-        public
-        onlyFromNamed("erc20_vault")
-    {
+    function mint(address token, address account, uint256 amount) public {
         IUsdc(token).mint(account, amount);
     }
 
@@ -46,20 +39,13 @@ contract UsdcTranslator is BaseTranslator {
     /// @dev Only an ERC20Vault can call this function.
     /// @param account The account to burn tokens from.
     /// @param amount The amount of tokens to burn.
-    function burn(
-        address token,
-        address account,
-        uint256 amount
-    )
-        public
-        onlyFromNamed("erc20_vault")
-    {
+    function burn(address token, address account, uint256 amount) public {
         // Same as USDC does.
         // 1. transferFrom() to this account
         // 2. burn() it the way USDC burns
         ERC20Upgradeable(token).transferFrom({
             from: account,
-            to: msg.sender, //ERC20Vault
+            to: address(this), //ERC20Vault
             amount: amount
         });
         IUsdc(token).burn(amount);
