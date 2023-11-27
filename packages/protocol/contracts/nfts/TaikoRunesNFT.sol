@@ -9,10 +9,12 @@ pragma solidity ^0.8.20;
 import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
 import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 import "../common/EssentialContract.sol";
+import "../libs/LibMath.sol";
 
 /// @title TaikoRunesNFT
 contract TaikoRunesNFT is EssentialContract, ERC721Upgradeable {
     using StringsUpgradeable for uint256;
+    using LibMath for uint256;
 
     struct Property {
         uint64 id;
@@ -24,17 +26,24 @@ contract TaikoRunesNFT is EssentialContract, ERC721Upgradeable {
     uint256 public constant MAX_PROPERTIES = 64;
     uint256 public constant MAX_PROPERTY_VALUES = 32;
     uint256 public constant MIN_UPDATE_DELAY = 90 days;
+    uint256 public constant FIRST_BATCH_SIZE = 10_000;
+    uint256 public constant MAX_REWARDS = 100;
 
     uint64 public lastUpdated; // slot 1
     uint64 public version;
+    uint64 public numTokens;
+
     string private baseURI; // slot 2
     string private previousBaseURL; // slot 3
     Property[] public properties; // slot 4
 
     uint256[46] private __gap;
 
-    event MetadataUpdated(uint256 version, string newBaseURI, Property newProperty);
+    event MetadataUpdated(
+        uint256 indexed version, uint256 numTokens, string newBaseURI, Property newProperty
+    );
 
+    error INVALID_ADDRESS();
     error INVALID_URI();
     error INVALID_PROPERTY();
     error PROPERTY_NOT_FOUND();
@@ -48,13 +57,16 @@ contract TaikoRunesNFT is EssentialContract, ERC721Upgradeable {
     }
 
     function updateMetadata(
+        address mintTo,
         string memory newBaseURI,
-        Property memory newProperty,
-        address rewardTo
+        Property memory newProperty
     )
         external
+        nonReentrant
+        whenNotPaused
         onlyOwner
     {
+        if (mintTo == address(0)) revert INVALID_ADDRESS();
         if (bytes(newBaseURI).length == 0) revert INVALID_URI();
         if (keccak256(bytes(newBaseURI)) == keccak256(bytes(baseURI))) revert INVALID_URI();
 
@@ -66,14 +78,21 @@ contract TaikoRunesNFT is EssentialContract, ERC721Upgradeable {
         if (block.timestamp <= lastUpdated + MIN_UPDATE_DELAY) revert TOO_EARLY();
 
         lastUpdated = uint64(block.timestamp);
-        version++;
+        version += 1;
         previousBaseURL = baseURI;
         baseURI = newBaseURI;
         properties.push(newProperty);
 
-        emit MetadataUpdated(version, newBaseURI, newProperty);
+        uint256 mints = numTokens == 0 ? FIRST_BATCH_SIZE : MAX_REWARDS.max(numTokens / 100);
+        for (uint256 i; i < mints; ++i) {
+            _mint(mintTo);
+        }
 
-        // _mint(rewardTo, uint256 tokenId)
+        emit MetadataUpdated(version, numTokens, newBaseURI, newProperty);
+    }
+
+    function mint(address to) external nonReentrant whenNotPaused onlyOwner {
+        _mint(to);
     }
 
     function getProperty(uint256 pid) public view returns (Property memory) {
@@ -114,6 +133,10 @@ contract TaikoRunesNFT is EssentialContract, ERC721Upgradeable {
             : "";
     }
 
+    function _mint(address to) internal {
+        super._mint(to, ++numTokens);
+    }
+
     function _baseURI() internal view virtual override returns (string memory) {
         return baseURI;
     }
@@ -125,5 +148,9 @@ contract TaikoRunesNFT is EssentialContract, ERC721Upgradeable {
 
     function _randSeed(uint256 nftId, uint256 pid) internal pure virtual returns (uint256) {
         return uint256(keccak256(abi.encode("TAIKO RUNES NFT", nftId, pid)));
+    }
+
+    function _mint(address, uint256) internal pure override {
+        assert(false); // disabled
     }
 }
