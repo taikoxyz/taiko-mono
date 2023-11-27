@@ -165,8 +165,8 @@ contract DeployOnL1 is Script {
             data: bytes.concat(
                 TaikoToken.init.selector,
                 abi.encode(
-                    "Taiko Token Katla", //
-                    "TTKOk",
+                    vm.envString("TAIKO_TOKEN_NAME"),
+                    vm.envString("TAIKO_TOKEN_SYMBOL"),
                     vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT")
                 )
                 ),
