@@ -190,7 +190,7 @@ contract ERC20Vault is BaseVault {
 
         if (amount > 0) {
             if (bridgedToCanonical[token].addr != address(0)) {
-                IMintableERC20(token).burn(address(this), amount);
+                IMintableERC20(token).mint(message.owner, amount);
             } else {
                 ERC20Upgradeable(token).safeTransfer(message.owner, amount);
             }
