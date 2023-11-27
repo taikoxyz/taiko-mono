@@ -16,7 +16,7 @@ This guide will help you deploy a smart contract to Taiko.
 
 ## Steps
 
-<Tabs items={["Remix", "Foundry", "Hardhat", "thirdweb"]} defaultIndex="0">
+<Tabs items={["Remix", "Foundry", "Hardhat", "thirdweb"]} defaultIndex="3">
   <Tab>
       **1. Visit the Remix website**
       Visit [remix.ethereum.org](https://remix.ethereum.org).
@@ -105,8 +105,43 @@ This guide will help you deploy a smart contract to Taiko.
 
   </Tab>
   <Tab>
-      **1. Deploy your smart contract using deploy**
+      **1. Deploy your smart contract using thirdweb deploy**
+
+      Create a basic Hardhat project.
+
+      Follow the documentation: https://hardhat.org/hardhat-runner/docs/guides/project-setup
       
+      Install the thirdweb CLI by executing the command 
+
+      ```bash
+      npm i thirdweb
+      ```
+      Create a basic smart contract.
+
+      For example:
+
+      ```bash
+      // SPDX-License-Identifier: UNLICENSED
+      pragma solidity ^0.8.9;
+
+      contract Storage {
+          address payable public owner;
+          uint256 public num;
+
+          event Stored(uint amount);
+
+          constructor() payable {
+              owner = payable(msg.sender);
+          }
+
+          function StoreNum(uint256 _num) public{
+              num=_num;
+              emit Stored(num);
+          }
+        
+        }
+      ```
+
       Navigate to the root directory of your project and execute the following command:
 
       ```bash
@@ -115,24 +150,29 @@ This guide will help you deploy a smart contract to Taiko.
 
       Executing this command will trigger the following actions:
 
-      - Compiling all the contracts in the current directory.
+      - Compiling the contracts in the current directory.
       - Providing the option to select which contract(s) you wish to deploy.
       - Uploading your contract source code (ABI) to IPFS.
+      - Directly navigate you to a dashboard interface which will open in your default browser.
 
-      **2. Open the dashboard interface**
+      **2. Dashboard interface**
 
-      When it is completed, it will open a dashboard interface to finish filling out the parameters.
+      ![Deploy interface](/images/guides/deploy-thirdweb/thirdweb-deploy.png)
 
-      - `_name`: contract name
-      - `_symbol`: symbol or "ticker"
-      - `_royaltyRecipient`: wallet address to receive royalties from secondary sales
-      - `_royaltyBps`: basis points (bps) that will be given to the royalty recipient for each secondary sale, e.g. 500 = 5%
+      - Click on the connect wallet button on the dashboard and connect your metamask wallet that has testnet ETH on Taiko jolnir L2.
+      - Select the network as **`Taiko Jolnir L2`**
+      - Click on **`Deploy Now`** button.
+      - This will intiate a transaction to deploy the contract on Taiko Jolnir L2 
 
-      **3. Select `Taiko (Alpha-3 Testnet)` as the network**
+        ![transaction](/images/guides/deploy-thirdweb/thirdweb-transaction.png)
 
-      **4. Manage additional settings on your contract’s dashboard**
+      - After completing the transaction it will request you to sign a message to create a dashboard interface for you smart contract.
 
-      You can manage settings as needed such as for uploading NFTs, configuring permissions, and more.
+        ![sign message](/images/guides/deploy-thirdweb/thirdweb-message.png)
+
+      - Now your contract is deployed on the Taiko Jolnir L2.
+
+        ![sign message](/images/guides/deploy-thirdweb/thirdweb-dashboard.png)
 
       For additional information on Deploy, please reference [thirdweb’s documentation](https://portal.thirdweb.com/deploy?utm_source=taiko&utm_medium=docs&utm_campaign=chain_docs).
 
