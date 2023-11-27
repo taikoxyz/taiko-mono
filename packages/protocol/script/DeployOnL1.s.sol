@@ -34,7 +34,6 @@ import "../contracts/libs/LibDeployHelper.sol";
 /// @title DeployOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
 /// initializing the rollup.
-
 contract DeployOnL1 is Script {
     uint256 public constant NUM_GUARDIANS = 5;
 
@@ -92,8 +91,6 @@ contract DeployOnL1 is Script {
             console2.log("- taikoL1Addr   : ", taikoL1Addr);
             console2.log("- chainId       : ", block.chainid);
         }
-
-        console2.log("---------------------__AYOAYOAYOAYOAYOAYOAYOAYOAYOAYOAYO");
 
         // ---------------------------------------------------------------
         // Register shared contracts in the new rollup
@@ -291,7 +288,7 @@ contract DeployOnL1 is Script {
         });
 
         LibDeployHelper.deployProxy({
-            name: "tier_pse_zkevm",
+            name: "assignment_hook",
             impl: address(new AssignmentHook()),
             data: bytes.concat(AssignmentHook.init.selector, abi.encode(rollupAddressManager)),
             registerTo: address(0),
