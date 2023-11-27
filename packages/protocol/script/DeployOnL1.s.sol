@@ -156,7 +156,7 @@ contract DeployOnL1 is Script {
             impl: address(new AddressManager()),
             data: bytes.concat(AddressManager.init.selector),
             registerTo: address(0),
-            owner: msg.sender // set to this contract, transfer ownership to timelock after
+            owner: msg.sender // set to sender, transfer ownership to timelock after
          });
 
         address taikoToken = LibDeployHelper.deployProxy({
