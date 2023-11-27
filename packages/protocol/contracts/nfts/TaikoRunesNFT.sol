@@ -12,6 +12,16 @@ import "../common/EssentialContract.sol";
 import "../libs/LibMath.sol";
 
 /// @title TaikoRunesNFT
+/// @notice The Taiko Runes NFT is a component of the Taiko blockchain ecosystem, focusing on
+/// community-driven NFT designs and unique on-chain properties. Key features include:
+/// 1. Community-Driven Designs: NFT artworks are selected through community voting via Taiko DAO
+/// by TKO holders, encouraging diverse artistic contributions.
+/// 2. Incentives for Designers: Winning designers are rewarded with 1% of the NFTs minted in their
+/// design series, fostering continuous community engagement and creativity.
+/// 3. Determinstic On-Chain Properties: Each NFT possesses distinct, deterministically calculated
+/// properties based on its ID, adding rarity and uniqueness.
+/// 4. Ecosystem Integration: These NFTs are designed for use within the Taiko ecosystem, enhancing
+/// user interaction and experience.
 contract TaikoRunesNFT is EssentialContract, ERC721Upgradeable {
     using StringsUpgradeable for uint256;
     using LibMath for uint256;
