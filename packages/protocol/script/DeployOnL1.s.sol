@@ -12,6 +12,7 @@ import "lib/openzeppelin-contracts/contracts/governance/TimelockController.sol";
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
 
+import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/L1/provers/GuardianProver.sol";

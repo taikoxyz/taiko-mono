@@ -6,9 +6,9 @@
 
 pragma solidity ^0.8.20;
 
+import "lib/openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
 import
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
-import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/ERC1155Upgradeable.sol";
 import "../bridge/IBridge.sol";
 import "./BaseNFTVault.sol";
 import "./BridgedERC1155.sol";
@@ -119,7 +119,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                 // Token lives on this chain
                 token = ctoken.addr;
                 for (uint256 i; i < tokenIds.length; ++i) {
-                    ERC1155Upgradeable(token).safeTransferFrom({
+                    ERC1155(token).safeTransferFrom({
                         from: address(this),
                         to: _to,
                         id: tokenIds[i],
@@ -174,7 +174,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                 }
             } else {
                 for (uint256 i; i < tokenIds.length; ++i) {
-                    ERC1155Upgradeable(nft.addr).safeTransferFrom({
+                    ERC1155(nft.addr).safeTransferFrom({
                         from: address(this),
                         to: message.owner,
                         id: tokenIds[i],
@@ -277,7 +277,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                     nft.symbol = _symbol;
                 } catch { }
                 for (uint256 i; i < op.tokenIds.length; ++i) {
-                    ERC1155Upgradeable(op.token).safeTransferFrom({
+                    ERC1155(op.token).safeTransferFrom({
                         from: msg.sender,
                         to: address(this),
                         id: op.tokenIds[i],

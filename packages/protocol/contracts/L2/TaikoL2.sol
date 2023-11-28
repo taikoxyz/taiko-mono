@@ -6,7 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
 import "../common/EssentialContract.sol";
 import "../common/ICrossChainSync.sol";
 import "../libs/LibMath.sol";

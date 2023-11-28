@@ -6,11 +6,11 @@
 
 pragma solidity ^0.8.20;
 
+import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "../../common/AddressResolver.sol";
 import "../tiers/ITierProvider.sol";
 import "../verifiers/IVerifier.sol";
 import "../TaikoData.sol";
-import "../TaikoToken.sol";
 import "./LibUtils.sol";
 
 /// @title LibProving
@@ -213,7 +213,7 @@ library LibProving {
             }
         }
 
-        TaikoToken tko = TaikoToken(resolver.resolve("taiko_token", false));
+        IERC20 tko = IERC20(resolver.resolve("taiko_token", false));
 
         if (tier.contestBond == 0) {
             assert(tier.validityBond == 0);
