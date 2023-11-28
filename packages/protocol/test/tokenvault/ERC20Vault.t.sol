@@ -3,11 +3,9 @@ pragma solidity ^0.8.20;
 
 import "../TaikoTest.sol";
 
-// For native USDC E2E tests
-import { FiatTokenProxy } from
-    "../helper/usdc/FiatTokenProxy/centre-tokens/contracts/v1/FiatTokenProxy.sol";
-import { FiatTokenV2_1 } from
-    "../helper/usdc/FiatTokenV2_1/centre-tokens/contracts/v2/FiatTokenV2_1.sol";
+// For native USDC E2E/integration tests
+import { FiatTokenProxy } from "../helper/usdc/FiatTokenProxy.sol";
+import { FiatTokenV2 } from "../helper/usdc/FiatTokenV2.sol";
 import { ERC20NativeRegistry } from
     "../../contracts/tokenvault/erc20/registry/ERC20NativeRegistry.sol";
 import { UsdcAdapter } from "../../contracts/tokenvault/erc20/adapters/UsdcAdapter.sol";
@@ -92,9 +90,9 @@ contract TestERC20Vault is TaikoTest {
 
     //For native USDC support tests!
     FiatTokenProxy proxyContract_L1;
-    FiatTokenV2_1 fiatTokenV2_2_L1;
+    FiatTokenV2 fiatTokenV2_2_L1;
     FiatTokenProxy proxyContract_L2;
-    FiatTokenV2_1 fiatTokenV2_2_L2;
+    FiatTokenV2 fiatTokenV2_2_L2;
     address proxyOwner; // aka proxy admin too !
     address minterRoleConfigurator; // The one who configures who can mint
 
@@ -227,18 +225,18 @@ contract TestERC20Vault is TaikoTest {
         minterRoleConfigurator = vm.addr(0x13);
 
         //L1 -> Native
-        fiatTokenV2_2_L1 = new FiatTokenV2_1();
+        fiatTokenV2_2_L1 = new FiatTokenV2();
         proxyContract_L1 = new FiatTokenProxy(address(fiatTokenV2_2_L1));
 
         // L2 -> Deployed by Taiko - but meant to be native
-        fiatTokenV2_2_L2 = new FiatTokenV2_1();
+        fiatTokenV2_2_L2 = new FiatTokenV2();
         proxyContract_L2 = new FiatTokenProxy(address(fiatTokenV2_2_L2));
 
         vm.stopPrank();
 
         // Config the USDC (on both chains)
         vm.startPrank(proxyOwner);
-        FiatTokenV2_1(address(proxyContract_L1)).initialize(
+        FiatTokenV2(address(proxyContract_L1)).initialize(
             NAME,
             SYMBOL,
             CURRENCY,
@@ -251,13 +249,9 @@ contract TestERC20Vault is TaikoTest {
 
         //// Do the V2 initialization
         // console.log("Initializing V2...");
-        FiatTokenV2_1(address(proxyContract_L1)).initializeV2(NAME);
+        FiatTokenV2(address(proxyContract_L1)).initializeV2(NAME);
 
-        // // Do the V2_1 initialization
-        // console.log("Initializing V2.1...");
-        FiatTokenV2_1(address(proxyContract_L1)).initializeV2_1(THROWAWAY_ADDRESS);
-
-        FiatTokenV2_1(address(proxyContract_L2)).initialize(
+        FiatTokenV2(address(proxyContract_L2)).initialize(
             NAME,
             SYMBOL,
             CURRENCY,
@@ -270,11 +264,7 @@ contract TestERC20Vault is TaikoTest {
 
         //// Do the V2 initialization
         // console.log("Initializing V2...");
-        FiatTokenV2_1(address(proxyContract_L2)).initializeV2(NAME);
-
-        // // Do the V2_1 initialization
-        // console.log("Initializing V2.1...");
-        FiatTokenV2_1(address(proxyContract_L2)).initializeV2_1(THROWAWAY_ADDRESS);
+        FiatTokenV2(address(proxyContract_L2)).initializeV2(NAME);
 
         vm.stopPrank();
         // Set the registry
@@ -288,18 +278,18 @@ contract TestERC20Vault is TaikoTest {
         );
 
         vm.prank(minterRoleConfigurator, minterRoleConfigurator);
-        FiatTokenV2_1(address(proxyContract_L1)).configureMinter(
+        FiatTokenV2(address(proxyContract_L1)).configureMinter(
             address(erc20Vault), type(uint256).max
         );
 
         vm.prank(minterRoleConfigurator, minterRoleConfigurator);
-        FiatTokenV2_1(address(proxyContract_L2)).configureMinter(
+        FiatTokenV2(address(proxyContract_L2)).configureMinter(
             address(destChainIdERC20Vault), type(uint256).max
         );
 
         // Mint 10 tokens to Alice
         vm.prank(address(erc20Vault), address(erc20Vault));
-        FiatTokenV2_1(address(proxyContract_L1)).mint(Alice, 10);
+        FiatTokenV2(address(proxyContract_L1)).mint(Alice, 10);
     }
 
     function test_20Vault_send_erc20_revert_if_allowance_not_set() public {
@@ -530,9 +520,9 @@ contract TestERC20Vault is TaikoTest {
         return ERC20Vault.CanonicalERC20({
             chainId: chainId,
             addr: address(proxyContract_L1),
-            decimals: FiatTokenV2_1(address(proxyContract_L2)).decimals(),
-            symbol: FiatTokenV2_1(address(proxyContract_L2)).symbol(),
-            name: FiatTokenV2_1(address(proxyContract_L2)).name()
+            decimals: FiatTokenV2(address(proxyContract_L2)).decimals(),
+            symbol: FiatTokenV2(address(proxyContract_L2)).symbol(),
+            name: FiatTokenV2(address(proxyContract_L2)).name()
         });
     }
 
@@ -735,10 +725,10 @@ contract TestERC20Vault is TaikoTest {
 
         // Imitating circle revoke minter role.
         vm.prank(minterRoleConfigurator, minterRoleConfigurator);
-        FiatTokenV2_1(address(proxyContract_L1)).removeMinter(address(erc20Vault));
+        FiatTokenV2(address(proxyContract_L1)).removeMinter(address(erc20Vault));
 
         vm.prank(minterRoleConfigurator, minterRoleConfigurator);
-        FiatTokenV2_1(address(proxyContract_L2)).removeMinter(address(destChainIdERC20Vault));
+        FiatTokenV2(address(proxyContract_L2)).removeMinter(address(destChainIdERC20Vault));
 
         // Circle revoked minter role, we cannot bridge now USDC from L1 to L2, but we can
         // mint our bridged "USDC ⭀31337" style, tho it cannot be considered native
