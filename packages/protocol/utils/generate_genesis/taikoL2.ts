@@ -12,15 +12,12 @@ const ARTIFACTS_PATH = path.join(__dirname, "../../out");
 const IMPLEMENTATION_SLOT =
     "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc";
 
-const ADMIN_SLOT =
-    "0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103";
-
 // deployTaikoL2 generates a L2 genesis alloc of the TaikoL2 contract.
 export async function deployTaikoL2(
     config: Config,
     result: Result,
 ): Promise<Result> {
-    const { contractOwner, chainId, seedAccounts, contractAdmin } = config;
+    const { contractOwner, chainId, seedAccounts } = config;
 
     const alloc: any = {};
 
@@ -46,7 +43,6 @@ export async function deployTaikoL2(
 
     const contractConfigs: any = await generateContractConfigs(
         contractOwner,
-        contractAdmin,
         chainId,
         config.contractAddresses,
         config.param1559,
@@ -117,7 +113,6 @@ export async function deployTaikoL2(
 // and initialized variables.
 async function generateContractConfigs(
     contractOwner: string,
-    contractAdmin: string,
     chainId: number,
     hardCodedAddresses: any,
     param1559: any,
@@ -261,7 +256,6 @@ async function generateContractConfigs(
                 },
             },
             slots: {
-                [ADMIN_SLOT]: contractAdmin,
                 [IMPLEMENTATION_SLOT]: addressMap.SharedAddressManagerImpl,
             },
             isProxy: true,
@@ -292,7 +286,6 @@ async function generateContractConfigs(
                 addressManager: addressMap.SharedAddressManager,
             },
             slots: {
-                [ADMIN_SLOT]: contractAdmin,
                 [IMPLEMENTATION_SLOT]: addressMap.BridgeImpl,
             },
             isProxy: true,
@@ -324,7 +317,6 @@ async function generateContractConfigs(
                 addressManager: addressMap.SharedAddressManager,
             },
             slots: {
-                [ADMIN_SLOT]: contractAdmin,
                 [IMPLEMENTATION_SLOT]: addressMap.ERC20VaultImpl,
             },
             isProxy: true,
@@ -356,7 +348,6 @@ async function generateContractConfigs(
                 addressManager: addressMap.SharedAddressManager,
             },
             slots: {
-                [ADMIN_SLOT]: contractAdmin,
                 [IMPLEMENTATION_SLOT]: addressMap.ERC721VaultImpl,
             },
             isProxy: true,
@@ -388,7 +379,6 @@ async function generateContractConfigs(
                 addressManager: addressMap.SharedAddressManager,
             },
             slots: {
-                [ADMIN_SLOT]: contractAdmin,
                 [IMPLEMENTATION_SLOT]: addressMap.ERC1155VaultImpl,
             },
             isProxy: true,
@@ -439,7 +429,6 @@ async function generateContractConfigs(
                 },
             },
             slots: {
-                [ADMIN_SLOT]: contractAdmin,
                 [IMPLEMENTATION_SLOT]: addressMap.SignalServiceImpl,
             },
             isProxy: true,
@@ -480,7 +469,6 @@ async function generateContractConfigs(
                 )}`,
             },
             slots: {
-                [ADMIN_SLOT]: contractAdmin,
                 [IMPLEMENTATION_SLOT]: addressMap.TaikoL2Impl,
             },
             isProxy: true,

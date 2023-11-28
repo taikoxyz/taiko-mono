@@ -3,7 +3,6 @@ const ADDRESS_LENGTH = 40;
 
 module.exports = {
   contractOwner: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-  contractAdmin: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
   chainId: 167,
   seedAccounts: [
     {
