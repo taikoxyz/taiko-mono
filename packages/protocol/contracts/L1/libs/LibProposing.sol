@@ -57,7 +57,7 @@ library LibProposing {
         bytes calldata data,
         bytes calldata txList
     )
-        internal
+        external
         returns (
             TaikoData.BlockMetadata memory meta,
             TaikoData.EthDeposit[] memory depositsProcessed
