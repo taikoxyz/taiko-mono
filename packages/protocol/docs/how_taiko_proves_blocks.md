@@ -28,7 +28,7 @@ A valid transaction (defined in the Ethereum Yellow Paper):
 - Has a gas limit no smaller than the intrinsic gas, _`g0`_, used by the transaction.
 - The sender account balance contains at least the cost, _`v0`_, required in up-front payment.
 - The transaction has a gas limit that is smaller or equal to the amount of gas left in the block (with the block gas limit being the protocol constant _`blockMaxGasLimit`_).
-- The transaction has a basefee that is greater than or equal the basefee of the block.
+- The transaction has a base fee that is greater than or equal to the base fee of the block.
 
 #### Slicing and Consistency
 
@@ -52,8 +52,8 @@ function anchor(
 ) external;
 ```
 
-- A circuit will verify the integrity among: `l1Hash`, `l1SignalRoot`, and `l1SignalServiceAddress`
-- `l1SignalServiceAddress`, `l2SignalServiceAddress` and `parentGasUsed` are directly hashed into the ZKP's instance
+- A circuit will verify the integrity among: `l1Hash`, `l1SignalRoot`, and `l1SignalServiceAddress`.
+- `l1SignalServiceAddress`, `l2SignalServiceAddress` and `parentGasUsed` are directly hashed into the ZKP's instance.
 - `l1Height` and `l1Hash` are both part of the block metadata (`meta.l1Height` and `meta.l1Hash`), the `metaHash` is used to calculate the ZKP instance.
 - `l1SignalRoot` is part of the evidence and is also used to calculate the ZKP instance.
 - The transaction's status code is 1 (success).
