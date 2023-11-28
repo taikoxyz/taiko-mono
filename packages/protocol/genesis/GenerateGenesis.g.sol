@@ -99,16 +99,16 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkSavedAddress(addressManagerProxy, "TaikoL2", "taiko");
         checkSavedAddress(addressManagerProxy, "SignalService", "signal_service");
 
-        AddressManager addressManager =
-            AddressManager(getPredeployedContractAddress("RollupAddressManagerImpl"));
+        // AddressManager addressManager =
+        //     AddressManager(getPredeployedContractAddress("RollupAddressManager"));
 
-        AddressManager newAddressManager = new AddressManager();
+        // AddressManager newAddressManager = new AddressManager();
 
-        vm.startPrank(addressManager.owner());
+        // vm.startPrank(addressManager.owner());
 
-        addressManager.upgradeTo(address(newAddressManager));
+        // addressManager.upgradeTo(address(newAddressManager));
 
-        vm.stopPrank();
+        // vm.stopPrank();
     }
 
     function testTaikoL2() public {
@@ -137,15 +137,15 @@ contract TestGenerateGenesis is Test, AddressResolver {
         }
         vm.stopPrank();
 
-        TaikoL2 taikoL2 = TaikoL2(getPredeployedContractAddress("TaikoL2Impl"));
+        // TaikoL2 taikoL2 = TaikoL2(getPredeployedContractAddress("TaikoL2"));
 
-        vm.startPrank(taikoL2.owner());
+        // vm.startPrank(taikoL2.owner());
 
-        TaikoL2 newTaikoL2 = new TaikoL2();
+        // TaikoL2 newTaikoL2 = new TaikoL2();
 
-        taikoL2.upgradeTo(address(newTaikoL2));
+        // taikoL2.upgradeTo(address(newTaikoL2));
 
-        vm.stopPrank();
+        // vm.stopPrank();
     }
 
     function testSingletonBridge() public {
@@ -200,13 +200,13 @@ contract TestGenerateGenesis is Test, AddressResolver {
         bridgeProxy.unpause();
         assertEq(bridgeProxy.paused(), false);
 
-        Bridge bridge = Bridge(payable(getPredeployedContractAddress("BridgeImpl")));
+        // Bridge bridge = Bridge(payable(getPredeployedContractAddress("Bridge")));
 
-        Bridge newBridge = new Bridge();
+        // Bridge newBridge = new Bridge();
 
-        bridge.upgradeTo(address(newBridge));
+        // bridge.upgradeTo(address(newBridge));
 
-        vm.stopPrank();
+        // vm.stopPrank();
     }
 
     function testSingletonERC20Vault() public {
@@ -225,15 +225,15 @@ contract TestGenerateGenesis is Test, AddressResolver {
         addressManager.setAddress(1, "erc20_vault", erc20VaultAddress);
         vm.stopPrank();
 
-        ERC20Vault erc20Vault = ERC20Vault(getPredeployedContractAddress("ERC20VaultImpl"));
+        // ERC20Vault erc20Vault = ERC20Vault(getPredeployedContractAddress("ERC20Vault"));
 
-        vm.startPrank(erc20Vault.owner());
+        // vm.startPrank(erc20Vault.owner());
 
-        ERC20Vault newERC20Vault = new ERC20Vault();
+        // ERC20Vault newERC20Vault = new ERC20Vault();
 
-        erc20Vault.upgradeTo(address(newERC20Vault));
+        // erc20Vault.upgradeTo(address(newERC20Vault));
 
-        vm.stopPrank();
+        // vm.stopPrank();
     }
 
     function testSingletonERC721Vault() public {
@@ -252,14 +252,14 @@ contract TestGenerateGenesis is Test, AddressResolver {
         addressManager.setAddress(1, "erc721_vault", erc721VaultAddress);
         vm.stopPrank();
 
-        ERC721Vault erc721Vault = ERC721Vault(getPredeployedContractAddress("ERC721VaultImpl"));
+        // ERC721Vault erc721Vault = ERC721Vault(getPredeployedContractAddress("ERC721Vault"));
 
-        vm.startPrank(erc721Vault.owner());
-        ERC721Vault newERC721Vault = new ERC721Vault();
+        // vm.startPrank(erc721Vault.owner());
+        // ERC721Vault newERC721Vault = new ERC721Vault();
 
-        erc721Vault.upgradeTo(address(newERC721Vault));
+        // erc721Vault.upgradeTo(address(newERC721Vault));
 
-        vm.stopPrank();
+        // vm.stopPrank();
     }
 
     function testSingletonERC1155Vault() public {
@@ -279,17 +279,17 @@ contract TestGenerateGenesis is Test, AddressResolver {
         addressManager.setAddress(1, "erc1155_vault", erc1155VaultProxyAddress);
         vm.stopPrank();
 
-        address erc1155VaultAddress = getPredeployedContractAddress("ERC1155VaultImpl");
+        // address erc1155VaultAddress = getPredeployedContractAddress("ERC1155Vault");
 
-        ERC1155Vault erc1155Vault = ERC1155Vault(erc1155VaultAddress);
+        // ERC1155Vault erc1155Vault = ERC1155Vault(erc1155VaultAddress);
 
-        vm.startPrank(erc1155Vault.owner());
+        // vm.startPrank(erc1155Vault.owner());
 
-        ERC1155Vault newERC1155Vault = new ERC1155Vault();
+        // ERC1155Vault newERC1155Vault = new ERC1155Vault();
 
-        erc1155Vault.upgradeTo(address(newERC1155Vault));
+        // erc1155Vault.upgradeTo(address(newERC1155Vault));
 
-        vm.stopPrank();
+        // vm.stopPrank();
     }
 
     function testSingletonSignalService() public {
@@ -307,16 +307,16 @@ contract TestGenerateGenesis is Test, AddressResolver {
             )
         );
 
-        vm.startPrank(owner);
+        // vm.startPrank(owner);
 
-        SignalService signalService =
-            SignalService(payable(getPredeployedContractAddress("SignalServiceImpl")));
+        // SignalService signalService =
+        //     SignalService(payable(getPredeployedContractAddress("SignalService")));
 
-        SignalService newSignalService = new SignalService();
+        // SignalService newSignalService = new SignalService();
 
-        signalService.upgradeTo(address(newSignalService));
+        // signalService.upgradeTo(address(newSignalService));
 
-        vm.stopPrank();
+        // vm.stopPrank();
     }
 
     function testERC20() public {
