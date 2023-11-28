@@ -67,7 +67,7 @@ export async function deployTaikoL2(
 
         // pre-mint ETHs for Bridge contract
         alloc[contractConfig.address].balance =
-            contractName === "SingletonBridgeProxy"
+            contractName === "Bridge1"
                 ? bridgeInitialEtherBalance.toHexString()
                 : "0x0";
 
@@ -75,12 +75,9 @@ export async function deployTaikoL2(
         // rollup/artifacts/build-info will contain storage layouts, here
         // reading it using smock package.
         let storageLayoutName = contractName;
-        if (contractConfig.isProxy) {
-            storageLayoutName = contractName
-                .replace("Proxy", "")
-                .replace("Singleton", "");
-            storageLayoutName = `${storageLayoutName}`;
-        }
+        if (!contractConfig.isProxy)
+            storageLayoutName = `${contractName.replace("Impl", "")}`;
+
         storageLayoutName = contractName.includes("AddressManager")
             ? "AddressManager"
             : storageLayoutName;
@@ -127,43 +124,45 @@ async function generateContractConfigs(
 ): Promise<any> {
     const contractArtifacts: any = {
         // ============ Contracts ============
-        // Singletons
-        Bridge: require(path.join(ARTIFACTS_PATH, "./Bridge.sol/Bridge.json")),
-        ERC20Vault: require(
+        // Shared Contracts
+        BridgeImpl: require(
+            path.join(ARTIFACTS_PATH, "./Bridge.sol/Bridge.json"),
+        ),
+        ERC20VaultImpl: require(
             path.join(ARTIFACTS_PATH, "./ERC20Vault.sol/ERC20Vault.json"),
         ),
-        ERC721Vault: require(
+        ERC721VaultImpl: require(
             path.join(ARTIFACTS_PATH, "./ERC721Vault.sol/ERC721Vault.json"),
         ),
-        ERC1155Vault: require(
+        ERC1155VaultImpl: require(
             path.join(ARTIFACTS_PATH, "./ERC1155Vault.sol/ERC1155Vault.json"),
         ),
-        SignalService: require(
+        SignalServiceImpl: require(
             path.join(ARTIFACTS_PATH, "./SignalService.sol/SignalService.json"),
         ),
-        AddressManagerForSingletons: require(
+        SharedAddressManagerImpl: require(
             path.join(
                 ARTIFACTS_PATH,
                 "./AddressManager.sol/AddressManager.json",
             ),
         ),
-        BridgedERC20: require(
+        BridgedERC20Impl: require(
             path.join(ARTIFACTS_PATH, "./BridgedERC20.sol/BridgedERC20.json"),
         ),
-        BridgedERC721: require(
+        BridgedERC721Impl: require(
             path.join(ARTIFACTS_PATH, "./BridgedERC721.sol/BridgedERC721.json"),
         ),
-        BridgedERC1155: require(
+        BridgedERC1155Impl: require(
             path.join(
                 ARTIFACTS_PATH,
                 "./BridgedERC1155.sol/BridgedERC1155.json",
             ),
         ),
-        // Non-singletons
-        TaikoL2: require(
+        // Rollup Contracts
+        TaikoL2Impl: require(
             path.join(ARTIFACTS_PATH, "./TaikoL2.sol/TaikoL2.json"),
         ),
-        AddressManager: require(
+        RollupAddressManagerImpl: require(
             path.join(
                 ARTIFACTS_PATH,
                 "./AddressManager.sol/AddressManager.json",
@@ -171,49 +170,25 @@ async function generateContractConfigs(
         ),
     };
 
-    // TODO(david): use ERC1967Proxy please
     const proxy = require(
         path.join(ARTIFACTS_PATH, "./ERC1967Proxy.sol/ERC1967Proxy.json"),
     );
 
-    // Singletons
-    contractArtifacts.SingletonBridgeProxy = proxy;
-    contractArtifacts.SingletonERC20VaultProxy = proxy;
-    contractArtifacts.SingletonERC721VaultProxy = proxy;
-    contractArtifacts.SingletonERC1155VaultProxy = proxy;
-    contractArtifacts.SingletonSignalServiceProxy = proxy;
-    contractArtifacts.SingletonAddressManagerForSingletonsProxy = proxy;
-    // Non-singletons
-    contractArtifacts.SingletonTaikoL2Proxy = proxy;
-    contractArtifacts.AddressManagerProxy = proxy;
+    // Shared Contracts
+    contractArtifacts.Bridge = proxy;
+    contractArtifacts.ERC20Vault = proxy;
+    contractArtifacts.ERC721Vault = proxy;
+    contractArtifacts.ERC1155Vault = proxy;
+    contractArtifacts.SignalService = proxy;
+    contractArtifacts.SharedAddressManager = proxy;
+    // Rollup Contracts
+    contractArtifacts.TaikoL2 = proxy;
+    contractArtifacts.RollupAddressManager = proxy;
 
     const addressMap: any = {};
 
     for (const [contractName, artifact] of Object.entries(contractArtifacts)) {
-        let bytecode = (artifact as any).bytecode;
-
-        switch (contractName) {
-            case "TaikoL2":
-                bytecode = linkContractLibs(
-                    contractArtifacts.TaikoL2,
-                    addressMap,
-                );
-                break;
-            case "Bridge":
-                bytecode = linkContractLibs(
-                    contractArtifacts.Bridge,
-                    addressMap,
-                );
-                break;
-            case "SignalService":
-                bytecode = linkContractLibs(
-                    contractArtifacts.SignalService,
-                    addressMap,
-                );
-                break;
-            default:
-                break;
-        }
+        const bytecode = (artifact as any).bytecode;
 
         if (
             hardCodedAddresses &&
@@ -235,21 +210,20 @@ async function generateContractConfigs(
     console.log(addressMap);
 
     return {
-        // Singletons
-        AddressManagerForSingletons: {
-            address: addressMap.AddressManagerForSingletons,
+        // Shared Contracts
+        SharedAddressManagerImpl: {
+            address: addressMap.SharedAddressManagerImpl,
             deployedBytecode:
-                contractArtifacts.AddressManagerForSingletons.deployedBytecode
+                contractArtifacts.SharedAddressManagerImpl.deployedBytecode
                     .object,
             variables: {
                 _owner: contractOwner,
             },
         },
-        SingletonAddressManagerForSingletonsProxy: {
-            address: addressMap.SingletonAddressManagerForSingletonsProxy,
+        SharedAddressManager: {
+            address: addressMap.SharedAddressManager,
             deployedBytecode:
-                contractArtifacts.SingletonAddressManagerForSingletonsProxy
-                    .deployedBytecode.object,
+                contractArtifacts.SharedAddressManager.deployedBytecode.object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -261,28 +235,28 @@ async function generateContractConfigs(
                     [chainId]: {
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("bridge"),
-                        )]: addressMap.SingletonBridgeProxy,
+                        )]: addressMap.Bridge,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("erc20_vault"),
-                        )]: addressMap.SingletonERC20VaultProxy,
+                        )]: addressMap.ERC20Vault,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("erc721_vault"),
-                        )]: addressMap.SingletonERC721VaultProxy,
+                        )]: addressMap.ERC721Vault,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("erc1155_vault"),
-                        )]: addressMap.SingletonERC1155VaultProxy,
+                        )]: addressMap.ERC1155Vault,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("signal_service"),
-                        )]: addressMap.SingletonSignalServiceProxy,
+                        )]: addressMap.SignalService,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("bridged_erc20"),
-                        )]: addressMap.BridgedERC20,
+                        )]: addressMap.BridgedERC20Impl,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("bridged_erc721"),
-                        )]: addressMap.BridgedERC721,
+                        )]: addressMap.BridgedERC721Impl,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("bridged_erc1155"),
-                        )]: addressMap.BridgedERC1155,
+                        )]: addressMap.BridgedERC1155Impl,
                     },
                 },
             },
@@ -292,20 +266,19 @@ async function generateContractConfigs(
             },
             isProxy: true,
         },
-        Bridge: {
-            address: addressMap.Bridge,
+        BridgeImpl: {
+            address: addressMap.BridgeImpl,
             deployedBytecode: linkContractLibs(
-                contractArtifacts.Bridge,
+                contractArtifacts.BridgeImpl,
                 addressMap,
             ),
             variables: {
                 _owner: contractOwner,
             },
         },
-        SingletonBridgeProxy: {
-            address: addressMap.SingletonBridgeProxy,
-            deployedBytecode:
-                contractArtifacts.SingletonBridgeProxy.deployedBytecode.object,
+        Bridge: {
+            address: addressMap.Bridge,
+            deployedBytecode: contractArtifacts.Bridge.deployedBytecode.object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -316,8 +289,7 @@ async function generateContractConfigs(
                 // Ownable2Upgradeable
                 _owner: contractOwner,
                 // AddressResolver
-                addressManager:
-                    addressMap.SingletonAddressManagerForSingletonsProxy,
+                addressManager: addressMap.SharedAddressManager,
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
@@ -325,21 +297,20 @@ async function generateContractConfigs(
             },
             isProxy: true,
         },
-        ERC20Vault: {
-            address: addressMap.ERC20Vault,
+        ERC20VaultImpl: {
+            address: addressMap.ERC20VaultImpl,
             deployedBytecode: linkContractLibs(
-                contractArtifacts.ERC20Vault,
+                contractArtifacts.ERC20VaultImpl,
                 addressMap,
             ),
             variables: {
                 _owner: contractOwner,
             },
         },
-        SingletonERC20VaultProxy: {
-            address: addressMap.SingletonERC20VaultProxy,
+        ERC20Vault: {
+            address: addressMap.ERC20Vault,
             deployedBytecode:
-                contractArtifacts.SingletonERC20VaultProxy.deployedBytecode
-                    .object,
+                contractArtifacts.ERC20Vault.deployedBytecode.object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -350,8 +321,7 @@ async function generateContractConfigs(
                 // Ownable2Upgradeable
                 _owner: contractOwner,
                 // AddressResolver
-                addressManager:
-                    addressMap.SingletonAddressManagerForSingletonsProxy,
+                addressManager: addressMap.SharedAddressManager,
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
@@ -359,21 +329,20 @@ async function generateContractConfigs(
             },
             isProxy: true,
         },
-        ERC721Vault: {
-            address: addressMap.ERC721Vault,
+        ERC721VaultImpl: {
+            address: addressMap.ERC721VaultImpl,
             deployedBytecode: linkContractLibs(
-                contractArtifacts.ERC721Vault,
+                contractArtifacts.ERC721VaultImpl,
                 addressMap,
             ),
             variables: {
                 _owner: contractOwner,
             },
         },
-        SingletonERC721VaultProxy: {
-            address: addressMap.SingletonERC721VaultProxy,
+        ERC721Vault: {
+            address: addressMap.ERC721Vault,
             deployedBytecode:
-                contractArtifacts.SingletonERC721VaultProxy.deployedBytecode
-                    .object,
+                contractArtifacts.ERC721Vault.deployedBytecode.object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -384,8 +353,7 @@ async function generateContractConfigs(
                 // Ownable2Upgradeable
                 _owner: contractOwner,
                 // AddressResolver
-                addressManager:
-                    addressMap.SingletonAddressManagerForSingletonsProxy,
+                addressManager: addressMap.SharedAddressManager,
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
@@ -393,21 +361,20 @@ async function generateContractConfigs(
             },
             isProxy: true,
         },
-        ERC1155Vault: {
-            address: addressMap.ERC1155Vault,
+        ERC1155VaultImpl: {
+            address: addressMap.ERC1155VaultImpl,
             deployedBytecode: linkContractLibs(
-                contractArtifacts.ERC1155Vault,
+                contractArtifacts.ERC1155VaultImpl,
                 addressMap,
             ),
             variables: {
                 _owner: contractOwner,
             },
         },
-        SingletonERC1155VaultProxy: {
-            address: addressMap.SingletonERC1155VaultProxy,
+        ERC1155Vault: {
+            address: addressMap.ERC1155Vault,
             deployedBytecode:
-                contractArtifacts.SingletonERC1155VaultProxy.deployedBytecode
-                    .object,
+                contractArtifacts.ERC1155Vault.deployedBytecode.object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -418,8 +385,7 @@ async function generateContractConfigs(
                 // Ownable2Upgradeable
                 _owner: contractOwner,
                 // AddressResolver
-                addressManager:
-                    addressMap.SingletonAddressManagerForSingletonsProxy,
+                addressManager: addressMap.SharedAddressManager,
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
@@ -427,36 +393,35 @@ async function generateContractConfigs(
             },
             isProxy: true,
         },
-        SignalService: {
-            address: addressMap.SignalService,
+        BridgedERC20: {
+            address: addressMap.BridgedERC20Impl,
+            deployedBytecode:
+                contractArtifacts.BridgedERC20Impl.deployedBytecode.object,
+        },
+        BridgedERC721: {
+            address: addressMap.BridgedERC721Impl,
+            deployedBytecode:
+                contractArtifacts.BridgedERC721Impl.deployedBytecode.object,
+        },
+        BridgedERC1155: {
+            address: addressMap.BridgedERC1155Impl,
+            deployedBytecode:
+                contractArtifacts.BridgedERC1155Impl.deployedBytecode.object,
+        },
+        SignalServiceImpl: {
+            address: addressMap.SignalServiceImpl,
             deployedBytecode: linkContractLibs(
-                contractArtifacts.SignalService,
+                contractArtifacts.SignalServiceImpl,
                 addressMap,
             ),
             variables: {
                 _owner: contractOwner,
             },
         },
-        BridgedERC20: {
-            address: addressMap.BridgedERC20,
+        SignalService: {
+            address: addressMap.SignalService,
             deployedBytecode:
-                contractArtifacts.BridgedERC20.deployedBytecode.object,
-        },
-        BridgedERC721: {
-            address: addressMap.BridgedERC721,
-            deployedBytecode:
-                contractArtifacts.BridgedERC721.deployedBytecode.object,
-        },
-        BridgedERC1155: {
-            address: addressMap.BridgedERC1155,
-            deployedBytecode:
-                contractArtifacts.BridgedERC1155.deployedBytecode.object,
-        },
-        SingletonSignalServiceProxy: {
-            address: addressMap.SingletonSignalServiceProxy,
-            deployedBytecode:
-                contractArtifacts.SingletonSignalServiceProxy.deployedBytecode
-                    .object,
+                contractArtifacts.SignalService.deployedBytecode.object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -467,7 +432,7 @@ async function generateContractConfigs(
                 // Ownable2Upgradeable
                 _owner: contractOwner,
                 authorizedAddresses: {
-                    [addressMap.SingletonTaikoL2Proxy]: ethers.utils.hexZeroPad(
+                    [addressMap.TaikoL2]: ethers.utils.hexZeroPad(
                         ethers.utils.hexlify(chainId),
                         32,
                     ),
@@ -479,34 +444,25 @@ async function generateContractConfigs(
             },
             isProxy: true,
         },
-        AddressManager: {
-            address: addressMap.AddressManager,
-            deployedBytecode:
-                contractArtifacts.AddressManager.deployedBytecode.object,
-            variables: {
-                _owner: contractOwner,
-            },
-        },
-        // Non-singletons
-        TaikoL2: {
-            address: addressMap.TaikoL2,
+        // Rollup Contracts
+        TaikoL2Impl: {
+            address: addressMap.TaikoL2Impl,
             deployedBytecode: linkContractLibs(
-                contractArtifacts.TaikoL2,
+                contractArtifacts.TaikoL2Impl,
                 addressMap,
             ),
             variables: {
                 _owner: contractOwner,
             },
         },
-        SingletonTaikoL2Proxy: {
-            address: addressMap.SingletonTaikoL2Proxy,
-            deployedBytecode:
-                contractArtifacts.SingletonTaikoL2Proxy.deployedBytecode.object,
+        TaikoL2: {
+            address: addressMap.TaikoL2,
+            deployedBytecode: contractArtifacts.TaikoL2.deployedBytecode.object,
             variables: {
                 // TaikoL2
                 // Ownable2Upgradeable
                 _owner: contractOwner,
-                signalService: addressMap.SingletonSignalServiceProxy,
+                signalService: addressMap.SignalService,
                 gasExcess: param1559.gasExcess,
                 // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
                 publicInputHash: `${ethers.utils.solidityKeccak256(
@@ -529,10 +485,19 @@ async function generateContractConfigs(
             },
             isProxy: true,
         },
-        AddressManagerProxy: {
-            address: addressMap.AddressManagerProxy,
+        RollupAddressManagerImpl: {
+            address: addressMap.RollupAddressManagerImpl,
             deployedBytecode:
-                contractArtifacts.AddressManagerProxy.deployedBytecode.object,
+                contractArtifacts.RollupAddressManagerImpl.deployedBytecode
+                    .object,
+            variables: {
+                _owner: contractOwner,
+            },
+        },
+        RollupAddressManager: {
+            address: addressMap.RollupAddressManager,
+            deployedBytecode:
+                contractArtifacts.RollupAddressManager.deployedBytecode.object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -544,10 +509,10 @@ async function generateContractConfigs(
                     [chainId]: {
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("taiko"),
-                        )]: addressMap.SingletonTaikoL2Proxy,
+                        )]: addressMap.TaikoL2,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("signal_service"),
-                        )]: addressMap.SingletonSignalServiceProxy,
+                        )]: addressMap.SignalService,
                     },
                 },
             },

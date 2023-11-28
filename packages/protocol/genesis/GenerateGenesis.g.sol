@@ -31,10 +31,10 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkDeployedCode("ERC1155Vault");
         checkDeployedCode("Bridge");
         checkDeployedCode("SignalService");
-        checkDeployedCode("AddressManagerForSingletons");
-        checkDeployedCode("BridgedERC20");
-        checkDeployedCode("BridgedERC721");
-        checkDeployedCode("BridgedERC1155");
+        checkDeployedCode("SharedAddressManager");
+        checkDeployedCode("BridgedERC20Impl");
+        checkDeployedCode("BridgedERC721Impl");
+        checkDeployedCode("BridgedERC1155Impl");
 
         // check proxy implementations
         checkProxyImplementation("SingletonERC20VaultProxy", "ERC20Vault");
