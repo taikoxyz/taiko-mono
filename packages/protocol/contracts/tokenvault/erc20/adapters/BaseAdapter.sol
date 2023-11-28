@@ -22,26 +22,6 @@ interface IERC20TokenVaultRelayer {
     /// @param from The account from which the tokens will be burned.
     /// @param amount The amount of tokens to burn.
     function burn(address token, address from, uint256 amount) external;
-
-    /// @notice Transfer `amount` tokens to `to` address.
-    /// @param token The erc20 token contract.
-    /// @param to The account who will receive the tokens.
-    /// @param amount The amount of tokens.
-    function transfer(address token, address to, uint256 amount) external returns (bool);
-
-    /// @notice Transfer `amount` of tokens on behalf of `from` to `to` address (if approved).
-    /// @param token The erc20 token contract.
-    /// @param from The account who sends.
-    /// @param to The account who will receive the tokens.
-    /// @param amount The amount of tokens.
-    function transferFrom(
-        address token,
-        address from,
-        address to,
-        uint256 amount
-    )
-        external
-        returns (bool);
 }
 
 /// @title BaseAdapter

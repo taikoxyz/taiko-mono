@@ -11,6 +11,8 @@ import { FiatTokenV2_1 } from
 import { ERC20NativeRegistry } from
     "../../contracts/tokenvault/erc20/registry/ERC20NativeRegistry.sol";
 import { UsdcAdapter } from "../../contracts/tokenvault/erc20/adapters/UsdcAdapter.sol";
+import { BridgedERC20Adapter } from
+    "../../contracts/tokenvault/erc20/adapters/BridgedERC20Adapter.sol";
 
 // PrankDestBridge lets us simulate a transaction to the ERC20Vault
 // from a named Bridge, without having to test/run through the real Bridge code,
@@ -205,10 +207,19 @@ contract TestERC20Vault is TaikoTest {
 
         addressManager.setAddress(destChainId, "bridged_erc20", bridgedERC20);
 
+        // For adapter we only need the implementation - hence they will be an extension of the
+        // ERC20Vaults
         address usdcAdapterImp = address(new UsdcAdapter());
 
         addressManager.setAddress(destChainId, "usdc_adapter", usdcAdapterImp);
         addressManager.setAddress(uint64(block.chainid), "usdc_adapter", usdcAdapterImp);
+
+        address bridgedERC20AdapterImp = address(new BridgedERC20Adapter());
+
+        addressManager.setAddress(destChainId, "bridged_erc20_adapter", bridgedERC20AdapterImp);
+        addressManager.setAddress(
+            uint64(block.chainid), "bridged_erc20_adapter", bridgedERC20AdapterImp
+        );
 
         addressManager.setAddress(uint64(block.chainid), "bridged_erc20", bridgedERC20);
 

@@ -50,30 +50,4 @@ contract UsdcAdapter is BaseAdapter {
         });
         IUsdc(token).burn(amount);
     }
-
-    /// @notice We need to keep this because tokenVault will use the SafeERC20Upgradeable's
-    /// safeTransfer, which eventuall calls into this.
-    /// @param to The account to transfer tokens to.
-    /// @param amount The amount of tokens to transfer.
-    function transfer(address token, address to, uint256 amount) public returns (bool) {
-        return ERC20Upgradeable(token).transfer(to, amount);
-    }
-
-    /// @notice Transfers tokens from one account to another account.
-    /// @dev Any address can call this. Caller must have allowance of at least
-    /// 'amount' for 'from's tokens.
-    /// @param from The account to transfer tokens from.
-    /// @param to The account to transfer tokens to.
-    /// @param amount The amount of tokens to transfer.
-    function transferFrom(
-        address token,
-        address from,
-        address to,
-        uint256 amount
-    )
-        public
-        returns (bool)
-    {
-        return ERC20Upgradeable(token).transferFrom(from, to, amount);
-    }
 }

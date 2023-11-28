@@ -87,8 +87,8 @@ contract ERC20Vault is BaseVault {
     error VAULT_INVALID_SRC_CHAIN_ID();
     error VAULT_MESSAGE_NOT_FAILED();
     error VAULT_MESSAGE_RELEASED_ALREADY();
-    error VAULT_ERROR_NATIVE_BURN();
-    error VAULT_ERROR_NATIVE_MINT();
+    error VAULT_BURN_ERROR();
+    error VAULT_MINT_ERROR();
 
     /// @dev If a native token issuer (e.g.: Circle/Lido) revokes minter role from our contracts
     /// (once they get the ownership), we won't be able to mint / burn the tokens. But we still want
@@ -394,35 +394,29 @@ contract ERC20Vault is BaseVault {
     )
         private
     {
+        // Need an adapter: BridgedERC20 or custom (e.g.: USDC)
+        address adapter = isNative ? onToken : resolve("bridged_erc20_adapter", false);
+        // Need the token (proxy) contract
+        address tokenContract = isNative ? nativeBridgedTokenProxy : onToken;
         if (isMint) {
-            if (isNative) {
-                // If this is native we need to use delegatecall() in order to avoid multiple calls
-                // of approve() (ERC20Vault vs. Adaptor contracts). We want a single entity
-                // (ERC20Vault) to be "approve()"-d -> Less UI logic complexity)
-                (bool success,) = onToken.delegatecall(
-                    abi.encodeWithSignature(
-                        "mint(address,address,uint256)", nativeBridgedTokenProxy, toOrFrom, amount
-                    )
-                );
+            (bool success,) = adapter.delegatecall(
+                abi.encodeWithSignature(
+                    "mint(address,address,uint256)", tokenContract, toOrFrom, amount
+                )
+            );
 
-                if (!success) {
-                    revert VAULT_ERROR_NATIVE_MINT();
-                }
-            } else {
-                IMintableERC20(onToken).mint(toOrFrom, amount);
+            if (!success) {
+                revert VAULT_MINT_ERROR();
             }
         } else {
-            if (isNative) {
-                (bool success,) = onToken.delegatecall(
-                    abi.encodeWithSignature(
-                        "burn(address,address,uint256)", nativeBridgedTokenProxy, toOrFrom, amount
-                    )
-                );
-                if (!success) {
-                    revert VAULT_ERROR_NATIVE_BURN();
-                }
-            } else {
-                IMintableERC20(onToken).burn(toOrFrom, amount);
+            (bool success,) = adapter.delegatecall(
+                abi.encodeWithSignature(
+                    "burn(address,address,uint256)", tokenContract, toOrFrom, amount
+                )
+            );
+
+            if (!success) {
+                revert VAULT_BURN_ERROR();
             }
         }
     }
