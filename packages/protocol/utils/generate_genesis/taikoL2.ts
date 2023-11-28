@@ -157,6 +157,21 @@ async function generateContractConfigs(
                 "./BridgedERC1155.sol/BridgedERC1155.json",
             ),
         ),
+        ERC20NativeRegistry: require(
+            path.join(
+                ARTIFACTS_PATH,
+                "./ERC20NativeRegistry.sol/ERC20NativeRegistry.json",
+            ),
+        ),
+        BridgedERC20Adapter: require(
+            path.join(
+                ARTIFACTS_PATH,
+                "./BridgedERC20Adapter.sol/BridgedERC20Adapter.json",
+            ),
+        ),
+        UsdcAdapter: require(
+            path.join(ARTIFACTS_PATH, "./UsdcAdapter.sol/UsdcAdapter.json"),
+        ),
         // Non-singletons
         TaikoL2: require(
             path.join(ARTIFACTS_PATH, "./TaikoL2.sol/TaikoL2.json"),
@@ -181,6 +196,7 @@ async function generateContractConfigs(
     contractArtifacts.SingletonERC1155VaultProxy = proxy;
     contractArtifacts.SingletonSignalServiceProxy = proxy;
     contractArtifacts.SingletonAddressManagerForSingletonsProxy = proxy;
+    contractArtifacts.SingletonERC20NativeRegistryProxy = proxy;
     // Non-singletons
     contractArtifacts.SingletonTaikoL2Proxy = proxy;
     contractArtifacts.AddressManagerProxy = proxy;
@@ -278,6 +294,15 @@ async function generateContractConfigs(
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("bridged_erc1155"),
                         )]: addressMap.BridgedERC1155,
+                        [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("erc20_native_registry"),
+                        )]: addressMap.SingletonERC20NativeRegistryProxy,
+                        [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("bridged_erc20_adapter"),
+                        )]: addressMap.BridgedERC20Adapter,
+                        [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("usdc_adapter"),
+                        )]: addressMap.UsdcAdapter,
                     },
                 },
             },
@@ -431,6 +456,45 @@ async function generateContractConfigs(
             address: addressMap.BridgedERC1155,
             deployedBytecode:
                 contractArtifacts.BridgedERC1155.deployedBytecode.object,
+        },
+        ERC20NativeRegistry: {
+            address: addressMap.ERC20NativeRegistry,
+            deployedBytecode:
+                contractArtifacts.ERC20NativeRegistry.deployedBytecode.object,
+        },
+        SingletonERC20NativeRegistryProxy: {
+            address: addressMap.SingletonERC20NativeRegistryProxy,
+            deployedBytecode:
+                contractArtifacts.SingletonERC20NativeRegistryProxy
+                    .deployedBytecode.object,
+            variables: {
+                // initializer
+                _initialized: 1,
+                _initializing: false,
+                // ReentrancyGuardUpgradeable
+                _reentry: 1, // _FALSE
+                _paused: 1, // _FALSE
+                // Ownable2Upgradeable
+                _owner: contractOwner,
+                // AddressResolver
+                addressManager:
+                    addressMap.SingletonAddressManagerForSingletonsProxy,
+            },
+            slots: {
+                [ADMIN_SLOT]: contractAdmin,
+                [IMPLEMENTATION_SLOT]: addressMap.ERC20NativeRegistry,
+            },
+            isProxy: true,
+        },
+        BridgedERC20Adapter: {
+            address: addressMap.BridgedERC20Adapter,
+            deployedBytecode:
+                contractArtifacts.BridgedERC20Adapter.deployedBytecode.object,
+        },
+        UsdcAdapter: {
+            address: addressMap.UsdcAdapter,
+            deployedBytecode:
+                contractArtifacts.UsdcAdapter.deployedBytecode.object,
         },
         SingletonSignalServiceProxy: {
             address: addressMap.SingletonSignalServiceProxy,
