@@ -51,6 +51,13 @@ library LibProving {
     error L1_PROVING_PAUSED();
     error L1_UNEXPECTED_TRANSITION_TIER();
 
+    function pauseProving(TaikoData.State storage state, bool pause) external {
+        if (state.slotB.provingPaused == pause) revert L1_INVALID_PAUSE_STATUS();
+
+        state.slotB.provingPaused = pause;
+        emit ProvingPaused(pause);
+    }
+
     /// @dev Proves or contests a block transition.
     function proveBlock(
         TaikoData.State storage state,
@@ -420,12 +427,5 @@ library LibProving {
                 tier: proof.tier
             });
         }
-    }
-
-    function pauseProving(TaikoData.State storage state, bool pause) internal {
-        if (state.slotB.provingPaused == pause) revert L1_INVALID_PAUSE_STATUS();
-
-        state.slotB.provingPaused = pause;
-        emit ProvingPaused(pause);
     }
 }
