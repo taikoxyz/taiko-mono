@@ -9,12 +9,15 @@ pragma solidity ^0.8.20;
 import { IERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 
+import "../../../contracts/libs/LibMath.sol";
 import { MerkleClaimable } from "./MerkleClaimable.sol";
 
 /// @title ERC20Airdrop2
 /// Contract for managing Taiko token airdrop for eligible users but the
 /// withdrawal is not immediate and is subject to a withdrawal window.
 contract ERC20Airdrop2 is MerkleClaimable {
+    using LibMath for uint256;
+
     address public token;
     address public vault;
     // Represents the token amount for which the user is (by default) eligible
@@ -89,10 +92,8 @@ contract ERC20Airdrop2 is MerkleClaimable {
         if (block.timestamp < claimEnd) return (balance, 0);
 
         // Hard cap timestamp - so range cannot go over - to get more allocation over time.
-        uint256 maxTsCalc = block.timestamp > (claimEnd + withdrawalWindow)
-            ? (claimEnd + withdrawalWindow)
-            : block.timestamp;
-        uint256 timeBasedAllowance = balance * (maxTsCalc - claimEnd) / withdrawalWindow;
+        uint256 timeBasedAllowance = balance
+            * (block.timestamp.min(claimEnd + withdrawalWindow) - claimEnd) / withdrawalWindow;
 
         withdrawableAmount = timeBasedAllowance - withdrawnAmount[user];
     }
