@@ -4,6 +4,7 @@ const path = require("path");
 const { ethers } = require("ethers");
 const { deployTaikoL2 } = require("./taikoL2");
 const { deployERC20 } = require("./erc20");
+const { deployUSDC } = require("./usdc");
 
 // Generate a L2 genesis JSON based on the given configurations.
 // ref: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html
@@ -58,6 +59,12 @@ async function main() {
         console.log("start deploy an ERC-20 token");
 
         result = await deployERC20(config, result);
+    }
+
+    if (config.predeployUsdc) {
+        console.log("start deploy USDC token");
+
+        result = await deployUSDC(config, result);
     }
 
     const allocSavedPath = path.join(
