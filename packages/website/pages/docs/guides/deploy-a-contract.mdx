@@ -16,7 +16,7 @@ This guide will help you deploy a smart contract to Taiko.
 
 ## Steps
 
-<Tabs items={["Remix", "Foundry", "Hardhat", "thirdweb"]} defaultIndex="0">
+<Tabs items={["Remix", "Foundry", "Hardhat", "Thirdweb"]} defaultIndex="0">
   <Tab>
       **1. Visit the Remix website**
       Visit [remix.ethereum.org](https://remix.ethereum.org).
@@ -105,18 +105,59 @@ This guide will help you deploy a smart contract to Taiko.
 
   </Tab>
   <Tab>
-      **1. Deploy your smart contract using thirdweb deploy**
+      **1. Deploy your smart contract using Thirdweb**
 
       Create a basic Hardhat project.
 
-      Follow the documentation: https://hardhat.org/hardhat-runner/docs/guides/project-setup
+      To initialize a Hardhat project, follow these steps :
+
+      Step 1: Initialize the Node.js project
+      Use npm or yarn to initialize a Node.js project. We recommend npm 7 or later. Run the following commands in the terminal :
+
+      Copy code : npm init -y
+
+      Step 2: Installing Hardhat
+      Install Hardhat as a development dependency in your project with the following command :
+
+      Copy code : npm install --save-dev hardhat
+
+      Step 3: Initializing the Hardhat project
+      Run the following command to create a Hardhat project with minimal configuration :
+
+      Copy code : npx hardhat init
+      
+      You'll be presented with a menu allowing you to choose various options. 
+      Choose "Create a JavaScript project". 
+      Hardhat will automatically create a default project configuration in a hardhat.config.js file.
+
+      ![Deploy interface](/images/guides/deploy-thirdweb/thirdweb1.png)
+
+      Don't forget to name your project : for example "thirtwebtaiko"
+
+      ![Deploy interface](/images/guides/deploy-thirdweb/thirdweb2.png)
+
+      Project structure :
+
+      After initialization, your project will have the following default structure:
+
+      ![Deploy interface](/images/guides/deploy-thirdweb/thirdweb3.png)
+
+      We will now continue building out Hardhat project by developing a contract.
+
+      If you need more help about using Hardhat, you can find the documentation here : https://hardhat.org/hardhat-runner/docs/guides/project-setup
       
       Install the thirdweb CLI by executing the command 
 
       ```bash
       npm i thirdweb
       ```
-      Create a basic smart contract.
+      Create a new file "MyTestContract.sol" in the "Contracts" folder, as shown in the screenshot above.
+
+      If you want to use the CLI : 
+      
+      Copy code : nano contracts/MyTestContract.sol
+
+      Open "MyTestContract" an write your contract inside
 
       For example:
 
@@ -156,6 +197,13 @@ This guide will help you deploy a smart contract to Taiko.
       - Directly navigate you to a dashboard interface which will open in your default browser.
 
       **2. Dashboard interface**
+
+      ![Deploy interface](/images/guides/deploy-thirdweb/thirdweb4.png)
+      
+      Fill in the "Unlock Time" (or "_unlockTime") attribute, which represents a period of time in seconds. 
+      1 minute would be represented by 60 seconds,
+      1 hour would be represented by 3600 seconds,
+      1 day would be represented by 86400 seconds.
 
       ![Deploy interface](/images/guides/deploy-thirdweb/thirdweb-deploy.png)
 
