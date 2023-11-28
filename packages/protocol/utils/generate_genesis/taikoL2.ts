@@ -67,7 +67,7 @@ export async function deployTaikoL2(
 
         // pre-mint ETHs for Bridge contract
         alloc[contractConfig.address].balance =
-            contractName === "Bridge1"
+            contractName === "Bridge"
                 ? bridgeInitialEtherBalance.toHexString()
                 : "0x0";
 
@@ -262,7 +262,7 @@ async function generateContractConfigs(
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
-                [IMPLEMENTATION_SLOT]: addressMap.AddressManagerForSingletons,
+                [IMPLEMENTATION_SLOT]: addressMap.SharedAddressManagerImpl,
             },
             isProxy: true,
         },
@@ -293,7 +293,7 @@ async function generateContractConfigs(
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
-                [IMPLEMENTATION_SLOT]: addressMap.Bridge,
+                [IMPLEMENTATION_SLOT]: addressMap.BridgeImpl,
             },
             isProxy: true,
         },
@@ -325,7 +325,7 @@ async function generateContractConfigs(
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
-                [IMPLEMENTATION_SLOT]: addressMap.ERC20Vault,
+                [IMPLEMENTATION_SLOT]: addressMap.ERC20VaultImpl,
             },
             isProxy: true,
         },
@@ -357,7 +357,7 @@ async function generateContractConfigs(
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
-                [IMPLEMENTATION_SLOT]: addressMap.ERC721Vault,
+                [IMPLEMENTATION_SLOT]: addressMap.ERC721VaultImpl,
             },
             isProxy: true,
         },
@@ -389,7 +389,7 @@ async function generateContractConfigs(
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
-                [IMPLEMENTATION_SLOT]: addressMap.ERC1155Vault,
+                [IMPLEMENTATION_SLOT]: addressMap.ERC1155VaultImpl,
             },
             isProxy: true,
         },
@@ -440,7 +440,7 @@ async function generateContractConfigs(
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
-                [IMPLEMENTATION_SLOT]: addressMap.SignalService,
+                [IMPLEMENTATION_SLOT]: addressMap.SignalServiceImpl,
             },
             isProxy: true,
         },
@@ -481,7 +481,7 @@ async function generateContractConfigs(
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
-                [IMPLEMENTATION_SLOT]: addressMap.TaikoL2,
+                [IMPLEMENTATION_SLOT]: addressMap.TaikoL2Impl,
             },
             isProxy: true,
         },
@@ -517,8 +517,7 @@ async function generateContractConfigs(
                 },
             },
             slots: {
-                [ADMIN_SLOT]: contractAdmin,
-                [IMPLEMENTATION_SLOT]: addressMap.AddressManager,
+                [IMPLEMENTATION_SLOT]: addressMap.RollupAddressManagerImpl,
             },
             isProxy: true,
         },

@@ -92,7 +92,7 @@ module.exports = {
       BridgedERC20Impl: getConstantAddress(`0${this.chainId}`, 10096),
       BridgedERC721Impl: getConstantAddress(`0${this.chainId}`, 10097),
       BridgedERC1155Impl: getConstantAddress(`0${this.chainId}`, 10098),
-      RegularERC20Impl: getConstantAddress(`0${this.chainId}`, 10099),
+      RegularERC20: getConstantAddress(`0${this.chainId}`, 10099),
       // Rollup Contracts
       TaikoL2Impl: getConstantAddress(`0${this.chainId}`, 10001),
       RollupAddressManagerImpl: getConstantAddress(`0${this.chainId}`, 10002),
