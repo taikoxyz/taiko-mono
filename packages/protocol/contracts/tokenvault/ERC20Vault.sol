@@ -23,9 +23,6 @@ contract ERC20Vault is BaseVault {
     using LibAddress for address;
     using SafeERC20Upgradeable for ERC20Upgradeable;
 
-    string private constant BURN_SIGNATURE = "burn(address,address,uint256)";
-    string private constant MINT_SIGNATURE = "mint(address,address,uint256)";
-
     // Structs for canonical ERC20 tokens and transfer operations
     struct CanonicalERC20 {
         uint64 chainId;
@@ -54,6 +51,9 @@ contract ERC20Vault is BaseVault {
     mapping(uint256 => mapping(address => address)) public canonicalToBridged;
 
     uint256[48] private __gap;
+
+    string private constant BURN_SIGNATURE = "burn(address,address,uint256)";
+    string private constant MINT_SIGNATURE = "mint(address,address,uint256)";
 
     event BridgedTokenDeployed(
         uint256 indexed srcChainId,
