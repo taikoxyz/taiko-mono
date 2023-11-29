@@ -117,9 +117,7 @@ contract BridgedERC20 is
     function mint(address account, uint256 amount) public nonReentrant whenNotPaused {
         if (migratingTo != address(0)) revert BRIDGED_TOKEN_PERMISSION_DENIED();
 
-        if (msg.sender == resolve("erc20_vault", true)) {
-            emit Transfer(address(0), account, amount);
-        } else {
+        if (msg.sender != resolve("erc20_vault", true)) {
             if (msg.sender != migratingFrom) revert BRIDGED_TOKEN_PERMISSION_DENIED();
             emit MigratedTo(migratingFrom, account, amount);
         }
@@ -137,7 +135,6 @@ contract BridgedERC20 is
             IBridgedERC20(migratingTo).mint(account, amount);
         } else {
             if (msg.sender != resolve("erc20_vault", true)) revert RESOLVER_DENIED();
-            emit Transfer(account, address(0), amount);
         }
 
         _burn(account, amount);

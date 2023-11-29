@@ -77,7 +77,6 @@ contract BridgedERC1155 is
         onlyFromNamed("erc1155_vault")
     {
         _mint(account, tokenId, amount, "");
-        emit Transfer(address(0), account, tokenId, amount);
     }
 
     /// @dev Burns tokens.
@@ -95,7 +94,6 @@ contract BridgedERC1155 is
         onlyFromNamed("erc1155_vault")
     {
         _burn(account, tokenId, amount);
-        emit Transfer(account, address(0), tokenId, amount);
     }
 
     /// @dev Safely transfers tokens from one address to another.
