@@ -174,7 +174,7 @@ contract DeployOnL1 is Script {
         address governor = LibDeployHelper.deployProxy({
             name: "taiko_governor",
             impl: address(new TaikoGovernor()),
-            data: bytes.concat(AddressManager.init.selector, abi.encode(taikoToken, timelock)),
+            data: bytes.concat(TaikoGovernor.init.selector, abi.encode(taikoToken, timelock)),
             registerTo: address(0),
             owner: timelock
         });
