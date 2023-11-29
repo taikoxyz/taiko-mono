@@ -56,11 +56,6 @@ contract TestSignalService is TaikoTest {
         signers[0] = signers[1];
         vm.expectRevert(Guardians.INVALID_GUARDIAN_SET.selector);
         target.setGuardians(signers, 4);
-
-        for (uint256 i; i < target.numGuardians(); ++i) {
-            console2.log(" - guardian: ", signers[i]);
-            console2.log("guardian: ", target.guardians(i));
-        }
     }
 
     function test_guardians_approve() public {
