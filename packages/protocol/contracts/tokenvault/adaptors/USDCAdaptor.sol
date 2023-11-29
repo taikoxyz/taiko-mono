@@ -30,7 +30,7 @@ contract USDCAdaptor is EssentialContract, IBridgedERC20 {
         usdc = _usdc;
     }
 
-    function mint(address account, uint256 amount) public nonReentrant whenNotPaused {
+    function mint(address account, uint256 amount) external nonReentrant whenNotPaused {
         if (msg.sender != resolve("erc20_vault", true) && msg.sender != migratingFrom) {
             revert PERMISSION_DENIED();
         }
