@@ -38,8 +38,11 @@ contract USDCAdaptor is EssentialContract, IBridgedERC20 {
         usdc.mint(account, amount);
     }
 
-    /// @dev Warning: the erc20_vault address must be granted the correct role in order to burn
-    /// native USDC tokens, which must be done manually.
+    /// @dev Warning:
+    /// 1) Users must set up allowances for this adaptor so USDC can be transferred from users
+    /// addresses to the adaptor.
+    /// 2) This adaptor must be granted the correct role by the USDC contract in order to burn
+    /// native USDC tokens.
     function burn(
         address from,
         uint256 amount
