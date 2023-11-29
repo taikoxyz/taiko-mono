@@ -112,7 +112,6 @@ contract BridgedERC20 is
     }
 
     /// @notice Mints tokens to an account.
-    /// @dev Only an ERC20Vault can call this function.
     /// @param account The account to mint tokens to.
     /// @param amount The amount of tokens to mint.
     function mint(address account, uint256 amount) public nonReentrant whenNotPaused {
@@ -128,7 +127,6 @@ contract BridgedERC20 is
     }
 
     /// @notice Burns tokens from an account.
-    /// @dev Only an ERC20Vault can call this function.
     /// @param account The account to burn tokens from.
     /// @param amount The amount of tokens to burn.
     function burn(address account, uint256 amount) public nonReentrant whenNotPaused {
