@@ -356,14 +356,9 @@ contract DeployOnL1 is Script {
             owner: address(this)
         });
 
-        address[] memory guardianProvers = vm.envAddress("GUARDIAN_PROVERS", ",");
-        require(guardianProvers.length == NUM_GUARDIANS, "NUM_GUARDIANS");
-
-        address[NUM_GUARDIANS] memory guardians;
-        for (uint256 i = 0; i < NUM_GUARDIANS; ++i) {
-            guardians[i] = guardianProvers[i];
-        }
-        GuardianProver(guardianProver).setGuardians(guardians);
+        address[] memory guardians = vm.envAddress("GUARDIAN_PROVERS", ",");
+        uint8 minGuardians = uint8(vm.envUint("MIN_GUARDIAN"));
+        GuardianProver(guardianProver).setGuardians(guardians, minGuardians);
         GuardianProver(guardianProver).transferOwnership(timelock);
     }
 

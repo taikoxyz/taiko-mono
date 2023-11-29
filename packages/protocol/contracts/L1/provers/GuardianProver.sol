@@ -13,21 +13,21 @@ import "../TaikoData.sol";
 /// @title GuardianProver
 /// @dev Labeled in AddressResolver as "guardian_prover"
 contract GuardianProver is EssentialContract {
-    uint256 public constant NUM_GUARDIANS = 5;
-    uint256 public constant REQUIRED_GUARDIANS = 3;
-
+    uint256 public constant MIN_NUM_GUARDIANS = 5;
     mapping(address guardian => uint256 id) public guardianIds; // slot 1
-    mapping(bytes32 => uint256 approvalBits) public approvals; // slot 2
-    address[NUM_GUARDIANS] public guardians; //  slots 3,4,5,6,7
-    uint256[43] private __gap2;
+    mapping(uint32 version => mapping(bytes32 => uint256 approvalBits)) public approvals; // slot 2
+    address[] public guardians; // slot 3
+    uint32 public version; // slot 4
+    uint32 public minGuardians;
 
-    // Cannot use NUM_GUARDIANS below in event directly otherwise hardhat will
-    // fail
-    event GuardiansUpdated(address[5]);
+    uint256[46] private __gap;
+
+    event GuardiansUpdated(uint32 version, address[] guardians);
     event Approved(uint64 indexed blockId, uint256 approvalBits, bool proofSubmitted);
 
     error INVALID_GUARDIAN();
     error INVALID_GUARDIAN_SET();
+    error INVALID_MIN_GUARDIANS();
     error INVALID_PROOF();
     error PROVING_FAILED();
 
@@ -39,31 +39,41 @@ contract GuardianProver is EssentialContract {
 
     /// @notice Set the set of guardians
     /// @param _guardians The new set of guardians
-    function setGuardians(address[NUM_GUARDIANS] memory _guardians)
+    function setGuardians(
+        address[] memory _guardians,
+        uint8 _minGuardians
+    )
         external
         onlyOwner
         nonReentrant
     {
-        for (uint256 i; i < NUM_GUARDIANS; ++i) {
-            address guardian = _guardians[i];
-            if (guardian == address(0)) revert INVALID_GUARDIAN();
+        if (_guardians.length < MIN_NUM_GUARDIANS || _guardians.length > type(uint8).max) {
+            revert INVALID_GUARDIAN_SET();
+        }
+        if (
+            _minGuardians == 0 || _minGuardians < _guardians.length / 2
+                || _minGuardians > _guardians.length
+        ) revert INVALID_MIN_GUARDIANS();
 
-            // In case there is a pending 'approval' and we call setGuardians()
-            // with an existing guardian but with different array position (id),
-            // then accidentally 2 guardian signatures could lead to firing away
-            // a proveBlock() transaction.
-            uint256 id = guardianIds[guardian];
-
-            if (id != 0) {
-                if (id != i + 1) revert INVALID_GUARDIAN_SET();
-            } else {
-                delete guardianIds[guardians[i]];
-                guardianIds[guardian] = i + 1;
-                guardians[i] = guardian;
-            }
+        // Delete current guardians data
+        for (uint256 i; i < guardians.length; ++i) {
+            delete guardianIds[guardians[i]];
+        }
+        assembly {
+            sstore(guardians.slot, 0)
         }
 
-        emit GuardiansUpdated(_guardians);
+        for (uint256 i; i < _guardians.length;) {
+            address guardian = _guardians[i];
+            if (guardian == address(0)) revert INVALID_GUARDIAN();
+            if (guardianIds[guardian] != 0) revert INVALID_GUARDIAN_SET();
+
+            // Save and index the guardian
+            guardians.push(guardian);
+            guardianIds[guardian] = ++i;
+        }
+
+        emit GuardiansUpdated(++version, _guardians);
     }
 
     /// @dev Called by guardians to approve a guardian proof
@@ -81,7 +91,7 @@ contract GuardianProver is EssentialContract {
         if (proof.tier != LibTiers.TIER_GUARDIAN) revert INVALID_PROOF();
 
         bytes32 hash = keccak256(abi.encode(meta, tran));
-        uint256 approvalBits = approvals[hash];
+        uint256 approvalBits = approvals[version][hash];
 
         approvalBits |= 1 << id;
 
@@ -91,23 +101,22 @@ contract GuardianProver is EssentialContract {
             );
 
             (bool success,) = resolve("taiko", false).call(data);
-
             if (!success) revert PROVING_FAILED();
-            delete approvals[hash];
 
+            delete approvals[version][hash];
             emit Approved(meta.id, approvalBits, true);
         } else {
-            approvals[hash] = approvalBits;
+            approvals[version][hash] = approvalBits;
             emit Approved(meta.id, approvalBits, false);
         }
     }
 
-    function _isApproved(uint256 approvalBits) private pure returns (bool) {
+    function _isApproved(uint256 approvalBits) private view returns (bool) {
         uint256 count;
         uint256 bits = approvalBits >> 1;
-        for (uint256 i; i < NUM_GUARDIANS; ++i) {
+        for (uint256 i; i < guardians.length; ++i) {
             if (bits & 1 == 1) ++count;
-            if (count == REQUIRED_GUARDIANS) return true;
+            if (count == minGuardians) return true;
             bits >>= 1;
         }
         return false;

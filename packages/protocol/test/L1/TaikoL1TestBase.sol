@@ -331,13 +331,14 @@ abstract contract TaikoL1TestBase is TaikoTest {
     }
 
     function setupGuardianProverMultisig() internal {
-        address[5] memory initMultiSig;
+        address[] memory initMultiSig = new address[](5);
         initMultiSig[0] = David;
         initMultiSig[1] = Emma;
         initMultiSig[2] = Frank;
         initMultiSig[3] = Grace;
         initMultiSig[4] = Henry;
-        gp.setGuardians(initMultiSig);
+
+        gp.setGuardians(initMultiSig, 3);
     }
 
     function registerAddress(bytes32 nameHash, address addr) internal {
