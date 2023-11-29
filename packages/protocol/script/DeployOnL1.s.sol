@@ -182,9 +182,15 @@ contract DeployOnL1 is Script {
         // Setup time lock roles
         TaikoTimelockController _timelock = TaikoTimelockController(payable(timelock));
         _timelock.grantRole(_timelock.PROPOSER_ROLE(), governor);
-        _timelock.grantRole(_timelock.EXECUTOR_ROLE(), governor);
-        _timelock.grantRole(_timelock.CANCELLER_ROLE(), address(governor));
+        _timelock.grantRole(_timelock.PROPOSER_ROLE(), securityCouncil);
 
+        _timelock.grantRole(_timelock.EXECUTOR_ROLE(), governor);
+        _timelock.grantRole(_timelock.EXECUTOR_ROLE(), securityCouncil);
+
+        _timelock.grantRole(_timelock.CANCELLER_ROLE(), governor);
+        _timelock.grantRole(_timelock.CANCELLER_ROLE(), securityCouncil);
+
+        _timelock.grantRole(_timelock.TIMELOCK_ADMIN_ROLE(), governor);
         _timelock.grantRole(_timelock.TIMELOCK_ADMIN_ROLE(), securityCouncil);
         _timelock.renounceRole(_timelock.TIMELOCK_ADMIN_ROLE(), msg.sender);
 
