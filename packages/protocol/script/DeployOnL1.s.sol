@@ -402,10 +402,6 @@ contract DeployOnL1 is Script {
         console2.log(contractPath, addr);
     }
 
-    function addressNotNull(address addr, string memory err) private pure {
-        require(addr != address(0), err);
-    }
-
     function deployProxy(
         bytes32 name,
         address impl,
@@ -422,5 +418,9 @@ contract DeployOnL1 is Script {
             vm.serializeAddress("deployment", Strings.toString(uint256(name)), addr),
             string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
         );
+    }
+
+    function addressNotNull(address addr, string memory err) private pure {
+        require(addr != address(0), err);
     }
 }
