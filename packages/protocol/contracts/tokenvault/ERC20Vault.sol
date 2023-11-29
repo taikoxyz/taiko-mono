@@ -20,6 +20,9 @@ import "./erc20/registry/IERC20NativeRegistry.sol";
 /// deposited. It also manages the mapping between canonical ERC20 tokens and
 /// their bridged tokens.
 contract ERC20Vault is BaseVault {
+    string private constant BURN_SIGNATURE = "burn(address,address,uint256)";
+    string private constant MINT_SIGNATURE = "mint(address,address,uint256)";
+
     using LibAddress for address;
     using SafeERC20Upgradeable for ERC20Upgradeable;
 
@@ -87,8 +90,7 @@ contract ERC20Vault is BaseVault {
     error VAULT_INVALID_SRC_CHAIN_ID();
     error VAULT_MESSAGE_NOT_FAILED();
     error VAULT_MESSAGE_RELEASED_ALREADY();
-    error VAULT_BURN_ERROR();
-    error VAULT_MINT_ERROR();
+    error VAULT_BRIDGED_DELEGATE_CALL_ERROR();
 
     /// @dev If a native token issuer (e.g.: Circle/Lido) revokes minter role from our contracts
     /// (once they get the ownership), we won't be able to mint / burn the tokens. But we still want
@@ -175,7 +177,12 @@ contract ERC20Vault is BaseVault {
             bool isNative;
             (token, isNative) = _getOrDeployBridgedToken(ctoken);
             _executeBurnOrMint(
-                token, canonicalToBridged[ctoken.chainId][ctoken.addr], _to, amount, isNative, true
+                token,
+                canonicalToBridged[ctoken.chainId][ctoken.addr],
+                _to,
+                amount,
+                isNative,
+                MINT_SIGNATURE
             );
         }
 
@@ -210,22 +217,7 @@ contract ERC20Vault is BaseVault {
 
         if (amount > 0) {
             if (bridgedToCanonical[token].addr != address(0)) {
-                address erc20NativeRegistry = resolve("erc20_native_registry", true);
-                address adapter;
-                if (erc20NativeRegistry != address(0)) {
-                    // Check if it's a native/custom token support
-                    (, adapter) =
-                        IERC20NativeRegistry(erc20NativeRegistry).getCanonicalAndAdapter(token);
-                }
-                // Depending on native token (or not), it handles the "re-mint".
-                _executeBurnOrMint(
-                    adapter != address(0) ? adapter : token,
-                    token,
-                    message.owner,
-                    amount,
-                    adapter != address(0),
-                    true
-                );
+                _handleBridgedTokens(token, message.owner, amount, true);
             } else {
                 ERC20Upgradeable(token).safeTransfer(message.owner, amount);
             }
@@ -263,24 +255,7 @@ contract ERC20Vault is BaseVault {
 
         // If it's a bridged token
         if (bridgedToCanonical[token].addr != address(0)) {
-            // erc20NativeRegistry shall be address(0) on L1 and CAN be address(0) on L2 too, if
-            // there is no native support
-            address erc20NativeRegistry = resolve("erc20_native_registry", true);
-            address adapter;
-            if (erc20NativeRegistry != address(0)) {
-                // Check if it's a native/custom token support
-                (, adapter) =
-                    IERC20NativeRegistry(erc20NativeRegistry).getCanonicalAndAdapter(token);
-            }
-            // Depending on native token (or not), it handles the burn accordingly.
-            _executeBurnOrMint(
-                adapter != address(0) ? adapter : token,
-                token,
-                msg.sender,
-                amount,
-                adapter != address(0),
-                false
-            );
+            _handleBridgedTokens(token, msg.sender, amount, false);
 
             ctoken = bridgedToCanonical[token];
             _balanceChange = amount;
@@ -376,6 +351,34 @@ contract ERC20Vault is BaseVault {
         });
     }
 
+    /// @dev A common flow for onMessageRecalled() or _handleMessage() when they are dealing with
+    /// bridged assets
+    function _handleBridgedTokens(
+        address token,
+        address toOrFrom,
+        uint256 amount,
+        bool isMint
+    )
+        private
+    {
+        address erc20NativeRegistry = resolve("erc20_native_registry", true);
+        address adapter;
+
+        if (erc20NativeRegistry != address(0)) {
+            // Check if it's a native/custom token support
+            (, adapter) = IERC20NativeRegistry(erc20NativeRegistry).getCanonicalAndAdapter(token);
+        }
+        // Depending on native token (or not), it handles the burn accordingly.
+        _executeBurnOrMint(
+            adapter != address(0) ? adapter : token,
+            token,
+            toOrFrom,
+            amount,
+            adapter != address(0),
+            (isMint ? MINT_SIGNATURE : BURN_SIGNATURE)
+        );
+    }
+
     /// @dev Handles the burn/mint per native/non-native tokens
     /// @param onToken The token contract (or adapter) the operation needs to be performed.
     /// @param nativeBridgedTokenProxy Important on L2, when we need the preDeployed contract (e.g.:
@@ -383,14 +386,14 @@ contract ERC20Vault is BaseVault {
     /// @param toOrFrom The address to or from.
     /// @param amount The amount to be burnt/minted.
     /// @param isNative Flag indicating, if this is a native L1 token or not.
-    /// @param isMint True if mint, false for burn.
+    /// @param functionSig Function to be invoked.
     function _executeBurnOrMint(
         address onToken,
         address nativeBridgedTokenProxy,
         address toOrFrom,
         uint256 amount,
         bool isNative,
-        bool isMint
+        string memory functionSig
     )
         private
     {
@@ -398,26 +401,13 @@ contract ERC20Vault is BaseVault {
         address adapter = isNative ? onToken : resolve("bridged_erc20_adapter", false);
         // Need the token (proxy) contract
         address tokenContract = isNative ? nativeBridgedTokenProxy : onToken;
-        if (isMint) {
-            (bool success,) = adapter.delegatecall(
-                abi.encodeWithSignature(
-                    "mint(address,address,uint256)", tokenContract, toOrFrom, amount
-                )
-            );
 
-            if (!success) {
-                revert VAULT_MINT_ERROR();
-            }
-        } else {
-            (bool success,) = adapter.delegatecall(
-                abi.encodeWithSignature(
-                    "burn(address,address,uint256)", tokenContract, toOrFrom, amount
-                )
-            );
+        (bool success,) = adapter.delegatecall(
+            abi.encodeWithSignature(functionSig, tokenContract, toOrFrom, amount)
+        );
 
-            if (!success) {
-                revert VAULT_BURN_ERROR();
-            }
+        if (!success) {
+            revert VAULT_BRIDGED_DELEGATE_CALL_ERROR();
         }
     }
 }

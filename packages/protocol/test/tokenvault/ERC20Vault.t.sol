@@ -269,12 +269,8 @@ contract TestERC20Vault is TaikoTest {
         vm.stopPrank();
         // Set the registry
         vm.prank(Carol, Carol);
-        erc20NativeRegistryL2.changeCustomToken(
-            address(proxyContract_L1),
-            address(proxyContract_L2),
-            "usdc_adapter",
-            uint64(block.chainid),
-            false
+        erc20NativeRegistryL2.addNativeTokenSupport(
+            address(proxyContract_L1), address(proxyContract_L2), "usdc_adapter"
         );
 
         vm.prank(minterRoleConfigurator, minterRoleConfigurator);
@@ -733,8 +729,8 @@ contract TestERC20Vault is TaikoTest {
         // Circle revoked minter role, we cannot bridge now USDC from L1 to L2, but we can
         // mint our bridged "USDC ⭀31337" style, tho it cannot be considered native
         vm.prank(Carol, Carol);
-        erc20NativeRegistryL2.changeCustomToken(
-            address(proxyContract_L1), address(proxyContract_L2), "usdc_adapter", srcChainId, true
+        erc20NativeRegistryL2.deleteNativeTokenSupport(
+            address(proxyContract_L1), address(proxyContract_L2), srcChainId
         );
 
         vm.startPrank(Alice, Alice);

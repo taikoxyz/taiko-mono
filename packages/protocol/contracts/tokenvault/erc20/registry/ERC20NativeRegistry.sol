@@ -8,7 +8,6 @@ pragma solidity ^0.8.20;
 
 import "../../../common/EssentialContract.sol";
 import "./IERC20NativeRegistry.sol";
-import "../adapters/BaseAdapter.sol";
 import "../../../libs/LibDeploy.sol";
 
 interface IRemoveMapping {
@@ -43,20 +42,15 @@ contract ERC20NativeRegistry is EssentialContract, IERC20NativeRegistry {
         EssentialContract._Essential_init(_addressManager);
     }
 
-    /// @notice Adds a custom, pre-deployed contract mapping to it's L1 (parent chain) counterpart
+    /// @notice Adds a custom, pre-deployed contract mapping to its L1 (parent chain) counterpart
     /// @param l1Address The address of the token on L1 (or parent chain)
-    /// @param deployedCounterpart The address on L2 - it can be address(0) in which case we delete
-    /// the mappping (see explanation below).
+    /// @param deployedCounterpart The address on L2
     /// @param adapterName The name based on which the adapter is queriable via the
     /// AddressManager
-    /// @param deleteCustom Indicates deleting both of the mappings
-    /// @param chainId ChainId the canonical originates from
-    function changeCustomToken(
+    function addNativeTokenSupport(
         address l1Address,
         address deployedCounterpart,
-        bytes32 adapterName,
-        uint64 chainId,
-        bool deleteCustom
+        bytes32 adapterName
     )
         external
         onlyOwner
@@ -65,25 +59,41 @@ contract ERC20NativeRegistry is EssentialContract, IERC20NativeRegistry {
             revert ERC20_HOOK_INVALID_ADDRESS();
         }
 
-        if (deleteCustom) {
-            delete canonicalToPredeployed[l1Address];
-            delete predeployedToCanonical[deployedCounterpart];
+        canonicalToPredeployed[l1Address] = deployedCounterpart;
 
-            // Need to erase the mapping in ERC20Vault too - in order to continue the support for
-            // bridging from L1 to L2 - when for example Circle revokes minter role from our
-            // adapter.
-            IRemoveMapping(resolve(uint64(block.chainid), "erc20_vault", false))
-                .resetCanonicalToBridged(chainId, l1Address);
+        predeployedToCanonical[deployedCounterpart] =
+            PredeployedToCanonicalData(l1Address, resolve(adapterName, false));
 
-            emit Erc20CustomDeleted(l1Address, deployedCounterpart);
-        } else {
-            canonicalToPredeployed[l1Address] = deployedCounterpart;
+        emit Erc20CustomAdded(l1Address, deployedCounterpart);
+    }
 
-            predeployedToCanonical[deployedCounterpart] =
-                PredeployedToCanonicalData(l1Address, resolve(adapterName, false));
-
-            emit Erc20CustomAdded(l1Address, deployedCounterpart);
+    /// @notice Deletes a custom, native token support
+    /// @param l1Address The address of the token on L1 (or parent chain)
+    /// @param deployedCounterpart The address on L2
+    /// @param nativeChainId ChainId the native tokens originally lives
+    function deleteNativeTokenSupport(
+        address l1Address,
+        address deployedCounterpart,
+        uint64 nativeChainId
+    )
+        external
+        onlyOwner
+    {
+        if (l1Address == address(0) || deployedCounterpart == address(0)) {
+            revert ERC20_HOOK_INVALID_ADDRESS();
         }
+
+        delete canonicalToPredeployed[l1Address];
+        delete predeployedToCanonical[deployedCounterpart];
+
+        // Need to erase the mapping in ERC20Vault too - in order to continue the support for
+        // bridging from L1 to L2 - when for example Circle revokes minter role from our
+        // adapter.
+        IRemoveMapping(resolve(uint64(block.chainid), "erc20_vault", false)).resetCanonicalToBridged(
+            nativeChainId, l1Address
+        );
+
+        emit Erc20CustomDeleted(l1Address, deployedCounterpart);
     }
 
     /// @notice Queries the custom, predeployed token and it's adapter (if any).
