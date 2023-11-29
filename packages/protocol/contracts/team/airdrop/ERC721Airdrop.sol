@@ -6,10 +6,8 @@
 
 pragma solidity ^0.8.20;
 
-import { IERC721Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
-
-import { MerkleClaimable } from "./MerkleClaimable.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
+import "./MerkleClaimable.sol";
 
 /// @title ERC721Airdrop
 contract ERC721Airdrop is MerkleClaimable {

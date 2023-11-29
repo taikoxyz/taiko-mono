@@ -6,10 +6,8 @@
 
 pragma solidity ^0.8.20;
 
-import { IERC20Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-
-import { MerkleClaimable } from "./MerkleClaimable.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import "./MerkleClaimable.sol";
 
 /// @title ERC20Airdrop
 /// Contract for managing Taiko token airdrop for eligible users

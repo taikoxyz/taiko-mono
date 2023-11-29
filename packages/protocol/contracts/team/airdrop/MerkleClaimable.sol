@@ -6,10 +6,9 @@
 
 pragma solidity ^0.8.20;
 
-import "../../common/EssentialContract.sol";
-
 import { MerkleProofUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/utils/cryptography/MerkleProofUpgradeable.sol";
+import "../../common/EssentialContract.sol";
 
 /// @title MerkleClaimable
 /// Contract for managing Taiko token airdrop for eligible users
