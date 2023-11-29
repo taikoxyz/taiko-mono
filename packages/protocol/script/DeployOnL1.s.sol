@@ -145,7 +145,7 @@ contract DeployOnL1 is Script {
             impl: address(new TaikoTimelockController()),
             data: bytes.concat(TaikoTimelockController.init.selector, abi.encode(7 days)),
             registerTo: address(0),
-            owner: address(0)
+            owner: securityCouncil
         });
 
         sharedAddressManager = deployProxy({
