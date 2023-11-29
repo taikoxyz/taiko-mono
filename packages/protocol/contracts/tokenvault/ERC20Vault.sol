@@ -61,7 +61,7 @@ contract ERC20Vault is BaseVault {
         uint8 ctokenDecimal
     );
 
-    event BridgedTokenSet(
+    event BridgedTokenChanged(
         uint256 indexed srcChainId,
         address indexed ctoken,
         address btokenOld,
@@ -101,13 +101,14 @@ contract ERC20Vault is BaseVault {
     error VAULT_MESSAGE_NOT_FAILED();
     error VAULT_MESSAGE_RELEASED_ALREADY();
 
-    function setBridgedToken(
+    function changeBridgedToken(
         CanonicalERC20 calldata ctoken,
         address btokenNew
     )
         external
         nonReentrant
         whenNotPaused
+        onlyOwner
         returns (address btokenOld)
     {
         if (
@@ -140,7 +141,7 @@ contract ERC20Vault is BaseVault {
         bridgedToCanonical[btokenNew] = ctoken;
         canonicalToBridged[ctoken.chainId][ctoken.addr] = btokenNew;
 
-        emit BridgedTokenSet({
+        emit BridgedTokenChanged({
             srcChainId: ctoken.chainId,
             ctoken: ctoken.addr,
             btokenOld: btokenOld,
