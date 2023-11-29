@@ -30,6 +30,9 @@ import "../contracts/L1/tiers/ITierProvider.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 
+import "../contracts/team/airdrop/ERC20Airdrop.sol";
+import "../contracts/team/airdrop/ERC20Airdrop2.sol";
+
 import "../contracts/L2/Lib1559Math.sol";
 import "../contracts/L2/TaikoL2EIP1559Configurable.sol";
 import "../contracts/L2/TaikoL2.sol";
