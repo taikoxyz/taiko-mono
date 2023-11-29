@@ -20,11 +20,11 @@ import "./erc20/registry/IERC20NativeRegistry.sol";
 /// deposited. It also manages the mapping between canonical ERC20 tokens and
 /// their bridged tokens.
 contract ERC20Vault is BaseVault {
-    string private constant BURN_SIGNATURE = "burn(address,address,uint256)";
-    string private constant MINT_SIGNATURE = "mint(address,address,uint256)";
-
     using LibAddress for address;
     using SafeERC20Upgradeable for ERC20Upgradeable;
+
+    string private constant BURN_SIGNATURE = "burn(address,address,uint256)";
+    string private constant MINT_SIGNATURE = "mint(address,address,uint256)";
 
     // Structs for canonical ERC20 tokens and transfer operations
     struct CanonicalERC20 {
