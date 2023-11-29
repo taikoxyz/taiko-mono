@@ -1,16 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { ERC20Airdrop as Airdrop } from "../../../contracts/team/airdrop/ERC20Airdrop.sol";
-import { ERC20Airdrop2 as Airdrop2 } from "../../../contracts/team/airdrop/ERC20Airdrop2.sol";
-import { MerkleClaimable } from "../../../contracts/team/airdrop/MerkleClaimable.sol";
-import { Test } from "forge-std/Test.sol";
+import "../../TaikoTest.sol";
+
 import { ERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-import { console2 } from "forge-std/console2.sol";
 import { ERC20Upgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import { SafeERC20Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
 contract MyERC20 is ERC20 {
     constructor(address owner) ERC20("Taiko Token", "TKO") {
@@ -18,29 +13,43 @@ contract MyERC20 is ERC20 {
     }
 }
 
-contract TestERC20Airdrop is Test {
+contract TestERC20Airdrop is TaikoTest {
     uint64 claimStart;
     uint64 claimEnd;
-    address internal Alice = vm.addr(0x1);
-    address internal Bob = vm.addr(0x2);
-    address internal Carol = vm.addr(0x3);
-    address internal Dave = vm.addr(0x4);
-    address internal Elvis = vm.addr(0x5);
-    address internal ERC20VaultDAO = vm.addr(0x6);
+    address internal ERC20VaultDAO = randAddress();
 
     bytes32 merkleRoot = 0x73a7330a8657ad864b954215a8f636bb3709d2edea60bcd4fcb8a448dbc6d70f;
 
-    Airdrop airdrop = new Airdrop();
-    Airdrop2 airdrop2 = new Airdrop2();
-
-    ERC20 tko = new MyERC20(address(ERC20VaultDAO));
+    ERC20Airdrop airdrop;
+    ERC20Airdrop2 airdrop2;
+    ERC20 tko;
 
     function setUp() public {
+        tko = new MyERC20(address(ERC20VaultDAO));
         // 1st 'genesis' airdrop
-        airdrop.init(0, 0, merkleRoot, address(tko), ERC20VaultDAO);
+        airdrop = ERC20Airdrop(
+            LibDeployHelper.deployProxy({
+                name: "airdrop",
+                impl: address(new ERC20Airdrop()),
+                data: bytes.concat(
+                    ERC20Airdrop.init.selector,
+                    abi.encode(0, 0, merkleRoot, address(tko), ERC20VaultDAO)
+                    )
+            })
+        );
+
         // 2nd airdrop subject to unlocking (e.g. 10 days after starting after
         // claim window)
-        airdrop2.init(0, 0, merkleRoot, address(tko), ERC20VaultDAO, 10 days);
+        airdrop2 = ERC20Airdrop2(
+            LibDeployHelper.deployProxy({
+                name: "airdrop",
+                impl: address(new ERC20Airdrop2()),
+                data: bytes.concat(
+                    ERC20Airdrop2.init.selector,
+                    abi.encode(0, 0, merkleRoot, address(tko), ERC20VaultDAO, 10 days)
+                    )
+            })
+        );
 
         claimStart = uint64(block.timestamp + 10);
         claimEnd = uint64(block.timestamp + 10_000);
@@ -143,7 +152,7 @@ contract TestERC20Airdrop is Test {
         airdrop2.claim(abi.encode(Alice, 100), merkleProof);
 
         // Try withdraw but not started yet
-        vm.expectRevert(Airdrop2.WITHDRAWALS_NOT_ONGOING.selector);
+        vm.expectRevert(ERC20Airdrop2.WITHDRAWALS_NOT_ONGOING.selector);
         airdrop2.withdraw(Alice);
 
         // Roll one day after another, for 10 days and see the 100 allowance be withdrawn all and no
@@ -192,7 +201,7 @@ contract TestERC20Airdrop is Test {
         airdrop2.claim(abi.encode(Alice, 100), merkleProof);
 
         // Try withdraw but not started yet
-        vm.expectRevert(Airdrop2.WITHDRAWALS_NOT_ONGOING.selector);
+        vm.expectRevert(ERC20Airdrop2.WITHDRAWALS_NOT_ONGOING.selector);
         airdrop2.withdraw(Alice);
 
         // Roll 10 day after
@@ -222,7 +231,7 @@ contract TestERC20Airdrop is Test {
         airdrop2.claim(abi.encode(Alice, 100), merkleProof);
 
         // Try withdraw but not started yet
-        vm.expectRevert(Airdrop2.WITHDRAWALS_NOT_ONGOING.selector);
+        vm.expectRevert(ERC20Airdrop2.WITHDRAWALS_NOT_ONGOING.selector);
         airdrop2.withdraw(Alice);
 
         // Roll 11 day after
@@ -235,7 +244,7 @@ contract TestERC20Airdrop is Test {
         assertEq(balance, 100);
         assertEq(withdrawable, 100);
 
-        vm.expectRevert(Airdrop2.WITHDRAWALS_NOT_ONGOING.selector);
+        vm.expectRevert(ERC20Airdrop2.WITHDRAWALS_NOT_ONGOING.selector);
         airdrop2.withdraw(Alice);
 
         // Check Alice balance
