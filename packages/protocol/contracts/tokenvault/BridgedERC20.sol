@@ -11,7 +11,7 @@ import
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 import "../common/EssentialContract.sol";
-import "./IMintableERC20.sol";
+import "./IBridgedERC20.sol";
 import "./LibBridgedToken.sol";
 
 /// @title BridgedERC20
@@ -19,7 +19,7 @@ import "./LibBridgedToken.sol";
 /// another chain.
 contract BridgedERC20 is
     EssentialContract,
-    IMintableERC20,
+    IBridgedERC20,
     IERC20MetadataUpgradeable,
     ERC20Upgradeable
 {

@@ -10,7 +10,7 @@ import "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../bridge/IBridge.sol";
 import "./BridgedERC20.sol";
-import "./IMintableERC20.sol";
+import "./IBridgedERC20.sol";
 import "./BaseVault.sol";
 
 /// @title ERC20Vault
@@ -155,7 +155,7 @@ contract ERC20Vault is BaseVault {
             ERC20(token).safeTransfer(_to, amount);
         } else {
             token = _getOrDeployBridgedToken(ctoken);
-            IMintableERC20(token).mint(_to, amount);
+            IBridgedERC20(token).mint(_to, amount);
         }
 
         _to.sendEther(msg.value);
@@ -189,7 +189,7 @@ contract ERC20Vault is BaseVault {
 
         if (amount > 0) {
             if (bridgedToCanonical[token].addr != address(0)) {
-                IMintableERC20(token).mint(message.owner, amount);
+                IBridgedERC20(token).mint(message.owner, amount);
             } else {
                 ERC20(token).safeTransfer(message.owner, amount);
             }
@@ -228,7 +228,7 @@ contract ERC20Vault is BaseVault {
         // If it's a bridged token
         if (bridgedToCanonical[token].addr != address(0)) {
             ctoken = bridgedToCanonical[token];
-            IMintableERC20(token).burn(msg.sender, amount);
+            IBridgedERC20(token).burn(msg.sender, amount);
             _balanceChange = amount;
         } else {
             // If it's a canonical token
