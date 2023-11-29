@@ -48,7 +48,9 @@ contract ERC20Vault is BaseVault {
     // tokens across other chains aside from Ethereum.
     mapping(uint256 => mapping(address => address)) public canonicalToBridged;
 
-    uint256[48] private __gap;
+    mapping(address btoken => bool blacklisted) public btokenBlacklist;
+
+    uint256[46] private __gap;
 
     event BridgedTokenDeployed(
         uint256 indexed srcChainId,
@@ -108,7 +110,10 @@ contract ERC20Vault is BaseVault {
         whenNotPaused
         returns (address btokenOld)
     {
-        if (btokenNew == address(0) || bridgedToCanonical[btokenNew].addr != address(0)) {
+        if (
+            btokenNew == address(0) || bridgedToCanonical[btokenNew].addr != address(0)
+                || btokenBlacklist[btokenNew]
+        ) {
             revert VAULT_INVALID_NEW_BRIDGED_TOKEN();
         }
 
@@ -125,6 +130,7 @@ contract ERC20Vault is BaseVault {
             ) revert VAULT_CTOKEN_MISMATCH();
 
             delete bridgedToCanonical[btokenOld];
+            btokenBlacklist[btokenOld] = true;
 
             // Start the migration
             IBridgedERC20(btokenOld).startOutboundMigration(btokenNew);
