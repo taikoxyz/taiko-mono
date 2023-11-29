@@ -33,6 +33,7 @@ type Config struct {
 	ETHClientTimeout        uint64
 	L1TaikoAddress          common.Address
 	BridgeAddress           common.Address
+	AssignmentHookAddress   common.Address
 	SwapAddresses           []common.Address
 	CORSOrigins             []string
 	BlockBatchSize          uint64
@@ -75,6 +76,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ETHClientTimeout:        c.Uint64(flags.ETHClientTimeout.Name),
 		L1TaikoAddress:          common.HexToAddress(c.String(flags.L1TaikoAddress.Name)),
 		BridgeAddress:           common.HexToAddress(c.String(flags.BridgeAddress.Name)),
+		AssignmentHookAddress:   common.HexToAddress(c.String(flags.AssignmentHookAddress.Name)),
 		SwapAddresses:           swaps,
 		CORSOrigins:             cors,
 		BlockBatchSize:          c.Uint64(flags.BlockBatchSize.Name),

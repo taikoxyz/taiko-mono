@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/labstack/echo/v4"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/assignmenthook"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/swap"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
@@ -64,9 +65,10 @@ type Indexer struct {
 	blockBatchSize      uint64
 	subscriptionBackoff time.Duration
 
-	taikol1 *taikol1.TaikoL1
-	bridge  *bridge.Bridge
-	swaps   []*swap.Swap
+	taikol1        *taikol1.TaikoL1
+	bridge         *bridge.Bridge
+	assignmentHook *assignmenthook.AssignmentHook
+	swaps          []*swap.Swap
 
 	httpPort uint64
 	srv      *http.Server
@@ -79,6 +81,8 @@ type Indexer struct {
 
 	watchMode WatchMode
 	syncMode  SyncMode
+
+	blockSaveMutex *sync.Mutex
 }
 
 func (indxr *Indexer) Start() error {
@@ -190,6 +194,15 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 		}
 	}
 
+	var assignmentHookContract *assignmenthook.AssignmentHook
+
+	if cfg.AssignmentHookAddress.Hex() != ZeroAddress.Hex() {
+		assignmentHookContract, err = assignmenthook.NewAssignmentHook(cfg.AssignmentHookAddress, ethClient)
+		if err != nil {
+			return errors.Wrap(err, "contracts.NewBridge")
+		}
+	}
+
 	var swapContracts []*swap.Swap
 
 	if cfg.SwapAddresses != nil && len(cfg.SwapAddresses) > 0 {
@@ -216,6 +229,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 		return err
 	}
 
+	i.blockSaveMutex = &sync.Mutex{}
 	i.accountRepo = accountRepository
 	i.eventRepo = eventRepository
 	i.processedBlockRepo = processedBlockRepository
@@ -227,6 +241,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.ethClient = ethClient
 	i.taikol1 = taikoL1
 	i.bridge = bridgeContract
+	i.assignmentHook = assignmentHookContract
 	i.swaps = swapContracts
 	i.blockBatchSize = cfg.BlockBatchSize
 	i.subscriptionBackoff = time.Duration(cfg.SubscriptionBackoff) * time.Second

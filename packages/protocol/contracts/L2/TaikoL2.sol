@@ -6,7 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
 import "../common/EssentialContract.sol";
 import "../common/ICrossChainSync.sol";
 import "../libs/LibMath.sol";
@@ -55,7 +54,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     /// @param _signalService Address of the {ISignalService} contract.
     /// @param _gasExcess The initial gasExcess.
     function init(address _signalService, uint64 _gasExcess) external initializer {
-        EssentialContract._init(address(0));
+        _Essential_init();
 
         if (_signalService == address(0)) revert L2_INVALID_PARAM();
         signalService = _signalService;
@@ -263,11 +262,3 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         if (_basefee == 0) _basefee = 1;
     }
 }
-
-/// @title ProxiedSingletonTaikoL2
-/// @notice Proxied version of the TaikoL2 contract.
-/// @dev Deploy this contract as a singleton per chain for use by multiple L2s
-/// or L3s. No singleton check is performed within the code; it's the deployer's
-/// responsibility to ensure this. Singleton deployment is essential for
-/// enabling multi-hop bridging across all Taiko L2/L3s.
-contract ProxiedSingletonTaikoL2 is Proxied, TaikoL2 { }

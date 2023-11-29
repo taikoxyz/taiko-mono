@@ -7,9 +7,9 @@
 pragma solidity ^0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/utils/Address.sol";
-import "lib/openzeppelin-contracts-upgradeable/contracts/utils/cryptography/ECDSAUpgradeable.sol";
-import "lib/openzeppelin-contracts-upgradeable/contracts/utils/introspection/IERC165Upgradeable.sol";
-import "lib/openzeppelin-contracts-upgradeable/contracts/interfaces/IERC1271Upgradeable.sol";
+import "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import "lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
+import "lib/openzeppelin-contracts/contracts/interfaces/IERC1271.sol";
 
 /// @title LibAddress
 /// @dev Provides utilities for address-related operations.
@@ -53,7 +53,7 @@ library LibAddress {
     {
         if (!Address.isContract(addr)) return false;
 
-        try IERC165Upgradeable(addr).supportsInterface(interfaceId) returns (bool _result) {
+        try IERC165(addr).supportsInterface(interfaceId) returns (bool _result) {
             result = _result;
         } catch { }
     }
@@ -68,9 +68,9 @@ library LibAddress {
         returns (bool valid)
     {
         if (Address.isContract(addr)) {
-            return IERC1271Upgradeable(addr).isValidSignature(hash, sig) == EIP1271_MAGICVALUE;
+            return IERC1271(addr).isValidSignature(hash, sig) == EIP1271_MAGICVALUE;
         } else {
-            return ECDSAUpgradeable.recover(hash, sig) == addr;
+            return ECDSA.recover(hash, sig) == addr;
         }
     }
 

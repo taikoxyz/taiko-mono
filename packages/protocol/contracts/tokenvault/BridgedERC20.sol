@@ -12,6 +12,7 @@ import
 import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 import "../common/EssentialContract.sol";
 import "./IMintableERC20.sol";
+import "./LibBridgedToken.sol";
 
 /// @title BridgedERC20
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
@@ -59,9 +60,9 @@ contract BridgedERC20 is
             revert BRIDGED_TOKEN_INVALID_PARAMS();
         }
 
-        // Initialize EssentialContract and ERC20Upgradeable
-        EssentialContract._init(_addressManager);
-        ERC20Upgradeable.__ERC20_init({ name_: _name, symbol_: _symbol });
+        // Initialize OwnerUUPSUpgradable and ERC20Upgradeable
+        _Essential_init(_addressManager);
+        __ERC20_init({ name_: _name, symbol_: _symbol });
 
         // Set contract properties
         srcToken = _srcToken;
@@ -128,14 +129,25 @@ contract BridgedERC20 is
     }
 
     /// @notice Gets the name of the token.
-    /// @return The name of the token with the source chain ID appended.
+    /// @return The name.
     function name()
         public
         view
         override(ERC20Upgradeable, IERC20MetadataUpgradeable)
         returns (string memory)
     {
-        return string.concat(super.name(), unicode" ⭀", Strings.toString(srcChainId));
+        return LibBridgedToken.buildName(super.name(), srcChainId);
+    }
+
+    /// @notice Gets the symbol of the bridged token.
+    /// @return The symbol.
+    function symbol()
+        public
+        view
+        override(ERC20Upgradeable, IERC20MetadataUpgradeable)
+        returns (string memory)
+    {
+        return LibBridgedToken.buildSymbol(super.symbol());
     }
 
     /// @notice Gets the number of decimal places of the token.
@@ -155,7 +167,3 @@ contract BridgedERC20 is
         return (srcToken, srcChainId);
     }
 }
-
-/// @title ProxiedBridgedERC20
-/// @notice Proxied version of the parent contract.
-contract ProxiedBridgedERC20 is Proxied, BridgedERC20 { }

@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "../../4844/IBlobHashReader.sol";
 import "../../common/AddressResolver.sol";
 import "../../libs/LibAddress.sol";
@@ -57,7 +57,7 @@ library LibProposing {
         bytes calldata data,
         bytes calldata txList
     )
-        internal
+        external
         returns (
             TaikoData.BlockMetadata memory meta,
             TaikoData.EthDeposit[] memory depositsProcessed
@@ -232,7 +232,7 @@ library LibProposing {
         }
 
         {
-            TaikoToken tko = TaikoToken(resolver.resolve("taiko_token", false));
+            IERC20 tko = IERC20(resolver.resolve("taiko_token", false));
             uint256 tkoBalance = tko.balanceOf(address(this));
 
             // Run all hooks.

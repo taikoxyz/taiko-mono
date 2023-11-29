@@ -6,10 +6,9 @@
 
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
-import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import "lib/openzeppelin-contracts-upgradeable/contracts/utils/cryptography/ECDSAUpgradeable.sol";
+import "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../common/EssentialContract.sol";
 
 /// @title TimeLockTokenPool
@@ -28,7 +27,7 @@ import "../common/EssentialContract.sol";
 /// - team members, advisors, etc.
 /// - grant program grantees
 contract TimeLockTokenPool is EssentialContract {
-    using SafeERC20Upgradeable for ERC20Upgradeable;
+    using SafeERC20 for IERC20;
 
     struct Grant {
         uint128 amount;
@@ -78,7 +77,7 @@ contract TimeLockTokenPool is EssentialContract {
     error TOO_MANY();
 
     function init(address _taikoToken, address _sharedVault) external initializer {
-        EssentialContract._init(address(0));
+        _Essential_init();
 
         if (_taikoToken == address(0)) revert INVALID_PARAM();
         taikoToken = _taikoToken;
@@ -129,7 +128,7 @@ contract TimeLockTokenPool is EssentialContract {
     function withdraw(address to, bytes memory sig) external {
         if (to == address(0)) revert INVALID_PARAM();
         bytes32 hash = keccak256(abi.encodePacked("Withdraw unlocked Taiko token to: ", to));
-        address recipient = ECDSAUpgradeable.recover(hash, sig);
+        address recipient = ECDSA.recover(hash, sig);
         _withdraw(recipient, to);
     }
 
@@ -170,7 +169,7 @@ contract TimeLockTokenPool is EssentialContract {
 
         r.amountWithdrawn += amount;
         totalAmountWithdrawn += amount;
-        ERC20Upgradeable(taikoToken).transferFrom(sharedVault, to, amount);
+        IERC20(taikoToken).transferFrom(sharedVault, to, amount);
 
         emit Withdrawn(recipient, to, amount);
     }
@@ -230,7 +229,3 @@ contract TimeLockTokenPool is EssentialContract {
         }
     }
 }
-
-/// @title ProxiedTimeLockTokenPool
-/// @notice Proxied version of the parent contract.
-contract ProxiedTimeLockTokenPool is Proxied, TimeLockTokenPool { }

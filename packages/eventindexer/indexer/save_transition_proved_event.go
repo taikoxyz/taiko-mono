@@ -108,7 +108,7 @@ func (indxr *Indexer) updateAverageProofTime(ctx context.Context, event *taikol1
 		return errors.Wrap(err, "indxr.ethClient.BlockByHash")
 	}
 
-	stat, err := indxr.statRepo.Find(ctx)
+	stat, err := indxr.statRepo.Find(ctx, eventindexer.StatTypeProofTime, nil)
 	if err != nil {
 		return errors.Wrap(err, "indxr.statRepo.Find")
 	}
@@ -149,6 +149,7 @@ func (indxr *Indexer) updateAverageProofTime(ctx context.Context, event *taikol1
 
 	_, err = indxr.statRepo.Save(ctx, eventindexer.SaveStatOpts{
 		ProofTime: newAverageProofTime,
+		StatType:  eventindexer.StatTypeProofTime,
 	})
 	if err != nil {
 		return errors.Wrap(err, "indxr.statRepo.Save")
