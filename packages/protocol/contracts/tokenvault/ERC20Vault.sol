@@ -6,9 +6,8 @@
 
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../bridge/IBridge.sol";
 import "./BridgedERC20.sol";
 import "./IMintableERC20.sol";
@@ -21,7 +20,7 @@ import "./BaseVault.sol";
 /// their bridged tokens.
 contract ERC20Vault is BaseVault {
     using LibAddress for address;
-    using SafeERC20Upgradeable for ERC20Upgradeable;
+    using SafeERC20 for ERC20;
 
     // Structs for canonical ERC20 tokens and transfer operations
     struct CanonicalERC20 {
@@ -153,7 +152,7 @@ contract ERC20Vault is BaseVault {
 
         if (ctoken.chainId == block.chainid) {
             token = ctoken.addr;
-            ERC20Upgradeable(token).safeTransfer(_to, amount);
+            ERC20(token).safeTransfer(_to, amount);
         } else {
             token = _getOrDeployBridgedToken(ctoken);
             IMintableERC20(token).mint(_to, amount);
@@ -192,7 +191,7 @@ contract ERC20Vault is BaseVault {
             if (bridgedToCanonical[token].addr != address(0)) {
                 IMintableERC20(token).mint(message.owner, amount);
             } else {
-                ERC20Upgradeable(token).safeTransfer(message.owner, amount);
+                ERC20(token).safeTransfer(message.owner, amount);
             }
         }
 
@@ -233,7 +232,7 @@ contract ERC20Vault is BaseVault {
             _balanceChange = amount;
         } else {
             // If it's a canonical token
-            ERC20Upgradeable t = ERC20Upgradeable(token);
+            ERC20 t = ERC20(token);
             ctoken = CanonicalERC20({
                 chainId: uint64(block.chainid),
                 addr: token,
@@ -286,13 +285,8 @@ contract ERC20Vault is BaseVault {
                 ctoken.name
             )
         );
-        btoken = address(
-            new TransparentUpgradeableProxy(
-                resolve("proxied_bridged_erc20", false),
-                owner(),
-                data
-            )
-        );
+
+        btoken = LibDeploy.deployERC1967Proxy(resolve("bridged_erc20", false), owner(), data);
 
         bridgedToCanonical[btoken] = ctoken;
         canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
@@ -307,11 +301,3 @@ contract ERC20Vault is BaseVault {
         });
     }
 }
-
-/// @title ProxiedSingletonERC20Vault
-/// @notice Proxied version of the parent contract.
-/// @dev Deploy this contract as a singleton per chain for use by multiple L2s
-/// or L3s. No singleton check is performed within the code; it's the deployer's
-/// responsibility to ensure this. Singleton deployment is essential for
-/// enabling multi-hop bridging across all Taiko L2/L3s.
-contract ProxiedSingletonERC20Vault is Proxied, ERC20Vault { }

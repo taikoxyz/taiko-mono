@@ -60,9 +60,9 @@ contract BridgedERC20 is
             revert BRIDGED_TOKEN_INVALID_PARAMS();
         }
 
-        // Initialize EssentialContract and ERC20Upgradeable
-        EssentialContract._init(_addressManager);
-        ERC20Upgradeable.__ERC20_init({ name_: _name, symbol_: _symbol });
+        // Initialize OwnerUUPSUpgradable and ERC20Upgradeable
+        _Essential_init(_addressManager);
+        __ERC20_init({ name_: _name, symbol_: _symbol });
 
         // Set contract properties
         srcToken = _srcToken;
@@ -167,7 +167,3 @@ contract BridgedERC20 is
         return (srcToken, srcChainId);
     }
 }
-
-/// @title ProxiedBridgedERC20
-/// @notice Proxied version of the parent contract.
-contract ProxiedBridgedERC20 is Proxied, BridgedERC20 { }

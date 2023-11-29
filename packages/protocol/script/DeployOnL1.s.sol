@@ -7,7 +7,6 @@
 pragma solidity ^0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
-import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
@@ -20,205 +19,375 @@ import "../contracts/L1/verifiers/PseZkVerifier.sol";
 import "../contracts/L1/verifiers/SgxVerifier.sol";
 import "../contracts/L1/verifiers/SgxAndZkVerifier.sol";
 import "../contracts/L1/verifiers/GuardianVerifier.sol";
-import "../contracts/L1/tiers/ITierProvider.sol";
 import "../contracts/L1/tiers/TaikoA6TierProvider.sol";
+import "../contracts/L1/hooks/AssignmentHook.sol";
+import "../contracts/L1/gov/TaikoTimelockController.sol";
+import "../contracts/L1/gov/TaikoGovernor.sol";
 import "../contracts/bridge/Bridge.sol";
-import "../contracts/tokenvault/BridgedERC20.sol";
-import "../contracts/tokenvault/BridgedERC721.sol";
-import "../contracts/tokenvault/BridgedERC1155.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
 import "../contracts/tokenvault/ERC721Vault.sol";
 import "../contracts/signal/SignalService.sol";
-import "../contracts/common/AddressManager.sol";
 import "../contracts/test/erc20/FreeMintERC20.sol";
 import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
+import "../contracts/libs/LibDeployHelper.sol";
+
 /// @title DeployOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
 /// initializing the rollup.
-
 contract DeployOnL1 is Script {
-    // NOTE: this value must match the constant defined in GuardianProver.sol
     uint256 public constant NUM_GUARDIANS = 5;
 
-    bytes32 public genesisHash = vm.envBytes32("L2_GENESIS_HASH");
+    address public constant MAINNET_SECURITY_COUNCIL = 0x7C50d60743D3FCe5a39FdbF687AFbAe5acFF49Fd;
 
-    uint256 public deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+    address securityCouncil =
+        block.chainid == 1 ? MAINNET_SECURITY_COUNCIL : vm.envAddress("SECURITY_COUNCIL");
 
-    address public taikoL2Address = vm.envAddress("TAIKO_L2_ADDRESS");
-
-    address public l2SignalService = vm.envAddress("L2_SIGNAL_SERVICE");
-
-    address public owner = vm.envAddress("OWNER");
-
-    address[] public guardianProvers = vm.envAddress("GUARDIAN_PROVERS", ",");
-
-    address public proposer = vm.envAddress("PROPOSER");
-
-    address public proposerOne = vm.envAddress("PROPOSER_ONE");
-
-    address public singletonBridge = vm.envAddress("SINGLETON_BRIDGE");
-
-    address public singletonSignalService = vm.envAddress("SINGLETON_SIGNAL_SERVICE");
-
-    uint256 public tierProvider = vm.envUint("TIER_PROVIDER");
-
-    address public taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
-
-    TaikoL1 taikoL1;
-    address public addressManagerProxy;
-
-    enum TierProviders { TAIKO_ALPHA6 }
-
-    error FAILED_TO_DEPLOY_PLONK_VERIFIER(string contractPath);
-
-    function run() external {
-        require(owner != address(0), "owner is zero");
-        require(taikoL2Address != address(0), "taikoL2Address is zero");
-        require(l2SignalService != address(0), "l2SignalService is zero");
-        require(guardianProvers.length == NUM_GUARDIANS, "invalid guardian provers number");
-        if (singletonBridge == address(0)) {
-            require(
-                singletonSignalService == address(0), "non-empty singleton signal service address"
-            );
-        } else {
-            require(singletonSignalService != address(0), "empty singleton signal service address");
-        }
-        vm.startBroadcast(deployerPrivateKey);
-
-        // AddressManager
-        AddressManager addressManager = new ProxiedAddressManager();
-        addressManagerProxy = deployProxy(
-            "address_manager", address(addressManager), bytes.concat(addressManager.init.selector)
-        );
-
-        // TaikoL1
-        taikoL1 = new ProxiedTaikoL1();
-        uint64 l2ChainId = taikoL1.getConfig().chainId;
-        require(l2ChainId != block.chainid, "same chainid");
-
-        setAddress(l2ChainId, "taiko", taikoL2Address);
-        setAddress(l2ChainId, "signal_service", l2SignalService);
-        if (proposer != address(0)) {
-            setAddress("proposer", proposer);
-        }
-        if (proposerOne != address(0)) {
-            setAddress("proposer_one", proposer);
-        }
-
-        // TaikoToken
-        TaikoToken taikoToken = new ProxiedTaikoToken();
-
-        deployProxy(
-            "taiko_token",
-            address(taikoToken),
-            bytes.concat(
-                taikoToken.init.selector,
-                abi.encode(
-                    addressManagerProxy, "Taiko Token Katla", "TTKOk", taikoTokenPremintRecipient
-                )
-            )
-        );
-
-        // HorseToken
-        address horseToken = address(new FreeMintERC20("Horse Token", "HORSE"));
-        console2.log("HorseToken", horseToken);
-
-        address taikoL1Proxy = deployProxy(
-            "taiko",
-            address(taikoL1),
-            bytes.concat(taikoL1.init.selector, abi.encode(addressManagerProxy, genesisHash))
-        );
-        setAddress("taiko", taikoL1Proxy);
-
-        // All bridging related contracts should be deployed as a singleton on
-        // each chain.
-        if (singletonBridge == address(0)) {
-            deployBridgeSuiteSingletons();
-        }
-
-        // Bridge and SignalService addresses will be used by TaikoL1.
-        setAddress("bridge", singletonBridge);
-        setAddress("signal_service", singletonSignalService);
-
-        // Authorize the new TaikoL1 contract for shared signal service.
-        ProxiedSingletonSignalService(singletonSignalService).authorize(
-            taikoL1Proxy, bytes32(block.chainid)
-        );
-
-        // Guardian prover
-        ProxiedGuardianProver guardianProver = new ProxiedGuardianProver();
-        address guardianProverProxy = deployProxy(
-            "guardian_prover",
-            address(guardianProver),
-            bytes.concat(guardianProver.init.selector, abi.encode(addressManagerProxy))
-        );
-        address[NUM_GUARDIANS] memory guardians;
-        for (uint256 i = 0; i < NUM_GUARDIANS; ++i) {
-            guardians[i] = guardianProvers[i];
-        }
-        ProxiedGuardianProver(guardianProverProxy).setGuardians(guardians);
-
-        // Config provider
-        deployProxy("tier_provider", deployTierProvider(uint256(TierProviders.TAIKO_ALPHA6)), "");
-
-        // GuardianVerifier
-        GuardianVerifier guardianVerifier = new ProxiedGuardianVerifier();
-        deployProxy(
-            "tier_guardian",
-            address(guardianVerifier),
-            bytes.concat(guardianVerifier.init.selector, abi.encode(addressManagerProxy))
-        );
-
-        // SgxVerifier
-        SgxVerifier sgxVerifier = new ProxiedSgxVerifier();
-        deployProxy(
-            "tier_sgx",
-            address(sgxVerifier),
-            bytes.concat(sgxVerifier.init.selector, abi.encode(addressManagerProxy))
-        );
-
-        // SgxAndZkVerifier
-        SgxAndZkVerifier sgxAndZkVerifier = new ProxiedSgxAndZkVerifier();
-        deployProxy(
-            "tier_sgx_and_pse_zkevm",
-            address(sgxAndZkVerifier),
-            bytes.concat(sgxVerifier.init.selector, abi.encode(addressManagerProxy))
-        );
-
-        // PseZkVerifier
-        PseZkVerifier pseZkVerifier = new ProxiedPseZkVerifier();
-        deployProxy(
-            "tier_pse_zkevm",
-            address(pseZkVerifier),
-            bytes.concat(pseZkVerifier.init.selector, abi.encode(addressManagerProxy))
-        );
-
-        // PlonkVerifier
-        deployPlonkVerifiers(pseZkVerifier);
-
-        // Assignment Hook
-        AssignmentHook assignmentHook = new ProxiedAssignmentHook();
-
-        deployProxy(
-            "assignment_hook",
-            address(assignmentHook),
-            bytes.concat(assignmentHook.init.selector, abi.encode(addressManagerProxy))
-        );
-
+    modifier broadcast() {
+        uint256 privateKey = vm.envUint("PRIVATE_KEY");
+        require(privateKey != 0, "invalid priv key");
+        vm.startBroadcast();
+        _;
         vm.stopBroadcast();
     }
 
-    function deployPlonkVerifiers(PseZkVerifier pseZkVerifier) private {
+    function run() external broadcast {
+        addressNotNull(vm.envAddress("TAIKO_L2_ADDRESS"), "TAIKO_L2_ADDRESS");
+        addressNotNull(vm.envAddress("L2_SIGNAL_SERVICE"), "L2_SIGNAL_SERVICE");
+        require(vm.envBytes32("L2_GENESIS_HASH") != 0, "L2_GENESIS_HASH");
+
+        // ---------------------------------------------------------------
+        // Deploy shared contracts
+        (address sharedAddressManager, address timelock) = deploySharedContracts();
+        console2.log("sharedAddressManager: ", sharedAddressManager);
+        console2.log("timelock: ", timelock);
+        // ---------------------------------------------------------------
+        // Deploy rollup contracts
+        address rollupAddressManager = deployRollupContracts(sharedAddressManager, timelock);
+
+        // ---------------------------------------------------------------
+        // Signal service need to authorize the new rollup
+        address signalServiceAddr =
+            AddressManager(sharedAddressManager).getAddress(uint64(block.chainid), "signal_service");
+        addressNotNull(signalServiceAddr, "signalServiceAddr");
+        SignalService signalService = SignalService(signalServiceAddr);
+
+        address taikoL1Addr =
+            AddressManager(rollupAddressManager).getAddress(uint64(block.chainid), "taiko");
+        addressNotNull(taikoL1Addr, "taikoL1Addr");
+        TaikoL1 taikoL1 = TaikoL1(payable(taikoL1Addr));
+
+        uint64 l2ChainId = taikoL1.getConfig().chainId;
+        require(l2ChainId != block.chainid, "same chainid");
+
+        if (signalService.owner() == msg.sender) {
+            signalService.authorize(taikoL1Addr, bytes32(block.chainid));
+            signalService.authorize(vm.envAddress("TAIKO_L2_ADDRESS"), bytes32(uint256(l2ChainId)));
+            signalService.transferOwnership(timelock);
+        } else {
+            console2.log("------------------------------------------");
+            console2.log("Warning - you need to transact manually:");
+            console2.log("signalService.authorize(taikoL1Addr, bytes32(block.chainid))");
+            console2.log("- signalService : ", signalServiceAddr);
+            console2.log("- taikoL1Addr   : ", taikoL1Addr);
+            console2.log("- chainId       : ", block.chainid);
+        }
+
+        // ---------------------------------------------------------------
+        // Register shared contracts in the new rollup
+        LibDeployHelper.copyRegister(rollupAddressManager, sharedAddressManager, "taiko_token");
+        LibDeployHelper.copyRegister(rollupAddressManager, sharedAddressManager, "signal_service");
+        LibDeployHelper.copyRegister(rollupAddressManager, sharedAddressManager, "bridge");
+
+        address proposer = vm.envAddress("PROPOSER");
+        if (proposer != address(0)) {
+            LibDeployHelper.register(rollupAddressManager, "proposer", proposer);
+        }
+
+        address proposerOne = vm.envAddress("PROPOSER_ONE");
+        if (proposerOne != address(0)) {
+            LibDeployHelper.register(rollupAddressManager, "proposer_one", proposerOne);
+        }
+
+        // ---------------------------------------------------------------
+        // Register L2 addresses
+        LibDeployHelper.register(
+            rollupAddressManager, "taiko", vm.envAddress("TAIKO_L2_ADDRESS"), l2ChainId
+        );
+        LibDeployHelper.register(
+            rollupAddressManager, "signal_service", vm.envAddress("L2_SIGNAL_SERVICE"), l2ChainId
+        );
+
+        // ---------------------------------------------------------------
+        // Deploy other contracts
+        deployAuxContracts();
+
+        if (AddressManager(sharedAddressManager).owner() == msg.sender) {
+            AddressManager(sharedAddressManager).transferOwnership(timelock);
+        }
+        if (AddressManager(rollupAddressManager).owner() == msg.sender) {
+            AddressManager(rollupAddressManager).transferOwnership(timelock);
+        }
+    }
+
+    function deploySharedContracts()
+        internal
+        returns (address sharedAddressManager, address timelock)
+    {
+        sharedAddressManager = vm.envAddress("SHARED_ADDRESS_MANAGER");
+        if (sharedAddressManager != address(0)) {
+            return (sharedAddressManager, vm.envAddress("TIMELOCK_CONTROLLER"));
+        }
+
+        // Deploy the timelock
+        timelock = deployProxy({
+            name: "timelock_controller",
+            impl: address(new TaikoTimelockController()),
+            data: bytes.concat(TaikoTimelockController.init.selector, abi.encode(7 days)),
+            registerTo: address(0),
+            owner: address(0)
+        });
+
+        sharedAddressManager = deployProxy({
+            name: "address_manager_for_bridge",
+            impl: address(new AddressManager()),
+            data: bytes.concat(AddressManager.init.selector),
+            registerTo: address(0),
+            owner: msg.sender // set to sender, transfer ownership to timelock after
+         });
+
+        address taikoToken = deployProxy({
+            name: "taiko_token",
+            impl: address(new TaikoToken()),
+            data: bytes.concat(
+                TaikoToken.init.selector,
+                abi.encode(
+                    vm.envString("TAIKO_TOKEN_NAME"),
+                    vm.envString("TAIKO_TOKEN_SYMBOL"),
+                    vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT")
+                )
+                ),
+            registerTo: sharedAddressManager,
+            owner: timelock
+        });
+
+        address governor = deployProxy({
+            name: "taiko_governor",
+            impl: address(new TaikoGovernor()),
+            data: bytes.concat(TaikoGovernor.init.selector, abi.encode(taikoToken, timelock)),
+            registerTo: address(0),
+            owner: timelock
+        });
+
+        // Setup time lock roles
+        TaikoTimelockController _timelock = TaikoTimelockController(payable(timelock));
+        _timelock.grantRole(_timelock.PROPOSER_ROLE(), governor);
+        _timelock.grantRole(_timelock.PROPOSER_ROLE(), securityCouncil);
+
+        _timelock.grantRole(_timelock.EXECUTOR_ROLE(), governor);
+        _timelock.grantRole(_timelock.EXECUTOR_ROLE(), securityCouncil);
+
+        _timelock.grantRole(_timelock.CANCELLER_ROLE(), governor);
+        _timelock.grantRole(_timelock.CANCELLER_ROLE(), securityCouncil);
+
+        _timelock.grantRole(_timelock.TIMELOCK_ADMIN_ROLE(), governor);
+        _timelock.grantRole(_timelock.TIMELOCK_ADMIN_ROLE(), securityCouncil);
+        _timelock.renounceRole(_timelock.TIMELOCK_ADMIN_ROLE(), msg.sender);
+
+        _timelock.transferOwnership(securityCouncil);
+
+        // Deploy Bridging contracts
+        deployProxy({
+            name: "signal_service",
+            impl: address(new SignalService()),
+            data: bytes.concat(SignalService.init.selector),
+            registerTo: sharedAddressManager,
+            owner: msg.sender // We set msg.sender as the owner and will change it later.
+         });
+
+        deployProxy({
+            name: "bridge",
+            impl: address(new Bridge()),
+            data: bytes.concat(Bridge.init.selector, abi.encode(sharedAddressManager)),
+            registerTo: sharedAddressManager,
+            owner: timelock
+        });
+
+        console2.log("------------------------------------------");
+        console2.log(
+            "Warning - you need to register *all* counterparty bridges to enable multi-hop bridging:"
+        );
+        console2.log(
+            "sharedAddressManager.setAddress(remoteChainId, \"bridge\", address(remoteBridge))"
+        );
+        console2.log("- sharedAddressManager : ", sharedAddressManager);
+
+        // Deploy Vaults
+        deployProxy({
+            name: "erc20_vault",
+            impl: address(new ERC20Vault()),
+            data: bytes.concat(BaseVault.init.selector, abi.encode(sharedAddressManager)),
+            registerTo: sharedAddressManager,
+            owner: timelock
+        });
+
+        deployProxy({
+            name: "erc721_vault",
+            impl: address(new ERC721Vault()),
+            data: bytes.concat(BaseVault.init.selector, abi.encode(sharedAddressManager)),
+            registerTo: sharedAddressManager,
+            owner: timelock
+        });
+
+        deployProxy({
+            name: "erc1155_vault",
+            impl: address(new ERC1155Vault()),
+            data: bytes.concat(BaseVault.init.selector, abi.encode(sharedAddressManager)),
+            registerTo: sharedAddressManager,
+            owner: timelock
+        });
+
+        console2.log("------------------------------------------");
+        console2.log(
+            "Warning - you need to register *all* counterparty vaults to enable multi-hop bridging:"
+        );
+        console2.log(
+            "sharedAddressManager.setAddress(remoteChainId, \"erc20_vault\", address(remoteERC20Vault))"
+        );
+        console2.log(
+            "sharedAddressManager.setAddress(remoteChainId, \"erc721_vault\", address(remoteERC721Vault))"
+        );
+        console2.log(
+            "sharedAddressManager.setAddress(remoteChainId, \"erc1155_vault\", address(remoteERC1155Vault))"
+        );
+        console2.log("- sharedAddressManager : ", sharedAddressManager);
+
+        // Deploy Bridged token implementations
+        LibDeployHelper.register(sharedAddressManager, "bridged_erc20", address(new BridgedERC20()));
+        LibDeployHelper.register(
+            sharedAddressManager, "bridged_erc721", address(new BridgedERC721())
+        );
+        LibDeployHelper.register(
+            sharedAddressManager, "bridged_erc1155", address(new BridgedERC1155())
+        );
+    }
+
+    function deployRollupContracts(
+        address _sharedAddressManager,
+        address timelock
+    )
+        internal
+        returns (address rollupAddressManager)
+    {
+        addressNotNull(_sharedAddressManager, "sharedAddressManager");
+        addressNotNull(timelock, "timelock");
+
+        rollupAddressManager = deployProxy({
+            name: "address_manager_for_rollup",
+            impl: address(new AddressManager()),
+            data: bytes.concat(AddressManager.init.selector),
+            registerTo: address(0),
+            owner: msg.sender // set to msg.sender, change to timelock after
+         });
+
+        deployProxy({
+            name: "taiko",
+            impl: address(new TaikoL1()),
+            data: bytes.concat(
+                TaikoL1.init.selector,
+                abi.encode(rollupAddressManager, vm.envBytes32("L2_GENESIS_HASH"))
+                ),
+            registerTo: rollupAddressManager,
+            owner: timelock
+        });
+
+        deployProxy({
+            name: "assignment_hook",
+            impl: address(new AssignmentHook()),
+            data: bytes.concat(AssignmentHook.init.selector, abi.encode(rollupAddressManager)),
+            registerTo: address(0),
+            owner: timelock
+        });
+
+        deployProxy({
+            name: "tier_provider",
+            impl: address(new TaikoA6TierProvider()),
+            data: bytes.concat(TaikoA6TierProvider.init.selector),
+            registerTo: rollupAddressManager,
+            owner: timelock
+        });
+
+        deployProxy({
+            name: "tier_guardian",
+            impl: address(new GuardianVerifier()),
+            data: bytes.concat(GuardianVerifier.init.selector, abi.encode(rollupAddressManager)),
+            registerTo: rollupAddressManager,
+            owner: timelock
+        });
+
+        deployProxy({
+            name: "tier_sgx",
+            impl: address(new SgxVerifier()),
+            data: bytes.concat(SgxVerifier.init.selector, abi.encode(rollupAddressManager)),
+            registerTo: rollupAddressManager,
+            owner: timelock
+        });
+
+        deployProxy({
+            name: "tier_sgx_and_pse_zkevm",
+            impl: address(new SgxAndZkVerifier()),
+            data: bytes.concat(SgxAndZkVerifier.init.selector, abi.encode(rollupAddressManager)),
+            registerTo: rollupAddressManager,
+            owner: timelock
+        });
+
+        address pseZkVerifier = deployProxy({
+            name: "tier_pse_zkevm",
+            impl: address(new PseZkVerifier()),
+            data: bytes.concat(PseZkVerifier.init.selector, abi.encode(rollupAddressManager)),
+            registerTo: rollupAddressManager,
+            owner: timelock
+        });
+
         address[] memory plonkVerifiers = new address[](1);
         plonkVerifiers[0] = deployYulContract("contracts/L1/verifiers/PlonkVerifier.yulp");
 
         for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
-            setAddress(pseZkVerifier.getVerifierName(i), plonkVerifiers[i]);
+            LibDeployHelper.register(
+                rollupAddressManager,
+                PseZkVerifier(pseZkVerifier).getVerifierName(i),
+                plonkVerifiers[i]
+            );
         }
+
+        address guardianProver = deployProxy({
+            name: "guardian_prover",
+            impl: address(new GuardianProver()),
+            data: bytes.concat(GuardianProver.init.selector, abi.encode(rollupAddressManager)),
+            registerTo: rollupAddressManager,
+            owner: msg.sender
+        });
+
+        address[] memory guardianProvers = vm.envAddress("GUARDIAN_PROVERS", ",");
+        require(guardianProvers.length == NUM_GUARDIANS, "NUM_GUARDIANS");
+
+        address[NUM_GUARDIANS] memory guardians;
+        for (uint256 i = 0; i < NUM_GUARDIANS; ++i) {
+            guardians[i] = guardianProvers[i];
+        }
+        GuardianProver(guardianProver).setGuardians(guardians);
+        GuardianProver(guardianProver).transferOwnership(timelock);
     }
 
-    function deployYulContract(string memory contractPath) private returns (address) {
+    function deployAuxContracts() private {
+        address horseToken = address(new FreeMintERC20("Horse Token", "HORSE"));
+        console2.log("HorseToken", horseToken);
+
+        address bullToken = address(new MayFailFreeMintERC20("Bull Token", "BULL"));
+        console2.log("BullToken", bullToken);
+    }
+
+    function deployYulContract(string memory contractPath) private returns (address addr) {
         string[] memory cmds = new string[](3);
         cmds[0] = "bash";
         cmds[1] = "-c";
@@ -230,157 +399,41 @@ contract DeployOnL1 is Script {
         );
 
         bytes memory bytecode = vm.ffi(cmds);
-
-        address deployedAddress;
         assembly {
-            deployedAddress := create(0, add(bytecode, 0x20), mload(bytecode))
+            addr := create(0, add(bytecode, 0x20), mload(bytecode))
         }
 
-        if (deployedAddress == address(0)) {
-            revert FAILED_TO_DEPLOY_PLONK_VERIFIER(contractPath);
-        }
-
-        console2.log(contractPath, deployedAddress);
-
-        return deployedAddress;
+        addressNotNull(addr, "failed yul deployment");
+        console2.log(contractPath, addr);
     }
 
-    function deployTierProvider(uint256 tier) private returns (address providerAddress) {
-        if (tier == uint256(TierProviders.TAIKO_ALPHA6)) {
-            return address(new TaikoA6TierProvider());
-        }
-
-        revert("invalid provider");
-    }
-
-    function deployBridgeSuiteSingletons() private {
-        // AddressManager
-        AddressManager addressManagerForSingletons = new ProxiedAddressManager();
-        address addressManagerForSingletonsProxy = deployProxy(
-            address(0),
-            "address_manager_for_singletons",
-            address(addressManagerForSingletons),
-            bytes.concat(addressManagerForSingletons.init.selector)
-        );
-
-        // Bridge
-        Bridge bridge = new ProxiedSingletonBridge();
-        singletonBridge = deployProxy(
-            addressManagerForSingletonsProxy,
-            "bridge",
-            address(bridge),
-            bytes.concat(bridge.init.selector, abi.encode(addressManagerForSingletonsProxy))
-        );
-
-        // ERC20Vault
-        ERC20Vault erc20Vault = new ProxiedSingletonERC20Vault();
-        deployProxy(
-            addressManagerForSingletonsProxy,
-            "erc20_vault",
-            address(erc20Vault),
-            bytes.concat(erc20Vault.init.selector, abi.encode(addressManagerForSingletonsProxy))
-        );
-
-        // ERC721Vault
-        ERC721Vault erc721Vault = new ProxiedSingletonERC721Vault();
-        deployProxy(
-            addressManagerForSingletonsProxy,
-            "erc721_vault",
-            address(erc721Vault),
-            bytes.concat(erc721Vault.init.selector, abi.encode(addressManagerForSingletonsProxy))
-        );
-
-        // ERC1155Vault
-        ERC1155Vault erc1155Vault = new ProxiedSingletonERC1155Vault();
-        deployProxy(
-            addressManagerForSingletonsProxy,
-            "erc1155_vault",
-            address(erc1155Vault),
-            bytes.concat(erc1155Vault.init.selector, abi.encode(addressManagerForSingletonsProxy))
-        );
-
-        // SignalService
-        SignalService signalService = new ProxiedSingletonSignalService();
-        singletonSignalService = deployProxy(
-            addressManagerForSingletonsProxy,
-            "signal_service",
-            address(signalService),
-            bytes.concat(signalService.init.selector, abi.encode(addressManagerForSingletonsProxy))
-        );
-
-        // Deploy ProxiedBridged token contracts
-        setAddress(
-            addressManagerForSingletonsProxy,
-            uint64(block.chainid),
-            "proxied_bridged_erc20",
-            address(new ProxiedBridgedERC20())
-        );
-        setAddress(
-            addressManagerForSingletonsProxy,
-            uint64(block.chainid),
-            "proxied_bridged_erc721",
-            address(new ProxiedBridgedERC721())
-        );
-        setAddress(
-            addressManagerForSingletonsProxy,
-            uint64(block.chainid),
-            "proxied_bridged_erc1155",
-            address(new ProxiedBridgedERC1155())
-        );
+    function addressNotNull(address addr, string memory err) private pure {
+        require(addr != address(0), err);
     }
 
     function deployProxy(
         string memory name,
-        address implementation,
-        bytes memory data
+        address impl,
+        bytes memory data,
+        address registerTo,
+        address owner
     )
         private
-        returns (address proxy)
+        returns (address)
     {
-        return deployProxy(addressManagerProxy, name, implementation, data);
-    }
-
-    function deployProxy(
-        address addressManager,
-        string memory name,
-        address implementation,
-        bytes memory data
-    )
-        private
-        returns (address proxy)
-    {
-        proxy = address(new TransparentUpgradeableProxy(implementation, owner, data));
-
-        console2.log(name, "(impl) ->", implementation);
-        console2.log(name, "(proxy) ->", proxy);
-
-        setAddress(addressManager, uint64(block.chainid), bytes32(bytes(name)), proxy);
+        address addr = LibDeployHelper.deployProxy({
+            name: bytes32(bytes(name)),
+            impl: impl,
+            data: data,
+            registerTo: registerTo,
+            owner: owner
+        });
 
         vm.writeJson(
-            vm.serializeAddress("deployment", name, proxy),
+            vm.serializeAddress("deployment", name, addr),
             string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
         );
-    }
 
-    function setAddress(bytes32 name, address addr) private {
-        setAddress(addressManagerProxy, uint64(block.chainid), name, addr);
-    }
-
-    function setAddress(uint256 chainId, bytes32 name, address addr) private {
-        setAddress(addressManagerProxy, uint64(chainId), name, addr);
-    }
-
-    function setAddress(
-        address addressManager,
-        uint64 chainId,
-        bytes32 name,
-        address addr
-    )
-        private
-    {
-        if (addressManager != address(0) && addr != address(0)) {
-            console2.log(chainId, uint256(name), "--->", addr);
-            AddressManager(addressManager).setAddress(chainId, name, addr);
-        }
+        return addr;
     }
 }

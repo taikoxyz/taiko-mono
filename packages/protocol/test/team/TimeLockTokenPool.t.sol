@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-import "forge-std/Test.sol";
-import "forge-std/console2.sol";
-import "../../contracts/team/TimeLockTokenPool.sol";
+import "../TaikoTest.sol";
 
 contract MyERC20 is ERC20 {
     constructor(address owner) ERC20("Taiko Token", "TKO") {
@@ -12,16 +9,20 @@ contract MyERC20 is ERC20 {
     }
 }
 
-contract TestTimeLockTokenTimeLockTokenPool is Test {
-    address internal Vault = vm.addr(0x1);
-    address internal Alice = vm.addr(0x2);
-    address internal Bob = vm.addr(0x3);
+contract TestTimeLockTokenPool is TaikoTest {
+    address internal Vault = randAddress();
 
     ERC20 tko = new MyERC20(Vault);
-    TimeLockTokenPool pool = new TimeLockTokenPool();
+    TimeLockTokenPool pool;
 
     function setUp() public {
-        pool.init(address(tko), Vault);
+        pool = TimeLockTokenPool(
+            LibDeployHelper.deployProxy({
+                name: "time_lock_token_pool",
+                impl: address(new TimeLockTokenPool()),
+                data: bytes.concat(TimeLockTokenPool.init.selector, abi.encode(address(tko), Vault))
+            })
+        );
     }
 
     function test_invalid_granting() public {
