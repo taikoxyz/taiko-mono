@@ -145,7 +145,7 @@ contract DeployOnL1 is Script {
             impl: address(new TaikoTimelockController()),
             data: bytes.concat(TaikoTimelockController.init.selector, abi.encode(7 days)),
             registerTo: address(0),
-            owner: securityCouncil
+            owner: address(0)
         });
 
         sharedAddressManager = deployProxy({
@@ -194,8 +194,7 @@ contract DeployOnL1 is Script {
         _timelock.grantRole(_timelock.TIMELOCK_ADMIN_ROLE(), securityCouncil);
         _timelock.renounceRole(_timelock.TIMELOCK_ADMIN_ROLE(), msg.sender);
 
-        // TODO(David): we need to verify the timelock being its own owner works
-        _timelock.transferOwnership(timelock);
+        _timelock.transferOwnership(securityCouncil);
 
         // Deploy Bridging contracts
         deployProxy({
