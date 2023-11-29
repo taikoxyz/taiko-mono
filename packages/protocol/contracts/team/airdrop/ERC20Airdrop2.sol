@@ -39,7 +39,6 @@ contract ERC20Airdrop2 is MerkleClaimable {
     }
 
     function init(
-        address _addressManager,
         uint64 _claimStarts,
         uint64 _claimEnds,
         bytes32 _merkleRoot,
@@ -50,7 +49,7 @@ contract ERC20Airdrop2 is MerkleClaimable {
         external
         initializer
     {
-        MerkleClaimable.__MerkleClaimable_init(_addressManager);
+        _Essential_init();
         // Unix timestamp=_claimEnds+1 marks the first timestamp the users are able to withdraw.
         _setConfig(_claimStarts, _claimEnds, _merkleRoot);
 

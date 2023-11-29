@@ -17,7 +17,6 @@ contract ERC20Airdrop is MerkleClaimable {
     uint256[48] private __gap;
 
     function init(
-        address _addressManager,
         uint64 _claimStarts,
         uint64 _claimEnds,
         bytes32 _merkleRoot,
@@ -27,7 +26,7 @@ contract ERC20Airdrop is MerkleClaimable {
         external
         initializer
     {
-        MerkleClaimable.__MerkleClaimable_init(_addressManager);
+        _Essential_init();
         _setConfig(_claimStarts, _claimEnds, _merkleRoot);
 
         token = _token;

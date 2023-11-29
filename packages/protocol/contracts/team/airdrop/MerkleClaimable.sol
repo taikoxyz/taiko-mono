@@ -70,12 +70,6 @@ abstract contract MerkleClaimable is EssentialContract {
         _setConfig(_claimStart, _claimEnd, _merkleRoot);
     }
 
-    /// @notice Initializes the contract.
-    /// @param _addressManager The address of the {AddressManager} contract.
-    function __MerkleClaimable_init(address _addressManager) internal {
-        EssentialContract._init(_addressManager);
-    }
-
     function _setConfig(uint64 _claimStart, uint64 _claimEnd, bytes32 _merkleRoot) internal {
         claimStart = _claimStart;
         claimEnd = _claimEnd;

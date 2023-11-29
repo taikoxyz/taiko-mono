@@ -27,7 +27,6 @@ contract TestERC20Airdrop is Test {
     address internal Dave = vm.addr(0x4);
     address internal Elvis = vm.addr(0x5);
     address internal ERC20VaultDAO = vm.addr(0x6);
-    address internal fakeAddressManager = vm.addr(0x7);
 
     bytes32 merkleRoot = 0x73a7330a8657ad864b954215a8f636bb3709d2edea60bcd4fcb8a448dbc6d70f;
 
@@ -38,10 +37,10 @@ contract TestERC20Airdrop is Test {
 
     function setUp() public {
         // 1st 'genesis' airdrop
-        airdrop.init(fakeAddressManager, 0, 0, merkleRoot, address(tko), ERC20VaultDAO);
+        airdrop.init(0, 0, merkleRoot, address(tko), ERC20VaultDAO);
         // 2nd airdrop subject to unlocking (e.g. 10 days after starting after
         // claim window)
-        airdrop2.init(fakeAddressManager, 0, 0, merkleRoot, address(tko), ERC20VaultDAO, 10 days);
+        airdrop2.init(0, 0, merkleRoot, address(tko), ERC20VaultDAO, 10 days);
 
         claimStart = uint64(block.timestamp + 10);
         claimEnd = uint64(block.timestamp + 10_000);
