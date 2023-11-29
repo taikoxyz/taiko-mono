@@ -6,11 +6,11 @@
 
 pragma solidity ^0.8.20;
 
+import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "../../common/AddressResolver.sol";
 import "../../signal/ISignalService.sol";
 import "../tiers/ITierProvider.sol";
 import "../TaikoData.sol";
-import "../TaikoToken.sol";
 import "./LibUtils.sol";
 
 /// @title LibVerifying
@@ -193,7 +193,7 @@ library LibVerifying {
                     bondToReturn -= blk.livenessBond / 2;
                 }
 
-                TaikoToken tko = TaikoToken(resolver.resolve("taiko_token", false));
+                IERC20 tko = IERC20(resolver.resolve("taiko_token", false));
                 tko.transfer(ts.prover, bondToReturn);
 
                 // Note: We exclusively address the bonds linked to the

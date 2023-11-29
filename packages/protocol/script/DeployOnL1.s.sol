@@ -11,6 +11,7 @@ import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
 
+import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
@@ -34,7 +35,6 @@ import "../contracts/libs/LibDeployHelper.sol";
 /// @title DeployOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
 /// initializing the rollup.
-
 contract DeployOnL1 is Script {
     uint256 public constant NUM_GUARDIANS = 5;
 
@@ -66,7 +66,7 @@ contract DeployOnL1 is Script {
         address rollupAddressManager = deployRollupContracts(sharedAddressManager, timelock);
 
         // ---------------------------------------------------------------
-        // Signal service need to auhthorize the new rollup
+        // Signal service need to authorize the new rollup
         address signalServiceAddr =
             AddressManager(sharedAddressManager).getAddress(uint64(block.chainid), "signal_service");
         addressNotNull(signalServiceAddr, "signalServiceAddr");
@@ -86,7 +86,7 @@ contract DeployOnL1 is Script {
             signalService.transferOwnership(timelock);
         } else {
             console2.log("------------------------------------------");
-            console2.log("Warining - you need to transact manually:");
+            console2.log("Warning - you need to transact manually:");
             console2.log("signalService.authorize(taikoL1Addr, bytes32(block.chainid))");
             console2.log("- signalService : ", signalServiceAddr);
             console2.log("- taikoL1Addr   : ", taikoL1Addr);
@@ -95,9 +95,9 @@ contract DeployOnL1 is Script {
 
         // ---------------------------------------------------------------
         // Register shared contracts in the new rollup
-        LibDeployHelper.copyRigister(rollupAddressManager, sharedAddressManager, "taiko_token");
-        LibDeployHelper.copyRigister(rollupAddressManager, sharedAddressManager, "signal_service");
-        LibDeployHelper.copyRigister(rollupAddressManager, sharedAddressManager, "bridge");
+        LibDeployHelper.copyRegister(rollupAddressManager, sharedAddressManager, "taiko_token");
+        LibDeployHelper.copyRegister(rollupAddressManager, sharedAddressManager, "signal_service");
+        LibDeployHelper.copyRegister(rollupAddressManager, sharedAddressManager, "bridge");
 
         address proposer = vm.envAddress("PROPOSER");
         if (proposer != address(0)) {
@@ -121,6 +121,13 @@ contract DeployOnL1 is Script {
         // ---------------------------------------------------------------
         // Deploy other contracts
         deployAuxContracts();
+
+        if (AddressManager(sharedAddressManager).owner() == msg.sender) {
+            AddressManager(sharedAddressManager).transferOwnership(timelock);
+        }
+        if (AddressManager(rollupAddressManager).owner() == msg.sender) {
+            AddressManager(rollupAddressManager).transferOwnership(timelock);
+        }
     }
 
     function deploySharedContracts()
@@ -146,8 +153,8 @@ contract DeployOnL1 is Script {
             impl: address(new AddressManager()),
             data: bytes.concat(AddressManager.init.selector),
             registerTo: address(0),
-            owner: timelock
-        });
+            owner: msg.sender // set to sender, transfer ownership to timelock after
+         });
 
         address taikoToken = LibDeployHelper.deployProxy({
             name: "taiko_token",
@@ -155,8 +162,8 @@ contract DeployOnL1 is Script {
             data: bytes.concat(
                 TaikoToken.init.selector,
                 abi.encode(
-                    "Taiko Token Katla", //
-                    "TTKOk",
+                    vm.envString("TAIKO_TOKEN_NAME"),
+                    vm.envString("TAIKO_TOKEN_SYMBOL"),
                     vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT")
                 )
                 ),
@@ -167,7 +174,7 @@ contract DeployOnL1 is Script {
         address governor = LibDeployHelper.deployProxy({
             name: "taiko_governor",
             impl: address(new TaikoGovernor()),
-            data: bytes.concat(AddressManager.init.selector, abi.encode(taikoToken, timelock)),
+            data: bytes.concat(TaikoGovernor.init.selector, abi.encode(taikoToken, timelock)),
             registerTo: address(0),
             owner: timelock
         });
@@ -179,7 +186,7 @@ contract DeployOnL1 is Script {
         _timelock.grantRole(_timelock.CANCELLER_ROLE(), address(governor));
 
         _timelock.grantRole(_timelock.TIMELOCK_ADMIN_ROLE(), securityCouncil);
-        _timelock.renounceRole(_timelock.TIMELOCK_ADMIN_ROLE(), address(this));
+        _timelock.renounceRole(_timelock.TIMELOCK_ADMIN_ROLE(), msg.sender);
 
         // TODO(David): we need to verify the timelock being its own owner works
         _timelock.transferOwnership(timelock);
@@ -203,7 +210,7 @@ contract DeployOnL1 is Script {
 
         console2.log("------------------------------------------");
         console2.log(
-            "Warining - you need to register *all* counterparty bridges to enable multi-hop bridging:"
+            "Warning - you need to register *all* counterparty bridges to enable multi-hop bridging:"
         );
         console2.log(
             "sharedAddressManager.setAddress(remoteChainId, \"bridge\", address(remoteBridge))"
@@ -237,7 +244,7 @@ contract DeployOnL1 is Script {
 
         console2.log("------------------------------------------");
         console2.log(
-            "Warining - you need to register *all* counterparty vaults to enable multi-hop bridging:"
+            "Warning - you need to register *all* counterparty vaults to enable multi-hop bridging:"
         );
         console2.log(
             "sharedAddressManager.setAddress(remoteChainId, \"erc20_vault\", address(remoteERC20Vault))"
@@ -275,8 +282,8 @@ contract DeployOnL1 is Script {
             impl: address(new AddressManager()),
             data: bytes.concat(AddressManager.init.selector),
             registerTo: address(0),
-            owner: timelock
-        });
+            owner: msg.sender // set to msg.sender, change to timelock after
+         });
 
         LibDeployHelper.deployProxy({
             name: "taiko",
@@ -290,7 +297,7 @@ contract DeployOnL1 is Script {
         });
 
         LibDeployHelper.deployProxy({
-            name: "tier_pse_zkevm",
+            name: "assignment_hook",
             impl: address(new AssignmentHook()),
             data: bytes.concat(AssignmentHook.init.selector, abi.encode(rollupAddressManager)),
             registerTo: address(0),
@@ -353,7 +360,7 @@ contract DeployOnL1 is Script {
             impl: address(new GuardianProver()),
             data: bytes.concat(GuardianProver.init.selector, abi.encode(rollupAddressManager)),
             registerTo: rollupAddressManager,
-            owner: address(this)
+            owner: msg.sender
         });
 
         address[] memory guardianProvers = vm.envAddress("GUARDIAN_PROVERS", ",");
@@ -371,7 +378,7 @@ contract DeployOnL1 is Script {
         address horseToken = address(new FreeMintERC20("Horse Token", "HORSE"));
         console2.log("HorseToken", horseToken);
 
-        address bullToken = address(new  MayFailFreeMintERC20("Bull Token", "BULL"));
+        address bullToken = address(new MayFailFreeMintERC20("Bull Token", "BULL"));
         console2.log("BullToken", bullToken);
     }
 
@@ -391,7 +398,7 @@ contract DeployOnL1 is Script {
             addr := create(0, add(bytecode, 0x20), mload(bytecode))
         }
 
-        addressNotNull(addr, "failed yu deployment");
+        addressNotNull(addr, "failed yul deployment");
         console2.log(contractPath, addr);
     }
 
