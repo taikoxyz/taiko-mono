@@ -357,7 +357,7 @@ contract DeployOnL1 is Script {
         });
 
         address[] memory guardians = vm.envAddress("GUARDIAN_PROVERS", ",");
-        uint8 minGuardians = uint8(vm.envUint("MIN_GUARDIAN"));
+        uint8 minGuardians = uint8(vm.envUint("MIN_GUARDIANS"));
         GuardianProver(guardianProver).setGuardians(guardians, minGuardians);
         GuardianProver(guardianProver).transferOwnership(timelock);
     }
