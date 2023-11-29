@@ -115,8 +115,9 @@ contract BridgedERC20 is
     /// @param account The account to mint tokens to.
     /// @param amount The amount of tokens to mint.
     function mint(address account, uint256 amount) public nonReentrant whenNotPaused {
-        if (migratingFrom == address(0)) {
-            if (msg.sender != resolve("erc20_vault", true)) revert RESOLVER_DENIED();
+        if (migratingTo != address(0)) revert BRIDGED_TOKEN_PERMISSION_DENIED();
+
+        if (msg.sender == resolve("erc20_vault", true)) {
             emit Transfer(address(0), account, amount);
         } else {
             if (msg.sender != migratingFrom) revert BRIDGED_TOKEN_PERMISSION_DENIED();
@@ -130,12 +131,13 @@ contract BridgedERC20 is
     /// @param account The account to burn tokens from.
     /// @param amount The amount of tokens to burn.
     function burn(address account, uint256 amount) public nonReentrant whenNotPaused {
-        if (migratingTo == address(0)) {
+        if (migratingTo != address(0)) {
+            emit MigratedTo(migratingTo, account, amount);
+            // Ask the new bridged token to mint token for the user.
+            IBridgedERC20(migratingTo).mint(account, amount);
+        } else {
             if (msg.sender != resolve("erc20_vault", true)) revert RESOLVER_DENIED();
             emit Transfer(account, address(0), amount);
-        } else {
-            IBridgedERC20(migratingTo).mint(account, amount);
-            emit MigratedTo(migratingTo, account, amount);
         }
 
         _burn(account, amount);
