@@ -93,7 +93,7 @@ contract GuardianProver is EssentialContract {
         bytes32 hash = keccak256(abi.encode(meta, tran));
         uint256 approvalBits = approvals[version][hash];
 
-        approvalBits |= 1 << id;
+        approvalBits |= 1 << (id - 1);
 
         if (_isApproved(approvalBits)) {
             bytes memory data = abi.encodeWithSignature(
@@ -113,7 +113,7 @@ contract GuardianProver is EssentialContract {
 
     function _isApproved(uint256 approvalBits) private view returns (bool) {
         uint256 count;
-        uint256 bits = approvalBits >> 1;
+        uint256 bits = approvalBits;
         for (uint256 i; i < guardians.length; ++i) {
             if (bits & 1 == 1) ++count;
             if (count == minGuardians) return true;
