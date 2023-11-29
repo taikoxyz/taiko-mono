@@ -12,7 +12,7 @@ contract MyERC20 is ERC20 {
 contract TestERC20Airdrop is TaikoTest {
     uint64 claimStart;
     uint64 claimEnd;
-    address internal ERC20VaultDAO = randAddress();
+    address internal owner = randAddress();
 
     bytes32 merkleRoot = 0x73a7330a8657ad864b954215a8f636bb3709d2edea60bcd4fcb8a448dbc6d70f;
 
@@ -21,15 +21,14 @@ contract TestERC20Airdrop is TaikoTest {
     ERC20 token;
 
     function setUp() public {
-        token = new MyERC20(address(ERC20VaultDAO));
+        token = new MyERC20(address(owner));
         // 1st 'genesis' airdrop
         airdrop = ERC20Airdrop(
             LibDeployHelper.deployProxy({
                 name: "airdrop",
                 impl: address(new ERC20Airdrop()),
                 data: bytes.concat(
-                    ERC20Airdrop.init.selector,
-                    abi.encode(0, 0, merkleRoot, address(token), ERC20VaultDAO)
+                    ERC20Airdrop.init.selector, abi.encode(0, 0, merkleRoot, address(token), owner)
                     )
             })
         );
@@ -42,7 +41,7 @@ contract TestERC20Airdrop is TaikoTest {
                 impl: address(new ERC20Airdrop2()),
                 data: bytes.concat(
                     ERC20Airdrop2.init.selector,
-                    abi.encode(0, 0, merkleRoot, address(token), ERC20VaultDAO, 10 days)
+                    abi.encode(0, 0, merkleRoot, address(token), owner, 10 days)
                     )
             })
         );
@@ -57,10 +56,10 @@ contract TestERC20Airdrop is TaikoTest {
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 12);
 
-        vm.prank(ERC20VaultDAO, ERC20VaultDAO);
+        vm.prank(owner, owner);
         MyERC20(address(token)).approve(address(airdrop), 1_000_000_000e18);
 
-        vm.prank(ERC20VaultDAO, ERC20VaultDAO);
+        vm.prank(owner, owner);
         MyERC20(address(token)).approve(address(airdrop2), 1_000_000_000e18);
     }
 
