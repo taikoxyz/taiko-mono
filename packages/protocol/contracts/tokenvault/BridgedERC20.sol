@@ -12,27 +12,7 @@ import
 import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 import "../common/EssentialContract.sol";
 import "./LibBridgedToken.sol";
-
-// import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/IERC20Upgradeable.sol";
-
-/// @title IBridgedERC20
-/// @notice Interface for ERC20 tokens with mint and burn functionality.
-interface IBridgedERC20 {
-    /// @notice Mints `amount` tokens and assigns them to the `account` address.
-    /// @param account The account to receive the minted tokens.
-    /// @param amount The amount of tokens to mint.
-    function mint(address account, uint256 amount) external;
-
-    /// @notice Burns `amount` tokens from the `from` address.
-    /// @param from The account from which the tokens will be burned.
-    /// @param amount The amount of tokens to burn.
-    function burn(address from, uint256 amount) external;
-
-    function startInboundMigration(address from) external;
-    function startOutboundMigration(address to) external;
-
-    function stopInboundMigration() external;
-}
+import "./IBridgedERC20.sol";
 
 /// @title BridgedERC20
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
@@ -99,6 +79,18 @@ contract BridgedERC20 is
         srcDecimals = _decimals;
     }
 
+    function startOutboundMigration(address to)
+        external
+        nonReentrant
+        whenNotPaused
+        onlyFromNamed("erc20_vault")
+    {
+        migratingTo = to;
+        if (migratingTo != address(0)) revert BRIDGED_TOKEN_PERMISSION_DENIED();
+        if (to == address(0)) revert BRIDGED_TOKEN_INVALID_PARAMS();
+        emit Migration(migratingFrom, migratingTo);
+    }
+
     function startInboundMigration(address from)
         external
         nonReentrant
@@ -115,24 +107,6 @@ contract BridgedERC20 is
     function stopInboundMigration() external nonReentrant whenNotPaused onlyOwner {
         if (migratingFrom == address(0)) revert BRIDGED_TOKEN_PERMISSION_DENIED();
         migratingFrom = address(0);
-        emit Migration(migratingFrom, migratingTo);
-    }
-
-    function startOutboundMigration(address to)
-        external
-        nonReentrant
-        whenNotPaused
-        onlyFromNamed("erc20_vault")
-    {
-        migratingTo = to;
-        if (migratingTo != address(0)) revert BRIDGED_TOKEN_PERMISSION_DENIED();
-        if (to == address(0)) revert BRIDGED_TOKEN_INVALID_PARAMS();
-        emit Migration(migratingFrom, migratingTo);
-    }
-
-    function stopOutboundMigration() external nonReentrant whenNotPaused onlyOwner {
-        if (migratingTo == address(0)) revert BRIDGED_TOKEN_PERMISSION_DENIED();
-        migratingTo = address(0);
         emit Migration(migratingFrom, migratingTo);
     }
 
