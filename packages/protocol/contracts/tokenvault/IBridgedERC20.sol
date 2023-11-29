@@ -32,7 +32,4 @@ interface IBridgedERC20 {
     /// @param from An external IBridgedERC20 contract authorized for token migration into this
     /// contract.
     function startInboundMigration(address from) external;
-
-    /// notice Stop inbound migration, callable only by the owner.
-    function stopInboundMigration() external;
 }
