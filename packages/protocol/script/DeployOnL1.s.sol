@@ -143,7 +143,9 @@ contract DeployOnL1 is Script {
         timelock = deployProxy({
             name: "timelock_controller",
             impl: address(new TaikoTimelockController()),
-            data: bytes.concat(TaikoTimelockController.init.selector, abi.encode(7 days))
+            data: bytes.concat(TaikoTimelockController.init.selector, abi.encode(7 days)),
+            registerTo: address(0),
+            owner: msg.sender
         });
 
         sharedAddressManager = deployProxy({
@@ -151,8 +153,8 @@ contract DeployOnL1 is Script {
             impl: address(new AddressManager()),
             data: bytes.concat(AddressManager.init.selector),
             registerTo: address(0),
-            owner: msg.sender // set to sender, transfer ownership to timelock after
-         });
+            owner: msg.sender
+        });
 
         address taikoToken = deployProxy({
             name: "taiko_token",
@@ -405,28 +407,20 @@ contract DeployOnL1 is Script {
     }
 
     function deployProxy(
-        string memory name,
+        bytes32 name,
         address impl,
         bytes memory data,
         address registerTo,
         address owner
     )
         private
-        returns (address)
+        returns (address addr)
     {
-        address addr = LibDeployHelper.deployProxy({
-            name: bytes32(bytes(name)),
-            impl: impl,
-            data: data,
-            registerTo: registerTo,
-            owner: owner
-        });
+        addr = LibDeployHelper.deployProxy(name, impl, data, registerTo, owner);
 
         vm.writeJson(
-            vm.serializeAddress("deployment", name, addr),
+            vm.serializeAddress("deployment", Strings.toString(uint256(name)), addr),
             string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
         );
-
-        return addr;
     }
 }
