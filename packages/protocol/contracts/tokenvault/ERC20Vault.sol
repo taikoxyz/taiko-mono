@@ -10,7 +10,6 @@ import "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../bridge/IBridge.sol";
 import "./BridgedERC20.sol";
-import "./IBridgedERC20.sol";
 import "./BaseVault.sol";
 
 /// @title ERC20Vault
