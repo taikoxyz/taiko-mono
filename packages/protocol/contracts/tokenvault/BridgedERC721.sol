@@ -82,7 +82,6 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         if (ownerOf(tokenId) != account) {
             revert BRIDGED_TOKEN_INVALID_BURN();
         }
-
         _burn(tokenId);
     }
 
