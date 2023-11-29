@@ -39,8 +39,7 @@ contract USDCAdaptor is EssentialContract, IBridgedERC20 {
     }
 
     /// @dev Warning: the erc20_vault address must be granted the correct role in order to burn
-    /// native USDC tokens.
-    /// This has to be done manually.
+    /// native USDC tokens, which must be done manually.
     function burn(
         address from,
         uint256 amount
