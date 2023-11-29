@@ -23,12 +23,10 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
     error TKO_INVALID_PREMINT_PARAMS();
 
     /// @notice Initializes the TaikoToken contract and mints initial tokens.
-    /// @param _addressManager The {AddressManager} address.
     /// @param _name The name of the token.
     /// @param _symbol The symbol of the token.
     /// @param _recipient The address to receive initial token minting.
     function init(
-        address _addressManager,
         string calldata _name,
         string calldata _symbol,
         address _recipient
@@ -36,10 +34,10 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
         public
         initializer
     {
-        EssentialContract._init(_addressManager);
-        ERC20Upgradeable.__ERC20_init(_name, _symbol);
-        ERC20SnapshotUpgradeable.__ERC20Snapshot_init();
-        ERC20VotesUpgradeable.__ERC20Votes_init();
+        _Essential_init();
+        __ERC20_init(_name, _symbol);
+        __ERC20Snapshot_init();
+        __ERC20Votes_init();
 
         // Mint 1 billion tokens
         _mint(_recipient, 1_000_000_000 ether);
@@ -133,7 +131,3 @@ contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUp
         super._burn(from, amount);
     }
 }
-
-/// @title ProxiedTaikoToken
-/// @notice Proxied version of the TaikoToken contract.
-contract ProxiedTaikoToken is Proxied, TaikoToken { }

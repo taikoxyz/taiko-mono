@@ -2,16 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
-import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "forge-std/console2.sol";
-import "../TestBase.sol";
-import "../../contracts/common/AddressManager.sol";
-import "../../contracts/bridge/Bridge.sol";
-import "../../contracts/tokenvault/BaseNFTVault.sol";
-import "../../contracts/tokenvault/ERC721Vault.sol";
-import "../../contracts/tokenvault/BridgedERC721.sol";
-import "../../contracts/signal/SignalService.sol";
-import "../../contracts/common/ICrossChainSync.sol";
+import "../TaikoTest.sol";
 
 contract TestTokenERC721 is ERC721 {
     string _baseTokenURI;
@@ -126,39 +117,78 @@ contract ERC721VaultTest is TaikoTest {
     DummyCrossChainSync crossChainSync;
     uint64 destChainId = 19_389;
 
-    // Need +1 bc. and Amelia is the proxied bridge contracts owner
-    // Change will cause onMessageRecall() test fails, because of
-    // getPreDeterminedDataBytes
-    address public constant Amelia = 0x60081B12838240B1BA02b3177153BCa678A86080;
-
     function setUp() public {
-        vm.startPrank(Amelia);
+        vm.startPrank(Carol);
         vm.deal(Alice, 100 ether);
-        vm.deal(Amelia, 100 ether);
+        vm.deal(Carol, 100 ether);
         vm.deal(Bob, 100 ether);
-        addressManager = new AddressManager();
-        addressManager.init();
 
-        bridge = new Bridge();
-        bridge.init(address(addressManager));
+        addressManager = AddressManager(
+            LibDeployHelper.deployProxy({
+                name: "address_manager",
+                impl: address(new AddressManager()),
+                data: bytes.concat(AddressManager.init.selector)
+            })
+        );
 
-        destChainBridge = new Bridge();
-        destChainBridge.init(address(addressManager));
+        bridge = Bridge(
+            payable(
+                LibDeployHelper.deployProxy({
+                    name: "bridge",
+                    impl: address(new Bridge()),
+                    data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
+                    registerTo: address(addressManager),
+                    owner: address(0)
+                })
+            )
+        );
 
-        signalService = new SignalService();
-        signalService.init();
+        destChainBridge = Bridge(
+            payable(
+                LibDeployHelper.deployProxy({
+                    name: "bridge",
+                    impl: address(new Bridge()),
+                    data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
+                    registerTo: address(addressManager),
+                    owner: address(0)
+                })
+            )
+        );
 
-        erc721Vault = new ERC721Vault();
-        erc721Vault.init(address(addressManager));
+        signalService = SignalService(
+            LibDeployHelper.deployProxy({
+                name: "signal_service",
+                impl: address(new SignalService()),
+                data: bytes.concat(SignalService.init.selector)
+            })
+        );
 
-        destChainErc721Vault = new ERC721Vault();
-        destChainErc721Vault.init(address(addressManager));
+        erc721Vault = ERC721Vault(
+            LibDeployHelper.deployProxy({
+                name: "erc721_vault",
+                impl: address(new ERC721Vault()),
+                data: bytes.concat(BaseVault.init.selector, abi.encode(address(addressManager)))
+            })
+        );
+
+        destChainErc721Vault = ERC721Vault(
+            LibDeployHelper.deployProxy({
+                name: "erc721_vault",
+                impl: address(new ERC721Vault()),
+                data: bytes.concat(BaseVault.init.selector, abi.encode(address(addressManager)))
+            })
+        );
 
         destChainIdBridge = new PrankDestBridge(destChainErc721Vault);
         vm.deal(address(destChainIdBridge), 100 ether);
 
-        mockProofSignalService = new SkipProofCheckSignal();
-        mockProofSignalService.init();
+        mockProofSignalService = SkipProofCheckSignal(
+            LibDeployHelper.deployProxy({
+                name: "signal_service",
+                impl: address(new SkipProofCheckSignal()),
+                data: bytes.concat(SignalService.init.selector)
+            })
+        );
 
         crossChainSync = new DummyCrossChainSync();
 
@@ -183,19 +213,16 @@ contract ERC721VaultTest is TaikoTest {
         addressManager.setAddress(uint64(block.chainid), "erc1155_vault", address(erc721Vault));
         addressManager.setAddress(uint64(block.chainid), "erc20_vault", address(erc721Vault));
 
-        address proxiedBridgedERC721 = address(new ProxiedBridgedERC721());
+        address bridgedERC721 = address(new BridgedERC721());
 
-        addressManager.setAddress(destChainId, "proxied_bridged_erc721", proxiedBridgedERC721);
-        addressManager.setAddress(
-            uint64(block.chainid), "proxied_bridged_erc721", proxiedBridgedERC721
-        );
+        addressManager.setAddress(destChainId, "bridged_erc721", bridgedERC721);
+        addressManager.setAddress(uint64(block.chainid), "bridged_erc721", bridgedERC721);
 
         vm.stopPrank();
 
         vm.startPrank(Alice);
         canonicalToken721 = new TestTokenERC721("http://example.host.com/");
         canonicalToken721.mint(10);
-
         vm.stopPrank();
     }
 
@@ -651,7 +678,7 @@ contract ERC721VaultTest is TaikoTest {
 
         destChainIdBridge.setERC721Vault(address(erc721Vault));
 
-        vm.prank(Amelia, Amelia);
+        vm.prank(Carol, Carol);
         addressManager.setAddress(uint64(block.chainid), "bridge", address(destChainIdBridge));
 
         destChainIdBridge.sendReceiveERC721ToERC721Vault(
@@ -797,10 +824,8 @@ contract ERC721VaultTest is TaikoTest {
         // Upgrade the implementation of that contract
         // so that it supports now the 'helloWorld' call
         UpdatedBridgedERC721 newBridgedContract = new UpdatedBridgedERC721();
-        vm.prank(Amelia, Amelia);
-        TransparentUpgradeableProxy(payable(deployedContract)).upgradeTo(
-            address(newBridgedContract)
-        );
+        vm.prank(Carol, Carol);
+        BridgedERC721(payable(deployedContract)).upgradeTo(address(newBridgedContract));
 
         try UpdatedBridgedERC721(deployedContract).helloWorld() {
             // It should support now this function call

@@ -1,29 +1,45 @@
 // SPDX-License-Identifier: MIT
+//  _____     _ _         _         _
+// |_   _|_ _(_) |_____  | |   __ _| |__ ___
+//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
+//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
+
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts/contracts/governance/Governor.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/governance/GovernorUpgradeable.sol";
 import
-    "lib/openzeppelin-contracts/contracts/governance/compatibility/GovernorCompatibilityBravo.sol";
-import "lib/openzeppelin-contracts/contracts/governance/extensions/GovernorVotes.sol";
-import "lib/openzeppelin-contracts/contracts/governance/extensions/GovernorVotesQuorumFraction.sol";
-import "lib/openzeppelin-contracts/contracts/governance/extensions/GovernorTimelockControl.sol";
+    "lib/openzeppelin-contracts-upgradeable/contracts/governance/compatibility/GovernorCompatibilityBravoUpgradeable.sol";
+import
+    "lib/openzeppelin-contracts-upgradeable/contracts/governance/extensions/GovernorVotesUpgradeable.sol";
+import
+    "lib/openzeppelin-contracts-upgradeable/contracts/governance/extensions/GovernorVotesQuorumFractionUpgradeable.sol";
+import
+    "lib/openzeppelin-contracts-upgradeable/contracts/governance/extensions/GovernorTimelockControlUpgradeable.sol";
+import "../../common/OwnerUUPSUpgradable.sol";
 
 contract TaikoGovernor is
-    Governor,
-    GovernorCompatibilityBravo,
-    GovernorVotes,
-    GovernorVotesQuorumFraction,
-    GovernorTimelockControl
+    OwnerUUPSUpgradable,
+    GovernorUpgradeable,
+    GovernorCompatibilityBravoUpgradeable,
+    GovernorVotesUpgradeable,
+    GovernorVotesQuorumFractionUpgradeable,
+    GovernorTimelockControlUpgradeable
 {
-    constructor(
-        IVotes _token,
-        TimelockController _timelock
+    uint256[50] private __gap;
+
+    function init(
+        IVotesUpgradeable _token,
+        TimelockControllerUpgradeable _timelock
     )
-        Governor("TaikoGovernor")
-        GovernorVotes(_token)
-        GovernorVotesQuorumFraction(4)
-        GovernorTimelockControl(_timelock)
-    { }
+        external
+        initializer
+    {
+        _OwnerUUPSUpgradable_init();
+        __Governor_init("TaikoGovernor");
+        __GovernorVotes_init(_token);
+        __GovernorVotesQuorumFraction_init(4);
+        __GovernorTimelockControl_init(_timelock);
+    }
 
     function propose(
         address[] memory targets,
@@ -32,7 +48,7 @@ contract TaikoGovernor is
         string memory description
     )
         public
-        override(Governor, IGovernor, GovernorCompatibilityBravo)
+        override(IGovernorUpgradeable, GovernorUpgradeable, GovernorCompatibilityBravoUpgradeable)
         returns (uint256)
     {
         return super.propose(targets, values, calldatas, description);
@@ -41,7 +57,7 @@ contract TaikoGovernor is
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(Governor, IERC165, GovernorTimelockControl)
+        override(GovernorUpgradeable, GovernorTimelockControlUpgradeable, IERC165Upgradeable)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
@@ -50,7 +66,7 @@ contract TaikoGovernor is
     function state(uint256 proposalId)
         public
         view
-        override(Governor, IGovernor, GovernorTimelockControl)
+        override(IGovernorUpgradeable, GovernorUpgradeable, GovernorTimelockControlUpgradeable)
         returns (ProposalState)
     {
         return super.state(proposalId);
@@ -80,7 +96,7 @@ contract TaikoGovernor is
         bytes32 descriptionHash
     )
         internal
-        override(Governor, GovernorTimelockControl)
+        override(GovernorUpgradeable, GovernorTimelockControlUpgradeable)
     {
         super._execute(proposalId, targets, values, calldatas, descriptionHash);
     }
@@ -92,7 +108,7 @@ contract TaikoGovernor is
         bytes32 descriptionHash
     )
         internal
-        override(Governor, GovernorTimelockControl)
+        override(GovernorUpgradeable, GovernorTimelockControlUpgradeable)
         returns (uint256)
     {
         return super._cancel(targets, values, calldatas, descriptionHash);
@@ -101,7 +117,7 @@ contract TaikoGovernor is
     function _executor()
         internal
         view
-        override(Governor, GovernorTimelockControl)
+        override(GovernorUpgradeable, GovernorTimelockControlUpgradeable)
         returns (address)
     {
         return super._executor();

@@ -2,17 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
-import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "forge-std/console2.sol";
-import "../TestBase.sol";
-import "../../contracts/common/AddressResolver.sol";
-import "../../contracts/common/AddressManager.sol";
-import "../../contracts/bridge/Bridge.sol";
-import "../../contracts/tokenvault/BaseNFTVault.sol";
-import "../../contracts/tokenvault/ERC1155Vault.sol";
-import "../../contracts/tokenvault/BridgedERC1155.sol";
-import "../../contracts/signal/SignalService.sol";
-import "../../contracts/common/ICrossChainSync.sol";
+import "../TaikoTest.sol";
 
 contract TestTokenERC1155 is ERC1155 {
     constructor(string memory baseURI) ERC1155(baseURI) { }
@@ -112,39 +102,77 @@ contract ERC1155VaultTest is TaikoTest {
     DummyCrossChainSync crossChainSync;
     uint64 destChainId = 19_389;
 
-    // Need +1 bc. and Amelia is the proxied bridge contracts owner
-    // Change will cause onMessageRecall() test fails, because of
-    // getPreDeterminedDataBytes
-    address public Amelia = 0x60081b12838240B1ba02B3177153Bca678a86081;
-
     function setUp() public {
-        vm.startPrank(Amelia);
+        vm.startPrank(Carol);
         vm.deal(Alice, 100 ether);
-        vm.deal(Amelia, 100 ether);
+        vm.deal(Carol, 100 ether);
         vm.deal(Bob, 100 ether);
-        addressManager = new AddressManager();
-        addressManager.init();
+        addressManager = AddressManager(
+            LibDeployHelper.deployProxy({
+                name: "address_manager",
+                impl: address(new AddressManager()),
+                data: bytes.concat(AddressManager.init.selector)
+            })
+        );
 
-        bridge = new Bridge();
-        bridge.init(address(addressManager));
+        bridge = Bridge(
+            payable(
+                LibDeployHelper.deployProxy({
+                    name: "bridge",
+                    impl: address(new Bridge()),
+                    data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
+                    registerTo: address(addressManager),
+                    owner: address(0)
+                })
+            )
+        );
 
-        destChainBridge = new Bridge();
-        destChainBridge.init(address(addressManager));
+        destChainBridge = Bridge(
+            payable(
+                LibDeployHelper.deployProxy({
+                    name: "bridge",
+                    impl: address(new Bridge()),
+                    data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
+                    registerTo: address(addressManager),
+                    owner: address(0)
+                })
+            )
+        );
 
-        signalService = new SignalService();
-        signalService.init();
+        signalService = SignalService(
+            LibDeployHelper.deployProxy({
+                name: "signal_service",
+                impl: address(new SignalService()),
+                data: bytes.concat(SignalService.init.selector)
+            })
+        );
 
-        erc1155Vault = new ERC1155Vault();
-        erc1155Vault.init(address(addressManager));
+        erc1155Vault = ERC1155Vault(
+            LibDeployHelper.deployProxy({
+                name: "erc1155_vault",
+                impl: address(new ERC1155Vault()),
+                data: bytes.concat(BaseVault.init.selector, abi.encode(address(addressManager)))
+            })
+        );
 
-        destChainErc1155Vault = new ERC1155Vault();
-        destChainErc1155Vault.init(address(addressManager));
+        destChainErc1155Vault = ERC1155Vault(
+            LibDeployHelper.deployProxy({
+                name: "erc1155_vault",
+                impl: address(new ERC1155Vault()),
+                data: bytes.concat(BaseVault.init.selector, abi.encode(address(addressManager)))
+            })
+        );
 
         destChainIdBridge = new PrankDestBridge(destChainErc1155Vault);
         vm.deal(address(destChainIdBridge), 100 ether);
 
-        mockProofSignalService = new SkipProofCheckSignal();
-        mockProofSignalService.init();
+        mockProofSignalService = SkipProofCheckSignal(
+            LibDeployHelper.deployProxy({
+                name: "signal_service",
+                impl: address(new SkipProofCheckSignal()),
+                data: bytes.concat(SignalService.init.selector)
+            })
+        );
 
         crossChainSync = new DummyCrossChainSync();
 
@@ -176,12 +204,10 @@ contract ERC1155VaultTest is TaikoTest {
 
         vm.deal(address(bridge), 100 ether);
 
-        address proxiedBridgedERC1155 = address(new ProxiedBridgedERC1155());
+        address bridgedERC1155 = address(new BridgedERC1155());
 
-        addressManager.setAddress(destChainId, "proxied_bridged_erc1155", proxiedBridgedERC1155);
-        addressManager.setAddress(
-            uint64(block.chainid), "proxied_bridged_erc1155", proxiedBridgedERC1155
-        );
+        addressManager.setAddress(destChainId, "bridged_erc1155", bridgedERC1155);
+        addressManager.setAddress(uint64(block.chainid), "bridged_erc1155", bridgedERC1155);
 
         ctoken1155 = new TestTokenERC1155("http://example.host.com/");
         vm.stopPrank();
@@ -630,7 +656,7 @@ contract ERC1155VaultTest is TaikoTest {
 
         destChainIdBridge.setERC1155Vault(address(erc1155Vault));
 
-        vm.prank(Amelia, Amelia);
+        vm.prank(Carol, Carol);
         addressManager.setAddress(uint64(block.chainid), "bridge", address(destChainIdBridge));
 
         destChainIdBridge.sendReceiveERC1155ToERC1155Vault(
@@ -777,10 +803,8 @@ contract ERC1155VaultTest is TaikoTest {
         // Upgrade the implementation of that contract
         // so that it supports now the 'helloWorld' call
         UpdatedBridgedERC1155 newBridgedContract = new UpdatedBridgedERC1155();
-        vm.prank(Amelia, Amelia);
-        TransparentUpgradeableProxy(payable(deployedContract)).upgradeTo(
-            address(newBridgedContract)
-        );
+        vm.prank(Carol, Carol);
+        BridgedERC1155(payable(deployedContract)).upgradeTo(address(newBridgedContract));
 
         try UpdatedBridgedERC1155(deployedContract).helloWorld() { }
         catch {

@@ -36,7 +36,7 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, ITierProvider, TaikoEven
     /// @param _addressManager The {AddressManager} address.
     /// @param _genesisBlockHash The block hash of the genesis block.
     function init(address _addressManager, bytes32 _genesisBlockHash) external initializer {
-        EssentialContract._init(_addressManager);
+        _Essential_init(_addressManager);
         LibVerifying.init(state, getConfig(), _genesisBlockHash);
     }
 
@@ -171,13 +171,6 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, ITierProvider, TaikoEven
         b = state.slotB;
     }
 
-    /// @notice Gets the in-protocol Taiko token balance for a user
-    /// @param user The user.
-    /// @return The user's Taiko token balance.
-    function getTaikoTokenBalance(address user) public view returns (uint256) {
-        return state.tokenBalances[user];
-    }
-
     /// @notice Retrieves the configuration for a specified tier.
     /// @param tierId ID of the tier.
     /// @return Tier struct containing the tier's parameters. This
@@ -243,7 +236,3 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, ITierProvider, TaikoEven
         return LibVerifying.isConfigValid(getConfig());
     }
 }
-
-/// @title ProxiedTaikoL1
-/// @notice Proxied version of the parent contract.
-contract ProxiedTaikoL1 is Proxied, TaikoL1 { }

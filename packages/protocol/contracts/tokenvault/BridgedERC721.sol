@@ -9,6 +9,7 @@ pragma solidity ^0.8.20;
 import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
 import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 import "../common/EssentialContract.sol";
+import "./LibBridgedToken.sol";
 
 /// @title BridgedERC721
 /// @notice Contract for bridging ERC721 tokens across different chains.
@@ -44,7 +45,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         ) {
             revert BRIDGED_TOKEN_INVALID_PARAMS();
         }
-        EssentialContract._init(_addressManager);
+        _Essential_init(_addressManager);
         __ERC721_init(_name, _symbol);
         srcToken = _srcToken;
         srcChainId = _srcChainId;
@@ -89,10 +90,16 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         return ERC721Upgradeable.transferFrom(from, to, tokenId);
     }
 
-    /// @notice Gets the concatenated name of the bridged token.
-    /// @return The concatenated name.
+    /// @notice Gets the name of the token.
+    /// @return The name.
     function name() public view override(ERC721Upgradeable) returns (string memory) {
-        return string.concat(super.name(), unicode" ⭀", Strings.toString(srcChainId));
+        return LibBridgedToken.buildName(super.name(), srcChainId);
+    }
+
+    /// @notice Gets the symbol of the bridged token.
+    /// @return The symbol.
+    function symbol() public view override(ERC721Upgradeable) returns (string memory) {
+        return LibBridgedToken.buildSymbol(super.symbol());
     }
 
     /// @notice Gets the source token and source chain ID being bridged.
@@ -106,7 +113,3 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         return "";
     }
 }
-
-/// @title ProxiedBridgedERC721
-/// @notice Proxied version of the parent contract.
-contract ProxiedBridgedERC721 is Proxied, BridgedERC721 { }

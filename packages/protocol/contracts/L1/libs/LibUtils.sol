@@ -79,7 +79,7 @@ library LibUtils {
         TaikoData.Config memory config,
         uint64 blockId
     )
-        internal
+        external
         view
         returns (TaikoData.Block storage blk)
     {

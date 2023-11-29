@@ -6,12 +6,10 @@
 
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
 import
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
-import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/ERC1155Upgradeable.sol";
 import "../bridge/IBridge.sol";
-import "../libs/LibAddress.sol";
 import "./BaseNFTVault.sol";
 import "./BridgedERC1155.sol";
 
@@ -121,7 +119,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                 // Token lives on this chain
                 token = ctoken.addr;
                 for (uint256 i; i < tokenIds.length; ++i) {
-                    ERC1155Upgradeable(token).safeTransferFrom({
+                    ERC1155(token).safeTransferFrom({
                         from: address(this),
                         to: _to,
                         id: tokenIds[i],
@@ -176,7 +174,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                 }
             } else {
                 for (uint256 i; i < tokenIds.length; ++i) {
-                    ERC1155Upgradeable(nft.addr).safeTransferFrom({
+                    ERC1155(nft.addr).safeTransferFrom({
                         from: address(this),
                         to: message.owner,
                         id: tokenIds[i],
@@ -279,7 +277,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                     nft.symbol = _symbol;
                 } catch { }
                 for (uint256 i; i < op.tokenIds.length; ++i) {
-                    ERC1155Upgradeable(op.token).safeTransferFrom({
+                    ERC1155(op.token).safeTransferFrom({
                         from: msg.sender,
                         to: address(this),
                         id: op.tokenIds[i],
@@ -317,13 +315,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             BridgedERC1155.init.selector,
             abi.encode(addressManager, ctoken.addr, ctoken.chainId, ctoken.symbol, ctoken.name)
         );
-        btoken = address(
-            new TransparentUpgradeableProxy(
-                resolve("proxied_bridged_erc1155", false),
-                owner(),
-                data
-            )
-        );
+
+        btoken = LibDeploy.deployERC1967Proxy(resolve("bridged_erc1155", false), owner(), data);
 
         bridgedToCanonical[btoken] = ctoken;
         canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
@@ -337,11 +330,3 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         });
     }
 }
-
-/// @title ProxiedSingletonERC1155Vault
-/// @notice Proxied version of the parent contract.
-/// @dev Deploy this contract as a singleton per chain for use by multiple L2s
-/// or L3s. No singleton check is performed within the code; it's the deployer's
-/// responsibility to ensure this. Singleton deployment is essential for
-/// enabling multi-hop bridging across all Taiko L2/L3s.
-contract ProxiedSingletonERC1155Vault is Proxied, ERC1155Vault { }
