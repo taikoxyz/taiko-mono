@@ -140,7 +140,7 @@ contract DeployOnL1 is Script {
         }
 
         // Deploy the timelock
-        timelock = LibDeployHelper.deployProxy({
+        timelock = deployProxy({
             name: "timelock_controller",
             impl: address(new TaikoTimelockController()),
             data: bytes.concat(TaikoTimelockController.init.selector, abi.encode(7 days)),
@@ -148,7 +148,7 @@ contract DeployOnL1 is Script {
             owner: address(0)
         });
 
-        sharedAddressManager = LibDeployHelper.deployProxy({
+        sharedAddressManager = deployProxy({
             name: "address_manager_for_bridge",
             impl: address(new AddressManager()),
             data: bytes.concat(AddressManager.init.selector),
@@ -156,7 +156,7 @@ contract DeployOnL1 is Script {
             owner: msg.sender // set to sender, transfer ownership to timelock after
          });
 
-        address taikoToken = LibDeployHelper.deployProxy({
+        address taikoToken = deployProxy({
             name: "taiko_token",
             impl: address(new TaikoToken()),
             data: bytes.concat(
@@ -171,7 +171,7 @@ contract DeployOnL1 is Script {
             owner: timelock
         });
 
-        address governor = LibDeployHelper.deployProxy({
+        address governor = deployProxy({
             name: "taiko_governor",
             impl: address(new TaikoGovernor()),
             data: bytes.concat(TaikoGovernor.init.selector, abi.encode(taikoToken, timelock)),
@@ -192,7 +192,7 @@ contract DeployOnL1 is Script {
         _timelock.transferOwnership(timelock);
 
         // Deploy Bridging contracts
-        LibDeployHelper.deployProxy({
+        deployProxy({
             name: "signal_service",
             impl: address(new SignalService()),
             data: bytes.concat(SignalService.init.selector),
@@ -200,7 +200,7 @@ contract DeployOnL1 is Script {
             owner: msg.sender // We set msg.sender as the owner and will change it later.
          });
 
-        LibDeployHelper.deployProxy({
+        deployProxy({
             name: "bridge",
             impl: address(new Bridge()),
             data: bytes.concat(Bridge.init.selector, abi.encode(sharedAddressManager)),
@@ -218,7 +218,7 @@ contract DeployOnL1 is Script {
         console2.log("- sharedAddressManager : ", sharedAddressManager);
 
         // Deploy Vaults
-        LibDeployHelper.deployProxy({
+        deployProxy({
             name: "erc20_vault",
             impl: address(new ERC20Vault()),
             data: bytes.concat(BaseVault.init.selector, abi.encode(sharedAddressManager)),
@@ -226,7 +226,7 @@ contract DeployOnL1 is Script {
             owner: timelock
         });
 
-        LibDeployHelper.deployProxy({
+        deployProxy({
             name: "erc721_vault",
             impl: address(new ERC721Vault()),
             data: bytes.concat(BaseVault.init.selector, abi.encode(sharedAddressManager)),
@@ -234,7 +234,7 @@ contract DeployOnL1 is Script {
             owner: timelock
         });
 
-        LibDeployHelper.deployProxy({
+        deployProxy({
             name: "erc1155_vault",
             impl: address(new ERC1155Vault()),
             data: bytes.concat(BaseVault.init.selector, abi.encode(sharedAddressManager)),
@@ -277,7 +277,7 @@ contract DeployOnL1 is Script {
         addressNotNull(_sharedAddressManager, "sharedAddressManager");
         addressNotNull(timelock, "timelock");
 
-        rollupAddressManager = LibDeployHelper.deployProxy({
+        rollupAddressManager = deployProxy({
             name: "address_manager_for_rollup",
             impl: address(new AddressManager()),
             data: bytes.concat(AddressManager.init.selector),
@@ -285,7 +285,7 @@ contract DeployOnL1 is Script {
             owner: msg.sender // set to msg.sender, change to timelock after
          });
 
-        LibDeployHelper.deployProxy({
+        deployProxy({
             name: "taiko",
             impl: address(new TaikoL1()),
             data: bytes.concat(
@@ -296,7 +296,7 @@ contract DeployOnL1 is Script {
             owner: timelock
         });
 
-        LibDeployHelper.deployProxy({
+        deployProxy({
             name: "assignment_hook",
             impl: address(new AssignmentHook()),
             data: bytes.concat(AssignmentHook.init.selector, abi.encode(rollupAddressManager)),
@@ -304,7 +304,7 @@ contract DeployOnL1 is Script {
             owner: timelock
         });
 
-        LibDeployHelper.deployProxy({
+        deployProxy({
             name: "tier_provider",
             impl: address(new TaikoA6TierProvider()),
             data: bytes.concat(TaikoA6TierProvider.init.selector),
@@ -312,7 +312,7 @@ contract DeployOnL1 is Script {
             owner: timelock
         });
 
-        LibDeployHelper.deployProxy({
+        deployProxy({
             name: "tier_guardian",
             impl: address(new GuardianVerifier()),
             data: bytes.concat(GuardianVerifier.init.selector, abi.encode(rollupAddressManager)),
@@ -320,7 +320,7 @@ contract DeployOnL1 is Script {
             owner: timelock
         });
 
-        LibDeployHelper.deployProxy({
+        deployProxy({
             name: "tier_sgx",
             impl: address(new SgxVerifier()),
             data: bytes.concat(SgxVerifier.init.selector, abi.encode(rollupAddressManager)),
@@ -328,7 +328,7 @@ contract DeployOnL1 is Script {
             owner: timelock
         });
 
-        LibDeployHelper.deployProxy({
+        deployProxy({
             name: "tier_sgx_and_pse_zkevm",
             impl: address(new SgxAndZkVerifier()),
             data: bytes.concat(SgxAndZkVerifier.init.selector, abi.encode(rollupAddressManager)),
@@ -336,7 +336,7 @@ contract DeployOnL1 is Script {
             owner: timelock
         });
 
-        address pseZkVerifier = LibDeployHelper.deployProxy({
+        address pseZkVerifier = deployProxy({
             name: "tier_pse_zkevm",
             impl: address(new PseZkVerifier()),
             data: bytes.concat(PseZkVerifier.init.selector, abi.encode(rollupAddressManager)),
@@ -355,7 +355,7 @@ contract DeployOnL1 is Script {
             );
         }
 
-        address guardianProver = LibDeployHelper.deployProxy({
+        address guardianProver = deployProxy({
             name: "guardian_prover",
             impl: address(new GuardianProver()),
             data: bytes.concat(GuardianProver.init.selector, abi.encode(rollupAddressManager)),
@@ -404,5 +404,31 @@ contract DeployOnL1 is Script {
 
     function addressNotNull(address addr, string memory err) private pure {
         require(addr != address(0), err);
+    }
+
+    function deployProxy(
+        string memory name,
+        address impl,
+        bytes memory data,
+        address registerTo,
+        address owner
+    )
+        private
+        returns (address)
+    {
+        address addr = LibDeployHelper.deployProxy({
+            name: bytes32(bytes(name)),
+            impl: impl,
+            data: data,
+            registerTo: registerTo,
+            owner: owner
+        });
+
+        vm.writeJson(
+            vm.serializeAddress("deployment", name, addr),
+            string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
+        );
+
+        return addr;
     }
 }
