@@ -31,9 +31,11 @@ contract GuardianProver is Guardians {
         returns (bool approved)
     {
         if (proof.tier != LibTiers.TIER_GUARDIAN) revert INVALID_PROOF();
-        approved = approve(meta.id, keccak256(abi.encode(meta, tran)));
+        bytes32 hash = keccak256(abi.encode(meta, tran));
+        approved = approve(meta.id, hash);
 
         if (approved) {
+            deleteApproval(hash);
             bytes memory data = abi.encodeWithSignature(
                 "proveBlock(uint64,bytes)", meta.id, abi.encode(meta, tran, proof)
             );
