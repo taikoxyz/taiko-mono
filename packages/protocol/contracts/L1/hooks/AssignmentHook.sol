@@ -6,11 +6,10 @@
 
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "../../common/EssentialContract.sol";
 import "../../libs/LibAddress.sol";
 import "../TaikoData.sol";
-import "../TaikoToken.sol";
 import "./IHook.sol";
 
 /// @title AssignmentHook
@@ -83,7 +82,7 @@ contract AssignmentHook is EssentialContract, IHook {
         }
 
         // Send the liveness bond to the Taiko contract
-        TaikoToken tko = TaikoToken(resolve("taiko_token", false));
+        IERC20 tko = IERC20(resolve("taiko_token", false));
         tko.transferFrom(blk.assignedProver, msg.sender, blk.livenessBond);
 
         // Find the prover fee using the minimal tier
@@ -111,9 +110,7 @@ contract AssignmentHook is EssentialContract, IHook {
                 refund = msg.value - input.tip;
             }
             // Paying ERC20 tokens
-            ERC20Upgradeable(assignment.feeToken).transferFrom(
-                msg.sender, blk.assignedProver, proverFee
-            );
+            IERC20(assignment.feeToken).transferFrom(msg.sender, blk.assignedProver, proverFee);
         }
 
         // block.coinbase can be address(0) in tests
