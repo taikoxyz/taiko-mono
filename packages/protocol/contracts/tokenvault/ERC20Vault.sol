@@ -58,6 +58,17 @@ contract ERC20Vault is BaseVault {
         string ctokenName,
         uint8 ctokenDecimal
     );
+
+    event BridgedTokenSet(
+        uint256 indexed srcChainId,
+        address indexed ctoken,
+        address btokenOld,
+        address btokenNew,
+        string ctokenSymbol,
+        string ctokenName,
+        uint8 ctokenDecimal
+    );
+
     event TokenSent(
         bytes32 indexed msgHash,
         address indexed from,
@@ -78,13 +89,61 @@ contract ERC20Vault is BaseVault {
         uint256 amount
     );
 
+    error VAULT_CTOKEN_MISMATCH();
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_AMOUNT();
+    error VAULT_INVALID_NEW_BRIDGED_TOKEN();
     error VAULT_INVALID_USER();
     error VAULT_INVALID_FROM();
     error VAULT_INVALID_SRC_CHAIN_ID();
     error VAULT_MESSAGE_NOT_FAILED();
     error VAULT_MESSAGE_RELEASED_ALREADY();
+
+    function setBridgedToken(
+        CanonicalERC20 calldata ctoken,
+        address btokenNew
+    )
+        external
+        nonReentrant
+        whenNotPaused
+        returns (address btokenOld)
+    {
+        if (btokenNew == address(0) || bridgedToCanonical[btokenNew].addr != address(0)) {
+            revert VAULT_INVALID_NEW_BRIDGED_TOKEN();
+        }
+
+        btokenOld = canonicalToBridged[ctoken.chainId][ctoken.addr];
+
+        if (btokenOld != address(0)) {
+            CanonicalERC20 memory _ctoken = bridgedToCanonical[btokenOld];
+
+            // Check that the ctoken must match the saved one.
+            if (
+                _ctoken.decimals != ctoken.decimals
+                    || keccak256(bytes(_ctoken.symbol)) != keccak256(bytes(ctoken.symbol))
+                    || keccak256(bytes(_ctoken.name)) != keccak256(bytes(ctoken.name))
+            ) revert VAULT_CTOKEN_MISMATCH();
+
+            delete bridgedToCanonical[btokenOld];
+
+            // Start the migration
+            IBridgedERC20(btokenOld).startOutboundMigration(btokenNew);
+            IBridgedERC20(btokenNew).startInboundMigration(btokenOld);
+        }
+
+        bridgedToCanonical[btokenNew] = ctoken;
+        canonicalToBridged[ctoken.chainId][ctoken.addr] = btokenNew;
+
+        emit BridgedTokenSet({
+            srcChainId: ctoken.chainId,
+            ctoken: ctoken.addr,
+            btokenOld: btokenOld,
+            btokenNew: btokenNew,
+            ctokenSymbol: ctoken.symbol,
+            ctokenName: ctoken.name,
+            ctokenDecimal: ctoken.decimals
+        });
+    }
 
     /// @notice Transfers ERC20 tokens to this vault and sends a message to the
     /// destination chain so the user can receive the same amount of tokens by

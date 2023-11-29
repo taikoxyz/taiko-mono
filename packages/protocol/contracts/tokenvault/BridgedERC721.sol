@@ -54,7 +54,15 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     /// @dev Mints tokens.
     /// @param account Address to receive the minted token.
     /// @param tokenId ID of the token to mint.
-    function mint(address account, uint256 tokenId) public onlyFromNamed("erc721_vault") {
+    function mint(
+        address account,
+        uint256 tokenId
+    )
+        public
+        nonReentrant
+        whenNotPaused
+        onlyFromNamed("erc721_vault")
+    {
         _mint(account, tokenId);
         emit Transfer(address(0), account, tokenId);
     }
@@ -62,7 +70,15 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     /// @dev Burns tokens.
     /// @param account Address from which the token is burned.
     /// @param tokenId ID of the token to burn.
-    function burn(address account, uint256 tokenId) public onlyFromNamed("erc721_vault") {
+    function burn(
+        address account,
+        uint256 tokenId
+    )
+        public
+        nonReentrant
+        whenNotPaused
+        onlyFromNamed("erc721_vault")
+    {
         // Check if the caller is the owner of the token.
         if (ownerOf(tokenId) != account) {
             revert BRIDGED_TOKEN_INVALID_BURN();

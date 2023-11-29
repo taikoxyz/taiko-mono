@@ -27,6 +27,11 @@ interface IBridgedERC20 {
     /// @param from The account from which the tokens will be burned.
     /// @param amount The amount of tokens to burn.
     function burn(address from, uint256 amount) external;
+
+    function startInboundMigration(address from) external;
+    function startOutboundMigration(address to) external;
+
+    function stopInboundMigration() external;
 }
 
 /// @title BridgedERC20
@@ -38,14 +43,23 @@ contract BridgedERC20 is
     IERC20MetadataUpgradeable,
     ERC20Upgradeable
 {
-    address public srcToken;
-    uint256 public srcChainId;
+    address public srcToken; // slot 1
     uint8 private srcDecimals;
+    uint256 public srcChainId; // slot 2
 
-    uint256[47] private __gap;
+    address public migratingFrom; // slot 3
+    address public migratingTo; // slot 4
+
+    uint256[46] private __gap;
+
+    event Migration(address from, address to);
+
+    event MigratedTo(address indexed token, address indexed account, uint256 amount);
+    event MigratedFrom(address indexed token, address indexed account, uint256 amount);
 
     error BRIDGED_TOKEN_CANNOT_RECEIVE();
     error BRIDGED_TOKEN_INVALID_PARAMS();
+    error BRIDGED_TOKEN_PERMISSION_DENIED();
 
     /// @notice Initializes the contract.
     /// @dev Different BridgedERC20 Contract is deployed per unique _srcToken
@@ -85,22 +99,73 @@ contract BridgedERC20 is
         srcDecimals = _decimals;
     }
 
+    function startInboundMigration(address from)
+        external
+        nonReentrant
+        whenNotPaused
+        onlyFromNamed("erc20_vault")
+    {
+        if (migratingFrom != address(0)) revert BRIDGED_TOKEN_PERMISSION_DENIED();
+        if (from == address(0)) revert BRIDGED_TOKEN_INVALID_PARAMS();
+
+        migratingFrom = from;
+        emit Migration(migratingFrom, migratingTo);
+    }
+
+    function stopInboundMigration() external nonReentrant whenNotPaused onlyOwner {
+        if (migratingFrom == address(0)) revert BRIDGED_TOKEN_PERMISSION_DENIED();
+        migratingFrom = address(0);
+        emit Migration(migratingFrom, migratingTo);
+    }
+
+    function startOutboundMigration(address to)
+        external
+        nonReentrant
+        whenNotPaused
+        onlyFromNamed("erc20_vault")
+    {
+        migratingTo = to;
+        if (migratingTo != address(0)) revert BRIDGED_TOKEN_PERMISSION_DENIED();
+        if (to == address(0)) revert BRIDGED_TOKEN_INVALID_PARAMS();
+        emit Migration(migratingFrom, migratingTo);
+    }
+
+    function stopOutboundMigration() external nonReentrant whenNotPaused onlyOwner {
+        if (migratingTo == address(0)) revert BRIDGED_TOKEN_PERMISSION_DENIED();
+        migratingTo = address(0);
+        emit Migration(migratingFrom, migratingTo);
+    }
+
     /// @notice Mints tokens to an account.
     /// @dev Only an ERC20Vault can call this function.
     /// @param account The account to mint tokens to.
     /// @param amount The amount of tokens to mint.
-    function mint(address account, uint256 amount) public onlyFromNamed("erc20_vault") {
+    function mint(address account, uint256 amount) public nonReentrant whenNotPaused {
+        if (migratingFrom == address(0)) {
+            if (msg.sender != resolve("erc20_vault", true)) revert RESOLVER_DENIED();
+            emit Transfer(address(0), account, amount);
+        } else {
+            if (msg.sender != migratingFrom) revert BRIDGED_TOKEN_PERMISSION_DENIED();
+            emit MigratedTo(migratingFrom, account, amount);
+        }
+
         _mint(account, amount);
-        emit Transfer(address(0), account, amount);
     }
 
     /// @notice Burns tokens from an account.
     /// @dev Only an ERC20Vault can call this function.
     /// @param account The account to burn tokens from.
     /// @param amount The amount of tokens to burn.
-    function burn(address account, uint256 amount) public onlyFromNamed("erc20_vault") {
+    function burn(address account, uint256 amount) public nonReentrant whenNotPaused {
+        if (migratingTo == address(0)) {
+            if (msg.sender != resolve("erc20_vault", true)) revert RESOLVER_DENIED();
+            emit Transfer(account, address(0), amount);
+        } else {
+            IBridgedERC20(migratingTo).mint(account, amount);
+            emit MigratedTo(migratingTo, account, amount);
+        }
+
         _burn(account, amount);
-        emit Transfer(account, address(0), amount);
     }
 
     /// @notice Transfers tokens from the caller to another account.
