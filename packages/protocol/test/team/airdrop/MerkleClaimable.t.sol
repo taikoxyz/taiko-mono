@@ -3,10 +3,6 @@ pragma solidity ^0.8.20;
 
 import "../../TaikoTest.sol";
 
-import { ERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-import { ERC20Upgradeable } from
-    "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-
 contract MyERC20 is ERC20 {
     constructor(address owner) ERC20("Taiko Token", "TKO") {
         _mint(owner, 1_000_000_000e18);
@@ -22,10 +18,10 @@ contract TestERC20Airdrop is TaikoTest {
 
     ERC20Airdrop airdrop;
     ERC20Airdrop2 airdrop2;
-    ERC20 tko;
+    ERC20 token;
 
     function setUp() public {
-        tko = new MyERC20(address(ERC20VaultDAO));
+        token = new MyERC20(address(ERC20VaultDAO));
         // 1st 'genesis' airdrop
         airdrop = ERC20Airdrop(
             LibDeployHelper.deployProxy({
@@ -33,7 +29,7 @@ contract TestERC20Airdrop is TaikoTest {
                 impl: address(new ERC20Airdrop()),
                 data: bytes.concat(
                     ERC20Airdrop.init.selector,
-                    abi.encode(0, 0, merkleRoot, address(tko), ERC20VaultDAO)
+                    abi.encode(0, 0, merkleRoot, address(token), ERC20VaultDAO)
                     )
             })
         );
@@ -46,7 +42,7 @@ contract TestERC20Airdrop is TaikoTest {
                 impl: address(new ERC20Airdrop2()),
                 data: bytes.concat(
                     ERC20Airdrop2.init.selector,
-                    abi.encode(0, 0, merkleRoot, address(tko), ERC20VaultDAO, 10 days)
+                    abi.encode(0, 0, merkleRoot, address(token), ERC20VaultDAO, 10 days)
                     )
             })
         );
@@ -62,10 +58,10 @@ contract TestERC20Airdrop is TaikoTest {
         vm.warp(block.timestamp + 12);
 
         vm.prank(ERC20VaultDAO, ERC20VaultDAO);
-        MyERC20(address(tko)).approve(address(airdrop), 1_000_000_000e18);
+        MyERC20(address(token)).approve(address(airdrop), 1_000_000_000e18);
 
         vm.prank(ERC20VaultDAO, ERC20VaultDAO);
-        MyERC20(address(tko)).approve(address(airdrop2), 1_000_000_000e18);
+        MyERC20(address(token)).approve(address(airdrop2), 1_000_000_000e18);
     }
 
     function test_claim_but_claim_not_ongoing_yet() public {
@@ -118,7 +114,7 @@ contract TestERC20Airdrop is TaikoTest {
         airdrop.claim(abi.encode(Alice, 100), merkleProof);
 
         // Check Alice balance
-        assertEq(tko.balanceOf(Alice), 100);
+        assertEq(token.balanceOf(Alice), 100);
     }
 
     function test_claim_with_same_proofs_twice() public {
@@ -133,7 +129,7 @@ contract TestERC20Airdrop is TaikoTest {
         airdrop.claim(abi.encode(Alice, 100), merkleProof);
 
         // Check Alice balance
-        assertEq(tko.balanceOf(Alice), 100);
+        assertEq(token.balanceOf(Alice), 100);
 
         vm.expectRevert(MerkleClaimable.CLAIMED_ALREADY.selector);
         vm.prank(Alice, Alice);
@@ -171,7 +167,7 @@ contract TestERC20Airdrop is TaikoTest {
 
             airdrop2.withdraw(Alice);
             // Check Alice balance
-            assertEq(tko.balanceOf(Alice), (i * 10));
+            assertEq(token.balanceOf(Alice), (i * 10));
         }
 
         // On the 10th day (midnight), Alice has no claims left
@@ -186,7 +182,7 @@ contract TestERC20Airdrop is TaikoTest {
         // No effect
         airdrop2.withdraw(Alice);
         // Check Alice balance
-        assertEq(tko.balanceOf(Alice), 100);
+        assertEq(token.balanceOf(Alice), 100);
     }
 
     function test_withdraw_for_airdrop2_withdraw_at_the_end() public {
@@ -216,7 +212,7 @@ contract TestERC20Airdrop is TaikoTest {
         airdrop2.withdraw(Alice);
 
         // Check Alice balance
-        assertEq(tko.balanceOf(Alice), 100);
+        assertEq(token.balanceOf(Alice), 100);
     }
 
     function test_withdraw_for_airdrop2_but_out_of_withdrawal_window() public {
@@ -248,6 +244,6 @@ contract TestERC20Airdrop is TaikoTest {
         airdrop2.withdraw(Alice);
 
         // Check Alice balance
-        assertEq(tko.balanceOf(Alice), 0);
+        assertEq(token.balanceOf(Alice), 0);
     }
 }
