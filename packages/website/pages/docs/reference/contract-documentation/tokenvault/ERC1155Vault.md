@@ -31,10 +31,12 @@ This vault holds all ERC1155 tokens that users have deposited.
 It also manages the mapping between canonical tokens and their bridged
 tokens.
 
+_Labeled in AddressResolver as "erc1155_vault"_
+
 ### sendToken
 
 ```solidity
-function sendToken(struct BaseNFTVault.BridgeTransferOp opt) external payable
+function sendToken(struct BaseNFTVault.BridgeTransferOp op) external payable returns (struct IBridge.Message _message)
 ```
 
 Transfers ERC1155 tokens to this vault and sends a message to
@@ -45,7 +47,7 @@ by invoking the message call.
 
 | Name | Type                                 | Description                           |
 | ---- | ------------------------------------ | ------------------------------------- |
-| opt  | struct BaseNFTVault.BridgeTransferOp | Option for sending the ERC1155 token. |
+| op   | struct BaseNFTVault.BridgeTransferOp | Option for sending the ERC1155 token. |
 
 ### receiveToken
 
@@ -70,18 +72,8 @@ this function.
 ### onMessageRecalled
 
 ```solidity
-function onMessageRecalled(struct IBridge.Message message) external payable
+function onMessageRecalled(struct IBridge.Message message, bytes32 msgHash) external payable
 ```
-
-Releases deposited ERC1155 token(s) back to the user on the
-source chain with a proof that the message processing on the destination
-Bridge has failed.
-
-#### Parameters
-
-| Name    | Type                   | Description                                                              |
-| ------- | ---------------------- | ------------------------------------------------------------------------ |
-| message | struct IBridge.Message | The message that corresponds to the ERC1155 deposit on the source chain. |
 
 ### onERC1155BatchReceived
 
@@ -103,6 +95,12 @@ function supportsInterface(bytes4 interfaceId) public view virtual returns (bool
 
 _See {IERC165-supportsInterface}._
 
+### name
+
+```solidity
+function name() public pure returns (bytes32)
+```
+
 ---
 
 ## title: ProxiedSingletonERC1155Vault
@@ -110,3 +108,8 @@ _See {IERC165-supportsInterface}._
 ## ProxiedSingletonERC1155Vault
 
 Proxied version of the parent contract.
+
+_Deploy this contract as a singleton per chain for use by multiple L2s
+or L3s. No singleton check is performed within the code; it's the deployer's
+responsibility to ensure this. Singleton deployment is essential for
+enabling multi-hop bridging across all Taiko L2/L3s._

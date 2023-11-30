@@ -8,11 +8,13 @@ This vault holds all ERC20 tokens (excluding Ether) that users have
 deposited. It also manages the mapping between canonical ERC20 tokens and
 their bridged tokens.
 
+_Labeled in AddressResolver as "erc20_vault"_
+
 ### CanonicalERC20
 
 ```solidity
 struct CanonicalERC20 {
-  uint256 chainId;
+  uint64 chainId;
   address addr;
   uint8 decimals;
   string symbol;
@@ -24,7 +26,7 @@ struct CanonicalERC20 {
 
 ```solidity
 struct BridgeTransferOp {
-  uint256 destChainId;
+  uint64 destChainId;
   address to;
   address token;
   uint256 amount;
@@ -33,12 +35,6 @@ struct BridgeTransferOp {
   address refundTo;
   string memo;
 }
-```
-
-### isBridgedToken
-
-```solidity
-mapping(address => bool) isBridgedToken
 ```
 
 ### bridgedToCanonical
@@ -62,7 +58,7 @@ event BridgedTokenDeployed(uint256 srcChainId, address ctoken, address btoken, s
 ### TokenSent
 
 ```solidity
-event TokenSent(bytes32 msgHash, address from, address to, uint256 destChainId, address token, uint256 amount)
+event TokenSent(bytes32 msgHash, address from, address to, uint64 destChainId, address token, uint256 amount)
 ```
 
 ### TokenReleased
@@ -74,13 +70,7 @@ event TokenReleased(bytes32 msgHash, address from, address token, uint256 amount
 ### TokenReceived
 
 ```solidity
-event TokenReceived(bytes32 msgHash, address from, address to, uint256 srcChainId, address token, uint256 amount)
-```
-
-### VAULT_INVALID_TO
-
-```solidity
-error VAULT_INVALID_TO()
+event TokenReceived(bytes32 msgHash, address from, address to, uint64 srcChainId, address token, uint256 amount)
 ```
 
 ### VAULT_INVALID_TOKEN
@@ -125,30 +115,10 @@ error VAULT_MESSAGE_NOT_FAILED()
 error VAULT_MESSAGE_RELEASED_ALREADY()
 ```
 
-### onlyValidAddresses
-
-```solidity
-modifier onlyValidAddresses(uint256 chainId, bytes32 name, address to, address token)
-```
-
-### init
-
-```solidity
-function init(address addressManager) external
-```
-
-Initializes the contract with the address manager.
-
-#### Parameters
-
-| Name           | Type    | Description                       |
-| -------------- | ------- | --------------------------------- |
-| addressManager | address | Address manager contract address. |
-
 ### sendToken
 
 ```solidity
-function sendToken(struct ERC20Vault.BridgeTransferOp opt) external payable
+function sendToken(struct ERC20Vault.BridgeTransferOp op) external payable returns (struct IBridge.Message _message)
 ```
 
 Transfers ERC20 tokens to this vault and sends a message to the
@@ -159,7 +129,7 @@ invoking the message call.
 
 | Name | Type                               | Description                      |
 | ---- | ---------------------------------- | -------------------------------- |
-| opt  | struct ERC20Vault.BridgeTransferOp | Option for sending ERC20 tokens. |
+| op   | struct ERC20Vault.BridgeTransferOp | Option for sending ERC20 tokens. |
 
 ### receiveToken
 
@@ -181,41 +151,24 @@ Receive bridged ERC20 tokens and Ether.
 ### onMessageRecalled
 
 ```solidity
-function onMessageRecalled(struct IBridge.Message message) external payable
+function onMessageRecalled(struct IBridge.Message message, bytes32 msgHash) external payable
 ```
 
-Releases deposited ERC20 tokens back to the user on the source
-ERC20Vault with a proof that the message processing on the destination
-Bridge has failed.
-
-#### Parameters
-
-| Name    | Type                   | Description                                                            |
-| ------- | ---------------------- | ---------------------------------------------------------------------- |
-| message | struct IBridge.Message | The message that corresponds to the ERC20 deposit on the source chain. |
-
-### supportsInterface
+### name
 
 ```solidity
-function supportsInterface(bytes4 interfaceId) public view virtual returns (bool)
+function name() public pure returns (bytes32)
 ```
-
-Checks if the contract supports the given interface.
-
-#### Parameters
-
-| Name        | Type   | Description               |
-| ----------- | ------ | ------------------------- |
-| interfaceId | bytes4 | The interface identifier. |
-
-#### Return Values
-
-| Name | Type | Description                                                   |
-| ---- | ---- | ------------------------------------------------------------- |
-| [0]  | bool | true if the contract supports the interface, false otherwise. |
 
 ---
 
-## ProxiedERC20Vault
+## title: ProxiedSingletonERC20Vault
+
+## ProxiedSingletonERC20Vault
 
 Proxied version of the parent contract.
+
+_Deploy this contract as a singleton per chain for use by multiple L2s
+or L3s. No singleton check is performed within the code; it's the deployer's
+responsibility to ensure this. Singleton deployment is essential for
+enabling multi-hop bridging across all Taiko L2/L3s._

@@ -53,10 +53,10 @@ Verifies if a particular signal has already been sent.
 | ---- | ---- | -------------------------------------------------- |
 | [0]  | bool | True if the signal has been sent, otherwise false. |
 
-### isSignalReceived
+### proveSignalReceived
 
 ```solidity
-function isSignalReceived(uint256 srcChainId, address app, bytes32 signal, bytes proof) external view returns (bool)
+function proveSignalReceived(uint64 srcChainId, address app, bytes32 signal, bytes proof) external view returns (bool)
 ```
 
 Verifies if a signal has been received on the target chain.
@@ -65,7 +65,7 @@ Verifies if a signal has been received on the target chain.
 
 | Name       | Type    | Description                                                           |
 | ---------- | ------- | --------------------------------------------------------------------- |
-| srcChainId | uint256 | The identifier for the source chain from which the signal originated. |
+| srcChainId | uint64  | The identifier for the source chain from which the signal originated. |
 | app        | address | The address that initiated the signal.                                |
 | signal     | bytes32 | The signal (message) to send.                                         |
 | proof      | bytes   | Merkle proof that the signal was persisted on the source chain.       |

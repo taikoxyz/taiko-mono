@@ -9,16 +9,14 @@ It delegates the resolution to the AddressManager. By separating the logic,
 we can maintain flexibility in address management without affecting the
 resolving process.
 
-### \_addressManager
+Note that the address manager should be changed using upgradability, there
+is no setAddressManager() function go guarantee atomicness across all
+contracts that are resolvers.
+
+### addressManager
 
 ```solidity
-contract IAddressManager _addressManager
-```
-
-### AddressManagerChanged
-
-```solidity
-event AddressManagerChanged(address addressManager)
+address addressManager
 ```
 
 ### RESOLVER_DENIED
@@ -27,16 +25,22 @@ event AddressManagerChanged(address addressManager)
 error RESOLVER_DENIED()
 ```
 
-### RESOLVER_INVALID_ADDR
+### RESOLVER_INVALID_MANAGER
 
 ```solidity
-error RESOLVER_INVALID_ADDR()
+error RESOLVER_INVALID_MANAGER()
+```
+
+### RESOLVER_UNEXPECTED_CHAINID
+
+```solidity
+error RESOLVER_UNEXPECTED_CHAINID()
 ```
 
 ### RESOLVER_ZERO_ADDR
 
 ```solidity
-error RESOLVER_ZERO_ADDR(uint256 chainId, bytes32 name)
+error RESOLVER_ZERO_ADDR(uint64 chainId, string name)
 ```
 
 ### onlyFromNamed
@@ -51,26 +55,13 @@ modifier onlyFromNamed(bytes32 name)
 | ---- | ------- | -------------------------- |
 | name | bytes32 | The name to check against. |
 
-### onlyFromNamed2
-
-```solidity
-modifier onlyFromNamed2(bytes32 name1, bytes32 name2)
-```
-
-#### Parameters
-
-| Name  | Type    | Description                       |
-| ----- | ------- | --------------------------------- |
-| name1 | bytes32 | The first name to check against.  |
-| name2 | bytes32 | The second name to check against. |
-
 ### resolve
 
 ```solidity
 function resolve(bytes32 name, bool allowZeroAddress) public view virtual returns (address payable addr)
 ```
 
-Resolves a name to its address on the current chain.
+Resolves a name to its address deployed on this chain.
 
 #### Parameters
 
@@ -88,16 +79,16 @@ Resolves a name to its address on the current chain.
 ### resolve
 
 ```solidity
-function resolve(uint256 chainId, bytes32 name, bool allowZeroAddress) public view virtual returns (address payable addr)
+function resolve(uint64 chainId, bytes32 name, bool allowZeroAddress) public view virtual returns (address payable addr)
 ```
 
-Resolves a name to its address on a specified chain.
+Resolves a name to its address deployed on a specified chain.
 
 #### Parameters
 
 | Name             | Type    | Description                                                             |
 | ---------------- | ------- | ----------------------------------------------------------------------- |
-| chainId          | uint256 | The chainId of interest.                                                |
+| chainId          | uint64  | The chainId of interest.                                                |
 | name             | bytes32 | Name whose address is to be resolved.                                   |
 | allowZeroAddress | bool    | If set to true, does not throw if the resolved address is `address(0)`. |
 
@@ -107,28 +98,14 @@ Resolves a name to its address on a specified chain.
 | ---- | --------------- | -------------------------------------------------------------- |
 | addr | address payable | Address associated with the given name on the specified chain. |
 
-### addressManager
-
-```solidity
-function addressManager() public view returns (address)
-```
-
-Fetches the AddressManager's address.
-
-#### Return Values
-
-| Name | Type    | Description                                |
-| ---- | ------- | ------------------------------------------ |
-| [0]  | address | The current address of the AddressManager. |
-
 ### \_init
 
 ```solidity
-function _init(address addressManager_) internal virtual
+function _init(address _addressManager) internal virtual
 ```
 
 #### Parameters
 
 | Name             | Type    | Description                    |
 | ---------------- | ------- | ------------------------------ |
-| addressManager\_ | address | Address of the AddressManager. |
+| \_addressManager | address | Address of the AddressManager. |

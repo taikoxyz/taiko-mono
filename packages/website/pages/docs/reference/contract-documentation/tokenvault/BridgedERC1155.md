@@ -126,6 +126,8 @@ Gets the concatenated name of the bridged token.
 
 ---
 
+## title: ProxiedBridgedERC1155
+
 ## ProxiedBridgedERC1155
 
 Proxied version of the parent contract.

@@ -4,6 +4,16 @@ title: TaikoL1
 
 ## TaikoL1
 
+This contract serves as the "base layer contract" of the Taiko
+protocol, providing functionalities for proposing, proving, and verifying
+blocks. The term "base layer contract" means that although this is usually
+deployed on L1, it can also be deployed on L2s to create L3s ("inception
+layers"). The contract also handles the deposit and withdrawal of Taiko
+tokens and Ether.
+This contract doesn't hold any Ether. Ether deposited to L2 are held by the Bridge contract.
+
+_Labeled in AddressResolver as "taiko"_
+
 ### state
 
 ```solidity
@@ -16,7 +26,7 @@ struct TaikoData.State state
 receive() external payable
 ```
 
-_Fallback function to receive Ether and deposit to Layer 2._
+_Fallback function to receive Ether from Hooks_
 
 ### init
 
@@ -36,24 +46,24 @@ Initializes the rollup.
 ### proposeBlock
 
 ```solidity
-function proposeBlock(bytes input, bytes assignment, bytes txList) external payable returns (struct TaikoData.BlockMetadata meta)
+function proposeBlock(bytes params, bytes txList) external payable returns (struct TaikoData.BlockMetadata meta, struct TaikoData.EthDeposit[] depositsProcessed)
 ```
 
 Proposes a Taiko L2 block.
 
 #### Parameters
 
-| Name       | Type  | Description                                                                                                                                                                                                                                                                   |
-| ---------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| input      | bytes | An abi-encoded BlockMetadataInput that the actual L2 block header must satisfy.                                                                                                                                                                                               |
-| assignment | bytes | Data to assign a prover.                                                                                                                                                                                                                                                      |
-| txList     | bytes | A list of transactions in this block, encoded with RLP. Note, in the corresponding L2 block an "anchor transaction" will be the first transaction in the block. If there are `n` transactions in the `txList`, then there will be up to `n + 1` transactions in the L2 block. |
+| Name   | Type  | Description                                                |
+| ------ | ----- | ---------------------------------------------------------- |
+| params | bytes | Block parameters, currently an encoded BlockParams object. |
+| txList | bytes | txList data if calldata is used for DA.                    |
 
 #### Return Values
 
-| Name | Type                           | Description                            |
-| ---- | ------------------------------ | -------------------------------------- |
-| meta | struct TaikoData.BlockMetadata | The metadata of the proposed L2 block. |
+| Name              | Type                           | Description                            |
+| ----------------- | ------------------------------ | -------------------------------------- |
+| meta              | struct TaikoData.BlockMetadata | The metadata of the proposed L2 block. |
+| depositsProcessed | struct TaikoData.EthDeposit[]  | The Ether deposits processed.          |
 
 ### proveBlock
 
@@ -61,61 +71,47 @@ Proposes a Taiko L2 block.
 function proveBlock(uint64 blockId, bytes input) external
 ```
 
-Proves a block with a zero-knowledge proof.
+Proves or contests a block transition.
 
 #### Parameters
 
 | Name    | Type   | Description                                                                                    |
 | ------- | ------ | ---------------------------------------------------------------------------------------------- |
 | blockId | uint64 | The index of the block to prove. This is also used to select the right implementation version. |
-| input   | bytes  | An abi-encoded {TaikoData.BlockEvidence} object.                                               |
+| input   | bytes  | An abi-encoded (BlockMetadata, Transition, TierProof) tuple.                                   |
 
 ### verifyBlocks
 
 ```solidity
-function verifyBlocks(uint64 maxBlocks) external
+function verifyBlocks(uint64 maxBlocksToVerify) external
 ```
 
 Verifies up to N blocks.
 
 #### Parameters
 
-| Name      | Type   | Description                     |
-| --------- | ------ | ------------------------------- |
-| maxBlocks | uint64 | Max number of blocks to verify. |
+| Name              | Type   | Description                     |
+| ----------------- | ------ | ------------------------------- |
+| maxBlocksToVerify | uint64 | Max number of blocks to verify. |
 
-### depositTaikoToken
+### pauseProving
 
 ```solidity
-function depositTaikoToken(uint256 amount) external
+function pauseProving(bool pause) external
 ```
 
-Deposits Taiko tokens to the contract.
+Pause block proving.
 
 #### Parameters
 
-| Name   | Type    | Description                        |
-| ------ | ------- | ---------------------------------- |
-| amount | uint256 | Amount of Taiko tokens to deposit. |
-
-### withdrawTaikoToken
-
-```solidity
-function withdrawTaikoToken(uint256 amount) external
-```
-
-Withdraws Taiko tokens from the contract.
-
-#### Parameters
-
-| Name   | Type    | Description                         |
-| ------ | ------- | ----------------------------------- |
-| amount | uint256 | Amount of Taiko tokens to withdraw. |
+| Name  | Type | Description     |
+| ----- | ---- | --------------- |
+| pause | bool | True if paused. |
 
 ### depositEtherToL2
 
 ```solidity
-function depositEtherToL2(address recipient) public payable
+function depositEtherToL2(address recipient) external payable
 ```
 
 Deposits Ether to Layer 2.
@@ -125,26 +121,6 @@ Deposits Ether to Layer 2.
 | Name      | Type    | Description                                                  |
 | --------- | ------- | ------------------------------------------------------------ |
 | recipient | address | Address of the recipient for the deposited Ether on Layer 2. |
-
-### getTaikoTokenBalance
-
-```solidity
-function getTaikoTokenBalance(address addr) public view returns (uint256)
-```
-
-Gets the Taiko token balance for a specific address.
-
-#### Parameters
-
-| Name | Type    | Description                               |
-| ---- | ------- | ----------------------------------------- |
-| addr | address | Address to check the Taiko token balance. |
-
-#### Return Values
-
-| Name | Type    | Description                             |
-| ---- | ------- | --------------------------------------- |
-| [0]  | uint256 | The Taiko token balance of the address. |
 
 ### canDepositEthToL2
 
@@ -165,6 +141,12 @@ Checks if Ether deposit is allowed for Layer 2.
 | Name | Type | Description                                        |
 | ---- | ---- | -------------------------------------------------- |
 | [0]  | bool | true if Ether deposit is allowed, false otherwise. |
+
+### isBlobReusable
+
+```solidity
+function isBlobReusable(bytes32 blobHash) public view returns (bool)
+```
 
 ### getBlock
 
@@ -189,7 +171,7 @@ Gets the details of a block.
 ### getTransition
 
 ```solidity
-function getTransition(uint64 blockId, bytes32 parentHash) public view returns (struct TaikoData.Transition)
+function getTransition(uint64 blockId, bytes32 parentHash) public view returns (struct TaikoData.TransitionState)
 ```
 
 Gets the state transition for a specific block.
@@ -203,14 +185,14 @@ Gets the state transition for a specific block.
 
 #### Return Values
 
-| Name | Type                        | Description                             |
-| ---- | --------------------------- | --------------------------------------- |
-| [0]  | struct TaikoData.Transition | The state transition data of the block. |
+| Name | Type                             | Description                             |
+| ---- | -------------------------------- | --------------------------------------- |
+| [0]  | struct TaikoData.TransitionState | The state transition data of the block. |
 
-### getCrossChainBlockHash
+### getSyncedSnippet
 
 ```solidity
-function getCrossChainBlockHash(uint64 blockId) public view returns (bytes32)
+function getSyncedSnippet(uint64 blockId) public view returns (struct ICrossChainSync.Snippet)
 ```
 
 Fetches the hash of a block from the opposite chain.
@@ -223,69 +205,78 @@ Fetches the hash of a block from the opposite chain.
 
 #### Return Values
 
-| Name | Type    | Description                                         |
-| ---- | ------- | --------------------------------------------------- |
-| [0]  | bytes32 | The hash of the desired block from the other chain. |
-
-### getCrossChainSignalRoot
-
-```solidity
-function getCrossChainSignalRoot(uint64 blockId) public view returns (bytes32)
-```
-
-Retrieves the root hash of the signal service storage for a
-given block from the opposite chain.
-
-#### Parameters
-
-| Name    | Type   | Description                                                               |
-| ------- | ------ | ------------------------------------------------------------------------- |
-| blockId | uint64 | The target block id. Specifying 0 retrieves the root of the latest block. |
-
-#### Return Values
-
-| Name | Type    | Description                                             |
-| ---- | ------- | ------------------------------------------------------- |
-| [0]  | bytes32 | The root hash for the specified block's signal service. |
+| Name | Type                           | Description |
+| ---- | ------------------------------ | ----------- |
+| [0]  | struct ICrossChainSync.Snippet |             |
 
 ### getStateVariables
 
 ```solidity
-function getStateVariables() public view returns (struct TaikoData.StateVariables)
+function getStateVariables() public view returns (struct TaikoData.SlotA a, struct TaikoData.SlotB b)
 ```
 
 Gets the state variables of the TaikoL1 contract.
 
-#### Return Values
-
-| Name | Type                            | Description                                       |
-| ---- | ------------------------------- | ------------------------------------------------- |
-| [0]  | struct TaikoData.StateVariables | StateVariables struct containing state variables. |
-
-### getVerifierName
+### getTaikoTokenBalance
 
 ```solidity
-function getVerifierName(uint16 id) public pure returns (bytes32)
+function getTaikoTokenBalance(address user) public view returns (uint256)
 ```
 
-Gets the name of the proof verifier by ID.
+Gets the in-protocol Taiko token balance for a user
 
 #### Parameters
 
-| Name | Type   | Description         |
-| ---- | ------ | ------------------- |
-| id   | uint16 | ID of the verifier. |
+| Name | Type    | Description |
+| ---- | ------- | ----------- |
+| user | address | The user.   |
 
 #### Return Values
 
-| Name | Type    | Description    |
-| ---- | ------- | -------------- |
-| [0]  | bytes32 | Verifier name. |
+| Name | Type    | Description                     |
+| ---- | ------- | ------------------------------- |
+| [0]  | uint256 | The user's Taiko token balance. |
+
+### getTier
+
+```solidity
+function getTier(uint16 tierId) public view virtual returns (struct ITierProvider.Tier)
+```
+
+Retrieves the configuration for a specified tier.
+
+#### Parameters
+
+| Name   | Type   | Description     |
+| ------ | ------ | --------------- |
+| tierId | uint16 | ID of the tier. |
+
+#### Return Values
+
+| Name | Type                      | Description                                                                                           |
+| ---- | ------------------------- | ----------------------------------------------------------------------------------------------------- |
+| [0]  | struct ITierProvider.Tier | Tier struct containing the tier's parameters. This function will revert if the tier is not supported. |
+
+### getTierIds
+
+```solidity
+function getTierIds() public view virtual returns (uint16[] ids)
+```
+
+Retrieves the IDs of all supported tiers.
+
+### getMinTier
+
+```solidity
+function getMinTier(uint256 rand) public view virtual returns (uint16)
+```
+
+Determines the minimal tier for a block based on a random input.
 
 ### getConfig
 
 ```solidity
-function getConfig() public pure virtual returns (struct TaikoData.Config)
+function getConfig() public view virtual returns (struct TaikoData.Config)
 ```
 
 Gets the configuration of the TaikoL1 contract.
@@ -295,3 +286,17 @@ Gets the configuration of the TaikoL1 contract.
 | Name | Type                    | Description                                        |
 | ---- | ----------------------- | -------------------------------------------------- |
 | [0]  | struct TaikoData.Config | Config struct containing configuration parameters. |
+
+### isConfigValid
+
+```solidity
+function isConfigValid() public view returns (bool)
+```
+
+---
+
+## title: ProxiedTaikoL1
+
+## ProxiedTaikoL1
+
+Proxied version of the parent contract.

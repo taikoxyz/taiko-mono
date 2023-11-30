@@ -132,24 +132,14 @@ Gets the source token and source chain ID being bridged.
 ### tokenURI
 
 ```solidity
-function tokenURI(uint256 tokenId) public pure virtual returns (string)
+function tokenURI(uint256) public pure virtual returns (string)
 ```
 
 Returns an empty token URI.
 
-#### Parameters
-
-| Name    | Type    | Description      |
-| ------- | ------- | ---------------- |
-| tokenId | uint256 | ID of the token. |
-
-#### Return Values
-
-| Name | Type   | Description      |
-| ---- | ------ | ---------------- |
-| [0]  | string | An empty string. |
-
 ---
+
+## title: ProxiedBridgedERC721
 
 ## ProxiedBridgedERC721
 
