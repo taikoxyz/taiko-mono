@@ -20,13 +20,17 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
     event MigratedTo(address indexed token, address indexed account, uint256 amount);
     event MigratedFrom(address indexed token, address indexed account, uint256 amount);
 
+    error BB_PERMISSION_DENIED();
+    error BB_INVALID_PARAMS();
+    error BB_MINT_DISALLOWED();
+
     function changeMigrationStatus(address addr, bool inbound) external whenNotPaused {
         if (msg.sender != resolve("erc20_vault", true) && msg.sender != owner()) {
-            revert("PERMISSION_DENIED();");
+            revert BB_PERMISSION_DENIED();
         }
 
         if (addr == migratingAddress && inbound == migratingInbound) {
-            revert("BTOKEN_INVALID_PARAMS()");
+            revert BB_INVALID_PARAMS();
         }
 
         migratingAddress = addr;
@@ -34,31 +38,31 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
         emit MigrationStatusChanged(addr, inbound);
     }
 
-    /// @notice Mints tokens to an account.
-    /// @param account The account to mint tokens to.
-    /// @param amount The amount of tokens to mint.
     function mint(address account, uint256 amount) public nonReentrant whenNotPaused {
-        // if (migratingTo != address(0)) revert BTOKEN_PERMISSION_DENIED();
+        // mint is disabled while migrating outbound.
+        if (migratingAddress != address(0) && !migratingInbound) revert BB_MINT_DISALLOWED();
 
-        // if (msg.sender != resolve("erc20_vault", true)) {
-        //     if (msg.sender != migratingFrom) revert BTOKEN_PERMISSION_DENIED();
-        //     emit MigratedTo(migratingFrom, account, amount);
-        // }
+        if (msg.sender == migratingAddress) {
+            // Inbound migration
+            emit MigratedTo(migratingAddress, account, amount);
+        } else if (msg.sender != resolve("erc20_vault", true)) {
+            // Bridging from vault
+            revert BB_PERMISSION_DENIED();
+        }
 
         _mintToken(account, amount);
     }
 
-    /// @notice Burns tokens from an account.
-    /// @param account The account to burn tokens from.
-    /// @param amount The amount of tokens to burn.
     function burn(address account, uint256 amount) public nonReentrant whenNotPaused {
-        // if (migratingTo != address(0)) {
-        //     emit MigratedTo(migratingTo, account, amount);
-        //     // Ask the new bridged token to mint token for the user.
-        //     IBridgedERC20(migratingTo).mint(account, amount);
-        // } else {
-        //     if (msg.sender != resolve("erc20_vault", true)) revert RESOLVER_DENIED();
-        // }
+        if (migratingAddress != address(0) && !migratingInbound) {
+            // Outbond migration
+            emit MigratedTo(migratingAddress, account, amount);
+            // Ask the new bridged token to mint token for the user.
+            IBridgedERC20(migratingAddress).mint(account, amount);
+        } else if (msg.sender != resolve("erc20_vault", true)) {
+            // Bridging to vault
+            revert RESOLVER_DENIED();
+        }
 
         _burnToken(account, amount);
     }
