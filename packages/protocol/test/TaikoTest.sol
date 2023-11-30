@@ -7,17 +7,16 @@ import "forge-std/console2.sol";
 import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import "../contracts/thirdparty/LibFixedPointMath.sol";
+
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/signal/SignalService.sol";
-import "../contracts/common/ICrossChainSync.sol";
-import "../contracts/common/EssentialContract.sol";
 import "../contracts/tokenvault/BridgedERC20.sol";
 import "../contracts/tokenvault/BridgedERC721.sol";
 import "../contracts/tokenvault/BridgedERC1155.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC721Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
-import "../contracts/team/TimelockTokenPool.sol";
+
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/verifiers/SgxVerifier.sol";
@@ -30,12 +29,13 @@ import "../contracts/L1/tiers/ITierProvider.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 
-import "../contracts/team/airdrop/ERC20Airdrop.sol";
-import "../contracts/team/airdrop/ERC20Airdrop2.sol";
-
 import "../contracts/L2/Lib1559Math.sol";
 import "../contracts/L2/TaikoL2EIP1559Configurable.sol";
 import "../contracts/L2/TaikoL2.sol";
+
+import "../contracts/team/TimelockTokenPool.sol";
+import "../contracts/team/airdrop/ERC20Airdrop.sol";
+import "../contracts/team/airdrop/ERC20Airdrop2.sol";
 
 import "../contracts/test/erc20/FreeMintERC20.sol";
 
