@@ -190,7 +190,8 @@ contract DeployOnL1 is DeployCapability {
         _timelock.grantRole(_timelock.CANCELLER_ROLE(), securityCouncil);
 
         _timelock.grantRole(_timelock.TIMELOCK_ADMIN_ROLE(), securityCouncil);
-        _timelock.renounceRole(_timelock.TIMELOCK_ADMIN_ROLE(), address(this));
+        _timelock.revokeRole(_timelock.TIMELOCK_ADMIN_ROLE(), address(this));
+        _timelock.revokeRole(_timelock.TIMELOCK_ADMIN_ROLE(), msg.sender);
 
         _timelock.transferOwnership(securityCouncil);
 

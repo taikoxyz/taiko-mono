@@ -36,14 +36,12 @@ abstract contract DeployCapability is Script {
             AddressManager(registerTo).setAddress(uint64(block.chainid), name, proxy);
         }
 
-        if (name == "timelock_controller") {
-            console2.log(">", string(abi.encodePacked(name)), "@", registerTo);
-            console2.log("\t proxy : ", proxy);
-            console2.log("\t impl  : ", impl);
-            console2.log("\t owner : ", OwnableUpgradeable(proxy).owner());
-            console2.log("\t msg.sender : ", msg.sender);
-            console2.log("\t this: ", address(this));
-        }
+        console2.log(">", string(abi.encodePacked(name)), "@", registerTo);
+        console2.log("\t proxy : ", proxy);
+        console2.log("\t impl  : ", impl);
+        console2.log("\t owner : ", OwnableUpgradeable(proxy).owner());
+        console2.log("\t msg.sender : ", msg.sender);
+        console2.log("\t this: ", address(this));
 
         vm.writeJson(
             vm.serializeAddress("deployment", Strings.toString(uint256(name)), proxy),
