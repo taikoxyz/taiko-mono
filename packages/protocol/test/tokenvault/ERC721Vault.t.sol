@@ -760,7 +760,7 @@ contract ERC721VaultTest is TaikoTest {
         );
 
         vm.prank(Alice, Alice);
-        vm.expectRevert(BridgedERC721.BRIDGED_TOKEN_INVALID_BURN.selector);
+        vm.expectRevert(BridgedERC721.BTOKEN_INVALID_BURN.selector);
         destChainErc721Vault.sendToken{ value: 140_000 }(sendOpts);
     }
 

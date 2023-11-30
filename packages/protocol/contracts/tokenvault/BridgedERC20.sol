@@ -6,31 +6,25 @@
 
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
-import "../common/EssentialContract.sol";
-import "./IMintableERC20.sol";
+
 import "./LibBridgedToken.sol";
+import "./BridgedERC20Base.sol";
 
 /// @title BridgedERC20
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
 /// another chain.
-contract BridgedERC20 is
-    EssentialContract,
-    IMintableERC20,
-    IERC20MetadataUpgradeable,
-    ERC20Upgradeable
-{
-    address public srcToken;
-    uint256 public srcChainId;
+contract BridgedERC20 is BridgedERC20Base, IERC20MetadataUpgradeable, ERC20Upgradeable {
+    address public srcToken; // slot 1
     uint8 private srcDecimals;
+    uint256 public srcChainId; // slot 2
 
-    uint256[47] private __gap;
+    uint256[48] private __gap;
 
-    error BRIDGED_TOKEN_CANNOT_RECEIVE();
-    error BRIDGED_TOKEN_INVALID_PARAMS();
+    error BTOKEN_CANNOT_RECEIVE();
+    error BTOKEN_INVALID_PARAMS();
 
     /// @notice Initializes the contract.
     /// @dev Different BridgedERC20 Contract is deployed per unique _srcToken
@@ -57,7 +51,7 @@ contract BridgedERC20 is
             _srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid
                 || bytes(_symbol).length == 0 || bytes(_name).length == 0
         ) {
-            revert BRIDGED_TOKEN_INVALID_PARAMS();
+            revert BTOKEN_INVALID_PARAMS();
         }
 
         // Initialize OwnerUUPSUpgradable and ERC20Upgradeable
@@ -68,22 +62,6 @@ contract BridgedERC20 is
         srcToken = _srcToken;
         srcChainId = _srcChainId;
         srcDecimals = _decimals;
-    }
-
-    /// @notice Mints tokens to an account.
-    /// @dev Only an ERC20Vault can call this function.
-    /// @param account The account to mint tokens to.
-    /// @param amount The amount of tokens to mint.
-    function mint(address account, uint256 amount) public onlyFromNamed("erc20_vault") {
-        _mint(account, amount);
-    }
-
-    /// @notice Burns tokens from an account.
-    /// @dev Only an ERC20Vault can call this function.
-    /// @param account The account to burn tokens from.
-    /// @param amount The amount of tokens to burn.
-    function burn(address account, uint256 amount) public onlyFromNamed("erc20_vault") {
-        _burn(account, amount);
     }
 
     /// @notice Transfers tokens from the caller to another account.
@@ -97,11 +75,11 @@ contract BridgedERC20 is
     )
         public
         override(ERC20Upgradeable, IERC20Upgradeable)
+        nonReentrant
+        whenNotPaused
         returns (bool)
     {
-        if (to == address(this)) {
-            revert BRIDGED_TOKEN_CANNOT_RECEIVE();
-        }
+        if (to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
         return ERC20Upgradeable.transfer(to, amount);
     }
 
@@ -118,10 +96,12 @@ contract BridgedERC20 is
     )
         public
         override(ERC20Upgradeable, IERC20Upgradeable)
+        nonReentrant
+        whenNotPaused
         returns (bool)
     {
         if (to == address(this)) {
-            revert BRIDGED_TOKEN_CANNOT_RECEIVE();
+            revert BTOKEN_CANNOT_RECEIVE();
         }
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
@@ -163,5 +143,13 @@ contract BridgedERC20 is
     /// @return The canonical token's address and chain ID.
     function canonical() public view returns (address, uint256) {
         return (srcToken, srcChainId);
+    }
+
+    function _mintToken(address account, uint256 amount) internal override {
+        _mint(account, amount);
+    }
+
+    function _burnToken(address from, uint256 amount) internal override {
+        _burn(from, amount);
     }
 }

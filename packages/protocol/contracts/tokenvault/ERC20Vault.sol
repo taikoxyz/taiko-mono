@@ -10,7 +10,6 @@ import "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../bridge/IBridge.sol";
 import "./BridgedERC20.sol";
-import "./IMintableERC20.sol";
 import "./BaseVault.sol";
 
 /// @title ERC20Vault
@@ -49,7 +48,9 @@ contract ERC20Vault is BaseVault {
     // tokens across other chains aside from Ethereum.
     mapping(uint256 => mapping(address => address)) public canonicalToBridged;
 
-    uint256[48] private __gap;
+    mapping(address btoken => bool blacklisted) public btokenBlacklist;
+
+    uint256[46] private __gap;
 
     event BridgedTokenDeployed(
         uint256 indexed srcChainId,
@@ -59,6 +60,17 @@ contract ERC20Vault is BaseVault {
         string ctokenName,
         uint8 ctokenDecimal
     );
+
+    event BridgedTokenChanged(
+        uint256 indexed srcChainId,
+        address indexed ctoken,
+        address btokenOld,
+        address btokenNew,
+        string ctokenSymbol,
+        string ctokenName,
+        uint8 ctokenDecimal
+    );
+
     event TokenSent(
         bytes32 indexed msgHash,
         address indexed from,
@@ -79,13 +91,68 @@ contract ERC20Vault is BaseVault {
         uint256 amount
     );
 
+    error VAULT_BTOKEN_BLACKLISTED();
+    error VAULT_CTOKEN_MISMATCH();
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_AMOUNT();
-    error VAULT_INVALID_USER();
-    error VAULT_INVALID_FROM();
-    error VAULT_INVALID_SRC_CHAIN_ID();
-    error VAULT_MESSAGE_NOT_FAILED();
-    error VAULT_MESSAGE_RELEASED_ALREADY();
+    error VAULT_INVALID_NEW_BTOKEN();
+    error VAULT_NOT_SAME_OWNER();
+
+    function changeBridgedToken(
+        CanonicalERC20 calldata ctoken,
+        address btokenNew
+    )
+        external
+        nonReentrant
+        whenNotPaused
+        onlyOwner
+        returns (address btokenOld)
+    {
+        if (btokenNew == address(0) || bridgedToCanonical[btokenNew].addr != address(0)) {
+            revert VAULT_INVALID_NEW_BTOKEN();
+        }
+
+        if (btokenBlacklist[btokenNew]) revert VAULT_BTOKEN_BLACKLISTED();
+
+        if (IBridgedERC20(btokenNew).owner() != owner()) {
+            revert VAULT_NOT_SAME_OWNER();
+        }
+
+        btokenOld = canonicalToBridged[ctoken.chainId][ctoken.addr];
+
+        if (btokenOld != address(0)) {
+            CanonicalERC20 memory _ctoken = bridgedToCanonical[btokenOld];
+
+            // Check that the ctoken must match the saved one.
+            if (
+                _ctoken.decimals != ctoken.decimals
+                    || keccak256(bytes(_ctoken.symbol)) != keccak256(bytes(ctoken.symbol))
+                    || keccak256(bytes(_ctoken.name)) != keccak256(bytes(ctoken.name))
+            ) revert VAULT_CTOKEN_MISMATCH();
+
+            delete bridgedToCanonical[btokenOld];
+            btokenBlacklist[btokenOld] = true;
+
+            // Start the migration
+            IBridgedERC20(btokenOld).changeMigrationStatus(btokenNew, false);
+            IBridgedERC20(btokenNew).changeMigrationStatus(btokenOld, true);
+        } else {
+            IBridgedERC20(btokenNew).changeMigrationStatus(address(0), false);
+        }
+
+        bridgedToCanonical[btokenNew] = ctoken;
+        canonicalToBridged[ctoken.chainId][ctoken.addr] = btokenNew;
+
+        emit BridgedTokenChanged({
+            srcChainId: ctoken.chainId,
+            ctoken: ctoken.addr,
+            btokenOld: btokenOld,
+            btokenNew: btokenNew,
+            ctokenSymbol: ctoken.symbol,
+            ctokenName: ctoken.name,
+            ctokenDecimal: ctoken.decimals
+        });
+    }
 
     /// @notice Transfers ERC20 tokens to this vault and sends a message to the
     /// destination chain so the user can receive the same amount of tokens by
@@ -155,7 +222,7 @@ contract ERC20Vault is BaseVault {
             ERC20(token).safeTransfer(_to, amount);
         } else {
             token = _getOrDeployBridgedToken(ctoken);
-            IMintableERC20(token).mint(_to, amount);
+            IBridgedERC20(token).mint(_to, amount);
         }
 
         _to.sendEther(msg.value);
@@ -189,7 +256,7 @@ contract ERC20Vault is BaseVault {
 
         if (amount > 0) {
             if (bridgedToCanonical[token].addr != address(0)) {
-                IMintableERC20(token).mint(message.owner, amount);
+                IBridgedERC20(token).mint(message.owner, amount);
             } else {
                 ERC20(token).safeTransfer(message.owner, amount);
             }
@@ -228,9 +295,11 @@ contract ERC20Vault is BaseVault {
         // If it's a bridged token
         if (bridgedToCanonical[token].addr != address(0)) {
             ctoken = bridgedToCanonical[token];
-            IMintableERC20(token).burn(msg.sender, amount);
+            IBridgedERC20(token).burn(msg.sender, amount);
             _balanceChange = amount;
         } else {
+            if (btokenBlacklist[token]) revert VAULT_BTOKEN_BLACKLISTED();
+
             // If it's a canonical token
             ERC20 t = ERC20(token);
             ctoken = CanonicalERC20({

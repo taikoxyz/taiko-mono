@@ -12,6 +12,13 @@ import "./OwnerUUPSUpgradable.sol";
 abstract contract EssentialContract is OwnerUUPSUpgradable, AddressResolver {
     uint256[50] private __gap;
 
+    /// @dev Modifier that ensures the caller is the owner or resolved address of a given name.
+    /// @param name The name to check against.
+    modifier onlyFromOwnerOrNamed(bytes32 name) {
+        if (msg.sender != owner() && msg.sender != resolve(name, true)) revert RESOLVER_DENIED();
+        _;
+    }
+
     /// @notice Initializes the contract with an address manager.
     /// @param _addressManager The address of the address manager.
     // solhint-disable-next-line func-name-mixedcase

@@ -97,11 +97,8 @@ abstract contract BaseNFTVault is BaseVault {
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_AMOUNT();
     error VAULT_INVALID_USER();
-    error VAULT_INVALID_FROM();
     error VAULT_INVALID_SRC_CHAIN_ID();
     error VAULT_INTERFACE_NOT_SUPPORTED();
-    error VAULT_MESSAGE_NOT_FAILED();
-    error VAULT_MESSAGE_RELEASED_ALREADY();
     error VAULT_TOKEN_ARRAY_MISMATCH();
     error VAULT_MAX_TOKEN_PER_TXN_EXCEEDED();
 

@@ -49,9 +49,8 @@ contract PrankDestBridge {
         //     message.to.call{ value: message.value, gas: gasLimit
         // }(message.data);
         // The problem (with foundry) is that this way it is not able to deploy
-        // a contract
-        // most probably due to some deployment address nonce issue. (Seems a
-        // known issue).
+        // a contract most probably due to some deployment address nonce issue. (Seems a known
+        // issue).
         destERC20Vault.receiveToken{ value: mockLibInvokeMsgValue }(
             canonicalToken, from, to, amount
         );
@@ -78,6 +77,7 @@ contract TestERC20Vault is TaikoTest {
     FreeMintERC20 erc20;
     SignalService signalService;
     uint64 destChainId = 7;
+    uint64 srcChainId = uint64(block.chainid);
 
     function setUp() public {
         vm.startPrank(Carol);
@@ -273,7 +273,6 @@ contract TestERC20Vault is TaikoTest {
     {
         vm.startPrank(Alice);
 
-        uint64 srcChainId = uint64(block.chainid);
         vm.chainId(destChainId);
 
         erc20.mint(address(erc20Vault));
@@ -305,7 +304,6 @@ contract TestERC20Vault is TaikoTest {
     function test_20Vault_receiveTokens_erc20_with_ether_to_dave() public {
         vm.startPrank(Alice);
 
-        uint64 srcChainId = uint64(block.chainid);
         vm.chainId(destChainId);
 
         erc20.mint(address(erc20Vault));
@@ -342,7 +340,6 @@ contract TestERC20Vault is TaikoTest {
     {
         vm.startPrank(Alice);
 
-        uint64 srcChainId = uint64(block.chainid);
         vm.chainId(destChainId);
 
         uint256 amount = 1;
@@ -391,7 +388,6 @@ contract TestERC20Vault is TaikoTest {
     function test_20Vault_upgrade_bridged_tokens_20() public {
         vm.startPrank(Alice);
 
-        uint64 srcChainId = uint64(block.chainid);
         vm.chainId(destChainId);
 
         uint256 amount = 1;

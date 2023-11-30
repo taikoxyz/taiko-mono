@@ -32,8 +32,8 @@ contract BridgedERC1155 is
     // Event triggered upon token transfer.
     event Transfer(address indexed from, address indexed to, uint256 tokenId, uint256 amount);
 
-    error BRIDGED_TOKEN_CANNOT_RECEIVE();
-    error BRIDGED_TOKEN_INVALID_PARAMS();
+    error BTOKEN_CANNOT_RECEIVE();
+    error BTOKEN_INVALID_PARAMS();
 
     /// @dev Initializer function to be called after deployment.
     /// @param _addressManager The address of the address manager.
@@ -52,7 +52,7 @@ contract BridgedERC1155 is
         initializer
     {
         if (_srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid) {
-            revert BRIDGED_TOKEN_INVALID_PARAMS();
+            revert BTOKEN_INVALID_PARAMS();
         }
         _Essential_init(_addressManager);
         __ERC1155_init("");
@@ -72,6 +72,8 @@ contract BridgedERC1155 is
         uint256 amount
     )
         public
+        nonReentrant
+        whenNotPaused
         onlyFromNamed("erc1155_vault")
     {
         _mint(account, tokenId, amount, "");
@@ -87,6 +89,8 @@ contract BridgedERC1155 is
         uint256 amount
     )
         public
+        nonReentrant
+        whenNotPaused
         onlyFromNamed("erc1155_vault")
     {
         _burn(account, tokenId, amount);
@@ -107,9 +111,11 @@ contract BridgedERC1155 is
     )
         public
         override(ERC1155Upgradeable, IERC1155Upgradeable)
+        nonReentrant
+        whenNotPaused
     {
         if (to == address(this)) {
-            revert BRIDGED_TOKEN_CANNOT_RECEIVE();
+            revert BTOKEN_CANNOT_RECEIVE();
         }
         return ERC1155Upgradeable.safeTransferFrom(from, to, tokenId, amount, data);
     }
