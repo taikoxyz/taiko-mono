@@ -85,7 +85,7 @@ contract BridgedERC20 is
         whenNotPaused
         onlyFromNamed("erc20_vault")
     {
-        if (migratingTo != address(0)) revert BRIDGED_TOKEN_PERMISSION_DENIED();
+        if (migratingTo != address(0)) revert BRIDGED_TOKEN_MIGRATION_ONGOING();
         if (to == address(0)) revert BRIDGED_TOKEN_INVALID_PARAMS();
 
         migratingTo = to;
