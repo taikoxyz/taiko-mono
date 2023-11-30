@@ -347,7 +347,7 @@ contract DeployOnL1 is DeployCapability {
         for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
             register(
                 rollupAddressManager,
-                PseZkVerifier(pseZkVerifier).getVerifierName(i),
+                string(abi.encodePacked(PseZkVerifier(pseZkVerifier).getVerifierName(i))),
                 plonkVerifiers[i]
             );
         }
