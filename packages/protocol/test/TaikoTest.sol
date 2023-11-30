@@ -17,7 +17,7 @@ import "../contracts/tokenvault/BridgedERC1155.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC721Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
-import "../contracts/team/TimeLockTokenPool.sol";
+import "../contracts/team/TimelockTokenPool.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/verifiers/SgxVerifier.sol";
