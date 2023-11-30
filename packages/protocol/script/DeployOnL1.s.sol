@@ -125,9 +125,11 @@ contract DeployOnL1 is DeployCapability {
 
         if (AddressManager(sharedAddressManager).owner() == address(this)) {
             AddressManager(sharedAddressManager).transferOwnership(timelock);
+            console2.log("** sharedAddressManager ownership tranferred to timelock:", timelock);
         }
         if (AddressManager(rollupAddressManager).owner() == address(this)) {
             AddressManager(rollupAddressManager).transferOwnership(timelock);
+            console2.log("** rollupAddressManager ownership tranferred to timelock:", timelock);
         }
     }
 
