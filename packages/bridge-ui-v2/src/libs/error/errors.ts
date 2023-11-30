@@ -54,6 +54,10 @@ export class ApproveError extends Error {
   name = 'ApproveError';
 }
 
+export class RevertedWithoutMessageError extends Error {
+  name = 'RevertedWithoutMessageError';
+}
+
 export class RevertedWithFailedError extends Error {
   name = 'RevertedWithFailedError';
 }

@@ -35,7 +35,7 @@ export class ETHBridge extends Bridge {
 
     const message: Message = {
       to,
-      user: owner,
+      owner,
       from: owner,
       refundTo: owner,
 

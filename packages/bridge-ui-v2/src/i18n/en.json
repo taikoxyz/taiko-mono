@@ -1,4 +1,9 @@
 {
+  "amount": {
+    "errors": {
+      "failed_max": "Unable to use max amount"
+    }
+  },
   "bridge": {
     "actions": {
       "approve": {

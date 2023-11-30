@@ -28,7 +28,7 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction) {
       chainId: Number(destChainId),
     });
 
-    const blockHash = await destCrossChainSyncContract.read.getCrossChainBlockHash([BigInt(0)]);
+    const { blockHash } = await destCrossChainSyncContract.read.getSyncedSnippet([BigInt(0)]);
 
     const srcBlock = await publicClient({ chainId: Number(srcChainId) }).getBlock({
       blockHash,
