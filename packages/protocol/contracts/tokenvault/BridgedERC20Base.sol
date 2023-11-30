@@ -70,6 +70,10 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
         _burnToken(account, amount);
     }
 
+    function owner() public view override(IBridgedERC20, OwnableUpgradeable) returns (address) {
+        return super.owner();
+    }
+
     function _mintToken(address account, uint256 amount) internal virtual;
     function _burnToken(address from, uint256 amount) internal virtual;
 }

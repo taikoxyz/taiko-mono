@@ -94,12 +94,8 @@ contract ERC20Vault is BaseVault {
     error VAULT_CTOKEN_MISMATCH();
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_AMOUNT();
-    error VAULT_INVALID_NEW_BRIDGED_TOKEN();
-    error VAULT_INVALID_USER();
-    error VAULT_INVALID_FROM();
-    error VAULT_INVALID_SRC_CHAIN_ID();
-    error VAULT_MESSAGE_NOT_FAILED();
-    error VAULT_MESSAGE_RELEASED_ALREADY();
+    error VAULT_INVALID_NEW_BTOKEN();
+    error VAULT_NOT_SAME_OWNER();
 
     function changeBridgedToken(
         CanonicalERC20 calldata ctoken,
@@ -115,7 +111,11 @@ contract ERC20Vault is BaseVault {
             btokenNew == address(0) || bridgedToCanonical[btokenNew].addr != address(0)
                 || btokenBlacklist[btokenNew]
         ) {
-            revert VAULT_INVALID_NEW_BRIDGED_TOKEN();
+            revert VAULT_INVALID_NEW_BTOKEN();
+        }
+
+        if (IBridgedERC20(btokenNew).owner() != owner()) {
+            revert VAULT_NOT_SAME_OWNER();
         }
 
         btokenOld = canonicalToBridged[ctoken.chainId][ctoken.addr];
@@ -136,6 +136,8 @@ contract ERC20Vault is BaseVault {
             // Start the migration
             IBridgedERC20(btokenOld).changeMigrationStatus(btokenNew, false);
             IBridgedERC20(btokenNew).changeMigrationStatus(btokenOld, true);
+        } else {
+            IBridgedERC20(btokenNew).changeMigrationStatus(address(0), false);
         }
 
         bridgedToCanonical[btokenNew] = ctoken;

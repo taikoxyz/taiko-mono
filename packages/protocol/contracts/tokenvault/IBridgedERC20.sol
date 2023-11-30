@@ -26,4 +26,7 @@ interface IBridgedERC20 {
 
     /// @notice Start or stop migration to/from a specified contract.
     function changeMigrationStatus(address addr, bool inbound) external;
+
+    /// @notice Returns the owner
+    function owner() external view returns (address);
 }
