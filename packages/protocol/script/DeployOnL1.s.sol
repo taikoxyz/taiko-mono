@@ -123,7 +123,7 @@ contract DeployOnL1 is DeployCapability {
         // Deploy other contracts
         deployAuxContracts();
 
-        if (AddressManager(sharedAddressManager).owner() == address(this)) {
+        if (AddressManager(sharedAddressManager).owner() == msg.sender) {
             AddressManager(sharedAddressManager).transferOwnership(timelock);
             console2.log("** sharedAddressManager ownership tranferred to timelock:", timelock);
         }
