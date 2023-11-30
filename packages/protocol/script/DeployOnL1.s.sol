@@ -190,7 +190,6 @@ contract DeployOnL1 is Script {
         _timelock.grantRole(_timelock.CANCELLER_ROLE(), governor);
         _timelock.grantRole(_timelock.CANCELLER_ROLE(), securityCouncil);
 
-        _timelock.grantRole(_timelock.TIMELOCK_ADMIN_ROLE(), governor);
         _timelock.grantRole(_timelock.TIMELOCK_ADMIN_ROLE(), securityCouncil);
         _timelock.renounceRole(_timelock.TIMELOCK_ADMIN_ROLE(), msg.sender);
 
