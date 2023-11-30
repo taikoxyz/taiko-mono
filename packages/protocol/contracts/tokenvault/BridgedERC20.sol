@@ -106,7 +106,7 @@ contract BridgedERC20 is
     }
 
     function stopInboundMigration() external nonReentrant whenNotPaused onlyOwner {
-        if (migratingFrom == address(0)) revert BRIDGED_TOKEN_PERMISSION_DENIED();
+       if (migratingTo != address(0)) revert BRIDGED_TOKEN_MIGRATION_ONGOING();
         migratingFrom = address(0);
         emit Migration(migratingFrom, migratingTo);
     }
