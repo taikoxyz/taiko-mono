@@ -1,5 +1,0 @@
-\subsection{On-chain Verification of Blocks}\label{sec:verifying}
-
-Assuming the $j$-th block is the last verified valid block. The $i$-th block ($i > j$) can be verified if 1) the $(i-1)$-th block has been verified, and 2) the $i$-th block has a State Transition $E$ whose parent block hash $E(H_p)$ equals the $j$-th block's hash.
-
-If $H_h$ equals $K_{\mathrm{BlockDeadEndHash}}$, the $i$-th block is marked as verified but $j$ is not updated (otherwise $j$ changes to $i$ and so the $i$-th block would become the last verified valid block while the block is not valid). So on L1, because each block needs to handled, valid or invalid, all blocks are part of the block chain through the State Transitions. In Taiko nodes invalid blocks can be immediately dropped and are never part of Taiko's canonical chain.

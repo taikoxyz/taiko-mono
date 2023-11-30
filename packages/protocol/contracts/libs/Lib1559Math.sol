@@ -13,9 +13,6 @@ import { SafeCastUpgradeable } from
 /// @title Lib1559Math
 /// @dev This library provides utilities related to the L2 EIP-1559
 /// implementation.
-/// See formulas described in the whitepaper
-/// https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf
-/// From section:  "9.6. Rate Limiting using EIP-1559."
 /// Additional info about the arithmetic formula:
 /// https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/docs/L2EIP1559.md
 library Lib1559Math {
