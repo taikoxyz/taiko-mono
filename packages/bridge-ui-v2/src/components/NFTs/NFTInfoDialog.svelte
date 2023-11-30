@@ -13,7 +13,7 @@
 
   const dialogId = `dialog-${uid()}`;
 
-  const placeholderUrl = 'https://placehold.co/600x600.png';
+  const placeholderUrl = '/placeholder.svg';
 
   export let modalOpen = false;
   export let viewOnly = false;

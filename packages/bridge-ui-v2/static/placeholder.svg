@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="a" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+    viewBox="0 0 20 20">
+    <defs>
+        <clipPath id="b">
+            <rect x="1.27" y="1.27" width="17.46" height="17.46" rx=".7" ry=".7"
+                style="fill:none; stroke-width:0px;" />
+        </clipPath>
+        <mask id="c" x="-.37" y="3.37" width="24.16" height="15.36" maskUnits="userSpaceOnUse">
+            <g id="d">
+                <rect x="3.37" y="3.37" width="13.3" height="13.3"
+                    style="fill:#dad9d9; stroke-width:0px;" />
+            </g>
+        </mask>
+    </defs>
+    <g style="clip-path:url(#b);">
+        <rect x="1.8" y="1.8" width="16.41" height="16.41"
+            style="fill:none; stroke:#e22b91; stroke-width:2px;" />
+        <g style="mask:url(#c);">
+            <path d="m13.29,6.68c.27-.24.67-.24.93,0l9.57,8.59H3.72L13.29,6.68Z"
+                style="fill:#e22b91; stroke-width:0px;" />
+            <path d="m5.64,9.76c.27-.24.67-.24.94,0l6.01,5.44H-.37l6.01-5.44Z"
+                style="fill:#e22b91; stroke-width:0px;" />
+            <rect x="1.27" y="15.13" width="17.46" height="3.6"
+                style="fill:#e22b91; stroke-width:0px;" />
+            <circle cx="6.19" cy="6.4" r="1.5" style="fill:#e22b91; stroke-width:0px;" />
+        </g>
+    </g>
+</svg>

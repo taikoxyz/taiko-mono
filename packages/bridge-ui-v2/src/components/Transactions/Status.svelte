@@ -115,7 +115,7 @@
             token: bridgeTx.symbol,
             url: `${explorer}/tx/${txHash}`,
           },
-        })
+        }),
       });
 
       await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
@@ -125,10 +125,9 @@
         title: $t('transactions.actions.claim.success.title'),
         message: $t('transactions.actions.claim.success.message', {
           values: {
-            token: bridgeTx.symbol,
-            url: `${explorer}/tx/${txHash}`,
+            network: $network.id,
           },
-        })
+        }),
       });
 
       // We trigger this event to manually to update the UI
@@ -138,25 +137,25 @@
 
       switch (true) {
         case err instanceof NotConnectedError:
-          warningToast({title: $t('messages.account.required')});
+          warningToast({ title: $t('messages.account.required') });
           break;
         case err instanceof UserRejectedRequestError:
-          warningToast({title: $t('transactions.actions.claim.rejected')});
+          warningToast({ title: $t('transactions.actions.claim.rejected') });
           break;
         case err instanceof InsufficientBalanceError:
           dispatch('insufficientFunds', { tx: bridgeTx });
           break;
         case err instanceof InvalidProofError:
-          errorToast({title: $t('TODO: InvalidProofError')});
+          errorToast({ title: $t('TODO: InvalidProofError') });
           break;
         case err instanceof ProcessMessageError:
-          errorToast({title: $t('TODO: ProcessMessageError')});
+          errorToast({ title: $t('TODO: ProcessMessageError') });
           break;
         case err instanceof RetryError:
-          errorToast({title: $t('TODO: RetryError')});
+          errorToast({ title: $t('TODO: RetryError') });
           break;
         default:
-          errorToast({title: $t('TODO: UnknownError')});
+          errorToast({ title: $t('TODO: UnknownError') });
           break;
       }
     } finally {
@@ -195,7 +194,7 @@
 
       infoToast({
         title: $t('transactions.actions.release.tx.title'),
-        message:  $t('transactions.actions.release.tx.message', {
+        message: $t('transactions.actions.release.tx.message', {
           values: {
             token: bridgeTx.symbol,
             url: `${explorer}/tx/${txHash}`,
@@ -218,19 +217,19 @@
 
       switch (true) {
         case err instanceof NotConnectedError:
-          warningToast({title: $t('messages.account.required')});
+          warningToast({ title: $t('messages.account.required') });
           break;
         case err instanceof UserRejectedRequestError:
-          warningToast({title: $t('transactions.actions.release_rejected')});
+          warningToast({ title: $t('transactions.actions.release_rejected') });
           break;
         case err instanceof InvalidProofError:
-          errorToast({title: $t('TODO: InvalidProofError')});
+          errorToast({ title: $t('TODO: InvalidProofError') });
           break;
         case err instanceof ReleaseError:
-          errorToast({title: $t('TODO: ReleaseError')});
+          errorToast({ title: $t('TODO: ReleaseError') });
           break;
         default:
-          errorToast({title: $t('TODO: UnknownError')});
+          errorToast({ title: $t('TODO: UnknownError') });
           break;
       }
     } finally {

@@ -20,7 +20,7 @@
 
   let modalOpen = false;
 
-  const placeholderUrl = 'https://placehold.co/400x400.png';
+  const placeholderUrl = '/placeholder.svg';
 
   $: imageUrl = nft.metadata?.image || placeholderUrl;
   let imageLoaded = false;
