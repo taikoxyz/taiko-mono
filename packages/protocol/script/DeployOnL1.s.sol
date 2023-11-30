@@ -77,7 +77,7 @@ contract DeployOnL1 is DeployCapability {
         uint64 l2ChainId = taikoL1.getConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
-        if (signalService.owner() == msg.sender) {
+        if (signalService.owner() == address(this)) {
             signalService.authorize(taikoL1Addr, bytes32(block.chainid));
             signalService.authorize(vm.envAddress("TAIKO_L2_ADDRESS"), bytes32(uint256(l2ChainId)));
             signalService.transferOwnership(timelock);
@@ -192,8 +192,8 @@ contract DeployOnL1 is DeployCapability {
             impl: address(new SignalService()),
             data: bytes.concat(SignalService.init.selector),
             registerTo: sharedAddressManager,
-            owner: msg.sender // We set msg.sender as the owner and will change it later.
-         });
+            owner: address(0)
+        });
 
         deployProxy({
             name: "bridge",
@@ -271,10 +271,8 @@ contract DeployOnL1 is DeployCapability {
         rollupAddressManager = deployProxy({
             name: "address_manager_for_rollup",
             impl: address(new AddressManager()),
-            data: bytes.concat(AddressManager.init.selector),
-            registerTo: address(0),
-            owner: msg.sender // set to msg.sender, change to timelock after
-         });
+            data: bytes.concat(AddressManager.init.selector)
+        });
 
         deployProxy({
             name: "taiko",
