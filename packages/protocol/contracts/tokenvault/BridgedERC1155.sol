@@ -111,6 +111,8 @@ contract BridgedERC1155 is
     )
         public
         override(ERC1155Upgradeable, IERC1155Upgradeable)
+        nonReentrant
+        whenNotPaused
     {
         if (to == address(this)) {
             revert BTOKEN_CANNOT_RECEIVE();

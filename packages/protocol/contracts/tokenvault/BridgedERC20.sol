@@ -75,6 +75,8 @@ contract BridgedERC20 is BridgedERC20Base, IERC20MetadataUpgradeable, ERC20Upgra
     )
         public
         override(ERC20Upgradeable, IERC20Upgradeable)
+        nonReentrant
+        whenNotPaused
         returns (bool)
     {
         if (to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
@@ -94,6 +96,8 @@ contract BridgedERC20 is BridgedERC20Base, IERC20MetadataUpgradeable, ERC20Upgra
     )
         public
         override(ERC20Upgradeable, IERC20Upgradeable)
+        nonReentrant
+        whenNotPaused
         returns (bool)
     {
         if (to == address(this)) {

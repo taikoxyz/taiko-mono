@@ -96,6 +96,8 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     )
         public
         override(ERC721Upgradeable)
+        nonReentrant
+        whenNotPaused
     {
         if (to == address(this)) {
             revert BTOKEN_CANNOT_RECEIVE();
