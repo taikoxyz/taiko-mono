@@ -39,7 +39,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         conf = L1.getConfig();
 
         addressManager = AddressManager(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
                 data: bytes.concat(AddressManager.init.selector)
@@ -47,7 +47,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         );
 
         ss = SignalService(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
                 data: bytes.concat(SignalService.init.selector)
@@ -55,7 +55,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         );
 
         pv = PseZkVerifier(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "tier_pse_zkevm",
                 impl: address(new PseZkVerifier()),
                 data: bytes.concat(PseZkVerifier.init.selector, abi.encode(address(addressManager)))
@@ -63,7 +63,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         );
 
         sv = SgxVerifier(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "tier_sgx",
                 impl: address(new SgxVerifier()),
                 data: bytes.concat(SgxVerifier.init.selector, abi.encode(address(addressManager)))
@@ -75,7 +75,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         sv.addInstances(initSgxInstances);
 
         sgxZkVerifier = SgxAndZkVerifier(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "tier_sgx_and_pse_zkevm",
                 impl: address(new SgxAndZkVerifier()),
                 data: bytes.concat(SgxAndZkVerifier.init.selector, abi.encode(address(addressManager)))
@@ -83,7 +83,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         );
 
         gv = GuardianVerifier(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "guardian_verifier",
                 impl: address(new GuardianVerifier()),
                 data: bytes.concat(GuardianVerifier.init.selector, abi.encode(address(addressManager)))
@@ -91,7 +91,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         );
 
         gp = GuardianProver(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "guardian_prover",
                 impl: address(new GuardianProver()),
                 data: bytes.concat(GuardianProver.init.selector, abi.encode(address(addressManager)))
@@ -101,7 +101,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         setupGuardianProverMultisig();
 
         cp = TaikoA6TierProvider(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "tier_provider",
                 impl: address(new TaikoA6TierProvider()),
                 data: bytes.concat(TaikoA6TierProvider.init.selector)
@@ -110,7 +110,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
         bridge = Bridge(
             payable(
-                LibDeployHelper.deployProxy({
+                deployProxy({
                     name: "bridge",
                     impl: address(new Bridge()),
                     data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
@@ -121,7 +121,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         );
 
         assignmentHook = AssignmentHook(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "assignment_hook",
                 impl: address(new AssignmentHook()),
                 data: bytes.concat(AssignmentHook.init.selector, abi.encode(address(addressManager)))
@@ -144,7 +144,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         registerAddress(pv.getVerifierName(300), address(new MockVerifier()));
 
         tko = TaikoToken(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "taiko_token",
                 impl: address(new TaikoToken()),
                 data: bytes.concat(
@@ -331,13 +331,14 @@ abstract contract TaikoL1TestBase is TaikoTest {
     }
 
     function setupGuardianProverMultisig() internal {
-        address[5] memory initMultiSig;
+        address[] memory initMultiSig = new address[](5);
         initMultiSig[0] = David;
         initMultiSig[1] = Emma;
         initMultiSig[2] = Frank;
         initMultiSig[3] = Grace;
         initMultiSig[4] = Henry;
-        gp.setGuardians(initMultiSig);
+
+        gp.setGuardians(initMultiSig, 3);
     }
 
     function registerAddress(bytes32 nameHash, address addr) internal {

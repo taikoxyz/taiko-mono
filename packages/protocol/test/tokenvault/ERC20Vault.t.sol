@@ -86,7 +86,7 @@ contract TestERC20Vault is TaikoTest {
         vm.deal(Bob, 1 ether);
 
         tko = TaikoToken(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "taiko_token",
                 impl: address(new TaikoToken()),
                 data: bytes.concat(
@@ -96,7 +96,7 @@ contract TestERC20Vault is TaikoTest {
         );
 
         addressManager = AddressManager(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
                 data: bytes.concat(AddressManager.init.selector)
@@ -106,7 +106,7 @@ contract TestERC20Vault is TaikoTest {
         addressManager.setAddress(uint64(block.chainid), "taiko_token", address(tko));
 
         erc20Vault = ERC20Vault(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "erc20_vault",
                 impl: address(new ERC20Vault()),
                 data: bytes.concat(BaseVault.init.selector, abi.encode(address(addressManager)))
@@ -114,7 +114,7 @@ contract TestERC20Vault is TaikoTest {
         );
 
         destChainIdERC20Vault = ERC20Vault(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "erc20_vault",
                 impl: address(new ERC20Vault()),
                 data: bytes.concat(BaseVault.init.selector, abi.encode(address(addressManager)))
@@ -126,7 +126,7 @@ contract TestERC20Vault is TaikoTest {
 
         bridge = Bridge(
             payable(
-                LibDeployHelper.deployProxy({
+                deployProxy({
                     name: "bridge",
                     impl: address(new Bridge()),
                     data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
@@ -140,7 +140,7 @@ contract TestERC20Vault is TaikoTest {
         vm.deal(address(destChainIdBridge), 100 ether);
 
         signalService = SignalService(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
                 data: bytes.concat(SignalService.init.selector),

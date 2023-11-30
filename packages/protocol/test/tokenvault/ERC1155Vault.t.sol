@@ -108,7 +108,7 @@ contract ERC1155VaultTest is TaikoTest {
         vm.deal(Carol, 100 ether);
         vm.deal(Bob, 100 ether);
         addressManager = AddressManager(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
                 data: bytes.concat(AddressManager.init.selector)
@@ -117,7 +117,7 @@ contract ERC1155VaultTest is TaikoTest {
 
         bridge = Bridge(
             payable(
-                LibDeployHelper.deployProxy({
+                deployProxy({
                     name: "bridge",
                     impl: address(new Bridge()),
                     data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
@@ -129,7 +129,7 @@ contract ERC1155VaultTest is TaikoTest {
 
         destChainBridge = Bridge(
             payable(
-                LibDeployHelper.deployProxy({
+                deployProxy({
                     name: "bridge",
                     impl: address(new Bridge()),
                     data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
@@ -140,7 +140,7 @@ contract ERC1155VaultTest is TaikoTest {
         );
 
         signalService = SignalService(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
                 data: bytes.concat(SignalService.init.selector)
@@ -148,7 +148,7 @@ contract ERC1155VaultTest is TaikoTest {
         );
 
         erc1155Vault = ERC1155Vault(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "erc1155_vault",
                 impl: address(new ERC1155Vault()),
                 data: bytes.concat(BaseVault.init.selector, abi.encode(address(addressManager)))
@@ -156,7 +156,7 @@ contract ERC1155VaultTest is TaikoTest {
         );
 
         destChainErc1155Vault = ERC1155Vault(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "erc1155_vault",
                 impl: address(new ERC1155Vault()),
                 data: bytes.concat(BaseVault.init.selector, abi.encode(address(addressManager)))
@@ -167,7 +167,7 @@ contract ERC1155VaultTest is TaikoTest {
         vm.deal(address(destChainIdBridge), 100 ether);
 
         mockProofSignalService = SkipProofCheckSignal(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "signal_service",
                 impl: address(new SkipProofCheckSignal()),
                 data: bytes.concat(SignalService.init.selector)

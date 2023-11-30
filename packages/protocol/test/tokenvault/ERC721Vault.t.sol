@@ -124,7 +124,7 @@ contract ERC721VaultTest is TaikoTest {
         vm.deal(Bob, 100 ether);
 
         addressManager = AddressManager(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
                 data: bytes.concat(AddressManager.init.selector)
@@ -133,7 +133,7 @@ contract ERC721VaultTest is TaikoTest {
 
         bridge = Bridge(
             payable(
-                LibDeployHelper.deployProxy({
+                deployProxy({
                     name: "bridge",
                     impl: address(new Bridge()),
                     data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
@@ -145,7 +145,7 @@ contract ERC721VaultTest is TaikoTest {
 
         destChainBridge = Bridge(
             payable(
-                LibDeployHelper.deployProxy({
+                deployProxy({
                     name: "bridge",
                     impl: address(new Bridge()),
                     data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
@@ -156,7 +156,7 @@ contract ERC721VaultTest is TaikoTest {
         );
 
         signalService = SignalService(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
                 data: bytes.concat(SignalService.init.selector)
@@ -164,7 +164,7 @@ contract ERC721VaultTest is TaikoTest {
         );
 
         erc721Vault = ERC721Vault(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "erc721_vault",
                 impl: address(new ERC721Vault()),
                 data: bytes.concat(BaseVault.init.selector, abi.encode(address(addressManager)))
@@ -172,7 +172,7 @@ contract ERC721VaultTest is TaikoTest {
         );
 
         destChainErc721Vault = ERC721Vault(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "erc721_vault",
                 impl: address(new ERC721Vault()),
                 data: bytes.concat(BaseVault.init.selector, abi.encode(address(addressManager)))
@@ -183,7 +183,7 @@ contract ERC721VaultTest is TaikoTest {
         vm.deal(address(destChainIdBridge), 100 ether);
 
         mockProofSignalService = SkipProofCheckSignal(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "signal_service",
                 impl: address(new SkipProofCheckSignal()),
                 data: bytes.concat(SignalService.init.selector)

@@ -24,7 +24,7 @@ contract TestERC20Airdrop is TaikoTest {
         token = new MyERC20(address(owner));
         // 1st 'genesis' airdrop
         airdrop = ERC20Airdrop(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "airdrop",
                 impl: address(new ERC20Airdrop()),
                 data: bytes.concat(
@@ -36,7 +36,7 @@ contract TestERC20Airdrop is TaikoTest {
         // 2nd airdrop subject to unlocking (e.g. 10 days after starting after
         // claim window)
         airdrop2 = ERC20Airdrop2(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "airdrop",
                 impl: address(new ERC20Airdrop2()),
                 data: bytes.concat(

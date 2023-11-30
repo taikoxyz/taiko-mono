@@ -11,13 +11,13 @@ import "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 
 import "forge-std/console2.sol";
+import "forge-std/Script.sol";
 
-import "../common/AddressManager.sol";
-import "./LibDeploy.sol";
+import "../contracts/common/AddressManager.sol";
+import "../contracts/libs/LibDeploy.sol";
 
-/// @title LibDeployHelper
-/// @dev Do not use this library in production code except deployment scripts and tests.
-library LibDeployHelper {
+/// @title DeployCapability
+abstract contract DeployCapability is Script {
     error ADDRESS_NULL();
 
     function deployProxy(
@@ -35,10 +35,18 @@ library LibDeployHelper {
         if (registerTo != address(0)) {
             AddressManager(registerTo).setAddress(uint64(block.chainid), name, proxy);
         }
-        console2.log("> ", string(abi.encodePacked(name)), "@", registerTo);
-        console2.log("\t proxy : ", proxy);
-        console2.log("\t impl  : ", impl);
-        console2.log("\t owner : ", OwnableUpgradeable(proxy).owner());
+
+        console2.log(">", string(abi.encodePacked(name)), "@", registerTo);
+        console2.log("  proxy      :", proxy);
+        console2.log("  impl       :", impl);
+        console2.log("  owner      :", OwnableUpgradeable(proxy).owner());
+        console2.log("  msg.sender :", msg.sender);
+        console2.log("  this       :", address(this));
+
+        vm.writeJson(
+            vm.serializeAddress("deployment", Strings.toString(uint256(name)), proxy),
+            string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
+        );
     }
 
     function deployProxy(

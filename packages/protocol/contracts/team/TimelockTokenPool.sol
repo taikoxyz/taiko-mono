@@ -11,7 +11,7 @@ import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../common/EssentialContract.sol";
 
-/// @title TimeLockTokenPool
+/// @title TimelockTokenPool
 /// Contract for managing Taiko tokens allocated to different roles and
 /// individuals.
 ///
@@ -26,7 +26,7 @@ import "../common/EssentialContract.sol";
 /// - investors
 /// - team members, advisors, etc.
 /// - grant program grantees
-contract TimeLockTokenPool is EssentialContract {
+contract TimelockTokenPool is EssentialContract {
     using SafeERC20 for IERC20;
 
     struct Grant {
