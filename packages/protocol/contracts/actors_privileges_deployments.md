@@ -3,7 +3,7 @@
 ## Introduction
 
 This document provides a comprehensive overview of the actors involved in the smart contract system and outlines their respective privileges and roles.
-Different `roles` (we call them `domain`) are granted via `AddressManager` contract's `setAddress()` function. Idea is very similar Optimism's `AddressManager` except that we use the `chainId + domainName` as the key for a given address. We need so, because for bridging purposes, the destination chain's bridge address needs to be included signaling the message hash is tamper-proof.
+Different `roles` (we call them `domain`) are granted via `AddressManager` contract's `setAddress()` function. Idea is very similar to Optimism's `AddressManager` except that we use the `chainId + domainName` as the key for a given address. We need so, because for bridging purposes, the destination chain's bridge address needs to be included signaling the message hash is tamper-proof.
 Every contract which needs some role-based authentication, needs to inherit from `AddressResolver` contract, which will serve as a 'middleman/lookup' by querying the `AddressManager` per given address is allowed to act on behalf of that domain or not.
 
 ## 1. Domains (≈role per chainId)
@@ -21,18 +21,18 @@ In the context of the smart contract system, various actors play distinct roles.
 
 - **Role**: This domain role is given to Bridge smart contracts (both chains).
 - **Privileges**:
-  - The right to trigger transfering/minting the tokens (on destination chain) (be it ERC20, ERC721, ERC1155) from the vault contracts
+  - The right to trigger transferring/minting the tokens (on destination chain) (be it ERC20, ERC721, ERC1155) from the vault contracts
   - The right to trigger releasing the custodied assets on the source chain (if bridging is not successful)
 
 ### 1.3 ERCXXX_Vault
 
 - **Role**: This role is given to respective token vault contracts (ERC20, ERC721, ERC1155)
 - **Privileges**:
-  - Part of token bridging, the possibility to burn and mint the respective standard tokens (no autotelic minting/burning)
+  - As part of token bridging, the possibility to burn and mint the respective standard tokens (no autotelic minting/burning)
 
 ## 2. Different access modifiers
 
-Beside the `onlyFromNamed` or `onlyFromNamed2` modifiers, we have others such as:
+Besides the `onlyFromNamed` or `onlyFromNamed2` modifiers, we have others such as:
 
 ### 2.1 onlyOwner
 
