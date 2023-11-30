@@ -77,7 +77,7 @@ contract DeployOnL1 is DeployCapability {
         uint64 l2ChainId = taikoL1.getConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
-        if (signalService.owner() == address(this)) {
+        if (signalService.owner() == msg.sender) {
             signalService.authorize(taikoL1Addr, bytes32(block.chainid));
             signalService.authorize(vm.envAddress("TAIKO_L2_ADDRESS"), bytes32(uint256(l2ChainId)));
             signalService.transferOwnership(timelock);

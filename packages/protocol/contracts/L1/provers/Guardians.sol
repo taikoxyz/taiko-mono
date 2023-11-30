@@ -12,9 +12,9 @@ import "../TaikoData.sol";
 /// @title Guardians
 abstract contract Guardians is EssentialContract {
     uint256 public constant MIN_NUM_GUARDIANS = 5;
+
     mapping(address guardian => uint256 id) public guardianIds; // slot 1
-    mapping(uint32 version => mapping(bytes32 => uint256 approvalBits)) internal _approvals; // slot
-        // 2
+    mapping(uint32 version => mapping(bytes32 => uint256 approvalBits)) internal _approvals;
     address[] public guardians; // slot 3
     uint32 public version; // slot 4
     uint32 public minGuardians;
@@ -70,7 +70,7 @@ abstract contract Guardians is EssentialContract {
     }
 
     function isApproved(bytes32 hash) public view returns (bool) {
-        return _isApproved(_approvals[version][hash]);
+        return isApproved(_approvals[version][hash]);
     }
 
     function numGuardians() public view returns (uint256) {
@@ -85,7 +85,7 @@ abstract contract Guardians is EssentialContract {
             _approvals[version][hash] |= 1 << (id - 1);
         }
 
-        approved = _isApproved(_approvals[version][hash]);
+        approved = isApproved(_approvals[version][hash]);
         emit Approved(operationId, _approvals[version][hash], approved);
     }
 
@@ -93,7 +93,7 @@ abstract contract Guardians is EssentialContract {
         delete _approvals[version][hash];
     }
 
-    function _isApproved(uint256 approvalBits) private view returns (bool) {
+    function isApproved(uint256 approvalBits) internal view returns (bool) {
         uint256 count;
         uint256 bits = approvalBits;
         unchecked {
