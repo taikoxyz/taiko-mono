@@ -28,7 +28,7 @@ contract TestSignalService is TaikoTest {
 
     function setUp() public {
         target = DummyGuardians(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "guardians",
                 impl: address(new DummyGuardians()),
                 data: bytes.concat(DummyGuardians.init.selector)

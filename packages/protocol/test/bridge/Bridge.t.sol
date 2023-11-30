@@ -35,7 +35,7 @@ contract BridgeTest is TaikoTest {
         vm.deal(Alice, 100 ether);
 
         addressManager = AddressManager(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
                 data: bytes.concat(AddressManager.init.selector)
@@ -44,7 +44,7 @@ contract BridgeTest is TaikoTest {
 
         bridge = Bridge(
             payable(
-                LibDeployHelper.deployProxy({
+                deployProxy({
                     name: "bridge",
                     impl: address(new Bridge()),
                     data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
@@ -56,7 +56,7 @@ contract BridgeTest is TaikoTest {
 
         destChainBridge = Bridge(
             payable(
-                LibDeployHelper.deployProxy({
+                deployProxy({
                     name: "bridge",
                     impl: address(new Bridge()),
                     data: bytes.concat(Bridge.init.selector, abi.encode(addressManager))
@@ -65,7 +65,7 @@ contract BridgeTest is TaikoTest {
         );
 
         mockProofSignalService = SkipProofCheckSignal(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "signal_service",
                 impl: address(new SkipProofCheckSignal()),
                 data: bytes.concat(SignalService.init.selector),
@@ -75,7 +75,7 @@ contract BridgeTest is TaikoTest {
         );
 
         signalService = SignalService(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
                 data: bytes.concat(SignalService.init.selector)
@@ -89,17 +89,13 @@ contract BridgeTest is TaikoTest {
         untrustedSenderContract = new UntrustedSendMessageRelayer();
         vm.deal(address(untrustedSenderContract), 10 ether);
 
-        LibDeployHelper.register(
+        register(
             address(addressManager), "signal_service", address(mockProofSignalService), destChainId
         );
 
-        LibDeployHelper.register(
-            address(addressManager), "bridge", address(destChainBridge), destChainId
-        );
+        register(address(addressManager), "bridge", address(destChainBridge), destChainId);
 
-        LibDeployHelper.register(
-            address(addressManager), "taiko", address(uint160(123)), destChainId
-        );
+        register(address(addressManager), "taiko", address(uint160(123)), destChainId);
         vm.stopPrank();
     }
 

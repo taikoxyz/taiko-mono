@@ -6,13 +6,9 @@
 
 pragma solidity ^0.8.20;
 
-import "forge-std/Script.sol";
-import "forge-std/console2.sol";
+import "../test/DeployCapability.sol";
 
-import "../contracts/common/AddressManager.sol";
-import "../contracts/libs/LibDeployHelper.sol";
-
-contract SetRemoteBridgeSuites is Script {
+contract SetRemoteBridgeSuites is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
     address public addressManagerAddress = vm.envAddress("ADDRESS_MANAGER_ADDRESS");
     uint256[] public remoteChainIDs = vm.envUint("REMOTE_CHAIN_IDS", ",");
@@ -43,19 +39,13 @@ contract SetRemoteBridgeSuites is Script {
         for (uint256 i; i < remoteChainIDs.length; ++i) {
             uint64 chainid = uint64(remoteChainIDs[i]);
 
-            LibDeployHelper.register(addressManagerAddress, "bridge", remoteBridges[i], chainid);
+            register(addressManagerAddress, "bridge", remoteBridges[i], chainid);
 
-            LibDeployHelper.register(
-                addressManagerAddress, "erc20_vault", remoteERC20Vaults[i], chainid
-            );
+            register(addressManagerAddress, "erc20_vault", remoteERC20Vaults[i], chainid);
 
-            LibDeployHelper.register(
-                addressManagerAddress, "erc721_vault", remoteERC721Vaults[i], chainid
-            );
+            register(addressManagerAddress, "erc721_vault", remoteERC721Vaults[i], chainid);
 
-            LibDeployHelper.register(
-                addressManagerAddress, "erc1155_vault", remoteERC1155Vaults[i], chainid
-            );
+            register(addressManagerAddress, "erc1155_vault", remoteERC1155Vaults[i], chainid);
         }
 
         vm.stopBroadcast();

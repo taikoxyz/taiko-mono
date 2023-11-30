@@ -38,10 +38,11 @@ import "../contracts/L2/TaikoL2EIP1559Configurable.sol";
 import "../contracts/L2/TaikoL2.sol";
 
 import "../contracts/test/erc20/FreeMintERC20.sol";
-import "../contracts/libs/LibDeployHelper.sol";
+
+import "./DeployCapability.sol";
 import "./HelperContracts.sol";
 
-abstract contract TaikoTest is Test {
+abstract contract TaikoTest is Test, DeployCapability {
     uint256 private _seed = 0x12345678;
     address internal Alice = vm.addr(0x1);
     address internal Bob = vm.addr(0x2);

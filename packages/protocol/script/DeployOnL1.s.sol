@@ -8,9 +8,6 @@ pragma solidity ^0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 
-import "forge-std/Script.sol";
-import "forge-std/console2.sol";
-
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
@@ -30,12 +27,12 @@ import "../contracts/tokenvault/ERC721Vault.sol";
 import "../contracts/signal/SignalService.sol";
 import "../contracts/test/erc20/FreeMintERC20.sol";
 import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
-import "../contracts/libs/LibDeployHelper.sol";
+import "../test/DeployCapability.sol";
 
 /// @title DeployOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
 /// initializing the rollup.
-contract DeployOnL1 is Script {
+contract DeployOnL1 is DeployCapability {
     uint256 public constant NUM_GUARDIANS = 5;
 
     address public constant MAINNET_SECURITY_COUNCIL = 0x7C50d60743D3FCe5a39FdbF687AFbAe5acFF49Fd;
@@ -95,26 +92,24 @@ contract DeployOnL1 is Script {
 
         // ---------------------------------------------------------------
         // Register shared contracts in the new rollup
-        LibDeployHelper.copyRegister(rollupAddressManager, sharedAddressManager, "taiko_token");
-        LibDeployHelper.copyRegister(rollupAddressManager, sharedAddressManager, "signal_service");
-        LibDeployHelper.copyRegister(rollupAddressManager, sharedAddressManager, "bridge");
+        copyRegister(rollupAddressManager, sharedAddressManager, "taiko_token");
+        copyRegister(rollupAddressManager, sharedAddressManager, "signal_service");
+        copyRegister(rollupAddressManager, sharedAddressManager, "bridge");
 
         address proposer = vm.envAddress("PROPOSER");
         if (proposer != address(0)) {
-            LibDeployHelper.register(rollupAddressManager, "proposer", proposer);
+            register(rollupAddressManager, "proposer", proposer);
         }
 
         address proposerOne = vm.envAddress("PROPOSER_ONE");
         if (proposerOne != address(0)) {
-            LibDeployHelper.register(rollupAddressManager, "proposer_one", proposerOne);
+            register(rollupAddressManager, "proposer_one", proposerOne);
         }
 
         // ---------------------------------------------------------------
         // Register L2 addresses
-        LibDeployHelper.register(
-            rollupAddressManager, "taiko", vm.envAddress("TAIKO_L2_ADDRESS"), l2ChainId
-        );
-        LibDeployHelper.register(
+        register(rollupAddressManager, "taiko", vm.envAddress("TAIKO_L2_ADDRESS"), l2ChainId);
+        register(
             rollupAddressManager, "signal_service", vm.envAddress("L2_SIGNAL_SERVICE"), l2ChainId
         );
 
@@ -143,17 +138,13 @@ contract DeployOnL1 is Script {
         timelock = deployProxy({
             name: "timelock_controller",
             impl: address(new TaikoTimelockController()),
-            data: bytes.concat(TaikoTimelockController.init.selector, abi.encode(7 days)),
-            registerTo: address(0),
-            owner: address(0)
+            data: bytes.concat(TaikoTimelockController.init.selector, abi.encode(7 days))
         });
 
         sharedAddressManager = deployProxy({
             name: "address_manager_for_bridge",
             impl: address(new AddressManager()),
-            data: bytes.concat(AddressManager.init.selector),
-            registerTo: address(0),
-            owner: address(0)
+            data: bytes.concat(AddressManager.init.selector)
         });
 
         address taikoToken = deployProxy({
@@ -262,13 +253,9 @@ contract DeployOnL1 is Script {
         console2.log("- sharedAddressManager : ", sharedAddressManager);
 
         // Deploy Bridged token implementations
-        LibDeployHelper.register(sharedAddressManager, "bridged_erc20", address(new BridgedERC20()));
-        LibDeployHelper.register(
-            sharedAddressManager, "bridged_erc721", address(new BridgedERC721())
-        );
-        LibDeployHelper.register(
-            sharedAddressManager, "bridged_erc1155", address(new BridgedERC1155())
-        );
+        register(sharedAddressManager, "bridged_erc20", address(new BridgedERC20()));
+        register(sharedAddressManager, "bridged_erc721", address(new BridgedERC721()));
+        register(sharedAddressManager, "bridged_erc1155", address(new BridgedERC1155()));
     }
 
     function deployRollupContracts(
@@ -352,7 +339,7 @@ contract DeployOnL1 is Script {
         plonkVerifiers[0] = deployYulContract("contracts/L1/verifiers/PlonkVerifier.yulp");
 
         for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
-            LibDeployHelper.register(
+            register(
                 rollupAddressManager,
                 PseZkVerifier(pseZkVerifier).getVerifierName(i),
                 plonkVerifiers[i]
@@ -399,26 +386,8 @@ contract DeployOnL1 is Script {
 
         addressNotNull(addr, "failed yul deployment");
         console2.log(contractPath, addr);
-
-
-    function deployProxy(
-        bytes32 name,
-        address impl,
-        bytes memory data,
-        address registerTo,
-        address owner
-    )
-        private
-        returns (address addr)
-    {
-        addr = LibDeployHelper.deployProxy(name, impl, data, registerTo, owner);
-
-        vm.writeJson(
-            vm.serializeAddress("deployment", Strings.toString(uint256(name)), addr),
-            string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
-        );
     }
-    
+
     function addressNotNull(address addr, string memory err) private pure {
         require(addr != address(0), err);
     }

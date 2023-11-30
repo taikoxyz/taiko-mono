@@ -24,7 +24,7 @@ contract TestTaikoL2 is TaikoTest {
 
     function setUp() public {
         addressManager = AddressManager(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
                 data: bytes.concat(AddressManager.init.selector)
@@ -32,7 +32,7 @@ contract TestTaikoL2 is TaikoTest {
         );
 
         ss = SignalService(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
                 data: bytes.concat(SignalService.init.selector),
@@ -46,7 +46,7 @@ contract TestTaikoL2 is TaikoTest {
         uint32 gasTarget = 60_000_000;
 
         L2 = TaikoL2EIP1559Configurable(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "taiko_l2",
                 impl: address(new TaikoL2EIP1559Configurable()),
                 data: bytes.concat(TaikoL2.init.selector, abi.encode(address(ss), gasExcess))
@@ -57,7 +57,7 @@ contract TestTaikoL2 is TaikoTest {
 
         gasExcess = 195_420_300_100;
         L2skip = SkipBasefeeCheckL2(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "taiko_l2",
                 impl: address(new SkipBasefeeCheckL2()),
                 data: bytes.concat(TaikoL2.init.selector, abi.encode(address(ss), gasExcess))
