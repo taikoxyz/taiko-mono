@@ -8,10 +8,12 @@ This vault holds all ERC721 tokens that users have deposited.
 It also manages the mapping between canonical tokens and their bridged
 tokens.
 
+_Labeled in AddressResolver as "erc721_vault"_
+
 ### sendToken
 
 ```solidity
-function sendToken(struct BaseNFTVault.BridgeTransferOp opt) external payable
+function sendToken(struct BaseNFTVault.BridgeTransferOp op) external payable returns (struct IBridge.Message _message)
 ```
 
 Transfers ERC721 tokens to this vault and sends a message to the
@@ -22,7 +24,7 @@ by invoking the message call.
 
 | Name | Type                                 | Description                          |
 | ---- | ------------------------------------ | ------------------------------------ |
-| opt  | struct BaseNFTVault.BridgeTransferOp | Option for sending the ERC721 token. |
+| op   | struct BaseNFTVault.BridgeTransferOp | Option for sending the ERC721 token. |
 
 ### receiveToken
 
@@ -44,18 +46,8 @@ Receive bridged ERC721 tokens and handle them accordingly.
 ### onMessageRecalled
 
 ```solidity
-function onMessageRecalled(struct IBridge.Message message) external payable
+function onMessageRecalled(struct IBridge.Message message, bytes32 msgHash) external payable
 ```
-
-Release deposited ERC721 token(s) back to the user on the source
-chain with a proof that the message processing on the destination Bridge
-has failed.
-
-#### Parameters
-
-| Name    | Type                   | Description                                                             |
-| ------- | ---------------------- | ----------------------------------------------------------------------- |
-| message | struct IBridge.Message | The message that corresponds to the ERC721 deposit on the source chain. |
 
 ### onERC721Received
 
@@ -71,18 +63,11 @@ If any other value is returned or the interface is not implemented by the recipi
 
 The selector can be obtained in Solidity with `IERC721Receiver.onERC721Received.selector`.\_
 
-### supportsInterface
+### name
 
 ```solidity
-function supportsInterface(bytes4 interfaceId) public view virtual returns (bool)
+function name() public pure returns (bytes32)
 ```
-
-\_Returns true if this contract implements the interface defined by
-`interfaceId`. See the corresponding
-https://eips.ethereum.org/EIPS/eip-165#how-interfaces-are-identified[EIP section]
-to learn more about how these ids are created.
-
-This function call must use less than 30 000 gas.\_
 
 ---
 
@@ -91,3 +76,8 @@ This function call must use less than 30 000 gas.\_
 ## ProxiedSingletonERC721Vault
 
 Proxied version of the parent contract.
+
+_Deploy this contract as a singleton per chain for use by multiple L2s
+or L3s. No singleton check is performed within the code; it's the deployer's
+responsibility to ensure this. Singleton deployment is essential for
+enabling multi-hop bridging across all Taiko L2/L3s._

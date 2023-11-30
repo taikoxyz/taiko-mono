@@ -14,7 +14,7 @@
 
   let recipientComponent: Recipient;
   let processingFeeComponent: ProcessingFee;
-  export let hasEnoughEth: boolean;
+  export let hasEnoughEth: boolean = false;
 
   const dispatch = createEventDispatcher();
 

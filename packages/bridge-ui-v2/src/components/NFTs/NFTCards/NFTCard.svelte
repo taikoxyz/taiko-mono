@@ -8,9 +8,9 @@
   export let selectNFT: (nft: NFT) => void;
   export let viewOnly: boolean;
 
-  const placeholderUrl = 'https://placehold.co/400x400.png';
+  const placeholderUrl = '/placeholder.svg';
 
-  let imageUrl: string = nft.metadata?.image || placeholderUrl;
+  $: imageUrl = nft.metadata?.image || placeholderUrl;
 
   let isChecked = false;
 

@@ -8,6 +8,8 @@ The TaikoToken (TKO), in the protocol is used for prover collateral
 in the form of bonds. It is an ERC20 token with 18 decimal places of
 precision.
 
+_Labeled in AddressResolver as "taiko_token"_
+
 ### TKO_INVALID_ADDR
 
 ```solidity
@@ -23,45 +25,19 @@ error TKO_INVALID_PREMINT_PARAMS()
 ### init
 
 ```solidity
-function init(address _addressManager, string _name, string _symbol, address[] _premintRecipients, uint256[] _premintAmounts) public
+function init(address _addressManager, string _name, string _symbol, address _recipient) public
 ```
 
-Initializes the TaikoToken contract and mints initial tokens to
-specified recipients.
+Initializes the TaikoToken contract and mints initial tokens.
 
 #### Parameters
 
-| Name                | Type      | Description                                                         |
-| ------------------- | --------- | ------------------------------------------------------------------- |
-| \_addressManager    | address   | The {AddressManager} address.                                       |
-| \_name              | string    | The name of the token.                                              |
-| \_symbol            | string    | The symbol of the token.                                            |
-| \_premintRecipients | address[] | An array of addresses to receive initial token minting.             |
-| \_premintAmounts    | uint256[] | An array of token amounts to mint for each corresponding recipient. |
-
-### snapshot
-
-```solidity
-function snapshot() public
-```
-
-Creates a new token snapshot.
-
-### pause
-
-```solidity
-function pause() public
-```
-
-Pauses token transfers.
-
-### unpause
-
-```solidity
-function unpause() public
-```
-
-Unpauses token transfers.
+| Name             | Type    | Description                                   |
+| ---------------- | ------- | --------------------------------------------- |
+| \_addressManager | address | The {AddressManager} address.                 |
+| \_name           | string  | The name of the token.                        |
+| \_symbol         | string  | The symbol of the token.                      |
+| \_recipient      | address | The address to receive initial token minting. |
 
 ### mint
 
@@ -92,6 +68,14 @@ Burns tokens from the specified address.
 | ------ | ------- | -------------------------------- |
 | from   | address | The address to burn tokens from. |
 | amount | uint256 | The amount of tokens to burn.    |
+
+### snapshot
+
+```solidity
+function snapshot() public
+```
+
+Creates a new token snapshot.
 
 ### transfer
 

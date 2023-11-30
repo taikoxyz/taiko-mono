@@ -14,79 +14,72 @@ L1 libraries._
 ### BlockProposed
 
 ```solidity
-event BlockProposed(uint256 blockId, address assignedProver, uint96 livenessBond, uint256 proverFee, uint256 reward, struct TaikoData.BlockMetadata meta)
+event BlockProposed(uint256 blockId, address assignedProver, uint96 livenessBond, struct TaikoData.BlockMetadata meta, struct TaikoData.EthDeposit[] depositsProcessed)
 ```
 
 _Emitted when a block is proposed._
 
 #### Parameters
 
-| Name           | Type                           | Description                                                         |
-| -------------- | ------------------------------ | ------------------------------------------------------------------- |
-| blockId        | uint256                        | The ID of the proposed block.                                       |
-| assignedProver | address                        | The address of the assigned prover for the block.                   |
-| livenessBond   | uint96                         | The bond which needs to be paid by the assigned prover.             |
-| proverFee      | uint256                        | The amount paid to the prover.                                      |
-| reward         | uint256                        | The proposer's block reward in Taiko token.                         |
-| meta           | struct TaikoData.BlockMetadata | The block metadata containing information about the proposed block. |
-
-### TransitionProved
-
-```solidity
-event TransitionProved(uint256 blockId, bytes32 parentHash, bytes32 blockHash, bytes32 signalRoot, address prover, uint96 validityBond, uint16 tier)
-```
-
-_Emitted when a block transition is proven or re-proven._
-
-#### Parameters
-
-| Name         | Type    | Description                                                               |
-| ------------ | ------- | ------------------------------------------------------------------------- |
-| blockId      | uint256 | The ID of the proven block.                                               |
-| parentHash   | bytes32 | The hash of the parent block.                                             |
-| blockHash    | bytes32 | The hash of the proven block.                                             |
-| signalRoot   | bytes32 | The signal root of the proven block.                                      |
-| prover       | address | The address of the prover who submitted the proof.                        |
-| validityBond | uint96  | The amount prover pays to have finanical incentive to submit legit proof. |
-| tier         | uint16  | The tier per given transition.                                            |
-
-### TransitionContested
-
-```solidity
-event TransitionContested(uint256 blockId, bytes32 parentHash, bytes32 blockHash, bytes32 signalRoot, address contester, uint96 contestBond, uint16 tier)
-```
-
-_Emitted when a block transition is contested._
-
-#### Parameters
-
-| Name        | Type    | Description                                                |
-| ----------- | ------- | ---------------------------------------------------------- |
-| blockId     | uint256 | The ID of the proven block.                                |
-| parentHash  | bytes32 | The hash of the parent block.                              |
-| blockHash   | bytes32 | The hash of the proven block.                              |
-| signalRoot  | bytes32 | The signal root of the proven block.                       |
-| contester   | address | The address of the contester.                              |
-| contestBond | uint96  | The amount contester pays to signal it's legit intentions. |
-| tier        | uint16  | The tier per given transition.                             |
+| Name              | Type                           | Description                                                         |
+| ----------------- | ------------------------------ | ------------------------------------------------------------------- |
+| blockId           | uint256                        | The ID of the proposed block.                                       |
+| assignedProver    | address                        | The block's assigned prover.                                        |
+| livenessBond      | uint96                         | The bond in Taiko token from the assigned prover.                   |
+| meta              | struct TaikoData.BlockMetadata | The block metadata containing information about the proposed block. |
+| depositsProcessed | struct TaikoData.EthDeposit[]  | Ether deposits processed.                                           |
 
 ### BlockVerified
 
 ```solidity
-event BlockVerified(uint256 blockId, address assignedProver, address prover, bytes32 blockHash, bytes32 signalRoot)
+event BlockVerified(uint256 blockId, address assignedProver, address prover, bytes32 blockHash, bytes32 signalRoot, uint16 tier, uint8 contestations)
 ```
 
 _Emitted when a block is verified._
 
 #### Parameters
 
-| Name           | Type    | Description                                                        |
-| -------------- | ------- | ------------------------------------------------------------------ |
-| blockId        | uint256 | The ID of the verified block.                                      |
-| assignedProver | address | The address of the originally assigned prover.                     |
-| prover         | address | The address of the prover that proved the block which is verified. |
-| blockHash      | bytes32 | The hash of the verified block.                                    |
-| signalRoot     | bytes32 | The latest value of the signal service storage.                    |
+| Name           | Type    | Description                                                 |
+| -------------- | ------- | ----------------------------------------------------------- |
+| blockId        | uint256 | The ID of the verified block.                               |
+| assignedProver | address | The block's assigned prover.                                |
+| prover         | address | The prover whose transition is used for verifing the block. |
+| blockHash      | bytes32 | The hash of the verified block.                             |
+| signalRoot     | bytes32 | The latest value of the signal service storage.             |
+| tier           | uint16  | The tier ID of the proof.                                   |
+| contestations  | uint8   | Number of total contestations.                              |
+
+### TransitionProved
+
+```solidity
+event TransitionProved(uint256 blockId, struct TaikoData.Transition tran, address prover, uint96 validityBond, uint16 tier)
+```
+
+_Emitted when a block transition is proved or re-proved._
+
+### TransitionContested
+
+```solidity
+event TransitionContested(uint256 blockId, struct TaikoData.Transition tran, address contester, uint96 contestBond, uint16 tier)
+```
+
+_Emitted when a block transition is contested._
+
+### BlobCached
+
+```solidity
+event BlobCached(bytes32 blobHash)
+```
+
+_Emitted when a blob is cached for reuse._
+
+### ProvingPaused
+
+```solidity
+event ProvingPaused(bool paused)
+```
+
+_Emitted when proving has been paused_
 
 ### EthDeposited
 
@@ -110,12 +103,6 @@ event TokenDeposited(uint256 amount)
 
 _Emitted when a user deposited Taiko token into this contract._
 
-#### Parameters
-
-| Name   | Type    | Description         |
-| ------ | ------- | ------------------- |
-| amount | uint256 | The deposit amount. |
-
 ### TokenWithdrawn
 
 ```solidity
@@ -124,53 +111,20 @@ event TokenWithdrawn(uint256 amount)
 
 _Emitted when a user withdrawed Taiko token from this contract._
 
-#### Parameters
-
-| Name   | Type    | Description           |
-| ------ | ------- | --------------------- |
-| amount | uint256 | The withdrawn amount. |
-
 ### TokenCredited
 
 ```solidity
-event TokenCredited(uint256 amount, bool minted)
+event TokenCredited(address to, uint256 amount)
 ```
 
-_Emitted when Taiko token are credited to the user's in-protocol balance._
-
-#### Parameters
-
-| Name   | Type    | Description                         |
-| ------ | ------- | ----------------------------------- |
-| amount | uint256 | The withdrawn amount.               |
-| minted | bool    | Indicating if minting is necessary. |
+_Emitted when Taiko token are credited to the user's in-protocol
+balance._
 
 ### TokenDebited
 
 ```solidity
-event TokenDebited(uint256 amount, bool fromLocalBalance)
+event TokenDebited(address from, uint256 amount)
 ```
 
-_Emitted when Taiko token are debited from the user's in-protocol balance._
-
-#### Parameters
-
-| Name             | Type    | Description                                     |
-| ---------------- | ------- | ----------------------------------------------- |
-| amount           | uint256 | The debit amount.                               |
-| fromLocalBalance | bool    | Indicating if debit from local balance or burn. |
-
-### TokenWithdrawnByOwner
-
-```solidity
-event TokenWithdrawnByOwner(address to, uint256 amount)
-```
-
-_Emitted when the owner withdrawn Taiko token from this contract._
-
-#### Parameters
-
-| Name   | Type    | Description              |
-| ------ | ------- | ------------------------ |
-| to     | address | The beneficiary address. |
-| amount | uint256 | The amount.              |
+_Emitted when Taiko token are debited from the user's in-protocol
+balance._

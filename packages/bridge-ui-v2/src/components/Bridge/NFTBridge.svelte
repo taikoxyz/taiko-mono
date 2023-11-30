@@ -45,7 +45,7 @@
 
   function onNetworkChange(newNetwork: Network, oldNetwork: Network) {
     updateForm();
-    activeStep = NFTSteps.CONFIRM;
+    activeStep = NFTSteps.IMPORT;
     if (newNetwork) {
       const destChainId = $destinationChain?.id;
       if (!$destinationChain?.id) return;
@@ -103,6 +103,7 @@
     if (nftIdInputComponent) nftIdInputComponent.clearIds();
 
     $recipientAddress = $account?.address || null;
+    bridgingStatus = 'pending';
     // $processingFee = 0n;
     $selectedToken = ETHToken;
     importMethod === null;
@@ -150,12 +151,15 @@
   };
 
   const prefetchImage = async () => {
+    const srcChainId = $network?.id;
+    const destChainId = $destinationChain?.id;
+    if (!srcChainId || !destChainId) throw new Error('both src and dest chain id must be defined');
     await Promise.all(
       nftIdArray.map(async (id) => {
         const token = $selectedToken as NFT;
         if (token) {
           token.tokenId = id;
-          fetchNFTImageUrl(token).then((nftWithUrl) => {
+          fetchNFTImageUrl(token, srcChainId, destChainId).then((nftWithUrl) => {
             $selectedToken = nftWithUrl;
             $selectedNFTs = [nftWithUrl];
           });
@@ -175,17 +179,13 @@
       getTokenWithInfoFromAddress({ contractAddress, srcChainId: srcChainId, tokenId, owner: $account?.address })
         .then(async (token) => {
           if (!token) throw new Error('no token with info');
-          // detectedTokenType = token.type;
-          // idInputState = IDInputState.VALID;
           $selectedToken = token;
           await prefetchImage();
+
           nextStep();
         })
         .catch((err) => {
           console.error(err);
-          // detectedTokenType = null;
-          // idInputState = IDInputState.INVALID;
-          // invalidToken = true;
         });
   };
 
@@ -199,8 +199,13 @@
   // Set the content text based on the current step
   $: {
     const stepKey = NFTSteps[activeStep].toLowerCase();
-    nftStepTitle = $t(`bridge.title.nft.${stepKey}`);
-    nftStepDescription = $t(`bridge.description.nft.${stepKey}`);
+    if (activeStep === NFTSteps.CONFIRM) {
+      nftStepTitle = '';
+      nftStepDescription = '';
+    } else {
+      nftStepTitle = $t(`bridge.title.nft.${stepKey}`);
+      nftStepDescription = $t(`bridge.description.nft.${stepKey}`);
+    }
     nextStepButtonText = getStepText();
   }
 

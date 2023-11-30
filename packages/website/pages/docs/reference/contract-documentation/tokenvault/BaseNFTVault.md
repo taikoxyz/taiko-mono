@@ -10,7 +10,7 @@ Abstract contract for bridging NFTs across different chains.
 
 ```solidity
 struct CanonicalNFT {
-  uint256 chainId;
+  uint64 chainId;
   address addr;
   string symbol;
   string name;
@@ -21,7 +21,7 @@ struct CanonicalNFT {
 
 ```solidity
 struct BridgeTransferOp {
-  uint256 destChainId;
+  uint64 destChainId;
   address to;
   address token;
   uint256[] tokenIds;
@@ -45,10 +45,10 @@ bytes4 ERC1155_INTERFACE_ID
 bytes4 ERC721_INTERFACE_ID
 ```
 
-### isBridgedToken
+### MAX_TOKEN_PER_TXN
 
 ```solidity
-mapping(address => bool) isBridgedToken
+uint256 MAX_TOKEN_PER_TXN
 ```
 
 ### bridgedToCanonical
@@ -66,13 +66,13 @@ mapping(uint256 => mapping(address => address)) canonicalToBridged
 ### BridgedTokenDeployed
 
 ```solidity
-event BridgedTokenDeployed(uint256 chainId, address ctoken, address btoken, string ctokenSymbol, string ctokenName)
+event BridgedTokenDeployed(uint64 chainId, address ctoken, address btoken, string ctokenSymbol, string ctokenName)
 ```
 
 ### TokenSent
 
 ```solidity
-event TokenSent(bytes32 msgHash, address from, address to, uint256 destChainId, address token, uint256[] tokenIds, uint256[] amounts)
+event TokenSent(bytes32 msgHash, address from, address to, uint64 destChainId, address token, uint256[] tokenIds, uint256[] amounts)
 ```
 
 ### TokenReleased
@@ -84,13 +84,7 @@ event TokenReleased(bytes32 msgHash, address from, address token, uint256[] toke
 ### TokenReceived
 
 ```solidity
-event TokenReceived(bytes32 msgHash, address from, address to, uint256 srcChainId, address token, uint256[] tokenIds, uint256[] amounts)
-```
-
-### VAULT_INVALID_TO
-
-```solidity
-error VAULT_INVALID_TO()
+event TokenReceived(bytes32 msgHash, address from, address to, uint64 srcChainId, address token, uint256[] tokenIds, uint256[] amounts)
 ```
 
 ### VAULT_INVALID_TOKEN
@@ -153,16 +147,8 @@ error VAULT_TOKEN_ARRAY_MISMATCH()
 error VAULT_MAX_TOKEN_PER_TXN_EXCEEDED()
 ```
 
-### init
+### withValidOperation
 
 ```solidity
-function init(address addressManager) external
+modifier withValidOperation(struct BaseNFTVault.BridgeTransferOp op)
 ```
-
-Initializes the contract with an address manager.
-
-#### Parameters
-
-| Name           | Type    | Description                         |
-| -------------- | ------- | ----------------------------------- |
-| addressManager | address | The address of the address manager. |

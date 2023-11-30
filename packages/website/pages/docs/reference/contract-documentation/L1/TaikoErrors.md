@@ -20,34 +20,28 @@ error L1_ALREADY_CONTESTED()
 error L1_ALREADY_PROVED()
 ```
 
-### L1_ASSIGNMENT_EXPIRED
-
-```solidity
-error L1_ASSIGNMENT_EXPIRED()
-```
-
-### L1_ASSIGNMENT_INVALID_SIG
-
-```solidity
-error L1_ASSIGNMENT_INVALID_SIG()
-```
-
-### L1_ASSIGNMENT_INVALID_PARAMS
-
-```solidity
-error L1_ASSIGNMENT_INVALID_PARAMS()
-```
-
-### L1_ASSIGNMENT_INSUFFICIENT_FEE
-
-```solidity
-error L1_ASSIGNMENT_INSUFFICIENT_FEE()
-```
-
 ### L1_ASSIGNED_PROVER_NOT_ALLOWED
 
 ```solidity
 error L1_ASSIGNED_PROVER_NOT_ALLOWED()
+```
+
+### L1_BLOB_FOR_DA_DISABLED
+
+```solidity
+error L1_BLOB_FOR_DA_DISABLED()
+```
+
+### L1_BLOB_NOT_FOUND
+
+```solidity
+error L1_BLOB_NOT_FOUND()
+```
+
+### L1_BLOB_NOT_REUSEABLE
+
+```solidity
+error L1_BLOB_NOT_REUSEABLE()
 ```
 
 ### L1_BLOCK_MISMATCH
@@ -56,10 +50,22 @@ error L1_ASSIGNED_PROVER_NOT_ALLOWED()
 error L1_BLOCK_MISMATCH()
 ```
 
+### L1_INSUFFICIENT_TOKEN
+
+```solidity
+error L1_INSUFFICIENT_TOKEN()
+```
+
 ### L1_INVALID_ADDRESS
 
 ```solidity
 error L1_INVALID_ADDRESS()
+```
+
+### L1_INVALID_AMOUNT
+
+```solidity
+error L1_INVALID_AMOUNT()
 ```
 
 ### L1_INVALID_BLOCK_ID
@@ -80,22 +86,16 @@ error L1_INVALID_CONFIG()
 error L1_INVALID_ETH_DEPOSIT()
 ```
 
-### L1_INVALID_EVIDENCE
-
-```solidity
-error L1_INVALID_EVIDENCE()
-```
-
-### L1_INVALID_METADATA
-
-```solidity
-error L1_INVALID_METADATA()
-```
-
 ### L1_INVALID_PARAM
 
 ```solidity
 error L1_INVALID_PARAM()
+```
+
+### L1_INVALID_PAUSE_STATUS
+
+```solidity
+error L1_INVALID_PAUSE_STATUS()
 ```
 
 ### L1_INVALID_PROOF
@@ -104,22 +104,10 @@ error L1_INVALID_PARAM()
 error L1_INVALID_PROOF()
 ```
 
-### L1_INVALID_PROPOSER
-
-```solidity
-error L1_INVALID_PROPOSER()
-```
-
 ### L1_INVALID_PROVER
 
 ```solidity
 error L1_INVALID_PROVER()
-```
-
-### L1_INVALID_PROVER_SIG
-
-```solidity
-error L1_INVALID_PROVER_SIG()
 ```
 
 ### L1_INVALID_TIER
@@ -128,22 +116,52 @@ error L1_INVALID_PROVER_SIG()
 error L1_INVALID_TIER()
 ```
 
+### L1_INVALID_TRANSITION
+
+```solidity
+error L1_INVALID_TRANSITION()
+```
+
+### L1_LIVENESS_BOND_NOT_RECEIVED
+
+```solidity
+error L1_LIVENESS_BOND_NOT_RECEIVED()
+```
+
 ### L1_NOT_ASSIGNED_PROVER
 
 ```solidity
 error L1_NOT_ASSIGNED_PROVER()
 ```
 
-### L1_TIER_NOT_FOUND
+### L1_PROPOSER_NOT_EOA
 
 ```solidity
-error L1_TIER_NOT_FOUND()
+error L1_PROPOSER_NOT_EOA()
+```
+
+### L1_PROVING_PAUSED
+
+```solidity
+error L1_PROVING_PAUSED()
+```
+
+### L1_RECEIVE_DISABLED
+
+```solidity
+error L1_RECEIVE_DISABLED()
 ```
 
 ### L1_TOO_MANY_BLOCKS
 
 ```solidity
 error L1_TOO_MANY_BLOCKS()
+```
+
+### L1_TOO_MANY_TIERS
+
+```solidity
+error L1_TOO_MANY_TIERS()
 ```
 
 ### L1_TRANSITION_ID_ZERO
@@ -158,22 +176,10 @@ error L1_TRANSITION_ID_ZERO()
 error L1_TRANSITION_NOT_FOUND()
 ```
 
-### L1_TXLIST_INVALID_RANGE
+### L1_TXLIST_OFFSET_SIZE
 
 ```solidity
-error L1_TXLIST_INVALID_RANGE()
-```
-
-### L1_TXLIST_MISMATCH
-
-```solidity
-error L1_TXLIST_MISMATCH()
-```
-
-### L1_TXLIST_NOT_FOUND
-
-```solidity
-error L1_TXLIST_NOT_FOUND()
+error L1_TXLIST_OFFSET_SIZE()
 ```
 
 ### L1_TXLIST_TOO_LARGE
@@ -186,6 +192,12 @@ error L1_TXLIST_TOO_LARGE()
 
 ```solidity
 error L1_UNAUTHORIZED()
+```
+
+### L1_UNEXPECTED_PARENT
+
+```solidity
+error L1_UNEXPECTED_PARENT()
 ```
 
 ### L1_UNEXPECTED_TRANSITION_ID
