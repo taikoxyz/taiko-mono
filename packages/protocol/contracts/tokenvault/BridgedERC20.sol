@@ -76,7 +76,6 @@ contract BridgedERC20 is
     /// @param amount The amount of tokens to mint.
     function mint(address account, uint256 amount) public onlyFromNamed("erc20_vault") {
         _mint(account, amount);
-        emit Transfer(address(0), account, amount);
     }
 
     /// @notice Burns tokens from an account.
@@ -85,7 +84,6 @@ contract BridgedERC20 is
     /// @param amount The amount of tokens to burn.
     function burn(address account, uint256 amount) public onlyFromNamed("erc20_vault") {
         _burn(account, amount);
-        emit Transfer(account, address(0), amount);
     }
 
     /// @notice Transfers tokens from the caller to another account.
