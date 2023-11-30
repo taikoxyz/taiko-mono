@@ -21,10 +21,10 @@ contract BridgedERC20 is BridgedERC20Base, IERC20MetadataUpgradeable, ERC20Upgra
     uint8 private srcDecimals;
     uint256 public srcChainId; // slot 2
 
-    uint256[46] private __gap;
+    uint256[48] private __gap;
 
-    error BRIDGED_TOKEN_CANNOT_RECEIVE();
-    error BRIDGED_TOKEN_INVALID_PARAMS();
+    error BTOKEN_CANNOT_RECEIVE();
+    error BTOKEN_INVALID_PARAMS();
 
     /// @notice Initializes the contract.
     /// @dev Different BridgedERC20 Contract is deployed per unique _srcToken
@@ -51,7 +51,7 @@ contract BridgedERC20 is BridgedERC20Base, IERC20MetadataUpgradeable, ERC20Upgra
             _srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid
                 || bytes(_symbol).length == 0 || bytes(_name).length == 0
         ) {
-            revert BRIDGED_TOKEN_INVALID_PARAMS();
+            revert BTOKEN_INVALID_PARAMS();
         }
 
         // Initialize OwnerUUPSUpgradable and ERC20Upgradeable
@@ -77,7 +77,7 @@ contract BridgedERC20 is BridgedERC20Base, IERC20MetadataUpgradeable, ERC20Upgra
         override(ERC20Upgradeable, IERC20Upgradeable)
         returns (bool)
     {
-        if (to == address(this)) revert BRIDGED_TOKEN_CANNOT_RECEIVE();
+        if (to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
         return ERC20Upgradeable.transfer(to, amount);
     }
 
@@ -97,7 +97,7 @@ contract BridgedERC20 is BridgedERC20Base, IERC20MetadataUpgradeable, ERC20Upgra
         returns (bool)
     {
         if (to == address(this)) {
-            revert BRIDGED_TOKEN_CANNOT_RECEIVE();
+            revert BTOKEN_CANNOT_RECEIVE();
         }
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
@@ -145,9 +145,6 @@ contract BridgedERC20 is BridgedERC20Base, IERC20MetadataUpgradeable, ERC20Upgra
         _mint(account, amount);
     }
 
-    /// @notice Burns `amount` tokens from the `from` address.
-    /// @param from The account from which the tokens will be burned.
-    /// @param amount The amount of tokens to burn.
     function _burnToken(address from, uint256 amount) internal override {
         _burn(from, amount);
     }

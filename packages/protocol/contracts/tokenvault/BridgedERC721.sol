@@ -19,9 +19,9 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
 
     uint256[48] private __gap;
 
-    error BRIDGED_TOKEN_CANNOT_RECEIVE();
-    error BRIDGED_TOKEN_INVALID_PARAMS();
-    error BRIDGED_TOKEN_INVALID_BURN();
+    error BTOKEN_CANNOT_RECEIVE();
+    error BTOKEN_INVALID_PARAMS();
+    error BTOKEN_INVALID_BURN();
 
     /// @dev Initializer function to be called after deployment.
     /// @param _addressManager The address of the address manager.
@@ -43,7 +43,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
             _srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid
                 || bytes(_symbol).length == 0 || bytes(_name).length == 0
         ) {
-            revert BRIDGED_TOKEN_INVALID_PARAMS();
+            revert BTOKEN_INVALID_PARAMS();
         }
         _Essential_init(_addressManager);
         __ERC721_init(_name, _symbol);
@@ -80,7 +80,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     {
         // Check if the caller is the owner of the token.
         if (ownerOf(tokenId) != account) {
-            revert BRIDGED_TOKEN_INVALID_BURN();
+            revert BTOKEN_INVALID_BURN();
         }
         _burn(tokenId);
     }
@@ -98,7 +98,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         override(ERC721Upgradeable)
     {
         if (to == address(this)) {
-            revert BRIDGED_TOKEN_CANNOT_RECEIVE();
+            revert BTOKEN_CANNOT_RECEIVE();
         }
         return ERC721Upgradeable.transferFrom(from, to, tokenId);
     }

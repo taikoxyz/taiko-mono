@@ -26,7 +26,7 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
         }
 
         if (addr == migratingAddress && inbound == migratingInbound) {
-            revert("BRIDGED_TOKEN_INVALID_PARAMS()");
+            revert("BTOKEN_INVALID_PARAMS()");
         }
 
         migratingAddress = addr;
@@ -38,10 +38,10 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
     /// @param account The account to mint tokens to.
     /// @param amount The amount of tokens to mint.
     function mint(address account, uint256 amount) public nonReentrant whenNotPaused {
-        // if (migratingTo != address(0)) revert BRIDGED_TOKEN_PERMISSION_DENIED();
+        // if (migratingTo != address(0)) revert BTOKEN_PERMISSION_DENIED();
 
         // if (msg.sender != resolve("erc20_vault", true)) {
-        //     if (msg.sender != migratingFrom) revert BRIDGED_TOKEN_PERMISSION_DENIED();
+        //     if (msg.sender != migratingFrom) revert BTOKEN_PERMISSION_DENIED();
         //     emit MigratedTo(migratingFrom, account, amount);
         // }
 
