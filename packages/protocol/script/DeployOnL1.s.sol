@@ -77,7 +77,12 @@ contract DeployOnL1 is DeployCapability {
         uint64 l2ChainId = taikoL1.getConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
-        if (signalService.owner() == msg.sender) {
+        console2.log("--------XXX-------------------------");
+        console2.log("msg.sender: ", msg.sender);
+        console2.log("address(this): ", address(this));
+        console2.log("signalService.owner(): ", signalService.owner());
+
+        if (signalService.owner() == address(this)) {
             signalService.authorize(taikoL1Addr, bytes32(block.chainid));
             signalService.authorize(vm.envAddress("TAIKO_L2_ADDRESS"), bytes32(uint256(l2ChainId)));
             signalService.transferOwnership(timelock);
@@ -117,10 +122,10 @@ contract DeployOnL1 is DeployCapability {
         // Deploy other contracts
         deployAuxContracts();
 
-        if (AddressManager(sharedAddressManager).owner() == msg.sender) {
+        if (AddressManager(sharedAddressManager).owner() == address(this)) {
             AddressManager(sharedAddressManager).transferOwnership(timelock);
         }
-        if (AddressManager(rollupAddressManager).owner() == msg.sender) {
+        if (AddressManager(rollupAddressManager).owner() == address(this)) {
             AddressManager(rollupAddressManager).transferOwnership(timelock);
         }
     }
