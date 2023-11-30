@@ -16,7 +16,7 @@ contract TestSignalService is TaikoTest {
         vm.deal(Bob, 1 ether);
 
         addressManager = AddressManager(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
                 data: bytes.concat(AddressManager.init.selector),
@@ -26,7 +26,7 @@ contract TestSignalService is TaikoTest {
         );
 
         signalService = SignalService(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
                 data: bytes.concat(SignalService.init.selector)
@@ -34,7 +34,7 @@ contract TestSignalService is TaikoTest {
         );
 
         destSignalService = SignalService(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
                 data: bytes.concat(SignalService.init.selector)
@@ -42,20 +42,16 @@ contract TestSignalService is TaikoTest {
         );
 
         crossChainSync = DummyCrossChainSync(
-            LibDeployHelper.deployProxy({
+            deployProxy({
                 name: "dummy_cross_chain_sync",
                 impl: address(new DummyCrossChainSync()),
                 data: ""
             })
         );
 
-        LibDeployHelper.register(
-            address(addressManager), "signal_service", address(destSignalService), destChainId
-        );
+        register(address(addressManager), "signal_service", address(destSignalService), destChainId);
 
-        LibDeployHelper.register(
-            address(addressManager), "taiko", address(crossChainSync), destChainId
-        );
+        register(address(addressManager), "taiko", address(crossChainSync), destChainId);
 
         vm.stopPrank();
     }

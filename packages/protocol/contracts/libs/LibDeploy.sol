@@ -25,7 +25,7 @@ library LibDeploy {
         if (impl == address(0)) revert NULL_IMPL_ADDR();
         proxy = address(new ERC1967Proxy(impl, data));
 
-        if (owner != address(0) && owner != msg.sender) {
+        if (owner != address(0) && owner != OwnableUpgradeable(proxy).owner()) {
             OwnableUpgradeable(proxy).transferOwnership(owner);
         }
     }

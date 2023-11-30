@@ -9,32 +9,32 @@ contract MyERC20 is ERC20 {
     }
 }
 
-contract TestTimeLockTokenPool is TaikoTest {
+contract TestTimelockTokenPool is TaikoTest {
     address internal Vault = randAddress();
 
     ERC20 tko = new MyERC20(Vault);
-    TimeLockTokenPool pool;
+    TimelockTokenPool pool;
 
     function setUp() public {
-        pool = TimeLockTokenPool(
-            LibDeployHelper.deployProxy({
+        pool = TimelockTokenPool(
+            deployProxy({
                 name: "time_lock_token_pool",
-                impl: address(new TimeLockTokenPool()),
-                data: bytes.concat(TimeLockTokenPool.init.selector, abi.encode(address(tko), Vault))
+                impl: address(new TimelockTokenPool()),
+                data: bytes.concat(TimelockTokenPool.init.selector, abi.encode(address(tko), Vault))
             })
         );
     }
 
     function test_invalid_granting() public {
-        vm.expectRevert(TimeLockTokenPool.INVALID_GRANT.selector);
-        pool.grant(Alice, TimeLockTokenPool.Grant(0, 0, 0, 0, 0, 0, 0));
+        vm.expectRevert(TimelockTokenPool.INVALID_GRANT.selector);
+        pool.grant(Alice, TimelockTokenPool.Grant(0, 0, 0, 0, 0, 0, 0));
 
-        vm.expectRevert(TimeLockTokenPool.INVALID_PARAM.selector);
-        pool.grant(address(0), TimeLockTokenPool.Grant(100e18, 0, 0, 0, 0, 0, 0));
+        vm.expectRevert(TimelockTokenPool.INVALID_PARAM.selector);
+        pool.grant(address(0), TimelockTokenPool.Grant(100e18, 0, 0, 0, 0, 0, 0));
     }
 
     function test_single_grant_zero_grant_period_zero_unlock_period() public {
-        pool.grant(Alice, TimeLockTokenPool.Grant(10_000e18, 0, 0, 0, 0, 0, 0));
+        pool.grant(Alice, TimelockTokenPool.Grant(10_000e18, 0, 0, 0, 0, 0, 0));
         vm.prank(Vault);
         tko.approve(address(pool), 10_000e18);
 
@@ -50,7 +50,7 @@ contract TestTimeLockTokenPool is TaikoTest {
         assertEq(amountWithdrawable, 10_000e18);
 
         // Try to void the grant
-        vm.expectRevert(TimeLockTokenPool.NOTHING_TO_VOID.selector);
+        vm.expectRevert(TimelockTokenPool.NOTHING_TO_VOID.selector);
         pool.void(Alice);
 
         vm.prank(Alice);
@@ -72,7 +72,7 @@ contract TestTimeLockTokenPool is TaikoTest {
 
         pool.grant(
             Alice,
-            TimeLockTokenPool.Grant(10_000e18, 0, 0, 0, unlockStart, unlockCliff, unlockPeriod)
+            TimelockTokenPool.Grant(10_000e18, 0, 0, 0, unlockStart, unlockCliff, unlockPeriod)
         );
         vm.prank(Vault);
         tko.approve(address(pool), 10_000e18);
@@ -136,7 +136,7 @@ contract TestTimeLockTokenPool is TaikoTest {
         uint64 grantCliff = grantStart + grantPeriod / 2;
 
         pool.grant(
-            Alice, TimeLockTokenPool.Grant(10_000e18, grantStart, grantCliff, grantPeriod, 0, 0, 0)
+            Alice, TimelockTokenPool.Grant(10_000e18, grantStart, grantCliff, grantPeriod, 0, 0, 0)
         );
         vm.prank(Vault);
         tko.approve(address(pool), 10_000e18);
@@ -205,7 +205,7 @@ contract TestTimeLockTokenPool is TaikoTest {
 
         pool.grant(
             Alice,
-            TimeLockTokenPool.Grant(
+            TimelockTokenPool.Grant(
                 10_000e18,
                 grantStart,
                 grantCliff,
@@ -294,8 +294,8 @@ contract TestTimeLockTokenPool is TaikoTest {
     }
 
     function test_multiple_grants() public {
-        pool.grant(Alice, TimeLockTokenPool.Grant(10_000e18, 0, 0, 0, 0, 0, 0));
-        pool.grant(Alice, TimeLockTokenPool.Grant(20_000e18, 0, 0, 0, 0, 0, 0));
+        pool.grant(Alice, TimelockTokenPool.Grant(10_000e18, 0, 0, 0, 0, 0, 0));
+        pool.grant(Alice, TimelockTokenPool.Grant(20_000e18, 0, 0, 0, 0, 0, 0));
 
         vm.prank(Vault);
         tko.approve(address(pool), 30_000e18);
@@ -314,8 +314,8 @@ contract TestTimeLockTokenPool is TaikoTest {
 
     function test_void_multiple_grants_before_granted() public {
         uint64 grantStart = uint64(block.timestamp) + 30 days;
-        pool.grant(Alice, TimeLockTokenPool.Grant(10_000e18, grantStart, 0, 0, 0, 0, 0));
-        pool.grant(Alice, TimeLockTokenPool.Grant(20_000e18, grantStart, 0, 0, 0, 0, 0));
+        pool.grant(Alice, TimelockTokenPool.Grant(10_000e18, grantStart, 0, 0, 0, 0, 0));
+        pool.grant(Alice, TimelockTokenPool.Grant(20_000e18, grantStart, 0, 0, 0, 0, 0));
 
         vm.prank(Vault);
         tko.approve(address(pool), 30_000e18);
@@ -334,7 +334,7 @@ contract TestTimeLockTokenPool is TaikoTest {
         // Try to void the grant
         pool.void(Alice);
 
-        TimeLockTokenPool.Grant[] memory grants = pool.getMyGrants(Alice);
+        TimelockTokenPool.Grant[] memory grants = pool.getMyGrants(Alice);
         for (uint256 i; i < grants.length; ++i) {
             assertEq(grants[i].grantStart, 0);
             assertEq(grants[i].grantPeriod, 0);
@@ -350,8 +350,8 @@ contract TestTimeLockTokenPool is TaikoTest {
 
     function test_void_multiple_grants_after_granted() public {
         uint64 grantStart = uint64(block.timestamp) + 30 days;
-        pool.grant(Alice, TimeLockTokenPool.Grant(10_000e18, grantStart, 0, 0, 0, 0, 0));
-        pool.grant(Alice, TimeLockTokenPool.Grant(20_000e18, grantStart, 0, 0, 0, 0, 0));
+        pool.grant(Alice, TimelockTokenPool.Grant(10_000e18, grantStart, 0, 0, 0, 0, 0));
+        pool.grant(Alice, TimelockTokenPool.Grant(20_000e18, grantStart, 0, 0, 0, 0, 0));
 
         vm.prank(Vault);
         tko.approve(address(pool), 30_000e18);
@@ -372,15 +372,15 @@ contract TestTimeLockTokenPool is TaikoTest {
 
         // Try to void the grant
         // Try to void the grant
-        vm.expectRevert(TimeLockTokenPool.NOTHING_TO_VOID.selector);
+        vm.expectRevert(TimelockTokenPool.NOTHING_TO_VOID.selector);
         pool.void(Alice);
     }
 
     function test_void_multiple_grants_in_the_middle() public {
         uint64 grantStart = uint64(block.timestamp);
         uint32 grantPeriod = 100 days;
-        pool.grant(Alice, TimeLockTokenPool.Grant(10_000e18, grantStart, 0, grantPeriod, 0, 0, 0));
-        pool.grant(Alice, TimeLockTokenPool.Grant(20_000e18, grantStart, 0, grantPeriod, 0, 0, 0));
+        pool.grant(Alice, TimelockTokenPool.Grant(10_000e18, grantStart, 0, grantPeriod, 0, 0, 0));
+        pool.grant(Alice, TimelockTokenPool.Grant(20_000e18, grantStart, 0, grantPeriod, 0, 0, 0));
 
         vm.prank(Vault);
         tko.approve(address(pool), 30_000e18);
