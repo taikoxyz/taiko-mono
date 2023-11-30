@@ -129,7 +129,7 @@ contract DeployOnL1 is DeployCapability {
         }
 
         AddressManager(rollupAddressManager).transferOwnership(timelock);
-        console2.log("** rollupAddressManager ownership tranferred to timelock:", timelock);
+        console2.log("** rollupAddressManager ownership transferred to timelock:", timelock);
     }
 
     function deploySharedContracts()
