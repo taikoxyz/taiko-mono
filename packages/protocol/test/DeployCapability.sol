@@ -40,6 +40,8 @@ abstract contract DeployCapability is Script {
         console2.log("\t proxy : ", proxy);
         console2.log("\t impl  : ", impl);
         console2.log("\t owner : ", OwnableUpgradeable(proxy).owner());
+        // console2.log("\t msg.sender : ", msg.sender);
+        // console2.log("\t this: ", address(this));
 
         vm.writeJson(
             vm.serializeAddress("deployment", Strings.toString(uint256(name)), proxy),
