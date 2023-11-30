@@ -6,6 +6,8 @@
 
 pragma solidity ^0.8.20;
 
+import "../common/EssentialContract.sol";
+
 /// @title IBridgedERC20
 /// @notice Interface for all bridged tokens.
 /// @dev To facilitate compatibility with third-party bridged tokens, such as USDC's native
@@ -22,14 +24,6 @@ interface IBridgedERC20 {
     /// @param amount The amount of tokens to burn.
     function burn(address from, uint256 amount) external;
 
-    /// @notice Configures this contract for token migration to another specified contract.
-    /// @dev Restricts function access exclusively to the vault.
-    /// @param to Target IBridgedERC20 contract designated for receiving the migrated tokens.
-    function startOutboundMigration(address to) external;
-
-    /// @notice Grants permission to a specified contract for migrating tokens to this contract.
-    /// @dev Restricts function access exclusively to the vault.
-    /// @param from An external IBridgedERC20 contract authorized for token migration into this
-    /// contract.
-    function startInboundMigration(address from) external;
+    /// @notice Start or stop migration to/from a specified contract.
+    function changeMigrationStatus(address addr, bool inbound) external;
 }
