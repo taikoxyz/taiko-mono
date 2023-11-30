@@ -149,7 +149,7 @@ contract DeployOnL1 is DeployCapability {
         });
 
         sharedAddressManager = deployProxy({
-            name: "address_manager_for_bridge",
+            name: "shared_address_manager",
             impl: address(new AddressManager()),
             data: bytes.concat(AddressManager.init.selector)
         });
@@ -277,7 +277,7 @@ contract DeployOnL1 is DeployCapability {
         addressNotNull(timelock, "timelock");
 
         rollupAddressManager = deployProxy({
-            name: "address_manager_for_rollup",
+            name: "rollup_address_manager",
             impl: address(new AddressManager()),
             data: bytes.concat(AddressManager.init.selector)
         });
