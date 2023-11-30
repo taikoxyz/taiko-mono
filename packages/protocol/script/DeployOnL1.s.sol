@@ -77,10 +77,11 @@ contract DeployOnL1 is DeployCapability {
         uint64 l2ChainId = taikoL1.getConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
-        console2.log("--------XXX-------------------------");
+        console2.log("------------------------------------------");
         console2.log("msg.sender: ", msg.sender);
         console2.log("address(this): ", address(this));
         console2.log("signalService.owner(): ", signalService.owner());
+        console2.log("------------------------------------------");
 
         if (signalService.owner() == address(this)) {
             signalService.authorize(taikoL1Addr, bytes32(block.chainid));
@@ -187,7 +188,7 @@ contract DeployOnL1 is DeployCapability {
         _timelock.grantRole(_timelock.CANCELLER_ROLE(), securityCouncil);
 
         _timelock.grantRole(_timelock.TIMELOCK_ADMIN_ROLE(), securityCouncil);
-        _timelock.renounceRole(_timelock.TIMELOCK_ADMIN_ROLE(), msg.sender);
+        _timelock.renounceRole(_timelock.TIMELOCK_ADMIN_ROLE(), address(this));
 
         _timelock.transferOwnership(securityCouncil);
 
