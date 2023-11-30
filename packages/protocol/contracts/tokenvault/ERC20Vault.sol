@@ -91,6 +91,7 @@ contract ERC20Vault is BaseVault {
         uint256 amount
     );
 
+    error VAULT_BTOKEN_BLACKLISTED();
     error VAULT_CTOKEN_MISMATCH();
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_AMOUNT();
@@ -107,12 +108,11 @@ contract ERC20Vault is BaseVault {
         onlyOwner
         returns (address btokenOld)
     {
-        if (
-            btokenNew == address(0) || bridgedToCanonical[btokenNew].addr != address(0)
-                || btokenBlacklist[btokenNew]
-        ) {
+        if (btokenNew == address(0) || bridgedToCanonical[btokenNew].addr != address(0)) {
             revert VAULT_INVALID_NEW_BTOKEN();
         }
+
+        if (btokenBlacklist[btokenNew]) revert VAULT_BTOKEN_BLACKLISTED();
 
         if (IBridgedERC20(btokenNew).owner() != owner()) {
             revert VAULT_NOT_SAME_OWNER();
@@ -298,6 +298,8 @@ contract ERC20Vault is BaseVault {
             IBridgedERC20(token).burn(msg.sender, amount);
             _balanceChange = amount;
         } else {
+            if (btokenBlacklist[token]) revert VAULT_BTOKEN_BLACKLISTED();
+
             // If it's a canonical token
             ERC20 t = ERC20(token);
             ctoken = CanonicalERC20({
