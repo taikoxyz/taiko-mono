@@ -28,7 +28,7 @@ const ecosystemData: EcosystemData[] = [
     name: "AIT Protocol",
     link: "https://ait.tech/",
     description:
-      "AIT Protocol is the first’s Web3 data infrastructure focusing on AI data annotations, leverages blockchain technology to deliver a trustless and cross-border labor market being strategically incentivized by crypto economics and having instant cross-nation payment settlements.",
+      "AIT Protocol is the first Web3 data infrastructure focusing on AI data annotations, leverages blockchain technology to deliver a trustless and cross-border labor market being strategically incentivized by crypto economics and having instant cross-nation payment settlements.",
     filters: [],
     isLive: true,
   },
@@ -51,10 +51,28 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/automatanetwork.png",
+    name: "Automata Network",
+    link: "https://www.l2faucet.com/taiko",
+    description:
+      "Automata Network is a modular attestation layer that extends machine-level trust to Ethereum by leveraging optimistic rollups and zero-knowledge proofs in its Proof of Machinehood approach. The application-specific rollup allows on-chain verification for out-of-protocol computation, which creates an unbroken chain of trust that extends upwards through the entire Web3 stack.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/bitget.png",
     name: "Bitget Wallet",
     link: "https://web3.bitget.com/",
     description: "Faster trading with your Web3 trading wallet of the future.",
+    filters: [],
+    isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/blazepay.png",
+    name: "Blazepay",
+    link: "https://blazpay.com",
+    description:
+      "Blazpay, is ONE-STOP crypto Financial Solution, aspires to amalgamate the entirety of financial solutions within a cohesive platform, thereby facilitating the streamlined management of crypto assets for users and Business Owners.",
     filters: [],
     isLive: true,
   },

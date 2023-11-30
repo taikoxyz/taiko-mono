@@ -98,6 +98,7 @@ describe('getContractAddressBasedOnType', () => {
       srcChainId: SRC_CHAIN_ID,
       destChainId: DEST_CHAIN_ID,
       contractType: ContractType.BRIDGE,
+      tokenType: TokenType.ERC20,
     };
 
     const expectedAddress = routingContractsMap[SRC_CHAIN_ID][DEST_CHAIN_ID].bridgeAddress;
@@ -116,6 +117,7 @@ describe('getContractAddressBasedOnType', () => {
       srcChainId: SRC_CHAIN_ID,
       destChainId: DEST_CHAIN_ID,
       contractType: ContractType.CROSSCHAINSYNC,
+      tokenType: TokenType.ERC20,
     };
 
     const expectedAddress = routingContractsMap[SRC_CHAIN_ID][DEST_CHAIN_ID].crossChainSyncAddress;
@@ -134,6 +136,7 @@ describe('getContractAddressBasedOnType', () => {
       srcChainId: SRC_CHAIN_ID,
       destChainId: DEST_CHAIN_ID,
       contractType: ContractType.SIGNALSERVICE,
+      tokenType: TokenType.ERC20,
     };
 
     const expectedAddress = routingContractsMap[SRC_CHAIN_ID][DEST_CHAIN_ID].signalServiceAddress;
@@ -152,6 +155,7 @@ describe('getContractAddressBasedOnType', () => {
       srcChainId: DEST_CHAIN_ID,
       destChainId: SRC_CHAIN_ID,
       contractType: ContractType.SIGNALSERVICE,
+      tokenType: TokenType.ERC20,
     };
 
     const expectedAddress = routingContractsMap[DEST_CHAIN_ID][SRC_CHAIN_ID].signalServiceAddress;

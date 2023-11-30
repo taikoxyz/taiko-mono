@@ -13,12 +13,14 @@
 
   const dialogId = `dialog-${uid()}`;
 
-  const placeholderUrl = 'https://placehold.co/600x600.png';
+  const placeholderUrl = '/placeholder.svg';
 
   export let modalOpen = false;
   export let viewOnly = false;
 
   export let nft: NFT;
+
+  export let srcChainId = $network?.id;
 
   const dispatch = createEventDispatcher();
 
@@ -31,7 +33,7 @@
     modalOpen = false;
   };
 
-  $: currentChain = $network?.id;
+  $: currentChain = Number(srcChainId) || $network?.id;
 
   $: imgUrl = nft.metadata?.image || placeholderUrl;
 </script>

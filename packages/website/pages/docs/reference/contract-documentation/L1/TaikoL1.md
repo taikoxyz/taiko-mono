@@ -295,9 +295,3 @@ Gets the configuration of the TaikoL1 contract.
 | Name | Type                    | Description                                        |
 | ---- | ----------------------- | -------------------------------------------------- |
 | [0]  | struct TaikoData.Config | Config struct containing configuration parameters. |
-
-## title: ProxiedTaikoL1
-
-## ProxiedTaikoL1
-
-Proxied version of the parent contract.

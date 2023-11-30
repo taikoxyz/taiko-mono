@@ -216,8 +216,6 @@ Checks if the contract supports the given interface.
 
 ---
 
-## title: ProxiedERC20Vault
-
 ## ProxiedERC20Vault
 
 Proxied version of the parent contract.

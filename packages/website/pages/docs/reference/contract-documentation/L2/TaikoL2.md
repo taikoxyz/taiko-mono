@@ -248,11 +248,3 @@ Retrieves the current EIP-1559 configuration details.
 | Name | Type                         | Description                                                                                                  |
 | ---- | ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | [0]  | struct TaikoL2.EIP1559Config | The current EIP-1559 configuration details, including the yscale, xscale, and gasIssuedPerSecond parameters. |
-
----
-
-## title: ProxiedSingletonTaikoL2
-
-## ProxiedSingletonTaikoL2
-
-Proxied version of the TaikoL2 contract.
