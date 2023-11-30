@@ -88,6 +88,20 @@
     "nft": {
       "step": {
         "confirm": {
+          "approve": {
+            "description": "Before initiating the bridge, it's necessary to first approve the transfer.",
+            "pending": "Please wait for your transaction to be picked up",
+            "title": "Approval required"
+          },
+          "approved": {
+            "description": "All token are approved, you can now bridge your NFTs",
+            "title": "Proceed to bridge"
+          },
+          "bridge": {
+            "success": {
+              "message": "Your bridge transaction was confirmed. The transaction can take a few minutes to complete, track it <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+            }
+          },
           "button": {
             "back": "Back to bridge"
           },
@@ -156,6 +170,7 @@
     "loading": "Loading",
     "name": "Name",
     "ok": "Ok",
+    "success": "Success!",
     "to": "To",
     "token_id": "Token ID",
     "token_standard": "Token standard"
