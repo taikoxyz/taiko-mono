@@ -145,7 +145,7 @@ contract DeployOnL1 is Script {
             impl: address(new TaikoTimelockController()),
             data: bytes.concat(TaikoTimelockController.init.selector, abi.encode(7 days)),
             registerTo: address(0),
-            owner: msg.sender
+            owner: address(0)
         });
 
         sharedAddressManager = deployProxy({
@@ -153,7 +153,7 @@ contract DeployOnL1 is Script {
             impl: address(new AddressManager()),
             data: bytes.concat(AddressManager.init.selector),
             registerTo: address(0),
-            owner: msg.sender
+            owner: address(0)
         });
 
         address taikoToken = deployProxy({
@@ -364,7 +364,7 @@ contract DeployOnL1 is Script {
             impl: address(new GuardianProver()),
             data: bytes.concat(GuardianProver.init.selector, abi.encode(rollupAddressManager)),
             registerTo: rollupAddressManager,
-            owner: msg.sender
+            owner: address(0)
         });
 
         address[] memory guardians = vm.envAddress("GUARDIAN_PROVERS", ",");
@@ -399,7 +399,7 @@ contract DeployOnL1 is Script {
 
         addressNotNull(addr, "failed yul deployment");
         console2.log(contractPath, addr);
-    }
+
 
     function deployProxy(
         bytes32 name,
@@ -418,7 +418,7 @@ contract DeployOnL1 is Script {
             string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
         );
     }
-
+    
     function addressNotNull(address addr, string memory err) private pure {
         require(addr != address(0), err);
     }

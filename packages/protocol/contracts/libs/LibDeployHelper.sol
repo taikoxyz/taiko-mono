@@ -35,7 +35,8 @@ library LibDeployHelper {
         if (registerTo != address(0)) {
             AddressManager(registerTo).setAddress(uint64(block.chainid), name, proxy);
         }
-        console2.log("> ", Strings.toString(uint256(name)), "@", registerTo);
+
+        console2.log(">", string(abi.encodePacked(name)), "@", registerTo);
         console2.log("\t proxy : ", proxy);
         console2.log("\t impl  : ", impl);
         console2.log("\t owner : ", OwnableUpgradeable(proxy).owner());
