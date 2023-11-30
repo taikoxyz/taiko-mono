@@ -24,11 +24,14 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
     error BB_INVALID_PARAMS();
     error BB_MINT_DISALLOWED();
 
-    function changeMigrationStatus(address addr, bool inbound) external whenNotPaused {
-        if (msg.sender != resolve("erc20_vault", true) && msg.sender != owner()) {
-            revert BB_PERMISSION_DENIED();
-        }
-
+    function changeMigrationStatus(
+        address addr,
+        bool inbound
+    )
+        external
+        whenNotPaused
+        onlyFromOwnerOrNamed("erc20_vault")
+    {
         if (addr == migratingAddress && inbound == migratingInbound) {
             revert BB_INVALID_PARAMS();
         }

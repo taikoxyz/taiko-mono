@@ -37,6 +37,13 @@ abstract contract AddressResolver {
         _;
     }
 
+    /// @dev Modifier that ensures the caller is the owner or resolved address of a given name.
+    /// @param name The name to check against.
+    modifier onlyFromOwnerOrNamed(bytes32 name) {
+        if (msg.sender != owner() && msg.sender != resolve(name, true)) revert RESOLVER_DENIED();
+        _;
+    }
+
     /// @notice Resolves a name to its address deployed on this chain.
     /// @param name Name whose address is to be resolved.
     /// @param allowZeroAddress If set to true, does not throw if the resolved
