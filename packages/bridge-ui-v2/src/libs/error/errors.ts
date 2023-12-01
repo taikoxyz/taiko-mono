@@ -105,3 +105,7 @@ export class ReleaseError extends Error {
 export class UnknownTokenTypeError extends Error {
   name = 'UnknownTokenTypeError';
 }
+
+export class BridgePausedError extends Error {
+  name = 'BridgePausedError';
+}

@@ -280,6 +280,10 @@
     "token": "Token",
     "transactions": "Transactions"
   },
+  "paused_modal": {
+    "description": "The bridge is currently not available. Follow our official communcation channels for more information. ",
+    "title": "Bridge under maintenance!"
+  },
   "processing_fee": {
     "button": {
       "cancel": "Cancel",
@@ -402,6 +406,9 @@
       "dialog": {
         "description": "The bridge message undergoes different stages:",
         "title": "Message status"
+      },
+      "error": {
+        "name": "Failed"
       },
       "failed": {
         "description": "Your bridge transaction was unsuccessful.",

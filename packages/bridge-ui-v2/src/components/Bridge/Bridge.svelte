@@ -18,10 +18,12 @@
   import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
   import { getBridgeArgs } from '$libs/bridge/getBridgeArgs';
   import { handleBridgeError } from '$libs/bridge/handleBridgeErrors';
+  import { BridgePausedError } from '$libs/error';
   import { bridgeTxService } from '$libs/storage';
   import { ETHToken, tokens, TokenType } from '$libs/token';
   import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
   import { refreshUserBalance } from '$libs/util/balance';
+  import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { type Account, account } from '$stores/account';
   import { type Network, network } from '$stores/network';
@@ -80,6 +82,9 @@
   }
 
   async function approve() {
+    isBridgePaused().then(() => {
+      throw new BridgePausedError('Bridge is paused');
+    });
     try {
       if (!$selectedToken || !$network || !$destinationChain) return;
       const type: TokenType = $selectedToken.type;
@@ -142,6 +147,9 @@
   }
 
   async function bridge() {
+    isBridgePaused().then(() => {
+      throw new BridgePausedError('Bridge is paused');
+    });
     if (!$bridgeService || !$selectedToken || !$network || !$destinationChain || !$account?.address) return;
 
     try {

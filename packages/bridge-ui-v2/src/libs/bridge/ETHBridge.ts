@@ -4,8 +4,9 @@ import { UserRejectedRequestError } from 'viem';
 import { bridgeABI } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { bridgeService } from '$config';
-import { ProcessMessageError, ReleaseError, SendMessageError } from '$libs/error';
+import { BridgePausedError, ProcessMessageError, ReleaseError, SendMessageError } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
+import { isBridgePaused } from '$libs/util/checkForPausedContracts';
 import { getLogger } from '$libs/util/logger';
 
 import { Bridge } from './Bridge';
@@ -76,6 +77,10 @@ export class ETHBridge extends Bridge {
   }
 
   async bridge(args: ETHBridgeArgs) {
+    isBridgePaused().then(() => {
+      throw new BridgePausedError('Bridge is paused');
+    });
+
     const { bridgeContract, message } = await ETHBridge._prepareTransaction(args);
     const { value: callValue, fee: processingFee } = message;
 

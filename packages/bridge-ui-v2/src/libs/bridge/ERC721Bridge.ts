@@ -5,12 +5,14 @@ import { erc721ABI, erc721VaultABI } from '$abi';
 import { bridgeService } from '$config';
 import {
   ApproveError,
+  BridgePausedError,
   NoApprovalRequiredError,
   NotApprovedError,
   ProcessMessageError,
   SendERC721Error,
 } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
+import { isBridgePaused } from '$libs/util/checkForPausedContracts';
 import { getLogger } from '$libs/util/logger';
 
 import { Bridge } from './Bridge';
@@ -31,6 +33,10 @@ export class ERC721Bridge extends Bridge {
   }
 
   async requiresApproval({ tokenAddress, spenderAddress, tokenId }: RequireApprovalArgs) {
+    isBridgePaused().then(() => {
+      throw new BridgePausedError('Bridge is paused');
+    });
+
     const tokenContract = getContract({
       abi: erc721ABI,
       address: tokenAddress,
@@ -44,6 +50,10 @@ export class ERC721Bridge extends Bridge {
   }
 
   async estimateGas(args: ERC721BridgeArgs): Promise<bigint> {
+    isBridgePaused().then(() => {
+      throw new BridgePausedError('Bridge is paused');
+    });
+
     const { tokenVaultContract, sendERC721Args } = await ERC721Bridge._prepareTransaction(args);
     const { fee: value } = sendERC721Args;
 
