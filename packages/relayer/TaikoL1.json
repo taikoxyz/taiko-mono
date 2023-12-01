@@ -1,11 +1,6 @@
 [
   {
     "inputs": [],
-    "name": "ETH_TRANSFER_FAILED",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "INVALID_PAUSE_STATUS",
     "type": "error"
   },
@@ -16,22 +11,7 @@
   },
   {
     "inputs": [],
-    "name": "L1_ALREADY_CONTESTED",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "L1_ALREADY_PROVED",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_ALREADY_PROVED",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_ASSIGNED_PROVER_NOT_ALLOWED",
     "type": "error"
   },
   {
@@ -46,32 +26,12 @@
   },
   {
     "inputs": [],
-    "name": "L1_BLOB_FOR_DA_DISABLED",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_BLOB_NOT_FOUND",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "L1_BLOB_NOT_FOUND",
     "type": "error"
   },
   {
     "inputs": [],
     "name": "L1_BLOB_NOT_REUSEABLE",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_BLOB_NOT_REUSEABLE",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_BLOCK_MISMATCH",
     "type": "error"
   },
   {
@@ -106,16 +66,6 @@
   },
   {
     "inputs": [],
-    "name": "L1_INVALID_BLOCK_ID",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_INVALID_BLOCK_ID",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "L1_INVALID_CONFIG",
     "type": "error"
   },
@@ -126,22 +76,7 @@
   },
   {
     "inputs": [],
-    "name": "L1_INVALID_ETH_DEPOSIT",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "L1_INVALID_PARAM",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_INVALID_PARAM",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_INVALID_PAUSE_STATUS",
     "type": "error"
   },
   {
@@ -161,22 +96,7 @@
   },
   {
     "inputs": [],
-    "name": "L1_INVALID_PROVER",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "L1_INVALID_TIER",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_INVALID_TIER",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_INVALID_TRANSITION",
     "type": "error"
   },
   {
@@ -191,22 +111,7 @@
   },
   {
     "inputs": [],
-    "name": "L1_LIVENESS_BOND_NOT_RECEIVED",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "L1_NOT_ASSIGNED_PROVER",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_NOT_ASSIGNED_PROVER",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_PROPOSER_NOT_EOA",
     "type": "error"
   },
   {
@@ -222,11 +127,6 @@
   {
     "inputs": [],
     "name": "L1_RECEIVE_DISABLED",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_TOO_MANY_BLOCKS",
     "type": "error"
   },
   {
@@ -256,17 +156,7 @@
   },
   {
     "inputs": [],
-    "name": "L1_TXLIST_OFFSET",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "L1_TXLIST_OFFSET_SIZE",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_TXLIST_SIZE",
     "type": "error"
   },
   {
@@ -281,16 +171,6 @@
   },
   {
     "inputs": [],
-    "name": "L1_UNAUTHORIZED",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_UNEXPECTED_PARENT",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "L1_UNEXPECTED_PARENT",
     "type": "error"
   },
@@ -302,11 +182,6 @@
   {
     "inputs": [],
     "name": "L1_UNEXPECTED_TRANSITION_ID",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_UNEXPECTED_TRANSITION_TIER",
     "type": "error"
   },
   {
@@ -355,156 +230,44 @@
     "inputs": [
       {
         "indexed": false,
-        "internalType": "bytes32",
-        "name": "blobHash",
-        "type": "bytes32"
-      }
-    ],
-    "name": "BlobCached",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "blobHash",
-        "type": "bytes32"
-      }
-    ],
-    "name": "BlobCached",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "blockId",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
         "internalType": "address",
-        "name": "assignedProver",
+        "name": "previousAdmin",
         "type": "address"
       },
       {
         "indexed": false,
-        "internalType": "uint96",
-        "name": "livenessBond",
-        "type": "uint96"
-      },
-      {
-        "components": [
-          {
-            "internalType": "bytes32",
-            "name": "l1Hash",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "difficulty",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "blobHash",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "extraData",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "depositsHash",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "address",
-            "name": "coinbase",
-            "type": "address"
-          },
-          {
-            "internalType": "uint64",
-            "name": "id",
-            "type": "uint64"
-          },
-          {
-            "internalType": "uint32",
-            "name": "gasLimit",
-            "type": "uint32"
-          },
-          {
-            "internalType": "uint64",
-            "name": "timestamp",
-            "type": "uint64"
-          },
-          {
-            "internalType": "uint64",
-            "name": "l1Height",
-            "type": "uint64"
-          },
-          {
-            "internalType": "uint24",
-            "name": "txListByteOffset",
-            "type": "uint24"
-          },
-          {
-            "internalType": "uint24",
-            "name": "txListByteSize",
-            "type": "uint24"
-          },
-          {
-            "internalType": "uint16",
-            "name": "minTier",
-            "type": "uint16"
-          },
-          {
-            "internalType": "bool",
-            "name": "blobUsed",
-            "type": "bool"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "parentMetaHash",
-            "type": "bytes32"
-          }
-        ],
-        "indexed": false,
-        "internalType": "struct TaikoData.BlockMetadata",
-        "name": "meta",
-        "type": "tuple"
-      },
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "recipient",
-            "type": "address"
-          },
-          {
-            "internalType": "uint96",
-            "name": "amount",
-            "type": "uint96"
-          },
-          {
-            "internalType": "uint64",
-            "name": "id",
-            "type": "uint64"
-          }
-        ],
-        "indexed": false,
-        "internalType": "struct TaikoData.EthDeposit[]",
-        "name": "depositsProcessed",
-        "type": "tuple[]"
+        "internalType": "address",
+        "name": "newAdmin",
+        "type": "address"
       }
     ],
-    "name": "BlockProposed",
+    "name": "AdminChanged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "beacon",
+        "type": "address"
+      }
+    ],
+    "name": "BeaconUpgraded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "blobHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "BlobCached",
     "type": "event"
   },
   {
@@ -857,25 +620,6 @@
         "type": "address"
       }
     ],
-    "name": "OwnershipTransferStarted",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "previousOwner",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "newOwner",
-        "type": "address"
-      }
-    ],
     "name": "OwnershipTransferred",
     "type": "event"
   },
@@ -890,19 +634,6 @@
       }
     ],
     "name": "Paused",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "bool",
-        "name": "paused",
-        "type": "bool"
-      }
-    ],
-    "name": "ProvingPaused",
     "type": "event"
   },
   {
@@ -1081,124 +812,6 @@
       {
         "indexed": false,
         "internalType": "address",
-        "name": "contester",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint96",
-        "name": "contestBond",
-        "type": "uint96"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint16",
-        "name": "tier",
-        "type": "uint16"
-      }
-    ],
-    "name": "TransitionContested",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "blockId",
-        "type": "uint256"
-      },
-      {
-        "components": [
-          {
-            "internalType": "bytes32",
-            "name": "parentHash",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "blockHash",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "signalRoot",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "graffiti",
-            "type": "bytes32"
-          }
-        ],
-        "indexed": false,
-        "internalType": "struct TaikoData.Transition",
-        "name": "tran",
-        "type": "tuple"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "prover",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint96",
-        "name": "validityBond",
-        "type": "uint96"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint16",
-        "name": "tier",
-        "type": "uint16"
-      }
-    ],
-    "name": "TransitionProved",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "blockId",
-        "type": "uint256"
-      },
-      {
-        "components": [
-          {
-            "internalType": "bytes32",
-            "name": "parentHash",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "blockHash",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "signalRoot",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "graffiti",
-            "type": "bytes32"
-          }
-        ],
-        "indexed": false,
-        "internalType": "struct TaikoData.Transition",
-        "name": "tran",
-        "type": "tuple"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
         "name": "prover",
         "type": "address"
       },
@@ -1232,11 +845,17 @@
     "type": "event"
   },
   {
-    "inputs": [],
-    "name": "acceptOwnership",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "implementation",
+        "type": "address"
+      }
+    ],
+    "name": "Upgraded",
+    "type": "event"
   },
   {
     "inputs": [],
@@ -1564,25 +1183,6 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      }
-    ],
-    "name": "getTaikoTokenBalance",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "uint16",
         "name": "tierId",
         "type": "uint16"
@@ -1822,19 +1422,6 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "pendingOwner",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "inputs": [
       {
         "internalType": "bytes",
@@ -1977,6 +1564,19 @@
   },
   {
     "inputs": [],
+    "name": "proxiableUUID",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "renounceOwnership",
     "outputs": [],
     "stateMutability": "nonpayable",
@@ -2110,6 +1710,37 @@
     "name": "unpause",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "newImplementation",
+        "type": "address"
+      }
+    ],
+    "name": "upgradeTo",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "newImplementation",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes",
+        "name": "data",
+        "type": "bytes"
+      }
+    ],
+    "name": "upgradeToAndCall",
+    "outputs": [],
+    "stateMutability": "payable",
     "type": "function"
   },
   {
