@@ -415,8 +415,8 @@ importers:
         specifier: ^0.3.10
         version: 0.3.21(svelte@3.59.2)
       svelte-jester:
-        specifier: ^2.1.5
-        version: 2.3.2(jest@27.5.1)(svelte@3.59.2)
+        specifier: ^3.0.0
+        version: 3.0.0(jest@27.5.1)(svelte@3.59.2)
       svelte-loader:
         specifier: ^3.1.2
         version: 3.1.9(svelte@3.59.2)
@@ -569,8 +569,8 @@ importers:
         specifier: ^0.3.10
         version: 0.3.21(svelte@3.59.2)
       svelte-jester:
-        specifier: ^2.1.5
-        version: 2.3.2(jest@27.5.1)(svelte@3.59.2)
+        specifier: ^3.0.0
+        version: 3.0.0(jest@27.5.1)(svelte@3.59.2)
       svelte-loader:
         specifier: ^3.1.2
         version: 3.1.9(svelte@3.59.2)
@@ -12510,7 +12510,7 @@ packages:
     resolution: {integrity: sha512-iNZ576iTOGcfllftB73cPB5AN+XUQAT/T8xzsILsghXC1o8gJUqe3RHlcDqagu+biFpYQ61KQrZZJza8eRSYqw==}
     deprecated: Deprecated in favor of '@metamask/eth-sig-util'
     dependencies:
-      ethereumjs-abi: github.com/ethereumjs/ethereumjs-abi/ee3994657fa7a427238e6ba92a84d0b529bbcde0
+      ethereumjs-abi: git@github.com+ethereumjs/ethereumjs-abi/ee3994657fa7a427238e6ba92a84d0b529bbcde0
       ethereumjs-util: 5.2.1
     dev: true
 
@@ -22187,9 +22187,9 @@ packages:
       tiny-glob: 0.2.9
     dev: false
 
-  /svelte-jester@2.3.2(jest@27.5.1)(svelte@3.59.2):
-    resolution: {integrity: sha512-JtxSz4FWAaCRBXbPsh4LcDs4Ua7zdXgLC0TZvT1R56hRV0dymmNP+abw67DTPF7sQPyNxWsOKd0Sl7Q8SnP8kg==}
-    engines: {node: '>=14'}
+  /svelte-jester@3.0.0(jest@27.5.1)(svelte@3.59.2):
+    resolution: {integrity: sha512-V279cL906++hn00hkL1xAr/y5OjjxPYWic1g0yTJFmqdbdWKthdcuP3XBvmmwP9AzFBT51DlPgXz56HItle1Ug==}
+    engines: {node: '>=16', pnpm: ^8.0.0}
     peerDependencies:
       jest: '>= 27'
       svelte: '>= 3'
@@ -25296,8 +25296,8 @@ packages:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
     dev: false
 
-  github.com/ethereumjs/ethereumjs-abi/ee3994657fa7a427238e6ba92a84d0b529bbcde0:
-    resolution: {tarball: https://codeload.github.com/ethereumjs/ethereumjs-abi/tar.gz/ee3994657fa7a427238e6ba92a84d0b529bbcde0}
+  git@github.com+ethereumjs/ethereumjs-abi/ee3994657fa7a427238e6ba92a84d0b529bbcde0:
+    resolution: {commit: ee3994657fa7a427238e6ba92a84d0b529bbcde0, repo: git@github.com:ethereumjs/ethereumjs-abi.git, type: git}
     name: ethereumjs-abi
     version: 0.6.8
     dependencies:

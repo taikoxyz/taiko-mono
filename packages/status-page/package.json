@@ -44,7 +44,7 @@
     "svelte": "^3.53.1",
     "svelte-check": "^2.8.0",
     "svelte-heros-v2": "^0.3.10",
-    "svelte-jester": "^2.1.5",
+    "svelte-jester": "^3.0.0",
     "svelte-loader": "^3.1.2",
     "svelte-preprocess": "^4.10.7",
     "tailwindcss": "^3.2.4",
