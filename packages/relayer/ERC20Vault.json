@@ -11,6 +11,11 @@
   },
   {
     "inputs": [],
+    "name": "NULL_IMPL_ADDR",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "REENTRANT_CALL",
     "type": "error"
   },
@@ -47,17 +52,22 @@
   },
   {
     "inputs": [],
+    "name": "VAULT_BTOKEN_BLACKLISTED",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "VAULT_CTOKEN_MISMATCH",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "VAULT_INVALID_AMOUNT",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "VAULT_INVALID_FROM",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "VAULT_INVALID_SRC_CHAIN_ID",
+    "name": "VAULT_INVALID_NEW_BTOKEN",
     "type": "error"
   },
   {
@@ -67,23 +77,94 @@
   },
   {
     "inputs": [],
-    "name": "VAULT_INVALID_USER",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "VAULT_MESSAGE_NOT_FAILED",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "VAULT_MESSAGE_RELEASED_ALREADY",
+    "name": "VAULT_NOT_SAME_OWNER",
     "type": "error"
   },
   {
     "inputs": [],
     "name": "VAULT_PERMISSION_DENIED",
     "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "previousAdmin",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "newAdmin",
+        "type": "address"
+      }
+    ],
+    "name": "AdminChanged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "beacon",
+        "type": "address"
+      }
+    ],
+    "name": "BeaconUpgraded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "srcChainId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "ctoken",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "btokenOld",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "btokenNew",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "ctokenSymbol",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "ctokenName",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "ctokenDecimal",
+        "type": "uint8"
+      }
+    ],
+    "name": "BridgedTokenChanged",
+    "type": "event"
   },
   {
     "anonymous": false,
@@ -139,25 +220,6 @@
       }
     ],
     "name": "Initialized",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "previousOwner",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "newOwner",
-        "type": "address"
-      }
-    ],
-    "name": "OwnershipTransferStarted",
     "type": "event"
   },
   {
@@ -323,11 +385,17 @@
     "type": "event"
   },
   {
-    "inputs": [],
-    "name": "acceptOwnership",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "implementation",
+        "type": "address"
+      }
+    ],
+    "name": "Upgraded",
+    "type": "event"
   },
   {
     "inputs": [],
@@ -384,6 +452,25 @@
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "btoken",
+        "type": "address"
+      }
+    ],
+    "name": "btokenBlacklist",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "blacklisted",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
@@ -403,6 +490,57 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint64",
+            "name": "chainId",
+            "type": "uint64"
+          },
+          {
+            "internalType": "address",
+            "name": "addr",
+            "type": "address"
+          },
+          {
+            "internalType": "uint8",
+            "name": "decimals",
+            "type": "uint8"
+          },
+          {
+            "internalType": "string",
+            "name": "symbol",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "name",
+            "type": "string"
+          }
+        ],
+        "internalType": "struct ERC20Vault.CanonicalERC20",
+        "name": "ctoken",
+        "type": "tuple"
+      },
+      {
+        "internalType": "address",
+        "name": "btokenNew",
+        "type": "address"
+      }
+    ],
+    "name": "changeBridgedToken",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "btokenOld",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -546,12 +684,12 @@
   },
   {
     "inputs": [],
-    "name": "pendingOwner",
+    "name": "proxiableUUID",
     "outputs": [
       {
-        "internalType": "address",
+        "internalType": "bytes32",
         "name": "",
-        "type": "address"
+        "type": "bytes32"
       }
     ],
     "stateMutability": "view",
@@ -832,6 +970,37 @@
     "name": "unpause",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "newImplementation",
+        "type": "address"
+      }
+    ],
+    "name": "upgradeTo",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "newImplementation",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes",
+        "name": "data",
+        "type": "bytes"
+      }
+    ],
+    "name": "upgradeToAndCall",
+    "outputs": [],
+    "stateMutability": "payable",
     "type": "function"
   }
 ]

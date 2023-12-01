@@ -6,14 +6,9 @@
 
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "../test/DeployCapability.sol";
 
-import "forge-std/Script.sol";
-import "forge-std/console2.sol";
-
-import "../contracts/common/AddressManager.sol";
-
-contract SetRemoteBridgeSuites is Script {
+contract SetRemoteBridgeSuites is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
     address public addressManagerAddress = vm.envAddress("ADDRESS_MANAGER_ADDRESS");
     uint256[] public remoteChainIDs = vm.envUint("REMOTE_CHAIN_IDS", ",");
@@ -42,39 +37,17 @@ contract SetRemoteBridgeSuites is Script {
         vm.startBroadcast(privateKey);
 
         for (uint256 i; i < remoteChainIDs.length; ++i) {
-            setAddress(addressManagerAddress, uint64(remoteChainIDs[i]), "bridge", remoteBridges[i]);
-            setAddress(
-                addressManagerAddress,
-                uint64(remoteChainIDs[i]),
-                "erc20_vault",
-                remoteERC20Vaults[i]
-            );
-            setAddress(
-                addressManagerAddress,
-                uint64(remoteChainIDs[i]),
-                "erc721_vault",
-                remoteERC721Vaults[i]
-            );
-            setAddress(
-                addressManagerAddress,
-                uint64(remoteChainIDs[i]),
-                "erc1155_vault",
-                remoteERC1155Vaults[i]
-            );
+            uint64 chainid = uint64(remoteChainIDs[i]);
+
+            register(addressManagerAddress, "bridge", remoteBridges[i], chainid);
+
+            register(addressManagerAddress, "erc20_vault", remoteERC20Vaults[i], chainid);
+
+            register(addressManagerAddress, "erc721_vault", remoteERC721Vaults[i], chainid);
+
+            register(addressManagerAddress, "erc1155_vault", remoteERC1155Vaults[i], chainid);
         }
 
         vm.stopBroadcast();
-    }
-
-    function setAddress(
-        address addressManager,
-        uint64 chainId,
-        bytes32 name,
-        address addr
-    )
-        private
-    {
-        console2.log(chainId, uint256(name), "--->", addr);
-        ProxiedAddressManager(addressManager).setAddress(chainId, name, addr);
     }
 }

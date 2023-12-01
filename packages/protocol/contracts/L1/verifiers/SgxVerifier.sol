@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts-upgradeable/contracts/utils/cryptography/ECDSAUpgradeable.sol";
+import "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import "../../common/EssentialContract.sol";
 import "../../thirdparty/LibBytesUtils.sol";
 import "../TaikoData.sol";
@@ -54,7 +54,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
     function init(address _addressManager) external initializer {
-        EssentialContract._init(_addressManager);
+        _Essential_init(_addressManager);
     }
 
     /// @notice Adds trusted SGX instances to the registry.
@@ -85,7 +85,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         returns (uint256[] memory ids)
     {
         bytes32 signedHash = keccak256(abi.encode("ADD_INSTANCES", extraInstances));
-        address oldInstance = ECDSAUpgradeable.recover(signedHash, signature);
+        address oldInstance = ECDSA.recover(signedHash, signature);
         if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
 
         _replaceInstance(id, oldInstance, newInstance);
@@ -112,9 +112,8 @@ contract SgxVerifier is EssentialContract, IVerifier {
         address newInstance = address(bytes20(LibBytesUtils.slice(proof.data, 4, 20)));
         bytes memory signature = LibBytesUtils.slice(proof.data, 24);
 
-        address oldInstance = ECDSAUpgradeable.recover(
-            getSignedHash(tran, newInstance, ctx.prover, ctx.metaHash), signature
-        );
+        address oldInstance =
+            ECDSA.recover(getSignedHash(tran, newInstance, ctx.prover, ctx.metaHash), signature);
 
         if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
         _replaceInstance(id, oldInstance, newInstance);
@@ -159,7 +158,3 @@ contract SgxVerifier is EssentialContract, IVerifier {
         return instances[id].addedAt + INSTANCE_EXPIRY > block.timestamp;
     }
 }
-
-/// @title ProxiedSgxVerifier
-/// @notice Proxied version of the parent contract.
-contract ProxiedSgxVerifier is Proxied, SgxVerifier { }

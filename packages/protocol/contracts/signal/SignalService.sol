@@ -45,7 +45,7 @@ contract SignalService is AuthorizableContract, ISignalService {
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init() external initializer {
-        AuthorizableContract._init();
+        _OwnerUUPSUpgradable_init();
     }
 
     /// @inheritdoc ISignalService
@@ -101,7 +101,6 @@ contract SignalService is AuthorizableContract, ISignalService {
         // verify that chainB's signalRoot has been sent as a signal by chainB's
         // "taiko" contract, then using chainB's signalRoot, we further check
         // the signal is sent by chainC's "bridge" contract.
-
         if (!isAuthorizedAs(p.crossChainSync, bytes32(block.chainid))) {
             return false;
         }
@@ -160,11 +159,3 @@ contract SignalService is AuthorizableContract, ISignalService {
     /// @return Returns true to skip checking inclusion proofs.
     function skipProofCheck() public pure virtual returns (bool) { }
 }
-
-/// @title ProxiedSingletonSignalService
-/// @notice Proxied version of the parent contract.
-/// @dev Deploy this contract as a singleton per chain for use by multiple L2s
-/// or L3s. No singleton check is performed within the code; it's the deployer's
-/// responsibility to ensure this. Singleton deployment is essential for
-/// enabling multi-hop bridging across all Taiko L2/L3s.
-contract ProxiedSingletonSignalService is Proxied, SignalService { }

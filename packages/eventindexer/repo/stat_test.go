@@ -20,6 +20,8 @@ func TestIntegration_Stat_Save(t *testing.T) {
 
 	var proofReward = big.NewInt(4)
 
+	feeTokenAddress := "0x01"
+
 	tests := []struct {
 		name    string
 		opts    eventindexer.SaveStatOpts
@@ -28,7 +30,9 @@ func TestIntegration_Stat_Save(t *testing.T) {
 		{
 			"successProofReward",
 			eventindexer.SaveStatOpts{
-				ProofReward: proofReward,
+				ProofReward:     proofReward,
+				StatType:        eventindexer.StatTypeProofReward,
+				FeeTokenAddress: &feeTokenAddress,
 			},
 			nil,
 		},
@@ -53,32 +57,49 @@ func TestIntegration_Stat_Find(t *testing.T) {
 
 	var proofReward = big.NewInt(4)
 
-	var proposerReward = big.NewInt(7)
+	var proofTime = big.NewInt(7)
 
-	for i := 0; i < 3; i++ {
-		_, err = statRepo.Save(context.Background(), eventindexer.SaveStatOpts{
-			ProofReward:    proofReward,
-			ProposerReward: proposerReward,
-		})
-	}
+	feeTokenAddress := "0x01"
+
+	_, err = statRepo.Save(context.Background(), eventindexer.SaveStatOpts{
+		StatType:        eventindexer.StatTypeProofReward,
+		ProofReward:     proofReward,
+		FeeTokenAddress: &feeTokenAddress,
+	})
+
+	assert.Equal(t, nil, err)
+
+	_, err = statRepo.Save(context.Background(), eventindexer.SaveStatOpts{
+		StatType:  eventindexer.StatTypeProofTime,
+		ProofTime: proofTime,
+	})
 
 	assert.Equal(t, nil, err)
 
 	tests := []struct {
-		name     string
-		wantResp *eventindexer.Stat
-		wantErr  error
+		name            string
+		statType        string
+		feeTokenAddress string
+		wantResp        *eventindexer.Stat
+		wantErr         error
 	}{
 		{
-			"success",
+			"successStatTypeProofReward",
+			eventindexer.StatTypeProofReward,
+			"0x01",
 			&eventindexer.Stat{
-				ID:                    1,
-				AverageProofReward:    proofReward.String(),
-				AverageProofTime:      "0",
-				AverageProposerReward: proposerReward.String(),
-				NumProposerRewards:    3,
-				NumProofs:             0,
-				NumVerifiedBlocks:     3,
+				ID:                 1,
+				AverageProofReward: proofReward.String(),
+			},
+			nil,
+		},
+		{
+			"successStatTypeProofTime",
+			eventindexer.StatTypeProofTime,
+			"",
+			&eventindexer.Stat{
+				ID:               1,
+				AverageProofTime: proofTime.String(),
 			},
 			nil,
 		},
@@ -86,10 +107,11 @@ func TestIntegration_Stat_Find(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := statRepo.Find(context.Background())
+			f := tt.feeTokenAddress
+			resp, err := statRepo.Find(context.Background(), tt.statType, &f)
 
 			assert.Equal(t, tt.wantErr, err)
-			assert.Equal(t, *tt.wantResp, *resp)
+			assert.Equal(t, tt.wantResp.AverageProofReward, resp.AverageProofReward)
 		})
 	}
 }

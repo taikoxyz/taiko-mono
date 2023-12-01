@@ -6,8 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
 import
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/IERC721ReceiverUpgradeable.sol";
 import "../bridge/IBridge.sol";
@@ -259,13 +258,8 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
             BridgedERC721.init.selector,
             abi.encode(addressManager, ctoken.addr, ctoken.chainId, ctoken.symbol, ctoken.name)
         );
-        btoken = address(
-            new TransparentUpgradeableProxy(
-                resolve("proxied_bridged_erc721", false),
-                owner(),
-                data
-            )
-        );
+
+        btoken = LibDeploy.deployERC1967Proxy(resolve("bridged_erc721", false), owner(), data);
 
         bridgedToCanonical[btoken] = ctoken;
         canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
@@ -279,11 +273,3 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         });
     }
 }
-
-/// @title ProxiedSingletonERC721Vault
-/// @notice Proxied version of the parent contract.
-/// @dev Deploy this contract as a singleton per chain for use by multiple L2s
-/// or L3s. No singleton check is performed within the code; it's the deployer's
-/// responsibility to ensure this. Singleton deployment is essential for
-/// enabling multi-hop bridging across all Taiko L2/L3s.
-contract ProxiedSingletonERC721Vault is Proxied, ERC721Vault { }

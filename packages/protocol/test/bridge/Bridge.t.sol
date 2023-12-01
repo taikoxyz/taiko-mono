@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "forge-std/console2.sol";
-import "../../contracts/common/AddressManager.sol";
-import "../../contracts/bridge/Bridge.sol";
-import "../../contracts/signal/SignalService.sol";
-import "../TestBase.sol";
+import "../TaikoTest.sol";
 
 // A contract which is not our ErcXXXTokenVault
 // Which in such case, the sent funds are still recoverable, but not via the
@@ -37,20 +33,54 @@ contract BridgeTest is TaikoTest {
     function setUp() public {
         vm.startPrank(Alice);
         vm.deal(Alice, 100 ether);
-        addressManager = new AddressManager();
-        addressManager.init();
 
-        bridge = new Bridge();
-        bridge.init(address(addressManager));
+        addressManager = AddressManager(
+            deployProxy({
+                name: "address_manager",
+                impl: address(new AddressManager()),
+                data: bytes.concat(AddressManager.init.selector)
+            })
+        );
 
-        destChainBridge = new Bridge();
-        destChainBridge.init(address(addressManager));
+        bridge = Bridge(
+            payable(
+                deployProxy({
+                    name: "bridge",
+                    impl: address(new Bridge()),
+                    data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
+                    registerTo: address(addressManager),
+                    owner: address(0)
+                })
+            )
+        );
 
-        mockProofSignalService = new SkipProofCheckSignal();
-        mockProofSignalService.init();
+        destChainBridge = Bridge(
+            payable(
+                deployProxy({
+                    name: "bridge",
+                    impl: address(new Bridge()),
+                    data: bytes.concat(Bridge.init.selector, abi.encode(addressManager))
+                })
+            )
+        );
 
-        signalService = new SignalService();
-        signalService.init();
+        mockProofSignalService = SkipProofCheckSignal(
+            deployProxy({
+                name: "signal_service",
+                impl: address(new SkipProofCheckSignal()),
+                data: bytes.concat(SignalService.init.selector),
+                registerTo: address(addressManager),
+                owner: address(0)
+            })
+        );
+
+        signalService = SignalService(
+            deployProxy({
+                name: "signal_service",
+                impl: address(new SignalService()),
+                data: bytes.concat(SignalService.init.selector)
+            })
+        );
 
         vm.deal(address(destChainBridge), 100 ether);
 
@@ -59,18 +89,13 @@ contract BridgeTest is TaikoTest {
         untrustedSenderContract = new UntrustedSendMessageRelayer();
         vm.deal(address(untrustedSenderContract), 10 ether);
 
-        addressManager.setAddress(
-            uint64(block.chainid), "signal_service", address(mockProofSignalService)
+        register(
+            address(addressManager), "signal_service", address(mockProofSignalService), destChainId
         );
 
-        addressManager.setAddress(destChainId, "signal_service", address(mockProofSignalService));
+        register(address(addressManager), "bridge", address(destChainBridge), destChainId);
 
-        addressManager.setAddress(destChainId, "bridge", address(destChainBridge));
-
-        addressManager.setAddress(destChainId, "taiko", address(uint160(123)));
-
-        addressManager.setAddress(uint64(block.chainid), "bridge", address(bridge));
-
+        register(address(addressManager), "taiko", address(uint160(123)), destChainId);
         vm.stopPrank();
     }
 

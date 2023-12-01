@@ -30,9 +30,11 @@ func (r *ChartRepository) Find(
 	task string,
 	start string,
 	end string,
+	feeTokenAddress string,
 ) (*eventindexer.ChartResponse, error) {
 	q := `SELECT * FROM time_series_data
 	WHERE task = ? AND date BETWEEN ? AND ?
+	AND fee_token_address = ""
 	ORDER BY date;`
 
 	var tsd []*eventindexer.TimeSeriesData

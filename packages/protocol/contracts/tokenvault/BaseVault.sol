@@ -9,6 +9,7 @@ import "lib/openzeppelin-contracts-upgradeable/contracts/utils/introspection/IER
 import "../bridge/IBridge.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibAddress.sol";
+import "../libs/LibDeploy.sol";
 
 abstract contract BaseVault is EssentialContract, IRecallableSender, IERC165Upgradeable {
     error VAULT_PERMISSION_DENIED();
@@ -23,7 +24,7 @@ abstract contract BaseVault is EssentialContract, IRecallableSender, IERC165Upgr
     /// @param addressManager Address manager contract address.
 
     function init(address addressManager) external initializer {
-        EssentialContract._init(addressManager);
+        _Essential_init(addressManager);
     }
 
     /// @notice Checks if the contract supports the given interface.

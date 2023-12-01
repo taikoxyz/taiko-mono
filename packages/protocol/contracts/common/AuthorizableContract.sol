@@ -15,14 +15,8 @@ abstract contract AuthorizableContract is EssentialContract {
 
     event Authorized(address indexed addr, bytes32 oldLabel, bytes32 newLabel);
 
-    error ADDRESS_UNAUTHORIZED();
     error INVALID_ADDRESS();
     error INVALID_LABEL();
-
-    modifier onlyFromAuthorized() {
-        if (!isAuthorized(msg.sender)) revert ADDRESS_UNAUTHORIZED();
-        _;
-    }
 
     function authorize(address addr, bytes32 label) external onlyOwner {
         if (addr == address(0)) revert INVALID_ADDRESS();
@@ -34,19 +28,7 @@ abstract contract AuthorizableContract is EssentialContract {
         emit Authorized(addr, oldLabel, label);
     }
 
-    function isAuthorized(address addr) public view returns (bool) {
-        return authorizedAddresses[addr] != 0;
-    }
-
     function isAuthorizedAs(address addr, bytes32 label) public view returns (bool) {
         return label != 0 && authorizedAddresses[addr] == label;
-    }
-
-    function _init(address _addressManager) internal virtual override {
-        EssentialContract._init(_addressManager);
-    }
-
-    function _init() internal virtual {
-        EssentialContract._init(address(0));
     }
 }

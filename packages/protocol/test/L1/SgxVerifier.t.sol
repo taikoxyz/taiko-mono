@@ -1,19 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "forge-std/console2.sol";
-import "../../contracts/L1/TaikoL1.sol";
-import "../../contracts/L1/verifiers/SgxVerifier.sol";
 import "./TaikoL1TestBase.sol";
 
 contract TestSgxVerifier is TaikoL1TestBase {
-    function deployTaikoL1() internal override returns (TaikoL1 taikoL1) {
-        taikoL1 = new TaikoL1();
-    }
-
-    function setUp() public override {
-        TaikoL1TestBase.setUp();
+    function deployTaikoL1() internal override returns (TaikoL1) {
+        return
+            TaikoL1(payable(deployProxy({ name: "taiko", impl: address(new TaikoL1()), data: "" })));
     }
 
     function test_addInstancesByOwner() external {

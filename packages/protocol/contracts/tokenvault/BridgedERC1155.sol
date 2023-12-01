@@ -12,6 +12,7 @@ import
     "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/extensions/IERC1155MetadataURIUpgradeable.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC1155/IERC1155Upgradeable.sol";
 import "../common/EssentialContract.sol";
+import "./LibBridgedToken.sol";
 
 /// @title BridgedERC1155
 /// @notice Contract for bridging ERC1155 tokens across different chains.
@@ -23,7 +24,7 @@ contract BridgedERC1155 is
 {
     address public srcToken; // Address of the source token contract.
     uint256 public srcChainId; // Source chain ID where the token originates.
-    string public symbol; // Symbol of the bridged token.
+    string private symbol_; // Symbol of the bridged token.
     string private name_; // Name of the bridged token.
 
     uint256[46] private __gap;
@@ -31,8 +32,8 @@ contract BridgedERC1155 is
     // Event triggered upon token transfer.
     event Transfer(address indexed from, address indexed to, uint256 tokenId, uint256 amount);
 
-    error BRIDGED_TOKEN_CANNOT_RECEIVE();
-    error BRIDGED_TOKEN_INVALID_PARAMS();
+    error BTOKEN_CANNOT_RECEIVE();
+    error BTOKEN_INVALID_PARAMS();
 
     /// @dev Initializer function to be called after deployment.
     /// @param _addressManager The address of the address manager.
@@ -51,15 +52,13 @@ contract BridgedERC1155 is
         initializer
     {
         if (_srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid) {
-            revert BRIDGED_TOKEN_INVALID_PARAMS();
+            revert BTOKEN_INVALID_PARAMS();
         }
-        EssentialContract._init(_addressManager);
+        _Essential_init(_addressManager);
         __ERC1155_init("");
         srcToken = _srcToken;
         srcChainId = _srcChainId;
-        // Note: name and symbol can intentionally be empty ("") as it's not
-        // part of the ERC1155 standard.
-        symbol = _symbol;
+        symbol_ = _symbol;
         name_ = _name;
     }
 
@@ -73,10 +72,11 @@ contract BridgedERC1155 is
         uint256 amount
     )
         public
+        nonReentrant
+        whenNotPaused
         onlyFromNamed("erc1155_vault")
     {
         _mint(account, tokenId, amount, "");
-        emit Transfer(address(0), account, tokenId, amount);
     }
 
     /// @dev Burns tokens.
@@ -89,10 +89,11 @@ contract BridgedERC1155 is
         uint256 amount
     )
         public
+        nonReentrant
+        whenNotPaused
         onlyFromNamed("erc1155_vault")
     {
         _burn(account, tokenId, amount);
-        emit Transfer(account, address(0), tokenId, amount);
     }
 
     /// @dev Safely transfers tokens from one address to another.
@@ -110,20 +111,24 @@ contract BridgedERC1155 is
     )
         public
         override(ERC1155Upgradeable, IERC1155Upgradeable)
+        nonReentrant
+        whenNotPaused
     {
         if (to == address(this)) {
-            revert BRIDGED_TOKEN_CANNOT_RECEIVE();
+            revert BTOKEN_CANNOT_RECEIVE();
         }
         return ERC1155Upgradeable.safeTransferFrom(from, to, tokenId, amount, data);
     }
 
-    /// @notice Gets the concatenated name of the bridged token.
-    /// @return The concatenated name.
+    /// @notice Gets the name of the bridged token.
+    /// @return The name.
     function name() public view returns (string memory) {
-        return string.concat(name_, unicode" ⭀", Strings.toString(srcChainId));
+        return LibBridgedToken.buildName(name_, srcChainId);
+    }
+
+    /// @notice Gets the symbol of the bridged token.
+    /// @return The symbol.
+    function symbol() public view returns (string memory) {
+        return LibBridgedToken.buildSymbol(symbol_);
     }
 }
-
-/// @title ProxiedBridgedERC1155
-/// @notice Proxied version of the parent contract.
-contract ProxiedBridgedERC1155 is Proxied, BridgedERC1155 { }

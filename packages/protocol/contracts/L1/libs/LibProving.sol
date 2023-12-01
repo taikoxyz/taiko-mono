@@ -6,11 +6,11 @@
 
 pragma solidity ^0.8.20;
 
+import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "../../common/AddressResolver.sol";
 import "../tiers/ITierProvider.sol";
 import "../verifiers/IVerifier.sol";
 import "../TaikoData.sol";
-import "../TaikoToken.sol";
 import "./LibUtils.sol";
 
 /// @title LibProving
@@ -51,6 +51,13 @@ library LibProving {
     error L1_PROVING_PAUSED();
     error L1_UNEXPECTED_TRANSITION_TIER();
 
+    function pauseProving(TaikoData.State storage state, bool pause) external {
+        if (state.slotB.provingPaused == pause) revert L1_INVALID_PAUSE_STATUS();
+
+        state.slotB.provingPaused = pause;
+        emit ProvingPaused(pause);
+    }
+
     /// @dev Proves or contests a block transition.
     function proveBlock(
         TaikoData.State storage state,
@@ -60,7 +67,7 @@ library LibProving {
         TaikoData.Transition memory tran,
         TaikoData.TierProof memory proof
     )
-        internal
+        external
         returns (uint8 maxBlocksToVerify)
     {
         // Make sure parentHash is not zero
@@ -206,7 +213,7 @@ library LibProving {
             }
         }
 
-        TaikoToken tko = TaikoToken(resolver.resolve("taiko_token", false));
+        IERC20 tko = IERC20(resolver.resolve("taiko_token", false));
 
         if (tier.contestBond == 0) {
             assert(tier.validityBond == 0);
@@ -420,12 +427,5 @@ library LibProving {
                 tier: proof.tier
             });
         }
-    }
-
-    function pauseProving(TaikoData.State storage state, bool pause) internal {
-        if (state.slotB.provingPaused == pause) revert L1_INVALID_PAUSE_STATUS();
-
-        state.slotB.provingPaused = pause;
-        emit ProvingPaused(pause);
     }
 }
