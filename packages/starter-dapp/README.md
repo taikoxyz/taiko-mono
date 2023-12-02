@@ -1,6 +1,6 @@
 # Starter dapp
 
-A starter dapp set up ready to go to make frontends in Svelte for the Taiko network.
+A starter dapp is set up and ready to go to make frontends in Svelte for the Taiko network.
 
 ## Installation
 
