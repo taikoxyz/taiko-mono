@@ -130,13 +130,13 @@ struct Some {
 
 #### Periods
 
-Periods are optional for comments, but recommended if it's a proper sentence. However, remain consistent in whatever file or section you are commenting.
+Periods are optional for comments, but recommended if it's a proper sentence. However, remain consistent in whatever file or section you are commenting on.
 
 This is **correct**:
 
 ```
 struct Some {
-  // This is foo
+  // This is for
   uint256 foo;
 }
 ```
@@ -183,7 +183,7 @@ You can then mention implementation specific details by adding a `@dev` tag:
 
 #### Documenting internal functions and structs
 
-Internal functions and structs should commented with a `@dev` tag, and you can also comment the contents of the struct with explanatory comments.
+Internal functions and structs should commented on with a `@dev` tag, and you can also comment on the contents of the struct with explanatory comments.
 
 #### Documenting user-facing functions versus internal functions
 
@@ -193,7 +193,7 @@ All user-facing functions should be fully documented with NatSpec. Internal func
 
 Explanatory comments use `//`. There is a common idea that the code describes the documentation. There are pros to this approach. One of the pros is that you remove the coupling between documentation and the code it's describing, that's why we should always strive for the [minimum viable documentation](https://google.github.io/styleguide/docguide/best_practices.html#minimum-viable-documentation) (one of our core documentation [philosophies](#philosophies)). It can also appear cleaner.
 
-It's important that our codebase is well documented with **explanatory comments**. Thus, in addition to the standard NatSpec documentation which we should apply, we should comment the more complex things in our codebase for higher readability. More important than commenting _what_ we should be concerned with commenting _why_. The _what_ does not need to be commented for obvious things, of course the code is able to achieve that. We should comment the _what_ for more complex things to aid in the reader for more quickly understanding the code. In addition to that, we should strive to answer the _why_ with comments in our code.
+It's important that our codebase is well documented with **explanatory comments**. Thus, in addition to the standard NatSpec documentation which we should apply, we should comment on the more complex things in our codebase for higher readability. More important than commenting _what_ we should be concerned with commenting _why_. The _what_ does not need to be commented for obvious things, of course the code is able to achieve that. We should comment on the _what_ for more complex things to aid in the reader for more quickly understanding the code. In addition to that, we should strive to answer the _why_ with comments in our code.
 
 Keep in mind the advantage of having minimum viable documentation. Keep the comments close to the code which it is describing, so that it does not easily go stale or out of date.
 
