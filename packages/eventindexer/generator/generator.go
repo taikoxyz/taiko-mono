@@ -193,7 +193,7 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 	case tasks.TotalProofRewards:
 		var feeTokenAddresses []string = make([]string, 0)
 		// get unique fee token addresses
-		query := "SELECT DISTINCT(fee_token_address) FROM events WHERE stat_type = ?"
+		query := "SELECT DISTINCT(fee_token_address) FROM stats WHERE stat_type = ?"
 
 		err = g.db.GormDB().
 			Raw(query, eventindexer.EventNameBlockAssigned).
@@ -247,7 +247,7 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 	case tasks.ProofRewardsPerDay:
 		var feeTokenAddresses []string = make([]string, 0)
 		// get unique fee token addresses
-		query := "SELECT DISTINCT(fee_token_address) FROM events WHERE stat_type = ?"
+		query := "SELECT DISTINCT(fee_token_address) FROM stats WHERE stat_type = ?"
 
 		err = g.db.GormDB().
 			Raw(query, eventindexer.EventNameBlockAssigned).
