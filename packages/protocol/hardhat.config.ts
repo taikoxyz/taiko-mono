@@ -23,20 +23,6 @@ function getRemappings() {
 const hardhatMnemonic =
     "test test test test test test test test test test test taik";
 const config: HardhatUserConfig = {
-    docgen: {
-        exclude: [
-            "bridge/libs/",
-            "L1/libs/",
-            "libs/",
-            "test/",
-            "thirdparty/",
-            "common/EssentialContract.sol",
-        ],
-        outputDir: "../website/pages/docs/reference/contract-documentation/",
-        pages: "files",
-        templates: "./solidity-docgen/templates",
-    },
-
     gasReporter: {
         currency: "USD",
         enabled: true,
