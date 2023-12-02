@@ -3,7 +3,7 @@
 ## Introduction
 
 This document provides a comprehensive overview of the actors involved in the smart contract system and outlines their respective privileges and roles.
-Different `roles` (we call them `domain`) are granted via `AddressManager` contract's `setAddress()` function. Idea is very similar Optimism's `AddressManager` except that we use the `chainId + domainName` as the key for a given address. We need so, because for bridging purposes, the destination chain's bridge address needs to be included signaling the message hash is tamper-proof.
+Different `roles` (we call them `domain`) are granted via `AddressManager` contract's `setAddress()` function. The idea is very similar Optimism's `AddressManager` except that we use the `chainId + domainName` as the key for a given address. We need so, because for bridging purposes, the destination chain's bridge address needs to be included signaling the message hash is tamper-proof.
 Every contract which needs some role-based authentication, needs to inherit from `AddressResolver` contract, which will serve as a 'middleman/lookup' by querying the `AddressManager` per given address is allowed to act on behalf of that domain or not.
 
 ## 1. Domains (≈role per chainId)
@@ -21,8 +21,8 @@ In the context of the smart contract system, various actors play distinct roles.
 
 - **Role**: This domain role is given to Bridge smart contracts (both chains).
 - **Privileges**:
-  - The right to trigger transfering/minting the tokens (on destination chain) (be it ERC20, ERC721, ERC1155) from the vault contracts
-  - The right to trigger releasing the custodied assets on the source chain (if bridging is not successful)
+  - The right to trigger transferring/minting the tokens (on destination chain) (be it ERC20, ERC721, ERC1155) from the vault contracts
+  - The right to trigger releasing the custody assets on the source chain (if bridging is not successful)
 
 ### 1.3 ERCXXX_Vault
 
@@ -32,11 +32,11 @@ In the context of the smart contract system, various actors play distinct roles.
 
 ## 2. Different access modifiers
 
-Beside the `onlyFromNamed` or `onlyFromNamed2` modifiers, we have others such as:
+Besides the `onlyFromNamed` or `onlyFromNamed2` modifiers, we have others such as:
 
 ### 2.1 onlyOwner
 
-- **Description**: Only owner can be granted access.
+- **Description**: Only the owner can be granted access.
 - **Associated contracts**: TaikoToken, AddressManager, EtherVault
 
 ### 2.2 onlyAuthorized
