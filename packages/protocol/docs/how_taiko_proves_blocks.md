@@ -26,7 +26,7 @@ A valid transaction (defined in the Ethereum Yellow Paper):
 - Has a valid transaction nonce (equivalent to the sender account's current nonce).
 - Has no contract code deployed on the sender account (see EIP-3607 by Feist et al. [2021]).
 - Has a gas limit no smaller than the intrinsic gas, _`g0`_, used by the transaction.
-- The sender account balance contains at least the cost, _`v0`_, required in up-front payment.
+- The sender account balance contains at least the cost, _`v0`_, required an up-front payment.
 - The transaction has a gas limit that is smaller or equal to the amount of gas left in the block (with the block gas limit being the protocol constant _`blockMaxGasLimit`_).
 - The transaction has a base fee that is greater than or equal to the base fee of the block.
 
