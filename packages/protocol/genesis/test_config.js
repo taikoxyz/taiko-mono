@@ -3,7 +3,6 @@ const ADDRESS_LENGTH = 40;
 
 module.exports = {
   contractOwner: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-  contractAdmin: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
   chainId: 167,
   seedAccounts: [
     {
@@ -80,39 +79,33 @@ module.exports = {
     },
   ],
   get contractAddresses() {
-    // ============ Implementations ============
-    // Singletons
     return {
-      ProxiedSingletonBridge: getConstantAddress(`0${this.chainId}`, 1),
-      ProxiedSingletonERC20Vault: getConstantAddress(`0${this.chainId}`, 2),
-      ProxiedSingletonERC721Vault: getConstantAddress(`0${this.chainId}`, 3),
-      ProxiedSingletonERC1155Vault: getConstantAddress(`0${this.chainId}`, 4),
-      ProxiedSingletonSignalService: getConstantAddress(`0${this.chainId}`, 5),
-      ProxiedSingletonAddressManagerForSingletons: getConstantAddress(
-        `0${this.chainId}`,
-        6,
-      ),
-      // Non-singletons
-      ProxiedSingletonTaikoL2: getConstantAddress(`0${this.chainId}`, 10001),
-      ProxiedAddressManager: getConstantAddress(`0${this.chainId}`, 10002),
-      ProxiedBridgedERC20: getConstantAddress(`0${this.chainId}`, 10096),
-      ProxiedBridgedERC721: getConstantAddress(`0${this.chainId}`, 10097),
-      ProxiedBridgedERC1155: getConstantAddress(`0${this.chainId}`, 10098),
+      // ============ Implementations ============
+      // Shared Contracts
+      BridgeImpl: getConstantAddress(`0${this.chainId}`, 1),
+      ERC20VaultImpl: getConstantAddress(`0${this.chainId}`, 2),
+      ERC721VaultImpl: getConstantAddress(`0${this.chainId}`, 3),
+      ERC1155VaultImpl: getConstantAddress(`0${this.chainId}`, 4),
+      SignalServiceImpl: getConstantAddress(`0${this.chainId}`, 5),
+      SharedAddressManagerImpl: getConstantAddress(`0${this.chainId}`, 6),
+      BridgedERC20Impl: getConstantAddress(`0${this.chainId}`, 10096),
+      BridgedERC721Impl: getConstantAddress(`0${this.chainId}`, 10097),
+      BridgedERC1155Impl: getConstantAddress(`0${this.chainId}`, 10098),
       RegularERC20: getConstantAddress(`0${this.chainId}`, 10099),
+      // Rollup Contracts
+      TaikoL2Impl: getConstantAddress(`0${this.chainId}`, 10001),
+      RollupAddressManagerImpl: getConstantAddress(`0${this.chainId}`, 10002),
       // ============ Proxies ============
-      // Singletons
-      SingletonBridgeProxy: getConstantAddress(this.chainId, 1),
-      SingletonERC20VaultProxy: getConstantAddress(this.chainId, 2),
-      SingletonERC721VaultProxy: getConstantAddress(this.chainId, 3),
-      SingletonERC1155VaultProxy: getConstantAddress(this.chainId, 4),
-      SingletonSignalServiceProxy: getConstantAddress(this.chainId, 5),
-      SingletonAddressManagerForSingletonsProxy: getConstantAddress(
-        this.chainId,
-        6,
-      ),
-      // Non-singletons
-      SingletonTaikoL2Proxy: getConstantAddress(this.chainId, 10001),
-      AddressManagerProxy: getConstantAddress(this.chainId, 10002),
+      // Shared Contracts
+      Bridge: getConstantAddress(this.chainId, 1),
+      ERC20Vault: getConstantAddress(this.chainId, 2),
+      ERC721Vault: getConstantAddress(this.chainId, 3),
+      ERC1155Vault: getConstantAddress(this.chainId, 4),
+      SignalService: getConstantAddress(this.chainId, 5),
+      SharedAddressManager: getConstantAddress(this.chainId, 6),
+      // Rollup Contracts
+      TaikoL2: getConstantAddress(this.chainId, 10001),
+      RollupAddressManager: getConstantAddress(this.chainId, 10002),
     };
   },
   param1559: {

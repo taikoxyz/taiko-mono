@@ -184,12 +184,10 @@ library TaikoData {
             ) transitions;
         // Ring buffer for Ether deposits
         mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256) ethDeposits;
-        // In-protocol Taiko token balances
-        mapping(address account => uint256 balance) tokenBalances;
         // Reusable blobs
         mapping(bytes32 blobHash => uint256 since) reusableBlobs;
-        SlotA slotA; // slot 7
-        SlotB slotB; // slot 8
-        uint256[142] __gap;
+        SlotA slotA; // slot 6
+        SlotB slotB; // slot 7
+        uint256[143] __gap;
     }
 }

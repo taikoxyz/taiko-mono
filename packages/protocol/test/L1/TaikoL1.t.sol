@@ -1,15 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "forge-std/console2.sol";
-import "../../contracts/common/AddressManager.sol";
-import "../../contracts/L1/libs/LibUtils.sol";
-import "../../contracts/L1/TaikoData.sol";
-import "../../contracts/L1/TaikoErrors.sol";
-import "../../contracts/L1/TaikoL1.sol";
-import "../../contracts/L1/TaikoToken.sol";
-import "../../contracts/signal/SignalService.sol";
 import "./TaikoL1TestBase.sol";
 
 contract TaikoL1_NoCooldown is TaikoL1 {
@@ -30,12 +21,12 @@ contract Verifier {
 }
 
 contract TaikoL1Test is TaikoL1TestBase {
-    function deployTaikoL1() internal override returns (TaikoL1 taikoL1) {
-        taikoL1 = new TaikoL1_NoCooldown();
-    }
-
-    function setUp() public override {
-        TaikoL1TestBase.setUp();
+    function deployTaikoL1() internal override returns (TaikoL1) {
+        return TaikoL1(
+            payable(
+                deployProxy({ name: "taiko", impl: address(new TaikoL1_NoCooldown()), data: "" })
+            )
+        );
     }
 
     /// @dev Test we can propose, prove, then verify more blocks than

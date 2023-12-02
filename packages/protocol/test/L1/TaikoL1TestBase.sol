@@ -1,27 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
-import "forge-std/console2.sol";
-import "../TestBase.sol";
-import "../../contracts/common/AddressManager.sol";
-import "../../contracts/bridge/Bridge.sol";
-import "../../contracts/L1/libs/LibProving.sol";
-import "../../contracts/L1/libs/LibProposing.sol";
-import "../../contracts/L1/libs/LibUtils.sol";
-import "../../contracts/L1/TaikoData.sol";
-import "../../contracts/L1/TaikoL1.sol";
-import "../../contracts/L1/TaikoToken.sol";
-import "../../contracts/L1/verifiers/GuardianVerifier.sol";
-import "../../contracts/L1/tiers/TaikoA6TierProvider.sol";
-import "../../contracts/L1/verifiers/PseZkVerifier.sol";
-import "../../contracts/L1/verifiers/SgxVerifier.sol";
-import "../../contracts/L1/verifiers/SgxAndZkVerifier.sol";
-import "../../contracts/L1/provers/GuardianProver.sol";
-import "../../contracts/signal/SignalService.sol";
-import "../../contracts/common/AddressResolver.sol";
-import "../../contracts/L1/tiers/ITierProvider.sol";
-import "../../contracts/L1/hooks/AssignmentHook.sol";
+import "../TaikoTest.sol";
 
 contract MockVerifier {
     fallback(bytes calldata) external returns (bytes memory) {
@@ -47,10 +27,10 @@ abstract contract TaikoL1TestBase is TaikoTest {
     TaikoA6TierProvider public cp;
     Bridge public bridge;
 
-    bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
+    bytes32 public GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
 
-    address public constant L2SS = 0xa008AE5Ba00656a3Cc384de589579e3E52aC030C;
-    address public constant TaikoL2 = 0x0082D90249342980d011C58105a03b35cCb4A315;
+    address public L2SS = randAddress();
+    address public L2 = randAddress();
 
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 
@@ -58,38 +38,95 @@ abstract contract TaikoL1TestBase is TaikoTest {
         L1 = deployTaikoL1();
         conf = L1.getConfig();
 
-        addressManager = new AddressManager();
-        addressManager.init();
+        addressManager = AddressManager(
+            deployProxy({
+                name: "address_manager",
+                impl: address(new AddressManager()),
+                data: bytes.concat(AddressManager.init.selector)
+            })
+        );
 
-        ss = new SignalService();
-        ss.init();
+        ss = SignalService(
+            deployProxy({
+                name: "signal_service",
+                impl: address(new SignalService()),
+                data: bytes.concat(SignalService.init.selector)
+            })
+        );
 
-        pv = new PseZkVerifier();
-        pv.init(address(addressManager));
+        pv = PseZkVerifier(
+            deployProxy({
+                name: "tier_pse_zkevm",
+                impl: address(new PseZkVerifier()),
+                data: bytes.concat(PseZkVerifier.init.selector, abi.encode(address(addressManager)))
+            })
+        );
 
-        sv = new SgxVerifier();
-        sv.init(address(addressManager));
+        sv = SgxVerifier(
+            deployProxy({
+                name: "tier_sgx",
+                impl: address(new SgxVerifier()),
+                data: bytes.concat(SgxVerifier.init.selector, abi.encode(address(addressManager)))
+            })
+        );
+
         address[] memory initSgxInstances = new address[](1);
         initSgxInstances[0] = SGX_X_0;
         sv.addInstances(initSgxInstances);
 
-        sgxZkVerifier = new SgxAndZkVerifier();
-        sgxZkVerifier.init(address(addressManager));
+        sgxZkVerifier = SgxAndZkVerifier(
+            deployProxy({
+                name: "tier_sgx_and_pse_zkevm",
+                impl: address(new SgxAndZkVerifier()),
+                data: bytes.concat(SgxAndZkVerifier.init.selector, abi.encode(address(addressManager)))
+            })
+        );
 
-        gv = new GuardianVerifier();
-        gv.init(address(addressManager));
+        gv = GuardianVerifier(
+            deployProxy({
+                name: "guardian_verifier",
+                impl: address(new GuardianVerifier()),
+                data: bytes.concat(GuardianVerifier.init.selector, abi.encode(address(addressManager)))
+            })
+        );
 
-        gp = new GuardianProver();
-        gp.init(address(addressManager));
+        gp = GuardianProver(
+            deployProxy({
+                name: "guardian_prover",
+                impl: address(new GuardianProver()),
+                data: bytes.concat(GuardianProver.init.selector, abi.encode(address(addressManager)))
+            })
+        );
+
         setupGuardianProverMultisig();
 
-        cp = new TaikoA6TierProvider();
+        cp = TaikoA6TierProvider(
+            deployProxy({
+                name: "tier_provider",
+                impl: address(new TaikoA6TierProvider()),
+                data: bytes.concat(TaikoA6TierProvider.init.selector)
+            })
+        );
 
-        bridge = new Bridge();
-        bridge.init(address(addressManager));
+        bridge = Bridge(
+            payable(
+                deployProxy({
+                    name: "bridge",
+                    impl: address(new Bridge()),
+                    data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
+                    registerTo: address(addressManager),
+                    owner: address(0)
+                })
+            )
+        );
 
-        assignmentHook = new AssignmentHook();
-        assignmentHook.init(address(addressManager));
+        assignmentHook = AssignmentHook(
+            deployProxy({
+                name: "assignment_hook",
+                impl: address(new AssignmentHook()),
+                data: bytes.concat(AssignmentHook.init.selector, abi.encode(address(addressManager)))
+            })
+        );
 
         registerAddress("taiko", address(L1));
         registerAddress("tier_pse_zkevm", address(pv));
@@ -100,16 +137,28 @@ abstract contract TaikoL1TestBase is TaikoTest {
         registerAddress("signal_service", address(ss));
         registerAddress("guardian_prover", address(gp));
         registerAddress("bridge", address(bridge));
-        registerL2Address("taiko", address(TaikoL2));
+        registerL2Address("taiko", address(L2));
         registerL2Address("signal_service", address(L2SS));
-        registerL2Address("taiko_l2", address(TaikoL2));
+        registerL2Address("taiko_l2", address(L2));
 
         registerAddress(pv.getVerifierName(300), address(new MockVerifier()));
 
-        tko = new TaikoToken();
-        registerAddress("taiko_token", address(tko));
-
-        tko.init(address(addressManager), "TaikoToken", "TKO", address(this));
+        tko = TaikoToken(
+            deployProxy({
+                name: "taiko_token",
+                impl: address(new TaikoToken()),
+                data: bytes.concat(
+                    TaikoToken.init.selector,
+                    abi.encode(
+                        "Taiko Token", //
+                        "TTKOk",
+                        address(this)
+                    )
+                    ),
+                registerTo: address(addressManager),
+                owner: address(0)
+            })
+        );
 
         L1.init(address(addressManager), GENESIS_BLOCK_HASH);
         printVariables("init  ");
@@ -282,13 +331,14 @@ abstract contract TaikoL1TestBase is TaikoTest {
     }
 
     function setupGuardianProverMultisig() internal {
-        address[5] memory initMultiSig;
+        address[] memory initMultiSig = new address[](5);
         initMultiSig[0] = David;
         initMultiSig[1] = Emma;
         initMultiSig[2] = Frank;
         initMultiSig[3] = Grace;
         initMultiSig[4] = Henry;
-        gp.setGuardians(initMultiSig);
+
+        gp.setGuardians(initMultiSig, 3);
     }
 
     function registerAddress(bytes32 nameHash, address addr) internal {

@@ -1,46 +1,57 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "forge-std/console.sol";
-import "forge-std/console2.sol";
-import "../../contracts/common/AddressManager.sol";
-import "../../contracts/common/AddressResolver.sol";
-import "../../contracts/bridge/Bridge.sol";
-import "../../contracts/tokenvault/BridgedERC20.sol";
-import "../../contracts/test/erc20/FreeMintERC20.sol";
-import "../../contracts/signal/SignalService.sol";
-import "../TestBase.sol";
+import "../TaikoTest.sol";
 
 contract TestSignalService is TaikoTest {
     AddressManager addressManager;
-
     SignalService signalService;
     SignalService destSignalService;
     DummyCrossChainSync crossChainSync;
-    uint64 destChainId = 7;
+    uint64 public destChainId = 7;
 
     function setUp() public {
         vm.startPrank(Alice);
         vm.deal(Alice, 1 ether);
         vm.deal(Bob, 1 ether);
 
-        addressManager = new AddressManager();
-        addressManager.init();
+        addressManager = AddressManager(
+            deployProxy({
+                name: "address_manager",
+                impl: address(new AddressManager()),
+                data: bytes.concat(AddressManager.init.selector),
+                registerTo: address(addressManager),
+                owner: address(0)
+            })
+        );
 
-        signalService = new SignalService();
-        signalService.init();
+        signalService = SignalService(
+            deployProxy({
+                name: "signal_service",
+                impl: address(new SignalService()),
+                data: bytes.concat(SignalService.init.selector)
+            })
+        );
 
-        destSignalService = new SignalService();
-        destSignalService.init();
+        destSignalService = SignalService(
+            deployProxy({
+                name: "signal_service",
+                impl: address(new SignalService()),
+                data: bytes.concat(SignalService.init.selector)
+            })
+        );
 
-        crossChainSync = new DummyCrossChainSync();
-        crossChainSync.init(address(addressManager));
+        crossChainSync = DummyCrossChainSync(
+            deployProxy({
+                name: "dummy_cross_chain_sync",
+                impl: address(new DummyCrossChainSync()),
+                data: ""
+            })
+        );
 
-        addressManager.setAddress(uint64(block.chainid), "signal_service", address(signalService));
+        register(address(addressManager), "signal_service", address(destSignalService), destChainId);
 
-        addressManager.setAddress(destChainId, "signal_service", address(destSignalService));
-
-        addressManager.setAddress(destChainId, "taiko", address(crossChainSync));
+        register(address(addressManager), "taiko", address(crossChainSync), destChainId);
 
         vm.stopPrank();
     }

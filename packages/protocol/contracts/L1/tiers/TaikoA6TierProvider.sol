@@ -6,6 +6,7 @@
 
 pragma solidity ^0.8.20;
 
+import "../../common/EssentialContract.sol";
 import "./ITierProvider.sol";
 
 /// @title TaikoA6TierProvider
@@ -16,8 +17,13 @@ import "./ITierProvider.sol";
 // blocks. Assuming 10% tokens are used in bonds, then each block may use up to
 // these many tokens: 1,000,000,000 * 10% / 86400=1157 TOK per block, which is
 // about 722 USD.
-contract TaikoA6TierProvider is ITierProvider {
+contract TaikoA6TierProvider is EssentialContract, ITierProvider {
     error TIER_NOT_FOUND();
+
+    /// @notice Initializes the contract with the provided address manager.
+    function init() external initializer {
+        __Essential_init();
+    }
 
     function getTier(uint16 tierId) public pure override returns (ITierProvider.Tier memory) {
         if (tierId == LibTiers.TIER_OPTIMISTIC) {

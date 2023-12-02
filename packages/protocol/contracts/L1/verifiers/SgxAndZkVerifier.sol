@@ -20,7 +20,7 @@ contract SgxAndZkVerifier is EssentialContract, IVerifier {
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
     function init(address _addressManager) external initializer {
-        EssentialContract._init(_addressManager);
+        __Essential_init(_addressManager);
     }
 
     /// @inheritdoc IVerifier
@@ -44,7 +44,3 @@ contract SgxAndZkVerifier is EssentialContract, IVerifier {
         IVerifier(resolve("tier_pse_zkevm", false)).verifyProof(ctx, tran, _proof);
     }
 }
-
-/// @title ProxiedProofVerifier
-/// @notice Proxied version of the parent contract.
-contract ProxiedSgxAndZkVerifier is Proxied, SgxAndZkVerifier { }

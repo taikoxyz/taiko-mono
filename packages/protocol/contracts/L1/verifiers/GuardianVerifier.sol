@@ -19,7 +19,7 @@ contract GuardianVerifier is EssentialContract, IVerifier {
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
     function init(address _addressManager) external initializer {
-        EssentialContract._init(_addressManager);
+        __Essential_init(_addressManager);
     }
 
     /// @inheritdoc IVerifier
@@ -36,7 +36,3 @@ contract GuardianVerifier is EssentialContract, IVerifier {
         }
     }
 }
-
-/// @title ProxiedGuardianVerifier
-/// @notice Proxied version of the parent contract.
-contract ProxiedGuardianVerifier is Proxied, GuardianVerifier { }

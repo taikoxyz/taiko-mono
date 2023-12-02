@@ -11,6 +11,11 @@
   },
   {
     "inputs": [],
+    "name": "NULL_IMPL_ADDR",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "REENTRANT_CALL",
     "type": "error"
   },
@@ -57,11 +62,6 @@
   },
   {
     "inputs": [],
-    "name": "VAULT_INVALID_FROM",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "VAULT_INVALID_SRC_CHAIN_ID",
     "type": "error"
   },
@@ -82,16 +82,6 @@
   },
   {
     "inputs": [],
-    "name": "VAULT_MESSAGE_NOT_FAILED",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "VAULT_MESSAGE_RELEASED_ALREADY",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "VAULT_PERMISSION_DENIED",
     "type": "error"
   },
@@ -99,6 +89,38 @@
     "inputs": [],
     "name": "VAULT_TOKEN_ARRAY_MISMATCH",
     "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "previousAdmin",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "newAdmin",
+        "type": "address"
+      }
+    ],
+    "name": "AdminChanged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "beacon",
+        "type": "address"
+      }
+    ],
+    "name": "BeaconUpgraded",
+    "type": "event"
   },
   {
     "anonymous": false,
@@ -148,25 +170,6 @@
       }
     ],
     "name": "Initialized",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "previousOwner",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "newOwner",
-        "type": "address"
-      }
-    ],
-    "name": "OwnershipTransferStarted",
     "type": "event"
   },
   {
@@ -350,6 +353,19 @@
     "type": "event"
   },
   {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "implementation",
+        "type": "address"
+      }
+    ],
+    "name": "Upgraded",
+    "type": "event"
+  },
+  {
     "inputs": [],
     "name": "ERC1155_INTERFACE_ID",
     "outputs": [
@@ -386,13 +402,6 @@
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "acceptOwnership",
-    "outputs": [],
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -641,12 +650,12 @@
   },
   {
     "inputs": [],
-    "name": "pendingOwner",
+    "name": "proxiableUUID",
     "outputs": [
       {
-        "internalType": "address",
+        "internalType": "bytes32",
         "name": "",
-        "type": "address"
+        "type": "bytes32"
       }
     ],
     "stateMutability": "view",
@@ -927,6 +936,37 @@
     "name": "unpause",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "newImplementation",
+        "type": "address"
+      }
+    ],
+    "name": "upgradeTo",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "newImplementation",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes",
+        "name": "data",
+        "type": "bytes"
+      }
+    ],
+    "name": "upgradeToAndCall",
+    "outputs": [],
+    "stateMutability": "payable",
     "type": "function"
   }
 ]
