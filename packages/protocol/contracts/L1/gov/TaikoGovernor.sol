@@ -34,7 +34,7 @@ contract TaikoGovernor is
         external
         initializer
     {
-        _OwnerUUPSUpgradable_init();
+        __OwnerUUPSUpgradable_init();
         __Governor_init("TaikoGovernor");
         __GovernorVotes_init(_token);
         __GovernorVotesQuorumFraction_init(4);

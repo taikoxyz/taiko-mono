@@ -7,7 +7,7 @@ contract Target1 is EssentialContract {
     uint256 public count;
 
     function init() external initializer {
-        _Essential_init();
+        __Essential_init();
         count = 100;
     }
 

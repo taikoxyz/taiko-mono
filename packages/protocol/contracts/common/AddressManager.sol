@@ -33,7 +33,7 @@ contract AddressManager is OwnerUUPSUpgradable, IAddressManager {
 
     /// @notice Initializes the owner for the upgradable contract.
     function init() external initializer {
-        _OwnerUUPSUpgradable_init();
+        __OwnerUUPSUpgradable_init();
     }
 
     /// @notice Sets the address for a specific chainId-name pair.

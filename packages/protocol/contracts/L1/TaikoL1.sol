@@ -36,7 +36,7 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, ITierProvider, TaikoEven
     /// @param _addressManager The {AddressManager} address.
     /// @param _genesisBlockHash The block hash of the genesis block.
     function init(address _addressManager, bytes32 _genesisBlockHash) external initializer {
-        _Essential_init(_addressManager);
+        __Essential_init(_addressManager);
         LibVerifying.init(state, getConfig(), _genesisBlockHash);
     }
 

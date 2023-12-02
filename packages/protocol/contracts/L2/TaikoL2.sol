@@ -54,7 +54,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     /// @param _signalService Address of the {ISignalService} contract.
     /// @param _gasExcess The initial gasExcess.
     function init(address _signalService, uint64 _gasExcess) external initializer {
-        _Essential_init();
+        __Essential_init();
 
         if (_signalService == address(0)) revert L2_INVALID_PARAM();
         signalService = _signalService;

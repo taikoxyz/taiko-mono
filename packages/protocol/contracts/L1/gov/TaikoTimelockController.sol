@@ -14,7 +14,7 @@ contract TaikoTimelockController is OwnerUUPSUpgradable, TimelockControllerUpgra
     uint256[50] private __gap;
 
     function init(uint256 minDelay) external initializer {
-        _OwnerUUPSUpgradable_init();
+        __OwnerUUPSUpgradable_init();
         address[] memory nil = new address[](0);
         __TimelockController_init(minDelay, nil, nil, owner());
     }

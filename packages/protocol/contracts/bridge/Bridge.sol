@@ -62,7 +62,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Initializes the contract.
     /// @param _addressManager The address of the {AddressManager} contract.
     function init(address _addressManager) external initializer {
-        _Essential_init(_addressManager);
+        __Essential_init(_addressManager);
         _ctx.msgHash == bytes32(PLACEHOLDER);
     }
 

@@ -7,7 +7,7 @@ contract DummyGuardians is Guardians {
     uint256 public operationId;
 
     function init() external initializer {
-        _Essential_init();
+        __Essential_init();
     }
 
     function approve(bytes32 hash) public returns (bool) {

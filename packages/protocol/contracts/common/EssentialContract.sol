@@ -22,14 +22,14 @@ abstract contract EssentialContract is OwnerUUPSUpgradable, AddressResolver {
     /// @notice Initializes the contract with an address manager.
     /// @param _addressManager The address of the address manager.
     // solhint-disable-next-line func-name-mixedcase
-    function _Essential_init(address _addressManager) internal virtual {
-        _OwnerUUPSUpgradable_init();
-        _AddressResolver_init(_addressManager);
+    function __Essential_init(address _addressManager) internal virtual {
+        __OwnerUUPSUpgradable_init();
+        __AddressResolver_init(_addressManager);
     }
 
     /// @notice Initializes the contract with an address manager.
     // solhint-disable-next-line func-name-mixedcase
-    function _Essential_init() internal virtual {
-        _Essential_init(address(0));
+    function __Essential_init() internal virtual {
+        __Essential_init(address(0));
     }
 }

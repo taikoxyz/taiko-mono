@@ -55,7 +55,7 @@ contract BridgedERC20 is BridgedERC20Base, IERC20MetadataUpgradeable, ERC20Upgra
         }
 
         // Initialize OwnerUUPSUpgradable and ERC20Upgradeable
-        _Essential_init(_addressManager);
+        __Essential_init(_addressManager);
         __ERC20_init({ name_: _name, symbol_: _symbol });
 
         // Set contract properties
