@@ -167,6 +167,7 @@ contract ERC20Vault is BaseVault {
     {
         if (op.amount == 0) revert VAULT_INVALID_AMOUNT();
         if (op.token == address(0)) revert VAULT_INVALID_TOKEN();
+        if (btokenBlacklist[op.token]) revert VAULT_BTOKEN_BLACKLISTED();
 
         uint256 _amount;
         IBridge.Message memory message;
@@ -298,8 +299,6 @@ contract ERC20Vault is BaseVault {
             IBridgedERC20(token).burn(msg.sender, amount);
             _balanceChange = amount;
         } else {
-            if (btokenBlacklist[token]) revert VAULT_BTOKEN_BLACKLISTED();
-
             // If it's a canonical token
             ERC20 t = ERC20(token);
             ctoken = CanonicalERC20({
