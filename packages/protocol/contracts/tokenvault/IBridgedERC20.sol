@@ -6,8 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-import "../common/EssentialContract.sol";
-
 /// @title IBridgedERC20
 /// @notice Interface for all bridged tokens.
 /// @dev To facilitate compatibility with third-party bridged tokens, such as USDC's native
