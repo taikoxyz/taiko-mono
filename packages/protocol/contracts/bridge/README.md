@@ -20,7 +20,7 @@ Each type has its own vault contract both deployed to the source and destination
 
 #### Bridging Ether
 
-If user wants to bridge ether, he/she will initiate a bridge transaction with `sendMessage` on the source chain which includes:
+If a user wants to bridge ether, he/she will initiate a bridge transaction with `sendMessage` on the source chain which includes:
 
 ```
     struct Message {
@@ -40,7 +40,7 @@ If user wants to bridge ether, he/she will initiate a bridge transaction with `s
         address refundAddress;
         // value to invoke on the destination chain, for ERC20 transfers.
         uint256 value;
-        // Processing fee for the relayer. Zero if user will process themselves.
+        // Processing fee for the relayer. Zero if users will process themselves.
         uint256 fee;
         // gasLimit to invoke on the destination chain, for ERC20 transfers.
         uint256 gasLimit;
@@ -58,7 +58,7 @@ Inside the `sendMessage` call, the `msg.value` amount of Ether is sent to the sr
 
 #### Bridging other tokens
 
-If user wants to bridge other tokens (`Erc20`, `Erc1155` or `Erc721`.) he/she will just indirectly initiate a bridge transaction (`sendMessage`) by interacting with the corresponding token vault contracts.
+If a user wants to bridge other tokens (`Erc20`, `Erc1155` or `Erc721`.) he/she will just indirectly initiate a bridge transaction (`sendMessage`) by interacting with the corresponding token vault contracts.
 
 In case of ERC20 the transaction can be initiated by initializing a struct (below) and calling `sendToken`:
 
@@ -93,7 +93,7 @@ struct BridgeTransferOp {
 
 ### Process message
 
-If the `processingFee` is set to 0, only the user can call `processMessage`. Otherwise, either the user or an off-chain relayer can process the message. Let's explain the next steps in the case of a relayer -- the user will have to do the same steps anyways. In the case of a relayer, the relayer picks up the event and **generates a proof from srcChain** -- this can be obtained with `eth_getProof` on the srcChain bridge contract. This proof is sent along with the signal to `processMessage` on the destChain bridge contract.
+If the `processingFee` is set to 0, only the user can call `processMessage`. Otherwise, either the user or an off-chain relayer can process the message. Let's explain the next steps in the case of a relayer -- the user will have to do the same steps anyway. In the case of a relayer, the relayer picks up the event and **generates a proof from srcChain** -- this can be obtained with `eth_getProof` on the srcChain bridge contract. This proof is sent along with the signal to `processMessage` on the destChain bridge contract.
 
 The `processMessage` call will first check that the message has not been processed yet, this status is stored in the destination chain's bridge contract state as `messageStatus`. Next, the proof (that the message is indeed sent to the SignalService on the source chain) is checked inside `isSignalReceived`. The proof demonstrates that the storage on the `Bridge` contract on srcChain contains the `key` with a value of `1`. `LibTrieProof` takes the proof, the signal, and the message sender address to check the `key` is set on the srcChain bridge contract state. This verifies that the message is sent on srcChain. Next, `isSignalReceived` gets the header hash on destChain of the header height specified in the proof. It then checks that this hash is equal to the hash specified in the proof. This will verify that the message is received on destChain.
 
