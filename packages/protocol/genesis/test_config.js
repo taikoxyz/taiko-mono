@@ -116,6 +116,6 @@ module.exports = {
 
 function getConstantAddress(prefix, suffix) {
   return `0x${prefix}${"0".repeat(
-    ADDRESS_LENGTH - String(prefix).length - String(suffix).length,
+    ADDRESS_LENGTH - String(prefix).length - String(suffix).length
   )}${suffix}`;
 }
