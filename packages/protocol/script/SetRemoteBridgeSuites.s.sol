@@ -47,7 +47,7 @@ contract SetRemoteBridgeSuites is DeployCapability {
                 register(addressManagerAddress, "erc20_vault", remoteERC20Vaults[i], chainid);
                 register(addressManagerAddress, "erc721_vault", remoteERC721Vaults[i], chainid);
                 register(addressManagerAddress, "erc1155_vault", remoteERC1155Vaults[i], chainid);
-                return;
+                continue;
             }
 
             registerByTimelock(addressManagerAddress, "bridge", remoteBridges[i], chainid);
