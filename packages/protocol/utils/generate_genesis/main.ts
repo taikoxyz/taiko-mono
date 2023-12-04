@@ -47,7 +47,7 @@ async function main() {
 
     console.log("config: %o", config);
 
-    console.log("start deploy ProxiedTaikoL2 contract");
+    console.log("start deploy TaikoL2 contract");
 
     let result = await deployTaikoL2(config, {
         alloc: {},
@@ -77,9 +77,16 @@ async function main() {
         JSON.stringify(result.storageLayouts, null, 2),
     );
 
+    const configJsonSavedPath = path.join(
+        __dirname,
+        "../../deployments/genesis_config.json",
+    );
+    fs.writeFileSync(configJsonSavedPath, JSON.stringify(config));
+
     console.log("done");
     console.log(`alloc JSON saved to ${allocSavedPath}`);
     console.log(`layout JSON saved to ${layoutSavedPath}`);
+    console.log(`config JSON saved to ${configJsonSavedPath}`);
 }
 
 main().catch(console.error);

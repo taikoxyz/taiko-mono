@@ -129,9 +129,9 @@ func DecodeMessageSentData(event *bridge.BridgeMessageSent) (EventType, Canonica
 
 	var amount *big.Int = big.NewInt(0)
 
-	erc20ReceiveTokensFunctionSig := "cb03d23c"
-	erc721ReceiveTokensFunctionSig := "a9976baf"
-	erc1155ReceiveTokensFunctionSig := "20b81559"
+	erc20ReceiveTokensFunctionSig := "240f6a5f"
+	erc721ReceiveTokensFunctionSig := "300536b5"
+	erc1155ReceiveTokensFunctionSig := "079312bf"
 
 	// try to see if its an ERC20
 	if event.Message.Data != nil && common.BytesToHash(event.Message.Data) != ZeroHash {
@@ -164,7 +164,7 @@ func DecodeMessageSentData(event *bridge.BridgeMessageSent) (EventType, Canonica
 				// have to unpack to anonymous struct first due to abi limitation
 				t := inputsMap["ctoken"].(struct {
 					// nolint
-					ChainId  *big.Int       `json:"chainId"`
+					ChainId  uint64         `json:"chainId"`
 					Addr     common.Address `json:"addr"`
 					Decimals uint8          `json:"decimals"`
 					Symbol   string         `json:"symbol"`
@@ -209,7 +209,7 @@ func DecodeMessageSentData(event *bridge.BridgeMessageSent) (EventType, Canonica
 
 				t := inputsMap["ctoken"].(struct {
 					// nolint
-					ChainId *big.Int       `json:"chainId"`
+					ChainId uint64         `json:"chainId"`
 					Addr    common.Address `json:"addr"`
 					Symbol  string         `json:"symbol"`
 					Name    string         `json:"name"`
@@ -252,7 +252,7 @@ func DecodeMessageSentData(event *bridge.BridgeMessageSent) (EventType, Canonica
 
 				t := inputsMap["ctoken"].(struct {
 					// nolint
-					ChainId *big.Int       `json:"chainId"`
+					ChainId uint64         `json:"chainId"`
 					Addr    common.Address `json:"addr"`
 					Symbol  string         `json:"symbol"`
 					Name    string         `json:"name"`
@@ -280,7 +280,7 @@ func DecodeMessageSentData(event *bridge.BridgeMessageSent) (EventType, Canonica
 }
 
 type CanonicalToken interface {
-	ChainID() *big.Int
+	ChainID() uint64
 	Address() common.Address
 	ContractName() string
 	TokenDecimals() uint8
@@ -289,14 +289,14 @@ type CanonicalToken interface {
 
 type CanonicalERC20 struct {
 	// nolint
-	ChainId  *big.Int       `json:"chainId"`
+	ChainId  uint64         `json:"chainId"`
 	Addr     common.Address `json:"addr"`
 	Decimals uint8          `json:"decimals"`
 	Symbol   string         `json:"symbol"`
 	Name     string         `json:"name"`
 }
 
-func (c CanonicalERC20) ChainID() *big.Int {
+func (c CanonicalERC20) ChainID() uint64 {
 	return c.ChainId
 }
 
@@ -318,13 +318,13 @@ func (c CanonicalERC20) TokenDecimals() uint8 {
 
 type CanonicalNFT struct {
 	// nolint
-	ChainId *big.Int       `json:"chainId"`
+	ChainId uint64         `json:"chainId"`
 	Addr    common.Address `json:"addr"`
 	Symbol  string         `json:"symbol"`
 	Name    string         `json:"name"`
 }
 
-func (c CanonicalNFT) ChainID() *big.Int {
+func (c CanonicalNFT) ChainID() uint64 {
 	return c.ChainId
 }
 

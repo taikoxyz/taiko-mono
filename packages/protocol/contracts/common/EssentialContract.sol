@@ -6,33 +6,30 @@
 
 pragma solidity ^0.8.20;
 
-import { AddressResolver } from "./AddressResolver.sol";
-import { IAddressManager } from "./AddressManager.sol";
-import { OwnableUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import { ReentrancyGuardUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "./AddressResolver.sol";
+import "./OwnerUUPSUpgradable.sol";
 
-/// @title EssentialContract
-/// @notice This contract serves as the base contract for many core components.
-abstract contract EssentialContract is
-    ReentrancyGuardUpgradeable,
-    OwnableUpgradeable,
-    AddressResolver
-{
-    /// @notice Sets a new address manager.
-    /// @param newAddressManager Address of the new address manager.
-    function setAddressManager(address newAddressManager) external onlyOwner {
-        if (newAddressManager == address(0)) revert RESOLVER_INVALID_ADDR();
-        _addressManager = IAddressManager(newAddressManager);
-        emit AddressManagerChanged(newAddressManager);
+abstract contract EssentialContract is OwnerUUPSUpgradable, AddressResolver {
+    uint256[50] private __gap;
+
+    /// @dev Modifier that ensures the caller is the owner or resolved address of a given name.
+    /// @param name The name to check against.
+    modifier onlyFromOwnerOrNamed(bytes32 name) {
+        if (msg.sender != owner() && msg.sender != resolve(name, true)) revert RESOLVER_DENIED();
+        _;
     }
 
     /// @notice Initializes the contract with an address manager.
     /// @param _addressManager The address of the address manager.
-    function _init(address _addressManager) internal virtual override {
-        ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
-        OwnableUpgradeable.__Ownable_init();
-        AddressResolver._init(_addressManager);
+    // solhint-disable-next-line func-name-mixedcase
+    function __Essential_init(address _addressManager) internal virtual {
+        __OwnerUUPSUpgradable_init();
+        __AddressResolver_init(_addressManager);
+    }
+
+    /// @notice Initializes the contract with an address manager.
+    // solhint-disable-next-line func-name-mixedcase
+    function __Essential_init() internal virtual {
+        __Essential_init(address(0));
     }
 }

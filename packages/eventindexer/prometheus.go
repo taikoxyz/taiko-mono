@@ -10,17 +10,33 @@ var (
 		Name: "block_proposed_events_processed_ops_total",
 		Help: "The total number of processed BlockProposed events",
 	})
+	BlockAssignedEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "block_assigned_events_processed_ops_total",
+		Help: "The total number of processed BlockAssigned events",
+	})
 	BlockProposedEventsProcessedError = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "block_proposed_events_processed_error_ops_total",
 		Help: "The total number of processed BlockProposed event errors encountered",
 	})
-	BlockProvenEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
+	BlockAssignedEventsProcessedError = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "block_assigned_events_processed_error_ops_total",
+		Help: "The total number of processed BlockAssigned event errors encountered",
+	})
+	TransitionProvedEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "block_proven_events_processed_ops_total",
 		Help: "The total number of processed BlockProven events",
 	})
-	BlockProvenEventsProcessedError = promauto.NewCounter(prometheus.CounterOpts{
+	TransitionProvedEventsProcessedError = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "block_proven_events_processed_error_ops_total",
 		Help: "The total number of processed BlockProven event errors encountered",
+	})
+	TransitionContestedEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "block_contested_events_processed_ops_total",
+		Help: "The total number of processed BlockContested events",
+	})
+	TransitionContestedEventsProcessedError = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "block_contested_events_processed_error_ops_total",
+		Help: "The total number of processed BlockContested event errors encountered",
 	})
 	BlockVerifiedEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "block_verified_events_processed_ops_total",

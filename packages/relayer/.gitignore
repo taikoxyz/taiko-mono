@@ -3,11 +3,14 @@
 .l1l2.env
 .l2l3.env
 .test.env
-.l1indexer.env
-.l2indexer.env
+.l1l2indexer.env
+.l1l3indexer.env
+.l2l1indexer.env
+.l1l2processor.env
+.l1l3processor.env
+.l2l1processor.env
 .l1processor.env
-.l2processor.env
-
+.l2indexer.env
 main
 coverage.txt
 
