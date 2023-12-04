@@ -4,6 +4,10 @@ import { bridgeABI } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { bridgePausedModal } from '$stores/modal';
 
+import { getLogger } from './logger';
+
+const log = getLogger('bridge:checkForPausedContracts');
+
 export const isBridgePaused = async () => {
   await checkForPausedContracts();
   if (bridgePausedModal) {
@@ -32,7 +36,8 @@ export const checkForPausedContracts = async () => {
           return true;
         }
       } catch {
-        return true;
+        //todo: will this ever happen and if so what do we do?
+        log('Error checking for paused contracts');
       }
     }),
   );
