@@ -145,21 +145,21 @@ contract DeployOnL1 is DeployCapability {
         timelock = deployProxy({
             name: "timelock_controller",
             impl: address(new TaikoTimelockController()),
-            data: bytes.concat(TaikoTimelockController.init.selector, abi.encode(7 days))
+            data: abi.encodeCall(TaikoTimelockController.init, (7 days))
         });
 
         sharedAddressManager = deployProxy({
             name: "shared_address_manager",
             impl: address(new AddressManager()),
-            data: bytes.concat(AddressManager.init.selector)
+            data: abi.encodeCall(AddressManager.init, ())
         });
 
         address taikoToken = deployProxy({
             name: "taiko_token",
             impl: address(new TaikoToken()),
-            data: bytes.concat(
-                TaikoToken.init.selector,
-                abi.encode(
+            data: abi.encodeCall(
+                TaikoToken.init,
+                (
                     vm.envString("TAIKO_TOKEN_NAME"),
                     vm.envString("TAIKO_TOKEN_SYMBOL"),
                     vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT")
@@ -172,7 +172,10 @@ contract DeployOnL1 is DeployCapability {
         address governor = deployProxy({
             name: "taiko_governor",
             impl: address(new TaikoGovernor()),
-            data: bytes.concat(TaikoGovernor.init.selector, abi.encode(taikoToken, timelock)),
+            data: abi.encodeCall(
+                TaikoGovernor.init,
+                (IVotesUpgradeable(taikoToken), TimelockControllerUpgradeable(payable(timelock)))
+                ),
             registerTo: address(0),
             owner: timelock
         });
@@ -199,7 +202,7 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "signal_service",
             impl: address(new SignalService()),
-            data: bytes.concat(SignalService.init.selector),
+            data: abi.encodeCall(SignalService.init, ()),
             registerTo: sharedAddressManager,
             owner: address(0)
         });
@@ -207,7 +210,7 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "bridge",
             impl: address(new Bridge()),
-            data: bytes.concat(Bridge.init.selector, abi.encode(sharedAddressManager)),
+            data: abi.encodeCall(Bridge.init, (sharedAddressManager)),
             registerTo: sharedAddressManager,
             owner: timelock
         });
@@ -225,7 +228,7 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "erc20_vault",
             impl: address(new ERC20Vault()),
-            data: bytes.concat(BaseVault.init.selector, abi.encode(sharedAddressManager)),
+            data: abi.encodeCall(BaseVault.init, (sharedAddressManager)),
             registerTo: sharedAddressManager,
             owner: timelock
         });
@@ -233,7 +236,7 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "erc721_vault",
             impl: address(new ERC721Vault()),
-            data: bytes.concat(BaseVault.init.selector, abi.encode(sharedAddressManager)),
+            data: abi.encodeCall(BaseVault.init, (sharedAddressManager)),
             registerTo: sharedAddressManager,
             owner: timelock
         });
@@ -241,7 +244,7 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "erc1155_vault",
             impl: address(new ERC1155Vault()),
-            data: bytes.concat(BaseVault.init.selector, abi.encode(sharedAddressManager)),
+            data: abi.encodeCall(BaseVault.init, (sharedAddressManager)),
             registerTo: sharedAddressManager,
             owner: timelock
         });
@@ -280,16 +283,13 @@ contract DeployOnL1 is DeployCapability {
         rollupAddressManager = deployProxy({
             name: "rollup_address_manager",
             impl: address(new AddressManager()),
-            data: bytes.concat(AddressManager.init.selector)
+            data: abi.encodeCall(AddressManager.init, ())
         });
 
         deployProxy({
             name: "taiko",
             impl: address(new TaikoL1()),
-            data: bytes.concat(
-                TaikoL1.init.selector,
-                abi.encode(rollupAddressManager, vm.envBytes32("L2_GENESIS_HASH"))
-                ),
+            data: abi.encodeCall(TaikoL1.init, (rollupAddressManager, vm.envBytes32("L2_GENESIS_HASH"))),
             registerTo: rollupAddressManager,
             owner: timelock
         });
@@ -297,7 +297,7 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "assignment_hook",
             impl: address(new AssignmentHook()),
-            data: bytes.concat(AssignmentHook.init.selector, abi.encode(rollupAddressManager)),
+            data: abi.encodeCall(AssignmentHook.init, (rollupAddressManager)),
             registerTo: address(0),
             owner: timelock
         });
@@ -305,7 +305,7 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "tier_provider",
             impl: address(new TaikoA6TierProvider()),
-            data: bytes.concat(TaikoA6TierProvider.init.selector),
+            data: abi.encodeCall(TaikoA6TierProvider.init, ()),
             registerTo: rollupAddressManager,
             owner: timelock
         });
@@ -313,7 +313,7 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "tier_guardian",
             impl: address(new GuardianVerifier()),
-            data: bytes.concat(GuardianVerifier.init.selector, abi.encode(rollupAddressManager)),
+            data: abi.encodeCall(GuardianVerifier.init, (rollupAddressManager)),
             registerTo: rollupAddressManager,
             owner: timelock
         });
@@ -321,7 +321,7 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "tier_sgx",
             impl: address(new SgxVerifier()),
-            data: bytes.concat(SgxVerifier.init.selector, abi.encode(rollupAddressManager)),
+            data: abi.encodeCall(SgxVerifier.init, (rollupAddressManager)),
             registerTo: rollupAddressManager,
             owner: timelock
         });
@@ -329,7 +329,7 @@ contract DeployOnL1 is DeployCapability {
         deployProxy({
             name: "tier_sgx_and_pse_zkevm",
             impl: address(new SgxAndZkVerifier()),
-            data: bytes.concat(SgxAndZkVerifier.init.selector, abi.encode(rollupAddressManager)),
+            data: abi.encodeCall(SgxAndZkVerifier.init, (rollupAddressManager)),
             registerTo: rollupAddressManager,
             owner: timelock
         });
@@ -337,7 +337,7 @@ contract DeployOnL1 is DeployCapability {
         address pseZkVerifier = deployProxy({
             name: "tier_pse_zkevm",
             impl: address(new PseZkVerifier()),
-            data: bytes.concat(PseZkVerifier.init.selector, abi.encode(rollupAddressManager)),
+            data: abi.encodeCall(PseZkVerifier.init, (rollupAddressManager)),
             registerTo: rollupAddressManager,
             owner: timelock
         });
@@ -356,7 +356,7 @@ contract DeployOnL1 is DeployCapability {
         address guardianProver = deployProxy({
             name: "guardian_prover",
             impl: address(new GuardianProver()),
-            data: bytes.concat(GuardianProver.init.selector, abi.encode(rollupAddressManager)),
+            data: abi.encodeCall(GuardianProver.init, (rollupAddressManager)),
             registerTo: rollupAddressManager,
             owner: address(0)
         });
