@@ -179,14 +179,15 @@ contract DeployOnL1 is DeployCapability {
 
         // Setup time lock roles
         TaikoTimelockController _timelock = TaikoTimelockController(payable(timelock));
+        // Only the governer can make proposals after holders voting.
         _timelock.grantRole(_timelock.PROPOSER_ROLE(), governor);
-        _timelock.grantRole(_timelock.PROPOSER_ROLE(), securityCouncil);
 
-        _timelock.grantRole(_timelock.EXECUTOR_ROLE(), governor);
-        _timelock.grantRole(_timelock.EXECUTOR_ROLE(), securityCouncil);
+        // Granting address(0) the executor role to allow open executation.
+        _timelock.grantRole(_timelock.EXECUTOR_ROLE(), address(0));
 
-        _timelock.grantRole(_timelock.CANCELLER_ROLE(), governor);
-        _timelock.grantRole(_timelock.CANCELLER_ROLE(), securityCouncil);
+        // Cancelling is not supported by the implementation by default, therefore, no need to set
+        // up this role.
+        // _timelock.grantRole(_timelock.CANCELLER_ROLE(), securityCouncil);
 
         _timelock.grantRole(_timelock.TIMELOCK_ADMIN_ROLE(), securityCouncil);
         _timelock.revokeRole(_timelock.TIMELOCK_ADMIN_ROLE(), address(this));
