@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 // Some of the tests are taken from:
 // https://github.com/recmo/experiment-solexp/blob/main/src/test/FixedPointMathLib.t.sol
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
 import "../TaikoTest.sol";
 
