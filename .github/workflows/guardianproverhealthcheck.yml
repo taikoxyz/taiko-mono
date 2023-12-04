@@ -2,7 +2,7 @@ name: guardianproverhealthcheck
 
 on:
   push:
-    branches: [main]
+    branches: [alpha-6]
     paths:
       - "packages/guardianproverhealthcheck/**"
   pull_request:
