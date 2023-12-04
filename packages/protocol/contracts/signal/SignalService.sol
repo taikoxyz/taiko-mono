@@ -157,5 +157,7 @@ contract SignalService is AuthorizableContract, ISignalService {
 
     /// @notice Tells if we need to check real proof or it is a test.
     /// @return Returns true to skip checking inclusion proofs.
-    function skipProofCheck() public pure virtual returns (bool) { }
+    function skipProofCheck() public pure virtual returns (bool) {
+        return false;
+    }
 }
