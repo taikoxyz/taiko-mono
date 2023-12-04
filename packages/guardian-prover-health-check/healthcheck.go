@@ -34,5 +34,10 @@ type HealthCheckRepository interface {
 		req *http.Request,
 		id int,
 	) (paginate.Page, error)
+	GetMostRecentByGuardianProverID(
+		ctx context.Context,
+		req *http.Request,
+		id int,
+	) (*HealthCheck, error)
 	Save(opts SaveHealthCheckOpts) error
 }

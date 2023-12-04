@@ -29,12 +29,6 @@ var (
 	msg = crypto.Keccak256Hash([]byte("HEART_BEAT")).Bytes()
 )
 
-type guardianProver struct {
-	address  common.Address
-	id       *big.Int
-	endpoint *url.URL
-}
-
 type HealthChecker struct {
 	ctx                    context.Context
 	cancelCtx              context.CancelFunc
@@ -42,7 +36,7 @@ type HealthChecker struct {
 	interval               time.Duration
 	guardianProverContract *guardianprover.GuardianProver
 	numGuardians           uint64
-	guardianProvers        []guardianProver
+	guardianProvers        []guardianproverhealthcheck.GuardianProver
 	httpSrv                *hchttp.Server
 	httpPort               uint64
 }
@@ -84,6 +78,22 @@ func InitFromConfig(ctx context.Context, h *HealthChecker, cfg *Config) (err err
 		return err
 	}
 
+	statRepo, err := repo.NewStatRepository(db)
+	if err != nil {
+		return err
+	}
+
+	endpoints := make([]*url.URL, 0)
+
+	for _, v := range cfg.GuardianProverEndpoints {
+		url, err := url.Parse(v)
+		if err != nil {
+			return err
+		}
+
+		endpoints = append(endpoints, url)
+	}
+
 	ethClient, err := ethclient.Dial(cfg.RPCUrl)
 	if err != nil {
 		return err
@@ -97,12 +107,12 @@ func InitFromConfig(ctx context.Context, h *HealthChecker, cfg *Config) (err err
 		return err
 	}
 
-	numGuardians, err := guardianProverContract.NUMGUARDIANS(nil)
+	numGuardians, err := guardianProverContract.NumGuardians(nil)
 	if err != nil {
 		return err
 	}
 
-	var guardianProvers []guardianProver
+	var guardianProvers []guardianproverhealthcheck.GuardianProver
 
 	for i := 0; i < int(numGuardians.Uint64()); i++ {
 		guardianAddress, err := guardianProverContract.Guardians(&bind.CallOpts{}, new(big.Int).SetInt64(int64(i)))
@@ -120,16 +130,18 @@ func InitFromConfig(ctx context.Context, h *HealthChecker, cfg *Config) (err err
 			return err
 		}
 
-		guardianProvers = append(guardianProvers, guardianProver{
-			address:  guardianAddress,
-			id:       guardianId,
-			endpoint: endpoint,
+		guardianProvers = append(guardianProvers, guardianproverhealthcheck.GuardianProver{
+			Address:  guardianAddress,
+			ID:       guardianId,
+			Endpoint: endpoint,
 		})
 	}
 
 	h.httpSrv, err = hchttp.NewServer(hchttp.NewServerOpts{
 		Echo:            echo.New(),
 		HealthCheckRepo: healthCheckRepo,
+		StatRepo:        statRepo,
+		GuardianProvers: guardianProvers,
 	})
 
 	if err != nil {
@@ -173,9 +185,9 @@ func (h *HealthChecker) checkGuardianProversOnInterval() {
 				if err != nil {
 					slog.Error(
 						"error checking guardian prover endpoint",
-						"endpoint", g.endpoint,
-						"id", g.id,
-						"address", g.address.Hex(),
+						"endpoint", g.Endpoint,
+						"id", g.ID,
+						"address", g.Address.Hex(),
 						"recoveredAddr", recoveredAddr,
 						"error", err,
 					)
@@ -189,9 +201,9 @@ func (h *HealthChecker) checkGuardianProversOnInterval() {
 
 				err = h.healthCheckRepo.Save(
 					guardianproverhealthcheck.SaveHealthCheckOpts{
-						GuardianProverID: g.id.Uint64(),
+						GuardianProverID: g.ID.Uint64(),
 						Alive:            sig != "",
-						ExpectedAddress:  g.address.Hex(),
+						ExpectedAddress:  g.Address.Hex(),
 						RecoveredAddress: recoveredAddr,
 						SignedResponse:   sig,
 					},
@@ -199,18 +211,18 @@ func (h *HealthChecker) checkGuardianProversOnInterval() {
 
 				if err != nil {
 					slog.Error("error saving failed health check to database",
-						"endpoint", g.endpoint,
-						"id", g.id,
-						"address", g.address.Hex(),
+						"endpoint", g.Endpoint,
+						"id", g.ID,
+						"address", g.Address.Hex(),
 						"recoveredAddr", recoveredAddr,
 						"sig", sig,
 						"error", err,
 					)
 				} else {
 					slog.Info("saved health check to database",
-						"endpoint", g.endpoint,
-						"id", g.id,
-						"address", g.address.Hex(),
+						"endpoint", g.Endpoint,
+						"id", g.ID,
+						"address", g.Address.Hex(),
 						"recoveredAddr", recoveredAddr,
 						"sig", sig,
 					)
@@ -220,12 +232,14 @@ func (h *HealthChecker) checkGuardianProversOnInterval() {
 	}
 }
 
-func (h *HealthChecker) checkGuardianProver(g guardianProver) (*healthCheckResponse, string, error) {
-	slog.Info("checking guardian prover", "id", g.id, "endpoint", g.endpoint)
+func (h *HealthChecker) checkGuardianProver(
+	g guardianproverhealthcheck.GuardianProver,
+) (*healthCheckResponse, string, error) {
+	slog.Info("checking guardian prover", "id", g.ID, "endpoint", g.Endpoint)
 
 	healthCheckResponse := &healthCheckResponse{}
 
-	resp, err := http.Get(g.endpoint.String() + "/status")
+	resp, err := http.Get(g.Endpoint.String() + "/status")
 	if err != nil {
 		// save fail to db
 		return healthCheckResponse, "", err
@@ -240,8 +254,8 @@ func (h *HealthChecker) checkGuardianProver(g guardianProver) (*healthCheckRespo
 		return healthCheckResponse, "", err
 	}
 
-	if g.address.Cmp(common.HexToAddress(healthCheckResponse.ProverAddress)) != 0 {
-		slog.Error("address mismatch", "expected", g.address.Hex(), "received", healthCheckResponse.ProverAddress)
+	if g.Address.Cmp(common.HexToAddress(healthCheckResponse.ProverAddress)) != 0 {
+		slog.Error("address mismatch", "expected", g.Address.Hex(), "received", healthCheckResponse.ProverAddress)
 		return healthCheckResponse, "", errors.New("prover address provided was not the address expected")
 	}
 
