@@ -99,7 +99,7 @@ export class RelayerAPIService {
       address: bridgeAddress,
       abi: bridgeABI,
       chainId: Number(destChainId),
-      functionName: 'getMessageStatus',
+      functionName: 'messageStatus',
       args: [msgHash],
     });
     return result as MessageStatus;
@@ -189,7 +189,7 @@ export class RelayerAPIService {
           to: tx.data.Message.To,
           data,
           memo: tx.data.Message.Memo,
-          user: tx.data.Message.User,
+          owner: tx.data.Message.User,
           from: tx.data.Message.From,
           gasLimit: BigInt(tx.data.Message.GasLimit),
           value: BigInt(tx.data.Message.Value),
