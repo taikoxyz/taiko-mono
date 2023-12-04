@@ -11,6 +11,7 @@ import "./libs/LibDepositing.sol";
 import "./libs/LibProposing.sol";
 import "./libs/LibProving.sol";
 import "./libs/LibVerifying.sol";
+import "./ITaikoL1.sol";
 import "./TaikoErrors.sol";
 import "./TaikoEvents.sol";
 
@@ -23,7 +24,14 @@ import "./TaikoEvents.sol";
 /// layers"). The contract also handles the deposit and withdrawal of Taiko
 /// tokens and Ether.
 /// This contract doesn't hold any Ether. Ether deposited to L2 are held by the Bridge contract.
-contract TaikoL1 is EssentialContract, ICrossChainSync, ITierProvider, TaikoEvents, TaikoErrors {
+contract TaikoL1 is
+    EssentialContract,
+    ITaikoL1,
+    ICrossChainSync,
+    ITierProvider,
+    TaikoEvents,
+    TaikoErrors
+{
     TaikoData.State public state;
     uint256[100] private __gap;
 

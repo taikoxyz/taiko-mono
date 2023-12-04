@@ -7,6 +7,7 @@
 pragma solidity 0.8.20;
 
 import "../tiers/ITierProvider.sol";
+import "../ITaikoL1.sol";
 import "./Guardians.sol";
 
 /// @title GuardianProver
@@ -36,10 +37,8 @@ contract GuardianProver is Guardians {
 
         if (approved) {
             deleteApproval(hash);
-            bytes memory data = abi.encodeWithSignature(
-                "proveBlock(uint64,bytes)", meta.id, abi.encode(meta, tran, proof)
-            );
-
+            bytes memory data =
+                abi.encodeCall(ITaikoL1.proveBlock, (meta.id, abi.encode(meta, tran, proof)));
             (bool success,) = resolve("taiko", false).call(data);
             if (!success) revert PROVING_FAILED();
         }

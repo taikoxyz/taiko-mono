@@ -318,8 +318,7 @@ contract ERC20Vault is BaseVault {
             _balanceChange = t.balanceOf(address(this)) - _balance;
         }
 
-        msgData =
-            abi.encodeWithSelector(this.receiveToken.selector, ctoken, user, to, _balanceChange);
+        msgData = abi.encodeCall(this.receiveToken, (ctoken, user, to, _balanceChange));
     }
 
     /// @dev Retrieve or deploy a bridged ERC20 token contract.

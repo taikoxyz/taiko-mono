@@ -287,9 +287,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                 }
             }
         }
-        msgData = abi.encodeWithSelector(
-            this.receiveToken.selector, nft, user, op.to, op.tokenIds, op.amounts
-        );
+        msgData = abi.encodeCall(this.receiveToken, (nft, user, op.to, op.tokenIds, op.amounts));
     }
 
     /// @dev Retrieve or deploy a bridged ERC1155 token contract.

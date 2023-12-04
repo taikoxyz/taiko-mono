@@ -187,7 +187,7 @@ contract BridgeTest is TaikoTest {
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
-            data: abi.encodeWithSelector(GoodReceiver.forward.selector, Carol),
+            data: abi.encodeCall(GoodReceiver.forward, (Carol)),
             memo: ""
         });
         // Mocking proof - but obviously it needs to be created in prod

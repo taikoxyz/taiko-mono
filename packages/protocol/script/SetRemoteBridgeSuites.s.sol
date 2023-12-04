@@ -73,12 +73,8 @@ contract SetRemoteBridgeSuites is DeployCapability {
     {
         bytes32 salt = bytes32(block.timestamp);
 
-        bytes memory payload = abi.encodeWithSelector(
-            bytes4(keccak256("setAddress(uint64,bytes32,address)")),
-            chainId,
-            bytes32(bytes(name)),
-            addr
-        );
+        bytes memory payload =
+            abi.encodeCall(AddressManager.setAddress, (chainId, bytes32(bytes(name)), addr));
 
         TaikoTimelockController timelock = TaikoTimelockController(payable(timelockAddress));
 

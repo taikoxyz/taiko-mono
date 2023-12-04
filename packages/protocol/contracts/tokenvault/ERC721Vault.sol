@@ -231,7 +231,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
             }
         }
 
-        msgData = abi.encodeWithSelector(this.receiveToken.selector, nft, user, op.to, op.tokenIds);
+        msgData = abi.encodeCall(this.receiveToken, (nft, user, op.to, op.tokenIds));
     }
 
     /// @dev Retrieve or deploy a bridged ERC721 token contract.
