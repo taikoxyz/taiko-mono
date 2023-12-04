@@ -48,7 +48,6 @@ library LibProving {
     error L1_INVALID_TIER();
     error L1_INVALID_TRANSITION();
     error L1_NOT_ASSIGNED_PROVER();
-    error L1_PROVING_PAUSED();
     error L1_UNEXPECTED_TRANSITION_TIER();
 
     function pauseProving(TaikoData.State storage state, bool pause) external {

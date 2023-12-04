@@ -20,7 +20,6 @@ import "../common/EssentialContract.sol";
 /// precision.
 contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUpgradeable {
     error TKO_INVALID_ADDR();
-    error TKO_INVALID_PREMINT_PARAMS();
 
     /// @notice Initializes the TaikoToken contract and mints initial tokens.
     /// @param _name The name of the token.

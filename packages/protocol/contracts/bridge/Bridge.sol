@@ -42,7 +42,6 @@ contract Bridge is EssentialContract, IBridge {
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
     error B_INVALID_GAS_LIMIT();
-    error B_INVALID_SIGNAL();
     error B_INVALID_USER();
     error B_INVALID_VALUE();
     error B_NON_RETRIABLE();
