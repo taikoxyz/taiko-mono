@@ -83,17 +83,6 @@ func InitFromConfig(ctx context.Context, h *HealthChecker, cfg *Config) (err err
 		return err
 	}
 
-	endpoints := make([]*url.URL, 0)
-
-	for _, v := range cfg.GuardianProverEndpoints {
-		url, err := url.Parse(v)
-		if err != nil {
-			return err
-		}
-
-		endpoints = append(endpoints, url)
-	}
-
 	ethClient, err := ethclient.Dial(cfg.RPCUrl)
 	if err != nil {
 		return err
