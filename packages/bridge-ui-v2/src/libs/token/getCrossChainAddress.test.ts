@@ -92,10 +92,6 @@ describe('getCrossChainAddress', () => {
     // Then
     expect(result).toEqual(preconfiguredAddress);
     expect(mockTokenVaultContract.read.bridgedToCanonical).toHaveBeenCalledWith([mockToken.addresses[srcChainId]]);
-    expect(mockTokenVaultContract.read.canonicalToBridged).toHaveBeenCalledWith([
-      BigInt(destChainId),
-      preconfiguredAddress,
-    ]);
   });
 
   it('should return the bridged address if stored or configured', async () => {

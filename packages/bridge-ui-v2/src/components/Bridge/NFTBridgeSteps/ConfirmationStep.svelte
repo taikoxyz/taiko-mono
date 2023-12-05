@@ -5,7 +5,7 @@
 
   import { routingContractsMap } from '$bridgeConfig';
   import { chainConfig } from '$chainConfig';
-  import { Icon } from '$components/Icon';
+  import { Icon, type IconType } from '$components/Icon';
   import { successToast } from '$components/NotificationToast';
   import { infoToast } from '$components/NotificationToast/NotificationToast.svelte';
   import Spinner from '$components/Spinner/Spinner.svelte';
@@ -21,6 +21,7 @@
   import { account } from '$stores/account';
   import { network } from '$stores/network';
   import { pendingTransactions } from '$stores/pendingTransactions';
+  import { theme } from '$stores/theme';
 
   import Actions from '../Actions.svelte';
   import {
@@ -35,6 +36,7 @@
 
   export let bridgingStatus: 'pending' | 'done' = 'pending';
   let bridgeTxHash: Hash;
+  let approveTxHash: Hash;
 
   let actionsComponent: Actions;
   let allTokensApproved: boolean;
@@ -62,7 +64,9 @@
     pendingTransactions.add(txHash, currentChain).then(() => {
       bridgingStatus = 'done';
       statusTitle = $t('bridge.actions.bridge.success.title');
-      statusDescription = $t('bridge.actions.bridge.success.message');
+      statusDescription = $t('bridge.nft.step.confirm.bridge.success.message', {
+        values: { url: `${explorer}/tx/${txHash}` },
+      });
       const bridgeTx = {
         hash: txHash,
         from: $account.address,
@@ -102,30 +106,28 @@
       }
       const tokenIds = $selectedNFTs && $selectedNFTs.map((nft) => BigInt(nft.tokenId));
 
-      let txHash: Hash;
-
       const spenderAddress =
         type === TokenType.ERC1155
           ? routingContractsMap[$network.id][$destNetwork?.id].erc1155VaultAddress
           : routingContractsMap[$network.id][$destNetwork?.id].erc721VaultAddress;
 
       const args: NFTApproveArgs = { tokenIds: tokenIds!, tokenAddress, spenderAddress, wallet: walletClient };
-      txHash = await (bridges[type] as ERC721Bridge | ERC1155Bridge).approve(args);
+      approveTxHash = await (bridges[type] as ERC721Bridge | ERC1155Bridge).approve(args);
 
       const { explorer } = chainConfig[$network.id].urls;
 
-      if (txHash)
+      if (approveTxHash)
         infoToast({
           title: $t('bridge.actions.approve.tx.title'),
           message: $t('bridge.actions.approve.tx.message', {
             values: {
               token: $selectedToken.symbol,
-              url: `${explorer}/tx/${txHash}`,
+              url: `${explorer}/tx/${approveTxHash}`,
             },
           }),
         });
 
-      await pendingTransactions.add(txHash, $network.id);
+      await pendingTransactions.add(approveTxHash, $network.id);
 
       actionsComponent.checkTokensApproved();
 
@@ -174,35 +176,38 @@
       handleBridgeError(err as Error);
     }
   }
+  $: approveIcon = `approve-${$theme}` as IconType;
+  $: bridgeIcon = `bridge-${$theme}` as IconType;
+  $: successIcon = `success-${$theme}` as IconType;
 </script>
 
 <div class="mt-[30px]">
   <section id="txStatus">
     <div class="flex flex-col justify-content-center items-center">
       {#if bridgingStatus === 'done'}
-        <Icon type="check-circle" size={160} fillClass="fill-positive-sentiment" />
+        <Icon type={successIcon} size={160} />
         <div id="text" class="f-col my-[30px] text-center">
           <!-- eslint-disable-next-line svelte/no-at-html-tags -->
           <h1>{@html statusTitle}</h1>
           <!-- eslint-disable-next-line svelte/no-at-html-tags -->
           <span class="">{@html statusDescription}</span>
         </div>
-      {:else if !allTokensApproved}
-        <Icon type="info-circle" size={160} fillClass="fill-blue-400" />
+      {:else if !allTokensApproved && !approving}
+        <Icon type={approveIcon} size={160} />
         <div id="text" class="f-col my-[30px] text-center">
-          <h1 class="mb-[16px]">Approve tokens</h1>
-          <span>Before you can bridge, you need to approve your tokens</span>
+          <h1 class="mb-[16px]">{$t('bridge.nft.step.confirm.approve.title')}</h1>
+          <span>{$t('bridge.nft.step.confirm.approve.description')}</span>
         </div>
       {:else if bridging || approving}
         <Spinner class="!w-[160px] !h-[160px] text-primary-brand" />
         <div id="text" class="f-col my-[30px] text-center">
-          <span>Please wait for your transaction to be picked up</span>
+          <span>{$t('bridge.nft.step.confirm.approve.pending')}</span>
         </div>
-      {:else}
-        <Icon type="info-circle" size={160} fillClass="fill-blue-400" />
+      {:else if allTokensApproved && !approving && !bridging}
+        <Icon type={bridgeIcon} size={160} />
         <div id="text" class="f-col my-[30px] text-center">
-          <h1 class="mb-[16px]">Bridge your tokens</h1>
-          <span>Your token are approved! You can now bridge them by clicking the button below</span>
+          <h1 class="mb-[16px]">{$t('bridge.nft.step.confirm.approved.title')}</h1>
+          <span>{$t('bridge.nft.step.confirm.approved.description')}</span>
         </div>
       {/if}
     </div>

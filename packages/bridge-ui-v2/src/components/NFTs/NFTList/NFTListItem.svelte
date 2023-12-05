@@ -14,15 +14,15 @@
   export let checkedAddresses: Map<string, boolean> = new Map();
   export let selectNFT: (nft: NFT) => void;
   export let toggleAddressCheckBox: (collectionAddress: string) => void = noop;
-  export let selectable = false;
+  export let viewOnly: boolean;
 
   let selected: boolean = false;
 
   let modalOpen = false;
 
-  const placeholderUrl = 'https://placehold.co/400x400.png';
+  const placeholderUrl = '/placeholder.svg';
 
-  let imageUrl: string = nft.metadata?.image || placeholderUrl;
+  $: imageUrl = nft.metadata?.image || placeholderUrl;
   let imageLoaded = false;
 
   const handleDialogSelection = () => {
@@ -41,15 +41,14 @@
 </script>
 
 <div class="form-control flex">
-
   <label class="cursor-pointer label my-[8px] space-x-[16px]">
-    {#if multiSelectEnabled && selectable}
+    {#if multiSelectEnabled && !viewOnly}
       <input
         type="checkbox"
         class="checkbox checkbox-secondary"
         checked={checkedAddresses.get(collectionAddress) || false}
         on:change={() => toggleAddressCheckBox(collectionAddress)} />
-    {:else if selectable}
+    {:else if !viewOnly}
       <input
         type="radio"
         name="nft-radio"
@@ -78,7 +77,7 @@
   </label>
 </div>
 
-<NftInfoDialog {nft} bind:modalOpen on:selected={() => handleDialogSelection()} />
+<NftInfoDialog {nft} bind:modalOpen on:selected={() => handleDialogSelection()} bind:viewOnly />
 
 <style>
   /* Todo: temporary test, remove or move */
