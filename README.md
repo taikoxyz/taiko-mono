@@ -44,7 +44,6 @@ taiko-mono/
 │   ├── <a href="./packages/protocol">protocol</a>: Taiko protocol and bridge smart contracts.
 │   ├── <a href="./packages/relayer">relayer</a>: Bridge backend relayer in Go.
 │   ├── <a href="./packages/starter-dapp">starter-dapp</a>: Template for Taiko dapps.
-│   └── <a href="./packages/status-page">status-page</a>: Taiko protocol status page.
 ...
 </pre>
 
