@@ -116,6 +116,14 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"LAYER"},
 	}
+	IndexDotTaiko = &cli.BoolFlag{
+		Name:     "indexDotTaiko",
+		Usage:    "Whether or not to index dot taiko",
+		Required: false,
+		Value:    false,
+		Category: indexerCategory,
+		EnvVars:  []string{"INDEX_DOT_TAIKO"},
+	}
 )
 
 var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
@@ -134,4 +142,5 @@ var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	WatchMode,
 	IndexNFTs,
 	Layer,
+	IndexDotTaiko,
 })
