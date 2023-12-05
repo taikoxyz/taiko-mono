@@ -23,7 +23,8 @@ jobs:
             deps
             eventindexer
             fork-diff
-            guardianproverhealthcheck
+            guardian-prover-health-check
+            guardian-prover-health-check-ui
             protocol
             relayer
             starter-dapp
