@@ -24,7 +24,7 @@ export type Message = {
   // Destination chain ID where the `to` address lives (auto filled)
   destChainId: bigint;
   // User address of the bridged asset.
-  user: Address;
+  owner: Address;
   // Destination owner address
   to: Address;
   // Alternate address to send any refund. If blank, defaults to owner.
@@ -212,6 +212,6 @@ export enum ContractType {
 export type GetContractAddressType = {
   srcChainId: number;
   destChainId: number;
-  tokenType?: TokenType;
+  tokenType: TokenType;
   contractType: ContractType;
 };

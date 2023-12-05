@@ -22,7 +22,7 @@ func Test_GetUniqueProvers(t *testing.T) {
 		Data:         `{"Owner": "0x0000000000000000000000000000000000000123"}`,
 		ChainID:      big.NewInt(167001),
 		Address:      "0x123",
-		Event:        eventindexer.EventNameBlockProven,
+		Event:        eventindexer.EventNameTransitionProved,
 		TransactedAt: time.Now(),
 	})
 

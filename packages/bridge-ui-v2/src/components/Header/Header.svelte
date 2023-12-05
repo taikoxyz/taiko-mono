@@ -9,6 +9,7 @@
   import { account } from '$stores/account';
 
   $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
+  $: isTransactionsPage = $page.route.id === '/transactions';
 </script>
 
 <header
@@ -31,7 +32,7 @@
   <LogoWithText width={77} height={21} class="md:hidden" textFillClass={'fill-primary-content'} />
 
   <div class="flex justify-end w-full">
-    {#if isBridgePage}
+    {#if isBridgePage || isTransactionsPage}
       <BridgeTabs class="hidden md:flex md:flex-1" />
     {/if}
 

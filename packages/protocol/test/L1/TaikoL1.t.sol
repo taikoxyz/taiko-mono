@@ -1,34 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { Test } from "forge-std/Test.sol";
-import { console2 } from "forge-std/console2.sol";
-import { AddressManager } from "../../contracts/common/AddressManager.sol";
-import { LibDepositing } from "../../contracts/L1/libs/LibDepositing.sol";
-import { TaikoData } from "../../contracts/L1/TaikoData.sol";
-import { TaikoL1 } from "../../contracts/L1/TaikoL1.sol";
-import { TaikoToken } from "../../contracts/L1/TaikoToken.sol";
-import { SignalService } from "../../contracts/signal/SignalService.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-import { TaikoL1TestBase } from "./TaikoL1TestBase.sol";
+import "./TaikoL1TestBase.sol";
 
 contract TaikoL1_NoCooldown is TaikoL1 {
-    function getConfig()
-        public
-        pure
-        override
-        returns (TaikoData.Config memory config)
-    {
+    function getConfig() public view override returns (TaikoData.Config memory config) {
         config = TaikoL1.getConfig();
-
-        config.blockTxListExpiry = 5 minutes;
-        config.blockMaxVerificationsPerTx = 0;
+        // over-write the following
+        config.maxBlocksToVerifyPerProposal = 0;
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 12;
-        config.proofRegularCooldown = 15 minutes;
-        config.skipProverAssignmentVerificaiton = true;
-        config.proofBond = 1e18; // 1 Taiko token
-        config.proposerRewardPerSecond = 1e15; // 0.001 Taiko token
+        config.livenessBond = 1e18; // 1 Taiko token
     }
 }
 
@@ -39,14 +21,12 @@ contract Verifier {
 }
 
 contract TaikoL1Test is TaikoL1TestBase {
-    function deployTaikoL1() internal override returns (TaikoL1 taikoL1) {
-        taikoL1 = new TaikoL1_NoCooldown();
-    }
-
-    function setUp() public override {
-        TaikoL1TestBase.setUp();
-
-        registerAddress(L1.getVerifierName(100), address(new Verifier()));
+    function deployTaikoL1() internal override returns (TaikoL1) {
+        return TaikoL1(
+            payable(
+                deployProxy({ name: "taiko", impl: address(new TaikoL1_NoCooldown()), data: "" })
+            )
+        );
     }
 
     /// @dev Test we can propose, prove, then verify more blocks than
@@ -65,20 +45,20 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
-        for (
-            uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++
-        ) {
+        for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             //printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, Bob, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
-            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot, meta.minTier, "");
             vm.roll(block.number + 15 * 12);
-            vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
+
+            uint16 minTier = meta.minTier;
+            vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow + 1);
+
             verifyBlock(Carol, 1);
             parentHash = blockHash;
         }
@@ -98,18 +78,19 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
-        for (uint256 blockId = 1; blockId <= 2; blockId++) {
+        for (uint256 blockId = 1; blockId <= 20; ++blockId) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, Bob, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
 
-            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot, meta.minTier, "");
             vm.roll(block.number + 15 * 12);
-            vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
+            uint16 minTier = meta.minTier;
+            vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow + 1);
+
             verifyBlock(Alice, 2);
             parentHash = blockHash;
         }
@@ -128,22 +109,19 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
-        for (uint256 blockId = 1; blockId <= conf.blockMaxProposals; blockId++)
-        {
+        for (uint256 blockId = 1; blockId <= conf.blockMaxProposals; blockId++) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, Bob, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
 
-            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot, meta.minTier, "");
             parentHash = blockHash;
         }
 
         vm.roll(block.number + 15 * 12);
-        vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
         verifyBlock(Alice, conf.blockMaxProposals - 1);
         printVariables("after verify");
         verifyBlock(Alice, conf.blockMaxProposals);
@@ -163,8 +141,10 @@ contract TaikoL1Test is TaikoL1TestBase {
         vm.expectRevert();
         L1.depositEtherToL2{ value: maxAmount + 1 }(address(0));
 
-        assertEq(L1.getStateVariables().nextEthDepositToProcess, 0);
-        assertEq(L1.getStateVariables().numEthDeposits, 0);
+        (TaikoData.SlotA memory a,) = L1.getStateVariables();
+
+        assertEq(a.nextEthDepositToProcess, 0);
+        assertEq(a.numEthDeposits, 0);
     }
 
     function test_L1_EthDepositsToL2Gas() external {
@@ -176,9 +156,9 @@ contract TaikoL1Test is TaikoL1TestBase {
         giveEthAndTko(Bob, 1e6 ether, 0);
 
         proposeBlock(Alice, Bob, 1_000_000, 1024);
-        TaikoData.BlockMetadata memory meta =
+        (, TaikoData.EthDeposit[] memory depositsProcessed) =
             proposeBlock(Alice, Bob, 1_000_000, 1024);
-        assertEq(meta.depositsProcessed.length, 0);
+        assertEq(depositsProcessed.length, 0);
 
         uint256 count = conf.ethDepositMaxCountPerBlock;
 
@@ -190,25 +170,22 @@ contract TaikoL1Test is TaikoL1TestBase {
         printVariables("after sending ethers");
 
         uint256 gas = gasleft();
-        meta = proposeBlock(Alice, Bob, 1_000_000, 1024);
+        TaikoData.BlockMetadata memory meta;
+        (meta, depositsProcessed) = proposeBlock(Alice, Bob, 1_000_000, 1024);
         uint256 gasUsedWithDeposits = gas - gasleft();
         console2.log("gas used with eth deposits:", gasUsedWithDeposits);
 
         printVariables("after processing send-ethers");
-        assertTrue(
-            LibDepositing.hashEthDeposits(meta.depositsProcessed)
-                != emptyDepositsRoot
-        );
-        assertEq(meta.depositsProcessed.length, count);
+        assertTrue(keccak256(abi.encode(depositsProcessed)) != emptyDepositsRoot);
+        assertEq(depositsProcessed.length, count);
 
         gas = gasleft();
-        meta = proposeBlock(Alice, Bob, 1_000_000, 1024);
+        (meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
         uint256 gasUsedWithoutDeposits = gas - gasleft();
 
         console2.log("gas used without eth deposits:", gasUsedWithoutDeposits);
 
-        uint256 gasPerEthDeposit =
-            (gasUsedWithDeposits - gasUsedWithoutDeposits) / count;
+        uint256 gasPerEthDeposit = (gasUsedWithDeposits - gasUsedWithoutDeposits) / count;
 
         console2.log("gas per eth deposit:", gasPerEthDeposit);
         console2.log("ethDepositMaxCountPerBlock:", count);
@@ -216,15 +193,16 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev getCrossChainBlockHash tests
     function test_L1_getCrossChainBlockHash0() external {
-        bytes32 genHash = L1.getCrossChainBlockHash(0);
+        bytes32 genHash = L1.getSyncedSnippet(0).blockHash;
         assertEq(GENESIS_BLOCK_HASH, genHash);
 
-        // Not yet avail.
-        assertEq(L1.getCrossChainBlockHash(1), bytes32(0));
+        // Reverts if block is not yet verified!
+        vm.expectRevert(TaikoErrors.L1_BLOCK_MISMATCH.selector);
+        L1.getSyncedSnippet(1);
     }
 
-    /// @dev getCrossChainSignalRoot tests
-    function test_L1_getCrossChainSignalRoot() external {
+    /// @dev getSyncedSnippet tests
+    function test_L1_getSyncedSnippet() external {
         uint64 count = 10;
         // Declare here so that block prop/prove/verif. can be used in 1 place
         TaikoData.BlockMetadata memory meta;
@@ -238,29 +216,27 @@ contract TaikoL1Test is TaikoL1TestBase {
         giveEthAndTko(Bob, 1e7 ether, 100_000 ether);
         console2.log("Bob balance:", tko.balanceOf(Bob));
 
-        // Bob is the staker / prover
-        vm.prank(Bob, Bob);
-
         // Propose blocks
-        for (uint64 blockId = 1; blockId < count; blockId++) {
+        for (uint64 blockId = 1; blockId < count; ++blockId) {
             printVariables("before propose");
-            meta = proposeBlock(Alice, Bob, 1_000_000, 1024);
+            (meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
             mine(5);
 
             blockHash = bytes32(1e10 + uint256(blockId));
             signalRoot = bytes32(1e9 + uint256(blockId));
 
             proveBlock(
-                Bob, Bob, meta, parentHashes[blockId - 1], blockHash, signalRoot
+                Bob, Bob, meta, parentHashes[blockId - 1], blockHash, signalRoot, meta.minTier, ""
             );
 
             vm.roll(block.number + 15 * 12);
-            vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
+            uint16 minTier = meta.minTier;
+            vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow + 1);
 
             verifyBlock(Carol, 1);
 
             // Querying written blockhash
-            assertEq(L1.getCrossChainBlockHash(blockId), blockHash);
+            assertEq(L1.getSyncedSnippet(blockId).blockHash, blockHash);
 
             mine(5);
             parentHashes[blockId] = blockHash;
@@ -269,25 +245,27 @@ contract TaikoL1Test is TaikoL1TestBase {
         uint64 queriedBlockId = 1;
         bytes32 expectedSR = bytes32(1e9 + uint256(queriedBlockId));
 
-        assertEq(expectedSR, L1.getCrossChainSignalRoot(queriedBlockId));
+        assertEq(expectedSR, L1.getSyncedSnippet(queriedBlockId).signalRoot);
 
         // 2nd
         queriedBlockId = 2;
         expectedSR = bytes32(1e9 + uint256(queriedBlockId));
-        assertEq(expectedSR, L1.getCrossChainSignalRoot(queriedBlockId));
+        assertEq(expectedSR, L1.getSyncedSnippet(queriedBlockId).signalRoot);
 
-        // Not found
-        assertEq(bytes32(0), L1.getCrossChainSignalRoot((count + 1)));
+        // Not found -> reverts
+        vm.expectRevert(TaikoErrors.L1_BLOCK_MISMATCH.selector);
+        L1.getSyncedSnippet((count + 1));
     }
 
     function test_L1_deposit_hash_creation() external {
+        giveEthAndTko(Bob, 1e6 ether, 100 ether);
         giveEthAndTko(Zachary, 1e6 ether, 0);
         // uint96 minAmount = conf.ethDepositMinAmount;
         uint96 maxAmount = conf.ethDepositMaxAmount;
 
         // We need 8 deposits otherwise we are not processing them !
         giveEthAndTko(Alice, 1e6 ether, maxAmount + 1 ether);
-        giveEthAndTko(Bob, 0, maxAmount + 1 ether);
+        giveEthAndTko(Bob, 1e6 ether, maxAmount + 1 ether);
         giveEthAndTko(Carol, 0, maxAmount + 1 ether);
         giveEthAndTko(David, 0, maxAmount + 1 ether);
         giveEthAndTko(Emma, 0, maxAmount + 1 ether);
@@ -313,23 +291,25 @@ contract TaikoL1Test is TaikoL1TestBase {
         vm.prank(Henry, Henry);
         L1.depositEtherToL2{ value: 8 ether }(address(0));
 
-        assertEq(L1.getStateVariables().numEthDeposits, 8); // The number of
-            // deposits
-        assertEq(L1.getStateVariables().nextEthDepositToProcess, 0); // The
-            // index / cursos of the next deposit
+        (TaikoData.SlotA memory a,) = L1.getStateVariables();
+
+        // The number of deposits
+        assertEq(a.numEthDeposits, 8);
+        // The index / cursos of the next deposit
+        assertEq(a.nextEthDepositToProcess, 0);
 
         // We shall invoke proposeBlock() because this is what will call the
         // processDeposits()
-        TaikoData.BlockMetadata memory meta =
-            proposeBlock(Alice, Zachary, 1_000_000, 1024);
-
+        (, TaikoData.EthDeposit[] memory depositsProcessed) =
+            proposeBlock(Alice, Bob, 1_000_000, 1024);
         // Expected:
-        // 0x41c71a2af0eaa668a1241d7e1b09ac30d0e9ea6b6eb4a5a151029e87158d46f3  (pre
+        // 0x3b61cf81fd007398a8efd07a055ac8fb542bcfa62d76cf6dc28a889371afb21e  (pre
         // calculated with these values)
         //console2.logBytes32(meta.depositsRoot);
+
         assertEq(
-            LibDepositing.hashEthDeposits(meta.depositsProcessed),
-            0x41c71a2af0eaa668a1241d7e1b09ac30d0e9ea6b6eb4a5a151029e87158d46f3
+            keccak256(abi.encode(depositsProcessed)),
+            0x3b61cf81fd007398a8efd07a055ac8fb542bcfa62d76cf6dc28a889371afb21e
         );
     }
 }

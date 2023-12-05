@@ -11,6 +11,7 @@
     InsufficientAllowanceError,
     InsufficientBalanceError,
     RevertedWithFailedError,
+    RevertedWithoutMessageError,
     UnknownTokenTypeError,
   } from '$libs/error';
   import { ETHToken, getBalance as getTokenBalance, type NFT, TokenType } from '$libs/token';
@@ -42,16 +43,6 @@
   let computingMaxAmount = false;
   let invalidInput = false;
 
-  $: balance = $tokenBalance
-    ? typeof $tokenBalance === 'bigint'
-      ? $tokenBalance > BigInt(0)
-        ? $tokenBalance
-        : BigInt(0) // ERC721/1155
-      : 'value' in $tokenBalance && $tokenBalance.value > BigInt(0)
-      ? $tokenBalance.value
-      : BigInt(0) // ERC20
-    : BigInt(0);
-
   // Public API
   export function clearAmount() {
     inputBox?.clear();
@@ -59,6 +50,7 @@
   }
 
   export async function validateAmount(token = $selectedToken, fee = $processingFee) {
+    if (!$network?.id) return;
     $validatingAmount = true; // During validation, we disable all the actions
     $insufficientBalance = false;
     $insufficientAllowance = false;
@@ -101,6 +93,12 @@
           break;
         case err instanceof RevertedWithFailedError:
           warningToast({ title: $t('messages.network.rejected') });
+          break;
+        case err instanceof RevertedWithoutMessageError:
+          warningToast({
+            title: $t('bridge.errors.unknown_error.title'),
+            message: $t('bridge.errors.unknown_error.message'),
+          });
           break;
         default:
           invalidInput = true;
@@ -186,10 +184,6 @@
     debouncedValidateAmount();
   }
 
-  $: if (inputBox && sanitizedValue !== inputBox.getValue()) {
-    inputBox.setValue(sanitizedValue); // Update InputBox value if sanitizedValue changes
-  }
-
   // "MAX" button handler
   async function useMaxAmount() {
     // We cannot calculate the max amount without these guys
@@ -231,6 +225,20 @@
     } finally {
       computingMaxAmount = false;
     }
+  }
+
+  $: balance = $tokenBalance
+    ? typeof $tokenBalance === 'bigint'
+      ? $tokenBalance > BigInt(0)
+        ? $tokenBalance
+        : BigInt(0) // ERC721/1155
+      : 'value' in $tokenBalance && $tokenBalance.value > BigInt(0)
+      ? $tokenBalance.value
+      : BigInt(0) // ERC20
+    : BigInt(0);
+
+  $: if (inputBox && sanitizedValue !== inputBox.getValue()) {
+    inputBox.setValue(sanitizedValue); // Update InputBox value if sanitizedValue changes
   }
 
   $: updateBalance($selectedToken, $account?.address, $network?.id, $destNetwork?.id);

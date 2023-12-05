@@ -40,7 +40,7 @@
         <span class="badge badge-primary badge-outline badge-xs px-[10px] h-[24px] ml-[10px]"
           ><span class="text-xs">{nftsGroup[0].type}</span></span>
       </div>
-      <div class="token-ids mt-[16px] grid gap-4 grid-3">
+      <div class="token-ids mt-[16px] grid gap-4 grid-cols-3">
         {#each nftsGroup as nft}
           {@const collectionAddress = nft.addresses[chainId]}
           {#if collectionAddress === undefined}

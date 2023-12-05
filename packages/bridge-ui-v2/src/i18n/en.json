@@ -1,4 +1,9 @@
 {
+  "amount": {
+    "errors": {
+      "failed_max": "Unable to use max amount"
+    }
+  },
   "bridge": {
     "actions": {
       "approve": {
@@ -88,6 +93,20 @@
     "nft": {
       "step": {
         "confirm": {
+          "approve": {
+            "description": "Before initiating the bridge, it's necessary to first approve the transfer.",
+            "pending": "Please wait for your transaction to be picked up",
+            "title": "Approval required"
+          },
+          "approved": {
+            "description": "All token are approved, you can now bridge your NFTs",
+            "title": "Proceed to bridge"
+          },
+          "bridge": {
+            "success": {
+              "message": "Your bridge transaction was confirmed. The transaction can take a few minutes to complete, track it <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+            }
+          },
           "button": {
             "back": "Back to bridge"
           },
@@ -156,6 +175,7 @@
     "loading": "Loading",
     "name": "Name",
     "ok": "Ok",
+    "success": "Success!",
     "to": "To",
     "token_id": "Token ID",
     "token_standard": "Token standard"
@@ -260,6 +280,10 @@
     "token": "Token",
     "transactions": "Transactions"
   },
+  "paused_modal": {
+    "description": "The bridge is currently not available. Follow our official communcation channels for more information. ",
+    "title": "Bridge under maintenance!"
+  },
   "processing_fee": {
     "button": {
       "cancel": "Cancel",
@@ -350,15 +374,25 @@
       "insufficient_balance": "Insufficient balance to claim yourself. Please wait for the relayer to claim for you automatically. Refer to our guide for more information.",
       "relayer_offline": "Relayer did not respond. Your transactions may only be loaded partially."
     },
+    "filter": {
+      "all": "All transactions",
+      "claimed": "Claimed",
+      "failed": "Failed",
+      "processing": "Processing",
+      "retry": "Retriable"
+    },
     "header": {
       "amount": "Amount",
-      "explorer": "Explorer",
+      "explorer": "Explorer link",
       "from": "From",
       "status": "Status",
       "to": "To"
     },
-    "link.explorer": "View details",
-    "no_transactions": "No transactions yet",
+    "link": {
+      "explorer": "View details",
+      "explorer_short": "View"
+    },
+    "no_transactions": "No transactions found",
     "status": {
       "claim": {
         "description": "Your asset is now ready for claiming on the destination chain and requires a transaction. If you have set a processing fee, the relayer will automatically handle the claiming process on your behalf.",
@@ -372,6 +406,9 @@
       "dialog": {
         "description": "The bridge message undergoes different stages:",
         "title": "Message status"
+      },
+      "error": {
+        "name": "Failed"
       },
       "failed": {
         "description": "Your bridge transaction was unsuccessful.",

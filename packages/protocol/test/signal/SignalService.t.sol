@@ -1,65 +1,73 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { AddressManager } from "../../contracts/common/AddressManager.sol";
-import { AddressResolver } from "../../contracts/common/AddressResolver.sol";
-import { Bridge } from "../../contracts/bridge/Bridge.sol";
-import { BridgedERC20 } from "../../contracts/tokenvault/BridgedERC20.sol";
-import { BridgeErrors } from "../../contracts/bridge/BridgeErrors.sol";
-import { console2 } from "forge-std/console2.sol";
-import { FreeMintERC20 } from "../../contracts/test/erc20/FreeMintERC20.sol";
-import { SignalService } from "../../contracts/signal/SignalService.sol";
-import { TestBase, DummyCrossChainSync } from "../TestBase.sol";
+import "../TaikoTest.sol";
 
-contract TestSignalService is TestBase {
+contract TestSignalService is TaikoTest {
     AddressManager addressManager;
-
     SignalService signalService;
     SignalService destSignalService;
     DummyCrossChainSync crossChainSync;
-    uint256 destChainId = 7;
+    uint64 public destChainId = 7;
 
     function setUp() public {
         vm.startPrank(Alice);
         vm.deal(Alice, 1 ether);
         vm.deal(Bob, 1 ether);
 
-        addressManager = new AddressManager();
-        addressManager.init();
-
-        signalService = new SignalService();
-        signalService.init(address(addressManager));
-
-        destSignalService = new SignalService();
-        destSignalService.init(address(addressManager));
-
-        crossChainSync = new DummyCrossChainSync();
-
-        addressManager.setAddress(
-            block.chainid, "signal_service", address(signalService)
+        addressManager = AddressManager(
+            deployProxy({
+                name: "address_manager",
+                impl: address(new AddressManager()),
+                data: bytes.concat(AddressManager.init.selector),
+                registerTo: address(addressManager),
+                owner: address(0)
+            })
         );
 
-        addressManager.setAddress(
-            destChainId, "signal_service", address(destSignalService)
+        signalService = SignalService(
+            deployProxy({
+                name: "signal_service",
+                impl: address(new SignalService()),
+                data: bytes.concat(SignalService.init.selector)
+            })
         );
 
-        addressManager.setAddress(destChainId, "taiko", address(crossChainSync));
+        destSignalService = SignalService(
+            deployProxy({
+                name: "signal_service",
+                impl: address(new SignalService()),
+                data: bytes.concat(SignalService.init.selector)
+            })
+        );
+
+        crossChainSync = DummyCrossChainSync(
+            deployProxy({
+                name: "dummy_cross_chain_sync",
+                impl: address(new DummyCrossChainSync()),
+                data: ""
+            })
+        );
+
+        register(address(addressManager), "signal_service", address(destSignalService), destChainId);
+
+        register(address(addressManager), "taiko", address(crossChainSync), destChainId);
 
         vm.stopPrank();
     }
 
     function test_SignalService_sendSignal_revert() public {
-        vm.expectRevert(SignalService.B_ZERO_SIGNAL.selector);
+        vm.expectRevert(SignalService.SS_INVALID_SIGNAL.selector);
         signalService.sendSignal(0);
     }
 
     function test_SignalService_isSignalSent_revert() public {
         bytes32 signal = bytes32(uint256(1));
-        vm.expectRevert(SignalService.B_NULL_APP_ADDR.selector);
+        vm.expectRevert(SignalService.SS_INVALID_APP.selector);
         signalService.isSignalSent(address(0), signal);
 
         signal = bytes32(uint256(0));
-        vm.expectRevert(SignalService.B_ZERO_SIGNAL.selector);
+        vm.expectRevert(SignalService.SS_INVALID_SIGNAL.selector);
         signalService.isSignalSent(Alice, signal);
     }
 
@@ -73,67 +81,99 @@ contract TestSignalService is TestBase {
 
     function test_SignalService_getSignalSlot() public {
         vm.startPrank(Alice);
-        for (uint8 i = 1; i < 100; i++) {
+        for (uint8 i = 1; i < 100; ++i) {
             bytes32 signal = bytes32(block.prevrandao + i);
             signalService.sendSignal(signal);
 
             assertTrue(signalService.isSignalSent(Alice, signal));
-
-            // confirm our assembly gives same output as expected native
-            // solidity hash/packing
-            assertEq(
-                signalService.getSignalSlot(Alice, signal),
-                keccak256(abi.encodePacked(Alice, signal))
-            );
         }
     }
 
-    function test_SignalService_isSignalReceived_revert() public {
-        bytes32 signal = bytes32(uint256(1));
-        bytes memory proof = new bytes(1);
-        vm.expectRevert(SignalService.B_WRONG_CHAIN_ID.selector);
-        signalService.isSignalReceived(block.chainid, Alice, signal, proof);
+    function test_SignalService_proveSignalReceived_L1_L2() public {
+        uint64 chainId = 11_155_111; // Created the proofs on a deployed Sepolia
+            // contract, this is why this chainId.
+        address app = 0x927a146e18294efb36edCacC99D9aCEA6aB16b95; // Mock app,
+            // actually it is an EOA, but it is ok for tests!
+        bytes32 signal = 0x21761f7cd1af3972774272b39a0f4602dbcd418325cddb14e156b4bb073d52a8;
+        bytes memory inclusionProof =
+            hex"e5a4e3a1209749684f52b5c0717a7ca78127fb56043d637d81763c04e9d30ba4d4746d56e901"; //eth_getProof's
+            // result RLP encoded storage proof
+        bytes32 signalRoot = 0xf7916f389ccda56e3831e115238b7389b30750886785a3c21265601572698f0f; //eth_getProof
+            // result's storage hash
 
-        signal = bytes32(uint256(1));
-        proof = new bytes(1);
-        vm.expectRevert(SignalService.B_NULL_APP_ADDR.selector);
-        signalService.isSignalReceived(destChainId, address(0), signal, proof);
+        vm.startPrank(Alice);
+        signalService.authorize(address(crossChainSync), bytes32(uint256(block.chainid)));
 
-        signal = bytes32(uint256(0));
-        proof = new bytes(1);
-        vm.expectRevert(SignalService.B_ZERO_SIGNAL.selector);
-        signalService.isSignalReceived(destChainId, Alice, signal, proof);
+        crossChainSync.setSyncedData("", signalRoot);
 
-        signal = bytes32(uint256(1));
-        proof = new bytes(1);
-        vm.expectRevert();
-        signalService.isSignalReceived(destChainId, Alice, signal, proof);
+        SignalService.Proof memory p;
+        SignalService.Hop[] memory h;
+        p.crossChainSync = address(crossChainSync);
+        p.height = 10;
+        p.storageProof = inclusionProof;
+        p.hops = h;
+
+        bool isSignalReceived =
+            signalService.proveSignalReceived(chainId, app, signal, abi.encode(p));
+        assertEq(isSignalReceived, true);
     }
 
-    function test_SignalService_isSignalReceived() public {
-        // This specific value is used, do not change it.
-        address Brecht = 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39;
+    function test_SignalService_proveSignalReceived_L2_L2() public {
+        uint64 chainId = 11_155_111; // Created the proofs on a deployed
+            // Sepolia contract, this is why this chainId. This works as a
+            // static 'chainId' becuase i imitated 2 contracts (L2A and L1
+            // Signal Service contracts) on Sepolia.
+        address app = 0x927a146e18294efb36edCacC99D9aCEA6aB16b95; // Mock app,
+            // actually it is an EOA, but it is ok for tests! Same applies here,
+            // i imitated everything with one 'app' (Bridge) with my same EOA
+            // wallet.
+        bytes32 signal_of_L2A_msgHash =
+            0x21761f7cd1af3972774272b39a0f4602dbcd418325cddb14e156b4bb073d52a8;
+        bytes memory inclusionProof_of_L2A_msgHash =
+            hex"e5a4e3a1209749684f52b5c0717a7ca78127fb56043d637d81763c04e9d30ba4d4746d56e901"; //eth_getProof's
+            // result RLP encoded storage proof
+        bytes32 signalRoot_of_L2 =
+            0xf7916f389ccda56e3831e115238b7389b30750886785a3c21265601572698f0f; //eth_getProof
+            // result's storage hash
+        bytes memory hop_inclusionProof_from_L1_SignalService =
+            hex"e5a4e3a120bade38703a7b19341b10a4dd482698dc8ffdd861e83ce41de2980bed39b6a02501"; //eth_getProof's
+            // result RLP encoded storage proof
+        bytes32 l1_common_signalService_root =
+            0x5c5fd43df8bcd7ad44cfcae86ed73a11e0baa9a751f0b520d029358ea284833b; //eth_getProof
+            // result's storage hash
 
-        // known signal with known proof for known block header/signalRoot from
-        // a known chain ID of 1336, since we cant generate merkle proofs with
-        // foundry.
-        bytes32 signal = bytes32(
-            0xa99d658793daba4d352c77378e2d0f3b12ff47503518b3ec9ad61bb33ee7031d
-        );
-        bytes memory proof =
-            hex"0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000003e0d5c45a5c0fabac05a887ad983965a225214df2cecd77adc216d3b1172866b1e91dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d493470000000000000000000000000000000000000000000000000000000000000000cba38a70215ae3eeba2e97f9b6c3c804541484202953760c1cfe734df6dfce7cf7f7ed1e57a053e1c79765d6b76305193cae04261538400724837787437e621c9e6a8ea258a11278cf2e54d0e4845843837a1da42483ebe1dddf3eed1d33088b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000099c8ac000000000000000000000000000000000000000000000000000000000000ac7500000000000000000000000000000000000000000000000000000000644311c100000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000164c61e700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000061d883010a1a846765746888676f312e31382e38856c696e757800000000000000def5020e30ddc20e32151adb608a5d8367d817a707ae8d520c98ac13de04bce35f95ef795a9c4fd13d3e5daf713525521043125bde66aa71eed7ca715f05c720000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000dbf8d9b8b3f8b18080a04fc5f13ab2f9ba0c2da88b0151ab0e7cf4d85d08cca45ccd923c6ab76323eb28a02b70a98baa2507beffe8c266006cae52064dccf4fd1998af774ab3399029b38380808080a07394a09684ef3b2c87e9e2a753eb4ac78e2047b980e16d2e2133aee78946370d8080a0f4984a11f61a2921456141df88de6e1a710d28681b91af794c5a721e47839cd7a00f6329feca1549bd3bf7ab9a2e474bde37cb4f81366fca1dfdd9257c7305b5b880808080a3e2a037a8317247f2d3e645fa68570a9ae97a73b5568fe0578b90197316c654138997010000000000";
+        // Important to note, we need to have authorized the "relayers'
+        // addresses" on the source chain we are claiming.
+        // (TaikoL1 or TaikoL2 depending on where we are)
+        vm.startPrank(Alice);
+        signalService.authorize(address(crossChainSync), bytes32(block.chainid));
+        signalService.authorize(address(app), bytes32(uint256(chainId)));
 
-        crossChainSync.setCrossChainBlockHeader(
-            0x986278442ae7469dbd55f478348b4547c399004c93325b18ed995d2bc008f98d
-        );
-        crossChainSync.setCrossChainSignalRoot(
-            0x58900f5366437923bb250887d359d828a1a89e1837f9369f75c3e1bb238b854f
-        );
+        vm.startPrank(Alice);
+        addressManager.setAddress(chainId, "taiko", app);
 
-        vm.chainId(destChainId);
+        crossChainSync.setSyncedData("", l1_common_signalService_root);
 
-        assertTrue(
-            destSignalService.isSignalReceived(1336, Brecht, signal, proof)
-        );
+        SignalService.Proof memory p;
+        p.crossChainSync = address(crossChainSync);
+        p.height = 10;
+        p.storageProof = inclusionProof_of_L2A_msgHash;
+
+        // Imagine this scenario: L2A to L2B bridging.
+        // The 'hop' proof is the one that proves to L2B, that L1 Signal service
+        // contains the signalRoot (as storage slot / leaf) with value 0x1.
+        // The 'normal' proof is the one which proves that the resolving
+        // hop.signalRoot is the one which belongs to L2A, and the proof is
+        // accordingly.
+        SignalService.Hop[] memory h = new SignalService.Hop[](1);
+        h[0].signalRootRelay = app;
+        h[0].signalRoot = signalRoot_of_L2;
+        h[0].storageProof = hop_inclusionProof_from_L1_SignalService;
+
+        p.hops = h;
+
+        bool isSignalReceived =
+            signalService.proveSignalReceived(chainId, app, signal_of_L2A_msgHash, abi.encode(p));
+        assertEq(isSignalReceived, true);
     }
 }

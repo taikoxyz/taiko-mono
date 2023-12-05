@@ -15,10 +15,31 @@ make build
 
 ## Configuration
 
+### Configure environment variables
+
 To run an indexer:
-run `cp .l1processor.example.env .l1processor.env`, and replace the variables as needed in `.l1processor.env`. You need to be running a MySQL instance and a RabbitMQ instance, and replace all the `MYSQL_` env vars with yours.
+run `cp .l1processor.example.env .l1processor.env`, and replace the variables as needed in `.l1processor.env`.
+
+### Confgiure MySQL and RabbitMQ
+
+You need to be running a MySQL instance and a RabbitMQ instance, and replace all the `MYSQL_` env vars with yours.
 
 RabbitMQ can be installed with `./scripts/install-rabbitmq.sh`.
+
+You can also use docker-compose to bring up MySQL and RabbitMQ in your local setup.
+
+```
+cd ./docker-compose
+docker-compose up
+```
+
+To migrate database schema in MySQL
+
+```
+cd ./migrations
+goose mysql "root:passw00d@tcp(localhost:3306)/relayer" status
+goose mysql "root:passw00d@tcp(localhost:3306)/relayer" up
+```
 
 ## Usage
 

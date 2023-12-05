@@ -16,6 +16,11 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+type hopConfig struct {
+	signalServiceAddress common.Address
+	taikoAddress         common.Address
+	rpcURL               string
+}
 type Config struct {
 	// address configs
 	SrcSignalServiceAddress common.Address
@@ -59,6 +64,8 @@ type Config struct {
 	ETHClientTimeout uint64
 	OpenQueueFunc    func() (queue.Queue, error)
 	OpenDBFunc       func() (DB, error)
+
+	hopConfigs []hopConfig
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -70,7 +77,27 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, fmt.Errorf("invalid processorPrivateKey: %w", err)
 	}
 
+	hopSignalServiceAddresses := c.StringSlice(flags.HopSignalServiceAddresses.Name)
+	hopTaikoAddresses := c.StringSlice(flags.HopTaikoAddresses.Name)
+	hopRPCUrls := c.StringSlice(flags.HopRPCUrls.Name)
+
+	if len(hopSignalServiceAddresses) != len(hopTaikoAddresses) ||
+		len(hopSignalServiceAddresses) != len(hopRPCUrls) ||
+		len(hopTaikoAddresses) != len(hopRPCUrls) {
+		return nil, fmt.Errorf("all hop parameters must be of same length")
+	}
+
+	hopConfigs := []hopConfig{}
+	for i, hopSignalServiceAddress := range hopSignalServiceAddresses {
+		hopConfigs = append(hopConfigs, hopConfig{
+			signalServiceAddress: common.HexToAddress(hopSignalServiceAddress),
+			rpcURL:               hopRPCUrls[i],
+			taikoAddress:         common.HexToAddress(hopTaikoAddresses[i]),
+		})
+	}
+
 	return &Config{
+		hopConfigs:              hopConfigs,
 		ProcessorPrivateKey:     processorPrivateKey,
 		SrcSignalServiceAddress: common.HexToAddress(c.String(flags.SrcSignalServiceAddress.Name)),
 		DestTaikoAddress:        common.HexToAddress(c.String(flags.DestTaikoAddress.Name)),

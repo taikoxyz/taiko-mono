@@ -13,12 +13,14 @@
 
   const dialogId = `dialog-${uid()}`;
 
-  const placeholderUrl = 'https://placehold.co/600x600.png';
+  const placeholderUrl = '/placeholder.svg';
 
   export let modalOpen = false;
   export let viewOnly = false;
 
   export let nft: NFT;
+
+  export let srcChainId = $network?.id;
 
   const dispatch = createEventDispatcher();
 
@@ -31,7 +33,9 @@
     modalOpen = false;
   };
 
-  $: currentChain = $network?.id;
+  $: currentChain = Number(srcChainId) || $network?.id;
+
+  $: imgUrl = nft.metadata?.image || placeholderUrl;
 </script>
 
 <dialog id={dialogId} class="modal modal-bottom md:modal-middle" class:modal-open={modalOpen}>
@@ -41,10 +45,7 @@
     <div class="f-col w-full space-y-[30px]">
       <h3 class="title-body-bold">{$t('bridge.nft.step.import.nft_card.title')}</h3>
 
-      <img
-        alt="placeholder nft"
-        src={nft.metadata?.image || placeholderUrl}
-        class="rounded-[20px] self-center bg-white" />
+      <img alt="nft" src={imgUrl} class="rounded-[20px] self-center bg-white" />
       <div id="metadata">
         <div class="f-between-center">
           <div class="text-secondary-content">{$t('common.collection')}</div>

@@ -47,6 +47,7 @@
     small ? 'w-auto' : 'w-full',
     readOnly ? '' : 'dark:hover:bg-tertiary-interactive-hover',
     'flex justify-start content-center',
+    $$props.class,
   );
 
   let iconSize = small ? 'w-5 h-5' : 'w-7 h-7';
@@ -66,7 +67,7 @@
     // We want to inform the user that they need to connect
     // their wallet if they want to change the network
     if (!$account.isConnected) {
-      warningToast({title: $t('messages.account.required')});
+      warningToast({ title: $t('messages.account.required') });
       return;
     }
     addEscKeyListener();
@@ -89,10 +90,10 @@
       } catch (err) {
         console.error(err);
         if (err instanceof SwitchChainError) {
-          warningToast({title: $t('messages.network.pending')});
+          warningToast({ title: $t('messages.network.pending') });
         }
         if (err instanceof UserRejectedRequestError) {
-          warningToast({title: $t('messages.network.rejected')});
+          warningToast({ title: $t('messages.network.rejected') });
         }
       } finally {
         switchingNetwork = false;

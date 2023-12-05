@@ -21,7 +21,7 @@ import (
 //			@Success		200	{object} eventindexer.ChartResponse
 //			@Router			/chartByTask [get]
 func (srv *Server) GetChartByTask(c echo.Context) error {
-	cached, found := srv.cache.Get(c.QueryParam("task"))
+	cached, found := srv.cache.Get(c.QueryParam("task") + c.QueryParam("fee_token_address"))
 
 	var chart *eventindexer.ChartResponse
 
@@ -35,12 +35,13 @@ func (srv *Server) GetChartByTask(c echo.Context) error {
 			c.QueryParam("task"),
 			c.QueryParam("start"),
 			c.QueryParam("end"),
+			c.QueryParam("fee_token_address"),
 		)
 		if err != nil {
 			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 		}
 
-		srv.cache.Set(c.QueryParam("task"), chart, cache.DefaultExpiration)
+		srv.cache.Set(c.QueryParam("task")+c.QueryParam("fee_token_address"), chart, cache.DefaultExpiration)
 	}
 
 	return c.JSON(http.StatusOK, chart)

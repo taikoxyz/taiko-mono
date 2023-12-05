@@ -13,13 +13,15 @@ import (
 )
 
 var (
-	EventNameBlockProven   = "BlockProven"
-	EventNameBlockProposed = "BlockProposed"
-	EventNameBlockVerified = "BlockVerified"
-	EventNameMessageSent   = "MessageSent"
-	EventNameSwap          = "Swap"
-	EventNameMint          = "Mint"
-	EventNameNFTTransfer   = "Transfer"
+	EventNameTransitionProved    = "TransitionProved"
+	EventNameTransitionContested = "TransitionContested"
+	EventNameBlockProposed       = "BlockProposed"
+	EventNameBlockAssigned       = "BlockAssigned"
+	EventNameBlockVerified       = "BlockVerified"
+	EventNameMessageSent         = "MessageSent"
+	EventNameSwap                = "Swap"
+	EventNameMint                = "Mint"
+	EventNameNFTTransfer         = "Transfer"
 )
 
 // Event represents a stored EVM event. The fields will be serialized
@@ -40,6 +42,7 @@ type Event struct {
 	To              string              `json:"to"`
 	TokenID         sql.NullInt64       `json:"tokenID"`
 	ContractAddress string              `json:"contractAddress"`
+	FeeTokenAddress string              `json:"feeTokenAddress"`
 	TransactedAt    time.Time           `json:"transactedAt"`
 }
 
@@ -58,6 +61,7 @@ type SaveEventOpts struct {
 	To              *string
 	TokenID         *int64
 	ContractAddress *string
+	FeeTokenAddress *string
 	TransactedAt    time.Time
 }
 

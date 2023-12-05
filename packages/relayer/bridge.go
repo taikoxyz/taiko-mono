@@ -1,8 +1,6 @@
 package relayer
 
 import (
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
@@ -16,9 +14,9 @@ type Bridge interface {
 		msgHash [][32]byte,
 	) (event.Subscription, error)
 	FilterMessageSent(opts *bind.FilterOpts, msgHash [][32]byte) (*bridge.BridgeMessageSentIterator, error)
-	GetMessageStatus(opts *bind.CallOpts, msgHash [32]byte) (uint8, error)
+	MessageStatus(opts *bind.CallOpts, msgHash [32]byte) (uint8, error)
 	ProcessMessage(opts *bind.TransactOpts, message bridge.IBridgeMessage, proof []byte) (*types.Transaction, error)
-	IsMessageReceived(opts *bind.CallOpts, msgHash [32]byte, srcChainId *big.Int, proof []byte) (bool, error) // nolint
+	ProveMessageReceived(opts *bind.CallOpts, message bridge.IBridgeMessage, proof []byte) (bool, error)
 	FilterMessageStatusChanged(
 		opts *bind.FilterOpts,
 		msgHash [][32]byte,

@@ -23,12 +23,12 @@ jobs:
             deps
             eventindexer
             fork-diff
+            guardian-prover-health-check
+            guardian-prover-health-check-ui
             protocol
             relayer
             starter-dapp
             status-page
             tokenomics
-            website
-            whitepaper
             deps-dev
           requireScope: true

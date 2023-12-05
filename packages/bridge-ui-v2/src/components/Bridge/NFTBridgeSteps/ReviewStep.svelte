@@ -14,7 +14,7 @@
 
   let recipientComponent: Recipient;
   let processingFeeComponent: ProcessingFee;
-  let hasEnoughEth: boolean;
+  export let hasEnoughEth: boolean = false;
 
   const dispatch = createEventDispatcher();
 
@@ -108,6 +108,7 @@ NFT List or Card View
     </div>
     <div class="flex gap-2">
       <IconFlipper
+        type="swap-rotate"
         iconType1="list"
         iconType2="cards"
         selectedDefault="list"

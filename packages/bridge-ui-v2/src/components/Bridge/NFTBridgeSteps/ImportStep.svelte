@@ -85,8 +85,9 @@
     $selectedNFTs = [];
     const accountAddress = $account?.address;
     const srcChainId = $network?.id;
-    if (!accountAddress || !srcChainId) return;
-    const nftsFromAPIs = await fetchNFTs(accountAddress, BigInt(srcChainId));
+    const destChainId = $destinationChain?.id;
+    if (!accountAddress || !srcChainId || !destChainId) return;
+    const nftsFromAPIs = await fetchNFTs(accountAddress, srcChainId, destChainId);
     foundNFTs = nftsFromAPIs.nfts;
     scanning = false;
     scanned = true;
@@ -322,6 +323,7 @@ Automatic NFT Input
             </Button>
 
             <IconFlipper
+              type="swap-rotate"
               iconType1="list"
               iconType2="cards"
               selectedDefault="cards"

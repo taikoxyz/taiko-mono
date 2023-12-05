@@ -25,5 +25,6 @@ module.exports = {
     "node/no-missing-import": "off",
     "node/no-missing-require": "off",
     "no-unused-expressions": "off",
+    "no-global-import": "off",
   },
 };

@@ -99,6 +99,10 @@ func (r *EventRepository) Save(ctx context.Context, opts eventindexer.SaveEventO
 		e.ContractAddress = *opts.ContractAddress
 	}
 
+	if opts.FeeTokenAddress != nil {
+		e.FeeTokenAddress = *opts.FeeTokenAddress
+	}
+
 	if err := r.db.GormDB().Create(e).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Create")
 	}
@@ -141,7 +145,7 @@ func (r *EventRepository) FindUniqueProvers(
 
 	if err := r.db.GormDB().
 		Raw("SELECT address, count(*) AS count FROM events WHERE event = ? GROUP BY address",
-			eventindexer.EventNameBlockProven).
+			eventindexer.EventNameTransitionProved).
 		FirstOrInit(&addrs).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.FirstOrInit")
 	}

@@ -7,8 +7,10 @@
   import type { ERC721Bridge } from '$libs/bridge/ERC721Bridge';
   import type { ERC1155Bridge } from '$libs/bridge/ERC1155Bridge';
   import { getContractAddressByType } from '$libs/bridge/getContractAddressByType';
+  import { BridgePausedError } from '$libs/error';
   import { type NFT, TokenType } from '$libs/token';
   import { checkOwnershipOfNFT } from '$libs/token/checkOwnership';
+  import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { account, network } from '$stores';
 
@@ -36,6 +38,10 @@
   export let allTokensApproved = false;
 
   function onApproveClick() {
+    isBridgePaused().then(() => {
+      throw new BridgePausedError('Bridge is paused');
+    });
+
     approving = true;
     approve().finally(() => {
       approving = false;
@@ -43,12 +49,18 @@
   }
 
   function onBridgeClick() {
+    isBridgePaused().then(() => {
+      throw new BridgePausedError('Bridge is paused');
+    });
     bridging = true;
     bridge();
   }
 
   //TODO: this should probably be checked somewhere else?
   export async function checkTokensApproved() {
+    isBridgePaused().then(() => {
+      throw new BridgePausedError('Bridge is paused');
+    });
     $validatingAmount = true;
     if ($selectedToken?.type === TokenType.ERC721 || $selectedToken?.type === TokenType.ERC1155) {
       if ($account?.address && $network?.id && $destNetwork?.id) {
@@ -165,7 +177,8 @@
     hasBalance &&
     $selectedToken &&
     !$validatingAmount &&
-    !$insufficientBalance;
+    !$insufficientBalance &&
+    !isBridgePaused();
 
   $: erc20ConditionsSatisfied =
     !canDoNothing && !$insufficientAllowance && commonConditions && $tokenBalance && $enteredAmount;
@@ -183,19 +196,6 @@
     ? !ethConditionsSatisfied
     : commonConditions;
 </script>
-
-<!-- bridging {bridging}<br />
-balance {hasBalance}<br />
-validating {$validatingAmount}<br />
-insufficientAllowance {$insufficientAllowance}<br /><br />
-
-canDoNothing {canDoNothing} <br />
-$insufficientAllowance {insufficientAllowance} <br />
-commonConditions {commonConditions}
-enteredAmount {$enteredAmount}<br />
-tokenBalance {$tokenBalance}<br />
-enteredAmount {#if $enteredAmount}test
-{/if}<br /> -->
 
 {#if oldStyle}
   <!-- TODO: temporary enable two styles, remove for UI v2.1 -->
@@ -239,7 +239,7 @@ enteredAmount {#if $enteredAmount}test
     {#if $selectedToken && $selectedToken.type !== TokenType.ETH}
       <Button
         type="primary"
-        class="px-[28px] py-[14px] rounded-full flex-1"
+        class="px-[28px] py-[14px] rounded-full flex-1 text-white"
         disabled={disableApprove}
         loading={approving}
         on:click={onApproveClick}>
