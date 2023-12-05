@@ -6,6 +6,7 @@ import { routingContractsMap } from '$bridgeConfig';
 import { bridgeService } from '$config';
 import {
   ApproveError,
+  BridgePausedError,
   InsufficientAllowanceError,
   NoAllowanceRequiredError,
   ProcessMessageError,
@@ -13,6 +14,7 @@ import {
   SendERC20Error,
 } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
+import { isBridgePaused } from '$libs/util/checkForPausedContracts';
 import { getLogger } from '$libs/util/logger';
 
 import { Bridge } from './Bridge';
@@ -67,6 +69,10 @@ export class ERC20Bridge extends Bridge {
   }
 
   async estimateGas(args: ERC20BridgeArgs) {
+    isBridgePaused().then(() => {
+      throw new BridgePausedError('Bridge is paused');
+    });
+
     const { tokenVaultContract, sendERC20Args } = await ERC20Bridge._prepareTransaction(args);
     const { fee } = sendERC20Args;
 
@@ -82,6 +88,10 @@ export class ERC20Bridge extends Bridge {
   }
 
   async requireAllowance({ amount, tokenAddress, ownerAddress, spenderAddress }: RequireAllowanceArgs) {
+    isBridgePaused().then(() => {
+      throw new BridgePausedError('Bridge is paused');
+    });
+
     const tokenContract = getContract({
       abi: erc20ABI,
       address: tokenAddress,

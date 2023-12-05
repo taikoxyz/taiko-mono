@@ -2,6 +2,7 @@ import { watchAccount, watchNetwork } from '@wagmi/core';
 
 import { isSupportedChain } from '$libs/chain';
 import { refreshUserBalance } from '$libs/util/balance';
+import { checkForPausedContracts } from '$libs/util/checkForPausedContracts';
 import { getLogger } from '$libs/util/logger';
 import { account } from '$stores/account';
 import { switchChainModal } from '$stores/modal';
@@ -14,12 +15,15 @@ let unWatchNetwork: () => void;
 let unWatchAccount: () => void;
 
 export async function startWatching() {
+  checkForPausedContracts();
+
   if (!isWatching) {
     // Action for subscribing to network changes.
     // See https://wagmi.sh/core/actions/watchNetwork
     unWatchNetwork = watchNetwork((data) => {
-      log('Network changed', data);
+      checkForPausedContracts();
 
+      log('Network changed', data);
       const { chain } = data;
 
       // We need to check if the chain is supported, and if not
@@ -39,6 +43,8 @@ export async function startWatching() {
     // Action for subscribing to account changes.
     // See https://wagmi.sh/core/actions/watchAccount
     unWatchAccount = watchAccount((data) => {
+      checkForPausedContracts();
+
       log('Account changed', data);
       account.set(data);
       refreshUserBalance();

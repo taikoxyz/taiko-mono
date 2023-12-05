@@ -18,6 +18,7 @@
   import { isTransactionProcessable } from '$libs/bridge/isTransactionProcessable';
   import { PollingEvent, startPolling } from '$libs/bridge/messageStatusPoller';
   import {
+    BridgePausedError,
     InsufficientBalanceError,
     InvalidProofError,
     NotConnectedError,
@@ -25,6 +26,7 @@
     ReleaseError,
     RetryError,
   } from '$libs/error';
+  import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { getLogger } from '$libs/util/logger';
   import { account } from '$stores/account';
@@ -77,6 +79,9 @@
   }
 
   async function claim() {
+    isBridgePaused().then(() => {
+      throw new BridgePausedError('Bridge is paused');
+    });
     if (!$network || !$account?.address) return;
 
     loading = LoadingState.CLAIMING;
@@ -164,6 +169,9 @@
   }
 
   async function release() {
+    isBridgePaused().then(() => {
+      throw new BridgePausedError('Bridge is paused');
+    });
     if (!$network || !$account?.address) return;
 
     loading = LoadingState.RELEASING;
