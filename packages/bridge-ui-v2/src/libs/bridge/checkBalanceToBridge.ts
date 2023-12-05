@@ -2,7 +2,12 @@ import { fetchBalance, getPublicClient } from '@wagmi/core';
 import { type Address, zeroAddress } from 'viem';
 
 import { routingContractsMap } from '$bridgeConfig';
-import { InsufficientAllowanceError, InsufficientBalanceError, RevertedWithFailedError } from '$libs/error';
+import {
+  InsufficientAllowanceError,
+  InsufficientBalanceError,
+  RevertedWithFailedError,
+  RevertedWithoutMessageError,
+} from '$libs/error';
 import { getAddress, type Token, TokenType } from '$libs/token';
 import { isDeployedCrossChain } from '$libs/token/isDeployedCrossChain';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
@@ -61,7 +66,9 @@ async function handleEthBridge(args: CheckBalanceToBridgeCommonArgs): Promise<vo
     if (`${err}`.includes('reverted with the following reason: Failed')) {
       throw new RevertedWithFailedError('BLL token doing its thing', { cause: err });
     }
+    throw new RevertedWithoutMessageError('reverted without reason', { cause: err });
   }
+
   if (!estimatedCost) throw new Error('estimated cost is undefined');
   const balance = await fetchBalance({ address: wallet.account.address, chainId: args.srcChainId });
 

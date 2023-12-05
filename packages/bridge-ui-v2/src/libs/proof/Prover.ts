@@ -20,8 +20,8 @@ export class Prover {
     client: PublicClient,
     crossChainSyncContract: GetContractResult<typeof crossChainSyncABI>,
   ) {
-    const latestBlockHash = await crossChainSyncContract.read.getCrossChainBlockHash([BigInt(0)]);
-    return client.getBlock({ blockHash: latestBlockHash });
+    const { blockHash } = await crossChainSyncContract.read.getSyncedSnippet([BigInt(0)]);
+    return client.getBlock({ blockHash });
   }
 
   async generateProof(args: GenerateProofArgs) {
