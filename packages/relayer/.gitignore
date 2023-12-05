@@ -51,3 +51,4 @@ terraform.rc
 Bridge.json
 TaikoL2.json
 IHeaderSync.json
+bin
