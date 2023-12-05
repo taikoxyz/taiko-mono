@@ -72,7 +72,7 @@ func TestIntegration_HealthCheck_Save(t *testing.T) {
 
 			page, err := healthCheckRepo.Get(context.Background(), req)
 			assert.Equal(t, nil, err)
-			assert.Equal(t, page.Size, 100)
+			assert.Equal(t, page.Size, int64(100))
 			assert.Equal(t, page.Total, int64(1))
 		})
 	}
