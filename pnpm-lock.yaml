@@ -1,9 +1,5 @@
 lockfileVersion: '6.0'
 
-settings:
-  autoInstallPeers: true
-  excludeLinksFromLockfile: false
-
 importers:
 
   .:
@@ -298,160 +294,6 @@ importers:
   packages/relayer: {}
 
   packages/starter-dapp:
-    dependencies:
-      '@coinbase/wallet-sdk':
-        specifier: ^3.6.3
-        version: 3.7.2
-      '@ethersproject/experimental':
-        specifier: ^5.7.0
-        version: 5.7.0
-      '@lottiefiles/svelte-lottie-player':
-        specifier: ^0.2.0
-        version: 0.2.0
-      '@sveltestack/svelte-query':
-        specifier: ^1.6.0
-        version: 1.6.0
-      '@wagmi/connectors':
-        specifier: ^0.1.1
-        version: 0.1.10(@wagmi/core@0.8.19)(ethers@5.7.2)(react@18.2.0)
-      '@wagmi/core':
-        specifier: ^0.8.0
-        version: 0.8.19(@coinbase/wallet-sdk@3.7.2)(ethers@5.7.2)(react@18.2.0)(typescript@4.9.5)
-      axios:
-        specifier: ^1.2.0
-        version: 1.5.1
-      buffer:
-        specifier: ^6.0.3
-        version: 6.0.3
-      ethers:
-        specifier: ^5.7.1
-        version: 5.7.2
-      identicon.js:
-        specifier: ^2.3.3
-        version: 2.3.3
-      svelte-i18n:
-        specifier: ^3.5.1
-        version: 3.7.4(svelte@3.59.2)
-      svelte-spa-router:
-        specifier: ^3.2.0
-        version: 3.3.0
-    devDependencies:
-      '@babel/preset-env':
-        specifier: ^7.16.0
-        version: 7.23.2(@babel/core@7.23.3)
-      '@sveltejs/vite-plugin-svelte':
-        specifier: ^1.0.1
-        version: 1.4.0(svelte@3.59.2)(vite@3.2.7)
-      '@tsconfig/svelte':
-        specifier: ^5.0.2
-        version: 5.0.2
-      '@types/eslint':
-        specifier: ^8.2.1
-        version: 8.44.6
-      '@types/estree':
-        specifier: ^0.0.50
-        version: 0.0.50
-      '@types/jest':
-        specifier: ^27.0.2
-        version: 27.5.2
-      '@types/mixpanel':
-        specifier: ^2.14.3
-        version: 2.14.7
-      '@types/sanitize-html':
-        specifier: ^2.6.2
-        version: 2.9.3
-      '@typescript-eslint/eslint-plugin':
-        specifier: ^6.6.0
-        version: 6.8.0(@typescript-eslint/parser@5.62.0)(eslint@8.53.0)(typescript@4.9.5)
-      '@typescript-eslint/parser':
-        specifier: ^5.16.0
-        version: 5.62.0(eslint@8.53.0)(typescript@4.9.5)
-      '@zerodevx/svelte-toast':
-        specifier: ^0.6.3
-        version: 0.6.3
-      autoprefixer:
-        specifier: ^10.4.13
-        version: 10.4.16(postcss@8.4.31)
-      babel-jest:
-        specifier: ^27.3.1
-        version: 27.5.1(@babel/core@7.23.3)
-      babel-plugin-transform-es2015-modules-commonjs:
-        specifier: ^6.26.2
-        version: 6.26.2
-      daisyui:
-        specifier: 1.16.6
-        version: 1.16.6
-      jest:
-        specifier: ^27.5.1
-        version: 27.5.1
-      node-sass:
-        specifier: ^7.0.1
-        version: 7.0.3
-      postcss:
-        specifier: ^8.4.19
-        version: 8.4.31
-      postcss-cli:
-        specifier: ^7.1.2
-        version: 7.1.2
-      postcss-loader:
-        specifier: ^7.3.3
-        version: 7.3.3(postcss@8.4.31)(typescript@4.9.5)(webpack@5.89.0)
-      prettier:
-        specifier: 2.7.1
-        version: 2.7.1
-      rollup-plugin-node-builtins:
-        specifier: ^2.0.0
-        version: 2.1.2
-      rollup-plugin-polyfill-node:
-        specifier: ^0.10.2
-        version: 0.10.2(rollup@2.79.1)
-      svelte:
-        specifier: ^3.53.1
-        version: 3.59.2
-      svelte-check:
-        specifier: ^2.8.0
-        version: 2.10.3(@babel/core@7.23.3)(node-sass@7.0.3)(postcss@8.4.31)(svelte@3.59.2)
-      svelte-heros-v2:
-        specifier: ^0.3.10
-        version: 0.3.21(svelte@3.59.2)
-      svelte-jester:
-        specifier: ^2.1.5
-        version: 2.3.2(jest@27.5.1)(svelte@3.59.2)
-      svelte-loader:
-        specifier: ^3.1.2
-        version: 3.1.9(svelte@3.59.2)
-      svelte-preprocess:
-        specifier: ^4.10.7
-        version: 4.10.7(@babel/core@7.23.3)(node-sass@7.0.3)(postcss@8.4.31)(svelte@3.59.2)(typescript@4.9.5)
-      tailwindcss:
-        specifier: ^3.2.4
-        version: 3.3.3
-      theme-change:
-        specifier: ^2.2.0
-        version: 2.5.0
-      ts-jest:
-        specifier: ^27.0.7
-        version: 27.1.5(@babel/core@7.23.3)(@types/jest@27.5.2)(babel-jest@27.5.1)(jest@27.5.1)(typescript@4.9.5)
-      ts-jest-mock-import-meta:
-        specifier: ^0.12.0
-        version: 0.12.0(ts-jest@27.1.5)
-      ts-loader:
-        specifier: ^9.2.6
-        version: 9.5.0(typescript@4.9.5)(webpack@5.89.0)
-      tslib:
-        specifier: ^2.4.0
-        version: 2.6.2
-      typescript:
-        specifier: ^4.6.4
-        version: 4.9.5
-      vite:
-        specifier: ^3.2.7
-        version: 3.2.7
-      vite-plugin-static-copy:
-        specifier: ^0.12.0
-        version: 0.12.0(vite@3.2.7)
-
-  packages/status-page:
     dependencies:
       '@coinbase/wallet-sdk':
         specifier: ^3.6.3
@@ -25338,3 +25180,7 @@ packages:
     transitivePeerDependencies:
       - supports-color
     dev: true
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
