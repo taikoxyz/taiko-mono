@@ -54,6 +54,10 @@ export class ApproveError extends Error {
   name = 'ApproveError';
 }
 
+export class RevertedWithoutMessageError extends Error {
+  name = 'RevertedWithoutMessageError';
+}
+
 export class RevertedWithFailedError extends Error {
   name = 'RevertedWithFailedError';
 }
@@ -100,4 +104,8 @@ export class ReleaseError extends Error {
 
 export class UnknownTokenTypeError extends Error {
   name = 'UnknownTokenTypeError';
+}
+
+export class BridgePausedError extends Error {
+  name = 'BridgePausedError';
 }

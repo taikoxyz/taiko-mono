@@ -36,10 +36,10 @@ export abstract class Bridge {
       throw new WrongChainError('wallet must be connected to the destination chain');
     }
 
-    const { user } = message;
+    const { owner } = message;
     const userAddress = wallet.account.address;
     // Are we the owner of the message?
-    if (user.toLowerCase() !== userAddress.toLowerCase()) {
+    if (owner.toLowerCase() !== userAddress.toLowerCase()) {
       throw new WrongOwnerError('user cannot process this as it is not their message');
     }
 
@@ -54,7 +54,7 @@ export abstract class Bridge {
       walletClient: wallet,
     });
 
-    const messageStatus: MessageStatus = await destBridgeContract.read.getMessageStatus([msgHash]);
+    const messageStatus: MessageStatus = await destBridgeContract.read.messageStatus([msgHash]);
 
     log(`Claiming message with status ${messageStatus}`);
 
@@ -85,10 +85,10 @@ export abstract class Bridge {
       throw new WrongChainError('wallet must be connected to the source chain');
     }
 
-    const { user } = message;
+    const { owner } = message;
     const userAddress = wallet.account.address;
     // Are we the owner of the message?
-    if (user.toLowerCase() !== userAddress.toLowerCase()) {
+    if (owner.toLowerCase() !== userAddress.toLowerCase()) {
       throw new WrongOwnerError('user cannot process this as it is not their message');
     }
 
@@ -102,7 +102,7 @@ export abstract class Bridge {
       chainId: destChainId,
     });
 
-    const messageStatus: MessageStatus = await destBridgeContract.read.getMessageStatus([msgHash]);
+    const messageStatus: MessageStatus = await destBridgeContract.read.messageStatus([msgHash]);
 
     log(`Releasing message with status ${messageStatus}`);
 

@@ -10,9 +10,11 @@
   import { OnNetwork } from '$components/OnNetwork';
   import { Step, Stepper } from '$components/Stepper';
   import { hasBridge } from '$libs/bridge/bridges';
+  import { BridgePausedError } from '$libs/error';
   import { ETHToken, type NFT } from '$libs/token';
   import { fetchNFTImageUrl } from '$libs/token/fetchNFTImageUrl';
   import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
+  import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { type Account, account } from '$stores/account';
   import { type Network, network } from '$stores/network';
 
@@ -171,6 +173,9 @@
   };
 
   const manualImportAction = () => {
+    isBridgePaused().then(() => {
+      throw new BridgePausedError('Bridge is paused');
+    });
     if (!$network?.id) throw new Error('network not found');
     const srcChainId = $network?.id;
     const tokenId = nftIdArray[0];

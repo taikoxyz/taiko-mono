@@ -97,7 +97,7 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = false
 
     try {
       // We want to poll for status changes
-      const messageStatus: MessageStatus = await destBridgeContract.read.getMessageStatus([msgHash]);
+      const messageStatus: MessageStatus = await destBridgeContract.read.messageStatus([msgHash]);
 
       emitter.emit('status', messageStatus);
 
