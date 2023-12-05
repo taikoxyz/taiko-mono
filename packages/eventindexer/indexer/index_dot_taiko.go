@@ -60,6 +60,7 @@ func (indxr *Indexer) indexDotTaiko(
 		}
 
 		log.Info("name registered event found")
+
 		if err := indxr.saveDotTaiko(ctx, chainID, vLog); err != nil {
 			return err
 		}
