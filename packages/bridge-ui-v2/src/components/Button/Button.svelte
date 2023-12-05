@@ -66,7 +66,7 @@
     block ? 'btn-block' : null,
     wide ? 'btn-wide' : null,
 
-    // For loading state we want to see well the content,
+    // For loading state we want to see the content well,
     // since we're showing some important information.
     loading ? 'btn-disabled !text-primary-content' : null,
 
