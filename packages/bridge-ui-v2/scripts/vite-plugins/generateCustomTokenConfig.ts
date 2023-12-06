@@ -124,6 +124,9 @@ const _formatObjectToTsLiteral = (tokens: Token[]): string => {
   const formatToken = (token: Token): string => {
     const entries = Object.entries(token);
     const formattedEntries = entries.map(([key, value]) => {
+      if (key === 'exception') {
+        return `${key}: "Handled Exception"`;
+      }
       if (key === 'type' && typeof value === 'string') {
         return `${key}: TokenType.${value}`;
       }
