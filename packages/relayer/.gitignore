@@ -51,3 +51,10 @@ terraform.rc
 Bridge.json
 TaikoL2.json
 IHeaderSync.json
+
+.l1l2indexer.env
+.l1l2processor.env
+.l1l3indexer.env
+.l1l3processor.env
+.l2l1indexer.env
+.l2l1processor.env

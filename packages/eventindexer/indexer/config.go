@@ -34,6 +34,7 @@ type Config struct {
 	L1TaikoAddress          common.Address
 	BridgeAddress           common.Address
 	SwapAddresses           []common.Address
+	IndexDotTaiko           bool
 	CORSOrigins             []string
 	BlockBatchSize          uint64
 	SubscriptionBackoff     uint64
@@ -74,6 +75,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		MetricsHTTPPort:         c.Uint64(flags.MetricsHTTPPort.Name),
 		ETHClientTimeout:        c.Uint64(flags.ETHClientTimeout.Name),
 		L1TaikoAddress:          common.HexToAddress(c.String(flags.L1TaikoAddress.Name)),
+		IndexDotTaiko:           c.Bool(flags.IndexDotTaiko.Name),
 		BridgeAddress:           common.HexToAddress(c.String(flags.BridgeAddress.Name)),
 		SwapAddresses:           swaps,
 		CORSOrigins:             cors,

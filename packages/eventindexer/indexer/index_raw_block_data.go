@@ -94,6 +94,15 @@ func (indxr *Indexer) indexRawBlockData(
 		})
 	}
 
+	if indxr.indexDotTaikoNames {
+		wg.Go(func() error {
+			if err := indxr.indexDotTaiko(ctx, chainID, logs); err != nil {
+				return errors.Wrap(err, "svc.indexDotTaiko")
+			}
+			return nil
+		})
+	}
+
 	if err := wg.Wait(); err != nil {
 		if errors.Is(err, context.Canceled) {
 			slog.Error("index raw block data context cancelled")

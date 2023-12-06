@@ -71,8 +71,9 @@ type Indexer struct {
 	httpPort uint64
 	srv      *http.Server
 
-	indexNfts bool
-	layer     string
+	indexNfts          bool
+	indexDotTaikoNames bool
+	layer              string
 
 	wg  *sync.WaitGroup
 	ctx context.Context
@@ -228,6 +229,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.taikol1 = taikoL1
 	i.bridge = bridgeContract
 	i.swaps = swapContracts
+	i.indexDotTaikoNames = cfg.IndexDotTaiko
 	i.blockBatchSize = cfg.BlockBatchSize
 	i.subscriptionBackoff = time.Duration(cfg.SubscriptionBackoff) * time.Second
 	i.srv = srv

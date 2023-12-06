@@ -19,6 +19,7 @@ func (srv *Server) configureRoutes() {
 	galaxeAPI.GET("/user-bridged", srv.UserBridged)
 	galaxeAPI.GET("/user-swapped-on-taiko", srv.UserSwappedOnTaiko)
 	galaxeAPI.GET("/user-added-liquidity", srv.UserAddedLiquidity)
+	galaxeAPI.GET("/user-registered-name", srv.UserRegisteredName)
 
 	chartAPI := srv.echo.Group("/chart")
 
