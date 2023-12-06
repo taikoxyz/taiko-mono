@@ -12,14 +12,8 @@
 
 <div class="hero min-h-screen bg-base-200">
   <div class="hero-content text-center">
-    <div class="max-w-md text-center">
+    <div class="max-w-lg text-center">
       <Router {routes} />
     </div>
   </div>
 </div>
-
-<style global lang="postcss">
-  @tailwind base;
-  @tailwind components;
-  @tailwind utilities;
-</style>
