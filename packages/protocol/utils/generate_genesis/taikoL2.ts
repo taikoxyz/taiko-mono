@@ -21,7 +21,7 @@ export async function deployTaikoL2(
 ): Promise<Result> {
     const { contractOwner, chainId, seedAccounts, contractAdmin } = config;
 
-    const alloc: any = {};
+    let alloc: any = {};
 
     let etherVaultBalance = ethers.BigNumber.from("2").pow(128).sub(1); // MaxUint128
 
@@ -42,7 +42,7 @@ export async function deployTaikoL2(
     console.log({ etherVaultBalance });
     console.log("\n");
 
-    const contractConfigs: any = await generateContractConfigs(
+    let contractConfigs: any = await generateContractConfigs(
         contractOwner,
         contractAdmin,
         chainId,
@@ -50,7 +50,7 @@ export async function deployTaikoL2(
         config.param1559,
     );
 
-    const storageLayouts: any = {};
+    let storageLayouts: any = {};
 
     for (const contractName of Object.keys(contractConfigs)) {
         console.log(`generating genesis.alloc for ${contractName}`);
@@ -118,7 +118,7 @@ async function generateContractConfigs(
     hardCodedAddresses: any,
     param1559: any,
 ): Promise<any> {
-    const contractArtifacts: any = {
+    let contractArtifacts: any = {
         // Libraries
         LibTrieProof: require(
             path.join(ARTIFACTS_PATH, "./LibTrieProof.sol/LibTrieProof.json"),
@@ -198,7 +198,7 @@ async function generateContractConfigs(
     contractArtifacts.SignalServiceProxy = proxy;
     contractArtifacts.AddressManagerProxy = proxy;
 
-    const addressMap: any = {};
+    let addressMap: any = {};
 
     for (const [contractName, artifact] of Object.entries(contractArtifacts)) {
         let bytecode = (artifact as any).bytecode;
@@ -561,7 +561,7 @@ async function generateContractConfigs(
 // linkContractLibs tries to link contract deployedBytecode to its libraries.
 // Ref: https://docs.soliditylang.org/en/latest/using-the-compiler.html#library-linking
 function linkContractLibs(artifact: any, addressMap: any) {
-    const linkedBytecode: string = linker.linkBytecode(
+    let linkedBytecode: string = linker.linkBytecode(
         artifact.deployedBytecode.object,
         getLinkLibs(
             artifact,
@@ -580,7 +580,7 @@ function linkContractLibs(artifact: any, addressMap: any) {
 // getLinkLibs tries to get all linked libraries addresses from the given address map, and then
 // assembles a `libraries` param of `linker.linkBytecode(bytecode, libraries)`.
 function getLinkLibs(artifact: any, linkRefs: any, addressMap: any) {
-    const result: any = {};
+    let result: any = {};
 
     Object.values(artifact.deployedBytecode.linkReferences).forEach(
         (linkReference: any) => {
