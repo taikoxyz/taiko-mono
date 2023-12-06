@@ -167,6 +167,9 @@ importers:
 
   packages/guardian-prover-health-check-ui:
     dependencies:
+      axios:
+        specifier: ^1.6.2
+        version: 1.6.2
       svelte-spa-router:
         specifier: ^3.3.0
         version: 3.3.0
@@ -7521,6 +7524,16 @@ packages:
       proxy-from-env: 1.1.0
     transitivePeerDependencies:
       - debug
+
+  /axios@1.6.2:
+    resolution: {integrity: sha512-7i24Ri4pmDRfJTR7LDBhsOTtcm+9kjX5WiY1X3wIisx6G9So3pfMkEiU7emUBe46oceVImccTEM3k6C5dbVW8A==}
+    dependencies:
+      follow-redirects: 1.15.3(debug@4.3.4)
+      form-data: 4.0.0
+      proxy-from-env: 1.1.0
+    transitivePeerDependencies:
+      - debug
+    dev: false
 
   /axobject-query@3.2.1:
     resolution: {integrity: sha512-jsyHu61e6N4Vbz/v18DHwWYKK0bSWLqn47eeDSKPB7m8tqMHF9YJ+mhIk2lVteyZrY8tnSj/jHOv4YiTCuCJgg==}
@@ -19910,7 +19923,7 @@ packages:
     dependencies:
       '@jridgewell/trace-mapping': 0.3.20
       chokidar: 3.5.3
-      fast-glob: 3.3.1
+      fast-glob: 3.3.2
       import-fresh: 3.3.0
       picocolors: 1.0.0
       sade: 1.8.1
@@ -20193,7 +20206,7 @@ packages:
         optional: true
     dependencies:
       '@babel/core': 7.23.3
-      '@types/pug': 2.0.9
+      '@types/pug': 2.0.8
       '@types/sass': 1.45.0
       detect-indent: 6.1.0
       magic-string: 0.25.9
@@ -20298,7 +20311,7 @@ packages:
       typescript:
         optional: true
     dependencies:
-      '@types/pug': 2.0.9
+      '@types/pug': 2.0.8
       '@types/sass': 1.45.0
       detect-indent: 6.1.0
       magic-string: 0.25.9

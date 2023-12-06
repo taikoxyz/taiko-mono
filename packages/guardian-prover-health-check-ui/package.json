@@ -24,6 +24,7 @@
     "vite": "^3.2.3"
   },
   "dependencies": {
+    "axios": "^1.6.2",
     "svelte-spa-router": "^3.3.0"
   }
 }

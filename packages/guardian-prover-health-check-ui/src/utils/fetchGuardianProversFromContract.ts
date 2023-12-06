@@ -19,7 +19,7 @@ export async function fetchGuardianProversFromContract(
     provider
   );
 
-  const numGuardians = await contract.NUM_GUARDIANS();
+  const numGuardians = await contract.numGuardians();
 
   const guardians: Guardian[] = [];
 

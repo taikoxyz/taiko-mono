@@ -18,12 +18,12 @@
   onMount(async () => {
     loading = true;
     blocks = await fetchSignedBlocks(
-      import.meta.env.VITE_GUARDIAN_PROVER_CONTRACT_ADDRESS
+      import.meta.env.VITE_GUARDIAN_PROVER_API_URL
     );
 
     setInterval(async () => {
       blocks = await fetchSignedBlocks(
-        import.meta.env.VITE_GUARDIAN_PROVER_CONTRACT_ADDRESS
+        import.meta.env.VITE_GUARDIAN_PROVER_API_URL
       );
     }, 30 * 1000);
   });

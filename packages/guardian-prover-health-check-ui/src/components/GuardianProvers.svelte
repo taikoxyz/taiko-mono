@@ -67,11 +67,11 @@
       })
     );
 
-    onDestroy(() => {
-      intervals.map((i) => clearInterval(i));
-    });
-
     await toggleTab(guardianProvers[0].id);
+  });
+
+  onDestroy(() => {
+    intervals.map((i) => clearInterval(i));
   });
 
   async function fetchPrevHealthCheckPage(guardianProverId: number) {
@@ -139,6 +139,8 @@
 
     activeId = guardianProverId;
     await fetchNextHealthCheckPage(guardianProverId);
+
+    console.log(healthChecks);
     await fetchNextStatsPage(guardianProverId);
     loading = false;
   }
