@@ -141,8 +141,8 @@ contract PseZkVerifier is EssentialContract, IVerifier {
                 metaHash,
                 txListHash,
                 pointValue
-            );
-        )
+            )
+        );
     }
 
     function getVerifierName(uint16 id) public pure returns (bytes32) {
