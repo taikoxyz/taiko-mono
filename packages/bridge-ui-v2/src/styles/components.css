@@ -99,6 +99,10 @@
     box-shadow: 0 0 0 3px var(--positive-sentiment) !important;
   }
 
+  .input-box.warning {
+    box-shadow: 0 0 0 3px var(--warning-sentiment) !important;
+  }
+
   /* Tooltip */
   .dialog-tooltip {
     @apply rounded-[10px]

@@ -21,14 +21,14 @@
   };
 
   export const clearAddress = () => {
+    inputElement.value = '';
+    ethereumAddress = '';
     state = State.DEFAULT;
-    if (input) input.value = '';
-    validateEthereumAddress('');
   };
 
-  export const focus = () => input.focus();
+  export const focus = () => inputElement.focus();
 
-  let input: HTMLInputElement;
+  let inputElement: HTMLInputElement;
   let inputId = `input-${uid()}`;
 
   const dispatch = createEventDispatcher();
@@ -65,6 +65,21 @@
   });
 
   $: validateEthereumAddress(ethereumAddress);
+
+  let borderState = '';
+
+  $: success = state === State.VALID && ethereumAddress !== '';
+  $: error = (state === State.INVALID && ethereumAddress !== '') || state === State.NOT_A_CONTRACT;
+
+  $: {
+    if (success) {
+      borderState = 'success';
+    } else if (error) {
+      borderState = 'error';
+    } else {
+      borderState = '';
+    }
+  }
 </script>
 
 <div class="f-col space-y-2">
@@ -75,12 +90,13 @@
     <input
       id={inputId}
       disabled={isDisabled}
+      bind:this={inputElement}
       type="string"
       placeholder="0x1B77..."
       bind:value={ethereumAddress}
       on:input={(e) => validateEthereumAddress(e.target)}
       class="w-full input-box withValdiation py-6 pr-16 px-[26px] title-subsection-bold placeholder:text-tertiary-content {$$props.class}
-      {state === State.VALID ? 'success' : ethereumAddress && state !== State.VALIDATING ? 'error' : ''}
+      {borderState}
       " />
     <button class="absolute right-6 uppercase body-bold text-secondary-content" on:click={clearAddress}>
       <Icon type="x-close-circle" fillClass="fill-primary-icon" size={24} />
@@ -89,13 +105,15 @@
 </div>
 
 {#if !quiet}
-  <div class="min-h-[20px] !mt-3">
+  <div class="!mt-3">
     {#if state === State.INVALID && ethereumAddress}
       <FlatAlert type="error" forceColumnFlow message={$t('inputs.address_input.errors.invalid')} />
     {:else if state === State.TOO_SHORT && ethereumAddress}
       <FlatAlert type="warning" forceColumnFlow message={$t('inputs.address_input.errors.too_short')} />
-    {:else if state === State.VALID}
+    {:else if success}
       <FlatAlert type="success" forceColumnFlow message={$t('inputs.address_input.success')} />
+    {:else if state === State.NOT_A_CONTRACT}
+      <FlatAlert type="error" forceColumnFlow message={$t('inputs.address_input.errors.not_a_contract')} />
     {/if}
   </div>
 {/if}

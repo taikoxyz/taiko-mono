@@ -69,6 +69,11 @@
   const runValidations = () => {
     if (amountComponent) amountComponent.validateAmount();
     if (addressInputComponent) addressInputComponent.validateAddress();
+    isBridgePaused().then((paused) => {
+      if (paused) {
+        throw new BridgePausedError();
+      }
+    });
   };
 
   function onAccountChange(account: Account) {
@@ -106,7 +111,7 @@
 
     $recipientAddress = $account?.address || null;
     bridgingStatus = 'pending';
-    // $processingFee = 0n;
+
     $selectedToken = ETHToken;
     importMethod === null;
     scanned = false;
@@ -173,9 +178,6 @@
   };
 
   const manualImportAction = () => {
-    isBridgePaused().then((paused) => {
-      if (paused) throw new BridgePausedError('Bridge is paused');
-    });
     if (!$network?.id) throw new Error('network not found');
     const srcChainId = $network?.id;
     const tokenId = nftIdArray[0];
@@ -184,6 +186,8 @@
       getTokenWithInfoFromAddress({ contractAddress, srcChainId: srcChainId, tokenId, owner: $account?.address })
         .then(async (token) => {
           if (!token) throw new Error('no token with info');
+          // detectedTokenType = token.type;
+          // idInputState = IDInputState.VALID;
           $selectedToken = token;
           await prefetchImage();
 
@@ -191,6 +195,9 @@
         })
         .catch((err) => {
           console.error(err);
+          // detectedTokenType = null;
+          // idInputState = IDInputState.INVALID;
+          // invalidToken = true;
         });
   };
 
@@ -204,13 +211,8 @@
   // Set the content text based on the current step
   $: {
     const stepKey = NFTSteps[activeStep].toLowerCase();
-    if (activeStep === NFTSteps.CONFIRM) {
-      nftStepTitle = '';
-      nftStepDescription = '';
-    } else {
-      nftStepTitle = $t(`bridge.title.nft.${stepKey}`);
-      nftStepDescription = $t(`bridge.description.nft.${stepKey}`);
-    }
+    nftStepTitle = $t(`bridge.title.nft.${stepKey}`);
+    nftStepDescription = $t(`bridge.description.nft.${stepKey}`);
     nextStepButtonText = getStepText();
   }
 
@@ -257,7 +259,7 @@
         User Actions
       -->
       {#if activeStep === NFTSteps.REVIEW}
-        <div class="f-col w-full gap-4">
+        <div class="f-col w-full gap-[16px]">
           <Button
             disabled={!canProceed}
             type="primary"
@@ -284,7 +286,7 @@
               {$t('common.back')}
             </button>
           </div>
-        {:else if scanned}
+        {:else if scanned && foundNFTs.length > 0}
           <div class="f-col w-full">
             <div class="h-sep" />
 
