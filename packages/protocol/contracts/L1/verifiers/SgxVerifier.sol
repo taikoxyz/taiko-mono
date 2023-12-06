@@ -139,11 +139,11 @@ contract SgxVerifier is EssentialContract, IVerifier {
             if (_instances[i] == address(0)) revert SGX_INVALID_INSTANCE();
 
             instances[nextInstanceId] = Instance(_instances[i], uint64(block.timestamp));
-            ids[i] = nextInstanceId;x
+            ids[i] = nextInstanceId;
 
             emit InstanceAdded(nextInstanceId, _instances[i], address(0), block.timestamp);
 
-            nextInstanceId++;x
+            nextInstanceId++;
         }
     }
 
