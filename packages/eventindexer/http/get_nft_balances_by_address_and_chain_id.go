@@ -7,7 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// GetNFTBalancesByAddessAndChainID
+// GetNFTBalancesByAdderessAndChainID
 //
 //	 returns nft balances by address and chain ID
 //
@@ -19,7 +19,7 @@ import (
 //			@Produce		json
 //			@Success		200	{object} paginate.Page
 //			@Router			/nftsByAddress [get]
-func (srv *Server) GetNFTBalancesByAddessAndChainID(c echo.Context) error {
+func (srv *Server) GetNFTBalancesByAdderessAndChainID(c echo.Context) error {
 	page, err := srv.nftBalanceRepo.FindByAddress(
 		c.Request().Context(),
 		c.Request(),
