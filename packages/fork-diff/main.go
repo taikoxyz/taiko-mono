@@ -9,6 +9,12 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"text/template"
+
 	t2html "github.com/buildkite/terminal-to-html/v3"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -18,11 +24,6 @@ import (
 	"github.com/gomarkdown/markdown/html"
 	"github.com/gomarkdown/markdown/parser"
 	"gopkg.in/yaml.v3"
-	"os"
-	"path/filepath"
-	"sort"
-	"strings"
-	"text/template"
 )
 
 //go:embed page.gohtml
@@ -128,7 +129,7 @@ func main() {
 	must(pageDefinition.Def.hydrate(patchByName, remaining, 1), "failed to hydrate patch stats")
 	if len(remaining) > 0 {
 		remainingDef := &ForkDefinition{
-			Title: "other changes",
+			Title: "Other changes",
 			Level: 2,
 		}
 		remainingPaths := make([]string, 0, len(remaining))
@@ -150,7 +151,7 @@ func main() {
 		}
 		sort.Strings(ignoredPaths)
 		ignoredDef := &ForkDefinition{
-			Title: "ignored changes",
+			Title: "Ignored changes",
 			Level: 4,
 		}
 		for _, k := range ignoredPaths {
@@ -269,6 +270,7 @@ type RefRepo struct {
 
 type Page struct {
 	Title  string          `yaml:"title"`
+	Logo   string          `yaml:"logo"`
 	Footer string          `yaml:"footer"`
 	Base   RefRepo         `yaml:"base"`
 	Fork   RefRepo         `yaml:"fork"`
