@@ -48,11 +48,7 @@ contract TaikoL1 is
         LibVerifying.init(state, getConfig(), _genesisBlockHash);
     }
 
-    /// @notice Proposes a Taiko L2 block.
-    /// @param params Block parameters, currently an encoded BlockParams object.
-    /// @param txList txList data if calldata is used for DA.
-    /// @return meta The metadata of the proposed L2 block.
-    /// @return depositsProcessed The Ether deposits processed.
+    /// @inheritdoc ITaikoL1
     function proposeBlock(
         bytes calldata params,
         bytes calldata txList
@@ -78,11 +74,7 @@ contract TaikoL1 is
         }
     }
 
-    /// @notice Proves or contests a block transition.
-    /// @param blockId The index of the block to prove. This is also used to
-    /// select the right implementation version.
-    /// @param input An abi-encoded (BlockMetadata, Transition, TierProof)
-    /// tuple.
+    /// @inheritdoc ITaikoL1
     function proveBlock(uint64 blockId, bytes calldata input) external nonReentrant whenNotPaused {
         if (state.slotB.provingPaused) revert L1_PROVING_PAUSED();
 
@@ -104,8 +96,7 @@ contract TaikoL1 is
         }
     }
 
-    /// @notice Verifies up to N blocks.
-    /// @param maxBlocksToVerify Max number of blocks to verify.
+    /// @inheritdoc ITaikoL1
     function verifyBlocks(uint64 maxBlocksToVerify) external nonReentrant whenNotPaused {
         if (maxBlocksToVerify == 0) revert L1_INVALID_PARAM();
         if (state.slotB.provingPaused) revert L1_PROVING_PAUSED();
