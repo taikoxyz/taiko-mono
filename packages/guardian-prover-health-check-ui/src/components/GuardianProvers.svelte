@@ -12,6 +12,7 @@
     type HealthCheck,
     type Stat,
   } from "../utils/fetchGuardianProverStats";
+  import Checkmark from "./Checkmark.svelte";
 
   let defaultSize: number = 10;
   let guardianProvers: Guardian[] = [];
@@ -153,110 +154,126 @@
 </script>
 
 <h2 class="text-xl">Guardian Provers</h2>
-<div class="tabs">
-  {#each guardianProvers as guardian}
-    <a
-      class="tab {activeId === guardian.id ? 'tab-active' : ''} {guardian.alive
-        ? 'green'
-        : 'red'}"
-      on:click={async () => await toggleTab(guardian.id)}>{guardian.id}</a
-    >
-  {/each}
-</div>
-
+<div class="flex flex-col w-full"></div>
 {#each guardianProvers as guardian}
-  {#if guardian.id === activeId}
-    <div class="tabs">
-      <a
-        class="tab {activeSubTab === 'healthchecks' ? 'tab-active' : ''}"
-        on:click={() => toggleSubTab("healthchecks")}>Health Checks</a
+  <details class="collapse bg-base-200">
+    <summary class="collapse-title text-xl font-medium"
+      ><div
+        class="grid h-20 card bg-base-300 rounded-box place-items-center cursor-pointer"
+        on:click={async () => await toggleTab(guardian.id)}
       >
-      <a
-        class="tab {activeSubTab === 'stats' ? 'tab-active' : ''}"
-        on:click={() => toggleSubTab("stats")}>Stats</a
-      >
-    </div>
-    {#if activeSubTab === "healthchecks"}
-      <div class="overflow-x-auto">
-        <table class="table">
-          <!-- head -->
-          <thead>
-            <tr>
-              <th>Alive</th>
-              <th>Expected Address</th>
-              <th>Recovered Address</th>
-              <th>CreatedAt</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each healthChecks as healthCheck}
-              <tr>
-                <th>{healthCheck.alive}</th>
-                <td>{healthCheck.expectedAddress}</td>
-                <td>{healthCheck.recoveredAddress}</td>
-                <td>{healthCheck.createdAt}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
+        <div class="">
+          {#if guardian.alive}
+            <Checkmark />
+          {:else}
+            X
+          {/if}
+        </div>
+        <p>
+          Guardian Prover {guardian.id}
+        </p>
+        <p>{guardian.address}</p>
       </div>
-      {#if nextHealthCheckPage - 1 !== 0}
-        <button
-          class="btn"
-          on:click={async () => await fetchPrevHealthCheckPage(guardian.id)}
-          >Prev</button
-        >
-      {/if}
-      {#if nextHealthCheckPage !== healthCheckPageTotal}
-        <button
-          class="btn"
-          on:click={async () => await fetchNextHealthCheckPage(guardian.id)}
-          >Next</button
-        >
-      {/if}
-    {:else if activeSubTab === "stats"}
-      <div class="overflow-x-auto">
-        <h2>Address: {guardian.address}</h2>
-        <table class="table">
-          <!-- head -->
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Reqs</th>
-              <th>Successful Reqs</th>
-              <th>Uptime</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each stats as stat}
-              <tr>
-                <th>{stat.date}</th>
-                <td>{stat.requests}</td>
-                <td>{stat.successfulRequests}</td>
-                <td>{stat.uptime}%</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-        {#if nextStatsPage - 1 !== 0}
-          <button
-            class="btn"
-            on:click={async () => await fetchPrevStatsPage(guardian.id)}
-            >Prev</button
-          >
+    </summary>
+    <div class="collapse-content">
+      {#each guardianProvers as guardian}
+        {#if guardian.id === activeId}
+          <div class="tabs">
+            <a
+              class="tab {activeSubTab === 'healthchecks' ? 'tab-active' : ''}"
+              on:click={() => toggleSubTab("healthchecks")}>Health Checks</a
+            >
+            <a
+              class="tab {activeSubTab === 'stats' ? 'tab-active' : ''}"
+              on:click={() => toggleSubTab("stats")}>Stats</a
+            >
+          </div>
+          {#if activeSubTab === "healthchecks"}
+            <div class="overflow-x-auto">
+              <table class="table">
+                <!-- head -->
+                <thead>
+                  <tr>
+                    <th>Alive</th>
+                    <th>Expected Address</th>
+                    <th>Recovered Address</th>
+                    <th>CreatedAt</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each healthChecks as healthCheck}
+                    <tr>
+                      <th>{healthCheck.alive}</th>
+                      <td>{healthCheck.expectedAddress}</td>
+                      <td>{healthCheck.recoveredAddress}</td>
+                      <td>{healthCheck.createdAt}</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+            {#if nextHealthCheckPage - 1 !== 0}
+              <button
+                class="btn"
+                on:click={async () =>
+                  await fetchPrevHealthCheckPage(guardian.id)}>Prev</button
+              >
+            {/if}
+            {#if nextHealthCheckPage !== healthCheckPageTotal}
+              <button
+                class="btn"
+                on:click={async () =>
+                  await fetchNextHealthCheckPage(guardian.id)}>Next</button
+              >
+            {/if}
+          {:else if activeSubTab === "stats"}
+            <div class="overflow-x-auto">
+              <h2>Address: {guardian.address}</h2>
+              <table class="table">
+                <!-- head -->
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Reqs</th>
+                    <th>Successful Reqs</th>
+                    <th>Uptime</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each stats as stat}
+                    <tr>
+                      <th>{stat.date}</th>
+                      <td>{stat.requests}</td>
+                      <td>{stat.successfulRequests}</td>
+                      <td>{stat.uptime}%</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+              {#if nextStatsPage - 1 !== 0}
+                <button
+                  class="btn"
+                  on:click={async () => await fetchPrevStatsPage(guardian.id)}
+                  >Prev</button
+                >
+              {/if}
+            </div>
+            {#if nextStatsPage !== statsPageTotal}
+              <button
+                class="btn"
+                on:click={async () => await fetchNextStatsPage(guardian.id)}
+                >Next</button
+              >
+            {/if}
+          {:else}
+            Blocks
+          {/if}
         {/if}
-      </div>
-      {#if nextStatsPage !== statsPageTotal}
-        <button
-          class="btn"
-          on:click={async () => await fetchNextStatsPage(guardian.id)}
-          >Next</button
-        >
-      {/if}
-    {:else}
-      Blocks
-    {/if}
-  {/if}
+      {/each}
+    </div>
+  </details>
+
+  <div class="divider"></div>
 {/each}
 
 <style>
