@@ -39,7 +39,7 @@ export function generateCustomTokenConfig() {
         // Decode base64 encoded JSON string
         configuredTokenConfigFile = decodeBase64ToJson(process.env.CONFIGURED_CUSTOM_TOKEN || '');
 
-        // Valide JSON against schema
+        // Validate JSON against schema
         const isValid = validateJsonAgainstSchema(configuredTokenConfigFile, configuredChainsSchema);
 
         if (!isValid) {

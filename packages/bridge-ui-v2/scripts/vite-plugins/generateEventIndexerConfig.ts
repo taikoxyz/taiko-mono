@@ -41,7 +41,7 @@ export function generateEventIndexerConfig() {
         // Decode base64 encoded JSON string
         configuredEventIndexerConfigFile = decodeBase64ToJson(process.env.CONFIGURED_EVENT_INDEXER || '');
 
-        // Valide JSON against schema
+        // Validate JSON against schema
         const isValid = validateJsonAgainstSchema(configuredEventIndexerConfigFile, configuredEventIndexerSchema);
         if (!isValid) {
           throw new Error('encoded configuredBridges.json is not valid.');
