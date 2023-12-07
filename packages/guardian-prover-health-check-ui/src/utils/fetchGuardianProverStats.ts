@@ -159,6 +159,7 @@ export async function fetchAllStats(
   }
 
   const stats: Stat[] = [];
+
   stats.concat(page.items);
 
   await Promise.all(
