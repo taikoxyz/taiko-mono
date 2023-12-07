@@ -276,7 +276,7 @@ contract ERC20Vault is
     /// @return msgData Encoded message data.
     /// @return _balanceChange User token balance actual change after the token
     /// transfer. This value is calculated so we do not assume token balance
-    /// change is the amount of token transfered away.
+    /// change is the amount of token transferred away.
     function _encodeDestinationCall(
         address user,
         address token,

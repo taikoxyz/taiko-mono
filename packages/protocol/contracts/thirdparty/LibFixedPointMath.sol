@@ -72,7 +72,7 @@ library LibFixedPointMath {
             // We now need to multiply r by
             //  * the scale factor s = ~6.031367120...,
             //  * the 2**k factor from the range reduction, and
-            //  * the 1e18 / 2**96 factor for base converison.
+            //  * the 1e18 / 2**96 factor for base conversion.
             // We do all of this at once, with an intermediate result in 2**213
             // basis
             // so the final right shift is always by a positive amount.
