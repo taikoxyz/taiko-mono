@@ -182,7 +182,7 @@ contract DeployOnL1 is Script {
             );
         } else {
             console2.log(
-                "Warining: using shared signal service: ", sharedSignalService
+                "Warning: using shared signal service: ", sharedSignalService
             );
             setAddress("signal_service", sharedSignalService);
         }
