@@ -6,8 +6,11 @@
 
 pragma solidity ^0.8.20;
 
+import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+
 import "../common/EssentialContract.sol";
 import "../common/ICrossChainSync.sol";
+import "../libs/LibAddress.sol";
 import "../libs/LibMath.sol";
 import "../signal/ISignalService.sol";
 import "./Lib1559Math.sol";
@@ -20,6 +23,7 @@ import "./TaikoL2Signer.sol";
 /// communication, manage EIP-1559 parameters for gas pricing, and store
 /// verified L1 block information.
 contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
+    using LibAddress for address;
     using LibMath for uint256;
 
     struct Config {
@@ -49,6 +53,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     error L2_INVALID_SENDER();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
+
+    receive() external payable { }
 
     /// @notice Initializes the TaikoL2 contract.
     /// @param _signalService Address of the {ISignalService} contract.
@@ -136,6 +142,17 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         latestSyncedL1Height = l1Height;
 
         emit Anchored(blockhash(parentId), gasExcess);
+    }
+
+    /// @notice Withdraw token or Ether from this address
+    function withdraw(address token, address to) external onlyOwner {
+        if (to == address(0)) revert L2_INVALID_PARAM();
+        if (token == address(0)) {
+            to.sendEther(address(this).balance);
+        } else {
+            IERC20 t = IERC20(token);
+            t.transfer(to, t.balanceOf(address(this)));
+        }
     }
 
     /// @inheritdoc ICrossChainSync
