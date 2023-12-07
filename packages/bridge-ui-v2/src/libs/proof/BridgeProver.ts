@@ -42,7 +42,7 @@ export class BridgeProver extends Prover {
     const srcBridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
     const srcSignalServiceAddress = routingContractsMap[srcChainId][destChainId].signalServiceAddress;
 
-    const { proof, block } = await this.generateProof({
+    const { proof, block } = await this.encodedStorageProof({
       msgHash,
       clientChainId: srcChainId,
       contractAddress: srcBridgeAddress,
@@ -62,7 +62,7 @@ export class BridgeProver extends Prover {
     const srcBridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
     const destBridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
 
-    const { proof, block } = await this.generateProof({
+    const { proof, block } = await this.encodedStorageProof({
       msgHash,
       clientChainId: destChainId,
       contractAddress: srcBridgeAddress,

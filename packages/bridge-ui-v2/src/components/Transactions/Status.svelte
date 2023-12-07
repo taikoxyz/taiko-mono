@@ -300,6 +300,10 @@
     <button class="status-btn" on:click={release}>
       {$t('transactions.button.release')}
     </button>
+  {:else if bridgeTxStatus === MessageStatus.NewOnlyOwner}
+    <button class="status-btn" on:click={claim}>
+      {$t('transactions.button.claim')}
+    </button>
   {:else}
     <!-- TODO: look into this possible state -->
     <StatusDot type="error" />

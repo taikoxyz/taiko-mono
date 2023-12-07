@@ -9,6 +9,7 @@ export enum MessageStatus {
   RETRIABLE,
   DONE,
   FAILED,
+  NewOnlyOwner,
 }
 
 // Bridge sendMessage()
@@ -48,7 +49,7 @@ export type RelayerMessage = {
   From: Address;
   SrcChainId: number | string | bigint;
   DestChainId: number | string | bigint;
-  User: Address;
+  Owner: Address;
   To: Address;
   RefundTo: Address;
   Value: bigint;
