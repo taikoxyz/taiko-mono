@@ -77,8 +77,8 @@ export class ETHBridge extends Bridge {
   }
 
   async bridge(args: ETHBridgeArgs) {
-    isBridgePaused().then(() => {
-      throw new BridgePausedError('Bridge is paused');
+    isBridgePaused().then((paused) => {
+      if (paused) throw new BridgePausedError('Bridge is paused');
     });
 
     const { bridgeContract, message } = await ETHBridge._prepareTransaction(args);

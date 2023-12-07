@@ -37,11 +37,10 @@
 
   export let allTokensApproved = false;
 
-  function onApproveClick() {
-    isBridgePaused().then(() => {
-      throw new BridgePausedError('Bridge is paused');
-    });
+  let paused = false;
 
+  function onApproveClick() {
+    if (paused) throw new BridgePausedError('Bridge is paused');
     approving = true;
     approve().finally(() => {
       approving = false;
@@ -49,17 +48,16 @@
   }
 
   function onBridgeClick() {
-    isBridgePaused().then(() => {
-      throw new BridgePausedError('Bridge is paused');
-    });
+    if (paused) throw new BridgePausedError('Bridge is paused');
     bridging = true;
     bridge();
   }
 
   //TODO: this should probably be checked somewhere else?
   export async function checkTokensApproved() {
-    isBridgePaused().then(() => {
-      throw new BridgePausedError('Bridge is paused');
+    isBridgePaused().then((result) => {
+      paused = result;
+      if (paused) throw new BridgePausedError('Bridge is paused');
     });
     $validatingAmount = true;
     if ($selectedToken?.type === TokenType.ERC721 || $selectedToken?.type === TokenType.ERC1155) {
@@ -178,7 +176,7 @@
     $selectedToken &&
     !$validatingAmount &&
     !$insufficientBalance &&
-    !isBridgePaused();
+    !paused;
 
   $: erc20ConditionsSatisfied =
     !canDoNothing && !$insufficientAllowance && commonConditions && $tokenBalance && $enteredAmount;

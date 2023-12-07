@@ -69,8 +69,8 @@ export class ERC20Bridge extends Bridge {
   }
 
   async estimateGas(args: ERC20BridgeArgs) {
-    isBridgePaused().then(() => {
-      throw new BridgePausedError('Bridge is paused');
+    isBridgePaused().then((paused) => {
+      if (paused) throw new BridgePausedError('Bridge is paused');
     });
 
     const { tokenVaultContract, sendERC20Args } = await ERC20Bridge._prepareTransaction(args);
@@ -88,8 +88,8 @@ export class ERC20Bridge extends Bridge {
   }
 
   async requireAllowance({ amount, tokenAddress, ownerAddress, spenderAddress }: RequireAllowanceArgs) {
-    isBridgePaused().then(() => {
-      throw new BridgePausedError('Bridge is paused');
+    isBridgePaused().then((paused) => {
+      if (paused) throw new BridgePausedError('Bridge is paused');
     });
 
     const tokenContract = getContract({

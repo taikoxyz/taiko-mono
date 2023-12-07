@@ -82,8 +82,8 @@
   }
 
   async function approve() {
-    isBridgePaused().then(() => {
-      throw new BridgePausedError('Bridge is paused');
+    isBridgePaused().then((paused) => {
+      if (paused) throw new BridgePausedError('Bridge is paused');
     });
     try {
       if (!$selectedToken || !$network || !$destinationChain) return;
@@ -147,8 +147,8 @@
   }
 
   async function bridge() {
-    isBridgePaused().then(() => {
-      throw new BridgePausedError('Bridge is paused');
+    isBridgePaused().then((paused) => {
+      if (paused) throw new BridgePausedError('Bridge is paused');
     });
     if (!$bridgeService || !$selectedToken || !$network || !$destinationChain || !$account?.address) return;
 
