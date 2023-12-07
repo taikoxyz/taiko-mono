@@ -6,7 +6,7 @@
     "packages/eventindexer": {},
     "packages/fork-diff": {},
     "packages/protocol": {},
-    "packages/relayer": {}
+    "packages/relayer": {},
     "packages/status-page": {}
   }
 }
