@@ -8,7 +8,7 @@
 
 ## Make a contribution
 
-Thank you for exploring the opportunity to contribute to Taiko.xyz.Whether you're an experienced developer or just starting, we value and welcome your unique contributions.
+Thank you for exploring the opportunity to contribute to Taiko.xyz. Whether you're an experienced developer or just starting, we value and welcome your unique contributions.
 
 **Here are some ways you can contribute:**
 
