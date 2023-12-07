@@ -47,7 +47,7 @@ export class Prover {
     const key = await this._getKey(contractAddress, msgHash);
 
     // Unfortunately, since this method is stagnant, it hasn't been included into Viem lib
-    // as supported methods. Still stupported  by Alchmey, Infura and others.
+    // as supported methods. Still supported  by Alchmey, Infura and others.
     // See https://eips.ethereum.org/EIPS/eip-1186
     // Following is a workaround to support this method.
     const clientWithEthProofRequest = client as ClientWithEthGetProofRequest;
