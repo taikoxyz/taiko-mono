@@ -126,7 +126,7 @@ async function getVaultForToken(tokenType: TokenType, configuredChainId: string)
       ? 'erc1155VaultAddress'
       : 'erc20VaultAddress';
 
-  // we need find a vault that is configured with the selected srcChainId and the configuredChainId
+  // we need to find a vault that is configured with the selected srcChainId and the configuredChainId
   const vaultInfo = chains
     .filter((chain) => {
       const routesForChain = routingContractsMap[chain.id];
