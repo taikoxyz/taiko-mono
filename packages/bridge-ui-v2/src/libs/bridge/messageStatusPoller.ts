@@ -17,7 +17,7 @@ export enum PollingEvent {
   STOP = 'stop',
   STATUS = 'status', // emits MessageStatus
 
-  // Whether or not the tx can be clamied/retried/released
+  // Whether or not the tx can be claimed/retried/released
   PROCESSABLE = 'processable',
 }
 
