@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -318,8 +318,7 @@ contract ERC20Vault is BaseVault {
             _balanceChange = t.balanceOf(address(this)) - _balance;
         }
 
-        msgData =
-            abi.encodeWithSelector(this.receiveToken.selector, ctoken, user, to, _balanceChange);
+        msgData = abi.encodeCall(this.receiveToken, (ctoken, user, to, _balanceChange));
     }
 
     /// @dev Retrieve or deploy a bridged ERC20 token contract.

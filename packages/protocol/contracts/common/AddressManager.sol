@@ -4,13 +4,13 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
 import "./OwnerUUPSUpgradable.sol";
+
 /// @title IAddressManager
 /// @notice Specifies methods to manage address mappings for given chainId-name
 /// pairs.
-
 interface IAddressManager {
     /// @notice Gets the address mapped to a specific chainId-name pair.
     /// @dev Note that in production, this method shall be a pure function

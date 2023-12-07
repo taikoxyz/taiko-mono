@@ -3,7 +3,7 @@
 // |_   _|_ _(_) |_____  | |   __ _| |__ ___
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
 import "../common/EssentialContract.sol";
 import "../libs/LibAddress.sol";
@@ -42,7 +42,6 @@ contract Bridge is EssentialContract, IBridge {
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
     error B_INVALID_GAS_LIMIT();
-    error B_INVALID_SIGNAL();
     error B_INVALID_USER();
     error B_INVALID_VALUE();
     error B_NON_RETRIABLE();
