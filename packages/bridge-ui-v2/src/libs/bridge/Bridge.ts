@@ -49,7 +49,7 @@ export abstract class Bridge {
       address: destBridgeAddress,
       abi: bridgeABI,
 
-      // We are gonna resuse this contract to actually process the message
+      // We are gonna reuse this contract to actually process the message
       // so we'll need to sign the transaction
       walletClient: wallet,
     });
