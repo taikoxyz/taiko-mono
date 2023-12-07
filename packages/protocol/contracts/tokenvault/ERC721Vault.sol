@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
 import
@@ -231,7 +231,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
             }
         }
 
-        msgData = abi.encodeWithSelector(this.receiveToken.selector, nft, user, op.to, op.tokenIds);
+        msgData = abi.encodeCall(this.receiveToken, (nft, user, op.to, op.tokenIds));
     }
 
     /// @dev Retrieve or deploy a bridged ERC721 token contract.

@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
@@ -204,7 +204,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     /// @notice Tells if we need to validate basefee (for simulation).
     /// @return Returns true to skip checking basefee mismatch.
-    function skipFeeCheck() public pure virtual returns (bool) { }
+    function skipFeeCheck() public pure virtual returns (bool) {
+        return false;
+    }
 
     function _calcPublicInputHash(uint256 blockId)
         private
