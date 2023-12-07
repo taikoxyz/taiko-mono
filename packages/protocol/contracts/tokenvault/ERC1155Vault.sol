@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
 import
@@ -287,9 +287,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                 }
             }
         }
-        msgData = abi.encodeWithSelector(
-            this.receiveToken.selector, nft, user, op.to, op.tokenIds, op.amounts
-        );
+        msgData = abi.encodeCall(this.receiveToken, (nft, user, op.to, op.tokenIds, op.amounts));
     }
 
     /// @dev Retrieve or deploy a bridged ERC1155 token contract.

@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
 import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import
@@ -20,7 +20,6 @@ import "../common/EssentialContract.sol";
 /// precision.
 contract TaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUpgradeable {
     error TKO_INVALID_ADDR();
-    error TKO_INVALID_PREMINT_PARAMS();
 
     /// @notice Initializes the TaikoToken contract and mints initial tokens.
     /// @param _name The name of the token.
