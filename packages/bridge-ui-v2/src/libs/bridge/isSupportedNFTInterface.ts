@@ -13,7 +13,7 @@ import type { TokenType } from '$libs/token';
 // import type { NFTBridgeTransferOp } from ".";
 
 /**
- * Checks if a NFT contract is supported by the vault contract by estimating the gas cost of a sendToken call
+ * Checks if an NFT contract is supported by the vault contract by estimating the gas cost of a sendToken call
  * @param tokenAddress
  * @param tokenType
  * @returns boolean
