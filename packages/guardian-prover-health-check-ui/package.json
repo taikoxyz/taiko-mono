@@ -25,7 +25,7 @@
   },
   "dependencies": {
     "axios": "^1.6.2",
-    "ethers": "^6.9.0",
+    "ethers": "^5.0.0",
     "svelte-spa-router": "^3.3.0"
   }
 }
