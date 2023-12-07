@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
 import "../common/AuthorizableContract.sol";
@@ -157,5 +157,7 @@ contract SignalService is AuthorizableContract, ISignalService {
 
     /// @notice Tells if we need to check real proof or it is a test.
     /// @return Returns true to skip checking inclusion proofs.
-    function skipProofCheck() public pure virtual returns (bool) { }
+    function skipProofCheck() public pure virtual returns (bool) {
+        return false;
+    }
 }
