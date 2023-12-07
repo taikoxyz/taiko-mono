@@ -38,7 +38,7 @@ export function generateBridgeConfig() {
         // Decode base64 encoded JSON string
         configuredBridgesConfigFile = decodeBase64ToJson(process.env.CONFIGURED_BRIDGES || '');
 
-        // Valide JSON against schema
+        // Validate JSON against schema
         const isValid = validateJsonAgainstSchema(configuredBridgesConfigFile, configuredBridgesSchema);
 
         if (!isValid) {
