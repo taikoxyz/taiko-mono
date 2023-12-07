@@ -132,8 +132,16 @@ async function handleErc20Bridge(args: CheckBalanceToBridgeTokenArgs): Promise<v
     chainId: args.srcChainId,
   });
 
-  if (!tokenAddress || tokenAddress === zeroAddress || args.balance === BigInt(0) || tokenBalance.value < _amount)
+  const isInvalidBalance = (
+    !tokenAddress ||
+    tokenAddress === zeroAddress ||
+    args.balance === BigInt(0) ||
+    tokenBalance.value < _amount
+  );
+  
+  if (isInvalidBalance) {
     throw new InsufficientBalanceError('you do not have enough balance to bridge');
+  }  
 
   const bridge = bridges[args.token.type];
 
