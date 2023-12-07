@@ -80,14 +80,17 @@ async function handleErc1155Bridge(args: CheckBalanceToBridgeTokenArgs) {
   const tokenBalance = token.balance;
   const _amount = [amount] as bigint[];
 
-  if (
+  const isInvalidBalance = (
     !tokenAddress ||
     !tokenBalance ||
     tokenAddress === zeroAddress ||
     balance === BigInt(0) ||
     tokenBalance < _amount[0] //TODO: only single token for now
-  )
+  );
+  
+  if (isInvalidBalance) {
     throw new InsufficientBalanceError('you do not have enough balance to bridge');
+  }
 
   const isTokenAlreadyDeployed = await isDeployedCrossChain({
     token,
