@@ -173,8 +173,8 @@
   };
 
   const manualImportAction = () => {
-    isBridgePaused().then(() => {
-      throw new BridgePausedError('Bridge is paused');
+    isBridgePaused().then((paused) => {
+      if (paused) throw new BridgePausedError('Bridge is paused');
     });
     if (!$network?.id) throw new Error('network not found');
     const srcChainId = $network?.id;
