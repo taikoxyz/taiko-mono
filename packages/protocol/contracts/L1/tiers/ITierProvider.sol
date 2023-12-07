@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
 /// @title ITierProvider
 /// @notice Defines interface to return tier configuration.
