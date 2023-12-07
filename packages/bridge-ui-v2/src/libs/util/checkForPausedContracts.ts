@@ -1,4 +1,5 @@
 import { getContract } from '@wagmi/core';
+import { get } from 'svelte/store';
 
 import { bridgeABI } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -10,7 +11,7 @@ const log = getLogger('bridge:checkForPausedContracts');
 
 export const isBridgePaused = async () => {
   await checkForPausedContracts();
-  if (bridgePausedModal) {
+  if (get(bridgePausedModal)) {
     return true;
   }
   return false;

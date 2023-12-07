@@ -64,12 +64,12 @@ input[type='number'] {
 }
 
 .step-primary:before {
-  background-color: #e81899 !important;
+  background-color: var(--primary-interactive-accent) !important;
   height: 2px !important;
 }
 
 .step-previous:before {
-  background-color: #e81899 !important;
+  background-color: var(--primary-interactive-accent) !important;
   height: 2px !important;
 }
 

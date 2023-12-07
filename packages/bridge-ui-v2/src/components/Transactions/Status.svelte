@@ -79,8 +79,8 @@
   }
 
   async function claim() {
-    isBridgePaused().then(() => {
-      throw new BridgePausedError('Bridge is paused');
+    isBridgePaused().then((paused) => {
+      if (paused) throw new BridgePausedError('Bridge is paused');
     });
     if (!$network || !$account?.address) return;
 
@@ -169,8 +169,8 @@
   }
 
   async function release() {
-    isBridgePaused().then(() => {
-      throw new BridgePausedError('Bridge is paused');
+    isBridgePaused().then((paused) => {
+      if (paused) throw new BridgePausedError('Bridge is paused');
     });
     if (!$network || !$account?.address) return;
 
