@@ -44,7 +44,9 @@ contract TestSgxVerifier is TaikoL1TestBase {
         // the sgx instance is the one expected.
         // What is the scope of this test ?
         // Basically checking these 2 lines in SgxVerifier.sol:
-        // line 113:  bytes memory signature = LibBytesUtils.slice(proof.data, 24);
+        // line 113:  bytes memory signature = SIGNATURE (actually in the code it is :
+        // LibBytesUtils.slice(proof.data, 24), but it is just data packing/encoding, not scope of
+        // this test)
 
         // line 115: address oldInstance =
         //     ECDSA.recover(getSignedHash(tran, newInstance, ctx.prover, ctx.metaHash), signature);
