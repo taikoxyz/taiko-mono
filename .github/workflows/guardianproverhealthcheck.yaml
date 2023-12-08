@@ -1,19 +1,101 @@
-name: Guardianproverhealthcheck
+name: guardian-prover-health-check
 
 on:
   push:
     branches: [main]
+    paths:
+      - "packages/guardian-prover-health-check/**"
+  pull_request:
+    paths:
+      - "packages/guardian-prover-health-check/**"
 
 jobs:
-  build:
+  lint:
+    name: lint
     runs-on: ubuntu-latest
     steps:
-      - name: Cancel previous runs
+      - uses: actions/setup-go@v3
+        with:
+          go-version: 1.21.0
+      - uses: actions/checkout@v3
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
+          version: latest
+
+          # Optional: working directory, useful for monorepos
+          working-directory: ./packages/guardian-prover-health-check
+          args: --config=.golangci.yml --timeout=4m
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.11.0
         with:
           access_token: ${{ github.token }}
 
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
         with:
-          submodules: recursive
+          go-version: "1.21.0"
+
+      - name: guardian-prover-health-check - Unit Tests
+        working-directory: ./packages/guardian-prover-health-check
+        run: go test `go list ./... | grep -v ./contracts | grep -v ./mock | grep -v ./cmd` -coverprofile=coverage.txt -covermode=atomic
+
+      - name: guardian-prover-health-check - Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./packages/guardian-prover-health-check/coverage.txt
+          flags: guardian-prover-health-check
+
+  push-docker-image:
+    # only push docker image on PR merge to main
+    if: ${{ github.event }} == 'push'
+    name: Build and push docker image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Login to GCR
+        uses: docker/login-action@v2
+        with:
+          registry: gcr.io
+          username: _json_key
+          password: ${{ secrets.GCR_JSON_KEY }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            gcr.io/evmchain/guardian-prover-health-check
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=ref,event=tag
+            type=sha
+
+      - name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          platforms: linux/amd64
+          push: true
+          context: .
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            PACKAGE=guardian-prover-health-check
