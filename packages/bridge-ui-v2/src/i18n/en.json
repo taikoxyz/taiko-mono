@@ -192,6 +192,7 @@
     },
     "description": "Mint test tokens.",
     "mint": {
+      "error": "You have already minted your tokens.",
       "rejected": {
         "message": "An error occurred while attempting to mint the token.",
         "title": "Error minting token"
@@ -203,7 +204,8 @@
       "tx": {
         "message": "Track the progress on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>.",
         "title": "Transaction sent"
-      }
+      },
+      "unknown_error": "Something went wrong, please try again."
     },
     "title": "Faucet",
     "warning": {

@@ -4,7 +4,7 @@
   import { type Address, isAddress } from 'viem';
 
   import { ImportMethod } from '$components/Bridge/types';
-  import { Button } from '$components/Button';
+  import ActionButton from '$components/Button/ActionButton.svelte';
   import { Card } from '$components/Card';
   import { OnAccount } from '$components/OnAccount';
   import { OnNetwork } from '$components/OnNetwork';
@@ -260,12 +260,9 @@
       -->
       {#if activeStep === NFTSteps.REVIEW}
         <div class="f-col w-full gap-[16px]">
-          <Button
-            disabled={!canProceed}
-            type="primary"
-            class="px-[28px] py-[14px] rounded-full flex-1 w-auto text-white"
-            on:click={() => (activeStep = NFTSteps.CONFIRM)}
-            ><span class="body-bold">{nextStepButtonText}</span></Button>
+          <ActionButton priority="primary" disabled={!canProceed} on:click={() => (activeStep = NFTSteps.CONFIRM)}>
+            <span class="body-bold">{nextStepButtonText}</span>
+          </ActionButton>
           <button on:click={previousStep} class="flex justify-center py-3 link">
             {$t('common.back')}
           </button>
@@ -275,12 +272,11 @@
           <div class="h-sep" />
 
           <div class="f-col w-full">
-            <Button
+            <ActionButton
+              priority="primary"
               disabled={!canProceed}
               loading={validatingImport}
-              type="primary"
-              class="px-[28px] py-[14px] rounded-full flex-1 w-auto text-white"
-              on:click={manualImportAction}><span class="body-bold">{nextStepButtonText}</span></Button>
+              on:click={manualImportAction}><span class="body-bold">{nextStepButtonText}</span></ActionButton>
 
             <button on:click={() => changeImportMethod()} class="flex justify-center py-3 link">
               {$t('common.back')}
@@ -290,11 +286,8 @@
           <div class="f-col w-full">
             <div class="h-sep" />
 
-            <Button
-              disabled={!canProceed}
-              type="primary"
-              class="px-[28px] py-[14px] rounded-full flex-1 w-auto text-white"
-              on:click={nextStep}><span class="body-bold">{nextStepButtonText}</span></Button>
+            <ActionButton priority="primary" disabled={!canProceed} on:click={nextStep}
+              ><span class="body-bold">{nextStepButtonText}</span></ActionButton>
 
             <button on:click={resetForm} class="flex justify-center py-3 link">
               {$t('common.back')}
@@ -303,11 +296,9 @@
         {/if}
       {:else if activeStep === NFTSteps.RECIPIENT}
         <div class="f-col w-full">
-          <Button
-            disabled={!canProceed}
-            type="primary"
-            class="px-[28px] py-[14px] rounded-full flex-1 w-auto text-white"
-            on:click={() => (activeStep = NFTSteps.REVIEW)}><span class="body-bold">{nextStepButtonText}</span></Button>
+          <ActionButton priority="primary" disabled={!canProceed} on:click={() => (activeStep = NFTSteps.REVIEW)}
+            ><span class="body-bold">{nextStepButtonText}</span>
+          </ActionButton>
 
           <button on:click={previousStep} class="flex justify-center py-3 link">
             {$t('common.back')}
@@ -316,10 +307,9 @@
       {:else if activeStep === NFTSteps.CONFIRM}
         <div class="f-col w-full">
           {#if bridgingStatus === 'done'}
-            <Button
-              type="primary"
-              class="px-[28px] py-[14px] rounded-full flex-1 w-auto text-white"
-              on:click={resetForm}><span class="body-bold">{$t('bridge.nft.step.confirm.button.back')}</span></Button>
+            <ActionButton priority="primary" on:click={resetForm}
+              ><span class="body-bold">{$t('bridge.nft.step.confirm.button.back')}</span>
+            </ActionButton>
           {:else}
             <button on:click={resetForm} class="flex justify-center py-3 link">
               {$t('common.back')}

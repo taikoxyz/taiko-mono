@@ -22,6 +22,7 @@
   } from '$components/Bridge/state';
   import { ImportMethod } from '$components/Bridge/types';
   import { Button } from '$components/Button';
+  import ActionButton from '$components/Button/ActionButton.svelte';
   import { ChainSelectorWrapper } from '$components/ChainSelector';
   import { IconFlipper } from '$components/Icon';
   import RotatingIcon from '$components/Icon/RotatingIcon.svelte';
@@ -279,49 +280,39 @@ Automatic NFT Input
 
     <div class="f-col w-full gap-4">
       {#if scanned}
-        <Button
+        <ActionButton
+          priority="secondary"
           disabled={!canImport}
           loading={scanning}
-          type="neutral"
-          class="px-[28px] py-[14px] bg-transparent border-primary-brand rounded-full"
           on:click={() =>
             (async () => {
               await scanForNFTs();
             })()}>
           {$t('bridge.actions.nft_scan_again')}
-        </Button>
+        </ActionButton>
 
-        <Button
-          disabled={!canImport}
-          type="primary"
-          class="px-[28px] py-[14px] rounded-full flex-1 text-white"
-          on:click={() => changeImportMethod()}>
+        <ActionButton priority="primary" disabled={!canImport} on:click={() => changeImportMethod()}>
           {$t('bridge.actions.nft_manual')}
-        </Button>
+        </ActionButton>
 
         <Alert type="warning" forceColumnFlow class="mt-[16px]">
           <p>{$t('bridge.nft.step.import.no_nft_found')}</p>
         </Alert>
       {:else}
-        <Button
+        <ActionButton
+          priority="primary"
           disabled={!canImport}
           loading={scanning}
-          type="primary"
-          class="px-[28px] py-[14px] rounded-full flex-1 text-white"
           on:click={() =>
             (async () => {
               await scanForNFTs();
             })()}>
           {$t('bridge.actions.nft_scan')}
-        </Button>
+        </ActionButton>
 
-        <Button
-          disabled={!canImport}
-          type="neutral"
-          class="px-[28px] py-[14px] bg-transparent border-primary-brand rounded-full "
-          on:click={() => changeImportMethod()}>
+        <ActionButton priority="secondary" disabled={!canImport} on:click={() => changeImportMethod()}>
           {$t('bridge.actions.nft_manual')}
-        </Button>{/if}
+        </ActionButton>{/if}
     </div>
   {/if}
   {#if scanned && foundNFTs.length > 0}
@@ -365,12 +356,9 @@ Automatic NFT Input
 
       <div class="flex items-center justify-between space-x-2">
         <p class="text-secondary-content">{$t('bridge.nft.step.import.scan_screen.description')}</p>
-        <Button
-          type="neutral"
-          class="rounded-full py-[8px] px-[20px] bg-transparent !border border-primary-brand hover:border-primary-interactive-hover "
-          on:click={() => changeImportMethod()}>
+        <ActionButton priority="secondary" on:click={() => changeImportMethod()}>
           {$t('common.add')}
-        </Button>
+        </ActionButton>
       </div>
     </div>
   {/if}

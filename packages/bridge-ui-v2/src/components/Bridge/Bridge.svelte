@@ -50,6 +50,8 @@
   let processingFeeComponent: ProcessingFee;
   let actionsComponent: Actions;
 
+  let bridging = false;
+
   function onNetworkChange(newNetwork: Network, oldNetwork: Network) {
     resetForm();
 
@@ -150,6 +152,7 @@
     isBridgePaused().then((paused) => {
       if (paused) throw new BridgePausedError('Bridge is paused');
     });
+
     if (!$bridgeService || !$selectedToken || !$network || !$destinationChain || !$account?.address) return;
 
     try {
@@ -231,11 +234,34 @@
     if (amountComponent) amountComponent.updateBalance();
 
     $selectedToken = ETHToken;
+    bridging = false;
   };
 
   onDestroy(() => {
     resetForm();
   });
+
+  //   let priority: ActionButtonType = 'secondary';
+  //   let testDisabled = false;
+  //   let testLoading = false;
+
+  //   const testButton = () => {
+  //     // switch priority
+
+  //     // testLoading = true;
+  //     // setTimeout(() => {
+  //     //   testLoading = false;
+  //     // }, 1000);
+
+  //     testDisabled = true;
+  //     setTimeout(() => {
+  //       testDisabled = false;
+  //       priority = priority === 'primary' ? 'secondary' : 'primary';
+  //     }, 1000);
+
+  //     console.log('test button clicked', priority);
+  //   };
+  //
 </script>
 
 <!-- 
@@ -259,7 +285,7 @@
 
       <div class="h-sep" />
 
-      <Actions {approve} {bridge} bind:this={actionsComponent} />
+      <Actions {approve} {bridge} bind:this={actionsComponent} bind:bridging />
     </div>
   </Card>
 

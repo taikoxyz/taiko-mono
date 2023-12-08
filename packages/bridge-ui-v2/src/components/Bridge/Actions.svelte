@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
 
-  import { Button } from '$components/Button';
+  import ActionButton from '$components/Button/ActionButton.svelte';
   import { Icon } from '$components/Icon';
   import { bridges, ContractType, type RequireApprovalArgs } from '$libs/bridge';
   import type { ERC721Bridge } from '$libs/bridge/ERC721Bridge';
@@ -200,12 +200,7 @@
 
   <div class="f-between-center w-full gap-4">
     {#if $selectedToken && $selectedToken.type !== TokenType.ETH}
-      <Button
-        type="primary"
-        class="px-[28px] py-[14px] rounded-full flex-1"
-        disabled={disableApprove}
-        loading={approving}
-        on:click={onApproveClick}>
+      <ActionButton priority="primary" disabled={disableApprove} loading={approving} on:click={onApproveClick}>
         {#if approving}
           <span class="body-bold">{$t('bridge.button.approving')}</span>
         {:else if isTokenApproved}
@@ -216,31 +211,21 @@
         {:else}
           <span class="body-bold">{$t('bridge.button.approve')}</span>
         {/if}
-      </Button>
+      </ActionButton>
       <Icon type="arrow-right" />
     {/if}
-    <Button
-      type="primary"
-      class="px-[28px] py-[14px] rounded-full flex-1 text-white"
-      disabled={disableBridge}
-      loading={bridging}
-      on:click={onBridgeClick}>
+    <ActionButton priority="primary" disabled={disableBridge} loading={bridging} on:click={onBridgeClick}>
       {#if bridging}
         <span class="body-bold">{$t('bridge.button.bridging')}</span>
       {:else}
         <span class="body-bold">{$t('bridge.button.bridge')}</span>
       {/if}
-    </Button>
+    </ActionButton>
   </div>
 {:else}
   <div class="f-col w-full gap-4">
     {#if $selectedToken && $selectedToken.type !== TokenType.ETH}
-      <Button
-        type="primary"
-        class="px-[28px] py-[14px] rounded-full flex-1 text-white"
-        disabled={disableApprove}
-        loading={approving}
-        on:click={onApproveClick}>
+      <ActionButton priority="primary" disabled={disableApprove} loading={approving} on:click={onApproveClick}>
         {#if approving}
           <span class="body-bold">{$t('bridge.button.approving')}</span>
         {:else if isTokenApproved}
@@ -251,19 +236,14 @@
         {:else}
           <span class="body-bold">{$t('bridge.button.approve')}</span>
         {/if}
-      </Button>
+      </ActionButton>
     {/if}
-    <Button
-      type="primary"
-      class="px-[28px] py-[14px] rounded-full flex-1 text-white"
-      disabled={disableBridge}
-      loading={bridging}
-      on:click={onBridgeClick}>
+    <ActionButton priority="primary" disabled={disableBridge} loading={bridging} on:click={onBridgeClick}>
       {#if bridging}
         <span class="body-bold">{$t('bridge.button.bridging')}</span>
       {:else}
         <span class="body-bold">{$t('bridge.button.bridge')}</span>
       {/if}
-    </Button>
+    </ActionButton>
   </div>
 {/if}
