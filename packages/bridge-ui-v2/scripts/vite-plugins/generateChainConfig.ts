@@ -86,6 +86,8 @@ async function storeTypes(sourceFile: SourceFile) {
     members: [
       { name: 'L1', value: 'L1' },
       { name: 'L2', value: 'L2' },
+      { name: 'L2a', value: 'L2a' },
+      { name: 'L2b', value: 'L2b' },
       { name: 'L3', value: 'L3' },
     ],
   });
@@ -151,6 +153,8 @@ async function buildChainConfig(sourceFile: SourceFile, configuredChainsConfigFi
 enum LayerType {
   L1 = 'L1',
   L2 = 'L2',
+  L2a = 'L2a',
+  L2b = 'L2b',
   L3 = 'L3',
 }
 
