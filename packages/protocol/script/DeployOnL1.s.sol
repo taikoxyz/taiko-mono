@@ -184,6 +184,7 @@ contract DeployOnL1 is DeployCapability {
         TaikoTimelockController _timelock = TaikoTimelockController(payable(timelock));
         // Only the governer can make proposals after holders voting.
         _timelock.grantRole(_timelock.PROPOSER_ROLE(), governor);
+        _timelock.grantRole(_timelock.PROPOSER_ROLE(), securityCouncil);
 
         // Granting address(0) the executor role to allow open executation.
         _timelock.grantRole(_timelock.EXECUTOR_ROLE(), address(0));
