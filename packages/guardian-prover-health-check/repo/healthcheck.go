@@ -51,11 +51,28 @@ func (r *HealthCheckRepository) GetByGuardianProverID(
 		DefaultSize: 100,
 	})
 
-	reqCtx := pg.With(r.startQuery().Where("guardian_prover_id = ?", id))
+	reqCtx := pg.With(r.startQuery().Order("created_at desc").
+		Where("guardian_prover_id = ?", id))
 
 	page := reqCtx.Request(req).Response(&[]guardianproverhealthcheck.HealthCheck{})
 
 	return page, nil
+}
+
+func (r *HealthCheckRepository) GetMostRecentByGuardianProverID(
+	ctx context.Context,
+	req *http.Request,
+	id int,
+) (*guardianproverhealthcheck.HealthCheck, error) {
+	hc := &guardianproverhealthcheck.HealthCheck{}
+
+	if err := r.startQuery().Order("created_at desc").
+		Where("guardian_prover_id = ?", id).Limit(1).
+		Scan(hc).Error; err != nil {
+		return nil, err
+	}
+
+	return hc, nil
 }
 
 func (r *HealthCheckRepository) Save(opts guardianproverhealthcheck.SaveHealthCheckOpts) error {

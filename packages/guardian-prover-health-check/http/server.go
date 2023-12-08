@@ -26,18 +26,24 @@ import (
 type Server struct {
 	echo            *echo.Echo
 	healthCheckRepo guardianproverhealthcheck.HealthCheckRepository
+	statRepo        guardianproverhealthcheck.StatRepository
+	guardianProvers []guardianproverhealthcheck.GuardianProver
 }
 
 type NewServerOpts struct {
 	Echo            *echo.Echo
 	HealthCheckRepo guardianproverhealthcheck.HealthCheckRepository
+	StatRepo        guardianproverhealthcheck.StatRepository
 	CorsOrigins     []string
+	GuardianProvers []guardianproverhealthcheck.GuardianProver
 }
 
 func NewServer(opts NewServerOpts) (*Server, error) {
 	srv := &Server{
 		echo:            opts.Echo,
 		healthCheckRepo: opts.HealthCheckRepo,
+		statRepo:        opts.StatRepo,
+		guardianProvers: opts.GuardianProvers,
 	}
 
 	corsOrigins := opts.CorsOrigins

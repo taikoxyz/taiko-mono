@@ -2,6 +2,7 @@ package generator
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/urfave/cli/v2"
@@ -62,6 +63,8 @@ func (g *Generator) Start() error {
 	if err := g.generateUptimeAvailabilityStats(context.Background()); err != nil {
 		return err
 	}
+
+	os.Exit(0)
 
 	return nil
 }

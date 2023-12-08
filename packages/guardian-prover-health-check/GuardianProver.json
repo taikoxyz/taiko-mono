@@ -11,6 +11,11 @@
   },
   {
     "inputs": [],
+    "name": "INVALID_MIN_GUARDIANS",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "INVALID_PAUSE_STATUS",
     "type": "error"
   },
@@ -64,10 +69,29 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": false,
+        "internalType": "address",
+        "name": "previousAdmin",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "newAdmin",
+        "type": "address"
+      }
+    ],
+    "name": "AdminChanged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
         "indexed": true,
-        "internalType": "uint64",
-        "name": "blockId",
-        "type": "uint64"
+        "internalType": "uint256",
+        "name": "operationId",
+        "type": "uint256"
       },
       {
         "indexed": false,
@@ -89,10 +113,29 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": true,
+        "internalType": "address",
+        "name": "beacon",
+        "type": "address"
+      }
+    ],
+    "name": "BeaconUpgraded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
         "indexed": false,
-        "internalType": "address[5]",
-        "name": "",
-        "type": "address[5]"
+        "internalType": "uint32",
+        "name": "version",
+        "type": "uint32"
+      },
+      {
+        "indexed": false,
+        "internalType": "address[]",
+        "name": "guardians",
+        "type": "address[]"
       }
     ],
     "name": "GuardiansUpdated",
@@ -109,25 +152,6 @@
       }
     ],
     "name": "Initialized",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "previousOwner",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "newOwner",
-        "type": "address"
-      }
-    ],
-    "name": "OwnershipTransferStarted",
     "type": "event"
   },
   {
@@ -176,8 +200,21 @@
     "type": "event"
   },
   {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "implementation",
+        "type": "address"
+      }
+    ],
+    "name": "Upgraded",
+    "type": "event"
+  },
+  {
     "inputs": [],
-    "name": "NUM_GUARDIANS",
+    "name": "MIN_NUM_GUARDIANS",
     "outputs": [
       {
         "internalType": "uint256",
@@ -186,26 +223,6 @@
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "REQUIRED_GUARDIANS",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "acceptOwnership",
-    "outputs": [],
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -216,25 +233,6 @@
         "internalType": "address",
         "name": "",
         "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "name": "approvals",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "approvalBits",
-        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -295,6 +293,16 @@
             "type": "uint64"
           },
           {
+            "internalType": "uint24",
+            "name": "txListByteOffset",
+            "type": "uint24"
+          },
+          {
+            "internalType": "uint24",
+            "name": "txListByteSize",
+            "type": "uint24"
+          },
+          {
             "internalType": "uint16",
             "name": "minTier",
             "type": "uint16"
@@ -303,6 +311,11 @@
             "internalType": "bool",
             "name": "blobUsed",
             "type": "bool"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "parentMetaHash",
+            "type": "bytes32"
           }
         ],
         "internalType": "struct TaikoData.BlockMetadata",
@@ -355,7 +368,13 @@
       }
     ],
     "name": "approve",
-    "outputs": [],
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "approved",
+        "type": "bool"
+      }
+    ],
     "stateMutability": "nonpayable",
     "type": "function"
   },
@@ -411,6 +430,51 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "hash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "isApproved",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "minGuardians",
+    "outputs": [
+      {
+        "internalType": "uint32",
+        "name": "",
+        "type": "uint32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "numGuardians",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "owner",
     "outputs": [
@@ -445,12 +509,12 @@
   },
   {
     "inputs": [],
-    "name": "pendingOwner",
+    "name": "proxiableUUID",
     "outputs": [
       {
-        "internalType": "address",
+        "internalType": "bytes32",
         "name": "",
-        "type": "address"
+        "type": "bytes32"
       }
     ],
     "stateMutability": "view",
@@ -519,9 +583,14 @@
   {
     "inputs": [
       {
-        "internalType": "address[5]",
+        "internalType": "address[]",
         "name": "_guardians",
-        "type": "address[5]"
+        "type": "address[]"
+      },
+      {
+        "internalType": "uint8",
+        "name": "_minGuardians",
+        "type": "uint8"
       }
     ],
     "name": "setGuardians",
@@ -547,6 +616,50 @@
     "name": "unpause",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "newImplementation",
+        "type": "address"
+      }
+    ],
+    "name": "upgradeTo",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "newImplementation",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes",
+        "name": "data",
+        "type": "bytes"
+      }
+    ],
+    "name": "upgradeToAndCall",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "version",
+    "outputs": [
+      {
+        "internalType": "uint32",
+        "name": "",
+        "type": "uint32"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   }
 ]
