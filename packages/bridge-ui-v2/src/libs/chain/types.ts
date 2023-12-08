@@ -3,8 +3,6 @@ export type ChainID = bigint;
 export enum LayerType {
   L1 = 'L1',
   L2 = 'L2',
-  L2a = 'L2a',
-  L2b = 'L2b',
   L3 = 'L3',
 }
 
