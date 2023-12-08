@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"os"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -66,6 +67,8 @@ func (g *Generator) Start() error {
 	if err := g.generateTimeSeriesData(context.Background()); err != nil {
 		return err
 	}
+
+	defer os.Exit(0)
 
 	return nil
 }
