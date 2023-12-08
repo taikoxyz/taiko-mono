@@ -211,8 +211,13 @@
   // Set the content text based on the current step
   $: {
     const stepKey = NFTSteps[activeStep].toLowerCase();
-    nftStepTitle = $t(`bridge.title.nft.${stepKey}`);
-    nftStepDescription = $t(`bridge.description.nft.${stepKey}`);
+    if (activeStep === NFTSteps.CONFIRM) {
+      nftStepTitle = '';
+      nftStepDescription = '';
+    } else {
+      nftStepTitle = $t(`bridge.title.nft.${stepKey}`);
+      nftStepDescription = $t(`bridge.description.nft.${stepKey}`);
+    }
     nextStepButtonText = getStepText();
   }
 
