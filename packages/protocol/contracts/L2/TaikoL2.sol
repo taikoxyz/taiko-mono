@@ -8,12 +8,11 @@ pragma solidity 0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
-import "../common/EssentialContract.sol";
 import "../common/ICrossChainSync.sol";
 import "../libs/LibAddress.sol";
 import "../libs/LibMath.sol";
-import "../signal/ISignalService.sol";
 import "./Lib1559Math.sol";
+import "./CrossChainOwned.sol";
 import "./TaikoL2Signer.sol";
 
 /// @title TaikoL2
@@ -22,7 +21,7 @@ import "./TaikoL2Signer.sol";
 /// It is used to anchor the latest L1 block details to L2 for cross-layer
 /// communication, manage EIP-1559 parameters for gas pricing, and store
 /// verified L1 block information.
-contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
+contract TaikoL2 is CrossChainOwned, TaikoL2Signer, ICrossChainSync {
     using LibAddress for address;
     using LibMath for uint256;
 
@@ -37,13 +36,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     mapping(uint256 l1height => ICrossChainSync.Snippet) public snippets;
 
     // A hash to check the integrity of public inputs.
-    address public signalService; // slot 3
-    bytes32 public publicInputHash; // slot 4
-
-    uint64 public gasExcess; // slot 5
+    bytes32 public publicInputHash; // slot 3
+    uint64 public gasExcess; // slot 4
     uint64 public latestSyncedL1Height;
 
-    uint256[145] private __gap;
+    uint256[146] private __gap;
 
     event Anchored(bytes32 parentHash, uint64 gasExcess);
 
@@ -55,13 +52,18 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     error L2_TOO_LATE();
 
     /// @notice Initializes the TaikoL2 contract.
-    /// @param _signalService Address of the {ISignalService} contract.
+    /// @param _l1ChainId The ID of the base layer.
+    /// @param _addressManager Address of the AddressManager contract.
     /// @param _gasExcess The initial gasExcess.
-    function init(address _signalService, uint64 _gasExcess) external initializer {
-        __Essential_init();
-
-        if (_signalService == address(0)) revert L2_INVALID_PARAM();
-        signalService = _signalService;
+    function init(
+        uint64 _l1ChainId,
+        address _addressManager,
+        uint64 _gasExcess
+    )
+        external
+        initializer
+    {
+        __CrossChainOwned_init(_l1ChainId, _addressManager);
 
         if (block.chainid <= 1 || block.chainid >= type(uint64).max) {
             revert L2_INVALID_CHAIN_ID();
@@ -125,7 +127,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
         // Store the L1's signal root as a signal to the local signal service to
         // allow for multi-hop bridging.
-        ISignalService(signalService).sendSignal(l1SignalRoot);
+        ISignalService(resolve("signal_service", false)).sendSignal(l1SignalRoot);
         emit CrossChainSynced(uint64(block.number), l1Height, l1BlockHash, l1SignalRoot);
 
         // Update state variables
