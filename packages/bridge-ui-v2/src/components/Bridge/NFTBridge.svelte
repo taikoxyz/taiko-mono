@@ -177,6 +177,7 @@
       if (paused) throw new BridgePausedError('Bridge is paused');
     });
     if (!$network?.id) throw new Error('network not found');
+
     const srcChainId = $network?.id;
     const tokenId = nftIdArray[0];
 
