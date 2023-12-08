@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
 import "../../4844/Lib4844.sol";
 import "../../common/EssentialContract.sol";
@@ -131,7 +131,18 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         pure
         returns (bytes32 instance)
     {
-        return keccak256(abi.encode(tran, prover, metaHash, txListHash, pointValue));
+        return keccak256(
+            abi.encode(
+                tran.parentHash,
+                tran.blockHash,
+                tran.signalRoot,
+                tran.graffiti,
+                prover,
+                metaHash,
+                txListHash,
+                pointValue
+            )
+        );
     }
 
     function getVerifierName(uint16 id) public pure returns (bytes32) {

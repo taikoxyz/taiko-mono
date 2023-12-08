@@ -4,13 +4,14 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
 import "../common/EssentialContract.sol";
 import "./libs/LibDepositing.sol";
 import "./libs/LibProposing.sol";
 import "./libs/LibProving.sol";
 import "./libs/LibVerifying.sol";
+import "./ITaikoL1.sol";
 import "./TaikoErrors.sol";
 import "./TaikoEvents.sol";
 
@@ -23,7 +24,14 @@ import "./TaikoEvents.sol";
 /// layers"). The contract also handles the deposit and withdrawal of Taiko
 /// tokens and Ether.
 /// This contract doesn't hold any Ether. Ether deposited to L2 are held by the Bridge contract.
-contract TaikoL1 is EssentialContract, ICrossChainSync, ITierProvider, TaikoEvents, TaikoErrors {
+contract TaikoL1 is
+    EssentialContract,
+    ITaikoL1,
+    ICrossChainSync,
+    ITierProvider,
+    TaikoEvents,
+    TaikoErrors
+{
     TaikoData.State public state;
     uint256[100] private __gap;
 
@@ -40,11 +48,7 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, ITierProvider, TaikoEven
         LibVerifying.init(state, getConfig(), _genesisBlockHash);
     }
 
-    /// @notice Proposes a Taiko L2 block.
-    /// @param params Block parameters, currently an encoded BlockParams object.
-    /// @param txList txList data if calldata is used for DA.
-    /// @return meta The metadata of the proposed L2 block.
-    /// @return depositsProcessed The Ether deposits processed.
+    /// @inheritdoc ITaikoL1
     function proposeBlock(
         bytes calldata params,
         bytes calldata txList
@@ -70,11 +74,7 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, ITierProvider, TaikoEven
         }
     }
 
-    /// @notice Proves or contests a block transition.
-    /// @param blockId The index of the block to prove. This is also used to
-    /// select the right implementation version.
-    /// @param input An abi-encoded (BlockMetadata, Transition, TierProof)
-    /// tuple.
+    /// @inheritdoc ITaikoL1
     function proveBlock(uint64 blockId, bytes calldata input) external nonReentrant whenNotPaused {
         if (state.slotB.provingPaused) revert L1_PROVING_PAUSED();
 
@@ -96,8 +96,7 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, ITierProvider, TaikoEven
         }
     }
 
-    /// @notice Verifies up to N blocks.
-    /// @param maxBlocksToVerify Max number of blocks to verify.
+    /// @inheritdoc ITaikoL1
     function verifyBlocks(uint64 maxBlocksToVerify) external nonReentrant whenNotPaused {
         if (maxBlocksToVerify == 0) revert L1_INVALID_PARAM();
         if (state.slotB.provingPaused) revert L1_PROVING_PAUSED();

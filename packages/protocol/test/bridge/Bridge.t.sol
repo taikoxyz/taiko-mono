@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
 import "../TaikoTest.sol";
 
@@ -38,7 +38,7 @@ contract BridgeTest is TaikoTest {
             deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
-                data: bytes.concat(AddressManager.init.selector)
+                data: abi.encodeCall(AddressManager.init, ())
             })
         );
 
@@ -47,7 +47,7 @@ contract BridgeTest is TaikoTest {
                 deployProxy({
                     name: "bridge",
                     impl: address(new Bridge()),
-                    data: bytes.concat(Bridge.init.selector, abi.encode(addressManager)),
+                    data: abi.encodeCall(Bridge.init, (address(addressManager))),
                     registerTo: address(addressManager),
                     owner: address(0)
                 })
@@ -59,7 +59,7 @@ contract BridgeTest is TaikoTest {
                 deployProxy({
                     name: "bridge",
                     impl: address(new Bridge()),
-                    data: bytes.concat(Bridge.init.selector, abi.encode(addressManager))
+                    data: abi.encodeCall(Bridge.init, (address(addressManager)))
                 })
             )
         );
@@ -68,7 +68,7 @@ contract BridgeTest is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new SkipProofCheckSignal()),
-                data: bytes.concat(SignalService.init.selector),
+                data: abi.encodeCall(SignalService.init, ()),
                 registerTo: address(addressManager),
                 owner: address(0)
             })
@@ -78,7 +78,7 @@ contract BridgeTest is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
-                data: bytes.concat(SignalService.init.selector)
+                data: abi.encodeCall(SignalService.init, ())
             })
         );
 
@@ -187,7 +187,7 @@ contract BridgeTest is TaikoTest {
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
-            data: abi.encodeWithSelector(GoodReceiver.forward.selector, Carol),
+            data: abi.encodeCall(GoodReceiver.forward, (Carol)),
             memo: ""
         });
         // Mocking proof - but obviously it needs to be created in prod

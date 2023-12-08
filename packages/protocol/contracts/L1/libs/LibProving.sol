@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "../../common/AddressResolver.sol";
@@ -48,7 +48,6 @@ library LibProving {
     error L1_INVALID_TIER();
     error L1_INVALID_TRANSITION();
     error L1_NOT_ASSIGNED_PROVER();
-    error L1_PROVING_PAUSED();
     error L1_UNEXPECTED_TRANSITION_TIER();
 
     function pauseProving(TaikoData.State storage state, bool pause) external {

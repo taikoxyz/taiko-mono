@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
 import "../test/DeployCapability.sol";
 import "../contracts/L1/gov/TaikoTimelockController.sol";
@@ -73,12 +73,8 @@ contract SetRemoteBridgeSuites is DeployCapability {
     {
         bytes32 salt = bytes32(block.timestamp);
 
-        bytes memory payload = abi.encodeWithSelector(
-            bytes4(keccak256("setAddress(uint64,bytes32,address)")),
-            chainId,
-            bytes32(bytes(name)),
-            addr
-        );
+        bytes memory payload =
+            abi.encodeCall(AddressManager.setAddress, (chainId, bytes32(bytes(name)), addr));
 
         TaikoTimelockController timelock = TaikoTimelockController(payable(timelockAddress));
 
