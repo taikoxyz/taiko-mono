@@ -21,12 +21,23 @@ abstract contract CrossChainOwned is EssentialContract {
     event TransactionExecuted(uint64 indexed txId, bytes32 indexed approvalHash);
 
     error INVALID_PARAMS();
+    error INVALID_EXECUTOR();
     error TX_NOT_APPROVED();
     error TX_REVERTED();
     error NOT_CALLABLE();
 
-    function executeApprovedTransaction(bytes calldata txdata, bytes calldata proof) external {
-        bytes32 approvalHash = _isTransactionApproved(txdata, proof);
+    function executeApprovedTransaction(
+        bytes calldata txdata,
+        bytes calldata proof,
+        address executor
+    )
+        external
+    {
+        if (executor != address(0) && executor != msg.sender) {
+            revert INVALID_EXECUTOR();
+        }
+
+        bytes32 approvalHash = _isTransactionApproved(txdata, proof, executor);
         if (approvalHash == 0) revert TX_NOT_APPROVED();
 
         (bool success,) = address(this).call(txdata);
@@ -36,13 +47,14 @@ abstract contract CrossChainOwned is EssentialContract {
 
     function isTransactionApproved(
         bytes calldata txdata,
-        bytes calldata proof
+        bytes calldata proof,
+        address executor
     )
         public
         view
         returns (bool)
     {
-        return _isTransactionApproved(txdata, proof) != 0;
+        return _isTransactionApproved(txdata, proof, executor) != 0;
     }
 
     /// @notice Initializes the contract.
@@ -65,7 +77,8 @@ abstract contract CrossChainOwned is EssentialContract {
 
     function _isTransactionApproved(
         bytes calldata txdata,
-        bytes calldata proof
+        bytes calldata proof,
+        address executor
     )
         internal
         view
@@ -73,8 +86,9 @@ abstract contract CrossChainOwned is EssentialContract {
     {
         if (bytes4(txdata) == this.executeApprovedTransaction.selector) revert NOT_CALLABLE();
 
-        bytes32 hash =
-            keccak256(abi.encode("APPROVE_CROSS_CHAIN_TX", block.chainid, nextTxId, txdata));
+        bytes32 hash = keccak256(
+            abi.encode("APPROVE_CROSS_CHAIN_TX", block.chainid, nextTxId, executor, txdata)
+        );
 
         if (_isSignalReceived(hash, proof)) return hash;
         else return 0;

@@ -63,16 +63,24 @@ contract TestCrossChainOwned is TaikoTest {
         bytes memory data = abi.encodeCall(xchainowned.increment, ());
 
         assertEq(xchainowned.counter(), 0);
-        xchainowned.executeApprovedTransaction(data, proof);
-        xchainowned.executeApprovedTransaction(data, proof);
+        xchainowned.executeApprovedTransaction(data, proof, address(0));
+        xchainowned.executeApprovedTransaction(data, proof, address(0));
         assertEq(xchainowned.counter(), 2);
+
+        vm.expectRevert(CrossChainOwned.INVALID_EXECUTOR.selector);
+        xchainowned.executeApprovedTransaction(data, proof, Alice);
+
+        vm.prank(Alice);
+        xchainowned.executeApprovedTransaction(data, proof, Alice);
+        assertEq(xchainowned.counter(), 3);
     }
 
     function test_xchainowned_exec_executeApprovedTransaction_revert() public {
         bytes memory proof = "";
-        bytes memory data = abi.encodeCall(xchainowned.executeApprovedTransaction, ("", ""));
+        bytes memory data =
+            abi.encodeCall(xchainowned.executeApprovedTransaction, ("", "", address(1)));
         vm.expectRevert(CrossChainOwned.NOT_CALLABLE.selector);
-        xchainowned.executeApprovedTransaction(data, proof);
+        xchainowned.executeApprovedTransaction(data, proof, address(0));
     }
 
     function test_xchainowned_exec_upgrade() public {
@@ -83,13 +91,13 @@ contract TestCrossChainOwned is TaikoTest {
             abi.encodeCall(xchainowned.upgradeTo, (address(new CrossChainOwnedContract2())));
 
         assertEq(xchainowned.counter(), 0);
-        xchainowned.executeApprovedTransaction(incrementCall, proof);
+        xchainowned.executeApprovedTransaction(incrementCall, proof, address(0));
         assertEq(xchainowned.counter(), 1);
 
-        xchainowned.executeApprovedTransaction(upgradetoCall, proof);
+        xchainowned.executeApprovedTransaction(upgradetoCall, proof, address(0));
         assertEq(xchainowned.counter(), 1);
 
-        xchainowned.executeApprovedTransaction(incrementCall, proof);
+        xchainowned.executeApprovedTransaction(incrementCall, proof, address(0));
         assertEq(xchainowned.counter(), 0);
     }
 }
