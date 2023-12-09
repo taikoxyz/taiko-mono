@@ -15,7 +15,7 @@ import "../signal/ISignalService.sol";
 /// @notice This contract's owner lives on another chain who uses signal for transaction approval.
 abstract contract CrossChainOwned is EssentialContract {
     uint64 public ownerChainId; // slot 1
-    uint64 public nextXchainTxId;
+    uint64 public nextTxId;
     uint256[49] private __gap;
 
     event TransactionExecuted(uint64 indexed txId, bytes32 indexed approvalHash);
@@ -31,7 +31,7 @@ abstract contract CrossChainOwned is EssentialContract {
 
         (bool success,) = address(this).call(txdata);
         if (!success) revert TX_REVERTED();
-        emit TransactionExecuted(nextXchainTxId++, approvalHash);
+        emit TransactionExecuted(nextTxId++, approvalHash);
     }
 
     function isTransactionApproved(
@@ -60,7 +60,7 @@ abstract contract CrossChainOwned is EssentialContract {
 
         if (_ownerChainId == 0 || _ownerChainId == block.chainid) revert INVALID_PARAMS();
         ownerChainId = _ownerChainId;
-        nextXchainTxId = 1;
+        nextTxId = 1;
     }
 
     function _isTransactionApproved(
@@ -73,7 +73,7 @@ abstract contract CrossChainOwned is EssentialContract {
     {
         if (bytes4(txdata) == this.executeApprovedTransaction.selector) revert NOT_CALLABLE();
 
-        bytes32 hash = keccak256(abi.encode("CROSS_CHAIN_TX", nextXchainTxId, txdata));
+        bytes32 hash = keccak256(abi.encode("CROSS_CHAIN_TX", nextTxId, txdata));
 
         if (_isSignalReceived(hash, proof)) return hash;
         else return 0;
