@@ -52,18 +52,18 @@ contract TaikoL2 is CrossChainOwned, TaikoL2Signer, ICrossChainSync {
     error L2_TOO_LATE();
 
     /// @notice Initializes the TaikoL2 contract.
-    /// @param _l1ChainId The ID of the base layer.
     /// @param _addressManager Address of the AddressManager contract.
+    /// @param _l1ChainId The ID of the base layer.
     /// @param _gasExcess The initial gasExcess.
     function init(
-        uint64 _l1ChainId,
         address _addressManager,
+        uint64 _l1ChainId,
         uint64 _gasExcess
     )
         external
         initializer
     {
-        __CrossChainOwned_init(_l1ChainId, _addressManager);
+        __CrossChainOwned_init(_addressManager, _l1ChainId);
 
         if (block.chainid <= 1 || block.chainid >= type(uint64).max) {
             revert L2_INVALID_CHAIN_ID();

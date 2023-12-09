@@ -52,7 +52,7 @@ contract TestTaikoL2 is TaikoTest {
                     impl: address(new TaikoL2EIP1559Configurable()),
                     data: bytes.concat(
                         TaikoL2.init.selector,
-                        abi.encode(uint64(block.chainid), address(addressManager), gasExcess)
+                        abi.encode(address(addressManager), uint64(block.chainid), gasExcess)
                         )
                 })
             )
@@ -68,7 +68,7 @@ contract TestTaikoL2 is TaikoTest {
                     impl: address(new SkipBasefeeCheckL2()),
                     data: bytes.concat(
                         TaikoL2.init.selector,
-                        abi.encode(uint64(block.chainid), address(addressManager), gasExcess)
+                        abi.encode(address(addressManager), uint64(block.chainid), gasExcess)
                         )
                 })
             )
