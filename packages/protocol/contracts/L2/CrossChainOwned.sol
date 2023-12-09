@@ -73,7 +73,8 @@ abstract contract CrossChainOwned is EssentialContract {
     {
         if (bytes4(txdata) == this.executeApprovedTransaction.selector) revert NOT_CALLABLE();
 
-        bytes32 hash = keccak256(abi.encode("CROSS_CHAIN_TX", nextTxId, txdata));
+        bytes32 hash =
+            keccak256(abi.encode("APPROVE_CROSS_CHAIN_TX", block.chainid, nextTxId, txdata));
 
         if (_isSignalReceived(hash, proof)) return hash;
         else return 0;
