@@ -56,14 +56,14 @@ contract TestSgxVerifier is TaikoL1TestBase {
         // You can use these exact dummy variables in sgx OR you can give it just the hash to sign
         // (give it the hash from this test file's line 65)
         TaikoData.Transition memory tran = TaikoData.Transition({
-            parentHash: bytes32(uint256(0x0)),
-            blockHash: bytes32(uint256(0x1)),
-            signalRoot: bytes32(uint256(0x2)),
-            graffiti: bytes32(uint256(0x3))
+            parentHash: bytes32(uint256(0x5526b2adbaa42af444aa4de1c548c67b79e62b68a54f4b0e454e2213dfb4e730)),
+            blockHash: bytes32(uint256(0x874dfcc2ea850795a36e0d3e7790d111e7e6af867c80cddd62c894c9e297733e)),
+            signalRoot: bytes32(uint256(0x9150655aa767d9c4e79db834ec29ceb7405d966af9a50f83c86df9a0abb004c1)),
+            graffiti: bytes32(uint256(0x3000000000000000000000000000000000000000000000000000000000000000))
         });
-        address newInstance = address(0);
-        address prover = address(0);
-        bytes32 metaHash = bytes32(uint256(0x1));
+        address newInstance = address(0x44189d27dfe6b4ec44826b7c3f34a3d9c47412f1);
+        address prover = address(0x70997970c51812dc3a010c7d01b50e0d17dc79c8);
+        bytes32 metaHash = bytes32(uint256(0x2d4db8e1bc1b76017217738532346e996941f76b774fb5c63a0527e58d010364));
 
         //2. Now calling the Verifier contract's getSignedHash function, to get the hash which needs
         // to be signed. Basically what you need to do is, to have this same data (the dummy one, as
@@ -78,9 +78,9 @@ contract TestSgxVerifier is TaikoL1TestBase {
         // but offline you shall use your SGX instance's one !! Important, because basically that is
         // the signer, which gives you the proof.
         uint256 signerPrivateKey =
-            0x0f51fcdf6b1d40dbd08fc841bdf9052762c7e5d88f519d7b1a5a3b3047774c9b;
+            0xe60e52a23a098f6fa3452965b3fa0264ea563912260cdadc737b884a1140f4e3;
         // This privatey key above is representing this ethereum address below
-        address ethereumAddress = 0xAD65E8b427Afce4A4DEe6593f14039962f23CE71;
+        address ethereumAddress = 0xc7ac20529c98a232c4eaf3fd62af7efc77d9eb71;
 
         // Sign it
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, hashToBeSignedBySgx);
