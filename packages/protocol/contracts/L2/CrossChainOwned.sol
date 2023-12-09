@@ -45,6 +45,24 @@ abstract contract CrossChainOwned is EssentialContract {
         return _isTransactionApproved(txdata, proof) != 0;
     }
 
+    /// @notice Initializes the contract.
+    /// @param _addressManager The address of the address manager.
+    /// @param _ownerChainId The owner's deployment chain ID.
+    // solhint-disable-next-line func-name-mixedcase
+    function __CrossChainOwned_init(
+        address _addressManager,
+        uint64 _ownerChainId
+    )
+        internal
+        virtual
+    {
+        __Essential_init(_addressManager);
+
+        if (_ownerChainId == 0 || _ownerChainId == block.chainid) revert INVALID_PARAMS();
+        ownerChainId = _ownerChainId;
+        nextXchainTxId = 1;
+    }
+
     function _isTransactionApproved(
         bytes calldata txdata,
         bytes calldata proof
@@ -80,23 +98,5 @@ abstract contract CrossChainOwned is EssentialContract {
 
     function _checkOwner() internal view virtual override {
         if (msg.sender != address(this)) revert NOT_CALLABLE();
-    }
-
-    /// @notice Initializes the contract.
-    /// @param _addressManager The address of the address manager.
-    /// @param _ownerChainId The owner's deployment chain ID.
-    // solhint-disable-next-line func-name-mixedcase
-    function __CrossChainOwned_init(
-        address _addressManager,
-        uint64 _ownerChainId
-    )
-        internal
-        virtual
-    {
-        __Essential_init(_addressManager);
-
-        if (_ownerChainId == 0 || _ownerChainId == block.chainid) revert INVALID_PARAMS();
-        ownerChainId = _ownerChainId;
-        nextXchainTxId = 1;
     }
 }
