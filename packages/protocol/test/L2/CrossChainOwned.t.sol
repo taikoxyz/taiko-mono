@@ -68,6 +68,13 @@ contract TestCrossChainOwned is TaikoTest {
         assertEq(xchainowned.counter(), 2);
     }
 
+    function test_xchainowned_exec_executeApprovedTransaction_revert() public {
+        bytes memory proof = "";
+        bytes memory data = abi.encodeCall(xchainowned.executeApprovedTransaction, ("", ""));
+        vm.expectRevert(CrossChainOwned.NOT_CALLABLE.selector);
+        xchainowned.executeApprovedTransaction(data, proof);
+    }
+
     function test_xchainowned_exec_upgrade() public {
         bytes memory proof = "";
 

@@ -71,7 +71,7 @@ abstract contract CrossChainOwned is EssentialContract {
         view
         returns (bytes32 approvalHash)
     {
-        if (bytes4(txdata) == this.executeApprovedTransaction.selector) return 0;
+        if (bytes4(txdata) == this.executeApprovedTransaction.selector) revert NOT_CALLABLE();
 
         bytes32 hash = keccak256(abi.encode("CROSS_CHAIN_TX", nextXchainTxId, txdata));
 
