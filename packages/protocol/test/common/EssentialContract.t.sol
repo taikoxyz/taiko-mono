@@ -28,7 +28,7 @@ contract Target2 is Target1 {
 
 contract TestOwnerUUPSUpgradable is TaikoTest {
     function test_essential_behind_1967_proxy() external {
-        bytes memory data = bytes.concat(Target1.init.selector);
+        bytes memory data = abi.encodeCall(Target1.init, ());
         vm.startPrank(Alice);
         ERC1967Proxy proxy = new ERC1967Proxy(address(new Target1()), data);
         Target1 target = Target1(address(proxy));
@@ -49,7 +49,7 @@ contract TestOwnerUUPSUpgradable is TaikoTest {
         target.adjust();
 
         address v2 = address(new Target2());
-        data = bytes.concat(Target2.update.selector);
+        data = abi.encodeCall(Target2.update, ());
 
         vm.prank(Bob);
         vm.expectRevert();
@@ -67,7 +67,7 @@ contract TestOwnerUUPSUpgradable is TaikoTest {
     // This tests shows that the admin() and owner() cannot be the same, otherwise,
     // the owner cannot transact delegated functions on implementation.
     function test_essential_behind_transparent_proxy() external {
-        bytes memory data = bytes.concat(Target1.init.selector);
+        bytes memory data = abi.encodeCall(Target1.init, ());
         vm.startPrank(Alice);
         TransparentUpgradeableProxy proxy =
             new TransparentUpgradeableProxy(address(new Target1()), Bob, data);

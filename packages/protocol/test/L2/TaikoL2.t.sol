@@ -27,7 +27,7 @@ contract TestTaikoL2 is TaikoTest {
             deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
-                data: bytes.concat(AddressManager.init.selector)
+                data: abi.encodeCall(AddressManager.init, ())
             })
         );
 
@@ -35,7 +35,7 @@ contract TestTaikoL2 is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
-                data: bytes.concat(SignalService.init.selector),
+                data: abi.encodeCall(SignalService.init, ()),
                 registerTo: address(addressManager),
                 owner: address(0)
             })
@@ -50,9 +50,8 @@ contract TestTaikoL2 is TaikoTest {
                 deployProxy({
                     name: "taiko_l2",
                     impl: address(new TaikoL2EIP1559Configurable()),
-                    data: bytes.concat(
-                        TaikoL2.init.selector,
-                        abi.encode(address(addressManager), uint64(block.chainid), gasExcess)
+                    data: abi.encodeCall(
+                        TaikoL2.init, (address(addressManager), uint64(block.chainid), gasExcess)
                         )
                 })
             )
@@ -66,9 +65,8 @@ contract TestTaikoL2 is TaikoTest {
                 deployProxy({
                     name: "taiko_l2",
                     impl: address(new SkipBasefeeCheckL2()),
-                    data: bytes.concat(
-                        TaikoL2.init.selector,
-                        abi.encode(address(addressManager), uint64(block.chainid), gasExcess)
+                    data: abi.encodeCall(
+                        TaikoL2.init, (address(addressManager), uint64(block.chainid), gasExcess)
                         )
                 })
             )

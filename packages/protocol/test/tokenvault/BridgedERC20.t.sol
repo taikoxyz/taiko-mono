@@ -12,7 +12,7 @@ contract TestBridgedERC20 is TaikoTest {
         manager = deployProxy({
             name: "address_manager",
             impl: address(new AddressManager()),
-            data: bytes.concat(AddressManager.init.selector)
+            data: abi.encodeCall(AddressManager.init, ())
         });
 
         register(manager, "erc20_vault", vault);
@@ -130,9 +130,8 @@ contract TestBridgedERC20 is TaikoTest {
             deployProxy({
                 name: "bridged_token1",
                 impl: address(new BridgedERC20()),
-                data: bytes.concat(
-                    BridgedERC20.init.selector,
-                    abi.encode(address(manager), srcToken, srcChainId, srcDecimals, name, name)
+                data: abi.encodeCall(
+                    BridgedERC20.init, (address(manager), srcToken, srcChainId, srcDecimals, name, name)
                     ),
                 registerTo: manager,
                 owner: owner
