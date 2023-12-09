@@ -51,21 +51,31 @@ abstract contract CrossChainOwned is EssentialContract {
     )
         internal
         view
-        returns (bytes32)
+        returns (bytes32 approvalHash)
     {
         if (bytes4(txdata) == this.executeApprovedTransaction.selector) return 0;
 
         bytes32 hash = keccak256(abi.encode("CROSS_CHAIN_TX", nextXchainTxId, txdata));
-        if (
-            !ISignalService(resolve("signal_service", false)).proveSignalReceived({
-                srcChainId: ownerChainId,
-                app: owner(),
-                signal: hash,
-                proof: proof
-            })
-        ) return 0;
 
-        return hash;
+        if (_isSignalReceived(hash, proof)) return hash;
+        else return 0;
+    }
+
+    function _isSignalReceived(
+        bytes32 signal,
+        bytes calldata proof
+    )
+        internal
+        view
+        virtual
+        returns (bool)
+    {
+        return ISignalService(resolve("signal_service", false)).proveSignalReceived({
+            srcChainId: ownerChainId,
+            app: owner(),
+            signal: signal,
+            proof: proof
+        });
     }
 
     function _checkOwner() internal view virtual override {
