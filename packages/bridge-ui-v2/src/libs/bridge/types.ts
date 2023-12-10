@@ -9,7 +9,6 @@ export enum MessageStatus {
   RETRIABLE,
   DONE,
   FAILED,
-  NewOnlyOwner,
 }
 
 // Bridge sendMessage()
