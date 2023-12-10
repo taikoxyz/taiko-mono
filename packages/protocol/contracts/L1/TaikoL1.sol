@@ -199,7 +199,7 @@ contract TaikoL1 is
     /// @return Config struct containing configuration parameters.
     function getConfig() public view virtual returns (TaikoData.Config memory) {
         // All hard-coded configurations:
-        // - treasury: 0xdf09A0afD09a63fb04ab3573922437e1e637dE8b
+        // - treasury: the actual TaikoL2 address.
         // - blockMaxTxs: 150 (limited by the PSE zkEVM circuits)
         // - anchorGasLimit: 250_000 (based on internal devnet, its ~220_000
         // after 256 L2 blocks)

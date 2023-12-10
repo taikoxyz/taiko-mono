@@ -46,22 +46,26 @@ contract TestTaikoL2 is TaikoTest {
         uint32 gasTarget = 60_000_000;
 
         L2 = TaikoL2EIP1559Configurable(
-            deployProxy({
-                name: "taiko_l2",
-                impl: address(new TaikoL2EIP1559Configurable()),
-                data: bytes.concat(TaikoL2.init.selector, abi.encode(address(ss), gasExcess))
-            })
+            payable(
+                deployProxy({
+                    name: "taiko_l2",
+                    impl: address(new TaikoL2EIP1559Configurable()),
+                    data: bytes.concat(TaikoL2.init.selector, abi.encode(address(ss), gasExcess))
+                })
+            )
         );
 
         L2.setConfigAndExcess(TaikoL2.Config(gasTarget, quotient), gasExcess);
 
         gasExcess = 195_420_300_100;
         L2skip = SkipBasefeeCheckL2(
-            deployProxy({
-                name: "taiko_l2",
-                impl: address(new SkipBasefeeCheckL2()),
-                data: bytes.concat(TaikoL2.init.selector, abi.encode(address(ss), gasExcess))
-            })
+            payable(
+                deployProxy({
+                    name: "taiko_l2",
+                    impl: address(new SkipBasefeeCheckL2()),
+                    data: bytes.concat(TaikoL2.init.selector, abi.encode(address(ss), gasExcess))
+                })
+            )
         );
 
         L2skip.setConfigAndExcess(TaikoL2.Config(gasTarget, quotient), gasExcess);

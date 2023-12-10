@@ -9,6 +9,7 @@ import (
 	"github.com/joho/godotenv"
 	echo "github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
+	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
 	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/mock"
 )
 
@@ -18,6 +19,8 @@ func newTestServer(url string) *Server {
 	srv := &Server{
 		echo:            echo.New(),
 		healthCheckRepo: mock.NewHealthCheckRepository(),
+		statRepo:        mock.NewStatRepository(),
+		guardianProvers: make([]guardianproverhealthcheck.GuardianProver, 0),
 	}
 
 	srv.configureMiddleware([]string{"*"})
