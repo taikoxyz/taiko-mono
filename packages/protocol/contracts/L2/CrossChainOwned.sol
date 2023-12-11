@@ -12,7 +12,8 @@ import "../common/EssentialContract.sol";
 import "../bridge/IBridge.sol";
 
 /// @title CrossChainOwned
-/// @notice This contract's owner lives on another chain who uses signal for transaction approval.
+/// @notice This contract's owner can be a local address or one that lives on another chain and uses
+/// signals for transaction approval.
 /// @dev Notice that when send the message on the owner chain, the gas limit of the message must not
 /// be zero, so on this chain, some EOA can help execute this transaction.
 abstract contract CrossChainOwned is EssentialContract {
@@ -33,7 +34,9 @@ abstract contract CrossChainOwned is EssentialContract {
         if (msg.sender != resolve("bridge", false)) revert XCO_PERMISSION_DENIED();
 
         IBridge.Context memory ctx = IBridge(msg.sender).context();
-        if (ctx.srcChainId != ownerChainId || ctx.from != owner()) revert XCO_PERMISSION_DENIED();
+        if (ctx.srcChainId != ownerChainId || ctx.from != owner()) {
+            revert XCO_PERMISSION_DENIED();
+        }
 
         (bool success,) = address(this).call(txdata);
         if (!success) revert XCO_TX_REVERTED();
@@ -61,6 +64,8 @@ abstract contract CrossChainOwned is EssentialContract {
     }
 
     function _checkOwner() internal view virtual override {
-        if (msg.sender != address(this)) revert XCO_PERMISSION_DENIED();
+        if (msg.sender != owner() && msg.sender != address(this)) {
+            revert XCO_PERMISSION_DENIED();
+        }
     }
 }
