@@ -451,7 +451,7 @@ async function generateContractConfigs(
                 // TaikoL2
                 // Ownable2Upgradeable
                 _owner: contractOwner,
-                signalService: addressMap.SignalService,
+                addressManager: addressMap.AddressManager,
                 gasExcess: param1559.gasExcess,
                 // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
                 publicInputHash: `${ethers.utils.solidityKeccak256(
