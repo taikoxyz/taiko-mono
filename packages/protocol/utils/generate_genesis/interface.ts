@@ -1,6 +1,7 @@
 export interface Config {
-    contractOwner: string;
-    contractAdmin: string;
+    ownerTimelockController: string;
+    ownerSecurityCouncil: string;
+    ownerChainId: number;
     chainId: number;
     seedAccounts: Array<{
         [key: string]: number;

@@ -31,7 +31,7 @@ contract TestSignalService is TaikoTest {
             deployProxy({
                 name: "guardians",
                 impl: address(new DummyGuardians()),
-                data: bytes.concat(DummyGuardians.init.selector)
+                data: abi.encodeCall(DummyGuardians.init, ())
             })
         );
     }

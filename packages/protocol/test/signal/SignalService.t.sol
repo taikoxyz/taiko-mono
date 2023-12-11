@@ -19,7 +19,7 @@ contract TestSignalService is TaikoTest {
             deployProxy({
                 name: "address_manager",
                 impl: address(new AddressManager()),
-                data: bytes.concat(AddressManager.init.selector),
+                data: abi.encodeCall(AddressManager.init, ()),
                 registerTo: address(addressManager),
                 owner: address(0)
             })
@@ -29,7 +29,7 @@ contract TestSignalService is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
-                data: bytes.concat(SignalService.init.selector)
+                data: abi.encodeCall(SignalService.init, ())
             })
         );
 
@@ -37,7 +37,7 @@ contract TestSignalService is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
-                data: bytes.concat(SignalService.init.selector)
+                data: abi.encodeCall(SignalService.init, ())
             })
         );
 

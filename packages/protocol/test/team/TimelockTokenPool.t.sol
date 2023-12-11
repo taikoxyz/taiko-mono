@@ -20,7 +20,7 @@ contract TestTimelockTokenPool is TaikoTest {
             deployProxy({
                 name: "time_lock_token_pool",
                 impl: address(new TimelockTokenPool()),
-                data: bytes.concat(TimelockTokenPool.init.selector, abi.encode(address(tko), Vault))
+                data: abi.encodeCall(TimelockTokenPool.init, (address(tko), Vault))
             })
         );
     }
