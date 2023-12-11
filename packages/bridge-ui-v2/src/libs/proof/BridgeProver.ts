@@ -15,6 +15,12 @@ export class BridgeProver extends Prover {
   private _getSignalProof(proof: EthGetProofResponse, blockHeight: bigint) {
     // RLP encode the proof together for LibTrieProof to decode
     const encodedProof = toRlp(proof.storageProof[0].proof);
+
+    // Encode the SignalProof struct:
+    // struct SignalProof {
+    //   uint256 height;
+    //   bytes proof;
+    // }
     const signalProof = encodeAbiParameters(
       // ['tuple(uint256 height, bytes proof)'],
       [
