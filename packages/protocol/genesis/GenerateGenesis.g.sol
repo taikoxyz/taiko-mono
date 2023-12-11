@@ -20,7 +20,9 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.readFile(string.concat(vm.projectRoot(), "/deployments/genesis_config.json"));
     string private genesisAllocJSON =
         vm.readFile(string.concat(vm.projectRoot(), "/deployments/genesis_alloc.json"));
-    address private owner = configJSON.readAddress(".contractOwner");
+    address private ownerTimelockController = configJSON.readAddress(".ownerTimelockController");
+    address private ownerSecurityCouncil = configJSON.readAddress(".ownerSecurityCouncil");
+    uint256 private ownerChainId = configJSON.readUint(".ownerChainId");
 
     function testSharedContractsDeployment() public {
         assertEq(block.chainid, 167);
@@ -59,7 +61,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkDeployedCode("RollupAddressManager");
 
         // check proxy implementations
-        checkProxyImplementation("TaikoL2", "TaikoL2Impl");
+        checkProxyImplementation("TaikoL2", "TaikoL2Impl", ownerTimelockController);
         checkProxyImplementation("RollupAddressManager", "RollupAddressManagerImpl");
 
         // check proxies
@@ -71,7 +73,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         AddressManager addressManagerProxy =
             AddressManager(getPredeployedContractAddress("SharedAddressManager"));
 
-        assertEq(owner, addressManagerProxy.owner());
+        assertEq(ownerSecurityCouncil, addressManagerProxy.owner());
 
         checkSavedAddress(addressManagerProxy, "Bridge", "bridge");
         checkSavedAddress(addressManagerProxy, "ERC20Vault", "erc20_vault");
@@ -95,7 +97,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         AddressManager addressManagerProxy =
             AddressManager(getPredeployedContractAddress("RollupAddressManager"));
 
-        assertEq(owner, addressManagerProxy.owner());
+        assertEq(ownerSecurityCouncil, addressManagerProxy.owner());
 
         checkSavedAddress(addressManagerProxy, "TaikoL2", "taiko");
         checkSavedAddress(addressManagerProxy, "SignalService", "signal_service");
@@ -114,6 +116,9 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
     function testTaikoL2() public {
         TaikoL2 taikoL2Proxy = TaikoL2(getPredeployedContractAddress("TaikoL2"));
+
+        assertEq(ownerTimelockController, taikoL2Proxy.owner());
+        assertEq(ownerChainId, taikoL2Proxy.ownerChainId());
 
         vm.startPrank(taikoL2Proxy.GOLDEN_TOUCH_ADDRESS());
         for (uint32 i = 0; i < 300; ++i) {
@@ -152,7 +157,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
     function testSingletonBridge() public {
         Bridge bridgeProxy = Bridge(payable(getPredeployedContractAddress("Bridge")));
 
-        assertEq(owner, bridgeProxy.owner());
+        assertEq(ownerSecurityCouncil, bridgeProxy.owner());
 
         vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
         bridgeProxy.processMessage(
@@ -175,7 +180,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         assertEq(bridgeProxy.paused(), false);
 
-        vm.startPrank(owner);
+        vm.startPrank(ownerSecurityCouncil);
         bridgeProxy.pause();
         assertEq(bridgeProxy.paused(), true);
 
@@ -218,7 +223,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         AddressManager addressManager =
             AddressManager(getPredeployedContractAddress("SharedAddressManager"));
 
-        assertEq(owner, erc20VaultProxy.owner());
+        assertEq(ownerSecurityCouncil, erc20VaultProxy.owner());
 
         vm.startPrank(addressManager.owner());
         addressManager.setAddress(1, "bridge", bridgeAddress);
@@ -244,7 +249,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         AddressManager addressManager =
             AddressManager(getPredeployedContractAddress("SharedAddressManager"));
 
-        assertEq(owner, erc721VaultProxy.owner());
+        assertEq(ownerSecurityCouncil, erc721VaultProxy.owner());
 
         vm.startPrank(addressManager.owner());
         addressManager.setAddress(1, "bridge", bridgeAddress);
@@ -269,7 +274,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         AddressManager addressManager =
             AddressManager(getPredeployedContractAddress("SharedAddressManager"));
 
-        assertEq(owner, erc1155VaultProxy.owner());
+        assertEq(ownerSecurityCouncil, erc1155VaultProxy.owner());
 
         vm.startPrank(addressManager.owner());
         addressManager.setAddress(1, "bridge", bridgeProxyAddress);
@@ -293,7 +298,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         SignalService signalServiceProxy =
             SignalService(getPredeployedContractAddress("SignalService"));
 
-        assertEq(owner, signalServiceProxy.owner());
+        assertEq(ownerSecurityCouncil, signalServiceProxy.owner());
 
         signalServiceProxy.sendSignal(keccak256(abi.encodePacked(block.prevrandao)));
 
@@ -304,7 +309,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
             )
         );
 
-        vm.startPrank(owner);
+        vm.startPrank(ownerSecurityCouncil);
 
         SignalService signalService =
             SignalService(payable(getPredeployedContractAddress("SignalServiceImpl")));
@@ -335,9 +340,20 @@ contract TestGenerateGenesis is Test, AddressResolver {
         assertEq(address(contractAddress).code, vm.parseBytes(deployedCode));
     }
 
+
     function checkProxyImplementation(
         string memory proxyName,
         string memory contractName
+    )
+        private
+    {
+        return checkProxyImplementation(proxyName, contractName, ownerSecurityCouncil);
+    }
+
+    function checkProxyImplementation(
+        string memory proxyName,
+        string memory contractName,
+        address owner
     )
         private
     {
