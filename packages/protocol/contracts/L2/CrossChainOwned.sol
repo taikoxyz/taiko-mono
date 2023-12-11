@@ -13,19 +13,21 @@ import "../bridge/IBridge.sol";
 
 /// @title CrossChainOwned
 /// @notice This contract's owner lives on another chain who uses signal for transaction approval.
+/// @dev Notice that when send the message on the owner chain, the gas limit of the message must not
+/// be zero, so on this chain, some EOA can help execute this transaction.
 abstract contract CrossChainOwned is EssentialContract {
     uint64 public ownerChainId; // slot 1
     uint64 public nextTxId;
     uint256[49] private __gap;
 
-    event TransactionExecuted(uint64 indexed txId);
+    event TransactionExecuted(uint64 indexed txId, bytes4 indexed selector);
 
     error XCO_INVALID_TX_ID();
     error XCO_INVALID_OWNER_CHAINID();
     error XCO_PERMISSION_DENIED();
     error XCO_TX_REVERTED();
 
-    function executeApprovedTransaction(uint64 txId, bytes calldata txdata) external {
+    function executeCrossChainTransaction(uint64 txId, bytes calldata txdata) external {
         if (txId != nextTxId) revert XCO_INVALID_TX_ID();
 
         if (msg.sender != resolve("bridge", false)) revert XCO_PERMISSION_DENIED();
@@ -36,7 +38,7 @@ abstract contract CrossChainOwned is EssentialContract {
         (bool success,) = address(this).call(txdata);
         if (!success) revert XCO_TX_REVERTED();
 
-        emit TransactionExecuted(nextTxId++);
+        emit TransactionExecuted(nextTxId++, bytes4(txdata));
     }
 
     /// @notice Initializes the contract.
