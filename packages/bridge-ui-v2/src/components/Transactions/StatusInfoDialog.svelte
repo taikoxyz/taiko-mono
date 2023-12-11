@@ -47,8 +47,7 @@
 <svelte:window on:keydown={closeModalIfKeyDown} />
 
 <dialog id={dialogId} class="modal" class:modal-open={modalOpen}>
-  <div
-    class="modal-box bg-neutral-background text-primary-content text-center max-w-[565px]">
+  <div class="modal-box bg-neutral-background text-primary-content text-center max-w-[565px]">
     <div class="w-full flex justify-end">
       <CloseButton onClick={closeModal} />
     </div>

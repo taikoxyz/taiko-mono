@@ -233,8 +233,8 @@
         ? $tokenBalance
         : BigInt(0) // ERC721/1155
       : 'value' in $tokenBalance && $tokenBalance.value > BigInt(0)
-      ? $tokenBalance.value
-      : BigInt(0) // ERC20
+        ? $tokenBalance.value
+        : BigInt(0) // ERC20
     : BigInt(0);
 
   $: if (inputBox && sanitizedValue !== inputBox.getValue()) {
