@@ -21,7 +21,14 @@ contract TaikoL2EIP1559Configurable is TaikoL2 {
     /// @notice Sets EIP1559 configuration and gas excess.
     /// @param config The new EIP1559 config.
     /// @param newGasExcess The new gas excess
-    function setConfigAndExcess(Config memory config, uint64 newGasExcess) external onlyOwner {
+    function setConfigAndExcess(
+        Config memory config,
+        uint64 newGasExcess
+    )
+        external
+        virtual
+        onlyOwner
+    {
         if (config.gasTargetPerL1Block == 0) revert L2_INVALID_CONFIG();
         if (config.basefeeAdjustmentQuotient == 0) revert L2_INVALID_CONFIG();
 
