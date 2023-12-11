@@ -452,6 +452,7 @@ async function generateContractConfigs(
                 // Ownable2Upgradeable
                 _owner: contractOwner,
                 addressManager: addressMap.AddressManager,
+                ownerChainId: 123, // @TODO(david): Need this value
                 gasExcess: param1559.gasExcess,
                 // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
                 publicInputHash: `${ethers.utils.solidityKeccak256(
