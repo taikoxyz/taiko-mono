@@ -9,7 +9,7 @@ pragma solidity 0.8.20;
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
 import "../common/EssentialContract.sol";
-import "../signal/ISignalService.sol";
+import "../bridge/IBridge.sol";
 
 /// @title CrossChainOwned
 /// @notice This contract's owner lives on another chain who uses signal for transaction approval.
@@ -18,43 +18,25 @@ abstract contract CrossChainOwned is EssentialContract {
     uint64 public nextTxId;
     uint256[49] private __gap;
 
-    event TransactionExecuted(uint64 indexed txId, bytes32 indexed approvalHash);
+    event TransactionExecuted(uint64 indexed txId);
 
-    error INVALID_PARAMS();
-    error INVALID_EXECUTOR();
-    error TX_NOT_APPROVED();
-    error TX_REVERTED();
-    error NOT_CALLABLE();
+    error XCO_INVALID_TX_ID();
+    error XCO_INVALID_OWNER_CHAINID();
+    error XCO_PERMISSION_DENIED();
+    error XCO_TX_REVERTED();
 
-    function executeApprovedTransaction(
-        bytes calldata txdata,
-        bytes calldata proof,
-        address executor
-    )
-        external
-    {
-        if (executor != address(0) && executor != msg.sender) {
-            revert INVALID_EXECUTOR();
-        }
+    function executeApprovedTransaction(uint64 txId, bytes calldata txdata) external {
+        if (txId != nextTxId) revert XCO_INVALID_TX_ID();
 
-        bytes32 approvalHash = _isTransactionApproved(txdata, proof, executor);
-        if (approvalHash == 0) revert TX_NOT_APPROVED();
+        if (msg.sender != resolve("bridge", false)) revert XCO_PERMISSION_DENIED();
+
+        IBridge.Context memory ctx = IBridge(msg.sender).context();
+        if (ctx.srcChainId != ownerChainId || ctx.from != owner()) revert XCO_PERMISSION_DENIED();
 
         (bool success,) = address(this).call(txdata);
-        if (!success) revert TX_REVERTED();
-        emit TransactionExecuted(nextTxId++, approvalHash);
-    }
+        if (!success) revert XCO_TX_REVERTED();
 
-    function isTransactionApproved(
-        bytes calldata txdata,
-        bytes calldata proof,
-        address executor
-    )
-        public
-        view
-        returns (bool)
-    {
-        return _isTransactionApproved(txdata, proof, executor) != 0;
+        emit TransactionExecuted(nextTxId++);
     }
 
     /// @notice Initializes the contract.
@@ -70,48 +52,13 @@ abstract contract CrossChainOwned is EssentialContract {
     {
         __Essential_init(_addressManager);
 
-        if (_ownerChainId == 0 || _ownerChainId == block.chainid) revert INVALID_PARAMS();
+        if (_ownerChainId == 0 || _ownerChainId == block.chainid) {
+            revert XCO_INVALID_OWNER_CHAINID();
+        }
         ownerChainId = _ownerChainId;
-        nextTxId = 1;
-    }
-
-    function _isTransactionApproved(
-        bytes calldata txdata,
-        bytes calldata proof,
-        address executor
-    )
-        internal
-        view
-        returns (bytes32 approvalHash)
-    {
-        if (bytes4(txdata) == this.executeApprovedTransaction.selector) revert NOT_CALLABLE();
-
-        bytes32 hash = keccak256(
-            abi.encode("APPROVE_CROSS_CHAIN_TX", block.chainid, nextTxId, executor, txdata)
-        );
-
-        if (_isSignalReceived(hash, proof)) return hash;
-        else return 0;
-    }
-
-    function _isSignalReceived(
-        bytes32 signal,
-        bytes calldata proof
-    )
-        internal
-        view
-        virtual
-        returns (bool)
-    {
-        return ISignalService(resolve("signal_service", false)).proveSignalReceived({
-            srcChainId: ownerChainId,
-            app: owner(),
-            signal: signal,
-            proof: proof
-        });
     }
 
     function _checkOwner() internal view virtual override {
-        if (msg.sender != address(this)) revert NOT_CALLABLE();
+        if (msg.sender != address(this)) revert XCO_PERMISSION_DENIED();
     }
 }

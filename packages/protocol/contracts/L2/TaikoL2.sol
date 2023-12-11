@@ -9,6 +9,7 @@ pragma solidity 0.8.20;
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
 import "../common/ICrossChainSync.sol";
+import "../signal/ISignalService.sol";
 import "../libs/LibAddress.sol";
 import "../libs/LibMath.sol";
 import "./Lib1559Math.sol";
