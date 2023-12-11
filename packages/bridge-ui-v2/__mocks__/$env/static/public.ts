@@ -6,5 +6,5 @@ export const PUBLIC_WALLETCONNECT_PROJECT_ID = '123';
 export const PUBLIC_SENTRY_DSN = 'https://sentry.com';
 export const CONFIGURED_BRIDGES = '';
 export const CONFIGURED_CHAINS = '';
-export const CONFIGURED_CUSTOM_TOKEN = '';
+export const CONFIGURED_CUSTOM_TOKENS = '';
 export const CONFIGURED_RELAYER = '';
