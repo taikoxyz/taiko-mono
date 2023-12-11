@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
 
   import { Icon } from '$components/Icon';
-  import { Theme,theme } from '$stores/theme';
+  import { Theme, theme } from '$stores/theme';
 
   $: isDarkTheme = $theme === Theme.DARK;
 

@@ -132,8 +132,8 @@
       ? typeof $tokenBalance === 'bigint'
         ? $tokenBalance > BigInt(0) // ERC721/1155
         : 'value' in $tokenBalance
-        ? $tokenBalance.value > BigInt(0)
-        : false // ERC20
+          ? $tokenBalance.value > BigInt(0)
+          : false // ERC20
       : false);
   $: canDoNothing = !hasAddress || !hasNetworks || !hasBalance || !$selectedToken;
 
@@ -144,10 +144,10 @@
     $selectedToken?.type === TokenType.ERC20
       ? isSelectedERC20 && $enteredAmount && !$insufficientAllowance && !$validatingAmount
       : $selectedToken?.type === TokenType.ERC721
-      ? allTokensApproved
-      : $selectedToken?.type === TokenType.ERC1155
-      ? allTokensApproved
-      : false;
+        ? allTokensApproved
+        : $selectedToken?.type === TokenType.ERC1155
+          ? allTokensApproved
+          : false;
 
   $: {
     checkTokensApproved();
@@ -158,10 +158,10 @@
     $selectedToken?.type === TokenType.ERC20
       ? canDoNothing || $insufficientBalance || $validatingAmount || approving || isTokenApproved || !$enteredAmount
       : $selectedToken?.type === TokenType.ERC721
-      ? allTokensApproved || approving
-      : $selectedToken?.type === TokenType.ERC1155
-      ? allTokensApproved || approving
-      : approving;
+        ? allTokensApproved || approving
+        : $selectedToken?.type === TokenType.ERC1155
+          ? allTokensApproved || approving
+          : approving;
 
   $: isERC20 = $selectedToken?.type === TokenType.ERC20;
   $: isERC721 = $selectedToken?.type === TokenType.ERC721;
@@ -187,12 +187,12 @@
   $: disableBridge = isERC20
     ? !erc20ConditionsSatisfied
     : isERC721
-    ? !erc721ConditionsSatisfied
-    : isERC1155
-    ? !erc1155ConditionsSatisfied
-    : isETH
-    ? !ethConditionsSatisfied
-    : commonConditions;
+      ? !erc721ConditionsSatisfied
+      : isERC1155
+        ? !erc1155ConditionsSatisfied
+        : isETH
+          ? !ethConditionsSatisfied
+          : commonConditions;
 </script>
 
 {#if oldStyle}

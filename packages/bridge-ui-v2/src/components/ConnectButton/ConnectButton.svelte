@@ -16,7 +16,7 @@
 
   function connectWallet() {
     if (web3modalOpen) return;
-    web3modal.openModal(); 
+    web3modal.openModal();
   }
 
   function onWeb3Modal(state: { open: boolean }) {
@@ -31,7 +31,10 @@
 </script>
 
 {#if connected}
-  <Button class="hidden sm:flex  pl-[14px] pr-[20px] h-[38px] mr-[8px] rounded-full" type="neutral" on:click={connectWallet}>
+  <Button
+    class="hidden sm:flex  pl-[14px] pr-[20px] h-[38px] mr-[8px] rounded-full"
+    type="neutral"
+    on:click={connectWallet}>
     <span class="body-regular f-items-center">
       <svelte:component this={EthIcon} size={20} />
       {#if $ethBalance >= 0}
