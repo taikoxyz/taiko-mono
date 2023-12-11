@@ -3,9 +3,9 @@ import type { Address } from 'viem';
 
 import { RelayerAPIService } from './RelayerAPIService';
 
-vi.mock('axios');
-
 function setupMocks() {
+  vi.mock('axios');
+  vi.mock('@wagmi/core');
   vi.mock('$customToken', () => {
     return {
       customToken: [

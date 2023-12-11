@@ -5,6 +5,8 @@ import type { TokenType } from '$libs/token';
 import { mergeAndCaptureOutdatedTransactions } from '$libs/util/mergeTransactions';
 
 function setupMocks() {
+  vi.mock('@wagmi/core');
+
   vi.mock('$customToken', () => {
     return {
       customToken: [
