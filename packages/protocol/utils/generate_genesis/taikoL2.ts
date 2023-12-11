@@ -17,7 +17,13 @@ export async function deployTaikoL2(
     config: Config,
     result: Result,
 ): Promise<Result> {
-    const { contractOwner, chainId, seedAccounts } = config;
+    const {
+        ownerTimelockController,
+        ownerSecurityCouncil,
+        ownerChainId,
+        chainId,
+        seedAccounts,
+    } = config;
 
     const alloc: any = {};
 
@@ -42,7 +48,9 @@ export async function deployTaikoL2(
     console.log("\n");
 
     const contractConfigs: any = await generateContractConfigs(
-        contractOwner,
+        ownerTimelockController,
+        ownerSecurityCouncil,
+        ownerChainId,
         chainId,
         config.contractAddresses,
         config.param1559,
@@ -112,7 +120,9 @@ export async function deployTaikoL2(
 // generateContractConfigs returns all L2 contracts address, deployedBytecode,
 // and initialized variables.
 async function generateContractConfigs(
-    contractOwner: string,
+    ownerTimelockController: string,
+    ownerSecurityCouncil: string,
+    ownerChainId: number,
     chainId: number,
     hardCodedAddresses: any,
     param1559: any,
@@ -192,7 +202,7 @@ async function generateContractConfigs(
             addressMap[contractName] = hardCodedAddresses[contractName];
         } else {
             addressMap[contractName] = ethers.utils.getCreate2Address(
-                contractOwner,
+                ownerSecurityCouncil,
                 ethers.utils.keccak256(
                     ethers.utils.toUtf8Bytes(`${chainId}${contractName}`),
                 ),
@@ -212,7 +222,7 @@ async function generateContractConfigs(
                 contractArtifacts.SharedAddressManagerImpl.deployedBytecode
                     .object,
             variables: {
-                _owner: contractOwner,
+                _owner: ownerSecurityCouncil,
             },
         },
         SharedAddressManager: {
@@ -224,7 +234,7 @@ async function generateContractConfigs(
                 _initialized: 1,
                 _initializing: false,
                 // Ownable2Upgradeable
-                _owner: contractOwner,
+                _owner: ownerSecurityCouncil,
                 // AddressManager
                 addresses: {
                     [chainId]: {
@@ -267,7 +277,7 @@ async function generateContractConfigs(
                 addressMap,
             ),
             variables: {
-                _owner: contractOwner,
+                _owner: ownerSecurityCouncil,
             },
         },
         Bridge: {
@@ -281,7 +291,7 @@ async function generateContractConfigs(
                 _reentry: 1, // _FALSE
                 _paused: 1, // _FALSE
                 // Ownable2Upgradeable
-                _owner: contractOwner,
+                _owner: ownerSecurityCouncil,
                 // AddressResolver
                 addressManager: addressMap.SharedAddressManager,
             },
@@ -297,7 +307,7 @@ async function generateContractConfigs(
                 addressMap,
             ),
             variables: {
-                _owner: contractOwner,
+                _owner: ownerSecurityCouncil,
             },
         },
         ERC20Vault: {
@@ -312,7 +322,7 @@ async function generateContractConfigs(
                 _reentry: 1, // _FALSE
                 _paused: 1, // _FALSE
                 // Ownable2Upgradeable
-                _owner: contractOwner,
+                _owner: ownerSecurityCouncil,
                 // AddressResolver
                 addressManager: addressMap.SharedAddressManager,
             },
@@ -328,7 +338,7 @@ async function generateContractConfigs(
                 addressMap,
             ),
             variables: {
-                _owner: contractOwner,
+                _owner: ownerSecurityCouncil,
             },
         },
         ERC721Vault: {
@@ -343,7 +353,7 @@ async function generateContractConfigs(
                 _reentry: 1, // _FALSE
                 _paused: 1, // _FALSE
                 // Ownable2Upgradeable
-                _owner: contractOwner,
+                _owner: ownerSecurityCouncil,
                 // AddressResolver
                 addressManager: addressMap.SharedAddressManager,
             },
@@ -359,7 +369,7 @@ async function generateContractConfigs(
                 addressMap,
             ),
             variables: {
-                _owner: contractOwner,
+                _owner: ownerSecurityCouncil,
             },
         },
         ERC1155Vault: {
@@ -374,7 +384,7 @@ async function generateContractConfigs(
                 _reentry: 1, // _FALSE
                 _paused: 1, // _FALSE
                 // Ownable2Upgradeable
-                _owner: contractOwner,
+                _owner: ownerSecurityCouncil,
                 // AddressResolver
                 addressManager: addressMap.SharedAddressManager,
             },
@@ -405,7 +415,7 @@ async function generateContractConfigs(
                 addressMap,
             ),
             variables: {
-                _owner: contractOwner,
+                _owner: ownerSecurityCouncil,
             },
         },
         SignalService: {
@@ -420,7 +430,7 @@ async function generateContractConfigs(
                 _reentry: 1, // _FALSE
                 _paused: 1, // _FALSE
                 // Ownable2Upgradeable
-                _owner: contractOwner,
+                _owner: ownerSecurityCouncil,
                 authorizedAddresses: {
                     [addressMap.TaikoL2]: ethers.utils.hexZeroPad(
                         ethers.utils.hexlify(chainId),
@@ -441,7 +451,7 @@ async function generateContractConfigs(
                 addressMap,
             ),
             variables: {
-                _owner: contractOwner,
+                _owner: ownerTimelockController,
             },
         },
         TaikoL2: {
@@ -450,9 +460,9 @@ async function generateContractConfigs(
             variables: {
                 // TaikoL2
                 // Ownable2Upgradeable
-                _owner: contractOwner,
-                addressManager: addressMap.AddressManager,
-                ownerChainId: 123, // @TODO(david): Need this value
+                _owner: ownerTimelockController,
+                addressManager: addressMap.RollupAddressManager,
+                ownerChainId,
                 gasExcess: param1559.gasExcess,
                 // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
                 publicInputHash: `${ethers.utils.solidityKeccak256(
@@ -480,7 +490,7 @@ async function generateContractConfigs(
                 contractArtifacts.RollupAddressManagerImpl.deployedBytecode
                     .object,
             variables: {
-                _owner: contractOwner,
+                _owner: ownerSecurityCouncil,
             },
         },
         RollupAddressManager: {
@@ -492,13 +502,16 @@ async function generateContractConfigs(
                 _initialized: 1,
                 _initializing: false,
                 // Ownable2Upgradeable
-                _owner: contractOwner,
+                _owner: ownerSecurityCouncil,
                 // AddressManager
                 addresses: {
                     [chainId]: {
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("taiko"),
                         )]: addressMap.TaikoL2,
+                        [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("bridge"),
+                        )]: addressMap.Bridge,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("signal_service"),
                         )]: addressMap.SignalService,
