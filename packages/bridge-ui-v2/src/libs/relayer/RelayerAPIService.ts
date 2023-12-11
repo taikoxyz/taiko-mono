@@ -189,7 +189,7 @@ export class RelayerAPIService {
           to: tx.data.Message.To,
           data,
           memo: tx.data.Message.Memo,
-          owner: tx.data.Message.User,
+          owner: tx.data.Message.Owner,
           from: tx.data.Message.From,
           gasLimit: BigInt(tx.data.Message.GasLimit),
           value: BigInt(tx.data.Message.Value),

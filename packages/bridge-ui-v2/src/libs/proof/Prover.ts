@@ -1,9 +1,9 @@
 import { getContract, type GetContractResult, type PublicClient } from '@wagmi/core';
-import { type Address, encodePacked, type Hex, keccak256 } from 'viem';
+import { type Address, encodePacked, type Hex, keccak256, toHex, toRlp } from 'viem';
 
 import { crossChainSyncABI } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
-import { PendingBlockError } from '$libs/error';
+import { InvalidProofError, PendingBlockError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { publicClient } from '$libs/wagmi';
 
@@ -12,19 +12,22 @@ import type { ClientWithEthGetProofRequest, GenerateProofArgs } from './types';
 const log = getLogger('proof:Prover');
 
 export class Prover {
-  protected async _getKey(contractAddress: Address, msgHash: Hex) {
-    return keccak256(encodePacked(['address', 'bytes32'], [contractAddress, msgHash]));
+  async getSignalSlot(chainId: number, contractAddress: Address, msgHash: Hex) {
+    return keccak256(
+      encodePacked(['string', 'uint64', 'address', 'bytes32'], ['SIGNAL', BigInt(chainId), contractAddress, msgHash]),
+    );
   }
 
-  protected async _getLatestBlock(
+  protected async getLatestBlockFromGetSyncedSnippet(
     client: PublicClient,
     crossChainSyncContract: GetContractResult<typeof crossChainSyncABI>,
   ) {
-    const { blockHash } = await crossChainSyncContract.read.getSyncedSnippet([BigInt(0)]);
-    return client.getBlock({ blockHash });
+    const syncedSnippet = await crossChainSyncContract.read.getSyncedSnippet([BigInt(0)]);
+    const latestBlockHash = syncedSnippet['blockHash'];
+    return client.getBlock({ blockHash: latestBlockHash });
   }
 
-  async generateProof(args: GenerateProofArgs) {
+  async encodedStorageProof(args: GenerateProofArgs) {
     const { msgHash, clientChainId, contractAddress, crossChainSyncChainId, proofForAccountAddress } = args;
 
     const crossChainSyncAddress = routingContractsMap[crossChainSyncChainId][clientChainId].crossChainSyncAddress;
@@ -38,13 +41,13 @@ export class Prover {
     });
 
     const client = publicClient({ chainId: clientChainId });
-    const block = await this._getLatestBlock(client, crossChainSyncContract);
+    const block = await this.getLatestBlockFromGetSyncedSnippet(client, crossChainSyncContract);
 
     if (block.hash === null || block.number === null) {
       throw new PendingBlockError('block is pending');
     }
 
-    const key = await this._getKey(contractAddress, msgHash);
+    const key = await this.getSignalSlot(clientChainId, contractAddress, msgHash);
 
     // Unfortunately, since this method is stagnant, it hasn't been included into Viem lib
     // as supported methods. Still stupported  by Alchmey, Infura and others.
@@ -68,6 +71,13 @@ export class Prover {
 
     log('Proof from eth_getProof', proof);
 
-    return { proof, block };
+    if (proof.storageProof[0].value !== toHex(true)) {
+      throw new InvalidProofError('storage proof value is not 1');
+    }
+
+    // RLP encode the proof together for LibTrieProof to decode
+    const rlpEncodedStorageProof = toRlp(proof.storageProof[0].proof);
+
+    return { proof, rlpEncodedStorageProof, block };
   }
 }
