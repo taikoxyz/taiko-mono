@@ -17,40 +17,36 @@ contract TestTaikoL2 is TaikoTest {
     // same as `block_gas_limit` in foundry.toml
     uint32 public constant BLOCK_GAS_LIMIT = 30_000_000;
 
-    AddressManager public addressManager;
-    SignalService public ss;
+    address public addressManager;
     TaikoL2EIP1559Configurable public L2;
     SkipBasefeeCheckL2 public L2skip;
 
     function setUp() public {
-        addressManager = AddressManager(
-            deployProxy({
-                name: "address_manager",
-                impl: address(new AddressManager()),
-                data: bytes.concat(AddressManager.init.selector)
-            })
-        );
+        addressManager = deployProxy({
+            name: "address_manager",
+            impl: address(new AddressManager()),
+            data: abi.encodeCall(AddressManager.init, ())
+        });
 
-        ss = SignalService(
-            deployProxy({
-                name: "signal_service",
-                impl: address(new SignalService()),
-                data: bytes.concat(SignalService.init.selector),
-                registerTo: address(addressManager),
-                owner: address(0)
-            })
-        );
+        deployProxy({
+            name: "signal_service",
+            impl: address(new SignalService()),
+            data: abi.encodeCall(SignalService.init, ()),
+            registerTo: addressManager,
+            owner: address(0)
+        });
 
         uint64 gasExcess = 0;
         uint8 quotient = 8;
         uint32 gasTarget = 60_000_000;
+        uint64 l1ChainId = 12_345;
 
         L2 = TaikoL2EIP1559Configurable(
             payable(
                 deployProxy({
                     name: "taiko_l2",
                     impl: address(new TaikoL2EIP1559Configurable()),
-                    data: bytes.concat(TaikoL2.init.selector, abi.encode(address(ss), gasExcess))
+                    data: abi.encodeCall(TaikoL2.init, (addressManager, l1ChainId, gasExcess))
                 })
             )
         );
@@ -63,7 +59,7 @@ contract TestTaikoL2 is TaikoTest {
                 deployProxy({
                     name: "taiko_l2",
                     impl: address(new SkipBasefeeCheckL2()),
-                    data: bytes.concat(TaikoL2.init.selector, abi.encode(address(ss), gasExcess))
+                    data: abi.encodeCall(TaikoL2.init, (addressManager, l1ChainId, gasExcess))
                 })
             )
         );
@@ -256,11 +252,6 @@ contract TestTaikoL2 is TaikoTest {
         bytes32 l1Hash = randBytes32();
         bytes32 l1SignalRoot = randBytes32();
         L2skip.anchor(l1Hash, l1SignalRoot, l1Height, parentGasLimit);
-    }
-
-    function registerAddress(bytes32 nameHash, address addr) internal {
-        addressManager.setAddress(uint64(block.chainid), nameHash, addr);
-        console2.log(block.chainid, uint256(nameHash), unicode"→", addr);
     }
 
     // Semi-random number generator

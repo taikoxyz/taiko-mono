@@ -18,13 +18,15 @@ async function main() {
             : path.join(process.cwd(), process.argv[2]),
     );
 
-    const contractOwner = config.contractOwner;
+    const ownerTimelockController = config.ownerTimelockController;
+    const ownerSecurityCouncil = config.ownerSecurityCouncil;
     const chainId = config.chainId;
     const seedAccounts = config.seedAccounts;
     const predeployERC20 = config.predeployERC20;
 
     if (
-        !ethers.utils.isAddress(contractOwner) ||
+        !ethers.utils.isAddress(ownerTimelockController) ||
+        !ethers.utils.isAddress(ownerSecurityCouncil) ||
         !Number.isInteger(chainId) ||
         !Array.isArray(seedAccounts) ||
         !seedAccounts.every((seedAccount) => {
@@ -38,7 +40,8 @@ async function main() {
     ) {
         throw new Error(
             `invalid input: ${JSON.stringify({
-                contractOwner,
+                ownerTimelockController,
+                ownerSecurityCouncil,
                 chainId,
                 seedAccounts,
             })}`,

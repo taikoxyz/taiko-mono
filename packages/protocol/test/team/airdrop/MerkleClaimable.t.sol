@@ -27,9 +27,7 @@ contract TestERC20Airdrop is TaikoTest {
             deployProxy({
                 name: "airdrop",
                 impl: address(new ERC20Airdrop()),
-                data: bytes.concat(
-                    ERC20Airdrop.init.selector, abi.encode(0, 0, merkleRoot, address(token), owner)
-                    )
+                data: abi.encodeCall(ERC20Airdrop.init, (0, 0, merkleRoot, address(token), owner))
             })
         );
 
@@ -39,9 +37,8 @@ contract TestERC20Airdrop is TaikoTest {
             deployProxy({
                 name: "airdrop",
                 impl: address(new ERC20Airdrop2()),
-                data: bytes.concat(
-                    ERC20Airdrop2.init.selector,
-                    abi.encode(0, 0, merkleRoot, address(token), owner, 10 days)
+                data: abi.encodeCall(
+                    ERC20Airdrop2.init, (0, 0, merkleRoot, address(token), owner, 10 days)
                     )
             })
         );
