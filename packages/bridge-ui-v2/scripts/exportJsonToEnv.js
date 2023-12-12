@@ -11,7 +11,7 @@ const envFile = './.env';
 
 const bridgesPath = 'config/configuredBridges.json';
 const chainsPath = 'config/configuredChains.json';
-const tokensPath = 'config/configuredCustomToken.json';
+const tokensPath = 'config/configuredCustomTokens.json';
 const relayerPath = 'config/configuredRelayer.json';
 const eventIndexerPath = 'config/configuredEventIndexer.json';
 

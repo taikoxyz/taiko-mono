@@ -1,5 +1,5 @@
 {
-  "$id": "configuredCustomToken.json",
+  "$id": "configuredCustomTokens.json",
   "type": "array",
   "items": {
     "type": "object",
