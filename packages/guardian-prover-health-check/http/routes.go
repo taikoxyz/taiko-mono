@@ -14,5 +14,9 @@ func (srv *Server) configureRoutes() {
 
 	srv.echo.GET("/stats/:id", srv.GetStatsByGuardianProverID)
 
-	srv.echo.GET("/signedBlocks", srv.GetBlocks)
+	srv.echo.GET("/signedBlocks", srv.GetSignedBlocks)
+
+	srv.echo.POST("/signedBlock", srv.PostSignedBlock)
+
+	srv.echo.POST("/healthCheck", srv.PostHealthCheck)
 }

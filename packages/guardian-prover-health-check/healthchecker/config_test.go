@@ -1,7 +1,6 @@
 package healthchecker
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,7 +11,6 @@ import (
 
 var (
 	guardianProverAddress   = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
-	guardianProverEndpoints = "http://endpoint.com,http://endpoint2.com"
 	databaseMaxIdleConns    = "10"
 	databaseMaxOpenConns    = "10"
 	databaseMaxConnLifetime = "30"
@@ -40,8 +38,8 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, "dbpass", c.DatabasePassword)
 		assert.Equal(t, "dbname", c.DatabaseName)
 		assert.Equal(t, "dbhost", c.DatabaseHost)
-		assert.Equal(t, "rpcUrl", c.RPCUrl)
-		assert.Equal(t, strings.Split(guardianProverEndpoints, ","), c.GuardianProverEndpoints)
+		assert.Equal(t, "l1RpcUrl", c.L1RPCUrl)
+		assert.Equal(t, "l2RpcUrl", c.L2RPCUrl)
 		assert.Equal(t, guardianProverAddress, c.GuardianProverContractAddress)
 		assert.Equal(t, []string{"*"}, c.CORSOrigins)
 		assert.Equal(t, uint64(10), c.DatabaseMaxIdleConns)
@@ -64,13 +62,13 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"--" + flags.DatabasePassword.Name, "dbpass",
 		"--" + flags.DatabaseHost.Name, "dbhost",
 		"--" + flags.DatabaseName.Name, "dbname",
-		"--" + flags.RPCUrl.Name, "rpcUrl",
+		"--" + flags.L1RPCUrl.Name, "l1RpcUrl",
+		"--" + flags.L2RPCUrl.Name, "l2RpcUrl",
 		"--" + flags.CORSOrigins.Name, "*",
 		"--" + flags.DatabaseMaxOpenConns.Name, databaseMaxOpenConns,
 		"--" + flags.DatabaseMaxIdleConns.Name, databaseMaxIdleConns,
 		"--" + flags.DatabaseConnMaxLifetime.Name, databaseMaxConnLifetime,
 		"--" + flags.HTTPPort.Name, HTTPPort,
 		"--" + flags.GuardianProverContractAddress.Name, guardianProverAddress,
-		"--" + flags.GuardianProverEndpoints.Name, guardianProverEndpoints,
 	}))
 }
