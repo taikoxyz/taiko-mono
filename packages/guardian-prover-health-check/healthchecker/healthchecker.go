@@ -12,6 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/labstack/echo/v4"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
 	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/bindings/guardianprover"
 	hchttp "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/http"
@@ -111,6 +113,10 @@ func InitFromConfig(ctx context.Context, h *HealthChecker, cfg *Config) (err err
 		guardianProvers = append(guardianProvers, guardianproverhealthcheck.GuardianProver{
 			Address: guardianAddress,
 			ID:      guardianId,
+			Counter: promauto.NewCounter(prometheus.CounterOpts{
+				Name: fmt.Sprintf("guardian_prover_%v_health_checks_ops_total", guardianAddress),
+				Help: "The total number of processed events",
+			}),
 		})
 	}
 

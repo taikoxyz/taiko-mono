@@ -61,5 +61,12 @@ func (srv *Server) PostHealthCheck(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
+	// increment health check metric
+	for _, v := range srv.guardianProvers {
+		if v.Address.Hex() == recoveredGuardianProver.Address.Hex() {
+			v.HealthCheckCounter.Inc()
+		}
+	}
+
 	return c.JSON(http.StatusOK, nil)
 }
