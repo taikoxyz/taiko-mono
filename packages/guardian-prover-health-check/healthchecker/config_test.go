@@ -38,7 +38,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, "dbpass", c.DatabasePassword)
 		assert.Equal(t, "dbname", c.DatabaseName)
 		assert.Equal(t, "dbhost", c.DatabaseHost)
-		assert.Equal(t, "l1RcUrl", c.L1RPCUrl)
+		assert.Equal(t, "l1RpcUrl", c.L1RPCUrl)
 		assert.Equal(t, "l2RpcUrl", c.L2RPCUrl)
 		assert.Equal(t, guardianProverAddress, c.GuardianProverContractAddress)
 		assert.Equal(t, []string{"*"}, c.CORSOrigins)
