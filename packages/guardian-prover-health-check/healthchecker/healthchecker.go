@@ -113,9 +113,13 @@ func InitFromConfig(ctx context.Context, h *HealthChecker, cfg *Config) (err err
 		guardianProvers = append(guardianProvers, guardianproverhealthcheck.GuardianProver{
 			Address: guardianAddress,
 			ID:      guardianId,
-			Counter: promauto.NewCounter(prometheus.CounterOpts{
+			HealthCheckCounter: promauto.NewCounter(prometheus.CounterOpts{
 				Name: fmt.Sprintf("guardian_prover_%v_health_checks_ops_total", guardianAddress),
-				Help: "The total number of processed events",
+				Help: "The total number of health checks",
+			}),
+			SignedBlockCounter: promauto.NewCounter(prometheus.CounterOpts{
+				Name: fmt.Sprintf("guardian_prover_%v_signed_block_ops_total", guardianAddress),
+				Help: "The total number of signed blocks",
 			}),
 		})
 	}
