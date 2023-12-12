@@ -14,7 +14,11 @@ type GuardianProver struct {
 	ID      *big.Int
 }
 
-func SignatureToGuardianProver(msg []byte, b64EncodedSig string, guardianProvers []GuardianProver) (*GuardianProver, error) {
+func SignatureToGuardianProver(
+	msg []byte,
+	b64EncodedSig string,
+	guardianProvers []GuardianProver,
+) (*GuardianProver, error) {
 	b64DecodedSig, err := base64.StdEncoding.DecodeString(b64EncodedSig)
 	if err != nil {
 		return nil, err

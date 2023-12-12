@@ -39,8 +39,10 @@ func (srv *Server) GetSignedBlocks(c echo.Context) error {
 	// is passed in, but it is optional, so if it is not, we should get latest and rewind from
 	// there.
 	var start uint64 = 0
+
 	if c.QueryParam("start") != "" {
 		var err error
+
 		start, err = strconv.ParseUint(c.QueryParam("start"), 10, 64)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, err)
