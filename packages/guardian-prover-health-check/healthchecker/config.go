@@ -3,7 +3,6 @@ package healthchecker
 import (
 	"database/sql"
 	"strings"
-	"time"
 
 	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/db"
@@ -30,10 +29,9 @@ type Config struct {
 	CORSOrigins                   []string
 	Backoff                       uint64
 	HTTPPort                      uint64
-	GuardianProverEndpoints       []string
 	GuardianProverContractAddress string
-	RPCUrl                        string
-	Interval                      time.Duration
+	L1RPCUrl                      string
+	L2RPCUrl                      string
 	OpenDBFunc                    func() (DB, error)
 }
 
@@ -48,11 +46,10 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		DatabaseMaxOpenConns:          c.Uint64(flags.DatabaseMaxOpenConns.Name),
 		DatabaseMaxConnLifetime:       c.Uint64(flags.DatabaseConnMaxLifetime.Name),
 		CORSOrigins:                   strings.Split(c.String(flags.CORSOrigins.Name), ","),
-		GuardianProverEndpoints:       c.StringSlice(flags.GuardianProverEndpoints.Name),
 		GuardianProverContractAddress: c.String(flags.GuardianProverContractAddress.Name),
-		RPCUrl:                        c.String(flags.RPCUrl.Name),
+		L1RPCUrl:                      c.String(flags.L1RPCUrl.Name),
+		L2RPCUrl:                      c.String(flags.L2RPCUrl.Name),
 		HTTPPort:                      c.Uint64(flags.HTTPPort.Name),
-		Interval:                      c.Duration(flags.Interval.Name),
 		OpenDBFunc: func() (DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),

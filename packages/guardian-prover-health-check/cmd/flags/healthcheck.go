@@ -8,13 +8,6 @@ import (
 
 // required flags
 var (
-	GuardianProverEndpoints = &cli.StringSliceFlag{
-		Name:     "guardianProverEndpoints",
-		Usage:    "List of guardian prover endpoints",
-		Category: healthCheckCategory,
-		EnvVars:  []string{"GUARDIAN_PROVER_ENDPOINTS"},
-		Required: true,
-	}
 	GuardianProverContractAddress = &cli.StringFlag{
 		Name:     "guardianProverContractAddress",
 		Usage:    "Address of the GuardianProver contract",
@@ -22,11 +15,18 @@ var (
 		EnvVars:  []string{"GUARDIAN_PROVER_CONTRACT_ADDRESS"},
 		Required: true,
 	}
-	RPCUrl = &cli.StringFlag{
-		Name:     "rpcUrl",
-		Usage:    "RPC Url",
+	L1RPCUrl = &cli.StringFlag{
+		Name:     "l1RpcUrl",
+		Usage:    "L1 RPC Url",
 		Category: healthCheckCategory,
-		EnvVars:  []string{"RPC_URL"},
+		EnvVars:  []string{"L1_RPC_URL"},
+		Required: true,
+	}
+	L2RPCUrl = &cli.StringFlag{
+		Name:     "l2RpcUrl",
+		Usage:    "L2 RPC Url",
+		Category: healthCheckCategory,
+		EnvVars:  []string{"L2_RPC_URL"},
 		Required: true,
 	}
 )
@@ -52,21 +52,13 @@ var (
 		Value:    "*",
 		EnvVars:  []string{"HTTP_CORS_ORIGINS"},
 	}
-	Interval = &cli.DurationFlag{
-		Name:     "interval",
-		Usage:    "Health check interval duration",
-		Category: healthCheckCategory,
-		Value:    12 * time.Second,
-		EnvVars:  []string{"INTERVAL"},
-	}
 )
 
 var HealthCheckFlags = MergeFlags(CommonFlags, []cli.Flag{
 	HTTPPort,
 	CORSOrigins,
 	Backoff,
-	GuardianProverEndpoints,
 	GuardianProverContractAddress,
-	Interval,
-	RPCUrl,
+	L1RPCUrl,
+	L2RPCUrl,
 })

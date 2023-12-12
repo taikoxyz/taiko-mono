@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/labstack/echo/v4/middleware"
 	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
 
@@ -25,14 +26,18 @@ import (
 // Server represents an guardian prover health check http server instance.
 type Server struct {
 	echo            *echo.Echo
+	ethClient       *ethclient.Client
 	healthCheckRepo guardianproverhealthcheck.HealthCheckRepository
+	signedBlockRepo guardianproverhealthcheck.SignedBlockRepository
 	statRepo        guardianproverhealthcheck.StatRepository
 	guardianProvers []guardianproverhealthcheck.GuardianProver
 }
 
 type NewServerOpts struct {
 	Echo            *echo.Echo
+	EthClient       *ethclient.Client
 	HealthCheckRepo guardianproverhealthcheck.HealthCheckRepository
+	SignedBlockRepo guardianproverhealthcheck.SignedBlockRepository
 	StatRepo        guardianproverhealthcheck.StatRepository
 	CorsOrigins     []string
 	GuardianProvers []guardianproverhealthcheck.GuardianProver
@@ -41,9 +46,11 @@ type NewServerOpts struct {
 func NewServer(opts NewServerOpts) (*Server, error) {
 	srv := &Server{
 		echo:            opts.Echo,
+		ethClient:       opts.EthClient,
 		healthCheckRepo: opts.HealthCheckRepo,
 		statRepo:        opts.StatRepo,
 		guardianProvers: opts.GuardianProvers,
+		signedBlockRepo: opts.SignedBlockRepo,
 	}
 
 	corsOrigins := opts.CorsOrigins
