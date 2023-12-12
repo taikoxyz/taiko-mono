@@ -7,13 +7,6 @@ import { mergeAndCaptureOutdatedTransactions } from '$libs/util/mergeTransaction
 function setupMocks() {
   vi.mock('@wagmi/core');
 
-  vi.mock('$libs/chain', () => {
-    return {
-      chains: ['mockChain1', 'mockChain2'],
-      getConfiguredChainIds: vi.fn(() => [1, 2, 3]),
-    };
-  });
-
   vi.mock('$customToken', () => {
     return {
       customToken: [

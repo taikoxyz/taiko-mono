@@ -30,14 +30,14 @@ export function generateCustomTokenConfig() {
       if (skip) {
         configuredTokenConfigFile = '';
       } else {
-        if (!process.env.CONFIGURED_CUSTOM_TOKEN) {
+        if (!process.env.CONFIGURED_CUSTOM_TOKENS) {
           throw new Error(
-            'CONFIGURED_CUSTOM_TOKEN is not defined in environment. Make sure to run the export step in the documentation.',
+            'CONFIGURED_CUSTOM_TOKENS is not defined in environment. Make sure to run the export step in the documentation.',
           );
         }
 
         // Decode base64 encoded JSON string
-        configuredTokenConfigFile = decodeBase64ToJson(process.env.CONFIGURED_CUSTOM_TOKEN || '');
+        configuredTokenConfigFile = decodeBase64ToJson(process.env.CONFIGURED_CUSTOM_TOKENS || '');
 
         // Valide JSON against schema
         const isValid = validateJsonAgainstSchema(configuredTokenConfigFile, configuredChainsSchema);

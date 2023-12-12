@@ -14,8 +14,30 @@ export const fetchToken = vi.fn();
 
 export const readContract = vi.fn();
 
-export const configureChains = vi.fn(() => {
-  return { publicClient: 'mockPublicClient' };
+const mockChains = [
+  {
+    id: 0,
+    name: 'Debug',
+    network: 'Debug',
+    nativeCurrency: {
+      name: 'ETH',
+      symbol: 'ETH',
+      decimals: 18,
+    },
+    rpcUrls: {
+      public: { http: ['some/url/'] },
+      default: { http: ['some/url/'] },
+    },
+  },
+];
+
+const mockPublicClient = () => {
+  return {};
+};
+
+export const configureChains = vi.fn().mockReturnValue({
+  chains: mockChains,
+  publicClient: mockPublicClient,
 });
 
 export const createConfig = vi.fn(() => {

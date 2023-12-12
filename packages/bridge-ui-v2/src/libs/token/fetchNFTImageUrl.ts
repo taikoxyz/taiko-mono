@@ -102,8 +102,8 @@ const crossChainFetchNFTMetadata = async (token: NFT, srcChainId: number, destCh
       token.type === TokenType.ERC721
         ? erc721VaultABI
         : token.type === TokenType.ERC1155
-        ? erc1155VaultABI
-        : erc20VaultABI;
+          ? erc1155VaultABI
+          : erc20VaultABI;
 
     const srcChainTokenVault = getContract({
       abi: vaultABI as Abi,

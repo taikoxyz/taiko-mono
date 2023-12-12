@@ -3,18 +3,9 @@ import type { Address } from 'viem';
 
 import { RelayerAPIService } from './RelayerAPIService';
 
-vi.mock('axios');
-
-vi.mock('@wagmi/core');
-
-vi.mock('$libs/chain', () => {
-  return {
-    chains: ['mockChain1', 'mockChain2'],
-    getConfiguredChainIds: vi.fn(() => [1, 2, 3]),
-  };
-});
-
 function setupMocks() {
+  vi.mock('axios');
+  vi.mock('@wagmi/core');
   vi.mock('$customToken', () => {
     return {
       customToken: [
