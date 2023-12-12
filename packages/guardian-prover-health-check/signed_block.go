@@ -25,6 +25,8 @@ type GetSignedBlocksByStartingBlockIDOpts struct {
 	StartingBlockID uint64
 }
 
+// SignedBlockRepository defines database interaction methods to create and get
+// signed blocks submitted by guardian provers.
 type SignedBlockRepository interface {
 	Save(opts SaveSignedBlockOpts) error
 	GetByStartingBlockID(opts GetSignedBlocksByStartingBlockIDOpts) ([]*SignedBlock, error)

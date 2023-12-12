@@ -23,16 +23,16 @@ type block struct {
 // map of blockID to signed block data
 type blockResponse map[uint64][]block
 
-// GetBlocks
+// GetSignedBlocks
 //
 //	 returns signed block data by each guardian prover.
 //
 //			@Summary		Get signed blocks
-//			@ID			   	get-blocks
+//			@ID			   	get-signed-blocks
 //			@Accept			json
 //			@Produce		json
-//			@Success		200	{object} []guardianproverhealthcheck.GuardianProver
-//			@Router			/blocks [get]
+//			@Success		200	{object} blockResponse
+//			@Router			/signedBlocks[get]
 
 func (srv *Server) GetSignedBlocks(c echo.Context) error {
 	// getSignedBlocks should rewind either startingBlockID - numBlocksToReturn if startingBlockID
