@@ -7,11 +7,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type GuardianProver struct {
-	Address common.Address
-	ID      *big.Int
+	Address            common.Address
+	ID                 *big.Int
+	HealthCheckCounter prometheus.Counter
+	SignedBlockCounter prometheus.Counter
 }
 
 func SignatureToGuardianProver(

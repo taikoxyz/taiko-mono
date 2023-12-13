@@ -60,5 +60,14 @@ func (srv *Server) PostSignedBlock(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
+	// increment signed block metric
+	for _, v := range srv.guardianProvers {
+		if v.Address.Hex() == recoveredGuardianProver.Address.Hex() {
+			v.SignedBlockCounter.Inc()
+		}
+	}
+
+	slog.Info("successful signed block", "guardianProver", recoveredGuardianProver.Address.Hex())
+
 	return c.JSON(http.StatusOK, nil)
 }

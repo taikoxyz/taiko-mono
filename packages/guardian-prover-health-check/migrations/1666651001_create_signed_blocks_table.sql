@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS signed_blocks (
     guardian_prover_id int NOT NULL,
     block_id int NOT NULL,
     signature varchar(5000) NOT NULL,
-    block_hash varchar (42) NOT NULL,
+    block_hash VARCHAR(255) NOT NULL,
     recovered_address varchar(42) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
