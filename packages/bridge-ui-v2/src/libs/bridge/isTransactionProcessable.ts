@@ -19,7 +19,9 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction) {
   // TODO: do better job here as this is to make the UI happy
   if (status !== MessageStatus.NEW) return true;
 
-  const destCrossChainSyncAddress = routingContractsMap[Number(destChainId)][Number(srcChainId)].crossChainSyncAddress;
+  const destCrossChainSyncAddress = routingContractsMap[Number(destChainId)][Number(srcChainId)].taikoAddress;
+
+  console.log('destCrossChainSyncAddress', destCrossChainSyncAddress);
 
   try {
     const destCrossChainSyncContract = getContract({
@@ -36,6 +38,7 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction) {
 
     return srcBlock.number !== null && receipt.blockNumber <= srcBlock.number;
   } catch (error) {
+    console.log('error', error);
     return false;
   }
 }

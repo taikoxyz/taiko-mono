@@ -198,8 +198,10 @@ export type AddressConfig = {
   etherVaultAddress?: Address;
   erc721VaultAddress: Address;
   erc1155VaultAddress: Address;
-  crossChainSyncAddress: Address;
+  taikoAddress: Address;
   signalServiceAddress: Address;
+  hopTaikoAddresses?: Address;
+  hopSignalServiceAddresses?: Address;
 };
 
 export enum ContractType {
