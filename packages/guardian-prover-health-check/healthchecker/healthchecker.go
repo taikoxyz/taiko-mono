@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/gommon/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
@@ -109,6 +110,8 @@ func InitFromConfig(ctx context.Context, h *HealthChecker, cfg *Config) (err err
 		if err != nil {
 			return err
 		}
+
+		log.Info("setting guardian prover address", "address", guardianAddress.Hex(), "id", guardianId.Uint64())
 
 		guardianProvers = append(guardianProvers, guardianproverhealthcheck.GuardianProver{
 			Address: guardianAddress,
