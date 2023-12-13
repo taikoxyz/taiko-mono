@@ -67,5 +67,7 @@ func (srv *Server) PostSignedBlock(c echo.Context) error {
 		}
 	}
 
+	slog.Info("successful signed block", "guardianProver", recoveredGuardianProver.Address.Hex())
+
 	return c.JSON(http.StatusOK, nil)
 }

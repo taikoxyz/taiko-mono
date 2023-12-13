@@ -1,6 +1,7 @@
 package http
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -67,6 +68,8 @@ func (srv *Server) PostHealthCheck(c echo.Context) error {
 			v.HealthCheckCounter.Inc()
 		}
 	}
+
+	slog.Info("successful health check", "guardianProver", recoveredGuardianProver.Address.Hex())
 
 	return c.JSON(http.StatusOK, nil)
 }
