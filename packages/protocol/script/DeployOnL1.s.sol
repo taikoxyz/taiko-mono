@@ -24,6 +24,7 @@ import "../contracts/L1/verifiers/PseZkVerifier.sol";
 import "../contracts/L1/verifiers/SgxVerifier.sol";
 import "../contracts/L1/verifiers/SgxAndZkVerifier.sol";
 import "../contracts/L1/verifiers/GuardianVerifier.sol";
+import "../contracts/L1/verifiers/Halo2Verifier.sol";
 import "../contracts/L1/tiers/TaikoA6TierProvider.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/L1/gov/TaikoTimelockController.sol";
@@ -352,7 +353,7 @@ contract DeployOnL1 is DeployCapability {
         });
 
         address[] memory plonkVerifiers = new address[](1);
-        plonkVerifiers[0] = deployYulContract("contracts/L1/verifiers/PlonkVerifier.yulp");
+        plonkVerifiers[0] = address(new Halo2Verifier());
 
         for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
             register(
@@ -382,26 +383,6 @@ contract DeployOnL1 is DeployCapability {
 
         address bullToken = address(new MayFailFreeMintERC20("Bull Token", "BULL"));
         console2.log("BullToken", bullToken);
-    }
-
-    function deployYulContract(string memory contractPath) private returns (address addr) {
-        string[] memory cmds = new string[](3);
-        cmds[0] = "bash";
-        cmds[1] = "-c";
-        cmds[2] = string.concat(
-            vm.projectRoot(),
-            "/bin/solc --yul --bin ",
-            string.concat(vm.projectRoot(), "/", contractPath),
-            " | grep -A1 Binary | tail -1"
-        );
-
-        bytes memory bytecode = vm.ffi(cmds);
-        assembly {
-            addr := create(0, add(bytecode, 0x20), mload(bytecode))
-        }
-
-        addressNotNull(addr, "failed yul deployment");
-        console2.log(contractPath, addr);
     }
 
     function addressNotNull(address addr, string memory err) private pure {

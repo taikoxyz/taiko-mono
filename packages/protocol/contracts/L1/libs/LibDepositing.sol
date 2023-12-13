@@ -85,9 +85,7 @@ library LibDepositing {
         if (numPending < config.ethDepositMinCountPerBlock) {
             deposits = new TaikoData.EthDeposit[](0);
         } else {
-            deposits = new TaikoData.EthDeposit[](
-               numPending.min(config.ethDepositMaxCountPerBlock)
-            );
+            deposits = new TaikoData.EthDeposit[](numPending.min(config.ethDepositMaxCountPerBlock));
             uint96 fee = uint96(config.ethDepositMaxFee.min(block.basefee * config.ethDepositGas));
             uint64 j = state.slotA.nextEthDepositToProcess;
             uint96 totalFee;
