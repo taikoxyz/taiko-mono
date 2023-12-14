@@ -4,7 +4,7 @@
   import { formatEther } from 'viem';
 
   import { chainConfig } from '$chainConfig';
-  import { CloseButton } from '$components/CloseButton';
+  import { CloseButton } from '$components/Button';
   import { Icon } from '$components/Icon';
   import type { BridgeTransaction } from '$libs/bridge';
   import { noop } from '$libs/util/noop';

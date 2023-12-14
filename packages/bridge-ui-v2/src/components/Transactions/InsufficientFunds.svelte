@@ -2,8 +2,7 @@
   import { onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
 
-  import { Button } from '$components/Button';
-  import { CloseButton } from '$components/CloseButton';
+  import { ActionButton, CloseButton } from '$components/Button';
   import { Icon } from '$components/Icon';
   import { PUBLIC_GUIDE_URL } from '$env/static/public';
   import { uid } from '$libs/util/uid';
@@ -57,13 +56,9 @@
         </a>
       </div>
 
-      <Button
-        type="primary"
-        class="px-[28px] py-[10px] rounded-full w-full border-primary-brand"
-        hasBorder={true}
-        on:click={closeModal}>
+      <ActionButton priority="secondary" on:click={closeModal}>
         <span class="body-bold">{$t('common.ok')}</span>
-      </Button>
+      </ActionButton>
     </div>
   </div>
 </dialog>

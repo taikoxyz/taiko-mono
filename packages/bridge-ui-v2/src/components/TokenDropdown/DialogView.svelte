@@ -3,7 +3,7 @@
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
-  import { CloseButton } from '$components/CloseButton';
+  import { CloseButton } from '$components/Button';
   import { Icon } from '$components/Icon';
   import Erc20 from '$components/Icon/ERC20.svelte';
   import { OnAccount } from '$components/OnAccount';

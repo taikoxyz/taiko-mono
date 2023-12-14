@@ -127,6 +127,7 @@ export default {
           },
           icon: 'var(--primary-icon)',
           background: 'var(--primary-background)',
+
           interactive: {
             DEFAULT: 'var(--primary-interactive)',
             accent: 'var(--primary-interactive-accent)',
@@ -138,6 +139,7 @@ export default {
             hover: 'var(--primary-border-hover)',
             accent: 'var(--primary-border-accent)',
           },
+
           base: {
             content: 'var(--primary-base-content)',
             background: 'var(--primary-base-background)',
@@ -174,6 +176,13 @@ export default {
         warning: {
           sentiment: 'var(--warning-sentiment)',
           background: 'var(--warning-background)',
+        },
+
+        dialog: {
+          background: 'var(--dialog-background)',
+          interactive: {
+            disabled: 'var(--dialog-dialog-interactive-disabled)',
+          },
         },
 
         'elevated-background': 'var(--elevated-background)',
@@ -221,8 +230,10 @@ export default {
           '--secondary-brand': '#E81899', // pink-400
           '--secondary-content': '#ADB1B8', // grey-200
           '--secondary-icon': '#2B303B', // grey-700
+
           '--secondary-interactive-accent': '#2B303B', // grey-700
           '--secondary-interactive-hover': '#E81899', //pink-400
+
           '--tertiary-content': '#5D636F', // grey-500
           '--tertiary-interactive-accent': '#5D636F', // grey-500
           '--tertiary-interactive-hover': '#444A55', // grey-600
@@ -241,6 +252,9 @@ export default {
           '--overlay-background': 'rgba(12, 17, 28, 0.5)', // grey-900|50%
           '--overlay-dialog': 'rgba(12, 17, 28, 0.90)', // grey-900|90%
           '--divider-border': '#444A55', // grey-600
+
+          '--dialog-background': '#2B303B', // grey-700
+          '--dialog-dialog-interactive-disabled': '#444A55', // grey-600
 
           // ================================ //
 
@@ -313,7 +327,10 @@ export default {
           '--elevated-background': '#FAFAFA', // grey-5
           '--neutral-background': '#E3E3E3', // grey-50
           '--overlay-background': 'rgba(12, 17, 28, 0.2)', // grey-900|20%
-          '--overlay-dialog': 'rgba(12, 17, 28, 0.9)', // grey-900|20%
+          '--overlay-dialog': 'rgba(12, 17, 28, 0.9)', // grey-900|20
+
+          '--dialog-background': '#FFFFFF', // grey-0
+          '--dialog-dialog-interactive-disabled': '#E3E3E3', // grey-50
 
           '--divider-border': '#CACBCE', // grey-100
 

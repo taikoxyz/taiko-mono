@@ -241,27 +241,7 @@
     resetForm();
   });
 
-  //   let priority: ActionButtonType = 'secondary';
-  //   let testDisabled = false;
-  //   let testLoading = false;
-
-  //   const testButton = () => {
-  //     // switch priority
-
-  //     // testLoading = true;
-  //     // setTimeout(() => {
-  //     //   testLoading = false;
-  //     // }, 1000);
-
-  //     testDisabled = true;
-  //     setTimeout(() => {
-  //       testDisabled = false;
-  //       priority = priority === 'primary' ? 'secondary' : 'primary';
-  //     }, 1000);
-
-  //     console.log('test button clicked', priority);
-  //   };
-  //
+  $: disabled = !$selectedToken || !$network || !$destinationChain || bridging;
 </script>
 
 <!-- 
@@ -274,18 +254,18 @@
         <ChainSelectorWrapper />
       </div>
 
-      <TokenDropdown {tokens} bind:value={$selectedToken} />
+      <TokenDropdown {tokens} bind:value={$selectedToken} bind:disabled />
 
-      <Amount bind:this={amountComponent} />
+      <Amount bind:this={amountComponent} bind:disabled />
 
       <div class="space-y-[16px]">
-        <Recipient bind:this={recipientComponent} />
-        <ProcessingFee bind:this={processingFeeComponent} />
+        <Recipient bind:this={recipientComponent} bind:disabled />
+        <ProcessingFee bind:this={processingFeeComponent} bind:disabled />
       </div>
 
       <div class="h-sep" />
 
-      <Actions {approve} {bridge} bind:this={actionsComponent} bind:bridging />
+      <Actions {approve} {bridge} bind:this={actionsComponent} bind:bridging bind:disabled />
     </div>
   </Card>
 

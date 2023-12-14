@@ -49,6 +49,8 @@
     $enteredAmount = BigInt(0);
   }
 
+  export let disabled = false;
+
   export async function validateAmount(token = $selectedToken, fee = $processingFee) {
     if (!$network?.id) return;
     $validatingAmount = true; // During validation, we disable all the actions
@@ -251,6 +253,9 @@
 
   $: noDecimalsAllowedAlert = invalidInput;
 
+  $: inputDisabled =
+    computingMaxAmount || disabled || !$selectedToken || !$network || computingMaxAmount || $errorComputingBalance;
+
   // TODO: Disabled for now, potentially confusing users
   // $: showInsiffucientAllowanceAlert = $insufficientAllowance && !$errorComputingBalance && !$computingBalance;
 </script>
@@ -281,18 +286,17 @@
         type="number"
         placeholder="0.01"
         min="0"
-        disabled={computingMaxAmount}
+        disabled={inputDisabled}
         error={$insufficientBalance || invalidInput}
         on:input={inputAmount}
         bind:this={inputBox}
         class="py-6 pr-16 px-[26px] title-subsection-bold border-0  {$$props.class}" />
       <!-- TODO: talk to Jane about the MAX button and its styling -->
-      <button
-        class="absolute right-6 uppercase hover:font-bold"
-        disabled={!$selectedToken || !$network || computingMaxAmount || $errorComputingBalance}
-        on:click={useMaxAmount}>
-        {$t('inputs.amount.button.max')}
-      </button>
+      {#if !disabled}
+        <button class="absolute right-6 uppercase hover:font-bold" on:click={useMaxAmount}>
+          {$t('inputs.amount.button.max')}
+        </button>
+      {/if}
     </div>
     <div class="flex mt-[8px] min-h-[24px]">
       {#if showInsufficientBalanceAlert}

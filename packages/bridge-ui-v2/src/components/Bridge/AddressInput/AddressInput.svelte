@@ -27,7 +27,7 @@
   export let quiet = false;
   export let state: State = State.DEFAULT;
 
-  export let noDefaultBorder = true;
+  export let onDialog = false;
 
   // Validate the Ethereum address
   export const validateAddress = (): void => {
@@ -56,10 +56,8 @@
 
   export const focus = (): void => inputElement.focus();
 
-  $: neutralState = (() => {
-    if (noDefaultBorder) return '';
-    if (isElementFocused) return '';
-    if (isElementHovered) return '';
+  $: defaultBorder = (() => {
+    if (!onDialog || isElementFocused || isElementHovered) return '';
     return 'neutral';
   })();
 
@@ -67,7 +65,7 @@
   $: validState = state === State.VALID;
   $: invalidState = state === State.INVALID || isWrongType;
 
-  $: borderState = validState ? 'success' : invalidState ? 'error' : neutralState;
+  $: borderState = validState ? 'success' : invalidState ? 'error' : defaultBorder;
 
   $: classes = classNames($$props.class, borderState);
 </script>

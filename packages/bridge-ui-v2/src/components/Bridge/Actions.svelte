@@ -37,6 +37,8 @@
 
   export let allTokensApproved = false;
 
+  export let disabled = false;
+
   let paused = false;
 
   function onApproveClick() {
@@ -135,7 +137,7 @@
           ? $tokenBalance.value > BigInt(0)
           : false // ERC20
       : false);
-  $: canDoNothing = !hasAddress || !hasNetworks || !hasBalance || !$selectedToken;
+  $: canDoNothing = !hasAddress || !hasNetworks || !hasBalance || !$selectedToken || disabled;
 
   // Conditions for approve/bridge steps
   $: isSelectedERC20 = $selectedToken && $selectedToken.type === TokenType.ERC20;

@@ -7,8 +7,7 @@
   import { FlatAlert } from '$components/Alert';
   import AddressInput from '$components/Bridge/AddressInput/AddressInput.svelte';
   import { AddressInputState } from '$components/Bridge/AddressInput/state';
-  import { Button } from '$components/Button';
-  import { CloseButton } from '$components/CloseButton';
+  import { ActionButton, CloseButton } from '$components/Button';
   import { Icon } from '$components/Icon';
   import Erc20 from '$components/Icon/ERC20.svelte';
   import { Spinner } from '$components/Spinner';
@@ -159,7 +158,7 @@
 <svelte:window on:keydown={closeModalIfKeyDown} />
 
 <dialog id={dialogId} class="modal modal-bottom md:modal-middle" class:modal-open={modalOpen}>
-  <div class="modal-box relative px-6 py-[35px] md:rounded-[20px] bg-neutral-background">
+  <div class="modal-box relative px-6 py-[35px] md:rounded-[20px] bg-dialog-background">
     <CloseButton onClick={closeModal} />
 
     <h3 class="title-body-bold mb-7">{$t('token_dropdown.custom_token.title')}</h3>
@@ -171,7 +170,7 @@
         bind:ethereumAddress={tokenAddress}
         on:addressvalidation={onAddressValidation}
         bind:state
-        noDefaultBorder={false} />
+        onDialog />
       <div class="w-full flex items-center justify-between mt-4">
         {#if customTokenWithDetails}
           <span>{$t('common.name')}: {customTokenWithDetails.symbol}</span>
@@ -188,14 +187,9 @@
       </div>
     </div>
 
-    <Button
-      type="primary"
-      hasBorder={true}
-      class="px-[28px] py-[14px] rounded-full flex-1 w-full"
-      {disabled}
-      on:click={addCustomErc20Token}>
+    <ActionButton priority="primary" {disabled} on:click={addCustomErc20Token} onPopup>
       {$t('token_dropdown.custom_token.button')}
-    </Button>
+    </ActionButton>
 
     {#if customTokens.length > 0}
       <div class="flex h-full w-full flex-col justify-between mt-6">

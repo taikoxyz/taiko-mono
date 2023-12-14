@@ -215,5 +215,20 @@
     margin-bottom: 8px;
   }
 
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  input:disabled {
+    cursor: not-allowed;
+  }
+
+  .radio {
+    border: 1px solid var(--primary-border-dark);
+    &:checked {
+      border: 1px solid var(--primary-interactive-accent);
+    }
+  }
+
   /* TODO: add more components here */
 }

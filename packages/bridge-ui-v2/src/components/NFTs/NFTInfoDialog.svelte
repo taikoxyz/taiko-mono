@@ -3,8 +3,7 @@
   import { t } from 'svelte-i18n';
 
   import { chainConfig } from '$chainConfig';
-  import ActionButton from '$components/Button/ActionButton.svelte';
-  import { CloseButton } from '$components/CloseButton';
+  import { ActionButton, CloseButton } from '$components/Button';
   import { Icon } from '$components/Icon';
   import type { NFT } from '$libs/token';
   import { shortenAddress } from '$libs/util/shortenAddress';

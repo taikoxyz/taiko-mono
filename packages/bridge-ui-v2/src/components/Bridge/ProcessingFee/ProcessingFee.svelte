@@ -4,8 +4,7 @@
   import { formatEther } from 'viem';
 
   import FlatAlert from '$components/Alert/FlatAlert.svelte';
-  import { Button } from '$components/Button';
-  import { CloseButton } from '$components/CloseButton';
+  import { ActionButton, CloseButton } from '$components/Button';
   import { InputBox } from '$components/InputBox';
   import { LoadingText } from '$components/LoadingText';
   import { Tooltip } from '$components/Tooltip';
@@ -19,6 +18,7 @@
 
   export let small = false;
   export let hasEnoughEth = false;
+  export let disabled = false;
 
   let dialogId = `dialog-${uid()}`;
   let prevOptionSelected = ProcessingFeeMethod.RECOMMENDED;
@@ -162,7 +162,9 @@
           {$t('processing_fee.tooltip')}
         </Tooltip>
       </div>
-      <button class="link" on:click={openModal} on:focus={openModal}>{$t('common.edit')}</button>
+      {#if !disabled}
+        <button class="link" on:click={openModal} on:focus={openModal}>{$t('common.edit')}</button>
+      {/if}
     </div>
 
     <span class="body-small-regular text-secondary-content mt-[4px]">
@@ -272,19 +274,12 @@
             {/if}
           </div>
           <div class="grid grid-cols-2 gap-[20px]">
-            <Button
-              on:click={cancelModal}
-              type="neutral"
-              class="px-[28px] py-[10px] rounded-full w-auto bg-transparent !border border-primary-brand hover:border-primary-interactive-hover">
+            <ActionButton on:click={cancelModal} priority="secondary">
               <span class="body-bold">{$t('common.cancel')}</span>
-            </Button>
-            <Button
-              type="primary"
-              class="px-[28px] py-[10px] rounded-full w-auto border-primary-brand"
-              hasBorder={true}
-              on:click={closeModal}>
+            </ActionButton>
+            <ActionButton priority="primary" on:click={closeModal}>
               <span class="body-bold">{$t('common.confirm')}</span>
-            </Button>
+            </ActionButton>
           </div>
         </div>
       </div>
