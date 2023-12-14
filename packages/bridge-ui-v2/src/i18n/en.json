@@ -224,7 +224,8 @@
     "address_input": {
       "errors": {
         "invalid": "Invalid address format",
-        "not_a_contract": "This is not a valid NFT address on the current network",
+        "not_erc20": "This is not a valid ERC20 address on the current network",
+        "not_nft": "This is not a valid NFT address on the current network",
         "too_short": "Address is too short"
       },
       "label": {

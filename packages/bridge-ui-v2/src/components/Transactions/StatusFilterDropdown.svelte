@@ -3,8 +3,8 @@
 
   import IconFlipper from '$components/Icon/IconFlipper.svelte';
   import { MessageStatus } from '$libs/bridge';
+  import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { classNames } from '$libs/util/classNames';
-  import { closeOnEscapeOrOutsideClick } from '$libs/util/customActions';
 
   export let selectedStatus: MessageStatus | null = null;
 

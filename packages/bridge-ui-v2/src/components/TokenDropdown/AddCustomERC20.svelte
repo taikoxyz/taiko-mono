@@ -2,18 +2,18 @@
   import { erc20ABI, getNetwork, readContract } from '@wagmi/core';
   import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
-  import type { Address } from 'viem';
-  import { formatUnits } from 'viem';
+  import { type Address, formatUnits } from 'viem';
 
   import { FlatAlert } from '$components/Alert';
   import AddressInput from '$components/Bridge/AddressInput/AddressInput.svelte';
+  import { AddressInputState } from '$components/Bridge/AddressInput/state';
   import { Button } from '$components/Button';
   import { CloseButton } from '$components/CloseButton';
   import { Icon } from '$components/Icon';
   import Erc20 from '$components/Icon/ERC20.svelte';
   import { Spinner } from '$components/Spinner';
   import { tokenService } from '$libs/storage/services';
-  import type { GetCrossChainAddressArgs, Token } from '$libs/token';
+  import { detectContractType, type GetCrossChainAddressArgs, type Token, TokenType } from '$libs/token';
   import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
   import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
   import { getLogger } from '$libs/util/logger';
@@ -31,13 +31,14 @@
   export let loadingTokenDetails = false;
 
   let addressInputComponent: AddressInput;
-  let tokenError = '';
   let tokenAddress: Address | string = '';
   let customTokens: Token[] = [];
   let customToken: Token | null = null;
   let customTokenWithDetails: Token | null = null;
   let disabled = true;
   let isValidEthereumAddress = false;
+
+  let state = AddressInputState.DEFAULT;
 
   const addCustomErc20Token = async () => {
     if (customToken) {
@@ -75,8 +76,8 @@
   const resetForm = () => {
     customToken = null;
     customTokenWithDetails = null;
-    tokenError = '';
     isValidEthereumAddress = false;
+    state = AddressInputState.DEFAULT;
     if (addressInputComponent) addressInputComponent.clearAddress();
   };
 
@@ -88,22 +89,27 @@
     dispatch('tokenRemoved', { token });
   };
 
-  const onAddressValidation = async (event: { detail: { isValidEthereumAddress: boolean } }) => {
-    log('triggered onAddressValidation');
-
-    isValidEthereumAddress = event.detail.isValidEthereumAddress;
+  async function onAddressValidation(event: CustomEvent<{ isValidEthereumAddress: boolean; addr: Address }>) {
+    const { isValidEthereumAddress, addr } = event.detail;
+    tokenAddress = addr;
     if (isValidEthereumAddress) {
-      await onAddressChange(tokenAddress);
+      await onAddressChange(tokenAddress as Address);
     } else {
-      resetForm();
+      tokenAddress = addr;
     }
-  };
+  }
 
-  const onAddressChange = async (tokenAddress: string) => {
+  const onAddressChange = async (tokenAddress: Address) => {
     if (!tokenAddress) return;
     loadingTokenDetails = true;
     log('Fetching token details for address "%s"…', tokenAddress);
-    tokenError = 'unchecked';
+    const type = await detectContractType(tokenAddress);
+    if (type !== TokenType.ERC20) {
+      loadingTokenDetails = false;
+      state = AddressInputState.NOT_ERC20;
+      return;
+    }
+
     const { chain: srcChain } = getNetwork();
     if (!srcChain) return;
     try {
@@ -122,9 +128,8 @@
       const { chain } = getNetwork();
       if (!chain) throw new Error('Chain not found');
       customToken = customTokenWithDetails;
-      tokenError = '';
     } catch (error) {
-      tokenError = 'Error fetching token details';
+      state = AddressInputState.INVALID;
       log('Failed to fetch token: ', error);
     }
     loadingTokenDetails = false;
@@ -135,15 +140,9 @@
       ? formatUnits(customTokenWithDetails.balance, customTokenWithDetails.decimals)
       : 0;
 
-  $: if (isValidEthereumAddress) {
-    onAddressChange(tokenAddress);
-  } else {
-    resetForm();
-  }
-
   $: customTokens = tokenService.getTokens($account?.address as Address);
 
-  $: disabled = tokenError !== '' || tokenAddress === '' || tokenAddress.length !== 42;
+  $: disabled = state !== AddressInputState.VALID || tokenAddress === '' || tokenAddress.length !== 42;
 
   const closeModalIfClickedOutside = (e: MouseEvent) => {
     if (e.target === e.currentTarget) {
@@ -170,12 +169,14 @@
       <AddressInput
         bind:this={addressInputComponent}
         bind:ethereumAddress={tokenAddress}
-        on:addressvalidation={onAddressValidation} />
+        on:addressvalidation={onAddressValidation}
+        bind:state
+        noDefaultBorder={false} />
       <div class="w-full flex items-center justify-between mt-4">
         {#if customTokenWithDetails}
           <span>{$t('common.name')}: {customTokenWithDetails.symbol}</span>
           <span>{$t('common.balance')}: {formattedBalance}</span>
-        {:else if tokenError !== '' && tokenAddress !== '' && isValidEthereumAddress && !loadingTokenDetails}
+        {:else if state === AddressInputState.INVALID && tokenAddress !== '' && isValidEthereumAddress && !loadingTokenDetails}
           <FlatAlert
             type="error"
             message={$t('bridge.errors.custom_token.not_found') + ' ' + $t('bridge.errors.custom_token.description')} />

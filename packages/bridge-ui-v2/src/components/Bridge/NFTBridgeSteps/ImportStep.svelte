@@ -116,7 +116,7 @@
 
       if (!$network?.id) throw new Error('network not found');
       if (detectedTokenType !== TokenType.ERC721 && detectedTokenType !== TokenType.ERC1155) {
-        addressInputState = AddressInputState.NOT_A_CONTRACT;
+        addressInputState = AddressInputState.NOT_NFT;
         return;
       }
 

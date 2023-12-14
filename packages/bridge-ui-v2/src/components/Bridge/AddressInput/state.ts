@@ -2,7 +2,8 @@ export enum AddressInputState {
   DEFAULT,
   VALID,
   INVALID,
-  NOT_A_CONTRACT,
+  NOT_NFT,
+  NOT_ERC20,
   TOO_SHORT,
   VALIDATING,
 }
