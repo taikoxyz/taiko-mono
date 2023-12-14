@@ -62,6 +62,7 @@ Reach out to the community on [Discord](https://discord.gg/taikoxyz) to get help
 ## Contributors ✨
 
 Thanks goes to these wonderful people!
+Good to go Taiko!
 
 <a href="https://github.com/taikoxyz/taiko-mono/graphs/contributors">
   <p align="center">
