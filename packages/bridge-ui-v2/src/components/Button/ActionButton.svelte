@@ -16,7 +16,7 @@
     state = ButtonState.DEFAULT;
   }
 
-  $: commonClasses = classNames('btn h-[56px] px-[28px] py-[14px] rounded-full flex-1', $$props.class);
+  $: commonClasses = classNames('btn h-[56px] px-[28px] py-[14px] rounded-full flex-1 w-full', $$props.class);
 
   $: primaryClasses = classNames('btn-primary text-white border-none');
 

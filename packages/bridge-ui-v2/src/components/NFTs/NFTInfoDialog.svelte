@@ -3,7 +3,7 @@
   import { t } from 'svelte-i18n';
 
   import { chainConfig } from '$chainConfig';
-  import { Button } from '$components/Button';
+  import ActionButton from '$components/Button/ActionButton.svelte';
   import { CloseButton } from '$components/CloseButton';
   import { Icon } from '$components/Icon';
   import type { NFT } from '$libs/token';
@@ -77,21 +77,16 @@
       </div>
       <div class="f-col">
         {#if viewOnly}
-          <Button
-            type="primary"
-            hasBorder={true}
-            class="px-[28px] py-[14px] rounded-full flex-1 w-full text-white"
-            on:click={closeModal}>
+          <ActionButton priority="primary" on:click={closeModal}>
             {$t('common.ok')}
-          </Button>
+          </ActionButton>
         {:else}
-          <Button
-            type="primary"
-            hasBorder={true}
+          <ActionButton
+            priority="primary"
             class="px-[28px] py-[14px] rounded-full flex-1 w-full text-white"
             on:click={() => selectNFT()}>
             {$t('bridge.nft.step.import.nft_card.select')}
-          </Button>
+          </ActionButton>
 
           <button on:click={closeModal} class="flex mt-[16px] mb-0 justify-center link">
             {$t('common.cancel')}
