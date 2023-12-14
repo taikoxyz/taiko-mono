@@ -16,7 +16,7 @@ dotenv.config();
 const pluginName = 'generateEventIndexerConfig';
 const logger = new PluginLogger(pluginName);
 
-const skip = process.env.SKIP_ENV_VALDIATION || false;
+const skip = process.env.SKIP_ENV_VALDIATION === 'true';
 
 const currentDir = path.resolve(new URL(import.meta.url).pathname);
 
