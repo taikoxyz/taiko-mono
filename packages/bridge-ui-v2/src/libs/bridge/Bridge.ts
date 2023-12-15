@@ -60,7 +60,7 @@ export abstract class Bridge {
 
     // Has it been claimed already?
     if (messageStatus === MessageStatus.DONE) {
-      throw new MessageStatusError('message already processed');
+      // throw new MessageStatusError('message already processed');
     }
 
     // Has it failed?

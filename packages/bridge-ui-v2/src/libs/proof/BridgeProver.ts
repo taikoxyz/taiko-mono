@@ -1,5 +1,6 @@
 import { getContract, type GetContractResult, type PublicClient } from '@wagmi/core';
-import { type Address, encodeAbiParameters, encodePacked, type Hash, type Hex, keccak256, toHex, toRlp } from 'viem';
+import { type Address, encodeAbiParameters, encodePacked, type Hex, keccak256, toHex, toRlp, type TransactionReceipt } from 'viem';
+import type { Hash } from '@wagmi/core';
 
 import { crossChainSyncABI } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -8,7 +9,7 @@ import { InvalidProofError, PendingBlockError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { publicClient } from '$libs/wagmi';
 
-import type { ClientWithEthGetProofRequest, GenerateProofArgs } from './types';
+import type { ClientWithEthGetProofRequest, GenerateProofArgs,  } from './types';
 
 const log = getLogger('proof:Prover');
 
@@ -24,31 +25,50 @@ export class BridgeProver {
     crossChainSyncContract: GetContractResult<typeof crossChainSyncABI>,
   ) {
     const syncedSnippet = await crossChainSyncContract.read.getSyncedSnippet([BigInt(0)]);
+    console.log("syncedSnippet", syncedSnippet);
     const latestBlockHash = syncedSnippet['blockHash'];
     return client.getBlock({ blockHash: latestBlockHash });
   }
 
-  async encodedStorageProof(args: GenerateProofArgs) {
-    const { msgHash, clientChainId, contractAddress, crossChainSyncChainId, proofForAccountAddress } = args;
+  protected async getBlockFromGetSyncedSnippet(
+    client: PublicClient,
+    crossChainSyncContract: GetContractResult<typeof crossChainSyncABI>,
+    blockNumber: number,
+  ) {
+    console.log("getBlockFromGetSyncedSnippet", crossChainSyncContract)
+    const syncedSnippet = await crossChainSyncContract.read.getSyncedSnippet([BigInt(blockNumber)]);
+    console.log("getBlockFromGetSyncedSnippet", syncedSnippet);
+    const latestBlockHash = syncedSnippet['blockHash'];
+    const block = await client.getBlock({ blockHash: latestBlockHash });
+    return {block, syncedSnippet}
+  }
 
-    const crossChainSyncAddress = routingContractsMap[crossChainSyncChainId][clientChainId].taikoAddress;
+  async getBlockNumber(srcChainId: number, destChainId: number, blockNumber: number) {
 
-    // Get the block from chain A based on the latest block hash
-    // we get cross chain (Taiko contract on chain B)
+    const destCrossChainSyncAddress = routingContractsMap[destChainId][srcChainId].taikoAddress;
+
     const crossChainSyncContract = getContract({
-      chainId: crossChainSyncChainId,
-      address: crossChainSyncAddress,
+      chainId: destChainId,
+      address: destCrossChainSyncAddress,
       abi: crossChainSyncABI,
     });
 
+    console.log("crossChainSyncChainId", destChainId);
+    console.log("clientChainId", srcChainId);
+    console.log("blockNumber", blockNumber);
+
+    const client = publicClient({ chainId: srcChainId });
+    const {block, syncedSnippet} = await this.getBlockFromGetSyncedSnippet(client, crossChainSyncContract, blockNumber);
+    return {block, syncedSnippet};
+  }
+
+  async encodedStorageProof(args: GenerateProofArgs) {
+    console.log("encodedStorageProof args", args);
+    let { msgHash, clientChainId, contractAddress, proofForAccountAddress, blockNumber } = args;
     const client = publicClient({ chainId: clientChainId });
-    const block = await this.getLatestBlockFromGetSyncedSnippet(client, crossChainSyncContract);
+    let key = await this.getSignalSlot(clientChainId, contractAddress, msgHash);
 
-    if (block.hash === null || block.number === null) {
-      throw new PendingBlockError('block is pending');
-    }
-
-    const key = await this.getSignalSlot(clientChainId, contractAddress, msgHash);
+    console.log("encodedStorageProof key", key);
 
     // Unfortunately, since this method is stagnant, it hasn't been included into Viem lib
     // as supported methods. Still stupported  by Alchmey, Infura and others.
@@ -66,7 +86,7 @@ export class BridgeProver {
         // Array of storage-keys that should be proofed and included
         [key],
 
-        block.hash,
+        toHex(blockNumber),
       ],
     });
 
@@ -79,22 +99,42 @@ export class BridgeProver {
     // RLP encode the proof together for LibTrieProof to decode
     const rlpEncodedStorageProof = toRlp(proof.storageProof[0].proof);
 
-    return { proof, rlpEncodedStorageProof, block };
+    return { proof, rlpEncodedStorageProof };
   }
 
   // Reference: EncodedSignalProof in relayer/proof/encoded_signal_proof.go
   // protocol/contracts/signal/SignalService.sol
   async encodedSignalProof(msgHash: Hash, srcChainId: number, destChainId: number) {
+    console.log("encodedSignalProof");
+
     const srcBridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
     const srcSignalServiceAddress = routingContractsMap[srcChainId][destChainId].signalServiceAddress;
     const destCrossChainSyncAddress = routingContractsMap[destChainId][srcChainId].taikoAddress;
 
-    const { rlpEncodedStorageProof, block } = await this.encodedStorageProof({
+    // Get the block from chain A based on the latest block hash
+    // we get cross chain (Taiko contract on chain B)
+    const crossChainSyncContract = getContract({
+      chainId: destChainId,
+      address: destCrossChainSyncAddress,
+      abi: crossChainSyncABI,
+    });
+
+    console.log("crossChainSyncChainId", destChainId);
+    console.log("clientChainId", srcChainId);
+
+    const client = publicClient({ chainId: srcChainId });
+
+    const block = await this.getLatestBlockFromGetSyncedSnippet(client, crossChainSyncContract);
+    if (block.hash === null || block.number === null) {
+      throw new PendingBlockError('block is pending');
+    }
+
+    const { rlpEncodedStorageProof } = await this.encodedStorageProof({
       msgHash,
       clientChainId: srcChainId,
       contractAddress: srcBridgeAddress,
-      crossChainSyncChainId: destChainId,
       proofForAccountAddress: srcSignalServiceAddress,
+      blockNumber: block.number
     });
 
     type Hop = {
@@ -147,21 +187,57 @@ export class BridgeProver {
     return signalProof;
   }
 
-  async encodedSignalProofWithHops(msgHash: Hash, srcChainId: number, destChainId: number) {
+  async encodedSignalProofWithHops(msgHash: Hash, receipt: TransactionReceipt, srcChainId: number, destChainId: number) {
+    console.log("encodedSignalProofWithHops receipt", receipt);
+
     const srcBridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
     const srcSignalServiceAddress = routingContractsMap[srcChainId][destChainId].signalServiceAddress;
     const destCrossChainSyncAddress = routingContractsMap[destChainId][srcChainId].taikoAddress;
 
-    const { proof, rlpEncodedStorageProof, block } = await this.encodedStorageProof({
+    const hopChainId = 31336;
+    const hopTaikoAddresses = routingContractsMap[srcChainId][destChainId].hopTaikoAddresses;
+    const hopSignalServiceAddresses = routingContractsMap[srcChainId][destChainId].hopSignalServiceAddresses;
+
+    // let {block: block, syncedSnippet: syncedSnippet} = await this.getBlockNumber(srcChainId, hopChainId, receipt.blockNumber);
+    // console.log("block123", block, syncedSnippet);
+
+    // Get the block number from hop chain to dest chain
+    const crossChainSyncContract = getContract({
+      chainId: destChainId,
+      address: destCrossChainSyncAddress,
+      abi: crossChainSyncABI,
+    });
+    const hopClient = publicClient({ chainId: hopChainId });
+    let block = await this.getLatestBlockFromGetSyncedSnippet(hopClient, crossChainSyncContract);
+    if (block.hash === null || block.number === null) {
+      throw new PendingBlockError('block is pending');
+    }
+    let blockNumber = block.number
+    console.log("block123 blockNumber", blockNumber)
+
+    // Generate main storage proof
+    // Use receipt.blockNumber
+    const { proof, rlpEncodedStorageProof } = await this.encodedStorageProof({
       msgHash,
       clientChainId: srcChainId,
       contractAddress: srcBridgeAddress,
-      crossChainSyncChainId: destChainId,
       proofForAccountAddress: srcSignalServiceAddress,
+      blockNumber: receipt.blockNumber,
     });
 
     // The first signalRoot
     const signalRoot = proof.storageHash;
+    console.log("successfully generated main storage proof. singalRoot", signalRoot);
+
+    const { proof: hopProof, rlpEncodedStorageProof: hopRlpEncodedStorageProof } = await this.encodedStorageProof({
+      msgHash: signalRoot,
+      clientChainId: hopChainId,
+      contractAddress: hopTaikoAddresses,
+      proofForAccountAddress: hopSignalServiceAddresses,
+      blockNumber: blockNumber,
+    });
+
+    console.log("successfully generated hop storage proof. singalRoot");
 
     type Hop = {
       signalRootRelay: Address;
@@ -170,7 +246,12 @@ export class BridgeProver {
     };
 
     // Create hopParams
-    const hops: Hop[] = [];
+    const hop: Hop = {
+      signalRootRelay: hopTaikoAddresses,
+      signalRoot: signalRoot,
+      storageProof: hopRlpEncodedStorageProof,
+    }
+    const hops: Hop[] = [hop];
 
     // TODO: move to encodeAbiParameters for signalProof
     const signalProof = encodeAbiParameters(
@@ -205,7 +286,7 @@ export class BridgeProver {
       [
         {
           crossChainSync: destCrossChainSyncAddress,
-          height: block.number as bigint,
+          height: blockNumber as bigint,
           storageProof: rlpEncodedStorageProof,
           hops: hops,
         },
@@ -221,12 +302,12 @@ export class BridgeProver {
     const destBridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
     const srcCrossChainSyncAddress = routingContractsMap[srcChainId][destChainId].taikoAddress;
 
-    const { proof, rlpEncodedStorageProof, block } = await this.encodedStorageProof({
+    const { proof, rlpEncodedStorageProof } = await this.encodedStorageProof({
       msgHash,
       clientChainId: destChainId,
       contractAddress: srcBridgeAddress,
-      crossChainSyncChainId: srcChainId,
       proofForAccountAddress: destBridgeAddress,
+      blockNumber: "",
     });
 
     // Value must be 0x3 => MessageStatus.FAILED

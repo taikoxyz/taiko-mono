@@ -4,8 +4,8 @@ export type GenerateProofArgs = {
   msgHash: Hash;
   contractAddress: Address;
   proofForAccountAddress: Address;
-  crossChainSyncChainId: number;
   clientChainId: number;
+  blockNumber: any;
 };
 
 export type StorageEntry = {
