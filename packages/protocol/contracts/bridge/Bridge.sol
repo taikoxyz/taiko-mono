@@ -197,7 +197,10 @@ contract Bridge is EssentialContract, IBridge {
         uint256 refundAmount;
 
         // Process message differently based on the target address
-        if (message.to == address(0) || message.to == address(this)) {
+        if (
+            message.to == address(0) || message.to == address(this)
+                || message.to == resolve("signal_service", false)
+        ) {
             // Handle special addresses that don't require actual invocation but
             // mark message as DONE
             status = Status.DONE;
