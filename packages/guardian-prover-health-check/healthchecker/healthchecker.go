@@ -2,22 +2,19 @@ package healthchecker
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"math/big"
 	"net/http"
-	"net/url"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/gommon/log"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
 	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/bindings/guardianprover"
 	hchttp "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/http"
@@ -25,25 +22,15 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-var (
-	msg = crypto.Keccak256Hash([]byte("HEART_BEAT")).Bytes()
-)
-
 type HealthChecker struct {
 	ctx                    context.Context
 	cancelCtx              context.CancelFunc
 	healthCheckRepo        guardianproverhealthcheck.HealthCheckRepository
-	interval               time.Duration
 	guardianProverContract *guardianprover.GuardianProver
 	numGuardians           uint64
 	guardianProvers        []guardianproverhealthcheck.GuardianProver
 	httpSrv                *hchttp.Server
 	httpPort               uint64
-}
-
-type healthCheckResponse struct {
-	ProverAddress      string `json:"prover"`
-	HeartBeatSignature string `json:"heartBeatSignature"`
 }
 
 func (h *HealthChecker) Name() string {
@@ -78,19 +65,29 @@ func InitFromConfig(ctx context.Context, h *HealthChecker, cfg *Config) (err err
 		return err
 	}
 
+	signedBlockRepo, err := repo.NewSignedBlockRepository(db)
+	if err != nil {
+		return err
+	}
+
 	statRepo, err := repo.NewStatRepository(db)
 	if err != nil {
 		return err
 	}
 
-	ethClient, err := ethclient.Dial(cfg.RPCUrl)
+	l1EthClient, err := ethclient.Dial(cfg.L1RPCUrl)
+	if err != nil {
+		return err
+	}
+
+	l2EthClient, err := ethclient.Dial(cfg.L2RPCUrl)
 	if err != nil {
 		return err
 	}
 
 	guardianProverContract, err := guardianprover.NewGuardianProver(
 		common.HexToAddress(cfg.GuardianProverContractAddress),
-		ethClient,
+		l1EthClient,
 	)
 	if err != nil {
 		return err
@@ -114,22 +111,28 @@ func InitFromConfig(ctx context.Context, h *HealthChecker, cfg *Config) (err err
 			return err
 		}
 
-		endpoint, err := url.Parse(cfg.GuardianProverEndpoints[i])
-		if err != nil {
-			return err
-		}
+		log.Info("setting guardian prover address", "address", guardianAddress.Hex(), "id", guardianId.Uint64())
 
 		guardianProvers = append(guardianProvers, guardianproverhealthcheck.GuardianProver{
-			Address:  guardianAddress,
-			ID:       guardianId,
-			Endpoint: endpoint,
+			Address: guardianAddress,
+			ID:      guardianId,
+			HealthCheckCounter: promauto.NewCounter(prometheus.CounterOpts{
+				Name: fmt.Sprintf("guardian_prover_%v_health_checks_ops_total", guardianId.Uint64()),
+				Help: "The total number of health checks",
+			}),
+			SignedBlockCounter: promauto.NewCounter(prometheus.CounterOpts{
+				Name: fmt.Sprintf("guardian_prover_%v_signed_block_ops_total", guardianId.Uint64()),
+				Help: "The total number of signed blocks",
+			}),
 		})
 	}
 
 	h.httpSrv, err = hchttp.NewServer(hchttp.NewServerOpts{
 		Echo:            echo.New(),
+		EthClient:       l2EthClient,
 		HealthCheckRepo: healthCheckRepo,
 		StatRepo:        statRepo,
+		SignedBlockRepo: signedBlockRepo,
 		GuardianProvers: guardianProvers,
 	})
 
@@ -140,7 +143,6 @@ func InitFromConfig(ctx context.Context, h *HealthChecker, cfg *Config) (err err
 	h.guardianProvers = guardianProvers
 	h.numGuardians = numGuardians.Uint64()
 	h.healthCheckRepo = healthCheckRepo
-	h.interval = cfg.Interval
 	h.guardianProverContract = guardianProverContract
 	h.httpPort = cfg.HTTPPort
 
@@ -156,109 +158,5 @@ func (h *HealthChecker) Start() error {
 		}
 	}()
 
-	go h.checkGuardianProversOnInterval()
-
 	return nil
-}
-
-func (h *HealthChecker) checkGuardianProversOnInterval() {
-	t := time.NewTicker(h.interval)
-
-	for {
-		select {
-		case <-h.ctx.Done():
-			return
-		case <-t.C:
-			for _, g := range h.guardianProvers {
-				resp, recoveredAddr, err := h.checkGuardianProver(g)
-				if err != nil {
-					slog.Error(
-						"error checking guardian prover endpoint",
-						"endpoint", g.Endpoint,
-						"id", g.ID,
-						"address", g.Address.Hex(),
-						"recoveredAddr", recoveredAddr,
-						"error", err,
-					)
-				}
-
-				var sig string = ""
-
-				if resp != nil {
-					sig = resp.HeartBeatSignature
-				}
-
-				err = h.healthCheckRepo.Save(
-					guardianproverhealthcheck.SaveHealthCheckOpts{
-						GuardianProverID: g.ID.Uint64(),
-						Alive:            sig != "",
-						ExpectedAddress:  g.Address.Hex(),
-						RecoveredAddress: recoveredAddr,
-						SignedResponse:   sig,
-					},
-				)
-
-				if err != nil {
-					slog.Error("error saving failed health check to database",
-						"endpoint", g.Endpoint,
-						"id", g.ID,
-						"address", g.Address.Hex(),
-						"recoveredAddr", recoveredAddr,
-						"sig", sig,
-						"error", err,
-					)
-				} else {
-					slog.Info("saved health check to database",
-						"endpoint", g.Endpoint,
-						"id", g.ID,
-						"address", g.Address.Hex(),
-						"recoveredAddr", recoveredAddr,
-						"sig", sig,
-					)
-				}
-			}
-		}
-	}
-}
-
-func (h *HealthChecker) checkGuardianProver(
-	g guardianproverhealthcheck.GuardianProver,
-) (*healthCheckResponse, string, error) {
-	slog.Info("checking guardian prover", "id", g.ID, "endpoint", g.Endpoint)
-
-	healthCheckResponse := &healthCheckResponse{}
-
-	resp, err := http.Get(g.Endpoint.String() + "/status")
-	if err != nil {
-		// save fail to db
-		return healthCheckResponse, "", err
-	}
-
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return healthCheckResponse, "", err
-	}
-
-	if err := json.Unmarshal(b, healthCheckResponse); err != nil {
-		return healthCheckResponse, "", err
-	}
-
-	if g.Address.Cmp(common.HexToAddress(healthCheckResponse.ProverAddress)) != 0 {
-		slog.Error("address mismatch", "expected", g.Address.Hex(), "received", healthCheckResponse.ProverAddress)
-		return healthCheckResponse, "", errors.New("prover address provided was not the address expected")
-	}
-
-	b64DecodedSig, err := base64.StdEncoding.DecodeString(healthCheckResponse.HeartBeatSignature)
-	if err != nil {
-		return healthCheckResponse, "", err
-	}
-
-	pubKey, err := crypto.SigToPub(msg, b64DecodedSig)
-	if err != nil {
-		return healthCheckResponse, "", err
-	}
-
-	recoveredAddr := crypto.PubkeyToAddress(*pubKey)
-
-	return healthCheckResponse, recoveredAddr.Hex(), nil
 }
