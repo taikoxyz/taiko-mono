@@ -14,35 +14,41 @@
 //   Twitter: https://twitter.com/taikoxyz
 //   Blog: https://mirror.xyz/labs.taiko.eth
 //   Youtube: https://www.youtube.com/@taikoxyz
-object "plonk_verifier" {
-    code {
-        function allocate(size) -> ptr {
-            ptr := mload(0x40)
-            if eq(ptr, 0) { ptr := 0x60 }
-            mstore(0x40, add(ptr, size))
-        }
-        let size := datasize("Runtime")
-        let offset := allocate(size)
-        datacopy(offset, dataoffset("Runtime"), size)
-        return(offset, size)
-    }
-    object "Runtime" {
-        code {
-            let success:bool := true
+
+pragma solidity ^0.8.0;
+
+contract Halo2Verifier {
+    fallback(bytes calldata) external returns (bytes memory) {
+        assembly {
+            let success := true
             let f_p := 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
             let f_q := 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
-            function validate_ec_point(x, y) -> valid:bool {
+            function validate_ec_point(x, y) -> valid {
                 {
-                    let x_lt_p:bool := lt(x, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
-                    let y_lt_p:bool := lt(y, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
+                    let x_lt_p :=
+                        lt(x, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
+                    let y_lt_p :=
+                        lt(y, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
                     valid := and(x_lt_p, y_lt_p)
                 }
                 {
-                    let y_square := mulmod(y, y, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
-                    let x_square := mulmod(x, x, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
-                    let x_cube := mulmod(x_square, x, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
-                    let x_cube_plus_3 := addmod(x_cube, 3, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
-                    let is_affine:bool := eq(x_cube_plus_3, y_square)
+                    let y_square :=
+                        mulmod(y, y, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
+                    let x_square :=
+                        mulmod(x, x, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
+                    let x_cube :=
+                        mulmod(
+                            x_square,
+                            x,
+                            0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
+                        )
+                    let x_cube_plus_3 :=
+                        addmod(
+                            x_cube,
+                            3,
+                            0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
+                        )
+                    let is_affine := eq(x_cube_plus_3, y_square)
                     valid := and(valid, is_affine)
                 }
             }
@@ -64,7 +70,9 @@ object "plonk_verifier" {
             mstore(0x200, mod(calldataload(0x1e0), f_q))
             mstore(0x220, mod(calldataload(0x200), f_q))
             mstore(0x240, mod(calldataload(0x220), f_q))
-            mstore(0x0, 7157798915861382230205938137245018607070433754590678732944687493827620535267)
+            mstore(
+                0x0, 15300826124191168535433744134019937124812845279865662447667831557873128043246
+            )
 
             {
                 let x := calldataload(0x240)
@@ -463,56 +471,399 @@ object "plonk_verifier" {
             mstore(0x16c0, mulmod(mload(0x16a0), mload(0x16a0), f_q))
             mstore(0x16e0, mulmod(mload(0x16c0), mload(0x16c0), f_q))
             mstore(0x1700, mulmod(mload(0x16e0), mload(0x16e0), f_q))
-            mstore(0x1720, addmod(mload(0x1700), 21888242871839275222246405745257275088548364400416034343698204186575808495616, f_q))
-            mstore(0x1740, mulmod(mload(0x1720), 21888237653275510688422624196183639687472264873923820041627027729598873448513, f_q))
-            mstore(0x1760, mulmod(mload(0x1740), 10939663269433627367777756708678102241564365262857670666700619874077960926249, f_q))
-            mstore(0x1780, addmod(mload(0xac0), 10948579602405647854468649036579172846983999137558363676997584312497847569368, f_q))
-            mstore(0x17a0, mulmod(mload(0x1740), 11016257578652593686382655500910603527869149377564754001549454008164059876499, f_q))
-            mstore(0x17c0, addmod(mload(0xac0), 10871985293186681535863750244346671560679215022851280342148750178411748619118, f_q))
-            mstore(0x17e0, mulmod(mload(0x1740), 15402826414547299628414612080036060696555554914079673875872749760617770134879, f_q))
-            mstore(0x1800, addmod(mload(0xac0), 6485416457291975593831793665221214391992809486336360467825454425958038360738, f_q))
-            mstore(0x1820, mulmod(mload(0x1740), 21710372849001950800533397158415938114909991150039389063546734567764856596059, f_q))
-            mstore(0x1840, addmod(mload(0xac0), 177870022837324421713008586841336973638373250376645280151469618810951899558, f_q))
-            mstore(0x1860, mulmod(mload(0x1740), 2785514556381676080176937710880804108647911392478702105860685610379369825016, f_q))
-            mstore(0x1880, addmod(mload(0xac0), 19102728315457599142069468034376470979900453007937332237837518576196438670601, f_q))
-            mstore(0x18a0, mulmod(mload(0x1740), 8734126352828345679573237859165904705806588461301144420590422589042130041188, f_q))
-            mstore(0x18c0, addmod(mload(0xac0), 13154116519010929542673167886091370382741775939114889923107781597533678454429, f_q))
+            mstore(
+                0x1720,
+                addmod(
+                    mload(0x1700),
+                    21888242871839275222246405745257275088548364400416034343698204186575808495616,
+                    f_q
+                )
+            )
+            mstore(
+                0x1740,
+                mulmod(
+                    mload(0x1720),
+                    21888237653275510688422624196183639687472264873923820041627027729598873448513,
+                    f_q
+                )
+            )
+            mstore(
+                0x1760,
+                mulmod(
+                    mload(0x1740),
+                    10939663269433627367777756708678102241564365262857670666700619874077960926249,
+                    f_q
+                )
+            )
+            mstore(
+                0x1780,
+                addmod(
+                    mload(0xac0),
+                    10948579602405647854468649036579172846983999137558363676997584312497847569368,
+                    f_q
+                )
+            )
+            mstore(
+                0x17a0,
+                mulmod(
+                    mload(0x1740),
+                    11016257578652593686382655500910603527869149377564754001549454008164059876499,
+                    f_q
+                )
+            )
+            mstore(
+                0x17c0,
+                addmod(
+                    mload(0xac0),
+                    10871985293186681535863750244346671560679215022851280342148750178411748619118,
+                    f_q
+                )
+            )
+            mstore(
+                0x17e0,
+                mulmod(
+                    mload(0x1740),
+                    15402826414547299628414612080036060696555554914079673875872749760617770134879,
+                    f_q
+                )
+            )
+            mstore(
+                0x1800,
+                addmod(
+                    mload(0xac0),
+                    6485416457291975593831793665221214391992809486336360467825454425958038360738,
+                    f_q
+                )
+            )
+            mstore(
+                0x1820,
+                mulmod(
+                    mload(0x1740),
+                    21710372849001950800533397158415938114909991150039389063546734567764856596059,
+                    f_q
+                )
+            )
+            mstore(
+                0x1840,
+                addmod(
+                    mload(0xac0),
+                    177870022837324421713008586841336973638373250376645280151469618810951899558,
+                    f_q
+                )
+            )
+            mstore(
+                0x1860,
+                mulmod(
+                    mload(0x1740),
+                    2785514556381676080176937710880804108647911392478702105860685610379369825016,
+                    f_q
+                )
+            )
+            mstore(
+                0x1880,
+                addmod(
+                    mload(0xac0),
+                    19102728315457599142069468034376470979900453007937332237837518576196438670601,
+                    f_q
+                )
+            )
+            mstore(
+                0x18a0,
+                mulmod(
+                    mload(0x1740),
+                    8734126352828345679573237859165904705806588461301144420590422589042130041188,
+                    f_q
+                )
+            )
+            mstore(
+                0x18c0,
+                addmod(
+                    mload(0xac0),
+                    13154116519010929542673167886091370382741775939114889923107781597533678454429,
+                    f_q
+                )
+            )
             mstore(0x18e0, mulmod(mload(0x1740), 1, f_q))
-            mstore(0x1900, addmod(mload(0xac0), 21888242871839275222246405745257275088548364400416034343698204186575808495616, f_q))
-            mstore(0x1920, mulmod(mload(0x1740), 11211301017135681023579411905410872569206244553457844956874280139879520583390, f_q))
-            mstore(0x1940, addmod(mload(0xac0), 10676941854703594198666993839846402519342119846958189386823924046696287912227, f_q))
-            mstore(0x1960, mulmod(mload(0x1740), 1426404432721484388505361748317961535523355871255605456897797744433766488507, f_q))
-            mstore(0x1980, addmod(mload(0xac0), 20461838439117790833741043996939313553025008529160428886800406442142042007110, f_q))
-            mstore(0x19a0, mulmod(mload(0x1740), 12619617507853212586156872920672483948819476989779550311307282715684870266992, f_q))
-            mstore(0x19c0, addmod(mload(0xac0), 9268625363986062636089532824584791139728887410636484032390921470890938228625, f_q))
-            mstore(0x19e0, mulmod(mload(0x1740), 19032961837237948602743626455740240236231119053033140765040043513661803148152, f_q))
-            mstore(0x1a00, addmod(mload(0xac0), 2855281034601326619502779289517034852317245347382893578658160672914005347465, f_q))
-            mstore(0x1a20, mulmod(mload(0x1740), 915149353520972163646494413843788069594022902357002628455555785223409501882, f_q))
-            mstore(0x1a40, addmod(mload(0xac0), 20973093518318303058599911331413487018954341498059031715242648401352398993735, f_q))
-            mstore(0x1a60, mulmod(mload(0x1740), 3766081621734395783232337525162072736827576297943013392955872170138036189193, f_q))
-            mstore(0x1a80, addmod(mload(0xac0), 18122161250104879439014068220095202351720788102473020950742332016437772306424, f_q))
-            mstore(0x1aa0, mulmod(mload(0x1740), 4245441013247250116003069945606352967193023389718465410501109428393342802981, f_q))
-            mstore(0x1ac0, addmod(mload(0xac0), 17642801858592025106243335799650922121355341010697568933197094758182465692636, f_q))
-            mstore(0x1ae0, mulmod(mload(0x1740), 5854133144571823792863860130267644613802765696134002830362054821530146160770, f_q))
-            mstore(0x1b00, addmod(mload(0xac0), 16034109727267451429382545614989630474745598704282031513336149365045662334847, f_q))
-            mstore(0x1b20, mulmod(mload(0x1740), 5980488956150442207659150513163747165544364597008566989111579977672498964212, f_q))
-            mstore(0x1b40, addmod(mload(0xac0), 15907753915688833014587255232093527923003999803407467354586624208903309531405, f_q))
-            mstore(0x1b60, mulmod(mload(0x1740), 14557038802599140430182096396825290815503940951075961210638273254419942783582, f_q))
-            mstore(0x1b80, addmod(mload(0xac0), 7331204069240134792064309348431984273044423449340073133059930932155865712035, f_q))
-            mstore(0x1ba0, mulmod(mload(0x1740), 13553911191894110065493137367144919847521088405945523452288398666974237857208, f_q))
-            mstore(0x1bc0, addmod(mload(0xac0), 8334331679945165156753268378112355241027275994470510891409805519601570638409, f_q))
-            mstore(0x1be0, mulmod(mload(0x1740), 9697063347556872083384215826199993067635178715531258559890418744774301211662, f_q))
-            mstore(0x1c00, addmod(mload(0xac0), 12191179524282403138862189919057282020913185684884775783807785441801507283955, f_q))
-            mstore(0x1c20, mulmod(mload(0x1740), 10807735674816066981985242612061336605021639643453679977988966079770672437131, f_q))
-            mstore(0x1c40, addmod(mload(0xac0), 11080507197023208240261163133195938483526724756962354365709238106805136058486, f_q))
-            mstore(0x1c60, mulmod(mload(0x1740), 12459868075641381822485233712013080087763946065665469821362892189399541605692, f_q))
-            mstore(0x1c80, addmod(mload(0xac0), 9428374796197893399761172033244195000784418334750564522335311997176266889925, f_q))
-            mstore(0x1ca0, mulmod(mload(0x1740), 16038300751658239075779628684257016433412502747804121525056508685985277092575, f_q))
-            mstore(0x1cc0, addmod(mload(0xac0), 5849942120181036146466777061000258655135861652611912818641695500590531403042, f_q))
-            mstore(0x1ce0, mulmod(mload(0x1740), 6955697244493336113861667751840378876927906302623587437721024018233754910398, f_q))
-            mstore(0x1d00, addmod(mload(0xac0), 14932545627345939108384737993416896211620458097792446905977180168342053585219, f_q))
-            mstore(0x1d20, mulmod(mload(0x1740), 13498745591877810872211159461644682954739332524336278910448604883789771736885, f_q))
-            mstore(0x1d40, addmod(mload(0xac0), 8389497279961464350035246283612592133809031876079755433249599302786036758732, f_q))
+            mstore(
+                0x1900,
+                addmod(
+                    mload(0xac0),
+                    21888242871839275222246405745257275088548364400416034343698204186575808495616,
+                    f_q
+                )
+            )
+            mstore(
+                0x1920,
+                mulmod(
+                    mload(0x1740),
+                    11211301017135681023579411905410872569206244553457844956874280139879520583390,
+                    f_q
+                )
+            )
+            mstore(
+                0x1940,
+                addmod(
+                    mload(0xac0),
+                    10676941854703594198666993839846402519342119846958189386823924046696287912227,
+                    f_q
+                )
+            )
+            mstore(
+                0x1960,
+                mulmod(
+                    mload(0x1740),
+                    1426404432721484388505361748317961535523355871255605456897797744433766488507,
+                    f_q
+                )
+            )
+            mstore(
+                0x1980,
+                addmod(
+                    mload(0xac0),
+                    20461838439117790833741043996939313553025008529160428886800406442142042007110,
+                    f_q
+                )
+            )
+            mstore(
+                0x19a0,
+                mulmod(
+                    mload(0x1740),
+                    12619617507853212586156872920672483948819476989779550311307282715684870266992,
+                    f_q
+                )
+            )
+            mstore(
+                0x19c0,
+                addmod(
+                    mload(0xac0),
+                    9268625363986062636089532824584791139728887410636484032390921470890938228625,
+                    f_q
+                )
+            )
+            mstore(
+                0x19e0,
+                mulmod(
+                    mload(0x1740),
+                    19032961837237948602743626455740240236231119053033140765040043513661803148152,
+                    f_q
+                )
+            )
+            mstore(
+                0x1a00,
+                addmod(
+                    mload(0xac0),
+                    2855281034601326619502779289517034852317245347382893578658160672914005347465,
+                    f_q
+                )
+            )
+            mstore(
+                0x1a20,
+                mulmod(
+                    mload(0x1740),
+                    915149353520972163646494413843788069594022902357002628455555785223409501882,
+                    f_q
+                )
+            )
+            mstore(
+                0x1a40,
+                addmod(
+                    mload(0xac0),
+                    20973093518318303058599911331413487018954341498059031715242648401352398993735,
+                    f_q
+                )
+            )
+            mstore(
+                0x1a60,
+                mulmod(
+                    mload(0x1740),
+                    3766081621734395783232337525162072736827576297943013392955872170138036189193,
+                    f_q
+                )
+            )
+            mstore(
+                0x1a80,
+                addmod(
+                    mload(0xac0),
+                    18122161250104879439014068220095202351720788102473020950742332016437772306424,
+                    f_q
+                )
+            )
+            mstore(
+                0x1aa0,
+                mulmod(
+                    mload(0x1740),
+                    4245441013247250116003069945606352967193023389718465410501109428393342802981,
+                    f_q
+                )
+            )
+            mstore(
+                0x1ac0,
+                addmod(
+                    mload(0xac0),
+                    17642801858592025106243335799650922121355341010697568933197094758182465692636,
+                    f_q
+                )
+            )
+            mstore(
+                0x1ae0,
+                mulmod(
+                    mload(0x1740),
+                    5854133144571823792863860130267644613802765696134002830362054821530146160770,
+                    f_q
+                )
+            )
+            mstore(
+                0x1b00,
+                addmod(
+                    mload(0xac0),
+                    16034109727267451429382545614989630474745598704282031513336149365045662334847,
+                    f_q
+                )
+            )
+            mstore(
+                0x1b20,
+                mulmod(
+                    mload(0x1740),
+                    5980488956150442207659150513163747165544364597008566989111579977672498964212,
+                    f_q
+                )
+            )
+            mstore(
+                0x1b40,
+                addmod(
+                    mload(0xac0),
+                    15907753915688833014587255232093527923003999803407467354586624208903309531405,
+                    f_q
+                )
+            )
+            mstore(
+                0x1b60,
+                mulmod(
+                    mload(0x1740),
+                    14557038802599140430182096396825290815503940951075961210638273254419942783582,
+                    f_q
+                )
+            )
+            mstore(
+                0x1b80,
+                addmod(
+                    mload(0xac0),
+                    7331204069240134792064309348431984273044423449340073133059930932155865712035,
+                    f_q
+                )
+            )
+            mstore(
+                0x1ba0,
+                mulmod(
+                    mload(0x1740),
+                    13553911191894110065493137367144919847521088405945523452288398666974237857208,
+                    f_q
+                )
+            )
+            mstore(
+                0x1bc0,
+                addmod(
+                    mload(0xac0),
+                    8334331679945165156753268378112355241027275994470510891409805519601570638409,
+                    f_q
+                )
+            )
+            mstore(
+                0x1be0,
+                mulmod(
+                    mload(0x1740),
+                    9697063347556872083384215826199993067635178715531258559890418744774301211662,
+                    f_q
+                )
+            )
+            mstore(
+                0x1c00,
+                addmod(
+                    mload(0xac0),
+                    12191179524282403138862189919057282020913185684884775783807785441801507283955,
+                    f_q
+                )
+            )
+            mstore(
+                0x1c20,
+                mulmod(
+                    mload(0x1740),
+                    10807735674816066981985242612061336605021639643453679977988966079770672437131,
+                    f_q
+                )
+            )
+            mstore(
+                0x1c40,
+                addmod(
+                    mload(0xac0),
+                    11080507197023208240261163133195938483526724756962354365709238106805136058486,
+                    f_q
+                )
+            )
+            mstore(
+                0x1c60,
+                mulmod(
+                    mload(0x1740),
+                    12459868075641381822485233712013080087763946065665469821362892189399541605692,
+                    f_q
+                )
+            )
+            mstore(
+                0x1c80,
+                addmod(
+                    mload(0xac0),
+                    9428374796197893399761172033244195000784418334750564522335311997176266889925,
+                    f_q
+                )
+            )
+            mstore(
+                0x1ca0,
+                mulmod(
+                    mload(0x1740),
+                    16038300751658239075779628684257016433412502747804121525056508685985277092575,
+                    f_q
+                )
+            )
+            mstore(
+                0x1cc0,
+                addmod(
+                    mload(0xac0),
+                    5849942120181036146466777061000258655135861652611912818641695500590531403042,
+                    f_q
+                )
+            )
+            mstore(
+                0x1ce0,
+                mulmod(
+                    mload(0x1740),
+                    6955697244493336113861667751840378876927906302623587437721024018233754910398,
+                    f_q
+                )
+            )
+            mstore(
+                0x1d00,
+                addmod(
+                    mload(0xac0),
+                    14932545627345939108384737993416896211620458097792446905977180168342053585219,
+                    f_q
+                )
+            )
+            mstore(
+                0x1d20,
+                mulmod(
+                    mload(0x1740),
+                    13498745591877810872211159461644682954739332524336278910448604883789771736885,
+                    f_q
+                )
+            )
+            mstore(
+                0x1d40,
+                addmod(
+                    mload(0xac0),
+                    8389497279961464350035246283612592133809031876079755433249599302786036758732,
+                    f_q
+                )
+            )
             {
                 let prod := mload(0x1780)
 
@@ -587,17 +938,21 @@ object "plonk_verifier" {
 
                 prod := mulmod(mload(0x1720), prod, f_q)
                 mstore(0x2040, prod)
-
             }
             mstore(0x2080, 32)
             mstore(0x20a0, 32)
             mstore(0x20c0, 32)
             mstore(0x20e0, mload(0x2040))
-            mstore(0x2100, 21888242871839275222246405745257275088548364400416034343698204186575808495615)
-            mstore(0x2120, 21888242871839275222246405745257275088548364400416034343698204186575808495617)
+            mstore(
+                0x2100,
+                21888242871839275222246405745257275088548364400416034343698204186575808495615
+            )
+            mstore(
+                0x2120,
+                21888242871839275222246405745257275088548364400416034343698204186575808495617
+            )
             success := and(eq(staticcall(gas(), 0x5, 0x2080, 0xc0, 0x2060, 0x20), 1), success)
             {
-
                 let inv := mload(0x2060)
                 let v
 
@@ -697,7 +1052,6 @@ object "plonk_verifier" {
                 mstore(6080, mulmod(mload(0x1780), inv, f_q))
                 inv := mulmod(v, inv, f_q)
                 mstore(0x1780, inv)
-
             }
             mstore(0x2140, mulmod(mload(0x1760), mload(0x1780), f_q))
             mstore(0x2160, mulmod(mload(0x17a0), mload(0x17c0), f_q))
@@ -798,12 +1152,26 @@ object "plonk_verifier" {
             mstore(0x2ac0, mulmod(mload(0xac0), mload(0x2aa0), f_q))
             mstore(0x2ae0, addmod(mload(0xb00), mload(0x2ac0), f_q))
             mstore(0x2b00, addmod(mload(0x2ae0), mload(0x700), f_q))
-            mstore(0x2b20, mulmod(4131629893567559867359510883348571134090853742863529169391034518566172092834, mload(0x6a0), f_q))
+            mstore(
+                0x2b20,
+                mulmod(
+                    4131629893567559867359510883348571134090853742863529169391034518566172092834,
+                    mload(0x6a0),
+                    f_q
+                )
+            )
             mstore(0x2b40, mulmod(mload(0xac0), mload(0x2b20), f_q))
             mstore(0x2b60, addmod(mload(0xb20), mload(0x2b40), f_q))
             mstore(0x2b80, addmod(mload(0x2b60), mload(0x700), f_q))
             mstore(0x2ba0, mulmod(mload(0x2b80), mload(0x2b00), f_q))
-            mstore(0x2bc0, mulmod(8910878055287538404433155982483128285667088683464058436815641868457422632747, mload(0x6a0), f_q))
+            mstore(
+                0x2bc0,
+                mulmod(
+                    8910878055287538404433155982483128285667088683464058436815641868457422632747,
+                    mload(0x6a0),
+                    f_q
+                )
+            )
             mstore(0x2be0, mulmod(mload(0xac0), mload(0x2bc0), f_q))
             mstore(0x2c00, addmod(mload(0xb40), mload(0x2be0), f_q))
             mstore(0x2c20, addmod(mload(0x2c00), mload(0x700), f_q))
@@ -825,16 +1193,37 @@ object "plonk_verifier" {
             mstore(0x2e20, addmod(mload(0x2e00), mload(0x700), f_q))
             mstore(0x2e40, mulmod(mload(0x2e20), mload(0x2dc0), f_q))
             mstore(0x2e60, mulmod(mload(0x2e40), mload(0xee0), f_q))
-            mstore(0x2e80, mulmod(11166246659983828508719468090013646171463329086121580628794302409516816350802, mload(0x6a0), f_q))
+            mstore(
+                0x2e80,
+                mulmod(
+                    11166246659983828508719468090013646171463329086121580628794302409516816350802,
+                    mload(0x6a0),
+                    f_q
+                )
+            )
             mstore(0x2ea0, mulmod(mload(0xac0), mload(0x2e80), f_q))
             mstore(0x2ec0, addmod(mload(0xb60), mload(0x2ea0), f_q))
             mstore(0x2ee0, addmod(mload(0x2ec0), mload(0x700), f_q))
-            mstore(0x2f00, mulmod(284840088355319032285349970403338060113257071685626700086398481893096618818, mload(0x6a0), f_q))
+            mstore(
+                0x2f00,
+                mulmod(
+                    284840088355319032285349970403338060113257071685626700086398481893096618818,
+                    mload(0x6a0),
+                    f_q
+                )
+            )
             mstore(0x2f20, mulmod(mload(0xac0), mload(0x2f00), f_q))
             mstore(0x2f40, addmod(mload(0xb80), mload(0x2f20), f_q))
             mstore(0x2f60, addmod(mload(0x2f40), mload(0x700), f_q))
             mstore(0x2f80, mulmod(mload(0x2f60), mload(0x2ee0), f_q))
-            mstore(0x2fa0, mulmod(21134065618345176623193549882539580312263652408302468683943992798037078993309, mload(0x6a0), f_q))
+            mstore(
+                0x2fa0,
+                mulmod(
+                    21134065618345176623193549882539580312263652408302468683943992798037078993309,
+                    mload(0x6a0),
+                    f_q
+                )
+            )
             mstore(0x2fc0, mulmod(mload(0xac0), mload(0x2fa0), f_q))
             mstore(0x2fe0, addmod(mload(0x2440), mload(0x2fc0), f_q))
             mstore(0x3000, addmod(mload(0x2fe0), mload(0x700), f_q))
@@ -1298,11 +1687,32 @@ object "plonk_verifier" {
             mstore(0x6940, addmod(mload(0x5ea0), mload(0x6880), f_q))
             mstore(0x6960, mulmod(1, mload(0xac0), f_q))
             mstore(0x6980, mulmod(1, mload(0x6960), f_q))
-            mstore(0x69a0, mulmod(11211301017135681023579411905410872569206244553457844956874280139879520583390, mload(0xac0), f_q))
+            mstore(
+                0x69a0,
+                mulmod(
+                    11211301017135681023579411905410872569206244553457844956874280139879520583390,
+                    mload(0xac0),
+                    f_q
+                )
+            )
             mstore(0x69c0, mulmod(mload(0x6400), mload(0x69a0), f_q))
-            mstore(0x69e0, mulmod(10939663269433627367777756708678102241564365262857670666700619874077960926249, mload(0xac0), f_q))
+            mstore(
+                0x69e0,
+                mulmod(
+                    10939663269433627367777756708678102241564365262857670666700619874077960926249,
+                    mload(0xac0),
+                    f_q
+                )
+            )
             mstore(0x6a00, mulmod(mload(0x6660), mload(0x69e0), f_q))
-            mstore(0x6a20, mulmod(8734126352828345679573237859165904705806588461301144420590422589042130041188, mload(0xac0), f_q))
+            mstore(
+                0x6a20,
+                mulmod(
+                    8734126352828345679573237859165904705806588461301144420590422589042130041188,
+                    mload(0xac0),
+                    f_q
+                )
+            )
             mstore(0x6a40, mulmod(mload(0x6800), mload(0x6a20), f_q))
             mstore(0x6a60, 0x0000000000000000000000000000000000000000000000000000000000000001)
             mstore(0x6a80, 0x0000000000000000000000000000000000000000000000000000000000000002)
@@ -1502,8 +1912,8 @@ object "plonk_verifier" {
             mstore(0x7d60, mload(0x7cc0))
             mstore(0x7d80, mload(0x7ce0))
             success := and(eq(staticcall(gas(), 0x6, 0x7d20, 0x80, 0x7d20, 0x40), 1), success)
-            mstore(0x7da0, 0x0903b75174a11d29f5b8798ddf07d75b6745ee817df0473d76a378b5716b072a)
-            mstore(0x7dc0, 0x1fca38cdcdd3f3864828e4467f86eadfc1a84714f422e1edb99b17224e6a3341)
+            mstore(0x7da0, 0x09aae72ddb3abf1cc3e9ef7b674a9adbbb67eb1bbf5a358f5c55c9430bc58d79)
+            mstore(0x7dc0, 0x2c27bb1dcb1d8ecdfc4a2bc3d889f2057be294ea53d90ee361453f4771a1a42d)
             mstore(0x7de0, mload(0x5ee0))
             success := and(eq(staticcall(gas(), 0x7, 0x7da0, 0x60, 0x7da0, 0x40), 1), success)
             mstore(0x7e00, mload(0x7d20))
@@ -1511,8 +1921,8 @@ object "plonk_verifier" {
             mstore(0x7e40, mload(0x7da0))
             mstore(0x7e60, mload(0x7dc0))
             success := and(eq(staticcall(gas(), 0x6, 0x7e00, 0x80, 0x7e00, 0x40), 1), success)
-            mstore(0x7e80, 0x0d27ab90d405e4666e64de04771e95c47b345ca8d513d933cd90be143f1a2db8)
-            mstore(0x7ea0, 0x18d0dd3c4f50d313edefb4683d6f9fa9c6cd8566afc43b98e53bdea091ebe3d6)
+            mstore(0x7e80, 0x1b01e270fe5a0cfe0f317bdf7f44221bf8c2a5f1d1bfbee41bd010dc6afe05d5)
+            mstore(0x7ea0, 0x1d26ae8f9a615281b14425ffa92376eef7a5b644ad21e503b70dacffbb7aef59)
             mstore(0x7ec0, mload(0x5f00))
             success := and(eq(staticcall(gas(), 0x7, 0x7e80, 0x60, 0x7e80, 0x40), 1), success)
             mstore(0x7ee0, mload(0x7e00))
@@ -1520,8 +1930,8 @@ object "plonk_verifier" {
             mstore(0x7f20, mload(0x7e80))
             mstore(0x7f40, mload(0x7ea0))
             success := and(eq(staticcall(gas(), 0x6, 0x7ee0, 0x80, 0x7ee0, 0x40), 1), success)
-            mstore(0x7f60, 0x169d19457740e9da9b8d4d9b3353fd815837d8ca850369383d8dcccfa58e9c5c)
-            mstore(0x7f80, 0x2f3819720c64fbd491de03f0290b9a75fe337003126426660f9551e7928650f2)
+            mstore(0x7f60, 0x10aae91f7f1f67758f213cae81db93036e4be6b2d3b296240001f6281b5cda9c)
+            mstore(0x7f80, 0x2f322ad9b5a4c0434bfae25c8a65334aec0858af953d1da1c0f75322fa010a77)
             mstore(0x7fa0, mload(0x5f20))
             success := and(eq(staticcall(gas(), 0x7, 0x7f60, 0x60, 0x7f60, 0x40), 1), success)
             mstore(0x7fc0, mload(0x7ee0))
@@ -1529,8 +1939,8 @@ object "plonk_verifier" {
             mstore(0x8000, mload(0x7f60))
             mstore(0x8020, mload(0x7f80))
             success := and(eq(staticcall(gas(), 0x6, 0x7fc0, 0x80, 0x7fc0, 0x40), 1), success)
-            mstore(0x8040, 0x00361f01b7dc18412323dfa27f295457a213ad256a843f2a57e7cf4655361bec)
-            mstore(0x8060, 0x172c221465608983b73e743f4592da2b7e951e529ba154e2c14b948d3c24dec1)
+            mstore(0x8040, 0x241559671af30235fb5d607a91a4d81dfc9f628d931158adc852d3f3c90b399d)
+            mstore(0x8060, 0x0a0a17c391f9b0e12dccaf1ba91c92ba8fb1c72ab9ec43493c0f5ec8a48ddd63)
             mstore(0x8080, mload(0x5f40))
             success := and(eq(staticcall(gas(), 0x7, 0x8040, 0x60, 0x8040, 0x40), 1), success)
             mstore(0x80a0, mload(0x7fc0))
@@ -1538,8 +1948,8 @@ object "plonk_verifier" {
             mstore(0x80e0, mload(0x8040))
             mstore(0x8100, mload(0x8060))
             success := and(eq(staticcall(gas(), 0x6, 0x80a0, 0x80, 0x80a0, 0x40), 1), success)
-            mstore(0x8120, 0x03f9e347a6628d10cf362468bfed2ed9f03de1e45f1efbfdefa65b9c5fde5db2)
-            mstore(0x8140, 0x291013bdd66e5c99cc2ab8ac119327919b6b8f55370aa94096f254c4b4123f2e)
+            mstore(0x8120, 0x11a9558e801369763bd97f5e1ed948eca516c0f839c3240b899265b152f8f174)
+            mstore(0x8140, 0x10547bfeaffefeeed1dd0d7016ac578336c4dc7f4fecab752a9c69e3498263a7)
             mstore(0x8160, mload(0x5f60))
             success := and(eq(staticcall(gas(), 0x7, 0x8120, 0x60, 0x8120, 0x40), 1), success)
             mstore(0x8180, mload(0x80a0))
@@ -1547,8 +1957,8 @@ object "plonk_verifier" {
             mstore(0x81c0, mload(0x8120))
             mstore(0x81e0, mload(0x8140))
             success := and(eq(staticcall(gas(), 0x6, 0x8180, 0x80, 0x8180, 0x40), 1), success)
-            mstore(0x8200, 0x100b87d4fe455eb04e4d55ea4cb9d81416257f1437851ec8d8b711ca14d2fa23)
-            mstore(0x8220, 0x1bb88cf855ed4bb54627abbe5a77822512c52e2a8aaf8eb5d312d7f348eb5643)
+            mstore(0x8200, 0x189a79c88f033aaa8c2c2eb657eaf08786191f9389a6f74e0a0b4cc0edbd670c)
+            mstore(0x8220, 0x001acd95a409b953c2b6a9321b60ed2c0c3bd3d04c53792e4584a0151d764ecf)
             mstore(0x8240, mload(0x5f80))
             success := and(eq(staticcall(gas(), 0x7, 0x8200, 0x60, 0x8200, 0x40), 1), success)
             mstore(0x8260, mload(0x8180))
@@ -1556,8 +1966,8 @@ object "plonk_verifier" {
             mstore(0x82a0, mload(0x8200))
             mstore(0x82c0, mload(0x8220))
             success := and(eq(staticcall(gas(), 0x6, 0x8260, 0x80, 0x8260, 0x40), 1), success)
-            mstore(0x82e0, 0x2640ab55464dad5cb05152b1d63e1d55f282dd19cacbf153eadbbb0ab87451e3)
-            mstore(0x8300, 0x0e1d42f5406789a069bdc4dc0632e1711f4dd1fb9d03fecba3eb372c2947b9bf)
+            mstore(0x82e0, 0x25172847ec84fce79c8878b22884fd9bb871953de6d0b322e143499a37063130)
+            mstore(0x8300, 0x16ea1b0a3890e3ec7047ef531a4fadf129fedce46591799ed5f2a62ff9f5d87b)
             mstore(0x8320, mload(0x5fa0))
             success := and(eq(staticcall(gas(), 0x7, 0x82e0, 0x60, 0x82e0, 0x40), 1), success)
             mstore(0x8340, mload(0x8260))
@@ -1565,8 +1975,8 @@ object "plonk_verifier" {
             mstore(0x8380, mload(0x82e0))
             mstore(0x83a0, mload(0x8300))
             success := and(eq(staticcall(gas(), 0x6, 0x8340, 0x80, 0x8340, 0x40), 1), success)
-            mstore(0x83c0, 0x2d9313b8ea00fff62f08969b2a89954745c2d1df2958307e851e7767018b149f)
-            mstore(0x83e0, 0x1f9d88dd307f81b7493d468f8926ac19dee95d3d5e9600a582ce83bad60f4dff)
+            mstore(0x83c0, 0x097a7d30cf05f6976283fba11ed37be4e8222672e3d42f4adcfd4c71c5658209)
+            mstore(0x83e0, 0x0a0eeb3da3935494e28815af8587900acbf7e6b3318bdea3e2950525f6fef0d8)
             mstore(0x8400, mload(0x5fc0))
             success := and(eq(staticcall(gas(), 0x7, 0x83c0, 0x60, 0x83c0, 0x40), 1), success)
             mstore(0x8420, mload(0x8340))
@@ -1574,8 +1984,8 @@ object "plonk_verifier" {
             mstore(0x8460, mload(0x83c0))
             mstore(0x8480, mload(0x83e0))
             success := and(eq(staticcall(gas(), 0x6, 0x8420, 0x80, 0x8420, 0x40), 1), success)
-            mstore(0x84a0, 0x227f26bf36dc963b41f2c3871ccc31fa3737c6e4afa93b27f014cc0eeb7fd1b5)
-            mstore(0x84c0, 0x29c60ea465dfa6b0ae44d9c578879a63f79006486d6b0e5d1ec4b650ff252af1)
+            mstore(0x84a0, 0x1e98ea3ad04c2b7135fbf92cf8118d7bd2f84035a8e87d5e39dc5d39a18f5552)
+            mstore(0x84c0, 0x1a9d14bd046e37e1b5c9590bf8781122702bfa6fbbe580a0a20d7ce96aaa0d15)
             mstore(0x84e0, mload(0x5fe0))
             success := and(eq(staticcall(gas(), 0x7, 0x84a0, 0x60, 0x84a0, 0x40), 1), success)
             mstore(0x8500, mload(0x8420))
@@ -1601,8 +2011,8 @@ object "plonk_verifier" {
             mstore(0x8700, mload(0x8660))
             mstore(0x8720, mload(0x8680))
             success := and(eq(staticcall(gas(), 0x6, 0x86c0, 0x80, 0x86c0, 0x40), 1), success)
-            mstore(0x8740, 0x1e0fbb6b796fd1dd71c6343240529a7fd2aa4161b5c19814f0a13d88f384a6eb)
-            mstore(0x8760, 0x2332d92ca05d670d4baaf473c7759f73bf78831a979dfd82678df543963e3379)
+            mstore(0x8740, 0x080e675f1fbe3f7a7cdd87244c1d1f7c08e71db02565a906517663ee58426fc5)
+            mstore(0x8760, 0x2834ef3c5e97f2db27b06b89138dcd4b8e1b608f5d33bce6a04470dc3deb6637)
             mstore(0x8780, mload(0x6040))
             success := and(eq(staticcall(gas(), 0x7, 0x8740, 0x60, 0x8740, 0x40), 1), success)
             mstore(0x87a0, mload(0x86c0))
@@ -1610,8 +2020,8 @@ object "plonk_verifier" {
             mstore(0x87e0, mload(0x8740))
             mstore(0x8800, mload(0x8760))
             success := and(eq(staticcall(gas(), 0x6, 0x87a0, 0x80, 0x87a0, 0x40), 1), success)
-            mstore(0x8820, 0x24c41ea8e405822c894dee377cc1d824eefe089763dc87b4d671bc535fbf0615)
-            mstore(0x8840, 0x2da537464a622cb7a4d61f144e3f18dff6b1d225b9068e40272a2317343e4465)
+            mstore(0x8820, 0x1b3449db6f7a98194098a591434b13996a3e2397e522b656a10492dba4d58885)
+            mstore(0x8840, 0x0b1e8919d0317dcdaf9c6ca50ef1e09adb6991309adb460513e14bcfe22a1189)
             mstore(0x8860, mload(0x6060))
             success := and(eq(staticcall(gas(), 0x7, 0x8820, 0x60, 0x8820, 0x40), 1), success)
             mstore(0x8880, mload(0x87a0))
@@ -1619,8 +2029,8 @@ object "plonk_verifier" {
             mstore(0x88c0, mload(0x8820))
             mstore(0x88e0, mload(0x8840))
             success := and(eq(staticcall(gas(), 0x6, 0x8880, 0x80, 0x8880, 0x40), 1), success)
-            mstore(0x8900, 0x21f7f3d1721b16f7d8b0260114d157e00caf0faca8cdf74674ad583733f74851)
-            mstore(0x8920, 0x0af43eb16ee1d228481a7f14821bbe035b636cf7b458c5f04ce086f83bc77162)
+            mstore(0x8900, 0x01e66a46fe044cb0b4a3c353416a823a68ed89455e8bd84cd87940504327655d)
+            mstore(0x8920, 0x05866613337aa5786a03744e86ed2fd31b751de9e291403cc308e43eb30a0891)
             mstore(0x8940, mload(0x6080))
             success := and(eq(staticcall(gas(), 0x7, 0x8900, 0x60, 0x8900, 0x40), 1), success)
             mstore(0x8960, mload(0x8880))
@@ -1628,8 +2038,8 @@ object "plonk_verifier" {
             mstore(0x89a0, mload(0x8900))
             mstore(0x89c0, mload(0x8920))
             success := and(eq(staticcall(gas(), 0x6, 0x8960, 0x80, 0x8960, 0x40), 1), success)
-            mstore(0x89e0, 0x06ad631e8641a3ec8ea54870a470e8fd98aebfd056c411ef099d8ecbbd539299)
-            mstore(0x8a00, 0x023c58a2dfa139f890babda91a0652155d4d4a0586f8055b468ccd77f00a01c2)
+            mstore(0x89e0, 0x02461948a0a3d81619aa17e040bac2d8675cf20814edc6d5aeb347d300926cd4)
+            mstore(0x8a00, 0x29063295f4690f717917ac9479e932ab57fa59fbcd987ca87890ffad0d1a206b)
             mstore(0x8a20, mload(0x60a0))
             success := and(eq(staticcall(gas(), 0x7, 0x89e0, 0x60, 0x89e0, 0x40), 1), success)
             mstore(0x8a40, mload(0x8960))
@@ -1637,8 +2047,8 @@ object "plonk_verifier" {
             mstore(0x8a80, mload(0x89e0))
             mstore(0x8aa0, mload(0x8a00))
             success := and(eq(staticcall(gas(), 0x6, 0x8a40, 0x80, 0x8a40, 0x40), 1), success)
-            mstore(0x8ac0, 0x167b27ea9c1e50f857a7db7f1df8255d41214961ab57c8468fa1891aa9027979)
-            mstore(0x8ae0, 0x1c5ee084b24a296757ce07bcb523f119c9385e025c0d2b4007440f3deb4dfa60)
+            mstore(0x8ac0, 0x090d666baee85c08f02ddc28f63931ec2e88eb1e602f71223d194ec949c3e4da)
+            mstore(0x8ae0, 0x2562b1dc743e74d545700ceb0de7b3bbb0a3299d41b2b60966f33b73b5e511c7)
             mstore(0x8b00, mload(0x60c0))
             success := and(eq(staticcall(gas(), 0x7, 0x8ac0, 0x60, 0x8ac0, 0x40), 1), success)
             mstore(0x8b20, mload(0x8a40))
@@ -1646,8 +2056,8 @@ object "plonk_verifier" {
             mstore(0x8b60, mload(0x8ac0))
             mstore(0x8b80, mload(0x8ae0))
             success := and(eq(staticcall(gas(), 0x6, 0x8b20, 0x80, 0x8b20, 0x40), 1), success)
-            mstore(0x8ba0, 0x0808db831a37a6fbf94f40783e421d6a6cf94a8aca40fef9d143b7aac5d20da9)
-            mstore(0x8bc0, 0x2c03836aa2cc390351c00ba076f91d79bd2eed2ca3641c03224a68e723690d96)
+            mstore(0x8ba0, 0x0f5fa5e2f5ad7fc16f287f810a9d94f50e44d12126636969375c0c36b022548e)
+            mstore(0x8bc0, 0x15d49879731bce3e17490194d6138742e391eca4008cb71b714a7ca4355f9e2d)
             mstore(0x8be0, mload(0x60e0))
             success := and(eq(staticcall(gas(), 0x7, 0x8ba0, 0x60, 0x8ba0, 0x40), 1), success)
             mstore(0x8c00, mload(0x8b20))
@@ -1655,8 +2065,8 @@ object "plonk_verifier" {
             mstore(0x8c40, mload(0x8ba0))
             mstore(0x8c60, mload(0x8bc0))
             success := and(eq(staticcall(gas(), 0x6, 0x8c00, 0x80, 0x8c00, 0x40), 1), success)
-            mstore(0x8c80, 0x0ba6e2820f2cf7778ca991029ae9f376fbbe78f207a4219df9477a223dfaad75)
-            mstore(0x8ca0, 0x0827ff8ebe7a4d39751e95f964615e401539e684b40620de0c51c198b4df2ef6)
+            mstore(0x8c80, 0x1f44d67af1130b90a880c03a33f81008024991f822bebfe60b08d5df1030ac61)
+            mstore(0x8ca0, 0x17412979aacce808f6e6dbe91f0897e8542703ab3da89e846b940e7f030b23b7)
             mstore(0x8cc0, mload(0x6100))
             success := and(eq(staticcall(gas(), 0x7, 0x8c80, 0x60, 0x8c80, 0x40), 1), success)
             mstore(0x8ce0, mload(0x8c00))
@@ -1664,8 +2074,8 @@ object "plonk_verifier" {
             mstore(0x8d20, mload(0x8c80))
             mstore(0x8d40, mload(0x8ca0))
             success := and(eq(staticcall(gas(), 0x6, 0x8ce0, 0x80, 0x8ce0, 0x40), 1), success)
-            mstore(0x8d60, 0x07148018c9097a5cf32fd87712d3abf1e77e9f67f21e16fd65bfd99fde6ac97f)
-            mstore(0x8d80, 0x2fa74674ab312c2427a1de82587a53007c3da86e1f7ad00867f9ae0c765f8b6d)
+            mstore(0x8d60, 0x26a366f0e8e3d5e7f4d5a2f5c8e9355c3485b96314dcc5bb6bd305852f5c6f26)
+            mstore(0x8d80, 0x23a089d8aef48ca96546462d1844fec9781e1b1cbbdd0ee880c33c3f952db422)
             mstore(0x8da0, mload(0x6120))
             success := and(eq(staticcall(gas(), 0x7, 0x8d60, 0x60, 0x8d60, 0x40), 1), success)
             mstore(0x8dc0, mload(0x8ce0))
@@ -1673,8 +2083,8 @@ object "plonk_verifier" {
             mstore(0x8e00, mload(0x8d60))
             mstore(0x8e20, mload(0x8d80))
             success := and(eq(staticcall(gas(), 0x6, 0x8dc0, 0x80, 0x8dc0, 0x40), 1), success)
-            mstore(0x8e40, 0x26f3bbaea14e6c53327b1b29a04dbfeb15df523e455103d10276e88026d59360)
-            mstore(0x8e60, 0x2151086e2756d50e96ace4d2681b6f7e26010e24c99c67ce1366a36abe3c72b6)
+            mstore(0x8e40, 0x251849edb0c51995fa948a45f1cb13ffea69df96954fb9ab12334f883da7ed10)
+            mstore(0x8e60, 0x2809d3801596310ba3333e1ed54efdad98dacc04194df68762ef89361f785790)
             mstore(0x8e80, mload(0x6140))
             success := and(eq(staticcall(gas(), 0x7, 0x8e40, 0x60, 0x8e40, 0x40), 1), success)
             mstore(0x8ea0, mload(0x8dc0))
@@ -1835,10 +2245,12 @@ object "plonk_verifier" {
             success := and(eq(staticcall(gas(), 0x8, 0x9ce0, 0x180, 0x9ce0, 0x20), 1), success)
             success := and(eq(mload(0x9ce0), 1), success)
 
-            if not(success) { revert(0, 0) }
+            // Revert if anything fails
+            if iszero(success) { revert(0, 0) }
+
+            // Return taiko hash bytes on success
             mstore(0x00, 0x93ac8fdbfc0b0608f9195474a0dd6242f019f5abc3c4e26ad51fefb059cc0177)
             return(0, 32)
-
         }
     }
 }
