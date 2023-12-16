@@ -114,8 +114,7 @@ export class ETHBridge extends Bridge {
     const srcChainId = Number(message.srcChainId);
     const destChainId = Number(message.destChainId);
 
-    if (true) {
-
+    if (messageStatus === MessageStatus.NEW) {
       console.log("srcChainId", srcChainId);
       console.log("destChainId", destChainId);
 

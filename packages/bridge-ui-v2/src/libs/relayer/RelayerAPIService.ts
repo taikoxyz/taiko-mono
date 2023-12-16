@@ -226,12 +226,7 @@ export class RelayerAPIService {
       });
 
       // Update the status
-      console.log('Update the status', bridgeTx.status, status);
-      if (bridgeTx.status == MessageStatus.NEW) {
-      }
-      bridgeTx.status = MessageStatus.RETRIABLE;
-
-      // bridgeTx.status = status;
+      bridgeTx.status = status;
 
       bridgeTx.tokenType = _checkType(bridgeTx);
 
