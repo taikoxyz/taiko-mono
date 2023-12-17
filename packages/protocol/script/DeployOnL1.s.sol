@@ -352,7 +352,7 @@ contract DeployOnL1 is DeployCapability {
         });
 
         address[] memory plonkVerifiers = new address[](1);
-        plonkVerifiers[0] = deployYulContract("contracts/L1/verifiers/PlonkVerifier.yulp");
+        plonkVerifiers[0] = deployPseZkEvmVerifier("contracts/L1/verifiers/PlonkVerifier.yulp");
 
         for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
             register(
@@ -384,14 +384,20 @@ contract DeployOnL1 is DeployCapability {
         console2.log("BullToken", bullToken);
     }
 
-    function deployYulContract(string memory contractPath) private returns (address addr) {
+    // Since the auto-generated solidity PlonkVerifier is too big for foundry
+    // to compile, so we still keep the file name as `PlonkVerifier.yulp` and
+    // use this function to compile it manually.
+    function deployPseZkEvmVerifier(string memory verifierContractPath)
+        private
+        returns (address addr)
+    {
         string[] memory cmds = new string[](3);
         cmds[0] = "bash";
         cmds[1] = "-c";
         cmds[2] = string.concat(
             vm.projectRoot(),
-            "/bin/solc --yul --bin ",
-            string.concat(vm.projectRoot(), "/", contractPath),
+            "/bin/solc --bin ",
+            string.concat(vm.projectRoot(), "/", verifierContractPath),
             " | grep -A1 Binary | tail -1"
         );
 
@@ -401,7 +407,7 @@ contract DeployOnL1 is DeployCapability {
         }
 
         addressNotNull(addr, "failed yul deployment");
-        console2.log(contractPath, addr);
+        console2.log(verifierContractPath, addr);
     }
 
     function addressNotNull(address addr, string memory err) private pure {
