@@ -22,7 +22,7 @@ object "BlobHashReader" {
       code {
          // Match against the keccak of the ABI function signature needed.
          switch shr(0xe0,calldataload(0))
-            // bytes4(keccak("function getFirstBlobHash()"))
+            // bytes4(keccak("getFirstBlobHash()"))
             // Returns the versioned hash for the first blob in this transaction.
             case 0xfd122ecf {
                 // DATAHASH opcode has hex value 0x49
