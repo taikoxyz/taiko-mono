@@ -18,7 +18,7 @@ import "../test/DeployCapability.sol";
 import "../contracts/L1/gov/TaikoTimelockController.sol";
 import "../contracts/L1/verifiers/SgxVerifier.sol";
 
-contract AddSGXVerifierInstance is DeployCapability {
+contract AddSGXVerifierInstances is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
     address public timelockAddress = vm.envAddress("TIMELOCK_ADDRESS");
     address public sgxVerifier = vm.envAddress("SGX_VERIFIER");
@@ -38,7 +38,7 @@ contract AddSGXVerifierInstance is DeployCapability {
         bytes32 salt = bytes32(block.timestamp);
 
         bytes memory payload =
-            abi.encodeWithSelector(bytes4(keccak256("function addInstances(address[])")), instances);
+            abi.encodeWithSelector(bytes4(keccak256("addInstances(address[])")), instances);
 
         TaikoTimelockController timelockController = TaikoTimelockController(payable(timelock));
 
