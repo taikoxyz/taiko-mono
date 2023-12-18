@@ -216,8 +216,8 @@ export class ERC721Bridge extends Bridge {
     const gasLimit = !isTokenAlreadyDeployed
       ? BigInt(bridgeService.noERC721TokenDeployedGasLimit)
       : fee > 0
-        ? bridgeService.noOwnerGasLimit
-        : BigInt(0);
+      ? bridgeService.noOwnerGasLimit
+      : BigInt(0);
 
     const sendERC721Args: NFTBridgeTransferOp = {
       destChainId: BigInt(destChainId),
