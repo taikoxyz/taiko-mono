@@ -20,13 +20,24 @@ export class BridgeProver {
     );
   }
 
-  protected async getLatestBlockFromGetSyncedSnippet(
-    client: PublicClient,
-    crossChainSyncContract: GetContractResult<typeof crossChainSyncABI>,
+  protected async getBlockNumber(
+    srcChainId: number,
+    destChainId: number,
+    crossChainSyncAddress: Address,
   ) {
+    const crossChainSyncContract = getContract({
+      chainId: destChainId,
+      address: crossChainSyncAddress,
+      abi: crossChainSyncABI,
+    });
+    const client = publicClient({ chainId: srcChainId });
     const syncedSnippet = await crossChainSyncContract.read.getSyncedSnippet([BigInt(0)]);
     const latestBlockHash = syncedSnippet['blockHash'];
-    return client.getBlock({ blockHash: latestBlockHash });
+    const block = await client.getBlock({ blockHash: latestBlockHash });
+    if (block.hash === null || block.number === null) {
+      throw new PendingBlockError('block is pending');
+    }
+    return block.number;
   }
 
   protected async getBlockFromGetSyncedSnippet(
@@ -44,7 +55,6 @@ export class BridgeProver {
     let { msgHash, clientChainId, contractAddress, proofForAccountAddress, blockNumber } = args;
     const client = publicClient({ chainId: clientChainId });
     let key = await this.getSignalSlot(clientChainId, contractAddress, msgHash);
-
     log("Signal slot", key);
 
     // Unfortunately, since this method is stagnant, it hasn't been included into Viem lib
@@ -88,26 +98,17 @@ export class BridgeProver {
 
     // Get the block from chain A based on the latest block hash
     // we get cross chain (Taiko contract on chain B)
-    const crossChainSyncContract = getContract({
-      chainId: destChainId,
-      address: destCrossChainSyncAddress,
-      abi: crossChainSyncABI,
-    });
-    const client = publicClient({ chainId: srcChainId });
-    const block = await this.getLatestBlockFromGetSyncedSnippet(client, crossChainSyncContract);
-    if (block.hash === null || block.number === null) {
-      throw new PendingBlockError('block is pending');
-    }
+    const blockNumber = await this.getBlockNumber(srcChainId, destChainId, destCrossChainSyncAddress);
 
     const { rlpEncodedStorageProof } = await this.encodedStorageProof({
       msgHash,
       clientChainId: srcChainId,
       contractAddress: srcBridgeAddress,
       proofForAccountAddress: srcSignalServiceAddress,
-      blockNumber: block.number
+      blockNumber
     });
 
-    const signalProof = this._encodeAbiParameters(destCrossChainSyncAddress, BigInt(block.number), rlpEncodedStorageProof, []);
+    const signalProof = this._encodeAbiParameters(destCrossChainSyncAddress, BigInt(blockNumber), rlpEncodedStorageProof, []);
     return signalProof;
   }
 
@@ -121,30 +122,11 @@ export class BridgeProver {
     // Initialize hopChainId with src chain
     let hopChainId: number = srcChainId;
     for (var hop of hopParams) {
-      const crossChainSyncContract = getContract({
-        chainId: hop.chainId,
-        address: hop.taikoAddress,
-        abi: crossChainSyncABI,
-      });
-      const hopClient = publicClient({ chainId: hopChainId });
-      let block = await this.getLatestBlockFromGetSyncedSnippet(hopClient, crossChainSyncContract);
-      if (block.hash === null || block.number === null) {
-        throw new PendingBlockError('block is pending');
-      }
-      blockNumber = block.number;
+      blockNumber = await this.getBlockNumber(hopChainId, hop.chainId, hop.taikoAddress);
       hopChainId = hop.chainId;
     }
     // Get the block number from last hop chain to dest chain
-    const crossChainSyncContract = getContract({
-      chainId: destChainId,
-      address: destCrossChainSyncAddress,
-      abi: crossChainSyncABI,
-    });
-    const hopClient = publicClient({ chainId: hopChainId });
-    let block = await this.getLatestBlockFromGetSyncedSnippet(hopClient, crossChainSyncContract);
-    if (block.hash === null || block.number === null) {
-      throw new PendingBlockError('block is pending');
-    }
+    blockNumber = await this.getBlockNumber(hopChainId, destChainId, destCrossChainSyncAddress);
 
     // Generate main storage proof with receipt.blockNumber
     const { proof, rlpEncodedStorageProof } = await this.encodedStorageProof({
@@ -186,23 +168,14 @@ export class BridgeProver {
     const destBridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
     const destCrossChainSyncAddress = routingContractsMap[destChainId][srcChainId].taikoAddress;
 
-    const crossChainSyncContract = getContract({
-      chainId: destChainId,
-      address: destCrossChainSyncAddress,
-      abi: crossChainSyncABI,
-    });
-    const client = publicClient({ chainId: srcChainId });
-    const block = await this.getLatestBlockFromGetSyncedSnippet(client, crossChainSyncContract);
-    if (block.hash === null || block.number === null) {
-      throw new PendingBlockError('block is pending');
-    }
+    const blockNumber = await this.getBlockNumber(srcChainId, destChainId, destCrossChainSyncAddress);
 
     const { proof } = await this.encodedStorageProof({
       msgHash,
       clientChainId: destChainId,
       contractAddress: srcBridgeAddress,
       proofForAccountAddress: destBridgeAddress,
-      blockNumber: block.number,
+      blockNumber,
     });
 
     // Value must be 0x3 => MessageStatus.FAILED
