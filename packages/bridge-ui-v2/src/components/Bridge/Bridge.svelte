@@ -50,6 +50,8 @@
   let processingFeeComponent: ProcessingFee;
   let actionsComponent: Actions;
 
+  let bridging = false;
+
   function onNetworkChange(newNetwork: Network, oldNetwork: Network) {
     resetForm();
 
@@ -150,6 +152,7 @@
     isBridgePaused().then((paused) => {
       if (paused) throw new BridgePausedError('Bridge is paused');
     });
+
     if (!$bridgeService || !$selectedToken || !$network || !$destinationChain || !$account?.address) return;
 
     try {
@@ -231,11 +234,14 @@
     if (amountComponent) amountComponent.updateBalance();
 
     $selectedToken = ETHToken;
+    bridging = false;
   };
 
   onDestroy(() => {
     resetForm();
   });
+
+  $: disabled = !$selectedToken || !$network || !$destinationChain || bridging;
 </script>
 
 <!-- 
@@ -248,18 +254,18 @@
         <ChainSelectorWrapper />
       </div>
 
-      <TokenDropdown {tokens} bind:value={$selectedToken} />
+      <TokenDropdown {tokens} bind:value={$selectedToken} bind:disabled />
 
-      <Amount bind:this={amountComponent} />
+      <Amount bind:this={amountComponent} bind:disabled />
 
       <div class="space-y-[16px]">
-        <Recipient bind:this={recipientComponent} />
-        <ProcessingFee bind:this={processingFeeComponent} />
+        <Recipient bind:this={recipientComponent} bind:disabled />
+        <ProcessingFee bind:this={processingFeeComponent} bind:disabled />
       </div>
 
       <div class="h-sep" />
 
-      <Actions {approve} {bridge} bind:this={actionsComponent} />
+      <Actions {approve} {bridge} bind:this={actionsComponent} bind:bridging bind:disabled />
     </div>
   </Card>
 

@@ -4,7 +4,7 @@
   import { type Address, isAddress } from 'viem';
 
   import { ImportMethod } from '$components/Bridge/types';
-  import { Button } from '$components/Button';
+  import ActionButton from '$components/Button/ActionButton.svelte';
   import { Card } from '$components/Card';
   import { OnAccount } from '$components/OnAccount';
   import { OnNetwork } from '$components/OnNetwork';
@@ -69,6 +69,11 @@
   const runValidations = () => {
     if (amountComponent) amountComponent.validateAmount();
     if (addressInputComponent) addressInputComponent.validateAddress();
+    isBridgePaused().then((paused) => {
+      if (paused) {
+        throw new BridgePausedError();
+      }
+    });
   };
 
   function onAccountChange(account: Account) {
@@ -106,7 +111,7 @@
 
     $recipientAddress = $account?.address || null;
     bridgingStatus = 'pending';
-    // $processingFee = 0n;
+
     $selectedToken = ETHToken;
     importMethod === null;
     scanned = false;
@@ -173,9 +178,6 @@
   };
 
   const manualImportAction = () => {
-    isBridgePaused().then((paused) => {
-      if (paused) throw new BridgePausedError('Bridge is paused');
-    });
     if (!$network?.id) throw new Error('network not found');
     const srcChainId = $network?.id;
     const tokenId = nftIdArray[0];
@@ -184,6 +186,8 @@
       getTokenWithInfoFromAddress({ contractAddress, srcChainId: srcChainId, tokenId, owner: $account?.address })
         .then(async (token) => {
           if (!token) throw new Error('no token with info');
+          // detectedTokenType = token.type;
+          // idInputState = IDInputState.VALID;
           $selectedToken = token;
           await prefetchImage();
 
@@ -191,6 +195,9 @@
         })
         .catch((err) => {
           console.error(err);
+          // detectedTokenType = null;
+          // idInputState = IDInputState.INVALID;
+          // invalidToken = true;
         });
   };
 
@@ -257,13 +264,10 @@
         User Actions
       -->
       {#if activeStep === NFTSteps.REVIEW}
-        <div class="f-col w-full gap-4">
-          <Button
-            disabled={!canProceed}
-            type="primary"
-            class="px-[28px] py-[14px] rounded-full flex-1 w-auto text-white"
-            on:click={() => (activeStep = NFTSteps.CONFIRM)}
-            ><span class="body-bold">{nextStepButtonText}</span></Button>
+        <div class="f-col w-full gap-[16px]">
+          <ActionButton priority="primary" disabled={!canProceed} on:click={() => (activeStep = NFTSteps.CONFIRM)}>
+            <span class="body-bold">{nextStepButtonText}</span>
+          </ActionButton>
           <button on:click={previousStep} class="flex justify-center py-3 link">
             {$t('common.back')}
           </button>
@@ -273,26 +277,22 @@
           <div class="h-sep" />
 
           <div class="f-col w-full">
-            <Button
+            <ActionButton
+              priority="primary"
               disabled={!canProceed}
               loading={validatingImport}
-              type="primary"
-              class="px-[28px] py-[14px] rounded-full flex-1 w-auto text-white"
-              on:click={manualImportAction}><span class="body-bold">{nextStepButtonText}</span></Button>
+              on:click={manualImportAction}><span class="body-bold">{nextStepButtonText}</span></ActionButton>
 
             <button on:click={() => changeImportMethod()} class="flex justify-center py-3 link">
               {$t('common.back')}
             </button>
           </div>
-        {:else if scanned}
+        {:else if scanned && foundNFTs.length > 0}
           <div class="f-col w-full">
             <div class="h-sep" />
 
-            <Button
-              disabled={!canProceed}
-              type="primary"
-              class="px-[28px] py-[14px] rounded-full flex-1 w-auto text-white"
-              on:click={nextStep}><span class="body-bold">{nextStepButtonText}</span></Button>
+            <ActionButton priority="primary" disabled={!canProceed} on:click={nextStep}
+              ><span class="body-bold">{nextStepButtonText}</span></ActionButton>
 
             <button on:click={resetForm} class="flex justify-center py-3 link">
               {$t('common.back')}
@@ -301,11 +301,9 @@
         {/if}
       {:else if activeStep === NFTSteps.RECIPIENT}
         <div class="f-col w-full">
-          <Button
-            disabled={!canProceed}
-            type="primary"
-            class="px-[28px] py-[14px] rounded-full flex-1 w-auto text-white"
-            on:click={() => (activeStep = NFTSteps.REVIEW)}><span class="body-bold">{nextStepButtonText}</span></Button>
+          <ActionButton priority="primary" disabled={!canProceed} on:click={() => (activeStep = NFTSteps.REVIEW)}
+            ><span class="body-bold">{nextStepButtonText}</span>
+          </ActionButton>
 
           <button on:click={previousStep} class="flex justify-center py-3 link">
             {$t('common.back')}
@@ -314,10 +312,9 @@
       {:else if activeStep === NFTSteps.CONFIRM}
         <div class="f-col w-full">
           {#if bridgingStatus === 'done'}
-            <Button
-              type="primary"
-              class="px-[28px] py-[14px] rounded-full flex-1 w-auto text-white"
-              on:click={resetForm}><span class="body-bold">{$t('bridge.nft.step.confirm.button.back')}</span></Button>
+            <ActionButton priority="primary" on:click={resetForm}
+              ><span class="body-bold">{$t('bridge.nft.step.confirm.button.back')}</span>
+            </ActionButton>
           {:else}
             <button on:click={resetForm} class="flex justify-center py-3 link">
               {$t('common.back')}

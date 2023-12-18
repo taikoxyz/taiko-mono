@@ -6,7 +6,7 @@
   import { SwitchChainError, UserRejectedRequestError } from 'viem';
 
   import { chainConfig } from '$chainConfig';
-  import { CloseButton } from '$components/CloseButton';
+  import { CloseButton } from '$components/Button';
   import { LoadingMask } from '$components/LoadingMask';
   import { warningToast } from '$components/NotificationToast';
   import { chains } from '$libs/chain';
@@ -21,6 +21,9 @@
   export let readOnly = false;
   export let small = false;
   export let validOptions: Maybe<Chain[]> = chains;
+  export let highlight = false;
+
+  $: highlightBorder = highlight && validOptions?.length ? 'border-2 border-primary' : '';
 
   let escKeyListener: (event: KeyboardEvent) => void;
 
@@ -40,11 +43,13 @@
   const dispatch = createEventDispatcher();
 
   let classes = classNames('ChainSelector', $$props.class);
+
   let buttonClasses = classNames(
     'body-regular bg-neutral-background',
     small ? 'px-2 py-[6px]' : 'px-[24px] py-[10px]',
     small ? 'rounded-md' : 'rounded-[10px]',
     small ? 'w-auto' : 'w-full',
+
     readOnly ? '' : 'dark:hover:bg-tertiary-interactive-hover',
     'flex justify-start content-center',
     $$props.class,
@@ -128,7 +133,7 @@
       aria-haspopup="dialog"
       aria-controls={dialogId}
       aria-expanded={modalOpen}
-      class={buttonClasses}
+      class="{buttonClasses}{highlightBorder}"
       on:click={openModal}>
       <div class="{small ? 'f-items-center' : 'f-center'} space-x-2 w-full">
         {#if !value}

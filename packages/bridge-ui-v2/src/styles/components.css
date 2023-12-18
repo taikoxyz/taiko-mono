@@ -70,20 +70,20 @@
   .input-box {
     /* Using shadows to increase border size without impacting the surroundings */
     @apply outline-none
-      rounded-[10px] 
-      bg-transparent 
-
-      /* border */
-      /* border-primary-border  */
-      /* shadow-[0_0_0_1px_#5d636f]  */
-
-      /* hover:border-2 */
-      /* hover:border-primary-border-hover */
-      enabled:hover:shadow-[0_0_0_2px_#FF6FC8] 
-
-      /* focus:border-[3px] */
-      /* focus:border-primary-border-accent */
-      focus:!shadow-[0_0_0_3px_#E81899];
+    rounded-[10px] 
+    bg-transparent 
+    
+    /* border */
+    /* border-primary-border  */
+    /* shadow-[0_0_0_1px_#5d636f]  */
+    
+    /* hover:border-2 */
+    /* hover:border-primary-border-hover */
+    enabled:hover:shadow-[0_0_0_2px_#FF6FC8] 
+    
+    /* focus:border-[3px] */
+    /* focus:border-primary-border-accent */
+    focus:!shadow-[0_0_0_3px_#E81899];
   }
 
   .input-box.withValdiation {
@@ -97,6 +97,14 @@
 
   .input-box.success {
     box-shadow: 0 0 0 3px var(--positive-sentiment) !important;
+  }
+
+  .input-box.warning {
+    box-shadow: 0 0 0 3px var(--warning-sentiment) !important;
+  }
+
+  .input-box.neutral {
+    box-shadow: 0 0 0 1px var(--primary-border-dark) !important;
   }
 
   /* Tooltip */
@@ -205,6 +213,21 @@
     line-height: 24px; /* 133.333% */
     letter-spacing: 0.09px;
     margin-bottom: 8px;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  input:disabled {
+    cursor: not-allowed;
+  }
+
+  .radio {
+    border: 1px solid var(--primary-border-dark);
+    &:checked {
+      border: 1px solid var(--primary-interactive-accent);
+    }
   }
 
   /* TODO: add more components here */

@@ -55,6 +55,8 @@
     return alternateChainId;
   };
 
+  $: highlight = $destNetwork ? false : true;
+
   onMount(() => {
     updateDestOptions();
   });
@@ -63,12 +65,12 @@
 <ChainSelector class="flex-1" bind:value={$network} on:change={handleSourceChange} switchWallet />
 
 <SwitchChainsButton />
-
 <ChainSelector
   bind:this={destChainElement}
   class="flex-1 "
   bind:value={$destNetwork}
   on:change={handleDestChange}
-  validOptions={$destOptions} />
+  validOptions={$destOptions}
+  bind:highlight />
 
 <OnNetwork change={onNetworkChange} />

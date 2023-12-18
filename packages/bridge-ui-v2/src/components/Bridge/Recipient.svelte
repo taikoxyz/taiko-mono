@@ -2,8 +2,7 @@
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
-  import { Button } from '$components/Button';
-  import { CloseButton } from '$components/CloseButton';
+  import { ActionButton, CloseButton } from '$components/Button';
   import { Tooltip } from '$components/Tooltip';
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { uid } from '$libs/util/uid';
@@ -19,6 +18,7 @@
   };
 
   export let small = false;
+  export let disabled = false;
 
   let dialogId = `dialog-${uid()}`;
   let addressInput: AddressInput;
@@ -105,7 +105,9 @@
           {$t('recipient.tooltip')}
         </Tooltip>
       </div>
-      <button class="link" on:click={openModal} on:focus={openModal}>{$t('common.edit')}</button>
+      {#if !disabled}
+        <button class="link" on:click={openModal} on:focus={openModal}>{$t('common.edit')}</button>
+      {/if}
     </div>
 
     <span class="body-small-regular text-secondary-content mt-[4px]">
@@ -120,7 +122,7 @@
     </span>
 
     <dialog id={dialogId} class="modal" class:modal-open={modalOpen}>
-      <div class="modal-box relative px-6 md:rounded-[20px] bg-neutral-background">
+      <div class="modal-box relative px-6 md:rounded-[20px] bg-dialog-background">
         <CloseButton onClick={closeModal} />
 
         <div class="w-full">
@@ -132,24 +134,21 @@
             <AddressInput
               bind:this={addressInput}
               bind:ethereumAddress={ethereumAddressBinding}
-              on:addressvalidation={onAddressValidation} />
+              on:addressvalidation={onAddressValidation}
+              onDialog />
           </div>
 
           <div class="grid grid-cols-2 gap-[20px]">
-            <Button
-              on:click={cancelModal}
-              type="neutral"
-              class="px-[28px] py-[10px] rounded-full w-auto bg-transparent !border border-primary-brand hover:border-primary-interactive-hover">
+            <ActionButton on:click={cancelModal} priority="secondary" onPopup>
               <span class="body-bold">{$t('common.cancel')}</span>
-            </Button>
-            <Button
-              type="primary"
+            </ActionButton>
+            <ActionButton
+              priority="primary"
               disabled={invalidAddress || !ethereumAddressBinding}
-              class="px-[28px] py-[10px] rounded-full w-auto"
               on:click={closeModal}
-              hasBorder={true}>
+              onPopup>
               <span class="body-bold">{$t('common.confirm')}</span>
-            </Button>
+            </ActionButton>
           </div>
         </div>
       </div>

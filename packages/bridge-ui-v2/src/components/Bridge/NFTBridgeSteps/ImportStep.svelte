@@ -13,6 +13,7 @@
   import { IDInputState } from '$components/Bridge/IDInput/state';
   import {
     destNetwork as destinationChain,
+    destNetwork,
     enteredAmount,
     insufficientBalance,
     selectedNFTs,
@@ -21,6 +22,7 @@
   } from '$components/Bridge/state';
   import { ImportMethod } from '$components/Bridge/types';
   import { Button } from '$components/Button';
+  import ActionButton from '$components/Button/ActionButton.svelte';
   import { ChainSelectorWrapper } from '$components/ChainSelector';
   import { IconFlipper } from '$components/Icon';
   import RotatingIcon from '$components/Icon/RotatingIcon.svelte';
@@ -52,7 +54,6 @@
 
   let idInputState: IDInputState = IDInputState.DEFAULT;
 
-  let invalidToken: boolean = true;
   let isOwnerOfAllToken: boolean = false;
 
   let detectedTokenType: TokenType | null = null;
@@ -66,7 +67,6 @@
   const reset = () => {
     nftView = NFTView.LIST;
     enteredIds = '';
-    invalidToken = true;
     isOwnerOfAllToken = false;
     detectedTokenType = null;
     amountComponent?.clearAmount();
@@ -85,7 +85,7 @@
     $selectedNFTs = [];
     const accountAddress = $account?.address;
     const srcChainId = $network?.id;
-    const destChainId = $destinationChain?.id;
+    const destChainId = $destNetwork?.id;
     if (!accountAddress || !srcChainId || !destChainId) return;
     const nftsFromAPIs = await fetchNFTs(accountAddress, srcChainId, destChainId);
     foundNFTs = nftsFromAPIs.nfts;
@@ -95,7 +95,6 @@
 
   const changeImportMethod = () => {
     if (addressInputComponent) addressInputComponent.clearAddress();
-
     importMethod = importMethod === ImportMethod.MANUAL ? ImportMethod.SCAN : ImportMethod.MANUAL;
     scanned = false;
     $selectedNFTs = [];
@@ -104,7 +103,6 @@
 
   async function onAddressValidation(event: CustomEvent<{ isValidEthereumAddress: boolean; addr: Address }>) {
     const { isValidEthereumAddress, addr } = event.detail;
-    invalidToken = false;
     interfaceSupported = true;
     addressInputState = AddressInputState.VALIDATING;
 
@@ -113,13 +111,12 @@
       try {
         detectedTokenType = await detectContractType(addr);
       } catch {
-        invalidToken = true;
         addressInputState = AddressInputState.INVALID;
       }
 
       if (!$network?.id) throw new Error('network not found');
       if (detectedTokenType !== TokenType.ERC721 && detectedTokenType !== TokenType.ERC1155) {
-        addressInputState = AddressInputState.INVALID;
+        addressInputState = AddressInputState.NOT_NFT;
         return;
       }
 
@@ -168,7 +165,6 @@
                 console.error(err);
                 detectedTokenType = null;
                 idInputState = IDInputState.INVALID;
-                invalidToken = true;
               });
             idInputState = IDInputState.VALID;
           } else {
@@ -228,12 +224,13 @@
   }
 
   $: isDisabled = idInputState !== IDInputState.VALID || addressInputState !== AddressInputState.VALID;
+
+  $: nothingFound = scanned && foundNFTs.length === 0;
 </script>
 
-<div class="f-between-center gap-4 mt-[30px]">
+<div class="f-between-center gap-[16px] mt-[30px]">
   <ChainSelectorWrapper />
 </div>
-<div class="h-sep my-[30px]" />
 <!-- 
 Manual NFT Input 
 -->
@@ -245,16 +242,15 @@ Manual NFT Input
       bind:state={addressInputState}
       class="bg-neutral-background border-0 h-[56px]"
       on:addressvalidation={onAddressValidation}
-      labelText={$t('inputs.address_input.label.contract')}
-      quiet />
-    {#if addressInputState === AddressInputState.INVALID && invalidToken}
+      labelText={$t('inputs.address_input.label.contract')} />
+    <!-- {#if addressInputState === AddressInputState.INVALID && invalidToken}
       <FlatAlert type="error" forceColumnFlow message="todo: invalid token" />
-    {/if}
+    {/if} -->
 
     {#if !interfaceSupported}
       <Alert type="error">TODO: token interface is not supported (link to docs?)</Alert>
     {/if}
-    <div class="min-h-[20px] !mt-3">
+    <div class="min-h-[20px] mt-[30px]">
       <!-- TODO: add limit to config -->
       <IdInput
         isDisabled={addressInputState !== AddressInputState.VALID}
@@ -279,32 +275,48 @@ Manual NFT Input
   <!-- 
 Automatic NFT Input 
 -->
-  {#if !scanned}
-    <div class="f-col w-full gap-4">
-      <Button
-        disabled={!canImport}
-        loading={scanning}
-        type={scanned ? 'neutral' : 'primary'}
-        class="px-[28px] py-[14px] rounded-full flex-1 text-white"
-        on:click={() =>
-          (async () => {
-            await scanForNFTs();
-          })()}>
-        {$t('bridge.actions.nft_scan')}
-      </Button>
+  {#if !scanned || nothingFound}
+    <div class="h-sep" />
 
-      <Button
-        disabled={!canImport}
-        type="neutral"
-        class="px-[28px] py-[14px] bg-transparent border-primary-brand rounded-full "
-        on:click={() => changeImportMethod()}>
-        {$t('bridge.actions.nft_manual')}
-      </Button>
+    <div class="f-col w-full gap-4">
+      {#if scanned}
+        <ActionButton
+          priority="secondary"
+          disabled={!canImport}
+          loading={scanning}
+          on:click={() =>
+            (async () => {
+              await scanForNFTs();
+            })()}>
+          {$t('bridge.actions.nft_scan_again')}
+        </ActionButton>
+
+        <ActionButton priority="primary" disabled={!canImport} on:click={() => changeImportMethod()}>
+          {$t('bridge.actions.nft_manual')}
+        </ActionButton>
+
+        <Alert type="warning" forceColumnFlow class="mt-[16px]">
+          <p>{$t('bridge.nft.step.import.no_nft_found')}</p>
+        </Alert>
+      {:else}
+        <ActionButton
+          priority="primary"
+          disabled={!canImport}
+          loading={scanning}
+          on:click={() =>
+            (async () => {
+              await scanForNFTs();
+            })()}>
+          {$t('bridge.actions.nft_scan')}
+        </ActionButton>
+
+        <ActionButton priority="secondary" disabled={!canImport} on:click={() => changeImportMethod()}>
+          {$t('bridge.actions.nft_manual')}
+        </ActionButton>{/if}
     </div>
   {/if}
-
-  <div class="f-col w-full gap-4">
-    {#if scanned}
+  {#if scanned && foundNFTs.length > 0}
+    <div class="f-col w-full gap-4">
       <section class="space-y-2">
         <div class="flex justify-between items-center w-full">
           <p class="text-primary-content font-bold">
@@ -344,13 +356,10 @@ Automatic NFT Input
 
       <div class="flex items-center justify-between space-x-2">
         <p class="text-secondary-content">{$t('bridge.nft.step.import.scan_screen.description')}</p>
-        <Button
-          type="neutral"
-          class="rounded-full py-[8px] px-[20px] bg-transparent !border border-primary-brand hover:border-primary-interactive-hover "
-          on:click={() => changeImportMethod()}>
+        <ActionButton priority="secondary" on:click={() => changeImportMethod()}>
           {$t('common.add')}
-        </Button>
+        </ActionButton>
       </div>
-    {/if}
-  </div>
+    </div>
+  {/if}
 {/if}

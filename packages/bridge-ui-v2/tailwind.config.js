@@ -32,7 +32,7 @@ export default {
           0: '#FFFFFF',
           5: '#FAFAFA',
           10: '#F3F3F3',
-          50: '#E7E7E7',
+          50: '#E3E3E3',
           100: '#CACBCE',
           200: '#ADB1B8',
           300: '#91969F',
@@ -127,16 +127,19 @@ export default {
           },
           icon: 'var(--primary-icon)',
           background: 'var(--primary-background)',
+
           interactive: {
             DEFAULT: 'var(--primary-interactive)',
-            hover: 'var(--primary-interactive-accent)',
             accent: 'var(--primary-interactive-accent)',
+            hover: 'var(--primary-interactive-hover)',
           },
           border: {
             DEFAULT: 'var(--primary-border)',
+            dark: 'var(--primary-border-dark)',
             hover: 'var(--primary-border-hover)',
             accent: 'var(--primary-border-accent)',
           },
+
           base: {
             content: 'var(--primary-base-content)',
             background: 'var(--primary-base-background)',
@@ -149,14 +152,13 @@ export default {
           content: 'var(--secondary-content)',
           icon: 'var(--secondary-icon)',
           interactive: {
-            hover: 'var(--secondary-interactive-hover)',
+            accent: 'var(--primary-interactive-accent)',
           },
         },
 
         tertiary: {
           content: 'var(--tertiary-content)',
           interactive: {
-            hover: 'var(--tertiary-interactive-hover)',
             accent: 'var(--tertiary-interactive-accent)',
           },
         },
@@ -174,6 +176,13 @@ export default {
         warning: {
           sentiment: 'var(--warning-sentiment)',
           background: 'var(--warning-background)',
+        },
+
+        dialog: {
+          background: 'var(--dialog-background)',
+          interactive: {
+            disabled: 'var(--dialog-dialog-interactive-disabled)',
+          },
         },
 
         'elevated-background': 'var(--elevated-background)',
@@ -211,8 +220,9 @@ export default {
           '--primary-background': '#0B101B', // grey-900
           '--primary-interactive': '#C8047D', // pink-500
           '--primary-interactive-accent': '#E81899', // pink-400
-          '--primary-border': '#5D636F', // grey-500
+          '--primary-interactive-hover': '#E81899', // pink-400
           '--primary-border-hover': '#FF6FC8', // pink-200
+          '--primary-border-dark': '#5D636F', // grey-500
           '--primary-border-accent': '#E81899', // pink-400
           '--primary-base-background': '#FFFFFF', // grey-0
           '--primary-base-content': '#191E28', // grey-800
@@ -220,11 +230,13 @@ export default {
           '--secondary-brand': '#E81899', // pink-400
           '--secondary-content': '#ADB1B8', // grey-200
           '--secondary-icon': '#2B303B', // grey-700
-          '--secondary-interactive-hover': '#2B303B', // grey-700
+
+          '--secondary-interactive-accent': '#2B303B', // grey-700
+          '--secondary-interactive-hover': '#E81899', //pink-400
 
           '--tertiary-content': '#5D636F', // grey-500
-          '--tertiary-interactive-hover': '#444A55', // grey-600
           '--tertiary-interactive-accent': '#5D636F', // grey-500
+          '--tertiary-interactive-hover': '#444A55', // grey-600
 
           '--positive-sentiment': '#47E0A0', // green-300
           '--positive-background': '#00321D', // green-800
@@ -240,6 +252,9 @@ export default {
           '--overlay-background': 'rgba(12, 17, 28, 0.5)', // grey-900|50%
           '--overlay-dialog': 'rgba(12, 17, 28, 0.90)', // grey-900|90%
           '--divider-border': '#444A55', // grey-600
+
+          '--dialog-background': '#2B303B', // grey-700
+          '--dialog-dialog-interactive-disabled': '#444A55', // grey-600
 
           // ================================ //
 
@@ -271,7 +286,6 @@ export default {
         light: {
           'color-scheme': 'light',
           '--btn-text-case': 'capitalize',
-          // '--rounded-box': '0.625rem', // 10px
 
           '--primary-brand': '#C8047D', // pink-500
           '--primary-content': '#191E28', // grey-800
@@ -281,7 +295,7 @@ export default {
           '--primary-background': '#FAFAFA', // grey-5
           '--primary-interactive': '#C8047D', // pink-500
           '--primary-interactive-accent': '#E81899', // pink-400
-          '--primary-border': '#91969F', // grey-300
+          '--primary-interactive-hover': '#E3E3E3', //grey-50
           '--primary-border-hover': '#FF6FC8', // pink-200
           '--primary-border-accent': '#E81899', // pink-400
 
@@ -292,7 +306,8 @@ export default {
           '--secondary-brand': '#E81899', // pink-400
           '--secondary-content': '#444A55', // grey-600
           '--secondary-icon': '#2B303B', // grey-700
-          '--secondary-interactive-hover': '#F3F3F3', // grey-10
+          '--secondary-interactive-accent': '#E3E3E3', // grey-50
+          '--secondary-interactive-hover': '#E3E3E3', // grey-50
 
           '--tertiary-content': '#91969F', // grey-300
 
@@ -310,9 +325,12 @@ export default {
           '--warning-background': '#FFF6DE', // yellow-10
 
           '--elevated-background': '#FAFAFA', // grey-5
-          '--neutral-background': '#E7E7E7', // grey-50
+          '--neutral-background': '#E3E3E3', // grey-50
           '--overlay-background': 'rgba(12, 17, 28, 0.2)', // grey-900|20%
-          '--overlay-dialog': 'rgba(12, 17, 28, 0.9)', // grey-900|20%
+          '--overlay-dialog': 'rgba(12, 17, 28, 0.9)', // grey-900|20
+
+          '--dialog-background': '#FFFFFF', // grey-0
+          '--dialog-dialog-interactive-disabled': '#E3E3E3', // grey-50
 
           '--divider-border': '#CACBCE', // grey-100
 
@@ -326,7 +344,7 @@ export default {
           // 'secondary-focus': '',
           'secondary-content': '#444A55', // grey-600
 
-          neutral: '#E7E7E7', // grey-50
+          neutral: '#E3E3E3', // grey-50
           'neutral-focus': '#CACBCE', // grey-100
           'neutral-content': '#191E28', // grey-800
 

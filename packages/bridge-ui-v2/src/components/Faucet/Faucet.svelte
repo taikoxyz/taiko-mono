@@ -6,7 +6,7 @@
 
   import { chainConfig } from '$chainConfig';
   import { Alert } from '$components/Alert';
-  import { Button } from '$components/Button';
+  import ActionButton from '$components/Button/ActionButton.svelte';
   import { Card } from '$components/Card';
   import { ChainSelector } from '$components/ChainSelector';
   import { Icon } from '$components/Icon';
@@ -81,7 +81,7 @@
 
       switch (true) {
         case err instanceof UserRejectedRequestError:
-          warningToast({ title: $t('faucet.mint.rejected') });
+          warningToast({ title: $t('faucet.mint.rejected.title'), message: $t('faucet.mint.rejected.message') });
           break;
         case err instanceof MintError:
           // TODO: see contract for all possible errors
@@ -183,11 +183,7 @@
 
     {#if connected && wrongChain}
       <!-- We give the user an easier way to switch chains with this button -->
-      <Button
-        type="primary"
-        class="px-[28px] py-[14px] rounded-full w-full"
-        loading={switchingNetwork}
-        on:click={switchNetworkToL1}>
+      <ActionButton priority="primary" loading={switchingNetwork} on:click={switchNetworkToL1}>
         {#if switchingNetwork}
           <span>{$t('messages.network.switching')}</span>
         {:else}
@@ -196,11 +192,10 @@
             {alertMessage}
           </span>
         {/if}
-      </Button>
+      </ActionButton>
     {:else}
-      <Button
-        type="primary"
-        class="px-[28px] py-[14px] rounded-full w-full"
+      <ActionButton
+        priority="primary"
         disabled={!mintButtonEnabled}
         loading={checkingMintable || minting}
         on:click={mintToken}>
@@ -213,7 +208,7 @@
             {$t('faucet.button.mint')}
           {/if}
         </span>
-      </Button>
+      </ActionButton>
     {/if}
   </div>
 </Card>

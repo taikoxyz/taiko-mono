@@ -21,6 +21,7 @@
   export let tokens: Token[] = [];
   export let value: Maybe<Token> = null;
   export let onlyMintable: boolean = false;
+  export let disabled = false;
 
   let id = `menu-${uid()}`;
   let menuOpen = false;
@@ -113,6 +114,8 @@
     }
   };
 
+  $: textClass = disabled ? 'title-subsection-bold text-secondary-content' : 'title-subsection-bold';
+
   onDestroy(() => closeMenu());
 </script>
 
@@ -120,6 +123,7 @@
 
 <div class="relative">
   <button
+    {disabled}
     aria-haspopup="listbox"
     aria-controls={id}
     aria-expanded={menuOpen}
@@ -142,11 +146,13 @@
               <svelte:component this={Erc20} size={28} />
             </i>
           {/if}
-          <span class="title-subsection-bold">{value.symbol}</span>
+          <span class={textClass}>{value.symbol}</span>
         </div>
       {/if}
     </div>
-    <Icon type="chevron-down" size={24} />
+    {#if !disabled}
+      <Icon type="chevron-down" size={24} />
+    {/if}
   </button>
 
   {#if isDesktopOrLarger}

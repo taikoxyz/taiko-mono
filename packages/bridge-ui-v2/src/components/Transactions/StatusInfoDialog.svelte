@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
 
-  import { CloseButton } from '$components/CloseButton';
+  import { CloseButton } from '$components/Button';
   import { Icon } from '$components/Icon';
   import { uid } from '$libs/util/uid';
 

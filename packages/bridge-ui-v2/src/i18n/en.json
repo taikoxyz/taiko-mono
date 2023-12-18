@@ -117,6 +117,7 @@
             "select": "Select NFT",
             "title": "NFT details"
           },
+          "no_nft_found": "We could not find any NFTs. Please try again or consider adding them manually.",
           "scan_screen": {
             "description": "Don't see your NFTs? Try adding them manually!",
             "title": "Your NFTs ({number} items)"
@@ -175,7 +176,7 @@
     "loading": "Loading",
     "name": "Name",
     "ok": "Ok",
-    "success": "Success!",
+    "success": "Success",
     "to": "To",
     "token_id": "Token ID",
     "token_standard": "Token standard"
@@ -191,6 +192,7 @@
     },
     "description": "Mint test tokens.",
     "mint": {
+      "error": "You have already minted your tokens.",
       "rejected": {
         "message": "An error occurred while attempting to mint the token.",
         "title": "Error minting token"
@@ -202,7 +204,8 @@
       "tx": {
         "message": "Track the progress on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>.",
         "title": "Transaction sent"
-      }
+      },
+      "unknown_error": "Something went wrong, please try again."
     },
     "title": "Faucet",
     "warning": {
@@ -221,6 +224,8 @@
     "address_input": {
       "errors": {
         "invalid": "Invalid address format",
+        "not_erc20": "This is not a valid ERC20 address on the current network",
+        "not_nft": "This is not a valid NFT address on the current network",
         "too_short": "Address is too short"
       },
       "label": {
