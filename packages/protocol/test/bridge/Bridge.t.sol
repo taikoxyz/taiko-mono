@@ -13,8 +13,9 @@ contract UntrustedSendMessageRelayer {
         uint256 message_value
     )
         public
+        returns (bytes32 msgHash, IBridge.Message memory updatedMessage)
     {
-        IBridge(bridge).sendMessage{ value: message_value }(message);
+        return IBridge(bridge).sendMessage{ value: message_value }(message);
     }
 }
 
@@ -348,7 +349,7 @@ contract BridgeTest is TaikoTest {
 
         uint256 starterBalanceVault = address(bridge).balance;
 
-        untrustedSenderContract.sendMessage(address(bridge), message, amount + fee);
+        (, message) = untrustedSenderContract.sendMessage(address(bridge), message, amount + fee);
 
         assertEq(address(bridge).balance, (starterBalanceVault + amount + fee));
 
