@@ -14,9 +14,11 @@
   import type { ERC1155Bridge } from '$libs/bridge/ERC1155Bridge';
   import { getBridgeArgs } from '$libs/bridge/getBridgeArgs';
   import { handleBridgeError } from '$libs/bridge/handleBridgeErrors';
+  import { BridgePausedError } from '$libs/error';
   import { bridgeTxService } from '$libs/storage';
   import { TokenType } from '$libs/token';
   import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
+  import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { account } from '$stores/account';
   import { network } from '$stores/network';
@@ -86,6 +88,10 @@
   };
 
   async function approve() {
+    isBridgePaused().then((paused) => {
+      if (paused) throw new BridgePausedError('Bridge is paused');
+    });
+
     try {
       if (!$selectedToken || !$network || !$destNetwork?.id) return;
       const type: TokenType = $selectedToken.type;

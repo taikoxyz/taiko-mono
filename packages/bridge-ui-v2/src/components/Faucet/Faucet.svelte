@@ -15,7 +15,7 @@
   import { TokenDropdown } from '$components/TokenDropdown';
   import { chains } from '$libs/chain';
   import { InsufficientBalanceError, MintError, TokenMintedError } from '$libs/error';
-  import { checkMintable, mint, testERC20Tokens, type Token } from '$libs/token';
+  import { checkMintable, mint, testERC20Tokens, testNFT, type Token } from '$libs/token';
   import { account, network, pendingTransactions } from '$stores';
 
   let minting = false;
@@ -159,7 +159,10 @@
 
   onMount(() => {
     // Only show tokens in the dropdown that are mintable
-    mintableTokens = testERC20Tokens.filter((token) => token.mintable);
+    const testERC20 = testERC20Tokens.filter((token) => token.mintable);
+    const testNFTs = testNFT.filter((token) => token.mintable);
+
+    mintableTokens = [...testERC20, ...testNFTs];
   });
 
   $: connected = isUserConnected($account);
