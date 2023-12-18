@@ -39,7 +39,7 @@ export function generateChainConfig() {
         const isValid = validateJsonAgainstSchema(configuredChainsConfigFile, configuredChainsSchema);
 
         if (!isValid) {
-          throw new Error('encoded configuredChains.json is not valid.');
+          throw new Error('encoded configuredBridges.json is not valid.');
         }
       } else {
         configuredChainsConfigFile = '';

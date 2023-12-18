@@ -43,7 +43,7 @@ export function generateCustomTokenConfig() {
         const isValid = validateJsonAgainstSchema(configuredTokenConfigFile, configuredChainsSchema);
 
         if (!isValid) {
-          throw new Error('encoded configuredRelayer.json is not valid.');
+          throw new Error('encoded configuredBridges.json is not valid.');
         }
       }
       const tsFilePath = path.resolve(outputPath);

@@ -44,7 +44,7 @@ export function generateEventIndexerConfig() {
         // Valide JSON against schema
         const isValid = validateJsonAgainstSchema(configuredEventIndexerConfigFile, configuredEventIndexerSchema);
         if (!isValid) {
-          throw new Error('encoded configuredEventIndexer.json is not valid.');
+          throw new Error('encoded configuredBridges.json is not valid.');
         }
       }
       // Path to where you want to save the generated Typ eScript file
