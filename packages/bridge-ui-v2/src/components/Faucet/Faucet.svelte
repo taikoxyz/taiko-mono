@@ -26,6 +26,7 @@
   let mintButtonEnabled = false;
   let alertMessage = '';
   let mintableTokens: Token[] = [];
+
   const onlyMintable: boolean = true;
 
   async function switchNetworkToL1() {
@@ -55,6 +56,7 @@
 
     // Let's begin the minting process
     minting = true;
+    mintButtonEnabled = false;
 
     try {
       const txHash = await mint(selectedToken, $network.id);
