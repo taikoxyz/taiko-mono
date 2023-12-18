@@ -208,7 +208,7 @@ export type HopAddressConfig = {
   chainId: number;
   taikoAddress: Address;
   signalServiceAddress: Address;
-}
+};
 
 export enum ContractType {
   BRIDGE,

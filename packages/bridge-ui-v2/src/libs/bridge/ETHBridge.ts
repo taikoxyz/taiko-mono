@@ -87,11 +87,11 @@ export class ETHBridge extends Bridge {
     const value = callValue + processingFee;
 
     try {
-      console.log('Calling sendMessage with value', value);
+      log('Calling sendMessage with value', value);
 
       const txHash = await bridgeContract.write.sendMessage([message], { value });
 
-      console.log('Transaction hash for sendMessage call', txHash);
+      log('Transaction hash for sendMessage call', txHash);
 
       return txHash;
     } catch (err) {
@@ -110,16 +110,12 @@ export class ETHBridge extends Bridge {
 
     let txHash: Hash;
     const { msgHash, message, receipt } = args;
-    console.log("args", args);
     const srcChainId = Number(message.srcChainId);
     const destChainId = Number(message.destChainId);
 
     if (messageStatus === MessageStatus.NEW) {
-      console.log("srcChainId", srcChainId);
-      console.log("destChainId", destChainId);
-
       const hops = routingContractsMap[srcChainId][destChainId].hops;
-    
+
       let proof;
       if (hops.length > 0) {
         proof = await this._prover.encodedSignalProofWithHops(msgHash, receipt, srcChainId, destChainId);

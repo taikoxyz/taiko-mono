@@ -251,7 +251,6 @@
 
       // Can we start claiming/retrying/releasing?
       processable = await isTransactionProcessable(bridgeTx);
-      console.log("processable", bridgeTx, processable);
 
       try {
         polling = startPolling(bridgeTx);

@@ -1,5 +1,14 @@
 import { getContract, type GetContractResult, type PublicClient } from '@wagmi/core';
-import { type Address, encodeAbiParameters, encodePacked, type Hex, keccak256, toHex, toRlp, type TransactionReceipt } from 'viem';
+import {
+  type Address,
+  encodeAbiParameters,
+  encodePacked,
+  type Hex,
+  keccak256,
+  toHex,
+  toRlp,
+  type TransactionReceipt,
+} from 'viem';
 import type { Hash } from '@wagmi/core';
 
 import { crossChainSyncABI } from '$abi';
@@ -20,11 +29,7 @@ export class BridgeProver {
     );
   }
 
-  protected async getBlockNumber(
-    srcChainId: number,
-    destChainId: number,
-    crossChainSyncAddress: Address,
-  ) {
+  protected async getBlockNumber(srcChainId: number, destChainId: number, crossChainSyncAddress: Address) {
     const crossChainSyncContract = getContract({
       chainId: destChainId,
       address: crossChainSyncAddress,
@@ -48,14 +53,14 @@ export class BridgeProver {
     const syncedSnippet = await crossChainSyncContract.read.getSyncedSnippet([BigInt(blockNumber)]);
     const latestBlockHash = syncedSnippet['blockHash'];
     const block = await client.getBlock({ blockHash: latestBlockHash });
-    return {block, syncedSnippet}
+    return { block, syncedSnippet };
   }
 
   async encodedStorageProof(args: GenerateProofArgs) {
     let { msgHash, clientChainId, contractAddress, proofForAccountAddress, blockNumber } = args;
     const client = publicClient({ chainId: clientChainId });
     let key = await this.getSignalSlot(clientChainId, contractAddress, msgHash);
-    log("Signal slot", key);
+    log('Signal slot', key);
 
     // Unfortunately, since this method is stagnant, it hasn't been included into Viem lib
     // as supported methods. Still stupported  by Alchmey, Infura and others.
@@ -77,7 +82,7 @@ export class BridgeProver {
       ],
     });
 
-    console.log('Proof from eth_getProof', proof);
+    log('Proof from eth_getProof', proof);
 
     if (proof.storageProof[0].value !== toHex(true)) {
       throw new InvalidProofError('storage proof value is not 1');
@@ -105,14 +110,24 @@ export class BridgeProver {
       clientChainId: srcChainId,
       contractAddress: srcBridgeAddress,
       proofForAccountAddress: srcSignalServiceAddress,
-      blockNumber
+      blockNumber,
     });
 
-    const signalProof = this._encodeAbiParameters(destCrossChainSyncAddress, BigInt(blockNumber), rlpEncodedStorageProof, []);
+    const signalProof = this._encodeAbiParameters(
+      destCrossChainSyncAddress,
+      BigInt(blockNumber),
+      rlpEncodedStorageProof,
+      [],
+    );
     return signalProof;
   }
 
-  async encodedSignalProofWithHops(msgHash: Hash, receipt: TransactionReceipt, srcChainId: number, destChainId: number) {
+  async encodedSignalProofWithHops(
+    msgHash: Hash,
+    receipt: TransactionReceipt,
+    srcChainId: number,
+    destChainId: number,
+  ) {
     const srcBridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
     const srcSignalServiceAddress = routingContractsMap[srcChainId][destChainId].signalServiceAddress;
     const destCrossChainSyncAddress = routingContractsMap[destChainId][srcChainId].taikoAddress;
@@ -138,7 +153,7 @@ export class BridgeProver {
     });
     // The first signalRoot
     let signalRoot = proof.storageHash;
-    log("successfully generated main storage proof", signalRoot);
+    log('successfully generated main storage proof', signalRoot);
 
     let hops: Hop[] = [];
     for (var hop of hopParams) {
@@ -149,7 +164,7 @@ export class BridgeProver {
         proofForAccountAddress: hop.signalServiceAddress,
         blockNumber: blockNumber,
       });
-      log("successfully generated hop storage proof", hopProof.storageHash);
+      log('successfully generated hop storage proof', hopProof.storageHash);
 
       hops.push({
         signalRootRelay: hop.taikoAddress,
@@ -159,7 +174,12 @@ export class BridgeProver {
       signalRoot = hopProof.storageHash;
     }
 
-    const signalProof = this._encodeAbiParameters(destCrossChainSyncAddress, BigInt(blockNumber), rlpEncodedStorageProof, hops);
+    const signalProof = this._encodeAbiParameters(
+      destCrossChainSyncAddress,
+      BigInt(blockNumber),
+      rlpEncodedStorageProof,
+      hops,
+    );
     return signalProof;
   }
 
@@ -186,47 +206,44 @@ export class BridgeProver {
     return this.encodedSignalProof(msgHash, destChainId, srcChainId);
   }
 
-  _encodeAbiParameters(crossChainSync: string,
-    height: bigint,
-    storageProof: Hex,
-    hops: Hop[]) {
-      return encodeAbiParameters(
-        [
-          {
-            type: 'tuple',
-            components: [
-              { name: 'crossChainSync', type: 'address' },
-              { name: 'height', type: 'uint64' },
-              { name: 'storageProof', type: 'bytes' },
-              {
-                type: 'tuple[]',
-                name: 'hops',
-                components: [
-                  {
-                    type: 'address',
-                    name: 'signalRootRelay',
-                  },
-                  {
-                    type: 'bytes32',
-                    name: 'signalRoot',
-                  },
-                  {
-                    type: 'bytes',
-                    name: 'storageProof',
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-        [
-          {
-            crossChainSync,
-            height,
-            storageProof,
-            hops,
-          },
-        ],
-      );  
+  _encodeAbiParameters(crossChainSync: string, height: bigint, storageProof: Hex, hops: Hop[]) {
+    return encodeAbiParameters(
+      [
+        {
+          type: 'tuple',
+          components: [
+            { name: 'crossChainSync', type: 'address' },
+            { name: 'height', type: 'uint64' },
+            { name: 'storageProof', type: 'bytes' },
+            {
+              type: 'tuple[]',
+              name: 'hops',
+              components: [
+                {
+                  type: 'address',
+                  name: 'signalRootRelay',
+                },
+                {
+                  type: 'bytes32',
+                  name: 'signalRoot',
+                },
+                {
+                  type: 'bytes',
+                  name: 'storageProof',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      [
+        {
+          crossChainSync,
+          height,
+          storageProof,
+          hops,
+        },
+      ],
+    );
   }
 }

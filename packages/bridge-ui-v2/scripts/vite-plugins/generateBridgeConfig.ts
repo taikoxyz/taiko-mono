@@ -37,7 +37,6 @@ export function generateBridgeConfig() {
 
         // Decode base64 encoded JSON string
         configuredBridgesConfigFile = decodeBase64ToJson(process.env.CONFIGURED_BRIDGES || '');
-        console.log("configuredBridgesConfigFile", configuredBridgesConfigFile["configuredBridges"][0]["addresses"]);
 
         // Valide JSON against schema
         const isValid = validateJsonAgainstSchema(configuredBridgesConfigFile, configuredBridgesSchema);
@@ -98,7 +97,6 @@ async function buildBridgeConfig(sourceFile: SourceFile, configuredBridgesConfig
       throw new Error();
     }
     bridges.configuredBridges.forEach((item: BridgeConfig) => {
-      console.log("item", item);
       if (!routingContractsMap[item.source]) {
         routingContractsMap[item.source] = {};
       }
