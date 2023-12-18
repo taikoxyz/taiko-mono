@@ -21,8 +21,6 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction) {
 
   const destCrossChainSyncAddress = routingContractsMap[Number(destChainId)][Number(srcChainId)].taikoAddress;
 
-  console.log('destCrossChainSyncAddress', destCrossChainSyncAddress);
-
   try {
     const destCrossChainSyncContract = getContract({
       address: destCrossChainSyncAddress,
@@ -38,7 +36,6 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction) {
 
     return srcBlock.number !== null && receipt.blockNumber <= srcBlock.number;
   } catch (error) {
-    console.log('error', error);
     return false;
   }
 }
