@@ -37,11 +37,23 @@
               "signalServiceAddress": {
                 "type": "string"
               },
-              "hopTaikoAddresses": {
-                "type": "string"
-              },
-              "hopSignalServiceAddresses": {
-                "type": "string"
+              "hops": {
+                "type": "array",
+                "default": [],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "chainId": {
+                      "type": "number"
+                    },
+                    "taikoAddress": {
+                      "type": "string"
+                    },
+                    "signalServiceAddress": {
+                      "type": "string"
+                    }
+                  }
+                }
               }
             },
             "required": [
@@ -50,7 +62,8 @@
               "erc721VaultAddress",
               "erc1155VaultAddress",
               "taikoAddress",
-              "signalServiceAddress"
+              "signalServiceAddress",
+              "hops"
             ],
             "additionalProperties": false
           }

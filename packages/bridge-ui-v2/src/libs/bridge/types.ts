@@ -201,9 +201,14 @@ export type AddressConfig = {
   erc1155VaultAddress: Address;
   taikoAddress: Address;
   signalServiceAddress: Address;
-  hopTaikoAddresses?: Address;
-  hopSignalServiceAddresses?: Address;
+  hops: Array<HopAddressConfig>;
 };
+
+export type HopAddressConfig = {
+  chainId: number;
+  taikoAddress: Address;
+  signalServiceAddress: Address;
+}
 
 export enum ContractType {
   BRIDGE,

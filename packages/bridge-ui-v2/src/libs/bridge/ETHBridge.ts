@@ -118,13 +118,10 @@ export class ETHBridge extends Bridge {
       console.log("srcChainId", srcChainId);
       console.log("destChainId", destChainId);
 
-      const hopTaikoAddresses = routingContractsMap[srcChainId][destChainId].hopTaikoAddresses;
-      const hopSignalServiceAddresses = routingContractsMap[srcChainId][destChainId].hopSignalServiceAddresses;
-      console.log("hopTaikoAddresses", hopTaikoAddresses);
-      console.log("hopSignalServiceAddresses", hopSignalServiceAddresses);
-
+      const hops = routingContractsMap[srcChainId][destChainId].hops;
+    
       let proof;
-      if (hopTaikoAddresses !== undefined && hopSignalServiceAddresses !== undefined) {
+      if (hops.length > 0) {
         proof = await this._prover.encodedSignalProofWithHops(msgHash, receipt, srcChainId, destChainId);
       } else {
         proof = await this._prover.encodedSignalProof(msgHash, srcChainId, destChainId);

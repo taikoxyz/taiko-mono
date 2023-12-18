@@ -16,6 +16,12 @@ export type StorageEntry = {
   proof: Hex[];
 };
 
+export type Hop = {
+  signalRootRelay: Address;
+  signalRoot: Hex;
+  storageProof: Hex;
+};
+
 export type EthGetProofResponse = {
   balance: bigint;
   codeHash: Hash;

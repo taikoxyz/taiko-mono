@@ -9,7 +9,7 @@ import { InvalidProofError, PendingBlockError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { publicClient } from '$libs/wagmi';
 
-import type { ClientWithEthGetProofRequest, GenerateProofArgs,  } from './types';
+import type { ClientWithEthGetProofRequest, GenerateProofArgs, Hop } from './types';
 
 const log = getLogger('proof:Prover');
 
@@ -25,7 +25,6 @@ export class BridgeProver {
     crossChainSyncContract: GetContractResult<typeof crossChainSyncABI>,
   ) {
     const syncedSnippet = await crossChainSyncContract.read.getSyncedSnippet([BigInt(0)]);
-    console.log("syncedSnippet", syncedSnippet);
     const latestBlockHash = syncedSnippet['blockHash'];
     return client.getBlock({ blockHash: latestBlockHash });
   }
@@ -35,40 +34,18 @@ export class BridgeProver {
     crossChainSyncContract: GetContractResult<typeof crossChainSyncABI>,
     blockNumber: number,
   ) {
-    console.log("getBlockFromGetSyncedSnippet", crossChainSyncContract)
     const syncedSnippet = await crossChainSyncContract.read.getSyncedSnippet([BigInt(blockNumber)]);
-    console.log("getBlockFromGetSyncedSnippet", syncedSnippet);
     const latestBlockHash = syncedSnippet['blockHash'];
     const block = await client.getBlock({ blockHash: latestBlockHash });
     return {block, syncedSnippet}
   }
 
-  async getBlockNumber(srcChainId: number, destChainId: number, blockNumber: number) {
-
-    const destCrossChainSyncAddress = routingContractsMap[destChainId][srcChainId].taikoAddress;
-
-    const crossChainSyncContract = getContract({
-      chainId: destChainId,
-      address: destCrossChainSyncAddress,
-      abi: crossChainSyncABI,
-    });
-
-    console.log("crossChainSyncChainId", destChainId);
-    console.log("clientChainId", srcChainId);
-    console.log("blockNumber", blockNumber);
-
-    const client = publicClient({ chainId: srcChainId });
-    const {block, syncedSnippet} = await this.getBlockFromGetSyncedSnippet(client, crossChainSyncContract, blockNumber);
-    return {block, syncedSnippet};
-  }
-
   async encodedStorageProof(args: GenerateProofArgs) {
-    console.log("encodedStorageProof args", args);
     let { msgHash, clientChainId, contractAddress, proofForAccountAddress, blockNumber } = args;
     const client = publicClient({ chainId: clientChainId });
     let key = await this.getSignalSlot(clientChainId, contractAddress, msgHash);
 
-    console.log("encodedStorageProof key", key);
+    log("Signal slot", key);
 
     // Unfortunately, since this method is stagnant, it hasn't been included into Viem lib
     // as supported methods. Still stupported  by Alchmey, Infura and others.
@@ -105,8 +82,6 @@ export class BridgeProver {
   // Reference: EncodedSignalProof in relayer/proof/encoded_signal_proof.go
   // protocol/contracts/signal/SignalService.sol
   async encodedSignalProof(msgHash: Hash, srcChainId: number, destChainId: number) {
-    console.log("encodedSignalProof");
-
     const srcBridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
     const srcSignalServiceAddress = routingContractsMap[srcChainId][destChainId].signalServiceAddress;
     const destCrossChainSyncAddress = routingContractsMap[destChainId][srcChainId].taikoAddress;
@@ -118,9 +93,6 @@ export class BridgeProver {
       address: destCrossChainSyncAddress,
       abi: crossChainSyncABI,
     });
-
-    console.log("crossChainSyncChainId", destChainId);
-    console.log("clientChainId", srcChainId);
 
     const client = publicClient({ chainId: srcChainId });
 
@@ -137,14 +109,7 @@ export class BridgeProver {
       blockNumber: block.number
     });
 
-    type Hop = {
-      signalRootRelay: Address;
-      signalRoot: Hex;
-      storageProof: Hex;
-    };
-
     const hops: Hop[] = [];
-    // TODO: move to encodeAbiParameters for signalProof
     const signalProof = encodeAbiParameters(
       [
         {
@@ -188,20 +153,29 @@ export class BridgeProver {
   }
 
   async encodedSignalProofWithHops(msgHash: Hash, receipt: TransactionReceipt, srcChainId: number, destChainId: number) {
-    console.log("encodedSignalProofWithHops receipt", receipt);
-
     const srcBridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
     const srcSignalServiceAddress = routingContractsMap[srcChainId][destChainId].signalServiceAddress;
     const destCrossChainSyncAddress = routingContractsMap[destChainId][srcChainId].taikoAddress;
+    const hopParams = routingContractsMap[srcChainId][destChainId].hops;
 
-    const hopChainId = 31336;
-    const hopTaikoAddresses = routingContractsMap[srcChainId][destChainId].hopTaikoAddresses;
-    const hopSignalServiceAddresses = routingContractsMap[srcChainId][destChainId].hopSignalServiceAddresses;
-
-    // let {block: block, syncedSnippet: syncedSnippet} = await this.getBlockNumber(srcChainId, hopChainId, receipt.blockNumber);
-    // console.log("block123", block, syncedSnippet);
-
-    // Get the block number from hop chain to dest chain
+    let blockNumber: number = 0;
+    // Initialize hopChainId with src chain
+    let hopChainId: number = srcChainId;
+    for (var hop of hopParams) {
+      const crossChainSyncContract = getContract({
+        chainId: hop.chainId,
+        address: hop.taikoAddress,
+        abi: crossChainSyncABI,
+      });
+      const hopClient = publicClient({ chainId: hopChainId });
+      let block = await this.getLatestBlockFromGetSyncedSnippet(hopClient, crossChainSyncContract);
+      if (block.hash === null || block.number === null) {
+        throw new PendingBlockError('block is pending');
+      }
+      blockNumber = block.number;
+      hopChainId = hop.chainId;
+    }
+    // Get the block number from last hop chain to dest chain
     const crossChainSyncContract = getContract({
       chainId: destChainId,
       address: destCrossChainSyncAddress,
@@ -212,11 +186,8 @@ export class BridgeProver {
     if (block.hash === null || block.number === null) {
       throw new PendingBlockError('block is pending');
     }
-    let blockNumber = block.number
-    console.log("block123 blockNumber", blockNumber)
 
-    // Generate main storage proof
-    // Use receipt.blockNumber
+    // Generate main storage proof with receipt.blockNumber
     const { proof, rlpEncodedStorageProof } = await this.encodedStorageProof({
       msgHash,
       clientChainId: srcChainId,
@@ -224,36 +195,29 @@ export class BridgeProver {
       proofForAccountAddress: srcSignalServiceAddress,
       blockNumber: receipt.blockNumber,
     });
-
     // The first signalRoot
-    const signalRoot = proof.storageHash;
-    console.log("successfully generated main storage proof. singalRoot", signalRoot);
+    let signalRoot = proof.storageHash;
+    log("successfully generated main storage proof", signalRoot);
 
-    const { proof: hopProof, rlpEncodedStorageProof: hopRlpEncodedStorageProof } = await this.encodedStorageProof({
-      msgHash: signalRoot,
-      clientChainId: hopChainId,
-      contractAddress: hopTaikoAddresses,
-      proofForAccountAddress: hopSignalServiceAddresses,
-      blockNumber: blockNumber,
-    });
+    let hops: Hop[] = [];
+    for (var hop of hopParams) {
+      const { proof: hopProof, rlpEncodedStorageProof: hopRlpEncodedStorageProof } = await this.encodedStorageProof({
+        msgHash: signalRoot,
+        clientChainId: hop.chainId,
+        contractAddress: hop.taikoAddress,
+        proofForAccountAddress: hop.signalServiceAddress,
+        blockNumber: blockNumber,
+      });
+      log("successfully generated hop storage proof", hopProof.storageHash);
 
-    console.log("successfully generated hop storage proof. singalRoot");
-
-    type Hop = {
-      signalRootRelay: Address;
-      signalRoot: Hex;
-      storageProof: Hex;
-    };
-
-    // Create hopParams
-    const hop: Hop = {
-      signalRootRelay: hopTaikoAddresses,
-      signalRoot: signalRoot,
-      storageProof: hopRlpEncodedStorageProof,
+      hops.push({
+        signalRootRelay: hop.taikoAddress,
+        signalRoot: signalRoot,
+        storageProof: hopRlpEncodedStorageProof,
+      });
+      signalRoot = hopProof.storageHash;
     }
-    const hops: Hop[] = [hop];
 
-    // TODO: move to encodeAbiParameters for signalProof
     const signalProof = encodeAbiParameters(
       [
         {
@@ -286,7 +250,7 @@ export class BridgeProver {
       [
         {
           crossChainSync: destCrossChainSyncAddress,
-          height: blockNumber as bigint,
+          height: BigInt(blockNumber),
           storageProof: rlpEncodedStorageProof,
           hops: hops,
         },
@@ -315,7 +279,6 @@ export class BridgeProver {
       throw new InvalidProofError('storage proof value is not FAILED');
     }
 
-    // return this._encodedSignalProof(srcCrossChainSyncAddress, rlpEncodedStorageProof, block.number as bigint);
-    return toHex('0x');
+    return this._encodedSignalProof(srcCrossChainSyncAddress, rlpEncodedStorageProof, block.number as bigint);
   }
 }
