@@ -133,12 +133,13 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 msgHash = hashMessage(message);
         if (isMessageRecalled[msgHash]) revert B_RECALLED_ALREADY();
 
-        ISignalService ss = ISignalService(resolve("signal_service", false));
+        ISignalService signalService = ISignalService(resolve("signal_service", false));
 
-        if (!ss.isSignalSent(address(this), msgHash)) revert B_MESSAGE_NOT_SENT();
+        if (!signalService.isSignalSent(address(this), msgHash)) revert B_MESSAGE_NOT_SENT();
 
-        bool received =
-            _proveSignalReceived(ss, _signalForFailedMessage(msgHash), message.destChainId, proof);
+        bool received = _proveSignalReceived(
+            signalService, _signalForFailedMessage(msgHash), message.destChainId, proof
+        );
         if (!received) revert B_NOT_FAILED();
 
         isMessageRecalled[msgHash] = true;
@@ -195,14 +196,19 @@ contract Bridge is EssentialContract, IBridge {
 
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
-        ISignalService ss = ISignalService(resolve("signal_service", false));
-        if (!_proveSignalReceived(ss, msgHash, message.srcChainId, proof)) revert B_NOT_RECEIVED();
+        ISignalService signalService = ISignalService(resolve("signal_service", false));
+        if (!_proveSignalReceived(signalService, msgHash, message.srcChainId, proof)) {
+            revert B_NOT_RECEIVED();
+        }
 
         Status status;
         uint256 refundAmount;
 
         // Process message differently based on the target address
-        if (message.to == address(0) || message.to == address(this) || message.to == address(ss)) {
+        if (
+            message.to == address(0) || message.to == address(this)
+                || message.to == address(signalService)
+        ) {
             // Handle special addresses that don't require actual invocation but
             // mark message as DONE
             status = Status.DONE;
@@ -220,7 +226,7 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         // Update the message status
-        _updateMessageStatus(ss, msgHash, status);
+        _updateMessageStatus(signalService, msgHash, status);
 
         // Determine the refund recipient
         address refundTo = message.refundTo == address(0) ? message.owner : message.refundTo;
@@ -264,15 +270,15 @@ contract Bridge is EssentialContract, IBridge {
             revert B_NON_RETRIABLE();
         }
 
-        ISignalService ss = ISignalService(resolve("signal_service", false));
+        ISignalService signalService = ISignalService(resolve("signal_service", false));
 
         // Attempt to invoke the messageCall.
         if (_invokeMessageCall(message, msgHash, gasleft())) {
             // Update the message status to "DONE" on successful invocation.
-            _updateMessageStatus(ss, msgHash, Status.DONE);
+            _updateMessageStatus(signalService, msgHash, Status.DONE);
         } else {
             // Update the message status to "FAILED"
-            _updateMessageStatus(ss, msgHash, Status.FAILED);
+            _updateMessageStatus(signalService, msgHash, Status.FAILED);
         }
     }
 
