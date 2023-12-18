@@ -87,7 +87,7 @@
     loading = LoadingState.CLAIMING;
 
     try {
-      const { msgHash, message } = bridgeTx;
+      const { msgHash, message, receipt } = bridgeTx;
 
       if (!msgHash || !message) {
         throw new Error('Missing msgHash or message');
@@ -109,7 +109,7 @@
       log(`Claiming ${bridgeTx.tokenType} for transaction`, bridgeTx);
 
       // Step 5: Call claim() method on the bridge
-      const txHash = await bridge.claim({ msgHash, message, wallet });
+      const txHash = await bridge.claim({ msgHash, message, receipt, wallet });
 
       const { explorer } = chainConfig[Number(bridgeTx.destChainId)].urls;
 

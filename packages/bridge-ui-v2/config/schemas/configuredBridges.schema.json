@@ -31,11 +31,29 @@
               "erc1155VaultAddress": {
                 "type": "string"
               },
-              "crossChainSyncAddress": {
+              "taikoAddress": {
                 "type": "string"
               },
               "signalServiceAddress": {
                 "type": "string"
+              },
+              "hops": {
+                "type": "array",
+                "default": [],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "chainId": {
+                      "type": "number"
+                    },
+                    "taikoAddress": {
+                      "type": "string"
+                    },
+                    "signalServiceAddress": {
+                      "type": "string"
+                    }
+                  }
+                }
               }
             },
             "required": [
@@ -43,8 +61,9 @@
               "erc20VaultAddress",
               "erc721VaultAddress",
               "erc1155VaultAddress",
-              "crossChainSyncAddress",
-              "signalServiceAddress"
+              "taikoAddress",
+              "signalServiceAddress",
+              "hops"
             ],
             "additionalProperties": false
           }

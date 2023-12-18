@@ -19,7 +19,7 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction) {
   // TODO: do better job here as this is to make the UI happy
   if (status !== MessageStatus.NEW) return true;
 
-  const destCrossChainSyncAddress = routingContractsMap[Number(destChainId)][Number(srcChainId)].crossChainSyncAddress;
+  const destCrossChainSyncAddress = routingContractsMap[Number(destChainId)][Number(srcChainId)].taikoAddress;
 
   try {
     const destCrossChainSyncContract = getContract({

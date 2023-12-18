@@ -76,8 +76,8 @@ const determineOwnership = async (
   return tokenType === TokenType.ERC1155
     ? isOwnerERC1155(tokenAddress, tokenId, accountAddress, chainId)
     : tokenType === TokenType.ERC721
-      ? isOwnerERC721(tokenAddress, tokenId, accountAddress, chainId)
-      : Promise.resolve(false);
+    ? isOwnerERC721(tokenAddress, tokenId, accountAddress, chainId)
+    : Promise.resolve(false);
 };
 
 const isOwnerERC1155 = async (

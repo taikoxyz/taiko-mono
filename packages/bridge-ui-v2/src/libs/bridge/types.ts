@@ -171,6 +171,7 @@ export type RequireApprovalArgs = {
 export type ClaimArgs = {
   msgHash: Hash;
   message: Message;
+  receipt?: TransactionReceipt;
   wallet: WalletClient;
 };
 
@@ -198,7 +199,14 @@ export type AddressConfig = {
   etherVaultAddress?: Address;
   erc721VaultAddress: Address;
   erc1155VaultAddress: Address;
-  crossChainSyncAddress: Address;
+  taikoAddress: Address;
+  signalServiceAddress: Address;
+  hops: Array<HopAddressConfig>;
+};
+
+export type HopAddressConfig = {
+  chainId: number;
+  taikoAddress: Address;
   signalServiceAddress: Address;
 };
 

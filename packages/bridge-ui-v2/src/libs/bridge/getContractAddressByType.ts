@@ -35,7 +35,7 @@ export const getContractAddressByType = (args: GetContractAddressType): Address 
     case ContractType.SIGNALSERVICE:
       return addressConfig.signalServiceAddress;
     case ContractType.CROSSCHAINSYNC:
-      return addressConfig.crossChainSyncAddress;
+      return addressConfig.taikoAddress;
     default:
       throw new Error('Invalid contract type');
   }
