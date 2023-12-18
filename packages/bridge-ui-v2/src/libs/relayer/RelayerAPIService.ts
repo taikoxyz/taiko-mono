@@ -6,7 +6,7 @@ import { Buffer } from 'buffer';
 import { bridgeABI } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { apiService } from '$config';
-import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
+import type { BridgeTransaction, MessageStatus } from '$libs/bridge';
 import { isSupportedChain } from '$libs/chain';
 import { TokenType } from '$libs/token';
 import { getLogger } from '$libs/util/logger';

@@ -44,7 +44,7 @@ export function generateRelayerConfig() {
         // Valide JSON against schema
         const isValid = validateJsonAgainstSchema(configuredRelayerConfigFile, configuredRelayerSchema);
         if (!isValid) {
-          throw new Error('encoded configuredRelayer.json is not valid.');
+          throw new Error('encoded configuredBridges.json is not valid.');
         }
       }
       // Path to where you want to save the generated Typ eScript file
