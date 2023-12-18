@@ -93,9 +93,7 @@ export class BridgeProver {
       address: destCrossChainSyncAddress,
       abi: crossChainSyncABI,
     });
-
     const client = publicClient({ chainId: srcChainId });
-
     const block = await this.getLatestBlockFromGetSyncedSnippet(client, crossChainSyncContract);
     if (block.hash === null || block.number === null) {
       throw new PendingBlockError('block is pending');
@@ -260,18 +258,28 @@ export class BridgeProver {
     return signalProof;
   }
 
-  // TODO: fix generateProofToRelease
   async generateProofToRelease(msgHash: Hash, srcChainId: number, destChainId: number) {
     const srcBridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
     const destBridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
-    const srcCrossChainSyncAddress = routingContractsMap[srcChainId][destChainId].taikoAddress;
+    const destCrossChainSyncAddress = routingContractsMap[destChainId][srcChainId].taikoAddress;
 
-    const { proof, rlpEncodedStorageProof } = await this.encodedStorageProof({
+    const crossChainSyncContract = getContract({
+      chainId: destChainId,
+      address: destCrossChainSyncAddress,
+      abi: crossChainSyncABI,
+    });
+    const client = publicClient({ chainId: srcChainId });
+    const block = await this.getLatestBlockFromGetSyncedSnippet(client, crossChainSyncContract);
+    if (block.hash === null || block.number === null) {
+      throw new PendingBlockError('block is pending');
+    }
+
+    const { proof } = await this.encodedStorageProof({
       msgHash,
       clientChainId: destChainId,
       contractAddress: srcBridgeAddress,
       proofForAccountAddress: destBridgeAddress,
-      blockNumber: "",
+      blockNumber: block.number,
     });
 
     // Value must be 0x3 => MessageStatus.FAILED
@@ -279,6 +287,6 @@ export class BridgeProver {
       throw new InvalidProofError('storage proof value is not FAILED');
     }
 
-    return this._encodedSignalProof(srcCrossChainSyncAddress, rlpEncodedStorageProof, block.number as bigint);
+    return this.encodedSignalProof(msgHash, destChainId, srcChainId);
   }
 }
