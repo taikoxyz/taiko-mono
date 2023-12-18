@@ -8,7 +8,7 @@
         "erc20VaultAddress": "",
         "erc721VaultAddress": "",
         "erc1155VaultAddress": "",
-        "taikoAddress": "",
+        "crossChainSyncAddress": "",
         "signalServiceAddress": ""
       }
     },
@@ -20,7 +20,7 @@
         "erc20VaultAddress": "",
         "erc721VaultAddress": "",
         "erc1155VaultAddress": "",
-        "taikoAddress": "",
+        "crossChainSyncAddress": "",
         "signalServiceAddress": ""
       }
     },
@@ -32,7 +32,7 @@
         "erc20VaultAddress": "",
         "erc721VaultAddress": "",
         "erc1155VaultAddress": "",
-        "taikoAddress": "",
+        "crossChainSyncAddress": "",
         "signalServiceAddress": ""
       }
     },
@@ -44,7 +44,7 @@
         "erc20VaultAddress": "",
         "erc721VaultAddress": "",
         "erc1155VaultAddress": "",
-        "taikoAddress": "",
+        "crossChainSyncAddress": "",
         "signalServiceAddress": ""
       }
     }
