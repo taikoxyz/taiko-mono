@@ -107,46 +107,7 @@ export class BridgeProver {
       blockNumber: block.number
     });
 
-    const hops: Hop[] = [];
-    const signalProof = encodeAbiParameters(
-      [
-        {
-          type: 'tuple',
-          components: [
-            { name: 'crossChainSync', type: 'address' },
-            { name: 'height', type: 'uint64' },
-            { name: 'storageProof', type: 'bytes' },
-            {
-              type: 'tuple[]',
-              name: 'hops',
-              components: [
-                {
-                  type: 'address',
-                  name: 'signalRootRelay',
-                },
-                {
-                  type: 'bytes32',
-                  name: 'signalRoot',
-                },
-                {
-                  type: 'bytes',
-                  name: 'storageProof',
-                },
-              ],
-            },
-          ],
-        },
-      ],
-      [
-        {
-          crossChainSync: destCrossChainSyncAddress,
-          height: block.number as bigint,
-          storageProof: rlpEncodedStorageProof,
-          hops: hops,
-        },
-      ],
-    );
-
+    const signalProof = this._encodeAbiParameters(destCrossChainSyncAddress, BigInt(block.number), rlpEncodedStorageProof, []);
     return signalProof;
   }
 
@@ -216,45 +177,7 @@ export class BridgeProver {
       signalRoot = hopProof.storageHash;
     }
 
-    const signalProof = encodeAbiParameters(
-      [
-        {
-          type: 'tuple',
-          components: [
-            { name: 'crossChainSync', type: 'address' },
-            { name: 'height', type: 'uint64' },
-            { name: 'storageProof', type: 'bytes' },
-            {
-              type: 'tuple[]',
-              name: 'hops',
-              components: [
-                {
-                  type: 'address',
-                  name: 'signalRootRelay',
-                },
-                {
-                  type: 'bytes32',
-                  name: 'signalRoot',
-                },
-                {
-                  type: 'bytes',
-                  name: 'storageProof',
-                },
-              ],
-            },
-          ],
-        },
-      ],
-      [
-        {
-          crossChainSync: destCrossChainSyncAddress,
-          height: BigInt(blockNumber),
-          storageProof: rlpEncodedStorageProof,
-          hops: hops,
-        },
-      ],
-    );
-
+    const signalProof = this._encodeAbiParameters(destCrossChainSyncAddress, BigInt(blockNumber), rlpEncodedStorageProof, hops);
     return signalProof;
   }
 
@@ -288,5 +211,49 @@ export class BridgeProver {
     }
 
     return this.encodedSignalProof(msgHash, destChainId, srcChainId);
+  }
+
+  _encodeAbiParameters(crossChainSync: string,
+    height: bigint,
+    storageProof: Hex,
+    hops: Hop[]) {
+      return encodeAbiParameters(
+        [
+          {
+            type: 'tuple',
+            components: [
+              { name: 'crossChainSync', type: 'address' },
+              { name: 'height', type: 'uint64' },
+              { name: 'storageProof', type: 'bytes' },
+              {
+                type: 'tuple[]',
+                name: 'hops',
+                components: [
+                  {
+                    type: 'address',
+                    name: 'signalRootRelay',
+                  },
+                  {
+                    type: 'bytes32',
+                    name: 'signalRoot',
+                  },
+                  {
+                    type: 'bytes',
+                    name: 'storageProof',
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+        [
+          {
+            crossChainSync,
+            height,
+            storageProof,
+            hops,
+          },
+        ],
+      );  
   }
 }
