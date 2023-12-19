@@ -187,12 +187,12 @@ export class ERC20Bridge extends Bridge {
     const { messageStatus, destBridgeContract } = await super.beforeClaiming(args);
 
     let txHash: Hash;
-    const { msgHash, message } = args;
+    const { msgHash, message, receipt } = args;
     const srcChainId = Number(message.srcChainId);
     const destChainId = Number(message.destChainId);
 
     if (messageStatus === MessageStatus.NEW) {
-      const proof = await this._prover.encodedSignalProof(msgHash, srcChainId, destChainId);
+      let proof = await this._prover.encodeSignalProof(msgHash, receipt, srcChainId, destChainId);
 
       try {
         if (message.gasLimit > bridgeService.erc20GasLimitThreshold) {

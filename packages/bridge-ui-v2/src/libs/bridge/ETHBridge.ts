@@ -114,14 +114,7 @@ export class ETHBridge extends Bridge {
     const destChainId = Number(message.destChainId);
 
     if (messageStatus === MessageStatus.NEW) {
-      const hops = routingContractsMap[srcChainId][destChainId].hops;
-
-      let proof;
-      if (hops.length > 0) {
-        proof = await this._prover.encodedSignalProofWithHops(msgHash, receipt, srcChainId, destChainId);
-      } else {
-        proof = await this._prover.encodedSignalProof(msgHash, srcChainId, destChainId);
-      }
+      let proof = await this._prover.encodeSignalProof(msgHash, receipt, srcChainId, destChainId);
 
       try {
         txHash = await destBridgeContract.write.processMessage([message, proof]);

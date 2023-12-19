@@ -94,9 +94,22 @@ export class BridgeProver {
     return { proof, rlpEncodedStorageProof };
   }
 
+  async encodeSignalProof(msgHash: Hash,
+    receipt: TransactionReceipt,
+    srcChainId: number,
+    destChainId: number,
+  ) {
+    const hops = routingContractsMap[srcChainId][destChainId].hops;
+    if (hops && hops.length > 0) {
+      return await this._encodedSignalProofWithHops(msgHash, receipt, srcChainId, destChainId);
+    } else {
+      return await this._encodedSignalProofWithoutHops(msgHash, srcChainId, destChainId);
+    }
+  }
+
   // Reference: EncodedSignalProof in relayer/proof/encoded_signal_proof.go
   // protocol/contracts/signal/SignalService.sol
-  async encodedSignalProof(msgHash: Hash, srcChainId: number, destChainId: number) {
+  async _encodedSignalProofWithoutHops(msgHash: Hash, srcChainId: number, destChainId: number) {
     const srcBridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
     const srcSignalServiceAddress = routingContractsMap[srcChainId][destChainId].signalServiceAddress;
     const destCrossChainSyncAddress = routingContractsMap[destChainId][srcChainId].taikoAddress;
@@ -122,7 +135,7 @@ export class BridgeProver {
     return signalProof;
   }
 
-  async encodedSignalProofWithHops(
+  async _encodedSignalProofWithHops(
     msgHash: Hash,
     receipt: TransactionReceipt,
     srcChainId: number,
@@ -203,7 +216,7 @@ export class BridgeProver {
       throw new InvalidProofError('storage proof value is not FAILED');
     }
 
-    return this.encodedSignalProof(msgHash, destChainId, srcChainId);
+    return this._encodedSignalProofWithoutHops(msgHash, destChainId, srcChainId);
   }
 
   _encodeAbiParameters(crossChainSync: string, height: bigint, storageProof: Hex, hops: Hop[]) {

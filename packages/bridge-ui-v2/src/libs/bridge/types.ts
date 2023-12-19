@@ -199,14 +199,14 @@ export type AddressConfig = {
   etherVaultAddress?: Address;
   erc721VaultAddress: Address;
   erc1155VaultAddress: Address;
-  taikoAddress: Address;
+  crossChainSyncAddress: Address;
   signalServiceAddress: Address;
-  hops: Array<HopAddressConfig>;
+  hops?: Array<HopAddressConfig>;
 };
 
 export type HopAddressConfig = {
   chainId: number;
-  taikoAddress: Address;
+  crossChainSyncAddress: Address;
   signalServiceAddress: Address;
 };
 
