@@ -36,15 +36,15 @@ export async function getCrossChainAddress({
     token.type === TokenType.ERC721
       ? erc721VaultABI
       : token.type === TokenType.ERC1155
-      ? erc1155VaultABI
-      : erc20VaultABI;
+        ? erc1155VaultABI
+        : erc20VaultABI;
 
   const vaultAddressKey =
     token.type === TokenType.ERC721
       ? 'erc721VaultAddress'
       : token.type === TokenType.ERC1155
-      ? 'erc1155VaultAddress'
-      : 'erc20VaultAddress';
+        ? 'erc1155VaultAddress'
+        : 'erc20VaultAddress';
 
   // it could be that we don't have the token address on the current chain, but we might it on another chain
   if (!existsOnSourceChain) {
@@ -123,8 +123,8 @@ async function getVaultForToken(tokenType: TokenType, configuredChainId: string)
     tokenType === TokenType.ERC721
       ? 'erc721VaultAddress'
       : tokenType === TokenType.ERC1155
-      ? 'erc1155VaultAddress'
-      : 'erc20VaultAddress';
+        ? 'erc1155VaultAddress'
+        : 'erc20VaultAddress';
 
   // we need find a vault that is configured with the selected srcChainId and the configuredChainId
   const vaultInfo = chains
