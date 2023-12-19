@@ -270,15 +270,17 @@ contract Bridge is EssentialContract, IBridge {
             revert B_NON_RETRIABLE();
         }
 
-        ISignalService signalService = ISignalService(resolve("signal_service", false));
-
         // Attempt to invoke the messageCall.
         if (_invokeMessageCall(message, msgHash, gasleft())) {
             // Update the message status to "DONE" on successful invocation.
-            _updateMessageStatus(signalService, msgHash, Status.DONE);
-        } else {
+            _updateMessageStatus(
+                ISignalService(resolve("signal_service", false)), msgHash, Status.DONE
+            );
+        } else if (isLastAttempt) {
             // Update the message status to "FAILED"
-            _updateMessageStatus(signalService, msgHash, Status.FAILED);
+            _updateMessageStatus(
+                ISignalService(resolve("signal_service", false)), msgHash, Status.FAILED
+            );
         }
     }
 
