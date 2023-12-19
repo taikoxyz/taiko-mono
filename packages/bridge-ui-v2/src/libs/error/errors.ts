@@ -74,6 +74,14 @@ export class InvalidProofError extends Error {
   name = 'InvalidProofError';
 }
 
+export class InvalidSignalProofWithHopsError extends Error {
+  name = 'InvalidSignalProofWithHopsError';
+}
+
+export class WrongBridgeConfigError extends Error {
+  name = 'WrongBridgeConfigError';
+}
+
 export class MessageStatusError extends Error {
   name = 'MessageStatusError';
 }
@@ -84,10 +92,6 @@ export class WrongOwnerError extends Error {
 
 export class WrongChainError extends Error {
   name = 'WrongChainError';
-}
-
-export class WrongBridgeConfigError extends Error {
-  name = 'WrongBridgeConfigError';
 }
 
 export class BridgeTxPollingError extends Error {

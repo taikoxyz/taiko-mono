@@ -6,6 +6,7 @@ import {
   type Hex,
   keccak256,
   toHex,
+  numberToHex,
   toRlp,
   type TransactionReceipt,
 } from 'viem';
@@ -14,7 +15,12 @@ import type { Hash } from '@wagmi/core';
 import { crossChainSyncABI } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { MessageStatus } from '$libs/bridge';
-import { InvalidProofError, PendingBlockError, WrongBridgeConfigError } from '$libs/error';
+import {
+  InvalidProofError,
+  InvalidSignalProofWithHopsError,
+  PendingBlockError,
+  WrongBridgeConfigError,
+} from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { publicClient } from '$libs/wagmi';
 
@@ -78,7 +84,7 @@ export class BridgeProver {
         // Array of storage-keys that should be proofed and included
         [key],
 
-        toHex(blockNumber),
+        numberToHex(blockNumber as bigint),
       ],
     });
 
@@ -94,14 +100,10 @@ export class BridgeProver {
     return { proof, rlpEncodedStorageProof };
   }
 
-  async encodedSignalProof(msgHash: Hash,
-    receipt: TransactionReceipt,
-    srcChainId: number,
-    destChainId: number,
-  ) {
+  async encodedSignalProof(msgHash: Hash, srcChainId: number, destChainId: number) {
     const hops = routingContractsMap[srcChainId][destChainId].hops;
     if (hops && hops.length > 0) {
-      return await this._encodedSignalProofWithHops(msgHash, receipt, srcChainId, destChainId);
+      return await this._encodedSignalProofWithHops(msgHash, srcChainId, destChainId);
     } else {
       return await this._encodedSignalProofWithoutHops(msgHash, srcChainId, destChainId);
     }
@@ -135,19 +137,14 @@ export class BridgeProver {
     return signalProof;
   }
 
-  async _encodedSignalProofWithHops(
-    msgHash: Hash,
-    receipt: TransactionReceipt,
-    srcChainId: number,
-    destChainId: number,
-  ) {
+  async _encodedSignalProofWithHops(msgHash: Hash, srcChainId: number, destChainId: number) {
     const srcBridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
     const srcSignalServiceAddress = routingContractsMap[srcChainId][destChainId].signalServiceAddress;
     const destCrossChainSyncAddress = routingContractsMap[destChainId][srcChainId].crossChainSyncAddress;
     const hopParams = routingContractsMap[srcChainId][destChainId].hops;
     if (hopParams === undefined) throw new WrongBridgeConfigError('hops is undefined');
 
-    let blockNumber: number = 0;
+    let blockNumber = BigInt(0);
     // Initialize hopChainId with src chain
     let hopChainId: number = srcChainId;
     for (var hop of hopParams) {
@@ -163,7 +160,7 @@ export class BridgeProver {
       clientChainId: srcChainId,
       contractAddress: srcBridgeAddress,
       proofForAccountAddress: srcSignalServiceAddress,
-      blockNumber: receipt.blockNumber,
+      blockNumber,
     });
     // The first signalRoot
     let signalRoot = proof.storageHash;
@@ -176,7 +173,7 @@ export class BridgeProver {
         clientChainId: hop.chainId,
         contractAddress: hop.crossChainSyncAddress,
         proofForAccountAddress: hop.signalServiceAddress,
-        blockNumber: blockNumber,
+        blockNumber,
       });
       log('successfully generated hop storage proof', hopProof.storageHash);
 
@@ -220,7 +217,7 @@ export class BridgeProver {
     return this._encodedSignalProofWithoutHops(msgHash, destChainId, srcChainId);
   }
 
-  _encodeAbiParameters(crossChainSync: string, height: bigint, storageProof: Hex, hops: Hop[]) {
+  _encodeAbiParameters(crossChainSync: Address, height: bigint, storageProof: Hex, hops: Hop[]) {
     return encodeAbiParameters(
       [
         {

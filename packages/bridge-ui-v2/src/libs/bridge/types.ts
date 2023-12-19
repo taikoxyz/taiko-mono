@@ -171,7 +171,6 @@ export type RequireApprovalArgs = {
 export type ClaimArgs = {
   msgHash: Hash;
   message: Message;
-  receipt?: TransactionReceipt;
   wallet: WalletClient;
 };
 

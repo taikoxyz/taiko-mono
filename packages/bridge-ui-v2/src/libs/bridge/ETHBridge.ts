@@ -109,12 +109,12 @@ export class ETHBridge extends Bridge {
     const { messageStatus, destBridgeContract } = await super.beforeClaiming(args);
 
     let txHash: Hash;
-    const { msgHash, message, receipt } = args;
+    const { msgHash, message } = args;
     const srcChainId = Number(message.srcChainId);
     const destChainId = Number(message.destChainId);
 
     if (messageStatus === MessageStatus.NEW) {
-      let proof = await this._prover.encodedSignalProof(msgHash, receipt, srcChainId, destChainId);
+      let proof = await this._prover.encodedSignalProof(msgHash, srcChainId, destChainId);
 
       try {
         txHash = await destBridgeContract.write.processMessage([message, proof]);

@@ -109,14 +109,14 @@ export class ERC721Bridge extends Bridge {
 
   async claim(args: ClaimArgs) {
     const { messageStatus, destBridgeContract } = await super.beforeClaiming(args);
-    const { msgHash, message, receipt } = args;
+    const { msgHash, message } = args;
     const srcChainId = Number(message.srcChainId);
     const destChainId = Number(message.destChainId);
     let txHash: Hash;
     log('Claiming ERC721 token with message', message);
     log('Message status', messageStatus);
     if (messageStatus === MessageStatus.NEW) {
-      let proof = await this._prover.encodedSignalProof(msgHash, receipt, srcChainId, destChainId);
+      let proof = await this._prover.encodedSignalProof(msgHash, srcChainId, destChainId);
 
       try {
         if (message.gasLimit > bridgeService.erc721GasLimitThreshold) {
