@@ -1,6 +1,6 @@
 <script lang="ts">
   import { isAddress } from 'ethereum-address';
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
@@ -68,6 +68,10 @@
   $: borderState = validState ? 'success' : invalidState ? 'error' : defaultBorder;
 
   $: classes = classNames($$props.class, borderState);
+
+  onDestroy(() => {
+    clearAddress();
+  });
 </script>
 
 <div class="f-col space-y-2">

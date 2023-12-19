@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Address } from '@wagmi/core';
   import { isAddress } from 'ethereum-address';
-  import { onMount } from 'svelte';
+  import { onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import { FlatAlert } from '$components/Alert';
@@ -177,7 +177,7 @@
     validating = false;
   };
 
-  onMount(() => {
+  onDestroy(() => {
     reset();
   });
 
@@ -226,6 +226,9 @@
   $: isDisabled = idInputState !== IDInputState.VALID || addressInputState !== AddressInputState.VALID;
 
   $: nothingFound = scanned && foundNFTs.length === 0;
+
+  $: displayOwnershipError =
+    contractAddress && enteredIds && !isOwnerOfAllToken && nftIdArray?.length > 0 && !validating;
 </script>
 
 <div class="f-between-center gap-[16px] mt-[30px]">
@@ -243,13 +246,10 @@ Manual NFT Input
       class="bg-neutral-background border-0 h-[56px]"
       on:addressvalidation={onAddressValidation}
       labelText={$t('inputs.address_input.label.contract')} />
-    <!-- {#if addressInputState === AddressInputState.INVALID && invalidToken}
-      <FlatAlert type="error" forceColumnFlow message="todo: invalid token" />
-    {/if} -->
 
-    {#if !interfaceSupported}
+    <!-- {#if !interfaceSupported}
       <Alert type="error">TODO: token interface is not supported (link to docs?)</Alert>
-    {/if}
+    {/if} -->
     <div class="min-h-[20px] mt-[30px]">
       <!-- TODO: add limit to config -->
       <IdInput
@@ -262,8 +262,8 @@ Manual NFT Input
         limit={1}
         class="bg-neutral-background border-0 h-[56px]" />
       <div class="min-h-[20px] !mt-3">
-        {#if !isOwnerOfAllToken && nftIdArray?.length > 0 && !validating}
-          <FlatAlert type="error" forceColumnFlow message="todo: must be owner of all token" />
+        {#if displayOwnershipError}
+          <FlatAlert type="error" forceColumnFlow message={$t('bridge.errors.not_the_owner_of_all')} />
         {/if}
       </div>
     </div>

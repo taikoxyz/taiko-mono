@@ -77,6 +77,7 @@
         "title": "Allowance already set"
       },
       "no_decimals_allowed": "Decimals are not supported for this token",
+      "not_the_owner_of_all": "You must be the owner of all tokens",
       "send_erc20_error": {
         "message": "There was an issue attempting to send ERC20 token.",
         "title": "Failed to send"

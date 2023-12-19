@@ -111,7 +111,6 @@
 
     $recipientAddress = $account?.address || null;
     bridgingStatus = 'pending';
-
     $selectedToken = ETHToken;
     importMethod === null;
     scanned = false;
@@ -126,7 +125,9 @@
   let activeStep: NFTSteps = NFTSteps.IMPORT;
 
   const nextStep = () => (activeStep = Math.min(activeStep + 1, NFTSteps.CONFIRM));
-  const previousStep = () => (activeStep = Math.max(activeStep - 1, NFTSteps.IMPORT));
+  const previousStep = () => {
+    activeStep = Math.max(activeStep - 1, NFTSteps.IMPORT);
+  };
 
   let nftStepTitle: string;
   let nftStepDescription: string;
@@ -316,7 +317,7 @@
               ><span class="body-bold">{$t('bridge.nft.step.confirm.button.back')}</span>
             </ActionButton>
           {:else}
-            <button on:click={resetForm} class="flex justify-center py-3 link">
+            <button on:click={() => (activeStep = NFTSteps.REVIEW)} class="flex justify-center py-3 link">
               {$t('common.back')}
             </button>
           {/if}

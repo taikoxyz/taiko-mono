@@ -54,6 +54,7 @@
 
   function onNetworkChange(newNetwork: Network, oldNetwork: Network) {
     resetForm();
+    $selectedToken = ETHToken;
 
     if (newNetwork) {
       const destChainId = $destinationChain?.id;
@@ -216,8 +217,11 @@
       // Reset the form
       resetForm();
 
-      // Refresh user's balance
+      // Refresh user's ETH balance
       refreshUserBalance();
+
+      // Update amount balance after bridging
+      if (amountComponent) amountComponent.updateBalance();
     } catch (err) {
       console.error(err);
       handleBridgeError(err as Error);
@@ -230,10 +234,6 @@
     if (recipientComponent) recipientComponent.clearRecipient();
     if (processingFeeComponent) processingFeeComponent.resetProcessingFee();
 
-    // Update balance after bridging
-    if (amountComponent) amountComponent.updateBalance();
-
-    $selectedToken = ETHToken;
     bridging = false;
   };
 
