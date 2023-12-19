@@ -4,8 +4,8 @@ export type GenerateProofArgs = {
   msgHash: Hash;
   contractAddress: Address;
   proofForAccountAddress: Address;
-  crossChainSyncChainId: number;
   clientChainId: number;
+  blockNumber: bigint;
 };
 
 export type StorageEntry = {
@@ -14,6 +14,12 @@ export type StorageEntry = {
 
   // Array of rlp-serialized MerkleTree-Nodes, starting with the storageHash-Node, following the path of the SHA3 (key) as path.
   proof: Hex[];
+};
+
+export type Hop = {
+  signalRootRelay: Address;
+  signalRoot: Hex;
+  storageProof: Hex;
 };
 
 export type EthGetProofResponse = {

@@ -33,7 +33,14 @@
         "erc721VaultAddress": "",
         "erc1155VaultAddress": "",
         "crossChainSyncAddress": "",
-        "signalServiceAddress": ""
+        "signalServiceAddress": "",
+        "hops": [
+          {
+            "chaind: ,
+            "crossChainSyncAddress": "",
+            "signalServiceAddress": "",
+          }
+        ]
       }
     },
     {
@@ -45,7 +52,14 @@
         "erc721VaultAddress": "",
         "erc1155VaultAddress": "",
         "crossChainSyncAddress": "",
-        "signalServiceAddress": ""
+        "signalServiceAddress": "",
+        "hops": [
+          {
+            "chaind: ,
+            "crossChainSyncAddress": "",
+            "signalServiceAddress": "",
+          }
+        ]
       }
     }
   ]
