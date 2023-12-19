@@ -74,10 +74,6 @@ export class InvalidProofError extends Error {
   name = 'InvalidProofError';
 }
 
-export class InvalidSignalProofWithHopsError extends Error {
-  name = 'InvalidSignalProofWithHopsError';
-}
-
 export class WrongBridgeConfigError extends Error {
   name = 'WrongBridgeConfigError';
 }

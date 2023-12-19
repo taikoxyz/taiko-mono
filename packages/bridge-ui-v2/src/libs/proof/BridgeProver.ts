@@ -17,7 +17,6 @@ import { routingContractsMap } from '$bridgeConfig';
 import { MessageStatus } from '$libs/bridge';
 import {
   InvalidProofError,
-  InvalidSignalProofWithHopsError,
   PendingBlockError,
   WrongBridgeConfigError,
 } from '$libs/error';

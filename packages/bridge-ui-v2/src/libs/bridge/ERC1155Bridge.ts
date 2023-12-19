@@ -109,7 +109,7 @@ export class ERC1155Bridge extends Bridge {
     log('Claiming ERC721 token with message', message);
     log('Message status', messageStatus);
     if (messageStatus === MessageStatus.NEW) {
-      let proof = await this._prover.encodedSignalProof(msgHash, srcChainId, destChainId);
+      const proof = await this._prover.encodedSignalProof(msgHash, srcChainId, destChainId);
 
       try {
         if (message.gasLimit > bridgeService.erc1155GasLimitThreshold) {
