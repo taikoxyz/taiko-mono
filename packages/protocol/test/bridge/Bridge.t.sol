@@ -422,10 +422,12 @@ contract BridgeTest is TaikoTest {
         vm.stopPrank();
         vm.prank(message.owner);
 
-        destChainBridge.retryMessage(message, true);
-
+        destChainBridge.retryMessage(message, false);
         Bridge.Status postRetryStatus = destChainBridge.messageStatus(msgHash);
+        assertEq(postRetryStatus == Bridge.Status.RETRIABLE, true);
 
+        destChainBridge.retryMessage(message, true);
+        postRetryStatus = destChainBridge.messageStatus(msgHash);
         assertEq(postRetryStatus == Bridge.Status.FAILED, true);
     }
 
