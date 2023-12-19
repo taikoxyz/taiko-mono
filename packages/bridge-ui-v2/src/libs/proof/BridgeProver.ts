@@ -1,25 +1,11 @@
-import { getContract, type GetContractResult, type PublicClient } from '@wagmi/core';
-import {
-  type Address,
-  encodeAbiParameters,
-  encodePacked,
-  type Hex,
-  keccak256,
-  toHex,
-  numberToHex,
-  toRlp,
-  type TransactionReceipt,
-} from 'viem';
 import type { Hash } from '@wagmi/core';
+import { getContract, type GetContractResult, type PublicClient } from '@wagmi/core';
+import { type Address, encodeAbiParameters, encodePacked, type Hex, keccak256, numberToHex, toHex, toRlp } from 'viem';
 
 import { crossChainSyncABI } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { MessageStatus } from '$libs/bridge';
-import {
-  InvalidProofError,
-  PendingBlockError,
-  WrongBridgeConfigError,
-} from '$libs/error';
+import { InvalidProofError, PendingBlockError, WrongBridgeConfigError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { publicClient } from '$libs/wagmi';
 
@@ -62,9 +48,9 @@ export class BridgeProver {
   }
 
   async encodedStorageProof(args: GenerateProofArgs) {
-    let { msgHash, clientChainId, contractAddress, proofForAccountAddress, blockNumber } = args;
+    const { msgHash, clientChainId, contractAddress, proofForAccountAddress, blockNumber } = args;
     const client = publicClient({ chainId: clientChainId });
-    let key = await this.getSignalSlot(clientChainId, contractAddress, msgHash);
+    const key = await this.getSignalSlot(clientChainId, contractAddress, msgHash);
     log('Signal slot', key);
 
     // Unfortunately, since this method is stagnant, it hasn't been included into Viem lib
@@ -146,7 +132,7 @@ export class BridgeProver {
     let blockNumber = BigInt(0);
     // Initialize hopChainId with src chain
     let hopChainId: number = srcChainId;
-    for (var hop of hopParams) {
+    for (const hop of hopParams) {
       blockNumber = await this.getBlockNumber(hopChainId, hop.chainId, hop.crossChainSyncAddress);
       hopChainId = hop.chainId;
     }
@@ -165,8 +151,8 @@ export class BridgeProver {
     let signalRoot = proof.storageHash;
     log('successfully generated main storage proof', signalRoot);
 
-    let hops: Hop[] = [];
-    for (var hop of hopParams) {
+    const hops: Hop[] = [];
+    for (const hop of hopParams) {
       const { proof: hopProof, rlpEncodedStorageProof: hopRlpEncodedStorageProof } = await this.encodedStorageProof({
         msgHash: signalRoot,
         clientChainId: hop.chainId,

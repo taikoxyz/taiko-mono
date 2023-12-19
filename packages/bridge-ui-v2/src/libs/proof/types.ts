@@ -5,7 +5,7 @@ export type GenerateProofArgs = {
   contractAddress: Address;
   proofForAccountAddress: Address;
   clientChainId: number;
-  blockNumber: BigInt;
+  blockNumber: bigint;
 };
 
 export type StorageEntry = {
