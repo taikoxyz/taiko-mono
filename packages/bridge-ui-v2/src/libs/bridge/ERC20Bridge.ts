@@ -192,7 +192,7 @@ export class ERC20Bridge extends Bridge {
     const destChainId = Number(message.destChainId);
 
     if (messageStatus === MessageStatus.NEW) {
-      let proof = await this._prover.encodeSignalProof(msgHash, receipt, srcChainId, destChainId);
+      let proof = await this._prover.encodedSignalProof(msgHash, receipt, srcChainId, destChainId);
 
       try {
         if (message.gasLimit > bridgeService.erc20GasLimitThreshold) {

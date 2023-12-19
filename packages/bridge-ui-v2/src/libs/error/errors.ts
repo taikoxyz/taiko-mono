@@ -86,6 +86,10 @@ export class WrongChainError extends Error {
   name = 'WrongChainError';
 }
 
+export class WrongBridgeConfigError extends Error {
+  name = 'WrongBridgeConfigError';
+}
+
 export class BridgeTxPollingError extends Error {
   name = 'BridgeTxPollingError';
 }

@@ -14,7 +14,7 @@ import type { Hash } from '@wagmi/core';
 import { crossChainSyncABI } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { MessageStatus } from '$libs/bridge';
-import { InvalidProofError, PendingBlockError } from '$libs/error';
+import { InvalidProofError, PendingBlockError, WrongBridgeConfigError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { publicClient } from '$libs/wagmi';
 
@@ -94,7 +94,7 @@ export class BridgeProver {
     return { proof, rlpEncodedStorageProof };
   }
 
-  async encodeSignalProof(msgHash: Hash,
+  async encodedSignalProof(msgHash: Hash,
     receipt: TransactionReceipt,
     srcChainId: number,
     destChainId: number,
@@ -112,7 +112,7 @@ export class BridgeProver {
   async _encodedSignalProofWithoutHops(msgHash: Hash, srcChainId: number, destChainId: number) {
     const srcBridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
     const srcSignalServiceAddress = routingContractsMap[srcChainId][destChainId].signalServiceAddress;
-    const destCrossChainSyncAddress = routingContractsMap[destChainId][srcChainId].taikoAddress;
+    const destCrossChainSyncAddress = routingContractsMap[destChainId][srcChainId].crossChainSyncAddress;
 
     // Get the block from chain A based on the latest block hash
     // we get cross chain (Taiko contract on chain B)
@@ -143,14 +143,15 @@ export class BridgeProver {
   ) {
     const srcBridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
     const srcSignalServiceAddress = routingContractsMap[srcChainId][destChainId].signalServiceAddress;
-    const destCrossChainSyncAddress = routingContractsMap[destChainId][srcChainId].taikoAddress;
+    const destCrossChainSyncAddress = routingContractsMap[destChainId][srcChainId].crossChainSyncAddress;
     const hopParams = routingContractsMap[srcChainId][destChainId].hops;
+    if (hopParams === undefined) throw new WrongBridgeConfigError('hops is undefined');
 
     let blockNumber: number = 0;
     // Initialize hopChainId with src chain
     let hopChainId: number = srcChainId;
     for (var hop of hopParams) {
-      blockNumber = await this.getBlockNumber(hopChainId, hop.chainId, hop.taikoAddress);
+      blockNumber = await this.getBlockNumber(hopChainId, hop.chainId, hop.crossChainSyncAddress);
       hopChainId = hop.chainId;
     }
     // Get the block number from last hop chain to dest chain
@@ -173,14 +174,14 @@ export class BridgeProver {
       const { proof: hopProof, rlpEncodedStorageProof: hopRlpEncodedStorageProof } = await this.encodedStorageProof({
         msgHash: signalRoot,
         clientChainId: hop.chainId,
-        contractAddress: hop.taikoAddress,
+        contractAddress: hop.crossChainSyncAddress,
         proofForAccountAddress: hop.signalServiceAddress,
         blockNumber: blockNumber,
       });
       log('successfully generated hop storage proof', hopProof.storageHash);
 
       hops.push({
-        signalRootRelay: hop.taikoAddress,
+        signalRootRelay: hop.crossChainSyncAddress,
         signalRoot: signalRoot,
         storageProof: hopRlpEncodedStorageProof,
       });
@@ -199,7 +200,7 @@ export class BridgeProver {
   async generateProofToRelease(msgHash: Hash, srcChainId: number, destChainId: number) {
     const srcBridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
     const destBridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
-    const destCrossChainSyncAddress = routingContractsMap[destChainId][srcChainId].taikoAddress;
+    const destCrossChainSyncAddress = routingContractsMap[destChainId][srcChainId].crossChainSyncAddress;
 
     const blockNumber = await this.getBlockNumber(srcChainId, destChainId, destCrossChainSyncAddress);
 
