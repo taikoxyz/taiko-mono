@@ -17,7 +17,7 @@ vi.mock('$bridgeConfig', () => ({
         bridgeAddress: '0x00002',
         erc721VaultAddress: '0x00003',
         erc1155VaultAddress: '0x00004',
-        taikoAddress: '0x00005',
+        crossChainSyncAddress: '0x00005',
         signalServiceAddress: '0x00006',
       },
     },
@@ -27,7 +27,7 @@ vi.mock('$bridgeConfig', () => ({
         bridgeAddress: '0x00008',
         erc721VaultAddress: '0x00009',
         erc1155VaultAddress: '0x00010',
-        taikoAddress: '0x00011',
+        crossChainSyncAddress: '0x00011',
         signalServiceAddress: '0x00012',
       },
     },
@@ -120,7 +120,7 @@ describe('getContractAddressBasedOnType', () => {
       tokenType: TokenType.ERC20,
     };
 
-    const expectedAddress = routingContractsMap[SRC_CHAIN_ID][DEST_CHAIN_ID].taikoAddress;
+    const expectedAddress = routingContractsMap[SRC_CHAIN_ID][DEST_CHAIN_ID].crossChainSyncAddress;
 
     // When
     const address = getContractAddressByType(args);
