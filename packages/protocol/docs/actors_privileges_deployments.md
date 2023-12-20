@@ -57,7 +57,7 @@ The smart contract system incorporates upgradeable procedures to ensure flexibil
 
 ### 3.3 Ownership Transition
 
-- Currently, on testnets, some privileges (like `onlyOwner`) are assigned to externally owned accounts (EOAs) for easier testing. However, it is essential to note that `TimeLockController` contracts will be the owners at a later stage.
+- Currently, on testnets, some privileges (like `onlyOwner`) are assigned to externally owned accounts (EOAs) for easier testing. However, it is essential to note that `TimelockController` contracts will be the owners at a later stage.
 
 ## Conclusion
 

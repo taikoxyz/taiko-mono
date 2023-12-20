@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "buildMerkle": "ts-node ./utils/airdrop/buildMerkleTree.ts ./utils/airdrop/airdrop_db/example_claimList.json",
-    "clean": "rm -rf abis cache && forge clean",
+    "clean": "rm -rf abis cache* && forge clean",
     "compile": "forge build",
     "compile:hardhat": "pnpm hardhat compile",
     "deploy:foundry": "./script/download_solc.sh && ./script/test_deploy_on_l1.sh",
