@@ -74,6 +74,10 @@ export class InvalidProofError extends Error {
   name = 'InvalidProofError';
 }
 
+export class WrongBridgeConfigError extends Error {
+  name = 'WrongBridgeConfigError';
+}
+
 export class MessageStatusError extends Error {
   name = 'MessageStatusError';
 }

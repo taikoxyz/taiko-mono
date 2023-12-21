@@ -36,6 +36,25 @@
               },
               "signalServiceAddress": {
                 "type": "string"
+              },
+              "hops": {
+                "type": "array",
+                "default": [],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "chainId": {
+                      "type": "number"
+                    },
+                    "crossChainSyncAddress": {
+                      "type": "string"
+                    },
+                    "signalServiceAddress": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["chainId", "crossChainSyncAddress", "signalServiceAddress"]
+                }
               }
             },
             "required": [

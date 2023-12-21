@@ -78,6 +78,7 @@ export type BridgeTransaction = {
 };
 
 export type BridgeTransferOp = {
+  srcChainId: bigint;
   destChainId: bigint;
   to: Address;
   token: Address;
@@ -89,6 +90,7 @@ export type BridgeTransferOp = {
 };
 
 export type NFTBridgeTransferOp = {
+  srcChainId: bigint;
   destChainId: bigint;
   to: Address;
   token: Address;
@@ -198,6 +200,13 @@ export type AddressConfig = {
   etherVaultAddress?: Address;
   erc721VaultAddress: Address;
   erc1155VaultAddress: Address;
+  crossChainSyncAddress: Address;
+  signalServiceAddress: Address;
+  hops?: Array<HopAddressConfig>;
+};
+
+export type HopAddressConfig = {
+  chainId: number;
   crossChainSyncAddress: Address;
   signalServiceAddress: Address;
 };

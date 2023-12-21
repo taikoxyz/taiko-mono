@@ -13,8 +13,9 @@ contract UntrustedSendMessageRelayer {
         uint256 message_value
     )
         public
+        returns (bytes32 msgHash, IBridge.Message memory updatedMessage)
     {
-        IBridge(bridge).sendMessage{ value: message_value }(message);
+        return IBridge(bridge).sendMessage{ value: message_value }(message);
     }
 }
 
@@ -348,7 +349,7 @@ contract BridgeTest is TaikoTest {
 
         uint256 starterBalanceVault = address(bridge).balance;
 
-        untrustedSenderContract.sendMessage(address(bridge), message, amount + fee);
+        (, message) = untrustedSenderContract.sendMessage(address(bridge), message, amount + fee);
 
         assertEq(address(bridge).balance, (starterBalanceVault + amount + fee));
 
@@ -419,12 +420,15 @@ contract BridgeTest is TaikoTest {
         assertEq(status == Bridge.Status.RETRIABLE, true);
 
         vm.stopPrank();
+
         vm.prank(message.owner);
-
-        destChainBridge.retryMessage(message, true);
-
+        destChainBridge.retryMessage(message, false);
         Bridge.Status postRetryStatus = destChainBridge.messageStatus(msgHash);
+        assertEq(postRetryStatus == Bridge.Status.RETRIABLE, true);
 
+        vm.prank(message.owner);
+        destChainBridge.retryMessage(message, true);
+        postRetryStatus = destChainBridge.messageStatus(msgHash);
         assertEq(postRetryStatus == Bridge.Status.FAILED, true);
     }
 
