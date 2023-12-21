@@ -56,7 +56,7 @@ export class ERC721Bridge extends Bridge {
     return estimatedGas;
   }
 
-  async bridge(args: ERC721BridgeArgs) {
+  async bridge(args: ERC721BridgeArgs): Promise<void> {
     const { token, tokenVaultAddress, tokenIds, wallet } = args;
     const { tokenVaultContract, sendERC721Args } = await ERC721Bridge._prepareTransaction(args);
     const { fee: value } = sendERC721Args;

@@ -10,6 +10,7 @@ import { decodeBase64ToJson } from './../utils/decodeBase64ToJson';
 import { formatSourceFile } from './../utils/formatSourceFile';
 import { PluginLogger } from './../utils/PluginLogger';
 import { validateJsonAgainstSchema } from './../utils/validateJson';
+
 dotenv.config();
 
 const pluginName = 'generateChainConfig';

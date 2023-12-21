@@ -215,3 +215,9 @@ export type GetContractAddressType = {
   tokenType: TokenType;
   contractType: ContractType;
 };
+
+export type FetchTransactions {
+  mergedTransactions: BridgeTransaction[],
+  outdatedLocalTransactions: BridgeTransaction[],
+  error: Error
+}

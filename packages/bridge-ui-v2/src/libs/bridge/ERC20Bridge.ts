@@ -98,7 +98,7 @@ export class ERC20Bridge extends Bridge {
     return requiresAllowance;
   }
 
-  async approve(args: ApproveArgs) {
+  async approve(args: ApproveArgs): Promise<void>  {
     const { amount, tokenAddress, spenderAddress, wallet } = args;
 
     const requireAllowance = await this.requireAllowance({
@@ -137,7 +137,7 @@ export class ERC20Bridge extends Bridge {
     }
   }
 
-  async bridge(args: ERC20BridgeArgs) {
+  async bridge(args: ERC20BridgeArgs): Promise<void>  {
     const { amount, token, wallet, tokenVaultAddress } = args;
 
     const requireAllowance = await this.requireAllowance({
@@ -173,7 +173,7 @@ export class ERC20Bridge extends Bridge {
     }
   }
 
-  async claim(args: ClaimArgs) {
+  async claim(args: ClaimArgs): Promise<Hash>  {
     const { messageStatus, destBridgeContract } = await super.beforeClaiming(args);
 
     let txHash: Hash;

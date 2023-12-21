@@ -5,12 +5,12 @@ import { bridgeTxService } from '$libs/storage';
 import { getLogger } from '$libs/util/logger';
 import { mergeAndCaptureOutdatedTransactions } from '$libs/util/mergeTransactions';
 
-import { type BridgeTransaction, MessageStatus } from './types';
+import { type BridgeTransaction, MessageStatus,FetchTransactions } from './types';
 
 const log = getLogger('bridge:fetchTransactions');
 let error: Error;
 
-export async function fetchTransactions(userAddress: Address) {
+export async function fetchTransactions(userAddress: Address): Promise<FetchTransactions> {
   // Transactions from local storage
   const localTxs: BridgeTransaction[] = await bridgeTxService.getAllTxByAddress(userAddress);
 

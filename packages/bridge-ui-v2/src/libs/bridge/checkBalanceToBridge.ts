@@ -70,7 +70,7 @@ async function handleEthBridge(args: CheckBalanceToBridgeCommonArgs): Promise<vo
   }
 }
 
-async function handleErc1155Bridge(args: CheckBalanceToBridgeTokenArgs) {
+async function handleErc1155Bridge(args: CheckBalanceToBridgeTokenArgs): Promise<void>  {
   const { token, srcChainId, destChainId, amount } = args;
 
   const { erc1155VaultAddress } = routingContractsMap[srcChainId][destChainId];
