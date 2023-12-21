@@ -217,7 +217,7 @@ export type GetContractAddressType = {
 };
 
 export type FetchTransactions {
-  mergedTransactions: BridgeTransaction[],
-  outdatedLocalTransactions: BridgeTransaction[],
-  error: Error
+  mergedTransactions: BridgeTransaction[];
+  outdatedLocalTransactions: BridgeTransaction[];
+  error: Error;
 }
