@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import { Icon } from '$components/Icon';
@@ -43,6 +43,10 @@
     state = State.VALID;
     dispatch('inputValidation');
   }
+
+  onDestroy(() => {
+    clearIds();
+  });
 </script>
 
 <div class="f-col space-y-2">

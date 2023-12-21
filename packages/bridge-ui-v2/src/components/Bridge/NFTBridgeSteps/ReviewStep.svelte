@@ -12,18 +12,18 @@
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { network } from '$stores/network';
 
-  let recipientComponent: Recipient;
-  let processingFeeComponent: ProcessingFee;
   export let hasEnoughEth: boolean = false;
 
-  const dispatch = createEventDispatcher();
+  let recipientComponent: Recipient;
+  let processingFeeComponent: ProcessingFee;
 
-  $: nftsToDisplay = $selectedNFTs ? $selectedNFTs : [];
+  const dispatch = createEventDispatcher();
 
   enum NFTView {
     CARDS,
     LIST,
   }
+
   let nftView: NFTView = NFTView.CARDS;
 
   const changeNFTView = () => {
@@ -37,6 +37,8 @@
   const editTransactionDetails = () => {
     dispatch('editTransactionDetails');
   };
+
+  $: nftsToDisplay = $selectedNFTs ? $selectedNFTs : [];
 
   // check if any of the selected NFTs are ERC1155 tokens
   $: isERC1155 = $selectedNFTs ? $selectedNFTs.some((nft) => nft.type === 'ERC1155') : false;

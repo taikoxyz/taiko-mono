@@ -15,7 +15,7 @@
   import { TokenDropdown } from '$components/TokenDropdown';
   import { chains } from '$libs/chain';
   import { InsufficientBalanceError, MintError, TokenMintedError } from '$libs/error';
-  import { checkMintable, mint, testERC20Tokens, type Token } from '$libs/token';
+  import { checkMintable, mint, testERC20Tokens, testNFT, type Token } from '$libs/token';
   import { account, network, pendingTransactions } from '$stores';
 
   let minting = false;
@@ -26,6 +26,7 @@
   let mintButtonEnabled = false;
   let alertMessage = '';
   let mintableTokens: Token[] = [];
+
   const onlyMintable: boolean = true;
 
   async function switchNetworkToL1() {
@@ -55,6 +56,7 @@
 
     // Let's begin the minting process
     minting = true;
+    mintButtonEnabled = false;
 
     try {
       const txHash = await mint(selectedToken, $network.id);
@@ -159,7 +161,10 @@
 
   onMount(() => {
     // Only show tokens in the dropdown that are mintable
-    mintableTokens = testERC20Tokens.filter((token) => token.mintable);
+    const testERC20 = testERC20Tokens.filter((token) => token.mintable);
+    const testNFTs = testNFT.filter((token) => token.mintable);
+
+    mintableTokens = [...testERC20, ...testNFTs];
   });
 
   $: connected = isUserConnected($account);

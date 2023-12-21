@@ -1,9 +1,11 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
 
+  import { routingContractsMap } from '$bridgeConfig';
   import ActionButton from '$components/Button/ActionButton.svelte';
   import { Icon } from '$components/Icon';
   import { bridges, ContractType, type RequireApprovalArgs } from '$libs/bridge';
+  import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
   import type { ERC721Bridge } from '$libs/bridge/ERC721Bridge';
   import type { ERC1155Bridge } from '$libs/bridge/ERC1155Bridge';
   import { getContractAddressByType } from '$libs/bridge/getContractAddressByType';
@@ -62,6 +64,34 @@
       if (paused) throw new BridgePausedError('Bridge is paused');
     });
     $validatingAmount = true;
+
+    if ($selectedToken?.type === TokenType.ERC20) {
+      if ($account?.address && $network?.id && $destNetwork?.id) {
+        const currentChainId = $network?.id;
+        const destinationChainId = $destNetwork?.id;
+        const tokenVaultAddress = routingContractsMap[currentChainId][destinationChainId].erc20VaultAddress;
+
+        const bridge = bridges[$selectedToken.type] as ERC20Bridge;
+
+        try {
+          const requiresApproval = await bridge.requireAllowance({
+            amount: $enteredAmount,
+            tokenAddress: $selectedToken.addresses[currentChainId],
+            ownerAddress: $account.address,
+            spenderAddress: tokenVaultAddress,
+          });
+          $insufficientAllowance = false;
+          $validatingAmount = false;
+          return !requiresApproval;
+        } catch (error) {
+          console.error('isApprovedForAll error');
+          $validatingAmount = false;
+          return false;
+        }
+      }
+      $validatingAmount = false;
+      return false;
+    }
     if ($selectedToken?.type === TokenType.ERC721 || $selectedToken?.type === TokenType.ERC1155) {
       if ($account?.address && $network?.id && $destNetwork?.id) {
         const currentChainId = $network?.id;
@@ -181,9 +211,12 @@
     !paused;
 
   $: erc20ConditionsSatisfied =
-    !canDoNothing && !$insufficientAllowance && commonConditions && $tokenBalance && $enteredAmount;
-  $: erc721ConditionsSatisfied = allTokensApproved && commonConditions;
-  $: erc1155ConditionsSatisfied = allTokensApproved && $enteredAmount && $enteredAmount > 0 && commonConditions;
+    commonConditions && !canDoNothing && !$insufficientAllowance && $tokenBalance && $enteredAmount;
+
+  $: erc721ConditionsSatisfied = commonConditions && allTokensApproved;
+
+  $: erc1155ConditionsSatisfied = commonConditions && allTokensApproved && $enteredAmount && $enteredAmount > 0;
+
   $: ethConditionsSatisfied = commonConditions && $enteredAmount && $enteredAmount > 0;
 
   $: disableBridge = isERC20

@@ -102,7 +102,17 @@
     if (!tokenAddress) return;
     loadingTokenDetails = true;
     log('Fetching token details for address "%s"…', tokenAddress);
-    const type = await detectContractType(tokenAddress);
+
+    let type: TokenType;
+    try {
+      type = await detectContractType(tokenAddress);
+    } catch (error) {
+      log('Failed to detect contract type: ', error);
+      loadingTokenDetails = false;
+      state = AddressInputState.NOT_ERC20;
+      return;
+    }
+
     if (type !== TokenType.ERC20) {
       loadingTokenDetails = false;
       state = AddressInputState.NOT_ERC20;
@@ -160,7 +170,6 @@
 <dialog id={dialogId} class="modal modal-bottom md:modal-middle" class:modal-open={modalOpen}>
   <div class="modal-box relative px-6 py-[35px] md:rounded-[20px] bg-dialog-background">
     <CloseButton onClick={closeModal} />
-
     <h3 class="title-body-bold mb-7">{$t('token_dropdown.custom_token.title')}</h3>
 
     <p class="body-regular text-secondary-content mb-3">{$t('token_dropdown.custom_token.description')}</p>

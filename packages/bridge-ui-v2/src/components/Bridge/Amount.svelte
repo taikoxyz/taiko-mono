@@ -106,7 +106,6 @@
           invalidInput = true;
           break;
       }
-      console.error('Error validating amount: ', err);
     } finally {
       $validatingAmount = false;
     }
