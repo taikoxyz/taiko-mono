@@ -151,16 +151,19 @@
           dispatch('insufficientFunds', { tx: bridgeTx });
           break;
         case err instanceof InvalidProofError:
-          errorToast({ title: $t('TODO: InvalidProofError') });
+          errorToast({ title: $t('common.error'), message: $t('bridge.errors.invalid_proof_provided') });
           break;
         case err instanceof ProcessMessageError:
-          errorToast({ title: $t('TODO: ProcessMessageError') });
+          errorToast({ title: $t('bridge.errors.process_message_error') });
           break;
         case err instanceof RetryError:
-          errorToast({ title: $t('TODO: RetryError') });
+          errorToast({ title: $t('bridge.errors.retry_error') });
           break;
         default:
-          errorToast({ title: $t('TODO: UnknownError') });
+          errorToast({
+            title: $t('bridge.errors.unknown_error.title'),
+            message: $t('bridge.errors.unknown_error.message'),
+          });
           break;
       }
     } finally {
@@ -228,16 +231,19 @@
           warningToast({ title: $t('messages.account.required') });
           break;
         case err instanceof UserRejectedRequestError:
-          warningToast({ title: $t('transactions.actions.release_rejected') });
+          warningToast({ title: $t('transactions.actions.release.rejected.title') });
           break;
         case err instanceof InvalidProofError:
-          errorToast({ title: $t('TODO: InvalidProofError') });
+          errorToast({ title: $t('common.error'), message: $t('bridge.errors.invalid_proof_provided') });
           break;
         case err instanceof ReleaseError:
-          errorToast({ title: $t('TODO: ReleaseError') });
+          errorToast({ title: $t('bridge.errors.release_error.message') });
           break;
         default:
-          errorToast({ title: $t('TODO: UnknownError') });
+          errorToast({
+            title: $t('bridge.errors.unknown_error.title'),
+            message: $t('bridge.errors.unknown_error.message'),
+          });
           break;
       }
     } finally {

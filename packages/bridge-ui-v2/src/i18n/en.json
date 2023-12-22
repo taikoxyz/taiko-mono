@@ -72,12 +72,18 @@
         "message": "Sorry, your wallet balance is too low to cover this token.",
         "title": "Insufficient wallet balance"
       },
+      "invalid_proof_provided": "An invalid proof was provided for this action.",
       "no_allowance_required": {
         "message": "You already have sufficient allowance for this request.",
         "title": "Allowance already set"
       },
       "no_decimals_allowed": "Decimals are not supported for this token",
       "not_the_owner_of_all": "You must be the owner of all tokens",
+      "process_message_error": "Unable to process message",
+      "release_error": {
+        "message": "Unable to release the funds."
+      },
+      "retry_error": "Retry claiming failed",
       "send_erc20_error": {
         "message": "There was an issue attempting to send ERC20 token.",
         "title": "Failed to send"
@@ -172,6 +178,7 @@
     "customized": "Customized",
     "destination": "Destination",
     "edit": "Edit",
+    "error": "Error",
     "from": "From",
     "id": "ID",
     "loading": "Loading",
