@@ -47,7 +47,9 @@ export type Chain = {
 
 export const CHAIN_MAINNET = {
   id: CHAIN_ID_MAINNET,
-  name: import.meta?.env?.VITE_MAINNET_CHAIN_NAME ?? "Ethereum A1",
+  name: import.meta.env
+    ? import.meta.env.VITE_MAINNET_CHAIN_NAME
+    : "Ethereum A1",
   rpc: L1_RPC,
   enabled: true,
   icon: Eth,
@@ -59,7 +61,7 @@ export const CHAIN_MAINNET = {
 
 export const CHAIN_TKO = {
   id: CHAIN_ID_TAIKO,
-  name: import.meta?.env?.VITE_TAIKO_CHAIN_NAME ?? "Taiko A2",
+  name: import.meta.env ? import.meta.env.VITE_TAIKO_CHAIN_NAME : "Taiko A2",
   rpc: L2_RPC,
   enabled: true,
   icon: Taiko,
@@ -76,7 +78,9 @@ export const chains: Record<string, Chain> = {
 
 export const mainnet: WagmiChain = {
   id: CHAIN_ID_MAINNET,
-  name: import.meta?.env?.VITE_MAINNET_CHAIN_NAME ?? "Ethereum A2",
+  name: import.meta.env
+    ? import.meta.env.VITE_MAINNET_CHAIN_NAME
+    : "Ethereum A2",
   network: "",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
@@ -97,7 +101,7 @@ export const mainnet: WagmiChain = {
 
 export const taiko: WagmiChain = {
   id: CHAIN_ID_TAIKO,
-  name: import.meta?.env?.VITE_TAIKO_CHAIN_NAME ?? "Taiko A2",
+  name: import.meta.env ? import.meta.env.VITE_TAIKO_CHAIN_NAME : "Taiko A2",
   network: "",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
