@@ -5,7 +5,7 @@ import { bridgeTxService } from '$libs/storage';
 import { getLogger } from '$libs/util/logger';
 import { mergeAndCaptureOutdatedTransactions } from '$libs/util/mergeTransactions';
 
-import { type BridgeTransaction, MessageStatus,FetchTransactions } from './types';
+import { type BridgeTransaction, type FetchTransactions, MessageStatus } from './types';
 
 const log = getLogger('bridge:fetchTransactions');
 let error: Error;
