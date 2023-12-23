@@ -98,7 +98,7 @@ export class ERC20Bridge extends Bridge {
     return requiresAllowance;
   }
 
-  async approve(args: ApproveArgs): Promise<void>  {
+  async approve(args: ApproveArgs): Promise<Hash>  {
     const { amount, tokenAddress, spenderAddress, wallet } = args;
 
     const requireAllowance = await this.requireAllowance({
@@ -137,7 +137,7 @@ export class ERC20Bridge extends Bridge {
     }
   }
 
-  async bridge(args: ERC20BridgeArgs): Promise<void>  {
+  async bridge(args: ERC20BridgeArgs): Promise<Hash>  {
     const { amount, token, wallet, tokenVaultAddress } = args;
 
     const requireAllowance = await this.requireAllowance({
