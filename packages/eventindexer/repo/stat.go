@@ -25,7 +25,7 @@ func (r *StatRepository) Save(ctx context.Context, opts eventindexer.SaveStatOpt
 	s := &eventindexer.Stat{}
 
 	q := r.db.
-		GormDB().Where("stat_type = ?", opts.StatType)
+		GormDB().Table("stats").Where("stat_type = ?", opts.StatType)
 
 	if opts.FeeTokenAddress != nil {
 		q.Where("fee_token_address = ?", *opts.FeeTokenAddress)
@@ -65,7 +65,7 @@ func (r *StatRepository) FindAll(
 	var proofRewardStats []*eventindexer.Stat
 
 	err := r.db.
-		GormDB().Where("stat_type = ?", eventindexer.StatTypeProofReward).
+		GormDB().Table("stats").Where("stat_type = ?", eventindexer.StatTypeProofReward).
 		Scan(&proofRewardStats).
 		Error
 	if err != nil {
@@ -76,7 +76,7 @@ func (r *StatRepository) FindAll(
 	var proofTimeStat *eventindexer.Stat
 
 	err = r.db.
-		GormDB().Where("stat_type = ?", eventindexer.StatTypeProofTime).
+		GormDB().Table("stats").Where("stat_type = ?", eventindexer.StatTypeProofTime).
 		Scan(&proofTimeStat).
 		Error
 	if err != nil {
@@ -94,7 +94,7 @@ func (r *StatRepository) Find(
 	s := &eventindexer.Stat{}
 
 	q := r.db.
-		GormDB().Where("stat_type = ?", statType)
+		GormDB().Table("stats").Where("stat_type = ?", statType)
 
 	if feeTokenAddress != nil {
 		q.Where("fee_token_address = ?", *feeTokenAddress)

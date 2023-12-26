@@ -3,6 +3,7 @@ package guardianproverhealthcheck
 import (
 	"encoding/base64"
 	"errors"
+	"log/slog"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -42,6 +43,11 @@ func SignatureToGuardianProver(
 			return &p, nil
 		}
 	}
+
+	slog.Error("signature does not recover to known guardian prover",
+		"recovered", recoveredAddr.Hex(),
+		"guardianProvers", guardianProvers,
+	)
 
 	return nil, errors.New("signature does not recover to known guardian prover")
 }
