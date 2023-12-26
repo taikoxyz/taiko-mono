@@ -106,7 +106,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
             if (ctoken.chainId == block.chainid) {
                 token = ctoken.addr;
                 for (uint256 i; i < tokenIds.length; ++i) {
-                    ERC721Upgradeable(token).transferFrom({
+                    ERC721Upgradeable(token).safeTransferFrom({
                         from: address(this),
                         to: to,
                         tokenId: tokenIds[i]
