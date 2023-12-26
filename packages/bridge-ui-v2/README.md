@@ -48,7 +48,7 @@ These are the additional configuration files that have to be filled in:
 | **/config/configuredBridges.json**      | Defines the chains that are connected via taiko bridges and lists the contract addresses |
 | **/config/configuredChains.json**       | Defines some metadata for the chains, such as name, icons, explorer URL, etc.            |
 | **/config/configuredRelayer.json**      | If chains have a relayer, the URL and the chain IDs it covers are entered here           |
-| **/config/configuredCustomTokens.json** | Defines a list of tokens that should be available in the token dropdowns                 |
+| **/config/configuredCustomToken.json** | Defines a list of tokens that should be available in the token dropdowns                 |
 | **/config/configuredEventIndexer.json** | Defines the configuration for the event indexer including chain IDs and URLs             |
 
 ---
@@ -62,7 +62,7 @@ To get started, open your terminal in `/packages/bridge-ui-v2/`
    cp config/sample/configuredBridges.example config/configuredBridges.json
    cp config/sample/configuredChains.example config/configuredChains.json
    cp config/sample/configuredRelayer.example config/configuredRelayer.json
-   cp config/sample/configuredCustomTokens.example config/configuredCustomTokens.json
+   cp config/sample/configuredCustomToken.example config/configuredCustomToken.json
    cp config/sample/configuredEventIndexer.example config/configuredEventIndexer.json
    ```
 2. Change or fill in all the information that will be used by the bridge UI inside these files.
