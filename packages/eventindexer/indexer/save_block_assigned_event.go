@@ -43,7 +43,7 @@ func (indxr *Indexer) saveBlockAssignedEvent(
 	chainID *big.Int,
 	event *assignmenthook.AssignmentHookBlockAssigned,
 ) error {
-	slog.Info("blockAssigned", "prover", event.AssignedProver.Hex())
+	slog.Info("blockAssigned event", "prover", event.AssignedProver.Hex())
 
 	marshaled, err := json.Marshal(event)
 	if err != nil {

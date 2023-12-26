@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
+	"golang.org/x/exp/slog"
 )
 
 type StatRepository struct {
@@ -22,6 +23,8 @@ func NewStatRepository(db eventindexer.DB) (*StatRepository, error) {
 }
 
 func (r *StatRepository) Save(ctx context.Context, opts eventindexer.SaveStatOpts) (*eventindexer.Stat, error) {
+	slog.Info("saving stat", "stat", opts.StatType)
+
 	s := &eventindexer.Stat{}
 
 	q := r.db.

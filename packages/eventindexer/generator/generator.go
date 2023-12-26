@@ -199,11 +199,13 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 		query := "SELECT DISTINCT(fee_token_address) FROM stats WHERE stat_type = ?"
 
 		err = g.db.GormDB().
-			Raw(query, eventindexer.EventNameBlockAssigned).
+			Raw(query, eventindexer.StatTypeProofReward).
 			Scan(&feeTokenAddresses).Error
 		if err != nil {
 			return err
 		}
+
+		slog.Info("feeTokenAddresses", "addresses", feeTokenAddresses)
 
 		for _, feeTokenAddress := range feeTokenAddresses {
 			f := feeTokenAddress
