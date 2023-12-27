@@ -15,6 +15,7 @@
 pragma solidity 0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../common/EssentialContract.sol";
 import "../../libs/LibAddress.sol";
 import "../TaikoData.sol";
@@ -24,6 +25,7 @@ import "./IHook.sol";
 /// A hook that handles prover assignment varification and fee processing.
 contract AssignmentHook is EssentialContract, IHook {
     using LibAddress for address;
+    using SafeERC20 for IERC20;
 
     struct ProverAssignment {
         address feeToken;
@@ -118,7 +120,7 @@ contract AssignmentHook is EssentialContract, IHook {
                 refund = msg.value - input.tip;
             }
             // Paying ERC20 tokens
-            IERC20(assignment.feeToken).transferFrom(msg.sender, blk.assignedProver, proverFee);
+            IERC20(assignment.feeToken).safeTransferFrom(msg.sender, blk.assignedProver, proverFee);
         }
 
         // block.coinbase can be address(0) in tests
