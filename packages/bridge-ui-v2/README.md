@@ -23,7 +23,14 @@ pnpm install
 cp .env.example .env
 ```
 
-Then update environment variables in .env
+Then, you must carefully update the `.env` file with the necessary environment variables. This step is crucial as several features, including WalletConnect integration, rely on specific variables like `PUBLIC_WALLETCONNECT_PROJECT_ID`.
+
+```bash
+# Open the .env file and fill in the required values
+nano .env
+```
+
+After updating, source the `.env` file to load these variables into your environment:
 
 ```bash
 source .env
