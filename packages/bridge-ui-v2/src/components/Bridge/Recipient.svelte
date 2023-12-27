@@ -121,7 +121,7 @@
 
     <dialog id={dialogId} class="modal" class:modal-open={modalOpen}>
       <div class="modal-box relative px-6 md:rounded-[20px] bg-neutral-background">
-        <CloseButton onClick={closeModal} />
+        <CloseButton onClick={cancelModal} />
 
         <div class="w-full">
           <h3 class="title-body-bold mb-7">{$t('recipient.title')}</h3>
