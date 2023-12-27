@@ -93,26 +93,6 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         _burn(tokenId);
     }
 
-    /// @dev Safely transfers tokens from one address to another.
-    /// @param from Address from which the token is transferred.
-    /// @param to Address to which the token is transferred.
-    /// @param tokenId ID of the token to transfer.
-    function transferFrom(
-        address from,
-        address to,
-        uint256 tokenId
-    )
-        public
-        override(ERC721Upgradeable)
-        nonReentrant
-        whenNotPaused
-    {
-        if (to == address(this)) {
-            revert BTOKEN_CANNOT_RECEIVE();
-        }
-        return ERC721Upgradeable.transferFrom(from, to, tokenId);
-    }
-
     /// @notice Gets the name of the token.
     /// @return The name.
     function name() public view override(ERC721Upgradeable) returns (string memory) {
@@ -134,5 +114,12 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     /// @notice Returns an empty token URI.
     function tokenURI(uint256) public pure virtual override returns (string memory) {
         return "";
+    }
+
+    function _transfer(address from, address to, uint256 tokenId) internal virtual override {
+        if (to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
+        if (paused()) revert INVALID_PAUSE_STATUS();
+
+        ERC721Upgradeable._transfer(from, to, tokenId);
     }
 }

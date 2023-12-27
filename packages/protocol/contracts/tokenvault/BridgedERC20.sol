@@ -72,48 +72,6 @@ contract BridgedERC20 is BridgedERC20Base, IERC20MetadataUpgradeable, ERC20Upgra
         srcDecimals = _decimals;
     }
 
-    /// @notice Transfers tokens from the caller to another account.
-    /// @dev Any address can call this. Caller must have at least 'amount' to
-    /// call this.
-    /// @param to The account to transfer tokens to.
-    /// @param amount The amount of tokens to transfer.
-    function transfer(
-        address to,
-        uint256 amount
-    )
-        public
-        override(ERC20Upgradeable, IERC20Upgradeable)
-        nonReentrant
-        whenNotPaused
-        returns (bool)
-    {
-        if (to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
-        return ERC20Upgradeable.transfer(to, amount);
-    }
-
-    /// @notice Transfers tokens from one account to another account.
-    /// @dev Any address can call this. Caller must have allowance of at least
-    /// 'amount' for 'from's tokens.
-    /// @param from The account to transfer tokens from.
-    /// @param to The account to transfer tokens to.
-    /// @param amount The amount of tokens to transfer.
-    function transferFrom(
-        address from,
-        address to,
-        uint256 amount
-    )
-        public
-        override(ERC20Upgradeable, IERC20Upgradeable)
-        nonReentrant
-        whenNotPaused
-        returns (bool)
-    {
-        if (to == address(this)) {
-            revert BTOKEN_CANNOT_RECEIVE();
-        }
-        return ERC20Upgradeable.transferFrom(from, to, amount);
-    }
-
     /// @notice Gets the name of the token.
     /// @return The name.
     function name()
@@ -159,5 +117,12 @@ contract BridgedERC20 is BridgedERC20Base, IERC20MetadataUpgradeable, ERC20Upgra
 
     function _burnToken(address from, uint256 amount) internal override {
         _burn(from, amount);
+    }
+
+    function _transfer(address from, address to, uint256 amount) internal virtual override {
+        if (to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
+        if (paused()) revert INVALID_PAUSE_STATUS();
+
+        ERC20Upgradeable._transfer(from, to, amount);
     }
 }
