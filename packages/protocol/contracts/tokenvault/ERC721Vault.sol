@@ -234,7 +234,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
                 });
 
                 for (uint256 i; i < op.tokenIds.length; ++i) {
-                    t.safeTransferFrom(user, address(this), op.tokenIds[i]);
+                    t.transferFrom(user, address(this), op.tokenIds[i]);
                 }
             }
         }
