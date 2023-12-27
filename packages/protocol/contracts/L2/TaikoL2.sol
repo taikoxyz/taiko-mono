@@ -159,8 +159,7 @@ contract TaikoL2 is CrossChainOwned, TaikoL2Signer, ICrossChainSync {
         if (token == address(0)) {
             to.sendEther(address(this).balance);
         } else {
-            IERC20 t = IERC20(token);
-            t.transfer(to, t.balanceOf(address(this)));
+            IERC20(token).transfer(to, IERC20(token).balanceOf(address(this)));
         }
     }
 
