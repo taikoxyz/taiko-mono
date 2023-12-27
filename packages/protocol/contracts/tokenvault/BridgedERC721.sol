@@ -104,6 +104,24 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         return ERC721Upgradeable.transferFrom(from, to, tokenId);
     }
 
+    /// @dev Safely transfers tokens from one address to another.
+    /// @param from Address from which the token is transferred.
+    /// @param to Address to which the token is transferred.
+    /// @param tokenId ID of the token to transfer.
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint256 tokenId
+    )
+        public
+        override(ERC721Upgradeable)
+    {
+        if (to == address(this)) {
+            revert BRIDGED_TOKEN_CANNOT_RECEIVE();
+        }
+        return ERC721Upgradeable.safeTransferFrom(from, to, tokenId);
+    }
+
     /// @notice Gets the concatenated name of the bridged token.
     /// @return The concatenated name.
     function name()
