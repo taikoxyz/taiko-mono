@@ -238,7 +238,7 @@ func (g *Generator) getStartingDate(ctx context.Context, guardianProverID int) (
 
 	var nextRequiredDate time.Time
 
-	q := `SELECT date FROM health_checks WHERE guardian_prover_id = ? ORDER BY date DESC LIMIT 1;`
+	q := `SELECT date FROM stats WHERE guardian_prover_id = ? ORDER BY date DESC LIMIT 1;`
 
 	err := g.db.GormDB().Raw(q, guardianProverID).Scan(&latestDateString).Error
 
