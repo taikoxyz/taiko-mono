@@ -31,12 +31,8 @@ jsonFiles.forEach((jsonFile) => {
     if (filename !== 'configuredChains') {
       base64Content = base64Content.replace(/\s+/g, '');
     }
-    
-    let envKey = filename.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toUpperCase();
-    
-    if (envKey === 'CONFIGURED_CUSTOM_TOKENS') {
-      envKey = 'CONFIGURED_CUSTOM_TOKEN';
-    }
+
+    const envKey = filename.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toUpperCase();
 
     const envFileContent = fs.readFileSync(envFile, 'utf-8');
     const regex = new RegExp(`^export ${envKey}=.*$`, 'm');
