@@ -35,7 +35,9 @@ export async function fetchTransactions(userAddress: Address) {
   }
 
   // Flatten the arrays into a single array
-  const relayerTxs: BridgeTransaction[] = relayerTxsArrays.reduce((acc, txs) => acc.concat(txs), []);
+  let relayerTxsFlatted = relayerTxsArrays.reduce((acc, txs) => acc.concat(txs), []);
+
+  const relayerTxs: BridgeTransaction[]  = relayerTxsFlatted.reverse();
 
   log(`fetched ${relayerTxs?.length ?? 0} transactions from all relayers`, relayerTxs);
 
