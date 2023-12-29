@@ -27,7 +27,8 @@ export class ETHBridge extends Bridge {
 
     // TODO: contract actually supports bridging to ourselves as well as
     //       to another address at the same time
-    const [senderAmount, recipientAmount] = to.toLowerCase() === owner.toLowerCase() ? [amount, BigInt(0)] : [BigInt(0), amount];
+    const [senderAmount, recipientAmount] =
+      to.toLowerCase() === owner.toLowerCase() ? [amount, BigInt(0)] : [BigInt(0), amount];
     let value;
     if (senderAmount === BigInt(0)) {
       value = recipientAmount;
