@@ -69,11 +69,6 @@ func InitFromConfig(ctx context.Context, h *HealthChecker, cfg *Config) (err err
 		return err
 	}
 
-	statRepo, err := repo.NewStatRepository(db)
-	if err != nil {
-		return err
-	}
-
 	l1EthClient, err := ethclient.Dial(cfg.L1RPCUrl)
 	if err != nil {
 		return err
@@ -130,7 +125,6 @@ func InitFromConfig(ctx context.Context, h *HealthChecker, cfg *Config) (err err
 		Echo:            echo.New(),
 		EthClient:       l2EthClient,
 		HealthCheckRepo: healthCheckRepo,
-		StatRepo:        statRepo,
 		SignedBlockRepo: signedBlockRepo,
 		GuardianProvers: guardianProvers,
 	})
