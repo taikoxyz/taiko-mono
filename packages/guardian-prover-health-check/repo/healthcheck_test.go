@@ -77,3 +77,68 @@ func TestIntegration_HealthCheck_Save(t *testing.T) {
 		})
 	}
 }
+
+func TestIntegration_HealthCheck_UptimeByGuardianProverId(t *testing.T) {
+	db, close, err := testMysql(t)
+	assert.Equal(t, nil, err)
+
+	defer close()
+
+	healthCheckRepo, err := NewHealthCheckRepository(db)
+	assert.Equal(t, nil, err)
+
+	err = healthCheckRepo.Save(guardianproverhealthcheck.SaveHealthCheckOpts{
+		GuardianProverID: 1,
+		Alive:            true,
+		ExpectedAddress:  "0x123",
+		RecoveredAddress: "0x123",
+		SignedResponse:   "0x123456",
+	})
+
+	assert.Equal(t, err, nil)
+
+	err = healthCheckRepo.Save(guardianproverhealthcheck.SaveHealthCheckOpts{
+		GuardianProverID: 1,
+		Alive:            true,
+		ExpectedAddress:  "0x123",
+		RecoveredAddress: "0x123",
+		SignedResponse:   "0x123456",
+	})
+
+	assert.Equal(t, err, nil)
+
+	tests := []struct {
+		name       string
+		id         int
+		wantCount  int
+		wantUptime float64
+		wantErr    error
+	}{
+		{
+			"success",
+			1,
+			2,
+			(float64(7200) / 2) * 100,
+			nil,
+		},
+		{
+			"successNoHealthChecks",
+			2,
+			0,
+			float64(0),
+			nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			uptime, count, err := healthCheckRepo.GetUptimeByGuardianProverID(context.Background(), tt.id)
+
+			assert.Equal(t, err, tt.wantErr)
+
+			assert.Equal(t, tt.wantUptime, uptime)
+
+			assert.Equal(t, tt.wantCount, count)
+		})
+	}
+}
