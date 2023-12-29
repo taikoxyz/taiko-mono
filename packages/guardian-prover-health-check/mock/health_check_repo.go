@@ -56,3 +56,10 @@ func (h *HealthCheckRepo) Save(opts guardianproverhealthcheck.SaveHealthCheckOpt
 
 	return nil
 }
+
+func (h *HealthCheckRepo) GetUptimeByGuardianProverID(
+	ctx context.Context,
+	id int,
+) (float64, int, error) {
+	return 25.5, 10, nil
+}

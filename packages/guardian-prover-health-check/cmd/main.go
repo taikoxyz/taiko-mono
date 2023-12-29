@@ -8,7 +8,6 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/cmd/utils"
-	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/generator"
 	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/healthchecker"
 	"github.com/urfave/cli/v2"
 )
@@ -42,13 +41,6 @@ func main() {
 			Usage:       "Starts the health check software",
 			Description: "Taiko guardian-prover-health-check health checker software",
 			Action:      utils.SubcommandAction(new(healthchecker.HealthChecker)),
-		},
-		{
-			Name:        "generator",
-			Flags:       flags.GeneratorFlags,
-			Usage:       "Starts the health check software",
-			Description: "Taiko guardian-prover-health-check uptime availability generator software",
-			Action:      utils.SubcommandAction(new(generator.Generator)),
 		},
 	}
 

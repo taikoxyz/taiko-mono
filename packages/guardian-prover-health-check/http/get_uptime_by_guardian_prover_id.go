@@ -8,7 +8,12 @@ import (
 	echo "github.com/labstack/echo/v4"
 )
 
-// GetStats
+type uptimeResponse struct {
+	Uptime                     float64 `json:"uptime"`
+	NumHealthChecksLast24Hours int     `json:"numHealthChecksLast24Hours"`
+}
+
+// GetUptimeByGuardianProverID
 //
 //	 returns the stats
 //
@@ -19,7 +24,7 @@ import (
 //			@Success		200	{object} paginate.Page
 //			@Router			/stats/:id [get]
 
-func (srv *Server) GetStatsByGuardianProverID(c echo.Context) error {
+func (srv *Server) GetUptimeByGuardianProverID(c echo.Context) error {
 	idParam := c.Param("id")
 	if idParam == "" {
 		return c.JSON(http.StatusBadRequest, errors.New("no id provided"))
@@ -30,10 +35,15 @@ func (srv *Server) GetStatsByGuardianProverID(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
-	page, err := srv.statRepo.GetByGuardianProverID(c.Request().Context(), c.Request(), id)
+	uptime, numHealthChecks, err := srv.healthCheckRepo.GetUptimeByGuardianProverID(c.Request().Context(), id)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, err)
 	}
 
-	return c.JSON(http.StatusOK, page)
+	resp := uptimeResponse{
+		Uptime:                     uptime,
+		NumHealthChecksLast24Hours: numHealthChecks,
+	}
+
+	return c.JSON(http.StatusOK, resp)
 }
