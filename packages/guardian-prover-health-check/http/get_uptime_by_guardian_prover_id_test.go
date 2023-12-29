@@ -1,6 +1,7 @@
 package http
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -9,19 +10,20 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func Test_GetStats(t *testing.T) {
+func Test_GetUptimeByGuardianProverID(t *testing.T) {
 	srv := newTestServer("")
 
 	tests := []struct {
 		name                  string
+		id                    string
 		wantStatus            int
 		wantBodyRegexpMatches []string
 	}{
 		{
 			"success",
+			"9839483294",
 			http.StatusOK,
-			// nolint: lll
-			[]string{``},
+			[]string{`{"uptime":25.5,"numHealthChecksLast24Hours":10}`},
 		},
 	}
 
@@ -29,7 +31,7 @@ func Test_GetStats(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := testutils.NewUnauthenticatedRequest(
 				echo.GET,
-				"/stats",
+				fmt.Sprintf("/uptime/%v", tt.id),
 				nil,
 			)
 
