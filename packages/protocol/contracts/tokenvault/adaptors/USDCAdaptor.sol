@@ -24,20 +24,24 @@ interface IUSDC {
 
 /// @title USDCAdaptor
 contract USDCAdaptor is BridgedERC20Base {
-    IUSDC public usdc; // slot 1
+    IUSDC public immutable USDC;
+
     uint256[49] private __gap;
 
-    function init(address _adressManager, IUSDC _usdc) external initializer {
-        __Essential_init(_adressManager);
-        usdc = _usdc;
+    constructor(IUSDC _usdc) {
+        USDC = _usdc;
+    }
+
+    function init(address _addressManager) external initializer {
+        __Essential_init(_addressManager);
     }
 
     function _mintToken(address account, uint256 amount) internal override {
-        usdc.mint(account, amount);
+        USDC.mint(account, amount);
     }
 
     function _burnToken(address from, uint256 amount) internal override {
-        usdc.transferFrom(from, address(this), amount);
-        usdc.burn(amount);
+        USDC.transferFrom(from, address(this), amount);
+        USDC.burn(amount);
     }
 }
