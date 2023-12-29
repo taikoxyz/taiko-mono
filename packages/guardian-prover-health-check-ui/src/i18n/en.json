@@ -1,4 +1,7 @@
 {
+	"common": {
+		"prover": "Guardian Prover"
+	},
 	"filter": {
 		"guardian_status": {
 			"alive": "Alive",

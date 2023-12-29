@@ -10,6 +10,7 @@
 	import { t } from 'svelte-i18n';
 	import Filter from './Filter.svelte';
 	import { fetchGuardians, guardianProvers } from '$lib/dataFetcher';
+	import { Icon } from '$components/Icon';
 
 	let loading = false;
 	let filtered = false;
@@ -37,8 +38,20 @@
 	$: dataToDisplay = filtered ? filteredGuardianProvers : $guardianProvers;
 </script>
 
-<h1 class="text-left">{$t('headings.overview')}</h1>
+<div class="f-row">
+	{#if $selectedGuardianProver}
+		<a href="/" class="" on:click={() => ($selectedGuardianProver = null)}>
+			<h1 class="text-left text-tertiary-content">{$t('headings.overview')}</h1>
+		</a>
 
+		<div class="pl-[10px] pr-[5px]">
+			<Icon type="chevron-right" size={23} class="mt-[5px]" />
+		</div>
+		<h1>GuardianProver {$selectedGuardianProver.id}</h1>
+	{:else}
+		<h1 class="text-left">{$t('headings.overview')}</h1>
+	{/if}
+</div>
 {#if loading}
 	<Filter bind:filteredGuardianProvers {refreshData} bind:loading bind:filtered />
 
@@ -52,7 +65,11 @@
 	<OverviewTableHeader />
 	<div class="space-y-[8px]">
 		{#each dataToDisplay as guardianProver (guardianProver.id)}
-			<OverviewTableRow {guardianProver} on:click={() => openDetails(guardianProver)} />
+			<OverviewTableRow
+				{guardianProver}
+				on:click={() => openDetails(guardianProver)}
+				on:keydown={() => openDetails(guardianProver)}
+			/>
 		{/each}
 	</div>
 {:else if $selectedGuardianProver}
