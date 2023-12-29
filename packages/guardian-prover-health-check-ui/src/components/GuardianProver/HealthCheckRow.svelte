@@ -31,12 +31,12 @@
 
 	<div class={classNames('col-span-5', colClasses)}>
 		<p class="text-gray-900 whitespace-no-wrap">
-			{truncateString(healthCheck.expectedAddress, 14)}
+			{healthCheck.expectedAddress}
 		</p>
 	</div>
 	<div class={classNames('col-span-4', colClasses)}>
 		<p class="text-gray-900 whitespace-no-wrap">
-			{truncateString(healthCheck.recoveredAddress, 14)}
+			{healthCheck.recoveredAddress}
 		</p>
 	</div>
 	<div class={classNames('col-span-2', colClasses)}>
