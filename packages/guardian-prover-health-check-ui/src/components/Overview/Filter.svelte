@@ -5,11 +5,15 @@
 	import StatusFilterDropdown from './StatusFilterDropdown.svelte';
 	import { RotatingIcon } from '$components/Icon';
 	import { guardianProvers } from '$lib/dataFetcher';
+	import DesktopOrLarger from '$components/DesktopOrLarger/DesktopOrLarger.svelte';
+	import { classNames } from '$lib/util/classNames';
 
 	export let refreshData: () => void;
 	export let filteredGuardianProvers: Guardian[] = [];
 	export let loading: boolean = false;
 	export let filtered: boolean = false;
+
+	let isDesktopOrLarger: boolean;
 
 	const filterByStatus = (status: GuardianProverStatus) => {
 		selectedStatus = status;
@@ -34,14 +38,18 @@
 		reset();
 	}
 
+	$: classes = classNames('flex space-x-4', isDesktopOrLarger ? 'justify-end' : 'justify-start');
+
 	onMount(() => {
 		reset();
 	});
 </script>
 
-<div class="flex justify-end space-x-4">
+<div class={classes}>
 	<button class="btn btn-xs w-[36px] h-[36px] rounded-full" on:click={refreshData}
 		><RotatingIcon type="refresh" bind:loading /></button
 	>
 	<StatusFilterDropdown bind:selectedStatus />
 </div>
+
+<DesktopOrLarger bind:is={isDesktopOrLarger} />

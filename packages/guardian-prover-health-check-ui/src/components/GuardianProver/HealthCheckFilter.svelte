@@ -24,7 +24,7 @@
 
 <div class="flex justify-start space-x-4 w-full">
 	<div class="relative">
-		<div class="relative f-items-center w-[570px]">
+		<div class="relative f-items-center w-full">
 			<input
 				id="search"
 				type="text"

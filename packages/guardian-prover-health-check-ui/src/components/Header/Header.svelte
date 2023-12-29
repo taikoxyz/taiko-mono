@@ -15,9 +15,10 @@
 		<Tabs />
 	</div>
 </section>
+
 <section id="header-content" class="min-h-[76px] my-[30px]">
 	{#if $selectedGuardianProver}
-		<OverviewTableRow guardianProver={$selectedGuardianProver} small />
+		<OverviewTableRow guardianProver={$selectedGuardianProver} single />
 	{:else}
 		<StatusBanner />
 	{/if}

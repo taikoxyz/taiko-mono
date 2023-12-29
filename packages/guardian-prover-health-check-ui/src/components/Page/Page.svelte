@@ -1,3 +1,3 @@
-<div class="w-full px-0 md:px-10 py-[40px] md:py-[40px]">
+<div class="w-full px-[20px] py-[40px]">
 	<slot />
 </div>

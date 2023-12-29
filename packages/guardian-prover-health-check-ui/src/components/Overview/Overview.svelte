@@ -38,40 +38,43 @@
 	$: dataToDisplay = filtered ? filteredGuardianProvers : $guardianProvers;
 </script>
 
-<div class="f-row">
+<div class="f-row w-full text-md md:text-[1.5rem]">
 	{#if $selectedGuardianProver}
 		<a href="/" class="" on:click={() => ($selectedGuardianProver = null)}>
-			<h1 class="text-left text-tertiary-content">{$t('headings.overview')}</h1>
+			<span class="text-left font-bold text-tertiary-content">{$t('headings.overview')}</span>
 		</a>
 
 		<div class="pl-[10px] pr-[5px]">
 			<Icon type="chevron-right" size={23} class="mt-[5px]" />
 		</div>
-		<h1>GuardianProver {$selectedGuardianProver.id}</h1>
+		<span class="font-bold">{$t('common.prover')} {$selectedGuardianProver.id}</span>
 	{:else}
-		<h1 class="text-left">{$t('headings.overview')}</h1>
+		<span class="text-left font-bold">{$t('headings.overview')}</span>
 	{/if}
 </div>
-{#if loading}
-	<Filter bind:filteredGuardianProvers {refreshData} bind:loading bind:filtered />
 
-	<div class="flex justify-center items-center w-full h-full">
-		<Spinner />
-		<span class="ml-5">{$t('loading')}</span>
-	</div>
-{:else if !$selectedGuardianProver}
-	<Filter bind:filteredGuardianProvers {refreshData} bind:loading bind:filtered />
+<div class="mt-[12px]">
+	{#if loading}
+		<Filter bind:filteredGuardianProvers {refreshData} bind:loading bind:filtered />
 
-	<OverviewTableHeader />
-	<div class="space-y-[8px]">
-		{#each dataToDisplay as guardianProver (guardianProver.id)}
-			<OverviewTableRow
-				{guardianProver}
-				on:click={() => openDetails(guardianProver)}
-				on:keydown={() => openDetails(guardianProver)}
-			/>
-		{/each}
-	</div>
-{:else if $selectedGuardianProver}
-	<HealthChecksList />
-{/if}
+		<div class="flex justify-center items-center w-full h-full my-[30px]">
+			<Spinner />
+			<span class="ml-5">{$t('loading')}</span>
+		</div>
+	{:else if !$selectedGuardianProver}
+		<Filter bind:filteredGuardianProvers {refreshData} bind:loading bind:filtered />
+
+		<OverviewTableHeader />
+		<div class="space-y-[8px]">
+			{#each dataToDisplay as guardianProver (guardianProver.id)}
+				<OverviewTableRow
+					{guardianProver}
+					on:click={() => openDetails(guardianProver)}
+					on:keydown={() => openDetails(guardianProver)}
+				/>
+			{/each}
+		</div>
+	{:else if $selectedGuardianProver}
+		<HealthChecksList />
+	{/if}
+</div>
