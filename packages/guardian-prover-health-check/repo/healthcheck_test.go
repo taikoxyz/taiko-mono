@@ -85,6 +85,7 @@ func TestIntegration_HealthCheck_UptimeByGuardianProverId(t *testing.T) {
 	defer close()
 
 	healthCheckRepo, err := NewHealthCheckRepository(db)
+
 	assert.Equal(t, nil, err)
 
 	err = healthCheckRepo.Save(guardianproverhealthcheck.SaveHealthCheckOpts{
