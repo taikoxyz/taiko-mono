@@ -119,7 +119,7 @@ func TestIntegration_HealthCheck_UptimeByGuardianProverId(t *testing.T) {
 			"success",
 			1,
 			2,
-			(float64(7200) / 2) * 100,
+			(float64(2) / 7200) * 100,
 			nil,
 		},
 		{
