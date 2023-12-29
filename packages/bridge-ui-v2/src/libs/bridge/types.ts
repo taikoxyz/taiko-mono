@@ -220,4 +220,4 @@ export type FetchTransactions = {
   mergedTransactions: BridgeTransaction[];
   outdatedLocalTransactions: BridgeTransaction[];
   error: Error;
-}
+};
