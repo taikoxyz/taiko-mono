@@ -96,7 +96,9 @@ func (r *HealthCheckRepository) Save(opts guardianproverhealthcheck.SaveHealthCh
 
 func (r *HealthCheckRepository) GetUptimeByGuardianProverID(ctx context.Context, id int) (float64, int, error) {
 	var count int64
+
 	var query string = `SELECT COUNT(*) FROM health_checks WHERE created_at > NOW() - INTERVAL 1 DAY`
+
 	if err := r.db.GormDB().Raw(query).Scan(&count).Error; err != nil {
 		return 0, 0, err
 	}
