@@ -83,6 +83,7 @@ To get started, open your terminal in `/packages/bridge-ui-v2/`
    This command exports the json as base64 string to your .env file
 
 4. Remember to source your .env file after exporting the configurations:
+
    ```bash
    source .env
    ```
@@ -90,7 +91,7 @@ To get started, open your terminal in `/packages/bridge-ui-v2/`
 5. Now whenever a build is triggered it will generate the config files based on the .env file in `src/generated/`
    <br>**Note: In the** `config/schemas` **folder are schemas that will validate the correct json format and report any errors in your initial json configurations, so check the log output for any errors!**
    <br>
-   
+
 **Beware**, that if you make changes to the json files, you need to export them to the .env again via script.
 <br>
 
@@ -114,4 +115,3 @@ npm run build
 You can preview the production build with `npm run preview`.
 
 To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
-
