@@ -6,6 +6,12 @@ import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
 import { BridgeErrors } from "../../contracts/bridge/BridgeErrors.sol";
 
+contract SelfDestructor {
+    function boom(address payable _to) external payable {
+        selfdestruct(_to);
+    }
+}
+
 contract TestEtherVault is TestBase {
     AddressManager addressManager;
     EtherVault etherVault;
@@ -100,6 +106,25 @@ contract TestEtherVault is TestBase {
         uint256 bobBalanceAfter = Bob.balance;
         assertEq(bobBalanceAfter - bobBalanceBefore, 1 ether);
         vm.stopPrank();
+    }
+
+    // we can bypass `receive()` function by using `selfdestruct`
+    function test_Bypass_receive_function() public {
+        // authorized sender trying to send ether to the vault
+        assertEq(address(etherVault).balance, 0);
+        assertEq(Alice.balance > 0, true);
+        vm.startPrank(Alice);
+        etherVault.authorize(Alice, true);
+        (bool aliceSent,) = address(etherVault).call{ value: 1 }("");
+        assertTrue(aliceSent);
+        assertEq(address(etherVault).balance, 1);
+        vm.stopPrank();
+
+        // force transfer eth to the vault by an attacker
+        // even though contract already has eth balance
+        SelfDestructor destructor = new SelfDestructor();
+        destructor.boom{ value: 1 }(payable(etherVault));
+        assertEq(address(etherVault).balance, 2);
     }
 
     function _seedEtherVault() private {
