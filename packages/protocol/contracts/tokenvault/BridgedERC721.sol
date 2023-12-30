@@ -116,10 +116,17 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         return "";
     }
 
-    function _transfer(address from, address to, uint256 tokenId) internal virtual override {
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 firstTokenId,
+        uint256 batchSize
+    )
+        internal
+        virtual
+        override
+    {
         if (to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
         if (paused()) revert INVALID_PAUSE_STATUS();
-
-        ERC721Upgradeable._transfer(from, to, tokenId);
     }
 }

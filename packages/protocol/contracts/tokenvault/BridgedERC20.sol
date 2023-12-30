@@ -119,10 +119,16 @@ contract BridgedERC20 is BridgedERC20Base, IERC20MetadataUpgradeable, ERC20Upgra
         _burn(from, amount);
     }
 
-    function _transfer(address from, address to, uint256 amount) internal virtual override {
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    )
+        internal
+        virtual
+        override
+    {
         if (to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
         if (paused()) revert INVALID_PAUSE_STATUS();
-
-        ERC20Upgradeable._transfer(from, to, amount);
     }
 }

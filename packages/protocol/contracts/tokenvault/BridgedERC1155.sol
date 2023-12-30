@@ -127,7 +127,5 @@ contract BridgedERC1155 is
     {
         if (to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
         if (paused()) revert INVALID_PAUSE_STATUS();
-
-        ERC1155Upgradeable._beforeTokenTransfer(operator, from, to, ids, amounts, data);
     }
 }
