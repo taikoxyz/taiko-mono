@@ -1,4 +1,4 @@
-export default [
+export const guardianProverABI = [
   {
     inputs: [],
     name: "INVALID_GUARDIAN",

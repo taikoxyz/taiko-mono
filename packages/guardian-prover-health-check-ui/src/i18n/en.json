@@ -1,0 +1,57 @@
+{
+	"blocks": {
+		"id": "#",
+		"signature": "Signature",
+		"signed": "Signed",
+		"signed_hash": "Signed Block Hash"
+	},
+	"common": {
+		"prover": "Guardian Prover"
+	},
+	"filter": {
+		"guardian_status": {
+			"alive": "Online",
+			"all": "All",
+			"dead": "Offline",
+			"title": "Sort by status"
+		}
+	},
+	"headings": {
+		"blocks": "Last 100 Blocks",
+		"overview": "Overview"
+	},
+	"loading": "Loading...",
+	"nav": {
+		"blocks": "Blocks",
+		"guardian_prover": "Guardian Prover"
+	},
+	"overview": {
+		"detail": {
+			"table": {
+				"actual_address": "Recovered address",
+				"created_on": "Created on",
+				"expected_address": "Expected address",
+				"status": "Status",
+				"uptime": "Uptime %"
+			}
+		},
+		"table": {
+			"address": "Address",
+			"balance": "Balance",
+			"guardian_prover": "Guardian Prover",
+			"no_blocks_created": "Signed",
+			"status": "Status"
+		}
+	},
+	"page": {
+		"title": "Taiko Guardian Prover Status"
+	},
+	"paginator": {
+		"of": "of",
+		"page": "Page"
+	},
+	"status": {
+		"degraded": "Systems are not ok",
+		"operational": "All systems operational"
+	}
+}

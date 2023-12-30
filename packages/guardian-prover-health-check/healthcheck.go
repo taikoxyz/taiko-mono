@@ -42,4 +42,5 @@ type HealthCheckRepository interface {
 		id int,
 	) (*HealthCheck, error)
 	Save(opts SaveHealthCheckOpts) error
+	GetUptimeByGuardianProverID(ctx context.Context, id int) (float64, int, error)
 }

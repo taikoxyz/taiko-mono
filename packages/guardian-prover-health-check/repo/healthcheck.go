@@ -9,6 +9,10 @@ import (
 	"gorm.io/gorm"
 )
 
+var (
+	expectedHealthChecksPer24Hours = 7200
+)
+
 type HealthCheckRepository struct {
 	db DB
 }
@@ -88,4 +92,21 @@ func (r *HealthCheckRepository) Save(opts guardianproverhealthcheck.SaveHealthCh
 	}
 
 	return nil
+}
+
+func (r *HealthCheckRepository) GetUptimeByGuardianProverID(ctx context.Context, id int) (float64, int, error) {
+	var count int64
+
+	var query string = `SELECT COUNT(*) 
+	FROM health_checks 
+	WHERE guardian_prover_id = ? AND
+	created_at > NOW() - INTERVAL 1 DAY`
+
+	if err := r.db.GormDB().Raw(query, id).Scan(&count).Error; err != nil {
+		return 0, 0, err
+	}
+
+	uptimePercentage := (float64(count) / float64(expectedHealthChecksPer24Hours)) * 100
+
+	return uptimePercentage, int(count), nil
 }
