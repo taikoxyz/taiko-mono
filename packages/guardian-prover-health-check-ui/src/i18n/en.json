@@ -1,9 +1,18 @@
 {
+	"blocks": {
+		"id": "#",
+		"signature": "Signature",
+		"signed": "Signed",
+		"signed_hash": "Signed Block Hash"
+	},
+	"common": {
+		"prover": "Guardian Prover"
+	},
 	"filter": {
 		"guardian_status": {
-			"alive": "Alive",
+			"alive": "Online",
 			"all": "All",
-			"dead": "Dead",
+			"dead": "Offline",
 			"title": "Sort by status"
 		}
 	},

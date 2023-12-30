@@ -21,33 +21,32 @@
 
 <div class="flex flex-col space-y-2">
 	<div class="grid grid-cols-5 items-center font-bold pl-3 pe-12">
-		<div>No.</div>
-		<div>Block ID</div>
-		<div class="col-span-3">Signed</div>
+		<div>{$t('blocks.id')}</div>
+		<div class="col-span-3">{$t('blocks.signed')}</div>
 	</div>
 	{#each blocksToDisplay as { blockNumber, blocks }, index (blockNumber)}
+		{@const sortedProver = blocks.sort((a, b) => a.guardianProverID - b.guardianProverID)}
 		<div class="collapse collapse-arrow bg-base-200 rounded-lg shadow-md">
 			<input type="checkbox" id={`block-${index}`} class="peer" />
 			<label for={`block-${index}`} class="collapse-title font-medium items-center">
 				<div class="grid grid-cols-5 items-center">
-					<div class="">{index + 1}</div>
 					<div class="font-bold">{blockNumber}</div>
 					<div class="col-span-3">{blocks.length}/{$guardianProvers.length}</div>
 				</div>
 			</label>
 			<div class="collapse-content bg-white">
-				{#each blocks as b}
+				{#each sortedProver as p}
 					<div class="grid grid-cols-4 items-center border-b py-[24px]">
-						<p class="font-bold">Guardian Prover {b.guardianProverID}</p>
+						<p class="font-bold">{$t('common.prover')} {p.guardianProverID}</p>
 
 						<div class="space-y-[10px] text-sm w-full col-span-3">
 							<div>
-								<p class="text-secondary-content">Signed Block Hash</p>
-								{b.blockHash}
+								<p class="text-secondary-content">{$t('blocks.signed_hash')}</p>
+								{p.blockHash}
 							</div>
 							<div>
-								<p class="text-secondary-content">Signature:</p>
-								<span class="break-100-chars">{b.signature}</span>
+								<p class="text-secondary-content">{$t('blocks.signature')}</p>
+								<span class="break-100-chars">{p.signature}</span>
 							</div>
 						</div>
 					</div>

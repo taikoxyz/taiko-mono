@@ -9,7 +9,9 @@
 	import Paginator from '$components/Paginator/Paginator.svelte';
 
 	import HealthCheckFilter from './HealthCheckFilter.svelte';
+	import DesktopOrLarger from '$components/DesktopOrLarger/DesktopOrLarger.svelte';
 
+	let isDesktopOrLarger: boolean;
 	let healthChecks: HealthCheck[] = [];
 	let nextHealthCheckPage: number = 0;
 	let pageSize: number = 10;
@@ -47,29 +49,38 @@
 	<HealthCheckFilter {healthChecks} bind:filteredHealthChecks />
 </div>
 
-<div class="grid grid-cols-12">
-	<div class="col-span-1 font-bold text-content-primary border-b border-gray-300 mb-[10px]">
-		{$t('overview.detail.table.status')}
-	</div>
-	<!-- <div class="col-span-1 font-bold text-content-primary border-b border-gray-300">
+{#if isDesktopOrLarger}
+	<div class="grid grid-cols-12">
+		<div class="col-span-1 font-bold text-content-primary border-b border-gray-300 mb-[10px]">
+			{$t('overview.detail.table.status')}
+		</div>
+		<!-- <div class="col-span-1 font-bold text-content-primary border-b border-gray-300">
 		{$t('overview.detail.table.uptime')}
 	</div> -->
-	<div class="col-span-5 font-bold text-content-primary border-b border-gray-300 mb-[10px]">
-		{$t('overview.detail.table.expected_address')}
+		<div class="col-span-5 font-bold text-content-primary border-b border-gray-300 mb-[10px]">
+			{$t('overview.detail.table.expected_address')}
+		</div>
+		<div class="col-span-4 font-bold text-content-primary border-b border-gray-300 mb-[10px]">
+			{$t('overview.detail.table.actual_address')}
+		</div>
+		<div class="col-span-2 font-bold text-content-primary border-b border-gray-300 mb-[10px]">
+			{$t('overview.detail.table.created_on')}
+		</div>
+		{#each filteredHealthChecks as healthCheck, index (healthCheck.id)}
+			<HealthCheckRow {healthCheck} />
+		{/each}
 	</div>
-	<div class="col-span-4 font-bold text-content-primary border-b border-gray-300 mb-[10px]">
-		{$t('overview.detail.table.actual_address')}
+{:else}
+	<div class="grid grid-cols-12">
+		{#each filteredHealthChecks as healthCheck, index (healthCheck.id)}
+			<HealthCheckRow {healthCheck} />
+		{/each}
 	</div>
-	<div class="col-span-2 font-bold text-content-primary border-b border-gray-300 mb-[10px]">
-		{$t('overview.detail.table.created_on')}
-	</div>
-	{#each filteredHealthChecks as healthCheck, index (healthCheck.id)}
-		<HealthCheckRow {healthCheck} />
-	{/each}
-</div>
-
+{/if}
 <Paginator
 	{pageSize}
 	bind:totalItems
 	on:pageChange={({ detail: selectedPage }) => handlePageChange(selectedPage)}
 />
+
+<DesktopOrLarger bind:is={isDesktopOrLarger} />
