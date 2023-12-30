@@ -7,7 +7,6 @@ import (
 var (
 	commonCategory      = "COMMON"
 	healthCheckCategory = "HEALTHCHECK"
-	generatorCategory   = "GENERATOR"
 )
 
 var (

@@ -29,7 +29,6 @@ type Server struct {
 	ethClient       *ethclient.Client
 	healthCheckRepo guardianproverhealthcheck.HealthCheckRepository
 	signedBlockRepo guardianproverhealthcheck.SignedBlockRepository
-	statRepo        guardianproverhealthcheck.StatRepository
 	guardianProvers []guardianproverhealthcheck.GuardianProver
 }
 
@@ -38,7 +37,6 @@ type NewServerOpts struct {
 	EthClient       *ethclient.Client
 	HealthCheckRepo guardianproverhealthcheck.HealthCheckRepository
 	SignedBlockRepo guardianproverhealthcheck.SignedBlockRepository
-	StatRepo        guardianproverhealthcheck.StatRepository
 	CorsOrigins     []string
 	GuardianProvers []guardianproverhealthcheck.GuardianProver
 }
@@ -48,7 +46,6 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 		echo:            opts.Echo,
 		ethClient:       opts.EthClient,
 		healthCheckRepo: opts.HealthCheckRepo,
-		statRepo:        opts.StatRepo,
 		guardianProvers: opts.GuardianProvers,
 		signedBlockRepo: opts.SignedBlockRepo,
 	}
