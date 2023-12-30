@@ -10,7 +10,8 @@ import { formatSourceFile } from './../utils/formatSourceFile';
 import { PluginLogger } from './../utils/PluginLogger';
 import { validateJsonAgainstSchema } from './../utils/validateJson';
 
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+
 const pluginName = 'generateTokens';
 const logger = new PluginLogger(pluginName);
 
