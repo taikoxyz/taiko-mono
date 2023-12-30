@@ -120,9 +120,9 @@ contract BridgedERC20 is BridgedERC20Base, IERC20MetadataUpgradeable, ERC20Upgra
     }
 
     function _beforeTokenTransfer(
-        address from,
+        address, /*from*/
         address to,
-        uint256 amount
+        uint256 /*amount*/
     )
         internal
         virtual
