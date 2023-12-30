@@ -37,9 +37,6 @@ contract BridgedERC1155 is
 
     uint256[46] private __gap;
 
-    // Event triggered upon token transfer.
-    event Transfer(address indexed from, address indexed to, uint256 tokenId, uint256 amount);
-
     error BTOKEN_CANNOT_RECEIVE();
     error BTOKEN_INVALID_PARAMS();
 
@@ -104,30 +101,6 @@ contract BridgedERC1155 is
         _burn(account, tokenId, amount);
     }
 
-    /// @dev Safely transfers tokens from one address to another.
-    /// @param from Address from which tokens are transferred.
-    /// @param to Address to which tokens are transferred.
-    /// @param tokenId ID of the token to transfer.
-    /// @param amount Amount of tokens to transfer.
-    /// @param data Additional data.
-    function safeTransferFrom(
-        address from,
-        address to,
-        uint256 tokenId,
-        uint256 amount,
-        bytes memory data
-    )
-        public
-        override(ERC1155Upgradeable, IERC1155Upgradeable)
-        nonReentrant
-        whenNotPaused
-    {
-        if (to == address(this)) {
-            revert BTOKEN_CANNOT_RECEIVE();
-        }
-        return ERC1155Upgradeable.safeTransferFrom(from, to, tokenId, amount, data);
-    }
-
     /// @notice Gets the name of the bridged token.
     /// @return The name.
     function name() public view returns (string memory) {
@@ -138,5 +111,21 @@ contract BridgedERC1155 is
     /// @return The symbol.
     function symbol() public view returns (string memory) {
         return LibBridgedToken.buildSymbol(symbol_);
+    }
+
+    function _beforeTokenTransfer(
+        address, /*operator*/
+        address, /*from*/
+        address to,
+        uint256[] memory, /*ids*/
+        uint256[] memory, /*amounts*/
+        bytes memory /*data*/
+    )
+        internal
+        virtual
+        override
+    {
+        if (to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
+        if (paused()) revert INVALID_PAUSE_STATUS();
     }
 }

@@ -322,7 +322,7 @@ contract ERC20Vault is BaseVault {
             // simply using `amount` -- some contract may deduct a fee from the
             // transferred amount.
             uint256 _balance = t.balanceOf(address(this));
-            t.transferFrom({ from: msg.sender, to: address(this), amount: amount });
+            t.safeTransferFrom({ from: msg.sender, to: address(this), value: amount });
             _balanceChange = t.balanceOf(address(this)) - _balance;
         }
 
