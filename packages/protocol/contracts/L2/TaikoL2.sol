@@ -15,6 +15,7 @@
 pragma solidity 0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../common/ICrossChainSync.sol";
 import "../signal/ISignalService.sol";
@@ -33,6 +34,7 @@ import "./TaikoL2Signer.sol";
 contract TaikoL2 is CrossChainOwned, TaikoL2Signer, ICrossChainSync {
     using LibAddress for address;
     using LibMath for uint256;
+    using SafeERC20 for IERC20;
 
     struct Config {
         uint32 gasTargetPerL1Block;
@@ -106,6 +108,7 @@ contract TaikoL2 is CrossChainOwned, TaikoL2Signer, ICrossChainSync {
         uint32 parentGasUsed
     )
         external
+        nonReentrant
     {
         if (
             l1BlockHash == 0 || l1SignalRoot == 0 || l1Height == 0
@@ -154,12 +157,12 @@ contract TaikoL2 is CrossChainOwned, TaikoL2Signer, ICrossChainSync {
     }
 
     /// @notice Withdraw token or Ether from this address
-    function withdraw(address token, address to) external onlyOwner {
+    function withdraw(address token, address to) external onlyOwner nonReentrant whenNotPaused {
         if (to == address(0)) revert L2_INVALID_PARAM();
         if (token == address(0)) {
             to.sendEther(address(this).balance);
         } else {
-            IERC20(token).transfer(to, IERC20(token).balanceOf(address(this)));
+            IERC20(token).safeTransfer(to, IERC20(token).balanceOf(address(this)));
         }
     }
 
