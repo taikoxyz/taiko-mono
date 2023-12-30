@@ -56,7 +56,8 @@ abstract contract Guardians is EssentialContract {
         ) revert INVALID_MIN_GUARDIANS();
 
         // Delete current guardians data
-        for (uint256 i; i < guardians.length; ++i) {
+        uint256 guardiansLength = guardians.length;
+        for (uint256 i; i < guardiansLength; ++i) {
             delete guardianIds[guardians[i]];
         }
         assembly {
@@ -104,8 +105,9 @@ abstract contract Guardians is EssentialContract {
     function isApproved(uint256 approvalBits) internal view returns (bool) {
         uint256 count;
         uint256 bits = approvalBits;
+        uint256 guardiansLength = guardians.length;
         unchecked {
-            for (uint256 i; i < guardians.length; ++i) {
+            for (uint256 i; i < guardiansLength; ++i) {
                 if (bits & 1 == 1) ++count;
                 if (count == minGuardians) return true;
                 bits >>= 1;
