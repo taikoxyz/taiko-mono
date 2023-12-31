@@ -11,7 +11,7 @@ import { formatSourceFile } from './../utils/formatSourceFile';
 import { PluginLogger } from './../utils/PluginLogger';
 import { validateJsonAgainstSchema } from './../utils/validateJson';
 
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+dotenv.config();
 
 const pluginName = 'generateRelayerConfig';
 const logger = new PluginLogger(pluginName);
