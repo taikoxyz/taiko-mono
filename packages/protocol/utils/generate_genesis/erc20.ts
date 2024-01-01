@@ -5,7 +5,7 @@ const ARTIFACTS_PATH = path.join(__dirname, "../../out");
 const {
     computeStorageSlots,
     getStorageLayout,
-} = require("@defi-wonderland/smock/dist/src/utils");
+} = require("@defi-wonderland/smock-foundry/dist/utils");
 
 export const TOKEN_NAME = "RegularERC20";
 export const TOKEN_SYMBOL = "RGL";

@@ -6,7 +6,7 @@ const linker = require("solc/linker");
 const {
     computeStorageSlots,
     getStorageLayout,
-} = require("@defi-wonderland/smock/dist/src/utils");
+} = require("@defi-wonderland/smock-foundry/dist/utils");
 const ARTIFACTS_PATH = path.join(__dirname, "../../out");
 
 const IMPLEMENTATION_SLOT =
