@@ -2,10 +2,7 @@ import { ethers } from "ethers";
 import { Result } from "./interface";
 const path = require("path");
 const ARTIFACTS_PATH = path.join(__dirname, "../../out");
-const {
-    computeStorageSlots,
-    getStorageLayout,
-} = require("@defi-wonderland/smock-foundry/dist/utils");
+const { computeStorageSlots, getStorageLayout } = require("./utils");
 
 export const TOKEN_NAME = "RegularERC20";
 export const TOKEN_SYMBOL = "RGL";

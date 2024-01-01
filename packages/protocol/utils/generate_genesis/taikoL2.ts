@@ -3,10 +3,7 @@ const path = require("path");
 const { ethers } = require("ethers");
 // eslint-disable-next-line node/no-extraneous-require
 const linker = require("solc/linker");
-const {
-    computeStorageSlots,
-    getStorageLayout,
-} = require("@defi-wonderland/smock-foundry/dist/utils");
+const { computeStorageSlots, getStorageLayout } = require("./utils");
 const ARTIFACTS_PATH = path.join(__dirname, "../../out");
 
 const IMPLEMENTATION_SLOT =
@@ -85,6 +82,8 @@ export async function deployTaikoL2(
         storageLayoutName = contractName.includes("AddressManager")
             ? "AddressManager"
             : storageLayoutName;
+
+        console.log({ storageLayoutName });
 
         storageLayouts[contractName] =
             await getStorageLayout(storageLayoutName);
