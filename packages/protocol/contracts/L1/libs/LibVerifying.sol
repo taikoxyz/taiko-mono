@@ -198,7 +198,7 @@ library LibVerifying {
                 // Consequently, we have chosen to grant the actual prover only
                 // half of the liveness bond as a reward.
                 if (ts.prover != blk.assignedProver) {
-                    bondToReturn -= blk.livenessBond / 2;
+                    bondToReturn -= blk.livenessBond >> 1;
                 }
 
                 IERC20 tko = IERC20(resolver.resolve("taiko_token", false));
