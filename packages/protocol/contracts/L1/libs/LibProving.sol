@@ -253,7 +253,7 @@ library LibProving {
 
             if (ts.contester != address(0)) {
                 // At this point we know that the contester was right
-                tko.transfer(ts.contester, ts.validityBond / 4 + ts.contestBond);
+                tko.transfer(ts.contester, ts.validityBond >> 2 + ts.contestBond);
                 ts.contester = address(0);
                 ts.validityBond = 0;
             }
@@ -377,7 +377,7 @@ library LibProving {
                     // winner, half of the contest bond is designated as the
                     // reward, to be divided equally between the new prover and
                     // the previous prover -- 1/4 each
-                    reward = ts.contestBond / 4;
+                    reward = ts.contestBond >> 2;
 
                     // Mint the reward and the validity bond and return it to
                     // the previous prover.
@@ -386,7 +386,7 @@ library LibProving {
                     // In the event that the contester is the winner, half of
                     // the validity bond is designated as the reward, to be
                     // divided equally between the new prover and the contester.
-                    reward = ts.validityBond / 4;
+                    reward = ts.validityBond >> 2;
 
                     // It's important to note that the contester is set to zero
                     // for the tier-0 transition. Consequently, we only grant a

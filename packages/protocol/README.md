@@ -10,11 +10,10 @@ Before compiling smart contracts, ensure all necessary dependencies are installe
 pnpm install
 ```
 
-Then, compile the smart contracts using both Foundry and Hardhat:
+Then, compile the smart contracts:
 
 ```sh
-pnpm compile          # Compiles using Foundry
-pnpm compile:hardhat  # Compiles using Hardhat
+pnpm compile
 ```
 
 If you run into `Error: Unknown version provided`, you should upgrade your foundry installation by running `curl -L https://foundry.paradigm.xyz | bash`.
@@ -110,22 +109,24 @@ By following these steps, you will successfully generate the L2 genesis block fo
 
 ## Deploying the L1 Contracts
 
-To deploy L1 contracts locally, follow these steps:
+To deploy L1 contracts for Taiko Protocol, you can use any Ethereum network. This guide illustrates the process using a Hardhat local network, but it's adaptable to others. The deployment relies on `script/test_deploy_on_l1.sh`, which targets a node at `http://localhost:8545` by default.
+
+Here’s how you can proceed:
 
 1. **Ensure Sufficient ETH:** Check that the address associated with the private key in `script/test_deploy_on_l1.sh` has enough ETH for deploying contracts on the Hardhat network.
 
 2. **Update Contract Addresses:** After running the genesis block generation script (`pnpm test:genesis`), you will receive a list of pre-computed contract addresses. These addresses need to be added to the `test_deploy_on_l1.sh` file. Make sure to update this file with the correct contract addresses before proceeding with the deployment.
 
-3. **Start a Local Development Network:** Launch a local Ethereum network for development and testing using Hardhat:
+3. **Start a Local Development Network:** While this guide uses Hardhat as an example, you can use any Ethereum network. If you choose to use Hardhat, start a local Ethereum network for development and testing:
 
-   ```sh
-   pnpm hardhat node
-   ```
+```sh
+pnpm hardhat node
+```
 
-4. **Deploy Contracts Using Foundry:** In a new terminal window, run:
+4. **Deploy Contracts Using Foundry:** Once your network is running, open a new terminal window and execute the deployment scripts using Foundry:
 
-   ```sh
-   pnpm deploy:foundry
-   ```
+```sh
+pnpm deploy:foundry
+```
 
-   This step will execute the deployment scripts on the local network started by Hardhat.
+This command will deploy the L1 contracts using the settings and addresses you’ve provided in the `test_deploy_on_l1.sh` script.

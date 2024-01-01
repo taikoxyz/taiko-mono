@@ -51,7 +51,7 @@ abstract contract Guardians is EssentialContract {
             revert INVALID_GUARDIAN_SET();
         }
         if (
-            _minGuardians == 0 || _minGuardians < _guardians.length / 2
+            _minGuardians == 0 || _minGuardians < _guardians.length >> 1
                 || _minGuardians > _guardians.length
         ) revert INVALID_MIN_GUARDIANS();
 
