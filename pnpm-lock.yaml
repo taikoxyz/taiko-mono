@@ -261,9 +261,6 @@ importers:
       '@typechain/ethers-v5':
         specifier: ^11.1.2
         version: 11.1.2(@ethersproject/abi@5.7.0)(@ethersproject/providers@5.7.2)(ethers@5.7.2)(typechain@8.3.2)(typescript@5.3.3)
-      '@typechain/hardhat':
-        specifier: ^9.1.0
-        version: 9.1.0(@typechain/ethers-v6@0.5.1)(ethers@5.7.2)(hardhat@2.19.2)(typechain@8.3.2)
       '@types/chai':
         specifier: ^4.3.8
         version: 4.3.11
@@ -4545,35 +4542,6 @@ packages:
       ts-essentials: 7.0.3(typescript@5.3.3)
       typechain: 8.3.2(typescript@5.3.3)
       typescript: 5.3.3
-    dev: true
-
-  /@typechain/ethers-v6@0.5.1(ethers@5.7.2)(typechain@8.3.2)(typescript@5.3.3):
-    resolution: {integrity: sha512-F+GklO8jBWlsaVV+9oHaPh5NJdd6rAKN4tklGfInX1Q7h0xPgVLP39Jl3eCulPB5qexI71ZFHwbljx4ZXNfouA==}
-    peerDependencies:
-      ethers: 6.x
-      typechain: ^8.3.2
-      typescript: '>=4.7.0'
-    dependencies:
-      ethers: 5.7.2
-      lodash: 4.17.21
-      ts-essentials: 7.0.3(typescript@5.3.3)
-      typechain: 8.3.2(typescript@5.3.3)
-      typescript: 5.3.3
-    dev: true
-
-  /@typechain/hardhat@9.1.0(@typechain/ethers-v6@0.5.1)(ethers@5.7.2)(hardhat@2.19.2)(typechain@8.3.2):
-    resolution: {integrity: sha512-mtaUlzLlkqTlfPwB3FORdejqBskSnh+Jl8AIJGjXNAQfRQ4ofHADPl1+oU7Z3pAJzmZbUXII8MhOLQltcHgKnA==}
-    peerDependencies:
-      '@typechain/ethers-v6': ^0.5.1
-      ethers: ^6.1.0
-      hardhat: ^2.9.9
-      typechain: ^8.3.2
-    dependencies:
-      '@typechain/ethers-v6': 0.5.1(ethers@5.7.2)(typechain@8.3.2)(typescript@5.3.3)
-      ethers: 5.7.2
-      fs-extra: 9.1.0
-      hardhat: 2.19.2(ts-node@10.9.1)(typescript@5.3.3)
-      typechain: 8.3.2(typescript@5.3.3)
     dev: true
 
   /@types/abstract-leveldown@7.2.5:
@@ -17737,7 +17705,7 @@ packages:
       use-sync-external-store: 1.2.0(react@18.2.0)
 
   github.com/taikoxyz/solidity-coverage/ceb49fd1f6041e4fcd26079dfb0d3b0f58c812e5(hardhat@2.19.2):
-    resolution: {tarball: https://codeload.github.com/taikoxyz/solidity-coverage/tar.gz/ceb49fd1f6041e4fcd26079dfb0d3b0f58c812e5}
+    resolution: {commit: ceb49fd1f6041e4fcd26079dfb0d3b0f58c812e5, repo: git+ssh://git@github.com/taikoxyz/solidity-coverage.git, type: git}
     id: github.com/taikoxyz/solidity-coverage/ceb49fd1f6041e4fcd26079dfb0d3b0f58c812e5
     name: solidity-coverage
     version: 0.8.1
