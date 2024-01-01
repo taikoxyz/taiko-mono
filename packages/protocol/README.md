@@ -1,4 +1,3 @@
-
 # Taiko Protocol
 
 This package contains rollup contracts on both L1 and L2, along with other assisting code. Taiko L2's chain ID is [167](https://github.com/ethereum-lists/chains/pull/1611).
@@ -33,7 +32,7 @@ module.exports = {
   // Account address and pre-mint ETH amount as key-value pairs.
   seedAccounts: [
     { "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39": 1024 },
-    { "0x79fcdef22feed20eddacbb2587640e45491b757f": 1024 }
+    { "0x79fcdef22feed20eddacbb2587640e45491b757f": 1024 },
   ],
   // Owner Chain ID, Security Council, and Timelock Controller
   ownerChainId: 31337,
@@ -41,14 +40,15 @@ module.exports = {
   ownerTimelockController: "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
   // L2 EIP-1559 baseFee calculation related fields.
   param1559: {
-    "gasExcess": 1
+    gasExcess: 1,
   },
   // Option to pre-deploy an ERC-20 token.
-  predeployERC20: true
-}
+  predeployERC20: true,
+};
 ```
 
 Then, execute the generation script:
+
 ```sh
 pnpm compile && pnpm generate:genesis config.js
 ```
@@ -85,7 +85,7 @@ This test, defined in `./genesis/generate_genesis.test.sh`, compiles the contrac
 
 After understanding the process from the test, proceed to generate the actual `genesis.json` and the genesis block:
 
-1. **Build the Genesis JSON:** Use the information learned from the `test:genesis` to build the `genesis.json` file from the files in the `/deployments/` directory. The `generate_genesis.test.sh` script contains the necessary commands to create this file. 
+1. **Build the Genesis JSON:** Use the information learned from the `test:genesis` to build the `genesis.json` file from the files in the `/deployments/` directory. The `generate_genesis.test.sh` script contains the necessary commands to create this file.
 
 2. **Run Geth to Generate the Genesis Block:** You can use Geth to initialize and run a private network with the genesis block. You can start Geth with the following commands:
 
@@ -93,20 +93,20 @@ After understanding the process from the test, proceed to generate the actual `g
    geth --datadir ~/taiko-l2-network/node init /deployments/genesis.json
    geth --datadir ~/taiko-l2-network/node --networkid 167 --http --http.addr 127.0.0.1 --http.port 8552 --http.corsdomain "*"
    ```
-    For details refer to the Geth documentation on [creating a genesis block](https://geth.ethereum.org/docs/fundamentals/private-network#creating-genesis-block).
+
+   For details refer to the Geth documentation on [creating a genesis block](https://geth.ethereum.org/docs/fundamentals/private-network#creating-genesis-block).
 
 3. **Retrieve the Genesis Block Hash:** Connect to the Geth node using the command:
 
-    ```sh
-    geth attach ~/taiko-l2-network/node/geth.ipc
-    ```
+   ```sh
+   geth attach ~/taiko-l2-network/node/geth.ipc
+   ```
 
    In the Geth console, use `eth.getBlock(0)` to obtain the hash of the genesis block.
 
 4. **Update `test_deploy_on_l1.sh` File:** Update the `L2_GENESIS_HASH` variable in the `test_deploy_on_l1.sh` script with the obtained genesis block hash.
 
 By following these steps, you will successfully generate the L2 genesis block for the Taiko Protocol, retrieve its hash, and prepare for the L1 contract deployment.
-
 
 ## Deploying the L1 Contracts
 
@@ -129,5 +129,3 @@ To deploy L1 contracts locally, follow these steps:
    ```
 
    This step will execute the deployment scripts on the local network started by Hardhat.
-
-
