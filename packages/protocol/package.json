@@ -6,7 +6,6 @@
     "buildMerkle": "ts-node ./utils/airdrop/buildMerkleTree.ts ./utils/airdrop/airdrop_db/example_claimList.json",
     "clean": "rm -rf abis cache* && forge clean",
     "compile": "forge build --build-info --extra-output storage-layout",
-    "compile:hardhat": "forge build -o artifacts --hardhat --build-info --extra-output storage-layout",
     "deploy:foundry": "./script/download_solc.sh && ./script/test_deploy_on_l1.sh",
     "eslint": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts .",
     "eslint:fix": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts . --fix",

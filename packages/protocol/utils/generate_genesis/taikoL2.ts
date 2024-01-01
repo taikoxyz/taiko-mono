@@ -83,8 +83,6 @@ export async function deployTaikoL2(
             ? "AddressManager"
             : storageLayoutName;
 
-        console.log({ storageLayoutName });
-
         storageLayouts[contractName] =
             await getStorageLayout(storageLayoutName);
         // initialize contract variables, we only care about the variables
