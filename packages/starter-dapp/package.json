@@ -60,7 +60,7 @@
   "dependencies": {
     "@coinbase/wallet-sdk": "^3.6.3",
     "@ethersproject/experimental": "^5.7.0",
-    "@lottiefiles/svelte-lottie-player": "^0.2.0",
+    "@lottiefiles/svelte-lottie-player": "^0.3.0",
     "@sveltestack/svelte-query": "^1.6.0",
     "@wagmi/connectors": "^0.1.1",
     "@wagmi/core": "^0.8.0",
