@@ -45,6 +45,10 @@ const config: HardhatUserConfig = {
             accounts: {
                 mnemonic: hardhatMnemonic,
             },
+            mining: {
+                auto: false,
+                interval: 10000,
+            },
             gas: 8000000,
         },
         mainnet: {
