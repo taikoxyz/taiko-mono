@@ -25,7 +25,7 @@
     "@types/estree": "^0.0.50",
     "@types/jest": "^27.0.2",
     "@types/mixpanel": "^2.14.3",
-    "@types/sanitize-html": "^2.6.2",
+    "@types/sanitize-html": "^2.9.5",
     "@typescript-eslint/eslint-plugin": "^6.6.0",
     "@typescript-eslint/parser": "^5.16.0",
     "@zerodevx/svelte-toast": "^0.6.3",
