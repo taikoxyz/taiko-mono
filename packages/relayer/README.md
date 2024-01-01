@@ -5,54 +5,99 @@
 
 A relayer for the Bridge to watch and sync event between Layer 1 and Taiko Layer 2.
 
-## Build the source
+## Build the Source
 
-Building the `taiko-client` binary requires a Go compiler. Once installed, run:
+To build the source, ensure you have an updated Go compiler installed. Run the following command to compile the executable:
 
 ```sh
-make build
+go build -o relayer ./cmd/
 ```
 
 ## Configuration
 
-### Configure environment variables
+### Configure MySQL and RabbitMQ
 
-To run an indexer:
-run `cp .l1processor.example.env .l1processor.env`, and replace the variables as needed in `.l1processor.env`.
+Before configuring environment variables, ensure that you have MySQL and RabbitMQ instances running. Replace the `MYSQL_` environment variables with your specific configurations.
 
-### Confgiure MySQL and RabbitMQ
+RabbitMQ can be installed using the provided script:
 
-You need to be running a MySQL instance and a RabbitMQ instance, and replace all the `MYSQL_` env vars with yours.
-
-RabbitMQ can be installed with `./scripts/install-rabbitmq.sh`.
-
-You can also use docker-compose to bring up MySQL and RabbitMQ in your local setup.
-
+```sh
+./scripts/install-rabbitmq.sh
 ```
+
+Alternatively, use Docker Compose to set up MySQL and RabbitMQ in your local environment:
+
+```sh
 cd ./docker-compose
 docker-compose up
 ```
 
-To migrate database schema in MySQL
+To migrate the database schema in MySQL:
 
-```
+```sh
 cd ./migrations
 goose mysql "root:passw00d@tcp(localhost:3306)/relayer" status
 goose mysql "root:passw00d@tcp(localhost:3306)/relayer" up
 ```
 
+### Configure Environment Variables
+
+Environment variables are crucial for the configuration of the Relayer’s processor and indexer. These variables are set in environment files, which are then loaded by the Relayer at runtime.
+
+#### Setting up the Processor:
+
+1. **Create the Environment File for the Processor**:
+   Copy the example processor environment file to a new file:
+
+   ```sh
+   cp .l1processor.example.env .l1processor.env
+   ```
+
+   Modify `.l1processor.env` as necessary to suit your environment settings.
+
+2. **Run the Processor**:
+   Before running the processor, specify which environment file it should use by setting the `RELAYER_ENV_FILE` environment variable:
+   ```sh
+   export RELAYER_ENV_FILE=./.l1processor.env
+   ```
+   Now, you can run the processor:
+   ```sh
+   ./relayer processor
+   ```
+
+#### Setting up the Indexer:
+
+1. **Create the Environment File for the Indexer**:
+   Copy the example indexer environment file to a new file:
+
+   ```sh
+   cp .l1indexer.example.env .l1indexer.env
+   ```
+
+   Edit `.l1indexer.env` to reflect your specific configurations.
+
+2. **Run the Indexer**:
+   Set the `RELAYER_ENV_FILE` to point to the indexer's environment file:
+   ```sh
+   export RELAYER_ENV_FILE=./.l1indexer.env
+   ```
+   Execute the indexer:
+   ```sh
+   ./relayer indexer
+   ```
+
 ## Usage
 
-Review all available sub-commands:
+To review all available sub-commands, use:
 
 ```sh
-bin/relayer --help
+./relayer --help
 ```
 
-Review each sub-command's command line flags:
+To review each sub-command's command line flags, use:
 
 ```sh
-bin/relayer <sub-command> --help
+./relayer <sub-command> --help
 ```
 
 ## Project structure
