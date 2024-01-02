@@ -40,7 +40,7 @@
   });
 </script>
 
-<div class={classes} role="presentation" on:mouseleave={() => closeTooltip(1000)}>
+<div class={classes} role="presentation" on:mouseleave={() => closeTooltip(200)}>
   <button
     aria-haspopup="dialog"
     aria-controls={tooltipId}
