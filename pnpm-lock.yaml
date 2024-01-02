@@ -358,8 +358,8 @@ importers:
         specifier: ^2.14.3
         version: 2.14.7
       '@types/sanitize-html':
-        specifier: ^2.6.2
-        version: 2.9.3
+        specifier: ^2.9.5
+        version: 2.9.5
       '@typescript-eslint/eslint-plugin':
         specifier: ^6.6.0
         version: 6.8.0(@typescript-eslint/parser@5.62.0)(eslint@8.53.0)(typescript@4.9.5)
@@ -5158,8 +5158,8 @@ packages:
     dev: true
     optional: true
 
-  /@types/sanitize-html@2.9.3:
-    resolution: {integrity: sha512-1rsSdEJLV7utAG+Fms2uP+nSmmYmOhUUSSZvUz4wF2wlA0M5/A/gVgnpWZ7EKaPWsrrxWiSuNJqSBW8dh2isBA==}
+  /@types/sanitize-html@2.9.5:
+    resolution: {integrity: sha512-2Sr1vd8Dw+ypsg/oDDfZ57OMSG2Befs+l2CMyCC5bVSK3CpE7lTB2aNlbbWzazgVA+Qqfuholwom6x/mWd1qmw==}
     dependencies:
       htmlparser2: 8.0.2
     dev: true
