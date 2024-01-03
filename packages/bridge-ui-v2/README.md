@@ -62,6 +62,7 @@ To get started, open your terminal in `/packages/bridge-ui-v2/`
    cp config/sample/configuredChains.example config/configuredChains.json
    cp config/sample/configuredRelayer.example config/configuredRelayer.json
    cp config/sample/configuredCustomTokens.example config/configuredCustomTokens.json
+   cp config/sample/configuredEventIndexer.example config/configuredEventIndexer.json
    ```
 2. Change or fill in all the information that will be used by the bridge UI inside these files.
 
