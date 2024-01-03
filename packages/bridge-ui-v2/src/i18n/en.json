@@ -33,6 +33,9 @@
       "nft_scan": "Scan for NFT",
       "nft_scan_again": "Scan again"
     },
+    "alerts": {
+      "slow_bridging": "Please be aware, bridging back to L1 will take around 24hs! Read our Katla announcement for more details."
+    },
     "button": {
       "approve": "Approve",
       "approved": "Approved",
@@ -396,7 +399,7 @@
     },
     "header": {
       "amount": "Amount",
-      "explorer": "Explorer link",
+      "explorer": "Explorer",
       "from": "From",
       "status": "Status",
       "to": "To"
