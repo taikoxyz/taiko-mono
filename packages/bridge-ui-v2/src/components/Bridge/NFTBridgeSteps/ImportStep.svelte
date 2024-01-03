@@ -4,6 +4,7 @@
   import { onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
 
+  import { chainConfig } from '$chainConfig';
   import { FlatAlert } from '$components/Alert';
   import Alert from '$components/Alert/Alert.svelte';
   import AddressInput from '$components/Bridge/AddressInput/AddressInput.svelte';
@@ -28,7 +29,9 @@
   import RotatingIcon from '$components/Icon/RotatingIcon.svelte';
   import { NFTDisplay } from '$components/NFTs';
   import { NFTView } from '$components/NFTs/types';
+  import { PUBLIC_SLOW_L1_BRIDGING } from '$env/static/public';
   import { fetchNFTs } from '$libs/bridge/fetchNFTs';
+  import { LayerType } from '$libs/chain';
   import { detectContractType, type NFT, TokenType } from '$libs/token';
   import { checkOwnership } from '$libs/token/checkOwnership';
   import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
@@ -63,6 +66,8 @@
   let amountComponent: Amount;
 
   let nftView: NFTView = NFTView.LIST;
+
+  let slowL1Warning = PUBLIC_SLOW_L1_BRIDGING || false;
 
   const reset = () => {
     nftView = NFTView.LIST;
@@ -229,11 +234,18 @@
 
   $: displayOwnershipError =
     contractAddress && enteredIds && !isOwnerOfAllToken && nftIdArray?.length > 0 && !validating;
+
+  $: displayL1Warning =
+    slowL1Warning && $destinationChain?.id && chainConfig[$destinationChain.id].type === LayerType.L1;
 </script>
 
 <div class="f-between-center gap-[16px] mt-[30px]">
   <ChainSelectorWrapper />
 </div>
+
+{#if displayL1Warning}
+  <Alert type="warning">{$t('bridge.alerts.slow_bridging')}</Alert>
+{/if}
 <!-- 
 Manual NFT Input 
 -->
