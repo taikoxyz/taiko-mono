@@ -43,15 +43,3 @@
     </div>
   </div>
 </dialog>
-
-<style>
-  h1 {
-    font-feature-settings:
-      'clig' off,
-      'liga' off;
-    font-size: 45px;
-    font-style: normal;
-    font-weight: 800;
-    line-height: 45px;
-  }
-</style>
