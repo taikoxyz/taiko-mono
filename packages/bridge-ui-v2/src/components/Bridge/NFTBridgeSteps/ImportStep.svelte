@@ -29,7 +29,7 @@
   import RotatingIcon from '$components/Icon/RotatingIcon.svelte';
   import { NFTDisplay } from '$components/NFTs';
   import { NFTView } from '$components/NFTs/types';
-  import { PUBLIC_SLOW_L1_BRIDGING } from '$env/static/public';
+  import { PUBLIC_SLOW_L1_BRIDGING_WARNING } from '$env/static/public';
   import { fetchNFTs } from '$libs/bridge/fetchNFTs';
   import { LayerType } from '$libs/chain';
   import { detectContractType, type NFT, TokenType } from '$libs/token';
@@ -67,7 +67,7 @@
 
   let nftView: NFTView = NFTView.LIST;
 
-  let slowL1Warning = PUBLIC_SLOW_L1_BRIDGING || false;
+  let slowL1Warning = PUBLIC_SLOW_L1_BRIDGING_WARNING || false;
 
   const reset = () => {
     nftView = NFTView.LIST;

@@ -14,7 +14,7 @@
   import { OnAccount } from '$components/OnAccount';
   import { OnNetwork } from '$components/OnNetwork';
   import { TokenDropdown } from '$components/TokenDropdown';
-  import { PUBLIC_SLOW_L1_BRIDGING } from '$env/static/public';
+  import { PUBLIC_SLOW_L1_BRIDGING_WARNING } from '$env/static/public';
   import { type ApproveArgs, bridges, type BridgeTransaction, MessageStatus } from '$libs/bridge';
   import { hasBridge } from '$libs/bridge/bridges';
   import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
@@ -52,7 +52,7 @@
   let recipientComponent: Recipient;
   let processingFeeComponent: ProcessingFee;
   let actionsComponent: Actions;
-  let slowL1Warning = PUBLIC_SLOW_L1_BRIDGING || false;
+  let slowL1Warning = PUBLIC_SLOW_L1_BRIDGING_WARNING || false;
 
   let bridging = false;
 

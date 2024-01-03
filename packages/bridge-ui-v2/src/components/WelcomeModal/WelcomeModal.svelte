@@ -2,7 +2,6 @@
   import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
 
-  import { Alert } from '$components/Alert';
   import { ActionButton } from '$components/Button';
   import { Icon } from '$components/Icon';
 
@@ -23,28 +22,36 @@
   });
 </script>
 
-<dialog class="modal modal-bottom md:modal-middle" class:modal-open={modalOpen}>
-  <div class="modal-box relative !px-[50px] md:rounded-[20px] bg-white space-y-[25px]">
-    <div class="w-full space-y-[10px]">
-      <!-- <img src="/taiko-favicon.svg" alt="Katla" class="w-[100px] h-[100px] mx-auto" /> -->
-      <Icon type="bridge-light" class="w-[100px] h-[100px] mx-auto" />
-      <h1 class="!text-black text-4xl font-bold">Important Update</h1>
-
-      <p class="body-regular text-black mb-3">
-        Lorem ipsum, dolor sit amet consectetur adipisicing elit. Ut blanditiis iusto aliquid voluptatibus, sint odio
-        provident, magnam veniam, quisquam ad magni totam porro? Ullam facere mollitia possimus, molestiae cumque
-        beatae!
+<dialog class="modal modal-bottom md:modal-middle]" class:modal-open={modalOpen}>
+  <div class="modal-box relative !px-[40px] md:rounded-[20px] bg-white space-y-[25px] w-[435px] m-auto">
+    <div class="w-full space-y-[30px]">
+      <Icon type="welcome-icon" class="w-[100px] h-[100px] mx-auto" />
+      <h1 class="!text-black text-4xl font-bold">{$t('bridge.welcome_modal.title')}</h1>
+      <p class="body-regular text-black text-center mb-3">
+        <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+        {@html $t('bridge.welcome_modal.body')}
       </p>
-      <a href="https://www.taiko.xyz" target="_blank" class="link"> Learn more </a>
-      <div class="w-full">
-        <Alert type="warning">{$t('bridge.alerts.slow_bridging')}</Alert>
-      </div>
-    </div>
 
-    <div class="f-row w-full space-x-[25px]">
-      <ActionButton priority="primary" class="w-full" on:click={confirmModal}>
-        {$t('common.confirm')}
-      </ActionButton>
+      <div class="f-row w-full space-x-[25px]">
+        <ActionButton priority="primary" class="w-full" on:click={confirmModal}>
+          {$t('bridge.welcome_modal.confirm')}
+        </ActionButton>
+      </div>
+      <div class="w-full text-center">
+        <a href="https://www.taiko.xyz" target="_blank" class="link">{$t('bridge.welcome_modal.link')} </a>
+      </div>
     </div>
   </div>
 </dialog>
+
+<style>
+  h1 {
+    font-feature-settings:
+      'clig' off,
+      'liga' off;
+    font-size: 45px;
+    font-style: normal;
+    font-weight: 800;
+    line-height: 45px;
+  }
+</style>

@@ -13,7 +13,7 @@
   import { Paginator } from '$components/Paginator';
   import { Spinner } from '$components/Spinner';
   import { transactionConfig } from '$config';
-  import { PUBLIC_SLOW_L1_BRIDGING } from '$env/static/public';
+  import { PUBLIC_SLOW_L1_BRIDGING_WARNING } from '$env/static/public';
   import { type BridgeTransaction, fetchTransactions, MessageStatus } from '$libs/bridge';
   import { bridgeTxService } from '$libs/storage';
   import { TokenType } from '$libs/token';
@@ -38,7 +38,7 @@
 
   let isDesktopOrLarger: boolean;
 
-  let slowL1Warning = PUBLIC_SLOW_L1_BRIDGING || false;
+  let slowL1Warning = PUBLIC_SLOW_L1_BRIDGING_WARNING || false;
 
   const handlePageChange = (detail: number) => {
     isBlurred = true;
