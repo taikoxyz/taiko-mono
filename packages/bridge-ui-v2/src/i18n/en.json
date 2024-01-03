@@ -179,6 +179,7 @@
     "destination": "Destination",
     "edit": "Edit",
     "error": "Error",
+    "fetching_balance": "Fetching balance...",
     "from": "From",
     "id": "ID",
     "loading": "Loading",
