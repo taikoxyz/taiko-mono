@@ -325,7 +325,7 @@ export default {
           '--warning-background': '#FFF6DE', // yellow-10
 
           '--elevated-background': '#FAFAFA', // grey-5
-          '--neutral-background': '#E3E3E3', // grey-50
+          '--neutral-background': '#FFFFFF', //  grey-0
           '--overlay-background': 'rgba(12, 17, 28, 0.2)', // grey-900|20%
           '--overlay-dialog': 'rgba(12, 17, 28, 0.9)', // grey-900|20
 
