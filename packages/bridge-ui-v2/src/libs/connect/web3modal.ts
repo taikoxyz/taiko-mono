@@ -45,11 +45,11 @@ export const web3modal = new Web3Modal(
       // Unofficial variables
       // @ts-ignore
       '--w3m-color-fg-1': 'var(--primary-content)',
-      '--w3m-color-bg-1': 'var(--primary-background)',
+      '--w3m-color-bg-1': 'var(--dialog-background)',
       '--w3m-color-bg-2': 'var(--neutral-background)',
       '--w3m-color-overlay': 'none',
-      '--w3m-accent-color': 'var(--neutral-background)',
-      '--w3m-accent-fill-color': 'var(--dark-background)',
+      '--w3m-accent-color': 'var(--neutral-accent)',
+      '--w3m-accent-fill-color': 'var(--primary-content)',
     },
     themeMode: (localStorage.getItem('theme') as 'dark' | 'light') ?? 'dark',
   },
