@@ -37,16 +37,6 @@
     z-index: -1;
   }
 
-  @media (min-width: 768px) {
-    [data-theme='dark'] body::before {
-      background-size: 700px, cover, cover;
-    }
-
-    [data-theme='light'] body::before {
-      background-size: 50px, cover, cover;
-    }
-  }
-
   /* In light mode there is no background image */
   [data-theme='light'] body::before {
     content: '';
@@ -57,7 +47,19 @@
     left: 0;
     background-image: url(/bg/grid-sm.svg), url(/bg/spotlights-light.svg),
       linear-gradient(270deg, #e2e2e2 0%, #fff 100%);
-    background-blend-mode: color-dodge, multiply, hard-light;
+    /* No grid background by default */
+    background-size: 0, cover, cover;
+    background-blend-mode: color-dodge, color, hard-light;
     z-index: -1;
+  }
+
+  @media (min-width: 768px) {
+    [data-theme='dark'] body::before {
+      background-size: 700px, cover, cover;
+    }
+
+    [data-theme='light'] body::before {
+      background-size: 50px, cover, cover;
+    }
   }
 }

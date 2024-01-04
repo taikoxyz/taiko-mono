@@ -3,17 +3,17 @@
 <svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
 	 viewBox="0 0 1215 951.9" style="enable-background:new 0 0 1215 951.9;" xml:space="preserve">
 <style type="text/css">
-	.st0{opacity:0.8;fill:url(#SVGID_1_);enable-background:new    ;}
-	.st1{fill:url(#SVGID_00000021113653878141920750000004715488615042924936_);}
+	.st0{fill:url(#SVGID_1_);enable-background:new    ;}
+	.st1{fill:url(#SVGID_00000104708304278062524540000010699673873684760506_);}
 </style>
 <radialGradient id="SVGID_1_" cx="-903.9908" cy="1458.509" r="1" gradientTransform="matrix(-103.1786 672.0001 672.0001 103.1786 -1072976.75 457636.5938)" gradientUnits="userSpaceOnUse">
 	<stop  offset="0" style="stop-color:#E287BF"/>
 	<stop  offset="1" style="stop-color:#FFE7F6;stop-opacity:0"/>
 </radialGradient>
 <circle class="st0" cx="414" cy="476.5" r="775"/>
-<radialGradient id="SVGID_00000137817679015514366810000018163128492763674298_" cx="-904.1379" cy="1457.9958" r="1" gradientTransform="matrix(1.976035e-14 322.711 329.509 -2.017661e-14 -479698.9062 292411.125)" gradientUnits="userSpaceOnUse">
+<radialGradient id="SVGID_00000171681164331155702990000017722886917512569992_" cx="-904.1379" cy="1457.9958" r="1" gradientTransform="matrix(1.976035e-14 322.711 329.509 -2.017661e-14 -479698.9062 292411.125)" gradientUnits="userSpaceOnUse">
 	<stop  offset="0" style="stop-color:#D683B6;stop-opacity:0.4"/>
 	<stop  offset="1" style="stop-color:#FFE7F6;stop-opacity:0"/>
 </radialGradient>
-<ellipse style="fill:url(#SVGID_00000137817679015514366810000018163128492763674298_);" cx="742" cy="564.5" rx="412" ry="403.5"/>
+<ellipse style="fill:url(#SVGID_00000171681164331155702990000017722886917512569992_);" cx="742" cy="564.5" rx="412" ry="403.5"/>
 </svg>
