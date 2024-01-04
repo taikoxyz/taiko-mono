@@ -6,7 +6,7 @@ import { mergeAndCaptureOutdatedTransactions } from '$libs/util/mergeTransaction
 
 function setupMocks() {
   vi.mock('@wagmi/core');
-
+  vi.mock('@web3modal/wagmi');
   vi.mock('$customToken', () => {
     return {
       customToken: [
