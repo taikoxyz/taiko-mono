@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
 
   import { Icon } from '$components/Icon';
+  import { web3modal } from '$libs/connect';
   import { Theme, theme } from '$stores/theme';
 
   $: isDarkTheme = $theme === Theme.DARK;
@@ -11,6 +12,7 @@
     const newTheme = currentTheme === Theme.DARK ? Theme.LIGHT : Theme.DARK;
     document.documentElement.setAttribute('data-theme', newTheme);
     localStorage.setItem('theme', newTheme);
+    web3modal.setThemeMode(newTheme);
     $theme = newTheme;
   }
 

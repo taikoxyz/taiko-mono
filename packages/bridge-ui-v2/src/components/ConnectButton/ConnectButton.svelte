@@ -3,12 +3,9 @@
   import { t } from 'svelte-i18n';
 
   import { Button } from '$components/Button';
-  import { EthIcon, Icon } from '$components/Icon';
-  import { Spinner } from '$components/Spinner';
+  import { Icon } from '$components/Icon';
   import { web3modal } from '$libs/connect';
-  import { renderEthBalance } from '$libs/util/balance';
   import { noop } from '$libs/util/noop';
-  import { ethBalance } from '$stores/balance';
   export let connected = false;
 
   let web3modalOpen = false;
@@ -16,7 +13,7 @@
 
   function connectWallet() {
     if (web3modalOpen) return;
-    web3modal.openModal();
+    web3modal.open();
   }
 
   function onWeb3Modal(state: { open: boolean }) {
@@ -24,27 +21,14 @@
   }
 
   onMount(() => {
-    unsubscribeWeb3Modal = web3modal.subscribeModal(onWeb3Modal);
+    unsubscribeWeb3Modal = web3modal.subscribeState(onWeb3Modal);
   });
 
   onDestroy(unsubscribeWeb3Modal);
 </script>
 
 {#if connected}
-  <Button
-    class="hidden sm:flex  pl-[14px] pr-[20px] h-[38px] mr-[8px] rounded-full"
-    type="neutral"
-    on:click={connectWallet}>
-    <span class="body-regular f-items-center">
-      <svelte:component this={EthIcon} size={20} />
-      {#if $ethBalance >= 0}
-        <span class="ml-[6px]">{renderEthBalance($ethBalance)}</span>
-      {:else}
-        <Spinner /> <span>Fetching balance...</span>
-      {/if}
-    </span>
-  </Button>
-  <w3m-core-button class="h-[38px]" balance="hide" />
+  <w3m-button />
 {:else}
   <Button class="px-[20px] py-2 rounded-full w-[215px]" type="neutral" loading={web3modalOpen} on:click={connectWallet}>
     <span class="body-regular f-items-center space-x-2">

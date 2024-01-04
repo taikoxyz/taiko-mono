@@ -8,7 +8,7 @@ const SRC_CHAIN_ID = 1;
 const DEST_CHAIN_ID = 2;
 vi.mock('@wagmi/core');
 vi.mock('$customToken', () => ({ customToken: [] }));
-
+vi.mock('@web3modal/wagmi');
 vi.mock('$bridgeConfig', () => ({
   routingContractsMap: {
     1: {
