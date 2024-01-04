@@ -5,6 +5,6 @@ set -e
 
 forge script script/upgrade/Upgrade$CONTRACT.s.sol:Upgrade$CONTRACT \
     --fork-url $FORK_URL \
+    -vvvvv \
     --broadcast \
     --ffi \
-    -vvvv
