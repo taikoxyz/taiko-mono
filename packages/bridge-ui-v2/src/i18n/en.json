@@ -33,6 +33,9 @@
       "nft_scan": "Scan for NFT",
       "nft_scan_again": "Scan again"
     },
+    "alerts": {
+      "slow_bridging": "Please be aware, bridging back to L1 will take around 24hrs! Read our Katla announcement for more details."
+    },
     "button": {
       "approve": "Approve",
       "approved": "Approved",
@@ -147,6 +150,12 @@
         "recipient": "Recipient",
         "review": "Review"
       }
+    },
+    "welcome_modal": {
+      "body": "Welcome to <span class='font-bold text-primary-brand'>Katla, our final testnet</span>.<br/>Strengthening security may cause a some delay in L2→L1 bridging, <span class='font-bold text-primary-brand'>around 24 hours</span> on the testnet. We're striving for shorter delays on the mainnet.",
+      "confirm": "I understand",
+      "link": "Find out more",
+      "title": "Important Update"
     }
   },
   "chain": {
@@ -396,7 +405,7 @@
     },
     "header": {
       "amount": "Amount",
-      "explorer": "Explorer link",
+      "explorer": "Explorer",
       "from": "From",
       "status": "Status",
       "to": "To"

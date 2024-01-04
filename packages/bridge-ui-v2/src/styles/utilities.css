@@ -22,11 +22,15 @@
   }
 
   .glassy-background {
-    @apply backdrop-filter backdrop-blur-sm;
+    @apply backdrop-filter backdrop-blur-lg;
   }
 
-  .glass-background-gradient {
+  .dark-glass-background-gradient {
     background: linear-gradient(226deg, rgba(93, 99, 111, 0.1) 1.26%, rgba(25, 30, 40, 0.2) 100%);
+  }
+
+  .light-glass-background-gradient {
+    background: linear-gradient(226deg, rgba(250, 250, 250, 0.9) 1.26%, rgba(250, 249, 249, 0.9) 100%);
   }
 
   /* Flex shortcuts */

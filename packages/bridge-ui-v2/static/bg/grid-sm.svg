@@ -1,0 +1,414 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 28.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 66.9 66.8" enable-background="new 0 0 66.9 66.8" xml:space="preserve"><metadata><c2pa:manifest xmlns:c2pa="http://c2pa.org/manifest">AAAsaGp1bWIAAAAeanVtZGMycGEAEQAQgAAAqgA4m3EDYzJwYQAAACxCanVtYgAAAEdqdW1kYzJtYQARABCAAACqADibcQN1cm46dXVpZDpmNmRlNTRmOS03YzAxLTRmZDktYmMwZS1iYmM4ZTc3MWRkYTIAAAABqGp1bWIAAAApanVtZGMyYXMAEQAQgAAAqgA4m3EDYzJwYS5hc3NlcnRpb25zAAAAAMpqdW1iAAAAJmp1bWRjYm9yABEAEIAAAKoAOJtxA2MycGEuYWN0aW9ucwAAAACcY2JvcqFnYWN0aW9uc4GjZmFjdGlvbmtjMnBhLmVkaXRlZG1zb2Z0d2FyZUFnZW50bUFkb2JlIEZpcmVmbHlxZGlnaXRhbFNvdXJjZVR5cGV4Rmh0dHA6Ly9jdi5pcHRjLm9yZy9uZXdzY29kZXMvZGlnaXRhbHNvdXJjZXR5cGUvdHJhaW5lZEFsZ29yaXRobWljTWVkaWEAAACtanVtYgAAAChqdW1kY2JvcgARABCAAACqADibcQNjMnBhLmhhc2guZGF0YQAAAAB9Y2JvcqVqZXhjbHVzaW9uc4GiZXN0YXJ0GQGLZmxlbmd0aBk7OGRuYW1lbmp1bWJmIG1hbmlmZXN0Y2FsZ2ZzaGEyNTZkaGFzaFggcQs9L9k4WqBBzIij7XFOG2KygPUkI6sKpM8sgIYPyp9jcGFkSQAAAAAAAAAAAAAAAgtqdW1iAAAAJGp1bWRjMmNsABEAEIAAAKoAOJtxA2MycGEuY2xhaW0AAAAB32Nib3KoaGRjOnRpdGxlb0dlbmVyYXRlZCBJbWFnZWlkYzpmb3JtYXRtaW1hZ2Uvc3ZnK3htbGppbnN0YW5jZUlEeCx4bXA6aWlkOjU5MjdkMDgxLTExODYtNGNhYS05NGVkLTZmMmQzOWQ2OTA5OW9jbGFpbV9nZW5lcmF0b3J4NkFkb2JlX0lsbHVzdHJhdG9yLzI4LjAgYWRvYmVfYzJwYS8wLjcuNiBjMnBhLXJzLzAuMjUuMnRjbGFpbV9nZW5lcmF0b3JfaW5mb4G/ZG5hbWVxQWRvYmUgSWxsdXN0cmF0b3JndmVyc2lvbmQyOC4w/2lzaWduYXR1cmV4GXNlbGYjanVtYmY9YzJwYS5zaWduYXR1cmVqYXNzZXJ0aW9uc4KiY3VybHgnc2VsZiNqdW1iZj1j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ZFkLvAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2WQEANxUW9ATFkJopiBpCuaNpSAm7X6258sC8y/+5Mz6MdL8eNVi1k5vkiow6KsNHPYHEN9ZO8/99Y5MnKpTuTUyjEgoCK2GmqJG59ctx+RTtOGKrhabdpwWrKHQID7/69de8K0SRXdwlVqIwH3DLrd/SY/GvzacGx3HiwPlilhPNI+SJ9R0hKJHXCPVXaskd7SufaEzxe5oqBY99ftTo8HUdYV3P/PH7q58OaSBSukPAryfsn6VtfrhaRQB6EKllJGiH4dEBcfq/4Lm+EFmeh9DQKEEoDmNJTpUmxk80AYn3QBPsjJJ/evSDnjSKWIKPYgNji/+H4v4pXKgTnY45iSGuxA==</c2pa:manifest></metadata>
+<g id="Layer_1" display="none">
+	<g id="Layer_1_00000024712208364594900840000005980293173202562695_" display="inline">
+		<g id="Lines">
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="0" y1="0" x2="0" y2="800"/>
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="66.7" y1="0" x2="66.7" y2="800"/>
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="133.3" y1="0" x2="133.3" y2="800"/>
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="200" y1="0" x2="200" y2="800"/>
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="266.7" y1="0" x2="266.7" y2="800"/>
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="333.3" y1="0" x2="333.3" y2="800"/>
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="400" y1="0" x2="400" y2="800"/>
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="466.7" y1="0" x2="466.7" y2="800"/>
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="533.3" y1="0" x2="533.3" y2="800"/>
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="600" y1="0" x2="600" y2="800"/>
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="666.7" y1="0" x2="666.7" y2="800"/>
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="733.3" y1="0" x2="733.3" y2="800"/>
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="800" y1="0.5" x2="800" y2="800.5"/>
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="800" y1="0" x2="0" y2="0"/>
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="800" y1="66.7" x2="0" y2="66.7"/>
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="800" y1="133.3" x2="0" y2="133.3"/>
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="800" y1="200" x2="0" y2="200"/>
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="800" y1="266.7" x2="0" y2="266.7"/>
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="800" y1="333.3" x2="0" y2="333.3"/>
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="800" y1="400" x2="0.5" y2="400"/>
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="800" y1="466.7" x2="0.5" y2="466.7"/>
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="800" y1="533.3" x2="0.5" y2="533.3"/>
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="800" y1="600" x2="0.5" y2="600"/>
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="800" y1="666.7" x2="0.5" y2="666.7"/>
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="800" y1="733.3" x2="0.5" y2="733.3"/>
+			
+				<line opacity="0.5" fill="none" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " x1="799.5" y1="800" x2="0" y2="800"/>
+		</g>
+		<g id="Dots">
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="0" cy="0" r="3.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="66.7" cy="0" r="3.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="133.3" cy="0" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="200" cy="0" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="266.7" cy="0" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="333.3" cy="0" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="400" cy="0" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="466.7" cy="0" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="533.3" cy="0" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="600" cy="0" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="666.7" cy="0" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="733.3" cy="0" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="800" cy="0" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="0" cy="66.7" r="3.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="66.7" cy="66.7" r="3.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="133.3" cy="66.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="200" cy="66.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="266.7" cy="66.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="333.3" cy="66.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="400" cy="66.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="466.7" cy="66.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="533.3" cy="66.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="600" cy="66.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="666.7" cy="66.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="733.3" cy="66.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="800" cy="66.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="0" cy="133.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="66.7" cy="133.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="133.3" cy="133.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="200" cy="133.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="266.7" cy="133.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="333.3" cy="133.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="400" cy="133.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="466.7" cy="133.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="533.3" cy="133.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="600" cy="133.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="666.7" cy="133.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="733.3" cy="133.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="800" cy="133.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="0" cy="200" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="66.7" cy="200" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="133.3" cy="200" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="200" cy="200" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="266.7" cy="200" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="333.3" cy="200" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="400" cy="200" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="466.7" cy="200" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="533.3" cy="200" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="600" cy="200" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="666.7" cy="200" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="733.3" cy="200" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="800" cy="200" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="0" cy="266.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="66.7" cy="266.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="133.3" cy="266.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="200" cy="266.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="266.7" cy="266.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="333.3" cy="266.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="400" cy="266.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="466.7" cy="266.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="533.3" cy="266.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="600" cy="266.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="666.7" cy="266.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="733.3" cy="266.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="800" cy="266.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="0" cy="333.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="66.7" cy="333.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="133.3" cy="333.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="200" cy="333.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="266.7" cy="333.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="333.3" cy="333.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="400" cy="333.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="466.7" cy="333.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="533.3" cy="333.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="600" cy="333.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="666.7" cy="333.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="733.3" cy="333.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="800" cy="333.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="0" cy="400" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="66.7" cy="400" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="133.3" cy="400" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="200" cy="400" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="266.7" cy="400" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="333.3" cy="400" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="400" cy="400" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="466.7" cy="400" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="533.3" cy="400" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="600" cy="400" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="666.7" cy="400" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="733.3" cy="400" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="800" cy="400" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="0" cy="466.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="66.7" cy="466.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="133.3" cy="466.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="200" cy="466.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="266.7" cy="466.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="333.3" cy="466.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="400" cy="466.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="466.7" cy="466.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="533.3" cy="466.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="600" cy="466.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="666.7" cy="466.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="733.3" cy="466.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="800" cy="466.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="0" cy="533.3" r="1.5"/>
+			
+				<ellipse opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="66.7" cy="533.3" rx="1.5" ry="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="133.3" cy="533.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="200" cy="533.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="266.7" cy="533.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="333.3" cy="533.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="400" cy="533.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="466.7" cy="533.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="533.3" cy="533.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="600" cy="533.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="666.7" cy="533.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="733.3" cy="533.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="800" cy="533.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="0" cy="600" r="1.5"/>
+			
+				<ellipse opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="66.7" cy="599.9" rx="1.5" ry="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="133.3" cy="600" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="200" cy="600" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="266.7" cy="600" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="333.3" cy="600" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="400" cy="600" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="466.7" cy="600" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="533.3" cy="600" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="600" cy="600" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="666.7" cy="600" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="733.3" cy="600" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="800" cy="600" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="0" cy="666.7" r="1.5"/>
+			
+				<ellipse opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="66.7" cy="666.6" rx="1.5" ry="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="133.3" cy="666.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="200" cy="666.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="266.7" cy="666.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="333.3" cy="666.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="400" cy="666.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="466.7" cy="666.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="533.3" cy="666.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="600" cy="666.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="666.7" cy="666.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="733.3" cy="666.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="800" cy="666.7" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="0" cy="733.3" r="1.5"/>
+			
+				<ellipse opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="66.7" cy="733.2" rx="1.5" ry="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="133.3" cy="733.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="200" cy="733.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="266.7" cy="733.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="333.3" cy="733.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="400" cy="733.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="466.7" cy="733.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="533.3" cy="733.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="600" cy="733.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="666.7" cy="733.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="733.3" cy="733.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="800" cy="733.3" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="0" cy="800" r="1.5"/>
+			
+				<ellipse opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="66.6" cy="799.9" rx="1.5" ry="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="133.3" cy="800" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="200" cy="800" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="266.7" cy="800" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="333.3" cy="800" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="400" cy="800" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="466.7" cy="800" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="533.3" cy="800" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="600" cy="800" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="666.7" cy="800" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="733.3" cy="800" r="1.5"/>
+			
+				<circle opacity="0.5" fill="#A4A4A4" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" enable-background="new    " cx="800" cy="800" r="1.5"/>
+		</g>
+	</g>
+</g>
+<g id="Layer_2">
+	<circle opacity="0.29" fill="#A5A5A5" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" cx="66.9" cy="0" r="4"/>
+	<circle opacity="0.29" fill="#A5A5A5" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" cx="0" cy="0" r="4"/>
+	<circle opacity="0.29" fill="#A5A5A5" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" cx="0" cy="66.8" r="4"/>
+	<circle opacity="0.29" fill="#A5A5A5" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" cx="66.9" cy="66.8" r="4"/>
+	<line opacity="0.29" fill="#A5A5A5" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" x1="0" y1="66.8" x2="0" y2="0"/>
+	<line opacity="0.29" fill="#A5A5A5" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" x1="66.9" y1="0" x2="0" y2="0"/>
+	
+		<line opacity="0.29" fill="#A5A5A5" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" x1="66.9" y1="66.8" x2="66.9" y2="0"/>
+	<line fill="#A5A5A5" stroke="#A4A4A4" stroke-width="0.5" stroke-miterlimit="10" x1="0" y1="66.8" x2="66.9" y2="66.8"/>
+</g>
+</svg>

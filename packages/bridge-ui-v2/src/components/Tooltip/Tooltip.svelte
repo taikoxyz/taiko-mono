@@ -17,8 +17,10 @@
   let triggerElem: HTMLButtonElement;
   let dialogElem: HTMLDialogElement;
 
-  function closeTooltip() {
-    tooltipOpen = false;
+  function closeTooltip(ms = 0) {
+    setTimeout(() => {
+      tooltipOpen = false;
+    }, ms);
   }
 
   function openTooltip(event: Event) {
@@ -31,22 +33,21 @@
       tooltipClass = `block dialog-tooltip dialog-tooltip-top`;
     }
     positionElementByTarget(dialogElem, triggerElem, position, GAP);
-    document.addEventListener('click', closeTooltip);
   });
 
   onDestroy(() => {
     closeTooltip();
-    document.removeEventListener('click', closeTooltip);
   });
 </script>
 
-<div class={classes}>
+<div class={classes} role="presentation" on:mouseleave={() => closeTooltip(200)}>
   <button
     aria-haspopup="dialog"
     aria-controls={tooltipId}
     aria-expanded={tooltipOpen}
     on:click={openTooltip}
     on:focus={openTooltip}
+    on:mouseenter={openTooltip}
     bind:this={triggerElem}>
     <Icon type="question-circle" />
   </button>
