@@ -2,6 +2,7 @@
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
+  import { Alert } from '$components/Alert';
   import { activeBridge } from '$components/Bridge/state';
   import { BridgeTypes } from '$components/Bridge/types';
   import { Card } from '$components/Card';
@@ -12,6 +13,7 @@
   import { Paginator } from '$components/Paginator';
   import { Spinner } from '$components/Spinner';
   import { transactionConfig } from '$config';
+  import { PUBLIC_SLOW_L1_BRIDGING_WARNING } from '$env/static/public';
   import { type BridgeTransaction, fetchTransactions, MessageStatus } from '$libs/bridge';
   import { bridgeTxService } from '$libs/storage';
   import { TokenType } from '$libs/token';
@@ -35,6 +37,8 @@
   let loadingTxs = false;
 
   let isDesktopOrLarger: boolean;
+
+  let slowL1Warning = PUBLIC_SLOW_L1_BRIDGING_WARNING || false;
 
   const handlePageChange = (detail: number) => {
     isBlurred = true;
@@ -107,6 +111,8 @@
   $: renderLoading = loadingTxs && isConnected;
   $: renderTransactions = !renderLoading && isConnected && hasTxs;
   $: renderNoTransactions = renderTransactions && transactionsToShow.length === 0;
+
+  $: displayL1Warning = slowL1Warning;
 </script>
 
 <div class="flex flex-col justify-center w-full">
@@ -116,6 +122,11 @@
         <ChainSelector label={$t('chain_selector.currently_on')} value={$network} switchWallet small />
         <StatusFilterDropdown bind:selectedStatus />
       </div>
+      {#if displayL1Warning}
+        <div class="!mt-0 !mb-[-30px]">
+          <Alert type="warning">{$t('bridge.alerts.slow_bridging')}</Alert>
+        </div>
+      {/if}
       <div class="flex flex-col" style={`min-height: calc(${transactionsToShow.length} * 80px);`}>
         <div class="h-sep" />
         {#if isDesktopOrLarger}
