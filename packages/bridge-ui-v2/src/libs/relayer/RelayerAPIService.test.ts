@@ -6,6 +6,7 @@ import { RelayerAPIService } from './RelayerAPIService';
 function setupMocks() {
   vi.mock('axios');
   vi.mock('@wagmi/core');
+  vi.mock('@web3modal/wagmi');
   vi.mock('$customToken', () => {
     return {
       customToken: [
