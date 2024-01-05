@@ -268,7 +268,7 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, errors.Wrap(err, "p.getCost")
 	}
 
-	if bool(p.profitableOnly) {
+	if p.profitableOnly {
 		profitable, err := p.isProfitable(ctx, event.Message, cost)
 		if err != nil || !profitable {
 			return nil, relayer.ErrUnprofitable

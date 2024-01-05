@@ -58,7 +58,7 @@ func (m *mockConfirmer) BlockNumber(ctx context.Context) (uint64, error) {
 }
 
 func Test_WaitReceipt(t *testing.T) {
-	timeoutTicker, cancel := context.WithTimeout(context.Background(), time.Duration(2*time.Second))
+	timeoutTicker, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
 	tests := []struct {
@@ -108,7 +108,7 @@ func Test_WaitReceipt(t *testing.T) {
 }
 
 func Test_WaitConfirmations(t *testing.T) {
-	timeoutTicker, cancel := context.WithTimeout(context.Background(), time.Duration(2*time.Second))
+	timeoutTicker, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
 	tests := []struct {

@@ -121,7 +121,7 @@ func TestIntegration_Event_Save(t *testing.T) {
 				Name:                   "test",
 				ChainID:                big.NewInt(1),
 				Data:                   "{\"data\":\"something\"}",
-				EventType:              relayer.EventType(relayer.EventTypeSendETH),
+				EventType:              relayer.EventTypeSendETH,
 				CanonicalTokenAddress:  "0x1",
 				CanonicalTokenSymbol:   "ETH",
 				CanonicalTokenName:     "Ethereum",
