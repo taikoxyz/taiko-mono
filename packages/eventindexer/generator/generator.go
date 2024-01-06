@@ -195,6 +195,7 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 	switch task {
 	case tasks.TotalTransitionProvedByTier:
 		var tiers []uint16 = make([]uint16, 0)
+
 		query := "SELECT DISTINCT(tier) FROM events WHERE name = ?"
 
 		err = g.db.GormDB().
@@ -250,6 +251,7 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 		return nil
 	case tasks.TransitionProvedByTierPerDay:
 		var tiers []uint16 = make([]uint16, 0)
+
 		query := "SELECT DISTINCT(tier) FROM events WHERE name = ?"
 
 		err = g.db.GormDB().
@@ -298,6 +300,7 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 		return nil
 	case tasks.TransitionContestedByTierPerDay:
 		var tiers []uint16 = make([]uint16, 0)
+
 		query := "SELECT DISTINCT(tier) FROM events WHERE name = ?"
 
 		err = g.db.GormDB().
