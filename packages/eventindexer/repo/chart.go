@@ -34,6 +34,8 @@ func (r *ChartRepository) Find(
 	feeTokenAddress string,
 	tier string,
 ) (*eventindexer.ChartResponse, error) {
+	var tx *gorm.DB
+
 	var q string = `SELECT * FROM time_series_data
 	WHERE task = ? AND date BETWEEN ? AND ?
 	ORDER BY date;`
@@ -41,22 +43,28 @@ func (r *ChartRepository) Find(
 	if feeTokenAddress != "" {
 		q = fmt.Sprintf(`SELECT * FROM time_series_data
 		WHERE task = ? AND date BETWEEN ? AND ?
-		AND fee_token_address = %v 
+		AND fee_token_address = ?
 		ORDER BY date;`,
 			feeTokenAddress,
 		)
+
+		tx = r.getDB().Raw(q, task, start, end, feeTokenAddress)
 	} else if tier != "" {
 		q = fmt.Sprintf(`SELECT * FROM time_series_data
 		WHERE task = ? AND date BETWEEN ? AND ?
-		AND tier = %v 
+		AND tier = ?
 		ORDER BY date;`,
 			tier,
 		)
+
+		tx = r.getDB().Raw(q, task, start, end, tier)
+	} else {
+		tx = r.getDB().Raw(q, task, start, end)
 	}
 
 	var tsd []*eventindexer.TimeSeriesData
 
-	if err := r.getDB().Raw(q, task, start, end).Scan(&tsd).Error; err != nil {
+	if err := tx.Scan(&tsd).Error; err != nil {
 		return nil, err
 	}
 
