@@ -23,28 +23,42 @@
     height: 100%;
   }
 
-  body::before {
+  [data-theme='dark'] body::before {
     content: '';
     position: fixed;
     top: 0;
     right: 0;
     bottom: 0;
     left: 0;
-    background-image: url(/bg/grid.svg), url(/bg/spotlights.svg), linear-gradient(270deg, #1f1f1f 0%, #000000 100%);
+    background-image: url(/bg/grid-sm.svg), url(/bg/spotlights.svg), linear-gradient(270deg, #1f1f1f 0%, #000000 100%);
     /* No grid background by default */
     background-size: 0, cover, cover;
     background-blend-mode: color-dodge, lighten, multiply;
     z-index: -1;
   }
 
-  @media (min-width: 768px) {
-    body::before {
-      background-size: 700px, cover, cover;
-    }
+  [data-theme='light'] body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background-image: url(/bg/grid-sm.svg), url(/bg/spotlights-light.svg),
+      linear-gradient(270deg, #e2e2e2 0%, #fff 100%);
+    /* No grid background by default */
+    background-size: 0, cover, cover;
+    background-blend-mode: color-dodge, color, hard-light;
+    z-index: -1;
   }
 
-  /* In light mode there is no background image */
-  [data-theme='light'] body::before {
-    background-image: none;
+  @media (min-width: 768px) {
+    [data-theme='dark'] body::before {
+      background-size: 50px, cover, cover;
+    }
+
+    [data-theme='light'] body::before {
+      background-size: 50px, cover, cover;
+    }
   }
 }

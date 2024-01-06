@@ -6,6 +6,7 @@
 
   import { routingContractsMap } from '$bridgeConfig';
   import { chainConfig } from '$chainConfig';
+  import { Alert } from '$components/Alert';
   import { Card } from '$components/Card';
   import { ChainSelectorWrapper } from '$components/ChainSelector';
   import { successToast } from '$components/NotificationToast';
@@ -13,11 +14,13 @@
   import { OnAccount } from '$components/OnAccount';
   import { OnNetwork } from '$components/OnNetwork';
   import { TokenDropdown } from '$components/TokenDropdown';
+  import { PUBLIC_SLOW_L1_BRIDGING_WARNING } from '$env/static/public';
   import { type ApproveArgs, bridges, type BridgeTransaction, MessageStatus } from '$libs/bridge';
   import { hasBridge } from '$libs/bridge/bridges';
   import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
   import { getBridgeArgs } from '$libs/bridge/getBridgeArgs';
   import { handleBridgeError } from '$libs/bridge/handleBridgeErrors';
+  import { LayerType } from '$libs/chain';
   import { BridgePausedError } from '$libs/error';
   import { bridgeTxService } from '$libs/storage';
   import { ETHToken, tokens, TokenType } from '$libs/token';
@@ -49,6 +52,7 @@
   let recipientComponent: Recipient;
   let processingFeeComponent: ProcessingFee;
   let actionsComponent: Actions;
+  let slowL1Warning = PUBLIC_SLOW_L1_BRIDGING_WARNING || false;
 
   let bridging = false;
 
@@ -242,6 +246,9 @@
   });
 
   $: disabled = !$selectedToken || !$network || !$destinationChain || bridging;
+
+  $: displayL1Warning =
+    slowL1Warning && $destinationChain?.id && chainConfig[$destinationChain.id].type === LayerType.L1;
 </script>
 
 <!-- 
@@ -253,6 +260,10 @@
       <div class="f-between-center gap-4">
         <ChainSelectorWrapper />
       </div>
+
+      {#if displayL1Warning}
+        <Alert type="warning">{$t('bridge.alerts.slow_bridging')}</Alert>
+      {/if}
 
       <TokenDropdown {tokens} bind:value={$selectedToken} bind:disabled />
 
