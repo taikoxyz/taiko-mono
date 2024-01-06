@@ -1,28 +1,28 @@
 name: "Install pnpm dependencies"
-description: "Install pnpm dependencies"
+description: "Installs pnpm dependencies."
 
 runs:
   using: "composite"
   steps:
-    - name: Setup Node.js
+    - name: "Set up Node.js"
       uses: actions/setup-node@v3
       with:
-        node-version: 16
+        node-version: "16"
 
-    - name: Install pnpm
+    - name: "Install pnpm"
       uses: pnpm/action-setup@v2
       id: pnpm-install
       with:
-        version: 8
+        version: "8"
         run_install: false
 
-    - name: Get pnpm store directory
+    - name: "Get pnpm store directory"
       id: pnpm-cache
       shell: bash
       run: |
         echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
 
-    - name: Setup pnpm cache
+    - name: "Set up pnpm cache"
       uses: actions/cache@v3
       with:
         path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
@@ -30,6 +30,6 @@ runs:
         restore-keys: |
           ${{ runner.os }}-pnpm-store-
 
-    - name: Install dependencies
+    - name: "Install dependencies"
       shell: bash
       run: pnpm install
