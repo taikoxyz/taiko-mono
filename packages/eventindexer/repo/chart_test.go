@@ -61,6 +61,7 @@ func Test_Integration_FindChart(t *testing.T) {
 		"2023-09-08",
 		"2023-09-09",
 		"0x01",
+		"",
 	)
 	assert.Equal(t, nil, err)
 	assert.Equal(t, 0, len(chart.Chart))
