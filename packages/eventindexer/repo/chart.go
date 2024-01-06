@@ -39,6 +39,8 @@ func (r *ChartRepository) Find(
 	WHERE task = ? AND date BETWEEN ? AND ?
 	ORDER BY date;`
 
+	tx = r.getDB().Raw(q, task, start, end)
+
 	if feeTokenAddress != "" {
 		q = `SELECT * FROM time_series_data
 		WHERE task = ? AND date BETWEEN ? AND ?
@@ -53,8 +55,6 @@ func (r *ChartRepository) Find(
 		ORDER BY date;`
 
 		tx = r.getDB().Raw(q, task, start, end, tier)
-	} else {
-		tx = r.getDB().Raw(q, task, start, end)
 	}
 
 	var tsd []*eventindexer.TimeSeriesData
