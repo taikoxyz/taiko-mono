@@ -193,6 +193,212 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 	var err error
 
 	switch task {
+	case tasks.TotalTransitionProvedByTier:
+		var tiers []uint16 = make([]uint16, 0)
+		query := "SELECT DISTINCT(tier) FROM events WHERE name = ?"
+
+		err = g.db.GormDB().
+			Raw(query, eventindexer.EventNameTransitionProved).
+			Scan(&tiers).Error
+		if err != nil {
+			return err
+		}
+
+		slog.Info("tiers", "tiers", tiers)
+
+		for _, tier := range tiers {
+			t := tier
+
+			var dailyCountByTier decimal.NullDecimal
+
+			// nolint: lll
+			query := "SELECT COUNT(*) FROM events WHERE event = ? AND DATE(transacted_at) = ? AND tier = ?"
+			err = g.db.GormDB().
+				Raw(query, eventindexer.EventNameTransitionProved, dateString, t).
+				Scan(&dailyCountByTier).Error
+
+			if err != nil {
+				return err
+			}
+
+			tsdResult, err := g.previousDayTsdResultByTask(task, date, nil, &t)
+			if err != nil {
+				return err
+			}
+
+			result := tsdResult.Decimal.Add(dailyCountByTier.Decimal)
+
+			slog.Info("Query successful",
+				"task", task,
+				"date", dateString,
+				"result", result.String(),
+				"tier", t,
+			)
+
+			insertStmt := `
+		INSERT INTO time_series_data(task, value, date, tier)
+		VALUES (?, ?, ?, ?)`
+
+			err = g.db.GormDB().Exec(insertStmt, task, result, dateString, t).Error
+			if err != nil {
+				slog.Info("Insert failed", "task", task, "date", dateString, "error", err.Error())
+				return err
+			}
+		}
+
+		// return early for array processing data
+		return nil
+	case tasks.TransitionProvedByTierPerDay:
+		var tiers []uint16 = make([]uint16, 0)
+		query := "SELECT DISTINCT(tier) FROM events WHERE name = ?"
+
+		err = g.db.GormDB().
+			Raw(query, eventindexer.EventNameTransitionProved).
+			Scan(&tiers).Error
+		if err != nil {
+			return err
+		}
+
+		slog.Info("tiers", "tiers", tiers)
+
+		for _, tier := range tiers {
+			t := tier
+
+			var dailyCountByTier decimal.NullDecimal
+
+			// nolint: lll
+			query := "SELECT COUNT(*) FROM events WHERE event = ? AND DATE(transacted_at) = ? AND tier = ?"
+			err = g.db.GormDB().
+				Raw(query, eventindexer.EventNameTransitionProved, dateString, t).
+				Scan(&dailyCountByTier).Error
+
+			if err != nil {
+				return err
+			}
+
+			slog.Info("Query successful",
+				"task", task,
+				"date", dateString,
+				"result", result.String(),
+				"tier", t,
+			)
+
+			insertStmt := `
+		INSERT INTO time_series_data(task, value, date, tier)
+		VALUES (?, ?, ?, ?)`
+
+			err = g.db.GormDB().Exec(insertStmt, task, result, dateString, t).Error
+			if err != nil {
+				slog.Info("Insert failed", "task", task, "date", dateString, "error", err.Error())
+				return err
+			}
+		}
+
+		// return early for array processing data
+		return nil
+	case tasks.TransitionContestedByTierPerDay:
+		var tiers []uint16 = make([]uint16, 0)
+		query := "SELECT DISTINCT(tier) FROM events WHERE name = ?"
+
+		err = g.db.GormDB().
+			Raw(query, eventindexer.EventNameTransitionContested).
+			Scan(&tiers).Error
+		if err != nil {
+			return err
+		}
+
+		slog.Info("tiers", "tiers", tiers)
+
+		for _, tier := range tiers {
+			t := tier
+
+			var dailyCountByTier decimal.NullDecimal
+
+			// nolint: lll
+			query := "SELECT COUNT(*) FROM events WHERE event = ? AND DATE(transacted_at) = ? AND tier = ?"
+			err = g.db.GormDB().
+				Raw(query, eventindexer.EventNameTransitionContested, dateString, t).
+				Scan(&dailyCountByTier).Error
+
+			if err != nil {
+				return err
+			}
+
+			slog.Info("Query successful",
+				"task", task,
+				"date", dateString,
+				"result", result.String(),
+				"tier", t,
+			)
+
+			insertStmt := `
+		INSERT INTO time_series_data(task, value, date, tier)
+		VALUES (?, ?, ?, ?)`
+
+			err = g.db.GormDB().Exec(insertStmt, task, result, dateString, t).Error
+			if err != nil {
+				slog.Info("Insert failed", "task", task, "date", dateString, "error", err.Error())
+				return err
+			}
+		}
+
+		// return early for array processing data
+		return nil
+	case tasks.TotalTransitionContestedByTier:
+		var tiers []uint16 = make([]uint16, 0)
+		query := "SELECT DISTINCT(tier) FROM events WHERE name = ?"
+
+		err = g.db.GormDB().
+			Raw(query, eventindexer.EventNameTransitionContested).
+			Scan(&tiers).Error
+		if err != nil {
+			return err
+		}
+
+		slog.Info("tiers", "tiers", tiers)
+
+		for _, tier := range tiers {
+			t := tier
+
+			var dailyCountByTier decimal.NullDecimal
+
+			// nolint: lll
+			query := "SELECT COUNT(*) FROM events WHERE event = ? AND DATE(transacted_at) = ? AND tier = ?"
+			err = g.db.GormDB().
+				Raw(query, eventindexer.EventNameTransitionContested, dateString, t).
+				Scan(&dailyCountByTier).Error
+
+			if err != nil {
+				return err
+			}
+
+			tsdResult, err := g.previousDayTsdResultByTask(task, date, nil, &t)
+			if err != nil {
+				return err
+			}
+
+			result := tsdResult.Decimal.Add(dailyCountByTier.Decimal)
+
+			slog.Info("Query successful",
+				"task", task,
+				"date", dateString,
+				"result", result.String(),
+				"tier", t,
+			)
+
+			insertStmt := `
+		INSERT INTO time_series_data(task, value, date, tier)
+		VALUES (?, ?, ?, ?)`
+
+			err = g.db.GormDB().Exec(insertStmt, task, result, dateString, t).Error
+			if err != nil {
+				slog.Info("Insert failed", "task", task, "date", dateString, "error", err.Error())
+				return err
+			}
+		}
+
+		// return early for array processing data
+		return nil
 	case tasks.TotalProofRewards:
 		var feeTokenAddresses []string = make([]string, 0)
 		// get unique fee token addresses
@@ -222,7 +428,7 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 				return err
 			}
 
-			tsdResult, err := g.previousDayTsdResultByTask(task, date, &f)
+			tsdResult, err := g.previousDayTsdResultByTask(task, date, &f, nil)
 			if err != nil {
 				return err
 			}
@@ -307,7 +513,7 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 			return err
 		}
 
-		tsdResult, err := g.previousDayTsdResultByTask(task, date, nil)
+		tsdResult, err := g.previousDayTsdResultByTask(task, date, nil, nil)
 		if err != nil {
 			return err
 		}
@@ -323,7 +529,7 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 			return err
 		}
 
-		tsdResult, err := g.previousDayTsdResultByTask(task, date, nil)
+		tsdResult, err := g.previousDayTsdResultByTask(task, date, nil, nil)
 		if err != nil {
 			return err
 		}
@@ -378,7 +584,7 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 			return err
 		}
 
-		tsdResult, err := g.previousDayTsdResultByTask(task, date, nil)
+		tsdResult, err := g.previousDayTsdResultByTask(task, date, nil, nil)
 		if err != nil {
 			return err
 		}
@@ -403,7 +609,7 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 			return err
 		}
 
-		tsdResult, err := g.previousDayTsdResultByTask(task, date, nil)
+		tsdResult, err := g.previousDayTsdResultByTask(task, date, nil, nil)
 		if err != nil {
 			return err
 		}
@@ -422,7 +628,7 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 			return err
 		}
 
-		tsdResult, err := g.previousDayTsdResultByTask(task, date, nil)
+		tsdResult, err := g.previousDayTsdResultByTask(task, date, nil, nil)
 		if err != nil {
 			return err
 		}
@@ -441,7 +647,7 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 			return err
 		}
 
-		tsdResult, err := g.previousDayTsdResultByTask(task, date, nil)
+		tsdResult, err := g.previousDayTsdResultByTask(task, date, nil, nil)
 		if err != nil {
 			return err
 		}
@@ -462,7 +668,7 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 			return err
 		}
 
-		tsdResult, err := g.previousDayTsdResultByTask(task, date, nil)
+		tsdResult, err := g.previousDayTsdResultByTask(task, date, nil, nil)
 		if err != nil {
 			return err
 		}
@@ -482,7 +688,7 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 			return err
 		}
 
-		tsdResult, err := g.previousDayTsdResultByTask(task, date, nil)
+		tsdResult, err := g.previousDayTsdResultByTask(task, date, nil, nil)
 		if err != nil {
 			return err
 		}
@@ -517,6 +723,7 @@ func (g *Generator) previousDayTsdResultByTask(
 	task string,
 	date time.Time,
 	feeTokenAddress *string,
+	tier *uint16,
 ) (decimal.NullDecimal, error) {
 	var tsdResult decimal.NullDecimal
 
@@ -529,6 +736,12 @@ func (g *Generator) previousDayTsdResultByTask(
 		tsdQuery = `SELECT value FROM time_series_data WHERE task = ? AND date = ? AND fee_token_address = ?`
 		q = g.db.GormDB().
 			Raw(tsdQuery, task, date.AddDate(0, 0, -1).Format("2006-01-02"), *feeTokenAddress)
+	}
+
+	if tier != nil {
+		tsdQuery = `SELECT value FROM time_series_data WHERE task = ? AND date = ? AND tier = ?`
+		q = g.db.GormDB().
+			Raw(tsdQuery, task, date.AddDate(0, 0, -1).Format("2006-01-02"), *tier)
 	}
 
 	err := q.

@@ -37,6 +37,13 @@ func (r *EventRepository) Save(ctx context.Context, opts eventindexer.SaveEventO
 		TransactedAt: opts.TransactedAt,
 	}
 
+	if opts.Tier != nil {
+		e.Tier = sql.NullInt16{
+			Valid: true,
+			Int16: int16(*opts.Tier),
+		}
+	}
+
 	if opts.BlockID != nil {
 		e.BlockID = sql.NullInt64{
 			Valid: true,

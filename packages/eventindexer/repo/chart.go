@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"gorm.io/gorm"
@@ -31,11 +32,27 @@ func (r *ChartRepository) Find(
 	start string,
 	end string,
 	feeTokenAddress string,
+	tier string,
 ) (*eventindexer.ChartResponse, error) {
-	q := `SELECT * FROM time_series_data
+	var q string = `SELECT * FROM time_series_data
 	WHERE task = ? AND date BETWEEN ? AND ?
-	AND fee_token_address = ""
 	ORDER BY date;`
+
+	if feeTokenAddress != "" {
+		q = fmt.Sprintf(`SELECT * FROM time_series_data
+		WHERE task = ? AND date BETWEEN ? AND ?
+		AND fee_token_address = %v 
+		ORDER BY date;`,
+			feeTokenAddress,
+		)
+	} else if tier != "" {
+		q = fmt.Sprintf(`SELECT * FROM time_series_data
+		WHERE task = ? AND date BETWEEN ? AND ?
+		AND tier = %v 
+		ORDER BY date;`,
+			tier,
+		)
+	}
 
 	var tsd []*eventindexer.TimeSeriesData
 

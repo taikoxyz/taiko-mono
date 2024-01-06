@@ -44,6 +44,7 @@ type Event struct {
 	ContractAddress string              `json:"contractAddress"`
 	FeeTokenAddress string              `json:"feeTokenAddress"`
 	TransactedAt    time.Time           `json:"transactedAt"`
+	Tier            sql.NullInt16       `json:"tier"`
 }
 
 // SaveEventOpts
@@ -63,6 +64,7 @@ type SaveEventOpts struct {
 	ContractAddress *string
 	FeeTokenAddress *string
 	TransactedAt    time.Time
+	Tier            *uint16
 }
 
 type UniqueProversResponse struct {
