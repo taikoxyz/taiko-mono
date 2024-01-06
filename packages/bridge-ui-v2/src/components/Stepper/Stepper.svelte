@@ -8,8 +8,10 @@
     md:rounded-[20px] 
     md:border 
     md:border-divider-border
-    dark:md:glassy-gradient-card
-    dark:md:glass-background-gradient`;
+    md:glassy-gradient-card
+    dark:md:dark-glass-background-gradient
+    light:md:light-glass-background-gradient
+    `;
 
   $: classes = classNames(styles, $$props.class);
 </script>

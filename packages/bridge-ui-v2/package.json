@@ -59,9 +59,8 @@
   },
   "type": "module",
   "dependencies": {
-    "@wagmi/core": "^1.4.6",
-    "@web3modal/ethereum": "^2.7.1",
-    "@web3modal/html": "^2.7.1",
+    "@wagmi/core": "^1.4.13",
+    "@web3modal/wagmi": "^3.5.3",
     "@zerodevx/svelte-toast": "^0.9.5",
     "axios": "^1.6.1",
     "buffer": "^6.0.3",

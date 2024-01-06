@@ -9,7 +9,8 @@
   import { Header } from '$components/Header';
   import { NotificationToast } from '$components/NotificationToast';
   import { SideNavigation } from '$components/SideNavigation';
-  import SwitchChainModal from '$components/SwitchChainModal/SwitchChainModal.svelte';
+  import { SwitchChainModal } from '$components/SwitchChainModal';
+  import { WelcomeModal } from '$components/WelcomeModal';
   import { startWatching, stopWatching } from '$libs/wagmi';
 
   onMount(startWatching);
@@ -36,3 +37,5 @@
 <SwitchChainModal />
 
 <BridgePausedModal />
+
+<WelcomeModal />
