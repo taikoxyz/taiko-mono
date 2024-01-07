@@ -176,3 +176,5 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
+
+replace github.com/ethereum/go-ethereum v1.13.8 => github.com/taikoxyz/taiko-geth v0.0.0-20231226125316-3cc6dfc22523
