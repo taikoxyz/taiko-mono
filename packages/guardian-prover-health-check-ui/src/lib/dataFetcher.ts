@@ -44,8 +44,6 @@ export async function manualFetch() {
 }
 
 async function fetchGuardians() {
-    console.log('fetching guardians');
-
     const rawData = await fetchGuardianProversFromContract();
     const guardians = [];
     for (const guardian of rawData) {
@@ -79,8 +77,6 @@ async function fetchGuardians() {
     lastGuardianFetchTimestamp.set(Date.now());
 
     guardianProvers.set(guardians);
-    console.log('guardians set');
-
 }
 
 

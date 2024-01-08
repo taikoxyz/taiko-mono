@@ -43,7 +43,9 @@
 {:else if statusType === AlertType.WARNING && $guardianProvers?.length > 0}
 	<Alert type={AlertType.WARNING} forceColumnFlow>
 		<p class="font-bold">
-			{$t('status.degraded', { values: { online: proversOnline, required: requiredCount } })}
+			{$t('status.degraded', {
+				values: { online: proversOnline, required: requiredCount, total: proverCount }
+			})}
 		</p>
 	</Alert>
 {:else if !configuredCorrectly && $guardianProvers !== null}

@@ -2,7 +2,7 @@
 	import DesktopOrLarger from '$components/DesktopOrLarger/DesktopOrLarger.svelte';
 	import { Icon } from '$components/Icon';
 	import { signedBlocksPerGuardian } from '$lib/blocks/signedBlocksPerGuardian';
-	import { lastGuardianFetchTimestamp } from '$lib/dataFetcher';
+	import { lastGuardianFetchTimestamp, signedBlocks } from '$lib/dataFetcher';
 	import type { Guardian } from '$lib/types';
 	import { truncateDecimal } from '$lib/util/truncateDecimal';
 	import { truncateString } from '$lib/util/truncateString';
@@ -53,9 +53,15 @@
 		<div class="col-span-6">{guardianProver.address}</div>
 		{#if !single}
 			<div class="col-span-2">{truncateDecimal(Number(guardianProver.balance), 3)} ETH</div>
-			<div class="col-span-1">{signedBlocksPerGuardian(guardianProver.id)}/100</div>
+			<div class="col-span-1">
+				{signedBlocksPerGuardian(guardianProver.id)}/{$signedBlocks.length}
+			</div>
 		{:else}
-			<div class="col-span-2">Uptime: {truncateDecimal(guardianProver.uptime, 2)}%</div>
+			<div class="col-span-2">
+				{$t('overview.detail.table.uptime', {
+					values: { uptime: truncateDecimal(guardianProver.uptime, 2) }
+				})}
+			</div>
 		{/if}
 	</div>
 {:else}
