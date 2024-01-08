@@ -26,7 +26,7 @@ var (
 	TotalTransitionProvedByTier     = "total-transition-proved-by-tier"
 	TotalTransitionContestedByTier  = "total-transition-contested-by-tier"
 	TransitionProvedByTierPerDay    = "transition-proved-by-tier-per-day"
-	TransitionContestedByTierPerDay = "transition-proved-by-tier-per-day"
+	TransitionContestedByTierPerDay = "transition-contested-by-tier-per-day"
 )
 
 var Tasks = []string{
