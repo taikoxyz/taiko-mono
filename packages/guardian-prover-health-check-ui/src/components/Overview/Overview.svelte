@@ -1,16 +1,14 @@
 <script lang="ts">
-	import { fetchGuardianProversFromContract } from '$lib/guardianProver/fetchGuardianProversFromContract';
 	import { onDestroy, onMount } from 'svelte';
-	import OverviewTableRow from './OverviewTableRow.svelte';
 	import type { Guardian } from '$lib/types';
 	import Spinner from '$components/Spinner/Spinner.svelte';
-	import OverviewTableHeader from './OverviewTableHeader.svelte';
+	import { GuardianProverTableHeader, GuardianProverTableRow } from '../GuardianProver/';
 	import { selectedGuardianProver } from '$components/stores/guardianProver';
-	import HealthChecksList from '$components/GuardianProver/HealthChecksList.svelte';
 	import { t } from 'svelte-i18n';
 	import Filter from './Filter.svelte';
-	import { fetchGuardians, guardianProvers } from '$lib/dataFetcher';
+	import { guardianProvers, manualFetch } from '$lib/dataFetcher';
 	import { Icon } from '$components/Icon';
+	import { HealthChecksList } from '$components/HealthChecks';
 
 	let loading = false;
 	let filtered = false;
@@ -19,7 +17,7 @@
 
 	const refreshData = async () => {
 		loading = true;
-		await fetchGuardians();
+		await manualFetch();
 		loading = false;
 	};
 
@@ -35,7 +33,11 @@
 		$selectedGuardianProver = null;
 	});
 
-	$: dataToDisplay = filtered ? filteredGuardianProvers : $guardianProvers;
+	$: dataToDisplay = filtered
+		? filteredGuardianProvers
+		: $guardianProvers === null
+			? []
+			: $guardianProvers;
 </script>
 
 <div class="f-row w-full text-md md:text-[1.5rem]">
@@ -64,10 +66,10 @@
 	{:else if !$selectedGuardianProver}
 		<Filter bind:filteredGuardianProvers {refreshData} bind:loading bind:filtered />
 
-		<OverviewTableHeader />
+		<GuardianProverTableHeader />
 		<div class="space-y-[8px]">
 			{#each dataToDisplay as guardianProver (guardianProver.id)}
-				<OverviewTableRow
+				<GuardianProverTableRow
 					{guardianProver}
 					on:click={() => openDetails(guardianProver)}
 					on:keydown={() => openDetails(guardianProver)}

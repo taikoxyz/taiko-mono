@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { selectedGuardianProver } from '$components/stores/guardianProver';
-	import { fetchGuardianProverRequests } from '$lib/guardianProver/fetchGuardianProverStats';
 
 	import type { HealthCheck } from '$lib/types';
 	import { onMount } from 'svelte';
@@ -10,6 +9,7 @@
 
 	import HealthCheckFilter from './HealthCheckFilter.svelte';
 	import DesktopOrLarger from '$components/DesktopOrLarger/DesktopOrLarger.svelte';
+	import { fetchGuardianProverHealthChecksFromApi } from '$lib/api';
 
 	let isDesktopOrLarger: boolean;
 	let healthChecks: HealthCheck[] = [];
@@ -24,7 +24,7 @@
 		healthChecks.filter((healthCheck) => healthCheck.alive).length >= healthChecks.length * 0.8;
 
 	onMount(async () => {
-		const page = await fetchGuardianProverRequests(
+		const page = await fetchGuardianProverHealthChecksFromApi(
 			import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
 			nextHealthCheckPage,
 			pageSize,
@@ -35,7 +35,7 @@
 	});
 
 	const handlePageChange = async (selectedPage: number) => {
-		const page = await fetchGuardianProverRequests(
+		const page = await fetchGuardianProverHealthChecksFromApi(
 			import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
 			selectedPage,
 			pageSize,

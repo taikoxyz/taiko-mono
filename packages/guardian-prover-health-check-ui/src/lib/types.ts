@@ -26,14 +26,10 @@ export type HealthCheck = {
     createdAt: string;
 };
 
-export type Stat = {
-    guardianProverId: number;
-    date: string;
-    requests: number;
-    successfulRequests: number;
-    uptime: number;
-    createdAt: number;
-};
+export type UptimeResponse = {
+    uptime: number,
+    numHealthChecksLast24Hours: number,
+}
 
 export type PageResponse<T> = {
     items: T[];
@@ -53,6 +49,7 @@ export type Guardian = {
     latestHealthCheck: HealthCheck;
     alive: GuardianProverStatus;
     balance?: string;
+    uptime?: number;
 };
 
 export enum PageTabs {
@@ -60,9 +57,13 @@ export enum PageTabs {
     BLOCKS
 }
 
-
-// enum that maps true and false to ALIVE and DEAD
 export enum GuardianProverStatus {
-    ALIVE = 1,
-    DEAD = 0,
+    DEAD,
+    ALIVE,
+}
+
+export enum GlobalHealth {
+    HEALTHY,
+    WARNING,
+    CRITICAL
 }
