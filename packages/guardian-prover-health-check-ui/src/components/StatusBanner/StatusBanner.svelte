@@ -3,20 +3,21 @@
 	import { guardianProvers } from '$lib/dataFetcher';
 	import { t } from 'svelte-i18n';
 	import { AlertType } from '$components/Alert/types';
+	import { fetchGuardianProverRequirementsFromContract } from '$lib/guardianProver/fetchGuardianProverRequirementsFromContract';
+	import { onMount } from 'svelte';
 
 	// set to 999 by default to avoid false positives
-	const proverCount = parseInt(import.meta.env.VITE_PROVER_COUNT) || 999;
-	const requiredCount = parseInt(import.meta.env.VITE_REQUIRED_PROVER_COUNT) || 999;
+	let requiredCount = 999;
 
-	$: proverStatuses = $guardianProvers
+	$: proverStatusesAlive = $guardianProvers
 		?.map((guardianProver) => guardianProver.alive)
 		.reduce((acc, curr) => acc + curr, 0);
 
-	$: configuredCorrectly = $guardianProvers && $guardianProvers?.length === proverCount;
+	$: configuredCorrectly = $guardianProvers && $guardianProvers?.length !== 0;
 
-	$: healthy = configuredCorrectly && proverStatuses >= requiredCount;
-	$: unhealthy = configuredCorrectly && proverStatuses === $guardianProvers?.length - 1;
-	$: critical = configuredCorrectly && proverStatuses <= requiredCount;
+	$: healthy = configuredCorrectly && proverStatusesAlive === $guardianProvers?.length;
+	$: unhealthy = configuredCorrectly && proverStatusesAlive === $guardianProvers?.length - 1;
+	$: critical = configuredCorrectly && proverStatusesAlive <= requiredCount;
 
 	$: statusType =
 		healthy && configuredCorrectly
@@ -27,7 +28,11 @@
 					? AlertType.ERROR
 					: AlertType.ERROR;
 
-	$: proversOnline = `${proverStatuses}`;
+	$: proversOnline = `${proverStatusesAlive}`;
+
+	onMount(async () => {
+		requiredCount = await fetchGuardianProverRequirementsFromContract();
+	});
 </script>
 
 {#if statusType === AlertType.SUCCESS && $guardianProvers?.length > 0}
@@ -44,7 +49,7 @@
 	<Alert type={AlertType.WARNING} forceColumnFlow>
 		<p class="font-bold">
 			{$t('status.degraded', {
-				values: { online: proversOnline, required: requiredCount, total: proverCount }
+				values: { online: proversOnline, required: requiredCount, total: $guardianProvers?.length }
 			})}
 		</p>
 	</Alert>
