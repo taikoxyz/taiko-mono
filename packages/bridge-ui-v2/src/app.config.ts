@@ -44,7 +44,7 @@ export const statusComponent = {
 
 export const transactionConfig = {
   pageSizeDesktop: 6,
-  pageSizeMobile: 4,
+  pageSizeMobile: 6,
   blurTransitionTime: 300,
 };
 

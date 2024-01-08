@@ -12,6 +12,7 @@
   import NftInfoDialog from '$components/NFTs/NFTInfoDialog.svelte';
   import Spinner from '$components/Spinner/Spinner.svelte';
   import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
+  import { getChainName } from '$libs/chain';
   import { type NFT, TokenType } from '$libs/token';
   import { fetchNFTImageUrl } from '$libs/token/fetchNFTImageUrl';
   import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
@@ -175,7 +176,7 @@
       </a>
     </div>
   </div>
-{:else if !isNFT}
+{:else}
   <!-- We disable these warnings as we dynamically add the role -->
   <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
@@ -184,7 +185,7 @@
     tabindex="0"
     on:click={handleClick}
     on:keydown={handlePress}
-    class="flex text-primary-content md:h-[80px] h-[45px] w-full">
+    class="flex text-primary-content md:h-[80px] h-[45px] w-full my-[10px] md:my-[0px]">
     {#if isDesktopOrLarger}
       <div class="w-1/5 py-2 flex flex-row">
         <ChainSymbolName chainId={item.srcChainId} />
@@ -201,14 +202,14 @@
         {item.symbol}
       </div>
     {:else}
-      <div class="flex text-primary-content h-[80px] w-full">
+      <div class="flex text-primary-content w-full text-sm">
         <div class="flex-col">
-          <div class="flex">
-            <ChainSymbolName chainId={item.srcChainId} />
+          <div class="flex font-bold">
+            {getChainName(Number(item.srcChainId))}
             <i role="img" aria-label="arrow to" class="mx-auto px-2">
               <Icon type="arrow-right" />
             </i>
-            <ChainSymbolName chainId={item.destChainId} />
+            {getChainName(Number(item.destChainId))}
           </div>
           <div class="py-2 flex flex-col justify-center">
             {formatEther(item.amount ? item.amount : BigInt(0))}

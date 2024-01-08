@@ -167,9 +167,7 @@
             style={isBlurred ? `filter: blur(5px); transition: filter ${transitionTime / 1000}s ease-in-out` : ''}>
             {#each transactionsToShow as item (item.hash)}
               <Transaction {item} />
-              {#if item.tokenType === TokenType.ERC721 || item.tokenType === TokenType.ERC1155}
-                <div class="h-sep !mb-0" />
-              {/if}
+              <div class="h-sep !my-0" />
             {/each}
           </div>
         {/if}
