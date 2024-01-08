@@ -44,7 +44,7 @@
   $: isERC1155 = $selectedNFTs ? $selectedNFTs.some((nft) => nft.type === 'ERC1155') : false;
 </script>
 
-<div class="container mx-auto inline-block align-middle space-y-[25px] mt-[30px]">
+<div class="container mx-auto inline-block align-middle space-y-[25px] w-full md:w-[524px] mt-[30px]">
   <div class="flex justify-between mb-2 items-center">
     <div class="font-bold text-primary-content">{$t('bridge.nft.step.review.transfer_details')}</div>
   </div>

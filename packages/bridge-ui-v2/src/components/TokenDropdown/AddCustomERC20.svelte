@@ -18,6 +18,7 @@
   import { getLogger } from '$libs/util/logger';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
+  import { network } from '$stores/network';
 
   import { destNetwork } from '../Bridge/state';
 
@@ -44,7 +45,7 @@
       tokenService.storeToken(customToken, $account?.address as Address);
       customTokens = tokenService.getTokens($account?.address as Address);
 
-      const { chain: srcChain } = getNetwork();
+      const srcChain = $network;
       const destChain = $destNetwork;
 
       if (!srcChain || !destChain) return;
@@ -119,7 +120,7 @@
       return;
     }
 
-    const { chain: srcChain } = getNetwork();
+    const srcChain = $network;
     if (!srcChain) return;
     try {
       const token = await getTokenWithInfoFromAddress({

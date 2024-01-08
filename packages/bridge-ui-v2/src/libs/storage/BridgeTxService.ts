@@ -6,6 +6,7 @@ import { routingContractsMap } from '$bridgeConfig';
 import { pendingTransaction, storageService } from '$config';
 import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
 import { isSupportedChain } from '$libs/chain';
+import { fetchTransactionReceipt } from '$libs/util/fetchTransactionReceipt';
 import { jsonParseWithDefault } from '$libs/util/jsonParseWithDefault';
 import { getLogger } from '$libs/util/logger';
 import { publicClient } from '$libs/wagmi';
@@ -23,11 +24,8 @@ export class BridgeTxService {
 
   //Todo: duplicate code in RelayerAPIService
   private static async _getTransactionReceipt(chainId: number, hash: Hash) {
-    log(`Getting transaction receipt for ${hash} on chain ${chainId}`);
     try {
-      const client = publicClient({ chainId });
-      const receipt = await client.getTransactionReceipt({ hash });
-      return receipt;
+      return await fetchTransactionReceipt(hash, chainId);
     } catch (error) {
       log(`Error getting transaction receipt for ${hash}: ${error}`);
       return null;
