@@ -55,7 +55,7 @@
     $$props.class,
   );
 
-  let iconSize = small ? 'w-5 h-5' : 'w-7 h-7';
+  let iconSize = small ? 'min-w-5 max-w-5 min-h-5 max-h-5' : 'min-w-[24px] max-w-[24px] min-h-[24px] max-h-[24px]';
 
   let switchingNetwork = false;
   let buttonId = `button-${uid()}`;
