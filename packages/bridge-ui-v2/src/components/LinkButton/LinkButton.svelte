@@ -16,6 +16,8 @@
 <a {href} target={external ? '_blank' : null} class={classes}>
   <slot />
   {#if external}
-    <Icon type="arrow-top-right" />
+    <div class="flex flex-grow justify-end">
+      <Icon type="arrow-top-right" class="justify-self-end" />
+    </div>
   {/if}
 </a>
