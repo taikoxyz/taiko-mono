@@ -11,6 +11,7 @@
   import { Icon } from '$components/Icon';
   import { LinkButton } from '$components/LinkButton';
   import { LogoWithText } from '$components/Logo';
+  import { ThemeButton } from '$components/ThemeButton';
   import { PUBLIC_DEFAULT_EXPLORER, PUBLIC_GUIDE_URL } from '$env/static/public';
   import { network } from '$stores/network';
 
@@ -109,6 +110,17 @@
             </li>
           </ul>
         </div>
+        <ul class="">
+          <li>
+            <div class="p-3 rounded-full flex md:hidden justify-start content-center">
+              <Icon type="settings" />
+              <div class="flex justify-between w-full pl-[6px]">
+                <span class="text-base">{$t('nav.theme')}</span>
+                <ThemeButton mobile />
+              </div>
+            </div>
+          </li>
+        </ul>
       </aside>
     </div>
   </div>

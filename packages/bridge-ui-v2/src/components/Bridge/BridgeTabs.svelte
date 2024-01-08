@@ -20,13 +20,13 @@
 {#if PUBLIC_NFT_BRIDGE_ENABLED === 'true'}
   <div class={classes}>
     <button
-      class="{isERC20Bridge ? 'btn-primary text-white' : 'btn-ghost'} h-[40px] px-[28px] rounded-full"
+      class="{isERC20Bridge ? 'btn-primary text-white' : 'btn-ghost'} btn h-[40px] px-[28px] rounded-full"
       on:click={() => onBridgeClick(BridgeTypes.FUNGIBLE)}>
       <span> {$t('nav.token')}</span>
     </button>
 
     <button
-      class="{isNFTBridge ? 'btn-primary text-white' : 'btn-ghost'}  h-[40px] px-[28px] rounded-full"
+      class="{isNFTBridge ? 'btn-primary text-white' : 'btn-ghost'}  btn h-[40px] px-[28px] rounded-full"
       on:click={() => onBridgeClick(BridgeTypes.NFT)}>
       <span> {$t('nav.nft')}</span>
     </button>
