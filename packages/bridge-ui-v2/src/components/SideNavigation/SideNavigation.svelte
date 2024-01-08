@@ -7,6 +7,7 @@
 
   import { page } from '$app/stores';
   import { chainConfig } from '$chainConfig';
+  import BridgeTabs from '$components/Bridge/BridgeTabs.svelte';
   import { Icon } from '$components/Icon';
   import { LinkButton } from '$components/LinkButton';
   import { LogoWithText } from '$components/Logo';
@@ -31,7 +32,7 @@
 
   $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
   $: isFaucetPage = $page.route.id === '/faucet';
-  $: isTransactionPage = $page.route.id === '/transactions';
+  $: isTransactionsPage = $page.route.id === '/transactions';
 </script>
 
 <div class="drawer md:drawer-open">
@@ -50,7 +51,10 @@
       Let's reduce it to 100ms for a better experience.
     -->
     <div class="w-h-full !duration-100">
-      <header class="flex justify-end py-[20px] px-4 md:hidden">
+      <header class="flex justify-between py-[20px] px-[16px] h-[76px] md:hidden border-b border-b-divider-border">
+        <a href="/" class="inline-block">
+          <LogoWithText textFillClass="fill-primary-content" width={77} />
+        </a>
         <button on:click={closeDrawer} class="h-9">
           <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
         </button>
@@ -68,7 +72,9 @@
         <a href="/" class="hidden md:inline-block">
           <LogoWithText textFillClass="fill-primary-content" />
         </a>
-
+        <div role="button" tabindex="0" on:click={closeDrawer} on:keypress={closeDrawer}>
+          <BridgeTabs class="md:hidden flex flex-1 mb-[40px] mt-[20px]" on:click={closeDrawer} />
+        </div>
         <div role="button" tabindex="0" on:click={closeDrawer} on:keydown={onMenuKeydown}>
           <ul class="menu p-0 md:pt-10 space-y-2">
             <li>
@@ -84,8 +90,8 @@
               </LinkButton>
             </li>
             <li>
-              <LinkButton href="/transactions" active={isTransactionPage}>
-                <Icon type="transactions" fillClass={getIconFillClass(isTransactionPage)} />
+              <LinkButton href="/transactions" active={isTransactionsPage}>
+                <Icon type="transactions" fillClass={getIconFillClass(isTransactionsPage)} />
                 <span>{$t('nav.transactions')}</span>
               </LinkButton>
             </li>
