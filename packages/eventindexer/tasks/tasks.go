@@ -23,10 +23,10 @@ var (
 	TotalBridgeMessagesSent         = "total-bridge-messages-sent"
 	TotalProofRewards               = "total-proof-rewards"
 	ProofRewardsPerDay              = "proof-rewards-per-day"
-	TotalTransitionProvedByTier     = "total-transition-proved-by-tier"
-	TotalTransitionContestedByTier  = "total-transition-contested-by-tier"
 	TransitionProvedByTierPerDay    = "transition-proved-by-tier-per-day"
 	TransitionContestedByTierPerDay = "transition-contested-by-tier-per-day"
+	TotalTransitionProvedByTier     = "total-transition-proved-by-tier"
+	TotalTransitionContestedByTier  = "total-transition-contested-by-tier"
 )
 
 var Tasks = []string{
