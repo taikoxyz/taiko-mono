@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { Icon } from '$components/Icon';
 	import type { HealthCheck } from '$lib/types';
-	import { onMount } from 'svelte';
 
 	export let healthChecks: HealthCheck[];
 	export let filteredHealthChecks = [];
