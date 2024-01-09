@@ -1,12 +1,22 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
 
+  import { Button } from '$components/Button';
+  import { Icon } from '$components/Icon';
   import IconFlipper from '$components/Icon/IconFlipper.svelte';
+  import RotatingIcon from '$components/Icon/RotatingIcon.svelte';
   import { MessageStatus } from '$libs/bridge';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { classNames } from '$libs/util/classNames';
+  import { noop } from '$libs/util/noop';
 
   export let selectedStatus: MessageStatus | null = null;
+
+  export let loading = false;
+
+  export let small = false;
+
+  export let passThroughClick = () => noop();
 
   let flipped = false;
 
@@ -39,24 +49,41 @@
 </script>
 
 <div class="relative">
-  <button
-    aria-haspopup="listbox"
-    aria-expanded={menuOpen}
-    class="f-between-center w-[210px] min-h-[36px] max-h-[36px] px-6 bg-neutral border-0 shadow-none outline-none rounded-[6px]"
-    on:click|stopPropagation={toggleMenu}>
-    <span class="text-primary-content font-bold">
-      {selectedStatus !== null
-        ? options.find((option) => option.value === selectedStatus)?.label
-        : $t('transactions.filter.all')}
-    </span>
-    <IconFlipper
-      bind:flipped
-      bind:this={iconFlipperComponent}
-      iconType1="chevron-left"
-      iconType2="chevron-down"
-      selectedDefault="chevron-left"
-      size={15} />
-  </button>
+  {#if small}
+    <div class="flex gap-2">
+      <button
+        class="grid place-items-center bg-neutral min-w-[36px] max-w-[36px] min-h-[36px] max-h-[36px] rounded-full"
+        on:click|stopPropagation={toggleMenu}>
+        <Icon type="settings" fillClass="fill-primary-icon" size={18} class="self-center" />
+      </button>
+      <Button
+        type="neutral"
+        shape="circle"
+        class="bg-neutral rounded-full w-[28px] h-[28px] border-none"
+        on:click={passThroughClick}>
+        <RotatingIcon {loading} type="refresh" size={13} />
+      </Button>
+    </div>
+  {:else}
+    <button
+      aria-haspopup="listbox"
+      aria-expanded={menuOpen}
+      class="f-between-center w-[210px] min-h-[36px] max-h-[36px] px-6 bg-neutral border-0 shadow-none outline-none rounded-[6px]"
+      on:click|stopPropagation={toggleMenu}>
+      <span class="text-primary-content font-bold">
+        {selectedStatus !== null
+          ? options.find((option) => option.value === selectedStatus)?.label
+          : $t('transactions.filter.all')}
+      </span>
+      <IconFlipper
+        bind:flipped
+        bind:this={iconFlipperComponent}
+        iconType1="chevron-left"
+        iconType2="chevron-down"
+        selectedDefault="chevron-left"
+        size={15} />
+    </button>
+  {/if}
 
   {#if menuOpen}
     <ul

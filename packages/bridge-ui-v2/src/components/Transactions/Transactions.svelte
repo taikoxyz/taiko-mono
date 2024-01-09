@@ -12,6 +12,7 @@
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import { Paginator } from '$components/Paginator';
   import { Spinner } from '$components/Spinner';
+  import StatusDot from '$components/StatusDot/StatusDot.svelte';
   import { transactionConfig } from '$config';
   import { PUBLIC_SLOW_L1_BRIDGING_WARNING } from '$env/static/public';
   import { type BridgeTransaction, fetchTransactions, MessageStatus } from '$libs/bridge';
@@ -37,6 +38,8 @@
   let loadingTxs = false;
 
   let isDesktopOrLarger: boolean;
+
+  let selectedStatus: MessageStatus | null = null; // null indicates no filter is applied
 
   let slowL1Warning = PUBLIC_SLOW_L1_BRIDGING_WARNING || false;
 
@@ -71,7 +74,19 @@
     }
   };
 
-  let selectedStatus: MessageStatus | null = null; // null indicates no filter is applied
+  const updateTransactions = async (address: Address) => {
+    loadingTxs = true;
+    const { mergedTransactions, outdatedLocalTransactions, error } = await fetchTransactions(address);
+    transactions = mergedTransactions;
+
+    if (outdatedLocalTransactions.length > 0) {
+      await bridgeTxService.removeTransactions(address, outdatedLocalTransactions);
+    }
+    if (error) {
+      warningToast({ title: $t('transactions.errors.relayer_offline') });
+    }
+    loadingTxs = false;
+  };
 
   $: statusFilteredTransactions =
     selectedStatus !== null ? transactions.filter((tx) => tx.status === selectedStatus) : transactions;
@@ -82,22 +97,16 @@
 
   $: transactionsToShow = getTransactionsToShow(currentPage, pageSize, tokenAndStatusFilteredTransactions);
 
-  $: displayTokenTypesBasedOnType =
-    $activeBridge === BridgeTypes.FUNGIBLE ? [TokenType.ERC20, TokenType.ETH] : [TokenType.ERC721, TokenType.ERC1155];
+  $: fungibleDesktopView = isDesktopOrLarger && $activeBridge === BridgeTypes.FUNGIBLE;
+  $: nftDesktopView = isDesktopOrLarger && $activeBridge === BridgeTypes.NFT;
+
+  $: fungibleTokens = [TokenType.ERC20, TokenType.ETH];
+  $: nftTokens = [TokenType.ERC721, TokenType.ERC1155];
+  $: allTokens = [...fungibleTokens, ...nftTokens];
+
+  $: displayTokenTypesBasedOnType = fungibleDesktopView ? fungibleTokens : nftDesktopView ? nftTokens : allTokens;
 
   $: filteredTransactions = transactions.filter((tx) => displayTokenTypesBasedOnType.includes(tx.tokenType));
-
-  const updateTransactions = async (address: Address) => {
-    const { mergedTransactions, outdatedLocalTransactions, error } = await fetchTransactions(address);
-    transactions = mergedTransactions;
-
-    if (outdatedLocalTransactions.length > 0) {
-      await bridgeTxService.removeTransactions(address, outdatedLocalTransactions);
-    }
-    if (error) {
-      warningToast({ title: $t('transactions.errors.relayer_offline') });
-    }
-  };
 
   $: pageSize = isDesktopOrLarger ? transactionConfig.pageSizeDesktop : transactionConfig.pageSizeMobile;
 
@@ -118,10 +127,30 @@
 <div class="flex flex-col justify-center w-full">
   <Card title={$t('transactions.title')} text={$t('transactions.description')}>
     <div class="space-y-[35px]">
-      <div class="my-[30px] f-between-center max-h-[36px]">
-        <ChainSelector label={$t('chain_selector.currently_on')} value={$network} switchWallet small />
-        <StatusFilterDropdown bind:selectedStatus />
-      </div>
+      {#if isDesktopOrLarger}
+        <div class="my-[30px] f-between-center max-h-[36px]">
+          <ChainSelector label={$t('chain_selector.currently_on')} value={$network} switchWallet small />
+          <StatusFilterDropdown bind:selectedStatus />
+        </div>
+      {:else}
+        <div class="f-row justify-between">
+          <div class="f-row items-center">
+            <StatusDot type="success" />
+            <ChainSelector label="" value={$network} switchWallet small />
+          </div>
+          <div class="f-row items-center">
+            {#if $account && $account?.address}
+              {@const address = $account?.address}
+              <StatusFilterDropdown
+                bind:selectedStatus
+                bind:loading={loadingTxs}
+                small
+                passThroughClick={async () => updateTransactions(address)} />
+            {/if}
+          </div>
+        </div>
+      {/if}
+
       {#if displayL1Warning}
         <div class="!mt-0 !mb-[-30px]">
           <Alert type="warning">{$t('bridge.alerts.slow_bridging')}</Alert>
@@ -167,7 +196,7 @@
             style={isBlurred ? `filter: blur(5px); transition: filter ${transitionTime / 1000}s ease-in-out` : ''}>
             {#each transactionsToShow as item (item.hash)}
               <Transaction {item} />
-              <div class="h-sep !my-0" />
+              <div class="h-sep !my-0 {isDesktopOrLarger ? 'display-inline' : 'hidden'}" />
             {/each}
           </div>
         {/if}
