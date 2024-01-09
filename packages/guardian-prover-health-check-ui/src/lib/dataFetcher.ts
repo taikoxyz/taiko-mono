@@ -59,6 +59,7 @@ async function fetchGuardians() {
 
         const uptime = await fetchUptimeFromApi(import.meta.env.VITE_GUARDIAN_PROVER_API_URL, guardian.id);
         guardian.uptime = uptime;
+        if (uptime > 100) guardian.uptime = 100;
 
         // if status.createdAt is older than 60 seconds, set guardian to dead
         const createdAt = new Date(status.createdAt)
