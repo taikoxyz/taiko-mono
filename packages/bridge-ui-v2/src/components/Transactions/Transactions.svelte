@@ -110,7 +110,7 @@
   // Controls what we render on the page
   $: renderLoading = loadingTxs && isConnected;
   $: renderTransactions = !renderLoading && isConnected && hasTxs;
-  $: renderNoTransactions = renderTransactions && transactionsToShow.length === 0;
+  $: renderNoTransactions = !renderLoading && transactionsToShow.length === 0;
 
   $: displayL1Warning = slowL1Warning;
 </script>
