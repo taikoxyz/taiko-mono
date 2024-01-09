@@ -5,9 +5,12 @@
   import { Alert } from '$components/Alert';
   import { activeBridge } from '$components/Bridge/state';
   import { BridgeTypes } from '$components/Bridge/types';
+  import { Button } from '$components/Button';
   import { Card } from '$components/Card';
   import { ChainSelector } from '$components/ChainSelector';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
+  import { Icon } from '$components/Icon';
+  import RotatingIcon from '$components/Icon/RotatingIcon.svelte';
   import { warningToast } from '$components/NotificationToast';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import { Paginator } from '$components/Paginator';
@@ -21,6 +24,7 @@
   import { account, network } from '$stores';
   import type { Account } from '$stores/account';
 
+  import StatusFilterDialog from './StatusFilterDialog.svelte';
   import StatusFilterDropdown from './StatusFilterDropdown.svelte';
   import StatusInfoDialog from './StatusInfoDialog.svelte';
   import Transaction from './Transaction.svelte';
@@ -42,6 +46,12 @@
   let selectedStatus: MessageStatus | null = null; // null indicates no filter is applied
 
   let slowL1Warning = PUBLIC_SLOW_L1_BRIDGING_WARNING || false;
+
+  let menuOpen = false;
+
+  const toggleMenu = () => {
+    menuOpen = !menuOpen;
+  };
 
   const handlePageChange = (detail: number) => {
     isBlurred = true;
@@ -71,6 +81,12 @@
       } finally {
         loadingTxs = false;
       }
+    }
+  };
+
+  const refresh = async () => {
+    if ($account?.address) {
+      await updateTransactions($account.address);
     }
   };
 
@@ -133,30 +149,39 @@
           <StatusFilterDropdown bind:selectedStatus />
         </div>
       {:else}
-        <div class="f-row justify-between">
-          <div class="f-row items-center">
+        <div class="f-row justify-between my-[30px]">
+          <div class="f-row items-center gap-[10px]">
             <StatusDot type="success" />
             <ChainSelector label="" value={$network} switchWallet small />
           </div>
-          <div class="f-row items-center">
+          <div class="f-row items-center gap-[5px]">
             {#if $account && $account?.address}
-              {@const address = $account?.address}
-              <StatusFilterDropdown
-                bind:selectedStatus
-                bind:loading={loadingTxs}
-                small
-                passThroughClick={async () => updateTransactions(address)} />
+              <button
+                class="grid place-items-center bg-neutral min-w-[36px] max-w-[36px] min-h-[36px] max-h-[36px] rounded-full"
+                on:click|stopPropagation={toggleMenu}>
+                <Icon type="settings" fillClass="fill-primary-icon" size={18} class="self-center" />
+              </button>
+              <!-- <StatusFilterDropdown bind:selectedStatus bind:loading={loadingTxs} small /> -->
+              <Button
+                type="neutral"
+                shape="circle"
+                class="bg-neutral rounded-full !min-w-[36px] !min-h-[36px] !max-w-[36px] !max-h-[36px] border-none"
+                on:click={async () => await refresh()}>
+                <RotatingIcon loading={loadingTxs} type="refresh" size={16} />
+              </Button>
             {/if}
           </div>
         </div>
       {/if}
 
       {#if displayL1Warning}
-        <div class="!mt-0 !mb-[-30px]">
-          <Alert type="warning">{$t('bridge.alerts.slow_bridging')}</Alert>
+        <div class="!mt-0 !mb-[-30px] !">
+          <Alert class="text-left" type="warning">{$t('bridge.alerts.slow_bridging')}</Alert>
         </div>
       {/if}
-      <div class="flex flex-col" style={`min-height: calc(${transactionsToShow.length} * 80px);`}>
+      <div
+        class="flex flex-col"
+        style={`min-height: calc(${transactionsToShow.length} * ${isDesktopOrLarger ? '80px' : '66px'});`}>
         <div class="h-sep" />
         {#if isDesktopOrLarger}
           <div class="text-primary-content flex">
@@ -210,9 +235,11 @@
     </div>
   </Card>
 
-  <div class="flex justify-end pt-2">
+  <div class="flex justify-end pb-5">
     <Paginator {pageSize} {totalItems} on:pageChange={({ detail }) => handlePageChange(detail)} />
   </div>
+
+  <StatusFilterDialog bind:selectedStatus bind:menuOpen />
 </div>
 
 <OnAccount change={onAccountChange} />

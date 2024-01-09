@@ -194,6 +194,7 @@
     "loading": "Loading",
     "name": "Name",
     "ok": "Ok",
+    "status": "Status",
     "success": "Success",
     "to": "To",
     "token_id": "Token ID",
@@ -398,11 +399,12 @@
       "relayer_offline": "Relayer did not respond. Your transactions may only be loaded partially."
     },
     "filter": {
-      "all": "All transactions",
+      "all": "All",
       "claimed": "Claimed",
       "failed": "Failed",
       "processing": "Processing",
-      "retry": "Retriable"
+      "retry": "Retriable",
+      "title": "Filters"
     },
     "header": {
       "amount": "Amount",

@@ -117,12 +117,7 @@
   <!-- We disable these warnings as we dynamically add the role -->
   <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div
-    {...attrs}
-    tabindex="0"
-    on:click={handleClick}
-    on:keydown={handlePress}
-    class="flex text-primary-content md:h-[80px] h-[45px] w-full my-[10px] md:my-[0px]">
+  <div class="flex text-primary-content md:h-[80px] h-[45px] w-full my-[10px] md:my-[0px]">
     {#if isDesktopOrLarger}
       <button class="w-2/6 py-2 flex flex-row space-x-[8px]" on:click={() => (nftInfoOpen = true)}>
         {#if loading}
@@ -162,11 +157,6 @@
             <div class="rounded-[10px] w-[50px] h-[50px] bg-neutral flex items-center justify-center">
               <Spinner />
             </div>
-            <div class="f-col text-left space-y-1">
-              <LoadingText mask="&nbsp;" class="min-w-[50px] max-w-[50px] h-4" />
-              <LoadingText mask="&nbsp;" class="min-w-[90px] max-w-[90px] h-4" />
-              <LoadingText mask="&nbsp;" class="min-w-[20px] max-w-[20px] h-4" />
-            </div>
           {:else}
             <img
               alt="nft"
@@ -174,23 +164,33 @@
               class="rounded-[10px] min-w-[46px] max-w-[46px] mr-[8px] bg-neutral self-center" />
           {/if}
         </button>
-
-        <div class="f-col">
-          <div class="f-row font-bold">
-            {getChainName(Number(item.srcChainId))}
-            <i role="img" aria-label="arrow to" class="mx-auto px-2">
-              <Icon type="arrow-right" />
-            </i>
-            {getChainName(Number(item.destChainId))}
+        {#if loading}
+          <div class="f-col space-y-1 pl-1">
+            <div class="f-row font-bold">
+              <LoadingText mask="&nbsp;" class="min-w-[120px] max-w-[120px] h-4" />
+            </div>
+            <LoadingText mask="&nbsp;" class="min-w-[50px] max-w-[50px] h-3" />
           </div>
-          <span class="text-secondary-content">test</span>
-        </div>
+        {:else}
+          <div class="f-col" {...attrs} tabindex="0" on:click={handleClick} on:keydown={handlePress}>
+            <div class="f-row font-bold">
+              {getChainName(Number(item.srcChainId))}
+              <i role="img" aria-label="arrow to" class="mx-auto px-2">
+                <Icon type="arrow-right" />
+              </i>
+              {getChainName(Number(item.destChainId))}
+            </div>
+            <span class="text-secondary-content">{token?.name ? truncateString(token?.name, 15) : ''}</span>
+          </div>
+        {/if}
       </div>
     {/if}
-    <Status
-      on:click={isDesktopOrLarger ? undefined : openDetails}
-      bridgeTx={item}
-      on:insufficientFunds={handleInsufficientFunds} />
+    <div class="flex" {...attrs} tabindex="0" on:click={handleClick} on:keydown={handlePress}>
+      <Status
+        on:click={isDesktopOrLarger ? undefined : openDetails}
+        bridgeTx={item}
+        on:insufficientFunds={handleInsufficientFunds} />
+    </div>
   </div>
 {:else}
   <!-- We disable these warnings as we dynamically add the role -->
@@ -228,7 +228,11 @@
             {getChainName(Number(item.destChainId))}
           </div>
           <div class=" flex flex-col justify-center text-sm text-secondary-content">
-            {formatEther(item.amount ? item.amount : BigInt(0))}
+            {#if item.tokenType === TokenType.ERC20}
+              {formatUnits(item.amount ? item.amount : BigInt(0), item.decimals)}
+            {:else if item.tokenType === TokenType.ETH}
+              {formatEther(item.amount ? item.amount : BigInt(0))}
+            {/if}
             {item.symbol}
           </div>
         </div>
