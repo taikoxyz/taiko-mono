@@ -196,7 +196,7 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 	case tasks.TotalTransitionProvedByTier:
 		var tiers []uint16 = make([]uint16, 0)
 
-		query := "SELECT DISTINCT(tier) FROM events WHERE name = ?"
+		query := "SELECT DISTINCT tier FROM events WHERE name = ? AND tier IS NOT NULL;"
 
 		err = g.db.GormDB().
 			Raw(query, eventindexer.EventNameTransitionProved).
@@ -252,7 +252,7 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 	case tasks.TransitionProvedByTierPerDay:
 		var tiers []uint16 = make([]uint16, 0)
 
-		query := "SELECT DISTINCT(tier) FROM events WHERE name = ?"
+		query := "SELECT DISTINCT tier FROM events WHERE name = ? AND tier IS NOT NULL;"
 
 		err = g.db.GormDB().
 			Raw(query, eventindexer.EventNameTransitionProved).
@@ -301,7 +301,7 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 	case tasks.TransitionContestedByTierPerDay:
 		var tiers []uint16 = make([]uint16, 0)
 
-		query := "SELECT DISTINCT(tier) FROM events WHERE name = ?"
+		query := "SELECT DISTINCT tier FROM events WHERE name = ? AND tier IS NOT NULL;"
 
 		err = g.db.GormDB().
 			Raw(query, eventindexer.EventNameTransitionContested).
@@ -350,7 +350,7 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 	case tasks.TotalTransitionContestedByTier:
 		var tiers []uint16 = make([]uint16, 0)
 
-		query := "SELECT DISTINCT(tier) FROM events WHERE name = ?"
+		query := "SELECT DISTINCT tier FROM events WHERE name = ? AND tier IS NOT NULL;"
 
 		err = g.db.GormDB().
 			Raw(query, eventindexer.EventNameTransitionContested).

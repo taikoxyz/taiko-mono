@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
+	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
 )
 
@@ -33,6 +34,8 @@ func (r *ChartRepository) Find(
 	feeTokenAddress string,
 	tier string,
 ) (*eventindexer.ChartResponse, error) {
+	slog.Info("finding chart", "task", task, "tier", tier, "feeTokenAddress", feeTokenAddress)
+
 	var tx *gorm.DB
 
 	var q string = `SELECT * FROM time_series_data
