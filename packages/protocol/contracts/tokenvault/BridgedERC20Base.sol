@@ -40,13 +40,11 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
         whenNotPaused
         onlyFromOwnerOrNamed("erc20_vault")
     {
-        if (addr == migratingAddress && inbound == migratingInbound) {
-            revert BB_INVALID_PARAMS();
+        if (addr != migratingAddress || inbound != migratingInbound) {
+            migratingAddress = addr;
+            migratingInbound = inbound;
+            emit MigrationStatusChanged(addr, inbound);
         }
-
-        migratingAddress = addr;
-        migratingInbound = inbound;
-        emit MigrationStatusChanged(addr, inbound);
     }
 
     function mint(address account, uint256 amount) public nonReentrant whenNotPaused {
