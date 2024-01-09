@@ -37,12 +37,18 @@
 
 {#if statusType === AlertType.SUCCESS && $guardianProvers?.length > 0}
 	<Alert type={AlertType.SUCCESS} forceColumnFlow>
-		<p class="font-bold">{$t('status.operational')}</p>
+		<p class="font-bold">
+			{$t('status.operational', {
+				values: { online: proversOnline, required: requiredCount, total: $guardianProvers?.length }
+			})}
+		</p>
 	</Alert>
 {:else if statusType === AlertType.ERROR && $guardianProvers?.length > 0}
 	<Alert type={AlertType.ERROR} forceColumnFlow>
 		<p class="font-bold">
-			{$t('status.critical', { values: { online: proversOnline, required: requiredCount } })}
+			{$t('status.critical', {
+				values: { online: proversOnline, required: requiredCount, total: $guardianProvers?.length }
+			})}
 		</p>
 	</Alert>
 {:else if statusType === AlertType.WARNING && $guardianProvers?.length > 0}
