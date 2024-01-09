@@ -281,7 +281,7 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 			slog.Info("Query successful",
 				"task", task,
 				"date", dateString,
-				"result", result.String(),
+				"result", dailyCountByTier.Decimal.String(),
 				"tier", t,
 			)
 
@@ -330,7 +330,7 @@ func (g *Generator) queryByTask(task string, date time.Time) error {
 			slog.Info("Query successful",
 				"task", task,
 				"date", dateString,
-				"result", result.String(),
+				"result", dailyCountByTier.Decimal.String(),
 				"tier", t,
 			)
 
