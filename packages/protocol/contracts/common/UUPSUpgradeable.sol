@@ -23,55 +23,27 @@ import "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
  * _Available since v4.1._
  */
 abstract contract UUPSUpgradeable is IERC1822Proxiable, ERC1967Upgrade {
-    /// @custom:oz-upgrades-unsafe-allow state-variable-immutable state-variable-assignment
-    address private immutable __self = address(this);
+    uint256[50] private __gap;
 
-    function self() public view returns (address) {
-        return __self;
-    }
-
+    error NOT_DELEGAATED();
+    error IS_DELEGATED();
     /**
      * @dev Check that the execution is being performed through a delegatecall call and that the
-     * execution context is
-     * a proxy contract with an implementation (as defined in ERC1967) pointing to self. This should
-     * only be the case
-     * for UUPS and transparent proxies that are using the current contract as their implementation.
-     * Execution of a
-     * function through ERC1167 minimal proxies (clones) would not normally pass this test, but is
-     * not guaranteed to
-     * fail.
+     * execution context is a proxy contract with an implementation (as defined in ERC1967).
      */
+
     modifier onlyProxy() {
-        require(address(this) != __self, "Function must be called through delegatecall");
-        require(_getImplementation() == __self, "Function must be called through active proxy");
+        if (!isDelegated()) revert NOT_DELEGAATED();
         _;
     }
 
     /**
      * @dev Check that the execution is not being performed through a delegate call. This allows a
-     * function to be
-     * callable on the implementing contract but not through proxies.
+     * function to be callable on the implementing contract but not through proxies.
      */
     modifier notDelegated() {
-        require(address(this) == __self, "UUPSUpgradeable: must not be called through delegatecall");
+        if (isDelegated()) revert IS_DELEGATED();
         _;
-    }
-
-    /**
-     * @dev Implementation of the ERC1822 {proxiableUUID} function. This returns the storage slot
-     * used by the
-     * implementation. It is used to validate the implementation's compatibility when performing an
-     * upgrade.
-     *
-     * IMPORTANT: A proxy pointing at a proxiable contract should not be considered proxiable
-     * itself, because this risks
-     * bricking a proxy that upgrades to it, by delegating to itself until out of gas. Thus it is
-     * critical that this
-     * function revert if invoked through a proxy. This is guaranteed by the `notDelegated`
-     * modifier.
-     */
-    function proxiableUUID() external view virtual override notDelegated returns (bytes32) {
-        return _IMPLEMENTATION_SLOT;
     }
 
     /**
@@ -109,16 +81,31 @@ abstract contract UUPSUpgradeable is IERC1822Proxiable, ERC1967Upgrade {
     }
 
     /**
-     * @dev Function that should revert when `msg.sender` is not authorized to upgrade the contract.
-     * Called by
-     * {upgradeTo} and {upgradeToAndCall}.
+     * @dev Implementation of the ERC1822 {proxiableUUID} function. This returns the storage slot
+     * used by the
+     * implementation. It is used to validate the implementation's compatibility when performing an
+     * upgrade.
      *
-     * Normally, this function will use an xref:access.adoc[access control] modifier such as
-     * {Ownable-onlyOwner}.
-     *
-     * ```solidity
-     * function _authorizeUpgrade(address) internal override onlyOwner {}
-     * ```
+     * IMPORTANT: A proxy pointing at a proxiable contract should not be considered proxiable
+     * itself, because this risks
+     * bricking a proxy that upgrades to it, by delegating to itself until out of gas. Thus it is
+     * critical that this
+     * function revert if invoked through a proxy. This is guaranteed by the `notDelegated`
+     * modifier.
      */
+    function proxiableUUID() external view virtual override notDelegated returns (bytes32) {
+        return _IMPLEMENTATION_SLOT;
+    }
+
+    function isDelegated() public view virtual returns (bool) {
+        address impl = _getImplementation();
+        return impl != address(0) && impl != address(this);
+    }
+
+    /**
+     * @dev Function that should revert when `msg.sender` is not authorized to upgrade the contract.
+     * Called by {upgradeTo} and {upgradeToAndCall}.
+     */
+
     function _authorizeUpgrade(address newImplementation) internal virtual;
 }

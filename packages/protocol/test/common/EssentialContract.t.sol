@@ -30,12 +30,17 @@ contract TestOwnerUUPSUpgradable is TaikoTest {
     function test_essential_behind_1967_proxy() external {
         bytes memory data = abi.encodeCall(Target1.init, ());
         vm.startPrank(Alice);
-        ERC1967Proxy proxy = new ERC1967Proxy(address(new Target1()), data);
+
+        Target1 t1 = new Target1();
+        assertEq(t1.isDelegated(), false);
+
+        ERC1967Proxy proxy = new ERC1967Proxy(address(t1), data);
         Target1 target = Target1(address(proxy));
         vm.stopPrank();
 
         // Owner is Alice
         vm.prank(Carol);
+        assertEq(target.isDelegated(), true);
         assertEq(target.owner(), Alice);
 
         // Alice can adjust();
