@@ -640,7 +640,6 @@ function replaceUUPSImmutableVaules(
         ];
     let deployedBytecodeWithoutPrefix =
         artifact.deployedBytecode.object.substring(2);
-    if (value.startsWith("0x")) value = value.substring(2);
 
     for (const { start, length } of offsets) {
         const prefix = deployedBytecodeWithoutPrefix.substring(0, start * 2);
