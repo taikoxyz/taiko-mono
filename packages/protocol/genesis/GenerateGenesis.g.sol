@@ -329,7 +329,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
     }
 
     function getPredeployedContractAddress(string memory contractName) private returns (address) {
-        return configJSON.readAddress(string.concat(".contractAddresses.", contractName));
+        return new ERC1967Proxy(configJSON.readAddress(string.concat(".contractAddresses.", contractName)));
     }
 
     function checkDeployedCode(string memory contractName) private {
@@ -360,7 +360,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.startPrank(owner);
         address proxyAddress = getPredeployedContractAddress(proxyName);
 
-        OwnerUUPSUpgradable proxy = OwnerUUPSUpgradable(new ERC1967Proxy(payable(proxyAddress)));
+        OwnerUUPSUpgradable proxy = OwnerUUPSUpgradable(payable(proxyAddress));
 
         assertEq(proxy.owner(), owner);
 
