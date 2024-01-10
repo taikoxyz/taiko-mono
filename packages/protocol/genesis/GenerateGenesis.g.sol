@@ -88,7 +88,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         vm.startPrank(addressManager.owner());
 
-        addressManager.upgradeTo(address(newAddressManager));
+        addressManagerProxy.upgradeTo(address(newAddressManager));
 
         vm.stopPrank();
     }
@@ -109,7 +109,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         vm.startPrank(addressManager.owner());
 
-        addressManager.upgradeTo(address(newAddressManager));
+        addressManagerProxy.upgradeTo(address(newAddressManager));
 
         vm.stopPrank();
     }
@@ -149,7 +149,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         TaikoL2 newTaikoL2 = new TaikoL2();
 
-        taikoL2.upgradeTo(address(newTaikoL2));
+        taikoL2Proxy.upgradeTo(address(newTaikoL2));
 
         vm.stopPrank();
     }
@@ -210,7 +210,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         Bridge newBridge = new Bridge();
 
-        bridge.upgradeTo(address(newBridge));
+        bridgeProxy.upgradeTo(address(newBridge));
 
         vm.stopPrank();
     }
@@ -236,7 +236,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         ERC20Vault newERC20Vault = new ERC20Vault();
 
-        erc20Vault.upgradeTo(address(newERC20Vault));
+        erc20VaultProxy.upgradeTo(address(newERC20Vault));
 
         vm.stopPrank();
     }
@@ -261,7 +261,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.startPrank(erc721Vault.owner());
         ERC721Vault newERC721Vault = new ERC721Vault();
 
-        erc721Vault.upgradeTo(address(newERC721Vault));
+        erc721VaultProxy.upgradeTo(address(newERC721Vault));
 
         vm.stopPrank();
     }
@@ -289,7 +289,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         ERC1155Vault newERC1155Vault = new ERC1155Vault();
 
-        erc1155Vault.upgradeTo(address(newERC1155Vault));
+        erc1155VaultProxy.upgradeTo(address(newERC1155Vault));
 
         vm.stopPrank();
     }
@@ -316,7 +316,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         SignalService newSignalService = new SignalService();
 
-        signalService.upgradeTo(address(newSignalService));
+        signalServiceProxy.upgradeTo(address(newSignalService));
 
         vm.stopPrank();
     }
@@ -358,7 +358,6 @@ contract TestGenerateGenesis is Test, AddressResolver {
         private
     {
         vm.startPrank(owner);
-        address contractAddress = getPredeployedContractAddress(contractName);
         address proxyAddress = getPredeployedContractAddress(proxyName);
 
         OwnerUUPSUpgradable proxy = OwnerUUPSUpgradable(payable(proxyAddress));
