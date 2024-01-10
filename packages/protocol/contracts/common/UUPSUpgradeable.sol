@@ -1,5 +1,16 @@
 // SPDX-License-Identifier: MIT
-// OpenZeppelin Contracts (last updated v4.8.0) (proxy/utils/UUPSUpgradeable.sol)
+//  _____     _ _         _         _
+// |_   _|_ _(_) |_____  | |   __ _| |__ ___
+//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
+//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
+//
+//   Email: security@taiko.xyz
+//   Website: https://taiko.xyz
+//   GitHub: https://github.com/taikoxyz
+//   Discord: https://discord.gg/taikoxyz
+//   Twitter: https://twitter.com/taikoxyz
+//   Blog: https://mirror.xyz/labs.taiko.eth
+//   Youtube: https://www.youtube.com/@taikoxyz
 
 pragma solidity 0.8.20;
 
@@ -7,20 +18,10 @@ import "lib/openzeppelin-contracts/contracts/interfaces/draft-IERC1822.sol";
 import "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
 
 /**
- * @dev An upgradeability mechanism designed for UUPS proxies. The functions included here can
- * perform an upgrade of an
- * {ERC1967Proxy}, when this contract is set as the implementation behind such a proxy.
- *
- * A security mechanism ensures that an upgrade does not turn off upgradeability accidentally,
- * although this risk is
- * reinstated if the upgrade retains upgradeability but removes the security mechanism, e.g. by
- * replacing
- * `UUPSUpgradeable` with a custom implementation of upgrades.
- *
- * The {_authorizeUpgrade} function must be overridden to include access restriction to the upgrade
- * mechanism.
- *
- * _Available since v4.1._
+ * @dev An upgradeability mechanism designed for UUPS proxies.
+ * This is an alternative impl based on
+ * lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol
+ * without the immutable variable so we can pre-deploy these contracts on L2.
  */
 abstract contract UUPSUpgradeable is IERC1822Proxiable, ERC1967Upgrade {
     uint256[50] private __gap;
