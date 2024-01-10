@@ -17,7 +17,7 @@ const log = getLogger('token:getBalance');
 
 export async function getBalance({ userAddress, token, srcChainId, destChainId }: GetBalanceArgs) {
   let tokenBalance: FetchBalanceResult;
-
+  log('getBalance', { userAddress, token, srcChainId, destChainId });
   if (!token || token.type === TokenType.ETH) {
     // If no token is passed in, we assume is ETH
     tokenBalance = await fetchBalance({ address: userAddress, chainId: srcChainId });
@@ -37,8 +37,6 @@ export async function getBalance({ userAddress, token, srcChainId, destChainId }
       chainId: srcChainId,
     });
   }
-
   log('Token balance', tokenBalance);
-
   return tokenBalance;
 }
