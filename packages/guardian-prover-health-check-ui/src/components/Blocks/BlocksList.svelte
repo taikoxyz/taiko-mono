@@ -31,7 +31,7 @@
 			<label for={`block-${index}`} class="collapse-title font-medium items-center">
 				<div class="grid grid-cols-5 items-center">
 					<div class="font-bold">{blockNumber}</div>
-					<div class="col-span-3">{blocks.length}/{$guardianProvers.length}</div>
+					<div class="col-span-3">{blocks.length}/{$guardianProvers?.length}</div>
 				</div>
 			</label>
 			<div class="collapse-content bg-white">
@@ -42,7 +42,7 @@
 						<div class="space-y-[10px] text-sm w-full col-span-3">
 							<div>
 								<p class="text-secondary-content">{$t('blocks.signed_hash')}</p>
-								{p.blockHash}
+								<span class="break-100-chars">{p.blockHash}</span>
 							</div>
 							<div>
 								<p class="text-secondary-content">{$t('blocks.signature')}</p>

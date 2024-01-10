@@ -6,9 +6,10 @@ CREATE TABLE IF NOT EXISTS time_series_data (
     value DECIMAL(65, 0) NOT NULL,
     date VARCHAR(20) NOT NULL,
     fee_token_address varchar(42) DEFAULT "",
+    tier INT DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE key `task_date` (`task`, `date`)
+    UNIQUE key `task_date` (`task`, `date`, `tier`, `fee_token_address`)
 );
 
 -- +goose StatementEnd

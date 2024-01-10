@@ -18,7 +18,7 @@
 	const filterByStatus = (status: GuardianProverStatus) => {
 		selectedStatus = status;
 
-		filteredGuardianProvers = $guardianProvers.filter((guardianProver) => {
+		filteredGuardianProvers = $guardianProvers?.filter((guardianProver) => {
 			return Number(guardianProver.alive) === Number(status);
 		});
 	};

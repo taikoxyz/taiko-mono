@@ -32,7 +32,7 @@
 				"created_on": "Created on",
 				"expected_address": "Expected address",
 				"status": "Status",
-				"uptime": "Uptime %"
+				"uptime": "Uptime {uptime}%"
 			}
 		},
 		"table": {
@@ -51,7 +51,9 @@
 		"page": "Page"
 	},
 	"status": {
-		"degraded": "Systems are not ok",
-		"operational": "All systems operational"
+		"configuration_error": "Amount of provers does not match configuration!",
+		"critical": "CRITICAL: only {online} of required {required} provers online",
+		"degraded": "WARNING: only {online} of {total} provers online (min: {required})",
+		"operational": " {online} of {total} proves online. (min: {required})"
 	}
 }

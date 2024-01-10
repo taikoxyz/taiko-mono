@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { type Address, getNetwork } from '@wagmi/core';
+  import type { Address } from '@wagmi/core';
   import { onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
 
@@ -12,6 +12,7 @@
   import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
+  import { network } from '$stores/network';
 
   import { destNetwork } from '../Bridge/state';
   import DialogView from './DialogView.svelte';
@@ -64,12 +65,12 @@
   };
 
   const selectToken = async (token: Token) => {
-    const { chain } = getNetwork();
+    const srcChain = $network;
     const destChain = $destNetwork;
 
     // In order to select a token, we only need the source chain to be selected,
     // unless it's an imported token...
-    if (!chain) {
+    if (!srcChain) {
       warningToast({ title: $t('messages.network.required') });
       return;
     }
@@ -88,7 +89,7 @@
       try {
         bridgedAddress = await getCrossChainAddress({
           token,
-          srcChainId: chain.id,
+          srcChainId: srcChain.id,
           destChainId: destChain.id,
         });
       } catch (error) {

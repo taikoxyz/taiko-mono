@@ -31,6 +31,7 @@ export class CustomTokenService implements TokenService {
       doesTokenAlreadyExist = tokens.findIndex((tokenFromStorage) => tokenFromStorage.symbol === token.symbol) >= 0;
     }
     if (!doesTokenAlreadyExist) {
+      token.imported = true;
       tokens.push(token);
     }
 

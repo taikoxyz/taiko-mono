@@ -246,8 +246,8 @@ export default {
           '--negative-sentiment': '#BB1A1B', // red-600
           '--negative-background': '#FFE7E7', // red-10
 
-          '--warning-sentiment': '#775602', // yellow-700
-          '--warning-background': '#FFF6DE', // yellow-10
+          '--warning-sentiment': '#EBB222', // yellow-400
+          '--warning-background': '#EBB222', // yellow-400
 
           '--elevated-background': '#FAFAFA', // grey-5
           '--neutral-background': '#E3E3E3', // grey-50

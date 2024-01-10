@@ -20,6 +20,7 @@
   import { getLogger } from '$libs/util/logger';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
+  import { ethBalance } from '$stores/balance';
   import { network } from '$stores/network';
 
   import {
@@ -59,6 +60,8 @@
 
     const to = $recipientAddress || $account?.address;
 
+    let balanceForGasCalculation = $ethBalance;
+
     // We need all these guys to validate
     if (
       !to ||
@@ -67,9 +70,11 @@
       !$destNetwork ||
       !$tokenBalance ||
       !$selectedToken ||
+      !(balanceForGasCalculation && balanceForGasCalculation > BigInt(0)) ||
       $enteredAmount === BigInt(0) // no need to check if the amount is 0
-    )
+    ) {
       return;
+    }
 
     try {
       await checkBalanceToBridge({
@@ -77,7 +82,7 @@
         token,
         amount: $enteredAmount,
         fee,
-        balance,
+        balance: balanceForGasCalculation,
         srcChainId: $network.id,
         destChainId: $destNetwork.id,
         tokenIds:
@@ -192,6 +197,8 @@
 
     computingMaxAmount = true;
 
+    const balance = determineBalance();
+
     try {
       let maxAmount;
 
@@ -228,15 +235,27 @@
     }
   }
 
-  $: balance = $tokenBalance
-    ? typeof $tokenBalance === 'bigint'
-      ? $tokenBalance > BigInt(0)
-        ? $tokenBalance
-        : BigInt(0) // ERC721/1155
-      : 'value' in $tokenBalance && $tokenBalance.value > BigInt(0)
-        ? $tokenBalance.value
-        : BigInt(0) // ERC20
-    : BigInt(0);
+  const determineBalance = () => {
+    let balance = 0n;
+    if (!$selectedToken) return balance;
+    const type = $selectedToken.type;
+    switch (type) {
+      case TokenType.ERC20:
+        if (typeof $tokenBalance === 'bigint') break;
+        if ($tokenBalance?.value) balance = $tokenBalance.value;
+        break;
+      case TokenType.ETH:
+        balance = $ethBalance;
+        break;
+      case TokenType.ERC721:
+      case TokenType.ERC1155:
+        if (typeof $tokenBalance === 'bigint') balance = $tokenBalance;
+        break;
+      default:
+        break;
+    }
+    return balance;
+  };
 
   $: if (inputBox && sanitizedValue !== inputBox.getValue()) {
     inputBox.setValue(sanitizedValue); // Update InputBox value if sanitizedValue changes
