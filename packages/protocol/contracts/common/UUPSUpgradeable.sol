@@ -98,6 +98,9 @@ abstract contract UUPSUpgradeable is IERC1822Proxiable, ERC1967Upgrade {
         return _IMPLEMENTATION_SLOT;
     }
 
+    /**
+     * @dev Returns whether the current call is through a delegatecall (proxy).
+     */
     function isDelegated() public view virtual returns (bool) {
         address impl = _getImplementation();
         return impl != address(0) && impl != address(this);
