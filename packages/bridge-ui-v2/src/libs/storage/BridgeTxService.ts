@@ -65,6 +65,8 @@ export class BridgeTxService {
       return messageSentEvents.find(({ args }) => args.message?.owner.toLowerCase() === userAddress.toLowerCase());
     } catch (error) {
       log('Error getting logs via filter, retrying...', error);
+
+      // we try again, often recreating the filter fixes the issue
       try {
         const filter = await client.createContractEventFilter({
           abi: bridgeABI,
