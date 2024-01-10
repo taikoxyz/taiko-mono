@@ -107,6 +107,5 @@ abstract contract UUPSUpgradeable is IERC1822Proxiable, ERC1967Upgrade {
      * @dev Function that should revert when `msg.sender` is not authorized to upgrade the contract.
      * Called by {upgradeTo} and {upgradeToAndCall}.
      */
-
     function _authorizeUpgrade(address newImplementation) internal virtual;
 }
