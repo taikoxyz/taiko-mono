@@ -14,8 +14,8 @@
 
 pragma solidity 0.8.20;
 
-import "lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import "./UUPSUpgradeable.sol";
 
 /// @title OwnerUUPSUpgradable
 /// @notice This contract serves as the base contract for many core components.

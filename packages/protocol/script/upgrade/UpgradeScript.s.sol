@@ -15,7 +15,7 @@
 pragma solidity 0.8.20;
 
 import "../../contracts/L1/gov/TaikoTimelockController.sol";
-import "lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol";
+import "../../contracts/common/UUPSUpgradeable.sol";
 
 import "forge-std/console2.sol";
 import "forge-std/Script.sol";
