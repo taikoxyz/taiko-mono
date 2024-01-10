@@ -22,8 +22,8 @@
   });
 </script>
 
-<dialog class="modal modal-bottom md:modal-middle]" class:modal-open={modalOpen}>
-  <div class="modal-box relative !px-[40px] md:rounded-[20px] bg-white space-y-[25px] w-[435px] m-auto">
+<dialog class="modal modal-middle" class:modal-open={modalOpen}>
+  <div class="modal-box relative md:rounded-[20px] bg-white space-y-[25px] md:w-[435px] m-auto">
     <div class="w-full space-y-[30px]">
       <Icon type="welcome-icon" class="w-[100px] h-[100px] mx-auto" />
       <h1 class="!text-black text-4xl font-bold">{$t('bridge.welcome_modal.title')}</h1>
