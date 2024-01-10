@@ -146,7 +146,16 @@
       {#if isDesktopOrLarger}
         <div class="my-[30px] f-between-center max-h-[36px]">
           <ChainSelector label={$t('chain_selector.currently_on')} value={$network} switchWallet small />
-          <StatusFilterDropdown bind:selectedStatus />
+          <div class="flex gap-2">
+            <Button
+              type="neutral"
+              shape="circle"
+              class="bg-neutral rounded-full !min-w-[36px] !min-h-[36px] !max-w-[36px] !max-h-[36px] border-none"
+              on:click={async () => await refresh()}>
+              <RotatingIcon loading={loadingTxs} type="refresh" size={16} />
+            </Button>
+            <StatusFilterDropdown bind:selectedStatus />
+          </div>
         </div>
       {:else}
         <div class="f-row justify-between my-[30px]">
@@ -161,7 +170,6 @@
                 on:click|stopPropagation={toggleMenu}>
                 <Icon type="settings" fillClass="fill-primary-icon" size={18} class="self-center" />
               </button>
-              <!-- <StatusFilterDropdown bind:selectedStatus bind:loading={loadingTxs} small /> -->
               <Button
                 type="neutral"
                 shape="circle"

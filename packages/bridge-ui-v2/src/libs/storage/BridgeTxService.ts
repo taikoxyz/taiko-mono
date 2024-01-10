@@ -6,6 +6,7 @@ import { routingContractsMap } from '$bridgeConfig';
 import { pendingTransaction, storageService } from '$config';
 import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
 import { isSupportedChain } from '$libs/chain';
+import { FilterLogsError } from '$libs/error';
 import { fetchTransactionReceipt } from '$libs/util/fetchTransactionReceipt';
 import { jsonParseWithDefault } from '$libs/util/jsonParseWithDefault';
 import { getLogger } from '$libs/util/logger';
@@ -58,11 +59,28 @@ export class BridgeTxService {
       toBlock: BigInt(blockNumber),
     });
 
-    // todo: this seems to fail sometimes, work out why and add error handling
-    const messageSentEvents = await client.getFilterLogs({ filter });
-
-    // Filter out those events that are not from the current address
-    return messageSentEvents.find(({ args }) => args.message?.owner.toLowerCase() === userAddress.toLowerCase());
+    try {
+      const messageSentEvents = await client.getFilterLogs({ filter });
+      // Filter out those events that are not from the current address
+      return messageSentEvents.find(({ args }) => args.message?.owner.toLowerCase() === userAddress.toLowerCase());
+    } catch (error) {
+      log('Error getting logs via filter, retrying...', error);
+      try {
+        const filter = await client.createContractEventFilter({
+          abi: bridgeABI,
+          address: bridgeAddress,
+          eventName: 'MessageSent',
+          fromBlock: BigInt(blockNumber),
+          toBlock: BigInt(blockNumber),
+        });
+        const messageSentEvents = await client.getFilterLogs({ filter });
+        // Filter out those events that are not from the current address
+        return messageSentEvents.find(({ args }) => args.message?.owner.toLowerCase() === userAddress.toLowerCase());
+      } catch (error) {
+        console.error('Error filtering logs', error);
+        throw new FilterLogsError('Error getting logs via filter');
+      }
+    }
   }
 
   private static _getBridgeMessageStatus({ msgHash, srcChainId, destChainId }: BridgeMessageParams) {
@@ -121,12 +139,21 @@ export class BridgeTxService {
     // We have receipt
     bridgeTx.receipt = receipt;
 
-    const messageSentEvent = await BridgeTxService._getBridgeMessageSent({
-      userAddress: address,
-      srcChainId: Number(srcChainId),
-      destChainId: Number(destChainId),
-      blockNumber: Number(receipt.blockNumber),
-    });
+    let messageSentEvent;
+
+    try {
+      messageSentEvent = await BridgeTxService._getBridgeMessageSent({
+        userAddress: address,
+        srcChainId: Number(srcChainId),
+        destChainId: Number(destChainId),
+        blockNumber: Number(receipt.blockNumber),
+      });
+    } catch (error) {
+      //TODO: handle error
+      console.error('Error getting bridge message sent', error);
+
+      return bridgeTx;
+    }
 
     if (!messageSentEvent?.args?.msgHash || !messageSentEvent?.args?.message) {
       // No message yet, so we can't get more info from this transaction
