@@ -423,8 +423,11 @@ async function generateContractConfigs(
         },
         BridgedERC721: {
             address: addressMap.BridgedERC721Impl,
-            deployedBytecode:
-                contractArtifacts.BridgedERC721Impl.deployedBytecode.object,
+            deployedBytecode: replaceUUPSImmutableVaules(
+                contractArtifacts.BridgedERC721Impl,
+                uupsImmutableReferencesMap,
+                ethers.utils.hexZeroPad(addressMap.BridgedERC721Impl, 32),
+            ).deployedBytecode.object,
         },
         BridgedERC1155: {
             address: addressMap.BridgedERC1155Impl,
