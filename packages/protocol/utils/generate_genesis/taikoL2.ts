@@ -650,8 +650,6 @@ function replaceUUPSImmutableVaules(
         deployedBytecodeWithoutPrefix = `${prefix}${value}${suffix}`;
     }
 
-    // console.log({ object: deployedBytecode.object, length: deployedBytecode.object.length })
-
     artifact.deployedBytecode.object = `0x${deployedBytecodeWithoutPrefix}`;
     return artifact;
 }
