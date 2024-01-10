@@ -360,7 +360,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.startPrank(owner);
         address proxyAddress = getPredeployedContractAddress(proxyName);
 
-        OwnerUUPSUpgradable proxy = OwnerUUPSUpgradable(payable(proxyAddress));
+        OwnerUUPSUpgradable proxy = OwnerUUPSUpgradable(new ERC1967Proxy(payable(proxyAddress)));
 
         assertEq(proxy.owner(), owner);
 
