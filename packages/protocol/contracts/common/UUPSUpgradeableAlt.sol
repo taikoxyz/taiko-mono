@@ -23,7 +23,7 @@ import "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
  * lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol
  * without the immutable variable so we can pre-deploy these contracts on L2.
  */
-abstract contract UUPSUpgradeable is IERC1822Proxiable, ERC1967Upgrade {
+abstract contract UUPSUpgradeableAlt is IERC1822Proxiable, ERC1967Upgrade {
     uint256[50] private __gap;
 
     error DISALLOWED_WHEN_NOT_DELEGAATED();

@@ -15,7 +15,7 @@
 pragma solidity 0.8.20;
 
 import "../../contracts/L1/gov/TaikoTimelockController.sol";
-import "../../contracts/common/UUPSUpgradeable.sol";
+import "../../contracts/common/UUPSUpgradeableAlt.sol";
 
 import "forge-std/console2.sol";
 import "forge-std/Script.sol";
@@ -25,7 +25,7 @@ contract UpgradeScript is Script {
     address public timelockAddress = vm.envAddress("TIMELOCK_ADDRESS");
     address public proxyAddress = vm.envAddress("PROXY_ADDRESS");
 
-    UUPSUpgradeable proxy;
+    UUPSUpgradeableAlt proxy;
     TaikoTimelockController timelock;
 
     modifier setUp() {
@@ -33,7 +33,7 @@ contract UpgradeScript is Script {
         require(proxyAddress != address(0), "PROXY_ADDRESS not set");
         require(timelockAddress != address(0), "TIMELOCK_ADDRESS not set");
 
-        proxy = UUPSUpgradeable(payable(proxyAddress));
+        proxy = UUPSUpgradeableAlt(payable(proxyAddress));
         timelock = TaikoTimelockController(payable(timelockAddress));
 
         vm.startBroadcast(privateKey);
