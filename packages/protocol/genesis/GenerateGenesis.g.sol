@@ -81,14 +81,9 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkSavedAddress(addressManagerProxy, "ERC1155Vault", "erc1155_vault");
         checkSavedAddress(addressManagerProxy, "SignalService", "signal_service");
 
-        AddressManager newAddressManager = new AddressManager();
+        vm.startPrank(addressManagerProxy.owner());
 
-        AddressManager addressManager =
-            AddressManager(getPredeployedContractAddress("SharedAddressManagerImpl"));
-
-        vm.startPrank(addressManager.owner());
-
-        addressManager.upgradeTo(address(newAddressManager));
+        addressManagerProxy.upgradeTo(address(new AddressManager()));
 
         vm.stopPrank();
     }
@@ -102,14 +97,9 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkSavedAddress(addressManagerProxy, "TaikoL2", "taiko");
         checkSavedAddress(addressManagerProxy, "SignalService", "signal_service");
 
-        AddressManager addressManager =
-            AddressManager(getPredeployedContractAddress("RollupAddressManagerImpl"));
+        vm.startPrank(addressManagerProxy.owner());
 
-        AddressManager newAddressManager = new AddressManager();
-
-        vm.startPrank(addressManager.owner());
-
-        addressManager.upgradeTo(address(newAddressManager));
+        addressManagerProxy.upgradeTo(address(new AddressManager()));
 
         vm.stopPrank();
     }
@@ -143,13 +133,9 @@ contract TestGenerateGenesis is Test, AddressResolver {
         }
         vm.stopPrank();
 
-        TaikoL2 taikoL2 = TaikoL2(getPredeployedContractAddress("TaikoL2Impl"));
+        vm.startPrank(taikoL2Proxy.owner());
 
-        vm.startPrank(taikoL2.owner());
-
-        TaikoL2 newTaikoL2 = new TaikoL2();
-
-        taikoL2.upgradeTo(address(newTaikoL2));
+        taikoL2Proxy.upgradeTo(address(new TaikoL2()));
 
         vm.stopPrank();
     }
@@ -206,11 +192,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         bridgeProxy.unpause();
         assertEq(bridgeProxy.paused(), false);
 
-        Bridge bridge = Bridge(payable(getPredeployedContractAddress("BridgeImpl")));
-
-        Bridge newBridge = new Bridge();
-
-        bridge.upgradeTo(address(newBridge));
+        bridgeProxy.upgradeTo(address(new Bridge()));
 
         vm.stopPrank();
     }
@@ -230,13 +212,9 @@ contract TestGenerateGenesis is Test, AddressResolver {
         addressManager.setAddress(1, "erc20_vault", erc20VaultAddress);
         vm.stopPrank();
 
-        ERC20Vault erc20Vault = ERC20Vault(getPredeployedContractAddress("ERC20VaultImpl"));
+        vm.startPrank(erc20VaultProxy.owner());
 
-        vm.startPrank(erc20Vault.owner());
-
-        ERC20Vault newERC20Vault = new ERC20Vault();
-
-        erc20Vault.upgradeTo(address(newERC20Vault));
+        erc20VaultProxy.upgradeTo(address(new ERC20Vault()));
 
         vm.stopPrank();
     }
@@ -256,12 +234,9 @@ contract TestGenerateGenesis is Test, AddressResolver {
         addressManager.setAddress(1, "erc721_vault", erc721VaultAddress);
         vm.stopPrank();
 
-        ERC721Vault erc721Vault = ERC721Vault(getPredeployedContractAddress("ERC721VaultImpl"));
+        vm.startPrank(erc721VaultProxy.owner());
 
-        vm.startPrank(erc721Vault.owner());
-        ERC721Vault newERC721Vault = new ERC721Vault();
-
-        erc721Vault.upgradeTo(address(newERC721Vault));
+        erc721VaultProxy.upgradeTo(address(new ERC721Vault()));
 
         vm.stopPrank();
     }
@@ -283,13 +258,10 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         address erc1155VaultAddress = getPredeployedContractAddress("ERC1155VaultImpl");
 
-        ERC1155Vault erc1155Vault = ERC1155Vault(erc1155VaultAddress);
 
-        vm.startPrank(erc1155Vault.owner());
+        vm.startPrank(erc1155VaultProxy.owner());
 
-        ERC1155Vault newERC1155Vault = new ERC1155Vault();
-
-        erc1155Vault.upgradeTo(address(newERC1155Vault));
+        erc1155VaultProxy.upgradeTo(address(new ERC1155Vault()));
 
         vm.stopPrank();
     }
@@ -314,9 +286,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         SignalService signalService =
             SignalService(payable(getPredeployedContractAddress("SignalServiceImpl")));
 
-        SignalService newSignalService = new SignalService();
-
-        signalService.upgradeTo(address(newSignalService));
+        signalServiceProxy.upgradeTo(address(new SignalService()));
 
         vm.stopPrank();
     }
@@ -339,7 +309,6 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         assertEq(address(contractAddress).code, vm.parseBytes(deployedCode));
     }
-
 
     function checkProxyImplementation(
         string memory proxyName,
