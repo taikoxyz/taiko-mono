@@ -26,15 +26,15 @@ import "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
 abstract contract UUPSUpgradeable is IERC1822Proxiable, ERC1967Upgrade {
     uint256[50] private __gap;
 
-    error NOT_DELEGAATED();
-    error IS_DELEGATED();
+    error DISALLOWED_WHEN_NOT_DELEGAATED();
+    error DISALLOWED_WHEN_IS_DELEGATED();
     /**
      * @dev Check that the execution is being performed through a delegatecall call and that the
      * execution context is a proxy contract with an implementation (as defined in ERC1967).
      */
 
     modifier onlyProxy() {
-        if (!isDelegated()) revert NOT_DELEGAATED();
+        if (!isDelegated()) revert DISALLOWED_WHEN_NOT_DELEGAATED();
         _;
     }
 
@@ -43,7 +43,7 @@ abstract contract UUPSUpgradeable is IERC1822Proxiable, ERC1967Upgrade {
      * function to be callable on the implementing contract but not through proxies.
      */
     modifier notDelegated() {
-        if (isDelegated()) revert IS_DELEGATED();
+        if (isDelegated()) revert DISALLOWED_WHEN_IS_DELEGATED();
         _;
     }
 
