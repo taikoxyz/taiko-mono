@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Address } from '@wagmi/core';
   import { isAddress } from 'ethereum-address';
-  import { onDestroy } from 'svelte';
+  import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import { chainConfig } from '$chainConfig';
@@ -118,7 +118,6 @@
       } catch {
         addressInputState = AddressInputState.INVALID;
       }
-
       if (!$network?.id) throw new Error('network not found');
       if (detectedTokenType !== TokenType.ERC721 && detectedTokenType !== TokenType.ERC1155) {
         addressInputState = AddressInputState.NOT_NFT;
@@ -182,7 +181,7 @@
     validating = false;
   };
 
-  onDestroy(() => {
+  onMount(() => {
     reset();
   });
 
@@ -204,6 +203,8 @@
       addressInputState === AddressInputState.VALID &&
       idInputState === IDInputState.VALID &&
       $enteredAmount > BigInt(0) &&
+      typeof $tokenBalance === 'bigint' &&
+      $enteredAmount <= $tokenBalance &&
       isOwnerOfAllToken;
 
     const isManualImportValid = importMethod === ImportMethod.MANUAL && (isValidManualERC721 || isValidManualERC1155);
@@ -237,6 +238,10 @@
 
   $: displayL1Warning =
     slowL1Warning && $destinationChain?.id && chainConfig[$destinationChain.id].type === LayerType.L1;
+
+  onMount(() => {
+    detectedTokenType = null;
+  });
 </script>
 
 <div class="f-between-center gap-[16px] mt-[30px]">
@@ -279,8 +284,12 @@ Manual NFT Input
         {/if}
       </div>
     </div>
-    {#if detectedTokenType === TokenType.ERC1155 && interfaceSupported}
-      <Amount bind:this={amountComponent} class="bg-neutral-background border-0 h-[56px]" disabled={isDisabled} />
+    {#if detectedTokenType === TokenType.ERC1155 && interfaceSupported && enteredIds?.length > 0 && !validating}
+      <Amount
+        bind:this={amountComponent}
+        class="bg-neutral-background border-0 h-[56px]"
+        disabled={isDisabled}
+        doAllowanceCheck={false} />
     {/if}
   </div>
 {:else}
