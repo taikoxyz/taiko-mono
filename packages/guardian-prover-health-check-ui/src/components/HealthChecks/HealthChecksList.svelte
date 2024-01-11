@@ -1,6 +1,4 @@
 <script lang="ts">
-	// import { selectedGuardianProver } from '$components/stores/guardianProver';
-
 	import type { HealthCheck } from '$lib/types';
 	import { onMount } from 'svelte';
 	import HealthCheckRow from './HealthCheckRow.svelte';
@@ -11,8 +9,6 @@
 	import HealthCheckFilter from './HealthCheckFilter.svelte';
 	import DesktopOrLarger from '$components/DesktopOrLarger/DesktopOrLarger.svelte';
 	import { fetchGuardianProverHealthChecksFromApi } from '$lib/api';
-	import { goto } from '$app/navigation';
-	import { manualFetch } from '$lib/dataFetcher';
 
 	let isDesktopOrLarger: boolean;
 	let healthChecks: HealthCheck[] = [];
@@ -26,7 +22,6 @@
 
 	onMount(async () => {
 		if (!selectedGuardianProver) {
-			// slice id from $page.url.pathname.lastIndexOf('/')
 			selectedGuardianProver = $page.url.pathname.slice($page.url.pathname.lastIndexOf('/') + 1);
 		}
 		const data = await fetchGuardianProverHealthChecksFromApi(
@@ -70,13 +65,13 @@
 		<div class="col-span-2 font-bold text-content-primary border-b border-gray-300 mb-[10px]">
 			{$t('overview.detail.table.created_on')}
 		</div>
-		{#each filteredHealthChecks as healthCheck, index (healthCheck.id)}
+		{#each filteredHealthChecks as healthCheck}
 			<HealthCheckRow {healthCheck} />
 		{/each}
 	</div>
 {:else}
 	<div class="grid grid-cols-12">
-		{#each filteredHealthChecks as healthCheck, index (healthCheck.id)}
+		{#each filteredHealthChecks as healthCheck}
 			<HealthCheckRow {healthCheck} />
 		{/each}
 	</div>
