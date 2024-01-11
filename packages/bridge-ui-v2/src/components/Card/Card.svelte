@@ -19,7 +19,7 @@
 </script>
 
 <div class={classes}>
-  <div class="card-body body-regular px-4 md:p-[50px] gap-0 py-0 md:mt-[0px]">
+  <div class="card-body body-regular px-4 md:p-[50px] gap-0 py-0 md:mt-[0px] mt-[40px]">
     {#if title}
       <h2 class="card-title title-screen-bold">{title}</h2>
     {/if}
