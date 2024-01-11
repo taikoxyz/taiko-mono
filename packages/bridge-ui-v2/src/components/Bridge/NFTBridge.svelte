@@ -282,7 +282,7 @@
               priority="primary"
               disabled={!canProceed}
               loading={validatingImport}
-              on:click={await manualImportAction}><span class="body-bold">{nextStepButtonText}</span></ActionButton>
+              on:click={manualImportAction}><span class="body-bold">{nextStepButtonText}</span></ActionButton>
 
             <button on:click={() => changeImportMethod()} class="flex justify-center py-3 link">
               {$t('common.back')}
