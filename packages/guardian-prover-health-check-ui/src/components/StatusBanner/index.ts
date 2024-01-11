@@ -1,1 +1,1 @@
-export { default as StatusBanner } from './StatusBanner.svelte'
+export { default as StatusBanner } from './StatusBanner.svelte';
