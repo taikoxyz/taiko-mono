@@ -207,6 +207,7 @@
       {:else if bridging || approving}
         <Spinner class="!w-[160px] !h-[160px] text-primary-brand" />
         <div id="text" class="f-col my-[30px] text-center">
+          <h1 class="mb-[16px]">{$t('bridge.nft.step.confirm.processing')}</h1>
           <span>{$t('bridge.nft.step.confirm.approve.pending')}</span>
         </div>
       {:else if $allApproved && !approving && !bridging}
