@@ -5,13 +5,17 @@
   import { Alert } from '$components/Alert';
   import { activeBridge } from '$components/Bridge/state';
   import { BridgeTypes } from '$components/Bridge/types';
+  import { Button } from '$components/Button';
   import { Card } from '$components/Card';
   import { ChainSelector } from '$components/ChainSelector';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
+  import { Icon } from '$components/Icon';
+  import RotatingIcon from '$components/Icon/RotatingIcon.svelte';
   import { warningToast } from '$components/NotificationToast';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import { Paginator } from '$components/Paginator';
   import { Spinner } from '$components/Spinner';
+  import StatusDot from '$components/StatusDot/StatusDot.svelte';
   import { transactionConfig } from '$config';
   import { PUBLIC_SLOW_L1_BRIDGING_WARNING } from '$env/static/public';
   import { type BridgeTransaction, fetchTransactions, MessageStatus } from '$libs/bridge';
@@ -20,6 +24,7 @@
   import { account, network } from '$stores';
   import type { Account } from '$stores/account';
 
+  import StatusFilterDialog from './StatusFilterDialog.svelte';
   import StatusFilterDropdown from './StatusFilterDropdown.svelte';
   import StatusInfoDialog from './StatusInfoDialog.svelte';
   import Transaction from './Transaction.svelte';
@@ -38,7 +43,15 @@
 
   let isDesktopOrLarger: boolean;
 
+  let selectedStatus: MessageStatus | null = null; // null indicates no filter is applied
+
   let slowL1Warning = PUBLIC_SLOW_L1_BRIDGING_WARNING || false;
+
+  let menuOpen = false;
+
+  const toggleMenu = () => {
+    menuOpen = !menuOpen;
+  };
 
   const handlePageChange = (detail: number) => {
     isBlurred = true;
@@ -71,7 +84,25 @@
     }
   };
 
-  let selectedStatus: MessageStatus | null = null; // null indicates no filter is applied
+  const refresh = async () => {
+    if ($account?.address) {
+      await updateTransactions($account.address);
+    }
+  };
+
+  const updateTransactions = async (address: Address) => {
+    loadingTxs = true;
+    const { mergedTransactions, outdatedLocalTransactions, error } = await fetchTransactions(address);
+    transactions = mergedTransactions;
+
+    if (outdatedLocalTransactions.length > 0) {
+      await bridgeTxService.removeTransactions(address, outdatedLocalTransactions);
+    }
+    if (error) {
+      warningToast({ title: $t('transactions.errors.relayer_offline') });
+    }
+    loadingTxs = false;
+  };
 
   $: statusFilteredTransactions =
     selectedStatus !== null ? transactions.filter((tx) => tx.status === selectedStatus) : transactions;
@@ -82,22 +113,16 @@
 
   $: transactionsToShow = getTransactionsToShow(currentPage, pageSize, tokenAndStatusFilteredTransactions);
 
-  $: displayTokenTypesBasedOnType =
-    $activeBridge === BridgeTypes.FUNGIBLE ? [TokenType.ERC20, TokenType.ETH] : [TokenType.ERC721, TokenType.ERC1155];
+  $: fungibleDesktopView = isDesktopOrLarger && $activeBridge === BridgeTypes.FUNGIBLE;
+  $: nftDesktopView = isDesktopOrLarger && $activeBridge === BridgeTypes.NFT;
+
+  $: fungibleTokens = [TokenType.ERC20, TokenType.ETH];
+  $: nftTokens = [TokenType.ERC721, TokenType.ERC1155];
+  $: allTokens = [...fungibleTokens, ...nftTokens];
+
+  $: displayTokenTypesBasedOnType = fungibleDesktopView ? fungibleTokens : nftDesktopView ? nftTokens : allTokens;
 
   $: filteredTransactions = transactions.filter((tx) => displayTokenTypesBasedOnType.includes(tx.tokenType));
-
-  const updateTransactions = async (address: Address) => {
-    const { mergedTransactions, outdatedLocalTransactions, error } = await fetchTransactions(address);
-    transactions = mergedTransactions;
-
-    if (outdatedLocalTransactions.length > 0) {
-      await bridgeTxService.removeTransactions(address, outdatedLocalTransactions);
-    }
-    if (error) {
-      warningToast({ title: $t('transactions.errors.relayer_offline') });
-    }
-  };
 
   $: pageSize = isDesktopOrLarger ? transactionConfig.pageSizeDesktop : transactionConfig.pageSizeMobile;
 
@@ -118,16 +143,53 @@
 <div class="flex flex-col justify-center w-full">
   <Card title={$t('transactions.title')} text={$t('transactions.description')}>
     <div class="space-y-[35px]">
-      <div class="my-[30px] f-between-center max-h-[36px]">
-        <ChainSelector label={$t('chain_selector.currently_on')} value={$network} switchWallet small />
-        <StatusFilterDropdown bind:selectedStatus />
-      </div>
-      {#if displayL1Warning}
-        <div class="!mt-0 !mb-[-30px]">
-          <Alert type="warning">{$t('bridge.alerts.slow_bridging')}</Alert>
+      {#if isDesktopOrLarger}
+        <div class="my-[30px] f-between-center max-h-[36px]">
+          <ChainSelector label={$t('chain_selector.currently_on')} value={$network} switchWallet small />
+          <div class="flex gap-2">
+            <Button
+              type="neutral"
+              shape="circle"
+              class="bg-neutral rounded-full !min-w-[36px] !min-h-[36px] !max-w-[36px] !max-h-[36px] border-none"
+              on:click={async () => await refresh()}>
+              <RotatingIcon loading={loadingTxs} type="refresh" size={16} />
+            </Button>
+            <StatusFilterDropdown bind:selectedStatus />
+          </div>
+        </div>
+      {:else}
+        <div class="f-row justify-between my-[30px]">
+          <div class="f-row items-center gap-[10px]">
+            <StatusDot type="success" />
+            <ChainSelector label="" value={$network} switchWallet small />
+          </div>
+          <div class="f-row items-center gap-[5px]">
+            {#if $account && $account?.address}
+              <button
+                class="grid place-items-center bg-neutral min-w-[36px] max-w-[36px] min-h-[36px] max-h-[36px] rounded-full"
+                on:click|stopPropagation={toggleMenu}>
+                <Icon type="settings" fillClass="fill-primary-icon" size={18} class="self-center" />
+              </button>
+              <Button
+                type="neutral"
+                shape="circle"
+                class="bg-neutral rounded-full !min-w-[36px] !min-h-[36px] !max-w-[36px] !max-h-[36px] border-none"
+                on:click={async () => await refresh()}>
+                <RotatingIcon loading={loadingTxs} type="refresh" size={16} />
+              </Button>
+            {/if}
+          </div>
         </div>
       {/if}
-      <div class="flex flex-col" style={`min-height: calc(${transactionsToShow.length} * 80px);`}>
+
+      {#if displayL1Warning}
+        <div class="!mt-0 !mb-[-30px] !">
+          <Alert class="text-left" type="warning">{$t('bridge.alerts.slow_bridging')}</Alert>
+        </div>
+      {/if}
+      <div
+        class="flex flex-col"
+        style={`min-height: calc(${transactionsToShow.length} * ${isDesktopOrLarger ? '80px' : '66px'});`}>
         <div class="h-sep" />
         {#if isDesktopOrLarger}
           <div class="text-primary-content flex">
@@ -167,9 +229,7 @@
             style={isBlurred ? `filter: blur(5px); transition: filter ${transitionTime / 1000}s ease-in-out` : ''}>
             {#each transactionsToShow as item (item.hash)}
               <Transaction {item} />
-              {#if item.tokenType === TokenType.ERC721 || item.tokenType === TokenType.ERC1155}
-                <div class="h-sep !mb-0" />
-              {/if}
+              <div class="h-sep !my-0 {isDesktopOrLarger ? 'display-inline' : 'hidden'}" />
             {/each}
           </div>
         {/if}
@@ -183,9 +243,11 @@
     </div>
   </Card>
 
-  <div class="flex justify-end pt-2">
+  <div class="flex justify-end pb-5">
     <Paginator {pageSize} {totalItems} on:pageChange={({ detail }) => handlePageChange(detail)} />
   </div>
+
+  <StatusFilterDialog bind:selectedStatus bind:menuOpen />
 </div>
 
 <OnAccount change={onAccountChange} />

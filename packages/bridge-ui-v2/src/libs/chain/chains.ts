@@ -43,3 +43,11 @@ export const isSupportedChain = (chainId: number) => {
 export const getChainImages = (): Record<number, string> => {
   return Object.fromEntries(Object.entries(chainConfig).map(([chainId, config]) => [Number(chainId), config.icon]));
 };
+
+export const getChainName = (chainId: number) => {
+  const chain = chains.find((chain) => chain.id === chainId);
+  if (!chain) {
+    throw new Error(`Chain with id ${chainId} not found`);
+  }
+  return chain.name;
+};

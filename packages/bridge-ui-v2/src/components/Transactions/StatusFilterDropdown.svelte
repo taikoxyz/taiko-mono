@@ -9,10 +9,13 @@
   export let selectedStatus: MessageStatus | null = null;
 
   let flipped = false;
+  let menuOpen = false;
 
   let iconFlipperComponent: IconFlipper;
-
-  let menuOpen = false;
+  const closeMenu = () => {
+    menuOpen = false;
+    flipped = false;
+  };
 
   const options = [
     { value: null, label: $t('transactions.filter.all') },
@@ -21,15 +24,14 @@
     { value: MessageStatus.DONE, label: $t('transactions.filter.claimed') },
     { value: MessageStatus.FAILED, label: $t('transactions.filter.failed') },
   ];
-
-  const selectOption = (option: (typeof options)[0]) => {
-    selectedStatus = option.value;
-    menuOpen = false;
-  };
-
   const toggleMenu = () => {
     menuOpen = !menuOpen;
     flipped = !flipped;
+  };
+
+  const select = (option: (typeof options)[0]) => {
+    selectedStatus = option.value;
+    closeMenu();
   };
 
   $: menuClasses = classNames(
@@ -57,7 +59,6 @@
       selectedDefault="chevron-left"
       size={15} />
   </button>
-
   {#if menuOpen}
     <ul
       role="listbox"
@@ -69,8 +70,8 @@
           aria-selected={option.value === selectedStatus}
           tabindex="0"
           class="flex items-center h-[56px] px-3 cursor-pointer rounded-[6px]"
-          on:click={() => selectOption(option)}
-          on:keydown={() => selectOption(option)}>
+          on:click={() => select(option)}
+          on:keydown={() => select(option)}>
           <span class="flex w-full h-[56px] text-primary-content font-bold">{option.label}</span>
         </li>
       {/each}

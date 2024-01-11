@@ -17,6 +17,7 @@
   import { BridgePausedError } from '$libs/error';
   import { bridgeTxService } from '$libs/storage';
   import { TokenType } from '$libs/token';
+  import { checkTokenApprovalStatus } from '$libs/token/checkTokenApprovalStatus';
   import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
@@ -27,6 +28,7 @@
 
   import Actions from '../Actions.svelte';
   import {
+    allApproved,
     bridgeService,
     destNetwork,
     enteredAmount,
@@ -40,8 +42,6 @@
   let bridgeTxHash: Hash;
   let approveTxHash: Hash;
 
-  let actionsComponent: Actions;
-  let allTokensApproved: boolean;
   let bridging: boolean;
   let approving: boolean;
 
@@ -135,7 +135,7 @@
 
       await pendingTransactions.add(approveTxHash, $network.id);
 
-      actionsComponent.checkTokensApproved();
+      await checkTokenApprovalStatus($selectedToken);
 
       successToast({
         title: $t('bridge.actions.approve.success.title'),
@@ -198,7 +198,7 @@
           <!-- eslint-disable-next-line svelte/no-at-html-tags -->
           <span class="">{@html statusDescription}</span>
         </div>
-      {:else if !allTokensApproved && !approving}
+      {:else if !$allApproved && !approving}
         <Icon type={approveIcon} size={160} />
         <div id="text" class="f-col my-[30px] text-center">
           <h1 class="mb-[16px]">{$t('bridge.nft.step.confirm.approve.title')}</h1>
@@ -209,7 +209,7 @@
         <div id="text" class="f-col my-[30px] text-center">
           <span>{$t('bridge.nft.step.confirm.approve.pending')}</span>
         </div>
-      {:else if allTokensApproved && !approving && !bridging}
+      {:else if $allApproved && !approving && !bridging}
         <Icon type={bridgeIcon} size={160} />
         <div id="text" class="f-col my-[30px] text-center">
           <h1 class="mb-[16px]">{$t('bridge.nft.step.confirm.approved.title')}</h1>
@@ -221,14 +221,7 @@
   {#if bridgingStatus !== 'done'}
     <section id="actions" class="f-col w-full">
       <div class="h-sep mb-[30px]" />
-      <Actions
-        bind:this={actionsComponent}
-        {approve}
-        {bridge}
-        oldStyle={false}
-        bind:allTokensApproved
-        bind:bridging
-        bind:approving />
+      <Actions {approve} {bridge} oldStyle={false} bind:bridging bind:approving />
     </section>
   {/if}
 </div>

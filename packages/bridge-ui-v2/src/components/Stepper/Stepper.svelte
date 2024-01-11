@@ -3,6 +3,7 @@
   export let activeStep: number = 0;
 
   const styles = `
+  md:w-[524px]
     w-full 
     md:card 
     md:rounded-[20px] 

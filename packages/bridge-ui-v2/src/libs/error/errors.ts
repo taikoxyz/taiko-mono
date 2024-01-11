@@ -113,3 +113,7 @@ export class UnknownTokenTypeError extends Error {
 export class BridgePausedError extends Error {
   name = 'BridgePausedError';
 }
+
+export class FilterLogsError extends Error {
+  name = 'FilterLogsError';
+}
