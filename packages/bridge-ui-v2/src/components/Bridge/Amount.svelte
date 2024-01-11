@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import { formatUnits, parseUnits } from 'viem';
 
@@ -52,6 +53,8 @@
 
   export let disabled = false;
 
+  export let doAllowanceCheck = true;
+
   export async function validateAmount(token = $selectedToken, fee = $processingFee) {
     if (!$network?.id) return;
     $validatingAmount = true; // During validation, we disable all the actions
@@ -77,44 +80,49 @@
       return;
     }
 
-    try {
-      await checkBalanceToBridge({
-        to,
-        token,
-        amount: $enteredAmount,
-        fee,
-        balance: balanceForGasCalculation,
-        srcChainId: $network.id,
-        destChainId: $destNetwork.id,
-        tokenIds:
-          $selectedToken.type === TokenType.ERC721 || $selectedToken.type === TokenType.ERC1155
-            ? [BigInt((token as NFT).tokenId)]
-            : [],
-      });
-    } catch (err) {
-      switch (true) {
-        case err instanceof InsufficientBalanceError:
-          $insufficientBalance = true;
-          break;
-        case err instanceof InsufficientAllowanceError:
-          $insufficientAllowance = true;
-          break;
-        case err instanceof RevertedWithFailedError:
-          warningToast({ title: $t('messages.network.rejected') });
-          break;
-        case err instanceof RevertedWithoutMessageError:
-          warningToast({
-            title: $t('bridge.errors.unknown_error.title'),
-            message: $t('bridge.errors.unknown_error.message'),
-          });
-          break;
-        default:
-          invalidInput = true;
-          break;
+    if (doAllowanceCheck) {
+      try {
+        await checkBalanceToBridge({
+          to,
+          token,
+          amount: $enteredAmount,
+          fee,
+          balance: balanceForGasCalculation,
+          srcChainId: $network.id,
+          destChainId: $destNetwork.id,
+          tokenIds:
+            $selectedToken.type === TokenType.ERC721 || $selectedToken.type === TokenType.ERC1155
+              ? [BigInt((token as NFT).tokenId)]
+              : [],
+        });
+      } catch (err) {
+        switch (true) {
+          case err instanceof InsufficientBalanceError:
+            $insufficientBalance = true;
+            break;
+          case err instanceof InsufficientAllowanceError:
+            $insufficientAllowance = true;
+            break;
+          case err instanceof RevertedWithFailedError:
+            warningToast({ title: $t('messages.network.rejected') });
+            break;
+          case err instanceof RevertedWithoutMessageError:
+            warningToast({
+              title: $t('bridge.errors.unknown_error.title'),
+              message: $t('bridge.errors.unknown_error.message'),
+            });
+            break;
+          default:
+            invalidInput = true;
+            break;
+        }
       }
-    } finally {
-      $validatingAmount = false;
+    } else {
+      if (typeof $tokenBalance === 'bigint') {
+        $insufficientBalance = $tokenBalance < $enteredAmount;
+      }
     }
+    $validatingAmount = false;
   }
 
   export async function updateBalance(
@@ -124,7 +132,6 @@
     destChainId = $destNetwork?.id,
   ) {
     if (!token || !srcChainId || !userAddress) return;
-
     $computingBalance = true;
     $errorComputingBalance = false;
 
@@ -151,9 +158,8 @@
       //most likely we have a custom token that is not bridged yet
       $errorComputingBalance = true;
       clearAmount();
-    } finally {
-      $computingBalance = false;
     }
+    $computingBalance = false;
   }
 
   // We want to debounce this function for input events.
@@ -237,6 +243,7 @@
   }
 
   const determineBalance = () => {
+    $computingBalance = true;
     let balance = 0n;
     if (!$selectedToken) return balance;
     const type = $selectedToken.type;
@@ -255,6 +262,7 @@
       default:
         break;
     }
+    $computingBalance = false;
     return balance;
   };
 
@@ -272,11 +280,17 @@
 
   $: noDecimalsAllowedAlert = invalidInput;
 
-  $: inputDisabled =
-    computingMaxAmount || disabled || !$selectedToken || !$network || computingMaxAmount || $errorComputingBalance;
+  $: inputDisabled = computingMaxAmount || disabled || !$selectedToken || !$network || $errorComputingBalance;
 
   // TODO: Disabled for now, potentially confusing users
   // $: showInsiffucientAllowanceAlert = $insufficientAllowance && !$errorComputingBalance && !$computingBalance;
+
+  onMount(() => {
+    $computingBalance = true;
+    $enteredAmount = BigInt(0);
+    determineBalance();
+    $computingBalance = false;
+  });
 </script>
 
 <div class="Amount f-col space-y-2">

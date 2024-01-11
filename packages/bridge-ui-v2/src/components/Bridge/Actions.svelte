@@ -53,6 +53,7 @@
     $validatingAmount = true;
     checkTokenApprovalStatus($selectedToken);
     isValidTokenBalance();
+    $validatingAmount = false;
   });
 
   //TODO: does this check entered balance?!

@@ -178,13 +178,13 @@
     );
   };
 
-  const manualImportAction = () => {
+  const manualImportAction = async () => {
     if (!$network?.id) throw new Error('network not found');
     const srcChainId = $network?.id;
     const tokenId = nftIdArray[0];
 
     if (isAddress(contractAddress) && srcChainId)
-      getTokenWithInfoFromAddress({ contractAddress, srcChainId: srcChainId, tokenId, owner: $account?.address })
+      await getTokenWithInfoFromAddress({ contractAddress, srcChainId: srcChainId, tokenId, owner: $account?.address })
         .then(async (token) => {
           if (!token) throw new Error('no token with info');
           // detectedTokenType = token.type;
@@ -282,7 +282,7 @@
               priority="primary"
               disabled={!canProceed}
               loading={validatingImport}
-              on:click={manualImportAction}><span class="body-bold">{nextStepButtonText}</span></ActionButton>
+              on:click={await manualImportAction}><span class="body-bold">{nextStepButtonText}</span></ActionButton>
 
             <button on:click={() => changeImportMethod()} class="flex justify-center py-3 link">
               {$t('common.back')}
