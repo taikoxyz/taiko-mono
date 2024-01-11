@@ -92,7 +92,7 @@ export class ERC20Bridge extends Bridge {
 
     log('Estimating gas for sendERC20 call with value', value);
 
-    const estimatedGas = tokenVaultContract.estimateGas.sendToken([sendERC20Args], { value });
+    const estimatedGas = await tokenVaultContract.estimateGas.sendToken([sendERC20Args], { value });
 
     log('Gas estimated', estimatedGas);
 

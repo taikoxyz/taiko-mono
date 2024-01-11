@@ -77,7 +77,7 @@
 
   $: isValidBalance = false;
 
-  $: validating = ($validatingAmount && $enteredAmount > 0) || approving;
+  $: validating = $validatingAmount && $enteredAmount > 0;
 
   // Basic conditions so we can even start the bridging process
   $: hasAddress = $recipientAddress || $account?.address;
@@ -154,7 +154,7 @@
         {/if}
         {#if approving}
           <span class="body-bold">{$t('bridge.button.approving')}</span>
-        {:else if $allApproved && !validating}
+        {:else if $allApproved && !validating && $enteredAmount > 0}
           <div class="f-items-center">
             <Icon type="check" />
             <span class="body-bold">{$t('bridge.button.approved')}</span>

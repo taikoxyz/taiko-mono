@@ -14,7 +14,6 @@ import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
 import type { ERC721Bridge } from '$libs/bridge/ERC721Bridge';
 import type { ERC1155Bridge } from '$libs/bridge/ERC1155Bridge';
 import { getContractAddressByType } from '$libs/bridge/getContractAddressByType';
-import { UnknownTokenTypeError } from '$libs/error';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';
 import { account, network } from '$stores';
@@ -24,63 +23,54 @@ import { type NFT, type Token, TokenType } from './types';
 
 const log = getLogger('util:token:checkTokenApprovalStatus');
 
-const isFungible = (token: Token | NFT): token is Token => {
-  return (token as Token).type === TokenType.ERC20 && (token as Token).type === TokenType.ETH;
-};
-
-const isNFT = (token: Token | NFT): token is NFT => {
-  return (token as NFT).type === TokenType.ERC721 || (token as NFT).type === TokenType.ERC1155;
-};
-
 export const checkTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise<void> => {
   log('checkTokenApprovalStatus called', token);
   if (!token) {
+    allApproved.set(false);
     return;
   }
   if (token.type === TokenType.ETH) {
     allApproved.set(true);
+    log('token is ETH');
     return;
   }
   const currentChainId = get(network)?.id;
   const destinationChainId = get(destNetwork)?.id;
   if (!currentChainId || !destinationChainId) {
+    log('no currentChainId or destinationChainId');
     return;
   }
 
   const ownerAddress = get(account)?.address;
   const tokenAddress = get(selectedToken)?.addresses[currentChainId];
+  log('selectedToken', get(selectedToken));
+
   if (!ownerAddress || !tokenAddress) {
+    log('no ownerAddress or tokenAddress', ownerAddress, tokenAddress);
     return;
   }
-  if (isFungible(token)) {
-    if (token.type === 'ERC20') {
-      log('checking approval status for ERC20');
+  if (token.type === TokenType.ERC20) {
+    log('checking approval status for ERC20');
 
-      const tokenVaultAddress = routingContractsMap[currentChainId][destinationChainId].erc20VaultAddress;
+    const tokenVaultAddress = routingContractsMap[currentChainId][destinationChainId].erc20VaultAddress;
 
-      const bridge = bridges[TokenType.ERC20] as ERC20Bridge;
+    const bridge = bridges[TokenType.ERC20] as ERC20Bridge;
 
-      try {
-        const requiresApproval = await bridge.requireAllowance({
-          amount: get(enteredAmount),
-          tokenAddress,
-          ownerAddress,
-          spenderAddress: tokenVaultAddress,
-        });
-        log('erc20 requiresApproval', requiresApproval);
-
-        log('setting insufficientAllowance to', requiresApproval);
-        insufficientAllowance.set(requiresApproval);
-        allApproved.set(!requiresApproval);
-      } catch (error) {
-        console.error('isApprovedForAll error');
-        allApproved.set(false);
-      }
-    } else {
-      log('unknown token type:', token.type);
-      throw new UnknownTokenTypeError(token.type);
+    try {
+      const requiresApproval = await bridge.requireAllowance({
+        amount: get(enteredAmount),
+        tokenAddress,
+        ownerAddress,
+        spenderAddress: tokenVaultAddress,
+      });
+      log('erc20 requiresApproval', requiresApproval);
+      insufficientAllowance.set(requiresApproval);
+      allApproved.set(!requiresApproval);
+    } catch (error) {
+      console.error('isApprovedForAll error');
+      allApproved.set(false);
     }
-  } else if (isNFT(token)) {
+  } else if (token.type === TokenType.ERC721 || token.type === TokenType.ERC1155) {
     log('checking approval status for NFT');
     const nft = token as NFT;
     const ownerShipChecks = await checkOwnershipOfNFT(token as NFT, ownerAddress, currentChainId);
@@ -131,6 +121,8 @@ export const checkTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promi
         validatingAmount.set(false);
       }
     }
+  } else {
+    log('unknown token type:', token);
   }
   return;
 };

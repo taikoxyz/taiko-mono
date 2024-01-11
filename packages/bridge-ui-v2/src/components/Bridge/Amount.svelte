@@ -73,6 +73,7 @@
       !(balanceForGasCalculation && balanceForGasCalculation > BigInt(0)) ||
       $enteredAmount === BigInt(0) // no need to check if the amount is 0
     ) {
+      $validatingAmount = false;
       return;
     }
 
