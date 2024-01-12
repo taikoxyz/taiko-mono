@@ -40,14 +40,9 @@
         <span class="badge badge-primary badge-outline badge-xs px-[10px] h-[24px] ml-[10px]"
           ><span class="text-xs">{nftsGroup[0].type}</span></span>
       </div>
-      <div class="token-ids mt-[16px] grid gap-4 grid-cols-3">
+      <div class="token-ids mt-[16px] grid gap-4 md:grid-cols-3 grid-cols-2">
         {#each nftsGroup as nft}
-          {@const collectionAddress = nft.addresses[chainId]}
-          {#if collectionAddress === undefined}
-            <div>TODO: Address for {nft.name} is undefined</div>
-          {:else}
-            <NFTCard {nft} {selectNFT} {viewOnly} />
-          {/if}
+          <NFTCard {nft} {selectNFT} {viewOnly} />
         {/each}
       </div>
       {#if Object.keys(collections).length > 1 || nfts.length > 3}
