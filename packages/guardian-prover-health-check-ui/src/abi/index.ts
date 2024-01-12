@@ -1,1 +1,1 @@
-export * from './guardianProver'
+export * from './guardianProver';

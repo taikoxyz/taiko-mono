@@ -1,11 +1,10 @@
 <script lang="ts">
-	import { selectedGuardianProver } from '$components/stores/guardianProver';
-
 	import type { HealthCheck } from '$lib/types';
 	import { onMount } from 'svelte';
 	import HealthCheckRow from './HealthCheckRow.svelte';
 	import { t } from 'svelte-i18n';
 	import Paginator from '$components/Paginator/Paginator.svelte';
+	import { page } from '$app/stores';
 
 	import HealthCheckFilter from './HealthCheckFilter.svelte';
 	import DesktopOrLarger from '$components/DesktopOrLarger/DesktopOrLarger.svelte';
@@ -19,36 +18,36 @@
 
 	let filteredHealthChecks = healthChecks;
 
-	// check if at least 80% of the health checks are true
-	let ok =
-		healthChecks.filter((healthCheck) => healthCheck.alive).length >= healthChecks.length * 0.8;
+	export let selectedGuardianProver = null;
 
 	onMount(async () => {
-		const page = await fetchGuardianProverHealthChecksFromApi(
+		if (!selectedGuardianProver) {
+			selectedGuardianProver = $page.url.pathname.slice($page.url.pathname.lastIndexOf('/') + 1);
+		}
+		const data = await fetchGuardianProverHealthChecksFromApi(
 			import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
 			nextHealthCheckPage,
 			pageSize,
-			$selectedGuardianProver.id
+			selectedGuardianProver.id
 		);
-		healthChecks = page.items;
-		totalItems = page.total;
+		healthChecks = data.items;
+		totalItems = data.total;
 	});
 
 	const handlePageChange = async (selectedPage: number) => {
-		const page = await fetchGuardianProverHealthChecksFromApi(
+		const data = await fetchGuardianProverHealthChecksFromApi(
 			import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
 			selectedPage,
 			pageSize,
-			$selectedGuardianProver.id
+			selectedGuardianProver.id
 		);
-		healthChecks = page.items;
+		healthChecks = data.items;
 	};
 </script>
 
 <div class="mt-[12px] mb-[45px]">
 	<HealthCheckFilter {healthChecks} bind:filteredHealthChecks />
 </div>
-
 {#if isDesktopOrLarger}
 	<div class="grid grid-cols-12">
 		<div class="col-span-1 font-bold text-content-primary border-b border-gray-300 mb-[10px]">
@@ -66,13 +65,13 @@
 		<div class="col-span-2 font-bold text-content-primary border-b border-gray-300 mb-[10px]">
 			{$t('overview.detail.table.created_on')}
 		</div>
-		{#each filteredHealthChecks as healthCheck, index (healthCheck.id)}
+		{#each filteredHealthChecks as healthCheck}
 			<HealthCheckRow {healthCheck} />
 		{/each}
 	</div>
 {:else}
 	<div class="grid grid-cols-12">
-		{#each filteredHealthChecks as healthCheck, index (healthCheck.id)}
+		{#each filteredHealthChecks as healthCheck}
 			<HealthCheckRow {healthCheck} />
 		{/each}
 	</div>

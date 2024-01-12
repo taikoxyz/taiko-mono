@@ -10,32 +10,32 @@
  * @return {*}
  */
 export function closeOnEscapeOrOutsideClick(
-  node: HTMLElement,
-  { enabled, callback }: { enabled: boolean; callback: () => void },
+	node: HTMLElement,
+	{ enabled, callback }: { enabled: boolean; callback: () => void }
 ) {
-  const handleClick = (event: Event) => {
-    if (enabled && !node.contains(event.target as Node)) {
-      callback();
-    }
-  };
+	const handleClick = (event: Event) => {
+		if (enabled && !node.contains(event.target as Node)) {
+			callback();
+		}
+	};
 
-  const handleKeydown = (event: KeyboardEvent) => {
-    if (enabled && event.key === 'Escape') {
-      callback();
-    }
-  };
+	const handleKeydown = (event: KeyboardEvent) => {
+		if (enabled && event.key === 'Escape') {
+			callback();
+		}
+	};
 
-  document.addEventListener('click', handleClick);
-  document.addEventListener('keydown', handleKeydown);
+	document.addEventListener('click', handleClick);
+	document.addEventListener('keydown', handleKeydown);
 
-  return {
-    destroy() {
-      document.removeEventListener('click', handleClick);
-      document.removeEventListener('keydown', handleKeydown);
-    },
-    update({ enabled: newEnabled, callback: newCb }: { enabled: boolean; callback: () => void }) {
-      enabled = newEnabled;
-      callback = newCb;
-    },
-  };
+	return {
+		destroy() {
+			document.removeEventListener('click', handleClick);
+			document.removeEventListener('keydown', handleKeydown);
+		},
+		update({ enabled: newEnabled, callback: newCb }: { enabled: boolean; callback: () => void }) {
+			enabled = newEnabled;
+			callback = newCb;
+		}
+	};
 }
