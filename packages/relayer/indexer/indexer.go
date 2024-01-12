@@ -320,8 +320,8 @@ func (i *Indexer) filter(ctx context.Context) error {
 			return errors.Wrap(err, "bridge.FilterMessageStatusChanged")
 		}
 
-		// we dont need to do anything with msgStatus events except save them to the DB.
-		// we dont need to process them. they are for exposing via the API.
+		// we don't need to do anything with msgStatus events except save them to the DB.
+		// we don't need to process them. they are for exposing via the API.
 
 		err = i.saveMessageStatusChangedEvents(ctx, i.srcChainId, messageStatusChangedEvents)
 		if err != nil {
@@ -333,23 +333,11 @@ func (i *Indexer) filter(ctx context.Context) error {
 			return errors.Wrap(err, "bridge.FilterMessageSent")
 		}
 
-		if !messageSentEvents.Next() || messageSentEvents.Event == nil {
-			// use "end" not "filterEnd" here, because it will be used as the start
-			// of the next batch.
-			if err := i.handleNoEventsInBatch(ctx, i.srcChainId, int64(end)); err != nil {
-				return errors.Wrap(err, "i.handleNoEventsInBatch")
-			}
-
-			continue
-		}
-
 		group, groupCtx := errgroup.WithContext(ctx)
-
 		group.SetLimit(i.numGoroutines)
 
-		for {
+		for messageSentEvents.Next() {
 			event := messageSentEvents.Event
-
 			group.Go(func() error {
 				err := i.handleEvent(groupCtx, i.srcChainId, event)
 				if err != nil {
@@ -362,22 +350,19 @@ func (i *Indexer) filter(ctx context.Context) error {
 
 				return nil
 			})
-
-			// if there are no more events
-			if !messageSentEvents.Next() {
-				// wait for the last of the goroutines to finish
-				if err := group.Wait(); err != nil {
-					return errors.Wrap(err, "group.Wait")
-				}
-				// handle no events remaining, saving the processing block and restarting the for
-				// loop
-				if err := i.handleNoEventsInBatch(ctx, i.srcChainId, int64(end)); err != nil {
-					return errors.Wrap(err, "i.handleNoEventsInBatch")
-				}
-
-				break
-			}
 		}
+
+		// wait for the last of the goroutines to finish
+		if err := group.Wait(); err != nil {
+			return errors.Wrap(err, "group.Wait")
+		}
+
+		// handle no events remaining, saving the processing block and restarting the for
+		// loop
+		if err := i.handleNoEventsInBatch(ctx, i.srcChainId, int64(end)); err != nil {
+			return errors.Wrap(err, "i.handleNoEventsInBatch")
+		}
+
 	}
 
 	slog.Info(
