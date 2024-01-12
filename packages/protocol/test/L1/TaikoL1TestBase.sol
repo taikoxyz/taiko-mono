@@ -198,7 +198,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             expiry: uint64(block.timestamp + 60 minutes),
             maxBlockId: 0,
             maxProposedIn: 0,
-            metaHash: 0,
+            chainId: uint64(block.chainid),
             signature: new bytes(0)
         });
 

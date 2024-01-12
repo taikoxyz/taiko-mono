@@ -32,7 +32,7 @@ contract AssignmentHook is EssentialContract, IHook {
         uint64 expiry;
         uint64 maxBlockId;
         uint64 maxProposedIn;
-        bytes32 metaHash;
+        uint64 chainId;
         TaikoData.TierFee[] tierFees;
         bytes signature;
     }
@@ -76,7 +76,6 @@ contract AssignmentHook is EssentialContract, IHook {
         // Check assignment validity
         if (
             block.timestamp > assignment.expiry
-                || assignment.metaHash != 0 && blk.metaHash != assignment.metaHash
                 || assignment.maxBlockId != 0 && meta.id > assignment.maxBlockId
                 || assignment.maxProposedIn != 0 && block.number > assignment.maxProposedIn
         ) {
@@ -120,7 +119,9 @@ contract AssignmentHook is EssentialContract, IHook {
                 refund = msg.value - input.tip;
             }
             // Paying ERC20 tokens
-            IERC20(assignment.feeToken).safeTransferFrom(msg.sender, blk.assignedProver, proverFee);
+            IERC20(assignment.feeToken).safeTransferFrom(
+                meta.coinbase, blk.assignedProver, proverFee
+            );
         }
 
         // block.coinbase can be address(0) in tests
@@ -149,6 +150,7 @@ contract AssignmentHook is EssentialContract, IHook {
                 "PROVER_ASSIGNMENT",
                 taikoAddress,
                 blobHash,
+                assignment.chainId,
                 assignment.feeToken,
                 assignment.expiry,
                 assignment.maxBlockId,
