@@ -338,6 +338,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 
 		for messageSentEvents.Next() {
 			event := messageSentEvents.Event
+
 			group.Go(func() error {
 				err := i.handleEvent(groupCtx, i.srcChainId, event)
 				if err != nil {
@@ -347,7 +348,6 @@ func (i *Indexer) filter(ctx context.Context) error {
 				} else {
 					slog.Info("handled event successfully")
 				}
-
 				return nil
 			})
 		}
@@ -362,7 +362,6 @@ func (i *Indexer) filter(ctx context.Context) error {
 		if err := i.handleNoEventsInBatch(ctx, i.srcChainId, int64(end)); err != nil {
 			return errors.Wrap(err, "i.handleNoEventsInBatch")
 		}
-
 	}
 
 	slog.Info(
