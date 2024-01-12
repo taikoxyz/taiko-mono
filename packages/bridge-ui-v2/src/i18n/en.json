@@ -25,7 +25,7 @@
           "title": "Transaction completed"
         },
         "tx": {
-          "message": "Your bridge transaction was confirmed. The transaction can take a few minutes to complete, track it <a class=\"link\" href=\"{url}\" target=\"_blank\"><b>here</b></a>.",
+          "message": "Your bridge transaction was confirmed. The transaction can take a few minutes to complete, track it <a href=\"{url}\" target=\"_blank\"><b>here</b></a>.",
           "title": "Transaction sent"
         }
       },
@@ -114,12 +114,13 @@
           },
           "bridge": {
             "success": {
-              "message": "Your bridge transaction was confirmed. The transaction can take a few minutes to complete, track it <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+              "message": "Your bridge transaction was confirmed. The transaction can take a few minutes to complete, track it <a class='link' href=\"{url}\" target=\"_blank\"><b>here</b></a>."
             }
           },
           "button": {
             "back": "Back to bridge"
           },
+          "processing": "Processing...",
           "title": "Confirm"
         },
         "import": {
