@@ -130,7 +130,7 @@
         title: $t('transactions.actions.claim.success.title'),
         message: $t('transactions.actions.claim.success.message', {
           values: {
-            network: $network.id,
+            network: $network.name,
           },
         }),
       });
