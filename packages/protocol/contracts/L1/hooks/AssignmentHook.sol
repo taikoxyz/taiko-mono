@@ -29,10 +29,11 @@ contract AssignmentHook is EssentialContract, IHook {
 
     struct ProverAssignment {
         address feeToken;
+        uint64 chainId;
         uint64 expiry;
         uint64 maxBlockId;
         uint64 maxProposedIn;
-        uint64 chainId;
+        bytes32 metaHash;
         TaikoData.TierFee[] tierFees;
         bytes signature;
     }
@@ -76,6 +77,7 @@ contract AssignmentHook is EssentialContract, IHook {
         // Check assignment validity
         if (
             block.timestamp > assignment.expiry
+                || assignment.metaHash != 0 && blk.metaHash != assignment.metaHash
                 || assignment.maxBlockId != 0 && meta.id > assignment.maxBlockId
                 || assignment.maxProposedIn != 0 && block.number > assignment.maxProposedIn
         ) {
@@ -142,15 +144,17 @@ contract AssignmentHook is EssentialContract, IHook {
         bytes32 blobHash
     )
         public
-        pure
+        view
         returns (bytes32)
     {
         return keccak256(
             abi.encode(
                 "PROVER_ASSIGNMENT",
-                taikoAddress,
-                blobHash,
                 assignment.chainId,
+                taikoAddress,
+                address(this),
+                assignment.metaHash,
+                blobHash,
                 assignment.feeToken,
                 assignment.expiry,
                 assignment.maxBlockId,
