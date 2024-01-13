@@ -18,6 +18,7 @@ import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../common/EssentialContract.sol";
 import "../../libs/LibAddress.sol";
+import "../ITaikoL1.sol";
 import "../TaikoData.sol";
 import "./IHook.sol";
 
@@ -29,7 +30,6 @@ contract AssignmentHook is EssentialContract, IHook {
 
     struct ProverAssignment {
         address feeToken;
-        uint64 chainId;
         uint64 expiry;
         uint64 maxBlockId;
         uint64 maxProposedIn;
@@ -158,7 +158,7 @@ contract AssignmentHook is EssentialContract, IHook {
         return keccak256(
             abi.encode(
                 "PROVER_ASSIGNMENT",
-                assignment.chainId,
+                ITaikoL1(taikoL1Address).getConfig().chainId,
                 taikoL1Address,
                 address(this),
                 assignment.metaHash,

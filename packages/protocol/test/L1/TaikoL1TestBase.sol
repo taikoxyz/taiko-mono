@@ -194,7 +194,6 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
         AssignmentHook.ProverAssignment memory assignment = AssignmentHook.ProverAssignment({
             feeToken: address(0),
-            chainId: uint64(block.chainid),
             tierFees: tierFees,
             expiry: uint64(block.timestamp + 60 minutes),
             maxBlockId: 0,
