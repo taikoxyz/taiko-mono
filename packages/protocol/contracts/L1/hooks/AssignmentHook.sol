@@ -19,7 +19,6 @@ import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../common/EssentialContract.sol";
 import "../../libs/LibAddress.sol";
 import "../ITaikoL1.sol";
-import "../TaikoData.sol";
 import "./IHook.sol";
 
 /// @title AssignmentHook
