@@ -155,11 +155,10 @@ contract AssignmentHook is EssentialContract, IHook {
         view
         returns (bytes32)
     {
-        uint256 l2ChainId = ITaikoL1(taikoL1Address).getConfig().chainId;
         return keccak256(
             abi.encode(
                 "PROVER_ASSIGNMENT",
-                l2ChainId,
+                ITaikoL1(taikoL1Address).getConfig().chainId,
                 taikoL1Address,
                 address(this),
                 assignment.metaHash,
