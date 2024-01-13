@@ -1,0 +1,18 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Taiko Guardian Prover Health Check API",
+    "termsOfService": "http://swagger.io/terms/",
+    "contact": {
+      "name": "API Support",
+      "url": "https://community.taiko.xyz/",
+      "email": "info@taiko.xyz"
+    },
+    "license": {
+      "name": "MIT"
+    },
+    "version": "1.0"
+  },
+  "host": "healthcheck.internal.taiko.xyz",
+  "paths": {}
+}
