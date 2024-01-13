@@ -52,7 +52,6 @@ library LibProposing {
     error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_PROPOSER_NOT_EOA();
     error L1_TOO_MANY_BLOCKS();
-    error L1_TOO_MANY_HOOKS();
     error L1_TXLIST_OFFSET();
     error L1_TXLIST_SIZE();
     error L1_UNAUTHORIZED();
