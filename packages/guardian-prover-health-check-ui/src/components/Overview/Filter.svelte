@@ -38,7 +38,7 @@
 		reset();
 	}
 
-	$: classes = classNames('flex space-x-4', isDesktopOrLarger ? 'justify-end' : 'justify-start');
+	$: classes = classNames('flex space-x-4', isDesktopOrLarger ? 'justify-end' : 'justify-between');
 
 	onMount(() => {
 		reset();

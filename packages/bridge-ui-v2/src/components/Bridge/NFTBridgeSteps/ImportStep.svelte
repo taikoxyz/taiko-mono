@@ -74,7 +74,6 @@
     enteredIds = '';
     isOwnerOfAllToken = false;
     detectedTokenType = null;
-    amountComponent?.clearAmount();
   };
 
   const changeNFTView = () => {

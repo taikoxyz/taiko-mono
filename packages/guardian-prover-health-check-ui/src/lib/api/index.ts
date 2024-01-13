@@ -1,2 +1,2 @@
-export * from './guardianProverApiCalls'
-export * from './signedBlocksApiCalls'
+export * from './guardianProverApiCalls';
+export * from './signedBlocksApiCalls';
