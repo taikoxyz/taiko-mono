@@ -43,4 +43,8 @@ interface ITaikoL1 {
     /// @notice Verifies up to a certain number of blocks.
     /// @param maxBlocksToVerify Max number of blocks to verify.
     function verifyBlocks(uint64 maxBlocksToVerify) external;
+
+    /// @notice Gets the configuration of the TaikoL1 contract.
+    /// @return Config struct containing configuration parameters.
+    function getConfig() external view returns (TaikoData.Config memory);
 }

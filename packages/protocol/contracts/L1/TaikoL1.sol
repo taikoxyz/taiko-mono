@@ -203,9 +203,8 @@ contract TaikoL1 is
         return ITierProvider(resolve("tier_provider", false)).getMinTier(rand);
     }
 
-    /// @notice Gets the configuration of the TaikoL1 contract.
-    /// @return Config struct containing configuration parameters.
-    function getConfig() public view virtual returns (TaikoData.Config memory) {
+    /// @inheritdoc ITaikoL1
+    function getConfig() public view virtual override returns (TaikoData.Config memory) {
         // All hard-coded configurations:
         // - treasury: the actual TaikoL2 address.
         // - blockMaxTxs: 150 (limited by the PSE zkEVM circuits)
