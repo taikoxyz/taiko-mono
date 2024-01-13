@@ -47,6 +47,7 @@ library LibProposing {
     error L1_BLOB_FOR_DA_DISABLED();
     error L1_BLOB_NOT_FOUND();
     error L1_BLOB_NOT_REUSEABLE();
+    error L1_INVALID_HOOK();
     error L1_INVALID_PARAM();
     error L1_INVALID_PROVER();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
@@ -246,7 +247,12 @@ library LibProposing {
             // Run all hooks.
             // Note that address(this).balance has been updated with msg.value,
             // prior to any code in this function has been executed.
+            address prevHook;
             for (uint256 i; i < params.hookCalls.length; ++i) {
+                if (uint160(prevHook) >= uint160(params.hookCalls[i].hook)) {
+                    revert L1_INVALID_HOOK();
+                }
+
                 // When a hook is called, all ether in this contract will be send to the hook.
                 // If the ether sent to the hook is not used entirely, the hook shall send the Ether
                 // back to this contract for the next hook to use.
@@ -254,6 +260,8 @@ library LibProposing {
                 IHook(params.hookCalls[i].hook).onBlockProposed{ value: address(this).balance }(
                     blk, meta, params.hookCalls[i].data
                 );
+
+                prevHook = params.hookCalls[i].hook;
             }
             // Refund Ether
             if (address(this).balance != 0) {
