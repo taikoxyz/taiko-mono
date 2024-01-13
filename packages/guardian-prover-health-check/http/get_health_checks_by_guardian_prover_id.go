@@ -8,16 +8,17 @@ import (
 	echo "github.com/labstack/echo/v4"
 )
 
-// GetHealthChecks
+// GetHealthChecksByGuardianProverID
 //
 //	 returns the health checks.
 //
-//			@Summary		Get health checks
-//			@ID			   	get-health-checks
+//			@Summary		Get health checks by guardian prover ID
+//			@ID			   	get-health-checks-by-guardian-prover-id
 //			@Accept			json
 //			@Produce		json
 //			@Success		200	{object} paginate.Page
 //			@Router			/healthchecks [get]
+//		    @Param			id	string		true	"guardian prover ID with which to query"
 
 func (srv *Server) GetHealthChecksByGuardianProverID(c echo.Context) error {
 	idParam := c.Param("id")

@@ -17,11 +17,11 @@ type uptimeResponse struct {
 //
 //	 returns the stats
 //
-//			@Summary		Get stats by guardian prover id
-//			@ID			   	get-stats-by-guardian-prover-id
+//			@Summary		Get updatime by guardian prover id
+//			@ID			   	get-updatime-by-guardian-prover-id
 //			@Accept			json
 //			@Produce		json
-//			@Success		200	{object} paginate.Page
+//			@Success		200	{object} uptimeResponse
 //			@Router			/stats/:id [get]
 
 func (srv *Server) GetUptimeByGuardianProverID(c echo.Context) error {

@@ -1,0 +1,13 @@
+host: healthcheck.internal.taiko.xyz
+info:
+  contact:
+    email: info@taiko.xyz
+    name: API Support
+    url: https://community.taiko.xyz/
+  license:
+    name: MIT
+  termsOfService: http://swagger.io/terms/
+  title: Taiko Guardian Prover Health Check API
+  version: "1.0"
+paths: {}
+swagger: "2.0"
