@@ -111,9 +111,15 @@ const crossChainFetchNFTMetadata = async (token: NFT, srcChainId: number, destCh
       address: vaultAddress,
     });
 
-    const isBridgedToken = await srcChainTokenVault.read.isBridgedToken([token.addresses[srcChainId]]);
+    const tokenAddress = token.addresses[srcChainId];
+
+    const bridgedAddress = (await srcChainTokenVault.read.canonicalToBridged([
+      BigInt(srcChainId),
+      tokenAddress,
+    ])) as Address;
+
     // if the token has no metadata but is also not bridged, we do not need to continue searching
-    if (!isBridgedToken) throw new Error('Token is not bridged');
+    if (!bridgedAddress) throw new Error('Token is not bridged');
 
     canonicalAddress = await findCanonicalTokenAddress(token, srcChainId, destChainId);
     if (!canonicalAddress) return null;

@@ -13,7 +13,8 @@
 			"alive": "Online",
 			"all": "All",
 			"dead": "Offline",
-			"title": "Sort by status"
+			"title": "Sort by status",
+			"unhealthy": "Unhealthy"
 		}
 	},
 	"headings": {

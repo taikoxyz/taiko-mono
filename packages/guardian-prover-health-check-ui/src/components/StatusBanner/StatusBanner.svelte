@@ -5,6 +5,7 @@
 	import { AlertType } from '$components/Alert/types';
 	import { fetchGuardianProverRequirementsFromContract } from '$lib/guardianProver/fetchGuardianProverRequirementsFromContract';
 	import { onMount } from 'svelte';
+	import { Spinner } from '$components/Spinner';
 
 	// set to 999 by default to avoid false positives
 	let requiredCount = 999;
@@ -63,4 +64,6 @@
 	<Alert type={AlertType.ERROR} forceColumnFlow>
 		<p class="font-bold">{$t('status.configuration_error')}</p>
 	</Alert>
+{:else}
+	<Spinner /> {$t('loading')}
 {/if}
