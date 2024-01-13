@@ -40,7 +40,7 @@ contract AssignmentHook is EssentialContract, IHook {
 
     struct Input {
         ProverAssignment assignment;
-        uint256 tip;
+        uint256 builderTip; // A tip to L1 block builder
     }
 
     // Max gas paying the prover. This should be large enough to prevent the
@@ -103,32 +103,31 @@ contract AssignmentHook is EssentialContract, IHook {
         // Ether or ERC20 tokens.
         uint256 refund;
         if (assignment.feeToken == address(0)) {
-            if (msg.value < proverFee + input.tip) {
+            uint256 totalFee = proverFee + input.builderTip;
+            if (msg.value < totalFee) {
                 revert HOOK_ASSIGNMENT_INSUFFICIENT_FEE();
             }
 
             unchecked {
-                refund = msg.value - proverFee - input.tip;
+                refund = msg.value - totalFee;
             }
 
             // Paying Ether
             blk.assignedProver.sendEther(proverFee, MAX_GAS_PAYING_PROVER);
         } else {
-            if (msg.value < input.tip) {
+            if (msg.value < input.builderTip) {
                 revert HOOK_ASSIGNMENT_INSUFFICIENT_FEE();
             }
             unchecked {
-                refund = msg.value - input.tip;
+                refund = msg.value - input.builderTip;
             }
             // Paying ERC20 tokens
-            IERC20(assignment.feeToken).safeTransferFrom(
-                meta.coinbase, blk.assignedProver, proverFee
-            );
+            IERC20(assignment.feeToken).safeTransferFrom(msg.sender, blk.assignedProver, proverFee);
         }
 
         // block.coinbase can be address(0) in tests
-        if (input.tip != 0 && block.coinbase != address(0)) {
-            address(block.coinbase).sendEther(input.tip);
+        if (input.builderTip != 0 && block.coinbase != address(0)) {
+            address(block.coinbase).sendEther(input.builderTip);
         }
 
         if (refund != 0) {
