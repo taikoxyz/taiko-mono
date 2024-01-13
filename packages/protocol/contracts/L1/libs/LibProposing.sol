@@ -20,7 +20,6 @@ import "../../common/AddressResolver.sol";
 import "../../libs/LibAddress.sol";
 import "../hooks/IHook.sol";
 import "../tiers/ITierProvider.sol";
-import "../ITaikoL1.sol";
 import "../TaikoData.sol";
 import "./LibDepositing.sol";
 
