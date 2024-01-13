@@ -261,8 +261,10 @@ library LibProposing {
             }
 
             // Check that after hooks, the Taiko Token balance of this contract
-            // have increased by at least config.livenessBond
-            if (tko.balanceOf(address(this)) < tkoBalance + config.livenessBond) {
+            // have increased by the same amount as config.livenessBond (to prevent)
+            // multiple draining payments by a malicious proposer nesting the same
+            // hook.
+            if (tko.balanceOf(address(this)) != tkoBalance + config.livenessBond) {
                 revert L1_LIVENESS_BOND_NOT_RECEIVED();
             }
         }
