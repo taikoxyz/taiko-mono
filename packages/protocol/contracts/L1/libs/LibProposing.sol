@@ -244,10 +244,6 @@ library LibProposing {
             IERC20 tko = IERC20(resolver.resolve("taiko_token", false));
             uint256 tkoBalance = tko.balanceOf(address(this));
 
-            // Allow max one hook - for now - but keep the API for
-            // possibility to have more in the future.
-            if (params.hookCalls.length > 1) revert L1_TOO_MANY_HOOKS();
-
             // Run all hooks.
             // Note that address(this).balance has been updated with msg.value,
             // prior to any code in this function has been executed.
