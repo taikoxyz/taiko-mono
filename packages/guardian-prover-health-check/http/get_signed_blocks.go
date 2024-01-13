@@ -33,6 +33,7 @@ type blockResponse map[uint64][]block
 //			@Produce		json
 //			@Success		200	{object} blockResponse
 //			@Router			/signedBlocks[get]
+//		    @Param			start	query		string		false	"unix timestamp of starting block"
 
 func (srv *Server) GetSignedBlocks(c echo.Context) error {
 	// getSignedBlocks should rewind either startingBlockID - numBlocksToReturn if startingBlockID
