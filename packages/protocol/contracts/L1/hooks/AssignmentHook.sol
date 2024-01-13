@@ -71,7 +71,11 @@ contract AssignmentHook is EssentialContract, IHook {
         nonReentrant
         onlyFromNamed("taiko")
     {
-        // Note that 'msg.sender' is the TaikoL1 contract address.
+        // Note that
+        // - 'msg.sender' is the TaikoL1 contract address
+        // - 'block.coinbase' is the L1 block builder
+        // - 'meta.coinbase' is the L2 block proposer
+
         Input memory input = abi.decode(data, (Input));
         ProverAssignment memory assignment = input.assignment;
 
@@ -87,7 +91,8 @@ contract AssignmentHook is EssentialContract, IHook {
 
         // Hash the assignment with the blobHash, this hash will be signed by
         // the prover, therefore, we add a string as a prefix.
-        bytes32 hash = hashAssignment(assignment, msg.sender, meta.blobHash);
+        address taikoL1Address = msg.sender;
+        bytes32 hash = hashAssignment(assignment, taikoL1Address, meta.blobHash);
 
         if (!blk.assignedProver.isValidSignature(hash, assignment.signature)) {
             revert HOOK_ASSIGNMENT_INVALID_SIG();
@@ -95,7 +100,7 @@ contract AssignmentHook is EssentialContract, IHook {
 
         // Send the liveness bond to the Taiko contract
         IERC20 tko = IERC20(resolve("taiko_token", false));
-        tko.transferFrom(blk.assignedProver, msg.sender, blk.livenessBond);
+        tko.transferFrom(blk.assignedProver, taikoL1Address, blk.livenessBond);
 
         // Find the prover fee using the minimal tier
         uint256 proverFee = _getProverFee(assignment.tierFees, meta.minTier);
@@ -135,7 +140,7 @@ contract AssignmentHook is EssentialContract, IHook {
 
         if (refund != 0) {
             // Send all remaininger Ether back to TaikoL1 contract
-            msg.sender.sendEther(refund);
+            taikoL1Address.sendEther(refund);
         }
 
         emit BlockAssigned(blk.assignedProver, meta, assignment);
@@ -143,7 +148,7 @@ contract AssignmentHook is EssentialContract, IHook {
 
     function hashAssignment(
         ProverAssignment memory assignment,
-        address taikoAddress,
+        address taikoL1Address,
         bytes32 blobHash
     )
         public
@@ -154,7 +159,7 @@ contract AssignmentHook is EssentialContract, IHook {
             abi.encode(
                 "PROVER_ASSIGNMENT",
                 assignment.chainId,
-                taikoAddress,
+                taikoL1Address,
                 address(this),
                 assignment.metaHash,
                 blobHash,
