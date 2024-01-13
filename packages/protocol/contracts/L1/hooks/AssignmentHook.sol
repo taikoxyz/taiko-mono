@@ -71,6 +71,7 @@ contract AssignmentHook is EssentialContract, IHook {
         nonReentrant
         onlyFromNamed("taiko")
     {
+        // Note that 'msg.sender' is the TaikoL1 contract address.
         Input memory input = abi.decode(data, (Input));
         ProverAssignment memory assignment = input.assignment;
 
@@ -122,7 +123,9 @@ contract AssignmentHook is EssentialContract, IHook {
                 refund = msg.value - input.builderTip;
             }
             // Paying ERC20 tokens
-            IERC20(assignment.feeToken).safeTransferFrom(msg.sender, blk.assignedProver, proverFee);
+            IERC20(assignment.feeToken).safeTransferFrom(
+                meta.coinbase, blk.assignedProver, proverFee
+            );
         }
 
         // block.coinbase can be address(0) in tests
@@ -131,6 +134,7 @@ contract AssignmentHook is EssentialContract, IHook {
         }
 
         if (refund != 0) {
+            // Send all remaininger Ether back to TaikoL1 contract
             msg.sender.sendEther(refund);
         }
 
