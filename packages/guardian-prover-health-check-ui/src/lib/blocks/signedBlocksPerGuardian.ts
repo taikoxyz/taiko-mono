@@ -1,5 +1,5 @@
 import { get } from 'svelte/store';
-import { signedBlocks } from '$lib/dataFetcher';
+import { signedBlocks } from '$stores';
 import type { SignedBlock, SortedSignedBlocks } from '$lib/types';
 
 export function signedBlocksPerGuardian(guardianProverId: number): number {

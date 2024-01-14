@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Paginator from '$components/Paginator/Paginator.svelte';
-	import { guardianProvers, signedBlocks } from '$lib/dataFetcher';
+	import { signedBlocks, totalGuardianProvers } from '$stores';
+	import { Spinner } from '$components/Spinner';
 	import { t } from 'svelte-i18n';
 
 	const pageSize = 10;
@@ -18,7 +19,6 @@
 <h1 class="text-left">{$t('headings.blocks')}</h1>
 
 <div class="my-[45px]"><!-- spacer --></div>
-
 <div class="flex flex-col space-y-2">
 	<div class="grid grid-cols-5 items-center font-bold pl-3 pe-12">
 		<div>{$t('blocks.id')}</div>
@@ -31,7 +31,11 @@
 			<label for={`block-${index}`} class="collapse-title font-medium items-center">
 				<div class="grid grid-cols-5 items-center">
 					<div class="font-bold">{blockNumber}</div>
-					<div class="col-span-3">{blocks.length}/{$guardianProvers?.length}</div>
+					{#if $totalGuardianProvers}
+						<div class="col-span-3">{blocks.length}/{$totalGuardianProvers}</div>
+					{:else}
+						<div class="col-span-3">{blocks.length}/<Spinner class="w-3 h-3" /></div>
+					{/if}
 				</div>
 			</label>
 			<div class="collapse-content bg-white">

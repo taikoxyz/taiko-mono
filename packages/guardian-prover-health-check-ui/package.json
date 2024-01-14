@@ -9,8 +9,11 @@
 		"test": "playwright test",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"svelte:check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"svelte:check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"format": "prettier --write .",
 		"lint": "prettier --check . && eslint .",
-		"format": "prettier --write ."
+		"lint:fix": "pnpm format && eslint . --fix"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.28.1",

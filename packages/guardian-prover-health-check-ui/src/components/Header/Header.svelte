@@ -4,7 +4,7 @@
 	import { GuardianProverTableRow } from '$components/GuardianProver';
 	import StatusBanner from '$components/StatusBanner/StatusBanner.svelte';
 	import Tabs from '$components/Tabs/Tabs.svelte';
-	import { selectedGuardianProver } from '$components/stores/guardianProver';
+	import { selectedGuardianProver } from '$stores';
 
 	$: displayDetails = $selectedGuardianProver && $page.route.id === '/[slug]';
 </script>

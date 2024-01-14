@@ -4,7 +4,8 @@ export enum AlertType {
 	SUCCESS = 'success',
 	WARNING = 'warning',
 	ERROR = 'error',
-	INFO = 'info'
+	INFO = 'info',
+	NEUTRAL = 'neutral'
 }
 
 export type AlertIconDetails = {

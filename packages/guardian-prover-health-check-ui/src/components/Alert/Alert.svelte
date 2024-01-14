@@ -34,6 +34,11 @@
 			alertClass: 'alert-info',
 			iconType: 'info-circle',
 			iconFillClass: 'fill-info-content'
+		},
+		neutral: {
+			alertClass: 'alert-neutral',
+			iconType: 'question-circle',
+			iconFillClass: 'fill-neutral-content'
 		}
 	};
 
