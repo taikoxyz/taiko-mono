@@ -119,7 +119,7 @@
   <!-- svelte-ignore a11y-no-static-element-interactions -->
   <div class="flex text-primary-content md:h-[80px] h-[45px] w-full my-[10px] md:my-[0px]">
     {#if isDesktopOrLarger}
-      <button class="w-2/6 py-2 flex flex-row space-x-[8px]" on:click={() => (nftInfoOpen = true)}>
+      <button class="w-3/12 py-2 flex flex-row space-x-[8px]" on:click={() => (nftInfoOpen = true)}>
         {#if loading}
           <div class="rounded-[10px] w-[50px] h-[50px] bg-neutral flex items-center justify-center">
             <Spinner />
@@ -141,18 +141,18 @@
         {/if}
       </button>
 
-      <div class="w-1/6 py-2 flex flex-row">
+      <div class="w-2/12 py-2 flex flex-row">
         <ChainSymbolName chainId={item.srcChainId} />
       </div>
-      <div class="w-1/6 py-2 flex flex-row">
+      <div class="w-2/12 py-2 flex flex-row">
         <ChainSymbolName chainId={item.destChainId} />
       </div>
-      <div class="w-1/6 py-2 flex flex-col justify-center">
+      <div class="w-1/12 py-2 flex flex-col self-center">
         {itemAmountDisplay}
       </div>
     {:else}
-      <div class="flex text-primary-content w-full">
-        <button class="space-x-[8px]" on:click={() => (nftInfoOpen = true)}>
+      <div class="flex text-primary-content w-full justify-content-left">
+        <button class="space-x-[8px] w-1/4" on:click={() => (nftInfoOpen = true)}>
           {#if loading}
             <div class="rounded-[10px] w-[50px] h-[50px] bg-neutral flex items-center justify-center">
               <Spinner />
@@ -185,11 +185,25 @@
         {/if}
       </div>
     {/if}
-    <div class="flex" {...attrs} tabindex="0" on:click={handleClick} on:keydown={handlePress}>
+    <div
+      class="flex md:w-2/12 py-2 flex flex-col justify-center text-center"
+      {...attrs}
+      tabindex="0"
+      on:click={handleClick}
+      on:keydown={handlePress}>
       <Status
         on:click={isDesktopOrLarger ? undefined : openDetails}
         bridgeTx={item}
         on:insufficientFunds={handleInsufficientFunds} />
+    </div>
+    <div class="hidden md:flex grow py-2 flex flex-col justify-center">
+      <a
+        class="flex justify-center py-3 link"
+        href={`${chainConfig[Number(item.srcChainId)].urls.explorer}/tx/${item.hash}`}
+        target="_blank">
+        {$t('transactions.link.explorer')}
+        <Icon type="arrow-top-right" fillClass="fill-primary-link" />
+      </a>
     </div>
   </div>
 {:else}
@@ -244,7 +258,6 @@
         on:click={isDesktopOrLarger ? undefined : openDetails}
         bridgeTx={item}
         on:insufficientFunds={handleInsufficientFunds} />
-      <!-- <div class="btn btn-primary" on:click={isDesktopOrLarger ? undefined : openDetails}></div> -->
     </div>
     <div class="hidden md:flex w-1/5 py-2 flex flex-col justify-center">
       <a
