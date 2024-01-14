@@ -372,6 +372,7 @@ func (p *Processor) Start() error {
 	}()
 
 	p.wg.Add(1)
+
 	go p.eventLoop(ctx)
 
 	return nil
