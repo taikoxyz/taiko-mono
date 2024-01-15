@@ -49,7 +49,7 @@
 
   export const prefetchImage = () => noop();
 
-  let enteredIds: string = '';
+  let enteredIds: number[] = [];
   let scanning: boolean;
 
   let addressInputComponent: AddressInput;
@@ -71,7 +71,7 @@
 
   const reset = () => {
     nftView = NFTView.LIST;
-    enteredIds = '';
+    enteredIds = [];
     isOwnerOfAllToken = false;
     detectedTokenType = null;
   };
@@ -144,7 +144,7 @@
     validating = true;
 
     try {
-      if (canValidateIdInput) {
+      if (canValidateIdInput && enteredIds && enteredIds.length > 0) {
         const tokenId = nftIdArray[0]; // Handle multiple tokens if needed
 
         const ownershipResults = await checkOwnership(
@@ -248,7 +248,7 @@
   }
 
   $: canImport = $account?.isConnected && $network?.id && $destinationChain && !scanning;
-  $: canValidateIdInput = isAddress(contractAddress) && $network?.id && $account?.address && enteredIds.length > 0;
+  $: canValidateIdInput = isAddress(contractAddress) && $network?.id && $account?.address;
 
   $: isDisabled = idInputState !== IDInputState.VALID || addressInputState !== AddressInputState.VALID;
 
@@ -284,6 +284,7 @@
 <!-- 
 Manual NFT Input 
 -->
+{canValidateIdInput}
 {#if importMethod === ImportMethod.MANUAL}
   <div id="manualImport">
     <AddressInput
