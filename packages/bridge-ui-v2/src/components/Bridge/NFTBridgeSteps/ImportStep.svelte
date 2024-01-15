@@ -258,6 +258,7 @@
     $selectedNFTs &&
     $selectedNFTs.length > 0 &&
     $selectedNFTs[0].type === TokenType.ERC1155 &&
+    enteredIds &&
     enteredIds.length > 0 &&
     !validating;
 
