@@ -16,6 +16,7 @@
   import { account } from '$stores/account';
 
   export let label = '';
+  export let fromToLabel = '';
   export let value: Maybe<GetNetworkResult['chain']> = null;
   export let switchWallet = false;
   export let readOnly = false;
@@ -150,6 +151,9 @@
           <i role="img" aria-label={value.name}>
             <img src={icon} alt="chain-logo" class="rounded-full {iconSize}" />
           </i>
+          {#if fromToLabel}
+            <span class="text-sm text-secondary-content">{fromToLabel}:</span>
+          {/if}
           <span>{truncateString(value.name, 8)}</span>
         {/if}
       </div>

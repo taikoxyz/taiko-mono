@@ -159,10 +159,6 @@
       "title": "Important Update"
     }
   },
-  "chain": {
-    "from": "From",
-    "to": "To"
-  },
   "chain_selector": {
     "currently_on": "You are currently on",
     "disabled_options": {
