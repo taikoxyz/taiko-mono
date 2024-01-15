@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/db"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 )
 
 func Test_NewChartRepo(t *testing.T) {

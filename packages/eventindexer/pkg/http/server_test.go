@@ -12,8 +12,8 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/stretchr/testify/assert"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/mock"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/repo"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/mock"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/repo"
 )
 
 func newTestServer(url string) *Server {

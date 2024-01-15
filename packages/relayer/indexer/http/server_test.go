@@ -10,8 +10,8 @@ import (
 	echo "github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/mock"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/repo"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 )
 
 func newTestServer(url string) *Server {

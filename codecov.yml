@@ -1,7 +1,8 @@
 coverage:
   ignore:
     - "packages/relayer/bindings/**/*"
-    - "packages/relayer/mock/**/*"
+    - "packages/eventindexer/contracts/**/*"
+    - "packages/relayer/pkg/mock/**/*"
     - "packages/relayer/cmd/**/*"
   status:
     project: off

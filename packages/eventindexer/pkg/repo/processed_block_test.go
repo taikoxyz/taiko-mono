@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/db"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 	"gopkg.in/go-playground/assert.v1"
 )
 

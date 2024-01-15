@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/db"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 )
 
 func Test_NewTransactionRepo(t *testing.T) {

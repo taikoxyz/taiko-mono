@@ -7,7 +7,7 @@ import (
 
 	"github.com/pressly/goose/v3"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/db"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"gorm.io/driver/mysql"
