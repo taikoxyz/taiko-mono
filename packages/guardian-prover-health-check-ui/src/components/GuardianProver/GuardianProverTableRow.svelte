@@ -2,7 +2,7 @@
 	import DesktopOrLarger from '$components/DesktopOrLarger/DesktopOrLarger.svelte';
 	import { Icon, type IconType } from '$components/Icon';
 	import { signedBlocksPerGuardian } from '$lib/blocks/signedBlocksPerGuardian';
-	import { guardianProvers, lastGuardianFetchTimestamp, signedBlocks } from '$lib/dataFetcher';
+	import { lastGuardianFetchTimestamp, signedBlocks } from '$stores';
 	import { GuardianProverStatus, type Guardian } from '$lib/types';
 	import { truncateDecimal } from '$lib/util/truncateDecimal';
 	import { truncateString } from '$lib/util/truncateString';
@@ -13,20 +13,6 @@
 	export let single = false;
 
 	let isDesktopOrLarger: boolean;
-
-	const getStatus = () => {
-		const reportedStatus = guardianProver.alive;
-		const signed = signedBlocksPerGuardian(guardianProver.id);
-
-		if (reportedStatus === GuardianProverStatus.DEAD) {
-			guardianProver.alive = GuardianProverStatus.DEAD;
-		} else if (signed < $signedBlocks.length - 1) {
-			// if at least two blocks were not signed, the prover is unhealthy
-			guardianProver.alive = GuardianProverStatus.UNHEALTHY;
-		} else {
-			guardianProver.alive = GuardianProverStatus.ALIVE;
-		}
-	};
 
 	$: iconType =
 		guardianProver.alive === GuardianProverStatus.ALIVE
@@ -45,8 +31,6 @@
 				: guardianProver.alive === GuardianProverStatus.UNHEALTHY
 					? 'fill-warning-sentiment'
 					: 'fill-error-content';
-
-	$: if ($guardianProvers) getStatus();
 
 	$: statusText =
 		guardianProver.alive === GuardianProverStatus.ALIVE
@@ -68,7 +52,6 @@
 		'grid grid-cols-12 bg-base-200 px-[24px] py-[16px] rounded-[20px] space-x-[18px] max-h-[76px] items-center';
 
 	onMount(() => {
-		getStatus();
 		return () => clearInterval(interval);
 	});
 </script>
@@ -102,14 +85,14 @@
 	</div>
 {:else}
 	<div role="button" tabindex="0" class={classes} on:click on:keydown>
-		<div class="col-span-3 f-row min-w-[150px] items-center">
+		<div class="col-span-4 f-row min-w-[150px] items-center">
 			<Icon type={iconType} {fillClass} />
 			<div class="f-col ml-[15px]">
 				<span class="font-bold">{statusText}</span>
 				<span class="text-sm">{secondsAgo}s ago</span>
 			</div>
 		</div>
-		<div class="col-span-9 font-bold">
+		<div class="col-span-8 font-bold">
 			<div class="f-col">
 				<span class="font-bold"
 					>{$t('common.prover')}

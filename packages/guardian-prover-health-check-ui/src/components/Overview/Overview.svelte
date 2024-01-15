@@ -3,10 +3,10 @@
 	import type { Guardian } from '$lib/types';
 	import Spinner from '$components/Spinner/Spinner.svelte';
 	import { GuardianProverTableHeader, GuardianProverTableRow } from '../GuardianProver/';
-	import { selectedGuardianProver } from '$components/stores/guardianProver';
+	import { selectedGuardianProver, guardianProvers } from '$stores';
 	import { t } from 'svelte-i18n';
 	import Filter from './Filter.svelte';
-	import { guardianProvers, manualFetch } from '$lib/dataFetcher';
+	import { refreshData } from '$lib/dataFetcher';
 	import { goto } from '$app/navigation';
 	import DesktopOrLarger from '$components/DesktopOrLarger/DesktopOrLarger.svelte';
 
@@ -16,9 +16,9 @@
 
 	let filteredGuardianProvers = [];
 
-	const refreshData = async () => {
+	const manualRefresh = async () => {
 		loading = true;
-		await manualFetch();
+		await refreshData();
 		loading = false;
 	};
 
@@ -28,7 +28,7 @@
 	};
 
 	onMount(async () => {
-		if (!$guardianProvers) await refreshData();
+		if (!$guardianProvers) await manualRefresh();
 	});
 
 	$: dataToDisplay = filtered
@@ -40,13 +40,13 @@
 
 <div class="mt-[12px]">
 	{#if loading}
-		<Filter bind:filteredGuardianProvers {refreshData} bind:loading bind:filtered />
+		<Filter bind:filteredGuardianProvers refreshData={manualRefresh} bind:loading bind:filtered />
 		<div class="flex justify-center items-center w-full h-full my-[30px]">
 			<Spinner />
 			<span class="ml-5">{$t('loading')}</span>
 		</div>
 	{:else}
-		<Filter bind:filteredGuardianProvers {refreshData} bind:loading bind:filtered />
+		<Filter bind:filteredGuardianProvers refreshData={manualRefresh} bind:loading bind:filtered />
 
 		<GuardianProverTableHeader />
 		<div class="space-y-[8px]">

@@ -2,7 +2,7 @@
 	"blocks": {
 		"id": "#",
 		"signature": "Signature",
-		"signed": "Signed",
+		"signed": "No. of Signatures",
 		"signed_hash": "Signed Block Hash"
 	},
 	"common": {
@@ -32,6 +32,7 @@
 				"actual_address": "Recovered address",
 				"created_on": "Created on",
 				"expected_address": "Expected address",
+				"healthchecks": "Healthchecks",
 				"status": "Status",
 				"uptime": "Uptime {uptime}%"
 			}

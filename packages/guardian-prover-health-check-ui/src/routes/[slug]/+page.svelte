@@ -3,9 +3,9 @@
 	import { Icon } from '$components/Icon';
 	import { HealthChecksList } from '$components/HealthChecks';
 	import type { PageData } from './$types';
-	import { guardianProvers, manualFetch } from '$lib/dataFetcher';
+	import { refreshData } from '$lib/dataFetcher';
 	import { get } from 'svelte/store';
-	import { selectedGuardianProver } from '$components/stores/guardianProver';
+	import { selectedGuardianProver, guardianProvers } from '$stores';
 	import type { Guardian } from '$lib/types';
 
 	export let data: PageData;
@@ -19,7 +19,7 @@
 			(guardianProver) => Number(guardianProver.id) === parseInt(data.slug)
 		);
 	} else {
-		manualFetch().then(() => {
+		refreshData().then(() => {
 			get(guardianProvers).map((prover) => {
 				if (Number(prover.id) === parseInt(data.slug)) {
 					selected = prover;

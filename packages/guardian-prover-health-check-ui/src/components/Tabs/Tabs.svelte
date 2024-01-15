@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { TabButton } from '$components/Button';
 	import { classNames } from '$lib/util/classNames';
-	import { selectedTab } from '$components/stores/pageTabs';
+	import { selectedTab } from '$stores';
 	import { PageTabs } from '$lib/types';
 	import { t } from 'svelte-i18n';
 	import { page } from '$app/stores';

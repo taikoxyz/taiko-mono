@@ -1,56 +1,64 @@
-import { writable } from 'svelte/store';
-import type { Writable } from 'svelte/store';
 import { fetchGuardianProversFromContract } from './guardianProver/fetchGuardianProversFromContract';
-import {
-	GuardianProverStatus,
-	type Guardian,
-	type GuardianProverIdsMap,
-	type HealthCheck,
-	type SignedBlocks,
-	type SortedSignedBlocks
-} from './types';
+import { GuardianProverStatus, type SignedBlocks } from './types';
 import { fetchSignedBlocksFromApi } from './api/signedBlocksApiCalls';
 import { getGuardianProverIdsPerBlockNumber } from './blocks/getGuardianProverIdsPerBlockNumber';
 import { sortSignedBlocksDescending } from './blocks/sortSignedBlocks';
 import { publicClient } from './wagmi/publicClient';
 import { formatEther, type Address } from 'viem';
 import { fetchLatestGuardianProverHealtCheckFromApi, fetchUptimeFromApi } from './api';
+import { fetchGuardianProverRequirementsFromContract } from './guardianProver/fetchGuardianProverRequirementsFromContract';
+import {
+	minGuardianRequirement,
+	lastGuardianFetchTimestamp,
+	guardianProvers,
+	signedBlocks,
+	signerPerBlock,
+	loading,
+	totalGuardianProvers
+} from '$stores';
+import { get } from 'svelte/store';
 
-export const guardianProvers: Writable<Guardian[]> = writable(null);
-export const apiResponse: Writable<HealthCheck[]> = writable([]);
-export const signedBlocks: Writable<SortedSignedBlocks> = writable([]);
-export const signerPerBlock: Writable<GuardianProverIdsMap> = writable({});
-export const lastGuardianFetchTimestamp: Writable<number> = writable(0);
+const BLOCKS_TO_CHECK = 20;
+const THRESHOLD = BLOCKS_TO_CHECK / 2;
+const HEALTHCHECK_TIMEOUT_IN_SECONDS = 60;
 
 export function startFetching() {
 	// Fetch all data immediately
-	fetchGuardians();
-	fetchSignedBlockStats();
+	refreshData();
 
 	// Set up an interval to fetch guardians every 30 seconds
 	const guardiansInterval = setInterval(() => {
 		fetchGuardians();
 	}, 30000);
 
-	// Set up an interval to fetch signed block stats every 12 seconds
-	const blocksInterval = setInterval(() => {
+	// Set up an interval to fetch signed block and liveliness stats every 12 seconds
+	const blocksAndLivelinessInterval = setInterval(() => {
 		fetchSignedBlockStats();
+		determineLiveliness();
 	}, 12000);
 
-	// Return a function to clear both intervals
+	// Return a function to clear all intervals
 	return () => {
 		clearInterval(guardiansInterval);
-		clearInterval(blocksInterval);
+		clearInterval(blocksAndLivelinessInterval);
 	};
 }
 
-export async function manualFetch() {
-	await fetchGuardians();
+export async function refreshData() {
+	loading.set(true);
 	await fetchSignedBlockStats();
+	await fetchGuardians();
+	await determineLiveliness();
+	loading.set(false);
 }
 
 async function fetchGuardians() {
 	const rawData = await fetchGuardianProversFromContract();
+	const required = await fetchGuardianProverRequirementsFromContract();
+
+	minGuardianRequirement.set(required);
+	totalGuardianProvers.set(rawData.length);
+
 	const guardians = [];
 	for (const guardian of rawData) {
 		const balance = await publicClient.getBalance({
@@ -73,17 +81,8 @@ async function fetchGuardians() {
 		guardian.uptime = uptime;
 		if (uptime > 100) guardian.uptime = 100;
 
-		// if status.createdAt is older than 60 seconds, set guardian to dead
-		const createdAt = new Date(status.createdAt);
+		guardian.alive = status.alive ? GuardianProverStatus.ALIVE : GuardianProverStatus.DEAD;
 
-		const now = new Date();
-		const diff = now.getTime() - createdAt.getTime();
-		const seconds = diff / 1000;
-		if (seconds > 60) {
-			guardian.alive = GuardianProverStatus.DEAD;
-		} else {
-			guardian.alive = status.alive ? GuardianProverStatus.ALIVE : GuardianProverStatus.DEAD;
-		}
 		guardians.push(guardian);
 	}
 
@@ -101,4 +100,33 @@ async function fetchSignedBlockStats() {
 
 	const signer = await getGuardianProverIdsPerBlockNumber(blocks);
 	signerPerBlock.set(signer);
+}
+
+async function determineLiveliness(): Promise<void> {
+	const now = new Date();
+
+	const guardians = get(guardianProvers);
+	if (!guardians) return;
+	for (const guardian of guardians) {
+		const latestCheck = guardian.latestHealthCheck;
+		const createdAt = new Date(latestCheck.createdAt);
+		const secondsSinceLastCheck = (now.getTime() - createdAt.getTime()) / 1000;
+
+		if (secondsSinceLastCheck > HEALTHCHECK_TIMEOUT_IN_SECONDS) {
+			guardian.alive = GuardianProverStatus.DEAD;
+			break;
+		}
+		let countSignedBlocks = 0;
+		const recentSignedBlocks = get(signedBlocks).slice(0, BLOCKS_TO_CHECK);
+
+		for (const block of recentSignedBlocks) {
+			if (block.blocks.some((b) => b.guardianProverID === Number(guardian.id))) {
+				countSignedBlocks++;
+			}
+		}
+
+		// Update status based on whether the guardian signed at least half of the configured blocks to check
+		guardian.alive =
+			countSignedBlocks >= THRESHOLD ? GuardianProverStatus.ALIVE : GuardianProverStatus.UNHEALTHY;
+	}
 }

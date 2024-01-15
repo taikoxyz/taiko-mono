@@ -36,6 +36,5 @@ export async function fetchGuardianProversFromContract(): Promise<Guardian[]> {
 			alive: GuardianProverStatus.DEAD
 		});
 	}
-
 	return guardians;
 }

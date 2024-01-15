@@ -4,7 +4,7 @@
 	import { GuardianProverStatus } from '$lib/types';
 	import StatusFilterDropdown from './StatusFilterDropdown.svelte';
 	import { RotatingIcon } from '$components/Icon';
-	import { guardianProvers } from '$lib/dataFetcher';
+	import { guardianProvers } from '$stores';
 	import DesktopOrLarger from '$components/DesktopOrLarger/DesktopOrLarger.svelte';
 	import { classNames } from '$lib/util/classNames';
 
