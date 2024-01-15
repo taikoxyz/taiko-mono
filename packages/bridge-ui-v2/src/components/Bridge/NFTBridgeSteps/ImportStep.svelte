@@ -284,7 +284,6 @@
 <!-- 
 Manual NFT Input 
 -->
-{canValidateIdInput}
 {#if importMethod === ImportMethod.MANUAL}
   <div id="manualImport">
     <AddressInput
