@@ -287,8 +287,8 @@
         "title": "Network switch pending"
       },
       "rejected": {
-        "message": "Request to switch network has failed.",
-        "title": "Network switch error"
+        "message": "Request to switch network has been rejected by the user.",
+        "title": "Network switch rejected"
       },
       "required": "Source chain must be selected.",
       "required_dest": "Destination chain must be selected.",

@@ -104,7 +104,10 @@
             $insufficientAllowance = true;
             break;
           case err instanceof RevertedWithFailedError:
-            warningToast({ title: $t('messages.network.rejected') });
+            warningToast({
+              title: $t('bridge.errors.send_message_error.title'),
+              message: $t('bridge.errors.send_message_error.message'),
+            });
             break;
           case err instanceof RevertedWithoutMessageError:
             warningToast({
