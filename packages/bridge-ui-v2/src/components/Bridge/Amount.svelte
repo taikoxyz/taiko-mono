@@ -277,22 +277,30 @@
 
   $: validateAmount($selectedToken, $processingFee);
 
+  $: hasBalance =
+    (typeof $tokenBalance !== 'bigint' && $tokenBalance && $tokenBalance?.value > 0n) ||
+    (typeof $tokenBalance === 'bigint' && $tokenBalance && $tokenBalance > 0n);
+
   // There is no reason to show any error/warning message if we are computing the balance
   // or there is an issue computing it
   $: showInsufficientBalanceAlert = $insufficientBalance && !$errorComputingBalance && !$computingBalance;
 
   $: noDecimalsAllowedAlert = invalidInput;
 
-  $: inputDisabled = computingMaxAmount || disabled || !$selectedToken || !$network || $errorComputingBalance;
+  $: inputDisabled =
+    computingMaxAmount || disabled || !$selectedToken || !$network || $errorComputingBalance || !hasBalance;
 
   // TODO: Disabled for now, potentially confusing users
   // $: showInsiffucientAllowanceAlert = $insufficientAllowance && !$errorComputingBalance && !$computingBalance;
+
+  $: maxButtonEnabled = hasBalance && !disabled && !$computingBalance && !$errorComputingBalance;
 
   onMount(() => {
     $computingBalance = true;
     $enteredAmount = BigInt(0);
     determineBalance();
     $computingBalance = false;
+    $insufficientBalance = false;
   });
 </script>
 
@@ -328,7 +336,7 @@
         bind:this={inputBox}
         class="py-6 pr-16 px-[26px] title-subsection-bold border-0  {$$props.class}" />
       <!-- TODO: talk to Jane about the MAX button and its styling -->
-      {#if !disabled}
+      {#if maxButtonEnabled}
         <button class="absolute right-6 uppercase hover:font-bold" on:click={useMaxAmount}>
           {$t('inputs.amount.button.max')}
         </button>

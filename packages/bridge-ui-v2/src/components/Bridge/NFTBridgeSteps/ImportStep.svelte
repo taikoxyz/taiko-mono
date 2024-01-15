@@ -232,6 +232,8 @@
 
   $: nothingFound = scanned && foundNFTs.length === 0;
 
+  $: nftHasAmount = $selectedNFTs && $selectedNFTs.length > 0 && $selectedNFTs[0].type === TokenType.ERC1155;
+
   $: displayOwnershipError =
     contractAddress && enteredIds && !isOwnerOfAllToken && nftIdArray?.length > 0 && !validating;
 
@@ -368,9 +370,9 @@ Automatic NFT Input
           <NFTDisplay loading={scanning} nfts={foundNFTs} {nftView} />
         </div>
       </section>
-      {#if $selectedNFTs && $selectedNFTs[0]?.type === TokenType.ERC1155}
+      {#if nftHasAmount}
         <section>
-          <Amount bind:this={amountComponent} />
+          <Amount bind:this={amountComponent} doAllowanceCheck={false} />
         </section>
       {/if}
 
