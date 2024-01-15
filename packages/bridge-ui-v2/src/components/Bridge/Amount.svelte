@@ -52,7 +52,6 @@
   }
 
   export let disabled = false;
-
   export let doAllowanceCheck = true;
 
   export async function validateAmount(token = $selectedToken, fee = $processingFee) {
@@ -60,6 +59,7 @@
     $validatingAmount = true; // During validation, we disable all the actions
     $insufficientBalance = false;
     $insufficientAllowance = false;
+    $computingBalance = true;
 
     const to = $recipientAddress || $account?.address;
 
@@ -77,6 +77,7 @@
       $enteredAmount === BigInt(0) // no need to check if the amount is 0
     ) {
       $validatingAmount = false;
+      $computingBalance = false;
       return;
     }
 
@@ -126,6 +127,7 @@
       }
     }
     $validatingAmount = false;
+    $computingBalance = false;
   }
 
   export async function updateBalance(
@@ -293,7 +295,7 @@
   // TODO: Disabled for now, potentially confusing users
   // $: showInsiffucientAllowanceAlert = $insufficientAllowance && !$errorComputingBalance && !$computingBalance;
 
-  $: maxButtonEnabled = hasBalance && !disabled && !$computingBalance && !$errorComputingBalance;
+  $: maxButtonEnabled = hasBalance && !disabled && !$computingBalance && !$errorComputingBalance && !$validatingAmount;
 
   onMount(() => {
     $computingBalance = true;

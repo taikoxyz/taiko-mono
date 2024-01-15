@@ -25,6 +25,7 @@
 
   function validateInput(idInput: EventTarget | string | null = null) {
     state = State.VALIDATING;
+
     if (!idInput) return;
     let ids;
     if (idInput && idInput instanceof EventTarget) {
@@ -44,6 +45,8 @@
     dispatch('inputValidation');
   }
 
+  $: typeClass = state === State.VALID ? 'success' : state === State.INVALID ? 'error' : '';
+
   onDestroy(() => {
     clearIds();
   });
@@ -61,8 +64,8 @@
       placeholder={$t('inputs.token_id_input.placeholder')}
       bind:value={enteredIds}
       on:input={(e) => validateInput(e.target)}
-      class="w-full input-box withValdiation py-6 pr-16 px-[26px] title-subsection-bold placeholder:text-tertiary-content {$$props.class}
-      {state === State.VALID ? 'success' : state === State.DEFAULT ? '' : 'error'}" />
+      class="w-full input-box withValdiation py-6 pr-16 px-[26px] title-subsection-bold placeholder:text-tertiary-content {typeClass} {$$props.class}
+      " />
     <!-- /*state === State.Valid ? 'success' : state === State.Invalid ? 'error' : ''  -->
     <button class="absolute right-6 uppercase body-bold text-secondary-content" on:click={clearIds}>
       <Icon type="x-close-circle" fillClass="fill-primary-icon" size={24} />
