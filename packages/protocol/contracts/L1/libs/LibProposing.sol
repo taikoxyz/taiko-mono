@@ -258,7 +258,7 @@ library LibProposing {
                 // back to this contract for the next hook to use.
                 // Proposers shall choose use extra hooks wisely.
                 IHook(params.hookCalls[i].hook).onBlockProposed{ value: address(this).balance }(
-                    blk, meta, parentMetaHash, params.hookCalls[i].data
+                    blk, meta, params.hookCalls[i].data
                 );
 
                 prevHook = params.hookCalls[i].hook;
