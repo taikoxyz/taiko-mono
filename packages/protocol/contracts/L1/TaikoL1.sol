@@ -207,7 +207,7 @@ contract TaikoL1 is
     function getConfig() public view virtual override returns (TaikoData.Config memory) {
         // All hard-coded configurations:
         // - treasury: the actual TaikoL2 address.
-        // - blockMaxTxs: 150 (limited by the PSE zkEVM circuits)
+        // - blockMaxTxs: 80 (limited by the PSE zkEVM circuits)
         // - anchorGasLimit: 250_000 (based on internal devnet, its ~220_000
         // after 256 L2 blocks)
         return TaikoData.Config({
