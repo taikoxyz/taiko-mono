@@ -34,7 +34,7 @@
       "nft_scan_again": "Scan again"
     },
     "alerts": {
-      "slow_bridging": "Please be aware, bridging back to L1 will take around 24hrs! Read our Katla announcement for more details."
+      "slow_bridging": "Please note: Bridging to L1 will take around 24hrs!"
     },
     "button": {
       "approve": "Approve",
@@ -159,10 +159,6 @@
       "title": "Important Update"
     }
   },
-  "chain": {
-    "from": "From",
-    "to": "To"
-  },
   "chain_selector": {
     "currently_on": "You are currently on",
     "disabled_options": {
@@ -179,6 +175,7 @@
     "amount": "Amount",
     "back": "Go back",
     "balance": "Balance",
+    "bridged_address": "Bridged address",
     "cancel": "Cancel",
     "close": "Close",
     "collection": "Collection",
@@ -287,8 +284,8 @@
         "title": "Network switch pending"
       },
       "rejected": {
-        "message": "Request to switch network has failed.",
-        "title": "Network switch error"
+        "message": "Request to switch network has been rejected by the user.",
+        "title": "Network switch rejected"
       },
       "required": "Source chain must be selected.",
       "required_dest": "Destination chain must be selected.",

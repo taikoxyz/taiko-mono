@@ -16,6 +16,7 @@
   import { account } from '$stores/account';
 
   export let label = '';
+  export let fromToLabel = '';
   export let value: Maybe<GetNetworkResult['chain']> = null;
   export let switchWallet = false;
   export let readOnly = false;
@@ -95,10 +96,16 @@
       } catch (err) {
         console.error(err);
         if (err instanceof SwitchChainError) {
-          warningToast({ title: $t('messages.network.pending') });
+          warningToast({
+            title: $t('messages.network.pending.title'),
+            message: $t('messages.network.pending.message'),
+          });
         }
         if (err instanceof UserRejectedRequestError) {
-          warningToast({ title: $t('messages.network.rejected') });
+          warningToast({
+            title: $t('messages.network.rejected.title'),
+            message: $t('messages.network.rejected.message'),
+          });
         }
       } finally {
         switchingNetwork = false;
@@ -144,6 +151,9 @@
           <i role="img" aria-label={value.name}>
             <img src={icon} alt="chain-logo" class="rounded-full {iconSize}" />
           </i>
+          {#if fromToLabel}
+            <span class="text-sm text-secondary-content">{fromToLabel}:</span>
+          {/if}
           <span>{truncateString(value.name, 8)}</span>
         {/if}
       </div>

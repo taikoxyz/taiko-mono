@@ -40,7 +40,10 @@
       console.error(err);
 
       if (err instanceof UserRejectedRequestError) {
-        warningToast({ title: $t('messages.network.rejected.title') });
+        warningToast({
+          title: $t('messages.network.rejected.title'),
+          message: $t('messages.network.rejected.message'),
+        });
       }
     } finally {
       switchingNetwork = false;

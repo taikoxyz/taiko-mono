@@ -39,11 +39,6 @@
   };
 </script>
 
-<!-- <dialog id={dialogId} class="modal modal-bottom" class:modal-open={detailsOpen}>
-  <div class="modal-box relative border border-neutral-background px-6 py-[30px] bg-neutral-background">
-    <CloseButton onClick={closeDetails} />
-
-    <h3 class="font-bold !text-left left mb-7 text-primary-content">{$t('processing_fee.title')}</h3> -->
 <dialog id={dialogId} class="modal modal-bottom" class:modal-open={detailsOpen}>
   <div class="modal-box relative w-full bg-neutral-background !p-0 !pb-[20px]">
     <div class="w-full pt-[35px] px-[24px]">
@@ -55,11 +50,11 @@
       {#if selectedItem}
         <ul class="space-y-[15px] body-small-regular w-full">
           <li class="f-between-center">
-            <h4 class="text-secondary-content">{$t('chain.from')}</h4>
+            <h4 class="text-secondary-content">{$t('common.from')}</h4>
             <ChainSymbolName chainId={selectedItem.srcChainId} />
           </li>
           <li class="f-between-center">
-            <h4 class="text-secondary-content">{$t('chain.to')}</h4>
+            <h4 class="text-secondary-content">{$t('common.to')}</h4>
             <ChainSymbolName chainId={selectedItem.destChainId} />
           </li>
           <li class="f-between-center">

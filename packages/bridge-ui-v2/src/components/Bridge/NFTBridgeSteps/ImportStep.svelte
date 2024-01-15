@@ -60,7 +60,7 @@
   let isOwnerOfAllToken: boolean = false;
 
   let detectedTokenType: TokenType | null = null;
-  let interfaceSupported: boolean = true;
+  // let interfaceSupported: boolean = true;
 
   let nftIdInputComponent: IdInput;
   let amountComponent: Amount;
@@ -107,7 +107,7 @@
 
   async function onAddressValidation(event: CustomEvent<{ isValidEthereumAddress: boolean; addr: Address }>) {
     const { isValidEthereumAddress, addr } = event.detail;
-    interfaceSupported = true;
+    // interfaceSupported = true;
     addressInputState = AddressInputState.VALIDATING;
 
     if (isValidEthereumAddress && typeof addr === 'string') {
@@ -139,52 +139,71 @@
     return;
   }
 
-  const onIdInput = async () => {
+  const onIdInput = async (): Promise<void> => {
     idInputState = IDInputState.VALIDATING;
     validating = true;
-    const srcChainId = $network?.id;
-    if (isAddress(contractAddress) && srcChainId && $account?.address && nftIdArray.length > 0) {
-      const tokenId = nftIdArray[0]; //TODO: wont work with multiple token
-      // If we have a valid address, we generate a token object for the $selectedToken store
-      checkOwnership(contractAddress as Address, detectedTokenType, nftIdArray, $account?.address, srcChainId).then(
-        async (result) => {
-          isOwnerOfAllToken = result.every((value) => value.isOwner === true);
-          if (isOwnerOfAllToken) {
-            getTokenWithInfoFromAddress({
-              contractAddress: contractAddress as Address,
-              srcChainId: srcChainId,
-              tokenId,
-              owner: $account?.address,
-            })
-              .then(async (token) => {
-                if (!token) throw new Error('no token with info');
-                detectedTokenType = token.type;
-                idInputState = IDInputState.VALID;
-                $selectedToken = token;
-                $selectedNFTs = [token as NFT];
-                await prefetchImage();
-              })
-              .catch((err) => {
-                console.error(err);
-                detectedTokenType = null;
-                idInputState = IDInputState.INVALID;
-              });
-            idInputState = IDInputState.VALID;
-          } else {
-            idInputState = IDInputState.INVALID;
-          }
-        },
-      );
+
+    try {
+      if (canValidateIdInput) {
+        const tokenId = nftIdArray[0]; // Handle multiple tokens if needed
+
+        const ownershipResults = await checkOwnership(
+          contractAddress as Address,
+          detectedTokenType,
+          nftIdArray,
+          // Ignore as we check this in canValidateIdInput
+          // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
+          $account?.address!,
+          // Ignore as we check this in canValidateIdInput
+          // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
+          $network?.id!,
+        );
+
+        isOwnerOfAllToken = ownershipResults.every((value) => value.isOwner === true);
+
+        if (!isOwnerOfAllToken) {
+          throw new Error('Not owner of all tokens');
+        }
+
+        const token = await getTokenWithInfoFromAddress({
+          contractAddress: contractAddress as Address,
+          // Ignore as we check this in canValidateIdInput
+          // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
+          srcChainId: $network?.id!,
+          tokenId,
+          owner: $account?.address,
+        });
+
+        if (!token) {
+          throw new Error('No token with info');
+        }
+
+        detectedTokenType = token.type;
+        $selectedToken = token;
+        $selectedNFTs = [token as NFT];
+        idInputState = IDInputState.VALID;
+
+        $tokenBalance = token.balance;
+
+        await prefetchImage();
+      } else {
+        idInputState = IDInputState.INVALID;
+      }
+    } catch (err) {
+      console.error(err);
+      detectedTokenType = null;
+      idInputState = IDInputState.INVALID;
+    } finally {
+      validating = false;
+      if (idInputState !== IDInputState.VALID) {
+        idInputState = IDInputState.DEFAULT;
+      }
     }
-    idInputState = IDInputState.DEFAULT;
-    validating = false;
   };
 
   onMount(() => {
     reset();
   });
-
-  $: canImport = $account?.isConnected && $network?.id && $destinationChain && !scanning;
 
   // Handles the next step button status
   $: {
@@ -228,9 +247,21 @@
     canProceed = isManualImportValid || isScanImportValid;
   }
 
+  $: canImport = $account?.isConnected && $network?.id && $destinationChain && !scanning;
+  $: canValidateIdInput = isAddress(contractAddress) && $network?.id && $account?.address && enteredIds.length > 0;
+
   $: isDisabled = idInputState !== IDInputState.VALID || addressInputState !== AddressInputState.VALID;
 
   $: nothingFound = scanned && foundNFTs.length === 0;
+
+  $: nftHasAmount =
+    $selectedNFTs &&
+    $selectedNFTs.length > 0 &&
+    $selectedNFTs[0].type === TokenType.ERC1155 &&
+    enteredIds.length > 0 &&
+    !validating;
+
+  $: showNFTAmountInput = nftHasAmount && isOwnerOfAllToken;
 
   $: displayOwnershipError =
     contractAddress && enteredIds && !isOwnerOfAllToken && nftIdArray?.length > 0 && !validating;
@@ -283,7 +314,7 @@ Manual NFT Input
         {/if}
       </div>
     </div>
-    {#if detectedTokenType === TokenType.ERC1155 && interfaceSupported && enteredIds?.length > 0 && !validating}
+    {#if showNFTAmountInput}
       <Amount
         bind:this={amountComponent}
         class="bg-neutral-background border-0 h-[56px]"
@@ -368,9 +399,9 @@ Automatic NFT Input
           <NFTDisplay loading={scanning} nfts={foundNFTs} {nftView} />
         </div>
       </section>
-      {#if $selectedNFTs && $selectedNFTs[0]?.type === TokenType.ERC1155}
+      {#if nftHasAmount}
         <section>
-          <Amount bind:this={amountComponent} />
+          <Amount bind:this={amountComponent} doAllowanceCheck={false} />
         </section>
       {/if}
 
