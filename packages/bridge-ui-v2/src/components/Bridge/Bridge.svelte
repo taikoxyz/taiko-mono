@@ -242,6 +242,7 @@
     if (processingFeeComponent) processingFeeComponent.resetProcessingFee();
     $allApproved = false;
     bridging = false;
+    $recipientAddress = null;
   };
 
   onDestroy(() => {
