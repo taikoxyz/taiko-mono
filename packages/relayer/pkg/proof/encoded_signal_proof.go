@@ -7,7 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/encoding"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"

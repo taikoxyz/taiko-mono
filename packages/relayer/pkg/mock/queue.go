@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/taikoxyz/taiko-mono/packages/relayer/queue"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 )
 
 type Queue struct {

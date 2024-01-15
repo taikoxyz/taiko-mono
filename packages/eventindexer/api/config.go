@@ -1,8 +1,8 @@
-package generator
+package api
 
 import (
 	"database/sql"
-	"time"
+	"strings"
 
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
@@ -26,18 +26,19 @@ type Config struct {
 	DatabaseMaxIdleConns    uint64
 	DatabaseMaxOpenConns    uint64
 	DatabaseMaxConnLifetime uint64
+	RPCUrl                  string
+	HTTPPort                uint64
 	MetricsHTTPPort         uint64
-	GenesisDate             time.Time
-	Regenerate              bool
+	ETHClientTimeout        uint64
+	CORSOrigins             []string
 	OpenDBFunc              func() (DB, error)
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
 func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
-	date, err := time.Parse("2006-01-02", c.String(flags.GenesisDate.Name))
-	if err != nil {
-		return nil, err
-	}
+	cors := make([]string, 0)
+
+	cors = append(cors, strings.Split(c.String(flags.CORSOrigins.Name), ",")...)
 
 	return &Config{
 		DatabaseUsername:        c.String(flags.DatabaseUsername.Name),
@@ -47,9 +48,10 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		DatabaseMaxIdleConns:    c.Uint64(flags.DatabaseMaxIdleConns.Name),
 		DatabaseMaxOpenConns:    c.Uint64(flags.DatabaseMaxOpenConns.Name),
 		DatabaseMaxConnLifetime: c.Uint64(flags.DatabaseConnMaxLifetime.Name),
+		HTTPPort:                c.Uint64(flags.HTTPPort.Name),
 		MetricsHTTPPort:         c.Uint64(flags.MetricsHTTPPort.Name),
-		GenesisDate:             date,
-		Regenerate:              c.Bool(flags.Regenerate.Name),
+		CORSOrigins:             cors,
+		RPCUrl:                  c.String(flags.APIRPCUrl.Name),
 		OpenDBFunc: func() (DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),

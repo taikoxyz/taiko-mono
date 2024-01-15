@@ -39,34 +39,6 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"DATABASE_NAME"},
 	}
-	QueueUsername = &cli.StringFlag{
-		Name:     "queue.username",
-		Usage:    "Queue connection username",
-		Required: true,
-		Category: commonCategory,
-		EnvVars:  []string{"QUEUE_USER"},
-	}
-	QueuePassword = &cli.StringFlag{
-		Name:     "queue.password",
-		Usage:    "Queue connection password",
-		Required: true,
-		Category: commonCategory,
-		EnvVars:  []string{"QUEUE_PASSWORD"},
-	}
-	QueueHost = &cli.StringFlag{
-		Name:     "queue.host",
-		Usage:    "Queue connection host",
-		Required: true,
-		Category: commonCategory,
-		EnvVars:  []string{"QUEUE_HOST"},
-	}
-	QueuePort = &cli.Uint64Flag{
-		Name:     "queue.port",
-		Usage:    "Queue connection port",
-		Required: true,
-		Category: commonCategory,
-		EnvVars:  []string{"QUEUE_PORT"},
-	}
 	SrcRPCUrl = &cli.StringFlag{
 		Name:     "srcRpcUrl",
 		Usage:    "RPC URL for the source chain",
@@ -135,10 +107,6 @@ var CommonFlags = []cli.Flag{
 	DatabasePassword,
 	DatabaseHost,
 	DatabaseName,
-	QueueUsername,
-	QueuePassword,
-	QueueHost,
-	QueuePort,
 	SrcRPCUrl,
 	DestRPCUrl,
 	DestBridgeAddress,

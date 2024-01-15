@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/queue"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 )
 
 type RabbitMQ struct {

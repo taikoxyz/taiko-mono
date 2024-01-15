@@ -61,31 +61,15 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"SRC_TAIKO_ADDRESS"},
 	}
-	HTTPPort = &cli.Uint64Flag{
-		Name:     "http.port",
-		Usage:    "Port to run http server on",
-		Category: indexerCategory,
-		Value:    4102,
-		EnvVars:  []string{"HTTP_PORT"},
-	}
-	CORSOrigins = &cli.StringFlag{
-		Name:     "http.corsOrigins",
-		Usage:    "Comma-delinated list of cors origins",
-		Category: indexerCategory,
-		Value:    "*",
-		EnvVars:  []string{"HTTP_CORS_ORIGINS"},
-	}
 )
 
-var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
+var IndexerFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	SrcBridgeAddress,
 	// optional
-	HTTPPort,
 	SrcTaikoAddress,
 	BlockBatchSize,
 	MaxNumGoroutines,
 	SubscriptionBackoff,
 	SyncMode,
 	WatchMode,
-	CORSOrigins,
 })

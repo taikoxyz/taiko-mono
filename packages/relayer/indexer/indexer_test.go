@@ -9,7 +9,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/indexer/http"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/mock"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
 )
 
 func newTestService(syncMode SyncMode, watchMode WatchMode) (*Indexer, relayer.Bridge) {

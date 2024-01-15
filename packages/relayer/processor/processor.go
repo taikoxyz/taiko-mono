@@ -28,9 +28,9 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/icrosschainsync"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/proof"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/queue"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/repo"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 )
 
 type DB interface {
