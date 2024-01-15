@@ -203,15 +203,17 @@
               </div>
               <div class="w-1/5 py-2 text-secondary-content">{$t('transactions.header.explorer')}</div>
             {:else if $activeBridge === BridgeTypes.NFT}
-              <div class="w-2/6 py-2 text-secondary-content">Item</div>
-              <div class="w-1/6 py-2 text-secondary-content">{$t('transactions.header.from')}</div>
-              <div class="w-1/6 py-2 text-secondary-content">{$t('transactions.header.to')}</div>
-              <div class="w-1/6 py-2 text-secondary-content">{$t('transactions.header.amount')}</div>
-              <div class="w-1/6 py-2 text-secondary-content flex flex-row">
+              <div class="w-3/12 content-center py-2 text-secondary-content">{$t('transactions.header.item')}</div>
+              <div class="w-2/12 content-center py-2 text-secondary-content">{$t('transactions.header.from')}</div>
+              <div class="w-2/12 content-center py-2 text-secondary-content">{$t('transactions.header.to')}</div>
+              <div class="w-1/12 content-center py-2 text-secondary-content">{$t('transactions.header.amount')}</div>
+              <div class="w-2/12 py-2 text-secondary-content flex flex-row">
                 {$t('transactions.header.status')}
                 <StatusInfoDialog />
               </div>
-              <div class="w-1/6 py-2 text-secondary-content">{$t('transactions.header.explorer')}</div>
+              <div class="grow py-2 text-secondary-content flex justify-center">
+                {$t('transactions.header.explorer')}
+              </div>
             {/if}
           </div>
           <div class="h-sep !mb-0" />

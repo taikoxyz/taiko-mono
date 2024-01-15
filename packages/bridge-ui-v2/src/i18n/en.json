@@ -411,11 +411,12 @@
       "amount": "Amount",
       "explorer": "Explorer",
       "from": "From",
+      "item": "Item",
       "status": "Status",
       "to": "To"
     },
     "link": {
-      "explorer": "View details",
+      "explorer": "Details",
       "explorer_short": "View"
     },
     "no_transactions": "No transactions found",
