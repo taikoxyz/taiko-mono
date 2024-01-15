@@ -7,6 +7,7 @@
   import { Icon } from '$components/Icon';
   import Erc20 from '$components/Icon/ERC20.svelte';
   import { warningToast } from '$components/NotificationToast';
+  import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { tokenService } from '$libs/storage/services';
   import { ETHToken, type Token } from '$libs/token';
   import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
@@ -36,37 +37,23 @@
 
   const closeMenu = () => {
     menuOpen = false;
-    removeListener();
   };
 
   const openMenu = (event: Event) => {
     event.stopPropagation();
 
     menuOpen = true;
-
-    addListener();
-  };
-
-  let escKeyListener: (event: KeyboardEvent) => void;
-
-  const addListener = () => {
-    document.addEventListener('click', closeMenu, { once: true });
-    escKeyListener = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        closeMenu();
-      }
-    };
-    window.addEventListener('keydown', escKeyListener);
-  };
-
-  const removeListener = () => {
-    window.removeEventListener('click', closeMenu);
-    window.removeEventListener('keydown', escKeyListener);
   };
 
   const selectToken = async (token: Token) => {
     const srcChain = $network;
     const destChain = $destNetwork;
+
+    if (token === value) {
+      // same token, nothing to do
+      closeMenu();
+      return;
+    }
 
     // In order to select a token, we only need the source chain to be selected,
     // unless it's an imported token...
@@ -124,6 +111,7 @@
 
 <div class="relative">
   <button
+    use:closeOnEscapeOrOutsideClick={{ enabled: menuOpen, callback: () => (menuOpen = false) }}
     {disabled}
     aria-haspopup="listbox"
     aria-controls={id}
