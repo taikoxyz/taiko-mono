@@ -21,6 +21,7 @@ interface IHook {
     function onBlockProposed(
         TaikoData.Block memory blk,
         TaikoData.BlockMetadata memory meta,
+        bytes32 parentMetaHash,
         bytes memory data
     )
         external

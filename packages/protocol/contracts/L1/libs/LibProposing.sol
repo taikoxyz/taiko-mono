@@ -92,11 +92,11 @@ library LibProposing {
             revert L1_TOO_MANY_BLOCKS();
         }
 
-        TaikoData.Block storage parent =
-            state.blocks[(b.numBlocks - 1) % config.blockRingBufferSize];
+        bytes32 parentMetaHash =
+            state.blocks[(b.numBlocks - 1) % config.blockRingBufferSize].metaHash;
 
         // Check if parent block has the right meta hash
-        if (params.parentMetaHash != 0 && parent.metaHash != params.parentMetaHash) {
+        if (params.parentMetaHash != 0 && parentMetaHash != params.parentMetaHash) {
             revert L1_UNEXPECTED_PARENT();
         }
 
@@ -124,7 +124,7 @@ library LibProposing {
                 txListByteSize: 0, // to be initialized below
                 minTier: 0, // to be initialized below
                 blobUsed: txList.length == 0,
-                parentMetaHash: parent.metaHash
+                parentMetaHash: parentMetaHash
             });
         }
 
@@ -258,7 +258,7 @@ library LibProposing {
                 // back to this contract for the next hook to use.
                 // Proposers shall choose use extra hooks wisely.
                 IHook(params.hookCalls[i].hook).onBlockProposed{ value: address(this).balance }(
-                    blk, meta, params.hookCalls[i].data
+                    blk, meta, parentMetaHash, params.hookCalls[i].data
                 );
 
                 prevHook = params.hookCalls[i].hook;

@@ -33,6 +33,7 @@ contract AssignmentHook is EssentialContract, IHook {
         uint64 maxBlockId;
         uint64 maxProposedIn;
         bytes32 metaHash;
+        bytes32 parentMetaHash;
         TaikoData.TierFee[] tierFees;
         bytes signature;
     }
@@ -63,6 +64,7 @@ contract AssignmentHook is EssentialContract, IHook {
     function onBlockProposed(
         TaikoData.Block memory blk,
         TaikoData.BlockMetadata memory meta,
+        bytes32 parentMetaHash,
         bytes memory data
     )
         external
@@ -82,6 +84,7 @@ contract AssignmentHook is EssentialContract, IHook {
         if (
             block.timestamp > assignment.expiry
                 || assignment.metaHash != 0 && blk.metaHash != assignment.metaHash
+                || assignment.parentMetaHash != 0 && parentMetaHash != assignment.parentMetaHash
                 || assignment.maxBlockId != 0 && meta.id > assignment.maxBlockId
                 || assignment.maxProposedIn != 0 && block.number > assignment.maxProposedIn
         ) {
@@ -161,6 +164,7 @@ contract AssignmentHook is EssentialContract, IHook {
                 taikoL1Address,
                 address(this),
                 assignment.metaHash,
+                assignment.parentMetaHash,
                 blobHash,
                 assignment.feeToken,
                 assignment.expiry,
