@@ -9,7 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/labstack/echo/v4"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/indexer/http"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/http"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"github.com/urfave/cli/v2"
 	"gorm.io/gorm"

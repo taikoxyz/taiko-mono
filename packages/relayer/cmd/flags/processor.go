@@ -147,4 +147,5 @@ var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	HopRPCUrls,
 	HopSignalServiceAddresses,
 	HopTaikoAddresses,
+	DestBridgeAddress,
 })

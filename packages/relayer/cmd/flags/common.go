@@ -53,13 +53,6 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"DEST_RPC_URL"},
 	}
-	DestBridgeAddress = &cli.StringFlag{
-		Name:     "destBridgeAddress",
-		Usage:    "Bridge address for the destination chain",
-		Required: true,
-		Category: commonCategory,
-		EnvVars:  []string{"DEST_BRIDGE_ADDRESS"},
-	}
 )
 
 var (
@@ -109,7 +102,6 @@ var CommonFlags = []cli.Flag{
 	DatabaseName,
 	SrcRPCUrl,
 	DestRPCUrl,
-	DestBridgeAddress,
 	// optional
 	DatabaseMaxIdleConns,
 	DatabaseConnMaxLifetime,

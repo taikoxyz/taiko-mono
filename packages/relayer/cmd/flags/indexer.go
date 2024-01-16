@@ -12,6 +12,13 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"SRC_BRIDGE_ADDRESS"},
 	}
+	DestBridgeAddress = &cli.StringFlag{
+		Name:     "destBridgeAddress",
+		Usage:    "Bridge address for the destination chain",
+		Required: true,
+		Category: commonCategory,
+		EnvVars:  []string{"DEST_BRIDGE_ADDRESS"},
+	}
 )
 
 // optional
@@ -72,4 +79,5 @@ var IndexerFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	SubscriptionBackoff,
 	SyncMode,
 	WatchMode,
+	DestBridgeAddress,
 })

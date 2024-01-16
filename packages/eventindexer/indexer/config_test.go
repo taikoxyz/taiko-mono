@@ -10,7 +10,6 @@ import (
 )
 
 var (
-	httpPort                = "1000"
 	metricsHttpPort         = "1001"
 	l1TaikoAddress          = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
 	bridgeAddress           = "0x73FaC9201494f0bd17B9892B9fae4d52fe3BD377"
@@ -25,6 +24,7 @@ var (
 	syncMode                = "sync"
 	watchMode               = "filter"
 	layer                   = "l1"
+	rpcUrl                  = "rpcUrl"
 )
 
 func setupApp() *cli.App {
@@ -64,6 +64,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, WatchMode(watchMode), c.WatchMode)
 		assert.Equal(t, true, c.IndexNFTs)
 		assert.Equal(t, layer, c.Layer)
+		assert.Equal(t, rpcUrl, c.RPCUrl)
 		assert.NotNil(t, c.OpenDBFunc)
 
 		// assert.Nil(t, InitFromConfig(context.Background(), new(Indexer), c))
@@ -81,7 +82,6 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"--" + flags.BridgeAddress.Name, bridgeAddress,
 		"--" + flags.SwapAddresses.Name, swapAddresses,
 		"--" + flags.AssignmentHookAddress.Name, assignmentHookAddress,
-		"--" + flags.HTTPPort.Name, httpPort,
 		"--" + flags.MetricsHTTPPort.Name, metricsHttpPort,
 		"--" + flags.DatabaseMaxIdleConns.Name, databaseMaxIdleConns,
 		"--" + flags.DatabaseMaxOpenConns.Name, databaseMaxOpenConns,
@@ -93,5 +93,6 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"--" + flags.WatchMode.Name, watchMode,
 		"--" + flags.IndexNFTs.Name,
 		"--" + flags.Layer.Name, layer,
+		"--" + flags.IndexerRPCUrl.Name, rpcUrl,
 	}))
 }

@@ -19,7 +19,7 @@ var (
 
 func setupApp() *cli.App {
 	app := cli.NewApp()
-	app.Flags = flags.IndexerFlags
+	app.Flags = flags.APIFlags
 	app.Action = func(ctx *cli.Context) error {
 		_, err := NewConfigFromCliContext(ctx)
 		return err
