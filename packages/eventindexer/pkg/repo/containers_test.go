@@ -69,7 +69,7 @@ func testMysql(t *testing.T) (eventindexer.DB, func(), error) {
 	}
 
 	sqlDB, _ := gormDB.DB()
-	if err := goose.Up(sqlDB, "../migrations"); err != nil {
+	if err := goose.Up(sqlDB, "../../migrations"); err != nil {
 		t.Fatal(err)
 	}
 
