@@ -9,10 +9,22 @@ contract MyERC20 is ERC20 {
     }
 }
 
+contract USDC is ERC20 {
+    constructor(address recipient) ERC20("USDC", "USDC") {
+        _mint(recipient, 1_000_000_000e6);
+    }
+
+    function decimals() public view virtual override returns (uint8) {
+        return 6;
+    }
+}
+
 contract TestTimelockTokenPool is TaikoTest {
     address internal Vault = randAddress();
 
     ERC20 tko = new MyERC20(Vault);
+    ERC20 usdc = new USDC(Alice);
+
     TimelockTokenPool pool;
 
     function setUp() public {
@@ -20,21 +32,21 @@ contract TestTimelockTokenPool is TaikoTest {
             deployProxy({
                 name: "time_lock_token_pool",
                 impl: address(new TimelockTokenPool()),
-                data: abi.encodeCall(TimelockTokenPool.init, (address(tko), Vault))
+                data: abi.encodeCall(TimelockTokenPool.init, (address(tko), address(usdc), Vault))
             })
         );
     }
 
     function test_invalid_granting() public {
         vm.expectRevert(TimelockTokenPool.INVALID_GRANT.selector);
-        pool.grant(Alice, TimelockTokenPool.Grant(0, 0, 0, 0, 0, 0, 0));
+        pool.grant(Alice, TimelockTokenPool.Grant(0, 0, 0, 0, 0, 0, 0, 0));
 
         vm.expectRevert(TimelockTokenPool.INVALID_PARAM.selector);
-        pool.grant(address(0), TimelockTokenPool.Grant(100e18, 0, 0, 0, 0, 0, 0));
+        pool.grant(address(0), TimelockTokenPool.Grant(100e18, 0, 0, 0, 0, 0, 0, 0));
     }
 
     function test_single_grant_zero_grant_period_zero_unlock_period() public {
-        pool.grant(Alice, TimelockTokenPool.Grant(10_000e18, 0, 0, 0, 0, 0, 0));
+        pool.grant(Alice, TimelockTokenPool.Grant(10_000e18, 0, 0, 0, 0, 0, 0, 0));
         vm.prank(Vault);
         tko.approve(address(pool), 10_000e18);
 
@@ -72,7 +84,7 @@ contract TestTimelockTokenPool is TaikoTest {
 
         pool.grant(
             Alice,
-            TimelockTokenPool.Grant(10_000e18, 0, 0, 0, unlockStart, unlockCliff, unlockPeriod)
+            TimelockTokenPool.Grant(10_000e18, 0, 0, 0, unlockStart, unlockCliff, unlockPeriod, 0)
         );
         vm.prank(Vault);
         tko.approve(address(pool), 10_000e18);
@@ -136,7 +148,8 @@ contract TestTimelockTokenPool is TaikoTest {
         uint64 grantCliff = grantStart + grantPeriod / 2;
 
         pool.grant(
-            Alice, TimelockTokenPool.Grant(10_000e18, grantStart, grantCliff, grantPeriod, 0, 0, 0)
+            Alice,
+            TimelockTokenPool.Grant(10_000e18, grantStart, grantCliff, grantPeriod, 0, 0, 0, 0)
         );
         vm.prank(Vault);
         tko.approve(address(pool), 10_000e18);
@@ -212,7 +225,8 @@ contract TestTimelockTokenPool is TaikoTest {
                 grantPeriod,
                 unlockStart,
                 unlockCliff,
-                unlockPeriod
+                unlockPeriod,
+                0
             )
         );
         vm.prank(Vault);
@@ -294,8 +308,8 @@ contract TestTimelockTokenPool is TaikoTest {
     }
 
     function test_multiple_grants() public {
-        pool.grant(Alice, TimelockTokenPool.Grant(10_000e18, 0, 0, 0, 0, 0, 0));
-        pool.grant(Alice, TimelockTokenPool.Grant(20_000e18, 0, 0, 0, 0, 0, 0));
+        pool.grant(Alice, TimelockTokenPool.Grant(10_000e18, 0, 0, 0, 0, 0, 0, 0));
+        pool.grant(Alice, TimelockTokenPool.Grant(20_000e18, 0, 0, 0, 0, 0, 0, 0));
 
         vm.prank(Vault);
         tko.approve(address(pool), 30_000e18);
@@ -314,8 +328,8 @@ contract TestTimelockTokenPool is TaikoTest {
 
     function test_void_multiple_grants_before_granted() public {
         uint64 grantStart = uint64(block.timestamp) + 30 days;
-        pool.grant(Alice, TimelockTokenPool.Grant(10_000e18, grantStart, 0, 0, 0, 0, 0));
-        pool.grant(Alice, TimelockTokenPool.Grant(20_000e18, grantStart, 0, 0, 0, 0, 0));
+        pool.grant(Alice, TimelockTokenPool.Grant(10_000e18, grantStart, 0, 0, 0, 0, 0, 0));
+        pool.grant(Alice, TimelockTokenPool.Grant(20_000e18, grantStart, 0, 0, 0, 0, 0, 0));
 
         vm.prank(Vault);
         tko.approve(address(pool), 30_000e18);
@@ -350,8 +364,8 @@ contract TestTimelockTokenPool is TaikoTest {
 
     function test_void_multiple_grants_after_granted() public {
         uint64 grantStart = uint64(block.timestamp) + 30 days;
-        pool.grant(Alice, TimelockTokenPool.Grant(10_000e18, grantStart, 0, 0, 0, 0, 0));
-        pool.grant(Alice, TimelockTokenPool.Grant(20_000e18, grantStart, 0, 0, 0, 0, 0));
+        pool.grant(Alice, TimelockTokenPool.Grant(10_000e18, grantStart, 0, 0, 0, 0, 0, 0));
+        pool.grant(Alice, TimelockTokenPool.Grant(20_000e18, grantStart, 0, 0, 0, 0, 0, 0));
 
         vm.prank(Vault);
         tko.approve(address(pool), 30_000e18);
@@ -379,8 +393,12 @@ contract TestTimelockTokenPool is TaikoTest {
     function test_void_multiple_grants_in_the_middle() public {
         uint64 grantStart = uint64(block.timestamp);
         uint32 grantPeriod = 100 days;
-        pool.grant(Alice, TimelockTokenPool.Grant(10_000e18, grantStart, 0, grantPeriod, 0, 0, 0));
-        pool.grant(Alice, TimelockTokenPool.Grant(20_000e18, grantStart, 0, grantPeriod, 0, 0, 0));
+        pool.grant(
+            Alice, TimelockTokenPool.Grant(10_000e18, grantStart, 0, grantPeriod, 0, 0, 0, 0)
+        );
+        pool.grant(
+            Alice, TimelockTokenPool.Grant(20_000e18, grantStart, 0, grantPeriod, 0, 0, 0, 0)
+        );
 
         vm.prank(Vault);
         tko.approve(address(pool), 30_000e18);
@@ -414,5 +432,141 @@ contract TestTimelockTokenPool is TaikoTest {
         assertEq(amountUnlocked, 15_000e18);
         assertEq(amountWithdrawn, 0);
         assertEq(amountWithdrawable, 15_000e18);
+    }
+
+    function test_correct_strike_price() public {
+        uint64 grantStart = uint64(block.timestamp);
+        uint32 grantPeriod = 4 * 365 days;
+        uint64 grantCliff = grantStart + 90 days;
+
+        uint64 unlockStart = grantStart + 365 days;
+        uint32 unlockPeriod = 4 * 365 days;
+        uint64 unlockCliff = unlockStart + 365 days;
+
+        uint64 strikePrice = 10_000; // 0.01 USDC if decimals are 6 (as in our test)
+
+        pool.grant(
+            Alice,
+            TimelockTokenPool.Grant(
+                10_000e18,
+                grantStart,
+                grantCliff,
+                grantPeriod,
+                unlockStart,
+                unlockCliff,
+                unlockPeriod,
+                strikePrice
+            )
+        );
+        vm.prank(Vault);
+        tko.approve(address(pool), 10_000e18);
+
+        (
+            uint128 amountOwned,
+            uint128 amountUnlocked,
+            uint128 amountWithdrawn,
+            uint128 amountWithdrawable
+        ) = pool.getMyGrantSummary(Alice);
+        assertEq(amountOwned, 0);
+        assertEq(amountUnlocked, 0);
+        assertEq(amountWithdrawn, 0);
+        assertEq(amountWithdrawable, 0);
+
+        // When withdraw (5 years later) - check if correct price is deducted
+        vm.warp(grantStart + 5 * 365 days);
+        (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
+            pool.getMyGrantSummary(Alice);
+        assertEq(amountOwned, 10_000e18);
+        assertEq(amountUnlocked, 10_000e18);
+        assertEq(amountWithdrawn, 0);
+        assertEq(amountWithdrawable, 10_000e18);
+
+        // 10_000 TKO tokens * strikePrice
+        uint256 payedUsdc = 10_000 * strikePrice;
+        console2.log("Payed USDC in USDC decimals:", payedUsdc);
+
+        vm.prank(Alice);
+        usdc.approve(address(pool), payedUsdc);
+
+        vm.prank(Alice);
+        pool.withdraw();
+        assertEq(tko.balanceOf(Alice), 10_000e18);
+        assertEq(usdc.balanceOf(Alice), 1_000_000_000e6 - payedUsdc);
+    }
+
+    function test_correct_strike_price_if_multiple_grants_different_price() public {
+        uint64 grantStart = uint64(block.timestamp);
+        uint32 grantPeriod = 4 * 365 days;
+        uint64 grantCliff = grantStart + 90 days;
+
+        uint64 unlockStart = grantStart + 365 days;
+        uint32 unlockPeriod = 4 * 365 days;
+        uint64 unlockCliff = unlockStart + 365 days;
+
+        uint64 strikePrice1 = 10_000; // 0.01 USDC if decimals are 6 (as in our test)
+        uint64 strikePrice2 = 50_000; // 0.05 USDC if decimals are 6 (as in our test)
+
+        // Grant Alice 2 times (2x 10_000), with different strik price
+        pool.grant(
+            Alice,
+            TimelockTokenPool.Grant(
+                10_000e18,
+                grantStart,
+                grantCliff,
+                grantPeriod,
+                unlockStart,
+                unlockCliff,
+                unlockPeriod,
+                strikePrice1
+            )
+        );
+
+        pool.grant(
+            Alice,
+            TimelockTokenPool.Grant(
+                10_000e18,
+                grantStart,
+                grantCliff,
+                grantPeriod,
+                unlockStart,
+                unlockCliff,
+                unlockPeriod,
+                strikePrice2
+            )
+        );
+        vm.prank(Vault);
+        tko.approve(address(pool), 20_000e18);
+
+        (
+            uint128 amountOwned,
+            uint128 amountUnlocked,
+            uint128 amountWithdrawn,
+            uint128 amountWithdrawable
+        ) = pool.getMyGrantSummary(Alice);
+        assertEq(amountOwned, 0);
+        assertEq(amountUnlocked, 0);
+        assertEq(amountWithdrawn, 0);
+        assertEq(amountWithdrawable, 0);
+
+        // When withdraw (5 years later) - check if correct price is deducted
+        vm.warp(grantStart + 5 * 365 days);
+        (amountOwned, amountUnlocked, amountWithdrawn, amountWithdrawable) =
+            pool.getMyGrantSummary(Alice);
+        assertEq(amountOwned, 20_000e18);
+        assertEq(amountUnlocked, 20_000e18);
+        assertEq(amountWithdrawn, 0);
+        assertEq(amountWithdrawable, 20_000e18);
+
+        // 10_000 TKO * strikePrice1 + 10_000 TKO * strikePrice2
+        uint256 payedUsdc = 10_000 * strikePrice1 + 10_000 * strikePrice2;
+        console2.log("Payed USDC in USDC decimals:", payedUsdc);
+
+        vm.prank(Alice);
+        usdc.approve(address(pool), payedUsdc);
+
+        vm.prank(Alice);
+        pool.withdraw();
+        assertEq(tko.balanceOf(Alice), 20_000e18);
+        assertEq(usdc.balanceOf(Alice), 1_000_000_000e6 - payedUsdc);
     }
 }

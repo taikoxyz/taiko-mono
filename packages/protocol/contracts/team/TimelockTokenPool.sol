@@ -15,9 +15,17 @@
 pragma solidity 0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import "lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../common/EssentialContract.sol";
+
+/// @title IDecimals
+/// @dev Serves for calculating the common denominator (TKO vs. strike price in stables)
+interface IDecimals {
+    /// @notice Returns the decimals per given ERC20
+    function decimals() external view returns (uint8);
+}
 
 /// @title TimelockTokenPool
 /// Contract for managing Taiko tokens allocated to different roles and
@@ -57,6 +65,8 @@ contract TimelockTokenPool is EssentialContract {
         // If non-zero, specifies the total seconds required for the recipient
         // to fully unlock all owned tokens.
         uint32 unlockPeriod;
+        // Strike price per token in stables (e.g.: USDC) in wei.
+        uint64 strikePrice;
     }
 
     struct Recipient {
@@ -66,32 +76,53 @@ contract TimelockTokenPool is EssentialContract {
 
     uint256 public constant MAX_GRANTS_PER_ADDRESS = 8;
 
+    uint256 public oneTkoUnit;
     address public taikoToken;
+    address public strikePriceToken;
     address public sharedVault;
     uint128 public totalAmountGranted;
     uint128 public totalAmountVoided;
     uint128 public totalAmountWithdrawn;
     mapping(address recipient => Recipient) public recipients;
-    uint128[44] private __gap;
+    uint128[43] private __gap;
 
     event Granted(address indexed recipient, Grant grant);
     event Voided(address indexed recipient, uint128 amount);
     event Withdrawn(address indexed recipient, address to, uint128 amount);
 
+    error INVALID_STRIKE_PRICE_TOKEN();
     error INVALID_GRANT();
     error INVALID_PARAM();
     error NOTHING_TO_VOID();
     error NOTHING_TO_WITHDRAW();
     error TOO_MANY();
 
-    function init(address _taikoToken, address _sharedVault) external initializer {
+    function init(
+        address _taikoToken,
+        address _strikePriceToken,
+        address _sharedVault
+    )
+        external
+        initializer
+    {
         __Essential_init();
 
         if (_taikoToken == address(0)) revert INVALID_PARAM();
         taikoToken = _taikoToken;
 
+        try IDecimals(_taikoToken).decimals() returns (uint8 decimals) {
+            oneTkoUnit = 1 * 10 ** decimals;
+
+            if (0 == oneTkoUnit) revert INVALID_STRIKE_PRICE_TOKEN();
+        } catch {
+            revert INVALID_STRIKE_PRICE_TOKEN();
+        }
+
         if (_sharedVault == address(0)) revert INVALID_PARAM();
         sharedVault = _sharedVault;
+
+        if (_strikePriceToken == address(0)) revert INVALID_PARAM();
+        strikePriceToken = _strikePriceToken;
     }
 
     /// @notice Gives a new grant to a address with its own unlock schedule.
@@ -168,11 +199,17 @@ contract TimelockTokenPool is EssentialContract {
 
     function _withdraw(address recipient, address to) private {
         Recipient storage r = recipients[recipient];
+
+        uint256 price;
         uint128 amount;
 
         uint256 rGrantsLength = r.grants.length;
         for (uint128 i; i < rGrantsLength; ++i) {
-            amount += _getAmountUnlocked(r.grants[i]);
+            uint128 perGrantAmount;
+
+            perGrantAmount = _getAmountUnlocked(r.grants[i]);
+            price += perGrantAmount / oneTkoUnit * r.grants[i].strikePrice;
+            amount += perGrantAmount;
         }
 
         amount -= r.amountWithdrawn;
@@ -180,6 +217,10 @@ contract TimelockTokenPool is EssentialContract {
 
         r.amountWithdrawn += amount;
         totalAmountWithdrawn += amount;
+
+        // Pay the strike price - recipient pays always.
+        IERC20(strikePriceToken).safeTransferFrom(recipient, sharedVault, price);
+        // Receive the token
         IERC20(taikoToken).transferFrom(sharedVault, to, amount);
 
         emit Withdrawn(recipient, to, amount);
@@ -225,8 +266,8 @@ contract TimelockTokenPool is EssentialContract {
         return amount * uint64(block.timestamp - start) / period;
     }
 
-    function _validateGrant(Grant memory g) private pure {
-        if (g.amount == 0) revert INVALID_GRANT();
+    function _validateGrant(Grant memory g) private view {
+        if (g.amount < oneTkoUnit) revert INVALID_GRANT();
         _validateCliff(g.grantStart, g.grantCliff, g.grantPeriod);
         _validateCliff(g.unlockStart, g.unlockCliff, g.unlockPeriod);
     }
