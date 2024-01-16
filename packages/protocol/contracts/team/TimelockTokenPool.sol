@@ -89,9 +89,9 @@ contract TimelockTokenPool is EssentialContract {
     event Voided(address indexed recipient, uint128 amount);
     event Withdrawn(address indexed recipient, address to, uint128 amount);
 
-    error INVALID_STRIKE_PRICE_TOKEN();
     error INVALID_GRANT();
     error INVALID_PARAM();
+    error INVALID_STRIKE_PRICE_TOKEN();
     error NOTHING_TO_VOID();
     error NOTHING_TO_WITHDRAW();
     error TOO_MANY();
