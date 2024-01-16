@@ -27,8 +27,10 @@ contract TestTimelockTokenPool is TaikoTest {
 
     uint128 public constant ONE_TKO_UNIT = 1 * 10 ** 18;
 
-    uint64 strikePrice1 = 10_000; // 0.01 USDC if decimals are 6 (as in our test)
-    uint64 strikePrice2 = 50_000; // 0.05 USDC if decimals are 6 (as in our test)
+    uint64 strikePrice1 = uint64(1 * 10 ** usdc.decimals() / 100); // 0.01 USDC if decimals are 6
+        // (as in our test)
+    uint64 strikePrice2 = uint64(1 * 10 ** usdc.decimals() / 20); // 0.05 USDC if decimals are 6 (as
+        // in our test)
 
     TimelockTokenPool pool;
 
