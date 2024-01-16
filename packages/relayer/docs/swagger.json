@@ -13,7 +13,7 @@
     },
     "version": "1.0"
   },
-  "host": "relayer.jolnir.taiko.xyz",
+  "host": "relayer.katla.taiko.xyz",
   "paths": {
     "/blockInfo": {
       "get": {
@@ -110,6 +110,12 @@
     "paginate.Page": {
       "type": "object",
       "properties": {
+        "error": {
+          "type": "boolean"
+        },
+        "error_message": {
+          "type": "string"
+        },
         "first": {
           "type": "boolean"
         },
