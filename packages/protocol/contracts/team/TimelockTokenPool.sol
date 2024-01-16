@@ -64,7 +64,7 @@ contract TimelockTokenPool is EssentialContract {
         // If non-zero, specifies the total seconds required for the recipient
         // to fully unlock all owned tokens.
         uint32 unlockPeriod;
-        // Strike price per token in stables (e.g.: USDC) in wei.
+        // Strike price per TKO (1e18) in stables (e.g. USDC) in wei.
         uint64 strikePrice;
     }
 
