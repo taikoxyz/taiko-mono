@@ -260,21 +260,6 @@ contract TimelockTokenPool is EssentialContract {
         return amount * uint64(block.timestamp - start) / period;
     }
 
-    function _validateGrant(Grant memory g) private pure {
-        if (g.amount < ONE_TKO_UNIT) revert INVALID_GRANT();
-        _validateCliff(g.grantStart, g.grantCliff, g.grantPeriod);
-        _validateCliff(g.unlockStart, g.unlockCliff, g.unlockPeriod);
-    }
-
-    function _validateCliff(uint64 start, uint64 cliff, uint32 period) private pure {
-        if (start == 0 || period == 0) {
-            if (cliff > 0) revert INVALID_GRANT();
-        } else {
-            if (cliff > 0 && cliff <= start) revert INVALID_GRANT();
-            if (cliff >= start + period) revert INVALID_GRANT();
-        }
-    }
-
     function _processGrantInfo(Grant memory g)
         private
         view
@@ -291,5 +276,20 @@ contract TimelockTokenPool is EssentialContract {
         uint128 amountWithdrawn = g.amountWithdrawn;
 
         return (amountOwned, amountUnlocked, withdrawableCost, amountWithdrawn);
+    }
+
+    function _validateGrant(Grant memory g) private pure {
+        if (g.amount < ONE_TKO_UNIT) revert INVALID_GRANT();
+        _validateCliff(g.grantStart, g.grantCliff, g.grantPeriod);
+        _validateCliff(g.unlockStart, g.unlockCliff, g.unlockPeriod);
+    }
+
+    function _validateCliff(uint64 start, uint64 cliff, uint32 period) private pure {
+        if (start == 0 || period == 0) {
+            if (cliff > 0) revert INVALID_GRANT();
+        } else {
+            if (cliff > 0 && cliff <= start) revert INVALID_GRANT();
+            if (cliff >= start + period) revert INVALID_GRANT();
+        }
     }
 }
