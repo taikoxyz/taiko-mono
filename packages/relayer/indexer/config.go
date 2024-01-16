@@ -1,8 +1,6 @@
 package indexer
 
 import (
-	"strings"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/db"
@@ -36,13 +34,11 @@ type Config struct {
 	SrcRPCUrl           string
 	DestRPCUrl          string
 	ETHClientTimeout    uint64
-	CORSOrigins         []string
 	BlockBatchSize      uint64
 	NumGoroutines       uint64
 	SubscriptionBackoff uint64
 	SyncMode            SyncMode
 	WatchMode           WatchMode
-	HTTPPort            uint64
 	OpenQueueFunc       func() (queue.Queue, error)
 	OpenDBFunc          func() (DB, error)
 }
@@ -66,13 +62,11 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		QueueHost:               c.String(flags.QueueHost.Name),
 		SrcRPCUrl:               c.String(flags.SrcRPCUrl.Name),
 		DestRPCUrl:              c.String(flags.DestRPCUrl.Name),
-		CORSOrigins:             strings.Split(c.String(flags.CORSOrigins.Name), ","),
 		BlockBatchSize:          c.Uint64(flags.BlockBatchSize.Name),
 		NumGoroutines:           c.Uint64(flags.MaxNumGoroutines.Name),
 		SubscriptionBackoff:     c.Uint64(flags.SubscriptionBackoff.Name),
 		WatchMode:               WatchMode(c.String(flags.WatchMode.Name)),
 		SyncMode:                SyncMode(c.String(flags.SyncMode.Name)),
-		HTTPPort:                c.Uint64(flags.HTTPPort.Name),
 		ETHClientTimeout:        c.Uint64(flags.ETHClientTimeout.Name),
 		OpenDBFunc: func() (DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
