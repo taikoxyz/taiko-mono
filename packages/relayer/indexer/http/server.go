@@ -27,7 +27,7 @@ type ethClient interface {
 
 // @license.name MIT
 
-// @host relayer.jolnir.taiko.xyz
+// @host relayer.katla.taiko.xyz
 // Server represents an relayer http server instance.
 type Server struct {
 	echo          *echo.Echo
