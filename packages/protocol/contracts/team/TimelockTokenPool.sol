@@ -15,7 +15,6 @@
 pragma solidity 0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
-import "lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../common/EssentialContract.sol";
@@ -84,7 +83,7 @@ contract TimelockTokenPool is EssentialContract {
     uint128 public totalAmountVoided;
     uint128 public totalAmountWithdrawn;
     mapping(address recipient => Recipient) public recipients;
-    uint128[43] private __gap;
+    uint128[42] private __gap;
 
     event Granted(address indexed recipient, Grant grant);
     event Voided(address indexed recipient, uint128 amount);
