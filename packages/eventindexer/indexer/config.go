@@ -55,12 +55,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		swaps = append(swaps, common.HexToAddress(v))
 	}
 
-	// and the same for CORS origins
-
-	cors := make([]string, 0)
-
-	cors = append(cors, strings.Split(c.String(flags.CORSOrigins.Name), ",")...)
-
 	return &Config{
 		DatabaseUsername:        c.String(flags.DatabaseUsername.Name),
 		DatabasePassword:        c.String(flags.DatabasePassword.Name),

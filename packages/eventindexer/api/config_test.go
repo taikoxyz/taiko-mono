@@ -11,20 +11,10 @@ import (
 var (
 	httpPort                = "1000"
 	metricsHttpPort         = "1001"
-	l1TaikoAddress          = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
-	bridgeAddress           = "0x73FaC9201494f0bd17B9892B9fae4d52fe3BD377"
-	assignmentHookAddress   = "0x83FaC9201494f0bd17B9892B9fae4d52fe3BD377"
-	swapAddresses           = "0x33FaC9201494f0bd17B9892B9fae4d52fe3BD377,0x13FaC9201494f0bd17B9892B9fae4d52fe3BD377"
 	corsOrigins             = "http://localhost:3000,http://localhost:3001"
 	databaseMaxIdleConns    = "10"
 	databaseMaxOpenConns    = "10"
 	databaseMaxConnLifetime = "30"
-	ethClientTimeout        = "30"
-	blockBatchSize          = "100"
-	subscriptionBackoff     = "30"
-	syncMode                = "sync"
-	watchMode               = "filter"
-	layer                   = "l1"
 )
 
 func setupApp() *cli.App {
@@ -56,6 +46,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, uint64(10), c.DatabaseMaxOpenConns)
 		assert.Equal(t, uint64(30), c.DatabaseMaxConnLifetime)
 		assert.NotNil(t, c.OpenDBFunc)
+
 		return err
 	}
 

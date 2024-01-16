@@ -5,30 +5,15 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
-	"math/big"
 	nethttp "net/http"
 
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/labstack/echo/v4"
-	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/indexer/http"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"github.com/urfave/cli/v2"
 	"gorm.io/gorm"
 )
-
-var (
-	ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
-)
-
-type ethClient interface {
-	ChainID(ctx context.Context) (*big.Int, error)
-	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
-	SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error)
-}
 
 type DB interface {
 	DB() (*sql.DB, error)
@@ -36,12 +21,8 @@ type DB interface {
 }
 
 type API struct {
-	eventRepo relayer.EventRepository
-	blockRepo relayer.BlockRepository
-
 	srv      *http.Server
 	httpPort uint64
-	ctx      context.Context
 }
 
 func (api *API) InitFromCli(ctx context.Context, c *cli.Context) error {
