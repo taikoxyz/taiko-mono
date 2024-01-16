@@ -59,15 +59,12 @@ contract TimelockTokenPool is EssentialContract {
         uint32 unlockPeriod;
         // Strike price per TKO (1e18) in stables (e.g. USDC) in wei.
         uint64 strikePrice;
-    }
-
-    struct Recipient {
+        // Withdrawn already
         uint128 amountWithdrawn;
-        Grant[] grants;
     }
 
     uint256 public constant MAX_GRANTS_PER_ADDRESS = 8;
-    uint256 public constant ONE_TKO_UNIT = 1 * 10 ** 18;
+    uint128 public constant ONE_TKO_UNIT = 1 * 10 ** 18;
 
     address public taikoToken;
     address public strikePriceToken;
@@ -75,7 +72,7 @@ contract TimelockTokenPool is EssentialContract {
     uint128 public totalAmountGranted;
     uint128 public totalAmountVoided;
     uint128 public totalAmountWithdrawn;
-    mapping(address recipient => Recipient) public recipients;
+    mapping(address recipient => Grant[]) public recipients;
     uint128[43] private __gap;
 
     event Granted(address indexed recipient, Grant grant);
@@ -116,14 +113,14 @@ contract TimelockTokenPool is EssentialContract {
     /// same recipient.
     function grant(address recipient, Grant memory g) external onlyOwner {
         if (recipient == address(0)) revert INVALID_PARAM();
-        if (recipients[recipient].grants.length >= MAX_GRANTS_PER_ADDRESS) {
+        if (recipients[recipient].length >= MAX_GRANTS_PER_ADDRESS) {
             revert TOO_MANY();
         }
 
         _validateGrant(g);
 
         totalAmountGranted += g.amount;
-        recipients[recipient].grants.push(g);
+        recipients[recipient].push(g);
         emit Granted(recipient, g);
     }
 
@@ -131,11 +128,11 @@ contract TimelockTokenPool is EssentialContract {
     /// granted to the recipient will NOT be voided but are subject to the
     /// original unlock schedule.
     function void(address recipient) external onlyOwner {
-        Recipient storage r = recipients[recipient];
+        Grant[] storage grants = recipients[recipient];
         uint128 amountVoided;
-        uint256 rGrantsLength = r.grants.length;
+        uint256 rGrantsLength = grants.length;
         for (uint128 i; i < rGrantsLength; ++i) {
-            amountVoided += _voidGrant(r.grants[i]);
+            amountVoided += _voidGrant(grants[i]);
         }
         if (amountVoided == 0) revert NOTHING_TO_VOID();
 
@@ -163,51 +160,64 @@ contract TimelockTokenPool is EssentialContract {
             uint128 amountOwned,
             uint128 amountUnlocked,
             uint128 amountWithdrawn,
-            uint128 amountWithdrawable
+            uint128 amountWithdrawable,
+            uint128 withdrawableCost
         )
     {
-        Recipient storage r = recipients[recipient];
-        uint256 rGrantsLength = r.grants.length;
+        Grant[] memory grants = recipients[recipient];
+        uint256 rGrantsLength = grants.length;
         for (uint128 i; i < rGrantsLength; ++i) {
-            amountOwned += _getAmountOwned(r.grants[i]);
-            amountUnlocked += _getAmountUnlocked(r.grants[i]);
+            (
+                uint128 grantOwned,
+                uint128 grantUnlocked,
+                uint128 grantWithdrawableCost,
+                uint128 grantWithdrawn
+            ) = _processGrantInfo(grants[i]);
+            // Accumulate towards the overall values
+            amountOwned += grantOwned;
+            amountUnlocked += grantUnlocked;
+            withdrawableCost += grantWithdrawableCost;
+            amountWithdrawn += grantWithdrawn;
         }
 
-        amountWithdrawn = r.amountWithdrawn;
         amountWithdrawable = amountUnlocked - amountWithdrawn;
     }
 
     function getMyGrants(address recipient) public view returns (Grant[] memory) {
-        return recipients[recipient].grants;
+        return recipients[recipient];
     }
 
     function _withdraw(address recipient, address to) private {
-        Recipient storage r = recipients[recipient];
+        Grant[] storage grants = recipients[recipient];
 
-        uint256 cost;
-        uint128 amount;
+        uint256 withdrawableCost;
+        uint128 amountUnlocked;
+        uint128 amountWithdrawn;
 
-        uint256 rGrantsLength = r.grants.length;
+        uint256 rGrantsLength = grants.length;
         for (uint128 i; i < rGrantsLength; ++i) {
-            uint128 perGrantAmount;
+            (, uint128 grantUnlocked, uint128 grantWithdrawableCost, uint128 grantWithdrawn) =
+                _processGrantInfo(grants[i]);
+            // Accumulate towards the overall values
+            amountUnlocked += grantUnlocked;
+            withdrawableCost += grantWithdrawableCost;
+            amountWithdrawn += grantWithdrawn;
 
-            perGrantAmount = _getAmountUnlocked(r.grants[i]);
-            cost += perGrantAmount / ONE_TKO_UNIT * r.grants[i].strikePrice;
-            amount += perGrantAmount;
+            // Save grant's withdrawal
+            grants[i].amountWithdrawn += grantUnlocked - grantWithdrawn;
         }
 
-        amount -= r.amountWithdrawn;
-        if (amount == 0) revert NOTHING_TO_WITHDRAW();
+        uint128 withdrawableAmount = amountUnlocked - amountWithdrawn;
+        if (withdrawableAmount == 0) revert NOTHING_TO_WITHDRAW();
 
-        r.amountWithdrawn += amount;
-        totalAmountWithdrawn += amount;
+        totalAmountWithdrawn += withdrawableAmount;
 
         // Pay the strike price - recipient pays always.
-        IERC20(strikePriceToken).safeTransferFrom(recipient, sharedVault, cost);
+        IERC20(strikePriceToken).safeTransferFrom(recipient, sharedVault, withdrawableCost);
         // Receive the token
-        IERC20(taikoToken).transferFrom(sharedVault, to, amount);
+        IERC20(taikoToken).transferFrom(sharedVault, to, withdrawableAmount);
 
-        emit Withdrawn(recipient, to, amount);
+        emit Withdrawn(recipient, to, totalAmountWithdrawn);
     }
 
     function _voidGrant(Grant storage g) private returns (uint128 amountVoided) {
@@ -224,7 +234,7 @@ contract TimelockTokenPool is EssentialContract {
         return _calcAmount(g.amount, g.grantStart, g.grantCliff, g.grantPeriod);
     }
 
-    function _getAmountUnlocked(Grant memory g) private view returns (uint128) {
+    function _getAmountUnlocked(Grant memory g) private view returns (uint128 amountUnlocked) {
         return _calcAmount(_getAmountOwned(g), g.unlockStart, g.unlockCliff, g.unlockPeriod);
     }
 
@@ -263,5 +273,23 @@ contract TimelockTokenPool is EssentialContract {
             if (cliff > 0 && cliff <= start) revert INVALID_GRANT();
             if (cliff >= start + period) revert INVALID_GRANT();
         }
+    }
+
+    function _processGrantInfo(Grant memory g)
+        private
+        view
+        returns (uint128, uint128, uint128, uint128)
+    {
+        uint128 amountOwned = _getAmountOwned(g);
+        uint128 amountUnlocked = _getAmountUnlocked(g);
+
+        // Calculate the USDC price, deducting the amount which is already withdrawn
+        uint128 withdrawableCost =
+            (amountUnlocked - g.amountWithdrawn) / ONE_TKO_UNIT * g.strikePrice;
+
+        // Accumulate towards the overall unlocked
+        uint128 amountWithdrawn = g.amountWithdrawn;
+
+        return (amountOwned, amountUnlocked, withdrawableCost, amountWithdrawn);
     }
 }
