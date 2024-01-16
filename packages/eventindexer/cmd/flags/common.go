@@ -16,28 +16,28 @@ var (
 		Usage:    "Database connection username",
 		Required: true,
 		Category: commonCategory,
-		EnvVars:  []string{"DATABASE_USER"},
+		EnvVars:  []string{"MYSQL_USER"},
 	}
 	DatabasePassword = &cli.StringFlag{
 		Name:     "db.password",
 		Usage:    "Database connection password",
 		Required: true,
 		Category: commonCategory,
-		EnvVars:  []string{"DATABASE_PASSWORD"},
+		EnvVars:  []string{"MYSQL_PASSWORD"},
 	}
 	DatabaseHost = &cli.StringFlag{
 		Name:     "db.host",
 		Usage:    "Database connection host",
 		Required: true,
 		Category: commonCategory,
-		EnvVars:  []string{"DATABASE_HOST"},
+		EnvVars:  []string{"MYSQL_HOST"},
 	}
 	DatabaseName = &cli.StringFlag{
 		Name:     "db.name",
 		Usage:    "Database connection name",
 		Required: true,
 		Category: commonCategory,
-		EnvVars:  []string{"DATABASE_NAME"},
+		EnvVars:  []string{"MYSQL_DATABASE"},
 	}
 )
 
@@ -47,21 +47,21 @@ var (
 		Usage:    "Database max idle connections",
 		Value:    50,
 		Category: commonCategory,
-		EnvVars:  []string{"DATABASE_MAX_IDLE_CONNS"},
+		EnvVars:  []string{"MYSQL_MAX_IDLE_CONNS"},
 	}
 	DatabaseMaxOpenConns = &cli.Uint64Flag{
 		Name:     "db.maxOpenConns",
 		Usage:    "Database max open connections",
 		Value:    200,
 		Category: commonCategory,
-		EnvVars:  []string{"DATABASE_MAX_OPEN_CONNS"},
+		EnvVars:  []string{"MYSQL_MAX_OPEN_CONNS"},
 	}
 	DatabaseConnMaxLifetime = &cli.Uint64Flag{
 		Name:     "db.connMaxLifetime",
 		Usage:    "Database connection max lifetime in seconds",
 		Value:    10,
 		Category: commonCategory,
-		EnvVars:  []string{"DATABASE_CONN_MAX_LIFETIME"},
+		EnvVars:  []string{"MYSQL_CONN_MAX_LIFETIME_IN_MS"},
 	}
 )
 
