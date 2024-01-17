@@ -1,6 +1,9 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
 
+  import Amount from '$components/Bridge/Amount.svelte';
+  import { enteredAmount, selectedNFTs } from '$components/Bridge/state';
   import { ImportMethod } from '$components/Bridge/types';
   import { ActionButton, Button } from '$components/Button';
   import { IconFlipper } from '$components/Icon';
@@ -15,8 +18,12 @@
 
   export let foundNFTs: NFT[] = [];
 
+  export let canProceed = false;
+
   let nftView: NFTView = NFTView.LIST;
   let scanning = false;
+
+  let amountComponent: Amount;
 
   function onScanClick() {
     scanning = true;
@@ -36,8 +43,37 @@
   function onManualImportClick() {
     $selectedImportMethod = ImportMethod.MANUAL;
   }
+  $: isERC1155 = $selectedNFTs ? $selectedNFTs.some((nft) => nft.type === 'ERC1155') : false;
+  $: nftHasAmount = hasSelectedNFT && isERC1155;
+
+  $: validBalance = nftHasAmount && $enteredAmount > 0;
+
+  $: hasSelectedNFT = $selectedNFTs && $selectedNFTs?.length > 0;
+
+  $: if (nftHasAmount && hasSelectedNFT) {
+    if (validBalance) {
+      canProceed = true;
+    } else {
+      canProceed = false;
+    }
+  } else if (!nftHasAmount && hasSelectedNFT) {
+    canProceed = true;
+  } else {
+    canProceed = false;
+  }
+
+  onDestroy(() => {
+    $selectedNFTs = [];
+  });
 </script>
 
+{$selectedNFTs?.length} <br />
+validBalance {validBalance} <br />
+$enteredAmount gt 0 {$enteredAmount > 0} <br />
+has amount {nftHasAmount} <br />
+(nftHasAmount ? $enteredAmount gt 0 : true) {nftHasAmount ? $enteredAmount > 0 : true} <br />
+{hasSelectedNFT && (nftHasAmount ? $enteredAmount > 0 : true)}
+<!-- {JSON.stringify($selectedNFTs, (key, value) => (typeof value === 'bigint' ? Number(value) : value))} -->
 <div class="f-col w-full gap-4">
   <section class="space-y-2">
     <div class="flex justify-between items-center w-full">
@@ -67,11 +103,11 @@
       <NFTDisplay loading={scanning} nfts={foundNFTs} {nftView} />
     </div>
   </section>
-  <!-- {#if nftHasAmount}
+  {#if nftHasAmount}
     <section>
       <Amount bind:this={amountComponent} doAllowanceCheck={false} />
     </section>
-  {/if} -->
+  {/if}
 
   <div class="flex items-center justify-between space-x-2">
     <p class="text-secondary-content">{$t('bridge.nft.step.import.scan_screen.description')}</p>

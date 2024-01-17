@@ -72,7 +72,7 @@
 {#if $selectedImportMethod === ImportMethod.MANUAL}
   <ManualImport bind:canProceed bind:validating />
 {:else if $selectedImportMethod === ImportMethod.SCAN}
-  <ScannedImport {scanForNFTs} bind:foundNFTs />
+  <ScannedImport {scanForNFTs} bind:foundNFTs bind:canProceed />
 {:else}
   <ImportActions bind:scanning {canImport} {scanForNFTs} />
 {/if}

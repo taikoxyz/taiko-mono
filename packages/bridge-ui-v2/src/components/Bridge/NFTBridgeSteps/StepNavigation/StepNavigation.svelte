@@ -13,7 +13,7 @@
   let nextStepButtonText: string;
 
   const nextStep = () => (activeStep = Math.min(activeStep + 1, NFTSteps.CONFIRM));
-  const previousStep = () => (activeStep = Math.max(activeStep - 1, NFTSteps.IMPORT));
+  // const previousStep = () => (activeStep = Math.max(activeStep - 1, NFTSteps.IMPORT));
 
   const getStepText = () => {
     if (activeStep === NFTSteps.REVIEW) {
@@ -26,25 +26,29 @@
     }
   };
 
+  const handlePreviousStep = () => {};
+
   $: {
     nextStepButtonText = getStepText();
   }
 </script>
 
 <div class="f-col w-full justify-content-center gap-4">
-  {#if activeStep === NFTSteps.IMPORT && $selectedImportMethod !== ImportMethod.NONE}
-    <ActionButton priority="primary" disabled={!canProceed} loading={validatingImport} on:click={nextStep}
-      ><span class="body-bold">{nextStepButtonText}</span></ActionButton>
+  {#if activeStep === NFTSteps.IMPORT}
+    {#if $selectedImportMethod !== ImportMethod.NONE}
+      <ActionButton priority="primary" disabled={!canProceed} loading={validatingImport} on:click={nextStep}
+        ><span class="body-bold">{nextStepButtonText}</span></ActionButton>
 
-    <button on:click={previousStep} class="flex justify-center py-3 link">
-      {$t('common.back')}
-    </button>
+      <button on:click={() => ($selectedImportMethod = ImportMethod.NONE)} class="flex justify-center py-3 link">
+        {$t('common.back')}
+      </button>
+    {/if}
   {/if}
   {#if activeStep === NFTSteps.REVIEW}
     <ActionButton priority="primary" disabled={!canProceed} on:click={nextStep}
       ><span class="body-bold">{nextStepButtonText}</span></ActionButton>
 
-    <button on:click={previousStep} class="flex justify-center py-3 link">
+    <button on:click={() => handlePreviousStep} class="flex justify-center py-3 link">
       {$t('common.back')}
     </button>
   {/if}
@@ -53,7 +57,7 @@
     <ActionButton priority="primary" disabled={!canProceed} on:click={nextStep}
       ><span class="body-bold">{nextStepButtonText}</span></ActionButton>
 
-    <button on:click={previousStep} class="flex justify-center py-3 link">
+    <button on:click={() => handlePreviousStep} class="flex justify-center py-3 link">
       {$t('common.back')}
     </button>
   {/if}

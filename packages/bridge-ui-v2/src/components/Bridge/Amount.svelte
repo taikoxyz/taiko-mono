@@ -16,7 +16,7 @@
     UnknownTokenTypeError,
   } from '$libs/error';
   import { ETHToken, getBalance as getTokenBalance, type NFT, TokenType } from '$libs/token';
-  import { getCanonicalInfoForToken } from '$libs/token/getCanonicalInfoForToken';
+  // import { getCanonicalInfoForToken } from '$libs/token/getCanonicalInfoForToken';
   import { renderBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
@@ -26,7 +26,7 @@
   import { network } from '$stores/network';
 
   import {
-    allApproved,
+    // allApproved,
     computingBalance,
     destNetwork,
     enteredAmount,
@@ -82,22 +82,22 @@
       $computingBalance = false;
       return;
     }
-    const canonicalInfo = await getCanonicalInfoForToken({
-      token,
-      srcChainId: $network.id,
-      destChainId: $destNetwork.id,
-    });
-    if (canonicalInfo) {
-      if (canonicalInfo.address !== token.addresses[$network.id]) {
-        // we have a bridged token, we do not need approvals
-        log('token is bridged, no need for approvals');
-        $allApproved = true;
-        $insufficientAllowance = false;
-        $validatingAmount = false;
-        $computingBalance = false;
-        return;
-      }
-    }
+    // const canonicalInfo = await getCanonicalInfoForToken({
+    //   token,
+    //   srcChainId: $network.id,
+    //   destChainId: $destNetwork.id,
+    // });
+    // if (canonicalInfo) {
+    //   if (canonicalInfo.address !== token.addresses[$network.id]) {
+    //     // we have a bridged token, we do not need approvals
+    //     log('token is bridged, no need for approvals');
+    //     $allApproved = true;
+    //     $insufficientAllowance = false;
+    //     $validatingAmount = false;
+    //     $computingBalance = false;
+    //     return;
+    //   }
+    // }
     if (doAllowanceCheck) {
       try {
         await checkBalanceToBridge({
@@ -312,7 +312,7 @@
   // TODO: Disabled for now, potentially confusing users
   // $: showInsiffucientAllowanceAlert = $insufficientAllowance && !$errorComputingBalance && !$computingBalance;
 
-  $: maxButtonEnabled = hasBalance && !disabled && !$computingBalance && !$errorComputingBalance && !$validatingAmount;
+  $: maxButtonEnabled = hasBalance && !disabled && !$errorComputingBalance;
 
   onMount(() => {
     $computingBalance = true;
@@ -332,9 +332,8 @@
       {:else}
         <span>{$t('inputs.amount.balance')}:</span>
         <span>
-          {#if $computingBalance}
-            <LoadingText mask="0.0000" />
-            <LoadingText mask="XXX" />
+          {#if $computingBalance && !computingMaxAmount}
+            <LoadingText mask={$tokenBalance?.toString() || '0.000000'} />
           {:else}
             {renderBalance($tokenBalance)}
           {/if}
@@ -363,7 +362,7 @@
     </div>
     <div class="flex mt-[8px] min-h-[24px]">
       {#if showInsufficientBalanceAlert}
-        <FlatAlert type="error" message={$t('bridge.errors.insufficient_balance.title')} class="relative" />
+        <FlatAlert type="error" message={$t('bridge.errors.insufficient_balance.title')} class="relative " />
         <!-- TODO: Disabled for now, potentially confusing users -->
 
         <!-- {:else if showInsiffucientAllowanceAlert}
