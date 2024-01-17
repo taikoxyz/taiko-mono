@@ -134,6 +134,7 @@
             "description": "Don't see your NFTs? Try adding them manually!",
             "title": "Your NFTs ({number} items)"
           },
+          "select_all": "Select all",
           "title": "Import"
         },
         "review": {
@@ -178,6 +179,7 @@
     "balance": "Balance",
     "bridged_address": "Bridged address",
     "cancel": "Cancel",
+    "canonical_address": "Canonical address",
     "close": "Close",
     "collection": "Collection",
     "confirm": "Confirm",

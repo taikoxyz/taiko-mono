@@ -2,7 +2,7 @@ import { zeroAddress } from 'viem';
 
 import type { Token } from '$libs/token';
 
-import { getCrossChainAddress } from './getCrossChainAddress';
+import { getCrossChainInfo } from './getCrossChainInfo';
 
 type IsDeployedCrossChainArgs = {
   token: Token;
@@ -14,8 +14,11 @@ export async function isDeployedCrossChain({ token, srcChainId, destChainId }: I
   const destTokenAddressOnDestChain = token.addresses[destChainId];
 
   if (!destTokenAddressOnDestChain || destTokenAddressOnDestChain === zeroAddress) {
+    const crossChainInfo = await getCrossChainInfo({ token, srcChainId, destChainId });
+    if (!crossChainInfo) return false;
+    const { address } = crossChainInfo;
     // Check if token is already deployed as BridgedERC20 on destination chain
-    const bridgedTokenAddress = await getCrossChainAddress({ token, srcChainId, destChainId });
+    const bridgedTokenAddress = address;
 
     return bridgedTokenAddress ? bridgedTokenAddress !== zeroAddress : false;
   }

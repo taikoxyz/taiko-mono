@@ -16,6 +16,7 @@
     UnknownTokenTypeError,
   } from '$libs/error';
   import { ETHToken, getBalance as getTokenBalance, type NFT, TokenType } from '$libs/token';
+  import { getCanonicalInfoForToken } from '$libs/token/getCanonicalInfoForToken';
   import { renderBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
@@ -25,6 +26,7 @@
   import { network } from '$stores/network';
 
   import {
+    allApproved,
     computingBalance,
     destNetwork,
     enteredAmount,
@@ -80,7 +82,22 @@
       $computingBalance = false;
       return;
     }
-
+    const canonicalInfo = await getCanonicalInfoForToken({
+      token,
+      srcChainId: $network.id,
+      destChainId: $destNetwork.id,
+    });
+    if (canonicalInfo) {
+      if (canonicalInfo.address !== token.addresses[$network.id]) {
+        // we have a bridged token, we do not need approvals
+        log('token is bridged, no need for approvals');
+        $allApproved = true;
+        $insufficientAllowance = false;
+        $validatingAmount = false;
+        $computingBalance = false;
+        return;
+      }
+    }
     if (doAllowanceCheck) {
       try {
         await checkBalanceToBridge({

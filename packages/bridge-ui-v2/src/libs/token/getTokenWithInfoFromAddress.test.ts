@@ -3,7 +3,7 @@ import { type Address, zeroAddress } from 'viem';
 
 import { customToken } from '$customToken';
 import { UnknownTokenTypeError } from '$libs/error';
-import { fetchNFTMetadata } from '$libs/util/fetchNFTMetadata';
+import { fetchNFTMetadata } from '$libs/token/fetchNFTMetadata';
 
 import { detectContractType } from './detectContractType';
 import { getTokenWithInfoFromAddress } from './getTokenWithInfoFromAddress';
