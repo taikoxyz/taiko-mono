@@ -1,4 +1,4 @@
-import axios, { AxiosError, type AxiosResponse } from 'axios';
+import axios, { AxiosError, type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import objectHash from 'object-hash';
 import { get } from 'svelte/store';
 
@@ -11,6 +11,12 @@ import { extractIPFSCidFromUrl } from './extractIPFSCidFromUrl';
 import { getLogger } from './logger';
 
 const log = getLogger('libs:token:fetchNFTMetadata');
+
+const REQUEST_TIMEOUT_IN_MS: number = 5000;
+
+const axiosConfig: AxiosRequestConfig = {
+  timeout: REQUEST_TIMEOUT_IN_MS,
+};
 
 export const fetchNFTMetadata = async (token: NFT): Promise<NFT | null> => {
   const cacheKey = objectHash.sha1(token);
@@ -59,7 +65,7 @@ const fetchNFTMetadataOnline = async (token: NFT): Promise<NFTMetadata | null> =
   let json;
 
   try {
-    json = await axios.get(url);
+    json = await axios.get(url, axiosConfig);
   } catch (err) {
     const error = err as AxiosError;
     log(`error fetching metadata for ${token.name} id: ${token.tokenId}`, error);
@@ -108,7 +114,7 @@ const retry = async (url: string, tokenId: number): Promise<AxiosResponse | Erro
 const retryRequest = async (newUrl: string): Promise<AxiosResponse | Error> => {
   try {
     log(`retrying with ${newUrl}`);
-    return await axios.get(newUrl);
+    return await axios.get(newUrl, axiosConfig);
   } catch (error) {
     log('retrying failed', error);
     throw new Error(`No metadata found for ${newUrl}`);

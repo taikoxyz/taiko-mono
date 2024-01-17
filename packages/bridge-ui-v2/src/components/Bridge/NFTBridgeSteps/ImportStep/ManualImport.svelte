@@ -1,0 +1,189 @@
+<script lang="ts">
+  import { t } from 'svelte-i18n';
+  import { type Address, isAddress } from 'viem';
+
+  import { FlatAlert } from '$components/Alert';
+  import AddressInput from '$components/Bridge/AddressInput/AddressInput.svelte';
+  import { AddressInputState } from '$components/Bridge/AddressInput/state';
+  import Amount from '$components/Bridge/Amount.svelte';
+  import IdInput from '$components/Bridge/IDInput/IDInput.svelte';
+  import { IDInputState } from '$components/Bridge/IDInput/state';
+  import { enteredAmount, selectedNFTs, selectedToken, tokenBalance } from '$components/Bridge/state';
+  import { detectContractType, type NFT, TokenType } from '$libs/token';
+  import { checkOwnership } from '$libs/token/checkOwnership';
+  import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
+  import { account } from '$stores/account';
+  import { network } from '$stores/network';
+
+  export let contractAddress: Address | string = '';
+  export let nftIdsToImport: number[] = [];
+  export let validating: boolean = false;
+
+  export let canProceed: boolean = false;
+
+  let addressInputState: AddressInputState = AddressInputState.DEFAULT;
+
+  let addressInputComponent: AddressInput;
+  let amountComponent: Amount;
+  let nftIdInputComponent: IdInput;
+
+  let idInputState: IDInputState = IDInputState.DEFAULT;
+
+  let enteredIds: number[] = [];
+
+  let detectedTokenType: TokenType | null = null;
+
+  $: isOwnerOfAllToken = false;
+
+  async function onAddressValidation(event: CustomEvent<{ isValidEthereumAddress: boolean; addr: Address }>) {
+    const { isValidEthereumAddress, addr } = event.detail;
+    // interfaceSupported = true;
+    addressInputState = AddressInputState.VALIDATING;
+
+    if (isValidEthereumAddress && typeof addr === 'string') {
+      contractAddress = addr;
+      try {
+        detectedTokenType = await detectContractType(addr);
+      } catch {
+        addressInputState = AddressInputState.INVALID;
+      }
+      if (!$network?.id) throw new Error('network not found');
+      if (detectedTokenType !== TokenType.ERC721 && detectedTokenType !== TokenType.ERC1155) {
+        addressInputState = AddressInputState.NOT_NFT;
+        return;
+      }
+
+      //TODO: not working as expected yet
+
+      // interfaceSupported = await isSupportedNFTInterface(addr, detectedTokenType);
+      // if (!interfaceSupported) {
+      //   addressInputState = AddressInputState.INVALID;
+      // } else {
+      //   addressInputState = AddressInputState.VALID;
+      // }
+      addressInputState = AddressInputState.VALID;
+    } else {
+      detectedTokenType = null;
+      addressInputState = AddressInputState.INVALID;
+    }
+    return;
+  }
+
+  async function onIdInput(): Promise<void> {
+    idInputState = IDInputState.VALIDATING;
+    validating = true;
+
+    try {
+      if (canValidateIdInput && enteredIds && enteredIds.length > 0) {
+        const tokenId = nftIdsToImport[0]; // Handle multiple tokens if needed
+
+        const ownershipResults = await checkOwnership(
+          contractAddress as Address,
+          detectedTokenType,
+          nftIdsToImport,
+          // Ignore as we check this in canValidateIdInput
+          // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
+          $account?.address!,
+          // Ignore as we check this in canValidateIdInput
+          // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
+          $network?.id!,
+        );
+
+        isOwnerOfAllToken = ownershipResults.every((value) => value.isOwner === true);
+
+        if (!isOwnerOfAllToken) {
+          idInputState = IDInputState.INVALID;
+          throw new Error('Not owner of all tokens');
+        }
+        const token = await getTokenWithInfoFromAddress({
+          contractAddress: contractAddress as Address,
+          // Ignore as we check this in canValidateIdInput
+          // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
+          srcChainId: $network?.id!,
+          tokenId,
+          owner: $account?.address,
+        });
+
+        if (!token) {
+          throw new Error('No token with info');
+        }
+
+        detectedTokenType = token.type;
+        $selectedNFTs = [token as NFT];
+        $selectedToken = token;
+        idInputState = IDInputState.VALID;
+
+        $tokenBalance = token.type !== TokenType.ERC721 ? token.balance : null;
+      } else {
+        idInputState = IDInputState.INVALID;
+      }
+    } catch (err) {
+      console.error(err);
+      detectedTokenType = null;
+      idInputState = IDInputState.INVALID;
+    } finally {
+      if (idInputState !== IDInputState.VALID) {
+        idInputState = IDInputState.DEFAULT;
+      }
+    }
+    validating = false;
+  }
+
+  $: displayOwnershipError =
+    contractAddress && enteredIds && !isOwnerOfAllToken && nftIdsToImport?.length > 0 && !validating;
+
+  $: canValidateIdInput = isAddress(contractAddress) && $network?.id && $account?.address ? true : false;
+
+  $: isERC1155 = detectedTokenType === TokenType.ERC1155;
+
+  $: if (
+    !validating &&
+    isOwnerOfAllToken &&
+    enteredIds &&
+    enteredIds.length > 0 &&
+    (nftHasAmount ? $enteredAmount > 0 : true)
+  ) {
+    canProceed = true;
+  } else {
+    canProceed = false;
+  }
+
+  $: nftHasAmount = $selectedNFTs && $selectedNFTs.length > 0 && isERC1155 && !validating;
+
+  $: showNFTAmountInput = nftHasAmount && isOwnerOfAllToken;
+
+  $: isDisabled = idInputState !== IDInputState.VALID || addressInputState !== AddressInputState.VALID;
+</script>
+
+<AddressInput
+  bind:this={addressInputComponent}
+  bind:ethereumAddress={contractAddress}
+  bind:state={addressInputState}
+  class="bg-neutral-background border-0 h-[56px]"
+  on:addressvalidation={onAddressValidation}
+  labelText={$t('inputs.address_input.label.contract')} />
+
+<!-- {#if !interfaceSupported}
+      <Alert type="error">TODO: token interface is not supported (link to docs?)</Alert>
+    {/if} -->
+<div class="min-h-[20px] mt-[30px]">
+  <!-- TODO: currently hard limited to 1 -->
+  <IdInput
+    isDisabled={addressInputState !== AddressInputState.VALID}
+    bind:this={nftIdInputComponent}
+    bind:enteredIds
+    bind:validIdNumbers={nftIdsToImport}
+    bind:state={idInputState}
+    on:inputValidation={onIdInput}
+    limit={1}
+    class="bg-neutral-background border-0 h-[56px]" />
+  <div class="min-h-[20px] !mt-3">
+    {#if displayOwnershipError}
+      <FlatAlert type="error" forceColumnFlow message={$t('bridge.errors.not_the_owner_of_all')} />
+    {/if}
+  </div>
+</div>
+{#if showNFTAmountInput && !isDisabled}
+  <Amount bind:this={amountComponent} class=" h-[56px] !mt-0" doAllowanceCheck={false} />
+{/if}
+<div class="h-sep" />
