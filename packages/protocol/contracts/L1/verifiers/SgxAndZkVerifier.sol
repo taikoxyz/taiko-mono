@@ -38,6 +38,7 @@ contract SgxAndZkVerifier is EssentialContract, IVerifier {
         TaikoData.TierProof calldata proof
     )
         external
+        onlyFromNamed("taiko")
     {
         TaikoData.TierProof memory _proof;
         _proof.tier = proof.tier;
