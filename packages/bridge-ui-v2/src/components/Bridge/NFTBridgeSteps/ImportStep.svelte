@@ -49,7 +49,7 @@
 
   export const prefetchImage = () => noop();
 
-  let enteredIds: string = '';
+  let enteredIds: number[] = [];
   let scanning: boolean;
 
   let addressInputComponent: AddressInput;
@@ -71,7 +71,7 @@
 
   const reset = () => {
     nftView = NFTView.LIST;
-    enteredIds = '';
+    enteredIds = [];
     isOwnerOfAllToken = false;
     detectedTokenType = null;
   };
@@ -144,8 +144,12 @@
     validating = true;
 
     try {
-      if (canValidateIdInput) {
-        const tokenId = nftIdArray[0]; // Handle multiple tokens if needed
+      if (canValidateIdInput && enteredIds && enteredIds.length > 0) {
+        const tokenId: number = nftIdArray[0]; // Handle multiple tokens if needed
+
+        if (typeof tokenId !== 'number') {
+          throw new Error('Token ID is not a number');
+        }
 
         const ownershipResults = await checkOwnership(
           contractAddress as Address,
@@ -248,7 +252,7 @@
   }
 
   $: canImport = $account?.isConnected && $network?.id && $destinationChain && !scanning;
-  $: canValidateIdInput = isAddress(contractAddress) && $network?.id && $account?.address && enteredIds.length > 0;
+  $: canValidateIdInput = isAddress(contractAddress) && $network?.id && $account?.address;
 
   $: isDisabled = idInputState !== IDInputState.VALID || addressInputState !== AddressInputState.VALID;
 
@@ -258,6 +262,7 @@
     $selectedNFTs &&
     $selectedNFTs.length > 0 &&
     $selectedNFTs[0].type === TokenType.ERC1155 &&
+    enteredIds &&
     enteredIds.length > 0 &&
     !validating;
 

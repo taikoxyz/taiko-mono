@@ -145,7 +145,7 @@
           warningToast({ title: $t('messages.account.required') });
           break;
         case err instanceof UserRejectedRequestError:
-          warningToast({ title: $t('transactions.actions.claim.rejected') });
+          warningToast({ title: $t('transactions.actions.claim.rejected.title') });
           break;
         case err instanceof InsufficientBalanceError:
           dispatch('insufficientFunds', { tx: bridgeTx });

@@ -191,7 +191,7 @@
     "id": "ID",
     "loading": "Loading",
     "name": "Name",
-    "ok": "Ok",
+    "ok": "Okay",
     "status": "Status",
     "success": "Success",
     "to": "To",
@@ -266,7 +266,7 @@
         "invalid": "Not a valid numeric value"
       },
       "label": "Token ID",
-      "placeholder": "1 or 5,14,733"
+      "placeholder": "e.g. 1 (only numbers)"
     }
   },
   "messages": {
