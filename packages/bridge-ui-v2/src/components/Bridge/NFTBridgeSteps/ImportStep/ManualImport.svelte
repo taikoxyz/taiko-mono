@@ -136,19 +136,22 @@
 
   $: isERC1155 = detectedTokenType === TokenType.ERC1155;
 
-  $: if (
-    !validating &&
-    isOwnerOfAllToken &&
-    enteredIds &&
-    enteredIds.length > 0 &&
-    (nftHasAmount ? $enteredAmount > 0 : true)
-  ) {
-    canProceed = true;
-  } else {
-    canProceed = false;
-  }
+  $: nftHasAmount = hasSelectedNFT && isERC1155;
 
-  $: nftHasAmount = $selectedNFTs && $selectedNFTs.length > 0 && isERC1155 && !validating;
+  $: validBalance = typeof $tokenBalance === 'bigint' && $enteredAmount > 0 && $enteredAmount <= $tokenBalance;
+
+  $: hasEnteredIds = enteredIds && enteredIds.length > 0;
+  $: hasSelectedNFT = $selectedNFTs && $selectedNFTs?.length > 0 && hasEnteredIds;
+
+  $: if (nftHasAmount && hasSelectedNFT) {
+    if (validBalance) {
+      canProceed = true;
+    } else {
+      canProceed = false;
+    }
+  } else if (!nftHasAmount && hasSelectedNFT) {
+    canProceed = true;
+  }
 
   $: showNFTAmountInput = nftHasAmount && isOwnerOfAllToken;
 
@@ -184,6 +187,6 @@
   </div>
 </div>
 {#if showNFTAmountInput && !isDisabled}
-  <Amount bind:this={amountComponent} class=" h-[56px] !mt-0" doAllowanceCheck={false} />
+  <Amount bind:this={amountComponent} class="!mt-0" doAllowanceCheck={false} />
 {/if}
 <div class="h-sep" />
