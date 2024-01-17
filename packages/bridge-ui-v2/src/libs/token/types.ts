@@ -46,7 +46,7 @@ export type NFTMetadata = {
   //todo: more metadata?
 };
 
-export type GetCrossChainAddressArgs = {
+export type GetTokenInfo = {
   token: Token;
   srcChainId: number;
   destChainId: number;

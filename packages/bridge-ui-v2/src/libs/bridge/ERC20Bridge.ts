@@ -143,7 +143,7 @@ export class ERC20Bridge extends Bridge {
     });
 
     try {
-      log(`Calling approve for spender "${spenderAddress}" with amount`, amount);
+      log(`Calling approve for spender "${spenderAddress}" for token "${tokenAddress}" with amount`, amount);
 
       const txHash = await tokenContract.write.approve([spenderAddress, amount]);
 

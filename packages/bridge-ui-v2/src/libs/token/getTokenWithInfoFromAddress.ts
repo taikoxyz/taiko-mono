@@ -2,7 +2,7 @@ import { erc721ABI, fetchToken, readContract } from '@wagmi/core';
 import type { Address } from 'viem';
 
 import { erc1155ABI } from '$abi';
-import { fetchNFTMetadata } from '$libs/util/fetchNFTMetadata';
+import { fetchNFTMetadata } from '$libs/token/fetchNFTMetadata';
 import { getLogger } from '$libs/util/logger';
 import { safeReadContract } from '$libs/util/safeReadContract';
 
@@ -45,6 +45,7 @@ export const getTokenWithInfoFromAddress = async ({
 };
 
 const getERC20Info = async (contractAddress: Address, srcChainId: number, type: TokenType) => {
+  log(`getting token info for ERC20`);
   const fetchResult = await fetchToken({
     address: contractAddress,
     chainId: srcChainId,
@@ -69,6 +70,7 @@ const getERC1155Info = async (
   tokenId: number | undefined,
   type: TokenType,
 ) => {
+  log(`getting token info for ERC1155`);
   let name = await safeReadContract({
     address: contractAddress,
     abi: erc1155ABI,
@@ -125,7 +127,6 @@ const getERC1155Info = async (
     } catch {
       return token;
     }
-    return token;
   } catch (error) {
     log(`error fetching metadata for ${contractAddress} id: ${tokenId}`, error);
   }
@@ -138,6 +139,9 @@ const getERC721Info = async (
   tokenId: number | undefined,
   type: TokenType,
 ) => {
+  log(`getting token info for ERC721`);
+
+  log(`getting name, symbol and uri for ERC721 token ${contractAddress} id: ${tokenId} on chain ${srcChainId}`);
   const name = await readContract({
     address: contractAddress,
     abi: erc721ABI,

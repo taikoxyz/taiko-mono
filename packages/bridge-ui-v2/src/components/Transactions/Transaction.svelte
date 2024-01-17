@@ -31,7 +31,7 @@
   let detailsOpen = false;
   let isDesktopOrLarger = false;
 
-  let nftInfoOpen = false;
+  $: nftInfoOpen = false;
 
   let attrs = isDesktopOrLarger ? {} : { role: 'button' };
 
@@ -111,6 +111,11 @@
   $: itemAmountDisplay = item.tokenType === TokenType.ERC721 ? '---' : item.amount;
 
   $: isNFT = [TokenType.ERC1155, TokenType.ERC721].includes(item.tokenType);
+
+  const onOpenDetails = () => {
+    nftInfoOpen = true;
+    nftInfoOpen = nftInfoOpen;
+  };
 </script>
 
 {#if isNFT}
@@ -119,7 +124,7 @@
   <!-- svelte-ignore a11y-no-static-element-interactions -->
   <div class="flex text-primary-content md:h-[80px] h-[45px] w-full my-[10px] md:my-[0px]">
     {#if isDesktopOrLarger}
-      <button class="w-3/12 py-2 flex flex-row space-x-[8px]" on:click={() => (nftInfoOpen = true)}>
+      <button class="w-3/12 py-2 flex flex-row space-x-[8px]" on:click={() => onOpenDetails()}>
         {#if loading}
           <div class="rounded-[10px] w-[50px] h-[50px] bg-neutral flex items-center justify-center">
             <Spinner />
@@ -152,7 +157,7 @@
       </div>
     {:else}
       <div class="flex text-primary-content w-full justify-content-left">
-        <button class="space-x-[8px] w-1/4" on:click={() => (nftInfoOpen = true)}>
+        <button class="space-x-[8px] w-1/4" on:click={() => onOpenDetails()}>
           {#if loading}
             <div class="rounded-[10px] w-[50px] h-[50px] bg-neutral flex items-center justify-center">
               <Spinner />

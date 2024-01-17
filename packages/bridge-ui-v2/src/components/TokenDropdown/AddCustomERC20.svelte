@@ -12,8 +12,8 @@
   import Erc20 from '$components/Icon/ERC20.svelte';
   import { Spinner } from '$components/Spinner';
   import { tokenService } from '$libs/storage/services';
-  import { detectContractType, type GetCrossChainAddressArgs, type Token, TokenType } from '$libs/token';
-  import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
+  import { detectContractType, type GetTokenInfo, type Token, TokenType } from '$libs/token';
+  import { getCrossChainInfo } from '$libs/token/getCrossChainInfo';
   import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
   import { getLogger } from '$libs/util/logger';
   import { uid } from '$libs/util/uid';
@@ -49,18 +49,19 @@
       const destChain = $destNetwork;
 
       if (!srcChain || !destChain) return;
-
       // let's check if this token has already been bridged
-      const bridgedAddress = await getCrossChainAddress({
+      const crossChainInfo = await getCrossChainInfo({
         token: customToken,
         srcChainId: srcChain.id,
         destChainId: destChain.id,
-      } as GetCrossChainAddressArgs);
-
-      // only update the token if we actually have a bridged address
-      if (bridgedAddress && bridgedAddress !== customToken.addresses[destChain.id]) {
-        customToken.addresses[destChain.id] = bridgedAddress as Address;
-        tokenService.updateToken(customToken, $account?.address as Address);
+      } as GetTokenInfo);
+      if (crossChainInfo) {
+        const { address: bridgedAddress, chainId: bridgedChainId } = crossChainInfo;
+        // only update the token if we actually have a bridged address
+        if (bridgedAddress) {
+          customToken.addresses[bridgedChainId] = bridgedAddress as Address;
+          tokenService.updateToken(customToken, $account?.address as Address);
+        }
       }
     }
     tokenAddress = '';

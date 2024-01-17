@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { Hash } from '@wagmi/core';
   import { t } from 'svelte-i18n';
-  import { getAddress } from 'viem';
 
   import { routingContractsMap } from '$bridgeConfig';
   import { chainConfig } from '$chainConfig';
@@ -17,8 +16,7 @@
   import { BridgePausedError } from '$libs/error';
   import { bridgeTxService } from '$libs/storage';
   import { TokenType } from '$libs/token';
-  import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
-  import { getTokenApprovalStatus } from '$libs/token/getTokenApprovalStatus';
+  import { checkTokenApprovalStatus } from '$libs/token/checkTokenApprovalStatus';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { account } from '$stores/account';
@@ -96,20 +94,24 @@
       if (!$selectedToken || !$network || !$destNetwork?.id) return;
       const type: TokenType = $selectedToken.type;
       const walletClient = await getConnectedWallet($network.id);
-      let tokenAddress = await getAddress($selectedToken.addresses[$network.id]);
+      // let tokenAddress = await getAddress($selectedToken.addresses[$network.id]);
 
-      if (!tokenAddress) {
-        const crossChainAddress = await getCrossChainAddress({
-          token: $selectedToken,
-          srcChainId: $network.id,
-          destChainId: $destNetwork.id,
-        });
-        if (!crossChainAddress) throw new Error('cross chain address not found');
-        tokenAddress = crossChainAddress;
-      }
-      if (!tokenAddress) {
-        throw new Error('token address not found');
-      }
+      let tokenAddress = $selectedToken.addresses[$network.id];
+      // if (!tokenAddress) {
+
+      //   const crossChain
+
+      //   const crossChainAddress = await getCrossChainAddress({
+      //     token: $selectedToken,
+      //     srcChainId: $network.id,
+      //     destChainId: $destNetwork.id,
+      //   });
+      //   if (!crossChainAddress) throw new Error('cross chain address not found');
+      //   tokenAddress = crossChainAddress;
+      // }
+      // if (!tokenAddress) {
+      //   throw new Error('token address not found');
+      // }
       const tokenIds = $selectedNFTs && $selectedNFTs.map((nft) => BigInt(nft.tokenId));
 
       const spenderAddress =

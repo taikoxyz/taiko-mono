@@ -6,9 +6,9 @@ import { type NFT, type NFTMetadata, TokenType } from '$libs/token';
 import { safeParseUrl } from '$libs/util/safeParseUrl';
 import { metadataCache } from '$stores/index';
 
-import { checkForAdblocker } from './checkForAdblock';
-import { extractIPFSCidFromUrl } from './extractIPFSCidFromUrl';
-import { getLogger } from './logger';
+import { checkForAdblocker } from '../util/checkForAdblock';
+import { extractIPFSCidFromUrl } from '../util/extractIPFSCidFromUrl';
+import { getLogger } from '../util/logger';
 
 const log = getLogger('libs:token:fetchNFTMetadata');
 

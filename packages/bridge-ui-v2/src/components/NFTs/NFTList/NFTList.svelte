@@ -10,7 +10,6 @@
 
   export let nfts: NFT[];
   export let chainId: number | undefined;
-  // export let selectedNFT: NFT[] | null = [];
   export let viewOnly = false;
 
   const multiSelectEnabled = (PUBLIC_NFT_BATCH_TRANSFERS_ENABLED || 'false') === 'true';
@@ -72,7 +71,6 @@
         </label>
       </div>
     {/if}
-
     {#if !chainId}
       Select a chain
     {:else}

@@ -15,18 +15,17 @@ import type { ERC721Bridge } from '$libs/bridge/ERC721Bridge';
 import type { ERC1155Bridge } from '$libs/bridge/ERC1155Bridge';
 import { getContractAddressByType } from '$libs/bridge/getContractAddressByType';
 import {
-  InvalidParametersProvidedError,
-  NoCanonicalInfoFoundError,
-  NotConnectedError,
+  InvalidParametersProvidedError, NotConnectedError,
   NoTokenError,
-  UnknownTokenTypeError,
+  UnknownTokenTypeError
 } from '$libs/error';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';
 import { account, network } from '$stores';
+import { getCanonicalStatus } from '$stores/canonical';
 
 import { checkOwnershipOfNFT } from './checkOwnership';
-import { getCanonicalInfoForToken } from './getCanonicalInfo';
+import { getCanonicalInfoForToken } from './getCanonicalInfoForToken';
 import { type NFT, type Token, TokenType } from './types';
 
 const log = getLogger('util:token:getTokenApprovalStatus');
@@ -60,18 +59,23 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
   const tokenAddress = get(selectedToken)?.addresses[currentChainId];
   log('selectedToken', get(selectedToken));
 
-  const canonicalTokenInfo = await getCanonicalInfoForToken({
-    token,
-    srcChainId: currentChainId,
-    destChainId: destinationChainId,
-  });
-  if (!canonicalTokenInfo) throw new NoCanonicalInfoFoundError();
-  const { address: canonicalTokenAddress } = canonicalTokenInfo;
-  if (canonicalTokenAddress !== tokenAddress) {
-    // we have a bridged token, no need for allowance check as we will burn the token
-    log('token is bridged, no need for allowance check');
+  if (!tokenAddress) return;
+  if (getCanonicalStatus(tokenAddress)) {
     allApproved.set(true);
-    return ApprovalStatus.BRIDGED_NO_APPROVAL_REQUIRED;
+    insufficientAllowance.set(false);
+    log('token is bridged, no need for approvals');
+    return;
+  } else {
+    const canonicalInfo = await getCanonicalInfoForToken({
+      token,
+      srcChainId: currentChainId,
+      destChainId: destinationChainId,
+    });
+    if (canonicalInfo && canonicalInfo.address !== tokenAddress) {
+      // we have a bridged token, we do not need approvals
+      log('token is bridged, no need for approvals');
+      return;
+    }
   }
 
   if (!ownerAddress || !tokenAddress) {
