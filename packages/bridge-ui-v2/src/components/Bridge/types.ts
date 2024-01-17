@@ -11,6 +11,7 @@ export enum NFTSteps {
 }
 
 export enum ImportMethod {
+  NONE,
   MANUAL,
   SCAN,
 }

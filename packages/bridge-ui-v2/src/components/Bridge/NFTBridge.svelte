@@ -1,31 +1,27 @@
 <script lang="ts">
   import { onDestroy, tick } from 'svelte';
   import { t } from 'svelte-i18n';
-  import { type Address, isAddress } from 'viem';
 
   import { ImportMethod } from '$components/Bridge/types';
-  import ActionButton from '$components/Button/ActionButton.svelte';
   import { Card } from '$components/Card';
   import { OnAccount } from '$components/OnAccount';
   import { OnNetwork } from '$components/OnNetwork';
   import { Step, Stepper } from '$components/Stepper';
   import { hasBridge } from '$libs/bridge/bridges';
   import { BridgePausedError } from '$libs/error';
-  import { ETHToken, type NFT } from '$libs/token';
-  import { fetchNFTImageUrl } from '$libs/token/fetchNFTImageUrl';
-  import { getCanonicalInfoForToken } from '$libs/token/getCanonicalInfo';
-  import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
+  import { ETHToken } from '$libs/token';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { type Account, account } from '$stores/account';
-  import { type Network, network } from '$stores/network';
+  import type { Network } from '$stores/network';
 
   import type AddressInput from './AddressInput/AddressInput.svelte';
   import type Amount from './Amount.svelte';
   import type IdInput from './IDInput/IDInput.svelte';
   import ConfirmationStep from './NFTBridgeSteps/ConfirmationStep.svelte';
-  import ImportStep from './NFTBridgeSteps/ImportStep.svelte';
+  import Import from './NFTBridgeSteps/ImportStep/Import.svelte';
   import RecipientStep from './NFTBridgeSteps/RecipientStep.svelte';
   import ReviewStep from './NFTBridgeSteps/ReviewStep.svelte';
+  import StepNavigation from './NFTBridgeSteps/StepNavigation/StepNavigation.svelte';
   import type { ProcessingFee } from './ProcessingFee';
   import {
     activeBridge,
@@ -41,8 +37,6 @@
   let recipientStepComponent: RecipientStep;
   let processingFeeComponent: ProcessingFee;
   let importMethod: ImportMethod;
-  let nftIdArray: number[] = [];
-  let contractAddress: Address | string = '';
   let bridgingStatus: 'pending' | 'done' = 'pending';
 
   let hasEnoughEth: boolean = false;
@@ -115,7 +109,6 @@
     bridgingStatus = 'pending';
     $selectedToken = ETHToken;
     importMethod === null;
-    scanned = false;
     canProceed = false;
     $selectedNFTs = [];
     activeStep = NFTSteps.IMPORT;
@@ -126,11 +119,6 @@
    */
   let activeStep: NFTSteps = NFTSteps.IMPORT;
 
-  const nextStep = () => (activeStep = Math.min(activeStep + 1, NFTSteps.CONFIRM));
-  const previousStep = () => {
-    activeStep = Math.max(activeStep - 1, NFTSteps.IMPORT);
-  };
-
   let nftStepTitle: string;
   let nftStepDescription: string;
   let nextStepButtonText: string;
@@ -138,11 +126,9 @@
   let addressInputComponent: AddressInput;
   let nftIdInputComponent: IdInput;
 
-  let validatingImport: boolean = false;
-  let scanned: boolean = false;
+  $: validatingImport = false;
 
   let canProceed: boolean = false;
-  let foundNFTs: NFT[] = [];
 
   const getStepText = () => {
     if (activeStep === NFTSteps.REVIEW) {
@@ -155,63 +141,49 @@
     }
   };
 
-  const changeImportMethod = () => {
-    importMethod = importMethod === ImportMethod.MANUAL ? ImportMethod.SCAN : ImportMethod.MANUAL;
-    resetForm();
-  };
+  // const prefetchImage = async () => {
+  //   const srcChainId = $network?.id;
+  //   const destChainId = $destinationChain?.id;
+  //   if (!srcChainId || !destChainId) throw new Error('both src and dest chain id must be defined');
+  //   await Promise.all(
+  //     nftIdArray.map(async (id) => {
+  //       const token = $selectedToken as NFT;
+  //       if (token) {
+  //         token.tokenId = id;
+  //         fetchNFTImageUrl(token, srcChainId, destChainId).then((nftWithUrl) => {
+  //           $selectedToken = nftWithUrl;
+  //           $selectedNFTs = [nftWithUrl];
+  //         });
+  //       } else {
+  //         throw new Error('no token');
+  //       }
+  //     }),
+  //   );
+  // };
 
-  const prefetchImage = async () => {
-    const srcChainId = $network?.id;
-    const destChainId = $destinationChain?.id;
-    if (!srcChainId || !destChainId) throw new Error('both src and dest chain id must be defined');
-    await Promise.all(
-      nftIdArray.map(async (id) => {
-        const token = $selectedToken as NFT;
-        if (token) {
-          token.tokenId = id;
-          fetchNFTImageUrl(token, srcChainId, destChainId).then((nftWithUrl) => {
-            $selectedToken = nftWithUrl;
-            $selectedNFTs = [nftWithUrl];
-          });
-        } else {
-          throw new Error('no token');
-        }
-      }),
-    );
-  };
-  const manualImportAction = async () => {
-    if (!$network?.id) throw new Error('network not found');
-    const srcChainId = $network.id;
-    const destChainId = $destinationChain?.id;
-    const tokenId = nftIdArray[0];
+  // const manualImportAction = async () => {
+  //   if (!$network?.id) throw new Error('network not found');
+  //   const srcChainId = $network?.id;
+  //   const tokenId = nftIdArray[0];
 
-    if (!isAddress(contractAddress) || !srcChainId || !destChainId) {
-      return;
-    }
+  //   if (isAddress(contractAddress) && srcChainId)
+  //     await getTokenWithInfoFromAddress({ contractAddress, srcChainId: srcChainId, tokenId, owner: $account?.address })
+  //       .then(async (token) => {
+  //         if (!token) throw new Error('no token with info');
+  //         // detectedTokenType = token.type;
+  //         // idInputState = IDInputState.VALID;
+  //         $selectedToken = token;
+  //         await prefetchImage();
 
-    try {
-      const token = await getTokenWithInfoFromAddress({
-        contractAddress,
-        srcChainId,
-        tokenId,
-        owner: $account?.address,
-      });
-      if (!token) throw new Error('no token with info');
-
-      $selectedToken = token;
-
-      const [, info] = await Promise.all([
-        prefetchImage(),
-        getCanonicalInfoForToken({ token, srcChainId, destChainId }),
-      ]);
-
-      if (info) $selectedTokenIsBridged = contractAddress !== info.address;
-
-      nextStep();
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  //         nextStep();
+  //       })
+  //       .catch((err) => {
+  //         console.error(err);
+  //         // detectedTokenType = null;
+  //         // idInputState = IDInputState.INVALID;
+  //         // invalidToken = true;
+  //       });
+  // };
 
   const handleTransactionDetailsClick = () => {
     activeStep = NFTSteps.RECIPIENT;
@@ -240,6 +212,7 @@
   $: activeStep === NFTSteps.IMPORT && resetForm();
 </script>
 
+{nextStepButtonText}
 <div class=" gap-0 w-full md:w-[524px]">
   <Stepper {activeStep}>
     <Step stepIndex={NFTSteps.IMPORT} currentStepIndex={activeStep} isActive={activeStep === NFTSteps.IMPORT}
@@ -254,14 +227,15 @@
     <div class="space-y-[30px]">
       <!-- IMPORT STEP -->
       {#if activeStep === NFTSteps.IMPORT}
-        <ImportStep
+        <Import bind:canProceed bind:validating={validatingImport} />
+        <!-- <ImportStep
           bind:importMethod
           bind:canProceed
           bind:nftIdArray
           bind:contractAddress
           bind:foundNFTs
           bind:scanned
-          bind:validating={validatingImport} />
+          bind:validating={validatingImport} /> -->
         <!-- REVIEW STEP -->
       {:else if activeStep === NFTSteps.REVIEW}
         <ReviewStep on:editTransactionDetails={handleTransactionDetailsClick} bind:hasEnoughEth />
@@ -275,7 +249,8 @@
       <!-- 
         User Actions
       -->
-      {#if activeStep === NFTSteps.REVIEW}
+      <StepNavigation bind:activeStep bind:canProceed {validatingImport} />
+      <!-- {#if activeStep === NFTSteps.REVIEW}
         <div class="f-col w-full gap-[16px]">
           <ActionButton priority="primary" disabled={!canProceed} on:click={() => (activeStep = NFTSteps.CONFIRM)}>
             <span class="body-bold">{nextStepButtonText}</span>
@@ -333,7 +308,7 @@
             </button>
           {/if}
         </div>
-      {/if}
+      {/if} -->
     </div>
   </Card>
 </div>

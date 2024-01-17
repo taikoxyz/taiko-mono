@@ -11,7 +11,9 @@
   export let isDisabled = false;
   export let enteredIds: number[] = [];
   export let limit = 1;
-  export let state: State = State.DEFAULT;
+  // export let state: State = State.DEFAULT;
+
+  let typeClass = '';
 
   export const clearIds = () => {
     enteredIds = [];
@@ -46,7 +48,9 @@
     dispatch('inputValidation');
   }
 
-  $: typeClass = state === State.VALID ? 'success' : state === State.INVALID ? 'error' : '';
+  $: state = State.DEFAULT;
+
+  $: typeClass = state === State.INVALID ? 'error' : '';
 
   onDestroy(() => {
     clearIds();
@@ -65,9 +69,11 @@
       placeholder={$t('inputs.token_id_input.placeholder')}
       bind:value={enteredIds}
       on:input={(e) => validateInput(e.target)}
-      class="w-full input-box withValdiation py-6 pr-16 px-[26px] title-subsection-bold placeholder:text-tertiary-content {typeClass} {$$props.class}" />
-    <button class="absolute right-6 uppercase body-bold text-secondary-content" on:click={clearIds}>
-      <Icon type="x-close-circle" fillClass="fill-primary-icon" size={24} />
-    </button>
+      class="withValdiation w-full input-box py-6 pr-16 px-[26px] title-subsection-bold placeholder:text-tertiary-content {typeClass} {$$props.class}" />
+    {#if enteredIds && enteredIds.length > 0}
+      <button class="absolute right-6 uppercase body-bold text-secondary-content" on:click={clearIds}>
+        <Icon type="x-close-circle" fillClass="fill-primary-icon" size={24} />
+      </button>
+    {/if}
   </div>
 </div>

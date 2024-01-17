@@ -306,7 +306,7 @@
   });
 </script>
 
-<div class="Amount f-col space-y-2">
+<div class="Amount f-col space-y-2 {$$props.class}">
   <div class="f-between-center text-secondary-content">
     <label class="body-regular" for={inputId}>{$t('inputs.amount.label')}</label>
     <div class="body-small-regular">

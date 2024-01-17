@@ -99,7 +99,7 @@
 
   <!-- Conditional alerts -->
   {#if !quiet}
-    <div class="!mt-3">
+    <div class="">
       {#if state === State.INVALID && ethereumAddress}
         <FlatAlert type="error" forceColumnFlow message={$t('inputs.address_input.errors.invalid')} />
       {:else if state === State.TOO_SHORT && ethereumAddress}
