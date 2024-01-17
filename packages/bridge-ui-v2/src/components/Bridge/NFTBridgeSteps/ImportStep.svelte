@@ -145,7 +145,11 @@
 
     try {
       if (canValidateIdInput && enteredIds && enteredIds.length > 0) {
-        const tokenId = nftIdArray[0]; // Handle multiple tokens if needed
+        const tokenId: number = nftIdArray[0]; // Handle multiple tokens if needed
+
+        if (typeof tokenId !== 'number') {
+          throw new Error('Token ID is not a number');
+        }
 
         const ownershipResults = await checkOwnership(
           contractAddress as Address,
