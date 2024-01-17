@@ -61,7 +61,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     error SGX_INVALID_PROOF();
 
     /// @dev Modifier that ensures the caller is either taikoL1 or SgxAndZkVerifier.
-    modifier onlyTaikoOrCominedVerifier() {
+    modifier onlyTaikoOrCombinedVerifier() {
         if (
             msg.sender != resolve("taiko", true)
                 && msg.sender != resolve("tier_sgx_and_pse_zkevm", true)
@@ -129,7 +129,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         TaikoData.TierProof calldata proof
     )
         external
-        onlyTaikoOrCominedVerifier
+        onlyTaikoOrCombinedVerifier
     {
         // Do not run proof verification to contest an existing proof
         if (ctx.isContesting) return;
