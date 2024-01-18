@@ -199,6 +199,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             maxBlockId: 0,
             maxProposedIn: 0,
             metaHash: 0,
+            parentMetaHash: 0,
             signature: new bytes(0)
         });
 
