@@ -133,8 +133,8 @@ contract TimelockTokenPool is EssentialContract {
     function void(address recipient) external onlyOwner {
         Recipient storage r = recipients[recipient];
         uint128 amountVoided;
-        uint256 len = r.grants.length;
-        for (uint128 i; i < len; ++i) {
+        uint256 rGrantsLength = r.grants.length;
+        for (uint128 i; i < rGrantsLength; ++i) {
             amountVoided += _voidGrant(r.grants[i]);
         }
         if (amountVoided == 0) revert NOTHING_TO_VOID();
@@ -168,9 +168,9 @@ contract TimelockTokenPool is EssentialContract {
         )
     {
         Recipient storage r = recipients[recipient];
-        uint256 len = r.grants.length;
+        uint256 rGrantsLength = r.grants.length;
         uint128 totalCost;
-        for (uint128 i; i < len; ++i) {
+        for (uint128 i; i < rGrantsLength; ++i) {
             amountOwned += _getAmountOwned(r.grants[i]);
 
             uint128 _amountUnlocked = _getAmountUnlocked(r.grants[i]);
