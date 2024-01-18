@@ -148,15 +148,13 @@ contract TestTimelockTokenPool is TaikoTest {
         (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
             pool.getMyGrantSummary(Alice);
 
-        expectedCost = (10_000e18 - amount1) / ONE_TKO_UNIT * strikePrice1;
+        expectedCost = amount1 / ONE_TKO_UNIT * strikePrice1;
 
         assertEq(amountOwned, 10_000e18);
         assertEq(amountUnlocked, 10_000e18);
         assertEq(amountWithdrawn, amount1);
         assertEq(amountToWithdraw, 10_000e18 - amount1);
-
-        // TODO(dani): the following assert fails
-        // assertEq(costToWithdraw , expectedCost);
+        assertEq(costToWithdraw, expectedCost);
 
         vm.prank(Alice);
         pool.withdraw();
@@ -232,13 +230,12 @@ contract TestTimelockTokenPool is TaikoTest {
         (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
             pool.getMyGrantSummary(Alice);
 
-        expectedCost = (10_000e18 - amount1) / ONE_TKO_UNIT * strikePrice1;
+        expectedCost = amount1 / ONE_TKO_UNIT * strikePrice1;
         assertEq(amountOwned, 10_000e18);
         assertEq(amountUnlocked, 10_000e18);
         assertEq(amountWithdrawn, amount1);
         assertEq(amountToWithdraw, 10_000e18 - amount1);
-        // TODO(dani): the following assert fails
-        // assertEq(costToWithdraw , expectedCost);
+        assertEq(costToWithdraw, expectedCost);
 
         vm.prank(Alice);
         pool.withdraw();
