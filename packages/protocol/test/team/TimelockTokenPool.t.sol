@@ -131,9 +131,7 @@ contract TestTimelockTokenPool is TaikoTest {
         (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
             pool.getMyGrantSummary(Alice);
 
-        // TODO(dani): who did you figured out this number? It's really hard to maintain
-        uint256 amount1 = 5_000_000_317_097_919_837_645;
-
+        uint256 amount1 = uint128(10_000e18) * uint64(block.timestamp - unlockStart) / unlockPeriod;
         uint256 expectedCost = amount1 / ONE_TKO_UNIT * strikePrice1;
 
         assertEq(amountOwned, 10_000e18);
@@ -217,7 +215,7 @@ contract TestTimelockTokenPool is TaikoTest {
         (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
             pool.getMyGrantSummary(Alice);
 
-        uint256 amount1 = 5_000_000_317_097_919_837_645;
+        uint256 amount1 = uint128(10_000e18) * uint64(block.timestamp - grantStart) / grantPeriod;
         uint256 expectedCost = amount1 / ONE_TKO_UNIT * strikePrice1;
 
         assertEq(amountOwned, amount1);
