@@ -28,5 +28,5 @@
 </script>
 
 <button class="f-center rounded-full w-[30px] h-[30px]" disabled={!$destNetwork} on:click={switchToDestChain}>
-  <Icon type="up-down" class="rotate-90" />
+  <Icon type="up-down" class="" size={16} />
 </button>

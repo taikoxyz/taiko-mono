@@ -8,7 +8,7 @@
   import { chainConfig } from '$chainConfig';
   import { Alert } from '$components/Alert';
   import { Card } from '$components/Card';
-  import { ChainSelectorWrapper } from '$components/ChainSelector';
+  import CombinedChainSelector from '$components/ChainSelectors/CombinedChainSelector.svelte';
   import { successToast } from '$components/NotificationToast';
   import { infoToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { OnAccount } from '$components/OnAccount';
@@ -267,9 +267,7 @@
 {#if $activeBridge === BridgeTypes.FUNGIBLE}
   <Card class="w-full md:w-[524px] " title={$t('bridge.title.default')} text={$t('bridge.description.default')}>
     <div class="space-y-[30px] mt-[30px]">
-      <div class="f-between-center gap-4">
-        <ChainSelectorWrapper />
-      </div>
+      <CombinedChainSelector />
 
       {#if displayL1Warning}
         <Alert type="warning">{$t('bridge.alerts.slow_bridging')}</Alert>
