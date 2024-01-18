@@ -63,6 +63,23 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"DATABASE_CONN_MAX_LIFETIME"},
 	}
+	MetricsHTTPPort = &cli.Uint64Flag{
+		Name:     "metrics.port",
+		Usage:    "Port to run metrics http server on",
+		Category: indexerCategory,
+		Required: false,
+		Value:    6061,
+		EnvVars:  []string{"METRICS_HTTP_PORT"},
+	}
+
+	Layer = &cli.StringFlag{
+		Name:     "layer",
+		Usage:    "Which layer indexing is occurring on",
+		Required: false,
+		Value:    "l1",
+		Category: indexerCategory,
+		EnvVars:  []string{"LAYER"},
+	}
 )
 
 // All common flags.
@@ -75,6 +92,8 @@ var CommonFlags = []cli.Flag{
 	DatabaseMaxIdleConns,
 	DatabaseConnMaxLifetime,
 	DatabaseMaxOpenConns,
+	MetricsHTTPPort,
+	Layer,
 }
 
 // MergeFlags merges the given flag slices.

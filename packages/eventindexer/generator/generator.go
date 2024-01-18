@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/shopspring/decimal"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/tasks"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/tasks"
 	"github.com/urfave/cli/v2"
 	"gorm.io/gorm"
 )
