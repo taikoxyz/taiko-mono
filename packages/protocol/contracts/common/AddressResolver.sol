@@ -45,6 +45,17 @@ abstract contract AddressResolver {
         _;
     }
 
+    /// @dev Modifier that ensures the caller is one of the resolved addresses of the two given
+    /// names.
+    /// @param name1 The first name to check against.
+    /// @param name2 The second name to check against.
+    modifier onlyFromNamed2(bytes32 name1, bytes32 name2) {
+        if (msg.sender != resolve(name1, true) && msg.sender != resolve(name2, true)) {
+            revert RESOLVER_DENIED();
+        }
+        _;
+    }
+
     /// @notice Resolves a name to its address deployed on this chain.
     /// @param name Name whose address is to be resolved.
     /// @param allowZeroAddress If set to true, does not throw if the resolved
