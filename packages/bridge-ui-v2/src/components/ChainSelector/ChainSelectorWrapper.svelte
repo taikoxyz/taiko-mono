@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { t } from 'svelte-i18n';
 
   import { chainConfig } from '$chainConfig';
   import { destNetwork, destOptions } from '$components/Bridge/state';
@@ -62,15 +63,22 @@
   });
 </script>
 
-<ChainSelector class="flex-1" bind:value={$network} on:change={handleSourceChange} switchWallet />
+<ChainSelector
+  class="flex-1"
+  bind:value={$network}
+  on:change={handleSourceChange}
+  switchWallet
+  fromToLabel={$t('common.from')} />
 
 <SwitchChainsButton />
+
 <ChainSelector
   bind:this={destChainElement}
   class="flex-1 "
   bind:value={$destNetwork}
   on:change={handleDestChange}
   validOptions={$destOptions}
-  bind:highlight />
+  bind:highlight
+  fromToLabel={$t('common.to')} />
 
 <OnNetwork change={onNetworkChange} />

@@ -6,8 +6,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/flags"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/mock"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/queue"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/urfave/cli/v2"
 )
 

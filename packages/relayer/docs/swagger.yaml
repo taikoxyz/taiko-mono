@@ -17,6 +17,10 @@ definitions:
     type: object
   paginate.Page:
     properties:
+      error:
+        type: boolean
+      error_message:
+        type: string
       first:
         type: boolean
       items: {}
@@ -35,7 +39,7 @@ definitions:
       visible:
         type: integer
     type: object
-host: relayer.jolnir.taiko.xyz
+host: relayer.katla.taiko.xyz
 info:
   contact:
     email: info@taiko.xyz

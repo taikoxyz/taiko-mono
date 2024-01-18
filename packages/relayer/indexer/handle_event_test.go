@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/mock"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
 )
 
 func Test_eventStatusFromMsgHash(t *testing.T) {

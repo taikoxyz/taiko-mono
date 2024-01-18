@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/cmd/flags"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/db"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 	"github.com/urfave/cli/v2"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"

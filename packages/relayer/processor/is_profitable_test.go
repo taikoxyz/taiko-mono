@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/mock"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
 )
 
 func Test_isProfitable(t *testing.T) {

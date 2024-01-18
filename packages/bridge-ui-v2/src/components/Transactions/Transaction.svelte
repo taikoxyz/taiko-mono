@@ -276,7 +276,12 @@
 <MobileDetailsDialog {closeDetails} {detailsOpen} selectedItem={item} on:insufficientFunds={handleInsufficientFunds} />
 
 {#if token}
-  <NftInfoDialog bind:modalOpen={nftInfoOpen} nft={token} srcChainId={Number(item.srcChainId)} viewOnly />
+  <NftInfoDialog
+    bind:modalOpen={nftInfoOpen}
+    nft={token}
+    srcChainId={Number(item.srcChainId)}
+    destChainId={Number(item.destChainId)}
+    viewOnly />
 {/if}
 
 <InsufficientFunds bind:modalOpen={insufficientModal} />

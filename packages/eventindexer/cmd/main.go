@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/api"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/cmd/utils"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/generator"
@@ -36,6 +37,13 @@ func main() {
 
 	// All supported sub commands.
 	app.Commands = []*cli.Command{
+		{
+			Name:        "api",
+			Flags:       flags.APIFlags,
+			Usage:       "Starts the http API software",
+			Description: "Taiko eventindexer http API software",
+			Action:      utils.SubcommandAction(new(api.API)),
+		},
 		{
 			Name:        "indexer",
 			Flags:       flags.IndexerFlags,

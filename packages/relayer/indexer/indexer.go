@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
-	nethttp "net/http"
 	"sync"
 	"time"
 
@@ -17,13 +16,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/labstack/echo/v4"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol1"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/indexer/http"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/queue"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/repo"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
@@ -89,9 +86,6 @@ type Indexer struct {
 	watchMode WatchMode
 	syncMode  SyncMode
 
-	srv      *http.Server
-	httpPort uint64
-
 	ethClientTimeout time.Duration
 
 	wg *sync.WaitGroup
@@ -130,18 +124,6 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	}
 
 	destEthClient, err := ethclient.Dial(cfg.DestRPCUrl)
-	if err != nil {
-		return err
-	}
-
-	srv, err := http.NewServer(http.NewServerOpts{
-		EventRepo:     eventRepository,
-		Echo:          echo.New(),
-		CorsOrigins:   cfg.CORSOrigins,
-		SrcEthClient:  srcEthClient,
-		DestEthClient: destEthClient,
-		BlockRepo:     blockRepository,
-	})
 	if err != nil {
 		return err
 	}
@@ -193,9 +175,6 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 
 	i.queue = q
 
-	i.srv = srv
-	i.httpPort = cfg.HTTPPort
-
 	i.srcChainId = srcChainID
 	i.destChainId = destChainID
 
@@ -213,23 +192,12 @@ func (i *Indexer) Name() string {
 	return "indexer"
 }
 
-// TODO
 func (i *Indexer) Close(ctx context.Context) {
-	if err := i.srv.Shutdown(ctx); err != nil {
-		slog.Error("srv shutdown", "error", err)
-	}
-
 	i.wg.Wait()
 }
 
 // nolint: funlen
 func (i *Indexer) Start() error {
-	go func() {
-		if err := i.srv.Start(fmt.Sprintf(":%v", i.httpPort)); err != nethttp.ErrServerClosed {
-			slog.Error("http srv start", "error", err.Error())
-		}
-	}()
-
 	i.ctx = context.Background()
 
 	if err := i.queue.Start(i.ctx, i.queueName()); err != nil {
