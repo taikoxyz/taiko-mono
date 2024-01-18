@@ -33,21 +33,30 @@ contract TestSgxVerifier is TaikoL1TestBase {
         _instances[0] = SGX_Y;
         _instances[1] = SGX_Z;
 
-        bytes memory signature = _getSignature(_instances, 0x4);
+        bytes memory signature = _getSignature(SGX_X_1, _instances, 0x4);
 
         vm.prank(Bob, Bob);
         sv.addInstances(0, SGX_X_1, _instances, signature);
     }
 
     function _getSignature(
+        address _newInstance,
         address[] memory _instances,
         uint256 privKey
     )
         private
-        pure
+        view
         returns (bytes memory signature)
     {
-        bytes32 digest = keccak256(abi.encode("ADD_INSTANCES", _instances));
+        bytes32 digest = keccak256(
+            abi.encode(
+                "ADD_INSTANCES",
+                ITaikoL1(L1).getConfig().chainId,
+                address(sv),
+                _newInstance,
+                _instances
+            )
+        );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privKey, digest);
         signature = abi.encodePacked(r, s, v);
     }
