@@ -9,29 +9,35 @@
  * @param {{ enabled: boolean; callback: () => void }} { enabled, callback }
  * @return {*}
  */
+
 export function closeOnEscapeOrOutsideClick(
   node: HTMLElement,
   { enabled, callback }: { enabled: boolean; callback: () => void },
 ) {
-  const handleClick = (event: Event) => {
-    if (enabled && !node.contains(event.target as Node)) {
+  const handleEvent = (event: Event) => {
+    if (!enabled) {
+      return;
+    }
+
+    // Handle click: check if the click is outside the node
+    if (event.type === 'click' && !node.contains(event.target as Node)) {
+      callback();
+    }
+
+    // Handle keydown: check if the key is Escape
+    if (event.type === 'keydown' && (event as KeyboardEvent).key === 'Escape') {
       callback();
     }
   };
 
-  const handleKeydown = (event: KeyboardEvent) => {
-    if (enabled && event.key === 'Escape') {
-      callback();
-    }
-  };
-
-  document.addEventListener('click', handleClick);
-  document.addEventListener('keydown', handleKeydown);
+  // Use capturing phase to ensure the event is captured as it goes down the DOM tree
+  document.addEventListener('click', handleEvent, true);
+  document.addEventListener('keydown', handleEvent, true);
 
   return {
     destroy() {
-      document.removeEventListener('click', handleClick);
-      document.removeEventListener('keydown', handleKeydown);
+      document.removeEventListener('click', handleEvent, true);
+      document.removeEventListener('keydown', handleEvent, true);
     },
     update({ enabled: newEnabled, callback: newCb }: { enabled: boolean; callback: () => void }) {
       enabled = newEnabled;
