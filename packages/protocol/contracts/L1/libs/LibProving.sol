@@ -78,6 +78,8 @@ library LibProving {
         returns (uint8 maxBlocksToVerify)
     {
         // Make sure parentHash is not zero
+        // To contest an existing transition, simply use any non-zero value as
+        // the blockHash and signalRoot.
         if (tran.parentHash == 0 || tran.blockHash == 0 || tran.signalRoot == 0) {
             revert L1_INVALID_TRANSITION();
         }
