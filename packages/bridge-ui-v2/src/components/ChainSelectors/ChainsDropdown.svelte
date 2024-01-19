@@ -17,6 +17,8 @@
 
   export let switchingNetwork = false;
 
+  export let isDest = false;
+
   const dispatch = createEventDispatcher();
 
   const closeDropDown = () => {
@@ -68,7 +70,9 @@
   }
 
   $: menuClasses = classNames(
-    'menu absolute right-0 w-full p-3 mt-1 rounded-[10px] bg-neutral-background z-10  box-shadow-large',
+    `menu absolute right-0 w-full p-3 ${
+      isDest ? 'mt-0' : 'mt-1'
+    }  rounded-b-[10px] bg-neutral-background z-10  box-shadow-large`,
     isOpen ? 'visible opacity-100' : 'invisible opacity-0',
   );
 </script>
