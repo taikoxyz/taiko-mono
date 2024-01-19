@@ -237,7 +237,7 @@ library LibProving {
                 }
             } else {
                 if (sameTransition) revert L1_ALREADY_PROVED();
-                reward = ts.validityBond >> 2;
+                reward = ts.validityBond >> 1;
             }
 
             if (reward > tier.validityBond) {
