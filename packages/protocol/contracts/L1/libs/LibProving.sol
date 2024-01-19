@@ -189,8 +189,6 @@ library LibProving {
 
         _checkProverPermission(blk, ts, tid, tier);
 
-        maxBlocksToVerify = tier.maxBlocksToVerify;
-
         // We must verify the proof, and any failure in proof verification will
         // result in a revert.
         //
@@ -338,6 +336,7 @@ library LibProving {
         }
 
         ts.timestamp = uint64(block.timestamp);
+        return tier.maxBlocksToVerify;
     }
 
     /// @dev Check the msg.sender (the new prover) against the block's assigned prover.
