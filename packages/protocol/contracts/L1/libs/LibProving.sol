@@ -246,6 +246,7 @@ library LibProving {
             // Higher tier proof overwriting lower tier proof
 
             uint256 reward;
+
             if (ts.contester != address(0)) {
                 if (sameTransition) {
                     // The contested transition is proven to be valid, contestor loses the game
@@ -263,10 +264,12 @@ library LibProving {
                 ts.contestations += 1;
             }
 
-            if (reward > tier.validityBond) {
-                tko.transfer(msg.sender, reward - tier.validityBond);
-            } else {
-                tko.transferFrom(msg.sender, address(this), tier.validityBond - reward);
+            unchecked {
+                if (reward > tier.validityBond) {
+                    tko.transfer(msg.sender, reward - tier.validityBond);
+                } else {
+                    tko.transferFrom(msg.sender, address(this), tier.validityBond - reward);
+                }
             }
 
             ts.validityBond = tier.validityBond;
