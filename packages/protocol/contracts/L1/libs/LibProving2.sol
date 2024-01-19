@@ -236,6 +236,7 @@ library LibProving2 {
         bool sameTransition = tran.blockHash == ts.blockHash && tran.signalRoot == ts.signalRoot;
 
         if (proof.tier > ts.tier) {
+            _checkProver(tid, ts, blk, tier);
             // Higher tier proof overwriting lower tier proof
             uint256 reward;
             if (ts.contester != address(0)) {
@@ -326,26 +327,15 @@ library LibProving2 {
         private
         view
     {
-        if (tid == 1 && ts.prover == blk.assignedProver) {
-            // For the first transition, (1) if the previous prover is
-            // still the assigned prover, we exclusively grant permission to
-            // the assigned approver to re-prove the block, (2) unless the
-            // proof window has elapsed.
-            if (
-                block.timestamp <= ts.timestamp + tier.provingWindow
-                    && msg.sender != blk.assignedProver
-            ) revert L1_NOT_ASSIGNED_PROVER();
-
-            if (
-                block.timestamp > ts.timestamp + tier.provingWindow
-                    && msg.sender == blk.assignedProver
-            ) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
-        } else if (msg.sender == blk.assignedProver) {
-            // However, if the previous prover of the first transition is
-            // not the block's assigned prover, or for any other
-            // transitions, the assigned prover is not permitted to prove
-            // such transitions.
-            revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
+        if (tier.contestBond == 0) return;
+        if (tid == 1) {
+            if (block.timestamp <= ts.timestamp + tier.provingWindow) {
+                if (msg.sender != blk.assignedProver) revert L1_NOT_ASSIGNED_PROVER();
+            } else {
+                if (msg.sender == blk.assignedProver) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
+            }
+        } else {
+            if (msg.sender == blk.assignedProver) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
         }
     }
 }
