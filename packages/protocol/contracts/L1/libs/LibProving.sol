@@ -129,7 +129,7 @@ library LibProving {
             ts.signalRoot = 0;
             ts.validityBond = 0;
             ts.contester = address(0);
-            ts.contestBond = 0;
+            ts.contestBond = 1; // to save gas
             ts.timestamp = blk.proposedAt;
             ts.tier = 0;
             ts.contestations = 0;
@@ -268,7 +268,7 @@ library LibProving {
             }
 
             ts.validityBond = tier.validityBond;
-            ts.contestBond = 0;
+            ts.contestBond = 1; // to save gas
             ts.contester = address(0);
             ts.prover = msg.sender;
             ts.tier = proof.tier;
