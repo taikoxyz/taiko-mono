@@ -24,18 +24,22 @@
     destinationToggled = !destinationToggled;
   };
 
+  $: selectClasses = ` select bg-transparent appearance-none w-full py-[12px] px-[15px]  focus:border-transparent focus:outline-none focus:bg-primary-background-hover`;
+
+  $: containerClasses = `${
+    destinationToggled ? 'rounded-t-[10px]' : 'rounded-[10px]'
+  } f-col w-full relative bg-neutral-background `;
+
   $: srcChain = $network;
   $: destChain = $destNetwork;
 </script>
 
-<div class="f-col w-full relative bg-neutral-background rounded-[10px]">
+<div class={containerClasses}>
   {#if switchingNetwork}
     <LoadingMask spinnerClass="border-white absolute z-20" text={$t('messages.network.switching')} />
   {/if}
   <div class="relative">
-    <button
-      on:click={() => onOriginToggle()}
-      class="select bg-transparent appearance-none w-full py-[12px] px-[15px] focus:border-transparent focus:outline-none focus:bg-primary-background-hover">
+    <button on:click={() => onOriginToggle()} class={selectClasses}>
       {#if srcChain}
         {@const icon = chainConfig[Number(srcChain.id)]?.icon || 'Unknown Chain'}
         <div class="f-row items-center gap-2">
@@ -62,10 +66,9 @@
       </div>
     </div>
   {/if}
+
   <div class="relative border-t-[1px] border-primary-border-dark">
-    <button
-      on:click={() => onDestinationToggle()}
-      class="select bg-transparent appearance-none w-full py-[12px] px-[15px]">
+    <button on:click={() => onDestinationToggle()} class={selectClasses}>
       {#if destChain}
         {@const icon = chainConfig[Number(destChain.id)]?.icon || 'Unknown Chain'}
         <div class="f-row items-center gap-2">
@@ -81,6 +84,6 @@
         <span class="text-base text-secondary-content"> {$t('chain_selector.to_placeholder')}</span>
       {/if}
     </button>
-    <ChainsDropdown bind:isOpen={destinationToggled} bind:switchingNetwork bind:value={destChain} />
+    <ChainsDropdown bind:isOpen={destinationToggled} bind:switchingNetwork bind:value={destChain} isDest />
   </div>
 </div>
