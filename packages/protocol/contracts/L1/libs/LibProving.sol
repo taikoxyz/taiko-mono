@@ -335,7 +335,7 @@ library LibProving {
         ts.timestamp = uint64(block.timestamp);
     }
 
-    /// @dev Chesk the msg.sender (the new prover) against the block's assigned prover.
+    /// @dev Check the msg.sender (the new prover) against the block's assigned prover.
     function _checkProverPermission(
         TaikoData.Block storage blk,
         TaikoData.TransitionState storage ts,
