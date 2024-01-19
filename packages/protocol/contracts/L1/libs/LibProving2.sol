@@ -236,8 +236,11 @@ library LibProving2 {
         bool sameTransition = tran.blockHash == ts.blockHash && tran.signalRoot == ts.signalRoot;
 
         if (proof.tier > ts.tier) {
-            _checkProverPermission(blk, ts, tid, tier);
             // Higher tier proof overwriting lower tier proof
+
+            // Chech msg.sender against the block's assigned prover
+            _checkProverPermission(blk, ts, tid, tier);
+
             uint256 reward;
             if (ts.contester != address(0)) {
                 if (sameTransition) {
@@ -325,6 +328,7 @@ library LibProving2 {
         ts.timestamp = uint64(block.timestamp);
     }
 
+    /// @dev Chesk the msg.sender (the new prover) against the block's assigned prover.
     function _checkProverPermission(
         TaikoData.Block storage blk,
         TaikoData.TransitionState storage ts,
@@ -340,7 +344,8 @@ library LibProving2 {
         bool inProvingWindow = block.timestamp <= ts.timestamp + tier.provingWindow;
         bool isAssignedPover = msg.sender == blk.assignedProver;
 
-        if (tid == 1 && inProvingWindow) {
+        // The assigned prover can only submit the very first transition.
+        if (tid == 1 && ts.tier == 0 && inProvingWindow) {
             if (!isAssignedPover) revert L1_NOT_ASSIGNED_PROVER();
         } else {
             if (isAssignedPover) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
