@@ -227,45 +227,45 @@ library LibProving {
         bool sameTransition = tran.blockHash == ts.blockHash && tran.signalRoot == ts.signalRoot;
 
         if (proof.tier > ts.tier) {
+            uint256 reward;
             if (contested) {
                 if (sameTransition) {
-                    uint256 reward = ts.contestBond >> 2;
+                    reward = ts.contestBond >> 2;
                     tko.transfer(ts.prover, ts.validityBond + reward);
-                    tko.transfer(msg.sender, reward);
-                    tko.transferFrom(msg.sender, address(this), tier.validityBond);
                 } else {
-                    // In the event that the contester is the winner, half of
-                    // the validity bond is designated as the reward, to be
-                    // divided equally between the new prover and the contester.
-                    uint256 reward = ts.validityBond >> 2;
-
-                    // It's important to note that the contester is set to zero
-                    // for the tier-0 transition. Consequently, we only grant a
-                    // reward to the contester if it is not a zero-address.
-                    if (ts.contester != address(0)) {
-                        tko.transfer(ts.contester, reward + ts.contestBond);
-                    } else {
-                        // The prover is also the contester, so the reward is
-                        // sent to him.
-                        tko.transfer(msg.sender, reward);
-                    }
-
-                    tko.transferFrom(msg.sender, address(this), tier.validityBond);
-                    // Given that the contester emerges as the winner, the
-                    // previous blockHash and signalRoot are considered
-                    // incorrect, and we must replace them with the correct
-                    // values.
-                    ts.blockHash = tran.blockHash;
-                    ts.signalRoot = tran.signalRoot;
+                    reward = ts.validityBond >> 2;
+                    tko.transfer(ts.contester, ts.contestBond + reward);
                 }
-                ts.prover = msg.sender;
-                ts.contester = address(0);
-                ts.validityBond = tier.validityBond;
-                ts.timestamp = uint64(block.timestamp);
             } else {
-                // Contest the old
                 if (sameTransition) revert L1_ALREADY_PROVED();
+                reward = ts.validityBond >> 2;
             }
+
+            if (reward > tier.validityBond) {
+                tko.transfer(msg.sender, reward - tier.validityBond);
+            } else {
+                tko.transferFrom(msg.sender, address(this), tier.validityBond - reward);
+            }
+
+            ts.contester = address(0);
+            ts.prover = msg.sender;
+            ts.validityBond = tier.validityBond;
+            ts.contestBond = 1; // to save gas
+            ts.timestamp = uint64(block.timestamp);
+            ts.tier = proof.tier;
+
+            if (!sameTransition) {
+                ts.blockHash = tran.blockHash;
+                ts.signalRoot = tran.signalRoot;
+            }
+
+            emit TransitionProved({
+                blockId: blk.blockId,
+                tran: tran,
+                prover: msg.sender,
+                validityBond: tier.validityBond,
+                tier: proof.tier
+            });
         } else {
             // New transition and Old transition on the same tier
             if (sameTransition) revert L1_ALREADY_PROVED();
@@ -274,9 +274,10 @@ library LibProving {
                 // On the highest tier
                 assert(tier.validityBond == 0 && !contested);
 
+                ts.prover = msg.sender;
+                ts.timestamp = uint64(block.timestamp);
                 ts.blockHash = tran.blockHash;
                 ts.signalRoot = tran.signalRoot;
-                ts.prover = msg.sender;
             } else {
                 // Not on the highest tier
                 if (contested) revert L1_ALREADY_CONTESTED();
