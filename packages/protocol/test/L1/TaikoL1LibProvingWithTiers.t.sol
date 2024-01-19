@@ -124,7 +124,6 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         // blockhash:blockId
         proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot, meta.minTier, "");
 
-        // Try to contest - but should revert with L1_ALREADY_PROVED
         proveBlock(Carol, Carol, meta, parentHash, blockHash2, signalRoot, meta.minTier, "");
 
         // Prove as guardian
