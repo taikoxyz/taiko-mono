@@ -169,9 +169,7 @@ library LibProving2 {
         } else {
             // A transition with the provided parentHash has been located.
             ts = state.transitions[slot][tid];
-            if (ts.tier < meta.minTier) {
-                revert L1_UNEXPECTED_TRANSITION_TIER();
-            }
+            if (ts.tier < meta.minTier) revert L1_UNEXPECTED_TRANSITION_TIER();
         }
 
         // The new proof must meet or exceed the minimum tier required by the
@@ -246,15 +244,19 @@ library LibProving2 {
             uint256 reward;
             if (ts.contester != address(0)) {
                 if (sameTransition) {
+                    // The contested transition is proven to be valid, contestor loses the game
                     reward = ts.contestBond >> 2;
                     tko.transfer(ts.prover, ts.validityBond + reward);
                 } else {
+                    // The contested transition is proven to be invalid, contestor wins the game
                     reward = ts.validityBond >> 2;
                     tko.transfer(ts.contester, ts.contestBond + reward);
                 }
             } else {
                 if (sameTransition) revert L1_ALREADY_PROVED();
+                // Contest the existing transition and prove it to be invalid
                 reward = ts.validityBond >> 1;
+                ts.contestations += 1;
             }
 
             if (reward > tier.validityBond) {
@@ -263,10 +265,10 @@ library LibProving2 {
                 tko.transferFrom(msg.sender, address(this), tier.validityBond - reward);
             }
 
-            ts.contester = address(0);
-            ts.prover = msg.sender;
             ts.validityBond = tier.validityBond;
             ts.contestBond = 0;
+            ts.contester = address(0);
+            ts.prover = msg.sender;
             ts.tier = proof.tier;
 
             if (!sameTransition) {
@@ -282,12 +284,13 @@ library LibProving2 {
                 tier: proof.tier
             });
         } else {
-            // New transition and Old transition on the same tier
+            // New transition and old transition on the same tier
             if (sameTransition) revert L1_ALREADY_PROVED();
 
             if (tier.contestBond == 0) {
                 // On the highest tier
-                assert(tier.validityBond == 0 && ts.contester == address(0));
+                assert(tier.validityBond == 0);
+                assert(ts.validityBond == 0 && ts.contestBond == 0 && ts.contester == address(0));
 
                 ts.prover = msg.sender;
                 ts.blockHash = tran.blockHash;
