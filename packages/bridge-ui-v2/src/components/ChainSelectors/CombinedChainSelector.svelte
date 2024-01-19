@@ -5,6 +5,9 @@
   import { destNetwork } from '$components/Bridge/state';
   import SwitchChainsButton from '$components/Bridge/SwitchChainsButton.svelte';
   import { LoadingMask } from '$components/LoadingMask';
+  import { OnNetwork } from '$components/OnNetwork';
+  import { chainIdToChain } from '$libs/chain';
+  import { getAlternateNetwork } from '$libs/network';
   import { truncateString } from '$libs/util/truncateString';
   import { network } from '$stores/network';
 
@@ -15,6 +18,14 @@
   let switchingNetwork = false;
 
   let iconSize = 'min-w-[24px] max-w-[24px] min-h-[24px] max-h-[24px]';
+
+  function onNetworkChange() {
+    const alternateChainID = getAlternateNetwork();
+    if (!$destNetwork && alternateChainID) {
+      // if only two chains are available, set the destination chain to the other one
+      $destNetwork = chainIdToChain(alternateChainID);
+    }
+  }
 
   const onOriginToggle = () => {
     originToggled = !originToggled;
@@ -87,3 +98,5 @@
     <ChainsDropdown bind:isOpen={destinationToggled} bind:switchingNetwork bind:value={destChain} isDest />
   </div>
 </div>
+
+<OnNetwork change={onNetworkChange} />

@@ -9,9 +9,9 @@
   import { chains } from '$libs/chain';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { classNames } from '$libs/util/classNames';
+  import { network } from '$stores/network';
 
   export let isOpen: boolean;
-  export let validOptions: Maybe<Chain[]> = chains;
   export let value: Maybe<GetNetworkResult['chain']> = null;
   export let switchWallet = false;
 
@@ -84,9 +84,7 @@
     use:closeOnEscapeOrOutsideClick={{ enabled: isOpen, callback: () => (isOpen = false) }}>
     <!--  -->
     {#each chains as chain (chain.id)}
-      {@const disabled =
-        (validOptions ? !validOptions.some((validOption) => validOption.id === chain.id) : true) ||
-        chain.id === value?.id}
+      {@const disabled = (isDest && chain.id === $network?.id) || chain.id === value?.id}
       {@const icon = chainConfig[Number(chain.id)]?.icon || 'Unknown Chain'}
       <li
         role="menuitem"

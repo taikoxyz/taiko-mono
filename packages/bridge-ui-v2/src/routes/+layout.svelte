@@ -13,7 +13,8 @@
   import { WelcomeModal } from '$components/WelcomeModal';
   import { startWatching, stopWatching } from '$libs/wagmi';
 
-  onMount(startWatching);
+  onMount(async () => await startWatching());
+
   onDestroy(stopWatching);
 </script>
 
