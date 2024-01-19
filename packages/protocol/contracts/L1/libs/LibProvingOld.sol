@@ -24,6 +24,7 @@ import "./LibUtils.sol";
 /// @title LibProving
 /// @notice A library for handling block contestation and proving in the Taiko
 /// protocol.
+// TODO(daniel): delete this file.
 library LibProving {
     bytes32 public constant RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
