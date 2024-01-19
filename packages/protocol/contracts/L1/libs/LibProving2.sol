@@ -224,6 +224,7 @@ library LibProving2 {
 
         // A special return value from the top tier prover can signal this
         // contract to return all liveness bond.
+        IERC20 tko = IERC20(resolver.resolve("taiko_token", false));
         if (
             tier.contestBond == 0 && blk.livenessBond > 0 && proof.data.length == 32
                 && bytes32(proof.data) == RETURN_LIVENESS_BOND
@@ -232,11 +233,9 @@ library LibProving2 {
             blk.livenessBond = 0;
         }
 
-        IERC20 tko = IERC20(resolver.resolve("taiko_token", false));
         bool sameTransition = tran.blockHash == ts.blockHash && tran.signalRoot == ts.signalRoot;
 
         if (proof.tier > ts.tier) {
-            // _checkProver(tid, ts, blk, tier);
             // Higher tier proof overwriting lower tier proof
             uint256 reward;
             if (ts.contester != address(0)) {
