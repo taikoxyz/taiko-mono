@@ -169,7 +169,9 @@ library LibProving {
         } else {
             // A transition with the provided parentHash has been located.
             ts = state.transitions[slot][tid];
-            if (ts.tier < meta.minTier) revert L1_UNEXPECTED_TRANSITION_TIER();
+            if (ts.tier < meta.minTier) {
+                revert L1_UNEXPECTED_TRANSITION_TIER();
+            }
         }
 
         // The new proof must meet or exceed the minimum tier required by the
