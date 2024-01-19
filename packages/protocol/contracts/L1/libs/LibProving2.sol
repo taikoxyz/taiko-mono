@@ -129,7 +129,7 @@ library LibProving2 {
             ts.signalRoot = 0;
             ts.validityBond = 0;
             ts.contester = address(0);
-            ts.contestBond = 1; // see below (the value does't matter)
+            ts.contestBond = 0;
             ts.timestamp = blk.proposedAt;
             ts.tier = 0;
             ts.contestations = 0;
@@ -222,15 +222,18 @@ library LibProving2 {
             }
         }
 
+        IERC20 tko = IERC20(resolver.resolve("taiko_token", false));
+
         // A special return value from the top tier prover can signal this
         // contract to return all liveness bond.
-        IERC20 tko = IERC20(resolver.resolve("taiko_token", false));
-        if (
-            tier.contestBond == 0 && blk.livenessBond > 0 && proof.data.length == 32
-                && bytes32(proof.data) == RETURN_LIVENESS_BOND
-        ) {
-            tko.transfer(blk.assignedProver, blk.livenessBond);
-            blk.livenessBond = 0;
+        {
+            bool returnLivenessBond = tier.contestBond == 0 && blk.livenessBond > 0
+                && proof.data.length == 32 && bytes32(proof.data) == RETURN_LIVENESS_BOND;
+
+            if (returnLivenessBond) {
+                tko.transfer(blk.assignedProver, blk.livenessBond);
+                blk.livenessBond = 0;
+            }
         }
 
         bool sameTransition = tran.blockHash == ts.blockHash && tran.signalRoot == ts.signalRoot;
@@ -238,7 +241,6 @@ library LibProving2 {
         if (proof.tier > ts.tier) {
             // Higher tier proof overwriting lower tier proof
 
-            // Chech msg.sender against the block's assigned prover
             _checkProverPermission(blk, ts, tid, tier);
 
             uint256 reward;
@@ -264,7 +266,7 @@ library LibProving2 {
             ts.contester = address(0);
             ts.prover = msg.sender;
             ts.validityBond = tier.validityBond;
-            ts.contestBond = 1; // to save gas
+            ts.contestBond = 0;
             ts.tier = proof.tier;
 
             if (!sameTransition) {
