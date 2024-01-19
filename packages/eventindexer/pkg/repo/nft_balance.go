@@ -48,8 +48,6 @@ func (r *NFTBalanceRepository) IncreaseBalance(
 	if err != nil {
 		// allow to be not found, it may be first time this user has this NFT
 		if err != gorm.ErrRecordNotFound {
-			// should always be found, since we are subtracting a balance.
-			// that should be indexed as a positive balance before.
 			return nil, errors.Wrap(err, "r.db.gormDB.First")
 		}
 	}
@@ -85,9 +83,12 @@ func (r *NFTBalanceRepository) SubtractBalance(
 		First(b).
 		Error
 	if err != nil {
-		// should always be found, since we are subtracting a balance.
-		// that should be indexed as a positive balance before.
-		return nil, errors.Wrap(err, "r.db.gormDB.First")
+		if err != gorm.ErrRecordNotFound {
+			return nil, errors.Wrap(err, "r.db.gormDB.First")
+		} else {
+			// cant subtract a balance if user never had this balance, indexing issue
+			return nil, nil
+		}
 	}
 
 	b.Amount -= opts.Amount
