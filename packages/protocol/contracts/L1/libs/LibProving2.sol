@@ -236,7 +236,7 @@ library LibProving2 {
         bool sameTransition = tran.blockHash == ts.blockHash && tran.signalRoot == ts.signalRoot;
 
         if (proof.tier > ts.tier) {
-            _checkProver(tid, ts, blk, tier);
+            _checkProverPermission(blk, ts, tid, tier);
             // Higher tier proof overwriting lower tier proof
             uint256 reward;
             if (ts.contester != address(0)) {
@@ -318,24 +318,24 @@ library LibProving2 {
         }
     }
 
-    function _checkProver(
-        uint32 tid,
-        TaikoData.TransitionState storage ts,
+    function _checkProverPermission(
         TaikoData.Block storage blk,
+        TaikoData.TransitionState storage ts,
+        uint32 tid,
         ITierProvider.Tier memory tier
     )
         private
         view
     {
+        // The highest tier proof can always submit new proofs
         if (tier.contestBond == 0) return;
-        if (tid == 1) {
-            if (block.timestamp <= ts.timestamp + tier.provingWindow) {
-                if (msg.sender != blk.assignedProver) revert L1_NOT_ASSIGNED_PROVER();
-            } else {
-                if (msg.sender == blk.assignedProver) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
-            }
+        bool inWindow = block.timestamp <= ts.timestamp + tier.provingWindow;
+        bool isAssignedPover = msg.sender == blk.assignedProver;
+
+        if (tid == 1 && inWindow) {
+            if (!isAssignedPover) revert L1_NOT_ASSIGNED_PROVER();
         } else {
-            if (msg.sender == blk.assignedProver) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
+            if (isAssignedPover) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
         }
     }
 }
