@@ -97,6 +97,59 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         printVariables("");
     }
 
+    function test_L1_GuardianProverProveTheOrigianlTransitionIsCorrect() external {
+        giveEthAndTko(Alice, 1e7 ether, 1000 ether);
+        giveEthAndTko(Carol, 1e7 ether, 1000 ether);
+        console2.log("Alice balance:", tko.balanceOf(Alice));
+        // This is a very weird test (code?) issue here.
+        // If this line is uncommented,
+        // Alice/Bob has no balance.. (Causing reverts !!!)
+        // Current investigations are ongoing with foundry team
+        giveEthAndTko(Bob, 1e6 ether, 100 ether);
+        console2.log("Bob balance:", tko.balanceOf(Bob));
+        // Bob
+        vm.prank(Bob, Bob);
+
+        bytes32 parentHash = GENESIS_BLOCK_HASH;
+
+        printVariables("before propose");
+        (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
+        //printVariables("after propose");
+        mine(1);
+
+        bytes32 blockHash = bytes32(uint256(1));
+        bytes32 blockHash2 = bytes32(uint256(2));
+        bytes32 signalRoot = bytes32(uint256(3));
+        // This proof cannot be verified obviously because of
+        // blockhash:blockId
+        proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot, meta.minTier, "");
+
+        // Try to contest - but should revert with L1_ALREADY_PROVED
+        proveBlock(Carol, Carol, meta, parentHash, blockHash2, signalRoot, meta.minTier, "");
+
+        // Prove as guardian
+        proveBlock(
+            Carol, Carol, meta, parentHash, blockHash, signalRoot, LibTiers.TIER_GUARDIAN, ""
+        );
+
+        proveBlock(
+            Carol, Carol, meta, parentHash, blockHash2, signalRoot, LibTiers.TIER_GUARDIAN, ""
+        );
+
+        proveBlock(
+            Carol, Carol, meta, parentHash, blockHash, signalRoot, LibTiers.TIER_GUARDIAN, ""
+        );
+
+        vm.roll(block.number + 15 * 12);
+
+        uint16 minTier = meta.minTier;
+        vm.warp(block.timestamp + L1.getTier(minTier).cooldownWindow + 1);
+
+        verifyBlock(Carol, 1);
+
+        printVariables("");
+    }
+
     function test_L1_ContestingWithDifferentButCorrectProof() external {
         giveEthAndTko(Alice, 1e8 ether, 1000 ether);
         giveEthAndTko(Carol, 1e8 ether, 1000 ether);
