@@ -262,7 +262,6 @@ library LibProving2 {
             ts.prover = msg.sender;
             ts.validityBond = tier.validityBond;
             ts.contestBond = 1; // to save gas
-            ts.timestamp = uint64(block.timestamp);
             ts.tier = proof.tier;
 
             if (!sameTransition) {
@@ -286,9 +285,16 @@ library LibProving2 {
                 assert(tier.validityBond == 0 && ts.contester == address(0));
 
                 ts.prover = msg.sender;
-                ts.timestamp = uint64(block.timestamp);
                 ts.blockHash = tran.blockHash;
                 ts.signalRoot = tran.signalRoot;
+
+                emit TransitionProved({
+                    blockId: blk.blockId,
+                    tran: tran,
+                    prover: msg.sender,
+                    validityBond: 0,
+                    tier: proof.tier
+                });
             } else {
                 // Not on the highest tier
                 if (ts.contester != address(0)) revert L1_ALREADY_CONTESTED();
@@ -304,7 +310,6 @@ library LibProving2 {
                 // doesn't have any significance.
                 ts.contestBond = tier.contestBond;
                 ts.contester = msg.sender;
-                ts.timestamp = uint64(block.timestamp);
                 ts.contestations += 1;
 
                 emit TransitionContested({
@@ -316,6 +321,8 @@ library LibProving2 {
                 });
             }
         }
+
+        ts.timestamp = uint64(block.timestamp);
     }
 
     function _checkProverPermission(
@@ -329,10 +336,11 @@ library LibProving2 {
     {
         // The highest tier proof can always submit new proofs
         if (tier.contestBond == 0) return;
-        bool inWindow = block.timestamp <= ts.timestamp + tier.provingWindow;
+
+        bool inProvingWindow = block.timestamp <= ts.timestamp + tier.provingWindow;
         bool isAssignedPover = msg.sender == blk.assignedProver;
 
-        if (tid == 1 && inWindow) {
+        if (tid == 1 && inProvingWindow) {
             if (!isAssignedPover) revert L1_NOT_ASSIGNED_PROVER();
         } else {
             if (isAssignedPover) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
