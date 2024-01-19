@@ -1,38 +1,19 @@
-import type { Address } from 'viem';
-
 import { fetchNFTMetadata } from '$libs/token/fetchNFTMetadata';
-// import { checkForAdblocker } from '$libs/util/checkForAdblock';
-import { extractIPFSCidFromUrl } from '$libs/util/extractIPFSCidFromUrl';
-import { getFileExtension } from '$libs/util/getFileExtension';
 import { getLogger } from '$libs/util/logger';
-import { safeParseUrl } from '$libs/util/safeParseUrl';
-import { getCanonicalTokenInfo } from '$stores/canonical';
+import { resolveIPFSUri } from '$libs/util/resolveIPFSUri';
 
-import { getCanonicalInfoForToken } from './getCanonicalInfoForToken';
-import { getTokenWithInfoFromAddress } from './getTokenWithInfoFromAddress';
-import type { NFT } from './types';
+import type { NFT, NFTMetadata } from './types';
 
 const log = getLogger('libs:token:fetchNFTImageUrl');
 
-const useGateway = (url: string, tokenId: number): string | null => {
-  const { cid } = extractIPFSCidFromUrl(url);
-  const extension = getFileExtension(url);
-  if (tokenId !== undefined && tokenId !== null && cid) {
-    return `https://ipfs.io/ipfs/${cid}/${tokenId}.${extension}`;
-  } else {
-    log(`No valid CID found in ${url}`);
-    return null;
-  }
-};
-
-const fetchImageUrl = async (url: string, tokenId: number): Promise<string> => {
+const fetchImageUrl = async (url: string): Promise<string> => {
   const imageLoaded = await testImageLoad(url);
 
   if (imageLoaded) {
     return url;
   } else {
     log('fetchImageUrl failed to load image');
-    const newUrl = useGateway(url, tokenId);
+    const newUrl = await resolveIPFSUri(url);
     if (newUrl) {
       const gatewayImageLoaded = await testImageLoad(newUrl);
       if (gatewayImageLoaded) {
@@ -52,28 +33,25 @@ const testImageLoad = (url: string): Promise<boolean> => {
   });
 };
 
-export const fetchNFTImageUrl = async (token: NFT, srcChainId: number, destChainId: number): Promise<NFT> => {
+export const fetchNFTImageUrl = async (token: NFT): Promise<NFT> => {
   try {
-    let tokenWithMetadata: NFT | null = token;
+    let metadata: NFTMetadata | null = token?.metadata || null;
 
-    if (!tokenWithMetadata.metadata) {
-      tokenWithMetadata = await crossChainFetchNFTMetadata(token, srcChainId, destChainId);
-      if (!tokenWithMetadata) throw new Error('No cross chain data found');
+    if (!token.metadata) {
+      const fetchedMetadata = await fetchNFTMetadata(token);
+      if (!fetchedMetadata) throw new Error('No cross chain data found');
+      token.metadata = fetchedMetadata;
+      metadata = fetchedMetadata;
     }
+    if (!metadata) throw new Error('No metadata found');
+    if (!metadata?.image) throw new Error('No image found');
 
-    if (!tokenWithMetadata.metadata?.image) throw new Error('No image found');
+    const imageUrl = await fetchImageUrl(metadata.image);
 
-    const url = safeParseUrl(tokenWithMetadata.metadata.image);
-    if (!url) throw new Error(`Invalid image URL: ${tokenWithMetadata.metadata.image}`);
-
-    const imageUrl = await fetchImageUrl(url, token.tokenId);
-
-    token.name = tokenWithMetadata.name; // TODO: discuss if we want to overwrite the name with the canonical one
     token.metadata = {
-      ...tokenWithMetadata.metadata,
+      ...metadata,
       image: imageUrl,
     };
-
     return token;
   } catch (error) {
     log(`Error fetching image for ${token.name} id: ${token.tokenId}`, error);
@@ -81,35 +59,39 @@ export const fetchNFTImageUrl = async (token: NFT, srcChainId: number, destChain
   }
 };
 
-const crossChainFetchNFTMetadata = async (token: NFT, srcChainId: number, destChainId: number): Promise<NFT | null> => {
-  try {
-    return await fetchNFTMetadata(token);
-  } catch (error) {
-    log(`Trying crosschainFetch`);
+// const crossChainFetchNFTMetadata = async (
+//   token: NFT,
+//   srcChainId: number,
+//   destChainId: number,
+// ): Promise<NFTMetadata | null> => {
+//   try {
+//     return await fetchNFTMetadata(token?.uri);
+//   } catch (error) {
+//     log(`Trying crosschainFetch`);
 
-    const tokenAddress = token.addresses[srcChainId];
-    let canonicalAddress: Address;
-    let canonicalChainID: number;
+//     const tokenAddress = token.addresses[srcChainId];
+//     let canonicalAddress: Address;
+//     let canonicalChainID: number;
 
-    if (getCanonicalTokenInfo(tokenAddress) && getCanonicalTokenInfo(tokenAddress).isCanonical) {
-      canonicalAddress = tokenAddress;
-      canonicalChainID = srcChainId;
-    } else {
-      const canonicalInfo = await getCanonicalInfoForToken({ token, srcChainId, destChainId });
-      if (!canonicalInfo) throw new Error('No cross chain info found');
-      canonicalAddress = canonicalInfo.address;
-      canonicalChainID = canonicalInfo.chainId;
-    }
+//     if (getCanonicalTokenInfo(tokenAddress) && getCanonicalTokenInfo(tokenAddress).isCanonical) {
+//       canonicalAddress = tokenAddress;
+//       canonicalChainID = srcChainId;
+//     } else {
+//       const canonicalInfo = await getCanonicalInfoForToken({ token, srcChainId, destChainId });
+//       if (!canonicalInfo) throw new Error('No cross chain info found');
+//       canonicalAddress = canonicalInfo.address;
+//       canonicalChainID = canonicalInfo.chainId;
+//     }
 
-    log(`Fetching metadata for ${token.name} from chain ${canonicalChainID} at address ${canonicalAddress}`);
+//     log(`Fetching metadata for ${token.name} from chain ${canonicalChainID} at address ${canonicalAddress}`);
 
-    const cToken = (await getTokenWithInfoFromAddress({
-      contractAddress: canonicalAddress,
-      srcChainId: canonicalChainID,
-      tokenId: token.tokenId,
-      type: token.type,
-    })) as NFT;
-    cToken.addresses = { ...token.addresses, [destChainId]: canonicalAddress };
-    return await fetchNFTMetadata(cToken);
-  }
-};
+//     const cToken = (await getTokenWithInfoFromAddress({
+//       contractAddress: canonicalAddress,
+//       srcChainId: canonicalChainID,
+//       tokenId: token.tokenId,
+//       type: token.type,
+//     })) as NFT;
+//     cToken.addresses = { ...token.addresses, [canonicalChainID]: canonicalAddress };
+//     return await fetchNFTMetadata(token?.uri);
+//   }
+// };

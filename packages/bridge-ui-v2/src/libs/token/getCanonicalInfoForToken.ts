@@ -40,26 +40,41 @@ export async function getCanonicalInfoForToken({ token, srcChainId, destChainId 
     address: routingContractsMap[srcChainId][destChainId][vaultAddressKey],
   });
 
+  const destTokenVaultContract = getContract({
+    abi: vaultABI as Abi,
+    chainId: destChainId,
+    address: routingContractsMap[destChainId][srcChainId][vaultAddressKey],
+  });
+
   let canonicalTokenAddress: Address;
   let canonicalChain: number;
 
   // check if the address we have is canonical
-  const canonicalTokenInfo = (await srcTokenVaultContract.read.bridgedToCanonical([srcChainTokenAddress])) as Address;
-  canonicalTokenAddress = canonicalTokenInfo[1] as Address;
+  const srcCanonicalTokenInfo = (await srcTokenVaultContract.read.bridgedToCanonical([
+    srcChainTokenAddress,
+  ])) as Address;
+  const srcCanonicalCheck = srcCanonicalTokenInfo[1] as Address;
 
-  if (canonicalTokenAddress === zeroAddress) {
-    // we already have the canonical address
+  const destCanonicalTokenInfo = (await destTokenVaultContract.read.bridgedToCanonical([
+    srcChainTokenAddress,
+  ])) as Address;
+
+  const destCanonicalCheck = destCanonicalTokenInfo[1] as Address;
+
+  if (srcCanonicalCheck === zeroAddress && destCanonicalCheck === zeroAddress) {
+    // if both are zero we are dealing with a canonical address
     canonicalTokenAddress = srcChainTokenAddress;
     canonicalChain = srcChainId;
-    setCanonicalTokenInfo(canonicalTokenAddress, true, canonicalChain);
-    setCanonicalTokenInfo(canonicalTokenInfo[1] as Address, false, destChainId);
+  } else if (destCanonicalCheck !== zeroAddress) {
+    // if the destination is not zero, we found a canonical address there
+    canonicalTokenAddress = destCanonicalCheck;
+    canonicalChain = srcChainId;
   } else {
-    // we found a canonical
-    canonicalTokenAddress = canonicalTokenInfo[1] as Address;
+    // if the source is not zero, we found a canonical address there
+    canonicalTokenAddress = srcCanonicalCheck;
     canonicalChain = destChainId;
-    setCanonicalTokenInfo(canonicalTokenAddress, true, canonicalChain);
-    setCanonicalTokenInfo(srcChainTokenAddress, false, srcChainId);
   }
+  setCanonicalTokenInfo(canonicalTokenAddress, true, canonicalChain);
 
   log(`Found canonical address ${canonicalTokenAddress} on chain ${canonicalChain}`);
   return { chainId: canonicalChain, address: canonicalTokenAddress };

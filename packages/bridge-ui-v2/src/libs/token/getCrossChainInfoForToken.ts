@@ -7,9 +7,10 @@ import { getLogger } from '$libs/util/logger';
 
 import { type GetTokenInfo, TokenType } from './types';
 
-const log = getLogger('token:getCrossChainInfo');
+const log = getLogger('token:getCrossChainInfoForToken');
 
-export async function getCrossChainInfo({ token, srcChainId, destChainId }: GetTokenInfo) {
+//TODO: reuse getCanonicalInfoForToken for more DRY
+export async function getCrossChainInfoForToken({ token, srcChainId, destChainId }: GetTokenInfo) {
   if (token.type === TokenType.ETH) return null; // ETH doesn't have an address
 
   log(
@@ -57,6 +58,7 @@ export async function getCrossChainInfo({ token, srcChainId, destChainId }: GetT
   const destCanonicalTokenInfo = (await destTokenVaultContract.read.bridgedToCanonical([
     srcChainTokenAddress,
   ])) as Address;
+
   const destCanonicalCheck = destCanonicalTokenInfo[1] as Address;
 
   if (srcCanonicalCheck === zeroAddress && destCanonicalCheck === zeroAddress) {

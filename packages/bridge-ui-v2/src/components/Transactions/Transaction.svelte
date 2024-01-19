@@ -99,7 +99,7 @@
       tokenId: Number(tokenIds[0]),
       type: item.tokenType,
     })) as NFT;
-    token = await fetchNFTImageUrl(token, Number(item.srcChainId), Number(item.destChainId));
+    token = await fetchNFTImageUrl(token);
 
     loading = false;
   }

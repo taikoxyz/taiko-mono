@@ -43,7 +43,7 @@
 
     await Promise.all(
       $selectedNFTs.map(async (nft) => {
-        fetchNFTImageUrl(nft, srcChainId, destChainId).then((nftWithUrl) => {
+        fetchNFTImageUrl(nft).then((nftWithUrl) => {
           $selectedToken = nftWithUrl;
           $selectedNFTs = [nftWithUrl];
         });

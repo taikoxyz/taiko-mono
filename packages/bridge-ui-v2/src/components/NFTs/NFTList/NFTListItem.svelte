@@ -62,7 +62,6 @@
         {#if !imageLoaded}
           <img alt="placeholder" src={placeholderUrl} class="rounded bg-white" />
         {/if}
-
         <img alt={nft.name} src={imageUrl || ''} class=" rounded bg-white" on:load={handleImageLoad} />
       </div>
     </div>

@@ -10,7 +10,7 @@
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { tokenService } from '$libs/storage/services';
   import { ETHToken, type Token } from '$libs/token';
-  import { getCrossChainInfo } from '$libs/token/getCrossChainInfo';
+  import { getCrossChainInfoForToken } from '$libs/token/getCrossChainInfoForToken';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
   import { network } from '$stores/network';
@@ -75,7 +75,7 @@
         return;
       }
       try {
-        const crossChainInfo = await getCrossChainInfo({
+        const crossChainInfo = await getCrossChainInfoForToken({
           token,
           srcChainId: srcChain.id,
           destChainId: destChain.id,

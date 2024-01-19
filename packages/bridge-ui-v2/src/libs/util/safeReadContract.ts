@@ -21,7 +21,7 @@ export async function safeReadContract(params: ReadContractParams): Promise<unkn
   try {
     return await readContract(params);
   } catch (error) {
-    log(`Failed to read contract: ${error}`);
+    log(`Safely failed to read contract: ${error}`);
     return null;
   }
 }

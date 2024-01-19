@@ -1,135 +1,101 @@
-import axios, { AxiosError, type AxiosRequestConfig, type AxiosResponse } from 'axios';
-import objectHash from 'object-hash';
+import axios, { AxiosError, type AxiosRequestConfig } from 'axios';
 import { get } from 'svelte/store';
+import type { Address } from 'viem';
 
-import { type NFT, type NFTMetadata, TokenType } from '$libs/token';
-import { safeParseUrl } from '$libs/util/safeParseUrl';
-import { metadataCache } from '$stores/index';
+import { destNetwork } from '$components/Bridge/state';
+import { getLogger } from '$libs/util/logger';
+import { resolveIPFSUri } from '$libs/util/resolveIPFSUri';
+import { getCanonicalTokenInfo } from '$stores/canonical';
+import { metadataCache } from '$stores/metadata';
+import { network } from '$stores/network';
 
-import { checkForAdblocker } from '../util/checkForAdblock';
-import { extractIPFSCidFromUrl } from '../util/extractIPFSCidFromUrl';
-import { getLogger } from '../util/logger';
+import { getCanonicalInfoForToken } from './getCanonicalInfoForToken';
+import { getTokenWithInfoFromAddress } from './getTokenWithInfoFromAddress';
+import type { NFT, NFTMetadata } from './types';
 
-const log = getLogger('libs:token:fetchNFTMetadata');
-
-const REQUEST_TIMEOUT_IN_MS: number = 5000;
+const REQUEST_TIMEOUT_IN_MS = 200;
 
 const axiosConfig: AxiosRequestConfig = {
   timeout: REQUEST_TIMEOUT_IN_MS,
 };
 
-export const fetchNFTMetadata = async (token: NFT): Promise<NFT | null> => {
-  const cacheKey = objectHash.sha1(token);
+const log = getLogger('libs:token:fetchNFTMetadata');
 
-  // Retrieve the current value of the store
+export async function fetchNFTMetadata(token: NFT): Promise<NFTMetadata | null> {
+  let uri = token?.uri;
+  if (!uri) {
+    const crossChainMetadata = await crossChainFetchNFTMetadata(token);
+    if (crossChainMetadata) return crossChainMetadata;
+  }
+  if (!uri) throw new Error('No uri found');
+
   const cache = get(metadataCache);
+  if (cache.has(uri)) return cache.get(uri) || null;
 
-  if (cache.has(cacheKey)) {
-    log(`Loaded metadata from cache for ${token.name} id: ${token.tokenId}`);
-    token.metadata = cache.get(cacheKey) as NFTMetadata;
-    return token;
+  if (uri.startsWith('ipfs:')) {
+    uri = await resolveIPFSUri(uri);
   }
 
   try {
-    const metadata = await fetchNFTMetadataOnline(token);
-    if (!metadata) throw new Error('No metadata found');
+    const response = await axios.get<NFTMetadata>(uri, axiosConfig);
+    const metadata = response.data;
 
-    // Update the store with the new metadata
-    metadataCache.update((currentCache) => {
-      currentCache.set(cacheKey, metadata);
-
-      return currentCache;
-    });
-    token.metadata = metadata;
-    return token;
+    if (metadata.image) {
+      cacheMetadata(uri, metadata);
+      return metadata;
+    }
+    throw new Error('No image in metadata');
   } catch (error) {
-    log(`Error fetching metadata for ${token.name} id: ${token.tokenId}`, error);
-    throw new Error('No metadata found');
+    throw new Error(`Failed to fetch NFT metadata: ${(error as AxiosError).message}`);
   }
-};
+}
 
-const fetchNFTMetadataOnline = async (token: NFT): Promise<NFTMetadata | null> => {
-  if (token.type !== TokenType.ERC721 && token.type !== TokenType.ERC1155) throw new Error('Not a NFT');
+function cacheMetadata(uri: string, metadata: NFTMetadata) {
+  metadataCache.update((cache) => {
+    cache.set(uri, metadata);
+    return cache;
+  });
+}
 
-  log(`fetching metadata for ${token.name} id: ${token.tokenId}`);
-
-  if (!token.uri) throw new Error('No token URI found');
-
-  if (token.uri.includes('{id}')) {
-    token.uri = token.uri.replace('{id}', token.tokenId.toString());
-  }
-
-  const url = safeParseUrl(token.uri);
-  if (!url) throw new Error(`Invalid token URI: ${token.uri}`);
-
-  let json;
-
+const crossChainFetchNFTMetadata = async (token: NFT): Promise<NFTMetadata | null> => {
   try {
-    json = await axios.get(url, axiosConfig);
-  } catch (err) {
-    const error = err as AxiosError;
-    log(`error fetching metadata for ${token.name} id: ${token.tokenId}`, error);
-    //todo: handle different error scenarios?
-    json = await retry(url, token.tokenId);
-  }
-  if (!json) {
-    const isBlocked = await checkForAdblocker(url);
-    if (isBlocked) {
-      log(`The resource at ${url} is blocked by an adblocker`);
-      json = await retry(url, token.tokenId);
+    log(`Trying crosschainFetch for ${token.name} id: ${token.tokenId}`);
+
+    const srcChainId = get(network)?.id;
+    const destChainId = get(destNetwork)?.id;
+    if (!srcChainId || !destChainId) throw new Error('No srcChainId found');
+
+    // any tokenAddress will do
+    const tokenAddress = Object.values(token.addresses)[0];
+
+    let canonicalAddress: Address;
+    let canonicalChainID: number;
+
+    if (getCanonicalTokenInfo(tokenAddress) && getCanonicalTokenInfo(tokenAddress).isCanonical) {
+      canonicalAddress = tokenAddress;
+      canonicalChainID = getCanonicalTokenInfo(tokenAddress).chainId;
     } else {
-      throw new Error(`No metadata found for ${token.name} id: ${token.tokenId}`);
+      const canonicalInfo = await getCanonicalInfoForToken({ token, srcChainId, destChainId });
+      if (!canonicalInfo) throw new Error('No cross chain info found');
+      canonicalAddress = canonicalInfo.address;
+      canonicalChainID = canonicalInfo.chainId;
     }
-  }
 
-  if (!json || json instanceof Error) {
-    // Handle error
-    throw new Error(`No metadata found for ${token.name} id: ${token.tokenId}`);
-  }
-  const metadata = {
-    description: json.data.description || '',
-    external_url: json.data.external_url || '',
-    image: json.data.image || '',
-    name: json.data.name || '',
-  };
+    log(`Fetching metadata for ${token.name} from chain ${canonicalChainID} at address ${canonicalAddress}`);
 
-  log(`fetched metadata for ${token.name} id: ${token.tokenId}`, metadata);
-  return metadata;
-};
+    const cToken = (await getTokenWithInfoFromAddress({
+      contractAddress: canonicalAddress,
+      srcChainId: canonicalChainID,
+      tokenId: token.tokenId,
+      type: token.type,
+    })) as NFT;
+    cToken.addresses = { ...token.addresses, [canonicalChainID]: canonicalAddress };
 
-// TODO: we could retry several times with different gateways
-const retry = async (url: string, tokenId: number): Promise<AxiosResponse | Error> => {
-  let newUrl;
-  tokenId !== undefined && tokenId !== null ? (newUrl = useGateway(url, tokenId)) : (newUrl = useGateway(url, tokenId));
-  if (newUrl) {
-    const result = await retryRequest(newUrl);
-    if (result instanceof Error) {
-      return result;
-    }
-    return result;
-  }
-  return new Error(`No metadata found for ${url}`);
-};
-
-const retryRequest = async (newUrl: string): Promise<AxiosResponse | Error> => {
-  try {
-    log(`retrying with ${newUrl}`);
-    return await axios.get(newUrl, axiosConfig);
+    if (!cToken.uri) throw new Error('No uri found');
+    return cToken.metadata || null;
   } catch (error) {
-    log('retrying failed', error);
-    throw new Error(`No metadata found for ${newUrl}`);
-  }
-};
-
-//TODO: make this configurable via the config system?
-const useGateway = (url: string, tokenId: number) => {
-  const { cid } = extractIPFSCidFromUrl(url);
-  let gateway: string;
-  if (tokenId !== undefined && tokenId !== null && cid) {
-    gateway = `https://ipfs.io/ipfs/${cid}/${tokenId}.json`;
-  } else {
-    log(`no valid CID found in ${url}`);
+    log('Error fetching cross chain metadata');
+    console.error(error);
     return null;
   }
-  return gateway;
 };

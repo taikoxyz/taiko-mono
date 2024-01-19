@@ -1,7 +1,7 @@
 // import { getContract, type GetContractResult } from '@wagmi/core';
 // import { zeroAddress } from 'viem';
 
-// import { getCrossChainAddress } from './getCrossChainInfo';
+// import { getCrossChainAddress } from './getCrossChainInfoForToken';
 // import { type Token, TokenType } from './types';
 
 // vi.mock('@wagmi/core');

@@ -10,7 +10,7 @@
   import { Spinner } from '$components/Spinner';
   import type { NFT, Token } from '$libs/token';
   import { getCanonicalInfoForToken } from '$libs/token/getCanonicalInfoForToken';
-  import { getCrossChainInfo } from '$libs/token/getCrossChainInfo';
+  import { getCrossChainInfoForToken } from '$libs/token/getCrossChainInfoForToken';
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { uid } from '$libs/util/uid';
   import { network } from '$stores/network';
@@ -52,7 +52,7 @@
 
     fetchingBridgedAddress = true;
     try {
-      const response = await getCrossChainInfo({ token: nft, srcChainId: srcChain, destChainId: destChain });
+      const response = await getCrossChainInfoForToken({ token: nft, srcChainId: srcChain, destChainId: destChain });
       if (!response) return;
       const { address, chainId } = response;
       if (!address || !chainId) return;
