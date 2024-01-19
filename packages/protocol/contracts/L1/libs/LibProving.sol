@@ -226,7 +226,7 @@ library LibProving {
             assert(tier.validityBond == 0);
 
             // It means prover is right (not the contester)
-            bool proverIsRight = tran.blockHash == ts.blockHash && tran.signalRoot == ts.signalRoot;
+            bool sameTransition = tran.blockHash == ts.blockHash && tran.signalRoot == ts.signalRoot;
             // We should outright prohibit the use of zero values for both
             // blockHash and signalRoot since, when we initialize a new
             // transition, we set both blockHash and signalRoot to 0.
@@ -249,7 +249,7 @@ library LibProving {
             ts.prover = msg.sender;
 
             if (ts.contester != address(0)) {
-                if (!proverIsRight) {
+                if (!sameTransition) {
                     // At this point we know that the contester was right
                     tko.transfer(ts.contester, ts.validityBond >> 2 + ts.contestBond);
                 }
