@@ -344,20 +344,12 @@ library LibProving {
                 revert L1_ALREADY_PROVED();
             }
 
-            if (tid == 1 && ts.prover == blk.assignedProver) {
+            if (tid == 1 && ts.tier == 0 && block.timestamp <= ts.timestamp + tier.provingWindow) {
                 // For the first transition, (1) if the previous prover is
                 // still the assigned prover, we exclusively grant permission to
                 // the assigned approver to re-prove the block, (2) unless the
                 // proof window has elapsed.
-                if (
-                    block.timestamp <= ts.timestamp + tier.provingWindow
-                        && msg.sender != blk.assignedProver
-                ) revert L1_NOT_ASSIGNED_PROVER();
-
-                if (
-                    block.timestamp > ts.timestamp + tier.provingWindow
-                        && msg.sender == blk.assignedProver
-                ) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
+                if (msg.sender != blk.assignedProver) revert L1_NOT_ASSIGNED_PROVER();
             } else if (msg.sender == blk.assignedProver) {
                 // However, if the previous prover of the first transition is
                 // not the block's assigned prover, or for any other
