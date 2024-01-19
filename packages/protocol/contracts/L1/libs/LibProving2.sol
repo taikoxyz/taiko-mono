@@ -21,10 +21,10 @@ import "../verifiers/IVerifier.sol";
 import "../TaikoData.sol";
 import "./LibUtils.sol";
 
-/// @title LibProving
+/// @title LibProving2
 /// @notice A library for handling block contestation and proving in the Taiko
 /// protocol.
-library LibProving {
+library LibProving2 {
     bytes32 public constant RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
 
@@ -187,6 +187,8 @@ library LibProving {
 
         maxBlocksToVerify = tier.maxBlocksToVerify;
 
+        _checkProver(tid, ts, blk, tier);
+
         // We must verify the proof, and any failure in proof verification will
         // result in a revert.
         //
@@ -315,26 +317,15 @@ library LibProving {
         private
         view
     {
-        if (tid == 1 && ts.prover == blk.assignedProver) {
-            // For the first transition, (1) if the previous prover is
-            // still the assigned prover, we exclusively grant permission to
-            // the assigned approver to re-prove the block, (2) unless the
-            // proof window has elapsed.
-            if (
-                block.timestamp <= ts.timestamp + tier.provingWindow
-                    && msg.sender != blk.assignedProver
-            ) revert L1_NOT_ASSIGNED_PROVER();
+        // The top tier prover can always submit proofs
+        if (tier.contestBond == 0) return;
 
-            if (
-                block.timestamp > ts.timestamp + tier.provingWindow
-                    && msg.sender == blk.assignedProver
-            ) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
-        } else if (msg.sender == blk.assignedProver) {
-            // However, if the previous prover of the first transition is
-            // not the block's assigned prover, or for any other
-            // transitions, the assigned prover is not permitted to prove
-            // such transitions.
-            revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
+        bool inProvingWindow = tid == 1 && block.timestamp <= ts.timestamp + tier.provingWindow;
+
+        if (msg.sender == blk.assignedProver) {
+            if (!inProvingWindow) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
+        } else if (inProvingWindow) {
+            revert L1_NOT_ASSIGNED_PROVER();
         }
     }
 }

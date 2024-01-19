@@ -17,7 +17,7 @@ pragma solidity 0.8.20;
 import "../common/EssentialContract.sol";
 import "./libs/LibDepositing.sol";
 import "./libs/LibProposing.sol";
-import "./libs/LibProving.sol";
+import "./libs/LibProving2.sol";
 import "./libs/LibVerifying.sol";
 import "./ITaikoL1.sol";
 import "./TaikoErrors.sol";
@@ -97,7 +97,7 @@ contract TaikoL1 is
         TaikoData.Config memory config = getConfig();
 
         uint8 maxBlocksToVerify =
-            LibProving.proveBlock(state, config, AddressResolver(this), meta, tran, proof);
+            LibProving2.proveBlock(state, config, AddressResolver(this), meta, tran, proof);
 
         if (maxBlocksToVerify > 0) {
             LibVerifying.verifyBlocks(state, config, AddressResolver(this), maxBlocksToVerify);
@@ -115,7 +115,7 @@ contract TaikoL1 is
     /// @notice Pause block proving.
     /// @param pause True if paused.
     function pauseProving(bool pause) external onlyOwner {
-        LibProving.pauseProving(state, pause);
+        LibProving2.pauseProving(state, pause);
     }
 
     /// @notice Deposits Ether to Layer 2.
