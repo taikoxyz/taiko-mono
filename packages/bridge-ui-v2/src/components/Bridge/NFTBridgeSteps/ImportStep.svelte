@@ -91,7 +91,7 @@
     const srcChainId = $network?.id;
     const destChainId = $destNetwork?.id;
     if (!accountAddress || !srcChainId || !destChainId) return;
-    const nftsFromAPIs = await fetchNFTs(accountAddress, srcChainId, destChainId);
+    const nftsFromAPIs = await fetchNFTs(accountAddress, srcChainId);
     foundNFTs = nftsFromAPIs.nfts;
     scanning = false;
     scanned = true;

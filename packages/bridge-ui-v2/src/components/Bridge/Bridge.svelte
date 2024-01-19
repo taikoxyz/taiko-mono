@@ -25,7 +25,7 @@
   import { bridgeTxService } from '$libs/storage';
   import { ETHToken, tokens, TokenType } from '$libs/token';
   import { checkTokenApprovalStatus } from '$libs/token/checkTokenApprovalStatus';
-  import { getCrossChainInfo } from '$libs/token/getCrossChainInfo';
+  import { getCrossChainInfoForToken } from '$libs/token/getCrossChainInfoForToken';
   import { refreshUserBalance } from '$libs/util/balance';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
@@ -103,7 +103,7 @@
         tokenAddress = await getAddress(tokenAddress);
       }
       if (!tokenAddress) {
-        const crossChainInfo = await getCrossChainInfo({
+        const crossChainInfo = await getCrossChainInfoForToken({
           token: $selectedToken,
           srcChainId: $network.id,
           destChainId: $destinationChain.id,

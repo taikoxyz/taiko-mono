@@ -3,7 +3,7 @@ import { type Address, zeroAddress } from 'viem';
 import { NoTokenAddressError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 
-import { getCrossChainInfo } from './getCrossChainInfo';
+import { getCrossChainInfoForToken } from './getCrossChainInfoForToken';
 import { type Token, TokenType } from './types';
 
 type GetAddressArgs = {
@@ -25,7 +25,7 @@ export async function getAddress({ token, srcChainId, destChainId }: GetAddressA
     // there is nothing we can do here.
     if (!destChainId) return;
 
-    const crossChainInfo = await getCrossChainInfo({
+    const crossChainInfo = await getCrossChainInfoForToken({
       token,
       srcChainId: srcChainId,
       destChainId: destChainId,

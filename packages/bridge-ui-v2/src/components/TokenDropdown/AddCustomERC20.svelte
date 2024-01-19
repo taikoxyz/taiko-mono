@@ -13,7 +13,7 @@
   import { Spinner } from '$components/Spinner';
   import { tokenService } from '$libs/storage/services';
   import { detectContractType, type GetTokenInfo, type Token, TokenType } from '$libs/token';
-  import { getCrossChainInfo } from '$libs/token/getCrossChainInfo';
+  import { getCrossChainInfoForToken } from '$libs/token/getCrossChainInfoForToken';
   import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
   import { getLogger } from '$libs/util/logger';
   import { uid } from '$libs/util/uid';
@@ -50,7 +50,7 @@
 
       if (!srcChain || !destChain) return;
       // let's check if this token has already been bridged
-      const crossChainInfo = await getCrossChainInfo({
+      const crossChainInfo = await getCrossChainInfoForToken({
         token: customToken,
         srcChainId: srcChain.id,
         destChainId: destChain.id,

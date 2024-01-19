@@ -7,7 +7,7 @@ import { getLogger } from '$libs/util/logger';
 import { safeReadContract } from '$libs/util/safeReadContract';
 
 import { detectContractType } from './detectContractType';
-import { type NFT, type Token, TokenType } from './types';
+import { type NFT, type NFTMetadata, type Token, TokenType } from './types';
 
 const log = getLogger('libs:token:getTokenInfo');
 
@@ -71,7 +71,7 @@ const getERC1155Info = async (
   type: TokenType,
 ) => {
   log(`getting token info for ERC1155`);
-  let name = await safeReadContract({
+  const name = await safeReadContract({
     address: contractAddress,
     abi: erc1155ABI,
     functionName: 'name',
@@ -119,11 +119,15 @@ const getERC1155Info = async (
       balance: balance ? balance : 0,
     } as NFT;
     try {
-      const tokenWithMetadata = await fetchNFTMetadata(token);
-      if (tokenWithMetadata?.metadata?.name !== '') name = tokenWithMetadata?.metadata?.name;
-
-      if (!tokenWithMetadata) return token;
-      return tokenWithMetadata;
+      if (token?.uri) {
+        if (!token.metadata) {
+          const metadata: NFTMetadata | null = await fetchNFTMetadata(token);
+          if (metadata) {
+            token.metadata = metadata;
+          }
+        }
+        return token;
+      }
     } catch {
       return token;
     }
@@ -142,14 +146,14 @@ const getERC721Info = async (
   log(`getting token info for ERC721`);
 
   log(`getting name, symbol and uri for ERC721 token ${contractAddress} id: ${tokenId} on chain ${srcChainId}`);
-  const name = await readContract({
+  const name = await safeReadContract({
     address: contractAddress,
     abi: erc721ABI,
     functionName: 'name',
     chainId: srcChainId,
   });
 
-  const symbol = await readContract({
+  const symbol = await safeReadContract({
     address: contractAddress,
     abi: erc721ABI,
     functionName: 'symbol',
@@ -179,9 +183,15 @@ const getERC721Info = async (
     uri: uri ? uri.toString() : undefined,
   } as NFT;
   try {
-    const tokenWithMetadata = await fetchNFTMetadata(token);
-    if (!tokenWithMetadata) return token;
-    return tokenWithMetadata;
+    if (token?.uri) {
+      if (!token.metadata) {
+        const metadata: NFTMetadata | null = await fetchNFTMetadata(token);
+        if (metadata) {
+          token.metadata = metadata;
+        }
+      }
+    }
+    return token;
   } catch {
     return token;
   }
