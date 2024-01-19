@@ -224,12 +224,6 @@ library LibProving {
 
         if (tier.contestBond == 0) {
             assert(tier.validityBond == 0);
-            // When contestBond is zero for the current tier, it signifies
-            // it's the top tier. In this case, it can overwrite existing
-            // transitions without contestation.
-            if (tran.blockHash == ts.blockHash && tran.signalRoot == ts.signalRoot) {
-                revert L1_ALREADY_PROVED();
-            }
             // We should outright prohibit the use of zero values for both
             // blockHash and signalRoot since, when we initialize a new
             // transition, we set both blockHash and signalRoot to 0.
