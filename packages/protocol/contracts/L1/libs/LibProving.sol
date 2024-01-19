@@ -187,6 +187,8 @@ library LibProving {
         ITierProvider.Tier memory tier =
             ITierProvider(resolver.resolve("tier_provider", false)).getTier(proof.tier);
 
+        _checkProverPermission(blk, ts, tid, tier);
+
         maxBlocksToVerify = tier.maxBlocksToVerify;
 
         // We must verify the proof, and any failure in proof verification will
@@ -242,8 +244,6 @@ library LibProving {
 
         if (proof.tier > ts.tier) {
             // Higher tier proof overwriting lower tier proof
-
-            _checkProverPermission(blk, ts, tid, tier);
 
             uint256 reward;
             if (ts.contester != address(0)) {
