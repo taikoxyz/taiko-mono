@@ -223,12 +223,11 @@ library LibProving {
         }
 
         IERC20 tko = IERC20(resolver.resolve("taiko_token", false));
-        bool contested = ts.contester != address(0);
         bool sameTransition = tran.blockHash == ts.blockHash && tran.signalRoot == ts.signalRoot;
 
         if (proof.tier > ts.tier) {
             uint256 reward;
-            if (contested) {
+            if (ts.contester != address(0)) {
                 if (sameTransition) {
                     reward = ts.contestBond >> 2;
                     tko.transfer(ts.prover, ts.validityBond + reward);
@@ -272,7 +271,7 @@ library LibProving {
 
             if (tier.contestBond == 0) {
                 // On the highest tier
-                assert(tier.validityBond == 0 && !contested);
+                assert(tier.validityBond == 0 && ts.contester == address(0));
 
                 ts.prover = msg.sender;
                 ts.timestamp = uint64(block.timestamp);
@@ -280,7 +279,7 @@ library LibProving {
                 ts.signalRoot = tran.signalRoot;
             } else {
                 // Not on the highest tier
-                if (contested) revert L1_ALREADY_CONTESTED();
+                if (ts.contester != address(0)) revert L1_ALREADY_CONTESTED();
 
                 // Burn the contest bond from the prover.
                 tko.transferFrom(msg.sender, address(this), tier.contestBond);
