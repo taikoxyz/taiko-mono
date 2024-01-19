@@ -405,7 +405,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         printVariables("");
     }
 
-    function test_L1_GuardianProverCannotOverwriteIfSameProof() external {
+    function test_L1_GuardianProverCanAlwaysOverwriteTheProof() external {
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
         giveEthAndTko(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
@@ -429,20 +429,13 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1e9 + blockId);
             // This proof cannot be verified obviously because of
             // blockhash:blockId
+
+            (, TaikoData.SlotB memory b) = L1.getStateVariables();
+            uint64 lastVerifiedBlockBefore = b.lastVerifiedBlockId;
             proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot, meta.minTier, "");
-
-            // Try to contest - but should revert with L1_ALREADY_PROVED
-            proveBlock(
-                Carol,
-                Carol,
-                meta,
-                parentHash,
-                blockHash,
-                signalRoot,
-                LibTiers.TIER_GUARDIAN,
-                TaikoErrors.L1_ALREADY_PROVED.selector
-            );
-
+            console2.log("mintTier is:", meta.minTier);
+            // Try to contest
+            proveBlock(Carol, Carol, meta, parentHash, 0, 0, meta.minTier, "");
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = meta.minTier;
@@ -450,6 +443,22 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
             verifyBlock(Carol, 1);
 
+            (, b) = L1.getStateVariables();
+            uint64 lastVerifiedBlockAfter = b.lastVerifiedBlockId;
+
+            console.log(lastVerifiedBlockAfter, lastVerifiedBlockBefore);
+            // So it is contested - because last verified not changd
+            assertEq(lastVerifiedBlockAfter, lastVerifiedBlockBefore);
+
+            // Guardian can prove with the original (good) hashes.
+            proveBlock(
+                Carol, Carol, meta, parentHash, blockHash, signalRoot, LibTiers.TIER_GUARDIAN, ""
+            );
+
+            vm.roll(block.number + 15 * 12);
+            vm.warp(block.timestamp + L1.getTier(LibTiers.TIER_GUARDIAN).cooldownWindow + 1);
+
+            verifyBlock(Carol, 1);
             parentHash = blockHash;
         }
         printVariables("");
