@@ -78,7 +78,9 @@ library LibProving {
         returns (uint8 maxBlocksToVerify)
     {
         // Make sure parentHash is not zero
-        if (tran.parentHash == 0) revert L1_INVALID_TRANSITION();
+        if (tran.parentHash == 0 || tran.blockHash == 0 || tran.signalRoot == 0) {
+            revert L1_INVALID_TRANSITION();
+        }
 
         // Check that the block has been proposed but has not yet been verified.
         TaikoData.SlotB memory b = state.slotB;
@@ -227,12 +229,6 @@ library LibProving {
 
             // It means prover is right (not the contester)
             bool sameTransition = tran.blockHash == ts.blockHash && tran.signalRoot == ts.signalRoot;
-            // We should outright prohibit the use of zero values for both
-            // blockHash and signalRoot since, when we initialize a new
-            // transition, we set both blockHash and signalRoot to 0.
-            if (tran.blockHash == 0 || tran.signalRoot == 0) {
-                revert L1_INVALID_TRANSITION();
-            }
 
             // A special return value from the top tier prover can signal this
             // contract to return all liveness bond.
@@ -316,11 +312,6 @@ library LibProving {
             // The new tier is higher than the previous tier, we are in the
             // proving mode. This works even if this transition's contester is
             // address zero, see more info below.
-
-            // zero values are not allowed
-            if (tran.blockHash == 0 || tran.signalRoot == 0) {
-                revert L1_INVALID_TRANSITION();
-            }
 
             // The ability to prove a transition is granted under the following
             // two circumstances:
