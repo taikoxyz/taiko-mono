@@ -834,4 +834,44 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         }
         printVariables("");
     }
+
+    function test_L1_ContestingWithLowerTierProofRevertspn() external {
+        giveEthAndTko(Alice, 1e7 ether, 1000 ether);
+        giveEthAndTko(Carol, 1e7 ether, 1000 ether);
+        console2.log("Alice balance:", tko.balanceOf(Alice));
+        // This is a very weird test (code?) issue here.
+        // If this line is uncommented,
+        // Alice/Bob has no balance.. (Causing reverts !!!)
+        // Current investigations are ongoing with foundry team
+        giveEthAndTko(Bob, 1e6 ether, 100 ether);
+        console2.log("Bob balance:", tko.balanceOf(Bob));
+        // Bob
+        vm.prank(Bob, Bob);
+
+        bytes32 parentHash = GENESIS_BLOCK_HASH;
+        printVariables("before propose");
+        (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
+        //printVariables("after propose");
+        mine(1);
+
+        bytes32 blockHash = bytes32(uint256(1));
+        bytes32 signalRoot = bytes32(uint256(1));
+        proveBlock(
+            Bob, Bob, meta, parentHash, blockHash, signalRoot, LibTiers.TIER_SGX_AND_PSE_ZKEVM, ""
+        );
+
+        // Try to contest with a lower tier proof- but should revert with L1_INVALID_TIER
+        proveBlock(
+            Carol,
+            Carol,
+            meta,
+            parentHash,
+            blockHash,
+            signalRoot,
+            LibTiers.TIER_SGX,
+            TaikoErrors.L1_INVALID_TIER.selector
+        );
+
+        printVariables("");
+    }
 }
