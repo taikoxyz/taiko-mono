@@ -63,6 +63,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
         bytes32 instance;
         if (ctx.blobUsed) {
+            // disallow zero point value in KZG to avoid zero polynomial
             if (pf.pointValue == 0) revert L1_ZERO_POINT_VALUE();
 
             PointProof memory pf = abi.decode(zkProof.pointProof, (PointProof));
