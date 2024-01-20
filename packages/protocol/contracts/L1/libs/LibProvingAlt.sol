@@ -238,30 +238,6 @@ library LibProvingAlt {
         return tier.maxBlocksToVerify;
     }
 
-    /// @dev Check the msg.sender (the new prover) against the block's assigned prover.
-    function _checkProverPermission(
-        TaikoData.Block storage blk,
-        TaikoData.TransitionState storage ts,
-        uint32 tid,
-        ITierProvider.Tier memory tier
-    )
-        private
-        view
-    {
-        // The highest tier proof can always submit new proofs
-        if (tier.contestBond == 0) return;
-
-        bool inProvingWindow = block.timestamp <= ts.timestamp + tier.provingWindow;
-        bool isAssignedPover = msg.sender == blk.assignedProver;
-
-        // The assigned prover can only submit the very first transition.
-        if (tid == 1 && ts.tier == 0 && inProvingWindow) {
-            if (!isAssignedPover) revert L1_NOT_ASSIGNED_PROVER();
-        } else {
-            if (isAssignedPover) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
-        }
-    }
-
     /// @dev Handle the transition initialization logic
     function _handleTransition(
         TaikoData.State storage state,
@@ -393,6 +369,30 @@ library LibProvingAlt {
         if (!sameTransition) {
             ts.blockHash = tran.blockHash;
             ts.signalRoot = tran.signalRoot;
+        }
+    }
+
+    /// @dev Check the msg.sender (the new prover) against the block's assigned prover.
+    function _checkProverPermission(
+        TaikoData.Block storage blk,
+        TaikoData.TransitionState storage ts,
+        uint32 tid,
+        ITierProvider.Tier memory tier
+    )
+        private
+        view
+    {
+        // The highest tier proof can always submit new proofs
+        if (tier.contestBond == 0) return;
+
+        bool inProvingWindow = block.timestamp <= ts.timestamp + tier.provingWindow;
+        bool isAssignedPover = msg.sender == blk.assignedProver;
+
+        // The assigned prover can only submit the very first transition.
+        if (tid == 1 && ts.tier == 0 && inProvingWindow) {
+            if (!isAssignedPover) revert L1_NOT_ASSIGNED_PROVER();
+        } else {
+            if (isAssignedPover) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
         }
     }
 }
