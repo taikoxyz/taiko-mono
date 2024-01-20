@@ -17,7 +17,7 @@ pragma solidity 0.8.20;
 import "../common/EssentialContract.sol";
 import "./libs/LibDepositing.sol";
 import "./libs/LibProposing.sol";
-import { LibProving as LibProving_ } from "./libs/LibProving.sol";
+import { LibProving as A6Proving } from "./libs/LibProving.sol";
 import { LibProvingAlt as LibProving } from "./libs/LibProvingAlt.sol";
 import "./libs/LibVerifying.sol";
 import "./ITaikoL1.sol";
