@@ -6,9 +6,9 @@ export const bridgeABI = [
   { type: 'error', inputs: [], name: 'B_INVALID_CHAINID' },
   { type: 'error', inputs: [], name: 'B_INVALID_CONTEXT' },
   { type: 'error', inputs: [], name: 'B_INVALID_GAS_LIMIT' },
-  { type: 'error', inputs: [], name: 'B_INVALID_SIGNAL' },
   { type: 'error', inputs: [], name: 'B_INVALID_USER' },
   { type: 'error', inputs: [], name: 'B_INVALID_VALUE' },
+  { type: 'error', inputs: [], name: 'B_MESSAGE_NOT_SENT' },
   { type: 'error', inputs: [], name: 'B_NON_RETRIABLE' },
   { type: 'error', inputs: [], name: 'B_NOT_FAILED' },
   { type: 'error', inputs: [], name: 'B_NOT_RECEIVED' },
@@ -28,6 +28,21 @@ export const bridgeABI = [
       { name: 'name', internalType: 'string', type: 'string' },
     ],
     name: 'RESOLVER_ZERO_ADDR',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      { name: 'previousAdmin', internalType: 'address', type: 'address', indexed: false },
+      { name: 'newAdmin', internalType: 'address', type: 'address', indexed: false },
+    ],
+    name: 'AdminChanged',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [{ name: 'beacon', internalType: 'address', type: 'address', indexed: true }],
+    name: 'BeaconUpgraded',
   },
   {
     type: 'event',
@@ -94,15 +109,6 @@ export const bridgeABI = [
       { name: 'previousOwner', internalType: 'address', type: 'address', indexed: true },
       { name: 'newOwner', internalType: 'address', type: 'address', indexed: true },
     ],
-    name: 'OwnershipTransferStarted',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      { name: 'previousOwner', internalType: 'address', type: 'address', indexed: true },
-      { name: 'newOwner', internalType: 'address', type: 'address', indexed: true },
-    ],
     name: 'OwnershipTransferred',
   },
   {
@@ -126,7 +132,12 @@ export const bridgeABI = [
     inputs: [{ name: 'account', internalType: 'address', type: 'address', indexed: false }],
     name: 'Unpaused',
   },
-  { stateMutability: 'nonpayable', type: 'function', inputs: [], name: 'acceptOwnership', outputs: [] },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [{ name: 'implementation', internalType: 'address', type: 'address', indexed: true }],
+    name: 'Upgraded',
+  },
   {
     stateMutability: 'view',
     type: 'function',
@@ -260,13 +271,6 @@ export const bridgeABI = [
     outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
   },
   {
-    stateMutability: 'view',
-    type: 'function',
-    inputs: [],
-    name: 'pendingOwner',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
-  },
-  {
     stateMutability: 'nonpayable',
     type: 'function',
     inputs: [
@@ -349,6 +353,13 @@ export const bridgeABI = [
     ],
     name: 'proveMessageReceived',
     outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
+  },
+  {
+    stateMutability: 'view',
+    type: 'function',
+    inputs: [],
+    name: 'proxiableUUID',
+    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
   },
   {
     stateMutability: 'nonpayable',
@@ -484,6 +495,23 @@ export const bridgeABI = [
     outputs: [],
   },
   { stateMutability: 'nonpayable', type: 'function', inputs: [], name: 'unpause', outputs: [] },
+  {
+    stateMutability: 'nonpayable',
+    type: 'function',
+    inputs: [{ name: 'newImplementation', internalType: 'address', type: 'address' }],
+    name: 'upgradeTo',
+    outputs: [],
+  },
+  {
+    stateMutability: 'payable',
+    type: 'function',
+    inputs: [
+      { name: 'newImplementation', internalType: 'address', type: 'address' },
+      { name: 'data', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'upgradeToAndCall',
+    outputs: [],
+  },
   { stateMutability: 'payable', type: 'receive' },
 ] as const;
 
@@ -531,6 +559,7 @@ export const crossChainSyncABI = [
 export const erc1155VaultABI = [
   { type: 'error', inputs: [], name: 'ETH_TRANSFER_FAILED' },
   { type: 'error', inputs: [], name: 'INVALID_PAUSE_STATUS' },
+  { type: 'error', inputs: [], name: 'NULL_IMPL_ADDR' },
   { type: 'error', inputs: [], name: 'REENTRANT_CALL' },
   { type: 'error', inputs: [], name: 'RESOLVER_DENIED' },
   { type: 'error', inputs: [], name: 'RESOLVER_INVALID_MANAGER' },
@@ -545,15 +574,27 @@ export const erc1155VaultABI = [
   },
   { type: 'error', inputs: [], name: 'VAULT_INTERFACE_NOT_SUPPORTED' },
   { type: 'error', inputs: [], name: 'VAULT_INVALID_AMOUNT' },
-  { type: 'error', inputs: [], name: 'VAULT_INVALID_FROM' },
   { type: 'error', inputs: [], name: 'VAULT_INVALID_SRC_CHAIN_ID' },
   { type: 'error', inputs: [], name: 'VAULT_INVALID_TOKEN' },
   { type: 'error', inputs: [], name: 'VAULT_INVALID_USER' },
   { type: 'error', inputs: [], name: 'VAULT_MAX_TOKEN_PER_TXN_EXCEEDED' },
-  { type: 'error', inputs: [], name: 'VAULT_MESSAGE_NOT_FAILED' },
-  { type: 'error', inputs: [], name: 'VAULT_MESSAGE_RELEASED_ALREADY' },
   { type: 'error', inputs: [], name: 'VAULT_PERMISSION_DENIED' },
   { type: 'error', inputs: [], name: 'VAULT_TOKEN_ARRAY_MISMATCH' },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      { name: 'previousAdmin', internalType: 'address', type: 'address', indexed: false },
+      { name: 'newAdmin', internalType: 'address', type: 'address', indexed: false },
+    ],
+    name: 'AdminChanged',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [{ name: 'beacon', internalType: 'address', type: 'address', indexed: true }],
+    name: 'BeaconUpgraded',
+  },
   {
     type: 'event',
     anonymous: false,
@@ -571,15 +612,6 @@ export const erc1155VaultABI = [
     anonymous: false,
     inputs: [{ name: 'version', internalType: 'uint8', type: 'uint8', indexed: false }],
     name: 'Initialized',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      { name: 'previousOwner', internalType: 'address', type: 'address', indexed: true },
-      { name: 'newOwner', internalType: 'address', type: 'address', indexed: true },
-    ],
-    name: 'OwnershipTransferStarted',
   },
   {
     type: 'event',
@@ -643,6 +675,12 @@ export const erc1155VaultABI = [
     name: 'Unpaused',
   },
   {
+    type: 'event',
+    anonymous: false,
+    inputs: [{ name: 'implementation', internalType: 'address', type: 'address', indexed: true }],
+    name: 'Upgraded',
+  },
+  {
     stateMutability: 'view',
     type: 'function',
     inputs: [],
@@ -663,7 +701,6 @@ export const erc1155VaultABI = [
     name: 'MAX_TOKEN_PER_TXN',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
   },
-  { stateMutability: 'nonpayable', type: 'function', inputs: [], name: 'acceptOwnership', outputs: [] },
   {
     stateMutability: 'view',
     type: 'function',
@@ -780,8 +817,8 @@ export const erc1155VaultABI = [
     stateMutability: 'view',
     type: 'function',
     inputs: [],
-    name: 'pendingOwner',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    name: 'proxiableUUID',
+    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
   },
   {
     stateMutability: 'payable',
@@ -887,6 +924,23 @@ export const erc1155VaultABI = [
     outputs: [],
   },
   { stateMutability: 'nonpayable', type: 'function', inputs: [], name: 'unpause', outputs: [] },
+  {
+    stateMutability: 'nonpayable',
+    type: 'function',
+    inputs: [{ name: 'newImplementation', internalType: 'address', type: 'address' }],
+    name: 'upgradeTo',
+    outputs: [],
+  },
+  {
+    stateMutability: 'payable',
+    type: 'function',
+    inputs: [
+      { name: 'newImplementation', internalType: 'address', type: 'address' },
+      { name: 'data', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'upgradeToAndCall',
+    outputs: [],
+  },
 ] as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -896,6 +950,7 @@ export const erc1155VaultABI = [
 export const erc20VaultABI = [
   { type: 'error', inputs: [], name: 'ETH_TRANSFER_FAILED' },
   { type: 'error', inputs: [], name: 'INVALID_PAUSE_STATUS' },
+  { type: 'error', inputs: [], name: 'NULL_IMPL_ADDR' },
   { type: 'error', inputs: [], name: 'REENTRANT_CALL' },
   { type: 'error', inputs: [], name: 'RESOLVER_DENIED' },
   { type: 'error', inputs: [], name: 'RESOLVER_INVALID_MANAGER' },
@@ -908,14 +963,42 @@ export const erc20VaultABI = [
     ],
     name: 'RESOLVER_ZERO_ADDR',
   },
+  { type: 'error', inputs: [], name: 'VAULT_BTOKEN_BLACKLISTED' },
+  { type: 'error', inputs: [], name: 'VAULT_CTOKEN_MISMATCH' },
   { type: 'error', inputs: [], name: 'VAULT_INVALID_AMOUNT' },
-  { type: 'error', inputs: [], name: 'VAULT_INVALID_FROM' },
-  { type: 'error', inputs: [], name: 'VAULT_INVALID_SRC_CHAIN_ID' },
+  { type: 'error', inputs: [], name: 'VAULT_INVALID_NEW_BTOKEN' },
   { type: 'error', inputs: [], name: 'VAULT_INVALID_TOKEN' },
-  { type: 'error', inputs: [], name: 'VAULT_INVALID_USER' },
-  { type: 'error', inputs: [], name: 'VAULT_MESSAGE_NOT_FAILED' },
-  { type: 'error', inputs: [], name: 'VAULT_MESSAGE_RELEASED_ALREADY' },
+  { type: 'error', inputs: [], name: 'VAULT_NOT_SAME_OWNER' },
   { type: 'error', inputs: [], name: 'VAULT_PERMISSION_DENIED' },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      { name: 'previousAdmin', internalType: 'address', type: 'address', indexed: false },
+      { name: 'newAdmin', internalType: 'address', type: 'address', indexed: false },
+    ],
+    name: 'AdminChanged',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [{ name: 'beacon', internalType: 'address', type: 'address', indexed: true }],
+    name: 'BeaconUpgraded',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      { name: 'srcChainId', internalType: 'uint256', type: 'uint256', indexed: true },
+      { name: 'ctoken', internalType: 'address', type: 'address', indexed: true },
+      { name: 'btokenOld', internalType: 'address', type: 'address', indexed: false },
+      { name: 'btokenNew', internalType: 'address', type: 'address', indexed: false },
+      { name: 'ctokenSymbol', internalType: 'string', type: 'string', indexed: false },
+      { name: 'ctokenName', internalType: 'string', type: 'string', indexed: false },
+      { name: 'ctokenDecimal', internalType: 'uint8', type: 'uint8', indexed: false },
+    ],
+    name: 'BridgedTokenChanged',
+  },
   {
     type: 'event',
     anonymous: false,
@@ -934,15 +1017,6 @@ export const erc20VaultABI = [
     anonymous: false,
     inputs: [{ name: 'version', internalType: 'uint8', type: 'uint8', indexed: false }],
     name: 'Initialized',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      { name: 'previousOwner', internalType: 'address', type: 'address', indexed: true },
-      { name: 'newOwner', internalType: 'address', type: 'address', indexed: true },
-    ],
-    name: 'OwnershipTransferStarted',
   },
   {
     type: 'event',
@@ -1002,7 +1076,12 @@ export const erc20VaultABI = [
     inputs: [{ name: 'account', internalType: 'address', type: 'address', indexed: false }],
     name: 'Unpaused',
   },
-  { stateMutability: 'nonpayable', type: 'function', inputs: [], name: 'acceptOwnership', outputs: [] },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [{ name: 'implementation', internalType: 'address', type: 'address', indexed: true }],
+    name: 'Upgraded',
+  },
   {
     stateMutability: 'view',
     type: 'function',
@@ -1026,12 +1105,40 @@ export const erc20VaultABI = [
   {
     stateMutability: 'view',
     type: 'function',
+    inputs: [{ name: 'btoken', internalType: 'address', type: 'address' }],
+    name: 'btokenBlacklist',
+    outputs: [{ name: 'blacklisted', internalType: 'bool', type: 'bool' }],
+  },
+  {
+    stateMutability: 'view',
+    type: 'function',
     inputs: [
       { name: '', internalType: 'uint256', type: 'uint256' },
       { name: '', internalType: 'address', type: 'address' },
     ],
     name: 'canonicalToBridged',
     outputs: [{ name: '', internalType: 'address', type: 'address' }],
+  },
+  {
+    stateMutability: 'nonpayable',
+    type: 'function',
+    inputs: [
+      {
+        name: 'ctoken',
+        internalType: 'struct ERC20Vault.CanonicalERC20',
+        type: 'tuple',
+        components: [
+          { name: 'chainId', internalType: 'uint64', type: 'uint64' },
+          { name: 'addr', internalType: 'address', type: 'address' },
+          { name: 'decimals', internalType: 'uint8', type: 'uint8' },
+          { name: 'symbol', internalType: 'string', type: 'string' },
+          { name: 'name', internalType: 'string', type: 'string' },
+        ],
+      },
+      { name: 'btokenNew', internalType: 'address', type: 'address' },
+    ],
+    name: 'changeBridgedToken',
+    outputs: [{ name: 'btokenOld', internalType: 'address', type: 'address' }],
   },
   {
     stateMutability: 'nonpayable',
@@ -1094,8 +1201,8 @@ export const erc20VaultABI = [
     stateMutability: 'view',
     type: 'function',
     inputs: [],
-    name: 'pendingOwner',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    name: 'proxiableUUID',
+    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
   },
   {
     stateMutability: 'payable',
@@ -1200,6 +1307,23 @@ export const erc20VaultABI = [
     outputs: [],
   },
   { stateMutability: 'nonpayable', type: 'function', inputs: [], name: 'unpause', outputs: [] },
+  {
+    stateMutability: 'nonpayable',
+    type: 'function',
+    inputs: [{ name: 'newImplementation', internalType: 'address', type: 'address' }],
+    name: 'upgradeTo',
+    outputs: [],
+  },
+  {
+    stateMutability: 'payable',
+    type: 'function',
+    inputs: [
+      { name: 'newImplementation', internalType: 'address', type: 'address' },
+      { name: 'data', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'upgradeToAndCall',
+    outputs: [],
+  },
 ] as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1209,6 +1333,7 @@ export const erc20VaultABI = [
 export const erc721VaultABI = [
   { type: 'error', inputs: [], name: 'ETH_TRANSFER_FAILED' },
   { type: 'error', inputs: [], name: 'INVALID_PAUSE_STATUS' },
+  { type: 'error', inputs: [], name: 'NULL_IMPL_ADDR' },
   { type: 'error', inputs: [], name: 'REENTRANT_CALL' },
   { type: 'error', inputs: [], name: 'RESOLVER_DENIED' },
   { type: 'error', inputs: [], name: 'RESOLVER_INVALID_MANAGER' },
@@ -1223,15 +1348,27 @@ export const erc721VaultABI = [
   },
   { type: 'error', inputs: [], name: 'VAULT_INTERFACE_NOT_SUPPORTED' },
   { type: 'error', inputs: [], name: 'VAULT_INVALID_AMOUNT' },
-  { type: 'error', inputs: [], name: 'VAULT_INVALID_FROM' },
   { type: 'error', inputs: [], name: 'VAULT_INVALID_SRC_CHAIN_ID' },
   { type: 'error', inputs: [], name: 'VAULT_INVALID_TOKEN' },
   { type: 'error', inputs: [], name: 'VAULT_INVALID_USER' },
   { type: 'error', inputs: [], name: 'VAULT_MAX_TOKEN_PER_TXN_EXCEEDED' },
-  { type: 'error', inputs: [], name: 'VAULT_MESSAGE_NOT_FAILED' },
-  { type: 'error', inputs: [], name: 'VAULT_MESSAGE_RELEASED_ALREADY' },
   { type: 'error', inputs: [], name: 'VAULT_PERMISSION_DENIED' },
   { type: 'error', inputs: [], name: 'VAULT_TOKEN_ARRAY_MISMATCH' },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      { name: 'previousAdmin', internalType: 'address', type: 'address', indexed: false },
+      { name: 'newAdmin', internalType: 'address', type: 'address', indexed: false },
+    ],
+    name: 'AdminChanged',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [{ name: 'beacon', internalType: 'address', type: 'address', indexed: true }],
+    name: 'BeaconUpgraded',
+  },
   {
     type: 'event',
     anonymous: false,
@@ -1249,15 +1386,6 @@ export const erc721VaultABI = [
     anonymous: false,
     inputs: [{ name: 'version', internalType: 'uint8', type: 'uint8', indexed: false }],
     name: 'Initialized',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      { name: 'previousOwner', internalType: 'address', type: 'address', indexed: true },
-      { name: 'newOwner', internalType: 'address', type: 'address', indexed: true },
-    ],
-    name: 'OwnershipTransferStarted',
   },
   {
     type: 'event',
@@ -1321,6 +1449,12 @@ export const erc721VaultABI = [
     name: 'Unpaused',
   },
   {
+    type: 'event',
+    anonymous: false,
+    inputs: [{ name: 'implementation', internalType: 'address', type: 'address', indexed: true }],
+    name: 'Upgraded',
+  },
+  {
     stateMutability: 'view',
     type: 'function',
     inputs: [],
@@ -1341,7 +1475,6 @@ export const erc721VaultABI = [
     name: 'MAX_TOKEN_PER_TXN',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
   },
-  { stateMutability: 'nonpayable', type: 'function', inputs: [], name: 'acceptOwnership', outputs: [] },
   {
     stateMutability: 'view',
     type: 'function',
@@ -1444,8 +1577,8 @@ export const erc721VaultABI = [
     stateMutability: 'view',
     type: 'function',
     inputs: [],
-    name: 'pendingOwner',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    name: 'proxiableUUID',
+    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
   },
   {
     stateMutability: 'payable',
@@ -1550,6 +1683,23 @@ export const erc721VaultABI = [
     outputs: [],
   },
   { stateMutability: 'nonpayable', type: 'function', inputs: [], name: 'unpause', outputs: [] },
+  {
+    stateMutability: 'nonpayable',
+    type: 'function',
+    inputs: [{ name: 'newImplementation', internalType: 'address', type: 'address' }],
+    name: 'upgradeTo',
+    outputs: [],
+  },
+  {
+    stateMutability: 'payable',
+    type: 'function',
+    inputs: [
+      { name: 'newImplementation', internalType: 'address', type: 'address' },
+      { name: 'data', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'upgradeToAndCall',
+    outputs: [],
+  },
 ] as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1557,8 +1707,8 @@ export const erc721VaultABI = [
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export const erc1155ABI = [
-  { type: 'error', inputs: [], name: 'BRIDGED_TOKEN_CANNOT_RECEIVE' },
-  { type: 'error', inputs: [], name: 'BRIDGED_TOKEN_INVALID_PARAMS' },
+  { type: 'error', inputs: [], name: 'BTOKEN_CANNOT_RECEIVE' },
+  { type: 'error', inputs: [], name: 'BTOKEN_INVALID_PARAMS' },
   { type: 'error', inputs: [], name: 'INVALID_PAUSE_STATUS' },
   { type: 'error', inputs: [], name: 'REENTRANT_CALL' },
   { type: 'error', inputs: [], name: 'RESOLVER_DENIED' },
@@ -1576,6 +1726,15 @@ export const erc1155ABI = [
     type: 'event',
     anonymous: false,
     inputs: [
+      { name: 'previousAdmin', internalType: 'address', type: 'address', indexed: false },
+      { name: 'newAdmin', internalType: 'address', type: 'address', indexed: false },
+    ],
+    name: 'AdminChanged',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
       { name: 'account', internalType: 'address', type: 'address', indexed: true },
       { name: 'operator', internalType: 'address', type: 'address', indexed: true },
       { name: 'approved', internalType: 'bool', type: 'bool', indexed: false },
@@ -1585,17 +1744,14 @@ export const erc1155ABI = [
   {
     type: 'event',
     anonymous: false,
-    inputs: [{ name: 'version', internalType: 'uint8', type: 'uint8', indexed: false }],
-    name: 'Initialized',
+    inputs: [{ name: 'beacon', internalType: 'address', type: 'address', indexed: true }],
+    name: 'BeaconUpgraded',
   },
   {
     type: 'event',
     anonymous: false,
-    inputs: [
-      { name: 'previousOwner', internalType: 'address', type: 'address', indexed: true },
-      { name: 'newOwner', internalType: 'address', type: 'address', indexed: true },
-    ],
-    name: 'OwnershipTransferStarted',
+    inputs: [{ name: 'version', internalType: 'uint8', type: 'uint8', indexed: false }],
+    name: 'Initialized',
   },
   {
     type: 'event',
@@ -1611,17 +1767,6 @@ export const erc1155ABI = [
     anonymous: false,
     inputs: [{ name: 'account', internalType: 'address', type: 'address', indexed: false }],
     name: 'Paused',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      { name: 'from', internalType: 'address', type: 'address', indexed: true },
-      { name: 'to', internalType: 'address', type: 'address', indexed: true },
-      { name: 'tokenId', internalType: 'uint256', type: 'uint256', indexed: false },
-      { name: 'amount', internalType: 'uint256', type: 'uint256', indexed: false },
-    ],
-    name: 'Transfer',
   },
   {
     type: 'event',
@@ -1662,7 +1807,12 @@ export const erc1155ABI = [
     inputs: [{ name: 'account', internalType: 'address', type: 'address', indexed: false }],
     name: 'Unpaused',
   },
-  { stateMutability: 'nonpayable', type: 'function', inputs: [], name: 'acceptOwnership', outputs: [] },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [{ name: 'implementation', internalType: 'address', type: 'address', indexed: true }],
+    name: 'Upgraded',
+  },
   {
     stateMutability: 'view',
     type: 'function',
@@ -1761,8 +1911,8 @@ export const erc1155ABI = [
     stateMutability: 'view',
     type: 'function',
     inputs: [],
-    name: 'pendingOwner',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    name: 'proxiableUUID',
+    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
   },
   { stateMutability: 'nonpayable', type: 'function', inputs: [], name: 'renounceOwnership', outputs: [] },
   {
@@ -1805,7 +1955,7 @@ export const erc1155ABI = [
     inputs: [
       { name: 'from', internalType: 'address', type: 'address' },
       { name: 'to', internalType: 'address', type: 'address' },
-      { name: 'tokenId', internalType: 'uint256', type: 'uint256' },
+      { name: 'id', internalType: 'uint256', type: 'uint256' },
       { name: 'amount', internalType: 'uint256', type: 'uint256' },
       { name: 'data', internalType: 'bytes', type: 'bytes' },
     ],
@@ -1859,6 +2009,23 @@ export const erc1155ABI = [
   },
   { stateMutability: 'nonpayable', type: 'function', inputs: [], name: 'unpause', outputs: [] },
   {
+    stateMutability: 'nonpayable',
+    type: 'function',
+    inputs: [{ name: 'newImplementation', internalType: 'address', type: 'address' }],
+    name: 'upgradeTo',
+    outputs: [],
+  },
+  {
+    stateMutability: 'payable',
+    type: 'function',
+    inputs: [
+      { name: 'newImplementation', internalType: 'address', type: 'address' },
+      { name: 'data', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'upgradeToAndCall',
+    outputs: [],
+  },
+  {
     stateMutability: 'view',
     type: 'function',
     inputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
@@ -1872,8 +2039,11 @@ export const erc1155ABI = [
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export const erc20ABI = [
-  { type: 'error', inputs: [], name: 'BRIDGED_TOKEN_CANNOT_RECEIVE' },
-  { type: 'error', inputs: [], name: 'BRIDGED_TOKEN_INVALID_PARAMS' },
+  { type: 'error', inputs: [], name: 'BB_INVALID_PARAMS' },
+  { type: 'error', inputs: [], name: 'BB_MINT_DISALLOWED' },
+  { type: 'error', inputs: [], name: 'BB_PERMISSION_DENIED' },
+  { type: 'error', inputs: [], name: 'BTOKEN_CANNOT_RECEIVE' },
+  { type: 'error', inputs: [], name: 'BTOKEN_INVALID_PARAMS' },
   { type: 'error', inputs: [], name: 'INVALID_PAUSE_STATUS' },
   { type: 'error', inputs: [], name: 'REENTRANT_CALL' },
   { type: 'error', inputs: [], name: 'RESOLVER_DENIED' },
@@ -1891,11 +2061,26 @@ export const erc20ABI = [
     type: 'event',
     anonymous: false,
     inputs: [
+      { name: 'previousAdmin', internalType: 'address', type: 'address', indexed: false },
+      { name: 'newAdmin', internalType: 'address', type: 'address', indexed: false },
+    ],
+    name: 'AdminChanged',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
       { name: 'owner', internalType: 'address', type: 'address', indexed: true },
       { name: 'spender', internalType: 'address', type: 'address', indexed: true },
       { name: 'value', internalType: 'uint256', type: 'uint256', indexed: false },
     ],
     name: 'Approval',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [{ name: 'beacon', internalType: 'address', type: 'address', indexed: true }],
+    name: 'BeaconUpgraded',
   },
   {
     type: 'event',
@@ -1907,10 +2092,30 @@ export const erc20ABI = [
     type: 'event',
     anonymous: false,
     inputs: [
-      { name: 'previousOwner', internalType: 'address', type: 'address', indexed: true },
-      { name: 'newOwner', internalType: 'address', type: 'address', indexed: true },
+      { name: 'toToken', internalType: 'address', type: 'address', indexed: true },
+      { name: 'account', internalType: 'address', type: 'address', indexed: true },
+      { name: 'amount', internalType: 'uint256', type: 'uint256', indexed: false },
     ],
-    name: 'OwnershipTransferStarted',
+    name: 'MigratedFrom',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      { name: 'fromToken', internalType: 'address', type: 'address', indexed: true },
+      { name: 'account', internalType: 'address', type: 'address', indexed: true },
+      { name: 'amount', internalType: 'uint256', type: 'uint256', indexed: false },
+    ],
+    name: 'MigratedTo',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      { name: 'addr', internalType: 'address', type: 'address', indexed: false },
+      { name: 'inbound', internalType: 'bool', type: 'bool', indexed: false },
+    ],
+    name: 'MigrationStatusChanged',
   },
   {
     type: 'event',
@@ -1943,7 +2148,12 @@ export const erc20ABI = [
     inputs: [{ name: 'account', internalType: 'address', type: 'address', indexed: false }],
     name: 'Unpaused',
   },
-  { stateMutability: 'nonpayable', type: 'function', inputs: [], name: 'acceptOwnership', outputs: [] },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [{ name: 'implementation', internalType: 'address', type: 'address', indexed: true }],
+    name: 'Upgraded',
+  },
   {
     stateMutability: 'view',
     type: 'function',
@@ -1999,6 +2209,16 @@ export const erc20ABI = [
     ],
   },
   {
+    stateMutability: 'nonpayable',
+    type: 'function',
+    inputs: [
+      { name: 'addr', internalType: 'address', type: 'address' },
+      { name: 'inbound', internalType: 'bool', type: 'bool' },
+    ],
+    name: 'changeMigrationStatus',
+    outputs: [],
+  },
+  {
     stateMutability: 'view',
     type: 'function',
     inputs: [],
@@ -2040,6 +2260,20 @@ export const erc20ABI = [
     outputs: [],
   },
   {
+    stateMutability: 'view',
+    type: 'function',
+    inputs: [],
+    name: 'migratingAddress',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+  },
+  {
+    stateMutability: 'view',
+    type: 'function',
+    inputs: [],
+    name: 'migratingInbound',
+    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
+  },
+  {
     stateMutability: 'nonpayable',
     type: 'function',
     inputs: [
@@ -2075,8 +2309,8 @@ export const erc20ABI = [
     stateMutability: 'view',
     type: 'function',
     inputs: [],
-    name: 'pendingOwner',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    name: 'proxiableUUID',
+    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
   },
   { stateMutability: 'nonpayable', type: 'function', inputs: [], name: 'renounceOwnership', outputs: [] },
   {
@@ -2157,6 +2391,23 @@ export const erc20ABI = [
     outputs: [],
   },
   { stateMutability: 'nonpayable', type: 'function', inputs: [], name: 'unpause', outputs: [] },
+  {
+    stateMutability: 'nonpayable',
+    type: 'function',
+    inputs: [{ name: 'newImplementation', internalType: 'address', type: 'address' }],
+    name: 'upgradeTo',
+    outputs: [],
+  },
+  {
+    stateMutability: 'payable',
+    type: 'function',
+    inputs: [
+      { name: 'newImplementation', internalType: 'address', type: 'address' },
+      { name: 'data', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'upgradeToAndCall',
+    outputs: [],
+  },
 ] as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2164,9 +2415,9 @@ export const erc20ABI = [
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export const erc721ABI = [
-  { type: 'error', inputs: [], name: 'BRIDGED_TOKEN_CANNOT_RECEIVE' },
-  { type: 'error', inputs: [], name: 'BRIDGED_TOKEN_INVALID_BURN' },
-  { type: 'error', inputs: [], name: 'BRIDGED_TOKEN_INVALID_PARAMS' },
+  { type: 'error', inputs: [], name: 'BTOKEN_CANNOT_RECEIVE' },
+  { type: 'error', inputs: [], name: 'BTOKEN_INVALID_BURN' },
+  { type: 'error', inputs: [], name: 'BTOKEN_INVALID_PARAMS' },
   { type: 'error', inputs: [], name: 'INVALID_PAUSE_STATUS' },
   { type: 'error', inputs: [], name: 'REENTRANT_CALL' },
   { type: 'error', inputs: [], name: 'RESOLVER_DENIED' },
@@ -2179,6 +2430,15 @@ export const erc721ABI = [
       { name: 'name', internalType: 'string', type: 'string' },
     ],
     name: 'RESOLVER_ZERO_ADDR',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      { name: 'previousAdmin', internalType: 'address', type: 'address', indexed: false },
+      { name: 'newAdmin', internalType: 'address', type: 'address', indexed: false },
+    ],
+    name: 'AdminChanged',
   },
   {
     type: 'event',
@@ -2203,17 +2463,14 @@ export const erc721ABI = [
   {
     type: 'event',
     anonymous: false,
-    inputs: [{ name: 'version', internalType: 'uint8', type: 'uint8', indexed: false }],
-    name: 'Initialized',
+    inputs: [{ name: 'beacon', internalType: 'address', type: 'address', indexed: true }],
+    name: 'BeaconUpgraded',
   },
   {
     type: 'event',
     anonymous: false,
-    inputs: [
-      { name: 'previousOwner', internalType: 'address', type: 'address', indexed: true },
-      { name: 'newOwner', internalType: 'address', type: 'address', indexed: true },
-    ],
-    name: 'OwnershipTransferStarted',
+    inputs: [{ name: 'version', internalType: 'uint8', type: 'uint8', indexed: false }],
+    name: 'Initialized',
   },
   {
     type: 'event',
@@ -2246,7 +2503,12 @@ export const erc721ABI = [
     inputs: [{ name: 'account', internalType: 'address', type: 'address', indexed: false }],
     name: 'Unpaused',
   },
-  { stateMutability: 'nonpayable', type: 'function', inputs: [], name: 'acceptOwnership', outputs: [] },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [{ name: 'implementation', internalType: 'address', type: 'address', indexed: true }],
+    name: 'Upgraded',
+  },
   {
     stateMutability: 'view',
     type: 'function',
@@ -2354,8 +2616,8 @@ export const erc721ABI = [
     stateMutability: 'view',
     type: 'function',
     inputs: [],
-    name: 'pendingOwner',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    name: 'proxiableUUID',
+    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
   },
   { stateMutability: 'nonpayable', type: 'function', inputs: [], name: 'renounceOwnership', outputs: [] },
   {
@@ -2476,6 +2738,23 @@ export const erc721ABI = [
     outputs: [],
   },
   { stateMutability: 'nonpayable', type: 'function', inputs: [], name: 'unpause', outputs: [] },
+  {
+    stateMutability: 'nonpayable',
+    type: 'function',
+    inputs: [{ name: 'newImplementation', internalType: 'address', type: 'address' }],
+    name: 'upgradeTo',
+    outputs: [],
+  },
+  {
+    stateMutability: 'payable',
+    type: 'function',
+    inputs: [
+      { name: 'newImplementation', internalType: 'address', type: 'address' },
+      { name: 'data', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'upgradeToAndCall',
+    outputs: [],
+  },
 ] as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
