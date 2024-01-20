@@ -39,6 +39,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
     uint256[50] private __gap;
 
     error L1_INVALID_PROOF();
+    error L1_ZERO_POINT_VALUE();
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
@@ -62,6 +63,8 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
         bytes32 instance;
         if (ctx.blobUsed) {
+            if (pf.pointValue == 0) revert L1_ZERO_POINT_VALUE();
+
             PointProof memory pf = abi.decode(zkProof.pointProof, (PointProof));
 
             instance = calcInstance({
