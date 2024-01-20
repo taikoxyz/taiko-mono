@@ -435,7 +435,16 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot, meta.minTier, "");
             console2.log("mintTier is:", meta.minTier);
             // Try to contest
-            proveBlock(Carol, Carol, meta, parentHash, 0, 0, meta.minTier, "");
+            proveBlock(
+                Carol,
+                Carol,
+                meta,
+                parentHash,
+                bytes32(uint256(1)),
+                bytes32(uint256(1)),
+                meta.minTier,
+                ""
+            );
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = meta.minTier;
