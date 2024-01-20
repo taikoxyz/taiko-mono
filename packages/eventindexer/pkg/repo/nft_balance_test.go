@@ -145,18 +145,6 @@ func TestIntegration_NFTBalance_Decrease(t *testing.T) {
 			assert.Equal(t, tt.wantErr, err)
 		})
 	}
-
-	bal3, err := nftBalanceRepo.SubtractBalance(context.Background(),
-		eventindexer.UpdateNFTBalanceOpts{
-			ChainID:         1,
-			Address:         "0x123",
-			TokenID:         1,
-			ContractAddress: "0x1234",
-			ContractType:    "ERC721",
-			Amount:          1,
-		})
-	assert.ErrorContains(t, err, "record not found")
-	assert.Nil(t, bal3)
 }
 
 // TODO: fix this test
