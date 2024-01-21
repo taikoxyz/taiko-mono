@@ -63,12 +63,12 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
         bytes32 instance;
         if (ctx.blobUsed) {
+            PointProof memory pf = abi.decode(zkProof.pointProof, (PointProof));
+
             // Disallow zero point value in KZG to avoid zero polynomial.
             // This means if x=calc4844PointEvalX(ctx.blobHash, pf.txListHash) corresponds to y=0,
             // then the block's zkProof is not verifiable.
             if (pf.pointValue == 0) revert L1_ZERO_POINT_VALUE();
-
-            PointProof memory pf = abi.decode(zkProof.pointProof, (PointProof));
 
             instance = calcInstance({
                 tran: tran,
