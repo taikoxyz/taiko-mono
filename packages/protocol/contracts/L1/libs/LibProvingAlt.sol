@@ -160,6 +160,7 @@ library LibProvingAlt {
         // A special return value from the top tier prover can signal this
         // contract to return all liveness bond.
         bool isTopTier = tier.contestBond == 0;
+
         if (isTopTier) {
             bool returnLivenessBond = blk.livenessBond > 0 && proof.data.length == 32
                 && bytes32(proof.data) == RETURN_LIVENESS_BOND;
