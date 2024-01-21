@@ -117,3 +117,7 @@ export class BridgePausedError extends Error {
 export class FilterLogsError extends Error {
   name = 'FilterLogsError';
 }
+
+export class NoCanonicalInfoFoundError extends Error {
+  name = 'NoCanonicalInfoFoundError';
+}
