@@ -134,7 +134,7 @@ func DecodeMessageSentData(event *bridge.BridgeMessageSent) (EventType, Canonica
 	erc1155ReceiveTokensFunctionSig := "079312bf"
 
 	// try to see if its an ERC20
-	if event.Message.Data != nil && common.BytesToHash(event.Message.Data) != ZeroHash {
+	if event.Message.Data != nil && common.BytesToHash(event.Message.Data) != ZeroHash && len(event.Message.Data) > 3 {
 		functionSig := event.Message.Data[:4]
 
 		if common.Bytes2Hex(functionSig) == erc20ReceiveTokensFunctionSig {
