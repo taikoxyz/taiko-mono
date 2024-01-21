@@ -155,13 +155,12 @@ library LibProvingAlt {
             }
         }
 
+        bool isTopTier = tier.contestBond == 0;
         IERC20 tko = IERC20(resolver.resolve("taiko_token", false));
 
-        // A special return value from the top tier prover can signal this
-        // contract to return all liveness bond.
-        bool isTopTier = tier.contestBond == 0;
-
         if (isTopTier) {
+            // A special return value from the top tier prover can signal this
+            // contract to return all liveness bond.
             bool returnLivenessBond = blk.livenessBond > 0 && proof.data.length == 32
                 && bytes32(proof.data) == RETURN_LIVENESS_BOND;
 
