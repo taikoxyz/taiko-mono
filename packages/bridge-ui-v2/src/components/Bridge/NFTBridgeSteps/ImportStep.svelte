@@ -262,8 +262,7 @@
     $selectedNFTs &&
     $selectedNFTs.length > 0 &&
     $selectedNFTs[0].type === TokenType.ERC1155 &&
-    enteredIds &&
-    enteredIds.length > 0 &&
+    (importMethod === ImportMethod.MANUAL ? enteredIds && enteredIds.length > 0 : true) &&
     !validating;
 
   $: showNFTAmountInput = nftHasAmount && isOwnerOfAllToken;
@@ -331,6 +330,7 @@ Manual NFT Input
   <!-- 
 Automatic NFT Input 
 -->
+
   {#if !scanned || nothingFound}
     <div class="h-sep" />
 

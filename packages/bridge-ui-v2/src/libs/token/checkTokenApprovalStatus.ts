@@ -14,11 +14,13 @@ import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
 import type { ERC721Bridge } from '$libs/bridge/ERC721Bridge';
 import type { ERC1155Bridge } from '$libs/bridge/ERC1155Bridge';
 import { getContractAddressByType } from '$libs/bridge/getContractAddressByType';
+import { NoCanonicalInfoFoundError } from '$libs/error';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';
 import { account, network } from '$stores';
 
 import { checkOwnershipOfNFT } from './checkOwnership';
+import { getCanonicalInfoForToken } from './getCanonicalInfoForToken';
 import { type NFT, type Token, TokenType } from './types';
 
 const log = getLogger('util:token:checkTokenApprovalStatus');
@@ -44,6 +46,19 @@ export const checkTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promi
   const ownerAddress = get(account)?.address;
   const tokenAddress = get(selectedToken)?.addresses[currentChainId];
   log('selectedToken', get(selectedToken));
+
+  const canonicalTokenInfo = await getCanonicalInfoForToken({
+    token,
+    srcChainId: currentChainId,
+    destChainId: destinationChainId,
+  });
+  if (!canonicalTokenInfo) throw new NoCanonicalInfoFoundError();
+  const { address: canonicalTokenAddress } = canonicalTokenInfo;
+  if (canonicalTokenAddress !== tokenAddress) {
+    // we have a bridged token, no need for allowance check as we will burn the token
+    log('token is bridged, no need for allowance check');
+    return;
+  }
 
   if (!ownerAddress || !tokenAddress) {
     log('no ownerAddress or tokenAddress', ownerAddress, tokenAddress);
@@ -71,7 +86,7 @@ export const checkTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promi
       allApproved.set(false);
     }
   } else if (token.type === TokenType.ERC721 || token.type === TokenType.ERC1155) {
-    log('checking approval status for NFT');
+    log('checking approval status for NFT type' + token.type);
     const nft = token as NFT;
     const ownerShipChecks = await checkOwnershipOfNFT(token as NFT, ownerAddress, currentChainId);
     if (!ownerShipChecks.every((item) => item.isOwner === true)) {
@@ -99,7 +114,6 @@ export const checkTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promi
     };
 
     if (nft.type === TokenType.ERC1155) {
-      log('checking approval status for ERC1155');
       const bridge = bridges[nft.type] as ERC1155Bridge;
       try {
         // Let's check if the vault is approved for all ERC1155
@@ -109,7 +123,6 @@ export const checkTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promi
         console.error('isApprovedForAll error');
       }
     } else if (nft.type === TokenType.ERC721) {
-      log('checking approval status for ERC1155');
       const bridge = bridges[nft.type] as ERC721Bridge;
       try {
         // Let's check if the vault is approved for all ERC721

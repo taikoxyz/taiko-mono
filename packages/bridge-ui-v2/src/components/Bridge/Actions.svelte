@@ -7,6 +7,7 @@
   import { BridgePausedError } from '$libs/error';
   import { TokenType } from '$libs/token';
   import { checkTokenApprovalStatus } from '$libs/token/checkTokenApprovalStatus';
+  import { getCanonicalInfoForToken } from '$libs/token/getCanonicalInfoForToken';
   import { account, network } from '$stores';
 
   import {
@@ -49,14 +50,19 @@
     bridge();
   }
 
-  onMount(() => {
+  onMount(async () => {
     $validatingAmount = true;
-    checkTokenApprovalStatus($selectedToken);
+    await checkBridgedStatus();
+    if (tokenIsBridged) {
+      $allApproved = true;
+      $insufficientAllowance = false;
+    } else {
+      checkTokenApprovalStatus($selectedToken);
+    }
     isValidTokenBalance();
     $validatingAmount = false;
   });
 
-  //TODO: does this check entered balance?!
   const isValidTokenBalance = () => {
     if ($tokenBalance && typeof $tokenBalance !== 'bigint') {
       if (isETH) {
@@ -76,9 +82,33 @@
     }
   };
 
+  const checkBridgedStatus = async () => {
+    if ($selectedToken?.type === TokenType.ETH) {
+      return true;
+    }
+    const srcChainId = $network?.id;
+    const destChainId = $destNetwork?.id;
+
+    if (!srcChainId || !destChainId || !$selectedToken) {
+      tokenIsBridged = false;
+      return;
+    }
+
+    const canonicalInfo = await getCanonicalInfoForToken({ token: $selectedToken, srcChainId, destChainId });
+    if (!canonicalInfo || canonicalInfo.chainId === srcChainId) {
+      tokenIsBridged = false;
+      return;
+    }
+
+    // override checks if the token is bridged
+    $allApproved = true;
+    $insufficientAllowance = false;
+    return true;
+  };
+
   $: isValidBalance = false;
 
-  $: validating = $validatingAmount && $enteredAmount > 0;
+  // $: validating = $enteredAmount > 0;
 
   // Basic conditions so we can even start the bridging process
   $: hasAddress = $recipientAddress || $account?.address;
@@ -88,21 +118,29 @@
   $: canDoNothing = !hasAddress || !hasNetworks || !hasBalance || !$selectedToken || disabled;
 
   // Conditions for approve/bridge steps
-
   $: if ($enteredAmount) {
     $validatingAmount = true;
-    checkTokenApprovalStatus($selectedToken);
+    checkBridgedStatus().then(() => {
+      if (!tokenIsBridged) checkTokenApprovalStatus($selectedToken);
+    });
+
     isValidTokenBalance();
   }
 
+  $: if ($selectedToken) checkBridgedStatus();
+
+  $: tokenIsBridged = false;
+
   // Conditions to disable/enable buttons
-  $: disableApprove = isERC20
-    ? canDoNothing || $insufficientBalance || $validatingAmount || approving || $allApproved || !$enteredAmount
-    : isERC721
-      ? $allApproved || approving
-      : isERC1155
+  $: disableApprove =
+    !tokenIsBridged &&
+    (isERC20
+      ? canDoNothing || $insufficientBalance || $validatingAmount || approving || $allApproved || !$enteredAmount
+      : isERC721
         ? $allApproved || approving
-        : approving;
+        : isERC1155
+          ? $allApproved || approving
+          : approving);
 
   $: isERC20 = $selectedToken?.type === TokenType.ERC20;
   $: isERC721 = $selectedToken?.type === TokenType.ERC721;
@@ -144,23 +182,23 @@
   <!-- TODO: temporary enable two styles, remove for UI v2.1 -->
 
   <div class="f-between-center w-full gap-4">
-    {#if $selectedToken && !isETH}
+    {#if $selectedToken && !isETH && !tokenIsBridged}
       <ActionButton
         priority="primary"
         disabled={disableApprove}
-        loading={approving || validating}
+        loading={approving || $validatingAmount}
         on:click={onApproveClick}>
-        {#if validating && !approving}
-          <span class="body-bold">Checking ...</span>
+        {#if $validatingAmount && !approving}
+          <span class="body-bold">{$t('bridge.button.validating')}.</span>
         {/if}
         {#if approving}
           <span class="body-bold">{$t('bridge.button.approving')}</span>
-        {:else if $allApproved && !validating && $enteredAmount > 0}
+        {:else if $allApproved && !$validatingAmount && $enteredAmount > 0}
           <div class="f-items-center">
             <Icon type="check" />
             <span class="body-bold">{$t('bridge.button.approved')}</span>
           </div>
-        {:else if !validating}
+        {:else if !$validatingAmount}
           <span class="body-bold">{$t('bridge.button.approve')}</span>
         {/if}
       </ActionButton>
@@ -178,11 +216,11 @@
   <!-- NFT actions  -->
   <!-- TODO: adopt for bridge design v2.1  -->
   <div class="f-col w-full gap-4">
-    {#if $selectedToken && !isETH}
+    {#if $selectedToken && !isETH && !tokenIsBridged}
       <ActionButton
         priority="primary"
         disabled={disableApprove}
-        loading={approving || validating}
+        loading={approving || $validatingAmount}
         on:click={onApproveClick}>
         {#if approving}
           <span class="body-bold">{$t('bridge.button.approving')}</span>

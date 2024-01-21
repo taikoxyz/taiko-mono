@@ -43,7 +43,8 @@
       "bridge": "Bridge",
       "bridging": "Bridging",
       "fetch": "Fetch NFT data",
-      "import": "Import"
+      "import": "Import",
+      "validating": "Validating..."
     },
     "description": {
       "default": "Send your assets across chains.",
