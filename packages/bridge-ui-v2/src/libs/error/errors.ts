@@ -125,11 +125,3 @@ export class FilterLogsError extends Error {
 export class NoCanonicalInfoFoundError extends Error {
   name = 'NoCanonicalInfoFoundError';
 }
-
-export class InvalidParametersProvidedError extends Error {
-  name = 'InvalidParametersProvidedError';
-}
-
-export class InternalError extends Error {
-  name = 'InternalError';
-}
