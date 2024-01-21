@@ -5,10 +5,7 @@ import { erc20VaultABI, erc721VaultABI, erc1155VaultABI } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { NoCanonicalInfoFoundError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
-import {
-  getCanonicalStatus as getCanonicalStatusFromStore,
-  setCanonicalTokenInfo as setCanonicalTokenInfoStore,
-} from '$stores/canonical';
+import { getCanonicalStatusFromStore, setCanonicalTokenInfoStore } from '$stores/canonical';
 
 import { type GetTokenInfo, TokenType } from './types';
 
