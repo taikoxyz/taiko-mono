@@ -140,7 +140,7 @@ library LibProvingAlt {
             // proof checks for the tier. In practice, this only applies to
             // optimistic proofs.
             if (verifier != address(0)) {
-                bool isContesting = proof.tier == ts.tier;
+                bool isContesting = proof.tier == ts.tier && tier.contestBond != 0;
 
                 IVerifier.Context memory ctx = IVerifier.Context({
                     metaHash: blk.metaHash,
