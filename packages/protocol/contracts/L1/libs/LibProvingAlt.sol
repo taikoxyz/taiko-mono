@@ -105,7 +105,7 @@ library LibProvingAlt {
         // become available. In cases where a transition with the specified
         // parentHash does not exist, the transition ID (tid) will be set to 0.
         (uint32 tid, TaikoData.TransitionState storage ts) =
-            _handleTransition(state, blk, meta, tran, slot);
+            _createTransition(state, blk, meta, tran, slot);
 
         // The new proof must meet or exceed the minimum tier required by the
         // block or the previous proof; it cannot be on a lower tier.
@@ -118,7 +118,7 @@ library LibProvingAlt {
         ITierProvider.Tier memory tier =
             ITierProvider(resolver.resolve("tier_provider", false)).getTier(proof.tier);
 
-        bool isGuardian = tier.contestBond == 0;
+        bool isTopTier = tier.contestBond == 0;
 
         _checkProverPermission(blk, ts, tid, tier);
 
@@ -162,7 +162,7 @@ library LibProvingAlt {
         // A special return value from the top tier prover can signal this
         // contract to return all liveness bond.
         {
-            bool returnLivenessBond = isGuardian && blk.livenessBond > 0 && proof.data.length == 32
+            bool returnLivenessBond = isTopTier && blk.livenessBond > 0 && proof.data.length == 32
                 && bytes32(proof.data) == RETURN_LIVENESS_BOND;
 
             if (returnLivenessBond) {
@@ -177,7 +177,7 @@ library LibProvingAlt {
             // Handles the case when an incoming tier is higher than the current transition's tier.
             // Reverts when the incoming proof tries to prove the same transition
             // (L1_ALREADY_PROVED).
-            _handleHigherIncomingProof(ts, tran, proof, tier, tko, sameTransition);
+            _overrideWithHigherProof(ts, tran, proof, tier, tko, sameTransition);
 
             emit TransitionProved({
                 blockId: blk.blockId,
@@ -191,8 +191,8 @@ library LibProvingAlt {
             // prove the same, it reverts
             if (sameTransition) revert L1_ALREADY_PROVED();
 
-            if (isGuardian) {
-                // The guardian prover re-proves.
+            if (isTopTier) {
+                // The top tier prover re-proves.
                 assert(tier.validityBond == 0);
                 assert(ts.validityBond == 0 && ts.contestBond == 0 && ts.contester == address(0));
 
@@ -239,7 +239,7 @@ library LibProvingAlt {
     }
 
     /// @dev Handle the transition initialization logic
-    function _handleTransition(
+    function _createTransition(
         TaikoData.State storage state,
         TaikoData.Block storage blk,
         TaikoData.BlockMetadata memory meta,
@@ -322,7 +322,7 @@ library LibProvingAlt {
     }
 
     /// @dev Handles what happens when there is a higher proof incoming
-    function _handleHigherIncomingProof(
+    function _overrideWithHigherProof(
         TaikoData.TransitionState storage ts,
         TaikoData.Transition memory tran,
         TaikoData.TierProof memory proof,
