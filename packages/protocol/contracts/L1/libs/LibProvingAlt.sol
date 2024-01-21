@@ -118,8 +118,6 @@ library LibProvingAlt {
         ITierProvider.Tier memory tier =
             ITierProvider(resolver.resolve("tier_provider", false)).getTier(proof.tier);
 
-        bool isTopTier = tier.contestBond == 0;
-
         _checkProverPermission(blk, ts, tid, tier);
 
         // We must verify the proof, and any failure in proof verification will
@@ -161,8 +159,9 @@ library LibProvingAlt {
 
         // A special return value from the top tier prover can signal this
         // contract to return all liveness bond.
-        {
-            bool returnLivenessBond = isTopTier && blk.livenessBond > 0 && proof.data.length == 32
+        bool isTopTier = tier.contestBond == 0;
+        if (isTopTier) {
+            bool returnLivenessBond = blk.livenessBond > 0 && proof.data.length == 32
                 && bytes32(proof.data) == RETURN_LIVENESS_BOND;
 
             if (returnLivenessBond) {
