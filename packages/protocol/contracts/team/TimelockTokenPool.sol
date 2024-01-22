@@ -17,6 +17,7 @@ pragma solidity 0.8.20;
 import "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import "../libs/LibMath.sol";
 import "../common/EssentialContract.sol";
 
 /// @title TimelockTokenPool
@@ -35,6 +36,7 @@ import "../common/EssentialContract.sol";
 /// - team members, advisors, etc.
 /// - grant program grantees
 contract TimelockTokenPool is EssentialContract {
+    using LibMath for uint256;
     using SafeERC20 for IERC20;
 
     struct Grant {
@@ -83,6 +85,7 @@ contract TimelockTokenPool is EssentialContract {
     event Voided(address indexed recipient, uint128 amount);
     event Withdrawn(address indexed recipient, address to, uint128 amount, uint128 cost);
 
+    error GRANT_PRICE_SHALL_INCREASE();
     error INVALID_GRANT();
     error INVALID_PARAM();
     error NOTHING_TO_VOID();
@@ -116,8 +119,15 @@ contract TimelockTokenPool is EssentialContract {
     /// same recipient.
     function grant(address recipient, Grant memory g) external onlyOwner {
         if (recipient == address(0)) revert INVALID_PARAM();
-        if (recipients[recipient].grants.length >= MAX_GRANTS_PER_ADDRESS) {
+        uint256 currentGrantLength = recipients[recipient].grants.length;
+        if (currentGrantLength >= MAX_GRANTS_PER_ADDRESS) {
             revert TOO_MANY();
+        }
+        if (
+            currentGrantLength > 0
+                && recipients[recipient].grants[currentGrantLength - 1].costPerToken > g.costPerToken
+        ) {
+            revert GRANT_PRICE_SHALL_INCREASE();
         }
 
         _validateGrant(g);
@@ -144,19 +154,25 @@ contract TimelockTokenPool is EssentialContract {
     }
 
     /// @notice Withdraws all withdrawable tokens.
-    function withdraw() external {
-        _withdraw(msg.sender, msg.sender);
+    /// @param maxGrantCount It is possible to signal how many the recipient wants to get his/her
+    /// tokens. Since hyptohetically grants(1..X) shall be more and more expensive, it make sense to
+    /// have a counter, since grant1 will be the most cheap.
+    function withdraw(uint8 maxGrantCount) external {
+        _withdraw(msg.sender, msg.sender, maxGrantCount);
     }
 
     /// @notice Withdraws all withdrawable tokens.
-    function withdraw(address to, bytes memory sig) external {
+    function withdraw(address to, uint8 maxGrantCount, bytes memory sig) external {
         if (to == address(0)) revert INVALID_PARAM();
-        bytes32 hash = keccak256(abi.encodePacked("Withdraw unlocked Taiko token to: ", to));
+        bytes32 hash = keccak256(abi.encodePacked("WITHDRAW", to, maxGrantCount));
         address recipient = ECDSA.recover(hash, sig);
-        _withdraw(recipient, to);
+        _withdraw(recipient, to, maxGrantCount);
     }
 
-    function getMyGrantSummary(address recipient)
+    function getMyGrantSummary(
+        address recipient,
+        uint8 maxGrantCount
+    )
         public
         view
         returns (
@@ -168,7 +184,7 @@ contract TimelockTokenPool is EssentialContract {
         )
     {
         Recipient storage r = recipients[recipient];
-        uint256 rGrantsLength = r.grants.length;
+        uint256 rGrantsLength = r.grants.length.min(maxGrantCount);
         uint128 totalCost;
         for (uint128 i; i < rGrantsLength; ++i) {
             amountOwned += _getAmountOwned(r.grants[i]);
@@ -188,10 +204,11 @@ contract TimelockTokenPool is EssentialContract {
         return recipients[recipient].grants;
     }
 
-    function _withdraw(address recipient, address to) private {
+    function _withdraw(address recipient, address to, uint8 maxGrantCount) private {
         Recipient storage r = recipients[recipient];
 
-        (,,, uint128 amountToWithdraw, uint128 costToWithdraw) = getMyGrantSummary(recipient);
+        (,,, uint128 amountToWithdraw, uint128 costToWithdraw) =
+            getMyGrantSummary(recipient, maxGrantCount);
 
         r.amountWithdrawn += amountToWithdraw;
         r.costPaid += costToWithdraw;

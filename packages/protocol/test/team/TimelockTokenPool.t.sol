@@ -63,7 +63,8 @@ contract TestTimelockTokenPool is TaikoTest {
             uint128 amountWithdrawn,
             uint128 amountToWithdraw,
             uint128 costToWithdraw
-        ) = pool.getMyGrantSummary(Alice);
+        ) = pool.getMyGrantSummary(Alice, 100); // Very high number, higher than actual grant nr.
+            // shall have no effect.
         assertEq(amountOwned, 10_000e18);
         assertEq(amountUnlocked, 10_000e18);
         assertEq(amountWithdrawn, 0);
@@ -75,11 +76,11 @@ contract TestTimelockTokenPool is TaikoTest {
         pool.void(Alice);
 
         vm.prank(Alice);
-        pool.withdraw();
+        pool.withdraw(100); // Higher than max grant nr. shall have no effect.
         assertEq(tko.balanceOf(Alice), 10_000e18);
 
         (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
-            pool.getMyGrantSummary(Alice);
+            pool.getMyGrantSummary(Alice, 100);
         assertEq(amountOwned, 10_000e18);
         assertEq(amountUnlocked, 10_000e18);
         assertEq(amountWithdrawn, 10_000e18);
@@ -109,7 +110,7 @@ contract TestTimelockTokenPool is TaikoTest {
             uint128 amountWithdrawn,
             uint128 amountToWithdraw,
             uint128 costToWithdraw
-        ) = pool.getMyGrantSummary(Alice);
+        ) = pool.getMyGrantSummary(Alice, 100);
         assertEq(amountOwned, 10_000e18);
         assertEq(amountUnlocked, 0);
         assertEq(amountWithdrawn, 0);
@@ -119,7 +120,7 @@ contract TestTimelockTokenPool is TaikoTest {
         vm.warp(unlockCliff);
 
         (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
-            pool.getMyGrantSummary(Alice);
+            pool.getMyGrantSummary(Alice, 100);
         assertEq(amountOwned, 10_000e18);
         assertEq(amountUnlocked, 0);
         assertEq(amountWithdrawn, 0);
@@ -129,7 +130,7 @@ contract TestTimelockTokenPool is TaikoTest {
         vm.warp(unlockCliff + 1);
 
         (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
-            pool.getMyGrantSummary(Alice);
+            pool.getMyGrantSummary(Alice, 100);
 
         uint256 amount1 = uint128(10_000e18) * uint64(block.timestamp - unlockStart) / unlockPeriod;
         uint256 expectedCost = amount1 / ONE_TKO_UNIT * strikePrice1;
@@ -141,12 +142,12 @@ contract TestTimelockTokenPool is TaikoTest {
         assertEq(costToWithdraw, expectedCost);
 
         vm.prank(Alice);
-        pool.withdraw();
+        pool.withdraw(100);
 
         vm.warp(unlockStart + unlockPeriod + 365 days);
 
         (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
-            pool.getMyGrantSummary(Alice);
+            pool.getMyGrantSummary(Alice, 100);
 
         expectedCost = amount1 / ONE_TKO_UNIT * strikePrice1;
 
@@ -157,10 +158,10 @@ contract TestTimelockTokenPool is TaikoTest {
         assertEq(costToWithdraw, expectedCost);
 
         vm.prank(Alice);
-        pool.withdraw();
+        pool.withdraw(100);
 
         (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
-            pool.getMyGrantSummary(Alice);
+            pool.getMyGrantSummary(Alice, 100);
         assertEq(amountOwned, 10_000e18);
         assertEq(amountUnlocked, 10_000e18);
         assertEq(amountWithdrawn, 10_000e18);
@@ -191,7 +192,7 @@ contract TestTimelockTokenPool is TaikoTest {
             uint128 amountWithdrawn,
             uint128 amountToWithdraw,
             uint128 costToWithdraw
-        ) = pool.getMyGrantSummary(Alice);
+        ) = pool.getMyGrantSummary(Alice, 100);
         assertEq(amountOwned, 0);
         assertEq(amountUnlocked, 0);
         assertEq(amountWithdrawn, 0);
@@ -201,7 +202,7 @@ contract TestTimelockTokenPool is TaikoTest {
         vm.warp(grantCliff);
 
         (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
-            pool.getMyGrantSummary(Alice);
+            pool.getMyGrantSummary(Alice, 100);
         assertEq(amountOwned, 0);
         assertEq(amountUnlocked, 0);
         assertEq(amountWithdrawn, 0);
@@ -211,7 +212,7 @@ contract TestTimelockTokenPool is TaikoTest {
         vm.warp(grantCliff + 1);
 
         (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
-            pool.getMyGrantSummary(Alice);
+            pool.getMyGrantSummary(Alice, 100);
 
         uint256 amount1 = uint128(10_000e18) * uint64(block.timestamp - grantStart) / grantPeriod;
         uint256 expectedCost = amount1 / ONE_TKO_UNIT * strikePrice1;
@@ -223,12 +224,12 @@ contract TestTimelockTokenPool is TaikoTest {
         assertEq(costToWithdraw, expectedCost);
 
         vm.prank(Alice);
-        pool.withdraw();
+        pool.withdraw(100);
 
         vm.warp(grantStart + grantPeriod + 365 days);
 
         (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
-            pool.getMyGrantSummary(Alice);
+            pool.getMyGrantSummary(Alice, 100);
 
         expectedCost = amount1 / ONE_TKO_UNIT * strikePrice1;
         assertEq(amountOwned, 10_000e18);
@@ -238,10 +239,10 @@ contract TestTimelockTokenPool is TaikoTest {
         assertEq(costToWithdraw, expectedCost);
 
         vm.prank(Alice);
-        pool.withdraw();
+        pool.withdraw(100);
 
         (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
-            pool.getMyGrantSummary(Alice);
+            pool.getMyGrantSummary(Alice, 100);
         assertEq(amountOwned, 10_000e18);
         assertEq(amountUnlocked, 10_000e18);
         assertEq(amountWithdrawn, 10_000e18);
@@ -283,7 +284,7 @@ contract TestTimelockTokenPool is TaikoTest {
             uint128 amountWithdrawn,
             uint128 amountToWithdraw,
             uint128 costToWithdraw
-        ) = pool.getMyGrantSummary(Alice);
+        ) = pool.getMyGrantSummary(Alice, 100);
         assertEq(amountOwned, 0);
         assertEq(amountUnlocked, 0);
         assertEq(amountWithdrawn, 0);
@@ -293,7 +294,7 @@ contract TestTimelockTokenPool is TaikoTest {
         // 90 days later
         vm.warp(grantStart + 90 days);
         (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
-            pool.getMyGrantSummary(Alice);
+            pool.getMyGrantSummary(Alice, 100);
         assertEq(amountOwned, 0);
         assertEq(amountUnlocked, 0);
         assertEq(amountWithdrawn, 0);
@@ -303,7 +304,7 @@ contract TestTimelockTokenPool is TaikoTest {
         // 1 year later
         vm.warp(grantStart + 365 days);
         (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
-            pool.getMyGrantSummary(Alice);
+            pool.getMyGrantSummary(Alice, 100);
         assertEq(amountOwned, 2500e18);
         assertEq(amountUnlocked, 0);
         assertEq(amountWithdrawn, 0);
@@ -313,7 +314,7 @@ contract TestTimelockTokenPool is TaikoTest {
         // 2 year later
         vm.warp(grantStart + 2 * 365 days);
         (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
-            pool.getMyGrantSummary(Alice);
+            pool.getMyGrantSummary(Alice, 100);
         assertEq(amountOwned, 5000e18);
         assertEq(amountUnlocked, 0);
         assertEq(amountWithdrawn, 0);
@@ -323,7 +324,7 @@ contract TestTimelockTokenPool is TaikoTest {
         // 3 year later
         vm.warp(grantStart + 3 * 365 days);
         (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
-            pool.getMyGrantSummary(Alice);
+            pool.getMyGrantSummary(Alice, 100);
 
         uint256 expectedCost = 3750e18 / ONE_TKO_UNIT * strikePrice1;
 
@@ -336,7 +337,7 @@ contract TestTimelockTokenPool is TaikoTest {
         // 4 year later
         vm.warp(grantStart + 4 * 365 days);
         (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
-            pool.getMyGrantSummary(Alice);
+            pool.getMyGrantSummary(Alice, 100);
 
         expectedCost = 7500e18 / ONE_TKO_UNIT * strikePrice1;
 
@@ -349,7 +350,7 @@ contract TestTimelockTokenPool is TaikoTest {
         // 5 year later
         vm.warp(grantStart + 5 * 365 days);
         (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
-            pool.getMyGrantSummary(Alice);
+            pool.getMyGrantSummary(Alice, 100);
 
         expectedCost = 10_000e18 / ONE_TKO_UNIT * strikePrice1;
 
@@ -362,7 +363,7 @@ contract TestTimelockTokenPool is TaikoTest {
         // 6 year later
         vm.warp(grantStart + 6 * 365 days);
         (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
-            pool.getMyGrantSummary(Alice);
+            pool.getMyGrantSummary(Alice, 100);
         assertEq(amountOwned, 10_000e18);
         assertEq(amountUnlocked, 10_000e18);
         assertEq(amountWithdrawn, 0);
@@ -389,7 +390,7 @@ contract TestTimelockTokenPool is TaikoTest {
             uint128 amountWithdrawn,
             uint128 amountToWithdraw,
             uint128 costToWithdraw
-        ) = pool.getMyGrantSummary(Alice);
+        ) = pool.getMyGrantSummary(Alice, 100);
         assertEq(amountOwned, 30_000e18);
         assertEq(amountUnlocked, 30_000e18);
         assertEq(amountWithdrawn, 0);
@@ -411,7 +412,7 @@ contract TestTimelockTokenPool is TaikoTest {
             uint128 amountWithdrawn,
             uint128 amountToWithdraw,
             uint128 costToWithdraw
-        ) = pool.getMyGrantSummary(Alice);
+        ) = pool.getMyGrantSummary(Alice, 100);
         assertEq(amountOwned, 0);
         assertEq(amountUnlocked, 0);
         assertEq(amountWithdrawn, 0);
@@ -449,7 +450,7 @@ contract TestTimelockTokenPool is TaikoTest {
             uint128 amountWithdrawn,
             uint128 amountToWithdraw,
             uint128 costToWithdraw
-        ) = pool.getMyGrantSummary(Alice);
+        ) = pool.getMyGrantSummary(Alice, 100);
 
         assertEq(amountOwned, 0);
         assertEq(amountUnlocked, 0);
@@ -489,7 +490,7 @@ contract TestTimelockTokenPool is TaikoTest {
             uint128 amountWithdrawn,
             uint128 amountToWithdraw,
             uint128 costToWithdraw
-        ) = pool.getMyGrantSummary(Alice);
+        ) = pool.getMyGrantSummary(Alice, 100);
 
         assertEq(amountOwned, 15_000e18);
         assertEq(amountUnlocked, 15_000e18);
@@ -500,7 +501,7 @@ contract TestTimelockTokenPool is TaikoTest {
         pool.void(Alice);
 
         (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
-            pool.getMyGrantSummary(Alice);
+            pool.getMyGrantSummary(Alice, 100);
         assertEq(amountOwned, 15_000e18);
         assertEq(amountUnlocked, 15_000e18);
         assertEq(amountWithdrawn, 0);
@@ -509,7 +510,7 @@ contract TestTimelockTokenPool is TaikoTest {
 
         vm.warp(grantStart + 100 days);
         (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
-            pool.getMyGrantSummary(Alice);
+            pool.getMyGrantSummary(Alice, 100);
         assertEq(amountOwned, 15_000e18);
         assertEq(amountUnlocked, 15_000e18);
         assertEq(amountWithdrawn, 0);
@@ -550,7 +551,7 @@ contract TestTimelockTokenPool is TaikoTest {
             uint128 amountWithdrawn,
             uint128 amountToWithdraw,
             uint128 costToWithdraw
-        ) = pool.getMyGrantSummary(Alice);
+        ) = pool.getMyGrantSummary(Alice, 100);
         assertEq(amountOwned, 0);
         assertEq(amountUnlocked, 0);
         assertEq(amountWithdrawn, 0);
@@ -560,7 +561,7 @@ contract TestTimelockTokenPool is TaikoTest {
         // When withdraw (5 years later) - check if correct price is deducted
         vm.warp(grantStart + 5 * 365 days);
         (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
-            pool.getMyGrantSummary(Alice);
+            pool.getMyGrantSummary(Alice, 100);
         assertEq(amountOwned, 10_000e18);
         assertEq(amountUnlocked, 10_000e18);
         assertEq(amountWithdrawn, 0);
@@ -573,7 +574,7 @@ contract TestTimelockTokenPool is TaikoTest {
         usdc.approve(address(pool), payedUsdc);
 
         vm.prank(Alice);
-        pool.withdraw();
+        pool.withdraw(100);
         assertEq(tko.balanceOf(Alice), 10_000e18);
         assertEq(usdc.balanceOf(Alice), 1_000_000_000e6 - payedUsdc);
     }
@@ -624,7 +625,7 @@ contract TestTimelockTokenPool is TaikoTest {
             uint128 amountWithdrawn,
             uint128 amountToWithdraw,
             uint128 costToWithdraw
-        ) = pool.getMyGrantSummary(Alice);
+        ) = pool.getMyGrantSummary(Alice, 100);
         assertEq(amountOwned, 0);
         assertEq(amountUnlocked, 0);
         assertEq(amountWithdrawn, 0);
@@ -633,7 +634,7 @@ contract TestTimelockTokenPool is TaikoTest {
         // When withdraw (5 years later) - check if correct price is deducted
         vm.warp(grantStart + 5 * 365 days);
         (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
-            pool.getMyGrantSummary(Alice);
+            pool.getMyGrantSummary(Alice, 100);
         assertEq(amountOwned, 20_000e18);
         assertEq(amountUnlocked, 20_000e18);
         assertEq(amountWithdrawn, 0);
@@ -646,8 +647,183 @@ contract TestTimelockTokenPool is TaikoTest {
         usdc.approve(address(pool), payedUsdc);
 
         vm.prank(Alice);
-        pool.withdraw();
+        pool.withdraw(100);
         assertEq(tko.balanceOf(Alice), 20_000e18);
         assertEq(usdc.balanceOf(Alice), 1_000_000_000e6 - payedUsdc);
+    }
+
+    function test_if_Alice_priced_out_with_grant2() public {
+        uint64 grantStart = uint64(block.timestamp);
+        uint32 grantPeriod = 4 * 365 days;
+        uint64 grantCliff = grantStart + 90 days;
+
+        uint64 unlockStart = grantStart + 365 days;
+        uint32 unlockPeriod = 4 * 365 days;
+        uint64 unlockCliff = unlockStart + 365 days;
+
+        // 0.1 USDC if decimals are 6 (as in our test)
+        uint64 tenCent = uint64(10 ** usdc.decimals() / 10);
+        // 2 USDC if decimals are 6 (as  in our test)
+        uint64 twoDollars = uint64(10 ** usdc.decimals() * 2);
+
+        // Grant Alice 2 grants (1x 10_000, 2 x 2_000), with different strike price
+        pool.grant(
+            Alice,
+            TimelockTokenPool.Grant(
+                10_000e18,
+                tenCent,
+                grantStart,
+                grantCliff,
+                grantPeriod,
+                unlockStart,
+                unlockCliff,
+                unlockPeriod
+            )
+        );
+
+        pool.grant(
+            Alice,
+            TimelockTokenPool.Grant(
+                3000e18,
+                twoDollars,
+                grantStart,
+                grantCliff,
+                grantPeriod,
+                unlockStart,
+                unlockCliff,
+                unlockPeriod
+            )
+        );
+        vm.prank(Vault);
+        tko.approve(address(pool), 20_000e18);
+
+        (
+            uint128 amountOwned,
+            uint128 amountUnlocked,
+            uint128 amountWithdrawn,
+            uint128 amountToWithdraw,
+            uint128 costToWithdraw
+        ) = pool.getMyGrantSummary(Alice, 100);
+        assertEq(amountOwned, 0);
+        assertEq(amountUnlocked, 0);
+        assertEq(amountWithdrawn, 0);
+        assertEq(amountToWithdraw, 0);
+
+        // After some time let's see if return values are correct both for first and second (all)
+        // grants
+        vm.warp(grantStart + 5 * 365 days);
+
+        // 10_000 TKO * 0.1
+        uint256 grant1Price = 10_000 * tenCent;
+
+        // If getMyGrantSummary(Alice, 0): 0 means, Alice does not really want any info. (But
+        // supplying 0 no reverts tho)
+        (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
+            pool.getMyGrantSummary(Alice, 0);
+        assertEq(amountOwned, 0);
+        assertEq(amountUnlocked, 0);
+        assertEq(amountWithdrawn, 0);
+        assertEq(amountToWithdraw, 0);
+        assertEq(costToWithdraw, 0);
+
+        (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
+            pool.getMyGrantSummary(Alice, 1);
+        assertEq(amountOwned, 10_000e18);
+        assertEq(amountUnlocked, 10_000e18);
+        assertEq(amountWithdrawn, 0);
+        assertEq(amountToWithdraw, 10_000e18);
+        assertEq(costToWithdraw, grant1Price);
+
+        // 10_000 TKO * 0.1 + 3_000 TKO * 2.0
+        uint256 allPrice = 10_000 * tenCent + 3000 * twoDollars;
+
+        // Let's see how much she has to pay if she want to have both (all)
+        (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
+            pool.getMyGrantSummary(Alice, 2);
+        assertEq(amountOwned, 13_000e18);
+        assertEq(amountUnlocked, 13_000e18);
+        assertEq(amountWithdrawn, 0);
+        assertEq(amountToWithdraw, 13_000e18);
+        assertEq(amountToWithdraw, 13_000e18);
+        assertEq(costToWithdraw, allPrice);
+
+        vm.prank(Alice);
+        usdc.approve(address(pool), allPrice);
+
+        // Alice only wants to withdraw first (cheapest) grant because she is priced out, or dont
+        // want to activate grant2 for that strike price, because it is too high.
+        vm.prank(Alice);
+        pool.withdraw(1);
+
+        assertEq(tko.balanceOf(Alice), 10_000e18);
+        assertEq(usdc.balanceOf(Alice), 1_000_000_000e6 - grant1Price);
+
+        // After Alice withdrawing grant 1, she still has the grant 2 "non-withdrawn"
+        (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
+            pool.getMyGrantSummary(Alice, 2);
+        assertEq(amountOwned, 13_000e18);
+        assertEq(amountUnlocked, 13_000e18);
+        assertEq(amountWithdrawn, 10_000e18);
+        assertEq(amountToWithdraw, 3000e18);
+        assertEq(costToWithdraw, (allPrice - grant1Price));
+
+        // Now the price consolidate, it is worth to withdraw the second one
+        vm.prank(Alice);
+        pool.withdraw(2); // grant 1 already withdrawn, but it is OK, Alice has to call withdraw
+            // with nr. 2
+
+        // After Alice withdrawing grant 1, she still has the grant 2 "non-withdrawn"
+        (amountOwned, amountUnlocked, amountWithdrawn, amountToWithdraw, costToWithdraw) =
+            pool.getMyGrantSummary(Alice, 2);
+        assertEq(amountOwned, 13_000e18);
+        assertEq(amountUnlocked, 13_000e18);
+        assertEq(amountWithdrawn, 13_000e18);
+        assertEq(amountToWithdraw, 0);
+        assertEq(costToWithdraw, 0);
+    }
+
+    function test_new_grant_has_lower_price_than_first() public {
+        uint64 grantStart = uint64(block.timestamp);
+        uint32 grantPeriod = 4 * 365 days;
+        uint64 grantCliff = grantStart + 90 days;
+
+        uint64 unlockStart = grantStart + 365 days;
+        uint32 unlockPeriod = 4 * 365 days;
+        uint64 unlockCliff = unlockStart + 365 days;
+
+        // 0.1 USDC if decimals are 6 (as in our test)
+        uint64 tenCent = uint64(10 ** usdc.decimals() / 10);
+        // 0.01 USDC if decimals are 6 (as  in our test)
+        uint64 oneCent = uint64(10 ** usdc.decimals() / 100);
+
+        // Grant Alice 2 grants (1x 10_000, 2 x 2_000), with different strike price
+        pool.grant(
+            Alice,
+            TimelockTokenPool.Grant(
+                10_000e18,
+                tenCent,
+                grantStart,
+                grantCliff,
+                grantPeriod,
+                unlockStart,
+                unlockCliff,
+                unlockPeriod
+            )
+        );
+
+        vm.expectRevert(TimelockTokenPool.GRANT_PRICE_SHALL_INCREASE.selector);
+        pool.grant(
+            Alice,
+            TimelockTokenPool.Grant(
+                3000e18,
+                oneCent,
+                grantStart,
+                grantCliff,
+                grantPeriod,
+                unlockStart,
+                unlockCliff,
+                unlockPeriod
+            )
+        );
     }
 }
