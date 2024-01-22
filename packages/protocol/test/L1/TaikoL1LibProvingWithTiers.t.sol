@@ -405,7 +405,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         printVariables("");
     }
 
-    function test_L1_GuardianProverCannotOverwriteIfSameProof() external {
+    function test_L1_GuardianProverCanAlwaysOverwriteTheProof() external {
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
         giveEthAndTko(Carol, 1e7 ether, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
@@ -429,20 +429,22 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1e9 + blockId);
             // This proof cannot be verified obviously because of
             // blockhash:blockId
-            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot, meta.minTier, "");
 
-            // Try to contest - but should revert with L1_ALREADY_PROVED
+            (, TaikoData.SlotB memory b) = L1.getStateVariables();
+            uint64 lastVerifiedBlockBefore = b.lastVerifiedBlockId;
+            proveBlock(Bob, Bob, meta, parentHash, blockHash, signalRoot, meta.minTier, "");
+            console2.log("mintTier is:", meta.minTier);
+            // Try to contest
             proveBlock(
                 Carol,
                 Carol,
                 meta,
                 parentHash,
-                blockHash,
-                signalRoot,
-                LibTiers.TIER_GUARDIAN,
-                TaikoErrors.L1_ALREADY_PROVED.selector
+                bytes32(uint256(1)),
+                bytes32(uint256(1)),
+                meta.minTier,
+                ""
             );
-
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = meta.minTier;
@@ -450,6 +452,22 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
             verifyBlock(Carol, 1);
 
+            (, b) = L1.getStateVariables();
+            uint64 lastVerifiedBlockAfter = b.lastVerifiedBlockId;
+
+            console.log(lastVerifiedBlockAfter, lastVerifiedBlockBefore);
+            // So it is contested - because last verified not changd
+            assertEq(lastVerifiedBlockAfter, lastVerifiedBlockBefore);
+
+            // Guardian can prove with the original (good) hashes.
+            proveBlock(
+                Carol, Carol, meta, parentHash, blockHash, signalRoot, LibTiers.TIER_GUARDIAN, ""
+            );
+
+            vm.roll(block.number + 15 * 12);
+            vm.warp(block.timestamp + L1.getTier(LibTiers.TIER_GUARDIAN).cooldownWindow + 1);
+
+            verifyBlock(Carol, 1);
             parentHash = blockHash;
         }
         printVariables("");
@@ -814,6 +832,46 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
             parentHash = blockHash;
         }
+        printVariables("");
+    }
+
+    function test_L1_ContestingWithLowerTierProofReverts() external {
+        giveEthAndTko(Alice, 1e7 ether, 1000 ether);
+        giveEthAndTko(Carol, 1e7 ether, 1000 ether);
+        console2.log("Alice balance:", tko.balanceOf(Alice));
+        // This is a very weird test (code?) issue here.
+        // If this line is uncommented,
+        // Alice/Bob has no balance.. (Causing reverts !!!)
+        // Current investigations are ongoing with foundry team
+        giveEthAndTko(Bob, 1e6 ether, 100 ether);
+        console2.log("Bob balance:", tko.balanceOf(Bob));
+        // Bob
+        vm.prank(Bob, Bob);
+
+        bytes32 parentHash = GENESIS_BLOCK_HASH;
+        printVariables("before propose");
+        (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
+        //printVariables("after propose");
+        mine(1);
+
+        bytes32 blockHash = bytes32(uint256(1));
+        bytes32 signalRoot = bytes32(uint256(1));
+        proveBlock(
+            Bob, Bob, meta, parentHash, blockHash, signalRoot, LibTiers.TIER_SGX_AND_PSE_ZKEVM, ""
+        );
+
+        // Try to contest with a lower tier proof- but should revert with L1_INVALID_TIER
+        proveBlock(
+            Carol,
+            Carol,
+            meta,
+            parentHash,
+            blockHash,
+            signalRoot,
+            LibTiers.TIER_SGX,
+            TaikoErrors.L1_INVALID_TIER.selector
+        );
+
         printVariables("");
     }
 }

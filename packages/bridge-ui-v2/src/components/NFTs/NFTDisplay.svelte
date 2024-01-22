@@ -17,7 +17,7 @@
 
   export let nftView: NFTView = NFTView.LIST;
 
-  $: size = nfts?.length && nfts?.length > 3 ? 'max-h-[350px] min-h-[350px]' : 'max-h-[249px] min-h-[249px]';
+  $: size = nfts?.length && nfts?.length > 2 ? 'max-h-[350px] min-h-[350px]' : 'max-h-[249px] min-h-[249px]';
 
   $: outerClasses = 'relative m bg-neutral rounded-[20px] overflow-hidden ' + size;
   $: innerClasses = 'overflow-y-auto p-[24px] ' + size;

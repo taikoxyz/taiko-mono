@@ -12,4 +12,4 @@
   };
 </script>
 
-<Icon type="circle" fillClass={typeMap[type]} />
+<Icon type="circle" fillClass={typeMap[type]} class="min-w-[20px] max-w-[20px]" />

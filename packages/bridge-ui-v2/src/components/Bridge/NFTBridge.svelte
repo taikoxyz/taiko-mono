@@ -178,13 +178,13 @@
     );
   };
 
-  const manualImportAction = () => {
+  const manualImportAction = async () => {
     if (!$network?.id) throw new Error('network not found');
     const srcChainId = $network?.id;
     const tokenId = nftIdArray[0];
 
     if (isAddress(contractAddress) && srcChainId)
-      getTokenWithInfoFromAddress({ contractAddress, srcChainId: srcChainId, tokenId, owner: $account?.address })
+      await getTokenWithInfoFromAddress({ contractAddress, srcChainId: srcChainId, tokenId, owner: $account?.address })
         .then(async (token) => {
           if (!token) throw new Error('no token with info');
           // detectedTokenType = token.type;
@@ -229,7 +229,7 @@
   $: activeStep === NFTSteps.IMPORT && resetForm();
 </script>
 
-<div class="f-col">
+<div class=" gap-0 w-full md:w-[524px]">
   <Stepper {activeStep}>
     <Step stepIndex={NFTSteps.IMPORT} currentStepIndex={activeStep} isActive={activeStep === NFTSteps.IMPORT}
       >{$t('bridge.nft.step.import.title')}</Step>
@@ -239,7 +239,7 @@
       >{$t('bridge.nft.step.confirm.title')}</Step>
   </Stepper>
 
-  <Card class="mt-[32px] w-full md:w-[524px]" title={nftStepTitle} text={nftStepDescription}>
+  <Card class="md:mt-[32px] w-full md:w-[524px]" title={nftStepTitle} text={nftStepDescription}>
     <div class="space-y-[30px]">
       <!-- IMPORT STEP -->
       {#if activeStep === NFTSteps.IMPORT}

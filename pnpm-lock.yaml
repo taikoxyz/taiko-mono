@@ -90,8 +90,8 @@ importers:
         specifier: ^10.4.16
         version: 10.4.16(postcss@8.4.32)
       daisyui:
-        specifier: 3.1.7
-        version: 3.1.7(postcss@8.4.32)
+        specifier: ^4.5.0
+        version: 4.5.0(postcss@8.4.32)
       dotenv:
         specifier: ^16.3.1
         version: 16.3.1
@@ -249,6 +249,9 @@ importers:
       vite-tsconfig-paths:
         specifier: ^4.2.2
         version: 4.2.2(typescript@5.3.3)(vite@5.0.10)
+      vitest:
+        specifier: ^0.32.4
+        version: 0.32.4(jsdom@22.1.0)
 
   packages/protocol:
     dependencies:
@@ -8098,10 +8101,6 @@ packages:
     hasBin: true
     dev: true
 
-  /colord@2.9.3:
-    resolution: {integrity: sha512-jeC1axXpnb0/2nn/Y1LPuLdgXBLH7aDcHu4KEKfqw3CUhX7ZpfBSlPKyqXE6btIgEzfWtrX3/tyBCaCvXvMkOw==}
-    dev: true
-
   /combined-stream@1.0.8:
     resolution: {integrity: sha512-FQN4MRfuJeHf7cBbBMJFXhKSDq+2kAArBlmRBvcvFE5BB1HZKXtSFASDhdlz9zOYwxh8lDdnvmMOe/+5cdoEdg==}
     engines: {node: '>= 0.8'}
@@ -8412,23 +8411,20 @@ packages:
     resolution: {integrity: sha512-kso740gqMVVqritCQliQCpfPwos9lxp7/TEiEev4w6GGQyLNRyfriWY+DWxfawMY/DwGDzBl2DZtekCMf73bzw==}
     dev: true
 
-  /daisyui@3.1.7(postcss@8.4.32):
-    resolution: {integrity: sha512-VQhaunQlB7Buo+AbE+S3i6H/eYknKEuKVHG67y7sbG58uEjeLK6n2rojG3YE7fwoOss6ldbUL8Oy0MyoJi0CHw==}
-    engines: {node: '>=16.9.0'}
-    peerDependencies:
-      postcss: ^8
-    dependencies:
-      colord: 2.9.3
-      css-selector-tokenizer: 0.8.0
-      postcss: 8.4.32
-      postcss-js: 4.0.1(postcss@8.4.32)
-      tailwindcss: 3.3.6
-    transitivePeerDependencies:
-      - ts-node
-    dev: true
-
   /daisyui@4.4.24(postcss@8.4.32):
     resolution: {integrity: sha512-u/B3484J08V7N0rIYymnC+SyxOjlYQL+2vyhHWV+/KC+VaUcbEF2Z3H06eCPgdTiZ0J+ml44aH7wBhIymPFQ+g==}
+    engines: {node: '>=16.9.0'}
+    dependencies:
+      css-selector-tokenizer: 0.8.0
+      culori: 3.3.0
+      picocolors: 1.0.0
+      postcss-js: 4.0.1(postcss@8.4.32)
+    transitivePeerDependencies:
+      - postcss
+    dev: true
+
+  /daisyui@4.5.0(postcss@8.4.32):
+    resolution: {integrity: sha512-RWQCPQ0vBUaxGy768O7Ku8SRQgwdoto1lDzuKeVOcMtYghuSbUY7NoPoMK+k8JH4s1J02OvpNAgtB9MeKpZIwg==}
     engines: {node: '>=16.9.0'}
     dependencies:
       css-selector-tokenizer: 0.8.0

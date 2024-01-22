@@ -37,8 +37,10 @@
     {/if}
 
     <ConnectButton connected={$account?.isConnected} />
-    <div class="v-sep my-auto mx-[8px] h-[24px]" />
-    <ThemeButton />
+    <div class="hidden md:inline-flex">
+      <div class="v-sep my-auto mx-[8px] h-[24px]" />
+      <ThemeButton />
+    </div>
   </div>
 
   <label for={drawerToggleId} class="ml-[10px] md:hidden">

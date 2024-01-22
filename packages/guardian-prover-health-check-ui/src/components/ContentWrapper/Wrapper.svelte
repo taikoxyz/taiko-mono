@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Overview } from '$components/Overview';
 	import { BlocksList } from '$components/Blocks';
-	import { selectedTab } from '$components/stores/pageTabs';
+	import { selectedTab } from '$stores';
 	import { PageTabs } from '$lib/types';
 </script>
 

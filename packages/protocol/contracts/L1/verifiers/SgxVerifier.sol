@@ -17,7 +17,7 @@ pragma solidity 0.8.20;
 import "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import "../../common/EssentialContract.sol";
 import "../../thirdparty/LibBytesUtils.sol";
-import "../TaikoData.sol";
+import "../ITaikoL1.sol";
 import "./IVerifier.sol";
 
 /// @title SgxVerifier
@@ -92,7 +92,16 @@ contract SgxVerifier is EssentialContract, IVerifier {
         external
         returns (uint256[] memory ids)
     {
-        bytes32 signedHash = keccak256(abi.encode("ADD_INSTANCES", extraInstances));
+        address taikoL1 = resolve("taiko", false);
+        bytes32 signedHash = keccak256(
+            abi.encode(
+                "ADD_INSTANCES",
+                ITaikoL1(taikoL1).getConfig().chainId,
+                address(this),
+                newInstance,
+                extraInstances
+            )
+        );
         address oldInstance = ECDSA.recover(signedHash, signature);
         if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
 
@@ -108,6 +117,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         TaikoData.TierProof calldata proof
     )
         external
+        onlyFromNamed2("taiko", "tier_sgx_and_pse_zkevm")
     {
         // Do not run proof verification to contest an existing proof
         if (ctx.isContesting) return;
@@ -134,10 +144,21 @@ contract SgxVerifier is EssentialContract, IVerifier {
         bytes32 metaHash
     )
         public
-        pure
+        view
         returns (bytes32 signedHash)
     {
-        return keccak256(abi.encode(tran, newInstance, prover, metaHash));
+        address taikoL1 = resolve("taiko", false);
+        return keccak256(
+            abi.encode(
+                "VERIFY_PROOF",
+                ITaikoL1(taikoL1).getConfig().chainId,
+                address(this),
+                tran,
+                newInstance,
+                prover,
+                metaHash
+            )
+        );
     }
 
     function _addInstances(address[] calldata _instances) private returns (uint256[] memory ids) {

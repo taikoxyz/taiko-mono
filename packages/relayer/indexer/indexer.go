@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
-	nethttp "net/http"
 	"sync"
 	"time"
 
@@ -17,13 +16,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/labstack/echo/v4"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol1"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/indexer/http"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/queue"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/repo"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
@@ -89,9 +86,6 @@ type Indexer struct {
 	watchMode WatchMode
 	syncMode  SyncMode
 
-	srv      *http.Server
-	httpPort uint64
-
 	ethClientTimeout time.Duration
 
 	wg *sync.WaitGroup
@@ -130,18 +124,6 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	}
 
 	destEthClient, err := ethclient.Dial(cfg.DestRPCUrl)
-	if err != nil {
-		return err
-	}
-
-	srv, err := http.NewServer(http.NewServerOpts{
-		EventRepo:     eventRepository,
-		Echo:          echo.New(),
-		CorsOrigins:   cfg.CORSOrigins,
-		SrcEthClient:  srcEthClient,
-		DestEthClient: destEthClient,
-		BlockRepo:     blockRepository,
-	})
 	if err != nil {
 		return err
 	}
@@ -193,9 +175,6 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 
 	i.queue = q
 
-	i.srv = srv
-	i.httpPort = cfg.HTTPPort
-
 	i.srcChainId = srcChainID
 	i.destChainId = destChainID
 
@@ -213,23 +192,12 @@ func (i *Indexer) Name() string {
 	return "indexer"
 }
 
-// TODO
 func (i *Indexer) Close(ctx context.Context) {
-	if err := i.srv.Shutdown(ctx); err != nil {
-		slog.Error("srv shutdown", "error", err)
-	}
-
 	i.wg.Wait()
 }
 
 // nolint: funlen
 func (i *Indexer) Start() error {
-	go func() {
-		if err := i.srv.Start(fmt.Sprintf(":%v", i.httpPort)); err != nethttp.ErrServerClosed {
-			slog.Error("http srv start", "error", err.Error())
-		}
-	}()
-
 	i.ctx = context.Background()
 
 	if err := i.queue.Start(i.ctx, i.queueName()); err != nil {
@@ -320,8 +288,8 @@ func (i *Indexer) filter(ctx context.Context) error {
 			return errors.Wrap(err, "bridge.FilterMessageStatusChanged")
 		}
 
-		// we dont need to do anything with msgStatus events except save them to the DB.
-		// we dont need to process them. they are for exposing via the API.
+		// we don't need to do anything with msgStatus events except save them to the DB.
+		// we don't need to process them. they are for exposing via the API.
 
 		err = i.saveMessageStatusChangedEvents(ctx, i.srcChainId, messageStatusChangedEvents)
 		if err != nil {
@@ -333,21 +301,10 @@ func (i *Indexer) filter(ctx context.Context) error {
 			return errors.Wrap(err, "bridge.FilterMessageSent")
 		}
 
-		if !messageSentEvents.Next() || messageSentEvents.Event == nil {
-			// use "end" not "filterEnd" here, because it will be used as the start
-			// of the next batch.
-			if err := i.handleNoEventsInBatch(ctx, i.srcChainId, int64(end)); err != nil {
-				return errors.Wrap(err, "i.handleNoEventsInBatch")
-			}
-
-			continue
-		}
-
 		group, groupCtx := errgroup.WithContext(ctx)
-
 		group.SetLimit(i.numGoroutines)
 
-		for {
+		for messageSentEvents.Next() {
 			event := messageSentEvents.Event
 
 			group.Go(func() error {
@@ -359,24 +316,19 @@ func (i *Indexer) filter(ctx context.Context) error {
 				} else {
 					slog.Info("handled event successfully")
 				}
-
 				return nil
 			})
+		}
 
-			// if there are no more events
-			if !messageSentEvents.Next() {
-				// wait for the last of the goroutines to finish
-				if err := group.Wait(); err != nil {
-					return errors.Wrap(err, "group.Wait")
-				}
-				// handle no events remaining, saving the processing block and restarting the for
-				// loop
-				if err := i.handleNoEventsInBatch(ctx, i.srcChainId, int64(end)); err != nil {
-					return errors.Wrap(err, "i.handleNoEventsInBatch")
-				}
+		// wait for the last of the goroutines to finish
+		if err := group.Wait(); err != nil {
+			return errors.Wrap(err, "group.Wait")
+		}
 
-				break
-			}
+		// handle no events remaining, saving the processing block and restarting the for
+		// loop
+		if err := i.handleNoEventsInBatch(ctx, i.srcChainId, int64(end)); err != nil {
+			return errors.Wrap(err, "i.handleNoEventsInBatch")
 		}
 	}
 

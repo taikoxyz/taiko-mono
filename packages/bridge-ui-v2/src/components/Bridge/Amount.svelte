@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import { formatUnits, parseUnits } from 'viem';
 
@@ -20,6 +21,7 @@
   import { getLogger } from '$libs/util/logger';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
+  import { ethBalance } from '$stores/balance';
   import { network } from '$stores/network';
 
   import {
@@ -50,14 +52,18 @@
   }
 
   export let disabled = false;
+  export let doAllowanceCheck = true;
 
   export async function validateAmount(token = $selectedToken, fee = $processingFee) {
     if (!$network?.id) return;
     $validatingAmount = true; // During validation, we disable all the actions
     $insufficientBalance = false;
     $insufficientAllowance = false;
+    $computingBalance = true;
 
     const to = $recipientAddress || $account?.address;
+
+    let balanceForGasCalculation = $ethBalance;
 
     // We need all these guys to validate
     if (
@@ -67,48 +73,61 @@
       !$destNetwork ||
       !$tokenBalance ||
       !$selectedToken ||
+      !(balanceForGasCalculation && balanceForGasCalculation > BigInt(0)) ||
       $enteredAmount === BigInt(0) // no need to check if the amount is 0
-    )
-      return;
-
-    try {
-      await checkBalanceToBridge({
-        to,
-        token,
-        amount: $enteredAmount,
-        fee,
-        balance,
-        srcChainId: $network.id,
-        destChainId: $destNetwork.id,
-        tokenIds:
-          $selectedToken.type === TokenType.ERC721 || $selectedToken.type === TokenType.ERC1155
-            ? [BigInt((token as NFT).tokenId)]
-            : [],
-      });
-    } catch (err) {
-      switch (true) {
-        case err instanceof InsufficientBalanceError:
-          $insufficientBalance = true;
-          break;
-        case err instanceof InsufficientAllowanceError:
-          $insufficientAllowance = true;
-          break;
-        case err instanceof RevertedWithFailedError:
-          warningToast({ title: $t('messages.network.rejected') });
-          break;
-        case err instanceof RevertedWithoutMessageError:
-          warningToast({
-            title: $t('bridge.errors.unknown_error.title'),
-            message: $t('bridge.errors.unknown_error.message'),
-          });
-          break;
-        default:
-          invalidInput = true;
-          break;
-      }
-    } finally {
+    ) {
       $validatingAmount = false;
+      $computingBalance = false;
+      return;
     }
+
+    if (doAllowanceCheck) {
+      try {
+        await checkBalanceToBridge({
+          to,
+          token,
+          amount: $enteredAmount,
+          fee,
+          balance: balanceForGasCalculation,
+          srcChainId: $network.id,
+          destChainId: $destNetwork.id,
+          tokenIds:
+            $selectedToken.type === TokenType.ERC721 || $selectedToken.type === TokenType.ERC1155
+              ? [BigInt((token as NFT).tokenId)]
+              : [],
+        });
+      } catch (err) {
+        switch (true) {
+          case err instanceof InsufficientBalanceError:
+            $insufficientBalance = true;
+            break;
+          case err instanceof InsufficientAllowanceError:
+            $insufficientAllowance = true;
+            break;
+          case err instanceof RevertedWithFailedError:
+            warningToast({
+              title: $t('bridge.errors.send_message_error.title'),
+              message: $t('bridge.errors.send_message_error.message'),
+            });
+            break;
+          case err instanceof RevertedWithoutMessageError:
+            warningToast({
+              title: $t('bridge.errors.unknown_error.title'),
+              message: $t('bridge.errors.unknown_error.message'),
+            });
+            break;
+          default:
+            invalidInput = true;
+            break;
+        }
+      }
+    } else {
+      if (typeof $tokenBalance === 'bigint') {
+        $insufficientBalance = $tokenBalance < $enteredAmount;
+      }
+    }
+    $validatingAmount = false;
+    $computingBalance = false;
   }
 
   export async function updateBalance(
@@ -118,7 +137,6 @@
     destChainId = $destNetwork?.id,
   ) {
     if (!token || !srcChainId || !userAddress) return;
-
     $computingBalance = true;
     $errorComputingBalance = false;
 
@@ -145,9 +163,8 @@
       //most likely we have a custom token that is not bridged yet
       $errorComputingBalance = true;
       clearAmount();
-    } finally {
-      $computingBalance = false;
     }
+    $computingBalance = false;
   }
 
   // We want to debounce this function for input events.
@@ -192,6 +209,8 @@
 
     computingMaxAmount = true;
 
+    const balance = determineBalance();
+
     try {
       let maxAmount;
 
@@ -228,15 +247,29 @@
     }
   }
 
-  $: balance = $tokenBalance
-    ? typeof $tokenBalance === 'bigint'
-      ? $tokenBalance > BigInt(0)
-        ? $tokenBalance
-        : BigInt(0) // ERC721/1155
-      : 'value' in $tokenBalance && $tokenBalance.value > BigInt(0)
-        ? $tokenBalance.value
-        : BigInt(0) // ERC20
-    : BigInt(0);
+  const determineBalance = () => {
+    $computingBalance = true;
+    let balance = 0n;
+    if (!$selectedToken) return balance;
+    const type = $selectedToken.type;
+    switch (type) {
+      case TokenType.ERC20:
+        if (typeof $tokenBalance === 'bigint') break;
+        if ($tokenBalance?.value) balance = $tokenBalance.value;
+        break;
+      case TokenType.ETH:
+        balance = $ethBalance;
+        break;
+      case TokenType.ERC721:
+      case TokenType.ERC1155:
+        if (typeof $tokenBalance === 'bigint') balance = $tokenBalance;
+        break;
+      default:
+        break;
+    }
+    $computingBalance = false;
+    return balance;
+  };
 
   $: if (inputBox && sanitizedValue !== inputBox.getValue()) {
     inputBox.setValue(sanitizedValue); // Update InputBox value if sanitizedValue changes
@@ -246,6 +279,10 @@
 
   $: validateAmount($selectedToken, $processingFee);
 
+  $: hasBalance =
+    (typeof $tokenBalance !== 'bigint' && $tokenBalance && $tokenBalance?.value > 0n) ||
+    (typeof $tokenBalance === 'bigint' && $tokenBalance && $tokenBalance > 0n);
+
   // There is no reason to show any error/warning message if we are computing the balance
   // or there is an issue computing it
   $: showInsufficientBalanceAlert = $insufficientBalance && !$errorComputingBalance && !$computingBalance;
@@ -253,10 +290,20 @@
   $: noDecimalsAllowedAlert = invalidInput;
 
   $: inputDisabled =
-    computingMaxAmount || disabled || !$selectedToken || !$network || computingMaxAmount || $errorComputingBalance;
+    computingMaxAmount || disabled || !$selectedToken || !$network || $errorComputingBalance || !hasBalance;
 
   // TODO: Disabled for now, potentially confusing users
   // $: showInsiffucientAllowanceAlert = $insufficientAllowance && !$errorComputingBalance && !$computingBalance;
+
+  $: maxButtonEnabled = hasBalance && !disabled && !$computingBalance && !$errorComputingBalance && !$validatingAmount;
+
+  onMount(() => {
+    $computingBalance = true;
+    $enteredAmount = BigInt(0);
+    determineBalance();
+    $computingBalance = false;
+    $insufficientBalance = false;
+  });
 </script>
 
 <div class="Amount f-col space-y-2">
@@ -291,7 +338,7 @@
         bind:this={inputBox}
         class="py-6 pr-16 px-[26px] title-subsection-bold border-0  {$$props.class}" />
       <!-- TODO: talk to Jane about the MAX button and its styling -->
-      {#if !disabled}
+      {#if maxButtonEnabled}
         <button class="absolute right-6 uppercase hover:font-bold" on:click={useMaxAmount}>
           {$t('inputs.amount.button.max')}
         </button>

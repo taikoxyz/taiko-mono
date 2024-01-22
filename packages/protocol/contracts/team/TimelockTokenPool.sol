@@ -39,6 +39,8 @@ contract TimelockTokenPool is EssentialContract {
 
     struct Grant {
         uint128 amount;
+        // If non-zero, each TKO (1E18) will need some USD stable to purchase.
+        uint128 costPerToken;
         // If non-zero, indicates the start time for the recipient to receive
         // tokens, subject to an unlocking schedule.
         uint64 grantStart;
@@ -61,22 +63,25 @@ contract TimelockTokenPool is EssentialContract {
 
     struct Recipient {
         uint128 amountWithdrawn;
+        uint128 costPaid;
         Grant[] grants;
     }
 
     uint256 public constant MAX_GRANTS_PER_ADDRESS = 8;
 
     address public taikoToken;
+    address public costToken;
     address public sharedVault;
     uint128 public totalAmountGranted;
     uint128 public totalAmountVoided;
     uint128 public totalAmountWithdrawn;
+    uint128 public totalCostPaid;
     mapping(address recipient => Recipient) public recipients;
     uint128[44] private __gap;
 
     event Granted(address indexed recipient, Grant grant);
     event Voided(address indexed recipient, uint128 amount);
-    event Withdrawn(address indexed recipient, address to, uint128 amount);
+    event Withdrawn(address indexed recipient, address to, uint128 amount, uint128 cost);
 
     error INVALID_GRANT();
     error INVALID_PARAM();
@@ -84,11 +89,21 @@ contract TimelockTokenPool is EssentialContract {
     error NOTHING_TO_WITHDRAW();
     error TOO_MANY();
 
-    function init(address _taikoToken, address _sharedVault) external initializer {
+    function init(
+        address _taikoToken,
+        address _costToken,
+        address _sharedVault
+    )
+        external
+        initializer
+    {
         __Essential_init();
 
         if (_taikoToken == address(0)) revert INVALID_PARAM();
         taikoToken = _taikoToken;
+
+        if (_costToken == address(0)) revert INVALID_PARAM();
+        costToken = _costToken;
 
         if (_sharedVault == address(0)) revert INVALID_PARAM();
         sharedVault = _sharedVault;
@@ -148,18 +163,25 @@ contract TimelockTokenPool is EssentialContract {
             uint128 amountOwned,
             uint128 amountUnlocked,
             uint128 amountWithdrawn,
-            uint128 amountWithdrawable
+            uint128 amountToWithdraw,
+            uint128 costToWithdraw
         )
     {
         Recipient storage r = recipients[recipient];
         uint256 rGrantsLength = r.grants.length;
+        uint128 totalCost;
         for (uint128 i; i < rGrantsLength; ++i) {
             amountOwned += _getAmountOwned(r.grants[i]);
-            amountUnlocked += _getAmountUnlocked(r.grants[i]);
+
+            uint128 _amountUnlocked = _getAmountUnlocked(r.grants[i]);
+            amountUnlocked += _amountUnlocked;
+
+            totalCost += _amountUnlocked / 1e18 * r.grants[i].costPerToken;
         }
 
         amountWithdrawn = r.amountWithdrawn;
-        amountWithdrawable = amountUnlocked - amountWithdrawn;
+        amountToWithdraw = amountUnlocked - amountWithdrawn;
+        costToWithdraw = totalCost - r.costPaid;
     }
 
     function getMyGrants(address recipient) public view returns (Grant[] memory) {
@@ -168,21 +190,19 @@ contract TimelockTokenPool is EssentialContract {
 
     function _withdraw(address recipient, address to) private {
         Recipient storage r = recipients[recipient];
-        uint128 amount;
 
-        uint256 rGrantsLength = r.grants.length;
-        for (uint128 i; i < rGrantsLength; ++i) {
-            amount += _getAmountUnlocked(r.grants[i]);
-        }
+        (,,, uint128 amountToWithdraw, uint128 costToWithdraw) = getMyGrantSummary(recipient);
 
-        amount -= r.amountWithdrawn;
-        if (amount == 0) revert NOTHING_TO_WITHDRAW();
+        r.amountWithdrawn += amountToWithdraw;
+        r.costPaid += costToWithdraw;
 
-        r.amountWithdrawn += amount;
-        totalAmountWithdrawn += amount;
-        IERC20(taikoToken).transferFrom(sharedVault, to, amount);
+        totalAmountWithdrawn += amountToWithdraw;
+        totalCostPaid += costToWithdraw;
 
-        emit Withdrawn(recipient, to, amount);
+        IERC20(taikoToken).transferFrom(sharedVault, to, amountToWithdraw);
+        IERC20(costToken).transferFrom(recipient, sharedVault, costToWithdraw);
+
+        emit Withdrawn(recipient, to, amountToWithdraw, costToWithdraw);
     }
 
     function _voidGrant(Grant storage g) private returns (uint128 amountVoided) {

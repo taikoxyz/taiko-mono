@@ -19,7 +19,8 @@
 			iconFillClass: 'fill-success-content'
 		},
 		warning: {
-			alertClass: 'alert-warning',
+			alertClass:
+				'alert-warning border-l-8 border-r-0 border-t-0 border-b-0 border-yellow-600 bg-warning-sentiment',
 			iconType: 'exclamation-circle',
 			iconFillClass: 'fill-warning-content'
 		},
@@ -33,6 +34,11 @@
 			alertClass: 'alert-info',
 			iconType: 'info-circle',
 			iconFillClass: 'fill-info-content'
+		},
+		neutral: {
+			alertClass: 'alert-neutral',
+			iconType: 'question-circle',
+			iconFillClass: 'fill-neutral-content'
 		}
 	};
 

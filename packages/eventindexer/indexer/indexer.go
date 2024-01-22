@@ -2,24 +2,19 @@ package indexer
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"sync"
 	"time"
 
-	nethttp "net/http"
-
 	"github.com/cyberhorsey/errors"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/labstack/echo/v4"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/assignmenthook"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/swap"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/http"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/repo"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/repo"
 	"github.com/urfave/cli/v2"
 )
 
@@ -70,9 +65,6 @@ type Indexer struct {
 	assignmentHook *assignmenthook.AssignmentHook
 	swaps          []*swap.Swap
 
-	httpPort uint64
-	srv      *http.Server
-
 	indexNfts bool
 	layer     string
 
@@ -87,11 +79,6 @@ type Indexer struct {
 
 func (indxr *Indexer) Start() error {
 	indxr.ctx = context.Background()
-	go func() {
-		if err := indxr.srv.Start(fmt.Sprintf(":%v", indxr.httpPort)); err != nethttp.ErrServerClosed {
-			slog.Error("http srv start", "error", err.Error())
-		}
-	}()
 
 	indxr.wg.Add(1)
 
@@ -147,11 +134,6 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	}
 
 	blockRepository, err := repo.NewBlockRepository(db)
-	if err != nil {
-		return err
-	}
-
-	chartRepository, err := repo.NewChartRepository(db)
 	if err != nil {
 		return err
 	}
@@ -216,19 +198,6 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 		}
 	}
 
-	srv, err := http.NewServer(http.NewServerOpts{
-		EventRepo:      eventRepository,
-		StatRepo:       statRepository,
-		NFTBalanceRepo: nftBalanceRepository,
-		ChartRepo:      chartRepository,
-		Echo:           echo.New(),
-		CorsOrigins:    cfg.CORSOrigins,
-		EthClient:      ethClient,
-	})
-	if err != nil {
-		return err
-	}
-
 	i.blockSaveMutex = &sync.Mutex{}
 	i.accountRepo = accountRepository
 	i.eventRepo = eventRepository
@@ -245,8 +214,6 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.swaps = swapContracts
 	i.blockBatchSize = cfg.BlockBatchSize
 	i.subscriptionBackoff = time.Duration(cfg.SubscriptionBackoff) * time.Second
-	i.srv = srv
-	i.httpPort = cfg.HTTPPort
 	i.wg = &sync.WaitGroup{}
 
 	i.syncMode = cfg.SyncMode
@@ -258,9 +225,5 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 }
 
 func (indxr *Indexer) Close(ctx context.Context) {
-	if err := indxr.srv.Shutdown(ctx); err != nil {
-		slog.Error("srv shutdown", "error", err)
-	}
-
 	indxr.wg.Wait()
 }

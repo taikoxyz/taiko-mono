@@ -7,9 +7,11 @@
 
   import { page } from '$app/stores';
   import { chainConfig } from '$chainConfig';
+  import BridgeTabs from '$components/Bridge/BridgeTabs.svelte';
   import { Icon } from '$components/Icon';
   import { LinkButton } from '$components/LinkButton';
   import { LogoWithText } from '$components/Logo';
+  import { ThemeButton } from '$components/ThemeButton';
   import { PUBLIC_DEFAULT_EXPLORER, PUBLIC_GUIDE_URL } from '$env/static/public';
   import { network } from '$stores/network';
 
@@ -31,13 +33,13 @@
 
   $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
   $: isFaucetPage = $page.route.id === '/faucet';
-  $: isTransactionPage = $page.route.id === '/transactions';
+  $: isTransactionsPage = $page.route.id === '/transactions';
 </script>
 
 <div class="drawer md:drawer-open">
   <input id={drawerToggleId} type="checkbox" class="drawer-toggle" bind:this={drawerToggleElem} />
 
-  <div class="drawer-content relative">
+  <div class="drawer-content relative f-col w-full">
     <slot />
   </div>
 
@@ -50,7 +52,10 @@
       Let's reduce it to 100ms for a better experience.
     -->
     <div class="w-h-full !duration-100">
-      <header class="flex justify-end py-[20px] px-4 md:hidden">
+      <header class="flex justify-between py-[20px] px-[16px] h-[76px] md:hidden border-b border-b-divider-border">
+        <a href="/" class="inline-block">
+          <LogoWithText textFillClass="fill-primary-content" width={77} />
+        </a>
         <button on:click={closeDrawer} class="h-9">
           <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
         </button>
@@ -68,7 +73,9 @@
         <a href="/" class="hidden md:inline-block">
           <LogoWithText textFillClass="fill-primary-content" />
         </a>
-
+        <div role="button" tabindex="0" on:click={closeDrawer} on:keypress={closeDrawer}>
+          <BridgeTabs class="md:hidden flex flex-1 mb-[40px] mt-[20px]" on:click={closeDrawer} />
+        </div>
         <div role="button" tabindex="0" on:click={closeDrawer} on:keydown={onMenuKeydown}>
           <ul class="menu p-0 md:pt-10 space-y-2">
             <li>
@@ -84,8 +91,8 @@
               </LinkButton>
             </li>
             <li>
-              <LinkButton href="/transactions" active={isTransactionPage}>
-                <Icon type="transactions" fillClass={getIconFillClass(isTransactionPage)} />
+              <LinkButton href="/transactions" active={isTransactionsPage}>
+                <Icon type="transactions" fillClass={getIconFillClass(isTransactionsPage)} />
                 <span>{$t('nav.transactions')}</span>
               </LinkButton>
             </li>
@@ -103,6 +110,17 @@
             </li>
           </ul>
         </div>
+        <ul class="">
+          <li>
+            <div class="p-3 rounded-full flex md:hidden justify-start content-center">
+              <Icon type="settings" />
+              <div class="flex justify-between w-full pl-[6px]">
+                <span class="text-base">{$t('nav.theme')}</span>
+                <ThemeButton mobile />
+              </div>
+            </div>
+          </li>
+        </ul>
       </aside>
     </div>
   </div>

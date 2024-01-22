@@ -10,13 +10,11 @@ import (
 )
 
 var (
-	httpPort                = "1000"
 	metricsHttpPort         = "1001"
 	l1TaikoAddress          = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
 	bridgeAddress           = "0x73FaC9201494f0bd17B9892B9fae4d52fe3BD377"
 	assignmentHookAddress   = "0x83FaC9201494f0bd17B9892B9fae4d52fe3BD377"
 	swapAddresses           = "0x33FaC9201494f0bd17B9892B9fae4d52fe3BD377,0x13FaC9201494f0bd17B9892B9fae4d52fe3BD377"
-	corsOrigins             = "http://localhost:3000,http://localhost:3001"
 	databaseMaxIdleConns    = "10"
 	databaseMaxOpenConns    = "10"
 	databaseMaxConnLifetime = "30"
@@ -26,6 +24,7 @@ var (
 	syncMode                = "sync"
 	watchMode               = "filter"
 	layer                   = "l1"
+	rpcUrl                  = "rpcUrl"
 )
 
 func setupApp() *cli.App {
@@ -51,7 +50,6 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, "dbname", c.DatabaseName)
 		assert.Equal(t, "dbhost", c.DatabaseHost)
 		assert.Equal(t, "rpcUrl", c.RPCUrl)
-		assert.Equal(t, uint64(1000), c.HTTPPort)
 		assert.Equal(t, uint64(1001), c.MetricsHTTPPort)
 		assert.Equal(t, common.HexToAddress(l1TaikoAddress), c.L1TaikoAddress)
 		assert.Equal(t, common.HexToAddress(bridgeAddress), c.BridgeAddress)
@@ -66,6 +64,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, WatchMode(watchMode), c.WatchMode)
 		assert.Equal(t, true, c.IndexNFTs)
 		assert.Equal(t, layer, c.Layer)
+		assert.Equal(t, rpcUrl, c.RPCUrl)
 		assert.NotNil(t, c.OpenDBFunc)
 
 		// assert.Nil(t, InitFromConfig(context.Background(), new(Indexer), c))
@@ -79,14 +78,11 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"--" + flags.DatabasePassword.Name, "dbpass",
 		"--" + flags.DatabaseHost.Name, "dbhost",
 		"--" + flags.DatabaseName.Name, "dbname",
-		"--" + flags.RPCUrl.Name, "rpcUrl",
 		"--" + flags.L1TaikoAddress.Name, l1TaikoAddress,
 		"--" + flags.BridgeAddress.Name, bridgeAddress,
 		"--" + flags.SwapAddresses.Name, swapAddresses,
 		"--" + flags.AssignmentHookAddress.Name, assignmentHookAddress,
-		"--" + flags.HTTPPort.Name, httpPort,
 		"--" + flags.MetricsHTTPPort.Name, metricsHttpPort,
-		"--" + flags.CORSOrigins.Name, corsOrigins,
 		"--" + flags.DatabaseMaxIdleConns.Name, databaseMaxIdleConns,
 		"--" + flags.DatabaseMaxOpenConns.Name, databaseMaxOpenConns,
 		"--" + flags.DatabaseConnMaxLifetime.Name, databaseMaxConnLifetime,
@@ -97,5 +93,6 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"--" + flags.WatchMode.Name, watchMode,
 		"--" + flags.IndexNFTs.Name,
 		"--" + flags.Layer.Name, layer,
+		"--" + flags.IndexerRPCUrl.Name, rpcUrl,
 	}))
 }

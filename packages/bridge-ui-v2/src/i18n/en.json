@@ -34,7 +34,7 @@
       "nft_scan_again": "Scan again"
     },
     "alerts": {
-      "slow_bridging": "Please be aware, bridging back to L1 will take around 24hrs! Read our Katla announcement for more details."
+      "slow_bridging": "Please note: Bridging to L1 will take around 24hrs!"
     },
     "button": {
       "approve": "Approve",
@@ -114,12 +114,13 @@
           },
           "bridge": {
             "success": {
-              "message": "Your bridge transaction was confirmed. The transaction can take a few minutes to complete, track it <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+              "message": "Your bridge transaction was confirmed. The transaction can take a few minutes to complete, track it <a class='link' href=\"{url}\" target=\"_blank\"><b>here</b></a>."
             }
           },
           "button": {
             "back": "Back to bridge"
           },
+          "processing": "Processing...",
           "title": "Confirm"
         },
         "import": {
@@ -152,15 +153,11 @@
       }
     },
     "welcome_modal": {
-      "body": "Welcome to <span class='font-bold text-primary-brand'>Katla, our final testnet</span>.<br/>Strengthening security may cause a some delay in L2→L1 bridging, <span class='font-bold text-primary-brand'>around 24 hours</span> on the testnet. We're striving for shorter delays on the mainnet.",
+      "body": "Welcome to <span class='font-bold text-primary-brand'>Katla, our final testnet</span>.<br/>Strengthening security may cause some delay in L2→L1 bridging, <span class='font-bold text-primary-brand'>around 24 hours</span> on the testnet. We're striving for shorter delays on the mainnet.",
       "confirm": "I understand",
       "link": "Find out more",
       "title": "Important Update"
     }
-  },
-  "chain": {
-    "from": "From",
-    "to": "To"
   },
   "chain_selector": {
     "currently_on": "You are currently on",
@@ -178,6 +175,7 @@
     "amount": "Amount",
     "back": "Go back",
     "balance": "Balance",
+    "bridged_address": "Bridged address",
     "cancel": "Cancel",
     "close": "Close",
     "collection": "Collection",
@@ -193,7 +191,8 @@
     "id": "ID",
     "loading": "Loading",
     "name": "Name",
-    "ok": "Ok",
+    "ok": "Okay",
+    "status": "Status",
     "success": "Success",
     "to": "To",
     "token_id": "Token ID",
@@ -267,7 +266,7 @@
         "invalid": "Not a valid numeric value"
       },
       "label": "Token ID",
-      "placeholder": "1 or 5,14,733"
+      "placeholder": "e.g. 1 (only numbers)"
     }
   },
   "messages": {
@@ -285,8 +284,8 @@
         "title": "Network switch pending"
       },
       "rejected": {
-        "message": "Request to switch network has failed.",
-        "title": "Network switch error"
+        "message": "Request to switch network has been rejected by the user.",
+        "title": "Network switch rejected"
       },
       "required": "Source chain must be selected.",
       "required_dest": "Destination chain must be selected.",
@@ -398,21 +397,23 @@
       "relayer_offline": "Relayer did not respond. Your transactions may only be loaded partially."
     },
     "filter": {
-      "all": "All transactions",
+      "all": "All",
       "claimed": "Claimed",
       "failed": "Failed",
       "processing": "Processing",
-      "retry": "Retriable"
+      "retry": "Retriable",
+      "title": "Filters"
     },
     "header": {
       "amount": "Amount",
       "explorer": "Explorer",
       "from": "From",
+      "item": "Item",
       "status": "Status",
       "to": "To"
     },
     "link": {
-      "explorer": "View details",
+      "explorer": "Details",
       "explorer_short": "View"
     },
     "no_transactions": "No transactions found",

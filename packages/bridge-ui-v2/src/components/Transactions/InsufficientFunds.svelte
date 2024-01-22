@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import { ActionButton, CloseButton } from '$components/Button';
   import { Icon } from '$components/Icon';
   import { PUBLIC_GUIDE_URL } from '$env/static/public';
+  import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { uid } from '$libs/util/uid';
 
   export let modalOpen = false;
@@ -12,37 +12,15 @@
   let dialogId = `dialog-${uid()}`;
 
   function closeModal() {
-    removeEscKeyListener();
     modalOpen = false;
-  }
-
-  let escKeyListener: (event: KeyboardEvent) => void;
-
-  const addEscKeyListener = () => {
-    escKeyListener = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        closeModal();
-      }
-    };
-    window.addEventListener('keydown', escKeyListener);
-  };
-
-  const removeEscKeyListener = () => {
-    window.removeEventListener('keydown', escKeyListener);
-  };
-
-  onDestroy(() => {
-    removeEscKeyListener();
-  });
-
-  $: if (modalOpen) {
-    addEscKeyListener();
-  } else {
-    removeEscKeyListener();
   }
 </script>
 
-<dialog id={dialogId} class="modal" class:modal-open={modalOpen}>
+<dialog
+  id={dialogId}
+  class="modal"
+  class:modal-open={modalOpen}
+  use:closeOnEscapeOrOutsideClick={{ enabled: modalOpen, callback: () => (modalOpen = false) }}>
   <div class="modal-box relative px-6 py-[35px] md:rounded-[20px] bg-neutral-background">
     <CloseButton onClick={closeModal} />
     <div class="w-full space-y-6">
@@ -51,14 +29,16 @@
         <div>
           {$t('transactions.actions.claim.dialog.description')}
         </div>
+      </div>
+
+      <ActionButton priority="primary" on:click={closeModal}>
+        <span class="body-bold">{$t('common.ok')}</span>
+      </ActionButton>
+      <div class="flex justify-center">
         <a href={PUBLIC_GUIDE_URL} target="_blank" class="flex link py-[10px]">
           {$t('transactions.actions.claim.dialog.link')}<Icon type="arrow-top-right" />
         </a>
       </div>
-
-      <ActionButton priority="secondary" on:click={closeModal}>
-        <span class="body-bold">{$t('common.ok')}</span>
-      </ActionButton>
     </div>
   </div>
 </dialog>

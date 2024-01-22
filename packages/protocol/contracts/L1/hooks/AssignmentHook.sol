@@ -18,7 +18,7 @@ import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../common/EssentialContract.sol";
 import "../../libs/LibAddress.sol";
-import "../TaikoData.sol";
+import "../ITaikoL1.sol";
 import "./IHook.sol";
 
 /// @title AssignmentHook
@@ -33,13 +33,14 @@ contract AssignmentHook is EssentialContract, IHook {
         uint64 maxBlockId;
         uint64 maxProposedIn;
         bytes32 metaHash;
+        bytes32 parentMetaHash;
         TaikoData.TierFee[] tierFees;
         bytes signature;
     }
 
     struct Input {
         ProverAssignment assignment;
-        uint256 tip;
+        uint256 tip; // A tip to L1 block builder
     }
 
     // Max gas paying the prover. This should be large enough to prevent the
@@ -70,6 +71,11 @@ contract AssignmentHook is EssentialContract, IHook {
         nonReentrant
         onlyFromNamed("taiko")
     {
+        // Note that
+        // - 'msg.sender' is the TaikoL1 contract address
+        // - 'block.coinbase' is the L1 block builder
+        // - 'meta.coinbase' is the L2 block proposer
+
         Input memory input = abi.decode(data, (Input));
         ProverAssignment memory assignment = input.assignment;
 
@@ -77,6 +83,7 @@ contract AssignmentHook is EssentialContract, IHook {
         if (
             block.timestamp > assignment.expiry
                 || assignment.metaHash != 0 && blk.metaHash != assignment.metaHash
+                || assignment.parentMetaHash != 0 && meta.parentMetaHash != assignment.parentMetaHash
                 || assignment.maxBlockId != 0 && meta.id > assignment.maxBlockId
                 || assignment.maxProposedIn != 0 && block.number > assignment.maxProposedIn
         ) {
@@ -85,7 +92,8 @@ contract AssignmentHook is EssentialContract, IHook {
 
         // Hash the assignment with the blobHash, this hash will be signed by
         // the prover, therefore, we add a string as a prefix.
-        bytes32 hash = hashAssignment(assignment, msg.sender, meta.blobHash);
+        address taikoL1Address = msg.sender;
+        bytes32 hash = hashAssignment(assignment, taikoL1Address, meta.blobHash);
 
         if (!blk.assignedProver.isValidSignature(hash, assignment.signature)) {
             revert HOOK_ASSIGNMENT_INVALID_SIG();
@@ -93,7 +101,7 @@ contract AssignmentHook is EssentialContract, IHook {
 
         // Send the liveness bond to the Taiko contract
         IERC20 tko = IERC20(resolve("taiko_token", false));
-        tko.transferFrom(blk.assignedProver, msg.sender, blk.livenessBond);
+        tko.transferFrom(blk.assignedProver, taikoL1Address, blk.livenessBond);
 
         // Find the prover fee using the minimal tier
         uint256 proverFee = _getProverFee(assignment.tierFees, meta.minTier);
@@ -102,12 +110,13 @@ contract AssignmentHook is EssentialContract, IHook {
         // Ether or ERC20 tokens.
         uint256 refund;
         if (assignment.feeToken == address(0)) {
-            if (msg.value < proverFee + input.tip) {
+            uint256 totalFee = proverFee + input.tip;
+            if (msg.value < totalFee) {
                 revert HOOK_ASSIGNMENT_INSUFFICIENT_FEE();
             }
 
             unchecked {
-                refund = msg.value - proverFee - input.tip;
+                refund = msg.value - totalFee;
             }
 
             // Paying Ether
@@ -120,7 +129,9 @@ contract AssignmentHook is EssentialContract, IHook {
                 refund = msg.value - input.tip;
             }
             // Paying ERC20 tokens
-            IERC20(assignment.feeToken).safeTransferFrom(msg.sender, blk.assignedProver, proverFee);
+            IERC20(assignment.feeToken).safeTransferFrom(
+                meta.coinbase, blk.assignedProver, proverFee
+            );
         }
 
         // block.coinbase can be address(0) in tests
@@ -129,7 +140,8 @@ contract AssignmentHook is EssentialContract, IHook {
         }
 
         if (refund != 0) {
-            msg.sender.sendEther(refund);
+            // Send all remaininger Ether back to TaikoL1 contract
+            taikoL1Address.sendEther(refund);
         }
 
         emit BlockAssigned(blk.assignedProver, meta, assignment);
@@ -137,17 +149,21 @@ contract AssignmentHook is EssentialContract, IHook {
 
     function hashAssignment(
         ProverAssignment memory assignment,
-        address taikoAddress,
+        address taikoL1Address,
         bytes32 blobHash
     )
         public
-        pure
+        view
         returns (bytes32)
     {
         return keccak256(
             abi.encode(
                 "PROVER_ASSIGNMENT",
-                taikoAddress,
+                ITaikoL1(taikoL1Address).getConfig().chainId,
+                taikoL1Address,
+                address(this),
+                assignment.metaHash,
+                assignment.parentMetaHash,
                 blobHash,
                 assignment.feeToken,
                 assignment.expiry,

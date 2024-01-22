@@ -4,7 +4,7 @@ import "github.com/urfave/cli/v2"
 
 // required flags
 var (
-	RPCUrl = &cli.StringFlag{
+	IndexerRPCUrl = &cli.StringFlag{
 		Name:     "rpcUrl",
 		Usage:    "RPC URL for the source chain",
 		Required: true,
@@ -15,22 +15,6 @@ var (
 
 // optional flags
 var (
-	HTTPPort = &cli.Uint64Flag{
-		Name:     "http.port",
-		Usage:    "Port to run http server on",
-		Category: indexerCategory,
-		Required: false,
-		Value:    4102,
-		EnvVars:  []string{"HTTP_PORT"},
-	}
-	MetricsHTTPPort = &cli.Uint64Flag{
-		Name:     "metrics.port",
-		Usage:    "Port to run metrics http server on",
-		Category: indexerCategory,
-		Required: false,
-		Value:    6061,
-		EnvVars:  []string{"METRICS_HTTP_PORT"},
-	}
 	ETHClientTimeout = &cli.Uint64Flag{
 		Name:     "ethClientTimeout",
 		Usage:    "Timeout for eth client and contract binding calls",
@@ -66,13 +50,6 @@ var (
 		Required: false,
 		Category: indexerCategory,
 		EnvVars:  []string{"ASSIGNMENT_HOOK_ADDRESS"},
-	}
-	CORSOrigins = &cli.StringFlag{
-		Name:     "http.corsOrigins",
-		Usage:    "Comma-delinated list of cors origins",
-		Required: false,
-		Value:    "*",
-		Category: indexerCategory,
 	}
 	BlockBatchSize = &cli.Uint64Flag{
 		Name:     "blockBatchSize",
@@ -115,31 +92,19 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"INDEX_NFTS"},
 	}
-	Layer = &cli.StringFlag{
-		Name:     "layer",
-		Usage:    "Which layer indexing is occurring on",
-		Required: false,
-		Value:    "l1",
-		Category: indexerCategory,
-		EnvVars:  []string{"LAYER"},
-	}
 )
 
 var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
-	RPCUrl,
+	IndexerRPCUrl,
 	// optional
 	ETHClientTimeout,
 	L1TaikoAddress,
-	HTTPPort,
-	MetricsHTTPPort,
 	BridgeAddress,
 	SwapAddresses,
 	AssignmentHookAddress,
-	CORSOrigins,
 	BlockBatchSize,
 	SubscriptionBackoff,
 	SyncMode,
 	WatchMode,
 	IndexNFTs,
-	Layer,
 })

@@ -47,6 +47,7 @@ library LibProposing {
     error L1_BLOB_FOR_DA_DISABLED();
     error L1_BLOB_NOT_FOUND();
     error L1_BLOB_NOT_REUSEABLE();
+    error L1_INVALID_HOOK();
     error L1_INVALID_PARAM();
     error L1_INVALID_PROVER();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
@@ -91,11 +92,11 @@ library LibProposing {
             revert L1_TOO_MANY_BLOCKS();
         }
 
-        TaikoData.Block storage parent =
-            state.blocks[(b.numBlocks - 1) % config.blockRingBufferSize];
+        bytes32 parentMetaHash =
+            state.blocks[(b.numBlocks - 1) % config.blockRingBufferSize].metaHash;
 
         // Check if parent block has the right meta hash
-        if (params.parentMetaHash != 0 && parent.metaHash != params.parentMetaHash) {
+        if (params.parentMetaHash != 0 && parentMetaHash != params.parentMetaHash) {
             revert L1_UNEXPECTED_PARENT();
         }
 
@@ -123,7 +124,7 @@ library LibProposing {
                 txListByteSize: 0, // to be initialized below
                 minTier: 0, // to be initialized below
                 blobUsed: txList.length == 0,
-                parentMetaHash: parent.metaHash
+                parentMetaHash: parentMetaHash
             });
         }
 
@@ -246,7 +247,12 @@ library LibProposing {
             // Run all hooks.
             // Note that address(this).balance has been updated with msg.value,
             // prior to any code in this function has been executed.
+            address prevHook;
             for (uint256 i; i < params.hookCalls.length; ++i) {
+                if (uint160(prevHook) >= uint160(params.hookCalls[i].hook)) {
+                    revert L1_INVALID_HOOK();
+                }
+
                 // When a hook is called, all ether in this contract will be send to the hook.
                 // If the ether sent to the hook is not used entirely, the hook shall send the Ether
                 // back to this contract for the next hook to use.
@@ -254,6 +260,8 @@ library LibProposing {
                 IHook(params.hookCalls[i].hook).onBlockProposed{ value: address(this).balance }(
                     blk, meta, params.hookCalls[i].data
                 );
+
+                prevHook = params.hookCalls[i].hook;
             }
             // Refund Ether
             if (address(this).balance != 0) {
@@ -261,8 +269,10 @@ library LibProposing {
             }
 
             // Check that after hooks, the Taiko Token balance of this contract
-            // have increased by at least config.livenessBond
-            if (tko.balanceOf(address(this)) < tkoBalance + config.livenessBond) {
+            // have increased by the same amount as config.livenessBond (to prevent)
+            // multiple draining payments by a malicious proposer nesting the same
+            // hook.
+            if (tko.balanceOf(address(this)) != tkoBalance + config.livenessBond) {
                 revert L1_LIVENESS_BOND_NOT_RECEIVED();
             }
         }

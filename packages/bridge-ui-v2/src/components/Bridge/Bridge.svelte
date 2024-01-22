@@ -24,6 +24,7 @@
   import { BridgePausedError } from '$libs/error';
   import { bridgeTxService } from '$libs/storage';
   import { ETHToken, tokens, TokenType } from '$libs/token';
+  import { checkTokenApprovalStatus } from '$libs/token/checkTokenApprovalStatus';
   import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
   import { refreshUserBalance } from '$libs/util/balance';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
@@ -39,6 +40,7 @@
   import Recipient from './Recipient.svelte';
   import {
     activeBridge,
+    allApproved,
     bridgeService,
     destNetwork as destinationChain,
     enteredAmount,
@@ -51,7 +53,6 @@
   let amountComponent: Amount;
   let recipientComponent: Recipient;
   let processingFeeComponent: ProcessingFee;
-  let actionsComponent: Actions;
   let slowL1Warning = PUBLIC_SLOW_L1_BRIDGING_WARNING || false;
 
   let bridging = false;
@@ -96,8 +97,10 @@
       if (!$selectedToken || !$network || !$destinationChain) return;
       const type: TokenType = $selectedToken.type;
       const walletClient = await getConnectedWallet($network.id);
-      let tokenAddress = await getAddress($selectedToken.addresses[$network.id]);
-
+      let tokenAddress = $selectedToken.addresses[$network.id];
+      if (tokenAddress) {
+        tokenAddress = await getAddress(tokenAddress);
+      }
       if (!tokenAddress) {
         const crossChainAddress = await getCrossChainAddress({
           token: $selectedToken,
@@ -134,7 +137,7 @@
 
         await pendingTransactions.add(txHash, $network.id);
 
-        actionsComponent.checkTokensApproved();
+        await checkTokenApprovalStatus($selectedToken);
 
         await pendingTransactions.add(txHash, $network.id);
 
@@ -237,8 +240,9 @@
     if (amountComponent) amountComponent.clearAmount();
     if (recipientComponent) recipientComponent.clearRecipient();
     if (processingFeeComponent) processingFeeComponent.resetProcessingFee();
-
+    $allApproved = false;
     bridging = false;
+    $recipientAddress = null;
   };
 
   onDestroy(() => {
@@ -255,7 +259,7 @@
     ETH & ERC20 Bridge  
 -->
 {#if $activeBridge === BridgeTypes.FUNGIBLE}
-  <Card class="w-full md:w-[524px]" title={$t('bridge.title.default')} text={$t('bridge.description.default')}>
+  <Card class="w-full md:w-[524px] " title={$t('bridge.title.default')} text={$t('bridge.description.default')}>
     <div class="space-y-[30px] mt-[30px]">
       <div class="f-between-center gap-4">
         <ChainSelectorWrapper />
@@ -276,7 +280,7 @@
 
       <div class="h-sep" />
 
-      <Actions {approve} {bridge} bind:this={actionsComponent} bind:bridging bind:disabled />
+      <Actions {approve} {bridge} bind:bridging bind:disabled />
     </div>
   </Card>
 

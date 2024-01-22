@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/cmd/flags"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/db"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 	"github.com/urfave/cli/v2"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -28,14 +28,12 @@ type Config struct {
 	DatabaseMaxOpenConns    uint64
 	DatabaseMaxConnLifetime uint64
 	RPCUrl                  string
-	HTTPPort                uint64
 	MetricsHTTPPort         uint64
 	ETHClientTimeout        uint64
 	L1TaikoAddress          common.Address
 	BridgeAddress           common.Address
 	AssignmentHookAddress   common.Address
 	SwapAddresses           []common.Address
-	CORSOrigins             []string
 	BlockBatchSize          uint64
 	SubscriptionBackoff     uint64
 	SyncMode                SyncMode
@@ -57,12 +55,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		swaps = append(swaps, common.HexToAddress(v))
 	}
 
-	// and the same for CORS origins
-
-	cors := make([]string, 0)
-
-	cors = append(cors, strings.Split(c.String(flags.CORSOrigins.Name), ",")...)
-
 	return &Config{
 		DatabaseUsername:        c.String(flags.DatabaseUsername.Name),
 		DatabasePassword:        c.String(flags.DatabasePassword.Name),
@@ -71,17 +63,15 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		DatabaseMaxIdleConns:    c.Uint64(flags.DatabaseMaxIdleConns.Name),
 		DatabaseMaxOpenConns:    c.Uint64(flags.DatabaseMaxOpenConns.Name),
 		DatabaseMaxConnLifetime: c.Uint64(flags.DatabaseConnMaxLifetime.Name),
-		HTTPPort:                c.Uint64(flags.HTTPPort.Name),
 		MetricsHTTPPort:         c.Uint64(flags.MetricsHTTPPort.Name),
 		ETHClientTimeout:        c.Uint64(flags.ETHClientTimeout.Name),
 		L1TaikoAddress:          common.HexToAddress(c.String(flags.L1TaikoAddress.Name)),
 		BridgeAddress:           common.HexToAddress(c.String(flags.BridgeAddress.Name)),
 		AssignmentHookAddress:   common.HexToAddress(c.String(flags.AssignmentHookAddress.Name)),
 		SwapAddresses:           swaps,
-		CORSOrigins:             cors,
 		BlockBatchSize:          c.Uint64(flags.BlockBatchSize.Name),
 		SubscriptionBackoff:     c.Uint64(flags.SubscriptionBackoff.Name),
-		RPCUrl:                  c.String(flags.RPCUrl.Name),
+		RPCUrl:                  c.String(flags.IndexerRPCUrl.Name),
 		WatchMode:               WatchMode(c.String(flags.WatchMode.Name)),
 		SyncMode:                SyncMode(c.String(flags.SyncMode.Name)),
 		IndexNFTs:               c.Bool(flags.IndexNFTs.Name),

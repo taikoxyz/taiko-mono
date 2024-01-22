@@ -78,7 +78,9 @@ library LibProving {
         returns (uint8 maxBlocksToVerify)
     {
         // Make sure parentHash is not zero
-        if (tran.parentHash == 0) revert L1_INVALID_TRANSITION();
+        if (tran.parentHash == 0 || tran.blockHash == 0 || tran.signalRoot == 0) {
+            revert L1_INVALID_TRANSITION();
+        }
 
         // Check that the block has been proposed but has not yet been verified.
         TaikoData.SlotB memory b = state.slotB;
@@ -224,18 +226,9 @@ library LibProving {
 
         if (tier.contestBond == 0) {
             assert(tier.validityBond == 0);
-            // When contestBond is zero for the current tier, it signifies
-            // it's the top tier. In this case, it can overwrite existing
-            // transitions without contestation.
-            if (tran.blockHash == ts.blockHash && tran.signalRoot == ts.signalRoot) {
-                revert L1_ALREADY_PROVED();
-            }
-            // We should outright prohibit the use of zero values for both
-            // blockHash and signalRoot since, when we initialize a new
-            // transition, we set both blockHash and signalRoot to 0.
-            if (tran.blockHash == 0 || tran.signalRoot == 0) {
-                revert L1_INVALID_TRANSITION();
-            }
+
+            // It means prover is right (not the contester)
+            bool sameTransition = tran.blockHash == ts.blockHash && tran.signalRoot == ts.signalRoot;
 
             // A special return value from the top tier prover can signal this
             // contract to return all liveness bond.
@@ -252,8 +245,10 @@ library LibProving {
             ts.prover = msg.sender;
 
             if (ts.contester != address(0)) {
-                // At this point we know that the contester was right
-                tko.transfer(ts.contester, ts.validityBond >> 2 + ts.contestBond);
+                if (!sameTransition) {
+                    // At this point we know that the contester was right
+                    tko.transfer(ts.contester, ts.validityBond >> 2 + ts.contestBond);
+                }
                 ts.contester = address(0);
                 ts.validityBond = 0;
             }
@@ -318,11 +313,6 @@ library LibProving {
             // proving mode. This works even if this transition's contester is
             // address zero, see more info below.
 
-            // zero values are not allowed
-            if (tran.blockHash == 0 || tran.signalRoot == 0) {
-                revert L1_INVALID_TRANSITION();
-            }
-
             // The ability to prove a transition is granted under the following
             // two circumstances:
             //
@@ -345,20 +335,12 @@ library LibProving {
                 revert L1_ALREADY_PROVED();
             }
 
-            if (tid == 1 && ts.prover == blk.assignedProver) {
+            if (tid == 1 && ts.tier == 0 && block.timestamp <= ts.timestamp + tier.provingWindow) {
                 // For the first transition, (1) if the previous prover is
                 // still the assigned prover, we exclusively grant permission to
                 // the assigned approver to re-prove the block, (2) unless the
                 // proof window has elapsed.
-                if (
-                    block.timestamp <= ts.timestamp + tier.provingWindow
-                        && msg.sender != blk.assignedProver
-                ) revert L1_NOT_ASSIGNED_PROVER();
-
-                if (
-                    block.timestamp > ts.timestamp + tier.provingWindow
-                        && msg.sender == blk.assignedProver
-                ) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
+                if (msg.sender != blk.assignedProver) revert L1_NOT_ASSIGNED_PROVER();
             } else if (msg.sender == blk.assignedProver) {
                 // However, if the previous prover of the first transition is
                 // not the block's assigned prover, or for any other

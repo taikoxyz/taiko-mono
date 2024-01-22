@@ -17,7 +17,8 @@ pragma solidity 0.8.20;
 import "../common/EssentialContract.sol";
 import "./libs/LibDepositing.sol";
 import "./libs/LibProposing.sol";
-import "./libs/LibProving.sol";
+// import "./libs/LibProving.sol";
+import { LibProvingAlt as LibProving } from "./libs/LibProvingAlt.sol";
 import "./libs/LibVerifying.sol";
 import "./ITaikoL1.sol";
 import "./TaikoErrors.sol";
@@ -203,12 +204,11 @@ contract TaikoL1 is
         return ITierProvider(resolve("tier_provider", false)).getMinTier(rand);
     }
 
-    /// @notice Gets the configuration of the TaikoL1 contract.
-    /// @return Config struct containing configuration parameters.
-    function getConfig() public view virtual returns (TaikoData.Config memory) {
+    /// @inheritdoc ITaikoL1
+    function getConfig() public view virtual override returns (TaikoData.Config memory) {
         // All hard-coded configurations:
         // - treasury: the actual TaikoL2 address.
-        // - blockMaxTxs: 150 (limited by the PSE zkEVM circuits)
+        // - blockMaxTxs: 80 (limited by the PSE zkEVM circuits)
         // - anchorGasLimit: 250_000 (based on internal devnet, its ~220_000
         // after 256 L2 blocks)
         return TaikoData.Config({

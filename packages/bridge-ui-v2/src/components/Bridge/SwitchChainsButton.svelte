@@ -16,9 +16,12 @@
     } catch (err) {
       console.error(err);
       if (err instanceof SwitchChainError) {
-        warningToast({ title: $t('messages.network.pending') });
+        warningToast({ title: $t('messages.network.pending.title'), message: $t('messages.network.pending.message') });
       } else if (err instanceof UserRejectedRequestError) {
-        warningToast({ title: $t('messages.network.rejected') });
+        warningToast({
+          title: $t('messages.network.rejected.title'),
+          message: $t('messages.network.rejected.message'),
+        });
       }
     }
   }

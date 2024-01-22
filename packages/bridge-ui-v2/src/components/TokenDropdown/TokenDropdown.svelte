@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { type Address, getNetwork } from '@wagmi/core';
+  import type { Address } from '@wagmi/core';
   import { onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
 
@@ -7,11 +7,13 @@
   import { Icon } from '$components/Icon';
   import Erc20 from '$components/Icon/ERC20.svelte';
   import { warningToast } from '$components/NotificationToast';
+  import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { tokenService } from '$libs/storage/services';
   import { ETHToken, type Token } from '$libs/token';
   import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
+  import { network } from '$stores/network';
 
   import { destNetwork } from '../Bridge/state';
   import DialogView from './DialogView.svelte';
@@ -35,41 +37,27 @@
 
   const closeMenu = () => {
     menuOpen = false;
-    removeListener();
   };
 
   const openMenu = (event: Event) => {
     event.stopPropagation();
 
     menuOpen = true;
-
-    addListener();
-  };
-
-  let escKeyListener: (event: KeyboardEvent) => void;
-
-  const addListener = () => {
-    document.addEventListener('click', closeMenu, { once: true });
-    escKeyListener = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        closeMenu();
-      }
-    };
-    window.addEventListener('keydown', escKeyListener);
-  };
-
-  const removeListener = () => {
-    window.removeEventListener('click', closeMenu);
-    window.removeEventListener('keydown', escKeyListener);
   };
 
   const selectToken = async (token: Token) => {
-    const { chain } = getNetwork();
+    const srcChain = $network;
     const destChain = $destNetwork;
+
+    if (token === value) {
+      // same token, nothing to do
+      closeMenu();
+      return;
+    }
 
     // In order to select a token, we only need the source chain to be selected,
     // unless it's an imported token...
-    if (!chain) {
+    if (!srcChain) {
       warningToast({ title: $t('messages.network.required') });
       return;
     }
@@ -88,7 +76,7 @@
       try {
         bridgedAddress = await getCrossChainAddress({
           token,
-          srcChainId: chain.id,
+          srcChainId: srcChain.id,
           destChainId: destChain.id,
         });
       } catch (error) {
@@ -123,6 +111,7 @@
 
 <div class="relative">
   <button
+    use:closeOnEscapeOrOutsideClick={{ enabled: menuOpen, callback: () => (menuOpen = false) }}
     {disabled}
     aria-haspopup="listbox"
     aria-controls={id}

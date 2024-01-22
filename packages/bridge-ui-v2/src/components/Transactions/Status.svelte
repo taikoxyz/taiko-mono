@@ -130,7 +130,7 @@
         title: $t('transactions.actions.claim.success.title'),
         message: $t('transactions.actions.claim.success.message', {
           values: {
-            network: $network.id,
+            network: $network.name,
           },
         }),
       });
@@ -145,7 +145,7 @@
           warningToast({ title: $t('messages.account.required') });
           break;
         case err instanceof UserRejectedRequestError:
-          warningToast({ title: $t('transactions.actions.claim.rejected') });
+          warningToast({ title: $t('transactions.actions.claim.rejected.title') });
           break;
         case err instanceof InsufficientBalanceError:
           dispatch('insufficientFunds', { tx: bridgeTx });

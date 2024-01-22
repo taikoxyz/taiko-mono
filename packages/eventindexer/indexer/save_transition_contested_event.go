@@ -78,6 +78,7 @@ func (indxr *Indexer) saveTransitionContestedEvent(
 		Address:      event.Contester.Hex(),
 		BlockID:      &blockID,
 		TransactedAt: time.Unix(int64(block.Time()), 0),
+		Tier:         &event.Tier,
 	})
 	if err != nil {
 		return errors.Wrap(err, "indxr.eventRepo.Save")
