@@ -27,6 +27,7 @@ func (p *Processor) processSingle(ctx context.Context) error {
 		if topic == bridgeAbi.Events["MessageSent"].ID {
 			s := &bridge.BridgeMessageSent{}
 			err = bridgeAbi.UnpackIntoInterface(s, "MessageSent", log.Data)
+
 			if err != nil {
 				return err
 			}
