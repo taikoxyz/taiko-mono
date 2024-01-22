@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
@@ -36,8 +35,6 @@ func (p *Processor) processSingle(ctx context.Context) error {
 			s.Raw.BlockNumber = receipt.BlockNumber.Uint64()
 			s.Raw.Address = log.Address
 			s.Raw.Topics = log.Topics
-
-			spew.Dump(s)
 
 			msg := queue.QueueMessageBody{
 				ID:    0,
