@@ -14,6 +14,7 @@ func (i *Indexer) detectAndHandleReorg(ctx context.Context, eventType string, ms
 	if i.watchMode == CrawlPastBlocks {
 		return nil
 	}
+
 	e, err := i.eventRepo.FirstByEventAndMsgHash(ctx, eventType, msgHash)
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.FirstByMsgHash")
