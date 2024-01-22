@@ -10,7 +10,9 @@
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { tokenService } from '$libs/storage/services';
   import { ETHToken, type Token } from '$libs/token';
-  import { getCrossChainInfoForToken } from '$libs/token/getCrossChainInfoForToken';
+  import { getCanonicalInfoForToken } from '$libs/token/getCanonicalInfo';
+  import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
+  import { getLogger } from '$libs/util/logger';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
   import { network } from '$stores/network';
@@ -63,6 +65,10 @@
       warningToast({ title: $t('messages.network.required') });
       return;
     }
+    if (!destChain || !destChain.id) {
+      warningToast({ title: $t('messages.network.required_dest') });
+      return;
+    }
 
     // if it is an imported Token, chances are we do not yet have the bridged address
     // for the destination chain, so we need to fetch it
@@ -70,10 +76,6 @@
       // ... in the case of imported tokens, we also require the destination chain to be selected.    if (!destChain) {
 
       let bridgedAddress = null;
-      if (!destChain || !destChain.id) {
-        warningToast({ title: $t('messages.network.required_dest') });
-        return;
-      }
       try {
         const crossChainInfo = await getCrossChainInfoForToken({
           token,
@@ -94,15 +96,12 @@
     }
 
     value = token;
-
-    if (destChain) {
-      const info = await getCanonicalInfoForToken({ token, srcChainId: srcChain.id, destChainId: destChain.id });
-      if (info && value.addresses[srcChain.id] !== info.address) {
-        log('selected token is not canonical');
-        $selectedTokenIsBridged = true;
-      } else {
-        $selectedTokenIsBridged = false;
-      }
+    const info = await getCanonicalInfoForToken({ token, srcChainId: srcChain.id, destChainId: destChain.id });
+    if (info && value.addresses[srcChain.id] !== info.address) {
+      log('selected token is not canonical');
+      $selectedTokenIsBridged = true;
+    } else {
+      $selectedTokenIsBridged = false;
     }
     closeMenu();
   };
