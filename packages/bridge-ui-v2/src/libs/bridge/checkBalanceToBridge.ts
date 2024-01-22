@@ -10,7 +10,7 @@ import {
   RevertedWithoutMessageError,
 } from '$libs/error';
 import { getAddress, type Token, TokenType } from '$libs/token';
-import { getCanonicalInfoForToken } from '$libs/token/getCanonicalInfoForToken';
+import { getCanonicalInfoForToken } from '$libs/token/getCanonicalInfo';
 import { isDeployedCrossChain } from '$libs/token/isDeployedCrossChain';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';

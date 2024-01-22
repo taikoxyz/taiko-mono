@@ -1,14 +1,20 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import { chainConfig } from '$chainConfig';
   import { ProcessingFee } from '$components/Bridge/ProcessingFee';
   import Recipient from '$components/Bridge/Recipient.svelte';
-  import { destNetwork as destinationChain, enteredAmount, selectedNFTs } from '$components/Bridge/state';
+  import {
+    destNetwork as destinationChain,
+    enteredAmount,
+    selectedNFTs,
+    selectedTokenIsBridged,
+  } from '$components/Bridge/state';
   import { ChainSelector } from '$components/ChainSelector';
   import { IconFlipper } from '$components/Icon';
   import { NFTDisplay } from '$components/NFTs';
+  import { getCanonicalInfoForToken } from '$libs/token/getCanonicalInfo';
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { network } from '$stores/network';
 
@@ -42,6 +48,16 @@
 
   // check if any of the selected NFTs are ERC1155 tokens
   $: isERC1155 = $selectedNFTs ? $selectedNFTs.some((nft) => nft.type === 'ERC1155') : false;
+
+  onMount(async () => {
+    const srcChainId = $network?.id;
+    const destChainId = $destinationChain?.id;
+    const nfts = $selectedNFTs;
+    if (!nfts || nfts.length === 0 || !srcChainId || !destChainId) return;
+    const [info] = await Promise.all([getCanonicalInfoForToken({ token: nfts[0], srcChainId, destChainId })]);
+
+    if (info) $selectedTokenIsBridged = nfts[0].addresses[srcChainId] !== info.address;
+  });
 </script>
 
 <div class="container mx-auto inline-block align-middle space-y-[25px] w-full mt-[30px]">

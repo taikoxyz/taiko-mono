@@ -32,10 +32,10 @@
   import { PUBLIC_SLOW_L1_BRIDGING_WARNING } from '$env/static/public';
   import { fetchNFTs } from '$libs/bridge/fetchNFTs';
   import { LayerType } from '$libs/chain';
+  import { InternalError, InvalidParametersProvidedError, WrongOwnerError } from '$libs/error';
   import { detectContractType, type NFT, TokenType } from '$libs/token';
   import { checkOwnership } from '$libs/token/checkOwnership';
   import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
-  import { noop } from '$libs/util/noop';
   import { account } from '$stores/account';
   import { network } from '$stores/network';
 
@@ -46,8 +46,6 @@
   export let foundNFTs: NFT[] = [];
   export let validating: boolean = false;
   export let contractAddress: Address | string = '';
-
-  export const prefetchImage = () => noop();
 
   let enteredIds: number[] = [];
   let scanning: boolean;
@@ -148,7 +146,7 @@
         const tokenId: number = nftIdArray[0]; // Handle multiple tokens if needed
 
         if (typeof tokenId !== 'number') {
-          throw new Error('Token ID is not a number');
+          throw new InvalidParametersProvidedError('Token ID is not a number');
         }
 
         const ownershipResults = await checkOwnership(
@@ -166,7 +164,7 @@
         isOwnerOfAllToken = ownershipResults.every((value) => value.isOwner === true);
 
         if (!isOwnerOfAllToken) {
-          throw new Error('Not owner of all tokens');
+          throw new WrongOwnerError('Not owner of all NFTs');
         }
 
         const token = await getTokenWithInfoFromAddress({
@@ -179,7 +177,7 @@
         });
 
         if (!token) {
-          throw new Error('No token with info');
+          throw new InternalError('unable to get token');
         }
 
         detectedTokenType = token.type;
@@ -188,8 +186,6 @@
         idInputState = IDInputState.VALID;
 
         $tokenBalance = token.balance;
-
-        await prefetchImage();
       } else {
         idInputState = IDInputState.INVALID;
       }

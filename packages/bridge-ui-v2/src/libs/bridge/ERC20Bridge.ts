@@ -9,11 +9,13 @@ import {
   BridgePausedError,
   InsufficientAllowanceError,
   NoAllowanceRequiredError,
+  NoCanonicalInfoFoundError,
   ProcessMessageError,
   ReleaseError,
   SendERC20Error,
 } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
+import { getCanonicalInfoForAddress } from '$libs/token/getCanonicalInfo';
 import { isBridgePaused } from '$libs/util/checkForPausedContracts';
 import { getLogger } from '$libs/util/logger';
 
@@ -160,17 +162,26 @@ export class ERC20Bridge extends Bridge {
   }
 
   async bridge(args: ERC20BridgeArgs) {
-    const { amount, token, wallet, tokenVaultAddress } = args;
+    const { amount, token, wallet, tokenVaultAddress, srcChainId, destChainId } = args;
 
-    const requireAllowance = await this.requireAllowance({
-      amount,
-      tokenAddress: token,
-      ownerAddress: wallet.account.address,
-      spenderAddress: tokenVaultAddress,
-    });
+    const info = await getCanonicalInfoForAddress({ address: token, srcChainId, destChainId });
+    if (!info) throw new NoCanonicalInfoFoundError('No canonical info found for token');
+    const { address: canonicalTokenAddress } = info;
 
-    if (requireAllowance) {
-      throw new InsufficientAllowanceError(`Insufficient allowance for the amount ${amount}`);
+    if (canonicalTokenAddress === token) {
+      // Token is native, we need to check if we have approval
+      const requireAllowance = await this.requireAllowance({
+        amount,
+        tokenAddress: token,
+        ownerAddress: wallet.account.address,
+        spenderAddress: tokenVaultAddress,
+      });
+
+      if (requireAllowance) {
+        throw new InsufficientAllowanceError(`Insufficient allowance for the amount ${amount}`);
+      }
+    } else {
+      log('Token is bridged, no need to check for approval');
     }
 
     const { tokenVaultContract, sendERC20Args } = await ERC20Bridge._prepareTransaction(args);
