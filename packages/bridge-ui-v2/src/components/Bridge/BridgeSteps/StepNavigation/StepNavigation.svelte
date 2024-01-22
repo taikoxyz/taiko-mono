@@ -2,24 +2,23 @@
   import { t } from 'svelte-i18n';
 
   import { importDone } from '$components/Bridge/state';
-  import { ImportMethod, NFTSteps } from '$components/Bridge/types';
+  import { BridgeSteps } from '$components/Bridge/types';
   import { ActionButton } from '$components/Button';
 
-  import { selectedImportMethod } from '../ImportStep/state';
   import StepBack from './StepBack.svelte';
 
-  export let activeStep: NFTSteps = NFTSteps.IMPORT;
+  export let activeStep: BridgeSteps = BridgeSteps.IMPORT;
   export let validatingImport = false;
 
   let nextStepButtonText: string;
 
-  // const nextStep = () => (activeStep = Math.min(activeStep + 1, NFTSteps.CONFIRM));
+  // const nextStep = () => (activeStep = Math.min(activeStep + 1, BridgeSteps.CONFIRM));
 
   const getStepText = () => {
-    if (activeStep === NFTSteps.REVIEW) {
+    if (activeStep === BridgeSteps.REVIEW) {
       return $t('common.confirm');
     }
-    if (activeStep === NFTSteps.CONFIRM) {
+    if (activeStep === BridgeSteps.CONFIRM) {
       return $t('common.ok');
     } else {
       return $t('common.continue');
@@ -27,26 +26,26 @@
   };
 
   const handleNextStep = () => {
-    if (activeStep === NFTSteps.IMPORT) {
-      activeStep = NFTSteps.REVIEW;
-    } else if (activeStep === NFTSteps.REVIEW) {
-      activeStep = NFTSteps.CONFIRM;
-    } else if (activeStep === NFTSteps.RECIPIENT) {
-      activeStep = NFTSteps.REVIEW;
-    } else if (activeStep === NFTSteps.CONFIRM) {
-      activeStep = NFTSteps.IMPORT;
+    if (activeStep === BridgeSteps.IMPORT) {
+      activeStep = BridgeSteps.REVIEW;
+    } else if (activeStep === BridgeSteps.REVIEW) {
+      activeStep = BridgeSteps.CONFIRM;
+    } else if (activeStep === BridgeSteps.RECIPIENT) {
+      activeStep = BridgeSteps.REVIEW;
+    } else if (activeStep === BridgeSteps.CONFIRM) {
+      activeStep = BridgeSteps.IMPORT;
     }
   };
 
   const handlePreviousStep = () => {
-    if (activeStep === NFTSteps.REVIEW) {
-      activeStep = NFTSteps.IMPORT;
-    } else if (activeStep === NFTSteps.CONFIRM) {
-      activeStep = NFTSteps.REVIEW;
+    if (activeStep === BridgeSteps.REVIEW) {
+      activeStep = BridgeSteps.IMPORT;
+    } else if (activeStep === BridgeSteps.CONFIRM) {
+      activeStep = BridgeSteps.REVIEW;
     }
   };
 
-  $: showStepNavigation = $selectedImportMethod !== ImportMethod.NONE;
+  $: showStepNavigation = true;
 
   $: {
     nextStepButtonText = getStepText();
@@ -55,20 +54,18 @@
 
 {#if showStepNavigation}
   <div class="f-col w-full justify-content-center gap-4">
-    {#if activeStep === NFTSteps.IMPORT}
-      {#if $selectedImportMethod !== ImportMethod.NONE}
-        <ActionButton
-          priority="primary"
-          disabled={!$importDone}
-          loading={validatingImport}
-          on:click={() => handleNextStep()}>
-          <span class="body-bold">{nextStepButtonText}</span>
-        </ActionButton>
+    {#if activeStep === BridgeSteps.IMPORT}
+      <ActionButton
+        priority="primary"
+        disabled={!$importDone}
+        loading={validatingImport}
+        on:click={() => handleNextStep()}>
+        <span class="body-bold">{nextStepButtonText}</span>
+      </ActionButton>
 
-        <StepBack on:click={() => ($selectedImportMethod = ImportMethod.NONE)}>{$t('common.back')}</StepBack>
-      {/if}
+      <StepBack on:click={() => handlePreviousStep()}>{$t('common.back')}</StepBack>
     {/if}
-    {#if activeStep === NFTSteps.REVIEW}
+    {#if activeStep === BridgeSteps.REVIEW}
       <ActionButton priority="primary" on:click={() => handleNextStep()}>
         <span class="body-bold">{nextStepButtonText}</span>
       </ActionButton>
@@ -78,7 +75,7 @@
       </StepBack>
     {/if}
 
-    {#if activeStep === NFTSteps.RECIPIENT}
+    {#if activeStep === BridgeSteps.RECIPIENT}
       <ActionButton priority="primary" on:click={() => handleNextStep()}>
         <span class="body-bold">{nextStepButtonText}</span>
       </ActionButton>
@@ -88,7 +85,7 @@
       </StepBack>
     {/if}
 
-    {#if activeStep === NFTSteps.CONFIRM}
+    {#if activeStep === BridgeSteps.CONFIRM}
       <!-- <ActionButton priority="primary" disabled={!canProceed} on:click={() => handleNextStep()}>
         <span class="body-bold">{nextStepButtonText}</span>
       </ActionButton> -->

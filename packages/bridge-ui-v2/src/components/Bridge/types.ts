@@ -3,7 +3,7 @@ export enum BridgeTypes {
   NFT = 'NFT',
 }
 
-export enum NFTSteps {
+export enum BridgeSteps {
   IMPORT,
   REVIEW,
   RECIPIENT,

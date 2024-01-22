@@ -121,8 +121,7 @@
           "button": {
             "back": "Back to bridge"
           },
-          "processing": "Processing...",
-          "title": "Confirm"
+          "processing": "Processing..."
         },
         "import": {
           "nft_card": {
@@ -134,15 +133,24 @@
             "description": "Don't see your NFTs? Try adding them manually!",
             "title": "Your NFTs ({number} items)"
           },
-          "select_all": "Select all",
-          "title": "Import"
+          "select_all": "Select all"
         },
         "review": {
           "recipient_details": "Recipient details",
-          "title": "Review",
           "transfer_details": "Transfer details",
           "your_tokens": "Your tokens on"
         }
+      }
+    },
+    "step": {
+      "confirm": {
+        "title": "Confirm"
+      },
+      "import": {
+        "title": "Import"
+      },
+      "review": {
+        "title": "Review"
       }
     },
     "title": {

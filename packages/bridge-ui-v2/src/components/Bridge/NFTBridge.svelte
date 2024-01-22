@@ -20,9 +20,11 @@
   import type AddressInput from './AddressInput/AddressInput.svelte';
   import type Amount from './Amount.svelte';
   import type IdInput from './IDInput/IDInput.svelte';
-  import { ConfirmationStep, ImportStep, RecipientStep, ReviewStep } from './NFTBridgeSteps';
-  import StepNavigation from './NFTBridgeSteps/StepNavigation/StepNavigation.svelte';
+  import { ImportStep, ReviewStep } from './NFTBridgeComponents';
+  import StepNavigation from './NFTBridgeComponents/StepNavigation/StepNavigation.svelte';
   import type { ProcessingFee } from './ProcessingFee';
+  import ConfirmationStep from './SharedBridgeSteps/ConfirmationStep/ConfirmationStep.svelte';
+  import RecipientStep from './SharedBridgeSteps/RecipientStep/RecipientStep.svelte';
   import {
     activeBridge,
     destNetwork as destinationChain,
@@ -32,7 +34,7 @@
     selectedToken,
     selectedTokenIsBridged,
   } from './state';
-  import { NFTSteps } from './types';
+  import { BridgeSteps } from './types';
 
   let amountComponent: Amount;
   let recipientStepComponent: RecipientStep;
@@ -41,10 +43,17 @@
   let bridgingStatus: 'pending' | 'done' = 'pending';
 
   let hasEnoughEth: boolean = false;
+  let activeStep: BridgeSteps = BridgeSteps.IMPORT;
+
+  let nftStepTitle: string;
+  let nftStepDescription: string;
+
+  let addressInputComponent: AddressInput;
+  let nftIdInputComponent: IdInput;
 
   function onNetworkChange(newNetwork: Network, oldNetwork: Network) {
     updateForm();
-    activeStep = NFTSteps.IMPORT;
+    activeStep = BridgeSteps.IMPORT;
     if (newNetwork) {
       const destChainId = $destinationChain?.id;
       if (!$destinationChain?.id) return;
@@ -92,10 +101,6 @@
     });
   }
 
-  $: if ($selectedToken && amountComponent) {
-    amountComponent.validateAmount();
-  }
-
   const resetForm = () => {
     //we check if these are still mounted, as the user might have left the page
     if (amountComponent) amountComponent.clearAmount();
@@ -112,30 +117,20 @@
     importMethod === null;
     $importDone = false;
     $selectedNFTs = [];
-    activeStep = NFTSteps.IMPORT;
+    activeStep = BridgeSteps.IMPORT;
   };
 
-  let activeStep: NFTSteps = NFTSteps.IMPORT;
-
-  let nftStepTitle: string;
-  let nftStepDescription: string;
-
-  let addressInputComponent: AddressInput;
-  let nftIdInputComponent: IdInput;
-
-  $: validatingImport = false;
-
   const handleTransactionDetailsClick = () => {
-    activeStep = NFTSteps.RECIPIENT;
+    activeStep = BridgeSteps.RECIPIENT;
   };
 
   // Whenever the user switches bridge types, we should reset the forms
-  $: $activeBridge && (resetForm(), (activeStep = NFTSteps.IMPORT));
+  $: $activeBridge && (resetForm(), (activeStep = BridgeSteps.IMPORT));
 
   // Set the content text based on the current step
   $: {
-    const stepKey = NFTSteps[activeStep].toLowerCase();
-    if (activeStep === NFTSteps.CONFIRM) {
+    const stepKey = BridgeSteps[activeStep].toLowerCase();
+    if (activeStep === BridgeSteps.CONFIRM) {
       nftStepTitle = '';
       nftStepDescription = '';
     } else {
@@ -145,38 +140,43 @@
     // nextStepButtonText = getStepText();
   }
 
+  $: validatingImport = false;
+  $: if ($selectedToken && amountComponent) {
+    amountComponent.validateAmount();
+  }
+
+  $: activeStep === BridgeSteps.IMPORT && resetForm();
+
   onDestroy(() => {
     resetForm();
   });
-
-  $: activeStep === NFTSteps.IMPORT && resetForm();
 </script>
 
 <div class=" gap-0 w-full md:w-[524px]">
   <Stepper {activeStep}>
-    <Step stepIndex={NFTSteps.IMPORT} currentStepIndex={activeStep} isActive={activeStep === NFTSteps.IMPORT}
-      >{$t('bridge.nft.step.import.title')}</Step>
-    <Step stepIndex={NFTSteps.REVIEW} currentStepIndex={activeStep} isActive={activeStep === NFTSteps.REVIEW}
-      >{$t('bridge.nft.step.review.title')}</Step>
-    <Step stepIndex={NFTSteps.CONFIRM} currentStepIndex={activeStep} isActive={activeStep === NFTSteps.CONFIRM}
-      >{$t('bridge.nft.step.confirm.title')}</Step>
+    <Step stepIndex={BridgeSteps.IMPORT} currentStepIndex={activeStep} isActive={activeStep === BridgeSteps.IMPORT}
+      >{$t('bridge.step.import.title')}</Step>
+    <Step stepIndex={BridgeSteps.REVIEW} currentStepIndex={activeStep} isActive={activeStep === BridgeSteps.REVIEW}
+      >{$t('bridge.step.review.title')}</Step>
+    <Step stepIndex={BridgeSteps.CONFIRM} currentStepIndex={activeStep} isActive={activeStep === BridgeSteps.CONFIRM}
+      >{$t('bridge.step.confirm.title')}</Step>
   </Stepper>
 
   <Card class="md:mt-[32px] w-full md:w-[524px]" title={nftStepTitle} text={nftStepDescription}>
     <div class="space-y-[30px]">
       <!-- IMPORT STEP -->
-      {#if activeStep === NFTSteps.IMPORT}
+      {#if activeStep === BridgeSteps.IMPORT}
         <ImportStep bind:validating={validatingImport} />
 
         <!-- REVIEW STEP -->
-      {:else if activeStep === NFTSteps.REVIEW}
+      {:else if activeStep === BridgeSteps.REVIEW}
         <!-- <ReviewStep on:editTransactionDetails={handleTransactionDetailsClick} bind:hasEnoughEth /> -->
         <ReviewStep on:editTransactionDetails={handleTransactionDetailsClick} bind:hasEnoughEth />
         <!-- RECIPIENT STEP -->
-      {:else if activeStep === NFTSteps.RECIPIENT}
+      {:else if activeStep === BridgeSteps.RECIPIENT}
         <RecipientStep bind:this={recipientStepComponent} bind:hasEnoughEth />
         <!-- CONFIRM STEP -->
-      {:else if activeStep === NFTSteps.CONFIRM}
+      {:else if activeStep === BridgeSteps.CONFIRM}
         <ConfirmationStep bind:bridgingStatus />
       {/if}
       <!-- 

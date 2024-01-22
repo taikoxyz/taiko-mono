@@ -4,9 +4,6 @@
 
   import { chainConfig } from '$chainConfig';
   import { Alert } from '$components/Alert';
-  import ImportActions from '$components/Bridge/NFTBridgeSteps/ImportStep/ImportActions.svelte';
-  import ManualImport from '$components/Bridge/NFTBridgeSteps/ImportStep/ManualImport.svelte';
-  import ScannedImport from '$components/Bridge/NFTBridgeSteps/ImportStep/ScannedImport.svelte';
   import { destNetwork as destChain, selectedNFTs } from '$components/Bridge/state';
   import { ImportMethod } from '$components/Bridge/types';
   import CombinedChainSelector from '$components/ChainSelectors/CombinedChainSelector.svelte';
@@ -17,6 +14,9 @@
   import { account } from '$stores/account';
   import { network as srcChain } from '$stores/network';
 
+  import ImportActions from './ImportActions.svelte';
+  import ManualImport from './ManualImport.svelte';
+  import ScannedImport from './ScannedImport.svelte';
   import { selectedImportMethod } from './state';
 
   let slowL1Warning = PUBLIC_SLOW_L1_BRIDGING_WARNING || false;

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Address } from '@wagmi/core';
-  import { onDestroy } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
@@ -113,37 +113,41 @@
     }
   };
 
-  $: textClass = disabled ? 'title-subsection-bold text-secondary-content' : 'title-subsection-bold';
+  $: textClass = disabled ? 'text-secondary-content' : 'font-bold ';
 
   onDestroy(() => closeMenu());
+
+  onMount(() => {
+    value = ETHToken;
+  });
 </script>
 
 <DesktopOrLarger bind:is={isDesktopOrLarger} />
 
-<div class="relative">
+<div class="relative h-full {$$props.class}">
   <button
     use:closeOnEscapeOrOutsideClick={{ enabled: menuOpen, callback: () => (menuOpen = false) }}
     {disabled}
     aria-haspopup="listbox"
     aria-controls={id}
     aria-expanded={menuOpen}
-    class="f-between-center w-full px-6 py-[14px] input-box bg-neutral-background border-0 shadow-none outline-none"
+    class="f-between-center w-full h-full !rounded-l-none px-[20px] py-[14px] input-box bg-neutral-background border-0 shadow-none outline-none"
     on:click={openMenu}
     on:focus={openMenu}>
     <div class="space-x-2">
       {#if !value}
-        <span class="title-subsection-bold text-secondary-content">{$t('token_dropdown.label')}</span>
+        <span class="title-subsection-bold text-base text-secondary-content">{$t('token_dropdown.label')}</span>
       {/if}
       {#if value}
-        <div class="flex space-x-2 items-center">
+        <div class="flex f-space-between space-x-2 items-center">
           <!-- Only match icons to configurd tokens -->
           {#if symbolToIconMap[value.symbol] && !value.imported}
             <i role="img" aria-label={value.name}>
-              <svelte:component this={symbolToIconMap[value.symbol]} size={28} />
+              <svelte:component this={symbolToIconMap[value.symbol]} size={20} />
             </i>
           {:else}
             <i role="img" aria-label={value.symbol}>
-              <svelte:component this={Erc20} size={28} />
+              <svelte:component this={Erc20} size={20} />
             </i>
           {/if}
           <span class={textClass}>{value.symbol}</span>
@@ -151,7 +155,7 @@
       {/if}
     </div>
     {#if !disabled}
-      <Icon type="chevron-down" size={24} />
+      <Icon type="chevron-down" size={10} />
     {/if}
   </button>
 
