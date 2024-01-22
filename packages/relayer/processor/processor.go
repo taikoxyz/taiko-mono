@@ -92,7 +92,6 @@ type Processor struct {
 	relayerAddr             common.Address
 	srcSignalServiceAddress common.Address
 	destHeaderSyncAddress   common.Address
-	srcBridgeAddress        common.Address
 
 	confirmations uint64
 

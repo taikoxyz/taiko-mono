@@ -23,6 +23,7 @@ func (p *Processor) processSingle(ctx context.Context) error {
 
 	for _, log := range receipt.Logs {
 		topic := log.Topics[0]
+
 		if topic == bridgeAbi.Events["MessageSent"].ID {
 			s := &bridge.BridgeMessageSent{}
 			err = bridgeAbi.UnpackIntoInterface(s, "MessageSent", log.Data)
