@@ -99,6 +99,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	}
 
 	var targetTxHash *common.Hash
+
 	if c.IsSet(flags.TargetTxHash.Name) {
 		hash := common.HexToHash(c.String(flags.TargetTxHash.Name))
 		targetTxHash = &hash
