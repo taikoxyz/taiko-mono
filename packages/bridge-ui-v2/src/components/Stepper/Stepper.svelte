@@ -18,7 +18,7 @@
 </script>
 
 <div class={classes}>
-  <div class="card-body body-regular gap-0 p-0">
+  <div data-glow-border class="card-body body-regular gap-0 p-0">
     <ul class="steps md:mb-[30px] mt-[30px]">
       <slot {activeStep} />
     </ul>
