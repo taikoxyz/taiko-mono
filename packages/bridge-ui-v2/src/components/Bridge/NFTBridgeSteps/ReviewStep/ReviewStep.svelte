@@ -69,6 +69,8 @@
 <div class="container mx-auto inline-block align-middle space-y-[25px] w-full mt-[30px]">
   <div class="flex justify-between mb-2 items-center">
     <div class="font-bold text-primary-content">{$t('bridge.nft.step.review.transfer_details')}</div>
+    <span role="button" tabindex="0" class="link" on:keydown={editTransactionDetails} on:click={editTransactionDetails}
+      >{$t('common.edit')}</span>
   </div>
   <div>
     <div class="flex justify-between items-center">
@@ -152,7 +154,7 @@ Recipient & Processing Fee
 <div class="f-col">
   <div class="f-between-center mb-[10px]">
     <div class="font-bold text-primary-content">{$t('bridge.nft.step.review.recipient_details')}</div>
-    <button class="flex justify-start link" on:click={editTransactionDetails}> Edit </button>
+    <button class="flex justify-start link" on:click={editTransactionDetails}> {$t('common.edit')} </button>
   </div>
   <Recipient bind:this={recipientComponent} small />
   <ProcessingFee bind:this={processingFeeComponent} small bind:hasEnoughEth />

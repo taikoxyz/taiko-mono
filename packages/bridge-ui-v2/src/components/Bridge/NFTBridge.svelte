@@ -20,16 +20,13 @@
   import type AddressInput from './AddressInput/AddressInput.svelte';
   import type Amount from './Amount.svelte';
   import type IdInput from './IDInput/IDInput.svelte';
-  import ConfirmationStep from './NFTBridgeSteps/ConfirmationStep.svelte';
-  import Import from './NFTBridgeSteps/ImportStep/Import.svelte';
-  import RecipientStep from './NFTBridgeSteps/RecipientStep.svelte';
-  // import ReviewStep from './NFTBridgeSteps/ReviewStep.svelte';
-  import Review from './NFTBridgeSteps/ReviewStep/Review.svelte';
+  import { ConfirmationStep, ImportStep, RecipientStep, ReviewStep } from './NFTBridgeSteps';
   import StepNavigation from './NFTBridgeSteps/StepNavigation/StepNavigation.svelte';
   import type { ProcessingFee } from './ProcessingFee';
   import {
     activeBridge,
     destNetwork as destinationChain,
+    importDone,
     recipientAddress,
     selectedNFTs,
     selectedToken,
@@ -113,110 +110,20 @@
     bridgingStatus = 'pending';
     $selectedToken = ETHToken;
     importMethod === null;
-    canProceed = false;
+    $importDone = false;
     $selectedNFTs = [];
     activeStep = NFTSteps.IMPORT;
   };
 
-  /**
-   *   NFT Bridge specific
-   */
   let activeStep: NFTSteps = NFTSteps.IMPORT;
 
   let nftStepTitle: string;
   let nftStepDescription: string;
-  // let nextStepButtonText: string;
 
   let addressInputComponent: AddressInput;
   let nftIdInputComponent: IdInput;
 
   $: validatingImport = false;
-
-  let canProceed: boolean = false;
-
-  // const getStepText = () => {
-  //   if (activeStep === NFTSteps.REVIEW) {
-  //     return $t('common.confirm');
-  //   }
-  //   if (activeStep === NFTSteps.CONFIRM) {
-  //     return $t('common.ok');
-  //   } else {
-  //     return $t('common.continue');
-  //   }
-  // };
-
-  // const prefetchImage = async () => {
-  //   const srcChainId = $network?.id;
-  //   const destChainId = $destinationChain?.id;
-  //   if (!srcChainId || !destChainId) throw new Error('both src and dest chain id must be defined');
-  //   await Promise.all(
-  //     nftIdArray.map(async (id) => {
-  //       const token = $selectedToken as NFT;
-  //       if (token) {
-  //         token.tokenId = id;
-  //         fetchNFTImageUrl(token, srcChainId, destChainId).then((nftWithUrl) => {
-  //           $selectedToken = nftWithUrl;
-  //           $selectedNFTs = [nftWithUrl];
-  //         });
-  //       } else {
-  //         throw new Error('no token');
-  //       }
-  //     }),
-  //   );
-  // };
-
-  const prefetchImage = async () => {
-    const srcChainId = $network?.id;
-    const destChainId = $destinationChain?.id;
-    if (!srcChainId || !destChainId) throw new Error('both src and dest chain id must be defined');
-    await Promise.all(
-      nftIdArray.map(async (id) => {
-        const token = $selectedToken as NFT;
-        if (token) {
-          token.tokenId = id;
-          fetchNFTImageUrl(token, srcChainId, destChainId).then((nftWithUrl) => {
-            $selectedToken = nftWithUrl;
-            $selectedNFTs = [nftWithUrl];
-          });
-        } else {
-          throw new Error('no token');
-        }
-      }),
-    );
-  };
-  const manualImportAction = async () => {
-    if (!$network?.id) throw new Error('network not found');
-    const srcChainId = $network.id;
-    const destChainId = $destinationChain?.id;
-    const tokenId = nftIdArray[0];
-
-    if (!isAddress(contractAddress) || !srcChainId || !destChainId) {
-      return;
-    }
-
-    try {
-      const token = await getTokenWithInfoFromAddress({
-        contractAddress,
-        srcChainId,
-        tokenId,
-        owner: $account?.address,
-      });
-      if (!token) throw new Error('no token with info');
-
-      $selectedToken = token;
-
-      const [, info] = await Promise.all([
-        prefetchImage(),
-        getCanonicalInfoForToken({ token, srcChainId, destChainId }),
-      ]);
-
-      if (info) $selectedTokenIsBridged = contractAddress !== info.address;
-
-      nextStep();
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   const handleTransactionDetailsClick = () => {
     activeStep = NFTSteps.RECIPIENT;
@@ -259,19 +166,12 @@
     <div class="space-y-[30px]">
       <!-- IMPORT STEP -->
       {#if activeStep === NFTSteps.IMPORT}
-        <Import bind:canProceed bind:validating={validatingImport} />
-        <!-- <ImportStep
-          bind:importMethod
-          bind:canProceed
-          bind:nftIdArray
-          bind:contractAddress
-          bind:foundNFTs
-          bind:scanned
-          bind:validating={validatingImport} /> -->
+        <ImportStep bind:validating={validatingImport} />
+
         <!-- REVIEW STEP -->
       {:else if activeStep === NFTSteps.REVIEW}
         <!-- <ReviewStep on:editTransactionDetails={handleTransactionDetailsClick} bind:hasEnoughEth /> -->
-        <Review on:editTransactionDetails={handleTransactionDetailsClick} bind:hasEnoughEth />
+        <ReviewStep on:editTransactionDetails={handleTransactionDetailsClick} bind:hasEnoughEth />
         <!-- RECIPIENT STEP -->
       {:else if activeStep === NFTSteps.RECIPIENT}
         <RecipientStep bind:this={recipientStepComponent} bind:hasEnoughEth />
@@ -282,66 +182,7 @@
       <!-- 
         User Actions
       -->
-      <StepNavigation bind:activeStep bind:canProceed {validatingImport} />
-      <!-- {#if activeStep === NFTSteps.REVIEW}
-        <div class="f-col w-full gap-[16px]">
-          <ActionButton priority="primary" disabled={!canProceed} on:click={() => (activeStep = NFTSteps.CONFIRM)}>
-            <span class="body-bold">{nextStepButtonText}</span>
-          </ActionButton>
-          <button on:click={previousStep} class="flex justify-center py-3 link">
-            {$t('common.back')}
-          </button>
-        </div>
-      {:else if activeStep === NFTSteps.IMPORT}
-        {#if importMethod === ImportMethod.MANUAL}
-          <div class="h-sep" />
-
-          <div class="f-col w-full">
-            <ActionButton
-              priority="primary"
-              disabled={!canProceed}
-              loading={validatingImport}
-              on:click={manualImportAction}><span class="body-bold">{nextStepButtonText}</span></ActionButton>
-
-            <button on:click={() => changeImportMethod()} class="flex justify-center py-3 link">
-              {$t('common.back')}
-            </button>
-          </div>
-        {:else if scanned && foundNFTs.length > 0}
-          <div class="f-col w-full">
-            <div class="h-sep" />
-
-            <ActionButton priority="primary" disabled={!canProceed} on:click={nextStep}
-              ><span class="body-bold">{nextStepButtonText}</span></ActionButton>
-
-            <button on:click={resetForm} class="flex justify-center py-3 link">
-              {$t('common.back')}
-            </button>
-          </div>
-        {/if}
-      {:else if activeStep === NFTSteps.RECIPIENT}
-        <div class="f-col w-full">
-          <ActionButton priority="primary" disabled={!canProceed} on:click={() => (activeStep = NFTSteps.REVIEW)}
-            ><span class="body-bold">{nextStepButtonText}</span>
-          </ActionButton>
-
-          <button on:click={previousStep} class="flex justify-center py-3 link">
-            {$t('common.back')}
-          </button>
-        </div>
-      {:else if activeStep === NFTSteps.CONFIRM}
-        <div class="f-col w-full">
-          {#if bridgingStatus === 'done'}
-            <ActionButton priority="primary" on:click={resetForm}
-              ><span class="body-bold">{$t('bridge.nft.step.confirm.button.back')}</span>
-            </ActionButton>
-          {:else}
-            <button on:click={() => (activeStep = NFTSteps.REVIEW)} class="flex justify-center py-3 link">
-              {$t('common.back')}
-            </button>
-          {/if}
-        </div>
-      {/if} -->
+      <StepNavigation bind:activeStep {validatingImport} />
     </div>
   </Card>
 </div>

@@ -9,6 +9,7 @@
   import IdInput from '$components/Bridge/IDInput/IDInput.svelte';
   import { IDInputState } from '$components/Bridge/IDInput/state';
   import { enteredAmount, selectedNFTs, selectedToken, tokenBalance } from '$components/Bridge/state';
+  import { importDone } from '$components/Bridge/state';
   import { detectContractType, type NFT, TokenType } from '$libs/token';
   import { checkOwnership } from '$libs/token/checkOwnership';
   import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
@@ -18,8 +19,6 @@
   export let contractAddress: Address | string = '';
   export let nftIdsToImport: number[] = [];
   export let validating: boolean = false;
-
-  export let canProceed: boolean = false;
 
   let addressInputState: AddressInputState = AddressInputState.DEFAULT;
 
@@ -143,14 +142,16 @@
   $: hasEnteredIds = enteredIds && enteredIds.length > 0;
   $: hasSelectedNFT = $selectedNFTs && $selectedNFTs?.length > 0 && hasEnteredIds;
 
-  $: if (nftHasAmount && hasSelectedNFT) {
-    if (validBalance) {
-      canProceed = true;
-    } else {
-      canProceed = false;
-    }
-  } else if (!nftHasAmount && hasSelectedNFT) {
-    canProceed = true;
+  $: commonChecks =
+    enteredIds && enteredIds.length > 0 && !validating && idInputState === IDInputState.VALID && isOwnerOfAllToken;
+  $: ERC1155Checks = commonChecks && nftHasAmount !== null && hasSelectedNFT !== null && validBalance;
+
+  $: canProceed = isERC1155 ? ERC1155Checks : commonChecks;
+
+  $: if (canProceed) {
+    $importDone = true;
+  } else {
+    $importDone = false;
   }
 
   $: showNFTAmountInput = nftHasAmount && isOwnerOfAllToken;
