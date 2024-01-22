@@ -52,7 +52,6 @@
 
   onMount(async () => {
     $validatingAmount = true;
-    // await checkBridgedStatus();
     if ($selectedTokenIsBridged) {
       $allApproved = true;
       $insufficientAllowance = false;
