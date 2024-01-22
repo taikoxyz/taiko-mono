@@ -126,6 +126,13 @@ var (
 		Category: processorCategory,
 		EnvVars:  []string{"HOP_RPC_URLS"},
 	}
+	TargetTxHash = &cli.StringFlag{
+		Name:     "targetTxHash",
+		Usage:    "Target transaction hash, set to ignore processing from queue and only process this individual transaction",
+		Category: processorCategory,
+		Required: false,
+		EnvVars:  []string{"TARGET_TX_HASH"},
+	}
 )
 
 var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
@@ -148,4 +155,5 @@ var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	HopSignalServiceAddresses,
 	HopTaikoAddresses,
 	DestBridgeAddress,
+	TargetTxHash,
 })
