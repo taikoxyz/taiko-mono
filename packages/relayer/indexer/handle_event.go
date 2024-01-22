@@ -48,6 +48,11 @@ func (i *Indexer) handleEvent(
 		return errors.Wrap(err, "svc.eventStatusFromMsgHash")
 	}
 
+	if i.watchMode == CrawlPastBlocks && eventStatus != relayer.EventStatusNew {
+		// we can return early, this message has been processed as expected.
+		return nil
+	}
+
 	marshaled, err := json.Marshal(event)
 	if err != nil {
 		return errors.Wrap(err, "json.Marshal(event)")
@@ -58,32 +63,45 @@ func (i *Indexer) handleEvent(
 		return errors.Wrap(err, "eventTypeAmountAndCanonicalTokenFromEvent(event)")
 	}
 
-	opts := relayer.SaveEventOpts{
-		Name:         relayer.EventNameMessageSent,
-		Data:         string(marshaled),
-		ChainID:      chainID,
-		Status:       eventStatus,
-		EventType:    eventType,
-		Amount:       amount.String(),
-		MsgHash:      common.Hash(event.MsgHash).Hex(),
-		MessageOwner: event.Message.Owner.Hex(),
-		Event:        relayer.EventNameMessageSent,
-	}
-
-	if canonicalToken != nil {
-		opts.CanonicalTokenAddress = canonicalToken.Address().Hex()
-		opts.CanonicalTokenSymbol = canonicalToken.ContractSymbol()
-		opts.CanonicalTokenName = canonicalToken.ContractName()
-		opts.CanonicalTokenDecimals = canonicalToken.TokenDecimals()
-	}
-
-	e, err := i.eventRepo.Save(ctx, opts)
+	existingEvent, err := i.eventRepo.FirstByEventAndMsgHash(ctx, relayer.EventNameMessageSent, common.Hash(event.MsgHash).Hex())
 	if err != nil {
-		return errors.Wrap(err, "svc.eventRepo.Save")
+		return errors.Wrap(err, "i.eventRepo.FirstByEventAndMsgHash")
+	}
+
+	var id int
+
+	if existingEvent == nil {
+		opts := relayer.SaveEventOpts{
+			Name:         relayer.EventNameMessageSent,
+			Data:         string(marshaled),
+			ChainID:      chainID,
+			Status:       eventStatus,
+			EventType:    eventType,
+			Amount:       amount.String(),
+			MsgHash:      common.Hash(event.MsgHash).Hex(),
+			MessageOwner: event.Message.Owner.Hex(),
+			Event:        relayer.EventNameMessageSent,
+		}
+
+		if canonicalToken != nil {
+			opts.CanonicalTokenAddress = canonicalToken.Address().Hex()
+			opts.CanonicalTokenSymbol = canonicalToken.ContractSymbol()
+			opts.CanonicalTokenName = canonicalToken.ContractName()
+			opts.CanonicalTokenDecimals = canonicalToken.TokenDecimals()
+		}
+
+		e, err := i.eventRepo.Save(ctx, opts)
+		if err != nil {
+			return errors.Wrap(err, "svc.eventRepo.Save")
+		}
+
+		id = e.ID
+	} else {
+		id = existingEvent.ID
 	}
 
 	msg := queue.QueueMessageBody{
-		ID:    e.ID,
+		ID:    id,
 		Event: event,
 	}
 

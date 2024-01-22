@@ -40,7 +40,8 @@ var (
 	Filter             WatchMode = "filter"
 	Subscribe          WatchMode = "subscribe"
 	FilterAndSubscribe WatchMode = "filter-and-subscribe"
-	WatchModes                   = []WatchMode{Filter, Subscribe, FilterAndSubscribe}
+	CrawlPastBlocks    WatchMode = "crawl-past-blocks"
+	WatchModes                   = []WatchMode{Filter, Subscribe, FilterAndSubscribe, CrawlPastBlocks}
 )
 
 type SyncMode string
@@ -241,7 +242,14 @@ func (i *Indexer) filter(ctx context.Context) error {
 		return i.subscribe(ctx, i.srcChainId)
 	}
 
-	if err := i.setInitialProcessingBlockByMode(ctx, i.syncMode, i.srcChainId); err != nil {
+	syncMode := i.syncMode
+
+	// always use Resync when crawling past blocks
+	if i.watchMode == CrawlPastBlocks {
+		syncMode = Resync
+	}
+
+	if err := i.setInitialProcessingBlockByMode(ctx, syncMode, i.srcChainId); err != nil {
 		return errors.Wrap(err, "i.setInitialProcessingBlockByMode")
 	}
 
@@ -283,17 +291,21 @@ func (i *Indexer) filter(ctx context.Context) error {
 			Context: ctx,
 		}
 
-		messageStatusChangedEvents, err := i.bridge.FilterMessageStatusChanged(filterOpts, nil)
-		if err != nil {
-			return errors.Wrap(err, "bridge.FilterMessageStatusChanged")
-		}
+		// we dont want to watch for message status changed events
+		// when crawling past blocks on a loop.
+		if i.watchMode != CrawlPastBlocks {
+			messageStatusChangedEvents, err := i.bridge.FilterMessageStatusChanged(filterOpts, nil)
+			if err != nil {
+				return errors.Wrap(err, "bridge.FilterMessageStatusChanged")
+			}
 
-		// we don't need to do anything with msgStatus events except save them to the DB.
-		// we don't need to process them. they are for exposing via the API.
+			// we don't need to do anything with msgStatus events except save them to the DB.
+			// we don't need to process them. they are for exposing via the API.
 
-		err = i.saveMessageStatusChangedEvents(ctx, i.srcChainId, messageStatusChangedEvents)
-		if err != nil {
-			return errors.Wrap(err, "bridge.saveMessageStatusChangedEvents")
+			err = i.saveMessageStatusChangedEvents(ctx, i.srcChainId, messageStatusChangedEvents)
+			if err != nil {
+				return errors.Wrap(err, "bridge.saveMessageStatusChangedEvents")
+			}
 		}
 
 		messageSentEvents, err := i.bridge.FilterMessageSent(filterOpts, nil)
@@ -333,8 +345,15 @@ func (i *Indexer) filter(ctx context.Context) error {
 	}
 
 	slog.Info(
-		"indexer fully caught up, checking latest block number to see if it's advanced",
+		"indexer fully caught up",
 	)
+
+	if i.watchMode == CrawlPastBlocks {
+		slog.Info("restarting filtering from genesis")
+		return i.filter(ctx)
+	}
+
+	slog.Info("getting latest block to see if header has advanced")
 
 	latestBlock, err := i.srcEthClient.HeaderByNumber(ctx, nil)
 	if err != nil {
@@ -342,6 +361,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 	}
 
 	if i.processingBlockHeight < latestBlock.Number.Uint64() {
+		slog.Info("header has advanced", "processingBlockHeight", i.processingBlockHeight, "latestBlock", latestBlock.Number.Uint64())
 		return i.filter(ctx)
 	}
 
@@ -350,6 +370,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 		return nil
 	}
 
+	slog.Info("processing is caught up to latest block, subscribing to new blocks")
 	return i.subscribe(ctx, i.srcChainId)
 }
 
