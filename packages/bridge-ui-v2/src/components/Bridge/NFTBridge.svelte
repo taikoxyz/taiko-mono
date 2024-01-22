@@ -9,7 +9,10 @@
   import { Step, Stepper } from '$components/Stepper';
   import { hasBridge } from '$libs/bridge/bridges';
   import { BridgePausedError } from '$libs/error';
-  import { ETHToken } from '$libs/token';
+  import { ETHToken, type NFT } from '$libs/token';
+  import { fetchNFTImageUrl } from '$libs/token/fetchNFTImageUrl';
+  import { getCanonicalInfoForToken } from '$libs/token/getCanonicalInfo';
+  import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { type Account, account } from '$stores/account';
   import type { Network } from '$stores/network';
@@ -162,29 +165,58 @@
   //   );
   // };
 
-  // const manualImportAction = async () => {
-  //   if (!$network?.id) throw new Error('network not found');
-  //   const srcChainId = $network?.id;
-  //   const tokenId = nftIdArray[0];
+  const prefetchImage = async () => {
+    const srcChainId = $network?.id;
+    const destChainId = $destinationChain?.id;
+    if (!srcChainId || !destChainId) throw new Error('both src and dest chain id must be defined');
+    await Promise.all(
+      nftIdArray.map(async (id) => {
+        const token = $selectedToken as NFT;
+        if (token) {
+          token.tokenId = id;
+          fetchNFTImageUrl(token, srcChainId, destChainId).then((nftWithUrl) => {
+            $selectedToken = nftWithUrl;
+            $selectedNFTs = [nftWithUrl];
+          });
+        } else {
+          throw new Error('no token');
+        }
+      }),
+    );
+  };
+  const manualImportAction = async () => {
+    if (!$network?.id) throw new Error('network not found');
+    const srcChainId = $network.id;
+    const destChainId = $destinationChain?.id;
+    const tokenId = nftIdArray[0];
 
-  //   if (isAddress(contractAddress) && srcChainId)
-  //     await getTokenWithInfoFromAddress({ contractAddress, srcChainId: srcChainId, tokenId, owner: $account?.address })
-  //       .then(async (token) => {
-  //         if (!token) throw new Error('no token with info');
-  //         // detectedTokenType = token.type;
-  //         // idInputState = IDInputState.VALID;
-  //         $selectedToken = token;
-  //         await prefetchImage();
+    if (!isAddress(contractAddress) || !srcChainId || !destChainId) {
+      return;
+    }
 
-  //         nextStep();
-  //       })
-  //       .catch((err) => {
-  //         console.error(err);
-  //         // detectedTokenType = null;
-  //         // idInputState = IDInputState.INVALID;
-  //         // invalidToken = true;
-  //       });
-  // };
+    try {
+      const token = await getTokenWithInfoFromAddress({
+        contractAddress,
+        srcChainId,
+        tokenId,
+        owner: $account?.address,
+      });
+      if (!token) throw new Error('no token with info');
+
+      $selectedToken = token;
+
+      const [, info] = await Promise.all([
+        prefetchImage(),
+        getCanonicalInfoForToken({ token, srcChainId, destChainId }),
+      ]);
+
+      if (info) $selectedTokenIsBridged = contractAddress !== info.address;
+
+      nextStep();
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleTransactionDetailsClick = () => {
     activeStep = NFTSteps.RECIPIENT;

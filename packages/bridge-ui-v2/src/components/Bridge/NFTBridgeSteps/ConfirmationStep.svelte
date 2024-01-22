@@ -16,7 +16,8 @@
   import { BridgePausedError } from '$libs/error';
   import { bridgeTxService } from '$libs/storage';
   import { TokenType } from '$libs/token';
-  import { checkTokenApprovalStatus } from '$libs/token/checkTokenApprovalStatus';
+  import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
+  import { getTokenApprovalStatus } from '$libs/token/getTokenApprovalStatus';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { account } from '$stores/account';

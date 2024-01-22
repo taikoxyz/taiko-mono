@@ -47,8 +47,6 @@
   export let validating: boolean = false;
   export let contractAddress: Address | string = '';
 
-  export const prefetchImage = () => noop();
-
   let enteredIds: number[] = [];
   let scanning: boolean;
 
@@ -166,8 +164,7 @@
         isOwnerOfAllToken = ownershipResults.every((value) => value.isOwner === true);
 
         if (!isOwnerOfAllToken) {
-          idInputState = IDInputState.INVALID;
-          throw new Error('Not owner of all tokens');
+          throw new WrongOwnerError('Not owner of all NFTs');
         }
         idInputState = IDInputState.VALID;
 
@@ -189,7 +186,7 @@
         $selectedNFTs = [token as NFT];
         idInputState = IDInputState.VALID;
 
-        $tokenBalance = token.type !== TokenType.ERC721 ? token.balance : null;
+        $tokenBalance = token.balance;
       } else {
         idInputState = IDInputState.INVALID;
       }
