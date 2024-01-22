@@ -51,3 +51,5 @@ export const selectedTokenIsBridged = writable(<boolean>false);
 
 // Derived state
 export const bridgeService = derived(selectedToken, (token) => (token ? bridges[token.type] : null));
+
+export const importDone = writable<boolean>(false);

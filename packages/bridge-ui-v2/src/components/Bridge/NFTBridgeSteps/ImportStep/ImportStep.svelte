@@ -9,7 +9,7 @@
   import ScannedImport from '$components/Bridge/NFTBridgeSteps/ImportStep/ScannedImport.svelte';
   import { destNetwork as destChain, selectedNFTs } from '$components/Bridge/state';
   import { ImportMethod } from '$components/Bridge/types';
-  import { ChainSelectorWrapper } from '$components/ChainSelector';
+  import CombinedChainSelector from '$components/ChainSelectors/CombinedChainSelector.svelte';
   import { PUBLIC_SLOW_L1_BRIDGING_WARNING } from '$env/static/public';
   import { fetchNFTs } from '$libs/bridge/fetchNFTs';
   import { LayerType } from '$libs/chain';
@@ -23,7 +23,6 @@
 
   let foundNFTs: NFT[] = [];
 
-  export let canProceed = false;
   export let validating = false;
 
   const scanForNFTs = async () => {
@@ -62,7 +61,7 @@
 </script>
 
 <div class="f-between-center gap-[16px] mt-[30px]">
-  <ChainSelectorWrapper />
+  <CombinedChainSelector />
 </div>
 
 {#if displayL1Warning}
@@ -70,9 +69,9 @@
 {/if}
 <div class="h-sep" />
 {#if $selectedImportMethod === ImportMethod.MANUAL}
-  <ManualImport bind:canProceed bind:validating />
+  <ManualImport bind:validating />
 {:else if $selectedImportMethod === ImportMethod.SCAN}
-  <ScannedImport {scanForNFTs} bind:foundNFTs bind:canProceed />
+  <ScannedImport {scanForNFTs} bind:foundNFTs />
 {:else}
   <ImportActions bind:scanning {canImport} {scanForNFTs} />
 {/if}

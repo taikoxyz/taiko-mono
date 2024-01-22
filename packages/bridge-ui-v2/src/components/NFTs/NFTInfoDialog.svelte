@@ -104,11 +104,10 @@
         <img alt="placeholder" src={placeholderUrl} class="rounded-[20px] self-center bg-white" />
       {/if}
       <img
-        alt="placeholder nft"
+        alt="nft"
         src={imageUrl || ''}
         class="rounded-[20px] self-center bg-white {!imageLoaded || imageUrl === '' ? 'hidden' : ''}"
         on:load={handleImageLoad} />
-
       <div id="metadata">
         <div class="f-between-center">
           <div class="text-secondary-content">{$t('common.collection')}</div>

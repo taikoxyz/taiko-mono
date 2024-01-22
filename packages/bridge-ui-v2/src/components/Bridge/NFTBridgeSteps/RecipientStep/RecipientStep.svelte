@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { ProcessingFee } from '../ProcessingFee';
-  import Recipient from '../Recipient.svelte';
+  import { ProcessingFee } from '../../ProcessingFee';
+  import Recipient from '../../Recipient.svelte';
 
   let recipientComponent: Recipient;
   let processingFeeComponent: ProcessingFee;

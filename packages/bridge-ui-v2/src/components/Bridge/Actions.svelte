@@ -51,15 +51,17 @@
   }
 
   onMount(async () => {
-    $validatingAmount = true;
-    if ($selectedTokenIsBridged) {
-      $allApproved = true;
-      $insufficientAllowance = false;
-    } else {
-      getTokenApprovalStatus($selectedToken);
+    if ($selectedToken) {
+      $validatingAmount = true;
+      if ($selectedTokenIsBridged) {
+        $allApproved = true;
+        $insufficientAllowance = false;
+      } else {
+        getTokenApprovalStatus($selectedToken);
+      }
+      isValidTokenBalance();
+      $validatingAmount = false;
     }
-    isValidTokenBalance();
-    $validatingAmount = false;
   });
 
   const isValidTokenBalance = () => {

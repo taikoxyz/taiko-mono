@@ -4,6 +4,17 @@
 
   import { routingContractsMap } from '$bridgeConfig';
   import { chainConfig } from '$chainConfig';
+  import Actions from '$components/Bridge/Actions.svelte';
+  import {
+    allApproved,
+    bridgeService,
+    destNetwork,
+    enteredAmount,
+    processingFee,
+    recipientAddress,
+    selectedNFTs,
+    selectedToken,
+  } from '$components/Bridge/state';
   import { Icon, type IconType } from '$components/Icon';
   import { successToast } from '$components/NotificationToast';
   import { infoToast } from '$components/NotificationToast/NotificationToast.svelte';
@@ -24,18 +35,6 @@
   import { network } from '$stores/network';
   import { pendingTransactions } from '$stores/pendingTransactions';
   import { theme } from '$stores/theme';
-
-  import Actions from '../Actions.svelte';
-  import {
-    allApproved,
-    bridgeService,
-    destNetwork,
-    enteredAmount,
-    processingFee,
-    recipientAddress,
-    selectedNFTs,
-    selectedToken,
-  } from '../state';
 
   export let bridgingStatus: 'pending' | 'done' = 'pending';
   let bridgeTxHash: Hash;
