@@ -1,9 +1,11 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
   import { Alert } from '$components/Alert';
   import { activeBridge } from '$components/Bridge/state';
+  import { destNetwork } from '$components/Bridge/state';
   import { BridgeTypes } from '$components/Bridge/types';
   import { Button } from '$components/Button';
   import { Card } from '$components/Card';
@@ -19,6 +21,8 @@
   import { transactionConfig } from '$config';
   import { PUBLIC_SLOW_L1_BRIDGING_WARNING } from '$env/static/public';
   import { type BridgeTransaction, fetchTransactions, MessageStatus } from '$libs/bridge';
+  import { chainIdToChain } from '$libs/chain';
+  import { getAlternateNetwork } from '$libs/network';
   import { bridgeTxService } from '$libs/storage';
   import { TokenType } from '$libs/token';
   import { account, network } from '$stores';
@@ -138,6 +142,14 @@
   $: renderNoTransactions = !renderLoading && transactionsToShow.length === 0;
 
   $: displayL1Warning = slowL1Warning;
+
+  onMount(() => {
+    const alternateChainID = getAlternateNetwork();
+    if (!$destNetwork && alternateChainID) {
+      // if only two chains are available, set the destination chain to the other one
+      $destNetwork = chainIdToChain(alternateChainID);
+    }
+  });
 </script>
 
 <div class="flex flex-col justify-center w-full">

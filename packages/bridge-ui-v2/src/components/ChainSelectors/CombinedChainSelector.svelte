@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import { chainConfig } from '$chainConfig';
@@ -43,6 +44,14 @@
 
   $: srcChain = $network;
   $: destChain = $destNetwork;
+
+  onMount(() => {
+    const alternateChainID = getAlternateNetwork();
+    if (!$destNetwork && alternateChainID) {
+      // if only two chains are available, set the destination chain to the other one
+      $destNetwork = chainIdToChain(alternateChainID);
+    }
+  });
 </script>
 
 <div class={containerClasses}>
