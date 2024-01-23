@@ -25,21 +25,14 @@ func (p *Processor) processSingle(ctx context.Context) error {
 		topic := log.Topics[0]
 
 		if topic == bridgeAbi.Events["MessageSent"].ID {
-			s := &bridge.BridgeMessageSent{}
-			err = bridgeAbi.UnpackIntoInterface(s, "MessageSent", log.Data)
+			event, err := p.destBridgeFilterer.ParseMessageSent(*log)
 			if err != nil {
 				return err
 			}
 
-			s.MsgHash = log.Topics[1]
-			s.Raw.TxHash = *p.targetTxHash
-			s.Raw.BlockNumber = receipt.BlockNumber.Uint64()
-			s.Raw.Address = log.Address
-			s.Raw.Topics = log.Topics
-
 			msg := queue.QueueMessageBody{
 				ID:    0,
-				Event: s,
+				Event: event,
 			}
 
 			marshalledMsg, err := json.Marshal(msg)
