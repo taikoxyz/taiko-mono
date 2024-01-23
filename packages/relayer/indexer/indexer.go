@@ -27,7 +27,8 @@ import (
 )
 
 var (
-	ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
+	ZeroAddress                                 = common.HexToAddress("0x0000000000000000000000000000000000000000")
+	numLatestBlocksToIgnoreWhileCrawling uint64 = 500
 )
 
 var (
@@ -270,12 +271,20 @@ func (i *Indexer) filter(ctx context.Context) error {
 		"batchsize", i.blockBatchSize,
 	)
 
-	for j := i.processingBlockHeight; j < header.Number.Uint64(); j += i.blockBatchSize {
+	endBlockID := header.Number.Uint64()
+
+	// ignore latest 1000 blocks, they are probably in queue already
+	// and are not "missed".
+	if i.watchMode == CrawlPastBlocks {
+		endBlockID = endBlockID - 1000
+	}
+
+	for j := i.processingBlockHeight; j < endBlockID; j += i.blockBatchSize {
 		end := i.processingBlockHeight + i.blockBatchSize
 		// if the end of the batch is greater than the latest block number, set end
 		// to the latest block number
-		if end > header.Number.Uint64() {
-			end = header.Number.Uint64()
+		if end > endBlockID {
+			end = endBlockID
 		}
 
 		// filter exclusive of the end block.
@@ -360,8 +369,14 @@ func (i *Indexer) filter(ctx context.Context) error {
 		return errors.Wrap(err, "i.srcEthClient.HeaderByNumber")
 	}
 
-	if i.processingBlockHeight < latestBlock.Number.Uint64() {
-		slog.Info("header has advanced", "processingBlockHeight", i.processingBlockHeight, "latestBlock", latestBlock.Number.Uint64())
+	latestBlockIDToCompare := latestBlock.Number.Uint64()
+
+	if i.watchMode == CrawlPastBlocks && latestBlockIDToCompare > numLatestBlocksToIgnoreWhileCrawling {
+		latestBlockIDToCompare = latestBlockIDToCompare - numLatestBlocksToIgnoreWhileCrawling
+	}
+
+	if i.processingBlockHeight < latestBlockIDToCompare {
+		slog.Info("header has advanced", "processingBlockHeight", i.processingBlockHeight, "latestBlock", latestBlockIDToCompare)
 		return i.filter(ctx)
 	}
 
@@ -371,6 +386,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 	}
 
 	slog.Info("processing is caught up to latest block, subscribing to new blocks")
+
 	return i.subscribe(ctx, i.srcChainId)
 }
 
