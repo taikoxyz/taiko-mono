@@ -63,7 +63,11 @@ func (i *Indexer) handleEvent(
 		return errors.Wrap(err, "eventTypeAmountAndCanonicalTokenFromEvent(event)")
 	}
 
-	existingEvent, err := i.eventRepo.FirstByEventAndMsgHash(ctx, relayer.EventNameMessageSent, common.Hash(event.MsgHash).Hex())
+	existingEvent, err := i.eventRepo.FirstByEventAndMsgHash(
+		ctx,
+		relayer.EventNameMessageSent,
+		common.Hash(event.MsgHash).Hex(),
+	)
 	if err != nil {
 		return errors.Wrap(err, "i.eventRepo.FirstByEventAndMsgHash")
 	}

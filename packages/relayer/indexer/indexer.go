@@ -279,7 +279,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 	// ignore latest N blocks, they are probably in queue already
 	// and are not "missed".
 	if i.watchMode == CrawlPastBlocks {
-		endBlockID = endBlockID - i.numLatestBlocksToIgnoreWhenCrawling
+		endBlockID -= i.numLatestBlocksToIgnoreWhenCrawling
 	}
 
 	for j := i.processingBlockHeight; j < endBlockID; j += i.blockBatchSize {
@@ -375,11 +375,15 @@ func (i *Indexer) filter(ctx context.Context) error {
 	latestBlockIDToCompare := latestBlock.Number.Uint64()
 
 	if i.watchMode == CrawlPastBlocks && latestBlockIDToCompare > i.numLatestBlocksToIgnoreWhenCrawling {
-		latestBlockIDToCompare = latestBlockIDToCompare - i.numLatestBlocksToIgnoreWhenCrawling
+		latestBlockIDToCompare -= i.numLatestBlocksToIgnoreWhenCrawling
 	}
 
 	if i.processingBlockHeight < latestBlockIDToCompare {
-		slog.Info("header has advanced", "processingBlockHeight", i.processingBlockHeight, "latestBlock", latestBlockIDToCompare)
+		slog.Info("header has advanced",
+			"processingBlockHeight", i.processingBlockHeight,
+			"latestBlock", latestBlockIDToCompare,
+		)
+
 		return i.filter(ctx)
 	}
 
