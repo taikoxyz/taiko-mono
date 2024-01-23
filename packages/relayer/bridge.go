@@ -26,4 +26,5 @@ type Bridge interface {
 		sink chan<- *bridge.BridgeMessageStatusChanged,
 		msgHash [][32]byte,
 	) (event.Subscription, error)
+	ParseMessageSent(log types.Log) (*bridge.BridgeMessageSent, error)
 }

@@ -25,7 +25,7 @@ func (p *Processor) processSingle(ctx context.Context) error {
 		topic := log.Topics[0]
 
 		if topic == bridgeAbi.Events["MessageSent"].ID {
-			event, err := p.destBridgeFilterer.ParseMessageSent(*log)
+			event, err := p.destBridge.ParseMessageSent(*log)
 			if err != nil {
 				return err
 			}

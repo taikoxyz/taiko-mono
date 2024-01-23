@@ -149,3 +149,7 @@ func (b *Bridge) ProveMessageReceived(opts *bind.CallOpts, message bridge.IBridg
 
 	return false, nil
 }
+
+func (b *Bridge) ParseMessageSent(log types.Log) (*bridge.BridgeMessageSent, error) {
+	return &bridge.BridgeMessageSent{}, nil
+}

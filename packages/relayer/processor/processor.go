@@ -78,12 +78,11 @@ type Processor struct {
 
 	srcSignalService relayer.SignalService
 
-	destBridge         relayer.Bridge
-	destBridgeFilterer *bridge.BridgeFilterer
-	destHeaderSyncer   relayer.HeaderSyncer
-	destERC20Vault     relayer.TokenVault
-	destERC1155Vault   relayer.TokenVault
-	destERC721Vault    relayer.TokenVault
+	destBridge       relayer.Bridge
+	destHeaderSyncer relayer.HeaderSyncer
+	destERC20Vault   relayer.TokenVault
+	destERC1155Vault relayer.TokenVault
+	destERC721Vault  relayer.TokenVault
 
 	prover *proof.Prover
 
@@ -258,11 +257,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		return err
 	}
 
-	destBridgeFilter, err := bridge.NewBridgeFilterer(cfg.DestBridgeAddress, destEthClient)
-	if err != nil {
-		return err
-	}
-
 	srcChainID, err := srcEthClient.ChainID(context.Background())
 	if err != nil {
 		return err
@@ -315,7 +309,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.srcSignalService = srcSignalService
 
 	p.destBridge = destBridge
-	p.destBridgeFilterer = destBridgeFilter
 	p.destERC1155Vault = destERC1155Vault
 	p.destERC20Vault = destERC20Vault
 	p.destERC721Vault = destERC721Vault
