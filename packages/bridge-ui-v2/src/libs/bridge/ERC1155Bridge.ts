@@ -6,11 +6,13 @@ import { bridgeService } from '$config';
 import {
   ApproveError,
   NoApprovalRequiredError,
+  NoCanonicalInfoFoundError,
   NotApprovedError,
   ProcessMessageError,
   SendERC1155Error,
 } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
+import { getCanonicalInfoForAddress } from '$libs/token/getCanonicalInfo';
 import { getLogger } from '$libs/util/logger';
 
 import { Bridge } from './Bridge';
@@ -62,7 +64,7 @@ export class ERC1155Bridge extends Bridge {
   }
 
   async bridge(args: ERC1155BridgeArgs) {
-    const { token, tokenVaultAddress, tokenIds, wallet } = args;
+    const { token, tokenVaultAddress, tokenIds, wallet, srcChainId, destChainId } = args;
     const { tokenVaultContract, sendERC1155Args } = await ERC1155Bridge._prepareTransaction(args);
     const { fee: value } = sendERC1155Args;
 
@@ -70,16 +72,24 @@ export class ERC1155Bridge extends Bridge {
 
     const tokenId = tokenIds[0]; // TODO: support multiple tokenIds
 
-    const isApprovedForAll = await this.isApprovedForAll({
-      tokenAddress: token,
-      spenderAddress: tokenVaultAddress,
-      tokenId: tokenId,
-      owner: wallet.account.address,
-      chainId: wallet.chain.id,
-    });
+    const info = await getCanonicalInfoForAddress({ address: token, srcChainId, destChainId });
+    if (!info) throw new NoCanonicalInfoFoundError('No canonical info found for token');
+    const { address: canonicalTokenAddress } = info;
 
-    if (!isApprovedForAll) {
-      throw new NotApprovedError(`Not approved for all for token`);
+    if (canonicalTokenAddress === token) {
+      // Token is native, we need to check if we have approval
+      const isApprovedForAll = await this.isApprovedForAll({
+        tokenAddress: token,
+        spenderAddress: tokenVaultAddress,
+        tokenId: tokenId,
+        owner: wallet.account.address,
+        chainId: wallet.chain.id,
+      });
+      if (!isApprovedForAll) {
+        throw new NotApprovedError(`Not approved for all for token`);
+      }
+    } else {
+      log('Token is bridged, no need to check for approval');
     }
 
     try {

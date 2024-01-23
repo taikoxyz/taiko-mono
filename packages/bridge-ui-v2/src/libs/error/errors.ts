@@ -30,6 +30,10 @@ export class NoTokenAddressError extends Error {
   name = 'NoTokenAddressError';
 }
 
+export class NoTokenError extends Error {
+  name = 'NoTokenError';
+}
+
 export class FailedTransactionError extends Error {
   name = 'FailedTransactionError';
 }
@@ -116,4 +120,16 @@ export class BridgePausedError extends Error {
 
 export class FilterLogsError extends Error {
   name = 'FilterLogsError';
+}
+
+export class NoCanonicalInfoFoundError extends Error {
+  name = 'NoCanonicalInfoFoundError';
+}
+
+export class InvalidParametersProvidedError extends Error {
+  name = 'InvalidParametersProvidedError';
+}
+
+export class InternalError extends Error {
+  name = 'InternalError';
 }
