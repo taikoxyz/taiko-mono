@@ -6,6 +6,7 @@
 		"signed_hash": "Signed Block Hash"
 	},
 	"common": {
+		"address": "Address",
 		"prover": "Guardian Prover"
 	},
 	"filter": {
