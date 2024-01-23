@@ -7,11 +7,13 @@ import {
   ApproveError,
   BridgePausedError,
   NoApprovalRequiredError,
+  NoCanonicalInfoFoundError,
   NotApprovedError,
   ProcessMessageError,
   SendERC721Error,
 } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
+import { getCanonicalInfoForAddress } from '$libs/token/getCanonicalInfo';
 import { isBridgePaused } from '$libs/util/checkForPausedContracts';
 import { getLogger } from '$libs/util/logger';
 
@@ -67,7 +69,7 @@ export class ERC721Bridge extends Bridge {
   }
 
   async bridge(args: ERC721BridgeArgs) {
-    const { token, tokenVaultAddress, tokenIds, wallet } = args;
+    const { token, tokenVaultAddress, tokenIds, wallet, srcChainId, destChainId } = args;
     const { tokenVaultContract, sendERC721Args } = await ERC721Bridge._prepareTransaction(args);
     const { fee: value } = sendERC721Args;
 
@@ -75,15 +77,23 @@ export class ERC721Bridge extends Bridge {
     const tokenId = tokenIds[0]; //TODO: handle multiple tokenIds
 
     try {
-      const requireApproval = await this.requiresApproval({
-        tokenAddress: token,
-        spenderAddress: tokenVaultAddress,
-        tokenId: tokenId,
-        chainId: wallet.chain.id,
-      });
+      const info = await getCanonicalInfoForAddress({ address: token, srcChainId, destChainId });
+      if (!info) throw new NoCanonicalInfoFoundError('No canonical info found for token');
+      const { address: canonicalTokenAddress } = info;
 
-      if (requireApproval) {
-        throw new NotApprovedError(`The token with id ${tokenId} is not approved for the token vault`);
+      if (canonicalTokenAddress === token) {
+        // Token is native, we need to check if we have approval
+        const requireApproval = await this.requiresApproval({
+          tokenAddress: token,
+          spenderAddress: tokenVaultAddress,
+          tokenId: tokenId,
+          chainId: wallet.chain.id,
+        });
+        if (requireApproval) {
+          throw new NotApprovedError(`The token with id ${tokenId} is not approved for the token vault`);
+        }
+      } else {
+        log('Token is bridged, no need to check for approval');
       }
     } catch (err) {
       throw new SendERC721Error('failed to bridge ERC721 token', { cause: err });
