@@ -27,8 +27,7 @@ import (
 )
 
 var (
-	ZeroAddress                                 = common.HexToAddress("0x0000000000000000000000000000000000000000")
-	numLatestBlocksToIgnoreWhileCrawling uint64 = 500
+	ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
 )
 
 var (
@@ -91,6 +90,8 @@ type Indexer struct {
 	ethClientTimeout time.Duration
 
 	wg *sync.WaitGroup
+
+	numLatestBlocksToIgnoreWhenCrawling uint64
 
 	ctx context.Context
 }
@@ -187,6 +188,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 
 	i.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
 
+	i.numLatestBlocksToIgnoreWhenCrawling = cfg.NumLatestBlocksToIgnoreWhenCrawling
+
 	return nil
 }
 
@@ -273,10 +276,10 @@ func (i *Indexer) filter(ctx context.Context) error {
 
 	endBlockID := header.Number.Uint64()
 
-	// ignore latest 1000 blocks, they are probably in queue already
+	// ignore latest N blocks, they are probably in queue already
 	// and are not "missed".
 	if i.watchMode == CrawlPastBlocks {
-		endBlockID = endBlockID - 1000
+		endBlockID = endBlockID - i.numLatestBlocksToIgnoreWhenCrawling
 	}
 
 	for j := i.processingBlockHeight; j < endBlockID; j += i.blockBatchSize {
@@ -371,8 +374,8 @@ func (i *Indexer) filter(ctx context.Context) error {
 
 	latestBlockIDToCompare := latestBlock.Number.Uint64()
 
-	if i.watchMode == CrawlPastBlocks && latestBlockIDToCompare > numLatestBlocksToIgnoreWhileCrawling {
-		latestBlockIDToCompare = latestBlockIDToCompare - numLatestBlocksToIgnoreWhileCrawling
+	if i.watchMode == CrawlPastBlocks && latestBlockIDToCompare > i.numLatestBlocksToIgnoreWhenCrawling {
+		latestBlockIDToCompare = latestBlockIDToCompare - i.numLatestBlocksToIgnoreWhenCrawling
 	}
 
 	if i.processingBlockHeight < latestBlockIDToCompare {
