@@ -299,9 +299,13 @@ func (p *Processor) processMessage(
 		relayer.DoneEvents.Inc()
 	}
 
-	// update message status
-	if err := p.eventRepo.UpdateStatus(ctx, msgBody.ID, relayer.EventStatus(messageStatus)); err != nil {
-		return errors.Wrap(err, fmt.Sprintf("p.eventRepo.UpdateStatus, id: %v", msgBody.ID))
+	// internal will only be set if it's an actual queue message, not a targeted
+	// transaction hash.
+	if msg.Internal != nil {
+		// update message status
+		if err := p.eventRepo.UpdateStatus(ctx, msgBody.ID, relayer.EventStatus(messageStatus)); err != nil {
+			return errors.Wrap(err, fmt.Sprintf("p.eventRepo.UpdateStatus, id: %v", msgBody.ID))
+		}
 	}
 
 	return nil
