@@ -52,11 +52,13 @@
 
   onMount(async () => {
     $validatingAmount = true;
-    if ($selectedTokenIsBridged) {
-      $allApproved = true;
-      $insufficientAllowance = false;
-    } else {
-      getTokenApprovalStatus($selectedToken);
+    if ($selectedToken) {
+      if ($selectedTokenIsBridged) {
+        $allApproved = true;
+        $insufficientAllowance = false;
+      } else {
+        getTokenApprovalStatus($selectedToken);
+      }
     }
     isValidTokenBalance();
     $validatingAmount = false;
@@ -112,7 +114,7 @@
   $: isERC1155 = $selectedToken?.type === TokenType.ERC1155;
   $: isETH = $selectedToken?.type === TokenType.ETH;
 
-  $: validApprovalStatus = $selectedTokenIsBridged ? true : $allApproved;
+  $: validApprovalStatus = $selectedTokenIsBridged || isETH ? true : $allApproved;
 
   $: commonConditions =
     validApprovalStatus &&
