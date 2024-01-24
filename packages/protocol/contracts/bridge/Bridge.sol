@@ -35,13 +35,18 @@ contract Bridge is EssentialContract, IBridge {
         RECALLED
     }
 
+    struct Receive {
+        uint64 timestamp;
+        bool paused;
+    }
+
     uint256 internal constant PLACEHOLDER = type(uint256).max;
 
     uint128 public nextMessageId; // slot 1
     mapping(bytes32 msgHash => bool recalled) private __isMessageRecalled; // deprecated
     mapping(bytes32 msgHash => Status) public messageStatus; // slot 3
     Context private _ctx; // // slot 4,5,6
-    mapping(bytes32 msgHash => uint64) public messageReceivedAt;
+    mapping(bytes32 msgHash => Receive) public messageReceive;
     uint256[43] private __gap;
 
     event SignalSent(address indexed sender, bytes32 msgHash);
@@ -51,6 +56,7 @@ contract Bridge is EssentialContract, IBridge {
     event MessageExecuted(bytes32 indexed msgHash);
     event DestChainEnabled(uint64 indexed chainId, bool enabled);
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
+    event MessagePaused(bytes32 indexed msgHash, bool isRecall, bool paused);
 
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
@@ -64,6 +70,7 @@ contract Bridge is EssentialContract, IBridge {
     error B_PERMISSION_DENIED();
     error B_RECALLED_ALREADY();
     error B_STATUS_MISMATCH();
+    error B_INVOCATION_PAUSED();
     error B_INVOCATION_TOO_EARLY();
 
     modifier sameChain(uint64 chainId) {
@@ -78,6 +85,20 @@ contract Bridge is EssentialContract, IBridge {
     function init(address _addressManager) external initializer {
         __Essential_init(_addressManager);
         _ctx.msgHash == bytes32(PLACEHOLDER);
+    }
+
+    function pauseMessageInvocation(
+        bytes32 msgHash,
+        bool isRecall,
+        bool toPause
+    )
+        external
+        onlyFromNamed("bridge_watchdog")
+    {
+        bytes32 signal = isRecall ? signalForFailedMessage(msgHash) : msgHash;
+        messageReceive[signal].paused = toPause;
+
+        emit MessagePaused(msgHash, isRecall, toPause);
     }
 
     /// @notice Sends a message to the destination chain and takes custody
@@ -139,7 +160,7 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 failureSignal = signalForFailedMessage(msgHash);
         if (messageStatus[failureSignal] != Status.NEW) revert B_RECALLED_ALREADY();
 
-        bool isMessageNew = messageReceivedAt[failureSignal] == 0;
+        bool isMessageNew = messageReceive[failureSignal].timestamp == 0;
         if (isMessageNew) {
             ISignalService signalService = ISignalService(resolve("signal_service", false));
 
@@ -151,11 +172,13 @@ contract Bridge is EssentialContract, IBridge {
                 revert B_NOT_FAILED();
             }
 
-            messageReceivedAt[failureSignal] = uint64(block.timestamp);
+            messageReceive[failureSignal].timestamp = uint64(block.timestamp);
         }
 
-        if (block.timestamp >= getInvocationDelay() + messageReceivedAt[failureSignal]) {
-            delete messageReceivedAt[failureSignal];
+        if (messageReceive[failureSignal].paused) revert B_INVOCATION_PAUSED();
+
+        if (block.timestamp >= getInvocationDelay() + messageReceive[failureSignal].timestamp) {
+            delete messageReceive[failureSignal];
             messageStatus[failureSignal] = Status.RECALLED;
 
             // Execute the recall logic based on the contract's support for the
@@ -210,23 +233,25 @@ contract Bridge is EssentialContract, IBridge {
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
         ISignalService signalService = ISignalService(resolve("signal_service", false));
-        bool isMessageNew = messageReceivedAt[msgHash] == 0;
+        bool isMessageNew = messageReceive[msgHash].timestamp == 0;
 
         if (isMessageNew) {
             if (!_proveSignalReceived(signalService, msgHash, message.srcChainId, proof)) {
                 revert B_NOT_RECEIVED();
             }
-            messageReceivedAt[msgHash] = uint64(block.timestamp);
+            messageReceive[msgHash].timestamp = uint64(block.timestamp);
         }
 
-        if (block.timestamp >= getInvocationDelay() + messageReceivedAt[msgHash]) {
+        if (messageReceive[msgHash].paused) revert B_INVOCATION_PAUSED();
+
+        if (block.timestamp >= getInvocationDelay() + messageReceive[msgHash].timestamp) {
             // If the gas limit is set to zero, only the owner can process the
             // message.
             if (message.gasLimit == 0 && msg.sender != message.owner) {
                 revert B_PERMISSION_DENIED();
             }
 
-            delete messageReceivedAt[msgHash];
+            delete messageReceive[msgHash];
 
             uint256 refundAmount;
 
