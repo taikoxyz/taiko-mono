@@ -185,10 +185,6 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-    function getMessageExecutionDelay() public virtual returns (uint64) {
-        return 0;
-    }
-
     /// @notice Processes a bridge message on the destination chain. This
     /// function is callable by any address, including the `message.owner`.
     /// @dev The process begins by hashing the message and checking the message
@@ -378,6 +374,10 @@ contract Bridge is EssentialContract, IBridge {
             revert B_INVALID_CONTEXT();
         }
         return _ctx;
+    }
+
+    function getMessageExecutionDelay() public view virtual returns (uint64) {
+        return 0;
     }
 
     /// @notice Hash the message
