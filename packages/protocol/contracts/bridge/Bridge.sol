@@ -38,7 +38,7 @@ contract Bridge is EssentialContract, IBridge {
     uint256 internal constant PLACEHOLDER = type(uint256).max;
 
     uint128 public nextMessageId; // slot 1
-    mapping(bytes32 msgHash => bool recalled) private __deprecated__isMessageRecalled;
+    mapping(bytes32 msgHash => bool recalled) private __isMessageRecalled; // deprecated
     mapping(bytes32 msgHash => Status) public messageStatus; // slot 3
     Context private _ctx; // // slot 4,5,6
     mapping(bytes32 msgHash => uint64) public messageReceivedAt;
