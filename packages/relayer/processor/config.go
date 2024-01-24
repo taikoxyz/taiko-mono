@@ -33,6 +33,8 @@ type Config struct {
 	// private key
 	ProcessorPrivateKey *ecdsa.PrivateKey
 
+	TargetTxHash *common.Hash
+
 	// processing configs
 	HeaderSyncInterval   uint64
 	Confirmations        uint64
@@ -96,6 +98,13 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		})
 	}
 
+	var targetTxHash *common.Hash
+
+	if c.IsSet(flags.TargetTxHash.Name) {
+		hash := common.HexToHash(c.String(flags.TargetTxHash.Name))
+		targetTxHash = &hash
+	}
+
 	return &Config{
 		hopConfigs:              hopConfigs,
 		ProcessorPrivateKey:     processorPrivateKey,
@@ -127,6 +136,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		BackoffRetryInterval:    c.Uint64(flags.BackOffRetryInterval.Name),
 		BackOffMaxRetrys:        c.Uint64(flags.BackOffMaxRetrys.Name),
 		ETHClientTimeout:        c.Uint64(flags.ETHClientTimeout.Name),
+		TargetTxHash:            targetTxHash,
 		OpenDBFunc: func() (DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),

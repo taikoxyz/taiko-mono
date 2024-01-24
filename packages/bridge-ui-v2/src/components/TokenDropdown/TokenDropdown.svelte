@@ -10,15 +10,19 @@
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { tokenService } from '$libs/storage/services';
   import { ETHToken, type Token } from '$libs/token';
+  import { getCanonicalInfoForToken } from '$libs/token/getCanonicalInfo';
   import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
+  import { getLogger } from '$libs/util/logger';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
   import { network } from '$stores/network';
 
-  import { destNetwork } from '../Bridge/state';
+  import { destNetwork, selectedTokenIsBridged } from '../Bridge/state';
   import DialogView from './DialogView.svelte';
   import DropdownView from './DropdownView.svelte';
   import { symbolToIconMap } from './symbolToIconMap';
+
+  const log = getLogger('TokenDropdown');
 
   export let tokens: Token[] = [];
   export let value: Maybe<Token> = null;
@@ -61,15 +65,15 @@
       warningToast({ title: $t('messages.network.required') });
       return;
     }
+    if (!destChain || !destChain.id) {
+      warningToast({ title: $t('messages.network.required_dest') });
+      return;
+    }
 
     // if it is an imported Token, chances are we do not yet have the bridged address
     // for the destination chain, so we need to fetch it
     if (token.imported) {
       // ... in the case of imported tokens, we also require the destination chain to be selected.    if (!destChain) {
-      if (!destChain) {
-        warningToast({ title: $t('messages.network.required_dest') });
-        return;
-      }
 
       let bridgedAddress = null;
 
@@ -91,7 +95,13 @@
       }
     }
     value = token;
-
+    const info = await getCanonicalInfoForToken({ token, srcChainId: srcChain.id, destChainId: destChain.id });
+    if (info && value.addresses[srcChain.id] !== info.address) {
+      log('selected token is not canonical');
+      $selectedTokenIsBridged = true;
+    } else {
+      $selectedTokenIsBridged = false;
+    }
     closeMenu();
   };
 

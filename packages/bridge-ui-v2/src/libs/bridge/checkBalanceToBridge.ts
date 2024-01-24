@@ -5,17 +5,22 @@ import { routingContractsMap } from '$bridgeConfig';
 import {
   InsufficientAllowanceError,
   InsufficientBalanceError,
+  NoCanonicalInfoFoundError,
   RevertedWithFailedError,
   RevertedWithoutMessageError,
 } from '$libs/error';
 import { getAddress, type Token, TokenType } from '$libs/token';
+import { getCanonicalInfoForToken } from '$libs/token/getCanonicalInfo';
 import { isDeployedCrossChain } from '$libs/token/isDeployedCrossChain';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
+import { getLogger } from '$libs/util/logger';
 
 import { bridges } from './bridges';
 import { ERC20Bridge } from './ERC20Bridge';
 import { estimateCostOfBridging } from './estimateCostOfBridging';
 import type { ERC20BridgeArgs, ERC1155BridgeArgs, ETHBridgeArgs } from './types';
+
+const log = getLogger('token:checkBalanceToBridge');
 
 type CheckBalanceToBridgeCommonArgs = {
   to: Address;
@@ -96,6 +101,19 @@ async function handleErc1155Bridge(args: CheckBalanceToBridgeTokenArgs) {
   )
     throw new InsufficientBalanceError('you do not have enough balance to bridge');
 
+  const canonicalTokenInfo = await getCanonicalInfoForToken({
+    token,
+    srcChainId,
+    destChainId,
+  });
+  if (!canonicalTokenInfo) throw new NoCanonicalInfoFoundError();
+  const { address: canonicalTokenAddress } = canonicalTokenInfo;
+  if (canonicalTokenAddress !== tokenAddress) {
+    // we have a bridged token, no need for allowance check as we will burn the token
+    log('token is bridged, no need for allowance check');
+    return;
+  }
+
   const isTokenAlreadyDeployed = await isDeployedCrossChain({
     token,
     srcChainId,
@@ -142,16 +160,17 @@ async function handleErc20Bridge(args: CheckBalanceToBridgeTokenArgs): Promise<v
   const bridge = bridges[args.token.type];
 
   if (bridge instanceof ERC20Bridge) {
-    // Let's check the allowance to actually bridge the ERC20 token
-    const allowance = await bridge.requireAllowance({
-      amount: _amount,
-      tokenAddress,
-      ownerAddress: wallet.account.address,
-      spenderAddress: erc20VaultAddress,
+    const canonicalTokenInfo = await getCanonicalInfoForToken({
+      token,
+      srcChainId,
+      destChainId,
     });
-
-    if (allowance) {
-      throw new InsufficientAllowanceError(`insufficient allowance for the amount ${_amount}`);
+    if (!canonicalTokenInfo) throw new NoCanonicalInfoFoundError();
+    const { address: canonicalTokenAddress } = canonicalTokenInfo;
+    if (canonicalTokenAddress !== tokenAddress) {
+      // we have a bridged token, no need for allowance check as we will burn the token
+      log('token is bridged, no need for allowance check');
+      return;
     }
   }
 
@@ -171,11 +190,11 @@ async function handleErc20Bridge(args: CheckBalanceToBridgeTokenArgs): Promise<v
       isTokenAlreadyDeployed,
     } as ERC20BridgeArgs);
   } catch (err) {
-    console.error(err);
-
     // TODO: same here. Error code or instance would be better
     if (`${err}`.includes('insufficient allowance')) {
       throw new InsufficientAllowanceError(`insufficient allowance for the amount ${_amount}`, { cause: err });
+    } else {
+      console.error(err);
     }
   }
   if (!estimatedCost) throw new Error('estimated cost is undefined');

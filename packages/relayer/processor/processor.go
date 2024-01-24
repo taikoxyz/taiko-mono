@@ -112,6 +112,8 @@ type Processor struct {
 	destChainId *big.Int
 
 	taikoL2 *taikol2.TaikoL2
+
+	targetTxHash *common.Hash // optional, set to target processing a specific txHash only
 }
 
 func (p *Processor) InitFromCli(ctx context.Context, c *cli.Context) error {
@@ -207,11 +209,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		})
 	}
 
-	q, err := cfg.OpenQueueFunc()
-	if err != nil {
-		return err
-	}
-
 	srcSignalService, err := signalservice.NewSignalService(
 		cfg.SrcSignalServiceAddress,
 		srcEthClient,
@@ -294,6 +291,14 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		p.taikoL2 = taikoL2
 	}
 
+	var q queue.Queue
+	if p.targetTxHash != nil {
+		q, err = cfg.OpenQueueFunc()
+		if err != nil {
+			return err
+		}
+	}
+
 	p.hops = hops
 	p.prover = prover
 	p.eventRepo = eventRepository
@@ -335,6 +340,8 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.backOffMaxRetries = cfg.BackOffMaxRetrys
 	p.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
 
+	p.targetTxHash = cfg.TargetTxHash
+
 	return nil
 }
 
@@ -352,6 +359,14 @@ func (p *Processor) Start() error {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	p.cancel = cancel
+
+	// if a targetTxHash is set, we only want to process that specific one.
+	if p.targetTxHash != nil {
+		return p.processSingle(ctx)
+	}
+
+	// otherwise, we can start the queue, and process messages from it
+	// via eventloop.
 
 	if err := p.queue.Start(ctx, p.queueName()); err != nil {
 		return err

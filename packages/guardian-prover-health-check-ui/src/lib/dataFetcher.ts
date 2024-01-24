@@ -22,7 +22,9 @@ const BLOCKS_TO_CHECK = 20;
 const THRESHOLD = BLOCKS_TO_CHECK / 2;
 const HEALTHCHECK_TIMEOUT_IN_SECONDS = 60;
 
+
 export function startFetching() {
+	if (get(loading) === true) return;
 	// Fetch all data immediately
 	refreshData();
 
@@ -36,7 +38,6 @@ export function startFetching() {
 		fetchSignedBlockStats();
 		determineLiveliness();
 	}, 12000);
-
 	// Return a function to clear all intervals
 	return () => {
 		clearInterval(guardiansInterval);
@@ -45,6 +46,7 @@ export function startFetching() {
 }
 
 export async function refreshData() {
+	if (get(loading) === true) return;
 	loading.set(true);
 	await fetchSignedBlockStats();
 	await fetchGuardians();
