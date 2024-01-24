@@ -38,14 +38,17 @@ contract Bridge is EssentialContract, IBridge {
     uint256 internal constant PLACEHOLDER = type(uint256).max;
 
     uint128 public nextMessageId; // slot 1
-    mapping(bytes32 msgHash => bool recalled) private __deprecated__isMessageRecalled;
+    mapping(bytes32 msgHash => bool recalled) private __isMessageRecalled; // deprecated
     mapping(bytes32 msgHash => Status) public messageStatus; // slot 3
-    Context private _ctx; // // slot 4,5,6pnpm
-    uint256[44] private __gap;
+    Context private _ctx; // // slot 4,5,6
+    mapping(bytes32 msgHash => uint64) public messageReceivedAt;
+    uint256[43] private __gap;
 
     event SignalSent(address indexed sender, bytes32 msgHash);
     event MessageSent(bytes32 indexed msgHash, Message message);
+    event MessageReceived(bytes32 indexed msgHash, Message message, bool isRecall);
     event MessageRecalled(bytes32 indexed msgHash);
+    event MessageExecuted(bytes32 indexed msgHash);
     event DestChainEnabled(uint64 indexed chainId, bool enabled);
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
 
@@ -61,6 +64,7 @@ contract Bridge is EssentialContract, IBridge {
     error B_PERMISSION_DENIED();
     error B_RECALLED_ALREADY();
     error B_STATUS_MISMATCH();
+    error B_INVOCATION_TOO_EARLY();
 
     modifier sameChain(uint64 chainId) {
         if (chainId != block.chainid) revert B_INVALID_CHAINID();
@@ -132,41 +136,57 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(message.srcChainId)
     {
         bytes32 msgHash = hashMessage(message);
-        bytes32 failureSignal = _signalForFailedMessage(msgHash);
+        bytes32 failureSignal = signalForFailedMessage(msgHash);
         if (messageStatus[failureSignal] != Status.NEW) revert B_RECALLED_ALREADY();
 
-        ISignalService signalService = ISignalService(resolve("signal_service", false));
-        if (!signalService.isSignalSent(address(this), msgHash)) revert B_MESSAGE_NOT_SENT();
+        bool isMessageNew = messageReceivedAt[failureSignal] == 0;
+        if (isMessageNew) {
+            ISignalService signalService = ISignalService(resolve("signal_service", false));
 
-        bool received =
-            _proveSignalReceived(signalService, failureSignal, message.destChainId, proof);
-        if (!received) revert B_NOT_FAILED();
+            if (!signalService.isSignalSent(address(this), msgHash)) {
+                revert B_MESSAGE_NOT_SENT();
+            }
 
-        messageStatus[failureSignal] = Status.RECALLED;
+            if (!_proveSignalReceived(signalService, failureSignal, message.destChainId, proof)) {
+                revert B_NOT_FAILED();
+            }
 
-        // Execute the recall logic based on the contract's support for the
-        // IRecallableSender interface
-        bool support = message.from.supportsInterface(type(IRecallableSender).interfaceId);
-        if (support) {
-            _ctx =
-                Context({ msgHash: msgHash, from: address(this), srcChainId: message.srcChainId });
-
-            // Perform recall
-            IRecallableSender(message.from).onMessageRecalled{ value: message.value }(
-                message, msgHash
-            );
-
-            // Reset the context after the message call
-            _ctx = Context({
-                msgHash: bytes32(PLACEHOLDER),
-                from: address(uint160(PLACEHOLDER)),
-                srcChainId: uint64(PLACEHOLDER)
-            });
-        } else {
-            message.owner.sendEther(message.value);
+            messageReceivedAt[failureSignal] = uint64(block.timestamp);
         }
 
-        emit MessageRecalled(msgHash);
+        if (block.timestamp >= getInvocationDelay() + messageReceivedAt[failureSignal]) {
+            delete messageReceivedAt[failureSignal];
+            messageStatus[failureSignal] = Status.RECALLED;
+
+            // Execute the recall logic based on the contract's support for the
+            // IRecallableSender interface
+            if (message.from.supportsInterface(type(IRecallableSender).interfaceId)) {
+                _ctx = Context({
+                    msgHash: msgHash,
+                    from: address(this),
+                    srcChainId: message.srcChainId
+                });
+
+                // Perform recall
+                IRecallableSender(message.from).onMessageRecalled{ value: message.value }(
+                    message, msgHash
+                );
+
+                // Reset the context after the message call
+                _ctx = Context({
+                    msgHash: bytes32(PLACEHOLDER),
+                    from: address(uint160(PLACEHOLDER)),
+                    srcChainId: uint64(PLACEHOLDER)
+                });
+            } else {
+                message.owner.sendEther(message.value);
+            }
+            emit MessageRecalled(msgHash);
+        } else if (isMessageNew) {
+            emit MessageReceived(msgHash, message, true);
+        } else {
+            revert B_INVOCATION_TOO_EARLY();
+        }
     }
 
     /// @notice Processes a bridge message on the destination chain. This
@@ -186,58 +206,67 @@ contract Bridge is EssentialContract, IBridge {
         whenNotPaused
         sameChain(message.destChainId)
     {
-        // If the gas limit is set to zero, only the owner can process the
-        // message.
-        if (message.gasLimit == 0 && msg.sender != message.owner) {
-            revert B_PERMISSION_DENIED();
-        }
-
         bytes32 msgHash = hashMessage(message);
-
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
         ISignalService signalService = ISignalService(resolve("signal_service", false));
-        if (!_proveSignalReceived(signalService, msgHash, message.srcChainId, proof)) {
-            revert B_NOT_RECEIVED();
-        }
+        bool isMessageNew = messageReceivedAt[msgHash] == 0;
 
-        Status status;
-        uint256 refundAmount;
-
-        // Process message differently based on the target address
-        if (
-            message.to == address(0) || message.to == address(this)
-                || message.to == address(signalService)
-        ) {
-            // Handle special addresses that don't require actual invocation but
-            // mark message as DONE
-            status = Status.DONE;
-            refundAmount = message.value;
-        } else {
-            // Use the specified message gas limit if called by the owner, else
-            // use remaining gas
-            uint256 gasLimit = msg.sender == message.owner ? gasleft() : message.gasLimit;
-
-            if (_invokeMessageCall(message, msgHash, gasLimit)) {
-                status = Status.DONE;
-            } else {
-                status = Status.RETRIABLE;
+        if (isMessageNew) {
+            if (!_proveSignalReceived(signalService, msgHash, message.srcChainId, proof)) {
+                revert B_NOT_RECEIVED();
             }
+            messageReceivedAt[msgHash] = uint64(block.timestamp);
         }
 
-        // Update the message status
-        _updateMessageStatus(signalService, msgHash, status);
+        if (block.timestamp >= getInvocationDelay() + messageReceivedAt[msgHash]) {
+            // If the gas limit is set to zero, only the owner can process the
+            // message.
+            if (message.gasLimit == 0 && msg.sender != message.owner) {
+                revert B_PERMISSION_DENIED();
+            }
 
-        // Determine the refund recipient
-        address refundTo = message.refundTo == address(0) ? message.owner : message.refundTo;
+            delete messageReceivedAt[msgHash];
 
-        // Refund the processing fee
-        if (msg.sender == refundTo) {
-            refundTo.sendEther(message.fee + refundAmount);
+            uint256 refundAmount;
+
+            // Process message differently based on the target address
+            if (
+                message.to == address(0) || message.to == address(this)
+                    || message.to == address(signalService)
+            ) {
+                // Handle special addresses that don't require actual invocation but
+                // mark message as DONE
+                refundAmount = message.value;
+                _updateMessageStatus(msgHash, Status.DONE);
+            } else {
+                // Use the specified message gas limit if called by the owner, else
+                // use remaining gas
+                uint256 gasLimit = msg.sender == message.owner ? gasleft() : message.gasLimit;
+
+                if (_invokeMessageCall(message, msgHash, gasLimit)) {
+                    _updateMessageStatus(msgHash, Status.DONE);
+                } else {
+                    _updateMessageStatus(msgHash, Status.RETRIABLE);
+                }
+            }
+
+            // Determine the refund recipient
+            address refundTo = message.refundTo == address(0) ? message.owner : message.refundTo;
+
+            // Refund the processing fee
+            if (msg.sender == refundTo) {
+                refundTo.sendEther(message.fee + refundAmount);
+            } else {
+                // If sender is another address, reward it and refund the rest
+                msg.sender.sendEther(message.fee);
+                refundTo.sendEther(refundAmount);
+            }
+            emit MessageExecuted(msgHash);
+        } else if (isMessageNew) {
+            emit MessageReceived(msgHash, message, false);
         } else {
-            // If sender is another address, reward it and refund the rest
-            msg.sender.sendEther(message.fee);
-            refundTo.sendEther(refundAmount);
+            revert B_INVOCATION_TOO_EARLY();
         }
     }
 
@@ -272,15 +301,11 @@ contract Bridge is EssentialContract, IBridge {
 
         // Attempt to invoke the messageCall.
         if (_invokeMessageCall(message, msgHash, gasleft())) {
-            // Update the message status to "DONE" on successful invocation.
-            _updateMessageStatus(
-                ISignalService(resolve("signal_service", false)), msgHash, Status.DONE
-            );
+            _updateMessageStatus(msgHash, Status.DONE);
         } else if (isLastAttempt) {
-            // Update the message status to "FAILED"
-            _updateMessageStatus(
-                ISignalService(resolve("signal_service", false)), msgHash, Status.FAILED
-            );
+            _updateMessageStatus(msgHash, Status.FAILED);
+        } else {
+            // this transaction will revert
         }
     }
 
@@ -311,7 +336,7 @@ contract Bridge is EssentialContract, IBridge {
 
         return _proveSignalReceived(
             ISignalService(resolve("signal_service", false)),
-            _signalForFailedMessage(hashMessage(message)),
+            signalForFailedMessage(hashMessage(message)),
             message.destChainId,
             proof
         );
@@ -360,9 +385,20 @@ contract Bridge is EssentialContract, IBridge {
         return _ctx;
     }
 
+    /// @notice Returns the delay in seconds before a message can be executed
+    /// after being received.
+    function getInvocationDelay() public view virtual returns (uint256) {
+        return 0;
+    }
+
     /// @notice Hash the message
     function hashMessage(Message memory message) public pure returns (bytes32) {
         return keccak256(abi.encode("TAIKO_MESSAGE", message));
+    }
+
+    /// @notice Returns a signal representing a failed/recalled message.
+    function signalForFailedMessage(bytes32 msgHash) public pure returns (bytes32) {
+        return msgHash ^ bytes32(uint256(Status.FAILED));
     }
 
     /// @notice Invokes a call message on the Bridge.
@@ -402,20 +438,16 @@ contract Bridge is EssentialContract, IBridge {
     /// mapping, the status is updated and an event is emitted.
     /// @param msgHash The hash of the message.
     /// @param status The new status of the message.
-    function _updateMessageStatus(
-        ISignalService signalService,
-        bytes32 msgHash,
-        Status status
-    )
-        private
-    {
+    function _updateMessageStatus(bytes32 msgHash, Status status) private {
         if (messageStatus[msgHash] == status) return;
 
         messageStatus[msgHash] = status;
         emit MessageStatusChanged(msgHash, status);
 
         if (status == Status.FAILED) {
-            signalService.sendSignal(_signalForFailedMessage(msgHash));
+            ISignalService(resolve("signal_service", false)).sendSignal(
+                signalForFailedMessage(msgHash)
+            );
         }
     }
 
@@ -441,9 +473,5 @@ contract Bridge is EssentialContract, IBridge {
             signal: signal,
             proof: proof
         });
-    }
-
-    function _signalForFailedMessage(bytes32 msgHash) private pure returns (bytes32) {
-        return msgHash ^ bytes32(uint256(Status.FAILED));
     }
 }
