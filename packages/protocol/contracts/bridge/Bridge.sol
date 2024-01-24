@@ -133,11 +133,9 @@ contract Bridge is EssentialContract, IBridge {
     {
         bytes32 msgHash = hashMessage(message);
         bytes32 failureSignal = _signalForFailedMessage(msgHash);
-
         if (messageStatus[failureSignal] != Status.NEW) revert B_RECALLED_ALREADY();
 
         ISignalService signalService = ISignalService(resolve("signal_service", false));
-
         if (!signalService.isSignalSent(address(this), msgHash)) revert B_MESSAGE_NOT_SENT();
 
         bool received =
