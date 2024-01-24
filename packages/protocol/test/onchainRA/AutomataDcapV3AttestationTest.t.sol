@@ -26,9 +26,9 @@ contract AutomataDcapV3AttestationTest is Test, DcapTestUtils, V3JsonUtils {
     // use a network that where the P256Verifier contract exists
     // ref: https://github.com/daimo-eth/p256-verifier
     //string internal rpcUrl = vm.envString("RPC_URL");
-    string internal constant tcbInfoPath = "contracts/assets/0923/tcbInfo.json";
-    string internal constant idPath = "contracts/assets/0923/identity.json";
-    string internal constant v3QuotePath = "contracts/assets/0923/v3quote.json";
+    string internal constant tcbInfoPath = "/test/onchainRA/assets/0923/tcbInfo.json";
+    string internal constant idPath = "/test/onchainRA/assets/0923/identity.json";
+    string internal constant v3QuotePath = "/test/onchainRA/assets/0923/v3quote.json";
     address constant admin = address(1);
     address constant user = 0x0926b716f6aEF52F9F3C3474A2846e1Bf1ACedf6;
     bytes32 constant mrEnclave = 0x46049af725ec3986eeb788693df7bc5f14d3f2705106a19cd09b9d89237db1a0;
@@ -52,15 +52,12 @@ contract AutomataDcapV3AttestationTest is Test, DcapTestUtils, V3JsonUtils {
         p256Verifier = new P256Verifier();
         sigVerifyLib = new SigVerifyLib(address(p256Verifier));
         pemCertChainLib = new PEMCertChainLib();
-        attestation = new AutomataDcapV3Attestation(
-            address(sigVerifyLib),
-            address(pemCertChainLib)
-        );
+        attestation = new AutomataDcapV3Attestation(address(sigVerifyLib), address(pemCertChainLib));
         attestation.setMrEnclave(mrEnclave, true);
         attestation.setMrSigner(mrSigner, true);
 
-        string memory tcbInfoJson = vm.readFile(tcbInfoPath);
-        string memory enclaveIdJson = vm.readFile(idPath);
+        string memory tcbInfoJson = vm.readFile(string.concat(vm.projectRoot(), tcbInfoPath));
+        string memory enclaveIdJson = vm.readFile(string.concat(vm.projectRoot(), idPath));
 
         string memory fmspc = "00606a000000";
         (bool tcbParsedSuccess, TCBInfoStruct.TCBInfo memory parsedTcbInfo) =
@@ -84,7 +81,7 @@ contract AutomataDcapV3AttestationTest is Test, DcapTestUtils, V3JsonUtils {
 
     function testParsedQuoteAttestation() public {
         vm.prank(user);
-        string memory v3QuoteJsonStr = vm.readFile(v3QuotePath);
+        string memory v3QuoteJsonStr = vm.readFile(string.concat(vm.projectRoot(), v3QuotePath));
         console.log("[LOG] v3QuoteJsonStr: %s", v3QuoteJsonStr);
         bytes memory v3QuotePacked = vm.parseJson(v3QuoteJsonStr);
         console.logBytes(v3QuotePacked);
@@ -141,7 +138,8 @@ contract AutomataDcapV3AttestationTest is Test, DcapTestUtils, V3JsonUtils {
 
     function testComplexJson() public {
         vm.prank(user);
-        string memory simpleStr = vm.readFile("forge-test/assets/complex.json");
+        string memory simpleStr =
+            vm.readFile(string.concat(vm.projectRoot(), "/test/onchainRA/assets/complex.json"));
         console.log("[LOG] simpleStr: %s", simpleStr);
         bytes memory jsonPacked = vm.parseJson(simpleStr);
         console.logBytes(jsonPacked);
