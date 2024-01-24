@@ -56,7 +56,7 @@ contract Bridge is EssentialContract, IBridge {
     event MessageExecuted(bytes32 indexed msgHash);
     event DestChainEnabled(uint64 indexed chainId, bool enabled);
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
-    event MessagePaused(bytes32 indexed msgHash, bool isRecall, bool paused);
+    event MessagePaused(bytes32 indexed msgHash, bool paused);
 
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
@@ -89,16 +89,13 @@ contract Bridge is EssentialContract, IBridge {
 
     function pauseMessageInvocation(
         bytes32 msgHash,
-        bool isRecall,
         bool toPause
     )
         external
         onlyFromNamed("bridge_watchdog")
     {
-        bytes32 signal = isRecall ? signalForFailedMessage(msgHash) : msgHash;
-        messageReceive[signal].paused = toPause;
-
-        emit MessagePaused(msgHash, isRecall, toPause);
+        messageReceive[msgHash].paused = toPause;
+        emit MessagePaused(msgHash, toPause);
     }
 
     /// @notice Sends a message to the destination chain and takes custody
