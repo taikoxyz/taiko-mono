@@ -154,7 +154,7 @@ contract Bridge is EssentialContract, IBridge {
             messageReceivedAt[failureSignal] = uint64(block.timestamp);
         }
 
-        if (block.timestamp >= messageReceivedAt[failureSignal] + getMessageExecutionDelay()) {
+        if (block.timestamp >= getMessageExecutionDelay() + messageReceivedAt[failureSignal]) {
             delete messageReceivedAt[failureSignal];
             messageStatus[failureSignal] = Status.RECALLED;
 
@@ -219,7 +219,7 @@ contract Bridge is EssentialContract, IBridge {
             messageReceivedAt[msgHash] = uint64(block.timestamp);
         }
 
-        if (block.timestamp >= messageReceivedAt[msgHash] + getMessageExecutionDelay()) {
+        if (block.timestamp >= getMessageExecutionDelay() + messageReceivedAt[msgHash]) {
             // If the gas limit is set to zero, only the owner can process the
             // message.
             if (message.gasLimit == 0 && msg.sender != message.owner) {
@@ -393,7 +393,8 @@ contract Bridge is EssentialContract, IBridge {
         return _ctx;
     }
 
-    function getMessageExecutionDelay() public view virtual returns (uint64) {
+    /// @notice Returns the delay in seconds before a message can be executed after being received.
+    function getMessageExecutionDelay() public view virtual returns (uint256) {
         return 0;
     }
 
