@@ -387,6 +387,8 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice Returns the delay in seconds before a message can be executed
     /// after being received.
+    /// @dev Bridge contract deployed on L1 shall use a non-zero value for better
+    /// security.
     function getInvocationDelay() public view virtual returns (uint256) {
         return 0;
     }
