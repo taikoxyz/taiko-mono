@@ -136,7 +136,7 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(message.srcChainId)
     {
         bytes32 msgHash = hashMessage(message);
-        bytes32 failureSignal = _signalForFailedMessage(msgHash);
+        bytes32 failureSignal = signalForFailedMessage(msgHash);
         if (messageStatus[failureSignal] != Status.NEW) revert B_RECALLED_ALREADY();
 
         bool isMessageNew = messageReceivedAt[failureSignal] == 0;
@@ -344,7 +344,7 @@ contract Bridge is EssentialContract, IBridge {
 
         return _proveSignalReceived(
             ISignalService(resolve("signal_service", false)),
-            _signalForFailedMessage(hashMessage(message)),
+            signalForFailedMessage(hashMessage(message)),
             message.destChainId,
             proof
         );
@@ -403,6 +403,11 @@ contract Bridge is EssentialContract, IBridge {
         return keccak256(abi.encode("TAIKO_MESSAGE", message));
     }
 
+    /// @notice Returns a signal representing a failed/recalled message.
+    function signalForFailedMessage(bytes32 msgHash) public pure returns (bytes32) {
+        return msgHash ^ bytes32(uint256(Status.FAILED));
+    }
+
     /// @notice Invokes a call message on the Bridge.
     /// @param message The call message to be invoked.
     /// @param msgHash The hash of the message.
@@ -453,7 +458,7 @@ contract Bridge is EssentialContract, IBridge {
         emit MessageStatusChanged(msgHash, status);
 
         if (status == Status.FAILED) {
-            signalService.sendSignal(_signalForFailedMessage(msgHash));
+            signalService.sendSignal(signalForFailedMessage(msgHash));
         }
     }
 
@@ -479,9 +484,5 @@ contract Bridge is EssentialContract, IBridge {
             signal: signal,
             proof: proof
         });
-    }
-
-    function _signalForFailedMessage(bytes32 msgHash) private pure returns (bytes32) {
-        return msgHash ^ bytes32(uint256(Status.FAILED));
     }
 }
