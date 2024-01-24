@@ -4,10 +4,12 @@
 	import { AlertType } from '$components/Alert/types';
 	import { Spinner } from '$components/Spinner';
 	import { guardianProvers, minGuardianRequirement, loading, totalGuardianProvers } from '$stores';
+	import { GuardianProverStatus, type Guardian } from '$lib/types';
 
-	$: proverStatusesAlive = $guardianProvers
-		?.map((guardianProver) => guardianProver.alive)
-		.reduce((acc, curr) => acc + curr, 0);
+	$: proverStatusesAlive =
+		$guardianProvers?.filter(
+			(guardianProver: Guardian) => guardianProver.alive === GuardianProverStatus.ALIVE
+		).length ?? 0;
 
 	$: configuredCorrectly = $guardianProvers && $totalGuardianProvers !== 0;
 
