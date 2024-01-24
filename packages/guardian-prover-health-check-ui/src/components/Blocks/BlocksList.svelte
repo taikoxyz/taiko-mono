@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Paginator from '$components/Paginator/Paginator.svelte';
-	import { signedBlocks, totalGuardianProvers } from '$stores';
+	import { signedBlocks, totalGuardianProvers, guardianProvers } from '$stores';
 	import { Spinner } from '$components/Spinner';
 	import { t } from 'svelte-i18n';
 
@@ -25,7 +25,18 @@
 		<div class="col-span-3">{$t('blocks.signed')}</div>
 	</div>
 	{#each blocksToDisplay as { blockNumber, blocks }, index (blockNumber)}
-		{@const sortedProver = blocks.sort((a, b) => a.guardianProverID - b.guardianProverID)}
+		{@const singedByProvers = blocks.sort((a, b) => a.guardianProverID - b.guardianProverID)}
+		{@const missingProverIDs = Array.from(
+			{ length: $totalGuardianProvers },
+			(_, i) => i + 1
+		).filter((id) => !singedByProvers.find((p) => p.guardianProverID === id))}
+		{@const missingProvers = missingProverIDs.map((id) => ({
+			guardianProverID: id,
+			blockHash: 'N/A',
+			signature: 'N/A'
+		}))}
+		{@const allProvers = [...singedByProvers, ...missingProvers]}
+		{@const displayProvers = allProvers.sort((a, b) => a.guardianProverID - b.guardianProverID)}
 		<div class="collapse collapse-arrow bg-base-200 rounded-lg shadow-md">
 			<input type="checkbox" id={`block-${index}`} class="peer" />
 			<label for={`block-${index}`} class="collapse-title font-medium items-center">
@@ -34,16 +45,28 @@
 					{#if $totalGuardianProvers}
 						<div class="col-span-3">{blocks.length}/{$totalGuardianProvers}</div>
 					{:else}
-						<div class="col-span-3">{blocks.length}/<Spinner class="w-3 h-3" /></div>
+						<div class="col-span-3">{blocks.length}/<Spinner class="w-2 h-2" /></div>
 					{/if}
 				</div>
 			</label>
 			<div class="collapse-content bg-white">
-				{#each sortedProver as p}
+				{#each displayProvers as p}
+					{@const guardianProver = $guardianProvers?.find(
+						(g) => Number(g.id) === Number(p.guardianProverID)
+					)}
 					<div class="grid grid-cols-4 items-center border-b py-[24px]">
-						<p class="font-bold">{$t('common.prover')} {p.guardianProverID}</p>
+						<div class="f-col">
+							<p class="font-bold">{$t('common.prover')} {p.guardianProverID}</p>
+						</div>
 
 						<div class="space-y-[10px] text-sm w-full col-span-3">
+							<div>
+								<p class="text-secondary-content">{$t('common.address')}</p>
+								<span class="break-100-chars">
+									{guardianProver?.address}
+								</span>
+							</div>
+
 							<div>
 								<p class="text-secondary-content">{$t('blocks.signed_hash')}</p>
 								<span class="break-100-chars">{p.blockHash}</span>
