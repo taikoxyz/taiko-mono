@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE IF NOT EXISTS startup (
+CREATE TABLE IF NOT EXISTS startups (
     id int NOT NULL PRIMARY KEY AUTO_INCREMENT,
     guardian_prover_id int NOT NULL,
     guardian_prover_address VARCHAR(42) NOT NULL,
@@ -13,5 +13,5 @@ CREATE TABLE IF NOT EXISTS startup (
 -- +goose StatementEnd
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE startup;
+DROP TABLE startups;
 -- +goose StatementEnd
