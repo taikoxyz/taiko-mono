@@ -385,7 +385,8 @@ contract Bridge is EssentialContract, IBridge {
         return _ctx;
     }
 
-    /// @notice Returns the delay in seconds before a message can be executed after being received.
+    /// @notice Returns the delay in seconds before a message can be executed
+    /// after being received.
     function getInvocationDelay() public view virtual returns (uint256) {
         return 0;
     }
