@@ -48,6 +48,7 @@ contract Bridge is EssentialContract, IBridge {
     event MessageSent(bytes32 indexed msgHash, Message message);
     event MessageReceived(bytes32 indexed msgHash, Message message, bool isRecall);
     event MessageRecalled(bytes32 indexed msgHash);
+    event MessageExecuted(bytes32 indexed msgHash);
     event DestChainEnabled(uint64 indexed chainId, bool enabled);
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
 
@@ -141,7 +142,11 @@ contract Bridge is EssentialContract, IBridge {
         bool isMessageNew = messageReceivedAt[failureSignal] == 0;
         if (isMessageNew) {
             ISignalService signalService = ISignalService(resolve("signal_service", false));
-            if (!signalService.isSignalSent(address(this), msgHash)) revert B_MESSAGE_NOT_SENT();
+
+            if (!signalService.isSignalSent(address(this), msgHash)) {
+                revert B_MESSAGE_NOT_SENT();
+            }
+
             if (!_proveSignalReceived(signalService, failureSignal, message.destChainId, proof)) {
                 revert B_NOT_FAILED();
             }
@@ -155,8 +160,7 @@ contract Bridge is EssentialContract, IBridge {
 
             // Execute the recall logic based on the contract's support for the
             // IRecallableSender interface
-            bool support = message.from.supportsInterface(type(IRecallableSender).interfaceId);
-            if (support) {
+            if (message.from.supportsInterface(type(IRecallableSender).interfaceId)) {
                 _ctx = Context({
                     msgHash: msgHash,
                     from: address(this),
@@ -207,6 +211,7 @@ contract Bridge is EssentialContract, IBridge {
 
         ISignalService signalService = ISignalService(resolve("signal_service", false));
         bool isMessageNew = messageReceivedAt[msgHash] == 0;
+
         if (isMessageNew) {
             if (!_proveSignalReceived(signalService, msgHash, message.srcChainId, proof)) {
                 revert B_NOT_RECEIVED();
@@ -261,6 +266,7 @@ contract Bridge is EssentialContract, IBridge {
                 msg.sender.sendEther(message.fee);
                 refundTo.sendEther(refundAmount);
             }
+            emit MessageExecuted(msgHash);
         } else if (isMessageNew) {
             emit MessageReceived(msgHash, message, false);
         } else {
