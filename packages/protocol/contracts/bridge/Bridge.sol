@@ -175,9 +175,10 @@ contract Bridge is EssentialContract, IBridge {
             messageReceive[failureSignal].timestamp = uint64(block.timestamp);
         }
 
-        if (messageReceive[failureSignal].paused) revert B_INVOCATION_PAUSED();
+        Receive memory _receive = messageReceive[failureSignal];
+        if (_receive.paused) revert B_INVOCATION_PAUSED();
 
-        if (block.timestamp >= getInvocationDelay() + messageReceive[failureSignal].timestamp) {
+        if (block.timestamp >= getInvocationDelay() + _receive.timestamp) {
             delete messageReceive[failureSignal];
             messageStatus[failureSignal] = Status.RECALLED;
 
@@ -242,9 +243,10 @@ contract Bridge is EssentialContract, IBridge {
             messageReceive[msgHash].timestamp = uint64(block.timestamp);
         }
 
-        if (messageReceive[msgHash].paused) revert B_INVOCATION_PAUSED();
+        Receive memory _receive = messageReceive[msgHash];
+        if (_receive.paused) revert B_INVOCATION_PAUSED();
 
-        if (block.timestamp >= getInvocationDelay() + messageReceive[msgHash].timestamp) {
+        if (block.timestamp >= getInvocationDelay() + _receive.timestamp) {
             // If the gas limit is set to zero, only the owner can process the
             // message.
             if (message.gasLimit == 0 && msg.sender != message.owner) {
