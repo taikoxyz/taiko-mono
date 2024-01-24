@@ -40,11 +40,13 @@ contract Bridge is EssentialContract, IBridge {
     uint128 public nextMessageId; // slot 1
     mapping(bytes32 msgHash => bool recalled) private __deprecated__isMessageRecalled;
     mapping(bytes32 msgHash => Status) public messageStatus; // slot 3
-    Context private _ctx; // // slot 4,5,6pnpm
-    uint256[44] private __gap;
+    Context private _ctx; // // slot 4,5,6
+    mapping(bytes32 msgHash => uint64) public messageReceivedAt;
+    uint256[43] private __gap;
 
     event SignalSent(address indexed sender, bytes32 msgHash);
     event MessageSent(bytes32 indexed msgHash, Message message);
+    event MessageReceived(bytes32 indexed msgHash, Message message, bool isRecall);
     event MessageRecalled(bytes32 indexed msgHash);
     event DestChainEnabled(uint64 indexed chainId, bool enabled);
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
@@ -61,6 +63,7 @@ contract Bridge is EssentialContract, IBridge {
     error B_PERMISSION_DENIED();
     error B_RECALLED_ALREADY();
     error B_STATUS_MISMATCH();
+    error B_TOO_EARLY();
 
     modifier sameChain(uint64 chainId) {
         if (chainId != block.chainid) revert B_INVALID_CHAINID();
@@ -135,38 +138,55 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 failureSignal = _signalForFailedMessage(msgHash);
         if (messageStatus[failureSignal] != Status.NEW) revert B_RECALLED_ALREADY();
 
-        ISignalService signalService = ISignalService(resolve("signal_service", false));
-        if (!signalService.isSignalSent(address(this), msgHash)) revert B_MESSAGE_NOT_SENT();
+        bool notReceivedEalier = messageReceivedAt[failureSignal] == 0;
+        if (notReceivedEalier) {
+            ISignalService signalService = ISignalService(resolve("signal_service", false));
+            if (!signalService.isSignalSent(address(this), msgHash)) revert B_MESSAGE_NOT_SENT();
+            if (!_proveSignalReceived(signalService, failureSignal, message.destChainId, proof)) {
+                revert B_NOT_FAILED();
+            }
 
-        bool received =
-            _proveSignalReceived(signalService, failureSignal, message.destChainId, proof);
-        if (!received) revert B_NOT_FAILED();
-
-        messageStatus[failureSignal] = Status.RECALLED;
-
-        // Execute the recall logic based on the contract's support for the
-        // IRecallableSender interface
-        bool support = message.from.supportsInterface(type(IRecallableSender).interfaceId);
-        if (support) {
-            _ctx =
-                Context({ msgHash: msgHash, from: address(this), srcChainId: message.srcChainId });
-
-            // Perform recall
-            IRecallableSender(message.from).onMessageRecalled{ value: message.value }(
-                message, msgHash
-            );
-
-            // Reset the context after the message call
-            _ctx = Context({
-                msgHash: bytes32(PLACEHOLDER),
-                from: address(uint160(PLACEHOLDER)),
-                srcChainId: uint64(PLACEHOLDER)
-            });
-        } else {
-            message.owner.sendEther(message.value);
+            messageReceivedAt[failureSignal] = uint64(block.timestamp);
         }
 
-        emit MessageRecalled(msgHash);
+        if (block.timestamp >= messageReceivedAt[failureSignal] + getMessageExecutionDelay()) {
+            delete messageReceivedAt[failureSignal];
+            messageStatus[failureSignal] = Status.RECALLED;
+
+            // Execute the recall logic based on the contract's support for the
+            // IRecallableSender interface
+            bool support = message.from.supportsInterface(type(IRecallableSender).interfaceId);
+            if (support) {
+                _ctx = Context({
+                    msgHash: msgHash,
+                    from: address(this),
+                    srcChainId: message.srcChainId
+                });
+
+                // Perform recall
+                IRecallableSender(message.from).onMessageRecalled{ value: message.value }(
+                    message, msgHash
+                );
+
+                // Reset the context after the message call
+                _ctx = Context({
+                    msgHash: bytes32(PLACEHOLDER),
+                    from: address(uint160(PLACEHOLDER)),
+                    srcChainId: uint64(PLACEHOLDER)
+                });
+            } else {
+                message.owner.sendEther(message.value);
+            }
+            emit MessageRecalled(msgHash);
+        } else if (notReceivedEalier) {
+            emit MessageReceived(msgHash, message, true);
+        } else {
+            revert B_TOO_EARLY();
+        }
+    }
+
+    function getMessageExecutionDelay() public virtual returns (uint64) {
+        return 0;
     }
 
     /// @notice Processes a bridge message on the destination chain. This
