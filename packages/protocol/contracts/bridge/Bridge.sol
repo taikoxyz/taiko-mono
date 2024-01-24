@@ -31,13 +31,14 @@ contract Bridge is EssentialContract, IBridge {
         NEW,
         RETRIABLE,
         DONE,
-        FAILED
+        FAILED,
+        RECALLED
     }
 
     uint256 internal constant PLACEHOLDER = type(uint256).max;
 
     uint128 public nextMessageId; // slot 1
-    mapping(bytes32 msgHash => bool recalled) public isMessageRecalled;
+    mapping(bytes32 msgHash => bool recalled) private __deprecated__isMessageRecalled;
     mapping(bytes32 msgHash => Status) public messageStatus; // slot 3
     Context private _ctx; // // slot 4,5,6pnpm
     uint256[44] private __gap;
@@ -131,18 +132,19 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(message.srcChainId)
     {
         bytes32 msgHash = hashMessage(message);
-        if (isMessageRecalled[msgHash]) revert B_RECALLED_ALREADY();
+        bytes32 failureSignal = _signalForFailedMessage(msgHash);
+
+        if (messageStatus[failureSignal] != Status.NEW) revert B_RECALLED_ALREADY();
 
         ISignalService signalService = ISignalService(resolve("signal_service", false));
 
         if (!signalService.isSignalSent(address(this), msgHash)) revert B_MESSAGE_NOT_SENT();
 
-        bool received = _proveSignalReceived(
-            signalService, _signalForFailedMessage(msgHash), message.destChainId, proof
-        );
+        bool received =
+            _proveSignalReceived(signalService, failureSignal, message.destChainId, proof);
         if (!received) revert B_NOT_FAILED();
 
-        isMessageRecalled[msgHash] = true;
+        messageStatus[failureSignal] = Status.RECALLED;
 
         // Execute the recall logic based on the contract's support for the
         // IRecallableSender interface
