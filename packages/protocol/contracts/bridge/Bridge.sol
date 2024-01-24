@@ -95,7 +95,7 @@ contract Bridge is EssentialContract, IBridge {
         external
         onlyFromNamed("bridge_watchdog")
     {
-        for (uint256 i = 0; i < msgHashes.length; ++i) {
+        for (uint256 i; i < msgHashes.length; ++i) {
             messageReceive[msgHashes[i]].paused = toPause;
         }
         emit MessagesPaused(msgHashes, toPause);
