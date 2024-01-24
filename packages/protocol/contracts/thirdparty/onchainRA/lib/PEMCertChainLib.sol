@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {LibString} from "solady/src/Milady.sol";
-import {Asn1Decode, NodePtr} from "../utils/Asn1Decode.sol";
-import {BytesUtils} from "../utils/BytesUtils.sol";
-import {X509DateUtils} from "../utils/X509DateUtils.sol";
-import {IPEMCertChainLib} from "./interfaces/IPEMCertChainLib.sol";
+import { LibString } from "../../../../lib/solady/src/utils/LibString.sol";
+import { Asn1Decode, NodePtr } from "../utils/Asn1Decode.sol";
+import { BytesUtils } from "../utils/BytesUtils.sol";
+import { X509DateUtils } from "../utils/X509DateUtils.sol";
+import { IPEMCertChainLib } from "./interfaces/IPEMCertChainLib.sol";
 
 contract PEMCertChainLib is IPEMCertChainLib {
     using Asn1Decode for bytes;
@@ -35,7 +35,10 @@ contract PEMCertChainLib is IPEMCertChainLib {
         bool tcbFound;
     }
 
-    function splitCertificateChain(bytes memory pemChain, uint256 size)
+    function splitCertificateChain(
+        bytes memory pemChain,
+        uint256 size
+    )
         external
         pure
         returns (bool success, bytes[] memory certs)
@@ -66,7 +69,10 @@ contract PEMCertChainLib is IPEMCertChainLib {
         success = true;
     }
 
-    function decodeCert(bytes memory der, bool isPckCert)
+    function decodeCert(
+        bytes memory der,
+        bool isPckCert
+    )
         external
         pure
         returns (bool success, ECSha256Certificate memory cert)
@@ -84,7 +90,8 @@ contract PEMCertChainLib is IPEMCertChainLib {
         // The issuer commonName value is contained in the Issuer sequence
         // which is 3 elements below the first element of the tbsCertificate sequence
 
-        // The Validity sequence is located 4 elements below the first element of the tbsCertificate sequence
+        // The Validity sequence is located 4 elements below the first element of the tbsCertificate
+        // sequence
 
         // The subject commanName value is contained in the Subject sequence
         // which is 5 elements below the first element of the tbsCertificate sequence
@@ -122,7 +129,10 @@ contract PEMCertChainLib is IPEMCertChainLib {
             uint256 notAfterPtr = der.nextSiblingOf(notBeforePtr);
             bytes1 notBeforeTag = der[notBeforePtr.ixs()];
             bytes1 notAfterTag = der[notAfterPtr.ixs()];
-            if ((notBeforeTag != 0x17 && notBeforeTag == 0x18) || (notAfterTag != 0x17 && notAfterTag != 0x18)) {
+            if (
+                (notBeforeTag != 0x17 && notBeforeTag == 0x18)
+                    || (notAfterTag != 0x17 && notAfterTag != 0x18)
+            ) {
                 return (false, cert);
             }
             cert.notBefore = X509DateUtils.toTimestamp(der.bytesAt(notBeforePtr));
@@ -149,7 +159,8 @@ contract PEMCertChainLib is IPEMCertChainLib {
             uint256 subjectPublicKeyInfoPtr = der.firstChildOf(tbsPtr);
             subjectPublicKeyInfoPtr = der.nextSiblingOf(subjectPublicKeyInfoPtr);
 
-            // The Signature sequence is located two sibling elements below the tbsCertificate element
+            // The Signature sequence is located two sibling elements below the tbsCertificate
+            // element
             uint256 sigPtr = der.nextSiblingOf(tbsParentPtr);
             sigPtr = der.nextSiblingOf(sigPtr);
 
@@ -236,7 +247,14 @@ contract PEMCertChainLib is IPEMCertChainLib {
         return (true, contentBytes, endPos + FOOTER_LENGTH);
     }
 
-    function _trimBytes(bytes memory input, uint256 expectedLength) private pure returns (bytes memory output) {
+    function _trimBytes(
+        bytes memory input,
+        uint256 expectedLength
+    )
+        private
+        pure
+        returns (bytes memory output)
+    {
         uint256 n = input.length;
 
         if (n <= expectedLength) {
@@ -246,7 +264,11 @@ contract PEMCertChainLib is IPEMCertChainLib {
         output = input.substring(lengthDiff, expectedLength);
     }
 
-    function _findPckTcbInfo(bytes memory der, uint256 tbsPtr, uint256 tbsParentPtr)
+    function _findPckTcbInfo(
+        bytes memory der,
+        uint256 tbsPtr,
+        uint256 tbsParentPtr
+    )
         private
         pure
         returns (
@@ -314,7 +336,10 @@ contract PEMCertChainLib is IPEMCertChainLib {
         }
     }
 
-    function _findTcb(bytes memory der, uint256 oidPtr)
+    function _findTcb(
+        bytes memory der,
+        uint256 oidPtr
+    )
         private
         pure
         returns (bool success, uint256 pcesvn, uint256[] memory cpusvns)
@@ -328,8 +353,9 @@ contract PEMCertChainLib is IPEMCertChainLib {
             uint256 svnPtr = der.firstChildOf(svnParentPtr); // OID
             uint256 svnValuePtr = der.nextSiblingOf(svnPtr); // value
             bytes memory svnValueBytes = der.bytesAt(svnValuePtr);
-            uint16 svnValue =
-                svnValueBytes.length < 2 ? uint16(bytes2(svnValueBytes)) / 256 : uint16(bytes2(svnValueBytes));
+            uint16 svnValue = svnValueBytes.length < 2
+                ? uint16(bytes2(svnValueBytes)) / 256
+                : uint16(bytes2(svnValueBytes));
             if (BytesUtils.compareBytes(der.bytesAt(svnPtr), PCESVN_OID)) {
                 // pcesvn is 4 bytes in size
                 pcesvn = uint256(svnValue);
