@@ -138,8 +138,8 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 failureSignal = _signalForFailedMessage(msgHash);
         if (messageStatus[failureSignal] != Status.NEW) revert B_RECALLED_ALREADY();
 
-        bool notReceivedEalier = messageReceivedAt[failureSignal] == 0;
-        if (notReceivedEalier) {
+        bool isMessageNew = messageReceivedAt[failureSignal] == 0;
+        if (isMessageNew) {
             ISignalService signalService = ISignalService(resolve("signal_service", false));
             if (!signalService.isSignalSent(address(this), msgHash)) revert B_MESSAGE_NOT_SENT();
             if (!_proveSignalReceived(signalService, failureSignal, message.destChainId, proof)) {
@@ -178,7 +178,7 @@ contract Bridge is EssentialContract, IBridge {
                 message.owner.sendEther(message.value);
             }
             emit MessageRecalled(msgHash);
-        } else if (notReceivedEalier) {
+        } else if (isMessageNew) {
             emit MessageReceived(msgHash, message, true);
         } else {
             revert B_TOO_EARLY();
@@ -202,58 +202,69 @@ contract Bridge is EssentialContract, IBridge {
         whenNotPaused
         sameChain(message.destChainId)
     {
-        // If the gas limit is set to zero, only the owner can process the
-        // message.
-        if (message.gasLimit == 0 && msg.sender != message.owner) {
-            revert B_PERMISSION_DENIED();
-        }
-
         bytes32 msgHash = hashMessage(message);
-
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
         ISignalService signalService = ISignalService(resolve("signal_service", false));
-        if (!_proveSignalReceived(signalService, msgHash, message.srcChainId, proof)) {
-            revert B_NOT_RECEIVED();
-        }
-
-        Status status;
-        uint256 refundAmount;
-
-        // Process message differently based on the target address
-        if (
-            message.to == address(0) || message.to == address(this)
-                || message.to == address(signalService)
-        ) {
-            // Handle special addresses that don't require actual invocation but
-            // mark message as DONE
-            status = Status.DONE;
-            refundAmount = message.value;
-        } else {
-            // Use the specified message gas limit if called by the owner, else
-            // use remaining gas
-            uint256 gasLimit = msg.sender == message.owner ? gasleft() : message.gasLimit;
-
-            if (_invokeMessageCall(message, msgHash, gasLimit)) {
-                status = Status.DONE;
-            } else {
-                status = Status.RETRIABLE;
+        bool isMessageNew = messageReceivedAt[msgHash] == 0;
+        if (isMessageNew) {
+            if (!_proveSignalReceived(signalService, msgHash, message.srcChainId, proof)) {
+                revert B_NOT_RECEIVED();
             }
+            messageReceivedAt[msgHash] = uint64(block.timestamp);
         }
 
-        // Update the message status
-        _updateMessageStatus(signalService, msgHash, status);
+        if (block.timestamp >= messageReceivedAt[msgHash] + getMessageExecutionDelay()) {
+            // If the gas limit is set to zero, only the owner can process the
+            // message.
+            if (message.gasLimit == 0 && msg.sender != message.owner) {
+                revert B_PERMISSION_DENIED();
+            }
 
-        // Determine the refund recipient
-        address refundTo = message.refundTo == address(0) ? message.owner : message.refundTo;
+            delete messageReceivedAt[msgHash];
 
-        // Refund the processing fee
-        if (msg.sender == refundTo) {
-            refundTo.sendEther(message.fee + refundAmount);
+            Status status;
+            uint256 refundAmount;
+
+            // Process message differently based on the target address
+            if (
+                message.to == address(0) || message.to == address(this)
+                    || message.to == address(signalService)
+            ) {
+                // Handle special addresses that don't require actual invocation but
+                // mark message as DONE
+                status = Status.DONE;
+                refundAmount = message.value;
+            } else {
+                // Use the specified message gas limit if called by the owner, else
+                // use remaining gas
+                uint256 gasLimit = msg.sender == message.owner ? gasleft() : message.gasLimit;
+
+                if (_invokeMessageCall(message, msgHash, gasLimit)) {
+                    status = Status.DONE;
+                } else {
+                    status = Status.RETRIABLE;
+                }
+            }
+
+            // Update the message status
+            _updateMessageStatus(signalService, msgHash, status);
+
+            // Determine the refund recipient
+            address refundTo = message.refundTo == address(0) ? message.owner : message.refundTo;
+
+            // Refund the processing fee
+            if (msg.sender == refundTo) {
+                refundTo.sendEther(message.fee + refundAmount);
+            } else {
+                // If sender is another address, reward it and refund the rest
+                msg.sender.sendEther(message.fee);
+                refundTo.sendEther(refundAmount);
+            }
+        } else if (isMessageNew) {
+            emit MessageReceived(msgHash, message, false);
         } else {
-            // If sender is another address, reward it and refund the rest
-            msg.sender.sendEther(message.fee);
-            refundTo.sendEther(refundAmount);
+            revert B_TOO_EARLY();
         }
     }
 
