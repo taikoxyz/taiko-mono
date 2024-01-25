@@ -357,6 +357,9 @@ library LibProvingAlt {
                 // we simply cap the reward at tier.validityBond, otherwise, a prover
                 // will be incentivized to submit a invalid higher-tier (verifiable)
                 // proof to contest a valid lower tier proof to win extra reward.
+
+                // Note that this behavior is different from LibProving's implementation
+                // where the cap is not applied.
             } else {
                 tko.transferFrom(msg.sender, address(this), tier.validityBond - reward);
             }
