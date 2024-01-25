@@ -42,7 +42,17 @@ import "../contracts/test/erc20/FreeMintERC20.sol";
 import "./DeployCapability.sol";
 import "./HelperContracts.sol";
 
-abstract contract TaikoTest is Test, DeployCapability {
+// For SGX remote attestation
+import { AutomataDcapV3Attestation } from
+    "../contracts/thirdparty/onchainRA/AutomataDcapV3Attestation.sol";
+import { P256Verifier } from "../lib/p256-verifier/src/P256Verifier.sol";
+import { SigVerifyLib } from "../contracts/thirdparty/onchainRA/utils/SigVerifyLib.sol";
+import { PEMCertChainLib } from "../contracts/thirdparty/onchainRA/lib/PEMCertChainLib.sol";
+
+import "./onchainRA/utils/DcapTestUtils.t.sol";
+import "./onchainRA/utils/V3JsonUtils.t.sol";
+
+abstract contract TaikoTest is Test, DeployCapability, DcapTestUtils, V3JsonUtils {
     uint256 private _seed = 0x12345678;
     address internal Alice = vm.addr(0x1);
     address internal Bob = vm.addr(0x2);

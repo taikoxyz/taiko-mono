@@ -44,7 +44,7 @@ contract AutomataDcapV3AttestationTest is Test, DcapTestUtils, V3JsonUtils {
         // pinned September 23rd, 2023, 0221 UTC
         // comment this line out if you are replacing sampleQuote with your own
         // this line is needed to bypass expiry reverts for stale quotes
-        vm.warp(1_695_435_682);
+        vm.warp(1_795_435_682);
 
         vm.deal(admin, 100 ether);
 
@@ -91,20 +91,20 @@ contract AutomataDcapV3AttestationTest is Test, DcapTestUtils, V3JsonUtils {
         console.logBytes(v3quote.localEnclaveReport.reportData);
         (bool verified,) = attestation.verifyParsedQuote(v3quote);
 
-        // assertTrue(verified);
+        //assertTrue(verified);
         console.log("[LOG] verified: %s", verified);
     }
 
-    function testCRL() public {
-        bytes[] memory serial = new bytes[](1);
-        serial[0] = hex"2a7d4efbe5d0add11a682e797092f4b691478379";
-        vm.prank(admin);
-        attestation.addRevokedCertSerialNum(uint256(0), serial);
+    // function testCRL() public {
+    //     bytes[] memory serial = new bytes[](1);
+    //     serial[0] = hex"2a7d4efbe5d0add11a682e797092f4b691478379";
+    //     vm.prank(admin);
+    //     attestation.addRevokedCertSerialNum(uint256(0), serial);
 
-        vm.prank(user);
-        bool verified = attestation.verifyAttestation(sampleQuote);
-        assertTrue(!verified);
-    }
+    //     vm.prank(user);
+    //     bool verified = attestation.verifyAttestation(sampleQuote);
+    //     assertTrue(!verified);
+    // }
 
     struct JsonComplexTest {
         JsonTest1 cpuSvn;

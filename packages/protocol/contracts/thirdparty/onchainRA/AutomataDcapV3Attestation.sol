@@ -20,6 +20,8 @@ import { ISigVerifyLib } from "./interfaces/ISigVerifyLib.sol";
 // import "hardhat/console.sol";
 // import "forge-std/console.sol";
 
+import "forge-std/console2.sol";
+
 contract AutomataDcapV3Attestation is IAttestation {
     using BytesUtils for bytes;
 
@@ -162,6 +164,7 @@ contract AutomataDcapV3Attestation is IAttestation {
     function _verify(bytes calldata quote) private view returns (bool, bytes memory) {
         bytes memory retData = abi.encodePacked(INVALID_EXIT_CODE);
 
+        console2.log("0");
         // Step 1: Parse the quote input = 152k gas
         (
             bool successful,
@@ -173,6 +176,8 @@ contract AutomataDcapV3Attestation is IAttestation {
         if (!successful) {
             return (false, retData);
         }
+
+        console2.log("1");
         // //console.log("signedQuoteData =");
         //console.logBytes(signedQuoteData);
 
@@ -189,6 +194,7 @@ contract AutomataDcapV3Attestation is IAttestation {
             }
         }
 
+        console2.log("2");
         // Step 3: Verify enclave identity = 43k gas
         V3Struct.EnclaveReport memory qeEnclaveReport;
         EnclaveIdStruct.EnclaveIdStatus qeTcbStatus;
@@ -208,6 +214,7 @@ contract AutomataDcapV3Attestation is IAttestation {
             }
         }
 
+        console2.log("3");
         // Step 4: Parse Quote CertChain
         IPEMCertChainLib.ECSha256Certificate[] memory parsedQuoteCerts;
         TCBInfoStruct.TCBInfo memory fetchedTcbInfo;
@@ -235,6 +242,7 @@ contract AutomataDcapV3Attestation is IAttestation {
             }
         }
 
+        console2.log("4");
         // Step 5: basic PCK and TCB check = 381k gas
         {
             string memory parsedFmspc = parsedQuoteCerts[0].pck.sgxExtension.fmspc;
@@ -251,6 +259,7 @@ contract AutomataDcapV3Attestation is IAttestation {
             }
         }
 
+        console2.log("5");
         // Step 6: Verify TCB Level
         TCBInfoStruct.TCBStatus tcbStatus;
         {
@@ -262,6 +271,7 @@ contract AutomataDcapV3Attestation is IAttestation {
             }
         }
 
+        console2.log("6");
         // Step 7: Verify cert chain for PCK
         {
             // 660k gas (rootCA pubkey is trusted)
@@ -271,6 +281,7 @@ contract AutomataDcapV3Attestation is IAttestation {
             }
         }
 
+        console2.log("7");
         // Step 8: Verify the local attestation sig and qe report sig = 670k gas
         {
             bool enclaveReportSigsVerified = _enclaveReportSigVerification(
@@ -281,8 +292,10 @@ contract AutomataDcapV3Attestation is IAttestation {
             }
         }
 
+        console2.log("8");
         retData = abi.encodePacked(sha256(quote), tcbStatus);
 
+        console2.log("9");
         return (_attestationTcbIsValid(tcbStatus), retData);
     }
 
@@ -409,6 +422,13 @@ contract AutomataDcapV3Attestation is IAttestation {
                 break;
             }
         }
+
+            console2.log("Vars:");
+            console2.log(certRevoked);
+            console2.log(certNotExpired);
+            console2.log(verified);
+            console2.log(certChainCanBeTrusted);
+
         return !certRevoked && certNotExpired && verified && certChainCanBeTrusted;
     }
 

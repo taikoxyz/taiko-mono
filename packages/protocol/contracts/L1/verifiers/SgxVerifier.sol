@@ -19,7 +19,9 @@ import "../../common/EssentialContract.sol";
 import "../../thirdparty/LibBytesUtils.sol";
 import "../ITaikoL1.sol";
 import "./IVerifier.sol";
+import { IAttestation } from "../../thirdparty/onchainRA/interfaces/IAttestation.sol";
 
+import "forge-std/console2.sol";
 /// @title SgxVerifier
 /// @notice This contract is the implementation of verifying SGX signature
 /// proofs on-chain. Please see references below!
@@ -55,9 +57,11 @@ contract SgxVerifier is EssentialContract, IVerifier {
         uint256 indexed id, address indexed instance, address replaced, uint256 timstamp
     );
 
+    error SGX_INVALID_ATTESTATION();
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_INSTANCES();
     error SGX_INVALID_PROOF();
+    error SGX_MISSING_ATTESTATION();
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
@@ -122,13 +126,27 @@ contract SgxVerifier is EssentialContract, IVerifier {
         // Do not run proof verification to contest an existing proof
         if (ctx.isContesting) return;
 
-        // Size is: 89 bytes
+        address automataDcapAttestation = (resolve("automata_dcap_attestation", true));
+
+        // Size is: 89 bytes at least - if attestation is on, than it shall be more
         // 4 bytes + 20 bytes + 65 bytes (signature) = 89
-        if (proof.data.length != 89) revert SGX_INVALID_PROOF();
+        // If on-chain attestation is suported, the proof shall be extra +2 bytes (marking the lengnth of attestation) + attestation length
+        if (proof.data.length < 89) revert SGX_INVALID_PROOF();
 
         uint32 id = uint32(bytes4(LibBytesUtils.slice(proof.data, 0, 4)));
         address newInstance = address(bytes20(LibBytesUtils.slice(proof.data, 4, 20)));
-        bytes memory signature = LibBytesUtils.slice(proof.data, 24);
+        bytes memory signature = LibBytesUtils.slice(proof.data, 24, 65);
+
+        if (automataDcapAttestation != address(0) ) {
+            if (proof.data.length < 91) {
+                revert SGX_MISSING_ATTESTATION();
+            }
+            uint16 length =  uint16(bytes2(LibBytesUtils.slice(proof.data, 89, 2)));
+            bytes memory quote = LibBytesUtils.slice(proof.data, 91, length);
+            if(!IAttestation(automataDcapAttestation).verifyAttestation(quote)) {
+                revert SGX_INVALID_ATTESTATION();
+            }
+        }
 
         address oldInstance =
             ECDSA.recover(getSignedHash(tran, newInstance, ctx.prover, ctx.metaHash), signature);
