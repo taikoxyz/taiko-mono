@@ -9,7 +9,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/flags"
+	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/cmd/flags"
 	"github.com/urfave/cli/v2"
 )
 
