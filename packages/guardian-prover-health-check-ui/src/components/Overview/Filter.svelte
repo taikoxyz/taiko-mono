@@ -8,6 +8,8 @@
 	import DesktopOrLarger from '$components/DesktopOrLarger/DesktopOrLarger.svelte';
 	import { classNames } from '$lib/util/classNames';
 
+	import { loading as loadingStore } from '$stores';
+
 	export let refreshData: () => void;
 	export let filteredGuardianProvers: Guardian[] = [];
 	export let loading: boolean = false;
@@ -31,6 +33,8 @@
 
 	$: selectedStatus = null;
 
+	$: spin = loading || $loadingStore;
+
 	$: if (selectedStatus !== null) {
 		filtered = true;
 		filterByStatus(selectedStatus);
@@ -47,7 +51,7 @@
 
 <div class={classes}>
 	<button class="btn btn-xs w-[36px] h-[36px] rounded-full" on:click={refreshData}
-		><RotatingIcon type="refresh" bind:loading /></button
+		><RotatingIcon type="refresh" bind:loading={spin} /></button
 	>
 	<StatusFilterDropdown bind:selectedStatus />
 </div>

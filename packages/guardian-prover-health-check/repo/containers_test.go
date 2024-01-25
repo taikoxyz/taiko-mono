@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	dbName     = "relayer"
+	dbName     = "guardianproverhealthcheck"
 	dbUsername = "root"
 	dbPassword = "password"
 )
