@@ -104,6 +104,14 @@ library LibBytesUtils {
     }
 
     function slice(bytes memory _bytes, uint256 _start) internal pure returns (bytes memory) {
+        if (_start >= _bytes.length) {
+            return bytes("");
+        }
+
+        return slice(_bytes, _start, _bytes.length - _start);
+    }
+
+    function toBytes32(bytes memory _bytes) internal pure returns (bytes32) {
         if (_bytes.length == 0) {
             return 0;
         } else if (_bytes.length < 32) {
@@ -115,11 +123,6 @@ library LibBytesUtils {
         }
 
         return abi.decode(_bytes, (bytes32)); // will truncate if input length >32 bytes
-    }
-
-    function toBytes32(bytes memory _bytes) internal pure returns (bytes32) {
-        require(_bytes.length >= 32, "array is too small");
-        return abi.decode(_bytes, (bytes32)); // will truncate if input length > 32 bytes
     }
 
     function toNibbles(bytes memory _bytes) internal pure returns (bytes memory) {
