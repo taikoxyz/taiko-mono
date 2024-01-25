@@ -37,9 +37,10 @@ contract Bridge is EssentialContract, IBridge {
 
     struct Receive {
         uint64 timestamp;
-        bool paused;
+        address transactor;
     }
 
+    uint256 public constant INVOCATION_EXTRA_DELAY = 30 minutes;
     uint256 internal constant PLACEHOLDER = type(uint256).max;
 
     uint128 public nextMessageId; // slot 1
@@ -70,7 +71,6 @@ contract Bridge is EssentialContract, IBridge {
     error B_PERMISSION_DENIED();
     error B_RECALLED_ALREADY();
     error B_STATUS_MISMATCH();
-    error B_INVOCATION_PAUSED();
     error B_INVOCATION_TOO_EARLY();
 
     modifier sameChain(uint64 chainId) {
@@ -95,8 +95,9 @@ contract Bridge is EssentialContract, IBridge {
         external
         onlyFromNamed("bridge_watchdog")
     {
+        uint64 _timestamp = toPause ? type(uint64).max : uint64(block.timestamp);
         for (uint256 i; i < msgHashes.length; ++i) {
-            messageReceive[msgHashes[i]].paused = toPause;
+            messageReceive[msgHashes[i]].timestamp = _timestamp;
         }
         emit MessagesPaused(msgHashes, toPause);
     }
@@ -176,7 +177,6 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         Receive memory _receive = messageReceive[failureSignal];
-        if (_receive.paused) revert B_INVOCATION_PAUSED();
 
         if (block.timestamp >= getInvocationDelay() + _receive.timestamp) {
             delete messageReceive[failureSignal];
@@ -240,15 +240,23 @@ contract Bridge is EssentialContract, IBridge {
             if (!_proveSignalReceived(signalService, msgHash, message.srcChainId, proof)) {
                 revert B_NOT_RECEIVED();
             }
-            messageReceive[msgHash].timestamp = uint64(block.timestamp);
+            messageReceive[msgHash] = Receive({
+                timestamp: uint64(block.timestamp),
+                transactor: message.gasLimit == 0 ? message.owner : msg.sender
+            });
         }
 
-        Receive memory _receive = messageReceive[msgHash];
-        if (_receive.paused) revert B_INVOCATION_PAUSED();
+        uint256 delay = getInvocationDelay();
+        if (delay != 0 && msg.sender != messageReceive[msgHash].transactor) {
+            // If msg.sender is not the one ack the reception of the signal, then there
+            // is an extra delay.
+            unchecked {
+                delay += INVOCATION_EXTRA_DELAY;
+            }
+        }
 
-        if (block.timestamp >= getInvocationDelay() + _receive.timestamp) {
-            // If the gas limit is set to zero, only the owner can process the
-            // message.
+        if (block.timestamp >= delay + messageReceive[msgHash].timestamp) {
+            // If the gas limit is set to zero, only the owner can process the message.
             if (message.gasLimit == 0 && msg.sender != message.owner) {
                 revert B_PERMISSION_DENIED();
             }
