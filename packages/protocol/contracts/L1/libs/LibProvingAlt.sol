@@ -352,8 +352,11 @@ library LibProvingAlt {
         }
 
         unchecked {
-            if (reward > tier.validityBond) {
-                tko.transfer(msg.sender, reward - tier.validityBond);
+            if (reward >= tier.validityBond) {
+                // If the reward is bigger than the validity bond to be deposited,
+                // we simply cap the reward at tier.validityBond, otherwise, a prover
+                // will be incentivized to submit a invalid higher-tier (verifiable)
+                // proof to contest a valid lower tier proof to win extra reward.
             } else {
                 tko.transferFrom(msg.sender, address(this), tier.validityBond - reward);
             }
