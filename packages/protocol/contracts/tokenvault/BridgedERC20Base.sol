@@ -66,7 +66,7 @@ abstract contract BridgedERC20Base is EssentialContract, IBridgedERC20 {
 
     function burn(address account, uint256 amount) public nonReentrant whenNotPaused {
         if (migratingAddress != address(0) && !migratingInbound) {
-            if (msg.sender != account) revert BB_PERMISSION_DENIED();
+            if (msg.sender != account && msg.sender != owner()) revert BB_PERMISSION_DENIED();
             // Outbond migration
             emit MigratedTo(migratingAddress, account, amount);
             // Ask the new bridged token to mint token for the user.
