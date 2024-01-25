@@ -202,6 +202,12 @@ contract SgxVerifier is EssentialContract, IVerifier {
     function _isInstanceValid(uint256 id, address instance) private view returns (bool) {
         if (instance == address(0)) return false;
         if (instance != instances[id].addr) return false;
-        return instances[id].addedAt + INSTANCE_EXPIRY > block.timestamp;
+        return instances[id].addedAt + getExpiry() > block.timestamp;
+    }
+
+    /// @notice Tells if we need to set expiry to 'infinity' (for attestation tests).
+    /// @return Override in test contract
+    function getExpiry() public pure virtual returns (uint256) {
+        return INSTANCE_EXPIRY;
     }
 }

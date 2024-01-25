@@ -9,6 +9,13 @@ contract MockVerifier {
     }
 }
 
+contract NoExpirySgxVerifier is SgxVerifier {
+    function getExpiry() public pure override returns (uint256) {
+        return type(uint256).max/2; // Need a very big number
+    }
+}
+
+
 abstract contract TaikoL1TestBase is TaikoTest {
     AddressManager public addressManager;
     AssignmentHook public assignmentHook;
@@ -18,7 +25,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
     TaikoData.Config conf;
     uint256 internal logCount;
     PseZkVerifier public pv;
-    SgxVerifier public sv;
+    NoExpirySgxVerifier public sv;
     SgxAndZkVerifier public sgxZkVerifier;
     GuardianVerifier public gv;
     GuardianProver public gp;
@@ -75,10 +82,10 @@ abstract contract TaikoL1TestBase is TaikoTest {
             })
         );
 
-        sv = SgxVerifier(
+        sv = NoExpirySgxVerifier(
             deployProxy({
                 name: "tier_sgx",
-                impl: address(new SgxVerifier()),
+                impl: address(new NoExpirySgxVerifier()),
                 data: bytes.concat(SgxVerifier.init.selector, abi.encode(address(addressManager)))
             })
         );
@@ -177,6 +184,8 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
         L1.init(address(addressManager), GENESIS_BLOCK_HASH);
         printVariables("init  ");
+
+        vm.warp(1_695_435_682);
     }
 
     function proposeBlock(

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
@@ -44,7 +44,7 @@ contract AutomataDcapV3AttestationTest is Test, DcapTestUtils, V3JsonUtils {
         // pinned September 23rd, 2023, 0221 UTC
         // comment this line out if you are replacing sampleQuote with your own
         // this line is needed to bypass expiry reverts for stale quotes
-        vm.warp(1_795_435_682);
+        vm.warp(1_695_435_682);
 
         vm.deal(admin, 100 ether);
 
@@ -91,62 +91,18 @@ contract AutomataDcapV3AttestationTest is Test, DcapTestUtils, V3JsonUtils {
         console.logBytes(v3quote.localEnclaveReport.reportData);
         (bool verified,) = attestation.verifyParsedQuote(v3quote);
 
-        //assertTrue(verified);
-        console.log("[LOG] verified: %s", verified);
+        assertTrue(verified);
     }
 
-    // function testCRL() public {
-    //     bytes[] memory serial = new bytes[](1);
-    //     serial[0] = hex"2a7d4efbe5d0add11a682e797092f4b691478379";
-    //     vm.prank(admin);
-    //     attestation.addRevokedCertSerialNum(uint256(0), serial);
-
-    //     vm.prank(user);
-    //     bool verified = attestation.verifyAttestation(sampleQuote);
-    //     assertTrue(!verified);
-    // }
-
-    struct JsonComplexTest {
-        JsonTest1 cpuSvn;
-        JsonTest2 subJson;
-    }
-
-    struct JsonTest1 {
-        bytes attestationKeyType;
-        bytes pceSvn;
-        bytes qeSvn;
-        bytes qeVendorId;
-        bytes teeType;
-        address userData;
-        bytes version;
-    }
-
-    struct JsonTest2 {
-        bytes attributes;
-        bytes cpuSvn;
-        uint256 isvProdId;
-        uint256 isvSvn;
-        bytes miscSelect;
-        bytes32 mrEnclave;
-        bytes32 mrSigner;
-        bytes reportData;
-        bytes reserved1;
-        bytes32 reserved2;
-        bytes reserved3;
-        bytes reserved4;
-    }
-
-    function testComplexJson() public {
+    function testParsedQuoteAbiEncoding() public {
         vm.prank(user);
-        string memory simpleStr =
-            vm.readFile(string.concat(vm.projectRoot(), "/test/onchainRA/assets/complex.json"));
-        console.log("[LOG] simpleStr: %s", simpleStr);
-        bytes memory jsonPacked = vm.parseJson(simpleStr);
-        console.logBytes(jsonPacked);
+        string memory v3QuoteJsonStr = vm.readFile(string.concat(vm.projectRoot(), v3QuotePath));
+        bytes memory v3QuotePacked = vm.parseJson(v3QuoteJsonStr);
 
-        JsonComplexTest memory jt = abi.decode(jsonPacked, (JsonComplexTest));
-        console.logAddress(jt.cpuSvn.userData);
-        console.logBytes32(jt.subJson.mrSigner);
-        console.logBytes(jt.subJson.reportData);
+        (, V3Struct.ParsedV3QuoteStruct memory v3quote) = parseV3QuoteJson(v3QuotePacked);
+        bytes32 hash = keccak256(abi.encode(v3quote));
+        // console.logBytes32(hash);
+        assertEq(hash, 0xd28781ffc0eec5601031951546a5a06c57417f95dc1766a884b2b59784d11e7c);
     }
+    
 }
