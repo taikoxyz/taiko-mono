@@ -16,6 +16,7 @@
 	const options = [
 		{ value: null, label: $t('filter.guardian_status.all') },
 		{ value: GuardianProverStatus.DEAD, label: $t('filter.guardian_status.dead') },
+		{ value: GuardianProverStatus.UNHEALTHY, label: $t('filter.guardian_status.unhealthy') },
 		{ value: GuardianProverStatus.ALIVE, label: $t('filter.guardian_status.alive') }
 	];
 
