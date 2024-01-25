@@ -126,6 +126,18 @@ export class NoCanonicalInfoFoundError extends Error {
   name = 'NoCanonicalInfoFoundError';
 }
 
+export class NoBridgedInfoFoundError extends Error {
+  name = 'NoBridgedInfoFoundError';
+}
+
+export class NoTokenInfoFoundError extends Error {
+  name = 'NoTokenInfoFoundError';
+}
+
+export class NoMetadataFoundError extends Error {
+  name = 'NoMetadataFoundError';
+}
+
 export class InvalidParametersProvidedError extends Error {
   name = 'InvalidParametersProvidedError';
 }

@@ -38,7 +38,7 @@ export const checkOwnership = async (
   accountAddress: Address,
   chainId: number,
 ): Promise<{ tokenId: number; isOwner: boolean }[]> => {
-  if (!tokenType) tokenType = await detectContractType(tokenAddress);
+  if (!tokenType) tokenType = await detectContractType(tokenAddress, chainId);
   if (
     !tokenType ||
     tokenIds === undefined ||

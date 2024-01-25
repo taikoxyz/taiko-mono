@@ -9,13 +9,14 @@ import {
   BridgePausedError,
   InsufficientAllowanceError,
   NoAllowanceRequiredError,
-  NoCanonicalInfoFoundError,
+  NoTokenInfoFoundError,
   ProcessMessageError,
   ReleaseError,
   SendERC20Error,
 } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
-import { getCanonicalInfoForAddress } from '$libs/token/getCanonicalInfo';
+import { TokenType } from '$libs/token';
+import { getTokenAddressesForAddress } from '$libs/token/getTokenAddresses';
 import { isBridgePaused } from '$libs/util/checkForPausedContracts';
 import { getLogger } from '$libs/util/logger';
 
@@ -163,10 +164,13 @@ export class ERC20Bridge extends Bridge {
 
   async bridge(args: ERC20BridgeArgs) {
     const { amount, token, wallet, tokenVaultAddress, srcChainId, destChainId } = args;
+    const type = TokenType.ERC20;
+    const info = await getTokenAddressesForAddress({ address: token, srcChainId, destChainId, type });
 
-    const info = await getCanonicalInfoForAddress({ address: token, srcChainId, destChainId });
-    if (!info) throw new NoCanonicalInfoFoundError('No canonical info found for token');
-    const { address: canonicalTokenAddress } = info;
+    if (!info) throw new NoTokenInfoFoundError(`Could not find any token info for ${token}`);
+
+    const { canonical } = info;
+    const canonicalTokenAddress = canonical?.address;
 
     if (canonicalTokenAddress === token) {
       // Token is native, we need to check if we have approval

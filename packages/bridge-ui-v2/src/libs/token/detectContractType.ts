@@ -10,13 +10,14 @@ type Address = `0x${string}`;
 
 const log = getLogger('detectContractType');
 
-async function isERC721(address: Address): Promise<boolean> {
+async function isERC721(address: Address, chainId: number): Promise<boolean> {
   try {
     await readContract({
       address,
       abi: erc721ABI,
       functionName: 'ownerOf',
       args: [0n],
+      chainId,
     });
     return true;
   } catch (err) {
@@ -26,13 +27,14 @@ async function isERC721(address: Address): Promise<boolean> {
 }
 // return err instanceof ContractFunctionExecutionError &&
 //   err.cause.message.includes('ERC721: invalid token ID');
-async function isERC1155(address: Address): Promise<boolean> {
+async function isERC1155(address: Address, chainId: number): Promise<boolean> {
   try {
     await readContract({
       address,
       abi: erc1155ABI,
       functionName: 'isApprovedForAll',
       args: ['0x0000000000000000000000000000000000000000', '0x0000000000000000000000000000000000000000'],
+      chainId,
     });
     return true;
   } catch {
@@ -40,13 +42,14 @@ async function isERC1155(address: Address): Promise<boolean> {
   }
 }
 
-async function isERC20(address: Address): Promise<boolean> {
+async function isERC20(address: Address, chainId: number): Promise<boolean> {
   try {
     await readContract({
       address,
       abi: erc20ABI,
       functionName: 'balanceOf',
       args: ['0x0000000000000000000000000000000000000000'],
+      chainId,
     });
     return true;
   } catch {
@@ -54,20 +57,20 @@ async function isERC20(address: Address): Promise<boolean> {
   }
 }
 
-export async function detectContractType(contractAddress: Address): Promise<TokenType> {
+export async function detectContractType(contractAddress: Address, chainId: number): Promise<TokenType> {
   log('detectContractType', { contractAddress });
 
-  if (await isERC721(contractAddress)) {
+  if (await isERC721(contractAddress, chainId)) {
     log('is ERC721');
     return TokenType.ERC721;
   }
 
-  if (await isERC1155(contractAddress)) {
+  if (await isERC1155(contractAddress, chainId)) {
     log('is ERC1155');
     return TokenType.ERC1155;
   }
 
-  if (await isERC20(contractAddress)) {
+  if (await isERC20(contractAddress, chainId)) {
     log('is ERC20');
     return TokenType.ERC20;
   }
