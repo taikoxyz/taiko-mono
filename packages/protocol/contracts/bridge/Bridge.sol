@@ -431,7 +431,7 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @notice Checks if the given address can pause and unpause the bridge.
-    function _authorizePause(address addr) internal view override {
+    function _authorizePause(address addr) internal view virtual override {
         if (addr != owner() && addr != resolve("bridge_watchdog", true)) {
             revert B_PERMISSION_DENIED();
         }
