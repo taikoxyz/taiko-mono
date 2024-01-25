@@ -111,7 +111,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
-        for (uint256 blockId = 1; blockId < 15; blockId++) {
+        for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             printVariables("before propose");
             (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
@@ -161,7 +161,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
-        for (uint256 blockId = 1; blockId < conf.blockMaxProposals; blockId++) {
+        for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             printVariables("before propose");
             (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
@@ -173,13 +173,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             // signalRoot instead of blockHash
             uint16 minTier = meta.minTier;
 
-            // Try to contest
-            // uint256 currentTimestmap = block.timestamp;
-            // if(minTier == LibTiers.TIER_SGX || minTier == LibTiers.TIER_SGX_AND_PSE_ZKEVM) {
-            //     vm.warp(1_695_435_682);
-            // }
             proveBlock(Bob, Bob, meta, parentHash, signalRoot, signalRoot, minTier, "");
-            //vm.warp(currentTimestmap);
 
             proveBlock(Carol, Carol, meta, parentHash, blockHash, signalRoot, minTier, "");
 
@@ -190,13 +184,8 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             // Cannot verify block because it is contested..
             verifyBlock(Carol, 1);
 
-            // currentTimestmap = block.timestamp;
-            // // If the current tier one of below, we need to set blockTime to reuse the quote
-            // if(minTier == LibTiers.TIER_SGX || minTier == LibTiers.TIER_OPTIMISTIC) {
-            //     vm.warp(1_695_435_682);
-            // }
             proveHigherTierProof(meta, parentHash, signalRoot, blockHash, minTier);
-            //vm.warp(currentTimestmap);
+
             // Otherwise just not contest
             vm.warp(block.timestamp + L1.getTier(LibTiers.TIER_GUARDIAN).cooldownWindow + 1);
             // Now can verify
@@ -221,7 +210,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
-        for (uint256 blockId = 1; blockId < 10; blockId++) {
+        for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             printVariables("before propose");
             (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
