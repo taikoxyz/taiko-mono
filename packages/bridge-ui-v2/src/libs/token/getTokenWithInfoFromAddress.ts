@@ -9,7 +9,7 @@ import { safeReadContract } from '$libs/util/safeReadContract';
 import { detectContractType } from './detectContractType';
 import { type NFT, type NFTMetadata, type Token, TokenType } from './types';
 
-const log = getLogger('libs:token:getTokenInfo');
+const log = getLogger('libs:token:getTokenAddresses');
 
 type GetTokenWithInfoFromAddressParams = {
   contractAddress: Address;
@@ -28,7 +28,7 @@ export const getTokenWithInfoFromAddress = async ({
 }: GetTokenWithInfoFromAddressParams): Promise<Token | NFT> => {
   log(`getting token info for ${contractAddress} id: ${tokenId}`);
   try {
-    const tokenType: TokenType = type ?? (await detectContractType(contractAddress));
+    const tokenType: TokenType = type ?? (await detectContractType(contractAddress, srcChainId));
     if (tokenType === TokenType.ERC20) {
       return getERC20Info(contractAddress, srcChainId, tokenType);
     } else if (tokenType === TokenType.ERC1155) {

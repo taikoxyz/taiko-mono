@@ -13,7 +13,7 @@ import {
   SendERC721Error,
 } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
-import { getCanonicalInfoForAddress } from '$libs/token/getCanonicalInfo';
+import { getCanonicalInfoForAddress } from '$libs/token/getCanonicalInfoForToken';
 import { isBridgePaused } from '$libs/util/checkForPausedContracts';
 import { getLogger } from '$libs/util/logger';
 

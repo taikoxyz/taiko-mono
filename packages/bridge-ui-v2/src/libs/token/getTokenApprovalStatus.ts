@@ -26,7 +26,7 @@ import { getLogger } from '$libs/util/logger';
 import { account, network } from '$stores';
 
 import { checkOwnershipOfNFT } from './checkOwnership';
-import { getCanonicalInfoForToken } from './getCanonicalInfo';
+import { getTokenAddresses } from './getTokenAddresses';
 import { type NFT, type Token, TokenType } from './types';
 
 const log = getLogger('util:token:getTokenApprovalStatus');
@@ -60,14 +60,13 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
   const tokenAddress = get(selectedToken)?.addresses[currentChainId];
   log('selectedToken', get(selectedToken));
 
-  const canonicalTokenInfo = await getCanonicalInfoForToken({
-    token,
-    srcChainId: currentChainId,
-    destChainId: destinationChainId,
-  });
-  if (!canonicalTokenInfo) throw new NoCanonicalInfoFoundError();
-  const { address: canonicalTokenAddress } = canonicalTokenInfo;
-  if (canonicalTokenAddress !== tokenAddress) {
+  const tokenInfo = await getTokenAddresses({ token, srcChainId: currentChainId, destChainId: destinationChainId });
+  if (!tokenInfo || !tokenInfo.bridged || !tokenInfo.bridged.address) {
+    log('no token info found');
+    throw new NoCanonicalInfoFoundError();
+  }
+  const { address: bridgedTokenAddress } = tokenInfo.bridged;
+  if (bridgedTokenAddress === tokenAddress) {
     // we have a bridged token, no need for allowance check as we will burn the token
     log('token is bridged, no need for allowance check');
     allApproved.set(true);

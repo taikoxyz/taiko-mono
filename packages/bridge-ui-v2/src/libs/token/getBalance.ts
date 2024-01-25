@@ -1,6 +1,7 @@
 import { fetchBalance, type FetchBalanceResult } from '@wagmi/core';
 import { type Address, zeroAddress } from 'viem';
 
+import { UnknownTokenTypeError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 
 import { getAddress } from './getAddress';
@@ -21,7 +22,7 @@ export async function getBalance({ userAddress, token, srcChainId, destChainId }
   if (!token || token.type === TokenType.ETH) {
     // If no token is passed in, we assume is ETH
     tokenBalance = await fetchBalance({ address: userAddress, chainId: srcChainId });
-  } else {
+  } else if (token.type === TokenType.ERC20) {
     // We need at least the source chain to find the address
     if (!srcChainId) return;
 
@@ -36,6 +37,22 @@ export async function getBalance({ userAddress, token, srcChainId, destChainId }
       token: tokenAddress,
       chainId: srcChainId,
     });
+  } else if (token.type === TokenType.ERC721) {
+    tokenBalance = {
+      decimals: 0,
+      formatted: '0',
+      symbol: '',
+      value: 0n,
+    } as FetchBalanceResult;
+  } else if (token.type === TokenType.ERC1155) {
+    tokenBalance = {
+      decimals: 0,
+      formatted: token.balance?.toString(),
+      symbol: '',
+      value: token.balance,
+    } as FetchBalanceResult;
+  } else {
+    throw new UnknownTokenTypeError('Unknown token type');
   }
   log('Token balance', tokenBalance);
   return tokenBalance;
