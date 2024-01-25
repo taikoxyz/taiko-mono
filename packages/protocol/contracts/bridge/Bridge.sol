@@ -176,9 +176,7 @@ contract Bridge is EssentialContract, IBridge {
             messageReceive[failureSignal].timestamp = uint64(block.timestamp);
         }
 
-        Receive memory _receive = messageReceive[failureSignal];
-
-        if (block.timestamp >= getInvocationDelay() + _receive.timestamp) {
+        if (block.timestamp >= getInvocationDelay() + messageReceive[failureSignal].timestamp) {
             delete messageReceive[failureSignal];
             messageStatus[failureSignal] = Status.RECALLED;
 
