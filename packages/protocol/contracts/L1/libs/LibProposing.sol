@@ -111,7 +111,7 @@ library LibProposing {
         unchecked {
             meta = TaikoData.BlockMetadata({
                 l1Hash: blockhash(block.number - 1),
-                difficulty: keccak256(bytes.concat(bytes32(block.prevrandao))),
+                difficulty: 0, // to be initialized below
                 blobHash: 0, // to be initialized below
                 extraData: params.extraData,
                 depositsHash: keccak256(abi.encode(depositsProcessed)),
@@ -187,6 +187,13 @@ library LibProposing {
             meta.txListByteOffset = 0;
             meta.txListByteSize = uint24(txList.length);
         }
+
+        // Following the Merge, the L1 mixHash incorporates the
+        // prevrandao value from the beacon chain. Given the possibility
+        // of multiple Taiko blocks being proposed within a single
+        // Ethereum block, we must introduce a salt to this random
+        // number as the L2 mixHash.
+        meta.difficulty = keccak256(abi.encodePacked(block.prevrandao, b.numBlocks, block.number));
 
         // Use the difficulty as a random number
         meta.minTier = ITierProvider(resolver.resolve("tier_provider", false)).getMinTier(
