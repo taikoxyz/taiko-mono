@@ -430,6 +430,13 @@ contract Bridge is EssentialContract, IBridge {
         return msgHash ^ bytes32(uint256(Status.FAILED));
     }
 
+    /// @notice Checks if the given address can pause and unpause the bridge.
+    function _authorizePause(address addr) internal view override {
+        if (addr != owner() && addr != resolve("bridge_watchdog", true)) {
+            revert B_PERMISSION_DENIED();
+        }
+    }
+
     /// @notice Invokes a call message on the Bridge.
     /// @param message The call message to be invoked.
     /// @param msgHash The hash of the message.

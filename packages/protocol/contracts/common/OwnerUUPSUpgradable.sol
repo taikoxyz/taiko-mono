@@ -57,12 +57,15 @@ abstract contract OwnerUUPSUpgradable is UUPSUpgradeable, OwnableUpgradeable {
         _disableInitializers();
     }
 
-    function pause() external whenNotPaused onlyOwner {
+    function pause() external whenNotPaused {
+        _authorizePause(msg.sender);
         _paused = _TRUE;
         emit Paused(msg.sender);
     }
 
-    function unpause() external whenPaused onlyOwner {
+    function unpause() external whenPaused {
+        _authorizePause(msg.sender);
+
         _paused = _FALSE;
         emit Unpaused(msg.sender);
     }
@@ -71,7 +74,8 @@ abstract contract OwnerUUPSUpgradable is UUPSUpgradeable, OwnableUpgradeable {
         return _paused == _TRUE;
     }
 
-    function _authorizeUpgrade(address) internal override onlyOwner { }
+    function _authorizeUpgrade(address) internal view virtual override onlyOwner { }
+    function _authorizePause(address) internal view virtual onlyOwner { }
 
     /// @notice Initializes the contract with an address manager.
     // solhint-disable-next-line func-name-mixedcase
