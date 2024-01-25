@@ -16,7 +16,6 @@ pragma solidity 0.8.20;
 
 import "../BridgedERC20Base.sol";
 
-// QUESTION(dani): do you remember where we get this interface?
 interface IUSDC {
     function burn(uint256 amount) external;
     function mint(address to, uint256 amount) external;
@@ -38,7 +37,6 @@ contract USDCAdaptor is BridgedERC20Base {
     }
 
     function _burnToken(address from, uint256 amount) internal override {
-        // QUESTION(dani): not sure if we can use safeTransferFrom
         usdc.transferFrom(from, address(this), amount);
         usdc.burn(amount);
     }
