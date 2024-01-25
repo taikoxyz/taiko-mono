@@ -13,7 +13,7 @@
   import { Spinner } from '$components/Spinner';
   import { tokenService } from '$libs/storage/services';
   import { detectContractType, type GetTokenInfo, type Token, TokenType } from '$libs/token';
-  import { getCrossChainInfoForToken } from '$libs/token/getCrossChainInfoForToken';
+  import { getTokenAddresses } from '$libs/token/getTokenAddresses';
   import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
   import { getLogger } from '$libs/util/logger';
   import { uid } from '$libs/util/uid';
@@ -49,14 +49,16 @@
       const destChain = $destNetwork;
 
       if (!srcChain || !destChain) return;
-      // let's check if this token has already been bridged
-      const crossChainInfo = await getCrossChainInfoForToken({
+
+      // let's check if this token has already been bridged and store the info
+      const tokenInfo = await getTokenAddresses({
         token: customToken,
         srcChainId: srcChain.id,
         destChainId: destChain.id,
       } as GetTokenInfo);
-      if (crossChainInfo) {
-        const { address: bridgedAddress, chainId: bridgedChainId } = crossChainInfo;
+
+      if (tokenInfo && tokenInfo.bridged) {
+        const { address: bridgedAddress, chainId: bridgedChainId } = tokenInfo.bridged;
         // only update the token if we actually have a bridged address
         if (bridgedAddress) {
           customToken.addresses[bridgedChainId] = bridgedAddress as Address;
@@ -64,6 +66,7 @@
         }
       }
     }
+
     tokenAddress = '';
     customTokenWithDetails = null;
     resetForm();
@@ -107,7 +110,7 @@
 
     let type: TokenType;
     try {
-      type = await detectContractType(tokenAddress);
+      type = await detectContractType(tokenAddress, $network?.id as number);
     } catch (error) {
       log('Failed to detect contract type: ', error);
       loadingTokenDetails = false;

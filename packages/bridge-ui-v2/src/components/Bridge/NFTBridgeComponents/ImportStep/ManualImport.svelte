@@ -39,10 +39,13 @@
     // interfaceSupported = true;
     addressInputState = AddressInputState.VALIDATING;
 
+    const srcChainId = $network?.id;
+    if (!srcChainId) return;
+
     if (isValidEthereumAddress && typeof addr === 'string') {
       contractAddress = addr;
       try {
-        detectedTokenType = await detectContractType(addr);
+        detectedTokenType = await detectContractType(addr, srcChainId);
       } catch {
         addressInputState = AddressInputState.INVALID;
       }
@@ -111,8 +114,6 @@
         $selectedNFTs = [token as NFT];
         $selectedToken = token;
         idInputState = IDInputState.VALID;
-
-        $tokenBalance = token.type !== TokenType.ERC721 ? token.balance : null;
       } else {
         idInputState = IDInputState.INVALID;
       }

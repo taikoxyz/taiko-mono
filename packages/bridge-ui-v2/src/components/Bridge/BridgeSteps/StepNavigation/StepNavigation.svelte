@@ -55,6 +55,7 @@
 {#if showStepNavigation}
   <div class="f-col w-full justify-content-center gap-4">
     {#if activeStep === BridgeSteps.IMPORT}
+      <div class="h-sep mt-0" />
       <ActionButton
         priority="primary"
         disabled={!$importDone}
@@ -62,8 +63,6 @@
         on:click={() => handleNextStep()}>
         <span class="body-bold">{nextStepButtonText}</span>
       </ActionButton>
-
-      <StepBack on:click={() => handlePreviousStep()}>{$t('common.back')}</StepBack>
     {/if}
     {#if activeStep === BridgeSteps.REVIEW}
       <ActionButton priority="primary" on:click={() => handleNextStep()}>
