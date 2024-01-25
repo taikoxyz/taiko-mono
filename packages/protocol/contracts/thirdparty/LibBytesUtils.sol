@@ -104,7 +104,9 @@ library LibBytesUtils {
     }
 
     function slice(bytes memory _bytes, uint256 _start) internal pure returns (bytes memory) {
-        if (_bytes.length < 32) {
+        if (_bytes.length == 0) {
+            return 0;
+        } else if (_bytes.length < 32) {
             bytes32 ret;
             assembly {
                 ret := mload(add(_bytes, 32))
