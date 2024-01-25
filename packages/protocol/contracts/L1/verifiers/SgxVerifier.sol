@@ -20,8 +20,8 @@ import "../../thirdparty/LibBytesUtils.sol";
 import "../ITaikoL1.sol";
 import "./IVerifier.sol";
 import { IAttestation } from "../../thirdparty/onchainRA/interfaces/IAttestation.sol";
+import { V3Struct } from "../../thirdparty/onchainRA/lib/QuoteV3Auth/V3Struct.sol";
 
-import "forge-std/console2.sol";
 /// @title SgxVerifier
 /// @notice This contract is the implementation of verifying SGX signature
 /// proofs on-chain. Please see references below!
@@ -143,7 +143,12 @@ contract SgxVerifier is EssentialContract, IVerifier {
             }
             uint16 length =  uint16(bytes2(LibBytesUtils.slice(proof.data, 89, 2)));
             bytes memory quote = LibBytesUtils.slice(proof.data, 91, length);
-            if(!IAttestation(automataDcapAttestation).verifyAttestation(quote)) {
+
+            V3Struct.ParsedV3QuoteStruct memory decodedQuote = abi.decode(quote, (V3Struct.ParsedV3QuoteStruct));
+
+            (bool verified, ) = IAttestation(automataDcapAttestation).verifyParsedQuote(decodedQuote);
+
+            if(!verified) {
                 revert SGX_INVALID_ATTESTATION();
             }
         }

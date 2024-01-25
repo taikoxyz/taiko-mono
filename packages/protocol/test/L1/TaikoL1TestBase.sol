@@ -451,17 +451,21 @@ abstract contract TaikoL1TestBase is TaikoTest {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, digest);
         signature = abi.encodePacked(r, s, v);
 
-        bytes memory attestationQuote;
-
         // Check if supported
         address automataDcapAttestation = addressManager.getAddress(uint64(block.chainid), "automata_dcap_attestation");
         
         if(automataDcapAttestation != address(0)) {
             // Only if supported by the protocol, then append the extra data (length of attestation and attestation)
-            attestationQuote = sampleQuote;
+            string memory v3QuoteJsonStr = vm.readFile(string.concat(vm.projectRoot(), v3QuotePath));
+            bytes memory v3QuotePacked = vm.parseJson(v3QuoteJsonStr);
 
-            uint16 length = uint16(attestationQuote.length);
-            signature = bytes.concat(signature, bytes2(length), attestationQuote);
+            (, V3Struct.ParsedV3QuoteStruct memory v3quote) = parseV3QuoteJson(v3QuotePacked);
+            console.log("v3quote.header.userData = %s", address(v3quote.header.userData));
+            console.logBytes(v3quote.localEnclaveReport.reportData);
+            bytes memory encodedV3Quote = abi.encode(v3quote);
+
+            uint16 length = uint16(encodedV3Quote.length);
+            signature = bytes.concat(signature, bytes2(length), encodedV3Quote);
         }
 
     }
