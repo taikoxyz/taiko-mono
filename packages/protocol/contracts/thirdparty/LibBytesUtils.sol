@@ -111,17 +111,11 @@ library LibBytesUtils {
         return slice(_bytes, _start, _bytes.length - _start);
     }
 
-    function toBytes32(bytes memory _bytes) internal pure returns (bytes32) {
-        if (_bytes.length < 32) {
-            bytes32 ret;
-            assembly {
-                ret := mload(add(_bytes, 32))
-            }
-            return ret;
+    function toBytes32(bytes memory _bytes) internal pure returns (bytes32 ret) {
+        require(_bytes.length <= 32, "array is too small");
+        assembly {
+            ret := mload(add(_bytes, 32))
         }
-
-        return abi.decode(_bytes, (bytes32)); // will truncate if input length >
-            // 32 bytes
     }
 
     function toNibbles(bytes memory _bytes) internal pure returns (bytes memory) {
