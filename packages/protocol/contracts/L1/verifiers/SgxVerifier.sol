@@ -81,37 +81,32 @@ contract SgxVerifier is EssentialContract, IVerifier {
         ids = _addInstances(_instances);
     }
 
-    /// @notice Adds SGX instances to the registry by another SGX instance.
-    /// @param id The id of the SGX instance who is adding new members.
-    /// @param newInstance The new address of this instance.
-    /// @param extraInstances The address array of SGX instances.
-    /// @param signature The signature proving authenticity.
-    /// @return ids The respective instanceId array per addresses.
-    function addInstances(
-        uint256 id,
-        address newInstance,
-        address[] calldata extraInstances,
-        bytes calldata signature
+    /// @notice Adds an SGX instance after the attestation is verified
+    /// @param attestation The parsed attestation quote.
+    /// @return id The respective instanceId
+    function registerInstance(
+        V3Struct.ParsedV3QuoteStruct calldata attestation
     )
         external
-        returns (uint256[] memory ids)
+        returns (uint256)
     {
-        address taikoL1 = resolve("taiko", false);
-        bytes32 signedHash = keccak256(
-            abi.encode(
-                "ADD_INSTANCES",
-                ITaikoL1(taikoL1).getConfig().chainId,
-                address(this),
-                newInstance,
-                extraInstances
-            )
-        );
-        address oldInstance = ECDSA.recover(signedHash, signature);
-        if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
+        address automataDcapAttestation = (resolve("automata_dcap_attestation", true));
 
-        _replaceInstance(id, oldInstance, newInstance);
+        // Still possible to be backward compatible and have the onlyOwner tpye of method registering instances.
+        if (automataDcapAttestation != address(0)) {
+            (bool verified, ) = IAttestation(automataDcapAttestation).verifyParsedQuote(attestation);
 
-        ids = _addInstances(extraInstances);
+            if(!verified) {
+                revert SGX_INVALID_ATTESTATION();
+            }
+
+            address[] memory _address = new address[](1);
+            _address[0] = address(bytes20(LibBytesUtils.slice(attestation.localEnclaveReport.reportData, 0, 20)));
+
+            return _addInstances(_address)[0];
+        }
+        // A special return variable, signaling that this method is not supported at the moment, because a contract with name "automata_dcap_attestation" not deployed.
+        return type(uint256).max;
     }
 
     /// @inheritdoc IVerifier
@@ -126,32 +121,13 @@ contract SgxVerifier is EssentialContract, IVerifier {
         // Do not run proof verification to contest an existing proof
         if (ctx.isContesting) return;
 
-        address automataDcapAttestation = (resolve("automata_dcap_attestation", true));
-
-        // Size is: 89 bytes at least - if attestation is on, than it shall be more
+        // Size is: 89 bytes
         // 4 bytes + 20 bytes + 65 bytes (signature) = 89
-        // If on-chain attestation is suported, the proof shall be extra +2 bytes (marking the lengnth of attestation) + attestation length
-        if (proof.data.length < 89) revert SGX_INVALID_PROOF();
+        if (proof.data.length != 89) revert SGX_INVALID_PROOF();
 
         uint32 id = uint32(bytes4(LibBytesUtils.slice(proof.data, 0, 4)));
         address newInstance = address(bytes20(LibBytesUtils.slice(proof.data, 4, 20)));
-        bytes memory signature = LibBytesUtils.slice(proof.data, 24, 65);
-
-        if (automataDcapAttestation != address(0) ) {
-            if (proof.data.length < 91) {
-                revert SGX_MISSING_ATTESTATION();
-            }
-            uint16 length =  uint16(bytes2(LibBytesUtils.slice(proof.data, 89, 2)));
-            bytes memory quote = LibBytesUtils.slice(proof.data, 91, length);
-
-            V3Struct.ParsedV3QuoteStruct memory decodedQuote = abi.decode(quote, (V3Struct.ParsedV3QuoteStruct));
-
-            (bool verified, ) = IAttestation(automataDcapAttestation).verifyParsedQuote(decodedQuote);
-
-            if(!verified) {
-                revert SGX_INVALID_ATTESTATION();
-            }
-        }
+        bytes memory signature = LibBytesUtils.slice(proof.data, 24);
 
         address oldInstance =
             ECDSA.recover(getSignedHash(tran, newInstance, ctx.prover, ctx.metaHash), signature);
@@ -184,7 +160,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         );
     }
 
-    function _addInstances(address[] calldata _instances) private returns (uint256[] memory ids) {
+    function _addInstances(address[] memory _instances) private returns (uint256[] memory ids) {
         ids = new uint256[](_instances.length);
 
         for (uint256 i; i < _instances.length; ++i) {
@@ -207,12 +183,6 @@ contract SgxVerifier is EssentialContract, IVerifier {
     function _isInstanceValid(uint256 id, address instance) private view returns (bool) {
         if (instance == address(0)) return false;
         if (instance != instances[id].addr) return false;
-        return instances[id].addedAt + getExpiry() > block.timestamp;
-    }
-
-    /// @notice Tells if we need to set expiry to 'infinity' (for attestation tests).
-    /// @return Override in test contract
-    function getExpiry() public pure virtual returns (uint256) {
-        return INSTANCE_EXPIRY;
+        return instances[id].addedAt + INSTANCE_EXPIRY > block.timestamp;
     }
 }

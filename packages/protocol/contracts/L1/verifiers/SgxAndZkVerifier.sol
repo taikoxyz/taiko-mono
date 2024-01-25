@@ -22,7 +22,7 @@ import "./IVerifier.sol";
 /// @title SgxAndZkVerifier
 /// @notice See the documentation in {IVerifier}.
 contract SgxAndZkVerifier is EssentialContract, IVerifier {
-    uint8 public constant SGX_DEFAULT_PROOF_SIZE = 89;
+    uint8 public constant SGX_PROOF_SIZE = 89;
     uint256[50] private __gap;
 
     /// @notice Initializes the contract with the provided address manager.
@@ -43,21 +43,13 @@ contract SgxAndZkVerifier is EssentialContract, IVerifier {
         TaikoData.TierProof memory _proof;
         _proof.tier = proof.tier;
 
-        address automataDcapAttestation = (resolve("automata_dcap_attestation", true));
-        uint16 sgxProofLength = SGX_DEFAULT_PROOF_SIZE;
-
-        if (automataDcapAttestation != address(0) ) {
-            uint16 length =  uint16(bytes2(LibBytesUtils.slice(proof.data, 89, 2)));
-            sgxProofLength += (2+length); // 2 for the uin16 length and the rest is the attestation quote, which maximum can be 1200 bytes
-        }
-
         // Verify the SGX part
-        _proof.data = LibBytesUtils.slice(proof.data, 0, sgxProofLength);
+        _proof.data = LibBytesUtils.slice(proof.data, 0, SGX_PROOF_SIZE);
         IVerifier(resolve("tier_sgx", false)).verifyProof(ctx, tran, _proof);
 
         // Verify the ZK part
         _proof.data =
-            LibBytesUtils.slice(proof.data, sgxProofLength, (proof.data.length - sgxProofLength));
+            LibBytesUtils.slice(proof.data, SGX_PROOF_SIZE, (proof.data.length - SGX_PROOF_SIZE));
         IVerifier(resolve("tier_pse_zkevm", false)).verifyProof(ctx, tran, _proof);
     }
 }

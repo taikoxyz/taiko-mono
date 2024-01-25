@@ -28,15 +28,14 @@ contract TestSgxVerifier is TaikoL1TestBase {
         sv.addInstances(_instances);
     }
 
-    function test_addInstancesBySgxInstance() external {
-        address[] memory _instances = new address[](2);
-        _instances[0] = SGX_Y;
-        _instances[1] = SGX_Z;
+    function test_registerInstanceWithAttestation() external {
+        string memory v3QuoteJsonStr = vm.readFile(string.concat(vm.projectRoot(), v3QuotePath));
+        bytes memory v3QuotePacked = vm.parseJson(v3QuoteJsonStr);
 
-        bytes memory signature = _getSignature(SGX_X_1, _instances, 0x4);
+        (, V3Struct.ParsedV3QuoteStruct memory v3quote) = parseV3QuoteJson(v3QuotePacked);
 
         vm.prank(Bob, Bob);
-        sv.addInstances(0, SGX_X_1, _instances, signature);
+        sv.registerInstance(v3quote);
     }
 
     function _getSignature(

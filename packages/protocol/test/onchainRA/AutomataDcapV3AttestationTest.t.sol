@@ -101,8 +101,8 @@ contract AutomataDcapV3AttestationTest is Test, DcapTestUtils, V3JsonUtils {
 
         (, V3Struct.ParsedV3QuoteStruct memory v3quote) = parseV3QuoteJson(v3QuotePacked);
         bytes32 hash = keccak256(abi.encode(v3quote));
-        // console.logBytes32(hash);
-        assertEq(hash, 0xd28781ffc0eec5601031951546a5a06c57417f95dc1766a884b2b59784d11e7c);
+        //console.logBytes32(hash);
+        assertEq(hash, 0xa27c4167ab139dffb020230b2ec856080d0e1af437b3a2c2beea1c9af17469bc);
     }
     
 }
