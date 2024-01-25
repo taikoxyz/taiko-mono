@@ -53,6 +53,8 @@ library Lib4844 {
 
         if (!ok) revert EVAL_FAILED_1();
 
+        if (ret.length != 64) revert EVAL_FAILED_2();
+
         bytes32 first;
         bytes32 second;
         assembly {
