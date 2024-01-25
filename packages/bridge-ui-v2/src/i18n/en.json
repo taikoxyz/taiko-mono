@@ -326,6 +326,7 @@
       "label": "Custom",
       "text": "Customize your processing fee"
     },
+    "customized": "Customized",
     "description": "The payment you provide to the relayer for handling your bridge message on the destination chain.",
     "link": "Customize fee",
     "none": {
@@ -344,6 +345,7 @@
   },
   "recipient": {
     "description": "You can set a custom address as the recipient of your funds, instead of your current wallet address.",
+    "label": "incl. fees ~",
     "link": "Change recipient",
     "placeholder": "Add custom recipient 0x…",
     "title": "Recipient address",
