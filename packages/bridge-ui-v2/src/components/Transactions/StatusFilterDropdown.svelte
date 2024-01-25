@@ -5,11 +5,13 @@
   import { MessageStatus } from '$libs/bridge';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { classNames } from '$libs/util/classNames';
+  import { uid } from '$libs/util/uid';
 
   export let selectedStatus: MessageStatus | null = null;
 
   let flipped = false;
   let menuOpen = false;
+  let uuid = `dropdown-${uid()}`;
 
   let iconFlipperComponent: IconFlipper;
   const closeMenu = () => {
@@ -63,7 +65,7 @@
     <ul
       role="listbox"
       class={menuClasses}
-      use:closeOnEscapeOrOutsideClick={{ enabled: menuOpen, callback: () => (menuOpen = false) }}>
+      use:closeOnEscapeOrOutsideClick={{ enabled: menuOpen, callback: () => (menuOpen = false), uuid: uuid }}>
       {#each options as option (option.value)}
         <li
           role="option"

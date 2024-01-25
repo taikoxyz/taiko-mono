@@ -1,14 +1,41 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
+  import { formatUnits, parseUnits } from 'viem/utils';
 
-  import { selectedToken } from '$components/Bridge/state';
+  import { FlatAlert } from '$components/Alert';
+  import { ProcessingFee } from '$components/Bridge/ProcessingFee';
+  import {
+    computingBalance,
+    destNetwork,
+    enteredAmount,
+    errorComputingBalance,
+    insufficientAllowance,
+    insufficientBalance,
+    recipientAddress,
+    selectedToken,
+    tokenBalance,
+    validatingAmount,
+  } from '$components/Bridge/state';
+  import { Icon } from '$components/Icon';
   import { InputBox } from '$components/InputBox';
+  import { LoadingText } from '$components/LoadingText';
   import { TokenDropdown } from '$components/TokenDropdown';
-  import { tokens } from '$libs/token';
+  import { getMaxAmountToBridge } from '$libs/bridge';
+  import { UnknownTokenTypeError } from '$libs/error';
+  import { tokens, TokenType } from '$libs/token';
+  import { renderBalance } from '$libs/util/balance';
+  import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
+  import { truncateDecimal } from '$libs/util/truncateDecimal';
   import { uid } from '$libs/util/uid';
+  import { account } from '$stores/account';
+  import { ethBalance } from '$stores/balance';
+  import { network } from '$stores/network';
 
   const log = getLogger('TokenInput');
+
+  export let validInput = false;
 
   let inputId = `input-${uid()}`;
   let inputBox: InputBox;
@@ -16,39 +43,196 @@
   let amountDisabled = false;
   let tokenDisabled = false;
 
-  const inputAmount = () => {
-    log('inputAmount', inputBox.value);
+  let value = '';
+
+  async function validateAmount(token = $selectedToken) {
+    // During validation, we disable all the actions
+    if (!$network?.id) return;
+    $validatingAmount = true;
+    $insufficientBalance = false;
+    $insufficientAllowance = false;
+    $computingBalance = true;
+
+    const to = $recipientAddress || $account?.address;
+
+    // We need all these guys to validate
+    if (skipValidate || !to || !token || !$tokenBalance?.value) {
+      $validatingAmount = false;
+      $computingBalance = false;
+
+      return;
+    }
+    switch (token.type) {
+      case TokenType.ERC20:
+      case TokenType.ERC1155:
+        if ($ethBalance <= 0n || $enteredAmount > $tokenBalance?.value) {
+          $insufficientBalance = true;
+        }
+        break;
+      case TokenType.ETH:
+      case TokenType.ERC721:
+        if ($enteredAmount >= $ethBalance) {
+          $insufficientBalance = true;
+        }
+        break;
+      default:
+        throw new UnknownTokenTypeError();
+    }
+
+    $validatingAmount = false;
+    $computingBalance = false;
+  }
+
+  const debouncedValidateAmount = debounce(validateAmount, 300);
+
+  const handleInputChange = (value: string) => {
+    if (!$selectedToken) return;
+    $validatingAmount = true;
+    $errorComputingBalance = false;
+
+    if ($selectedToken.type === TokenType.ERC1155) {
+      // For ERC1155, no decimals are allowed
+      if (/[.,]/.test(value)) {
+        $errorComputingBalance = true;
+        return;
+      }
+    }
+    if (
+      $selectedToken.type !== TokenType.ERC1155 &&
+      $selectedToken.type !== TokenType.ERC721 &&
+      !$selectedToken.decimals
+    ) {
+      $enteredAmount = BigInt(value);
+    } else {
+      $enteredAmount = parseUnits(value, $selectedToken.decimals);
+    }
+    debouncedValidateAmount();
   };
 
-  const useMaxAmount = () => {
+  const useMaxAmount = async () => {
     log('useMaxAmount');
+    if (!$selectedToken || !$network || !$destNetwork || !$tokenBalance || !$account?.address) return;
+    try {
+      let maxAmount;
+      if ($tokenBalance) {
+        // $enteredAmount = $tokenBalance.value;
+        maxAmount = await getMaxAmountToBridge({
+          to: $account.address,
+          token: $selectedToken,
+          balance: $tokenBalance.value,
+          fee: 0n,
+          srcChainId: $network.id,
+          destChainId: $destNetwork.id,
+          amount: BigInt(1), // whatever amount to estimate the cost
+        });
+
+        // Update state
+        $enteredAmount = maxAmount;
+        value = formatUnits(maxAmount, $selectedToken.decimals);
+
+        value = truncateDecimal(parseFloat(value), 12).toString();
+        validateAmount();
+      }
+    } catch (err) {
+      log('Error getting max amount: ', err);
+    }
   };
 
-  $: invalidInput = false;
+  $: validateAmount($selectedToken);
+
+  $: if ($selectedToken) {
+    validateAmount($selectedToken);
+  }
+
+  $: validAmount = $enteredAmount > BigInt(0);
+
+  $: skipValidate =
+    !$network ||
+    !$destNetwork ||
+    !$tokenBalance ||
+    !$selectedToken ||
+    !($ethBalance !== null && $ethBalance > BigInt(0)) ||
+    !validAmount;
+
+  let invalidInput: boolean;
+  $: {
+    if ($enteredAmount !== 0n) {
+      invalidInput = $errorComputingBalance || $insufficientBalance || $insufficientAllowance;
+    } else {
+      invalidInput = false;
+    }
+  }
+
+  $: showInsufficientBalanceAlert = $insufficientBalance && !$errorComputingBalance && !$computingBalance;
+
+  $: {
+    validInput =
+      $enteredAmount > 0n &&
+      $tokenBalance !== null &&
+      $tokenBalance !== undefined &&
+      $enteredAmount <= $tokenBalance?.value;
+  }
+
+  $: displayFeeMsg = !showInsufficientBalanceAlert;
+
+  onMount(async () => {
+    $enteredAmount = 0n;
+  });
 </script>
 
-<div class="relative f-row h-[80px]">
-  <div class="relative f-items-center">
-    <InputBox
-      id={inputId}
-      type="number"
-      placeholder="0.01"
-      min="0"
-      disabled={amountDisabled}
-      error={invalidInput}
-      on:input={inputAmount}
-      bind:this={inputBox}
-      class="py-6 pl-[26px] w-full title-subsection-bold border-0 h-full !rounded-r-none z-20  {$$props.class}" />
-
-    <div class="border-l border-primary-border-dark h-[80px] w-[2px]" />
-
-    <button class="absolute right-6 uppercase hover:font-bold z-20" on:click={useMaxAmount}>
-      {$t('inputs.amount.button.max')}
-    </button>
+<div class="TokenInput space-y-[8px]">
+  <div class="f-between-center text-sm">
+    <span class="text-tertiary-content">{$t('inputs.amount.label')}</span>
+    <span class="text-secondary-content">{$t('common.balance')}: {renderBalance($tokenBalance)} </span>
   </div>
-  <TokenDropdown
-    class="max-w-[151px] min-w-[151px] z-20"
-    {tokens}
-    bind:value={$selectedToken}
-    bind:disabled={tokenDisabled} />
+  <div class="relative f-row h-[64px]">
+    <div class="relative f-items-center w-full">
+      <InputBox
+        id={inputId}
+        type="number"
+        placeholder="0.01"
+        min="0"
+        disabled={amountDisabled}
+        error={invalidInput}
+        bind:value
+        on:input={() => handleInputChange(value)}
+        bind:this={inputBox}
+        class="min-h-[64px] pl-[15px] w-full border-0 h-full  !rounded-r-none z-20  {$$props.class}" />
+
+      <!-- vertical separator -->
+      <div class="border-l border-r bg-primary-border-dark border-neutral-background h-[64px] w-[3px]" />
+
+      <button
+        class="max-button absolute right-6 uppercase hover:font-bold text-tertiary-content z-20"
+        on:click={useMaxAmount}>
+        {$t('inputs.amount.button.max')}
+      </button>
+    </div>
+
+    <TokenDropdown class="min-w-[151px] z-20 " {tokens} bind:value={$selectedToken} bind:disabled={tokenDisabled} />
+  </div>
+  <div class="flex mt-[8px] min-h-[24px]">
+    {#if displayFeeMsg}
+      <div class="f-row items-center gap-1">
+        <Icon type="info-circle" size={15} fillClass="fill-tertiary-content" /><span
+          class="text-sm text-tertiary-content"
+          >{$t('recipient.label')} <ProcessingFee textOnly class="text-tertiary-content" /></span>
+      </div>
+    {:else if showInsufficientBalanceAlert}
+      <FlatAlert type="error" message={$t('bridge.errors.insufficient_balance.title')} class="relative " />
+    {:else}
+      <LoadingText mask="" class="w-1/2" />
+    {/if}
+  </div>
 </div>
+
+<style>
+  .max-button {
+    font-family: 'Public Sans';
+    font-size: 14px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 20px; /* 142.857% */
+    letter-spacing: 0.14px;
+  }
+</style>

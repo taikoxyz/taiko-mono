@@ -20,7 +20,7 @@ import { type BridgeType, BridgeTypes } from './types';
 export const activeBridge = writable<BridgeType>(BridgeTypes.FUNGIBLE);
 export const selectedToken = writable<Maybe<Token | NFT>>(null);
 export const selectedNFTs = writable<Maybe<NFT[]>>(null);
-export const tokenBalance = writable<Maybe<FetchBalanceResult | bigint>>(null);
+export const tokenBalance = writable<Maybe<FetchBalanceResult>>(null);
 export const enteredAmount = writable<bigint>(BigInt(0));
 export const destNetwork = writable<Maybe<Chain>>(null);
 export const destOptions = writable<Chain[]>(chains);

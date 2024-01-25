@@ -7,6 +7,7 @@
   import { Icon } from '$components/Icon';
   import Erc20 from '$components/Icon/ERC20.svelte';
   import { OnAccount } from '$components/OnAccount';
+  import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { tokenService } from '$libs/storage/services';
   import type { Token } from '$libs/token';
   import { noop } from '$libs/util/noop';
@@ -57,8 +58,12 @@
 </script>
 
 <!-- Mobile view -->
-<dialog {id} class="modal modal-bottom" class:modal-open={menuOpen}>
-  <div class="modal-box relative px-6 py-[35px] w-full bg-neutral-background">
+<dialog
+  {id}
+  class="modal modal-bottom"
+  class:modal-open={menuOpen}
+  use:closeOnEscapeOrOutsideClick={{ enabled: menuOpen, callback: closeMenu, uuid: id }}>
+  <div class="modal-box relative px-6 py-[35px] w-full bg-neutral-background absolute">
     <CloseButton onClick={closeMenu} />
 
     <div class="w-full">
@@ -126,6 +131,7 @@
       </ul>
     </div>
   </div>
+  <button class="overlay-backdrop" data-modal-uuid={id} />
 </dialog>
 
 <AddCustomErc20 bind:modalOpen on:tokenRemoved />

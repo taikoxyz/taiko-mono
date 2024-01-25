@@ -21,7 +21,7 @@
   $: disabledColor = onPopup && $$restProps.disabled ? '!bg-dialog-interactive-disabled' : '';
 
   $: commonClasses = classNames(
-    'btn h-[56px] px-[28px] py-[14px] rounded-full flex-1 w-full',
+    'btn max-h-[56px] min-h-[56px] px-[28px] py-[14px] rounded-full flex-1 w-full',
     disabledColor,
     $$props.class,
   );

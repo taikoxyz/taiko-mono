@@ -8,9 +8,8 @@
   import { ActionButton, CloseButton } from '$components/Button';
   import { Icon } from '$components/Icon';
   import { Spinner } from '$components/Spinner';
-  import type { NFT, Token } from '$libs/token';
-  import { getCanonicalInfoForToken } from '$libs/token/getCanonicalInfoForToken';
-  import { getCrossChainInfoForToken } from '$libs/token/getCrossChainInfoForToken';
+  import type { NFT } from '$libs/token';
+  import { getTokenAddresses } from '$libs/token/getTokenAddresses';
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { uid } from '$libs/util/uid';
   import { network } from '$stores/network';
@@ -31,7 +30,7 @@
   let bridgedAddress: Address | null;
   let bridgedChain: number | null;
 
-  let fetchingBridgedAddress: boolean = false;
+  let fetchingAddress: boolean = false;
 
   let canonicalAddress: Address | null;
   let canonicalChain: number | null;
@@ -45,25 +44,26 @@
     modalOpen = false;
   };
 
-  const getBridgedAddress = async () => {
-    const srcChain = canonicalChain;
-    const destChain = destChainId === canonicalChain ? srcChainId : destChainId;
-    if (!srcChain || !destChain || !canonicalAddress) return;
+  const fetchTokenAddresses = async () => {
+    fetchingAddress = true;
 
-    fetchingBridgedAddress = true;
+    if (!srcChainId || !destChainId) return;
+
     try {
-      const response = await getCrossChainInfoForToken({ token: nft, srcChainId: srcChain, destChainId: destChain });
-      if (!response) return;
-      const { address, chainId } = response;
-      if (!address || !chainId) return;
-      bridgedAddress = address;
-      bridgedChain = chainId;
-      if (address === zeroAddress) bridgedAddress = null;
+      const tokenInfo = await getTokenAddresses({ token: nft, srcChainId, destChainId });
+
+      if (!tokenInfo) return;
+      if (!tokenInfo.bridged?.address || tokenInfo.bridged?.address === zeroAddress) return;
+      bridgedAddress = tokenInfo.bridged?.address;
+      bridgedChain = tokenInfo.bridged?.chainId;
+
+      if (!tokenInfo.canonical?.address || tokenInfo.canonical?.address === zeroAddress) return;
+      canonicalAddress = tokenInfo.canonical?.address;
+      canonicalChain = tokenInfo.canonical?.chainId;
     } catch (error) {
       console.error(error);
     }
-
-    fetchingBridgedAddress = false;
+    fetchingAddress = false;
   };
 
   let imageLoaded = false;
@@ -72,26 +72,12 @@
     imageLoaded = true;
   }
 
-  const getCanonicalAddress = async () => {
-    const token = nft as Token;
-    if (!srcChainId || !destChainId) return;
-
-    const response = await getCanonicalInfoForToken({ token, srcChainId, destChainId });
-
-    if (!response) return;
-    const { address, chainId } = response;
-    if (!address || !chainId) return;
-    canonicalAddress = address;
-    canonicalChain = chainId;
-  };
-
   $: imageUrl = nft.metadata?.image || placeholderUrl;
 
-  $: showBridgedAddress = destChainId && bridgedAddress && !fetchingBridgedAddress;
+  $: showBridgedAddress = destChainId && bridgedAddress && !fetchingAddress;
 
   onMount(async () => {
-    await getCanonicalAddress();
-    await getBridgedAddress();
+    await fetchTokenAddresses();
   });
 </script>
 
@@ -148,7 +134,7 @@
                   <Icon type="arrow-top-right" fillClass="fill-primary-link" />
                 </a>
               {/if}
-              {#if fetchingBridgedAddress}
+              {#if fetchingAddress}
                 <Spinner class="h-[10px] w-[10px] " />
                 {$t('common.loading')}
               {/if}

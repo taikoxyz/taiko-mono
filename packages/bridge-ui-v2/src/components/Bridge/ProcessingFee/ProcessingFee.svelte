@@ -17,6 +17,7 @@
   import RecommendedFee from './RecommendedFee.svelte';
 
   export let small = false;
+  export let textOnly = false;
   export let hasEnoughEth = false;
   export let disabled = false;
 
@@ -146,12 +147,24 @@
           {$t('processing_fee.recommended.error')}
         {:else}
           {formatEther($processingFee ?? BigInt(0))} ETH {#if $processingFee !== recommendedAmount}
-            <span class="text-primary-link">| Customized</span>
+            <span class="text-primary-link">| {$t('common.customized')}</span>
           {/if}
         {/if}
       </span>
     </div>
   </div>
+{:else if textOnly}
+  <span class="text-primary-content mt-[4px] {$$props.class}">
+    {#if calculatingRecommendedAmount}
+      <LoadingText mask="0.0001" /> ETH
+    {:else if errorCalculatingRecommendedAmount}
+      {$t('processing_fee.recommended.error')}
+    {:else}
+      {formatEther($processingFee ?? BigInt(0))} ETH {#if $processingFee !== recommendedAmount}
+        <span class="text-primary-link">| {$t('common.customized')}</span>
+      {/if}
+    {/if}
+  </span>
 {:else}
   <div class="ProcessingFee">
     <div class="f-between-center">
@@ -174,7 +187,7 @@
         {$t('processing_fee.recommended.error')}
       {:else}
         {formatEther($processingFee ?? BigInt(0))} ETH {#if $processingFee !== recommendedAmount}
-          <span class="text-primary-link">| Customized</span>
+          <span class="text-primary-link">| {$t('common.customized')}</span>
         {/if}
       {/if}
     </span>

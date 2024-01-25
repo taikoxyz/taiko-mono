@@ -1,45 +1,77 @@
 <script lang="ts">
+  import { switchNetwork } from '@wagmi/core';
   import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
+  import { type Chain, SwitchChainError, UserRejectedRequestError } from 'viem';
 
   import { chainConfig } from '$chainConfig';
   import { destNetwork } from '$components/Bridge/state';
   import SwitchChainsButton from '$components/Bridge/SwitchChainsButton.svelte';
+  import DesktopOrLarger from '$components/DesktopOrLarger/DesktopOrLarger.svelte';
   import { LoadingMask } from '$components/LoadingMask';
+  import { warningToast } from '$components/NotificationToast';
   import { OnNetwork } from '$components/OnNetwork';
   import { chainIdToChain } from '$libs/chain';
   import { getAlternateNetwork } from '$libs/network';
   import { truncateString } from '$libs/util/truncateString';
   import { network } from '$stores/network';
 
+  import ChainsDialog from './ChainsDialog.svelte';
   import ChainsDropdown from './ChainsDropdown.svelte';
 
-  let originToggled = false;
+  let sourceToggled = false;
   let destinationToggled = false;
   let switchingNetwork = false;
+  let isDesktopOrLarger = false;
 
   let iconSize = 'min-w-[24px] max-w-[24px] min-h-[24px] max-h-[24px]';
 
-  function onNetworkChange() {
-    const alternateChainID = getAlternateNetwork();
-    if (!$destNetwork && alternateChainID) {
-      // if only two chains are available, set the destination chain to the other one
-      $destNetwork = chainIdToChain(alternateChainID);
+  async function selectChain(event: CustomEvent<{ chain: Chain; switchWallet: boolean }>) {
+    const { chain, switchWallet } = event.detail;
+
+    if (switchWallet) {
+      switchingNetwork = true;
+      try {
+        await switchNetwork({ chainId: chain.id });
+      } catch (err) {
+        console.error(err);
+        if (err instanceof SwitchChainError) {
+          warningToast({
+            title: $t('messages.network.pending.title'),
+            message: $t('messages.network.pending.message'),
+          });
+        }
+        if (err instanceof UserRejectedRequestError) {
+          warningToast({
+            title: $t('messages.network.rejected.title'),
+            message: $t('messages.network.rejected.message'),
+          });
+        }
+      } finally {
+        switchingNetwork = false;
+      }
+    } else {
+      $destNetwork = chain;
     }
   }
 
-  const onOriginToggle = () => {
-    originToggled = !originToggled;
+  const onNetworkChange = () => setAlternateNetwork();
+
+  const setAlternateNetwork = () => {
+    const alternateChainID = getAlternateNetwork();
+    if (alternateChainID) {
+      $destNetwork = chainIdToChain(alternateChainID);
+    }
   };
 
-  const onDestinationToggle = () => {
-    destinationToggled = !destinationToggled;
-  };
+  const onSourceToggle = () => (sourceToggled = !sourceToggled);
 
-  $: selectClasses = ` select bg-transparent appearance-none w-full py-[12px] px-[15px]  focus:border-transparent focus:outline-none focus:bg-primary-background-hover`;
+  const onDestinationToggle = () => (destinationToggled = !destinationToggled);
+
+  $: selectClasses = `select bg-transparent appearance-none w-full py-[12px] px-[15px]  focus:border-transparent focus:outline-none focus:bg-primary-background-hover`;
 
   $: containerClasses = `${
-    destinationToggled ? 'rounded-t-[10px]' : 'rounded-[10px]'
+    destinationToggled && isDesktopOrLarger ? 'rounded-t-[10px]' : 'rounded-[10px]'
   } f-col w-full relative bg-neutral-background `;
 
   $: srcChain = $network;
@@ -59,7 +91,7 @@
     <LoadingMask spinnerClass="border-white absolute z-20" text={$t('messages.network.switching')} />
   {/if}
   <div class="relative">
-    <button on:click={() => onOriginToggle()} class={selectClasses}>
+    <button on:click={() => onSourceToggle()} class={selectClasses}>
       {#if srcChain}
         {@const icon = chainConfig[Number(srcChain.id)]?.icon || 'Unknown Chain'}
         <div class="f-row items-center gap-2">
@@ -75,11 +107,15 @@
         <span class="text-base text-secondary-content"> {$t('chain_selector.from_placeholder')}</span>
       {/if}
     </button>
-    <ChainsDropdown bind:isOpen={originToggled} bind:switchingNetwork bind:value={srcChain} switchWallet />
+    {#if isDesktopOrLarger}
+      <ChainsDropdown on:change={selectChain} bind:isOpen={sourceToggled} bind:value={srcChain} switchWallet />
+    {:else}
+      <ChainsDialog on:change={selectChain} bind:isOpen={sourceToggled} value={srcChain} switchWallet />
+    {/if}
   </div>
 
   {#if !switchingNetwork}
-    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10">
+    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20">
       <div
         class="bg-neutral-background border-[1px] border-primary-border-dark h-6 w-6 rounded-full flex items-center justify-center">
         <SwitchChainsButton />
@@ -104,8 +140,13 @@
         <span class="text-base text-secondary-content"> {$t('chain_selector.to_placeholder')}</span>
       {/if}
     </button>
-    <ChainsDropdown bind:isOpen={destinationToggled} bind:switchingNetwork bind:value={destChain} isDest />
+    {#if isDesktopOrLarger}
+      <ChainsDropdown on:change={selectChain} bind:isOpen={destinationToggled} bind:value={destChain} />
+    {:else}
+      <ChainsDialog on:change={selectChain} bind:isOpen={destinationToggled} value={destChain} />
+    {/if}
   </div>
 </div>
 
 <OnNetwork change={onNetworkChange} />
+<DesktopOrLarger bind:is={isDesktopOrLarger} />

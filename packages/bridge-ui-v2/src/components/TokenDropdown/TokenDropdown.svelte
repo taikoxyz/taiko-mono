@@ -2,22 +2,29 @@
   import type { Address } from '@wagmi/core';
   import { onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
+  import { zeroAddress } from 'viem';
 
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { Icon } from '$components/Icon';
   import Erc20 from '$components/Icon/ERC20.svelte';
   import { warningToast } from '$components/NotificationToast';
-  import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
+  import { OnAccount } from '$components/OnAccount';
+  import { OnNetwork } from '$components/OnNetwork';
   import { tokenService } from '$libs/storage/services';
-  import { ETHToken, type Token } from '$libs/token';
-  import { getCanonicalInfoForToken } from '$libs/token/getCanonicalInfo';
-  import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
+  import { ETHToken, getBalance as getTokenBalance, type Token, TokenType } from '$libs/token';
+  import { getTokenAddresses } from '$libs/token/getTokenAddresses';
   import { getLogger } from '$libs/util/logger';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
   import { network } from '$stores/network';
 
-  import { destNetwork, selectedTokenIsBridged } from '../Bridge/state';
+  import {
+    computingBalance,
+    destNetwork,
+    errorComputingBalance,
+    selectedTokenIsBridged,
+    tokenBalance,
+  } from '../Bridge/state';
   import DialogView from './DialogView.svelte';
   import DropdownView from './DropdownView.svelte';
   import { symbolToIconMap } from './symbolToIconMap';
@@ -30,7 +37,7 @@
   export let disabled = false;
 
   let id = `menu-${uid()}`;
-  let menuOpen = false;
+  $: menuOpen = false;
 
   const customTokens = tokenService.getTokens($account?.address as Address);
   // This will control which view to render depending on the screensize.
@@ -45,7 +52,6 @@
 
   const openMenu = (event: Event) => {
     event.stopPropagation();
-
     menuOpen = true;
   };
 
@@ -69,26 +75,25 @@
       warningToast({ title: $t('messages.network.required_dest') });
       return;
     }
-
     // if it is an imported Token, chances are we do not yet have the bridged address
     // for the destination chain, so we need to fetch it
     if (token.imported) {
-      // ... in the case of imported tokens, we also require the destination chain to be selected.    if (!destChain) {
+      // ... in the case of imported tokens, we also require the destination chain to be selected.
 
       let bridgedAddress = null;
       try {
-        const crossChainInfo = await getCrossChainInfoForToken({
-          token,
-          srcChainId: srcChain.id,
-          destChainId: destChain.id,
-        });
-        if (!crossChainInfo) throw new Error('cross chain info not found');
-        const { address: bridgedAddress, chainId: bridgedChainId } = crossChainInfo;
-        // only update the token if we actually have a new bridged address
-        if (bridgedAddress && bridgedAddress !== token.addresses[destChain.id]) {
-          token.addresses[bridgedChainId] = bridgedAddress as Address;
-
+        const tokenInfo = await getTokenAddresses({ token, srcChainId: srcChain.id, destChainId: destChain.id });
+        if (!tokenInfo) return;
+        if (tokenInfo.bridged?.chainId && tokenInfo.bridged?.address && tokenInfo.bridged?.address !== zeroAddress) {
+          token.addresses[tokenInfo.bridged.chainId] = tokenInfo.bridged.address;
           tokenService.updateToken(token, $account?.address as Address);
+        }
+        if (value?.addresses[destChain.id] !== tokenInfo.canonical?.address) {
+          log('selected token is bridged');
+          $selectedTokenIsBridged = true;
+        } else {
+          log('selected token is canonical');
+          $selectedTokenIsBridged = false;
         }
       } catch (error) {
         console.error(error);
@@ -96,13 +101,8 @@
     }
 
     value = token;
-    const info = await getCanonicalInfoForToken({ token, srcChainId: srcChain.id, destChainId: destChain.id });
-    if (info && value.addresses[srcChain.id] !== info.address) {
-      log('selected token is not canonical');
-      $selectedTokenIsBridged = true;
-    } else {
-      $selectedTokenIsBridged = false;
-    }
+    await updateBalance($account?.address, srcChain.id, destChain.id);
+
     closeMenu();
   };
 
@@ -113,12 +113,70 @@
     }
   };
 
+  export async function updateBalance(
+    userAddress = $account?.address,
+    srcChainId = $network?.id,
+    destChainId = $destNetwork?.id,
+  ) {
+    const token = value;
+    if (!token || !srcChainId || !destChainId || !userAddress) return;
+    $computingBalance = true;
+    $errorComputingBalance = false;
+
+    try {
+      if (token.type === TokenType.ERC20) {
+        $tokenBalance = await getTokenBalance({
+          token,
+          srcChainId,
+          destChainId,
+          userAddress,
+        });
+      } else if (token.type === TokenType.ETH) {
+        $tokenBalance = await getTokenBalance({
+          token: ETHToken,
+          srcChainId,
+          destChainId,
+          userAddress,
+        });
+      } else {
+        $tokenBalance = await getTokenBalance({
+          token,
+          srcChainId,
+          destChainId,
+          userAddress,
+        });
+      }
+    } catch (err) {
+      log('Error updating balance: ', err);
+      //most likely we have a custom token that is not bridged yet
+      $errorComputingBalance = true;
+      // clearAmount();
+    }
+    $computingBalance = false;
+  }
+
+  const onNetworkChange = () => {
+    const srcChain = $network;
+    const destChain = $destNetwork;
+    if (srcChain && destChain) updateBalance($account?.address, srcChain.id, destChain.id);
+  };
+
+  const onAccountChange = () => {
+    const srcChain = $network;
+    const destChain = $destNetwork;
+    if (srcChain && destChain) updateBalance($account?.address, srcChain.id, destChain.id);
+  };
+
   $: textClass = disabled ? 'text-secondary-content' : 'font-bold ';
 
   onDestroy(() => closeMenu());
 
-  onMount(() => {
+  onMount(async () => {
+    const srcChain = $network;
+    const destChain = $destNetwork;
     value = ETHToken;
+
+    if (srcChain && destChain) await updateBalance($account?.address, srcChain.id, destChain.id);
   });
 </script>
 
@@ -126,12 +184,11 @@
 
 <div class="relative h-full {$$props.class}">
   <button
-    use:closeOnEscapeOrOutsideClick={{ enabled: menuOpen, callback: () => (menuOpen = false) }}
     {disabled}
     aria-haspopup="listbox"
     aria-controls={id}
     aria-expanded={menuOpen}
-    class="f-between-center w-full h-full !rounded-l-none px-[20px] py-[14px] input-box bg-neutral-background border-0 shadow-none outline-none"
+    class="f-between-center w-full h-full px-[20px] py-[14px] !rounded-l-none !rounded-r-[10px] input-box bg-neutral-background border-0 shadow-none outline-none"
     on:click={openMenu}
     on:focus={openMenu}>
     <div class="space-x-2">
@@ -139,7 +196,7 @@
         <span class="title-subsection-bold text-base text-secondary-content">{$t('token_dropdown.label')}</span>
       {/if}
       {#if value}
-        <div class="flex f-space-between space-x-2 items-center">
+        <div class="flex f-space-between space-x-2 items-center text-secondary-content">
           <!-- Only match icons to configurd tokens -->
           {#if symbolToIconMap[value.symbol] && !value.imported}
             <i role="img" aria-label={value.name}>
@@ -162,14 +219,19 @@
   {#if isDesktopOrLarger}
     <DropdownView
       {id}
-      {menuOpen}
+      bind:menuOpen
       {onlyMintable}
       {tokens}
       {customTokens}
       {value}
       {selectToken}
+      {closeMenu}
       on:tokenRemoved={handleTokenRemoved} />
   {:else}
-    <DialogView {id} {menuOpen} {onlyMintable} {tokens} {customTokens} {value} {selectToken} {closeMenu} />
+    <DialogView {id} bind:menuOpen {onlyMintable} {tokens} {customTokens} {value} {selectToken} {closeMenu} />
   {/if}
 </div>
+<div data-modal-uuid={id} />
+
+<OnNetwork change={onNetworkChange} />
+<OnAccount change={onAccountChange} />

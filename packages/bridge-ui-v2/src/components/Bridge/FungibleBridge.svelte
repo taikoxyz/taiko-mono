@@ -31,14 +31,12 @@
     text={$t('bridge.description.default')}>
     <div class="space-y-[30px] mt-[30px]">
       <CombinedChainSelector />
-      <div class="space-y-[30px]">
-        {#if activeStep === BridgeSteps.IMPORT}
-          <ImportStep />
-        {/if}
-        <!-- {#if displayL1Warning}
+      {#if activeStep === BridgeSteps.IMPORT}
+        <ImportStep />
+      {/if}
+      <!-- {#if displayL1Warning}
         <Alert type="warning">{$t('bridge.alerts.slow_bridging')}</Alert>
       {/if} -->
-      </div>
 
       <StepNavigation bind:activeStep />
     </div>
