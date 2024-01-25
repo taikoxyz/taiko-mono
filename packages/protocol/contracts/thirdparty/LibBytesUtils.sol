@@ -104,11 +104,15 @@ library LibBytesUtils {
     }
 
     function slice(bytes memory _bytes, uint256 _start) internal pure returns (bytes memory) {
-        if (_start >= _bytes.length) {
-            return bytes("");
+        if (_bytes.length < 32) {
+            bytes32 ret;
+            assembly {
+                ret := mload(add(_bytes, 32))
+            }
+            return ret;
         }
 
-        return slice(_bytes, _start, _bytes.length - _start);
+        return abi.decode(_bytes, (bytes32)); // will truncate if input length >32 bytes
     }
 
     function toBytes32(bytes memory _bytes) internal pure returns (bytes32) {
