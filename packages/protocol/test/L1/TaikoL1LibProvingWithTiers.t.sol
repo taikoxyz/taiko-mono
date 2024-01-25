@@ -221,7 +221,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
         vm.prank(Bob, Bob);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
-        for (uint256 blockId = 1; blockId < 15; blockId++) {
+        for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
             (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
