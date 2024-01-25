@@ -65,7 +65,6 @@ abstract contract OwnerUUPSUpgradable is UUPSUpgradeable, OwnableUpgradeable {
 
     function unpause() external whenPaused {
         _authorizePause(msg.sender);
-
         _paused = _FALSE;
         emit Unpaused(msg.sender);
     }
