@@ -28,7 +28,7 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 			return err
 		}
 
-		slog.Info("Starting Taiko relayer application", "name", app.Name())
+		slog.Info("Starting Taiko guardian prover health check application", "name", app.Name())
 
 		if err := app.Start(); err != nil {
 			slog.Error("Starting application error", "name", app.Name(), "error", err)

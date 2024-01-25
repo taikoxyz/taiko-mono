@@ -40,7 +40,8 @@ var (
 	Filter             WatchMode = "filter"
 	Subscribe          WatchMode = "subscribe"
 	FilterAndSubscribe WatchMode = "filter-and-subscribe"
-	WatchModes                   = []WatchMode{Filter, Subscribe, FilterAndSubscribe}
+	CrawlPastBlocks    WatchMode = "crawl-past-blocks"
+	WatchModes                   = []WatchMode{Filter, Subscribe, FilterAndSubscribe, CrawlPastBlocks}
 )
 
 type SyncMode string
@@ -89,6 +90,8 @@ type Indexer struct {
 	ethClientTimeout time.Duration
 
 	wg *sync.WaitGroup
+
+	numLatestBlocksToIgnoreWhenCrawling uint64
 
 	ctx context.Context
 }
@@ -185,6 +188,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 
 	i.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
 
+	i.numLatestBlocksToIgnoreWhenCrawling = cfg.NumLatestBlocksToIgnoreWhenCrawling
+
 	return nil
 }
 
@@ -241,7 +246,14 @@ func (i *Indexer) filter(ctx context.Context) error {
 		return i.subscribe(ctx, i.srcChainId)
 	}
 
-	if err := i.setInitialProcessingBlockByMode(ctx, i.syncMode, i.srcChainId); err != nil {
+	syncMode := i.syncMode
+
+	// always use Resync when crawling past blocks
+	if i.watchMode == CrawlPastBlocks {
+		syncMode = Resync
+	}
+
+	if err := i.setInitialProcessingBlockByMode(ctx, syncMode, i.srcChainId); err != nil {
 		return errors.Wrap(err, "i.setInitialProcessingBlockByMode")
 	}
 
@@ -262,12 +274,20 @@ func (i *Indexer) filter(ctx context.Context) error {
 		"batchsize", i.blockBatchSize,
 	)
 
-	for j := i.processingBlockHeight; j < header.Number.Uint64(); j += i.blockBatchSize {
+	endBlockID := header.Number.Uint64()
+
+	// ignore latest N blocks, they are probably in queue already
+	// and are not "missed".
+	if i.watchMode == CrawlPastBlocks {
+		endBlockID -= i.numLatestBlocksToIgnoreWhenCrawling
+	}
+
+	for j := i.processingBlockHeight; j < endBlockID; j += i.blockBatchSize {
 		end := i.processingBlockHeight + i.blockBatchSize
 		// if the end of the batch is greater than the latest block number, set end
 		// to the latest block number
-		if end > header.Number.Uint64() {
-			end = header.Number.Uint64()
+		if end > endBlockID {
+			end = endBlockID
 		}
 
 		// filter exclusive of the end block.
@@ -283,17 +303,21 @@ func (i *Indexer) filter(ctx context.Context) error {
 			Context: ctx,
 		}
 
-		messageStatusChangedEvents, err := i.bridge.FilterMessageStatusChanged(filterOpts, nil)
-		if err != nil {
-			return errors.Wrap(err, "bridge.FilterMessageStatusChanged")
-		}
+		// we dont want to watch for message status changed events
+		// when crawling past blocks on a loop.
+		if i.watchMode != CrawlPastBlocks {
+			messageStatusChangedEvents, err := i.bridge.FilterMessageStatusChanged(filterOpts, nil)
+			if err != nil {
+				return errors.Wrap(err, "bridge.FilterMessageStatusChanged")
+			}
 
-		// we don't need to do anything with msgStatus events except save them to the DB.
-		// we don't need to process them. they are for exposing via the API.
+			// we don't need to do anything with msgStatus events except save them to the DB.
+			// we don't need to process them. they are for exposing via the API.
 
-		err = i.saveMessageStatusChangedEvents(ctx, i.srcChainId, messageStatusChangedEvents)
-		if err != nil {
-			return errors.Wrap(err, "bridge.saveMessageStatusChangedEvents")
+			err = i.saveMessageStatusChangedEvents(ctx, i.srcChainId, messageStatusChangedEvents)
+			if err != nil {
+				return errors.Wrap(err, "bridge.saveMessageStatusChangedEvents")
+			}
 		}
 
 		messageSentEvents, err := i.bridge.FilterMessageSent(filterOpts, nil)
@@ -333,15 +357,33 @@ func (i *Indexer) filter(ctx context.Context) error {
 	}
 
 	slog.Info(
-		"indexer fully caught up, checking latest block number to see if it's advanced",
+		"indexer fully caught up",
 	)
+
+	if i.watchMode == CrawlPastBlocks {
+		slog.Info("restarting filtering from genesis")
+		return i.filter(ctx)
+	}
+
+	slog.Info("getting latest block to see if header has advanced")
 
 	latestBlock, err := i.srcEthClient.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return errors.Wrap(err, "i.srcEthClient.HeaderByNumber")
 	}
 
-	if i.processingBlockHeight < latestBlock.Number.Uint64() {
+	latestBlockIDToCompare := latestBlock.Number.Uint64()
+
+	if i.watchMode == CrawlPastBlocks && latestBlockIDToCompare > i.numLatestBlocksToIgnoreWhenCrawling {
+		latestBlockIDToCompare -= i.numLatestBlocksToIgnoreWhenCrawling
+	}
+
+	if i.processingBlockHeight < latestBlockIDToCompare {
+		slog.Info("header has advanced",
+			"processingBlockHeight", i.processingBlockHeight,
+			"latestBlock", latestBlockIDToCompare,
+		)
+
 		return i.filter(ctx)
 	}
 
@@ -349,6 +391,8 @@ func (i *Indexer) filter(ctx context.Context) error {
 	if i.watchMode == Filter {
 		return nil
 	}
+
+	slog.Info("processing is caught up to latest block, subscribing to new blocks")
 
 	return i.subscribe(ctx, i.srcChainId)
 }

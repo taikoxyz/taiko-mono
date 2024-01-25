@@ -1,5 +1,5 @@
 import { fetchGuardianProversFromContract } from './guardianProver/fetchGuardianProversFromContract';
-import { GuardianProverStatus, type SignedBlocks } from './types';
+import { GuardianProverStatus, type Guardian, type SignedBlocks } from './types';
 import { fetchSignedBlocksFromApi } from './api/signedBlocksApiCalls';
 import { getGuardianProverIdsPerBlockNumber } from './blocks/getGuardianProverIdsPerBlockNumber';
 import { sortSignedBlocksDescending } from './blocks/sortSignedBlocks';
@@ -16,53 +16,71 @@ import {
 	loading,
 	totalGuardianProvers
 } from '$stores';
-import { get } from 'svelte/store';
+import { get, writable } from 'svelte/store';
 
 const BLOCKS_TO_CHECK = 20;
 const THRESHOLD = BLOCKS_TO_CHECK / 2;
 const HEALTHCHECK_TIMEOUT_IN_SECONDS = 60;
 
+const tempGuardianStore = writable<Guardian[]>([]);
 
-export function startFetching() {
-	if (get(loading) === true) return;
-	// Fetch all data immediately
-	refreshData();
+let guardiansIntervalId;
+let blocksAndLivelinessIntervalId;
 
-	// Set up an interval to fetch guardians every 30 seconds
-	const guardiansInterval = setInterval(() => {
+export async function startFetching() {
+	if (get(loading)) return;
+
+	await refreshData();
+
+	guardiansIntervalId = setInterval(() => {
 		fetchGuardians();
-	}, 30000);
+	}, 10000);
 
-	// Set up an interval to fetch signed block and liveliness stats every 12 seconds
-	const blocksAndLivelinessInterval = setInterval(() => {
+	blocksAndLivelinessIntervalId = setInterval(() => {
 		fetchSignedBlockStats();
 		determineLiveliness();
 	}, 12000);
-	// Return a function to clear all intervals
-	return () => {
-		clearInterval(guardiansInterval);
-		clearInterval(blocksAndLivelinessInterval);
-	};
+}
+
+export function stopFetching() {
+	if (guardiansIntervalId) {
+		clearInterval(guardiansIntervalId);
+		guardiansIntervalId = null;
+	}
+	if (blocksAndLivelinessIntervalId) {
+		clearInterval(blocksAndLivelinessIntervalId);
+		blocksAndLivelinessIntervalId = null;
+	}
 }
 
 export async function refreshData() {
 	if (get(loading) === true) return;
 	loading.set(true);
-	await fetchSignedBlockStats();
-	await fetchGuardians();
-	await determineLiveliness();
+
+	if (get(guardianProvers)?.length === 0) {
+		await fetchGuardians();
+		const block = fetchSignedBlockStats();
+		const liveness = determineLiveliness();
+		await Promise.all([block, liveness]);
+	} else {
+		const guardian = fetchGuardians();
+		const block = fetchSignedBlockStats();
+		const liveness = determineLiveliness();
+		await Promise.all([block, guardian, liveness]);
+	}
+
 	loading.set(false);
 }
 
 async function fetchGuardians() {
-	const rawData = await fetchGuardianProversFromContract();
-	const required = await fetchGuardianProverRequirementsFromContract();
-
+	const [rawData, required] = await Promise.all([
+		fetchGuardianProversFromContract(),
+		fetchGuardianProverRequirementsFromContract()
+	]);
 	minGuardianRequirement.set(required);
 	totalGuardianProvers.set(rawData.length);
 
-	const guardians = [];
-	for (const guardian of rawData) {
+	const guardianFetchPromises = rawData.map(async (guardian) => {
 		const balance = await publicClient.getBalance({
 			address: guardian.address as Address
 		});
@@ -70,27 +88,25 @@ async function fetchGuardians() {
 		const balanceAsEther = formatEther(balance);
 		guardian.balance = balanceAsEther;
 
-		const status = await fetchLatestGuardianProverHealtCheckFromApi(
-			import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
-			guardian.id
-		);
+		const [status, uptime] = await Promise.all([
+			fetchLatestGuardianProverHealtCheckFromApi(
+				import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
+				guardian.id
+			),
+			fetchUptimeFromApi(import.meta.env.VITE_GUARDIAN_PROVER_API_URL, guardian.id)
+		]);
+
 		guardian.latestHealthCheck = status;
+		guardian.uptime = Math.min(uptime, 100);
+		// guardian.alive = status.alive ? GuardianProverStatus.ALIVE : GuardianProverStatus.DEAD;
 
-		const uptime = await fetchUptimeFromApi(
-			import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
-			guardian.id
-		);
-		guardian.uptime = uptime;
-		if (uptime > 100) guardian.uptime = 100;
+		return guardian;
+	});
 
-		guardian.alive = status.alive ? GuardianProverStatus.ALIVE : GuardianProverStatus.DEAD;
-
-		guardians.push(guardian);
-	}
+	const data = await Promise.all(guardianFetchPromises);
+	tempGuardianStore.set(data);
 
 	lastGuardianFetchTimestamp.set(Date.now());
-
-	guardianProvers.set(guardians);
 }
 
 async function fetchSignedBlockStats() {
@@ -105,19 +121,19 @@ async function fetchSignedBlockStats() {
 }
 
 async function determineLiveliness(): Promise<void> {
+	const tempData = get(tempGuardianStore);
 	const now = new Date();
+	if (!tempData) return;
 
-	const guardians = get(guardianProvers);
-	if (!guardians) return;
-	for (const guardian of guardians) {
+	const guardians = tempData.map((guardian) => {
 		const latestCheck = guardian.latestHealthCheck;
 		const createdAt = new Date(latestCheck.createdAt);
 		const secondsSinceLastCheck = (now.getTime() - createdAt.getTime()) / 1000;
 
 		if (secondsSinceLastCheck > HEALTHCHECK_TIMEOUT_IN_SECONDS) {
-			guardian.alive = GuardianProverStatus.DEAD;
-			break;
+			return { ...guardian, alive: GuardianProverStatus.DEAD };
 		}
+
 		let countSignedBlocks = 0;
 		const recentSignedBlocks = get(signedBlocks).slice(0, BLOCKS_TO_CHECK);
 
@@ -127,8 +143,14 @@ async function determineLiveliness(): Promise<void> {
 			}
 		}
 
-		// Update status based on whether the guardian signed at least half of the configured blocks to check
-		guardian.alive =
+		const status =
 			countSignedBlocks >= THRESHOLD ? GuardianProverStatus.ALIVE : GuardianProverStatus.UNHEALTHY;
-	}
+
+		return {
+			...guardian,
+			alive: status
+		};
+	});
+
+	guardianProvers.set(guardians);
 }

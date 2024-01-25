@@ -4,12 +4,12 @@
 	import Header from '$components/Header/Header.svelte';
 	import { Page } from '$components/Page';
 	import { onMount, onDestroy } from 'svelte';
-	import { startFetching } from '$lib/dataFetcher';
-
-	let stopFetching: () => void;
+	import { startFetching, stopFetching } from '$lib/dataFetcher';
+	import { loading } from '$stores/stores';
 
 	onMount(() => {
-		stopFetching = startFetching();
+		loading.set(false);
+		startFetching();
 	});
 
 	onDestroy(() => {
