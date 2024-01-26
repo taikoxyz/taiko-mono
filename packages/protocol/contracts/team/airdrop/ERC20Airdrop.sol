@@ -15,14 +15,11 @@
 pragma solidity 0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./MerkleClaimable.sol";
 
 /// @title ERC20Airdrop
 /// Contract for managing Taiko token airdrop for eligible users
 contract ERC20Airdrop is MerkleClaimable {
-    using SafeERC20 for IERC20;
-
     address public token;
     address public vault;
     uint256[48] private __gap;
@@ -46,6 +43,6 @@ contract ERC20Airdrop is MerkleClaimable {
 
     function _claimWithData(bytes calldata data) internal override {
         (address user, uint256 amount) = abi.decode(data, (address, uint256));
-        IERC20(token).safeTransferFrom(vault, user, amount);
+        IERC20(token).transferFrom(vault, user, amount);
     }
 }

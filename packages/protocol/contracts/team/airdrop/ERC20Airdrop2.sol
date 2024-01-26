@@ -15,7 +15,6 @@
 pragma solidity 0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../libs/LibMath.sol";
 import "./MerkleClaimable.sol";
 
@@ -24,7 +23,6 @@ import "./MerkleClaimable.sol";
 /// withdrawal is not immediate and is subject to a withdrawal window.
 contract ERC20Airdrop2 is MerkleClaimable {
     using LibMath for uint256;
-    using SafeERC20 for IERC20;
 
     address public token;
     address public vault;
@@ -73,7 +71,7 @@ contract ERC20Airdrop2 is MerkleClaimable {
     function withdraw(address user) external ongoingWithdrawals {
         (, uint256 amount) = getBalance(user);
         withdrawnAmount[user] += amount;
-        IERC20(token).safeTransferFrom(vault, user, amount);
+        IERC20(token).transferFrom(vault, user, amount);
 
         emit Withdrawn(user, amount);
     }
