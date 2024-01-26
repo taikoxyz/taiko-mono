@@ -134,7 +134,7 @@ library LibProposing {
 
             if (params.blobHash != 0) {
                 // We try to reuse an old blob
-                if (isBlobReusable(state, config, params.blobHash)) {
+                if (!isBlobReusable(state, config, params.blobHash)) {
                     revert L1_BLOB_NOT_REUSEABLE();
                 }
                 meta.blobHash = params.blobHash;
