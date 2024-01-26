@@ -396,10 +396,8 @@ contract DeployOnL1 is DeployCapability {
             rollupAddressManager,
             "automata_dcap_attestation",
             address(automateDcapV3Attestation),
-            block.chainId
+            block.chainid
         );
-
-        //Todo (@WangYue):
     }
 
     function deployAuxContracts() private {
