@@ -2,14 +2,14 @@
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
+  import { recipientAddress } from '$components/Bridge/state';
   import { ActionButton, CloseButton } from '$components/Button';
   import { Tooltip } from '$components/Tooltip';
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
 
-  import AddressInput from './AddressInput/AddressInput.svelte';
-  import { recipientAddress } from './state';
+  import AddressInput from '../AddressInput/AddressInput.svelte';
 
   // Public API
   export const clearRecipient = () => {

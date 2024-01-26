@@ -16,7 +16,6 @@
     UnknownTokenTypeError,
   } from '$libs/error';
   import { ETHToken, getBalance as getTokenBalance, type NFT, TokenType } from '$libs/token';
-  // import { getCanonicalInfoForToken } from '$libs/token/getCanonicalInfoForToken';
   import { renderBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
@@ -26,7 +25,6 @@
   import { network } from '$stores/network';
 
   import {
-    // allApproved,
     computingBalance,
     destNetwork,
     enteredAmount,
@@ -173,7 +171,7 @@
           userAddress,
         });
       } else {
-        $tokenBalance = token.balance;
+        // $tokenBalance = token.balance;
       }
     } catch (err) {
       log('Error updating balance: ', err);
@@ -232,7 +230,7 @@
       let maxAmount;
 
       if ($selectedToken.type === TokenType.ERC721 || $selectedToken.type === TokenType.ERC1155) {
-        $enteredAmount = $tokenBalance as bigint;
+        // $enteredAmount = $tokenBalance as bigint;
         inputBox.setValue($enteredAmount.toString());
       } else {
         maxAmount = await getMaxAmountToBridge({

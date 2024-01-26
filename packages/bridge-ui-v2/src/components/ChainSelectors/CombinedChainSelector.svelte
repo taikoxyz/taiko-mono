@@ -6,7 +6,6 @@
 
   import { chainConfig } from '$chainConfig';
   import { destNetwork } from '$components/Bridge/state';
-  import SwitchChainsButton from '$components/Bridge/SwitchChainsButton.svelte';
   import DesktopOrLarger from '$components/DesktopOrLarger/DesktopOrLarger.svelte';
   import { LoadingMask } from '$components/LoadingMask';
   import { warningToast } from '$components/NotificationToast';
@@ -18,6 +17,7 @@
 
   import ChainsDialog from './ChainsDialog.svelte';
   import ChainsDropdown from './ChainsDropdown.svelte';
+  import SwitchChainsButton from './SwitchChainsButton.svelte';
 
   let sourceToggled = false;
   let destinationToggled = false;

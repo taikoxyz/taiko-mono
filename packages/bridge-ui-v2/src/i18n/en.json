@@ -48,6 +48,12 @@
     },
     "description": {
       "default": "Send your assets across chains.",
+      "fungible": {
+        "confirm": "Bridge your assets",
+        "import": "Send your assets across chains",
+        "recipient": "Set up information on the recipient blockchain.",
+        "review": "Verify your transaction details"
+      },
       "nft": {
         "confirm": "Bridge your NFTs",
         "import": "Transfer your NFTs across chains",
@@ -107,6 +113,9 @@
           "approve": {
             "description": "Before initiating the bridge, it's necessary to first approve the transfer.",
             "pending": "Please wait for your transaction to be picked up",
+            "success": {
+              "message": "Your approve transaction was confirmed. The transaction can take a few minutes to complete, track it <a class='link' href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+            },
             "title": "Approval required"
           },
           "approved": {
@@ -155,6 +164,12 @@
     },
     "title": {
       "default": "Bridge Token",
+      "fungible": {
+        "confirm": "Confirm",
+        "import": "Bridge Token",
+        "recipient": "Recipient",
+        "review": "Review"
+      },
       "nft": {
         "confirm": "Confirm",
         "import": "Import NFT",
@@ -205,6 +220,7 @@
     "ok": "Okay",
     "status": "Status",
     "success": "Success",
+    "symbol": "Symbol",
     "to": "To",
     "token_id": "Token ID",
     "token_standard": "Token standard"

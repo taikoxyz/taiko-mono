@@ -1,9 +1,17 @@
 <script lang="ts">
   import type { Address } from '@wagmi/core';
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import { t } from 'svelte-i18n';
   import { zeroAddress } from 'viem';
 
+  import {
+    computingBalance,
+    destNetwork,
+    errorComputingBalance,
+    selectedToken,
+    selectedTokenIsBridged,
+    tokenBalance,
+  } from '$components/Bridge/state';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { Icon } from '$components/Icon';
   import Erc20 from '$components/Icon/ERC20.svelte';
@@ -18,13 +26,6 @@
   import { account } from '$stores/account';
   import { network } from '$stores/network';
 
-  import {
-    computingBalance,
-    destNetwork,
-    errorComputingBalance,
-    selectedTokenIsBridged,
-    tokenBalance,
-  } from '../Bridge/state';
   import DialogView from './DialogView.svelte';
   import DropdownView from './DropdownView.svelte';
   import { symbolToIconMap } from './symbolToIconMap';
@@ -35,6 +36,7 @@
   export let value: Maybe<Token> = null;
   export let onlyMintable: boolean = false;
   export let disabled = false;
+  export let combined = false;
 
   let id = `menu-${uid()}`;
   $: menuOpen = false;
@@ -58,10 +60,11 @@
   const selectToken = async (token: Token) => {
     const srcChain = $network;
     const destChain = $destNetwork;
-
+    $computingBalance = true;
     if (token === value) {
       // same token, nothing to do
       closeMenu();
+      $computingBalance = false;
       return;
     }
 
@@ -69,10 +72,12 @@
     // unless it's an imported token...
     if (!srcChain) {
       warningToast({ title: $t('messages.network.required') });
+      $computingBalance = false;
       return;
     }
     if (!destChain || !destChain.id) {
       warningToast({ title: $t('messages.network.required_dest') });
+      $computingBalance = false;
       return;
     }
     // if it is an imported Token, chances are we do not yet have the bridged address
@@ -102,7 +107,7 @@
 
     value = token;
     await updateBalance($account?.address, srcChain.id, destChain.id);
-
+    $computingBalance = false;
     closeMenu();
   };
 
@@ -174,9 +179,21 @@
   onMount(async () => {
     const srcChain = $network;
     const destChain = $destNetwork;
-    value = ETHToken;
-
-    if (srcChain && destChain) await updateBalance($account?.address, srcChain.id, destChain.id);
+    const user = $account?.address;
+    $selectedToken = ETHToken;
+    tick();
+    if (!srcChain || !destChain || !user) return;
+    $computingBalance = true;
+    value = tokens[0];
+    $selectedToken = value;
+    $tokenBalance = await getTokenBalance({
+      token: value,
+      srcChainId: srcChain?.id,
+      destChainId: destChain?.id,
+      userAddress: user,
+    });
+    await updateBalance($account?.address, srcChain.id, destChain.id);
+    $computingBalance = false;
   });
 </script>
 
@@ -188,7 +205,8 @@
     aria-haspopup="listbox"
     aria-controls={id}
     aria-expanded={menuOpen}
-    class="f-between-center w-full h-full px-[20px] py-[14px] !rounded-l-none !rounded-r-[10px] input-box bg-neutral-background border-0 shadow-none outline-none"
+    class="f-between-center w-full h-full px-[20px] py-[14px] input-box bg-neutral-background border-0 shadow-none outline-none
+    {combined ? '!rounded-l-[0px] !rounded-r-[10px]' : '!rounded-[10px]'}"
     on:click={openMenu}
     on:focus={openMenu}>
     <div class="space-x-2">

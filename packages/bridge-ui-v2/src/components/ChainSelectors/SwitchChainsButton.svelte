@@ -3,10 +3,9 @@
   import { t } from 'svelte-i18n';
   import { SwitchChainError, UserRejectedRequestError } from 'viem';
 
+  import { destNetwork } from '$components/Bridge/state';
   import { Icon } from '$components/Icon';
   import { warningToast } from '$components/NotificationToast';
-
-  import { destNetwork } from './state';
 
   async function switchToDestChain() {
     if (!$destNetwork) return;

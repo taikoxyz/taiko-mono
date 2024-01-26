@@ -1,2 +1,1 @@
-export { default as ChainSelector } from './ChainSelector.svelte';
-export { default as ChainSelectorWrapper } from './ChainSelectorWrapper.svelte';
+export { default as ChainPill } from './ChainPill.svelte';

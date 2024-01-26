@@ -18,7 +18,7 @@ export type TokenInfo = {
 };
 export type SetTokenInfoParams = {
   canonicalAddress: Address;
-  bridgedAddress: Address;
+  bridgedAddress: Address | null;
   info: TokenInfo;
 };
 type TokenInfoStore = Record<Address, TokenInfo>;
@@ -29,6 +29,7 @@ export const setTokenInfo = ({ canonicalAddress, bridgedAddress, info }: SetToke
   log('setting token info', canonicalAddress, bridgedAddress, info);
   tokenInfoStore.update((store) => {
     store[canonicalAddress] = info;
+    if (!bridgedAddress) return store;
     store[bridgedAddress] = info;
     return store;
   });

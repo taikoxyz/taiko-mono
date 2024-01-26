@@ -1,18 +1,19 @@
 <script lang="ts">
-  import { onDestroy, tick } from 'svelte';
+  import { tick } from 'svelte';
   import { t } from 'svelte-i18n';
   import { formatEther } from 'viem';
 
   import FlatAlert from '$components/Alert/FlatAlert.svelte';
+  import { processingFee, processingFeeMethod } from '$components/Bridge/state';
   import { ActionButton, CloseButton } from '$components/Button';
   import { InputBox } from '$components/InputBox';
   import { LoadingText } from '$components/LoadingText';
   import { Tooltip } from '$components/Tooltip';
+  import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { ProcessingFeeMethod } from '$libs/fee';
   import { parseToWei } from '$libs/util/parseToWei';
   import { uid } from '$libs/util/uid';
 
-  import { processingFee, processingFeeMethod } from '../state';
   import NoneOption from './NoneOption.svelte';
   import RecommendedFee from './RecommendedFee.svelte';
 
@@ -46,7 +47,6 @@
       // If so, let's switch to RECOMMENDED method
       $processingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
     }
-    removeEscKeyListener();
     modalOpen = false;
   }
 
@@ -54,7 +54,6 @@
     // Keep track of the selected method before opening the modal
     // so if we cancel we can go back to the previous method
     prevOptionSelected = $processingFeeMethod;
-    addEscKeyListener();
     modalOpen = true;
   }
 
@@ -74,25 +73,6 @@
     const { value } = event.target as HTMLInputElement;
     $processingFee = parseToWei(value);
   }
-
-  let escKeyListener: (event: KeyboardEvent) => void;
-
-  const addEscKeyListener = () => {
-    escKeyListener = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        cancelModal();
-      }
-    };
-    window.addEventListener('keydown', escKeyListener);
-  };
-
-  const removeEscKeyListener = () => {
-    window.removeEventListener('keydown', escKeyListener);
-  };
-
-  onDestroy(() => {
-    removeEscKeyListener();
-  });
 
   async function updateProcessingFee(method: ProcessingFeeMethod, recommendedAmount: bigint) {
     switch (method) {
@@ -156,7 +136,7 @@
 {:else if textOnly}
   <span class="text-primary-content mt-[4px] {$$props.class}">
     {#if calculatingRecommendedAmount}
-      <LoadingText mask="0.0001" /> ETH
+      <LoadingText mask="0.000100010001" />
     {:else if errorCalculatingRecommendedAmount}
       {$t('processing_fee.recommended.error')}
     {:else}
@@ -192,7 +172,11 @@
       {/if}
     </span>
 
-    <dialog id={dialogId} class="modal" class:modal-open={modalOpen}>
+    <dialog
+      id={dialogId}
+      class="modal"
+      class:modal-open={modalOpen}
+      use:closeOnEscapeOrOutsideClick={{ enabled: modalOpen, callback: () => (modalOpen = false), uuid: dialogId }}>
       <div class="modal-box relative px-6 py-[35px] md:rounded-[20px] bg-neutral-background">
         <CloseButton onClick={cancelModal} />
 
@@ -300,7 +284,7 @@
   </div>
 {/if}
 
-<RecommendedFee bind:amount={recommendedAmount} />
+<RecommendedFee bind:amount={recommendedAmount} bind:calculating={calculatingRecommendedAmount} />
 
 <NoneOption
   bind:enoughEth={hasEnoughEth}

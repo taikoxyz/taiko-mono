@@ -1,11 +1,10 @@
 <script lang="ts">
   import type { Address } from 'viem';
 
+  import { destNetwork, selectedToken } from '$components/Bridge/state';
   import { recommendProcessingFee } from '$libs/fee';
   import { getBalance, type Token } from '$libs/token';
   import { account, network } from '$stores';
-
-  import { destNetwork, selectedToken } from '../state';
 
   export let enoughEth: boolean;
   export let calculating = false;

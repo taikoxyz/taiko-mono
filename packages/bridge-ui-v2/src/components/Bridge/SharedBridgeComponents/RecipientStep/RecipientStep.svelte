@@ -1,7 +1,5 @@
 <script lang="ts">
-  import { ProcessingFee } from '../../ProcessingFee';
-  import Recipient from '../../Recipient.svelte';
-
+  import { ProcessingFee, Recipient } from '$components/Bridge/SharedBridgeComponents';
   let recipientComponent: Recipient;
   let processingFeeComponent: ProcessingFee;
   export let hasEnoughEth: boolean = false;

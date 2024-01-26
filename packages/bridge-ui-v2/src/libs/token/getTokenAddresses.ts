@@ -4,7 +4,7 @@ import { type Abi, type Address, zeroAddress } from 'viem';
 
 import { erc20VaultABI, erc721VaultABI, erc1155VaultABI } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
-import { NoBridgedInfoFoundError, NoCanonicalInfoFoundError } from '$libs/error';
+import { NoCanonicalInfoFoundError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { setTokenInfo, type TokenInfo, tokenInfoStore } from '$stores/tokenInfo';
 
@@ -63,7 +63,7 @@ export async function getTokenAddresses({
   const canonicalAddress = canonicalInfo.address;
   const canonicalChainId = canonicalInfo.chainId;
 
-  const bridgedChainId = canonicalChainId === srcChainId ? destChainId : srcChainId;
+  let bridgedChainId: number | null = canonicalChainId === srcChainId ? destChainId : srcChainId;
 
   const bridgedAddress = canonicalAddress
     ? await _getBridgedAddress({ canonicalAddress, canonicalChainId, bridgedChainId, type })
@@ -71,7 +71,7 @@ export async function getTokenAddresses({
 
   if (bridgedAddress === zeroAddress || bridgedAddress === null) {
     log('No bridged address found for', token, canonicalAddress, canonicalChainId, bridgedChainId, type);
-    throw new NoBridgedInfoFoundError(`Could not find any bridged info`);
+    bridgedChainId = null;
   }
 
   const tokenInfo = {
@@ -79,10 +79,7 @@ export async function getTokenAddresses({
       chainId: canonicalChainId,
       address: canonicalAddress,
     },
-    bridged: {
-      chainId: bridgedChainId,
-      address: bridgedAddress,
-    },
+    bridged: bridgedChainId && bridgedAddress ? { chainId: bridgedChainId, address: bridgedAddress } : null,
   };
   setTokenInfo({ canonicalAddress, bridgedAddress, info: tokenInfo });
   return tokenInfo;

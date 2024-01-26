@@ -3,11 +3,11 @@
   import { type Address, isAddress } from 'viem';
 
   import { FlatAlert } from '$components/Alert';
-  import AddressInput from '$components/Bridge/AddressInput/AddressInput.svelte';
-  import { AddressInputState } from '$components/Bridge/AddressInput/state';
   import Amount from '$components/Bridge/Amount.svelte';
-  import IdInput from '$components/Bridge/IDInput/IDInput.svelte';
-  import { IDInputState } from '$components/Bridge/IDInput/state';
+  import IdInput from '$components/Bridge/NFTBridgeComponents/IDInput/IDInput.svelte';
+  import { IDInputState } from '$components/Bridge/NFTBridgeComponents/IDInput/state';
+  import AddressInput from '$components/Bridge/SharedBridgeComponents/AddressInput/AddressInput.svelte';
+  import { AddressInputState } from '$components/Bridge/SharedBridgeComponents/AddressInput/state';
   import { enteredAmount, selectedNFTs, selectedToken, tokenBalance } from '$components/Bridge/state';
   import { importDone } from '$components/Bridge/state';
   import { detectContractType, type NFT, TokenType } from '$libs/token';

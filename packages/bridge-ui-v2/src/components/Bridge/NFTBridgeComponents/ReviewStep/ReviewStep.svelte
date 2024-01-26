@@ -3,10 +3,9 @@
   import { t } from 'svelte-i18n';
 
   import { chainConfig } from '$chainConfig';
-  import { ProcessingFee } from '$components/Bridge/ProcessingFee';
-  import Recipient from '$components/Bridge/Recipient.svelte';
+  import { ProcessingFee, Recipient } from '$components/Bridge/SharedBridgeComponents';
   import { destNetwork as destChain, enteredAmount, selectedNFTs, selectedToken } from '$components/Bridge/state';
-  import { ChainSelector } from '$components/ChainSelector';
+  import { ChainPill } from '$components/ChainSelector';
   import { IconFlipper } from '$components/Icon';
   import { NFTDisplay } from '$components/NFTs';
   import { fetchNFTImageUrl } from '$libs/token/fetchNFTImageUrl';
@@ -130,7 +129,7 @@ NFT List or Card View
   <div class="flex justify-between items-center w-full">
     <div class="flex items-center gap-2">
       <span>{$t('bridge.nft.step.review.your_tokens')}</span>
-      <ChainSelector small value={$network} readOnly />
+      <ChainPill value={$network} readOnly />
     </div>
     <div class="flex gap-2">
       <IconFlipper

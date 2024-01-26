@@ -2,17 +2,33 @@
   import { t } from 'svelte-i18n';
 
   import { Card } from '$components/Card';
-  import CombinedChainSelector from '$components/ChainSelectors/CombinedChainSelector.svelte';
   import { Step, Stepper } from '$components/Stepper';
 
-  import ImportStep from './BridgeSteps/ImportStep/ImportStep.svelte';
-  import StepNavigation from './BridgeSteps/StepNavigation/StepNavigation.svelte';
-  import { BridgeSteps } from './types';
+  import { ImportStep, ReviewStep, StepNavigation } from './FungibleBridgeComponents';
+  import { ConfirmationStep, RecipientStep } from './SharedBridgeComponents';
+  import { BridgeSteps, BridgingStatus } from './types';
 
   let activeStep: BridgeSteps = BridgeSteps.IMPORT;
+  let recipientStepComponent: RecipientStep;
 
-  // $: displayL1Warning =
-  //   slowL1Warning && $destinationChain?.id && chainConfig[$destinationChain.id].type === LayerType.L1;
+  let stepTitle: string;
+  let stepDescription: string;
+  let hasEnoughEth: boolean = false;
+  let bridgingStatus: BridgingStatus;
+
+  const handleTransactionDetailsClick = () => (activeStep = BridgeSteps.RECIPIENT);
+  const handleBackClick = () => (activeStep = BridgeSteps.IMPORT);
+
+  $: {
+    const stepKey = BridgeSteps[activeStep].toLowerCase();
+    if (activeStep === BridgeSteps.CONFIRM) {
+      stepTitle = '';
+      stepDescription = '';
+    } else {
+      stepTitle = $t(`bridge.title.fungible.${stepKey}`);
+      stepDescription = $t(`bridge.description.fungible.${stepKey}`);
+    }
+  }
 </script>
 
 <div class=" gap-0 w-full md:w-[524px]">
@@ -25,20 +41,26 @@
       >{$t('bridge.step.confirm.title')}</Step>
   </Stepper>
 
-  <Card
-    class="md:mt-[32px] w-full md:w-[524px]"
-    title={$t('bridge.title.default')}
-    text={$t('bridge.description.default')}>
+  <Card class="md:mt-[32px] w-full md:w-[524px]" title={stepTitle} text={stepDescription}>
     <div class="space-y-[30px] mt-[30px]">
-      <CombinedChainSelector />
       {#if activeStep === BridgeSteps.IMPORT}
+        <!-- IMPORT STEP -->
         <ImportStep />
+      {:else if activeStep === BridgeSteps.REVIEW}
+        <!-- REVIEW STEP -->
+        <ReviewStep
+          on:editTransactionDetails={handleTransactionDetailsClick}
+          on:goBack={handleBackClick}
+          bind:hasEnoughEth />
+      {:else if activeStep === BridgeSteps.RECIPIENT}
+        <!-- RECIPIENT STEP -->
+        <RecipientStep bind:this={recipientStepComponent} bind:hasEnoughEth />
+      {:else if activeStep === BridgeSteps.CONFIRM}
+        <!-- CONFIRM STEP -->
+        <ConfirmationStep bind:bridgingStatus />
       {/if}
-      <!-- {#if displayL1Warning}
-        <Alert type="warning">{$t('bridge.alerts.slow_bridging')}</Alert>
-      {/if} -->
-
-      <StepNavigation bind:activeStep />
+      <!-- NAVIGATION -->
+      <StepNavigation bind:activeStep {bridgingStatus} />
     </div>
   </Card>
 </div>

@@ -2,7 +2,7 @@
   import { onDestroy, tick } from 'svelte';
   import { t } from 'svelte-i18n';
 
-  import { ImportMethod } from '$components/Bridge/types';
+  import { BridgingStatus, ImportMethod } from '$components/Bridge/types';
   import { Card } from '$components/Card';
   import { OnAccount } from '$components/OnAccount';
   import { OnNetwork } from '$components/OnNetwork';
@@ -17,14 +17,12 @@
   import { type Account, account } from '$stores/account';
   import type { Network } from '$stores/network';
 
-  import type AddressInput from './AddressInput/AddressInput.svelte';
   import type Amount from './Amount.svelte';
-  import type IdInput from './IDInput/IDInput.svelte';
-  import { ImportStep, ReviewStep } from './NFTBridgeComponents';
-  import StepNavigation from './NFTBridgeComponents/StepNavigation/StepNavigation.svelte';
-  import type { ProcessingFee } from './ProcessingFee';
-  import ConfirmationStep from './SharedBridgeSteps/ConfirmationStep/ConfirmationStep.svelte';
-  import RecipientStep from './SharedBridgeSteps/RecipientStep/RecipientStep.svelte';
+  import { ImportStep, ReviewStep, StepNavigation } from './NFTBridgeComponents';
+  import type IdInput from './NFTBridgeComponents/IDInput/IDInput.svelte';
+  import { ConfirmationStep, RecipientStep } from './SharedBridgeComponents';
+  import type AddressInput from './SharedBridgeComponents/AddressInput/AddressInput.svelte';
+  import type { ProcessingFee } from './SharedBridgeComponents/ProcessingFee';
   import {
     activeBridge,
     destNetwork as destinationChain,
@@ -40,7 +38,7 @@
   let recipientStepComponent: RecipientStep;
   let processingFeeComponent: ProcessingFee;
   let importMethod: ImportMethod;
-  let bridgingStatus: 'pending' | 'done' = 'pending';
+  let bridgingStatus: BridgingStatus;
 
   let hasEnoughEth: boolean = false;
   let activeStep: BridgeSteps = BridgeSteps.IMPORT;
@@ -112,7 +110,7 @@
     if (nftIdInputComponent) nftIdInputComponent.clearIds();
 
     $recipientAddress = $account?.address || null;
-    bridgingStatus = 'pending';
+    bridgingStatus = BridgingStatus.PENDING;
     $selectedToken = ETHToken;
     importMethod === null;
     $importDone = false;
@@ -120,9 +118,7 @@
     activeStep = BridgeSteps.IMPORT;
   };
 
-  const handleTransactionDetailsClick = () => {
-    activeStep = BridgeSteps.RECIPIENT;
-  };
+  const handleTransactionDetailsClick = () => (activeStep = BridgeSteps.RECIPIENT);
 
   // Whenever the user switches bridge types, we should reset the forms
   $: $activeBridge && (resetForm(), (activeStep = BridgeSteps.IMPORT));
@@ -137,7 +133,6 @@
       nftStepTitle = $t(`bridge.title.nft.${stepKey}`);
       nftStepDescription = $t(`bridge.description.nft.${stepKey}`);
     }
-    // nextStepButtonText = getStepText();
   }
 
   $: validatingImport = false;
@@ -164,24 +159,20 @@
 
   <Card class="md:mt-[32px] w-full md:w-[524px]" title={nftStepTitle} text={nftStepDescription}>
     <div class="space-y-[30px]">
-      <!-- IMPORT STEP -->
       {#if activeStep === BridgeSteps.IMPORT}
+        <!-- IMPORT STEP -->
         <ImportStep bind:validating={validatingImport} />
-
-        <!-- REVIEW STEP -->
       {:else if activeStep === BridgeSteps.REVIEW}
-        <!-- <ReviewStep on:editTransactionDetails={handleTransactionDetailsClick} bind:hasEnoughEth /> -->
+        <!-- REVIEW STEP -->
         <ReviewStep on:editTransactionDetails={handleTransactionDetailsClick} bind:hasEnoughEth />
-        <!-- RECIPIENT STEP -->
       {:else if activeStep === BridgeSteps.RECIPIENT}
+        <!-- RECIPIENT STEP -->
         <RecipientStep bind:this={recipientStepComponent} bind:hasEnoughEth />
-        <!-- CONFIRM STEP -->
       {:else if activeStep === BridgeSteps.CONFIRM}
+        <!-- CONFIRM STEP -->
         <ConfirmationStep bind:bridgingStatus />
       {/if}
-      <!-- 
-        User Actions
-      -->
+      <!-- NAVIGATION -->
       <StepNavigation bind:activeStep {validatingImport} />
     </div>
   </Card>

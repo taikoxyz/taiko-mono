@@ -1,6 +1,11 @@
+export enum BridgingStatus {
+  PENDING,
+  DONE,
+}
+
 export enum BridgeTypes {
-  FUNGIBLE = 'FUNGIBLE',
-  NFT = 'NFT',
+  FUNGIBLE,
+  NFT,
 }
 
 export enum BridgeSteps {

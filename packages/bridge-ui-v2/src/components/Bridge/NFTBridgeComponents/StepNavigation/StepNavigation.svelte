@@ -82,10 +82,6 @@
       <ActionButton priority="primary" on:click={() => handleNextStep()}>
         <span class="body-bold">{nextStepButtonText}</span>
       </ActionButton>
-
-      <StepBack on:click={() => handlePreviousStep()}>
-        {$t('common.back')}
-      </StepBack>
     {/if}
 
     {#if activeStep === BridgeSteps.CONFIRM}
