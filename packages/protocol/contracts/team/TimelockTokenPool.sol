@@ -64,10 +64,8 @@ contract TimelockTokenPool is EssentialContract {
     struct Recipient {
         uint128 amountWithdrawn;
         uint128 costPaid;
-        Grant[] grants;
+        Grant grant;
     }
-
-    uint256 public constant MAX_GRANTS_PER_ADDRESS = 8;
 
     address public taikoToken;
     address public costToken;
@@ -83,11 +81,11 @@ contract TimelockTokenPool is EssentialContract {
     event Voided(address indexed recipient, uint128 amount);
     event Withdrawn(address indexed recipient, address to, uint128 amount, uint128 cost);
 
+    error ALREADY_GRANTED();
     error INVALID_GRANT();
     error INVALID_PARAM();
     error NOTHING_TO_VOID();
     error NOTHING_TO_WITHDRAW();
-    error TOO_MANY();
 
     function init(
         address _taikoToken,
@@ -116,14 +114,12 @@ contract TimelockTokenPool is EssentialContract {
     /// same recipient.
     function grant(address recipient, Grant memory g) external onlyOwner {
         if (recipient == address(0)) revert INVALID_PARAM();
-        if (recipients[recipient].grants.length >= MAX_GRANTS_PER_ADDRESS) {
-            revert TOO_MANY();
-        }
+        if (recipients[recipient].grant.amount != 0) revert ALREADY_GRANTED();
 
         _validateGrant(g);
 
         totalAmountGranted += g.amount;
-        recipients[recipient].grants.push(g);
+        recipients[recipient].grant = g;
         emit Granted(recipient, g);
     }
 
@@ -132,11 +128,8 @@ contract TimelockTokenPool is EssentialContract {
     /// original unlock schedule.
     function void(address recipient) external onlyOwner {
         Recipient storage r = recipients[recipient];
-        uint128 amountVoided;
-        uint256 rGrantsLength = r.grants.length;
-        for (uint128 i; i < rGrantsLength; ++i) {
-            amountVoided += _voidGrant(r.grants[i]);
-        }
+        uint128 amountVoided = _voidGrant(r.grant);
+
         if (amountVoided == 0) revert NOTHING_TO_VOID();
 
         totalAmountVoided += amountVoided;
@@ -168,24 +161,17 @@ contract TimelockTokenPool is EssentialContract {
         )
     {
         Recipient storage r = recipients[recipient];
-        uint256 rGrantsLength = r.grants.length;
-        uint128 totalCost;
-        for (uint128 i; i < rGrantsLength; ++i) {
-            amountOwned += _getAmountOwned(r.grants[i]);
 
-            uint128 _amountUnlocked = _getAmountUnlocked(r.grants[i]);
-            amountUnlocked += _amountUnlocked;
-
-            totalCost += _amountUnlocked / 1e18 * r.grants[i].costPerToken;
-        }
+        amountOwned = _getAmountOwned(r.grant);
+        amountUnlocked = _getAmountUnlocked(r.grant);
 
         amountWithdrawn = r.amountWithdrawn;
         amountToWithdraw = amountUnlocked - amountWithdrawn;
-        costToWithdraw = totalCost - r.costPaid;
+        costToWithdraw = (amountUnlocked / 1e18 * r.grant.costPerToken) - r.costPaid;
     }
 
-    function getMyGrants(address recipient) public view returns (Grant[] memory) {
-        return recipients[recipient].grants;
+    function getMyGrant(address recipient) public view returns (Grant memory) {
+        return recipients[recipient].grant;
     }
 
     function _withdraw(address recipient, address to) private {
@@ -200,7 +186,7 @@ contract TimelockTokenPool is EssentialContract {
         totalCostPaid += costToWithdraw;
 
         IERC20(taikoToken).transferFrom(sharedVault, to, amountToWithdraw);
-        IERC20(costToken).transferFrom(recipient, sharedVault, costToWithdraw);
+        IERC20(costToken).safeTransferFrom(recipient, sharedVault, costToWithdraw);
 
         emit Withdrawn(recipient, to, amountToWithdraw, costToWithdraw);
     }

@@ -48,7 +48,8 @@ contract Bridge is EssentialContract, IBridge {
     mapping(bytes32 msgHash => Status) public messageStatus; // slot 3
     Context private _ctx; // // slot 4,5,6
     mapping(bytes32 msgHash => Receive) public messageReceive;
-    uint256[43] private __gap;
+    mapping(address => bool) public addressBanned;
+    uint256[42] private __gap;
 
     event SignalSent(address indexed sender, bytes32 msgHash);
     event MessageSent(bytes32 indexed msgHash, Message message);
@@ -58,10 +59,12 @@ contract Bridge is EssentialContract, IBridge {
     event DestChainEnabled(uint64 indexed chainId, bool enabled);
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
     event MessagesPaused(bytes32[] msgHash, bool paused);
+    event AddressBanned(address indexed addr, bool banned);
 
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
     error B_INVALID_GAS_LIMIT();
+    error B_INVALID_STATUS();
     error B_INVALID_USER();
     error B_INVALID_VALUE();
     error B_MESSAGE_NOT_SENT();
@@ -100,6 +103,14 @@ contract Bridge is EssentialContract, IBridge {
             messageReceive[msgHashes[i]].timestamp = _timestamp;
         }
         emit MessagesPaused(msgHashes, toPause);
+    }
+
+    /// @notice Ban or unban an address. A banned addresses will not be invoked upon
+    /// with message calls.
+    function banAddress(address addr, bool toBan) external onlyOwner nonReentrant {
+        if (addressBanned[addr] == toBan) revert B_INVALID_STATUS();
+        addressBanned[addr] = toBan;
+        emit AddressBanned(addr, toBan);
     }
 
     /// @notice Sends a message to the destination chain and takes custody
@@ -266,7 +277,7 @@ contract Bridge is EssentialContract, IBridge {
             // Process message differently based on the target address
             if (
                 message.to == address(0) || message.to == address(this)
-                    || message.to == address(signalService)
+                    || message.to == address(signalService) || addressBanned[message.to]
             ) {
                 // Handle special addresses that don't require actual invocation but
                 // mark message as DONE

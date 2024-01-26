@@ -10,7 +10,7 @@ type SignedBlock struct {
 	BlockHash        string    `json:"blockHash"`
 	Signature        string    `json:"signature"`
 	RecoveredAddress string    `json:"recoveredAddress"`
-	CreatedAt        time.Time `jsom:"createdAt"`
+	CreatedAt        time.Time `json:"createdAt"`
 }
 
 type SaveSignedBlockOpts struct {
@@ -30,4 +30,5 @@ type GetSignedBlocksByStartingBlockIDOpts struct {
 type SignedBlockRepository interface {
 	Save(opts SaveSignedBlockOpts) error
 	GetByStartingBlockID(opts GetSignedBlocksByStartingBlockIDOpts) ([]*SignedBlock, error)
+	GetMostRecentByGuardianProverID(id int) (*SignedBlock, error)
 }

@@ -20,6 +20,7 @@ func newTestServer(url string) *Server {
 		echo:            echo.New(),
 		healthCheckRepo: mock.NewHealthCheckRepository(),
 		signedBlockRepo: mock.NewSignedBlockRepository(),
+		startupRepo:     mock.NewStartupRepository(),
 		guardianProvers: make([]guardianproverhealthcheck.GuardianProver, 0),
 	}
 
