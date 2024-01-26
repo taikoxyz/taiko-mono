@@ -23,4 +23,6 @@ func (srv *Server) configureRoutes() {
 	srv.echo.GET("/startups/:id", srv.GetStartupsByGuardianProverID)
 
 	srv.echo.GET("/mostRecentStartup/:id", srv.GetMostRecentStartupByGuardianProverID)
+
+	srv.echo.POST("/startup", srv.PostStartup)
 }
