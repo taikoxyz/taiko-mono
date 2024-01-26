@@ -119,7 +119,7 @@ library LibBytesUtils {
             assembly {
                 ret := mload(add(_bytes, 32))
             }
-            return ret >> (32 - _bytes.length);
+            return ret >> (8 * (32 - _bytes.length));
         }
 
         return abi.decode(_bytes, (bytes32)); // will truncate if input length >32 bytes
