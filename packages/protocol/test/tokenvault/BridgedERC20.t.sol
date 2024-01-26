@@ -88,8 +88,22 @@ contract TestBridgedERC20 is TaikoTest {
         vm.expectRevert();
         oldToken.mint(Bob, 10);
 
-        // 2. burning can be done by anyone
+        // 2. burning can NOT be done by anyone
         vm.prank(randAddress());
+        vm.expectRevert();
+        oldToken.burn(Bob, 10);
+
+        // including the owners
+        vm.prank(oldToken.owner());
+        vm.expectRevert();
+        oldToken.burn(Bob, 10);
+
+        vm.prank(newToken.owner());
+        vm.expectRevert();
+        oldToken.burn(Bob, 10);
+
+        // but can be done by the token owner
+        vm.prank(Bob);
         oldToken.burn(Bob, 10);
         assertEq(oldToken.balanceOf(Bob), 90);
         assertEq(newToken.balanceOf(Bob), 210);
