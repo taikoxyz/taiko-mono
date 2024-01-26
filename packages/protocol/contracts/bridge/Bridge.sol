@@ -78,7 +78,7 @@ contract Bridge is EssentialContract, IBridge {
         _ctx.msgHash == bytes32(PLACEHOLDER);
     }
 
-    function banAddress(address addr, bool toBan) external onlyOwner nonReentrant whenNotPaused {
+    function banAddress(address addr, bool toBan) external onlyOwner nonReentrant {
         if (addressBanned[addr] == toBan) revert B_INVALID_STATUS();
         addressBanned[addr] = toBan;
         emit AddressBanned(addr, toBan);
