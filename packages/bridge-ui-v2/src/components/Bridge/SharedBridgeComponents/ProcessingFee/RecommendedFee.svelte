@@ -1,12 +1,11 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
 
+  import { destNetwork, selectedToken } from '$components/Bridge/state';
   import { processingFeeComponent } from '$config';
   import { recommendProcessingFee } from '$libs/fee';
   import type { Token } from '$libs/token';
   import { network } from '$stores/network';
-
-  import { destNetwork, selectedToken } from '../state';
 
   export let amount: bigint;
   export let calculating = false;

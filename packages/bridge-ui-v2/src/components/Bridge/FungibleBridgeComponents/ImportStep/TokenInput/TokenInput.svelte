@@ -4,7 +4,7 @@
   import { formatUnits, parseUnits } from 'viem/utils';
 
   import { FlatAlert } from '$components/Alert';
-  import { ProcessingFee } from '$components/Bridge/ProcessingFee';
+  import { ProcessingFee } from '$components/Bridge/SharedBridgeComponents';
   import {
     computingBalance,
     destNetwork,
@@ -23,7 +23,7 @@
   import { TokenDropdown } from '$components/TokenDropdown';
   import { getMaxAmountToBridge } from '$libs/bridge';
   import { UnknownTokenTypeError } from '$libs/error';
-  import { tokens, TokenType } from '$libs/token';
+  import { getBalance, tokens, TokenType } from '$libs/token';
   import { renderBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
@@ -177,13 +177,24 @@
 
   onMount(async () => {
     $enteredAmount = 0n;
+    const user = $account?.address;
+    const token = $selectedToken;
+    if (!user || !token) return;
+    getBalance({ userAddress: user, token, srcChainId: $network?.id });
   });
 </script>
 
 <div class="TokenInput space-y-[8px]">
   <div class="f-between-center text-sm">
     <span class="text-tertiary-content">{$t('inputs.amount.label')}</span>
-    <span class="text-secondary-content">{$t('common.balance')}: {renderBalance($tokenBalance)} </span>
+    <span class="text-secondary-content"
+      >{$t('common.balance')}:
+      {#if $computingBalance}
+        <LoadingText mask="0.0000" />
+      {:else}
+        {renderBalance($tokenBalance)}
+      {/if}
+    </span>
   </div>
   <div class="relative f-row h-[64px]">
     <div class="relative f-items-center w-full">
@@ -209,7 +220,12 @@
       </button>
     </div>
 
-    <TokenDropdown class="min-w-[151px] z-20 " {tokens} bind:value={$selectedToken} bind:disabled={tokenDisabled} />
+    <TokenDropdown
+      combined
+      class="min-w-[151px] z-20 "
+      {tokens}
+      bind:value={$selectedToken}
+      bind:disabled={tokenDisabled} />
   </div>
   <div class="flex mt-[8px] min-h-[24px]">
     {#if displayFeeMsg}

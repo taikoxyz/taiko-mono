@@ -9,7 +9,7 @@
   import { BridgeTypes } from '$components/Bridge/types';
   import { Button } from '$components/Button';
   import { Card } from '$components/Card';
-  import { ChainSelector } from '$components/ChainSelector';
+  import { ChainPill } from '$components/ChainSelector';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { Icon } from '$components/Icon';
   import RotatingIcon from '$components/Icon/RotatingIcon.svelte';
@@ -157,7 +157,7 @@
     <div class="space-y-[35px]">
       {#if isDesktopOrLarger}
         <div class="my-[30px] f-between-center max-h-[36px]">
-          <ChainSelector label={$t('chain_selector.currently_on')} value={$network} switchWallet small />
+          <ChainPill label={$t('chain_selector.currently_on')} value={$network} switchWallet />
           <div class="flex gap-2">
             <Button
               type="neutral"
@@ -173,7 +173,7 @@
         <div class="f-row justify-between my-[30px]">
           <div class="f-row items-center gap-[10px]">
             <StatusDot type="success" />
-            <ChainSelector label="" value={$network} switchWallet small />
+            <ChainPill label="" value={$network} switchWallet />
           </div>
           <div class="f-row items-center gap-[5px]">
             {#if $account && $account?.address}

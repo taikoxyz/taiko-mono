@@ -5,8 +5,8 @@
   import { type Address, formatUnits } from 'viem';
 
   import { FlatAlert } from '$components/Alert';
-  import AddressInput from '$components/Bridge/AddressInput/AddressInput.svelte';
-  import { AddressInputState } from '$components/Bridge/AddressInput/state';
+  import AddressInput from '$components/Bridge/SharedBridgeComponents/AddressInput/AddressInput.svelte';
+  import { AddressInputState } from '$components/Bridge/SharedBridgeComponents/AddressInput/state';
   import { ActionButton, CloseButton } from '$components/Button';
   import { Icon } from '$components/Icon';
   import Erc20 from '$components/Icon/ERC20.svelte';

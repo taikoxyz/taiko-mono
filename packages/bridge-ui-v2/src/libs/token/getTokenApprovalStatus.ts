@@ -84,16 +84,16 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
     const bridge = bridges[TokenType.ERC20] as ERC20Bridge;
 
     try {
-      const requiresApproval = await bridge.requireAllowance({
+      const requireAllowance = await bridge.requireAllowance({
         amount: get(enteredAmount),
         tokenAddress,
         ownerAddress,
         spenderAddress: tokenVaultAddress,
       });
-      log('erc20 requiresApproval', requiresApproval);
-      insufficientAllowance.set(requiresApproval);
-      allApproved.set(!requiresApproval);
-      if (requiresApproval) {
+      log('erc20 requiresApproval', requireAllowance);
+      insufficientAllowance.set(requireAllowance);
+      allApproved.set(!requireAllowance);
+      if (requireAllowance) {
         return ApprovalStatus.APPROVAL_REQUIRED;
       }
       return ApprovalStatus.NO_APPROVAL_REQUIRED;
