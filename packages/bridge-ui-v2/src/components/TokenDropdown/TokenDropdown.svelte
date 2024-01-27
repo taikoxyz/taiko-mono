@@ -60,11 +60,9 @@
   const selectToken = async (token: Token) => {
     const srcChain = $network;
     const destChain = $destNetwork;
-    $computingBalance = true;
     if (token === value) {
       // same token, nothing to do
       closeMenu();
-      $computingBalance = false;
       return;
     }
 
@@ -197,6 +195,7 @@
   });
 </script>
 
+<!-- svelte-ignore missing-declaration -->
 <DesktopOrLarger bind:is={isDesktopOrLarger} />
 
 <div class="relative h-full {$$props.class}">
@@ -210,10 +209,9 @@
     on:click={openMenu}
     on:focus={openMenu}>
     <div class="space-x-2">
-      {#if !value}
+      {#if !value || disabled}
         <span class="title-subsection-bold text-base text-secondary-content">{$t('token_dropdown.label')}</span>
-      {/if}
-      {#if value}
+      {:else if value}
         <div class="flex f-space-between space-x-2 items-center text-secondary-content">
           <!-- Only match icons to configurd tokens -->
           {#if symbolToIconMap[value.symbol] && !value.imported}

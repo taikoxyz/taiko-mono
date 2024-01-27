@@ -6,8 +6,11 @@
 
   export let value: string = '';
 
+  $: disabled = $$props.disabled || false;
+
   let classes = classNames(
     'w-full input-box  placeholder:text-secondary-content bg-neutral-background shadow-none font-bold  shadow-none outline-none ',
+    disabled ? 'hover:cursor-not-allowed' : 'hover:cursor-pointer',
     $$props.class,
   );
 
