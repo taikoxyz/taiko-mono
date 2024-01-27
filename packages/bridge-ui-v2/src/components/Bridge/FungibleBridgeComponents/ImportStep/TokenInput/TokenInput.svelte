@@ -26,7 +26,7 @@
   import { getMaxAmountToBridge } from '$libs/bridge';
   import { UnknownTokenTypeError } from '$libs/error';
   import { getBalance, tokens, TokenType } from '$libs/token';
-  import { renderBalance } from '$libs/util/balance';
+  import { refreshUserBalance, renderBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
   import { truncateDecimal } from '$libs/util/truncateDecimal';
@@ -142,6 +142,7 @@
     value = '';
     $enteredAmount = 0n;
     validateAmount($selectedToken);
+    refreshUserBalance();
     previousSelectedToken = $selectedToken;
     $computingBalance = false;
   };

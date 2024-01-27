@@ -56,34 +56,15 @@
       } else {
         getTokenApprovalStatus($selectedToken);
       }
-      isValidTokenBalance();
       $validatingAmount = false;
     }
   });
 
-  const isValidTokenBalance = () => {
-    if ($tokenBalance && typeof $tokenBalance !== 'bigint') {
-      if (isETH) {
-        isValidBalance = $tokenBalance.value > 0n;
-      }
-      if (isERC20) {
-        isValidBalance = $tokenBalance.value > 0n;
-      }
-    }
-    if (isERC721) {
-      isValidBalance = true;
-    }
-    if (isERC1155) {
-      if (typeof $tokenBalance === 'bigint') {
-        isValidBalance = $tokenBalance > 0n;
-      }
-    }
-  };
-
-  $: isValidBalance = false;
+  $: isValidBalance =
+    $tokenBalance && (isETH || isERC20 || isERC1155 ? $tokenBalance.value > 0n : isERC721 ? true : false);
 
   // Basic conditions so we can even start the bridging process
-  $: hasAddress = $recipientAddress || $account?.address;
+  $: hasAddress = $recipientAddress || $account?.address ? true : false;
   $: hasNetworks = $network?.id && $destNetwork?.id;
   $: hasBalance = !$insufficientBalance && !$computingBalance && !$errorComputingBalance && isValidBalance;
 
@@ -92,8 +73,6 @@
   // Conditions for approve/bridge steps
   $: if ($enteredAmount) {
     $validatingAmount = true;
-    isValidTokenBalance();
-    getTokenApprovalStatus($selectedToken);
   }
 
   // Conditions to disable/enable buttons
@@ -145,7 +124,6 @@
           : commonConditions;
 </script>
 
-<!-- TODO: adopt for bridge design v2.1  -->
 <div class="f-col w-full gap-4">
   {#if $selectedToken && !isETH && !$selectedTokenIsBridged}
     <ActionButton
