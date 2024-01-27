@@ -122,7 +122,7 @@
       <span class="text-secondary-content">{$t('processing_fee.title')}</span>
       <span class=" text-primary-content mt-[4px]">
         {#if calculatingRecommendedAmount}
-          <LoadingText mask="0.0001" /> ETH
+          <LoadingText mask="0.0017730224073" />
         {:else if errorCalculatingRecommendedAmount}
           {$t('processing_fee.recommended.error')}
         {:else}
@@ -136,7 +136,7 @@
 {:else if textOnly}
   <span class="text-primary-content mt-[4px] {$$props.class}">
     {#if calculatingRecommendedAmount}
-      <LoadingText mask="0.000100010001" />
+      <LoadingText mask="0.0017730224073" />
     {:else if errorCalculatingRecommendedAmount}
       {$t('processing_fee.recommended.error')}
     {:else}

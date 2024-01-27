@@ -7,6 +7,7 @@
   import { Icon } from '$components/Icon';
   import { warningToast } from '$components/NotificationToast';
 
+  export let disabled = false;
   async function switchToDestChain() {
     if (!$destNetwork) return;
 
@@ -26,6 +27,9 @@
   }
 </script>
 
-<button class="f-center rounded-full w-[30px] h-[30px]" disabled={!$destNetwork} on:click={switchToDestChain}>
+<button
+  class="f-center rounded-full w-[30px] h-[30px]"
+  disabled={!$destNetwork || disabled}
+  on:click={switchToDestChain}>
   <Icon type="up-down" class="" size={16} />
 </button>

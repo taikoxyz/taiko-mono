@@ -71,8 +71,9 @@
       },
       "cannot_fetch_balance": "Error fetching balance. Wrong chain?",
       "custom_token": {
-        "description": "Are you on the right network?",
-        "not_found": "Token not found!"
+        "not_found": {
+          "message": "Token not found. Are you on the right network?"
+        }
       },
       "insufficient_allowance": {
         "message": "Please increase your allowance to proceed with bridging.",
@@ -217,6 +218,7 @@
     "id": "ID",
     "loading": "Loading",
     "name": "Name",
+    "not_available_short": "N/A",
     "ok": "Okay",
     "status": "Status",
     "success": "Success",

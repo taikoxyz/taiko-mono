@@ -9,10 +9,12 @@
   import DesktopOrLarger from '$components/DesktopOrLarger/DesktopOrLarger.svelte';
   import { LoadingMask } from '$components/LoadingMask';
   import { warningToast } from '$components/NotificationToast';
+  import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import { OnNetwork } from '$components/OnNetwork';
   import { chainIdToChain } from '$libs/chain';
   import { getAlternateNetwork } from '$libs/network';
   import { truncateString } from '$libs/util/truncateString';
+  import { account } from '$stores/account';
   import { network } from '$stores/network';
 
   import ChainsDialog from './ChainsDialog.svelte';
@@ -57,10 +59,16 @@
 
   const onNetworkChange = () => setAlternateNetwork();
 
+  const onAccountChange = () => setAlternateNetwork();
+
   const setAlternateNetwork = () => {
-    const alternateChainID = getAlternateNetwork();
-    if (alternateChainID) {
-      $destNetwork = chainIdToChain(alternateChainID);
+    if ($account && ($account.isConnected || $account.isConnecting)) {
+      const alternateChainID = getAlternateNetwork();
+      if (alternateChainID) {
+        $destNetwork = chainIdToChain(alternateChainID);
+      }
+    } else {
+      $destNetwork = null;
     }
   };
 
@@ -68,7 +76,11 @@
 
   const onDestinationToggle = () => (destinationToggled = !destinationToggled);
 
-  $: selectClasses = `select bg-transparent appearance-none w-full py-[12px] px-[15px]  focus:border-transparent focus:outline-none focus:bg-primary-background-hover`;
+  $: disabled = !$account || !$account.isConnected;
+
+  $: selectClasses = `select bg-transparent appearance-none w-full py-[12px] px-[15px]  focus:border-transparent focus:outline-none focus:bg-primary-background-hover ${
+    disabled ? 'cursor-not-allowed' : 'cursor-pointer'
+  }`;
 
   $: containerClasses = `${
     destinationToggled && isDesktopOrLarger ? 'rounded-t-[10px]' : 'rounded-[10px]'
@@ -78,11 +90,7 @@
   $: destChain = $destNetwork;
 
   onMount(() => {
-    const alternateChainID = getAlternateNetwork();
-    if (!$destNetwork && alternateChainID) {
-      // if only two chains are available, set the destination chain to the other one
-      $destNetwork = chainIdToChain(alternateChainID);
-    }
+    setAlternateNetwork();
   });
 </script>
 
@@ -91,12 +99,11 @@
     <LoadingMask spinnerClass="border-white absolute z-20" text={$t('messages.network.switching')} />
   {/if}
   <div class="relative">
-    <button on:click={() => onSourceToggle()} class={selectClasses}>
+    <button on:click={() => !disabled && onSourceToggle()} class={selectClasses}>
       {#if srcChain}
         {@const icon = chainConfig[Number(srcChain.id)]?.icon || 'Unknown Chain'}
         <div class="f-row items-center gap-2">
           <div class="f-row gap-2 text-right">
-            <!-- <span class="text-sm min-w-[40px] text-secondary-content">{$t('common.from')}:</span> -->
             <i role="img" aria-label={srcChain.name}>
               <img src={icon} alt="chain-logo" class="rounded-full {iconSize}" />
             </i>
@@ -118,18 +125,17 @@
     <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20">
       <div
         class="bg-neutral-background border-[1px] border-primary-border-dark h-6 w-6 rounded-full flex items-center justify-center">
-        <SwitchChainsButton />
+        <SwitchChainsButton {disabled} />
       </div>
     </div>
   {/if}
 
   <div class="relative border-t-[1px] border-primary-border-dark">
-    <button on:click={() => onDestinationToggle()} class={selectClasses}>
+    <button on:click={() => !disabled && onDestinationToggle()} class={selectClasses}>
       {#if destChain}
         {@const icon = chainConfig[Number(destChain.id)]?.icon || 'Unknown Chain'}
         <div class="f-row items-center gap-2">
           <div class="f-row gap-2 text-right">
-            <!-- <span class="text-sm min-w-[40px] text-secondary-content">{$t('common.to')}:</span> -->
             <i role="img" aria-label={destChain.name}>
               <img src={icon} alt="chain-logo" class="rounded-full {iconSize}" />
             </i>
@@ -149,4 +155,5 @@
 </div>
 
 <OnNetwork change={onNetworkChange} />
+<OnAccount change={onAccountChange} />
 <DesktopOrLarger bind:is={isDesktopOrLarger} />

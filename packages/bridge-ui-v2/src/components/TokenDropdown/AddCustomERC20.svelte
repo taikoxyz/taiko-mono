@@ -190,9 +190,7 @@
           <span>{$t('common.name')}: {customTokenWithDetails.symbol}</span>
           <span>{$t('common.balance')}: {formattedBalance}</span>
         {:else if state === AddressInputState.INVALID && tokenAddress !== '' && isValidEthereumAddress && !loadingTokenDetails}
-          <FlatAlert
-            type="error"
-            message={$t('bridge.errors.custom_token.not_found') + ' ' + $t('bridge.errors.custom_token.description')} />
+          <FlatAlert type="error" message={$t('bridge.errors.custom_token.not_found.message')} />
         {:else if loadingTokenDetails}
           <Spinner />
         {:else}

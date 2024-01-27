@@ -173,6 +173,8 @@
   $: connected = isUserConnected($account);
   $: wrongChain = isWrongChain($network);
 
+  $: disabled = !$account || !$account.isConnected;
+
   $: updateMintButtonState(connected, selectedToken, $network);
 </script>
 
@@ -180,7 +182,7 @@
   <div class="space-y-[35px]">
     <div class="space-y-2">
       <ChainPill label={$t('chain_selector.currently_on')} value={$network} switchWallet />
-      <TokenDropdown tokens={mintableTokens} {onlyMintable} bind:value={selectedToken} />
+      <TokenDropdown {disabled} tokens={mintableTokens} {onlyMintable} bind:value={selectedToken} />
     </div>
 
     {#if alertMessage}
@@ -204,7 +206,7 @@
     {:else}
       <ActionButton
         priority="primary"
-        disabled={!mintButtonEnabled}
+        disabled={!mintButtonEnabled || disabled}
         loading={checkingMintable || minting}
         on:click={mintToken}>
         <span class="body-bold">

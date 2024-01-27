@@ -20,6 +20,8 @@
   import { Icon } from '$components/Icon';
   import { InputBox } from '$components/InputBox';
   import { LoadingText } from '$components/LoadingText';
+  import OnAccount from '$components/OnAccount/OnAccount.svelte';
+  import { OnNetwork } from '$components/OnNetwork';
   import { TokenDropdown } from '$components/TokenDropdown';
   import { getMaxAmountToBridge } from '$libs/bridge';
   import { UnknownTokenTypeError } from '$libs/error';
@@ -39,9 +41,6 @@
 
   let inputId = `input-${uid()}`;
   let inputBox: InputBox;
-
-  let amountDisabled = false;
-  let tokenDisabled = false;
 
   let value = '';
 
@@ -138,11 +137,28 @@
     }
   };
 
-  $: validateAmount($selectedToken);
+  const reset = () => {
+    $computingBalance = true;
+    value = '';
+    $enteredAmount = 0n;
+    validateAmount($selectedToken);
+    previousSelectedToken = $selectedToken;
+    $computingBalance = false;
+  };
 
-  $: if ($selectedToken) {
+  $: if ($enteredAmount) {
+    log('running validateAmount', $enteredAmount, $selectedToken);
     validateAmount($selectedToken);
   }
+
+  let previousSelectedToken = $selectedToken;
+
+  $: if ($selectedToken !== previousSelectedToken) {
+    log('selectedToken changed, resetting value', $enteredAmount);
+    reset();
+  }
+
+  $: disabled = !$account || !$account.isConnected;
 
   $: validAmount = $enteredAmount > BigInt(0);
 
@@ -165,6 +181,8 @@
 
   $: showInsufficientBalanceAlert = $insufficientBalance && !$errorComputingBalance && !$computingBalance;
 
+  $: showInvalidTokenAlert = $errorComputingBalance && !$computingBalance;
+
   $: {
     validInput =
       $enteredAmount > 0n &&
@@ -173,7 +191,7 @@
       $enteredAmount <= $tokenBalance?.value;
   }
 
-  $: displayFeeMsg = !showInsufficientBalanceAlert;
+  $: displayFeeMsg = !showInsufficientBalanceAlert && !showInvalidTokenAlert;
 
   onMount(async () => {
     $enteredAmount = 0n;
@@ -187,9 +205,11 @@
 <div class="TokenInput space-y-[8px]">
   <div class="f-between-center text-sm">
     <span class="text-tertiary-content">{$t('inputs.amount.label')}</span>
-    <span class="text-secondary-content"
-      >{$t('common.balance')}:
-      {#if $computingBalance}
+    <span class="text-secondary-content">
+      {$t('common.balance')}:
+      {#if $errorComputingBalance && !$computingBalance}
+        {$t('common.not_available_short')}
+      {:else if $computingBalance}
         <LoadingText mask="0.0000" />
       {:else}
         {renderBalance($tokenBalance)}
@@ -198,12 +218,13 @@
   </div>
   <div class="relative f-row h-[64px]">
     <div class="relative f-items-center w-full">
+      <!-- Amount Input -->
       <InputBox
         id={inputId}
         type="number"
         placeholder="0.01"
         min="0"
-        disabled={amountDisabled}
+        disabled={disabled || $errorComputingBalance || $computingBalance}
         error={invalidInput}
         bind:value
         on:input={() => handleInputChange(value)}
@@ -213,20 +234,19 @@
       <!-- vertical separator -->
       <div class="border-l border-r bg-primary-border-dark border-neutral-background h-[64px] w-[3px]" />
 
+      <!-- Max Button -->
       <button
+        disabled={disabled || $errorComputingBalance || $computingBalance}
         class="max-button absolute right-6 uppercase hover:font-bold text-tertiary-content z-20"
         on:click={useMaxAmount}>
         {$t('inputs.amount.button.max')}
       </button>
     </div>
 
-    <TokenDropdown
-      combined
-      class="min-w-[151px] z-20 "
-      {tokens}
-      bind:value={$selectedToken}
-      bind:disabled={tokenDisabled} />
+    <!-- Token Dropdown -->
+    <TokenDropdown combined class="min-w-[151px] z-20 " {tokens} bind:value={$selectedToken} bind:disabled />
   </div>
+
   <div class="flex mt-[8px] min-h-[24px]">
     {#if displayFeeMsg}
       <div class="f-row items-center gap-1">
@@ -236,11 +256,16 @@
       </div>
     {:else if showInsufficientBalanceAlert}
       <FlatAlert type="error" message={$t('bridge.errors.insufficient_balance.title')} class="relative " />
+    {:else if showInvalidTokenAlert}
+      <FlatAlert type="error" message={$t('bridge.errors.custom_token.not_found.message')} class="relative " />
     {:else}
       <LoadingText mask="" class="w-1/2" />
     {/if}
   </div>
 </div>
+
+<OnNetwork change={reset} />
+<OnAccount change={reset} />
 
 <style>
   .max-button {

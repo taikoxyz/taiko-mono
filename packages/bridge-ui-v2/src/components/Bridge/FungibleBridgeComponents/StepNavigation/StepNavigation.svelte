@@ -4,6 +4,7 @@
   import { importDone } from '$components/Bridge/state';
   import { BridgeSteps, BridgingStatus } from '$components/Bridge/types';
   import { ActionButton } from '$components/Button';
+  import { account } from '$stores/account';
 
   import StepBack from './StepBack.svelte';
 
@@ -47,6 +48,8 @@
     }
   };
 
+  $: disabled = !$account || !$account.isConnected;
+
   $: showStepNavigation = true;
 
   $: {
@@ -60,14 +63,14 @@
       <div class="h-sep mt-0" />
       <ActionButton
         priority="primary"
-        disabled={!$importDone}
+        disabled={!$importDone || disabled}
         loading={validatingImport}
         on:click={() => handleNextStep()}>
         <span class="body-bold">{nextStepButtonText}</span>
       </ActionButton>
     {/if}
     {#if activeStep === BridgeSteps.REVIEW}
-      <ActionButton priority="primary" on:click={() => handleNextStep()}>
+      <ActionButton priority="primary" {disabled} on:click={() => handleNextStep()}>
         <span class="body-bold">{nextStepButtonText}</span>
       </ActionButton>
 
@@ -77,14 +80,14 @@
     {/if}
 
     {#if activeStep === BridgeSteps.RECIPIENT}
-      <ActionButton priority="primary" on:click={() => handleNextStep()}>
+      <ActionButton {disabled} priority="primary" on:click={() => handleNextStep()}>
         <span class="body-bold">{nextStepButtonText}</span>
       </ActionButton>
     {/if}
 
     {#if activeStep === BridgeSteps.CONFIRM}
       {#if bridgingStatus === BridgingStatus.DONE}
-        <ActionButton priority="primary" on:click={() => handleNextStep()}>
+        <ActionButton {disabled} priority="primary" on:click={() => handleNextStep()}>
           <span class="body-bold">{nextStepButtonText}</span>
         </ActionButton>
       {:else}
