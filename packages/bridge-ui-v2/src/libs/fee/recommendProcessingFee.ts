@@ -30,7 +30,7 @@ export async function recommendProcessingFee({
   srcChainId,
 }: RecommendProcessingFeeArgs): Promise<bigint> {
   if (!srcChainId) {
-    throw Error('missing required source chain');
+    return 0n;
   }
   const destPublicClient = getPublicClient({ chainId: destChainId });
   // getGasPrice will return gasPrice as 3000000001, rather than 3000000000
@@ -53,9 +53,6 @@ export async function recommendProcessingFee({
       }
     }
     if (token.type === TokenType.ERC20) {
-      const tokenInfo = await getTokenAddresses({ token, srcChainId, destChainId });
-      if (!tokenInfo) throw new NoCanonicalInfoFoundError();
-
       if (isTokenAlreadyDeployed) {
         gasLimit = erc20DeployedGasLimit;
         log(`token ${token.symbol} is already deployed on chain ${destChainId}`);

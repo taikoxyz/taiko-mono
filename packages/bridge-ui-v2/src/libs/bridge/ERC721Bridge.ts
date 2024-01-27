@@ -13,6 +13,7 @@ import {
   SendERC721Error,
 } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
+import { TokenType } from '$libs/token';
 import { getCanonicalInfoForAddress } from '$libs/token/getCanonicalInfoForToken';
 import { isBridgePaused } from '$libs/util/checkForPausedContracts';
 import { getLogger } from '$libs/util/logger';
@@ -77,7 +78,12 @@ export class ERC721Bridge extends Bridge {
     const tokenId = tokenIds[0]; //TODO: handle multiple tokenIds
 
     try {
-      const info = await getCanonicalInfoForAddress({ address: token, srcChainId, destChainId });
+      const info = await getCanonicalInfoForAddress({
+        address: token,
+        srcChainId,
+        destChainId,
+        type: TokenType.ERC721,
+      });
       if (!info) throw new NoCanonicalInfoFoundError('No canonical info found for token');
       const { address: canonicalTokenAddress } = info;
 
