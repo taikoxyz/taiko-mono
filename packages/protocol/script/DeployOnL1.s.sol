@@ -393,10 +393,7 @@ contract DeployOnL1 is DeployCapability {
             new AutomataDcapV3Attestation(address(sigVerifyLib), address(pemCertChainLib));
 
         register(
-            rollupAddressManager,
-            "automata_dcap_attestation",
-            address(automateDcapV3Attestation),
-            block.chainid
+            rollupAddressManager, "automata_dcap_attestation", address(automateDcapV3Attestation)
         );
     }
 
