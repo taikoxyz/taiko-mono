@@ -12,6 +12,7 @@ import {
   SendERC1155Error,
 } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
+import { TokenType } from '$libs/token';
 import { getCanonicalInfoForAddress } from '$libs/token/getCanonicalInfoForToken';
 import { getLogger } from '$libs/util/logger';
 
@@ -72,7 +73,7 @@ export class ERC1155Bridge extends Bridge {
 
     const tokenId = tokenIds[0]; // TODO: support multiple tokenIds
 
-    const info = await getCanonicalInfoForAddress({ address: token, srcChainId, destChainId });
+    const info = await getCanonicalInfoForAddress({ address: token, srcChainId, destChainId, type: TokenType.ERC1155 });
     if (!info) throw new NoCanonicalInfoFoundError('No canonical info found for token');
     const { address: canonicalTokenAddress } = info;
 
