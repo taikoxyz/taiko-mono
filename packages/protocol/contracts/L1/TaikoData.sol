@@ -177,6 +177,9 @@ library TaikoData {
         uint64 numBlocks;
         uint64 lastVerifiedBlockId;
         bool provingPaused;
+        uint8 __reserved1;
+        uint16 __reserved2;
+        uint32 __reserved3;
         uint64 lastUnpausedAt;
     }
 
