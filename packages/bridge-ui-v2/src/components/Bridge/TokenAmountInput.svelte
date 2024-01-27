@@ -1,21 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
-  import { formatUnits, parseUnits } from 'viem';
 
   import { FlatAlert } from '$components/Alert';
   import { InputBox } from '$components/InputBox';
   import { LoadingText } from '$components/LoadingText';
   import { warningToast } from '$components/NotificationToast';
-  import { checkBalanceToBridge, getMaxAmountToBridge } from '$libs/bridge';
-  import {
-    InsufficientAllowanceError,
-    InsufficientBalanceError,
-    RevertedWithFailedError,
-    RevertedWithoutMessageError,
-    UnknownTokenTypeError,
-  } from '$libs/error';
-  import { ETHToken, getBalance as getTokenBalance, type NFT, TokenType } from '$libs/token';
+  import { InvalidParametersProvidedError, UnknownTokenTypeError } from '$libs/error';
+  import { ETHToken, getBalance as getTokenBalance, TokenType } from '$libs/token';
   import { renderBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
@@ -31,7 +23,6 @@
     errorComputingBalance,
     insufficientAllowance,
     insufficientBalance,
-    processingFee,
     recipientAddress,
     selectedToken,
     tokenBalance,
@@ -44,6 +35,7 @@
   let inputBox: InputBox;
   let computingMaxAmount = false;
   let invalidInput = false;
+  let value = '';
 
   // Public API
   export function clearAmount() {
@@ -52,14 +44,12 @@
   }
 
   export let disabled = false;
-  export let doAllowanceCheck = true;
 
-  export async function validateAmount(token = $selectedToken, fee = $processingFee) {
+  export async function validateAmount(token = $selectedToken) {
     if (!$network?.id) return;
     $validatingAmount = true; // During validation, we disable all the actions
     $insufficientBalance = false;
     $insufficientAllowance = false;
-    $computingBalance = true;
 
     const to = $recipientAddress || $account?.address;
 
@@ -77,72 +67,11 @@
       $enteredAmount === BigInt(0) // no need to check if the amount is 0
     ) {
       $validatingAmount = false;
-      $computingBalance = false;
       return;
     }
-    // const canonicalInfo = await getCanonicalInfoForToken({
-    //   token,
-    //   srcChainId: $network.id,
-    //   destChainId: $destNetwork.id,
-    // });
-    // if (canonicalInfo) {
-    //   if (canonicalInfo.address !== token.addresses[$network.id]) {
-    //     // we have a bridged token, we do not need approvals
-    //     log('token is bridged, no need for approvals');
-    //     $allApproved = true;
-    //     $insufficientAllowance = false;
-    //     $validatingAmount = false;
-    //     $computingBalance = false;
-    //     return;
-    //   }
-    // }
-    if (doAllowanceCheck) {
-      try {
-        await checkBalanceToBridge({
-          to,
-          token,
-          amount: $enteredAmount,
-          fee,
-          balance: balanceForGasCalculation,
-          srcChainId: $network.id,
-          destChainId: $destNetwork.id,
-          tokenIds:
-            $selectedToken.type === TokenType.ERC721 || $selectedToken.type === TokenType.ERC1155
-              ? [BigInt((token as NFT).tokenId)]
-              : [],
-        });
-      } catch (err) {
-        switch (true) {
-          case err instanceof InsufficientBalanceError:
-            $insufficientBalance = true;
-            break;
-          case err instanceof InsufficientAllowanceError:
-            $insufficientAllowance = true;
-            break;
-          case err instanceof RevertedWithFailedError:
-            warningToast({
-              title: $t('bridge.errors.send_message_error.title'),
-              message: $t('bridge.errors.send_message_error.message'),
-            });
-            break;
-          case err instanceof RevertedWithoutMessageError:
-            warningToast({
-              title: $t('bridge.errors.unknown_error.title'),
-              message: $t('bridge.errors.unknown_error.message'),
-            });
-            break;
-          default:
-            invalidInput = true;
-            break;
-        }
-      }
-    } else {
-      if (typeof $tokenBalance === 'bigint') {
-        $insufficientBalance = $tokenBalance < $enteredAmount;
-      }
-    }
+
+    $insufficientBalance = $tokenBalance.value < $enteredAmount;
     $validatingAmount = false;
-    $computingBalance = false;
   }
 
   export async function updateBalance(
@@ -153,17 +82,9 @@
   ) {
     if (!token || !srcChainId || !userAddress) return;
     $computingBalance = true;
-    $errorComputingBalance = false;
 
     try {
-      if (token.type === TokenType.ERC20) {
-        $tokenBalance = await getTokenBalance({
-          token,
-          srcChainId,
-          destChainId,
-          userAddress,
-        });
-      } else if (token.type === TokenType.ETH) {
+      if (token.type === TokenType.ETH) {
         $tokenBalance = await getTokenBalance({
           token: ETHToken,
           srcChainId,
@@ -171,15 +92,19 @@
           userAddress,
         });
       } else {
-        // $tokenBalance = token.balance;
+        $tokenBalance = await getTokenBalance({
+          token,
+          srcChainId,
+          destChainId,
+          userAddress,
+        });
       }
     } catch (err) {
       log('Error updating balance: ', err);
-      //most likely we have a custom token that is not bridged yet
-      $errorComputingBalance = true;
       clearAmount();
+    } finally {
+      $computingBalance = false;
     }
-    $computingBalance = false;
   }
 
   // We want to debounce this function for input events.
@@ -200,20 +125,14 @@
         invalidInput = true;
         return;
       }
-    } else if ($selectedToken.type === TokenType.ERC20 || $selectedToken.type === TokenType.ETH) {
-      // For ERC20 or ETH, replace commas with dots
-      value = value.replace(/[,]/g, '.');
     } else {
       throw new UnknownTokenTypeError($selectedToken.type);
     }
 
     sanitizedValue = value;
 
-    if ($selectedToken.type === TokenType.ERC1155 || !$selectedToken.decimals) {
-      $enteredAmount = BigInt(sanitizedValue);
-    } else {
-      $enteredAmount = parseUnits(sanitizedValue, $selectedToken.decimals);
-    }
+    $enteredAmount = BigInt(sanitizedValue);
+
     debouncedValidateAmount();
   }
 
@@ -221,39 +140,17 @@
   async function useMaxAmount() {
     // We cannot calculate the max amount without these guys
     if (!$selectedToken || !$network || !$destNetwork || !$tokenBalance || !$account?.address) return;
-
+    invalidInput = false;
     computingMaxAmount = true;
 
-    const balance = determineBalance();
-
     try {
-      let maxAmount;
-
       if ($selectedToken.type === TokenType.ERC721 || $selectedToken.type === TokenType.ERC1155) {
-        // $enteredAmount = $tokenBalance as bigint;
-        inputBox.setValue($enteredAmount.toString());
+        inputBox.setValue($tokenBalance.value.toString());
+        $enteredAmount = $tokenBalance.value;
+        validateAmount();
       } else {
-        maxAmount = await getMaxAmountToBridge({
-          to: $recipientAddress || $account.address,
-          token: $selectedToken,
-          balance,
-          fee: $processingFee,
-          srcChainId: $network.id,
-          destChainId: $destNetwork.id,
-          amount: BigInt(1), // whatever amount to estimate the cost
-        });
-
-        // Update UI
-        // Note: triggering the event manually does not always work, specially
-        // in other browsers (looking at you, Safari!!)
-        inputBox.setValue(formatUnits(maxAmount, $selectedToken.decimals));
-
-        // Update state
-        $enteredAmount = maxAmount;
+        throw new InvalidParametersProvidedError('token type not supported for this component');
       }
-
-      // Check validity
-      validateAmount();
     } catch (err) {
       console.error(err);
       warningToast({ title: $t('amount.errors.failed_max') });
@@ -263,40 +160,28 @@
   }
 
   const determineBalance = () => {
-    $computingBalance = true;
     let balance = 0n;
     if (!$selectedToken) return balance;
     const type = $selectedToken.type;
     switch (type) {
       case TokenType.ERC20:
-        if (typeof $tokenBalance === 'bigint') break;
-        if ($tokenBalance?.value) balance = $tokenBalance.value;
-        break;
       case TokenType.ETH:
-        balance = $ethBalance;
-        break;
+        throw new InvalidParametersProvidedError('token type not supported for this component');
       case TokenType.ERC721:
       case TokenType.ERC1155:
         if (typeof $tokenBalance === 'bigint') balance = $tokenBalance;
         break;
       default:
-        break;
+        throw new UnknownTokenTypeError('Unknown token type');
     }
-    $computingBalance = false;
     return balance;
   };
 
-  $: if (inputBox && sanitizedValue !== inputBox.getValue()) {
+  $: if (inputBox && sanitizedValue !== value) {
     inputBox.setValue(sanitizedValue); // Update InputBox value if sanitizedValue changes
   }
 
-  $: updateBalance($selectedToken, $account?.address, $network?.id, $destNetwork?.id);
-
-  $: validateAmount($selectedToken, $processingFee);
-
-  $: hasBalance =
-    (typeof $tokenBalance !== 'bigint' && $tokenBalance && $tokenBalance?.value > 0n) ||
-    (typeof $tokenBalance === 'bigint' && $tokenBalance && $tokenBalance > 0n);
+  $: hasBalance = $tokenBalance && $tokenBalance?.value > 0n;
 
   // There is no reason to show any error/warning message if we are computing the balance
   // or there is an issue computing it
@@ -307,16 +192,11 @@
   $: inputDisabled =
     computingMaxAmount || disabled || !$selectedToken || !$network || $errorComputingBalance || !hasBalance;
 
-  // TODO: Disabled for now, potentially confusing users
-  // $: showInsiffucientAllowanceAlert = $insufficientAllowance && !$errorComputingBalance && !$computingBalance;
-
   $: maxButtonEnabled = hasBalance && !disabled && !$errorComputingBalance;
 
   onMount(() => {
-    $computingBalance = true;
     $enteredAmount = BigInt(0);
     determineBalance();
-    $computingBalance = false;
     $insufficientBalance = false;
   });
 </script>
@@ -330,8 +210,8 @@
       {:else}
         <span>{$t('inputs.amount.balance')}:</span>
         <span>
-          {#if $computingBalance && !computingMaxAmount}
-            <LoadingText mask={$tokenBalance?.toString() || '0.000000'} />
+          {#if computingMaxAmount}
+            <LoadingText mask={$tokenBalance?.toString() || '100'} />
           {:else}
             {renderBalance($tokenBalance)}
           {/if}
@@ -344,10 +224,11 @@
       <InputBox
         id={inputId}
         type="number"
-        placeholder="0.01"
+        placeholder="42"
         min="0"
         disabled={inputDisabled}
         error={$insufficientBalance || invalidInput}
+        bind:value
         on:input={inputAmount}
         bind:this={inputBox}
         class="py-6 pr-16 px-[26px] title-subsection-bold border-0  {$$props.class}" />
@@ -361,10 +242,6 @@
     <div class="flex mt-[8px] min-h-[24px]">
       {#if showInsufficientBalanceAlert}
         <FlatAlert type="error" message={$t('bridge.errors.insufficient_balance.title')} class="relative " />
-        <!-- TODO: Disabled for now, potentially confusing users -->
-
-        <!-- {:else if showInsiffucientAllowanceAlert}
-        <FlatAlert type="warning" message={$t('bridge.errors.insufficient_allowance')} class="absolute" /> -->
       {:else if noDecimalsAllowedAlert}
         <FlatAlert type="error" message={$t('bridge.errors.no_decimals_allowed')} class="relative" />
       {/if}

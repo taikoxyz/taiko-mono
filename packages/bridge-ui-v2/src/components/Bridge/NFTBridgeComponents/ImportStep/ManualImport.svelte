@@ -3,13 +3,13 @@
   import { type Address, isAddress } from 'viem';
 
   import { FlatAlert } from '$components/Alert';
-  import Amount from '$components/Bridge/Amount.svelte';
   import IdInput from '$components/Bridge/NFTBridgeComponents/IDInput/IDInput.svelte';
   import { IDInputState } from '$components/Bridge/NFTBridgeComponents/IDInput/state';
   import AddressInput from '$components/Bridge/SharedBridgeComponents/AddressInput/AddressInput.svelte';
   import { AddressInputState } from '$components/Bridge/SharedBridgeComponents/AddressInput/state';
   import { enteredAmount, selectedNFTs, selectedToken, tokenBalance } from '$components/Bridge/state';
   import { importDone } from '$components/Bridge/state';
+  import TokenAmountInput from '$components/Bridge/TokenAmountInput.svelte';
   import { detectContractType, type NFT, TokenType } from '$libs/token';
   import { checkOwnership } from '$libs/token/checkOwnership';
   import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
@@ -23,7 +23,7 @@
   let addressInputState: AddressInputState = AddressInputState.DEFAULT;
 
   let addressInputComponent: AddressInput;
-  let amountComponent: Amount;
+  let amountComponent: TokenAmountInput;
   let nftIdInputComponent: IdInput;
 
   let idInputState: IDInputState = IDInputState.DEFAULT;
@@ -138,13 +138,14 @@
 
   $: nftHasAmount = hasSelectedNFT && isERC1155;
 
-  $: validBalance = typeof $tokenBalance === 'bigint' && $enteredAmount > 0 && $enteredAmount <= $tokenBalance;
+  $: validBalance = $tokenBalance && $enteredAmount > 0 && $enteredAmount <= $tokenBalance.value;
 
   $: hasEnteredIds = enteredIds && enteredIds.length > 0;
   $: hasSelectedNFT = $selectedNFTs && $selectedNFTs?.length > 0 && hasEnteredIds;
 
   $: commonChecks =
     enteredIds && enteredIds.length > 0 && !validating && idInputState === IDInputState.VALID && isOwnerOfAllToken;
+
   $: ERC1155Checks = commonChecks && nftHasAmount !== null && hasSelectedNFT !== null && validBalance;
 
   $: canProceed = isERC1155 ? ERC1155Checks : commonChecks;
@@ -189,6 +190,6 @@
   </div>
 </div>
 {#if showNFTAmountInput && !isDisabled}
-  <Amount bind:this={amountComponent} class="!mt-0" doAllowanceCheck={false} />
+  <TokenAmountInput bind:this={amountComponent} class="!mt-0" />
 {/if}
 <div class="h-sep" />

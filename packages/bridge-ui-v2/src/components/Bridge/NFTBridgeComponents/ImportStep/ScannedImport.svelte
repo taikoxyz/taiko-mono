@@ -2,8 +2,8 @@
   import { onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
 
-  import Amount from '$components/Bridge/Amount.svelte';
   import { enteredAmount, selectedNFTs } from '$components/Bridge/state';
+  import TokenAmountInput from '$components/Bridge/TokenAmountInput.svelte';
   import { ImportMethod } from '$components/Bridge/types';
   import { ActionButton, Button } from '$components/Button';
   import { IconFlipper } from '$components/Icon';
@@ -23,7 +23,7 @@
   let nftView: NFTView = NFTView.LIST;
   let scanning = false;
 
-  let amountComponent: Amount;
+  let amountComponent: TokenAmountInput;
 
   function onScanClick() {
     scanning = true;
@@ -105,7 +105,7 @@ has amount {nftHasAmount} <br />
   </section>
   {#if nftHasAmount}
     <section>
-      <Amount bind:this={amountComponent} doAllowanceCheck={false} />
+      <TokenAmountInput bind:this={amountComponent} />
     </section>
   {/if}
 
