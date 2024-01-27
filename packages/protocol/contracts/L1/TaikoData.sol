@@ -177,6 +177,7 @@ library TaikoData {
         uint64 numBlocks;
         uint64 lastVerifiedBlockId;
         bool provingPaused;
+        uint64 lastUnpausedAt;
     }
 
     /// @dev Struct holding the state variables for the {TaikoL1} contract.

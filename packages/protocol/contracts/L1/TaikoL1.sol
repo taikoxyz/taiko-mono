@@ -113,6 +113,11 @@ contract TaikoL1 is
         LibVerifying.verifyBlocks(state, getConfig(), AddressResolver(this), maxBlocksToVerify);
     }
 
+    function unpause() public override whenPaused onlyOwner {
+        OwnerUUPSUpgradable.unpause();
+        state.slotB.lastUnpausedAt = uint64(block.timestamp);
+    }
+
     /// @notice Pause block proving.
     /// @param pause True if paused.
     function pauseProving(bool pause) external onlyOwner {

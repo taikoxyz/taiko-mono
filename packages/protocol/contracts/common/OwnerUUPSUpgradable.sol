@@ -57,12 +57,12 @@ abstract contract OwnerUUPSUpgradable is UUPSUpgradeable, OwnableUpgradeable {
         _disableInitializers();
     }
 
-    function pause() external whenNotPaused onlyOwner {
+    function pause() public virtual whenNotPaused onlyOwner {
         _paused = _TRUE;
         emit Paused(msg.sender);
     }
 
-    function unpause() external whenPaused onlyOwner {
+    function unpause() public virtual whenPaused onlyOwner {
         _paused = _FALSE;
         emit Unpaused(msg.sender);
     }
