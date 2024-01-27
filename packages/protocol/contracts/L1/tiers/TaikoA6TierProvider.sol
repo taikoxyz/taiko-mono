@@ -38,7 +38,7 @@ contract TaikoA6TierProvider is EssentialContract, ITierProvider {
             return ITierProvider.Tier({
                 verifierName: "tier_optimistic",
                 validityBond: 250 ether, // TKO
-                contestBond: 250 ether, // TKO
+                contestBond: 500 ether, // TKO
                 cooldownWindow: 24 hours,
                 provingWindow: 2 hours,
                 maxBlocksToVerify: 10
@@ -49,7 +49,7 @@ contract TaikoA6TierProvider is EssentialContract, ITierProvider {
             return ITierProvider.Tier({
                 verifierName: "tier_sgx",
                 validityBond: 500 ether, // TKO
-                contestBond: 500 ether, // TKO
+                contestBond: 1000 ether, // TKO
                 cooldownWindow: 24 hours,
                 provingWindow: 4 hours,
                 maxBlocksToVerify: 8
@@ -60,7 +60,7 @@ contract TaikoA6TierProvider is EssentialContract, ITierProvider {
             return ITierProvider.Tier({
                 verifierName: "tier_sgx_and_pse_zkevm",
                 validityBond: 1000 ether, // TKO
-                contestBond: 1000 ether, // TKO
+                contestBond: 2000 ether, // TKO
                 cooldownWindow: 24 hours,
                 provingWindow: 6 hours,
                 maxBlocksToVerify: 6
