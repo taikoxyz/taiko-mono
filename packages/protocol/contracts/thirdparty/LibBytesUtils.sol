@@ -119,7 +119,9 @@ library LibBytesUtils {
             assembly {
                 ret := mload(add(_bytes, 32))
             }
-            return ret >> (8 * (32 - _bytes.length));
+
+            uint256 bitsToClear = (32 - _bytes.length) << 3;
+            return (ret >> bitsToClear) << bitsToClear;
         }
 
         return abi.decode(_bytes, (bytes32)); // will truncate if input length >32 bytes
