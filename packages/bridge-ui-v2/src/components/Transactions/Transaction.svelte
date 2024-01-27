@@ -1,10 +1,8 @@
 <script lang="ts">
-  import { fetchTransaction, type Hash } from '@wagmi/core';
   import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
-  import { decodeFunctionData, formatEther, formatUnits } from 'viem';
+  import { formatEther, formatUnits } from 'viem';
 
-  import { erc721VaultABI, erc1155VaultABI } from '$abi';
   import { chainConfig } from '$chainConfig';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { Icon } from '$components/Icon';
@@ -15,7 +13,7 @@
   import { getChainName } from '$libs/chain';
   import { type NFT, TokenType } from '$libs/token';
   import { fetchNFTImageUrl } from '$libs/token/fetchNFTImageUrl';
-  import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
+  import { mapTransactionHashToNFT } from '$libs/token/mapTransactionHashToNFT';
   import { truncateString } from '$libs/util/truncateString';
 
   import ChainSymbolName from './ChainSymbolName.svelte';
@@ -65,46 +63,26 @@
   };
 
   async function analyzeTransactionInput(): Promise<void> {
-    if (item.tokenType === TokenType.ETH || item.tokenType === TokenType.ERC20) return; // no special treatment for ETH or ERC20
-    const hash = item.hash as Hash;
     loading = true;
-    // Retrieve transaction data
-    const transactionData = await fetchTransaction({ hash, chainId: Number(item.srcChainId) });
-
-    const abi = (() => {
-      switch (item.tokenType) {
-        case TokenType.ERC721:
-          return erc721VaultABI;
-        case TokenType.ERC1155:
-          return erc1155VaultABI;
-        default:
-          throw new Error('Invalid token type');
-      }
-    })();
-
-    const { functionName, args: decodedInputData } = await decodeFunctionData({
-      abi,
-      data: transactionData.input,
-    });
-    if (!decodedInputData) throw new Error('Invalid input data');
-
-    if (functionName !== 'sendToken') throw new Error('Invalid function name');
-
-    const { token: tokenAddress, tokenIds } = decodedInputData[0];
-
-    token = (await getTokenWithInfoFromAddress({
-      contractAddress: tokenAddress,
-      srcChainId: Number(item.srcChainId),
-      owner: item.from,
-      tokenId: Number(tokenIds[0]),
-      type: item.tokenType,
-    })) as NFT;
-    token = await fetchNFTImageUrl(token);
-
+    try {
+      token = await mapTransactionHashToNFT({
+        hash: item.hash,
+        srcChainId: Number(item.srcChainId),
+        type: item.tokenType,
+      });
+      token = await fetchNFTImageUrl(token);
+    } catch (error) {
+      console.error(error);
+    }
     loading = false;
   }
 
-  $: analyzeTransactionInput();
+  $: {
+    if (item.tokenType === TokenType.ERC721 || item.tokenType === TokenType.ERC1155) {
+      // for NFTs we need to fetch more information about the transaction
+      analyzeTransactionInput();
+    }
+  }
 
   $: imgUrl = token?.metadata?.image || placeholderUrl;
 
