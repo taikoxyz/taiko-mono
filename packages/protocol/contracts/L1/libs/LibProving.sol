@@ -16,6 +16,7 @@ pragma solidity 0.8.20;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "../../common/AddressResolver.sol";
+import "../../libs/LibMath.sol";
 import "../tiers/ITierProvider.sol";
 import "../verifiers/IVerifier.sol";
 import "../TaikoData.sol";
@@ -25,6 +26,8 @@ import "./LibUtils.sol";
 /// @notice A library for handling block contestation and proving in the Taiko
 /// protocol.
 library LibProving {
+    using LibMath for uint256;
+
     bytes32 public constant RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
 
@@ -335,7 +338,11 @@ library LibProving {
                 revert L1_ALREADY_PROVED();
             }
 
-            if (tid == 1 && ts.tier == 0 && block.timestamp <= ts.timestamp + tier.provingWindow) {
+            if (
+                tid == 1 && ts.tier == 0
+                    && block.timestamp
+                        <= uint256(ts.timestamp).max(state.slotB.lastUnpausedAt) + tier.provingWindow
+            ) {
                 // For the first transition, (1) if the previous prover is
                 // still the assigned prover, we exclusively grant permission to
                 // the assigned approver to re-prove the block, (2) unless the
