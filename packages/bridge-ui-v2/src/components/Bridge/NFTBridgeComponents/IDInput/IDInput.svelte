@@ -3,6 +3,7 @@
   import { t } from 'svelte-i18n';
 
   import { Icon } from '$components/Icon';
+  import InputBox from '$components/InputBox/InputBox.svelte';
   import { uid } from '$libs/util/uid';
 
   import { IDInputState as State } from './state';
@@ -62,14 +63,14 @@
     <label class="body-regular" for={inputId}>{$t('inputs.token_id_input.label')}</label>
   </div>
   <div class="relative f-items-center">
-    <input
+    <InputBox
       id={inputId}
-      disabled={isDisabled}
       type="number"
       placeholder={$t('inputs.token_id_input.placeholder')}
+      disabled={isDisabled}
       bind:value={enteredIds}
       on:input={(e) => validateInput(e.target)}
-      class="withValdiation w-full input-box py-6 pr-16 px-[26px] title-subsection-bold placeholder:text-tertiary-content {typeClass} {$$props.class}" />
+      class="withValdiation w-full input-box py-6 pr-16 px-[26px] {typeClass} {$$props.class}" />
     {#if enteredIds && enteredIds.length > 0}
       <button class="absolute right-6 uppercase body-bold text-secondary-content" on:click={clearIds}>
         <Icon type="x-close-circle" fillClass="fill-primary-icon" size={24} />
