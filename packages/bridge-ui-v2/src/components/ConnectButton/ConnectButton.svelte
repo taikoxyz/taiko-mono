@@ -40,17 +40,15 @@
   onDestroy(unsubscribeWeb3Modal);
 </script>
 
-<!-- {#if connected} -->
-<!-- <w3m-button class="test" size="md" /> -->
 {#if connected}
   <button
     on:click={connectWallet}
-    class="rounded-[20px] flex items-center pl-[8px] pr-[3px] max-h-[48px] wc-parent-glass !border-solid !border-[1px] !border-gray-800 gap-2 font-bold">
+    class="rounded-full flex items-center pl-[8px] pr-[3px] max-h-[48px] wc-parent-glass !border-solid gap-2 font-bold">
     <img alt="chain icon" class="w-[24px]" src={(currentChainId && getChainImage(currentChainId)) || ''} />
     <span class="flex items-center text-secondary-content justify-self-start gap-4"
       >{renderEthBalance(balance, 6)}
       <span
-        class="flex items-center text-tertiary-content btn-glass-bg rounded-[20px] px-[10px] py-[4px] min-h-[38px] bg-tertiary-background">
+        class="flex items-center text-tertiary-content btn-glass-bg rounded-full px-[10px] py-[4px] min-h-[38px] bg-tertiary-background">
         {shortenAddress(accountAddress, 4, 6)}
       </span>
     </span>
@@ -72,15 +70,18 @@
   </ActionButton>
 {/if}
 
+<!-- TODO: move to css -->
 <style>
   .wc-parent-glass {
     background: rgba(255, 255, 255, 0.02);
+    transition: background 0.3s ease-in-out;
+    border: 1px solid rgb(255 255 255 / 5%);
     &:hover {
       background: rgb(255 255 255 / 5%);
     }
   }
   .btn-glass-bg {
-    @apply border-solid border-[1px] border-neutral-background;
-    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgb(255 255 255 / 5%);
+    background: rgb(255 255 255 / 5%);
   }
 </style>
