@@ -49,3 +49,23 @@ func (r *SignedBlockRepository) GetByStartingBlockID(
 
 	return sb, nil
 }
+
+func (r *SignedBlockRepository) GetMostRecentByGuardianProverID(id int) (
+	*guardianproverhealthcheck.SignedBlock,
+	error) {
+	q := `SELECT *
+	FROM signed_blocks
+	WHERE block_id = (
+		SELECT MAX(block_id) 
+		FROM signed_blocks 
+		WHERE guardian_prover_id = ?
+	) AND guardian_prover_id = ?;`
+
+	var b *guardianproverhealthcheck.SignedBlock
+
+	if err := r.startQuery().Raw(q, id, id).Scan(&b).Error; err != nil {
+		return nil, err
+	}
+
+	return b, nil
+}

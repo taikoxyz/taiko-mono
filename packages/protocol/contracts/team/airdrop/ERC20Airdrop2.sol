@@ -14,7 +14,7 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "../../libs/LibMath.sol";
 import "./MerkleClaimable.sol";
 
@@ -71,7 +71,7 @@ contract ERC20Airdrop2 is MerkleClaimable {
     function withdraw(address user) external ongoingWithdrawals {
         (, uint256 amount) = getBalance(user);
         withdrawnAmount[user] += amount;
-        IERC20Upgradeable(token).transferFrom(vault, user, amount);
+        IERC20(token).transferFrom(vault, user, amount);
 
         emit Withdrawn(user, amount);
     }

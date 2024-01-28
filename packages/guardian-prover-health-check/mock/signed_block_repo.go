@@ -1,6 +1,8 @@
 package mock
 
 import (
+	"errors"
+
 	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
 )
 
@@ -39,4 +41,24 @@ func (r *SignedBlockRepo) GetByStartingBlockID(
 	}
 
 	return sb, nil
+}
+
+func (r *SignedBlockRepo) GetMostRecentByGuardianProverID(id int) (*guardianproverhealthcheck.SignedBlock, error) {
+	var b *guardianproverhealthcheck.SignedBlock
+
+	for k, v := range r.signedBlocks {
+		if v.GuardianProverID == uint64(id) {
+			if k == 0 {
+				b = v
+			} else if v.BlockID > b.BlockID {
+				b = v
+			}
+		}
+	}
+
+	if b == nil {
+		return nil, errors.New("no signed blocks by this guardian prover")
+	}
+
+	return b, nil
 }
