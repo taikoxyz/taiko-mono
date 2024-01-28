@@ -83,14 +83,3 @@
 [data-glow-border] [data-glow-border] {
   border: none;
 }
-[data-glow-border] :is(a, button) {
-  border-radius: 20px;
-  border: var(--border-size) solid transparent;
-}
-[data-glow-border] :is(a, button) [data-glow-border] {
-  background: none;
-}
-[data-glow-border] :is(a, button) [data-glow-border]::before {
-  inset: calc(var(--border-size) * -1);
-  border-width: calc(var(--border-size) * 1);
-}

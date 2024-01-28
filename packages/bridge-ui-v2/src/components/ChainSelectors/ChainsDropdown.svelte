@@ -51,9 +51,7 @@
       <li
         role="menuitem"
         tabindex="0"
-        class="rounded-[10px] {disabled
-          ? 'opacity-20 pointer-events-none'
-          : 'hover:bg-primary-brand hover:cursor-pointer'}"
+        class="rounded-[10px] {disabled ? 'opacity-20 pointer-events-none' : 'hover:bg-primary-brand cursor-pointer'}"
         aria-disabled={disabled}
         on:click={() => {
           if (!disabled) selectChain(chain, !isDestination);

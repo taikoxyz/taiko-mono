@@ -22,6 +22,7 @@
 
   $: commonClasses = classNames(
     'btn size-[56px] px-[28px] py-[14px] rounded-full flex-1 w-full items-center',
+    $$restProps.disabled ? 'cursor-not-allowed' : 'cursor-pointer',
     disabledColor,
     $$props.class,
   );

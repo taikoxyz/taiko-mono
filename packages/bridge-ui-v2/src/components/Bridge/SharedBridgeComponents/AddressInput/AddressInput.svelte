@@ -89,7 +89,7 @@
       placeholder="0x1B77..."
       bind:value={ethereumAddress}
       on:input={validateAddress}
-      class="w-full input-box withValdiation py-6 pr-16 px-[26px] title-subsection-bold placeholder:text-tertiary-content {classes}" />
+      class="w-full input-box withValdiation py-6 pr-16 px-[26px] font-bold placeholder:text-tertiary-content {classes}" />
     {#if ethereumAddress}
       <button class="absolute right-6 uppercase body-bold text-secondary-content" on:click={clearAddress}>
         <Icon type="x-close-circle" fillClass="fill-primary-icon" size={24} />

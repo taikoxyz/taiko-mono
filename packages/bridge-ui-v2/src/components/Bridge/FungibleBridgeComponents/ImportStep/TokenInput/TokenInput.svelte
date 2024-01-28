@@ -230,7 +230,7 @@
         bind:value
         on:input={() => handleInputChange(value)}
         bind:this={inputBox}
-        class="min-h-[64px] pl-[15px] w-full border-0 h-full  !rounded-r-none z-20  {$$props.class}" />
+        class="min-h-[64px] pl-[15px] w-full border-0 h-full !rounded-r-none z-20  {$$props.class}" />
 
       <!-- vertical separator -->
       <div class="border-l border-r bg-primary-border-dark border-neutral-background h-[64px] w-[3px]" />

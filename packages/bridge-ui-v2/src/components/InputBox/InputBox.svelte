@@ -4,13 +4,13 @@
   export let error = false;
   let inputElement: HTMLInputElement;
 
-  export let value: string = '';
+  export let value: string | number | number[] = '';
 
   $: disabled = $$props.disabled || false;
 
   let classes = classNames(
-    'w-full input-box  placeholder:text-secondary-content bg-neutral-background shadow-none font-bold  shadow-none outline-none ',
-    disabled ? 'hover:cursor-not-allowed' : 'hover:cursor-pointer',
+    'w-full input-box bg-neutral-background shadow-none placeholder:text-tertiary-content font-bold shadow-none outline-none ',
+    disabled ? 'cursor-not-allowed ' : 'cursor-pointer',
     $$props.class,
   );
 
