@@ -67,6 +67,7 @@
 {#if displayL1Warning}
   <Alert type="warning">{$t('bridge.alerts.slow_bridging')}</Alert>
 {/if}
+
 <div class="h-sep" />
 {#if $selectedImportMethod === ImportMethod.MANUAL}
   <ManualImport bind:validating />
