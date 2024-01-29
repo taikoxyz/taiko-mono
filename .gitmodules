@@ -19,4 +19,5 @@
 [submodule "packages/protocol/lib/automata-dcap-v3-attestation"]
 	path = packages/protocol/lib/automata-dcap-v3-attestation
 	url = https://github.com/taikoxyz/automata-dcap-v3-attestation
+	commit = 80eba1c014c193d4e83e07ac7d015cea8ebf1232
 	branch = optimize-gas
