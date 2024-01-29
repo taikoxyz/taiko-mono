@@ -15,17 +15,17 @@ If some git submodules are not initialized correctly, use the following commands
 
 ```sh
 git submodule add  \
---name automata-dcap-v3-attestation \
+--name packages/protocol/lib/automata-dcap-v3-attestation\
 https://github.com/automata-network/automata-dcap-v3-attestation \
 packages/protocol/lib/automata-dcap-v3-attestation
 
 git submodule add \
---name p256-verifier \
+--name packages/protocol/lib/p256-verifier \
 https://github.com/taikoxyz/p256-verifier \
 packages/protocol/lib/p256-verifier
 
 git submodule add \
---name solady \
+--name packages/protocol/lib/solady \
 https://github.com/Vectorized/solady \
 packages/protocol/lib/solady
 

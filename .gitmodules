@@ -23,12 +23,3 @@
 	path = packages/protocol/lib/automata-dcap-v3-attestation
 	url = https://github.com/automata-network/automata-dcap-v3-attestation
 	commit = 80eba1c014c193d4e83e07ac7d015cea8ebf1232
-[submodule "automata-dcap-v3-attestation"]
-	path = packages/protocol/lib/automata-dcap-v3-attestation
-	url = https://github.com/automata-network/automata-dcap-v3-attestation
-[submodule "p256-verifier"]
-	path = packages/protocol/lib/p256-verifier
-	url = https://github.com/taikoxyz/p256-verifier
-[submodule "solady"]
-	path = packages/protocol/lib/solady
-	url = https://github.com/Vectorized/solady
