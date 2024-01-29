@@ -2,7 +2,7 @@
   "extends": "solhint:recommended",
   "rules": {
     "avoid-low-level-calls": "off",
-    "compiler-version": ["error", "^0.8.20"],
+    "compiler-version": ["error", "^0.8.24"],
     "func-visibility": ["warn", { "ignoreConstructors": true }],
     "max-line-length": "off",
     "no-empty-blocks": "off",

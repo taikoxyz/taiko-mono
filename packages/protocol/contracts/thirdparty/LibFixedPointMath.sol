@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Taken from the contract below, expWad() function tailored to Taiko's need
 // https://github.com/transmissions11/solmate/blob/v7/src/utils/FixedPointMathLib.sol
-pragma solidity 0.8.20;
+pragma solidity 0.8.24;
 
 library LibFixedPointMath {
     uint128 public constant MAX_EXP_INPUT = 135_305_999_368_893_231_588;
