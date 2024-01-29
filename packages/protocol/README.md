@@ -15,6 +15,26 @@ If some git submodules are not initialized correctly, use the following commands
 
 ```sh
 git submodule add  \
+-b optimize-gas \
+https://github.com/taikoxyz/automata-dcap-v3-attestation \
+packages/protocol/lib/automata-dcap-v3-attestation
+
+git submodule add \
+--name packages/protocol/lib/p256-verifier \
+https://github.com/taikoxyz/p256-verifier \
+packages/protocol/lib/p256-verifier
+
+git submodule add \
+--name packages/protocol/lib/solady \
+https://github.com/Vectorized/solady \
+packages/protocol/lib/solady
+
+```
+
+If some git submodules are not initialized correctly, use the following commands in the root directory:
+
+```sh
+git submodule add  \
 --name packages/protocol/lib/automata-dcap-v3-attestation\
 https://github.com/automata-network/automata-dcap-v3-attestation \
 packages/protocol/lib/automata-dcap-v3-attestation
@@ -30,7 +50,6 @@ https://github.com/Vectorized/solady \
 packages/protocol/lib/solady
 
 ```
-
 
 ```sh
 pnpm install
