@@ -65,10 +65,6 @@
       warningToast({ title: $t('messages.network.required') });
       return;
     }
-    if (!destChain || !destChain.id) {
-      warningToast({ title: $t('messages.network.required_dest') });
-      return;
-    }
 
     // if it is an imported Token, chances are we do not yet have the bridged address
     // for the destination chain, so we need to fetch it
@@ -76,7 +72,10 @@
       // ... in the case of imported tokens, we also require the destination chain to be selected.    if (!destChain) {
 
       let bridgedAddress = null;
-
+      if (!destChain || !destChain.id) {
+        warningToast({ title: $t('messages.network.required_dest') });
+        return;
+      }
       try {
         bridgedAddress = await getCrossChainAddress({
           token,
@@ -94,13 +93,17 @@
         tokenService.updateToken(token, $account?.address as Address);
       }
     }
+
     value = token;
-    const info = await getCanonicalInfoForToken({ token, srcChainId: srcChain.id, destChainId: destChain.id });
-    if (info && value.addresses[srcChain.id] !== info.address) {
-      log('selected token is not canonical');
-      $selectedTokenIsBridged = true;
-    } else {
-      $selectedTokenIsBridged = false;
+
+    if (destChain) {
+      const info = await getCanonicalInfoForToken({ token, srcChainId: srcChain.id, destChainId: destChain.id });
+      if (info && value.addresses[srcChain.id] !== info.address) {
+        log('selected token is not canonical');
+        $selectedTokenIsBridged = true;
+      } else {
+        $selectedTokenIsBridged = false;
+      }
     }
     closeMenu();
   };
