@@ -58,7 +58,12 @@ func (i *Indexer) handleEvent(
 
 	defer confCtxCancel()
 
-	if err := relayer.WaitConfirmations(confCtx, i.srcEthClient, uint64(defaultConfirmations), event.Raw.TxHash); err != nil {
+	if err := relayer.WaitConfirmations(
+		confCtx,
+		i.srcEthClient,
+		uint64(defaultConfirmations),
+		event.Raw.TxHash,
+	); err != nil {
 		return err
 	}
 
