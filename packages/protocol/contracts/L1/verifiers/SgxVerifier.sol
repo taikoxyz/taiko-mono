@@ -84,28 +84,30 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// @notice Adds an SGX instance after the attestation is verified
     /// @param attestation The parsed attestation quote.
     /// @return id The respective instanceId
-    function registerInstance(
-        V3Struct.ParsedV3QuoteStruct calldata attestation
-    )
+    function registerInstance(V3Struct.ParsedV3QuoteStruct calldata attestation)
         external
         returns (uint256)
     {
         address automataDcapAttestation = (resolve("automata_dcap_attestation", true));
 
-        // Still possible to be backward compatible and have the onlyOwner tpye of method registering instances.
+        // Still possible to be backward compatible and have the onlyOwner type of method
+        // registering instances.
         if (automataDcapAttestation != address(0)) {
-            (bool verified, ) = IAttestation(automataDcapAttestation).verifyParsedQuote(attestation);
+            (bool verified,) = IAttestation(automataDcapAttestation).verifyParsedQuote(attestation);
 
-            if(!verified) {
+            if (!verified) {
                 revert SGX_INVALID_ATTESTATION();
             }
 
             address[] memory _address = new address[](1);
-            _address[0] = address(bytes20(LibBytesUtils.slice(attestation.localEnclaveReport.reportData, 0, 20)));
+            _address[0] = address(
+                bytes20(LibBytesUtils.slice(attestation.localEnclaveReport.reportData, 0, 20))
+            );
 
             return _addInstances(_address)[0];
         }
-        // A special return variable, signaling that this method is not supported at the moment, because a contract with name "automata_dcap_attestation" not deployed.
+        // A special return variable, signaling that this method is not supported at the moment,
+        // because a contract with name "automata_dcap_attestation" not deployed.
         return type(uint256).max;
     }
 
