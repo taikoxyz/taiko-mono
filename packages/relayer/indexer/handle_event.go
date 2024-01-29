@@ -41,6 +41,11 @@ func (i *Indexer) handleEvent(
 		return nil
 	}
 
+	if event.Raw.Removed {
+		slog.Info("event is removed")
+		return nil
+	}
+
 	// check if we have seen this event and msgHash before - if we have, it is being reorged.
 	if err := i.detectAndHandleReorg(ctx, relayer.EventNameMessageSent, common.Hash(event.MsgHash).Hex()); err != nil {
 		return errors.Wrap(err, "svc.detectAndHandleReorg")
