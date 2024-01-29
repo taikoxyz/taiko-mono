@@ -112,7 +112,7 @@ library LibBytesUtils {
     }
 
     function toBytes32(bytes memory _bytes) internal pure returns (bytes32) {
-        return _bytes.length < 32 ? bytes32(_bytes) : abi.decode(_bytes, (bytes32));
+        return bytes32(_bytes);
     }
 
     function toNibbles(bytes memory _bytes) internal pure returns (bytes memory) {
