@@ -24,11 +24,6 @@ git submodule add \
 https://github.com/taikoxyz/p256-verifier \
 packages/protocol/lib/p256-verifier
 
-git submodule add \
---name packages/protocol/lib/solady \
-https://github.com/Vectorized/solady \
-packages/protocol/lib/solady
-
 ```
 
 ```sh
