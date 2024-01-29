@@ -24,7 +24,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
     GuardianProver public gp;
     TaikoA6TierProvider public cp;
     Bridge public bridge;
-    
+
     // For SGX remote attestation
     AutomataDcapV3Attestation attestation;
     SigVerifyLib sigVerifyLib;
@@ -111,7 +111,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
         setupGuardianProverMultisig();
         setupAutomataOnChainRAUtils();
-        
+
         cp = TaikoA6TierProvider(
             deployProxy({
                 name: "tier_provider",
@@ -175,7 +175,6 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
         L1.init(address(addressManager), GENESIS_BLOCK_HASH);
         printVariables("init  ");
-
     }
 
     function proposeBlock(
@@ -285,7 +284,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         }
 
         address newInstance;
-       
+
         // Keep changing the pub key associated with an instance to avoid
         // attacks,
         // obviously just a mock due to 2 addresses changing all the time.

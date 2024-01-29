@@ -57,8 +57,14 @@ library SHA1 {
                         )
                     temp :=
                         or(
-                            and(mul(temp, 2), 0xFFFFFFFEFFFFFFFEFFFFFFFEFFFFFFFEFFFFFFFEFFFFFFFEFFFFFFFEFFFFFFFE),
-                            and(div(temp, 0x80000000), 0x0000000100000001000000010000000100000001000000010000000100000001)
+                            and(
+                                mul(temp, 2),
+                                0xFFFFFFFEFFFFFFFEFFFFFFFEFFFFFFFEFFFFFFFEFFFFFFFEFFFFFFFEFFFFFFFE
+                            ),
+                            and(
+                                div(temp, 0x80000000),
+                                0x0000000100000001000000010000000100000001000000010000000100000001
+                            )
                         )
                     mstore(add(scratch, j), temp)
                 }
@@ -70,8 +76,14 @@ library SHA1 {
                         )
                     temp :=
                         or(
-                            and(mul(temp, 4), 0xFFFFFFFCFFFFFFFCFFFFFFFCFFFFFFFCFFFFFFFCFFFFFFFCFFFFFFFCFFFFFFFC),
-                            and(div(temp, 0x40000000), 0x0000000300000003000000030000000300000003000000030000000300000003)
+                            and(
+                                mul(temp, 4),
+                                0xFFFFFFFCFFFFFFFCFFFFFFFCFFFFFFFCFFFFFFFCFFFFFFFCFFFFFFFCFFFFFFFC
+                            ),
+                            and(
+                                div(temp, 0x40000000),
+                                0x0000000300000003000000030000000300000003000000030000000300000003
+                            )
                         )
                     mstore(add(scratch, j), temp)
                 }
@@ -90,35 +102,62 @@ library SHA1 {
                     }
                     case 1 {
                         // f = b xor c xor d
-                        f := xor(div(x, 0x1000000000000000000000000000000), div(x, 0x100000000000000000000))
+                        f :=
+                            xor(
+                                div(x, 0x1000000000000000000000000000000),
+                                div(x, 0x100000000000000000000)
+                            )
                         f := xor(div(x, 0x10000000000), f)
                         k := 0x6ED9EBA1
                     }
                     case 2 {
                         // f = (b and c) or (d and (b or c))
-                        f := or(div(x, 0x1000000000000000000000000000000), div(x, 0x100000000000000000000))
+                        f :=
+                            or(
+                                div(x, 0x1000000000000000000000000000000),
+                                div(x, 0x100000000000000000000)
+                            )
                         f := and(div(x, 0x10000000000), f)
-                        f := or(and(div(x, 0x1000000000000000000000000000000), div(x, 0x100000000000000000000)), f)
+                        f :=
+                            or(
+                                and(
+                                    div(x, 0x1000000000000000000000000000000),
+                                    div(x, 0x100000000000000000000)
+                                ),
+                                f
+                            )
                         k := 0x8F1BBCDC
                     }
                     case 3 {
                         // f = b xor c xor d
-                        f := xor(div(x, 0x1000000000000000000000000000000), div(x, 0x100000000000000000000))
+                        f :=
+                            xor(
+                                div(x, 0x1000000000000000000000000000000),
+                                div(x, 0x100000000000000000000)
+                            )
                         f := xor(div(x, 0x10000000000), f)
                         k := 0xCA62C1D6
                     }
                     // temp = (a leftrotate 5) + f + e + k + w[i]
                     let temp := and(div(x, 0x80000000000000000000000000000000000000000000000), 0x1F)
-                    temp := or(and(div(x, 0x800000000000000000000000000000000000000), 0xFFFFFFE0), temp)
+                    temp :=
+                        or(and(div(x, 0x800000000000000000000000000000000000000), 0xFFFFFFE0), temp)
                     temp := add(f, temp)
                     temp := add(and(x, 0xFFFFFFFF), temp)
                     temp := add(k, temp)
                     temp :=
                         add(
-                            div(mload(add(scratch, mul(j, 4))), 0x100000000000000000000000000000000000000000000000000000000),
+                            div(
+                                mload(add(scratch, mul(j, 4))),
+                                0x100000000000000000000000000000000000000000000000000000000
+                            ),
                             temp
                         )
-                    x := or(div(x, 0x10000000000), mul(temp, 0x10000000000000000000000000000000000000000))
+                    x :=
+                        or(
+                            div(x, 0x10000000000),
+                            mul(temp, 0x10000000000000000000000000000000000000000)
+                        )
                     x :=
                         or(
                             and(x, 0xFFFFFFFF00FFFFFFFF000000000000FFFFFFFF00FFFFFFFF),

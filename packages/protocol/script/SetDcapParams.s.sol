@@ -86,6 +86,6 @@ contract SetDcapParams is Script, DcapTestUtils, V3JsonUtils {
         console.log("v3quote.header.userData = %s", address(v3quote.header.userData));
         console.logBytes(v3quote.localEnclaveReport.reportData);
         uint256 ret = SgxVerifier(sgxVerifier).registerInstance(v3quote);
-        console.log("ret: %s", ret);
+        console.log("SGX register instance Id: %s", ret);
     }
 }

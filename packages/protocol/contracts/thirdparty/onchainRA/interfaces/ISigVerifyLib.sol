@@ -33,7 +33,12 @@ interface ISigVerifyLib {
         RS1
     }
 
-    function verifyAttStmtSignature(bytes memory tbs, bytes memory signature, PublicKey memory publicKey, Algorithm alg)
+    function verifyAttStmtSignature(
+        bytes memory tbs,
+        bytes memory signature,
+        PublicKey memory publicKey,
+        Algorithm alg
+    )
         external
         view
         returns (bool);
@@ -43,19 +48,34 @@ interface ISigVerifyLib {
         bytes memory signature,
         PublicKey memory publicKey,
         CertSigAlgorithm alg
-    ) external view returns (bool);
+    )
+        external
+        view
+        returns (bool);
 
-    function verifyRS256Signature(bytes memory tbs, bytes memory signature, bytes memory publicKey)
+    function verifyRS256Signature(
+        bytes memory tbs,
+        bytes memory signature,
+        bytes memory publicKey
+    )
         external
         view
         returns (bool sigValid);
 
-    function verifyRS1Signature(bytes memory tbs, bytes memory signature, bytes memory publicKey)
+    function verifyRS1Signature(
+        bytes memory tbs,
+        bytes memory signature,
+        bytes memory publicKey
+    )
         external
         view
         returns (bool sigValid);
 
-    function verifyES256Signature(bytes memory tbs, bytes memory signature, bytes memory publicKey)
+    function verifyES256Signature(
+        bytes memory tbs,
+        bytes memory signature,
+        bytes memory publicKey
+    )
         external
         view
         returns (bool sigValid);

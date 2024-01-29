@@ -13,13 +13,19 @@ import "./BytesUtils.sol";
 
 contract SigVerifyLib is ISigVerifyLib {
     using BytesUtils for bytes;
+
     address private ES256VERIFIER;
 
     constructor(address es256Verifier) {
         ES256VERIFIER = es256Verifier;
     }
 
-    function verifyAttStmtSignature(bytes memory tbs, bytes memory signature, PublicKey memory publicKey, Algorithm alg)
+    function verifyAttStmtSignature(
+        bytes memory tbs,
+        bytes memory signature,
+        PublicKey memory publicKey,
+        Algorithm alg
+    )
         public
         view
         returns (bool)
@@ -49,7 +55,11 @@ contract SigVerifyLib is ISigVerifyLib {
         bytes memory signature,
         PublicKey memory publicKey,
         CertSigAlgorithm alg
-    ) public view returns (bool) {
+    )
+        public
+        view
+        returns (bool)
+    {
         if (alg == CertSigAlgorithm.Sha256WithRSAEncryption) {
             if (publicKey.keyType != KeyType.RSA) {
                 return false;
@@ -65,7 +75,11 @@ contract SigVerifyLib is ISigVerifyLib {
         }
     }
 
-    function verifyRS256Signature(bytes memory tbs, bytes memory signature, bytes memory publicKey)
+    function verifyRS256Signature(
+        bytes memory tbs,
+        bytes memory signature,
+        bytes memory publicKey
+    )
         public
         view
         returns (bool sigValid)
@@ -78,7 +92,11 @@ contract SigVerifyLib is ISigVerifyLib {
         sigValid = RsaVerify.pkcs1Sha256Raw(tbs, signature, exponent, modulus);
     }
 
-    function verifyRS1Signature(bytes memory tbs, bytes memory signature, bytes memory publicKey)
+    function verifyRS1Signature(
+        bytes memory tbs,
+        bytes memory signature,
+        bytes memory publicKey
+    )
         public
         view
         returns (bool sigValid)
@@ -91,7 +109,11 @@ contract SigVerifyLib is ISigVerifyLib {
         sigValid = RsaVerify.pkcs1Sha1Raw(tbs, signature, exponent, modulus);
     }
 
-    function verifyES256Signature(bytes memory tbs, bytes memory signature, bytes memory publicKey)
+    function verifyES256Signature(
+        bytes memory tbs,
+        bytes memory signature,
+        bytes memory publicKey
+    )
         public
         view
         returns (bool sigValid)

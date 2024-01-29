@@ -1,8 +1,8 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {BytesUtils} from "../../utils/BytesUtils.sol";
-import {V3Struct} from "./V3Struct.sol";
+import { BytesUtils } from "../../utils/BytesUtils.sol";
+import { V3Struct } from "./V3Struct.sol";
 // import {PEMCertChainLib} from "../PEMCertChainLib.sol";
 
 // import "hardhat/console.sol";
@@ -23,9 +23,7 @@ library V3Parser {
     uint256 constant HEADER_LENGTH = 27;
     uint256 constant FOOTER_LENGTH = 25;
 
-    function parseInput(
-        bytes memory quote
-    )
+    function parseInput(bytes memory quote)
         internal
         pure
         returns (
@@ -37,54 +35,26 @@ library V3Parser {
         )
     {
         if (quote.length <= MINIMUM_QUOTE_LENGTH) {
-            return (
-                false,
-                header,
-                localEnclaveReport,
-                signedQuoteData,
-                authDataV3
-            );
+            return (false, header, localEnclaveReport, signedQuoteData, authDataV3);
         }
 
         uint256 localAuthDataSize = littleEndianDecode(quote.substring(432, 4));
         if (quote.length - 436 != localAuthDataSize) {
-            return (
-                false,
-                header,
-                localEnclaveReport,
-                signedQuoteData,
-                authDataV3
-            );
+            return (false, header, localEnclaveReport, signedQuoteData, authDataV3);
         }
 
         bytes memory rawHeader = quote.substring(0, 48);
         bool headerVerifiedSuccessfully;
         (headerVerifiedSuccessfully, header) = parseAndVerifyHeader(rawHeader);
         if (!headerVerifiedSuccessfully) {
-            return (
-                false,
-                header,
-                localEnclaveReport,
-                signedQuoteData,
-                authDataV3
-            );
+            return (false, header, localEnclaveReport, signedQuoteData, authDataV3);
         }
 
         bool authDataVerifiedSuccessfully;
-        (
-            authDataVerifiedSuccessfully,
-            authDataV3
-        ) = parseAuthDataAndVerifyCertType(
-            quote.substring(436, localAuthDataSize)
-        );
+        (authDataVerifiedSuccessfully, authDataV3) =
+            parseAuthDataAndVerifyCertType(quote.substring(436, localAuthDataSize));
         if (!authDataVerifiedSuccessfully) {
-            return (
-                false,
-                header,
-                localEnclaveReport,
-                signedQuoteData,
-                authDataV3
-            );
+            return (false, header, localEnclaveReport, signedQuoteData, authDataV3);
         }
 
         bytes memory rawLocalEnclaveReport = quote.substring(48, 384);
@@ -94,9 +64,7 @@ library V3Parser {
         success = true;
     }
 
-    function validateParsedInput(
-        V3Struct.ParsedV3QuoteStruct calldata v3Quote
-    )
+    function validateParsedInput(V3Struct.ParsedV3QuoteStruct calldata v3Quote)
         internal
         pure
         returns (
@@ -109,20 +77,16 @@ library V3Parser {
     {
         success = true;
         localEnclaveReport = v3Quote.localEnclaveReport;
-        V3Struct.EnclaveReport memory pckSignedQeReport = v3Quote
-            .v3AuthData
-            .pckSignedQeReport;
+        V3Struct.EnclaveReport memory pckSignedQeReport = v3Quote.v3AuthData.pckSignedQeReport;
 
         require(
-            localEnclaveReport.reserved3.length == 96 &&
-                localEnclaveReport.reserved4.length == 60 &&
-                localEnclaveReport.reportData.length == 64,
+            localEnclaveReport.reserved3.length == 96 && localEnclaveReport.reserved4.length == 60
+                && localEnclaveReport.reportData.length == 64,
             "local QE report has wrong length"
         );
         require(
-            pckSignedQeReport.reserved3.length == 96 &&
-                pckSignedQeReport.reserved4.length == 60 &&
-                pckSignedQeReport.reportData.length == 64,
+            pckSignedQeReport.reserved3.length == 96 && pckSignedQeReport.reserved4.length == 60
+                && pckSignedQeReport.reportData.length == 64,
             "QE report has wrong length"
         );
         require(
@@ -130,18 +94,17 @@ library V3Parser {
             "certType must be 5: Concatenated PCK Cert Chain (PEM formatted)"
         );
         require(
-            v3Quote.v3AuthData.certification.decodedCertDataArray.length == 3,
-            "3 certs in chain"
+            v3Quote.v3AuthData.certification.decodedCertDataArray.length == 3, "3 certs in chain"
         );
         require(
-            v3Quote.v3AuthData.ecdsa256BitSignature.length == 64 &&
-                v3Quote.v3AuthData.ecdsaAttestationKey.length == 64 &&
-                v3Quote.v3AuthData.qeReportSignature.length == 64,
+            v3Quote.v3AuthData.ecdsa256BitSignature.length == 64
+                && v3Quote.v3AuthData.ecdsaAttestationKey.length == 64
+                && v3Quote.v3AuthData.qeReportSignature.length == 64,
             "Invalid ECDSA signature format"
         );
         require(
-            v3Quote.v3AuthData.qeAuthData.parsedDataSize ==
-                v3Quote.v3AuthData.qeAuthData.data.length,
+            v3Quote.v3AuthData.qeAuthData.parsedDataSize
+                == v3Quote.v3AuthData.qeAuthData.data.length,
             "Invalid QEAuthData size"
         );
 
@@ -167,14 +130,14 @@ library V3Parser {
         //     "Invalid certData size"
         // );
 
-        uint32 totalQuoteSize = 48 + // header
-            384 + // local QE report
-            64 + // ecdsa256BitSignature
-            64 + // ecdsaAttestationKey
-            384 + // QE report
-            64 + // qeReportSignature
-            v3Quote.v3AuthData.qeAuthData.parsedDataSize +
-            v3Quote.v3AuthData.certification.certDataSize;
+        uint32 totalQuoteSize = 48 // header
+            + 384 // local QE report
+            + 64 // ecdsa256BitSignature
+            + 64 // ecdsaAttestationKey
+            + 384 // QE report
+            + 64 // qeReportSignature
+            + v3Quote.v3AuthData.qeAuthData.parsedDataSize
+            + v3Quote.v3AuthData.certification.certDataSize;
         require(totalQuoteSize >= MINIMUM_QUOTE_LENGTH, "Invalid quote size");
 
         header = v3Quote.header;
@@ -188,16 +151,15 @@ library V3Parser {
             header.userData
         );
 
-        signedQuoteData = abi.encodePacked(
-            headerBytes,
-            V3Parser.packQEReport(localEnclaveReport)
-        );
+        signedQuoteData = abi.encodePacked(headerBytes, V3Parser.packQEReport(localEnclaveReport));
         authDataV3 = v3Quote.v3AuthData;
     }
 
-    function parseEnclaveReport(
-        bytes memory rawEnclaveReport
-    ) internal pure returns (V3Struct.EnclaveReport memory enclaveReport) {
+    function parseEnclaveReport(bytes memory rawEnclaveReport)
+        internal
+        pure
+        returns (V3Struct.EnclaveReport memory enclaveReport)
+    {
         enclaveReport.cpuSvn = bytes16(rawEnclaveReport.substring(0, 16));
         enclaveReport.miscSelect = bytes4(rawEnclaveReport.substring(16, 4));
         enclaveReport.reserved1 = bytes28(rawEnclaveReport.substring(20, 28));
@@ -206,19 +168,13 @@ library V3Parser {
         enclaveReport.reserved2 = bytes32(rawEnclaveReport.substring(96, 32));
         enclaveReport.mrSigner = bytes32(rawEnclaveReport.substring(128, 32));
         enclaveReport.reserved3 = rawEnclaveReport.substring(160, 96);
-        enclaveReport.isvProdId = uint16(
-            littleEndianDecode(rawEnclaveReport.substring(256, 2))
-        );
-        enclaveReport.isvSvn = uint16(
-            littleEndianDecode(rawEnclaveReport.substring(258, 2))
-        );
+        enclaveReport.isvProdId = uint16(littleEndianDecode(rawEnclaveReport.substring(256, 2)));
+        enclaveReport.isvSvn = uint16(littleEndianDecode(rawEnclaveReport.substring(258, 2)));
         enclaveReport.reserved4 = rawEnclaveReport.substring(260, 60);
         enclaveReport.reportData = rawEnclaveReport.substring(320, 64);
     }
 
-    function littleEndianDecode(
-        bytes memory encoded
-    ) private pure returns (uint256 decoded) {
+    function littleEndianDecode(bytes memory encoded) private pure returns (uint256 decoded) {
         for (uint256 i = 0; i < encoded.length; i++) {
             uint256 digits = uint256(uint8(bytes1(encoded[i])));
             uint256 upperDigit = digits / 16;
@@ -231,9 +187,11 @@ library V3Parser {
         }
     }
 
-    function parseAndVerifyHeader(
-        bytes memory rawHeader
-    ) private pure returns (bool success, V3Struct.Header memory header) {
+    function parseAndVerifyHeader(bytes memory rawHeader)
+        private
+        pure
+        returns (bool success, V3Struct.Header memory header)
+    {
         bytes2 version = bytes2(rawHeader.substring(0, 2));
         if (version != SUPPORTED_QUOTE_VERSION) {
             return (false, header);
@@ -267,17 +225,13 @@ library V3Parser {
         success = true;
     }
 
-    function parseAuthDataAndVerifyCertType(
-        bytes memory rawAuthData
-    )
+    function parseAuthDataAndVerifyCertType(bytes memory rawAuthData)
         private
         pure
         returns (bool success, V3Struct.ECDSAQuoteV3AuthData memory authDataV3)
     {
         V3Struct.QEAuthData memory qeAuthData;
-        qeAuthData.parsedDataSize = littleEndianDecode(
-            rawAuthData.substring(576, 2)
-        );
+        qeAuthData.parsedDataSize = littleEndianDecode(rawAuthData.substring(576, 2));
         qeAuthData.data = rawAuthData.substring(578, qeAuthData.parsedDataSize);
 
         uint256 offset = 578 + qeAuthData.parsedDataSize;
@@ -287,9 +241,7 @@ library V3Parser {
             return (false, authDataV3);
         }
         offset += 2;
-        cert.certDataSize = littleEndianDecode(
-            rawAuthData.substring(offset, 4)
-        );
+        cert.certDataSize = littleEndianDecode(rawAuthData.substring(offset, 4));
         offset += 4;
         cert.certData = rawAuthData.substring(offset, cert.certDataSize);
 
@@ -310,13 +262,13 @@ library V3Parser {
     /// in bytes should be in big endian according to Intel spec.
     /// @param enclaveReport enclave report
     /// @return packedQEReport enclave report in bytes
-    function packQEReport(
-        V3Struct.EnclaveReport memory enclaveReport
-    ) internal pure returns (bytes memory packedQEReport) {
-        uint16 isvProdIdPackBE = (enclaveReport.isvProdId >> 8) |
-            (enclaveReport.isvProdId << 8);
-        uint16 isvSvnPackBE = (enclaveReport.isvSvn >> 8) |
-            (enclaveReport.isvSvn << 8);
+    function packQEReport(V3Struct.EnclaveReport memory enclaveReport)
+        internal
+        pure
+        returns (bytes memory packedQEReport)
+    {
+        uint16 isvProdIdPackBE = (enclaveReport.isvProdId >> 8) | (enclaveReport.isvProdId << 8);
+        uint16 isvSvnPackBE = (enclaveReport.isvSvn >> 8) | (enclaveReport.isvSvn << 8);
         packedQEReport = abi.encodePacked(
             enclaveReport.cpuSvn,
             enclaveReport.miscSelect,

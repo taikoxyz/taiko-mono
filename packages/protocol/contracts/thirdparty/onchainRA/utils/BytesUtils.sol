@@ -12,7 +12,15 @@ library BytesUtils {
     * @param len The number of bytes to hash.
     * @return The hash of the byte range.
     */
-    function keccak(bytes memory self, uint256 offset, uint256 len) internal pure returns (bytes32 ret) {
+    function keccak(
+        bytes memory self,
+        uint256 offset,
+        uint256 len
+    )
+        internal
+        pure
+        returns (bytes32 ret)
+    {
         require(offset + len <= self.length);
         assembly {
             ret := keccak256(add(add(self, 32), offset), len)
@@ -51,7 +59,11 @@ library BytesUtils {
         bytes memory other,
         uint256 otheroffset,
         uint256 otherlen
-    ) internal pure returns (int256) {
+    )
+        internal
+        pure
+        returns (int256)
+    {
         uint256 shortest = len;
         if (otherlen < len) {
             shortest = otherlen;
@@ -100,7 +112,13 @@ library BytesUtils {
     * @param len The number of bytes to compare
     * @return True if the byte ranges are equal, false otherwise.
     */
-    function equals(bytes memory self, uint256 offset, bytes memory other, uint256 otherOffset, uint256 len)
+    function equals(
+        bytes memory self,
+        uint256 offset,
+        bytes memory other,
+        uint256 otherOffset,
+        uint256 len
+    )
         internal
         pure
         returns (bool)
@@ -116,12 +134,18 @@ library BytesUtils {
     * @param otherOffset The offset into the second byte range.
     * @return True if the byte ranges are equal, false otherwise.
     */
-    function equals(bytes memory self, uint256 offset, bytes memory other, uint256 otherOffset)
+    function equals(
+        bytes memory self,
+        uint256 offset,
+        bytes memory other,
+        uint256 otherOffset
+    )
         internal
         pure
         returns (bool)
     {
-        return keccak(self, offset, self.length - offset) == keccak(other, otherOffset, other.length - otherOffset);
+        return keccak(self, offset, self.length - offset)
+            == keccak(other, otherOffset, other.length - otherOffset);
     }
 
     /*
@@ -132,7 +156,15 @@ library BytesUtils {
     * @param other The second byte range to compare.
     * @return True if the byte ranges are equal, false otherwise.
     */
-    function equals(bytes memory self, uint256 offset, bytes memory other) internal pure returns (bool) {
+    function equals(
+        bytes memory self,
+        uint256 offset,
+        bytes memory other
+    )
+        internal
+        pure
+        returns (bool)
+    {
         return self.length >= offset + other.length && equals(self, offset, other, 0, other.length);
     }
 
@@ -205,7 +237,10 @@ library BytesUtils {
         require(idx + 20 <= self.length);
         assembly {
             ret :=
-                and(mload(add(add(self, 32), idx)), 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF000000000000000000000000)
+                and(
+                    mload(add(add(self, 32), idx)),
+                    0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF000000000000000000000000
+                )
         }
     }
 
@@ -216,7 +251,15 @@ library BytesUtils {
     * @param len The number of bytes.
     * @return The specified 32 bytes of the string.
     */
-    function readBytesN(bytes memory self, uint256 idx, uint256 len) internal pure returns (bytes32 ret) {
+    function readBytesN(
+        bytes memory self,
+        uint256 idx,
+        uint256 len
+    )
+        internal
+        pure
+        returns (bytes32 ret)
+    {
         require(len <= 32);
         require(idx + len <= self.length);
         assembly {
@@ -256,7 +299,15 @@ library BytesUtils {
     * @param offset The offset to start copying at.
     * @param len The number of bytes to copy.
     */
-    function substring(bytes memory self, uint256 offset, uint256 len) internal pure returns (bytes memory) {
+    function substring(
+        bytes memory self,
+        uint256 offset,
+        uint256 len
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
         require(offset + len <= self.length);
 
         bytes memory ret = new bytes(len);
@@ -284,7 +335,15 @@ library BytesUtils {
      * @param len Number of characters to decode.
      * @return The decoded data, left aligned.
      */
-    function base32HexDecodeWord(bytes memory self, uint256 off, uint256 len) internal pure returns (bytes32) {
+    function base32HexDecodeWord(
+        bytes memory self,
+        uint256 off,
+        uint256 len
+    )
+        internal
+        pure
+        returns (bytes32)
+    {
         require(len <= 52);
 
         uint256 ret = 0;
