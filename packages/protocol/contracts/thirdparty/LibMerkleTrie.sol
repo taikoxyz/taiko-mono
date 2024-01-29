@@ -303,13 +303,6 @@ library LibMerkleTrie {
      * @param _b Second nibble array.
      * @return _shared Number of shared nibbles.
      */
-    /**
-     * @notice Utility; determines the number of nibbles shared between two
-     * nibble arrays.
-     * @param _a First nibble array.
-     * @param _b Second nibble array.
-     * @return _shared Number of shared nibbles.
-     */
     function _getSharedNibbleLength(
         bytes memory _a,
         bytes memory _b

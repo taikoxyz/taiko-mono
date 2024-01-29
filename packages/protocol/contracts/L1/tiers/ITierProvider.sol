@@ -23,7 +23,7 @@ interface ITierProvider {
         uint96 contestBond;
         uint24 cooldownWindow;
         uint16 provingWindow;
-        uint8 maxBlocksToVerify;
+        uint8 maxBlocksToVerifyWithTier;
     }
 
     /// @dev Retrieves the configuration for a specified tier.

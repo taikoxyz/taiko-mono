@@ -64,6 +64,8 @@ library LibUint512Math {
         pure
         returns (uint256 r0, uint256 r1)
     {
+        // Library code itself dies not revert on overflow.
+        // (Taiko's static signAnchor() usage will not cause any overrun!)
         assembly {
             // Standard 256-bit addition for lower bits.
             r0 := add(a0, b0)

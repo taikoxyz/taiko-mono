@@ -90,11 +90,16 @@ library LibVerifying {
                 || config.blockMaxTxListBytes > 128 * 1024 // calldata up to 128K
                 || config.livenessBond == 0 || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
+            // Audit recommendation, and gas tested. Processing 32 deposits (as initially set in
+                // TaikoL1.sol) costs 72.502 gas. So a safe bet to set max cap around 100K (cca 45)
+                // as average propose block is somewhere 170-200K depending on the tier). It is
+                // anyway set by Taiko Labs.
+                || config.ethDepositMaxCountPerBlock > 45
                 || config.ethDepositMaxCountPerBlock < config.ethDepositMinCountPerBlock
                 || config.ethDepositMinAmount == 0
                 || config.ethDepositMaxAmount <= config.ethDepositMinAmount
                 || config.ethDepositMaxAmount >= type(uint96).max || config.ethDepositGas == 0
-                || config.ethDepositMaxFee == 0 || config.ethDepositMaxFee >= type(uint96).max
+                || config.ethDepositMaxFee == 0
                 || config.ethDepositMaxFee >= type(uint96).max / config.ethDepositMaxCountPerBlock
         ) return false;
 
@@ -209,8 +214,7 @@ library LibVerifying {
                 // other transitions for this block, we disregard them entirely.
                 // The bonds for these other transitions are burned either when
                 // the transitions are generated or proven. In such cases, both
-                // the provers and contesters of  of those transitions forfeit
-                // their bonds.
+                // the provers and contesters of those transitions forfeit their bonds.
 
                 emit BlockVerified({
                     blockId: blockId,

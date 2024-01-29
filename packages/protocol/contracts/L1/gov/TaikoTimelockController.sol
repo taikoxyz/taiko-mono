@@ -19,8 +19,6 @@ import
 import "../../common/OwnerUUPSUpgradable.sol";
 
 contract TaikoTimelockController is OwnerUUPSUpgradable, TimelockControllerUpgradeable {
-    uint256[50] private __gap;
-
     function init(uint256 minDelay) external initializer {
         __OwnerUUPSUpgradable_init();
         address[] memory nil = new address[](0);

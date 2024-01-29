@@ -38,6 +38,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
     uint256[50] private __gap;
 
+    error L1_BLOB_NOT_USED();
     error L1_INVALID_PROOF();
 
     /// @notice Initializes the contract with the provided address manager.
@@ -80,7 +81,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
                 pointProof: pf.pointProof
             });
         } else {
-            assert(zkProof.pointProof.length == 0);
+            if (zkProof.pointProof.length != 0) revert L1_BLOB_NOT_USED();
             instance = calcInstance({
                 tran: tran,
                 prover: ctx.prover,

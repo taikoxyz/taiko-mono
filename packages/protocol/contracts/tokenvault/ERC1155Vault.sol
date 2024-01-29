@@ -144,7 +144,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             }
         }
 
-        _to.sendEther(msg.value);
+        if (msg.value > 0) {
+            _to.sendEther(msg.value);
+        }
 
         emit TokenReceived({
             msgHash: ctx.msgHash,
@@ -193,7 +195,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             }
         }
         // Send back Ether
-        message.owner.sendEther(message.value);
+        if (message.value > 0) {
+            message.owner.sendEther(message.value);
+        }
 
         // Emit TokenReleased event
         emit TokenReleased({

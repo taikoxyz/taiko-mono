@@ -109,7 +109,7 @@ library LibProvingAlt {
 
         // The new proof must meet or exceed the minimum tier required by the
         // block or the previous proof; it cannot be on a lower tier.
-        if (proof.tier == 0 || proof.tier < meta.minTier || proof.tier < ts.tier) {
+        if (proof.tier == 0 || proof.tier < ts.tier) {
             revert L1_INVALID_TIER();
         }
 
@@ -234,7 +234,7 @@ library LibProvingAlt {
         }
 
         ts.timestamp = uint64(block.timestamp);
-        return tier.maxBlocksToVerify;
+        return tier.maxBlocksToVerifyWithTier;
     }
 
     /// @dev Handle the transition initialization logic

@@ -56,6 +56,7 @@ library LibProving {
     error L1_INVALID_TIER();
     error L1_INVALID_TRANSITION();
     error L1_NOT_ASSIGNED_PROVER();
+    error L1_MISSING_VERIFIER();
     error L1_UNEXPECTED_TRANSITION_TIER();
 
     function pauseProving(TaikoData.State storage state, bool pause) external {
@@ -91,9 +92,7 @@ library LibProving {
         uint64 slot = meta.id % config.blockRingBufferSize;
         TaikoData.Block storage blk = state.blocks[slot];
 
-        // Check the integrity of the block data. It's worth noting that in
-        // theory, this check may be skipped, but it's included for added
-        // caution.
+        // Check the integrity of the block data.
         if (blk.blockId != meta.id || blk.metaHash != keccak256(abi.encode(meta))) {
             revert L1_BLOCK_MISMATCH();
         }
@@ -176,7 +175,7 @@ library LibProving {
 
         // The new proof must meet or exceed the minimum tier required by the
         // block or the previous proof; it cannot be on a lower tier.
-        if (proof.tier == 0 || proof.tier < meta.minTier || proof.tier < ts.tier) {
+        if (proof.tier == 0 || proof.tier < ts.tier) {
             revert L1_INVALID_TIER();
         }
 
@@ -185,7 +184,7 @@ library LibProving {
         ITierProvider.Tier memory tier =
             ITierProvider(resolver.resolve("tier_provider", false)).getTier(proof.tier);
 
-        maxBlocksToVerify = tier.maxBlocksToVerify;
+        maxBlocksToVerify = tier.maxBlocksToVerifyWithTier;
 
         // We must verify the proof, and any failure in proof verification will
         // result in a revert.
@@ -206,6 +205,13 @@ library LibProving {
             // The verifier can be address-zero, signifying that there are no
             // proof checks for the tier. In practice, this only applies to
             // optimistic proofs.
+            if (
+                verifier == address(0)
+                    && keccak256(abi.encodePacked(tier.verifierName))
+                        != keccak256(abi.encodePacked("tier_optimistic"))
+            ) {
+                revert L1_MISSING_VERIFIER();
+            }
             if (verifier != address(0)) {
                 bool isContesting = proof.tier == ts.tier && tier.contestBond != 0;
 

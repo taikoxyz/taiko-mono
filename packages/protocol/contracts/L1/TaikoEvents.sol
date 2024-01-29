@@ -84,18 +84,4 @@ abstract contract TaikoEvents {
     /// @param deposit The Ethereum deposit information including recipient,
     /// amount, and ID.
     event EthDeposited(TaikoData.EthDeposit deposit);
-
-    /// @dev Emitted when a user deposited Taiko token into this contract.
-    event TokenDeposited(uint256 amount);
-
-    /// @dev Emitted when a user withdrawed Taiko token from this contract.
-    event TokenWithdrawn(uint256 amount);
-
-    /// @dev Emitted when Taiko token are credited to the user's in-protocol
-    /// balance.
-    event TokenCredited(address to, uint256 amount);
-
-    /// @dev Emitted when Taiko token are debited from the user's in-protocol
-    /// balance.
-    event TokenDebited(address from, uint256 amount);
 }

@@ -43,10 +43,8 @@ contract Bridge is EssentialContract, IBridge {
     mapping(address => bool) public addressBanned;
     uint256[43] private __gap;
 
-    event SignalSent(address indexed sender, bytes32 msgHash);
     event MessageSent(bytes32 indexed msgHash, Message message);
     event MessageRecalled(bytes32 indexed msgHash);
-    event DestChainEnabled(uint64 indexed chainId, bool enabled);
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
     event AddressBanned(address indexed addr, bool banned);
 
@@ -246,7 +244,9 @@ contract Bridge is EssentialContract, IBridge {
         } else {
             // If sender is another address, reward it and refund the rest
             msg.sender.sendEther(message.fee);
-            refundTo.sendEther(refundAmount);
+            if (refundAmount > 0) {
+                refundTo.sendEther(refundAmount);
+            }
         }
     }
 
