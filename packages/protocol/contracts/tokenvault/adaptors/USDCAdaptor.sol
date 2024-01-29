@@ -19,7 +19,7 @@ import "../BridgedERC20Base.sol";
 interface IUSDC {
     function burn(uint256 amount) external;
     function mint(address to, uint256 amount) external;
-    function transferFrom(address from, address to, uint256 value) external returns (bool);
+    function transferFrom(address from, address to, uint256 amount) external;
 }
 
 /// @title USDCAdaptor

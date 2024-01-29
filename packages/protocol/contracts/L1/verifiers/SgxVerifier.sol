@@ -90,7 +90,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     {
         address automataDcapAttestation = (resolve("automata_dcap_attestation", true));
 
-        // Still possible to be backward compatible and have the onlyOwner type of method
+        // Still possible to be backward compatible and have the onlyOwner tpye of method
         // registering instances.
         if (automataDcapAttestation != address(0)) {
             (bool verified,) = IAttestation(automataDcapAttestation).verifyParsedQuote(attestation);

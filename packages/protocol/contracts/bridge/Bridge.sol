@@ -40,20 +40,17 @@ contract Bridge is EssentialContract, IBridge {
     mapping(bytes32 msgHash => bool recalled) public isMessageRecalled;
     mapping(bytes32 msgHash => Status) public messageStatus; // slot 3
     Context private _ctx; // // slot 4,5,6pnpm
-    mapping(address => bool) public addressBanned;
-    uint256[43] private __gap;
+    uint256[44] private __gap;
 
     event SignalSent(address indexed sender, bytes32 msgHash);
     event MessageSent(bytes32 indexed msgHash, Message message);
     event MessageRecalled(bytes32 indexed msgHash);
     event DestChainEnabled(uint64 indexed chainId, bool enabled);
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
-    event AddressBanned(address indexed addr, bool banned);
 
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
     error B_INVALID_GAS_LIMIT();
-    error B_INVALID_STATUS();
     error B_INVALID_USER();
     error B_INVALID_VALUE();
     error B_MESSAGE_NOT_SENT();
@@ -76,12 +73,6 @@ contract Bridge is EssentialContract, IBridge {
     function init(address _addressManager) external initializer {
         __Essential_init(_addressManager);
         _ctx.msgHash == bytes32(PLACEHOLDER);
-    }
-
-    function banAddress(address addr, bool toBan) external onlyOwner nonReentrant {
-        if (addressBanned[addr] == toBan) revert B_INVALID_STATUS();
-        addressBanned[addr] = toBan;
-        emit AddressBanned(addr, toBan);
     }
 
     /// @notice Sends a message to the destination chain and takes custody
@@ -216,7 +207,7 @@ contract Bridge is EssentialContract, IBridge {
         // Process message differently based on the target address
         if (
             message.to == address(0) || message.to == address(this)
-                || message.to == address(signalService) || addressBanned[message.to]
+                || message.to == address(signalService)
         ) {
             // Handle special addresses that don't require actual invocation but
             // mark message as DONE

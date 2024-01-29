@@ -256,27 +256,22 @@ contract ERC20Vault is BaseVault {
     {
         checkRecallMessageContext();
 
-        (CanonicalERC20 memory ctoken,,, uint256 amount) =
+        (, address token,, uint256 amount) =
             abi.decode(message.data[4:], (CanonicalERC20, address, address, uint256));
 
-        if (ctoken.addr == address(0)) revert VAULT_INVALID_TOKEN();
+        if (token == address(0)) revert VAULT_INVALID_TOKEN();
 
         if (amount > 0) {
-            if (bridgedToCanonical[ctoken.addr].addr != address(0)) {
-                IBridgedERC20(ctoken.addr).mint(message.owner, amount);
+            if (bridgedToCanonical[token].addr != address(0)) {
+                IBridgedERC20(token).mint(message.owner, amount);
             } else {
-                ERC20(ctoken.addr).safeTransfer(message.owner, amount);
+                ERC20(token).safeTransfer(message.owner, amount);
             }
         }
 
         message.owner.sendEther(message.value);
 
-        emit TokenReleased({
-            msgHash: msgHash,
-            from: message.owner,
-            token: ctoken.addr,
-            amount: amount
-        });
+        emit TokenReleased({ msgHash: msgHash, from: message.owner, token: token, amount: amount });
     }
 
     function name() public pure override returns (bytes32) {

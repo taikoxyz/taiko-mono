@@ -134,7 +134,7 @@ library LibProposing {
 
             if (params.blobHash != 0) {
                 // We try to reuse an old blob
-                if (!isBlobReusable(state, config, params.blobHash)) {
+                if (isBlobReusable(state, config, params.blobHash)) {
                     revert L1_BLOB_NOT_REUSEABLE();
                 }
                 meta.blobHash = params.blobHash;
@@ -193,7 +193,9 @@ library LibProposing {
         // of multiple Taiko blocks being proposed within a single
         // Ethereum block, we must introduce a salt to this random
         // number as the L2 mixHash.
-        meta.difficulty = keccak256(abi.encodePacked(block.prevrandao, b.numBlocks, block.number));
+        unchecked {
+            meta.difficulty = meta.blobHash ^ bytes32(block.prevrandao * b.numBlocks * block.number);
+        }
 
         // Use the difficulty as a random number
         meta.minTier = ITierProvider(resolver.resolve("tier_provider", false)).getMinTier(

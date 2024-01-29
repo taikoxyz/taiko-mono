@@ -94,9 +94,8 @@ abstract contract Guardians is EssentialContract {
             _approvals[version][hash] |= 1 << (id - 1);
         }
 
-        uint256 _approval = _approvals[version][hash];
-        approved = isApproved(_approval);
-        emit Approved(operationId, _approval, approved);
+        approved = isApproved(_approvals[version][hash]);
+        emit Approved(operationId, _approvals[version][hash], approved);
     }
 
     function deleteApproval(bytes32 hash) internal {
