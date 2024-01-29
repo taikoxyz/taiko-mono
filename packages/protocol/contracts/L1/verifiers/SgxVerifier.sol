@@ -14,13 +14,14 @@
 
 pragma solidity 0.8.20;
 
+
 import "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import "../../common/EssentialContract.sol";
 import "../../thirdparty/LibBytesUtils.sol";
+import "../../thirdparty/automata-attestation/interfaces/IAttestation.sol";
+import "../../thirdparty/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import "../ITaikoL1.sol";
 import "./IVerifier.sol";
-import { IAttestation } from "../../thirdparty/onchainRA/interfaces/IAttestation.sol";
-import { V3Struct } from "../../thirdparty/onchainRA/lib/QuoteV3Auth/V3Struct.sol";
 
 /// @title SgxVerifier
 /// @notice This contract is the implementation of verifying SGX signature
@@ -90,25 +91,21 @@ contract SgxVerifier is EssentialContract, IVerifier {
     {
         address automataDcapAttestation = (resolve("automata_dcap_attestation", true));
 
-        // Still possible to be backward compatible and have the onlyOwner tpye of method
-        // registering instances.
-        if (automataDcapAttestation != address(0)) {
-            (bool verified,) = IAttestation(automataDcapAttestation).verifyParsedQuote(attestation);
-
-            if (!verified) {
-                revert SGX_INVALID_ATTESTATION();
-            }
-
-            address[] memory _address = new address[](1);
-            _address[0] = address(
-                bytes20(LibBytesUtils.slice(attestation.localEnclaveReport.reportData, 0, 20))
-            );
-
-            return _addInstances(_address)[0];
+        if (automataDcapAttestation == address(0)) {
+            return type(uint256).max;
         }
-        // A special return variable, signaling that this method is not supported at the moment,
-        // because a contract with name "automata_dcap_attestation" not deployed.
-        return type(uint256).max;
+
+        // Still possible to be backward compatible and register instances by the owner.
+        (bool verified,) = IAttestation(automataDcapAttestation).verifyParsedQuote(attestation);
+
+        if (!verified) revert SGX_INVALID_ATTESTATION();
+
+        address[] memory _address = new address[](1);
+        _address[0] = address(
+            bytes20(LibBytesUtils.slice(attestation.localEnclaveReport.reportData, 0, 20))
+        );
+
+        return _addInstances(_address)[0];
     }
 
     /// @inheritdoc IVerifier

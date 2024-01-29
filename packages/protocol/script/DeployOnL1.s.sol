@@ -36,9 +36,9 @@ import "../contracts/signal/SignalService.sol";
 import "../contracts/test/erc20/FreeMintERC20.sol";
 import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
 import "../test/DeployCapability.sol";
-import "../contracts/thirdparty/onchainRA/AutomataDcapV3Attestation.sol";
-import "../contracts/thirdparty/onchainRA/utils/SigVerifyLib.sol";
-import "../contracts/thirdparty/onchainRA/lib/PEMCertChainLib.sol";
+import "../contracts/thirdparty/automata-attestation/AutomataDcapV3Attestation.sol";
+import "../contracts/thirdparty/automata-attestation/utils/SigVerifyLib.sol";
+import "../contracts/thirdparty/automata-attestation/lib/PEMCertChainLib.sol";
 
 // Actually this one is deployed already on mainnets, but we are now deploying our own (non vi-ir)
 // version. For mainnet, it is easier to go with either this:

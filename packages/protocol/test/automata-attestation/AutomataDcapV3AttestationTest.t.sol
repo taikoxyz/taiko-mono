@@ -5,12 +5,12 @@ import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import "forge-std/StdJson.sol";
 import { AutomataDcapV3Attestation } from
-    "../../contracts/thirdparty/onchainRA/AutomataDcapV3Attestation.sol";
+    "../../contracts/thirdparty/automata-attestation/AutomataDcapV3Attestation.sol";
 import { P256Verifier } from "../../lib/p256-verifier/src/P256Verifier.sol";
-import { SigVerifyLib } from "../../contracts/thirdparty/onchainRA/utils/SigVerifyLib.sol";
-import { PEMCertChainLib } from "../../contracts/thirdparty/onchainRA/lib/PEMCertChainLib.sol";
-import { V3Struct } from "../../contracts/thirdparty/onchainRA/lib/QuoteV3Auth/V3Struct.sol";
-import { BytesUtils } from "../../contracts/thirdparty/onchainRA/utils/BytesUtils.sol";
+import { SigVerifyLib } from "../../contracts/thirdparty/automata-attestation/utils/SigVerifyLib.sol";
+import { PEMCertChainLib } from "../../contracts/thirdparty/automata-attestation/lib/PEMCertChainLib.sol";
+import { V3Struct } from "../../contracts/thirdparty/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
+import { BytesUtils } from "../../contracts/thirdparty/automata-attestation/utils/BytesUtils.sol";
 import { Base64 } from "../../lib/solady/src/utils/Base64.sol";
 import "./utils/DcapTestUtils.t.sol";
 import "./utils/V3JsonUtils.t.sol";
@@ -26,9 +26,9 @@ contract AutomataDcapV3AttestationTest is Test, DcapTestUtils, V3JsonUtils {
     // use a network that where the P256Verifier contract exists
     // ref: https://github.com/daimo-eth/p256-verifier
     //string internal rpcUrl = vm.envString("RPC_URL");
-    string internal constant tcbInfoPath = "/test/onchainRA/assets/0923/tcbInfo.json";
-    string internal constant idPath = "/test/onchainRA/assets/0923/identity.json";
-    string internal constant v3QuotePath = "/test/onchainRA/assets/0923/v3quote.json";
+    string internal constant tcbInfoPath = "/test/automata-attestation/assets/0923/tcbInfo.json";
+    string internal constant idPath = "/test/automata-attestation/assets/0923/identity.json";
+    string internal constant v3QuotePath = "/test/automata-attestation/assets/0923/v3quote.json";
     address constant admin = address(1);
     address constant user = 0x0926b716f6aEF52F9F3C3474A2846e1Bf1ACedf6;
     bytes32 constant mrEnclave = 0x46049af725ec3986eeb788693df7bc5f14d3f2705106a19cd09b9d89237db1a0;

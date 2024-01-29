@@ -4,9 +4,49 @@ pragma solidity 0.8.20;
 import "./TaikoL1TestBase.sol";
 
 contract TestSgxVerifier is TaikoL1TestBase {
+
+    // For SGX remote attestation
+    AutomataDcapV3Attestation attestation;
+    SigVerifyLib sigVerifyLib;
+    P256Verifier p256Verifier;
+    PEMCertChainLib pemCertChainLib;
+    string internal constant tcbInfoPath = "/test/automata-attestation/assets/0923/tcbInfo.json";
+    string internal constant idPath = "/test/automata-attestation/assets/0923/identity.json";
+    string internal constant v3QuotePath = "/test/automata-attestation/assets/0923/v3quote.json";
+    bytes32 constant mrEnclave = 0x46049af725ec3986eeb788693df7bc5f14d3f2705106a19cd09b9d89237db1a0;
+    bytes32 constant mrSigner = 0xef69011f29043f084e99ce420bfebdfa410aee1e132014e7ceff29efa9659bd9;
+
     function deployTaikoL1() internal override returns (TaikoL1) {
         return
             TaikoL1(payable(deployProxy({ name: "taiko", impl: address(new TaikoL1()), data: "" })));
+    }
+
+    function setUp() public override {
+        // Call the TaikoL1TestBase setUp()
+        super.setUp();
+
+        p256Verifier = new P256Verifier();
+        sigVerifyLib = new SigVerifyLib(address(p256Verifier));
+        pemCertChainLib = new PEMCertChainLib();
+        attestation = new AutomataDcapV3Attestation(address(sigVerifyLib), address(pemCertChainLib));
+        attestation.setMrEnclave(mrEnclave, true);
+        attestation.setMrSigner(mrSigner, true);
+
+        string memory tcbInfoJson = vm.readFile(string.concat(vm.projectRoot(), tcbInfoPath));
+        string memory enclaveIdJson = vm.readFile(string.concat(vm.projectRoot(), idPath));
+
+        string memory fmspc = "00606a000000";
+        (bool tcbParsedSuccess, TCBInfoStruct.TCBInfo memory parsedTcbInfo) =
+            parseTcbInfoJson(tcbInfoJson);
+        require(tcbParsedSuccess, "tcb parsed failed");
+        attestation.configureTcbInfoJson(fmspc, parsedTcbInfo);
+
+        (bool qeIdParsedSuccess, EnclaveIdStruct.EnclaveId memory parsedEnclaveId) =
+            parseEnclaveIdentityJson(enclaveIdJson);
+        require(qeIdParsedSuccess, "qeid parsed failed");
+        attestation.configureQeIdentityJson(parsedEnclaveId);
+
+        registerAddress("automata_dcap_attestation", address(attestation));
     }
 
     function test_addInstancesByOwner() external {

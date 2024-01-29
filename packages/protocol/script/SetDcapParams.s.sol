@@ -17,10 +17,10 @@ pragma solidity 0.8.20;
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
 
-import "../contracts/thirdparty/onchainRA/AutomataDcapV3Attestation.sol";
+import "../contracts/thirdparty/automata-attestation/AutomataDcapV3Attestation.sol";
 import "../contracts/L1/verifiers/SgxVerifier.sol";
-import "../test/onchainRA/utils/DcapTestUtils.t.sol";
-import "../test/onchainRA/utils/V3JsonUtils.t.sol";
+import "../test/automata-attestation/utils/DcapTestUtils.t.sol";
+import "../test/automata-attestation/utils/V3JsonUtils.t.sol";
 
 contract SetDcapParams is Script, DcapTestUtils, V3JsonUtils {
     //@todo: Wand Yue -> after deployed with DeployOnL1, you have the parameters, fill in the proper
