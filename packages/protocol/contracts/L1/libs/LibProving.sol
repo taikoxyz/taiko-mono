@@ -16,6 +16,7 @@ pragma solidity 0.8.24;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "../../common/AddressResolver.sol";
+import "../../libs/LibMath.sol";
 import "../tiers/ITierProvider.sol";
 import "../verifiers/IVerifier.sol";
 import "../TaikoData.sol";
@@ -25,6 +26,8 @@ import "./LibUtils.sol";
 /// @notice A library for handling block contestation and proving in the Taiko
 /// protocol.
 library LibProving {
+    using LibMath for uint256;
+
     bytes32 public constant RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
 
@@ -58,11 +61,15 @@ library LibProving {
     error L1_NOT_ASSIGNED_PROVER();
     error L1_UNEXPECTED_TRANSITION_TIER();
 
-    function pauseProving(TaikoData.State storage state, bool pause) external {
-        if (state.slotB.provingPaused == pause) revert L1_INVALID_PAUSE_STATUS();
+    function pauseProving(TaikoData.State storage state, bool toPause) external {
+        if (state.slotB.provingPaused == toPause) revert L1_INVALID_PAUSE_STATUS();
 
-        state.slotB.provingPaused = pause;
-        emit ProvingPaused(pause);
+        state.slotB.provingPaused = toPause;
+
+        if (!toPause) {
+            state.slotB.lastUnpausedAt = uint64(block.timestamp);
+        }
+        emit ProvingPaused(toPause);
     }
 
     /// @dev Proves or contests a block transition.
@@ -335,7 +342,11 @@ library LibProving {
                 revert L1_ALREADY_PROVED();
             }
 
-            if (tid == 1 && ts.tier == 0 && block.timestamp <= ts.timestamp + tier.provingWindow) {
+            if (
+                tid == 1 && ts.tier == 0
+                    && block.timestamp
+                        <= uint256(ts.timestamp).max(state.slotB.lastUnpausedAt) + tier.provingWindow
+            ) {
                 // For the first transition, (1) if the previous prover is
                 // still the assigned prover, we exclusively grant permission to
                 // the assigned approver to re-prove the block, (2) unless the
