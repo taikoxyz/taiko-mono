@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"math/big"
+	"time"
 
 	"log/slog"
 
@@ -15,6 +16,11 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 )
 
+var (
+	defaultCtxTimeout    = 3 * time.Minute
+	defaultConfirmations = 5
+)
+
 // handleEvent handles an individual MessageSent event
 func (i *Indexer) handleEvent(
 	ctx context.Context,
@@ -23,6 +29,7 @@ func (i *Indexer) handleEvent(
 ) error {
 	slog.Info("event found for msgHash", "msgHash", common.Hash(event.MsgHash).Hex(), "txHash", event.Raw.TxHash.Hex())
 
+	// if the destinatio chain doesnt match, we dont process it in this indexer.
 	if new(big.Int).SetUint64(event.Message.DestChainId).Cmp(i.destChainId) != 0 {
 		slog.Info("skipping event, wrong chainID",
 			"messageDestChainID",
@@ -34,20 +41,35 @@ func (i *Indexer) handleEvent(
 		return nil
 	}
 
+	// check if we have seen this event and msgHash before - if we have, it is being reorged.
 	if err := i.detectAndHandleReorg(ctx, relayer.EventNameMessageSent, common.Hash(event.MsgHash).Hex()); err != nil {
 		return errors.Wrap(err, "svc.detectAndHandleReorg")
 	}
 
+	// we should never see an empty msgHash, but if we do, we dont process.
 	if event.MsgHash == relayer.ZeroHash {
 		slog.Warn("Zero msgHash found. This is unexpected. Returning early")
 		return nil
 	}
 
+	// we need to wait for confirmations to confirm this event is not being reverted,
+	// removed, or reorged now.
+	confCtx, confCtxCancel := context.WithTimeout(ctx, defaultCtxTimeout)
+
+	defer confCtxCancel()
+
+	if err := relayer.WaitConfirmations(confCtx, i.srcEthClient, uint64(defaultConfirmations), event.Raw.TxHash); err != nil {
+		return err
+	}
+
+	// get event status from msgHash on chain
 	eventStatus, err := i.eventStatusFromMsgHash(ctx, event.Message.GasLimit, event.MsgHash)
 	if err != nil {
 		return errors.Wrap(err, "svc.eventStatusFromMsgHash")
 	}
 
+	// if the message is not status new, and we are iterating crawling past blocks,
+	// we also dont want to handle this event. it has already been handled.
 	if i.watchMode == CrawlPastBlocks && eventStatus != relayer.EventStatusNew {
 		// we can return early, this message has been processed as expected.
 		return nil
@@ -63,6 +85,8 @@ func (i *Indexer) handleEvent(
 		return errors.Wrap(err, "eventTypeAmountAndCanonicalTokenFromEvent(event)")
 	}
 
+	// check if we have an existing event already. this is mostly likely only true
+	// in the case of us crawling past blocks.
 	existingEvent, err := i.eventRepo.FirstByEventAndMsgHash(
 		ctx,
 		relayer.EventNameMessageSent,
@@ -74,6 +98,8 @@ func (i *Indexer) handleEvent(
 
 	var id int
 
+	// if we dont have an existing event, we want to create a database entry
+	// for the processor to be able to fetch it.
 	if existingEvent == nil {
 		opts := relayer.SaveEventOpts{
 			Name:         relayer.EventNameMessageSent,
@@ -101,6 +127,7 @@ func (i *Indexer) handleEvent(
 
 		id = e.ID
 	} else {
+		// otherwise, we can use the existing event ID for the body.
 		id = existingEvent.ID
 	}
 
@@ -114,6 +141,8 @@ func (i *Indexer) handleEvent(
 		return errors.Wrap(err, "json.Marshal")
 	}
 
+	// we add it to the queue, so the processor can pick up and attempt to process
+	// the message onchain.
 	if err := i.queue.Publish(ctx, marshalledMsg); err != nil {
 		return errors.Wrap(err, "i.queue.Publish")
 	}
