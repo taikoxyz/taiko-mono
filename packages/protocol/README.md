@@ -15,8 +15,8 @@ If some git submodules are not initialized correctly, use the following commands
 
 ```sh
 git submodule add  \
---name packages/protocol/lib/automata-dcap-v3-attestation\
-https://github.com/automata-network/automata-dcap-v3-attestation \
+-b optimize-gas \
+https://github.com/taikoxyz/automata-dcap-v3-attestation \
 packages/protocol/lib/automata-dcap-v3-attestation
 
 git submodule add \
@@ -30,7 +30,6 @@ https://github.com/Vectorized/solady \
 packages/protocol/lib/solady
 
 ```
-
 
 ```sh
 pnpm install
