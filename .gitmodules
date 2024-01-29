@@ -16,3 +16,7 @@
 [submodule "packages/protocol/lib/p256-verifier"]
 	path = packages/protocol/lib/p256-verifier
 	url = https://github.com/taikoxyz/p256-verifier
+[submodule "packages/protocol/lib/automata-dcap-v3-attestation"]
+	path = packages/protocol/lib/automata-dcap-v3-attestation
+	url = https://github.com/taikoxyz/automata-dcap-v3-attestation
+	branch = optimize-gas
