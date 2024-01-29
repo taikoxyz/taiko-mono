@@ -104,5 +104,4 @@ contract AutomataDcapV3AttestationTest is Test, DcapTestUtils, V3JsonUtils {
         //console.logBytes32(hash);
         assertEq(hash, 0xa27c4167ab139dffb020230b2ec856080d0e1af437b3a2c2beea1c9af17469bc);
     }
-    
 }

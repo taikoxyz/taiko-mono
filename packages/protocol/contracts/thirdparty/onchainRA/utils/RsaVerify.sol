@@ -24,7 +24,7 @@ import "./SHA1.sol";
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
     
     Checked results with FIPS test vectors
-    https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/dss/186-2rsatestvectors.zip
+https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/dss/186-2rsatestvectors.zip
     file SigVer15_186-3.rsp
     
  */
@@ -38,26 +38,73 @@ library RsaVerify {
      * @param _m is the modulus
      * @return true if success, false otherwise
      */
-    function pkcs1Sha256(bytes32 _sha256, bytes memory _s, bytes memory _e, bytes memory _m)
+    function pkcs1Sha256(
+        bytes32 _sha256,
+        bytes memory _s,
+        bytes memory _e,
+        bytes memory _m
+    )
         internal
         view
         returns (bool)
     {
-        uint8[17] memory sha256ExplicitNullParam =
-            [0x30, 0x31, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01, 0x05, 0x00];
+        uint8[17] memory sha256ExplicitNullParam = [
+            0x30,
+            0x31,
+            0x30,
+            0x0d,
+            0x06,
+            0x09,
+            0x60,
+            0x86,
+            0x48,
+            0x01,
+            0x65,
+            0x03,
+            0x04,
+            0x02,
+            0x01,
+            0x05,
+            0x00
+        ];
 
-        uint8[15] memory sha256ImplicitNullParam =
-            [0x30, 0x2f, 0x30, 0x0b, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01];
+        uint8[15] memory sha256ImplicitNullParam = [
+            0x30,
+            0x2f,
+            0x30,
+            0x0b,
+            0x06,
+            0x09,
+            0x60,
+            0x86,
+            0x48,
+            0x01,
+            0x65,
+            0x03,
+            0x04,
+            0x02,
+            0x01
+        ];
 
         // decipher
 
-        bytes memory input = bytes.concat(bytes32(_s.length), bytes32(_e.length), bytes32(_m.length), _s, _e, _m);
+        bytes memory input =
+            bytes.concat(bytes32(_s.length), bytes32(_e.length), bytes32(_m.length), _s, _e, _m);
         uint256 inputlen = input.length;
 
         uint256 decipherlen = _m.length;
         bytes memory decipher = new bytes(decipherlen);
         assembly {
-            pop(staticcall(sub(gas(), 2000), 5, add(input, 0x20), inputlen, add(decipher, 0x20), decipherlen))
+            pop(
+                staticcall(
+                    sub(gas(), 2000),
+                    5,
+                    add(input, 0x20),
+                    inputlen,
+                    add(decipher, 0x20),
+                    decipherlen
+                )
+            )
         }
 
         // Check that is well encoded:
@@ -139,7 +186,12 @@ library RsaVerify {
      * @param _m is the modulus
      * @return 0 if success, >0 otherwise
      */
-    function pkcs1Sha256Raw(bytes memory _data, bytes memory _s, bytes memory _e, bytes memory _m)
+    function pkcs1Sha256Raw(
+        bytes memory _data,
+        bytes memory _s,
+        bytes memory _e,
+        bytes memory _m
+    )
         internal
         view
         returns (bool)
@@ -155,18 +207,52 @@ library RsaVerify {
      * @param _m is the modulus
      * @return true if success, false otherwise
      */
-    function pkcs1Sha1(bytes20 _sha1, bytes memory _s, bytes memory _e, bytes memory _m) internal view returns (bool) {
-        uint8[15] memory sha1Prefix =
-            [0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a, 0x05, 0x00, 0x04, 0x14];
+    function pkcs1Sha1(
+        bytes20 _sha1,
+        bytes memory _s,
+        bytes memory _e,
+        bytes memory _m
+    )
+        internal
+        view
+        returns (bool)
+    {
+        uint8[15] memory sha1Prefix = [
+            0x30,
+            0x21,
+            0x30,
+            0x09,
+            0x06,
+            0x05,
+            0x2b,
+            0x0e,
+            0x03,
+            0x02,
+            0x1a,
+            0x05,
+            0x00,
+            0x04,
+            0x14
+        ];
 
         // decipher
-        bytes memory input = bytes.concat(bytes32(_s.length), bytes32(_e.length), bytes32(_m.length), _s, _e, _m);
+        bytes memory input =
+            bytes.concat(bytes32(_s.length), bytes32(_e.length), bytes32(_m.length), _s, _e, _m);
         uint256 inputlen = input.length;
 
         uint256 decipherlen = _m.length;
         bytes memory decipher = new bytes(decipherlen);
         assembly {
-            pop(staticcall(sub(gas(), 2000), 5, add(input, 0x20), inputlen, add(decipher, 0x20), decipherlen))
+            pop(
+                staticcall(
+                    sub(gas(), 2000),
+                    5,
+                    add(input, 0x20),
+                    inputlen,
+                    add(decipher, 0x20),
+                    decipherlen
+                )
+            )
         }
 
         // Check that is well encoded:
@@ -216,7 +302,12 @@ library RsaVerify {
      * @param _m is the modulus
      * @return 0 if success, >0 otherwise
      */
-    function pkcs1Sha1Raw(bytes memory _data, bytes memory _s, bytes memory _e, bytes memory _m)
+    function pkcs1Sha1Raw(
+        bytes memory _data,
+        bytes memory _s,
+        bytes memory _e,
+        bytes memory _m
+    )
         internal
         view
         returns (bool)

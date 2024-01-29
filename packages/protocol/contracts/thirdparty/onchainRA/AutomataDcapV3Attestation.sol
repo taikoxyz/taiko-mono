@@ -370,7 +370,6 @@ contract AutomataDcapV3Attestation is IAttestation {
         bool certChainCanBeTrusted;
 
         for (uint256 i = 0; i < n; i++) {
-            
             IPEMCertChainLib.ECSha256Certificate memory issuer;
             if (i == n - 1) {
                 // rootCA

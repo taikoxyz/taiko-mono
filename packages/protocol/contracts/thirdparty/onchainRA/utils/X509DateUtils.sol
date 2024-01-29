@@ -29,7 +29,14 @@ library X509DateUtils {
         return toUnixTimestamp(yrs, mnths, dys, hrs, mins, secs);
     }
 
-    function toUnixTimestamp(uint16 year, uint8 month, uint8 day, uint8 hour, uint8 minute, uint8 second)
+    function toUnixTimestamp(
+        uint16 year,
+        uint8 month,
+        uint8 day,
+        uint8 hour,
+        uint8 minute,
+        uint8 second
+    )
         internal
         pure
         returns (uint256)
@@ -38,9 +45,9 @@ library X509DateUtils {
 
         for (uint16 i = 1970; i < year; i++) {
             if (isLeapYear(i)) {
-                timestamp += 31622400; // Leap year in seconds
+                timestamp += 31_622_400; // Leap year in seconds
             } else {
-                timestamp += 31536000; // Normal year in seconds
+                timestamp += 31_536_000; // Normal year in seconds
             }
         }
 
@@ -48,10 +55,10 @@ library X509DateUtils {
         if (isLeapYear(year)) monthDays[1] = 29;
 
         for (uint8 i = 1; i < month; i++) {
-            timestamp += uint256(monthDays[i - 1]) * 86400; // Days in seconds
+            timestamp += uint256(monthDays[i - 1]) * 86_400; // Days in seconds
         }
 
-        timestamp += uint256(day - 1) * 86400; // Days in seconds
+        timestamp += uint256(day - 1) * 86_400; // Days in seconds
         timestamp += uint256(hour) * 3600; // Hours in seconds
         timestamp += uint256(minute) * 60; // Minutes in seconds
         timestamp += second;

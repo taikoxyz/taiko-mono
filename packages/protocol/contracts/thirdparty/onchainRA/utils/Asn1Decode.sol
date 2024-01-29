@@ -92,7 +92,10 @@ library Asn1Decode {
     * @return True iff j is child of i or i is child of j.
     */
     function isChildOf(uint256 i, uint256 j) internal pure returns (bool) {
-        return (((i.ixf() <= j.ixs()) && (j.ixl() <= i.ixl())) || ((j.ixf() <= i.ixs()) && (i.ixl() <= j.ixl())));
+        return (
+            ((i.ixf() <= j.ixs()) && (j.ixl() <= i.ixl()))
+                || ((j.ixf() <= i.ixs()) && (i.ixl() <= j.ixl()))
+        );
     }
 
     /*
@@ -192,7 +195,9 @@ library Asn1Decode {
             } else if (lengthbytesLength == 2) {
                 length = der.readUint16(ix + 2);
             } else {
-                length = uint256(der.readBytesN(ix + 2, lengthbytesLength) >> (32 - lengthbytesLength) * 8);
+                length = uint256(
+                    der.readBytesN(ix + 2, lengthbytesLength) >> (32 - lengthbytesLength) * 8
+                );
             }
             ixFirstContentByte = uint80(ix + 2 + lengthbytesLength);
             ixLastContentByte = uint80(ixFirstContentByte + length - 1);
