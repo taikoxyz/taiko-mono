@@ -111,10 +111,6 @@ library LibBytesUtils {
         return slice(_bytes, _start, _bytes.length - _start);
     }
 
-    function toBytes32(bytes memory _bytes) internal pure returns (bytes32) {
-        return bytes32(_bytes);
-    }
-
     function toNibbles(bytes memory _bytes) internal pure returns (bytes memory) {
         bytes memory nibbles = new bytes(_bytes.length * 2);
 
