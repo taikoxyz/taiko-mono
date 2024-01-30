@@ -96,9 +96,11 @@ contract TestSignalService is TaikoTest {
             // actually it is an EOA, but it is ok for tests!
         bytes32 signal = 0x21761f7cd1af3972774272b39a0f4602dbcd418325cddb14e156b4bb073d52a8;
         bytes[] memory inclusionProof = new bytes[](1);
+
+          //eth_getProof's result RLP encoded storage proof
         inclusionProof[0] =
-            hex"e3a1209749684f52b5c0717a7ca78127fb56043d637d81763c04e9d30ba4d4746d56e901"; //eth_getProof's
-            // result RLP encoded storage proof
+            hex"e3a1209749684f52b5c0717a7ca78127fb56043d637d81763c04e9d30ba4d4746d56e901";
+
         bytes32 signalRoot = 0xf7916f389ccda56e3831e115238b7389b30750886785a3c21265601572698f0f; //eth_getProof
             // result's storage hash
 
@@ -132,20 +134,20 @@ contract TestSignalService is TaikoTest {
             0x21761f7cd1af3972774272b39a0f4602dbcd418325cddb14e156b4bb073d52a8;
         bytes[] memory inclusionProof_of_L2A_msgHash = new bytes[](1);
 
+        //eth_getProof's result RLP encoded storage proof
         inclusionProof_of_L2A_msgHash[0] =
-            hex"e3a1209749684f52b5c0717a7ca78127fb56043d637d81763c04e9d30ba4d4746d56e901"; //eth_getProof's
-            // result RLP encoded storage proof
+            hex"e3a1209749684f52b5c0717a7ca78127fb56043d637d81763c04e9d30ba4d4746d56e901";
         bytes32 signalRoot_of_L2 =
             0xf7916f389ccda56e3831e115238b7389b30750886785a3c21265601572698f0f; //eth_getProof
             // result's storage hash
         bytes[] memory hop_inclusionProof_from_L1_SignalService = new bytes[](1);
 
         hop_inclusionProof_from_L1_SignalService[0] =
-            hex"e3a1209749684f52b5c0717a7ca78127fb56043d637d81763c04e9d30ba4d4746d56e901"; //eth_getProof's
-            // result RLP encoded storage proof
+            hex"e3a120bade38703a7b19341b10a4dd482698dc8ffdd861e83ce41de2980bed39b6a02501";
+
+        //eth_getProof's result RLP encoded storage proof
         bytes32 l1_common_signalService_root =
-            0x5c5fd43df8bcd7ad44cfcae86ed73a11e0baa9a751f0b520d029358ea284833b; //eth_getProof
-            // result's storage hash
+            0x5c5fd43df8bcd7ad44cfcae86ed73a11e0baa9a751f0b520d029358ea284833b;
 
         // Important to note, we need to have authorized the "relayers'
         // addresses" on the source chain we are claiming.

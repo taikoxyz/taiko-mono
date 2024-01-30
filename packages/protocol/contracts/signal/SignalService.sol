@@ -18,7 +18,6 @@ import "lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
 import "../common/AuthorizableContract.sol";
 import "../common/ICrossChainSync.sol";
 import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
-import "../thirdparty/optimism/rlp/RLPReader.sol";
 import "./ISignalService.sol";
 
 /// @title SignalService
@@ -87,7 +86,6 @@ contract SignalService is AuthorizableContract, ISignalService {
     )
         public
         view
-        virtual
         returns (bool)
     {
         if (skipProofCheck()) return true;
@@ -131,7 +129,6 @@ contract SignalService is AuthorizableContract, ISignalService {
                 hop.signalRootRelay,
                 hop.signalRoot // as a signal
             );
-
             bool verified = SecureMerkleTrie.verifyInclusionProof(
                 bytes.concat(slot), hex"01", hop.storageProof, signalRoot
             );
