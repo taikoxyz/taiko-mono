@@ -26,7 +26,7 @@
   import { getMaxAmountToBridge } from '$libs/bridge';
   import { UnknownTokenTypeError } from '$libs/error';
   import { getBalance, tokens, TokenType } from '$libs/token';
-  import { refreshUserBalance, renderBalance } from '$libs/util/balance';
+  import { refreshUserBalance, renderBalance, renderEthBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
   import { truncateDecimal } from '$libs/util/truncateDecimal';
@@ -141,9 +141,13 @@
     $computingBalance = true;
     value = '';
     $enteredAmount = 0n;
-    validateAmount($selectedToken);
-    refreshUserBalance();
-    previousSelectedToken = $selectedToken;
+    if ($account?.isConnected) {
+      validateAmount($selectedToken);
+      refreshUserBalance();
+      previousSelectedToken = $selectedToken;
+    } else {
+      balance = '0.00';
+    }
     $computingBalance = false;
   };
 
@@ -194,6 +198,18 @@
 
   $: displayFeeMsg = !showInsufficientBalanceAlert && !showInvalidTokenAlert;
 
+  let balance = '0.00';
+
+  $: {
+    if ($tokenBalance && $account.isConnected) {
+      balance = renderBalance($tokenBalance);
+    } else if ($ethBalance && $account.isConnected) {
+      balance = renderEthBalance($ethBalance);
+    } else {
+      balance = '0.00';
+    }
+  }
+
   onMount(async () => {
     $enteredAmount = 0n;
     const user = $account?.address;
@@ -213,7 +229,7 @@
       {:else if $computingBalance}
         <LoadingText mask="0.0000" />
       {:else}
-        {renderBalance($tokenBalance)}
+        {balance}
       {/if}
     </span>
   </div>
