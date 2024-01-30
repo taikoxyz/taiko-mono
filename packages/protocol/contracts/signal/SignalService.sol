@@ -86,6 +86,7 @@ contract SignalService is AuthorizableContract, ISignalService {
     )
         public
         view
+        virtual
         returns (bool)
     {
         if (skipProofCheck()) return true;
