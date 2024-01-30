@@ -15,7 +15,6 @@
 pragma solidity 0.8.24;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import "../../4844/IBlobHashReader.sol";
 import "../../common/AddressResolver.sol";
 import "../../libs/LibAddress.sol";
 import "../hooks/IHook.sol";
@@ -143,8 +142,7 @@ library LibProposing {
                 // proposeBlock functions are called more than once in the same
                 // L1 transaction, these multiple L2 blocks will share the same
                 // blob.
-                meta.blobHash =
-                    IBlobHashReader(resolver.resolve("blob_hash_reader", false)).getFirstBlobHash();
+                meta.blobHash = blobhash(0);
 
                 if (meta.blobHash == 0) revert L1_BLOB_NOT_FOUND();
 
