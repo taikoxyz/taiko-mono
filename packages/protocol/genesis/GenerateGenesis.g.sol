@@ -9,9 +9,9 @@ import "../contracts/bridge/Bridge.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC721Vault.sol";
-import "../contracts/test/erc20/RegularERC20.sol";
 import "../contracts/signal/SignalService.sol";
 import "../contracts/L2/TaikoL2.sol";
+import "../test/common/erc20/RegularERC20.sol";
 
 contract TestGenerateGenesis is Test, AddressResolver {
     using stdJson for string;

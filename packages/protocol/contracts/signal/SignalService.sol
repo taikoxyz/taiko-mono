@@ -50,6 +50,7 @@ contract SignalService is AuthorizableContract, ISignalService {
 
     error SS_INVALID_APP();
     error SS_INVALID_SIGNAL();
+    error SS_UNSUPPORTED();
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init() external initializer {
@@ -167,5 +168,9 @@ contract SignalService is AuthorizableContract, ISignalService {
     /// @return Returns true to skip checking inclusion proofs.
     function skipProofCheck() public pure virtual returns (bool) {
         return false;
+    }
+
+    function _authorizePause(address) internal pure override {
+        revert SS_UNSUPPORTED();
     }
 }
