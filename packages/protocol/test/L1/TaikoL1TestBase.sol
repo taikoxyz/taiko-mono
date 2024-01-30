@@ -68,8 +68,6 @@ abstract contract TaikoL1TestBase is TaikoTest {
             })
         );
 
-        vm.warp(1_695_435_682);
-
         address[] memory initSgxInstances = new address[](1);
         initSgxInstances[0] = SGX_X_0;
         sv.addInstances(initSgxInstances);

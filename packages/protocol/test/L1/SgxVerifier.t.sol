@@ -13,7 +13,7 @@ import { PEMCertChainLib } from "../../contracts/thirdparty/automata-attestation
 import "../automata-attestation/utils/DcapTestUtils.t.sol";
 import "../automata-attestation/utils/V3JsonUtils.t.sol";
 
-contract TestSgxVerifier is TaikoL1TestBase {
+contract TestSgxVerifier is TaikoL1TestBase, DcapTestUtils, V3JsonUtils  {
 
     // For SGX remote attestation
     AutomataDcapV3Attestation attestation;
@@ -34,6 +34,8 @@ contract TestSgxVerifier is TaikoL1TestBase {
     function setUp() public override {
         // Call the TaikoL1TestBase setUp()
         super.setUp();
+
+        vm.warp(1_695_435_682);
 
         p256Verifier = new P256Verifier();
         sigVerifyLib = new SigVerifyLib(address(p256Verifier));

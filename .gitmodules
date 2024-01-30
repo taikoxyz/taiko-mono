@@ -17,3 +17,7 @@
 [submodule "packages/protocol/lib/solady"]
 	path = packages/protocol/lib/solady
 	url = https://github.com/Vectorized/solady
+[submodule "packages/protocol/lib/p256-verifier"]
+	path = packages/protocol/lib/p256-verifier
+	url = https://github.com/taikoxyz/p256-verifier
+	branch = use_at_taiko
