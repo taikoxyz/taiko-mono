@@ -17,7 +17,7 @@ pragma solidity 0.8.24;
 import "lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
 import "../common/AuthorizableContract.sol";
 import "../common/ICrossChainSync.sol";
-import "../thirdparty/LibSecureMerkleTrie.sol";
+import "../thirdparty/optimsm/LibSecureMerkleTrie.sol";
 import "./ISignalService.sol";
 
 /// @title SignalService
