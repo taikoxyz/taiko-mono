@@ -18,6 +18,7 @@ import "lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
 import "../common/AuthorizableContract.sol";
 import "../common/ICrossChainSync.sol";
 import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
+import "../thirdparty/optimism/rlp/RLPReader.sol";
 import "./ISignalService.sol";
 
 /// @title SignalService
