@@ -22,7 +22,7 @@
   }
 
   .glassy-background {
-    @apply backdrop-filter backdrop-blur-lg;
+    @apply backdrop-filter backdrop-blur-sm;
   }
 
   .dark-glass-background-gradient {
