@@ -12,7 +12,7 @@
     "fmt:sol": "forge fmt",
     "generate:genesis": "ts-node ./utils/generate_genesis/main.ts",
     "lint:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol' --fix",
-    "snapshot": "forge snapshot --match-path 'test/**/*.t.sol'",
+    "snapshot": "forge snapshot --evm-version cancun --match-path 'test/**/*.t.sol'",
     "test": "forge test -vvv --evm-version cancun --match-path test/*.t.sol",
     "test:coverage": "mkdir -p coverage && forge coverage --report lcov && lcov --remove ./lcov.info -o ./coverage/lcov.info 'test/' 'script/' 'contracts/thirdparty/' && genhtml coverage/lcov.info --branch-coverage --output-dir coverage --ignore-errors category && open coverage/index.html",
     "test:genesis": "pnpm compile && FOUNDRY_PROFILE=genesis ./genesis/generate_genesis.test.sh",
