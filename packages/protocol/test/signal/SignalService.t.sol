@@ -97,7 +97,7 @@ contract TestSignalService is TaikoTest {
         bytes32 signal = 0x21761f7cd1af3972774272b39a0f4602dbcd418325cddb14e156b4bb073d52a8;
         bytes[] memory inclusionProof = new bytes[](1);
 
-          //eth_getProof's result RLP encoded storage proof
+        //eth_getProof's result RLP encoded storage proof
         inclusionProof[0] =
             hex"e3a1209749684f52b5c0717a7ca78127fb56043d637d81763c04e9d30ba4d4746d56e901";
 
