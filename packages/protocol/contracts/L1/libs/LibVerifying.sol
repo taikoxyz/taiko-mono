@@ -90,9 +90,9 @@ library LibVerifying {
                 || config.blockMaxTxListBytes > 128 * 1024 // calldata up to 128K
                 || config.livenessBond == 0 || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
-                // Audit recommendation, and gas tested. Processing 32 deposits (as initially set in
-                // TaikoL1.sol) costs 72_502 gas.
-                || config.ethDepositMaxCountPerBlock > 32
+            // Audit recommendation, and gas tested. Processing 32 deposits (as initially set in
+            // TaikoL1.sol) costs 72_502 gas.
+            || config.ethDepositMaxCountPerBlock > 32
                 || config.ethDepositMaxCountPerBlock < config.ethDepositMinCountPerBlock
                 || config.ethDepositMinAmount == 0
                 || config.ethDepositMaxAmount <= config.ethDepositMinAmount
