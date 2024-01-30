@@ -14,7 +14,7 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "./MerkleClaimable.sol";
 
 /// @title ERC20Airdrop
@@ -43,6 +43,6 @@ contract ERC20Airdrop is MerkleClaimable {
 
     function _claimWithData(bytes calldata data) internal override {
         (address user, uint256 amount) = abi.decode(data, (address, uint256));
-        IERC20Upgradeable(token).transferFrom(vault, user, amount);
+        IERC20(token).transferFrom(vault, user, amount);
     }
 }
