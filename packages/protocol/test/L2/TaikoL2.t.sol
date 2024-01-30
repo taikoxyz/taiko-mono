@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../TaikoTest.sol";
+import "./LibL2Signer.sol";
 
 contract SkipBasefeeCheckL2 is TaikoL2EIP1559Configurable {
     function skipFeeCheck() public pure override returns (bool) {
@@ -227,19 +228,19 @@ contract TestTaikoL2 is TaikoTest {
     }
 
     function test_L2_AnchorTx_signing(bytes32 digest) external {
-        (uint8 v, uint256 r, uint256 s) = L2.signAnchor(digest, uint8(1));
+        (uint8 v, uint256 r, uint256 s) = LibL2Signer.signAnchor(digest, uint8(1));
         address signer = ecrecover(digest, v + 27, bytes32(r), bytes32(s));
         assertEq(signer, L2.GOLDEN_TOUCH_ADDRESS());
 
-        (v, r, s) = L2.signAnchor(digest, uint8(2));
+        (v, r, s) = LibL2Signer.signAnchor(digest, uint8(2));
         signer = ecrecover(digest, v + 27, bytes32(r), bytes32(s));
         assertEq(signer, L2.GOLDEN_TOUCH_ADDRESS());
 
         vm.expectRevert();
-        L2.signAnchor(digest, uint8(0));
+        LibL2Signer.signAnchor(digest, uint8(0));
 
         vm.expectRevert();
-        L2.signAnchor(digest, uint8(3));
+        LibL2Signer.signAnchor(digest, uint8(3));
     }
 
     function _anchor(uint32 parentGasLimit) private {
