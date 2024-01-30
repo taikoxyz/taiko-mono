@@ -16,7 +16,7 @@ pragma solidity 0.8.24;
 
 import "../../4844/Lib4844.sol";
 import "../../common/EssentialContract.sol";
-import "../../thirdparty/optimism/LibBytesUtils.sol";
+import "../../thirdparty/optimism2/Bytes.sol";
 import "../TaikoData.sol";
 import "./IVerifier.sol";
 
@@ -91,14 +91,14 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         }
 
         // Validate the instance using bytes utilities.
-        bool verified = LibBytesUtils.equal(
-            LibBytesUtils.slice(zkProof.zkp, 0, 32), bytes.concat(bytes16(0), bytes16(instance))
+        bool verified = Bytes.equal(
+            Bytes.slice(zkProof.zkp, 0, 32), bytes.concat(bytes16(0), bytes16(instance))
         );
 
         if (!verified) revert L1_INVALID_PROOF();
 
-        verified = LibBytesUtils.equal(
-            LibBytesUtils.slice(zkProof.zkp, 32, 32),
+        verified = Bytes.equal(
+            Bytes.slice(zkProof.zkp, 32, 32),
             bytes.concat(bytes16(0), bytes16(uint128(uint256(instance))))
         );
         if (!verified) revert L1_INVALID_PROOF();

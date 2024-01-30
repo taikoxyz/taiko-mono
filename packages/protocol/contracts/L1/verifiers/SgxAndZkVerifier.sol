@@ -15,7 +15,7 @@
 pragma solidity 0.8.24;
 
 import "../../common/EssentialContract.sol";
-import "../../thirdparty/optimism/LibBytesUtils.sol";
+import "../../thirdparty/optimism2/Bytes.sol";
 import "../TaikoData.sol";
 import "./IVerifier.sol";
 
@@ -44,12 +44,11 @@ contract SgxAndZkVerifier is EssentialContract, IVerifier {
         _proof.tier = proof.tier;
 
         // Verify the SGX part
-        _proof.data = LibBytesUtils.slice(proof.data, 0, SGX_PROOF_SIZE);
+        _proof.data = Bytes.slice(proof.data, 0, SGX_PROOF_SIZE);
         IVerifier(resolve("tier_sgx", false)).verifyProof(ctx, tran, _proof);
 
         // Verify the ZK part
-        _proof.data =
-            LibBytesUtils.slice(proof.data, SGX_PROOF_SIZE, (proof.data.length - SGX_PROOF_SIZE));
+        _proof.data = Bytes.slice(proof.data, SGX_PROOF_SIZE, (proof.data.length - SGX_PROOF_SIZE));
         IVerifier(resolve("tier_pse_zkevm", false)).verifyProof(ctx, tran, _proof);
     }
 }
