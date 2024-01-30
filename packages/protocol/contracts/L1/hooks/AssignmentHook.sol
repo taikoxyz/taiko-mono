@@ -182,11 +182,8 @@ contract AssignmentHook is EssentialContract, IHook {
         pure
         returns (uint256)
     {
-        for (uint256 i; i < tierFees.length;) {
+        for (uint256 i; i < tierFees.length;++i) {
             if (tierFees[i].tier == tierId) return tierFees[i].fee;
-            unchecked {
-                ++i;
-            }
         }
         revert HOOK_TIER_NOT_FOUND();
     }
