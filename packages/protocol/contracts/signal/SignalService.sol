@@ -18,6 +18,7 @@ import "lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
 import "../common/AuthorizableContract.sol";
 import "../common/ICrossChainSync.sol";
 import "../thirdparty/optimsm/LibSecureMerkleTrie.sol";
+import "../thirdparty/optimsm2/rlp/RLPReader.sol";
 import "./ISignalService.sol";
 
 /// @title SignalService
@@ -130,6 +131,9 @@ contract SignalService is AuthorizableContract, ISignalService {
                 hop.signalRootRelay,
                 hop.signalRoot // as a signal
             );
+
+
+
             bool verified = LibSecureMerkleTrie.verifyInclusionProof(
                 bytes.concat(slot), hex"01", hop.storageProof, signalRoot
             );
