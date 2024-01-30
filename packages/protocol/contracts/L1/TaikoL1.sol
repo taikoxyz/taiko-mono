@@ -12,7 +12,7 @@
 //   Blog: https://mirror.xyz/labs.taiko.eth
 //   Youtube: https://www.youtube.com/@taikoxyz
 
-pragma solidity 0.8.20;
+pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
 import "./libs/LibDepositing.sol";
@@ -111,6 +111,11 @@ contract TaikoL1 is
         if (state.slotB.provingPaused) revert L1_PROVING_PAUSED();
 
         LibVerifying.verifyBlocks(state, getConfig(), AddressResolver(this), maxBlocksToVerify);
+    }
+
+    function unpause() public override {
+        OwnerUUPSUpgradable.unpause();
+        state.slotB.lastUnpausedAt = uint64(block.timestamp);
     }
 
     /// @notice Pause block proving.
@@ -241,5 +246,11 @@ contract TaikoL1 is
 
     function isConfigValid() public view returns (bool) {
         return LibVerifying.isConfigValid(getConfig());
+    }
+
+    function _authorizePause(address) internal override {
+        if (msg.sender != owner() && msg.sender != resolve("rollup_watchdog", true)) {
+            revert L1_UNAUTHORIZED();
+        }
     }
 }

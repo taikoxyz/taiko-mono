@@ -56,6 +56,8 @@ type ethClient interface {
 	ChainID(ctx context.Context) (*big.Int, error)
 	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
 	SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error)
+	BlockNumber(ctx context.Context) (uint64, error)
+	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 }
 
 type DB interface {

@@ -1,5 +1,5 @@
 import type { Hash } from '@wagmi/core';
-import { getContract, type GetContractResult, type PublicClient } from '@wagmi/core';
+import { getContract } from '@wagmi/core';
 import { type Address, encodeAbiParameters, encodePacked, type Hex, keccak256, numberToHex, toHex, toRlp } from 'viem';
 
 import { crossChainSyncABI } from '$abi';
@@ -34,17 +34,6 @@ export class BridgeProver {
       throw new PendingBlockError('block is pending');
     }
     return block.number;
-  }
-
-  protected async getBlockFromGetSyncedSnippet(
-    client: PublicClient,
-    crossChainSyncContract: GetContractResult<typeof crossChainSyncABI>,
-    blockNumber: number,
-  ) {
-    const syncedSnippet = await crossChainSyncContract.read.getSyncedSnippet([BigInt(blockNumber)]);
-    const latestBlockHash = syncedSnippet['blockHash'];
-    const block = await client.getBlock({ blockHash: latestBlockHash });
-    return { block, syncedSnippet };
   }
 
   async encodedStorageProof(args: GenerateProofArgs) {
