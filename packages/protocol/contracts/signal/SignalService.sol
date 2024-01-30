@@ -17,7 +17,7 @@ pragma solidity 0.8.24;
 import "lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
 import "../common/AuthorizableContract.sol";
 import "../common/ICrossChainSync.sol";
-import "../thirdparty/LibSecureMerkleTrie.sol";
+import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
 import "./ISignalService.sol";
 
 /// @title SignalService
@@ -38,13 +38,13 @@ contract SignalService is AuthorizableContract, ISignalService {
     struct Hop {
         address signalRootRelay;
         bytes32 signalRoot;
-        bytes storageProof;
+        bytes[] storageProof;
     }
 
     struct Proof {
         address crossChainSync;
         uint64 height;
-        bytes storageProof;
+        bytes[] storageProof;
         Hop[] hops;
     }
 
@@ -129,7 +129,7 @@ contract SignalService is AuthorizableContract, ISignalService {
                 hop.signalRootRelay,
                 hop.signalRoot // as a signal
             );
-            bool verified = LibSecureMerkleTrie.verifyInclusionProof(
+            bool verified = SecureMerkleTrie.verifyInclusionProof(
                 bytes.concat(slot), hex"01", hop.storageProof, signalRoot
             );
             if (!verified) return false;
@@ -137,7 +137,7 @@ contract SignalService is AuthorizableContract, ISignalService {
             signalRoot = hop.signalRoot;
         }
 
-        return LibSecureMerkleTrie.verifyInclusionProof(
+        return SecureMerkleTrie.verifyInclusionProof(
             bytes.concat(getSignalSlot(srcChainId, app, signal)),
             hex"01",
             p.storageProof,
