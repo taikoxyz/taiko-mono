@@ -22,7 +22,6 @@ fs_permissions = [
   { access = "read-write", path = "./deployments" },
   { access = "read", path = "./test" },
   { access = "read", path = "./genesis" },
-  { access = "read", path = "./test/onchainRA/assets/0923"},
 ]
 
 fuzz = { runs = 256 }
