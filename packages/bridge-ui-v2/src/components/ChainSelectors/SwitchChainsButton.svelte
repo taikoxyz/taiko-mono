@@ -6,13 +6,16 @@
   import { destNetwork } from '$components/Bridge/state';
   import { Icon } from '$components/Icon';
   import { warningToast } from '$components/NotificationToast';
+  import { setAlternateNetwork } from '$libs/network/setAlternateNetwork';
 
   export let disabled = false;
+
   async function switchToDestChain() {
     if (!$destNetwork) return;
 
     try {
       await switchNetwork({ chainId: $destNetwork.id });
+      setAlternateNetwork();
     } catch (err) {
       console.error(err);
       if (err instanceof SwitchChainError) {

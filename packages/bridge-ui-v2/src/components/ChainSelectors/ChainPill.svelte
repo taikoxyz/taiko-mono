@@ -3,25 +3,26 @@
   import { t } from 'svelte-i18n';
 
   import { chainConfig } from '$chainConfig';
-  import { chains } from '$libs/chain';
+  import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { classNames } from '$libs/util/classNames';
   import { truncateString } from '$libs/util/truncateString';
   import { uid } from '$libs/util/uid';
 
+  import ChainsDialog from './ChainsDialog.svelte';
+  import ChainsDropdown from './ChainsDropdown.svelte';
+
   export let value: Maybe<GetNetworkResult['chain']> = null;
   export let label = '';
-  // export let switchWallet = false;
   export let readOnly = false;
-  export let validOptions: Maybe<Chain[]> = chains;
-  export let highlight = false;
+  export let selectChain: (event: CustomEvent<{ chain: Chain; switchWallet: boolean }>) => Promise<void>;
 
-  $: highlightBorder = highlight && validOptions?.length ? 'border-2 border-primary' : '';
+  export let switchWallet = false;
 
-  let classes = classNames('ChainSelector', $$props.class);
+  let isDesktopOrLarger = false;
 
-  let buttonClasses = `body-regular bg-neutral-background px-2 py-[6px] !rounded-[10px] ${
-    readOnly ? '' : 'dark:hover:bg-tertiary-interactive-hover'
-  } flex justify-start content-center ${$$props.class}`;
+  let classes = classNames('ChainPill relative', $$props.class);
+
+  let buttonClasses = `f-row body-regular bg-neutral-background px-2 py-[6px] !rounded-[10px] dark:hover:bg-primary-secondary-hover flex justify-start content-center ${$$props.class}`;
 
   let iconSize = 'min-w-5 max-w-5 min-h-5 max-h-5';
 
@@ -29,9 +30,11 @@
   let dialogId = `dialog-${uid()}`;
   let modalOpen = false;
 
-  function closeModal() {
-    modalOpen = false;
-  }
+  const handlePillClick = () => {
+    if (switchWallet) {
+      modalOpen = true;
+    }
+  };
 </script>
 
 <div class={classes}>
@@ -46,8 +49,8 @@
       aria-haspopup="dialog"
       aria-controls={dialogId}
       aria-expanded={modalOpen}
-      class="{buttonClasses}{highlightBorder}"
-      on:click={closeModal}>
+      class={buttonClasses}
+      on:click={handlePillClick}>
       <div class="f-items-center space-x-2 w-full">
         {#if !value}
           <span>{$t('chain_selector.placeholder')}</span>
@@ -62,4 +65,11 @@
       </div>
     </button>
   </div>
+  {#if isDesktopOrLarger}
+    <ChainsDropdown class="rounded-[20px]" on:change={selectChain} bind:isOpen={modalOpen} bind:value switchWallet />
+  {:else}
+    <ChainsDialog on:change={selectChain} bind:isOpen={modalOpen} bind:value switchWallet />
+  {/if}
 </div>
+
+<DesktopOrLarger bind:is={isDesktopOrLarger} />

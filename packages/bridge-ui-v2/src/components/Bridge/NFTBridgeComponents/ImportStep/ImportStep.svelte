@@ -6,7 +6,7 @@
   import { Alert } from '$components/Alert';
   import { destNetwork as destChain, selectedNFTs } from '$components/Bridge/state';
   import { ImportMethod } from '$components/Bridge/types';
-  import CombinedChainSelector from '$components/ChainSelectors/CombinedChainSelector.svelte';
+  import { ChainSelector, ChainSelectorType } from '$components/ChainSelectors';
   import { PUBLIC_SLOW_L1_BRIDGING_WARNING } from '$env/static/public';
   import { fetchNFTs } from '$libs/bridge/fetchNFTs';
   import { LayerType } from '$libs/chain';
@@ -61,7 +61,7 @@
 </script>
 
 <div class="f-between-center gap-[16px] mt-[30px]">
-  <CombinedChainSelector />
+  <ChainSelector type={ChainSelectorType.COMBINED} />
 </div>
 
 {#if displayL1Warning}

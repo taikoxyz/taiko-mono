@@ -9,7 +9,8 @@
   import { BridgeTypes } from '$components/Bridge/types';
   import { Button } from '$components/Button';
   import { Card } from '$components/Card';
-  import { ChainPill } from '$components/ChainSelector';
+  import { ChainSelectorDirection, ChainSelectorType } from '$components/ChainSelectors';
+  import ChainSelector from '$components/ChainSelectors/ChainSelector.svelte';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { Icon } from '$components/Icon';
   import RotatingIcon from '$components/Icon/RotatingIcon.svelte';
@@ -25,7 +26,7 @@
   import { getAlternateNetwork } from '$libs/network';
   import { bridgeTxService } from '$libs/storage';
   import { TokenType } from '$libs/token';
-  import { account, network } from '$stores';
+  import { account } from '$stores';
   import type { Account } from '$stores/account';
 
   import StatusFilterDialog from './StatusFilterDialog.svelte';
@@ -157,7 +158,11 @@
     <div class="space-y-[35px]">
       {#if isDesktopOrLarger}
         <div class="my-[30px] f-between-center max-h-[36px]">
-          <ChainPill label={$t('chain_selector.currently_on')} value={$network} switchWallet />
+          <ChainSelector
+            type={ChainSelectorType.SMALL}
+            direction={ChainSelectorDirection.SOURCE}
+            label={$t('chain_selector.currently_on')}
+            switchWallet />
           <div class="flex gap-2">
             <Button
               type="neutral"
@@ -173,7 +178,7 @@
         <div class="f-row justify-between my-[30px]">
           <div class="f-row items-center gap-[10px]">
             <StatusDot type="success" />
-            <ChainPill label="" value={$network} switchWallet />
+            <ChainSelector type={ChainSelectorType.SMALL} direction={ChainSelectorDirection.SOURCE} switchWallet />
           </div>
           <div class="f-row items-center gap-[5px]">
             {#if $account && $account?.address}

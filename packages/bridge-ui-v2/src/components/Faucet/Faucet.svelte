@@ -8,7 +8,7 @@
   import { Alert } from '$components/Alert';
   import ActionButton from '$components/Button/ActionButton.svelte';
   import { Card } from '$components/Card';
-  import { ChainPill } from '$components/ChainSelector';
+  import { ChainSelector, ChainSelectorDirection, ChainSelectorType } from '$components/ChainSelectors';
   import { Icon } from '$components/Icon';
   import { successToast, warningToast } from '$components/NotificationToast';
   import { errorToast, infoToast } from '$components/NotificationToast/NotificationToast.svelte';
@@ -181,7 +181,11 @@
 <Card class="w-full md:w-[524px]" title={$t('faucet.title')} text={$t('faucet.description')}>
   <div class="space-y-[35px]">
     <div class="space-y-2">
-      <ChainPill label={$t('chain_selector.currently_on')} value={$network} switchWallet />
+      <ChainSelector
+        type={ChainSelectorType.SMALL}
+        direction={ChainSelectorDirection.SOURCE}
+        label={$t('chain_selector.currently_on')}
+        switchWallet />
       <TokenDropdown {disabled} tokens={mintableTokens} {onlyMintable} bind:value={selectedToken} />
     </div>
 
