@@ -246,7 +246,7 @@ library LibProposing {
             // Note that address(this).balance has been updated with msg.value,
             // prior to any code in this function has been executed.
             address prevHook;
-            for (uint256 i; i < params.hookCalls.length;++i) {
+            for (uint256 i; i < params.hookCalls.length; ++i) {
                 if (uint160(prevHook) >= uint160(params.hookCalls[i].hook)) {
                     revert L1_INVALID_HOOK();
                 }

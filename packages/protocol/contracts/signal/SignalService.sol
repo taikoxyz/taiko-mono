@@ -178,7 +178,7 @@ contract SignalService is AuthorizableContract, ISignalService {
         RLPReader.RLPItem[] memory nodes = RLPReader.readList(proof);
         proofs = new bytes[](nodes.length);
 
-        for (uint256 i; i < nodes.length;++i) {
+        for (uint256 i; i < nodes.length; ++i) {
             proofs[i] = RLPReader.readBytes(nodes[i]);
         }
     }
