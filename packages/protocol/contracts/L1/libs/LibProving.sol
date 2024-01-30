@@ -26,8 +26,9 @@ import "./LibUtils.sol";
 /// protocol.
 library LibProving {
     bytes32 public constant RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
-    // Warning: Any events defined here must also be defined in TaikoEvents.sol.
+    bytes32 public constant TIER_OP = bytes32("tier_optimistic");
 
+    // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     event TransitionProved(
         uint256 indexed blockId,
         TaikoData.Transition tran,
@@ -55,8 +56,8 @@ library LibProving {
     error L1_INVALID_PAUSE_STATUS();
     error L1_INVALID_TIER();
     error L1_INVALID_TRANSITION();
-    error L1_NOT_ASSIGNED_PROVER();
     error L1_MISSING_VERIFIER();
+    error L1_NOT_ASSIGNED_PROVER();
     error L1_UNEXPECTED_TRANSITION_TIER();
 
     function pauseProving(TaikoData.State storage state, bool pause) external {
@@ -79,6 +80,8 @@ library LibProving {
         returns (uint8 maxBlocksToVerify)
     {
         // Make sure parentHash is not zero
+        // To contest an existing transition, simply use any non-zero value as
+        // the blockHash and signalRoot.
         if (tran.parentHash == 0 || tran.blockHash == 0 || tran.signalRoot == 0) {
             revert L1_INVALID_TRANSITION();
         }
@@ -92,7 +95,9 @@ library LibProving {
         uint64 slot = meta.id % config.blockRingBufferSize;
         TaikoData.Block storage blk = state.blocks[slot];
 
-        // Check the integrity of the block data.
+        // Check the integrity of the block data. It's worth noting that in
+        // theory, this check may be skipped, but it's included for added
+        // caution.
         if (blk.blockId != meta.id || blk.metaHash != keccak256(abi.encode(meta))) {
             revert L1_BLOCK_MISMATCH();
         }
@@ -101,8 +106,158 @@ library LibProving {
         // blockHash and signalRoot open for later updates as higher-tier proofs
         // become available. In cases where a transition with the specified
         // parentHash does not exist, the transition ID (tid) will be set to 0.
-        uint32 tid = LibUtils.getTransitionId(state, blk, slot, tran.parentHash);
-        TaikoData.TransitionState storage ts;
+        (uint32 tid, TaikoData.TransitionState storage ts) =
+            _createTransition(state, blk, tran, slot);
+
+        // The new proof must meet or exceed the minimum tier required by the
+        // block or the previous proof; it cannot be on a lower tier.
+        if (proof.tier == 0 || proof.tier < meta.minTier || proof.tier < ts.tier) {
+            revert L1_INVALID_TIER();
+        }
+
+        // Retrieve the tier configurations. If the tier is not supported, the
+        // subsequent action will result in a revert.
+        ITierProvider.Tier memory tier =
+            ITierProvider(resolver.resolve("tier_provider", false)).getTier(proof.tier);
+
+        _checkProverPermission(blk, ts, tid, tier);
+
+        // We must verify the proof, and any failure in proof verification will
+        // result in a revert.
+        //
+        // It's crucial to emphasize that the proof can be assessed in two
+        // potential modes: "proving mode" and "contesting mode." However, the
+        // precise verification logic is defined within each tier'IVerifier
+        // contract implementation. We simply specify to the verifier contract
+        // which mode it should utilize - if the new tier is higher than the
+        // previous tier, we employ the proving mode; otherwise, we employ the
+        // contesting mode (the new tier cannot be lower than the previous tier,
+        // this has been checked above).
+        //
+        // It's obvious that proof verification is entirely decoupled from
+        // Taiko's core protocol.
+        {
+            address verifier = resolver.resolve(tier.verifierName, true);
+            // The verifier can be address-zero, signifying that there are no
+            // proof checks for the tier. In practice, this only applies to
+            // optimistic proofs.
+            if (
+                verifier == address(0)
+                    && tier.verifierName
+                        != TIER_OP
+            ) {
+                revert L1_MISSING_VERIFIER();
+            }
+
+            if (verifier != address(0)) {
+                bool isContesting = proof.tier == ts.tier && tier.contestBond != 0;
+
+                IVerifier.Context memory ctx = IVerifier.Context({
+                    metaHash: blk.metaHash,
+                    blobHash: meta.blobHash,
+                    prover: msg.sender,
+                    blockId: blk.blockId,
+                    isContesting: isContesting,
+                    blobUsed: meta.blobUsed
+                });
+
+                IVerifier(verifier).verifyProof(ctx, tran, proof);
+            }
+        }
+
+        bool isTopTier = tier.contestBond == 0;
+        IERC20 tko = IERC20(resolver.resolve("taiko_token", false));
+
+        if (isTopTier) {
+            // A special return value from the top tier prover can signal this
+            // contract to return all liveness bond.
+            bool returnLivenessBond = blk.livenessBond > 0 && proof.data.length == 32
+                && bytes32(proof.data) == RETURN_LIVENESS_BOND;
+
+            if (returnLivenessBond) {
+                tko.transfer(blk.assignedProver, blk.livenessBond);
+                blk.livenessBond = 0;
+            }
+        }
+
+        bool sameTransition = tran.blockHash == ts.blockHash && tran.signalRoot == ts.signalRoot;
+
+        if (proof.tier > ts.tier) {
+            // Handles the case when an incoming tier is higher than the current transition's tier.
+            // Reverts when the incoming proof tries to prove the same transition
+            // (L1_ALREADY_PROVED).
+            _overrideWithHigherProof(ts, tran, proof, tier, tko, sameTransition);
+
+            emit TransitionProved({
+                blockId: blk.blockId,
+                tran: tran,
+                prover: msg.sender,
+                validityBond: tier.validityBond,
+                tier: proof.tier
+            });
+        } else {
+            // New transition and old transition on the same tier - and if this transaction tries to
+            // prove the same, it reverts
+            if (sameTransition) revert L1_ALREADY_PROVED();
+
+            if (isTopTier) {
+                // The top tier prover re-proves.
+                assert(tier.validityBond == 0);
+                assert(ts.validityBond == 0 && ts.contestBond == 0 && ts.contester == address(0));
+
+                ts.prover = msg.sender;
+                ts.blockHash = tran.blockHash;
+                ts.signalRoot = tran.signalRoot;
+
+                emit TransitionProved({
+                    blockId: blk.blockId,
+                    tran: tran,
+                    prover: msg.sender,
+                    validityBond: 0,
+                    tier: proof.tier
+                });
+            } else {
+                // Contesting but not on the highest tier
+                if (ts.contester != address(0)) revert L1_ALREADY_CONTESTED();
+
+                // Burn the contest bond from the prover.
+                tko.transferFrom(msg.sender, address(this), tier.contestBond);
+
+                // We retain the contest bond within the transition, just in
+                // case this configuration is altered to a different value
+                // before the contest is resolved.
+                //
+                // It's worth noting that the previous value of ts.contestBond
+                // doesn't have any significance.
+                ts.contestBond = tier.contestBond;
+                ts.contester = msg.sender;
+                ts.contestations += 1;
+
+                emit TransitionContested({
+                    blockId: blk.blockId,
+                    tran: tran,
+                    contester: msg.sender,
+                    contestBond: tier.contestBond,
+                    tier: proof.tier
+                });
+            }
+        }
+
+        ts.timestamp = uint64(block.timestamp);
+        return tier.maxBlocksToVerifyPerProof;
+    }
+
+    /// @dev Handle the transition initialization logic
+    function _createTransition(
+        TaikoData.State storage state,
+        TaikoData.Block storage blk,
+        TaikoData.Transition memory tran,
+        uint64 slot
+    )
+        private
+        returns (uint32 tid, TaikoData.TransitionState storage ts)
+    {
+        tid = LibUtils.getTransitionId(state, blk, slot, tran.parentHash);
 
         if (tid == 0) {
             // In cases where a transition with the provided parentHash is not
@@ -128,7 +283,7 @@ library LibProving {
             ts.signalRoot = 0;
             ts.validityBond = 0;
             ts.contester = address(0);
-            ts.contestBond = 1; // see below (the value does't matter)
+            ts.contestBond = 1; // to save gas
             ts.timestamp = blk.proposedAt;
             ts.tier = 0;
             ts.contestations = 0;
@@ -168,259 +323,81 @@ library LibProving {
         } else {
             // A transition with the provided parentHash has been located.
             ts = state.transitions[slot][tid];
-            if (ts.tier < meta.minTier) {
-                revert L1_UNEXPECTED_TRANSITION_TIER();
+        }
+    }
+
+    /// @dev Handles what happens when there is a higher proof incoming
+    function _overrideWithHigherProof(
+        TaikoData.TransitionState storage ts,
+        TaikoData.Transition memory tran,
+        TaikoData.TierProof memory proof,
+        ITierProvider.Tier memory tier,
+        IERC20 tko,
+        bool sameTransition
+    )
+        private
+    {
+        // Higher tier proof overwriting lower tier proof
+        uint256 reward;
+
+        if (ts.contester != address(0)) {
+            if (sameTransition) {
+                // The contested transition is proven to be valid, contestor loses the game
+                reward = ts.contestBond >> 2;
+                tko.transfer(ts.prover, ts.validityBond + reward);
+            } else {
+                // The contested transition is proven to be invalid, contestor wins the game
+                reward = ts.validityBond >> 2;
+                tko.transfer(ts.contester, ts.contestBond + reward);
+            }
+        } else {
+            if (sameTransition) revert L1_ALREADY_PROVED();
+            // Contest the existing transition and prove it to be invalid
+            reward = ts.validityBond >> 1;
+            ts.contestations += 1;
+        }
+
+        unchecked {
+            if (reward > tier.validityBond) {
+                tko.transfer(msg.sender, reward - tier.validityBond);
+            } else {
+                tko.transferFrom(msg.sender, address(this), tier.validityBond - reward);
             }
         }
 
-        // The new proof must meet or exceed the minimum tier required by the
-        // block or the previous proof; it cannot be on a lower tier.
-        if (proof.tier == 0 || proof.tier < ts.tier) {
-            revert L1_INVALID_TIER();
-        }
+        ts.validityBond = tier.validityBond;
+        ts.contestBond = 1; // to save gas
+        ts.contester = address(0);
+        ts.prover = msg.sender;
+        ts.tier = proof.tier;
 
-        // Retrieve the tier configurations. If the tier is not supported, the
-        // subsequent action will result in a revert.
-        ITierProvider.Tier memory tier =
-            ITierProvider(resolver.resolve("tier_provider", false)).getTier(proof.tier);
-
-        maxBlocksToVerify = tier.maxBlocksToVerifyPerProof;
-
-        // We must verify the proof, and any failure in proof verification will
-        // result in a revert.
-        //
-        // It's crucial to emphasize that the proof can be assessed in two
-        // potential modes: "proving mode" and "contesting mode." However, the
-        // precise verification logic is defined within each tier'IVerifier
-        // contract implementation. We simply specify to the verifier contract
-        // which mode it should utilize - if the new tier is higher than the
-        // previous tier, we employ the proving mode; otherwise, we employ the
-        // contesting mode (the new tier cannot be lower than the previous tier,
-        // this has been checked above).
-        //
-        // It's obvious that proof verification is entirely decoupled from
-        // Taiko's core protocol.
-        {
-            address verifier = resolver.resolve(tier.verifierName, true);
-            // The verifier can be address-zero, signifying that there are no
-            // proof checks for the tier. In practice, this only applies to
-            // optimistic proofs.
-            if (
-                verifier == address(0)
-                    && keccak256(abi.encodePacked(tier.verifierName))
-                        != keccak256(abi.encodePacked("tier_optimistic"))
-            ) {
-                revert L1_MISSING_VERIFIER();
-            }
-            if (verifier != address(0)) {
-                bool isContesting = proof.tier == ts.tier && tier.contestBond != 0;
-
-                IVerifier.Context memory ctx = IVerifier.Context({
-                    metaHash: blk.metaHash,
-                    blobHash: meta.blobHash,
-                    prover: msg.sender,
-                    blockId: blk.blockId,
-                    isContesting: isContesting,
-                    blobUsed: meta.blobUsed
-                });
-
-                IVerifier(verifier).verifyProof(ctx, tran, proof);
-            }
-        }
-
-        IERC20 tko = IERC20(resolver.resolve("taiko_token", false));
-
-        if (tier.contestBond == 0) {
-            assert(tier.validityBond == 0);
-
-            // It means prover is right (not the contester)
-            bool sameTransition = tran.blockHash == ts.blockHash && tran.signalRoot == ts.signalRoot;
-
-            // A special return value from the top tier prover can signal this
-            // contract to return all liveness bond.
-            if (
-                blk.livenessBond > 0 && proof.data.length == 32
-                    && bytes32(proof.data) == RETURN_LIVENESS_BOND
-            ) {
-                tko.transfer(blk.assignedProver, blk.livenessBond);
-                blk.livenessBond = 0;
-            }
-
+        if (!sameTransition) {
             ts.blockHash = tran.blockHash;
             ts.signalRoot = tran.signalRoot;
-            ts.prover = msg.sender;
+        }
+    }
 
-            if (ts.contester != address(0)) {
-                if (!sameTransition) {
-                    // At this point we know that the contester was right
-                    tko.transfer(ts.contester, ts.validityBond >> 2 + ts.contestBond);
-                }
-                ts.contester = address(0);
-                ts.validityBond = 0;
-            }
+    /// @dev Check the msg.sender (the new prover) against the block's assigned prover.
+    function _checkProverPermission(
+        TaikoData.Block storage blk,
+        TaikoData.TransitionState storage ts,
+        uint32 tid,
+        ITierProvider.Tier memory tier
+    )
+        private
+        view
+    {
+        // The highest tier proof can always submit new proofs
+        if (tier.contestBond == 0) return;
 
-            ts.timestamp = uint64(block.timestamp);
-            ts.tier = proof.tier;
+        bool inProvingWindow = block.timestamp <= ts.timestamp + tier.provingWindow;
+        bool isAssignedPover = msg.sender == blk.assignedProver;
 
-            emit TransitionProved({
-                blockId: blk.blockId,
-                tran: tran,
-                prover: msg.sender,
-                validityBond: 0,
-                tier: proof.tier
-            });
-        } else if (proof.tier == ts.tier) {
-            // Contesting an existing transition requires either the blockHash
-            // or signalRoot to be different. This precaution is necessary
-            // because this `proveBlock` transaction might aim to prove a
-            // transition but could potentially be front-run by another prover
-            // attempting to prove the same transition.
-            if (tran.blockHash == ts.blockHash && tran.signalRoot == ts.signalRoot) {
-                revert L1_ALREADY_PROVED();
-            }
-
-            // The new tier is the same as the previous tier, we are in the
-            // contesting mode.
-            //
-            // It's important to note that tran.blockHash and
-            // tran.signalRoot are not permanently stored, so their
-            // specific values are inconsequential. They only need to differ
-            // from the existing values to signify a contest. Therefore, a
-            // contester can conveniently utilize the value 1 for these two
-            // parameters.
-
-            // The existing transiton must not have been contested.
-            if (ts.contester != address(0)) revert L1_ALREADY_CONTESTED();
-
-            // Burn the contest bond from the prover.
-            tko.transferFrom(msg.sender, address(this), tier.contestBond);
-
-            // We retain the contest bond within the transition, just in
-            // case this configuration is altered to a different value
-            // before the contest is resolved.
-            //
-            // It's worth noting that the previous value of ts.contestBond
-            // doesn't have any significance.
-            ts.contestBond = tier.contestBond;
-            ts.contester = msg.sender;
-            ts.timestamp = uint64(block.timestamp);
-            ts.contestations += 1;
-
-            emit TransitionContested({
-                blockId: blk.blockId,
-                tran: tran,
-                contester: msg.sender,
-                contestBond: tier.contestBond,
-                tier: proof.tier
-            });
+        // The assigned prover can only submit the very first transition.
+        if (tid == 1 && ts.tier == 0 && inProvingWindow) {
+            if (!isAssignedPover) revert L1_NOT_ASSIGNED_PROVER();
         } else {
-            assert(proof.tier > ts.tier);
-            // The new tier is higher than the previous tier, we are in the
-            // proving mode. This works even if this transition's contester is
-            // address zero, see more info below.
-
-            // The ability to prove a transition is granted under the following
-            // two circumstances:
-            //
-            // 1. When the transition has been contested, indicated by
-            // ts.contester not being address zero.
-            //
-            // 2. When the transition's blockHash and/or signalRoot differs. In
-            // this case, the new prover essentially contests the previous proof
-            // but immediately validates it, obviating the requirement to set a
-            // contester, burn the contest bond, and other associated actions.
-            // This streamlined process is applied to 0-to-non-zero transition
-            // updates.
-            if (
-                ts.contester == address(0) && ts.blockHash == tran.blockHash
-                    && ts.signalRoot == tran.signalRoot
-            ) {
-                // Alternatively, it can be understood that a transition cannot
-                // be re-approved by higher-tier proofs without undergoing
-                // contestation.
-                revert L1_ALREADY_PROVED();
-            }
-
-            if (tid == 1 && ts.tier == 0 && block.timestamp <= ts.timestamp + tier.provingWindow) {
-                // For the first transition, (1) if the previous prover is
-                // still the assigned prover, we exclusively grant permission to
-                // the assigned approver to re-prove the block, (2) unless the
-                // proof window has elapsed.
-                if (msg.sender != blk.assignedProver) revert L1_NOT_ASSIGNED_PROVER();
-            } else if (msg.sender == blk.assignedProver) {
-                // However, if the previous prover of the first transition is
-                // not the block's assigned prover, or for any other
-                // transitions, the assigned prover is not permitted to prove
-                // such transitions.
-                revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
-            }
-
-            unchecked {
-                // This is the amount of Taiko tokens to send to the new prover
-                // and the winner of the contest (same amount to both parties).
-                uint256 reward;
-                if (ts.blockHash == tran.blockHash && ts.signalRoot == tran.signalRoot) {
-                    assert(ts.contester != address(0));
-                    // In the event that the previous prover emerges as the
-                    // winner, half of the contest bond is designated as the
-                    // reward, to be divided equally between the new prover and
-                    // the previous prover -- 1/4 each
-                    reward = ts.contestBond >> 2;
-
-                    // Mint the reward and the validity bond and return it to
-                    // the previous prover.
-                    tko.transfer(ts.prover, reward + ts.validityBond);
-                } else {
-                    // In the event that the contester is the winner, half of
-                    // the validity bond is designated as the reward, to be
-                    // divided equally between the new prover and the contester.
-                    reward = ts.validityBond >> 2;
-
-                    // It's important to note that the contester is set to zero
-                    // for the tier-0 transition. Consequently, we only grant a
-                    // reward to the contester if it is not a zero-address.
-                    if (ts.contester != address(0)) {
-                        tko.transfer(ts.contester, reward + ts.contestBond);
-                    } else {
-                        // The prover is also the contester, so the reward is
-                        // sent to him.
-                        tko.transfer(msg.sender, reward);
-                    }
-
-                    // Given that the contester emerges as the winner, the
-                    // previous blockHash and signalRoot are considered
-                    // incorrect, and we must replace them with the correct
-                    // values.
-                    ts.blockHash = tran.blockHash;
-                    ts.signalRoot = tran.signalRoot;
-                }
-
-                // Reward this prover.
-                // In theory, the reward can also be zero for certain tiers if
-                // their validity bonds are set to zero.
-                tko.transfer(msg.sender, reward);
-            }
-
-            // Burn the validity bond from the prover.
-            tko.transferFrom(msg.sender, address(this), tier.validityBond);
-
-            // Regardless of whether the previous prover or the contester
-            // emerges as the winner, we consistently erase the contest history
-            // to make this transition appear entirely new.
-            ts.prover = msg.sender;
-            ts.validityBond = tier.validityBond;
-            ts.contester = address(0);
-            ts.contestBond = 1; // to save gas
-            ts.timestamp = uint64(block.timestamp);
-            ts.tier = proof.tier;
-
-            emit TransitionProved({
-                blockId: blk.blockId,
-                tran: tran,
-                prover: msg.sender,
-                validityBond: tier.validityBond,
-                tier: proof.tier
-            });
+            if (isAssignedPover) revert L1_ASSIGNED_PROVER_NOT_ALLOWED();
         }
     }
 }
