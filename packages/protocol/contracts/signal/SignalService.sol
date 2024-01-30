@@ -51,6 +51,7 @@ contract SignalService is AuthorizableContract, ISignalService {
 
     error SS_INVALID_APP();
     error SS_INVALID_SIGNAL();
+    error SS_UNSUPPORTED();
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init() external initializer {
@@ -181,5 +182,9 @@ contract SignalService is AuthorizableContract, ISignalService {
         for (uint256 i; i < nodes.length; ++i) {
             proofs[i] = RLPReader.readBytes(nodes[i]);
         }
+    }
+
+    function _authorizePause(address) internal pure override {
+        revert SS_UNSUPPORTED();
     }
 }
