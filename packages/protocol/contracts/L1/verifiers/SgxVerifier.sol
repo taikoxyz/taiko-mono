@@ -14,7 +14,6 @@
 
 pragma solidity 0.8.20;
 
-
 import "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import "../../common/EssentialContract.sol";
 import "../../thirdparty/LibBytesUtils.sol";
@@ -101,9 +100,8 @@ contract SgxVerifier is EssentialContract, IVerifier {
         if (!verified) revert SGX_INVALID_ATTESTATION();
 
         address[] memory _address = new address[](1);
-        _address[0] = address(
-            bytes20(LibBytesUtils.slice(attestation.localEnclaveReport.reportData, 0, 20))
-        );
+        _address[0] =
+            address(bytes20(LibBytesUtils.slice(attestation.localEnclaveReport.reportData, 0, 20)));
 
         return _addInstances(_address)[0];
     }

@@ -47,7 +47,8 @@ import { AutomataDcapV3Attestation } from
     "../contracts/thirdparty/automata-attestation/AutomataDcapV3Attestation.sol";
 import { P256Verifier } from "../lib/p256-verifier/src/P256Verifier.sol";
 import { SigVerifyLib } from "../contracts/thirdparty/automata-attestation/utils/SigVerifyLib.sol";
-import { PEMCertChainLib } from "../contracts/thirdparty/automata-attestation/lib/PEMCertChainLib.sol";
+import { PEMCertChainLib } from
+    "../contracts/thirdparty/automata-attestation/lib/PEMCertChainLib.sol";
 
 import "./automata-attestation/utils/DcapTestUtils.t.sol";
 import "./automata-attestation/utils/V3JsonUtils.t.sol";

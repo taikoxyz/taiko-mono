@@ -7,9 +7,12 @@ import "forge-std/StdJson.sol";
 import { AutomataDcapV3Attestation } from
     "../../contracts/thirdparty/automata-attestation/AutomataDcapV3Attestation.sol";
 import { P256Verifier } from "../../lib/p256-verifier/src/P256Verifier.sol";
-import { SigVerifyLib } from "../../contracts/thirdparty/automata-attestation/utils/SigVerifyLib.sol";
-import { PEMCertChainLib } from "../../contracts/thirdparty/automata-attestation/lib/PEMCertChainLib.sol";
-import { V3Struct } from "../../contracts/thirdparty/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
+import { SigVerifyLib } from
+    "../../contracts/thirdparty/automata-attestation/utils/SigVerifyLib.sol";
+import { PEMCertChainLib } from
+    "../../contracts/thirdparty/automata-attestation/lib/PEMCertChainLib.sol";
+import { V3Struct } from
+    "../../contracts/thirdparty/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import { BytesUtils } from "../../contracts/thirdparty/automata-attestation/utils/BytesUtils.sol";
 import { Base64 } from "../../lib/solady/src/utils/Base64.sol";
 import "./utils/DcapTestUtils.t.sol";

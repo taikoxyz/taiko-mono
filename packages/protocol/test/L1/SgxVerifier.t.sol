@@ -4,7 +4,6 @@ pragma solidity 0.8.20;
 import "./TaikoL1TestBase.sol";
 
 contract TestSgxVerifier is TaikoL1TestBase {
-
     // For SGX remote attestation
     AutomataDcapV3Attestation attestation;
     SigVerifyLib sigVerifyLib;
