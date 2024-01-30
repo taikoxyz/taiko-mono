@@ -73,10 +73,6 @@ abstract contract OwnerUUPSUpgradable is UUPSUpgradeable, OwnableUpgradeable {
         return _paused == _TRUE;
     }
 
-    function implementation() public view returns (address) {
-        return _getImplementation();
-    }
-
     function _authorizeUpgrade(address) internal virtual override onlyOwner { }
     function _authorizePause(address) internal virtual onlyOwner { }
 
