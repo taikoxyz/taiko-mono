@@ -70,7 +70,7 @@ func WaitReceipt(ctx context.Context, confirmer confirmer, txHash common.Hash) (
 }
 
 // WaitConfirmations won't return before N blocks confirmations have been seen
-// on destination chain.
+// on destination chain, or context is cancelled.
 func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations uint64, txHash common.Hash) error {
 	slog.Info("beginning waiting for confirmations", "txHash", txHash.Hex())
 
