@@ -141,11 +141,7 @@ library LibProving {
             // The verifier can be address-zero, signifying that there are no
             // proof checks for the tier. In practice, this only applies to
             // optimistic proofs.
-            if (
-                verifier == address(0)
-                    && tier.verifierName
-                        != TIER_OP
-            ) {
+            if (verifier == address(0) && tier.verifierName != TIER_OP) {
                 revert L1_MISSING_VERIFIER();
             }
 
