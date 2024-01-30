@@ -15,7 +15,7 @@
     "snapshot": "forge snapshot --match-path 'test/**/*.t.sol'",
     "test": "forge test -vvv --evm-version cancun --match-path test/*.t.sol",
     "test:coverage": "mkdir -p coverage && forge coverage --report lcov && lcov --remove ./lcov.info -o ./coverage/lcov.info 'test/' 'script/' 'contracts/thirdparty/' && genhtml coverage/lcov.info --branch-coverage --output-dir coverage --ignore-errors category && open coverage/index.html",
-    "test:genesis": "pnpm compile --evm-version cancun && FOUNDRY_PROFILE=genesis ./genesis/generate_genesis.test.sh",
+    "test:genesis": "pnpm compile && FOUNDRY_PROFILE=genesis ./genesis/generate_genesis.test.sh",
     "export:simconf": "forge test --evm-version cancun --match-test 'test_simulation' -vv > simulation/out/simconf_$(date +%s).txt"
   },
   "keywords": [
