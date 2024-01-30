@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.24;
 
 import { BytesUtils } from "../../utils/BytesUtils.sol";
 import { V3Struct } from "./V3Struct.sol";

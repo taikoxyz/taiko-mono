@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.24;
 
 import { LibString } from "../../../../lib/solady/src/utils/LibString.sol";
 import { Asn1Decode, NodePtr } from "../utils/Asn1Decode.sol";

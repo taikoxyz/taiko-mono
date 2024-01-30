@@ -12,7 +12,7 @@
 //   Blog: https://mirror.xyz/labs.taiko.eth
 //   Youtube: https://www.youtube.com/@taikoxyz
 
-pragma solidity 0.8.20;
+pragma solidity 0.8.24;
 
 import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import "../common/EssentialContract.sol";

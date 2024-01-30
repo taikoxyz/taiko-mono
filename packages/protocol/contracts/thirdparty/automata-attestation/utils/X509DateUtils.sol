@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.24;
 
 library X509DateUtils {
     function toTimestamp(bytes memory x509Time) internal pure returns (uint256) {

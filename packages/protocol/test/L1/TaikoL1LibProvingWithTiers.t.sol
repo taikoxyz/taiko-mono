@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity 0.8.24;
 
 import "./TaikoL1TestBase.sol";
 
@@ -172,9 +172,9 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             // This proof cannot be verified obviously because of
             // signalRoot instead of blockHash
             uint16 minTier = meta.minTier;
-
             proveBlock(Bob, Bob, meta, parentHash, signalRoot, signalRoot, minTier, "");
 
+            // Try to contest
             proveBlock(Carol, Carol, meta, parentHash, blockHash, signalRoot, minTier, "");
 
             vm.roll(block.number + 15 * 12);

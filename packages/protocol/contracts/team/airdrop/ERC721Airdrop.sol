@@ -12,13 +12,14 @@
 //   Blog: https://mirror.xyz/labs.taiko.eth
 //   Youtube: https://www.youtube.com/@taikoxyz
 
-pragma solidity 0.8.20;
+pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "./MerkleClaimable.sol";
 
-/// @title ERC721Airdrop
-contract ERC721Airdrop is MerkleClaimable {
+/// @title ERC20Airdrop
+/// Contract for managing Taiko token airdrop for eligible users
+contract ERC20Airdrop is MerkleClaimable {
     address public token;
     address public vault;
     uint256[48] private __gap;
@@ -41,10 +42,7 @@ contract ERC721Airdrop is MerkleClaimable {
     }
 
     function _claimWithData(bytes calldata data) internal override {
-        (address user, uint256[] memory tokenIds) = abi.decode(data, (address, uint256[]));
-
-        for (uint256 i; i < tokenIds.length; ++i) {
-            IERC721Upgradeable(token).safeTransferFrom(vault, user, tokenIds[i]);
-        }
+        (address user, uint256 amount) = abi.decode(data, (address, uint256));
+        IERC20(token).transferFrom(vault, user, amount);
     }
 }

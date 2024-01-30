@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity 0.8.24;
 
 import "forge-std/Test.sol";
 import "forge-std/console2.sol";
@@ -41,16 +41,6 @@ import "../contracts/test/erc20/FreeMintERC20.sol";
 
 import "./DeployCapability.sol";
 import "./HelperContracts.sol";
-
-// For SGX remote attestation
-import { AutomataDcapV3Attestation } from
-    "../contracts/thirdparty/automata-attestation/AutomataDcapV3Attestation.sol";
-import { P256Verifier } from "../lib/p256-verifier/src/P256Verifier.sol";
-import { SigVerifyLib } from "../contracts/thirdparty/automata-attestation/utils/SigVerifyLib.sol";
-import { PEMCertChainLib } from "../contracts/thirdparty/automata-attestation/lib/PEMCertChainLib.sol";
-
-import "./automata-attestation/utils/DcapTestUtils.t.sol";
-import "./automata-attestation/utils/V3JsonUtils.t.sol";
 
 abstract contract TaikoTest is Test, DeployCapability, DcapTestUtils, V3JsonUtils {
     uint256 private _seed = 0x12345678;

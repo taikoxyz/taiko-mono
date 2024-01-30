@@ -1,7 +1,17 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity 0.8.24;
 
 import "./TaikoL1TestBase.sol";
+
+// For SGX remote attestation
+import { AutomataDcapV3Attestation } from
+    "../../contracts/thirdparty/automata-attestation/AutomataDcapV3Attestation.sol";
+import { P256Verifier } from "../../lib/p256-verifier/src/P256Verifier.sol";
+import { SigVerifyLib } from "../../contracts/thirdparty/automata-attestation/utils/SigVerifyLib.sol";
+import { PEMCertChainLib } from "../../contracts/thirdparty/automata-attestation/lib/PEMCertChainLib.sol";
+
+import "../automata-attestation/utils/DcapTestUtils.t.sol";
+import "../automata-attestation/utils/V3JsonUtils.t.sol";
 
 contract TestSgxVerifier is TaikoL1TestBase {
 

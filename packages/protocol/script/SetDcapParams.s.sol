@@ -12,7 +12,7 @@
 //   Blog: https://mirror.xyz/labs.taiko.eth
 //   Youtube: https://www.youtube.com/@taikoxyz
 
-pragma solidity 0.8.20;
+pragma solidity 0.8.24;
 
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
@@ -23,8 +23,6 @@ import "../test/automata-attestation/utils/DcapTestUtils.t.sol";
 import "../test/automata-attestation/utils/V3JsonUtils.t.sol";
 
 contract SetDcapParams is Script, DcapTestUtils, V3JsonUtils {
-    //@todo: Wand Yue -> after deployed with DeployOnL1, you have the parameters, fill in the proper
-    // .env vars the the parameter files, and run this script.
     uint256 public ownerPrivateKey = vm.envUint("PRIVATE_KEY"); // Owner of the attestation contract
     address public dcapAttestationAddress = vm.envAddress("ATTESTATION_ADDRESS");
     address public sgxVerifier = vm.envAddress("SGX_VERIFIER_ADDRESS");

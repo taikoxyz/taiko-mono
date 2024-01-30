@@ -5,7 +5,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity 0.8.20;
+pragma solidity 0.8.24;
 
 /// @title ISignalService
 /// @notice The SignalService contract serves as a secure cross-chain message
