@@ -5,7 +5,7 @@
   import { chainConfig } from '$chainConfig';
   import { ProcessingFee, Recipient } from '$components/Bridge/SharedBridgeComponents';
   import { destNetwork as destChain, enteredAmount, selectedNFTs, selectedToken } from '$components/Bridge/state';
-  import { ChainPill } from '$components/ChainSelector';
+  import { ChainSelector, ChainSelectorDirection, ChainSelectorType } from '$components/ChainSelectors';
   import { IconFlipper } from '$components/Icon';
   import { NFTDisplay } from '$components/NFTs';
   import { fetchNFTImageUrl } from '$libs/token/fetchNFTImageUrl';
@@ -128,8 +128,11 @@ NFT List or Card View
 <section class="space-y-[16px]">
   <div class="flex justify-between items-center w-full">
     <div class="flex items-center gap-2">
-      <span>{$t('bridge.nft.step.review.your_tokens')}</span>
-      <ChainPill value={$network} readOnly />
+      <span></span>
+      <ChainSelector
+        type={ChainSelectorType.SMALL}
+        direction={ChainSelectorDirection.SOURCE}
+        label={$t('bridge.nft.step.review.your_tokens')} />
     </div>
     <div class="flex gap-2">
       <IconFlipper

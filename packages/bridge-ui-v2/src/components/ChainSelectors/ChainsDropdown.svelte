@@ -37,6 +37,7 @@
       isDestination ? 'mt-0' : 'mt-1'
     }  rounded-b-[10px] bg-neutral-background box-shadow-large`,
     isOpen ? 'visible opacity-100' : 'invisible opacity-0',
+    $$props.class,
   );
 </script>
 

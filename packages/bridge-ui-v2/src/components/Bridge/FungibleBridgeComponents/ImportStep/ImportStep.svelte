@@ -1,6 +1,6 @@
 <script lang="ts">
   import { importDone } from '$components/Bridge/state';
-  import CombinedChainSelector from '$components/ChainSelectors/CombinedChainSelector.svelte';
+  import { ChainSelector, ChainSelectorType } from '$components/ChainSelectors';
 
   import TokenInput from './TokenInput/TokenInput.svelte';
 
@@ -9,6 +9,6 @@
   $: $importDone = validInput;
 </script>
 
-<CombinedChainSelector />
+<ChainSelector type={ChainSelectorType.COMBINED} />
 
 <TokenInput bind:validInput />

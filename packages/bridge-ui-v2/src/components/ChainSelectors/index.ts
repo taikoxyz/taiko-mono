@@ -1,1 +1,2 @@
-export { default as ChainSelector } from './CombinedChainSelector.svelte';
+export { default as ChainSelector } from './ChainSelector.svelte';
+export * from './types';

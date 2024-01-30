@@ -1,18 +1,13 @@
 <script lang="ts">
-  import { switchNetwork } from '@wagmi/core';
   import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
-  import { type Chain, SwitchChainError, UserRejectedRequestError } from 'viem';
+  import type { Chain } from 'viem';
 
   import { chainConfig } from '$chainConfig';
   import { destNetwork } from '$components/Bridge/state';
   import DesktopOrLarger from '$components/DesktopOrLarger/DesktopOrLarger.svelte';
   import { LoadingMask } from '$components/LoadingMask';
-  import { warningToast } from '$components/NotificationToast';
-  import OnAccount from '$components/OnAccount/OnAccount.svelte';
-  import { OnNetwork } from '$components/OnNetwork';
-  import { chainIdToChain } from '$libs/chain';
-  import { getAlternateNetwork } from '$libs/network';
+  import { setAlternateNetwork } from '$libs/network/setAlternateNetwork';
   import { truncateString } from '$libs/util/truncateString';
   import { account } from '$stores/account';
   import { network } from '$stores/network';
@@ -28,49 +23,7 @@
 
   let iconSize = 'min-w-[24px] max-w-[24px] min-h-[24px] max-h-[24px]';
 
-  async function selectChain(event: CustomEvent<{ chain: Chain; switchWallet: boolean }>) {
-    const { chain, switchWallet } = event.detail;
-
-    if (switchWallet) {
-      switchingNetwork = true;
-      try {
-        await switchNetwork({ chainId: chain.id });
-      } catch (err) {
-        console.error(err);
-        if (err instanceof SwitchChainError) {
-          warningToast({
-            title: $t('messages.network.pending.title'),
-            message: $t('messages.network.pending.message'),
-          });
-        }
-        if (err instanceof UserRejectedRequestError) {
-          warningToast({
-            title: $t('messages.network.rejected.title'),
-            message: $t('messages.network.rejected.message'),
-          });
-        }
-      } finally {
-        switchingNetwork = false;
-      }
-    } else {
-      $destNetwork = chain;
-    }
-  }
-
-  const onNetworkChange = () => setAlternateNetwork();
-
-  const onAccountChange = () => setAlternateNetwork();
-
-  const setAlternateNetwork = () => {
-    if ($account && ($account.isConnected || $account.isConnecting)) {
-      const alternateChainID = getAlternateNetwork();
-      if (alternateChainID) {
-        $destNetwork = chainIdToChain(alternateChainID);
-      }
-    } else {
-      $destNetwork = null;
-    }
-  };
+  export let selectChain: (event: CustomEvent<{ chain: Chain; switchWallet: boolean }>) => Promise<void>;
 
   const onSourceToggle = () => (sourceToggled = !sourceToggled);
 
@@ -154,6 +107,4 @@
   </div>
 </div>
 
-<OnNetwork change={onNetworkChange} />
-<OnAccount change={onAccountChange} />
 <DesktopOrLarger bind:is={isDesktopOrLarger} />
