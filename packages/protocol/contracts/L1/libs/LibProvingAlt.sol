@@ -67,6 +67,10 @@ library LibProvingAlt {
         if (state.slotB.provingPaused == pause) revert L1_INVALID_PAUSE_STATUS();
 
         state.slotB.provingPaused = pause;
+
+        if (!toPause) {
+            state.slotB.lastUnpausedAt = uint64(block.timestamp);
+        }
         emit ProvingPaused(pause);
     }
 
