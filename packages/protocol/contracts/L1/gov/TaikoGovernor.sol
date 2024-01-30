@@ -91,7 +91,7 @@ contract TaikoGovernor is
         return 50_400; // 1 week
     }
 
-    // The number of votes required in order for a voter to become a vote proposer
+    // The number of votes required in order for a voter to become a proposer
     function proposalThreshold() public pure override returns (uint256) {
         return 1_000_000_000 ether / 10_000; // 0.01% of Taiko Token
     }
