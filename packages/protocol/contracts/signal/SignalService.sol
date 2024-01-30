@@ -50,6 +50,7 @@ contract SignalService is AuthorizableContract, ISignalService {
 
     error SS_INVALID_APP();
     error SS_INVALID_SIGNAL();
+    error SS_UNSUPPORTED();
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init() external initializer {
@@ -167,5 +168,20 @@ contract SignalService is AuthorizableContract, ISignalService {
     /// @return Returns true to skip checking inclusion proofs.
     function skipProofCheck() public pure virtual returns (bool) {
         return false;
+    }
+
+    /// @notice Translate a RLP-encoded list of RLP-encoded TrieNodes into a list of LP-encoded
+    /// TrieNodes.
+    function _transcode(bytes memory proof) internal pure returns (bytes[] memory proofs) {
+        RLPReader.RLPItem[] memory nodes = RLPReader.readList(proof);
+        proofs = new bytes[](nodes.length);
+
+        for (uint256 i; i < nodes.length; ++i) {
+            proofs[i] = RLPReader.readBytes(nodes[i]);
+        }
+    }
+
+    function _authorizePause(address) internal pure override {
+        revert SS_UNSUPPORTED();
     }
 }

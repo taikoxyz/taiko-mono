@@ -20,6 +20,7 @@ forge script script/DeployOnL1.s.sol:DeployOnL1 \
     --fork-url http://localhost:8545 \
     --broadcast \
     --ffi \
+    --evm-version cancun \
     -vvvv \
     --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
     --block-gas-limit 100000000
