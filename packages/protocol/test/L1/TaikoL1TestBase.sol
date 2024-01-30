@@ -29,6 +29,9 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
     address public L2SS = randAddress();
     address public L2 = randAddress();
+    // Bootstrapped SGX instances (by owner)
+    address internal SGX_X_0 = vm.addr(0x4);
+    address internal SGX_X_1 = vm.addr(0x5);
 
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 

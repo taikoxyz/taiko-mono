@@ -7,14 +7,18 @@ import "./TaikoL1TestBase.sol";
 import { AutomataDcapV3Attestation } from
     "../../contracts/thirdparty/automata-attestation/AutomataDcapV3Attestation.sol";
 import { P256Verifier } from "../../lib/p256-verifier/src/P256Verifier.sol";
-import { SigVerifyLib } from "../../contracts/thirdparty/automata-attestation/utils/SigVerifyLib.sol";
-import { PEMCertChainLib } from "../../contracts/thirdparty/automata-attestation/lib/PEMCertChainLib.sol";
+import { SigVerifyLib } from
+    "../../contracts/thirdparty/automata-attestation/utils/SigVerifyLib.sol";
+import { PEMCertChainLib } from
+    "../../contracts/thirdparty/automata-attestation/lib/PEMCertChainLib.sol";
 
 import "../automata-attestation/utils/DcapTestUtils.t.sol";
 import "../automata-attestation/utils/V3JsonUtils.t.sol";
 
-contract TestSgxVerifier is TaikoL1TestBase, DcapTestUtils, V3JsonUtils  {
-
+contract TestSgxVerifier is TaikoL1TestBase, DcapTestUtils, V3JsonUtils {
+    address internal SGX_Y =
+        vm.addr(0x9b1bb8cb3bdb539d0d1f03951d27f167f2d5443e7ef0d7ce745cd4ec619d3dd7);
+    address internal SGX_Z = randAddress();
     // For SGX remote attestation
     AutomataDcapV3Attestation attestation;
     SigVerifyLib sigVerifyLib;
