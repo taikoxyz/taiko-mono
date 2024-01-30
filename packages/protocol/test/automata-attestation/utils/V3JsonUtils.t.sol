@@ -1,8 +1,16 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.24;
 
+import "forge-std/console.sol";
 import { V3Struct } from
     "../../../contracts/thirdparty/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
+import { V3Parser } from
+    "../../../contracts/thirdparty/automata-attestation/lib/QuoteV3Auth/V3Parser.sol";
+import { IPEMCertChainLib } from
+    "../../../contracts/thirdparty/automata-attestation/lib/interfaces/IPEMCertChainLib.sol";
+import { PEMCertChainLib } from
+    "../../../contracts/thirdparty/automata-attestation/lib/PEMCertChainLib.sol";
+import { Base64 } from "../../../lib/solady/src/utils/Base64.sol";
 import { JSONParserLib } from "../../../lib/solady/src/utils/JSONParserLib.sol";
 import { LibString } from "../../../lib/solady/src/utils/LibString.sol";
 
@@ -139,6 +147,40 @@ contract V3JsonUtils {
                 v3quoteHelper.v3AuthData.certification.decodedCertDataArray[1],
                 v3quoteHelper.v3AuthData.certification.decodedCertDataArray[2]
             ]
+        });
+    }
+
+    function fromECDSAQuoteV3AuthData(
+        address pemCertLibAddr,
+        V3Struct.ECDSAQuoteV3AuthData memory v3AuthDataOld
+    )
+        public
+        pure
+        returns (V3Struct.ParsedECDSAQuoteV3AuthData memory v3AuthDataNew)
+    {
+        IPEMCertChainLib pemCertLib = PEMCertChainLib(pemCertLibAddr);
+        IPEMCertChainLib.ECSha256Certificate[] memory parsedQuoteCerts;
+        (bool certParsedSuccessfully, bytes[] memory quoteCerts) =
+            pemCertLib.splitCertificateChain(v3AuthDataOld.certification.certData, 3);
+        require(certParsedSuccessfully, "splitCertificateChain failed");
+        parsedQuoteCerts = new IPEMCertChainLib.ECSha256Certificate[](3);
+        for (uint256 i = 0; i < 3; i++) {
+            quoteCerts[i] = Base64.decode(string(quoteCerts[i]));
+        }
+
+        // setup v3AuthData
+        v3AuthDataNew.ecdsa256BitSignature = v3AuthDataOld.ecdsa256BitSignature;
+        v3AuthDataNew.ecdsaAttestationKey = v3AuthDataOld.ecdsaAttestationKey;
+        v3AuthDataNew.pckSignedQeReport = V3Parser.parseEnclaveReport(v3AuthDataOld.rawQeReport);
+        v3AuthDataNew.qeReportSignature = v3AuthDataOld.qeReportSignature;
+        v3AuthDataNew.qeAuthData = V3Struct.ParsedQEAuthData({
+            parsedDataSize: uint16(v3AuthDataOld.qeAuthData.parsedDataSize),
+            data: bytes.concat(v3AuthDataOld.qeAuthData.data)
+        });
+        v3AuthDataNew.certification = V3Struct.ParsedCertificationData({
+            certType: uint16(v3AuthDataOld.certification.certType),
+            certDataSize: uint32(v3AuthDataOld.certification.certDataSize),
+            decodedCertDataArray: [quoteCerts[0], quoteCerts[1], quoteCerts[2]]
         });
     }
 }

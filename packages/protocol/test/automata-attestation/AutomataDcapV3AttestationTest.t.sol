@@ -31,7 +31,8 @@ contract AutomataDcapV3AttestationTest is Test, DcapTestUtils, V3JsonUtils {
     //string internal rpcUrl = vm.envString("RPC_URL");
     string internal constant tcbInfoPath = "/test/automata-attestation/assets/0923/tcbInfo.json";
     string internal constant idPath = "/test/automata-attestation/assets/0923/identity.json";
-    string internal constant v3QuotePath = "/test/automata-attestation/assets/0923/v3quote.json";
+    string internal constant v3QuoteJsonPath = "/test/automata-attestation/assets/0923/v3quote.json";
+    string internal constant v3QuoteBinPath = "/test/automata-attestation/assets/0923/v3quote.bin";
     address constant admin = address(1);
     address constant user = 0x0926b716f6aEF52F9F3C3474A2846e1Bf1ACedf6;
     bytes32 constant mrEnclave = 0x46049af725ec3986eeb788693df7bc5f14d3f2705106a19cd09b9d89237db1a0;
@@ -82,24 +83,44 @@ contract AutomataDcapV3AttestationTest is Test, DcapTestUtils, V3JsonUtils {
         assertTrue(verified);
     }
 
-    function testParsedQuoteAttestation() public {
+    function testParsedQuoteJsonAttestation() public {
         vm.prank(user);
-        string memory v3QuoteJsonStr = vm.readFile(string.concat(vm.projectRoot(), v3QuotePath));
-        console.log("[LOG] v3QuoteJsonStr: %s", v3QuoteJsonStr);
+        string memory v3QuoteJsonStr = vm.readFile(string.concat(vm.projectRoot(), v3QuoteJsonPath));
+        // console.log("[LOG] v3QuoteJsonStr: %s", v3QuoteJsonStr);
         bytes memory v3QuotePacked = vm.parseJson(v3QuoteJsonStr);
-        console.logBytes(v3QuotePacked);
 
         (, V3Struct.ParsedV3QuoteStruct memory v3quote) = parseV3QuoteJson(v3QuotePacked);
-        console.log("v3quote.header.userData = %s", address(v3quote.header.userData));
-        console.logBytes(v3quote.localEnclaveReport.reportData);
         (bool verified,) = attestation.verifyParsedQuote(v3quote);
 
         assertTrue(verified);
     }
 
+    function testParsedQuoteBinAttestation() public {
+        vm.prank(user);
+        // vm.readFileBinary(string.concat(vm.projectRoot(), v3QuoteBinPath));
+        bytes memory v3QuoteBytes = sampleQuote;
+        (
+            bool successful,
+            V3Struct.Header memory header,
+            V3Struct.EnclaveReport memory localEnclaveReport,
+            ,
+            V3Struct.ECDSAQuoteV3AuthData memory authDataV3
+        ) = V3Parser.parseInput(v3QuoteBytes);
+        assertTrue(successful);
+
+        V3Struct.ParsedV3QuoteStruct memory v3quote = V3Struct.ParsedV3QuoteStruct({
+            header: header,
+            localEnclaveReport: localEnclaveReport,
+            v3AuthData: fromECDSAQuoteV3AuthData(address(pemCertChainLib), authDataV3)
+        });
+
+        (bool verified,) = attestation.verifyParsedQuote(v3quote);
+        assertTrue(verified);
+    }
+
     function testParsedQuoteAbiEncoding() public {
         vm.prank(user);
-        string memory v3QuoteJsonStr = vm.readFile(string.concat(vm.projectRoot(), v3QuotePath));
+        string memory v3QuoteJsonStr = vm.readFile(string.concat(vm.projectRoot(), v3QuoteJsonPath));
         bytes memory v3QuotePacked = vm.parseJson(v3QuoteJsonStr);
 
         (, V3Struct.ParsedV3QuoteStruct memory v3quote) = parseV3QuoteJson(v3QuotePacked);
