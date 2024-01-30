@@ -17,8 +17,8 @@ pragma solidity 0.8.24;
 import "lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
 import "../common/AuthorizableContract.sol";
 import "../common/ICrossChainSync.sol";
-import "../thirdparty/optimism2/trie/SecureMerkleTrie.sol";
-import "../thirdparty/optimism2/rlp/RLPReader.sol";
+import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
+import "../thirdparty/optimism/rlp/RLPReader.sol";
 import "./ISignalService.sol";
 
 /// @title SignalService

@@ -15,7 +15,7 @@
 pragma solidity 0.8.24;
 
 import "../../common/EssentialContract.sol";
-import "../../thirdparty/optimism2/Bytes.sol";
+import "../../thirdparty/optimism/Bytes.sol";
 import "../TaikoData.sol";
 import "./IVerifier.sol";
 
