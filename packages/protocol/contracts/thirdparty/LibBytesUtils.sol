@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Taken from
-// https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts/contracts/libraries/utils/LibBytesUtils.sol
+// https://github.com/ethereum-optimism/optimism-legacy/blob/develop/packages/contracts/contracts/libraries/utils/Lib_BytesUtils.sol
 // (The MIT License)
 //
 // Copyright 2020-2021 Optimism

@@ -33,8 +33,8 @@ import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
 import "../contracts/tokenvault/ERC721Vault.sol";
 import "../contracts/signal/SignalService.sol";
-import "../contracts/test/erc20/FreeMintERC20.sol";
-import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
+import "../test/common/erc20/FreeMintERC20.sol";
+import "../test/common/erc20/MayFailFreeMintERC20.sol";
 import "../test/DeployCapability.sol";
 
 /// @title DeployOnL1

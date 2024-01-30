@@ -167,6 +167,7 @@ library LibRLPReader {
             out := mload(ptr)
 
             // Shift the bytes over to match the item size.
+            // Note: Will align to the right for an input smaller than 32 bytes.
             if lt(itemLength, 32) { out := div(out, exp(256, sub(32, itemLength))) }
         }
 
@@ -235,6 +236,7 @@ library LibRLPReader {
      */
     function readAddress(RLPItem memory _in) internal pure returns (address) {
         if (_in.length == 1) {
+            // Note: regardless of value of _in, it returns address(0) if length is 1.
             return address(0);
         }
 
