@@ -113,11 +113,6 @@ contract TaikoL1 is
         LibVerifying.verifyBlocks(state, getConfig(), AddressResolver(this), maxBlocksToVerify);
     }
 
-    function unpause() public override {
-        OwnerUUPSUpgradable.unpause();
-        state.slotB.lastUnpausedAt = uint64(block.timestamp);
-    }
-
     /// @notice Pause block proving.
     /// @param pause True if paused.
     function pauseProving(bool pause) external onlyOwner {
@@ -129,6 +124,11 @@ contract TaikoL1 is
     /// Layer 2.
     function depositEtherToL2(address recipient) external payable nonReentrant whenNotPaused {
         LibDepositing.depositEtherToL2(state, getConfig(), AddressResolver(this), recipient);
+    }
+
+    function unpause() public override {
+        OwnerUUPSUpgradable.unpause();
+        state.slotB.lastUnpausedAt = uint64(block.timestamp);
     }
 
     /// @notice Checks if Ether deposit is allowed for Layer 2.

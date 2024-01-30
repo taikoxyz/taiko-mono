@@ -39,7 +39,9 @@ contract AddressManager is OwnerUUPSUpgradable, IAddressManager {
         uint64 indexed chainId, bytes32 indexed name, address newAddress, address oldAddress
     );
 
+    error AM_UNSUPPORTED();
     /// @notice Initializes the owner for the upgradable contract.
+
     function init() external initializer {
         __OwnerUUPSUpgradable_init();
     }
@@ -65,5 +67,9 @@ contract AddressManager is OwnerUUPSUpgradable, IAddressManager {
     /// @inheritdoc IAddressManager
     function getAddress(uint64 chainId, bytes32 name) public view override returns (address) {
         return addresses[chainId][name];
+    }
+
+    function _authorizePause(address) internal pure override {
+        revert AM_UNSUPPORTED();
     }
 }
