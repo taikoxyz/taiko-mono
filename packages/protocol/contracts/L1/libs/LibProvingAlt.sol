@@ -22,15 +22,16 @@ import "../verifiers/IVerifier.sol";
 import "../TaikoData.sol";
 import "./LibUtils.sol";
 
-/// @title LibProvingAlt
-/// @notice An alternative library for handling block contestation and proving in the Taiko
+/// @title LibProving
+/// @notice A library for handling block contestation and proving in the Taiko
 /// protocol.
 library LibProvingAlt {
     using LibMath for uint256;
 
     bytes32 public constant RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
-    // Warning: Any events defined here must also be defined in TaikoEvents.sol.
+    bytes32 public constant TIER_OP = bytes32("tier_optimistic");
 
+    // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     event TransitionProved(
         uint256 indexed blockId,
         TaikoData.Transition tran,
@@ -58,6 +59,7 @@ library LibProvingAlt {
     error L1_INVALID_PAUSE_STATUS();
     error L1_INVALID_TIER();
     error L1_INVALID_TRANSITION();
+    error L1_MISSING_VERIFIER();
     error L1_NOT_ASSIGNED_PROVER();
     error L1_UNEXPECTED_TRANSITION_TIER();
 
@@ -108,7 +110,7 @@ library LibProvingAlt {
         // become available. In cases where a transition with the specified
         // parentHash does not exist, the transition ID (tid) will be set to 0.
         (uint32 tid, TaikoData.TransitionState storage ts) =
-            _createTransition(state, blk, meta, tran, slot);
+            _createTransition(state, blk, tran, slot);
 
         // The new proof must meet or exceed the minimum tier required by the
         // block or the previous proof; it cannot be on a lower tier.
@@ -142,6 +144,10 @@ library LibProvingAlt {
             // The verifier can be address-zero, signifying that there are no
             // proof checks for the tier. In practice, this only applies to
             // optimistic proofs.
+            if (verifier == address(0) && tier.verifierName != TIER_OP) {
+                revert L1_MISSING_VERIFIER();
+            }
+
             if (verifier != address(0)) {
                 bool isContesting = proof.tier == ts.tier && tier.contestBond != 0;
 
@@ -237,14 +243,13 @@ library LibProvingAlt {
         }
 
         ts.timestamp = uint64(block.timestamp);
-        return tier.maxBlocksToVerify;
+        return tier.maxBlocksToVerifyPerProof;
     }
 
     /// @dev Handle the transition initialization logic
     function _createTransition(
         TaikoData.State storage state,
         TaikoData.Block storage blk,
-        TaikoData.BlockMetadata memory meta,
         TaikoData.Transition memory tran,
         uint64 slot
     )
@@ -317,9 +322,6 @@ library LibProvingAlt {
         } else {
             // A transition with the provided parentHash has been located.
             ts = state.transitions[slot][tid];
-            if (ts.tier < meta.minTier) {
-                revert L1_UNEXPECTED_TRANSITION_TIER();
-            }
         }
     }
 

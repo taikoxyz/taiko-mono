@@ -51,7 +51,6 @@ contract Bridge is EssentialContract, IBridge {
     mapping(address => bool) public addressBanned;
     uint256[42] private __gap;
 
-    event SignalSent(address indexed sender, bytes32 msgHash);
     event MessageSent(bytes32 indexed msgHash, Message message);
     event MessageReceived(bytes32 indexed msgHash, Message message, bool isRecall);
     event MessageRecalled(bytes32 indexed msgHash);
