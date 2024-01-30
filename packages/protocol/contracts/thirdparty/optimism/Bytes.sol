@@ -12,7 +12,15 @@ library Bytes {
     /// @param _start Starting index of the slice.
     /// @param _length Length of the slice.
     /// @return Slice of the input byte array.
-    function slice(bytes memory _bytes, uint256 _start, uint256 _length) internal pure returns (bytes memory) {
+    function slice(
+        bytes memory _bytes,
+        uint256 _start,
+        uint256 _length
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
         unchecked {
             require(_length + 31 >= _length, "slice_overflow");
             require(_start + _length >= _start, "slice_overflow");
