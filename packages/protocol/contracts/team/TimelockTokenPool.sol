@@ -12,7 +12,7 @@
 //   Blog: https://mirror.xyz/labs.taiko.eth
 //   Youtube: https://www.youtube.com/@taikoxyz
 
-pragma solidity 0.8.20;
+pragma solidity 0.8.24;
 
 import "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
@@ -186,7 +186,7 @@ contract TimelockTokenPool is EssentialContract {
         totalCostPaid += costToWithdraw;
 
         IERC20(taikoToken).transferFrom(sharedVault, to, amountToWithdraw);
-        IERC20(costToken).transferFrom(recipient, sharedVault, costToWithdraw);
+        IERC20(costToken).safeTransferFrom(recipient, sharedVault, costToWithdraw);
 
         emit Withdrawn(recipient, to, amountToWithdraw, costToWithdraw);
     }

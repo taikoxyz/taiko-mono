@@ -12,7 +12,7 @@
 //   Blog: https://mirror.xyz/labs.taiko.eth
 //   Youtube: https://www.youtube.com/@taikoxyz
 
-pragma solidity 0.8.20;
+pragma solidity 0.8.24;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -256,22 +256,27 @@ contract ERC20Vault is BaseVault {
     {
         checkRecallMessageContext();
 
-        (, address token,, uint256 amount) =
+        (CanonicalERC20 memory ctoken,,, uint256 amount) =
             abi.decode(message.data[4:], (CanonicalERC20, address, address, uint256));
 
-        if (token == address(0)) revert VAULT_INVALID_TOKEN();
+        if (ctoken.addr == address(0)) revert VAULT_INVALID_TOKEN();
 
         if (amount > 0) {
-            if (bridgedToCanonical[token].addr != address(0)) {
-                IBridgedERC20(token).mint(message.owner, amount);
+            if (bridgedToCanonical[ctoken.addr].addr != address(0)) {
+                IBridgedERC20(ctoken.addr).mint(message.owner, amount);
             } else {
-                ERC20(token).safeTransfer(message.owner, amount);
+                ERC20(ctoken.addr).safeTransfer(message.owner, amount);
             }
         }
 
         message.owner.sendEther(message.value);
 
-        emit TokenReleased({ msgHash: msgHash, from: message.owner, token: token, amount: amount });
+        emit TokenReleased({
+            msgHash: msgHash,
+            from: message.owner,
+            token: ctoken.addr,
+            amount: amount
+        });
     }
 
     function name() public pure override returns (bytes32) {

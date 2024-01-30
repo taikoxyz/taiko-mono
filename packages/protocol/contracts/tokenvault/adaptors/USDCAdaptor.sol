@@ -12,14 +12,14 @@
 //   Blog: https://mirror.xyz/labs.taiko.eth
 //   Youtube: https://www.youtube.com/@taikoxyz
 
-pragma solidity 0.8.20;
+pragma solidity 0.8.24;
 
 import "../BridgedERC20Base.sol";
 
 interface IUSDC {
     function burn(uint256 amount) external;
     function mint(address to, uint256 amount) external;
-    function transferFrom(address from, address to, uint256 amount) external;
+    function transferFrom(address from, address to, uint256 value) external returns (bool);
 }
 
 /// @title USDCAdaptor

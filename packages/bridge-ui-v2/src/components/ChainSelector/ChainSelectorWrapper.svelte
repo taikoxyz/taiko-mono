@@ -6,9 +6,11 @@
   import { destNetwork, destOptions } from '$components/Bridge/state';
   import SwitchChainsButton from '$components/Bridge/SwitchChainsButton.svelte';
   import { ChainSelector } from '$components/ChainSelector';
+  import { OnAccount } from '$components/OnAccount';
   import { OnNetwork } from '$components/OnNetwork';
   import { hasBridge } from '$libs/bridge/bridges';
   import { chainIdToChain, chains } from '$libs/chain';
+  import { account } from '$stores/account';
   import { network } from '$stores/network';
 
   let destChainElement: ChainSelector;
@@ -30,15 +32,6 @@
     });
   }
 
-  function onNetworkChange() {
-    updateDestOptions();
-    const alternateChainID = getAlternateNetwork();
-    if (!$destNetwork && alternateChainID) {
-      // if only two chains are available, set the destination chain to the other one
-      $destNetwork = chainIdToChain(alternateChainID);
-    }
-  }
-
   const getAlternateNetwork = (): number | null => {
     if (!$network?.id) {
       return null;
@@ -48,18 +41,35 @@
 
     // only allow switching between two chains, if we have more we do not use this util
     if (chainKeys.length !== 2) {
+      updateDestOptions();
       return null;
     }
 
     const alternateChainId = chainKeys.find((key) => key !== currentNetwork);
     if (!alternateChainId) return null;
+    updateDestOptions();
     return alternateChainId;
   };
 
   $: highlight = $destNetwork ? false : true;
 
+  const onNetworkChange = () => setAlternateNetwork();
+
+  const onAccountChange = () => setAlternateNetwork();
+
+  const setAlternateNetwork = () => {
+    if ($account && ($account.isConnected || $account.isConnecting)) {
+      const alternateChainID = getAlternateNetwork();
+      if (alternateChainID) {
+        $destNetwork = chainIdToChain(alternateChainID);
+      }
+    } else {
+      $destNetwork = null;
+    }
+  };
+
   onMount(() => {
-    updateDestOptions();
+    setAlternateNetwork();
   });
 </script>
 
@@ -82,3 +92,4 @@
   fromToLabel={$t('common.to')} />
 
 <OnNetwork change={onNetworkChange} />
+<OnAccount change={onAccountChange} />

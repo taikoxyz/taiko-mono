@@ -12,7 +12,7 @@
 //   Blog: https://mirror.xyz/labs.taiko.eth
 //   Youtube: https://www.youtube.com/@taikoxyz
 
-pragma solidity 0.8.20;
+pragma solidity 0.8.24;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -199,7 +199,7 @@ contract TaikoL2 is CrossChainOwned, TaikoL2Signer, ICrossChainSync {
     /// block id is greater than or equal to the current block number.
     function getBlockHash(uint64 blockId) public view returns (bytes32) {
         if (blockId >= block.number) return 0;
-        if (blockId >= block.number - 256) return blockhash(blockId);
+        if (blockId + 256 >= block.number) return blockhash(blockId);
         return l2Hashes[blockId];
     }
 

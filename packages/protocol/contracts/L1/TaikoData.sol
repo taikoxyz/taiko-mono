@@ -12,7 +12,7 @@
 //   Blog: https://mirror.xyz/labs.taiko.eth
 //   Youtube: https://www.youtube.com/@taikoxyz
 
-pragma solidity 0.8.20;
+pragma solidity 0.8.24;
 
 /// @title TaikoData
 /// @notice This library defines various data structures used in the Taiko
@@ -177,6 +177,10 @@ library TaikoData {
         uint64 numBlocks;
         uint64 lastVerifiedBlockId;
         bool provingPaused;
+        uint8 __reserved1;
+        uint16 __reserved2;
+        uint32 __reserved3;
+        uint64 lastUnpausedAt;
     }
 
     /// @dev Struct holding the state variables for the {TaikoL1} contract.

@@ -12,7 +12,7 @@
 //   Blog: https://mirror.xyz/labs.taiko.eth
 //   Youtube: https://www.youtube.com/@taikoxyz
 
-pragma solidity 0.8.20;
+pragma solidity 0.8.24;
 
 import "lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
@@ -57,12 +57,14 @@ abstract contract OwnerUUPSUpgradable is UUPSUpgradeable, OwnableUpgradeable {
         _disableInitializers();
     }
 
-    function pause() external whenNotPaused onlyOwner {
+    function pause() public virtual whenNotPaused {
+        _authorizePause(msg.sender);
         _paused = _TRUE;
         emit Paused(msg.sender);
     }
 
-    function unpause() external whenPaused onlyOwner {
+    function unpause() public virtual whenPaused {
+        _authorizePause(msg.sender);
         _paused = _FALSE;
         emit Unpaused(msg.sender);
     }
@@ -71,7 +73,8 @@ abstract contract OwnerUUPSUpgradable is UUPSUpgradeable, OwnableUpgradeable {
         return _paused == _TRUE;
     }
 
-    function _authorizeUpgrade(address) internal override onlyOwner { }
+    function _authorizeUpgrade(address) internal virtual override onlyOwner { }
+    function _authorizePause(address) internal virtual onlyOwner { }
 
     /// @notice Initializes the contract with an address manager.
     // solhint-disable-next-line func-name-mixedcase

@@ -12,7 +12,7 @@
 //   Blog: https://mirror.xyz/labs.taiko.eth
 //   Youtube: https://www.youtube.com/@taikoxyz
 
-pragma solidity 0.8.20;
+pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
 import "./libs/LibDepositing.sol";
@@ -113,6 +113,11 @@ contract TaikoL1 is
         LibVerifying.verifyBlocks(state, getConfig(), AddressResolver(this), maxBlocksToVerify);
     }
 
+    function unpause() public override {
+        OwnerUUPSUpgradable.unpause();
+        state.slotB.lastUnpausedAt = uint64(block.timestamp);
+    }
+
     /// @notice Pause block proving.
     /// @param pause True if paused.
     function pauseProving(bool pause) external onlyOwner {
@@ -122,7 +127,7 @@ contract TaikoL1 is
     /// @notice Deposits Ether to Layer 2.
     /// @param recipient Address of the recipient for the deposited Ether on
     /// Layer 2.
-    function depositEtherToL2(address recipient) external payable whenNotPaused {
+    function depositEtherToL2(address recipient) external payable nonReentrant whenNotPaused {
         LibDepositing.depositEtherToL2(state, getConfig(), AddressResolver(this), recipient);
     }
 
@@ -241,5 +246,11 @@ contract TaikoL1 is
 
     function isConfigValid() public view returns (bool) {
         return LibVerifying.isConfigValid(getConfig());
+    }
+
+    function _authorizePause(address) internal override {
+        if (msg.sender != owner() && msg.sender != resolve("rollup_watchdog", true)) {
+            revert L1_UNAUTHORIZED();
+        }
     }
 }

@@ -12,7 +12,7 @@
 //   Blog: https://mirror.xyz/labs.taiko.eth
 //   Youtube: https://www.youtube.com/@taikoxyz
 
-pragma solidity 0.8.20;
+pragma solidity 0.8.24;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
 import
@@ -234,7 +234,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
                 });
 
                 for (uint256 i; i < op.tokenIds.length; ++i) {
-                    t.transferFrom(user, address(this), op.tokenIds[i]);
+                    t.safeTransferFrom(user, address(this), op.tokenIds[i]);
                 }
             }
         }
