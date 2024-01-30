@@ -20,7 +20,6 @@ contract TestTaikoL2 is TaikoTest {
     address public addressManager;
     TaikoL2EIP1559Configurable public L2;
     SkipBasefeeCheckL2 public L2skip;
-    TaikoL2Signer public l2Signer;
 
     function setUp() public {
         addressManager = deployProxy({
@@ -69,8 +68,6 @@ contract TestTaikoL2 is TaikoTest {
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);
-
-        l2Signer = new TaikoL2Signer();
     }
 
     function test_L2_AnchorTx_with_constant_block_time() external {
@@ -230,19 +227,19 @@ contract TestTaikoL2 is TaikoTest {
     }
 
     function test_L2_AnchorTx_signing(bytes32 digest) external {
-        (uint8 v, uint256 r, uint256 s) = l2Signer.signAnchor(digest, uint8(1));
+        (uint8 v, uint256 r, uint256 s) = LibL2Signer.signAnchor(digest, uint8(1));
         address signer = ecrecover(digest, v + 27, bytes32(r), bytes32(s));
         assertEq(signer, L2.GOLDEN_TOUCH_ADDRESS());
 
-        (v, r, s) = l2Signer.signAnchor(digest, uint8(2));
+        (v, r, s) = LibL2Signer.signAnchor(digest, uint8(2));
         signer = ecrecover(digest, v + 27, bytes32(r), bytes32(s));
         assertEq(signer, L2.GOLDEN_TOUCH_ADDRESS());
 
         vm.expectRevert();
-        l2Signer.signAnchor(digest, uint8(0));
+        LibL2Signer.signAnchor(digest, uint8(0));
 
         vm.expectRevert();
-        l2Signer.signAnchor(digest, uint8(3));
+        LibL2Signer.signAnchor(digest, uint8(3));
     }
 
     function _anchor(uint32 parentGasLimit) private {
