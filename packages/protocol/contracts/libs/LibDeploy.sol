@@ -17,8 +17,19 @@ pragma solidity 0.8.24;
 import "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 
+/// @title TaikoERC1967Proxy
+/// @dev A proxy that allows for reading its implementation address.
+contract TaikoERC1967Proxy is ERC1967Proxy {
+    constructor(address _logic, bytes memory _data) payable ERC1967Proxy(_logic, _data) { }
+
+    function implementation() public view returns (address) {
+        return _implementation();
+    }
+}
+
 /// @title LibDeploy
 /// @dev Provides utilities for deploying contracts
+
 library LibDeploy {
     error NULL_IMPL_ADDR();
 
@@ -31,7 +42,7 @@ library LibDeploy {
         returns (address proxy)
     {
         if (impl == address(0)) revert NULL_IMPL_ADDR();
-        proxy = address(new ERC1967Proxy(impl, data));
+        proxy = address(new TaikoERC1967Proxy(impl, data));
 
         if (owner != address(0) && owner != OwnableUpgradeable(proxy).owner()) {
             OwnableUpgradeable(proxy).transferOwnership(owner);
