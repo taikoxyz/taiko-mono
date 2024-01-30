@@ -57,8 +57,11 @@ abstract contract Guardians is EssentialContract {
 
         // Delete current guardians data
         uint256 guardiansLength = guardians.length;
-        for (uint256 i; i < guardiansLength; ++i) {
+        for (uint256 i; i < guardiansLength;) {
             delete guardianIds[guardians[i]];
+            unchecked {
+                ++i;
+            }
         }
         assembly {
             sstore(guardians.slot, 0)

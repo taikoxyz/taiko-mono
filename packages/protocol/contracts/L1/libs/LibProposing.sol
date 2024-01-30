@@ -246,7 +246,7 @@ library LibProposing {
             // Note that address(this).balance has been updated with msg.value,
             // prior to any code in this function has been executed.
             address prevHook;
-            for (uint256 i; i < params.hookCalls.length; ++i) {
+            for (uint256 i; i < params.hookCalls.length;) {
                 if (uint160(prevHook) >= uint160(params.hookCalls[i].hook)) {
                     revert L1_INVALID_HOOK();
                 }
@@ -260,6 +260,9 @@ library LibProposing {
                 );
 
                 prevHook = params.hookCalls[i].hook;
+                unchecked {
+                    ++i;
+                }
             }
             // Refund Ether
             if (address(this).balance != 0) {
