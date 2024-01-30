@@ -17,6 +17,8 @@ pragma solidity 0.8.24;
 import "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import "../../common/EssentialContract.sol";
 import "../../thirdparty/LibBytesUtils.sol";
+import "../../thirdparty/automata-attestation/interfaces/IAttestation.sol";
+import "../../thirdparty/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import "../ITaikoL1.sol";
 import "./IVerifier.sol";
 
@@ -55,9 +57,11 @@ contract SgxVerifier is EssentialContract, IVerifier {
         uint256 indexed id, address indexed instance, address replaced, uint256 timstamp
     );
 
+    error SGX_INVALID_ATTESTATION();
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_INSTANCES();
     error SGX_INVALID_PROOF();
+    error SGX_MISSING_ATTESTATION();
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
@@ -77,37 +81,29 @@ contract SgxVerifier is EssentialContract, IVerifier {
         ids = _addInstances(_instances);
     }
 
-    /// @notice Adds SGX instances to the registry by another SGX instance.
-    /// @param id The id of the SGX instance who is adding new members.
-    /// @param newInstance The new address of this instance.
-    /// @param extraInstances The address array of SGX instances.
-    /// @param signature The signature proving authenticity.
-    /// @return ids The respective instanceId array per addresses.
-    function addInstances(
-        uint256 id,
-        address newInstance,
-        address[] calldata extraInstances,
-        bytes calldata signature
-    )
+    /// @notice Adds an SGX instance after the attestation is verified
+    /// @param attestation The parsed attestation quote.
+    /// @return id The respective instanceId
+    function registerInstance(V3Struct.ParsedV3QuoteStruct calldata attestation)
         external
-        returns (uint256[] memory ids)
+        returns (uint256)
     {
-        address taikoL1 = resolve("taiko", false);
-        bytes32 signedHash = keccak256(
-            abi.encode(
-                "ADD_INSTANCES",
-                ITaikoL1(taikoL1).getConfig().chainId,
-                address(this),
-                newInstance,
-                extraInstances
-            )
-        );
-        address oldInstance = ECDSA.recover(signedHash, signature);
-        if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
+        address automataDcapAttestation = (resolve("automata_dcap_attestation", true));
 
-        _replaceInstance(id, oldInstance, newInstance);
+        if (automataDcapAttestation == address(0)) {
+            return type(uint256).max;
+        }
 
-        ids = _addInstances(extraInstances);
+        // Still possible to be backward compatible and register instances by the owner.
+        (bool verified,) = IAttestation(automataDcapAttestation).verifyParsedQuote(attestation);
+
+        if (!verified) revert SGX_INVALID_ATTESTATION();
+
+        address[] memory _address = new address[](1);
+        _address[0] =
+            address(bytes20(LibBytesUtils.slice(attestation.localEnclaveReport.reportData, 0, 20)));
+
+        return _addInstances(_address)[0];
     }
 
     /// @inheritdoc IVerifier
@@ -161,7 +157,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         );
     }
 
-    function _addInstances(address[] calldata _instances) private returns (uint256[] memory ids) {
+    function _addInstances(address[] memory _instances) private returns (uint256[] memory ids) {
         ids = new uint256[](_instances.length);
 
         for (uint256 i; i < _instances.length; ++i) {
