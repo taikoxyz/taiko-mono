@@ -144,9 +144,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             }
         }
 
-        if (msg.value > 0) {
-            _to.sendEther(msg.value);
-        }
+        _to.sendEther(msg.value);
 
         emit TokenReceived({
             msgHash: ctx.msgHash,

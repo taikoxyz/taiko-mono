@@ -41,6 +41,7 @@ import "../contracts/test/erc20/FreeMintERC20.sol";
 
 import "./DeployCapability.sol";
 import "./HelperContracts.sol";
+import "./L2/TaikoL2Signer.sol";
 
 abstract contract TaikoTest is Test, DeployCapability {
     uint256 private _seed = 0x12345678;

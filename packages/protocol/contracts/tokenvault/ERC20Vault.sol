@@ -232,9 +232,7 @@ contract ERC20Vault is BaseVault {
             IBridgedERC20(token).mint(_to, amount);
         }
 
-        if (msg.value > 0) {
-            _to.sendEther(msg.value);
-        }
+        _to.sendEther(msg.value);
 
         emit TokenReceived({
             msgHash: ctx.msgHash,
@@ -271,9 +269,7 @@ contract ERC20Vault is BaseVault {
             }
         }
 
-        if (message.value > 0) {
-            message.owner.sendEther(message.value);
-        }
+        message.owner.sendEther(message.value);
 
         emit TokenReleased({
             msgHash: msgHash,

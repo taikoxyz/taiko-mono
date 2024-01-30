@@ -234,7 +234,7 @@ library LibProvingAlt {
         }
 
         ts.timestamp = uint64(block.timestamp);
-        return tier.maxBlocksToVerifyWithTier;
+        return tier.maxBlocksToVerifyPerProof;
     }
 
     /// @dev Handle the transition initialization logic

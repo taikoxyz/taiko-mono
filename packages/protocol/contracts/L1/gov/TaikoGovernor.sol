@@ -33,6 +33,8 @@ contract TaikoGovernor is
     GovernorVotesQuorumFractionUpgradeable,
     GovernorTimelockControlUpgradeable
 {
+    uint256[50] private __gap;
+
     function init(
         IVotesUpgradeable _token,
         TimelockControllerUpgradeable _timelock

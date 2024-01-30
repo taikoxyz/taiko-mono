@@ -184,7 +184,7 @@ library LibProving {
         ITierProvider.Tier memory tier =
             ITierProvider(resolver.resolve("tier_provider", false)).getTier(proof.tier);
 
-        maxBlocksToVerify = tier.maxBlocksToVerifyWithTier;
+        maxBlocksToVerify = tier.maxBlocksToVerifyPerProof;
 
         // We must verify the proof, and any failure in proof verification will
         // result in a revert.

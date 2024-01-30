@@ -41,7 +41,7 @@ contract TaikoA6TierProvider is EssentialContract, ITierProvider {
                 contestBond: 1000 ether, // TKO
                 cooldownWindow: 24 hours,
                 provingWindow: 2 hours,
-                maxBlocksToVerifyWithTier: 10
+                maxBlocksToVerifyPerProof: 10
             });
         }
 
@@ -52,7 +52,7 @@ contract TaikoA6TierProvider is EssentialContract, ITierProvider {
                 contestBond: 500 ether, // TKO
                 cooldownWindow: 24 hours,
                 provingWindow: 4 hours,
-                maxBlocksToVerifyWithTier: 8
+                maxBlocksToVerifyPerProof: 8
             });
         }
 
@@ -63,7 +63,7 @@ contract TaikoA6TierProvider is EssentialContract, ITierProvider {
                 contestBond: 250 ether, // TKO
                 cooldownWindow: 24 hours,
                 provingWindow: 6 hours,
-                maxBlocksToVerifyWithTier: 6
+                maxBlocksToVerifyPerProof: 6
             });
         }
 
@@ -74,7 +74,7 @@ contract TaikoA6TierProvider is EssentialContract, ITierProvider {
                 contestBond: 0, // not contestable
                 cooldownWindow: 24 hours,
                 provingWindow: 8 hours,
-                maxBlocksToVerifyWithTier: 4
+                maxBlocksToVerifyPerProof: 4
             });
         }
 

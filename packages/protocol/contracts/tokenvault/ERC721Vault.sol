@@ -122,9 +122,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
             }
         }
 
-        if (msg.value > 0) {
-            _to.sendEther(msg.value);
-        }
+        _to.sendEther(msg.value);
 
         emit TokenReceived({
             msgHash: ctx.msgHash,
@@ -176,9 +174,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         }
 
         // send back Ether
-        if (message.value > 0) {
-            message.owner.sendEther(message.value);
-        }
+        message.owner.sendEther(message.value);
 
         emit TokenReleased({
             msgHash: msgHash,

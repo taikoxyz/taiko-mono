@@ -244,9 +244,7 @@ contract Bridge is EssentialContract, IBridge {
         } else {
             // If sender is another address, reward it and refund the rest
             msg.sender.sendEther(message.fee);
-            if (refundAmount > 0) {
-                refundTo.sendEther(refundAmount);
-            }
+            refundTo.sendEther(refundAmount);
         }
     }
 
