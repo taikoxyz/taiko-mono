@@ -12,10 +12,11 @@
 //   Blog: https://mirror.xyz/labs.taiko.eth
 //   Youtube: https://www.youtube.com/@taikoxyz
 
-pragma solidity 0.8.20;
+pragma solidity 0.8.24;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "../../common/AddressResolver.sol";
+import "../../libs/LibMath.sol";
 import "../../signal/ISignalService.sol";
 import "../tiers/ITierProvider.sol";
 import "../TaikoData.sol";
@@ -24,6 +25,8 @@ import "./LibUtils.sol";
 /// @title LibVerifying
 /// @notice A library for handling block verification in the Taiko protocol.
 library LibVerifying {
+    using LibMath for uint256;
+
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     event BlockVerified(
         uint256 indexed blockId,
@@ -166,7 +169,7 @@ library LibVerifying {
                     }
                     if (
                         uint256(ITierProvider(tierProvider).getTier(ts.tier).cooldownWindow)
-                            + ts.timestamp > block.timestamp
+                            + uint256(ts.timestamp).max(state.slotB.lastUnpausedAt) > block.timestamp
                     ) {
                         // If cooldownWindow is 0, the block can theoretically
                         // be proved and verified within the same L1 block.

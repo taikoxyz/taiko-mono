@@ -12,7 +12,7 @@
 //   Blog: https://mirror.xyz/labs.taiko.eth
 //   Youtube: https://www.youtube.com/@taikoxyz
 
-pragma solidity 0.8.20;
+pragma solidity 0.8.24;
 
 import "lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
@@ -57,13 +57,13 @@ abstract contract OwnerUUPSUpgradable is UUPSUpgradeable, OwnableUpgradeable {
         _disableInitializers();
     }
 
-    function pause() external whenNotPaused {
+    function pause() public virtual whenNotPaused {
         _authorizePause(msg.sender);
         _paused = _TRUE;
         emit Paused(msg.sender);
     }
 
-    function unpause() external whenPaused {
+    function unpause() public virtual whenPaused {
         _authorizePause(msg.sender);
         _paused = _FALSE;
         emit Unpaused(msg.sender);

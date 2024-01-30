@@ -12,10 +12,11 @@
 //   Blog: https://mirror.xyz/labs.taiko.eth
 //   Youtube: https://www.youtube.com/@taikoxyz
 
-pragma solidity 0.8.20;
+pragma solidity 0.8.24;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "../../common/AddressResolver.sol";
+import "../../libs/LibMath.sol";
 import "../tiers/ITierProvider.sol";
 import "../verifiers/IVerifier.sol";
 import "../TaikoData.sol";
@@ -25,6 +26,8 @@ import "./LibUtils.sol";
 /// @notice An alternative library for handling block contestation and proving in the Taiko
 /// protocol.
 library LibProvingAlt {
+    using LibMath for uint256;
+
     bytes32 public constant RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
 
@@ -118,7 +121,7 @@ library LibProvingAlt {
         ITierProvider.Tier memory tier =
             ITierProvider(resolver.resolve("tier_provider", false)).getTier(proof.tier);
 
-        _checkProverPermission(blk, ts, tid, tier);
+        _checkProverPermission(state, blk, ts, tid, tier);
 
         // We must verify the proof, and any failure in proof verification will
         // result in a revert.
@@ -373,6 +376,7 @@ library LibProvingAlt {
 
     /// @dev Check the msg.sender (the new prover) against the block's assigned prover.
     function _checkProverPermission(
+        TaikoData.State storage state,
         TaikoData.Block storage blk,
         TaikoData.TransitionState storage ts,
         uint32 tid,
@@ -384,7 +388,8 @@ library LibProvingAlt {
         // The highest tier proof can always submit new proofs
         if (tier.contestBond == 0) return;
 
-        bool inProvingWindow = block.timestamp <= ts.timestamp + tier.provingWindow;
+        bool inProvingWindow = uint256(ts.timestamp).max(state.slotB.lastUnpausedAt)
+            + tier.provingWindow >= block.timestamp;
         bool isAssignedPover = msg.sender == blk.assignedProver;
 
         // The assigned prover can only submit the very first transition.
