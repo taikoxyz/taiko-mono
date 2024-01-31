@@ -13,9 +13,9 @@ import { PEMCertChainLib } from
     "../../contracts/thirdparty/automata-attestation/lib/PEMCertChainLib.sol";
 
 import "../automata-attestation/utils/DcapTestUtils.t.sol";
-import "../automata-attestation/utils/V3JsonUtils.t.sol";
+import "../automata-attestation/utils/V3QuoteParseUtils.t.sol";
 
-contract TestSgxVerifier is TaikoL1TestBase, DcapTestUtils, V3JsonUtils {
+contract TestSgxVerifier is TaikoL1TestBase, DcapTestUtils, V3QuoteParseUtils {
     address internal SGX_Y =
         vm.addr(0x9b1bb8cb3bdb539d0d1f03951d27f167f2d5443e7ef0d7ce745cd4ec619d3dd7);
     address internal SGX_Z = randAddress();

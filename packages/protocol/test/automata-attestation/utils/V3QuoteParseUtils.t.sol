@@ -14,7 +14,7 @@ import { Base64 } from "../../../lib/solady/src/utils/Base64.sol";
 import { JSONParserLib } from "../../../lib/solady/src/utils/JSONParserLib.sol";
 import { LibString } from "../../../lib/solady/src/utils/LibString.sol";
 
-contract V3JsonUtils {
+contract V3QuoteParseUtils {
     using JSONParserLib for JSONParserLib.Item;
     using LibString for string;
 
@@ -150,11 +150,35 @@ contract V3JsonUtils {
         });
     }
 
-    function fromECDSAQuoteV3AuthData(
+    function ParseV3QuoteBytes(
+        address pemCertChainLib,
+        bytes memory v3QuoteBytes
+    )
+        public
+        pure
+        returns (V3Struct.ParsedV3QuoteStruct memory v3quote)
+    {
+        (
+            bool successful,
+            V3Struct.Header memory header,
+            V3Struct.EnclaveReport memory localEnclaveReport,
+            ,
+            V3Struct.ECDSAQuoteV3AuthData memory authDataV3
+        ) = V3Parser.parseInput(v3QuoteBytes);
+        require(successful, "V3Quote bytes parse failed");
+
+        v3quote = V3Struct.ParsedV3QuoteStruct({
+            header: header,
+            localEnclaveReport: localEnclaveReport,
+            v3AuthData: fromLegacyECDSAQuoteV3AuthData(pemCertChainLib, authDataV3)
+        });
+    }
+
+    function fromLegacyECDSAQuoteV3AuthData(
         address pemCertLibAddr,
         V3Struct.ECDSAQuoteV3AuthData memory v3AuthDataOld
     )
-        public
+        internal
         pure
         returns (V3Struct.ParsedECDSAQuoteV3AuthData memory v3AuthDataNew)
     {

@@ -19,16 +19,18 @@ import "forge-std/console2.sol";
 
 import "../contracts/thirdparty/automata-attestation/AutomataDcapV3Attestation.sol";
 import "../contracts/L1/verifiers/SgxVerifier.sol";
+import "../contracts/thirdparty/LibBytesUtils.sol";
 import "../test/automata-attestation/utils/DcapTestUtils.t.sol";
-import "../test/automata-attestation/utils/V3JsonUtils.t.sol";
+import "../test/automata-attestation/utils/V3QuoteParseUtils.t.sol";
 
-contract SetDcapParams is Script, DcapTestUtils, V3JsonUtils {
+contract SetDcapParams is Script, DcapTestUtils, V3QuoteParseUtils {
     uint256 public ownerPrivateKey = vm.envUint("PRIVATE_KEY"); // Owner of the attestation contract
     address public dcapAttestationAddress = vm.envAddress("ATTESTATION_ADDRESS");
     address public sgxVerifier = vm.envAddress("SGX_VERIFIER_ADDRESS");
+    address public pemCertChainLib = vm.envAddress("PEMCERT_CHAIN_LIB_ADDRESS");
     string public tcbInfoPath = vm.envString("TCB_INFO_PATH");
     string public idPath = vm.envString("QEID_PATH");
-    string public v3QuotePath = vm.envString("V3_QUOTE_PATH");
+    string public v3QuoteB64Str = vm.envString("V3_QUOTE_BASE64");
     bytes32 public mrEnclave = vm.envBytes32("MR_ENCLAVE");
     bytes32 public mrSigner = vm.envBytes32("MR_SIGNER");
 
@@ -75,15 +77,14 @@ contract SetDcapParams is Script, DcapTestUtils, V3JsonUtils {
     }
 
     function registerSgxInstanceWithQuote() internal {
-        string memory v3QuoteJsonStr = vm.readFile(string.concat(vm.projectRoot(), v3QuotePath));
-        console.log("[LOG] v3QuoteJsonStr: %s", v3QuoteJsonStr);
-        bytes memory v3QuotePacked = vm.parseJson(v3QuoteJsonStr);
-        console.logBytes(v3QuotePacked);
+        bytes memory v3QuoteBytes = Base64.decode(v3QuoteB64Str);
+        V3Struct.ParsedV3QuoteStruct memory v3quote =
+            ParseV3QuoteBytes(pemCertChainLib, v3QuoteBytes);
 
-        (, V3Struct.ParsedV3QuoteStruct memory v3quote) = parseV3QuoteJson(v3QuotePacked);
-        console.log("v3quote.header.userData = %s", address(v3quote.header.userData));
-        console.logBytes(v3quote.localEnclaveReport.reportData);
-        uint256 ret = SgxVerifier(sgxVerifier).registerInstance(v3quote);
-        console.log("ret: %s", ret);
+        address parsedInstanceAddr =
+            address(bytes20(LibBytesUtils.slice(v3quote.localEnclaveReport.reportData, 0, 20)));
+        console.log("[log] register instance addr: %s", parsedInstanceAddr);
+        uint256 sgxId = SgxVerifier(sgxVerifier).registerInstance(v3quote);
+        console.log("[log] register instance sgx-id: %s", sgxId);
     }
 }
