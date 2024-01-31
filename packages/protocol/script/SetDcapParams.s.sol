@@ -30,7 +30,7 @@ contract SetDcapParams is Script, DcapTestUtils, V3QuoteParseUtils {
     address public pemCertChainLib = vm.envAddress("PEMCERT_CHAIN_LIB_ADDRESS");
     string public tcbInfoPath = vm.envString("TCB_INFO_PATH");
     string public idPath = vm.envString("QEID_PATH");
-    string public v3QuoteB64Str = vm.envString("V3_QUOTE_BASE64");
+    bytes public v3QuoteBytes = vm.envBytes("V3_QUOTE_BYTES");
     bytes32 public mrEnclave = vm.envBytes32("MR_ENCLAVE");
     bytes32 public mrSigner = vm.envBytes32("MR_SIGNER");
 
@@ -77,7 +77,6 @@ contract SetDcapParams is Script, DcapTestUtils, V3QuoteParseUtils {
     }
 
     function registerSgxInstanceWithQuote() internal {
-        bytes memory v3QuoteBytes = Base64.decode(v3QuoteB64Str);
         V3Struct.ParsedV3QuoteStruct memory v3quote =
             ParseV3QuoteBytes(pemCertChainLib, v3QuoteBytes);
 
