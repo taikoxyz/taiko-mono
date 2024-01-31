@@ -102,6 +102,7 @@
     $selectedToken &&
     !$validatingAmount &&
     !$insufficientBalance &&
+    $allApproved &&
     !paused;
 
   $: erc20ConditionsSatisfied =

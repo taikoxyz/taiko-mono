@@ -12,8 +12,8 @@
   import { network } from '$stores/network';
   import { switchingNetwork } from '$stores/network';
 
-  import ChainPill from './ChainPill.svelte';
-  import CombinedChainSelector from './CombinedChainSelector.svelte';
+  import ChainPill from './ChainPill/ChainPill.svelte';
+  import CombinedChainSelector from './CombinedChainSelector/CombinedChainSelector.svelte';
   import { ChainSelectorDirection, ChainSelectorType } from './types';
 
   export let type: ChainSelectorType;

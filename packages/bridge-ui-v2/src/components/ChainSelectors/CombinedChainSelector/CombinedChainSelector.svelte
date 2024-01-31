@@ -5,16 +5,15 @@
 
   import { chainConfig } from '$chainConfig';
   import { destNetwork } from '$components/Bridge/state';
+  import ChainsDialog from '$components/ChainSelectors/SelectorDialogs/ChainsDialog.svelte';
+  import ChainsDropdown from '$components/ChainSelectors/SelectorDialogs/ChainsDropdown.svelte';
+  import SwitchChainsButton from '$components/ChainSelectors/SwitchChainsButton/SwitchChainsButton.svelte';
   import DesktopOrLarger from '$components/DesktopOrLarger/DesktopOrLarger.svelte';
   import { LoadingMask } from '$components/LoadingMask';
   import { setAlternateNetwork } from '$libs/network/setAlternateNetwork';
   import { truncateString } from '$libs/util/truncateString';
   import { account } from '$stores/account';
   import { network } from '$stores/network';
-
-  import ChainsDialog from './ChainsDialog.svelte';
-  import ChainsDropdown from './ChainsDropdown.svelte';
-  import SwitchChainsButton from './SwitchChainsButton.svelte';
 
   let sourceToggled = false;
   let destinationToggled = false;
