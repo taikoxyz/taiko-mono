@@ -38,7 +38,8 @@ contract SetDcapParams is Script, DcapTestUtils, V3JsonUtils {
 
         vm.startBroadcast(ownerPrivateKey);
 
-        // all in one
+        // all in one, means sets MrEnclave, MrSigner, configures identitiy json and tcb info,
+        // register sgx instance
         setMrEnclave();
         setMrSigner();
         configureQeIdentityJson();
@@ -68,7 +69,6 @@ contract SetDcapParams is Script, DcapTestUtils, V3JsonUtils {
         string memory tcbInfoJson = vm.readFile(string.concat(vm.projectRoot(), tcbInfoPath));
         (bool tcbParsedSuccess, TCBInfoStruct.TCBInfo memory parsedTcbInfo) =
             parseTcbInfoJson(tcbInfoJson);
-        // string memory fmspc = "00606a000000";
         string memory fmspc = parsedTcbInfo.fmspc;
         AutomataDcapV3Attestation(dcapAttestationAddress).configureTcbInfoJson(fmspc, parsedTcbInfo);
         console.log("tcbParsedSuccess: %s", tcbParsedSuccess);

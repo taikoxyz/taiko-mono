@@ -27,11 +27,11 @@ contract DcapTestUtils {
 
         uint256 tcbInfoIndex = INDEX_ERROR;
 
-        for (uint256 x = 0; x < root.size(); x++) {
-            string memory decodedKey = JSONParserLib.decodeString(children[x].key());
+        for (uint256 i; i < root.size(); ++i) {
+            string memory decodedKey = JSONParserLib.decodeString(children[i].key());
             if (decodedKey.eq("tcbInfo")) {
-                tcbInfoObj = children[x].children();
-                tcbInfoIndex = x;
+                tcbInfoObj = children[i].children();
+                tcbInfoIndex = i;
             }
         }
 
