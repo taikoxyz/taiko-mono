@@ -88,6 +88,7 @@ contract SignalService is AuthorizableContract, ISignalService {
     )
         public
         view
+        virtual
         returns (bool)
     {
         if (skipProofCheck()) return true;
@@ -142,7 +143,7 @@ contract SignalService is AuthorizableContract, ISignalService {
         return SecureMerkleTrie.verifyInclusionProof(
             bytes.concat(getSignalSlot(srcChainId, app, signal)),
             hex"01",
-            p.storageProof,
+            _transcode(p.storageProof),
             signalRoot
         );
     }

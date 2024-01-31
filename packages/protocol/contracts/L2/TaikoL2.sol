@@ -35,13 +35,13 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
     using LibMath for uint256;
     using SafeERC20 for IERC20;
 
-    // Golden touch address
-    address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
-
     struct Config {
         uint32 gasTargetPerL1Block;
         uint8 basefeeAdjustmentQuotient;
     }
+
+    // Golden touch address
+    address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
 
     // Mapping from L2 block numbers to their block hashes.
     // All L2 block hashes will be saved in this mapping.

@@ -63,11 +63,15 @@ library LibProvingAlt {
     error L1_NOT_ASSIGNED_PROVER();
     error L1_UNEXPECTED_TRANSITION_TIER();
 
-    function pauseProving(TaikoData.State storage state, bool pause) external {
-        if (state.slotB.provingPaused == pause) revert L1_INVALID_PAUSE_STATUS();
+    function pauseProving(TaikoData.State storage state, bool toPause) external {
+        if (state.slotB.provingPaused == toPause) revert L1_INVALID_PAUSE_STATUS();
 
-        state.slotB.provingPaused = pause;
-        emit ProvingPaused(pause);
+        state.slotB.provingPaused = toPause;
+
+        if (!toPause) {
+            state.slotB.lastUnpausedAt = uint64(block.timestamp);
+        }
+        emit ProvingPaused(toPause);
     }
 
     /// @dev Proves or contests a block transition.
