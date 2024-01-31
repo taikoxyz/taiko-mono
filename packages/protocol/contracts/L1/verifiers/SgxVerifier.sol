@@ -101,7 +101,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
         address[] memory _address = new address[](1);
         _address[0] =
-            address(bytes20(LibBytesUtils.slice(attestation.localEnclaveReport.reportData, 0, 20)));
+            address(bytes20(Bytes.slice(attestation.localEnclaveReport.reportData, 0, 20)));
 
         return _addInstances(_address)[0];
     }
