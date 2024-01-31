@@ -29,9 +29,8 @@
   import { account } from '$stores';
   import type { Account } from '$stores/account';
 
-  import StatusFilterDialog from './StatusFilterDialog.svelte';
-  import StatusFilterDropdown from './StatusFilterDropdown.svelte';
-  import StatusInfoDialog from './StatusInfoDialog.svelte';
+  import { StatusFilterDialog, StatusFilterDropdown } from './Filter';
+  import { StatusInfoDialog } from './Status';
   import Transaction from './Transaction.svelte';
 
   let transactions: BridgeTransaction[] = [];

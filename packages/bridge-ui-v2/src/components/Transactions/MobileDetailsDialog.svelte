@@ -11,8 +11,8 @@
   import { uid } from '$libs/util/uid';
 
   import ChainSymbolName from './ChainSymbolName.svelte';
-  import Status from './Status.svelte';
-  import StatusInfoDialog from './StatusInfoDialog.svelte';
+  import { StatusInfoDialog } from './Status';
+  import Status from './Status/Status.svelte';
 
   export let closeDetails = noop;
   export let detailsOpen = false;

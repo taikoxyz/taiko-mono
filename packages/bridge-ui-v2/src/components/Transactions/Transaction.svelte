@@ -19,7 +19,7 @@
   import ChainSymbolName from './ChainSymbolName.svelte';
   import InsufficientFunds from './InsufficientFunds.svelte';
   import MobileDetailsDialog from './MobileDetailsDialog.svelte';
-  import Status from './Status.svelte';
+  import { Status } from './Status';
 
   export let item: BridgeTransaction;
   export let loading = false;

@@ -61,16 +61,18 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
   log('selectedToken', get(selectedToken));
 
   const tokenInfo = await getTokenAddresses({ token, srcChainId: currentChainId, destChainId: destinationChainId });
-  if (!tokenInfo || !tokenInfo.bridged || !tokenInfo.bridged.address) {
+  if (!tokenInfo) {
     log('no token info found');
     throw new NoCanonicalInfoFoundError();
   }
-  const { address: bridgedTokenAddress } = tokenInfo.bridged;
-  if (bridgedTokenAddress === tokenAddress) {
-    // we have a bridged token, no need for allowance check as we will burn the token
-    log('token is bridged, no need for allowance check');
-    allApproved.set(true);
-    return ApprovalStatus.BRIDGED_NO_APPROVAL_REQUIRED;
+  if (tokenInfo.bridged && tokenInfo.bridged.address) {
+    const { address: bridgedTokenAddress } = tokenInfo.bridged;
+    if (bridgedTokenAddress === tokenAddress) {
+      // we have a bridged token, no need for allowance check as we will burn the token
+      log('token is bridged, no need for allowance check');
+      allApproved.set(true);
+      return ApprovalStatus.BRIDGED_NO_APPROVAL_REQUIRED;
+    }
   }
 
   if (!ownerAddress || !tokenAddress) {

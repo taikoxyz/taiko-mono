@@ -3,13 +3,12 @@
   import { t } from 'svelte-i18n';
 
   import { chainConfig } from '$chainConfig';
+  import ChainsDialog from '$components/ChainSelectors/SelectorDialogs/ChainsDialog.svelte';
+  import ChainsDropdown from '$components/ChainSelectors/SelectorDialogs/ChainsDropdown.svelte';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { classNames } from '$libs/util/classNames';
   import { truncateString } from '$libs/util/truncateString';
   import { uid } from '$libs/util/uid';
-
-  import ChainsDialog from './ChainsDialog.svelte';
-  import ChainsDropdown from './ChainsDropdown.svelte';
 
   export let value: Maybe<GetNetworkResult['chain']> = null;
   export let label = '';
