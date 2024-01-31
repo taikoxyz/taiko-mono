@@ -72,6 +72,10 @@ func (i *Indexer) subscribeMessageSent(ctx context.Context, chainID *big.Int, er
 					return
 				}
 
+				i.mu.Lock()
+
+				defer i.mu.Unlock()
+
 				block, err := i.blockRepo.GetLatestBlockProcessedForEvent(relayer.EventNameMessageSent, chainID)
 				if err != nil {
 					slog.Error("i.subscribe, blockRepo.GetLatestBlockProcessedForEvent", "error", err)
