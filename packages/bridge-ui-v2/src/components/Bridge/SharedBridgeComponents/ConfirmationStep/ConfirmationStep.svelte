@@ -47,6 +47,7 @@
 
   let bridging: boolean;
   let approving: boolean;
+  let checking: boolean;
 
   $: statusTitle = '';
   $: statusDescription = '';
@@ -213,11 +214,17 @@
           <!-- eslint-disable-next-line svelte/no-at-html-tags -->
           <span class="">{@html statusDescription}</span>
         </div>
-      {:else if !$allApproved && !approving}
+      {:else if !$allApproved && !approving && !checking}
         <Icon type={approveIcon} size={160} />
         <div id="text" class="f-col my-[30px] text-center">
           <h1 class="mb-[16px]">{$t('bridge.nft.step.confirm.approve.title')}</h1>
           <span>{$t('bridge.nft.step.confirm.approve.description')}</span>
+        </div>
+      {:else if checking}
+        <Spinner class="!w-[160px] !h-[160px] text-primary-brand" />
+        <div id="text" class="f-col my-[30px] text-center">
+          <h1 class="mb-[16px]">{$t('bridge.nft.step.confirm.analyzing')}</h1>
+          <span>{$t('bridge.nft.step.confirm.checking_status')}</span>
         </div>
       {:else if approving || bridging}
         <Spinner class="!w-[160px] !h-[160px] text-primary-brand" />
@@ -237,7 +244,7 @@
   {#if bridgingStatus === BridgingStatus.PENDING}
     <section id="actions" class="f-col w-full">
       <div class="h-sep mb-[30px]" />
-      <Actions {approve} {bridge} bind:bridging bind:approving />
+      <Actions {approve} {bridge} bind:bridging bind:approving bind:checking />
     </section>
   {/if}
 </div>

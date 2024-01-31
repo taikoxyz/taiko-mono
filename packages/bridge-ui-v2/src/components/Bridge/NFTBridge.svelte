@@ -165,7 +165,7 @@
         <ConfirmationStep bind:bridgingStatus />
       {/if}
       <!-- NAVIGATION -->
-      <StepNavigation bind:activeStep {validatingImport} />
+      <StepNavigation bind:activeStep {validatingImport} {bridgingStatus} />
     </div>
   </Card>
 </div>

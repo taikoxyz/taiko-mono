@@ -3,11 +3,14 @@
   import { t } from 'svelte-i18n';
 
   import { chainConfig } from '$chainConfig';
+  import { Alert } from '$components/Alert';
   import { ProcessingFee, Recipient } from '$components/Bridge/SharedBridgeComponents';
   import { destNetwork as destChain, enteredAmount, selectedNFTs, selectedToken } from '$components/Bridge/state';
   import { ChainSelector, ChainSelectorDirection, ChainSelectorType } from '$components/ChainSelectors';
   import { IconFlipper } from '$components/Icon';
   import { NFTDisplay } from '$components/NFTs';
+  import { PUBLIC_SLOW_L1_BRIDGING_WARNING } from '$env/static/public';
+  import { LayerType } from '$libs/chain';
   import { fetchNFTImageUrl } from '$libs/token/fetchNFTImageUrl';
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { network } from '$stores/network';
@@ -16,6 +19,9 @@
 
   let recipientComponent: Recipient;
   let processingFeeComponent: ProcessingFee;
+  let slowL1Warning = PUBLIC_SLOW_L1_BRIDGING_WARNING || false;
+
+  $: displayL1Warning = slowL1Warning && $destChain?.id && chainConfig[$destChain.id].type === LayerType.L1;
 
   const dispatch = createEventDispatcher();
 
@@ -121,6 +127,10 @@
     {/if}
   </div>
 </div>
+
+{#if displayL1Warning}
+  <Alert type="warning">{$t('bridge.alerts.slow_bridging')}</Alert>
+{/if}
 
 <!-- 
 NFT List or Card View

@@ -32,6 +32,7 @@
   export let disabled = false;
 
   let paused = false;
+  export let checking = false;
 
   function onApproveClick() {
     if (paused) throw new BridgePausedError('Bridge is paused');
@@ -49,19 +50,20 @@
 
   onMount(async () => {
     if ($selectedToken) {
-      $validatingAmount = true;
+      $allApproved = false;
+      checking = true;
       if ($selectedTokenIsBridged) {
         $allApproved = true;
         $insufficientAllowance = false;
       } else {
-        getTokenApprovalStatus($selectedToken);
+        await getTokenApprovalStatus($selectedToken);
       }
-      $validatingAmount = false;
+      checking = false;
     }
   });
 
   $: isValidBalance =
-    $tokenBalance && (isETH || isERC20 || isERC1155 ? $tokenBalance.value > 0n : isERC721 ? true : false);
+    isETH || isERC20 || isERC1155 ? $tokenBalance && $tokenBalance.value > 0n : isERC721 ? true : false;
 
   // Basic conditions so we can even start the bridging process
   $: hasAddress = $recipientAddress || $account?.address ? true : false;
@@ -77,14 +79,15 @@
 
   // Conditions to disable/enable buttons
   $: disableApprove =
-    !$selectedTokenIsBridged &&
-    (isERC20
-      ? canDoNothing || $insufficientBalance || $validatingAmount || approving || $allApproved || !$enteredAmount
-      : isERC721
-        ? $allApproved || approving
-        : isERC1155
+    checking ||
+    (!$selectedTokenIsBridged &&
+      (isERC20
+        ? canDoNothing || $insufficientBalance || $validatingAmount || approving || $allApproved || !$enteredAmount
+        : isERC721
           ? $allApproved || approving
-          : approving);
+          : isERC1155
+            ? $allApproved || approving
+            : approving));
 
   $: isERC20 = $selectedToken?.type === TokenType.ERC20;
   $: isERC721 = $selectedToken?.type === TokenType.ERC721;
@@ -130,7 +133,7 @@
     <ActionButton
       priority="primary"
       disabled={disableApprove}
-      loading={approving || $validatingAmount}
+      loading={approving || $validatingAmount || checking}
       on:click={onApproveClick}>
       {#if approving}
         <span class="body-bold">{$t('bridge.button.approving')}</span>
@@ -139,6 +142,8 @@
           <Icon type="check" />
           <span class="body-bold">{$t('bridge.button.approved')}</span>
         </div>
+      {:else if checking}
+        <span class="body-bold">{$t('bridge.button.validating')}</span>
       {:else}
         <span class="body-bold">{$t('bridge.button.approve')}</span>
       {/if}

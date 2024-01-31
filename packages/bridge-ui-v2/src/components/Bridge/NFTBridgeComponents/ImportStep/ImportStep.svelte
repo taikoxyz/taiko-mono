@@ -1,15 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { t } from 'svelte-i18n';
 
-  import { chainConfig } from '$chainConfig';
-  import { Alert } from '$components/Alert';
   import { destNetwork as destChain, selectedNFTs } from '$components/Bridge/state';
   import { ImportMethod } from '$components/Bridge/types';
   import { ChainSelector, ChainSelectorType } from '$components/ChainSelectors';
-  import { PUBLIC_SLOW_L1_BRIDGING_WARNING } from '$env/static/public';
   import { fetchNFTs } from '$libs/bridge/fetchNFTs';
-  import { LayerType } from '$libs/chain';
   import type { NFT } from '$libs/token';
   import { account } from '$stores/account';
   import { network as srcChain } from '$stores/network';
@@ -18,8 +13,6 @@
   import ManualImport from './ManualImport.svelte';
   import ScannedImport from './ScannedImport.svelte';
   import { selectedImportMethod } from './state';
-
-  let slowL1Warning = PUBLIC_SLOW_L1_BRIDGING_WARNING || false;
 
   let foundNFTs: NFT[] = [];
 
@@ -53,8 +46,6 @@
 
   $: canImport = ($account?.isConnected && $srcChain?.id && $destChain && !scanning) || false;
 
-  $: displayL1Warning = slowL1Warning && $destChain?.id && chainConfig[$destChain.id].type === LayerType.L1;
-
   onMount(() => {
     reset();
   });
@@ -63,10 +54,6 @@
 <div class="f-between-center gap-[16px] mt-[30px]">
   <ChainSelector type={ChainSelectorType.COMBINED} />
 </div>
-
-{#if displayL1Warning}
-  <Alert type="warning">{$t('bridge.alerts.slow_bridging')}</Alert>
-{/if}
 
 <div class="h-sep" />
 {#if $selectedImportMethod === ImportMethod.MANUAL}
