@@ -33,7 +33,6 @@ contract AutomataDcapV3AttestationTest is Test, DcapTestUtils, V3QuoteParseUtils
     string internal constant tcbInfoPath = "/test/automata-attestation/assets/0923/tcbInfo.json";
     string internal constant idPath = "/test/automata-attestation/assets/0923/identity.json";
     string internal constant v3QuoteJsonPath = "/test/automata-attestation/assets/0923/v3quote.json";
-    string internal constant v3QuoteBinPath = "/test/automata-attestation/assets/0923/v3quote.bin";
     address constant admin = address(1);
     address constant user = 0x0926b716f6aEF52F9F3C3474A2846e1Bf1ACedf6;
     bytes32 constant mrEnclave = 0x46049af725ec3986eeb788693df7bc5f14d3f2705106a19cd09b9d89237db1a0;
