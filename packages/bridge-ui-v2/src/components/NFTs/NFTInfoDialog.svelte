@@ -53,13 +53,16 @@
       const tokenInfo = await getTokenAddresses({ token: nft, srcChainId, destChainId });
 
       if (!tokenInfo) return;
-      if (!tokenInfo.bridged?.address || tokenInfo.bridged?.address === zeroAddress) return;
-      bridgedAddress = tokenInfo.bridged?.address;
-      bridgedChain = tokenInfo.bridged?.chainId;
 
-      if (!tokenInfo.canonical?.address || tokenInfo.canonical?.address === zeroAddress) return;
-      canonicalAddress = tokenInfo.canonical?.address;
-      canonicalChain = tokenInfo.canonical?.chainId;
+      if (tokenInfo.canonical?.address && tokenInfo.canonical?.address !== zeroAddress) {
+        canonicalAddress = tokenInfo.canonical?.address;
+        canonicalChain = tokenInfo.canonical?.chainId;
+      }
+
+      if (tokenInfo.bridged?.address && tokenInfo.bridged?.address !== zeroAddress) {
+        bridgedAddress = tokenInfo.bridged?.address;
+        bridgedChain = tokenInfo.bridged?.chainId;
+      }
     } catch (error) {
       console.error(error);
     }

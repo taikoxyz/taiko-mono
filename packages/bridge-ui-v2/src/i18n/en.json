@@ -111,6 +111,7 @@
     "nft": {
       "step": {
         "confirm": {
+          "analyzing": "Please wait",
           "approve": {
             "description": "Before initiating the bridge, it's necessary to first approve the transfer.",
             "pending": "Please wait for your transaction to be picked up",
@@ -120,7 +121,7 @@
             "title": "Approval required"
           },
           "approved": {
-            "description": "All token are approved, you can now bridge your NFTs",
+            "description": "All tokens are approved, you can now bridge your NFTs",
             "title": "Proceed to bridge"
           },
           "bridge": {
@@ -131,6 +132,7 @@
           "button": {
             "back": "Back to bridge"
           },
+          "checking_status": "Checking the approval status",
           "processing": "Processing..."
         },
         "import": {

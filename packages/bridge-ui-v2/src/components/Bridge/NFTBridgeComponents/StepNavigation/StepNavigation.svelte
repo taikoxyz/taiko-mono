@@ -2,7 +2,7 @@
   import { t } from 'svelte-i18n';
 
   import { importDone } from '$components/Bridge/state';
-  import { BridgeSteps, ImportMethod } from '$components/Bridge/types';
+  import { BridgeSteps, BridgingStatus, ImportMethod } from '$components/Bridge/types';
   import { ActionButton } from '$components/Button';
 
   import { selectedImportMethod } from '../ImportStep/state';
@@ -10,10 +10,10 @@
 
   export let activeStep: BridgeSteps = BridgeSteps.IMPORT;
   export let validatingImport = false;
+  export let disabled = false;
 
+  export let bridgingStatus: BridgingStatus;
   let nextStepButtonText: string;
-
-  // const nextStep = () => (activeStep = Math.min(activeStep + 1, BridgeSteps.CONFIRM));
 
   const getStepText = () => {
     if (activeStep === BridgeSteps.REVIEW) {
@@ -85,13 +85,15 @@
     {/if}
 
     {#if activeStep === BridgeSteps.CONFIRM}
-      <!-- <ActionButton priority="primary" disabled={!canProceed} on:click={() => handleNextStep()}>
-        <span class="body-bold">{nextStepButtonText}</span>
-      </ActionButton> -->
-
-      <StepBack on:click={() => handlePreviousStep()}>
-        {$t('common.back')}
-      </StepBack>
+      {#if bridgingStatus === BridgingStatus.DONE}
+        <ActionButton {disabled} priority="primary" on:click={() => handleNextStep()}>
+          <span class="body-bold">{nextStepButtonText}</span>
+        </ActionButton>
+      {:else}
+        <StepBack on:click={() => handlePreviousStep()}>
+          {$t('common.back')}
+        </StepBack>
+      {/if}
     {/if}
   </div>
 {/if}
