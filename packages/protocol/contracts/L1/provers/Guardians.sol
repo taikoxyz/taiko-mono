@@ -38,22 +38,22 @@ abstract contract Guardians is EssentialContract {
     error INVALID_PROOF();
 
     /// @notice Set the set of guardians
-    /// @param _guardians The new set of guardians
+    /// @param _newGuardians The new set of guardians
+    /// @param _minGuardians The minimum required to sign
     function setGuardians(
-        address[] memory _guardians,
+        address[] memory _newGuardians,
         uint8 _minGuardians
     )
         external
         onlyOwner
         nonReentrant
     {
-        if (_guardians.length < MIN_NUM_GUARDIANS || _guardians.length > type(uint8).max) {
+        if (_newGuardians.length < MIN_NUM_GUARDIANS || _newGuardians.length > type(uint8).max) {
             revert INVALID_GUARDIAN_SET();
         }
-        if (
-            _minGuardians == 0 || _minGuardians < _guardians.length >> 1
-                || _minGuardians > _guardians.length
-        ) revert INVALID_MIN_GUARDIANS();
+        if (_minGuardians < _newGuardians.length >> 1 || _minGuardians > _newGuardians.length) {
+            revert INVALID_MIN_GUARDIANS();
+        }
 
         // Delete current guardians data
         uint256 guardiansLength = guardians.length;
@@ -64,8 +64,8 @@ abstract contract Guardians is EssentialContract {
             sstore(guardians.slot, 0)
         }
 
-        for (uint256 i = 0; i < _guardians.length;) {
-            address guardian = _guardians[i];
+        for (uint256 i = 0; i < _newGuardians.length;) {
+            address guardian = _newGuardians[i];
             if (guardian == address(0)) revert INVALID_GUARDIAN();
             if (guardianIds[guardian] != 0) revert INVALID_GUARDIAN_SET();
 
@@ -75,7 +75,7 @@ abstract contract Guardians is EssentialContract {
         }
 
         minGuardians = _minGuardians;
-        emit GuardiansUpdated(++version, _guardians);
+        emit GuardiansUpdated(++version, _newGuardians);
     }
 
     function isApproved(bytes32 hash) public view returns (bool) {

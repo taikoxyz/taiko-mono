@@ -23,7 +23,6 @@ import "../libs/LibAddress.sol";
 import "../libs/LibMath.sol";
 import "./Lib1559Math.sol";
 import "./CrossChainOwned.sol";
-import "./TaikoL2Signer.sol";
 
 /// @title TaikoL2
 /// @notice Taiko L2 is a smart contract that handles cross-layer message
@@ -31,7 +30,7 @@ import "./TaikoL2Signer.sol";
 /// It is used to anchor the latest L1 block details to L2 for cross-layer
 /// communication, manage EIP-1559 parameters for gas pricing, and store
 /// verified L1 block information.
-contract TaikoL2 is CrossChainOwned, TaikoL2Signer, ICrossChainSync {
+contract TaikoL2 is CrossChainOwned, ICrossChainSync {
     using LibAddress for address;
     using LibMath for uint256;
     using SafeERC20 for IERC20;
@@ -40,6 +39,9 @@ contract TaikoL2 is CrossChainOwned, TaikoL2Signer, ICrossChainSync {
         uint32 gasTargetPerL1Block;
         uint8 basefeeAdjustmentQuotient;
     }
+
+    // Golden touch address
+    address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
 
     // Mapping from L2 block numbers to their block hashes.
     // All L2 block hashes will be saved in this mapping.

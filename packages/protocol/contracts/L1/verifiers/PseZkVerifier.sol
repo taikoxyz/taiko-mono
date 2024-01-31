@@ -16,7 +16,7 @@ pragma solidity 0.8.24;
 
 import "../../4844/Lib4844.sol";
 import "../../common/EssentialContract.sol";
-import "../../thirdparty/LibBytesUtils.sol";
+import "../../thirdparty/optimism/Bytes.sol";
 import "../TaikoData.sol";
 import "./IVerifier.sol";
 
@@ -38,6 +38,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
 
     uint256[50] private __gap;
 
+    error L1_BLOB_NOT_USED();
     error L1_INVALID_PROOF();
 
     /// @notice Initializes the contract with the provided address manager.
@@ -80,7 +81,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
                 pointProof: pf.pointProof
             });
         } else {
-            assert(zkProof.pointProof.length == 0);
+            if (zkProof.pointProof.length != 0) revert L1_BLOB_NOT_USED();
             instance = calcInstance({
                 tran: tran,
                 prover: ctx.prover,
@@ -91,14 +92,14 @@ contract PseZkVerifier is EssentialContract, IVerifier {
         }
 
         // Validate the instance using bytes utilities.
-        bool verified = LibBytesUtils.equal(
-            LibBytesUtils.slice(zkProof.zkp, 0, 32), bytes.concat(bytes16(0), bytes16(instance))
+        bool verified = Bytes.equal(
+            Bytes.slice(zkProof.zkp, 0, 32), bytes.concat(bytes16(0), bytes16(instance))
         );
 
         if (!verified) revert L1_INVALID_PROOF();
 
-        verified = LibBytesUtils.equal(
-            LibBytesUtils.slice(zkProof.zkp, 32, 32),
+        verified = Bytes.equal(
+            Bytes.slice(zkProof.zkp, 32, 32),
             bytes.concat(bytes16(0), bytes16(uint128(uint256(instance))))
         );
         if (!verified) revert L1_INVALID_PROOF();

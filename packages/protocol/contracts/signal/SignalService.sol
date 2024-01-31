@@ -17,7 +17,8 @@ pragma solidity 0.8.24;
 import "lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
 import "../common/AuthorizableContract.sol";
 import "../common/ICrossChainSync.sol";
-import "../thirdparty/LibSecureMerkleTrie.sol";
+import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
+import "../thirdparty/optimism/rlp/RLPReader.sol";
 import "./ISignalService.sol";
 
 /// @title SignalService
@@ -50,6 +51,7 @@ contract SignalService is AuthorizableContract, ISignalService {
 
     error SS_INVALID_APP();
     error SS_INVALID_SIGNAL();
+    error SS_UNSUPPORTED();
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init() external initializer {
@@ -86,6 +88,7 @@ contract SignalService is AuthorizableContract, ISignalService {
     )
         public
         view
+        virtual
         returns (bool)
     {
         if (skipProofCheck()) return true;
@@ -129,18 +132,19 @@ contract SignalService is AuthorizableContract, ISignalService {
                 hop.signalRootRelay,
                 hop.signalRoot // as a signal
             );
-            bool verified = LibSecureMerkleTrie.verifyInclusionProof(
-                bytes.concat(slot), hex"01", hop.storageProof, signalRoot
+
+            bool verified = SecureMerkleTrie.verifyInclusionProof(
+                bytes.concat(slot), hex"01", _transcode(hop.storageProof), signalRoot
             );
             if (!verified) return false;
 
             signalRoot = hop.signalRoot;
         }
 
-        return LibSecureMerkleTrie.verifyInclusionProof(
+        return SecureMerkleTrie.verifyInclusionProof(
             bytes.concat(getSignalSlot(srcChainId, app, signal)),
             hex"01",
-            p.storageProof,
+            _transcode(p.storageProof),
             signalRoot
         );
     }
@@ -167,5 +171,20 @@ contract SignalService is AuthorizableContract, ISignalService {
     /// @return Returns true to skip checking inclusion proofs.
     function skipProofCheck() public pure virtual returns (bool) {
         return false;
+    }
+
+    /// @notice Translate a RLP-encoded list of RLP-encoded TrieNodes into a list of LP-encoded
+    /// TrieNodes.
+    function _transcode(bytes memory proof) internal pure returns (bytes[] memory proofs) {
+        RLPReader.RLPItem[] memory nodes = RLPReader.readList(proof);
+        proofs = new bytes[](nodes.length);
+
+        for (uint256 i; i < nodes.length; ++i) {
+            proofs[i] = RLPReader.readBytes(nodes[i]);
+        }
+    }
+
+    function _authorizePause(address) internal pure override {
+        revert SS_UNSUPPORTED();
     }
 }
