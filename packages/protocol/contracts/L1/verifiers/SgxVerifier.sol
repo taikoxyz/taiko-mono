@@ -34,7 +34,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// bootstrapping the network with trustworthy instances.
     struct Instance {
         address addr;
-        uint64 validFrom;
+        uint64 validSince;
     }
 
     uint64 public constant INSTANCE_EXPIRY = 180 days;
@@ -68,13 +68,6 @@ contract SgxVerifier is EssentialContract, IVerifier {
     error SGX_MISSING_ATTESTATION();
     error SGX_RA_NOT_SUPPORTED();
 
-    modifier onlyAuthorized() {
-        if (msg.sender != owner() && msg.sender != resolve("rollup_watchdog", true)) {
-            revert SGX_DELETE_NOT_AUTHORIZED();
-        }
-        _;
-    }
-
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
     function init(address _addressManager) external initializer {
@@ -95,7 +88,10 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @notice Deletes SGX instances from the registry.
     /// @param _ids The ids array of SGX instances.
-    function deleteInstances(uint256[] calldata _ids) external onlyAuthorized {
+    function deleteInstances(uint256[] calldata _ids)
+        external
+        onlyFromOwnerOrNamed("rollup_watchdog")
+    {
         if (_ids.length == 0) revert SGX_INVALID_INSTANCES();
         for (uint256 i; i < _ids.length; ++i) {
             if (instances[_ids[i]].addr == address(0)) revert SGX_INVALID_INSTANCE();
@@ -189,16 +185,16 @@ contract SgxVerifier is EssentialContract, IVerifier {
     {
         ids = new uint256[](_instances.length);
 
-        uint64 validFrom = uint64(block.timestamp);
+        uint64 validSince = uint64(block.timestamp);
 
         if (!instantValid) {
-            validFrom += INSTANCE_VALIDITY_DELAY;
+            validSince += INSTANCE_VALIDITY_DELAY;
         }
 
         for (uint256 i; i < _instances.length; ++i) {
             if (_instances[i] == address(0)) revert SGX_INVALID_INSTANCE();
 
-            instances[nextInstanceId] = Instance(_instances[i], validFrom);
+            instances[nextInstanceId] = Instance(_instances[i], validSince);
             ids[i] = nextInstanceId;
 
             emit InstanceAdded(nextInstanceId, _instances[i], address(0), block.timestamp);
@@ -217,7 +213,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     function _isInstanceValid(uint256 id, address instance) private view returns (bool) {
         if (instance == address(0)) return false;
         if (instance != instances[id].addr) return false;
-        if (instances[id].validFrom > block.timestamp) return false;
-        return instances[id].validFrom + INSTANCE_EXPIRY > block.timestamp;
+        if (instances[id].validSince > block.timestamp) return false;
+        return instances[id].validSince + INSTANCE_EXPIRY > block.timestamp;
     }
 }
