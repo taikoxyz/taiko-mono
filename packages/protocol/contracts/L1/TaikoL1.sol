@@ -17,8 +17,7 @@ pragma solidity 0.8.24;
 import "../common/EssentialContract.sol";
 import "./libs/LibDepositing.sol";
 import "./libs/LibProposing.sol";
-//import "./libs/LibProving.sol";
-import { LibProvingAlt as LibProving } from "./libs/LibProvingAlt.sol";
+import "./libs/LibProving.sol";
 import "./libs/LibVerifying.sol";
 import "./ITaikoL1.sol";
 import "./TaikoErrors.sol";
@@ -248,9 +247,10 @@ contract TaikoL1 is
         return LibVerifying.isConfigValid(getConfig());
     }
 
-    function _authorizePause(address) internal override {
-        if (msg.sender != owner() && msg.sender != resolve("rollup_watchdog", true)) {
-            revert L1_UNAUTHORIZED();
-        }
-    }
+    function _authorizePause(address)
+        internal
+        view
+        override
+        onlyFromOwnerOrNamed("rollup_watchdog")
+    { }
 }

@@ -2248,7 +2248,8 @@ contract Halo2Verifier {
             // Revert if anything fails
             if iszero(success) { revert(0, 0) }
 
-            // Return taiko hash bytes on success
+            // Return taiko hash bytes on success:
+            // 0x93ac8...0177 = keccak("taiko")
             mstore(0x00, 0x93ac8fdbfc0b0608f9195474a0dd6242f019f5abc3c4e26ad51fefb059cc0177)
             return(0, 32)
         }

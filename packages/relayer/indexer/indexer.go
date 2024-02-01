@@ -96,6 +96,8 @@ type Indexer struct {
 	numLatestBlocksToIgnoreWhenCrawling uint64
 
 	ctx context.Context
+
+	mu *sync.Mutex
 }
 
 func (i *Indexer) InitFromCli(ctx context.Context, c *cli.Context) error {
@@ -191,6 +193,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	i.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
 
 	i.numLatestBlocksToIgnoreWhenCrawling = cfg.NumLatestBlocksToIgnoreWhenCrawling
+
+	i.mu = &sync.Mutex{}
 
 	return nil
 }
