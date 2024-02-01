@@ -28,6 +28,20 @@ contract TestSgxVerifier is TaikoL1TestBase {
         sv.addInstances(_instances);
     }
 
+    function test_deleteInstancesByOwner() external {
+        uint256[] memory _ids = new uint256[](1);
+        _ids[0] = 0;
+
+        address instance;
+        (instance,) = sv.instances(0);
+        assertEq(instance, SGX_X_0);
+
+        sv.deleteInstances(_ids);
+
+        (instance,) = sv.instances(0);
+        assertEq(instance, address(0));
+    }
+
     function test_addInstancesBySgxInstance() external {
         address[] memory _instances = new address[](2);
         _instances[0] = SGX_Y;
