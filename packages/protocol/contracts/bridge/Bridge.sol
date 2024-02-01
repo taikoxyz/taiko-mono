@@ -35,9 +35,15 @@ contract Bridge is EssentialContract, IBridge {
         RECALLED
     }
 
+    // Note that this struct must take only 1 slot
     struct Reception {
-        uint64 timestamp;
-        address agent;
+        // The time a message is marked as received on the destination chain
+        uint64 receivedAt;
+        // The address that can execute the message after the invocation delay without an extra
+        // delay.
+        // For a failed message, preferredExecutor's value doesn't matter as only the owner can
+        // invoke the message.
+        address preferredExecutor;
     }
 
     uint256 public constant INVOCATION_EXTRA_DELAY = 10 minutes;
@@ -99,7 +105,7 @@ contract Bridge is EssentialContract, IBridge {
         uint64 _timestamp = toSuspend ? type(uint64).max : uint64(block.timestamp);
         for (uint256 i; i < msgHashes.length; ++i) {
             bytes32 msgHash = msgHashes[i];
-            messageReception[msgHash].timestamp = _timestamp;
+            messageReception[msgHash].receivedAt = _timestamp;
             emit MessageSuspended(msgHash, toSuspend);
         }
     }
@@ -171,7 +177,7 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 failureSignal = signalForFailedMessage(msgHash);
         if (messageStatus[failureSignal] != Status.NEW) revert B_RECALLED_ALREADY();
 
-        bool isMessageNew = messageReception[failureSignal].timestamp == 0;
+        bool isMessageNew = messageReception[failureSignal].receivedAt == 0;
         if (isMessageNew) {
             ISignalService signalService = ISignalService(resolve("signal_service", false));
 
@@ -183,11 +189,11 @@ contract Bridge is EssentialContract, IBridge {
                 revert B_NOT_FAILED();
             }
 
-            messageReception[failureSignal].timestamp = uint64(block.timestamp);
+            messageReception[failureSignal].receivedAt = uint64(block.timestamp);
         }
 
         (uint256 invocationDelay,) = getInvocationDelays();
-        if (block.timestamp >= invocationDelay + messageReception[failureSignal].timestamp) {
+        if (block.timestamp >= invocationDelay + messageReception[failureSignal].receivedAt) {
             delete messageReception[failureSignal];
             messageStatus[failureSignal] = Status.RECALLED;
 
@@ -243,20 +249,20 @@ contract Bridge is EssentialContract, IBridge {
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
         ISignalService signalService = ISignalService(resolve("signal_service", false));
-        bool isMessageNew = messageReception[msgHash].timestamp == 0;
+        bool isMessageNew = messageReception[msgHash].receivedAt == 0;
 
         if (isMessageNew) {
             if (!_proveSignalReceived(signalService, msgHash, message.srcChainId, proof)) {
                 revert B_NOT_RECEIVED();
             }
             messageReception[msgHash] = Reception({
-                timestamp: uint64(block.timestamp),
-                agent: message.gasLimit == 0 ? message.owner : msg.sender
+                receivedAt: uint64(block.timestamp),
+                preferredExecutor: message.gasLimit == 0 ? message.owner : msg.sender
             });
         }
 
         (uint256 invocationDelay, uint256 invocationExtraelay) = getInvocationDelays();
-        if (invocationDelay != 0 && msg.sender != messageReception[msgHash].agent) {
+        if (invocationDelay != 0 && msg.sender != messageReception[msgHash].preferredExecutor) {
             // If msg.sender is not the one ack the reception of the signal, then there
             // is an extra delay.
             unchecked {
@@ -264,7 +270,7 @@ contract Bridge is EssentialContract, IBridge {
             }
         }
 
-        if (block.timestamp >= invocationDelay + messageReception[msgHash].timestamp) {
+        if (block.timestamp >= invocationDelay + messageReception[msgHash].receivedAt) {
             // If the gas limit is set to zero, only the owner can process the message.
             if (message.gasLimit == 0 && msg.sender != message.owner) {
                 revert B_PERMISSION_DENIED();
@@ -435,7 +441,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @return invocationDelay The minimal delay in second before a message can be executed since
     /// and the time it was received on the this chain.
     /// @return invocationExtraelay The extra delay in second (to be added to invocationDelay) if
-    /// the transactor is not the agent who acknowledged the reception of this message.
+    /// the transactor is not the preferredExecutor who acknowledged the reception of this message.
     function getInvocationDelays()
         public
         view
