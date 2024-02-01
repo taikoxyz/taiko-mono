@@ -34,7 +34,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// bootstrapping the network with trustworthy instances.
     struct Instance {
         address addr;
-        uint64 validFrom;
+        uint64 validSince;
     }
 
     uint64 public constant INSTANCE_EXPIRY = 180 days;
@@ -185,16 +185,16 @@ contract SgxVerifier is EssentialContract, IVerifier {
     {
         ids = new uint256[](_instances.length);
 
-        uint64 validFrom = uint64(block.timestamp);
+        uint64 validSince = uint64(block.timestamp);
 
         if (!instantValid) {
-            validFrom += INSTANCE_VALIDITY_DELAY;
+            validSince += INSTANCE_VALIDITY_DELAY;
         }
 
         for (uint256 i; i < _instances.length; ++i) {
             if (_instances[i] == address(0)) revert SGX_INVALID_INSTANCE();
 
-            instances[nextInstanceId] = Instance(_instances[i], validFrom);
+            instances[nextInstanceId] = Instance(_instances[i], validSince);
             ids[i] = nextInstanceId;
 
             emit InstanceAdded(nextInstanceId, _instances[i], address(0), block.timestamp);
@@ -213,7 +213,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     function _isInstanceValid(uint256 id, address instance) private view returns (bool) {
         if (instance == address(0)) return false;
         if (instance != instances[id].addr) return false;
-        if (instances[id].validFrom > block.timestamp) return false;
-        return instances[id].validFrom + INSTANCE_EXPIRY > block.timestamp;
+        if (instances[id].validSince > block.timestamp) return false;
+        return instances[id].validSince + INSTANCE_EXPIRY > block.timestamp;
     }
 }
