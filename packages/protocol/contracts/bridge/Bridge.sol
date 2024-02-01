@@ -47,8 +47,8 @@ contract Bridge is EssentialContract, IBridge {
     mapping(bytes32 msgHash => bool recalled) private __isMessageRecalled; // deprecated
     mapping(bytes32 msgHash => Status) public messageStatus; // slot 3
     Context private _ctx; // // slot 4,5,6
-    mapping(bytes32 msgHash => Receive) public messageReceive;
     mapping(address => bool) public addressBanned;
+    mapping(bytes32 msgHash => Receive) public messageReceive;
     uint256[42] private __gap;
 
     event MessageSent(bytes32 indexed msgHash, Message message);
