@@ -76,7 +76,7 @@ contract Bridge is EssentialContract, IBridge {
     error B_NOT_FAILED();
     error B_NOT_RECEIVED();
     error B_PERMISSION_DENIED();
-    error B_RECALLED_ALREADY();
+    error B_RECALLED_NOT_ALLOWED();
     error B_STATUS_MISMATCH();
     error B_INVOCATION_TOO_EARLY();
 
@@ -174,10 +174,9 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(message.srcChainId)
     {
         bytes32 msgHash = hashMessage(message);
-        bytes32 failureSignal = signalForFailedMessage(msgHash);
-        if (messageStatus[failureSignal] != Status.NEW) revert B_RECALLED_ALREADY();
+        if (messageStatus[msgHash] != Status.NEW) revert B_RECALLED_NOT_ALLOWED();
 
-        bool isMessageNew = messageReception[failureSignal].receivedAt == 0;
+        bool isMessageNew = messageReception[msgHash].receivedAt == 0;
         if (isMessageNew) {
             ISignalService signalService = ISignalService(resolve("signal_service", false));
 
@@ -185,17 +184,21 @@ contract Bridge is EssentialContract, IBridge {
                 revert B_MESSAGE_NOT_SENT();
             }
 
-            if (!_proveSignalReceived(signalService, failureSignal, message.destChainId, proof)) {
+            if (
+                !_proveSignalReceived(
+                    signalService, signalForFailedMessage(msgHash), message.destChainId, proof
+                )
+            ) {
                 revert B_NOT_FAILED();
             }
 
-            messageReception[failureSignal].receivedAt = uint64(block.timestamp);
+            messageReception[msgHash].receivedAt = uint64(block.timestamp);
         }
 
         (uint256 invocationDelay,) = getInvocationDelays();
-        if (block.timestamp >= invocationDelay + messageReception[failureSignal].receivedAt) {
-            delete messageReception[failureSignal];
-            messageStatus[failureSignal] = Status.RECALLED;
+        if (block.timestamp >= invocationDelay + messageReception[msgHash].receivedAt) {
+            delete messageReception[msgHash];
+            messageStatus[msgHash] = Status.RECALLED;
 
             // Execute the recall logic based on the contract's support for the
             // IRecallableSender interface
