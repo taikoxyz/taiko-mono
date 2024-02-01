@@ -116,3 +116,4 @@ __pycache__/
 
 # VSCode
 .vscode/launch.json
+packages/protocol/config.js
