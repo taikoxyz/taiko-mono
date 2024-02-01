@@ -19,7 +19,7 @@ import "forge-std/console2.sol";
 
 import "../contracts/thirdparty/automata-attestation/AutomataDcapV3Attestation.sol";
 import "../contracts/L1/verifiers/SgxVerifier.sol";
-import "../contracts/thirdparty/LibBytesUtils.sol";
+import "../contracts/thirdparty/optimism/Bytes.sol";
 import "../test/automata-attestation/utils/DcapTestUtils.t.sol";
 import "../test/automata-attestation/utils/V3QuoteParseUtils.t.sol";
 
@@ -81,7 +81,7 @@ contract SetDcapParams is Script, DcapTestUtils, V3QuoteParseUtils {
             ParseV3QuoteBytes(pemCertChainLib, v3QuoteBytes);
 
         address parsedInstanceAddr =
-            address(bytes20(LibBytesUtils.slice(v3quote.localEnclaveReport.reportData, 0, 20)));
+            address(bytes20(Bytes.slice(v3quote.localEnclaveReport.reportData, 0, 20)));
         console.log("[log] register instance addr: %s", parsedInstanceAddr);
         uint256 sgxId = SgxVerifier(sgxVerifier).registerInstance(v3quote);
         console.log("[log] register instance sgx-id: %s", sgxId);

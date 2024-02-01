@@ -15,7 +15,7 @@ import { V3Struct } from
     "../../contracts/thirdparty/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import { BytesUtils } from "../../contracts/thirdparty/automata-attestation/utils/BytesUtils.sol";
 import { Base64 } from "../../lib/solady/src/utils/Base64.sol";
-import "../../contracts/thirdparty/LibBytesUtils.sol";
+import "../../contracts/thirdparty/optimism/Bytes.sol";
 import "./utils/DcapTestUtils.t.sol";
 import "./utils/V3QuoteParseUtils.t.sol";
 
@@ -100,7 +100,7 @@ contract AutomataDcapV3AttestationTest is Test, DcapTestUtils, V3QuoteParseUtils
         bytes memory v3QuoteBytes = sampleQuote;
         V3Struct.ParsedV3QuoteStruct memory v3quote = _testParsedQuoteAttestation(v3QuoteBytes);
         address parsedInstanceAddr =
-            address(bytes20(LibBytesUtils.slice(v3quote.localEnclaveReport.reportData, 0, 20)));
+            address(bytes20(Bytes.slice(v3quote.localEnclaveReport.reportData, 0, 20)));
         // console.log("[log] parsed instance addr = %s", parsedInstanceAddr);
         assertTrue(parsedInstanceAddr == 0x1d0B9a2a63D98B18B288889cB61160016534c814);
     }
@@ -111,7 +111,7 @@ contract AutomataDcapV3AttestationTest is Test, DcapTestUtils, V3QuoteParseUtils
         bytes memory v3QuoteBytes = Base64.decode(v3QuoteB64Str);
         V3Struct.ParsedV3QuoteStruct memory v3quote = _testParsedQuoteAttestation(v3QuoteBytes);
         address parsedInstanceAddr =
-            address(bytes20(LibBytesUtils.slice(v3quote.localEnclaveReport.reportData, 0, 20)));
+            address(bytes20(Bytes.slice(v3quote.localEnclaveReport.reportData, 0, 20)));
         // console.log("[log] parsed instance addr = %s", parsedInstanceAddr);
         assertTrue(parsedInstanceAddr == 0x1d0B9a2a63D98B18B288889cB61160016534c814);
     }
