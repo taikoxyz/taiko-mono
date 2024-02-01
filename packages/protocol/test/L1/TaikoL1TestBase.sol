@@ -276,7 +276,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         // Keep changing the pub key associated with an instance to avoid
         // attacks,
         // obviously just a mock due to 2 addresses changing all the time.
-        (newInstance,,) = sv.instances(0);
+        (newInstance,) = sv.instances(0);
         if (newInstance == SGX_X_0) {
             newInstance = SGX_X_1;
         } else {

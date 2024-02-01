@@ -2,9 +2,9 @@
 pragma solidity 0.8.24;
 
 import "./TaikoL1TestBase.sol";
-import "../automata-attestation/common/AttestationTestBase.t.sol";
+import "../automata-attestation/common/AttestationBase.t.sol";
 
-contract TestSgxVerifier is TaikoL1TestBase, AttestationTestBase {
+contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
     address internal SGX_Y =
         vm.addr(0x9b1bb8cb3bdb539d0d1f03951d27f167f2d5443e7ef0d7ce745cd4ec619d3dd7);
     address internal SGX_Z = randAddress();
@@ -18,7 +18,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationTestBase {
         // Call the TaikoL1TestBase setUp()
         super.setUp();
 
-        // Call the AttestationTestBase init setup
+        // Call the AttestationBase init setup
         super.intialSetup();
 
         registerAddress("automata_dcap_attestation", address(attestation));
@@ -48,12 +48,12 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationTestBase {
         _ids[0] = 0;
 
         address instance;
-        (instance,,) = sv.instances(0);
+        (instance,) = sv.instances(0);
         assertEq(instance, SGX_X_0);
 
         sv.deleteInstances(_ids);
 
-        (instance,,) = sv.instances(0);
+        (instance,) = sv.instances(0);
         assertEq(instance, address(0));
     }
 

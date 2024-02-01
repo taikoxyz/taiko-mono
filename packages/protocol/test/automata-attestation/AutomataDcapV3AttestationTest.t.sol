@@ -4,14 +4,14 @@ pragma solidity 0.8.24;
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import "forge-std/StdJson.sol";
-import "./common/AttestationTestBase.t.sol";
+import "./common/AttestationBase.t.sol";
 
-contract AutomataDcapV3AttestationTest is Test, AttestationTestBase {
+contract AutomataDcapV3AttestationTest is Test, AttestationBase {
     using BytesUtils for bytes;
     using stdJson for string;
 
     function setUp() public {
-        // Call the AttestationTestBase init setup
+        // Call the AttestationBase init setup
         super.intialSetup();
     }
 
