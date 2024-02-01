@@ -451,8 +451,12 @@ contract Bridge is EssentialContract, IBridge {
         virtual
         returns (uint256 invocationDelay, uint256 invocationExtraDelay)
     {
-        invocationDelay = 0;
-        invocationExtraDelay = 0;
+        // We can change the network ID below for specific L2 to have non-zero delays.
+        // if (block.chainid == 12345789) {
+        //     return (24 hours, 15 minutes);
+        // }
+
+        return (0, 0);
     }
 
     /// @notice Hash the message
