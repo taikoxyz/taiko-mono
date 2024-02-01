@@ -2,33 +2,12 @@
 pragma solidity 0.8.24;
 
 import "./TaikoL1TestBase.sol";
+import "../automata-attestation/common/AttestationTestBase.t.sol";
 
-// For SGX remote attestation
-import { AutomataDcapV3Attestation } from
-    "../../contracts/thirdparty/automata-attestation/AutomataDcapV3Attestation.sol";
-import { P256Verifier } from "../../lib/p256-verifier/src/P256Verifier.sol";
-import { SigVerifyLib } from
-    "../../contracts/thirdparty/automata-attestation/utils/SigVerifyLib.sol";
-import { PEMCertChainLib } from
-    "../../contracts/thirdparty/automata-attestation/lib/PEMCertChainLib.sol";
-
-import "../automata-attestation/utils/DcapTestUtils.t.sol";
-import "../automata-attestation/utils/V3QuoteParseUtils.t.sol";
-
-contract TestSgxVerifier is TaikoL1TestBase, DcapTestUtils, V3QuoteParseUtils {
+contract TestSgxVerifier is TaikoL1TestBase, AttestationTestBase {
     address internal SGX_Y =
         vm.addr(0x9b1bb8cb3bdb539d0d1f03951d27f167f2d5443e7ef0d7ce745cd4ec619d3dd7);
     address internal SGX_Z = randAddress();
-    // For SGX remote attestation
-    AutomataDcapV3Attestation attestation;
-    SigVerifyLib sigVerifyLib;
-    P256Verifier p256Verifier;
-    PEMCertChainLib pemCertChainLib;
-    string internal constant tcbInfoPath = "/test/automata-attestation/assets/0923/tcbInfo.json";
-    string internal constant idPath = "/test/automata-attestation/assets/0923/identity.json";
-    string internal constant v3QuotePath = "/test/automata-attestation/assets/0923/v3quote.json";
-    bytes32 constant mrEnclave = 0x46049af725ec3986eeb788693df7bc5f14d3f2705106a19cd09b9d89237db1a0;
-    bytes32 constant mrSigner = 0xef69011f29043f084e99ce420bfebdfa410aee1e132014e7ceff29efa9659bd9;
 
     function deployTaikoL1() internal override returns (TaikoL1) {
         return
@@ -39,28 +18,8 @@ contract TestSgxVerifier is TaikoL1TestBase, DcapTestUtils, V3QuoteParseUtils {
         // Call the TaikoL1TestBase setUp()
         super.setUp();
 
-        vm.warp(1_695_435_682);
-
-        p256Verifier = new P256Verifier();
-        sigVerifyLib = new SigVerifyLib(address(p256Verifier));
-        pemCertChainLib = new PEMCertChainLib();
-        attestation = new AutomataDcapV3Attestation(address(sigVerifyLib), address(pemCertChainLib));
-        attestation.setMrEnclave(mrEnclave, true);
-        attestation.setMrSigner(mrSigner, true);
-
-        string memory tcbInfoJson = vm.readFile(string.concat(vm.projectRoot(), tcbInfoPath));
-        string memory enclaveIdJson = vm.readFile(string.concat(vm.projectRoot(), idPath));
-
-        string memory fmspc = "00606a000000";
-        (bool tcbParsedSuccess, TCBInfoStruct.TCBInfo memory parsedTcbInfo) =
-            parseTcbInfoJson(tcbInfoJson);
-        require(tcbParsedSuccess, "tcb parsed failed");
-        attestation.configureTcbInfoJson(fmspc, parsedTcbInfo);
-
-        (bool qeIdParsedSuccess, EnclaveIdStruct.EnclaveId memory parsedEnclaveId) =
-            parseEnclaveIdentityJson(enclaveIdJson);
-        require(qeIdParsedSuccess, "qeid parsed failed");
-        attestation.configureQeIdentityJson(parsedEnclaveId);
+        // Call the AttestationTestBase init setup
+        super.intialSetup();
 
         registerAddress("automata_dcap_attestation", address(attestation));
     }
@@ -82,6 +41,20 @@ contract TestSgxVerifier is TaikoL1TestBase, DcapTestUtils, V3QuoteParseUtils {
         vm.expectRevert();
         vm.prank(Bob, Bob);
         sv.addInstances(_instances);
+    }
+
+    function test_deleteInstancesByOwner() external {
+        uint256[] memory _ids = new uint256[](1);
+        _ids[0] = 0;
+
+        address instance;
+        (instance,,) = sv.instances(0);
+        assertEq(instance, SGX_X_0);
+
+        sv.deleteInstances(_ids);
+
+        (instance,,) = sv.instances(0);
+        assertEq(instance, address(0));
     }
 
     function test_registerInstanceWithAttestation() external {

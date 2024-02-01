@@ -269,27 +269,8 @@ library BytesUtils {
     }
 
     function memcpy(uint256 dest, uint256 src, uint256 len) private pure {
-        // Copy word-length chunks while possible
-        for (; len >= 32; len -= 32) {
-            assembly {
-                mstore(dest, mload(src))
-            }
-            dest += 32;
-            src += 32;
-        }
-
-        // Copy remaining bytes
-        uint256 mask;
-        if (len == 0) {
-            mask = type(uint256).max; // Set to maximum value of uint256
-        } else {
-            mask = 256 ** (32 - len) - 1;
-        }
-
         assembly {
-            let srcpart := and(mload(src), not(mask))
-            let destpart := and(mload(dest), mask)
-            mstore(dest, or(destpart, srcpart))
+            mcopy(dest, src, len)
         }
     }
 
@@ -387,14 +368,6 @@ library BytesUtils {
     }
 
     function compareBytes(bytes memory a, bytes memory b) internal pure returns (bool) {
-        if (a.length != b.length) {
-            return false;
-        }
-        for (uint256 i = 0; i < a.length; i++) {
-            if (a[i] != b[i]) {
-                return false;
-            }
-        }
-        return true;
+        return keccak256(a) == keccak256(b);
     }
 }
