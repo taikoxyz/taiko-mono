@@ -267,12 +267,12 @@ contract Bridge is EssentialContract, IBridge {
             });
         }
 
-        (uint256 invocationDelay, uint256 invocationExtraelay) = getInvocationDelays();
+        (uint256 invocationDelay, uint256 invocationExtraDelay) = getInvocationDelays();
         if (invocationDelay != 0 && msg.sender != messageReception[msgHash].preferredExecutor) {
             // If msg.sender is not the one ack the reception of the signal, then there
             // is an extra delay.
             unchecked {
-                invocationDelay += invocationExtraelay;
+                invocationDelay += invocationExtraDelay;
             }
         }
 
@@ -446,16 +446,16 @@ contract Bridge is EssentialContract, IBridge {
     /// security.
     /// @return invocationDelay The minimal delay in second before a message can be executed since
     /// and the time it was received on the this chain.
-    /// @return invocationExtraelay The extra delay in second (to be added to invocationDelay) if
+    /// @return invocationExtraDelay The extra delay in second (to be added to invocationDelay) if
     /// the transactor is not the preferredExecutor who acknowledged the reception of this message.
     function getInvocationDelays()
         public
         view
         virtual
-        returns (uint256 invocationDelay, uint256 invocationExtraelay)
+        returns (uint256 invocationDelay, uint256 invocationExtraDelay)
     {
         invocationDelay = 0;
-        invocationExtraelay = 0;
+        invocationExtraDelay = 0;
     }
 
     /// @notice Hash the message
