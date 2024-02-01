@@ -182,8 +182,8 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 msgHash = hashMessage(message);
         if (messageStatus[msgHash] != Status.NEW) revert B_RECALLED_NOT_ALLOWED();
 
-        bool isMessageNew = messageReception[msgHash].receivedAt == 0;
-        if (isMessageNew) {
+        bool previouslyNotReceived = messageReception[msgHash].receivedAt == 0;
+        if (previouslyNotReceived) {
             ISignalService signalService = ISignalService(resolve("signal_service", false));
 
             if (!signalService.isSignalSent(address(this), msgHash)) {
@@ -227,7 +227,7 @@ contract Bridge is EssentialContract, IBridge {
                 message.owner.sendEther(message.value);
             }
             emit MessageRecalled(msgHash);
-        } else if (isMessageNew) {
+        } else if (previouslyNotReceived) {
             emit MessageReceived(msgHash, message, true);
         } else {
             revert B_INVOCATION_TOO_EARLY();
@@ -255,9 +255,9 @@ contract Bridge is EssentialContract, IBridge {
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
         ISignalService signalService = ISignalService(resolve("signal_service", false));
-        bool isMessageNew = messageReception[msgHash].receivedAt == 0;
+        bool previouslyNotReceived = messageReception[msgHash].receivedAt == 0;
 
-        if (isMessageNew) {
+        if (previouslyNotReceived) {
             if (!_proveSignalReceived(signalService, msgHash, message.srcChainId, proof)) {
                 revert B_NOT_RECEIVED();
             }
@@ -319,7 +319,7 @@ contract Bridge is EssentialContract, IBridge {
                 refundTo.sendEther(refundAmount);
             }
             emit MessageExecuted(msgHash);
-        } else if (isMessageNew) {
+        } else if (previouslyNotReceived) {
             emit MessageReceived(msgHash, message, false);
         } else {
             revert B_INVOCATION_TOO_EARLY();
@@ -360,8 +360,6 @@ contract Bridge is EssentialContract, IBridge {
             _updateMessageStatus(msgHash, Status.DONE);
         } else if (isLastAttempt) {
             _updateMessageStatus(msgHash, Status.FAILED);
-        } else {
-            // this transaction will revert
         }
     }
 
