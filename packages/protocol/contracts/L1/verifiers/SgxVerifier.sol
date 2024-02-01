@@ -79,7 +79,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// @return ids The respective instanceId array per addresses.
     function addInstances(address[] calldata _instances)
         external
-        onlyFromOwnerOrNamed("rollup_watchdog")
+        onlyOwner
         returns (uint256[] memory ids)
     {
         if (_instances.length == 0) revert SGX_INVALID_INSTANCES();
@@ -88,7 +88,10 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @notice Deletes SGX instances from the registry.
     /// @param _ids The ids array of SGX instances.
-    function deleteInstances(uint256[] calldata _ids) external onlyAuthorized {
+    function deleteInstances(uint256[] calldata _ids)
+        external
+        onlyFromOwnerOrNamed("rollup_watchdog")
+    {
         if (_ids.length == 0) revert SGX_INVALID_INSTANCES();
         for (uint256 i; i < _ids.length; ++i) {
             if (instances[_ids[i]].addr == address(0)) revert SGX_INVALID_INSTANCE();
@@ -184,15 +187,14 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
         uint64 validFrom = uint64(block.timestamp);
 
-        if(!instantValid) {
+        if (!instantValid) {
             validFrom += INSTANCE_VALIDITY_DELAY;
         }
 
         for (uint256 i; i < _instances.length; ++i) {
             if (_instances[i] == address(0)) revert SGX_INVALID_INSTANCE();
 
-            instances[nextInstanceId] =
-                Instance(_instances[i], validFrom);
+            instances[nextInstanceId] = Instance(_instances[i], validFrom);
             ids[i] = nextInstanceId;
 
             emit InstanceAdded(nextInstanceId, _instances[i], address(0), block.timestamp);

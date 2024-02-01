@@ -44,9 +44,9 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
     }
 
     function test_deleteInstancesByOwner() external {
-        uint256[] memory _ids = new uint[](1);
+        uint256[] memory _ids = new uint256[](1);
         _ids[0] = 0;
-        
+
         address instance;
         (instance,) = sv.instances(0);
         assertEq(instance, SGX_X_0);

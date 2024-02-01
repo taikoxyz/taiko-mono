@@ -79,14 +79,24 @@ contract AttestationBase is Test, DcapTestUtils, V3JsonUtils {
         AutomataDcapV3Attestation(_attestationAddress).setMrSigner(_mrSigner, true);
     }
 
-    function configureQeIdentityJson(address _attestationAddress, string memory _enclaveIdJson ) internal {
+    function configureQeIdentityJson(
+        address _attestationAddress,
+        string memory _enclaveIdJson
+    )
+        internal
+    {
         (bool qeIdParsedSuccess, EnclaveIdStruct.EnclaveId memory parsedEnclaveId) =
             parseEnclaveIdentityJson(_enclaveIdJson);
         AutomataDcapV3Attestation(_attestationAddress).configureQeIdentityJson(parsedEnclaveId);
         console.log("qeIdParsedSuccess: %s", qeIdParsedSuccess);
     }
 
-    function configureTcbInfoJson(address _attestationAddress, string memory _tcbInfoJson) internal {
+    function configureTcbInfoJson(
+        address _attestationAddress,
+        string memory _tcbInfoJson
+    )
+        internal
+    {
         (bool tcbParsedSuccess, TCBInfoStruct.TCBInfo memory parsedTcbInfo) =
             parseTcbInfoJson(_tcbInfoJson);
         string memory fmspc = parsedTcbInfo.fmspc;
@@ -94,7 +104,12 @@ contract AttestationBase is Test, DcapTestUtils, V3JsonUtils {
         console.log("tcbParsedSuccess: %s", tcbParsedSuccess);
     }
 
-    function registerSgxInstanceWithQuote(address _sgxVerifier, string memory _v3QuoteJsonStr) internal {
+    function registerSgxInstanceWithQuote(
+        address _sgxVerifier,
+        string memory _v3QuoteJsonStr
+    )
+        internal
+    {
         console.log("[LOG] v3QuoteJsonStr: %s", _v3QuoteJsonStr);
         bytes memory v3QuotePacked = vm.parseJson(_v3QuoteJsonStr);
         console.logBytes(v3QuotePacked);
