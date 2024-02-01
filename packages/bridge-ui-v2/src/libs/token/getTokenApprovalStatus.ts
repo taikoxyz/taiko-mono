@@ -7,7 +7,6 @@ import {
   enteredAmount,
   insufficientAllowance,
   selectedToken,
-  validatingAmount,
 } from '$components/Bridge/state';
 import { bridges, ContractType, type RequireApprovalArgs } from '$libs/bridge';
 import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
@@ -156,8 +155,6 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
         return ApprovalStatus.NO_APPROVAL_REQUIRED;
       } catch (error) {
         console.error('isApprovedForAll error');
-      } finally {
-        validatingAmount.set(false);
       }
     }
   } else {

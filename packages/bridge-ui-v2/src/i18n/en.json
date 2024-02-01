@@ -110,31 +110,6 @@
     },
     "nft": {
       "step": {
-        "confirm": {
-          "analyzing": "Please wait",
-          "approve": {
-            "description": "Before initiating the bridge, it's necessary to first approve the transfer.",
-            "pending": "Please wait for your transaction to be picked up",
-            "success": {
-              "message": "Your approve transaction was confirmed. The transaction can take a few minutes to complete, track it <a class='link' href=\"{url}\" target=\"_blank\"><b>here</b></a>."
-            },
-            "title": "Approval required"
-          },
-          "approved": {
-            "description": "All tokens are approved, you can now bridge your NFTs",
-            "title": "Proceed to bridge"
-          },
-          "bridge": {
-            "success": {
-              "message": "Your bridge transaction was confirmed. The transaction can take a few minutes to complete, track it <a class='link' href=\"{url}\" target=\"_blank\"><b>here</b></a>."
-            }
-          },
-          "button": {
-            "back": "Back to bridge"
-          },
-          "checking_status": "Checking the approval status",
-          "processing": "Processing..."
-        },
         "import": {
           "nft_card": {
             "select": "Select NFT",
@@ -156,6 +131,30 @@
     },
     "step": {
       "confirm": {
+        "analyzing": "Please wait",
+        "approve": {
+          "description": "Before initiating the bridge, it's necessary to first approve the transfer.",
+          "pending": "Please wait for your transaction to be picked up",
+          "success": {
+            "message": "Your approve transaction was confirmed. The transaction can take a few minutes to complete, track it <a class='link' href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+          },
+          "title": "Approval required"
+        },
+        "approved": {
+          "description_token": "All tokens are approved, you can now bridge your assets",
+          "description_eth": "You can now continue to bridge your funds",
+          "title": "Proceed to bridge"
+        },
+        "bridge": {
+          "success": {
+            "message": "Your bridge transaction was confirmed. The transaction can take a few minutes to complete, track it <a class='link' href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+          }
+        },
+        "button": {
+          "back": "Back to bridge"
+        },
+        "checking_status": "Checking the approval status",
+        "processing": "Processing...",
         "title": "Confirm"
       },
       "import": {

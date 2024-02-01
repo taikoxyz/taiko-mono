@@ -26,7 +26,7 @@
   import { getMaxAmountToBridge } from '$libs/bridge';
   import { UnknownTokenTypeError } from '$libs/error';
   import { getBalance, tokens, TokenType } from '$libs/token';
-  import { refreshUserBalance, renderBalance, renderEthBalance } from '$libs/util/balance';
+  import { refreshUserBalance, renderBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
   import { truncateDecimal } from '$libs/util/truncateDecimal';
@@ -46,25 +46,40 @@
 
   async function validateAmount(token = $selectedToken) {
     // During validation, we disable all the actions
-    if (!$network?.id) return;
+    const user = $account?.address;
+    if (!$network?.id || !user) return;
     $validatingAmount = true;
     $insufficientBalance = false;
     $insufficientAllowance = false;
     $computingBalance = true;
 
-    const to = $recipientAddress || $account?.address;
-
-    // We need all these guys to validate
-    if (skipValidate || !to || !token || !$tokenBalance?.value) {
+    if (skipValidate) {
+      log('skipped validation');
       $validatingAmount = false;
       $computingBalance = false;
-
       return;
     }
+
+    const to = $recipientAddress || $account?.address;
+
+    if (!to || !token) {
+      $validatingAmount = false;
+      $computingBalance = false;
+      return;
+    }
+
+    if (!$tokenBalance) {
+      $tokenBalance = await getBalance({ userAddress: user, token, srcChainId: $network?.id });
+      if (!$tokenBalance?.value) {
+        $insufficientBalance = true;
+        $validatingAmount = false;
+      }
+    }
+
     switch (token.type) {
       case TokenType.ERC20:
       case TokenType.ERC1155:
-        if ($ethBalance <= 0n || $enteredAmount > $tokenBalance?.value) {
+        if ($tokenBalance?.value && ($ethBalance <= 0n || $enteredAmount > $tokenBalance?.value)) {
           $insufficientBalance = true;
         }
         break;
@@ -77,14 +92,13 @@
       default:
         throw new UnknownTokenTypeError();
     }
-
     $validatingAmount = false;
     $computingBalance = false;
   }
 
   const debouncedValidateAmount = debounce(validateAmount, 300);
 
-  const handleInputChange = (value: string) => {
+  const handleAmountInputChange = (value: string) => {
     if (!$selectedToken) return;
     $validatingAmount = true;
     $errorComputingBalance = false;
@@ -137,24 +151,26 @@
     }
   };
 
-  const reset = () => {
+  const reset = async () => {
     $computingBalance = true;
     value = '';
     $enteredAmount = 0n;
-    if ($account?.isConnected) {
+    if ($account && $account.address && $account?.isConnected) {
       validateAmount($selectedToken);
       refreshUserBalance();
+      if ($selectedToken)
+        $tokenBalance = await getBalance({
+          userAddress: $account.address,
+          token: $selectedToken,
+          srcChainId: $network?.id,
+        });
+
       previousSelectedToken = $selectedToken;
     } else {
       balance = '0.00';
     }
     $computingBalance = false;
   };
-
-  $: if ($enteredAmount) {
-    log('running validateAmount', $enteredAmount, $selectedToken);
-    validateAmount($selectedToken);
-  }
 
   let previousSelectedToken = $selectedToken;
 
@@ -188,25 +204,21 @@
 
   $: showInvalidTokenAlert = $errorComputingBalance && !$computingBalance;
 
-  $: {
-    validInput =
-      $enteredAmount > 0n &&
-      $tokenBalance !== null &&
-      $tokenBalance !== undefined &&
-      $enteredAmount <= $tokenBalance?.value;
-  }
+  $: validInput =
+    $enteredAmount > 0n &&
+    $tokenBalance !== null &&
+    $tokenBalance !== undefined &&
+    $enteredAmount <= $tokenBalance?.value;
 
   $: displayFeeMsg = !showInsufficientBalanceAlert && !showInvalidTokenAlert;
 
-  let balance = '0.00';
+  let balance = $t('common.not_available_short');
 
   $: {
-    if ($tokenBalance && $account.isConnected) {
+    if ($tokenBalance && $account.isConnected && !$errorComputingBalance && !$computingBalance) {
       balance = renderBalance($tokenBalance);
-    } else if ($ethBalance && $account.isConnected) {
-      balance = renderEthBalance($ethBalance);
     } else {
-      balance = '0.00';
+      balance = $t('common.not_available_short');
     }
   }
 
@@ -215,7 +227,6 @@
     const user = $account?.address;
     const token = $selectedToken;
     if (!user || !token) return;
-    getBalance({ userAddress: user, token, srcChainId: $network?.id });
   });
 </script>
 
@@ -244,7 +255,7 @@
         disabled={disabled || $errorComputingBalance || $computingBalance}
         error={invalidInput}
         bind:value
-        on:input={() => handleInputChange(value)}
+        on:input={() => handleAmountInputChange(value)}
         bind:this={inputBox}
         class="min-h-[64px] pl-[15px] w-full border-0 h-full !rounded-r-none z-20  {$$props.class}" />
 

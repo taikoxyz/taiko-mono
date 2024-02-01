@@ -60,9 +60,11 @@
   const selectToken = async (token: Token) => {
     const srcChain = $network;
     const destChain = $destNetwork;
+    $computingBalance = true;
+    closeMenu();
     if (token === value) {
       // same token, nothing to do
-      closeMenu();
+      $computingBalance = false;
       return;
     }
 
@@ -110,7 +112,6 @@
     value = token;
     await updateBalance($account?.address, srcChain.id, destChain.id);
     $computingBalance = false;
-    closeMenu();
   };
 
   const handleTokenRemoved = (event: { detail: { token: Token } }) => {
