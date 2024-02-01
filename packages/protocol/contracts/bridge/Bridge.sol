@@ -95,12 +95,12 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @notice Suspend or unsuspend invocation for a list of messages.
-    function suspendMessagesages(
+    function suspendMessages(
         bytes32[] calldata msgHashes,
         bool toSuspend
     )
         external
-        onlyFromNamed("bridge_watchdog")
+        onlyFromOwnerOrNamed("bridge_watchdog")
     {
         uint64 _timestamp = toSuspend ? type(uint64).max : uint64(block.timestamp);
         for (uint256 i; i < msgHashes.length; ++i) {
@@ -112,7 +112,14 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice Ban or unban an address. A banned addresses will not be invoked upon
     /// with message calls.
-    function banAddress(address addr, bool toBan) external onlyOwner nonReentrant {
+    function banAddress(
+        address addr,
+        bool toBan
+    )
+        external
+        onlyFromOwnerOrNamed("bridge_watchdog")
+        nonReentrant
+    {
         if (addressBanned[addr] == toBan) revert B_INVALID_STATUS();
         addressBanned[addr] = toBan;
         emit AddressBanned(addr, toBan);
