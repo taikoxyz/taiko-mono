@@ -36,7 +36,7 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     // Note that this struct shall take only 1 slot to minimize gas cost
-    struct Reception {
+    struct ProofReceipt {
         // The time a message is marked as received on the destination chain
         uint64 receivedAt;
         // The address that can execute the message after the invocation delay without an extra
@@ -53,7 +53,7 @@ contract Bridge is EssentialContract, IBridge {
     mapping(bytes32 msgHash => Status) public messageStatus; // slot 3
     Context private _ctx; // slot 4,5,6
     mapping(address => bool) public addressBanned; // slot 7
-    mapping(bytes32 msgHash => Reception) public messageReception; // slot 8
+    mapping(bytes32 msgHash => ProofReceipt) public proofReceipt; // slot 8
     uint256[42] private __gap;
 
     event MessageSent(bytes32 indexed msgHash, Message message);
@@ -103,7 +103,7 @@ contract Bridge is EssentialContract, IBridge {
         uint64 _timestamp = toSuspend ? type(uint64).max : uint64(block.timestamp);
         for (uint256 i; i < msgHashes.length; ++i) {
             bytes32 msgHash = msgHashes[i];
-            messageReception[msgHash].receivedAt = _timestamp;
+            proofReceipt[msgHash].receivedAt = _timestamp;
             emit MessageSuspended(msgHash, toSuspend);
         }
     }
@@ -181,8 +181,8 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 msgHash = hashMessage(message);
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
-        bool previouslyNotReceived = messageReception[msgHash].receivedAt == 0;
-        if (previouslyNotReceived) {
+        bool isMessageProven = proofReceipt[msgHash].receivedAt != 0;
+        if (!isMessageProven) {
             ISignalService signalService = ISignalService(resolve("signal_service", false));
 
             if (!signalService.isSignalSent(address(this), msgHash)) {
@@ -194,12 +194,12 @@ contract Bridge is EssentialContract, IBridge {
                 revert B_NOT_FAILED();
             }
 
-            messageReception[msgHash].receivedAt = uint64(block.timestamp);
+            proofReceipt[msgHash].receivedAt = uint64(block.timestamp);
         }
 
         (uint256 invocationDelay,) = getInvocationDelays();
-        if (block.timestamp >= invocationDelay + messageReception[msgHash].receivedAt) {
-            delete messageReception[msgHash];
+        if (block.timestamp >= invocationDelay + proofReceipt[msgHash].receivedAt) {
+            delete proofReceipt[msgHash];
             messageStatus[msgHash] = Status.RECALLED;
 
             // Execute the recall logic based on the contract's support for the
@@ -226,7 +226,7 @@ contract Bridge is EssentialContract, IBridge {
                 message.owner.sendEther(message.value);
             }
             emit MessageRecalled(msgHash);
-        } else if (previouslyNotReceived) {
+        } else if (!isMessageProven) {
             emit MessageReceived(msgHash, message, true);
         } else {
             revert B_INVOCATION_TOO_EARLY();
@@ -254,34 +254,34 @@ contract Bridge is EssentialContract, IBridge {
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
         ISignalService signalService = ISignalService(resolve("signal_service", false));
-        bool previouslyNotReceived = messageReception[msgHash].receivedAt == 0;
+        bool isMessageProven = proofReceipt[msgHash].receivedAt != 0;
 
-        if (previouslyNotReceived) {
+        if (!isMessageProven) {
             if (!_proveSignalReceived(signalService, msgHash, message.srcChainId, proof)) {
                 revert B_NOT_RECEIVED();
             }
-            messageReception[msgHash] = Reception({
+            proofReceipt[msgHash] = ProofReceipt({
                 receivedAt: uint64(block.timestamp),
                 preferredExecutor: message.gasLimit == 0 ? message.owner : msg.sender
             });
         }
 
         (uint256 invocationDelay, uint256 invocationExtraDelay) = getInvocationDelays();
-        if (invocationDelay != 0 && msg.sender != messageReception[msgHash].preferredExecutor) {
-            // If msg.sender is not the one ack the reception of the signal, then there
+        if (invocationDelay != 0 && msg.sender != proofReceipt[msgHash].preferredExecutor) {
+            // If msg.sender is not the one that proved the message, then there
             // is an extra delay.
             unchecked {
                 invocationDelay += invocationExtraDelay;
             }
         }
 
-        if (block.timestamp >= invocationDelay + messageReception[msgHash].receivedAt) {
+        if (block.timestamp >= invocationDelay + proofReceipt[msgHash].receivedAt) {
             // If the gas limit is set to zero, only the owner can process the message.
             if (message.gasLimit == 0 && msg.sender != message.owner) {
                 revert B_PERMISSION_DENIED();
             }
 
-            delete messageReception[msgHash];
+            delete proofReceipt[msgHash];
 
             uint256 refundAmount;
 
@@ -318,7 +318,7 @@ contract Bridge is EssentialContract, IBridge {
                 refundTo.sendEther(refundAmount);
             }
             emit MessageExecuted(msgHash);
-        } else if (previouslyNotReceived) {
+        } else if (!isMessageProven) {
             emit MessageReceived(msgHash, message, false);
         } else {
             revert B_INVOCATION_TOO_EARLY();
@@ -444,7 +444,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @return invocationDelay The minimal delay in second before a message can be executed since
     /// and the time it was received on the this chain.
     /// @return invocationExtraDelay The extra delay in second (to be added to invocationDelay) if
-    /// the transactor is not the preferredExecutor who acknowledged the reception of this message.
+    /// the transactor is not the preferredExecutor who proved this message.
     function getInvocationDelays()
         public
         view
