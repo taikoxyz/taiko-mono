@@ -46,7 +46,6 @@ contract Bridge is EssentialContract, IBridge {
         address preferredExecutor;
     }
 
-    uint256 public constant INVOCATION_EXTRA_DELAY = 10 minutes;
     uint256 internal constant PLACEHOLDER = type(uint256).max;
 
     uint128 public nextMessageId; // slot 1
