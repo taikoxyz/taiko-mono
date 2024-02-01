@@ -10,6 +10,8 @@ contract AutomataDcapV3AttestationTest is Test, AttestationBase {
     using BytesUtils for bytes;
     using stdJson for string;
 
+    string internal v3QuoteJsonPath = "/test/automata-attestation/assets/0923/v3quote.json";
+
     function setUp() public {
         // Call the AttestationBase init setup
         super.intialSetup();
@@ -40,7 +42,7 @@ contract AutomataDcapV3AttestationTest is Test, AttestationBase {
         address parsedInstanceAddr =
             address(bytes20(Bytes.slice(v3quote.localEnclaveReport.reportData, 0, 20)));
         // console.log("[log] parsed instance addr = %s", parsedInstanceAddr);
-        assertTrue(parsedInstanceAddr == 0x1d0B9a2a63D98B18B288889cB61160016534c814);
+        assertTrue(parsedInstanceAddr == 0xC2D4564358139C90C17B744FE837F4DDc503EEdF);
     }
 
     function testParsedQuoteBase64Attestation() public {

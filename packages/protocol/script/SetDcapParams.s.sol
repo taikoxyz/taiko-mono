@@ -23,11 +23,11 @@ contract SetDcapParams is Script, AttestationBase {
     uint256 public ownerPrivateKey = vm.envUint("PRIVATE_KEY"); // Owner of the attestation contract
     address public dcapAttestationAddress = vm.envAddress("ATTESTATION_ADDRESS");
     address public sgxVerifier = vm.envAddress("SGX_VERIFIER_ADDRESS");
+    address public pemCertChainLibAddr = vm.envAddress("PEM_CERTCHAIN_ADDRESS");
 
     function run() external {
         tcbInfoPath = vm.envString("TCB_INFO_PATH");
         idPath = vm.envString("QEID_PATH");
-        v3QuotePath = vm.envString("V3_QUOTE_PATH");
         mrEnclave = vm.envBytes32("MR_ENCLAVE");
         mrSigner = vm.envBytes32("MR_SIGNER");
 
@@ -45,8 +45,8 @@ contract SetDcapParams is Script, AttestationBase {
         string memory tcbInfoJson = vm.readFile(string.concat(vm.projectRoot(), tcbInfoPath));
         configureTcbInfoJson(dcapAttestationAddress, tcbInfoJson);
 
-        string memory v3QuoteJsonStr = vm.readFile(string.concat(vm.projectRoot(), v3QuotePath));
-        registerSgxInstanceWithQuote(sgxVerifier, v3QuoteJsonStr);
+        bytes memory v3QuoteBytes = vm.envBytes("V3_QUOTE_BYTES");
+        registerSgxInstanceWithQuoteBytes(pemCertChainLibAddr, sgxVerifier, v3QuoteBytes);
 
         vm.stopBroadcast();
     }

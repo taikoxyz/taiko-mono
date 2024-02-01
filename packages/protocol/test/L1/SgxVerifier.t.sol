@@ -58,10 +58,8 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
     }
 
     function test_registerInstanceWithAttestation() external {
-        string memory v3QuoteJsonStr = vm.readFile(string.concat(vm.projectRoot(), v3QuotePath));
-        bytes memory v3QuotePacked = vm.parseJson(v3QuoteJsonStr);
-
-        (, V3Struct.ParsedV3QuoteStruct memory v3quote) = parseV3QuoteJson(v3QuotePacked);
+        V3Struct.ParsedV3QuoteStruct memory v3quote =
+            ParseV3QuoteBytes(address(pemCertChainLib), sampleQuote);
 
         vm.prank(Bob, Bob);
         sv.registerInstance(v3quote);
