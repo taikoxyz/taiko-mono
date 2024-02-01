@@ -75,7 +75,6 @@ contract Bridge is EssentialContract, IBridge {
     error B_NOT_FAILED();
     error B_NOT_RECEIVED();
     error B_PERMISSION_DENIED();
-    error B_RECALLED_NOT_ALLOWED();
     error B_STATUS_MISMATCH();
     error B_INVOCATION_TOO_EARLY();
 
@@ -180,7 +179,7 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(message.srcChainId)
     {
         bytes32 msgHash = hashMessage(message);
-        if (messageStatus[msgHash] != Status.NEW) revert B_RECALLED_NOT_ALLOWED();
+        if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
         bool previouslyNotReceived = messageReception[msgHash].receivedAt == 0;
         if (previouslyNotReceived) {
