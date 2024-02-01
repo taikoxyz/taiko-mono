@@ -68,13 +68,6 @@ contract SgxVerifier is EssentialContract, IVerifier {
     error SGX_MISSING_ATTESTATION();
     error SGX_RA_NOT_SUPPORTED();
 
-    modifier onlyAuthorized() {
-        if (msg.sender != owner() && msg.sender != resolve("rollup_watchdog", true)) {
-            revert SGX_DELETE_NOT_AUTHORIZED();
-        }
-        _;
-    }
-
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
     function init(address _addressManager) external initializer {
@@ -86,7 +79,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// @return ids The respective instanceId array per addresses.
     function addInstances(address[] calldata _instances)
         external
-        onlyOwner
+        onlyFromOwnerOrNamed("rollup_watchdog")
         returns (uint256[] memory ids)
     {
         if (_instances.length == 0) revert SGX_INVALID_INSTANCES();
