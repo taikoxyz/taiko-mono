@@ -35,7 +35,7 @@ contract Bridge is EssentialContract, IBridge {
         RECALLED
     }
 
-    struct Receive {
+    struct Reception {
         uint64 timestamp;
         address agent;
     }
@@ -48,7 +48,7 @@ contract Bridge is EssentialContract, IBridge {
     mapping(bytes32 msgHash => Status) public messageStatus; // slot 3
     Context private _ctx; // // slot 4,5,6
     mapping(address => bool) public addressBanned;
-    mapping(bytes32 msgHash => Receive) public messageReceive;
+    mapping(bytes32 msgHash => Reception) public messageReception;
     uint256[42] private __gap;
 
     event MessageSent(bytes32 indexed msgHash, Message message);
@@ -98,7 +98,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         uint64 _timestamp = toPause ? type(uint64).max : uint64(block.timestamp);
         for (uint256 i; i < msgHashes.length; ++i) {
-            messageReceive[msgHashes[i]].timestamp = _timestamp;
+            messageReception[msgHashes[i]].timestamp = _timestamp;
         }
         emit MessagesPaused(msgHashes, toPause);
     }
@@ -170,7 +170,7 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 failureSignal = signalForFailedMessage(msgHash);
         if (messageStatus[failureSignal] != Status.NEW) revert B_RECALLED_ALREADY();
 
-        bool isMessageNew = messageReceive[failureSignal].timestamp == 0;
+        bool isMessageNew = messageReception[failureSignal].timestamp == 0;
         if (isMessageNew) {
             ISignalService signalService = ISignalService(resolve("signal_service", false));
 
@@ -182,12 +182,12 @@ contract Bridge is EssentialContract, IBridge {
                 revert B_NOT_FAILED();
             }
 
-            messageReceive[failureSignal].timestamp = uint64(block.timestamp);
+            messageReception[failureSignal].timestamp = uint64(block.timestamp);
         }
 
         (uint256 invocationDelay,) = getInvocationDelays();
-        if (block.timestamp >= invocationDelay + messageReceive[failureSignal].timestamp) {
-            delete messageReceive[failureSignal];
+        if (block.timestamp >= invocationDelay + messageReception[failureSignal].timestamp) {
+            delete messageReception[failureSignal];
             messageStatus[failureSignal] = Status.RECALLED;
 
             // Execute the recall logic based on the contract's support for the
@@ -242,20 +242,20 @@ contract Bridge is EssentialContract, IBridge {
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
         ISignalService signalService = ISignalService(resolve("signal_service", false));
-        bool isMessageNew = messageReceive[msgHash].timestamp == 0;
+        bool isMessageNew = messageReception[msgHash].timestamp == 0;
 
         if (isMessageNew) {
             if (!_proveSignalReceived(signalService, msgHash, message.srcChainId, proof)) {
                 revert B_NOT_RECEIVED();
             }
-            messageReceive[msgHash] = Receive({
+            messageReception[msgHash] = Reception({
                 timestamp: uint64(block.timestamp),
                 agent: message.gasLimit == 0 ? message.owner : msg.sender
             });
         }
 
         (uint256 invocationDelay, uint256 invocationExtraelay) = getInvocationDelays();
-        if (invocationDelay != 0 && msg.sender != messageReceive[msgHash].agent) {
+        if (invocationDelay != 0 && msg.sender != messageReception[msgHash].agent) {
             // If msg.sender is not the one ack the reception of the signal, then there
             // is an extra delay.
             unchecked {
@@ -263,13 +263,13 @@ contract Bridge is EssentialContract, IBridge {
             }
         }
 
-        if (block.timestamp >= invocationDelay + messageReceive[msgHash].timestamp) {
+        if (block.timestamp >= invocationDelay + messageReception[msgHash].timestamp) {
             // If the gas limit is set to zero, only the owner can process the message.
             if (message.gasLimit == 0 && msg.sender != message.owner) {
                 revert B_PERMISSION_DENIED();
             }
 
-            delete messageReceive[msgHash];
+            delete messageReception[msgHash];
 
             uint256 refundAmount;
 
