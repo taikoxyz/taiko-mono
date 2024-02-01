@@ -78,7 +78,6 @@ export type BridgeTransaction = {
 };
 
 export type BridgeTransferOp = {
-  srcChainId: bigint;
   destChainId: bigint;
   to: Address;
   token: Address;
@@ -90,7 +89,6 @@ export type BridgeTransferOp = {
 };
 
 export type NFTBridgeTransferOp = {
-  srcChainId: bigint;
   destChainId: bigint;
   to: Address;
   token: Address;
