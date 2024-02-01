@@ -184,11 +184,8 @@ contract Bridge is EssentialContract, IBridge {
                 revert B_MESSAGE_NOT_SENT();
             }
 
-            if (
-                !_proveSignalReceived(
-                    signalService, signalForFailedMessage(msgHash), message.destChainId, proof
-                )
-            ) {
+            bytes32 failureSignal = signalForFailedMessage(msgHash);
+            if (!_proveSignalReceived(signalService, failureSignal, message.destChainId, proof)) {
                 revert B_NOT_FAILED();
             }
 
