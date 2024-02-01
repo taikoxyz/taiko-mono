@@ -60,7 +60,7 @@ var (
 		`,
 		Value:    "filter-and-subscribe",
 		Category: indexerCategory,
-		EnvVars:  []string{"SYNC_MODE"},
+		EnvVars:  []string{"WATCH_MODE"},
 	}
 	SrcTaikoAddress = &cli.StringFlag{
 		Name:     "srcTaikoAddress",
