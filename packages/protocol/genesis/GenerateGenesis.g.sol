@@ -141,6 +141,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
     }
 
     function testSingletonBridge() public {
+        // TODO: the next line reverts with RESOLVER_ZERO_ADDR(1, "bridge")
         Bridge bridgeProxy = Bridge(payable(getPredeployedContractAddress("Bridge")));
 
         assertEq(ownerSecurityCouncil, bridgeProxy.owner());
