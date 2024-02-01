@@ -35,7 +35,7 @@ contract Bridge is EssentialContract, IBridge {
         RECALLED
     }
 
-    // Note that this struct must take only 1 slot
+    // Note that this struct shall take only 1 slot to minimize gas cost
     struct Reception {
         // The time a message is marked as received on the destination chain
         uint64 receivedAt;
