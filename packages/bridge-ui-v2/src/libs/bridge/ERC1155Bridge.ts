@@ -200,7 +200,6 @@ export class ERC1155Bridge extends Bridge {
     const {
       to,
       wallet,
-      srcChainId,
       destChainId,
       token,
       fee,
@@ -226,7 +225,6 @@ export class ERC1155Bridge extends Bridge {
         : BigInt(0);
 
     const sendERC1155Args: NFTBridgeTransferOp = {
-      srcChainId: BigInt(srcChainId),
       destChainId: BigInt(destChainId),
       to,
       token,
