@@ -6,6 +6,7 @@ This package contains the Bridge UI built with svelte and wagmi
   - [Development setup](#development-setup)
     - [Set up environment variables](#set-up-environment-variables)
     - [Set up configurations](#set-up-configurations)
+      - [Optional flags](#optional-flags)
     - [Start a development server:](#start-a-development-server)
   - [Building](#building)
 
@@ -80,6 +81,30 @@ To get started, open your terminal in `/packages/bridge-ui-v2/`
    <br>
 
 **Beware**, that if you make changes to the json files, you need to export them to the .env again via script.
+<br>
+
+#### Optional flags
+
+```bash
+pnpm export:config --<env> --<version>
+```
+
+You can store multiple configs in subfolders, currently the script accepts:
+`--a5`, `--a6` for version and `--dev`, `--prod` for env
+
+The folder structure should look like this then:
+
+```
+config/
+|-- dev/
+|   |-- a5/
+|   |-- a6/
+|-- prod/
+|   |-- a5/
+|   |-- a6/
+```
+
+More could be configured manually in `scripts/exportJsonToEnv.js`
 <br>
 
 ### Start a development server:
