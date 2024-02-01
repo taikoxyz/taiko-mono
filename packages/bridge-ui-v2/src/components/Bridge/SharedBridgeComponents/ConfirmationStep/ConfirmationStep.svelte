@@ -217,26 +217,30 @@
       {:else if !$allApproved && !approving && !checking}
         <Icon type={approveIcon} size={160} />
         <div id="text" class="f-col my-[30px] text-center">
-          <h1 class="mb-[16px]">{$t('bridge.nft.step.confirm.approve.title')}</h1>
-          <span>{$t('bridge.nft.step.confirm.approve.description')}</span>
+          <h1 class="mb-[16px]">{$t('bridge.step.confirm.approve.title')}</h1>
+          <span>{$t('bridge.step.confirm.approve.description')}</span>
         </div>
       {:else if checking}
         <Spinner class="!w-[160px] !h-[160px] text-primary-brand" />
         <div id="text" class="f-col my-[30px] text-center">
-          <h1 class="mb-[16px]">{$t('bridge.nft.step.confirm.analyzing')}</h1>
-          <span>{$t('bridge.nft.step.confirm.checking_status')}</span>
+          <h1 class="mb-[16px]">{$t('bridge.step.confirm.analyzing')}</h1>
+          <span>{$t('bridge.step.confirm.checking_status')}</span>
         </div>
       {:else if approving || bridging}
         <Spinner class="!w-[160px] !h-[160px] text-primary-brand" />
         <div id="text" class="f-col my-[30px] text-center">
-          <h1 class="mb-[16px]">{$t('bridge.nft.step.confirm.processing')}</h1>
-          <span>{$t('bridge.nft.step.confirm.approve.pending')}</span>
+          <h1 class="mb-[16px]">{$t('bridge.step.confirm.processing')}</h1>
+          <span>{$t('bridge.step.confirm.approve.pending')}</span>
         </div>
       {:else if $allApproved && !approving && !bridging}
         <Icon type={bridgeIcon} size={160} />
         <div id="text" class="f-col my-[30px] text-center">
-          <h1 class="mb-[16px]">{$t('bridge.nft.step.confirm.approved.title')}</h1>
-          <span>{$t('bridge.nft.step.confirm.approved.description')}</span>
+          <h1 class="mb-[16px]">{$t('bridge.step.confirm.approved.title')}</h1>
+          {#if $selectedToken?.type === TokenType.ETH}
+            <span>{$t('bridge.step.confirm.approved.description_eth')}</span>
+          {:else}
+            <span>{$t('bridge.step.confirm.approved.description_token')}</span>
+          {/if}
         </div>
       {/if}
     </div>

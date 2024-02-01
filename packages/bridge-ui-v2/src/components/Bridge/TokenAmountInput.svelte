@@ -126,12 +126,14 @@
         return;
       }
     } else {
+      $validatingAmount = false;
       throw new UnknownTokenTypeError($selectedToken.type);
     }
 
     sanitizedValue = value;
 
     $enteredAmount = BigInt(sanitizedValue);
+    $validatingAmount = false;
 
     debouncedValidateAmount();
   }

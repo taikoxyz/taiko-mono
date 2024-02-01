@@ -72,11 +72,6 @@
 
   $: canDoNothing = !hasAddress || !hasNetworks || !hasBalance || !$selectedToken || disabled;
 
-  // Conditions for approve/bridge steps
-  $: if ($enteredAmount) {
-    $validatingAmount = true;
-  }
-
   // Conditions to disable/enable buttons
   $: disableApprove =
     checking ||
