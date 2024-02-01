@@ -56,7 +56,7 @@ contract Bridge is EssentialContract, IBridge {
     event MessageRecalled(bytes32 indexed msgHash);
     event MessageExecuted(bytes32 indexed msgHash);
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
-    event MessagesPaused(bytes32[] msgHash, bool paused);
+    event MessagesSuspended(bytes32[] msgHash, bool paused);
     event AddressBanned(address indexed addr, bool banned);
 
     error B_INVALID_CHAINID();
@@ -88,19 +88,19 @@ contract Bridge is EssentialContract, IBridge {
         _ctx.msgHash == bytes32(PLACEHOLDER);
     }
 
-    /// @notice Pause or unpause invocation for a list of messages.
-    function pauseMessages(
+    /// @notice Suspend or unsuspend invocation for a list of messages.
+    function suspendMessagesages(
         bytes32[] calldata msgHashes,
-        bool toPause
+        bool toSuspend
     )
         external
         onlyFromNamed("bridge_watchdog")
     {
-        uint64 _timestamp = toPause ? type(uint64).max : uint64(block.timestamp);
+        uint64 _timestamp = toSuspend ? type(uint64).max : uint64(block.timestamp);
         for (uint256 i; i < msgHashes.length; ++i) {
             messageReception[msgHashes[i]].timestamp = _timestamp;
         }
-        emit MessagesPaused(msgHashes, toPause);
+        emit MessagesSuspended(msgHashes, toSuspend);
     }
 
     /// @notice Ban or unban an address. A banned addresses will not be invoked upon
