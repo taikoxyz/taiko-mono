@@ -25,7 +25,7 @@ import "./LibUtils.sol";
 /// @title LibProving
 /// @notice A library for handling block contestation and proving in the Taiko
 /// protocol.
-library LibProvingAlt {
+library LibProving {
     using LibMath for uint256;
 
     bytes32 public constant RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
