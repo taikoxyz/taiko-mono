@@ -56,7 +56,7 @@ contract Bridge is EssentialContract, IBridge {
     event MessageRecalled(bytes32 indexed msgHash);
     event MessageExecuted(bytes32 indexed msgHash);
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
-    event MessagesSuspended(bytes32[] msgHash, bool paused);
+    event MessageSuspended(bytes32 msgHash, bool paused);
     event AddressBanned(address indexed addr, bool banned);
 
     error B_INVALID_CHAINID();
@@ -98,9 +98,10 @@ contract Bridge is EssentialContract, IBridge {
     {
         uint64 _timestamp = toSuspend ? type(uint64).max : uint64(block.timestamp);
         for (uint256 i; i < msgHashes.length; ++i) {
-            messageReception[msgHashes[i]].timestamp = _timestamp;
+            bytes32 msgHash = msgHashes[i];
+            messageReception[msgHash].timestamp = _timestamp;
+            emit MessageSuspended(msgHash, toSuspend);
         }
-        emit MessagesSuspended(msgHashes, toSuspend);
     }
 
     /// @notice Ban or unban an address. A banned addresses will not be invoked upon
