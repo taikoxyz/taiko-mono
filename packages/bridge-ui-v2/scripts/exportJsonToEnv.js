@@ -9,18 +9,54 @@ const Logger = new LogUtil('exportJsonToEnv');
 
 const envFile = './.env';
 
-const bridgesPath = 'config/configuredBridges.json';
-const chainsPath = 'config/configuredChains.json';
-const tokensPath = 'config/configuredCustomTokens.json';
-const relayerPath = 'config/configuredRelayer.json';
-const eventIndexerPath = 'config/configuredEventIndexer.json';
+const defaultPaths = {
+  bridges: 'configuredBridges.json',
+  chains: 'configuredChains.json',
+  tokens: 'configuredCustomTokens.json',
+  relayer: 'configuredRelayer.json',
+  eventIndexer: 'configuredEventIndexer.json',
+};
+
+// Parse command line arguments
+const args = process.argv.slice(2);
+const isDev = args.includes('--dev');
+const isProd = args.includes('--prod');
+const isA6 = args.includes('--a6');
+const isA5 = args.includes('--a5');
+
+// Determine the environment
+let environment = '';
+if (isDev) {
+  environment = 'dev';
+} else if (isProd) {
+  environment = 'prod';
+}
+
+// Determine the version
+let version = '';
+if (isA6) {
+  version = 'a6';
+} else if (isA5) {
+  version = 'a5';
+}
+
+Logger.info(`Detected ${environment} environment and ${version} version.`);
+
+// Generate paths based on environment and version or create default paths
+const paths = {};
+Object.entries(defaultPaths).forEach(([key, value]) => {
+  const fileName = path.basename(value);
+  const filePath = path.dirname(value);
+  const updatedPath = path.join('config', environment, version, filePath, fileName);
+  paths[key] = updatedPath;
+});
 
 // Create a backup of the existing .env file
 fs.copyFileSync(envFile, `${envFile}.bak`);
 
-const jsonFiles = [bridgesPath, chainsPath, tokensPath, relayerPath, eventIndexerPath];
+Object.entries(paths).forEach(([, value]) => {
+  const jsonFile = value;
 
-jsonFiles.forEach((jsonFile) => {
   if (fs.existsSync(jsonFile)) {
     Logger.info(`Exporting ${jsonFile} to .env file...`);
 
