@@ -26,7 +26,6 @@ import "./AddressManager.sol";
 /// is no setAddressManager() function go guarantee atomicness across all
 /// contracts that are resolvers.
 abstract contract AddressResolver {
-
     address public addressManager;
     uint256[49] private __gap;
 
