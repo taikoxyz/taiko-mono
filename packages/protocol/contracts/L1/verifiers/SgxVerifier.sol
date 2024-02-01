@@ -54,6 +54,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     event InstanceAdded(
         uint256 indexed id, address indexed instance, address replaced, uint256 timstamp
     );
+    event InstanceDeleted(uint256 indexed id, address indexed instance);
 
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_INSTANCES();
@@ -75,6 +76,22 @@ contract SgxVerifier is EssentialContract, IVerifier {
     {
         if (_instances.length == 0) revert SGX_INVALID_INSTANCES();
         ids = _addInstances(_instances);
+    }
+
+    /// @notice Deletes SGX instances from the registry.
+    /// @param _ids The ids array of SGX instances.
+    function deleteInstances(uint256[] calldata _ids)
+        external
+        onlyFromOwnerOrNamed("rollup_watchdog")
+    {
+        if (_ids.length == 0) revert SGX_INVALID_INSTANCES();
+        for (uint256 i; i < _ids.length; ++i) {
+            if (instances[_ids[i]].addr == address(0)) revert SGX_INVALID_INSTANCE();
+
+            emit InstanceDeleted(_ids[i], instances[_ids[i]].addr);
+
+            delete instances[_ids[i]];
+        }
     }
 
     /// @notice Adds SGX instances to the registry by another SGX instance.
