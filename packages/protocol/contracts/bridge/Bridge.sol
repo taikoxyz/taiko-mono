@@ -37,7 +37,7 @@ contract Bridge is EssentialContract, IBridge {
 
     struct Receive {
         uint64 timestamp;
-        address priorityTransactor;
+        address agent;
     }
 
     uint256 public constant INVOCATION_EXTRA_DELAY = 10 minutes;
@@ -185,7 +185,8 @@ contract Bridge is EssentialContract, IBridge {
             messageReceive[failureSignal].timestamp = uint64(block.timestamp);
         }
 
-        if (block.timestamp >= getInvocationDelay() + messageReceive[failureSignal].timestamp) {
+        (uint256 invocationDelay,) = getInvocationDelays();
+        if (block.timestamp >= invocationDelay + messageReceive[failureSignal].timestamp) {
             delete messageReceive[failureSignal];
             messageStatus[failureSignal] = Status.RECALLED;
 
@@ -249,20 +250,20 @@ contract Bridge is EssentialContract, IBridge {
             }
             messageReceive[msgHash] = Receive({
                 timestamp: uint64(block.timestamp),
-                priorityTransactor: message.gasLimit == 0 ? message.owner : msg.sender
+                agent: message.gasLimit == 0 ? message.owner : msg.sender
             });
         }
 
-        uint256 delay = getInvocationDelay();
-        if (delay != 0 && msg.sender != messageReceive[msgHash].priorityTransactor) {
+        (uint256 invocationDelay, uint256 invocationExtraelay) = getInvocationDelays();
+        if (invocationDelay != 0 && msg.sender != messageReceive[msgHash].agent) {
             // If msg.sender is not the one ack the reception of the signal, then there
             // is an extra delay.
             unchecked {
-                delay += INVOCATION_EXTRA_DELAY;
+                invocationDelay += invocationExtraelay;
             }
         }
 
-        if (block.timestamp >= delay + messageReceive[msgHash].timestamp) {
+        if (block.timestamp >= invocationDelay + messageReceive[msgHash].timestamp) {
             // If the gas limit is set to zero, only the owner can process the message.
             if (message.gasLimit == 0 && msg.sender != message.owner) {
                 revert B_PERMISSION_DENIED();
@@ -427,12 +428,21 @@ contract Bridge is EssentialContract, IBridge {
         return _ctx;
     }
 
-    /// @notice Returns the delay in seconds before a message can be executed
-    /// after being received.
+    /// @notice Returns invocation delay values.
     /// @dev Bridge contract deployed on L1 shall use a non-zero value for better
     /// security.
-    function getInvocationDelay() public view virtual returns (uint256) {
-        return 0;
+    /// @return invocationDelay The minimal delay in second before a message can be executed since
+    /// and the time it was received on the this chain.
+    /// @return invocationExtraelay The extra delay in second (to be added to invocationDelay) if
+    /// the transactor is not the agent who acknowledged the reception of this message.
+    function getInvocationDelays()
+        public
+        view
+        virtual
+        returns (uint256 invocationDelay, uint256 invocationExtraelay)
+    {
+        invocationDelay = 0;
+        invocationExtraelay = 0;
     }
 
     /// @notice Hash the message
