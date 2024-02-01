@@ -37,7 +37,7 @@ contract Bridge is EssentialContract, IBridge {
 
     struct Receive {
         uint64 timestamp;
-        address transactor;
+        address priorityTransactor;
     }
 
     uint256 public constant INVOCATION_EXTRA_DELAY = 30 minutes;
@@ -55,7 +55,6 @@ contract Bridge is EssentialContract, IBridge {
     event MessageReceived(bytes32 indexed msgHash, Message message, bool isRecall);
     event MessageRecalled(bytes32 indexed msgHash);
     event MessageExecuted(bytes32 indexed msgHash);
-    event DestChainEnabled(uint64 indexed chainId, bool enabled);
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
     event MessagesPaused(bytes32[] msgHash, bool paused);
     event AddressBanned(address indexed addr, bool banned);
@@ -250,12 +249,12 @@ contract Bridge is EssentialContract, IBridge {
             }
             messageReceive[msgHash] = Receive({
                 timestamp: uint64(block.timestamp),
-                transactor: message.gasLimit == 0 ? message.owner : msg.sender
+                priorityTransactor: message.gasLimit == 0 ? message.owner : msg.sender
             });
         }
 
         uint256 delay = getInvocationDelay();
-        if (delay != 0 && msg.sender != messageReceive[msgHash].transactor) {
+        if (delay != 0 && msg.sender != messageReceive[msgHash].priorityTransactor) {
             // If msg.sender is not the one ack the reception of the signal, then there
             // is an extra delay.
             unchecked {
