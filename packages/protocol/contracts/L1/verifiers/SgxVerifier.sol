@@ -56,7 +56,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     uint256[48] private __gap;
 
     event InstanceAdded(
-        uint256 indexed id, address indexed instance, address replaced, uint256 timstamp
+        uint256 indexed id, address indexed instance, address replaced, uint256 validSince
     );
     event InstanceDeleted(uint256 indexed id, address indexed instance);
 
@@ -197,7 +197,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
             instances[nextInstanceId] = Instance(_instances[i], validSince);
             ids[i] = nextInstanceId;
 
-            emit InstanceAdded(nextInstanceId, _instances[i], address(0), block.timestamp);
+            emit InstanceAdded(nextInstanceId, _instances[i], address(0), validSince);
 
             nextInstanceId++;
         }
@@ -213,7 +213,6 @@ contract SgxVerifier is EssentialContract, IVerifier {
     function _isInstanceValid(uint256 id, address instance) private view returns (bool) {
         if (instance == address(0)) return false;
         if (instance != instances[id].addr) return false;
-        if (instances[id].validSince > block.timestamp) return false;
-        return instances[id].validSince + INSTANCE_EXPIRY > block.timestamp;
+        return instances[id].validSince <= block.timestamp && block.timestamp <= instances[id].validSince + INSTANCE_EXPIRY;
     }
 }
