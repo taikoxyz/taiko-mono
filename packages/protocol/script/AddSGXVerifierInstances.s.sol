@@ -15,8 +15,8 @@
 pragma solidity 0.8.24;
 
 import "../test/DeployCapability.sol";
-import "../contracts/L1/gov/TaikoTimelockController.sol";
-import "../contracts/L1/verifiers/SgxVerifier.sol";
+import "../contracts/gov/TaikoTimelockController.sol";
+import "../contracts/verifiers/SgxVerifier.sol";
 
 contract AddSGXVerifierInstances is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");

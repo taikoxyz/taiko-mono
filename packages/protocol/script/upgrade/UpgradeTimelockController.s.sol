@@ -16,7 +16,7 @@ pragma solidity ^0.8.24;
 
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
-import "../../contracts/L1/gov/TaikoTimelockController.sol";
+import "../../contracts/gov/TaikoTimelockController.sol";
 import "./UpgradeScript.s.sol";
 
 contract UpgradeTaikoTimelockController is UpgradeScript {

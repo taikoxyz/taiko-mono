@@ -20,14 +20,14 @@ import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
-import "../contracts/L1/verifiers/PseZkVerifier.sol";
-import "../contracts/L1/verifiers/SgxVerifier.sol";
-import "../contracts/L1/verifiers/SgxAndZkVerifier.sol";
-import "../contracts/L1/verifiers/GuardianVerifier.sol";
 import "../contracts/L1/tiers/TaikoA6TierProvider.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
-import "../contracts/L1/gov/TaikoTimelockController.sol";
-import "../contracts/L1/gov/TaikoGovernor.sol";
+import "../contracts/gov/TaikoTimelockController.sol";
+import "../contracts/gov/TaikoGovernor.sol";
+import "../contracts/verifiers/PseZkVerifier.sol";
+import "../contracts/verifiers/SgxVerifier.sol";
+import "../contracts/verifiers/SgxAndZkVerifier.sol";
+import "../contracts/verifiers/GuardianVerifier.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
@@ -352,7 +352,7 @@ contract DeployOnL1 is DeployCapability {
         });
 
         address[] memory plonkVerifiers = new address[](1);
-        plonkVerifiers[0] = deployPseZkEvmVerifier("contracts/L1/verifiers/PlonkVerifier.yulp");
+        plonkVerifiers[0] = deployPseZkEvmVerifier("contracts/verifiers/PlonkVerifier.yulp");
 
         for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
             register(

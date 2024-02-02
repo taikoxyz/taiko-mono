@@ -19,15 +19,16 @@ import "../contracts/tokenvault/ERC1155Vault.sol";
 
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
-import "../contracts/L1/verifiers/SgxVerifier.sol";
-import "../contracts/L1/verifiers/GuardianVerifier.sol";
-import "../contracts/L1/verifiers/PseZkVerifier.sol";
-import "../contracts/L1/verifiers/SgxAndZkVerifier.sol";
-import "../contracts/L1/tiers/TaikoA6TierProvider.sol";
 import "../contracts/L1/tiers/ITierProvider.sol";
 import "../contracts/L1/tiers/ITierProvider.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
+import "../contracts/L1/tiers/TaikoA6TierProvider.sol";
+
+import "../contracts/verifiers/SgxVerifier.sol";
+import "../contracts/verifiers/GuardianVerifier.sol";
+import "../contracts/verifiers/PseZkVerifier.sol";
+import "../contracts/verifiers/SgxAndZkVerifier.sol";
 
 import "../contracts/L2/Lib1559Math.sol";
 import "../contracts/L2/TaikoL2EIP1559Configurable.sol";

@@ -16,7 +16,7 @@ pragma solidity ^0.8.24;
 
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
-import "../../contracts/L1/gov/TaikoGovernor.sol";
+import "../../contracts/gov/TaikoGovernor.sol";
 import "./UpgradeScript.s.sol";
 
 contract UpgradeTaikoGovernor is UpgradeScript {

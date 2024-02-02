@@ -16,7 +16,7 @@ pragma solidity 0.8.24;
 
 import
     "lib/openzeppelin-contracts-upgradeable/contracts/governance/TimelockControllerUpgradeable.sol";
-import "../../common/OwnerUUPSUpgradable.sol";
+import "../common/OwnerUUPSUpgradable.sol";
 
 contract TaikoTimelockController is OwnerUUPSUpgradable, TimelockControllerUpgradeable {
     uint256[50] private __gap;

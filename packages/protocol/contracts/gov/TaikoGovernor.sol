@@ -23,7 +23,7 @@ import
     "lib/openzeppelin-contracts-upgradeable/contracts/governance/extensions/GovernorVotesQuorumFractionUpgradeable.sol";
 import
     "lib/openzeppelin-contracts-upgradeable/contracts/governance/extensions/GovernorTimelockControlUpgradeable.sol";
-import "../../common/OwnerUUPSUpgradable.sol";
+import "../common/OwnerUUPSUpgradable.sol";
 
 contract TaikoGovernor is
     OwnerUUPSUpgradable,
