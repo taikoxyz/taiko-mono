@@ -262,7 +262,6 @@ contract Bridge is EssentialContract, IBridge {
 
         uint64 receivedAt = proofReceipt[msgHash].receivedAt;
         bool isMessageNotProven = receivedAt == 0;
-
         (uint256 invocationDelay, uint256 invocationExtraDelay) = getInvocationDelays();
 
         if (isMessageNotProven) {
