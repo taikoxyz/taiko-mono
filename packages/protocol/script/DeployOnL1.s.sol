@@ -25,6 +25,7 @@ import "../contracts/L1/verifiers/SgxVerifier.sol";
 import "../contracts/L1/verifiers/SgxAndZkVerifier.sol";
 import "../contracts/L1/verifiers/GuardianVerifier.sol";
 import "../contracts/L1/tiers/TaikoA6TierProvider.sol";
+import "../contracts/L1/tiers/OptimisticTierProvider.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/L1/gov/TaikoTimelockController.sol";
 import "../contracts/L1/gov/TaikoGovernor.sol";
@@ -311,9 +312,16 @@ contract DeployOnL1 is DeployCapability {
             owner: timelock
         });
 
+        address tierProvider;
+        if (vm.envBool("OPTIMISTIC_TIER_PROVIDER")) {
+            tierProvider = address(new OptimisticTierProvider());
+        } else {
+            tierProvider = address(new TaikoA6TierProvider());
+        }
+
         deployProxy({
             name: "tier_provider",
-            impl: address(new TaikoA6TierProvider()),
+            impl: tierProvider,
             data: abi.encodeCall(TaikoA6TierProvider.init, ()),
             registerTo: rollupAddressManager,
             owner: timelock
