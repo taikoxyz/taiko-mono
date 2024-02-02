@@ -140,9 +140,11 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 msgHash = hashMessage(message);
         if (isMessageRecalled[msgHash]) revert B_RECALLED_ALREADY();
 
-        ISignalService signalService = ISignalService(resolve("signal_service", false));
+        address signalService = resolve("signal_service", false);
 
-        if (!signalService.isSignalSent(address(this), msgHash)) revert B_MESSAGE_NOT_SENT();
+        if (!ISignalService(signalService).isSignalSent(address(this), msgHash)) {
+            revert B_MESSAGE_NOT_SENT();
+        }
 
         bool received = _proveSignalReceived(
             signalService, _signalForFailedMessage(msgHash), message.destChainId, proof
@@ -203,7 +205,7 @@ contract Bridge is EssentialContract, IBridge {
 
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
-        ISignalService signalService = ISignalService(resolve("signal_service", false));
+        address signalService = resolve("signal_service", false);
         if (!_proveSignalReceived(signalService, msgHash, message.srcChainId, proof)) {
             revert B_NOT_RECEIVED();
         }
@@ -213,8 +215,8 @@ contract Bridge is EssentialContract, IBridge {
 
         // Process message differently based on the target address
         if (
-            message.to == address(0) || message.to == address(this)
-                || message.to == address(signalService) || addressBanned[message.to]
+            message.to == address(0) || message.to == address(this) || message.to == signalService
+                || addressBanned[message.to]
         ) {
             // Handle special addresses that don't require actual invocation but
             // mark message as DONE
@@ -233,7 +235,7 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         // Update the message status
-        _updateMessageStatus(signalService, msgHash, status);
+        _updateMessageStatus(ISignalService(signalService), msgHash, status);
 
         // Determine the refund recipient
         address refundTo = message.refundTo == address(0) ? message.owner : message.refundTo;
@@ -317,7 +319,7 @@ contract Bridge is EssentialContract, IBridge {
         if (message.srcChainId != block.chainid) return false;
 
         return _proveSignalReceived(
-            ISignalService(resolve("signal_service", false)),
+            resolve("signal_service", false),
             _signalForFailedMessage(hashMessage(message)),
             message.destChainId,
             proof
@@ -338,10 +340,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         if (message.destChainId != block.chainid) return false;
         return _proveSignalReceived(
-            ISignalService(resolve("signal_service", false)),
-            hashMessage(message),
-            message.srcChainId,
-            proof
+            resolve("signal_service", false), hashMessage(message), message.srcChainId, proof
         );
     }
 
@@ -433,7 +432,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @param proof The merkle inclusion proof.
     /// @return True if the message was received.
     function _proveSignalReceived(
-        ISignalService signalService,
+        address signalService,
         bytes32 signal,
         uint64 srcChainId,
         bytes calldata proof
@@ -442,12 +441,12 @@ contract Bridge is EssentialContract, IBridge {
         view
         returns (bool)
     {
-        return signalService.proveSignalReceived({
-            srcChainId: srcChainId,
-            app: resolve(srcChainId, "bridge", false),
-            signal: signal,
-            proof: proof
-        });
+        bytes memory data = abi.encodeCall(
+            ISignalService.proveSignalReceived,
+            (srcChainId, resolve(srcChainId, "bridge", false), signal, proof)
+        );
+        (bool success, bytes memory ret) = signalService.staticcall(data);
+        return success ? abi.decode(ret, (bool)) : false;
     }
 
     function _signalForFailedMessage(bytes32 msgHash) private pure returns (bytes32) {
