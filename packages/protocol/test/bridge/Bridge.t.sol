@@ -19,12 +19,28 @@ contract UntrustedSendMessageRelayer {
     }
 }
 
+contract TwoStepBridge is Bridge {
+    function getInvocationDelays()
+        public
+        view
+        override
+        returns (uint256 invocationDelay, uint256 invocationExtraDelay)
+    {
+        // We can change the network ID below for specific L2 to have non-zero delays.
+        // if (block.chainid == 12345789) {
+        //     return (6 hours, 15 minutes);
+        // }
+        return (10 hours, 2 hours);
+    }
+}
+
 contract BridgeTest is TaikoTest {
     AddressManager addressManager;
     BadReceiver badReceiver;
     GoodReceiver goodReceiver;
     Bridge bridge;
     Bridge destChainBridge;
+    TwoStepBridge dest2StepBridge;
     SignalService signalService;
     DummyCrossChainSync crossChainSync;
     SkipProofCheckSignal mockProofSignalService;
@@ -65,6 +81,16 @@ contract BridgeTest is TaikoTest {
             )
         );
 
+        dest2StepBridge = TwoStepBridge(
+            payable(
+                deployProxy({
+                    name: "2_step_bridge",
+                    impl: address(new TwoStepBridge()),
+                    data: abi.encodeCall(Bridge.init, (address(addressManager)))
+                })
+            )
+        );
+
         mockProofSignalService = SkipProofCheckSignal(
             deployProxy({
                 name: "signal_service",
@@ -84,6 +110,7 @@ contract BridgeTest is TaikoTest {
         );
 
         vm.deal(address(destChainBridge), 100 ether);
+        vm.deal(address(dest2StepBridge), 100 ether);
 
         crossChainSync = new DummyCrossChainSync();
 
@@ -135,6 +162,111 @@ contract BridgeTest is TaikoTest {
         // not happen
         assertEq(Alice.balance, 100_000_000_000_000_001_000);
         assertEq(Bob.balance, 1000);
+    }
+
+    function test_Bridge_processMessage_with_2_steps() public {
+        IBridge.Message memory message = IBridge.Message({
+            id: 0,
+            from: address(bridge),
+            srcChainId: uint64(block.chainid),
+            destChainId: destChainId,
+            owner: Alice,
+            to: Alice,
+            refundTo: Alice,
+            value: 1000,
+            fee: 1000,
+            gasLimit: 1_000_000,
+            data: "",
+            memo: ""
+        });
+        // Mocking proof - but obviously it needs to be created in prod
+        // coresponding to the message
+        bytes memory proof = hex"00";
+
+        bytes32 msgHash = dest2StepBridge.hashMessage(message);
+
+        vm.chainId(destChainId);
+        // This in is the first transaction setting the proofReceipt
+        vm.prank(Bob, Bob);
+        dest2StepBridge.processMessage(message, proof);
+
+        Bridge.Status status = dest2StepBridge.messageStatus(msgHash);
+        // Still new ! Because of the delay, no processing happened
+        assertEq(status == Bridge.Status.NEW, true);
+        // Alice has 100 ether
+        assertEq(Alice.balance, 100_000_000_000_000_000_000);
+
+        // Go in the future, 5 hours, still not processable
+        vm.warp(block.timestamp + 5 hours);
+
+        vm.expectRevert(Bridge.B_INVOCATION_TOO_EARLY.selector);
+        vm.prank(Bob, Bob);
+        dest2StepBridge.processMessage(message, proof);
+
+        // Go in the future, +6 hours, all in all 11 hours from first processing
+        // Carol cannot process (as not preferred executor)
+        vm.warp(block.timestamp + 6 hours);
+
+        // Too eraly for Carol
+        vm.expectRevert(Bridge.B_INVOCATION_TOO_EARLY.selector);
+        vm.prank(Carol, Carol);
+        dest2StepBridge.processMessage(message, proof);
+
+        // Not too early for Bob
+        vm.prank(Bob, Bob);
+        dest2StepBridge.processMessage(message, proof);
+
+        // Alice has 100 ether + 1000 wei balance
+        assertEq(Alice.balance, 100_000_000_000_000_001_000);
+    }
+
+    function test_Bridge_processMessage_with_2_steps_and_not_preferred() public {
+        IBridge.Message memory message = IBridge.Message({
+            id: 0,
+            from: address(bridge),
+            srcChainId: uint64(block.chainid),
+            destChainId: destChainId,
+            owner: Alice,
+            to: Alice,
+            refundTo: Alice,
+            value: 1000,
+            fee: 1000,
+            gasLimit: 1_000_000,
+            data: "",
+            memo: ""
+        });
+        // Mocking proof - but obviously it needs to be created in prod
+        // coresponding to the message
+        bytes memory proof = hex"00";
+
+        bytes32 msgHash = dest2StepBridge.hashMessage(message);
+
+        vm.chainId(destChainId);
+        // This in is the first transaction setting the proofReceipt
+        vm.prank(Bob, Bob);
+        dest2StepBridge.processMessage(message, proof);
+
+        Bridge.Status status = dest2StepBridge.messageStatus(msgHash);
+        // Still new ! Because of the delay, no processing happened
+        assertEq(status == Bridge.Status.NEW, true);
+        // Alice has 100 ether
+        assertEq(Alice.balance, 100_000_000_000_000_000_000);
+
+        // Go in the future, 11 hours, still not processable
+        vm.warp(block.timestamp + 11 hours);
+
+        vm.expectRevert(Bridge.B_INVOCATION_TOO_EARLY.selector);
+        vm.prank(Carol, Carol);
+        dest2StepBridge.processMessage(message, proof);
+
+        // Go in the future, +2 hours, all in all 13 hours
+        vm.warp(block.timestamp + 2 hours);
+
+        vm.prank(Carol, Carol);
+        dest2StepBridge.processMessage(message, proof);
+
+        // Alice has 100 ether + 1000 wei balance
+        assertEq(Alice.balance, 100_000_000_000_000_001_000);
     }
 
     function test_Bridge_send_ether_to_contract_with_value() public {
