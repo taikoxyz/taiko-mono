@@ -36,5 +36,6 @@ func newTestService(syncMode SyncMode, watchMode WatchMode) (*Indexer, relayer.B
 		destChainId: mock.MockChainID,
 
 		ethClientTimeout: 10 * time.Second,
+		mu:               &sync.Mutex{},
 	}, b
 }

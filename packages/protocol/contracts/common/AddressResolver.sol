@@ -14,7 +14,6 @@
 
 pragma solidity 0.8.24;
 
-import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 import "./AddressManager.sol";
 
 /// @title AddressResolver
@@ -27,15 +26,13 @@ import "./AddressManager.sol";
 /// is no setAddressManager() function go guarantee atomicness across all
 /// contracts that are resolvers.
 abstract contract AddressResolver {
-    using Strings for uint256;
-
     address public addressManager;
     uint256[49] private __gap;
 
     error RESOLVER_DENIED();
     error RESOLVER_INVALID_MANAGER();
     error RESOLVER_UNEXPECTED_CHAINID();
-    error RESOLVER_ZERO_ADDR(uint64 chainId, string name);
+    error RESOLVER_ZERO_ADDR(uint64 chainId, bytes32 name);
 
     /// @dev Modifier that ensures the caller is the resolved address of a given
     /// name.
@@ -124,7 +121,7 @@ abstract contract AddressResolver {
         addr = payable(IAddressManager(addressManager).getAddress(chainId, name));
 
         if (!allowZeroAddress && addr == address(0)) {
-            revert RESOLVER_ZERO_ADDR(chainId, uint256(name).toString());
+            revert RESOLVER_ZERO_ADDR(chainId, name);
         }
     }
 }

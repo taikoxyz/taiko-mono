@@ -96,6 +96,7 @@
   $: if ($enteredAmount) {
     $validatingAmount = true;
     isValidTokenBalance();
+    getTokenApprovalStatus($selectedToken);
   }
 
   // Conditions to disable/enable buttons

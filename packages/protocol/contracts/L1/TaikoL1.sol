@@ -247,9 +247,10 @@ contract TaikoL1 is
         return LibVerifying.isConfigValid(getConfig());
     }
 
-    function _authorizePause(address) internal view override {
-        if (msg.sender != owner() && msg.sender != resolve("rollup_watchdog", true)) {
-            revert L1_UNAUTHORIZED();
-        }
-    }
+    function _authorizePause(address)
+        internal
+        view
+        override
+        onlyFromOwnerOrNamed("rollup_watchdog")
+    { }
 }
