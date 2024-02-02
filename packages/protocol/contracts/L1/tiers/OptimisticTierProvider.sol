@@ -37,12 +37,24 @@ contract OptimisticTierProvider is EssentialContract, ITierProvider {
             });
         }
 
+        if (tierId == LibTiers.TIER_GUARDIAN) {
+            return ITierProvider.Tier({
+                verifierName: "tier_guardian",
+                validityBond: 0, // must be 0 for top tier
+                contestBond: 0, // must be 0 for top tier
+                cooldownWindow: 24 hours,
+                provingWindow: 8 hours,
+                maxBlocksToVerifyPerProof: 4
+            });
+        }
+
         revert TIER_NOT_FOUND();
     }
 
     function getTierIds() public pure override returns (uint16[] memory tiers) {
-        tiers = new uint16[](1);
+        tiers = new uint16[](2);
         tiers[0] = LibTiers.TIER_OPTIMISTIC;
+        tiers[1] = LibTiers.TIER_GUARDIAN;
     }
 
     function getMinTier(uint256 rand) public pure override returns (uint16) {
