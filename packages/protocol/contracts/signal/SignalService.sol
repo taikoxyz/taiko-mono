@@ -80,6 +80,7 @@ contract SignalService is AuthorizableContract, ISignalService {
     }
 
     /// @inheritdoc ISignalService
+    /// @dev This function may revert.
     function proveSignalReceived(
         uint64 srcChainId,
         address app,
