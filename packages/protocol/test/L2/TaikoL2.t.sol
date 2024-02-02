@@ -201,7 +201,9 @@ contract TestTaikoL2 is TaikoTest {
             vm.roll(block.number + 1);
 
             vm.warp(block.timestamp + currentTimeAhead);
-            console2.log("gasExcess:", L2skip.gasExcess(), ", currentBaseFee:",currentBaseFee);
+            console2.log(string.concat(
+Strings.toString(block.number), ":",
+                Strings.toString(block.timestamp), " | ", "gasExcess="), L2skip.gasExcess(), "currentBaseFee=",currentBaseFee);
         }
 
         console2.log("Average wei gas price per L2 block is:", (allBaseFee / maxL2BlockCount));
