@@ -42,6 +42,8 @@ library TaikoData {
         uint24 blobExpiry;
         // True if EIP-4844 is enabled for DA
         bool blobAllowedForDA;
+        // True if we skip checking & running proof verifier
+        bool skipProofVerification;
         // ---------------------------------------------------------------------
         // Group 3: Proof related configs
         // ---------------------------------------------------------------------

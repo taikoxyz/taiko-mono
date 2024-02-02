@@ -143,7 +143,7 @@ library LibProving {
         //
         // It's obvious that proof verification is entirely decoupled from
         // Taiko's core protocol.
-        {
+        if (!config.skipProofVerification) {
             address verifier = resolver.resolve(tier.verifierName, true);
             // The verifier can be address-zero, signifying that there are no
             // proof checks for the tier. In practice, this only applies to

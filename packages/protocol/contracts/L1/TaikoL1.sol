@@ -231,6 +231,7 @@ contract TaikoL1 is
             blockMaxTxListBytes: 120_000,
             blobExpiry: 24 hours,
             blobAllowedForDA: false,
+            skipProofVerification: false,
             livenessBond: 250e18, // 250 Taiko token
             // ETH deposit related.
             ethDepositRingBufferSize: 1024,
