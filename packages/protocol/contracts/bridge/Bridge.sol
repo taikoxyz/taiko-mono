@@ -179,6 +179,7 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(message.srcChainId)
     {
         bytes32 msgHash = hashMessage(message);
+
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
         uint64 receivedAt = proofReceipt[msgHash].receivedAt;
