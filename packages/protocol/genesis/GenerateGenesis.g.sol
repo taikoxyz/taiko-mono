@@ -141,15 +141,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
     }
 
     function testSingletonBridge() public {
-        address bridgeAddress = getPredeployedContractAddress("Bridge");
-
-        Bridge bridgeProxy = Bridge(payable(bridgeAddress));
-        AddressManager addressManager =
-            AddressManager(getPredeployedContractAddress("SharedAddressManager"));
-
-        vm.startPrank(addressManager.owner());
-        addressManager.setAddress(1, "bridge", bridgeAddress);
-        vm.stopPrank();
+        Bridge bridgeProxy = Bridge(payable(getPredeployedContractAddress("Bridge")));
 
         assertEq(ownerSecurityCouncil, bridgeProxy.owner());
 
