@@ -181,8 +181,10 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 msgHash = hashMessage(message);
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
-        bool isMessageProven = proofReceipt[msgHash].receivedAt != 0;
-        if (!isMessageProven) {
+        uint64 receivedAt = proofReceipt[msgHash].receivedAt;
+        bool isMessageNotProven = receivedAt == 0;
+
+        if (isMessageNotProven) {
             ISignalService signalService = ISignalService(resolve("signal_service", false));
 
             if (!signalService.isSignalSent(address(this), msgHash)) {
@@ -194,11 +196,14 @@ contract Bridge is EssentialContract, IBridge {
                 revert B_NOT_FAILED();
             }
 
-            proofReceipt[msgHash].receivedAt = uint64(block.timestamp);
+            receivedAt = uint64(block.timestamp);
+            proofReceipt[msgHash].receivedAt = receivedAt;
         }
 
+        // assert(receivedAt != 0);
         (uint256 invocationDelay,) = getInvocationDelays();
-        if (block.timestamp >= invocationDelay + proofReceipt[msgHash].receivedAt) {
+
+        if (block.timestamp >= invocationDelay + receivedAt) {
             delete proofReceipt[msgHash];
             messageStatus[msgHash] = Status.RECALLED;
 
@@ -226,7 +231,7 @@ contract Bridge is EssentialContract, IBridge {
                 message.owner.sendEther(message.value);
             }
             emit MessageRecalled(msgHash);
-        } else if (!isMessageProven) {
+        } else if (isMessageNotProven) {
             emit MessageReceived(msgHash, message, true);
         } else {
             revert B_INVOCATION_TOO_EARLY();
@@ -254,19 +259,29 @@ contract Bridge is EssentialContract, IBridge {
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
         ISignalService signalService = ISignalService(resolve("signal_service", false));
-        bool isMessageProven = proofReceipt[msgHash].receivedAt != 0;
 
-        if (!isMessageProven) {
+        uint64 receivedAt = proofReceipt[msgHash].receivedAt;
+        bool isMessageNotProven = receivedAt == 0;
+
+        (uint256 invocationDelay, uint256 invocationExtraDelay) = getInvocationDelays();
+
+        if (isMessageNotProven) {
             if (!_proveSignalReceived(signalService, msgHash, message.srcChainId, proof)) {
                 revert B_NOT_RECEIVED();
             }
-            proofReceipt[msgHash] = ProofReceipt({
-                receivedAt: uint64(block.timestamp),
-                preferredExecutor: message.gasLimit == 0 ? message.owner : msg.sender
-            });
+
+            receivedAt = uint64(block.timestamp);
+
+            if (invocationDelay != 0) {
+                proofReceipt[msgHash] = ProofReceipt({
+                    receivedAt: receivedAt,
+                    preferredExecutor: message.gasLimit == 0 ? message.owner : msg.sender
+                });
+            }
         }
 
-        (uint256 invocationDelay, uint256 invocationExtraDelay) = getInvocationDelays();
+        // assert(receivedAt != 0);
+
         if (invocationDelay != 0 && msg.sender != proofReceipt[msgHash].preferredExecutor) {
             // If msg.sender is not the one that proved the message, then there
             // is an extra delay.
@@ -275,7 +290,7 @@ contract Bridge is EssentialContract, IBridge {
             }
         }
 
-        if (block.timestamp >= invocationDelay + proofReceipt[msgHash].receivedAt) {
+        if (block.timestamp >= invocationDelay + receivedAt) {
             // If the gas limit is set to zero, only the owner can process the message.
             if (message.gasLimit == 0 && msg.sender != message.owner) {
                 revert B_PERMISSION_DENIED();
@@ -318,7 +333,7 @@ contract Bridge is EssentialContract, IBridge {
                 refundTo.sendEther(refundAmount);
             }
             emit MessageExecuted(msgHash);
-        } else if (!isMessageProven) {
+        } else if (isMessageNotProven) {
             emit MessageReceived(msgHash, message, false);
         } else {
             revert B_INVOCATION_TOO_EARLY();
