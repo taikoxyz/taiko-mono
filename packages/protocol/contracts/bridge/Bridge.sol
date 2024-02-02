@@ -142,7 +142,9 @@ contract Bridge is EssentialContract, IBridge {
 
         address signalService = resolve("signal_service", false);
 
-        if (!ISignalService(signalService).isSignalSent(address(this), msgHash)) revert B_MESSAGE_NOT_SENT();
+        if (!ISignalService(signalService).isSignalSent(address(this), msgHash)) {
+            revert B_MESSAGE_NOT_SENT();
+        }
 
         bool received = _proveSignalReceived(
             signalService, _signalForFailedMessage(msgHash), message.destChainId, proof
@@ -213,8 +215,8 @@ contract Bridge is EssentialContract, IBridge {
 
         // Process message differently based on the target address
         if (
-            message.to == address(0) || message.to == address(this)
-                || message.to == signalService || addressBanned[message.to]
+            message.to == address(0) || message.to == address(this) || message.to == signalService
+                || addressBanned[message.to]
         ) {
             // Handle special addresses that don't require actual invocation but
             // mark message as DONE
@@ -338,10 +340,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         if (message.destChainId != block.chainid) return false;
         return _proveSignalReceived(
-            resolve("signal_service", false),
-            hashMessage(message),
-            message.srcChainId,
-            proof
+            resolve("signal_service", false), hashMessage(message), message.srcChainId, proof
         );
     }
 
@@ -442,7 +441,7 @@ contract Bridge is EssentialContract, IBridge {
         view
         returns (bool)
     {
-         bytes memory data = abi.encodeCall(
+        bytes memory data = abi.encodeCall(
             ISignalService.proveSignalReceived,
             (srcChainId, resolve(srcChainId, "bridge", false), signal, proof)
         );
