@@ -544,11 +544,15 @@ contract Bridge is EssentialContract, IBridge {
         view
         returns (bool)
     {
-        return signalService.proveSignalReceived({
+        try signalService.proveSignalReceived({
             srcChainId: srcChainId,
             app: resolve(srcChainId, "bridge", false),
             signal: signal,
             proof: proof
-        });
+        }) returns (bool success) {
+            return success;
+        } catch {
+            return false;
+        }
     }
 }
