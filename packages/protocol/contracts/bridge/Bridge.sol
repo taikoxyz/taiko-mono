@@ -453,7 +453,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         // We can change the network ID below for specific L2 to have non-zero delays.
         // if (block.chainid == 12345789) {
-        //     return (24 hours, 15 minutes);
+        //     return (6 hours, 15 minutes);
         // }
 
         return (0, 0);
