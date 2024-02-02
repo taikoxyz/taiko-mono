@@ -71,7 +71,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         whenNotPaused
         onlyFromNamed("erc721_vault")
     {
-        _mint(account, tokenId);
+        _safeMint(account, tokenId);
     }
 
     /// @dev Burns tokens.

@@ -221,7 +221,7 @@ contract Bridge is EssentialContract, IBridge {
             status = Status.DONE;
             refundAmount = message.value;
         } else {
-            // Use the specified message gas limit if called by the owner, else
+            // Use the specified message gas limit if not called by the owner, else
             // use remaining gas
             uint256 gasLimit = msg.sender == message.owner ? gasleft() : message.gasLimit;
 
