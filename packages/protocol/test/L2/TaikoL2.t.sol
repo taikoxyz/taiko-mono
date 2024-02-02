@@ -183,9 +183,9 @@ contract TestTaikoL2 is TaikoTest {
             accumulated_seconds += currentTimeAhead;
 
             if (accumulated_seconds >= 12) {
-                console2.log(
-                    "Gas used per L1 block:", l1Height, ":", accumulated_parent_gas_per_l1_block
-                );
+                // console2.log(
+                //     "Gas used per L1 block:", l1Height, ":", accumulated_parent_gas_per_l1_block
+                // );
                 l1Height++;
                 l1BlockCounter++;
                 accumulated_parent_gas_per_l1_block = 0;
@@ -196,11 +196,12 @@ contract TestTaikoL2 is TaikoTest {
             _anchorSimulation(currentGasUsed, l1Height);
             uint256 currentBaseFee = L2skip.getBasefee(l1Height, currentGasUsed);
             allBaseFee += currentBaseFee;
-            console2.log("Actual gas in L2 block is:", currentGasUsed);
-            console2.log("L2block to baseFee is:", i, ":", currentBaseFee);
+            // console2.log("Actual gas in L2 block is:", currentGasUsed);
+            // console2.log("L2block to baseFee is:", i, ":", currentBaseFee);
             vm.roll(block.number + 1);
 
             vm.warp(block.timestamp + currentTimeAhead);
+            console2.log("gasExcess:", L2skip.gasExcess(), ", currentBaseFee:",currentBaseFee);
         }
 
         console2.log("Average wei gas price per L2 block is:", (allBaseFee / maxL2BlockCount));
