@@ -153,7 +153,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         assertEq(ownerSecurityCouncil, bridgeProxy.owner());
 
-        vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
+        vm.expectRevert(Bridge.B_NOT_RECEIVED.selector);
         bridgeProxy.processMessage(
             IBridge.Message({
                 id: 0,
