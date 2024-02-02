@@ -37,6 +37,15 @@ import "../contracts/signal/SignalService.sol";
 import "../test/common/erc20/FreeMintERC20.sol";
 import "../test/common/erc20/MayFailFreeMintERC20.sol";
 import "../test/DeployCapability.sol";
+import "../contracts/thirdparty/automata-attestation/AutomataDcapV3Attestation.sol";
+import "../contracts/thirdparty/automata-attestation/utils/SigVerifyLib.sol";
+import "../contracts/thirdparty/automata-attestation/lib/PEMCertChainLib.sol";
+
+// Actually this one is deployed already on mainnets, but we are now deploying our own (non vi-ir)
+// version. For mainnet, it is easier to go with either this:
+// https://github.com/daimo-eth/p256-verifier or this:
+// https://github.com/rdubois-crypto/FreshCryptoLib
+import { P256Verifier } from "../lib/p256-verifier/src/P256Verifier.sol";
 
 /// @title DeployOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
@@ -382,6 +391,18 @@ contract DeployOnL1 is DeployCapability {
         uint8 minGuardians = uint8(vm.envUint("MIN_GUARDIANS"));
         GuardianProver(guardianProver).setGuardians(guardians, minGuardians);
         GuardianProver(guardianProver).transferOwnership(timelock);
+
+        // No need to proxy these, because they are 3rd party. If we want to modify, we simply
+        // change the registerAddress("automata_dcap_attestation", address(attestation));
+        P256Verifier p256Verifier = new P256Verifier();
+        SigVerifyLib sigVerifyLib = new SigVerifyLib(address(p256Verifier));
+        PEMCertChainLib pemCertChainLib = new PEMCertChainLib();
+        AutomataDcapV3Attestation automateDcapV3Attestation =
+            new AutomataDcapV3Attestation(address(sigVerifyLib), address(pemCertChainLib));
+
+        register(
+            rollupAddressManager, "automata_dcap_attestation", address(automateDcapV3Attestation)
+        );
     }
 
     function deployAuxContracts() private {
