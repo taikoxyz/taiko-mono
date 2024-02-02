@@ -200,3 +200,11 @@ func Test_DecodeMessageSentData(t *testing.T) {
 		})
 	}
 }
+
+func Test_IsValidProofEncodingType(t *testing.T) {
+	assert.Equal(t, true, IsValidProofEncodingType(RLPEncodingType))
+
+	assert.Equal(t, true, IsValidProofEncodingType(ABIEncodingType))
+
+	assert.Equal(t, false, IsValidProofEncodingType(ProofEncodingType("")))
+}

@@ -32,20 +32,48 @@ type BlockHeader struct {
 	WithdrawalsRoot  [32]byte       `abi:"withdrawalsRoot"`
 }
 
-type SignalProof struct {
+type RLPSignalProof struct {
 	CrossChainSync common.Address `abi:"crossChainSync"`
 	Height         uint64         `abi:"height"`
 	StorageProof   []byte         `abi:"storageProof"`
-	Hops           []Hop          `abi:"hops"`
+	Hops           []RLPHop       `abi:"hops"`
 }
 
-type Hop struct {
+type RLPHop struct {
 	SignalRootRelay common.Address `abi:"signalRootRelay"`
 	SignalRoot      [32]byte       `abi:"signalRoot"`
 	StorageProof    []byte         `abi:"storageProof"`
 }
 
+type ABISignalProof struct {
+	CrossChainSync common.Address `abi:"crossChainSync"`
+	Height         uint64         `abi:"height"`
+	StorageProof   [][]byte       `abi:"storageProof"`
+	Hops           []ABIHop       `abi:"hops"`
+}
+
+type ABIHop struct {
+	SignalRootRelay common.Address `abi:"signalRootRelay"`
+	SignalRoot      [32]byte       `abi:"signalRoot"`
+	StorageProof    [][]byte       `abi:"storageProof"`
+}
+
 var hopComponents = []abi.ArgumentMarshaling{
+	{
+		Name: "signalRootRelay",
+		Type: "address",
+	},
+	{
+		Name: "signalRoot",
+		Type: "bytes32",
+	},
+	{
+		Name: "storageProof",
+		Type: "bytes[]",
+	},
+}
+
+var rlpHopComponents = []abi.ArgumentMarshaling{
 	{
 		Name: "signalRootRelay",
 		Type: "address",
@@ -60,7 +88,27 @@ var hopComponents = []abi.ArgumentMarshaling{
 	},
 }
 
-var signalProofT, _ = abi.NewType("tuple", "", []abi.ArgumentMarshaling{
+var abiSignalProofT, _ = abi.NewType("tuple", "", []abi.ArgumentMarshaling{
+	{
+		Name: "crossChainSync",
+		Type: "address",
+	},
+	{
+		Name: "height",
+		Type: "uint64",
+	},
+	{
+		Name: "storageProof",
+		Type: "bytes[]",
+	},
+	{
+		Name:       "hops",
+		Type:       "tuple[]",
+		Components: hopComponents,
+	},
+})
+
+var rlpSignalProofT, _ = abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 	{
 		Name: "crossChainSync",
 		Type: "address",
@@ -76,6 +124,6 @@ var signalProofT, _ = abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 	{
 		Name:       "hops",
 		Type:       "tuple[]",
-		Components: hopComponents,
+		Components: rlpHopComponents,
 	},
 })

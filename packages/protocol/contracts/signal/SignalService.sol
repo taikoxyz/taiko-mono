@@ -143,7 +143,7 @@ contract SignalService is AuthorizableContract, ISignalService {
         return SecureMerkleTrie.verifyInclusionProof(
             bytes.concat(getSignalSlot(srcChainId, app, signal)),
             hex"01",
-            _transcode(p.storageProof),
+            p.storageProof,
             signalRoot
         );
     }
