@@ -80,9 +80,7 @@ contract DeployUSDCAdaptor is DeployCapability {
         });
 
         (success, retVal) = erc20Vault.call(
-            abi.encodeWithSelector(
-                ERC20Vault.changeBridgedToken.selector, canonicalToken, adaptorProxy
-            )
+            abi.encodeCall(ERC20Vault.changeBridgedToken, (canonicalToken, adaptorProxy))
         );
 
         if (!success) {
