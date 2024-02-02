@@ -141,7 +141,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
     }
 
     function testSingletonBridge() public {
-         address bridgeAddress = getPredeployedContractAddress("Bridge");
+        address bridgeAddress = getPredeployedContractAddress("Bridge");
 
         Bridge bridgeProxy = Bridge(payable(bridgeAddress));
         AddressManager addressManager =
