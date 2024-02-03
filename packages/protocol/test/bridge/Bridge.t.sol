@@ -463,6 +463,48 @@ contract BridgeTest is TaikoTest {
         assertEq(Alice.balance, (starterBalanceAlice - fee));
     }
 
+    function test_Bridge_recall_message_ether_with_2_steps() public {
+        uint256 amount = 1 ether;
+        uint256 fee = 1 wei;
+        IBridge.Message memory message = newMessage({
+            owner: Alice,
+            to: Alice,
+            value: amount,
+            gasLimit: 0,
+            fee: fee,
+            destChain: destChainId
+        });
+
+        uint256 starterBalanceVault = address(dest2StepBridge).balance;
+        uint256 starterBalanceAlice = Alice.balance;
+
+        vm.prank(Alice, Alice);
+        (, IBridge.Message memory _message) = dest2StepBridge.sendMessage{ value: amount + fee }(message);
+        assertEq(dest2StepBridge.isMessageSent(_message), true);
+
+        assertEq(address(dest2StepBridge).balance, (starterBalanceVault + amount + fee));
+        assertEq(Alice.balance, (starterBalanceAlice - (amount + fee)));
+
+        vm.prank(Bob, Bob);
+        dest2StepBridge.recallMessage(message, "");
+         // Go in the future, 5 hours, still not processable
+        vm.warp(block.timestamp + 5 hours);
+
+        vm.expectRevert(Bridge.B_INVOCATION_TOO_EARLY.selector);
+        vm.prank(Bob, Bob);
+        dest2StepBridge.recallMessage(message, "");
+
+        // Go in the future, +6 hours, all in all 11 hours from first processing
+        vm.warp(block.timestamp + 6 hours);
+
+        // Not too early anymore
+        vm.prank(Bob, Bob);
+        dest2StepBridge.recallMessage(message, "");
+
+        assertEq(address(dest2StepBridge).balance, (starterBalanceVault + fee));
+        assertEq(Alice.balance, (starterBalanceAlice - fee));
+    }
+
     function test_Bridge_recall_message_but_not_supports_recall_interface() public {
         // In this test we expect that the 'message value is still refundable,
         // just not via
