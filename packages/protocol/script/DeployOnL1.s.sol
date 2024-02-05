@@ -20,10 +20,6 @@ import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
-import "../contracts/L1/verifiers/PseZkVerifier.sol";
-import "../contracts/L1/verifiers/SgxVerifier.sol";
-import "../contracts/L1/verifiers/SgxAndZkVerifier.sol";
-import "../contracts/L1/verifiers/GuardianVerifier.sol";
 import "../contracts/L1/tiers/TaikoA6TierProvider.sol";
 import "../contracts/L1/tiers/OptimisticTierProvider.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
@@ -34,12 +30,16 @@ import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
 import "../contracts/tokenvault/ERC721Vault.sol";
 import "../contracts/signal/SignalService.sol";
+import "../contracts/automata-attestation/AutomataDcapV3Attestation.sol";
+import "../contracts/automata-attestation/utils/SigVerifyLib.sol";
+import "../contracts/automata-attestation/lib/PEMCertChainLib.sol";
+import "../contracts/verifiers/PseZkVerifier.sol";
+import "../contracts/verifiers/SgxVerifier.sol";
+import "../contracts/verifiers/SgxAndZkVerifier.sol";
+import "../contracts/verifiers/GuardianVerifier.sol";
 import "../test/common/erc20/FreeMintERC20.sol";
 import "../test/common/erc20/MayFailFreeMintERC20.sol";
 import "../test/DeployCapability.sol";
-import "../contracts/thirdparty/automata-attestation/AutomataDcapV3Attestation.sol";
-import "../contracts/thirdparty/automata-attestation/utils/SigVerifyLib.sol";
-import "../contracts/thirdparty/automata-attestation/lib/PEMCertChainLib.sol";
 
 // Actually this one is deployed already on mainnets, but we are now deploying our own (non vi-ir)
 // version. For mainnet, it is easier to go with either this:

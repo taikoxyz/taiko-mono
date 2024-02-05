@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import { V3Struct } from
-    "../../../contracts/thirdparty/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
+import { V3Struct } from "../../../contracts/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import { JSONParserLib } from "../../../lib/solady/src/utils/JSONParserLib.sol";
 import { LibString } from "../../../lib/solady/src/utils/LibString.sol";
 

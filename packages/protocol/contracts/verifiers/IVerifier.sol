@@ -14,7 +14,7 @@
 
 pragma solidity 0.8.24;
 
-import "../TaikoData.sol";
+import "../L1/TaikoData.sol";
 
 /// @title IVerifier Interface
 /// @notice Defines the function that handles proof verification.
