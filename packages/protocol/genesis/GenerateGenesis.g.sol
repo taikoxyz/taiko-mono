@@ -141,11 +141,19 @@ contract TestGenerateGenesis is Test, AddressResolver {
     }
 
     function testSingletonBridge() public {
-        Bridge bridgeProxy = Bridge(payable(getPredeployedContractAddress("Bridge")));
+        address bridgeAddress = getPredeployedContractAddress("Bridge");
+
+        Bridge bridgeProxy = Bridge(payable(bridgeAddress));
+        AddressManager addressManager =
+            AddressManager(getPredeployedContractAddress("SharedAddressManager"));
+
+        vm.startPrank(addressManager.owner());
+        addressManager.setAddress(1, "bridge", bridgeAddress);
+        vm.stopPrank();
 
         assertEq(ownerSecurityCouncil, bridgeProxy.owner());
 
-        vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
+        vm.expectRevert(Bridge.B_NOT_RECEIVED.selector);
         bridgeProxy.processMessage(
             IBridge.Message({
                 id: 0,
