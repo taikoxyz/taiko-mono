@@ -15,11 +15,11 @@
 pragma solidity 0.8.24;
 
 import "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
-import "../../common/EssentialContract.sol";
-import "../../thirdparty/optimism/Bytes.sol";
-import "../../thirdparty/automata-attestation/interfaces/IAttestation.sol";
-import "../../thirdparty/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
-import "../ITaikoL1.sol";
+import "../L1/ITaikoL1.sol";
+import "../common/EssentialContract.sol";
+import "../thirdparty/optimism/Bytes.sol";
+import "../automata-attestation/interfaces/IAttestation.sol";
+import "../automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import "./IVerifier.sol";
 
 /// @title SgxVerifier
