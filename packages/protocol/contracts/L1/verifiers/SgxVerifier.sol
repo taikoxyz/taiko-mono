@@ -213,6 +213,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     function _isInstanceValid(uint256 id, address instance) private view returns (bool) {
         if (instance == address(0)) return false;
         if (instance != instances[id].addr) return false;
-        return instances[id].validSince <= block.timestamp && block.timestamp <= instances[id].validSince + INSTANCE_EXPIRY;
+        return instances[id].validSince <= block.timestamp
+            && block.timestamp <= instances[id].validSince + INSTANCE_EXPIRY;
     }
 }
