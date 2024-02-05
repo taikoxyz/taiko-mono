@@ -53,7 +53,7 @@
       <h3 class="title-body-bold">{title}</h3>
     </div>
     <div class="h-sep !my-[20px]" />
-    <ul role="listbox" class="text-white text-sm w-full">
+    <ul role="listbox" class="text-primary-content text-sm w-full">
       {#each chains as chain (chain.id)}
         {@const disabled = !isDestination
           ? chain.id === $network?.id
