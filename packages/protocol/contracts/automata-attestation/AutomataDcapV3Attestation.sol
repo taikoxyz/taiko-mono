@@ -10,8 +10,8 @@ import { EnclaveIdStruct } from "./lib/EnclaveIdStruct.sol";
 import { IAttestation } from "./interfaces/IAttestation.sol";
 
 // Internal Libraries
-import { Base64 } from "../../../lib/solady/src/utils/Base64.sol";
-import { LibString } from "../../../lib/solady/src/utils/LibString.sol";
+import { Base64 } from "../../lib/solady/src/utils/Base64.sol";
+import { LibString } from "../../lib/solady/src/utils/LibString.sol";
 import { BytesUtils } from "./utils/BytesUtils.sol";
 
 // External Libraries
