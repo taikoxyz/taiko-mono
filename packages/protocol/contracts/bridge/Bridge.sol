@@ -183,9 +183,9 @@ contract Bridge is EssentialContract, IBridge {
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
         uint64 receivedAt = proofReceipt[msgHash].receivedAt;
-        bool isMessageNotProven = receivedAt == 0;
+        bool isMessageProven = receivedAt != 0;
 
-        if (isMessageNotProven) {
+        if (!isMessageProven) {
             address signalService = resolve("signal_service", false);
 
             if (!ISignalService(signalService).isSignalSent(address(this), msgHash)) {
@@ -232,7 +232,7 @@ contract Bridge is EssentialContract, IBridge {
                 message.owner.sendEther(message.value);
             }
             emit MessageRecalled(msgHash);
-        } else if (isMessageNotProven) {
+        } else if (!isMessageProven) {
             emit MessageReceived(msgHash, message, true);
         } else {
             revert B_INVOCATION_TOO_EARLY();
@@ -261,11 +261,11 @@ contract Bridge is EssentialContract, IBridge {
 
         address signalService = resolve("signal_service", false);
         uint64 receivedAt = proofReceipt[msgHash].receivedAt;
-        bool isMessageNotProven = receivedAt == 0;
+        bool isMessageProven = receivedAt != 0;
 
         (uint256 invocationDelay, uint256 invocationExtraDelay) = getInvocationDelays();
 
-        if (isMessageNotProven) {
+        if (!isMessageProven) {
             if (!_proveSignalReceived(signalService, msgHash, message.srcChainId, proof)) {
                 revert B_NOT_RECEIVED();
             }
@@ -333,7 +333,7 @@ contract Bridge is EssentialContract, IBridge {
                 refundTo.sendEther(refundAmount);
             }
             emit MessageExecuted(msgHash);
-        } else if (isMessageNotProven) {
+        } else if (!isMessageProven) {
             emit MessageReceived(msgHash, message, false);
         } else {
             revert B_INVOCATION_TOO_EARLY();
