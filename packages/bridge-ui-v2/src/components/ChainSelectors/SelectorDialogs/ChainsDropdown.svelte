@@ -44,7 +44,7 @@
 <div class={menuClasses}>
   <ul
     role="listbox"
-    class="text-white text-sm"
+    class="text-primary-content text-sm"
     use:closeOnClickOrEscape={{ enabled: isOpen, callback: () => (isOpen = false) }}>
     {#each chains as chain (chain.id)}
       {@const disabled = (isDestination && chain.id === $network?.id) || chain.id === value?.id}
@@ -52,7 +52,9 @@
       <li
         role="menuitem"
         tabindex="0"
-        class="rounded-[10px] {disabled ? 'opacity-20 pointer-events-none' : 'hover:bg-primary-brand cursor-pointer'}"
+        class="rounded-[10px] {disabled
+          ? 'opacity-20 pointer-events-none'
+          : 'hover:bg-secondary-interactive-hover cursor-pointer'}"
         aria-disabled={disabled}
         on:click={() => {
           if (!disabled) selectChain(chain, !isDestination);

@@ -8,7 +8,7 @@
 
   $: activeClass = active
     ? 'body-bold bg-primary-interactive text-grey-10 hover:!bg-primary-interactive hover:!text-grey-10'
-    : 'body-regular hover:bg-secondary-interactive-hover';
+    : 'body-regular hover:bg-primary-interactive-hover';
 
   $: classes = classNames('p-3 rounded-full flex justify-start content-center', activeClass, $$props.class);
 </script>

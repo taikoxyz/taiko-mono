@@ -6,11 +6,13 @@
   import ChainsDialog from '$components/ChainSelectors/SelectorDialogs/ChainsDialog.svelte';
   import ChainsDropdown from '$components/ChainSelectors/SelectorDialogs/ChainsDropdown.svelte';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
+  import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import { classNames } from '$libs/util/classNames';
   import { truncateString } from '$libs/util/truncateString';
   import { uid } from '$libs/util/uid';
+  import { network } from '$stores/network';
 
-  export let value: Maybe<GetNetworkResult['chain']> = null;
+  export let value: Maybe<GetNetworkResult['chain']> = $network;
   export let label = '';
   export let readOnly = false;
   export let selectChain: (event: CustomEvent<{ chain: Chain; switchWallet: boolean }>) => Promise<void>;
@@ -33,6 +35,10 @@
     if (switchWallet) {
       modalOpen = true;
     }
+  };
+
+  const onAccountChange = () => {
+    value = $network;
   };
 </script>
 
@@ -65,10 +71,11 @@
     </button>
   </div>
   {#if isDesktopOrLarger}
-    <ChainsDropdown class="rounded-[20px]" on:change={selectChain} bind:isOpen={modalOpen} bind:value switchWallet />
+    <ChainsDropdown class="!rounded-[20px]" on:change={selectChain} bind:isOpen={modalOpen} bind:value switchWallet />
   {:else}
     <ChainsDialog on:change={selectChain} bind:isOpen={modalOpen} bind:value switchWallet />
   {/if}
 </div>
 
 <DesktopOrLarger bind:is={isDesktopOrLarger} />
+<OnAccount change={onAccountChange} />
