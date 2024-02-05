@@ -463,8 +463,15 @@ contract Bridge is EssentialContract, IBridge {
         virtual
         returns (uint256 invocationDelay, uint256 invocationExtraDelay)
     {
-        // We can change the network ID below for specific L2 to have non-zero delays.
-        // if (block.chainid == 12345789) {
+        // Only on the base layer (L1) should the returned values be non-zero.
+        // if (
+        //     block.chainid == 1 // Ethereum mainnet
+        //         || block.chainid == 2 // Ropsten
+        //         || block.chainid == 4 // Rinkeby
+        //         || block.chainid == 5 // Goerli
+        //         || block.chainid == 42 // Kovan
+        //         || block.chainid == 11_155_111 // Sepolia
+        // ) {
         //     return (6 hours, 15 minutes);
         // }
 
