@@ -61,7 +61,7 @@ contract Bridge is EssentialContract, IBridge {
     event MessageRecalled(bytes32 indexed msgHash);
     event MessageExecuted(bytes32 indexed msgHash);
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
-    event MessageSuspended(bytes32 msgHash, bool paused);
+    event MessageSuspended(bytes32 msgHash, bool suspended);
     event AddressBanned(address indexed addr, bool banned);
 
     error B_INVALID_CHAINID();
