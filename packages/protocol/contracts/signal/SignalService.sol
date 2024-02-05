@@ -39,13 +39,13 @@ contract SignalService is AuthorizableContract, ISignalService {
     struct Hop {
         address signalRootRelay;
         bytes32 signalRoot;
-        bytes storageProof;
+        bytes[] storageProof;
     }
 
     struct Proof {
         address crossChainSync;
         uint64 height;
-        bytes storageProof;
+        bytes[] storageProof;
         Hop[] hops;
     }
 
@@ -135,7 +135,7 @@ contract SignalService is AuthorizableContract, ISignalService {
             );
 
             bool verified = SecureMerkleTrie.verifyInclusionProof(
-                bytes.concat(slot), hex"01", _transcode(hop.storageProof), signalRoot
+                bytes.concat(slot), hex"01", hop.storageProof, signalRoot
             );
             if (!verified) return false;
 
@@ -145,7 +145,7 @@ contract SignalService is AuthorizableContract, ISignalService {
         return SecureMerkleTrie.verifyInclusionProof(
             bytes.concat(getSignalSlot(srcChainId, app, signal)),
             hex"01",
-            _transcode(p.storageProof),
+            p.storageProof,
             signalRoot
         );
     }
@@ -172,17 +172,6 @@ contract SignalService is AuthorizableContract, ISignalService {
     /// @return Returns true to skip checking inclusion proofs.
     function skipProofCheck() public pure virtual returns (bool) {
         return false;
-    }
-
-    /// @notice Translate a RLP-encoded list of RLP-encoded TrieNodes into a list of LP-encoded
-    /// TrieNodes.
-    function _transcode(bytes memory proof) internal pure returns (bytes[] memory proofs) {
-        RLPReader.RLPItem[] memory nodes = RLPReader.readList(proof);
-        proofs = new bytes[](nodes.length);
-
-        for (uint256 i; i < nodes.length; ++i) {
-            proofs[i] = RLPReader.readBytes(nodes[i]);
-        }
     }
 
     function _authorizePause(address) internal pure override {
