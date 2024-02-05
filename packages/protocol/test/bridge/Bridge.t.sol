@@ -479,7 +479,8 @@ contract BridgeTest is TaikoTest {
         uint256 starterBalanceAlice = Alice.balance;
 
         vm.prank(Alice, Alice);
-        (, IBridge.Message memory _message) = dest2StepBridge.sendMessage{ value: amount + fee }(message);
+        (, IBridge.Message memory _message) =
+            dest2StepBridge.sendMessage{ value: amount + fee }(message);
         assertEq(dest2StepBridge.isMessageSent(_message), true);
 
         assertEq(address(dest2StepBridge).balance, (starterBalanceVault + amount + fee));
@@ -487,7 +488,7 @@ contract BridgeTest is TaikoTest {
 
         vm.prank(Bob, Bob);
         dest2StepBridge.recallMessage(message, "");
-         // Go in the future, 5 hours, still not processable
+        // Go in the future, 5 hours, still not processable
         vm.warp(block.timestamp + 5 hours);
 
         vm.expectRevert(Bridge.B_INVOCATION_TOO_EARLY.selector);
