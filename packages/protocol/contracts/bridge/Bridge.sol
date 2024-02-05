@@ -31,21 +31,37 @@ contract Bridge is EssentialContract, IBridge {
         NEW,
         RETRIABLE,
         DONE,
-        FAILED
+        FAILED,
+        RECALLED
+    }
+
+    // Note that this struct shall take only 1 slot to minimize gas cost
+    struct ProofReceipt {
+        // The time a message is marked as received on the destination chain
+        uint64 receivedAt;
+        // The address that can execute the message after the invocation delay without an extra
+        // delay.
+        // For a failed message, preferredExecutor's value doesn't matter as only the owner can
+        // invoke the message.
+        address preferredExecutor;
     }
 
     uint256 internal constant PLACEHOLDER = type(uint256).max;
 
     uint128 public nextMessageId; // slot 1
-    mapping(bytes32 msgHash => bool recalled) public isMessageRecalled;
+    mapping(bytes32 msgHash => bool recalled) private __isMessageRecalled; // slot 2, deprecated
     mapping(bytes32 msgHash => Status) public messageStatus; // slot 3
-    Context private _ctx; // // slot 4,5,6pnpm
-    mapping(address => bool) public addressBanned;
-    uint256[43] private __gap;
+    Context private _ctx; // slot 4,5,6
+    mapping(address => bool) public addressBanned; // slot 7
+    mapping(bytes32 msgHash => ProofReceipt) public proofReceipt; // slot 8
+    uint256[42] private __gap;
 
     event MessageSent(bytes32 indexed msgHash, Message message);
+    event MessageReceived(bytes32 indexed msgHash, Message message, bool isRecall);
     event MessageRecalled(bytes32 indexed msgHash);
+    event MessageExecuted(bytes32 indexed msgHash);
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
+    event MessageSuspended(bytes32 msgHash, bool suspended);
     event AddressBanned(address indexed addr, bool banned);
 
     error B_INVALID_CHAINID();
@@ -59,8 +75,8 @@ contract Bridge is EssentialContract, IBridge {
     error B_NOT_FAILED();
     error B_NOT_RECEIVED();
     error B_PERMISSION_DENIED();
-    error B_RECALLED_ALREADY();
     error B_STATUS_MISMATCH();
+    error B_INVOCATION_TOO_EARLY();
 
     modifier sameChain(uint64 chainId) {
         if (chainId != block.chainid) revert B_INVALID_CHAINID();
@@ -76,7 +92,32 @@ contract Bridge is EssentialContract, IBridge {
         _ctx.msgHash == bytes32(PLACEHOLDER);
     }
 
-    function banAddress(address addr, bool toBan) external onlyOwner nonReentrant {
+    /// @notice Suspend or unsuspend invocation for a list of messages.
+    function suspendMessages(
+        bytes32[] calldata msgHashes,
+        bool toSuspend
+    )
+        external
+        onlyFromOwnerOrNamed("bridge_watchdog")
+    {
+        uint64 _timestamp = toSuspend ? type(uint64).max : uint64(block.timestamp);
+        for (uint256 i; i < msgHashes.length; ++i) {
+            bytes32 msgHash = msgHashes[i];
+            proofReceipt[msgHash].receivedAt = _timestamp;
+            emit MessageSuspended(msgHash, toSuspend);
+        }
+    }
+
+    /// @notice Ban or unban an address. A banned addresses will not be invoked upon
+    /// with message calls.
+    function banAddress(
+        address addr,
+        bool toBan
+    )
+        external
+        onlyFromOwnerOrNamed("bridge_watchdog")
+        nonReentrant
+    {
         if (addressBanned[addr] == toBan) revert B_INVALID_STATUS();
         addressBanned[addr] = toBan;
         emit AddressBanned(addr, toBan);
@@ -138,44 +179,64 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(message.srcChainId)
     {
         bytes32 msgHash = hashMessage(message);
-        if (isMessageRecalled[msgHash]) revert B_RECALLED_ALREADY();
 
-        address signalService = resolve("signal_service", false);
+        if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
-        if (!ISignalService(signalService).isSignalSent(address(this), msgHash)) {
-            revert B_MESSAGE_NOT_SENT();
+        uint64 receivedAt = proofReceipt[msgHash].receivedAt;
+        bool isMessageProven = receivedAt != 0;
+
+        if (!isMessageProven) {
+            address signalService = resolve("signal_service", false);
+
+            if (!ISignalService(signalService).isSignalSent(address(this), msgHash)) {
+                revert B_MESSAGE_NOT_SENT();
+            }
+
+            bytes32 failureSignal = signalForFailedMessage(msgHash);
+            if (!_proveSignalReceived(signalService, failureSignal, message.destChainId, proof)) {
+                revert B_NOT_FAILED();
+            }
+
+            receivedAt = uint64(block.timestamp);
+            proofReceipt[msgHash].receivedAt = receivedAt;
         }
 
-        bool received = _proveSignalReceived(
-            signalService, _signalForFailedMessage(msgHash), message.destChainId, proof
-        );
-        if (!received) revert B_NOT_FAILED();
+        // assert(receivedAt != 0);
+        (uint256 invocationDelay,) = getInvocationDelays();
 
-        isMessageRecalled[msgHash] = true;
+        if (block.timestamp >= invocationDelay + receivedAt) {
+            delete proofReceipt[msgHash];
+            messageStatus[msgHash] = Status.RECALLED;
 
-        // Execute the recall logic based on the contract's support for the
-        // IRecallableSender interface
-        bool support = message.from.supportsInterface(type(IRecallableSender).interfaceId);
-        if (support) {
-            _ctx =
-                Context({ msgHash: msgHash, from: address(this), srcChainId: message.srcChainId });
+            // Execute the recall logic based on the contract's support for the
+            // IRecallableSender interface
+            if (message.from.supportsInterface(type(IRecallableSender).interfaceId)) {
+                _ctx = Context({
+                    msgHash: msgHash,
+                    from: address(this),
+                    srcChainId: message.srcChainId
+                });
 
-            // Perform recall
-            IRecallableSender(message.from).onMessageRecalled{ value: message.value }(
-                message, msgHash
-            );
+                // Perform recall
+                IRecallableSender(message.from).onMessageRecalled{ value: message.value }(
+                    message, msgHash
+                );
 
-            // Reset the context after the message call
-            _ctx = Context({
-                msgHash: bytes32(PLACEHOLDER),
-                from: address(uint160(PLACEHOLDER)),
-                srcChainId: uint64(PLACEHOLDER)
-            });
+                // Reset the context after the message call
+                _ctx = Context({
+                    msgHash: bytes32(PLACEHOLDER),
+                    from: address(uint160(PLACEHOLDER)),
+                    srcChainId: uint64(PLACEHOLDER)
+                });
+            } else {
+                message.owner.sendEther(message.value);
+            }
+            emit MessageRecalled(msgHash);
+        } else if (!isMessageProven) {
+            emit MessageReceived(msgHash, message, true);
         } else {
-            message.owner.sendEther(message.value);
+            revert B_INVOCATION_TOO_EARLY();
         }
-
-        emit MessageRecalled(msgHash);
     }
 
     /// @notice Processes a bridge message on the destination chain. This
@@ -195,58 +256,87 @@ contract Bridge is EssentialContract, IBridge {
         whenNotPaused
         sameChain(message.destChainId)
     {
-        // If the gas limit is set to zero, only the owner can process the
-        // message.
-        if (message.gasLimit == 0 && msg.sender != message.owner) {
-            revert B_PERMISSION_DENIED();
-        }
-
         bytes32 msgHash = hashMessage(message);
-
         if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
 
         address signalService = resolve("signal_service", false);
-        if (!_proveSignalReceived(signalService, msgHash, message.srcChainId, proof)) {
-            revert B_NOT_RECEIVED();
-        }
+        uint64 receivedAt = proofReceipt[msgHash].receivedAt;
+        bool isMessageProven = receivedAt != 0;
 
-        Status status;
-        uint256 refundAmount;
+        (uint256 invocationDelay, uint256 invocationExtraDelay) = getInvocationDelays();
 
-        // Process message differently based on the target address
-        if (
-            message.to == address(0) || message.to == address(this) || message.to == signalService
-                || addressBanned[message.to]
-        ) {
-            // Handle special addresses that don't require actual invocation but
-            // mark message as DONE
-            status = Status.DONE;
-            refundAmount = message.value;
-        } else {
-            // Use the specified message gas limit if not called by the owner, else
-            // use remaining gas
-            uint256 gasLimit = msg.sender == message.owner ? gasleft() : message.gasLimit;
+        if (!isMessageProven) {
+            if (!_proveSignalReceived(signalService, msgHash, message.srcChainId, proof)) {
+                revert B_NOT_RECEIVED();
+            }
 
-            if (_invokeMessageCall(message, msgHash, gasLimit)) {
-                status = Status.DONE;
-            } else {
-                status = Status.RETRIABLE;
+            receivedAt = uint64(block.timestamp);
+
+            if (invocationDelay != 0) {
+                proofReceipt[msgHash] = ProofReceipt({
+                    receivedAt: receivedAt,
+                    preferredExecutor: message.gasLimit == 0 ? message.owner : msg.sender
+                });
             }
         }
 
-        // Update the message status
-        _updateMessageStatus(ISignalService(signalService), msgHash, status);
+        // assert(receivedAt != 0);
 
-        // Determine the refund recipient
-        address refundTo = message.refundTo == address(0) ? message.owner : message.refundTo;
+        if (invocationDelay != 0 && msg.sender != proofReceipt[msgHash].preferredExecutor) {
+            // If msg.sender is not the one that proved the message, then there
+            // is an extra delay.
+            unchecked {
+                invocationDelay += invocationExtraDelay;
+            }
+        }
 
-        // Refund the processing fee
-        if (msg.sender == refundTo) {
-            refundTo.sendEther(message.fee + refundAmount);
+        if (block.timestamp >= invocationDelay + receivedAt) {
+            // If the gas limit is set to zero, only the owner can process the message.
+            if (message.gasLimit == 0 && msg.sender != message.owner) {
+                revert B_PERMISSION_DENIED();
+            }
+
+            delete proofReceipt[msgHash];
+
+            uint256 refundAmount;
+
+            // Process message differently based on the target address
+            if (
+                message.to == address(0) || message.to == address(this)
+                    || message.to == signalService || addressBanned[message.to]
+            ) {
+                // Handle special addresses that don't require actual invocation but
+                // mark message as DONE
+                refundAmount = message.value;
+                _updateMessageStatus(msgHash, Status.DONE);
+            } else {
+                // Use the specified message gas limit if called by the owner, else
+                // use remaining gas
+                uint256 gasLimit = msg.sender == message.owner ? gasleft() : message.gasLimit;
+
+                if (_invokeMessageCall(message, msgHash, gasLimit)) {
+                    _updateMessageStatus(msgHash, Status.DONE);
+                } else {
+                    _updateMessageStatus(msgHash, Status.RETRIABLE);
+                }
+            }
+
+            // Determine the refund recipient
+            address refundTo = message.refundTo == address(0) ? message.owner : message.refundTo;
+
+            // Refund the processing fee
+            if (msg.sender == refundTo) {
+                refundTo.sendEther(message.fee + refundAmount);
+            } else {
+                // If sender is another address, reward it and refund the rest
+                msg.sender.sendEther(message.fee);
+                refundTo.sendEther(refundAmount);
+            }
+            emit MessageExecuted(msgHash);
+        } else if (!isMessageProven) {
+            emit MessageReceived(msgHash, message, false);
         } else {
-            // If sender is another address, reward it and refund the rest
-            msg.sender.sendEther(message.fee);
-            refundTo.sendEther(refundAmount);
+            revert B_INVOCATION_TOO_EARLY();
         }
     }
 
@@ -281,15 +371,9 @@ contract Bridge is EssentialContract, IBridge {
 
         // Attempt to invoke the messageCall.
         if (_invokeMessageCall(message, msgHash, gasleft())) {
-            // Update the message status to "DONE" on successful invocation.
-            _updateMessageStatus(
-                ISignalService(resolve("signal_service", false)), msgHash, Status.DONE
-            );
+            _updateMessageStatus(msgHash, Status.DONE);
         } else if (isLastAttempt) {
-            // Update the message status to "FAILED"
-            _updateMessageStatus(
-                ISignalService(resolve("signal_service", false)), msgHash, Status.FAILED
-            );
+            _updateMessageStatus(msgHash, Status.FAILED);
         }
     }
 
@@ -320,7 +404,7 @@ contract Bridge is EssentialContract, IBridge {
 
         return _proveSignalReceived(
             resolve("signal_service", false),
-            _signalForFailedMessage(hashMessage(message)),
+            signalForFailedMessage(hashMessage(message)),
             message.destChainId,
             proof
         );
@@ -366,10 +450,52 @@ contract Bridge is EssentialContract, IBridge {
         return _ctx;
     }
 
+    /// @notice Returns invocation delay values.
+    /// @dev Bridge contract deployed on L1 shall use a non-zero value for better
+    /// security.
+    /// @return invocationDelay The minimal delay in second before a message can be executed since
+    /// and the time it was received on the this chain.
+    /// @return invocationExtraDelay The extra delay in second (to be added to invocationDelay) if
+    /// the transactor is not the preferredExecutor who proved this message.
+    function getInvocationDelays()
+        public
+        view
+        virtual
+        returns (uint256 invocationDelay, uint256 invocationExtraDelay)
+    {
+        // Only on the base layer (L1) should the returned values be non-zero.
+        // if (
+        //     block.chainid == 1 // Ethereum mainnet
+        //         || block.chainid == 2 // Ropsten
+        //         || block.chainid == 4 // Rinkeby
+        //         || block.chainid == 5 // Goerli
+        //         || block.chainid == 42 // Kovan
+        //         || block.chainid == 11_155_111 // Sepolia
+        // ) {
+        //     return (6 hours, 15 minutes);
+        // }
+
+        return (0, 0);
+    }
+
     /// @notice Hash the message
     function hashMessage(Message memory message) public pure returns (bytes32) {
         return keccak256(abi.encode("TAIKO_MESSAGE", message));
     }
+
+    /// @notice Returns a signal representing a failed/recalled message.
+    function signalForFailedMessage(bytes32 msgHash) public pure returns (bytes32) {
+        return msgHash ^ bytes32(uint256(Status.FAILED));
+    }
+
+    /// @notice Checks if the given address can pause and unpause the bridge.
+    function _authorizePause(address addr)
+        internal
+        view
+        virtual
+        override
+        onlyFromOwnerOrNamed("bridge_watchdog")
+    { }
 
     /// @notice Invokes a call message on the Bridge.
     /// @param message The call message to be invoked.
@@ -408,20 +534,16 @@ contract Bridge is EssentialContract, IBridge {
     /// mapping, the status is updated and an event is emitted.
     /// @param msgHash The hash of the message.
     /// @param status The new status of the message.
-    function _updateMessageStatus(
-        ISignalService signalService,
-        bytes32 msgHash,
-        Status status
-    )
-        private
-    {
+    function _updateMessageStatus(bytes32 msgHash, Status status) private {
         if (messageStatus[msgHash] == status) return;
 
         messageStatus[msgHash] = status;
         emit MessageStatusChanged(msgHash, status);
 
         if (status == Status.FAILED) {
-            signalService.sendSignal(_signalForFailedMessage(msgHash));
+            ISignalService(resolve("signal_service", false)).sendSignal(
+                signalForFailedMessage(msgHash)
+            );
         }
     }
 
@@ -447,9 +569,5 @@ contract Bridge is EssentialContract, IBridge {
         );
         (bool success, bytes memory ret) = signalService.staticcall(data);
         return success ? abi.decode(ret, (bool)) : false;
-    }
-
-    function _signalForFailedMessage(bytes32 msgHash) private pure returns (bytes32) {
-        return msgHash ^ bytes32(uint256(Status.FAILED));
     }
 }
