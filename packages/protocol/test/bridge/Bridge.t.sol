@@ -26,10 +26,6 @@ contract TwoStepBridge is Bridge {
         override
         returns (uint256 invocationDelay, uint256 invocationExtraDelay)
     {
-        // We can change the network ID below for specific L2 to have non-zero delays.
-        // if (block.chainid == 12345789) {
-        //     return (6 hours, 15 minutes);
-        // }
         return (10 hours, 2 hours);
     }
 }
