@@ -32,7 +32,8 @@ contract Bridge is EssentialContract, IBridge {
         RETRIABLE,
         DONE,
         FAILED,
-        RECALLED
+        RECALLED,
+        PROOF_SUBMITTED
     }
 
     // Note that this struct shall take only 1 slot to minimize gas cost
@@ -180,7 +181,9 @@ contract Bridge is EssentialContract, IBridge {
     {
         bytes32 msgHash = hashMessage(message);
 
-        if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
+        if (
+            messageStatus[msgHash] != Status.NEW && messageStatus[msgHash] != Status.PROOF_SUBMITTED
+        ) revert B_STATUS_MISMATCH();
 
         uint64 receivedAt = proofReceipt[msgHash].receivedAt;
         bool isMessageProven = receivedAt != 0;
@@ -199,6 +202,8 @@ contract Bridge is EssentialContract, IBridge {
 
             receivedAt = uint64(block.timestamp);
             proofReceipt[msgHash].receivedAt = receivedAt;
+
+            _updateMessageStatus(msgHash, Status.PROOF_SUBMITTED);
         }
 
         // assert(receivedAt != 0);
@@ -257,7 +262,9 @@ contract Bridge is EssentialContract, IBridge {
         sameChain(message.destChainId)
     {
         bytes32 msgHash = hashMessage(message);
-        if (messageStatus[msgHash] != Status.NEW) revert B_STATUS_MISMATCH();
+        if (
+            messageStatus[msgHash] != Status.NEW && messageStatus[msgHash] != Status.PROOF_SUBMITTED
+        ) revert B_STATUS_MISMATCH();
 
         address signalService = resolve("signal_service", false);
         uint64 receivedAt = proofReceipt[msgHash].receivedAt;
@@ -278,6 +285,8 @@ contract Bridge is EssentialContract, IBridge {
                     preferredExecutor: message.gasLimit == 0 ? message.owner : msg.sender
                 });
             }
+
+            _updateMessageStatus(msgHash, Status.PROOF_SUBMITTED);
         }
 
         // assert(receivedAt != 0);

@@ -187,8 +187,7 @@ contract BridgeTest is TaikoTest {
         dest2StepBridge.processMessage(message, proof);
 
         Bridge.Status status = dest2StepBridge.messageStatus(msgHash);
-        // Still new ! Because of the delay, no processing happened
-        assertEq(status == Bridge.Status.NEW, true);
+        assertEq(status == Bridge.Status.PROOF_SUBMITTED, true);
         // Alice has 100 ether
         assertEq(Alice.balance, 100_000_000_000_000_000_000);
 
@@ -243,8 +242,7 @@ contract BridgeTest is TaikoTest {
         dest2StepBridge.processMessage(message, proof);
 
         Bridge.Status status = dest2StepBridge.messageStatus(msgHash);
-        // Still new ! Because of the delay, no processing happened
-        assertEq(status == Bridge.Status.NEW, true);
+        assertEq(status == Bridge.Status.PROOF_SUBMITTED, true);
         // Alice has 100 ether
         assertEq(Alice.balance, 100_000_000_000_000_000_000);
 
