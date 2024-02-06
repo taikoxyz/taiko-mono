@@ -18,12 +18,12 @@ type blocker interface {
 	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error)
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 }
-type Prover[T any] struct {
+type Prover struct {
 	blocker           blocker
 	proofEncodingType relayer.ProofEncodingType
 }
 
-func New[T any](blocker blocker, proofEncodingType relayer.ProofEncodingType) (*Prover[T], error) {
+func New(blocker blocker, proofEncodingType relayer.ProofEncodingType) (*Prover, error) {
 	if blocker == nil {
 		return nil, relayer.ErrNoEthClient
 	}
