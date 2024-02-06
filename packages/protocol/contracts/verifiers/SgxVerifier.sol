@@ -57,7 +57,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// getting multiple valid instanceIds. While during proving, it is technically possible to
     /// register the old addresses, it is less of a problem, because the instanceId would be the
     /// same for those addresses and if deleted - the attestation cannot be reused anyways.
-    mapping(address instanceAddress => bool alreadyAttested) public attestationRegistered; // slot 3
+    mapping(address instanceAddress => bool alreadyAttested) public addressRegistered; // slot 3
 
     uint256[47] private __gap;
 
@@ -124,10 +124,6 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
         address[] memory _address = new address[](1);
         _address[0] = address(bytes20(attestation.localEnclaveReport.reportData));
-
-        if (attestationRegistered[_address[0]]) revert SGX_ALREADY_ATTESTED();
-
-        attestationRegistered[_address[0]] = true;
 
         (bool verified,) = IAttestation(automataDcapAttestation).verifyParsedQuote(attestation);
 
@@ -203,6 +199,10 @@ contract SgxVerifier is EssentialContract, IVerifier {
         }
 
         for (uint256 i; i < _instances.length; ++i) {
+            if (addressRegistered[_instances[i]]) revert SGX_ALREADY_ATTESTED();
+
+            addressRegistered[_instances[i]] = true;
+
             if (_instances[i] == address(0)) revert SGX_INVALID_INSTANCE();
 
             instances[nextInstanceId] = Instance(_instances[i], validSince);
