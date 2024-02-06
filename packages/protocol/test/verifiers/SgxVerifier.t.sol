@@ -65,6 +65,18 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         sv.registerInstance(v3quote);
     }
 
+    function test_registerInstanceTwiceWithSameAttestation() external {
+        V3Struct.ParsedV3QuoteStruct memory v3quote =
+            ParseV3QuoteBytes(address(pemCertChainLib), sampleQuote);
+
+        vm.prank(Bob, Bob);
+        sv.registerInstance(v3quote);
+
+        vm.expectRevert(SgxVerifier.SGX_ALREADY_ATTESTED.selector);
+        vm.prank(Carol, Carol);
+        sv.registerInstance(v3quote);
+    }
+
     function _getSignature(
         address _newInstance,
         address[] memory _instances,
