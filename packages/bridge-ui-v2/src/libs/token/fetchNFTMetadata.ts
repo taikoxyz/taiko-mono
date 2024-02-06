@@ -2,6 +2,7 @@ import axios, { AxiosError, type AxiosRequestConfig } from 'axios';
 import { get } from 'svelte/store';
 
 import { destNetwork } from '$components/Bridge/state';
+import { ipfsConfig } from '$config';
 import { NoMetadataFoundError, WrongChainError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { resolveIPFSUri } from '$libs/util/resolveIPFSUri';
@@ -12,10 +13,8 @@ import { getTokenAddresses } from './getTokenAddresses';
 import { getTokenWithInfoFromAddress } from './getTokenWithInfoFromAddress';
 import type { NFT, NFTMetadata } from './types';
 
-const REQUEST_TIMEOUT_IN_MS = 200;
-
 const axiosConfig: AxiosRequestConfig = {
-  timeout: REQUEST_TIMEOUT_IN_MS,
+  timeout: ipfsConfig.gatewayTimeout,
 };
 
 const log = getLogger('libs:token:fetchNFTMetadata');
@@ -97,16 +96,16 @@ const crossChainFetchNFTMetadata = async (token: NFT): Promise<NFTMetadata | nul
 
       log(`Fetching metadata for ${token.name} from chain ${canonicalChainID} at address ${canonicalAddress}`);
 
-      const cToken = (await getTokenWithInfoFromAddress({
+      const canonicalToken = (await getTokenWithInfoFromAddress({
         contractAddress: canonicalAddress,
         srcChainId: canonicalChainID,
         tokenId: token.tokenId,
         type: token.type,
       })) as NFT;
-      cToken.addresses = { ...token.addresses, [canonicalChainID]: canonicalAddress };
+      canonicalToken.addresses = { ...token.addresses, [canonicalChainID]: canonicalAddress };
 
-      if (!cToken.uri) throw new Error('No uri found');
-      return cToken.metadata || null;
+      if (!canonicalToken.uri) throw new Error('No uri found');
+      return canonicalToken.metadata || null;
     }
     throw new NoMetadataFoundError('No crosschain metadata found');
   } catch (error) {
