@@ -15,9 +15,11 @@
 pragma solidity 0.8.24;
 
 import "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
-import "../../common/EssentialContract.sol";
-import "../../thirdparty/optimism/Bytes.sol";
-import "../ITaikoL1.sol";
+import "../L1/ITaikoL1.sol";
+import "../common/EssentialContract.sol";
+import "../thirdparty/optimism/Bytes.sol";
+import "../automata-attestation/interfaces/IAttestation.sol";
+import "../automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import "./IVerifier.sol";
 
 /// @title SgxVerifier
@@ -32,10 +34,12 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// bootstrapping the network with trustworthy instances.
     struct Instance {
         address addr;
-        uint64 addedAt; // We can calculate if expired
+        uint64 validSince;
     }
 
-    uint256 public constant INSTANCE_EXPIRY = 180 days;
+    uint64 public constant INSTANCE_EXPIRY = 180 days;
+    // A security feature, a delay until an instanace is enabled when using onchain RA verification
+    uint64 public constant INSTANCE_VALIDITY_DELAY = 1 days;
 
     /// @dev For gas savings, we shall assign each SGX instance with an id
     /// so that when we need to set a new pub key, just write storage once.
@@ -52,13 +56,17 @@ contract SgxVerifier is EssentialContract, IVerifier {
     uint256[48] private __gap;
 
     event InstanceAdded(
-        uint256 indexed id, address indexed instance, address replaced, uint256 timstamp
+        uint256 indexed id, address indexed instance, address replaced, uint256 validSince
     );
     event InstanceDeleted(uint256 indexed id, address indexed instance);
 
+    error SGX_DELETE_NOT_AUTHORIZED();
+    error SGX_INVALID_ATTESTATION();
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_INSTANCES();
     error SGX_INVALID_PROOF();
+    error SGX_MISSING_ATTESTATION();
+    error SGX_RA_NOT_SUPPORTED();
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _addressManager The address of the address manager contract.
@@ -75,7 +83,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         returns (uint256[] memory ids)
     {
         if (_instances.length == 0) revert SGX_INVALID_INSTANCES();
-        ids = _addInstances(_instances);
+        ids = _addInstances(_instances, true);
     }
 
     /// @notice Deletes SGX instances from the registry.
@@ -94,37 +102,27 @@ contract SgxVerifier is EssentialContract, IVerifier {
         }
     }
 
-    /// @notice Adds SGX instances to the registry by another SGX instance.
-    /// @param id The id of the SGX instance who is adding new members.
-    /// @param newInstance The new address of this instance.
-    /// @param extraInstances The address array of SGX instances.
-    /// @param signature The signature proving authenticity.
-    /// @return ids The respective instanceId array per addresses.
-    function addInstances(
-        uint256 id,
-        address newInstance,
-        address[] calldata extraInstances,
-        bytes calldata signature
-    )
+    /// @notice Adds an SGX instance after the attestation is verified
+    /// @param attestation The parsed attestation quote.
+    /// @return id The respective instanceId
+    function registerInstance(V3Struct.ParsedV3QuoteStruct calldata attestation)
         external
-        returns (uint256[] memory ids)
+        returns (uint256)
     {
-        address taikoL1 = resolve("taiko", false);
-        bytes32 signedHash = keccak256(
-            abi.encode(
-                "ADD_INSTANCES",
-                ITaikoL1(taikoL1).getConfig().chainId,
-                address(this),
-                newInstance,
-                extraInstances
-            )
-        );
-        address oldInstance = ECDSA.recover(signedHash, signature);
-        if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
+        address automataDcapAttestation = (resolve("automata_dcap_attestation", true));
 
-        _replaceInstance(id, oldInstance, newInstance);
+        if (automataDcapAttestation == address(0)) {
+            revert SGX_RA_NOT_SUPPORTED();
+        }
 
-        ids = _addInstances(extraInstances);
+        (bool verified,) = IAttestation(automataDcapAttestation).verifyParsedQuote(attestation);
+
+        if (!verified) revert SGX_INVALID_ATTESTATION();
+
+        address[] memory _address = new address[](1);
+        _address[0] = address(bytes20(attestation.localEnclaveReport.reportData));
+
+        return _addInstances(_address, false)[0];
     }
 
     /// @inheritdoc IVerifier
@@ -178,22 +176,36 @@ contract SgxVerifier is EssentialContract, IVerifier {
         );
     }
 
-    function _addInstances(address[] calldata _instances) private returns (uint256[] memory ids) {
+    function _addInstances(
+        address[] memory _instances,
+        bool instantValid
+    )
+        private
+        returns (uint256[] memory ids)
+    {
         ids = new uint256[](_instances.length);
+
+        uint64 validSince = uint64(block.timestamp);
+
+        if (!instantValid) {
+            validSince += INSTANCE_VALIDITY_DELAY;
+        }
 
         for (uint256 i; i < _instances.length; ++i) {
             if (_instances[i] == address(0)) revert SGX_INVALID_INSTANCE();
 
-            instances[nextInstanceId] = Instance(_instances[i], uint64(block.timestamp));
+            instances[nextInstanceId] = Instance(_instances[i], validSince);
             ids[i] = nextInstanceId;
 
-            emit InstanceAdded(nextInstanceId, _instances[i], address(0), block.timestamp);
+            emit InstanceAdded(nextInstanceId, _instances[i], address(0), validSince);
 
             nextInstanceId++;
         }
     }
 
     function _replaceInstance(uint256 id, address oldInstance, address newInstance) private {
+        // Replacing an instance means, it went through a cooldown (if added by on-chain RA) so no
+        // need to have a cooldown
         instances[id] = Instance(newInstance, uint64(block.timestamp));
         emit InstanceAdded(id, newInstance, oldInstance, block.timestamp);
     }
@@ -201,6 +213,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     function _isInstanceValid(uint256 id, address instance) private view returns (bool) {
         if (instance == address(0)) return false;
         if (instance != instances[id].addr) return false;
-        return instances[id].addedAt + INSTANCE_EXPIRY > block.timestamp;
+        return instances[id].validSince <= block.timestamp
+            && block.timestamp <= instances[id].validSince + INSTANCE_EXPIRY;
     }
 }

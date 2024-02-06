@@ -19,10 +19,10 @@ import "../contracts/tokenvault/ERC1155Vault.sol";
 
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
-import "../contracts/L1/verifiers/SgxVerifier.sol";
-import "../contracts/L1/verifiers/GuardianVerifier.sol";
-import "../contracts/L1/verifiers/PseZkVerifier.sol";
-import "../contracts/L1/verifiers/SgxAndZkVerifier.sol";
+import "../contracts/verifiers/SgxVerifier.sol";
+import "../contracts/verifiers/GuardianVerifier.sol";
+import "../contracts/verifiers/PseZkVerifier.sol";
+import "../contracts/verifiers/SgxAndZkVerifier.sol";
 import "../contracts/L1/tiers/TaikoA6TierProvider.sol";
 import "../contracts/L1/tiers/ITierProvider.sol";
 import "../contracts/L1/tiers/ITierProvider.sol";
@@ -71,10 +71,6 @@ abstract contract TaikoTest is Test, DeployCapability {
     address internal Xavier = randAddress();
     address internal Yasmine = randAddress();
     address internal Zachary = randAddress();
-    address internal SGX_X_0 = vm.addr(0x4);
-    address internal SGX_X_1 = vm.addr(0x5);
-    address internal SGX_Y = randAddress();
-    address internal SGX_Z = randAddress();
 
     function randAddress() internal returns (address) {
         bytes32 randomHash = keccak256(abi.encodePacked("address", _seed++));

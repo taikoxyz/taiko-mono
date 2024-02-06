@@ -1,12 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "./TaikoL1TestBase.sol";
+import "../L1/TaikoL1TestBase.sol";
+import "../automata-attestation/common/AttestationBase.t.sol";
 
-contract TestSgxVerifier is TaikoL1TestBase {
+contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
+    address internal SGX_Y =
+        vm.addr(0x9b1bb8cb3bdb539d0d1f03951d27f167f2d5443e7ef0d7ce745cd4ec619d3dd7);
+    address internal SGX_Z = randAddress();
+
     function deployTaikoL1() internal override returns (TaikoL1) {
         return
             TaikoL1(payable(deployProxy({ name: "taiko", impl: address(new TaikoL1()), data: "" })));
+    }
+
+    function setUp() public override {
+        // Call the TaikoL1TestBase setUp()
+        super.setUp();
+
+        // Call the AttestationBase init setup
+        super.intialSetup();
+
+        registerAddress("automata_dcap_attestation", address(attestation));
     }
 
     function test_addInstancesByOwner() external {
@@ -42,15 +57,12 @@ contract TestSgxVerifier is TaikoL1TestBase {
         assertEq(instance, address(0));
     }
 
-    function test_addInstancesBySgxInstance() external {
-        address[] memory _instances = new address[](2);
-        _instances[0] = SGX_Y;
-        _instances[1] = SGX_Z;
-
-        bytes memory signature = _getSignature(SGX_X_1, _instances, 0x4);
+    function test_registerInstanceWithAttestation() external {
+        V3Struct.ParsedV3QuoteStruct memory v3quote =
+            ParseV3QuoteBytes(address(pemCertChainLib), sampleQuote);
 
         vm.prank(Bob, Bob);
-        sv.addInstances(0, SGX_X_1, _instances, signature);
+        sv.registerInstance(v3quote);
     }
 
     function _getSignature(

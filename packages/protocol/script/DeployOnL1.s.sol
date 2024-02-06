@@ -20,11 +20,8 @@ import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
-import "../contracts/L1/verifiers/PseZkVerifier.sol";
-import "../contracts/L1/verifiers/SgxVerifier.sol";
-import "../contracts/L1/verifiers/SgxAndZkVerifier.sol";
-import "../contracts/L1/verifiers/GuardianVerifier.sol";
 import "../contracts/L1/tiers/TaikoA6TierProvider.sol";
+import "../contracts/L1/tiers/OptimisticTierProvider.sol";
 import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/L1/gov/TaikoTimelockController.sol";
 import "../contracts/L1/gov/TaikoGovernor.sol";
@@ -33,9 +30,22 @@ import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
 import "../contracts/tokenvault/ERC721Vault.sol";
 import "../contracts/signal/SignalService.sol";
+import "../contracts/automata-attestation/AutomataDcapV3Attestation.sol";
+import "../contracts/automata-attestation/utils/SigVerifyLib.sol";
+import "../contracts/automata-attestation/lib/PEMCertChainLib.sol";
+import "../contracts/verifiers/PseZkVerifier.sol";
+import "../contracts/verifiers/SgxVerifier.sol";
+import "../contracts/verifiers/SgxAndZkVerifier.sol";
+import "../contracts/verifiers/GuardianVerifier.sol";
 import "../test/common/erc20/FreeMintERC20.sol";
 import "../test/common/erc20/MayFailFreeMintERC20.sol";
 import "../test/DeployCapability.sol";
+
+// Actually this one is deployed already on mainnets, but we are now deploying our own (non vi-ir)
+// version. For mainnet, it is easier to go with either this:
+// https://github.com/daimo-eth/p256-verifier or this:
+// https://github.com/rdubois-crypto/FreshCryptoLib
+import { P256Verifier } from "../lib/p256-verifier/src/P256Verifier.sol";
 
 /// @title DeployOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
@@ -311,9 +321,16 @@ contract DeployOnL1 is DeployCapability {
             owner: timelock
         });
 
+        address tierProvider;
+        if (vm.envBool("OPTIMISTIC_TIER_PROVIDER")) {
+            tierProvider = address(new OptimisticTierProvider());
+        } else {
+            tierProvider = address(new TaikoA6TierProvider());
+        }
+
         deployProxy({
             name: "tier_provider",
-            impl: address(new TaikoA6TierProvider()),
+            impl: tierProvider,
             data: abi.encodeCall(TaikoA6TierProvider.init, ()),
             registerTo: rollupAddressManager,
             owner: timelock
@@ -374,6 +391,18 @@ contract DeployOnL1 is DeployCapability {
         uint8 minGuardians = uint8(vm.envUint("MIN_GUARDIANS"));
         GuardianProver(guardianProver).setGuardians(guardians, minGuardians);
         GuardianProver(guardianProver).transferOwnership(timelock);
+
+        // No need to proxy these, because they are 3rd party. If we want to modify, we simply
+        // change the registerAddress("automata_dcap_attestation", address(attestation));
+        P256Verifier p256Verifier = new P256Verifier();
+        SigVerifyLib sigVerifyLib = new SigVerifyLib(address(p256Verifier));
+        PEMCertChainLib pemCertChainLib = new PEMCertChainLib();
+        AutomataDcapV3Attestation automateDcapV3Attestation =
+            new AutomataDcapV3Attestation(address(sigVerifyLib), address(pemCertChainLib));
+
+        register(
+            rollupAddressManager, "automata_dcap_attestation", address(automateDcapV3Attestation)
+        );
     }
 
     function deployAuxContracts() private {
