@@ -20,9 +20,13 @@ func (i *Indexer) subscribe(ctx context.Context, chainID *big.Int) error {
 
 	errChan := make(chan error)
 
-	go i.subscribeMessageSent(ctx, chainID, errChan)
+	if i.eventName == relayer.EventNameMessageSent {
+		go i.subscribeMessageSent(ctx, chainID, errChan)
 
-	go i.subscribeMessageStatusChanged(ctx, chainID, errChan)
+		go i.subscribeMessageStatusChanged(ctx, chainID, errChan)
+	} else if i.eventName == relayer.EventNameMessageReceived {
+		go i.subscribeMessageReceived(ctx, chainID, errChan)
+	}
 
 	// nolint: gosimple
 	for {
@@ -106,10 +110,10 @@ func (i *Indexer) subscribeMessageReceived(ctx context.Context, chainID *big.Int
 
 	sub := event.ResubscribeErr(i.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
 		if err != nil {
-			slog.Error("i.bridge.WatchMessageSent", "error", err)
+			slog.Error("i.bridge.WatchMessageReceived", "error", err)
 		}
 
-		slog.Info("resubscribing to WatchMessageSent events")
+		slog.Info("resubscribing to WatchMessageReceived events")
 
 		return i.bridge.WatchMessageReceived(&bind.WatchOpts{
 			Context: ctx,

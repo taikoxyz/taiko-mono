@@ -89,157 +89,44 @@ func (p *Processor) processMessage(
 		return errors.Wrap(err, "p.waitForConfirmations")
 	}
 
-	var blockNum uint64 = msgBody.Event.Raw.BlockNumber
-
-	// wait for srcChain => destChain header to sync if no hops,
-	// or srcChain => hopChain => hopChain => hopChain => destChain if hops exist.
-	if p.hops != nil {
-		var hopEthClient ethClient = p.srcEthClient
-
-		for _, hop := range p.hops {
-			hop.blockNum = blockNum
-
-			_, err := p.waitHeaderSynced(ctx, hop.headerSyncer, hopEthClient, blockNum)
-
-			if err != nil {
-				return errors.Wrap(err, "p.waitHeaderSynced")
-			}
-
-			// todo: instead of latest, need way to find out which block num on the hop chain
-			// the previous blockHash was synced in, and then wait for that header to be synced
-			// on the next hop chain.
-			snippet, err := hop.headerSyncer.GetSyncedSnippet(&bind.CallOpts{
-				Context: ctx,
-			},
-				hop.blockNum,
-			)
-
-			slog.Info("hop synced snippet",
-				"syncedInBlock", snippet.SyncedInBlock,
-				"blockNum", hop.blockNum,
-				"blockHash", common.Bytes2Hex(snippet.BlockHash[:]),
-			)
-
-			if err != nil {
-				return errors.Wrap(err, "hop.headerSyncer.GetSyncedSnippet")
-			}
-
-			blockNum = snippet.SyncedInBlock
-
-			hopEthClient = hop.ethClient
-		}
-
-		blockNum, err = p.waitHeaderSynced(ctx, p.destHeaderSyncer, hopEthClient, blockNum)
-		if err != nil {
-			return errors.Wrap(err, "p.waitHeaderSynced")
-		}
-	} else {
-		if _, err := p.waitHeaderSynced(ctx, p.destHeaderSyncer, p.srcEthClient, msgBody.Event.Raw.BlockNumber); err != nil {
-			return errors.Wrap(err, "p.waitHeaderSynced")
-		}
-	}
-
-	key, err := p.srcSignalService.GetSignalSlot(&bind.CallOpts{},
-		msgBody.Event.Message.SrcChainId,
-		msgBody.Event.Raw.Address,
-		msgBody.Event.MsgHash,
-	)
-
+	invocationDelays, err := p.destBridge.GetInvocationDelays(nil)
 	if err != nil {
-		return errors.Wrap(err, "p.srcSignalService.GetSignalSlot")
+		return errors.Wrap(err, "p.destBridge.invocationDelays")
 	}
 
-	hops := []proof.HopParams{}
+	proofReceipt, err := p.destBridge.ProofReceipt(nil, msgBody.Event.MsgHash)
+	if err != nil {
+		return errors.Wrap(err, "p.destBridge.ProofReceipt")
+	}
 
 	var encodedSignalProof []byte
 
-	var latestSyncedSnippet icrosschainsync.ICrossChainSyncSnippet
-
-	// if a hop is set, the proof service needs to generate an additional proof
-	// for the signal service intermediary chain in between the source chain
-	// and the destination chain.
-	for _, hop := range p.hops {
-		slog.Info(
-			"adding hop",
-			"hopChainId", hop.chainID.Uint64(),
-			"hopSignalServiceAddress", hop.signalServiceAddress.Hex(),
-		)
-
-		hops = append(hops, proof.HopParams{
-			ChainID:              hop.chainID,
-			SignalServiceAddress: hop.signalServiceAddress,
-			Blocker:              hop.ethClient,
-			Caller:               hop.caller,
-			SignalService:        hop.signalService,
-			TaikoAddress:         hop.taikoAddress,
-			BlockNumber:          blockNum,
-		})
-	}
-
-	if len(hops) != 0 {
-		encodedSignalProof, _, err = p.prover.EncodedSignalProofWithHops(
-			ctx,
-			p.srcCaller,
-			p.srcSignalServiceAddress,
-			p.destHeaderSyncAddress,
-			hops,
-			common.Bytes2Hex(key[:]),
-			msgBody.Event.Raw.BlockHash,
-			blockNum,
-		)
-	} else {
-		// get latest synced header since not every header is synced from L1 => L2,
-		// and later blocks still have the storage trie proof from previous blocks.
-		latestSyncedSnippet, err = p.destHeaderSyncer.GetSyncedSnippet(&bind.CallOpts{}, 0)
+	// proof has not been submitted, we need to generate it
+	if proofReceipt.ReceivedAt == 0 {
+		encodedSignalProof, err = p.generateEncodedSignalProof(ctx, msgBody.Event)
 		if err != nil {
-			return errors.Wrap(err, "taiko.GetSyncedSnippet")
+			return errors.Wrap(err, "p.generateEncodedSignalProof")
+		}
+	} else {
+		// proof has been submitted
+		// we need to check the invocation delay and
+		// preferred exeuctor, if it wasnt us
+		// who proved it, there is an extra delay.
+
+		invocationDelay := invocationDelays.InvocationDelay
+		preferredExecutor := proofReceipt.PreferredExecutor
+
+		if invocationDelay.Cmp(common.Big0) == 1 && preferredExecutor.Cmp(p.relayerAddr) != 0 {
+			invocationDelay = new(big.Int).Add(invocationDelay, invocationDelays.InvocationExtraDelay)
 		}
 
-		encodedSignalProof, err = p.prover.EncodedSignalProof(
-			ctx,
-			p.srcCaller,
-			p.srcSignalServiceAddress,
-			p.destHeaderSyncAddress,
-			common.Bytes2Hex(key[:]),
-			latestSyncedSnippet.BlockHash,
-		)
-	}
-
-	if err != nil {
-		slog.Error("error encoding signal proof",
-			"srcChainID", msgBody.Event.Message.SrcChainId,
-			"destChainID", msgBody.Event.Message.DestChainId,
-			"txHash", msgBody.Event.Raw.TxHash.Hex(),
-			"msgHash", common.Hash(msgBody.Event.MsgHash).Hex(),
-			"from", msgBody.Event.Message.From.Hex(),
-			"owner", msgBody.Event.Message.Owner.Hex(),
-			"error", err,
-			"hopsLength", len(hops),
-		)
-
-		return errors.Wrap(err, "p.prover.GetEncodedSignalProof")
-	}
-
-	// check if message is received first. if not, it will definitely fail,
-	// so we can exit early on this one. there is most likely
-	// an issue with the signal generation.
-	received, err := p.destBridge.ProveMessageReceived(&bind.CallOpts{
-		Context: ctx,
-	}, msgBody.Event.Message, encodedSignalProof)
-	if err != nil {
-		return errors.Wrap(err, "p.destBridge.ProveMessageReceived")
-	}
-
-	// message will fail when we try to process it
-	if !received {
-		slog.Warn("Message not received on dest chain",
-			"msgHash", common.Hash(msgBody.Event.MsgHash).Hex(),
-			"srcChainId", msgBody.Event.Message.SrcChainId,
-		)
-
-		relayer.MessagesNotReceivedOnDestChain.Inc()
-
-		return errors.New("message not received")
+		processableAt := new(big.Int).Add(new(big.Int).SetUint64(proofReceipt.ReceivedAt), invocationDelay)
+		// check invocation delays and make sure we can submit it
+		if time.Now().UTC().UnixMilli() < processableAt.Int64() {
+			// its unprocessable, we shouldnt send the transaction.
+			// TODO: wait until its processable rather than return error.
+			return errors.New("unprocessable message")
+		}
 	}
 
 	var tx *types.Transaction
@@ -309,6 +196,166 @@ func (p *Processor) processMessage(
 	}
 
 	return nil
+}
+
+func (p *Processor) generateEncodedSignalProof(ctx context.Context,
+	event *bridge.BridgeMessageSent) ([]byte, error) {
+	var encodedSignalProof []byte
+
+	var err error
+
+	var blockNum uint64 = event.Raw.BlockNumber
+
+	// wait for srcChain => destChain header to sync if no hops,
+	// or srcChain => hopChain => hopChain => hopChain => destChain if hops exist.
+	if p.hops != nil {
+		var hopEthClient ethClient = p.srcEthClient
+
+		for _, hop := range p.hops {
+			hop.blockNum = blockNum
+
+			_, err := p.waitHeaderSynced(ctx, hop.headerSyncer, hopEthClient, blockNum)
+
+			if err != nil {
+				return nil, errors.Wrap(err, "p.waitHeaderSynced")
+			}
+
+			// todo: instead of latest, need way to find out which block num on the hop chain
+			// the previous blockHash was synced in, and then wait for that header to be synced
+			// on the next hop chain.
+			snippet, err := hop.headerSyncer.GetSyncedSnippet(&bind.CallOpts{
+				Context: ctx,
+			},
+				hop.blockNum,
+			)
+
+			slog.Info("hop synced snippet",
+				"syncedInBlock", snippet.SyncedInBlock,
+				"blockNum", hop.blockNum,
+				"blockHash", common.Bytes2Hex(snippet.BlockHash[:]),
+			)
+
+			if err != nil {
+				return nil, errors.Wrap(err, "hop.headerSyncer.GetSyncedSnippet")
+			}
+
+			blockNum = snippet.SyncedInBlock
+
+			hopEthClient = hop.ethClient
+		}
+
+		blockNum, err = p.waitHeaderSynced(ctx, p.destHeaderSyncer, hopEthClient, blockNum)
+		if err != nil {
+			return nil, errors.Wrap(err, "p.waitHeaderSynced")
+		}
+	} else {
+		if _, err := p.waitHeaderSynced(ctx, p.destHeaderSyncer, p.srcEthClient, event.Raw.BlockNumber); err != nil {
+			return nil, errors.Wrap(err, "p.waitHeaderSynced")
+		}
+	}
+
+	key, err := p.srcSignalService.GetSignalSlot(&bind.CallOpts{},
+		event.Message.SrcChainId,
+		event.Raw.Address,
+		event.MsgHash,
+	)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "p.srcSignalService.GetSignalSlot")
+	}
+
+	hops := []proof.HopParams{}
+
+	var latestSyncedSnippet icrosschainsync.ICrossChainSyncSnippet
+
+	// if a hop is set, the proof service needs to generate an additional proof
+	// for the signal service intermediary chain in between the source chain
+	// and the destination chain.
+	for _, hop := range p.hops {
+		slog.Info(
+			"adding hop",
+			"hopChainId", hop.chainID.Uint64(),
+			"hopSignalServiceAddress", hop.signalServiceAddress.Hex(),
+		)
+
+		hops = append(hops, proof.HopParams{
+			ChainID:              hop.chainID,
+			SignalServiceAddress: hop.signalServiceAddress,
+			Blocker:              hop.ethClient,
+			Caller:               hop.caller,
+			SignalService:        hop.signalService,
+			TaikoAddress:         hop.taikoAddress,
+			BlockNumber:          blockNum,
+		})
+	}
+
+	if len(hops) != 0 {
+		encodedSignalProof, _, err = p.prover.EncodedSignalProofWithHops(
+			ctx,
+			p.srcCaller,
+			p.srcSignalServiceAddress,
+			p.destHeaderSyncAddress,
+			hops,
+			common.Bytes2Hex(key[:]),
+			event.Raw.BlockHash,
+			blockNum,
+		)
+	} else {
+		// get latest synced header since not every header is synced from L1 => L2,
+		// and later blocks still have the storage trie proof from previous blocks.
+		latestSyncedSnippet, err = p.destHeaderSyncer.GetSyncedSnippet(&bind.CallOpts{}, 0)
+		if err != nil {
+			return nil, errors.Wrap(err, "taiko.GetSyncedSnippet")
+		}
+
+		encodedSignalProof, err = p.prover.EncodedSignalProof(
+			ctx,
+			p.srcCaller,
+			p.srcSignalServiceAddress,
+			p.destHeaderSyncAddress,
+			common.Bytes2Hex(key[:]),
+			latestSyncedSnippet.BlockHash,
+		)
+	}
+
+	if err != nil {
+		slog.Error("error encoding signal proof",
+			"srcChainID", event.Message.SrcChainId,
+			"destChainID", event.Message.DestChainId,
+			"txHash", event.Raw.TxHash.Hex(),
+			"msgHash", common.Hash(event.MsgHash).Hex(),
+			"from", event.Message.From.Hex(),
+			"owner", event.Message.Owner.Hex(),
+			"error", err,
+			"hopsLength", len(hops),
+		)
+
+		return nil, errors.Wrap(err, "p.prover.GetEncodedSignalProof")
+	}
+
+	// check if message is received first. if not, it will definitely fail,
+	// so we can exit early on this one. there is most likely
+	// an issue with the signal generation.
+	received, err := p.destBridge.ProveMessageReceived(&bind.CallOpts{
+		Context: ctx,
+	}, event.Message, encodedSignalProof)
+	if err != nil {
+		return nil, errors.Wrap(err, "p.destBridge.ProveMessageReceived")
+	}
+
+	// message will fail when we try to process it
+	if !received {
+		slog.Warn("Message not received on dest chain",
+			"msgHash", common.Hash(event.MsgHash).Hex(),
+			"srcChainId", event.Message.SrcChainId,
+		)
+
+		relayer.MessagesNotReceivedOnDestChain.Inc()
+
+		return nil, errors.New("message not received")
+	}
+
+	return encodedSignalProof, nil
 }
 
 func (p *Processor) sendProcessMessageCall(

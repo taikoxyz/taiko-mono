@@ -415,6 +415,7 @@ func (i *Indexer) indexMessageSentEvents(ctx context.Context,
 	if err := group.Wait(); err != nil {
 		return errors.Wrap(err, "group.Wait")
 	}
+
 	return nil
 }
 
@@ -449,6 +450,7 @@ func (i *Indexer) indexMessageReceivedEvents(ctx context.Context,
 	if err := group.Wait(); err != nil {
 		return errors.Wrap(err, "group.Wait")
 	}
+
 	return nil
 }
 

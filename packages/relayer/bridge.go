@@ -1,7 +1,10 @@
 package relayer
 
 import (
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
@@ -33,4 +36,12 @@ type Bridge interface {
 		msgHash [][32]byte,
 	) (event.Subscription, error)
 	ParseMessageSent(log types.Log) (*bridge.BridgeMessageSent, error)
+	ProofReceipt(opts *bind.CallOpts, msgHash [32]byte) (struct {
+		ReceivedAt        uint64
+		PreferredExecutor common.Address
+	}, error)
+	GetInvocationDelays(opts *bind.CallOpts) (struct {
+		InvocationDelay      *big.Int
+		InvocationExtraDelay *big.Int
+	}, error)
 }

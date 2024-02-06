@@ -47,6 +47,31 @@ func (s *Subscription) Err() <-chan error {
 
 func (s *Subscription) Unsubscribe() {}
 
+func (b *Bridge) GetInvocationDelays(opts *bind.CallOpts) (struct {
+	InvocationDelay      *big.Int
+	InvocationExtraDelay *big.Int
+}, error) {
+	return struct {
+		InvocationDelay      *big.Int
+		InvocationExtraDelay *big.Int
+	}{
+		InvocationDelay:      common.Big0,
+		InvocationExtraDelay: common.Big0,
+	}, nil
+}
+func (b *Bridge) ProofReceipt(opts *bind.CallOpts, msgHash [32]byte) (struct {
+	ReceivedAt        uint64
+	PreferredExecutor common.Address
+}, error) {
+	return struct {
+		ReceivedAt        uint64
+		PreferredExecutor common.Address
+	}{
+		ReceivedAt:        0,
+		PreferredExecutor: relayer.ZeroAddress,
+	}, nil
+}
+
 func (b *Bridge) WatchMessageSent(
 	opts *bind.WatchOpts,
 	sink chan<- *bridge.BridgeMessageSent,
