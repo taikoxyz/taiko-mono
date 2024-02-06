@@ -92,13 +92,18 @@
           token.addresses[tokenInfo.bridged.chainId] = tokenInfo.bridged.address;
           tokenService.updateToken(token, $account?.address as Address);
         }
-        if (
-          tokenInfo.canonical &&
-          tokenInfo.bridged &&
-          value?.addresses[destChain.id] !== tokenInfo.canonical?.address
-        ) {
-          log('selected token is bridged', tokenInfo.canonical?.address, tokenInfo.bridged?.address);
-          $selectedTokenIsBridged = true;
+        if (tokenInfo.canonical && tokenInfo.bridged) {
+          // double check we have the correct address for the destination chain and it is not 0x0
+          if (
+            value?.addresses[destChain.id] !== tokenInfo.canonical?.address &&
+            value?.addresses[destChain.id] !== zeroAddress
+          ) {
+            log('selected token is bridged', value?.addresses[destChain.id]);
+            $selectedTokenIsBridged = true;
+          } else {
+            log('selected token is canonical');
+            $selectedTokenIsBridged = false;
+          }
         } else {
           log('selected token is canonical');
           $selectedTokenIsBridged = false;
