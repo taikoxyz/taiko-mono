@@ -122,12 +122,12 @@ contract SgxVerifier is EssentialContract, IVerifier {
             revert SGX_RA_NOT_SUPPORTED();
         }
 
-        address[] memory _address = new address[](1);
-        _address[0] = address(bytes20(attestation.localEnclaveReport.reportData));
-
         (bool verified,) = IAttestation(automataDcapAttestation).verifyParsedQuote(attestation);
 
         if (!verified) revert SGX_INVALID_ATTESTATION();
+
+        address[] memory _address = new address[](1);
+        _address[0] = address(bytes20(attestation.localEnclaveReport.reportData));
 
         return _addInstances(_address, false)[0];
     }
