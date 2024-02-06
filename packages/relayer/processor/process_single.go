@@ -30,7 +30,7 @@ func (p *Processor) processSingle(ctx context.Context) error {
 				return err
 			}
 
-			msg := queue.QueueMessageBody{
+			msg := queue.QueueMessageSentBody{
 				ID:    0,
 				Event: event,
 			}

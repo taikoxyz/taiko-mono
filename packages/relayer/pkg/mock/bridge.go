@@ -80,6 +80,46 @@ func (b *Bridge) WatchMessageSent(
 	return s, nil
 }
 
+func (b *Bridge) WatchMessageReceived(
+	opts *bind.WatchOpts,
+	sink chan<- *bridge.BridgeMessageReceived,
+	msgHash [][32]byte,
+) (event.Subscription, error) {
+	s := &Subscription{
+		errChan: make(chan error),
+	}
+
+	go func(sink chan<- *bridge.BridgeMessageReceived) {
+		<-time.After(2 * time.Second)
+
+		sink <- &bridge.BridgeMessageReceived{
+			Message: bridge.IBridgeMessage{
+				SrcChainId:  1,
+				DestChainId: MockChainID.Uint64(),
+			},
+		}
+		b.MessagesSent++
+	}(sink)
+
+	go func(errChan chan error) {
+		<-time.After(5 * time.Second)
+
+		errChan <- errors.New("fail")
+
+		s.done = true
+		b.ErrorsSent++
+	}(s.errChan)
+
+	return s, nil
+}
+
+func (b *Bridge) FilterMessageReceived(
+	opts *bind.FilterOpts,
+	msgHash [][32]byte,
+) (*bridge.BridgeMessageReceivedIterator, error) {
+	return &bridge.BridgeMessageReceivedIterator{}, nil
+}
+
 func (b *Bridge) FilterMessageSent(
 	opts *bind.FilterOpts,
 	signal [][32]byte,

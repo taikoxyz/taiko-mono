@@ -21,8 +21,8 @@ var (
 	defaultConfirmations = 5
 )
 
-// handleEvent handles an individual MessageSent event
-func (i *Indexer) handleEvent(
+// handleMessageSentEvent handles an individual MessageSent event
+func (i *Indexer) handleMessageSentEvent(
 	ctx context.Context,
 	chainID *big.Int,
 	event *bridge.BridgeMessageSent,
@@ -47,7 +47,7 @@ func (i *Indexer) handleEvent(
 	}
 
 	// check if we have seen this event and msgHash before - if we have, it is being reorged.
-	if err := i.detectAndHandleReorg(ctx, relayer.EventNameMessageSent, common.Hash(event.MsgHash).Hex()); err != nil {
+	if err := i.detectAndHandleReorg(ctx, i.eventName, common.Hash(event.MsgHash).Hex()); err != nil {
 		return errors.Wrap(err, "svc.detectAndHandleReorg")
 	}
 
@@ -90,58 +90,21 @@ func (i *Indexer) handleEvent(
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
-	eventType, canonicalToken, amount, err := relayer.DecodeMessageSentData(event)
-	if err != nil {
-		return errors.Wrap(err, "eventTypeAmountAndCanonicalTokenFromEvent(event)")
-	}
-
-	// check if we have an existing event already. this is mostly likely only true
-	// in the case of us crawling past blocks.
-	existingEvent, err := i.eventRepo.FirstByEventAndMsgHash(
+	id, err := i.saveEventToDB(
 		ctx,
-		relayer.EventNameMessageSent,
+		marshaled,
 		common.Hash(event.MsgHash).Hex(),
+		chainID,
+		eventStatus,
+		event.Message.Owner.Hex(),
+		event.Message.Data,
+		event.Message.Value,
 	)
 	if err != nil {
-		return errors.Wrap(err, "i.eventRepo.FirstByEventAndMsgHash")
+		return errors.Wrap(err, "i.saveEventToDB")
 	}
 
-	var id int
-
-	// if we dont have an existing event, we want to create a database entry
-	// for the processor to be able to fetch it.
-	if existingEvent == nil {
-		opts := relayer.SaveEventOpts{
-			Name:         relayer.EventNameMessageSent,
-			Data:         string(marshaled),
-			ChainID:      chainID,
-			Status:       eventStatus,
-			EventType:    eventType,
-			Amount:       amount.String(),
-			MsgHash:      common.Hash(event.MsgHash).Hex(),
-			MessageOwner: event.Message.Owner.Hex(),
-			Event:        relayer.EventNameMessageSent,
-		}
-
-		if canonicalToken != nil {
-			opts.CanonicalTokenAddress = canonicalToken.Address().Hex()
-			opts.CanonicalTokenSymbol = canonicalToken.ContractSymbol()
-			opts.CanonicalTokenName = canonicalToken.ContractName()
-			opts.CanonicalTokenDecimals = canonicalToken.TokenDecimals()
-		}
-
-		e, err := i.eventRepo.Save(ctx, opts)
-		if err != nil {
-			return errors.Wrap(err, "svc.eventRepo.Save")
-		}
-
-		id = e.ID
-	} else {
-		// otherwise, we can use the existing event ID for the body.
-		id = existingEvent.ID
-	}
-
-	msg := queue.QueueMessageBody{
+	msg := queue.QueueMessageSentBody{
 		ID:    id,
 		Event: event,
 	}

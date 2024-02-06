@@ -8,6 +8,7 @@ var (
 	commonCategory    = "COMMON"
 	indexerCategory   = "INDEXER"
 	processorCategory = "PROCESSOR"
+	watchdogCategory  = "WATCHDOG"
 )
 
 var (

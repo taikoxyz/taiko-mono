@@ -30,10 +30,6 @@ var (
 	ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
 )
 
-var (
-	eventName = relayer.EventNameMessageSent
-)
-
 type WatchMode string
 
 var (
@@ -98,6 +94,8 @@ type Indexer struct {
 	ctx context.Context
 
 	mu *sync.Mutex
+
+	eventName string
 }
 
 func (i *Indexer) InitFromCli(ctx context.Context, c *cli.Context) error {
@@ -195,6 +193,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	i.numLatestBlocksToIgnoreWhenCrawling = cfg.NumLatestBlocksToIgnoreWhenCrawling
 
 	i.mu = &sync.Mutex{}
+
+	i.eventName = cfg.EventName
 
 	return nil
 }
@@ -309,50 +309,14 @@ func (i *Indexer) filter(ctx context.Context) error {
 			Context: ctx,
 		}
 
-		// we dont want to watch for message status changed events
-		// when crawling past blocks on a loop.
-		if i.watchMode != CrawlPastBlocks {
-			messageStatusChangedEvents, err := i.bridge.FilterMessageStatusChanged(filterOpts, nil)
-			if err != nil {
-				return errors.Wrap(err, "bridge.FilterMessageStatusChanged")
+		if i.eventName == relayer.EventNameMessageSent {
+			if err := i.indexMessageSentEvents(ctx, filterOpts); err != nil {
+				return errors.Wrap(err, "i.indexMessageSentEvents")
 			}
-
-			// we don't need to do anything with msgStatus events except save them to the DB.
-			// we don't need to process them. they are for exposing via the API.
-
-			err = i.saveMessageStatusChangedEvents(ctx, i.srcChainId, messageStatusChangedEvents)
-			if err != nil {
-				return errors.Wrap(err, "bridge.saveMessageStatusChangedEvents")
+		} else if i.eventName == relayer.EventNameMessageReceived {
+			if err := i.indexMessageReceivedEvents(ctx, filterOpts); err != nil {
+				return errors.Wrap(err, "i.indexMessageReceivedEvents")
 			}
-		}
-
-		messageSentEvents, err := i.bridge.FilterMessageSent(filterOpts, nil)
-		if err != nil {
-			return errors.Wrap(err, "bridge.FilterMessageSent")
-		}
-
-		group, groupCtx := errgroup.WithContext(ctx)
-		group.SetLimit(i.numGoroutines)
-
-		for messageSentEvents.Next() {
-			event := messageSentEvents.Event
-
-			group.Go(func() error {
-				err := i.handleEvent(groupCtx, i.srcChainId, event)
-				if err != nil {
-					relayer.ErrorEvents.Inc()
-					// log error but always return nil to keep other goroutines active
-					slog.Error("error handling event", "err", err.Error())
-				} else {
-					slog.Info("handled event successfully")
-				}
-				return nil
-			})
-		}
-
-		// wait for the last of the goroutines to finish
-		if err := group.Wait(); err != nil {
-			return errors.Wrap(err, "group.Wait")
 		}
 
 		// handle no events remaining, saving the processing block and restarting the for
@@ -403,6 +367,91 @@ func (i *Indexer) filter(ctx context.Context) error {
 	return i.subscribe(ctx, i.srcChainId)
 }
 
+func (i *Indexer) indexMessageSentEvents(ctx context.Context,
+	filterOpts *bind.FilterOpts,
+) error {
+	// we dont want to watch for message status changed events
+	// when crawling past blocks on a loop.
+	if i.watchMode != CrawlPastBlocks {
+		messageStatusChangedEvents, err := i.bridge.FilterMessageStatusChanged(filterOpts, nil)
+		if err != nil {
+			return errors.Wrap(err, "bridge.FilterMessageStatusChanged")
+		}
+
+		// we don't need to do anything with msgStatus events except save them to the DB.
+		// we don't need to process them. they are for exposing via the API.
+
+		err = i.saveMessageStatusChangedEvents(ctx, i.srcChainId, messageStatusChangedEvents)
+		if err != nil {
+			return errors.Wrap(err, "bridge.saveMessageStatusChangedEvents")
+		}
+	}
+
+	messageSentEvents, err := i.bridge.FilterMessageSent(filterOpts, nil)
+	if err != nil {
+		return errors.Wrap(err, "bridge.FilterMessageSent")
+	}
+
+	group, groupCtx := errgroup.WithContext(ctx)
+	group.SetLimit(i.numGoroutines)
+
+	for messageSentEvents.Next() {
+		event := messageSentEvents.Event
+
+		group.Go(func() error {
+			err := i.handleMessageSentEvent(groupCtx, i.srcChainId, event)
+			if err != nil {
+				relayer.ErrorEvents.Inc()
+				// log error but always return nil to keep other goroutines active
+				slog.Error("error handling event", "err", err.Error())
+			} else {
+				slog.Info("handled event successfully")
+			}
+			return nil
+		})
+	}
+
+	// wait for the last of the goroutines to finish
+	if err := group.Wait(); err != nil {
+		return errors.Wrap(err, "group.Wait")
+	}
+	return nil
+}
+
+func (i *Indexer) indexMessageReceivedEvents(ctx context.Context,
+	filterOpts *bind.FilterOpts,
+) error {
+	messageSentEvents, err := i.bridge.FilterMessageReceived(filterOpts, nil)
+	if err != nil {
+		return errors.Wrap(err, "bridge.FilterMessageSent")
+	}
+
+	group, groupCtx := errgroup.WithContext(ctx)
+	group.SetLimit(i.numGoroutines)
+
+	for messageSentEvents.Next() {
+		event := messageSentEvents.Event
+
+		group.Go(func() error {
+			err := i.handleMessageReceivedEvent(groupCtx, i.srcChainId, event)
+			if err != nil {
+				relayer.ErrorEvents.Inc()
+				// log error but always return nil to keep other goroutines active
+				slog.Error("error handling event", "err", err.Error())
+			} else {
+				slog.Info("handled event successfully")
+			}
+			return nil
+		})
+	}
+
+	// wait for the last of the goroutines to finish
+	if err := group.Wait(); err != nil {
+		return errors.Wrap(err, "group.Wait")
+	}
+	return nil
+}
+
 func (i *Indexer) queueName() string {
-	return fmt.Sprintf("%v-%v-queue", i.srcChainId.String(), i.destChainId.String())
+	return fmt.Sprintf("%v-%v-%v-queue", i.srcChainId.String(), i.destChainId.String(), i.eventName)
 }

@@ -13,7 +13,13 @@ type Bridge interface {
 		sink chan<- *bridge.BridgeMessageSent,
 		msgHash [][32]byte,
 	) (event.Subscription, error)
+	WatchMessageReceived(
+		opts *bind.WatchOpts,
+		sink chan<- *bridge.BridgeMessageReceived,
+		msgHash [][32]byte,
+	) (event.Subscription, error)
 	FilterMessageSent(opts *bind.FilterOpts, msgHash [][32]byte) (*bridge.BridgeMessageSentIterator, error)
+	FilterMessageReceived(opts *bind.FilterOpts, msgHash [][32]byte) (*bridge.BridgeMessageReceivedIterator, error)
 	MessageStatus(opts *bind.CallOpts, msgHash [32]byte) (uint8, error)
 	ProcessMessage(opts *bind.TransactOpts, message bridge.IBridgeMessage, proof []byte) (*types.Transaction, error)
 	ProveMessageReceived(opts *bind.CallOpts, message bridge.IBridgeMessage, proof []byte) (bool, error)

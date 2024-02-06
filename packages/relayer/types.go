@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc1155vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc20vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc721vault"
@@ -119,10 +118,10 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 	}
 }
 
-// DecodeMessageSentData tries to tell if it's an ETH, ERC20, ERC721, or ERC1155 bridge,
+// DecodeMessageData tries to tell if it's an ETH, ERC20, ERC721, or ERC1155 bridge,
 // which lets the processor look up whether the contract has already been deployed or not,
 // to help better estimate gas needed for processing the message.
-func DecodeMessageSentData(event *bridge.BridgeMessageSent) (EventType, CanonicalToken, *big.Int, error) {
+func DecodeMessageData(eventData []byte, value *big.Int) (EventType, CanonicalToken, *big.Int, error) {
 	eventType := EventTypeSendETH
 
 	var canonicalToken CanonicalToken
@@ -134,8 +133,8 @@ func DecodeMessageSentData(event *bridge.BridgeMessageSent) (EventType, Canonica
 	erc1155ReceiveTokensFunctionSig := "079312bf"
 
 	// try to see if its an ERC20
-	if event.Message.Data != nil && common.BytesToHash(event.Message.Data) != ZeroHash && len(event.Message.Data) > 3 {
-		functionSig := event.Message.Data[:4]
+	if eventData != nil && common.BytesToHash(eventData) != ZeroHash && len(eventData) > 3 {
+		functionSig := eventData[:4]
 
 		if common.Bytes2Hex(functionSig) == erc20ReceiveTokensFunctionSig {
 			erc20VaultMD := bind.MetaData{
@@ -147,14 +146,14 @@ func DecodeMessageSentData(event *bridge.BridgeMessageSent) (EventType, Canonica
 				return eventType, nil, big.NewInt(0), errors.Wrap(err, "erc20VaultMD.GetAbi()")
 			}
 
-			method, err := erc20VaultABI.MethodById(event.Message.Data[:4])
+			method, err := erc20VaultABI.MethodById(eventData[:4])
 			if err != nil {
 				return eventType, nil, big.NewInt(0), errors.Wrap(err, "tokenVaultABI.MethodById")
 			}
 
 			inputsMap := make(map[string]interface{})
 
-			if err := method.Inputs.UnpackIntoMap(inputsMap, event.Message.Data[4:]); err != nil {
+			if err := method.Inputs.UnpackIntoMap(inputsMap, eventData[4:]); err != nil {
 				return eventType, nil, big.NewInt(0), errors.Wrap(err, "method.Inputs.UnpackIntoMap")
 			}
 
@@ -193,14 +192,14 @@ func DecodeMessageSentData(event *bridge.BridgeMessageSent) (EventType, Canonica
 				return eventType, nil, big.NewInt(0), errors.Wrap(err, "erc20VaultMD.GetAbi()")
 			}
 
-			method, err := erc721VaultABI.MethodById(event.Message.Data[:4])
+			method, err := erc721VaultABI.MethodById(eventData[:4])
 			if err != nil {
 				return eventType, nil, big.NewInt(0), errors.Wrap(err, "tokenVaultABI.MethodById")
 			}
 
 			inputsMap := make(map[string]interface{})
 
-			if err := method.Inputs.UnpackIntoMap(inputsMap, event.Message.Data[4:]); err != nil {
+			if err := method.Inputs.UnpackIntoMap(inputsMap, eventData[4:]); err != nil {
 				return eventType, nil, big.NewInt(0), errors.Wrap(err, "method.Inputs.UnpackIntoMap")
 			}
 
@@ -236,14 +235,14 @@ func DecodeMessageSentData(event *bridge.BridgeMessageSent) (EventType, Canonica
 				return eventType, nil, big.NewInt(0), errors.Wrap(err, "erc1155VaultMD.GetAbi()")
 			}
 
-			method, err := erc1155VaultABI.MethodById(event.Message.Data[:4])
+			method, err := erc1155VaultABI.MethodById(eventData[:4])
 			if err != nil {
 				return eventType, nil, big.NewInt(0), errors.Wrap(err, "tokenVaultABI.MethodById")
 			}
 
 			inputsMap := make(map[string]interface{})
 
-			if err := method.Inputs.UnpackIntoMap(inputsMap, event.Message.Data[4:]); err != nil {
+			if err := method.Inputs.UnpackIntoMap(inputsMap, eventData[4:]); err != nil {
 				return eventType, nil, big.NewInt(0), errors.Wrap(err, "method.Inputs.UnpackIntoMap")
 			}
 
@@ -273,7 +272,7 @@ func DecodeMessageSentData(event *bridge.BridgeMessageSent) (EventType, Canonica
 			}
 		}
 	} else {
-		amount = event.Message.Value
+		amount = value
 	}
 
 	return eventType, canonicalToken, amount, nil

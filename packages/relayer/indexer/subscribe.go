@@ -65,10 +65,73 @@ func (i *Indexer) subscribeMessageSent(ctx context.Context, chainID *big.Int, er
 		case event := <-sink:
 			go func() {
 				slog.Info("new message sent event", "msgHash", common.Hash(event.MsgHash).Hex(), "chainID", chainID.String())
-				err := i.handleEvent(ctx, chainID, event)
+				err := i.handleMessageSentEvent(ctx, chainID, event)
 
 				if err != nil {
-					slog.Error("i.subscribe, i.handleEvent", "error", err)
+					slog.Error("i.subscribe, i.handleMessageSentEvent", "error", err)
+					return
+				}
+
+				i.mu.Lock()
+
+				defer i.mu.Unlock()
+
+				block, err := i.blockRepo.GetLatestBlockProcessedForEvent(relayer.EventNameMessageSent, chainID)
+				if err != nil {
+					slog.Error("i.subscribe, blockRepo.GetLatestBlockProcessedForEvent", "error", err)
+					return
+				}
+
+				if block.Height < event.Raw.BlockNumber {
+					err = i.blockRepo.Save(relayer.SaveBlockOpts{
+						Height:    event.Raw.BlockNumber,
+						Hash:      event.Raw.BlockHash,
+						ChainID:   chainID,
+						EventName: relayer.EventNameMessageSent,
+					})
+					if err != nil {
+						slog.Error("i.subscribe, i.blockRepo.Save", "error", err)
+						return
+					}
+
+					relayer.BlocksProcessed.Inc()
+				}
+			}()
+		}
+	}
+}
+
+func (i *Indexer) subscribeMessageReceived(ctx context.Context, chainID *big.Int, errChan chan error) {
+	sink := make(chan *bridge.BridgeMessageReceived)
+
+	sub := event.ResubscribeErr(i.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
+		if err != nil {
+			slog.Error("i.bridge.WatchMessageSent", "error", err)
+		}
+
+		slog.Info("resubscribing to WatchMessageSent events")
+
+		return i.bridge.WatchMessageReceived(&bind.WatchOpts{
+			Context: ctx,
+		}, sink, nil)
+	})
+
+	defer sub.Unsubscribe()
+
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("context finished")
+			return
+		case err := <-sub.Err():
+			errChan <- errors.Wrap(err, "sub.Err()")
+		case event := <-sink:
+			go func() {
+				slog.Info("new message received event", "msgHash", common.Hash(event.MsgHash).Hex(), "chainID", chainID.String())
+				err := i.handleMessageReceivedEvent(ctx, chainID, event)
+
+				if err != nil {
+					slog.Error("i.subscribe, i.handleMessageReceived", "error", err)
 					return
 				}
 

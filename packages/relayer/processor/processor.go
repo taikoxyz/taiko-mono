@@ -394,7 +394,7 @@ func (p *Processor) Start() error {
 }
 
 func (p *Processor) queueName() string {
-	return fmt.Sprintf("%v-%v-queue", p.srcChainId.String(), p.destChainId.String())
+	return fmt.Sprintf("%v-%v-%v-queue", p.srcChainId.String(), p.destChainId.String(), relayer.EventNameMessageSent)
 }
 
 func (p *Processor) eventLoop(ctx context.Context) {

@@ -67,7 +67,7 @@ func (p *Processor) processMessage(
 	ctx context.Context,
 	msg queue.Message,
 ) error {
-	msgBody := &queue.QueueMessageBody{}
+	msgBody := &queue.QueueMessageSentBody{}
 	if err := json.Unmarshal(msg.Body, msgBody); err != nil {
 		return errors.Wrap(err, "json.Unmarshal")
 	}
@@ -331,9 +331,9 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, errors.New("p.getLatestNonce")
 	}
 
-	eventType, canonicalToken, _, err := relayer.DecodeMessageSentData(event)
+	eventType, canonicalToken, _, err := relayer.DecodeMessageData(event.Message.Data, event.Message.Value)
 	if err != nil {
-		return nil, errors.Wrap(err, "relayer.DecodeMessageSentData")
+		return nil, errors.Wrap(err, "relayer.DecodeMessageData")
 	}
 
 	var gas uint64

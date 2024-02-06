@@ -28,7 +28,7 @@ func (i *Indexer) setInitialProcessingBlockByMode(
 	case Sync:
 		// get most recently processed block height from the DB
 		latestProcessedBlock, err := i.blockRepo.GetLatestBlockProcessedForEvent(
-			eventName,
+			i.eventName,
 			chainID,
 		)
 		if err != nil {

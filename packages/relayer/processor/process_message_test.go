@@ -46,7 +46,7 @@ func Test_sendProcessMessageCall(t *testing.T) {
 
 func Test_ProcessMessage_messageUnprocessable(t *testing.T) {
 	p := newTestProcessor(true)
-	body := &queue.QueueMessageBody{
+	body := &queue.QueueMessageSentBody{
 		Event: &bridge.BridgeMessageSent{
 			Message: bridge.IBridgeMessage{
 				GasLimit:   big.NewInt(1),
@@ -78,7 +78,7 @@ func Test_ProcessMessage_messageUnprocessable(t *testing.T) {
 func Test_ProcessMessage_gasLimit0(t *testing.T) {
 	p := newTestProcessor(true)
 
-	body := queue.QueueMessageBody{
+	body := queue.QueueMessageSentBody{
 		Event: &bridge.BridgeMessageSent{
 			Message: bridge.IBridgeMessage{
 				GasLimit:   big.NewInt(0),
@@ -110,7 +110,7 @@ func Test_ProcessMessage_gasLimit0(t *testing.T) {
 func Test_ProcessMessage_noChainId(t *testing.T) {
 	p := newTestProcessor(true)
 
-	body := queue.QueueMessageBody{
+	body := queue.QueueMessageSentBody{
 		Event: &bridge.BridgeMessageSent{
 			Message: bridge.IBridgeMessage{
 				SrcChainId: mock.MockChainID.Uint64(),
@@ -143,7 +143,7 @@ func Test_ProcessMessage_noChainId(t *testing.T) {
 func Test_ProcessMessage(t *testing.T) {
 	p := newTestProcessor(true)
 
-	body := queue.QueueMessageBody{
+	body := queue.QueueMessageSentBody{
 		Event: &bridge.BridgeMessageSent{
 			Message: bridge.IBridgeMessage{
 				GasLimit:    big.NewInt(1),

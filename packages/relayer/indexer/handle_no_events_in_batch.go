@@ -28,7 +28,7 @@ func (i *Indexer) handleNoEventsInBatch(
 		Height:    uint64(blockNumber),
 		Hash:      header.Hash(),
 		ChainID:   chainID,
-		EventName: eventName,
+		EventName: i.eventName,
 	}); err != nil {
 		return errors.Wrap(err, "svc.blockRepo.Save")
 	}
