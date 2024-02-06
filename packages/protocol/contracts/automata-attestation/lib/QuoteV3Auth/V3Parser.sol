@@ -3,9 +3,6 @@ pragma solidity 0.8.24;
 
 import { BytesUtils } from "../../utils/BytesUtils.sol";
 import { V3Struct } from "./V3Struct.sol";
-// import {PEMCertChainLib} from "../PEMCertChainLib.sol";
-
-// import "hardhat/console.sol";
 
 library V3Parser {
     using BytesUtils for bytes;
@@ -16,12 +13,6 @@ library V3Parser {
     // SGX only
     bytes4 constant SUPPORTED_TEE_TYPE = 0;
     bytes16 constant VALID_QE_VENDOR_ID = 0x939a7233f79c4ca9940a0db3957f0607;
-
-    // todo! import HEADER & FOOTER from PEMCertChainLib
-    string constant HEADER = "-----BEGIN CERTIFICATE-----";
-    string constant FOOTER = "-----END CERTIFICATE-----";
-    uint256 constant HEADER_LENGTH = 27;
-    uint256 constant FOOTER_LENGTH = 25;
 
     function parseInput(bytes memory quote)
         internal
