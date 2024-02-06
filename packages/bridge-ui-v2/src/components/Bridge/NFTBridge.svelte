@@ -9,10 +9,7 @@
   import { Step, Stepper } from '$components/Stepper';
   import { hasBridge } from '$libs/bridge/bridges';
   import { BridgePausedError } from '$libs/error';
-  import { ETHToken, type NFT } from '$libs/token';
-  import { fetchNFTImageUrl } from '$libs/token/fetchNFTImageUrl';
-  import { getCanonicalInfoForToken } from '$libs/token/getCanonicalInfo';
-  import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
+  import { ETHToken } from '$libs/token';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { type Account, account } from '$stores/account';
   import type { Network } from '$stores/network';
@@ -29,7 +26,6 @@
     recipientAddress,
     selectedNFTs,
     selectedToken,
-    selectedTokenIsBridged,
   } from './state';
   import { BridgeSteps } from './types';
 

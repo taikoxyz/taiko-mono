@@ -85,7 +85,6 @@
     if (token.imported) {
       // ... in the case of imported tokens, we also require the destination chain to be selected.
 
-      let bridgedAddress = null;
       try {
         const tokenInfo = await getTokenAddresses({ token, srcChainId: srcChain.id, destChainId: destChain.id });
         if (!tokenInfo) return;
@@ -108,7 +107,6 @@
         console.error(error);
       }
     }
-
     value = token;
     await updateBalance($account?.address, srcChain.id, destChain.id);
     $computingBalance = false;
