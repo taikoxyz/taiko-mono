@@ -17,7 +17,7 @@ export async function resolveIPFSUri(uri: string): Promise<string> {
   for (const gateway of gateways) {
     const start = Date.now();
     try {
-      const url = `${gateway}${cid}`;
+      const url = `${gateway}/ipfs/${cid}`;
       await axios.head(url, axiosConfig);
       return url; // Return the first successful gateway URL
     } catch (error) {

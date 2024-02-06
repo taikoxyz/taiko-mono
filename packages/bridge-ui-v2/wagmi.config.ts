@@ -10,7 +10,6 @@ import ERC1155 from '../protocol/out/BridgedERC1155.sol/BridgedERC1155.json';
 import ERC20Vault from '../protocol/out/ERC20Vault.sol/ERC20Vault.json';
 import ERC721Vault from '../protocol/out/ERC721Vault.sol/ERC721Vault.json';
 import ERC1155Vault from '../protocol/out/ERC1155Vault.sol/ERC1155Vault.json';
-import EtherVault from '../protocol/out/EtherVault.sol/EtherVault.json';
 import FreeMintERC20 from '../protocol/out/FreeMintERC20.sol/FreeMintERC20.json';
 import ICrossChainSync from '../protocol/out/ICrossChainSync.sol/ICrossChainSync.json';
 
@@ -20,10 +19,6 @@ export default defineConfig({
     {
       name: 'Bridge',
       abi: Bridge.abi as Abi,
-    },
-    {
-      name: 'EtherVault',
-      abi: EtherVault.abi as Abi,
     },
     {
       name: 'ERC20Vault',
