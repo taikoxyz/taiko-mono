@@ -30,7 +30,6 @@
   import { BridgePausedError } from '$libs/error';
   import { bridgeTxService } from '$libs/storage';
   import { TokenType } from '$libs/token';
-  import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
   import { getTokenApprovalStatus } from '$libs/token/getTokenApprovalStatus';
   import { refreshUserBalance } from '$libs/util/balance';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
