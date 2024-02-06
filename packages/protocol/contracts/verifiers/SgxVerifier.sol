@@ -54,9 +54,9 @@ contract SgxVerifier is EssentialContract, IVerifier {
     mapping(uint256 instanceId => Instance) public instances; // slot 2
     /// @dev One address shall be registered (during attestation) only once, otherwise it could
     /// bypass this contract's expiry check by always registering with the same attestation and
-    /// getting multiple valid instanceIds. While during proving, it is technically possile to
+    /// getting multiple valid instanceIds. While during proving, it is technically possible to
     /// register the old addresses, it is less of a problem, because the instanceId would be the
-    /// same for those addresses.
+    /// same for those addresses and if deleted - the attestation cannot be reused anyways.
     mapping(address instanceAddress => bool alreadyAttested) public attestationRegistered; // slot 3
 
     uint256[47] private __gap;
