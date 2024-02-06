@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"context"
+	"log/slog"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -27,6 +28,7 @@ func (i *Indexer) setInitialProcessingBlockByMode(
 	switch mode {
 	case Sync:
 		// get most recently processed block height from the DB
+		slog.Info("get most recently processed block height from the DB", i.leastBlockNumberIndexed)
 		latestProcessedBlock, err := i.blockRepo.GetLatestBlockProcessedForEvent(
 			eventName,
 			chainID,
@@ -37,6 +39,9 @@ func (i *Indexer) setInitialProcessingBlockByMode(
 
 		if latestProcessedBlock.Height != 0 {
 			startingBlock = latestProcessedBlock.Height
+		}
+		if i.leastBlockNumberIndexed > startingBlock {
+			startingBlock = i.leastBlockNumberIndexed
 		}
 
 		i.processingBlockHeight = startingBlock

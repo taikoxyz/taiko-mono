@@ -75,6 +75,13 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"NUM_LATEST_BLOCKS_TO_IGNORE_WHEN_CRAWLING"},
 	}
+	StartedFromLatestBlock = &cli.Uint64Flag{
+		Name:     "StartedFromLatestBlock",
+		Usage:    "The least block number that the indexer starts with",
+		Value:    0,
+		Category: indexerCategory,
+		EnvVars:  []string{"LEAST_BLOCK_NUMBER_INDEXED"},
+	}
 )
 
 var IndexerFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
@@ -88,4 +95,5 @@ var IndexerFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	WatchMode,
 	DestBridgeAddress,
 	NumLatestBlocksToIgnoreWhenCrawling,
+	StartedFromLatestBlock,
 })

@@ -75,9 +75,10 @@ type Indexer struct {
 	bridge     relayer.Bridge
 	destBridge relayer.Bridge
 
-	blockBatchSize      uint64
-	numGoroutines       int
-	subscriptionBackoff time.Duration
+	leastBlockNumberIndexed uint64
+	blockBatchSize          uint64
+	numGoroutines           int
+	subscriptionBackoff     time.Duration
 
 	taikol1 *taikol1.TaikoL1
 
@@ -176,6 +177,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	i.destBridge = destBridge
 	i.taikol1 = taikoL1
 
+	i.leastBlockNumberIndexed = cfg.StartedFromLatestBlock
 	i.blockBatchSize = cfg.BlockBatchSize
 	i.numGoroutines = int(cfg.NumGoroutines)
 	i.subscriptionBackoff = time.Duration(cfg.SubscriptionBackoff) * time.Second
