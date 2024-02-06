@@ -9,7 +9,7 @@ var (
 		Name:     "watchdogPrivateKey",
 		Usage:    "Private key to suspend bridge transactions, should correspond with the address set on chain as watchdog",
 		Required: true,
-		Category: processorCategory,
+		Category: watchdogCategory,
 		EnvVars:  []string{"WATCHDOG_PRIVATE_KEY"},
 	}
 )

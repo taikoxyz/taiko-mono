@@ -113,19 +113,8 @@ func (p *Processor) processMessage(
 		// preferred exeuctor, if it wasnt us
 		// who proved it, there is an extra delay.
 
-		invocationDelay := invocationDelays.InvocationDelay
-		preferredExecutor := proofReceipt.PreferredExecutor
-
-		if invocationDelay.Cmp(common.Big0) == 1 && preferredExecutor.Cmp(p.relayerAddr) != 0 {
-			invocationDelay = new(big.Int).Add(invocationDelay, invocationDelays.InvocationExtraDelay)
-		}
-
-		processableAt := new(big.Int).Add(new(big.Int).SetUint64(proofReceipt.ReceivedAt), invocationDelay)
-		// check invocation delays and make sure we can submit it
-		if time.Now().UTC().UnixMilli() < processableAt.Int64() {
-			// its unprocessable, we shouldnt send the transaction.
-			// TODO: wait until its processable rather than return error.
-			return errors.New("unprocessable message")
+		if err := p.waitForInvocationDelay(ctx, invocationDelays, proofReceipt); err != nil {
+			return errors.Wrap(err, "p.waitForInvocationDelay")
 		}
 	}
 
@@ -162,11 +151,43 @@ func (p *Processor) processMessage(
 		return errors.Wrap(err, "relayer.WaitReceipt")
 	}
 
+	slog.Info("Mined tx", "txHash", hex.EncodeToString(tx.Hash().Bytes()))
+
 	if err := p.saveMessageStatusChangedEvent(ctx, receipt, msgBody.Event); err != nil {
 		return errors.Wrap(err, "p.saveMEssageStatusChangedEvent")
 	}
 
-	slog.Info("Mined tx", "txHash", hex.EncodeToString(tx.Hash().Bytes()))
+	bridgeAbi, err := abi.JSON(strings.NewReader(bridge.BridgeABI))
+	if err != nil {
+		return err
+	}
+
+	for _, log := range receipt.Logs {
+		topic := log.Topics[0]
+		// if we have a MessageReceived event, this was not processed,
+		// and we have to wait for the invocation delay.
+		if topic == bridgeAbi.Events["MessageReceived"].ID {
+			slog.Info("message processing resulted in MessageReceived event",
+				"txHash", tx.Hash(),
+				"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
+			)
+
+			slog.Info("waiting for invocation delay",
+				"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex())
+
+			proofReceipt, err := p.destBridge.ProofReceipt(nil, msgBody.Event.MsgHash)
+			if err != nil {
+				return errors.Wrap(err, "p.destBridge.ProofReceipt")
+			}
+
+			if err := p.waitForInvocationDelay(ctx, invocationDelays, proofReceipt); err != nil {
+				return errors.Wrap(err, "p.waitForInvocationDelay")
+			}
+		} else if topic == bridgeAbi.Events["MessageExecuted"].ID {
+			slog.Info("message processing resulted in MessageExecuted event. processing finished",
+				"txHash", tx.Hash())
+		}
+	}
 
 	messageStatus, err := p.destBridge.MessageStatus(&bind.CallOpts{}, msgBody.Event.MsgHash)
 	if err != nil {
@@ -198,6 +219,57 @@ func (p *Processor) processMessage(
 	return nil
 }
 
+func (p *Processor) waitForInvocationDelay(
+	ctx context.Context,
+	invocationDelays struct {
+		InvocationDelay      *big.Int
+		InvocationExtraDelay *big.Int
+	},
+	proofReceipt struct {
+		ReceivedAt        uint64
+		PreferredExecutor common.Address
+	},
+) error {
+	invocationDelay := invocationDelays.InvocationDelay
+	preferredExecutor := proofReceipt.PreferredExecutor
+
+	if invocationDelay.Cmp(common.Big0) == 1 && preferredExecutor.Cmp(p.relayerAddr) != 0 {
+		invocationDelay = new(big.Int).Add(invocationDelay, invocationDelays.InvocationExtraDelay)
+	}
+
+	processableAt := new(big.Int).Add(new(big.Int).SetUint64(proofReceipt.ReceivedAt), invocationDelay)
+	// check invocation delays and make sure we can submit it
+	if time.Now().UTC().Unix() >= processableAt.Int64() {
+		// if its passed already, we can submit
+		return nil
+	}
+	// its unprocessable, we shouldnt send the transaction.
+	// wait until it's processable.
+	t := time.NewTicker(60 * time.Second)
+
+	defer t.Stop()
+
+	w := time.After(time.Duration(invocationDelay.Int64()) * time.Second)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-t.C:
+			slog.Info("waiting for invocation delay",
+				"processableAt", processableAt.String(),
+				"now", time.Now().UTC().Unix(),
+			)
+		case <-w:
+			slog.Info("done waiting for invocation delay")
+			return nil
+		}
+	}
+}
+
+// generateEncodedSignalproof takes a MessageSent event and calls a
+// proof generation service to generate a proof for the source call
+// as well as any additional hops required.
 func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 	event *bridge.BridgeMessageSent) ([]byte, error) {
 	var encodedSignalProof []byte
