@@ -8,7 +8,9 @@
 
 ## Make a contribution
 
-Here are some ways you can contribute:
+Thank you for exploring the opportunity to contribute to Taiko.xyz. Whether you're an experienced developer or just starting, we value and welcome your unique contributions.
+
+**Here are some ways you can contribute:**
 
 - Open a new issue [here](https://github.com/taikoxyz/taiko-mono/issues) (please check the issue does not already exist).
 - Work on an existing issue (check out the [good first issues list](https://github.com/orgs/taikoxyz/projects/9/views/31) on our public project board).
@@ -17,17 +19,30 @@ Please comment on the issue that you're interested in working on. Also, check ou
 
 Once the pull request is merged to one of Taiko's GitHub repositories (you can see which repositories here: [2023 Taiko Contributor GitPOAP](https://www.gitpoap.io/gp/893)), you will be automatically awarded a Taiko Contributor GitPOAP. Opening a good new issue (not a spam issue) is also eligible for a GitPOAP, just leave a comment and we will manually invoke a GitHub bot that will send the GitPOAP.
 
+You can learn how to best contribute to Taiko by watching the [“Taiko Contributing Guide - Community Workshop”](https://www.youtube.com/watch?v=xMDSHT5C29c) video on our YouTube channel.
+
 ## Coding standards
 
 This section describes our coding standards at Taiko.
 
 ### Pull requests
 
+**Basic requirements for PRs**
+
+Before we can consider your contributions, please have a look at the following requirements:
+
+- Any contribution must follow the standards documented in this file.
+- The scope must be larger than a simple rename, or typo fix. We kindly request that small, incremental updates be combined into more substantial pull requests. This approach will streamline our development and ensure focus on core improvements.
+
 Specify the scope of your change with a [conventional commit](https://www.conventionalcommits.org/en/v1.0.0/) in the PR title (for example, `feat(scope): description of feature`). This will be squashed and merged into the `main` branch. You can find the full list of allowed scopes [here](https://github.com/taikoxyz/taiko-mono/blob/main/.github/workflows/lint-pr.yml#L19).
 
 Because we squash all of the changes into a single commit, please try to keep the PR limited to the scope specified in the commit message. This commit message will end up in the automated changelog by checking which packages are affected by the commit.
 
 For example, `feat(scope): description of feature` should only impact the `scope` package. If your change is a global one, you can use `feat: description of feature`, for example.
+
+**Note:
+The taiko team will evaluate all PRs and may close any pull requests that do not follow the standards outlined in this document.
+Please note, small pull requests will not be considered for future airdrops. We encourage contributions that make significant enhancements to the project.**
 
 ### Source code comments
 

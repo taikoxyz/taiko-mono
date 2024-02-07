@@ -35,7 +35,10 @@ export async function fetchTransactions(userAddress: Address) {
   }
 
   // Flatten the arrays into a single array
-  const relayerTxs: BridgeTransaction[] = relayerTxsArrays.reduce((acc, txs) => acc.concat(txs), []);
+  const relayerTxsFlattened = relayerTxsArrays.reduce((acc, txs) => acc.concat(txs), []);
+
+  // Reverse the flattened array to sort transactions in descending order, placing the most recent transactions first
+  const relayerTxs: BridgeTransaction[] = relayerTxsFlattened.reverse();
 
   log(`fetched ${relayerTxs?.length ?? 0} transactions from all relayers`, relayerTxs);
 

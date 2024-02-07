@@ -115,7 +115,7 @@ contract BridgeTest is TaikoTest {
             memo: ""
         });
         // Mocking proof - but obviously it needs to be created in prod
-        // coresponding to the message
+        // corresponding to the message
         bytes memory proof = hex"00";
 
         bytes32 msgHash = destChainBridge.hashMessage(message);
@@ -154,7 +154,7 @@ contract BridgeTest is TaikoTest {
             memo: ""
         });
         // Mocking proof - but obviously it needs to be created in prod
-        // coresponding to the message
+        // corresponding to the message
         bytes memory proof = hex"00";
 
         bytes32 msgHash = destChainBridge.hashMessage(message);
@@ -191,7 +191,7 @@ contract BridgeTest is TaikoTest {
             memo: ""
         });
         // Mocking proof - but obviously it needs to be created in prod
-        // coresponding to the message
+        // corresponding to the message
         bytes memory proof = hex"00";
 
         bytes32 msgHash = destChainBridge.hashMessage(message);

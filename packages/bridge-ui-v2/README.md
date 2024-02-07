@@ -23,7 +23,14 @@ pnpm install
 cp .env.example .env
 ```
 
-Then update environment variables in .env
+Then, you must carefully update the `.env` file with the necessary environment variables. This step is crucial as several features, including WalletConnect integration, rely on specific variables like `PUBLIC_WALLETCONNECT_PROJECT_ID`.
+
+```bash
+# Open the .env file and fill in the required values
+nano .env
+```
+
+After updating, source the `.env` file to load these variables into your environment:
 
 ```bash
 source .env
@@ -49,6 +56,7 @@ These are the additional configuration files that have to be filled in:
 | **/config/configuredChains.json**       | Defines some metadata for the chains, such as name, icons, explorer URL, etc.            |
 | **/config/configuredRelayer.json**      | If chains have a relayer, the URL and the chain IDs it covers are entered here           |
 | **/config/configuredCustomTokens.json** | Defines a list of tokens that should be available in the token dropdowns                 |
+| **/config/configuredEventIndexer.json** | Defines the configuration for the event indexer including chain IDs and URLs             |
 
 ---
 
@@ -62,6 +70,7 @@ To get started, open your terminal in `/packages/bridge-ui-v2/`
    cp config/sample/configuredChains.example config/configuredChains.json
    cp config/sample/configuredRelayer.example config/configuredRelayer.json
    cp config/sample/configuredCustomTokens.example config/configuredCustomTokens.json
+   cp config/sample/configuredEventIndexer.example config/configuredEventIndexer.json
    ```
 2. Change or fill in all the information that will be used by the bridge UI inside these files.
 
@@ -73,7 +82,13 @@ To get started, open your terminal in `/packages/bridge-ui-v2/`
 
    This command exports the json as base64 string to your .env file
 
-4. Now whenever a build is triggered it will generate the config files based on the .env file in `src/generated/`
+4. Remember to source your .env file after exporting the configurations:
+
+   ```bash
+   source .env
+   ```
+
+5. Now whenever a build is triggered it will generate the config files based on the .env file in `src/generated/`
    <br>**Note: In the** `config/schemas` **folder are schemas that will validate the correct json format and report any errors in your initial json configurations, so check the log output for any errors!**
    <br>
 

@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.10.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2-v2.9.0...bridge-ui-v2-v2.10.0) (2023-12-05)
+
+
+### Features
+
+* **bridge-ui-v2:** add title to toast ([#14962](https://github.com/taikoxyz/taiko-mono/issues/14962)) ([91ff244](https://github.com/taikoxyz/taiko-mono/commit/91ff2446dd07354ee88e1357184ba5063bb43db6))
+* **bridge-ui-v2:** confirmation step ([#15083](https://github.com/taikoxyz/taiko-mono/issues/15083)) ([088678c](https://github.com/taikoxyz/taiko-mono/commit/088678c1d476f832bc60de8fcc8b26c54eee5a0b))
+* **bridge-ui-v2:** fetch cross-chain metadata ([#15206](https://github.com/taikoxyz/taiko-mono/issues/15206)) ([45988b9](https://github.com/taikoxyz/taiko-mono/commit/45988b9f1b0468365756a4bad7dc026dd7e01b23))
+* **bridge-ui-v2:** Import step refinement ([#15020](https://github.com/taikoxyz/taiko-mono/issues/15020)) ([433fac4](https://github.com/taikoxyz/taiko-mono/commit/433fac4ccfb009a6ceca8ed62d391290744b142c))
+* **bridge-ui-v2:** nft claiming ([#14960](https://github.com/taikoxyz/taiko-mono/issues/14960)) ([b60a7e2](https://github.com/taikoxyz/taiko-mono/commit/b60a7e2a6b7bc09cbb622ad9873d88c158707490))
+* **bridge-ui-v2:** NFT transaction page ([#15084](https://github.com/taikoxyz/taiko-mono/issues/15084)) ([49741c5](https://github.com/taikoxyz/taiko-mono/commit/49741c56be4dcd456b0e9f63aebb60b7c3d6aa22))
+* **bridge-ui-v2:** upgrade walletconnect from v2 to v3 ([#14999](https://github.com/taikoxyz/taiko-mono/issues/14999)) ([dd76ddc](https://github.com/taikoxyz/taiko-mono/commit/dd76ddc797d55773ab7647983133ab6a8e8a4192))
+
+
+### Bug Fixes
+
+* **bridge-ui-v2:** configuredCustomTokens in file/document is inconsistency ([#15335](https://github.com/taikoxyz/taiko-mono/issues/15335)) ([92db840](https://github.com/taikoxyz/taiko-mono/commit/92db840c082a7e8b681a1b63ef78988669513b41))
+* **bridge-ui-v2:** processing fee and recipient not sticking ([#15125](https://github.com/taikoxyz/taiko-mono/issues/15125)) ([e9b82ea](https://github.com/taikoxyz/taiko-mono/commit/e9b82eaef0b578581dcf4566dd0582cf113ffc8b))
+* fix typos in tests and comments ([#15028](https://github.com/taikoxyz/taiko-mono/issues/15028)) ([54bf597](https://github.com/taikoxyz/taiko-mono/commit/54bf597c89a7f22161eeeffd13c20fe0acb4e2d7))
+* **README.md:** minor typos ([#15139](https://github.com/taikoxyz/taiko-mono/issues/15139)) ([b91cc1a](https://github.com/taikoxyz/taiko-mono/commit/b91cc1a53ea6874bdf9ed5cf86460e691b21f799))
+* **repo:** fix some typos ([#15021](https://github.com/taikoxyz/taiko-mono/issues/15021)) ([5d5b72d](https://github.com/taikoxyz/taiko-mono/commit/5d5b72d7d53dc93abcc73f8d525a5e7dbfaf903d))
+
 ## [2.9.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2-v2.8.0...bridge-ui-v2-v2.9.0) (2023-10-18)
 
 

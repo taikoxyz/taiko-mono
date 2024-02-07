@@ -7,7 +7,7 @@
 </h1>
 
 <p align="center">
-  A decentralized, Ethereum-equivalent ZK-Rollup.
+  A based rollup.
 </p>
 
 <div align="center">
@@ -17,11 +17,6 @@
 [![YouTube](https://img.shields.io/youtube/channel/subscribers/UCxd_ARE9LtAEdnRQA6g1TaQ)](https://www.youtube.com/@taikoxyz)
 [![GitPOAP Badge](https://public-api.gitpoap.io/v1/repo/taikoxyz/taiko-mono/badge)](https://www.gitpoap.io/gh/taikoxyz/taiko-mono)
 [![License](https://img.shields.io/github/license/taikoxyz/taiko-mono)](https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md)
-
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/taikoxyz/taiko-mono/protocol.yml?branch=main&label=Protocol&logo=github)](https://github.com/taikoxyz/taiko-mono/actions/workflows/protocol.yml)
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/taikoxyz/taiko-mono/relayer.yml?branch=main&label=Relayer&logo=github)](https://github.com/taikoxyz/taiko-mono/actions/workflows/relayer.yml)
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/taikoxyz/taiko-mono/bridge-ui-v2.yml?branch=main&label=Bridge%20UI&logo=github)](https://github.com/taikoxyz/taiko-mono/actions/workflows/bridge-ui.yml)
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/taikoxyz/taiko-mono/website.yml?branch=main&label=Website&logo=github)](https://github.com/taikoxyz/taiko-mono/actions/workflows/website.yml)
 
 </div>
 
@@ -44,8 +39,7 @@ taiko-mono/
 │   ├── <a href="./packages/fork-diff">fork-diff</a>: Fork <a href="https://geth.taiko.xyz">diff page</a> (currently, for Geth).
 │   ├── <a href="./packages/protocol">protocol</a>: Taiko protocol and bridge smart contracts.
 │   ├── <a href="./packages/relayer">relayer</a>: Bridge backend relayer in Go.
-│   ├── <a href="./packages/starter-dapp">starter-dapp</a>: Template for Taiko dapps.
-│   └── <a href="./packages/status-page">status-page</a>: Taiko protocol status page.
+│   └── <a href="./packages/starter-dapp">starter-dapp</a>: Template for Taiko dapps.
 ...
 </pre>
 

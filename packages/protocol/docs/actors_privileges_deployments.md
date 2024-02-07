@@ -21,7 +21,7 @@ In the context of the smart contract system, various actors play distinct roles.
 
 - **Role**: This domain role is given to Bridge smart contracts (both chains).
 - **Privileges**:
-  - The right to trigger transfering/minting the tokens (on destination chain) (be it ERC20, ERC721, ERC1155) from the vault contracts
+  - The right to trigger transferring/minting the tokens (on destination chain) (be it ERC20, ERC721, ERC1155) from the vault contracts
   - The right to trigger releasing the custodied assets on the source chain (if bridging is not successful)
 
 ### 1.3 ERCXXX_Vault

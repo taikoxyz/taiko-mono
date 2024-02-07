@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.15.3](https://github.com/taikoxyz/taiko-mono/compare/protocol-v0.15.2...protocol-v0.15.3) (2023-12-05)
+
+
+### Bug Fixes
+
+* fix typos in tests and comments ([#15028](https://github.com/taikoxyz/taiko-mono/issues/15028)) ([54bf597](https://github.com/taikoxyz/taiko-mono/commit/54bf597c89a7f22161eeeffd13c20fe0acb4e2d7))
+* **repo:** fix some typos ([#15021](https://github.com/taikoxyz/taiko-mono/issues/15021)) ([5d5b72d](https://github.com/taikoxyz/taiko-mono/commit/5d5b72d7d53dc93abcc73f8d525a5e7dbfaf903d))
+
 ## [0.15.2](https://github.com/taikoxyz/taiko-mono/compare/protocol-v0.15.1...protocol-v0.15.2) (2023-10-18)
 
 
