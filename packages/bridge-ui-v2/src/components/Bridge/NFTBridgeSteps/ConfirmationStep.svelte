@@ -7,14 +7,14 @@
   import { chainConfig } from '$chainConfig';
   import { Icon, type IconType } from '$components/Icon';
   import { successToast } from '$components/NotificationToast';
-  import { infoToast } from '$components/NotificationToast/NotificationToast.svelte';
+  import { infoToast, warningToast } from '$components/NotificationToast/NotificationToast.svelte';
   import Spinner from '$components/Spinner/Spinner.svelte';
   import { bridges, type BridgeTransaction, MessageStatus, type NFTApproveArgs } from '$libs/bridge';
   import type { ERC721Bridge } from '$libs/bridge/ERC721Bridge';
   import type { ERC1155Bridge } from '$libs/bridge/ERC1155Bridge';
   import { getBridgeArgs } from '$libs/bridge/getBridgeArgs';
   import { handleBridgeError } from '$libs/bridge/handleBridgeErrors';
-  import { BridgePausedError } from '$libs/error';
+  import { BridgePausedError, TransactionTimeoutError } from '$libs/error';
   import { bridgeTxService } from '$libs/storage';
   import { TokenType } from '$libs/token';
   import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
@@ -48,7 +48,7 @@
   $: statusTitle = 'Success!';
   $: statusDescription = '';
 
-  const handleBridgeTxHash = (txHash: Hash) => {
+  const handleBridgeTxHash = async (txHash: Hash) => {
     const currentChain = $network?.id;
 
     const destinationChain = $destNetwork?.id;
@@ -63,28 +63,39 @@
       },
     });
 
-    pendingTransactions.add(txHash, currentChain).then(() => {
+    try {
+      await pendingTransactions.add(txHash, currentChain);
       bridgingStatus = 'done';
       statusTitle = $t('bridge.actions.bridge.success.title');
       statusDescription = $t('bridge.nft.step.confirm.bridge.success.message', {
         values: { url: `${explorer}/tx/${txHash}` },
       });
-      const bridgeTx = {
-        hash: txHash,
-        from: $account.address,
-        amount: $enteredAmount,
-        symbol: $selectedToken?.symbol,
-        decimals: $selectedToken?.decimals,
-        srcChainId: BigInt(currentChain),
-        destChainId: BigInt(destinationChain),
-        tokenType: $selectedToken?.type,
-        status: MessageStatus.NEW,
-        timestamp: Date.now(),
-      } as BridgeTransaction;
-      bridging = false;
+    } catch (error) {
+      if (error instanceof TransactionTimeoutError) {
+        bridgingStatus = 'done';
+        (statusTitle = $t('bridge.actions.bridge.timeout.title')),
+          (statusDescription = $t('bridge.actions.bridge.timeout.message', {
+            values: {
+              url: `${explorer}/tx/${approveTxHash}`,
+            },
+          }));
+      }
+    }
+    const bridgeTx = {
+      hash: txHash,
+      from: $account.address,
+      amount: $enteredAmount,
+      symbol: $selectedToken?.symbol,
+      decimals: $selectedToken?.decimals,
+      srcChainId: BigInt(currentChain),
+      destChainId: BigInt(destinationChain),
+      tokenType: $selectedToken?.type,
+      status: MessageStatus.NEW,
+      timestamp: Date.now(),
+    } as BridgeTransaction;
+    bridging = false;
 
-      bridgeTxService.addTxByAddress(userAccount, bridgeTx);
-    });
+    bridgeTxService.addTxByAddress(userAccount, bridgeTx);
   };
 
   async function approve() {
@@ -133,7 +144,29 @@
           }),
         });
 
-      await pendingTransactions.add(approveTxHash, $network.id);
+      try {
+        await pendingTransactions.add(approveTxHash, $network.id);
+
+        successToast({
+          title: $t('bridge.actions.approve.success.title'),
+          message: $t('bridge.actions.approve.success.message', {
+            values: {
+              token: $selectedToken.symbol,
+            },
+          }),
+        });
+      } catch (error) {
+        if (error instanceof TransactionTimeoutError) {
+          warningToast({
+            title: $t('bridge.actions.bridge.timeout.title'),
+            message: $t('bridge.actions.bridge.timeout.message', {
+              values: {
+                url: `${explorer}/tx/${approveTxHash}`,
+              },
+            }),
+          });
+        }
+      }
 
       await getTokenApprovalStatus($selectedToken);
 

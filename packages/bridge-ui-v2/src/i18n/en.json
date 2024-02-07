@@ -24,6 +24,10 @@
           "message": "Your funds are being prepared for claiming on Taiko.",
           "title": "Transaction completed"
         },
+        "timeout": {
+          "message": "The transaction is taking longer than expected, this could be due to heavy load on the network. Please check the status of the transaction on the <a href=\"{url}\" target=\"_blank\"><b>explorer</b></a>.",
+          "title": "Timeout"
+        },
         "tx": {
           "message": "Your bridge transaction was confirmed. The transaction can take a few minutes to complete, track it <a href=\"{url}\" target=\"_blank\"><b>here</b></a>.",
           "title": "Transaction sent"

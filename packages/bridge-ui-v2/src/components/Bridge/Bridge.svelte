@@ -10,7 +10,7 @@
   import { Card } from '$components/Card';
   import { ChainSelectorWrapper } from '$components/ChainSelector';
   import { successToast } from '$components/NotificationToast';
-  import { infoToast } from '$components/NotificationToast/NotificationToast.svelte';
+  import { infoToast, warningToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { OnAccount } from '$components/OnAccount';
   import { OnNetwork } from '$components/OnNetwork';
   import { TokenDropdown } from '$components/TokenDropdown';
@@ -21,7 +21,7 @@
   import { getBridgeArgs } from '$libs/bridge/getBridgeArgs';
   import { handleBridgeError } from '$libs/bridge/handleBridgeErrors';
   import { LayerType } from '$libs/chain';
-  import { BridgePausedError } from '$libs/error';
+  import { BridgePausedError, TransactionTimeoutError } from '$libs/error';
   import { bridgeTxService } from '$libs/storage';
   import { ETHToken, tokens, TokenType } from '$libs/token';
   import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
@@ -136,20 +136,31 @@
             }),
           });
 
-        await pendingTransactions.add(txHash, $network.id);
+        try {
+          await pendingTransactions.add(txHash, $network.id);
+
+          successToast({
+            title: $t('bridge.actions.approve.success.title'),
+            message: $t('bridge.actions.approve.success.message', {
+              values: {
+                token: $selectedToken.symbol,
+              },
+            }),
+          });
+        } catch (error) {
+          if (error instanceof TransactionTimeoutError) {
+            warningToast({
+              title: $t('bridge.actions.bridge.timeout.title'),
+              message: $t('bridge.actions.bridge.timeout.message', {
+                values: {
+                  url: `${explorer}/tx/${txHash}`,
+                },
+              }),
+            });
+          }
+        }
 
         await getTokenApprovalStatus($selectedToken);
-
-        await pendingTransactions.add(txHash, $network.id);
-
-        successToast({
-          title: $t('bridge.actions.approve.success.title'),
-          message: $t('bridge.actions.approve.success.message', {
-            values: {
-              token: $selectedToken.symbol,
-            },
-          }),
-        });
       }
     } catch (err) {
       console.error(err);
@@ -191,16 +202,29 @@
         }),
       });
 
-      await pendingTransactions.add(txHash, $network.id);
+      try {
+        await pendingTransactions.add(txHash, $network.id);
 
-      successToast({
-        title: $t('bridge.actions.bridge.success.title'),
-        message: $t('bridge.actions.bridge.success.message', {
-          values: {
-            network: $destinationChain.name,
-          },
-        }),
-      });
+        successToast({
+          title: $t('bridge.actions.bridge.success.title'),
+          message: $t('bridge.actions.bridge.success.message', {
+            values: {
+              network: $destinationChain.name,
+            },
+          }),
+        });
+      } catch (error) {
+        if (error instanceof TransactionTimeoutError) {
+          warningToast({
+            title: $t('bridge.actions.bridge.timeout.title'),
+            message: $t('bridge.actions.bridge.timeout.message', {
+              values: {
+                url: `${explorer}/tx/${txHash}`,
+              },
+            }),
+          });
+        }
+      }
 
       // Let's add it to the user's localStorage
       const bridgeTx = {

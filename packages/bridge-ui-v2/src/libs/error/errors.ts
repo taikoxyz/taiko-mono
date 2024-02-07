@@ -133,3 +133,7 @@ export class InvalidParametersProvidedError extends Error {
 export class InternalError extends Error {
   name = 'InternalError';
 }
+
+export class TransactionTimeoutError extends Error {
+  name = 'TransactionTimeoutError';
+}

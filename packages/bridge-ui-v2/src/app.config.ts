@@ -26,7 +26,7 @@ export const bridgeService = {
 };
 
 export const pendingTransaction = {
-  waitTimeout: 300_000,
+  waitTimeout: 30_000,
 };
 
 export const storageService = {
