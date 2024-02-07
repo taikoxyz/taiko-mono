@@ -34,7 +34,9 @@ interface ICrossChainSync {
     /// @param blockId The ID of the remote block whose block hash are synced.
     /// @param blockHash The hash of the synced block.
     /// @param stateRoot The block's state root.
-    event CrossChainSynced(uint64 indexed syncedInBlock, uint64 indexed blockId, bytes32 blockHash, bytes32 stateRoot);
+    event CrossChainSynced(
+        uint64 indexed syncedInBlock, uint64 indexed blockId, bytes32 blockHash, bytes32 stateRoot
+    );
 
     /// @notice Fetches the hash of a block from the opposite chain.
     /// @param blockId The target block id. Specifying 0 retrieves the hash

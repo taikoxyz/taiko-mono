@@ -813,14 +813,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             } else {
                 // Prove as guardian
                 proveBlock(
-                    Carol,
-                    Carol,
-                    meta,
-                    parentHash,
-                    blockHash,
-                    stateRoot,
-                    LibTiers.TIER_GUARDIAN,
-                    ""
+                    Carol, Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, ""
                 );
             }
             vm.roll(block.number + 15 * 12);

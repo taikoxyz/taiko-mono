@@ -245,56 +245,58 @@ contract TestTaikoL2 is TaikoTest {
 
     function _anchor(uint32 parentGasLimit) private {
         bytes32 l1Hash = randBytes32();
+        bytes32 l1StateRoot = randBytes32();
 
-        bytes32[8] memory _logsBloom;
+        // bytes32[8] memory _logsBloom;
 
-        BlockHeader memory dummyBh = BlockHeader ({
-            parentHash: randBytes32(),
-            ommersHash: randBytes32(),
-            beneficiary: Bob,
-            stateRoot: randBytes32(),
-            transactionsRoot: randBytes32(),
-            receiptsRoot: randBytes32(),
-            logsBloom: _logsBloom,
-            difficulty:0,
-            height: 2,
-            gasLimit: 1_000_000,
-            gasUsed: 1_000_000,
-            timestamp: uint64(block.timestamp),
-            extraData: "",
-            mixHash: randBytes32(),
-            nonce: 2,
-            baseFeePerGas: 10,
-            withdrawalsRoot: randBytes32()
-        });
-        L2.anchor(l1Hash, 12_345, parentGasLimit, dummyBh);
+        // BlockHeader memory dummyBh = BlockHeader ({
+        //     parentHash: randBytes32(),
+        //     ommersHash: randBytes32(),
+        //     beneficiary: Bob,
+        //     stateRoot: randBytes32(),
+        //     transactionsRoot: randBytes32(),
+        //     receiptsRoot: randBytes32(),
+        //     logsBloom: _logsBloom,
+        //     difficulty:0,
+        //     height: 2,
+        //     gasLimit: 1_000_000,
+        //     gasUsed: 1_000_000,
+        //     timestamp: uint64(block.timestamp),
+        //     extraData: "",
+        //     mixHash: randBytes32(),
+        //     nonce: 2,
+        //     baseFeePerGas: 10,
+        //     withdrawalsRoot: randBytes32()
+        // });
+        L2.anchor(l1Hash, l1StateRoot, 12_345, parentGasLimit);
     }
 
     function _anchorSimulation(uint32 parentGasLimit, uint64 l1Height) private {
         bytes32 l1Hash = randBytes32();
-        bytes32[8] memory _logsBloom;
+        bytes32 l1StateRoot = randBytes32();
+        // bytes32[8] memory _logsBloom;
 
-        BlockHeader memory dummyBh = BlockHeader ({
-            parentHash: randBytes32(),
-            ommersHash: randBytes32(),
-            beneficiary: Bob,
-            stateRoot: randBytes32(),
-            transactionsRoot: randBytes32(),
-            receiptsRoot: randBytes32(),
-            logsBloom: _logsBloom,
-            difficulty:0,
-            height: 2,
-            gasLimit: 1_000_000,
-            gasUsed: 1_000_000,
-            timestamp: uint64(block.timestamp),
-            extraData: "",
-            mixHash: randBytes32(),
-            nonce: 2,
-            baseFeePerGas: 10,
-            withdrawalsRoot: randBytes32()
-        });
+        // BlockHeader memory dummyBh = BlockHeader ({
+        //     parentHash: randBytes32(),
+        //     ommersHash: randBytes32(),
+        //     beneficiary: Bob,
+        //     stateRoot: randBytes32(),
+        //     transactionsRoot: randBytes32(),
+        //     receiptsRoot: randBytes32(),
+        //     logsBloom: _logsBloom,
+        //     difficulty:0,
+        //     height: 2,
+        //     gasLimit: 1_000_000,
+        //     gasUsed: 1_000_000,
+        //     timestamp: uint64(block.timestamp),
+        //     extraData: "",
+        //     mixHash: randBytes32(),
+        //     nonce: 2,
+        //     baseFeePerGas: 10,
+        //     withdrawalsRoot: randBytes32()
+        // });
 
-        L2skip.anchor(l1Hash, l1Height, parentGasLimit, dummyBh);
+        L2skip.anchor(l1Hash, l1StateRoot, l1Height, parentGasLimit);
     }
 
     // Semi-random number generator

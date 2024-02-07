@@ -74,11 +74,7 @@ library RLPWriter {
     /// @notice Encode integer in big endian binary form with leading zeroes.
     /// @param _x The integer to encode.
     /// @return RLP encoded bytes.
-    function _toBinaryWithLeadingZeros(uint256 _x)
-        private
-        pure
-        returns (bytes memory)
-    {
+    function _toBinaryWithLeadingZeros(uint256 _x) private pure returns (bytes memory) {
         bytes memory b = abi.encodePacked(_x);
 
         uint256 i;

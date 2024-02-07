@@ -133,8 +133,7 @@ contract TestSignalService is TaikoTest {
         //eth_getProof's result RLP encoded storage proof
         inclusionProof_of_L2A_msgHash[0] =
             hex"e3a1209749684f52b5c0717a7ca78127fb56043d637d81763c04e9d30ba4d4746d56e901";
-        bytes32 stateRoot_of_L2 =
-            0xf7916f389ccda56e3831e115238b7389b30750886785a3c21265601572698f0f; //eth_getProof
+        bytes32 stateRoot_of_L2 = 0xf7916f389ccda56e3831e115238b7389b30750886785a3c21265601572698f0f; //eth_getProof
         // result's storage hash
 
         bytes32 signal_of_L2A_msgHash =

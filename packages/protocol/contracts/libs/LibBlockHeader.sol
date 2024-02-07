@@ -53,12 +53,12 @@ library LibBlockHeader {
             // non-EIP-1559 transaction
             list = new bytes[](15 + extraCapacity);
         }
-        list[0] = RLPWriter.writeUint(uint(header.parentHash));
-        list[1] = RLPWriter.writeUint(uint(header.ommersHash));
+        list[0] = RLPWriter.writeUint(uint256(header.parentHash));
+        list[1] = RLPWriter.writeUint(uint256(header.ommersHash));
         list[2] = RLPWriter.writeAddress(header.beneficiary);
-        list[3] = RLPWriter.writeUint(uint(header.stateRoot));
-        list[4] = RLPWriter.writeUint(uint(header.transactionsRoot));
-        list[5] = RLPWriter.writeUint(uint(header.receiptsRoot));
+        list[3] = RLPWriter.writeUint(uint256(header.stateRoot));
+        list[4] = RLPWriter.writeUint(uint256(header.transactionsRoot));
+        list[5] = RLPWriter.writeUint(uint256(header.receiptsRoot));
         list[6] = RLPWriter.writeBytes(abi.encodePacked(header.logsBloom));
         list[7] = RLPWriter.writeUint(header.difficulty);
         list[8] = RLPWriter.writeUint(header.height);
@@ -66,7 +66,7 @@ library LibBlockHeader {
         list[10] = RLPWriter.writeUint64(header.gasUsed);
         list[11] = RLPWriter.writeUint64(header.timestamp);
         list[12] = RLPWriter.writeBytes(header.extraData);
-        list[13] = RLPWriter.writeUint(uint(header.mixHash));
+        list[13] = RLPWriter.writeUint(uint256(header.mixHash));
         // According to the ethereum yellow paper, we should treat `nonce`
         // as [8]byte when hashing the block.
         list[14] = RLPWriter.writeBytes(abi.encodePacked(header.nonce));
