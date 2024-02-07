@@ -76,7 +76,8 @@ library LibUtils {
         return ICrossChainSync.Snippet({
             remoteBlockId: blockId,
             syncedInBlock: blk.proposedIn,
-            blockHash: transition.blockHash
+            blockHash: transition.blockHash,
+            stateRoot: transition.stateRoot
         });
     }
 
