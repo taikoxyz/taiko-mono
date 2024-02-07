@@ -30,20 +30,22 @@ type ethClient interface {
 // @host relayer.katla.taiko.xyz
 // Server represents an relayer http server instance.
 type Server struct {
-	echo          *echo.Echo
-	eventRepo     relayer.EventRepository
-	blockRepo     relayer.BlockRepository
-	srcEthClient  ethClient
-	destEthClient ethClient
+	echo            *echo.Echo
+	eventRepo       relayer.EventRepository
+	blockRepo       relayer.BlockRepository
+	suspendedTxRepo relayer.SuspendedTransactionRepository
+	srcEthClient    ethClient
+	destEthClient   ethClient
 }
 
 type NewServerOpts struct {
-	Echo          *echo.Echo
-	EventRepo     relayer.EventRepository
-	BlockRepo     relayer.BlockRepository
-	CorsOrigins   []string
-	SrcEthClient  ethClient
-	DestEthClient ethClient
+	Echo            *echo.Echo
+	EventRepo       relayer.EventRepository
+	BlockRepo       relayer.BlockRepository
+	SuspendedTxRepo relayer.SuspendedTransactionRepository
+	CorsOrigins     []string
+	SrcEthClient    ethClient
+	DestEthClient   ethClient
 }
 
 func (opts NewServerOpts) Validate() error {
@@ -80,11 +82,12 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 	}
 
 	srv := &Server{
-		blockRepo:     opts.BlockRepo,
-		echo:          opts.Echo,
-		eventRepo:     opts.EventRepo,
-		srcEthClient:  opts.SrcEthClient,
-		destEthClient: opts.DestEthClient,
+		blockRepo:       opts.BlockRepo,
+		echo:            opts.Echo,
+		eventRepo:       opts.EventRepo,
+		suspendedTxRepo: opts.SuspendedTxRepo,
+		srcEthClient:    opts.SrcEthClient,
+		destEthClient:   opts.DestEthClient,
 	}
 
 	corsOrigins := opts.CorsOrigins

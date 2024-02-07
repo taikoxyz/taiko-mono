@@ -49,7 +49,8 @@ type ethClient interface {
 type Watchdog struct {
 	cancel context.CancelFunc
 
-	eventRepo relayer.EventRepository
+	eventRepo       relayer.EventRepository
+	suspendedTxRepo relayer.SuspendedTransactionRepository
 
 	queue queue.Queue
 
@@ -103,6 +104,11 @@ func InitFromConfig(ctx context.Context, w *Watchdog, cfg *Config) error {
 		return err
 	}
 
+	suspendedTxRepo, err := repo.NewSuspendedTransactionRepository(db)
+	if err != nil {
+		return err
+	}
+
 	srcEthClient, err := ethclient.Dial(cfg.SrcRPCUrl)
 	if err != nil {
 		return err
@@ -145,6 +151,7 @@ func InitFromConfig(ctx context.Context, w *Watchdog, cfg *Config) error {
 	var q queue.Queue
 
 	w.eventRepo = eventRepository
+	w.suspendedTxRepo = suspendedTxRepo
 
 	w.srcEthClient = srcEthClient
 	w.destEthClient = destEthClient
@@ -307,7 +314,17 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 
 	slog.Info("Mined tx", "txHash", hex.EncodeToString(tx.Hash().Bytes()))
 
-	// save to database
+	if _, err := w.suspendedTxRepo.Save(ctx,
+		relayer.SuspendTransactionOpts{
+			MessageID:    int(msgBody.Event.Message.Id.Int64()),
+			SrcChainID:   int(msgBody.Event.Message.SrcChainId),
+			DestChainID:  int(msgBody.Event.Message.DestChainId),
+			MessageOwner: msgBody.Event.Message.Owner.Hex(),
+			Suspended:    true,
+			MsgHash:      common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
+		}); err != nil {
+		return errors.Wrap(err, "w.suspendedTxRepo.Save")
+	}
 
 	return nil
 }

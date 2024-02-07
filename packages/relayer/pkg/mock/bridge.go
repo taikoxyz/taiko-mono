@@ -54,6 +54,7 @@ func (b *Bridge) SuspendMessages(
 ) (*types.Transaction, error) {
 	return ProcessMessageTx, nil
 }
+
 func (b *Bridge) IsMessageSent(opts *bind.CallOpts, message bridge.IBridgeMessage) (bool, error) {
 	return false, nil
 }
@@ -134,6 +135,7 @@ func (b *Bridge) WatchMessageReceived(
 				DestChainId: MockChainID.Uint64(),
 			},
 		}
+
 		b.MessagesSent++
 	}(sink)
 
@@ -143,6 +145,7 @@ func (b *Bridge) WatchMessageReceived(
 		errChan <- errors.New("fail")
 
 		s.done = true
+
 		b.ErrorsSent++
 	}(s.errChan)
 
@@ -176,6 +179,7 @@ func (b *Bridge) WatchMessageStatusChanged(
 		<-time.After(2 * time.Second)
 
 		sink <- &bridge.BridgeMessageStatusChanged{}
+
 		b.MessageStatusesChanged++
 	}(sink)
 
@@ -185,6 +189,7 @@ func (b *Bridge) WatchMessageStatusChanged(
 		errChan <- errors.New("fail")
 
 		s.done = true
+
 		b.ErrorsSent++
 	}(s.errChan)
 
