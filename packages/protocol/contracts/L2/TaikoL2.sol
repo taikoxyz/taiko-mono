@@ -20,7 +20,6 @@ import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../common/ICrossChainSync.sol";
 import "../signal/ISignalService.sol";
 import "../libs/LibAddress.sol";
-import "../libs/LibBlockHeader.sol";
 import "../libs/LibMath.sol";
 import "./Lib1559Math.sol";
 import "./CrossChainOwned.sol";
@@ -34,7 +33,6 @@ import "./CrossChainOwned.sol";
 contract TaikoL2 is CrossChainOwned, ICrossChainSync {
     using LibAddress for address;
     using LibMath for uint256;
-    using LibBlockHeader for BlockHeader;
     using SafeERC20 for IERC20;
 
     struct Config {
@@ -62,7 +60,6 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
     error L2_BASEFEE_MISMATCH();
     error L2_INVALID_CHAIN_ID();
     error L2_INVALID_PARAM();
-    error L1_INVALID_PARENT_HEADER();
     error L2_INVALID_SENDER();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
