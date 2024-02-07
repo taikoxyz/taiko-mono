@@ -154,7 +154,8 @@ contract SignalService is AuthorizableContract, ISignalService {
         bytes32 srcSignal,
         bytes[] memory merkleProof
     )
-        internal
+        public
+        virtual
         view
     {
         address signalService = resolve(srcChainId, "signal_service", false);
