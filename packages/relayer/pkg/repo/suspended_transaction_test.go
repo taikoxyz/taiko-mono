@@ -123,7 +123,7 @@ func TestIntegration_SuspendedTransaction_Find(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req, err := http.NewRequest(http.MethodGet, "/events", nil)
+			req, err := http.NewRequest(http.MethodGet, "/suspendedTransactions", nil)
 			assert.Equal(t, nil, err)
 
 			resp, err := suspendedTxRepo.Find(context.Background(), req)
