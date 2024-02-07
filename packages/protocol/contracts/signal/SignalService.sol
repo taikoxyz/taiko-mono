@@ -37,7 +37,7 @@ contract SignalService is AuthorizableContract, ISignalService {
     // storageProof represents ABI-encoded tuple of (key, value, and proof)
     // returned from the eth_getProof() API.
     struct Hop {
-        address signalService;
+        address relayerContract;
         bytes32 stateRoot;
         bytes[] storageProof;
     }
@@ -124,14 +124,14 @@ contract SignalService is AuthorizableContract, ISignalService {
         for (uint256 i; i < p.hops.length; ++i) {
             Hop memory hop = p.hops[i];
 
-            bytes32 label = authorizedAddresses[hop.signalService];
+            bytes32 label = authorizedAddresses[hop.relayerContract];
             if (label == 0) return false;
-            
+
             uint64 chainId = uint256(label).toUint64();
 
             bytes32 slot = getSignalSlot(
                 chainId, // use label as chainId
-                hop.signalService,
+                hop.relayerContract,
                 hop.stateRoot // as a signal
             );
 

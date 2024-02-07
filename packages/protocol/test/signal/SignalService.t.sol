@@ -5,7 +5,7 @@ import "../TaikoTest.sol";
 
 contract TestSignalService is TaikoTest {
     AddressManager addressManager;
-    SignalService signalService;
+    SignalService relayer;
     SignalService destSignalService;
     DummyCrossChainSync crossChainSync;
     uint64 public destChainId = 7;
@@ -25,7 +25,7 @@ contract TestSignalService is TaikoTest {
             })
         );
 
-        signalService = SignalService(
+        relayer = SignalService(
             deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
@@ -58,34 +58,34 @@ contract TestSignalService is TaikoTest {
 
     function test_SignalService_sendSignal_revert() public {
         vm.expectRevert(SignalService.SS_INVALID_SIGNAL.selector);
-        signalService.sendSignal(0);
+        relayer.sendSignal(0);
     }
 
     function test_SignalService_isSignalSent_revert() public {
         bytes32 signal = bytes32(uint256(1));
         vm.expectRevert(SignalService.SS_INVALID_APP.selector);
-        signalService.isSignalSent(address(0), signal);
+        relayer.isSignalSent(address(0), signal);
 
         signal = bytes32(uint256(0));
         vm.expectRevert(SignalService.SS_INVALID_SIGNAL.selector);
-        signalService.isSignalSent(Alice, signal);
+        relayer.isSignalSent(Alice, signal);
     }
 
     function test_SignalService_sendSignal_isSignalSent() public {
         vm.startPrank(Alice);
         bytes32 signal = bytes32(uint256(1));
-        signalService.sendSignal(signal);
+        relayer.sendSignal(signal);
 
-        assertTrue(signalService.isSignalSent(Alice, signal));
+        assertTrue(relayer.isSignalSent(Alice, signal));
     }
 
     function test_SignalService_getSignalSlot() public {
         vm.startPrank(Alice);
         for (uint8 i = 1; i < 100; ++i) {
             bytes32 signal = bytes32(block.prevrandao + i);
-            signalService.sendSignal(signal);
+            relayer.sendSignal(signal);
 
-            assertTrue(signalService.isSignalSent(Alice, signal));
+            assertTrue(relayer.isSignalSent(Alice, signal));
         }
     }
 
@@ -103,7 +103,7 @@ contract TestSignalService is TaikoTest {
         bytes32 stateRoot = 0xf7916f389ccda56e3831e115238b7389b30750886785a3c21265601572698f0f;
 
         vm.startPrank(Alice);
-        signalService.authorize(address(crossChainSync), bytes32(uint256(block.chainid)));
+        relayer.authorize(address(crossChainSync), bytes32(uint256(block.chainid)));
 
         crossChainSync.setSyncedData("", stateRoot);
 
@@ -115,7 +115,7 @@ contract TestSignalService is TaikoTest {
         p.hops = h;
 
         bool isSignalReceived =
-            signalService.proveSignalReceived(chainId, app, signal, abi.encode(p));
+            relayer.proveSignalReceived(chainId, app, signal, abi.encode(p));
         assertEq(isSignalReceived, true);
     }
 
@@ -143,20 +143,20 @@ contract TestSignalService is TaikoTest {
         hop_inclusionProof_from_L1_SignalService[0] =
             hex"e3a120bade38703a7b19341b10a4dd482698dc8ffdd861e83ce41de2980bed39b6a02501";
 
-        bytes32 l1_common_signalService_root =
+        bytes32 l1_common_relayer_root =
             0x5c5fd43df8bcd7ad44cfcae86ed73a11e0baa9a751f0b520d029358ea284833b;
 
         // Important to note, we need to have authorized the "relayers'
         // addresses" on the source chain we are claiming.
         // (TaikoL1 or TaikoL2 depending on where we are)
         vm.startPrank(Alice);
-        signalService.authorize(address(crossChainSync), bytes32(block.chainid));
-        signalService.authorize(address(app), bytes32(uint256(chainId)));
+        relayer.authorize(address(crossChainSync), bytes32(block.chainid));
+        relayer.authorize(address(app), bytes32(uint256(chainId)));
 
         vm.startPrank(Alice);
         addressManager.setAddress(chainId, "taiko", app);
 
-        crossChainSync.setSyncedData("", l1_common_signalService_root);
+        crossChainSync.setSyncedData("", l1_common_relayer_root);
 
         SignalService.Proof memory p;
         p.crossChainSync = address(crossChainSync);
@@ -170,14 +170,14 @@ contract TestSignalService is TaikoTest {
         // hop.stateRoot is the one which belongs to L2A, and the proof is
         // accordingly.
         SignalService.Hop[] memory h = new SignalService.Hop[](1);
-        h[0].signalService = app;
+        h[0].relayerContract = app;
         h[0].stateRoot = stateRoot_of_L2;
         h[0].storageProof = hop_inclusionProof_from_L1_SignalService;
 
         p.hops = h;
 
         bool isSignalReceived =
-            signalService.proveSignalReceived(chainId, app, signal_of_L2A_msgHash, abi.encode(p));
+            relayer.proveSignalReceived(chainId, app, signal_of_L2A_msgHash, abi.encode(p));
         assertEq(isSignalReceived, true);
     }
 }
