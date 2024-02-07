@@ -164,6 +164,9 @@ contract TaikoL1 is
     }
 
     /// @inheritdoc ICrossChainSync
+    /// @notice Important: as this contract doesn't send each bloc's state root as a signal whnen
+    /// the block is verified, bridging developers should subscribe to CrossChainSynced events
+    /// to ensure all synced state roots are verifiable using merkle proofs.
     function getSyncedSnippet(uint64 blockId)
         public
         view

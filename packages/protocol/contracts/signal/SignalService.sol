@@ -124,11 +124,13 @@ contract SignalService is AuthorizableContract, ISignalService {
         bytes32 stateRoot = ICrossChainSync(p.crossChainSync).getSyncedSnippet(p.height).stateRoot;
         if (stateRoot == 0) revert SS_CROSS_CHAIN_SYNC_ZERO_STATE_ROOT();
 
-        // Check a chain of inclusion proofs. If this chain is chainA, and the
-        // message is sent on chainC, and we have chainB in the middle, we
-        // verify that chainB's signalRoot has been sent as a signal by chainB's
-        // "taiko" contract, then using chainB's signalRoot, we further check
-        // the signal is sent by chainC's "bridge" contract.
+        // If a signal is sent from chainA -> chainB -> chainC (this chain), we verify the proofs in
+        // the following order:
+        // 1. using chainC's latest stateRoot to verify that chainB's TaikoL1/TaikoL2 contract has
+        // sent a given hop stateRoot on chainB using its own signal service.
+        // 2. using the verified hop stateRoot to verify that the source app on chainA has sent a
+        // signal using its own signal service.
+        // We always verify the proofs in the reversed order.
         for (uint256 i; i < p.hops.length; ++i) {
             Hop memory hop = p.hops[i];
             if (hop.stateRoot == stateRoot) revert SS_INVALID_HOP_PROOF();
@@ -155,8 +157,8 @@ contract SignalService is AuthorizableContract, ISignalService {
         bytes[] memory merkleProof
     )
         public
-        virtual
         view
+        virtual
     {
         address signalService = resolve(srcChainId, "signal_service", false);
         // TODO: we need to use this signal service
