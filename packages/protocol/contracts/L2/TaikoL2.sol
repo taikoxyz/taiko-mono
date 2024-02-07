@@ -61,6 +61,7 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
     error L2_BASEFEE_MISMATCH();
     error L2_INVALID_CHAIN_ID();
     error L2_INVALID_PARAM();
+    error L1_INVALID_PARENT_HEADER();
     error L2_INVALID_SENDER();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
@@ -124,8 +125,11 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
         }
 
         // Verify parentBlockHader match the block hash
-        // TODO(daniel)
+        if (hashBlockHeader.hashBlockHeader() != blockhash(parentId)) {
+            revert L1_INVALID_PARENT_HEADER();
+        }
 
+        require(parentBlockHeader.)
         // Verify ancestor hashes
         (bytes32 publicInputHashOld, bytes32 publicInputHashNew) = _calcPublicInputHash(parentId);
         if (publicInputHash != publicInputHashOld) {
