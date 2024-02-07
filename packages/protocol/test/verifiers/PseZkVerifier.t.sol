@@ -35,7 +35,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
     }
 
     // Test `verifyProof()` when contesting
-    function test_verifyProof_isContesting() public {
+    function test_verifyProof_isContesting() external {
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
@@ -65,7 +65,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
     }
 
     // Test `verifyProof()` with `isBlobUsed = true`
-    function test_verifyProof_isBlobUsed() public {
+    function test_verifyProof_isBlobUsed() external {
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
@@ -114,7 +114,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
     }
 
     // Test `verifyProof()` without blob, happy path
-    function test_verifyProof() public {
+    function test_verifyProof() external {
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
@@ -154,7 +154,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
     }
 
     // Test `verifyProof()` without blob, invalid encoding of ZkEvmProof
-    function test_verifyProof_invalidEncodingZkEvmProof() public {
+    function test_verifyProof_invalidEncodingZkEvmProof() external {
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
@@ -185,7 +185,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
     }
 
     // Test `verifyProof()` without blob, invalid instance first part
-    function test_verifyProof_invalidInstanceA() public {
+    function test_verifyProof_invalidInstanceA() external {
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
@@ -226,7 +226,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
     }
 
     // Test `verifyProof()` without blob, invalid instance second part
-    function test_verifyProof_invalidInstanceB() public {
+    function test_verifyProof_invalidInstanceB() external {
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
@@ -267,7 +267,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
     }
 
     // Test `verifyProof()` without blob, zkp less than 64 bytes
-    function test_verifyProof_invalidZkpLength() public {
+    function test_verifyProof_invalidZkpLength() external {
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
@@ -306,7 +306,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
     }
 
     // Test `verifyProof()` without blob, invalid verifier ID
-    function test_verifyProof_invalidVerifierId() public {
+    function test_verifyProof_invalidVerifierId() external {
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
@@ -347,7 +347,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
     }
 
     // Test `verifyProof()` without blob, PLONK verifier reverts
-    function test_verifyProof_plonkVerifierRevert() public {
+    function test_verifyProof_plonkVerifierRevert() external {
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
@@ -391,7 +391,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
     }
 
     // Test `verifyProof()` without blob, PLONK verifier returns the wrong length
-    function test_verifyProof_plonkVerifierInvalidLength() public {
+    function test_verifyProof_plonkVerifierInvalidLength() external {
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
@@ -432,7 +432,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
     }
 
     // Test `verifyProof()` without blob, PLONK verifier returns the wrong 32 bytes
-    function test_verifyProof_plonkVerifierInvalidRetrun() public {
+    function test_verifyProof_plonkVerifierInvalidRetrun() external {
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
