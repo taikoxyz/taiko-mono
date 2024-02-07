@@ -49,7 +49,14 @@ contract SignalService is AuthorizableContract, ISignalService {
         Hop[] hops;
     }
 
+    error SS_INVALID_FUNC_PARAMS();
+    error SS_INVALID_PROOF_PARAMS();
+    error SS_CROSS_CHAIN_SYNC_UNAUTHORIZED(uint256 chaindId);
+    error SS_CROSS_CHAIN_SYNC_ZERO_STATE_ROOT();
+    error SS_HOP_RELAYER_UNAUTHORIZED();
     error SS_INVALID_APP();
+    error SS_INVALID_APP_PROOF();
+    error SS_INVALID_HOP_PROOF();
     error SS_INVALID_SIGNAL();
     error SS_UNSUPPORTED();
 
@@ -95,37 +102,39 @@ contract SignalService is AuthorizableContract, ISignalService {
         if (skipProofCheck()) return true;
 
         if (app == address(0) || signal == 0 || srcChainId == 0 || srcChainId == block.chainid) {
-            return false;
+            revert SS_INVALID_FUNC_PARAMS();
         }
 
         Proof memory p = abi.decode(proof, (Proof));
         if (p.crossChainSync == address(0) || p.merkleProof.length == 0) {
-            return false;
+            revert SS_INVALID_PROOF_PARAMS();
         }
 
         for (uint256 i; i < p.hops.length; ++i) {
-            if (p.hops[i].stateRoot == 0) return false;
-            if (p.hops[i].merkleProof.length == 0) return false;
+            if (p.hops[i].stateRoot == 0 || p.hops[i].merkleProof.length == 0) {
+                revert SS_INVALID_PROOF_PARAMS();
+            }
         }
+
+        // p.crossChainSync is either a TaikoL1 contract or a TaikoL2 contract
+        if (!isAuthorizedAs(p.crossChainSync, bytes32(block.chainid))) {
+            revert SS_CROSS_CHAIN_SYNC_UNAUTHORIZED(block.chainid);
+        }
+
+        bytes32 stateRoot = ICrossChainSync(p.crossChainSync).getSyncedSnippet(p.height).stateRoot;
+        if (stateRoot == 0) revert SS_CROSS_CHAIN_SYNC_ZERO_STATE_ROOT();
 
         // Check a chain of inclusion proofs. If this chain is chainA, and the
         // message is sent on chainC, and we have chainB in the middle, we
         // verify that chainB's signalRoot has been sent as a signal by chainB's
         // "taiko" contract, then using chainB's signalRoot, we further check
         // the signal is sent by chainC's "bridge" contract.
-        if (!isAuthorizedAs(p.crossChainSync, bytes32(block.chainid))) {
-            return false;
-        }
-
-        bytes32 stateRoot = ICrossChainSync(p.crossChainSync).getSyncedSnippet(p.height).stateRoot;
-
-        if (stateRoot == 0) return false;
-
+        bool verified;
         for (uint256 i; i < p.hops.length; ++i) {
             Hop memory hop = p.hops[i];
 
             bytes32 label = authorizedAddresses[hop.relayerContract];
-            if (label == 0) return false;
+            if (label == 0) revert SS_HOP_RELAYER_UNAUTHORIZED();
 
             uint64 chainId = uint256(label).toUint64();
 
@@ -135,17 +144,20 @@ contract SignalService is AuthorizableContract, ISignalService {
                 hop.stateRoot // as a signal
             );
 
-            bool verified = SecureMerkleTrie.verifyInclusionProof(
+            SecureMerkleTrie.verifyInclusionProof(
                 bytes.concat(slot), hex"01", hop.merkleProof, stateRoot
             );
-            if (!verified) return false;
+            if (!verified) revert SS_INVALID_HOP_PROOF();
 
             stateRoot = hop.stateRoot;
         }
 
-        return SecureMerkleTrie.verifyInclusionProof(
+        verified = SecureMerkleTrie.verifyInclusionProof(
             bytes.concat(getSignalSlot(srcChainId, app, signal)), hex"01", p.merkleProof, stateRoot
         );
+        if (!verified) revert SS_INVALID_APP_PROOF();
+
+        return true;
     }
 
     /// @notice Get the storage slot of the signal.

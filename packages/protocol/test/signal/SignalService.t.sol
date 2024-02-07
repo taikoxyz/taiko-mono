@@ -114,8 +114,7 @@ contract TestSignalService is TaikoTest {
         p.merkleProof = inclusionProof;
         p.hops = h;
 
-        bool isSignalReceived =
-            relayer.proveSignalReceived(chainId, app, signal, abi.encode(p));
+        bool isSignalReceived = relayer.proveSignalReceived(chainId, app, signal, abi.encode(p));
         assertEq(isSignalReceived, true);
     }
 
