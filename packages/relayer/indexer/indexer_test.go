@@ -37,5 +37,6 @@ func newTestService(syncMode SyncMode, watchMode WatchMode) (*Indexer, relayer.B
 
 		ethClientTimeout: 10 * time.Second,
 		mu:               &sync.Mutex{},
+		eventName:        relayer.EventNameMessageSent,
 	}, b
 }

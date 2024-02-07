@@ -105,27 +105,3 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"--" + flags.EnableTaikoL2.Name,
 	}))
 }
-
-func TestNewConfigFromCliContext_PrivKeyError(t *testing.T) {
-	app := setupApp()
-	assert.ErrorContains(t, app.Run([]string{
-		"TestingNewConfigFromCliContext",
-		"--" + flags.DatabaseUsername.Name, "dbuser",
-		"--" + flags.DatabasePassword.Name, "dbpass",
-		"--" + flags.DatabaseHost.Name, "dbhost",
-		"--" + flags.DatabaseName.Name, "dbname",
-		"--" + flags.QueueUsername.Name, "queuename",
-		"--" + flags.QueuePassword.Name, "queuepassword",
-		"--" + flags.QueueHost.Name, "queuehost",
-		"--" + flags.QueuePort.Name, "5555",
-		"--" + flags.SrcRPCUrl.Name, "srcRpcUrl",
-		"--" + flags.DestRPCUrl.Name, "destRpcUrl",
-		"--" + flags.DestBridgeAddress.Name, destBridgeAddr,
-		"--" + flags.SrcSignalServiceAddress.Name, destBridgeAddr,
-		"--" + flags.DestERC721VaultAddress.Name, destBridgeAddr,
-		"--" + flags.DestERC20VaultAddress.Name, destBridgeAddr,
-		"--" + flags.DestERC1155VaultAddress.Name, destBridgeAddr,
-		"--" + flags.DestTaikoAddress.Name, destBridgeAddr,
-		"--" + flags.ProcessorPrivateKey.Name, "invalid-priv-key",
-	}), "invalid processorPrivateKey")
-}

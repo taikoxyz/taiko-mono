@@ -137,7 +137,7 @@ func Test_ProcessMessage_noChainId(t *testing.T) {
 	}
 
 	err = p.processMessage(context.Background(), msg)
-	assert.EqualError(t, err, "message not received")
+	assert.EqualError(t, err, "p.generateEncodedSignalProof: message not received")
 }
 
 func Test_ProcessMessage(t *testing.T) {

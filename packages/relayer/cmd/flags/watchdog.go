@@ -16,11 +16,6 @@ var (
 
 var WatchdogFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	WatchdogPrivateKey,
-	SrcSignalServiceAddress,
-	DestERC721VaultAddress,
-	DestERC1155VaultAddress,
-	DestERC20VaultAddress,
-	DestTaikoAddress,
 	// optional
 	HeaderSyncInterval,
 	Confirmations,
@@ -30,9 +25,6 @@ var WatchdogFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	BackOffMaxRetrys,
 	QueuePrefetchCount,
 	EnableTaikoL2,
-	HopRPCUrls,
-	HopSignalServiceAddresses,
-	HopTaikoAddresses,
 	DestBridgeAddress,
 	TargetTxHash,
 	ProofEncodingType,
