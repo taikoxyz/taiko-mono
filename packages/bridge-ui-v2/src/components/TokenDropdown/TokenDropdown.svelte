@@ -63,6 +63,7 @@
     $computingBalance = true;
     closeMenu();
     if (token === value) {
+      log('same token, nothing to do');
       // same token, nothing to do
       $computingBalance = false;
       return;
@@ -82,36 +83,37 @@
     }
     // if it is an imported Token, chances are we do not yet have the bridged address
     // for the destination chain, so we need to fetch it
-    if (token.imported) {
-      // ... in the case of imported tokens, we also require the destination chain to be selected.
+    // if (token.imported) {
+    //   // ... in the case of imported tokens, we also require the destination chain to be selected.
 
-      try {
-        const tokenInfo = await getTokenAddresses({ token, srcChainId: srcChain.id, destChainId: destChain.id });
-        if (!tokenInfo) return;
-        if (tokenInfo.bridged?.chainId && tokenInfo.bridged?.address && tokenInfo.bridged?.address !== zeroAddress) {
-          token.addresses[tokenInfo.bridged.chainId] = tokenInfo.bridged.address;
-          tokenService.updateToken(token, $account?.address as Address);
-        }
-        if (tokenInfo.canonical && tokenInfo.bridged) {
-          // double check we have the correct address for the destination chain and it is not 0x0
-          if (
-            value?.addresses[destChain.id] !== tokenInfo.canonical?.address &&
-            value?.addresses[destChain.id] !== zeroAddress
-          ) {
-            log('selected token is bridged', value?.addresses[destChain.id]);
-            $selectedTokenIsBridged = true;
-          } else {
-            log('selected token is canonical');
-            $selectedTokenIsBridged = false;
-          }
+    try {
+      const tokenInfo = await getTokenAddresses({ token, srcChainId: srcChain.id, destChainId: destChain.id });
+      if (!tokenInfo) {
+        $computingBalance = false;
+        return;
+      }
+      if (tokenInfo.bridged?.chainId && tokenInfo.bridged?.address && tokenInfo.bridged?.address !== zeroAddress) {
+        token.addresses[tokenInfo.bridged.chainId] = tokenInfo.bridged.address;
+        tokenService.updateToken(token, $account?.address as Address);
+      }
+      if (tokenInfo.canonical && tokenInfo.bridged) {
+        // double check we have the correct address for the destination chain and it is not 0x0
+        if (value?.addresses[destChain.id] !== tokenInfo.canonical?.address) {
+          log('selected token is bridged', value?.addresses[destChain.id]);
+          $selectedTokenIsBridged = true;
         } else {
           log('selected token is canonical');
           $selectedTokenIsBridged = false;
         }
-      } catch (error) {
-        console.error(error);
+      } else {
+        log('selected token is canonical');
+        $selectedTokenIsBridged = false;
       }
+    } catch (error) {
+      $computingBalance = false;
+      console.error(error);
     }
+    // }
     value = token;
     await updateBalance($account?.address, srcChain.id, destChain.id);
     $computingBalance = false;
