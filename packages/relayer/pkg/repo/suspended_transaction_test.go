@@ -89,7 +89,7 @@ func TestIntegration_SuspendedTransaction_Find(t *testing.T) {
 	suspendedTxRepo, err := NewSuspendedTransactionRepository(db)
 	assert.Equal(t, nil, err)
 
-	_, err = suspendedTxRepo.Save(context.Background(), relayer.SuspendTransactionOpts{
+	tx, err := suspendedTxRepo.Save(context.Background(), relayer.SuspendTransactionOpts{
 		MessageID:    1,
 		SrcChainID:   2,
 		DestChainID:  3,
@@ -107,7 +107,7 @@ func TestIntegration_SuspendedTransaction_Find(t *testing.T) {
 		{
 			"successJustAddress",
 			paginate.Page{
-				Items:      testEvents,
+				Items:      []*relayer.SuspendedTransaction{tx},
 				Page:       0,
 				Size:       100,
 				MaxPage:    1,
