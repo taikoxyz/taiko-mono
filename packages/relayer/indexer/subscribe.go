@@ -175,6 +175,7 @@ func (i *Indexer) subscribeMessageStatusChanged(ctx context.Context, chainID *bi
 		if err != nil {
 			slog.Error("i.bridge.WatchMessageStatusChanged", "error", err)
 		}
+
 		slog.Info("resubscribing to WatchMessageStatusChanged events")
 
 		return i.bridge.WatchMessageStatusChanged(&bind.WatchOpts{

@@ -102,6 +102,7 @@ func (b *Bridge) WatchMessageSent(
 				DestChainId: MockChainID.Uint64(),
 			},
 		}
+
 		b.MessagesSent++
 	}(sink)
 
@@ -111,6 +112,7 @@ func (b *Bridge) WatchMessageSent(
 		errChan <- errors.New("fail")
 
 		s.done = true
+
 		b.ErrorsSent++
 	}(s.errChan)
 

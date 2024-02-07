@@ -112,7 +112,6 @@ func (p *Processor) processMessage(
 		// we need to check the invocation delay and
 		// preferred exeuctor, if it wasnt us
 		// who proved it, there is an extra delay.
-
 		if err := p.waitForInvocationDelay(ctx, invocationDelays, proofReceipt); err != nil {
 			return errors.Wrap(err, "p.waitForInvocationDelay")
 		}
@@ -473,6 +472,7 @@ func (p *Processor) sendProcessMessageCall(
 		// or whether the contract is deployed.
 		if err != nil || gas == 0 {
 			slog.Info("gas estimation failed, hardcoding gas limit", "p.estimateGas:", err)
+
 			err = p.hardcodeGasLimit(ctx, auth, event, eventType, canonicalToken)
 			if err != nil {
 				return nil, errors.Wrap(err, "p.hardcodeGasLimit")
@@ -687,6 +687,7 @@ func (p *Processor) setGasTipOrPrice(ctx context.Context, auth *bind.TransactOpt
 			if err != nil {
 				return errors.Wrap(err, "p.destBridge.SuggestGasPrice")
 			}
+
 			auth.GasPrice = gasPrice
 		}
 	}

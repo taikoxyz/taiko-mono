@@ -407,6 +407,7 @@ func (i *Indexer) indexMessageSentEvents(ctx context.Context,
 			} else {
 				slog.Info("handled event successfully")
 			}
+
 			return nil
 		})
 	}
@@ -442,6 +443,7 @@ func (i *Indexer) indexMessageReceivedEvents(ctx context.Context,
 			} else {
 				slog.Info("handled event successfully")
 			}
+
 			return nil
 		})
 	}

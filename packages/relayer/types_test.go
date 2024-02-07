@@ -101,6 +101,7 @@ func Test_WaitReceipt(t *testing.T) {
 			} else {
 				assert.Nil(t, err)
 			}
+
 			assert.Equal(t, tt.wantReceipt, receipt)
 		})
 	}
