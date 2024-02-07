@@ -38,6 +38,7 @@ contract SignalService is AuthorizableContract, ISignalService {
     // returned from the eth_getProof() API.
     struct Hop {
         address relayerContract;
+        address signalService;
         bytes32 stateRoot;
         bytes[] merkleProof;
     }
@@ -129,35 +130,43 @@ contract SignalService is AuthorizableContract, ISignalService {
         // verify that chainB's signalRoot has been sent as a signal by chainB's
         // "taiko" contract, then using chainB's signalRoot, we further check
         // the signal is sent by chainC's "bridge" contract.
-        bool verified;
         for (uint256 i; i < p.hops.length; ++i) {
             Hop memory hop = p.hops[i];
+            if (hop.stateRoot == stateRoot) revert SS_INVALID_HOP_PROOF();
 
             bytes32 label = authorizedAddresses[hop.relayerContract];
             if (label == 0) revert SS_HOP_RELAYER_UNAUTHORIZED();
 
-            uint64 chainId = uint256(label).toUint64();
-
-            bytes32 slot = getSignalSlot(
-                chainId, // use label as chainId
-                hop.relayerContract,
-                hop.stateRoot // as a signal
+            uint64 hopChainId = uint256(label).toUint64();
+            verifyInclusionProof(
+                stateRoot, hopChainId, hop.relayerContract, hop.stateRoot, hop.merkleProof
             );
-
-            SecureMerkleTrie.verifyInclusionProof(
-                bytes.concat(slot), hex"01", hop.merkleProof, stateRoot
-            );
-            if (!verified) revert SS_INVALID_HOP_PROOF();
-
             stateRoot = hop.stateRoot;
         }
 
-        verified = SecureMerkleTrie.verifyInclusionProof(
-            bytes.concat(getSignalSlot(srcChainId, app, signal)), hex"01", p.merkleProof, stateRoot
-        );
-        if (!verified) revert SS_INVALID_APP_PROOF();
-
+        verifyInclusionProof(stateRoot, srcChainId, app, signal, p.merkleProof);
         return true;
+    }
+
+    function verifyInclusionProof(
+        bytes32 stateRoot,
+        uint64 srcChainId,
+        address srcApp,
+        bytes32 srcSignal,
+        bytes[] memory merkleProof
+    )
+        internal
+        view
+    {
+        address signalService = resolve(srcChainId, "signal_service", false);
+        // TODO: we need to use this signal service
+
+        bytes32 slot = getSignalSlot(srcChainId, srcApp, srcSignal);
+        bool verified = SecureMerkleTrie.verifyInclusionProof(
+            bytes.concat(slot), hex"01", merkleProof, stateRoot
+        );
+
+        if (!verified) revert SS_INVALID_APP_PROOF();
     }
 
     /// @notice Get the storage slot of the signal.
