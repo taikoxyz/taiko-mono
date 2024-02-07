@@ -88,8 +88,8 @@ library LibProving {
     {
         // Make sure parentHash is not zero
         // To contest an existing transition, simply use any non-zero value as
-        // the blockHash and signalRoot.
-        if (tran.parentHash == 0 || tran.blockHash == 0 || tran.signalRoot == 0) {
+        // the blockHash.
+        if (tran.parentHash == 0 || tran.blockHash == 0) {
             revert L1_INVALID_TRANSITION();
         }
 
@@ -110,9 +110,9 @@ library LibProving {
         }
 
         // Each transition is uniquely identified by the parentHash, with the
-        // blockHash and signalRoot open for later updates as higher-tier proofs
-        // become available. In cases where a transition with the specified
-        // parentHash does not exist, the transition ID (tid) will be set to 0.
+        // blockHash open for later updates as higher-tier proofs become available. In cases where a
+        // transition with the specified parentHash does not exist, the transition ID (tid) will be
+        // set to 0.
         (uint32 tid, TaikoData.TransitionState storage ts) =
             _createTransition(state, blk, tran, slot);
 
@@ -183,7 +183,7 @@ library LibProving {
             }
         }
 
-        bool sameTransition = tran.blockHash == ts.blockHash && tran.signalRoot == ts.signalRoot;
+        bool sameTransition = tran.blockHash == ts.blockHash;
 
         if (proof.tier > ts.tier) {
             // Handles the case when an incoming tier is higher than the current transition's tier.
@@ -210,7 +210,6 @@ library LibProving {
 
                 ts.prover = msg.sender;
                 ts.blockHash = tran.blockHash;
-                ts.signalRoot = tran.signalRoot;
 
                 emit TransitionProved({
                     blockId: blk.blockId,
@@ -283,7 +282,6 @@ library LibProving {
             // below.
             ts = state.transitions[slot][tid];
             ts.blockHash = 0;
-            ts.signalRoot = 0;
             ts.validityBond = 0;
             ts.contester = address(0);
             ts.contestBond = 1; // to save gas
@@ -376,7 +374,6 @@ library LibProving {
 
         if (!sameTransition) {
             ts.blockHash = tran.blockHash;
-            ts.signalRoot = tran.signalRoot;
         }
     }
 

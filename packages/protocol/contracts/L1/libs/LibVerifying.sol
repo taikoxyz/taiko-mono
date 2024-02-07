@@ -33,14 +33,11 @@ library LibVerifying {
         address indexed assignedProver,
         address indexed prover,
         bytes32 blockHash,
-        bytes32 signalRoot,
         uint16 tier,
         uint8 contestations
     );
 
-    event CrossChainSynced(
-        uint64 indexed syncedInBlock, uint64 indexed blockId, bytes32 blockHash, bytes32 signalRoot
-    );
+    event CrossChainSynced(uint64 indexed syncedInBlock, uint64 indexed blockId, bytes32 blockHash);
 
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOCK_MISMATCH();
@@ -78,7 +75,6 @@ library LibVerifying {
             assignedProver: address(0),
             prover: address(0),
             blockHash: genesisBlockHash,
-            signalRoot: 0,
             tier: 0,
             contestations: 0
         });
@@ -135,7 +131,6 @@ library LibVerifying {
         // The `blockHash` variable represents the most recently trusted
         // blockHash on L2.
         bytes32 blockHash = state.transitions[slot][tid].blockHash;
-        bytes32 signalRoot;
         uint64 processed;
         address tierProvider;
 
@@ -185,7 +180,6 @@ library LibVerifying {
 
                 // Update variables
                 blockHash = ts.blockHash;
-                signalRoot = ts.signalRoot;
 
                 // We consistently return the liveness bond and the validity
                 // bond to the actual prover of the transition utilized for
@@ -222,7 +216,6 @@ library LibVerifying {
                     assignedProver: blk.assignedProver,
                     prover: ts.prover,
                     blockHash: blockHash,
-                    signalRoot: signalRoot,
                     tier: ts.tier,
                     contestations: ts.contestations
                 });
@@ -237,13 +230,12 @@ library LibVerifying {
                 // Update protocol level state variables
                 state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
 
-                // Store the L2's signal root as a signal to the local signal
+                // Store the L2's block hash as a signal to the local signal
                 // service to allow for multi-hop bridging.
-                ISignalService(resolver.resolve("signal_service", false)).sendSignal(signalRoot);
+                // TODO(daniel): verify the logics
+                ISignalService(resolver.resolve("signal_service", false)).sendSignal(blockHash);
 
-                emit CrossChainSynced(
-                    uint64(block.number), lastVerifiedBlockId, blockHash, signalRoot
-                );
+                emit CrossChainSynced(uint64(block.number), lastVerifiedBlockId, blockHash);
             }
         }
     }
