@@ -161,7 +161,8 @@ contract SignalService is AuthorizableContract, ISignalService {
         view
         virtual
     {
-        address signalService = resolve(srcChainId, "signal_service", false);
+        // I do not think this line is needed here.
+        //address signalService = resolve(srcChainId, "signal_service", false);
         // TODO: we need to use this signal service
 
         bytes32 slot = getSignalSlot(srcChainId, srcApp, srcSignal);
