@@ -34,18 +34,18 @@ import "./ISignalService.sol";
 contract SignalService is AuthorizableContract, ISignalService {
     using SafeCast for uint256;
 
-    // storageProof represents ABI-encoded tuple of (key, value, and proof)
+    // merkleProof represents ABI-encoded tuple of (key, value, and proof)
     // returned from the eth_getProof() API.
     struct Hop {
         address relayerContract;
         bytes32 stateRoot;
-        bytes[] storageProof;
+        bytes[] merkleProof;
     }
 
     struct Proof {
         address crossChainSync;
         uint64 height;
-        bytes[] storageProof;
+        bytes[] merkleProof;
         Hop[] hops;
     }
 
@@ -99,13 +99,13 @@ contract SignalService is AuthorizableContract, ISignalService {
         }
 
         Proof memory p = abi.decode(proof, (Proof));
-        if (p.crossChainSync == address(0) || p.storageProof.length == 0) {
+        if (p.crossChainSync == address(0) || p.merkleProof.length == 0) {
             return false;
         }
 
         for (uint256 i; i < p.hops.length; ++i) {
             if (p.hops[i].stateRoot == 0) return false;
-            if (p.hops[i].storageProof.length == 0) return false;
+            if (p.hops[i].merkleProof.length == 0) return false;
         }
 
         // Check a chain of inclusion proofs. If this chain is chainA, and the
@@ -136,7 +136,7 @@ contract SignalService is AuthorizableContract, ISignalService {
             );
 
             bool verified = SecureMerkleTrie.verifyInclusionProof(
-                bytes.concat(slot), hex"01", hop.storageProof, stateRoot
+                bytes.concat(slot), hex"01", hop.merkleProof, stateRoot
             );
             if (!verified) return false;
 
@@ -144,7 +144,7 @@ contract SignalService is AuthorizableContract, ISignalService {
         }
 
         return SecureMerkleTrie.verifyInclusionProof(
-            bytes.concat(getSignalSlot(srcChainId, app, signal)), hex"01", p.storageProof, stateRoot
+            bytes.concat(getSignalSlot(srcChainId, app, signal)), hex"01", p.merkleProof, stateRoot
         );
     }
 

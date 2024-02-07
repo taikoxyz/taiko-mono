@@ -111,7 +111,7 @@ contract TestSignalService is TaikoTest {
         SignalService.Hop[] memory h;
         p.crossChainSync = address(crossChainSync);
         p.height = 10;
-        p.storageProof = inclusionProof;
+        p.merkleProof = inclusionProof;
         p.hops = h;
 
         bool isSignalReceived =
@@ -161,7 +161,7 @@ contract TestSignalService is TaikoTest {
         SignalService.Proof memory p;
         p.crossChainSync = address(crossChainSync);
         p.height = 10;
-        p.storageProof = inclusionProof_of_L2A_msgHash;
+        p.merkleProof = inclusionProof_of_L2A_msgHash;
 
         // Imagine this scenario: L2A to L2B bridging.
         // The 'hop' proof is the one that proves to L2B, that L1 Signal service
@@ -172,7 +172,7 @@ contract TestSignalService is TaikoTest {
         SignalService.Hop[] memory h = new SignalService.Hop[](1);
         h[0].relayerContract = app;
         h[0].stateRoot = stateRoot_of_L2;
-        h[0].storageProof = hop_inclusionProof_from_L1_SignalService;
+        h[0].merkleProof = hop_inclusionProof_from_L1_SignalService;
 
         p.hops = h;
 
