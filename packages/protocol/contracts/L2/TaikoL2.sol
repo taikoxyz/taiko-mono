@@ -129,7 +129,6 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
             revert L1_INVALID_PARENT_HEADER();
         }
 
-        require(parentBlockHeader.)
         // Verify ancestor hashes
         (bytes32 publicInputHashOld, bytes32 publicInputHashNew) = _calcPublicInputHash(parentId);
         if (publicInputHash != publicInputHashOld) {
