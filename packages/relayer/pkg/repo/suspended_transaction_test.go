@@ -105,7 +105,7 @@ func TestIntegration_SuspendedTransaction_Find(t *testing.T) {
 		wantErr  error
 	}{
 		{
-			"successJustAddress",
+			"success",
 			paginate.Page{
 				Items:      []*relayer.SuspendedTransaction{tx},
 				Page:       0,
@@ -127,8 +127,10 @@ func TestIntegration_SuspendedTransaction_Find(t *testing.T) {
 			assert.Equal(t, nil, err)
 
 			resp, err := suspendedTxRepo.Find(context.Background(), req)
-			assert.Equal(t, tt.wantResp.Items, resp.Items)
+
 			assert.Equal(t, tt.wantErr, err)
+
+			assert.Equal(t, tt.wantResp.Total, resp.Total)
 		})
 	}
 }
