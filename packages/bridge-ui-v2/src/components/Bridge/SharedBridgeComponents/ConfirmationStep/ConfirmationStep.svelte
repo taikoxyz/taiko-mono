@@ -63,7 +63,7 @@
     await pendingTransactions.add(txHash, currentChain);
     bridgingStatus = BridgingStatus.DONE;
     statusTitle = $t('bridge.actions.bridge.success.title');
-    statusDescription = $t('bridge.nft.step.confirm.bridge.success.message', {
+    statusDescription = $t('bridge.step.confirm.bridge.success.message', {
       values: { url: `${explorer}/tx/${txHash}` },
     });
 

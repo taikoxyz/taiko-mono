@@ -241,28 +241,27 @@ export class RelayerAPIService {
     return { txs: bridgeTxs, paginationInfo };
   }
 
-  async getBlockInfo(): Promise<Map<number, RelayerBlockInfo>> {
+  async getBlockInfo(): Promise<Record<number, RelayerBlockInfo>> {
     const requestURL = `${this.baseUrl}/blockInfo`;
 
-    // TODO: why to use a Map here?
-    const blockInfoMap: Map<number, RelayerBlockInfo> = new Map();
+    const blockInfoRecord: Record<number, RelayerBlockInfo> = {};
 
     try {
-      const response = await axios.get<{ data: RelayerBlockInfo[] }>(requestURL);
+      const response = await axios.get<{ data: RelayerBlockInfo[] }>(requestURL, { timeout: apiService.timeout });
 
       if (response.status >= 400) throw response;
 
       const { data } = response;
 
       if (data?.data.length > 0) {
-        data.data.forEach((blockInfo: RelayerBlockInfo) => blockInfoMap.set(blockInfo.chainID, blockInfo));
+        data.data.forEach((blockInfo: RelayerBlockInfo) => (blockInfoRecord[blockInfo.chainID] = blockInfo));
       }
     } catch (error) {
       console.error(error);
       throw new Error('failed to fetch block info', { cause: error });
     }
 
-    return blockInfoMap;
+    return blockInfoRecord;
   }
 }
 
