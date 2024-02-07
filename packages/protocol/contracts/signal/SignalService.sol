@@ -139,8 +139,12 @@ contract SignalService is AuthorizableContract, ISignalService {
             if (label == 0) revert SS_HOP_RELAYER_UNAUTHORIZED();
 
             uint64 hopChainId = uint256(label).toUint64();
+
+            bytes32 stateRootAsSignal =
+                keccak256(abi.encode("STATE_ROOT", hopChainId, hop.stateRoot));
+                
             verifyMerkleProof(
-                stateRoot, hopChainId, hop.relayerContract, hop.stateRoot, hop.merkleProof
+                stateRoot, hopChainId, hop.relayerContract, stateRootAsSignal, hop.merkleProof
             );
             stateRoot = hop.stateRoot;
         }
