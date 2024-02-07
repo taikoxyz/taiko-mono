@@ -245,7 +245,7 @@ library LibVerifying {
                 // stateRoot are not.
                 bytes32 stateRootAsSignal =
                     keccak256(abi.encode("STATE_ROOT", config.chainId, stateRoot));
-                    
+
                 ISignalService(resolver.resolve("signal_service", false)).sendSignal(
                     stateRootAsSignal
                 );
