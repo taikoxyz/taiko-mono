@@ -12,7 +12,8 @@ contract TestAddressResolver is TaikoL1TestBase {
         // Call the TaikoL1TestBase setUp()
         super.setUp();
     }
-    function test_resolve() public {
+
+    function test_resolve() external {
         assertEq(
             bridge.resolve(
                 uint64(block.chainid),
@@ -46,7 +47,7 @@ contract TestAddressResolver is TaikoL1TestBase {
 
 
     // Tests `resolve()` revert on zero address
-    function test_resolve_revertZeroAddress() public {
+    function test_resolve_revertZeroAddress() external {
         bytes32 name = bytes32(bytes("signal_service"));
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -60,7 +61,7 @@ contract TestAddressResolver is TaikoL1TestBase {
     }
 
     // Tests `resolve()` successfully return zero address
-    function test_resolve_returnZeroAddress() public {
+    function test_resolve_returnZeroAddress() external {
         assertEq(
             bridge.resolve(uint64(123), bytes32(bytes("taiko")), true),
             address(0),

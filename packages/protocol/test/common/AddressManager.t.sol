@@ -13,7 +13,7 @@ contract TestAddressManager is TaikoL1TestBase {
         super.setUp();
     }
 
-    function test_setAddress() public {
+    function test_setAddress() external {
         uint64 chainid = 1;
         bytes32 name = bytes32(bytes("Bob"));
         address newAddress = Bob;
@@ -32,7 +32,7 @@ contract TestAddressManager is TaikoL1TestBase {
         );
     }
 
-    function test_setAddress_callerNotOwner() public {
+    function test_setAddress_callerNotOwner() external {
         vm.startPrank(Alice);
 
         uint64 chainid = 1;
@@ -44,7 +44,7 @@ contract TestAddressManager is TaikoL1TestBase {
         addressManager.setAddress(chainid, name, newAddress);
     }
 
-    function test_getAddress() public {
+    function test_getAddress() external {
         assertEq(
             addressManager.getAddress(uint64(block.chainid), bytes32(bytes("taiko"))),
             address(L1),
