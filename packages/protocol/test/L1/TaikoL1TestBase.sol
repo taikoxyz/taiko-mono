@@ -239,7 +239,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         TaikoData.BlockMetadata memory meta,
         bytes32 parentHash,
         bytes32 blockHash,
-        bytes32 signalRoot,
+        bytes32 stateRoot,
         uint16 tier,
         bytes4 revertReason
     )
@@ -248,7 +248,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         TaikoData.Transition memory tran = TaikoData.Transition({
             parentHash: parentHash,
             blockHash: blockHash,
-            signalRoot: signalRoot,
+            stateRoot: stateRoot,
             graffiti: 0x0
         });
 

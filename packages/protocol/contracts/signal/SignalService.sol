@@ -37,8 +37,8 @@ contract SignalService is AuthorizableContract, ISignalService {
     // storageProof represents ABI-encoded tuple of (key, value, and proof)
     // returned from the eth_getProof() API.
     struct Hop {
-        address signalRootRelay;
-        bytes32 signalRoot;
+        address sianglService;
+        bytes32 stateRoot;
         bytes[] storageProof;
     }
 
@@ -104,7 +104,7 @@ contract SignalService is AuthorizableContract, ISignalService {
         }
 
         for (uint256 i; i < p.hops.length; ++i) {
-            if (p.hops[i].signalRoot == 0) return false;
+            if (p.hops[i].stateRoot == 0) return false;
             if (p.hops[i].storageProof.length == 0) return false;
         }
 
@@ -117,36 +117,36 @@ contract SignalService is AuthorizableContract, ISignalService {
             return false;
         }
 
-        bytes32 signalRoot = ICrossChainSync(p.crossChainSync).getSyncedSnippet(p.height).signalRoot;
+        bytes32 stateRoot = ICrossChainSync(p.crossChainSync).getSyncedSnippet(p.height).stateRoot;
 
-        if (signalRoot == 0) return false;
+        if (stateRoot == 0) return false;
 
         for (uint256 i; i < p.hops.length; ++i) {
             Hop memory hop = p.hops[i];
 
-            bytes32 label = authorizedAddresses[hop.signalRootRelay];
+            bytes32 label = authorizedAddresses[hop.sianglService];
             if (label == 0) return false;
             uint64 chainId = uint256(label).toUint64();
 
             bytes32 slot = getSignalSlot(
                 chainId, // use label as chainId
-                hop.signalRootRelay,
-                hop.signalRoot // as a signal
+                hop.sianglService,
+                hop.stateRoot // as a signal
             );
 
             bool verified = SecureMerkleTrie.verifyInclusionProof(
-                bytes.concat(slot), hex"01", hop.storageProof, signalRoot
+                bytes.concat(slot), hex"01", hop.storageProof, stateRoot
             );
             if (!verified) return false;
 
-            signalRoot = hop.signalRoot;
+            stateRoot = hop.stateRoot;
         }
 
         return SecureMerkleTrie.verifyInclusionProof(
             bytes.concat(getSignalSlot(srcChainId, app, signal)),
             hex"01",
             p.storageProof,
-            signalRoot
+            stateRoot
         );
     }
 

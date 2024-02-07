@@ -100,12 +100,12 @@ contract TestSignalService is TaikoTest {
         inclusionProof[0] =
             hex"e3a1209749684f52b5c0717a7ca78127fb56043d637d81763c04e9d30ba4d4746d56e901";
 
-        bytes32 signalRoot = 0xf7916f389ccda56e3831e115238b7389b30750886785a3c21265601572698f0f;
+        bytes32 stateRoot = 0xf7916f389ccda56e3831e115238b7389b30750886785a3c21265601572698f0f;
 
         vm.startPrank(Alice);
         signalService.authorize(address(crossChainSync), bytes32(uint256(block.chainid)));
 
-        crossChainSync.setSyncedData("", signalRoot);
+        crossChainSync.setSyncedData("", stateRoot);
 
         SignalService.Proof memory p;
         SignalService.Hop[] memory h;
@@ -133,7 +133,7 @@ contract TestSignalService is TaikoTest {
         //eth_getProof's result RLP encoded storage proof
         inclusionProof_of_L2A_msgHash[0] =
             hex"e3a1209749684f52b5c0717a7ca78127fb56043d637d81763c04e9d30ba4d4746d56e901";
-        bytes32 signalRoot_of_L2 =
+        bytes32 stateRoot_of_L2 =
             0xf7916f389ccda56e3831e115238b7389b30750886785a3c21265601572698f0f; //eth_getProof
         // result's storage hash
 
@@ -166,13 +166,13 @@ contract TestSignalService is TaikoTest {
 
         // Imagine this scenario: L2A to L2B bridging.
         // The 'hop' proof is the one that proves to L2B, that L1 Signal service
-        // contains the signalRoot (as storage slot / leaf) with value 0x1.
+        // contains the stateRoot (as storage slot / leaf) with value 0x1.
         // The 'normal' proof is the one which proves that the resolving
-        // hop.signalRoot is the one which belongs to L2A, and the proof is
+        // hop.stateRoot is the one which belongs to L2A, and the proof is
         // accordingly.
         SignalService.Hop[] memory h = new SignalService.Hop[](1);
-        h[0].signalRootRelay = app;
-        h[0].signalRoot = signalRoot_of_L2;
+        h[0].signalService = app;
+        h[0].stateRoot = stateRoot_of_L2;
         h[0].storageProof = hop_inclusionProof_from_L1_SignalService;
 
         p.hops = h;

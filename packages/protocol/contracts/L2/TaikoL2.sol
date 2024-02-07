@@ -20,6 +20,7 @@ import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../common/ICrossChainSync.sol";
 import "../signal/ISignalService.sol";
 import "../libs/LibAddress.sol";
+import "../libs/LibBlockHeader.sol";
 import "../libs/LibMath.sol";
 import "./Lib1559Math.sol";
 import "./CrossChainOwned.sol";
@@ -105,7 +106,8 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
     function anchor(
         bytes32 l1BlockHash,
         uint64 l1Height,
-        uint32 parentGasUsed
+        uint32 parentGasUsed,
+        BlockHeader calldata parentBlockHeader
     )
         external
         nonReentrant
@@ -120,6 +122,9 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
         unchecked {
             parentId = block.number - 1;
         }
+
+        // Verify parentBlockHader match the block hash
+        // TODO(daniel)
 
         // Verify ancestor hashes
         (bytes32 publicInputHashOld, bytes32 publicInputHashNew) = _calcPublicInputHash(parentId);
@@ -139,14 +144,15 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
         // Store the L1's block hash as a signal to the local signal service to
         // allow for multi-hop bridging.
         ISignalService(resolve("signal_service", false)).sendSignal(l1BlockHash);
-        emit CrossChainSynced(uint64(block.number), l1Height, l1BlockHash);
+        emit CrossChainSynced(uint64(block.number), l1Height, l1BlockHash, parentBlockHeader.stateRoot);
 
         // Update state variables
         l2Hashes[parentId] = blockhash(parentId);
         snippets[l1Height] = ICrossChainSync.Snippet({
             remoteBlockId: l1Height,
             syncedInBlock: uint64(block.number),
-            blockHash: l1BlockHash
+            blockHash: l1BlockHash,
+            stateRoot: parentBlockHeader.stateRoot
         });
         publicInputHash = publicInputHashNew;
         latestSyncedL1Height = l1Height;
