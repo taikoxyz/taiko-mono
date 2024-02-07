@@ -34,6 +34,7 @@ import "./CrossChainOwned.sol";
 contract TaikoL2 is CrossChainOwned, ICrossChainSync {
     using LibAddress for address;
     using LibMath for uint256;
+    using LibBlockHeader for BlockHeader;
     using SafeERC20 for IERC20;
 
     struct Config {
@@ -125,7 +126,7 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
         }
 
         // Verify parentBlockHader match the block hash
-        if (hashBlockHeader.hashBlockHeader() != blockhash(parentId)) {
+        if (parentBlockHeader.hashBlockHeader() != blockhash(parentId)) {
             revert L1_INVALID_PARENT_HEADER();
         }
 
