@@ -126,6 +126,7 @@ contract SignalService is AuthorizableContract, ISignalService {
 
             bytes32 label = authorizedAddresses[hop.signalService];
             if (label == 0) return false;
+            
             uint64 chainId = uint256(label).toUint64();
 
             bytes32 slot = getSignalSlot(
