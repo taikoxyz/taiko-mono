@@ -38,7 +38,6 @@ contract SignalService is AuthorizableContract, ISignalService {
     // returned from the eth_getProof() API.
     struct Hop {
         address relayerContract;
-        address signalService;
         bytes32 stateRoot;
         bytes[] merkleProof;
     }
