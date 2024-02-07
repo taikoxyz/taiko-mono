@@ -17,16 +17,11 @@ var (
 var WatchdogFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	WatchdogPrivateKey,
 	// optional
-	HeaderSyncInterval,
 	Confirmations,
 	ConfirmationTimeout,
-	ProfitableOnly,
 	BackOffRetryInterval,
 	BackOffMaxRetrys,
 	QueuePrefetchCount,
-	EnableTaikoL2,
 	DestBridgeAddress,
-	TargetTxHash,
-	ProofEncodingType,
 	SrcBridgeAddress,
 })

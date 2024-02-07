@@ -63,7 +63,6 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, uint64(30), c.DatabaseMaxConnLifetime)
 		assert.Equal(t, uint64(10), c.ETHClientTimeout)
 		assert.Equal(t, uint64(100), c.QueuePrefetch)
-		assert.Equal(t, true, c.EnableTaikoL2)
 
 		c.OpenDBFunc = func() (DB, error) {
 			return &mock.DB{}, nil
@@ -102,6 +101,5 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"--" + flags.DatabaseConnMaxLifetime.Name, databaseMaxConnLifetime,
 		"--" + flags.ETHClientTimeout.Name, ethClientTimeout,
 		"--" + flags.QueuePrefetchCount.Name, "100",
-		"--" + flags.EnableTaikoL2.Name,
 	}))
 }
