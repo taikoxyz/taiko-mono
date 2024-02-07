@@ -137,17 +137,17 @@ contract SignalService is AuthorizableContract, ISignalService {
             if (label == 0) revert SS_HOP_RELAYER_UNAUTHORIZED();
 
             uint64 hopChainId = uint256(label).toUint64();
-            verifyInclusionProof(
+            verifyMerkleProof(
                 stateRoot, hopChainId, hop.relayerContract, hop.stateRoot, hop.merkleProof
             );
             stateRoot = hop.stateRoot;
         }
 
-        verifyInclusionProof(stateRoot, srcChainId, app, signal, p.merkleProof);
+        verifyMerkleProof(stateRoot, srcChainId, app, signal, p.merkleProof);
         return true;
     }
 
-    function verifyInclusionProof(
+    function verifyMerkleProof(
         bytes32 stateRoot,
         uint64 srcChainId,
         address srcApp,
