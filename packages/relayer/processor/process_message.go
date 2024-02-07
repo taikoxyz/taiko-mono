@@ -23,6 +23,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/icrosschainsync"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
 )
 
 var (
@@ -482,7 +483,7 @@ func (p *Processor) sendProcessMessageCall(
 		}
 	}
 
-	if err = p.setGasTipOrPrice(ctx, auth); err != nil {
+	if err = utils.SetGasTipOrPrice(ctx, auth, p.destEthClient); err != nil {
 		return nil, errors.Wrap(err, "p.setGasTipOrPrice")
 	}
 
@@ -673,26 +674,6 @@ func (p *Processor) saveMessageStatusChangedEvent(
 			return errors.Wrap(err, "svc.eventRepo.Save")
 		}
 	}
-
-	return nil
-}
-
-func (p *Processor) setGasTipOrPrice(ctx context.Context, auth *bind.TransactOpts) error {
-	gasTipCap, err := p.destEthClient.SuggestGasTipCap(ctx)
-	if err != nil {
-		if IsMaxPriorityFeePerGasNotFoundError(err) {
-			auth.GasTipCap = FallbackGasTipCap
-		} else {
-			gasPrice, err := p.destEthClient.SuggestGasPrice(context.Background())
-			if err != nil {
-				return errors.Wrap(err, "p.destBridge.SuggestGasPrice")
-			}
-
-			auth.GasPrice = gasPrice
-		}
-	}
-
-	auth.GasTipCap = gasTipCap
 
 	return nil
 }

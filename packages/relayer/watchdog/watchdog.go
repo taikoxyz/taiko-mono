@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
-	"strings"
 	"sync"
 	"time"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
 )
 
 type DB interface {
@@ -367,14 +367,22 @@ func (w *Watchdog) sendSuspendMessageTx(
 		return nil, errors.New("p.getLatestNonce")
 	}
 
-	gas, err := w.estimateGas(ctx, event.MsgHash, new(big.Int).SetUint64(event.Message.DestChainId))
+	gas, err := utils.EstimateGas(
+		ctx,
+		w.ecdsaKey,
+		event.MsgHash,
+		new(big.Int).SetUint64(event.Message.DestChainId),
+		func() (*types.Transaction, error) {
+			return w.destBridge.SuspendMessages(auth, [][32]byte{event.MsgHash}, true)
+		})
+
 	if err != nil {
 		return nil, errors.Wrap(err, "w.estimateGas")
 	}
 
 	auth.GasLimit = gas
 
-	if err = w.setGasTipOrPrice(ctx, auth); err != nil {
+	if err = utils.SetGasTipOrPrice(ctx, auth, w.destEthClient); err != nil {
 		return nil, errors.Wrap(err, "w.setGasTipOrPrice")
 	}
 
@@ -387,68 +395,4 @@ func (w *Watchdog) sendSuspendMessageTx(
 	w.setLatestNonce(tx.Nonce())
 
 	return tx, nil
-}
-
-func (w *Watchdog) setGasTipOrPrice(ctx context.Context, auth *bind.TransactOpts) error {
-	gasTipCap, err := w.destEthClient.SuggestGasTipCap(ctx)
-	if err != nil {
-		if IsMaxPriorityFeePerGasNotFoundError(err) {
-			auth.GasTipCap = FallbackGasTipCap
-		} else {
-			gasPrice, err := w.destEthClient.SuggestGasPrice(context.Background())
-			if err != nil {
-				return errors.Wrap(err, "w.destBridge.SuggestGasPrice")
-			}
-			auth.GasPrice = gasPrice
-		}
-	}
-
-	auth.GasTipCap = gasTipCap
-
-	return nil
-}
-
-func (w *Watchdog) estimateGas(
-	ctx context.Context,
-	msgHash [32]byte,
-	destChainID *big.Int,
-) (uint64, error) {
-	auth, err := bind.NewKeyedTransactorWithChainID(w.ecdsaKey, destChainID)
-	if err != nil {
-		return 0, errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
-	}
-
-	auth.NoSend = true
-
-	auth.Context = ctx
-
-	// process the message on the destination bridge.
-	tx, err := w.destBridge.SuspendMessages(auth, [][32]byte{msgHash}, true)
-	if err != nil {
-		return 0, errors.Wrap(err, "p.destBridge.ProcessMessage")
-	}
-
-	slog.Info("estimated gas", "gas", tx.Gas())
-
-	return tx.Gas(), nil
-}
-
-var (
-	//lint:ignore ST1005 allow `errMaxPriorityFeePerGasNotFound` to be capitalized.
-	errMaxPriorityFeePerGasNotFound = errors.New(
-		"Method eth_maxPriorityFeePerGas not found",
-	)
-
-	// FallbackGasTipCap is the default fallback gasTipCap used when we are
-	// unable to query an L1 backend for a suggested gasTipCap.
-	FallbackGasTipCap = big.NewInt(1500000000)
-)
-
-// IsMaxPriorityFeePerGasNotFoundError returns true if the provided error
-// signals that the backend does not support the eth_maxPrirorityFeePerGas
-// method. In this case, the caller should fallback to using the constant above.
-func IsMaxPriorityFeePerGasNotFoundError(err error) bool {
-	return strings.Contains(
-		err.Error(), errMaxPriorityFeePerGasNotFound.Error(),
-	)
 }
