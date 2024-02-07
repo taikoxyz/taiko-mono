@@ -13,7 +13,7 @@ contract TestAuthorizableContract is TaikoL1TestBase {
         super.setUp();
     }
 
-    function test_authorize() public {
+    function test_authorize() external {
         bytes32 bobLabel = keccak256("Bob");
         //logs
         vm.expectEmit(address(ss));
@@ -37,7 +37,7 @@ contract TestAuthorizableContract is TaikoL1TestBase {
         vm.stopPrank();
     }
 
-    function test_authorize_invalid_address() public {
+    function test_authorize_invalid_address() external {
         bytes32 bobLabel = keccak256("Bob");
 
         vm.expectRevert(AuthorizableContract.INVALID_ADDRESS.selector);
@@ -45,7 +45,7 @@ contract TestAuthorizableContract is TaikoL1TestBase {
         ss.authorize(address(0), bobLabel);
     }
 
-    function test_authorize_invalid_label() public {
+    function test_authorize_invalid_label() external {
         bytes32 bobLabel = keccak256("Bob");
 
         //logs
@@ -60,7 +60,7 @@ contract TestAuthorizableContract is TaikoL1TestBase {
         ss.authorize(Bob, bobLabel);
     }
 
-    function test_isAuthorizedAs() public {
+    function test_isAuthorizedAs() external {
         bytes32 bobLabel = keccak256("Bob");
 
         //logs
