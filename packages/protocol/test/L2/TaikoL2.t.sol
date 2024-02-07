@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../TaikoTest.sol";
+import "../../contracts/libs/LibBlockHeader.sol";
 
 contract SkipBasefeeCheckL2 is TaikoL2EIP1559Configurable {
     function skipFeeCheck() public pure override returns (bool) {
@@ -244,14 +245,56 @@ contract TestTaikoL2 is TaikoTest {
 
     function _anchor(uint32 parentGasLimit) private {
         bytes32 l1Hash = randBytes32();
-        bytes32 l1SignalRoot = randBytes32();
-        L2.anchor(l1Hash, l1SignalRoot, 12_345, parentGasLimit);
+
+        bytes32[8] memory _logsBloom;
+
+        BlockHeader memory dummyBh = BlockHeader ({
+            parentHash: randBytes32(),
+            ommersHash: randBytes32(),
+            beneficiary: Bob,
+            stateRoot: randBytes32(),
+            transactionsRoot: randBytes32(),
+            receiptsRoot: randBytes32(),
+            logsBloom: _logsBloom,
+            difficulty:0,
+            height: 2,
+            gasLimit: 1_000_000,
+            gasUsed: 1_000_000,
+            timestamp: uint64(block.timestamp),
+            extraData: "",
+            mixHash: randBytes32(),
+            nonce: 2,
+            baseFeePerGas: 10,
+            withdrawalsRoot: randBytes32()
+        });
+        L2.anchor(l1Hash, 12_345, parentGasLimit, dummyBh);
     }
 
     function _anchorSimulation(uint32 parentGasLimit, uint64 l1Height) private {
         bytes32 l1Hash = randBytes32();
-        bytes32 l1SignalRoot = randBytes32();
-        L2skip.anchor(l1Hash, l1SignalRoot, l1Height, parentGasLimit);
+        bytes32[8] memory _logsBloom;
+
+        BlockHeader memory dummyBh = BlockHeader ({
+            parentHash: randBytes32(),
+            ommersHash: randBytes32(),
+            beneficiary: Bob,
+            stateRoot: randBytes32(),
+            transactionsRoot: randBytes32(),
+            receiptsRoot: randBytes32(),
+            logsBloom: _logsBloom,
+            difficulty:0,
+            height: 2,
+            gasLimit: 1_000_000,
+            gasUsed: 1_000_000,
+            timestamp: uint64(block.timestamp),
+            extraData: "",
+            mixHash: randBytes32(),
+            nonce: 2,
+            baseFeePerGas: 10,
+            withdrawalsRoot: randBytes32()
+        });
+
+        L2skip.anchor(l1Hash, l1Height, parentGasLimit, dummyBh);
     }
 
     // Semi-random number generator
