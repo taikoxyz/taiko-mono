@@ -47,6 +47,17 @@ func (s *Subscription) Err() <-chan error {
 
 func (s *Subscription) Unsubscribe() {}
 
+func (b *Bridge) SuspendMessages(
+	opts *bind.TransactOpts,
+	msgHashes [][32]byte,
+	toSuspend bool,
+) (*types.Transaction, error) {
+	return ProcessMessageTx, nil
+}
+func (b *Bridge) IsMessageSent(opts *bind.CallOpts, message bridge.IBridgeMessage) (bool, error) {
+	return false, nil
+}
+
 func (b *Bridge) GetInvocationDelays(opts *bind.CallOpts) (struct {
 	InvocationDelay      *big.Int
 	InvocationExtraDelay *big.Int

@@ -11,6 +11,7 @@ import (
 )
 
 type Bridge interface {
+	IsMessageSent(opts *bind.CallOpts, message bridge.IBridgeMessage) (bool, error)
 	WatchMessageSent(
 		opts *bind.WatchOpts,
 		sink chan<- *bridge.BridgeMessageSent,
@@ -44,4 +45,5 @@ type Bridge interface {
 		InvocationDelay      *big.Int
 		InvocationExtraDelay *big.Int
 	}, error)
+	SuspendMessages(opts *bind.TransactOpts, msgHashes [][32]byte, toSuspend bool) (*types.Transaction, error)
 }

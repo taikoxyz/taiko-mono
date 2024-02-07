@@ -36,4 +36,5 @@ var WatchdogFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	DestBridgeAddress,
 	TargetTxHash,
 	ProofEncodingType,
+	SrcBridgeAddress,
 })

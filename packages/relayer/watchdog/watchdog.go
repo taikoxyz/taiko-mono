@@ -4,31 +4,27 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"database/sql"
-	"errors"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/cyberhorsey/errors"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/urfave/cli/v2"
 	"gorm.io/gorm"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc1155vault"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc20vault"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc721vault"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/icrosschainsync"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 )
@@ -59,24 +55,16 @@ type Watchdog struct {
 
 	srcEthClient  ethClient
 	destEthClient ethClient
-	srcCaller     relayer.Caller
 
 	ecdsaKey *ecdsa.PrivateKey
 
-	srcSignalService relayer.SignalService
-
-	destBridge       relayer.Bridge
-	destHeaderSyncer relayer.HeaderSyncer
-	destERC20Vault   relayer.TokenVault
-	destERC1155Vault relayer.TokenVault
-	destERC721Vault  relayer.TokenVault
+	srcBridge  relayer.Bridge
+	destBridge relayer.Bridge
 
 	mu *sync.Mutex
 
-	destNonce               uint64
-	watchdogAddr            common.Address
-	srcSignalServiceAddress common.Address
-	destHeaderSyncAddress   common.Address
+	destNonce    uint64
+	watchdogAddr common.Address
 
 	confirmations uint64
 
@@ -92,10 +80,6 @@ type Watchdog struct {
 
 	srcChainId  *big.Int
 	destChainId *big.Int
-
-	taikoL2 *taikol2.TaikoL2
-
-	targetTxHash *common.Hash // optional, set to target processing a specific txHash only
 }
 
 func (w *Watchdog) InitFromCli(ctx context.Context, c *cli.Context) error {
@@ -119,11 +103,6 @@ func InitFromConfig(ctx context.Context, w *Watchdog, cfg *Config) error {
 		return err
 	}
 
-	srcRpcClient, err := rpc.Dial(cfg.SrcRPCUrl)
-	if err != nil {
-		return err
-	}
-
 	srcEthClient, err := ethclient.Dial(cfg.SrcRPCUrl)
 	if err != nil {
 		return err
@@ -134,47 +113,9 @@ func InitFromConfig(ctx context.Context, w *Watchdog, cfg *Config) error {
 		return err
 	}
 
-	srcSignalService, err := signalservice.NewSignalService(
-		cfg.SrcSignalServiceAddress,
-		srcEthClient,
-	)
+	srcBridge, err := bridge.NewBridge(cfg.SrcBridgeAddress, srcEthClient)
 	if err != nil {
 		return err
-	}
-
-	destHeaderSyncer, err := icrosschainsync.NewICrossChainSync(
-		cfg.DestTaikoAddress,
-		destEthClient,
-	)
-	if err != nil {
-		return err
-	}
-
-	destERC20Vault, err := erc20vault.NewERC20Vault(
-		cfg.DestERC20VaultAddress,
-		destEthClient,
-	)
-	if err != nil {
-		return err
-	}
-
-	var destERC721Vault *erc721vault.ERC721Vault
-	if cfg.DestERC721VaultAddress.Hex() != relayer.ZeroAddress.Hex() {
-		destERC721Vault, err = erc721vault.NewERC721Vault(cfg.DestERC721VaultAddress, destEthClient)
-		if err != nil {
-			return err
-		}
-	}
-
-	var destERC1155Vault *erc1155vault.ERC1155Vault
-	if cfg.DestERC1155VaultAddress.Hex() != relayer.ZeroAddress.Hex() {
-		destERC1155Vault, err = erc1155vault.NewERC1155Vault(
-			cfg.DestERC1155VaultAddress,
-			destEthClient,
-		)
-		if err != nil {
-			return err
-		}
 	}
 
 	destBridge, err := bridge.NewBridge(cfg.DestBridgeAddress, destEthClient)
@@ -201,16 +142,6 @@ func InitFromConfig(ctx context.Context, w *Watchdog, cfg *Config) error {
 
 	watchdogAddr := crypto.PubkeyToAddress(*publicKeyECDSA)
 
-	var taikoL2 *taikol2.TaikoL2
-	if cfg.EnableTaikoL2 {
-		taikoL2, err = taikol2.NewTaikoL2(cfg.DestTaikoAddress, destEthClient)
-		if err != nil {
-			return err
-		}
-
-		w.taikoL2 = taikoL2
-	}
-
 	var q queue.Queue
 
 	w.eventRepo = eventRepository
@@ -218,13 +149,8 @@ func InitFromConfig(ctx context.Context, w *Watchdog, cfg *Config) error {
 	w.srcEthClient = srcEthClient
 	w.destEthClient = destEthClient
 
-	w.srcSignalService = srcSignalService
-
 	w.destBridge = destBridge
-	w.destERC1155Vault = destERC1155Vault
-	w.destERC20Vault = destERC20Vault
-	w.destERC721Vault = destERC721Vault
-	w.destHeaderSyncer = destHeaderSyncer
+	w.srcBridge = srcBridge
 
 	w.ecdsaKey = cfg.WatchdogPrivateKey
 	w.watchdogAddr = watchdogAddr
@@ -237,19 +163,13 @@ func InitFromConfig(ctx context.Context, w *Watchdog, cfg *Config) error {
 	w.confTimeoutInSeconds = int64(cfg.ConfirmationsTimeout)
 	w.confirmations = cfg.Confirmations
 
-	w.srcSignalServiceAddress = cfg.SrcSignalServiceAddress
-	w.destHeaderSyncAddress = cfg.DestTaikoAddress
-
 	w.msgCh = make(chan queue.Message)
 	w.wg = &sync.WaitGroup{}
 	w.mu = &sync.Mutex{}
-	w.srcCaller = srcRpcClient
 
 	w.backOffRetryInterval = time.Duration(cfg.BackoffRetryInterval) * time.Second
 	w.backOffMaxRetries = cfg.BackOffMaxRetrys
 	w.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
-
-	w.targetTxHash = cfg.TargetTxHash
 
 	return nil
 }
@@ -327,7 +247,68 @@ func (w *Watchdog) eventLoop(ctx context.Context) {
 	}
 }
 
+// checkMessage checks a MessageReceived event message and makes sure
+// that the message was actually sent on the source chain. If it wasn't,
+// we send a suspend transaction.
 func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
+	msgBody := &queue.QueueMessageReceivedBody{}
+	if err := json.Unmarshal(msg.Body, msgBody); err != nil {
+		return errors.Wrap(err, "json.Unmarshal")
+	}
+
+	// check if the source chain sent this message
+	sent, err := w.srcBridge.IsMessageSent(nil, msgBody.Event.Message)
+	if err != nil {
+		return errors.Wrap(err, "w.srcBridge.IsMessageSent")
+	}
+
+	// if so, do nothing, acknowledge message
+	if sent {
+		slog.Info("source bridge did send this message. returning early",
+			"msgHash", common.BytesToHash(msgBody.Event.MsgHash[:]).Hex(),
+			"sent", sent,
+		)
+
+		return nil
+	}
+
+	// if not, we need to suspend
+
+	var tx *types.Transaction
+
+	sendTx := func() error {
+		if ctx.Err() != nil {
+			return nil
+		}
+
+		tx, err = w.sendSuspendMessageTx(ctx, msgBody.Event)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	if err := backoff.Retry(sendTx, backoff.WithMaxRetries(
+		backoff.NewConstantBackOff(w.backOffRetryInterval),
+		w.backOffMaxRetries),
+	); err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
+
+	defer cancel()
+
+	_, err = relayer.WaitReceipt(ctx, w.destEthClient, tx.Hash())
+	if err != nil {
+		return errors.Wrap(err, "relayer.WaitReceipt")
+	}
+
+	slog.Info("Mined tx", "txHash", hex.EncodeToString(tx.Hash().Bytes()))
+
+	// save to database
+
 	return nil
 }
 
@@ -348,4 +329,109 @@ func (w *Watchdog) getLatestNonce(ctx context.Context, auth *bind.TransactOpts) 
 	auth.Nonce = big.NewInt(int64(w.destNonce))
 
 	return nil
+}
+
+func (w *Watchdog) sendSuspendMessageTx(
+	ctx context.Context,
+	event *bridge.BridgeMessageReceived,
+) (*types.Transaction, error) {
+	auth, err := bind.NewKeyedTransactorWithChainID(w.ecdsaKey, new(big.Int).SetUint64(event.Message.DestChainId))
+	if err != nil {
+		return nil, errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
+	}
+
+	auth.Context = ctx
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	err = w.getLatestNonce(ctx, auth)
+	if err != nil {
+		return nil, errors.New("p.getLatestNonce")
+	}
+
+	gas, err := w.estimateGas(ctx, event.MsgHash, new(big.Int).SetUint64(event.Message.DestChainId))
+	if err != nil {
+		return nil, errors.Wrap(err, "w.estimateGas")
+	}
+
+	auth.GasLimit = gas
+
+	if err = w.setGasTipOrPrice(ctx, auth); err != nil {
+		return nil, errors.Wrap(err, "w.setGasTipOrPrice")
+	}
+
+	// process the message on the destination bridge.
+	tx, err := w.destBridge.SuspendMessages(auth, [][32]byte{event.MsgHash}, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "w.destBridge.ProcessMessage")
+	}
+
+	w.setLatestNonce(tx.Nonce())
+
+	return tx, nil
+}
+
+func (w *Watchdog) setGasTipOrPrice(ctx context.Context, auth *bind.TransactOpts) error {
+	gasTipCap, err := w.destEthClient.SuggestGasTipCap(ctx)
+	if err != nil {
+		if IsMaxPriorityFeePerGasNotFoundError(err) {
+			auth.GasTipCap = FallbackGasTipCap
+		} else {
+			gasPrice, err := w.destEthClient.SuggestGasPrice(context.Background())
+			if err != nil {
+				return errors.Wrap(err, "w.destBridge.SuggestGasPrice")
+			}
+			auth.GasPrice = gasPrice
+		}
+	}
+
+	auth.GasTipCap = gasTipCap
+
+	return nil
+}
+
+func (w *Watchdog) estimateGas(
+	ctx context.Context,
+	msgHash [32]byte,
+	destChainID *big.Int,
+) (uint64, error) {
+	auth, err := bind.NewKeyedTransactorWithChainID(w.ecdsaKey, destChainID)
+	if err != nil {
+		return 0, errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
+	}
+
+	auth.NoSend = true
+
+	auth.Context = ctx
+
+	// process the message on the destination bridge.
+	tx, err := w.destBridge.SuspendMessages(auth, [][32]byte{msgHash}, true)
+	if err != nil {
+		return 0, errors.Wrap(err, "p.destBridge.ProcessMessage")
+	}
+
+	slog.Info("estimated gas", "gas", tx.Gas())
+
+	return tx.Gas(), nil
+}
+
+var (
+	//lint:ignore ST1005 allow `errMaxPriorityFeePerGasNotFound` to be capitalized.
+	errMaxPriorityFeePerGasNotFound = errors.New(
+		"Method eth_maxPriorityFeePerGas not found",
+	)
+
+	// FallbackGasTipCap is the default fallback gasTipCap used when we are
+	// unable to query an L1 backend for a suggested gasTipCap.
+	FallbackGasTipCap = big.NewInt(1500000000)
+)
+
+// IsMaxPriorityFeePerGasNotFoundError returns true if the provided error
+// signals that the backend does not support the eth_maxPrirorityFeePerGas
+// method. In this case, the caller should fallback to using the constant above.
+func IsMaxPriorityFeePerGasNotFoundError(err error) bool {
+	return strings.Contains(
+		err.Error(), errMaxPriorityFeePerGasNotFound.Error(),
+	)
 }

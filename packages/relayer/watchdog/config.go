@@ -18,20 +18,13 @@ import (
 
 type Config struct {
 	// address configs
-	SrcSignalServiceAddress common.Address
-	DestBridgeAddress       common.Address
-	DestERC721VaultAddress  common.Address
-	DestERC20VaultAddress   common.Address
-	DestERC1155VaultAddress common.Address
-	DestTaikoAddress        common.Address
+	SrcBridgeAddress  common.Address
+	DestBridgeAddress common.Address
 
 	// private key
 	WatchdogPrivateKey *ecdsa.PrivateKey
 
-	TargetTxHash *common.Hash
-
 	// processing configs
-	HeaderSyncInterval   uint64
 	Confirmations        uint64
 	ConfirmationsTimeout uint64
 	EnableTaikoL2        bool
@@ -73,12 +66,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 
 	return &Config{
 		WatchdogPrivateKey:      watchdogPrivateKey,
-		SrcSignalServiceAddress: common.HexToAddress(c.String(flags.SrcSignalServiceAddress.Name)),
-		DestTaikoAddress:        common.HexToAddress(c.String(flags.DestTaikoAddress.Name)),
 		DestBridgeAddress:       common.HexToAddress(c.String(flags.DestBridgeAddress.Name)),
-		DestERC721VaultAddress:  common.HexToAddress(c.String(flags.DestERC721VaultAddress.Name)),
-		DestERC20VaultAddress:   common.HexToAddress(c.String(flags.DestERC20VaultAddress.Name)),
-		DestERC1155VaultAddress: common.HexToAddress(c.String(flags.DestERC1155VaultAddress.Name)),
+		SrcBridgeAddress:        common.HexToAddress(c.String(flags.SrcBridgeAddress.Name)),
 		DatabaseUsername:        c.String(flags.DatabaseUsername.Name),
 		DatabasePassword:        c.String(flags.DatabasePassword.Name),
 		DatabaseName:            c.String(flags.DatabaseName.Name),
@@ -93,7 +82,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		QueuePrefetch:           c.Uint64(flags.QueuePrefetchCount.Name),
 		SrcRPCUrl:               c.String(flags.SrcRPCUrl.Name),
 		DestRPCUrl:              c.String(flags.DestRPCUrl.Name),
-		HeaderSyncInterval:      c.Uint64(flags.HeaderSyncInterval.Name),
 		Confirmations:           c.Uint64(flags.Confirmations.Name),
 		ConfirmationsTimeout:    c.Uint64(flags.ConfirmationTimeout.Name),
 		EnableTaikoL2:           c.Bool(flags.EnableTaikoL2.Name),

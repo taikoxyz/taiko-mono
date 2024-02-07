@@ -14,7 +14,7 @@ import (
 var (
 	dummyEcdsaKey           = "8da4ef21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41de8f"
 	destBridgeAddr          = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
-	headerSyncInterval      = "30"
+	srcBridgeAddr           = "0x33FaC9201494f0bd17B9892B9fae4d52fe3BD377"
 	confirmations           = "10"
 	confirmationTimeout     = "30"
 	backoffRetryInterval    = "20"
@@ -53,12 +53,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, "srcRpcUrl", c.SrcRPCUrl)
 		assert.Equal(t, "destRpcUrl", c.DestRPCUrl)
 		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.DestBridgeAddress)
-		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.SrcSignalServiceAddress)
-		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.DestERC20VaultAddress)
-		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.DestERC721VaultAddress)
-		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.DestERC1155VaultAddress)
-		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.DestTaikoAddress)
-		assert.Equal(t, uint64(30), c.HeaderSyncInterval)
+		assert.Equal(t, common.HexToAddress(srcBridgeAddr), c.SrcBridgeAddress)
 		assert.Equal(t, uint64(10), c.Confirmations)
 		assert.Equal(t, uint64(30), c.ConfirmationsTimeout)
 		assert.Equal(t, uint64(20), c.BackoffRetryInterval)
@@ -96,13 +91,8 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"--" + flags.SrcRPCUrl.Name, "srcRpcUrl",
 		"--" + flags.DestRPCUrl.Name, "destRpcUrl",
 		"--" + flags.DestBridgeAddress.Name, destBridgeAddr,
-		"--" + flags.SrcSignalServiceAddress.Name, destBridgeAddr,
-		"--" + flags.DestERC721VaultAddress.Name, destBridgeAddr,
-		"--" + flags.DestERC20VaultAddress.Name, destBridgeAddr,
-		"--" + flags.DestERC1155VaultAddress.Name, destBridgeAddr,
-		"--" + flags.DestTaikoAddress.Name, destBridgeAddr,
+		"--" + flags.SrcBridgeAddress.Name, srcBridgeAddr,
 		"--" + flags.WatchdogPrivateKey.Name, dummyEcdsaKey,
-		"--" + flags.HeaderSyncInterval.Name, headerSyncInterval,
 		"--" + flags.Confirmations.Name, confirmations,
 		"--" + flags.ConfirmationTimeout.Name, confirmationTimeout,
 		"--" + flags.BackOffRetryInterval.Name, backoffRetryInterval,
