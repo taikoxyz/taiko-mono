@@ -55,6 +55,42 @@ library RLPWriter {
         out_[0] = (_in ? bytes1(0x01) : bytes1(0x80));
     }
 
+    /// @notice RLP encodes a hash, we should use this function but not writeBytes32 to
+    /// encode a hash, since writeBytes32 will remove the leading zeros of the
+    /// given bytes.
+    /// @param _in The hash to encode.
+    /// @return The RLP encoded hash in bytes.
+    function writeHash(bytes32 _in) internal pure returns (bytes memory) {
+        return writeBytes(_toBinaryWithLeadingZeros(uint256(_in)));
+    }
+
+    /// @notice Wrapper around uint64
+    /// @param _in The uint64 to encode.
+    /// @return The RLP encoded uint64 in bytes
+    function writeUint64(uint64 _in) internal pure returns (bytes memory) {
+        return writeBytes(_toBinary(_in));
+    }
+
+    /// @notice Encode integer in big endian binary form with leading zeroes.
+    /// @param _x The integer to encode.
+    /// @return RLP encoded bytes.
+    function _toBinaryWithLeadingZeros(uint256 _x)
+        private
+        pure
+        returns (bytes memory)
+    {
+        bytes memory b = abi.encodePacked(_x);
+
+        uint256 i;
+
+        bytes memory res = new bytes(32);
+        for (uint256 j; j < res.length; ++j) {
+            res[j] = b[i++];
+        }
+
+        return res;
+    }
+
     /// @notice Encode the first byte and then the `len` in binary form if `length` is more than 55.
     /// @param _len    The length of the string or the payload.
     /// @param _offset 128 if item is string, 192 if item is list.

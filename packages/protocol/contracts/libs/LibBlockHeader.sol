@@ -43,40 +43,40 @@ library LibBlockHeader {
         pure
         returns (bytes[] memory list)
     {
-        // if (header.withdrawalsRoot != 0) {
-        //     // EIP-4895 transaction
-        //     list = new bytes[](17 + extraCapacity);
-        // } else if (header.baseFeePerGas != 0) {
-        //     // EIP-1559 transaction
-        //     list = new bytes[](16 + extraCapacity);
-        // } else {
-        //     // non-EIP-1559 transaction
-        //     list = new bytes[](15 + extraCapacity);
-        // }
-        // list[0] = RLPWriter.writeUint(uint(header.parentHash));
-        // list[1] = RLPWriter.writeUint(uint(header.ommersHash));
-        // list[2] = RLPWriter.writeAddress(header.beneficiary);
-        // list[3] = RLPWriter.writeUint(uint(header.stateRoot));
-        // list[4] = RLPWriter.writeUint(uint(header.transactionsRoot));
-        // list[5] = RLPWriter.writeUint(uint(header.receiptsRoot));
-        // list[6] = RLPWriter.writeBytes(abi.encodePacked(header.logsBloom));
-        // list[7] = RLPWriter.writeUint(header.difficulty);
-        // list[8] = RLPWriter.writeUint(header.height);
-        // list[9] = RLPWriter.writeUint64(header.gasLimit);
-        // list[10] = RLPWriter.writeUint64(header.gasUsed);
-        // list[11] = RLPWriter.writeUint64(header.timestamp);
-        // list[12] = RLPWriter.writeBytes(header.extraData);
-        // list[13] = RLPWriter.writeUint(uint(header.mixHash));
-        // // According to the ethereum yellow paper, we should treat `nonce`
-        // // as [8]byte when hashing the block.
-        // list[14] = RLPWriter.writeBytes(abi.encodePacked(header.nonce));
-        // if (header.baseFeePerGas != 0) {
-        //     // EIP-1559 transaction
-        //     list[15] = RLPWriter.writeUint(header.baseFeePerGas);
-        // }
-        // if (header.withdrawalsRoot != 0) {
-        //     // EIP-4895 transaction
-        //     list[16] = RLPWriter.writeHash(header.withdrawalsRoot);
-        // }
+        if (header.withdrawalsRoot != 0) {
+            // EIP-4895 transaction
+            list = new bytes[](17 + extraCapacity);
+        } else if (header.baseFeePerGas != 0) {
+            // EIP-1559 transaction
+            list = new bytes[](16 + extraCapacity);
+        } else {
+            // non-EIP-1559 transaction
+            list = new bytes[](15 + extraCapacity);
+        }
+        list[0] = RLPWriter.writeUint(uint(header.parentHash));
+        list[1] = RLPWriter.writeUint(uint(header.ommersHash));
+        list[2] = RLPWriter.writeAddress(header.beneficiary);
+        list[3] = RLPWriter.writeUint(uint(header.stateRoot));
+        list[4] = RLPWriter.writeUint(uint(header.transactionsRoot));
+        list[5] = RLPWriter.writeUint(uint(header.receiptsRoot));
+        list[6] = RLPWriter.writeBytes(abi.encodePacked(header.logsBloom));
+        list[7] = RLPWriter.writeUint(header.difficulty);
+        list[8] = RLPWriter.writeUint(header.height);
+        list[9] = RLPWriter.writeUint64(header.gasLimit);
+        list[10] = RLPWriter.writeUint64(header.gasUsed);
+        list[11] = RLPWriter.writeUint64(header.timestamp);
+        list[12] = RLPWriter.writeBytes(header.extraData);
+        list[13] = RLPWriter.writeUint(uint(header.mixHash));
+        // According to the ethereum yellow paper, we should treat `nonce`
+        // as [8]byte when hashing the block.
+        list[14] = RLPWriter.writeBytes(abi.encodePacked(header.nonce));
+        if (header.baseFeePerGas != 0) {
+            // EIP-1559 transaction
+            list[15] = RLPWriter.writeUint(header.baseFeePerGas);
+        }
+        if (header.withdrawalsRoot != 0) {
+            // EIP-4895 transaction
+            list[16] = RLPWriter.writeHash(header.withdrawalsRoot);
+        }
     }
 }
