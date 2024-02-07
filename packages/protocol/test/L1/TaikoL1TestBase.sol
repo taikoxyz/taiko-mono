@@ -245,12 +245,11 @@ abstract contract TaikoL1TestBase is TaikoTest {
     )
         internal
     {
-        TaikoData.Transition memory tran = TaikoData.Transition({
-            parentHash: parentHash,
-            blockHash: blockHash,
-            signalRoot: signalRoot,
-            graffiti: 0x0
-        });
+        TaikoData.Transition memory tran;
+        tran.parentHash = parentHash;
+        tran.blockHash = blockHash;
+        tran.signalRoot = signalRoot;
+        tran.graffiti = 0x0;
 
         bytes32 instance =
             pv.calcInstance(tran, prover, keccak256(abi.encode(meta)), meta.blobHash, 0);
