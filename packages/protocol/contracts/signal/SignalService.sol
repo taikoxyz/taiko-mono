@@ -131,8 +131,6 @@ contract SignalService is AuthorizableContract, ISignalService {
         // 2. using the verified hop stateRoot to verify that the source app on chainA has sent a
         // signal using its own signal service.
         // We always verify the proofs in the reversed order.
-
-        uint64 upstreamChainId;
         for (uint256 i; i < p.hops.length; ++i) {
             Hop memory hop = p.hops[i];
             if (hop.stateRoot == stateRoot) revert SS_INVALID_HOP_PROOF();
@@ -142,13 +140,8 @@ contract SignalService is AuthorizableContract, ISignalService {
 
             uint64 hopChainId = uint256(label).toUint64();
 
-            // TODO(daniel): bug here, hopChainId shall not be used below, it should be the upper
-            // stream chain id.
-            bytes32 stateRootAsSignal =
-                keccak256(abi.encode("STATE_ROOT", hopChainId, hop.stateRoot));
-
             verifyMerkleProof(
-                stateRoot, hopChainId, hop.relayerContract, stateRootAsSignal, hop.merkleProof
+                stateRoot, hopChainId, hop.relayerContract, hop.stateRoot, hop.merkleProof
             );
             stateRoot = hop.stateRoot;
         }

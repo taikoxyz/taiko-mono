@@ -143,8 +143,7 @@ contract TaikoL2 is CrossChainOwned, ICrossChainSync {
 
         // Store the L1's block hash as a signal to the local signal service to
         // allow for multi-hop bridging.
-        bytes32 stateRootAsSignal = keccak256(abi.encode("STATE_ROOT", ownerChainId, l1StateRoot));
-        ISignalService(resolve("signal_service", false)).sendSignal(stateRootAsSignal);
+        ISignalService(resolve("signal_service", false)).sendSignal(l1StateRoot);
 
         emit CrossChainSynced(uint64(block.number), l1Height, l1BlockHash, l1StateRoot);
 
