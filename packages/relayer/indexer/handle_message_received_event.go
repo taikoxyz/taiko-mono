@@ -14,7 +14,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 )
 
-// handleMessageReceivedEvent handles an individual MessageSent event
+// handleMessageReceivedEvent handles an individual MessageReceived event
 func (i *Indexer) handleMessageReceivedEvent(
 	ctx context.Context,
 	chainID *big.Int,
