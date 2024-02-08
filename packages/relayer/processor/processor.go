@@ -292,7 +292,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	}
 
 	var q queue.Queue
-	if p.targetTxHash != nil {
+	if p.targetTxHash == nil {
 		q, err = cfg.OpenQueueFunc()
 		if err != nil {
 			return err
