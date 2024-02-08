@@ -155,14 +155,14 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         if (ctoken.addr == address(0)) revert VAULT_INVALID_TOKEN();
 
         // Transfer the ETH and tokens back to the owner
-        _transferTokens(ctoken, message.owner, tokenIds, amounts);
+        address releasedToken = _transferTokens(ctoken, message.owner, tokenIds, amounts);
         message.owner.sendEther(message.value);
 
         // Emit TokenReleased event
         emit TokenReleased({
             msgHash: msgHash,
             from: message.owner,
-            token: ctoken.addr,
+            token: releasedToken,
             tokenIds: tokenIds,
             amounts: amounts
         });

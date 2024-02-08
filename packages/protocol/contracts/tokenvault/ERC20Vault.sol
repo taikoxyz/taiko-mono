@@ -255,13 +255,13 @@ contract ERC20Vault is BaseVault {
         if (ctoken.addr == address(0)) revert VAULT_INVALID_TOKEN();
 
         // Transfer the ETH and tokens back to the owner
-        _transferTokens(ctoken, message.owner, amount);
+        address releasedToken = _transferTokens(ctoken, message.owner, amount);
         message.owner.sendEther(message.value);
 
         emit TokenReleased({
             msgHash: msgHash,
             from: message.owner,
-            token: ctoken.addr,
+            token: releasedToken,
             amount: amount
         });
     }

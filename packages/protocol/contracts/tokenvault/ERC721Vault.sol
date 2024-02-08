@@ -141,13 +141,13 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         if (ctoken.addr == address(0)) revert VAULT_INVALID_TOKEN();
 
         // Transfer the ETH and tokens back to the owner
-        _transferTokens(ctoken, message.owner, tokenIds);
+        address releasedToken = _transferTokens(ctoken, message.owner, tokenIds);
         message.owner.sendEther(message.value);
 
         emit TokenReleased({
             msgHash: msgHash,
             from: message.owner,
-            token: ctoken.addr,
+            token: releasedToken,
             tokenIds: tokenIds,
             amounts: new uint256[](0)
         });
