@@ -29,9 +29,42 @@ interface IMultihopGraph {
 
 /// @title MultihopGraph
 contract MultihopGraph is EssentialContract, IMultihopGraph {
-    /// @notice Initializes the rollup.
+    mapping(uint64 => mapping(uint64 => mapping(address => bool))) internal trustedRelayers;
+    uint256[49] private __gap;
+
+    event RelayerTrusted(
+        uint64 indexed srcChainId,
+        uint64 indexed hopChainId,
+        address indexed hopRelayer,
+        bool trusted
+    );
+
+    error MG_INVALID_STATE();
+
     function init() external initializer {
         __Essential_init();
+    }
+
+    function addTrustedRelayer(
+        uint64 srcChainId,
+        uint64 hopChainId,
+        address hopRelayer
+    )
+        external
+        onlyOwner
+    {
+        _setRelayer(srcChainId, hopChainId, hopRelayer, true);
+    }
+
+    function removeTrustedRelayer(
+        uint64 srcChainId,
+        uint64 hopChainId,
+        address hopRelayer
+    )
+        external
+        onlyOwner
+    {
+        _setRelayer(srcChainId, hopChainId, hopRelayer, false);
     }
 
     function isTrustedRelayer(
@@ -42,5 +75,22 @@ contract MultihopGraph is EssentialContract, IMultihopGraph {
         public
         view
         returns (bool)
-    { }
+    {
+        return trustedRelayers[srcChainId][hopChainId][hopRelayer];
+    }
+
+    function _setRelayer(
+        uint64 srcChainId,
+        uint64 hopChainId,
+        address hopRelayer,
+        bool trusted
+    )
+        private
+    {
+        if (trustedRelayers[srcChainId][hopChainId][hopRelayer] == trusted) {
+            revert MG_INVALID_STATE();
+        }
+        trustedRelayers[srcChainId][hopChainId][hopRelayer] = trusted;
+        emit RelayerTrusted(srcChainId, hopChainId, hopRelayer, trusted);
+    }
 }

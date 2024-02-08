@@ -50,6 +50,8 @@ contract SignalService is EssentialContract, ISignalService {
         Hop[] hops;
     }
 
+    uint256[50] private __gap;
+
     error SS_INVALID_PARAMS();
     error SS_INVALID_PROOF();
     error SS_INVALID_APP();
