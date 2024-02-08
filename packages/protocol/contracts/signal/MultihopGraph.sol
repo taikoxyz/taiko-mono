@@ -16,7 +16,7 @@ pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
 
-interface IMultihopGraph {
+interface IMultiHopGraph {
     function isTrustedRelayer(
         uint64 srcChainId,
         uint64 relayerChainId,
@@ -27,8 +27,8 @@ interface IMultihopGraph {
         returns (bool);
 }
 
-/// @title MultihopGraph
-contract MultihopGraph is EssentialContract, IMultihopGraph {
+/// @title MultiHopGraph
+contract MultiHopGraph is EssentialContract, IMultiHopGraph {
     mapping(uint64 => mapping(uint64 => mapping(address => bool))) internal trustedRelayers;
     uint256[49] private __gap;
 
