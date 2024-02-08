@@ -10,8 +10,8 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
     address internal SGX_Z = randAddress();
 
     address KNOWN_ADDRESS = address(0xAAAAAFE838B80D164535CD4d50058E456A4f9E16);
-    uint256 KNOWN_ADDRESS_PRIV_KEY = 0xde9b0c39e60bb0404347b588c6891947db2c873942b553d5d15c03ea30c04c63;
-
+    uint256 KNOWN_ADDRESS_PRIV_KEY =
+        0xde9b0c39e60bb0404347b588c6891947db2c873942b553d5d15c03ea30c04c63;
 
     function deployTaikoL1() internal override returns (TaikoL1) {
         return
@@ -66,9 +66,13 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         instances2[1] = David;
 
         vm.expectEmit(true, true, true, true);
-        emit SgxVerifier.InstanceAdded(startInstance + 2, instances2[0], address(0), block.timestamp);
+        emit SgxVerifier.InstanceAdded(
+            startInstance + 2, instances2[0], address(0), block.timestamp
+        );
         vm.expectEmit(true, true, true, true);
-        emit SgxVerifier.InstanceAdded(startInstance + 3, instances2[1], address(0), block.timestamp);
+        emit SgxVerifier.InstanceAdded(
+            startInstance + 3, instances2[1], address(0), block.timestamp
+        );
 
         // `addInstances()`
         ids = sv.addInstances(instances2);
@@ -117,7 +121,6 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         sv.addInstances(instances);
     }
 
-
     function test_addInstancesByOwner_WithoutOwnerRole() external {
         address[] memory _instances = new address[](3);
         _instances[0] = SGX_X_0;
@@ -163,7 +166,6 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         sv.registerInstance(v3quote);
     }
 
-
     // Test `verifyProof()` happy path
     function test_verifyProof() external {
         uint32 id = uint32(sv.nextInstanceId());
@@ -204,10 +206,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         bytes memory signature = abi.encodePacked(r, s, v);
 
         bytes memory data = abi.encodePacked(id, newInstance, signature);
-        TaikoData.TierProof memory proof = TaikoData.TierProof({
-            tier: 100,
-            data: data
-        });
+        TaikoData.TierProof memory proof = TaikoData.TierProof({ tier: 100, data: data });
 
         vm.warp(block.timestamp + 5);
 
@@ -219,8 +218,8 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
 
         // Verification
         (address instanceAddr, uint64 instanceAddedAt) = sv.instances(id);
-        assertEq(instanceAddr, newInstance, 'Invalid instance address');
-        assertEq(instanceAddedAt, block.timestamp, 'Invalid instance addedAt');
+        assertEq(instanceAddr, newInstance, "Invalid instance address");
+        assertEq(instanceAddedAt, block.timestamp, "Invalid instance addedAt");
 
         vm.stopPrank();
     }
@@ -248,10 +247,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         });
 
         // TierProof
-        TaikoData.TierProof memory proof = TaikoData.TierProof({
-            tier: 0,
-            data: ""
-        });
+        TaikoData.TierProof memory proof = TaikoData.TierProof({ tier: 0, data: "" });
 
         // `verifyProof()`
         sv.verifyProof(ctx, transition, proof);
@@ -285,7 +281,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         TaikoData.TierProof memory proof = TaikoData.TierProof({
             tier: 0,
             data: new bytes(80) // invalid length
-        });
+         });
 
         // `verifyProof()`
         vm.expectRevert(SgxVerifier.SGX_INVALID_PROOF.selector);
@@ -319,13 +315,10 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         address newInstance = address(0x33);
         bytes memory signature = new bytes(65); // invalid length
         bytes memory data = abi.encodePacked(id, newInstance, signature);
-        TaikoData.TierProof memory proof = TaikoData.TierProof({
-            tier: 0,
-            data: data
-        });
+        TaikoData.TierProof memory proof = TaikoData.TierProof({ tier: 0, data: data });
 
         // `verifyProof()`
-        vm.expectRevert('ECDSA: invalid signature');
+        vm.expectRevert("ECDSA: invalid signature");
         sv.verifyProof(ctx, transition, proof);
 
         vm.stopPrank();
@@ -363,10 +356,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         bytes memory signature = abi.encodePacked(r, s, v);
 
         bytes memory data = abi.encodePacked(id, newInstance, signature);
-        TaikoData.TierProof memory proof = TaikoData.TierProof({
-            tier: 0,
-            data: data
-        });
+        TaikoData.TierProof memory proof = TaikoData.TierProof({ tier: 0, data: data });
 
         // `verifyProof()`
         vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
@@ -406,10 +396,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         bytes memory signature = abi.encodePacked(r, s, v);
 
         bytes memory data = abi.encodePacked(id, newInstance, signature);
-        TaikoData.TierProof memory proof = TaikoData.TierProof({
-            tier: 100,
-            data: data
-        });
+        TaikoData.TierProof memory proof = TaikoData.TierProof({ tier: 100, data: data });
 
         // `verifyProof()`
         vm.expectRevert(AddressResolver.RESOLVER_DENIED.selector);
