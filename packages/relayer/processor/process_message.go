@@ -354,6 +354,7 @@ func (p *Processor) sendProcessMessageCall(
 		// or whether the contract is deployed.
 		if err != nil || gas == 0 {
 			slog.Info("gas estimation failed, hardcoding gas limit", "p.estimateGas:", err)
+
 			err = p.hardcodeGasLimit(ctx, auth, event, eventType, canonicalToken)
 			if err != nil {
 				return nil, errors.Wrap(err, "p.hardcodeGasLimit")
