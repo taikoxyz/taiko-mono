@@ -7,7 +7,6 @@
 pragma solidity ^0.8.24;
 
 import {RLPReader} from "../thirdparty/optimism/rlp/RLPReader.sol";
-import {RLPWriter} from "../thirdparty/optimism/rlp/RLPWriter.sol";
 import {SecureMerkleTrie} from "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
 
 /**

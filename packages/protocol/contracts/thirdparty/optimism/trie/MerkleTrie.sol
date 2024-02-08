@@ -76,7 +76,6 @@ library MerkleTrie {
     {
         require(_key.length > 0, "MerkleTrie: empty key");
 
-        // Somehow it canno parse the first proof (aka the root ?) because it says : received an unparseable node
         TrieNode[] memory proof = _parseProof(_proof);
         bytes memory key = Bytes.toNibbles(_key);
         bytes memory currentNodeID = abi.encodePacked(_root);
@@ -208,7 +207,6 @@ library MerkleTrie {
         proof_ = new TrieNode[](length);
         for (uint256 i = 0; i < length;) {
             proof_[i] = TrieNode({ encoded: _proof[i], decoded: RLPReader.readList(_proof[i]) });
-
             unchecked {
                 ++i;
             }
