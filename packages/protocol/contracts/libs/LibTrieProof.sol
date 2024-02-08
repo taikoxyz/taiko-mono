@@ -48,7 +48,6 @@ library LibTrieProof {
             (bytes[], bytes[])
         );
 
-        /// @dev Previous (OP) version we have from the .get() function (taiko-mono/main branch commit hash: 523f95b2077dbe119f406d635a96376c169723b1) had an exists boolen return value, but in this new format we shall check for empty bytes and if something is wrong, it would revert.
         bytes memory rlpAccount = SecureMerkleTrie.get(
             abi.encodePacked(addr),
             accountProof,
