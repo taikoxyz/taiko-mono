@@ -36,8 +36,8 @@ contract MultihopGraph is EssentialContract, IMultihopGraph {
 
     function isTrustedRelayer(
         uint64 srcChainId,
-        uint64 relayerChainId,
-        address relayer
+        uint64 hopChainId,
+        address hopRelayer
     )
         public
         view

@@ -38,13 +38,13 @@ contract SignalService is EssentialContract, ISignalService {
     // merkleProof represents ABI-encoded tuple of (key, value, and proof)
     // returned from the eth_getProof() API.
     struct Hop {
-        address relayerContract;
+        uint64 chainId;
+        address relayer; // TODO: need authorize
         bytes32 stateRoot;
         bytes[] merkleProof;
     }
 
     struct Proof {
-        address crossChainSync;
         uint64 height;
         bytes[] merkleProof;
         Hop[] hops;
@@ -58,7 +58,9 @@ contract SignalService is EssentialContract, ISignalService {
     error SS_INVALID_APP();
     error SS_INVALID_APP_PROOF();
     error SS_INVALID_HOP_PROOF();
+    error SS_INVALID_HOP_RELAYER();
     error SS_INVALID_SIGNAL();
+    error SS_MULTIHOP_DISABLED();
     error SS_UNSUPPORTED();
 
     /// @dev Initializer to be called after being deployed behind a proxy.
@@ -107,48 +109,38 @@ contract SignalService is EssentialContract, ISignalService {
         }
 
         Proof memory p = abi.decode(proof, (Proof));
-        if (p.crossChainSync == address(0) || p.merkleProof.length == 0) {
-            revert SS_INVALID_PROOF_PARAMS();
+        if (!isMultihopEnabled() && p.hops.length > 0) {
+            revert SS_MULTIHOP_DISABLED();
         }
 
-        for (uint256 i; i < p.hops.length; ++i) {
-            if (p.hops[i].stateRoot == 0 || p.hops[i].merkleProof.length == 0) {
-                revert SS_INVALID_PROOF_PARAMS();
-            }
+        uint64 _srcChainId = srcChainId;
+        address _srcApp = app;
+        bytes32 _srcSignal = signal;
+
+        // Verify hop proofs
+        IMultihopGraph graph;
+        if (p.hops.length > 0) {
+            graph = IMultihopGraph(resolve("multihop_graph", false));
         }
-
-        IMultihopGraph graph = IMultihopGraph(resolve("multihop_graph", false));
-        // p.crossChainSync is either a TaikoL1 contract or a TaikoL2 contract
-        // if (!isAuthorizedAs(p.crossChainSync, bytes32(block.chainid))) {
-        //     revert SS_CROSS_CHAIN_SYNC_UNAUTHORIZED(block.chainid);
-        // }
-
-        bytes32 stateRoot = ICrossChainSync(p.crossChainSync).getSyncedSnippet(p.height).stateRoot;
-        if (stateRoot == 0) revert SS_CROSS_CHAIN_SYNC_ZERO_STATE_ROOT();
-
-        // If a signal is sent from chainA -> chainB -> chainC (this chain), we verify the proofs in
-        // the following order:
-        // 1. using chainC's latest stateRoot to verify that chainB's TaikoL1/TaikoL2 contract has
-        // sent a given hop stateRoot on chainB using its own signal service.
-        // 2. using the verified hop stateRoot to verify that the source app on chainA has sent a
-        // signal using its own signal service.
-        // We always verify the proofs in the reversed order.
         for (uint256 i; i < p.hops.length; ++i) {
             Hop memory hop = p.hops[i];
-            if (hop.stateRoot == stateRoot) revert SS_INVALID_HOP_PROOF();
 
-            bytes32 label; // = authorizedAddresses[hop.relayerContract];
-            if (label == 0) revert SS_HOP_RELAYER_UNAUTHORIZED();
+            if (!graph.isTrustedRelayer(_srcChainId, hop.chainId, hop.relayer)) {
+                revert SS_INVALID_HOP_RELAYER();
+            }
 
-            uint64 hopChainId = uint256(label).toUint64();
+            verifyMerkleProof(hop.stateRoot, _srcChainId, _srcApp, _srcSignal, hop.merkleProof);
 
-            verifyMerkleProof(
-                stateRoot, hopChainId, hop.relayerContract, hop.stateRoot, hop.merkleProof
-            );
-            stateRoot = hop.stateRoot;
+            _srcChainId = hop.chainId;
+            _srcApp = hop.relayer;
+            _srcSignal = hop.stateRoot;
         }
 
-        verifyMerkleProof(stateRoot, srcChainId, app, signal, p.merkleProof);
+        ICrossChainSync ccs = ICrossChainSync(resolve("taiko", false));
+        bytes32 stateRoot = ccs.getSyncedSnippet(p.height).stateRoot;
+
+        verifyMerkleProof(stateRoot, _srcChainId, _srcApp, _srcSignal, p.merkleProof);
+
         return true;
     }
 
@@ -163,6 +155,9 @@ contract SignalService is EssentialContract, ISignalService {
         view
         virtual
     {
+        if (stateRoot == 0) revert SS_CROSS_CHAIN_SYNC_ZERO_STATE_ROOT();
+        if (merkleProof.length == 0) revert SS_INVALID_PROOF_PARAMS();
+
         // I do not think this line is needed here.
         //address signalService = resolve(srcChainId, "signal_service", false);
         // TODO: we need to use this signal service
@@ -196,6 +191,10 @@ contract SignalService is EssentialContract, ISignalService {
     /// @notice Tells if we need to check real proof or it is a test.
     /// @return Returns true to skip checking inclusion proofs.
     function skipProofCheck() public pure virtual returns (bool) {
+        return false;
+    }
+
+    function isMultihopEnabled() public pure virtual returns (bool) {
         return false;
     }
 

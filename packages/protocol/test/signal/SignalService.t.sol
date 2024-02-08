@@ -110,7 +110,6 @@ contract TestSignalService is TaikoTest {
 
         SignalService.Proof memory p;
         SignalService.Hop[] memory h;
-        p.crossChainSync = address(crossChainSync);
         p.height = 10;
         p.merkleProof = inclusionProof;
         p.hops = h;
@@ -160,7 +159,6 @@ contract TestSignalService is TaikoTest {
         crossChainSync.setSyncedData("", l1_common_relayer_root);
 
         SignalService.Proof memory p;
-        p.crossChainSync = address(crossChainSync);
         p.height = 10;
         p.merkleProof = inclusionProof_of_L2A_msgHash;
 
@@ -171,7 +169,7 @@ contract TestSignalService is TaikoTest {
         // hop.stateRoot is the one which belongs to L2A, and the proof is
         // accordingly.
         SignalService.Hop[] memory h = new SignalService.Hop[](1);
-        h[0].relayerContract = app;
+        h[0].relayer = app;
         h[0].stateRoot = stateRoot_of_L2;
         h[0].merkleProof = hop_inclusionProof_from_L1_SignalService;
 
