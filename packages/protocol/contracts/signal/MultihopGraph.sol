@@ -39,7 +39,7 @@ contract MultiHopGraph is EssentialContract, IMultiHopGraph {
         bool trusted
     );
 
-    error MG_INVALID_STATE();
+    error MHG_INVALID_STATE();
 
     function init() external initializer {
         __Essential_init();
@@ -88,7 +88,7 @@ contract MultiHopGraph is EssentialContract, IMultiHopGraph {
         private
     {
         if (trustedRelayers[srcChainId][hopChainId][hopRelayer] == trusted) {
-            revert MG_INVALID_STATE();
+            revert MHG_INVALID_STATE();
         }
         trustedRelayers[srcChainId][hopChainId][hopRelayer] = trusted;
         emit RelayerTrusted(srcChainId, hopChainId, hopRelayer, trusted);
