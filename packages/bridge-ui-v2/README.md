@@ -17,6 +17,8 @@ Install all dependencies with
 pnpm install
 ```
 
+okokok
+
 ### Set up environment variables
 
 ```bash
