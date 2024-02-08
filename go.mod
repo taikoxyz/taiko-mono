@@ -167,4 +167,4 @@ require (
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
-replace github.com/ethereum/go-ethereum v1.13.1 => github.com/taikoxyz/taiko-geth v0.0.0-20240207045737-1f775750a248
+replace github.com/ethereum/go-ethereum v1.13.1 => github.com/taikoxyz/taiko-geth v0.0.0-20240208145922-98152a0c9fc8
