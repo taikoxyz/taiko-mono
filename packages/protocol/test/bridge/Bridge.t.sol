@@ -91,7 +91,7 @@ contract BridgeTest is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new SkipProofCheckSignal()),
-                data: abi.encodeCall(SignalService.init, ()),
+                data: abi.encodeCall(SignalService.init, (address(addressManager))),
                 registerTo: address(addressManager),
                 owner: address(0)
             })
@@ -101,7 +101,7 @@ contract BridgeTest is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService()),
-                data: abi.encodeCall(SignalService.init, ())
+                data: abi.encodeCall(SignalService.init, (address(addressManager)))
             })
         );
 

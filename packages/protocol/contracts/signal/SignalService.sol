@@ -62,8 +62,8 @@ contract SignalService is EssentialContract, ISignalService {
     error SS_UNSUPPORTED();
 
     /// @dev Initializer to be called after being deployed behind a proxy.
-    function init() external initializer {
-        __OwnerUUPSUpgradable_init();
+    function init(address _addressManager) external initializer {
+        __Essential_init(_addressManager);
     }
 
     /// @inheritdoc ISignalService

@@ -3,6 +3,12 @@ pragma solidity 0.8.24;
 
 import "../TaikoTest.sol";
 
+
+contract SignalService_MultiHopEnabled is SignalService {
+    function isMultiHopEnabled() public pure override returns (bool) {
+        return true;
+    }
+}
 contract TestSignalService is TaikoTest {
     AddressManager addressManager;
     SignalService relayer;
@@ -28,16 +34,16 @@ contract TestSignalService is TaikoTest {
         relayer = SignalService(
             deployProxy({
                 name: "signal_service",
-                impl: address(new SignalService()),
-                data: abi.encodeCall(SignalService.init, ())
+                impl: address(new SignalService_MultiHopEnabled()),
+                data: abi.encodeCall(SignalService.init, (address(addressManager)))
             })
         );
 
         destSignalService = SignalService(
             deployProxy({
                 name: "signal_service",
-                impl: address(new SignalService()),
-                data: abi.encodeCall(SignalService.init, ())
+                impl: address(new SignalService_MultiHopEnabled()),
+                data: abi.encodeCall(SignalService.init, (address(addressManager)))
             })
         );
 
@@ -102,7 +108,7 @@ contract TestSignalService is TaikoTest {
 
         bytes32 stateRoot = 0xf7916f389ccda56e3831e115238b7389b30750886785a3c21265601572698f0f;
 
-        vm.startPrank(Alice);
+        // vm.startPrank(Alice);
         // TODO(daniel)
         // relayer.authorize(address(crossChainSync), bytes32(uint256(block.chainid)));
 
@@ -118,7 +124,7 @@ contract TestSignalService is TaikoTest {
         assertEq(isSignalReceived, true);
     }
 
-    function test_SignalService_proveSignalReceived_L2_L2() public {
+function test_SignalService_proveSignalReceived_L2_L2() public {
         uint64 chainId = 11_155_111; // Created the proofs on a deployed
             // Sepolia contract, this is why this chainId. This works as a
             // static 'chainId' becuase i imitated 2 contracts (L2A and L1
@@ -148,7 +154,7 @@ contract TestSignalService is TaikoTest {
         // Important to note, we need to have authorized the "relayers'
         // addresses" on the source chain we are claiming.
         // (TaikoL1 or TaikoL2 depending on where we are)
-        vm.startPrank(Alice);
+        // vm.startPrank(Alice);
         // TODO(daniel)
         // relayer.authorize(address(crossChainSync), bytes32(block.chainid));
         // relayer.authorize(address(app), bytes32(uint256(chainId)));
