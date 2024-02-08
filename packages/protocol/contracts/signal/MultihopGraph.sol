@@ -39,6 +39,7 @@ contract MultiHopGraph is EssentialContract, IMultiHopGraph {
         bool trusted
     );
 
+    error MHG_INVALID_PARAMS();
     error MHG_INVALID_STATE();
 
     function init() external initializer {
@@ -87,6 +88,12 @@ contract MultiHopGraph is EssentialContract, IMultiHopGraph {
     )
         private
     {
+        if (
+            srcChainId == 0 || hopChainId == 0 || srcChainId == hopChainId
+                || hopRelayer == address(0)
+        ) {
+            revert MHG_INVALID_PARAMS();
+        }
         if (trustedRelayers[srcChainId][hopChainId][hopRelayer] == trusted) {
             revert MHG_INVALID_STATE();
         }
