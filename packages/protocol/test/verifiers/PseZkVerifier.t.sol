@@ -34,7 +34,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
     }
 
     // Test `verifyProof()` when contesting
-    function test_verifyProof_isContesting() external {
+    function test_verifyProof_isContesting() external view {
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
@@ -112,7 +112,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
     }
 
     // Test `verifyProof()` without blob, happy path
-    function test_verifyProof() external {
+    function test_verifyProof() external view {
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
