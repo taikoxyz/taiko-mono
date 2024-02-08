@@ -32,6 +32,7 @@ import "./TaikoEvents.sol";
 /// layers"). The contract also handles the deposit and withdrawal of Taiko
 /// tokens and Ether.
 /// This contract doesn't hold any Ether. Ether deposited to L2 are held by the Bridge contract.
+/// woow cool
 contract TaikoL1 is
     EssentialContract,
     ITaikoL1,
