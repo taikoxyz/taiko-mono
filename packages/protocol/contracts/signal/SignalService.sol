@@ -162,12 +162,10 @@ contract SignalService is AuthorizableContract, ISignalService {
         view
         virtual
     {
-        // I do not think this line is needed here.
-        //address signalService = resolve(srcChainId, "signal_service", false);
-        // TODO: we need to use this signal service
+        address signalService = resolve(srcChainId, "signal_service", false);
 
         bytes32 slot = getSignalSlot(srcChainId, srcApp, srcSignal);
-        bool verified = LibTrieProof.verifyWithAccountProof(stateRoot, srcApp, slot, hex"01", merkleProof);
+        bool verified = LibTrieProof.verifyWithAccountProof(stateRoot, signalService, slot, hex"01", merkleProof);
 
         if (!verified) revert SS_INVALID_APP_PROOF();
     }
