@@ -20,7 +20,7 @@ import "../common/ICrossChainSync.sol";
 import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
 import "../thirdparty/optimism/rlp/RLPReader.sol";
 import "./ISignalService.sol";
-import "./MultiHopGraph.sol";
+import "./HopRelayRegistry.sol";
 
 /// @title SignalService
 /// @dev Labeled in AddressResolver as "signal_service"
@@ -39,7 +39,7 @@ contract SignalService is EssentialContract, ISignalService {
     // returned from the eth_getProof() API.
     struct Hop {
         uint64 chainId;
-        address relayer;
+        address relay;
         bytes32 stateRoot;
         bytes[] merkleProof;
     }
@@ -116,21 +116,21 @@ contract SignalService is EssentialContract, ISignalService {
         bytes32 _srcSignal = signal;
 
         // Verify hop proofs
-        IMultiHopGraph graph;
+        IHopRelayRegistry hrr;
         if (p.hops.length > 0) {
-            graph = IMultiHopGraph(resolve("multihop_graph", false));
+            hrr = IHopRelayRegistry(resolve("hop_relay_registry", false));
         }
         for (uint256 i; i < p.hops.length; ++i) {
             Hop memory hop = p.hops[i];
 
-            if (!graph.isTrustedRelayer(_srcChainId, hop.chainId, hop.relayer)) {
+            if (!hrr.isRelayRegistered(_srcChainId, hop.chainId, hop.relay)) {
                 revert SS_INVALID_RELAYER();
             }
 
             verifyMerkleProof(hop.stateRoot, _srcChainId, _srcApp, _srcSignal, hop.merkleProof);
 
             _srcChainId = hop.chainId;
-            _srcApp = hop.relayer;
+            _srcApp = hop.relay;
             _srcSignal = hop.stateRoot;
         }
 

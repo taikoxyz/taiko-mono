@@ -43,7 +43,7 @@ contract TestGuardianVerifier is TaikoL1TestBase {
     }
 
     // Tests `verifyProof()` with the wrong prover
-    function test_verifyProof_invalidProver() public  {
+    function test_verifyProof_invalidProver() public {
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32(0),

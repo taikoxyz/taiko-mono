@@ -16,8 +16,8 @@ pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
 
-interface IMultiHopGraph {
-    function isTrustedRelayer(
+interface IHopRelayRegistry {
+    function isRelayRegistered(
         uint64 srcChainId,
         uint64 relayerChainId,
         address relayer
@@ -27,16 +27,16 @@ interface IMultiHopGraph {
         returns (bool);
 }
 
-/// @title MultiHopGraph
-contract MultiHopGraph is EssentialContract, IMultiHopGraph {
-    mapping(uint64 => mapping(uint64 => mapping(address => bool))) internal trustedRelayers;
+/// @title HopRelayRegistry
+contract HopRelayRegistry is EssentialContract, IHopRelayRegistry {
+    mapping(uint64 => mapping(uint64 => mapping(address => bool))) internal registry;
     uint256[49] private __gap;
 
-    event RelayerTrusted(
+    event RelayRegistered(
         uint64 indexed srcChainId,
         uint64 indexed hopChainId,
-        address indexed hopRelayer,
-        bool trusted
+        address indexed hopRelay,
+        bool registered
     );
 
     error MHG_INVALID_PARAMS();
@@ -46,58 +46,58 @@ contract MultiHopGraph is EssentialContract, IMultiHopGraph {
         __Essential_init();
     }
 
-    function addTrustedRelayer(
+    function registerRelay(
         uint64 srcChainId,
         uint64 hopChainId,
-        address hopRelayer
+        address hopRelay
     )
         external
         onlyOwner
     {
-        _setRelayer(srcChainId, hopChainId, hopRelayer, true);
+        _registerRelay(srcChainId, hopChainId, hopRelay, true);
     }
 
-    function removeTrustedRelayer(
+    function deregisterRelay(
         uint64 srcChainId,
         uint64 hopChainId,
-        address hopRelayer
+        address hopRelay
     )
         external
         onlyOwner
     {
-        _setRelayer(srcChainId, hopChainId, hopRelayer, false);
+        _registerRelay(srcChainId, hopChainId, hopRelay, false);
     }
 
-    function isTrustedRelayer(
+    function isRelayRegistered(
         uint64 srcChainId,
         uint64 hopChainId,
-        address hopRelayer
+        address hopRelay
     )
         public
         view
         returns (bool)
     {
-        return trustedRelayers[srcChainId][hopChainId][hopRelayer];
+        return registry[srcChainId][hopChainId][hopRelay];
     }
 
-    function _setRelayer(
+    function _registerRelay(
         uint64 srcChainId,
         uint64 hopChainId,
-        address hopRelayer,
-        bool trusted
+        address hopRelay,
+        bool registered
     )
         private
     {
         if (
             srcChainId == 0 || hopChainId == 0 || srcChainId == hopChainId
-                || hopRelayer == address(0)
+                || hopRelay == address(0)
         ) {
             revert MHG_INVALID_PARAMS();
         }
-        if (trustedRelayers[srcChainId][hopChainId][hopRelayer] == trusted) {
+        if (registry[srcChainId][hopChainId][hopRelay] == registered) {
             revert MHG_INVALID_STATE();
         }
-        trustedRelayers[srcChainId][hopChainId][hopRelayer] = trusted;
-        emit RelayerTrusted(srcChainId, hopChainId, hopRelayer, trusted);
+        registry[srcChainId][hopChainId][hopRelay] = registered;
+        emit RelayRegistered(srcChainId, hopChainId, hopRelay, registered);
     }
 }

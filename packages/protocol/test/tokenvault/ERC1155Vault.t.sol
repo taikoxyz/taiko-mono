@@ -170,7 +170,7 @@ contract ERC1155VaultTest is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new SkipProofCheckSignal()),
-                data: abi.encodeCall(SignalService.init,(address(addressManager)))
+                data: abi.encodeCall(SignalService.init, (address(addressManager)))
             })
         );
 
