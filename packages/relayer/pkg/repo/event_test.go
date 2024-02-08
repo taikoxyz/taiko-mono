@@ -193,6 +193,7 @@ func TestIntegration_Event_UpdateStatus(t *testing.T) {
 				)
 				assert.Equal(t, nil, err)
 			}
+
 			err := eventRepo.UpdateStatus(context.Background(), tt.id, tt.status)
 
 			assert.Equal(t, tt.wantErr, err != nil)

@@ -569,6 +569,7 @@ func (p *Processor) setGasTipOrPrice(ctx context.Context, auth *bind.TransactOpt
 			if err != nil {
 				return errors.Wrap(err, "p.destBridge.SuggestGasPrice")
 			}
+
 			auth.GasPrice = gasPrice
 		}
 	}
