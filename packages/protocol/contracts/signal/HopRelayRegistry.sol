@@ -89,8 +89,7 @@ contract HopRelayRegistry is EssentialContract, IHopRelayRegistry {
         private
     {
         if (
-            srcChainId == 0 || hopChainId == 0 || srcChainId == hopChainId
-                || hopRelay == address(0)
+            srcChainId == 0 || hopChainId == 0 || srcChainId == hopChainId || hopRelay == address(0)
         ) {
             revert MHG_INVALID_PARAMS();
         }

@@ -100,7 +100,7 @@ contract SignalService is EssentialContract, ISignalService {
         virtual
         returns (bool)
     {
-        if (skipProofCheck()) return true;
+        if (_skipEntireProofCheck()) return true;
 
         if (app == address(0) || signal == 0 || srcChainId == 0 || srcChainId == block.chainid) {
             revert SS_INVALID_PARAMS();
@@ -161,6 +161,9 @@ contract SignalService is EssentialContract, ISignalService {
         // TODO: we need to use this signal service
 
         bytes32 slot = getSignalSlot(srcChainId, srcApp, srcSignal);
+
+        if (_skipMerkleProofCheck()) return;
+
         bool verified = SecureMerkleTrie.verifyInclusionProof(
             bytes.concat(slot), hex"01", merkleProof, stateRoot
         );
@@ -186,17 +189,25 @@ contract SignalService is EssentialContract, ISignalService {
         return keccak256(abi.encodePacked("SIGNAL", chainId, app, signal));
     }
 
-    /// @notice Checks if we need to check real proof or it is a test.
-    /// @return Returns true to skip checking inclusion proofs.
-    function skipProofCheck() public pure virtual returns (bool) {
-        return false;
-    }
-
-    /// @notice Checks if multi-hop is enabled.
+  /// @notice Checks if multi-hop is enabled.
     /// @return Returns true if multi-hop bridging is enabled.
     function isMultiHopEnabled() public pure virtual returns (bool) {
         return false;
     }
+
+    /// @notice Checks if we need to check real proof or it is a test.
+    /// @return Returns true to skip checking inclusion proofs.
+    function _skipEntireProofCheck() internal pure virtual returns (bool) {
+        return false;
+    }
+
+    /// @notice Checks if we need to check each merkle proof or it is a test.
+    /// @return Returns true to skip checking inclusion proofs.
+    function _skipMerkleProofCheck() internal pure virtual returns (bool) {
+        return false;
+    }
+
+  
 
     function _authorizePause(address) internal pure override {
         revert SS_UNSUPPORTED();

@@ -37,7 +37,7 @@ contract NonNftContract {
 }
 
 contract SkipProofCheckSignal is SignalService {
-    function skipProofCheck() public pure override returns (bool) {
+    function _skipEntireProofCheck() internal pure override returns (bool) {
         return true;
     }
 }

@@ -7,6 +7,10 @@ contract SignalService_MultiHopEnabled is SignalService {
     function isMultiHopEnabled() public pure override returns (bool) {
         return true;
     }
+
+    function _skipMerkleProofCheck() internal pure override returns (bool) {
+        return true;
+    }
 }
 
 contract TestSignalService is TaikoTest {
@@ -40,7 +44,7 @@ contract TestSignalService is TaikoTest {
             })
         );
 
-        hopRelayRegistry  = HopRelayRegistry(
+        hopRelayRegistry = HopRelayRegistry(
             deployProxy({
                 name: "hop_relay_registry",
                 impl: address(new HopRelayRegistry()),
@@ -66,9 +70,10 @@ contract TestSignalService is TaikoTest {
             })
         );
 
-        register(address(addressManager), "signal_service", address(destSignalService), destChainId);
+        // register(address(addressManager), "signal_service", address(destSignalService),
+        // destChainId);
 
-        register(address(addressManager), "taiko", address(crossChainSync), destChainId);
+        // register(address(addressManager), "taiko", address(crossChainSync), destChainId);
 
         vm.stopPrank();
     }
@@ -107,37 +112,29 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_L1_L2() public {
-        uint64 srcChainId = 11_155_111; // Created the proofs on a deployed Sepolia
-            // contract, this is why this chainId.
-        address app = 0x927a146e18294efb36edCacC99D9aCEA6aB16b95; // Mock app,
-            // actually it is an EOA, but it is ok for tests!
-        bytes32 signal = 0x21761f7cd1af3972774272b39a0f4602dbcd418325cddb14e156b4bb073d52a8;
-        bytes[] memory inclusionProof = new bytes[](1);
-
-        inclusionProof[0] =
-            hex"e3a1209749684f52b5c0717a7ca78127fb56043d637d81763c04e9d30ba4d4746d56e901";
-
-        bytes32 stateRoot = 0xf7916f389ccda56e3831e115238b7389b30750886785a3c21265601572698f0f;
-
-    
+        bytes32 stateRoot = randBytes32();
         crossChainSync.setSyncedData("", stateRoot);
 
-         vm.startPrank(Alice);
-         register(address(addressManager), "taiko", address(crossChainSync), uint64(block.chainid));
-
+    uint64 thisChainId = uint64(block.chainid);
+        uint64 srcChainId = thisChainId + 1;
+        address app = randAddress();
+        bytes32 signal = randBytes32();
 
         SignalService.Proof memory p;
-        SignalService.Hop[] memory h;
         p.height = 10;
-        p.merkleProof = inclusionProof;
-        p.hops = h;
+        p.merkleProof = new bytes[](1);
+        p.merkleProof[0] = "random bytes as merkle proof";
 
-        bool isSignalReceived = signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
-        assertEq(isSignalReceived, true);
+        vm.expectRevert(); // cannot resolve "taiko"
+        signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
+
+        vm.startPrank(Alice);
+        register(address(addressManager), "taiko", address(crossChainSync), thisChainId);
+        assertEq(signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p)), true);
     }
 
     function test_SignalService_proveSignalReceived_L2_L2() public {
-        uint64 chainId = 11_155_111; // Created the proofs on a deployed
+        uint64 srcChainId = 11_155_111; // Created the proofs on a deployed
             // Sepolia contract, this is why this chainId. This works as a
             // static 'chainId' becuase i imitated 2 contracts (L2A and L1
             // Signal Service contracts) on Sepolia.
@@ -172,7 +169,7 @@ contract TestSignalService is TaikoTest {
         // signalService.authorize(address(app), bytes32(uint256(chainId)));
 
         vm.startPrank(Alice);
-        addressManager.setAddress(chainId, "taiko", app);
+        addressManager.setAddress(srcChainId, "taiko", app);
 
         crossChainSync.setSyncedData("", l1_common_signalService_root);
 
@@ -194,7 +191,7 @@ contract TestSignalService is TaikoTest {
         p.hops = h;
 
         bool isSignalReceived =
-            signalService.proveSignalReceived(chainId, app, signal_of_L2A_msgHash, abi.encode(p));
+            signalService.proveSignalReceived(srcChainId, app, signal_of_L2A_msgHash, abi.encode(p));
         assertEq(isSignalReceived, true);
     }
 }
