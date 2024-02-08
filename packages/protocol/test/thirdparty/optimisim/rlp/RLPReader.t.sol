@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
 import "../../../TaikoTest.sol";
@@ -39,13 +39,17 @@ contract TestRLPReader is TaikoTest {
 
     function test_readList_invalidLength() external {
         bytes memory encodedList = hex"e1a00000000000000000000000000000000000000000000000000001";
-        vm.expectRevert("RLPReader: length of content must be greater than list length (short list)");
+        vm.expectRevert(
+            "RLPReader: length of content must be greater than list length (short list)"
+        );
         RLPReader.readList(encodedList);
     }
 
     function test_readList_empty() external {
         bytes memory empty = hex"";
-        vm.expectRevert("RLPReader: length of an RLP item must be greater than zero to be decodable");
+        vm.expectRevert(
+            "RLPReader: length of an RLP item must be greater than zero to be decodable"
+        );
         RLPReader.readList(empty);
     }
 
@@ -69,11 +73,14 @@ contract TestRLPReader is TaikoTest {
     }
 
     function test_readBytes_correctSixtyFourBytes() external {
-        bytes memory encodedBytes = hex"b8400123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        bytes memory encodedBytes =
+            hex"b8400123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
         bytes memory decodedBytes = RLPReader.readBytes(encodedBytes);
         assertEq(decodedBytes.length, 64);
-        assertEq(decodedBytes, hex"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
-
+        assertEq(
+            decodedBytes,
+            hex"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+        );
     }
 
     function test_readBytes_null() external {
@@ -83,7 +90,9 @@ contract TestRLPReader is TaikoTest {
 
     function test_readBytes_empty() external {
         bytes memory empty = hex"";
-        vm.expectRevert("RLPReader: length of an RLP item must be greater than zero to be decodable");
+        vm.expectRevert(
+            "RLPReader: length of an RLP item must be greater than zero to be decodable"
+        );
         RLPReader.readBytes(empty);
     }
 
@@ -99,13 +108,16 @@ contract TestRLPReader is TaikoTest {
     }
 
     function test_readRawBytes_longBytes() external {
-        bytes memory encodedBytes = hex"b8400123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        bytes memory encodedBytes =
+            hex"b8400123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
         assertEq(RLPReader.readRawBytes(RLPReader.toRLPItem(encodedBytes)), encodedBytes);
     }
 
     function test_readRawBytes_empty() external {
         bytes memory encodedBytes = hex"";
-        vm.expectRevert("RLPReader: length of an RLP item must be greater than zero to be decodable");
+        vm.expectRevert(
+            "RLPReader: length of an RLP item must be greater than zero to be decodable"
+        );
         RLPReader.readRawBytes(RLPReader.toRLPItem(encodedBytes));
     }
 
@@ -113,5 +125,4 @@ contract TestRLPReader is TaikoTest {
         bytes memory encodedBytes = hex"80";
         assertEq(RLPReader.readRawBytes(RLPReader.toRLPItem(encodedBytes)), encodedBytes);
     }
-
 }

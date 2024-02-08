@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
 import "../L1/TaikoL1TestBase.sol";
 import "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
-import {IVerifier} from "../../contracts/verifiers/IVerifier.sol";
-import {TaikoData} from "../../contracts/L1/TaikoData.sol";
-import {MockPlonkVerifier} from "../mocks/MockPlonkVerifier.sol";
+import { IVerifier } from "../../contracts/verifiers/IVerifier.sol";
+import { TaikoData } from "../../contracts/L1/TaikoData.sol";
+import { MockPlonkVerifier } from "../mocks/MockPlonkVerifier.sol";
 
 /// @author Kirk Baird <kirk@sigmaprime.io>
 contract TestPseZkVerifier is TaikoL1TestBase {
@@ -22,16 +22,14 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         super.setUp();
 
         // Create a mock PLONK Verifier
-        mockPlonkVerifierId = 12345;
+        mockPlonkVerifierId = 12_345;
         mockPlonkVerifier = address(new MockPlonkVerifier());
 
         // Add the mock PLONK verifier to the address resolver
         bytes32 verifierName = pv.getVerifierName(mockPlonkVerifierId);
 
         addressManager.setAddress(
-            uint64(block.chainid),
-            bytes32(verifierName),
-            address(mockPlonkVerifier)
+            uint64(block.chainid), bytes32(verifierName), address(mockPlonkVerifier)
         );
     }
 
@@ -56,10 +54,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         });
 
         // TierProof
-        TaikoData.TierProof memory proof = TaikoData.TierProof({
-            tier: 0,
-            data: ""
-        });
+        TaikoData.TierProof memory proof = TaikoData.TierProof({ tier: 0, data: "" });
 
         // `verifyProof()`
         pv.verifyProof(ctx, transition, proof);
@@ -94,8 +89,12 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             pointProof: point
         });
 
-        bytes32 instance = pv.calcInstance(transition, ctx.prover, ctx.metaHash, pointProof.txListHash, pointProof.pointValue);
-        bytes memory instanceWords = abi.encodePacked(bytes16(0), bytes16(instance), bytes16(0), bytes16(uint128(uint256(instance))));
+        bytes32 instance = pv.calcInstance(
+            transition, ctx.prover, ctx.metaHash, pointProof.txListHash, pointProof.pointValue
+        );
+        bytes memory instanceWords = abi.encodePacked(
+            bytes16(0), bytes16(instance), bytes16(0), bytes16(uint128(uint256(instance)))
+        );
         bytes memory zkp = abi.encodePacked(instanceWords, abi.encode(keccak256("taiko")));
 
         PseZkVerifier.ZkEvmProof memory zkProof = PseZkVerifier.ZkEvmProof({
@@ -104,10 +103,8 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             pointProof: abi.encode(pointProof)
         });
 
-        TaikoData.TierProof memory proof = TaikoData.TierProof({
-            tier: 0,
-            data: abi.encode(zkProof)
-        });
+        TaikoData.TierProof memory proof =
+            TaikoData.TierProof({ tier: 0, data: abi.encode(zkProof) });
 
         // `verifyProof()`
         vm.expectRevert(Lib4844.EVAL_FAILED_2.selector);
@@ -136,19 +133,16 @@ contract TestPseZkVerifier is TaikoL1TestBase {
 
         // TierProof
         bytes32 instance = pv.calcInstance(transition, ctx.prover, ctx.metaHash, ctx.blobHash, 0);
-        bytes memory instanceWords = abi.encodePacked(bytes16(0), bytes16(instance), bytes16(0), bytes16(uint128(uint256(instance))));
+        bytes memory instanceWords = abi.encodePacked(
+            bytes16(0), bytes16(instance), bytes16(0), bytes16(uint128(uint256(instance)))
+        );
         bytes memory zkp = abi.encodePacked(instanceWords, abi.encode(keccak256("taiko")));
 
-        PseZkVerifier.ZkEvmProof memory zkProof = PseZkVerifier.ZkEvmProof({
-            verifierId: mockPlonkVerifierId,
-            zkp: zkp,
-            pointProof: ""
-        });
+        PseZkVerifier.ZkEvmProof memory zkProof =
+            PseZkVerifier.ZkEvmProof({ verifierId: mockPlonkVerifierId, zkp: zkp, pointProof: "" });
 
-        TaikoData.TierProof memory proof = TaikoData.TierProof({
-            tier: 0,
-            data: abi.encode(zkProof)
-        });
+        TaikoData.TierProof memory proof =
+            TaikoData.TierProof({ tier: 0, data: abi.encode(zkProof) });
 
         // `verifyProof()`
         pv.verifyProof(ctx, transition, proof);
@@ -175,10 +169,8 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         });
 
         // TierProof
-        TaikoData.TierProof memory proof = TaikoData.TierProof({
-            tier: 0,
-            data: abi.encode(uint256(0))
-        });
+        TaikoData.TierProof memory proof =
+            TaikoData.TierProof({ tier: 0, data: abi.encode(uint256(0)) });
 
         // `verifyProof()`
         vm.expectRevert();
@@ -207,19 +199,16 @@ contract TestPseZkVerifier is TaikoL1TestBase {
 
         // TierProof
         bytes32 instance = pv.calcInstance(transition, ctx.prover, ctx.metaHash, ctx.blobHash, 0);
-        bytes memory instanceWords = abi.encodePacked(bytes16(0), bytes16(0), bytes16(0), bytes16(uint128(uint256(instance))));
+        bytes memory instanceWords = abi.encodePacked(
+            bytes16(0), bytes16(0), bytes16(0), bytes16(uint128(uint256(instance)))
+        );
         bytes memory zkp = abi.encodePacked(instanceWords, abi.encode(keccak256("taiko")));
 
-        PseZkVerifier.ZkEvmProof memory zkProof = PseZkVerifier.ZkEvmProof({
-            verifierId: mockPlonkVerifierId,
-            zkp: zkp,
-            pointProof: ""
-        });
+        PseZkVerifier.ZkEvmProof memory zkProof =
+            PseZkVerifier.ZkEvmProof({ verifierId: mockPlonkVerifierId, zkp: zkp, pointProof: "" });
 
-        TaikoData.TierProof memory proof = TaikoData.TierProof({
-            tier: 0,
-            data: abi.encode(zkProof)
-        });
+        TaikoData.TierProof memory proof =
+            TaikoData.TierProof({ tier: 0, data: abi.encode(zkProof) });
 
         // `verifyProof()`
         vm.expectRevert(PseZkVerifier.L1_INVALID_PROOF.selector);
@@ -248,19 +237,15 @@ contract TestPseZkVerifier is TaikoL1TestBase {
 
         // TierProof
         bytes32 instance = pv.calcInstance(transition, ctx.prover, ctx.metaHash, ctx.blobHash, 0);
-        bytes memory instanceWords = abi.encodePacked(bytes16(0), bytes16(0), bytes16(instance), bytes16(0));
+        bytes memory instanceWords =
+            abi.encodePacked(bytes16(0), bytes16(0), bytes16(instance), bytes16(0));
         bytes memory zkp = abi.encodePacked(instanceWords, abi.encode(keccak256("taiko")));
 
-        PseZkVerifier.ZkEvmProof memory zkProof = PseZkVerifier.ZkEvmProof({
-            verifierId: mockPlonkVerifierId,
-            zkp: zkp,
-            pointProof: ""
-        });
+        PseZkVerifier.ZkEvmProof memory zkProof =
+            PseZkVerifier.ZkEvmProof({ verifierId: mockPlonkVerifierId, zkp: zkp, pointProof: "" });
 
-        TaikoData.TierProof memory proof = TaikoData.TierProof({
-            tier: 0,
-            data: abi.encode(zkProof)
-        });
+        TaikoData.TierProof memory proof =
+            TaikoData.TierProof({ tier: 0, data: abi.encode(zkProof) });
 
         // `verifyProof()`
         vm.expectRevert(PseZkVerifier.L1_INVALID_PROOF.selector);
@@ -290,16 +275,11 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         // TierProof
         bytes memory zkp = abi.encodePacked("invalid");
 
-        PseZkVerifier.ZkEvmProof memory zkProof = PseZkVerifier.ZkEvmProof({
-            verifierId: mockPlonkVerifierId,
-            zkp: zkp,
-            pointProof: ""
-        });
+        PseZkVerifier.ZkEvmProof memory zkProof =
+            PseZkVerifier.ZkEvmProof({ verifierId: mockPlonkVerifierId, zkp: zkp, pointProof: "" });
 
-        TaikoData.TierProof memory proof = TaikoData.TierProof({
-            tier: 0,
-            data: abi.encode(zkProof)
-        });
+        TaikoData.TierProof memory proof =
+            TaikoData.TierProof({ tier: 0, data: abi.encode(zkProof) });
 
         // `verifyProof()`
         vm.expectRevert("slice_outOfBounds");
@@ -328,7 +308,9 @@ contract TestPseZkVerifier is TaikoL1TestBase {
 
         // TierProof
         bytes32 instance = pv.calcInstance(transition, ctx.prover, ctx.metaHash, ctx.blobHash, 0);
-        bytes memory instanceWords = abi.encodePacked(bytes16(0), bytes16(instance), bytes16(0), bytes16(uint128(uint256(instance))));
+        bytes memory instanceWords = abi.encodePacked(
+            bytes16(0), bytes16(instance), bytes16(0), bytes16(uint128(uint256(instance)))
+        );
         bytes memory zkp = abi.encodePacked(instanceWords, abi.encode(keccak256("taiko")));
 
         PseZkVerifier.ZkEvmProof memory zkProof = PseZkVerifier.ZkEvmProof({
@@ -337,10 +319,8 @@ contract TestPseZkVerifier is TaikoL1TestBase {
             pointProof: ""
         });
 
-        TaikoData.TierProof memory proof = TaikoData.TierProof({
-            tier: 0,
-            data: abi.encode(zkProof)
-        });
+        TaikoData.TierProof memory proof =
+            TaikoData.TierProof({ tier: 0, data: abi.encode(zkProof) });
 
         // `verifyProof()`
         vm.expectRevert();
@@ -369,19 +349,16 @@ contract TestPseZkVerifier is TaikoL1TestBase {
 
         // TierProof
         bytes32 instance = pv.calcInstance(transition, ctx.prover, ctx.metaHash, ctx.blobHash, 0);
-        bytes memory instanceWords = abi.encodePacked(bytes16(0), bytes16(instance), bytes16(0), bytes16(uint128(uint256(instance))));
+        bytes memory instanceWords = abi.encodePacked(
+            bytes16(0), bytes16(instance), bytes16(0), bytes16(uint128(uint256(instance)))
+        );
         bytes memory zkp = abi.encodePacked(instanceWords, abi.encode(keccak256("taiko")));
 
-        PseZkVerifier.ZkEvmProof memory zkProof = PseZkVerifier.ZkEvmProof({
-            verifierId: mockPlonkVerifierId,
-            zkp: zkp,
-            pointProof: ""
-        });
+        PseZkVerifier.ZkEvmProof memory zkProof =
+            PseZkVerifier.ZkEvmProof({ verifierId: mockPlonkVerifierId, zkp: zkp, pointProof: "" });
 
-        TaikoData.TierProof memory proof = TaikoData.TierProof({
-            tier: 0,
-            data: abi.encode(zkProof)
-        });
+        TaikoData.TierProof memory proof =
+            TaikoData.TierProof({ tier: 0, data: abi.encode(zkProof) });
 
         // Tell verifier to revert
         MockPlonkVerifier(mockPlonkVerifier).setShouldRevert(true);
@@ -413,19 +390,16 @@ contract TestPseZkVerifier is TaikoL1TestBase {
 
         // TierProof
         bytes32 instance = pv.calcInstance(transition, ctx.prover, ctx.metaHash, ctx.blobHash, 0);
-        bytes memory instanceWords = abi.encodePacked(bytes16(0), bytes16(instance), bytes16(0), bytes16(uint128(uint256(instance))));
+        bytes memory instanceWords = abi.encodePacked(
+            bytes16(0), bytes16(instance), bytes16(0), bytes16(uint128(uint256(instance)))
+        );
         bytes memory zkp = abi.encodePacked(instanceWords, "Hi");
 
-        PseZkVerifier.ZkEvmProof memory zkProof = PseZkVerifier.ZkEvmProof({
-            verifierId: mockPlonkVerifierId,
-            zkp: zkp,
-            pointProof: ""
-        });
+        PseZkVerifier.ZkEvmProof memory zkProof =
+            PseZkVerifier.ZkEvmProof({ verifierId: mockPlonkVerifierId, zkp: zkp, pointProof: "" });
 
-        TaikoData.TierProof memory proof = TaikoData.TierProof({
-            tier: 0,
-            data: abi.encode(zkProof)
-        });
+        TaikoData.TierProof memory proof =
+            TaikoData.TierProof({ tier: 0, data: abi.encode(zkProof) });
 
         // `verifyProof()`
         vm.expectRevert(PseZkVerifier.L1_INVALID_PROOF.selector);
@@ -454,19 +428,16 @@ contract TestPseZkVerifier is TaikoL1TestBase {
 
         // TierProof
         bytes32 instance = pv.calcInstance(transition, ctx.prover, ctx.metaHash, ctx.blobHash, 0);
-        bytes memory instanceWords = abi.encodePacked(bytes16(0), bytes16(instance), bytes16(0), bytes16(uint128(uint256(instance))));
+        bytes memory instanceWords = abi.encodePacked(
+            bytes16(0), bytes16(instance), bytes16(0), bytes16(uint128(uint256(instance)))
+        );
         bytes memory zkp = abi.encodePacked(instanceWords, bytes32("Hi"));
 
-        PseZkVerifier.ZkEvmProof memory zkProof = PseZkVerifier.ZkEvmProof({
-            verifierId: mockPlonkVerifierId,
-            zkp: zkp,
-            pointProof: ""
-        });
+        PseZkVerifier.ZkEvmProof memory zkProof =
+            PseZkVerifier.ZkEvmProof({ verifierId: mockPlonkVerifierId, zkp: zkp, pointProof: "" });
 
-        TaikoData.TierProof memory proof = TaikoData.TierProof({
-            tier: 0,
-            data: abi.encode(zkProof)
-        });
+        TaikoData.TierProof memory proof =
+            TaikoData.TierProof({ tier: 0, data: abi.encode(zkProof) });
 
         // `verifyProof()`
         vm.expectRevert(PseZkVerifier.L1_INVALID_PROOF.selector);
