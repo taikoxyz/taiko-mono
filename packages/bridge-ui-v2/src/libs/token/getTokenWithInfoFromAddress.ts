@@ -1,4 +1,4 @@
-import { erc721ABI, fetchToken, readContract } from '@wagmi/core';
+import { erc721ABI, fetchToken, readContracts } from '@wagmi/core';
 import type { Address } from 'viem';
 
 import { erc1155ABI } from '$abi';
@@ -71,46 +71,77 @@ const getERC1155Info = async (
   type: TokenType,
 ) => {
   log(`getting token info for ERC1155`);
-  const name = await safeReadContract({
+
+  const tokenContract = {
     address: contractAddress,
-    abi: erc1155ABI,
-    functionName: 'name',
     chainId: srcChainId,
-  });
-
-  let uri = await safeReadContract({
-    address: contractAddress,
     abi: erc1155ABI,
-    functionName: 'uri',
-    chainId: srcChainId,
-  });
+  } as const;
 
-  if (tokenId !== null && tokenId !== undefined && !uri) {
-    uri = await safeReadContract({
-      address: contractAddress,
-      abi: erc1155ABI,
-      functionName: 'uri',
-      args: [BigInt(tokenId)],
-      chainId: srcChainId,
-    });
-  }
-
+  if (!tokenId) throw new Error('tokenId is required');
   let balance;
+  let name = 'No collection name';
+  let uri = '';
+  let symbol = '';
+
   if (tokenId !== null && tokenId !== undefined && owner) {
-    balance = await readContract({
-      address: contractAddress,
-      abi: erc1155ABI,
-      functionName: 'balanceOf',
-      args: [owner, BigInt(tokenId)],
-      chainId: srcChainId,
+    const result = await readContracts({
+      contracts: [
+        {
+          ...tokenContract,
+          args: [BigInt(tokenId)],
+          functionName: 'uri',
+        },
+        {
+          ...tokenContract,
+          functionName: 'name',
+        },
+        {
+          ...tokenContract,
+          functionName: 'balanceOf',
+          args: [owner, BigInt(tokenId)],
+        },
+        {
+          ...tokenContract,
+          functionName: 'symbol',
+        },
+      ],
+      allowFailure: true,
     });
+    uri = result[0].result ? result[0].result.toString() : '';
+    name = result[1].result ? result[1].result.toString() : '';
+    balance = result[2].result ? result[2].result : 0;
+    symbol = result[3].result ? result[3].result.toString() : '';
+  } else if (tokenId !== null && tokenId !== undefined && !owner) {
+    const result = await readContracts({
+      contracts: [
+        {
+          ...tokenContract,
+          args: [BigInt(tokenId)],
+          functionName: 'uri',
+        },
+        {
+          ...tokenContract,
+          functionName: 'name',
+        },
+        {
+          ...tokenContract,
+          functionName: 'symbol',
+        },
+      ],
+      allowFailure: true,
+    });
+    uri = result[0].result ? result[0].result.toString() : '';
+    name = result[1].result ? result[1].result.toString() : '';
+    symbol = result[2].result ? result[2].result.toString() : '';
   }
 
   let token: NFT;
   try {
     token = {
       type,
-      name: name ? name : 'No collection name',
+      symbol,
+      name,
       uri: uri ? uri.toString() : undefined,
       addresses: {
         [srcChainId]: contractAddress,
@@ -119,15 +150,13 @@ const getERC1155Info = async (
       balance: balance ? balance : 0,
     } as NFT;
     try {
-      if (token?.uri) {
-        if (!token.metadata) {
-          const metadata: NFTMetadata | null = await fetchNFTMetadata(token);
-          if (metadata) {
-            token.metadata = metadata;
-          }
+      if (!token.metadata) {
+        const metadata: NFTMetadata | null = await fetchNFTMetadata(token);
+        if (metadata) {
+          token.metadata = metadata;
         }
-        return token;
       }
+      return token;
     } catch {
       return token;
     }
