@@ -48,8 +48,8 @@ contract TestTaikoGovernor is TaikoL1TestBase {
         );
 
         // init TaikoGovernor
-        taikoGovernor.init(tko, taikoTimelockController); // not sure if the token should be TaikoToken here
-
+        taikoGovernor.init(tko, taikoTimelockController); // not sure if the token should be
+            // TaikoToken here
 
         // Alice delegate voting power to self
         vm.startPrank(Alice);
@@ -59,9 +59,15 @@ contract TestTaikoGovernor is TaikoL1TestBase {
         address owner = taikoTimelockController.owner();
         vm.startPrank(owner);
         // Owner set access controls for timelock controller
-        taikoTimelockController.grantRole(taikoTimelockController.PROPOSER_ROLE(), address(taikoGovernor));
-        taikoTimelockController.grantRole(taikoTimelockController.EXECUTOR_ROLE(), address(taikoGovernor));
-        taikoTimelockController.grantRole(taikoTimelockController.CANCELLER_ROLE(), address(taikoGovernor));
+        taikoTimelockController.grantRole(
+            taikoTimelockController.PROPOSER_ROLE(), address(taikoGovernor)
+        );
+        taikoTimelockController.grantRole(
+            taikoTimelockController.EXECUTOR_ROLE(), address(taikoGovernor)
+        );
+        taikoTimelockController.grantRole(
+            taikoTimelockController.CANCELLER_ROLE(), address(taikoGovernor)
+        );
 
         // Owner delegate voting power to self
         tko.delegate(owner);
@@ -70,41 +76,59 @@ contract TestTaikoGovernor is TaikoL1TestBase {
         uint256 proposalThreshold = taikoGovernor.proposalThreshold();
         tko.transfer(Alice, proposalThreshold * 2);
         tko.transfer(Bob, proposalThreshold * 5);
-        vm.roll(block.number + 1); // increase block number to help facilitate snapshots in TaikoToken
+        vm.roll(block.number + 1); // increase block number to help facilitate snapshots in
+            // TaikoToken
 
         vm.stopPrank();
     }
 
     function test_init() public {
         // GovernorVotesQuorumFractionUpgradeable
-        assertEq(taikoGovernor.quorumNumerator(), 4, 'Incorrect initial quorum numerator');
-        assertEq(taikoGovernor.quorumNumerator(block.number), 4, 'Incorrect initial block quorum numerator');
-        assertEq(taikoGovernor.quorumDenominator(), 100, 'Incorrect quorum denominator');
+        assertEq(taikoGovernor.quorumNumerator(), 4, "Incorrect initial quorum numerator");
+        assertEq(
+            taikoGovernor.quorumNumerator(block.number),
+            4,
+            "Incorrect initial block quorum numerator"
+        );
+        assertEq(taikoGovernor.quorumDenominator(), 100, "Incorrect quorum denominator");
 
         // GovernorUpgradeable
-        assertEq(taikoGovernor.name(), 'TaikoGovernor', 'Incorrect name');
-        assertEq(taikoGovernor.version(), '1', 'Incorrect version');
+        assertEq(taikoGovernor.name(), "TaikoGovernor", "Incorrect name");
+        assertEq(taikoGovernor.version(), "1", "Incorrect version");
 
         // GovernorVotesUpgradeable
-        assertEq(address(taikoGovernor.token()), address(tko), 'Incorrect token');
+        assertEq(address(taikoGovernor.token()), address(tko), "Incorrect token");
 
         // GovernorCompatibilityBravoUpgradeable
-        assertEq(taikoGovernor.COUNTING_MODE(), 'support=bravo&quorum=bravo', 'Incorrect counting mode');
+        assertEq(
+            taikoGovernor.COUNTING_MODE(), "support=bravo&quorum=bravo", "Incorrect counting mode"
+        );
 
         // GovernorTimelockControlUpgradeable
-        assertEq(taikoGovernor.timelock(), address(taikoTimelockController), 'Incorrect timelock');
+        assertEq(taikoGovernor.timelock(), address(taikoTimelockController), "Incorrect timelock");
 
         // Interfaces
-        assertEq(taikoGovernor.supportsInterface(type(IGovernorTimelockUpgradeable).interfaceId), true, 'Incorrect supports interface');
-        assertEq(taikoGovernor.supportsInterface(type(IGovernorUpgradeable).interfaceId), true, 'Incorrect supports interface');
-        assertEq(taikoGovernor.supportsInterface(type(IERC1155ReceiverUpgradeable).interfaceId), true, 'Incorrect supports interface');
+        assertEq(
+            taikoGovernor.supportsInterface(type(IGovernorTimelockUpgradeable).interfaceId),
+            true,
+            "Incorrect supports interface"
+        );
+        assertEq(
+            taikoGovernor.supportsInterface(type(IGovernorUpgradeable).interfaceId),
+            true,
+            "Incorrect supports interface"
+        );
+        assertEq(
+            taikoGovernor.supportsInterface(type(IERC1155ReceiverUpgradeable).interfaceId),
+            true,
+            "Incorrect supports interface"
+        );
 
         // TaikoGovernor
-        assertEq(taikoGovernor.votingDelay(), 7200, 'Incorrect voting delay');
-        assertEq(taikoGovernor.votingPeriod(), 50_400, 'Incorrect voting period');
-        assertEq(taikoGovernor.proposalThreshold(), 100_000 ether, 'Incorrect proposal threshold');
+        assertEq(taikoGovernor.votingDelay(), 7200, "Incorrect voting delay");
+        assertEq(taikoGovernor.votingPeriod(), 50_400, "Incorrect voting period");
+        assertEq(taikoGovernor.proposalThreshold(), 100_000 ether, "Incorrect proposal threshold");
     }
-
 
     // Tests `propose()`
     function test_propose() public {
@@ -117,7 +141,7 @@ contract TestTaikoGovernor is TaikoL1TestBase {
 
         bytes[] memory calldatas = new bytes[](1);
 
-        string memory description = 'Send alice an ether';
+        string memory description = "Send alice an ether";
 
         address proposer = Alice;
         vm.startPrank(proposer);
@@ -125,7 +149,8 @@ contract TestTaikoGovernor is TaikoL1TestBase {
         // Prepare for event emission
         uint256 startBlock = block.number + taikoGovernor.votingDelay();
         uint256 endBlock = startBlock + taikoGovernor.votingPeriod();
-        uint256 calculatedProposalId = taikoGovernor.hashProposal(targets, values, calldatas, keccak256(bytes(description)));
+        uint256 calculatedProposalId =
+            taikoGovernor.hashProposal(targets, values, calldatas, keccak256(bytes(description)));
 
         vm.expectEmit(true, true, true, true);
         emit IGovernor.ProposalCreated(
@@ -145,10 +170,18 @@ contract TestTaikoGovernor is TaikoL1TestBase {
         vm.stopPrank();
 
         // Validate proposal
-        assertEq(proposalId, calculatedProposalId, 'Proposal does not have the correct ID');
-        assertEq(taikoGovernor.state(proposalId) == IGovernorUpgradeable.ProposalState.Pending, true, 'Incorrect proposal state');
-        assertEq(taikoGovernor.proposalSnapshot(proposalId), startBlock, 'Incorrect proposal snapshot');
-        assertEq(taikoGovernor.proposalDeadline(proposalId), endBlock, 'Incorrect proposal deadline');
+        assertEq(proposalId, calculatedProposalId, "Proposal does not have the correct ID");
+        assertEq(
+            taikoGovernor.state(proposalId) == IGovernorUpgradeable.ProposalState.Pending,
+            true,
+            "Incorrect proposal state"
+        );
+        assertEq(
+            taikoGovernor.proposalSnapshot(proposalId), startBlock, "Incorrect proposal snapshot"
+        );
+        assertEq(
+            taikoGovernor.proposalDeadline(proposalId), endBlock, "Incorrect proposal deadline"
+        );
     }
 
     // Tests `castVote()`, `queue()` and `execute()`
@@ -160,11 +193,11 @@ contract TestTaikoGovernor is TaikoL1TestBase {
         uint256[] memory values = new uint256[](1);
         values[0] = 1 ether;
         bytes[] memory calldatas = new bytes[](1);
-        string memory description = 'Send alice an ether';
+        string memory description = "Send alice an ether";
         bytes32 descriptionHash = keccak256(bytes(description));
 
         // Send the values to the timelock controller for execute
-        (bool success,) = address(taikoTimelockController).call{value: values[0]}("");
+        (bool success,) = address(taikoTimelockController).call{ value: values[0] }("");
 
         assertEq(success, true, "Transfer funds unsuccessful");
 
@@ -193,7 +226,9 @@ contract TestTaikoGovernor is TaikoL1TestBase {
         vm.warp(eta + 1);
 
         // Prepare execute event
-        bytes32 timelockId = taikoTimelockController.hashOperationBatch(targets, values, calldatas, 0, descriptionHash);
+        bytes32 timelockId = taikoTimelockController.hashOperationBatch(
+            targets, values, calldatas, 0, descriptionHash
+        );
         vm.expectEmit(true, true, true, true);
         emit TimelockController.CallExecuted(timelockId, 0, targets[0], values[0], calldatas[0]);
 

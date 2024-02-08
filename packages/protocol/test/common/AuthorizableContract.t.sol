@@ -24,16 +24,8 @@ contract TestAuthorizableContract is TaikoL1TestBase {
         ss.authorize(Bob, bobLabel);
 
         // validation
-        assertEq(
-            ss.authorizedAddresses(Bob),
-            bobLabel,
-            "wrong Label"
-        );
-        assertEq(
-            ss.isAuthorizedAs(Bob, bobLabel),
-            true,
-            "should return true"
-        );
+        assertEq(ss.authorizedAddresses(Bob), bobLabel, "wrong Label");
+        assertEq(ss.isAuthorizedAs(Bob, bobLabel), true, "should return true");
 
         //stop prank
         vm.stopPrank();
@@ -72,16 +64,7 @@ contract TestAuthorizableContract is TaikoL1TestBase {
         // call authorize
         ss.authorize(Bob, bobLabel);
 
-        assertEq(
-            ss.isAuthorizedAs(Bob, bobLabel),
-            true,
-            "should return true"
-        );
-        assertEq(
-            ss.isAuthorizedAs(Alice, 0),
-            false,
-            "should return false"
-        );
+        assertEq(ss.isAuthorizedAs(Bob, bobLabel), true, "should return true");
+        assertEq(ss.isAuthorizedAs(Alice, 0), false, "should return false");
     }
-
 }

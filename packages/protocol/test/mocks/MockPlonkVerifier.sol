@@ -7,7 +7,6 @@ import "../../contracts/thirdparty/optimism/Bytes.sol";
 contract MockPlonkVerifier {
     bool public _shouldRevert;
 
-
     // Mock verifier that just returns what is sent in the proof after the first 64 bytes
     fallback(bytes calldata input) external returns (bytes memory) {
         require(!_shouldRevert, "We're going to revert here for fun :)");

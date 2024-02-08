@@ -17,46 +17,29 @@ contract TestAddressResolver is TaikoL1TestBase {
 
     function test_resolve() external {
         assertEq(
-            bridge.resolve(
-                uint64(block.chainid),
-                bytes32(bytes("tier_guardian")),
-                false
-            ),
+            bridge.resolve(uint64(block.chainid), bytes32(bytes("tier_guardian")), false),
             address(gv),
             "wrong guardianVerifier address"
         );
 
         assertEq(
-            bridge.resolve(
-                uint64(block.chainid),
-                bytes32(bytes("tier_sgx")),
-                false
-            ),
+            bridge.resolve(uint64(block.chainid), bytes32(bytes("tier_sgx")), false),
             address(sv),
             " wrong sgxVerifier address"
         );
 
         assertEq(
-            bridge.resolve(
-                uint64(block.chainid),
-                bytes32(bytes("tier_pse_zkevm")),
-                false
-            ),
+            bridge.resolve(uint64(block.chainid), bytes32(bytes("tier_pse_zkevm")), false),
             address(pv),
             "wrong pseZkVerifier address"
         );
     }
 
-
     // Tests `resolve()` revert on zero address
     function test_resolve_revertZeroAddress() external {
         bytes32 name = bytes32(bytes("signal_service"));
         vm.expectRevert(
-            abi.encodeWithSelector(
-                AddressResolver.RESOLVER_ZERO_ADDR.selector,
-                666,
-                name
-            )
+            abi.encodeWithSelector(AddressResolver.RESOLVER_ZERO_ADDR.selector, 666, name)
         );
 
         bridge.resolve(uint64(666), name, false);
@@ -70,5 +53,4 @@ contract TestAddressResolver is TaikoL1TestBase {
             " should return address(0)"
         );
     }
-
 }

@@ -27,11 +27,7 @@ contract TestAddressManager is TaikoL1TestBase {
         addressManager.setAddress(chainid, name, newAddress);
 
         // validation
-        assertEq(
-            addressManager.getAddress(chainid, name),
-            Bob,
-            "should return Bob address"
-        );
+        assertEq(addressManager.getAddress(chainid, name), Bob, "should return Bob address");
     }
 
     function test_setAddress_callerNotOwner() external {
@@ -53,5 +49,4 @@ contract TestAddressManager is TaikoL1TestBase {
             "expected address should be TaikoL1"
         );
     }
-
 }
