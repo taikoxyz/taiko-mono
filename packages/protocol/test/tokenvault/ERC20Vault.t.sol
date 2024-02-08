@@ -431,4 +431,41 @@ contract TestERC20Vault is TaikoTest {
             fail();
         }
     }
+
+    function test_20Vault_onMessageRecalled_20() public {
+        vm.startPrank(Alice);
+
+        uint256 amount = 2 wei;
+        erc20.approve(address(erc20Vault), amount);
+
+        uint256 aliceBalanceBefore = erc20.balanceOf(Alice);
+        uint256 erc20VaultBalanceBefore = erc20.balanceOf(address(erc20Vault));
+
+        IBridge.Message memory message = erc20Vault.sendToken(
+            ERC20Vault.BridgeTransferOp(destChainId, Bob, address(erc20), amount, 1000, 0, Bob, "")
+        );
+
+        uint256 aliceBalanceAfter = erc20.balanceOf(Alice);
+        uint256 erc20VaultBalanceAfter = erc20.balanceOf(address(erc20Vault));
+
+        assertEq(aliceBalanceBefore - aliceBalanceAfter, amount);
+        assertEq(erc20VaultBalanceAfter - erc20VaultBalanceBefore, amount);
+
+        /*
+        // Make it fail
+        destChainIdBridge.processMessage(message, bytes(""));
+
+        // Mark it as failed
+        bytes32 msgHash = destChainIdBridge.hashMessage(message);
+        vm.prank(message.owner);
+        destChainIdBridge.retryMessage(message, true);
+        Bridge.Status postRetryStatus = destChainIdBridge.messageStatus(msgHash);
+        assertEq(postRetryStatus == Bridge.Status.FAILED, true);*/
+
+        // Recall it
+        //bridge.recallMessage(message, bytes(""));
+
+        // Alice got back her ERC20 tokens back
+        //assertEq(erc20.balanceOf(Alice), aliceBalanceBefore);
+    }
 }

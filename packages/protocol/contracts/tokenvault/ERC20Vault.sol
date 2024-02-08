@@ -222,16 +222,9 @@ contract ERC20Vault is BaseVault {
     {
         IBridge.Context memory ctx = checkProcessMessageContext();
         address _to = to == address(0) || to == address(this) ? from : to;
-        address token;
 
-        if (ctoken.chainId == block.chainid) {
-            token = ctoken.addr;
-            ERC20(token).safeTransfer(_to, amount);
-        } else {
-            token = _getOrDeployBridgedToken(ctoken);
-            IBridgedERC20(token).mint(_to, amount);
-        }
-
+        // Transfer the ETH and the tokens to the `to` address
+        address token = _transferTokens(ctoken, _to, amount);
         _to.sendEther(msg.value);
 
         emit TokenReceived({
@@ -261,14 +254,8 @@ contract ERC20Vault is BaseVault {
 
         if (ctoken.addr == address(0)) revert VAULT_INVALID_TOKEN();
 
-        if (amount > 0) {
-            if (bridgedToCanonical[ctoken.addr].addr != address(0)) {
-                IBridgedERC20(ctoken.addr).mint(message.owner, amount);
-            } else {
-                ERC20(ctoken.addr).safeTransfer(message.owner, amount);
-            }
-        }
-
+        // Transfer the ETH and tokens back to the owner
+        _transferTokens(ctoken, message.owner, amount);
         message.owner.sendEther(message.value);
 
         emit TokenReleased({
@@ -281,6 +268,23 @@ contract ERC20Vault is BaseVault {
 
     function name() public pure override returns (bytes32) {
         return "erc20_vault";
+    }
+
+    function _transferTokens(
+        CanonicalERC20 memory ctoken,
+        address to,
+        uint256 amount
+    )
+        private
+        returns (address token)
+    {
+        if (ctoken.chainId == block.chainid) {
+            token = ctoken.addr;
+            ERC20(token).safeTransfer(to, amount);
+        } else {
+            token = _getOrDeployBridgedToken(ctoken);
+            IBridgedERC20(token).mint(to, amount);
+        }
     }
 
     /// @dev Handles the message on the source chain and returns the encoded
@@ -335,7 +339,7 @@ contract ERC20Vault is BaseVault {
     /// @dev Retrieve or deploy a bridged ERC20 token contract.
     /// @param ctoken CanonicalERC20 data.
     /// @return btoken Address of the bridged token contract.
-    function _getOrDeployBridgedToken(CanonicalERC20 calldata ctoken)
+    function _getOrDeployBridgedToken(CanonicalERC20 memory ctoken)
         private
         returns (address btoken)
     {
@@ -351,7 +355,7 @@ contract ERC20Vault is BaseVault {
     /// this chain.
     /// @param ctoken CanonicalERC20 data.
     /// @return btoken Address of the deployed bridged token contract.
-    function _deployBridgedToken(CanonicalERC20 calldata ctoken) private returns (address btoken) {
+    function _deployBridgedToken(CanonicalERC20 memory ctoken) private returns (address btoken) {
         bytes memory data = bytes.concat(
             BridgedERC20.init.selector,
             abi.encode(

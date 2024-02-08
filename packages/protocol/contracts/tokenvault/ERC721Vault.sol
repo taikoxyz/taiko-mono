@@ -102,26 +102,9 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
         IBridge.Context memory ctx = checkProcessMessageContext();
 
         address _to = to == address(0) || to == address(this) ? from : to;
-        address token;
 
-        unchecked {
-            if (ctoken.chainId == block.chainid) {
-                token = ctoken.addr;
-                for (uint256 i; i < tokenIds.length; ++i) {
-                    ERC721Upgradeable(token).safeTransferFrom({
-                        from: address(this),
-                        to: _to,
-                        tokenId: tokenIds[i]
-                    });
-                }
-            } else {
-                token = _getOrDeployBridgedToken(ctoken);
-                for (uint256 i; i < tokenIds.length; ++i) {
-                    BridgedERC721(token).mint(_to, tokenIds[i]);
-                }
-            }
-        }
-
+        // Transfer the ETH and the tokens to the `to` address
+        address token = _transferTokens(ctoken, _to, tokenIds);
         _to.sendEther(msg.value);
 
         emit TokenReceived({
@@ -152,34 +135,19 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
             revert VAULT_INVALID_SRC_CHAIN_ID();
         }
 
-        (CanonicalNFT memory nft,,, uint256[] memory tokenIds) =
+        (CanonicalNFT memory ctoken,,, uint256[] memory tokenIds) =
             abi.decode(message.data[4:], (CanonicalNFT, address, address, uint256[]));
 
-        if (nft.addr == address(0)) revert VAULT_INVALID_TOKEN();
+        if (ctoken.addr == address(0)) revert VAULT_INVALID_TOKEN();
 
-        unchecked {
-            if (bridgedToCanonical[nft.addr].addr != address(0)) {
-                for (uint256 i; i < tokenIds.length; ++i) {
-                    BridgedERC721(nft.addr).mint(message.owner, tokenIds[i]);
-                }
-            } else {
-                for (uint256 i; i < tokenIds.length; ++i) {
-                    ERC721Upgradeable(nft.addr).safeTransferFrom({
-                        from: address(this),
-                        to: message.owner,
-                        tokenId: tokenIds[i]
-                    });
-                }
-            }
-        }
-
-        // send back Ether
+        // Transfer the ETH and tokens back to the owner
+        _transferTokens(ctoken, message.owner, tokenIds);
         message.owner.sendEther(message.value);
 
         emit TokenReleased({
             msgHash: msgHash,
             from: message.owner,
-            token: nft.addr,
+            token: ctoken.addr,
             tokenIds: tokenIds,
             amounts: new uint256[](0)
         });
@@ -201,6 +169,31 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
 
     function name() public pure override returns (bytes32) {
         return "erc721_vault";
+    }
+
+    function _transferTokens(
+        CanonicalNFT memory ctoken,
+        address to,
+        uint256[] memory tokenIds
+    )
+        private
+        returns (address token)
+    {
+        if (ctoken.chainId == block.chainid) {
+            token = ctoken.addr;
+            for (uint256 i; i < tokenIds.length; ++i) {
+                ERC721Upgradeable(token).safeTransferFrom({
+                    from: address(this),
+                    to: to,
+                    tokenId: tokenIds[i]
+                });
+            }
+        } else {
+            token = _getOrDeployBridgedToken(ctoken);
+            for (uint256 i; i < tokenIds.length; ++i) {
+                BridgedERC721(token).mint(to, tokenIds[i]);
+            }
+        }
     }
 
     /// @dev Handles the message on the source chain and returns the encoded
@@ -245,7 +238,7 @@ contract ERC721Vault is BaseNFTVault, IERC721ReceiverUpgradeable {
     /// @dev Retrieve or deploy a bridged ERC721 token contract.
     /// @param ctoken CanonicalNFT data.
     /// @return btoken Address of the bridged token contract.
-    function _getOrDeployBridgedToken(CanonicalNFT calldata ctoken)
+    function _getOrDeployBridgedToken(CanonicalNFT memory ctoken)
         private
         returns (address btoken)
     {

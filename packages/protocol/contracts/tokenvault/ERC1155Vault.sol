@@ -120,30 +120,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         IBridge.Context memory ctx = checkProcessMessageContext();
 
         address _to = to == address(0) || to == address(this) ? from : to;
-        address token;
 
-        unchecked {
-            if (ctoken.chainId == block.chainid) {
-                // Token lives on this chain
-                token = ctoken.addr;
-                for (uint256 i; i < tokenIds.length; ++i) {
-                    ERC1155(token).safeTransferFrom({
-                        from: address(this),
-                        to: _to,
-                        id: tokenIds[i],
-                        amount: amounts[i],
-                        data: ""
-                    });
-                }
-            } else {
-                // Token does not live on this chain
-                token = _getOrDeployBridgedToken(ctoken);
-                for (uint256 i; i < tokenIds.length; ++i) {
-                    BridgedERC1155(token).mint(_to, tokenIds[i], amounts[i]);
-                }
-            }
-        }
-
+        // Transfer the ETH and the tokens to the `to` address
+        address token = _transferTokens(ctoken, _to, tokenIds, amounts);
         _to.sendEther(msg.value);
 
         emit TokenReceived({
@@ -170,36 +149,20 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     {
         checkRecallMessageContext();
 
-        (CanonicalNFT memory nft,,, uint256[] memory tokenIds, uint256[] memory amounts) =
+        (CanonicalNFT memory ctoken,,, uint256[] memory tokenIds, uint256[] memory amounts) =
             abi.decode(message.data[4:], (CanonicalNFT, address, address, uint256[], uint256[]));
 
-        if (nft.addr == address(0)) revert VAULT_INVALID_TOKEN();
+        if (ctoken.addr == address(0)) revert VAULT_INVALID_TOKEN();
 
-        unchecked {
-            if (bridgedToCanonical[nft.addr].addr != address(0)) {
-                for (uint256 i; i < tokenIds.length; ++i) {
-                    BridgedERC1155(nft.addr).mint(message.owner, tokenIds[i], amounts[i]);
-                }
-            } else {
-                for (uint256 i; i < tokenIds.length; ++i) {
-                    ERC1155(nft.addr).safeTransferFrom({
-                        from: address(this),
-                        to: message.owner,
-                        id: tokenIds[i],
-                        amount: amounts[i],
-                        data: ""
-                    });
-                }
-            }
-        }
-        // Send back Ether
+        // Transfer the ETH and tokens back to the owner
+        _transferTokens(ctoken, message.owner, tokenIds, amounts);
         message.owner.sendEther(message.value);
 
         // Emit TokenReleased event
         emit TokenReleased({
             msgHash: msgHash,
             from: message.owner,
-            token: nft.addr,
+            token: ctoken.addr,
             tokenIds: tokenIds,
             amounts: amounts
         });
@@ -247,6 +210,36 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 
     function name() public pure override returns (bytes32) {
         return "erc1155_vault";
+    }
+
+    function _transferTokens(
+        CanonicalNFT memory ctoken,
+        address to,
+        uint256[] memory tokenIds,
+        uint256[] memory amounts
+    )
+        private
+        returns (address token)
+    {
+        if (ctoken.chainId == block.chainid) {
+            // Token lives on this chain
+            token = ctoken.addr;
+            for (uint256 i; i < tokenIds.length; ++i) {
+                ERC1155(token).safeTransferFrom({
+                    from: address(this),
+                    to: to,
+                    id: tokenIds[i],
+                    amount: amounts[i],
+                    data: ""
+                });
+            }
+        } else {
+            // Token does not live on this chain
+            token = _getOrDeployBridgedToken(ctoken);
+            for (uint256 i; i < tokenIds.length; ++i) {
+                BridgedERC1155(token).mint(to, tokenIds[i], amounts[i]);
+            }
+        }
     }
 
     /// @dev Handles the message on the source chain and returns the encoded
