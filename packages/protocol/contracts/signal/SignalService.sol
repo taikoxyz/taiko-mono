@@ -17,6 +17,7 @@ pragma solidity 0.8.24;
 import "lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
 import "../common/AuthorizableContract.sol";
 import "../common/ICrossChainSync.sol";
+import "../libs/LibTrieProof.sol";
 import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
 import "../thirdparty/optimism/rlp/RLPReader.sol";
 import "./ISignalService.sol";
@@ -39,13 +40,13 @@ contract SignalService is AuthorizableContract, ISignalService {
     struct Hop {
         address relayerContract;
         bytes32 stateRoot;
-        bytes[] merkleProof;
+        bytes merkleProof; // Merkle proof consists of account proof and storage proof encoded (concatenated) together.
     }
 
     struct Proof {
         address crossChainSync;
         uint64 height;
-        bytes[] merkleProof;
+        bytes merkleProof; // Merkle proof consists of account proof and storage proof encoded (concatenated) together.
         Hop[] hops;
     }
 
@@ -155,7 +156,7 @@ contract SignalService is AuthorizableContract, ISignalService {
         uint64 srcChainId,
         address srcApp,
         bytes32 srcSignal,
-        bytes[] memory merkleProof
+        bytes memory merkleProof
     )
         public
         view
@@ -166,9 +167,7 @@ contract SignalService is AuthorizableContract, ISignalService {
         // TODO: we need to use this signal service
 
         bytes32 slot = getSignalSlot(srcChainId, srcApp, srcSignal);
-        bool verified = SecureMerkleTrie.verifyInclusionProof(
-            bytes.concat(slot), hex"01", merkleProof, stateRoot
-        );
+        bool verified = LibTrieProof.verifyWithAccountProof(stateRoot, srcApp, slot, hex"01", merkleProof);
 
         if (!verified) revert SS_INVALID_APP_PROOF();
     }
