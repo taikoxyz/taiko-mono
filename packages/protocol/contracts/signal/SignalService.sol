@@ -50,13 +50,12 @@ contract SignalService is EssentialContract, ISignalService {
         Hop[] hops;
     }
 
-    error SS_INVALID_FUNC_PARAMS();
-    error SS_INVALID_PROOF_PARAMS();
-    error SS_ZERO_STATE_ROOT();
-    error SS_INVALID_APP();
+    error SS_INVALID_PARAMS();
     error SS_INVALID_PROOF();
+    error SS_INVALID_APP();
     error SS_INVALID_RELAYER();
     error SS_INVALID_SIGNAL();
+    error SS_INVALID_STATE_ROOT();
     error SS_MULTIHOP_DISABLED();
     error SS_UNSUPPORTED();
 
@@ -102,7 +101,7 @@ contract SignalService is EssentialContract, ISignalService {
         if (skipProofCheck()) return true;
 
         if (app == address(0) || signal == 0 || srcChainId == 0 || srcChainId == block.chainid) {
-            revert SS_INVALID_FUNC_PARAMS();
+            revert SS_INVALID_PARAMS();
         }
 
         Proof memory p = abi.decode(proof, (Proof));
@@ -152,8 +151,8 @@ contract SignalService is EssentialContract, ISignalService {
         view
         virtual
     {
-        if (stateRoot == 0) revert SS_ZERO_STATE_ROOT();
-        if (merkleProof.length == 0) revert SS_INVALID_PROOF_PARAMS();
+        if (stateRoot == 0) revert SS_INVALID_STATE_ROOT();
+        if (merkleProof.length == 0) revert SS_INVALID_PROOF();
 
         // I do not think this line is needed here.
         //address signalService = resolve(srcChainId, "signal_service", false);
