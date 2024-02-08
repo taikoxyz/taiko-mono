@@ -4,7 +4,6 @@ pragma solidity 0.8.24;
 import { Bytes } from "../Bytes.sol";
 import { RLPReader } from "../rlp/RLPReader.sol";
 
-import "forge-std/console2.sol";
 /// @title MerkleTrie
 /// @notice MerkleTrie is a small library for verifying standard Ethereum Merkle-Patricia trie
 ///         inclusion proofs. By default, this library assumes a hexary trie. One can change the
@@ -55,7 +54,7 @@ library MerkleTrie {
         bytes32 _root
     )
         internal
-        view
+        pure
         returns (bool valid_)
     {
         valid_ = Bytes.equal(_value, get(_key, _proof, _root));
@@ -72,7 +71,7 @@ library MerkleTrie {
         bytes32 _root
     )
         internal
-        view
+        pure
         returns (bytes memory value_)
     {
         require(_key.length > 0, "MerkleTrie: empty key");
@@ -87,21 +86,10 @@ library MerkleTrie {
         for (uint256 i = 0; i < proof.length; i++) {
             TrieNode memory currentNode = proof[i];
 
-            console2.log("Minden single proof encoded:");
-            console2.logBytes(currentNode.encoded);
-            console2.log("Minden single proof decoded.length:");
-            console2.log(currentNode.decoded.length);
-
             // Key index should never exceed total key length or we'll be out of bounds.
             require(currentKeyIndex <= key.length, "MerkleTrie: key index exceeds total key length");
 
             if (currentKeyIndex == 0) {
-
-                // console2.log("CurrentNodeID: (basicall worldStateRoot RLP encoded and then hashed)");
-                // console2.logBytes(currentNodeID);
-                // console2.log("Expected:");
-                // console2.logBytes(abi.encodePacked(keccak256(currentNode.encoded)));
-
                 // First proof element is always the root node.
                 require(
                     Bytes.equal(abi.encodePacked(keccak256(currentNode.encoded)), currentNodeID),
@@ -215,15 +203,12 @@ library MerkleTrie {
     ///         encoded element and the RLP-decoded element.
     /// @param _proof Array of proof elements to parse.
     /// @return proof_ Proof parsed into easily accessible structs.
-    function _parseProof(bytes[] memory _proof) private view returns (TrieNode[] memory proof_) {
+    function _parseProof(bytes[] memory _proof) private pure returns (TrieNode[] memory proof_) {
         uint256 length = _proof.length;
         proof_ = new TrieNode[](length);
         for (uint256 i = 0; i < length;) {
             proof_[i] = TrieNode({ encoded: _proof[i], decoded: RLPReader.readList(_proof[i]) });
 
-            console2.log("Here it somehow sucks to readList??");
-            console2.logBytes(proof_[i].encoded);
-            console2.log(proof_[i].decoded.length);
             unchecked {
                 ++i;
             }
@@ -234,14 +219,14 @@ library MerkleTrie {
     ///         specification, but nodes < 32 bytes are not actually hashed.
     /// @param _node Node to pull an ID for.
     /// @return id_ ID for the node, depending on the size of its contents.
-    function _getNodeID(RLPReader.RLPItem memory _node) private view returns (bytes memory id_) {
+    function _getNodeID(RLPReader.RLPItem memory _node) private pure returns (bytes memory id_) {
         id_ = _node.length < 32 ? RLPReader.readRawBytes(_node) : RLPReader.readBytes(_node);
     }
 
     /// @notice Gets the path for a leaf or extension node.
     /// @param _node Node to get a path for.
     /// @return nibbles_ Node path, converted to an array of nibbles.
-    function _getNodePath(TrieNode memory _node) private view returns (bytes memory nibbles_) {
+    function _getNodePath(TrieNode memory _node) private pure returns (bytes memory nibbles_) {
         nibbles_ = Bytes.toNibbles(RLPReader.readBytes(_node.decoded[0]));
     }
 

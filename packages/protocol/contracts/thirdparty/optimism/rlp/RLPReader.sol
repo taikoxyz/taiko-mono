@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "forge-std/console2.sol";
 /// @custom:attribution https://github.com/hamdiallam/Solidity-RLP
 /// @title RLPReader
 /// @notice RLPReader is a library for parsing RLP-encoded byte arrays into Solidity types. Adapted
@@ -51,7 +50,7 @@ library RLPReader {
     /// @notice Reads an RLP list value into a list of RLP items.
     /// @param _in RLP list value.
     /// @return out_ Decoded RLP list items.
-    function readList(RLPItem memory _in) internal view returns (RLPItem[] memory out_) {
+    function readList(RLPItem memory _in) internal pure returns (RLPItem[] memory out_) {
         (uint256 listOffset, uint256 listLength, RLPItemType itemType) = _decodeLength(_in);
 
         require(
@@ -100,14 +99,14 @@ library RLPReader {
     /// @notice Reads an RLP list value into a list of RLP items.
     /// @param _in RLP list value.
     /// @return out_ Decoded RLP list items.
-    function readList(bytes memory _in) internal view returns (RLPItem[] memory out_) {
+    function readList(bytes memory _in) internal pure returns (RLPItem[] memory out_) {
         out_ = readList(toRLPItem(_in));
     }
 
     /// @notice Reads an RLP bytes value into bytes.
     /// @param _in RLP bytes value.
     /// @return out_ Decoded bytes.
-    function readBytes(RLPItem memory _in) internal view returns (bytes memory out_) {
+    function readBytes(RLPItem memory _in) internal pure returns (bytes memory out_) {
         (uint256 itemOffset, uint256 itemLength, RLPItemType itemType) = _decodeLength(_in);
 
         require(
@@ -126,7 +125,7 @@ library RLPReader {
     /// @notice Reads an RLP bytes value into bytes.
     /// @param _in RLP bytes value.
     /// @return out_ Decoded bytes.
-    function readBytes(bytes memory _in) internal view returns (bytes memory out_) {
+    function readBytes(bytes memory _in) internal pure returns (bytes memory out_) {
         out_ = readBytes(toRLPItem(_in));
     }
 
@@ -144,7 +143,7 @@ library RLPReader {
     /// @return type_ RLP item type (LIST_ITEM or DATA_ITEM).
     function _decodeLength(RLPItem memory _in)
         private
-        view
+        pure
         returns (uint256 offset_, uint256 length_, RLPItemType type_)
     {
         // Short-circuit if there's nothing to decode, note that we perform this check when
@@ -226,10 +225,6 @@ library RLPReader {
             // slither-disable-next-line variable-scope
             uint256 listLen = prefix - 0xc0;
 
-            console2.log("_in.length:");
-            console2.log(_in.length);
-            console2.log("listLen:");
-            console2.log(listLen);
             require(
                 _in.length > listLen,
                 "RLPReader: length of content must be greater than list length (short list)"

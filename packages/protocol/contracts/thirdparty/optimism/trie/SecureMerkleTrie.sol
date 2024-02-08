@@ -23,7 +23,7 @@ library SecureMerkleTrie {
         bytes32 _root
     )
         internal
-        view
+        pure
         returns (bool valid_)
     {
         bytes memory key = _getSecureKey(_key);
@@ -41,7 +41,7 @@ library SecureMerkleTrie {
         bytes32 _root
     )
         internal
-        view
+        pure
         returns (bytes memory value_)
     {
         bytes memory key = _getSecureKey(_key);

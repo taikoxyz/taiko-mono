@@ -10,7 +10,6 @@ import {RLPReader} from "../thirdparty/optimism/rlp/RLPReader.sol";
 import {RLPWriter} from "../thirdparty/optimism/rlp/RLPWriter.sol";
 import {SecureMerkleTrie} from "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
 
-import "forge-std/console2.sol";
 /**
  * @title LibTrieProof
  */
@@ -30,7 +29,8 @@ library LibTrieProof {
     /**
      * Verifies that the value of a slot in the storage of an account is value.
      *
-     * @param stateRoot The merkle root of state tree..
+     * @param stateRoot The merkle root of state tree.
+     * @param addr The address of contract.
      * @param slot The slot in the contract.
      * @param value The value to be verified.
      * @param mkproof The proof obtained by encoding storage proof.
@@ -42,7 +42,7 @@ library LibTrieProof {
         bytes32 slot,
         bytes32 value,
         bytes calldata mkproof
-    ) public view returns (bool verified) {
+    ) public pure returns (bool verified) {
         (bytes[] memory accountProof, bytes[] memory storageProof) = abi.decode(
             mkproof,
             (bytes[], bytes[])
@@ -55,10 +55,8 @@ library LibTrieProof {
             stateRoot
         );
 
-        console2.log("It seems we stuck before here");
         require(rlpAccount.length != 0, "LTP:invalid account proof");
-        console2.log("rlpAccount is:");
-        console2.logBytes(rlpAccount);
+
         RLPReader.RLPItem[] memory accountState = RLPReader.readList(
             rlpAccount
         );
