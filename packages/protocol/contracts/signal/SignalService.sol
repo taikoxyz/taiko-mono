@@ -20,6 +20,7 @@ import "../common/ICrossChainSync.sol";
 import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
 import "../thirdparty/optimism/rlp/RLPReader.sol";
 import "./ISignalService.sol";
+import "./MultihopGraph.sol";
 
 /// @title SignalService
 /// @dev Labeled in AddressResolver as "signal_service"
@@ -116,6 +117,7 @@ contract SignalService is EssentialContract, ISignalService {
             }
         }
 
+        IMultihopGraph graph = IMultihopGraph(resolve("multihop_graph", false));
         // p.crossChainSync is either a TaikoL1 contract or a TaikoL2 contract
         // if (!isAuthorizedAs(p.crossChainSync, bytes32(block.chainid))) {
         //     revert SS_CROSS_CHAIN_SYNC_UNAUTHORIZED(block.chainid);
@@ -135,7 +137,7 @@ contract SignalService is EssentialContract, ISignalService {
             Hop memory hop = p.hops[i];
             if (hop.stateRoot == stateRoot) revert SS_INVALID_HOP_PROOF();
 
-            bytes32 label;// = authorizedAddresses[hop.relayerContract];
+            bytes32 label; // = authorizedAddresses[hop.relayerContract];
             if (label == 0) revert SS_HOP_RELAYER_UNAUTHORIZED();
 
             uint64 hopChainId = uint256(label).toUint64();
