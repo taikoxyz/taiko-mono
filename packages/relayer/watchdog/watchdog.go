@@ -314,6 +314,8 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 
 	slog.Info("Mined tx", "txHash", hex.EncodeToString(tx.Hash().Bytes()))
 
+	relayer.TransactionsSuspended.Inc()
+
 	if _, err := w.suspendedTxRepo.Save(ctx,
 		relayer.SuspendTransactionOpts{
 			MessageID:    int(msgBody.Event.Message.Id.Int64()),
