@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import "../../../TaikoTest.sol";
 
+/// @author Kirk Baird <kirk@sigmaprime.io>
 contract TestSecureMerkleTrie is TaikoTest {
     function test_verifyInclusionProof_simple() external {
         bytes memory slot = hex"0000000000000000000000000000000000000000000000000000000000000006"; // hash = 0xf652222313e28459528d920b65115c16c04f3efc82aaedc97be59f3f377c0d3f

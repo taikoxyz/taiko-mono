@@ -1,7 +1,9 @@
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.24;
 
 import "../../contracts/thirdparty/optimism/Bytes.sol";
 
+/// @author Kirk Baird <kirk@sigmaprime.io>
 contract MockPlonkVerifier {
     bool public _shouldRevert;
 

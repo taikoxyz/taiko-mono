@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import "../../../TaikoTest.sol";
 
+/// @author Kirk Baird <kirk@sigmaprime.io>
 contract TestRLPReader is TaikoTest {
     function test_readList_correctList() external {
         bytes memory encodedList = hex"c3010203"; // "[0x01, 0x02, 0x03]"

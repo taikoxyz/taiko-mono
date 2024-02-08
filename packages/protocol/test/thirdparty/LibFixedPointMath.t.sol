@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import "../TaikoTest.sol";
 
+/// @author Kirk Baird <kirk@sigmaprime.io>
 contract TestLibFixedPointMath is TaikoTest {
     function test_exp() external {
         assertEq(LibFixedPointMath.exp(1e18), 2718281828459045235); // 2.718281828459045235

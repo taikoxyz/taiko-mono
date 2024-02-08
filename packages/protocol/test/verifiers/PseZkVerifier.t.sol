@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.24;
 
 import "../L1/TaikoL1TestBase.sol";
@@ -7,6 +7,7 @@ import {IVerifier} from "../../contracts/verifiers/IVerifier.sol";
 import {TaikoData} from "../../contracts/L1/TaikoData.sol";
 import {MockPlonkVerifier} from "../mocks/MockPlonkVerifier.sol";
 
+/// @author Kirk Baird <kirk@sigmaprime.io>
 contract TestPseZkVerifier is TaikoL1TestBase {
     uint16 mockPlonkVerifierId;
     address mockPlonkVerifier;

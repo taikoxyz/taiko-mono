@@ -1,7 +1,9 @@
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.24;
 
 import "../L1/TaikoL1TestBase.sol";
 
+/// @author Kirk Baird <kirk@sigmaprime.io>
 contract TestAddressManager is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1) {
         return
