@@ -186,12 +186,14 @@ contract SignalService is EssentialContract, ISignalService {
         return keccak256(abi.encodePacked("SIGNAL", chainId, app, signal));
     }
 
-    /// @notice Tells if we need to check real proof or it is a test.
+    /// @notice Checks if we need to check real proof or it is a test.
     /// @return Returns true to skip checking inclusion proofs.
     function skipProofCheck() public pure virtual returns (bool) {
         return false;
     }
 
+    /// @notice Checks if multi-hop is enabled.
+    /// @return Returns true if multi-hop bridging is enabled.
     function isMultiHopEnabled() public pure virtual returns (bool) {
         return false;
     }
