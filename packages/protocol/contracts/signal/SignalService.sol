@@ -20,7 +20,7 @@ import "../common/ICrossChainSync.sol";
 import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
 import "../thirdparty/optimism/rlp/RLPReader.sol";
 import "./ISignalService.sol";
-import "./MultihopGraph.sol";
+import "./MultiHopGraph.sol";
 
 /// @title SignalService
 /// @dev Labeled in AddressResolver as "signal_service"
@@ -107,7 +107,7 @@ contract SignalService is EssentialContract, ISignalService {
         }
 
         Proof memory p = abi.decode(proof, (Proof));
-        if (!isMultihopEnabled() && p.hops.length > 0) {
+        if (!isMultiHopEnabled() && p.hops.length > 0) {
             revert SS_MULTIHOP_DISABLED();
         }
 
@@ -116,9 +116,9 @@ contract SignalService is EssentialContract, ISignalService {
         bytes32 _srcSignal = signal;
 
         // Verify hop proofs
-        IMultihopGraph graph;
+        IMultiHopGraph graph;
         if (p.hops.length > 0) {
-            graph = IMultihopGraph(resolve("multihop_graph", false));
+            graph = IMultiHopGraph(resolve("multihop_graph", false));
         }
         for (uint256 i; i < p.hops.length; ++i) {
             Hop memory hop = p.hops[i];
@@ -192,7 +192,7 @@ contract SignalService is EssentialContract, ISignalService {
         return false;
     }
 
-    function isMultihopEnabled() public pure virtual returns (bool) {
+    function isMultiHopEnabled() public pure virtual returns (bool) {
         return false;
     }
 
