@@ -60,7 +60,7 @@ contract TestSignalService is TaikoTest {
 
         crossChainSync = DummyCrossChainSync(
             deployProxy({
-                name: "dummy_cross_chain_sync",
+                name: "taiko", // must be named so
                 impl: address(new DummyCrossChainSync()),
                 data: ""
             })
@@ -107,7 +107,7 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_L1_L2() public {
-        uint64 chainId = 11_155_111; // Created the proofs on a deployed Sepolia
+        uint64 srcChainId = 11_155_111; // Created the proofs on a deployed Sepolia
             // contract, this is why this chainId.
         address app = 0x927a146e18294efb36edCacC99D9aCEA6aB16b95; // Mock app,
             // actually it is an EOA, but it is ok for tests!
@@ -119,11 +119,12 @@ contract TestSignalService is TaikoTest {
 
         bytes32 stateRoot = 0xf7916f389ccda56e3831e115238b7389b30750886785a3c21265601572698f0f;
 
-        // vm.startPrank(Alice);
-        // TODO(daniel)
-        // signalService.authorize(address(crossChainSync), bytes32(uint256(block.chainid)));
-
+    
         crossChainSync.setSyncedData("", stateRoot);
+
+         vm.startPrank(Alice);
+         register(address(addressManager), "taiko", address(crossChainSync), uint64(block.chainid));
+
 
         SignalService.Proof memory p;
         SignalService.Hop[] memory h;
@@ -131,7 +132,7 @@ contract TestSignalService is TaikoTest {
         p.merkleProof = inclusionProof;
         p.hops = h;
 
-        bool isSignalReceived = signalService.proveSignalReceived(chainId, app, signal, abi.encode(p));
+        bool isSignalReceived = signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
         assertEq(isSignalReceived, true);
     }
 
