@@ -197,13 +197,13 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @notice Checks if we need to check real proof or it is a test.
     /// @return Returns true to skip checking inclusion proofs.
-    function _skipEntireProofCheck() internal pure virtual returns (bool) {
+    function _skipEntireProofCheck() internal view virtual returns (bool) {
         return false;
     }
 
     /// @notice Checks if we need to check each merkle proof or it is a test.
     /// @return Returns true to skip checking inclusion proofs.
-    function _skipMerkleProofCheck() internal pure virtual returns (bool) {
+    function _skipMerkleProofCheck() internal view virtual returns (bool) {
         return false;
     }
 

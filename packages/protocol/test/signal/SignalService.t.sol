@@ -4,18 +4,23 @@ pragma solidity 0.8.24;
 import "../TaikoTest.sol";
 
 contract SignalService_MultiHopEnabled is SignalService {
+    bool private __skipMerkleProofCheck;
+
+    function setSkipMerkleProofCheck(bool skip) external {
+__skipMerkleProofCheck = skip;
+    }
     function isMultiHopEnabled() public pure override returns (bool) {
         return true;
     }
 
-    function _skipMerkleProofCheck() internal pure override returns (bool) {
-        return true;
+    function _skipMerkleProofCheck() internal view override returns (bool) {
+        return __skipMerkleProofCheck;
     }
 }
 
 contract TestSignalService is TaikoTest {
     AddressManager addressManager;
-    SignalService signalService;
+    SignalService_MultiHopEnabled signalService;
     SignalService destSignalService;
     HopRelayRegistry hopRelayRegistry;
     DummyCrossChainSync crossChainSync;
@@ -36,7 +41,7 @@ contract TestSignalService is TaikoTest {
             })
         );
 
-        signalService = SignalService(
+        signalService = SignalService_MultiHopEnabled(
             deployProxy({
                 name: "signal_service",
                 impl: address(new SignalService_MultiHopEnabled()),
@@ -112,10 +117,14 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_L1_L2() public {
+         signalService.setSkipMerkleProofCheck(true);
+
+
         bytes32 stateRoot = randBytes32();
         crossChainSync.setSyncedData("", stateRoot);
 
     uint64 thisChainId = uint64(block.chainid);
+   
         uint64 srcChainId = thisChainId + 1;
         address app = randAddress();
         bytes32 signal = randBytes32();
@@ -131,6 +140,11 @@ contract TestSignalService is TaikoTest {
         vm.startPrank(Alice);
         register(address(addressManager), "taiko", address(crossChainSync), thisChainId);
         assertEq(signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p)), true);
+
+          signalService.setSkipMerkleProofCheck(false);
+
+          vm.expectRevert(); // cannot decode the proof
+           signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
     }
 
     function test_SignalService_proveSignalReceived_L2_L2() public {
