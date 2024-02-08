@@ -7,8 +7,9 @@ contract SignalService_MultiHopEnabled is SignalService {
     bool private __skipMerkleProofCheck;
 
     function setSkipMerkleProofCheck(bool skip) external {
-__skipMerkleProofCheck = skip;
+        __skipMerkleProofCheck = skip;
     }
+
     function isMultiHopEnabled() public pure override returns (bool) {
         return true;
     }
@@ -117,14 +118,13 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_L1_L2() public {
-         signalService.setSkipMerkleProofCheck(true);
-
+        signalService.setSkipMerkleProofCheck(true);
 
         bytes32 stateRoot = randBytes32();
         crossChainSync.setSyncedData("", stateRoot);
 
-    uint64 thisChainId = uint64(block.chainid);
-   
+        uint64 thisChainId = uint64(block.chainid);
+
         uint64 srcChainId = thisChainId + 1;
         address app = randAddress();
         bytes32 signal = randBytes32();
@@ -141,10 +141,10 @@ contract TestSignalService is TaikoTest {
         register(address(addressManager), "taiko", address(crossChainSync), thisChainId);
         assertEq(signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p)), true);
 
-          signalService.setSkipMerkleProofCheck(false);
+        signalService.setSkipMerkleProofCheck(false);
 
-          vm.expectRevert(); // cannot decode the proof
-           signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
+        vm.expectRevert(); // cannot decode the proof
+        signalService.proveSignalReceived(srcChainId, app, signal, abi.encode(p));
     }
 
     function test_SignalService_proveSignalReceived_L2_L2() public {

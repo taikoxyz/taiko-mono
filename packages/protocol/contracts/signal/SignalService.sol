@@ -189,7 +189,7 @@ contract SignalService is EssentialContract, ISignalService {
         return keccak256(abi.encodePacked("SIGNAL", chainId, app, signal));
     }
 
-  /// @notice Checks if multi-hop is enabled.
+    /// @notice Checks if multi-hop is enabled.
     /// @return Returns true if multi-hop bridging is enabled.
     function isMultiHopEnabled() public pure virtual returns (bool) {
         return false;
@@ -206,8 +206,6 @@ contract SignalService is EssentialContract, ISignalService {
     function _skipMerkleProofCheck() internal view virtual returns (bool) {
         return false;
     }
-
-  
 
     function _authorizePause(address) internal pure override {
         revert SS_UNSUPPORTED();
