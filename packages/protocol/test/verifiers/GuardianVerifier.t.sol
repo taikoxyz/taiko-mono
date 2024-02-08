@@ -31,7 +31,7 @@ contract TestGuardianVerifier is TaikoL1TestBase {
         TaikoData.Transition memory transition = TaikoData.Transition({
             parentHash: bytes32(0),
             blockHash: bytes32(0),
-            signalRoot: bytes32(0),
+            stateRoot: bytes32(0),
             graffiti: bytes32(0)
         });
 
@@ -58,7 +58,7 @@ contract TestGuardianVerifier is TaikoL1TestBase {
         TaikoData.Transition memory transition = TaikoData.Transition({
             parentHash: bytes32(0),
             blockHash: bytes32(0),
-            signalRoot: bytes32(0),
+            stateRoot: bytes32(0),
             graffiti: bytes32(0)
         });
 
