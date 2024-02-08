@@ -39,7 +39,7 @@ contract SignalService is EssentialContract, ISignalService {
     // returned from the eth_getProof() API.
     struct Hop {
         uint64 chainId;
-        address relayer; // TODO: need authorize
+        address relayer;
         bytes32 stateRoot;
         bytes[] merkleProof;
     }
@@ -52,13 +52,10 @@ contract SignalService is EssentialContract, ISignalService {
 
     error SS_INVALID_FUNC_PARAMS();
     error SS_INVALID_PROOF_PARAMS();
-    error SS_CROSS_CHAIN_SYNC_UNAUTHORIZED(uint256 chaindId);
-    error SS_CROSS_CHAIN_SYNC_ZERO_STATE_ROOT();
-    error SS_HOP_RELAYER_UNAUTHORIZED();
+    error SS_ZERO_STATE_ROOT();
     error SS_INVALID_APP();
-    error SS_INVALID_APP_PROOF();
-    error SS_INVALID_HOP_PROOF();
-    error SS_INVALID_HOP_RELAYER();
+    error SS_INVALID_PROOF();
+    error SS_INVALID_RELAYER();
     error SS_INVALID_SIGNAL();
     error SS_MULTIHOP_DISABLED();
     error SS_UNSUPPORTED();
@@ -126,7 +123,7 @@ contract SignalService is EssentialContract, ISignalService {
             Hop memory hop = p.hops[i];
 
             if (!graph.isTrustedRelayer(_srcChainId, hop.chainId, hop.relayer)) {
-                revert SS_INVALID_HOP_RELAYER();
+                revert SS_INVALID_RELAYER();
             }
 
             verifyMerkleProof(hop.stateRoot, _srcChainId, _srcApp, _srcSignal, hop.merkleProof);
@@ -155,7 +152,7 @@ contract SignalService is EssentialContract, ISignalService {
         view
         virtual
     {
-        if (stateRoot == 0) revert SS_CROSS_CHAIN_SYNC_ZERO_STATE_ROOT();
+        if (stateRoot == 0) revert SS_ZERO_STATE_ROOT();
         if (merkleProof.length == 0) revert SS_INVALID_PROOF_PARAMS();
 
         // I do not think this line is needed here.
@@ -167,7 +164,7 @@ contract SignalService is EssentialContract, ISignalService {
             bytes.concat(slot), hex"01", merkleProof, stateRoot
         );
 
-        if (!verified) revert SS_INVALID_APP_PROOF();
+        if (!verified) revert SS_INVALID_PROOF();
     }
 
     /// @notice Get the storage slot of the signal.
