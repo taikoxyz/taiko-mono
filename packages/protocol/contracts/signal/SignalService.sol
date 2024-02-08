@@ -15,7 +15,7 @@
 pragma solidity 0.8.24;
 
 import "lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
-import "../common/AuthorizableContract.sol";
+import "../common/EssentialContract.sol";
 import "../common/ICrossChainSync.sol";
 import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
 import "../thirdparty/optimism/rlp/RLPReader.sol";
@@ -31,7 +31,7 @@ import "./ISignalService.sol";
 /// Use the respective chain IDs as labels for authorization.
 /// Note: SignalService should not authorize Bridges or other Bridgable
 /// applications.
-contract SignalService is AuthorizableContract, ISignalService {
+contract SignalService is EssentialContract, ISignalService {
     using SafeCast for uint256;
 
     // merkleProof represents ABI-encoded tuple of (key, value, and proof)
@@ -117,9 +117,9 @@ contract SignalService is AuthorizableContract, ISignalService {
         }
 
         // p.crossChainSync is either a TaikoL1 contract or a TaikoL2 contract
-        if (!isAuthorizedAs(p.crossChainSync, bytes32(block.chainid))) {
-            revert SS_CROSS_CHAIN_SYNC_UNAUTHORIZED(block.chainid);
-        }
+        // if (!isAuthorizedAs(p.crossChainSync, bytes32(block.chainid))) {
+        //     revert SS_CROSS_CHAIN_SYNC_UNAUTHORIZED(block.chainid);
+        // }
 
         bytes32 stateRoot = ICrossChainSync(p.crossChainSync).getSyncedSnippet(p.height).stateRoot;
         if (stateRoot == 0) revert SS_CROSS_CHAIN_SYNC_ZERO_STATE_ROOT();
@@ -135,7 +135,7 @@ contract SignalService is AuthorizableContract, ISignalService {
             Hop memory hop = p.hops[i];
             if (hop.stateRoot == stateRoot) revert SS_INVALID_HOP_PROOF();
 
-            bytes32 label = authorizedAddresses[hop.relayerContract];
+            bytes32 label;// = authorizedAddresses[hop.relayerContract];
             if (label == 0) revert SS_HOP_RELAYER_UNAUTHORIZED();
 
             uint64 hopChainId = uint256(label).toUint64();

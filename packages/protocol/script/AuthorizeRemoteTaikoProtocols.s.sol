@@ -35,10 +35,11 @@ contract AuthorizeRemoteTaikoProtocols is Script {
         SignalService signalService = SignalService(payable(signalServiceAddress));
         for (uint256 i; i < remoteChainIDs.length; ++i) {
             console2.log(remoteTaikoProtocols[i], "--->", remoteChainIDs[i]);
-            if (!signalService.isAuthorizedAs(remoteTaikoProtocols[i], bytes32(remoteChainIDs[i])))
-            {
-                signalService.authorize(remoteTaikoProtocols[i], bytes32(remoteChainIDs[i]));
-            }
+            // TODO(daniel)
+            // if (!signalService.isAuthorizedAs(remoteTaikoProtocols[i], bytes32(remoteChainIDs[i])))
+            // {
+            //     signalService.authorize(remoteTaikoProtocols[i], bytes32(remoteChainIDs[i]));
+            // }
         }
 
         vm.stopBroadcast();

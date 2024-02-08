@@ -103,7 +103,8 @@ contract TestSignalService is TaikoTest {
         bytes32 stateRoot = 0xf7916f389ccda56e3831e115238b7389b30750886785a3c21265601572698f0f;
 
         vm.startPrank(Alice);
-        relayer.authorize(address(crossChainSync), bytes32(uint256(block.chainid)));
+        // TODO(daniel)
+        // relayer.authorize(address(crossChainSync), bytes32(uint256(block.chainid)));
 
         crossChainSync.setSyncedData("", stateRoot);
 
@@ -149,8 +150,9 @@ contract TestSignalService is TaikoTest {
         // addresses" on the source chain we are claiming.
         // (TaikoL1 or TaikoL2 depending on where we are)
         vm.startPrank(Alice);
-        relayer.authorize(address(crossChainSync), bytes32(block.chainid));
-        relayer.authorize(address(app), bytes32(uint256(chainId)));
+        // TODO(daniel)
+        // relayer.authorize(address(crossChainSync), bytes32(block.chainid));
+        // relayer.authorize(address(app), bytes32(uint256(chainId)));
 
         vm.startPrank(Alice);
         addressManager.setAddress(chainId, "taiko", app);
