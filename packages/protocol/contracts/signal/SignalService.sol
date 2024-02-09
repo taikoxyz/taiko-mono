@@ -46,7 +46,8 @@ contract SignalService is AuthorizableContract, ISignalService {
     struct Proof {
         address crossChainSync;
         uint64 height;
-        bytes merkleProof; // Merkle proof consists of account proof and storage proof encoded (concatenated) together.
+        bytes merkleProof; // Merkle proof consists of account proof and storage proof encoded
+            // (concatenated) together.
         Hop[] hops;
     }
 
@@ -165,7 +166,9 @@ contract SignalService is AuthorizableContract, ISignalService {
         address signalService = resolve(srcChainId, "signal_service", false);
 
         bytes32 slot = getSignalSlot(srcChainId, srcApp, srcSignal);
-        bool verified = LibTrieProof.verifyWithAccountProof(stateRoot, signalService, slot, hex"01", merkleProof);
+        bool verified = LibTrieProof.verifyWithAccountProof(
+            stateRoot, signalService, slot, hex"01", merkleProof
+        );
 
         if (!verified) revert SS_INVALID_APP_PROOF();
     }

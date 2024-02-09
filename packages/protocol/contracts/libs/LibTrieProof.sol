@@ -6,8 +6,8 @@
 
 pragma solidity ^0.8.24;
 
-import {RLPReader} from "../thirdparty/optimism/rlp/RLPReader.sol";
-import {SecureMerkleTrie} from "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
+import { RLPReader } from "../thirdparty/optimism/rlp/RLPReader.sol";
+import { SecureMerkleTrie } from "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
 
 /**
  * @title LibTrieProof
@@ -16,7 +16,6 @@ library LibTrieProof {
     // The consensus format representing account is RLP encoded in the
     // following order: nonce, balance, storageHash, codeHash.
     uint256 private constant ACCOUNT_FIELD_INDEX_STORAGE_HASH = 2;
-
 
     /**
      * Verifies that the value of a slot in the storage of an account is value.
@@ -34,33 +33,26 @@ library LibTrieProof {
         bytes32 slot,
         bytes32 value,
         bytes calldata mkproof
-    ) public pure returns (bool verified) {
-        (bytes[] memory accountProof, bytes[] memory storageProof) = abi.decode(
-            mkproof,
-            (bytes[], bytes[])
-        );
+    )
+        public
+        pure
+        returns (bool verified)
+    {
+        (bytes[] memory accountProof, bytes[] memory storageProof) =
+            abi.decode(mkproof, (bytes[], bytes[]));
 
-        bytes memory rlpAccount = SecureMerkleTrie.get(
-            abi.encodePacked(addr),
-            accountProof,
-            stateRoot
-        );
+        bytes memory rlpAccount =
+            SecureMerkleTrie.get(abi.encodePacked(addr), accountProof, stateRoot);
 
         require(rlpAccount.length != 0, "LTP:invalid account proof");
 
-        RLPReader.RLPItem[] memory accountState = RLPReader.readList(
-            rlpAccount
-        );
+        RLPReader.RLPItem[] memory accountState = RLPReader.readList(rlpAccount);
 
-        bytes memory storageRoot = RLPReader.readBytes(
-            accountState[ACCOUNT_FIELD_INDEX_STORAGE_HASH]
-        );
+        bytes memory storageRoot =
+            RLPReader.readBytes(accountState[ACCOUNT_FIELD_INDEX_STORAGE_HASH]);
 
         verified = SecureMerkleTrie.verifyInclusionProof(
-            bytes.concat(slot),
-            bytes.concat(value),
-            storageProof,
-            bytes32(storageRoot)
+            bytes.concat(slot), bytes.concat(value), storageProof, bytes32(storageRoot)
         );
     }
 }
