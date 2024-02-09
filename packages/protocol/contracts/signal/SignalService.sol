@@ -41,12 +41,12 @@ contract SignalService is EssentialContract, ISignalService {
         uint64 chainId;
         address relay;
         bytes32 stateRoot;
-        bytes[] merkleProof;
+        bytes merkleProof;
     }
 
     struct Proof {
         uint64 height;
-        bytes[] merkleProof;
+        bytes merkleProof;
         Hop[] hops;
     }
 
@@ -147,7 +147,7 @@ contract SignalService is EssentialContract, ISignalService {
         uint64 srcChainId,
         address srcApp,
         bytes32 srcSignal,
-        bytes[] memory merkleProof
+        bytes memory merkleProof
     )
         public
         view
@@ -156,19 +156,11 @@ contract SignalService is EssentialContract, ISignalService {
         if (stateRoot == 0) revert SS_INVALID_STATE_ROOT();
         if (merkleProof.length == 0) revert SS_INVALID_PROOF();
 
-        // I do not think this line is needed here.
-        //address signalService = resolve(srcChainId, "signal_service", false);
-        // TODO: we need to use this signal service
+        bool verified;
+        
+        // TODO(dani): implement this please
 
-        bytes32 slot = getSignalSlot(srcChainId, srcApp, srcSignal);
-
-        if (_skipMerkleProofCheck()) return;
-
-        bool verified = SecureMerkleTrie.verifyInclusionProof(
-            bytes.concat(slot), hex"01", merkleProof, stateRoot
-        );
-
-        if (!verified) revert SS_INVALID_PROOF();
+        if (!verified) revert SS_INVALID_PROOF();        
     }
 
     /// @notice Get the storage slot of the signal.
