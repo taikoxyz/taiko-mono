@@ -15,17 +15,7 @@
 pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
-
-interface IHopRelayRegistry {
-    function isRelayRegistered(
-        uint64 srcChainId,
-        uint64 relayerChainId,
-        address relayer
-    )
-        external
-        view
-        returns (bool);
-}
+import "./IHopRelayRegistry.sol";
 
 /// @title HopRelayRegistry
 contract HopRelayRegistry is EssentialContract, IHopRelayRegistry {
@@ -46,6 +36,10 @@ contract HopRelayRegistry is EssentialContract, IHopRelayRegistry {
         __Essential_init();
     }
 
+    /// @dev Register a trusted hop relay.
+    /// @param srcChainId The source chain ID where state roots correspond to.
+    /// @param hopChainId The hop relay's local chain ID.
+    /// @param hopRelay The address of the relay.
     function registerRelay(
         uint64 srcChainId,
         uint64 hopChainId,
@@ -57,6 +51,10 @@ contract HopRelayRegistry is EssentialContract, IHopRelayRegistry {
         _registerRelay(srcChainId, hopChainId, hopRelay, true);
     }
 
+    /// @dev Deregister a trusted hop relay.
+    /// @param srcChainId The source chain ID where state roots correspond to.
+    /// @param hopChainId The hop relay's local chain ID.
+    /// @param hopRelay The address of the relay.
     function deregisterRelay(
         uint64 srcChainId,
         uint64 hopChainId,
@@ -68,6 +66,7 @@ contract HopRelayRegistry is EssentialContract, IHopRelayRegistry {
         _registerRelay(srcChainId, hopChainId, hopRelay, false);
     }
 
+    /// @inheritdoc IHopRelayRegistry
     function isRelayRegistered(
         uint64 srcChainId,
         uint64 hopChainId,

@@ -19,8 +19,8 @@ import "../common/EssentialContract.sol";
 import "../common/ICrossChainSync.sol";
 import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
 import "../thirdparty/optimism/rlp/RLPReader.sol";
+import "./IHopRelayRegistry.sol";
 import "./ISignalService.sol";
-import "./HopRelayRegistry.sol";
 
 /// @title SignalService
 /// @dev Labeled in AddressResolver as "signal_service"
