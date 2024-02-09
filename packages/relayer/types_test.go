@@ -102,6 +102,7 @@ func Test_WaitReceipt(t *testing.T) {
 			} else {
 				assert.Nil(t, err)
 			}
+
 			assert.Equal(t, tt.wantReceipt, receipt)
 		})
 	}
@@ -193,6 +194,7 @@ func Test_DecodeMessageSentData(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			eventType, canonicalToken, amount, err := DecodeMessageSentData(tt.event)
+
 			assert.Equal(t, tt.wantEventType, eventType)
 			assert.Equal(t, tt.wantCanonicalToken, canonicalToken)
 			assert.Equal(t, tt.wantAmount, amount)

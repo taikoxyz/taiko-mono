@@ -2,6 +2,7 @@ package proof
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -26,6 +27,8 @@ func (p *Prover) blockHeader(
 			return encoding.BlockHeader{}, errors.Wrap(err, "blocker.BlockByNumber")
 		}
 	} else {
+		slog.Info("getting block by hash", "blockHash", blockHash.Hex())
+
 		b, err = blocker.BlockByHash(ctx, blockHash)
 		if err != nil {
 			return encoding.BlockHeader{}, errors.Wrap(err, "blocker.BlockByHash")
