@@ -145,6 +145,7 @@ func (i *Indexer) handleEvent(
 			if err := i.eventRepo.UpdateStatus(ctx, id, relayer.EventStatusDone); err != nil {
 				return errors.Wrap(err, fmt.Sprintf("i.eventRepo.UpdateStatus, id: %v", id))
 			}
+
 			return nil
 		}
 	}
