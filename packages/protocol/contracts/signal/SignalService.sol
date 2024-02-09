@@ -163,6 +163,12 @@ contract SignalService is EssentialContract, ISignalService {
         if (!verified) revert SS_INVALID_PROOF();
     }
 
+    /// @notice Checks if multi-hop is enabled.
+    /// @return Returns true if multi-hop bridging is enabled.
+    function isMultiHopEnabled() public view virtual returns (bool) {
+        return false;
+    }
+
     /// @notice Get the storage slot of the signal.
     /// @param chainId The address's chainId.
     /// @param app The address that initiated the signal.
@@ -179,12 +185,6 @@ contract SignalService is EssentialContract, ISignalService {
         returns (bytes32)
     {
         return keccak256(abi.encodePacked("SIGNAL", chainId, app, signal));
-    }
-
-    /// @notice Checks if multi-hop is enabled.
-    /// @return Returns true if multi-hop bridging is enabled.
-    function isMultiHopEnabled() public view virtual returns (bool) {
-        return false;
     }
 
     /// @notice Checks if we need to check real proof or it is a test.
