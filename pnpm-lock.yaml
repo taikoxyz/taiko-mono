@@ -355,8 +355,8 @@ importers:
         specifier: ^27.0.2
         version: 27.5.2
       '@types/mixpanel':
-        specifier: ^2.14.3
-        version: 2.14.7
+        specifier: ^2.14.8
+        version: 2.14.8
       '@types/sanitize-html':
         specifier: ^2.9.5
         version: 2.9.5
@@ -5061,8 +5061,8 @@ packages:
     resolution: {integrity: sha512-Kfe/D3hxHTusnPNRbycJE1N77WHDsdS4AjUYIzlDzhDrS47NrwuL3YW4VITxwR7KCVpzwgy4Rbj829KSSQmwXQ==}
     dev: true
 
-  /@types/mixpanel@2.14.7:
-    resolution: {integrity: sha512-cpAqrEGvVGO0AV5iKp2AxLnV60OAuFsOF8N3x0SpUIkg6cWjiqjBRmIvO3DXnFPMBo3wBegFNpYshyh8PhKrxw==}
+  /@types/mixpanel@2.14.8:
+    resolution: {integrity: sha512-rWDZESfhXO9ST7piwTO9VAtEVRMvxQFWgvDZv3B+dd0+gNz847Cf55rHPmGZTTMAkgsOLeqNyxbqJmcZbJLsxw==}
     dev: true
 
   /@types/mkdirp@0.5.2:
@@ -11760,6 +11760,7 @@ packages:
       is-hex-prefixed: 1.0.0
       strip-hex-prefix: 1.0.0
     dev: true
+    bundledDependencies: false
 
   /event-emitter@0.3.5:
     resolution: {integrity: sha512-D9rRn9y7kLPnJ+hMq7S/nhvoKwwvVJahBi2BPmx3bvbsEdK3W9ii8cBSGjP+72/LnM4n6fo3+dkCX5FeTQruXA==}
