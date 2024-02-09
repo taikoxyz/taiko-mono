@@ -41,7 +41,7 @@ contract SignalService is AuthorizableContract, ISignalService {
         uint256 signalServiceChainId
             => mapping(
                 address signalServiceAddress
-                    => mapping(bytes32 worldStateRoot => bytes signalStorageRoot)
+                    => mapping(bytes32 worldStateRoot => bytes32 signalStorageRoot)
             )
     ) public verifiedStorageRoots;
 
@@ -150,14 +150,13 @@ contract SignalService is AuthorizableContract, ISignalService {
 
             uint64 hopChainId = uint256(label).toUint64();
 
-            // Do not cache hop, just the source chain's signal service storage root.
-            verifyMerkleProof(
+            verifiedStorageRoots[hopChainId][hop.relay][hop.stateRoot] = verifyMerkleProof(
                 stateRoot,
                 hopChainId,
                 hop.relay,
                 hop.stateRoot,
                 hop.merkleProof,
-                ""
+                verifiedStorageRoots[hopChainId][hop.relay][hop.stateRoot]
             );
             stateRoot = hop.stateRoot;
         }
@@ -179,27 +178,20 @@ contract SignalService is AuthorizableContract, ISignalService {
         address srcApp,
         bytes32 srcSignal,
         bytes memory merkleProof,
-        bytes memory cachedRoot
+        bytes32 cachedRoot
     )
         public
-        view
         virtual
-        returns (bytes memory toBeCachedStorageRoot)
+        returns (bytes32 toBeCachedStorageRoot)
     {
         address signalService = resolve(srcChainId, "signal_service", false);
 
         bytes32 slot = getSignalSlot(srcChainId, srcApp, srcSignal);
         bool verified;
 
-        if (cachedRoot.length == 0) {
-            (verified, toBeCachedStorageRoot) = LibTrieProof.verifyWithAccountProof(
-                stateRoot, signalService, slot, hex"01", merkleProof, hex""
-            );
-        } else {
-            (verified, toBeCachedStorageRoot) = LibTrieProof.verifyWithAccountProof(
-                stateRoot, signalService, slot, hex"01", merkleProof, cachedRoot
-            );
-        }
+        (verified, toBeCachedStorageRoot) = LibTrieProof.verifyWithAccountProof(
+            stateRoot, signalService, slot, hex"01", cachedRoot, merkleProof
+        );
 
         if (!verified) revert SS_INVALID_APP_PROOF();
     }

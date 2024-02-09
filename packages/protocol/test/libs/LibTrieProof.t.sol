@@ -57,8 +57,8 @@ contract TestVerifyWithAccountProof is TaikoTest {
             contractWhichStoresValue1AtSlot,
             slotStoredAtTheApp,
             hex"01",
-            merkleProof,
-            hex""
+            bytes32(0),
+            merkleProof
         );
     }
 }

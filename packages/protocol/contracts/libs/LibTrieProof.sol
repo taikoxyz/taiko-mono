@@ -33,17 +33,17 @@ library LibTrieProof {
         address addr,
         bytes32 slot,
         bytes32 value,
-        bytes calldata mkproof,
-        bytes calldata cachedStorageRoot
+        bytes32 cachedStorageRoot,
+        bytes calldata mkproof
     )
         public
         pure
-        returns (bool verified, bytes memory storageRoot)
+        returns (bool verified, bytes32 storageRoot)
     {
         (bytes[] memory accountProof, bytes[] memory storageProof) =
             abi.decode(mkproof, (bytes[], bytes[]));
 
-        if (cachedStorageRoot.length == 0) {
+        if (cachedStorageRoot == bytes32(0)) {
             bytes memory rlpAccount =
                 SecureMerkleTrie.get(abi.encodePacked(addr), accountProof, stateRoot);
 
@@ -51,7 +51,8 @@ library LibTrieProof {
 
             RLPReader.RLPItem[] memory accountState = RLPReader.readList(rlpAccount);
 
-            storageRoot = RLPReader.readBytes(accountState[ACCOUNT_FIELD_INDEX_STORAGE_HASH]);
+            storageRoot =
+                bytes32(RLPReader.readBytes(accountState[ACCOUNT_FIELD_INDEX_STORAGE_HASH]));
         } else {
             storageRoot = cachedStorageRoot;
         }
