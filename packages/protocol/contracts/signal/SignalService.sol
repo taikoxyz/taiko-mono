@@ -187,12 +187,6 @@ contract SignalService is EssentialContract, ISignalService {
         return keccak256(abi.encodePacked("SIGNAL", chainId, app, signal));
     }
 
-    /// @notice Checks if we need to check real proof or it is a test.
-    /// @return Returns true to skip checking inclusion proofs.
-    function skipProofCheck() public pure virtual returns (bool) {
-        return false;
-    }
-
     /// @notice Translate a RLP-encoded list of RLP-encoded TrieNodes into a list of LP-encoded
     /// TrieNodes.
     function _transcode(bytes memory proof) internal pure returns (bytes[] memory proofs) {
