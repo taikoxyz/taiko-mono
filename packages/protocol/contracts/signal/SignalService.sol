@@ -47,6 +47,7 @@ contract SignalService is EssentialContract, ISignalService {
     struct Proof {
         uint64 height;
         bytes merkleProof;
+       // Ensure that hops are ordered such that those closer to the signal's source chain come before others.
         Hop[] hops;
     }
 
