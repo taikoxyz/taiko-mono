@@ -40,7 +40,7 @@ contract SignalService is AuthorizableContract, ISignalService {
     struct Hop {
         address relayerContract;
         bytes32 stateRoot;
-        bytes merkleProof; // Merkle proof consists of account proof and storage proof encoded (concatenated) together.
+        bytes merkleProof;
     }
 
     struct Proof {

@@ -13,17 +13,10 @@ import {SecureMerkleTrie} from "../thirdparty/optimism/trie/SecureMerkleTrie.sol
  * @title LibTrieProof
  */
 library LibTrieProof {
-    /*********************
-     * Constants         *
-     *********************/
-
     // The consensus format representing account is RLP encoded in the
     // following order: nonce, balance, storageHash, codeHash.
     uint256 private constant ACCOUNT_FIELD_INDEX_STORAGE_HASH = 2;
 
-    /*********************
-     * Public Functions  *
-     *********************/
 
     /**
      * Verifies that the value of a slot in the storage of an account is value.
