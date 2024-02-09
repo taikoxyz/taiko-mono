@@ -166,7 +166,6 @@ contract SignalService is AuthorizableContract, ISignalService {
         return keccak256(abi.encodePacked("SIGNAL", chainId, app, signal));
     }
 
-
     /// @notice Translate a RLP-encoded list of RLP-encoded TrieNodes into a list of LP-encoded
     /// TrieNodes.
     function _transcode(bytes memory proof) internal pure returns (bytes[] memory proofs) {
