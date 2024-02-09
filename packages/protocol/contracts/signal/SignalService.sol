@@ -92,8 +92,6 @@ contract SignalService is AuthorizableContract, ISignalService {
         virtual
         returns (bool)
     {
-        if (skipProofCheck()) return true;
-
         if (app == address(0) || signal == 0 || srcChainId == 0 || srcChainId == block.chainid) {
             return false;
         }
@@ -166,12 +164,6 @@ contract SignalService is AuthorizableContract, ISignalService {
         returns (bytes32)
     {
         return keccak256(abi.encodePacked("SIGNAL", chainId, app, signal));
-    }
-
-    /// @notice Tells if we need to check real proof or it is a test.
-    /// @return Returns true to skip checking inclusion proofs.
-    function skipProofCheck() public pure virtual returns (bool) {
-        return false;
     }
 
     /// @notice Translate a RLP-encoded list of RLP-encoded TrieNodes into a list of LP-encoded
