@@ -249,7 +249,8 @@ abstract contract TaikoL1TestBase is TaikoTest {
             parentHash: parentHash,
             blockHash: blockHash,
             stateRoot: stateRoot,
-            graffiti: 0x0
+            graffiti: 0x0,
+            __reserved: [bytes32(0), bytes32(0)]
         });
 
         bytes32 instance =
