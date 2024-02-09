@@ -443,8 +443,8 @@ importers:
         specifier: ^7.1.2
         version: 7.1.2
       postcss-loader:
-        specifier: ^7.3.3
-        version: 7.3.3(postcss@8.4.32)(typescript@4.9.5)(webpack@5.89.0)
+        specifier: ^8.1.0
+        version: 8.1.0(postcss@8.4.32)(typescript@4.9.5)(webpack@5.89.0)
       prettier:
         specifier: 2.7.1
         version: 2.7.1
@@ -597,8 +597,8 @@ importers:
         specifier: ^7.1.2
         version: 7.1.2
       postcss-loader:
-        specifier: ^7.3.3
-        version: 7.3.3(postcss@8.4.32)(typescript@4.9.5)(webpack@5.89.0)
+        specifier: ^8.1.0
+        version: 8.1.0(postcss@8.4.32)(typescript@4.9.5)(webpack@5.89.0)
       prettier:
         specifier: 2.7.1
         version: 2.7.1
@@ -8239,22 +8239,6 @@ packages:
       parse-json: 4.0.0
     dev: true
 
-  /cosmiconfig@8.3.6(typescript@4.9.5):
-    resolution: {integrity: sha512-kcZ6+W5QzcJ3P1Mt+83OUv/oHFqZHIx8DuxG6eZ5RGMERoLqp4BuGjhHLYGK+Kf5XVkQvqBSmAy/nGWN3qDgEA==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      typescript: '>=4.9.5'
-    peerDependenciesMeta:
-      typescript:
-        optional: true
-    dependencies:
-      import-fresh: 3.3.0
-      js-yaml: 4.1.0
-      parse-json: 5.2.0
-      path-type: 4.0.0
-      typescript: 4.9.5
-    dev: true
-
   /cosmiconfig@8.3.6(typescript@5.3.3):
     resolution: {integrity: sha512-kcZ6+W5QzcJ3P1Mt+83OUv/oHFqZHIx8DuxG6eZ5RGMERoLqp4BuGjhHLYGK+Kf5XVkQvqBSmAy/nGWN3qDgEA==}
     engines: {node: '>=14'}
@@ -8269,6 +8253,22 @@ packages:
       parse-json: 5.2.0
       path-type: 4.0.0
       typescript: 5.3.3
+    dev: true
+
+  /cosmiconfig@9.0.0(typescript@4.9.5):
+    resolution: {integrity: sha512-itvL5h8RETACmOTFc4UfIyB2RfEHi71Ax6E/PivVxq9NseKbOWpeyHEOIbmAw1rs8Ak0VursQNww7lf7YtUwzg==}
+    engines: {node: '>=14'}
+    peerDependencies:
+      typescript: '>=4.9.5'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+    dependencies:
+      env-paths: 2.2.1
+      import-fresh: 3.3.0
+      js-yaml: 4.1.0
+      parse-json: 5.2.0
+      typescript: 4.9.5
     dev: true
 
   /crc-32@1.2.2:
@@ -14244,14 +14244,20 @@ packages:
       yaml: 2.3.4
     dev: true
 
-  /postcss-loader@7.3.3(postcss@8.4.32)(typescript@4.9.5)(webpack@5.89.0):
-    resolution: {integrity: sha512-YgO/yhtevGO/vJePCQmTxiaEwER94LABZN0ZMT4A0vsak9TpO+RvKRs7EmJ8peIlB9xfXCsS7M8LjqncsUZ5HA==}
-    engines: {node: '>= 14.15.0'}
+  /postcss-loader@8.1.0(postcss@8.4.32)(typescript@4.9.5)(webpack@5.89.0):
+    resolution: {integrity: sha512-AbperNcX3rlob7Ay7A/HQcrofug1caABBkopoFeOQMspZBqcqj6giYn1Bwey/0uiOPAcR+NQD0I2HC7rXzk91w==}
+    engines: {node: '>= 18.12.0'}
     peerDependencies:
+      '@rspack/core': 0.x || 1.x
       postcss: ^7.0.0 || ^8.0.1
       webpack: ^5.0.0
+    peerDependenciesMeta:
+      '@rspack/core':
+        optional: true
+      webpack:
+        optional: true
     dependencies:
-      cosmiconfig: 8.3.6(typescript@4.9.5)
+      cosmiconfig: 9.0.0(typescript@4.9.5)
       jiti: 1.21.0
       postcss: 8.4.32
       semver: 7.5.4
