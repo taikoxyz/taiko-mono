@@ -116,7 +116,6 @@ library TaikoData {
     }
 
     /// @dev Struct representing transition to be proven.
-    // TODO(daniel): add __reserved field
     struct Transition {
         bytes32 parentHash;
         bytes32 blockHash;
