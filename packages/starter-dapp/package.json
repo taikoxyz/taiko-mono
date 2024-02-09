@@ -21,7 +21,7 @@
     "@babel/preset-env": "^7.16.0",
     "@sveltejs/vite-plugin-svelte": "^1.0.1",
     "@tsconfig/svelte": "^5.0.2",
-    "@types/eslint": "^8.2.1",
+    "@types/eslint": "^8.56.2",
     "@types/estree": "^0.0.50",
     "@types/jest": "^27.0.2",
     "@types/mixpanel": "^2.14.3",
