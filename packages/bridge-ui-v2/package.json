@@ -54,7 +54,7 @@
     "typescript": "^5.2.2",
     "vite": "^4.5.0",
     "vite-tsconfig-paths": "^4.2.1",
-    "vitest": "^0.32.4",
+    "vitest": "^1.2.2",
     "vitest-fetch-mock": "^0.2.2"
   },
   "type": "module",
