@@ -47,7 +47,8 @@ contract SignalService is EssentialContract, ISignalService {
     struct Proof {
         uint64 height;
         bytes merkleProof;
-       // Ensure that hops are ordered such that those closer to the signal's source chain come before others.
+        // Ensure that hops are ordered such that those closer to the signal's source chain come
+        // before others.
         Hop[] hops;
     }
 
@@ -56,7 +57,7 @@ contract SignalService is EssentialContract, ISignalService {
     error SS_INVALID_PARAMS();
     error SS_INVALID_PROOF();
     error SS_INVALID_APP();
-    error SS_INVALID_RELAYER();
+    error SS_INVALID_RELAY();
     error SS_INVALID_SIGNAL();
     error SS_INVALID_STATE_ROOT();
     error SS_MULTIHOP_DISABLED();
@@ -125,7 +126,7 @@ contract SignalService is EssentialContract, ISignalService {
             Hop memory hop = p.hops[i];
 
             if (!hrr.isRelayRegistered(_srcChainId, hop.chainId, hop.relay)) {
-                revert SS_INVALID_RELAYER();
+                revert SS_INVALID_RELAY();
             }
 
             verifyMerkleProof(hop.stateRoot, _srcChainId, _srcApp, _srcSignal, hop.merkleProof);
