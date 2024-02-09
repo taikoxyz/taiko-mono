@@ -37,9 +37,18 @@ contract NonNftContract {
 }
 
 contract SkipProofCheckSignal is SignalService {
-    function skipProofCheck() public pure override returns (bool) {
-        return true;
-    }
+       function proveSignalReceived(
+        uint64 srcChainId,
+        address app,
+        bytes32 signal,
+        bytes calldata proof
+    )
+        public
+        pure
+        override
+        returns (bool) {
+            return true;
+        }
 }
 
 contract DummyCrossChainSync is EssentialContract, ICrossChainSync {
