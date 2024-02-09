@@ -28,7 +28,12 @@ contract TestGuardianVerifier is TaikoL1TestBase {
         });
 
         // Transition
-        TaikoData.Transition memory transition;
+        TaikoData.Transition memory transition = TaikoData.Transition({
+            parentHash: bytes32(0),
+            blockHash: bytes32(0),
+            stateRoot: bytes32(0),
+            graffiti: bytes32(0)
+        });
 
         // TierProof
         TaikoData.TierProof memory proof = TaikoData.TierProof({ tier: 0, data: "" });
@@ -38,7 +43,7 @@ contract TestGuardianVerifier is TaikoL1TestBase {
     }
 
     // Tests `verifyProof()` with the wrong prover
-    function test_verifyProof_invalidProver() public {
+    function test_verifyProof_invalidProver() public  {
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32(0),
@@ -50,7 +55,12 @@ contract TestGuardianVerifier is TaikoL1TestBase {
         });
 
         // Transition
-        TaikoData.Transition memory transition;
+        TaikoData.Transition memory transition = TaikoData.Transition({
+            parentHash: bytes32(0),
+            blockHash: bytes32(0),
+            stateRoot: bytes32(0),
+            graffiti: bytes32(0)
+        });
 
         // TierProof
         TaikoData.TierProof memory proof = TaikoData.TierProof({ tier: 0, data: "" });

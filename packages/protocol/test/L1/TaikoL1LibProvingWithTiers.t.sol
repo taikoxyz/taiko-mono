@@ -786,10 +786,12 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
             // Let's say the 10th block is unprovable so prove accordingly
             if (blockId == 10) {
-                TaikoData.Transition memory tran;
-                tran.parentHash = parentHash;
-                tran.blockHash = blockHash;
-                tran.stateRoot = stateRoot;
+                TaikoData.Transition memory tran = TaikoData.Transition({
+                    parentHash: parentHash,
+                    blockHash: blockHash,
+                    stateRoot: stateRoot,
+                    graffiti: 0x0
+                });
 
                 TaikoData.TierProof memory proof;
                 proof.tier = LibTiers.TIER_GUARDIAN;

@@ -140,7 +140,9 @@ contract SignalService is AuthorizableContract, ISignalService {
 
             uint64 hopChainId = uint256(label).toUint64();
 
-            verifyMerkleProof(stateRoot, hopChainId, hop.relay, hop.stateRoot, hop.merkleProof);
+            verifyMerkleProof(
+                stateRoot, hopChainId, hop.relay, hop.stateRoot, hop.merkleProof
+            );
             stateRoot = hop.stateRoot;
         }
 

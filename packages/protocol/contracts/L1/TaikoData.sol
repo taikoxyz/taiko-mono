@@ -121,7 +121,6 @@ library TaikoData {
         bytes32 blockHash;
         bytes32 stateRoot;
         bytes32 graffiti;
-        bytes32[2] __reserved;
     }
 
     /// @dev Struct representing state transition data.
