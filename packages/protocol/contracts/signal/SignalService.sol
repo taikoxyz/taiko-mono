@@ -39,13 +39,13 @@ contract SignalService is AuthorizableContract, ISignalService {
     struct Hop {
         address relayerContract;
         bytes32 stateRoot;
-        bytes[] merkleProof;
+        bytes merkleProof;
     }
 
     struct Proof {
         address crossChainSync;
         uint64 height;
-        bytes[] merkleProof;
+        bytes merkleProof;
         Hop[] hops;
     }
 
@@ -155,22 +155,13 @@ contract SignalService is AuthorizableContract, ISignalService {
         uint64 srcChainId,
         address srcApp,
         bytes32 srcSignal,
-        bytes[] memory merkleProof
+        bytes memory merkleProof
     )
         public
         view
         virtual
     {
-        // I do not think this line is needed here.
-        //address signalService = resolve(srcChainId, "signal_service", false);
-        // TODO: we need to use this signal service
-
-        bytes32 slot = getSignalSlot(srcChainId, srcApp, srcSignal);
-        bool verified = SecureMerkleTrie.verifyInclusionProof(
-            bytes.concat(slot), hex"01", merkleProof, stateRoot
-        );
-
-        if (!verified) revert SS_INVALID_APP_PROOF();
+        // TODO(dani): implement this please
     }
 
     /// @notice Get the storage slot of the signal.
