@@ -60,7 +60,7 @@
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-prettier": "^3.4.1",
     "eslint-plugin-promise": "^6.1.1",
-    "ethers": "^5.7.2",
+    "ethers": "^6.10.0",
     "glob": "^8.1.0",
     "hardhat": "^2.14.0",
     "hardhat-abi-exporter": "^2.10.1",
