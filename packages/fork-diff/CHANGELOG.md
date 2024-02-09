@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/taikoxyz/taiko-mono/compare/fork-diff-v0.4.0...fork-diff-v0.5.0) (2024-02-09)
+
+
+### Features
+
+* **protocol:** Based Contestable Rollup with multi-proofs and multi-hop bridging ([#14705](https://github.com/taikoxyz/taiko-mono/issues/14705)) ([28000b3](https://github.com/taikoxyz/taiko-mono/commit/28000b3ca67714e4edb00b6416e05303ae2893b5))
+
 ## [0.4.0](https://github.com/taikoxyz/taiko-mono/compare/fork-diff-v0.3.0...fork-diff-v0.4.0) (2023-09-25)
 
 

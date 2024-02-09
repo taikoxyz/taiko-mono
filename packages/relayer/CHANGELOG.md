@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.13.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.12.0...relayer-v0.13.0) (2024-02-09)
+
+
+### Features
+
+* **protocol, relayer:** Improved Taiko Protocol and Relayer Documentations ([#15440](https://github.com/taikoxyz/taiko-mono/issues/15440)) ([67ca2e1](https://github.com/taikoxyz/taiko-mono/commit/67ca2e1e0bfe5301efa854048cc5cb0f0dafe921))
+* **protocol:** Based Contestable Rollup with multi-proofs and multi-hop bridging ([#14705](https://github.com/taikoxyz/taiko-mono/issues/14705)) ([28000b3](https://github.com/taikoxyz/taiko-mono/commit/28000b3ca67714e4edb00b6416e05303ae2893b5))
+* **protocol:** multiple improvements & bug fixes ([#15255](https://github.com/taikoxyz/taiko-mono/issues/15255)) ([337c57c](https://github.com/taikoxyz/taiko-mono/commit/337c57c70f3b4ed1df9e6f4b808d814d1f1452e4))
+* **relayer, eventindexer:** move code to pkg folder, use new api subcommand for eventindexer/relayer ([#15502](https://github.com/taikoxyz/taiko-mono/issues/15502)) ([99dd1d2](https://github.com/taikoxyz/taiko-mono/commit/99dd1d276eb9505589d50cad10231691f9549727))
+* **relayer:** Add flag to be able to index past blocks to crawl for missed messages ([#15547](https://github.com/taikoxyz/taiko-mono/issues/15547)) ([d2eda59](https://github.com/taikoxyz/taiko-mono/commit/d2eda5966b463781c72580d4d30509422619824c))
+* **relayer:** Allow relayer to run in "target single transaction hash" mode ([#15546](https://github.com/taikoxyz/taiko-mono/issues/15546)) ([e500f3d](https://github.com/taikoxyz/taiko-mono/commit/e500f3d8f8bdf3755284b7306b521757f64ee632))
+* **relayer:** Simplify event iterator code ([#15485](https://github.com/taikoxyz/taiko-mono/issues/15485)) ([77aafd2](https://github.com/taikoxyz/taiko-mono/commit/77aafd293ed954c73f7f8d268684c8affe1d5502))
+
+
+### Bug Fixes
+
+* **relayer:** message data  ([#15543](https://github.com/taikoxyz/taiko-mono/issues/15543)) ([096bdd8](https://github.com/taikoxyz/taiko-mono/commit/096bdd855054f0877e62764120ee6a0765fb2701))
+* **relayer:** retroactively fix old relayer messages ([#15691](https://github.com/taikoxyz/taiko-mono/issues/15691)) ([6af1daf](https://github.com/taikoxyz/taiko-mono/commit/6af1daf50597be6b0f0e008a5e1c7ba57ae7e581))
+* **relayer:** update relayer flag env var name ([#15622](https://github.com/taikoxyz/taiko-mono/issues/15622)) ([688a6eb](https://github.com/taikoxyz/taiko-mono/commit/688a6eb077d088a475e1a8c63702ed3c9fb44165))
+* **relayer:** wait for confirmations before saving event when indexing ([#15603](https://github.com/taikoxyz/taiko-mono/issues/15603)) ([ad5f5e1](https://github.com/taikoxyz/taiko-mono/commit/ad5f5e1cf5870d3d3a0cb080fef80938cdf16af9))
+
 ## [0.12.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.11.0...relayer-v0.12.0) (2023-10-18)
 
 
