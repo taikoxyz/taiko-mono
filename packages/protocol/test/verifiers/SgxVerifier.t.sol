@@ -23,7 +23,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         super.setUp();
 
         // Call the AttestationBase init setup
-        super.intialSetup();
+        super.initialSetup();
 
         registerAddress("automata_dcap_attestation", address(attestation));
     }
@@ -40,7 +40,8 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         vm.expectEmit(true, true, true, true);
         emit SgxVerifier.InstanceAdded(startInstance, instances[0], address(0), block.timestamp);
         vm.expectEmit(true, true, true, true);
-        emit SgxVerifier.InstanceAdded(startInstance + 1, instances[1], address(0), block.timestamp);
+        emit SgxVerifier.InstanceAdded(startInstance + 1, instances[1], address(0),
+        block.timestamp);
 
         // `addInstances()`
         uint256[] memory ids = sv.addInstances(instances);
