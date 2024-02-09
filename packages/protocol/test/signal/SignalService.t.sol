@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import "../TaikoTest.sol";
-import "../../contracts/libs/LibTrieProof.sol";
 
 contract TestSignalService is TaikoTest {
     AddressManager addressManager;

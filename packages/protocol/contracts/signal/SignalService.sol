@@ -35,18 +35,28 @@ import "./ISignalService.sol";
 contract SignalService is AuthorizableContract, ISignalService {
     using SafeCast for uint256;
 
+    /// @dev Meaning, for this chainId A, signal service contract B, in given snapshot world state
+    /// root 'C', then here is a storage proof for that signal service.
+    mapping(
+        uint256 signalServiceChainId
+            => mapping(
+                address signalServiceAddress
+                    => mapping(bytes32 worldStateRoot => bytes signalStorageRoot)
+            )
+    ) public verifiedStorageRoots;
+
     // merkleProof represents ABI-encoded tuple of (key, value, and proof)
     // returned from the eth_getProof() API.
     struct Hop {
-        address relayerContract;
+        address relay;
         bytes32 stateRoot;
-        bytes merkleProof; // Merkle proof consists of account proof and storage proof encoded (concatenated) together.
+        bytes merkleProof;
     }
 
     struct Proof {
         address crossChainSync;
         uint64 height;
-        bytes merkleProof; // Merkle proof consists of account proof and storage proof encoded (concatenated) together.
+        bytes merkleProof;
         Hop[] hops;
     }
 
@@ -96,7 +106,6 @@ contract SignalService is AuthorizableContract, ISignalService {
         bytes calldata proof
     )
         public
-        view
         virtual
         returns (bool)
     {
@@ -136,18 +145,31 @@ contract SignalService is AuthorizableContract, ISignalService {
             Hop memory hop = p.hops[i];
             if (hop.stateRoot == stateRoot) revert SS_INVALID_HOP_PROOF();
 
-            bytes32 label = authorizedAddresses[hop.relayerContract];
+            bytes32 label = authorizedAddresses[hop.relay];
             if (label == 0) revert SS_HOP_RELAYER_UNAUTHORIZED();
 
             uint64 hopChainId = uint256(label).toUint64();
 
+            // Do not cache hop, just the source chain's signal service storage root.
             verifyMerkleProof(
-                stateRoot, hopChainId, hop.relayerContract, hop.stateRoot, hop.merkleProof
+                stateRoot,
+                hopChainId,
+                hop.relay,
+                hop.stateRoot,
+                hop.merkleProof,
+                ""
             );
             stateRoot = hop.stateRoot;
         }
 
-        verifyMerkleProof(stateRoot, srcChainId, app, signal, p.merkleProof);
+        verifiedStorageRoots[srcChainId][app][stateRoot] = verifyMerkleProof(
+            stateRoot,
+            srcChainId,
+            app,
+            signal,
+            p.merkleProof,
+            verifiedStorageRoots[srcChainId][app][stateRoot]
+        );
         return true;
     }
 
@@ -156,16 +178,28 @@ contract SignalService is AuthorizableContract, ISignalService {
         uint64 srcChainId,
         address srcApp,
         bytes32 srcSignal,
-        bytes memory merkleProof
+        bytes memory merkleProof,
+        bytes memory cachedRoot
     )
         public
         view
         virtual
+        returns (bytes memory toBeCachedStorageRoot)
     {
         address signalService = resolve(srcChainId, "signal_service", false);
 
         bytes32 slot = getSignalSlot(srcChainId, srcApp, srcSignal);
-        bool verified = LibTrieProof.verifyWithAccountProof(stateRoot, signalService, slot, hex"01", merkleProof);
+        bool verified;
+
+        if (cachedRoot.length == 0) {
+            (verified, toBeCachedStorageRoot) = LibTrieProof.verifyWithAccountProof(
+                stateRoot, signalService, slot, hex"01", merkleProof, hex""
+            );
+        } else {
+            (verified, toBeCachedStorageRoot) = LibTrieProof.verifyWithAccountProof(
+                stateRoot, signalService, slot, hex"01", merkleProof, cachedRoot
+            );
+        }
 
         if (!verified) revert SS_INVALID_APP_PROOF();
     }
