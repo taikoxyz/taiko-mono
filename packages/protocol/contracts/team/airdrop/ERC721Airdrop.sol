@@ -40,7 +40,7 @@ contract ERC721Airdrop is MerkleClaimable {
         vault = _vault;
     }
 
-    function _claimWithData(bytes calldata data) internal override {
+    function _claimWithData(bytes calldata data, address /*delegatee*/ ) internal override {
         (address user, uint256[] memory tokenIds) = abi.decode(data, (address, uint256[]));
 
         for (uint256 i; i < tokenIds.length; ++i) {

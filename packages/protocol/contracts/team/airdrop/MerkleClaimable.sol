@@ -18,6 +18,10 @@ import { MerkleProofUpgradeable } from
     "lib/openzeppelin-contracts-upgradeable/contracts/utils/cryptography/MerkleProofUpgradeable.sol";
 import "../../common/EssentialContract.sol";
 
+interface Delegation {
+    function delegateByTxOrigin(address delegatee) external;
+}
+
 /// @title MerkleClaimable
 /// Contract for managing Taiko token airdrop for eligible users
 abstract contract MerkleClaimable is EssentialContract {
@@ -44,7 +48,8 @@ abstract contract MerkleClaimable is EssentialContract {
 
     function claim(
         bytes calldata data,
-        bytes32[] calldata proof
+        bytes32[] calldata proof,
+        address delegatee
     )
         external
         nonReentrant
@@ -59,7 +64,7 @@ abstract contract MerkleClaimable is EssentialContract {
         }
 
         isClaimed[hash] = true;
-        _claimWithData(data);
+        _claimWithData(data, delegatee);
         emit Claimed(hash);
     }
 
@@ -85,5 +90,5 @@ abstract contract MerkleClaimable is EssentialContract {
     }
 
     /// @dev Must revert in case of errors.
-    function _claimWithData(bytes calldata data) internal virtual;
+    function _claimWithData(bytes calldata data, address delegate) internal virtual;
 }

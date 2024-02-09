@@ -9,19 +9,45 @@ contract MyERC20 is ERC20 {
     }
 }
 
+contract MockAddressManager {
+    address mockERC20Vault;
+
+    constructor(address _mockERC20Vault) {
+        mockERC20Vault = _mockERC20Vault;
+    }
+
+    function getAddress(uint64, /*chainId*/ bytes32 /*name*/ ) public view returns (address) {
+        return mockERC20Vault;
+    }
+}
+
 contract TestERC20Airdrop is TaikoTest {
     uint64 claimStart;
     uint64 claimEnd;
     address internal owner = randAddress();
+    MockAddressManager addressManager;
 
     bytes32 merkleRoot = 0x73a7330a8657ad864b954215a8f636bb3709d2edea60bcd4fcb8a448dbc6d70f;
 
     ERC20Airdrop airdrop;
     ERC20Airdrop2 airdrop2;
-    ERC20 token;
+    BridgedERC20 token;
 
     function setUp() public {
-        token = new MyERC20(address(owner));
+        addressManager = new MockAddressManager(Alice);
+        token = BridgedERC20(
+            deployProxy({
+                name: "airdrop",
+                impl: address(new BridgedERC20()),
+                data: abi.encodeCall(
+                    BridgedERC20.init, (address(addressManager), randAddress(), 100, 18, "TKO", "TKO")
+                    )
+            })
+        );
+
+        vm.prank(Alice, Alice);
+        BridgedERC20(token).mint(owner, 1_000_000_000e18);
+
         // 1st 'genesis' airdrop
         airdrop = ERC20Airdrop(
             deployProxy({
@@ -69,7 +95,7 @@ contract TestERC20Airdrop is TaikoTest {
 
         vm.expectRevert(MerkleClaimable.CLAIM_NOT_ONGOING.selector);
         vm.prank(Alice, Alice);
-        airdrop.claim(abi.encode(Alice, 100), merkleProof);
+        airdrop.claim(abi.encode(Alice, 100), merkleProof, Bob);
     }
 
     function test_claim_but_claim_not_ongoing_anymore() public {
@@ -82,7 +108,7 @@ contract TestERC20Airdrop is TaikoTest {
 
         vm.expectRevert(MerkleClaimable.CLAIM_NOT_ONGOING.selector);
         vm.prank(Alice, Alice);
-        airdrop.claim(abi.encode(Alice, 100), merkleProof);
+        airdrop.claim(abi.encode(Alice, 100), merkleProof, Bob);
     }
 
     function test_claim_but_with_invalid_allowance() public {
@@ -95,7 +121,7 @@ contract TestERC20Airdrop is TaikoTest {
 
         vm.expectRevert(MerkleClaimable.INVALID_PROOF.selector);
         vm.prank(Alice, Alice);
-        airdrop.claim(abi.encode(Alice, 200), merkleProof);
+        airdrop.claim(abi.encode(Alice, 200), merkleProof, Bob);
     }
 
     function test_claim() public {
@@ -107,10 +133,12 @@ contract TestERC20Airdrop is TaikoTest {
         merkleProof[2] = 0xc13844b93533d8aec9c7c86a3d9399efb4e834f4069b9fd8a88e7290be612d05;
 
         vm.prank(Alice, Alice);
-        airdrop.claim(abi.encode(Alice, 100), merkleProof);
+        airdrop.claim(abi.encode(Alice, 100), merkleProof, Bob);
 
         // Check Alice balance
         assertEq(token.balanceOf(Alice), 100);
+        // Check who is delegatee, shal be Bob
+        assertEq(token.delegates(Alice), Bob);
     }
 
     function test_claim_with_same_proofs_twice() public {
@@ -122,14 +150,14 @@ contract TestERC20Airdrop is TaikoTest {
         merkleProof[2] = 0xc13844b93533d8aec9c7c86a3d9399efb4e834f4069b9fd8a88e7290be612d05;
 
         vm.prank(Alice, Alice);
-        airdrop.claim(abi.encode(Alice, 100), merkleProof);
+        airdrop.claim(abi.encode(Alice, 100), merkleProof, Bob);
 
         // Check Alice balance
         assertEq(token.balanceOf(Alice), 100);
 
         vm.expectRevert(MerkleClaimable.CLAIMED_ALREADY.selector);
         vm.prank(Alice, Alice);
-        airdrop.claim(abi.encode(Alice, 100), merkleProof);
+        airdrop.claim(abi.encode(Alice, 100), merkleProof, Bob);
     }
 
     function test_withdraw_for_airdrop2_withdraw_daily() public {
@@ -141,7 +169,7 @@ contract TestERC20Airdrop is TaikoTest {
         merkleProof[2] = 0xc13844b93533d8aec9c7c86a3d9399efb4e834f4069b9fd8a88e7290be612d05;
 
         vm.prank(Alice, Alice);
-        airdrop2.claim(abi.encode(Alice, 100), merkleProof);
+        airdrop2.claim(abi.encode(Alice, 100), merkleProof, Bob);
 
         // Try withdraw but not started yet
         vm.expectRevert(ERC20Airdrop2.WITHDRAWALS_NOT_ONGOING.selector);
@@ -190,7 +218,7 @@ contract TestERC20Airdrop is TaikoTest {
         merkleProof[2] = 0xc13844b93533d8aec9c7c86a3d9399efb4e834f4069b9fd8a88e7290be612d05;
 
         vm.prank(Alice, Alice);
-        airdrop2.claim(abi.encode(Alice, 100), merkleProof);
+        airdrop2.claim(abi.encode(Alice, 100), merkleProof, Bob);
 
         // Try withdraw but not started yet
         vm.expectRevert(ERC20Airdrop2.WITHDRAWALS_NOT_ONGOING.selector);
@@ -220,7 +248,7 @@ contract TestERC20Airdrop is TaikoTest {
         merkleProof[2] = 0xc13844b93533d8aec9c7c86a3d9399efb4e834f4069b9fd8a88e7290be612d05;
 
         vm.prank(Alice, Alice);
-        airdrop2.claim(abi.encode(Alice, 100), merkleProof);
+        airdrop2.claim(abi.encode(Alice, 100), merkleProof, Bob);
 
         // Try withdraw but not started yet
         vm.expectRevert(ERC20Airdrop2.WITHDRAWALS_NOT_ONGOING.selector);
