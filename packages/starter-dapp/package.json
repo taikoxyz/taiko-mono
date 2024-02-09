@@ -32,7 +32,7 @@
     "autoprefixer": "^10.4.13",
     "babel-jest": "^27.3.1",
     "babel-plugin-transform-es2015-modules-commonjs": "^6.26.2",
-    "daisyui": "1.16.6",
+    "daisyui": "4.6.2",
     "jest": "^27.5.1",
     "node-sass": "^7.0.1",
     "postcss": "^8.4.19",

@@ -90,8 +90,8 @@ importers:
         specifier: ^10.4.16
         version: 10.4.16(postcss@8.4.32)
       daisyui:
-        specifier: ^4.5.0
-        version: 4.5.0(postcss@8.4.32)
+        specifier: ^4.6.2
+        version: 4.6.2(postcss@8.4.32)
       dotenv:
         specifier: ^16.3.1
         version: 16.3.1
@@ -202,8 +202,8 @@ importers:
         specifier: ^10.4.16
         version: 10.4.16(postcss@8.4.32)
       daisyui:
-        specifier: ^4.4.22
-        version: 4.4.24(postcss@8.4.32)
+        specifier: ^4.6.2
+        version: 4.6.2(postcss@8.4.32)
       eslint:
         specifier: ^8.28.0
         version: 8.55.0
@@ -428,8 +428,8 @@ importers:
         specifier: ^6.26.2
         version: 6.26.2
       daisyui:
-        specifier: 1.16.6
-        version: 1.16.6
+        specifier: 4.6.2
+        version: 4.6.2(postcss@8.4.32)
       jest:
         specifier: ^27.5.1
         version: 27.5.1
@@ -582,8 +582,8 @@ importers:
         specifier: ^6.26.2
         version: 6.26.2
       daisyui:
-        specifier: 1.16.6
-        version: 1.16.6
+        specifier: 4.6.2
+        version: 4.6.2(postcss@8.4.32)
       jest:
         specifier: ^27.5.1
         version: 27.5.1
@@ -8407,24 +8407,8 @@ packages:
       type: 1.2.0
     dev: false
 
-  /daisyui@1.16.6:
-    resolution: {integrity: sha512-kso740gqMVVqritCQliQCpfPwos9lxp7/TEiEev4w6GGQyLNRyfriWY+DWxfawMY/DwGDzBl2DZtekCMf73bzw==}
-    dev: true
-
-  /daisyui@4.4.24(postcss@8.4.32):
-    resolution: {integrity: sha512-u/B3484J08V7N0rIYymnC+SyxOjlYQL+2vyhHWV+/KC+VaUcbEF2Z3H06eCPgdTiZ0J+ml44aH7wBhIymPFQ+g==}
-    engines: {node: '>=16.9.0'}
-    dependencies:
-      css-selector-tokenizer: 0.8.0
-      culori: 3.3.0
-      picocolors: 1.0.0
-      postcss-js: 4.0.1(postcss@8.4.32)
-    transitivePeerDependencies:
-      - postcss
-    dev: true
-
-  /daisyui@4.5.0(postcss@8.4.32):
-    resolution: {integrity: sha512-RWQCPQ0vBUaxGy768O7Ku8SRQgwdoto1lDzuKeVOcMtYghuSbUY7NoPoMK+k8JH4s1J02OvpNAgtB9MeKpZIwg==}
+  /daisyui@4.6.2(postcss@8.4.32):
+    resolution: {integrity: sha512-LBIbI76wVVRCQt1Uis2Y2/PRdGfMkNMFsHOjfpav8n7SamwRwPOCiNUClIrnX2jerWW3mLZlzRMCnQfxmGEjow==}
     engines: {node: '>=16.9.0'}
     dependencies:
       css-selector-tokenizer: 0.8.0
