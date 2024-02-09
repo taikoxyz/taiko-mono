@@ -183,19 +183,13 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @notice Checks if multi-hop is enabled.
     /// @return Returns true if multi-hop bridging is enabled.
-    function isMultiHopEnabled() public pure virtual returns (bool) {
+    function isMultiHopEnabled() public view virtual returns (bool) {
         return false;
     }
 
     /// @notice Checks if we need to check real proof or it is a test.
     /// @return Returns true to skip checking inclusion proofs.
     function skipProofCheck() public pure virtual returns (bool) {
-        return false;
-    }
-
-    /// @notice Checks if we need to check each merkle proof or it is a test.
-    /// @return Returns true to skip checking inclusion proofs.
-    function _skipMerkleProofCheck() internal view virtual returns (bool) {
         return false;
     }
 
