@@ -100,7 +100,7 @@ contract SignalService is EssentialContract, ISignalService {
         virtual
         returns (bool)
     {
-        if (_skipEntireProofCheck()) return true;
+        if (skipProofCheck()) return true;
 
         if (app == address(0) || signal == 0 || srcChainId == 0 || srcChainId == block.chainid) {
             revert SS_INVALID_PARAMS();
@@ -157,10 +157,10 @@ contract SignalService is EssentialContract, ISignalService {
         if (merkleProof.length == 0) revert SS_INVALID_PROOF();
 
         bool verified;
-        
+
         // TODO(dani): implement this please
 
-        if (!verified) revert SS_INVALID_PROOF();        
+        if (!verified) revert SS_INVALID_PROOF();
     }
 
     /// @notice Get the storage slot of the signal.
@@ -189,7 +189,7 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @notice Checks if we need to check real proof or it is a test.
     /// @return Returns true to skip checking inclusion proofs.
-    function _skipEntireProofCheck() internal view virtual returns (bool) {
+    function skipProofCheck() public pure virtual returns (bool) {
         return false;
     }
 
