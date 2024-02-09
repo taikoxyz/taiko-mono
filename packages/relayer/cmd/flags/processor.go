@@ -133,6 +133,14 @@ var (
 		Required: false,
 		EnvVars:  []string{"TARGET_TX_HASH"},
 	}
+	ProofEncodingType = &cli.StringFlag{
+		Name:     "proofEncodingType",
+		Usage:    "Which proof encoding type to use for merkle proof submission",
+		Category: processorCategory,
+		Required: false,
+		EnvVars:  []string{"PROOF_ENCODING_TYPE"},
+		Value:    "rlp",
+	}
 )
 
 var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
@@ -156,4 +164,5 @@ var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	HopTaikoAddresses,
 	DestBridgeAddress,
 	TargetTxHash,
+	ProofEncodingType,
 })

@@ -39,12 +39,38 @@ func (p *Prover) EncodedSignalProof(
 	key string,
 	blockHash common.Hash,
 ) ([]byte, error) {
+	if p.proofEncodingType == relayer.ABIEncodingType {
+		return p.abiEncodeSignalProof(ctx,
+			caller,
+			signalServiceAddress,
+			crossChainSyncAddress,
+			key,
+			blockHash,
+		)
+	}
+
+	return p.rlpEncodeSignalProof(ctx,
+		caller,
+		signalServiceAddress,
+		crossChainSyncAddress,
+		key,
+		blockHash,
+	)
+}
+
+func (p *Prover) rlpEncodeSignalProof(ctx context.Context,
+	caller relayer.Caller,
+	signalServiceAddress common.Address,
+	crossChainSyncAddress common.Address,
+	key string,
+	blockHash common.Hash,
+) ([]byte, error) {
 	blockHeader, err := p.blockHeader(ctx, p.blocker, blockHash)
 	if err != nil {
 		return nil, errors.Wrap(err, "p.blockHeader")
 	}
 
-	encodedStorageProof, _, err := p.encodedStorageProof(
+	encodedStorageProof, _, err := p.rlpEncodedStorageProof(
 		ctx,
 		caller,
 		signalServiceAddress,
@@ -55,16 +81,54 @@ func (p *Prover) EncodedSignalProof(
 		return nil, errors.Wrap(err, "p.getEncodedStorageProof")
 	}
 
-	signalProof := encoding.SignalProof{
+	signalProof := encoding.RLPSignalProof{
 		CrossChainSync: crossChainSyncAddress,
 		Height:         blockHeader.Height.Uint64(),
 		StorageProof:   encodedStorageProof,
-		Hops:           []encoding.Hop{},
+		Hops:           []encoding.RLPHop{},
 	}
 
-	encodedSignalProof, err := encoding.EncodeSignalProof(signalProof)
+	encodedSignalProof, err := encoding.EncodeRLPSignalProof(signalProof)
 	if err != nil {
 		return nil, errors.Wrap(err, "enoding.EncodeSignalProof")
+	}
+
+	return encodedSignalProof, nil
+}
+
+func (p *Prover) abiEncodeSignalProof(ctx context.Context,
+	caller relayer.Caller,
+	signalServiceAddress common.Address,
+	crossChainSyncAddress common.Address,
+	key string,
+	blockHash common.Hash,
+) ([]byte, error) {
+	blockHeader, err := p.blockHeader(ctx, p.blocker, blockHash)
+	if err != nil {
+		return nil, errors.Wrap(err, "p.blockHeader")
+	}
+
+	encodedStorageProof, _, err := p.abiEncodedStorageProof(
+		ctx,
+		caller,
+		signalServiceAddress,
+		key,
+		blockHeader.Height.Int64(),
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "p.abiEncodedStorageProof")
+	}
+
+	signalProof := encoding.ABISignalProof{
+		CrossChainSync: crossChainSyncAddress,
+		Height:         blockHeader.Height.Uint64(),
+		StorageProof:   encodedStorageProof,
+		Hops:           []encoding.ABIHop{},
+	}
+
+	encodedSignalProof, err := encoding.EncodeABISignalProof(signalProof)
+	if err != nil {
+		return nil, errors.Wrap(err, "enoding.EncodeABISignalProof")
 	}
 
 	return encodedSignalProof, nil
@@ -80,12 +144,43 @@ func (p *Prover) EncodedSignalProofWithHops(
 	blockHash common.Hash,
 	blockNum uint64,
 ) ([]byte, uint64, error) {
+	if p.proofEncodingType == relayer.ABIEncodingType {
+		return p.abiEncodeSignalProofWithHops(ctx,
+			caller,
+			signalServiceAddress,
+			crossChainSyncAddress,
+			hopParams,
+			key,
+			blockHash,
+			blockNum,
+		)
+	}
+
+	return p.rlpEncodeSignalProofWithHops(ctx,
+		caller,
+		signalServiceAddress,
+		crossChainSyncAddress,
+		hopParams,
+		key,
+		blockHash,
+		blockNum,
+	)
+}
+
+func (p *Prover) rlpEncodeSignalProofWithHops(ctx context.Context,
+	caller relayer.Caller,
+	signalServiceAddress common.Address,
+	crossChainSyncAddress common.Address,
+	hopParams []HopParams,
+	key string,
+	blockHash common.Hash,
+	blockNum uint64) ([]byte, uint64, error) {
 	blockHeader, err := p.blockHeader(ctx, p.blocker, blockHash)
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "p.blockHeader")
 	}
 
-	encodedStorageProof, signalRoot, err := p.encodedStorageProof(
+	encodedStorageProof, signalRoot, err := p.rlpEncodedStorageProof(
 		ctx,
 		caller,
 		signalServiceAddress,
@@ -99,7 +194,7 @@ func (p *Prover) EncodedSignalProofWithHops(
 
 	slog.Info("successfully generated main storage proof")
 
-	hops := []encoding.Hop{}
+	hops := []encoding.RLPHop{}
 
 	for _, hop := range hopParams {
 		hopStorageSlotKey, err := hop.SignalService.GetSignalSlot(&bind.CallOpts{},
@@ -111,7 +206,7 @@ func (p *Prover) EncodedSignalProofWithHops(
 			return nil, 0, errors.Wrap(err, "hopSignalService.GetSignalSlot")
 		}
 
-		encodedHopStorageProof, nextSignalRoot, err := p.encodedStorageProof(
+		encodedHopStorageProof, nextSignalRoot, err := p.rlpEncodedStorageProof(
 			ctx,
 			hop.Caller,
 			hop.SignalServiceAddress,
@@ -122,7 +217,7 @@ func (p *Prover) EncodedSignalProofWithHops(
 			return nil, 0, errors.Wrap(err, "hop p.getEncodedStorageProof")
 		}
 
-		hops = append(hops, encoding.Hop{
+		hops = append(hops, encoding.RLPHop{
 			SignalRootRelay: hop.TaikoAddress,
 			SignalRoot:      signalRoot,
 			StorageProof:    encodedHopStorageProof,
@@ -131,14 +226,14 @@ func (p *Prover) EncodedSignalProofWithHops(
 		signalRoot = nextSignalRoot
 	}
 
-	signalProof := encoding.SignalProof{
+	signalProof := encoding.RLPSignalProof{
 		CrossChainSync: crossChainSyncAddress,
 		Height:         blockNum,
 		StorageProof:   encodedStorageProof,
 		Hops:           hops,
 	}
 
-	encodedSignalProof, err := encoding.EncodeSignalProof(signalProof)
+	encodedSignalProof, err := encoding.EncodeRLPSignalProof(signalProof)
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "enoding.EncodeSignalProof")
 	}
@@ -148,10 +243,86 @@ func (p *Prover) EncodedSignalProofWithHops(
 	return encodedSignalProof, blockHeader.Height.Uint64(), nil
 }
 
-// getEncodedStorageProof rlp and abi encodes a proof for SignalService,
+func (p *Prover) abiEncodeSignalProofWithHops(ctx context.Context,
+	caller relayer.Caller,
+	signalServiceAddress common.Address,
+	crossChainSyncAddress common.Address,
+	hopParams []HopParams,
+	key string,
+	blockHash common.Hash,
+	blockNum uint64) ([]byte, uint64, error) {
+	blockHeader, err := p.blockHeader(ctx, p.blocker, blockHash)
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "p.blockHeader")
+	}
+
+	encodedStorageProof, signalRoot, err := p.abiEncodedStorageProof(
+		ctx,
+		caller,
+		signalServiceAddress,
+		key,
+		blockHeader.Height.Int64(),
+	)
+
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "p.encodedStorageProof")
+	}
+
+	slog.Info("successfully generated main storage proof")
+
+	hops := []encoding.ABIHop{}
+
+	for _, hop := range hopParams {
+		hopStorageSlotKey, err := hop.SignalService.GetSignalSlot(&bind.CallOpts{},
+			hop.ChainID.Uint64(),
+			hop.TaikoAddress,
+			signalRoot,
+		)
+		if err != nil {
+			return nil, 0, errors.Wrap(err, "hopSignalService.GetSignalSlot")
+		}
+
+		encodedHopStorageProof, nextSignalRoot, err := p.abiEncodedStorageProof(
+			ctx,
+			hop.Caller,
+			hop.SignalServiceAddress,
+			common.Bytes2Hex(hopStorageSlotKey[:]),
+			int64(hop.BlockNumber),
+		)
+		if err != nil {
+			return nil, 0, errors.Wrap(err, "hop p.getEncodedStorageProof")
+		}
+
+		hops = append(hops, encoding.ABIHop{
+			SignalRootRelay: hop.TaikoAddress,
+			SignalRoot:      signalRoot,
+			StorageProof:    encodedHopStorageProof,
+		})
+
+		signalRoot = nextSignalRoot
+	}
+
+	signalProof := encoding.ABISignalProof{
+		CrossChainSync: crossChainSyncAddress,
+		Height:         blockNum,
+		StorageProof:   encodedStorageProof,
+		Hops:           hops,
+	}
+
+	encodedSignalProof, err := encoding.EncodeABISignalProof(signalProof)
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "enoding.EncodeSignalProof")
+	}
+
+	slog.Info("blockNum", "blockNUm", blockNum)
+
+	return encodedSignalProof, blockHeader.Height.Uint64(), nil
+}
+
+// rlpEncodedStorageProof rlp and abi encodes a proof for SignalService,
 // where `proof` is an rlp and abi encoded (bytes, bytes) consisting of storageProof.Proofs[0]
 // response from `eth_getProof`, and returns the storageHash to be used as the signalRoot.
-func (p *Prover) encodedStorageProof(
+func (p *Prover) rlpEncodedStorageProof(
 	ctx context.Context,
 	c relayer.Caller,
 	signalServiceAddress common.Address,
@@ -183,10 +354,48 @@ func (p *Prover) encodedStorageProof(
 		return nil, common.Hash{}, errors.New("proof will not be valid, expected storageProof to be 1 but was not")
 	}
 
-	rlpEncodedStorageProof, err := rlp.EncodeToBytes(ethProof.StorageProof[0].Proof)
+	encodedProof, err := rlp.EncodeToBytes(ethProof.StorageProof[0].Proof)
 	if err != nil {
 		return nil, common.Hash{}, errors.Wrap(err, "rlp.EncodeToBytes(proof.StorageProof[0].Proof")
 	}
 
-	return rlpEncodedStorageProof, ethProof.StorageHash, nil
+	return encodedProof, ethProof.StorageHash, nil
+}
+
+// rlpEncodedStorageProof rlp and abi encodes a proof for SignalService,
+// where `proof` is an rlp and abi encoded (bytes, bytes) consisting of storageProof.Proofs[0]
+// response from `eth_getProof`, and returns the storageHash to be used as the signalRoot.
+func (p *Prover) abiEncodedStorageProof(
+	ctx context.Context,
+	c relayer.Caller,
+	signalServiceAddress common.Address,
+	key string,
+	blockNumber int64,
+) ([][]byte, common.Hash, error) {
+	var ethProof StorageProof
+
+	slog.Info("getting proof",
+		"signalServiceAddress", signalServiceAddress.Hex(),
+		"key", key,
+		"blockNum", blockNumber,
+	)
+
+	err := c.CallContext(ctx,
+		&ethProof,
+		"eth_getProof",
+		signalServiceAddress,
+		[]string{key},
+		hexutil.EncodeBig(new(big.Int).SetInt64(blockNumber)),
+	)
+	if err != nil {
+		return nil, common.Hash{}, errors.Wrap(err, "c.CallContext")
+	}
+
+	slog.Info("proof generated", "value", new(big.Int).SetBytes(ethProof.StorageProof[0].Value).Int64())
+
+	if new(big.Int).SetBytes(ethProof.StorageProof[0].Value).Int64() != int64(1) {
+		return nil, common.Hash{}, errors.New("proof will not be valid, expected storageProof to be 1 but was not")
+	}
+
+	return [][]byte(ethProof.StorageProof[0].Proof), ethProof.StorageHash, nil
 }

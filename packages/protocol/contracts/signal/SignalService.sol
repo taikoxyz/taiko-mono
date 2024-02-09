@@ -133,7 +133,6 @@ contract SignalService is AuthorizableContract, ISignalService {
                 hop.signalRootRelay,
                 hop.signalRoot // as a signal
             );
-
             bool verified = SecureMerkleTrie.verifyInclusionProof(
                 bytes.concat(slot), hex"01", hop.storageProof, signalRoot
             );

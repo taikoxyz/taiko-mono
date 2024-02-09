@@ -1,74 +1,74 @@
 [
   {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint64",
-        "name": "syncedInBlock",
-        "type": "uint64"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint64",
-        "name": "blockId",
-        "type": "uint64"
-      },
-      {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "blockHash",
-        "type": "bytes32"
-      },
-      {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "signalRoot",
-        "type": "bytes32"
-      }
-    ],
-    "name": "CrossChainSynced",
-    "type": "event"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint64",
-        "name": "blockId",
-        "type": "uint64"
-      }
-    ],
+    "type": "function",
     "name": "getSyncedSnippet",
+    "inputs": [
+      {
+        "name": "blockId",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
     "outputs": [
       {
+        "name": "snippet",
+        "type": "tuple",
+        "internalType": "struct ICrossChainSync.Snippet",
         "components": [
           {
-            "internalType": "uint64",
             "name": "remoteBlockId",
-            "type": "uint64"
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
-            "internalType": "uint64",
             "name": "syncedInBlock",
-            "type": "uint64"
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
-            "internalType": "bytes32",
             "name": "blockHash",
-            "type": "bytes32"
+            "type": "bytes32",
+            "internalType": "bytes32"
           },
           {
-            "internalType": "bytes32",
             "name": "signalRoot",
-            "type": "bytes32"
+            "type": "bytes32",
+            "internalType": "bytes32"
           }
-        ],
-        "internalType": "struct ICrossChainSync.Snippet",
-        "name": "snippet",
-        "type": "tuple"
+        ]
       }
     ],
-    "stateMutability": "view",
-    "type": "function"
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "CrossChainSynced",
+    "inputs": [
+      {
+        "name": "syncedInBlock",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "blockId",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "blockHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "signalRoot",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
   }
 ]

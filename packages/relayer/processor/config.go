@@ -6,6 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/pkg/errors"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/db"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
@@ -68,6 +70,8 @@ type Config struct {
 	OpenDBFunc       func() (DB, error)
 
 	hopConfigs []hopConfig
+
+	ProofEncodingType relayer.ProofEncodingType
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -105,6 +109,12 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		targetTxHash = &hash
 	}
 
+	encodingType := relayer.ProofEncodingType(c.String(flags.ProofEncodingType.Name))
+
+	if !relayer.IsValidProofEncodingType(encodingType) {
+		return nil, errors.New("invalid proof encoding type")
+	}
+
 	return &Config{
 		hopConfigs:              hopConfigs,
 		ProcessorPrivateKey:     processorPrivateKey,
@@ -137,6 +147,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		BackOffMaxRetrys:        c.Uint64(flags.BackOffMaxRetrys.Name),
 		ETHClientTimeout:        c.Uint64(flags.ETHClientTimeout.Name),
 		TargetTxHash:            targetTxHash,
+		ProofEncodingType:       encodingType,
 		OpenDBFunc: func() (DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),
