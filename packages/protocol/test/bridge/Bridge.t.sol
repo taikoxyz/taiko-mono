@@ -22,7 +22,7 @@ contract UntrustedSendMessageRelayer {
 contract TwoStepBridge is Bridge {
     function getInvocationDelays()
         public
-        view
+        pure
         override
         returns (uint256 invocationDelay, uint256 invocationExtraDelay)
     {
