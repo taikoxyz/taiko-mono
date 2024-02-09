@@ -46,12 +46,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         });
 
         // Transition
-        TaikoData.Transition memory transition = TaikoData.Transition({
-            parentHash: bytes32(0),
-            blockHash: bytes32(0),
-            stateRoot: bytes32(0),
-            graffiti: bytes32(0)
-        });
+        TaikoData.Transition memory transition;
 
         // TierProof
         TaikoData.TierProof memory proof = TaikoData.TierProof({ tier: 0, data: "" });
@@ -73,12 +68,7 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         });
 
         // Transition
-        TaikoData.Transition memory transition = TaikoData.Transition({
-            parentHash: bytes32(0),
-            blockHash: bytes32(0),
-            stateRoot: bytes32(0),
-            graffiti: bytes32(0)
-        });
+        TaikoData.Transition memory transition;
 
         // TierProof
         bytes1[48] memory point;
@@ -124,12 +114,11 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         });
 
         // Transition
-        TaikoData.Transition memory transition = TaikoData.Transition({
-            parentHash: bytes32("12"),
-            blockHash: bytes32("23"),
-            stateRoot: bytes32("34"),
-            graffiti: bytes32("1234")
-        });
+        TaikoData.Transition memory transition;
+        transition.parentHash = bytes32("12");
+        transition.blockHash = bytes32("23");
+        transition.stateRoot = bytes32("34");
+        transition.graffiti = bytes32("1234");
 
         // TierProof
         bytes32 instance = pv.calcInstance(transition, ctx.prover, ctx.metaHash, ctx.blobHash, 0);
@@ -161,12 +150,11 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         });
 
         // Transition
-        TaikoData.Transition memory transition = TaikoData.Transition({
-            parentHash: bytes32("12"),
-            blockHash: bytes32("23"),
-            stateRoot: bytes32("34"),
-            graffiti: bytes32("1234")
-        });
+        TaikoData.Transition memory transition;
+        transition.parentHash = bytes32("12");
+        transition.blockHash = bytes32("23");
+        transition.stateRoot = bytes32("34");
+        transition.graffiti = bytes32("1234");
 
         // TierProof
         TaikoData.TierProof memory proof =
@@ -190,12 +178,11 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         });
 
         // Transition
-        TaikoData.Transition memory transition = TaikoData.Transition({
-            parentHash: bytes32("12"),
-            blockHash: bytes32("23"),
-            stateRoot: bytes32("34"),
-            graffiti: bytes32("1234")
-        });
+        TaikoData.Transition memory transition;
+        transition.parentHash = bytes32("12");
+        transition.blockHash = bytes32("23");
+        transition.stateRoot = bytes32("34");
+        transition.graffiti = bytes32("1234");
 
         // TierProof
         bytes32 instance = pv.calcInstance(transition, ctx.prover, ctx.metaHash, ctx.blobHash, 0);
@@ -228,12 +215,11 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         });
 
         // Transition
-        TaikoData.Transition memory transition = TaikoData.Transition({
-            parentHash: bytes32("12"),
-            blockHash: bytes32("23"),
-            stateRoot: bytes32("34"),
-            graffiti: bytes32("1234")
-        });
+        TaikoData.Transition memory transition;
+        transition.parentHash = bytes32("12");
+        transition.blockHash = bytes32("23");
+        transition.stateRoot = bytes32("34");
+        transition.graffiti = bytes32("1234");
 
         // TierProof
         bytes32 instance = pv.calcInstance(transition, ctx.prover, ctx.metaHash, ctx.blobHash, 0);
@@ -265,12 +251,11 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         });
 
         // Transition
-        TaikoData.Transition memory transition = TaikoData.Transition({
-            parentHash: bytes32("12"),
-            blockHash: bytes32("23"),
-            stateRoot: bytes32("34"),
-            graffiti: bytes32("1234")
-        });
+        TaikoData.Transition memory transition;
+        transition.parentHash = bytes32("12");
+        transition.blockHash = bytes32("23");
+        transition.stateRoot = bytes32("34");
+        transition.graffiti = bytes32("1234");
 
         // TierProof
         bytes memory zkp = abi.encodePacked("invalid");
@@ -299,12 +284,11 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         });
 
         // Transition
-        TaikoData.Transition memory transition = TaikoData.Transition({
-            parentHash: bytes32("12"),
-            blockHash: bytes32("23"),
-            stateRoot: bytes32("34"),
-            graffiti: bytes32("1234")
-        });
+        TaikoData.Transition memory transition;
+        transition.parentHash = bytes32("12");
+        transition.blockHash = bytes32("23");
+        transition.stateRoot = bytes32("34");
+        transition.graffiti = bytes32("1234");
 
         // TierProof
         bytes32 instance = pv.calcInstance(transition, ctx.prover, ctx.metaHash, ctx.blobHash, 0);
@@ -340,12 +324,11 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         });
 
         // Transition
-        TaikoData.Transition memory transition = TaikoData.Transition({
-            parentHash: bytes32("12"),
-            blockHash: bytes32("23"),
-            stateRoot: bytes32("34"),
-            graffiti: bytes32("1234")
-        });
+        TaikoData.Transition memory transition;
+        transition.parentHash = bytes32("12");
+        transition.blockHash = bytes32("23");
+        transition.stateRoot = bytes32("34");
+        transition.graffiti = bytes32("1234");
 
         // TierProof
         bytes32 instance = pv.calcInstance(transition, ctx.prover, ctx.metaHash, ctx.blobHash, 0);
@@ -381,12 +364,11 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         });
 
         // Transition
-        TaikoData.Transition memory transition = TaikoData.Transition({
-            parentHash: bytes32("12"),
-            blockHash: bytes32("23"),
-            stateRoot: bytes32("34"),
-            graffiti: bytes32("1234")
-        });
+        TaikoData.Transition memory transition;
+        transition.parentHash = bytes32("12");
+        transition.blockHash = bytes32("23");
+        transition.stateRoot = bytes32("34");
+        transition.graffiti = bytes32("1234");
 
         // TierProof
         bytes32 instance = pv.calcInstance(transition, ctx.prover, ctx.metaHash, ctx.blobHash, 0);
@@ -419,12 +401,11 @@ contract TestPseZkVerifier is TaikoL1TestBase {
         });
 
         // Transition
-        TaikoData.Transition memory transition = TaikoData.Transition({
-            parentHash: bytes32("12"),
-            blockHash: bytes32("23"),
-            stateRoot: bytes32("34"),
-            graffiti: bytes32("1234")
-        });
+        TaikoData.Transition memory transition;
+        transition.parentHash = bytes32("12");
+        transition.blockHash = bytes32("23");
+        transition.stateRoot = bytes32("34");
+        transition.graffiti = bytes32("1234");
 
         // TierProof
         bytes32 instance = pv.calcInstance(transition, ctx.prover, ctx.metaHash, ctx.blobHash, 0);
