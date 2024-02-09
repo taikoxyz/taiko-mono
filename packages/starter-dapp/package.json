@@ -30,7 +30,7 @@
     "@typescript-eslint/parser": "^5.16.0",
     "@zerodevx/svelte-toast": "^0.6.3",
     "autoprefixer": "^10.4.13",
-    "babel-jest": "^27.3.1",
+    "babel-jest": "^29.7.0",
     "babel-plugin-transform-es2015-modules-commonjs": "^6.26.2",
     "daisyui": "1.16.6",
     "jest": "^27.5.1",
