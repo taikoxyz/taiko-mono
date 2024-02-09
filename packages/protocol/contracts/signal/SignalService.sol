@@ -128,7 +128,7 @@ contract SignalService is AuthorizableContract, ISignalService {
         // sent a given hop stateRoot on chainB using its own signal service.
         // 2. using the verified hop stateRoot to verify that the source app on chainA has sent a
         // signal using its own signal service.
-        // We always verify the proofs in the reversed order.
+        // We always verify the proofs in the reversed order (top to bottom).
         for (uint256 i; i < p.hops.length; ++i) {
             Hop memory hop = p.hops[i];
             if (hop.stateRoot == stateRoot) revert SS_INVALID_HOP_PROOF();
