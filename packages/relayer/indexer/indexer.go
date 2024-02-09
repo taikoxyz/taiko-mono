@@ -346,6 +346,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 				} else {
 					slog.Info("handled event successfully")
 				}
+
 				return nil
 			})
 		}
