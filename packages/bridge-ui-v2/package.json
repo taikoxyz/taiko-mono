@@ -62,7 +62,7 @@
     "@wagmi/core": "^1.4.13",
     "@web3modal/wagmi": "^3.5.3",
     "@zerodevx/svelte-toast": "^0.9.5",
-    "axios": "^1.6.1",
+    "axios": "^1.6.7",
     "buffer": "^6.0.3",
     "debug": "^4.3.4",
     "events": "^3.3.0",
