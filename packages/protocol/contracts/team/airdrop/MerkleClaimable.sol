@@ -19,7 +19,14 @@ import { MerkleProofUpgradeable } from
 import "../../common/EssentialContract.sol";
 
 interface Delegation {
-    function delegateByTxOrigin(address delegatee) external;
+    function delegateBySig(
+        address delegatee,
+        uint256 nonce,
+        uint256 expiry,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external;
 }
 
 /// @title MerkleClaimable
@@ -49,7 +56,12 @@ abstract contract MerkleClaimable is EssentialContract {
     function claim(
         bytes calldata data,
         bytes32[] calldata proof,
-        address delegatee
+        address delegatee,
+        uint256 nonce,
+        uint256 expiry,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
     )
         external
         nonReentrant
@@ -64,7 +76,15 @@ abstract contract MerkleClaimable is EssentialContract {
         }
 
         isClaimed[hash] = true;
-        _claimWithData(data, delegatee);
+        _claimWithData(
+            data, 
+            delegatee, 
+            nonce,
+            expiry,
+            v,
+            r,
+            s
+        );
         emit Claimed(hash);
     }
 
@@ -90,5 +110,13 @@ abstract contract MerkleClaimable is EssentialContract {
     }
 
     /// @dev Must revert in case of errors.
-    function _claimWithData(bytes calldata data, address delegate) internal virtual;
+    function _claimWithData(
+        bytes calldata data, 
+        address delegate,
+        uint256 nonce,
+        uint256 expiry,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) internal virtual;
 }

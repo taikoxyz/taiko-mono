@@ -41,9 +41,19 @@ contract ERC20Airdrop is MerkleClaimable {
         vault = _vault;
     }
 
-    function _claimWithData(bytes calldata data, address delegatee) internal override {
+    function _claimWithData(
+        bytes calldata data,
+        address delegatee,
+        uint256 nonce,
+        uint256 expiry,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) internal override {
         (address user, uint256 amount) = abi.decode(data, (address, uint256));
+        // Transfer the tokens
         IERC20(token).transferFrom(vault, user, amount);
-        Delegation(token).delegateByTxOrigin(delegatee);
+        // Do the delegation transaction safely by the user
+        Delegation(token).delegateBySig(delegatee, nonce, expiry, v, r, s);
     }
 }

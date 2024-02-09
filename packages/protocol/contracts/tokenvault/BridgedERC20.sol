@@ -75,6 +75,7 @@ contract BridgedERC20 is
         __ERC20_init({ name_: _name, symbol_: _symbol });
         __ERC20Snapshot_init();
         __ERC20Votes_init();
+        __ERC20Permit_init(_name);
 
         // Set contract properties
         srcToken = _srcToken;
@@ -85,11 +86,6 @@ contract BridgedERC20 is
     /// @notice Creates a new token snapshot.
     function snapshot() public onlyOwner {
         _snapshot();
-    }
-
-    /// @notice Delegate votes from the original sender (tx.origin) to `delegatee`.
-    function delegateByTxOrigin(address delegatee) public virtual {
-        _delegate(tx.origin, delegatee);
     }
 
     /// @notice Gets the name of the token.
@@ -142,16 +138,16 @@ contract BridgedERC20 is
     /// @dev For ERC20SnapshotUpgradeable and ERC20VotesUpgradeable, need to implement the following
     /// functions
     function _beforeTokenTransfer(
-        address, /*from*/
+        address from,
         address to,
-        uint256 /*amount*/
+        uint256 amount
     )
         internal
-        view
         override(ERC20Upgradeable, ERC20SnapshotUpgradeable)
     {
         if (to == address(this)) revert BTOKEN_CANNOT_RECEIVE();
         if (paused()) revert INVALID_PAUSE_STATUS();
+        super._beforeTokenTransfer(from, to, amount);
     }
 
     function _afterTokenTransfer(

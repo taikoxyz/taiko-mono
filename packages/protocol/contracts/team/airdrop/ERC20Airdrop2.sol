@@ -103,7 +103,15 @@ contract ERC20Airdrop2 is MerkleClaimable {
         withdrawableAmount = timeBasedAllowance - withdrawnAmount[user];
     }
 
-    function _claimWithData(bytes calldata data, address /*delegatee*/ ) internal override {
+    function _claimWithData(
+        bytes calldata data,
+        address /*delegatee*/,
+        uint256 /*nonce*/,
+        uint256 /*expiry*/,
+        uint8 /*v*/,
+        bytes32 /*r*/,
+        bytes32 /*s*/
+    ) internal override {
         (address user, uint256 amount) = abi.decode(data, (address, uint256));
         claimedAmount[user] += amount;
     }
