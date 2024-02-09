@@ -37,7 +37,7 @@ contract SignalService is AuthorizableContract, ISignalService {
     // merkleProof represents ABI-encoded tuple of (key, value, and proof)
     // returned from the eth_getProof() API.
     struct Hop {
-        address relayerContract;
+        address relay;
         bytes32 stateRoot;
         bytes merkleProof;
     }
@@ -135,13 +135,13 @@ contract SignalService is AuthorizableContract, ISignalService {
             Hop memory hop = p.hops[i];
             if (hop.stateRoot == stateRoot) revert SS_INVALID_HOP_PROOF();
 
-            bytes32 label = authorizedAddresses[hop.relayerContract];
+            bytes32 label = authorizedAddresses[hop.relay];
             if (label == 0) revert SS_HOP_RELAYER_UNAUTHORIZED();
 
             uint64 hopChainId = uint256(label).toUint64();
 
             verifyMerkleProof(
-                stateRoot, hopChainId, hop.relayerContract, hop.stateRoot, hop.merkleProof
+                stateRoot, hopChainId, hop.relay, hop.stateRoot, hop.merkleProof
             );
             stateRoot = hop.stateRoot;
         }
