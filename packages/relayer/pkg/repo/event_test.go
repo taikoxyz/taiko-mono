@@ -208,6 +208,7 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 	defer close()
 
 	eventRepo, err := NewEventRepository(db)
+
 	assert.Equal(t, nil, err)
 
 	addr := common.HexToAddress("0x71C7656EC7ab88b098defB751B7401B5f6d8976F")
@@ -227,6 +228,7 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 		MessageOwner:           addr.Hex(),
 		Event:                  relayer.EventNameMessageSent,
 	})
+
 	assert.Equal(t, nil, err)
 
 	_, err = eventRepo.Save(context.Background(), relayer.SaveEventOpts{

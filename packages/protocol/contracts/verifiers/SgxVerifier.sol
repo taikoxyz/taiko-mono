@@ -52,14 +52,21 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// public key shall expire after some time. (For now it is a long enough 6
     /// months setting.)
     mapping(uint256 instanceId => Instance) public instances; // slot 2
+    /// @dev One address shall be registered (during attestation) only once, otherwise it could
+    /// bypass this contract's expiry check by always registering with the same attestation and
+    /// getting multiple valid instanceIds. While during proving, it is technically possible to
+    /// register the old addresses, it is less of a problem, because the instanceId would be the
+    /// same for those addresses and if deleted - the attestation cannot be reused anyways.
+    mapping(address instanceAddress => bool alreadyAttested) public addressRegistered; // slot 3
 
-    uint256[48] private __gap;
+    uint256[47] private __gap;
 
     event InstanceAdded(
         uint256 indexed id, address indexed instance, address replaced, uint256 validSince
     );
     event InstanceDeleted(uint256 indexed id, address indexed instance);
 
+    error SGX_ALREADY_ATTESTED();
     error SGX_DELETE_NOT_AUTHORIZED();
     error SGX_INVALID_ATTESTATION();
     error SGX_INVALID_INSTANCE();
@@ -192,6 +199,10 @@ contract SgxVerifier is EssentialContract, IVerifier {
         }
 
         for (uint256 i; i < _instances.length; ++i) {
+            if (addressRegistered[_instances[i]]) revert SGX_ALREADY_ATTESTED();
+
+            addressRegistered[_instances[i]] = true;
+
             if (_instances[i] == address(0)) revert SGX_INVALID_INSTANCE();
 
             instances[nextInstanceId] = Instance(_instances[i], validSince);

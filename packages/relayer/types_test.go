@@ -185,7 +185,12 @@ func Test_DecodeMessageSentData(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+<<<<<<< HEAD
 			eventType, canonicalToken, amount, err := DecodeMessageData(tt.eventData, tt.value)
+=======
+			eventType, canonicalToken, amount, err := DecodeMessageSentData(tt.event)
+
+>>>>>>> db4ec218322e27afc5f3a52bd61b998bba2fecbb
 			assert.Equal(t, tt.wantEventType, eventType)
 			assert.Equal(t, tt.wantCanonicalToken, canonicalToken)
 			assert.Equal(t, tt.wantAmount, amount)
