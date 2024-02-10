@@ -38,6 +38,7 @@ contract ERC20Airdrop2 is MerkleClaimable {
     event Withdrawn(address user, uint256 amount);
 
     error WITHDRAWALS_NOT_ONGOING();
+    error INVALID_DATA();
 
     modifier ongoingWithdrawals() {
         if (claimEnd > block.timestamp || claimEnd + withdrawalWindow < block.timestamp) {
@@ -104,7 +105,7 @@ contract ERC20Airdrop2 is MerkleClaimable {
     }
 
     function _claimWithData(bytes calldata data, bytes memory extraData) internal override {
-        require(extraData.length == 0);
+        if (extraData.length != 0) revert INVALID_DATA();
         (address user, uint256 amount) = abi.decode(data, (address, uint256));
         claimedAmount[user] += amount;
     }

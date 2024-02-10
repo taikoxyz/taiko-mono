@@ -23,6 +23,8 @@ contract ERC721Airdrop is MerkleClaimable {
     address public vault;
     uint256[48] private __gap;
 
+    error INVALID_DATA();
+
     function init(
         uint64 _claimStarts,
         uint64 _claimEnds,
@@ -41,7 +43,7 @@ contract ERC721Airdrop is MerkleClaimable {
     }
 
     function _claimWithData(bytes calldata data, bytes memory extraData) internal override {
-        require(extraData.length == 0);
+        if (extraData.length != 0) revert INVALID_DATA();
         (address user, uint256[] memory tokenIds) = abi.decode(data, (address, uint256[]));
 
         for (uint256 i; i < tokenIds.length; ++i) {
