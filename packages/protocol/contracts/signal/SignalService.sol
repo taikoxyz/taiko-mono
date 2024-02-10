@@ -34,22 +34,29 @@ import "./ISignalService.sol";
 contract SignalService is AuthorizableContract, ISignalService {
     using SafeCast for uint256;
 
-    // storageProof represents ABI-encoded tuple of (key, value, and proof)
+    // merkleProof represents ABI-encoded tuple of (key, value, and proof)
     // returned from the eth_getProof() API.
     struct Hop {
-        address signalRootRelay;
-        bytes32 signalRoot;
-        bytes storageProof;
+        address relay;
+        bytes32 stateRoot;
+        bytes merkleProof;
     }
 
     struct Proof {
         address crossChainSync;
         uint64 height;
-        bytes storageProof;
+        bytes merkleProof;
         Hop[] hops;
     }
 
+    error SS_INVALID_FUNC_PARAMS();
+    error SS_INVALID_PROOF_PARAMS();
+    error SS_CROSS_CHAIN_SYNC_UNAUTHORIZED(uint256 chaindId);
+    error SS_CROSS_CHAIN_SYNC_ZERO_STATE_ROOT();
+    error SS_HOP_RELAYER_UNAUTHORIZED();
     error SS_INVALID_APP();
+    error SS_INVALID_APP_PROOF();
+    error SS_INVALID_HOP_PROOF();
     error SS_INVALID_SIGNAL();
     error SS_UNSUPPORTED();
 
@@ -93,59 +100,64 @@ contract SignalService is AuthorizableContract, ISignalService {
         returns (bool)
     {
         if (app == address(0) || signal == 0 || srcChainId == 0 || srcChainId == block.chainid) {
-            return false;
+            revert SS_INVALID_FUNC_PARAMS();
         }
 
         Proof memory p = abi.decode(proof, (Proof));
-        if (p.crossChainSync == address(0) || p.storageProof.length == 0) {
-            return false;
+        if (p.crossChainSync == address(0) || p.merkleProof.length == 0) {
+            revert SS_INVALID_PROOF_PARAMS();
         }
 
         for (uint256 i; i < p.hops.length; ++i) {
-            if (p.hops[i].signalRoot == 0) return false;
-            if (p.hops[i].storageProof.length == 0) return false;
+            if (p.hops[i].stateRoot == 0 || p.hops[i].merkleProof.length == 0) {
+                revert SS_INVALID_PROOF_PARAMS();
+            }
         }
 
-        // Check a chain of inclusion proofs. If this chain is chainA, and the
-        // message is sent on chainC, and we have chainB in the middle, we
-        // verify that chainB's signalRoot has been sent as a signal by chainB's
-        // "taiko" contract, then using chainB's signalRoot, we further check
-        // the signal is sent by chainC's "bridge" contract.
+        // p.crossChainSync is either a TaikoL1 contract or a TaikoL2 contract
         if (!isAuthorizedAs(p.crossChainSync, bytes32(block.chainid))) {
-            return false;
+            revert SS_CROSS_CHAIN_SYNC_UNAUTHORIZED(block.chainid);
         }
 
-        bytes32 signalRoot = ICrossChainSync(p.crossChainSync).getSyncedSnippet(p.height).signalRoot;
+        bytes32 stateRoot = ICrossChainSync(p.crossChainSync).getSyncedSnippet(p.height).stateRoot;
+        if (stateRoot == 0) revert SS_CROSS_CHAIN_SYNC_ZERO_STATE_ROOT();
 
-        if (signalRoot == 0) return false;
-
+        // If a signal is sent from chainA -> chainB -> chainC (this chain), we verify the proofs in
+        // the following order:
+        // 1. using chainC's latest parent's stateRoot to verify that chainB's TaikoL1/TaikoL2 contract has
+        // sent a given hop stateRoot on chainB using its own signal service.
+        // 2. using the verified hop stateRoot to verify that the source app on chainA has sent a
+        // signal using its own signal service.
+        // We always verify the proofs in the reversed order (top to bottom).
         for (uint256 i; i < p.hops.length; ++i) {
             Hop memory hop = p.hops[i];
+            if (hop.stateRoot == stateRoot) revert SS_INVALID_HOP_PROOF();
 
-            bytes32 label = authorizedAddresses[hop.signalRootRelay];
-            if (label == 0) return false;
-            uint64 chainId = uint256(label).toUint64();
+            bytes32 label = authorizedAddresses[hop.relay];
+            if (label == 0) revert SS_HOP_RELAYER_UNAUTHORIZED();
 
-            bytes32 slot = getSignalSlot(
-                chainId, // use label as chainId
-                hop.signalRootRelay,
-                hop.signalRoot // as a signal
-            );
+            uint64 hopChainId = uint256(label).toUint64();
 
-            bool verified = SecureMerkleTrie.verifyInclusionProof(
-                bytes.concat(slot), hex"01", _transcode(hop.storageProof), signalRoot
-            );
-            if (!verified) return false;
-
-            signalRoot = hop.signalRoot;
+            verifyMerkleProof(stateRoot, hopChainId, hop.relay, hop.stateRoot, hop.merkleProof);
+            stateRoot = hop.stateRoot;
         }
 
-        return SecureMerkleTrie.verifyInclusionProof(
-            bytes.concat(getSignalSlot(srcChainId, app, signal)),
-            hex"01",
-            _transcode(p.storageProof),
-            signalRoot
-        );
+        verifyMerkleProof(stateRoot, srcChainId, app, signal, p.merkleProof);
+        return true;
+    }
+
+    function verifyMerkleProof(
+        bytes32 stateRoot,
+        uint64 srcChainId,
+        address srcApp,
+        bytes32 srcSignal,
+        bytes memory merkleProof
+    )
+        public
+        view
+        virtual
+    {
+        // TODO(dani): implement this please
     }
 
     /// @notice Get the storage slot of the signal.
@@ -164,6 +176,12 @@ contract SignalService is AuthorizableContract, ISignalService {
         returns (bytes32)
     {
         return keccak256(abi.encodePacked("SIGNAL", chainId, app, signal));
+    }
+
+    /// @notice Tells if we need to check real proof or it is a test.
+    /// @return Returns true to skip checking inclusion proofs.
+    function skipProofCheck() public pure virtual returns (bool) {
+        return false;
     }
 
     /// @notice Translate a RLP-encoded list of RLP-encoded TrieNodes into a list of LP-encoded

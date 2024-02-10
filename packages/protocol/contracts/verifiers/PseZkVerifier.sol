@@ -144,7 +144,7 @@ contract PseZkVerifier is EssentialContract, IVerifier {
             abi.encode(
                 tran.parentHash,
                 tran.blockHash,
-                tran.signalRoot,
+                tran.stateRoot,
                 tran.graffiti,
                 metaHash,
                 prover,
